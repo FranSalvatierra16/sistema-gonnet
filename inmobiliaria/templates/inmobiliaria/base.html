@@ -42,34 +42,49 @@
             --sg-font: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
             --sg-primary: #0d7377;
             --sg-primary-light: #14a3a8;
-            --sg-surface: #fafbfc;
+            --sg-primary-dark: #0a5c5f;
+            --sg-text: #1e293b;
+            --sg-text-muted: #64748b;
+            --sg-surface: #f1f5f9;
             --sg-card: #ffffff;
             --sg-radius: 12px;
             --sg-radius-sm: 8px;
-            --sg-shadow: 0 4px 20px rgba(13, 115, 119, 0.08);
-            --sg-shadow-hover: 0 12px 32px rgba(13, 115, 119, 0.12);
+            --sg-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            --sg-shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+            --sg-shadow-hover: 0 8px 24px rgba(0,0,0,0.1);
         }
-        html, body { height: 100%; display: flex; flex-direction: column; margin: 0; font-family: var(--sg-font); }
+        html, body { height: 100%; display: flex; flex-direction: column; margin: 0; font-family: var(--sg-font); font-size: 15px; }
+        body { background: var(--sg-surface) !important; color: var(--sg-text) !important; min-height: 100vh; }
         .container { flex: 1; }
-        body {
-            background: linear-gradient(160deg, #e8f4f4 0%, #d4eae9 35%, #f0f7f6 100%);
-            background-attachment: fixed;
-            min-height: 100vh;
+        /* Contenido principal: mismo estilo en TODAS las páginas */
+        .sg-app-content {
+            flex: 1;
+            width: 100%;
+            background: var(--sg-surface) !important;
+            color: var(--sg-text) !important;
+            padding: 1.25rem 0;
+        }
+        .sg-app-content .container,
+        .sg-app-content .container-fluid {
+            background: var(--sg-card) !important;
+            color: var(--sg-text) !important;
+            border-radius: var(--sg-radius) !important;
+            box-shadow: var(--sg-shadow-md) !important;
+            padding: 1.5rem 1.75rem !important;
+            border: 1px solid rgba(0,0,0,0.06) !important;
         }
         .content-wrapper {
-            background-color: rgba(255, 255, 255, 0.85);
+            background: var(--sg-surface) !important;
             min-height: 100vh;
-            padding: 20px;
-            margin: 0;
-            backdrop-filter: blur(8px);
-            position: relative;
-            z-index: 1;
+            padding: 1.25rem;
+            color: var(--sg-text) !important;
         }
         .navbar { font-family: var(--sg-font); }
         .footer {
-            background: rgba(255,255,255,0.9);
-            border-top: 1px solid rgba(13, 115, 119, 0.1);
+            background: var(--sg-card) !important;
+            border-top: 1px solid rgba(0,0,0,0.08) !important;
             font-family: var(--sg-font);
+            color: var(--sg-text-muted) !important;
         }
     </style>
     {% endblock %}
@@ -132,10 +147,12 @@
         </div>
     </nav>
 
-    <div class="container mt-4">
+    <main class="sg-app-content">
+        <div class="container mt-0">
             {% bootstrap_messages %}
             {% block content %}{% endblock %}
-    </div>
+        </div>
+    </main>
 
     <footer class="footer mt-auto py-3">
         <div class="container text-center">
