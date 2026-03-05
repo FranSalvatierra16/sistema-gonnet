@@ -525,7 +525,7 @@ from .models import (
     Disponibilidad, ImagenPropiedad, Precio, TipoPrecio, 
     Pago, ConceptoPago, HistorialDisponibilidad, VentaPropiedad, 
     AlquilerMeses, AlquilerInvierno, Caja, MovimientoCaja, Cuenta, Concepto, Sucursal,
-    TipoMovimientoCajaEnum, ContratoAlquiler, CuotaMensual, ComisionVendedor, ValeVendedor,
+    TipoMovimientoCajaEnum, ContratoAlquiler, ContratoInquilino, CuotaMensual, ComisionVendedor, ValeVendedor,
     LiquidacionPropietario, GastoPropietario
 )
 from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm, VentaPropiedadForm, MovimientoCajaForm
@@ -10184,12 +10184,20 @@ def crear_contrato_alquiler(request):
                     sucursal=request.user.sucursal
                 ).values_list('id', flat=True)
                 contrato.garantes.set(garantes_ok)
-            # Asignar todos los inquilinos del contrato (M2M)
-            inquilinos_ok = Inquilino.objects.filter(
+            # Asignar inquilinos con carrera por cada uno (through ContratoInquilino), respetando orden
+            inquilinos_validos = set(Inquilino.objects.filter(
                 id__in=inquilino_ids,
                 sucursal=request.user.sucursal
-            ).values_list('id', flat=True)
-            contrato.inquilinos.set(inquilinos_ok)
+            ).values_list('id', flat=True))
+            for i, inq_id in enumerate(inquilino_ids):
+                if int(inq_id) not in inquilinos_validos:
+                    continue
+                carrera_i = (request.POST.get(f'carrera_inq_{i}') or request.POST.get(f'carrera_{i}') or (request.POST.get('carrera') if i == 0 else '') or '').strip()
+                ContratoInquilino.objects.create(
+                    contrato=contrato,
+                    inquilino_id=int(inq_id),
+                    carrera=carrera_i
+                )
 
             # Marcar la propiedad como reservada según tipo de contrato
             if duracion_meses == 9:
@@ -12697,8 +12705,12 @@ def recibo_contrato_24(request, contrato_id):
         else:
             precio_mensual_contrato = format_currency(contrato.precio_mensual or 0)
 
-        # Lista de inquilinos para el recibo: todos los del M2M o solo el principal si no hay M2M
-        lista_inquilinos = list(contrato.inquilinos.all().order_by('id')) if contrato.inquilinos.exists() else [contrato.inquilino]
+        # Lista de {inquilino, carrera} para el recibo: desde ContratoInquilino o legacy
+        through_list = list(contrato.contrato_inquilinos.select_related('inquilino').order_by('id'))
+        if through_list:
+            lista_inquilinos = [{'inquilino': ci.inquilino, 'carrera': ci.carrera or ''} for ci in through_list]
+        else:
+            lista_inquilinos = [{'inquilino': contrato.inquilino, 'carrera': contrato.carrera or ''}]
         context = {
             'contrato': contrato,
             'lista_inquilinos': lista_inquilinos,

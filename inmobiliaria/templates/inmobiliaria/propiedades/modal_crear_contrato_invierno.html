@@ -348,7 +348,7 @@ function agregarInquilinoInvierno() {
     if (!opt || !opt.value) return;
     var id = parseInt(opt.value, 10);
     if (inquilinosSeleccionadosInvierno.some(function(i) { return i.id === id; })) return;
-    inquilinosSeleccionadosInvierno.push({ id: id, nombre: opt.dataset.nombre || opt.text });
+    inquilinosSeleccionadosInvierno.push({ id: id, nombre: opt.dataset.nombre || opt.text, carrera: '' });
     actualizarListaInquilinosInvierno();
 }
 function quitarInquilinoInvierno(id) {
@@ -359,18 +359,24 @@ function actualizarListaInquilinosInvierno() {
     var cont = document.getElementById('lista_inquilinos_invierno');
     var hiddenCont = document.getElementById('inquilino_ids_container_invierno');
     if (!cont || !hiddenCont) return;
+    // Mantener valores de carrera al re-render
+    cont.querySelectorAll('input[name^="carrera_inq_"]').forEach(function(input) {
+        var idx = parseInt(input.name.replace('carrera_inq_', ''), 10);
+        if (!isNaN(idx) && inquilinosSeleccionadosInvierno[idx]) inquilinosSeleccionadosInvierno[idx].carrera = input.value;
+    });
     hiddenCont.innerHTML = '';
     if (inquilinosSeleccionadosInvierno.length === 0) {
         cont.innerHTML = '<span class="text-muted small">Ninguno. Seleccioná en la lista y pulsá Agregar. Debe haber al menos uno.</span>';
         return;
     }
-    cont.innerHTML = '<div class="d-flex flex-wrap gap-2">' + inquilinosSeleccionadosInvierno.map(function(i) {
+    cont.innerHTML = '<div class="d-flex flex-column gap-2">' + inquilinosSeleccionadosInvierno.map(function(i, idx) {
         var inp = document.createElement('input');
         inp.type = 'hidden';
         inp.name = 'inquilino_ids';
         inp.value = i.id;
         hiddenCont.appendChild(inp);
-        return '<span class="badge bg-info d-inline-flex align-items-center gap-1 px-2 py-2" style="font-size: 0.9rem;">' + (i.nombre || 'ID ' + i.id) + ' <a href="#" onclick="quitarInquilinoInvierno(' + i.id + '); return false;" class="text-white text-decoration-none" aria-label="Quitar">✕</a></span>';
+        var carreraVal = (i.carrera || '').replace(/"/g, '&quot;');
+        return '<div class="d-flex align-items-center gap-2 flex-wrap"><span class="badge bg-info px-2 py-1" style="font-size: 0.85rem;">' + (i.nombre || 'ID ' + i.id) + '</span> <input type="text" name="carrera_inq_' + idx + '" placeholder="Carrera (ej. Abogacía)" class="form-control form-control-sm" style="width: 140px;" value="' + carreraVal + '"> <a href="#" onclick="quitarInquilinoInvierno(' + i.id + '); return false;" class="text-danger" aria-label="Quitar">✕</a></div>';
     }).join('') + '</div>';
     var estado = document.getElementById('estado_busqueda_invierno');
     if (estado) estado.textContent = inquilinosSeleccionadosInvierno.length + ' inquilino(s) agregado(s).';

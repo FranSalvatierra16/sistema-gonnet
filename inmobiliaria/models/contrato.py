@@ -15,9 +15,10 @@ class ContratoAlquiler(models.Model):
     propiedad = models.ForeignKey('Propiedad', on_delete=models.CASCADE, related_name='contratos')
     inquilino = models.ForeignKey('Inquilino', on_delete=models.CASCADE, related_name='contratos', help_text='Inquilino principal (el primero si hay varios)')
     vendedor = models.ForeignKey('Vendedor', on_delete=models.CASCADE, related_name='contratos')
-    # Varios inquilinos por contrato (el primero coincide con inquilino)
+    # Varios inquilinos por contrato (el primero coincide con inquilino); carrera por inquilino vía through
     inquilinos = models.ManyToManyField(
         'Inquilino',
+        through='ContratoInquilino',
         related_name='contratos_como_inquilino',
         blank=True,
         verbose_name='Inquilinos',
@@ -58,7 +59,7 @@ class ContratoAlquiler(models.Model):
         blank=True,
         verbose_name='Garantes'
     )
-    # Carrera del inquilino (contrato estudiante)
+    # Carrera del inquilino principal (legacy; se usa si no hay through con carreras)
     carrera = models.CharField(max_length=200, blank=True, verbose_name='Carrera')
 
     # Datos del garante en texto (legacy; se usa si no hay garantes M2M)
@@ -102,6 +103,20 @@ class ContratoAlquiler(models.Model):
         # Marcar la propiedad como disponible
         self.propiedad.info_meses.estado = 'disponible'
         self.propiedad.info_meses.save()
+
+# Through: inquilino en contrato con su carrera (contrato estudiante)
+class ContratoInquilino(models.Model):
+    contrato = models.ForeignKey(ContratoAlquiler, on_delete=models.CASCADE, related_name='contrato_inquilinos')
+    inquilino = models.ForeignKey('Inquilino', on_delete=models.CASCADE, related_name='contrato_inquilino_set')
+    carrera = models.CharField(max_length=200, blank=True, verbose_name='Carrera del inquilino')
+
+    class Meta:
+        unique_together = ('contrato', 'inquilino')
+        ordering = ['contrato', 'id']
+
+    def __str__(self):
+        return f"{self.contrato_id} - {self.inquilino} ({self.carrera or '-'})"
+
 
 # Cuotas mensuales individuales
 class CuotaMensual(models.Model):
