@@ -12677,8 +12677,11 @@ def recibo_contrato_24(request, contrato_id):
         else:
             precio_mensual_contrato = format_currency(contrato.precio_mensual or 0)
 
+        # Lista de inquilinos para el recibo: todos los del M2M o solo el principal si no hay M2M
+        lista_inquilinos = list(contrato.inquilinos.all().order_by('id')) if contrato.inquilinos.exists() else [contrato.inquilino]
         context = {
             'contrato': contrato,
+            'lista_inquilinos': lista_inquilinos,
             'conceptos_contrato': conceptos_contrato,
             'alquiler_mensual': format_currency(alquiler_mensual),
             'deposito_garantia': format_currency(deposito_garantia),

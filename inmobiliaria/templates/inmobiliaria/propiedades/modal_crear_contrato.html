@@ -99,23 +99,24 @@
 
                     <div class="row mt-3">
                         <!-- Inquilinos (varios, como garantes) -->
-                        <div class="col-md-6">
+                        <div class="col-12">
                             <div class="card">
                                 <div class="card-header bg-info text-white">
                                     <h5 class="mb-0">👤 Inquilinos</h5>
                                     <small class="opacity-75">Agregá uno o más inquilinos al contrato</small>
                                 </div>
                                 <div class="card-body">
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <label class="form-label"><strong>Seleccionar inquilino</strong></label>
-                                            <div class="d-flex gap-2 mb-2 flex-wrap">
-                                                <input type="text" id="buscar_inquilino" class="form-control" placeholder="Buscar por nombre, ID o DNI..." oninput="filtrarInquilinos24()">
-                                                <button type="button" class="btn btn-success" onclick="agregarInquilino24()">➕ Agregar</button>
-                                                <button type="button" class="btn btn-success" onclick="mostrarModalCrearInquilino();" title="Crear inquilino (se agrega a las listas)">➕ Crear inquilino</button>
-                                                <button type="button" onclick="buscarTodosLosInquilinos()" class="btn btn-primary">🔍 Todos</button>
+                                    <div class="row g-3">
+                                        <div class="col-md-5">
+                                            <label class="form-label fw-semibold">Seleccionar inquilino</label>
+                                            <p class="text-muted small mb-2">Escribí para filtrar por nombre, apellido, ID o DNI</p>
+                                            <div class="d-flex flex-wrap gap-2 mb-2">
+                                                <input type="text" id="buscar_inquilino" class="form-control flex-grow-1" style="min-width: 140px;" placeholder="Buscar..." oninput="filtrarInquilinos24()">
+                                                <button type="button" class="btn btn-success btn-sm" onclick="agregarInquilino24()">➕ Agregar</button>
+                                                <button type="button" class="btn btn-outline-success btn-sm" onclick="mostrarModalCrearInquilino();" title="Crear inquilino">➕ Crear inquilino</button>
+                                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="buscarTodosLosInquilinos()">🔍 Todos</button>
                                             </div>
-                                            <select id="inquilino_select" size="5" class="form-control" style="max-height: 140px;">
+                                            <select id="inquilino_select" size="6" class="form-select" style="min-height: 120px;">
                                                 <option value="">-- Seleccionar --</option>
                                                 {% for inquilino in inquilinos %}
                                                 <option value="{{ inquilino.id }}" data-nombre="{{ inquilino.apellido }}, {{ inquilino.nombre }}" data-dni="{{ inquilino.dni|default:'' }}">
@@ -123,16 +124,16 @@
                                                 </option>
                                                 {% endfor %}
                                             </select>
+                                            <div id="estado_busqueda" class="small text-muted mt-1"></div>
                                         </div>
-                                        <div class="col-md-6">
-                                            <label class="form-label"><strong>Inquilinos agregados</strong></label>
-                                            <div id="lista_inquilinos_24" class="border rounded p-2" style="min-height: 80px; max-height: 140px; overflow-y: auto;">
-                                                <span class="text-muted small">Ninguno. Seleccioná arriba y pulsá Agregar. Debe haber al menos uno.</span>
+                                        <div class="col-md-7">
+                                            <label class="form-label fw-semibold">Inquilinos agregados</label>
+                                            <div id="lista_inquilinos_24" class="border rounded p-3 bg-light" style="min-height: 120px; max-height: 200px; overflow-y: auto;">
+                                                <span class="text-muted small">Ninguno. Seleccioná en la lista y pulsá Agregar. Debe haber al menos uno.</span>
                                             </div>
                                             <div id="inquilino_ids_container_24"></div>
                                         </div>
                                     </div>
-                                    <div id="estado_busqueda" style="font-size: 14px; color: #666; font-style: italic; min-height: 20px; margin-top: 8px;"></div>
                                 </div>
                             </div>
                         </div>
@@ -525,29 +526,32 @@ function actualizarListaInquilinos24() {
     if (!cont || !hiddenCont) return;
     hiddenCont.innerHTML = '';
     if (inquilinosSeleccionados24.length === 0) {
-        cont.innerHTML = '<span class="text-muted small">Ninguno. Seleccioná arriba y pulsá Agregar. Debe haber al menos uno.</span>';
+        cont.innerHTML = '<span class="text-muted small">Ninguno. Seleccioná en la lista y pulsá Agregar. Debe haber al menos uno.</span>';
         return;
     }
-    cont.innerHTML = inquilinosSeleccionados24.map(function(i) {
+    cont.innerHTML = '<div class="d-flex flex-wrap gap-2">' + inquilinosSeleccionados24.map(function(i) {
         var inp = document.createElement('input');
         inp.type = 'hidden';
         inp.name = 'inquilino_ids';
         inp.value = i.id;
         hiddenCont.appendChild(inp);
-        return '<span class="badge bg-info me-1 mb-1" style="font-size: 0.85rem;">' + (i.nombre || 'ID ' + i.id) + ' <a href="#" onclick="quitarInquilino24(' + i.id + '); return false;" class="text-white">✕</a></span>';
-    }).join(' ');
+        return '<span class="badge bg-info d-inline-flex align-items-center gap-1 px-2 py-2" style="font-size: 0.9rem;">' + (i.nombre || 'ID ' + i.id) + ' <a href="#" onclick="quitarInquilino24(' + i.id + '); return false;" class="text-white text-decoration-none" aria-label="Quitar">✕</a></span>';
+    }).join('') + '</div>';
     document.getElementById('estado_busqueda').textContent = inquilinosSeleccionados24.length + ' inquilino(s) agregado(s).';
 }
 function filtrarInquilinos24() {
-    var term = (document.getElementById('buscar_inquilino') || {}).value.toLowerCase();
+    var input = document.getElementById('buscar_inquilino');
+    var term = (input ? input.value : '').trim().toLowerCase();
     var sel = document.getElementById('inquilino_select');
     if (!sel) return;
     Array.from(sel.options).forEach(function(opt) {
-        if (!opt.value) return;
-        var text = (opt.text || '').toLowerCase();
+        if (!opt.value) { opt.style.display = ''; return; }
+        var text = (opt.textContent || opt.innerText || opt.text || '').toLowerCase();
         var dataNombre = (opt.dataset.nombre || '').toLowerCase();
         var dataDni = (opt.dataset.dni || '').toLowerCase();
-        opt.style.display = (text.indexOf(term) >= 0 || dataNombre.indexOf(term) >= 0 || dataDni.indexOf(term) >= 0) ? '' : 'none';
+        var idStr = (opt.value || '').toLowerCase();
+        var match = !term || text.indexOf(term) >= 0 || dataNombre.indexOf(term) >= 0 || dataDni.indexOf(term) >= 0 || idStr.indexOf(term) >= 0;
+        opt.style.display = match ? '' : 'none';
     });
 }
 
