@@ -561,6 +561,16 @@ from .utils import numero_a_palabras
 import logging
 logger = logging.getLogger(__name__)
 
+
+def get_inquilinos_queryset_unificado(request):
+    """Lista de inquilinos unificada: en Colón y Corrientes se muestran los de ambas sucursales; en el resto solo los de la sucursal del usuario."""
+    nombre_suc = (getattr(request.user.sucursal, 'nombre', None) or '').lower()
+    if 'colon' in nombre_suc or 'corrientes' in nombre_suc:
+        return Inquilino.objects.filter(
+            Q(sucursal__nombre__icontains='colon') | Q(sucursal__nombre__icontains='corrientes')
+        ).order_by('apellido', 'nombre')
+    return Inquilino.objects.filter(sucursal=request.user.sucursal).order_by('apellido', 'nombre')
+
 import traceback  # Agregada esta importación
 from django.utils import timezone
 from dateutil.relativedelta import relativedelta
@@ -644,7 +654,7 @@ def vendedor_eliminar(request, vendedor_id):
 @login_required
 def inquilinos(request):
     form = InquilinoBuscarForm(request.GET or None)
-    inquilinos = Inquilino.objects.filter(sucursal=request.user.sucursal)
+    inquilinos = get_inquilinos_queryset_unificado(request)
     
 
     if form.is_valid():
@@ -1110,7 +1120,7 @@ def propiedad_detalle(request, propiedad_id):
         'info_venta': info_venta,  # ✅ Agregamos info_venta al contexto
         'info_meses': info_meses,  # ✅ Agregamos info_meses al contexto
         'info_invierno': info_invierno,  # ✅ Agregamos info_invierno al contexto
-        'inquilinos': Inquilino.objects.filter(sucursal=request.user.sucursal).order_by('apellido', 'nombre'),
+        'inquilinos': get_inquilinos_queryset_unificado(request),
         'vendedores': Vendedor.objects.filter(sucursal=request.user.sucursal).order_by('apellido', 'nombre'),
     }
     
@@ -2214,7 +2224,7 @@ def buscar_propiedades_reserva(request):
     # Obtener la sucursal del vendedor logueado
     sucursal_vendedor = request.user.sucursal
     
-    inquilinos = Inquilino.objects.filter(sucursal=sucursal_vendedor)
+    inquilinos = get_inquilinos_queryset_unificado(request)
     form = BuscarPropiedadesForm(request.POST or None)
     inquilino_form = InquilinoForm(request.POST)
     propiedades_disponibles = []
@@ -2608,7 +2618,7 @@ def buscar_propiedades_reserva(request):
         'total_propiedades': total_propiedades,
         'reservas_count': reservas_count,
         'disponibles_count': disponibles_count,
-        'inquilinos': Inquilino.objects.all().order_by('apellido', 'nombre'),
+        'inquilinos': get_inquilinos_queryset_unificado(request),
         'vendedores': vendedores,
         'tipos_precio': TipoPrecio,
         'conceptos': conceptos
@@ -3710,7 +3720,8 @@ def buscar_operacion(request):
 
 def buscar_inquilinos(request):
     query = request.GET.get('term', '')
-    inquilinos = Inquilino.objects.filter(
+    base = get_inquilinos_queryset_unificado(request)
+    inquilinos = base.filter(
         Q(nombre__icontains=query) | 
         Q(apellido__icontains=query) |
         Q(dni__icontains=query)
@@ -3839,7 +3850,8 @@ def autenticar_seguridad(request):
 
 def buscar_clientes(request):
     term = request.GET.get('term', '')
-    clientes = Inquilino.objects.filter(
+    base = get_inquilinos_queryset_unificado(request)
+    clientes = base.filter(
         Q(nombre__icontains=term) | 
         Q(apellido__icontains=term) | 
         Q(dni__icontains=term)
@@ -7663,7 +7675,7 @@ def alquileres_24_meses(request):
         'busqueda': busqueda,
         'estado_filtro': estado or 'disponible',  # Si no hay estado seleccionado, marcar 'disponible'
         'estados': AlquilerMeses.ESTADO_CHOICES,
-        'inquilinos': Inquilino.objects.filter(sucursal=request.user.sucursal).order_by('apellido', 'nombre'),
+        'inquilinos': get_inquilinos_queryset_unificado(request),
     }
     
     return render(request, 'inmobiliaria/propiedades/alquileres_24_meses.html', context)
@@ -7771,7 +7783,7 @@ def alquileres_invierno(request):
         'filtro_ambientes': filtro_ambientes,
         'filtro_precio_max': filtro_precio_max,
         'ambientes_choices': ambientes_choices,
-        'inquilinos': Inquilino.objects.filter(sucursal=request.user.sucursal).order_by('apellido', 'nombre'),
+        'inquilinos': get_inquilinos_queryset_unificado(request),
         'puede_editar_invierno': puede_editar_invierno,
         'ver_todas': ver_todas,
         'total_disponibles_invierno': total_disponibles_invierno,
@@ -9449,7 +9461,7 @@ def buscar_propiedades(request):
     sucursal_vendedor = request.user.sucursal
 # print(f"👤 Usuario: {request.user}, Sucursal: {sucursal_vendedor}")
     
-    inquilinos = Inquilino.objects.filter(sucursal=sucursal_vendedor)
+    inquilinos = get_inquilinos_queryset_unificado(request)
     form = BuscarPropiedadesForm(request.POST or None)
     inquilino_form = InquilinoForm(request.POST)
     propiedades_disponibles = []
@@ -10020,7 +10032,7 @@ def buscar_propiedades(request):
         'fecha_inicio': fecha_inicio.strftime('%d/%m/%Y') if fecha_inicio else '',
         'fecha_fin': fecha_fin.strftime('%d/%m/%Y') if fecha_fin else '',
         'total_dias': total_dias_reserva,
-        'inquilinos': Inquilino.objects.all().order_by('apellido', 'nombre'),
+        'inquilinos': get_inquilinos_queryset_unificado(request),
         'vendedores': vendedores,
         'tipos_precio': TipoPrecio,
         'conceptos': conceptos,
@@ -10179,15 +10191,13 @@ def crear_contrato_alquiler(request):
             )
             # Asignar garantes (inquilinos seleccionados)
             if garante_ids:
-                garantes_ok = Inquilino.objects.filter(
-                    id__in=garante_ids,
-                    sucursal=request.user.sucursal
+                garantes_ok = get_inquilinos_queryset_unificado(request).filter(
+                    id__in=garante_ids
                 ).values_list('id', flat=True)
                 contrato.garantes.set(garantes_ok)
             # Asignar inquilinos con carrera por cada uno (through ContratoInquilino), respetando orden
-            inquilinos_validos = set(Inquilino.objects.filter(
-                id__in=inquilino_ids,
-                sucursal=request.user.sucursal
+            inquilinos_validos = set(get_inquilinos_queryset_unificado(request).filter(
+                id__in=inquilino_ids
             ).values_list('id', flat=True))
             for i, inq_id in enumerate(inquilino_ids):
                 if int(inq_id) not in inquilinos_validos:
