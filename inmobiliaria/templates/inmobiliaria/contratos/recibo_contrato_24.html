@@ -81,39 +81,15 @@
         </div>
 
         <div style="height: 15%; width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid; display: flex; flex-direction: row; justify-content: space-between;">
-            <div style="height: 100%; width: 64%; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: center;">
-                <div style="width: 90%; text-align: left;">
-                    <h2 style="margin: 0; color: green; font-size: 12px;">{% if lista_inquilinos|length > 1 %}CLIENTES:{% else %}CLIENTE:{% endif %}</h2>
+            <div style="height: 100%; width: 64%; display: flex; flex-direction: column; justify-content: flex-start; align-items: stretch;">
+                <h2 style="margin: 0 0 4px 0; color: green; font-size: 12px;">{% if lista_inquilinos|length > 1 %}CLIENTES:{% else %}CLIENTE:{% endif %}</h2>
+                <div style="display: flex; flex-direction: row; gap: 12px; flex-wrap: nowrap; align-items: flex-start;">
                     {% for inquilino in lista_inquilinos %}
-                    <div style="margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px dotted #ccc;">
-                        <div style="display: flex; align-items: center; justify-content: space-between; margin: 3px 0;">
-                            <div style="display: flex; align-items: center; width: 100%;">
-                                <span style="min-width: 60px; font-size: 8px;">NOMBRE:</span>
-                                <div style="border-bottom: 1px dotted black; width: 150px; font-size: 8px;">&nbsp; {{ inquilino.nombre }} {{ inquilino.apellido }}</div>
-                                <span style="min-width: 60px; font-size: 8px; margin-left: 20px;">D.N.I.:</span>
-                                <div style="border-bottom: 1px dotted black; width: 100px; font-size: 8px;">&nbsp; {{ inquilino.dni|default:"" }}</div>
-                                {% if contrato.carrera and forloop.first %}
-                                <span style="min-width: 50px; font-size: 8px; margin-left: 20px;">CARRERA:</span>
-                                <div style="border-bottom: 1px dotted black; width: 100px; font-size: 8px;">&nbsp; {{ contrato.carrera }}</div>
-                                {% endif %}
-                            </div>
-                        </div>
-                        <div style="display: flex; align-items: center; justify-content: space-between; margin: 3px 0;">
-                            <div style="display: flex; align-items: center; width: 100%;">
-                                <span style="min-width: 60px; font-size: 8px;">DOMICILIO:</span>
-                                <div style="border-bottom: 1px dotted black; width: 150px; font-size: 8px;">&nbsp; {{ inquilino.domicilio|default:"" }}</div>
-                                <span style="min-width: 60px; font-size: 8px; margin-left: 20px;">TEL.:</span>
-                                <div style="border-bottom: 1px dotted black; width: 100px; font-size: 8px;">&nbsp; {{ inquilino.celular|default:"" }}</div>
-                            </div>
-                        </div>
-                        <div style="display: flex; align-items: center; justify-content: space-between; margin: 3px 0;">
-                            <div style="display: flex; align-items: center; width: 100%;">
-                                <span style="min-width: 60px; font-size: 8px;">LOCALIDAD:</span>
-                                <div style="border-bottom: 1px dotted black; width: 150px; font-size: 8px;">&nbsp; {{ inquilino.localidad|default:"" }}</div>
-                                <span style="min-width: 60px; font-size: 8px; margin-left: 20px;">PROVINCIA:</span>
-                                <div style="border-bottom: 1px dotted black; width: 100px; font-size: 8px;">&nbsp; {{ inquilino.provincia|default:"" }}</div>
-                            </div>
-                        </div>
+                    <div style="flex: 1; min-width: 0; font-size: 7px; display: flex; flex-direction: column; gap: 2px;">
+                        <div style="display: flex; align-items: center; gap: 4px;"><span style="white-space: nowrap;">NOMBRE:</span><span style="border-bottom: 1px dotted black; flex: 1; min-width: 0;">{{ inquilino.nombre }} {{ inquilino.apellido }}</span></div>
+                        <div style="display: flex; align-items: center; gap: 4px;"><span style="white-space: nowrap;">D.N.I.:</span><span style="border-bottom: 1px dotted black; flex: 1; min-width: 0;">{{ inquilino.dni|default:"" }}</span>{% if contrato.carrera and forloop.first %}<span style="white-space: nowrap; margin-left: 6px;">CARRERA:</span><span style="border-bottom: 1px dotted black; flex: 1; min-width: 0;">{{ contrato.carrera }}</span>{% endif %}</div>
+                        <div style="display: flex; align-items: center; gap: 4px;"><span style="white-space: nowrap;">DOMICILIO:</span><span style="border-bottom: 1px dotted black; flex: 1; min-width: 0;">{{ inquilino.domicilio|default:"" }}</span></div>
+                        <div style="display: flex; align-items: center; gap: 4px;"><span style="white-space: nowrap;">TEL.:</span><span style="border-bottom: 1px dotted black; flex: 1; min-width: 0;">{{ inquilino.celular|default:"" }}</span><span style="white-space: nowrap; margin-left: 6px;">LOC.:</span><span style="border-bottom: 1px dotted black; flex: 1; min-width: 0;">{{ inquilino.localidad|default:"" }}</span><span style="white-space: nowrap;">PROV.:</span><span style="border-bottom: 1px dotted black; width: 50px;">{{ inquilino.provincia|default:"" }}</span></div>
                     </div>
                     {% endfor %}
                 </div>
