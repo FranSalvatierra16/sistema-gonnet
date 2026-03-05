@@ -2374,6 +2374,16 @@ def buscar_propiedades_reserva(request):
                     # 🏨 LÓGICA HOTEL: Si próxima reserva empieza el 25, hasta el 25 está disponible
                     fecha_disponible_hasta = min(fecha_disponible_hasta, reservas_posteriores.fecha_inicio)
                 
+                # 4b. Ajustar "disponible hasta" si hay contrato de alquiler (invierno/24m) que empiece dentro del período libre
+                contrato_corta = ContratoAlquiler.objects.filter(
+                    propiedad=propiedad,
+                    estado__in=['reservado', 'activo'],
+                    fecha_inicio__lte=fecha_disponible_hasta,
+                    fecha_fin__gt=fecha_disponible_desde
+                ).order_by('fecha_inicio').first()
+                if contrato_corta:
+                    fecha_disponible_hasta = min(fecha_disponible_hasta, contrato_corta.fecha_inicio)
+                
                 # 5️⃣ ASIGNAR FECHAS CALCULADAS
                 propiedad.disponibilidad_inicio = fecha_disponible_desde
                 propiedad.disponibilidad_fin = fecha_disponible_hasta
@@ -9631,6 +9641,16 @@ def buscar_propiedades(request):
                 if reservas_posteriores:
                     # 🏨 LÓGICA HOTEL: Si próxima reserva empieza el 25, hasta el 25 está disponible
                     fecha_disponible_hasta = min(fecha_disponible_hasta, reservas_posteriores.fecha_inicio)
+                
+                # 4b. Ajustar "disponible hasta" si hay contrato de alquiler (invierno/24m) que empiece dentro del período libre
+                contrato_corta = ContratoAlquiler.objects.filter(
+                    propiedad=propiedad,
+                    estado__in=['reservado', 'activo'],
+                    fecha_inicio__lte=fecha_disponible_hasta,
+                    fecha_fin__gt=fecha_disponible_desde
+                ).order_by('fecha_inicio').first()
+                if contrato_corta:
+                    fecha_disponible_hasta = min(fecha_disponible_hasta, contrato_corta.fecha_inicio)
                 
                 # 5️⃣ ASIGNAR FECHAS CALCULADAS
                 propiedad.disponibilidad_inicio = fecha_disponible_desde
