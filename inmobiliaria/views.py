@@ -10035,7 +10035,14 @@ def crear_contrato_alquiler(request):
         try:
             # Obtener datos del formulario
             propiedad_id = request.POST.get('propiedad_id')
-            inquilino_id = request.POST.get('inquilino_id')
+            inquilino_ids = [x for x in request.POST.getlist('inquilino_ids') if x.strip().isdigit()]
+            if not inquilino_ids:
+                inquilino_id = request.POST.get('inquilino_id')
+                if inquilino_id and str(inquilino_id).strip().isdigit():
+                    inquilino_ids = [inquilino_id.strip()]
+            if not inquilino_ids:
+                return JsonResponse({'error': 'Debe agregar al menos un inquilino al contrato.'}, status=400)
+            inquilino_id = inquilino_ids[0]  # principal para FK
             vendedor_id = request.POST.get('vendedor_id')
             fecha_operacion = request.POST.get('fecha_operacion')
             fecha_inicio = request.POST.get('fecha_inicio')
@@ -10139,6 +10146,12 @@ def crear_contrato_alquiler(request):
                     sucursal=request.user.sucursal
                 ).values_list('id', flat=True)
                 contrato.garantes.set(garantes_ok)
+            # Asignar todos los inquilinos del contrato (M2M)
+            inquilinos_ok = Inquilino.objects.filter(
+                id__in=inquilino_ids,
+                sucursal=request.user.sucursal
+            ).values_list('id', flat=True)
+            contrato.inquilinos.set(inquilinos_ok)
 
             # Marcar la propiedad como reservada según tipo de contrato
             if duracion_meses == 9:

@@ -13,8 +13,16 @@ class TipoOperacion(models.TextChoices):
 # Contrato de alquiler (operación principal)
 class ContratoAlquiler(models.Model):
     propiedad = models.ForeignKey('Propiedad', on_delete=models.CASCADE, related_name='contratos')
-    inquilino = models.ForeignKey('Inquilino', on_delete=models.CASCADE, related_name='contratos')
+    inquilino = models.ForeignKey('Inquilino', on_delete=models.CASCADE, related_name='contratos', help_text='Inquilino principal (el primero si hay varios)')
     vendedor = models.ForeignKey('Vendedor', on_delete=models.CASCADE, related_name='contratos')
+    # Varios inquilinos por contrato (el primero coincide con inquilino)
+    inquilinos = models.ManyToManyField(
+        'Inquilino',
+        related_name='contratos_como_inquilino',
+        blank=True,
+        verbose_name='Inquilinos',
+        help_text='Todos los inquilinos del contrato'
+    )
     
     # Fechas del contrato
     fecha_operacion = models.DateField(default=timezone.now, help_text='Fecha en que se realiza la operación')

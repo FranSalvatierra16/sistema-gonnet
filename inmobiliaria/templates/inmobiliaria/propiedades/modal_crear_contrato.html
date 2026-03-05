@@ -98,49 +98,41 @@
                     </div>
 
                     <div class="row mt-3">
-                        <!-- Inquilino -->
+                        <!-- Inquilinos (varios, como garantes) -->
                         <div class="col-md-6">
                             <div class="card">
                                 <div class="card-header bg-info text-white">
-                                    <h5 class="mb-0">👤 Inquilino</h5>
+                                    <h5 class="mb-0">👤 Inquilinos</h5>
+                                    <small class="opacity-75">Agregá uno o más inquilinos al contrato</small>
                                 </div>
                                 <div class="card-body">
-                                    <!-- Buscador de Inquilinos -->
-                                    <div class="mb-3">
-                                        <div class="row mb-2">
-                                            <div class="col-8">
-                                                <input type="text" id="buscar_inquilino" placeholder="Buscar por nombre, ID o documento..." 
-                                                   class="form-control" oninput="buscarInquilinosEnTiempoReal()">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <label class="form-label"><strong>Seleccionar inquilino</strong></label>
+                                            <div class="d-flex gap-2 mb-2 flex-wrap">
+                                                <input type="text" id="buscar_inquilino" class="form-control" placeholder="Buscar por nombre, ID o DNI..." oninput="filtrarInquilinos24()">
+                                                <button type="button" class="btn btn-success" onclick="agregarInquilino24()">➕ Agregar</button>
+                                                <button type="button" class="btn btn-success" onclick="mostrarModalCrearInquilino();" title="Crear inquilino (se agrega a las listas)">➕ Crear inquilino</button>
+                                                <button type="button" onclick="buscarTodosLosInquilinos()" class="btn btn-primary">🔍 Todos</button>
                                             </div>
-                                            <div class="col-4">
-                                                <div class="d-flex gap-2">
-                                                    <button type="button" onclick="mostrarModalCrearInquilino()" class="btn btn-success" title="Crear inquilino (se agrega a las listas, sin seleccionar)">
-                                                        ➕ Crear inquilino
-                                                    </button>
-                                                    <button type="button" onclick="buscarTodosLosInquilinos()" class="btn btn-primary">
-                                                        🔍 Todos
-                                                    </button>
-                                                </div>
-                                            </div>
+                                            <select id="inquilino_select" size="5" class="form-control" style="max-height: 140px;">
+                                                <option value="">-- Seleccionar --</option>
+                                                {% for inquilino in inquilinos %}
+                                                <option value="{{ inquilino.id }}" data-nombre="{{ inquilino.apellido }}, {{ inquilino.nombre }}" data-dni="{{ inquilino.dni|default:'' }}">
+                                                    ID: {{ inquilino.id }} - {{ inquilino.apellido }}, {{ inquilino.nombre }} (DNI: {{ inquilino.dni|default:'N/A' }})
+                                                </option>
+                                                {% endfor %}
+                                            </select>
                                         </div>
-                                        <div class="row">
-                                            <div class="col-12">
-                                        <select id="inquilino_select" onchange="actualizarInquilinoId()" size="5" name="inquilino_id" required
-                                                        class="form-control" style="width: 100%; max-height: 150px; overflow-y: auto;">
-                                            <option value="">-- Selecciona un inquilino --</option>
-                                            {% for inquilino in inquilinos %}
-                                                    <option value="{{ inquilino.id }}" 
-                                                            data-nombre="{{ inquilino.nombre|lower }} {{ inquilino.apellido|lower }}" 
-                                                            data-id="{{ inquilino.id }}"
-                                                            data-dni="{{ inquilino.dni|default:'' }}">
-                                                        ID: {{ inquilino.id }} - {{ inquilino.apellido }}, {{ inquilino.nombre }} (DNI: {{ inquilino.dni|default:'N/A' }})
-                                            </option>
-                                            {% endfor %}
-                                        </select>
+                                        <div class="col-md-6">
+                                            <label class="form-label"><strong>Inquilinos agregados</strong></label>
+                                            <div id="lista_inquilinos_24" class="border rounded p-2" style="min-height: 80px; max-height: 140px; overflow-y: auto;">
+                                                <span class="text-muted small">Ninguno. Seleccioná arriba y pulsá Agregar. Debe haber al menos uno.</span>
                                             </div>
+                                            <div id="inquilino_ids_container_24"></div>
                                         </div>
-                                        <div id="estado_busqueda" style="font-size: 14px; color: #666; font-style: italic; min-height: 20px; margin-top: 8px;"></div>
                                     </div>
+                                    <div id="estado_busqueda" style="font-size: 14px; color: #666; font-style: italic; min-height: 20px; margin-top: 8px;"></div>
                                 </div>
                             </div>
                         </div>
@@ -498,7 +490,9 @@ function mostrarModalContrato(propiedadId, direccion, sucursal, precioMensual, e
     document.getElementById('fecha_inicio').value = hoy;
     document.getElementById('fecha_inicio').min = hoy;
     
-    // Limpiar garantes y carrera
+    // Limpiar inquilinos, garantes y carrera
+    inquilinosSeleccionados24 = [];
+    actualizarListaInquilinos24();
     garantesSeleccionados24 = [];
     actualizarListaGarantes24();
     var carreraInput = document.getElementById('carrera_contrato');
@@ -507,6 +501,54 @@ function mostrarModalContrato(propiedadId, direccion, sucursal, precioMensual, e
     // Mostrar el modal
     const modalBootstrap = new bootstrap.Modal(document.getElementById('modalContrato'));
     modalBootstrap.show();
+}
+
+// Inquilinos (contrato 24): lista { id, nombre } — mismo patrón que garantes
+var inquilinosSeleccionados24 = [];
+function agregarInquilino24() {
+    var sel = document.getElementById('inquilino_select');
+    if (!sel) return;
+    var opt = sel.options[sel.selectedIndex];
+    if (!opt || !opt.value) return;
+    var id = parseInt(opt.value, 10);
+    if (inquilinosSeleccionados24.some(function(i) { return i.id === id; })) return;
+    inquilinosSeleccionados24.push({ id: id, nombre: opt.dataset.nombre || opt.text });
+    actualizarListaInquilinos24();
+}
+function quitarInquilino24(id) {
+    inquilinosSeleccionados24 = inquilinosSeleccionados24.filter(function(i) { return i.id !== id; });
+    actualizarListaInquilinos24();
+}
+function actualizarListaInquilinos24() {
+    var cont = document.getElementById('lista_inquilinos_24');
+    var hiddenCont = document.getElementById('inquilino_ids_container_24');
+    if (!cont || !hiddenCont) return;
+    hiddenCont.innerHTML = '';
+    if (inquilinosSeleccionados24.length === 0) {
+        cont.innerHTML = '<span class="text-muted small">Ninguno. Seleccioná arriba y pulsá Agregar. Debe haber al menos uno.</span>';
+        return;
+    }
+    cont.innerHTML = inquilinosSeleccionados24.map(function(i) {
+        var inp = document.createElement('input');
+        inp.type = 'hidden';
+        inp.name = 'inquilino_ids';
+        inp.value = i.id;
+        hiddenCont.appendChild(inp);
+        return '<span class="badge bg-info me-1 mb-1" style="font-size: 0.85rem;">' + (i.nombre || 'ID ' + i.id) + ' <a href="#" onclick="quitarInquilino24(' + i.id + '); return false;" class="text-white">✕</a></span>';
+    }).join(' ');
+    document.getElementById('estado_busqueda').textContent = inquilinosSeleccionados24.length + ' inquilino(s) agregado(s).';
+}
+function filtrarInquilinos24() {
+    var term = (document.getElementById('buscar_inquilino') || {}).value.toLowerCase();
+    var sel = document.getElementById('inquilino_select');
+    if (!sel) return;
+    Array.from(sel.options).forEach(function(opt) {
+        if (!opt.value) return;
+        var text = (opt.text || '').toLowerCase();
+        var dataNombre = (opt.dataset.nombre || '').toLowerCase();
+        var dataDni = (opt.dataset.dni || '').toLowerCase();
+        opt.style.display = (text.indexOf(term) >= 0 || dataNombre.indexOf(term) >= 0 || dataDni.indexOf(term) >= 0) ? '' : 'none';
+    });
 }
 
 // Garantes (contrato 24): lista { id, nombre }
@@ -556,52 +598,11 @@ function filtrarGarantes24() {
     });
 }
 
-// Función para buscar inquilinos en tiempo real
-function buscarInquilinosEnTiempoReal() {
-    const busqueda = document.getElementById('buscar_inquilino').value.toLowerCase();
-    const select = document.getElementById('inquilino_select');
-    const estadoBusqueda = document.getElementById('estado_busqueda');
-    
-    let encontrados = 0;
-    Array.from(select.options).forEach(option => {
-        if (option.value === '') return; // Skip the default option
-        
-        const nombre = option.dataset.nombre || '';
-        const id = option.dataset.id || '';
-        const dni = option.dataset.dni || '';
-        
-        // Buscar por nombre, ID o DNI
-        if (nombre.includes(busqueda) || id.includes(busqueda) || dni.includes(busqueda)) {
-            option.style.display = '';
-            encontrados++;
-        } else {
-            option.style.display = 'none';
-        }
-    });
-    
-    estadoBusqueda.textContent = `${encontrados} inquilinos encontrados`;
-}
-
 function buscarTodosLosInquilinos() {
     const select = document.getElementById('inquilino_select');
-    Array.from(select.options).forEach(option => {
-        option.style.display = '';
-    });
-    document.getElementById('estado_busqueda').textContent = 'Mostrando todos los inquilinos';
+    if (select) Array.from(select.options).forEach(option => { option.style.display = ''; });
     document.getElementById('buscar_inquilino').value = '';
-}
-
-
-function actualizarInquilinoId() {
-    const select = document.getElementById('inquilino_select');
-    const inquilinoId = select.value;
-    
-    if (inquilinoId) {
-        const selectedOption = select.options[select.selectedIndex];
-        const nombre = selectedOption.textContent;
-        console.log(`👤 Inquilino seleccionado: ID ${inquilinoId} - ${nombre}`);
-        document.getElementById('estado_busqueda').textContent = `Seleccionado: ${nombre}`;
-    }
+    document.getElementById('estado_busqueda').textContent = inquilinosSeleccionados24.length ? inquilinosSeleccionados24.length + ' inquilino(s) agregado(s).' : '';
 }
 
 
@@ -853,9 +854,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // Manejar el formulario principal de contrato
     document.getElementById('formContrato').addEventListener('submit', function(e) {
         e.preventDefault();
-        
+        if (inquilinosSeleccionados24.length === 0) {
+            alert('Debe agregar al menos un inquilino al contrato.');
+            return;
+        }
         const formData = new FormData(this);
-        
         fetch(`{% url 'inmobiliaria:crear_contrato_alquiler' %}`, {
             method: 'POST',
             body: formData,
