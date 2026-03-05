@@ -165,20 +165,15 @@
                         </div>
                     </div>
 
-                    <!-- Carrera (contrato estudiante) y Garantes -->
+                    <!-- Garantes -->
                     <div class="row mt-3">
                         <div class="col-12">
                             <div class="card">
                                 <div class="card-header bg-info text-white">
-                                    <h5 class="mb-0">📚 Carrera (contrato estudiante) y Garantes</h5>
+                                    <h5 class="mb-0">🛡️ Garantes</h5>
+                                    <small class="opacity-75">Agregá uno o más inquilinos como garantes</small>
                                 </div>
                                 <div class="card-body">
-                                    <div class="row mb-3">
-                                        <div class="col-12">
-                                            <label class="form-label"><strong>Carrera</strong></label>
-                                            <input type="text" class="form-control" name="carrera" id="carrera_contrato" placeholder="Nombre de la carrera que estudia el inquilino (ej: Medicina, Ingeniería)">
-                                        </div>
-                                    </div>
                                     <div class="row">
                                         <div class="col-md-6">
                                             <label class="form-label"><strong>Agregar garantes (inquilinos)</strong></label>
@@ -491,13 +486,11 @@ function mostrarModalContrato(propiedadId, direccion, sucursal, precioMensual, e
     document.getElementById('fecha_inicio').value = hoy;
     document.getElementById('fecha_inicio').min = hoy;
     
-    // Limpiar inquilinos, garantes y carrera
+    // Limpiar inquilinos y garantes
     inquilinosSeleccionados24 = [];
     actualizarListaInquilinos24();
     garantesSeleccionados24 = [];
     actualizarListaGarantes24();
-    var carreraInput = document.getElementById('carrera_contrato');
-    if (carreraInput) carreraInput.value = '';
     
     // Mostrar el modal
     const modalBootstrap = new bootstrap.Modal(document.getElementById('modalContrato'));
