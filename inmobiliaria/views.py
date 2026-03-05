@@ -2407,6 +2407,15 @@ def buscar_propiedades_reserva(request):
                 eliminada=False
             )
             
+            # Excluir si tiene contrato de alquiler (invierno o 24 meses) que se superponga con el período buscado
+            if ContratoAlquiler.objects.filter(
+                propiedad=propiedad,
+                estado__in=['reservado', 'activo'],
+                fecha_inicio__lt=fecha_fin,
+                fecha_fin__gt=fecha_inicio
+            ).exists():
+                continue  # No mostrar como disponible: está ocupada por operación
+
             if reservas.filter(estado='pagada').exists():
                 continue  # Saltar esta propiedad si ya tiene una reserva pagada
 
@@ -9662,6 +9671,15 @@ def buscar_propiedades(request):
                 eliminada=False
             )
             
+            # Excluir si tiene contrato de alquiler (invierno o 24 meses) que se superponga con el período buscado
+            if ContratoAlquiler.objects.filter(
+                propiedad=propiedad,
+                estado__in=['reservado', 'activo'],
+                fecha_inicio__lt=fecha_fin,
+                fecha_fin__gt=fecha_inicio
+            ).exists():
+                continue  # No mostrar como disponible: está ocupada por operación
+
             if reservas.filter(estado='pagada').exists():
                 continue  # Saltar esta propiedad si ya tiene una reserva pagada
 
