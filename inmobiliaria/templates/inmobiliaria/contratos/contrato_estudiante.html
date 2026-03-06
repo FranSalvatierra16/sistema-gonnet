@@ -16,7 +16,22 @@
         .signature-table td { vertical-align: top; padding: 12px 8px; width: 33%; }
         .signature-table .label { font-weight: bold; font-size: 10pt; margin-bottom: 24px; }
         .signature-line { border-bottom: 1px solid #000; min-height: 22px; margin-top: 4px; }
-        @media print { body { margin: 1cm; } .no-print { display: none; } }
+        /* Impresión: formato oficio, 2 hojas */
+        @media print {
+            @page { size: 216mm 330mm; margin: 12mm 14mm; }
+            body { margin: 0; font-size: 9.5pt; line-height: 1.22; color: #000; }
+            .no-print { display: none !important; }
+            .header { margin-bottom: 6px; }
+            .logo-text { font-size: 14pt; }
+            .sub { font-size: 8pt; }
+            .contacto { font-size: 7.5pt; margin-top: 2px; }
+            h1.doc-title { font-size: 11pt; margin: 6px 0; }
+            .clause { margin: 2px 0; page-break-inside: avoid; }
+            .signature-table { margin-top: 8px; }
+            .signature-table td { padding: 6px 4px; }
+            .signature-table .label { font-size: 8pt; margin-bottom: 12px; }
+            .signature-line { min-height: 16px; }
+        }
     </style>
 </head>
 <body>
