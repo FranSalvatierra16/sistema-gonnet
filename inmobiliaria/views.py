@@ -8,8 +8,7 @@ from datetime import datetime
 from django.forms import inlineformset_factory
 from django.template.loader import render_to_string
 from django.contrib.auth import authenticate
-from django.db import models
-from django.db import transaction
+from django.db import models, transaction, IntegrityError
 import re
 
 # Importar vistas de cuentas bancarias
@@ -7233,7 +7232,17 @@ def editar_info_meses(request, propiedad_id):
     
     if request.method == 'POST':
         try:
-            info_meses, created = AlquilerMeses.objects.get_or_create(propiedad=propiedad)
+            try:
+                info_meses, created = AlquilerMeses.objects.get_or_create(propiedad=propiedad)
+            except IntegrityError:
+                # Secuencia de id desincronizada: usar fila existente si hay, si no informar
+                info_meses = AlquilerMeses.objects.filter(propiedad=propiedad).first()
+                if not info_meses:
+                    messages.error(
+                        request,
+                        'Error de numeración en la base de datos. Por favor ejecutá la migración: python manage.py migrate inmobiliaria 0085_fix_alquilermeses_id_sequence'
+                    )
+                    return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
             
             info_meses.disponible = 'disponible' in request.POST
             if info_meses.disponible:
