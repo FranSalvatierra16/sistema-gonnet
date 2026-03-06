@@ -12815,6 +12815,249 @@ def ver_comodato_invierno(request, contrato_id):
     return render(request, 'inmobiliaria/contratos/comodato_invierno.html', context)
 
 
+def _formatear_cuit(cuit):
+    """Formatea CUIT/CUIL 11 dígitos como XX-XXXXXXXX-X."""
+    if not cuit:
+        return '—'
+    s = re.sub(r'\D', '', str(cuit))
+    if len(s) == 11:
+        return f"{s[:2]}-{s[2:10]}-{s[10]}"
+    return str(cuit)
+
+
+def _numero_a_letras_es(n):
+    """Convierte entero (0-999999) a palabras en español en MAYÚSCULAS (para montos)."""
+    if n is None or n < 0:
+        return "—"
+    n = int(n)
+    if n == 0:
+        return "CERO"
+    unidades = ['', 'UNO', 'DOS', 'TRES', 'CUATRO', 'CINCO', 'SEIS', 'SIETE', 'OCHO', 'NUEVE']
+    especiales = ['DIEZ', 'ONCE', 'DOCE', 'TRECE', 'CATORCE', 'QUINCE', 'DIECISÉIS', 'DIECISIETE', 'DIECIOCHO', 'DIECINUEVE']
+    decenas = ['', '', 'VEINTE', 'TREINTA', 'CUARENTA', 'CINCUENTA', 'SESENTA', 'SETENTA', 'OCHENTA', 'NOVENTA']
+    centenas = ['', 'CIENTO', 'DOSCIENTOS', 'TRESCIENTOS', 'CUATROCIENTOS', 'QUINIENTOS', 'SEISCIENTOS', 'SETECIENTOS', 'OCHOCIENTOS', 'NOVECIENTOS']
+    if n == 100:
+        return "CIEN"
+    if n < 10:
+        return unidades[n]
+    if n < 20:
+        return especiales[n - 10]
+    if n < 100:
+        d, u = divmod(n, 10)
+        if u == 0:
+            return decenas[d]
+        return decenas[d] + " Y " + unidades[u]
+    if n < 1000:
+        c, r = divmod(n, 100)
+        if c == 1 and r == 0:
+            return "CIEN"
+        base = centenas[c]
+        if r == 0:
+            return base
+        return base + " " + _numero_a_letras_es(r).lower()
+    if n < 1000000:
+        m, r = divmod(n, 1000)
+        if m == 1:
+            mile = "MIL"
+        else:
+            mile = _numero_a_letras_es(m).lower() + " MIL"
+        if r == 0:
+            return mile
+        return mile + " " + _numero_a_letras_es(r).lower()
+    return str(n)
+
+
+@login_required
+def ver_contrato_estudiante(request, contrato_id):
+    """Genera el documento CONTRATO DE LOCACIÓN PARA USO ESTUDIANTIL con el texto legal completo. Solo para contratos de 9 meses (invierno)."""
+    contrato = get_object_or_404(
+        ContratoAlquiler.objects.select_related('propiedad', 'propiedad__propietario', 'inquilino').prefetch_related(
+            Prefetch('contrato_inquilinos', queryset=ContratoInquilino.objects.select_related('inquilino').order_by('id')),
+            'garantes'
+        ),
+        id=contrato_id,
+        sucursal=request.user.sucursal
+    )
+    if contrato.duracion_meses != 9:
+        messages.warning(request, 'El contrato de estudiante solo aplica a contratos de 9 meses (invierno).')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+    prop = contrato.propiedad
+    propi = getattr(prop, 'propietario', None)
+    fi = contrato.fecha_inicio
+    ff = contrato.fecha_fin
+    fop = contrato.fecha_operacion or timezone.now().date()
+
+    # Locador (propietario)
+    if propi:
+        locador_nombre = f"{getattr(propi, 'nombre', '') or ''} {getattr(propi, 'apellido', '') or ''}".strip() or '—'
+        locador_dni = (getattr(propi, 'dni', None) or '').strip() or '—'
+        locador_domicilio = (getattr(propi, 'domicilio', None) or '—')[:120]
+        locador_ciudad = (getattr(propi, 'localidad', None) or '—')[:80]
+    else:
+        locador_nombre = locador_dni = locador_domicilio = locador_ciudad = '—'
+
+    # Locatarios: todos los inquilinos del contrato
+    through_list = list(contrato.contrato_inquilinos.select_related('inquilino').order_by('id'))
+    if through_list:
+        inquilinos_orden = [ci.inquilino for ci in through_list]
+    else:
+        inquilinos_orden = [contrato.inquilino] if contrato.inquilino_id else []
+
+    partes_locatarios = []
+    for inq in inquilinos_orden:
+        nombre_loc = f"{getattr(inq, 'apellido', '') or ''} {getattr(inq, 'nombre', '') or ''}".strip() or '—'
+        cuil = _formatear_cuit(getattr(inq, 'cuit', None))
+        dom = (getattr(inq, 'domicilio', None) or '—')[:100]
+        ciudad = getattr(inq, 'localidad', None) or '—'
+        provincia = getattr(inq, 'provincia', None) or 'Pcia de Buenos Aires'
+        partes_locatarios.append(
+            f"el/la Sr/a {nombre_loc}, CUIL {cuil}, con domicilio real en {dom} de la ciudad de {ciudad}, {provincia}"
+        )
+    locatarios_texto = ", y ".join(partes_locatarios) if partes_locatarios else "—"
+
+    # Estudiantes (hijos): hasta 3 slots; rellenar con -- si faltan
+    estudiantes = []
+    for ci in through_list[:3]:
+        inq = ci.inquilino
+        estudiantes.append({
+            'nombre': f"{getattr(inq, 'apellido', '') or ''} {getattr(inq, 'nombre', '') or ''}".strip() or '—',
+            'dni': (getattr(inq, 'dni', None) or '').strip() or '—',
+            'carrera': (getattr(ci, 'carrera', None) or '').strip() or '—',
+        })
+    if not through_list and inquilinos_orden:
+        inq = inquilinos_orden[0]
+        estudiantes.append({
+            'nombre': f"{getattr(inq, 'apellido', '') or ''} {getattr(inq, 'nombre', '') or ''}".strip() or '—',
+            'dni': (getattr(inq, 'dni', None) or '').strip() or '—',
+            'carrera': (getattr(contrato, 'carrera', None) or '').strip() or '—',
+        })
+    while len(estudiantes) < 3:
+        estudiantes.append({'nombre': '--', 'dni': '--', 'carrera': '--'})
+    estudiante_1_nombre, estudiante_1_dni, estudiante_1_carrera = estudiantes[0]['nombre'], estudiantes[0]['dni'], estudiantes[0]['carrera']
+    estudiante_2_nombre, estudiante_2_dni, estudiante_2_carrera = estudiantes[1]['nombre'], estudiantes[1]['dni'], estudiantes[1]['carrera']
+    estudiante_3_nombre, estudiante_3_dni, estudiante_3_carrera = estudiantes[2]['nombre'], estudiantes[2]['dni'], estudiantes[2]['carrera']
+
+    # Inmueble
+    inmueble_direccion = (prop.direccion or '—').strip()
+    inmueble_ciudad = (getattr(prop, 'ubicacion', None) or 'Mar del Plata').strip()
+
+    # Plazo: "NUEVE (9,5) MESES"
+    plazo_meses_texto = "NUEVE (9,5) MESES"
+
+    # Fechas 1er y 2do cuatrimestre (por defecto marzo-julio y agosto-diciembre del año del contrato)
+    anio = fi.year
+    fecha_1er_fin = date(anio, 7, 31)
+    fecha_2do_inicio = date(anio, 8, 1)
+
+    # Precios: usar precio_mensual para ambos períodos (mismo valor)
+    precio_1er = contrato.precio_mensual or Decimal('0')
+    precio_2do = contrato.precio_mensual or Decimal('0')
+    precio_1er_int = int(precio_1er)
+    precio_2do_int = int(precio_2do)
+    precio_1er_letras = "PESOS " + _numero_a_letras_es(precio_1er_int)
+    precio_2do_letras = "PESOS " + _numero_a_letras_es(precio_2do_int)
+    precio_1er_numero = f"$ {precio_1er_int:,.0f}".replace(',', '.') + ".-"
+    precio_2do_numero = f"$ {precio_2do_int:,.0f}".replace(',', '.') + ".-"
+
+    # Depósito
+    deposito = contrato.deposito_garantia or Decimal('0')
+    deposito_int = int(deposito)
+    deposito_letras = "PESOS " + _numero_a_letras_es(deposito_int)
+    deposito_numero = f"$ {deposito_int:,.0f}".replace(',', '.')
+
+    # Meses proporcionales (ej. Marzo y Diciembre)
+    meses_proporcionales = f"{MESES_ES[fi.month].capitalize()} y {MESES_ES[ff.month].capitalize()}"
+
+    # Rescisión: textos fijos según cláusula
+    rescision_meses_texto = "SEIS (6) MESES"
+    anticipacion_notificacion_texto = "UN (1) MES"
+    indemnizacion_primeros_texto = "DOS (2) MESES"
+    indemnizacion_despues_texto = "UN MES Y MEDIO (1,5) MES"
+    meses_sin_indemnizacion_texto = "SEIS"
+    anticipacion_sin_indemnizacion_texto = "TRES (3) MESES"
+
+    # Fiadores
+    garantes_list = list(contrato.garantes.all())
+    if garantes_list:
+        partes_fiadores = []
+        for g in garantes_list:
+            nom = f"{getattr(g, 'apellido', '') or ''} {getattr(g, 'nombre', '') or ''}".strip().upper() or '—'
+            dni_g = (getattr(g, 'dni', None) or '').strip() or '—'
+            cuit_g = _formatear_cuit(getattr(g, 'cuit', None))
+            mail_g = (getattr(g, 'email', None) or '').strip() or '—'
+            dom_g = (getattr(g, 'domicilio', None) or '—')[:80]
+            ciudad_g = getattr(g, 'localidad', None) or '—'
+            prov_g = getattr(g, 'provincia', None) or 'Pcia. De Buenos Aires'
+            partes_fiadores.append(
+                f"el/la Sr/a. {nom}, DNI N° {dni_g}, CUIT {cuit_g}, con MAIL: {mail_g}, con domicilio en {dom_g}, de la ciudad {ciudad_g}, {prov_g}"
+            )
+        fiadores_texto = ", y ".join(partes_fiadores)
+    else:
+        # Legacy: un solo garante por campos de texto
+        nom = f"{contrato.garante_apellido or ''} {contrato.garante_nombre or ''}".strip().upper() or '—'
+        if nom != '—':
+            dni_g = contrato.garante_dni or '—'
+            cuit_g = _formatear_cuit(None)
+            mail_g = contrato.garante_email or '—'
+            dom_g = (contrato.garante_domicilio or '—')[:80]
+            fiadores_texto = f"el/la Sr/a. {nom}, DNI N° {dni_g}, CUIT {cuit_g}, con MAIL: {mail_g}, con domicilio en {dom_g}, de la ciudad —, —"
+        else:
+            fiadores_texto = "—"
+
+    context = {
+        'contrato': contrato,
+        'url_volver': reverse('inmobiliaria:detalle_contrato', args=[contrato.id]),
+        'fecha_celebracion_dia': fop.day,
+        'fecha_celebracion_mes': MESES_ES[fop.month].capitalize(),
+        'fecha_celebracion_anio': fop.year,
+        'locador_nombre': locador_nombre,
+        'locador_dni': locador_dni,
+        'locador_domicilio': locador_domicilio,
+        'locador_ciudad': locador_ciudad,
+        'locatarios_texto': locatarios_texto,
+        'inmueble_direccion': inmueble_direccion,
+        'inmueble_ciudad': inmueble_ciudad,
+        'estudiante_1_nombre': estudiante_1_nombre,
+        'estudiante_1_dni': estudiante_1_dni,
+        'estudiante_1_carrera': estudiante_1_carrera,
+        'estudiante_2_nombre': estudiante_2_nombre,
+        'estudiante_2_dni': estudiante_2_dni,
+        'estudiante_2_carrera': estudiante_2_carrera,
+        'estudiante_3_nombre': estudiante_3_nombre,
+        'estudiante_3_dni': estudiante_3_dni,
+        'estudiante_3_carrera': estudiante_3_carrera,
+        'plazo_meses_texto': plazo_meses_texto,
+        'fecha_inicio_dia': fi.day,
+        'fecha_inicio_mes': MESES_ES[fi.month].capitalize(),
+        'fecha_inicio_anio': fi.year,
+        'fecha_fin_dia': ff.day,
+        'fecha_fin_mes': MESES_ES[ff.month].capitalize(),
+        'fecha_fin_anio': ff.year,
+        'fecha_1er_fin_dia': fecha_1er_fin.day,
+        'fecha_1er_fin_mes': MESES_ES[fecha_1er_fin.month].capitalize(),
+        'fecha_1er_fin_anio': fecha_1er_fin.year,
+        'fecha_2do_inicio_dia': fecha_2do_inicio.day,
+        'fecha_2do_inicio_mes': MESES_ES[fecha_2do_inicio.month].capitalize(),
+        'fecha_2do_inicio_anio': fecha_2do_inicio.year,
+        'precio_1er_cuatri_letras': precio_1er_letras,
+        'precio_1er_cuatri_numero': precio_1er_numero,
+        'precio_2do_cuatri_letras': precio_2do_letras,
+        'precio_2do_cuatri_numero': precio_2do_numero,
+        'meses_proporcionales': meses_proporcionales,
+        'deposito_letras': deposito_letras,
+        'deposito_numero': deposito_numero,
+        'rescision_meses_texto': rescision_meses_texto,
+        'anticipacion_notificacion_texto': anticipacion_notificacion_texto,
+        'indemnizacion_primeros_texto': indemnizacion_primeros_texto,
+        'indemnizacion_despues_texto': indemnizacion_despues_texto,
+        'meses_sin_indemnizacion_texto': meses_sin_indemnizacion_texto,
+        'anticipacion_sin_indemnizacion_texto': anticipacion_sin_indemnizacion_texto,
+        'fiadores_texto': fiadores_texto,
+    }
+    return render(request, 'inmobiliaria/contratos/contrato_estudiante.html', context)
+
+
 @login_required
 def detalles_operacion_reserva(request, reserva_id):
     """
