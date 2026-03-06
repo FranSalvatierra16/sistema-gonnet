@@ -228,9 +228,6 @@
                                         <a href="{% url 'inmobiliaria:ver_contrato_estudiante' contrato.id %}" class="btn btn-sm btn-outline-success" title="Ver Contrato Estudiante (locación)" target="_blank">
                                             <i class="fas fa-file-alt"></i>
                                         </a>
-                                        <a href="{% url 'inmobiliaria:ver_comodato_invierno' contrato.id %}" class="btn btn-sm btn-outline-info" title="Ver Comodato Invierno" target="_blank">
-                                            <i class="fas fa-file-contract"></i>
-                                        </a>
                                         {% endif %}
                                         {% if contrato.estado == 'activo' or contrato.estado == 'reservado' %}
                                             {% if not contrato.operacion_principal %}
