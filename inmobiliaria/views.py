@@ -13026,8 +13026,22 @@ def ver_contrato_estudiante(request, contrato_id):
         else:
             fiadores_texto = "—"
 
+    # Logo en base64 para el contrato (Néstor Oscar Gonnet Propiedades - REG. 1572)
+    logo_base64 = None
+    try:
+        import base64 as _b64
+        _logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'logo_contrato_estudiante.png')
+        if not os.path.exists(_logo_path):
+            _logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'logo.png')
+        if os.path.exists(_logo_path):
+            with open(_logo_path, 'rb') as _f:
+                logo_base64 = _b64.b64encode(_f.read()).decode('utf-8')
+    except Exception:
+        pass
+
     context = {
         'contrato': contrato,
+        'logo_base64': logo_base64,
         'url_volver': reverse('inmobiliaria:detalle_contrato', args=[contrato.id]),
         'fecha_celebracion_dia': fop.day,
         'fecha_celebracion_mes': MESES_ES[fop.month].capitalize(),

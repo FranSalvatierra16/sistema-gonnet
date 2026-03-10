@@ -6,6 +6,7 @@
     <style>
         body { font-family: 'Times New Roman', serif; font-size: 11pt; line-height: 1.35; margin: 1.2cm; color: #000; text-align: justify; }
         .header { text-align: center; margin-bottom: 16px; }
+        .header img.logo-contrato { max-width: 320px; max-height: 80px; object-fit: contain; display: block; margin: 0 auto 6px; }
         .logo-text { color: #2d8524; font-size: 22pt; font-weight: bold; }
         .sub { font-size: 10pt; color: #333; }
         .contacto { font-size: 9pt; margin-top: 4px; }
@@ -22,6 +23,7 @@
             body { margin: 0; font-size: 9.5pt; line-height: 1.22; color: #000; }
             .no-print { display: none !important; }
             .header { margin-bottom: 6px; }
+            .header img.logo-contrato { max-height: 56px; }
             .logo-text { font-size: 14pt; }
             .sub { font-size: 8pt; }
             .contacto { font-size: 7.5pt; margin-top: 2px; }
@@ -41,8 +43,12 @@
     </div>
 
     <div class="header">
+        {% if logo_base64 %}
+        <img src="data:image/png;base64,{{ logo_base64 }}" alt="Néstor Oscar Gonnet Propiedades" class="logo-contrato">
+        {% else %}
         <div class="logo-text">Gonnet</div>
         <div class="sub">PROPIEDADES</div>
+        {% endif %}
         <div class="contacto">
             http://www.gonnet.com.ar<br>
             AV. COLON 1764 (7600) Mar del Plata<br>
