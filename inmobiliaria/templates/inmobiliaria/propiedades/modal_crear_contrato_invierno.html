@@ -313,10 +313,10 @@ function mostrarModalContratoInvierno(propiedadId, direccion, sucursal, precioMe
     const hoy = new Date().toISOString().split('T')[0];
     document.getElementById('fecha_operacion_invierno').value = hoy;
     
-    // Establecer fechas de inicio y fin para invierno (marzo a diciembre del año actual)
+    // Establecer fechas de inicio y fin para invierno (marzo al 15 de diciembre del año actual)
     const añoActual = new Date().getFullYear();
     document.getElementById('fecha_inicio_invierno_modal').value = añoActual + '-03-01';
-    document.getElementById('fecha_fin_invierno_modal').value = añoActual + '-12-31';
+    document.getElementById('fecha_fin_invierno_modal').value = añoActual + '-12-15';
     
     // Limpiar inquilinos y garantes
     inquilinosSeleccionadosInvierno = [];
