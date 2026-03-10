@@ -12926,12 +12926,12 @@ def ver_contrato_estudiante(request, contrato_id):
     partes_locatarios = []
     for inq in inquilinos_orden:
         nombre_loc = f"{getattr(inq, 'apellido', '') or ''} {getattr(inq, 'nombre', '') or ''}".strip() or '—'
-        cuil = _formatear_cuit(getattr(inq, 'cuit', None))
+        dni_loc = (getattr(inq, 'dni', None) or '').strip() or '—'
         dom = (getattr(inq, 'domicilio', None) or '—')[:100]
         ciudad = getattr(inq, 'localidad', None) or '—'
         provincia = getattr(inq, 'provincia', None) or 'Pcia de Buenos Aires'
         partes_locatarios.append(
-            f"el/la Sr/a {nombre_loc}, CUIL {cuil}, con domicilio real en {dom} de la ciudad de {ciudad}, {provincia}"
+            f"el/la Sr/a {nombre_loc}, DNI {dni_loc}, con domicilio real en {dom} de la ciudad de {ciudad}, {provincia}"
         )
     locatarios_texto = ", y ".join(partes_locatarios) if partes_locatarios else "—"
 
