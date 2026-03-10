@@ -10108,6 +10108,11 @@ def crear_contrato_alquiler(request):
             fecha_fin = request.POST.get('fecha_fin')
             duracion_meses = int(request.POST.get('duracion_meses', 24))
             precio_mensual = Decimal(request.POST.get('precio_mensual').replace('.', '').replace(',', '.'))
+            _precio_2do = (request.POST.get('precio_segundo_cuatrimestre') or '').strip().replace('.', '').replace(',', '.')
+            try:
+                precio_segundo_cuatrimestre = Decimal(_precio_2do) if _precio_2do else None
+            except (InvalidOperation, ValueError):
+                precio_segundo_cuatrimestre = None
             deposito_garantia = Decimal(request.POST.get('deposito_garantia').replace('.', '').replace(',', '.'))
 
             garante_nombre = (request.POST.get('garante_nombre') or '').strip()
@@ -10178,7 +10183,7 @@ def crear_contrato_alquiler(request):
                         }, status=400)
 
             # Crear el contrato
-            contrato = ContratoAlquiler.objects.create(
+            create_kw = dict(
                 propiedad=propiedad,
                 inquilino=inquilino,
                 vendedor=vendedor,
@@ -10190,6 +10195,11 @@ def crear_contrato_alquiler(request):
                 precio_mensual=precio_mensual,
                 deposito_garantia=deposito_garantia,
                 estado='reservado',  # Iniciar en estado reservado
+            )
+            if duracion_meses == 9 and precio_segundo_cuatrimestre is not None:
+                create_kw['precio_segundo_cuatrimestre'] = precio_segundo_cuatrimestre
+            contrato = ContratoAlquiler.objects.create(
+                **create_kw,
                 garante_nombre=garante_nombre,
                 garante_apellido=garante_apellido,
                 garante_dni=garante_dni,
@@ -12959,9 +12969,11 @@ def ver_contrato_estudiante(request, contrato_id):
     fecha_1er_fin = date(anio, 7, 31)
     fecha_2do_inicio = date(anio, 8, 1)
 
-    # Precios: usar precio_mensual para ambos períodos (mismo valor)
+    # Precios: 1er cuatrimestre = precio_mensual; 2do = precio_segundo_cuatrimestre si existe, sino precio_mensual
     precio_1er = contrato.precio_mensual or Decimal('0')
-    precio_2do = contrato.precio_mensual or Decimal('0')
+    precio_2do = getattr(contrato, 'precio_segundo_cuatrimestre', None)
+    if precio_2do is None:
+        precio_2do = contrato.precio_mensual or Decimal('0')
     precio_1er_int = int(precio_1er)
     precio_2do_int = int(precio_2do)
     precio_1er_letras = "PESOS " + _numero_a_letras_es(precio_1er_int)

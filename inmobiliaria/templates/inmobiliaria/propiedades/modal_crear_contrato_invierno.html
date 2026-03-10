@@ -79,8 +79,12 @@
                                     <div class="row">
                                         <div class="col-6">
                                             <div class="mb-3">
-                                                <label class="form-label"><strong>Precio Mensual:</strong></label>
+                                                <label class="form-label"><strong>Precio Mensual (1er cuatrimestre):</strong></label>
                                                 <input type="text" class="form-control" id="precio_mensual_input_invierno" name="precio_mensual" required>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label"><strong>Precio segundo cuatrimestre:</strong></label>
+                                                <input type="text" class="form-control" id="precio_segundo_cuatri_invierno" name="precio_segundo_cuatrimestre" placeholder="+20% automático (editable)">
                                             </div>
                                         </div>
                                         <div class="col-6">
@@ -301,6 +305,9 @@ function mostrarModalContratoInvierno(propiedadId, direccion, sucursal, precioMe
     document.getElementById('modal_precio_mensual_invierno').textContent = '$' + precioMensual.toLocaleString('es-AR');
     document.getElementById('modal_expensas_invierno').textContent = precioExpensas ? '$' + precioExpensas.toLocaleString('es-AR') : '-';
     document.getElementById('precio_mensual_input_invierno').value = precioMensual;
+    // Precio 2do cuatrimestre: +20% por defecto (editable)
+    var precioSegundo = Math.round(precioMensual * 1.2);
+    document.getElementById('precio_segundo_cuatri_invierno').value = precioSegundo;
     
     // Establecer fecha de operación como hoy
     const hoy = new Date().toISOString().split('T')[0];
@@ -321,6 +328,19 @@ function mostrarModalContratoInvierno(propiedadId, direccion, sucursal, precioMe
     const modal = new bootstrap.Modal(document.getElementById('modalContratoInvierno'));
     modal.show();
 }
+
+// Actualizar precio 2do cuatrimestre cuando cambia el precio mensual (+20%, editable)
+function actualizarPrecioSegundoCuatriInvierno() {
+    var input = document.getElementById('precio_mensual_input_invierno');
+    var valor = (input && input.value) ? String(input.value).replace(/\./g, '').replace(',', '.') : '';
+    var num = parseFloat(valor);
+    if (!isNaN(num) && num > 0) {
+        var segundo = Math.round(num * 1.2);
+        document.getElementById('precio_segundo_cuatri_invierno').value = segundo;
+    }
+}
+document.getElementById('precio_mensual_input_invierno')?.addEventListener('input', actualizarPrecioSegundoCuatriInvierno);
+document.getElementById('precio_mensual_input_invierno')?.addEventListener('change', actualizarPrecioSegundoCuatriInvierno);
 
 // Inquilinos (invierno): lista { id, nombre }
 var inquilinosSeleccionadosInvierno = [];

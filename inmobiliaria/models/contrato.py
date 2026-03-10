@@ -34,6 +34,10 @@ class ContratoAlquiler(models.Model):
     
     # Montos
     precio_mensual = models.DecimalField(max_digits=10, decimal_places=2)
+    precio_segundo_cuatrimestre = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        verbose_name='Precio 2do cuatrimestre (contrato estudiante 9 meses)'
+    )
     deposito_garantia = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     gastos_adicionales = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     
