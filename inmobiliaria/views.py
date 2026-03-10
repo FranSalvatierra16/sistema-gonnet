@@ -12961,8 +12961,8 @@ def ver_contrato_estudiante(request, contrato_id):
     inmueble_direccion = (prop.direccion or '—').strip()
     inmueble_ciudad = (getattr(prop, 'ubicacion', None) or 'Mar del Plata').strip()
 
-    # Plazo: "NUEVE (9,5) MESES"
-    plazo_meses_texto = "NUEVE (9,5) MESES"
+    # Plazo: "NUEVE (9) MESES"
+    plazo_meses_texto = "NUEVE (9) MESES"
 
     # Fechas 1er y 2do cuatrimestre (por defecto marzo-julio y agosto-diciembre del año del contrato)
     anio = fi.year
