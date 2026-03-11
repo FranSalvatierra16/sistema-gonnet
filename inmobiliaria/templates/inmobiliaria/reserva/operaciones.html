@@ -736,6 +736,25 @@
                     </div>
                 {% endfor %}
             </div>
+            {% if num_pages > 1 %}
+            <nav class="d-flex justify-content-between align-items-center mt-4 flex-wrap gap-2">
+                <span class="text-muted">
+                    Mostrando {{ operaciones_mostradas }} de {{ total_ops }} operaciones (página {{ page }} de {{ num_pages }})
+                </span>
+                <ul class="pagination mb-0">
+                    {% if has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ previous_page }}{% if search_id %}&search_id={{ search_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}{% if search_vendedor %}&search_vendedor={{ search_vendedor }}{% endif %}{% if search_ficha %}&search_ficha={{ search_ficha }}{% endif %}{% if solo_pendientes %}&solo_pendientes=true{% endif %}">&laquo; Anterior</a>
+                    </li>
+                    {% endif %}
+                    {% if has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ next_page }}{% if search_id %}&search_id={{ search_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}{% if search_vendedor %}&search_vendedor={{ search_vendedor }}{% endif %}{% if search_ficha %}&search_ficha={{ search_ficha }}{% endif %}{% if solo_pendientes %}&solo_pendientes=true{% endif %}">Siguiente &raquo;</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
         {% else %}
             <div class="no-operaciones fade-in">
                 <i class="fas fa-chart-line"></i>
