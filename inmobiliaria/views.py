@@ -13005,7 +13005,7 @@ def ver_contrato_estudiante(request, contrato_id):
     else:
         locatarios_texto = "—"
 
-    # Estudiantes (hijos): hasta 3 slots; rellenar con -- si faltan
+    # Estudiantes (hijos): solo los cargados; sin slots vacíos
     estudiantes = []
     for ci in through_list[:3]:
         inq = ci.inquilino
@@ -13021,6 +13021,24 @@ def ver_contrato_estudiante(request, contrato_id):
             'dni': (getattr(inq, 'dni', None) or '').strip() or '—',
             'carrera': (getattr(contrato, 'carrera', None) or '').strip() or '—',
         })
+    # Filtrar solo estudiantes con datos reales (evitar "—" o "--")
+    def _es_estudiante_valido(e):
+        n, d = (e.get('nombre') or '').strip(), (e.get('dni') or '').strip()
+        return n and n not in ('—', '--') and d and d not in ('—', '--')
+    estudiantes_validos = [e for e in estudiantes if _es_estudiante_valido(e)]
+    # Texto para PRIMERA: OBJETO - solo los estudiantes cargados
+    partes_est = [
+        f"de su hijo/a {e['nombre']}, DNI N° {e['dni']}, quien cursará estudios en {e['carrera'] or '—'} en esta ciudad"
+        for e in estudiantes_validos
+    ]
+    if len(partes_est) == 1:
+        estudiantes_objeto_texto = "y " + partes_est[0]
+    elif len(partes_est) > 1:
+        estudiantes_objeto_texto = "y " + ", ".join(partes_est[:-1]) + " y " + partes_est[-1]
+    else:
+        estudiantes_objeto_texto = ","  # Evita "del LOCATARIO ," -> "del LOCATARIO,"
+
+    # Variables legacy para contexto (estudiante_1, 2, 3) - padding con -- si faltan
     while len(estudiantes) < 3:
         estudiantes.append({'nombre': '--', 'dni': '--', 'carrera': '--'})
     estudiante_1_nombre, estudiante_1_dni, estudiante_1_carrera = estudiantes[0]['nombre'], estudiantes[0]['dni'], estudiantes[0]['carrera']
@@ -13128,6 +13146,7 @@ def ver_contrato_estudiante(request, contrato_id):
         'locatarios_texto': locatarios_texto,
         'inmueble_direccion': inmueble_direccion,
         'inmueble_ciudad': inmueble_ciudad,
+        'estudiantes_objeto_texto': estudiantes_objeto_texto,
         'estudiante_1_nombre': estudiante_1_nombre,
         'estudiante_1_dni': estudiante_1_dni,
         'estudiante_1_carrera': estudiante_1_carrera,
