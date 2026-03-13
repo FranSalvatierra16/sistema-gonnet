@@ -12968,24 +12968,41 @@ def ver_contrato_estudiante(request, contrato_id):
     else:
         locador_nombre = locador_dni = locador_domicilio = locador_ciudad = '—'
 
-    # Locatarios: todos los inquilinos del contrato
+    # Inquilinos (estudiantes que vivirán en el inmueble)
     through_list = list(contrato.contrato_inquilinos.select_related('inquilino').order_by('id'))
     if through_list:
         inquilinos_orden = [ci.inquilino for ci in through_list]
     else:
         inquilinos_orden = [contrato.inquilino] if contrato.inquilino_id else []
 
-    partes_locatarios = []
-    for inq in inquilinos_orden:
-        nombre_loc = f"{getattr(inq, 'apellido', '') or ''} {getattr(inq, 'nombre', '') or ''}".strip() or '—'
-        dni_loc = (getattr(inq, 'dni', None) or '').strip() or '—'
-        dom = (getattr(inq, 'domicilio', None) or '—')[:100]
-        ciudad = getattr(inq, 'localidad', None) or '—'
-        provincia = getattr(inq, 'provincia', None) or 'Pcia de Buenos Aires'
-        partes_locatarios.append(
-            f"el/la Sr/a {nombre_loc}, DNI {dni_loc}, con domicilio real en {dom} de la ciudad de {ciudad}, {provincia}"
+    # Locatario: en contrato estudiantil es el RESPONSABLE que firma (primer garante), no el inquilino/estudiante.
+    # Si no hay garantes, se usa el inquilino como locatario.
+    garantes_list = list(contrato.garantes.all())
+    locatario_persona = None
+    if garantes_list:
+        locatario_persona = garantes_list[0]
+    elif contrato.garante_apellido or contrato.garante_nombre:
+        from types import SimpleNamespace
+        locatario_persona = SimpleNamespace(
+            apellido=contrato.garante_apellido or '',
+            nombre=contrato.garante_nombre or '',
+            dni=contrato.garante_dni or '',
+            domicilio=contrato.garante_domicilio or '',
+            localidad='—',
+            provincia='Pcia de Buenos Aires'
         )
-    locatarios_texto = ", y ".join(partes_locatarios) if partes_locatarios else "—"
+    if not locatario_persona and inquilinos_orden:
+        locatario_persona = inquilinos_orden[0]
+
+    if locatario_persona:
+        nombre_loc = f"{getattr(locatario_persona, 'apellido', '') or ''} {getattr(locatario_persona, 'nombre', '') or ''}".strip() or '—'
+        dni_loc = (getattr(locatario_persona, 'dni', None) or '').strip() or '—'
+        dom = (getattr(locatario_persona, 'domicilio', None) or '—')[:100]
+        ciudad = getattr(locatario_persona, 'localidad', None) or '—'
+        provincia = getattr(locatario_persona, 'provincia', None) or 'Pcia de Buenos Aires'
+        locatarios_texto = f"el/la Sr/a {nombre_loc}, DNI {dni_loc}, con domicilio real en {dom} de la ciudad de {ciudad}, {provincia}"
+    else:
+        locatarios_texto = "—"
 
     # Estudiantes (hijos): hasta 3 slots; rellenar con -- si faltan
     estudiantes = []
