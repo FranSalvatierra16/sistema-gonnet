@@ -12988,6 +12988,8 @@ def ver_contrato_estudiante(request, contrato_id):
             apellido=contrato.garante_apellido or '',
             nombre=contrato.garante_nombre or '',
             dni=contrato.garante_dni or '',
+            cuit=None,
+            email=contrato.garante_email or '',
             domicilio=contrato.garante_domicilio or '',
             localidad='—',
             provincia='Pcia de Buenos Aires'
@@ -12995,13 +12997,29 @@ def ver_contrato_estudiante(request, contrato_id):
     if not locatario_persona and inquilinos_orden:
         locatario_persona = inquilinos_orden[0]
 
-    if locatario_persona:
-        nombre_loc = f"{getattr(locatario_persona, 'apellido', '') or ''} {getattr(locatario_persona, 'nombre', '') or ''}".strip() or '—'
-        dni_loc = (getattr(locatario_persona, 'dni', None) or '').strip() or '—'
-        dom = (getattr(locatario_persona, 'domicilio', None) or '—')[:100]
-        ciudad = getattr(locatario_persona, 'localidad', None) or '—'
-        provincia = getattr(locatario_persona, 'provincia', None) or 'Pcia de Buenos Aires'
-        locatarios_texto = f"el/la Sr/a {nombre_loc}, DNI {dni_loc}, con domicilio real en {dom} de la ciudad de {ciudad}, {provincia}"
+    # Locatarios: hasta 2 garantes con formato CUIL y Mail
+    def _formatear_locatario(persona):
+        nom = f"{getattr(persona, 'apellido', '') or ''} {getattr(persona, 'nombre', '') or ''}".strip() or '—'
+        cuil = _formatear_cuit(getattr(persona, 'cuit', None))
+        dom = (getattr(persona, 'domicilio', None) or '—')[:100]
+        ciudad = getattr(persona, 'localidad', None) or '—'
+        prov = getattr(persona, 'provincia', None) or 'Buenos Aires'
+        prov_texto = prov if (prov or '').strip().lower().startswith('pcia') else f"Pcia de {prov or '—'}"
+        mail = (getattr(persona, 'email', None) or '').strip() or '—'
+        return f"el/la Sr/a {nom}, CUIL {cuil}, con domicilio real en {dom} de la ciudad de {ciudad}, {prov_texto}, Mail: {mail}"
+
+    partes_locatarios = []
+    for g in garantes_list[:2]:
+        partes_locatarios.append(_formatear_locatario(g))
+    if len(partes_locatarios) == 1:
+        # Segundo slot vacío como en el modelo del usuario
+        partes_locatarios.append(
+            "el/la Sr/a --, CUIL --, con domicilio real en Calle -- de la ciudad de --, Pcia de --, Mail: --"
+        )
+    if partes_locatarios:
+        locatarios_texto = " y ".join(partes_locatarios)
+    elif locatario_persona:
+        locatarios_texto = _formatear_locatario(locatario_persona) + " y el/la Sr/a --, CUIL --, con domicilio real en Calle -- de la ciudad de --, Pcia de --, Mail: --"
     else:
         locatarios_texto = "—"
 
@@ -13012,6 +13030,7 @@ def ver_contrato_estudiante(request, contrato_id):
         estudiantes.append({
             'nombre': f"{getattr(inq, 'apellido', '') or ''} {getattr(inq, 'nombre', '') or ''}".strip() or '—',
             'dni': (getattr(inq, 'dni', None) or '').strip() or '—',
+            'mail': (getattr(inq, 'email', None) or '').strip() or '—',
             'carrera': (getattr(ci, 'carrera', None) or '').strip() or '—',
         })
     if not through_list and inquilinos_orden:
@@ -13019,6 +13038,7 @@ def ver_contrato_estudiante(request, contrato_id):
         estudiantes.append({
             'nombre': f"{getattr(inq, 'apellido', '') or ''} {getattr(inq, 'nombre', '') or ''}".strip() or '—',
             'dni': (getattr(inq, 'dni', None) or '').strip() or '—',
+            'mail': (getattr(inq, 'email', None) or '').strip() or '—',
             'carrera': (getattr(contrato, 'carrera', None) or '').strip() or '—',
         })
     # Filtrar solo estudiantes con datos reales (evitar "—" o "--")
@@ -13026,9 +13046,9 @@ def ver_contrato_estudiante(request, contrato_id):
         n, d = (e.get('nombre') or '').strip(), (e.get('dni') or '').strip()
         return n and n not in ('—', '--') and d and d not in ('—', '--')
     estudiantes_validos = [e for e in estudiantes if _es_estudiante_valido(e)]
-    # Texto para PRIMERA: OBJETO - solo los estudiantes cargados
+    # Texto para PRIMERA: OBJETO - solo los estudiantes cargados (con Mail y "carrera de")
     partes_est = [
-        f"de su hijo/a {e['nombre']}, DNI N° {e['dni']}, quien cursará estudios en {e['carrera'] or '—'} en esta ciudad"
+        f"de su hijo/a {e['nombre']}, DNI N° {e['dni']}, Mail: {e.get('mail') or '—'}, quien cursará estudios en la carrera de {e['carrera'] or '—'} en esta ciudad"
         for e in estudiantes_validos
     ]
     if len(partes_est) == 1:
@@ -13045,9 +13065,19 @@ def ver_contrato_estudiante(request, contrato_id):
     estudiante_2_nombre, estudiante_2_dni, estudiante_2_carrera = estudiantes[1]['nombre'], estudiantes[1]['dni'], estudiantes[1]['carrera']
     estudiante_3_nombre, estudiante_3_dni, estudiante_3_carrera = estudiantes[2]['nombre'], estudiantes[2]['dni'], estudiantes[2]['carrera']
 
-    # Inmueble
-    inmueble_direccion = (prop.direccion or '—').strip()
-    inmueble_ciudad = (getattr(prop, 'ubicacion', None) or 'Mar del Plata').strip()
+    # Inmueble: direccion + piso + departamento (ej: Corrientes 1854 Piso 4to, Dpto. "A", de la ciudad de Mar del Plata)
+    dir_base = (prop.direccion or '—').strip()
+    piso = (getattr(prop, 'piso', None) or '').strip()
+    depto = (getattr(prop, 'departamento', None) or '').strip()
+    ciudad = (getattr(prop, 'ubicacion', None) or 'Mar del Plata').strip()
+    partes_inm = [dir_base]
+    if piso:
+        partes_inm.append(f"Piso {piso}")
+    if depto:
+        partes_inm.append(f'Dpto. "{depto}"')
+    inmueble_direccion = " ".join(partes_inm)
+    inmueble_direccion_completa = f"{inmueble_direccion}, de la ciudad de {ciudad}"
+    inmueble_ciudad = ciudad
 
     # Plazo: "NUEVE (9) MESES"
     plazo_meses_texto = "NUEVE (9) MESES"
@@ -13145,6 +13175,7 @@ def ver_contrato_estudiante(request, contrato_id):
         'locador_ciudad': locador_ciudad,
         'locatarios_texto': locatarios_texto,
         'inmueble_direccion': inmueble_direccion,
+        'inmueble_direccion_completa': inmueble_direccion_completa,
         'inmueble_ciudad': inmueble_ciudad,
         'estudiantes_objeto_texto': estudiantes_objeto_texto,
         'estudiante_1_nombre': estudiante_1_nombre,
