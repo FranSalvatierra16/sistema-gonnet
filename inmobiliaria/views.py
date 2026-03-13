@@ -13032,33 +13032,47 @@ def ver_contrato_estudiante(request, contrato_id):
     meses_sin_indemnizacion_texto = "SEIS"
     anticipacion_sin_indemnizacion_texto = "TRES (3) MESES"
 
-    # Fiadores
+    # Fiadores: el primer garante es siempre el locatario; si no hay garantes, titular = locador y locatario
+    def _formatear_fiador(persona):
+        nom = f"{getattr(persona, 'apellido', '') or ''} {getattr(persona, 'nombre', '') or ''}".strip().upper() or '—'
+        dni_g = (getattr(persona, 'dni', None) or '').strip() or '—'
+        cuit_g = _formatear_cuit(getattr(persona, 'cuit', None))
+        mail_g = (getattr(persona, 'email', None) or '').strip() or '—'
+        dom_g = (getattr(persona, 'domicilio', None) or '—')[:80]
+        ciudad_g = getattr(persona, 'localidad', None) or '—'
+        prov_g = getattr(persona, 'provincia', None) or 'Pcia. De Buenos Aires'
+        return f"el/la Sr/a. {nom}, DNI N° {dni_g}, CUIT {cuit_g}, con MAIL: {mail_g}, con domicilio en {dom_g}, de la ciudad {ciudad_g}, {prov_g}"
+
     garantes_list = list(contrato.garantes.all())
-    if garantes_list:
-        partes_fiadores = []
+    tiene_garantes = bool(garantes_list) or bool(contrato.garante_apellido or contrato.garante_nombre)
+    partes_fiadores = []
+
+    if tiene_garantes:
+        # Con garantes: primer fiador = locatario, luego el resto de garantes
+        if inquilinos_orden:
+            partes_fiadores.append(_formatear_fiador(inquilinos_orden[0]))
+        locatario_ids = {inq.id for inq in inquilinos_orden} if inquilinos_orden else set()
         for g in garantes_list:
-            nom = f"{getattr(g, 'apellido', '') or ''} {getattr(g, 'nombre', '') or ''}".strip().upper() or '—'
-            dni_g = (getattr(g, 'dni', None) or '').strip() or '—'
-            cuit_g = _formatear_cuit(getattr(g, 'cuit', None))
-            mail_g = (getattr(g, 'email', None) or '').strip() or '—'
-            dom_g = (getattr(g, 'domicilio', None) or '—')[:80]
-            ciudad_g = getattr(g, 'localidad', None) or '—'
-            prov_g = getattr(g, 'provincia', None) or 'Pcia. De Buenos Aires'
-            partes_fiadores.append(
-                f"el/la Sr/a. {nom}, DNI N° {dni_g}, CUIT {cuit_g}, con MAIL: {mail_g}, con domicilio en {dom_g}, de la ciudad {ciudad_g}, {prov_g}"
-            )
-        fiadores_texto = ", y ".join(partes_fiadores)
+            if g.id in locatario_ids:
+                continue
+            partes_fiadores.append(_formatear_fiador(g))
+        if not partes_fiadores:
+            # Legacy: garante por campos de texto
+            nom = f"{contrato.garante_apellido or ''} {contrato.garante_nombre or ''}".strip().upper() or '—'
+            if nom != '—':
+                dni_g = contrato.garante_dni or '—'
+                cuit_g = _formatear_cuit(None)
+                mail_g = contrato.garante_email or '—'
+                dom_g = (contrato.garante_domicilio or '—')[:80]
+                partes_fiadores.append(f"el/la Sr/a. {nom}, DNI N° {dni_g}, CUIT {cuit_g}, con MAIL: {mail_g}, con domicilio en {dom_g}, de la ciudad —, —")
     else:
-        # Legacy: un solo garante por campos de texto
-        nom = f"{contrato.garante_apellido or ''} {contrato.garante_nombre or ''}".strip().upper() or '—'
-        if nom != '—':
-            dni_g = contrato.garante_dni or '—'
-            cuit_g = _formatear_cuit(None)
-            mail_g = contrato.garante_email or '—'
-            dom_g = (contrato.garante_domicilio or '—')[:80]
-            fiadores_texto = f"el/la Sr/a. {nom}, DNI N° {dni_g}, CUIT {cuit_g}, con MAIL: {mail_g}, con domicilio en {dom_g}, de la ciudad —, —"
-        else:
-            fiadores_texto = "—"
+        # Sin garantes: titular = locador y locatario
+        if propi:
+            partes_fiadores.append(_formatear_fiador(propi))
+        if inquilinos_orden:
+            partes_fiadores.append(_formatear_fiador(inquilinos_orden[0]))
+
+    fiadores_texto = ", y ".join(partes_fiadores) if partes_fiadores else "—"
 
     # Logo en base64 para el contrato (Néstor Oscar Gonnet Propiedades - REG. 1572)
     logo_base64 = None
