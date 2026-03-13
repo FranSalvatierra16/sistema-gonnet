@@ -12768,16 +12768,37 @@ def recibo_contrato_24(request, contrato_id):
         else:
             precio_mensual_contrato = format_currency(contrato.precio_mensual or 0)
 
-        # Lista de {inquilino, carrera} para el recibo: desde ContratoInquilino o legacy
+        # Locatario = primer garante; Garantes = todos (si 1 solo, esa persona responde como locatario y garante)
         through_list = list(contrato.contrato_inquilinos.select_related('inquilino').order_by('id'))
-        if through_list:
-            lista_inquilinos = [{'inquilino': ci.inquilino, 'carrera': ci.carrera or ''} for ci in through_list]
-        else:
-            lista_inquilinos = [{'inquilino': contrato.inquilino, 'carrera': contrato.carrera or ''}]
-
-        # Lista de garantes para el recibo: los garantes cargados en el contrato (sin forzar locatario primero)
-        lista_garantes_recibo = []
         garantes_db = list(contrato.garantes.all())
+        carrera_por_inquilino = {ci.inquilino_id: (ci.carrera or '') for ci in through_list} if through_list else {}
+
+        # lista_inquilinos = CLIENTE(S) = locatario = primer garante (fallback: inquilino si no hay garantes)
+        lista_inquilinos = []
+        if garantes_db:
+            prim = garantes_db[0]
+            carrera = carrera_por_inquilino.get(getattr(prim, 'id', None), '') or contrato.carrera or ''
+            lista_inquilinos = [{'inquilino': prim, 'carrera': carrera}]
+        elif contrato.garante_apellido or contrato.garante_nombre:
+            from types import SimpleNamespace
+            legacy_g = SimpleNamespace(
+                apellido=contrato.garante_apellido or '',
+                nombre=contrato.garante_nombre or '',
+                dni=contrato.garante_dni or '',
+                celular=getattr(contrato, 'garante_celular', None) or '',
+                domicilio=contrato.garante_domicilio or '',
+                localidad='', provincia='',
+                email=getattr(contrato, 'garante_email', None) or ''
+            )
+            lista_inquilinos = [{'inquilino': legacy_g, 'carrera': contrato.carrera or ''}]
+        else:
+            if through_list:
+                lista_inquilinos = [{'inquilino': ci.inquilino, 'carrera': ci.carrera or ''} for ci in through_list]
+            else:
+                lista_inquilinos = [{'inquilino': contrato.inquilino, 'carrera': contrato.carrera or ''}] if contrato.inquilino_id else []
+
+        # lista_garantes_recibo = todos los garantes (si 1 solo, responde como locatario y garante)
+        lista_garantes_recibo = []
         if garantes_db:
             lista_garantes_recibo = list(garantes_db)
         elif contrato.garante_apellido or contrato.garante_nombre:
