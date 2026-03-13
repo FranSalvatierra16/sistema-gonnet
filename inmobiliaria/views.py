@@ -12997,16 +12997,16 @@ def ver_contrato_estudiante(request, contrato_id):
     if not locatario_persona and inquilinos_orden:
         locatario_persona = inquilinos_orden[0]
 
-    # Locatarios: hasta 2 garantes con formato CUIL y Mail
+    # Locatarios: hasta 2 garantes con formato DNI y Mail
     def _formatear_locatario(persona):
         nom = f"{getattr(persona, 'apellido', '') or ''} {getattr(persona, 'nombre', '') or ''}".strip() or '—'
-        cuil = _formatear_cuit(getattr(persona, 'cuit', None))
+        dni = (getattr(persona, 'dni', None) or '').strip() or '—'
         dom = (getattr(persona, 'domicilio', None) or '—')[:100]
         ciudad = getattr(persona, 'localidad', None) or '—'
         prov = getattr(persona, 'provincia', None) or 'Buenos Aires'
         prov_texto = prov if (prov or '').strip().lower().startswith('pcia') else f"Pcia de {prov or '—'}"
         mail = (getattr(persona, 'email', None) or '').strip() or '—'
-        return f"el/la Sr/a {nom}, CUIL {cuil}, con domicilio real en {dom} de la ciudad de {ciudad}, {prov_texto}, Mail: {mail}"
+        return f"el/la Sr/a {nom}, DNI {dni}, con domicilio real en {dom} de la ciudad de {ciudad}, {prov_texto}, Mail: {mail}"
 
     partes_locatarios = []
     for g in garantes_list[:2]:
@@ -13014,12 +13014,12 @@ def ver_contrato_estudiante(request, contrato_id):
     if len(partes_locatarios) == 1:
         # Segundo slot vacío como en el modelo del usuario
         partes_locatarios.append(
-            "el/la Sr/a --, CUIL --, con domicilio real en Calle -- de la ciudad de --, Pcia de --, Mail: --"
+            "el/la Sr/a --, DNI --, con domicilio real en Calle -- de la ciudad de --, Pcia de --, Mail: --"
         )
     if partes_locatarios:
         locatarios_texto = " y ".join(partes_locatarios)
     elif locatario_persona:
-        locatarios_texto = _formatear_locatario(locatario_persona) + " y el/la Sr/a --, CUIL --, con domicilio real en Calle -- de la ciudad de --, Pcia de --, Mail: --"
+        locatarios_texto = _formatear_locatario(locatario_persona) + " y el/la Sr/a --, DNI --, con domicilio real en Calle -- de la ciudad de --, Pcia de --, Mail: --"
     else:
         locatarios_texto = "—"
 
