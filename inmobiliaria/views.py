@@ -12775,38 +12775,21 @@ def recibo_contrato_24(request, contrato_id):
         else:
             lista_inquilinos = [{'inquilino': contrato.inquilino, 'carrera': contrato.carrera or ''}]
 
-        # Lista de garantes para el recibo: primer garante = locatario; si no hay garantes, titulares = locador y locatario
-        garantes_db = list(contrato.garantes.all())
-        tiene_garantes = bool(garantes_db) or bool(contrato.garante_apellido or contrato.garante_nombre)
-        locatario_principal = lista_inquilinos[0]['inquilino'] if lista_inquilinos else contrato.inquilino
-        propi = contrato.propiedad.propietario if contrato.propiedad else None
-
+        # Lista de garantes para el recibo: los garantes cargados en el contrato (sin forzar locatario primero)
         lista_garantes_recibo = []
-        if tiene_garantes:
-            if locatario_principal:
-                lista_garantes_recibo.append(locatario_principal)
-            locatario_ids = {locatario_principal.id} if locatario_principal and hasattr(locatario_principal, 'id') else set()
-            for g in garantes_db:
-                if hasattr(g, 'id') and g.id in locatario_ids:
-                    continue
-                lista_garantes_recibo.append(g)
-            if not garantes_db and (contrato.garante_apellido or contrato.garante_nombre):
-                # Legacy: crear objeto similar a Persona para el template
-                from types import SimpleNamespace
-                lista_garantes_recibo.append(SimpleNamespace(
-                    apellido=contrato.garante_apellido or '',
-                    nombre=contrato.garante_nombre or '',
-                    dni=contrato.garante_dni or '',
-                    celular=getattr(contrato, 'garante_celular', None) or '',
-                    email=contrato.garante_email or '',
-                    domicilio=contrato.garante_domicilio or ''
-                ))
-        else:
-            # Sin garantes: titular = locador y locatario
-            if propi:
-                lista_garantes_recibo.append(propi)
-            if locatario_principal:
-                lista_garantes_recibo.append(locatario_principal)
+        garantes_db = list(contrato.garantes.all())
+        if garantes_db:
+            lista_garantes_recibo = list(garantes_db)
+        elif contrato.garante_apellido or contrato.garante_nombre:
+            from types import SimpleNamespace
+            lista_garantes_recibo = [SimpleNamespace(
+                apellido=contrato.garante_apellido or '',
+                nombre=contrato.garante_nombre or '',
+                dni=contrato.garante_dni or '',
+                celular=getattr(contrato, 'garante_celular', None) or '',
+                email=contrato.garante_email or '',
+                domicilio=contrato.garante_domicilio or ''
+            )]
 
         context = {
             'contrato': contrato,
@@ -13067,7 +13050,7 @@ def ver_contrato_estudiante(request, contrato_id):
     meses_sin_indemnizacion_texto = "SEIS"
     anticipacion_sin_indemnizacion_texto = "TRES (3) MESES"
 
-    # Fiadores: el primer garante es siempre el locatario; si no hay garantes, titular = locador y locatario
+    # Fiadores: los garantes cargados en el contrato (Bustamante Lovera, etc.); si no hay, legacy o locador y locatario
     def _formatear_fiador(persona):
         nom = f"{getattr(persona, 'apellido', '') or ''} {getattr(persona, 'nombre', '') or ''}".strip().upper() or '—'
         dni_g = (getattr(persona, 'dni', None) or '').strip() or '—'
@@ -13079,28 +13062,19 @@ def ver_contrato_estudiante(request, contrato_id):
         return f"el/la Sr/a. {nom}, DNI N° {dni_g}, CUIT {cuit_g}, con MAIL: {mail_g}, con domicilio en {dom_g}, de la ciudad {ciudad_g}, {prov_g}"
 
     garantes_list = list(contrato.garantes.all())
-    tiene_garantes = bool(garantes_list) or bool(contrato.garante_apellido or contrato.garante_nombre)
     partes_fiadores = []
-
-    if tiene_garantes:
-        # Con garantes: primer fiador = locatario, luego el resto de garantes
-        if inquilinos_orden:
-            partes_fiadores.append(_formatear_fiador(inquilinos_orden[0]))
-        locatario_ids = {inq.id for inq in inquilinos_orden} if inquilinos_orden else set()
+    if garantes_list:
         for g in garantes_list:
-            if g.id in locatario_ids:
-                continue
             partes_fiadores.append(_formatear_fiador(g))
-        if not partes_fiadores:
-            # Legacy: garante por campos de texto
-            nom = f"{contrato.garante_apellido or ''} {contrato.garante_nombre or ''}".strip().upper() or '—'
-            if nom != '—':
-                dni_g = contrato.garante_dni or '—'
-                cuit_g = _formatear_cuit(None)
-                mail_g = contrato.garante_email or '—'
-                dom_g = (contrato.garante_domicilio or '—')[:80]
-                partes_fiadores.append(f"el/la Sr/a. {nom}, DNI N° {dni_g}, CUIT {cuit_g}, con MAIL: {mail_g}, con domicilio en {dom_g}, de la ciudad —, —")
-    else:
+    elif contrato.garante_apellido or contrato.garante_nombre:
+        nom = f"{contrato.garante_apellido or ''} {contrato.garante_nombre or ''}".strip().upper() or '—'
+        if nom != '—':
+            dni_g = contrato.garante_dni or '—'
+            cuit_g = _formatear_cuit(None)
+            mail_g = contrato.garante_email or '—'
+            dom_g = (contrato.garante_domicilio or '—')[:80]
+            partes_fiadores.append(f"el/la Sr/a. {nom}, DNI N° {dni_g}, CUIT {cuit_g}, con MAIL: {mail_g}, con domicilio en {dom_g}, de la ciudad —, —")
+    if not partes_fiadores:
         # Sin garantes: titular = locador y locatario
         if propi:
             partes_fiadores.append(_formatear_fiador(propi))
