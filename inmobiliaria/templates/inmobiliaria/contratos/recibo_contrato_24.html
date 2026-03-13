@@ -130,29 +130,18 @@
             </div>
         </div>
 
-        {% if contrato.garantes.exists %}
+        {% if lista_garantes_recibo %}
         <div style="width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid; padding: 6px 8px;">
-            <h2 style="margin: 0 0 4px 0; color: green; font-size: 10px;">GARANTES:</h2>
-            {% for g in contrato.garantes.all %}
+            <h2 style="margin: 0 0 4px 0; color: green; font-size: 10px;">{% if lista_garantes_recibo|length > 1 %}GARANTES:{% else %}GARANTE:{% endif %}</h2>
+            {% for g in lista_garantes_recibo %}
             <div style="display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 8px; margin-bottom: 4px; padding-bottom: 4px; border-bottom: 1px dotted #ccc;">
-                <span><strong>Nombre:</strong> {{ g.apellido|default:"" }}, {{ g.nombre|default:"" }}</span>
+                <span><strong>Nombre:</strong> {{ g.apellido|default:"" }}{% if g.apellido and g.nombre %}, {% endif %}{{ g.nombre|default:"" }}</span>
                 {% if g.dni %}<span><strong>D.N.I.:</strong> {{ g.dni }}</span>{% endif %}
                 {% if g.celular %}<span><strong>Tel./Cel.:</strong> {{ g.celular }}</span>{% endif %}
                 {% if g.email %}<span><strong>E-mail:</strong> {{ g.email }}</span>{% endif %}
                 {% if g.domicilio %}<span><strong>Domicilio:</strong> {{ g.domicilio }}</span>{% endif %}
             </div>
             {% endfor %}
-        </div>
-        {% elif contrato.garante_nombre or contrato.garante_apellido or contrato.garante_dni or contrato.garante_celular or contrato.garante_email or contrato.garante_domicilio %}
-        <div style="width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid; padding: 6px 8px;">
-            <h2 style="margin: 0 0 4px 0; color: green; font-size: 10px;">GARANTE:</h2>
-            <div style="display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 8px;">
-                <span><strong>Nombre:</strong> {{ contrato.garante_apellido|default:"" }}{% if contrato.garante_apellido and contrato.garante_nombre %}, {% endif %}{{ contrato.garante_nombre|default:"" }}</span>
-                {% if contrato.garante_dni %}<span><strong>D.N.I.:</strong> {{ contrato.garante_dni }}</span>{% endif %}
-                {% if contrato.garante_celular %}<span><strong>Tel./Cel.:</strong> {{ contrato.garante_celular }}</span>{% endif %}
-                {% if contrato.garante_email %}<span><strong>E-mail:</strong> {{ contrato.garante_email }}</span>{% endif %}
-                {% if contrato.garante_domicilio %}<span><strong>Domicilio:</strong> {{ contrato.garante_domicilio }}</span>{% endif %}
-            </div>
         </div>
         {% endif %}
 

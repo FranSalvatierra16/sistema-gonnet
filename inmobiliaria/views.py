@@ -12774,9 +12774,44 @@ def recibo_contrato_24(request, contrato_id):
             lista_inquilinos = [{'inquilino': ci.inquilino, 'carrera': ci.carrera or ''} for ci in through_list]
         else:
             lista_inquilinos = [{'inquilino': contrato.inquilino, 'carrera': contrato.carrera or ''}]
+
+        # Lista de garantes para el recibo: primer garante = locatario; si no hay garantes, titulares = locador y locatario
+        garantes_db = list(contrato.garantes.all())
+        tiene_garantes = bool(garantes_db) or bool(contrato.garante_apellido or contrato.garante_nombre)
+        locatario_principal = lista_inquilinos[0]['inquilino'] if lista_inquilinos else contrato.inquilino
+        propi = contrato.propiedad.propietario if contrato.propiedad else None
+
+        lista_garantes_recibo = []
+        if tiene_garantes:
+            if locatario_principal:
+                lista_garantes_recibo.append(locatario_principal)
+            locatario_ids = {locatario_principal.id} if locatario_principal and hasattr(locatario_principal, 'id') else set()
+            for g in garantes_db:
+                if hasattr(g, 'id') and g.id in locatario_ids:
+                    continue
+                lista_garantes_recibo.append(g)
+            if not garantes_db and (contrato.garante_apellido or contrato.garante_nombre):
+                # Legacy: crear objeto similar a Persona para el template
+                from types import SimpleNamespace
+                lista_garantes_recibo.append(SimpleNamespace(
+                    apellido=contrato.garante_apellido or '',
+                    nombre=contrato.garante_nombre or '',
+                    dni=contrato.garante_dni or '',
+                    celular=getattr(contrato, 'garante_celular', None) or '',
+                    email=contrato.garante_email or '',
+                    domicilio=contrato.garante_domicilio or ''
+                ))
+        else:
+            # Sin garantes: titular = locador y locatario
+            if propi:
+                lista_garantes_recibo.append(propi)
+            if locatario_principal:
+                lista_garantes_recibo.append(locatario_principal)
+
         context = {
             'contrato': contrato,
             'lista_inquilinos': lista_inquilinos,
+            'lista_garantes_recibo': lista_garantes_recibo,
             'conceptos_contrato': conceptos_contrato,
             'alquiler_mensual': format_currency(alquiler_mensual),
             'deposito_garantia': format_currency(deposito_garantia),
