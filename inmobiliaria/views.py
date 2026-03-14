@@ -13069,7 +13069,7 @@ def ver_contrato_estudiante(request, contrato_id):
     dir_base = (prop.direccion or '—').strip()
     piso = (getattr(prop, 'piso', None) or '').strip()
     depto = (getattr(prop, 'departamento', None) or '').strip()
-    ciudad = (getattr(prop, 'ubicacion', None) or 'Mar del Plata').strip()
+    ciudad = 'Mar del Plata'  # En el contrato de estudiante siempre Mar del Plata
     partes_inm = [dir_base]
     if piso:
         partes_inm.append(f"Piso {piso}")
