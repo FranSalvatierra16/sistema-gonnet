@@ -13211,6 +13211,7 @@ def ver_contrato_estudiante(request, contrato_id):
         'precio_2do_cuatri_letras': precio_2do_letras,
         'precio_2do_cuatri_numero': precio_2do_numero,
         'meses_proporcionales': meses_proporcionales,
+        'dia_vencimiento_hasta': str(getattr(contrato, 'dia_vencimiento', 5)).zfill(2),
         'deposito_letras': deposito_letras,
         'deposito_numero': deposito_numero,
         'rescision_meses_texto': rescision_meses_texto,
