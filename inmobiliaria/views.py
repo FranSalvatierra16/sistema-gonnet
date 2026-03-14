@@ -12943,7 +12943,7 @@ def _numero_a_letras_es(n):
 def ver_contrato_estudiante(request, contrato_id):
     """Genera el documento CONTRATO DE LOCACIÓN PARA USO ESTUDIANTIL con el texto legal completo. Solo para contratos de 9 meses (invierno)."""
     contrato = get_object_or_404(
-        ContratoAlquiler.objects.select_related('propiedad', 'propiedad__propietario', 'inquilino').prefetch_related(
+        ContratoAlquiler.objects.select_related('propiedad', 'propiedad__propietario', 'inquilino', 'sucursal').prefetch_related(
             Prefetch('contrato_inquilinos', queryset=ContratoInquilino.objects.select_related('inquilino').order_by('id')),
             'garantes'
         ),
@@ -13162,9 +13162,12 @@ def ver_contrato_estudiante(request, contrato_id):
     except Exception:
         pass
 
+    sucursal_direccion = (getattr(contrato.sucursal, 'direccion', None) or 'calle Corrientes N° 1987').strip()
+
     context = {
         'contrato': contrato,
         'logo_base64': logo_base64,
+        'sucursal_direccion': sucursal_direccion,
         'url_volver': reverse('inmobiliaria:detalle_contrato', args=[contrato.id]),
         'fecha_celebracion_dia': fop.day,
         'fecha_celebracion_mes': MESES_ES[fop.month].capitalize(),
