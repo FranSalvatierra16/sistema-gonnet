@@ -13094,15 +13094,15 @@ def ver_contrato_estudiante(request, contrato_id):
         precio_2do = contrato.precio_mensual or Decimal('0')
     precio_1er_int = int(precio_1er)
     precio_2do_int = int(precio_2do)
-    precio_1er_letras = "PESOS " + _numero_a_letras_es(precio_1er_int)
-    precio_2do_letras = "PESOS " + _numero_a_letras_es(precio_2do_int)
+    precio_1er_letras = ("PESOS " + _numero_a_letras_es(precio_1er_int)).upper()
+    precio_2do_letras = ("PESOS " + _numero_a_letras_es(precio_2do_int)).upper()
     precio_1er_numero = f"$ {precio_1er_int:,.0f}".replace(',', '.') + ".-"
     precio_2do_numero = f"$ {precio_2do_int:,.0f}".replace(',', '.') + ".-"
 
     # Depósito
     deposito = contrato.deposito_garantia or Decimal('0')
     deposito_int = int(deposito)
-    deposito_letras = "PESOS " + _numero_a_letras_es(deposito_int)
+    deposito_letras = ("PESOS " + _numero_a_letras_es(deposito_int)).upper()
     deposito_numero = f"$ {deposito_int:,.0f}".replace(',', '.')
 
     # Meses proporcionales (ej. Marzo y Diciembre)
@@ -13162,12 +13162,15 @@ def ver_contrato_estudiante(request, contrato_id):
     except Exception:
         pass
 
-    sucursal_direccion = (getattr(contrato.sucursal, 'direccion', None) or 'calle Corrientes N° 1987').strip()
+    suc = contrato.sucursal
+    sucursal_direccion = (getattr(suc, 'direccion', None) or 'calle Corrientes N° 1987').strip()
+    sucursal_telefono = (getattr(suc, 'telefono', None) or '(0223) 595-4474 / 491-0600').strip()
 
     context = {
         'contrato': contrato,
         'logo_base64': logo_base64,
         'sucursal_direccion': sucursal_direccion,
+        'sucursal_telefono': sucursal_telefono,
         'url_volver': reverse('inmobiliaria:detalle_contrato', args=[contrato.id]),
         'fecha_celebracion_dia': fop.day,
         'fecha_celebracion_mes': MESES_ES[fop.month].capitalize(),
