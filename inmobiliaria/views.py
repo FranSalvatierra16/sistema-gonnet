@@ -13166,7 +13166,11 @@ def ver_contrato_estudiante(request, contrato_id):
 
     suc = contrato.sucursal
     sucursal_direccion = (getattr(suc, 'direccion', None) or 'calle Corrientes N° 1987').strip()
-    sucursal_telefono = (getattr(suc, 'telefono', None) or '(0223) 595-4474 / 491-0600').strip()
+    sucursal_nombre = (getattr(suc, 'nombre', None) or '').strip().upper()
+    if 'CORRIENTES' in sucursal_nombre:
+        sucursal_telefono = '(223) 5205046 - (223) 4372700'
+    else:
+        sucursal_telefono = (getattr(suc, 'telefono', None) or '(0223) 595-4474 / 491-0600').strip()
 
     context = {
         'contrato': contrato,
