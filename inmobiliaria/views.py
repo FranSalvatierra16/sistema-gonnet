@@ -10,6 +10,9 @@ from django.template.loader import render_to_string
 from django.contrib.auth import authenticate
 from django.db import models, transaction, IntegrityError
 import re
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Importar vistas de cuentas bancarias
 from .views_cuentas_bancarias import (
@@ -6106,9 +6109,7 @@ def login_view(request):
             password = form.cleaned_data.get('password')
             
             try:
-                vendedor = Vendedor.objects.get(username=username)
-# print(f"Usuario encontrado: {username}")
-# print(f"¿Usuario activo?: {vendedor.is_active}")
+                vendedor = Vendedor.objects.select_related('sucursal').get(username=username)
                 
                 if not vendedor.is_active:
                     messages.error(request, 'Tu cuenta no está activa. Contacta al administrador.')
@@ -6123,14 +6124,15 @@ def login_view(request):
                     return redirect('inmobiliaria:index')
                 else:
                     messages.error(request, 'Contraseña incorrecta.')
-# print("Contraseña incorrecta para el usuario:", username)
                 
             except Vendedor.DoesNotExist:
                 messages.error(request, f'El usuario {username} no existe.')
-# print(f"Usuario no encontrado: {username}")
+            except Exception as e:
+                logger.exception('Error 500 en login para usuario %s: %s', username, e)
+                messages.error(request, 'Error al iniciar sesión. Si el problema continúa, contacta al administrador.')
+                return render(request, 'inmobiliaria/autenticacion/login.html', {'form': form})
         else:
             messages.error(request, 'Por favor, corrige los errores del formulario.')
-# print("Errores del formulario:", form.errors)
     else:
         form = LoginForm()
     
