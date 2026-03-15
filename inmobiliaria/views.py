@@ -12938,6 +12938,16 @@ def _numero_a_letras_es(n):
         if r == 0:
             return mile
         return mile + " " + _numero_a_letras_es(r).lower()
+    # Millones (1.000.000 en adelante)
+    if n < 1000000000:
+        mill, r = divmod(n, 1000000)
+        if mill == 1:
+            mill_str = "UN MILLÓN"
+        else:
+            mill_str = _numero_a_letras_es(mill).lower() + " MILLONES"
+        if r == 0:
+            return mill_str
+        return mill_str + " " + _numero_a_letras_es(r).lower()
     return str(n)
 
 
