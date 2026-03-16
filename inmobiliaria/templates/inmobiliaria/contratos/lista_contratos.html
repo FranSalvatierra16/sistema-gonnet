@@ -2,9 +2,45 @@
 {% load static %}
 {% load custom_filters %}
 
+{% block extra_css %}
+<style>
+    /* Tabla contratos: que entre en el ancho de pantalla sin deslizar */
+    .tabla-contratos-wrapper { overflow-x: auto; max-width: 100%; }
+    .tabla-contratos-wrapper .table {
+        font-size: 0.8rem;
+        margin-bottom: 0;
+        table-layout: fixed;
+        width: 100%;
+        min-width: 0;
+    }
+    .tabla-contratos-wrapper .table th,
+    .tabla-contratos-wrapper .table td {
+        padding: 0.4rem 0.35rem;
+        vertical-align: middle;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .tabla-contratos-wrapper .table th:nth-child(1) { width: 3%; }   /* ID */
+    .tabla-contratos-wrapper .table th:nth-child(2) { width: 11%; }  /* Propiedad */
+    .tabla-contratos-wrapper .table th:nth-child(3) { width: 12%; }  /* Inquilino */
+    .tabla-contratos-wrapper .table th:nth-child(4) { width: 6%; }   /* Duración */
+    .tabla-contratos-wrapper .table th:nth-child(5) { width: 8%; }   /* Precio */
+    .tabla-contratos-wrapper .table th:nth-child(6) { width: 7%; }   /* Inicio */
+    .tabla-contratos-wrapper .table th:nth-child(7) { width: 12%; }  /* Próx. cuota */
+    .tabla-contratos-wrapper .table th:nth-child(8) { width: 7%; }   /* Depósito */
+    .tabla-contratos-wrapper .table th:nth-child(9) { width: 7%; }   /* Honorarios */
+    .tabla-contratos-wrapper .table th:nth-child(10) { width: 6%; }  /* Sellados */
+    .tabla-contratos-wrapper .table th:nth-child(11) { width: 6%; }  /* Estado */
+    .tabla-contratos-wrapper .table th:nth-child(12) { width: 13%; } /* Acciones */
+    .tabla-contratos-wrapper .table td div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+    .tabla-contratos-wrapper .table .btn-group .btn { padding: 0.2rem 0.35rem; font-size: 0.75rem; }
+    .tabla-contratos-wrapper .table .badge { font-size: 0.7rem; }
+</style>
+{% endblock %}
+
 {% block content %}
 {% csrf_token %}
-<div class="container-fluid mt-4 fade-in-up">
+<div class="container-fluid mt-4 fade-in-up overflow-x-hidden">
     <!-- Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1 class="text-gradient">
@@ -116,20 +152,20 @@
         </div>
         <div class="card-body">
             {% if contratos %}
-                <div class="table-responsive">
-                    <table class="table table-hover">
+                <div class="tabla-contratos-wrapper table-responsive">
+                    <table class="table table-hover tabla-contratos">
                         <thead class="table-dark">
                             <tr>
-                                <th>ID</th>
+                                <th>#</th>
                                 <th>Propiedad</th>
                                 <th>Inquilino</th>
                                 <th>Duración</th>
-                                <th>Precio Mensual</th>
+                                <th>Mensual</th>
                                 <th>Inicio</th>
-                                <th>Próxima Cuota</th>
-                                <th>Depósito</th>
-                                <th>Honorarios</th>
-                                <th>Sellados</th>
+                                <th>Cuota</th>
+                                <th>Dep.</th>
+                                <th>Hon.</th>
+                                <th>Sell.</th>
                                 <th>Estado</th>
                                 <th>Acciones</th>
                             </tr>

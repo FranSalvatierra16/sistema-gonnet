@@ -76,6 +76,7 @@ class SessionTimeoutMiddleware:
         # Lista de URLs que no requieren autenticación
         public_urls = [
             '/login/',
+            '/sucursal/',  # /sucursal/<id>/login/ — login por sucursal
             '/recuperar-password/',  # URL correcta para recuperación de contraseña
             '/admin/login/',
             '/admin/password_reset/',
