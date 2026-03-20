@@ -15175,9 +15175,6 @@ def obtener_operaciones_pendientes(request, propiedad_id):
         Q(a_descontar__isnull=True) |
         Q(a_descontar='')
     ).exclude(
-        # No volver a ofrecer egresos que ya quedaron asociados a una liquidación
-        liquidaciones__isnull=False
-    ).exclude(
         # Evitar reciclar pagos al propietario como "gasto pendiente"
         concepto__icontains='Liquidación Propietario'
     ).order_by('-fecha')
@@ -15197,7 +15194,17 @@ def obtener_operaciones_pendientes(request, propiedad_id):
     
     # Agregar egresos de caja como gastos pendientes
     # Incluir todos los egresos relacionados con la propiedad
+    # IDs de movimientos ya usados en liquidaciones (compatibilidad amplia)
+    movimientos_ya_liquidados = set(
+        LiquidacionPropietario.objects.filter(
+            propiedad=propiedad,
+            movimiento_caja__isnull=False
+        ).values_list('movimiento_caja_id', flat=True)
+    )
+
     for egreso in egresos_propiedad:
+        if egreso.id in movimientos_ya_liquidados:
+            continue
         # Verificar si ya existe un GastoPropietario para este movimiento
         # Buscamos por observaciones que contengan el ID del movimiento
         existe_gasto = GastoPropietario.objects.filter(
