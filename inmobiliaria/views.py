@@ -174,6 +174,64 @@ def resumen_comisiones_mensual(request, vendedor_id, año=None, mes=None):
     
     return render(request, 'inmobiliaria/comisiones/resumen_mensual.html', context)
 
+@login_required
+def dashboard_comisiones(request):
+    """
+    Panel de comisiones por vendedor, incluyendo posibles omisiones.
+    Solo accesible para administradores (nivel 4).
+    """
+    if request.user.nivel != 4:
+        messages.error(request, 'No tienes permisos para acceder a esta sección.')
+        return redirect('inmobiliaria:dashboard')
+
+    vendedores = Vendedor.objects.filter(
+        sucursal=request.user.sucursal,
+        is_active=True
+    ).order_by('apellido', 'nombre')
+
+    vendedores_data = []
+    for vendedor in vendedores:
+        total_comisiones = ComisionVendedor.objects.filter(
+            vendedor=vendedor
+        ).exclude(estado='cancelada').aggregate(
+            total=models.Sum('monto_comision')
+        )['total'] or Decimal('0')
+
+        comisiones_pendientes = ComisionVendedor.objects.filter(
+            vendedor=vendedor,
+            estado='pendiente'
+        ).count()
+
+        total_vales = ValeVendedor.objects.filter(
+            vendedor=vendedor
+        ).aggregate(total=models.Sum('monto'))['total'] or Decimal('0')
+
+        # Omisiones: reservas pagadas del vendedor sin comisión registrada
+        omisiones = Reserva.objects.filter(
+            vendedor=vendedor,
+            sucursal=request.user.sucursal,
+            estado='pagada',
+            eliminada=False
+        ).exclude(
+            comisiones_vendedor__vendedor=vendedor
+        ).distinct().count()
+
+        vendedores_data.append({
+            'vendedor': vendedor,
+            'total_comisiones': total_comisiones,
+            'comisiones_pendientes': comisiones_pendientes,
+            'total_vales': total_vales,
+            'neto': total_comisiones - total_vales,
+            'omisiones': omisiones,
+        })
+
+    vendedores_data.sort(key=lambda x: (x['omisiones'], x['comisiones_pendientes']), reverse=True)
+
+    context = {
+        'vendedores_data': vendedores_data,
+    }
+    return render(request, 'inmobiliaria/comisiones/dashboard.html', context)
+
 # ✅ VISTAS PARA VALES DE VENDEDORES
 
 @login_required
