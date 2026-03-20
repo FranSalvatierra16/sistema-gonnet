@@ -8268,46 +8268,19 @@ def detalle_caja(request, numero):
     movimientos = list(movimientos_qs)
 
     def _resumir_concepto_crudo(concepto):
-        """Convierte conceptos largos/JSON en texto legible para la grilla."""
+        """Muestra solo el tipo de movimiento (sin conceptos)."""
         texto = (concepto or '').strip()
         if not texto:
             return '-'
 
-        # Caso 1: Formato legacy con conceptos estructurados
-        if '|CONCEPTOS:' in texto:
-            base, conceptos_str = texto.split('|CONCEPTOS:', 1)
-            etiquetas = []
-            for item in [x for x in conceptos_str.split('|') if x.strip()]:
-                partes = item.split(':')
-                if len(partes) >= 3:
-                    nombre = partes[1].strip()
-                    importe = partes[2].strip()
-                    etiquetas.append(f'{nombre}: ${importe}')
-            if etiquetas:
-                return f"{base.strip()} | " + " | ".join(etiquetas[:3])
-            return base.strip()
-
-        # Caso 2: JSON embebido después del guion (ej: Contrato #202 - [{...}])
-        if ' - [' in texto and texto.rstrip().endswith(']'):
-            try:
-                import json
-                base, json_part = texto.split(' - ', 1)
-                arr = json.loads(json_part)
-                if isinstance(arr, list):
-                    etiquetas = []
-                    for obj in arr[:3]:
-                        if isinstance(obj, dict):
-                            nombre = obj.get('nombre') or obj.get('concepto') or 'Concepto'
-                            importe = obj.get('importe') or obj.get('monto') or '0'
-                            etiquetas.append(f"{nombre}: ${importe}")
-                    if etiquetas:
-                        return f"{base.strip()} | " + " | ".join(etiquetas)
-            except Exception:
-                pass
-
-        # Fallback: compactar espacios y truncar
-        texto_limpio = ' '.join(texto.split())
-        return texto_limpio if len(texto_limpio) <= 120 else f"{texto_limpio[:117]}..."
+        t = texto.lower()
+        if t.startswith('operación') or t.startswith('operacion'):
+            return 'Operación'
+        if t.startswith('contrato'):
+            return 'Contrato'
+        if t.startswith('reserva'):
+            return 'Reserva'
+        return 'Movimiento'
 
     for mov in movimientos:
         mov.concepto_resumen = _resumir_concepto_crudo(getattr(mov, 'concepto', ''))
