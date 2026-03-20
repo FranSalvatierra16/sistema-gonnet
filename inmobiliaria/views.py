@@ -8474,15 +8474,21 @@ def nuevo_movimiento(request, numero_caja=None):
                 concepto_valor = concepto_valor[:197] + "..."
             
             # Obtener y validar tipo (debe ser 'IN' o 'EG')
-            tipo_raw = request.POST.get('tipo', 'IN')
-            if tipo_raw in ['IN', 'EG']:
-                tipo = tipo_raw
-            elif 'Ingreso' in tipo_raw or tipo_raw.startswith('I'):
+            tipo_raw = (request.POST.get('tipo', 'IN') or '').strip()
+            tipo_raw_upper = tipo_raw.upper()
+            tipo_raw_lower = tipo_raw.lower()
+            if tipo_raw_upper in ['IN', 'EG']:
+                tipo = tipo_raw_upper
+            elif tipo_raw_lower in ['ingreso', 'in']:
                 tipo = 'IN'
-            elif 'Egreso' in tipo_raw or tipo_raw.startswith('E'):
+            elif tipo_raw_lower in ['egreso', 'eg']:
+                tipo = 'EG'
+            elif 'ingreso' in tipo_raw_lower:
+                tipo = 'IN'
+            elif 'egreso' in tipo_raw_lower:
                 tipo = 'EG'
             else:
-                tipo = 'IN'  # Default
+                tipo = 'IN'  # Default seguro
             
             # Obtener y validar tipo_comprobante (debe ser código de 2 caracteres)
             tipo_comprobante_raw = request.POST.get('tipo_comprobante', 'RC')
