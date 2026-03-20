@@ -299,6 +299,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     <tr>
                         <td>
                             <input type="checkbox" class="form-check-input gasto-checkbox" 
+                                   name="gastos_seleccionados[]"
+                                   value="${gasto.id}"
                                    data-gasto-id="${gasto.id}"
                                    data-monto="${gasto.monto}"
                                    onchange="calcularMontosSeleccionados()">
@@ -443,18 +445,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Función para preparar el formulario antes de enviarlo
     window.prepararFormulario = function() {
-        const form = document.getElementById('formCrearLiquidacion');
-        
-        // Agregar gastos seleccionados como campos ocultos
-        const gastosSeleccionados = document.querySelectorAll('.gasto-checkbox:checked');
-        gastosSeleccionados.forEach(cb => {
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = 'gastos_seleccionados[]';
-            input.value = cb.getAttribute('data-gasto-id');
-            form.appendChild(input);
-        });
-        
+        // Los gastos ya viajan directo por name="gastos_seleccionados[]"
         return true;
     };
 });
