@@ -15152,15 +15152,18 @@ def obtener_operaciones_pendientes(request, propiedad_id):
         propiedad=propiedad
     ).values_list('observaciones', flat=True)
     
-    # Buscar movimientos de caja (egresos) relacionados con la propiedad
-    # Solo incluir gastos descontables al propietario (a_descontar='propietario')
-    # y compatibilidad con registros viejos sin a_descontar cargado.
+    # Buscar movimientos de caja (egresos) relacionados con la propiedad.
+    # Incluir:
+    # - propietario (descuento directo),
+    # - oficina (muchos registros históricos se cargaron así),
+    # - vacíos/NULL (legacy).
     egresos_propiedad = MovimientoCaja.objects.filter(
         propiedad=propiedad,
         tipo=TipoMovimientoCajaEnum.EGRESO,
         sucursal=request.user.sucursal
     ).filter(
         Q(a_descontar='propietario') |
+        Q(a_descontar='oficina') |
         Q(a_descontar__isnull=True) |
         Q(a_descontar='')
     ).order_by('-fecha')
