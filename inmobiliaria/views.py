@@ -14864,16 +14864,48 @@ def crear_liquidacion(request, reserva_id=None):
             # Calcular monto de inmobiliaria
             monto_inmobiliaria = monto_total - monto_propietario
 
+            # Operaciones marcadas en el formulario (reserva:ID / contrato:ID)
+            operaciones_incluidas = []
+            for item in request.POST.getlist('operaciones_seleccionadas[]'):
+                item = (item or '').strip()
+                if ':' not in item:
+                    continue
+                tipo, sid = item.split(':', 1)
+                tipo = tipo.strip().lower()
+                try:
+                    pk = int(sid.strip())
+                except ValueError:
+                    continue
+                if tipo in ('reserva', 'contrato'):
+                    operaciones_incluidas.append({'tipo': tipo, 'id': pk})
+
+            # Compatibilidad: si solo hay una reserva en el POST y no venimos por URL, asignar FK reserva
+            if reserva is None:
+                ids_res = [o['id'] for o in operaciones_incluidas if o['tipo'] == 'reserva']
+                if len(ids_res) == 1:
+                    reserva = Reserva.objects.filter(
+                        id=ids_res[0], propiedad=propiedad, sucursal=request.user.sucursal
+                    ).first()
+            contrato_fk = None
+            if reserva is None:
+                ids_ct = [o['id'] for o in operaciones_incluidas if o['tipo'] == 'contrato']
+                if len(ids_ct) == 1:
+                    contrato_fk = ContratoAlquiler.objects.filter(
+                        id=ids_ct[0], propiedad=propiedad, sucursal=request.user.sucursal
+                    ).first()
+
             liquidacion = LiquidacionPropietario.objects.create(
                 propietario=propiedad.propietario,
                 propiedad=propiedad,
                 reserva=reserva,
+                contrato=contrato_fk,
                 monto_total_operacion=monto_total,
                 monto_propietario=monto_propietario,
                 monto_inmobiliaria=monto_inmobiliaria,
                 fecha_desde=datetime.strptime(fecha_desde, '%Y-%m-%d').date() if fecha_desde else None,
                 fecha_hasta=datetime.strptime(fecha_hasta, '%Y-%m-%d').date() if fecha_hasta else None,
                 observaciones=observaciones,
+                operaciones_incluidas=operaciones_incluidas,
                 sucursal=request.user.sucursal,
                 usuario_creacion=request.user
             )
@@ -14958,36 +14990,46 @@ def obtener_operaciones_pendientes(request, propiedad_id):
     """
     propiedad = get_object_or_404(Propiedad, id=propiedad_id, sucursal=request.user.sucursal)
     
-    # Obtener reservas pagadas sin liquidación procesada
-    # Excluir solo las que tienen liquidaciones procesadas (no las pendientes, para poder crear nuevas)
-    reservas_con_liquidacion_procesada = LiquidacionPropietario.objects.filter(
+    # Reservas/contratos ya cubiertos por liquidación pendiente o procesada
+    # (FK directa o lista operaciones_incluidas del formulario masivo)
+    reservas_excluidas = set()
+    contratos_excluidos = set()
+    for liq in LiquidacionPropietario.objects.filter(
         propiedad=propiedad,
-        estado='procesada',
-        reserva__isnull=False
-    ).values_list('reserva_id', flat=True)
-    
+        estado__in=['pendiente', 'procesada'],
+    ).only('reserva_id', 'contrato_id', 'operaciones_incluidas'):
+        if liq.reserva_id:
+            reservas_excluidas.add(liq.reserva_id)
+        if liq.contrato_id:
+            contratos_excluidos.add(liq.contrato_id)
+        for op in liq.operaciones_incluidas or []:
+            if not isinstance(op, dict):
+                continue
+            t = (op.get('tipo') or '').lower()
+            try:
+                oid = int(op.get('id'))
+            except (TypeError, ValueError):
+                continue
+            if t == 'reserva':
+                reservas_excluidas.add(oid)
+            elif t == 'contrato':
+                contratos_excluidos.add(oid)
+
     reservas_pendientes = Reserva.objects.filter(
         propiedad=propiedad,
         estado__in=['pagada', 'confirmada_no_pagada'],
         eliminada=False,
         sucursal=request.user.sucursal
     ).exclude(
-        id__in=reservas_con_liquidacion_procesada
+        id__in=reservas_excluidas
     ).select_related('cliente').order_by('-fecha_inicio')
-    
-    # Obtener contratos con cuotas pagadas sin liquidación procesada
-    contratos_con_liquidacion_procesada = LiquidacionPropietario.objects.filter(
-        propiedad=propiedad,
-        estado='procesada',
-        contrato__isnull=False
-    ).values_list('contrato_id', flat=True)
     
     contratos_pendientes = ContratoAlquiler.objects.filter(
         propiedad=propiedad,
         estado='activo',
         sucursal=request.user.sucursal
     ).exclude(
-        id__in=contratos_con_liquidacion_procesada
+        id__in=contratos_excluidos
     ).prefetch_related('cuotas').select_related('inquilino')
     
     operaciones = []

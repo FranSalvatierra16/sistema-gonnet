@@ -124,6 +124,13 @@ class LiquidacionPropietario(models.Model):
         blank=True,
         verbose_name="Observaciones"
     )
+    # Reservas/contratos incluidos cuando la liquidación agrupa varias filas (formulario /liquidaciones/crear/)
+    operaciones_incluidas = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name="Operaciones incluidas",
+        help_text='Lista de {"tipo": "reserva"|"contrato", "id": <pk>} para excluir del listado de pendientes',
+    )
     sucursal = models.ForeignKey(
         'Sucursal',
         on_delete=models.CASCADE,

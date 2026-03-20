@@ -449,7 +449,23 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Función para preparar el formulario antes de enviarlo
     window.prepararFormulario = function() {
-        // Los gastos ya viajan directo por name="gastos_seleccionados[]"
+        const form = document.getElementById('formCrearLiquidacion');
+        if (form) {
+            form.querySelectorAll('input.dynamic-operacion-seleccionada').forEach(function(el) {
+                el.remove();
+            });
+            document.querySelectorAll('.operacion-checkbox:checked').forEach(function(cb) {
+                const tipo = cb.getAttribute('data-tipo');
+                const id = cb.getAttribute('data-id');
+                if (!tipo || !id) return;
+                const inp = document.createElement('input');
+                inp.type = 'hidden';
+                inp.name = 'operaciones_seleccionadas[]';
+                inp.className = 'dynamic-operacion-seleccionada';
+                inp.value = tipo + ':' + id;
+                form.appendChild(inp);
+            });
+        }
         return true;
     };
 });
