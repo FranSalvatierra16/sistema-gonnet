@@ -6,6 +6,19 @@ from .propiedad import Reserva
 from .caja import MovimientoCaja
 
 
+class ComisionVendedorQuerySet(models.QuerySet):
+    """
+    Comisiones que deben sumar en totales: no anuladas y cuya reserva sigue vigente.
+    """
+
+    def que_suman(self):
+        return (
+            self.exclude(estado='cancelada')
+            .exclude(reserva__estado='cancelada')
+            .exclude(reserva__eliminada=True)
+        )
+
+
 class ComisionVendedor(models.Model):
     """
     Modelo para registrar las comisiones ganadas por los vendedores en cada operación
@@ -82,6 +95,8 @@ class ComisionVendedor(models.Model):
         verbose_name="Observaciones"
     )
     
+    objects = ComisionVendedorQuerySet.as_manager()
+
     class Meta:
         verbose_name = "Comisión de Vendedor"
         verbose_name_plural = "Comisiones de Vendedores"
@@ -105,6 +120,9 @@ class ComisionVendedor(models.Model):
         """
         pct = vendedor.porcentaje_comision_efectivo()
         if pct is None or pct <= 0:
+            return None
+
+        if getattr(reserva, 'eliminada', False) or getattr(reserva, 'estado', None) == 'cancelada':
             return None
 
         # Verificar si ya existe una comisión para esta operación
@@ -131,13 +149,15 @@ class ComisionVendedor(models.Model):
     
     def get_monto_comision_mensual(self, año, mes):
         """
-        Obtiene el monto de comisión para un mes específico
+        Obtiene el monto de comisión para un mes específico (no suma anuladas / reservas canceladas).
         """
-        return ComisionVendedor.objects.filter(
-            vendedor=self.vendedor,
-            fecha_operacion__year=año,
-            fecha_operacion__month=mes,
-            estado__in=['confirmada', 'pagada']
-        ).aggregate(
-            total=models.Sum('monto_comision')
-        )['total'] or Decimal('0')
+        return (
+            ComisionVendedor.objects.filter(
+                vendedor=self.vendedor,
+                fecha_operacion__year=año,
+                fecha_operacion__month=mes,
+            )
+            .que_suman()
+            .aggregate(total=models.Sum('monto_comision'))['total']
+            or Decimal('0')
+        )

@@ -716,6 +716,10 @@ class Reserva(models.Model):
             # 1️⃣ Marcar reserva como cancelada
             self.estado = 'cancelada'
             self.save()
+
+            # Anular comisiones de esta operación (no deben sumar en totales)
+            from .comision import ComisionVendedor
+            ComisionVendedor.objects.filter(reserva_id=self.pk).update(estado='cancelada')
             
             # 2️⃣ Buscar disponibilidades adyacentes para posible fusión
             disponibilidades_adyacentes = Disponibilidad.objects.filter(

@@ -39,7 +39,11 @@ def historial_comisiones_vendedor(request, vendedor_id):
     vendedor = get_object_or_404(
         Vendedor, id=vendedor_id, sucursal=request.user.sucursal
     )
-    comisiones = ComisionVendedor.objects.filter(vendedor=vendedor).order_by('-fecha_operacion')
+    comisiones = (
+        ComisionVendedor.objects.filter(vendedor=vendedor)
+        .que_suman()
+        .order_by('-fecha_operacion')
+    )
     vales = ValeVendedor.objects.filter(vendedor=vendedor).order_by('-fecha')
     
     # Calcular totales
@@ -160,15 +164,19 @@ def resumen_comisiones_mensual(request, vendedor_id, año=None, mes=None):
     vendedor = get_object_or_404(
         Vendedor, id=vendedor_id, sucursal=request.user.sucursal
     )
-    comisiones_mes = ComisionVendedor.objects.filter(
-        vendedor=vendedor,
-        fecha_operacion__year=año,
-        fecha_operacion__month=mes
-    ).order_by('-fecha_operacion')
-    
-    total_mes = comisiones_mes.aggregate(
-        total=models.Sum('monto_comision')
-    )['total'] or Decimal('0')
+    comisiones_mes = (
+        ComisionVendedor.objects.filter(
+            vendedor=vendedor,
+            fecha_operacion__year=año,
+            fecha_operacion__month=mes,
+        )
+        .que_suman()
+        .order_by('-fecha_operacion')
+    )
+
+    total_mes = comisiones_mes.aggregate(total=models.Sum('monto_comision'))[
+        'total'
+    ] or Decimal('0')
     
     context = {
         'comisiones': comisiones_mes,
@@ -198,11 +206,12 @@ def dashboard_comisiones(request):
 
     vendedores_data = []
     for vendedor in vendedores:
-        total_comisiones = ComisionVendedor.objects.filter(
-            vendedor=vendedor
-        ).exclude(estado='cancelada').aggregate(
-            total=models.Sum('monto_comision')
-        )['total'] or Decimal('0')
+        total_comisiones = (
+            ComisionVendedor.objects.filter(vendedor=vendedor)
+            .que_suman()
+            .aggregate(total=models.Sum('monto_comision'))['total']
+            or Decimal('0')
+        )
 
         comisiones_pendientes = ComisionVendedor.objects.filter(
             vendedor=vendedor,
