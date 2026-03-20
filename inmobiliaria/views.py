@@ -15174,6 +15174,12 @@ def obtener_operaciones_pendientes(request, propiedad_id):
         Q(a_descontar='oficina') |
         Q(a_descontar__isnull=True) |
         Q(a_descontar='')
+    ).exclude(
+        # No volver a ofrecer egresos que ya quedaron asociados a una liquidación
+        liquidaciones__isnull=False
+    ).exclude(
+        # Evitar reciclar pagos al propietario como "gasto pendiente"
+        concepto__icontains='Liquidación Propietario'
     ).order_by('-fecha')
     
     gastos_pendientes_list = []
