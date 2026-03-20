@@ -338,9 +338,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Función para formatear número con puntos
+    // Formato consistente: 12.345,67
     function formatearNumero(numero) {
-        return numero.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        return new Intl.NumberFormat('es-AR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(Number(numero) || 0);
     }
     
     // Función para calcular montos de las operaciones seleccionadas (global)
@@ -390,13 +393,15 @@ document.addEventListener('DOMContentLoaded', function() {
         // Actualizar montos automáticamente
         if (totalMonto > 0) {
             montoTotal.value = formatearNumero(totalMonto.toFixed(2));
-            
-            // Monto propietario menos gastos
-            const montoPropietarioFinal = totalMontoPropietario - totalGastos;
-            montoPropietario.value = formatearNumero(Math.max(0, montoPropietarioFinal).toFixed(2));
-            
+
+            // IMPORTANTE:
+            // - Monto Propietario = bruto de operaciones (sin descontar gastos)
+            // - Monto Inmobiliaria = bruto de operaciones
+            // - Monto Final a Pagar = propietario bruto - gastos seleccionados
+            montoPropietario.value = formatearNumero(totalMontoPropietario.toFixed(2));
             montoInmobiliaria.value = formatearNumero(totalMontoInmobiliaria.toFixed(2));
-            
+
+            const montoPropietarioFinal = totalMontoPropietario - totalGastos;
             // Actualizar monto final a pagar
             const montoFinalPagar = document.getElementById('monto-final-pagar');
             if (montoFinalPagar) {
@@ -414,6 +419,10 @@ document.addEventListener('DOMContentLoaded', function() {
             montoTotal.value = '';
             montoPropietario.value = '';
             montoInmobiliaria.value = '';
+            const montoFinalPagar = document.getElementById('monto-final-pagar');
+            if (montoFinalPagar) {
+                montoFinalPagar.textContent = '0,00';
+            }
         }
     };
 
