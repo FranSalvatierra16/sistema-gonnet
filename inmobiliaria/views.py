@@ -11243,11 +11243,37 @@ def pagar_cuota(request, cuota_id):
 @require_POST
 def cancelar_contrato(request, contrato_id):
     try:
-        contrato = get_object_or_404(ContratoAlquiler, id=contrato_id)
+        contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
         motivo = request.POST.get('motivo', '')
+        devolver_deposito = request.POST.get('devolver_deposito') in ('1', 'true', 'on', 'yes')
         
         if not motivo:
             return JsonResponse({'error': 'El motivo de cancelación es requerido'}, status=400)
+
+        if devolver_deposito:
+            deposito = Decimal(str(contrato.deposito_garantia or 0))
+            if deposito <= 0:
+                return JsonResponse({'error': 'Este contrato no tiene depósito para devolver'}, status=400)
+
+            deposito_estado = determinar_estado_concepto_contrato(contrato, '10')
+            if deposito_estado != 'pagado':
+                return JsonResponse({'error': 'No se puede devolver el depósito porque no figura como cobrado'}, status=400)
+
+            caja = obtener_caja_abierta(request)
+            if not caja:
+                return JsonResponse({'error': 'No hay una caja abierta para registrar la devolución del depósito'}, status=400)
+
+            MovimientoCaja.objects.create(
+                caja=caja,
+                tipo=TipoMovimientoCajaEnum.EGRESO,
+                concepto=f'Devolución depósito contrato #{contrato.id} - {contrato.propiedad.direccion}',
+                monto_efectivo=deposito,
+                fecha=timezone.now(),
+                empleado=request.user,
+                sucursal=request.user.sucursal,
+                propiedad=contrato.propiedad,
+                a_descontar='oficina',
+            )
         
         # Cancelar el contrato directamente
         contrato.estado = 'rescindido'

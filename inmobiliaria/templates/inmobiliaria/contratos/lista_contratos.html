@@ -337,6 +337,12 @@
                         <label for="motivo_cancelacion" class="form-label">Motivo de la cancelación: <span class="text-danger">*</span></label>
                         <textarea class="form-control" id="motivo_cancelacion" name="motivo" rows="3" required></textarea>
                     </div>
+                    <div class="form-check mt-3">
+                        <input class="form-check-input" type="checkbox" id="devolver_deposito" name="devolver_deposito">
+                        <label class="form-check-label" for="devolver_deposito">
+                            Devolver depósito de garantía al inquilino
+                        </label>
+                    </div>
                 </div>
                 
                 <div class="modal-footer">
@@ -374,6 +380,7 @@ document.getElementById('formCancelarContrato').addEventListener('submit', funct
     
     const contratoId = document.getElementById('contrato_id_cancelar').value;
     const motivo = document.getElementById('motivo_cancelacion').value;
+    const devolverDeposito = document.getElementById('devolver_deposito').checked;
     
     if (!motivo.trim()) {
         alert('Por favor, ingresa el motivo de la cancelación');
@@ -382,6 +389,9 @@ document.getElementById('formCancelarContrato').addEventListener('submit', funct
     
     const formData = new FormData();
     formData.append('motivo', motivo);
+    if (devolverDeposito) {
+        formData.append('devolver_deposito', '1');
+    }
     
     fetch(`/contratos/${contratoId}/cancelar/`, {
         method: 'POST',
