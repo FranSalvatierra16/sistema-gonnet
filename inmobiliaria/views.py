@@ -15095,11 +15095,16 @@ def obtener_operaciones_pendientes(request, propiedad_id):
     ).values_list('observaciones', flat=True)
     
     # Buscar movimientos de caja (egresos) relacionados con la propiedad
-    # Incluir todos los egresos, no solo los de oficina, para que aparezcan como gastos
+    # Solo incluir gastos descontables al propietario (a_descontar='propietario')
+    # y compatibilidad con registros viejos sin a_descontar cargado.
     egresos_propiedad = MovimientoCaja.objects.filter(
         propiedad=propiedad,
         tipo=TipoMovimientoCajaEnum.EGRESO,
         sucursal=request.user.sucursal
+    ).filter(
+        Q(a_descontar='propietario') |
+        Q(a_descontar__isnull=True) |
+        Q(a_descontar='')
     ).order_by('-fecha')
     
     gastos_pendientes_list = []

@@ -248,13 +248,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     lista.innerHTML = html;
                     
-                    // Cargar gastos pendientes
+                    // Cargar gastos pendientes (mostrar siempre la sección)
                     console.log('Gastos pendientes recibidos:', data.gastos_pendientes);
-                    if (data.gastos_pendientes && data.gastos_pendientes.length > 0) {
-                        mostrarGastosPendientes(data.gastos_pendientes);
-                    } else {
-                        document.getElementById('gastos-pendientes-container').style.display = 'none';
-                    }
+                    mostrarGastosPendientes(data.gastos_pendientes || []);
                     
                     // Event listener para seleccionar todos
                     document.getElementById('seleccionar-todos').addEventListener('change', function() {
@@ -279,8 +275,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const lista = document.getElementById('gastos-pendientes-lista');
         const sinGastos = document.getElementById('sin-gastos');
         
+        container.style.display = 'block';
         if (gastos && gastos.length > 0) {
-            container.style.display = 'block';
             sinGastos.style.display = 'none';
             
             let html = `
@@ -334,7 +330,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 calcularMontosSeleccionados();
             });
         } else {
-            container.style.display = 'none';
+            lista.innerHTML = '';
+            sinGastos.style.display = 'block';
         }
     }
 
