@@ -14890,9 +14890,11 @@ def crear_liquidacion(request, reserva_id=None):
                                 id=movimiento_id,
                                 propiedad=propiedad,
                                 tipo=TipoMovimientoCajaEnum.EGRESO,
-                                a_descontar='oficina',
                                 sucursal=request.user.sucursal
                             )
+                            # Solo permitir egresos descontables al propietario
+                            if movimiento.a_descontar not in ('propietario', 'oficina', None, ''):
+                                continue
                             # Crear un GastoPropietario desde el movimiento de caja
                             gasto = GastoPropietario.objects.create(
                                 liquidacion=liquidacion,
