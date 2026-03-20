@@ -85,19 +85,19 @@
                                 <label class="form-label">Monto Total de la Operación <span class="text-danger">*</span></label>
                                 <input type="text" name="monto_total" id="monto_total" class="form-control" 
                                        value="{% if monto_total %}{{ monto_total }}{% endif %}" required
-                                       placeholder="0.00" readonly>
-                                <small class="form-text text-muted">Se calcula automáticamente sumando las operaciones seleccionadas</small>
+                                       placeholder="0,00">
+                                <small class="form-text text-muted">Sugerido al tildar operaciones; podés corregirlo a mano.</small>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Monto para el Propietario <span class="text-danger">*</span></label>
                                 <input type="text" name="monto_propietario" id="monto_propietario" class="form-control" 
-                                       required placeholder="0.00" readonly>
-                                <small class="form-text text-muted">Se calcula automáticamente según precio por toma de cada operación</small>
+                                       required placeholder="0,00">
+                                <small class="form-text text-muted">Sugerido según precios/toma o % de la propiedad; editable.</small>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Monto para la Inmobiliaria</label>
-                                <input type="text" id="monto_inmobiliaria" class="form-control" readonly>
-                                <small class="form-text text-muted">Ganancia total (diferencia entre precio publicado y precio por toma)</small>
+                                <input type="text" name="monto_inmobiliaria" id="monto_inmobiliaria" class="form-control" placeholder="0,00">
+                                <small class="form-text text-muted">Se actualiza como Total − Propietario al cambiar esos dos; podés ajustarlo.</small>
                             </div>
                         </div>
 
@@ -348,6 +348,24 @@ document.addEventListener('DOMContentLoaded', function() {
             maximumFractionDigits: 2
         }).format(Number(numero) || 0);
     }
+
+    // Parsear "630.000,00" o "630000" a número
+    function parseNumeroEsAR(val) {
+        if (val == null || val === '') return 0;
+        const s = String(val).trim().replace(/\s/g, '');
+        if (!s) return 0;
+        const normalized = s.replace(/\./g, '').replace(',', '.');
+        const n = parseFloat(normalized);
+        return isNaN(n) ? 0 : n;
+    }
+
+    let montoInmobiliariaEditadoManual = false;
+    function actualizarInmobiliariaPorDiferencia() {
+        if (montoInmobiliariaEditadoManual) return;
+        const t = parseNumeroEsAR(montoTotal.value);
+        const p = parseNumeroEsAR(montoPropietario.value);
+        montoInmobiliaria.value = formatearNumero((t - p).toFixed(2));
+    }
     
     // Función para calcular montos de las operaciones seleccionadas (global)
     window.calcularMontosSeleccionados = function() {
@@ -402,7 +420,10 @@ document.addEventListener('DOMContentLoaded', function() {
             // - Monto Inmobiliaria = bruto de operaciones
             // - Monto Final a Pagar = propietario bruto - gastos seleccionados
             montoPropietario.value = formatearNumero(totalMontoPropietario.toFixed(2));
+            montoInmobiliariaEditadoManual = false;
             montoInmobiliaria.value = formatearNumero(totalMontoInmobiliaria.toFixed(2));
+            // Si el backend ya repartió bien, preferir diferencia total − propietario para que cierre con el total mostrado
+            actualizarInmobiliariaPorDiferencia();
 
             const montoPropietarioFinal = totalMontoPropietario - totalGastos;
             // Actualizar monto final a pagar
@@ -422,6 +443,7 @@ document.addEventListener('DOMContentLoaded', function() {
             montoTotal.value = '';
             montoPropietario.value = '';
             montoInmobiliaria.value = '';
+            montoInmobiliariaEditadoManual = false;
             const montoFinalPagar = document.getElementById('monto-final-pagar');
             if (montoFinalPagar) {
                 montoFinalPagar.textContent = '0,00';
@@ -429,16 +451,33 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
 
-    // Calcular monto de inmobiliaria
-    function calcularMontoInmobiliaria() {
-        const total = parseFloat(montoTotal.value.replace(/\./g, '').replace(',', '.')) || 0;
-        const propietario = parseFloat(montoPropietario.value.replace(/\./g, '').replace(',', '.')) || 0;
-        const inmobiliaria = total - propietario;
-        montoInmobiliaria.value = inmobiliaria.toFixed(2).replace('.', ',');
-    }
+    montoTotal.addEventListener('input', function() {
+        montoInmobiliariaEditadoManual = false;
+        actualizarInmobiliariaPorDiferencia();
+        recalcularMontoFinalDesdeCampos();
+    });
+    montoPropietario.addEventListener('input', function() {
+        montoInmobiliariaEditadoManual = false;
+        actualizarInmobiliariaPorDiferencia();
+        recalcularMontoFinalDesdeCampos();
+    });
+    montoInmobiliaria.addEventListener('input', function() {
+        montoInmobiliariaEditadoManual = true;
+        recalcularMontoFinalDesdeCampos();
+    });
 
-    // Los montos se calculan automáticamente desde las operaciones seleccionadas
-    // No se permite modificar manualmente el monto total ni el del propietario
+    function recalcularMontoFinalDesdeCampos() {
+        const prop = parseNumeroEsAR(montoPropietario.value);
+        const gastosCheckboxes = document.querySelectorAll('.gasto-checkbox:checked');
+        let totalGastos = 0;
+        gastosCheckboxes.forEach(cb => {
+            totalGastos += parseFloat(cb.getAttribute('data-monto')) || 0;
+        });
+        const montoFinalPagar = document.getElementById('monto-final-pagar');
+        if (montoFinalPagar) {
+            montoFinalPagar.textContent = formatearNumero(Math.max(0, prop - totalGastos).toFixed(2));
+        }
+    }
 
     // Inicializar propietario y cargar operaciones si hay una propiedad seleccionada
     if (propiedadSelect.value) {

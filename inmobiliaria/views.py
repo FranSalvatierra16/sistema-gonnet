@@ -14861,8 +14861,12 @@ def crear_liquidacion(request, reserva_id=None):
 
             propiedad = get_object_or_404(Propiedad, id=propiedad_id, sucursal=request.user.sucursal)
 
-            # Calcular monto de inmobiliaria
-            monto_inmobiliaria = monto_total - monto_propietario
+            # Monto inmobiliaria: si viene informado en el formulario, usarlo; si no, diferencia
+            raw_inm = (request.POST.get('monto_inmobiliaria') or '').strip()
+            if raw_inm:
+                monto_inmobiliaria = Decimal(raw_inm.replace('.', '').replace(',', '.'))
+            else:
+                monto_inmobiliaria = monto_total - monto_propietario
 
             # Operaciones marcadas en el formulario (reserva:ID / contrato:ID)
             operaciones_incluidas = []
@@ -15073,8 +15077,10 @@ def obtener_operaciones_pendientes(request, propiedad_id):
         
         # Incluir la reserva si tiene pagos o está marcada como pagada
         if total_pagado > 0 or reserva.estado == 'pagada':
-            # Calcular días de la reserva
+            # Calcular días de la reserva (mínimo 1 para no dejar el bucle vacío ni dividir por 0)
             dias_reserva = (reserva.fecha_fin - reserva.fecha_inicio).days
+            if dias_reserva <= 0:
+                dias_reserva = 1
             
             # Calcular montos según precio_toma y precio_por_dia
             monto_propietario_total = Decimal('0')
@@ -15105,6 +15111,24 @@ def obtener_operaciones_pendientes(request, propiedad_id):
                     # Asumir 85% para propietario si no hay precios configurados
                     monto_propietario_total += precio_promedio * Decimal('0.85')
                     monto_inmobiliaria_total += precio_promedio * Decimal('0.15')
+
+            # Si la grilla de precios deja toma en 0 o la suma no cierra con el precio de la reserva,
+            # repartir el precio_total según % del propietario en la ficha de la propiedad (default 85%).
+            total_reserva = Decimal(str(reserva.precio_total))
+            suma_split = monto_propietario_total + monto_inmobiliaria_total
+            pct_prop = propiedad.porcentaje_propietario
+            if pct_prop is None or pct_prop <= 0:
+                pct_prop = Decimal('85')
+            else:
+                pct_prop = Decimal(str(pct_prop))
+            tolerancia = Decimal('2.00')
+            if (
+                monto_propietario_total <= 0
+                or suma_split <= 0
+                or abs(suma_split - total_reserva) > tolerancia
+            ):
+                monto_propietario_total = (total_reserva * pct_prop / Decimal('100')).quantize(Decimal('0.01'))
+                monto_inmobiliaria_total = (total_reserva - monto_propietario_total).quantize(Decimal('0.01'))
             
             operaciones.append({
                 'tipo': 'reserva',
