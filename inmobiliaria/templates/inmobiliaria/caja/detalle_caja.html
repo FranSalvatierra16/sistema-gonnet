@@ -88,7 +88,7 @@
                                     {{ movimiento.get_tipo_display }}
                                 </span>
                             </td>
-                            <td>{{ movimiento.concepto }}</td>
+                            <td title="{{ movimiento.concepto }}">{{ movimiento.concepto_resumen }}</td>
                             <td>${{ movimiento.monto_efectivo|floatformat:2 }}</td>
                             <td>${{ movimiento.monto_cheque|floatformat:2 }}</td>
                             <td>${{ movimiento.monto_tarjeta|floatformat:2 }}</td>
@@ -289,7 +289,8 @@
             <div class="modal-body">
                 <p><strong>Fecha:</strong> {{ movimiento.fecha|date:"d/m/Y H:i" }}</p>
                 <p><strong>Tipo:</strong> {{ movimiento.get_tipo_display }}</p>
-                <p><strong>Concepto:</strong> {{ movimiento.concepto }}</p>
+                <p><strong>Concepto:</strong> {{ movimiento.concepto_resumen }}</p>
+                <p class="text-muted mb-2"><small><strong>Texto original:</strong> {{ movimiento.concepto }}</small></p>
                 <p><strong>Efectivo:</strong> ${{ movimiento.monto_efectivo|floatformat:2 }}</p>
                 <p><strong>Cheque:</strong> ${{ movimiento.monto_cheque|floatformat:2 }}</p>
                 <p><strong>Tarjeta:</strong> ${{ movimiento.monto_tarjeta|floatformat:2 }}</p>
