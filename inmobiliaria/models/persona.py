@@ -1,3 +1,4 @@
+from decimal import Decimal
 from django.db import models
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
@@ -119,6 +120,18 @@ class Vendedor(AbstractUser):
             self.celular = ''.join(filter(str.isdigit, self.celular))
     def nombre_completo_vendedor(self):
         return f"{self.apellido}, {self.nombre}" if self.apellido and self.nombre else f"{self.nombre} {self.apellido}"
+
+    def porcentaje_comision_efectivo(self):
+        """
+        Comisión aplicable: la del vendedor si está definida; si no, la de su sucursal.
+        """
+        if self.comision is not None:
+            return self.comision
+        default = getattr(self.sucursal, 'porcentaje_comision_default', None)
+        if default is not None:
+            return default
+        return Decimal('0')
+
     class Meta:
         verbose_name = "Vendedor"
         verbose_name_plural = "Vendedores"

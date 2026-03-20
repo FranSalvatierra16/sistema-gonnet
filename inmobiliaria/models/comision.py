@@ -100,11 +100,13 @@ class ComisionVendedor(models.Model):
     @classmethod
     def crear_comision(cls, vendedor, reserva, movimiento_caja, monto_total, concepto=""):
         """
-        Método helper para crear una comisión automáticamente
+        Método helper para crear una comisión automáticamente.
+        Usa % del vendedor si está definido; si no, el % por defecto de la sucursal.
         """
-        if not vendedor.comision:
+        pct = vendedor.porcentaje_comision_efectivo()
+        if pct is None or pct <= 0:
             return None
-            
+
         # Verificar si ya existe una comisión para esta operación
         comision_existente = cls.objects.filter(
             vendedor=vendedor,
@@ -120,7 +122,7 @@ class ComisionVendedor(models.Model):
             reserva=reserva,
             movimiento_caja=movimiento_caja,
             monto_total_operacion=monto_total,
-            porcentaje_comision=vendedor.comision,
+            porcentaje_comision=pct,
             concepto_operacion=concepto or f"Operación {reserva.id}",
             fecha_operacion=movimiento_caja.fecha if movimiento_caja else timezone.now()
         )

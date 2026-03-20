@@ -26,6 +26,16 @@ class Sucursal(models.Model):
         help_text="Activar numeración automática de recibos"
     )
 
+    # Comisión de vendedores: valor por sucursal si el vendedor no tiene % propio
+    porcentaje_comision_default = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Comisión vendedores (%)",
+        help_text="Porcentaje por defecto para operaciones de esta sucursal. Si el vendedor tiene % propio, se usa el del vendedor.",
+    )
+
     def __str__(self):
         return self.nombre
     

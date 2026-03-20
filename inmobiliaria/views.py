@@ -36,7 +36,9 @@ def historial_comisiones_vendedor(request, vendedor_id):
         messages.error(request, 'No tienes permisos para acceder a esta sección.')
         return redirect('inmobiliaria:dashboard')
     
-    vendedor = get_object_or_404(Vendedor, id=vendedor_id)
+    vendedor = get_object_or_404(
+        Vendedor, id=vendedor_id, sucursal=request.user.sucursal
+    )
     comisiones = ComisionVendedor.objects.filter(vendedor=vendedor).order_by('-fecha_operacion')
     vales = ValeVendedor.objects.filter(vendedor=vendedor).order_by('-fecha')
     
@@ -109,7 +111,7 @@ def historial_comisiones_vendedor(request, vendedor_id):
         'neto_mes_actual': datos_mes_actual.get('total_neto', Decimal('0')),
         'cantidad_operaciones': datos_mes_actual.get('cantidad', 0),
         'vendedor': vendedor,
-        'porcentaje_comision': vendedor.comision or 0
+        'porcentaje_comision': vendedor.porcentaje_comision_efectivo(),
     }
     
     return render(request, 'inmobiliaria/comisiones/historial_comisiones.html', context)
@@ -126,7 +128,10 @@ def detalle_comision(request, comision_id):
         return redirect('inmobiliaria:dashboard')
     
     comision = get_object_or_404(ComisionVendedor, id=comision_id)
-    
+    if comision.vendedor.sucursal_id != request.user.sucursal_id:
+        messages.error(request, 'No tienes permisos para ver esta comisión.')
+        return redirect('inmobiliaria:dashboard_comisiones')
+
     context = {
         'comision': comision
     }
@@ -152,7 +157,9 @@ def resumen_comisiones_mensual(request, vendedor_id, año=None, mes=None):
         año = ahora.year
         mes = ahora.month
     
-    vendedor = get_object_or_404(Vendedor, id=vendedor_id)
+    vendedor = get_object_or_404(
+        Vendedor, id=vendedor_id, sucursal=request.user.sucursal
+    )
     comisiones_mes = ComisionVendedor.objects.filter(
         vendedor=vendedor,
         fecha_operacion__year=año,
@@ -229,6 +236,10 @@ def dashboard_comisiones(request):
 
     context = {
         'vendedores_data': vendedores_data,
+        'sucursal_actual': request.user.sucursal,
+        'porcentaje_sucursal': getattr(
+            request.user.sucursal, 'porcentaje_comision_default', None
+        ),
     }
     return render(request, 'inmobiliaria/comisiones/dashboard.html', context)
 
