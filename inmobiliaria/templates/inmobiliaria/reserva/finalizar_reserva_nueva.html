@@ -1205,6 +1205,18 @@ if (importeLocacionInput) {
                                 <small class="text-muted">💡 Depósito de garantía (opcional)</small>
                                 {% endif %}
                             </div>
+                            <div class="col-md-2">
+                                <label class="form-label"><strong>Devolución Depósito:</strong></label>
+                                <div class="form-check mt-1">
+                                    <input class="form-check-input" type="checkbox" name="devolver_deposito" id="devolver_deposito">
+                                    <label class="form-check-label" for="devolver_deposito">
+                                        Devolver al finalizar
+                                    </label>
+                                </div>
+                                <input type="number" class="form-control form-control-sm mt-1" name="monto_devolucion_deposito"
+                                       id="monto_devolucion_deposito" value="{{ deposito_garantia|default:0 }}" step="0.01" min="0">
+                                <small class="text-muted">Solo si la operación queda saldada (pendiente en 0).</small>
+                            </div>
                         </div>
                         
                         <hr>

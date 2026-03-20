@@ -4522,6 +4522,53 @@ def procesar_movimiento_reserva(request):
             # Cambiar estado de la reserva
             reserva.estado = 'pagada'
             reserva.save()
+
+            # Devolución de depósito (solo al finalizar: saldo pendiente en 0)
+            devolver_deposito = request.POST.get('devolver_deposito') in ('1', 'true', 'on', 'yes')
+            if devolver_deposito:
+                monto_devolucion_raw = request.POST.get('monto_devolucion_deposito', '')
+                if monto_devolucion_raw:
+                    try:
+                        monto_devolucion = Decimal(limpiar_valor_monetario(monto_devolucion_raw))
+                    except (InvalidOperation, ValueError):
+                        return JsonResponse({'success': False, 'error': 'Monto de devolución de depósito inválido'})
+                else:
+                    monto_devolucion = Decimal(str(reserva.deposito_garantia or 0))
+
+                if saldo_pendiente > 0:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'La devolución de depósito solo se puede registrar cuando la operación queda finalizada (saldo pendiente en 0).'
+                    })
+                if monto_devolucion <= 0:
+                    return JsonResponse({'success': False, 'error': 'El monto a devolver debe ser mayor a 0'})
+
+                deposito_estado_global = determinar_estado_deposito_completo(reserva)
+                if deposito_estado_global != 'pagado':
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'No se puede devolver depósito porque no figura como pagado (concepto 10).'
+                    })
+
+                ya_devuelto = MovimientoCaja.objects.filter(
+                    sucursal=request.user.sucursal,
+                    tipo=TipoMovimientoCajaEnum.EGRESO,
+                    propiedad=reserva.propiedad,
+                    concepto__icontains=f'Devolución depósito operación {reserva.id}'
+                ).exists()
+                if ya_devuelto:
+                    return JsonResponse({'success': False, 'error': 'El depósito de esta operación ya fue devuelto anteriormente.'})
+
+                MovimientoCaja.objects.create(
+                    caja=caja_actual,
+                    sucursal=request.user.sucursal,
+                    tipo=TipoMovimientoCajaEnum.EGRESO,
+                    concepto=f'Devolución depósito operación {reserva.id} - {reserva.propiedad.direccion}',
+                    propiedad=reserva.propiedad,
+                    monto_efectivo=monto_devolucion,
+                    empleado=request.user,
+                    a_descontar='oficina'
+                )
             
             # Cambiar estado de la propiedad (opcional - depende de tu lógica de negocio)
             # reserva.propiedad.estado = 'reservada'
@@ -11243,37 +11290,11 @@ def pagar_cuota(request, cuota_id):
 @require_POST
 def cancelar_contrato(request, contrato_id):
     try:
-        contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
+        contrato = get_object_or_404(ContratoAlquiler, id=contrato_id)
         motivo = request.POST.get('motivo', '')
-        devolver_deposito = request.POST.get('devolver_deposito') in ('1', 'true', 'on', 'yes')
         
         if not motivo:
             return JsonResponse({'error': 'El motivo de cancelación es requerido'}, status=400)
-
-        if devolver_deposito:
-            deposito = Decimal(str(contrato.deposito_garantia or 0))
-            if deposito <= 0:
-                return JsonResponse({'error': 'Este contrato no tiene depósito para devolver'}, status=400)
-
-            deposito_estado = determinar_estado_concepto_contrato(contrato, '10')
-            if deposito_estado != 'pagado':
-                return JsonResponse({'error': 'No se puede devolver el depósito porque no figura como cobrado'}, status=400)
-
-            caja = obtener_caja_abierta(request)
-            if not caja:
-                return JsonResponse({'error': 'No hay una caja abierta para registrar la devolución del depósito'}, status=400)
-
-            MovimientoCaja.objects.create(
-                caja=caja,
-                tipo=TipoMovimientoCajaEnum.EGRESO,
-                concepto=f'Devolución depósito contrato #{contrato.id} - {contrato.propiedad.direccion}',
-                monto_efectivo=deposito,
-                fecha=timezone.now(),
-                empleado=request.user,
-                sucursal=request.user.sucursal,
-                propiedad=contrato.propiedad,
-                a_descontar='oficina',
-            )
         
         # Cancelar el contrato directamente
         contrato.estado = 'rescindido'
