@@ -517,21 +517,20 @@ def todos_movimientos_caja(request):
     Vista para mostrar TODOS los movimientos de TODAS las cajas
     Con filtros de búsqueda por ID, concepto, empleado, etc.
     """
-    # Obtener todos los movimientos de la sucursal del usuario
     movimientos = MovimientoCaja.objects.filter(
         sucursal=request.user.sucursal
     ).select_related(
         'caja', 'empleado', 'propiedad', 'cuenta'
     ).order_by('-fecha')
-    
-    # Aplicar filtros de búsqueda
+
     busqueda = request.GET.get('busqueda', '').strip()
     tipo_filtro = request.GET.get('tipo', '')
+    propiedad_id = request.GET.get('propiedad_id', '').strip()
+    mes_filtro = request.GET.get('mes', '').strip()  # YYYY-MM
     fecha_desde = request.GET.get('fecha_desde', '')
     fecha_hasta = request.GET.get('fecha_hasta', '')
-    
+
     if busqueda:
-        # Buscar por ID, concepto, número de liquidación, o empleado
         movimientos = movimientos.filter(
             Q(id__icontains=busqueda) |
             Q(concepto__icontains=busqueda) |
@@ -540,60 +539,123 @@ def todos_movimientos_caja(request):
             Q(empleado__apellido__icontains=busqueda) |
             Q(empleado__dni__icontains=busqueda)
         )
-    
+
     if tipo_filtro:
         movimientos = movimientos.filter(tipo=tipo_filtro)
-    
+
+    if propiedad_id:
+        movimientos = movimientos.filter(propiedad_id=propiedad_id)
+
+    # Atajo por mes (si no hay rango manual)
+    if mes_filtro and not fecha_desde and not fecha_hasta:
+        try:
+            y, m = mes_filtro.split('-', 1)
+            year = int(y)
+            month = int(m)
+            fecha_desde = date(year, month, 1).strftime('%Y-%m-%d')
+            if month == 12:
+                fecha_hasta_dt = date(year + 1, 1, 1) - timedelta(days=1)
+            else:
+                fecha_hasta_dt = date(year, month + 1, 1) - timedelta(days=1)
+            fecha_hasta = fecha_hasta_dt.strftime('%Y-%m-%d')
+        except Exception:
+            mes_filtro = ''
+
     if fecha_desde:
-        movimientos = movimientos.filter(fecha__gte=fecha_desde)
-    
+        movimientos = movimientos.filter(fecha__date__gte=fecha_desde)
     if fecha_hasta:
-        movimientos = movimientos.filter(fecha__lte=fecha_hasta)
-    
-    # Calcular totales
+        movimientos = movimientos.filter(fecha__date__lte=fecha_hasta)
+
     ingresos = movimientos.filter(tipo=TipoMovimientoCajaEnum.INGRESO).aggregate(
         efectivo=Sum('monto_efectivo'),
         cheque=Sum('monto_cheque'),
         tarjeta=Sum('monto_tarjeta'),
         deposito=Sum('monto_deposito')
     )
-    
     egresos = movimientos.filter(tipo=TipoMovimientoCajaEnum.EGRESO).aggregate(
         efectivo=Sum('monto_efectivo'),
         cheque=Sum('monto_cheque'),
         tarjeta=Sum('monto_tarjeta'),
         deposito=Sum('monto_deposito')
     )
-    
+
     total_ingresos = (
         (ingresos['efectivo'] or Decimal('0')) +
         (ingresos['cheque'] or Decimal('0')) +
         (ingresos['tarjeta'] or Decimal('0')) +
         (ingresos['deposito'] or Decimal('0'))
     )
-    
     total_egresos = (
         (egresos['efectivo'] or Decimal('0')) +
         (egresos['cheque'] or Decimal('0')) +
         (egresos['tarjeta'] or Decimal('0')) +
         (egresos['deposito'] or Decimal('0'))
     )
-    
-    # Paginación
+
+    total_reservas = movimientos.filter(
+        tipo=TipoMovimientoCajaEnum.INGRESO
+    ).filter(
+        Q(concepto__icontains='Operación') | Q(concepto__icontains='Reserva')
+    ).count()
+
+    resumen_mensual = (
+        movimientos
+        .annotate(mes=TruncMonth('fecha'))
+        .values('mes')
+        .annotate(
+            ingresos=Sum(
+                Case(
+                    When(
+                        tipo=TipoMovimientoCajaEnum.INGRESO,
+                        then=F('monto_efectivo') + F('monto_cheque') + F('monto_tarjeta') + F('monto_deposito'),
+                    ),
+                    default=Decimal('0'),
+                    output_field=DecimalField(max_digits=18, decimal_places=2),
+                )
+            ),
+            egresos=Sum(
+                Case(
+                    When(
+                        tipo=TipoMovimientoCajaEnum.EGRESO,
+                        then=F('monto_efectivo') + F('monto_cheque') + F('monto_tarjeta') + F('monto_deposito'),
+                    ),
+                    default=Decimal('0'),
+                    output_field=DecimalField(max_digits=18, decimal_places=2),
+                )
+            ),
+            reservas=Count(
+                'id',
+                filter=Q(tipo=TipoMovimientoCajaEnum.INGRESO) & (
+                    Q(concepto__icontains='Operación') | Q(concepto__icontains='Reserva')
+                ),
+            ),
+            movimientos=Count('id'),
+        )
+        .annotate(balance=F('ingresos') - F('egresos'))
+        .order_by('-mes')
+    )
+
     from django.core.paginator import Paginator
-    paginator = Paginator(movimientos, 50)  # 50 movimientos por página
+    paginator = Paginator(movimientos, 50)
     page_number = request.GET.get('page')
     movimientos_paginados = paginator.get_page(page_number)
-    
+
     context = {
         'movimientos': movimientos_paginados,
         'total_movimientos': movimientos.count(),
         'total_ingresos': total_ingresos,
         'total_egresos': total_egresos,
+        'total_reservas': total_reservas,
         'busqueda': busqueda,
         'tipo_filtro': tipo_filtro,
+        'propiedad_id': propiedad_id,
+        'mes_filtro': mes_filtro,
         'fecha_desde': fecha_desde,
         'fecha_hasta': fecha_hasta,
+        'propiedades': Propiedad.objects.filter(
+            sucursal=request.user.sucursal
+        ).order_by('direccion'),
+        'resumen_mensual': resumen_mensual,
     }
     
     return render(request, 'inmobiliaria/caja/todos_movimientos.html', context)
@@ -612,7 +674,8 @@ from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm,
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm, SetPasswordForm
 from django.contrib.auth import login
 from datetime import datetime, date, timedelta
-from django.db.models import Q, Prefetch, Case, When, IntegerField, Sum, Max, F, Count
+from django.db.models import Q, Prefetch, Case, When, IntegerField, Sum, Max, F, Count, DecimalField
+from django.db.models.functions import TruncMonth
 from django.core.exceptions import ValidationError
 from django.forms import modelformset_factory
 from django.contrib.auth.signals import user_logged_in

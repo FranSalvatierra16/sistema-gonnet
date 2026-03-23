@@ -58,6 +58,19 @@
                                     <option value="EG" {% if tipo_filtro == 'EG' %}selected{% endif %}>Egresos</option>
                                 </select>
                             </div>
+                            <div class="col-md-4">
+                                <label for="propiedad_id" class="form-label">
+                                    <i class="fas fa-home"></i> Propiedad
+                                </label>
+                                <select class="form-control" id="propiedad_id" name="propiedad_id">
+                                    <option value="">Todas</option>
+                                    {% for propiedad in propiedades %}
+                                        <option value="{{ propiedad.id }}" {% if propiedad_id == propiedad.id|stringformat:"s" %}selected{% endif %}>
+                                            {{ propiedad.direccion }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
                             <div class="col-md-2">
                                 <label for="fecha_desde" class="form-label">
                                     <i class="fas fa-calendar"></i> Desde
@@ -72,13 +85,20 @@
                                 <input type="date" class="form-control" id="fecha_hasta" name="fecha_hasta" 
                                        value="{{ fecha_hasta }}">
                             </div>
+                            <div class="col-md-2">
+                                <label for="mes" class="form-label">
+                                    <i class="fas fa-calendar-alt"></i> Mes
+                                </label>
+                                <input type="month" class="form-control" id="mes" name="mes" value="{{ mes_filtro }}">
+                                <small class="form-text text-muted">Atajo mensual</small>
+                            </div>
                             <div class="col-md-2 d-flex align-items-end">
                                 <button type="submit" class="btn btn-primary w-100">
                                     <i class="fas fa-search"></i> Buscar
                                 </button>
                             </div>
                         </div>
-                        {% if busqueda or tipo_filtro or fecha_desde or fecha_hasta %}
+                        {% if busqueda or tipo_filtro or propiedad_id or mes_filtro or fecha_desde or fecha_hasta %}
                         <div class="row mt-2">
                             <div class="col-12">
                                 <a href="{% url 'inmobiliaria:todos_movimientos_caja' %}" class="btn btn-sm btn-outline-secondary">
@@ -136,6 +156,64 @@
                 <div class="info-box-content">
                     <span class="info-box-text">Balance</span>
                     <span class="info-box-number">{{ total_ingresos|sub:total_egresos|format_price }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="info-box bg-secondary text-white">
+                <div class="info-box-icon">
+                    <i class="fas fa-bed"></i>
+                </div>
+                <div class="info-box-content">
+                    <span class="info-box-text">Reservas (detectadas)</span>
+                    <span class="info-box-number">{{ total_reservas }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resumen por Mes -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h3 class="card-title mb-0">
+                        <i class="fas fa-chart-line"></i> Resumen Mensual
+                    </h3>
+                </div>
+                <div class="card-body p-0">
+                    {% if resumen_mensual %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Mes</th>
+                                    <th class="text-end">Ingresos</th>
+                                    <th class="text-end">Egresos</th>
+                                    <th class="text-end">Balance</th>
+                                    <th class="text-center">Reservas</th>
+                                    <th class="text-center">Movimientos</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for fila in resumen_mensual %}
+                                <tr>
+                                    <td>{{ fila.mes|date:"m/Y" }}</td>
+                                    <td class="text-end text-success">{{ fila.ingresos|default:0|format_price }}</td>
+                                    <td class="text-end text-danger">{{ fila.egresos|default:0|format_price }}</td>
+                                    <td class="text-end {% if fila.balance >= 0 %}text-primary{% else %}text-warning{% endif %}">
+                                        {{ fila.balance|default:0|format_price }}
+                                    </td>
+                                    <td class="text-center">{{ fila.reservas }}</td>
+                                    <td class="text-center">{{ fila.movimientos }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="p-3 text-muted">Sin datos para el período seleccionado.</div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -257,12 +335,12 @@
                                 <ul class="pagination justify-content-center mb-0">
                                     {% if movimientos.has_previous %}
                                         <li class="page-item">
-                                            <a class="page-link" href="?page=1{% if busqueda %}&busqueda={{ busqueda }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}">
+                                            <a class="page-link" href="?page=1{% if busqueda %}&busqueda={{ busqueda }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if propiedad_id %}&propiedad_id={{ propiedad_id }}{% endif %}{% if mes_filtro %}&mes={{ mes_filtro }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}">
                                                 <i class="fas fa-angle-double-left"></i>
                                             </a>
                                         </li>
                                         <li class="page-item">
-                                            <a class="page-link" href="?page={{ movimientos.previous_page_number }}{% if busqueda %}&busqueda={{ busqueda }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}">
+                                            <a class="page-link" href="?page={{ movimientos.previous_page_number }}{% if busqueda %}&busqueda={{ busqueda }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if propiedad_id %}&propiedad_id={{ propiedad_id }}{% endif %}{% if mes_filtro %}&mes={{ mes_filtro }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}">
                                                 <i class="fas fa-angle-left"></i>
                                             </a>
                                         </li>
@@ -276,12 +354,12 @@
 
                                     {% if movimientos.has_next %}
                                         <li class="page-item">
-                                            <a class="page-link" href="?page={{ movimientos.next_page_number }}{% if busqueda %}&busqueda={{ busqueda }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}">
+                                            <a class="page-link" href="?page={{ movimientos.next_page_number }}{% if busqueda %}&busqueda={{ busqueda }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if propiedad_id %}&propiedad_id={{ propiedad_id }}{% endif %}{% if mes_filtro %}&mes={{ mes_filtro }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}">
                                                 <i class="fas fa-angle-right"></i>
                                             </a>
                                         </li>
                                         <li class="page-item">
-                                            <a class="page-link" href="?page={{ movimientos.paginator.num_pages }}{% if busqueda %}&busqueda={{ busqueda }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}">
+                                            <a class="page-link" href="?page={{ movimientos.paginator.num_pages }}{% if busqueda %}&busqueda={{ busqueda }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if propiedad_id %}&propiedad_id={{ propiedad_id }}{% endif %}{% if mes_filtro %}&mes={{ mes_filtro }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}">
                                                 <i class="fas fa-angle-double-right"></i>
                                             </a>
                                         </li>
@@ -294,7 +372,7 @@
                         <div class="text-center py-5">
                             <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
                             <h4 class="text-muted">No se encontraron movimientos</h4>
-                            {% if busqueda or tipo_filtro or fecha_desde or fecha_hasta %}
+                            {% if busqueda or tipo_filtro or propiedad_id or mes_filtro or fecha_desde or fecha_hasta %}
                                 <p class="text-muted">Intenta ajustar los filtros de búsqueda</p>
                                 <a href="{% url 'inmobiliaria:todos_movimientos_caja' %}" class="btn btn-primary">
                                     <i class="fas fa-redo"></i> Ver Todos los Movimientos
