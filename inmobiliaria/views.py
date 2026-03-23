@@ -14826,7 +14826,9 @@ def lista_liquidaciones(request):
         total=Sum('monto_a_pagar')
     )['total'] or Decimal('0')
 
-    total_procesado = liquidaciones.filter(estado='procesada').aggregate(
+    total_procesado = liquidaciones.filter(
+        estado__in=['cerrada', 'pagada', 'oficina', 'procesada']
+    ).aggregate(
         total=Sum('monto_a_pagar')
     )['total'] or Decimal('0')
 
@@ -15020,7 +15022,8 @@ def obtener_operaciones_pendientes(request, propiedad_id):
     contratos_excluidos = set()
     for liq in LiquidacionPropietario.objects.filter(
         propiedad=propiedad,
-        estado__in=['pendiente', 'procesada'],
+    ).exclude(
+        estado='cancelada'
     ).only('reserva_id', 'contrato_id', 'operaciones_incluidas'):
         if liq.reserva_id:
             reservas_excluidas.add(liq.reserva_id)
@@ -15243,7 +15246,7 @@ def obtener_operaciones_pendientes(request, propiedad_id):
     # que no estén asociados a ninguna liquidación procesada
     liquidaciones_procesadas = LiquidacionPropietario.objects.filter(
         propiedad=propiedad,
-        estado='procesada'
+        estado__in=['cerrada', 'pagada', 'oficina', 'procesada']
     ).values_list('id', flat=True)
     
     # Obtener descripciones de gastos que ya están en liquidaciones procesadas
@@ -15507,6 +15510,50 @@ def aceptar_rechazar_gasto(request, gasto_id):
 @login_required
 @transaction.atomic
 @require_POST
+def confirmar_liquidacion(request, liquidacion_id):
+    """
+    Confirma la liquidación y la deja cerrada para pago posterior.
+    """
+    liquidacion = get_object_or_404(
+        LiquidacionPropietario,
+        id=liquidacion_id,
+        sucursal=request.user.sucursal,
+        estado='pendiente'
+    )
+
+    liquidacion.estado = 'cerrada'
+    liquidacion.fecha_procesamiento = timezone.now()
+    liquidacion.save(update_fields=['estado', 'fecha_procesamiento'])
+
+    messages.success(request, 'Liquidación confirmada y cerrada. Ahora podés volver y pagarla cuando quieras.')
+    return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion.id)
+
+
+@login_required
+@transaction.atomic
+@require_POST
+def marcar_liquidacion_oficina(request, liquidacion_id):
+    """
+    Marca la liquidación en estado oficina.
+    """
+    liquidacion = get_object_or_404(
+        LiquidacionPropietario,
+        id=liquidacion_id,
+        sucursal=request.user.sucursal,
+        estado__in=['pendiente', 'cerrada']
+    )
+
+    liquidacion.estado = 'oficina'
+    liquidacion.fecha_procesamiento = timezone.now()
+    liquidacion.save(update_fields=['estado', 'fecha_procesamiento'])
+
+    messages.success(request, 'Liquidación marcada como Oficina.')
+    return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion.id)
+
+
+@login_required
+@transaction.atomic
+@require_POST
 def procesar_liquidacion(request, liquidacion_id):
     """
     Vista para procesar una liquidación (descontar de caja)
@@ -15515,7 +15562,7 @@ def procesar_liquidacion(request, liquidacion_id):
         LiquidacionPropietario,
         id=liquidacion_id,
         sucursal=request.user.sucursal,
-        estado='pendiente'
+        estado='cerrada'
     )
 
     try:
@@ -15562,7 +15609,7 @@ def procesar_liquidacion(request, liquidacion_id):
 
         # Actualizar liquidación
         liquidacion.movimiento_caja = movimiento
-        liquidacion.estado = 'procesada'
+        liquidacion.estado = 'pagada'
         liquidacion.fecha_procesamiento = timezone.now()
         liquidacion.save()
 

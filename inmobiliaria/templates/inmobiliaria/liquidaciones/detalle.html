@@ -49,8 +49,14 @@
                                     <td>
                                         {% if liquidacion.estado == 'pendiente' %}
                                         <span class="badge bg-warning text-dark">Pendiente</span>
+                                        {% elif liquidacion.estado == 'cerrada' %}
+                                        <span class="badge bg-primary">Cerrada</span>
+                                        {% elif liquidacion.estado == 'pagada' %}
+                                        <span class="badge bg-success">Pagada</span>
+                                        {% elif liquidacion.estado == 'oficina' %}
+                                        <span class="badge bg-secondary">Oficina</span>
                                         {% elif liquidacion.estado == 'procesada' %}
-                                        <span class="badge bg-success">Procesada</span>
+                                        <span class="badge bg-success">Procesada (legacy)</span>
                                         {% else %}
                                         <span class="badge bg-danger">Cancelada</span>
                                         {% endif %}
@@ -168,15 +174,42 @@
                 </div>
             </div>
 
-            <!-- Procesar Liquidación -->
             {% if liquidacion.estado == 'pendiente' %}
+            <div class="row mb-3">
+                <div class="col-12">
+                    <div class="d-flex gap-2">
+                        <form method="POST" action="{% url 'inmobiliaria:confirmar_liquidacion' liquidacion.id %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-lock me-2"></i>Confirmar y Cerrar Liquidación
+                            </button>
+                        </form>
+                        <form method="POST" action="{% url 'inmobiliaria:marcar_liquidacion_oficina' liquidacion.id %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-secondary">
+                                <i class="fas fa-building me-2"></i>Marcar como Oficina
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Pago de Liquidación -->
+            {% if liquidacion.estado == 'cerrada' %}
             <div class="row">
                 <div class="col-12">
                     <div class="card shadow">
                         <div class="card-header bg-success text-white">
-                            <h5 class="mb-0">Procesar Liquidación</h5>
+                            <h5 class="mb-0">Pagar Liquidación Cerrada</h5>
                         </div>
                         <div class="card-body">
+                            <form method="POST" action="{% url 'inmobiliaria:marcar_liquidacion_oficina' liquidacion.id %}" class="mb-3">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-outline-secondary btn-sm">
+                                    <i class="fas fa-building me-2"></i>Pasar esta liquidación a Oficina
+                                </button>
+                            </form>
                             <form method="POST" action="{% url 'inmobiliaria:procesar_liquidacion' liquidacion.id %}">
                                 {% csrf_token %}
                                 <div class="alert alert-warning">
@@ -212,7 +245,7 @@
                                     </div>
                                 </div>
                                 <button type="submit" class="btn btn-success btn-lg">
-                                    <i class="fas fa-check-circle me-2"></i>Procesar Liquidación y Descontar de Caja
+                                    <i class="fas fa-check-circle me-2"></i>Pagar Liquidación y Descontar de Caja
                                 </button>
                             </form>
                         </div>
@@ -269,16 +302,22 @@ document.addEventListener('DOMContentLoaded', function() {
     const totalIngresado = document.getElementById('total-ingresado');
     
     function calcularTotal() {
+        if (!totalIngresado) return;
         let total = 0;
         montos.forEach(id => {
-            const valor = parseFloat(document.getElementById(id).value.replace(/\./g, '').replace(',', '.')) || 0;
+            const input = document.getElementById(id);
+            if (!input) return;
+            const valor = parseFloat(input.value.replace(/\./g, '').replace(',', '.')) || 0;
             total += valor;
         });
         totalIngresado.textContent = total.toFixed(2);
     }
     
     montos.forEach(id => {
-        document.getElementById(id).addEventListener('input', calcularTotal);
+        const input = document.getElementById(id);
+        if (input) {
+            input.addEventListener('input', calcularTotal);
+        }
     });
     calcularTotal();
 

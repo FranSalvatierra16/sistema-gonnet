@@ -18,7 +18,7 @@
                         <strong>Pendientes:</strong> ${{ total_pendiente|floatformat:2 }}
                     </div>
                     <div class="alert alert-success mb-0">
-                        <strong>Procesadas:</strong> ${{ total_procesado|floatformat:2 }}
+                        <strong>Cerradas/Pagadas:</strong> ${{ total_procesado|floatformat:2 }}
                     </div>
                 </div>
             </div>
@@ -35,6 +35,9 @@
                             <select name="estado" class="form-select">
                                 <option value="">Todos</option>
                                 <option value="pendiente" {% if estado_filtro == 'pendiente' %}selected{% endif %}>Pendiente</option>
+                                <option value="cerrada" {% if estado_filtro == 'cerrada' %}selected{% endif %}>Cerrada</option>
+                                <option value="pagada" {% if estado_filtro == 'pagada' %}selected{% endif %}>Pagada</option>
+                                <option value="oficina" {% if estado_filtro == 'oficina' %}selected{% endif %}>Oficina</option>
                                 <option value="procesada" {% if estado_filtro == 'procesada' %}selected{% endif %}>Procesada</option>
                                 <option value="cancelada" {% if estado_filtro == 'cancelada' %}selected{% endif %}>Cancelada</option>
                             </select>
@@ -109,8 +112,14 @@
                                     <td>
                                         {% if liquidacion.estado == 'pendiente' %}
                                         <span class="badge bg-warning text-dark">Pendiente</span>
+                                        {% elif liquidacion.estado == 'cerrada' %}
+                                        <span class="badge bg-primary">Cerrada</span>
+                                        {% elif liquidacion.estado == 'pagada' %}
+                                        <span class="badge bg-success">Pagada</span>
+                                        {% elif liquidacion.estado == 'oficina' %}
+                                        <span class="badge bg-secondary">Oficina</span>
                                         {% elif liquidacion.estado == 'procesada' %}
-                                        <span class="badge bg-success">Procesada</span>
+                                        <span class="badge bg-success">Procesada (legacy)</span>
                                         {% else %}
                                         <span class="badge bg-danger">Cancelada</span>
                                         {% endif %}

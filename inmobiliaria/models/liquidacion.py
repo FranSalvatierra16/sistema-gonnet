@@ -15,7 +15,10 @@ class LiquidacionPropietario(models.Model):
     """
     ESTADO_CHOICES = [
         ('pendiente', 'Pendiente'),
-        ('procesada', 'Procesada'),
+        ('cerrada', 'Cerrada'),
+        ('pagada', 'Pagada'),
+        ('oficina', 'Oficina'),
+        ('procesada', 'Procesada (legacy)'),
         ('cancelada', 'Cancelada'),
     ]
 
