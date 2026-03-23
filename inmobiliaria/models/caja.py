@@ -28,8 +28,9 @@ class Caja(models.Model):
     sucursal = models.ForeignKey('Sucursal', on_delete=models.PROTECT)
     fecha_apertura = models.DateTimeField(auto_now_add=True)
     fecha_cierre = models.DateTimeField(null=True, blank=True)
-    saldo_inicial = models.DecimalField(max_digits=10, decimal_places=2)
-    saldo_final = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    # 14 dígitos: soporta saldos acumulados altos (10,2 overflow > ~100M)
+    saldo_inicial = models.DecimalField(max_digits=14, decimal_places=2)
+    saldo_final = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
     estado = models.CharField(max_length=10, choices=ESTADO_CHOICES, default='abierta')
     usuario_apertura = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='cajas_abiertas')
     usuario_cierre = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='cajas_cerradas', null=True, blank=True)
@@ -82,10 +83,10 @@ class MovimientoCaja(models.Model):
     propiedad = models.ForeignKey('Propiedad', on_delete=models.SET_NULL, null=True, blank=True)
     fecha_desde = models.DateField(null=True, blank=True)
     fecha_hasta = models.DateField(null=True, blank=True)
-    monto_efectivo = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    monto_cheque = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    monto_tarjeta = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    monto_deposito = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    monto_efectivo = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    monto_cheque = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    monto_tarjeta = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    monto_deposito = models.DecimalField(max_digits=14, decimal_places=2, default=0)
     destino_deposito = models.CharField(
         max_length=50,  # ✅ Aumentado para permitir "cuenta_1", "cuenta_2", etc.
         choices=[
@@ -112,8 +113,8 @@ class MovimientoCaja(models.Model):
     caja = models.ForeignKey('Caja', on_delete=models.CASCADE, null=True, blank=True)
     
     # Campos para contratos de 24 meses
-    honorarios = models.DecimalField(max_digits=10, decimal_places=2, default=0, blank=True)
-    sellados = models.DecimalField(max_digits=10, decimal_places=2, default=0, blank=True)
+    honorarios = models.DecimalField(max_digits=14, decimal_places=2, default=0, blank=True)
+    sellados = models.DecimalField(max_digits=14, decimal_places=2, default=0, blank=True)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
