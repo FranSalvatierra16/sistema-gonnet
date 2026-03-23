@@ -15105,6 +15105,7 @@ def obtener_operaciones_pendientes(request, propiedad_id):
             # Calcular montos según precio_toma y precio_por_dia
             monto_propietario_total = Decimal('0')
             monto_inmobiliaria_total = Decimal('0')
+            hay_precio_toma = False
             
             # Calcular día por día
             for i in range(dias_reserva):
@@ -15119,6 +15120,8 @@ def obtener_operaciones_pendientes(request, propiedad_id):
                     # Si no hay precio_toma, usar precio_dia_toma como fallback
                     if precio_toma == 0 and precio.precio_dia_toma:
                         precio_toma = Decimal(str(precio.precio_dia_toma))
+                    if precio_toma > 0:
+                        hay_precio_toma = True
                     
                     # Calcular ganancia por día
                     ganancia_dia = precio_por_dia - precio_toma
@@ -15128,17 +15131,21 @@ def obtener_operaciones_pendientes(request, propiedad_id):
                 except Precio.DoesNotExist:
                     # Si no existe precio, usar el precio_total de la reserva dividido por días
                     precio_promedio = Decimal(str(reserva.precio_total)) / Decimal(str(dias_reserva))
-                    # Asumir 85% para propietario si no hay precios configurados
-                    monto_propietario_total += precio_promedio * Decimal('0.85')
-                    monto_inmobiliaria_total += precio_promedio * Decimal('0.15')
+                    # Fallback sin precio de toma: 70% propietario / 30% inmobiliaria
+                    monto_propietario_total += precio_promedio * Decimal('0.70')
+                    monto_inmobiliaria_total += precio_promedio * Decimal('0.30')
 
-            # Si la grilla de precios deja toma en 0 o la suma no cierra con el precio de la reserva,
-            # repartir el precio_total según % del propietario en la ficha de la propiedad (default 85%).
+            # Si no hay ningún precio de toma configurado, forzar 70/30.
             total_reserva = Decimal(str(reserva.precio_total))
+            if not hay_precio_toma:
+                monto_propietario_total = (total_reserva * Decimal('0.70')).quantize(Decimal('0.01'))
+                monto_inmobiliaria_total = (total_reserva - monto_propietario_total).quantize(Decimal('0.01'))
+
+            # Si la suma no cierra con el precio de la reserva, repartir por % de propiedad (default 70%).
             suma_split = monto_propietario_total + monto_inmobiliaria_total
             pct_prop = propiedad.porcentaje_propietario
             if pct_prop is None or pct_prop <= 0:
-                pct_prop = Decimal('85')
+                pct_prop = Decimal('70')
             else:
                 pct_prop = Decimal(str(pct_prop))
             tolerancia = Decimal('2.00')
@@ -15192,17 +15199,17 @@ def obtener_operaciones_pendientes(request, propiedad_id):
                         monto_propietario_contrato = precio_mensual_toma * Decimal(str(cuotas_pagadas.count()))
                         monto_inmobiliaria_contrato = Decimal(str(total_cuotas)) - monto_propietario_contrato
                     else:
-                        # Fallback: 85% para propietario
-                        monto_propietario_contrato = Decimal(str(total_cuotas)) * Decimal('0.85')
-                        monto_inmobiliaria_contrato = Decimal(str(total_cuotas)) * Decimal('0.15')
+                        # Fallback sin precio de toma: 70% propietario / 30% inmobiliaria
+                        monto_propietario_contrato = Decimal(str(total_cuotas)) * Decimal('0.70')
+                        monto_inmobiliaria_contrato = Decimal(str(total_cuotas)) * Decimal('0.30')
                 else:
-                    # Fallback: 85% para propietario
-                    monto_propietario_contrato = Decimal(str(total_cuotas)) * Decimal('0.85')
-                    monto_inmobiliaria_contrato = Decimal(str(total_cuotas)) * Decimal('0.15')
+                    # Fallback sin precio de toma: 70% propietario / 30% inmobiliaria
+                    monto_propietario_contrato = Decimal(str(total_cuotas)) * Decimal('0.70')
+                    monto_inmobiliaria_contrato = Decimal(str(total_cuotas)) * Decimal('0.30')
             except:
-                # Fallback: 85% para propietario
-                monto_propietario_contrato = Decimal(str(total_cuotas)) * Decimal('0.85')
-                monto_inmobiliaria_contrato = Decimal(str(total_cuotas)) * Decimal('0.15')
+                # Fallback sin precio de toma: 70% propietario / 30% inmobiliaria
+                monto_propietario_contrato = Decimal(str(total_cuotas)) * Decimal('0.70')
+                monto_inmobiliaria_contrato = Decimal(str(total_cuotas)) * Decimal('0.30')
             
             operaciones.append({
                 'tipo': 'contrato',
