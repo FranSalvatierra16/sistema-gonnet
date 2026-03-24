@@ -11455,12 +11455,16 @@ def pagar_cuota(request, cuota_id):
 @login_required
 @require_POST
 def cancelar_contrato(request, contrato_id):
+    es_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
     try:
         contrato = get_object_or_404(ContratoAlquiler, id=contrato_id)
         motivo = request.POST.get('motivo', '')
         
         if not motivo:
-            return JsonResponse({'error': 'El motivo de cancelación es requerido'}, status=400)
+            if es_ajax:
+                return JsonResponse({'error': 'El motivo de cancelación es requerido'}, status=400)
+            messages.error(request, 'El motivo de cancelación es requerido.')
+            return redirect('inmobiliaria:operaciones')
         
         # Cancelar el contrato directamente
         contrato.estado = 'rescindido'
@@ -11506,11 +11510,16 @@ def cancelar_contrato(request, contrato_id):
                 contrato.propiedad.info_meses.save()
 
         messages.success(request, f'El contrato #{contrato.id} ha sido cancelado exitosamente')
-        return JsonResponse({'success': True})
+        if es_ajax:
+            return JsonResponse({'success': True})
+        return redirect('inmobiliaria:operaciones')
     except Exception as e:
         pass  # ✅ Bloque vacío
 # print(f"Error al cancelar contrato: {str(e)}")
-        return JsonResponse({'error': str(e)}, status=400)
+        if es_ajax:
+            return JsonResponse({'error': str(e)}, status=400)
+        messages.error(request, f'Error al cancelar contrato: {str(e)}')
+        return redirect('inmobiliaria:operaciones')
 
 @login_required
 @require_POST

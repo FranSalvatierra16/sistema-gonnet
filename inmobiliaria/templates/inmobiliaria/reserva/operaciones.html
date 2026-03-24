@@ -678,9 +678,16 @@
                                 </a>
                                 {% endif %}
                                 {% if user.nivel >= 2 %}
-                                <a href="{% url 'inmobiliaria:cancelar_contrato' op.contrato.id %}" class="btn-action btn-eliminar">
-                                    <i class="fas fa-times"></i>Cancelar
-                                </a>
+                                <form method="POST"
+                                      action="{% url 'inmobiliaria:cancelar_contrato' op.contrato.id %}"
+                                      style="display:inline-block;"
+                                      onsubmit="return confirmarCancelarContrato(this);">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="motivo" value="">
+                                    <button type="submit" class="btn-action btn-eliminar">
+                                        <i class="fas fa-times"></i>Cancelar
+                                    </button>
+                                </form>
                                 {% endif %}
                             {% else %}
                             <a href="{% url 'inmobiliaria:reserva_detalle' op.id %}" class="btn-action btn-ver">
@@ -799,6 +806,20 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
+
+function confirmarCancelarContrato(form) {
+    const motivo = prompt('Motivo de cancelación del contrato:');
+    if (motivo === null) {
+        return false;
+    }
+    const motivoLimpio = (motivo || '').trim();
+    if (!motivoLimpio) {
+        alert('Debés ingresar un motivo para cancelar.');
+        return false;
+    }
+    form.querySelector('input[name="motivo"]').value = motivoLimpio;
+    return confirm('¿Confirmás cancelar este contrato?');
+}
 </script>
 
 <!-- Modal de Autenticación de Seguridad -->
