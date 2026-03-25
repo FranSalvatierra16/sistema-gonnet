@@ -387,10 +387,19 @@ document.getElementById('formCancelarContrato').addEventListener('submit', funct
         method: 'POST',
         body: formData,
         headers: {
-            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'X-Requested-With': 'XMLHttpRequest'
         }
     })
-    .then(response => response.json())
+    .then(response => {
+        const ct = response.headers.get('content-type') || '';
+        if (!ct.includes('application/json')) {
+            return response.text().then(function (text) {
+                throw new Error(response.ok ? 'Respuesta inesperada del servidor' : (text || 'Error ' + response.status));
+            });
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
             location.reload();
@@ -400,7 +409,7 @@ document.getElementById('formCancelarContrato').addEventListener('submit', funct
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Error al procesar la solicitud');
+        alert(error.message || 'Error al procesar la solicitud');
     });
 });
 </script>
