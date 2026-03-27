@@ -19,7 +19,13 @@
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <label class="form-label">Propiedad <span class="text-danger">*</span></label>
-                                <select name="propiedad_id" id="propiedad_id" class="form-select" required>
+                                <div class="position-relative" id="propiedad-buscador-wrap">
+                                    <input type="text" id="propiedad_buscar" class="form-control"
+                                           placeholder="Escribí ID o dirección de la propiedad...">
+                                    <div id="propiedad_resultados" class="list-group position-absolute w-100 d-none"
+                                         style="z-index: 30; max-height: 260px; overflow-y: auto;"></div>
+                                </div>
+                                <select name="propiedad_id" id="propiedad_id" class="form-select d-none" required>
                                     <option value="">Seleccione una propiedad</option>
                                     {% for propiedad in propiedades %}
                                     <option value="{{ propiedad.id }}" 
@@ -32,6 +38,7 @@
                                     </option>
                                     {% endfor %}
                                 </select>
+                                <small class="form-text text-muted">Buscá por ID o dirección y seleccioná una propiedad.</small>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Propietario</label>
@@ -148,6 +155,9 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const propiedadSelect = document.getElementById('propiedad_id');
+    const propiedadBuscar = document.getElementById('propiedad_buscar');
+    const propiedadResultados = document.getElementById('propiedad_resultados');
+    const propiedadWrap = document.getElementById('propiedad-buscador-wrap');
     const propietarioDisplay = document.getElementById('propietario_display');
     const montoTotal = document.getElementById('monto_total');
     const montoPropietario = document.getElementById('monto_propietario');
@@ -164,6 +174,67 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             propietarioDisplay.value = '';
             document.getElementById('operaciones-pendientes-container').style.display = 'none';
+        }
+    });
+
+    function obtenerOpcionesPropiedad() {
+        return Array.from(propiedadSelect.options)
+            .filter(opt => opt.value)
+            .map(opt => ({
+                id: opt.value,
+                text: (opt.textContent || '').trim(),
+                propietario: opt.getAttribute('data-propietario') || ''
+            }));
+    }
+
+    function renderResultadosPropiedad(query) {
+        const q = (query || '').toLowerCase().trim();
+        const opciones = obtenerOpcionesPropiedad().filter(op =>
+            !q || op.id.toLowerCase().includes(q) || op.text.toLowerCase().includes(q)
+        ).slice(0, 30);
+
+        if (!opciones.length) {
+            propiedadResultados.innerHTML = '<div class="list-group-item text-muted">Sin resultados</div>';
+            propiedadResultados.classList.remove('d-none');
+            return;
+        }
+
+        propiedadResultados.innerHTML = opciones.map(op => `
+            <button type="button" class="list-group-item list-group-item-action propiedad-item"
+                    data-id="${op.id}" data-text="${op.text.replace(/"/g, '&quot;')}">
+                <strong>#${op.id}</strong> - ${op.text}
+            </button>
+        `).join('');
+        propiedadResultados.classList.remove('d-none');
+    }
+
+    function seleccionarPropiedadPorId(id) {
+        if (!id) return;
+        propiedadSelect.value = String(id);
+        const opt = propiedadSelect.options[propiedadSelect.selectedIndex];
+        if (opt && opt.value) {
+            propiedadBuscar.value = `#${opt.value} - ${opt.textContent.trim()}`;
+        }
+        propiedadSelect.dispatchEvent(new Event('change'));
+        propiedadResultados.classList.add('d-none');
+    }
+
+    propiedadBuscar.addEventListener('focus', function() {
+        renderResultadosPropiedad(this.value);
+    });
+    propiedadBuscar.addEventListener('input', function() {
+        renderResultadosPropiedad(this.value);
+    });
+
+    propiedadResultados.addEventListener('click', function(e) {
+        const btn = e.target.closest('.propiedad-item');
+        if (!btn) return;
+        seleccionarPropiedadPorId(btn.getAttribute('data-id'));
+    });
+
+    document.addEventListener('click', function(e) {
+        if (!propiedadWrap.contains(e.target)) {
+            propiedadResultados.classList.add('d-none');
         }
     });
 
@@ -272,6 +343,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 lista.innerHTML = '<div class="alert alert-danger mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Error al cargar operaciones/gastos. Recargá la página o avisá al administrador.</div>';
             });
     }
+    window.cargarOperacionesPendientes = cargarOperacionesPendientes;
 
     // Función para mostrar gastos pendientes
     function mostrarGastosPendientes(gastos) {
@@ -482,6 +554,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Inicializar propietario y cargar operaciones si hay una propiedad seleccionada
     if (propiedadSelect.value) {
         const selectedOption = propiedadSelect.options[propiedadSelect.selectedIndex];
+        propiedadBuscar.value = `#${selectedOption.value} - ${selectedOption.textContent.trim()}`;
         propietarioDisplay.value = selectedOption.getAttribute('data-propietario');
         cargarOperacionesPendientes(propiedadSelect.value);
     }
