@@ -15147,6 +15147,7 @@ def crear_liquidacion(request, reserva_id=None):
                 propiedad=propiedad,
                 reserva=reserva,
                 contrato=contrato_fk,
+                estado='pendiente',
                 monto_total_operacion=monto_total,
                 monto_propietario=monto_propietario,
                 monto_inmobiliaria=monto_inmobiliaria,
