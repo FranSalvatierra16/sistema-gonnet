@@ -660,6 +660,97 @@ def todos_movimientos_caja(request):
     
     return render(request, 'inmobiliaria/caja/todos_movimientos.html', context)
 
+
+@login_required
+def historial_propiedad_caja(request):
+    """
+    Apartado de caja para consultar todo el historial financiero/comercial de una propiedad:
+    movimientos, reservas, contratos y pagos.
+    """
+    termino = request.GET.get('q', '').strip()
+    propiedad_id = request.GET.get('propiedad_id', '').strip()
+
+    propiedades_base = Propiedad.objects.filter(
+        sucursal=request.user.sucursal
+    ).select_related('propietario', 'sucursal').order_by('direccion')
+
+    propiedad = None
+    coincidencias = Propiedad.objects.none()
+
+    if propiedad_id:
+        propiedad = propiedades_base.filter(id=propiedad_id).first()
+    elif termino:
+        if termino.isdigit():
+            propiedad = propiedades_base.filter(id=int(termino)).first()
+        if not propiedad:
+            coincidencias = propiedades_base.filter(
+                Q(direccion__icontains=termino) |
+                Q(ubicacion__icontains=termino)
+            )[:20]
+            if coincidencias.count() == 1:
+                propiedad = coincidencias.first()
+
+    movimientos = MovimientoCaja.objects.none()
+    reservas = Reserva.objects.none()
+    contratos = ContratoAlquiler.objects.none()
+    pagos = Pago.objects.none()
+    total_ingresos = Decimal('0')
+    total_egresos = Decimal('0')
+    total_pagos = Decimal('0')
+
+    if propiedad:
+        movimientos = MovimientoCaja.objects.filter(
+            sucursal=request.user.sucursal,
+            propiedad=propiedad
+        ).select_related(
+            'caja', 'empleado', 'cuenta'
+        ).order_by('-fecha')
+
+        reservas = Reserva.objects.filter(
+            propiedad=propiedad,
+            eliminada=False
+        ).select_related(
+            'cliente', 'vendedor'
+        ).order_by('-fecha_creacion')
+
+        contratos = ContratoAlquiler.objects.filter(
+            propiedad=propiedad
+        ).select_related(
+            'inquilino', 'vendedor'
+        ).order_by('-fecha_creacion')
+
+        pagos = Pago.objects.filter(
+            reserva__propiedad=propiedad,
+            reserva__eliminada=False
+        ).select_related(
+            'reserva', 'concepto'
+        ).order_by('-fecha')
+
+        for mov in movimientos:
+            monto = Decimal(str(mov.monto_total or 0))
+            if mov.tipo == TipoMovimientoCajaEnum.INGRESO:
+                total_ingresos += monto
+            else:
+                total_egresos += monto
+
+        total_pagos = pagos.aggregate(total=Sum('monto'))['total'] or Decimal('0')
+
+    context = {
+        'termino': termino,
+        'propiedad_id': propiedad_id,
+        'propiedad': propiedad,
+        'coincidencias': coincidencias,
+        'movimientos': movimientos[:200],
+        'reservas': reservas[:100],
+        'contratos': contratos[:100],
+        'pagos': pagos[:200],
+        'total_ingresos': total_ingresos,
+        'total_egresos': total_egresos,
+        'balance': total_ingresos - total_egresos,
+        'total_pagos': total_pagos,
+    }
+    return render(request, 'inmobiliaria/caja/historial_propiedad_caja.html', context)
+
 from xhtml2pdf import pisa
 from io import BytesIO
 from .models import (

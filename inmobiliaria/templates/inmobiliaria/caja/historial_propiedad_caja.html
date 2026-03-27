@@ -1,0 +1,240 @@
+{% extends 'inmobiliaria/base.html' %}
+
+{% block title %}Historial por Propiedad - Caja{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2><i class="fas fa-home"></i> Historial por propiedad</h2>
+            <p class="text-muted mb-0">Buscá una propiedad y visualizá pagos, reservas, contratos y movimientos de caja</p>
+        </div>
+        <a href="{% url 'inmobiliaria:dashboard_caja' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Volver a Caja
+        </a>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-2 align-items-end">
+                <div class="col-md-8">
+                    <label for="q" class="form-label">Buscar propiedad</label>
+                    <input type="text" class="form-control" id="q" name="q"
+                           value="{{ termino }}" placeholder="ID, dirección o ubicación">
+                </div>
+                <div class="col-md-4">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search"></i> Buscar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if termino and not propiedad and coincidencias %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <strong>Coincidencias encontradas</strong>
+            </div>
+            <div class="list-group list-group-flush">
+                {% for p in coincidencias %}
+                    <a class="list-group-item list-group-item-action"
+                       href="{% url 'inmobiliaria:historial_propiedad_caja' %}?propiedad_id={{ p.id }}">
+                        <strong>#{{ p.id }}</strong> - {{ p.direccion }}{% if p.ubicacion %} ({{ p.ubicacion }}){% endif %}
+                    </a>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+
+    {% if termino and not propiedad and not coincidencias %}
+        <div class="alert alert-warning">
+            No se encontró ninguna propiedad en tu sucursal con ese criterio.
+        </div>
+    {% endif %}
+
+    {% if propiedad %}
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="mb-3">Propiedad #{{ propiedad.id }} - {{ propiedad.direccion }}</h5>
+                <div class="row">
+                    <div class="col-md-4"><strong>Ubicación:</strong> {{ propiedad.ubicacion|default:"-" }}</div>
+                    <div class="col-md-4"><strong>Sucursal:</strong> {{ propiedad.sucursal.nombre }}</div>
+                    <div class="col-md-4"><strong>Propietario:</strong> {{ propiedad.propietario }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card border-success">
+                    <div class="card-body">
+                        <div class="small text-muted">Total ingresos</div>
+                        <div class="h5 text-success mb-0">${{ total_ingresos|floatformat:2 }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-danger">
+                    <div class="card-body">
+                        <div class="small text-muted">Total egresos</div>
+                        <div class="h5 text-danger mb-0">${{ total_egresos|floatformat:2 }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-primary">
+                    <div class="card-body">
+                        <div class="small text-muted">Balance</div>
+                        <div class="h5 mb-0">${{ balance|floatformat:2 }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-info">
+                    <div class="card-body">
+                        <div class="small text-muted">Pagos de reservas</div>
+                        <div class="h5 text-info mb-0">${{ total_pagos|floatformat:2 }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header"><strong>Movimientos de caja</strong> ({{ movimientos|length }})</div>
+            <div class="table-responsive">
+                <table class="table table-sm table-striped mb-0">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Tipo</th>
+                            <th>Concepto</th>
+                            <th>Caja</th>
+                            <th>Empleado</th>
+                            <th class="text-end">Monto</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for m in movimientos %}
+                            <tr>
+                                <td>{{ m.fecha|date:"d/m/Y H:i" }}</td>
+                                <td>{{ m.get_tipo_display }}</td>
+                                <td>{{ m.concepto|default:"-" }}</td>
+                                <td>{% if m.caja %}#{{ m.caja.numero }}{% else %}-{% endif %}</td>
+                                <td>{{ m.empleado|default:"-" }}</td>
+                                <td class="text-end">${{ m.monto_total|floatformat:2 }}</td>
+                            </tr>
+                        {% empty %}
+                            <tr><td colspan="6" class="text-center text-muted">Sin movimientos</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header"><strong>Reservas</strong> ({{ reservas|length }})</div>
+            <div class="table-responsive">
+                <table class="table table-sm table-striped mb-0">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Estado</th>
+                            <th>Inquilino</th>
+                            <th>Vendedor</th>
+                            <th>Desde</th>
+                            <th>Hasta</th>
+                            <th class="text-end">Precio total</th>
+                            <th class="text-end">Seña</th>
+                            <th class="text-end">Pendiente</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in reservas %}
+                            <tr>
+                                <td>#{{ r.id }}</td>
+                                <td>{{ r.get_estado_display }}</td>
+                                <td>{{ r.cliente|default:"-" }}</td>
+                                <td>{{ r.vendedor|default:"-" }}</td>
+                                <td>{{ r.fecha_inicio|date:"d/m/Y" }}</td>
+                                <td>{{ r.fecha_fin|date:"d/m/Y" }}</td>
+                                <td class="text-end">${{ r.precio_total|floatformat:2 }}</td>
+                                <td class="text-end">${{ r.senia|floatformat:2 }}</td>
+                                <td class="text-end">${{ r.cuota_pendiente|floatformat:2 }}</td>
+                            </tr>
+                        {% empty %}
+                            <tr><td colspan="9" class="text-center text-muted">Sin reservas</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header"><strong>Contratos</strong> ({{ contratos|length }})</div>
+            <div class="table-responsive">
+                <table class="table table-sm table-striped mb-0">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Estado</th>
+                            <th>Inquilino</th>
+                            <th>Vendedor</th>
+                            <th>Inicio</th>
+                            <th>Fin</th>
+                            <th class="text-end">Precio mensual</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in contratos %}
+                            <tr>
+                                <td>#{{ c.id }}</td>
+                                <td>{{ c.get_estado_display }}</td>
+                                <td>{{ c.inquilino }}</td>
+                                <td>{{ c.vendedor }}</td>
+                                <td>{{ c.fecha_inicio|date:"d/m/Y" }}</td>
+                                <td>{{ c.fecha_fin|date:"d/m/Y" }}</td>
+                                <td class="text-end">${{ c.precio_mensual|floatformat:2 }}</td>
+                            </tr>
+                        {% empty %}
+                            <tr><td colspan="7" class="text-center text-muted">Sin contratos</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header"><strong>Pagos (reservas)</strong> ({{ pagos|length }})</div>
+            <div class="table-responsive">
+                <table class="table table-sm table-striped mb-0">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Código</th>
+                            <th>Reserva</th>
+                            <th>Forma de pago</th>
+                            <th>Concepto</th>
+                            <th class="text-end">Monto</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in pagos %}
+                            <tr>
+                                <td>{{ p.fecha|date:"d/m/Y" }}</td>
+                                <td>{{ p.codigo }}</td>
+                                <td>#{{ p.reserva_id }}</td>
+                                <td>{{ p.get_forma_pago_display }}</td>
+                                <td>{{ p.concepto }}</td>
+                                <td class="text-end">${{ p.monto|floatformat:2 }}</td>
+                            </tr>
+                        {% empty %}
+                            <tr><td colspan="6" class="text-center text-muted">Sin pagos</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
