@@ -16,11 +16,16 @@
 
     <div class="card mb-4">
         <div class="card-body">
-            <form method="get" class="row g-2 align-items-end">
+            <form method="get" class="row g-2 align-items-end" id="formBuscarPropiedad">
                 <div class="col-md-8">
                     <label for="q" class="form-label">Buscar propiedad</label>
-                    <input type="text" class="form-control" id="q" name="q"
-                           value="{{ termino }}" placeholder="ID, dirección o ubicación">
+                    <div class="position-relative" id="buscadorPropiedadWrap">
+                        <input type="text" class="form-control" id="q" name="q"
+                               value="{{ termino }}" placeholder="ID, dirección o ubicación">
+                        <input type="hidden" name="propiedad_id" id="propiedad_id_hidden" value="{{ propiedad_id|default:'' }}">
+                        <div class="list-group position-absolute w-100 d-none" id="resultadosPropiedad"
+                             style="z-index:30; max-height:260px; overflow-y:auto;"></div>
+                    </div>
                 </div>
                 <div class="col-md-4">
                     <button type="submit" class="btn btn-primary w-100">
@@ -237,4 +242,90 @@
         </div>
     {% endif %}
 </div>
+<script>
+(function () {
+    const input = document.getElementById('q');
+    const hiddenId = document.getElementById('propiedad_id_hidden');
+    const resultados = document.getElementById('resultadosPropiedad');
+    const wrap = document.getElementById('buscadorPropiedadWrap');
+    const form = document.getElementById('formBuscarPropiedad');
+    if (!input || !resultados || !wrap || !form) return;
+
+    let debounceTimer = null;
+
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+        return '';
+    }
+
+    function renderResultados(items) {
+        if (!items.length) {
+            resultados.innerHTML = '<div class="list-group-item text-muted">Sin coincidencias</div>';
+            resultados.classList.remove('d-none');
+            return;
+        }
+        resultados.innerHTML = items.map(function (p) {
+            const ubic = p.ubicacion ? ` (${p.ubicacion})` : '';
+            return `<button type="button" class="list-group-item list-group-item-action item-propiedad" data-id="${p.id}" data-text="#${p.id} - ${p.direccion}${ubic}">
+                <strong>#${p.id}</strong> - ${p.direccion}${ubic}
+            </button>`;
+        }).join('');
+        resultados.classList.remove('d-none');
+    }
+
+    function buscar() {
+        const termino = (input.value || '').trim();
+        hiddenId.value = '';
+        if (termino.length < 2) {
+            resultados.classList.add('d-none');
+            resultados.innerHTML = '';
+            return;
+        }
+        fetch("{% url 'inmobiliaria:buscar_propiedades_caja' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                'X-CSRFToken': getCookie('csrftoken'),
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: new URLSearchParams({ termino: termino }).toString()
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) {
+                resultados.classList.add('d-none');
+                return;
+            }
+            renderResultados(data.propiedades || []);
+        })
+        .catch(() => {
+            resultados.classList.add('d-none');
+        });
+    }
+
+    input.addEventListener('input', function () {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(buscar, 180);
+    });
+
+    input.addEventListener('focus', function () {
+        if ((input.value || '').trim().length >= 2) buscar();
+    });
+
+    resultados.addEventListener('click', function (e) {
+        const btn = e.target.closest('.item-propiedad');
+        if (!btn) return;
+        hiddenId.value = btn.getAttribute('data-id') || '';
+        input.value = btn.getAttribute('data-text') || input.value;
+        resultados.classList.add('d-none');
+        form.submit();
+    });
+
+    document.addEventListener('click', function (e) {
+        if (!wrap.contains(e.target)) resultados.classList.add('d-none');
+    });
+})();
+</script>
 {% endblock %}
