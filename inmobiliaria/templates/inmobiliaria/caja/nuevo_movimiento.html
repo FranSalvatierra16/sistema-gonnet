@@ -855,9 +855,10 @@ $(document).ready(function() {
                         return;
                     }
                     var l = response.liquidacion;
+                    var numeroComprobanteFormateado = '0000-' + String(l.id || 0).padStart(8, '0');
                     $('select[name="tipo"]').val('EG');
                     $('select[name="tipo_comprobante"]').val('liquidacion');
-                    $('input[name="numero_liquidacion"]').val('LQ-' + l.id);
+                    $('input[name="numero_liquidacion"]').val(numeroComprobanteFormateado);
                     $('input[name="fecha_desde"]').val(l.fecha_desde || '');
                     $('input[name="fecha_hasta"]').val(l.fecha_hasta || '');
 
