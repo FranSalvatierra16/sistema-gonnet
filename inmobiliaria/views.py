@@ -8677,7 +8677,7 @@ def nuevo_movimiento(request, numero_caja=None):
             # Mapear valores comunes a códigos de 2 caracteres
             tipo_comprobante_map = {
                 'RC': 'RC', 'Recibo': 'RC',
-                'LQ': 'LQ', 'Liquidación': 'LQ',
+                'LQ': 'LQ', 'Liquidación': 'LQ', 'liquidacion': 'LQ', 'liquidación': 'LQ',
                 'GS': 'GS', 'Gasto': 'GS',
                 'OT': 'OT', 'Otro': 'OT'
             }
@@ -9600,6 +9600,46 @@ def buscar_movimiento(request):
             'success': False,
             'error': str(e)
         })
+
+
+@login_required
+def buscar_liquidacion_caja(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'})
+
+    liquidacion_id = (request.POST.get('liquidacion_id') or '').strip()
+    if not liquidacion_id:
+        return JsonResponse({'success': False, 'error': 'Ingrese un ID de liquidación'})
+
+    try:
+        liquidacion = LiquidacionPropietario.objects.select_related(
+            'propietario', 'propiedad'
+        ).get(
+            id=int(liquidacion_id),
+            sucursal=request.user.sucursal
+        )
+    except (ValueError, LiquidacionPropietario.DoesNotExist):
+        return JsonResponse({'success': False, 'error': 'No se encontró la liquidación'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+    return JsonResponse({
+        'success': True,
+        'liquidacion': {
+            'id': liquidacion.id,
+            'estado': liquidacion.estado,
+            'propiedad': {
+                'id': liquidacion.propiedad.id if liquidacion.propiedad else None,
+                'direccion': liquidacion.propiedad.direccion if liquidacion.propiedad else ''
+            },
+            'propietario': str(liquidacion.propietario) if liquidacion.propietario else '',
+            'fecha_desde': liquidacion.fecha_desde.strftime('%Y-%m-%d') if liquidacion.fecha_desde else '',
+            'fecha_hasta': liquidacion.fecha_hasta.strftime('%Y-%m-%d') if liquidacion.fecha_hasta else '',
+            'monto_a_pagar': float(liquidacion.monto_a_pagar or 0),
+            'monto_propietario': float(liquidacion.monto_propietario or 0),
+            'monto_total_operacion': float(liquidacion.monto_total_operacion or 0),
+        }
+    })
 
 @login_required
 def buscar_movimientos(request):

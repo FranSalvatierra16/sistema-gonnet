@@ -79,6 +79,7 @@
                         <label class="form-label">Tipo de Comprobante</label>
                         <select name="tipo_comprobante" class="form-control" required>
                             <option value="recibo">Recibo</option>
+                            <option value="liquidacion">Liquidación</option>
                             <option value="factura">Factura</option>
                             <option value="nota_credito">Nota de Crédito</option>
                             <option value="nota_debito">Nota de Débito</option>
@@ -837,6 +838,53 @@ $(document).ready(function() {
         var operacion = $('#buscar_operacion_num').val();
         if (!operacion) {
             alert('Ingrese un número de operación');
+            return;
+        }
+        var tipoComprobanteSeleccionado = $('select[name="tipo_comprobante"]').val();
+        if (tipoComprobanteSeleccionado === 'liquidacion') {
+            $.ajax({
+                url: '{% url "inmobiliaria:buscar_liquidacion_caja" %}',
+                data: {
+                    liquidacion_id: operacion,
+                    csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
+                },
+                method: 'POST',
+                success: function(response) {
+                    if (!(response.success && response.liquidacion)) {
+                        alert(response.error || 'No se encontró la liquidación');
+                        return;
+                    }
+                    var l = response.liquidacion;
+                    $('select[name="tipo"]').val('EG');
+                    $('select[name="tipo_comprobante"]').val('liquidacion');
+                    $('input[name="numero_liquidacion"]').val('LQ-' + l.id);
+                    $('input[name="fecha_desde"]').val(l.fecha_desde || '');
+                    $('input[name="fecha_hasta"]').val(l.fecha_hasta || '');
+
+                    if (l.propiedad && l.propiedad.id) {
+                        $('#propiedad_id').val(l.propiedad.id);
+                        $('#propiedad_direccion').val(l.propiedad.direccion || '');
+                        $('#propiedad_seleccionada_texto').text(l.propiedad.id + ' - ' + (l.propiedad.direccion || ''));
+                        $('#propiedad_seleccionada').removeClass('d-none');
+                    }
+
+                    var detalle = 'Pago liquidación #' + l.id + ' - ' + (l.propietario || '');
+                    if (l.estado) detalle += ' (' + l.estado + ')';
+                    $('textarea[name="detalles"]').val(detalle);
+
+                    // Cargar importes sugeridos (todo a efectivo por defecto)
+                    $('input[name="monto_efectivo"]').val((l.monto_a_pagar || 0).toFixed(2));
+                    $('input[name="monto_cheque"]').val('0.00');
+                    $('input[name="monto_tarjeta"]').val('0.00');
+                    $('input[name="monto_deposito"]').val('0.00');
+                    $('#corresponde_propietario').prop('checked', true).trigger('change');
+                    $('input[name="monto_propietario"]').val((l.monto_a_pagar || 0).toFixed(2));
+                    $('.monto').trigger('input');
+                },
+                error: function() {
+                    alert('Error al buscar la liquidación');
+                }
+            });
             return;
         }
 

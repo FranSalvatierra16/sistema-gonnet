@@ -91,6 +91,7 @@ urlpatterns = [
     path('buscar-vendedor/', views.buscar_vendedor, name='buscar_vendedor'),
     path('buscar-vendedores/', views.buscar_vendedores, name='buscar_vendedores'),
     path('buscar-movimiento/', views.buscar_movimiento, name='buscar_movimiento'),
+    path('buscar-liquidacion-caja/', views.buscar_liquidacion_caja, name='buscar_liquidacion_caja'),
     path('buscar-movimientos/', views.buscar_movimientos, name='buscar_movimientos'),
 
     # Reserva URLs
