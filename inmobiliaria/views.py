@@ -15041,9 +15041,12 @@ def crear_liquidacion(request, reserva_id=None):
 
     if request.method == 'POST':
         try:
+            def parse_decimal_es(valor):
+                return Decimal((valor or '0').replace('.', '').replace(',', '.'))
+
             propiedad_id = request.POST.get('propiedad_id')
-            monto_total = Decimal(request.POST.get('monto_total', '0').replace('.', '').replace(',', '.'))
-            monto_propietario = Decimal(request.POST.get('monto_propietario', '0').replace('.', '').replace(',', '.'))
+            monto_total = parse_decimal_es(request.POST.get('monto_total', '0'))
+            monto_propietario = parse_decimal_es(request.POST.get('monto_propietario', '0'))
             fecha_desde = request.POST.get('fecha_desde')
             fecha_hasta = request.POST.get('fecha_hasta')
             observaciones = request.POST.get('observaciones', '')
@@ -15057,7 +15060,7 @@ def crear_liquidacion(request, reserva_id=None):
             # Monto inmobiliaria: si viene informado en el formulario, usarlo; si no, diferencia
             raw_inm = (request.POST.get('monto_inmobiliaria') or '').strip()
             if raw_inm:
-                monto_inmobiliaria = Decimal(raw_inm.replace('.', '').replace(',', '.'))
+                monto_inmobiliaria = parse_decimal_es(raw_inm)
             else:
                 monto_inmobiliaria = monto_total - monto_propietario
 
@@ -15075,6 +15078,54 @@ def crear_liquidacion(request, reserva_id=None):
                     continue
                 if tipo in ('reserva', 'contrato'):
                     operaciones_incluidas.append({'tipo': tipo, 'id': pk})
+
+            # División manual en dos operaciones
+            dividir_operacion = request.POST.get('dividir_operacion') == '1'
+            if dividir_operacion:
+                op1_fecha_desde = request.POST.get('op1_fecha_desde')
+                op1_fecha_hasta = request.POST.get('op1_fecha_hasta')
+                op2_fecha_desde = request.POST.get('op2_fecha_desde')
+                op2_fecha_hasta = request.POST.get('op2_fecha_hasta')
+                op1_monto = parse_decimal_es(request.POST.get('op1_monto', '0'))
+                op2_monto = parse_decimal_es(request.POST.get('op2_monto', '0'))
+
+                if not all([op1_fecha_desde, op1_fecha_hasta, op2_fecha_desde, op2_fecha_hasta]):
+                    raise ValueError('Si dividís la liquidación, debés completar las fechas de ambas operaciones.')
+                if op1_monto <= 0 or op2_monto <= 0:
+                    raise ValueError('Los montos de ambas operaciones deben ser mayores a cero.')
+                if (op1_monto + op2_monto).quantize(Decimal('0.01')) != monto_total.quantize(Decimal('0.01')):
+                    raise ValueError('La suma de Operación 1 y Operación 2 debe ser igual al Monto Total de la operación.')
+
+                f1_desde = datetime.strptime(op1_fecha_desde, '%Y-%m-%d').date()
+                f1_hasta = datetime.strptime(op1_fecha_hasta, '%Y-%m-%d').date()
+                f2_desde = datetime.strptime(op2_fecha_desde, '%Y-%m-%d').date()
+                f2_hasta = datetime.strptime(op2_fecha_hasta, '%Y-%m-%d').date()
+                if f1_desde > f1_hasta or f2_desde > f2_hasta:
+                    raise ValueError('En cada operación, la fecha desde no puede ser mayor a la fecha hasta.')
+
+                operaciones_incluidas.append({
+                    'tipo': 'division',
+                    'operaciones': [
+                        {
+                            'numero': 1,
+                            'fecha_desde': op1_fecha_desde,
+                            'fecha_hasta': op1_fecha_hasta,
+                            'monto': str(op1_monto)
+                        },
+                        {
+                            'numero': 2,
+                            'fecha_desde': op2_fecha_desde,
+                            'fecha_hasta': op2_fecha_hasta,
+                            'monto': str(op2_monto)
+                        },
+                    ]
+                })
+
+                # Completar rango general si no fue cargado manualmente
+                if not fecha_desde:
+                    fecha_desde = min(op1_fecha_desde, op2_fecha_desde)
+                if not fecha_hasta:
+                    fecha_hasta = max(op1_fecha_hasta, op2_fecha_hasta)
 
             # Compatibilidad: si solo hay una reserva en el POST y no venimos por URL, asignar FK reserva
             if reserva is None:
@@ -15524,9 +15575,16 @@ def detalle_liquidacion(request, liquidacion_id):
         sucursal=request.user.sucursal
     )
 
+    division_operaciones = []
+    for op in (liquidacion.operaciones_incluidas or []):
+        if isinstance(op, dict) and op.get('tipo') == 'division':
+            division_operaciones = op.get('operaciones') or []
+            break
+
     context = {
         'liquidacion': liquidacion,
         'gastos': liquidacion.gastos.all().order_by('-fecha_creacion'),
+        'division_operaciones': division_operaciones,
     }
 
     return render(request, 'inmobiliaria/liquidaciones/detalle.html', context)

@@ -125,6 +125,52 @@
                         </div>
 
                         <div class="row mb-3">
+                            <div class="col-12">
+                                <div class="card border-primary">
+                                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                                        <strong><i class="fas fa-code-branch me-2"></i>Dividir liquidación en dos operaciones</strong>
+                                        <div class="form-check form-switch m-0">
+                                            <input class="form-check-input" type="checkbox" id="dividir_operacion_toggle">
+                                            <label class="form-check-label" for="dividir_operacion_toggle">Activar</label>
+                                        </div>
+                                        <input type="hidden" name="dividir_operacion" id="dividir_operacion" value="0">
+                                    </div>
+                                    <div class="card-body" id="bloque_division_operaciones" style="display:none;">
+                                        <div class="row g-2">
+                                            <div class="col-md-2">
+                                                <label class="form-label">Op. 1 desde</label>
+                                                <input type="date" class="form-control" name="op1_fecha_desde" id="op1_fecha_desde">
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label">Op. 1 hasta</label>
+                                                <input type="date" class="form-control" name="op1_fecha_hasta" id="op1_fecha_hasta">
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label">Monto Op. 1</label>
+                                                <input type="text" class="form-control" name="op1_monto" id="op1_monto" placeholder="0,00">
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label">Op. 2 desde</label>
+                                                <input type="date" class="form-control" name="op2_fecha_desde" id="op2_fecha_desde">
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label">Op. 2 hasta</label>
+                                                <input type="date" class="form-control" name="op2_fecha_hasta" id="op2_fecha_hasta">
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label">Monto Op. 2</label>
+                                                <input type="text" class="form-control" name="op2_monto" id="op2_monto" placeholder="0,00">
+                                            </div>
+                                        </div>
+                                        <div class="mt-2">
+                                            <small id="division_resumen" class="text-muted">La suma de ambas operaciones debe ser igual al monto total.</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
                             <div class="col-md-6">
                                 <label class="form-label">Fecha Desde</label>
                                 <input type="date" name="fecha_desde" class="form-control" 
@@ -169,6 +215,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const montoTotal = document.getElementById('monto_total');
     const montoPropietario = document.getElementById('monto_propietario');
     const montoInmobiliaria = document.getElementById('monto_inmobiliaria');
+    const dividirToggle = document.getElementById('dividir_operacion_toggle');
+    const dividirHidden = document.getElementById('dividir_operacion');
+    const bloqueDivision = document.getElementById('bloque_division_operaciones');
+    const op1Monto = document.getElementById('op1_monto');
+    const op2Monto = document.getElementById('op2_monto');
+    const resumenDivision = document.getElementById('division_resumen');
 
     // Actualizar propietario y cargar operaciones pendientes cuando se selecciona una propiedad
     propiedadSelect.addEventListener('change', function() {
@@ -460,6 +512,42 @@ document.addEventListener('DOMContentLoaded', function() {
         return isNaN(n) ? 0 : n;
     }
 
+    function actualizarResumenDivision() {
+        if (!dividirToggle || !dividirToggle.checked) return;
+        const total = parseNumeroEsAR(montoTotal.value);
+        const m1 = parseNumeroEsAR(op1Monto.value);
+        const m2 = parseNumeroEsAR(op2Monto.value);
+        const suma = m1 + m2;
+        const ok = Math.abs(suma - total) < 0.01;
+        resumenDivision.textContent = `Op.1 + Op.2 = ${formatearNumero(suma.toFixed(2))} | Total = ${formatearNumero(total.toFixed(2))}`;
+        resumenDivision.className = ok ? 'text-success' : 'text-danger';
+    }
+
+    if (dividirToggle) {
+        dividirToggle.addEventListener('change', function() {
+            const activo = this.checked;
+            dividirHidden.value = activo ? '1' : '0';
+            bloqueDivision.style.display = activo ? 'block' : 'none';
+            if (activo) {
+                // Autocompletar mitad y mitad si estaban vacíos
+                const total = parseNumeroEsAR(montoTotal.value);
+                if (total > 0 && parseNumeroEsAR(op1Monto.value) === 0 && parseNumeroEsAR(op2Monto.value) === 0) {
+                    const mitad = Math.floor((total / 2) * 100) / 100;
+                    const resto = Number((total - mitad).toFixed(2));
+                    op1Monto.value = formatearNumero(mitad.toFixed(2));
+                    op2Monto.value = formatearNumero(resto.toFixed(2));
+                }
+                actualizarResumenDivision();
+            } else {
+                resumenDivision.textContent = 'La suma de ambas operaciones debe ser igual al monto total.';
+                resumenDivision.className = 'text-muted';
+            }
+        });
+        [montoTotal, op1Monto, op2Monto].forEach(function(el) {
+            el.addEventListener('input', actualizarResumenDivision);
+        });
+    }
+
     let montoInmobiliariaEditadoManual = false;
     function actualizarInmobiliariaPorDiferencia() {
         if (montoInmobiliariaEditadoManual) return;
@@ -591,6 +679,27 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Función para preparar el formulario antes de enviarlo
     window.prepararFormulario = function() {
+        if (dividirToggle && dividirToggle.checked) {
+            const mTotal = parseNumeroEsAR(montoTotal.value);
+            const m1 = parseNumeroEsAR(op1Monto.value);
+            const m2 = parseNumeroEsAR(op2Monto.value);
+            const f1d = document.getElementById('op1_fecha_desde').value;
+            const f1h = document.getElementById('op1_fecha_hasta').value;
+            const f2d = document.getElementById('op2_fecha_desde').value;
+            const f2h = document.getElementById('op2_fecha_hasta').value;
+            if (!f1d || !f1h || !f2d || !f2h) {
+                alert('Si dividís la liquidación, completá las fechas de ambas operaciones.');
+                return false;
+            }
+            if (m1 <= 0 || m2 <= 0) {
+                alert('Los montos de Operación 1 y Operación 2 deben ser mayores a cero.');
+                return false;
+            }
+            if (Math.abs((m1 + m2) - mTotal) >= 0.01) {
+                alert('La suma de Operación 1 y Operación 2 debe ser igual al Monto Total.');
+                return false;
+            }
+        }
         const form = document.getElementById('formCrearLiquidacion');
         if (form) {
             form.querySelectorAll('input.dynamic-operacion-seleccionada').forEach(function(el) {

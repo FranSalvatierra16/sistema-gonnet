@@ -110,6 +110,42 @@
                 </div>
             </div>
 
+            {% if division_operaciones %}
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card shadow">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">División en 2 Operaciones</h5>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-sm mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Operación</th>
+                                            <th>Fecha Desde</th>
+                                            <th>Fecha Hasta</th>
+                                            <th class="text-end">Monto</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for op in division_operaciones %}
+                                        <tr>
+                                            <td>#{{ op.numero }}</td>
+                                            <td>{{ op.fecha_desde }}</td>
+                                            <td>{{ op.fecha_hasta }}</td>
+                                            <td class="text-end">${{ op.monto|floatformat:2 }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
             <!-- Gastos -->
             <div class="row mb-4">
                 <div class="col-12">
