@@ -22,6 +22,12 @@
                                 <div class="position-relative" id="propiedad-buscador-wrap">
                                     <input type="text" id="propiedad_buscar" class="form-control"
                                            placeholder="Escribí ID o dirección de la propiedad...">
+                                    <button type="button" id="btn_limpiar_propiedad"
+                                            class="btn btn-sm btn-outline-secondary d-none"
+                                            style="position:absolute; right:8px; top:50%; transform:translateY(-50%); z-index:31;"
+                                            title="Quitar propiedad seleccionada" aria-label="Quitar propiedad seleccionada">
+                                        <i class="fas fa-times"></i>
+                                    </button>
                                     <div id="propiedad_resultados" class="list-group position-absolute w-100 d-none"
                                          style="z-index: 30; max-height: 260px; overflow-y: auto;"></div>
                                 </div>
@@ -156,6 +162,7 @@
 document.addEventListener('DOMContentLoaded', function() {
     const propiedadSelect = document.getElementById('propiedad_id');
     const propiedadBuscar = document.getElementById('propiedad_buscar');
+    const btnLimpiarPropiedad = document.getElementById('btn_limpiar_propiedad');
     const propiedadResultados = document.getElementById('propiedad_resultados');
     const propiedadWrap = document.getElementById('propiedad-buscador-wrap');
     const propietarioDisplay = document.getElementById('propietario_display');
@@ -214,15 +221,36 @@ document.addEventListener('DOMContentLoaded', function() {
         const opt = propiedadSelect.options[propiedadSelect.selectedIndex];
         if (opt && opt.value) {
             propiedadBuscar.value = `#${opt.value} - ${opt.textContent.trim()}`;
+            btnLimpiarPropiedad.classList.remove('d-none');
         }
         propiedadSelect.dispatchEvent(new Event('change'));
         propiedadResultados.classList.add('d-none');
+    }
+
+    function limpiarPropiedadSeleccionada() {
+        propiedadSelect.value = '';
+        propiedadBuscar.value = '';
+        propietarioDisplay.value = '';
+        btnLimpiarPropiedad.classList.add('d-none');
+        propiedadResultados.classList.add('d-none');
+        document.getElementById('operaciones-pendientes-container').style.display = 'none';
+        document.getElementById('gastos-pendientes-container').style.display = 'none';
+        document.getElementById('operaciones-pendientes-lista').innerHTML = '';
+        document.getElementById('gastos-pendientes-lista').innerHTML = '';
+        document.getElementById('sin-operaciones').style.display = 'none';
+        document.getElementById('sin-gastos').style.display = 'none';
     }
 
     propiedadBuscar.addEventListener('focus', function() {
         renderResultadosPropiedad(this.value);
     });
     propiedadBuscar.addEventListener('input', function() {
+        // Si el usuario edita manualmente, se invalida la selección previa
+        if (propiedadSelect.value) {
+            propiedadSelect.value = '';
+            propietarioDisplay.value = '';
+        }
+        btnLimpiarPropiedad.classList.toggle('d-none', !this.value.trim());
         renderResultadosPropiedad(this.value);
     });
 
@@ -237,6 +265,7 @@ document.addEventListener('DOMContentLoaded', function() {
             propiedadResultados.classList.add('d-none');
         }
     });
+    btnLimpiarPropiedad.addEventListener('click', limpiarPropiedadSeleccionada);
 
     // Función para cargar operaciones pendientes
     function cargarOperacionesPendientes(propiedadId) {
@@ -555,6 +584,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (propiedadSelect.value) {
         const selectedOption = propiedadSelect.options[propiedadSelect.selectedIndex];
         propiedadBuscar.value = `#${selectedOption.value} - ${selectedOption.textContent.trim()}`;
+        btnLimpiarPropiedad.classList.remove('d-none');
         propietarioDisplay.value = selectedOption.getAttribute('data-propietario');
         cargarOperacionesPendientes(propiedadSelect.value);
     }
