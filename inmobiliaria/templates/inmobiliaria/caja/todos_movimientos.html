@@ -436,8 +436,24 @@
         chipsContainer.innerHTML = '';
         checks.filter(ch => ch.checked).forEach(ch => {
             const chip = document.createElement('span');
-            chip.className = 'badge bg-primary me-1 mb-1';
-            chip.textContent = ch.dataset.label;
+            chip.className = 'badge bg-primary me-1 mb-1 chip-propiedad';
+
+            const texto = document.createElement('span');
+            texto.textContent = ch.dataset.label;
+            chip.appendChild(texto);
+
+            const btnQuitar = document.createElement('button');
+            btnQuitar.type = 'button';
+            btnQuitar.className = 'btn-close btn-close-white btn-close-chip';
+            btnQuitar.setAttribute('aria-label', 'Quitar propiedad');
+            btnQuitar.addEventListener('click', function (e) {
+                e.preventDefault();
+                ch.checked = false;
+                syncHiddenInputs();
+                renderChips();
+            });
+            chip.appendChild(btnQuitar);
+
             chipsContainer.appendChild(chip);
         });
     }
@@ -561,6 +577,22 @@ thead.sticky-top th {
 
 .selected-chips {
     min-height: 24px;
+}
+
+.chip-propiedad {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding-right: 6px;
+}
+
+.btn-close-chip {
+    font-size: 0.6rem;
+    opacity: 0.9;
+}
+
+.btn-close-chip:hover {
+    opacity: 1;
 }
 </style>
 {% endblock %}
