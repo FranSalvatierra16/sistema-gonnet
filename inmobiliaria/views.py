@@ -526,6 +526,9 @@ def todos_movimientos_caja(request):
     busqueda = request.GET.get('busqueda', '').strip()
     tipo_filtro = request.GET.get('tipo', '')
     propiedad_id = request.GET.get('propiedad_id', '').strip()
+    propiedad_ids = [p.strip() for p in request.GET.getlist('propiedad_ids') if p.strip()]
+    if propiedad_id and propiedad_id not in propiedad_ids:
+        propiedad_ids.append(propiedad_id)
     mes_filtro = request.GET.get('mes', '').strip()  # YYYY-MM
     fecha_desde = request.GET.get('fecha_desde', '')
     fecha_hasta = request.GET.get('fecha_hasta', '')
@@ -543,8 +546,8 @@ def todos_movimientos_caja(request):
     if tipo_filtro:
         movimientos = movimientos.filter(tipo=tipo_filtro)
 
-    if propiedad_id:
-        movimientos = movimientos.filter(propiedad_id=propiedad_id)
+    if propiedad_ids:
+        movimientos = movimientos.filter(propiedad_id__in=propiedad_ids)
 
     # Atajo por mes (si no hay rango manual)
     if mes_filtro and not fecha_desde and not fecha_hasta:
@@ -639,6 +642,9 @@ def todos_movimientos_caja(request):
     paginator = Paginator(movimientos, 50)
     page_number = request.GET.get('page')
     movimientos_paginados = paginator.get_page(page_number)
+    query_params = request.GET.copy()
+    if 'page' in query_params:
+        del query_params['page']
 
     context = {
         'movimientos': movimientos_paginados,
@@ -649,6 +655,7 @@ def todos_movimientos_caja(request):
         'busqueda': busqueda,
         'tipo_filtro': tipo_filtro,
         'propiedad_id': propiedad_id,
+        'propiedad_ids': propiedad_ids,
         'mes_filtro': mes_filtro,
         'fecha_desde': fecha_desde,
         'fecha_hasta': fecha_hasta,
@@ -656,6 +663,7 @@ def todos_movimientos_caja(request):
             sucursal=request.user.sucursal
         ).order_by('direccion'),
         'resumen_mensual': resumen_mensual,
+        'querystring': query_params.urlencode(),
     }
     
     return render(request, 'inmobiliaria/caja/todos_movimientos.html', context)

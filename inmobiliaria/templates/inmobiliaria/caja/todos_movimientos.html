@@ -59,17 +59,28 @@
                                 </select>
                             </div>
                             <div class="col-md-4">
-                                <label for="propiedad_id" class="form-label">
-                                    <i class="fas fa-home"></i> Propiedad
+                                <label for="propiedad_filtro_texto" class="form-label">
+                                    <i class="fas fa-home"></i> Propiedades (múltiples)
                                 </label>
-                                <select class="form-control" id="propiedad_id" name="propiedad_id">
-                                    <option value="">Todas</option>
-                                    {% for propiedad in propiedades %}
-                                        <option value="{{ propiedad.id }}" {% if propiedad_id == propiedad.id|stringformat:"s" %}selected{% endif %}>
-                                            {{ propiedad.direccion }}
-                                        </option>
-                                    {% endfor %}
-                                </select>
+                                <div class="propiedad-multiselect" id="propiedadMultiselect">
+                                    <input type="text" class="form-control" id="propiedad_filtro_texto"
+                                           placeholder="Escribí ID o dirección para filtrar...">
+                                    <div class="selected-chips mt-2" id="propiedadesSeleccionadas"></div>
+                                    <div class="propiedad-opciones mt-2 d-none" id="propiedadOpciones">
+                                        {% for propiedad in propiedades %}
+                                            <label class="propiedad-opcion d-flex align-items-center mb-1"
+                                                   data-search="{{ propiedad.id }} {{ propiedad.direccion|lower }} {{ propiedad.ubicacion|default:''|lower }}">
+                                                <input type="checkbox" class="form-check-input me-2 propiedad-check"
+                                                       value="{{ propiedad.id }}"
+                                                       data-label="#{{ propiedad.id }} - {{ propiedad.direccion }}"
+                                                       {% if propiedad.id|stringformat:"s" in propiedad_ids %}checked{% endif %}>
+                                                <span>#{{ propiedad.id }} - {{ propiedad.direccion }}</span>
+                                            </label>
+                                        {% endfor %}
+                                    </div>
+                                    <div id="propiedadHiddenInputs"></div>
+                                </div>
+                                <small class="form-text text-muted">Seleccioná una o varias propiedades</small>
                             </div>
                             <div class="col-md-2">
                                 <label for="fecha_desde" class="form-label">
@@ -98,7 +109,7 @@
                                 </button>
                             </div>
                         </div>
-                        {% if busqueda or tipo_filtro or propiedad_id or mes_filtro or fecha_desde or fecha_hasta %}
+                        {% if busqueda or tipo_filtro or propiedad_ids or mes_filtro or fecha_desde or fecha_hasta %}
                         <div class="row mt-2">
                             <div class="col-12">
                                 <a href="{% url 'inmobiliaria:todos_movimientos_caja' %}" class="btn btn-sm btn-outline-secondary">
@@ -193,6 +204,7 @@
                                     <th class="text-end">Balance</th>
                                     <th class="text-center">Reservas</th>
                                     <th class="text-center">Movimientos</th>
+                                    <th class="text-center">Detalle</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -206,6 +218,15 @@
                                     </td>
                                     <td class="text-center">{{ fila.reservas }}</td>
                                     <td class="text-center">{{ fila.movimientos }}</td>
+                                    <td class="text-center">
+                                        <form method="get" action="{% url 'inmobiliaria:todos_movimientos_caja' %}" class="d-inline">
+                                            {% if busqueda %}<input type="hidden" name="busqueda" value="{{ busqueda }}">{% endif %}
+                                            {% if tipo_filtro %}<input type="hidden" name="tipo" value="{{ tipo_filtro }}">{% endif %}
+                                            {% for pid in propiedad_ids %}<input type="hidden" name="propiedad_ids" value="{{ pid }}">{% endfor %}
+                                            <input type="hidden" name="mes" value="{{ fila.mes|date:'Y-m' }}">
+                                            <button type="submit" class="btn btn-sm btn-outline-primary">Ver mes</button>
+                                        </form>
+                                    </td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -335,12 +356,12 @@
                                 <ul class="pagination justify-content-center mb-0">
                                     {% if movimientos.has_previous %}
                                         <li class="page-item">
-                                            <a class="page-link" href="?page=1{% if busqueda %}&busqueda={{ busqueda }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if propiedad_id %}&propiedad_id={{ propiedad_id }}{% endif %}{% if mes_filtro %}&mes={{ mes_filtro }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}">
+                                            <a class="page-link" href="?page=1{% if querystring %}&{{ querystring }}{% endif %}">
                                                 <i class="fas fa-angle-double-left"></i>
                                             </a>
                                         </li>
                                         <li class="page-item">
-                                            <a class="page-link" href="?page={{ movimientos.previous_page_number }}{% if busqueda %}&busqueda={{ busqueda }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if propiedad_id %}&propiedad_id={{ propiedad_id }}{% endif %}{% if mes_filtro %}&mes={{ mes_filtro }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}">
+                                            <a class="page-link" href="?page={{ movimientos.previous_page_number }}{% if querystring %}&{{ querystring }}{% endif %}">
                                                 <i class="fas fa-angle-left"></i>
                                             </a>
                                         </li>
@@ -354,12 +375,12 @@
 
                                     {% if movimientos.has_next %}
                                         <li class="page-item">
-                                            <a class="page-link" href="?page={{ movimientos.next_page_number }}{% if busqueda %}&busqueda={{ busqueda }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if propiedad_id %}&propiedad_id={{ propiedad_id }}{% endif %}{% if mes_filtro %}&mes={{ mes_filtro }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}">
+                                            <a class="page-link" href="?page={{ movimientos.next_page_number }}{% if querystring %}&{{ querystring }}{% endif %}">
                                                 <i class="fas fa-angle-right"></i>
                                             </a>
                                         </li>
                                         <li class="page-item">
-                                            <a class="page-link" href="?page={{ movimientos.paginator.num_pages }}{% if busqueda %}&busqueda={{ busqueda }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if propiedad_id %}&propiedad_id={{ propiedad_id }}{% endif %}{% if mes_filtro %}&mes={{ mes_filtro }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}">
+                                            <a class="page-link" href="?page={{ movimientos.paginator.num_pages }}{% if querystring %}&{{ querystring }}{% endif %}">
                                                 <i class="fas fa-angle-double-right"></i>
                                             </a>
                                         </li>
@@ -372,7 +393,7 @@
                         <div class="text-center py-5">
                             <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
                             <h4 class="text-muted">No se encontraron movimientos</h4>
-                            {% if busqueda or tipo_filtro or propiedad_id or mes_filtro or fecha_desde or fecha_hasta %}
+                            {% if busqueda or tipo_filtro or propiedad_ids or mes_filtro or fecha_desde or fecha_hasta %}
                                 <p class="text-muted">Intenta ajustar los filtros de búsqueda</p>
                                 <a href="{% url 'inmobiliaria:todos_movimientos_caja' %}" class="btn btn-primary">
                                     <i class="fas fa-redo"></i> Ver Todos los Movimientos
@@ -387,6 +408,75 @@
         </div>
     </div>
 </div>
+
+<script>
+(function () {
+    const wrapper = document.getElementById('propiedadMultiselect');
+    if (!wrapper) return;
+
+    const input = document.getElementById('propiedad_filtro_texto');
+    const opciones = document.getElementById('propiedadOpciones');
+    const checks = Array.from(wrapper.querySelectorAll('.propiedad-check'));
+    const hiddenContainer = document.getElementById('propiedadHiddenInputs');
+    const chipsContainer = document.getElementById('propiedadesSeleccionadas');
+    const form = wrapper.closest('form');
+
+    function syncHiddenInputs() {
+        hiddenContainer.innerHTML = '';
+        checks.filter(ch => ch.checked).forEach(ch => {
+            const hidden = document.createElement('input');
+            hidden.type = 'hidden';
+            hidden.name = 'propiedad_ids';
+            hidden.value = ch.value;
+            hiddenContainer.appendChild(hidden);
+        });
+    }
+
+    function renderChips() {
+        chipsContainer.innerHTML = '';
+        checks.filter(ch => ch.checked).forEach(ch => {
+            const chip = document.createElement('span');
+            chip.className = 'badge bg-primary me-1 mb-1';
+            chip.textContent = ch.dataset.label;
+            chipsContainer.appendChild(chip);
+        });
+    }
+
+    function filtrarOpciones() {
+        const q = (input.value || '').toLowerCase().trim();
+        wrapper.querySelectorAll('.propiedad-opcion').forEach(opcion => {
+            const txt = (opcion.getAttribute('data-search') || '').toLowerCase();
+            opcion.classList.toggle('d-none', q && !txt.includes(q));
+        });
+    }
+
+    input.addEventListener('focus', function () {
+        opciones.classList.remove('d-none');
+        filtrarOpciones();
+    });
+    input.addEventListener('input', filtrarOpciones);
+
+    document.addEventListener('click', function (e) {
+        if (!wrapper.contains(e.target)) {
+            opciones.classList.add('d-none');
+        }
+    });
+
+    checks.forEach(ch => {
+        ch.addEventListener('change', function () {
+            syncHiddenInputs();
+            renderChips();
+        });
+    });
+
+    if (form) {
+        form.addEventListener('submit', syncHiddenInputs);
+    }
+
+    syncHiddenInputs();
+    renderChips();
+})();
+</script>
 
 <style>
 .info-box {
@@ -450,6 +540,27 @@
 thead.sticky-top th {
     background-color: #f8f9fa !important;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.propiedad-multiselect {
+    position: relative;
+}
+
+.propiedad-opciones {
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 8px;
+    max-height: 260px;
+    overflow-y: auto;
+    background: #fff;
+    z-index: 20;
+    position: absolute;
+    width: 100%;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+.selected-chips {
+    min-height: 24px;
 }
 </style>
 {% endblock %}
