@@ -1,6 +1,13 @@
 from django.contrib import admin
 from django.contrib import messages
-from .models import Vendedor, Inquilino, Propietario, Propiedad, HistorialDisponibilidad
+from .models import (
+    Vendedor,
+    Inquilino,
+    Propietario,
+    Propiedad,
+    HistorialDisponibilidad,
+    Sucursal,
+)
 
 @admin.register(Vendedor)
 class VendedorAdmin(admin.ModelAdmin):
@@ -55,6 +62,54 @@ def reconstruir_historial_propiedad(modeladmin, request, queryset):
         messages.warning(request, '⚠️ No se procesaron propiedades')
 
 reconstruir_historial_propiedad.short_description = "🔄 Reconstruir historial cronológico"
+
+
+def reset_caja_desde_cero_sucursal(modeladmin, request, queryset):
+    """
+    Cierra cajas abiertas de la sucursal y abre una nueva con saldo 0 (no borra movimientos).
+    Solo superusuarios: acción destructiva en producción.
+    """
+    if not request.user.is_superuser:
+        modeladmin.message_user(
+            request,
+            'Solo un superusuario puede ejecutar el reset de caja.',
+            level=messages.ERROR,
+        )
+        return
+    from inmobiliaria.caja_reset import reset_caja_sucursal_desde_cero
+
+    for sucursal in queryset:
+        try:
+            nueva, cerradas = reset_caja_sucursal_desde_cero(
+                sucursal,
+                request.user,
+                observacion_cierre_extra='[Admin: reset caja desde cero]',
+            )
+            modeladmin.message_user(
+                request,
+                f'{sucursal.nombre}: se cerraron {len(cerradas)} caja(s) abierta(s); '
+                f'nueva caja #{nueva.numero} con saldo inicial $0.',
+                level=messages.SUCCESS,
+            )
+        except Exception as e:
+            modeladmin.message_user(
+                request,
+                f'Error en {sucursal.nombre}: {e}',
+                level=messages.ERROR,
+            )
+
+
+reset_caja_desde_cero_sucursal.short_description = (
+    'Caja: cerrar abiertas y abrir nueva (saldo $0) — solo superuser'
+)
+
+
+@admin.register(Sucursal)
+class SucursalAdmin(admin.ModelAdmin):
+    list_display = ('id', 'nombre', 'direccion', 'telefono')
+    search_fields = ('nombre', 'direccion')
+    actions = [reset_caja_desde_cero_sucursal]
+
 
 @admin.register(Propiedad)
 class PropiedadAdmin(admin.ModelAdmin):

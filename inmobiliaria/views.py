@@ -8342,8 +8342,8 @@ def lista_cajas(request):
     # Obtener las cajas de la sucursal
     cajas = Caja.objects.filter(sucursal=sucursal).order_by('-fecha_apertura')
     
-    # Obtener la caja abierta actual (si existe)
-    caja_actual = cajas.filter(estado='abierta').first()
+    # Obtener la caja abierta actual (la más reciente por fecha de apertura)
+    caja_actual = cajas.filter(estado='abierta').order_by('-fecha_apertura').first()
     
     context = {
         'cajas': cajas,
@@ -8361,8 +8361,8 @@ def gestionar_caja(request):
         # Verificar si hay una caja abierta para esta sucursal
         caja_actual = Caja.objects.filter(
             sucursal=sucursal,
-            estado='abierta'
-        ).first()
+            estado='abierta',
+        ).order_by('-fecha_apertura').first()
         
         # Obtener últimos movimientos si hay caja abierta
         movimientos = []
@@ -8398,8 +8398,8 @@ def nuevo_movimiento(request, numero_caja=None):
         if numero_caja is None:
             caja = Caja.objects.filter(
                 sucursal=request.user.sucursal,
-                estado='abierta'
-            ).first()
+                estado='abierta',
+            ).order_by('-fecha_apertura').first()
             if not caja:
                 messages.error(request, "No hay una caja abierta")
                 return redirect('inmobiliaria:lista_cajas')
@@ -8795,7 +8795,9 @@ def nuevo_registro(request):
     
     return render(request, 'inmobiliaria/caja/nuevo_registro.html', {
         'form': form,
-        'caja_actual': request.user.sucursal.caja_set.filter(estado='abierta').first()
+        'caja_actual': request.user.sucursal.caja_set.filter(estado='abierta').order_by(
+            '-fecha_apertura'
+        ).first()
     })
 
 @login_required
@@ -9805,8 +9807,8 @@ def obtener_caja_actual(request):
         
         caja_actual = Caja.objects.filter(
             sucursal=request.user.sucursal,
-            estado='abierta'
-        ).first()
+            estado='abierta',
+        ).order_by('-fecha_apertura').first()
         
         return JsonResponse({
             'success': True,
