@@ -8295,21 +8295,12 @@ def abrir_caja(request):
         return redirect('inmobiliaria:gestionar_caja')
     
     try:
-        # Obtener el último número de caja para esta sucursal
-        ultima_caja = Caja.objects.filter(
-            sucursal=sucursal
-        ).order_by('-numero').first()
-        
-        siguiente_numero = (int(ultima_caja.numero) + 1) if ultima_caja else 1
-        
-        # Crear nueva caja
+        # numero es PK autoincremental global: no asignar a mano (evita colisión con otras sucursales).
         caja = Caja.objects.create(
             sucursal=sucursal,
-            numero=siguiente_numero,
             estado='abierta',
-            fecha_apertura=timezone.now(),
             usuario_apertura=request.user,
-            saldo_inicial=0  # O el valor que corresponda
+            saldo_inicial=0,
         )
         
         messages.success(request, f'Caja #{caja.numero} abierta exitosamente')
@@ -8344,10 +8335,12 @@ def lista_cajas(request):
     
     # Obtener la caja abierta actual (la más reciente por fecha de apertura)
     caja_actual = cajas.filter(estado='abierta').order_by('-fecha_apertura').first()
+    cajas_abiertas_count = Caja.objects.filter(sucursal=sucursal, estado='abierta').count()
     
     context = {
         'cajas': cajas,
         'caja_actual': caja_actual,
+        'cajas_abiertas_count': cajas_abiertas_count,
     }
     
     return render(request, 'inmobiliaria/caja/lista_cajas.html', context)
@@ -8752,19 +8745,13 @@ def cerrar_caja(request, numero_caja):
             caja.observaciones_cierre = observaciones
             caja.save()
             
-            # 🚀 APERTURA AUTOMÁTICA DE NUEVA CAJA
-            # Obtener el siguiente número de caja para esta sucursal
-            siguiente_numero = caja.numero + 1
-            
-            # Crear nueva caja automáticamente
+            # Apertura automática de nueva caja (numero = PK autoincremental; no fijar a mano).
             nueva_caja = Caja.objects.create(
                 sucursal=request.user.sucursal,
-                numero=siguiente_numero,
                 estado='abierta',
-                fecha_apertura=timezone.now(),
                 usuario_apertura=request.user,
-                saldo_inicial=saldo_final,  # El saldo final de la caja anterior se convierte en inicial de la nueva
-                observaciones_apertura=f'Apertura automática tras cierre de Caja #{caja.numero}'
+                saldo_inicial=saldo_final,
+                observaciones_apertura=f'Apertura automática tras cierre de Caja #{caja.numero}',
             )
             
             messages.success(request, f'✅ Caja #{caja.numero} cerrada exitosamente')

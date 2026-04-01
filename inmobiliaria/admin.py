@@ -7,6 +7,7 @@ from .models import (
     Propiedad,
     HistorialDisponibilidad,
     Sucursal,
+    Caja,
 )
 
 @admin.register(Vendedor)
@@ -109,6 +110,23 @@ class SucursalAdmin(admin.ModelAdmin):
     list_display = ('id', 'nombre', 'direccion', 'telefono')
     search_fields = ('nombre', 'direccion')
     actions = [reset_caja_desde_cero_sucursal]
+
+
+@admin.register(Caja)
+class CajaAdmin(admin.ModelAdmin):
+    list_display = (
+        'numero',
+        'sucursal',
+        'estado',
+        'saldo_inicial',
+        'saldo_final',
+        'fecha_apertura',
+        'fecha_cierre',
+    )
+    list_filter = ('estado', 'sucursal')
+    search_fields = ('observaciones_apertura', 'observaciones_cierre')
+    readonly_fields = ('numero',)
+    ordering = ('-fecha_apertura',)
 
 
 @admin.register(Propiedad)

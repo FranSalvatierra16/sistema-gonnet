@@ -10,6 +10,13 @@
         {% endfor %}
     {% endif %}
 
+    {% if cajas_abiertas_count > 1 %}
+    <div class="alert alert-warning">
+        Hay {{ cajas_abiertas_count }} cajas marcadas como abiertas para esta sucursal (dato inconsistente).
+        Revisá en el admin de Django (modelo Caja) o ejecutá el reset de caja para la sucursal.
+    </div>
+    {% endif %}
+
     <div class="row mb-4">
         <div class="col-md-12">
             <div class="card">
