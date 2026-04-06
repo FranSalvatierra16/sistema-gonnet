@@ -270,19 +270,19 @@ class PropiedadForm(forms.ModelForm):
         help_text='Descripción de las camas (ej: 1 cama matrimonial, 2 camas individuales, etc.)',
         widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 1 cama matrimonial, 2 camas individuales'})
     )
-    # Texto libre: no solo número (ej. departamentos ocupados en venta → «coordinar»)
+    # Texto libre: número de caja de llaves o texto (ej. depto ocupado en venta → «coordinar»)
     llave = forms.CharField(
         required=False,
-        label='Llave',
+        label='Llave (número o texto)',
         max_length=50,
-        help_text='Número de llave o texto libre (ej. «coordinar» si está ocupado y no hay llave física).',
+        help_text='Podés poner el número de llave o un texto (ej. «coordinar» si está ocupado y no hay llave física).',
         widget=forms.TextInput(
             attrs={
                 'class': 'form-control',
-                'placeholder': 'Ej: 15, coordinar, sin llave…',
+                'placeholder': 'Ej.: 15, coordinar, sin llave…',
                 'autocomplete': 'off',
                 'inputmode': 'text',
-                'type': 'text',
+                'maxlength': '50',
             }
         ),
     )
@@ -329,8 +329,19 @@ class PropiedadForm(forms.ModelForm):
         # Para propiedades existentes, mostrar el número de propiedad actual
         if self.instance.pk and self.instance.numero_por_propietario:
             self.fields['numero_por_propietario'].initial = self.instance.numero_por_propietario
-        
-        # Hacer que el campo sea siempre editable para que el usuario pueda elegir
+
+        # Refuerzo: llave siempre es texto (nunca input numérico), por si el modelo/cache difiere
+        if 'llave' in self.fields:
+            self.fields['llave'].widget = forms.TextInput(
+                attrs={
+                    'class': 'form-control',
+                    'placeholder': 'Ej.: 15, coordinar, sin llave…',
+                    'autocomplete': 'off',
+                    'inputmode': 'text',
+                    'maxlength': '50',
+                }
+            )
+            self.fields['llave'].label = 'Llave (número o texto)'
 
     def clean_llave(self):
         raw = self.cleaned_data.get('llave')
