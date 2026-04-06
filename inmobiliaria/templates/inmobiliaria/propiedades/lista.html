@@ -101,7 +101,7 @@
                         <td>{{ propiedad.piso }}</td>
                         <td>{{ propiedad.departamento }}</td>
                         <td>
-                            <span class="badge bg-success">{{ propiedad.ambientes }} Amb.</span>
+                            <span class="badge bg-success">{% if propiedad.ambientes is not None %}{{ propiedad.ambientes }} Amb.{% else %}—{% endif %}</span>
                         </td>
                         <td>
                             {% if propiedad.llave %}

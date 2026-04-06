@@ -108,15 +108,19 @@
                     <div class="col-md-2">
                         <label for="id_piso" class="form-label">
                             <i class="fas fa-building me-1"></i>Piso
+                            <span class="text-muted small d-block" style="font-weight: normal;">Opcional</span>
                         </label>
                         {{ form.piso }}
+                        {% if form.piso.help_text %}<small class="form-text text-muted">{{ form.piso.help_text }}</small>{% endif %}
                         {{ form.piso.errors }}
                     </div>
                     <div class="col-md-2">
                         <label for="id_departamento" class="form-label">
                             <i class="fas fa-door-closed me-1"></i>Depto
+                            <span class="text-muted small d-block" style="font-weight: normal;">Opcional</span>
                         </label>
                         {{ form.departamento }}
+                        {% if form.departamento.help_text %}<small class="form-text text-muted">{{ form.departamento.help_text }}</small>{% endif %}
                         {{ form.departamento.errors }}
                     </div>
                 </div>
@@ -125,8 +129,10 @@
                     <div class="col-md-3">
                         <label for="id_ambientes" class="form-label">
                             <i class="fas fa-home me-1"></i>Ambientes
+                            <span class="text-muted small d-block" style="font-weight: normal;">Opcional</span>
                         </label>
                         {{ form.ambientes }}
+                        {% if form.ambientes.help_text %}<small class="form-text text-muted">{{ form.ambientes.help_text }}</small>{% endif %}
                         {{ form.ambientes.errors }}
                     </div>
                     <div class="col-md-3">

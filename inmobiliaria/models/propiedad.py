@@ -42,6 +42,7 @@ TIPOS_INMUEBLES = [
     ('ph', 'PH'),
     ('quinta', 'Quinta'),
     ('terreno', 'Terreno'),
+    ('lote', 'Lote'),
     ('cochera', 'Cochera'),
     ('edificio', 'Edificio'),
     ('inmueble_en_block', 'Inmueble en Block'),
@@ -124,15 +125,24 @@ class Propiedad(models.Model):
     vista = models.CharField(max_length=20, choices=TIPOS_VISTA, default='a_la_calle')
     piso = models.CharField(
         max_length=10,
+        blank=True,
+        default='',
         verbose_name="Piso",
-        help_text="Número o descripción del piso (ej: PB, 1, 15, etc.)"
+        help_text="Opcional (ej. lotes o terrenos sin piso). Número o descripción (PB, 1, 15…)",
     )
     departamento = models.CharField(
         max_length=10,
+        blank=True,
+        default='',
         verbose_name="Departamento",
-        help_text="Número o letra del departamento"
+        help_text="Opcional. Número o letra de departamento si aplica",
     )
-    ambientes = models.IntegerField()
+    ambientes = models.IntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Ambientes",
+        help_text="Opcional (ej. lotes sin definición de ambientes)",
+    )
     valoracion = models.CharField(max_length=20, choices=TIPOS_VALORACION, default='bueno')
     cuenta_bancaria = models.CharField(max_length=100, blank=True, help_text="Número de cuenta bancaria para depósitos")
     propietario = models.ForeignKey(Propietario, on_delete=models.CASCADE, related_name='propiedades')  

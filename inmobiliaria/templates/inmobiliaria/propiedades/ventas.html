@@ -206,7 +206,7 @@
                     {% endif %}
                 </div>
                 <div class="property-info">
-                    <span><i class="bi bi-building"></i> {{ propiedad.ambientes }} Amb.</span>
+                    <span><i class="bi bi-building"></i> {% if propiedad.ambientes is not None %}{{ propiedad.ambientes }} Amb.{% else %}—{% endif %}</span>
                     {% if propiedad.info_venta.metros_cuadrados %}
                         <span><i class="bi bi-rulers"></i> {{ propiedad.info_venta.metros_cuadrados }}m²</span>
                     {% endif %}

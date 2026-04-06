@@ -220,19 +220,33 @@ class PropiedadForm(forms.ModelForm):
     )
     piso = forms.CharField(
         max_length=10,
-        required=True,
+        required=False,
+        label='Piso',
+        help_text='Opcional (lotes, terrenos, cocheras… pueden dejarse vacíos)',
         widget=forms.TextInput(attrs={
             'class': 'form-control',
-            'placeholder': 'Ej: PB, 1, 15'
-        })
+            'placeholder': 'Ej: PB, 1, 15 — vacío si no aplica',
+        }),
     )
     departamento = forms.CharField(
         max_length=10,
-        required=True,
+        required=False,
+        label='Depto',
+        help_text='Opcional si no hay unidad (ej. lote)',
         widget=forms.TextInput(attrs={
             'class': 'form-control',
-            'placeholder': 'Ej: 1A, 150, B3'
-        })
+            'placeholder': 'Ej: 1A, B3 — vacío si no aplica',
+        }),
+    )
+    ambientes = forms.IntegerField(
+        required=False,
+        label='Ambientes',
+        help_text='Opcional (ej. terrenos / lotes)',
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control',
+            'step': '1',
+            'placeholder': '—',
+        }),
     )
     
     fichado_por = forms.ModelChoiceField(
@@ -350,6 +364,24 @@ class PropiedadForm(forms.ModelForm):
         s = str(raw).strip()
         return s if s else None
 
+    def clean_piso(self):
+        raw = self.cleaned_data.get('piso')
+        if raw is None:
+            return ''
+        return str(raw).strip()
+
+    def clean_departamento(self):
+        raw = self.cleaned_data.get('departamento')
+        if raw is None:
+            return ''
+        return str(raw).strip()
+
+    def clean_ambientes(self):
+        v = self.cleaned_data.get('ambientes')
+        if v == '' or v is None:
+            return None
+        return v
+
     def _update_errors(self, errors):
         """Filtra errores del modelo: solo añade al form campos que existan (evita precio_invierno, etc.)."""
         if hasattr(errors, 'error_dict'):
@@ -368,16 +400,13 @@ class PropiedadForm(forms.ModelForm):
     def clean(self):
         cleaned_data = super().clean()
         
-        # Validar campos requeridos
+        # Validar campos requeridos (piso, departamento y ambientes son opcionales — ej. lotes en venta)
         campos_requeridos = {
             'id': 'ID de la propiedad',
             'direccion': 'Dirección',
             'ubicacion': 'Ubicación',
-            'piso': 'Piso',
-            'departamento': 'Departamento',
-            'ambientes': 'Ambientes',
             'valoracion': 'Valoración',
-            'propietario': 'Propietario'
+            'propietario': 'Propietario',
         }
         
         campos_faltantes = []
