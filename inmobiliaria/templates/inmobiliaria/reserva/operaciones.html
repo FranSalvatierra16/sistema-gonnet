@@ -446,7 +446,9 @@
         <!-- Header Section -->
         <div class="header-section fade-in">
             <h1 class="page-title">📊 Listado de Operaciones</h1>
-            <p class="subtitle">Gestiona todas las operaciones procesadas y pendientes de pago</p>
+            <p class="subtitle">Gestiona todas las operaciones procesadas y pendientes de pago.
+                <a href="{% url 'inmobiliaria:lista_caratulas' %}" class="text-decoration-none ms-1"><i class="fas fa-folder-open"></i> Consulta de carátulas</a>
+            </p>
             
             <div class="header-actions">
                 <a href="{% url 'inmobiliaria:crear_reserva' %}" class="btn-nueva-operacion">

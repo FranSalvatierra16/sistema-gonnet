@@ -7,7 +7,10 @@
             <h1 class="h3 mb-0"><i class="fas fa-folder-open text-primary me-2"></i>Consulta de carátulas</h1>
             <p class="text-muted mb-0 small">Detalle de cada operación: reservas por día, invierno y contratos.</p>
         </div>
-        <a href="{% url 'inmobiliaria:dashboard' %}" class="btn btn-outline-secondary btn-sm">Volver al inicio</a>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{% url 'inmobiliaria:operaciones' %}" class="btn btn-outline-secondary btn-sm">Listado operaciones</a>
+            <a href="{% url 'inmobiliaria:dashboard' %}" class="btn btn-outline-secondary btn-sm">Volver al inicio</a>
+        </div>
     </div>
 
     {% if error %}

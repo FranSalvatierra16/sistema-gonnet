@@ -6,12 +6,19 @@ from datetime import datetime
 from decimal import Decimal
 
 from django.contrib.auth.decorators import login_required
-from django.core.paginator import Paginator
-from django.db.models import Q
+from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
+from django.db.models import Prefetch, Q
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, render
 
-from inmobiliaria.models import ContratoAlquiler, MovimientoCaja, Reserva
+from inmobiliaria.models import (
+    ComisionVendedor,
+    ContratoAlquiler,
+    CuotaMensual,
+    MovimientoCaja,
+    Recibo,
+    Reserva,
+)
 from inmobiliaria.models.caja import TipoMovimientoCajaEnum
 
 
@@ -185,8 +192,10 @@ def lista_caratulas(request):
     page = request.GET.get('page', 1)
     try:
         page_obj = paginator.page(page)
-    except Exception:
+    except PageNotAnInteger:
         page_obj = paginator.page(1)
+    except EmptyPage:
+        page_obj = paginator.page(paginator.num_pages or 1)
 
     return render(
         request,
@@ -204,7 +213,14 @@ def lista_caratulas(request):
 @login_required
 def caratula_reserva(request, reserva_id):
     reserva = get_object_or_404(
-        Reserva.objects.select_related('cliente', 'propiedad', 'propiedad__propietario', 'vendedor'),
+        Reserva.objects.select_related('cliente', 'propiedad', 'propiedad__propietario', 'vendedor')
+        .prefetch_related(
+            Prefetch('recibos', queryset=Recibo.objects.order_by('-fecha_emision')),
+            Prefetch(
+                'comisiones_vendedor',
+                queryset=ComisionVendedor.objects.select_related('vendedor').exclude(estado='cancelada'),
+            ),
+        ),
         pk=reserva_id,
     )
     if reserva.sucursal_id != getattr(request.user, 'sucursal_id', None) and not getattr(
@@ -225,8 +241,8 @@ def caratula_reserva(request, reserva_id):
             if mov.concepto and re.search(rf'Operaci[oó]n\s+{reserva.id}\b', mov.concepto, re.IGNORECASE):
                 movimientos.append(mov)
 
-    recibos = list(reserva.recibos.all().order_by('-fecha_emision'))
-    comisiones = list(reserva.comisiones_vendedor.exclude(estado='cancelada'))
+    recibos = list(reserva.recibos.all())
+    comisiones = list(reserva.comisiones_vendedor.all())
 
     total_mov = sum(
         Decimal(str(m.monto_efectivo or 0))
@@ -252,7 +268,9 @@ def caratula_reserva(request, reserva_id):
 @login_required
 def caratula_contrato(request, contrato_id):
     contrato = get_object_or_404(
-        ContratoAlquiler.objects.select_related('propiedad', 'propiedad__propietario', 'inquilino', 'vendedor'),
+        ContratoAlquiler.objects.select_related('propiedad', 'propiedad__propietario', 'inquilino', 'vendedor').prefetch_related(
+            Prefetch('cuotas', queryset=CuotaMensual.objects.order_by('fecha_vencimiento')),
+        ),
         pk=contrato_id,
     )
     if contrato.sucursal_id != getattr(request.user, 'sucursal_id', None) and not getattr(
@@ -279,7 +297,7 @@ def caratula_contrato(request, contrato_id):
         for m in movimientos
     )
 
-    cuotas = list(contrato.cuotas.all().order_by('fecha_vencimiento')) if hasattr(contrato, 'cuotas') else []
+    cuotas = list(contrato.cuotas.all()) if hasattr(contrato, 'cuotas') else []
 
     if contrato.duracion_meses == 9:
         tipo_label = 'Invierno (9 meses)'
