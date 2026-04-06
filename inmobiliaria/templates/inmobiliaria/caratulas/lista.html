@@ -1,0 +1,104 @@
+{% extends 'inmobiliaria/base.html' %}
+{% block title %}Carátulas{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+        <div>
+            <h1 class="h3 mb-0"><i class="fas fa-folder-open text-primary me-2"></i>Consulta de carátulas</h1>
+            <p class="text-muted mb-0 small">Detalle de cada operación: reservas por día, invierno y contratos.</p>
+        </div>
+        <a href="{% url 'inmobiliaria:dashboard' %}" class="btn btn-outline-secondary btn-sm">Volver al inicio</a>
+    </div>
+
+    {% if error %}
+    <div class="alert alert-warning">{{ error }}</div>
+    {% endif %}
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-2 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label small mb-0">Buscar</label>
+                    <input type="text" name="q" class="form-control form-control-sm" placeholder="Cliente, dirección, ficha…" value="{{ q }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small mb-0">Desde</label>
+                    <input type="date" name="fecha_desde" class="form-control form-control-sm" value="{{ fecha_desde }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small mb-0">Hasta</label>
+                    <input type="date" name="fecha_hasta" class="form-control form-control-sm" value="{{ fecha_hasta }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small mb-0">Tipo</label>
+                    <select name="tipo" class="form-select form-select-sm">
+                        <option value="" {% if not tipo_filtro %}selected{% endif %}>Todos</option>
+                        <option value="dia" {% if tipo_filtro == 'dia' %}selected{% endif %}>Solo por día (particular)</option>
+                        <option value="estudiante" {% if tipo_filtro == 'estudiante' %}selected{% endif %}>Solo estudiante</option>
+                        <option value="invierno" {% if tipo_filtro == 'invierno' %}selected{% endif %}>Solo invierno (9 meses)</option>
+                        <option value="24meses" {% if tipo_filtro == '24meses' %}selected{% endif %}>Solo 24 meses</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary btn-sm w-100">Filtrar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="table-responsive card shadow-sm">
+        <table class="table table-hover table-sm mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Tipo</th>
+                    <th>Nº</th>
+                    <th>Fecha</th>
+                    <th>Carátula</th>
+                    <th>Dirección</th>
+                    <th>Piso / Dto</th>
+                    <th>Ficha</th>
+                    <th>Estado</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for f in filas %}
+                <tr>
+                    <td><span class="badge bg-secondary">{{ f.tipo }}</span></td>
+                    <td>{{ f.numero }}</td>
+                    <td>{{ f.fecha|date:"d/m/Y" }}</td>
+                    <td>{{ f.caratula }}</td>
+                    <td class="small">{{ f.direccion|truncatechars:48 }}</td>
+                    <td class="small text-muted">{{ f.piso_dto }}</td>
+                    <td><code>{{ f.ficha }}</code></td>
+                    <td class="small">{{ f.estado }}</td>
+                    <td>
+                        {% if f.kind == 'reserva' %}
+                        <a class="btn btn-sm btn-outline-primary" href="{% url 'inmobiliaria:caratula_reserva' f.pk %}">Ver</a>
+                        {% else %}
+                        <a class="btn btn-sm btn-outline-primary" href="{% url 'inmobiliaria:caratula_contrato' f.pk %}">Ver</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="9" class="text-center text-muted py-4">No hay operaciones con los filtros actuales.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if filas.has_other_pages %}
+    <nav class="mt-3">
+        <ul class="pagination pagination-sm justify-content-center">
+            {% if filas.has_previous %}
+            <li class="page-item"><a class="page-link" href="?page={{ filas.previous_page_number }}&q={{ q|urlencode }}&fecha_desde={{ fecha_desde }}&fecha_hasta={{ fecha_hasta }}&tipo={{ tipo_filtro }}">Anterior</a></li>
+            {% endif %}
+            <li class="page-item disabled"><span class="page-link">Página {{ filas.number }} de {{ filas.paginator.num_pages }}</span></li>
+            {% if filas.has_next %}
+            <li class="page-item"><a class="page-link" href="?page={{ filas.next_page_number }}&q={{ q|urlencode }}&fecha_desde={{ fecha_desde }}&fecha_hasta={{ fecha_hasta }}&tipo={{ tipo_filtro }}">Siguiente</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}
