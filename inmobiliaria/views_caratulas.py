@@ -36,13 +36,25 @@ def _tipo_reserva(propiedad):
 def lista_caratulas(request):
     """Tabla tipo consultorio: tipo, número, fecha, carátula, dirección, piso/depto, ficha."""
     sucursal = getattr(request.user, 'sucursal', None)
-    if not sucursal:
-        return render(request, 'inmobiliaria/caratulas/lista.html', {'error': 'Usuario sin sucursal', 'filas': []})
-
     q = request.GET.get('q', '').strip()
     fecha_desde = request.GET.get('fecha_desde', '').strip()
     fecha_hasta = request.GET.get('fecha_hasta', '').strip()
     tipo_filtro = request.GET.get('tipo', '').strip()
+
+    if not sucursal:
+        paginator_empty = Paginator([], 40)
+        return render(
+            request,
+            'inmobiliaria/caratulas/lista.html',
+            {
+                'error': 'Tu usuario no tiene sucursal asignada.',
+                'filas': paginator_empty.page(1),
+                'q': q,
+                'fecha_desde': request.GET.get('fecha_desde', '').strip(),
+                'fecha_hasta': request.GET.get('fecha_hasta', '').strip(),
+                'tipo_filtro': tipo_filtro,
+            },
+        )
 
     reservas = (
         Reserva.objects.filter(sucursal=sucursal, eliminada=False)
@@ -54,6 +66,10 @@ def lista_caratulas(request):
         reservas = reservas.none()
     elif tipo_filtro == '24meses':
         reservas = reservas.none()
+    elif tipo_filtro == 'estudiante':
+        reservas = reservas.filter(propiedad__tipo_cliente='ESTUDIANTE')
+    elif tipo_filtro == 'dia':
+        reservas = reservas.exclude(propiedad__tipo_cliente='ESTUDIANTE')
 
     if q:
         reservas = reservas.filter(
@@ -83,7 +99,7 @@ def lista_caratulas(request):
         contratos = contratos.filter(duracion_meses=9)
     elif tipo_filtro == '24meses':
         contratos = contratos.filter(duracion_meses=24)
-    elif tipo_filtro == 'dia':
+    elif tipo_filtro in ('dia', 'estudiante'):
         contratos = contratos.none()
 
     contratos = contratos.order_by('-fecha_creacion', '-id')
@@ -112,10 +128,6 @@ def lista_caratulas(request):
 
     for r in reservas:
         tipo = _tipo_reserva(r.propiedad)
-        if tipo_filtro == 'estudiante' and tipo != 'Estudiante':
-            continue
-        if tipo_filtro == 'dia' and tipo != 'Por día':
-            continue
         p = r.propiedad
         piso_dto = ''
         if p:

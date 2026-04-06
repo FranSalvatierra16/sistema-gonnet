@@ -4,6 +4,7 @@ from django.views.generic.base import RedirectView
 from django.conf import settings
 from django.conf.urls.static import static
 from . import views
+from . import views_caratulas
 from . import views_migrar  # TEMPORAL - ELIMINAR DESPUÉS
 
 app_name = 'inmobiliaria'
@@ -98,6 +99,9 @@ urlpatterns = [
     path('reservas/', views.reservas, name='reservas'),
     path('reservas/eliminadas/', views.reservas_eliminadas, name='reservas_eliminadas'),
     path('operaciones/', views.operaciones, name='operaciones'),
+    path('caratulas/', views_caratulas.lista_caratulas, name='lista_caratulas'),
+    path('caratulas/reserva/<int:reserva_id>/', views_caratulas.caratula_reserva, name='caratula_reserva'),
+    path('caratulas/contrato/<int:contrato_id>/', views_caratulas.caratula_contrato, name='caratula_contrato'),
     path('reservas/nuevo/', views.buscar_propiedades, name='buscar_propiedades'),
     path('reservas/crear/', views.crear_reserva, name='crear_reserva'),
     path('reservas/<int:reserva_id>/', views.reserva_detalle, name='reserva_detalle'),

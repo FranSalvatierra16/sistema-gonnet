@@ -25,6 +25,18 @@
             </div>
         </div>
 
+        <!-- Carátulas (consulta de operaciones) -->
+        <div class="col-md-4 mb-4">
+            <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:lista_caratulas' %}'">
+                <div class="card-icon">
+                    <i class="fas fa-folder-open"></i>
+                </div>
+                <h3>Carátulas</h3>
+                <p>Consulta de operaciones: reservas, invierno y contratos</p>
+                <span class="badge bg-secondary">Listado + detalle</span>
+            </div>
+        </div>
+
         <!-- Ventas -->
         <div class="col-md-4 mb-4">
             <div class="card shadow-modern border-radius-modern" onclick="window.location.href='{% url 'inmobiliaria:dashboard_ventas' %}'" style="cursor: pointer;">
