@@ -58,6 +58,9 @@
                             <i class="fas fa-key me-1"></i>Llave
                         </label>
                         {{ form.llave }}
+                        {% if form.llave.help_text %}
+                            <small class="form-text text-muted">{{ form.llave.help_text }}</small>
+                        {% endif %}
                         {{ form.llave.errors }}
                     </div>
                     <div class="col-md-5">

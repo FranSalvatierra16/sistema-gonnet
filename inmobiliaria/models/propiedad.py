@@ -146,7 +146,13 @@ class Propiedad(models.Model):
         verbose_name="Porcentaje para Propietario (%)",
         help_text="Porcentaje del monto total que corresponde al propietario (ej: 85% = 85.00). El resto es para la inmobiliaria."
     )
-    llave = models.IntegerField(null=True, blank=True, verbose_name="Número de llave")
+    llave = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True,
+        verbose_name="Llave",
+        help_text="Número de llave o texto (ej. «coordinar» si el depto está ocupado y no hay llave física).",
+    )
     numero_por_propietario = models.PositiveIntegerField(null=True, blank=True, verbose_name="Número de propiedad")
     cantidad_personas = models.PositiveIntegerField(null=True, blank=True, verbose_name="Cantidad de personas")
     camas = models.CharField(max_length=255, null=True, blank=True, verbose_name="Camas", help_text="Descripción de las camas (ej: 1 cama matrimonial, 2 camas individuales, etc.)")

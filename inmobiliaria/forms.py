@@ -218,12 +218,6 @@ class PropiedadForm(forms.ModelForm):
         required=True,
         help_text='Ingrese el ID deseado para la propiedad'
     )
-    llave = forms.IntegerField(
-        required=False,
-        label='Número de llave',
-        help_text='Ingrese el número de llave de la propiedad',
-        widget=forms.NumberInput(attrs={'class': 'form-control'})
-    )
     piso = forms.CharField(
         max_length=10,
         required=True,
@@ -276,6 +270,22 @@ class PropiedadForm(forms.ModelForm):
         help_text='Descripción de las camas (ej: 1 cama matrimonial, 2 camas individuales, etc.)',
         widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 1 cama matrimonial, 2 camas individuales'})
     )
+    # Texto libre: no solo número (ej. departamentos ocupados en venta → «coordinar»)
+    llave = forms.CharField(
+        required=False,
+        label='Llave',
+        max_length=50,
+        help_text='Número de llave o texto libre (ej. «coordinar» si está ocupado y no hay llave física).',
+        widget=forms.TextInput(
+            attrs={
+                'class': 'form-control',
+                'placeholder': 'Ej: 15, coordinar, sin llave…',
+                'autocomplete': 'off',
+                'inputmode': 'text',
+                'type': 'text',
+            }
+        ),
+    )
 
     class Meta:
         model = Propiedad
@@ -321,6 +331,13 @@ class PropiedadForm(forms.ModelForm):
             self.fields['numero_por_propietario'].initial = self.instance.numero_por_propietario
         
         # Hacer que el campo sea siempre editable para que el usuario pueda elegir
+
+    def clean_llave(self):
+        raw = self.cleaned_data.get('llave')
+        if raw is None:
+            return None
+        s = str(raw).strip()
+        return s if s else None
 
     def _update_errors(self, errors):
         """Filtra errores del modelo: solo añade al form campos que existan (evita precio_invierno, etc.)."""
