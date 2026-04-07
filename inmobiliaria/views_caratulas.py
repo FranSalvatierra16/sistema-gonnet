@@ -22,6 +22,10 @@ from inmobiliaria.models import (
 from inmobiliaria.models.caja import TipoMovimientoCajaEnum
 
 
+def _puede_ver_caratulas(user):
+    return bool(getattr(user, 'is_superuser', False) or getattr(user, 'nivel', None) == 4)
+
+
 def _caratula_nombre_cliente(cliente):
     if not cliente:
         return '—'
@@ -42,6 +46,8 @@ def _tipo_reserva(propiedad):
 @login_required
 def lista_caratulas(request):
     """Tabla tipo consultorio: tipo, número, fecha, carátula, dirección, piso/depto, ficha."""
+    if not _puede_ver_caratulas(request.user):
+        return HttpResponseForbidden()
     sucursal = getattr(request.user, 'sucursal', None)
     q = request.GET.get('q', '').strip()
     fecha_desde = request.GET.get('fecha_desde', '').strip()
@@ -212,6 +218,8 @@ def lista_caratulas(request):
 
 @login_required
 def caratula_reserva(request, reserva_id):
+    if not _puede_ver_caratulas(request.user):
+        return HttpResponseForbidden()
     reserva = get_object_or_404(
         Reserva.objects.select_related('cliente', 'propiedad', 'propiedad__propietario', 'vendedor')
         .prefetch_related(
@@ -267,6 +275,8 @@ def caratula_reserva(request, reserva_id):
 
 @login_required
 def caratula_contrato(request, contrato_id):
+    if not _puede_ver_caratulas(request.user):
+        return HttpResponseForbidden()
     contrato = get_object_or_404(
         ContratoAlquiler.objects.select_related('propiedad', 'propiedad__propietario', 'inquilino', 'vendedor').prefetch_related(
             Prefetch('cuotas', queryset=CuotaMensual.objects.order_by('fecha_vencimiento')),

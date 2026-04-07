@@ -447,7 +447,9 @@
         <div class="header-section fade-in">
             <h1 class="page-title">📊 Listado de Operaciones</h1>
             <p class="subtitle">Gestiona todas las operaciones procesadas y pendientes de pago.
+                {% if user.is_superuser or user.nivel == 4 %}
                 <a href="{% url 'inmobiliaria:lista_caratulas' %}" class="text-decoration-none ms-1"><i class="fas fa-folder-open"></i> Consulta de carátulas</a>
+                {% endif %}
             </p>
             
             <div class="header-actions">
