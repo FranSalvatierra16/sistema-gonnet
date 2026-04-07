@@ -1,0 +1,119 @@
+{# Requiere: cl (caratula_legacy), fecha_desde, fecha_hasta, hora_desde, hora_hasta, cancel_url #}
+<div class="caratula-legacy-wrap">
+    <div class="caratula-legacy-title">Consulta de Carátulas</div>
+    <div class="caratula-legacy-sub">General — {{ cl.tipo_operacion_str }}</div>
+
+    <div class="caratula-legacy-top">
+        <div>
+            <div class="caratula-legacy-radios">
+                <label><input type="radio" disabled {% if cl.tipo_mov == 'alquiler' %}checked{% endif %}> Alquiler</label>
+                <label><input type="radio" disabled {% if cl.tipo_mov == 'invierno' %}checked{% endif %}> Invierno</label>
+                <label><input type="radio" disabled {% if cl.tipo_mov == 'meses_24' %}checked{% endif %}> 24 Meses</label>
+                <label><input type="radio" disabled {% if cl.tipo_mov == 'meses_6' %}checked{% endif %}> 6 Meses</label>
+                <label><input type="radio" disabled {% if cl.tipo_mov == 'venta' %}checked{% endif %}> Venta</label>
+                <label><input type="radio" disabled {% if cl.tipo_mov == 'otros' %}checked{% endif %}> Otros</label>
+                <label><input type="radio" disabled {% if cl.tipo_mov == 'renovacion' %}checked{% endif %}> Renovación</label>
+            </div>
+        </div>
+        <div class="caratula-legacy-meta">
+            <div><strong>NUMERO ORIGINAL</strong> {{ cl.numero_original }}</div>
+            <div><strong>NUMERO</strong> {{ cl.numero_operacion }}</div>
+            <div><strong>FECHA</strong> {{ cl.fecha_registro|date:"d/m/Y" }}</div>
+        </div>
+    </div>
+
+    <div class="caratula-band caratula-band-blue">
+        <div><span class="lbl">PROPIEDAD</span>
+            {{ cl.ficha_prop }} {{ cl.dir_prop }} {{ cl.piso_depto }} <strong>{{ cl.codigo_llave }}</strong>
+        </div>
+        <div class="mt-1"><span class="lbl">PROPIETARIO</span>
+            {{ cl.propietario.id_fmt }} {{ cl.propietario.rotulo }} {{ cl.propietario.ubic }}
+        </div>
+    </div>
+
+    <div class="caratula-band caratula-band-yellow">
+        <div><span class="lbl">TURISTA</span>
+            {{ cl.turista.dni }} {{ cl.turista.nombre }} {{ cl.turista.dom }}
+        </div>
+        <div class="mt-1"><span class="lbl">GARANTE</span> {{ cl.garante_id }}</div>
+    </div>
+
+    <div class="caratula-band caratula-band-green">
+        <div><span class="lbl">CARATULA</span> {{ cl.caratula_rotulo }}</div>
+
+        <div class="caratula-grid">
+            <div class="caratula-cell span-4">
+                <span class="k">DESDE</span>
+                <span class="v">{{ fecha_desde|date:"d/m/Y" }}</span>
+            </div>
+            <div class="caratula-cell span-4">
+                <span class="k">HORA</span>
+                <span class="v">{% if hora_desde %}{{ hora_desde|time:"H:i:s" }}{% else %}00:00:00{% endif %}</span>
+            </div>
+            <div class="caratula-cell span-4">
+                <span class="k">HASTA</span>
+                <span class="v">{{ fecha_hasta|date:"d/m/Y" }}</span>
+            </div>
+            <div class="caratula-cell span-4">
+                <span class="k">HORA</span>
+                <span class="v">{% if hora_hasta %}{{ hora_hasta|time:"H:i:s" }}{% else %}00:00:00{% endif %}</span>
+            </div>
+
+            <div class="caratula-cell span-4">
+                <span class="k">IMPORTE LOCACION</span>
+                <span class="v">{{ cl.importe_locacion }}</span>
+            </div>
+            <div class="caratula-cell span-4">
+                <span class="k">SEÑA</span>
+                <span class="v">{{ cl.senia }}</span>
+            </div>
+            <div class="caratula-cell span-4">
+                <span class="k">REFUERZO</span>
+                <span class="v">{{ cl.refuerzo }}</span>
+            </div>
+            <div class="caratula-cell span-4">
+                <span class="k">FECHA REFUERZO</span>
+                <span class="v">{{ cl.fecha_refuerzo|default:"—" }}</span>
+            </div>
+            <div class="caratula-cell span-4">
+                <span class="k">DEPOSITO</span>
+                <span class="v">{{ cl.deposito }}</span>
+            </div>
+            <div class="caratula-cell span-4">
+                <span class="k">SALDO</span>
+                <span class="v">{{ cl.saldo }}</span>
+            </div>
+
+            <div class="caratula-cell span-4">
+                <span class="k">COMISION LOCADOR</span>
+                <span class="v">{{ cl.comision_locador }}</span>
+            </div>
+            <div class="caratula-cell span-4">
+                <span class="k">COMISION LOCATARIO</span>
+                <span class="v">{{ cl.comision_locatario }}</span>
+            </div>
+            <div class="caratula-cell span-6">
+                <span class="k">RECIBO LOCADOR</span>
+                <span class="v">{{ cl.recibo_locador }}</span>
+            </div>
+            <div class="caratula-cell span-6">
+                <span class="k">RECIBO LOCATARIO</span>
+                <span class="v">{{ cl.recibo_locatario }}</span>
+            </div>
+        </div>
+
+        <div class="caratula-footer-row">
+            <span><strong>PRODUCTOR</strong> {{ cl.productor }}</span>
+            <span><strong>TERCEROS</strong> {{ cl.terceros }}</span>
+            <span><strong>ORIGEN OPERACION</strong> {{ cl.origen_operacion }}</span>
+            <span><strong>ESTADO</strong> {{ cl.estado_txt }}</span>
+            <span><strong>LOCACION MENSUAL</strong> {{ cl.locacion_mensual }}</span>
+            <span><strong>CARPETA</strong> {{ cl.carpeta }}</span>
+        </div>
+    </div>
+
+    <div class="caratula-legacy-actions">
+        <a class="btn-aceptar" href="{% url 'inmobiliaria:lista_caratulas' %}"><i class="fas fa-check"></i> Aceptar</a>
+        <a class="btn-cancelar" href="{{ cancel_url }}"><i class="fas fa-times"></i> Cancelar</a>
+    </div>
+</div>

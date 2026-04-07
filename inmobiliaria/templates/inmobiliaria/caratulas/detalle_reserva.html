@@ -1,154 +1,81 @@
 {% extends 'inmobiliaria/base.html' %}
-{% block title %}Carátula — Reserva {{ reserva.id }}{% endblock %}
+{% block title %}Consulta de Carátulas — Reserva {{ reserva.id }}{% endblock %}
+{% block extra_css %}
+{% include 'inmobiliaria/caratulas/_caratula_legacy_styles.html' %}
+{% endblock %}
 {% block content %}
-<div class="container py-4">
-    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-        <div>
-            <a href="{% url 'inmobiliaria:lista_caratulas' %}" class="small text-decoration-none">&larr; Volver al listado</a>
-            <h1 class="h4 mt-1 mb-0">Carátula — Reserva #{{ reserva.id }}</h1>
-            <span class="badge bg-info">{{ tipo_operacion }}</span>
-            <span class="badge bg-light text-dark border">{{ reserva.get_estado_display }}</span>
-        </div>
-        <a href="{% url 'inmobiliaria:reserva_detalle' reserva.id %}" class="btn btn-sm btn-outline-secondary">Vista reserva clásica</a>
-    </div>
+<div class="container py-3">
+    <a href="{% url 'inmobiliaria:lista_caratulas' %}" class="small text-decoration-none d-inline-block mb-2">&larr; Volver al listado</a>
 
-    <div class="row g-3">
-        <div class="col-lg-6">
-            <div class="card border-primary h-100">
-                <div class="card-header bg-primary text-white py-2"><strong>Propiedad</strong></div>
-                <div class="card-body small">
-                    {% if propiedad %}
-                    <p class="mb-1"><strong>Ficha:</strong> <code>{{ propiedad.id }}</code></p>
-                    <p class="mb-1"><strong>Dirección:</strong> {{ propiedad.direccion }}</p>
-                    <p class="mb-1"><strong>Ubicación:</strong> {{ propiedad.ubicacion|default:"—" }}</p>
-                    <p class="mb-1"><strong>Piso / Depto:</strong> {{ propiedad.piso|default:"—" }} / {{ propiedad.departamento|default:"—" }}</p>
-                    <p class="mb-0"><strong>Llave:</strong> {{ propiedad.llave|default:"—" }}</p>
-                    {% else %}
-                    <p class="mb-0 text-muted">Sin propiedad</p>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-        <div class="col-lg-6">
-            <div class="card border-success h-100">
-                <div class="card-header bg-success text-white py-2"><strong>Propietario</strong></div>
-                <div class="card-body small">
-                    {% if propiedad and propiedad.propietario %}
-                    <p class="mb-1">{{ propiedad.propietario.apellido }}, {{ propiedad.propietario.nombre }}</p>
-                    <p class="mb-0 text-muted">DNI {{ propiedad.propietario.dni|default:"—" }}</p>
-                    {% else %}
-                    <p class="mb-0">—</p>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
+    {% url 'inmobiliaria:reserva_detalle' reserva.id as url_cancel_reserva %}
+    {% include 'inmobiliaria/caratulas/_caratula_legacy_shell.html' with cl=caratula_legacy fecha_desde=reserva.fecha_inicio fecha_hasta=reserva.fecha_fin hora_desde=reserva.hora_ingreso hora_hasta=reserva.hora_egreso cancel_url=url_cancel_reserva %}
 
-        <div class="col-lg-6">
-            <div class="card border-warning h-100">
-                <div class="card-header bg-warning text-dark py-2"><strong>Inquilino / Cliente</strong></div>
-                <div class="card-body small">
-                    {% if reserva.cliente %}
-                    <p class="mb-1"><strong>{{ reserva.cliente.apellido }}, {{ reserva.cliente.nombre }}</strong></p>
-                    <p class="mb-1">DNI {{ reserva.cliente.dni|default:"—" }}</p>
-                    <p class="mb-0">{{ reserva.cliente.domicilio|default:"" }} {{ reserva.cliente.localidad|default:"" }}</p>
-                    {% else %}
-                    <p class="mb-0">—</p>
-                    {% endif %}
+    <div class="caratula-web-extra">
+        <h3><i class="fas fa-table me-1"></i>Detalle en sistema (recibos, comisiones, caja)</h3>
+        <div class="row g-3">
+            <div class="col-lg-6">
+                <div class="card h-100">
+                    <div class="card-header py-2 small"><strong>Comisiones vendedor</strong></div>
+                    <div class="card-body p-0">
+                        <table class="table table-sm mb-0 small">
+                            <thead><tr><th>Productor</th><th class="text-end">Importe</th></tr></thead>
+                            <tbody>
+                                {% for c in comisiones %}
+                                <tr>
+                                    <td>{% if c.vendedor %}{{ c.vendedor.apellido }}, {{ c.vendedor.nombre }}{% else %}—{% endif %}</td>
+                                    <td class="text-end">${{ c.monto_comision|floatformat:2 }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="2" class="text-muted text-center py-3">Sin comisiones</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
-        </div>
-        <div class="col-lg-6">
-            <div class="card border-secondary h-100">
-                <div class="card-header py-2"><strong>Vendedor</strong></div>
-                <div class="card-body small">
-                    {% if reserva.vendedor %}
-                    <p class="mb-0">{{ reserva.vendedor.apellido }}, {{ reserva.vendedor.nombre }}</p>
-                    {% else %}
-                    <p class="mb-0">—</p>
-                    {% endif %}
+            <div class="col-lg-6">
+                <div class="card h-100">
+                    <div class="card-header py-2 small"><strong>Recibos</strong></div>
+                    <div class="card-body p-0">
+                        <table class="table table-sm mb-0 small">
+                            <thead><tr><th>Fecha</th><th>Número</th><th class="text-end">Importe</th></tr></thead>
+                            <tbody>
+                                {% for r in recibos %}
+                                <tr>
+                                    <td>{{ r.fecha_emision|date:"d/m/Y H:i" }}</td>
+                                    <td><code>{{ r.numero_recibo }}</code></td>
+                                    <td class="text-end">${{ r.monto_este_pago|floatformat:2 }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="3" class="text-muted text-center py-3">Sin recibos</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
-        </div>
-
-        <div class="col-12">
-            <div class="card border-info">
-                <div class="card-header bg-info text-white py-2"><strong>Operación</strong></div>
-                <div class="card-body row small g-2">
-                    <div class="col-md-3"><strong>Desde:</strong> {{ reserva.fecha_inicio|date:"d/m/Y" }} {{ reserva.hora_ingreso }}</div>
-                    <div class="col-md-3"><strong>Hasta:</strong> {{ reserva.fecha_fin|date:"d/m/Y" }} {{ reserva.hora_egreso }}</div>
-                    <div class="col-md-2"><strong>Precio total:</strong> ${{ reserva.precio_total|floatformat:2 }}</div>
-                    <div class="col-md-2"><strong>Seña:</strong> ${{ reserva.senia|floatformat:2 }}</div>
-                    <div class="col-md-2"><strong>Depósito:</strong> ${{ reserva.deposito_garantia|floatformat:2 }}</div>
-                    <div class="col-md-3"><strong>Cuota pendiente (modelo):</strong> ${{ reserva.cuota_pendiente|floatformat:2 }}</div>
-                    <div class="col-md-3"><strong>Saldo aprox. (precio − seña):</strong> ${{ saldo_reserva|floatformat:2 }}</div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-lg-6">
-            <div class="card h-100">
-                <div class="card-header py-2"><strong>Comisiones vendedor</strong></div>
-                <div class="card-body p-0">
-                    <table class="table table-sm mb-0 small">
-                        <thead><tr><th>Productor</th><th class="text-end">Importe</th></tr></thead>
-                        <tbody>
-                            {% for c in comisiones %}
-                            <tr>
-                                <td>{% if c.vendedor %}{{ c.vendedor.apellido }}, {{ c.vendedor.nombre }}{% else %}—{% endif %}</td>
-                                <td class="text-end">${{ c.monto_comision|floatformat:2 }}</td>
-                            </tr>
-                            {% empty %}
-                            <tr><td colspan="2" class="text-muted text-center py-3">Sin comisiones registradas</td></tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-lg-6">
-            <div class="card h-100">
-                <div class="card-header py-2"><strong>Recibos</strong></div>
-                <div class="card-body p-0">
-                    <table class="table table-sm mb-0 small">
-                        <thead><tr><th>Fecha</th><th>Número</th><th class="text-end">Importe</th></tr></thead>
-                        <tbody>
-                            {% for r in recibos %}
-                            <tr>
-                                <td>{{ r.fecha_emision|date:"d/m/Y H:i" }}</td>
-                                <td><code>{{ r.numero_recibo }}</code></td>
-                                <td class="text-end">${{ r.monto_este_pago|floatformat:2 }}</td>
-                            </tr>
-                            {% empty %}
-                            <tr><td colspan="3" class="text-muted text-center py-3">Sin recibos</td></tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header py-2 d-flex justify-content-between align-items-center">
-                    <strong>Movimientos de caja vinculados</strong>
-                    <span class="small text-muted">Total ingresos detectados: ${{ total_movimientos|floatformat:2 }}</span>
-                </div>
-                <div class="card-body p-0 table-responsive">
-                    <table class="table table-sm mb-0 small">
-                        <thead><tr><th>Fecha</th><th>Concepto</th><th class="text-end">Total</th></tr></thead>
-                        <tbody>
-                            {% for m in movimientos %}
-                            <tr>
-                                <td>{{ m.fecha|date:"d/m/Y H:i" }}</td>
-                                <td class="text-break">{{ m.concepto|truncatechars:80 }}</td>
-                                <td class="text-end">${{ m.monto_total|floatformat:2 }}</td>
-                            </tr>
-                            {% empty %}
-                            <tr><td colspan="3" class="text-muted text-center py-3">No se encontraron movimientos con referencia a esta operación</td></tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header py-2 small d-flex justify-content-between">
+                        <strong>Movimientos de caja vinculados</strong>
+                        <span class="text-muted">Total: ${{ total_movimientos|floatformat:2 }}</span>
+                    </div>
+                    <div class="card-body p-0 table-responsive">
+                        <table class="table table-sm mb-0 small">
+                            <thead><tr><th>Fecha</th><th>Concepto</th><th class="text-end">Total</th></tr></thead>
+                            <tbody>
+                                {% for m in movimientos %}
+                                <tr>
+                                    <td>{{ m.fecha|date:"d/m/Y H:i" }}</td>
+                                    <td class="text-break">{{ m.concepto|truncatechars:80 }}</td>
+                                    <td class="text-end">${{ m.monto_total|floatformat:2 }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="3" class="text-muted text-center py-3">Sin movimientos con referencia a esta operación</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>

@@ -1,119 +1,61 @@
 {% extends 'inmobiliaria/base.html' %}
-{% block title %}Carátula — Contrato {{ contrato.id }}{% endblock %}
+{% block title %}Consulta de Carátulas — Contrato {{ contrato.id }}{% endblock %}
+{% block extra_css %}
+{% include 'inmobiliaria/caratulas/_caratula_legacy_styles.html' %}
+{% endblock %}
 {% block content %}
-<div class="container py-4">
-    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-        <div>
-            <a href="{% url 'inmobiliaria:lista_caratulas' %}" class="small text-decoration-none">&larr; Volver al listado</a>
-            <h1 class="h4 mt-1 mb-0">Carátula — Contrato #{{ contrato.id }}</h1>
-            <span class="badge bg-primary">{{ tipo_label }}</span>
-            <span class="badge bg-light text-dark border">{{ contrato.get_estado_display }}</span>
-        </div>
-        <a href="{% url 'inmobiliaria:detalle_contrato' contrato.id %}" class="btn btn-sm btn-outline-secondary">Vista contrato</a>
-    </div>
+<div class="container py-3">
+    <a href="{% url 'inmobiliaria:lista_caratulas' %}" class="small text-decoration-none d-inline-block mb-2">&larr; Volver al listado</a>
 
-    <div class="row g-3">
-        <div class="col-lg-6">
-            <div class="card border-primary h-100">
-                <div class="card-header bg-primary text-white py-2"><strong>Propiedad</strong></div>
-                <div class="card-body small">
-                    {% if propiedad %}
-                    <p class="mb-1"><strong>Ficha:</strong> <code>{{ propiedad.id }}</code></p>
-                    <p class="mb-1"><strong>Dirección:</strong> {{ propiedad.direccion }}</p>
-                    <p class="mb-0"><strong>Piso / Depto:</strong> {{ propiedad.piso|default:"—" }} / {{ propiedad.departamento|default:"—" }}</p>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-        <div class="col-lg-6">
-            <div class="card border-success h-100">
-                <div class="card-header bg-success text-white py-2"><strong>Propietario</strong></div>
-                <div class="card-body small">
-                    {% if propiedad and propiedad.propietario %}
-                    <p class="mb-0">{{ propiedad.propietario.apellido }}, {{ propiedad.propietario.nombre }}</p>
-                    {% else %}<p class="mb-0">—</p>{% endif %}
-                </div>
-            </div>
-        </div>
+    {% url 'inmobiliaria:detalle_contrato' contrato.id as url_cancel_contrato %}
+    {% include 'inmobiliaria/caratulas/_caratula_legacy_shell.html' with cl=caratula_legacy fecha_desde=contrato.fecha_inicio fecha_hasta=contrato.fecha_fin hora_desde=None hora_hasta=None cancel_url=url_cancel_contrato %}
 
-        <div class="col-lg-6">
-            <div class="card border-warning h-100">
-                <div class="card-header bg-warning text-dark py-2"><strong>Inquilino</strong></div>
-                <div class="card-body small">
-                    {% if contrato.inquilino %}
-                    <p class="mb-1"><strong>{{ contrato.inquilino.apellido }}, {{ contrato.inquilino.nombre }}</strong></p>
-                    <p class="mb-0">DNI {{ contrato.inquilino.dni|default:"—" }}</p>
-                    {% else %}<p class="mb-0">—</p>{% endif %}
+    <div class="caratula-web-extra">
+        <h3><i class="fas fa-table me-1"></i>Detalle en sistema (cuotas y caja)</h3>
+        <div class="row g-3">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header py-2 small"><strong>Cuotas</strong></div>
+                    <div class="card-body p-0 table-responsive">
+                        <table class="table table-sm mb-0 small">
+                            <thead><tr><th>Vencimiento</th><th>Monto</th><th>Estado</th></tr></thead>
+                            <tbody>
+                                {% for c in cuotas %}
+                                <tr>
+                                    <td>{{ c.fecha_vencimiento|date:"d/m/Y" }}</td>
+                                    <td>${{ c.monto_total|floatformat:2 }}</td>
+                                    <td>{{ c.get_estado_display }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="3" class="text-center text-muted py-3">Sin cuotas</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
-        </div>
-        <div class="col-lg-6">
-            <div class="card border-secondary h-100">
-                <div class="card-header py-2"><strong>Vendedor</strong></div>
-                <div class="card-body small">
-                    {% if contrato.vendedor %}
-                    <p class="mb-0">{{ contrato.vendedor.apellido }}, {{ contrato.vendedor.nombre }}</p>
-                    {% else %}<p class="mb-0">—</p>{% endif %}
-                </div>
-            </div>
-        </div>
-
-        <div class="col-12">
-            <div class="card border-info">
-                <div class="card-header bg-info text-white py-2"><strong>Contrato</strong></div>
-                <div class="card-body row small g-2">
-                    <div class="col-md-3"><strong>Inicio:</strong> {{ contrato.fecha_inicio|date:"d/m/Y" }}</div>
-                    <div class="col-md-3"><strong>Fin:</strong> {{ contrato.fecha_fin|date:"d/m/Y" }}</div>
-                    <div class="col-md-2"><strong>Meses:</strong> {{ contrato.duracion_meses }}</div>
-                    <div class="col-md-2"><strong>Precio mensual:</strong> ${{ contrato.precio_mensual|floatformat:2 }}</div>
-                    <div class="col-md-2"><strong>Depósito:</strong> ${{ contrato.deposito_garantia|floatformat:2 }}</div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header py-2"><strong>Cuotas</strong></div>
-                <div class="card-body p-0 table-responsive">
-                    <table class="table table-sm mb-0 small">
-                        <thead><tr><th>Vencimiento</th><th>Monto</th><th>Estado</th></tr></thead>
-                        <tbody>
-                            {% for c in cuotas %}
-                            <tr>
-                                <td>{{ c.fecha_vencimiento|date:"d/m/Y" }}</td>
-                                <td>${{ c.monto_total|floatformat:2 }}</td>
-                                <td>{{ c.get_estado_display }}</td>
-                            </tr>
-                            {% empty %}
-                            <tr><td colspan="3" class="text-center text-muted py-3">Sin cuotas</td></tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header py-2 d-flex justify-content-between">
-                    <strong>Movimientos de caja vinculados</strong>
-                    <span class="small text-muted">Total: ${{ total_movimientos|floatformat:2 }}</span>
-                </div>
-                <div class="card-body p-0 table-responsive">
-                    <table class="table table-sm mb-0 small">
-                        <thead><tr><th>Fecha</th><th>Concepto</th><th class="text-end">Total</th></tr></thead>
-                        <tbody>
-                            {% for m in movimientos %}
-                            <tr>
-                                <td>{{ m.fecha|date:"d/m/Y H:i" }}</td>
-                                <td class="text-break">{{ m.concepto|truncatechars:90 }}</td>
-                                <td class="text-end">${{ m.monto_total|floatformat:2 }}</td>
-                            </tr>
-                            {% empty %}
-                            <tr><td colspan="3" class="text-center text-muted py-3">Sin movimientos con referencia a este contrato</td></tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header py-2 small d-flex justify-content-between">
+                        <strong>Movimientos de caja vinculados</strong>
+                        <span class="text-muted">Total: ${{ total_movimientos|floatformat:2 }}</span>
+                    </div>
+                    <div class="card-body p-0 table-responsive">
+                        <table class="table table-sm mb-0 small">
+                            <thead><tr><th>Fecha</th><th>Concepto</th><th class="text-end">Total</th></tr></thead>
+                            <tbody>
+                                {% for m in movimientos %}
+                                <tr>
+                                    <td>{{ m.fecha|date:"d/m/Y H:i" }}</td>
+                                    <td class="text-break">{{ m.concepto|truncatechars:90 }}</td>
+                                    <td class="text-end">${{ m.monto_total|floatformat:2 }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="3" class="text-center text-muted py-3">Sin movimientos con referencia a este contrato</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
