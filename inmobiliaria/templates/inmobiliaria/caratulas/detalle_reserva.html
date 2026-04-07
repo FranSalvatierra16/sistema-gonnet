@@ -1,6 +1,7 @@
 {% extends 'inmobiliaria/base.html' %}
 {% block title %}Consulta de Carátulas — Reserva {{ reserva.id }}{% endblock %}
 {% block extra_css %}
+{{ block.super }}
 {% include 'inmobiliaria/caratulas/_caratula_legacy_styles.html' %}
 {% endblock %}
 {% block content %}

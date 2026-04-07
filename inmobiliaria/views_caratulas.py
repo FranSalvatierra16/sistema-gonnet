@@ -261,7 +261,8 @@ def _build_legacy_contrato(contrato, cuotas, tipo_label):
     return {
         'numero_original': '0',
         'numero_operacion': _formato_miles_ar(contrato.id),
-        'fecha_registro': contrato.fecha_creacion,
+        # Fecha de cabecera como en legado (día de operación), no alta en sistema
+        'fecha_registro': contrato.fecha_operacion,
         'tipo_mov': _tipo_movimiento_codigo_contrato(contrato),
         'ficha_prop': _formato_ficha_legacy(prop.id) if prop else '—',
         'dir_prop': (prop.direccion or '—').upper() if prop else '—',
@@ -469,7 +470,9 @@ def caratula_reserva(request, reserva_id):
     if not _puede_ver_caratulas(request.user):
         return HttpResponseForbidden()
     reserva = get_object_or_404(
-        Reserva.objects.select_related('cliente', 'propiedad', 'propiedad__propietario', 'vendedor')
+        Reserva.objects.select_related(
+            'cliente', 'propiedad', 'propiedad__propietario', 'vendedor', 'sucursal'
+        )
         .prefetch_related(
             Prefetch('recibos', queryset=Recibo.objects.order_by('-fecha_emision')),
             Prefetch(
@@ -529,7 +532,9 @@ def caratula_contrato(request, contrato_id):
     if not _puede_ver_caratulas(request.user):
         return HttpResponseForbidden()
     contrato = get_object_or_404(
-        ContratoAlquiler.objects.select_related('propiedad', 'propiedad__propietario', 'inquilino', 'vendedor').prefetch_related(
+        ContratoAlquiler.objects.select_related(
+            'propiedad', 'propiedad__propietario', 'inquilino', 'vendedor', 'sucursal'
+        ).prefetch_related(
             Prefetch('cuotas', queryset=CuotaMensual.objects.order_by('fecha_vencimiento')),
             'garantes',
         ),
