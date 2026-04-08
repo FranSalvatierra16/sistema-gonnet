@@ -326,8 +326,8 @@
                 <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 24px; border-radius: 12px; margin-bottom: 24px;">
                     <h4 style="color: #334155; margin: 0 0 20px 0; font-size: 16px; font-weight: 600; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px;">Contacto</h4>
                     <div>
-                        <label style="display: block; margin-bottom: 8px; color: #64748b; font-weight: 500; font-size: 14px;">Celular *</label>
-                        <input type="text" id="inquilino_telefono_nuevo" name="telefono" required
+                            <label style="display: block; margin-bottom: 8px; color: #64748b; font-weight: 500; font-size: 14px;">Celular *</label>
+                            <input type="text" id="inquilino_celular_nuevo" name="celular" required
                                style="width: 100%; padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; color: #1e293b; font-weight: 500; transition: all 0.2s;"
                                onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
                                onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'">
@@ -609,7 +609,19 @@ function buscarTodosLosInquilinos() {
 
 
 function mostrarModalCrearInquilino() {
-    document.getElementById('modalNuevoInquilino').style.display = 'block';
+    const modalNuevo = document.getElementById('modalNuevoInquilino');
+    const modalContrato = document.getElementById('modalContrato');
+    if (modalContrato) {
+        modalContrato.setAttribute('inert', '');
+        modalContrato.setAttribute('aria-hidden', 'true');
+    }
+    if (modalNuevo) {
+        modalNuevo.style.display = 'block';
+        setTimeout(function() {
+            const firstInput = modalNuevo.querySelector('input:not([type="hidden"]), textarea');
+            if (firstInput) firstInput.focus();
+        }, 150);
+    }
 }
 
 function mostrarModalCrearGarante() {
@@ -620,6 +632,7 @@ function cerrarModalNuevoInquilino() {
     console.log('🚪 Cerrando modal crear inquilino...');
     const modal = document.getElementById('modalNuevoInquilino');
     const form = document.getElementById('formNuevoInquilino');
+    const modalContrato = document.getElementById('modalContrato');
     
     if (modal) {
         modal.style.display = 'none';
@@ -630,6 +643,11 @@ function cerrarModalNuevoInquilino() {
         form.reset();
         console.log('✅ Formulario de inquilino reseteado');
     }
+
+    if (modalContrato) {
+        modalContrato.removeAttribute('inert');
+        modalContrato.removeAttribute('aria-hidden');
+    }
 }
 
 function guardarNuevoInquilino() {
@@ -639,7 +657,7 @@ function guardarNuevoInquilino() {
     const formData = new FormData(form);
     
     // Validar campos requeridos
-    const camposRequeridos = ['nombre', 'apellido', 'email', 'telefono', 'dni', 'domicilio', 'localidad', 'provincia'];
+    const camposRequeridos = ['nombre', 'apellido', 'email', 'celular', 'dni', 'domicilio', 'localidad', 'provincia'];
     let camposVacios = [];
     
     camposRequeridos.forEach(campo => {

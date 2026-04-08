@@ -7683,6 +7683,109 @@ def editar_info_invierno(request, propiedad_id):
     return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
 
 @login_required
+def obtener_meses_info_ajax(request, propiedad_id):
+    """Devuelve la info de alquiler 24 meses de una propiedad para editar desde la lista."""
+    nivel = getattr(request.user, 'nivel', 0)
+    if not (request.user.is_superuser or nivel >= 3):
+        return JsonResponse({'error': 'Sin permisos.'}, status=403)
+
+    propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+    if propiedad.sucursal != request.user.sucursal and not request.user.is_superuser:
+        return JsonResponse({'error': 'No puede editar propiedades de otra sucursal.'}, status=403)
+
+    try:
+        info = propiedad.info_meses
+    except AlquilerMeses.DoesNotExist:
+        info = None
+
+    if not info:
+        return JsonResponse({
+            'precio_mensual': '',
+            'precio_expensas': '',
+            'estado': 'disponible',
+            'fecha_inicio': '',
+            'fecha_fin': '',
+            'observaciones': '',
+        })
+
+    return JsonResponse({
+        'precio_mensual': str(info.precio_mensual) if info.precio_mensual is not None else '',
+        'precio_expensas': str(info.precio_expensas) if info.precio_expensas is not None else '',
+        'estado': info.estado or 'disponible',
+        'fecha_inicio': info.fecha_inicio.strftime('%Y-%m-%d') if info.fecha_inicio else '',
+        'fecha_fin': info.fecha_fin.strftime('%Y-%m-%d') if info.fecha_fin else '',
+        'observaciones': info.observaciones or '',
+    })
+
+
+@login_required
+def actualizar_meses_ajax(request):
+    """
+    Actualizar precio e info de alquiler 24 meses desde la lista.
+    Solo admin o nivel >= 3.
+    """
+    nivel = getattr(request.user, 'nivel', 0)
+    if not (request.user.is_superuser or nivel >= 3):
+        return JsonResponse({'success': False, 'error': 'Sin permisos para editar.'}, status=403)
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido.'}, status=405)
+
+    propiedad_id = request.POST.get('propiedad_id')
+    if not propiedad_id:
+        return JsonResponse({'success': False, 'error': 'Falta propiedad_id.'}, status=400)
+
+    propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+    if propiedad.sucursal != request.user.sucursal and not request.user.is_superuser:
+        return JsonResponse({'success': False, 'error': 'No puede editar propiedades de otra sucursal.'}, status=403)
+
+    try:
+        info_meses, created = AlquilerMeses.objects.get_or_create(propiedad=propiedad)
+        info_meses.disponible = True
+
+        precio_mensual = request.POST.get('precio_mensual', '').strip()
+        precio_expensas = request.POST.get('precio_expensas', '').strip()
+
+        if precio_mensual:
+            try:
+                info_meses.precio_mensual = Decimal(precio_mensual.replace(',', '.'))
+            except (ValueError, InvalidOperation):
+                pass
+        else:
+            info_meses.precio_mensual = None
+
+        if precio_expensas:
+            try:
+                info_meses.precio_expensas = Decimal(precio_expensas.replace(',', '.'))
+            except (ValueError, InvalidOperation):
+                pass
+        else:
+            info_meses.precio_expensas = None
+
+        info_meses.estado = request.POST.get('estado', 'disponible') or 'disponible'
+        fi = request.POST.get('fecha_inicio', '').strip()
+        ff = request.POST.get('fecha_fin', '').strip()
+
+        info_meses.fecha_inicio = datetime.strptime(fi, '%Y-%m-%d').date() if fi else None
+        info_meses.fecha_fin = datetime.strptime(ff, '%Y-%m-%d').date() if ff else None
+        info_meses.observaciones = request.POST.get('observaciones', '') or ''
+
+        if info_meses.estado == 'disponible':
+            info_meses.fecha_inicio = None
+            info_meses.fecha_fin = None
+
+        info_meses.save()
+
+        return JsonResponse({
+            'success': True,
+            'precio_mensual': str(info_meses.precio_mensual) if info_meses.precio_mensual is not None else '0',
+            'precio_expensas': str(info_meses.precio_expensas) if info_meses.precio_expensas is not None else '',
+            'estado': info_meses.estado,
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
 def obtener_invierno_info_ajax(request, propiedad_id):
     """Devuelve la info de alquiler invierno de una propiedad para editar desde la lista. Solo nivel >= 3 o admin."""
     nivel = getattr(request.user, 'nivel', 0)
@@ -7974,42 +8077,119 @@ def ventas(request):
 
 @login_required
 def alquileres_24_meses(request):
-    # Filtrar propiedades que tienen alquiler por 24 meses activado
-    propiedades_meses = Propiedad.objects.filter(
-        info_meses__disponible=True,  # Solo propiedades con alquiler 24 meses activado
-        info_meses__estado='disponible'  # Por defecto mostrar solo las disponibles
-    ).select_related(
-        'info_meses', 
-        'sucursal'
-    ).prefetch_related('imagenes')
+    from django.db.models import Q, F, Value
+    from django.db.models.functions import Coalesce
 
-    # Aplicar filtros de búsqueda si existen
+    estado = request.GET.get('estado', '')
     busqueda = request.GET.get('busqueda', '')
+    filtro_ambientes = request.GET.get('ambientes', '')
+    filtro_precio_max = request.GET.get('precio_max', '')
+    ver_todas = request.GET.get('ver_todas') == '1'
+
+    q_sucursales_colon_corrientes = Q(sucursal__nombre__icontains='colon') | Q(sucursal__nombre__icontains='corrientes')
+    propiedades_meses = Propiedad.objects.filter(info_meses__disponible=True)
+
+    if ver_todas:
+        propiedades_meses = propiedades_meses.filter(q_sucursales_colon_corrientes)
+    else:
+        sucursal_usuario = getattr(request.user, 'sucursal', None)
+        if sucursal_usuario:
+            propiedades_meses = propiedades_meses.filter(sucursal=sucursal_usuario)
+        else:
+            propiedades_meses = propiedades_meses.filter(q_sucursales_colon_corrientes)
+
+    if estado:
+        propiedades_meses = propiedades_meses.filter(info_meses__estado=estado)
+    else:
+        propiedades_meses = propiedades_meses.filter(info_meses__estado='disponible')
+
+    propiedades_meses = propiedades_meses.select_related(
+        'info_meses',
+        'sucursal'
+    ).prefetch_related('imagenes').annotate(
+        precio_ord=Coalesce(F('info_meses__precio_mensual'), Value(Decimal('999999999')))
+    ).order_by('precio_ord', 'direccion')
+
     if busqueda:
         propiedades_meses = propiedades_meses.filter(
             Q(direccion__icontains=busqueda) |
             Q(id__icontains=busqueda)
         )
 
-    # Si se selecciona un estado específico, sobreescribir el filtro por defecto
-    estado = request.GET.get('estado', '')
-    if estado:
-        propiedades_meses = Propiedad.objects.filter(
-            info_meses__disponible=True,
-            info_meses__estado=estado
-        ).select_related(
-            'info_meses', 
-            'sucursal'
-        ).prefetch_related('imagenes')
+    if filtro_ambientes:
+        try:
+            propiedades_meses = propiedades_meses.filter(ambientes=int(filtro_ambientes))
+        except ValueError:
+            pass
+
+    if filtro_precio_max:
+        try:
+            precio_max = Decimal(filtro_precio_max.replace(',', '.'))
+            propiedades_meses = propiedades_meses.filter(info_meses__precio_mensual__lte=precio_max)
+        except (ValueError, InvalidOperation):
+            pass
+
+    base_para_totales = Propiedad.objects.filter(info_meses__disponible=True)
+    if ver_todas:
+        base_para_totales = base_para_totales.filter(q_sucursales_colon_corrientes)
+    else:
+        sucursal_usuario = getattr(request.user, 'sucursal', None)
+        if sucursal_usuario:
+            base_para_totales = base_para_totales.filter(sucursal=sucursal_usuario)
+        else:
+            base_para_totales = base_para_totales.filter(q_sucursales_colon_corrientes)
+
+    if busqueda:
+        base_para_totales = base_para_totales.filter(
+            Q(direccion__icontains=busqueda) | Q(id__icontains=busqueda)
+        )
+
+    if filtro_ambientes:
+        try:
+            base_para_totales = base_para_totales.filter(ambientes=int(filtro_ambientes))
+        except ValueError:
+            pass
+
+    if filtro_precio_max:
+        try:
+            precio_max = Decimal(filtro_precio_max.replace(',', '.'))
+            base_para_totales = base_para_totales.filter(info_meses__precio_mensual__lte=precio_max)
+        except (ValueError, InvalidOperation):
+            pass
+
+    total_disponibles_meses = base_para_totales.filter(info_meses__estado='disponible').count()
+    total_reservados_meses = base_para_totales.filter(info_meses__estado='reservado').count()
+
+    base_ambientes = Propiedad.objects.filter(habilitar_23_meses=True)
+    if ver_todas:
+        base_ambientes = base_ambientes.filter(q_sucursales_colon_corrientes)
+    else:
+        sucursal_usuario = getattr(request.user, 'sucursal', None)
+        if sucursal_usuario:
+            base_ambientes = base_ambientes.filter(sucursal=sucursal_usuario)
+        else:
+            base_ambientes = base_ambientes.filter(q_sucursales_colon_corrientes)
+    ambientes_choices = list(base_ambientes.values_list('ambientes', flat=True).distinct().order_by('ambientes'))
+    ambientes_choices = [a for a in ambientes_choices if a is not None]
+
+    nivel = getattr(request.user, 'nivel', 0)
+    puede_editar_meses = request.user.is_superuser or nivel >= 3
 
     context = {
         'propiedades': propiedades_meses,
         'busqueda': busqueda,
-        'estado_filtro': estado or 'disponible',  # Si no hay estado seleccionado, marcar 'disponible'
+        'estado_filtro': estado or 'disponible',
         'estados': AlquilerMeses.ESTADO_CHOICES,
+        'filtro_ambientes': filtro_ambientes,
+        'filtro_precio_max': filtro_precio_max,
+        'ambientes_choices': ambientes_choices,
         'inquilinos': get_inquilinos_queryset_unificado(request),
+        'puede_editar_meses': puede_editar_meses,
+        'ver_todas': ver_todas,
+        'total_disponibles_meses': total_disponibles_meses,
+        'total_reservados_meses': total_reservados_meses,
     }
-    
+
     return render(request, 'inmobiliaria/propiedades/alquileres_24_meses.html', context)
 
 @login_required

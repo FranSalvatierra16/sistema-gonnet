@@ -16,11 +16,24 @@
         </div>
     </div>
 
+    <div class="mb-3 d-flex flex-wrap align-items-center gap-2">
+        <span class="text-muted small align-middle">
+            {% if ver_todas %}
+                Mostrando Colón y Corrientes.
+                <a href="{% url 'inmobiliaria:alquileres_24_meses' %}" class="btn btn-outline-secondary btn-sm">Ver solo mi sucursal</a>
+            {% else %}
+                Mostrando tu sucursal.
+                <a href="{% url 'inmobiliaria:alquileres_24_meses' %}?ver_todas=1" class="btn btn-outline-primary btn-sm">Ver todas (Colón y Corrientes)</a>
+            {% endif %}
+        </span>
+    </div>
+
     <!-- Filtros -->
     <div class="card shadow-modern border-radius-modern mb-4">
         <div class="card-body">
             <form method="get" class="row g-3 align-items-end">
-                <div class="col-md-4">
+                {% if ver_todas %}<input type="hidden" name="ver_todas" value="1">{% endif %}
+                <div class="col-md-2">
                     <label class="form-label"><i class="fas fa-filter"></i> Estado</label>
                     <select name="estado" class="form-select" onchange="this.form.submit()">
                         <option value="">Todos</option>
@@ -31,10 +44,22 @@
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-2">
+                    <label class="form-label"><i class="fas fa-door-open"></i> Ambientes</label>
+                    <select name="ambientes" class="form-select" onchange="this.form.submit()">
+                        <option value="">Todos</option>
+                        {% for a in ambientes_choices %}
+                        <option value="{{ a }}" {% if filtro_ambientes == a|stringformat:"d" %}selected{% endif %}>{{ a }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label"><i class="fas fa-tag"></i> Precio máx.</label>
+                    <input type="text" name="precio_max" class="form-control" placeholder="Ej: 500000" value="{{ filtro_precio_max }}">
+                </div>
+                <div class="col-md-4">
                     <label class="form-label"><i class="fas fa-search"></i> Buscar</label>
-                    <input type="text" name="busqueda" class="form-control" placeholder="Buscar por dirección..." 
-                           value="{{ busqueda }}">
+                    <input type="text" name="busqueda" class="form-control" placeholder="Buscar por dirección..." value="{{ busqueda }}">
                 </div>
                 <div class="col-md-2">
                     <button type="submit" class="btn btn-primary w-100">
@@ -45,10 +70,43 @@
         </div>
     </div>
 
+    <div class="row mb-4">
+        <div class="col-md-6 mb-2">
+            <div class="card shadow-sm border-radius-modern" style="border-left: 4px solid #28a745;">
+                <div class="card-body py-3 px-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-success mb-0">
+                                <i class="fas fa-check-circle me-1"></i>Disponibles
+                            </h6>
+                            <small class="text-muted">Listas para contratar</small>
+                        </div>
+                        <h4 class="fw-bold text-success mb-0">{{ total_disponibles_meses|default:0 }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 mb-2">
+            <div class="card shadow-sm border-radius-modern" style="border-left: 4px solid #f44336;">
+                <div class="card-body py-3 px-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-danger mb-0">
+                                <i class="fas fa-calendar-times me-1"></i>Reservados
+                            </h6>
+                            <small class="text-muted">Confirmadas sin pagar</small>
+                        </div>
+                        <h4 class="fw-bold text-danger mb-0">{{ total_reservados_meses|default:0 }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Grid de Propiedades -->
     <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 row-cols-xl-4 g-4">
         {% for propiedad in propiedades %}
-        <div class="col">
+        <div class="col" id="card-meses-{{ propiedad.id }}" data-propiedad-id="{{ propiedad.id }}">
             <div class="card h-100 shadow-modern border-radius-modern property-card">
                 <!-- Carrusel de Imágenes -->
                 <div id="carousel{{ propiedad.id }}" class="carousel slide" data-bs-ride="carousel">
@@ -104,12 +162,17 @@
                     <div class="mb-3">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <span class="text-muted">Precio Mensual</span>
-                            <span class="h5 mb-0 text-success">${{ propiedad.info_meses.precio_mensual|format_price }}</span>
+                            <span class="h5 mb-0 text-success precio-mensual-display">${{ propiedad.info_meses.precio_mensual|format_price }}</span>
                         </div>
                         {% if propiedad.info_meses.precio_expensas %}
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex justify-content-between align-items-center expensas-row">
                             <span class="text-muted">Expensas</span>
-                            <span class="text-primary">${{ propiedad.info_meses.precio_expensas|format_price }}</span>
+                            <span class="text-primary precio-expensas-display">${{ propiedad.info_meses.precio_expensas|format_price }}</span>
+                        </div>
+                        {% else %}
+                        <div class="d-flex justify-content-between align-items-center expensas-row" style="display:none;">
+                            <span class="text-muted">Expensas</span>
+                            <span class="text-primary precio-expensas-display"></span>
                         </div>
                         {% endif %}
                     </div>
@@ -134,6 +197,14 @@
                                 onclick="mostrarModalContrato({{ propiedad.id }}, '{{ propiedad.direccion|escapejs }}', '{{ propiedad.sucursal.nombre|escapejs }}', {{ propiedad.info_meses.precio_mensual|default:0 }}, {{ propiedad.info_meses.precio_expensas|default:0 }})">
                             <i class="fas fa-file-contract"></i> Crear Contrato
                         </button>
+                        {% if puede_editar_meses %}
+                        <button type="button" class="btn btn-warning btn-editar-meses"
+                                data-propiedad-id="{{ propiedad.id }}"
+                                data-direccion="{{ propiedad.direccion|escapejs }}"
+                                title="Editar precio e info de alquiler 24 meses">
+                            <i class="fas fa-edit"></i> Editar precio / info
+                        </button>
+                        {% endif %}
                         <a href="{% url 'inmobiliaria:propiedad_detalle' propiedad.id %}" class="btn btn-outline-secondary">
                             <i class="fas fa-info-circle"></i> Ver Detalles
                         </a>
@@ -185,6 +256,64 @@
 </style>
 
 {% include 'inmobiliaria/propiedades/modal_crear_contrato.html' %}
+
+{% if puede_editar_meses %}
+<div class="modal fade" id="modalEditarMeses" tabindex="-1" aria-labelledby="modalEditarMesesLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalEditarMesesLabel">Editar alquiler 24 meses - <span id="editar-meses-direccion"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="formEditarMeses">
+                {% csrf_token %}
+                <input type="hidden" name="propiedad_id" id="editar-meses-propiedad-id">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="editar-meses-precio-mensual" class="form-label">Precio mensual</label>
+                            <input type="number" class="form-control" id="editar-meses-precio-mensual" name="precio_mensual" step="0.01" placeholder="0">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="editar-meses-precio-expensas" class="form-label">Precio expensas</label>
+                            <input type="number" class="form-control" id="editar-meses-precio-expensas" name="precio_expensas" step="0.01" placeholder="0">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="editar-meses-estado" class="form-label">Estado</label>
+                            <select class="form-select" id="editar-meses-estado" name="estado">
+                                <option value="disponible">Disponible</option>
+                                <option value="reservado">Reservado</option>
+                                <option value="ocupado">Ocupado</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="editar-meses-fecha-inicio" class="form-label">Fecha inicio</label>
+                            <input type="date" class="form-control" id="editar-meses-fecha-inicio" name="fecha_inicio">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="editar-meses-fecha-fin" class="form-label">Fecha fin</label>
+                            <input type="date" class="form-control" id="editar-meses-fecha-fin" name="fecha_fin">
+                        </div>
+                        <div class="col-md-6 mb-3"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editar-meses-observaciones" class="form-label">Observaciones</label>
+                        <textarea class="form-control" id="editar-meses-observaciones" name="observaciones" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <!-- Modal de Galería de Imágenes -->
 <div class="modal fade" id="modalGaleriaImagenes" tabindex="-1" aria-labelledby="modalGaleriaImagenesLabel" aria-hidden="true">
@@ -256,6 +385,111 @@ function abrirGaleriaImagenes(propiedadId, imagenIndex) {
     const modal = new bootstrap.Modal(document.getElementById('modalGaleriaImagenes'));
     modal.show();
 }
+
+{% if puede_editar_meses %}
+(function() {
+    const modalEl = document.getElementById('modalEditarMeses');
+    if (!modalEl) return;
+    const urlMesesInfoBase = "{% url 'inmobiliaria:obtener_meses_info_ajax' 0 %}";
+    const urlActualizar = "{% url 'inmobiliaria:actualizar_meses_ajax' %}";
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    document.querySelectorAll('.btn-editar-meses').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const propId = this.getAttribute('data-propiedad-id');
+            const direccion = this.getAttribute('data-direccion') || '';
+            document.getElementById('editar-meses-propiedad-id').value = propId;
+            document.getElementById('editar-meses-direccion').textContent = direccion;
+
+            fetch(urlMesesInfoBase.replace('0', propId))
+                .then(function(r) {
+                    return r.json().then(function(data) {
+                        if (!r.ok) {
+                            throw new Error(data.error || data.message || 'Error ' + r.status);
+                        }
+                        return data;
+                    });
+                })
+                .then(function(data) {
+                    if (data.error) {
+                        alert(data.error);
+                        return;
+                    }
+                    document.getElementById('editar-meses-precio-mensual').value = data.precio_mensual || '';
+                    document.getElementById('editar-meses-precio-expensas').value = data.precio_expensas || '';
+                    document.getElementById('editar-meses-estado').value = data.estado || 'disponible';
+                    document.getElementById('editar-meses-fecha-inicio').value = data.fecha_inicio || '';
+                    document.getElementById('editar-meses-fecha-fin').value = data.fecha_fin || '';
+                    document.getElementById('editar-meses-observaciones').value = data.observaciones || '';
+                    const modal = new bootstrap.Modal(modalEl);
+                    modal.show();
+                })
+                .catch(function(err) {
+                    var msg = (err && err.message) ? err.message : 'Error al cargar los datos.';
+                    if (msg.indexOf('JSON') !== -1 || msg.indexOf('Unexpected') !== -1) {
+                        msg = 'Error al cargar los datos. Compruebe que tiene permiso o contacte al administrador.';
+                    }
+                    alert(msg);
+                });
+        });
+    });
+
+    document.getElementById('formEditarMeses').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        formData.set('csrfmiddlewaretoken', csrfToken);
+        const propId = formData.get('propiedad_id');
+
+        fetch(urlActualizar, {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(r => r.json())
+        .then(function(data) {
+            if (data.success) {
+                const card = document.getElementById('card-meses-' + propId);
+                if (card) {
+                    const precioDisplay = card.querySelector('.precio-mensual-display');
+                    const expensasDisplay = card.querySelector('.precio-expensas-display');
+                    const expensasRow = card.querySelector('.expensas-row');
+
+                    if (precioDisplay) {
+                        const val = data.precio_mensual ? Number(data.precio_mensual).toLocaleString('es-AR') : '0';
+                        precioDisplay.textContent = '$' + val;
+                    }
+                    if (expensasDisplay && data.precio_expensas) {
+                        expensasDisplay.textContent = '$' + Number(data.precio_expensas).toLocaleString('es-AR');
+                        if (expensasRow) expensasRow.style.display = '';
+                    } else if (expensasDisplay) {
+                        expensasDisplay.textContent = '';
+                        if (expensasRow) expensasRow.style.display = 'none';
+                    }
+
+                    const badgeEl = card.querySelector('.position-absolute .badge');
+                    if (badgeEl && data.estado) {
+                        badgeEl.className = 'badge ';
+                        if (data.estado === 'disponible') {
+                            badgeEl.className += 'bg-success';
+                            badgeEl.textContent = 'Disponible';
+                        } else if (data.estado === 'reservado') {
+                            badgeEl.className += 'bg-warning text-dark';
+                            badgeEl.textContent = 'Reservado';
+                        } else if (data.estado === 'ocupado') {
+                            badgeEl.className += 'bg-danger';
+                            badgeEl.textContent = 'Ocupado';
+                        }
+                    }
+                }
+                bootstrap.Modal.getInstance(modalEl).hide();
+            } else {
+                alert(data.error || 'Error al guardar.');
+            }
+        })
+        .catch(function() { alert('Error al guardar.'); });
+    });
+})();
+{% endif %}
 </script>
 
 {% endblock %}
