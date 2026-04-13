@@ -79,6 +79,13 @@ class LiquidacionPropietario(models.Model):
         verbose_name="Monto para la Inmobiliaria",
         help_text="Monto que corresponde a la inmobiliaria (comisión)"
     )
+    monto_cochera = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0'),
+        verbose_name="Monto cochera",
+        help_text="Partida cochera en liquidación; por ahora siempre cero",
+    )
     monto_gastos = models.DecimalField(
         max_digits=12,
         decimal_places=2,

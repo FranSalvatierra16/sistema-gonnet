@@ -84,6 +84,8 @@
                                     <th>Propiedad</th>
                                     <th>Monto Total</th>
                                     <th>Monto Propietario</th>
+                                    <th>Inmobiliaria</th>
+                                    <th>Cochera</th>
                                     <th>Gastos</th>
                                     <th>Monto a Pagar</th>
                                     <th>Estado</th>
@@ -107,6 +109,8 @@
                                     </td>
                                     <td>${{ liquidacion.monto_total_operacion|floatformat:2 }}</td>
                                     <td>${{ liquidacion.monto_propietario|floatformat:2 }}</td>
+                                    <td>${{ liquidacion.monto_inmobiliaria|floatformat:2 }}</td>
+                                    <td class="text-muted">${{ liquidacion.monto_cochera|floatformat:2 }}</td>
                                     <td>${{ liquidacion.monto_gastos|floatformat:2 }}</td>
                                     <td><strong>${{ liquidacion.monto_a_pagar|floatformat:2 }}</strong></td>
                                     <td>

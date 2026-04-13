@@ -9807,6 +9807,7 @@ def buscar_liquidacion_caja(request):
             'monto_a_pagar': float(liquidacion.monto_a_pagar or 0),
             'monto_propietario': float(liquidacion.monto_propietario or 0),
             'monto_total_operacion': float(liquidacion.monto_total_operacion or 0),
+            'monto_cochera': float(liquidacion.monto_cochera or 0),
         }
     })
 
@@ -15360,6 +15361,7 @@ def crear_liquidacion(request, reserva_id=None):
                 monto_total_operacion=monto_total,
                 monto_propietario=monto_propietario,
                 monto_inmobiliaria=monto_inmobiliaria,
+                monto_cochera=Decimal('0'),
                 fecha_desde=datetime.strptime(fecha_desde, '%Y-%m-%d').date() if fecha_desde else None,
                 fecha_hasta=datetime.strptime(fecha_hasta, '%Y-%m-%d').date() if fecha_hasta else None,
                 observaciones=observaciones,
