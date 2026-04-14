@@ -14,24 +14,92 @@
     <style type="text/css" media="print">
         @page {
             size: legal;
-            margin: 0;
+            margin: 8mm;
         }
-        body {
-            margin: 1cm;
-        }
-       
         @media print {
+            /* base.html: body min-height 100vh + flex → altura de documento > 1 hoja */
+            html, body {
+                height: auto !important;
+                min-height: 0 !important;
+                max-height: none !important;
+                display: block !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: none !important;
+                background-image: none !important;
+                overflow: visible !important;
+            }
+            body::before {
+                display: none !important;
+                content: none !important;
+            }
+            .content-wrapper,
+            .container,
+            main,
+            .container-fluid {
+                min-height: 0 !important;
+                height: auto !important;
+                max-height: none !important;
+                flex: none !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                background: transparent !important;
+                backdrop-filter: none !important;
+            }
+            /* Solo el recibo cuenta para el alto del PDF (mensajes, etc. fuera de flujo) */
+            body > .container,
+            body > div.container {
+                min-height: 0 !important;
+                height: auto !important;
+                margin-top: 0 !important;
+                padding-top: 0 !important;
+            }
+            .container > *:not(.printable) {
+                display: none !important;
+                height: 0 !important;
+                min-height: 0 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: hidden !important;
+            }
+            nav.navbar,
+            footer.footer {
+                display: none !important;
+                height: 0 !important;
+                min-height: 0 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: hidden !important;
+            }
+
             body * {
                 visibility: hidden;
             }
             .printable, .printable * {
                 visibility: visible;
             }
+            /* position:absolute saca el recibo del flujo y en Chrome suele quedar una 2ª hoja vacía */
             .printable {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
+                position: relative !important;
+                left: auto !important;
+                top: auto !important;
+                width: 100% !important;
+                height: auto !important;
+                min-height: 0 !important;
+                max-height: none !important;
+                page-break-after: auto !important;
+                break-after: auto !important;
+            }
+            /* Alturas en % del diseño pantalla → en impresión forzar alto natural (evita 2ª hoja) */
+            .printable .recibo-marco,
+            .printable .recibo-marco div {
+                height: auto !important;
+                min-height: 0 !important;
+                max-height: none !important;
+            }
+            .printable .recibo-firma {
+                min-height: 56px !important;
+                height: auto !important;
             }
             .no-print, .no-print * {
                 display: none !important;
@@ -42,7 +110,7 @@
 
     
     <!-- Aquí comienza la sección del recibo -->
-    <div style="height: 49%; width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid;">
+    <div class="recibo-marco" style="height: 49%; width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid;">
         <!-- Contenido del recibo -->
         <div style="height: 15%; width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid; display: flex; flex-direction: row; justify-content: space-between;">
             <div style="height: 100%; width: 33%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
@@ -241,10 +309,10 @@
                     <p style="margin: 0; text-align: center; font-weight: bold;">LA SUMA DE: {{ suma_en_letras|default:"" }}</p>
                 </div>
                 <div style="width: 25%; text-align: center;">
-                    <div style="border: 1px solid black; height: 40%; margin-bottom: 10px; display: flex; align-items: center; justify-content: center;">
+                    <div class="recibo-firma" style="border: 1px solid black; height: 40%; margin-bottom: 10px; display: flex; align-items: center; justify-content: center;">
                         <span style="font-size: 8px;">FIRMA</span>
                     </div>
-                    <div style="border: 1px solid black; height: 40%; display: flex; align-items: center; justify-content: center;">
+                    <div class="recibo-firma" style="border: 1px solid black; height: 40%; display: flex; align-items: center; justify-content: center;">
                         <span style="font-size: 8px;">ACLARACIÓN</span>
                     </div>
                 </div>
