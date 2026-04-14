@@ -3,8 +3,30 @@
 {% load static %}
 {% block title %}Recibo Contrato 24 Meses{% endblock %}
 
+{% block extra_css %}
+{{ block.super }}
+<style>
+    /* Esta página: el recibo usa casi todo el ancho (Bootstrap .container limita ~1140px). */
+    body > .container.mt-4:has(.recibo-contrato-24),
+    body > div.container.mt-4:has(.recibo-contrato-24) {
+        max-width: 100% !important;
+        width: 100% !important;
+        padding-left: 10px !important;
+        padding-right: 10px !important;
+    }
+    .recibo-contrato-24 {
+        box-sizing: border-box;
+        width: 100%;
+        max-width: 100%;
+    }
+    .recibo-contrato-24 .recibo-marco {
+        max-width: 100%;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="printable">
+<div class="printable recibo-contrato-24">
 <script>
     function abrirRecibo() {
         window.open('recibo_contrato_24.html', '_blank'); // Abre en nueva ventana/pestaña
@@ -54,6 +76,10 @@
                 height: auto !important;
                 margin-top: 0 !important;
                 padding-top: 0 !important;
+                max-width: 100% !important;
+                width: 100% !important;
+                padding-left: 4mm !important;
+                padding-right: 4mm !important;
             }
             .container > *:not(.printable) {
                 display: none !important;
@@ -66,9 +92,11 @@
                 margin: 0 !important;
                 padding: 0 !important;
             }
-            .printable {
+            .printable,
+            .recibo-contrato-24 {
                 position: static !important;
                 width: 100% !important;
+                max-width: 100% !important;
             }
             .no-print,
             .no-print * {
@@ -134,33 +162,31 @@
                 </div>
             </div>
 
-            <div style="height: 100%; width: 36%; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: center;">
-                <div style="width: 80%; text-align: left;">     
+            <div style="height: 100%; width: 36%; display: flex; flex-direction: column; justify-content: flex-start; align-items: stretch; text-align: left;">
+                <div style="width: 100%; text-align: left; padding: 0 4px;">
                     <h2 style="margin: 0; color: green; font-size: 12px;">PROPIEDAD:</h2>    
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin: 5px 0;">
-                        <div style="display: flex; align-items: center; width: 100%;">
-                            <span style="min-width: 60px; font-size: 8px;">DIRECCIÓN:</span>
-                            <div style="border-bottom: 1px dotted black; width: 180px; font-size: 8px;">&nbsp; {{ contrato.propiedad.direccion }}</div>
+                    <div style="display: flex; align-items: center; margin: 5px 0; width: 100%; min-width: 0;">
+                        <span style="min-width: 60px; font-size: 8px; flex-shrink: 0;">DIRECCIÓN:</span>
+                        <div style="border-bottom: 1px dotted black; flex: 1; min-width: 0; font-size: 8px;">&nbsp; {{ contrato.propiedad.direccion }}</div>
+                    </div>
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 5px 0; width: 100%; min-width: 0;">
+                        <div style="display: flex; align-items: center; flex: 1; min-width: 0;">
+                            <span style="min-width: 40px; font-size: 8px; flex-shrink: 0;">FICHA:</span>
+                            <div style="border-bottom: 1px dotted black; flex: 1; min-width: 0; font-size: 8px;">&nbsp; {{ contrato.propiedad.id }}</div>
+                        </div>
+                        <div style="display: flex; align-items: center; flex: 1; min-width: 0;">
+                            <span style="min-width: 40px; font-size: 8px; flex-shrink: 0;">LLAVE:</span>
+                            <div style="border-bottom: 1px dotted black; flex: 1; min-width: 0; font-size: 8px;">&nbsp; {{ contrato.propiedad.llave }}</div>
                         </div>
                     </div>
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin: 5px 0;">
-                        <div style="display: flex; align-items: center; width: 45%;">
-                            <span style="min-width: 40px; font-size: 8px;">FICHA:</span>
-                            <div style="border-bottom: 1px dotted black; width: 100px; font-size: 8px;">&nbsp; {{ contrato.propiedad.id }}</div>
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-width: 0;">
+                        <div style="display: flex; align-items: center; flex: 1; min-width: 0;">
+                            <span style="min-width: 40px; font-size: 8px; flex-shrink: 0;">PISO:</span>
+                            <div style="border-bottom: 1px dotted black; flex: 1; min-width: 0; font-size: 8px;">&nbsp; {{ contrato.propiedad.piso }}</div>
                         </div>
-                        <div style="display: flex; align-items: center; width: 45%;">
-                            <span style="min-width: 40px; font-size: 8px;">LLAVE:</span>
-                            <div style="border-bottom: 1px dotted black; width: 100px; font-size: 8px;">&nbsp; {{ contrato.propiedad.llave }}</div>
-                        </div>
-                    </div>
-                    <div style="display: flex; align-items: center; justify-content: space-between;">
-                        <div style="display: flex; align-items: center; width: 45%;">
-                            <span style="min-width: 40px; font-size: 8px;">PISO:</span>
-                            <div style="border-bottom: 1px dotted black; width: 100px; font-size: 8px;">&nbsp; {{ contrato.propiedad.piso }}</div>
-                        </div>
-                        <div style="display: flex; align-items: center; width: 45%;">
-                            <span style="min-width: 40px; font-size: 8px;">DPTO:</span>
-                            <div style="border-bottom: 1px dotted black; width: 100px; font-size: 8px;">&nbsp; {{ contrato.propiedad.departamento }}</div>
+                        <div style="display: flex; align-items: center; flex: 1; min-width: 0;">
+                            <span style="min-width: 40px; font-size: 8px; flex-shrink: 0;">DPTO:</span>
+                            <div style="border-bottom: 1px dotted black; flex: 1; min-width: 0; font-size: 8px;">&nbsp; {{ contrato.propiedad.departamento }}</div>
                         </div>
                     </div>
                 </div>
