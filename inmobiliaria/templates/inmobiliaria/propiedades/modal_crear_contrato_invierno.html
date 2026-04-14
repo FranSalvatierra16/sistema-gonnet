@@ -694,7 +694,6 @@ document.getElementById('formContratoInvierno')?.addEventListener('submit', func
     .then(function(result) {
         var data = result.data;
         if (data && data.success) {
-            alert('✅ Contrato creado exitosamente');
             window.location.href = data.redirect_url;
         } else {
             alert('❌ ' + (data && data.error ? data.error : 'Error al crear el contrato'));

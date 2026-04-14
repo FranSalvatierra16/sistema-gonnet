@@ -889,7 +889,6 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                alert('✅ Contrato creado. Completá la operación principal (depósito + primer mes).');
                 window.location.href = data.redirect_url;
             } else {
                 alert(`❌ ${data.error || 'Error al crear contrato.'}`);

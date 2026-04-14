@@ -11374,6 +11374,20 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
                 precio_mensual_completo = float(limpiar_valor_monetario(pm_raw))
         except (TypeError, ValueError):
             pass
+
+        # Honorarios / sellados: POST (honorarios_top / sellados_top) y/o conceptos 25 / 26 en la lista
+        honorarios_final = honorarios
+        for c in conceptos_data:
+            if str(c.get('id') or c.get('codigo')) == '25':
+                honorarios_final = Decimal(str(c.get('importe', 0)))
+                break
+
+        sellados_final = sellados
+        for c in conceptos_data:
+            if str(c.get('id') or c.get('codigo')) == '26':
+                sellados_final = Decimal(str(c.get('importe', 0)))
+                break
+
         if conceptos_data and (mes_alquiler_importe is not None or request.POST.get('mes_alquiler_tipo', '').strip().lower() in ('proporcional', 'mensual')):
             importe_para_json = float(mes_alquiler_importe) if mes_alquiler_importe is not None else 0.0
             payload = {
@@ -11386,19 +11400,17 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
             texto_recibo = (request.POST.get('mes_alquiler_texto_recibo') or '').strip()[:200]
             if texto_recibo:
                 payload['mes_alquiler_texto_recibo'] = texto_recibo
-            if sellados and sellados > 0:
-                payload['sellados'] = float(sellados)
+            if sellados_final and sellados_final > 0:
+                payload['sellados'] = float(sellados_final)
             concepto_detalle_json = json.dumps(payload)
+        elif conceptos_data:
+            payload_min = {'conceptos': conceptos_data}
+            if sellados_final and sellados_final > 0:
+                payload_min['sellados'] = float(sellados_final)
+            concepto_detalle_json = json.dumps(payload_min)
         else:
-            concepto_detalle_json = json.dumps(conceptos_data) if conceptos_data else ''
+            concepto_detalle_json = ''
 
-        # Honorarios = concepto 25 (igual que depósito con concepto 10): si está en conceptos, usar su importe
-        honorarios_final = honorarios
-        for c in conceptos_data:
-            if str(c.get('id') or c.get('codigo')) == '25':
-                honorarios_final = Decimal(str(c.get('importe', 0)))
-                break
-        
         movimiento = MovimientoCaja.objects.create(
             caja=caja,
             tipo=TipoMovimientoCajaEnum.INGRESO,
@@ -11412,7 +11424,7 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
             sucursal=request.user.sucursal,
             propiedad=contrato.propiedad,
             honorarios=honorarios_final,
-            sellados=sellados
+            sellados=sellados_final
         )
         
         cuentas_con_monto = [data for data in montos_cuentas_bancarias.values() if data['monto'] > 0]
