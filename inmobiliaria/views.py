@@ -11386,6 +11386,8 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
             texto_recibo = (request.POST.get('mes_alquiler_texto_recibo') or '').strip()[:200]
             if texto_recibo:
                 payload['mes_alquiler_texto_recibo'] = texto_recibo
+            if sellados and sellados > 0:
+                payload['sellados'] = float(sellados)
             concepto_detalle_json = json.dumps(payload)
         else:
             concepto_detalle_json = json.dumps(conceptos_data) if conceptos_data else ''
@@ -12891,6 +12893,7 @@ def recibo_contrato_24(request, contrato_id):
         mes_alquiler_tipo_recibo = 'mensual'  # 'proporcional' o 'mensual' para la etiqueta en el recibo
         precio_mensual_completo_recibo = None  # precio mensual del formulario (para "Mes alquiler" en recibo)
         mes_alquiler_texto_recibo = ''  # texto que va en los puntos del recibo (ej. "marzo 2026")
+        sellados_importe_json = None  # sellados en raíz de concepto_detalle {..., "sellados": n}
 
         # Buscar movimientos del contrato (más reciente primero) y usar el que tenga concepto_detalle
         movimientos_contrato = MovimientoCaja.objects.filter(
@@ -12966,6 +12969,13 @@ def recibo_contrato_24(request, contrato_id):
                             pass
                     if obj.get('mes_alquiler_texto_recibo'):
                         mes_alquiler_texto_recibo = str(obj['mes_alquiler_texto_recibo']).strip()[:200]
+                    if obj.get('sellados') is not None:
+                        try:
+                            sellados_importe_json = Decimal(str(obj['sellados']))
+                            if sellados_importe_json < 0:
+                                sellados_importe_json = None
+                        except (TypeError, ValueError, ArithmeticError):
+                            sellados_importe_json = None
                 else:
                     if not (json_str and json_str.strip().startswith('[')):
                         json_str = '[]'
@@ -13254,10 +13264,29 @@ def recibo_contrato_24(request, contrato_id):
         honorarios = Decimal('0')
         if primer_movimiento and getattr(primer_movimiento, 'honorarios', None):
             honorarios = Decimal(str(primer_movimiento.honorarios))
+        # Sellados = raíz JSON del detalle, campo del movimiento o concepto 26 en conceptos[]
+        sellados = Decimal('0')
+        if sellados_importe_json is not None and sellados_importe_json > 0:
+            sellados = sellados_importe_json
+        elif primer_movimiento and getattr(primer_movimiento, 'sellados', None):
+            try:
+                sellados = Decimal(str(primer_movimiento.sellados))
+            except Exception:
+                sellados = Decimal('0')
+        if sellados == 0 and conceptos_contrato:
+            for c in conceptos_contrato:
+                co = str(c.get('codigo') or c.get('id') or '')
+                nom = (c.get('nombre') or '').lower()
+                if co == '26' or 'sellado' in nom:
+                    try:
+                        sellados = Decimal(str(c.get('importe_numerico', 0)))
+                    except Exception:
+                        sellados = Decimal('0')
+                    break
         
         deposito_estado = determinar_estado_concepto_contrato(contrato, '10')
-        # Total a abonar = Mes alquiler + Depósito + Honorarios (todo del contrato/carga)
-        total_a_abonar = float(alquiler_mensual) + float(deposito_garantia) + float(honorarios)
+        # Total a abonar = Mes alquiler + Depósito + Honorarios + Sellados
+        total_a_abonar = float(alquiler_mensual) + float(deposito_garantia) + float(honorarios) + float(sellados)
         
         # Total solo = suma de los conceptos cargados (lo que se ha cobrado/pagado)
         total_solo = sum(Decimal(str(c['importe_numerico'])) for c in conceptos_contrato)
@@ -13334,6 +13363,7 @@ def recibo_contrato_24(request, contrato_id):
             'deposito_garantia': format_currency(deposito_garantia),
             'deposito_estado': deposito_estado,
             'honorarios': format_currency(honorarios),
+            'sellados': format_currency(sellados),
             'total_a_abonar': format_currency(total_a_abonar),
             'total_solo': format_currency(total_solo_float),
             'neto_a_posesion': format_currency(neto_a_posesion),
