@@ -17,7 +17,11 @@
             margin: 8mm;
         }
         @media print {
-            /* base.html: body min-height 100vh + flex → altura de documento > 1 hoja */
+            /*
+             * Evitar 2ª hoja en blanco SIN tocar el diseño del recibo (no pisar height:% del marco).
+             * Problema: base.html usa min-height:100vh en body; visibility:hidden deja layout fantasma.
+             * Solución: ocultar solo menú, pie y hermanos del recibo con display:none.
+             */
             html, body {
                 height: auto !important;
                 min-height: 0 !important;
@@ -27,7 +31,6 @@
                 padding: 0 !important;
                 background: none !important;
                 background-image: none !important;
-                overflow: visible !important;
             }
             body::before {
                 display: none !important;
@@ -39,14 +42,12 @@
             .container-fluid {
                 min-height: 0 !important;
                 height: auto !important;
-                max-height: none !important;
                 flex: none !important;
                 padding: 0 !important;
                 margin: 0 !important;
                 background: transparent !important;
                 backdrop-filter: none !important;
             }
-            /* Solo el recibo cuenta para el alto del PDF (mensajes, etc. fuera de flujo) */
             body > .container,
             body > div.container {
                 min-height: 0 !important;
@@ -56,54 +57,22 @@
             }
             .container > *:not(.printable) {
                 display: none !important;
-                height: 0 !important;
-                min-height: 0 !important;
                 margin: 0 !important;
                 padding: 0 !important;
-                overflow: hidden !important;
             }
             nav.navbar,
             footer.footer {
                 display: none !important;
-                height: 0 !important;
-                min-height: 0 !important;
                 margin: 0 !important;
                 padding: 0 !important;
-                overflow: hidden !important;
             }
-
-            body * {
-                visibility: hidden;
-            }
-            .printable, .printable * {
-                visibility: visible;
-            }
-            /* position:absolute saca el recibo del flujo y en Chrome suele quedar una 2ª hoja vacía */
             .printable {
-                position: relative !important;
-                left: auto !important;
-                top: auto !important;
+                position: static !important;
                 width: 100% !important;
-                height: auto !important;
-                min-height: 0 !important;
-                max-height: none !important;
-                page-break-after: auto !important;
-                break-after: auto !important;
             }
-            /* Alturas en % del diseño pantalla → en impresión forzar alto natural (evita 2ª hoja) */
-            .printable .recibo-marco,
-            .printable .recibo-marco div {
-                height: auto !important;
-                min-height: 0 !important;
-                max-height: none !important;
-            }
-            .printable .recibo-firma {
-                min-height: 56px !important;
-                height: auto !important;
-            }
-            .no-print, .no-print * {
+            .no-print,
+            .no-print * {
                 display: none !important;
-                visibility: hidden !important;
             }
         }
     </style>
