@@ -116,11 +116,11 @@
                 <input type="hidden" id="honorarios_top" name="honorarios_top" value="">
                 <input type="hidden" id="sellados_top" name="sellados_top" value="">
                 
-                <!-- Honorarios y sellados (importe del recibo; si no cargás el concepto 25/26 en la tabla, se envían igual al guardar) -->
+                <!-- Honorarios y sellados: campos del movimiento; el total del recibo en pantalla es solo la tabla de conceptos -->
                 <div class="card mb-4" style="display: block !important; visibility: visible !important;">
                     <div class="card-header bg-warning text-dark">
                         <h5 class="mb-0">💼 Honorarios y sellados</h5>
-                        <small class="text-muted">Podés cargar el importe aquí o agregar los conceptos 25 / 26 en la tabla. El total del recibo incluye estos valores.</small>
+                        <small class="text-muted">Podés cargar el importe aquí o agregar los conceptos 25 / 26 en la tabla. El total del recibo es solo la suma de la tabla de conceptos; honorarios y sellados de esta sección se guardan aparte en el movimiento.</small>
                     </div>
                     <div class="card-body">
                         <div class="row">
@@ -664,27 +664,18 @@ function verificarConcepto10() {
 
 // Función para calcular totales
 function calcularTotales() {
-    const totalConceptos = conceptosAgregados.reduce((sum, concepto) => sum + concepto.importe, 0);
-    
-    const depositoInputRaw = document.getElementById('deposito_garantia')?.value || '0';
-    const depositoInput = parsearValorFormateado(depositoInputRaw);
-    const honorariosVis = parsearValorFormateado(document.getElementById('honorarios_visible')?.value || '0');
-    const selladosVis = parsearValorFormateado(document.getElementById('sellados_visible')?.value || '0');
-    
-    const concepto10Presente = verificarConcepto10();
-    const concepto25Presente = verificarConcepto25();
-    const concepto26Presente = verificarConcepto26();
-    
-    // Suma de tabla + honorarios/sellados escritos arriba si aún no están como concepto 25/26
-    const extraHonorarios = (honorariosVis > 0 && !concepto25Presente) ? honorariosVis : 0;
-    const extraSellados = (selladosVis > 0 && !concepto26Presente) ? selladosVis : 0;
-    const totalRecibo = totalConceptos + extraHonorarios + extraSellados;
-    
-    document.getElementById('totalConceptos').textContent = totalConceptos.toLocaleString('es-AR');
-    document.getElementById('totalRecibo').value = totalRecibo.toLocaleString('es-AR');
-    document.getElementById('totalOperacion').textContent = totalRecibo.toLocaleString('es-AR');
-    
-    // Calcular total de pagos actual
+    const totalConceptos = conceptosAgregados.reduce((sum, concepto) => sum + (Number(concepto.importe) || 0), 0);
+    // Total del recibo = solo filas de la tabla (honorarios/sellados del bloque amarillo van por POST al movimiento, no suman aquí)
+    const totalRecibo = totalConceptos;
+
+    const elTotConceptos = document.getElementById('totalConceptos');
+    const elTotRecibo = document.getElementById('totalRecibo');
+    const elTotOperacion = document.getElementById('totalOperacion');
+    const fmt = (n) => (Number(n) || 0).toLocaleString('es-AR');
+    if (elTotConceptos) elTotConceptos.textContent = fmt(totalConceptos);
+    if (elTotRecibo) elTotRecibo.value = fmt(totalRecibo);
+    if (elTotOperacion) elTotOperacion.textContent = fmt(totalRecibo);
+
     const totalPagos = calcularTotalPagos();
     const diferencia = totalPagos - totalRecibo;
     
@@ -737,7 +728,7 @@ function actualizarEstadoDepositoHonorariosYSellados() {
             } else {
                 honorariosInput.style.backgroundColor = '#fff3cd';
                 honorariosInput.style.color = '#856404';
-                honorariosInput.title = 'Se suman al total del recibo (o agregá concepto 25 en la tabla)';
+                honorariosInput.title = 'Figuran en el movimiento; no suman al total del recibo salvo que agregues concepto 25 en la tabla';
             }
         } else {
             honorariosInput.style.backgroundColor = '';
@@ -755,7 +746,7 @@ function actualizarEstadoDepositoHonorariosYSellados() {
             } else {
                 selladosInput.style.backgroundColor = '#fff3cd';
                 selladosInput.style.color = '#856404';
-                selladosInput.title = 'Se suman al total del recibo (o agregá concepto 26 en la tabla)';
+                selladosInput.title = 'Figuran en el movimiento; no suman al total del recibo salvo que agregues concepto 26 en la tabla';
             }
         } else {
             selladosInput.style.backgroundColor = '';
@@ -767,11 +758,12 @@ function actualizarEstadoDepositoHonorariosYSellados() {
 
 // Función para calcular total de pagos
 function calcularTotalPagos() {
-    const efectivo = parsearValorFormateado(document.getElementById('monto_efectivo').value);
-    const cheque = parsearValorFormateado(document.getElementById('monto_cheque').value);
-    const tarjeta = parsearValorFormateado(document.getElementById('monto_tarjeta').value);
-    const depositoGalicia = parsearValorFormateado(document.getElementById('monto_deposito_galicia').value);
-    const depositoMp = parsearValorFormateado(document.getElementById('monto_deposito_mp').value);
+    const v = (id) => parsearValorFormateado(document.getElementById(id)?.value || '0');
+    const efectivo = v('monto_efectivo');
+    const cheque = v('monto_cheque');
+    const tarjeta = v('monto_tarjeta');
+    const depositoGalicia = v('monto_deposito_galicia');
+    const depositoMp = v('monto_deposito_mp');
     
     // Obtener montos de cuentas bancarias dinámicas si existen
     let depositosDinamicos = 0;
@@ -816,35 +808,10 @@ function procesarOperacion() {
     sincronizarHonorarios();
     sincronizarSellados();
 
-    let filas = conceptosAgregados.slice();
-    const hVis = document.getElementById('honorarios_visible');
-    const sVis = document.getElementById('sellados_visible');
-    const hVal = hVis ? parsearValorFormateado(hVis.value) : 0;
-    const sVal = sVis ? parsearValorFormateado(sVis.value) : 0;
-    const fechaHoy = new Date().toLocaleDateString('es-AR');
-    if (hVal > 0 && !filas.some(function(c) { return String(c.conceptoId) === '25'; })) {
-        filas.push({
-            id: ++contadorConceptos,
-            conceptoId: '25',
-            nombre: 'Honorarios',
-            observaciones: 'Sin observaciones',
-            importe: hVal,
-            fecha: fechaHoy
-        });
-    }
-    if (sVal > 0 && !filas.some(function(c) { return String(c.conceptoId) === '26'; })) {
-        filas.push({
-            id: ++contadorConceptos,
-            conceptoId: '26',
-            nombre: 'Sellados',
-            observaciones: 'Sin observaciones',
-            importe: sVal,
-            fecha: fechaHoy
-        });
-    }
+    const filas = conceptosAgregados.slice();
 
     if (filas.length === 0) {
-        alert('⚠️ Debes agregar al menos un concepto (o importes en honorarios/sellados) antes de procesar la operación');
+        alert('⚠️ Debes agregar al menos un concepto en la tabla antes de procesar la operación');
         return;
     }
 
@@ -1213,10 +1180,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
     });
-    
-    var honorariosEl = document.getElementById('honorarios_top');
-    if (honorariosEl) honorariosEl.addEventListener('input', calcularTotales);
-    
+
     // Event listeners para los botones de seleccionar concepto
     document.addEventListener('click', function(e) {
         if (e.target.classList.contains('btn-seleccionar-concepto')) {
