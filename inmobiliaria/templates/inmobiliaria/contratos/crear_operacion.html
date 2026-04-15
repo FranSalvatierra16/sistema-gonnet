@@ -113,8 +113,8 @@
                 {% csrf_token %}
                 
                 <!-- Ocultos enviados al servidor (sincronizados con los campos visibles) -->
-                <input type="hidden" id="honorarios_top" name="honorarios_top" value="0">
-                <input type="hidden" id="sellados_top" name="sellados_top" value="0">
+                <input type="hidden" id="honorarios_top" name="honorarios_top" value="">
+                <input type="hidden" id="sellados_top" name="sellados_top" value="">
                 
                 <!-- Honorarios y sellados (importe del recibo; si no cargás el concepto 25/26 en la tabla, se envían igual al guardar) -->
                 <div class="card mb-4" style="display: block !important; visibility: visible !important;">
@@ -128,7 +128,7 @@
                                 <div class="form-group">
                                     <label><strong>Honorarios:</strong></label>
                                     <input type="text" class="form-control" id="honorarios_visible" 
-                                           value="0" 
+                                           value="{{ contrato.honorarios_referencia|format_price }}" 
                                            onchange="formatearNumeroEnTiempoReal(this); sincronizarHonorarios()" 
                                            oninput="formatearNumeroEnTiempoReal(this); sincronizarHonorarios()">
                                     <small class="form-text text-muted">Opcional: también podés usar el concepto 25 en la tabla.</small>
@@ -138,7 +138,7 @@
                                 <div class="form-group">
                                     <label><strong>Sellados:</strong></label>
                                     <input type="text" class="form-control" id="sellados_visible" 
-                                           value="0" 
+                                           value="{{ contrato.sellados_referencia|format_price }}" 
                                            onchange="formatearNumeroEnTiempoReal(this); sincronizarSellados()" 
                                            oninput="formatearNumeroEnTiempoReal(this); sincronizarSellados()">
                                     <small class="form-text text-muted">Aparece en el recibo. Opcional: también concepto 26 en la tabla.</small>
@@ -1226,6 +1226,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    sincronizarHonorarios();
+    sincronizarSellados();
+
     // Inicializar proporcional y mes alquiler elegido
     actualizarProporcionalYMesAlquiler();
     actualizarEtiquetaValorUsar();
@@ -1241,17 +1244,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Funciones para sincronizar campos visibles con campos ocultos
 function sincronizarHonorarios() {
-    const valorVisible = document.getElementById('honorarios_visible').value;
-    document.getElementById('honorarios_top').value = valorVisible;
+    const v = document.getElementById('honorarios_visible');
+    const top = document.getElementById('honorarios_top');
+    if (!v || !top) return;
+    const val = (v.value || '').replace(/\$/g, '').trim();
+    top.value = val === '' ? '0' : val;
     calcularTotales();
 }
 
 function sincronizarSellados() {
     var el = document.getElementById('sellados_visible');
     var top = document.getElementById('sellados_top');
-    if (el && top) {
-        top.value = el.value || '0';
-    }
+    if (!el || !top) return;
+    var val = (el.value || '').replace(/\$/g, '').trim();
+    top.value = val === '' ? '0' : val;
     calcularTotales();
 }
 

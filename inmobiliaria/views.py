@@ -10744,6 +10744,17 @@ def crear_contrato_alquiler(request):
                 precio_segundo_cuatrimestre = None
             deposito_garantia = Decimal(request.POST.get('deposito_garantia').replace('.', '').replace(',', '.'))
 
+            def _decimal_desde_input_plata(s):
+                if not s or not str(s).strip():
+                    return Decimal('0')
+                try:
+                    return Decimal(str(s).strip().replace('.', '').replace(',', '.'))
+                except (InvalidOperation, ValueError):
+                    return Decimal('0')
+
+            honorarios_referencia = _decimal_desde_input_plata(request.POST.get('honorarios_contrato'))
+            sellados_referencia = _decimal_desde_input_plata(request.POST.get('sellados_contrato'))
+
             garante_nombre = (request.POST.get('garante_nombre') or '').strip()
             garante_apellido = (request.POST.get('garante_apellido') or '').strip()
             garante_dni = (request.POST.get('garante_dni') or '').strip()
@@ -10823,6 +10834,8 @@ def crear_contrato_alquiler(request):
                 duracion_meses=duracion_meses,
                 precio_mensual=precio_mensual,
                 deposito_garantia=deposito_garantia,
+                honorarios_referencia=honorarios_referencia,
+                sellados_referencia=sellados_referencia,
                 estado='reservado',  # Iniciar en estado reservado
             )
             if duracion_meses == 9 and precio_segundo_cuatrimestre is not None:
@@ -11009,11 +11022,21 @@ def lista_contratos(request):
         contrato.honorarios_estado = determinar_estado_concepto_contrato(contrato, '25')  # Concepto 25 = honorarios  
         contrato.sellados_estado = determinar_estado_concepto_contrato(contrato, '26')  # Concepto 26 = sellados
         
-        # Agregar valores de honorarios y sellados desde MovimientoCaja si no están en el contrato
+        # Honorarios/sellados: si ya hay movimiento, usarlo; si no está pagado y hay referencia del alta, mostrarla
         if not hasattr(contrato, 'honorarios'):
-            contrato.honorarios = obtener_valor_concepto_contrato(contrato, 'honorarios')
+            mov_h = obtener_valor_concepto_contrato(contrato, 'honorarios')
+            if contrato.honorarios_estado == 'pagado':
+                contrato.honorarios = mov_h
+            else:
+                ref_h = getattr(contrato, 'honorarios_referencia', None) or Decimal('0')
+                contrato.honorarios = mov_h if mov_h > 0 else ref_h
         if not hasattr(contrato, 'sellados'):
-            contrato.sellados = obtener_valor_concepto_contrato(contrato, 'sellados')
+            mov_s = obtener_valor_concepto_contrato(contrato, 'sellados')
+            if contrato.sellados_estado == 'pagado':
+                contrato.sellados = mov_s
+            else:
+                ref_s = getattr(contrato, 'sellados_referencia', None) or Decimal('0')
+                contrato.sellados = mov_s if mov_s > 0 else ref_s
     
     context = {
         'contratos': contratos,
@@ -11270,12 +11293,13 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
 
         # Función auxiliar para limpiar valores monetarios
         def limpiar_valor_monetario(valor_str):
-            if not valor_str or valor_str.strip() == '':
+            if not valor_str or str(valor_str).strip() == '':
                 return Decimal('0')
-            valor_limpio = valor_str.replace('.', '').replace(',', '.')
+            s = str(valor_str).strip().replace('$', '').replace(' ', '')
+            valor_limpio = s.replace('.', '').replace(',', '.')
             try:
                 return Decimal(valor_limpio)
-            except:
+            except Exception:
                 return Decimal('0')
         
         # ✅ Obtener cuentas bancarias dinámicamente

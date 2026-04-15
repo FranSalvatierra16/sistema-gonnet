@@ -40,6 +40,16 @@ class ContratoAlquiler(models.Model):
     )
     deposito_garantia = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     gastos_adicionales = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    honorarios_referencia = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='Honorarios (referencia)',
+        help_text='Monto informado al crear el contrato; precarga en operación principal.',
+    )
+    sellados_referencia = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='Sellados (referencia)',
+        help_text='Monto informado al crear el contrato; precarga en operación principal.',
+    )
     
     # Estado del contrato
     ESTADO_CHOICES = [
