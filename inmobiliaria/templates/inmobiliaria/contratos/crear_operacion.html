@@ -432,18 +432,10 @@
     } catch (e) { /* usar defaults */ }
     window.tipoOperacion = config.tipo_operacion || 'principal';
     window.contratoId = config.contrato_id || 0;
-    window.precioMensualInicial = typeof config.precio_mensual_val === 'number' ? config.precio_mensual_val : 0;
-    window.depositoGarantiaInicial = typeof config.deposito_garantia_val === 'number' ? config.deposito_garantia_val : 0;
-    window.conceptoAlquilerNombre = config.concepto_alquiler_nombre || 'Alquiler';
-    window.conceptoDepositoNombre = config.concepto_deposito_nombre || 'Depósito de garantía';
     window.fechaInicioContrato = config.fecha_inicio || null;
 })();
 var tipoOperacion = window.tipoOperacion;
 var contratoId = window.contratoId;
-var precioMensualInicial = window.precioMensualInicial;
-var depositoGarantiaInicial = window.depositoGarantiaInicial;
-var conceptoAlquilerNombre = window.conceptoAlquilerNombre;
-var conceptoDepositoNombre = window.conceptoDepositoNombre;
 
 // Variables globales
 let conceptosAgregados = [];
@@ -514,40 +506,6 @@ function mostrarModalConcepto() {
     modal.show();
 }
 window.mostrarModalConcepto = mostrarModalConcepto;
-
-// Operación principal: precargar alquiler (1) y depósito (10) como al flujo ágil de invierno / 24 meses
-function precargarConceptosOperacionPrincipal() {
-    if (typeof tipoOperacion === 'undefined' || tipoOperacion !== 'principal') {
-        return;
-    }
-    if (conceptosAgregados.length > 0) {
-        return;
-    }
-    const hoy = new Date().toLocaleDateString('es-AR');
-    if (window.precioMensualInicial > 0) {
-        conceptosAgregados.push({
-            id: ++contadorConceptos,
-            conceptoId: '1',
-            nombre: window.conceptoAlquilerNombre || 'Alquiler',
-            observaciones: 'Mes alquiler',
-            importe: window.precioMensualInicial,
-            fecha: hoy
-        });
-    }
-    if (window.depositoGarantiaInicial > 0) {
-        conceptosAgregados.push({
-            id: ++contadorConceptos,
-            conceptoId: '10',
-            nombre: window.conceptoDepositoNombre || 'Depósito de garantía',
-            observaciones: 'Sin observaciones',
-            importe: window.depositoGarantiaInicial,
-            fecha: hoy
-        });
-    }
-    if (conceptosAgregados.length > 0) {
-        actualizarTablaConceptos();
-    }
-}
 
 // Función para agregar concepto
 function agregarConcepto() {
@@ -1267,8 +1225,6 @@ document.addEventListener('DOMContentLoaded', function() {
             seleccionarConcepto(conceptoId, conceptoNombre);
         }
     });
-    
-    precargarConceptosOperacionPrincipal();
 
     // Inicializar proporcional y mes alquiler elegido
     actualizarProporcionalYMesAlquiler();
