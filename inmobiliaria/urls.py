@@ -54,6 +54,7 @@ urlpatterns = [
     path('propiedades/<int:propiedad_id>/', views.propiedad_detalle, name='propiedad_detalle'),
     path('propiedades/nuevo/', views.propiedad_nuevo, name='propiedad_nuevo'),
     path('propiedades/<int:propiedad_id>/editar/', views.propiedad_editar, name='propiedad_editar'),
+    path('propiedades/<int:propiedad_id>/cambiar-sucursal/', views.propiedad_cambiar_sucursal, name='propiedad_cambiar_sucursal'),
     path('propiedades/<int:propiedad_id>/eliminar/', views.propiedad_eliminar, name='propiedad_eliminar'),
     path('propiedades-eliminadas/', views.propiedades_eliminadas, name='propiedades_eliminadas'),
     path('propiedades/<int:propiedad_id>/recuperar/', views.propiedad_recuperar, name='propiedad_recuperar'),

@@ -1088,6 +1088,9 @@ def propiedades(request):
 @login_required
 def propiedad_detalle(request, propiedad_id):
     propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
+    if not _propiedad_accesible_por_sucursal_usuario(request, propiedad):
+        messages.error(request, 'No tenés permiso para ver esta propiedad (pertenece a otra sucursal).')
+        return redirect('inmobiliaria:propiedades')
     # ✅ FILTRAR SOLO DISPONIBILIDADES MANUALES (no automáticas)
     disponibilidades = propiedad.disponibilidades.filter(es_manual=True).order_by('fecha_inicio')
     ids_superpuestos, textos_superpuestos = _disponibilidades_superpuestas(disponibilidades)
@@ -1364,6 +1367,7 @@ def propiedad_detalle(request, propiedad_id):
         'info_invierno': info_invierno,  # ✅ Agregamos info_invierno al contexto
         'inquilinos': get_inquilinos_queryset_unificado(request),
         'vendedores': Vendedor.objects.filter(sucursal=request.user.sucursal).order_by('apellido', 'nombre'),
+        'puede_cambiar_sucursal_propiedad': _puede_usar_cambio_sucursal_propiedad(request.user),
     }
     
     return render(request, 'inmobiliaria/propiedades/detalle.html', context)
@@ -1422,9 +1426,76 @@ def propiedad_nuevo(request):
         'imagenes': []  # Para el template
     })
 
+
+def _puede_usar_cambio_sucursal_propiedad(user):
+    """Solo superusuario o nivel 4 (administración)."""
+    return bool(getattr(user, 'is_superuser', False) or getattr(user, 'nivel', 0) == 4)
+
+
+def _propiedad_accesible_por_sucursal_usuario(request, propiedad):
+    """True si el usuario puede operar esta propiedad (misma sucursal o superusuario)."""
+    if getattr(request.user, 'is_superuser', False):
+        return True
+    uid = getattr(request.user, 'sucursal_id', None)
+    return uid is not None and propiedad.sucursal_id == uid
+
+
+@login_required
+def propiedad_cambiar_sucursal(request, propiedad_id):
+    """
+    Traslado explícito de una propiedad a otra sucursal (solo nivel 4 o superusuario).
+    Requiere escribir una frase exacta de confirmación para evitar cambios accidentales.
+    """
+    propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
+    if not _puede_usar_cambio_sucursal_propiedad(request.user):
+        messages.error(request, 'Solo administradores pueden cambiar la sucursal de una propiedad.')
+        return redirect('inmobiliaria:propiedades')
+    if not _propiedad_accesible_por_sucursal_usuario(request, propiedad):
+        messages.error(request, 'No podés reasignar propiedades que no pertenecen a tu sucursal.')
+        return redirect('inmobiliaria:propiedades')
+
+    frase_requerida = f'CAMBIAR-SUCURSAL-{propiedad.id}'
+    sucursales = Sucursal.objects.all().order_by('nombre')
+
+    if request.method == 'POST':
+        nueva_id = request.POST.get('nueva_sucursal_id')
+        frase = (request.POST.get('texto_confirmacion') or '').strip()
+        if frase != frase_requerida:
+            messages.error(
+                request,
+                f'Confirmación incorrecta. Debés escribir exactamente (mayúsculas y guiones): {frase_requerida}'
+            )
+        else:
+            try:
+                nueva = Sucursal.objects.get(pk=int(nueva_id))
+            except (ValueError, TypeError, Sucursal.DoesNotExist):
+                messages.error(request, 'Sucursal de destino no válida.')
+            else:
+                if nueva.pk == propiedad.sucursal_id:
+                    messages.warning(request, 'La propiedad ya está en esa sucursal.')
+                else:
+                    anterior = propiedad.sucursal.nombre
+                    propiedad.sucursal = nueva
+                    propiedad.save(update_fields=['sucursal'])
+                    messages.success(
+                        request,
+                        f'Sucursal actualizada: de «{anterior}» a «{nueva.nombre}» (ficha #{propiedad.id}).'
+                    )
+                    return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
+
+    return render(request, 'inmobiliaria/propiedades/cambiar_sucursal_propiedad.html', {
+        'propiedad': propiedad,
+        'sucursales': sucursales,
+        'frase_requerida': frase_requerida,
+    })
+
+
 @login_required
 def propiedad_editar(request, propiedad_id):
     propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+    if not _propiedad_accesible_por_sucursal_usuario(request, propiedad):
+        messages.error(request, 'No tenés permiso para editar esta propiedad (pertenece a otra sucursal).')
+        return redirect('inmobiliaria:propiedades')
     imagenes = ImagenPropiedad.objects.filter(propiedad=propiedad).order_by('orden')
     
     if request.method == 'POST':

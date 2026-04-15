@@ -424,9 +424,11 @@ class PropiedadForm(forms.ModelForm):
     
     def save(self, commit=True):
         propiedad = super(PropiedadForm, self).save(commit=False)
-        if self.user and hasattr(self.user, 'sucursal'):
-            propiedad.sucursal = self.user.sucursal  # Asigna la sucursal del vendedor
-            
+        # Sucursal: solo al crear. En edición no pisar (evita mover la ficha a otra sucursal al guardar sin querer).
+        if self.user and hasattr(self.user, 'sucursal') and self.user.sucursal:
+            if not self.instance.pk:
+                propiedad.sucursal = self.user.sucursal
+
         # Manejar el campo fichado_por según lo seleccionado en el formulario
         fichado_por_seleccionado = self.cleaned_data.get('fichado_por')
         
