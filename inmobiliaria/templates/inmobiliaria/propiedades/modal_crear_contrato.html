@@ -481,10 +481,15 @@ function mostrarModalContrato(propiedadId, direccion, sucursal, precioMensual, e
         actualizarResumenContrato();
     }
     
-    // Establecer fecha mínima (hoy)
+    // Fecha inicio sugerida = hoy; sin min (permite cargar contratos atrasados / históricos)
     const hoy = new Date().toISOString().split('T')[0];
-    document.getElementById('fecha_inicio').value = hoy;
-    document.getElementById('fecha_inicio').min = hoy;
+    const fi = document.getElementById('fecha_inicio');
+    fi.removeAttribute('min');
+    fi.value = hoy;
+    const ff = document.getElementById('fecha_fin');
+    if (ff) ff.removeAttribute('min');
+    const fo = document.getElementById('fecha_operacion');
+    if (fo) fo.removeAttribute('min');
     
     // Limpiar inquilinos y garantes
     inquilinosSeleccionados24 = [];
