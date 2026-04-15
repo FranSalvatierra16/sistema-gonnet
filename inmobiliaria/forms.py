@@ -424,9 +424,10 @@ class PropiedadForm(forms.ModelForm):
     
     def save(self, commit=True):
         propiedad = super(PropiedadForm, self).save(commit=False)
-        # Sucursal: solo al crear. En edición no pisar (evita mover la ficha a otra sucursal al guardar sin querer).
+        # Sucursal: solo al crear en BD. No usar "not self.instance.pk": en alta nueva el # de ficha viene del
+        # formulario y pk ya está seteado antes del INSERT, entonces la sucursal quedaba vacía.
         if self.user and hasattr(self.user, 'sucursal') and self.user.sucursal:
-            if not self.instance.pk:
+            if propiedad._state.adding:
                 propiedad.sucursal = self.user.sucursal
 
         # Manejar el campo fichado_por según lo seleccionado en el formulario
