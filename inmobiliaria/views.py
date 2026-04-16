@@ -6102,7 +6102,8 @@ def estudiantes_disponibilidad_masiva(request):
                     todas_disponibilidades = Disponibilidad.objects.filter(propiedad=propiedad)
                     solapamientos_reales = [
                         d for d in todas_disponibilidades
-                        if d.fecha_fin > fecha_inicio and d.fecha_inicio < fecha_fin
+                        if d.fecha_inicio is not None and d.fecha_fin is not None
+                        and d.fecha_fin > fecha_inicio and d.fecha_inicio < fecha_fin
                     ]
                     if solapamientos_reales:
                         fechas_conflicto = [f"{d.fecha_inicio.strftime('%d/%m/%Y')} - {d.fecha_fin.strftime('%d/%m/%Y')}" for d in solapamientos_reales]
@@ -6328,6 +6329,9 @@ def agregar_disponibilidad_masiva(request):
                     # Verificar VERDADERA superposición (excluir fechas contiguas)
                     solapamientos_reales = []
                     for disp in todas_disponibilidades:
+                        # Filas legacy o corruptas con NULL rompen la comparación (TypeError con "date" en el mensaje)
+                        if disp.fecha_inicio is None or disp.fecha_fin is None:
+                            continue
                         # Superposición REAL: comparten MÁS de un día
                         # Si solo se tocan en UN día (contiguas como 10-15 y 15-20), es válido
                         if disp.fecha_fin > fecha_inicio and disp.fecha_inicio < fecha_fin:
@@ -6389,12 +6393,11 @@ def agregar_disponibilidad_masiva(request):
                     elif 'UNIQUE constraint failed' in error_msg or 'duplicate' in error_msg.lower():
                         error_msg = 'Ya existe disponibilidad para estas fechas'
                         tipo_error = 'solapamiento'
-                    elif 'date' in error_msg.lower():
-                        error_msg = 'Error en las fechas proporcionadas'
-                        tipo_error = 'fecha_invalida'
                     elif 'foreign key' in error_msg.lower():
                         error_msg = 'Problema de referencia en la base de datos'
                         tipo_error = 'referencia'
+                    elif len(error_msg) > 280:
+                        error_msg = error_msg[:277] + '...'
                     
                     errores_detallados.append({
                         'propiedad_id': propiedad_id,
