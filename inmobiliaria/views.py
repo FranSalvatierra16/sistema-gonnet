@@ -6289,9 +6289,24 @@ def agregar_disponibilidad_masiva(request):
 
     if request.method == 'POST':
         propiedad_ids = request.POST.getlist('propiedades[]')
-        fecha_inicio = request.POST.get('fecha_inicio')
-        fecha_fin = request.POST.get('fecha_fin')
-        
+        fecha_inicio_str = (request.POST.get('fecha_inicio') or '').strip()
+        fecha_fin_str = (request.POST.get('fecha_fin') or '').strip()
+        try:
+            fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date() if fecha_inicio_str else None
+            fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date() if fecha_fin_str else None
+        except (ValueError, TypeError):
+            fecha_inicio = fecha_fin = None
+        if not fecha_inicio or not fecha_fin:
+            return JsonResponse({
+                'success': False,
+                'message': 'Indicá fecha de inicio y fin válidas (formato del navegador: AAAA-MM-DD).',
+            })
+        if fecha_inicio > fecha_fin:
+            return JsonResponse({
+                'success': False,
+                'message': 'La fecha de inicio no puede ser posterior a la fecha de fin.',
+            })
+
         propiedades_actualizadas = 0
         propiedades_exitosas = []
         errores_detallados = []
