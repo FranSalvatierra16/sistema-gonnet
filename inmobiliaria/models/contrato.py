@@ -50,7 +50,15 @@ class ContratoAlquiler(models.Model):
         verbose_name='Sellados (referencia)',
         help_text='Monto informado al crear el contrato; precarga en operación principal.',
     )
-    
+    # Opcional: aumentos cada 3 meses. Lista alineada a trimestres 2, 3, … (índice 0 = meses 4–6).
+    # null en un elemento o ausencia = repetir el monto del trimestre anterior (arranca en precio_mensual).
+    precios_bloques = models.JSONField(
+        null=True,
+        blank=True,
+        verbose_name='Precios por trimestre (opcional)',
+        help_text='Opcional: importes por bloque de 3 meses desde el 2.º trimestre; vacío = mismo valor que el trimestre anterior.',
+    )
+
     # Estado del contrato
     ESTADO_CHOICES = [
         ('reservado', 'Reservado'),

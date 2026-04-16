@@ -10755,6 +10755,16 @@ def crear_contrato_alquiler(request):
             honorarios_referencia = _decimal_desde_input_plata(request.POST.get('honorarios_contrato'))
             sellados_referencia = _decimal_desde_input_plata(request.POST.get('sellados_contrato'))
 
+            precios_bloques = None
+            pb_raw = (request.POST.get('precios_bloques_json') or '').strip()
+            if pb_raw:
+                try:
+                    precios_bloques = json.loads(pb_raw)
+                    if not isinstance(precios_bloques, list):
+                        precios_bloques = None
+                except json.JSONDecodeError:
+                    precios_bloques = None
+
             garante_nombre = (request.POST.get('garante_nombre') or '').strip()
             garante_apellido = (request.POST.get('garante_apellido') or '').strip()
             garante_dni = (request.POST.get('garante_dni') or '').strip()
@@ -10836,6 +10846,7 @@ def crear_contrato_alquiler(request):
                 deposito_garantia=deposito_garantia,
                 honorarios_referencia=honorarios_referencia,
                 sellados_referencia=sellados_referencia,
+                precios_bloques=precios_bloques,
                 estado='reservado',  # Iniciar en estado reservado
             )
             if duracion_meses == 9 and precio_segundo_cuatrimestre is not None:
@@ -11530,6 +11541,59 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
         logger.error(error_msg)
         return None, 0, str(e)
 
+def _decimal_desde_trimestre_json(entry):
+    """Parsea un ítem de precios_bloques (JSON); None si no hay monto válido."""
+    if entry is None:
+        return None
+    if isinstance(entry, bool):
+        return None
+    if isinstance(entry, (int, float)):
+        try:
+            return Decimal(str(entry))
+        except (InvalidOperation, ValueError, TypeError):
+            return None
+    s = str(entry).strip()
+    if not s or s.lower() in ('null', 'none'):
+        return None
+    try:
+        return Decimal(s.replace('.', '').replace(',', '.'))
+    except (InvalidOperation, ValueError, TypeError):
+        return None
+
+
+def _montos_cuotas_por_trimestre(contrato):
+    """
+    Monto por cada mes del contrato (len = duracion_meses).
+    Bloques de 3 meses: el primero usa precio_mensual; los siguientes usan precios_bloques[0], [1], …
+    (trimestre 2 = meses 4–6). null o vacío en la lista = repetir el último monto definido.
+    """
+    n = int(contrato.duracion_meses or 0)
+    if n <= 0:
+        return []
+    base = contrato.precio_mensual or Decimal('0')
+    num_bloques = max(1, (n + 2) // 3)
+    raw = getattr(contrato, 'precios_bloques', None)
+    if not isinstance(raw, list):
+        raw = []
+    last = base
+    bloque_monto = []
+    for b in range(num_bloques):
+        if b == 0:
+            last = base
+        else:
+            idx = b - 1
+            if idx < len(raw):
+                parsed = _decimal_desde_trimestre_json(raw[idx])
+                if parsed is not None and parsed >= 0:
+                    last = parsed
+        bloque_monto.append(last)
+    out = []
+    for i in range(n):
+        bi = i // 3
+        out.append(bloque_monto[bi] if bi < len(bloque_monto) else last)
+    return out
+
+
 @login_required
 @require_POST
 def procesar_operacion_contrato(request, contrato_id):
@@ -11647,15 +11711,17 @@ def procesar_operacion_contrato(request, contrato_id):
                     if fecha_actual.day >= 28:
                         fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
                 
+                montos_meses = _montos_cuotas_por_trimestre(contrato)
                 for i in range(contrato.duracion_meses):
+                    monto_cuota = montos_meses[i] if i < len(montos_meses) else contrato.precio_mensual
                     CuotaMensual.objects.create(
-                        contrato=contrato, 
-                        numero_cuota=i + 1, 
+                        contrato=contrato,
+                        numero_cuota=i + 1,
                         fecha_vencimiento=fecha_vencimiento,
-                        monto_base=contrato.precio_mensual, 
-                        monto_total=contrato.precio_mensual,
-                        estado='pendiente', 
-                        movimiento=None, 
+                        monto_base=monto_cuota,
+                        monto_total=monto_cuota,
+                        estado='pendiente',
+                        movimiento=None,
                         fecha_pago=None
                     )
                     # Avanzar al siguiente mes manteniendo el día de vencimiento

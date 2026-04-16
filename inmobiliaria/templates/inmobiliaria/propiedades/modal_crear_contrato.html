@@ -92,6 +92,16 @@
                                             </div>
                                         </div>
                                     </div>
+                                    <div class="row mt-2" id="row_trimestres_precio">
+                                        <div class="col-12">
+                                            <p class="text-muted small mb-1">
+                                                <strong>Aumentos cada 3 meses (opcional):</strong> el precio mensual de arriba aplica a los meses 1–3.
+                                                Desde el mes 4 podés cargar el monto de cada trimestre; si lo dejás vacío, se repite el del trimestre anterior.
+                                            </p>
+                                            <div id="trimestres_precio_container" class="row g-2"></div>
+                                            <input type="hidden" name="precios_bloques_json" id="precios_bloques_json" value="">
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -435,6 +445,50 @@
 // Variable global para el timeout de búsqueda
 let busquedaVendedorTimeout;
 
+function numTrimestresContrato() {
+    var el = document.getElementById('duracion_meses');
+    var d = el ? parseInt(el.value, 10) : 24;
+    if (isNaN(d) || d < 1) d = 24;
+    return Math.max(1, Math.ceil(d / 3));
+}
+
+function sincronizarPreciosBloquesJson() {
+    var inputs = document.querySelectorAll('.trim-precio-opcional');
+    var arr = [];
+    inputs.forEach(function(inp) {
+        var raw = (inp.value || '').replace(/\./g, '').replace(/\D/g, '');
+        if (!raw) arr.push(null);
+        else arr.push(parseInt(raw, 10));
+    });
+    var hid = document.getElementById('precios_bloques_json');
+    if (hid) hid.value = JSON.stringify(arr);
+}
+
+function renderTrimestresPrecio() {
+    var c = document.getElementById('trimestres_precio_container');
+    if (!c) return;
+    c.innerHTML = '';
+    var nTrim = numTrimestresContrato();
+    var dur = parseInt(document.getElementById('duracion_meses').value, 10) || 24;
+    for (var t = 2; t <= nTrim; t++) {
+        var mesDesde = (t - 1) * 3 + 1;
+        var mesHasta = Math.min(t * 3, dur);
+        var div = document.createElement('div');
+        div.className = 'col-md-6 col-lg-4';
+        div.innerHTML = '<label class="form-label small mb-0">Trimestre ' + t + ' (meses ' + mesDesde + '–' + mesHasta + ')</label>' +
+            '<input type="text" class="form-control form-control-sm trim-precio-opcional" placeholder="Vacío = igual al anterior" autocomplete="off">';
+        c.appendChild(div);
+    }
+    c.querySelectorAll('.trim-precio-opcional').forEach(function(inp) {
+        inp.addEventListener('input', function(e) {
+            var v = e.target.value.replace(/\D/g, '');
+            if (v) e.target.value = parseInt(v, 10).toLocaleString('es-AR');
+            sincronizarPreciosBloquesJson();
+        });
+    });
+    sincronizarPreciosBloquesJson();
+}
+
 // Función principal para mostrar el modal
 function mostrarModalContrato(propiedadId, direccion, sucursal, precioMensual, expensas) {
     console.log('🏠 Abriendo modal para contrato 24 meses:', {
@@ -497,6 +551,8 @@ function mostrarModalContrato(propiedadId, direccion, sucursal, precioMensual, e
     garantesSeleccionados24 = [];
     actualizarListaGarantes24();
     
+    renderTrimestresPrecio();
+
     // Mostrar el modal
     const modalBootstrap = new bootstrap.Modal(document.getElementById('modalContrato'));
     modalBootstrap.show();
@@ -856,10 +912,13 @@ function actualizarResumenContrato() {
 
 // Event listeners
 document.addEventListener('DOMContentLoaded', function() {
-    // Actualizar resumen cuando cambien los valores
-    document.getElementById('duracion_meses').addEventListener('change', actualizarResumenContrato);
+    document.getElementById('duracion_meses').addEventListener('change', function() {
+        actualizarResumenContrato();
+        renderTrimestresPrecio();
+    });
     document.getElementById('precio_mensual_input').addEventListener('input', actualizarResumenContrato);
     document.getElementById('deposito_garantia').addEventListener('input', actualizarResumenContrato);
+    renderTrimestresPrecio();
     
     // Formatear números mientras se escriben
     document.getElementById('precio_mensual_input').addEventListener('input', function(e) {
@@ -883,6 +942,7 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('Debe agregar al menos un inquilino al contrato.');
             return;
         }
+        sincronizarPreciosBloquesJson();
         const formData = new FormData(this);
         fetch(`{% url 'inmobiliaria:crear_contrato_alquiler' %}`, {
             method: 'POST',
