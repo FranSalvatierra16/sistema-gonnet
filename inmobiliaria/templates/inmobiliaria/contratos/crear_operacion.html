@@ -157,9 +157,12 @@
                         </button>
                     </div>
                     <div class="card-body">
+                        <p class="text-muted small mb-2">
+                            En cada fila podés cargar o editar <strong>observaciones</strong> del concepto (se envían al procesar la operación).
+                        </p>
                         {% if tipo_operacion == 'principal' %}
                         <p class="text-muted small mb-2">
-                            <strong>Operación principal:</strong> Agregá los conceptos que quieras con «+ Agregar Concepto». Si agregás el <strong>concepto 10 (depósito de garantía)</strong>, el depósito se marcará como pagado; no es obligatorio.
+                            <strong>Operación principal:</strong> Agregá los conceptos con «+ Agregar Concepto». Si agregás el <strong>concepto 10 (depósito de garantía)</strong>, el depósito se marcará como pagado; no es obligatorio.
                         </p>
                         {% endif %}
                         <!-- Tabla de Conceptos -->
@@ -443,6 +446,25 @@ let contadorConceptos = 0;
 let conceptoEditando = null;
 let conceptoSeleccionadoActual = null;
 
+function escapeHtmlAttr(s) {
+    if (s == null || s === '') return '';
+    return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
+function actualizarObservacionConcepto(conceptoId, valor) {
+    const c = conceptosAgregados.find(function(x) { return x.id === conceptoId; });
+    if (c) {
+        const v = valor == null ? '' : String(valor);
+        c.observaciones = v.length === 0 ? 'Sin observaciones' : v;
+    }
+}
+window.actualizarObservacionConcepto = actualizarObservacionConcepto;
+
 // Función para parsear valores formateados
 function parsearValorFormateado(valor) {
     if (!valor || valor === '') return 0;
@@ -548,16 +570,24 @@ function actualizarTablaConceptos() {
     tbody.innerHTML = '';
     
     conceptosAgregados.forEach((concepto) => {
+        const obsMostrar = (concepto.observaciones && concepto.observaciones !== 'Sin observaciones')
+            ? concepto.observaciones : '';
         const fila = document.createElement('tr');
         fila.innerHTML = `
-            <td>${concepto.fecha}</td>
-            <td>${concepto.nombre}</td>
-            <td>${concepto.observaciones}</td>
+            <td>${escapeHtmlAttr(concepto.fecha)}</td>
+            <td>${escapeHtmlAttr(concepto.nombre)}</td>
+            <td style="min-width: 200px;">
+                <input type="text" class="form-control form-control-sm" 
+                       placeholder="Observaciones de esta línea"
+                       value="${escapeHtmlAttr(obsMostrar)}"
+                       oninput="actualizarObservacionConcepto(${concepto.id}, this.value)"
+                       title="Observaciones que se envían con este concepto">
+            </td>
             <td class="text-end">$${concepto.importe.toLocaleString('es-AR')}</td>
-            <td>${concepto.conceptoId}</td>
+            <td>${escapeHtmlAttr(String(concepto.conceptoId))}</td>
             <td>
                 <button type="button" class="btn btn-warning btn-sm me-1" 
-                        onclick="editarConcepto(${concepto.id})" title="Cambiar">
+                        onclick="editarConcepto(${concepto.id})" title="Cambiar concepto / importe">
                     ✏️
                 </button>
                 <button type="button" class="btn btn-danger btn-sm" 
@@ -849,19 +879,21 @@ function procesarOperacion() {
     }
 
     const conceptosParaEnviar = filas.map(function(c) {
+        const obs = String(c.observaciones || '').trim() || 'Sin observaciones';
         return {
             id: String(c.conceptoId || ''),
             nombre: String(c.nombre || ''),
             importe: Number(c.importe) || 0,
-            observaciones: String(c.observaciones || ''),
+            observaciones: obs,
             fecha: String(c.fecha || '')
         };
     });
     formData.append('conceptos_json', JSON.stringify(conceptosParaEnviar));
     filas.forEach(function(concepto, index) {
+        const obs = String(concepto.observaciones || '').trim() || 'Sin observaciones';
         formData.append('concepto_' + index + '_id', String(concepto.conceptoId || ''));
         formData.append('concepto_' + index + '_nombre', String(concepto.nombre || ''));
-        formData.append('concepto_' + index + '_observaciones', String(concepto.observaciones || ''));
+        formData.append('concepto_' + index + '_observaciones', obs);
         formData.append('concepto_' + index + '_importe', String(concepto.importe));
         formData.append('concepto_' + index + '_fecha', String(concepto.fecha || ''));
     });
