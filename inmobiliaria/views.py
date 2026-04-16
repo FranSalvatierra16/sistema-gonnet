@@ -10764,6 +10764,9 @@ def crear_contrato_alquiler(request):
                         precios_bloques = None
                 except json.JSONDecodeError:
                     precios_bloques = None
+            # Contratos no invierno: lista vacía = solo primer trimestre con precio; meses 4+ sin monto hasta definir cada trimestre
+            if duracion_meses != 9 and precios_bloques is None:
+                precios_bloques = []
 
             garante_nombre = (request.POST.get('garante_nombre') or '').strip()
             garante_apellido = (request.POST.get('garante_apellido') or '').strip()
@@ -11182,9 +11185,43 @@ def detalle_contrato(request, contrato_id):
         'total_pendiente_cuotas': total_pendiente_cuotas,
         'trimestres_extras_ui': trimestres_extras_ui,
         'today': timezone.now().date(),
+        'puede_activar_modo_trimestres': (
+            contrato.duracion_meses != 9 and getattr(contrato, 'precios_bloques', None) is None
+        ),
     }
     
     return render(request, 'inmobiliaria/contratos/detalle_contrato.html', context)
+
+
+@login_required
+@require_POST
+def activar_precios_trimestres_contrato(request, contrato_id):
+    """Contratos legacy (precios_bloques null): pasa a lista vacía y recalcula cuotas no pagadas (meses 4+ en 0)."""
+    contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
+    if contrato.duracion_meses == 9:
+        messages.error(request, 'No aplica a contratos de invierno.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+    if contrato.precios_bloques is not None:
+        messages.warning(request, 'Este contrato ya está en modo trimestres.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+    contrato.precios_bloques = []
+    contrato.save(update_fields=['precios_bloques'])
+    montos = _montos_cuotas_por_trimestre(contrato)
+    n = 0
+    for cuota in contrato.cuotas.exclude(estado__in=['pagada', 'pagada_con_mora']).order_by('numero_cuota'):
+        idx = cuota.numero_cuota - 1
+        if idx < len(montos):
+            cuota.monto_base = montos[idx]
+            cuota.recargo_mora = Decimal('0')
+            cuota.descuento = Decimal('0')
+            cuota.actualizar_monto_total()
+            n += 1
+    messages.success(
+        request,
+        f'Modo trimestres activado: meses 1–3 con el precio mensual del contrato; meses 4+ sin monto hasta que cargues cada trimestre abajo. Se actualizaron {n} cuota(s) no pagadas.',
+    )
+    return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
 
 
 @login_required
@@ -11198,6 +11235,21 @@ def actualizar_precios_bloques_contrato(request, contrato_id):
 
     num_bloques = max(1, (contrato.duracion_meses + 2) // 3)
     n_extra = num_bloques - 1
+
+    def _post_trimestres_todos_vacios():
+        for i in range(n_extra):
+            if (request.POST.get(f'precio_trimester_{i}') or '').strip():
+                return False
+        return True
+
+    if contrato.precios_bloques is None and _post_trimestres_todos_vacios():
+        messages.info(
+            request,
+            'Sin cambios: este contrato sigue con el mismo precio en todos los meses (modo anterior). '
+            'Completá al menos un importe de trimestre para pasar a cuotas por bloques de 3 meses.',
+        )
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
     raw_list = []
     for i in range(n_extra):
         v = (request.POST.get(f'precio_trimester_{i}') or '').strip()
@@ -11639,8 +11691,10 @@ def _decimal_desde_trimestre_json(entry):
 def _montos_cuotas_por_trimestre(contrato):
     """
     Monto por cada mes del contrato (len = duracion_meses).
-    Bloques de 3 meses: el primero usa precio_mensual; los siguientes usan precios_bloques[0], [1], …
-    (trimestre 2 = meses 4–6). null o vacío en la lista = repetir el último monto definido.
+    - precios_bloques **None** (legacy): mismo precio_mensual todos los meses.
+    - precios_bloques **lista** (contratos nuevos o ya migrados): trimestre 1 = precio_mensual;
+      trimestres siguientes usan precios_bloques[0], [1], … (meses 4–6, 7–9, …).
+      Valor ausente/null = **0** (sin precio hasta cargar ese trimestre en el detalle del contrato).
     """
     n = int(contrato.duracion_meses or 0)
     if n <= 0:
@@ -11648,24 +11702,25 @@ def _montos_cuotas_por_trimestre(contrato):
     base = contrato.precio_mensual or Decimal('0')
     num_bloques = max(1, (n + 2) // 3)
     raw = getattr(contrato, 'precios_bloques', None)
+    if raw is None:
+        return [base] * n
     if not isinstance(raw, list):
         raw = []
-    last = base
     bloque_monto = []
     for b in range(num_bloques):
         if b == 0:
-            last = base
+            bloque_monto.append(base)
+            continue
+        idx = b - 1
+        parsed = _decimal_desde_trimestre_json(raw[idx]) if idx < len(raw) else None
+        if parsed is not None and parsed >= 0:
+            bloque_monto.append(parsed)
         else:
-            idx = b - 1
-            if idx < len(raw):
-                parsed = _decimal_desde_trimestre_json(raw[idx])
-                if parsed is not None and parsed >= 0:
-                    last = parsed
-        bloque_monto.append(last)
+            bloque_monto.append(Decimal('0'))
     out = []
     for i in range(n):
         bi = i // 3
-        out.append(bloque_monto[bi] if bi < len(bloque_monto) else last)
+        out.append(bloque_monto[bi] if bi < len(bloque_monto) else Decimal('0'))
     return out
 
 

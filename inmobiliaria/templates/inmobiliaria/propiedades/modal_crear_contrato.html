@@ -96,7 +96,7 @@
                                         <div class="col-12">
                                             <p class="text-muted small mb-1">
                                                 <strong>Aumentos cada 3 meses (opcional):</strong> el precio mensual de arriba aplica a los meses 1–3.
-                                                Desde el mes 4 podés cargar el monto de cada trimestre; si lo dejás vacío, se repite el del trimestre anterior.
+                                                Desde el mes 4 podés cargar cada trimestre; si lo dejás vacío, esas cuotas quedan <strong>sin precio (bloqueadas)</strong> hasta que los definas en el detalle del contrato.
                                             </p>
                                             <div id="trimestres_precio_container" class="row g-2"></div>
                                             <input type="hidden" name="precios_bloques_json" id="precios_bloques_json" value="">
@@ -476,7 +476,7 @@ function renderTrimestresPrecio() {
         var div = document.createElement('div');
         div.className = 'col-md-6 col-lg-4';
         div.innerHTML = '<label class="form-label small mb-0">Trimestre ' + t + ' (meses ' + mesDesde + '–' + mesHasta + ')</label>' +
-            '<input type="text" class="form-control form-control-sm trim-precio-opcional" placeholder="Vacío = igual al anterior" autocomplete="off">';
+            '<input type="text" class="form-control form-control-sm trim-precio-opcional" placeholder="Vacío = sin precio (meses bloqueados)" autocomplete="off">';
         c.appendChild(div);
     }
     c.querySelectorAll('.trim-precio-opcional').forEach(function(inp) {
