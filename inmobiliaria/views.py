@@ -13222,7 +13222,18 @@ def recibo_contrato_24(request, contrato_id):
 # print(f"🔍 VALORES DEL CONTRATO:")
 # print(f"  - precio_mensual: ${contrato.precio_mensual}")
 # print(f"  - deposito_garantia: ${contrato.deposito_garantia}")
-            
+
+            def observaciones_para_recibo(raw):
+                if raw is None:
+                    return ''
+                t = str(raw).strip()
+                if not t:
+                    return ''
+                tl = t.lower()
+                if tl in ('sin observaciones', 'sin observaciones.'):
+                    return ''
+                return t
+
             # ✅ Usar concepto_detalle (JSON completo) si existe; puede ser array o objeto {conceptos, mes_alquiler_importe}
             try:
                 import json
@@ -13265,7 +13276,7 @@ def recibo_contrato_24(request, contrato_id):
                     conceptos_data = json.loads(json_str) if json_str.strip() else []
 # print(f"🎯 CONCEPTOS JSON ENCONTRADOS: {len(conceptos_data)} conceptos")
 # print(f"🎯 DATOS COMPLETOS: {conceptos_data}")
-                
+
                 for i, concepto_data in enumerate(conceptos_data):
                     pass  # ✅ Bloque vacío
 # print(f"  📋 CONCEPTO {i}: {concepto_data}")
@@ -13282,6 +13293,7 @@ def recibo_contrato_24(request, contrato_id):
                         'fecha': primer_movimiento.fecha,
                         'codigo': codigo,
                         'nombre': nombre,
+                        'observaciones': observaciones_para_recibo(concepto_data.get('observaciones')),
                         'importe': f"${importe_valor:,.2f}".replace(',', '.'),
                         'importe_numerico': importe_valor
                     })
@@ -13335,6 +13347,7 @@ def recibo_contrato_24(request, contrato_id):
                                     'fecha': mov.fecha,
                                     'codigo': concepto_id,
                                     'nombre': concepto_nombre,
+                                    'observaciones': observaciones_para_recibo(concepto.get('observaciones')),
                                     'importe': f"${concepto_importe:,.2f}".replace(',', '.'),
                                     'importe_numerico': concepto_importe
                                 }
@@ -13355,6 +13368,7 @@ def recibo_contrato_24(request, contrato_id):
                                 'fecha': mov.fecha,
                                 'codigo': '1',
                                 'nombre': 'Alquiler',
+                                'observaciones': '',
                                 'importe': f"${float(contrato.precio_mensual):,.2f}".replace(',', '.'),
                                 'importe_numerico': float(contrato.precio_mensual)
                             }
@@ -13376,6 +13390,7 @@ def recibo_contrato_24(request, contrato_id):
                                     'fecha': mov.fecha,
                                     'codigo': '10',
                                     'nombre': 'Depósito de garantía',
+                                    'observaciones': '',
                                     'importe': f"${deposito_valor:,.2f}".replace(',', '.'),
                                     'importe_numerico': deposito_valor
                                 }
@@ -13408,6 +13423,7 @@ def recibo_contrato_24(request, contrato_id):
                                     'fecha': mov.fecha,
                                     'codigo': '25',
                                     'nombre': 'Honorarios',
+                                    'observaciones': '',
                                     'importe': f"${honorarios_valor:,.2f}".replace(',', '.'),
                                     'importe_numerico': honorarios_valor
                                 }
@@ -13434,6 +13450,7 @@ def recibo_contrato_24(request, contrato_id):
                                     'fecha': mov.fecha,
                                     'codigo': '26',
                                     'nombre': 'Sellados',
+                                    'observaciones': '',
                                     'importe': f"${sellados_valor:,.2f}".replace(',', '.'),
                                     'importe_numerico': sellados_valor
                                 }
@@ -13463,6 +13480,7 @@ def recibo_contrato_24(request, contrato_id):
                         'fecha': primer_movimiento.fecha,
                         'codigo': '1',
                         'nombre': 'Alquiler',
+                        'observaciones': '',
                         'importe': f"${float(contrato.precio_mensual):,.2f}".replace(',', '.'),
                         'importe_numerico': float(contrato.precio_mensual)
                     })
@@ -13485,6 +13503,7 @@ def recibo_contrato_24(request, contrato_id):
                         'fecha': primer_movimiento.fecha,
                         'codigo': '25',
                         'nombre': 'Honorarios',
+                        'observaciones': '',
                         'importe': f"${honorarios_valor:,.2f}".replace(',', '.'),
                         'importe_numerico': honorarios_valor
                     })
@@ -13497,6 +13516,7 @@ def recibo_contrato_24(request, contrato_id):
                         'fecha': primer_movimiento.fecha,
                         'codigo': '26',
                         'nombre': 'Sellados',
+                        'observaciones': '',
                         'importe': f"${sellados_valor:,.2f}".replace(',', '.'),
                         'importe_numerico': sellados_valor
                     })
@@ -13514,6 +13534,7 @@ def recibo_contrato_24(request, contrato_id):
                     'fecha': contrato.fecha_operacion,
                     'codigo': '1',
                     'nombre': 'Alquiler',
+                    'observaciones': '',
                     'importe': f"${precio_mensual_valor:,.2f}".replace(',', '.'),
                     'importe_numerico': precio_mensual_valor
                 })
