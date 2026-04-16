@@ -11141,18 +11141,93 @@ def detalle_contrato(request, contrato_id):
     # Estadísticas
     cuotas_pagadas = cuotas.filter(estado='pagada').count()
     cuotas_vencidas = cuotas.filter(estado='pendiente', fecha_vencimiento__lt=timezone.now().date()).count()
-    total_pagado = sum(cuota.monto_total for cuota in cuotas.filter(estado='pagada'))
-    
+    total_pagado = sum(
+        (Decimal(str(c.monto_total)) for c in cuotas.filter(estado='pagada')),
+        start=Decimal('0'),
+    )
+    total_cuotas_plan = sum((Decimal(str(c.monto_total)) for c in cuotas), start=Decimal('0'))
+    total_pendiente_cuotas = total_cuotas_plan - total_pagado
+
+    trimestres_extras_ui = []
+    if contrato.duracion_meses != 9:
+        trimestres_total = max(1, (contrato.duracion_meses + 2) // 3)
+        bloques = contrato.precios_bloques or []
+        if not isinstance(bloques, list):
+            bloques = []
+        for t in range(2, trimestres_total + 1):
+            idx = t - 2
+            raw = bloques[idx] if idx < len(bloques) else None
+            valor_str = ''
+            if raw is not None and str(raw).strip() not in ('', 'null', 'None'):
+                try:
+                    n = int(Decimal(str(raw)))
+                    valor_str = f'{n:,}'.replace(',', '.')
+                except (InvalidOperation, ValueError, TypeError):
+                    valor_str = str(raw)
+            trimestres_extras_ui.append({
+                't': t,
+                'mes_desde': (t - 1) * 3 + 1,
+                'mes_hasta': min(t * 3, contrato.duracion_meses),
+                'idx': idx,
+                'valor': valor_str,
+            })
+
     context = {
         'contrato': contrato,
         'cuotas': cuotas,
         'cuotas_pagadas': cuotas_pagadas,
         'cuotas_vencidas': cuotas_vencidas,
         'total_pagado': total_pagado,
+        'total_cuotas_plan': total_cuotas_plan,
+        'total_pendiente_cuotas': total_pendiente_cuotas,
+        'trimestres_extras_ui': trimestres_extras_ui,
         'today': timezone.now().date(),
     }
     
     return render(request, 'inmobiliaria/contratos/detalle_contrato.html', context)
+
+
+@login_required
+@require_POST
+def actualizar_precios_bloques_contrato(request, contrato_id):
+    """Guarda precios_bloques y recalcula montos de cuotas no pagadas (contratos viejos o correcciones)."""
+    contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
+    if contrato.duracion_meses == 9:
+        messages.error(request, 'Esta herramienta no aplica a contratos de invierno (9 meses).')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+    num_bloques = max(1, (contrato.duracion_meses + 2) // 3)
+    n_extra = num_bloques - 1
+    raw_list = []
+    for i in range(n_extra):
+        v = (request.POST.get(f'precio_trimester_{i}') or '').strip()
+        if not v:
+            raw_list.append(None)
+        else:
+            try:
+                raw_list.append(float(Decimal(v.replace('.', '').replace(',', '.'))))
+            except (InvalidOperation, ValueError, TypeError):
+                raw_list.append(None)
+
+    contrato.precios_bloques = raw_list
+    contrato.save(update_fields=['precios_bloques'])
+
+    montos = _montos_cuotas_por_trimestre(contrato)
+    actualizadas = 0
+    for cuota in contrato.cuotas.exclude(estado__in=['pagada', 'pagada_con_mora']).order_by('numero_cuota'):
+        idx = cuota.numero_cuota - 1
+        if idx < len(montos):
+            cuota.monto_base = montos[idx]
+            cuota.recargo_mora = Decimal('0')
+            cuota.descuento = Decimal('0')
+            cuota.actualizar_monto_total()
+            actualizadas += 1
+
+    messages.success(
+        request,
+        f'Precios por trimestre guardados. Se recalcularon {actualizadas} cuota(s) no pagadas (pendientes / vencidas).',
+    )
+    return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
 
 @login_required
 def crear_operacion_contrato(request, contrato_id):

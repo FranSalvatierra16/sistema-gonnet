@@ -249,6 +249,7 @@ urlpatterns = [
     path('contratos/rescindir-duplicados/', views.rescindir_contratos_duplicados, name='rescindir_contratos_duplicados'),
     path('contratos/actualizar-historiales-invierno/', views.actualizar_historiales_invierno, name='actualizar_historiales_invierno'),
     path('contratos/<int:contrato_id>/', views.detalle_contrato, name='detalle_contrato'),
+    path('contratos/<int:contrato_id>/precios-bloques/', views.actualizar_precios_bloques_contrato, name='actualizar_precios_bloques_contrato'),
     path('contratos/<int:contrato_id>/operacion/', views.crear_operacion_contrato, name='crear_operacion_contrato'),
     path('contratos/<int:contrato_id>/procesar-operacion/', views.procesar_operacion_contrato, name='procesar_operacion_contrato'),
     path('contratos/<int:contrato_id>/cuotas/', views.ver_cuotas_contrato, name='ver_cuotas_contrato'),

@@ -50,9 +50,9 @@
                             <p><strong>Duración:</strong> {{ contrato.duracion_meses }} meses</p>
                             
                             <h5><i class="fas fa-dollar-sign text-success"></i> <strong>Montos</strong></h5>
-                            <p><strong>Precio Mensual:</strong> ${{ contrato.precio_mensual|format_price }}</p>
-                            <p><strong>Depósito de Garantía:</strong> ${{ contrato.deposito_garantia|format_price }}</p>
-                            <p><strong>Total del Contrato:</strong> ${{ contrato.precio_mensual|mul:contrato.duracion_meses|format_price }}</p>
+                            <p><strong>Precio mensual (base meses 1–3):</strong> {{ contrato.precio_mensual|format_price }}</p>
+                            <p><strong>Depósito de Garantía:</strong> {{ contrato.deposito_garantia|format_price }}</p>
+                            <p><strong>Total del contrato (suma de cuotas):</strong> {{ total_cuotas_plan|format_price }}</p>
                         </div>
                     </div>
                 </div>
@@ -82,14 +82,43 @@
                     </div>
                     <hr>
                     <p><strong>Total Pagado:</strong></p>
-                    <h4 class="text-success">${{ total_pagado|format_price }}</h4>
+                    <h4 class="text-success">{{ total_pagado|format_price }}</h4>
                     
                     <p><strong>Pendiente de Pago:</strong></p>
-                    <h4 class="text-warning">${{ contrato.precio_mensual|mul:contrato.duracion_meses|sub:total_pagado|format_price }}</h4>
+                    <h4 class="text-warning">{{ total_pendiente_cuotas|format_price }}</h4>
                 </div>
             </div>
         </div>
     </div>
+
+    {% if trimestres_extras_ui %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-modern border-radius-modern border-warning">
+                <div class="card-header bg-warning text-dark">
+                    <h4 class="mb-0"><i class="fas fa-layer-group"></i> <strong>Aumentos cada 3 meses (trimestres)</strong></h4>
+                    <small>Para contratos viejos o sin cargar al crear: definí el monto de cada trimestre desde el 2.º (meses 4–6, etc.). Vacío = igual al trimestre anterior. Al guardar se actualizan solo las cuotas <strong>no pagadas</strong>.</small>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{% url 'inmobiliaria:actualizar_precios_bloques_contrato' contrato.id %}">
+                        {% csrf_token %}
+                        <div class="row g-3">
+                            {% for row in trimestres_extras_ui %}
+                            <div class="col-md-6 col-lg-4">
+                                <label class="form-label small mb-0">Trimestre {{ row.t }} (meses {{ row.mes_desde }}–{{ row.mes_hasta }})</label>
+                                <input type="text" class="form-control" name="precio_trimester_{{ row.idx }}" value="{{ row.valor }}" placeholder="Vacío = igual al anterior" autocomplete="off">
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <div class="mt-3">
+                            <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Guardar y recalcular cuotas pendientes</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Lista de Cuotas -->
     <div class="card shadow-modern border-radius-modern">
@@ -122,7 +151,7 @@
                                 {{ cuota.fecha_vencimiento|date:"d/m/Y" }}
                             </td>
                             <td>
-                                <strong class="text-success">${{ cuota.monto_total|format_price }}</strong>
+                                <strong class="text-success">{{ cuota.monto_total|format_price }}</strong>
                             </td>
                             <td>
                                 {% if cuota.estado == 'pagada' %}
@@ -159,11 +188,15 @@
                                         <i class="fas fa-dollar-sign"></i> Pagar
                                     </button>
                                 {% elif cuota.estado == 'pagada' %}
+                                    {% if cuota.movimiento %}
                                     <button class="btn btn-sm btn-info" 
-                                            onclick="verReciboCuota({{ cuota.movimiento_caja.id }})" 
+                                            onclick="verReciboCuota({{ cuota.movimiento.id }})" 
                                             title="Ver Recibo">
                                         <i class="fas fa-receipt"></i> Recibo
                                     </button>
+                                    {% else %}
+                                    <span class="text-muted small">Sin movimiento</span>
+                                    {% endif %}
                                 {% endif %}
                             </td>
                         </tr>
