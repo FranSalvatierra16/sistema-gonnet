@@ -15538,7 +15538,10 @@ def _liquidacion_solapa_periodo(liq, d1, d2):
     """
     fc = None
     if getattr(liq, 'fecha_creacion', None):
-        fc = timezone.localdate(liq.fecha_creacion)
+        try:
+            fc = timezone.localdate(liq.fecha_creacion)
+        except (ValueError, TypeError, OverflowError):
+            fc = liq.fecha_creacion.date() if hasattr(liq.fecha_creacion, 'date') else None
     start = liq.fecha_desde
     end = liq.fecha_hasta
     if start is None and end is None:
