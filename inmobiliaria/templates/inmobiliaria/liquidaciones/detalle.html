@@ -114,6 +114,97 @@
                 </div>
             </div>
 
+            <!-- Período, operaciones incluidas, movimiento de caja -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card shadow border-start border-4 border-info">
+                        <div class="card-header bg-info text-white">
+                            <h5 class="mb-0"><i class="fas fa-list-alt me-2"></i>Detalle de la operación liquidada</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <table class="table table-sm table-borderless mb-0">
+                                        <tr>
+                                            <th class="text-muted" style="width:40%">Período liquidado:</th>
+                                            <td>
+                                                {% if liquidacion.fecha_desde or liquidacion.fecha_hasta %}
+                                                    {{ liquidacion.fecha_desde|date:"d/m/Y"|default:"—" }}
+                                                    →
+                                                    {{ liquidacion.fecha_hasta|date:"d/m/Y"|default:"—" }}
+                                                {% else %}
+                                                    <span class="text-muted">Sin período cargado</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% if liquidacion.reserva %}
+                                        <tr>
+                                            <th class="text-muted">Reserva (FK):</th>
+                                            <td>
+                                                <a href="{% url 'inmobiliaria:reserva_detalle' liquidacion.reserva.id %}">Reserva #{{ liquidacion.reserva.id }}</a>
+                                            </td>
+                                        </tr>
+                                        {% endif %}
+                                        {% if liquidacion.contrato %}
+                                        <tr>
+                                            <th class="text-muted">Contrato (FK):</th>
+                                            <td>
+                                                <a href="{% url 'inmobiliaria:detalle_contrato' liquidacion.contrato.id %}">Contrato #{{ liquidacion.contrato.id }}</a>
+                                            </td>
+                                        </tr>
+                                        {% endif %}
+                                        {% if liquidacion.movimiento_caja %}
+                                        <tr>
+                                            <th class="text-muted">Movimiento de caja:</th>
+                                            <td>
+                                                #{{ liquidacion.movimiento_caja.id }}
+                                                — {{ liquidacion.movimiento_caja.get_tipo_display }}
+                                                <span class="text-muted small">({{ liquidacion.movimiento_caja.concepto|truncatechars:100 }})</span>
+                                                <a class="btn btn-sm btn-outline-secondary ms-2" href="{% url 'inmobiliaria:ver_recibo_movimiento' liquidacion.movimiento_caja.id %}" target="_blank" rel="noopener">Ver recibo / movimiento</a>
+                                            </td>
+                                        </tr>
+                                        {% endif %}
+                                    </table>
+                                </div>
+                                <div class="col-md-6">
+                                    {% if liquidacion.observaciones %}
+                                    <p class="mb-1"><strong class="text-muted">Observaciones:</strong></p>
+                                    <div class="border rounded p-2 bg-light small" style="white-space: pre-wrap;">{{ liquidacion.observaciones }}</div>
+                                    {% else %}
+                                    <p class="text-muted small mb-0">Sin observaciones en esta liquidación.</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% if operaciones_tabla %}
+                            <hr>
+                            <h6 class="text-muted">Operaciones incluidas en esta liquidación</h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-bordered mb-0">
+                                    <thead class="table-light">
+                                        <tr><th>Tipo</th><th>ID</th><th>Referencia</th><th></th></tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for fila in operaciones_tabla %}
+                                        <tr>
+                                            <td>{{ fila.tipo }}</td>
+                                            <td>{{ fila.id|default:"—" }}</td>
+                                            <td>{{ fila.etiqueta }}</td>
+                                            <td>
+                                                {% if fila.url %}
+                                                <a href="{{ fila.url }}" class="btn btn-sm btn-outline-primary">Abrir</a>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             {% if division_operaciones %}
             <div class="row mb-4">
                 <div class="col-12">
@@ -287,6 +378,32 @@
                                 <button type="submit" class="btn btn-success btn-lg">
                                     <i class="fas fa-check-circle me-2"></i>Pagar Liquidación y Descontar de Caja
                                 </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if puede_eliminar_liquidacion %}
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card border-danger shadow-sm">
+                        <div class="card-header bg-danger text-white">
+                            <i class="fas fa-exclamation-triangle me-2"></i>Administración — eliminar esta liquidación
+                        </div>
+                        <div class="card-body">
+                            <p class="small text-muted mb-2">
+                                Borra la liquidación #{{ liquidacion.id }}, sus gastos asociados y, si estaba <strong>pagada</strong>, el movimiento de egreso de caja vinculado.
+                                Las reservas/contratos pueden volver a figurar como pendientes de liquidar.
+                            </p>
+                            <form method="post" action="{% url 'inmobiliaria:eliminar_liquidacion' liquidacion.id %}" onsubmit="return confirm('¿Eliminar definitivamente la liquidación #{{ liquidacion.id }}?');">
+                                {% csrf_token %}
+                                <label class="form-label">Escribí el número de liquidación para confirmar:</label>
+                                <div class="input-group mb-2" style="max-width: 320px;">
+                                    <input type="text" name="confirmar_id" class="form-control" placeholder="{{ liquidacion.id }}" autocomplete="off">
+                                    <button type="submit" class="btn btn-danger">Eliminar</button>
+                                </div>
                             </form>
                         </div>
                     </div>

@@ -15615,6 +15615,16 @@ def reporte_asegurado_liquidaciones(request, disponibilidad_id=None):
         puede_comparar = moneda == 'ARS'
         diff_op_vs_anticipo = (total_operacion - anticipo) if puede_comparar else None
         diff_inm_vs_anticipo = (total_inmobiliaria - anticipo) if puede_comparar else None
+        if puede_comparar and diff_op_vs_anticipo is not None:
+            cmp_op = diff_op_vs_anticipo.compare(Decimal('0'))
+            diff_op_sign = 1 if cmp_op > 0 else (-1 if cmp_op < 0 else 0)
+        else:
+            diff_op_sign = None
+        if puede_comparar and diff_inm_vs_anticipo is not None:
+            cmp_inm = diff_inm_vs_anticipo.compare(Decimal('0'))
+            diff_inm_sign = 1 if cmp_inm > 0 else (-1 if cmp_inm < 0 else 0)
+        else:
+            diff_inm_sign = None
 
         detalle = {
             'disponibilidad': disp,
@@ -15627,6 +15637,8 @@ def reporte_asegurado_liquidaciones(request, disponibilidad_id=None):
             'diff_op_vs_anticipo': diff_op_vs_anticipo,
             'diff_inm_vs_anticipo': diff_inm_vs_anticipo,
             'puede_comparar': puede_comparar,
+            'diff_op_sign': diff_op_sign,
+            'diff_inm_sign': diff_inm_sign,
         }
 
     return render(
@@ -16245,6 +16257,59 @@ def obtener_operaciones_pendientes(request, propiedad_id):
     })
 
 
+def _operaciones_incluidas_tabla(liquidacion):
+    """Filas para template: reservas/contratos del JSON operaciones_incluidas (sin bloque division)."""
+    filas = []
+    for op in liquidacion.operaciones_incluidas or []:
+        if not isinstance(op, dict):
+            continue
+        if op.get('tipo') == 'division':
+            continue
+        tipo = (op.get('tipo') or '').strip().lower()
+        try:
+            oid = int(op.get('id'))
+        except (TypeError, ValueError):
+            oid = None
+        etiqueta = ''
+        url_name = None
+        url_args = None
+        if tipo == 'reserva' and oid:
+            r = Reserva.objects.filter(id=oid).select_related('propiedad').first()
+            if r:
+                dir_ = getattr(r.propiedad, 'direccion', '') or ''
+                etiqueta = f'Reserva #{r.id} — {dir_}'
+                url_name = 'inmobiliaria:reserva_detalle'
+                url_args = [r.id]
+        elif tipo == 'contrato' and oid:
+            c = ContratoAlquiler.objects.filter(id=oid).first()
+            if c:
+                etiqueta = f'Contrato #{c.id}'
+                url_name = 'inmobiliaria:detalle_contrato'
+                url_args = [c.id]
+        if not etiqueta:
+            etiqueta = f'{tipo or "operación"} #{oid}' if oid else str(op)
+        filas.append({
+            'tipo': tipo or '—',
+            'id': oid,
+            'etiqueta': etiqueta,
+            'url': reverse(url_name, args=url_args) if url_name and url_args else None,
+        })
+    return filas
+
+
+def _eliminar_movimiento_y_anexos(movimiento):
+    """Quita movimiento de caja y registros que lo referencian (liquidación debe tener FK ya en None)."""
+    if not movimiento:
+        return
+    try:
+        from .models.recibo import Recibo
+        Recibo.objects.filter(movimiento_caja=movimiento).delete()
+    except Exception:
+        pass
+    ComisionVendedor.objects.filter(movimiento_caja=movimiento).delete()
+    movimiento.delete()
+
+
 @login_required
 def detalle_liquidacion(request, liquidacion_id):
     """
@@ -16252,7 +16317,7 @@ def detalle_liquidacion(request, liquidacion_id):
     """
     liquidacion = get_object_or_404(
         LiquidacionPropietario.objects.select_related(
-            'propietario', 'propiedad', 'reserva', 'contrato', 'movimiento_caja'
+            'propietario', 'propiedad', 'reserva', 'contrato', 'movimiento_caja', 'movimiento_caja__caja'
         ).prefetch_related('gastos'),
         id=liquidacion_id,
         sucursal=request.user.sucursal
@@ -16268,9 +16333,90 @@ def detalle_liquidacion(request, liquidacion_id):
         'liquidacion': liquidacion,
         'gastos': liquidacion.gastos.all().order_by('-fecha_creacion'),
         'division_operaciones': division_operaciones,
+        'operaciones_tabla': _operaciones_incluidas_tabla(liquidacion),
+        'puede_eliminar_liquidacion': getattr(request.user, 'nivel', 0) == 4 or getattr(request.user, 'is_superuser', False),
     }
 
     return render(request, 'inmobiliaria/liquidaciones/detalle.html', context)
+
+
+@login_required
+@require_POST
+@transaction.atomic
+def eliminar_liquidacion(request, liquidacion_id):
+    """
+    Elimina una liquidación y, si estaba pagada, el movimiento de egreso asociado.
+    Solo nivel 4 (administrador). Requiere confirmar escribiendo el ID en el formulario.
+    """
+    if getattr(request.user, 'nivel', 0) != 4 and not getattr(request.user, 'is_superuser', False):
+        messages.error(request, 'Solo administradores pueden eliminar liquidaciones.')
+        return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion_id)
+
+    confirm = (request.POST.get('confirmar_id') or '').strip()
+    if confirm != str(liquidacion_id):
+        messages.error(request, f'Para confirmar, escribí exactamente el número de liquidación: {liquidacion_id}')
+        return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion_id)
+
+    liquidacion = get_object_or_404(
+        LiquidacionPropietario,
+        id=liquidacion_id,
+        sucursal=request.user.sucursal,
+    )
+
+    mov = liquidacion.movimiento_caja
+    liquidacion.movimiento_caja = None
+    liquidacion.save(update_fields=['movimiento_caja'])
+    if mov:
+        _eliminar_movimiento_y_anexos(mov)
+
+    lid = liquidacion.id
+    liquidacion.delete()
+    messages.success(request, f'Liquidación #{lid} eliminada. Las operaciones vuelven a aparecer como pendientes de liquidar si correspondía.')
+    return redirect('inmobiliaria:lista_liquidaciones')
+
+
+@login_required
+@require_POST
+@transaction.atomic
+def eliminar_ultimas_liquidaciones_admin(request):
+    """Elimina las N liquidaciones más recientes de la sucursal (solo nivel 4). Máx. 10."""
+    if getattr(request.user, 'nivel', 0) != 4 and not getattr(request.user, 'is_superuser', False):
+        messages.error(request, 'Solo administradores pueden usar esta acción.')
+        return redirect('inmobiliaria:lista_liquidaciones')
+
+    try:
+        n = int(request.POST.get('n', 3))
+    except (TypeError, ValueError):
+        n = 3
+    n = max(1, min(n, 10))
+
+    confirm = (request.POST.get('confirmar_texto') or '').strip().upper()
+    if confirm != 'ELIMINAR':
+        messages.error(request, 'Para confirmar, escribí ELIMINAR en el campo de confirmación.')
+        return redirect('inmobiliaria:lista_liquidaciones')
+
+    sucursal = getattr(request.user, 'sucursal', None)
+    if not sucursal:
+        messages.error(request, 'Tu usuario no tiene sucursal asignada.')
+        return redirect('inmobiliaria:lista_liquidaciones')
+
+    qs = list(
+        LiquidacionPropietario.objects.filter(sucursal=sucursal)
+        .order_by('-id')[:n]
+    )
+    eliminadas = []
+    for liq in qs:
+        mov = liq.movimiento_caja
+        liq.movimiento_caja = None
+        liq.save(update_fields=['movimiento_caja'])
+        if mov:
+            _eliminar_movimiento_y_anexos(mov)
+        eid = liq.id
+        liq.delete()
+        eliminadas.append(str(eid))
+
+    messages.success(request, f'Se eliminaron {len(eliminadas)} liquidación(es): {", ".join(eliminadas)}')
+    return redirect('inmobiliaria:lista_liquidaciones')
 
 
 @login_required

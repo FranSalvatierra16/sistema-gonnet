@@ -291,11 +291,13 @@ urlpatterns = [
     path('vendedores/<int:vendedor_id>/vales/', views.lista_vales_vendedor, name='lista_vales_vendedor'),
     
     # ✅ URLs para Liquidaciones de Propietarios
-    path('reportes/asegurado-liquidaciones/', views.reporte_asegurado_liquidaciones, name='reporte_asegurado_liquidaciones'),
     path('reportes/asegurado-liquidaciones/<int:disponibilidad_id>/', views.reporte_asegurado_liquidaciones, name='reporte_asegurado_liquidaciones_detalle'),
+    path('reportes/asegurado-liquidaciones/', views.reporte_asegurado_liquidaciones, name='reporte_asegurado_liquidaciones'),
     path('liquidaciones/', views.lista_liquidaciones, name='lista_liquidaciones'),
     path('liquidaciones/crear/', views.crear_liquidacion, name='crear_liquidacion'),
     path('liquidaciones/crear/<int:reserva_id>/', views.crear_liquidacion, name='crear_liquidacion_reserva'),
+    path('liquidaciones/<int:liquidacion_id>/eliminar/', views.eliminar_liquidacion, name='eliminar_liquidacion'),
+    path('liquidaciones/eliminar-ultimas/', views.eliminar_ultimas_liquidaciones_admin, name='eliminar_ultimas_liquidaciones_admin'),
     path('liquidaciones/<int:liquidacion_id>/', views.detalle_liquidacion, name='detalle_liquidacion'),
     path('liquidaciones/<int:liquidacion_id>/agregar-gasto/', views.agregar_gasto, name='agregar_gasto'),
     path('liquidaciones/gasto/<int:gasto_id>/aceptar-rechazar/', views.aceptar_rechazar_gasto, name='aceptar_rechazar_gasto'),
