@@ -16377,50 +16377,6 @@ def eliminar_liquidacion(request, liquidacion_id):
 
 @login_required
 @require_POST
-@transaction.atomic
-def eliminar_ultimas_liquidaciones_admin(request):
-    """Elimina las N liquidaciones más recientes de la sucursal (solo nivel 4). Máx. 10."""
-    if getattr(request.user, 'nivel', 0) != 4 and not getattr(request.user, 'is_superuser', False):
-        messages.error(request, 'Solo administradores pueden usar esta acción.')
-        return redirect('inmobiliaria:lista_liquidaciones')
-
-    try:
-        n = int(request.POST.get('n', 3))
-    except (TypeError, ValueError):
-        n = 3
-    n = max(1, min(n, 10))
-
-    confirm = (request.POST.get('confirmar_texto') or '').strip().upper()
-    if confirm != 'ELIMINAR':
-        messages.error(request, 'Para confirmar, escribí ELIMINAR en el campo de confirmación.')
-        return redirect('inmobiliaria:lista_liquidaciones')
-
-    sucursal = getattr(request.user, 'sucursal', None)
-    if not sucursal:
-        messages.error(request, 'Tu usuario no tiene sucursal asignada.')
-        return redirect('inmobiliaria:lista_liquidaciones')
-
-    qs = list(
-        LiquidacionPropietario.objects.filter(sucursal=sucursal)
-        .order_by('-id')[:n]
-    )
-    eliminadas = []
-    for liq in qs:
-        mov = liq.movimiento_caja
-        liq.movimiento_caja = None
-        liq.save(update_fields=['movimiento_caja'])
-        if mov:
-            _eliminar_movimiento_y_anexos(mov)
-        eid = liq.id
-        liq.delete()
-        eliminadas.append(str(eid))
-
-    messages.success(request, f'Se eliminaron {len(eliminadas)} liquidación(es): {", ".join(eliminadas)}')
-    return redirect('inmobiliaria:lista_liquidaciones')
-
-
-@login_required
-@require_POST
 def agregar_gasto(request, liquidacion_id):
     """
     Vista AJAX para agregar un gasto a una liquidación
