@@ -15530,6 +15530,113 @@ def generar_enlace_publico(request):
 
 # ==================== VISTAS PARA LIQUIDACIONES DE PROPIETARIOS ====================
 
+
+def _liquidacion_solapa_periodo(liq, d1, d2):
+    """
+    True si el período de la liquidación intersecta [d1, d2] (fechas inclusive).
+    Si no hay fecha_desde/fecha_hasta, se usa la fecha de creación del registro.
+    """
+    fc = None
+    if getattr(liq, 'fecha_creacion', None):
+        fc = timezone.localdate(liq.fecha_creacion)
+    start = liq.fecha_desde
+    end = liq.fecha_hasta
+    if start is None and end is None:
+        if fc is None:
+            return False
+        start = end = fc
+    elif start is None:
+        start = end if end is not None else fc
+        if start is None:
+            return False
+        if end is None:
+            end = start
+    elif end is None:
+        end = start
+    return start <= d2 and end >= d1
+
+
+@login_required
+def reporte_asegurado_liquidaciones(request, disponibilidad_id=None):
+    """
+    Listado de disponibilidades con pago asegurado (anticipo) y detalle por ítem:
+    suma de liquidaciones de la propiedad que caen en el mismo período que la disponibilidad,
+    para comparar contra el monto asegurado (misma moneda ARS: diferencia numérica).
+    """
+    sucursal = getattr(request.user, 'sucursal', None)
+    if not sucursal:
+        messages.error(request, 'Tu usuario no tiene sucursal asignada; no se puede armar el reporte.')
+        return redirect('inmobiliaria:dashboard')
+
+    disps = (
+        Disponibilidad.objects.filter(
+            asegurado=True,
+            propiedad__sucursal=sucursal,
+        )
+        .select_related('propiedad', 'propiedad__propietario')
+        .order_by('-fecha_inicio', 'propiedad__direccion', 'id')
+    )
+
+    detalle = None
+    if disponibilidad_id:
+        disp = get_object_or_404(
+            Disponibilidad,
+            pk=disponibilidad_id,
+            propiedad__sucursal=sucursal,
+        )
+        d1, d2 = disp.fecha_inicio, disp.fecha_fin
+        liqs = (
+            LiquidacionPropietario.objects.filter(
+                propiedad=disp.propiedad,
+                sucursal=sucursal,
+            )
+            .exclude(estado='cancelada')
+            .select_related('reserva', 'contrato', 'propietario')
+            .order_by('fecha_creacion', 'id')
+        )
+        filas = []
+        total_operacion = Decimal('0')
+        total_inmobiliaria = Decimal('0')
+        total_propietario = Decimal('0')
+        for liq in liqs:
+            if not _liquidacion_solapa_periodo(liq, d1, d2):
+                continue
+            filas.append(liq)
+            total_operacion += liq.monto_total_operacion or Decimal('0')
+            total_inmobiliaria += liq.monto_inmobiliaria or Decimal('0')
+            total_propietario += liq.monto_propietario or Decimal('0')
+
+        anticipo = disp.monto_asegurado or Decimal('0')
+        moneda = (disp.moneda_asegurado or 'ARS').upper()
+        # Las liquidaciones del sistema se cargan en pesos; comparación automática solo ARS.
+        puede_comparar = moneda == 'ARS'
+        diff_op_vs_anticipo = (total_operacion - anticipo) if puede_comparar else None
+        diff_inm_vs_anticipo = (total_inmobiliaria - anticipo) if puede_comparar else None
+
+        detalle = {
+            'disponibilidad': disp,
+            'liquidaciones': filas,
+            'total_operacion': total_operacion,
+            'total_inmobiliaria': total_inmobiliaria,
+            'total_propietario': total_propietario,
+            'anticipo': anticipo,
+            'moneda_anticipo': moneda,
+            'diff_op_vs_anticipo': diff_op_vs_anticipo,
+            'diff_inm_vs_anticipo': diff_inm_vs_anticipo,
+            'puede_comparar': puede_comparar,
+        }
+
+    return render(
+        request,
+        'inmobiliaria/reportes/reporte_asegurado_liquidaciones.html',
+        {
+            'disponibilidades': disps,
+            'detalle': detalle,
+            'disponibilidad_id': disponibilidad_id,
+        },
+    )
+
+
 @login_required
 def lista_liquidaciones(request):
     """

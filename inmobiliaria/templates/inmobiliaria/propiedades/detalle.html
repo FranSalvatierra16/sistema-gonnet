@@ -446,6 +446,10 @@
                                                                                 {{ disponibilidad.monto_asegurado|format_price }}
                                                                             {% endif %}
                                                                         </small>
+                                                                        <br>
+                                                                        <a href="{% url 'inmobiliaria:reporte_asegurado_liquidaciones_detalle' disponibilidad.id %}" class="btn btn-link btn-sm p-0 mt-1" title="Liquidaciones del período vs anticipo">
+                                                                            <i class="fas fa-chart-line"></i> Reporte liquidaciones
+                                                                        </a>
                                                                     {% else %}
                                                                         <span class="text-muted">-</span>
                                                                     {% endif %}

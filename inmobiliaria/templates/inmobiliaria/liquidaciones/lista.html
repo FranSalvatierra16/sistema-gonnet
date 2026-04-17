@@ -9,10 +9,15 @@
         <div class="col-12">
             <h1 class="mb-4">💰 Liquidaciones de Propietarios</h1>
             
-            <div class="d-flex justify-content-between align-items-center mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+                <div class="d-flex flex-wrap gap-2">
                 <a href="{% url 'inmobiliaria:crear_liquidacion' %}" class="btn btn-success">
                     <i class="fas fa-plus me-2"></i>Nueva Liquidación
                 </a>
+                <a href="{% url 'inmobiliaria:reporte_asegurado_liquidaciones' %}" class="btn btn-outline-primary">
+                    <i class="fas fa-chart-line me-2"></i>Asegurado vs liquidaciones
+                </a>
+                </div>
                 <div class="d-flex gap-3">
                     <div class="alert alert-warning mb-0">
                         <strong>Pendientes:</strong> ${{ total_pendiente|floatformat:2 }}

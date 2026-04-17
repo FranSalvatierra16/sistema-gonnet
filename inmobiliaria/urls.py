@@ -291,6 +291,8 @@ urlpatterns = [
     path('vendedores/<int:vendedor_id>/vales/', views.lista_vales_vendedor, name='lista_vales_vendedor'),
     
     # ✅ URLs para Liquidaciones de Propietarios
+    path('reportes/asegurado-liquidaciones/', views.reporte_asegurado_liquidaciones, name='reporte_asegurado_liquidaciones'),
+    path('reportes/asegurado-liquidaciones/<int:disponibilidad_id>/', views.reporte_asegurado_liquidaciones, name='reporte_asegurado_liquidaciones_detalle'),
     path('liquidaciones/', views.lista_liquidaciones, name='lista_liquidaciones'),
     path('liquidaciones/crear/', views.crear_liquidacion, name='crear_liquidacion'),
     path('liquidaciones/crear/<int:reserva_id>/', views.crear_liquidacion, name='crear_liquidacion_reserva'),
