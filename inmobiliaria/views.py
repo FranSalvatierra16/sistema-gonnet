@@ -15563,8 +15563,9 @@ def _liquidacion_solapa_periodo(liq, d1, d2):
 def reporte_asegurado_liquidaciones(request, disponibilidad_id=None):
     """
     Listado de disponibilidades con pago asegurado (anticipo) y detalle por ítem:
-    suma de liquidaciones de la propiedad que caen en el mismo período que la disponibilidad,
-    para comparar contra el monto asegurado (misma moneda ARS: diferencia numérica).
+    suma de liquidaciones de la propiedad que caen en el mismo período que la disponibilidad.
+    La comparación con el anticipo (ARS) usa solo la suma de lo que va al propietario,
+    no el total de la operación ni la parte inmobiliaria.
     """
     sucursal = getattr(request.user, 'sucursal', None)
     if not sucursal:
@@ -15613,18 +15614,12 @@ def reporte_asegurado_liquidaciones(request, disponibilidad_id=None):
         moneda = (disp.moneda_asegurado or 'ARS').upper()
         # Las liquidaciones del sistema se cargan en pesos; comparación automática solo ARS.
         puede_comparar = moneda == 'ARS'
-        diff_op_vs_anticipo = (total_operacion - anticipo) if puede_comparar else None
-        diff_inm_vs_anticipo = (total_inmobiliaria - anticipo) if puede_comparar else None
-        if puede_comparar and diff_op_vs_anticipo is not None:
-            cmp_op = diff_op_vs_anticipo.compare(Decimal('0'))
-            diff_op_sign = 1 if cmp_op > 0 else (-1 if cmp_op < 0 else 0)
+        diff_prop_vs_anticipo = (total_propietario - anticipo) if puede_comparar else None
+        if puede_comparar and diff_prop_vs_anticipo is not None:
+            cmp_prop = diff_prop_vs_anticipo.compare(Decimal('0'))
+            diff_prop_sign = 1 if cmp_prop > 0 else (-1 if cmp_prop < 0 else 0)
         else:
-            diff_op_sign = None
-        if puede_comparar and diff_inm_vs_anticipo is not None:
-            cmp_inm = diff_inm_vs_anticipo.compare(Decimal('0'))
-            diff_inm_sign = 1 if cmp_inm > 0 else (-1 if cmp_inm < 0 else 0)
-        else:
-            diff_inm_sign = None
+            diff_prop_sign = None
 
         detalle = {
             'disponibilidad': disp,
@@ -15634,11 +15629,9 @@ def reporte_asegurado_liquidaciones(request, disponibilidad_id=None):
             'total_propietario': total_propietario,
             'anticipo': anticipo,
             'moneda_anticipo': moneda,
-            'diff_op_vs_anticipo': diff_op_vs_anticipo,
-            'diff_inm_vs_anticipo': diff_inm_vs_anticipo,
+            'diff_prop_vs_anticipo': diff_prop_vs_anticipo,
             'puede_comparar': puede_comparar,
-            'diff_op_sign': diff_op_sign,
-            'diff_inm_sign': diff_inm_sign,
+            'diff_prop_sign': diff_prop_sign,
         }
 
     return render(

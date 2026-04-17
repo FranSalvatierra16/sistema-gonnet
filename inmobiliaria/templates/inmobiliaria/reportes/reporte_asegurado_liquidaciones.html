@@ -16,8 +16,8 @@
     <h1 class="h3 mb-3">Precio asegurado vs liquidaciones (período)</h1>
     <p class="text-muted">
         Para cada disponibilidad <strong>asegurada</strong> se listan las liquidaciones de la misma propiedad cuyo período
-        (o fecha de alta si no hay período) se solapa con las fechas de esa disponibilidad. Así podés sumar lo operado
-        y compararlo con el anticipo cargado.
+        (o fecha de alta si no hay período) se solapa con las fechas de esa disponibilidad. La comparación con el anticipo
+        usa la suma de lo que va al <strong>propietario</strong> en esas liquidaciones (no el total de la operación).
     </p>
 
     {% if detalle %}
@@ -50,25 +50,16 @@
                     {% if detalle.puede_comparar %}
                         <strong>Vs anticipo (ARS)</strong>
                         <div class="mt-1">
-                            <span class="text-muted small">Total operación − anticipo:</span><br>
-                            {% if detalle.diff_op_sign == 1 %}
-                                <span class="badge bg-success fs-6">+ {{ detalle.diff_op_vs_anticipo|format_price }}</span>
-                                <div class="small text-muted">Por encima del anticipo (en total facturado en liquidaciones).</div>
-                            {% elif detalle.diff_op_sign == -1 %}
-                                <span class="badge bg-warning text-dark fs-6">{{ detalle.diff_op_vs_anticipo|format_price }}</span>
-                                <div class="small text-muted">Por debajo del anticipo.</div>
+                            <span class="text-muted small">Parte propietario (suma liq.) − anticipo:</span><br>
+                            {% if detalle.diff_prop_sign == 1 %}
+                                <span class="badge bg-success fs-6">+ {{ detalle.diff_prop_vs_anticipo|format_price }}</span>
+                                <div class="small text-muted">Lo liquidado al propietario supera el anticipo asegurado.</div>
+                            {% elif detalle.diff_prop_sign == -1 %}
+                                <span class="badge bg-warning text-dark fs-6">{{ detalle.diff_prop_vs_anticipo|format_price }}</span>
+                                <div class="small text-muted">Lo liquidado al propietario está por debajo del anticipo.</div>
                             {% else %}
-                                <span class="badge bg-secondary fs-6">{{ detalle.diff_op_vs_anticipo|format_price }}</span>
-                            {% endif %}
-                        </div>
-                        <div class="mt-2 small">
-                            <span class="text-muted">Parte inmobiliaria − anticipo:</span>
-                            {% if detalle.diff_inm_sign == 1 %}
-                                <span class="text-success fw-bold">+ {{ detalle.diff_inm_vs_anticipo|format_price }}</span>
-                            {% elif detalle.diff_inm_sign == -1 %}
-                                <span class="text-danger fw-bold">{{ detalle.diff_inm_vs_anticipo|format_price }}</span>
-                            {% else %}
-                                <span class="text-muted">{{ detalle.diff_inm_vs_anticipo|format_price }}</span>
+                                <span class="badge bg-secondary fs-6">{{ detalle.diff_prop_vs_anticipo|format_price }}</span>
+                                <div class="small text-muted">Igual al anticipo (en suma al propietario).</div>
                             {% endif %}
                         </div>
                     {% else %}
