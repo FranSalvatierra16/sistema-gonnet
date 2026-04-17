@@ -82,7 +82,7 @@
                     <td>{{ propiedad.piso|default:"-" }}</td>
                     <td>{{ propiedad.departamento|default:"-" }}</td>
                     <td>{{ propiedad.ambientes }}</td>
-                    <td>{{ propiedad.propietario.nombre }} {{ propiedad.propietario.apellido }}</td>
+                    <td>{{ propiedad.propietario.apellido }}, {{ propiedad.propietario.nombre }}</td>
                 </tr>
                 {% empty %}
                 <tr>

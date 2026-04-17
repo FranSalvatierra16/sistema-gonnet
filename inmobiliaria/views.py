@@ -774,7 +774,7 @@ from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm, SetP
 from django.contrib.auth import login
 from datetime import datetime, date, timedelta
 from django.db.models import Q, Prefetch, Case, When, IntegerField, Sum, Max, F, Count, DecimalField
-from django.db.models.functions import TruncMonth
+from django.db.models.functions import TruncMonth, Lower
 from django.core.exceptions import ValidationError
 from django.forms import modelformset_factory
 from django.contrib.auth.signals import user_logged_in
@@ -6171,7 +6171,9 @@ def estudiantes_disponibilidad_masiva(request):
             base_qs = base_qs.filter(sucursal=sucursal_usuario)
         else:
             base_qs = base_qs.filter(q_sucursales_colon_corrientes)
-    propiedades = base_qs.select_related('propietario', 'sucursal').order_by('direccion')
+    propiedades = base_qs.select_related('propietario', 'sucursal').order_by(
+        Lower('propietario__apellido'), Lower('propietario__nombre'), 'direccion', 'id'
+    )
 
     return render(request, 'inmobiliaria/estudiantes/disponibilidad_masiva.html', {
         'propiedades': propiedades,
@@ -6441,11 +6443,13 @@ def agregar_disponibilidad_masiva(request):
                 'message': f'Error al actualizar disponibilidades: {str(e)}'
             })
     
-    # Filtrar propiedades por sucursal para el listado
+    # Filtrar propiedades por sucursal para el listado (orden por apellido del propietario)
     propiedades = Propiedad.objects.filter(
         sucursal=sucursal
-    ).order_by('direccion')
-    
+    ).select_related('propietario').order_by(
+        Lower('propietario__apellido'), Lower('propietario__nombre'), 'direccion', 'id'
+    )
+
     return render(request, 'inmobiliaria/propiedades/disponibilidad_masiva.html', {
         'propiedades': propiedades,
         'sucursal': sucursal  # Pasar la sucursal al template
@@ -8491,7 +8495,9 @@ def invierno_disponibilidad_masiva(request):
         sucursal=sucursal
     ).exclude(
         info_invierno__disponible=True
-    ).select_related('propietario', 'sucursal', 'info_invierno').order_by('direccion')
+    ).select_related('propietario', 'sucursal', 'info_invierno').order_by(
+        Lower('propietario__apellido'), Lower('propietario__nombre'), 'direccion', 'id'
+    )
 
     return render(request, 'inmobiliaria/propiedades/invierno_disponibilidad_masiva.html', {
         'propiedades': propiedades,
