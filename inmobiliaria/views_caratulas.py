@@ -10,6 +10,8 @@ from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
 from django.db.models import Prefetch, Q
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, render
+from django.urls import reverse
+from django.utils import timezone
 
 from inmobiliaria.models import (
     ComisionVendedor,
@@ -20,6 +22,138 @@ from inmobiliaria.models import (
     Reserva,
 )
 from inmobiliaria.models.caja import TipoMovimientoCajaEnum
+
+
+def _nombre_cliente_papel(persona):
+    if not persona:
+        return '—'
+    ap = (getattr(persona, 'apellido', None) or '').strip().upper()
+    nom = (getattr(persona, 'nombre', None) or '').strip().upper()
+    if ap and nom:
+        return f'{ap}, {nom}'
+    return (ap or nom or '—')
+
+
+def _propiedad_desc_corta(prop):
+    if not prop:
+        return '—'
+    amb = getattr(prop, 'ambientes', None)
+    tin = (getattr(prop, 'tipo_inmueble', None) or 'depto').replace('_', ' ').upper()
+    amb_txt = f'{amb} AMB. ' if amb else ''
+    return f'{amb_txt}{tin} {(prop.direccion or "").strip()[:55]}'.strip().upper()
+
+
+def _direccion_piso_depto_papel(prop):
+    if not prop:
+        return '—'
+    parts = [(prop.direccion or '').strip().upper()]
+    fid = getattr(prop, 'id', None)
+    if fid:
+        parts.append(f'({fid})')
+    pi = (prop.piso or '').strip()
+    dep = (prop.departamento or '').strip()
+    if pi or dep:
+        parts.append(f'PISO:{pi or "—"} DPTO.:{dep or "—"}')
+    return ' '.join(parts)
+
+
+def _movimientos_reserva_qs(reserva):
+    if not reserva.propiedad_id:
+        return MovimientoCaja.objects.none()
+    return (
+        MovimientoCaja.objects.filter(
+            propiedad_id=reserva.propiedad_id,
+            sucursal_id=reserva.sucursal_id,
+        )
+        .select_related('recibo')
+        .order_by('fecha', 'id')
+    )
+
+
+def _movimientos_contrato_qs(contrato):
+    if not contrato.propiedad_id:
+        return MovimientoCaja.objects.none()
+    return (
+        MovimientoCaja.objects.filter(
+            propiedad_id=contrato.propiedad_id,
+            sucursal_id=contrato.sucursal_id,
+        )
+        .select_related('recibo')
+        .order_by('fecha', 'id')
+    )
+
+
+def _filas_contabilizacion_desde_movimientos(movs):
+    """Filas estilo libro: fecha, recibo, detalle, salidas, entradas (ARS formateados)."""
+    filas = []
+    for m in movs:
+        try:
+            mt = Decimal(str(m.monto_total))
+        except (ArithmeticError, TypeError, ValueError):
+            mt = Decimal('0')
+        if mt == 0 and not (m.concepto or '').strip():
+            continue
+        det = (m.concepto or '').strip()[:100] or 'Movimiento de caja'
+        recibo_num = '—'
+        try:
+            r = getattr(m, 'recibo', None)
+            if r:
+                recibo_num = r.numero_recibo
+        except Exception:
+            pass
+        is_ingreso = m.tipo == TipoMovimientoCajaEnum.INGRESO
+        filas.append(
+            {
+                'fecha': m.fecha,
+                'recibo': recibo_num,
+                'detalle': det,
+                'salidas': '' if is_ingreso else _formato_importe_us(mt),
+                'entradas': _formato_importe_us(mt) if is_ingreso else '',
+            }
+        )
+    return filas
+
+
+def _filas_contabilizacion_desde_recibos(recibos):
+    filas = []
+    for r in sorted(recibos, key=lambda x: x.fecha_emision or datetime.min):
+        try:
+            mt = Decimal(str(r.monto_este_pago or 0))
+        except (ArithmeticError, TypeError, ValueError):
+            mt = Decimal('0')
+        det = 'PAGO RESERVA / OPERACIÓN'
+        if r.observaciones:
+            det = (r.observaciones or '')[:100]
+        filas.append(
+            {
+                'fecha': r.fecha_emision,
+                'recibo': r.numero_recibo,
+                'detalle': det,
+                'salidas': '',
+                'entradas': _formato_importe_us(mt),
+            }
+        )
+    return filas
+
+
+def _contabilizacion_para_reserva(reserva, recibos):
+    movs = []
+    for mov in _movimientos_reserva_qs(reserva)[:250]:
+        if mov.concepto and re.search(rf'Operaci[oó]n\s+{reserva.id}\b', mov.concepto, re.IGNORECASE):
+            movs.append(mov)
+    if movs:
+        return _filas_contabilizacion_desde_movimientos(movs)
+    return _filas_contabilizacion_desde_recibos(recibos)
+
+
+def _contabilizacion_para_contrato(contrato):
+    movs = []
+    for mov in _movimientos_contrato_qs(contrato)[:300]:
+        if mov.tipo != TipoMovimientoCajaEnum.INGRESO:
+            continue
+        if mov.concepto and re.search(rf'Contrato\s*#\s*{contrato.id}\b', mov.concepto, re.IGNORECASE):
+            movs.append(mov)
+    return _filas_contabilizacion_desde_movimientos(movs)
 
 
 def _puede_ver_caratulas(user):
@@ -583,3 +717,130 @@ def caratula_contrato(request, contrato_id):
         'caratula_legacy': _build_legacy_contrato(contrato, cuotas, tipo_label),
     }
     return render(request, 'inmobiliaria/caratulas/detalle_contrato.html', ctx)
+
+
+@login_required
+def imprimir_caratula_reserva(request, reserva_id):
+    """Vista sólo impresión: formato papel tipo libro de alquileres."""
+    if not _puede_ver_caratulas(request.user):
+        return HttpResponseForbidden()
+    reserva = get_object_or_404(
+        Reserva.objects.select_related(
+            'cliente', 'propiedad', 'propiedad__propietario', 'vendedor', 'sucursal'
+        ).prefetch_related(
+            Prefetch('recibos', queryset=Recibo.objects.order_by('fecha_emision')),
+            Prefetch(
+                'comisiones_vendedor',
+                queryset=ComisionVendedor.objects.select_related('vendedor').exclude(estado='cancelada'),
+            ),
+        ),
+        pk=reserva_id,
+    )
+    if reserva.sucursal_id != getattr(request.user, 'sucursal_id', None) and not getattr(
+        request.user, 'is_superuser', False
+    ):
+        return HttpResponseForbidden()
+
+    recibos = list(reserva.recibos.all())
+    comisiones = list(reserva.comisiones_vendedor.all())
+    saldo_reserva = (reserva.precio_total or Decimal('0')) - (reserva.senia or Decimal('0'))
+    tipo_op = _tipo_reserva(reserva.propiedad)
+    cl = _build_legacy_reserva(reserva, recibos, comisiones, saldo_reserva, tipo_op)
+    filas_contab = _contabilizacion_para_reserva(reserva, recibos)
+    suc = reserva.sucursal
+    ciudad_ref = 'MAR DEL PLATA'
+    if suc:
+        ciudad_ref = (getattr(suc, 'localidad', None) or getattr(suc, 'nombre', None) or ciudad_ref).strip().upper()
+
+    fdoc = reserva.fecha_inicio
+    if reserva.fecha_creacion:
+        try:
+            fdoc = timezone.localdate(reserva.fecha_creacion)
+        except Exception:
+            fdoc = reserva.fecha_creacion.date() if hasattr(reserva.fecha_creacion, 'date') else reserva.fecha_inicio
+
+    ctx = {
+        'es_reserva': True,
+        'volver_url': reverse('inmobiliaria:caratula_reserva', args=[reserva_id]),
+        'rubro_title': 'ALQUILERES',
+        'numero_display': f"Nº OP {_formato_miles_ar(reserva.id)}",
+        'llave': cl['codigo_llave'],
+        'fecha_documento': fdoc,
+        'tipo_operacion': tipo_op,
+        'propiedad_desc': _propiedad_desc_corta(reserva.propiedad),
+        'ciudad_ref': ciudad_ref,
+        'cliente_nombre': _nombre_cliente_papel(reserva.cliente),
+        'cl': cl,
+        'fecha_desde': reserva.fecha_inicio,
+        'fecha_hasta': reserva.fecha_fin,
+        'hora_desde': reserva.hora_ingreso,
+        'hora_hasta': reserva.hora_egreso,
+        'filas_contab': filas_contab,
+        'direccion_ficha': _direccion_piso_depto_papel(reserva.propiedad),
+        'deposito_fmt': cl['deposito'],
+        'operacion_id': reserva.id,
+    }
+    return render(request, 'inmobiliaria/caratulas/imprimir_caratula_papel.html', ctx)
+
+
+@login_required
+def imprimir_caratula_contrato(request, contrato_id):
+    if not _puede_ver_caratulas(request.user):
+        return HttpResponseForbidden()
+    contrato = get_object_or_404(
+        ContratoAlquiler.objects.select_related(
+            'propiedad', 'propiedad__propietario', 'inquilino', 'vendedor', 'sucursal'
+        ).prefetch_related(
+            Prefetch('cuotas', queryset=CuotaMensual.objects.order_by('fecha_vencimiento')),
+            'garantes',
+        ),
+        pk=contrato_id,
+    )
+    if contrato.sucursal_id != getattr(request.user, 'sucursal_id', None) and not getattr(
+        request.user, 'is_superuser', False
+    ):
+        return HttpResponseForbidden()
+
+    cuotas = list(contrato.cuotas.all()) if hasattr(contrato, 'cuotas') else []
+    if contrato.duracion_meses == 9:
+        tipo_label = 'Invierno (9 meses)'
+    elif contrato.duracion_meses == 24:
+        tipo_label = '24 meses'
+    else:
+        tipo_label = f'Contrato {contrato.duracion_meses} meses'
+    cl = _build_legacy_contrato(contrato, cuotas, tipo_label)
+    filas_contab = _contabilizacion_para_contrato(contrato)
+    suc = contrato.sucursal
+    ciudad_ref = 'MAR DEL PLATA'
+    if suc:
+        ciudad_ref = (getattr(suc, 'localidad', None) or getattr(suc, 'nombre', None) or ciudad_ref).strip().upper()
+
+    fdoc = contrato.fecha_operacion or contrato.fecha_inicio
+    if fdoc is None and getattr(contrato, 'fecha_creacion', None):
+        try:
+            fdoc = timezone.localdate(contrato.fecha_creacion)
+        except Exception:
+            fdoc = contrato.fecha_creacion.date() if hasattr(contrato.fecha_creacion, 'date') else timezone.localdate()
+
+    ctx = {
+        'es_reserva': False,
+        'volver_url': reverse('inmobiliaria:caratula_contrato', args=[contrato_id]),
+        'rubro_title': 'CONTRATO DE LOCACIÓN',
+        'numero_display': f"Nº CT {_formato_miles_ar(contrato.id)}",
+        'llave': cl['codigo_llave'],
+        'fecha_documento': fdoc,
+        'tipo_operacion': tipo_label,
+        'propiedad_desc': _propiedad_desc_corta(contrato.propiedad),
+        'ciudad_ref': ciudad_ref,
+        'cliente_nombre': _nombre_cliente_papel(contrato.inquilino),
+        'cl': cl,
+        'fecha_desde': contrato.fecha_inicio,
+        'fecha_hasta': contrato.fecha_fin,
+        'hora_desde': None,
+        'hora_hasta': None,
+        'filas_contab': filas_contab,
+        'direccion_ficha': _direccion_piso_depto_papel(contrato.propiedad),
+        'deposito_fmt': cl['deposito'],
+        'operacion_id': contrato.id,
+    }
+    return render(request, 'inmobiliaria/caratulas/imprimir_caratula_papel.html', ctx)

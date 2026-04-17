@@ -75,11 +75,13 @@
                     <td class="small text-muted">{{ f.piso_dto }}</td>
                     <td><code>{{ f.ficha }}</code></td>
                     <td class="small">{{ f.estado }}</td>
-                    <td>
+                    <td class="text-nowrap">
                         {% if f.kind == 'reserva' %}
                         <a class="btn btn-sm btn-outline-primary" href="{% url 'inmobiliaria:caratula_reserva' f.pk %}">Ver</a>
+                        <a class="btn btn-sm btn-outline-secondary" href="{% url 'inmobiliaria:imprimir_caratula_reserva' f.pk %}" target="_blank" rel="noopener" title="Imprimir carátula"><i class="fas fa-print"></i></a>
                         {% else %}
                         <a class="btn btn-sm btn-outline-primary" href="{% url 'inmobiliaria:caratula_contrato' f.pk %}">Ver</a>
+                        <a class="btn btn-sm btn-outline-secondary" href="{% url 'inmobiliaria:imprimir_caratula_contrato' f.pk %}" target="_blank" rel="noopener" title="Imprimir carátula"><i class="fas fa-print"></i></a>
                         {% endif %}
                     </td>
                 </tr>

@@ -6,7 +6,10 @@
 {% endblock %}
 {% block content %}
 <div class="container py-3">
-    <a href="{% url 'inmobiliaria:lista_caratulas' %}" class="small text-decoration-none d-inline-block mb-2">&larr; Volver al listado</a>
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+        <a href="{% url 'inmobiliaria:lista_caratulas' %}" class="small text-decoration-none">&larr; Volver al listado</a>
+        <a href="{% url 'inmobiliaria:imprimir_caratula_reserva' reserva.id %}" class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener"><i class="fas fa-print me-1"></i>Imprimir carátula</a>
+    </div>
 
     {% url 'inmobiliaria:reserva_detalle' reserva.id as url_cancel_reserva %}
     {% include 'inmobiliaria/caratulas/_caratula_legacy_shell.html' with cl=caratula_legacy fecha_desde=reserva.fecha_inicio fecha_hasta=reserva.fecha_fin hora_desde=reserva.hora_ingreso hora_hasta=reserva.hora_egreso cancel_url=url_cancel_reserva %}

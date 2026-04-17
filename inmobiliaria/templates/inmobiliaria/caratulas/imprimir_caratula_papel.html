@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Carátula — {{ numero_display }}</title>
+    <style>
+        @page { size: A4; margin: 12mm; }
+        * { box-sizing: border-box; }
+        body {
+            font-family: "Times New Roman", Times, serif;
+            font-size: 11pt;
+            color: #000;
+            max-width: 180mm;
+            margin: 0 auto;
+            padding: 8px 12px 24px;
+            line-height: 1.35;
+        }
+        .noprint {
+            font-family: system-ui, sans-serif;
+            font-size: 13px;
+            margin-bottom: 14px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #ccc;
+        }
+        .noprint a, .noprint button {
+            margin-right: 10px;
+        }
+        .noprint button {
+            padding: 6px 14px;
+            cursor: pointer;
+        }
+        h1.rubro {
+            font-size: 16pt;
+            letter-spacing: 0.08em;
+            margin: 0 0 6px;
+            text-align: center;
+            border-bottom: 2px solid #000;
+            padding-bottom: 4px;
+        }
+        .meta-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 6px 12px;
+            margin: 10px 0 12px;
+            font-size: 10pt;
+        }
+        .meta-grid div { border-bottom: 1px solid #333; padding: 2px 0; }
+        .meta-grid strong { display: block; font-size: 8pt; letter-spacing: 0.05em; }
+        .cliente-box {
+            border: 1px solid #000;
+            padding: 8px 10px;
+            margin: 10px 0;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .prop-mini {
+            font-size: 9pt;
+            margin: 4px 0 8px;
+            text-transform: uppercase;
+        }
+        table.fin {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 12px 0;
+            font-size: 10pt;
+        }
+        table.fin th, table.fin td {
+            border: 1px solid #000;
+            padding: 5px 8px;
+        }
+        table.fin th { text-align: left; width: 52%; background: #f5f5f5; }
+        table.fin td { text-align: right; font-variant-numeric: tabular-nums; }
+        .periodo {
+            border: 2px solid #000;
+            padding: 8px 12px;
+            margin: 14px 0;
+            text-align: center;
+            font-size: 10pt;
+        }
+        .periodo strong { display: block; margin-bottom: 4px; font-size: 9pt; }
+        h2.sec {
+            font-size: 10pt;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            margin: 16px 0 6px;
+            border-bottom: 1px solid #000;
+            padding-bottom: 2px;
+        }
+        table.contab {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 9pt;
+        }
+        table.contab th, table.contab td {
+            border: 1px solid #000;
+            padding: 4px 6px;
+            vertical-align: top;
+        }
+        table.contab th { background: #eee; }
+        table.contab .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+        .pie {
+            margin-top: 18px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            font-size: 9pt;
+        }
+        .pie .dir { border: 1px solid #000; padding: 8px; min-height: 72px; }
+        .firma { margin-top: 28px; border-top: 1px solid #000; padding-top: 6px; }
+        .firma .line { margin-top: 32px; border-bottom: 1px solid #000; height: 1px; }
+        .legal {
+            font-size: 8pt;
+            text-align: justify;
+            margin-top: 10px;
+            line-height: 1.25;
+        }
+        @media print {
+            .noprint { display: none !important; }
+            body { padding: 0; }
+            a { color: #000; text-decoration: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="noprint">
+        <a href="{{ volver_url }}">&larr; Volver a la carátula</a>
+        <button type="button" onclick="window.print()">Imprimir / PDF</button>
+    </div>
+
+    <h1 class="rubro">{{ rubro_title }}</h1>
+
+    <div class="meta-grid">
+        <div><strong>NÚMERO</strong>{{ numero_display }}</div>
+        <div><strong>LLAVE</strong>{{ llave }}</div>
+        <div><strong>FECHA</strong>{{ fecha_documento|date:"d/m/Y" }}</div>
+    </div>
+
+    <div class="prop-mini">{{ propiedad_desc }} — {{ ciudad_ref }}</div>
+    <div class="cliente-box">Cliente / locatario: {{ cliente_nombre }}</div>
+    <div class="prop-mini">Tipo: {{ tipo_operacion }}</div>
+
+    <table class="fin">
+        <tbody>
+            <tr><th>Importe locación</th><td>$ {{ cl.importe_locacion }}</td></tr>
+            <tr><th>Seña</th><td>$ {{ cl.senia }}</td></tr>
+            <tr><th>Refuerzo</th><td>$ {{ cl.refuerzo }}</td></tr>
+            <tr><th>Saldo</th><td>$ {{ cl.saldo }}</td></tr>
+            <tr><th>Depósito de garantía</th><td>$ {{ cl.deposito }}</td></tr>
+            <tr><th>Comisión locador</th><td>$ {{ cl.comision_locador }}</td></tr>
+            <tr><th>Comisión locatario</th><td>$ {{ cl.comision_locatario }}</td></tr>
+        </tbody>
+    </table>
+
+    <div class="periodo">
+        <strong>PERÍODO DE LOCACIÓN</strong>
+        Desde: {{ fecha_desde|date:"d/m/Y" }}{% if hora_desde %} {{ hora_desde|time:"H:i:s" }}{% endif %}
+        &nbsp;—&nbsp;
+        Hasta: {{ fecha_hasta|date:"d/m/Y" }}{% if hora_hasta %} {{ hora_hasta|time:"H:i:s" }}{% endif %}
+    </div>
+
+    <h2 class="sec">Contabilización</h2>
+    <table class="contab">
+        <thead>
+            <tr>
+                <th>Fecha</th>
+                <th>Recibo Nº</th>
+                <th>Detalle</th>
+                <th class="num">Salidas</th>
+                <th class="num">Entradas</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in filas_contab %}
+            <tr>
+                <td>{{ row.fecha|date:"d/m/Y H:i" }}</td>
+                <td>{{ row.recibo }}</td>
+                <td>{{ row.detalle }}</td>
+                <td class="num">{% if row.salidas %}${{ row.salidas }}{% else %}—{% endif %}</td>
+                <td class="num">{% if row.entradas %}${{ row.entradas }}{% else %}—{% endif %}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" style="text-align:center;color:#555;">Sin movimientos de caja ni recibos vinculados.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="pie">
+        <div class="dir">
+            <strong>Inmueble</strong><br>
+            {{ direccion_ficha }}<br><br>
+            <strong>Depósito de garantía</strong> $ {{ deposito_fmt }}<br>
+            <span style="font-size:8pt;color:#444;">Ref. operación #{{ operacion_id }}</span>
+        </div>
+        <div>
+            <p class="legal">
+                El locatario declara haber recibido el inmueble en condiciones aceptables de estado y limpieza,
+                conforme a lo visitado, quedando obligado a restituirlo en similar estado al finalizar el período.
+            </p>
+            <div class="firma">
+                <div class="line"></div>
+                <div style="margin-top:4px;font-size:9pt;">Firma locatario</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
