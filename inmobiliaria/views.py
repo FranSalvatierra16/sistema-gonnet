@@ -9903,6 +9903,7 @@ def buscar_liquidacion_caja(request):
             'monto_propietario': float(liquidacion.monto_propietario or 0),
             'monto_total_operacion': float(liquidacion.monto_total_operacion or 0),
             'monto_cochera': float(liquidacion.monto_cochera or 0),
+            'monto_fondo_mantenimiento': float(liquidacion.monto_fondo_mantenimiento or 0),
         }
     })
 
@@ -15733,6 +15734,9 @@ def crear_liquidacion(request, reserva_id=None):
             monto_cochera = parse_decimal_es(request.POST.get('monto_cochera', '0'))
             if monto_cochera < 0:
                 monto_cochera = Decimal('0')
+            monto_fondo_mantenimiento = parse_decimal_es(request.POST.get('monto_fondo_mantenimiento', '0'))
+            if monto_fondo_mantenimiento < 0:
+                monto_fondo_mantenimiento = Decimal('0')
             fecha_desde = request.POST.get('fecha_desde')
             fecha_hasta = request.POST.get('fecha_hasta')
             observaciones = request.POST.get('observaciones', '')
@@ -15838,6 +15842,7 @@ def crear_liquidacion(request, reserva_id=None):
                 monto_propietario=monto_propietario,
                 monto_inmobiliaria=monto_inmobiliaria,
                 monto_cochera=monto_cochera,
+                monto_fondo_mantenimiento=monto_fondo_mantenimiento,
                 fecha_desde=datetime.strptime(fecha_desde, '%Y-%m-%d').date() if fecha_desde else None,
                 fecha_hasta=datetime.strptime(fecha_hasta, '%Y-%m-%d').date() if fecha_hasta else None,
                 observaciones=observaciones,

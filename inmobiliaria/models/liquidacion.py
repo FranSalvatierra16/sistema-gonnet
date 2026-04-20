@@ -86,6 +86,13 @@ class LiquidacionPropietario(models.Model):
         verbose_name="Monto cochera",
         help_text="Importe de cochera en la liquidación (opcional)",
     )
+    monto_fondo_mantenimiento = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0'),
+        verbose_name="Fondo de mantenimiento",
+        help_text="Importe de fondo de mantenimiento en la liquidación (opcional)",
+    )
     monto_gastos = models.DecimalField(
         max_digits=12,
         decimal_places=2,
