@@ -131,7 +131,7 @@
                                 <div class="alert alert-success">
                                     <strong>Monto Final a Pagar al Propietario:</strong> 
                                     $<span id="monto-final-pagar">0.00</span>
-                                    <small class="text-muted ms-2">(Monto Propietario - Gastos Seleccionados)</small>
+                                    <small class="text-muted ms-2">(Monto propietario − gastos seleccionados − fondo de mantenimiento)</small>
                                 </div>
                             </div>
                         </div>
@@ -227,6 +227,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const montoTotal = document.getElementById('monto_total');
     const montoPropietario = document.getElementById('monto_propietario');
     const montoInmobiliaria = document.getElementById('monto_inmobiliaria');
+    const montoFondoMantenimiento = document.getElementById('monto_fondo_mantenimiento');
     const dividirToggle = document.getElementById('dividir_operacion_toggle');
     const dividirHidden = document.getElementById('dividir_operacion');
     const bloqueDivision = document.getElementById('bloque_division_operaciones');
@@ -619,14 +620,15 @@ document.addEventListener('DOMContentLoaded', function() {
             // IMPORTANTE:
             // - Monto Propietario = bruto de operaciones (sin descontar gastos)
             // - Monto Inmobiliaria = bruto de operaciones
-            // - Monto Final a Pagar = propietario bruto - gastos seleccionados
+            // - Monto Final a Pagar = propietario bruto - gastos seleccionados - fondo de mantenimiento (manual)
             montoPropietario.value = formatearNumero(totalMontoPropietario.toFixed(2));
             montoInmobiliariaEditadoManual = false;
             montoInmobiliaria.value = formatearNumero(totalMontoInmobiliaria.toFixed(2));
             // Si el backend ya repartió bien, preferir diferencia total − propietario para que cierre con el total mostrado
             actualizarInmobiliariaPorDiferencia();
 
-            const montoPropietarioFinal = totalMontoPropietario - totalGastos;
+            const fondo = montoFondoMantenimiento ? parseNumeroEsAR(montoFondoMantenimiento.value) : 0;
+            const montoPropietarioFinal = totalMontoPropietario - totalGastos - fondo;
             // Actualizar monto final a pagar
             const montoFinalPagar = document.getElementById('monto-final-pagar');
             if (montoFinalPagar) {
@@ -669,6 +671,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function recalcularMontoFinalDesdeCampos() {
         const prop = parseNumeroEsAR(montoPropietario.value);
+        const fondo = montoFondoMantenimiento ? parseNumeroEsAR(montoFondoMantenimiento.value) : 0;
         const gastosCheckboxes = document.querySelectorAll('.gasto-checkbox:checked');
         let totalGastos = 0;
         gastosCheckboxes.forEach(cb => {
@@ -676,8 +679,12 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         const montoFinalPagar = document.getElementById('monto-final-pagar');
         if (montoFinalPagar) {
-            montoFinalPagar.textContent = formatearNumero(Math.max(0, prop - totalGastos).toFixed(2));
+            montoFinalPagar.textContent = formatearNumero(Math.max(0, prop - totalGastos - fondo).toFixed(2));
         }
+    }
+
+    if (montoFondoMantenimiento) {
+        montoFondoMantenimiento.addEventListener('input', recalcularMontoFinalDesdeCampos);
     }
 
     // Inicializar propietario y cargar operaciones si hay una propiedad seleccionada

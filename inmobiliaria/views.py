@@ -14254,17 +14254,40 @@ def detalles_operacion_reserva(request, reserva_id):
         })
 
 
+def _ordenar_conceptos(queryset, orden):
+    """
+    orden 'detalle': alfabético por nombre (como «Por detalle» del sistema viejo).
+    orden 'numero': por ID numérico ascendente; IDs no numéricos al final, por texto.
+    """
+    orden = (orden or 'detalle').lower()
+    if orden == 'numero':
+
+        def clave_numero(c):
+            sid = str(c.id)
+            if sid.isdigit():
+                return (0, int(sid), '')
+            return (1, 0, sid.lower())
+
+        return sorted(queryset, key=clave_numero)
+    return queryset.order_by('nombre', 'id')
+
+
 @login_required
 def gestionar_conceptos(request):
     """
     Vista para gestionar conceptos: listar, crear, editar y eliminar
     """
     sucursal_vendedor = request.user.sucursal
-    # Mostrar conceptos de TODAS las sucursales
-    conceptos = Concepto.objects.all().order_by('id')
-    
+    qs_base = Concepto.objects.all()
+    total_conceptos = qs_base.count()
+
+    def orden_valido(val):
+        v = (val or 'detalle').lower()
+        return v if v in ('detalle', 'numero') else 'detalle'
+
     # Formulario para crear nuevo concepto
     if request.method == 'POST':
+        orden = orden_valido(request.POST.get('orden'))
         action = request.POST.get('action')
         
         if action == 'crear':
@@ -14313,12 +14336,16 @@ def gestionar_conceptos(request):
             except Exception as e:
                 messages.error(request, f'Error al eliminar concepto: {e}')
         
-        return redirect('inmobiliaria:gestionar_conceptos')
+        return redirect(f'{reverse("inmobiliaria:gestionar_conceptos")}?orden={orden}')
     
+    orden = orden_valido(request.GET.get('orden'))
+    conceptos = _ordenar_conceptos(qs_base, orden)
+
     context = {
         'conceptos': conceptos,
-        'total_conceptos': conceptos.count(),
-        'sucursal': 'Todas las sucursales'
+        'total_conceptos': total_conceptos,
+        'sucursal': 'Todas las sucursales',
+        'orden': orden,
     }
     
     return render(request, 'inmobiliaria/conceptos/gestionar_conceptos.html', context)

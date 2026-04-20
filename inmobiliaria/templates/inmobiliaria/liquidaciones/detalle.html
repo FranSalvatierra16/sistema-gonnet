@@ -101,15 +101,15 @@
                                     <td class="text-end">${{ liquidacion.monto_cochera|floatformat:2 }}</td>
                                 </tr>
                                 <tr>
-                                    <th>Fondo de mantenimiento:</th>
-                                    <td class="text-end">${{ liquidacion.monto_fondo_mantenimiento|floatformat:2 }}</td>
+                                    <th>Fondo de mantenimiento <span class="text-muted fw-normal">(retenido del pago)</span>:</th>
+                                    <td class="text-end text-danger">-${{ liquidacion.monto_fondo_mantenimiento|floatformat:2 }}</td>
                                 </tr>
                                 <tr>
                                     <th>Total Gastos:</th>
                                     <td class="text-end text-danger">-${{ liquidacion.monto_gastos|floatformat:2 }}</td>
                                 </tr>
                                 <tr class="table-success">
-                                    <th><strong>Monto a Pagar:</strong></th>
+                                    <th><strong>Monto a Pagar al propietario:</strong></th>
                                     <td class="text-end"><strong>${{ liquidacion.monto_a_pagar|floatformat:2 }}</strong></td>
                                 </tr>
                             </table>

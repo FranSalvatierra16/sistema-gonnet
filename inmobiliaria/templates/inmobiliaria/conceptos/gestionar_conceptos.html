@@ -41,10 +41,22 @@
         {% endfor %}
     {% endif %}
 
+    <input type="hidden" id="orden-lista-conceptos" value="{{ orden|default:'detalle' }}">
+
     <!-- Tabla de Conceptos -->
     <div class="card">
-        <div class="card-header">
-            <h5 class="mb-0"><i class="fas fa-list"></i> Lista de Conceptos</h5>
+        <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2 py-3">
+            <h5 class="mb-0"><i class="fas fa-list"></i> Consulta de conceptos</h5>
+            <div class="btn-group" role="group" aria-label="Orden de la lista">
+                <a href="{% url 'inmobiliaria:gestionar_conceptos' %}?orden=detalle"
+                   class="btn btn-sm {% if orden == 'detalle' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+                    Por detalle
+                </a>
+                <a href="{% url 'inmobiliaria:gestionar_conceptos' %}?orden=numero"
+                   class="btn btn-sm {% if orden == 'numero' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+                    Por número
+                </a>
+            </div>
         </div>
         <div class="card-body p-0">
             {% if conceptos %}
@@ -52,8 +64,8 @@
                     <table class="table table-striped table-hover mb-0">
                         <thead class="thead-dark">
                             <tr>
-                                <th width="10%">ID</th>
-                                <th width="40%">Nombre</th>
+                                <th width="12%">Número</th>
+                                <th width="38%">Detalle</th>
                                 <th width="20%">Sucursal</th>
                                 <th width="15%">Fecha Creación</th>
                                 <th width="15%" class="text-center">Acciones</th>
@@ -149,6 +161,7 @@
             <form method="post">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="crear">
+                <input type="hidden" name="orden" value="{{ orden|default:'detalle' }}">
                 
                 <div class="modal-header">
                     <h5 class="modal-title" id="crearConceptoModalLabel">
@@ -197,6 +210,7 @@
             <form method="post" id="eliminarConceptoForm">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="eliminar">
+                <input type="hidden" name="orden" value="{{ orden|default:'detalle' }}">
                 <input type="hidden" name="concepto_id" id="eliminar_concepto_id">
                 
                 <div class="modal-header bg-danger text-white">
@@ -293,12 +307,13 @@ $(document).ready(function() {
             return;
         }
         
-        // Crear formulario dinámico
-        const form = $('<form method="post"></form>');
-        form.append('<input type="hidden" name="csrfmiddlewaretoken" value="' + $('[name=csrfmiddlewaretoken]').val() + '">');
-        form.append('<input type="hidden" name="action" value="editar">');
-        form.append('<input type="hidden" name="concepto_id" value="' + conceptoId + '">');
-        form.append('<input type="hidden" name="nuevo_nombre" value="' + nuevoNombre + '">');
+        // Crear formulario dinámico (val() evita romper el HTML si el nombre lleva comillas)
+        const form = $('<form>', { method: 'post', css: { display: 'none' } });
+        form.append($('<input>', { type: 'hidden', name: 'csrfmiddlewaretoken', value: $('[name=csrfmiddlewaretoken]').val() }));
+        form.append($('<input>', { type: 'hidden', name: 'action', value: 'editar' }));
+        form.append($('<input>', { type: 'hidden', name: 'concepto_id', value: String(conceptoId) }));
+        form.append($('<input>', { type: 'hidden', name: 'nuevo_nombre' }).val(nuevoNombre));
+        form.append($('<input>', { type: 'hidden', name: 'orden', value: $('#orden-lista-conceptos').val() || 'detalle' }));
         
         $('body').append(form);
         form.submit();

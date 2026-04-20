@@ -104,7 +104,7 @@ class LiquidacionPropietario(models.Model):
         max_digits=12,
         decimal_places=2,
         verbose_name="Monto a Pagar",
-        help_text="Monto final a pagar al propietario (monto_propietario - gastos)"
+        help_text="Monto final a pagar al propietario (monto_propietario − gastos − fondo de mantenimiento)"
     )
 
     # Estado y fechas
@@ -163,13 +163,12 @@ class LiquidacionPropietario(models.Model):
     )
 
     def save(self, *args, **kwargs):
-        # Calcular monto a pagar automáticamente
-        if self.monto_propietario and self.monto_gastos:
-            self.monto_a_pagar = self.monto_propietario - self.monto_gastos
-        elif self.monto_propietario:
-            self.monto_a_pagar = self.monto_propietario
-        else:
-            self.monto_a_pagar = Decimal('0')
+        # Monto neto al propietario: bruto del propietario menos gastos y fondo de mantenimiento retenido
+        prop = self.monto_propietario if self.monto_propietario is not None else Decimal('0')
+        gastos = self.monto_gastos if self.monto_gastos is not None else Decimal('0')
+        fondo = self.monto_fondo_mantenimiento if self.monto_fondo_mantenimiento is not None else Decimal('0')
+        neto = prop - gastos - fondo
+        self.monto_a_pagar = neto if neto > 0 else Decimal('0')
 
         # Calcular monto de inmobiliaria si no está definido
         if self.monto_total_operacion and self.monto_propietario and not self.monto_inmobiliaria:
@@ -178,12 +177,14 @@ class LiquidacionPropietario(models.Model):
         super().save(*args, **kwargs)
 
     def calcular_monto_a_pagar(self):
-        """Recalcula el monto a pagar basado en los gastos aceptados"""
+        """Recalcula el monto a pagar según gastos aceptados y fondo de mantenimiento."""
         gastos_aceptados = self.gastos.filter(aceptado=True).aggregate(
             total=models.Sum('monto')
         )['total'] or Decimal('0')
+        fondo = self.monto_fondo_mantenimiento or Decimal('0')
         self.monto_gastos = gastos_aceptados
-        self.monto_a_pagar = self.monto_propietario - gastos_aceptados
+        neto = self.monto_propietario - gastos_aceptados - fondo
+        self.monto_a_pagar = neto if neto > 0 else Decimal('0')
         self.save(update_fields=['monto_gastos', 'monto_a_pagar'])
 
     def __str__(self):
