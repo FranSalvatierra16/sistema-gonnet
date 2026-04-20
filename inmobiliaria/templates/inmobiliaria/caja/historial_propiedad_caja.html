@@ -268,8 +268,12 @@
         }
         resultados.innerHTML = items.map(function (p) {
             const ubic = p.ubicacion ? ` (${p.ubicacion})` : '';
-            return `<button type="button" class="list-group-item list-group-item-action item-propiedad" data-id="${p.id}" data-text="#${p.id} - ${p.direccion}${ubic}">
-                <strong>#${p.id}</strong> - ${p.direccion}${ubic}
+            const pi = (p.piso || '').trim();
+            const dep = (p.departamento || '').trim();
+            const unidad = [pi ? 'Piso ' + pi : '', dep ? 'Dpto ' + dep : ''].filter(Boolean).join(', ');
+            const suf = unidad ? ` — ${unidad}` : '';
+            return `<button type="button" class="list-group-item list-group-item-action item-propiedad" data-id="${p.id}" data-text="#${p.id} - ${p.direccion}${suf}${ubic}">
+                <strong>#${p.id}</strong> - ${p.direccion}${suf}${ubic}
             </button>`;
         }).join('');
         resultados.classList.remove('d-none');

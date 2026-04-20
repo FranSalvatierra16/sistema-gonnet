@@ -9730,7 +9730,9 @@ def buscar_propiedad(request):
                 'propiedad': {
                     'id': propiedad.id,
                     'direccion': propiedad.direccion,
-                    'ubicacion': propiedad.ubicacion
+                    'ubicacion': propiedad.ubicacion,
+                    'piso': (propiedad.piso or '').strip(),
+                    'departamento': (propiedad.departamento or '').strip(),
                 }
             })
         except (ValueError, Propiedad.DoesNotExist):
@@ -9739,7 +9741,9 @@ def buscar_propiedad(request):
                 sucursal=sucursal
             ).filter(
                 Q(direccion__icontains=termino) |
-                Q(ubicacion__icontains=termino)
+                Q(ubicacion__icontains=termino) |
+                Q(piso__icontains=termino) |
+                Q(departamento__icontains=termino)
             ).order_by('direccion')[:1]
             
             if propiedades.exists():
@@ -9749,7 +9753,9 @@ def buscar_propiedad(request):
                     'propiedad': {
                         'id': propiedad.id,
                         'direccion': propiedad.direccion,
-                        'ubicacion': propiedad.ubicacion
+                        'ubicacion': propiedad.ubicacion,
+                        'piso': (propiedad.piso or '').strip(),
+                        'departamento': (propiedad.departamento or '').strip(),
                     }
                 })
             else:
@@ -9794,7 +9800,10 @@ def buscar_movimiento(request):
                 } if movimiento.productor else None,
                 'propiedad': {
                     'id': movimiento.propiedad.id,
-                    'direccion': movimiento.propiedad.direccion
+                    'direccion': movimiento.propiedad.direccion,
+                    'ubicacion': getattr(movimiento.propiedad, 'ubicacion', None) or '',
+                    'piso': (movimiento.propiedad.piso or '').strip(),
+                    'departamento': (movimiento.propiedad.departamento or '').strip(),
                 } if movimiento.propiedad else None,
                 'concepto': {
                     'id': movimiento.concepto.id,
@@ -9842,7 +9851,10 @@ def buscar_liquidacion_caja(request):
             'estado': liquidacion.estado,
             'propiedad': {
                 'id': liquidacion.propiedad.id if liquidacion.propiedad else None,
-                'direccion': liquidacion.propiedad.direccion if liquidacion.propiedad else ''
+                'direccion': liquidacion.propiedad.direccion if liquidacion.propiedad else '',
+                'ubicacion': (liquidacion.propiedad.ubicacion or '') if liquidacion.propiedad else '',
+                'piso': (liquidacion.propiedad.piso or '').strip() if liquidacion.propiedad else '',
+                'departamento': (liquidacion.propiedad.departamento or '').strip() if liquidacion.propiedad else '',
             },
             'propietario': str(liquidacion.propietario) if liquidacion.propietario else '',
             'fecha_desde': liquidacion.fecha_desde.strftime('%Y-%m-%d') if liquidacion.fecha_desde else '',
@@ -9897,11 +9909,14 @@ def buscar_movimientos(request):
             } if mov.productor else None,
             'propiedad': {
                 'id': mov.propiedad.id,
-                'direccion': mov.propiedad.direccion
+                'direccion': mov.propiedad.direccion,
+                'ubicacion': getattr(mov.propiedad, 'ubicacion', None) or '',
+                'piso': (mov.propiedad.piso or '').strip(),
+                'departamento': (mov.propiedad.departamento or '').strip(),
             } if mov.propiedad else None,
             'concepto': {
                 'id': mov.concepto.id,
-                'nombre': movimiento.concepto.nombre
+                'nombre': mov.concepto.nombre
             } if mov.concepto else None
         } for mov in movimientos]
         
@@ -10053,7 +10068,9 @@ def buscar_propiedades_caja(request):
     try:
         q = (
             Q(direccion__icontains=termino) |
-            Q(ubicacion__icontains=termino)
+            Q(ubicacion__icontains=termino) |
+            Q(piso__icontains=termino) |
+            Q(departamento__icontains=termino)
         )
         try:
             pid = int(termino)
@@ -10069,7 +10086,9 @@ def buscar_propiedades_caja(request):
             'propiedades': [{
                 'id': p.id,
                 'direccion': p.direccion,
-                'ubicacion': p.ubicacion or ''
+                'ubicacion': p.ubicacion or '',
+                'piso': (p.piso or '').strip(),
+                'departamento': (p.departamento or '').strip(),
             } for p in propiedades]
         })
     except Exception as e:

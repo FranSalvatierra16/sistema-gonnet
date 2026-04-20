@@ -228,7 +228,7 @@
                                         <label class="form-label">Propiedad</label>
                                         <div class="caja-ac-wrap">
                                             <input type="hidden" name="propiedad_id" id="propiedad_id" value="">
-                                            <input type="text" id="propiedad_buscar" class="form-control" placeholder="Nº, dirección o parte de la calle…" autocomplete="off">
+                                            <input type="text" id="propiedad_buscar" class="form-control" placeholder="Nº, calle, piso o depto…" autocomplete="off">
                                             <div id="dropdown_propiedades_main" class="caja-ac-dropdown list-group" role="listbox" aria-label="Propiedades"></div>
                                         </div>
                                         <small class="text-muted">Búsqueda al escribir; tabla completa en «Listado».</small>
@@ -392,7 +392,7 @@
                 <!-- Búsqueda -->
                 <div class="form-group">
                             <div class="input-group mb-3">
-                        <input type="text" id="buscar_propiedad_texto" class="form-control" placeholder="Buscar por dirección o ID...">
+                        <input type="text" id="buscar_propiedad_texto" class="form-control" placeholder="ID, dirección, piso o depto…">
                         <div class="input-group-append">
                             <button class="btn btn-primary" type="button" id="btn_buscar_propiedad">
                                 <i class="fas fa-search"></i> Buscar
@@ -408,6 +408,8 @@
                                 <tr>
                                 <th>ID</th>
                                 <th>Dirección</th>
+                                <th>Piso</th>
+                                <th>Dpto</th>
                                 <th>Ubicación</th>
                                 <th>Acción</th>
                                 </tr>
@@ -522,6 +524,28 @@ $(document).ready(function() {
     function escapeHtml(s) {
         if (s == null || s === undefined) return '';
         return $('<div>').text(s).html();
+    }
+    /** Calle + piso/dpto para mostrar en buscador, dirección y resumen */
+    function textoPisoDepto(piso, depto) {
+        var p = (piso == null ? '' : String(piso)).trim();
+        var d = (depto == null ? '' : String(depto)).trim();
+        if (!p && !d) return '';
+        var bits = [];
+        if (p) bits.push('Piso ' + p);
+        if (d) bits.push('Dpto ' + d);
+        return ' — ' + bits.join(', ');
+    }
+    function etiquetaSoloPisoDepto(piso, depto) {
+        var p = (piso == null ? '' : String(piso)).trim();
+        var d = (depto == null ? '' : String(depto)).trim();
+        if (!p && !d) return '';
+        var bits = [];
+        if (p) bits.push('Piso ' + p);
+        if (d) bits.push('Dpto ' + d);
+        return bits.join(', ');
+    }
+    function direccionConUnidad(calle, piso, depto) {
+        return (calle || '') + textoPisoDepto(piso, depto);
     }
     function debounce(fn, ms) {
         var t;
@@ -703,11 +727,14 @@ $(document).ready(function() {
         }
     });
 
-    function cargarPropiedad(id, direccion, ubicacion) {
+    function cargarPropiedad(id, direccion, ubicacion, piso, depto) {
+        piso = piso || '';
+        depto = depto || '';
+        var linea = direccionConUnidad(direccion, piso, depto);
         $('#propiedad_id').val(id);
-        $('#propiedad_buscar').val(id + ' — ' + direccion);
-        $('#propiedad_direccion').val(direccion);
-        $('#propiedad_seleccionada_texto').text(id + ' - ' + direccion);
+        $('#propiedad_buscar').val(id + ' — ' + linea);
+        $('#propiedad_direccion').val(linea);
+        $('#propiedad_seleccionada_texto').text(id + ' - ' + linea);
         $('#propiedad_seleccionada').removeClass('d-none');
         $('#dropdown_propiedades_main').removeClass('show').empty();
         hideBsModal('modalBuscarPropiedad');
@@ -716,16 +743,29 @@ $(document).ready(function() {
     function renderPropiedadRows($tbody, list) {
         $tbody.empty();
         if (!list || !list.length) {
-            $tbody.append('<tr><td colspan="4" class="text-center text-muted">Sin resultados</td></tr>');
+            $tbody.append('<tr><td colspan="6" class="text-center text-muted">Sin resultados</td></tr>');
             return;
         }
         list.forEach(function(prop) {
+            var pi = (prop.piso || '').trim();
+            var dep = (prop.departamento || '').trim();
             var $tr = $('<tr></tr>');
             $tr.append($('<td></td>').text(prop.id));
-            $tr.append($('<td></td>').text(prop.direccion));
-            $tr.append($('<td></td>').text(prop.ubicacion || ''));
+            var $tdDir = $('<td></td>');
+            $tdDir.append($('<div></div>').text(prop.direccion));
+            if (pi || dep) {
+                $tdDir.append($('<div class="small text-muted"></div>').text(etiquetaSoloPisoDepto(pi, dep)));
+            }
+            $tr.append($tdDir);
+            $tr.append($('<td></td>').text(pi || '—'));
+            $tr.append($('<td></td>').text(dep || '—'));
+            $tr.append($('<td></td>').text(prop.ubicacion || '—'));
             var $btn = $('<button type="button" class="btn btn-sm btn-primary seleccionar-propiedad"><i class="fas fa-check"></i></button>');
-            $btn.attr('data-id', prop.id).attr('data-direccion', prop.direccion).attr('data-ubicacion', prop.ubicacion || '');
+            $btn.attr('data-id', prop.id)
+                .attr('data-direccion', prop.direccion)
+                .attr('data-ubicacion', prop.ubicacion || '')
+                .attr('data-piso', pi)
+                .attr('data-departamento', dep);
             $tr.append($('<td></td>').append($btn));
             $tbody.append($tr);
         });
@@ -738,10 +778,20 @@ $(document).ready(function() {
             $dd.append('<div class="list-group-item text-muted py-2">Sin resultados</div>');
         } else {
             list.forEach(function(p) {
+                var pi = (p.piso || '').trim();
+                var dep = (p.departamento || '').trim();
+                var linea = direccionConUnidad(p.direccion, pi, dep);
                 var $b = $('<button type="button" class="list-group-item list-group-item-action py-2"></button>');
-                $b.attr('data-id', p.id).attr('data-direccion', p.direccion).attr('data-ubicacion', p.ubicacion || '');
+                $b.attr('data-id', p.id)
+                    .attr('data-direccion', p.direccion)
+                    .attr('data-ubicacion', p.ubicacion || '')
+                    .attr('data-piso', pi)
+                    .attr('data-departamento', dep);
                 var ubi = p.ubicacion ? '<span class="caja-ac-meta d-block">' + escapeHtml(p.ubicacion) + '</span>' : '';
-                $b.html('<span class="fw-semibold">#' + escapeHtml(String(p.id)) + '</span> ' + escapeHtml(p.direccion) + ubi);
+                $b.html(
+                    '<span class="fw-semibold">#' + escapeHtml(String(p.id)) + '</span> ' +
+                    '<span class="d-block">' + escapeHtml(linea) + '</span>' + ubi
+                );
                 $dd.append($b);
             });
         }
@@ -786,18 +836,31 @@ $(document).ready(function() {
             e.preventDefault();
             var $f = $('#dropdown_propiedades_main .list-group-item-action').first();
             if ($f.length) {
-                cargarPropiedad($f.data('id'), $f.data('direccion'), $f.data('ubicacion'));
+                cargarPropiedad(
+                    $f.data('id'),
+                    $f.data('direccion'),
+                    $f.data('ubicacion'),
+                    $f.data('piso'),
+                    $f.data('departamento')
+                );
             }
         }
     });
     $(document).on('click', '#dropdown_propiedades_main .list-group-item-action', function() {
-        cargarPropiedad($(this).data('id'), $(this).data('direccion'), $(this).data('ubicacion') || '');
+        var $t = $(this);
+        cargarPropiedad(
+            $t.data('id'),
+            $t.data('direccion'),
+            $t.data('ubicacion') || '',
+            $t.data('piso') || '',
+            $t.data('departamento') || ''
+        );
     });
 
     function ejecutarBusquedaPropiedadModal() {
         var termino = $('#buscar_propiedad_texto').val().trim();
         if (!termino) {
-            $('#propiedades_lista').html('<tr><td colspan="4" class="text-center text-muted">Escribí al menos un carácter</td></tr>');
+            $('#propiedades_lista').html('<tr><td colspan="6" class="text-center text-muted">Escribí al menos un carácter</td></tr>');
             return;
         }
         fetchPropiedades(termino, $('#propiedades_lista'));
@@ -816,10 +879,14 @@ $(document).ready(function() {
     
     // Seleccionar propiedad desde la lista
     $(document).on('click', '.seleccionar-propiedad', function() {
-        var id = $(this).data('id');
-        var direccion = $(this).data('direccion');
-        var ubicacion = $(this).data('ubicacion');
-        cargarPropiedad(id, direccion, ubicacion);
+        var $t = $(this);
+        cargarPropiedad(
+            $t.data('id'),
+            $t.data('direccion'),
+            $t.data('ubicacion') || '',
+            $t.data('piso') || '',
+            $t.data('departamento') || ''
+        );
     });
 
     $('#btn_limpiar_propiedad').click(function() {
@@ -990,7 +1057,13 @@ $(document).ready(function() {
                     $('input[name="fecha_hasta"]').val(l.fecha_hasta || '');
 
                     if (l.propiedad && l.propiedad.id) {
-                        cargarPropiedad(l.propiedad.id, l.propiedad.direccion || '', '');
+                        cargarPropiedad(
+                            l.propiedad.id,
+                            l.propiedad.direccion || '',
+                            l.propiedad.ubicacion || '',
+                            l.propiedad.piso || '',
+                            l.propiedad.departamento || ''
+                        );
                     }
 
                     var detalle = 'Pago liquidación #' + l.id + ' - ' + (l.propietario || '');
@@ -1036,7 +1109,13 @@ $(document).ready(function() {
                     
                     if (response.movimiento.propiedad) {
                         var pr = response.movimiento.propiedad;
-                        cargarPropiedad(pr.id, pr.direccion, pr.ubicacion || '');
+                        cargarPropiedad(
+                            pr.id,
+                            pr.direccion,
+                            pr.ubicacion || '',
+                            pr.piso || '',
+                            pr.departamento || ''
+                        );
                     }
                     
                     // Si hay un concepto asociado
