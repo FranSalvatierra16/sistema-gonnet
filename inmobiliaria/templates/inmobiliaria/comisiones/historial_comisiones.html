@@ -157,7 +157,7 @@
                                 <thead>
                                     <tr>
                                         <th>Fecha</th>
-                                        <th>Operación</th>
+                                        <th>Tipo / detalle</th>
                                         <th>Propiedad</th>
                                         <th>Monto Operación</th>
                                         <th>Comisión</th>
@@ -175,7 +175,8 @@
                                             </small>
                                         </td>
                                         <td>
-                                            <strong>{{ comision.concepto_operacion }}</strong>
+                                            <span class="badge bg-primary mb-1">{{ comision.etiqueta_tipo_comision }}</span>
+                                            <br><strong class="small">{{ comision.concepto_operacion }}</strong>
                                             {% if comision.reserva %}
                                                 <br><small class="text-muted">Reserva #{{ comision.reserva.id }}</small>
                                             {% endif %}

@@ -265,7 +265,27 @@ class ComisionVendedor(models.Model):
     
     def __str__(self):
         return f"Comisión {self.id} - {self.vendedor.nombre_completo_vendedor()} - ${self.monto_comision}"
-    
+
+    def etiqueta_tipo_comision(self):
+        """
+        Texto legible para listados (primer/segundo fichaje, alquiler por día, invierno, 24 meses, general).
+        """
+        rol = (self.rol_comision or ROL_COMISION_GENERAL).strip() or ROL_COMISION_GENERAL
+        if rol == ROL_COMISION_FICHAJE:
+            res = getattr(self, 'reserva', None)
+            prop = getattr(res, 'propiedad', None) if res else None
+            tf = (getattr(prop, 'tipo_fichaje', None) or 'primer')
+            if tf == 'segundo':
+                return 'Comisión por segundo fichaje'
+            return 'Comisión por primer fichaje'
+        if rol == ROL_COMISION_OP_DIA:
+            return 'Comisión por alquiler por día'
+        if rol == ROL_COMISION_OP_INVIERNO:
+            return 'Comisión por alquiler invierno'
+        if rol == ROL_COMISION_OP_24:
+            return 'Comisión por alquiler 24 meses'
+        return 'Comisión general'
+
     def save(self, *args, **kwargs):
         # Calcular automáticamente el monto de comisión si no está definido
         if not self.monto_comision and self.monto_total_operacion and self.porcentaje_comision:

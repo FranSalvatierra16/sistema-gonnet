@@ -22,15 +22,16 @@
                     <div class="card-header py-2 small"><strong>Comisiones vendedor</strong></div>
                     <div class="card-body p-0">
                         <table class="table table-sm mb-0 small">
-                            <thead><tr><th>Productor</th><th class="text-end">Importe</th></tr></thead>
+                            <thead><tr><th>Tipo</th><th>Productor</th><th class="text-end">Importe</th></tr></thead>
                             <tbody>
                                 {% for c in comisiones %}
                                 <tr>
+                                    <td class="text-nowrap"><span class="badge bg-secondary small">{{ c.etiqueta_tipo_comision }}</span></td>
                                     <td>{% if c.vendedor %}{{ c.vendedor.apellido }}, {{ c.vendedor.nombre }}{% else %}—{% endif %}</td>
                                     <td class="text-end">${{ c.monto_comision|floatformat:2 }}</td>
                                 </tr>
                                 {% empty %}
-                                <tr><td colspan="2" class="text-muted text-center py-3">Sin comisiones</td></tr>
+                                <tr><td colspan="3" class="text-muted text-center py-3">Sin comisiones</td></tr>
                                 {% endfor %}
                             </tbody>
                         </table>
