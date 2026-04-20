@@ -4290,7 +4290,7 @@ def procesar_movimiento_reserva(request):
             
             # Obtener la reserva (propiedad para tipo_fichaje / comisión)
             reserva = get_object_or_404(
-                Reserva.objects.select_related('propiedad', 'vendedor'),
+                Reserva.objects.select_related('propiedad', 'vendedor', 'vendedor__sucursal'),
                 id=reserva_id,
                 sucursal=request.user.sucursal,
             )
@@ -4586,46 +4586,42 @@ def procesar_movimiento_reserva(request):
             
             total_movimiento_creado = (monto_efectivo or 0) + (monto_cheque or 0) + (monto_tarjeta or 0) + (monto_deposito or 0)
 # print(f"✅ MOVIMIENTO ÚNICO CREADO - ID: {movimiento_principal.id}, Total: ${total_movimiento_creado}")
-            
 
-            # ✅ CALCULAR COMISIÓN DEL VENDEDOR (SOBRE EL TOTAL DE LA RESERVA)
-            pct_comision = (
-                reserva.vendedor.porcentaje_comision_para_reserva(reserva)
-                if reserva.vendedor
-                else None
-            )
-            if reserva.vendedor and pct_comision is not None and pct_comision > 0:
-                from inmobiliaria.models.comision import ComisionVendedor
-                
+            # Honorarios (concepto 25) en este pago — base para comisiones desglosadas
+            honorarios_monto = Decimal('0')
+            for i in range(conceptos_count):
+                cid = (request.POST.get(f'concepto_{i}_id') or '').strip()
+                if cid == '25':
+                    honorarios_monto += conceptos_importes_decimal.get(i, Decimal('0'))
+            if honorarios_monto > 0:
+                movimiento_principal.honorarios = honorarios_monto
+                movimiento_principal.save(update_fields=['honorarios'])
+
+            # ✅ Comisiones: con honorarios → fichaje + línea por tipo (día / invierno / 24); sin honorarios → una línea general
+            if reserva.vendedor:
+                from inmobiliaria.models.comision import (
+                    ComisionVendedor,
+                    registrar_comisiones_honorarios_movimiento_reserva,
+                )
+
                 try:
-                    # La comisión se calcula sobre el precio_total de la reserva, no sobre lo pagado
-                    monto_total_reserva = reserva.precio_total or Decimal('0')
-                    
-                    comision = ComisionVendedor.crear_comision(
-                        vendedor=reserva.vendedor,
-                        reserva=reserva,
-                        movimiento_caja=movimiento_principal,
-                        monto_total=monto_total_reserva,  # ✅ Usar precio total de la reserva
-                        concepto=f"Operación {reserva.id} - {reserva.propiedad.direccion}"
-                    )
-                    
-                    if comision:
-                        pass  # ✅ Bloque vacío
-# print(f"💰 COMISIÓN CALCULADA - Vendedor: {reserva.vendedor.nombre_completo_vendedor()}")
-# print(f"   - Porcentaje: {comision.porcentaje_comision}%")
-# print(f"   - Monto Total Reserva: ${monto_total_reserva}")
-# print(f"   - Monto Pagado Ahora: ${total_movimiento_creado}")
-# print(f"   - Comisión Ganada: ${comision.monto_comision}")
+                    if honorarios_monto > 0:
+                        registrar_comisiones_honorarios_movimiento_reserva(
+                            reserva, movimiento_principal, honorarios_monto
+                        )
                     else:
-                        pass  # ✅ Bloque vacío
-# print(f"⚠️ No se pudo crear comisión para vendedor {reserva.vendedor.nombre_completo_vendedor()}")
-                        
-                except Exception as e:
-                    pass  # ✅ Bloque vacío
-# print(f"❌ ERROR calculando comisión: {str(e)}")
-            else:
-                pass  # ✅ Bloque vacío
-# print(f"ℹ️ Sin comisión - Vendedor: {reserva.vendedor.nombre_completo_vendedor() if reserva.vendedor else 'No asignado'}")
+                        pct_comision = reserva.vendedor.porcentaje_comision_para_reserva(reserva)
+                        if pct_comision is not None and pct_comision > 0:
+                            monto_total_reserva = reserva.precio_total or Decimal('0')
+                            ComisionVendedor.crear_comision(
+                                vendedor=reserva.vendedor,
+                                reserva=reserva,
+                                movimiento_caja=movimiento_principal,
+                                monto_total=monto_total_reserva,
+                                concepto=f"Operación {reserva.id} - {reserva.propiedad.direccion}",
+                            )
+                except Exception:
+                    pass
             
             # Usar el movimiento principal para la respuesta
             movimiento = movimiento_principal
