@@ -98,6 +98,22 @@ class MovimientoCaja(models.Model):
         blank=True,
         help_text="Puede ser 'galicia', 'mp', 'mixto', o 'cuenta_X' para cuentas bancarias dinámicas"
     )
+    # Datos opcionales de medios de pago (nuevo movimiento de caja)
+    tarjeta_numero = models.CharField(
+        max_length=32,
+        blank=True,
+        help_text='Referencia o últimos dígitos; opcional',
+    )
+    tarjeta_cupon = models.CharField(max_length=64, blank=True)
+    tarjeta_tipo = models.CharField(
+        max_length=10,
+        blank=True,
+        choices=[('credito', 'Crédito'), ('debito', 'Débito')],
+        default='',
+    )
+    cheque_numero = models.CharField(max_length=32, blank=True)
+    cheque_banco = models.CharField(max_length=100, blank=True)
+    cheque_fecha_vencimiento = models.DateField(null=True, blank=True)
     a_descontar = models.CharField(
         max_length=20,
         choices=[

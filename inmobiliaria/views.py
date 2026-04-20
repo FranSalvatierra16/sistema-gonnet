@@ -8946,6 +8946,21 @@ def nuevo_movimiento(request, numero_caja=None):
                     'fecha_actual': timezone.now()
                 })
 
+            movimiento.tarjeta_numero = (request.POST.get('tarjeta_numero') or '')[:32]
+            movimiento.tarjeta_cupon = (request.POST.get('tarjeta_cupon') or '')[:64]
+            tt = (request.POST.get('tarjeta_tipo') or '').strip().lower()
+            movimiento.tarjeta_tipo = tt if tt in ('credito', 'debito') else ''
+            movimiento.cheque_numero = (request.POST.get('cheque_numero') or '')[:32]
+            movimiento.cheque_banco = (request.POST.get('cheque_banco') or '')[:100]
+            fv = (request.POST.get('cheque_fecha_vencimiento') or '').strip()
+            if fv:
+                try:
+                    movimiento.cheque_fecha_vencimiento = datetime.strptime(fv, '%Y-%m-%d').date()
+                except ValueError:
+                    movimiento.cheque_fecha_vencimiento = None
+            else:
+                movimiento.cheque_fecha_vencimiento = None
+
             # Guardar el movimiento
             movimiento.save()
 

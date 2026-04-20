@@ -301,6 +301,44 @@
                                 <input type="number" name="dolares" class="form-control" step="0.01" value="0.00">
                         </div>
                             </div>
+                        <div id="bloque_detalle_tarjeta" class="row mb-3 d-none border rounded p-3 bg-light">
+                            <div class="col-12">
+                                <h6 class="text-muted mb-2">Datos de tarjeta <small>(opcional)</small></h6>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Nº / referencia</label>
+                                <input type="text" name="tarjeta_numero" class="form-control" maxlength="32" autocomplete="off" placeholder="Ej. últimos 4 dígitos">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Cupón</label>
+                                <input type="text" name="tarjeta_cupon" class="form-control" maxlength="64" autocomplete="off">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Tipo</label>
+                                <select name="tarjeta_tipo" class="form-select">
+                                    <option value="">—</option>
+                                    <option value="credito">Crédito</option>
+                                    <option value="debito">Débito</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div id="bloque_detalle_cheque" class="row mb-3 d-none border rounded p-3 bg-light">
+                            <div class="col-12">
+                                <h6 class="text-muted mb-2">Datos del cheque <small>(opcional)</small></h6>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Nº de cheque</label>
+                                <input type="text" name="cheque_numero" class="form-control" maxlength="32" autocomplete="off">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Banco</label>
+                                <input type="text" name="cheque_banco" class="form-control" maxlength="100" autocomplete="off">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Vencimiento</label>
+                                <input type="date" name="cheque_fecha_vencimiento" class="form-control">
+                            </div>
+                        </div>
                         <div class="row mb-3">
                             <div class="col-md-12">
                                 <hr>
@@ -708,8 +746,20 @@ $(document).ready(function() {
         $('#total').val(total.toFixed(2));
     }
 
+    function actualizarVisibilidadMediosPago() {
+        var tj = parseFloat(String($('input[name="monto_tarjeta"]').val() || '0').replace(',', '.')) || 0;
+        var ch = parseFloat(String($('input[name="monto_cheque"]').val() || '0').replace(',', '.')) || 0;
+        $('#bloque_detalle_tarjeta').toggleClass('d-none', tj <= 0);
+        $('#bloque_detalle_cheque').toggleClass('d-none', ch <= 0);
+    }
+
     // Actualizar total cuando cambian los montos
-    $('.monto').on('input', calcularTotal);
+    $('.monto').on('input', function() {
+        calcularTotal();
+        actualizarVisibilidadMediosPago();
+    });
+    calcularTotal();
+    actualizarVisibilidadMediosPago();
 
     // Mostrar/ocultar monto adicional (propietario o inquilino)
     $('input[name="a_descontar"]').change(function() {

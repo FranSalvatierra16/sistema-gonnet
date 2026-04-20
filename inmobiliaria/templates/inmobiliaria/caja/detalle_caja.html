@@ -293,7 +293,25 @@
                 <p class="text-muted mb-2"><small><strong>Texto original:</strong> {{ movimiento.concepto }}</small></p>
                 <p><strong>Efectivo:</strong> ${{ movimiento.monto_efectivo|floatformat:2 }}</p>
                 <p><strong>Cheque:</strong> ${{ movimiento.monto_cheque|floatformat:2 }}</p>
+                {% if movimiento.monto_cheque > 0 %}
+                    {% if movimiento.cheque_numero or movimiento.cheque_banco or movimiento.cheque_fecha_vencimiento %}
+                    <p class="ms-3 small text-muted mb-1">
+                        {% if movimiento.cheque_numero %}Nº: {{ movimiento.cheque_numero }}{% endif %}
+                        {% if movimiento.cheque_banco %}{% if movimiento.cheque_numero %} · {% endif %}Banco: {{ movimiento.cheque_banco }}{% endif %}
+                        {% if movimiento.cheque_fecha_vencimiento %}{% if movimiento.cheque_numero or movimiento.cheque_banco %} · {% endif %}Vto.: {{ movimiento.cheque_fecha_vencimiento|date:"d/m/Y" }}{% endif %}
+                    </p>
+                    {% endif %}
+                {% endif %}
                 <p><strong>Tarjeta:</strong> ${{ movimiento.monto_tarjeta|floatformat:2 }}</p>
+                {% if movimiento.monto_tarjeta > 0 %}
+                    {% if movimiento.tarjeta_numero or movimiento.tarjeta_cupon or movimiento.tarjeta_tipo %}
+                    <p class="ms-3 small text-muted mb-1">
+                        {% if movimiento.tarjeta_numero %}Ref.: {{ movimiento.tarjeta_numero }}{% endif %}
+                        {% if movimiento.tarjeta_cupon %}{% if movimiento.tarjeta_numero %} · {% endif %}Cupón: {{ movimiento.tarjeta_cupon }}{% endif %}
+                        {% if movimiento.tarjeta_tipo %}{% if movimiento.tarjeta_numero or movimiento.tarjeta_cupon %} · {% endif %}{{ movimiento.get_tarjeta_tipo_display|default:movimiento.tarjeta_tipo }}{% endif %}
+                    </p>
+                    {% endif %}
+                {% endif %}
                 <p><strong>Transferencia:</strong> ${{ movimiento.monto_deposito|floatformat:2 }}</p>
                 <p><strong>Total:</strong> ${{ movimiento.monto_total|floatformat:2 }}</p>
                 <p><strong>Corresponde a:</strong> {{ movimiento.get_a_descontar_display|default:"—" }}</p>

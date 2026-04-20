@@ -225,6 +225,13 @@
                 <span><strong>📄 Cheque:</strong></span>
                 <span>${{ total_cheque|format_price }}</span>
             </div>
+            {% if movimiento.cheque_numero or movimiento.cheque_banco or movimiento.cheque_fecha_vencimiento %}
+            <div class="small text-muted mb-2" style="padding-left: 8px;">
+                {% if movimiento.cheque_numero %}Nº {{ movimiento.cheque_numero }}{% endif %}
+                {% if movimiento.cheque_banco %}{% if movimiento.cheque_numero %} · {% endif %}{{ movimiento.cheque_banco }}{% endif %}
+                {% if movimiento.cheque_fecha_vencimiento %}{% if movimiento.cheque_numero or movimiento.cheque_banco %} · {% endif %}Vto. {{ movimiento.cheque_fecha_vencimiento|date:"d/m/Y" }}{% endif %}
+            </div>
+            {% endif %}
             {% endif %}
             
             {% if total_tarjeta > 0 %}
@@ -232,6 +239,13 @@
                 <span><strong>💳 Tarjeta:</strong></span>
                 <span>${{ total_tarjeta|format_price }}</span>
             </div>
+            {% if movimiento.tarjeta_numero or movimiento.tarjeta_cupon or movimiento.tarjeta_tipo %}
+            <div class="small text-muted mb-2" style="padding-left: 8px;">
+                {% if movimiento.tarjeta_numero %}{{ movimiento.tarjeta_numero }}{% endif %}
+                {% if movimiento.tarjeta_cupon %}{% if movimiento.tarjeta_numero %} · {% endif %}Cupón {{ movimiento.tarjeta_cupon }}{% endif %}
+                {% if movimiento.tarjeta_tipo %}{% if movimiento.tarjeta_numero or movimiento.tarjeta_cupon %} · {% endif %}{{ movimiento.get_tarjeta_tipo_display }}{% endif %}
+            </div>
+            {% endif %}
             {% endif %}
             
             {% if total_deposito_galicia > 0 %}

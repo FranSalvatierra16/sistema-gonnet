@@ -293,11 +293,11 @@
                 <form id="formConcepto">
                     <!-- Input para ID del concepto -->
                     <div class="mb-3">
-                        <label for="conceptoId" class="form-label"><strong>ID del Concepto:</strong></label>
+                        <label for="conceptoId" class="form-label"><strong>ID o nombre del concepto:</strong></label>
                         <div class="input-group">
-                            <input type="number" class="form-control" id="conceptoId" 
-                                   placeholder="Ingresa el ID del concepto" 
-                                   oninput="buscarConceptoPorId(this.value)" min="1">
+                            <input type="text" class="form-control" id="conceptoId" 
+                                   placeholder="Ej: 10 o parte del nombre (3+ letras)" 
+                                   oninput="buscarConceptoPorId(this.value)" autocomplete="off">
                             <button type="button" class="btn btn-outline-primary" onclick="mostrarModalBuscarConcepto()">
                                 🔍 Buscar
                             </button>
@@ -305,7 +305,7 @@
                                 ➕ Nuevo
                             </button>
                         </div>
-                        <small class="text-muted">Al escribir un ID válido, el concepto se cargará automáticamente</small>
+                        <small class="text-muted">Coincidencia exacta por ID, o por nombre/descripción con al menos 3 caracteres (se toma la primera coincidencia; usá «Buscar» para ver todas).</small>
                     </div>
                     
                     <!-- Información del concepto seleccionado -->
@@ -397,7 +397,7 @@
                         </thead>
                         <tbody id="tablaConceptosBusqueda">
                             {% for concepto in conceptos %}
-                            <tr data-concepto-id="{{ concepto.id }}" data-concepto-nombre="{{ concepto.nombre|lower }}">
+                            <tr data-concepto-id="{{ concepto.id }}" data-concepto-nombre="{{ concepto.nombre|lower }}" data-concepto-desc="{{ concepto.descripcion|default:""|lower }}">
                                 <td><strong>{{ concepto.id }}</strong></td>
                                 <td>{{ concepto.nombre }}</td>
                                 <td><small>{{ concepto.descripcion|default:"Sin descripción" }}</small></td>
@@ -1000,34 +1000,41 @@ function actualizarEtiquetaValorUsar() {
     }
 }
 
-// Función para buscar concepto por ID
-function buscarConceptoPorId(conceptoId) {
+// Buscar concepto por ID exacto o por parte del nombre / descripción (lista del modal)
+function buscarConceptoPorId(raw) {
     const infoDiv = document.getElementById('infoConceptoSeleccionado');
     const nombreSpan = document.getElementById('nombreConceptoSeleccionado');
-    
-    if (!conceptoId || conceptoId.length === 0) {
+    const term = (raw || '').toString().trim();
+    if (!term) {
         infoDiv.style.display = 'none';
         conceptoSeleccionadoActual = null;
         return;
     }
-    
-    // Buscar en la lista de conceptos
-    const conceptos = document.querySelectorAll('#tablaConceptosBusqueda tr[data-concepto-id]');
-    let conceptoEncontrado = null;
-    
-    conceptos.forEach(fila => {
-        if (fila.dataset.conceptoId === conceptoId) {
-            conceptoEncontrado = {
-                id: fila.dataset.conceptoId,
-                nombre: fila.dataset.conceptoNombre
-            };
+    const termLower = term.toLowerCase();
+    const filas = document.querySelectorAll('#tablaConceptosBusqueda tr[data-concepto-id]');
+    let exact = null;
+    const porNombre = [];
+    filas.forEach(function(fila) {
+        const idStr = String(fila.dataset.conceptoId || '').trim();
+        const nombreCell = fila.querySelector('td:nth-child(2)');
+        const nombreMostrar = nombreCell ? nombreCell.textContent.trim() : '';
+        const nombreLower = nombreMostrar.toLowerCase();
+        const descLower = (fila.dataset.conceptoDesc || '').toLowerCase();
+        if (idStr === term || idStr.toLowerCase() === termLower) {
+            exact = { id: idStr, nombre: nombreMostrar };
+        } else if (termLower.length >= 3 && (nombreLower.includes(termLower) || descLower.includes(termLower))) {
+            porNombre.push({ id: idStr, nombre: nombreMostrar });
         }
     });
-    
-    if (conceptoEncontrado) {
-        nombreSpan.textContent = `ID: ${conceptoEncontrado.id} - ${conceptoEncontrado.nombre}`;
+    var elegido = exact;
+    if (!elegido && porNombre.length > 0) {
+        elegido = { id: porNombre[0].id, nombre: porNombre[0].nombre };
+    }
+    if (elegido) {
+        nombreSpan.textContent = 'ID: ' + elegido.id + ' - ' + elegido.nombre;
         infoDiv.style.display = 'block';
-        conceptoSeleccionadoActual = conceptoEncontrado;
+        conceptoSeleccionadoActual = { id: elegido.id, nombre: elegido.nombre };
+        document.getElementById('conceptoId').value = elegido.id;
     } else {
         infoDiv.style.display = 'none';
         conceptoSeleccionadoActual = null;
@@ -1053,13 +1060,12 @@ function cerrarModalBuscar() {
 // Función para filtrar conceptos
 function filtrarConceptos(busqueda) {
     const filas = document.querySelectorAll('#tablaConceptosBusqueda tr[data-concepto-id]');
-    const termino = busqueda.toLowerCase();
-    
-    filas.forEach(fila => {
-        const id = fila.dataset.conceptoId;
-        const nombre = fila.dataset.conceptoNombre.toLowerCase();
-        
-        if (id.includes(termino) || nombre.includes(termino)) {
+    const termino = (busqueda || '').toString().toLowerCase().trim();
+    filas.forEach(function(fila) {
+        const id = String(fila.dataset.conceptoId || '').toLowerCase();
+        const nombre = (fila.dataset.conceptoNombre || '').toLowerCase();
+        const desc = (fila.dataset.conceptoDesc || '').toLowerCase();
+        if (!termino || id.includes(termino) || nombre.includes(termino) || desc.includes(termino)) {
             fila.style.display = '';
         } else {
             fila.style.display = 'none';
@@ -1137,6 +1143,7 @@ function crearNuevoConcepto() {
             const nuevaFila = document.createElement('tr');
             nuevaFila.setAttribute('data-concepto-id', data.concepto.id);
             nuevaFila.setAttribute('data-concepto-nombre', data.concepto.nombre.toLowerCase());
+            nuevaFila.setAttribute('data-concepto-desc', 'concepto creado recientemente');
             nuevaFila.innerHTML = `
                 <td><strong>${data.concepto.id}</strong></td>
                 <td>${data.concepto.nombre}</td>

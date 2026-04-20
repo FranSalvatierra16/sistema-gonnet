@@ -420,6 +420,9 @@ function mostrarModalConcepto() {
 function mostrarModalBuscarConcepto() {
     console.log('🔧 mostrarModalBuscarConcepto llamada');
     const modalElement = document.getElementById('modalBuscarConcepto');
+    const buscarInput = document.getElementById('buscarConceptoTexto');
+    if (buscarInput) buscarInput.value = '';
+    filtrarConceptos('');
     if (modalElement) {
         const modal = new bootstrap.Modal(modalElement);
         modal.show();
@@ -439,29 +442,43 @@ function mostrarModalNuevoConcepto() {
     }
 }
 
-function buscarConceptoPorId(id) {
-    console.log('🔧 buscarConceptoPorId llamada con ID:', id);
-    if (!id || id.trim() === '') {
-        // Limpiar selección si no hay ID
-        const infoDiv = document.getElementById('infoConceptoSeleccionado');
-        if (infoDiv) {
-            infoDiv.style.display = 'none';
-        }
+function buscarConceptoPorId(raw) {
+    const infoDiv = document.getElementById('infoConceptoSeleccionado');
+    const nombreSpan = document.getElementById('nombreConceptoSeleccionado');
+    const term = (raw || '').toString().trim();
+    if (!term) {
+        if (infoDiv) infoDiv.style.display = 'none';
         conceptoSeleccionadoActual = null;
         return;
     }
-    
-    // Buscar en la tabla de conceptos disponibles
-    const filaConcepto = document.querySelector(`tr[data-concepto-id="${id}"]`);
-    if (filaConcepto) {
-        const nombre = filaConcepto.querySelector('td:nth-child(2)').textContent;
-        seleccionarConcepto(id, nombre);
-    } else {
-        // Si no se encuentra, limpiar selección
-        const infoDiv = document.getElementById('infoConceptoSeleccionado');
-        if (infoDiv) {
-            infoDiv.style.display = 'none';
+    const termLower = term.toLowerCase();
+    const filas = document.querySelectorAll('#tablaConceptosBusqueda tr[data-concepto-id]');
+    let exact = null;
+    const porNombre = [];
+    filas.forEach(function(fila) {
+        const idStr = String(fila.dataset.conceptoId || '').trim();
+        const nombreCell = fila.querySelector('td:nth-child(2)');
+        const nombreMostrar = nombreCell ? nombreCell.textContent.trim() : '';
+        const nombreLower = nombreMostrar.toLowerCase();
+        const descLower = (fila.dataset.conceptoDesc || '').toLowerCase();
+        if (idStr === term || idStr.toLowerCase() === termLower) {
+            exact = { id: idStr, nombre: nombreMostrar };
+        } else if (termLower.length >= 3 && (nombreLower.includes(termLower) || descLower.includes(termLower))) {
+            porNombre.push({ id: idStr, nombre: nombreMostrar });
         }
+    });
+    let elegido = exact;
+    if (!elegido && porNombre.length > 0) {
+        elegido = { id: porNombre[0].id, nombre: porNombre[0].nombre };
+    }
+    if (elegido) {
+        if (nombreSpan) nombreSpan.textContent = 'ID: ' + elegido.id + ' - ' + elegido.nombre;
+        if (infoDiv) infoDiv.style.display = 'block';
+        conceptoSeleccionadoActual = { id: elegido.id, nombre: elegido.nombre };
+        const inp = document.getElementById('conceptoId');
+        if (inp) inp.value = elegido.id;
+    } else {
+        if (infoDiv) infoDiv.style.display = 'none';
         conceptoSeleccionadoActual = null;
     }
 }
@@ -711,14 +728,13 @@ function resetearModalConcepto() {
 
 // Función para filtrar conceptos en el modal de búsqueda
 function filtrarConceptos(texto) {
-    const filas = document.querySelectorAll('#tablaConceptosBusqueda tr');
-    const textoBusqueda = texto.toLowerCase();
-    
-    filas.forEach(fila => {
-        const id = fila.dataset.conceptoId || '';
-        const nombre = fila.dataset.conceptoNombre || '';
-        
-        if (id.includes(textoBusqueda) || nombre.includes(textoBusqueda)) {
+    const filas = document.querySelectorAll('#tablaConceptosBusqueda tr[data-concepto-id]');
+    const termino = (texto || '').toString().toLowerCase().trim();
+    filas.forEach(function(fila) {
+        const id = String(fila.dataset.conceptoId || '').toLowerCase();
+        const nombre = (fila.dataset.conceptoNombre || '').toLowerCase();
+        const desc = (fila.dataset.conceptoDesc || '').toLowerCase();
+        if (!termino || id.includes(termino) || nombre.includes(termino) || desc.includes(termino)) {
             fila.style.display = '';
         } else {
             fila.style.display = 'none';
@@ -788,6 +804,7 @@ function crearNuevoConcepto() {
                 const nuevaFila = document.createElement('tr');
                 nuevaFila.setAttribute('data-concepto-id', data.concepto.id);
                 nuevaFila.setAttribute('data-concepto-nombre', data.concepto.nombre.toLowerCase());
+                nuevaFila.setAttribute('data-concepto-desc', 'concepto creado recientemente');
                 nuevaFila.innerHTML = `
                     <td><strong>${data.concepto.id}</strong></td>
                     <td>${data.concepto.nombre}</td>
@@ -1474,11 +1491,11 @@ if (importeLocacionInput) {
                 <form id="formConcepto">
                     <!-- Input para ID del concepto -->
                     <div class="mb-3">
-                        <label for="conceptoId" class="form-label"><strong>ID del Concepto:</strong></label>
+                        <label for="conceptoId" class="form-label"><strong>ID o nombre del concepto:</strong></label>
                         <div class="input-group">
-                            <input type="number" class="form-control" id="conceptoId" 
-                                   placeholder="Ingresa el ID del concepto" 
-                                   oninput="buscarConceptoPorId(this.value)" min="1">
+                            <input type="text" class="form-control" id="conceptoId" 
+                                   placeholder="Ej: 10 o parte del nombre (3+ letras)" 
+                                   oninput="buscarConceptoPorId(this.value)" autocomplete="off">
                             <button type="button" class="btn btn-outline-primary" onclick="mostrarModalBuscarConcepto()">
                                 🔍 Buscar
                             </button>
@@ -1486,7 +1503,7 @@ if (importeLocacionInput) {
                                 ➕ Nuevo
                             </button>
                         </div>
-                        <small class="text-muted">Al escribir un ID válido, el concepto se cargará automáticamente</small>
+                        <small class="text-muted">Coincidencia exacta por ID, o por nombre/descripción con al menos 3 caracteres (se toma la primera coincidencia; usá «Buscar» para ver todas).</small>
                     </div>
                     
                     <!-- Información del concepto seleccionado -->
@@ -1582,7 +1599,7 @@ if (importeLocacionInput) {
                         </thead>
                         <tbody id="tablaConceptosBusqueda">
                             {% for concepto in conceptos_caja %}
-                            <tr data-concepto-id="{{ concepto.id }}" data-concepto-nombre="{{ concepto.nombre|lower }}">
+                            <tr data-concepto-id="{{ concepto.id }}" data-concepto-nombre="{{ concepto.nombre|lower }}" data-concepto-desc="{{ concepto.descripcion|default:""|lower }}">
                                 <td><strong>{{ concepto.id }}</strong></td>
                                 <td>{{ concepto.nombre }}</td>
                                 <td><small>{{ concepto.descripcion|default:"Sin descripción" }}</small></td>
