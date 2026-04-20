@@ -45,18 +45,40 @@
 
     <!-- Tabla de Conceptos -->
     <div class="card">
-        <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2 py-3">
-            <h5 class="mb-0"><i class="fas fa-list"></i> Consulta de conceptos</h5>
-            <div class="btn-group" role="group" aria-label="Orden de la lista">
-                <a href="{% url 'inmobiliaria:gestionar_conceptos' %}?orden=detalle"
-                   class="btn btn-sm {% if orden == 'detalle' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
-                    Por detalle
-                </a>
-                <a href="{% url 'inmobiliaria:gestionar_conceptos' %}?orden=numero"
-                   class="btn btn-sm {% if orden == 'numero' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
-                    Por número
-                </a>
+        <div class="card-header py-3">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                <h5 class="mb-0"><i class="fas fa-list"></i> Consulta de conceptos</h5>
+                <div class="btn-group" role="group" aria-label="Orden de la lista">
+                    <a href="{% url 'inmobiliaria:gestionar_conceptos' %}?orden=detalle"
+                       class="btn btn-sm {% if orden == 'detalle' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+                        Por detalle
+                    </a>
+                    <a href="{% url 'inmobiliaria:gestionar_conceptos' %}?orden=numero"
+                       class="btn btn-sm {% if orden == 'numero' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+                        Por número
+                    </a>
+                </div>
             </div>
+            {% if conceptos %}
+            <div class="row g-2 align-items-center">
+                <div class="col-12 col-md-8 col-lg-6">
+                    <label for="buscarConceptoNombre" class="visually-hidden">Buscar concepto</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                        <input type="search" class="form-control" id="buscarConceptoNombre"
+                               placeholder="Buscar por nombre (detalle) o por número de concepto…"
+                               autocomplete="off" aria-describedby="buscarConceptoAyuda">
+                        <button type="button" class="btn btn-outline-secondary" id="btnLimpiarBusquedaConceptos" title="Limpiar búsqueda">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <small id="buscarConceptoAyuda" class="text-muted">Filtra la tabla al escribir; no hace falta acento exacto si coincide el texto.</small>
+                </div>
+                <div class="col-12 col-md-4 col-lg-6 text-md-end">
+                    <span class="small text-muted" id="conceptosFiltroContador" aria-live="polite"></span>
+                </div>
+            </div>
+            {% endif %}
         </div>
         <div class="card-body p-0">
             {% if conceptos %}
@@ -73,7 +95,8 @@
                         </thead>
                         <tbody>
                             {% for concepto in conceptos %}
-                            <tr class="concepto-fila" data-concepto-id="{{ concepto.id }}">
+                            <tr class="concepto-fila" data-concepto-id="{{ concepto.id }}"
+                                data-texto-busqueda="{{ concepto.id }} {{ concepto.nombre }}">
                                 <td>
                                     {% if concepto.id|length > 0 %}
                                         {% if concepto.id|slugify %}
@@ -249,6 +272,43 @@
 <!-- JavaScript -->
 <script>
 $(document).ready(function() {
+    var totalFilasConceptos = $('.concepto-fila').length;
+
+    function normalizarBusquedaConcepto(s) {
+        var t = (s || '').toString().toLowerCase();
+        try {
+            return t.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        } catch (e) {
+            return t;
+        }
+    }
+
+    function aplicarFiltroBusquedaConceptos() {
+        var raw = $('#buscarConceptoNombre').val() || '';
+        var term = normalizarBusquedaConcepto(raw.trim());
+        var n = 0;
+        $('.concepto-fila').each(function() {
+            var row = $(this);
+            var blob = normalizarBusquedaConcepto(row.attr('data-texto-busqueda') || '');
+            var ok = !term || blob.indexOf(term) !== -1;
+            row.toggle(ok);
+            if (ok) n++;
+        });
+        var $cnt = $('#conceptosFiltroContador');
+        if (!term) {
+            $cnt.text('');
+        } else {
+            $cnt.text(n === 0 ? 'Sin coincidencias' : (n + ' de ' + totalFilasConceptos + ' conceptos'));
+        }
+    }
+
+    $('#buscarConceptoNombre').on('input', aplicarFiltroBusquedaConceptos);
+    $('#btnLimpiarBusquedaConceptos').on('click', function() {
+        $('#buscarConceptoNombre').val('');
+        aplicarFiltroBusquedaConceptos();
+        $('#buscarConceptoNombre').focus();
+    });
+
     // Abrir modal crear (Bootstrap 5 explícito por si falla el data-api)
     function abrirModalCrearConcepto() {
         var el = document.getElementById('crearConceptoModal');
