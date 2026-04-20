@@ -9872,6 +9872,7 @@ def buscar_liquidacion_caja(request):
                 'departamento': (liquidacion.propiedad.departamento or '').strip() if liquidacion.propiedad else '',
             },
             'propietario': str(liquidacion.propietario) if liquidacion.propietario else '',
+            'cuenta_bancaria': (liquidacion.propietario.cuenta_bancaria or '').strip() if liquidacion.propietario else '',
             'fecha_desde': liquidacion.fecha_desde.strftime('%Y-%m-%d') if liquidacion.fecha_desde else '',
             'fecha_hasta': liquidacion.fecha_hasta.strftime('%Y-%m-%d') if liquidacion.fecha_hasta else '',
             'monto_a_pagar': float(liquidacion.monto_a_pagar or 0),

@@ -1118,6 +1118,7 @@ $(document).ready(function() {
 
                     var detalle = 'Pago liquidación #' + l.id + ' - ' + (l.propietario || '');
                     if (l.estado) detalle += ' (' + l.estado + ')';
+                    if (l.cuenta_bancaria) detalle += '\nCuenta propietario: ' + l.cuenta_bancaria;
                     $('textarea[name="detalles"]').val(detalle);
 
                     // Cargar importes sugeridos (todo a efectivo por defecto)

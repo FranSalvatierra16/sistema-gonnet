@@ -86,6 +86,7 @@
                                 <tr>
                                     <th>ID</th>
                                     <th>Propietario</th>
+                                    <th>Cuenta prop.</th>
                                     <th>Propiedad</th>
                                     <th>Monto Total</th>
                                     <th>Monto Propietario</th>
@@ -104,6 +105,13 @@
                                 <tr>
                                     <td>{{ liquidacion.id }}</td>
                                     <td>{{ liquidacion.propietario.apellido }}, {{ liquidacion.propietario.nombre }}</td>
+                                    <td>
+                                        {% if liquidacion.propietario.cuenta_bancaria %}
+                                        <small class="font-monospace" title="{{ liquidacion.propietario.cuenta_bancaria }}">{{ liquidacion.propietario.cuenta_bancaria|truncatechars:24 }}</small>
+                                        {% else %}
+                                        <span class="text-muted">—</span>
+                                        {% endif %}
+                                    </td>
                                     <td>
                                         <strong>{{ liquidacion.propiedad.direccion }}</strong>
                                         {% if liquidacion.propiedad.piso or liquidacion.propiedad.departamento %}
