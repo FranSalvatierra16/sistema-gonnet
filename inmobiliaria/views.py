@@ -9729,10 +9729,11 @@ def reportes_caja(request):
         .values_list('destino_deposito', flat=True)
     )
 
+    # Etiquetas distintas a las cuentas bancarias (ej. "Banco Galicia") para no duplicar el nombre en el select.
     fijos_etiqueta = {
-        'galicia': 'Galicia',
-        'mp': 'Mercado Pago',
-        'mixto': 'Mixto',
+        'galicia': 'Galicia (registros antiguos)',
+        'mp': 'Mercado Pago (registros antiguos)',
+        'mixto': 'Mixto (registros antiguos)',
     }
     opciones_destino = []
     for clave in ('galicia', 'mp', 'mixto'):
@@ -9807,11 +9808,11 @@ def reportes_caja(request):
         if not val:
             return '—'
         if val == 'galicia':
-            return 'Galicia'
+            return fijos_etiqueta['galicia']
         if val == 'mp':
-            return 'Mercado Pago'
+            return fijos_etiqueta['mp']
         if val == 'mixto':
-            return 'Mixto'
+            return fijos_etiqueta['mixto']
         if val.startswith('cuenta_'):
             rest = val.replace('cuenta_', '', 1)
             if rest.isdigit():
