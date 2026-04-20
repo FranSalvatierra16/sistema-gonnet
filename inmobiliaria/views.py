@@ -8658,48 +8658,6 @@ def gestionar_caja(request):
         return redirect('inmobiliaria:dashboard')
 
 
-
-@login_required
-def nuevo_movimiento(request, numero_caja=None):
-    try:
-        # Si no se proporciona número de caja, buscar la caja abierta
-        if numero_caja is None:
-            caja = Caja.objects.filter(
-                sucursal=request.user.sucursal,
-                estado='abierta',
-            ).order_by('-fecha_apertura').first()
-            if not caja:
-                messages.error(request, "No hay una caja abierta")
-                return redirect('inmobiliaria:lista_cajas')
-            numero_caja = caja.numero
-        else:
-            caja = get_object_or_404(Caja, numero=numero_caja, sucursal=request.user.sucursal)
-            if caja.estado != 'abierta':
-                messages.error(request, "La caja está cerrada")
-                return redirect('inmobiliaria:lista_cajas')
-
-        if request.method == 'POST':
-            form = MovimientoCajaForm(request.POST)
-            if form.is_valid():
-                movimiento = form.save(commit=False)
-                movimiento.caja = caja
-                movimiento.empleado = request.user
-                movimiento.sucursal = request.user.sucursal
-                movimiento.save()
-                messages.success(request, 'Movimiento registrado correctamente')
-                return redirect('inmobiliaria:detalle_caja', numero=caja.numero)
-        else:
-            form = MovimientoCajaForm()
-
-        context = {
-            'form': form,
-            'caja': caja
-        }
-        return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', context)
-    except Exception as e:
-        messages.error(request, f'Error al procesar el movimiento: {str(e)}')
-        return redirect('inmobiliaria:lista_cajas')
-
 @login_required
 def eliminar_movimiento(request, movimiento_id):
     movimiento = get_object_or_404(MovimientoCaja, id=movimiento_id, sucursal=request.user.sucursal)
@@ -9691,30 +9649,17 @@ def historial_caja(request):
 
 @login_required
 def buscar_conceptos(request):
-    termino = request.POST.get('termino', '').strip()
+    termino = (request.POST.get('termino') or '').strip()
     sucursal = request.user.sucursal
-    
+    base_qs = Concepto.objects.filter(Q(sucursal=sucursal) | Q(sucursal__isnull=True))
+
     if not termino:
-        return JsonResponse({
-            'conceptos': []
-        })
-    
-    # Buscar por ID exacto (el ID es CharField, no IntegerField)
-    # Incluir conceptos de la sucursal Y conceptos sin sucursal (None)
-    conceptos_por_id = Concepto.objects.filter(
-        Q(sucursal=sucursal) | Q(sucursal__isnull=True),
-        id__iexact=termino
-    )
-    
-    # Buscar por nombre con icontains
-    conceptos_por_nombre = Concepto.objects.filter(
-        Q(sucursal=sucursal) | Q(sucursal__isnull=True),
-        nombre__icontains=termino
-    )
-    
-    # Combinar ambos resultados y eliminar duplicados
-    conceptos = (conceptos_por_id | conceptos_por_nombre).distinct().order_by('id')[:20]
-    
+        conceptos = base_qs.order_by('nombre', 'id')[:100]
+    else:
+        conceptos_por_id = base_qs.filter(id__iexact=termino)
+        conceptos_por_nombre = base_qs.filter(nombre__icontains=termino)
+        conceptos = (conceptos_por_id | conceptos_por_nombre).distinct().order_by('nombre', 'id')[:50]
+
     return JsonResponse({
         'conceptos': [{
             'id': c.id,
@@ -9758,7 +9703,6 @@ def crear_concepto(request):
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
 
-@login_required
 @login_required
 def buscar_propiedad(request):
     if request.method != 'POST':
@@ -9999,8 +9943,7 @@ def buscar_vendedor(request):
                 sucursal=sucursal
             ).filter(
                 Q(nombre__icontains=termino) |
-                Q(apellido__icontains=termino) |
-                Q(nombre__icontains=termino.split()[0]) if termino.split() else Q()
+                Q(apellido__icontains=termino)
             ).order_by('apellido', 'nombre')[:1]
             
             if vendedores.exists():
@@ -10028,22 +9971,30 @@ def buscar_vendedor(request):
 def buscar_vendedores(request):
     # Aceptar tanto GET como POST para mayor flexibilidad
     if request.method == 'GET':
-        termino = request.GET.get('nombre', '')
+        termino = (request.GET.get('nombre') or '').strip()
     elif request.method == 'POST':
-        termino = request.POST.get('termino', '')
+        termino = (request.POST.get('termino') or '').strip()
     else:
         return JsonResponse({'success': False, 'error': 'Método no permitido'})
     
     sucursal = request.user.sucursal
     
+    if not termino:
+        return JsonResponse({'success': True, 'vendedores': []})
+    
     try:
-        vendedores = Vendedor.objects.filter(
-            sucursal=sucursal
-        ).filter(
+        q_text = (
             Q(nombre__icontains=termino) |
-            Q(apellido__icontains=termino) |
-            Q(id__icontains=termino)
-        ).order_by('apellido', 'nombre')[:10]
+            Q(apellido__icontains=termino)
+        )
+        try:
+            vid = int(termino)
+            q_text = q_text | Q(id=vid)
+        except (ValueError, TypeError):
+            pass
+        vendedores = Vendedor.objects.filter(sucursal=sucursal).filter(q_text).order_by(
+            'apellido', 'nombre'
+        )[:30]
         
         return JsonResponse({
             'success': True,
@@ -10089,23 +10040,32 @@ def buscar_propiedades_caja(request):
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Método no permitido'})
     
-    termino = request.POST.get('termino', '')
+    termino = (request.POST.get('termino') or '').strip()
     sucursal = request.user.sucursal
     
+    if not termino:
+        return JsonResponse({'success': True, 'propiedades': []})
+    
     try:
-        propiedades = Propiedad.objects.filter(
-            sucursal=sucursal
-        ).filter(
-            Q(id__icontains=termino) |
-            Q(direccion__icontains=termino)
-        ).order_by('direccion')[:10]
+        q = (
+            Q(direccion__icontains=termino) |
+            Q(ubicacion__icontains=termino)
+        )
+        try:
+            pid = int(termino)
+            q = q | Q(id=pid)
+        except (ValueError, TypeError):
+            pass
+        propiedades = Propiedad.objects.filter(sucursal=sucursal).filter(q).order_by(
+            'direccion'
+        )[:40]
         
         return JsonResponse({
             'success': True,
             'propiedades': [{
                 'id': p.id,
                 'direccion': p.direccion,
-                'ubicacion': p.ubicacion
+                'ubicacion': p.ubicacion or ''
             } for p in propiedades]
         })
     except Exception as e:

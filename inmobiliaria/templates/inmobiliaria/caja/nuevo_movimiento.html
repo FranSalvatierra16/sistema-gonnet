@@ -52,6 +52,35 @@
 .input-group-text {
     background-color: #e9ecef;
     }
+/* Autocompletado caja (concepto / propiedad / productor) */
+.caja-ac-wrap { position: relative; }
+.caja-ac-dropdown {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    z-index: 1050;
+    max-height: 300px;
+    overflow-y: auto;
+    margin-top: 2px;
+    border: 1px solid #ced4da;
+    border-radius: 0.375rem;
+    background: #fff;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.12);
+    display: none;
+}
+.caja-ac-dropdown.show { display: block; }
+.caja-ac-dropdown .list-group-item {
+    cursor: pointer;
+    padding: 0.45rem 0.75rem;
+    font-size: 0.9rem;
+    border-left: 0;
+    border-right: 0;
+}
+.caja-ac-dropdown .list-group-item:first-child { border-top: 0; }
+.caja-ac-dropdown .list-group-item:hover,
+.caja-ac-dropdown .list-group-item.active { background: #e7f1ff; }
+.caja-ac-meta { font-size: 0.75rem; color: #6c757d; }
 </style>
 {% endblock %}
 
@@ -121,21 +150,28 @@
                                     
                 <!-- Productor -->
                 <div class="row mb-3">
-                    <div class="col-md-2">
+                    <div class="col-md-5">
                         <label class="form-label">Productor</label>
-                                        <div class="input-group">
-                            <input type="text" id="buscar_productor_id" class="form-control" placeholder="ID, nombre o apellido">
-                            <button type="button" class="btn btn-primary" id="btn_buscar_productor">
-                                <i class="fas fa-search"></i>
-                            </button>
-                                            </div>
-                                        </div>
+                        <div class="caja-ac-wrap">
+                            <div class="input-group">
+                                <input type="text" id="buscar_productor_id" class="form-control" placeholder="ID, nombre o apellido — se busca al escribir" autocomplete="off">
+                                <button type="button" class="btn btn-primary" id="btn_buscar_productor" title="Buscar ahora">
+                                    <i class="fas fa-search"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" id="btn_modal_productor" title="Abrir listado en ventana grande">
+                                    <i class="fas fa-list"></i>
+                                </button>
+                            </div>
+                            <div id="dropdown_productores" class="caja-ac-dropdown list-group" role="listbox" aria-label="Productores"></div>
+                        </div>
+                        <small class="text-muted">Escribí unas letras o el número de legajo; clic en una fila para elegir.</small>
+                    </div>
                     <div class="col-md-4">
                         <label class="form-label">Nombre del Productor</label>
                         <input type="text" id="productor_nombre" class="form-control" readonly>
                         <input type="hidden" name="productor_id" id="productor_id_hidden">
-                                            </div>
-                                        </div>
+                    </div>
+                </div>
                                         
                 <!-- Concepto -->
                 <div class="row mb-3">
@@ -145,42 +181,23 @@
                                 <h5 class="mb-0">Concepto</h5>
                             </div>
                             <div class="card-body">
-                                <!-- Búsqueda de Concepto -->
+                                <!-- Búsqueda de Concepto (autocompletado) -->
                                 <div class="row mb-3">
                                     <div class="col-md-6">
-                                        <label class="form-label">Buscar Concepto</label>
-                                            <div class="input-group">
-                                            <input type="text" id="buscar_concepto" class="form-control" placeholder="Buscar por ID o nombre...">
-                                            <button type="button" class="btn btn-primary" id="btn_buscar_concepto">
-                                                <i class="fas fa-search"></i> Buscar
-                                                    </button>
-                                                </div>
-                                            </div>
+                                        <label class="form-label">Concepto</label>
+                                        <div class="caja-ac-wrap">
+                                            <input type="text" id="buscar_concepto" class="form-control" placeholder="Escribí número de concepto o parte del nombre…" autocomplete="off">
+                                            <div id="dropdown_conceptos" class="caja-ac-dropdown list-group" role="listbox" aria-label="Conceptos"></div>
+                                        </div>
+                                        <small class="text-muted">Lista al vuelo; vacío al hacer foco muestra los primeros conceptos. Enter elige el primero.</small>
+                                    </div>
                                     <div class="col-md-6">
-                                        <label class="form-label">&nbsp;</label>
-                                        <button type="button" class="btn btn-success btn-block" data-bs-toggle="modal" data-bs-target="#modalNuevoConcepto">
+                                        <label class="form-label d-block">&nbsp;</label>
+                                        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalNuevoConcepto">
                                             <i class="fas fa-plus"></i> Crear Nuevo Concepto
                                         </button>
-                                        </div>
                                     </div>
-                                    
-                                <!-- Resultados de búsqueda -->
-                                <div id="resultados_conceptos" class="d-none">
-                                    <h6>Resultados de la búsqueda:</h6>
-                                    <div class="table-responsive">
-                                        <table class="table table-sm table-bordered">
-                                            <thead>
-                                                <tr>
-                                                    <th>ID</th>
-                                                    <th>Nombre</th>
-                                                    <th>Acción</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody id="conceptos_lista">
-                                            </tbody>
-                                        </table>
-                                            </div>
-                                        </div>
+                                </div>
 
                                 <!-- Concepto seleccionado -->
                                 <div id="concepto_seleccionado" class="d-none">
@@ -206,28 +223,25 @@
                                 <h5 class="mb-0">Propiedad</h5>
                                             </div>
                                             <div class="card-body">
-                                                <div class="row">
-                                    <div class="col-md-3">
-                                        <label class="form-label">ID Propiedad</label>
-                                                            <div class="input-group">
-                                            <input type="text" id="propiedad_id" name="propiedad_id" class="form-control" placeholder="ID o dirección">
-                                            <div class="input-group-append">
-                                                <button type="button" class="btn btn-primary" id="buscar_propiedad_id">
-                                                    <i class="fas fa-search"></i>
-                                                </button>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                    <div class="col-md-7">
+                                                <div class="row align-items-end">
+                                    <div class="col-md-5">
+                                        <label class="form-label">Propiedad</label>
+                                        <div class="caja-ac-wrap">
+                                            <input type="hidden" name="propiedad_id" id="propiedad_id" value="">
+                                            <input type="text" id="propiedad_buscar" class="form-control" placeholder="Nº, dirección o parte de la calle…" autocomplete="off">
+                                            <div id="dropdown_propiedades_main" class="caja-ac-dropdown list-group" role="listbox" aria-label="Propiedades"></div>
+                                        </div>
+                                        <small class="text-muted">Búsqueda al escribir; tabla completa en «Listado».</small>
+                                    </div>
+                                    <div class="col-md-5">
                                         <label class="form-label">Dirección</label>
                                         <input type="text" id="propiedad_direccion" class="form-control" readonly>
                                     </div>
                                     <div class="col-md-2">
-                                        <label class="form-label">&nbsp;</label>
-                                        <button type="button" class="btn btn-success btn-block" data-bs-toggle="modal" data-bs-target="#modalBuscarPropiedad">
-                                            <i class="fas fa-search"></i> Buscar Propiedad
+                                        <button type="button" class="btn btn-outline-secondary w-100" data-bs-toggle="modal" data-bs-target="#modalBuscarPropiedad">
+                                            <i class="fas fa-list"></i> Listado
                                         </button>
-                                                    </div>
+                                    </div>
                                                 </div>
                                                 
                                 <!-- Propiedad seleccionada -->
@@ -498,54 +512,101 @@ $(document).ready(function() {
         $('#nuevo_concepto_nombre').val('');
     });
 
-    // Búsqueda de conceptos
-    $('#btn_buscar_concepto').click(function() {
-        var busqueda = $('#buscar_concepto').val();
-        if (!busqueda) {
-            alert('Ingrese un ID o nombre para buscar');
-            return;
+    function csrfToken() {
+        return $('input[name="csrfmiddlewaretoken"]').val();
+    }
+    function escapeHtml(s) {
+        if (s == null || s === undefined) return '';
+        return $('<div>').text(s).html();
+    }
+    function debounce(fn, ms) {
+        var t;
+        return function() {
+            var self = this, args = arguments;
+            clearTimeout(t);
+            t = setTimeout(function() { fn.apply(self, args); }, ms);
+        };
+    }
+    function showBsModal(id) {
+        var el = document.getElementById(id);
+        if (el && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+            bootstrap.Modal.getOrCreateInstance(el).show();
+        } else {
+            $('#' + id).modal('show');
         }
-        
+    }
+    function hideBsModal(id) {
+        var el = document.getElementById(id);
+        if (el && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+            var m = bootstrap.Modal.getInstance(el);
+            if (m) m.hide();
+        } else {
+            $('#' + id).modal('hide');
+        }
+    }
+
+    function hideAllCajaDropdowns() {
+        $('#dropdown_conceptos, #dropdown_propiedades_main, #dropdown_productores').removeClass('show').empty();
+    }
+    $(document).on('click', function(e) {
+        if (!$(e.target).closest('.caja-ac-wrap').length) {
+            hideAllCajaDropdowns();
+        }
+    });
+
+    // --- Conceptos (autocompletado) ---
+    function renderConceptoDropdown(list) {
+        var $dd = $('#dropdown_conceptos');
+        $dd.empty();
+        if (!list || !list.length) {
+            $dd.append('<div class="list-group-item text-muted py-2">Sin resultados</div>');
+        } else {
+            list.forEach(function(c) {
+                var $b = $('<button type="button" class="list-group-item list-group-item-action py-2"></button>');
+                $b.attr('data-id', c.id).attr('data-nombre', c.nombre);
+                $b.html('<span class="fw-semibold">' + escapeHtml(String(c.id)) + '</span> <span class="caja-ac-meta">—</span> ' + escapeHtml(c.nombre));
+                $dd.append($b);
+            });
+        }
+        $dd.addClass('show');
+    }
+
+    function fetchConceptos(termino) {
         $.ajax({
             url: '{% url "inmobiliaria:buscar_conceptos" %}',
-            data: { 
-                termino: busqueda,
-                csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
-            },
+            data: { termino: termino || '', csrfmiddlewaretoken: csrfToken() },
             method: 'POST',
             success: function(response) {
-                if (response.conceptos && response.conceptos.length > 0) {
-                    var html = '';
-                    response.conceptos.forEach(function(concepto) {
-                        html += '<tr>' +
-                            '<td>' + concepto.id + '</td>' +
-                            '<td>' + concepto.nombre + '</td>' +
-                            '<td><button type="button" class="btn btn-sm btn-primary seleccionar-concepto" ' +
-                            'data-id="' + concepto.id + '" data-nombre="' + concepto.nombre + '">' +
-                            '<i class="fas fa-check"></i> Seleccionar</button></td></tr>';
-                    });
-                    $('#conceptos_lista').html(html);
-                    $('#resultados_conceptos').removeClass('d-none');
-                } else {
-                    $('#conceptos_lista').html('<tr><td colspan="3" class="text-center">No se encontraron conceptos</td></tr>');
-                    $('#resultados_conceptos').removeClass('d-none');
-                }
+                renderConceptoDropdown(response.conceptos || []);
             },
             error: function() {
-                alert('Error al buscar conceptos');
+                renderConceptoDropdown([]);
             }
         });
+    }
+    var debouncedConceptos = debounce(function() {
+        fetchConceptos($('#buscar_concepto').val().trim());
+    }, 260);
+
+    $('#buscar_concepto').on('focus', function() {
+        fetchConceptos($(this).val().trim());
     });
-    
-    // Seleccionar concepto
-    $(document).on('click', '.seleccionar-concepto', function() {
+    $('#buscar_concepto').on('input', debouncedConceptos);
+    $('#buscar_concepto').on('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            var $first = $('#dropdown_conceptos .list-group-item-action').first();
+            if ($first.length) $first.trigger('click');
+        }
+    });
+
+    $(document).on('click', '#dropdown_conceptos .list-group-item-action', function() {
         var id = $(this).data('id');
         var nombre = $(this).data('nombre');
-        
         $('#concepto_id').val(id);
         $('#concepto_seleccionado_texto').text(id + ' - ' + nombre);
         $('#concepto_seleccionado').removeClass('d-none');
-        $('#resultados_conceptos').addClass('d-none');
+        $('#dropdown_conceptos').removeClass('show').empty();
         $('#buscar_concepto').val('');
     });
 
@@ -632,90 +693,115 @@ $(document).ready(function() {
         }
     });
 
-    // Función para cargar los datos de una propiedad
     function cargarPropiedad(id, direccion, ubicacion) {
         $('#propiedad_id').val(id);
+        $('#propiedad_buscar').val(id + ' — ' + direccion);
         $('#propiedad_direccion').val(direccion);
         $('#propiedad_seleccionada_texto').text(id + ' - ' + direccion);
         $('#propiedad_seleccionada').removeClass('d-none');
-        var modalBuscarPropiedad = bootstrap.Modal.getInstance(document.getElementById('modalBuscarPropiedad'));
-        if (modalBuscarPropiedad) {
-            modalBuscarPropiedad.hide();
-        }
+        $('#dropdown_propiedades_main').removeClass('show').empty();
+        hideBsModal('modalBuscarPropiedad');
     }
 
-    // Buscar propiedad por ID o dirección
-    $('#buscar_propiedad_id').click(function() {
-        var termino = $('#propiedad_id').val();
-        if (!termino) {
-            alert('Ingrese un ID o dirección de propiedad');
+    function renderPropiedadRows($tbody, list) {
+        $tbody.empty();
+        if (!list || !list.length) {
+            $tbody.append('<tr><td colspan="4" class="text-center text-muted">Sin resultados</td></tr>');
             return;
         }
-
-        $.ajax({
-            url: '{% url "inmobiliaria:buscar_propiedad" %}',
-            data: {
-                id: termino,
-                csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
-            },
-            method: 'POST',
-            success: function(response) {
-                if (response.success && response.propiedad) {
-                    cargarPropiedad(
-                        response.propiedad.id,
-                        response.propiedad.direccion,
-                        response.propiedad.ubicacion
-                    );
-                } else {
-                    alert('No se encontró la propiedad');
-                    $('#propiedad_direccion').val('');
-                    $('#propiedad_seleccionada').addClass('d-none');
-                }
-                    },
-                    error: function() {
-                alert('Error al buscar la propiedad');
-            }
+        list.forEach(function(prop) {
+            var $tr = $('<tr></tr>');
+            $tr.append($('<td></td>').text(prop.id));
+            $tr.append($('<td></td>').text(prop.direccion));
+            $tr.append($('<td></td>').text(prop.ubicacion || ''));
+            var $btn = $('<button type="button" class="btn btn-sm btn-primary seleccionar-propiedad"><i class="fas fa-check"></i></button>');
+            $btn.attr('data-id', prop.id).attr('data-direccion', prop.direccion).attr('data-ubicacion', prop.ubicacion || '');
+            $tr.append($('<td></td>').append($btn));
+            $tbody.append($tr);
         });
-    });
+    }
 
-    // Buscar propiedades en el modal
-    $('#btn_buscar_propiedad').click(function() {
-        var termino = $('#buscar_propiedad_texto').val();
-        if (!termino) {
-            alert('Ingrese un término de búsqueda');
-            return;
+    function renderPropiedadDropdown(list) {
+        var $dd = $('#dropdown_propiedades_main');
+        $dd.empty();
+        if (!list || !list.length) {
+            $dd.append('<div class="list-group-item text-muted py-2">Sin resultados</div>');
+        } else {
+            list.forEach(function(p) {
+                var $b = $('<button type="button" class="list-group-item list-group-item-action py-2"></button>');
+                $b.attr('data-id', p.id).attr('data-direccion', p.direccion).attr('data-ubicacion', p.ubicacion || '');
+                var ubi = p.ubicacion ? '<span class="caja-ac-meta d-block">' + escapeHtml(p.ubicacion) + '</span>' : '';
+                $b.html('<span class="fw-semibold">#' + escapeHtml(String(p.id)) + '</span> ' + escapeHtml(p.direccion) + ubi);
+                $dd.append($b);
+            });
         }
-        
+        $dd.addClass('show');
+    }
+
+    function fetchPropiedades(termino, $tbodyOrNull) {
         $.ajax({
             url: '{% url "inmobiliaria:buscar_propiedades_caja" %}',
-            data: {
-                termino: termino,
-                csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
-            },
+            data: { termino: termino, csrfmiddlewaretoken: csrfToken() },
             method: 'POST',
             success: function(response) {
-                if (response.propiedades && response.propiedades.length > 0) {
-                    var html = '';
-                    response.propiedades.forEach(function(prop) {
-                        html += '<tr>' +
-                            '<td>' + prop.id + '</td>' +
-                            '<td>' + prop.direccion + '</td>' +
-                            '<td>' + prop.ubicacion + '</td>' +
-                            '<td><button type="button" class="btn btn-sm btn-primary seleccionar-propiedad" ' +
-                            'data-id="' + prop.id + '" ' +
-                            'data-direccion="' + prop.direccion + '" ' +
-                            'data-ubicacion="' + prop.ubicacion + '">' +
-                            '<i class="fas fa-check"></i> Seleccionar</button></td></tr>';
-                    });
-                    $('#propiedades_lista').html(html);
+                var list = (response && response.propiedades) ? response.propiedades : [];
+                if ($tbodyOrNull) {
+                    renderPropiedadRows($tbodyOrNull, list);
                 } else {
-                    $('#propiedades_lista').html('<tr><td colspan="4" class="text-center">No se encontraron propiedades</td></tr>');
+                    renderPropiedadDropdown(list);
                 }
             },
             error: function() {
-                alert('Error al buscar propiedades');
+                if ($tbodyOrNull) {
+                    renderPropiedadRows($tbodyOrNull, []);
+                } else {
+                    renderPropiedadDropdown([]);
+                }
             }
         });
+    }
+
+    var debouncedPropMain = debounce(function() {
+        var t = $('#propiedad_buscar').val().trim();
+        if (t.length < 1) {
+            $('#dropdown_propiedades_main').removeClass('show').empty();
+            return;
+        }
+        fetchPropiedades(t, null);
+    }, 280);
+
+    $('#propiedad_buscar').on('input', debouncedPropMain);
+    $('#propiedad_buscar').on('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            var $f = $('#dropdown_propiedades_main .list-group-item-action').first();
+            if ($f.length) {
+                cargarPropiedad($f.data('id'), $f.data('direccion'), $f.data('ubicacion'));
+            }
+        }
+    });
+    $(document).on('click', '#dropdown_propiedades_main .list-group-item-action', function() {
+        cargarPropiedad($(this).data('id'), $(this).data('direccion'), $(this).data('ubicacion') || '');
+    });
+
+    function ejecutarBusquedaPropiedadModal() {
+        var termino = $('#buscar_propiedad_texto').val().trim();
+        if (!termino) {
+            $('#propiedades_lista').html('<tr><td colspan="4" class="text-center text-muted">Escribí al menos un carácter</td></tr>');
+            return;
+        }
+        fetchPropiedades(termino, $('#propiedades_lista'));
+    }
+
+    $('#btn_buscar_propiedad').on('click', ejecutarBusquedaPropiedadModal);
+    var debouncedPropModal = debounce(ejecutarBusquedaPropiedadModal, 300);
+    $('#buscar_propiedad_texto').on('input', debouncedPropModal);
+    $('#modalBuscarPropiedad').on('shown.bs.modal', function() {
+        var tMain = $('#propiedad_buscar').val().trim();
+        if (tMain && !$('#buscar_propiedad_texto').val().trim()) {
+            $('#buscar_propiedad_texto').val(tMain);
+        }
+        setTimeout(function() { $('#buscar_propiedad_texto').trigger('focus'); }, 150);
     });
     
     // Seleccionar propiedad desde la lista
@@ -726,111 +812,142 @@ $(document).ready(function() {
         cargarPropiedad(id, direccion, ubicacion);
     });
 
-    // Limpiar propiedad seleccionada
     $('#btn_limpiar_propiedad').click(function() {
         $('#propiedad_id').val('');
+        $('#propiedad_buscar').val('');
         $('#propiedad_direccion').val('');
         $('#propiedad_seleccionada').addClass('d-none');
+        $('#dropdown_propiedades_main').removeClass('show').empty();
     });
 
-    // Permitir búsqueda con Enter
-    $('#buscar_propiedad_texto').keypress(function(e) {
-        if (e.which == 13) {
-            $('#btn_buscar_propiedad').click();
+    $('#buscar_propiedad_texto').on('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            ejecutarBusquedaPropiedadModal();
         }
     });
 
-    // También permitir búsqueda por ID con Enter
-    $('#propiedad_id').keypress(function(e) {
-        if (e.which == 13) {
-            $('#buscar_propiedad_id').click();
-        }
-    });
+    // --- Productores / vendedores ---
+    function aplicarProductor(id, nombre, apellido) {
+        $('#buscar_productor_id').val(String(id));
+        $('#productor_nombre').val($.trim(nombre + ' ' + apellido));
+        $('#productor_id_hidden').val(id);
+        $('#dropdown_productores').removeClass('show').empty();
+    }
 
-    // Búsqueda de productor por ID
-    $('#btn_buscar_productor').click(function() {
-        var id = $('#buscar_productor_id').val();
-        if (!id) {
-            alert('Ingrese un ID de productor');
-            return;
+    function renderProductorDropdown(list) {
+        var $dd = $('#dropdown_productores');
+        $dd.empty();
+        if (!list || !list.length) {
+            $dd.append('<div class="list-group-item text-muted py-2">Sin resultados</div>');
+        } else {
+            list.forEach(function(v) {
+                var $b = $('<button type="button" class="list-group-item list-group-item-action py-2"></button>');
+                $b.attr('data-id', v.id).attr('data-nombre', v.nombre).attr('data-apellido', v.apellido);
+                $b.html('<span class="fw-semibold">#' + escapeHtml(String(v.id)) + '</span> ' +
+                    escapeHtml(v.nombre) + ' ' + escapeHtml(v.apellido));
+                $dd.append($b);
+            });
         }
-        
+        $dd.addClass('show');
+    }
+
+    function fetchVendedores(termino, $tbodyModal) {
         $.ajax({
-            url: '{% url "inmobiliaria:buscar_vendedor" %}',
-            data: {
-                id: id,
-                csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
-            },
+            url: '{% url "inmobiliaria:buscar_vendedores" %}',
+            data: { termino: termino, csrfmiddlewaretoken: csrfToken() },
             method: 'POST',
             success: function(response) {
-                if (response.success && response.vendedor) {
-                    $('#productor_nombre').val(response.vendedor.nombre + ' ' + response.vendedor.apellido);
-                    $('#productor_id_hidden').val(response.vendedor.id);
+                var list = response.vendedores || [];
+                if ($tbodyModal) {
+                    $tbodyModal.empty();
+                    if (!list.length) {
+                        $tbodyModal.append('<tr><td colspan="3" class="text-center text-muted">Sin resultados</td></tr>');
+                    } else {
+                        list.forEach(function(v) {
+                            var $tr = $('<tr></tr>');
+                            $tr.append($('<td></td>').text(v.id));
+                            $tr.append($('<td></td>').text(v.nombre + ' ' + v.apellido));
+                            var $btn = $('<button type="button" class="btn btn-sm btn-primary seleccionar-productor"><i class="fas fa-check"></i></button>');
+                            $btn.attr('data-id', v.id).attr('data-nombre', v.nombre).attr('data-apellido', v.apellido);
+                            $tr.append($('<td></td>').append($btn));
+                            $tbodyModal.append($tr);
+                        });
+                    }
                 } else {
-                    alert('No se encontró el productor');
-                    $('#productor_nombre').val('');
-                    $('#productor_id_hidden').val('');
+                    renderProductorDropdown(list);
                 }
             },
             error: function() {
-                alert('Error al buscar el productor');
+                if ($tbodyModal) {
+                    $tbodyModal.html('<tr><td colspan="3" class="text-center text-danger">Error al buscar</td></tr>');
+                } else {
+                    renderProductorDropdown([]);
+                }
             }
         });
+    }
+
+    var debouncedProductores = debounce(function() {
+        var t = $('#buscar_productor_id').val().trim();
+        if (t.length < 1) {
+            $('#dropdown_productores').removeClass('show').empty();
+            return;
+        }
+        fetchVendedores(t, null);
+    }, 280);
+
+    $('#buscar_productor_id').on('input', debouncedProductores);
+    $('#buscar_productor_id').on('focus', function() {
+        var t = $(this).val().trim();
+        if (t.length >= 1) fetchVendedores(t, null);
+    });
+    $('#buscar_productor_id').on('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            var $f = $('#dropdown_productores .list-group-item-action').first();
+            if ($f.length) {
+                aplicarProductor($f.data('id'), $f.data('nombre'), $f.data('apellido'));
+            }
+        }
     });
 
-    // Abrir modal de búsqueda de productor
-    $('#btn_buscar_productor').click(function() {
-        $('#modalBuscarProductor').modal('show');
+    $('#btn_buscar_productor').on('click', function() {
+        var t = $('#buscar_productor_id').val().trim();
+        if (!t) {
+            alert('Ingresá ID, nombre o apellido para buscar');
+            return;
+        }
+        fetchVendedores(t, null);
     });
 
-    // Búsqueda de productores en el modal
-    $('#btn_buscar_productor_modal').click(function() {
-        var termino = $('#buscar_productor_texto').val();
+    $('#btn_modal_productor').on('click', function() {
+        var t = $('#buscar_productor_id').val().trim();
+        $('#buscar_productor_texto').val(t);
+        showBsModal('modalBuscarProductor');
+        if (t.length >= 1) {
+            fetchVendedores(t, $('#productores_lista'));
+        }
+    });
+
+    function ejecutarBusquedaProductorModal() {
+        var termino = $('#buscar_productor_texto').val().trim();
         if (!termino) {
-            alert('Ingrese un término de búsqueda');
-                return;
-            }
-            
-            $.ajax({
-            url: '{% url "inmobiliaria:buscar_vendedores" %}',
-            data: {
-                termino: termino,
-                csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
-            },
-            method: 'POST',
-            success: function(response) {
-                if (response.vendedores && response.vendedores.length > 0) {
-                    var html = '';
-                    response.vendedores.forEach(function(vend) {
-                        html += '<tr>' +
-                            '<td>' + vend.id + '</td>' +
-                            '<td>' + vend.nombre + ' ' + vend.apellido + '</td>' +
-                            '<td><button type="button" class="btn btn-sm btn-primary seleccionar-productor" ' +
-                            'data-id="' + vend.id + '" ' +
-                            'data-nombre="' + vend.nombre + '" ' +
-                            'data-apellido="' + vend.apellido + '">' +
-                            '<i class="fas fa-check"></i> Seleccionar</button></td></tr>';
-                    });
-                    $('#productores_lista').html(html);
-                    } else {
-                    $('#productores_lista').html('<tr><td colspan="3" class="text-center">No se encontraron productores</td></tr>');
-                    }
-                },
-                error: function() {
-                alert('Error al buscar productores');
-            }
-        });
+            $('#productores_lista').html('<tr><td colspan="3" class="text-center text-muted">Escribí para buscar</td></tr>');
+            return;
+        }
+        fetchVendedores(termino, $('#productores_lista'));
+    }
+    $('#btn_buscar_productor_modal').on('click', ejecutarBusquedaProductorModal);
+    $('#buscar_productor_texto').on('input', debounce(ejecutarBusquedaProductorModal, 300));
+
+    $(document).on('click', '#dropdown_productores .list-group-item-action', function() {
+        aplicarProductor($(this).data('id'), $(this).data('nombre'), $(this).data('apellido'));
     });
 
-    // Seleccionar productor desde la lista
     $(document).on('click', '.seleccionar-productor', function() {
-                            var id = $(this).data('id');
-                            var nombre = $(this).data('nombre');
-        var apellido = $(this).data('apellido');
-        $('#buscar_productor_id').val(id);
-        $('#productor_nombre').val(nombre + ' ' + apellido);
-        $('#productor_id_hidden').val(id);
-        $('#modalBuscarProductor').modal('hide');
+        aplicarProductor($(this).data('id'), $(this).data('nombre'), $(this).data('apellido'));
+        hideBsModal('modalBuscarProductor');
     });
 
     // Búsqueda de operación
@@ -863,10 +980,7 @@ $(document).ready(function() {
                     $('input[name="fecha_hasta"]').val(l.fecha_hasta || '');
 
                     if (l.propiedad && l.propiedad.id) {
-                        $('#propiedad_id').val(l.propiedad.id);
-                        $('#propiedad_direccion').val(l.propiedad.direccion || '');
-                        $('#propiedad_seleccionada_texto').text(l.propiedad.id + ' - ' + (l.propiedad.direccion || ''));
-                        $('#propiedad_seleccionada').removeClass('d-none');
+                        cargarPropiedad(l.propiedad.id, l.propiedad.direccion || '', '');
                     }
 
                     var detalle = 'Pago liquidación #' + l.id + ' - ' + (l.propietario || '');
@@ -910,12 +1024,9 @@ $(document).ready(function() {
                         $('#productor_id_hidden').val(response.movimiento.productor.id);
                     }
                     
-                    // Si hay una propiedad asociada
                     if (response.movimiento.propiedad) {
-                        $('#propiedad_id').val(response.movimiento.propiedad.id);
-                        $('#propiedad_direccion').val(response.movimiento.propiedad.direccion);
-                        $('#propiedad_seleccionada_texto').text(response.movimiento.propiedad.id + ' - ' + response.movimiento.propiedad.direccion);
-                        $('#propiedad_seleccionada').removeClass('d-none');
+                        var pr = response.movimiento.propiedad;
+                        cargarPropiedad(pr.id, pr.direccion, pr.ubicacion || '');
                     }
                     
                     // Si hay un concepto asociado
@@ -996,7 +1107,7 @@ $(document).ready(function() {
                 '<i class="fas fa-check"></i> Seleccionar</button></td></tr>';
         });
         $('#movimientos_lista').html(html);
-        $('#modalResultadosMovimientos').modal('show');
+        showBsModal('modalResultadosMovimientos');
     }
 
     // Evento para cargar un movimiento desde los resultados
@@ -1004,7 +1115,7 @@ $(document).ready(function() {
         var operacion = $(this).data('operacion');
         $('#buscar_operacion_num').val(operacion);
         $('#btn_buscar_operacion').click();
-        $('#modalResultadosMovimientos').modal('hide');
+        hideBsModal('modalResultadosMovimientos');
     });
 });
 </script>
