@@ -42,7 +42,7 @@ class VendedorUserCreationForm(forms.ModelForm):
         model = Vendedor
         fields = [
             'dni', 'username', 'nombre', 'apellido', 'email', 'comision',
-            'comision_primer_fichaje', 'comision_segundo_fichaje', 'comision_alquiler_24_meses',
+            'comision_primer_fichaje', 'comision_segundo_fichaje', 'comision_alquiler_24_meses', 'comision_invierno',
             'fecha_nacimiento', 'nivel', 'sucursal',
         ]
         widgets = {
@@ -54,6 +54,9 @@ class VendedorUserCreationForm(forms.ModelForm):
                 attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
             ),
             'comision_alquiler_24_meses': forms.NumberInput(
+                attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
+            ),
+            'comision_invierno': forms.NumberInput(
                 attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
             ),
         }
@@ -84,7 +87,7 @@ class VendedorChangeForm(UserChangeForm):
         model = Vendedor
         fields = [
             'username', 'dni', 'nombre', 'apellido', 'fecha_nacimiento', 'email', 'comision',
-            'comision_primer_fichaje', 'comision_segundo_fichaje', 'comision_alquiler_24_meses',
+            'comision_primer_fichaje', 'comision_segundo_fichaje', 'comision_alquiler_24_meses', 'comision_invierno',
             'celular', 'nivel',
         ]
         widgets = {
@@ -97,6 +100,9 @@ class VendedorChangeForm(UserChangeForm):
                 attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
             ),
             'comision_alquiler_24_meses': forms.NumberInput(
+                attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
+            ),
+            'comision_invierno': forms.NumberInput(
                 attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
             ),
         }

@@ -188,7 +188,7 @@
                             </div>
                         </div>
                         <div class="row g-4 mt-1">
-                            <div class="col-md-4">
+                            <div class="col-lg-3 col-md-6">
                                 <label for="id_comision_primer_fichaje" class="form-label">
                                     <i class="fas fa-file-signature me-1"></i>Comisión primer fichaje (%)
                                 </label>
@@ -196,7 +196,7 @@
                                 {{ form.comision_primer_fichaje.errors }}
                                 <small class="form-text text-muted">Propiedades marcadas como primer fichaje.</small>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-lg-3 col-md-6">
                                 <label for="id_comision_segundo_fichaje" class="form-label">
                                     <i class="fas fa-file-contract me-1"></i>Comisión segundo fichaje (%)
                                 </label>
@@ -204,13 +204,21 @@
                                 {{ form.comision_segundo_fichaje.errors }}
                                 <small class="form-text text-muted">Propiedades marcadas como segundo fichaje.</small>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-lg-3 col-md-6">
                                 <label for="id_comision_alquiler_24_meses" class="form-label">
                                     <i class="fas fa-calendar-alt me-1"></i>Comisión alquiler largo / 24 meses (%)
                                 </label>
                                 {{ form.comision_alquiler_24_meses }}
                                 {{ form.comision_alquiler_24_meses.errors }}
                                 <small class="form-text text-muted">Si la reserva es de <strong>≈20 meses o más</strong> entre inicio y fin, se usa este % (si lo cargás).</small>
+                            </div>
+                            <div class="col-lg-3 col-md-6">
+                                <label for="id_comision_invierno" class="form-label">
+                                    <i class="fas fa-snowflake me-1"></i>Comisión invierno (%)
+                                </label>
+                                {{ form.comision_invierno }}
+                                {{ form.comision_invierno.errors }}
+                                <small class="form-text text-muted">Propiedad con <strong>invierno habilitado</strong>, reserva &lt;20 meses, inicio abr–oct y mín. 14 días.</small>
                             </div>
                         </div>
                     </div>

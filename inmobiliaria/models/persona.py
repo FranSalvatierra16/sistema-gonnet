@@ -86,7 +86,7 @@ class Vendedor(AbstractUser):
     comision = models.DecimalField(
         max_digits=5,
         decimal_places=2,
-        help_text='Comisión general (%) usada como respaldo si no hay % específico por fichaje o 24 meses',
+        help_text='Comisión general (%) usada como respaldo si no hay % específico por fichaje, invierno o 24 meses',
         null=True,
         blank=True,
     )
@@ -113,6 +113,14 @@ class Vendedor(AbstractUser):
         blank=True,
         verbose_name='Comisión alquiler largo / 24 meses (%)',
         help_text='Aplica a reservas de alquiler largo (≈20 meses o más entre inicio y fin)',
+    )
+    comision_invierno = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name='Comisión alquiler invierno (%)',
+        help_text='Si la propiedad tiene invierno habilitado, la reserva dura menos de 20 meses y el inicio cae entre abr-oct (temporada típica sur), se usa este %',
     )
     celular = models.CharField(max_length=20, blank=True)
     nivel = models.IntegerField(choices=NIVELES_VENDEDOR, default=1, help_text="Nivel del vendedor para determinar sus permisos")
@@ -164,7 +172,7 @@ class Vendedor(AbstractUser):
 
     def porcentaje_comision_para_reserva(self, reserva):
         """
-        Elige el % según duración del alquiler (24 meses / largo plazo) y tipo de fichaje de la propiedad.
+        Elige el % según duración (24 meses / invierno) y tipo de fichaje de la propiedad.
         Reserva debe tener propiedad cargada (select_related recomendado en la vista).
         """
         if not reserva or not getattr(reserva, 'propiedad_id', None):
@@ -180,6 +188,21 @@ class Vendedor(AbstractUser):
         es_alquiler_largo = dias >= 600
         if es_alquiler_largo and self.comision_alquiler_24_meses is not None:
             return self.comision_alquiler_24_meses
+
+        # Invierno / temporada fría: propiedad con alquiler invierno habilitado, no largo plazo
+        if (
+            self.comision_invierno is not None
+            and dias < 600
+            and dias >= 14
+            and getattr(prop, 'habilitar_invierno', False)
+        ):
+            try:
+                mes_ini = reserva.fecha_inicio.month
+            except AttributeError:
+                mes_ini = 0
+            # Hemisferio sur: inicio típico temporada invierno (abr–oct)
+            if mes_ini in (4, 5, 6, 7, 8, 9, 10):
+                return self.comision_invierno
 
         tipo = getattr(prop, 'tipo_fichaje', None) or 'primer'
         if tipo == 'segundo' and self.comision_segundo_fichaje is not None:
