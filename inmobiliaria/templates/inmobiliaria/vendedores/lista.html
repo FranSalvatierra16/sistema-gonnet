@@ -75,6 +75,9 @@
                         <table class="table table-hover mb-0 modern-table">
                             <thead class="table-header">
                                 <tr>
+                                    <th scope="col" class="text-nowrap" style="width: 4.5rem;">
+                                        <i class="fas fa-hashtag me-1"></i>ID
+                                    </th>
                                     <th scope="col">
                                         <i class="fas fa-id-badge me-2"></i>DNI
                                     </th>
@@ -101,6 +104,9 @@
                             <tbody>
                                 {% for vendedor in vendedores %}
                                 <tr class="table-row-hover">
+                                    <td>
+                                        <span class="badge bg-secondary" title="ID interno del vendedor">{{ vendedor.id }}</span>
+                                    </td>
                                     <td class="fw-bold text-primary">{{ vendedor.dni }}</td>
                                     <td>
                                         <div class="d-flex align-items-center">
