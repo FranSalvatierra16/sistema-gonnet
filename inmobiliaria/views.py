@@ -8854,11 +8854,26 @@ def detalle_caja(request, numero):
 
 @login_required
 def nuevo_movimiento(request, numero_caja=None):
+    from inmobiliaria.models.sucursal import CuentaBancaria
+
     if numero_caja:
         caja = get_object_or_404(Caja, numero=numero_caja, sucursal=request.user.sucursal, estado='abierta')
     else:
         caja = get_object_or_404(Caja, sucursal=request.user.sucursal, estado='abierta')
-    
+
+    sucursal = request.user.sucursal
+    cuentas_bancarias = CuentaBancaria.objects.filter(sucursal=sucursal, activa=True).order_by('nombre_banco', 'alias')
+
+    def _ctx_nuevo_movimiento(extra=None):
+        ctx = {
+            'caja': caja,
+            'fecha_actual': timezone.now(),
+            'cuentas_bancarias': cuentas_bancarias,
+        }
+        if extra:
+            ctx.update(extra)
+        return ctx
+
     if request.method == 'POST':
         try:
             # Procesar fechas
@@ -8871,10 +8886,7 @@ def nuevo_movimiento(request, numero_caja=None):
                     fecha_hasta = datetime.strptime(request.POST.get('fecha_hasta'), '%Y-%m-%d').date()
             except ValueError:
                 messages.error(request, 'Formato de fecha inválido')
-                return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', {
-                    'caja': caja,
-                    'fecha_actual': timezone.now()
-                })
+                return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
 
             # ✅ Truncar concepto a 200 caracteres para evitar error de base de datos
             concepto_valor = request.POST.get('concepto_id', '')
@@ -8927,7 +8939,7 @@ def nuevo_movimiento(request, numero_caja=None):
                 monto_cheque=0,
                 monto_tarjeta=0,
                 monto_deposito=0,
-                destino_deposito=request.POST.get('destino_deposito'),
+                destino_deposito=None,
                 a_descontar=a_descontar_raw,
                 sucursal=request.user.sucursal,
                 empleado=request.user
@@ -8941,10 +8953,25 @@ def nuevo_movimiento(request, numero_caja=None):
                 movimiento.monto_deposito = float(request.POST.get('monto_deposito', '0').replace(',', '.') or '0')
             except (ValueError, TypeError):
                 messages.error(request, 'Error en los montos ingresados')
-                return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', {
-                    'caja': caja,
-                    'fecha_actual': timezone.now()
-                })
+                return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
+
+            dd_raw = (request.POST.get('destino_deposito') or '').strip()
+            if movimiento.monto_deposito and float(movimiento.monto_deposito) > 0:
+                destino_ok = None
+                if dd_raw.startswith('cuenta_'):
+                    suf = dd_raw.replace('cuenta_', '', 1)
+                    if suf.isdigit() and cuentas_bancarias.filter(id=int(suf)).exists():
+                        destino_ok = dd_raw
+                if not destino_ok:
+                    messages.error(
+                        request,
+                        'Con importe en transferencia tenés que elegir una cuenta de la sucursal. '
+                        'Configurá cuentas en Caja → Cuentas bancarias si no aparece ninguna.',
+                    )
+                    return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
+                movimiento.destino_deposito = destino_ok
+            else:
+                movimiento.destino_deposito = None
 
             movimiento.tarjeta_numero = (request.POST.get('tarjeta_numero') or '')[:32]
             movimiento.tarjeta_cupon = (request.POST.get('tarjeta_cupon') or '')[:64]
@@ -8969,16 +8996,9 @@ def nuevo_movimiento(request, numero_caja=None):
 
         except Exception as e:
             messages.error(request, f'Error al crear el movimiento: {str(e)}')
-            return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', {
-                'caja': caja,
-                'fecha_actual': timezone.now()
-            })
+            return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
     
-    context = {
-        'caja': caja,
-        'fecha_actual': timezone.now(),
-    }
-    return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', context)
+    return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
 
 @login_required
 def cerrar_caja(request, numero_caja):

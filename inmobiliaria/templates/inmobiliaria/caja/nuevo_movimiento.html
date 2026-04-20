@@ -286,21 +286,26 @@
                                 <label class="form-label">Tarjeta</label>
                                 <input type="number" name="monto_tarjeta" class="form-control monto" step="0.01" value="0.00">
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-md-4">
                                 <label class="form-label">Transferencia</label>
-                            <div class="input-group">
-                                    <input type="number" name="monto_deposito" class="form-control monto" step="0.01" value="0.00">
-                                    <select name="destino_deposito" class="form-select" style="max-width: 120px;">
-                                        <option value="galicia">Galicia</option>
-                                        <option value="mp">MP</option>
-                                </select>
+                                <div class="input-group flex-nowrap">
+                                    <input type="number" name="monto_deposito" class="form-control monto" step="0.01" value="0.00" aria-label="Importe transferencia">
+                                    <select name="destino_deposito" id="destino_deposito_mov" class="form-select flex-grow-1" style="min-width: 11rem; max-width: 22rem;" aria-label="Cuenta destino transferencia">
+                                        <option value="">— Cuenta —</option>
+                                        {% for cuenta in cuentas_bancarias %}
+                                        <option value="cuenta_{{ cuenta.id }}">{{ cuenta.nombre_banco }}{% if cuenta.alias %} — {{ cuenta.alias }}{% endif %}</option>
+                                        {% empty %}
+                                        <option value="" disabled>Sin cuentas en esta sucursal</option>
+                                        {% endfor %}
+                                    </select>
                                 </div>
+                                <small class="text-muted">Solo cuentas dadas de alta para <strong>{{ request.user.sucursal.nombre }}</strong>. <a href="{% url 'inmobiliaria:gestionar_cuentas_bancarias' %}">Gestionar cuentas bancarias</a></small>
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-md-2">
                                 <label class="form-label">Dólares (opcional)</label>
                                 <input type="number" name="dolares" class="form-control" step="0.01" value="0.00">
-                        </div>
                             </div>
+                        </div>
                         <div id="bloque_detalle_tarjeta" class="row mb-3 d-none border rounded p-3 bg-light">
                             <div class="col-12">
                                 <h6 class="text-muted mb-2">Datos de tarjeta <small>(opcional)</small></h6>
