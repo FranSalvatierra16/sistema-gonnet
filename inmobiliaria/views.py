@@ -4288,8 +4288,12 @@ def procesar_movimiento_reserva(request):
             if not reserva_id:
                 return JsonResponse({'success': False, 'error': 'ID de reserva requerido'})
             
-            # Obtener la reserva
-            reserva = get_object_or_404(Reserva, id=reserva_id, sucursal=request.user.sucursal)
+            # Obtener la reserva (propiedad para tipo_fichaje / comisión)
+            reserva = get_object_or_404(
+                Reserva.objects.select_related('propiedad', 'vendedor'),
+                id=reserva_id,
+                sucursal=request.user.sucursal,
+            )
             
             # ✅ DETECTAR SI ES "COMPLETAR PAGO" (ya hay pagos anteriores)
             pagos_anteriores = MovimientoCaja.objects.filter(
@@ -4585,7 +4589,12 @@ def procesar_movimiento_reserva(request):
             
 
             # ✅ CALCULAR COMISIÓN DEL VENDEDOR (SOBRE EL TOTAL DE LA RESERVA)
-            if reserva.vendedor and reserva.vendedor.comision:
+            pct_comision = (
+                reserva.vendedor.porcentaje_comision_para_reserva(reserva)
+                if reserva.vendedor
+                else None
+            )
+            if reserva.vendedor and pct_comision is not None and pct_comision > 0:
                 from inmobiliaria.models.comision import ComisionVendedor
                 
                 try:

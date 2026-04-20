@@ -118,7 +118,7 @@ class ComisionVendedor(models.Model):
         Método helper para crear una comisión automáticamente.
         Usa % del vendedor si está definido; si no, el % por defecto de la sucursal.
         """
-        pct = vendedor.porcentaje_comision_efectivo()
+        pct = vendedor.porcentaje_comision_para_reserva(reserva)
         if pct is None or pct <= 0:
             return None
 

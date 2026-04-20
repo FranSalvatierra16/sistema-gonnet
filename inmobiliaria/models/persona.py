@@ -83,7 +83,37 @@ class Vendedor(AbstractUser):
     fecha_nacimiento = models.DateField(null=True, blank=True)
 
     email = models.EmailField()
-    comision = models.DecimalField(max_digits=5, decimal_places=2, help_text="Comisión en porcentaje", null=True, blank=True)
+    comision = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        help_text='Comisión general (%) usada como respaldo si no hay % específico por fichaje o 24 meses',
+        null=True,
+        blank=True,
+    )
+    comision_primer_fichaje = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name='Comisión primer fichaje (%)',
+        help_text='Porcentaje cuando la propiedad está marcada como primer fichaje',
+    )
+    comision_segundo_fichaje = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name='Comisión segundo fichaje (%)',
+        help_text='Porcentaje cuando la propiedad está marcada como segundo fichaje',
+    )
+    comision_alquiler_24_meses = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name='Comisión alquiler largo / 24 meses (%)',
+        help_text='Aplica a reservas de alquiler largo (≈20 meses o más entre inicio y fin)',
+    )
     celular = models.CharField(max_length=20, blank=True)
     nivel = models.IntegerField(choices=NIVELES_VENDEDOR, default=1, help_text="Nivel del vendedor para determinar sus permisos")
     
@@ -131,6 +161,33 @@ class Vendedor(AbstractUser):
         if default is not None:
             return default
         return Decimal('0')
+
+    def porcentaje_comision_para_reserva(self, reserva):
+        """
+        Elige el % según duración del alquiler (24 meses / largo plazo) y tipo de fichaje de la propiedad.
+        Reserva debe tener propiedad cargada (select_related recomendado en la vista).
+        """
+        if not reserva or not getattr(reserva, 'propiedad_id', None):
+            return self.porcentaje_comision_efectivo()
+
+        prop = reserva.propiedad
+        try:
+            dias = (reserva.fecha_fin - reserva.fecha_inicio).days
+        except (TypeError, AttributeError):
+            dias = 0
+
+        # ~20 meses o más: se considera alquiler largo / 24 meses para comisión
+        es_alquiler_largo = dias >= 600
+        if es_alquiler_largo and self.comision_alquiler_24_meses is not None:
+            return self.comision_alquiler_24_meses
+
+        tipo = getattr(prop, 'tipo_fichaje', None) or 'primer'
+        if tipo == 'segundo' and self.comision_segundo_fichaje is not None:
+            return self.comision_segundo_fichaje
+        if tipo == 'primer' and self.comision_primer_fichaje is not None:
+            return self.comision_primer_fichaje
+
+        return self.porcentaje_comision_efectivo()
 
     class Meta:
         verbose_name = "Vendedor"

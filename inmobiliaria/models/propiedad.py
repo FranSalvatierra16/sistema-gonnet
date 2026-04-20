@@ -240,6 +240,18 @@ class Propiedad(models.Model):
         verbose_name="Fecha de fichado"
     )
 
+    class TipoFichaje(models.TextChoices):
+        PRIMER = 'primer', 'Primer fichaje'
+        SEGUNDO = 'segundo', 'Segundo fichaje'
+
+    tipo_fichaje = models.CharField(
+        max_length=10,
+        choices=TipoFichaje.choices,
+        default=TipoFichaje.PRIMER,
+        verbose_name='Tipo de fichaje',
+        help_text='Indica si la comisión por fichaje de la operación corresponde al primer o al segundo fichaje (según % del vendedor).',
+    )
+
     TIPO_CLIENTE_CHOICES = [
         ('PARTICULAR', 'Particular'),
         ('EMPRESA', 'Empresa'),

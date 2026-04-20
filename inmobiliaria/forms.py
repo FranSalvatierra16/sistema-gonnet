@@ -40,7 +40,23 @@ class VendedorUserCreationForm(forms.ModelForm):
 
     class Meta:
         model = Vendedor
-        fields = ['dni', 'username', 'nombre', 'apellido', 'email', 'comision', 'fecha_nacimiento', 'nivel', 'sucursal']
+        fields = [
+            'dni', 'username', 'nombre', 'apellido', 'email', 'comision',
+            'comision_primer_fichaje', 'comision_segundo_fichaje', 'comision_alquiler_24_meses',
+            'fecha_nacimiento', 'nivel', 'sucursal',
+        ]
+        widgets = {
+            'comision': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}),
+            'comision_primer_fichaje': forms.NumberInput(
+                attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
+            ),
+            'comision_segundo_fichaje': forms.NumberInput(
+                attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
+            ),
+            'comision_alquiler_24_meses': forms.NumberInput(
+                attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
+            ),
+        }
 
     def clean_password2(self):
         password1 = self.cleaned_data.get("password1")
@@ -66,9 +82,23 @@ class VendedorUserCreationForm(forms.ModelForm):
 class VendedorChangeForm(UserChangeForm):
     class Meta:
         model = Vendedor
-        fields = ['username', 'dni', 'nombre', 'apellido', 'fecha_nacimiento', 'email', 'comision', 'celular', 'nivel']
+        fields = [
+            'username', 'dni', 'nombre', 'apellido', 'fecha_nacimiento', 'email', 'comision',
+            'comision_primer_fichaje', 'comision_segundo_fichaje', 'comision_alquiler_24_meses',
+            'celular', 'nivel',
+        ]
         widgets = {
             'fecha_nacimiento': forms.DateInput(attrs={'type': 'date'}),
+            'comision': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}),
+            'comision_primer_fichaje': forms.NumberInput(
+                attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
+            ),
+            'comision_segundo_fichaje': forms.NumberInput(
+                attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
+            ),
+            'comision_alquiler_24_meses': forms.NumberInput(
+                attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
+            ),
         }
 
 # Formulario de Inquilino
@@ -252,8 +282,8 @@ class PropiedadForm(forms.ModelForm):
     fichado_por = forms.ModelChoiceField(
         queryset=Vendedor.objects.all(),
         required=False,
-        label='Vendedor que fichó la propiedad',
-        help_text='Selecciona el vendedor que registró esta propiedad',
+        label='Vendedor que tomó la propiedad',
+        help_text='Vendedor que cargó o tomó el fichaje de esta propiedad',
         widget=forms.Select(attrs={
             'class': 'form-control select2',
             'data-placeholder': 'Buscar por ID o nombre del vendedor...'
@@ -311,7 +341,7 @@ class PropiedadForm(forms.ModelForm):
             'amoblado', 'cochera', 'tv_smart', 'wifi', 'directv_prepago', 'ventilador', 'aire', 'cable',
             'dependencia', 'patio', 'parrilla', 'piscina', 'reciclado', 'a_estrenar', 'terraza', 'balcon', 
             'baulera', 'lavadero', 'seguridad', 'vista_al_Mar', 'vista_panoramica', 'apto_credito', 'descripcion', 'anotaciones',
-            'propietario', 'fichado_por', 'porcentaje_propietario'
+            'propietario', 'fichado_por', 'tipo_fichaje', 'porcentaje_propietario'
         ]
         widgets = {
             'descripcion': forms.Textarea(attrs={'rows': 5, 'class': 'form-control', 'style': 'width: 100%;'}),
@@ -327,6 +357,7 @@ class PropiedadForm(forms.ModelForm):
                 'max': '100',
                 'placeholder': '85.00'
             }),
+            'tipo_fichaje': forms.Select(attrs={'class': 'form-control'}),
             # 'precio_venta': forms.NumberInput(attrs={'step': 0.01, 'placeholder': 'Precio de venta'}),
             # 'precio_alquiler': forms.NumberInput(attrs={'step': 0.01, 'placeholder': 'Precio de alquiler'}),
             # 'precio_diario': forms.NumberInput(attrs={'step': 0.01, 'placeholder': 'Precio diario'}),

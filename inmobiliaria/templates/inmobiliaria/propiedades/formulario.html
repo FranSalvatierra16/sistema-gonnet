@@ -188,15 +188,23 @@
                         </div>
                         {{ form.propietario.errors }}
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-6 col-lg-5">
                         <label for="id_fichado_por" class="form-label">
-                            <i class="fas fa-user-tag me-1"></i>Vendedor que Fichó
+                            <i class="fas fa-user-tag me-1"></i>Vendedor que tomó la propiedad
                         </label>
                         {{ form.fichado_por }}
                         {{ form.fichado_por.errors }}
                         {% if form.fichado_por.help_text %}
                             <small class="form-text text-muted">{{ form.fichado_por.help_text }}</small>
                         {% endif %}
+                    </div>
+                    <div class="col-md-6 col-lg-4">
+                        <label for="id_tipo_fichaje" class="form-label">
+                            <i class="fas fa-layer-group me-1"></i>Tipo de fichaje
+                        </label>
+                        {{ form.tipo_fichaje }}
+                        {{ form.tipo_fichaje.errors }}
+                        <small class="form-text text-muted">Por defecto <strong>primer fichaje</strong>; elegí <strong>segundo fichaje</strong> si corresponde (define qué % de comisión usa el vendedor al cerrar la operación).</small>
                     </div>
                 </div>
             </div>
