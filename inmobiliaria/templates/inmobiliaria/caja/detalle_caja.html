@@ -99,7 +99,7 @@
                                 {% endif %}
                             </td>
                             <td>${{ movimiento.monto_total|floatformat:2 }}</td>
-                            <td>{{ movimiento.a_descontar }}</td>
+                            <td>{{ movimiento.get_a_descontar_display|default:"—" }}</td>
                             <td>{{ movimiento.empleado }}</td>
                             <td>
                                 <div class="btn-group">
@@ -296,7 +296,7 @@
                 <p><strong>Tarjeta:</strong> ${{ movimiento.monto_tarjeta|floatformat:2 }}</p>
                 <p><strong>Transferencia:</strong> ${{ movimiento.monto_deposito|floatformat:2 }}</p>
                 <p><strong>Total:</strong> ${{ movimiento.monto_total|floatformat:2 }}</p>
-                <p><strong>Destino:</strong> {{ movimiento.a_descontar }}</p>
+                <p><strong>Corresponde a:</strong> {{ movimiento.get_a_descontar_display|default:"—" }}</p>
                 <p><strong>Empleado:</strong> {{ movimiento.empleado }}</p>
                 {% if movimiento.destino_deposito %}
                 <p><strong>Destino de la Transferencia:</strong> {{ movimiento.get_destino_deposito_display }}</p>

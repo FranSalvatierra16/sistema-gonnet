@@ -99,14 +99,15 @@ class MovimientoCaja(models.Model):
         help_text="Puede ser 'galicia', 'mp', 'mixto', o 'cuenta_X' para cuentas bancarias dinámicas"
     )
     a_descontar = models.CharField(
-        max_length=20, 
+        max_length=20,
         choices=[
             ('propietario', 'Propietario'),
-            ('oficina', 'Oficina')
+            ('oficina', 'Oficina'),
+            ('inquilino', 'Inquilino'),
         ],
         null=True,  # Hacemos el campo opcional
         blank=True,  # Permitimos que esté vacío
-        help_text='Solo necesario para egresos'  # Agregamos ayuda
+        help_text='Solo necesario para egresos'
     )
     sucursal = models.ForeignKey('Sucursal', on_delete=models.CASCADE)
     empleado = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)

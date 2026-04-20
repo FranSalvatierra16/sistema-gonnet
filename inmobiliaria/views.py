@@ -8909,6 +8909,10 @@ def nuevo_movimiento(request, numero_caja=None):
             }
             tipo_comprobante = tipo_comprobante_map.get(tipo_comprobante_raw, tipo_comprobante_raw[:2] if len(tipo_comprobante_raw) > 2 else tipo_comprobante_raw)
             
+            a_descontar_raw = (request.POST.get('a_descontar') or 'oficina').strip().lower()
+            if a_descontar_raw not in ('oficina', 'propietario', 'inquilino'):
+                a_descontar_raw = 'oficina'
+
             # Crear el movimiento con valores iniciales
             movimiento = MovimientoCaja(
                 caja=caja,
@@ -8924,7 +8928,7 @@ def nuevo_movimiento(request, numero_caja=None):
                 monto_tarjeta=0,
                 monto_deposito=0,
                 destino_deposito=request.POST.get('destino_deposito'),
-                a_descontar=request.POST.get('a_descontar', 'oficina'),
+                a_descontar=a_descontar_raw,
                 sucursal=request.user.sucursal,
                 empleado=request.user
             )
