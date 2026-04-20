@@ -95,8 +95,12 @@
                         </thead>
                         <tbody>
                             {% for concepto in conceptos %}
-                            <tr class="concepto-fila" data-concepto-id="{{ concepto.id }}"
-                                data-texto-busqueda="{{ concepto.id }} {{ concepto.nombre }}">
+                            <tr class="concepto-fila"
+                                data-concepto-id="{{ concepto.id }}"
+                                data-texto-busqueda="{{ concepto.id }} {{ concepto.nombre }}"
+                                data-nombre-lookup="{{ concepto.nombre }}"
+                                data-sucursal-id="{{ concepto.sucursal_id|default_if_none:'' }}"
+                                {% if not concepto.id %}data-sin-id="1"{% endif %}>
                                 <td>
                                     {% if concepto.id|length > 0 %}
                                         {% if concepto.id|slugify %}
@@ -112,6 +116,9 @@
                                         <span class="badge badge-danger concepto-id-badge" title="ID vacío">
                                             <i class="fas fa-times"></i> Sin ID
                                         </span>
+                                        <input type="text" class="form-control form-control-sm concepto-nuevo-id-input d-none mt-1"
+                                               maxlength="20" placeholder="Nuevo ID (obligatorio al guardar)" autocomplete="off"
+                                               title="Solo letras y números, máx. 20 caracteres">
                                     {% endif %}
                                 </td>
                                 <td>
@@ -133,28 +140,28 @@
                                     <div class="btn-group btn-group-sm" role="group">
                                         <!-- Botón Editar -->
                                         <button class="btn btn-outline-warning btn-editar" 
-                                                data-concepto-id="{{ concepto.id }}" 
+                                                data-concepto-id="{{ concepto.id }}"
                                                 title="Editar">
                                             <i class="fas fa-edit"></i>
                                         </button>
                                         
                                         <!-- Botón Guardar (oculto) -->
                                         <button class="btn btn-success btn-guardar d-none" 
-                                                data-concepto-id="{{ concepto.id }}" 
+                                                data-concepto-id="{{ concepto.id }}"
                                                 title="Guardar">
                                             <i class="fas fa-save"></i>
                                         </button>
                                         
                                         <!-- Botón Cancelar (oculto) -->
                                         <button class="btn btn-secondary btn-cancelar d-none" 
-                                                data-concepto-id="{{ concepto.id }}" 
+                                                data-concepto-id="{{ concepto.id }}"
                                                 title="Cancelar">
                                             <i class="fas fa-times"></i>
                                         </button>
                                         
                                         <!-- Botón Eliminar -->
                                         <button class="btn btn-outline-danger btn-eliminar" 
-                                                data-concepto-id="{{ concepto.id }}" 
+                                                data-concepto-id="{{ concepto.id }}"
                                                 data-concepto-nombre="{{ concepto.nombre }}" 
                                                 title="Eliminar">
                                             <i class="fas fa-trash"></i>
@@ -325,13 +332,13 @@ $(document).ready(function() {
 
     // Editar concepto
     $('.btn-editar').click(function() {
-        const conceptoId = $(this).data('concepto-id');
         const row = $(this).closest('tr.concepto-fila');
-        
         // Ocultar texto y mostrar input
         row.find('.concepto-nombre').addClass('d-none');
         row.find('.concepto-nombre-input').removeClass('d-none').focus();
-        
+        if (row.attr('data-sin-id') === '1') {
+            row.find('.concepto-nuevo-id-input').removeClass('d-none').focus();
+        }
         // Cambiar botones
         $(this).addClass('d-none');
         row.find('.btn-eliminar').addClass('d-none');
@@ -345,6 +352,7 @@ $(document).ready(function() {
         // Restaurar texto original
         const nombreOriginal = row.find('.concepto-nombre').text();
         row.find('.concepto-nombre-input').val(nombreOriginal);
+        row.find('.concepto-nuevo-id-input').addClass('d-none').val('');
         
         // Mostrar texto y ocultar input
         row.find('.concepto-nombre').removeClass('d-none');
@@ -358,21 +366,40 @@ $(document).ready(function() {
     
     // Guardar cambios
     $('.btn-guardar').click(function() {
-        const conceptoId = $(this).data('concepto-id');
         const row = $(this).closest('tr.concepto-fila');
+        const conceptoIdAttr = $(this).attr('data-concepto-id');
+        const conceptoId = (conceptoIdAttr === undefined || conceptoIdAttr === null) ? '' : String(conceptoIdAttr);
         const nuevoNombre = row.find('.concepto-nombre-input').val().trim();
+        const sinId = row.attr('data-sin-id') === '1';
+        const nuevoIdInput = row.find('.concepto-nuevo-id-input');
+        const nuevoId = nuevoIdInput.length ? nuevoIdInput.val().trim() : '';
         
         if (!nuevoNombre) {
             alert('El nombre no puede estar vacío.');
             return;
+        }
+        if (sinId) {
+            if (!nuevoId) {
+                alert('Este concepto no tiene ID. Completá el campo "Nuevo ID" (solo letras y números, máximo 20 caracteres).');
+                return;
+            }
+            if (!/^[a-zA-Z0-9]{1,20}$/.test(nuevoId)) {
+                alert('El ID solo puede tener letras y números, entre 1 y 20 caracteres.');
+                return;
+            }
         }
         
         // Crear formulario dinámico (val() evita romper el HTML si el nombre lleva comillas)
         const form = $('<form>', { method: 'post', css: { display: 'none' } });
         form.append($('<input>', { type: 'hidden', name: 'csrfmiddlewaretoken', value: $('[name=csrfmiddlewaretoken]').val() }));
         form.append($('<input>', { type: 'hidden', name: 'action', value: 'editar' }));
-        form.append($('<input>', { type: 'hidden', name: 'concepto_id', value: String(conceptoId) }));
+        form.append($('<input>', { type: 'hidden', name: 'concepto_id', value: conceptoId }));
         form.append($('<input>', { type: 'hidden', name: 'nuevo_nombre' }).val(nuevoNombre));
+        if (sinId) {
+            form.append($('<input>', { type: 'hidden', name: 'nuevo_id', value: nuevoId }));
+            form.append($('<input>', { type: 'hidden', name: 'concepto_nombre_lookup', value: row.attr('data-nombre-lookup') || '' }));
+            form.append($('<input>', { type: 'hidden', name: 'concepto_sucursal_id', value: row.attr('data-sucursal-id') || '' }));
+        }
         form.append($('<input>', { type: 'hidden', name: 'orden', value: $('#orden-lista-conceptos').val() || 'detalle' }));
         
         $('body').append(form);
@@ -381,11 +408,11 @@ $(document).ready(function() {
     
     // Eliminar concepto
     $('.btn-eliminar').click(function() {
-        const conceptoId = $(this).data('concepto-id');
+        const conceptoId = $(this).attr('data-concepto-id');
         const conceptoNombre = $(this).data('concepto-nombre');
         
-        $('#eliminar_concepto_id').val(conceptoId);
-        $('#eliminar_concepto_id_display').text(conceptoId);
+        $('#eliminar_concepto_id').val(conceptoId === undefined ? '' : conceptoId);
+        $('#eliminar_concepto_id_display').text(conceptoId ? conceptoId : '(sin ID)');
         $('#eliminar_concepto_nombre_display').text(conceptoNombre);
         
         const modalEl = document.getElementById('eliminarConceptoModal');

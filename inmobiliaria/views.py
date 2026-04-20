@@ -14500,19 +14500,102 @@ def gestionar_conceptos(request):
                 messages.error(request, 'ID y nombre son requeridos.')
         
         elif action == 'editar':
-            concepto_id = request.POST.get('concepto_id')
-            nuevo_nombre = request.POST.get('nuevo_nombre')
-            
-            try:
-                # Buscar concepto en todas las sucursales
-                concepto = Concepto.objects.get(id=concepto_id)
-                concepto.nombre = nuevo_nombre
-                concepto.save()
-                messages.success(request, f'Concepto actualizado exitosamente.')
-            except Concepto.DoesNotExist:
-                messages.error(request, 'Concepto no encontrado.')
-            except Exception as e:
-                messages.error(request, f'Error al actualizar concepto: {e}')
+            concepto_id = (request.POST.get('concepto_id') or '').strip()
+            if concepto_id.lower() == 'undefined':
+                concepto_id = ''
+            nuevo_nombre = (request.POST.get('nuevo_nombre') or '').strip()
+            nuevo_id_asignar = (request.POST.get('nuevo_id') or '').strip()
+            nombre_lookup = (request.POST.get('concepto_nombre_lookup') or '').strip()
+            sucursal_lookup = (request.POST.get('concepto_sucursal_id') or '').strip()
+
+            def _id_concepto_valido(s):
+                return bool(re.fullmatch(r'[a-zA-Z0-9]{1,20}', s or ''))
+
+            if not nuevo_nombre:
+                messages.error(request, 'El nombre no puede estar vacío.')
+            elif not concepto_id and nuevo_id_asignar:
+                if not _id_concepto_valido(nuevo_id_asignar):
+                    messages.error(
+                        request,
+                        'El ID solo puede tener letras y números, entre 1 y 20 caracteres.',
+                    )
+                elif not nombre_lookup:
+                    messages.error(
+                        request,
+                        'No se pudo identificar el concepto sin ID. Volvé a intentar desde la lista.',
+                    )
+                else:
+                    try:
+                        from .models import Registro
+
+                        with transaction.atomic():
+                            qs = Concepto.objects.select_for_update().filter(id='').filter(
+                                nombre=nombre_lookup
+                            )
+                            if sucursal_lookup == '':
+                                qs = qs.filter(sucursal__isnull=True)
+                            else:
+                                try:
+                                    qs = qs.filter(sucursal_id=int(sucursal_lookup))
+                                except (TypeError, ValueError):
+                                    pass
+
+                            n = qs.count()
+                            if n == 0:
+                                messages.error(
+                                    request,
+                                    'No se encontró el concepto sin ID (quizá ya se le asignó un ID o cambió el nombre).',
+                                )
+                            elif n > 1:
+                                messages.error(
+                                    request,
+                                    'Hay más de un concepto sin ID que coincide; contactá al administrador.',
+                                )
+                            else:
+                                viejo = qs.first()
+                                suc = viejo.sucursal
+                                existe = Concepto.objects.filter(
+                                    id=nuevo_id_asignar, sucursal=suc
+                                ).exists()
+                                if existe:
+                                    messages.error(
+                                        request,
+                                        f'Ya existe un concepto con el ID "{nuevo_id_asignar}" en esa sucursal.',
+                                    )
+                                else:
+                                    nuevo = Concepto.objects.create(
+                                        id=nuevo_id_asignar,
+                                        nombre=nuevo_nombre,
+                                        sucursal=suc,
+                                        fecha_creacion=viejo.fecha_creacion,
+                                    )
+                                    Registro.objects.filter(concepto=viejo).update(
+                                        concepto=nuevo
+                                    )
+                                    viejo.delete()
+                                    messages.success(
+                                        request,
+                                        f'Concepto actualizado y asignado el ID "{nuevo_id_asignar}".',
+                                    )
+                    except IntegrityError as e:
+                        messages.error(request, f'No se pudo guardar (ID duplicado u otro conflicto): {e}')
+                    except Exception as e:
+                        messages.error(request, f'Error al actualizar concepto: {e}')
+            elif concepto_id:
+                try:
+                    concepto = Concepto.objects.get(id=concepto_id)
+                    concepto.nombre = nuevo_nombre
+                    concepto.save()
+                    messages.success(request, 'Concepto actualizado exitosamente.')
+                except Concepto.DoesNotExist:
+                    messages.error(request, 'Concepto no encontrado.')
+                except Exception as e:
+                    messages.error(request, f'Error al actualizar concepto: {e}')
+            else:
+                messages.error(
+                    request,
+                    'Este concepto no tiene ID: completá el campo "Nuevo ID" y guardá de nuevo.',
+                )
         
         elif action == 'eliminar':
             concepto_id = request.POST.get('concepto_id')
