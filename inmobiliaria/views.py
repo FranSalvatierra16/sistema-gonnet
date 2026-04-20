@@ -9656,7 +9656,180 @@ def dashboard_caja(request):
 
 @login_required
 def reportes_caja(request):
-    return render(request, 'inmobiliaria/caja/reportes.html')
+    """
+    Resumen de ingresos/egresos por rango de fechas, con filtros por medio de pago
+    y por cuenta de transferencia (Galicia, Mercado Pago, mixto o cuentas de sucursal).
+    """
+    from inmobiliaria.models.sucursal import CuentaBancaria
+
+    sucursal = request.user.sucursal
+    hoy = timezone.localdate()
+
+    def _parse_date(s):
+        if not s:
+            return None
+        try:
+            return datetime.strptime(s.strip(), '%Y-%m-%d').date()
+        except (ValueError, TypeError):
+            return None
+
+    fecha_desde = _parse_date(request.GET.get('fecha_desde', ''))
+    fecha_hasta = _parse_date(request.GET.get('fecha_hasta', ''))
+    if not fecha_desde:
+        fecha_desde = hoy.replace(day=1)
+    if not fecha_hasta:
+        fecha_hasta = hoy
+    if fecha_hasta < fecha_desde:
+        fecha_desde, fecha_hasta = fecha_hasta, fecha_desde
+
+    tipo_mov = (request.GET.get('tipo_mov') or '').strip().upper()
+    if tipo_mov not in ('', 'IN', 'EG'):
+        tipo_mov = ''
+
+    medio = (request.GET.get('medio') or '').strip().lower()
+    medios_validos = (
+        '', 'efectivo', 'cheque', 'tarjeta', 'tarjeta_credito', 'tarjeta_debito', 'transferencia',
+    )
+    if medio not in medios_validos:
+        medio = ''
+
+    destino_transferencia = (request.GET.get('destino_transferencia') or '').strip()
+    cuentas_bancarias = CuentaBancaria.objects.filter(sucursal=sucursal, activa=True).order_by('nombre_banco', 'alias')
+    destinos_fijos = {'galicia', 'mp', 'mixto'}
+    opciones_destino = [{'valor': 'galicia', 'etiqueta': 'Galicia'}, {'valor': 'mp', 'etiqueta': 'Mercado Pago'}, {'valor': 'mixto', 'etiqueta': 'Mixto'}]
+    for c in cuentas_bancarias:
+        lbl = c.nombre_banco
+        if c.alias:
+            lbl = f'{lbl} — {c.alias}'
+        opciones_destino.append({'valor': f'cuenta_{c.id}', 'etiqueta': lbl})
+
+    if destino_transferencia:
+        if destino_transferencia in destinos_fijos:
+            pass
+        elif destino_transferencia.startswith('cuenta_'):
+            suf = destino_transferencia.replace('cuenta_', '', 1)
+            if not suf.isdigit() or not cuentas_bancarias.filter(id=int(suf)).exists():
+                destino_transferencia = ''
+        else:
+            destino_transferencia = ''
+
+    qs = (
+        MovimientoCaja.objects.filter(
+            sucursal=sucursal,
+            fecha__date__gte=fecha_desde,
+            fecha__date__lte=fecha_hasta,
+        )
+        .select_related('caja', 'empleado', 'propiedad')
+        .order_by('-fecha', '-id')
+    )
+
+    if tipo_mov == 'IN':
+        qs = qs.filter(tipo=TipoMovimientoCajaEnum.INGRESO)
+    elif tipo_mov == 'EG':
+        qs = qs.filter(tipo=TipoMovimientoCajaEnum.EGRESO)
+
+    if medio == 'efectivo':
+        qs = qs.filter(monto_efectivo__gt=0)
+    elif medio == 'cheque':
+        qs = qs.filter(monto_cheque__gt=0)
+    elif medio == 'tarjeta':
+        qs = qs.filter(monto_tarjeta__gt=0)
+    elif medio == 'tarjeta_credito':
+        qs = qs.filter(monto_tarjeta__gt=0, tarjeta_tipo='credito')
+    elif medio == 'tarjeta_debito':
+        qs = qs.filter(monto_tarjeta__gt=0, tarjeta_tipo='debito')
+    elif medio == 'transferencia':
+        q_dep = Q(monto_deposito__gt=0)
+        if destino_transferencia:
+            q_dep &= Q(destino_deposito=destino_transferencia)
+        qs = qs.filter(q_dep)
+
+    cuentas_map = {c.id: c for c in cuentas_bancarias}
+
+    def etiqueta_destino(val):
+        if not val:
+            return '—'
+        if val == 'galicia':
+            return 'Galicia'
+        if val == 'mp':
+            return 'Mercado Pago'
+        if val == 'mixto':
+            return 'Mixto'
+        if val.startswith('cuenta_'):
+            rest = val.replace('cuenta_', '', 1)
+            if rest.isdigit():
+                c = cuentas_map.get(int(rest))
+                if c:
+                    return f'{c.nombre_banco}' + (f' ({c.alias})' if c.alias else '')
+            return val
+        return val
+
+    movimientos_lista = list(qs[:2000])
+    for _m in movimientos_lista:
+        _m.destino_etiqueta = etiqueta_destino(_m.destino_deposito)
+
+    def totales_por_tipo(queryset, tipo_code):
+        sub = queryset.filter(tipo=tipo_code)
+        ag = sub.aggregate(
+            efectivo=models.Sum('monto_efectivo'),
+            cheque=models.Sum('monto_cheque'),
+            tarjeta=models.Sum('monto_tarjeta'),
+            tarjeta_credito=models.Sum('monto_tarjeta', filter=Q(tarjeta_tipo='credito')),
+            tarjeta_debito=models.Sum('monto_tarjeta', filter=Q(tarjeta_tipo='debito')),
+            deposito=models.Sum('monto_deposito'),
+            total_mov=models.Sum(
+                F('monto_efectivo') + F('monto_cheque') + F('monto_tarjeta') + F('monto_deposito')
+            ),
+        )
+        for k in list(ag.keys()):
+            ag[k] = ag[k] or Decimal('0')
+        return ag
+
+    tot_in = totales_por_tipo(qs, TipoMovimientoCajaEnum.INGRESO)
+    tot_eg = totales_por_tipo(qs, TipoMovimientoCajaEnum.EGRESO)
+
+    transferencias_por_destino = []
+    dep_rows = (
+        qs.filter(monto_deposito__gt=0)
+        .values('destino_deposito', 'tipo')
+        .annotate(total=models.Sum('monto_deposito'))
+        .order_by('tipo', 'destino_deposito')
+    )
+    for row in dep_rows:
+        dest = row['destino_deposito'] or ''
+        transferencias_por_destino.append({
+            'destino': dest,
+            'etiqueta': etiqueta_destino(dest),
+            'tipo': row['tipo'],
+            'tipo_display': 'Ingreso' if row['tipo'] == TipoMovimientoCajaEnum.INGRESO else 'Egreso',
+            'total': row['total'] or Decimal('0'),
+        })
+
+    from django.core.paginator import Paginator
+
+    paginator = Paginator(movimientos_lista, 100)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    query_params = request.GET.copy()
+    if 'page' in query_params:
+        del query_params['page']
+
+    context = {
+        'fecha_desde': fecha_desde.strftime('%Y-%m-%d'),
+        'fecha_hasta': fecha_hasta.strftime('%Y-%m-%d'),
+        'tipo_mov': tipo_mov,
+        'medio': medio,
+        'destino_transferencia': destino_transferencia,
+        'opciones_destino': opciones_destino,
+        'movimientos': page_obj,
+        'total_filtrados': len(movimientos_lista),
+        'truncado': qs.count() > 2000,
+        'totales_ingresos': tot_in,
+        'totales_egresos': tot_eg,
+        'balance': (tot_in['total_mov'] - tot_eg['total_mov']),
+        'transferencias_por_destino': transferencias_por_destino,
+        'querystring': query_params.urlencode(),
+    }
+    return render(request, 'inmobiliaria/caja/reportes.html', context)
 
 @login_required
 def arqueo_caja(request):

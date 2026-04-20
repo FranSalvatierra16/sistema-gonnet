@@ -1,0 +1,227 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block title %}Reportes de Caja{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+        <div>
+            <h1 class="h3 mb-1"><i class="fas fa-chart-bar text-primary"></i> Reportes de caja</h1>
+            <p class="text-muted mb-0">Resumen por fechas: ingresos, egresos y filtros por medio de pago.</p>
+        </div>
+        <a href="{% url 'inmobiliaria:dashboard_caja' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Volver a caja
+        </a>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <strong><i class="fas fa-filter"></i> Filtros</strong>
+        </div>
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end" id="formReportesCaja">
+                <div class="col-md-2">
+                    <label class="form-label" for="fecha_desde">Desde</label>
+                    <input type="date" class="form-control" id="fecha_desde" name="fecha_desde" value="{{ fecha_desde }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label" for="fecha_hasta">Hasta</label>
+                    <input type="date" class="form-control" id="fecha_hasta" name="fecha_hasta" value="{{ fecha_hasta }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label" for="tipo_mov">Tipo movimiento</label>
+                    <select class="form-select" id="tipo_mov" name="tipo_mov">
+                        <option value="" {% if not tipo_mov %}selected{% endif %}>Ingresos y egresos</option>
+                        <option value="IN" {% if tipo_mov == 'IN' %}selected{% endif %}>Solo ingresos</option>
+                        <option value="EG" {% if tipo_mov == 'EG' %}selected{% endif %}>Solo egresos</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label" for="medio">Medio de pago</label>
+                    <select class="form-select" id="medio" name="medio">
+                        <option value="" {% if not medio %}selected{% endif %}>Todos</option>
+                        <option value="efectivo" {% if medio == 'efectivo' %}selected{% endif %}>Efectivo</option>
+                        <option value="cheque" {% if medio == 'cheque' %}selected{% endif %}>Cheques</option>
+                        <option value="tarjeta" {% if medio == 'tarjeta' %}selected{% endif %}>Tarjeta (todas)</option>
+                        <option value="tarjeta_credito" {% if medio == 'tarjeta_credito' %}selected{% endif %}>Tarjeta crédito</option>
+                        <option value="tarjeta_debito" {% if medio == 'tarjeta_debito' %}selected{% endif %}>Tarjeta débito</option>
+                        <option value="transferencia" {% if medio == 'transferencia' %}selected{% endif %}>Transferencia / depósito</option>
+                    </select>
+                </div>
+                <div class="col-md-3" id="wrap_destino_transferencia">
+                    <label class="form-label" for="destino_transferencia">Cuenta destino <span class="text-muted fw-normal">(solo transferencias)</span></label>
+                    <select class="form-select" id="destino_transferencia" name="destino_transferencia">
+                        <option value="">Todas las cuentas</option>
+                        {% for op in opciones_destino %}
+                        <option value="{{ op.valor }}" {% if destino_transferencia == op.valor %}selected{% endif %}>{{ op.etiqueta }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-1">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+            </form>
+            <p class="small text-muted mb-0 mt-2">
+                Se listan movimientos que <strong>tengan importe</strong> en el medio elegido (un mismo movimiento puede tener varios medios).
+                Si elegís transferencia y una cuenta, se filtran solo movimientos con depósito a esa cuenta.
+                Máximo <strong>2000</strong> movimientos en el detalle (ordenados por fecha).
+            </p>
+        </div>
+    </div>
+
+    {% if truncado %}
+    <div class="alert alert-warning"><i class="fas fa-exclamation-triangle"></i> Hay más de 2000 movimientos en el rango; el detalle muestra los 2000 más recientes. Ajustá las fechas o los filtros para acotar.</div>
+    {% endif %}
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card border-success h-100">
+                <div class="card-header bg-success text-white">Ingresos (filtrado)</div>
+                <div class="card-body small">
+                    <p class="mb-1"><strong>Total movimientos:</strong> ${{ totales_ingresos.total_mov|floatformat:2 }}</p>
+                    <p class="mb-1">Efectivo: ${{ totales_ingresos.efectivo|floatformat:2 }}</p>
+                    <p class="mb-1">Cheques: ${{ totales_ingresos.cheque|floatformat:2 }}</p>
+                    <p class="mb-1">Tarjeta total: ${{ totales_ingresos.tarjeta|floatformat:2 }}</p>
+                    <p class="mb-1 ms-2 text-muted">↳ Crédito: ${{ totales_ingresos.tarjeta_credito|floatformat:2 }} · Débito: ${{ totales_ingresos.tarjeta_debito|floatformat:2 }}</p>
+                    <p class="mb-0">Transferencias: ${{ totales_ingresos.deposito|floatformat:2 }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-danger h-100">
+                <div class="card-header bg-danger text-white">Egresos (filtrado)</div>
+                <div class="card-body small">
+                    <p class="mb-1"><strong>Total movimientos:</strong> ${{ totales_egresos.total_mov|floatformat:2 }}</p>
+                    <p class="mb-1">Efectivo: ${{ totales_egresos.efectivo|floatformat:2 }}</p>
+                    <p class="mb-1">Cheques: ${{ totales_egresos.cheque|floatformat:2 }}</p>
+                    <p class="mb-1">Tarjeta total: ${{ totales_egresos.tarjeta|floatformat:2 }}</p>
+                    <p class="mb-1 ms-2 text-muted">↳ Crédito: ${{ totales_egresos.tarjeta_credito|floatformat:2 }} · Débito: ${{ totales_egresos.tarjeta_debito|floatformat:2 }}</p>
+                    <p class="mb-0">Transferencias: ${{ totales_egresos.deposito|floatformat:2 }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-primary h-100">
+                <div class="card-header bg-primary text-white">Balance (ingresos − egresos)</div>
+                <div class="card-body">
+                    <p class="h4 mb-0">${{ balance|floatformat:2 }}</p>
+                    <p class="small text-muted mb-0">{{ total_filtrados }} movimiento(s) en el listado</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if transferencias_por_destino %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light"><strong>Transferencias por cuenta destino</strong> <span class="text-muted fw-normal">(en el resultado filtrado)</span></div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm table-striped mb-0">
+                    <thead>
+                        <tr>
+                            <th>Tipo</th>
+                            <th>Cuenta / destino</th>
+                            <th class="text-end">Importe</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in transferencias_por_destino %}
+                        <tr>
+                            <td>{{ row.tipo_display }}</td>
+                            <td>{{ row.etiqueta }}</td>
+                            <td class="text-end">${{ row.total|floatformat:2 }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="card shadow-sm">
+        <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <strong>Detalle de movimientos</strong>
+            {% if movimientos.paginator.num_pages > 1 %}
+            <nav>
+                <ul class="pagination pagination-sm mb-0">
+                    {% if movimientos.has_previous %}
+                    <li class="page-item"><a class="page-link" href="?{{ querystring }}{% if querystring %}&{% endif %}page={{ movimientos.previous_page_number }}">Anterior</a></li>
+                    {% endif %}
+                    <li class="page-item disabled"><span class="page-link">{{ movimientos.number }} / {{ movimientos.paginator.num_pages }}</span></li>
+                    {% if movimientos.has_next %}
+                    <li class="page-item"><a class="page-link" href="?{{ querystring }}{% if querystring %}&{% endif %}page={{ movimientos.next_page_number }}">Siguiente</a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-sm mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Caja</th>
+                            <th>Tipo</th>
+                            <th>Concepto</th>
+                            <th class="text-end">Efectivo</th>
+                            <th class="text-end">Cheque</th>
+                            <th class="text-end">Tarjeta</th>
+                            <th class="text-end">Transfer.</th>
+                            <th>Destino transf.</th>
+                            <th class="text-end">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for m in movimientos %}
+                        <tr>
+                            <td>{{ m.fecha|date:"d/m/Y H:i" }}</td>
+                            <td>{% if m.caja %}#{{ m.caja.numero }}{% else %}—{% endif %}</td>
+                            <td>
+                                {% if m.tipo == 'IN' %}<span class="badge bg-success">Ingreso</span>{% else %}<span class="badge bg-danger">Egreso</span>{% endif %}
+                            </td>
+                            <td><small>{{ m.concepto|truncatechars:60 }}</small></td>
+                            <td class="text-end">${{ m.monto_efectivo|floatformat:2 }}</td>
+                            <td class="text-end">${{ m.monto_cheque|floatformat:2 }}</td>
+                            <td class="text-end">
+                                ${{ m.monto_tarjeta|floatformat:2 }}
+                                {% if m.monto_tarjeta > 0 and m.tarjeta_tipo %}
+                                <br><small class="text-muted">{{ m.get_tarjeta_tipo_display }}</small>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">${{ m.monto_deposito|floatformat:2 }}</td>
+                            <td><small>{{ m.destino_etiqueta }}</small></td>
+                            <td class="text-end"><strong>${{ m.monto_total|floatformat:2 }}</strong></td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="10" class="text-center text-muted py-4">No hay movimientos con los filtros seleccionados.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    var medio = document.getElementById('medio');
+    var wrap = document.getElementById('wrap_destino_transferencia');
+    var dest = document.getElementById('destino_transferencia');
+    function syncDestino() {
+        var on = medio && medio.value === 'transferencia';
+        if (wrap) wrap.style.opacity = on ? '1' : '0.5';
+        if (dest) dest.disabled = !on;
+    }
+    if (medio) medio.addEventListener('change', syncDestino);
+    syncDestino();
+})();
+</script>
+{% endblock %}
