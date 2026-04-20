@@ -49,6 +49,32 @@ def pct_comision_normal_alquiler_dia(vendedor):
     return Decimal('0')
 
 
+def _crear_linea_operacion_por_dia(vendedor, reserva, movimiento_caja, honorarios_monto, creadas):
+    """
+    Comisión de operación «por día»: % general (comisión / default sucursal) sobre el total
+    de la reserva; si no hay precio_total cargado, usa el monto de honorarios de este pago.
+    """
+    pct = pct_comision_normal_alquiler_dia(vendedor)
+    if pct is None or pct <= 0:
+        return
+    base = reserva.precio_total or Decimal('0')
+    if base <= 0:
+        base = honorarios_monto or Decimal('0')
+    if base <= 0:
+        return
+    c = ComisionVendedor.crear_comision_linea(
+        vendedor=vendedor,
+        reserva=reserva,
+        movimiento_caja=movimiento_caja,
+        monto_base=base,
+        porcentaje_comision=pct,
+        concepto=f'Op. {reserva.id} — comisión alquiler por día (sobre total reserva)',
+        rol_comision=ROL_COMISION_OP_DIA,
+    )
+    if c:
+        creadas.append(c)
+
+
 def registrar_comisiones_honorarios_movimiento_reserva(reserva, movimiento_caja, honorarios_monto):
     """
     Cuando en el movimiento hay honorarios (concepto 25), registra:
@@ -94,20 +120,7 @@ def registrar_comisiones_honorarios_movimiento_reserva(reserva, movimiento_caja,
     tipo_op = clasificar_tipo_operacion_reserva(reserva)
 
     if tipo_op == 'dia':
-        pct = pct_comision_normal_alquiler_dia(vend)
-        base = reserva.precio_total or Decimal('0')
-        if pct > 0 and base > 0:
-            c = ComisionVendedor.crear_comision_linea(
-                vendedor=vend,
-                reserva=reserva,
-                movimiento_caja=movimiento_caja,
-                monto_base=base,
-                porcentaje_comision=pct,
-                concepto=f'Op. {reserva.id} — comisión alquiler por día (sobre total reserva)',
-                rol_comision=ROL_COMISION_OP_DIA,
-            )
-            if c:
-                creadas.append(c)
+        _crear_linea_operacion_por_dia(vend, reserva, movimiento_caja, honorarios_monto, creadas)
 
     elif tipo_op == 'invierno':
         pct = vend.comision_invierno
@@ -123,6 +136,9 @@ def registrar_comisiones_honorarios_movimiento_reserva(reserva, movimiento_caja,
             )
             if c:
                 creadas.append(c)
+        else:
+            # Propiedad con invierno habilitado pero sin % invierno: tratar como operación por día
+            _crear_linea_operacion_por_dia(vend, reserva, movimiento_caja, honorarios_monto, creadas)
 
     elif tipo_op == '24':
         pct = vend.comision_alquiler_24_meses
@@ -138,6 +154,8 @@ def registrar_comisiones_honorarios_movimiento_reserva(reserva, movimiento_caja,
             )
             if c:
                 creadas.append(c)
+        else:
+            _crear_linea_operacion_por_dia(vend, reserva, movimiento_caja, honorarios_monto, creadas)
 
     return creadas
 
