@@ -8666,19 +8666,12 @@ def gestionar_caja(request):
 @login_required
 def eliminar_movimiento(request, movimiento_id):
     movimiento = get_object_or_404(MovimientoCaja, id=movimiento_id, sucursal=request.user.sucursal)
-    
-    # Actualizar saldo de la caja
-    caja = Caja.objects.get(sucursal=request.user.sucursal)
-    if movimiento.tipo.tipo == TipoMovimientoCajaEnum.INGRESO:
-        caja.saldo -= movimiento.monto_total
-    else:
-        caja.saldo += movimiento.monto_total
-    
-    caja.save()
+    caja_numero = movimiento.caja_id and movimiento.caja.numero
     movimiento.delete()
-    
     messages.success(request, 'Movimiento eliminado correctamente.')
-    return redirect('inmobiliaria:caja')
+    if caja_numero is not None:
+        return redirect('inmobiliaria:detalle_caja', numero=caja_numero)
+    return redirect('inmobiliaria:gestionar_caja')
 
 @login_required
 def caja(request):
@@ -8703,17 +8696,25 @@ def caja(request):
         'depositos': sum(m.monto_deposito for m in movimientos),
     }
     
-    # Calcular saldos
-    ingresos = movimientos.filter(tipo='ingreso')
-    egresos = movimientos.filter(tipo='egreso')
-    
+    # Calcular saldos (tipo en BD: IN / EG, ver TipoMovimientoCajaEnum)
+    ingresos = movimientos.filter(tipo=TipoMovimientoCajaEnum.INGRESO)
+    egresos = movimientos.filter(tipo=TipoMovimientoCajaEnum.EGRESO)
+
+    def _suma_medios(m):
+        return (
+            (m.monto_efectivo or 0)
+            + (m.monto_cheque or 0)
+            + (m.monto_tarjeta or 0)
+            + (m.monto_deposito or 0)
+        )
+
     saldos = {
         'anterior': caja.saldo_inicial,
-        'ingresos': sum((m.monto_efectivo or 0) + (m.monto_cheque or 0) + (m.monto_tarjeta or 0) + (m.monto_deposito or 0) + (m.monto_qr or 0) for m in ingresos),
-        'egresos': sum((m.monto_efectivo or 0) + (m.monto_cheque or 0) + (m.monto_tarjeta or 0) + (m.monto_deposito or 0) + (m.monto_qr or 0) for m in egresos),
+        'ingresos': sum(_suma_medios(m) for m in ingresos),
+        'egresos': sum(_suma_medios(m) for m in egresos),
         'anterior_total': caja.saldo_inicial,
-        'ingresos_total': sum((m.monto_efectivo or 0) + (m.monto_cheque or 0) + (m.monto_tarjeta or 0) + (m.monto_deposito or 0) + (m.monto_qr or 0) for m in ingresos),
-        'egresos_total': sum((m.monto_efectivo or 0) + (m.monto_cheque or 0) + (m.monto_tarjeta or 0) + (m.monto_deposito or 0) + (m.monto_qr or 0) for m in egresos),
+        'ingresos_total': sum(_suma_medios(m) for m in ingresos),
+        'egresos_total': sum(_suma_medios(m) for m in egresos),
     }
     
     # Calcular saldo del día y total
@@ -8864,7 +8865,15 @@ def nuevo_movimiento(request, numero_caja=None):
     if numero_caja:
         caja = get_object_or_404(Caja, numero=numero_caja, sucursal=request.user.sucursal, estado='abierta')
     else:
-        caja = get_object_or_404(Caja, sucursal=request.user.sucursal, estado='abierta')
+        # Varias cajas abiertas (datos legacy) rompen .get(); alineado con gestionar_caja / detalle.
+        caja = (
+            Caja.objects.filter(sucursal=request.user.sucursal, estado='abierta')
+            .order_by('-fecha_apertura')
+            .first()
+        )
+        if not caja:
+            messages.error(request, 'No hay una caja abierta')
+            return redirect('inmobiliaria:lista_cajas')
 
     sucursal = request.user.sucursal
     cuentas_bancarias = CuentaBancaria.objects.filter(sucursal=sucursal, activa=True).order_by('nombre_banco', 'alias')
@@ -8997,7 +9006,7 @@ def nuevo_movimiento(request, numero_caja=None):
             movimiento.save()
 
             messages.success(request, 'Movimiento creado exitosamente')
-            return redirect('inmobiliaria:caja')
+            return redirect('inmobiliaria:detalle_caja', numero=caja.numero)
 
         except Exception as e:
             messages.error(request, f'Error al crear el movimiento: {str(e)}')
@@ -9053,7 +9062,14 @@ def nuevo_registro(request):
             registro.save()
             
             messages.success(request, 'Registro creado correctamente.')
-            return redirect('inmobiliaria:caja')
+            caja_abierta = (
+                Caja.objects.filter(sucursal=request.user.sucursal, estado='abierta')
+                .order_by('-fecha_apertura')
+                .first()
+            )
+            if caja_abierta:
+                return redirect('inmobiliaria:detalle_caja', numero=caja_abierta.numero)
+            return redirect('inmobiliaria:gestionar_caja')
     else:
         form = RegistroForm()
     

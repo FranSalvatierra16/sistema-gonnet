@@ -50,12 +50,12 @@
                         <tr>
                             <td>{{ mov.fecha|date:"d/m/Y H:i" }}</td>
                             <td>
-                                <span class="badge {% if mov.tipo == 'ingreso' %}badge-success{% else %}badge-danger{% endif %}">
+                                <span class="badge {% if mov.tipo == 'IN' %}badge-success{% else %}badge-danger{% endif %}">
                                     {{ mov.get_tipo_display }}
                                 </span>
                             </td>
                             <td>{{ mov.concepto }}</td>
-                            <td>${{ mov.monto|floatformat:2 }}</td>
+                            <td>${{ mov.monto_total|floatformat:2 }}</td>
                         </tr>
                         {% empty %}
                         <tr>

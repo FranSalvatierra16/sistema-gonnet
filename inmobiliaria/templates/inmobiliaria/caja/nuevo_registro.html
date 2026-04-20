@@ -111,7 +111,11 @@
                 </div>
 
                 <button type="submit" class="btn btn-primary mt-3">Guardar Registro</button>
-                <a href="{% url 'inmobiliaria:caja' %}" class="btn btn-secondary mt-3">Cancelar</a>
+                {% if caja_actual %}
+                <a href="{% url 'inmobiliaria:detalle_caja' caja_actual.numero %}" class="btn btn-secondary mt-3">Cancelar</a>
+                {% else %}
+                <a href="{% url 'inmobiliaria:gestionar_caja' %}" class="btn btn-secondary mt-3">Cancelar</a>
+                {% endif %}
             </form>
         </div>
     </div>
