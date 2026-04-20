@@ -5,11 +5,11 @@ register = template.Library()
 
 @register.filter
 def format_price(value):
-    """Formatea números como precios con puntos como separadores de miles"""
+    """Formatea números como precios con puntos como separadores de miles (sin símbolo $; el $ va en la plantilla)."""
     try:
-        # Si el valor es None, 0 o string vacío, devolver "$0"
+        # Si el valor es None, 0 o string vacío, devolver "0"
         if value is None or value == "" or (isinstance(value, str) and value.strip() == ""):
-            return "$0"
+            return "0"
         
         # Si es un Decimal, convertir a float primero
         if isinstance(value, Decimal):
@@ -21,17 +21,15 @@ def format_price(value):
             cleaned_value = value.replace(".", "").replace(",", ".")
             value = float(cleaned_value)
         
-        # Formatear el número con signo $
         if isinstance(value, (int, float)):
-            return "${:,.0f}".format(value).replace(',', '.')
+            return "{:,.0f}".format(value).replace(',', '.')
         
         # Si llegamos aquí, devolver el valor original como string
         return str(value)
         
     except (ValueError, TypeError, InvalidOperation) as e:
-        # En caso de error, devolver "$0" para evitar campos vacíos
         print(f"Error en format_price con valor '{value}' (tipo: {type(value)}): {e}")
-        return "$0"
+        return "0"
 
 @register.filter
 def abs(value):

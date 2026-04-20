@@ -167,12 +167,12 @@
                     <div class="mb-3">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <span class="text-muted">Precio Mensual</span>
-                            <span class="h5 mb-0 text-success precio-mensual-display">{{ propiedad.info_invierno.precio_mensual|format_price }}</span>
+                            <span class="h5 mb-0 text-success precio-mensual-display">${{ propiedad.info_invierno.precio_mensual|format_price }}</span>
                         </div>
                         {% if propiedad.info_invierno.precio_expensas %}
                         <div class="d-flex justify-content-between align-items-center expensas-row">
                             <span class="text-muted">Expensas</span>
-                            <span class="text-primary precio-expensas-display">{{ propiedad.info_invierno.precio_expensas|format_price }}</span>
+                            <span class="text-primary precio-expensas-display">${{ propiedad.info_invierno.precio_expensas|format_price }}</span>
                         </div>
                         {% else %}
                         <div class="d-flex justify-content-between align-items-center expensas-row" style="display:none;">

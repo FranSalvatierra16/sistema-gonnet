@@ -34,16 +34,16 @@
                     {% if d.moneda_asegurado == 'USD' %}
                         <span class="fs-5">USD {{ d.monto_asegurado|floatformat:2 }}</span>
                     {% else %}
-                        <span class="fs-5">{{ d.monto_asegurado|format_price }}</span>
+                        <span class="fs-5">${{ d.monto_asegurado|format_price }}</span>
                     {% endif %}
                     <div class="small text-muted">{{ d.get_moneda_asegurado_display }}</div>
                 </div>
                 <div class="col-md-4">
                     <strong>Suma liquidaciones (período solapado)</strong>
                     <ul class="list-unstyled small mt-1 mb-0">
-                        <li>Total operación: <strong>{{ detalle.total_operacion|format_price }}</strong></li>
-                        <li>Parte inmobiliaria: <strong>{{ detalle.total_inmobiliaria|format_price }}</strong></li>
-                        <li>Parte propietario: <strong>{{ detalle.total_propietario|format_price }}</strong></li>
+                        <li>Total operación: <strong>${{ detalle.total_operacion|format_price }}</strong></li>
+                        <li>Parte inmobiliaria: <strong>${{ detalle.total_inmobiliaria|format_price }}</strong></li>
+                        <li>Parte propietario: <strong>${{ detalle.total_propietario|format_price }}</strong></li>
                     </ul>
                 </div>
                 <div class="col-md-4">
@@ -52,13 +52,13 @@
                         <div class="mt-1">
                             <span class="text-muted small">Parte propietario (suma liq.) − anticipo:</span><br>
                             {% if detalle.diff_prop_sign == 1 %}
-                                <span class="badge bg-success fs-6">+ {{ detalle.diff_prop_vs_anticipo|format_price }}</span>
+                                <span class="badge bg-success fs-6">+ ${{ detalle.diff_prop_vs_anticipo|format_price }}</span>
                                 <div class="small text-muted">Lo liquidado al propietario supera el anticipo asegurado.</div>
                             {% elif detalle.diff_prop_sign == -1 %}
-                                <span class="badge bg-warning text-dark fs-6">{{ detalle.diff_prop_vs_anticipo|format_price }}</span>
+                                <span class="badge bg-warning text-dark fs-6">${{ detalle.diff_prop_vs_anticipo|format_price }}</span>
                                 <div class="small text-muted">Lo liquidado al propietario está por debajo del anticipo.</div>
                             {% else %}
-                                <span class="badge bg-secondary fs-6">{{ detalle.diff_prop_vs_anticipo|format_price }}</span>
+                                <span class="badge bg-secondary fs-6">${{ detalle.diff_prop_vs_anticipo|format_price }}</span>
                                 <div class="small text-muted">Igual al anticipo (en suma al propietario).</div>
                             {% endif %}
                         </div>
@@ -110,9 +110,9 @@
                                 {% endif %}
                             </td>
                             <td>{{ liq.fecha_creacion|date:"d/m/Y H:i" }}</td>
-                            <td class="text-end">{{ liq.monto_total_operacion|format_price }}</td>
-                            <td class="text-end">{{ liq.monto_inmobiliaria|format_price }}</td>
-                            <td class="text-end">{{ liq.monto_propietario|format_price }}</td>
+                            <td class="text-end">${{ liq.monto_total_operacion|format_price }}</td>
+                            <td class="text-end">${{ liq.monto_inmobiliaria|format_price }}</td>
+                            <td class="text-end">${{ liq.monto_propietario|format_price }}</td>
                             <td><a href="{% url 'inmobiliaria:detalle_liquidacion' liq.id %}" class="btn btn-outline-primary btn-sm">Ver</a></td>
                         </tr>
                         {% empty %}
@@ -150,7 +150,7 @@
                     <td>{{ d.fecha_inicio|date:"d/m/Y" }} → {{ d.fecha_fin|date:"d/m/Y" }}</td>
                     <td>
                         {% if d.monto_asegurado %}
-                            {% if d.moneda_asegurado == 'USD' %}USD {{ d.monto_asegurado|floatformat:2 }}{% else %}{{ d.monto_asegurado|format_price }}{% endif %}
+                            {% if d.moneda_asegurado == 'USD' %}USD {{ d.monto_asegurado|floatformat:2 }}{% else %}${{ d.monto_asegurado|format_price }}{% endif %}
                         {% else %}
                             <span class="text-muted">—</span>
                         {% endif %}

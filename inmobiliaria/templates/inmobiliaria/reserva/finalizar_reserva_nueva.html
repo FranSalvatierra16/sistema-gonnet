@@ -1199,12 +1199,12 @@ if (importeLocacionInput) {
                                 <div class="mt-2 p-2" style="background-color: #e7f3ff; border-radius: 5px; border-left: 4px solid #007bff;" id="resumen-precios">
                                     <small class="text-primary">
                                         <strong>📊 RESUMEN:</strong><br>
-                                        💰 Precio Total: <span id="resumen-precio-total">{{ reserva.precio_total|format_price }}</span><br>
-                                        ✅ Seña Pagada: <span id="resumen-senia-pagada">{{ total_senia_pagada|format_price }}</span><br>
+                                        💰 Precio Total: <span id="resumen-precio-total">${{ reserva.precio_total|format_price }}</span><br>
+                                        ✅ Seña Pagada: <span id="resumen-senia-pagada">${{ total_senia_pagada|format_price }}</span><br>
                                         {% if total_deposito_pagado > 0 %}
-                                        🛡️ Depósito Pagado: <span id="resumen-deposito">{{ total_deposito_pagado|format_price }}</span><br>
+                                        🛡️ Depósito Pagado: <span id="resumen-deposito">${{ total_deposito_pagado|format_price }}</span><br>
                                         {% endif %}
-                                        ⏳ Pendiente: <span id="resumen-pendiente">{{ saldo_a_ocupar|format_price }}</span>
+                                        ⏳ Pendiente: <span id="resumen-pendiente">${{ saldo_a_ocupar|format_price }}</span>
                                     </small>
                                 </div>
                             </div>

@@ -430,7 +430,7 @@
                         </span>
                         <span class="detail-value price-highlight">
                             {% if reserva.precio_total %}
-                                {{ reserva.precio_total|format_price }}
+                                ${{ reserva.precio_total|format_price }}
                             {% else %}
                                 ${{ reserva.precio_total|floatformat:2 }}
                             {% endif %}

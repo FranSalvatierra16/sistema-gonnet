@@ -73,7 +73,7 @@
                 {% if ultima_disponibilidad.monto_asegurado %}
                     <span><strong>Precio:</strong> 
                         <span style="font-size: 1.1rem; font-weight: bold;">
-                            {{ ultima_disponibilidad.monto_asegurado|format_price|slice:"1:" }} 
+                            ${{ ultima_disponibilidad.monto_asegurado|format_price }} 
                             {{ ultima_disponibilidad.get_moneda_asegurado_display }}
                         </span>
                     </span>

@@ -365,10 +365,10 @@
                                                                         {% endif %}
                                                                     </td>
                                                                     <td class="text-right precio-celda">
-                                                                        <span class="precio-valor">{{ precio.precio_por_dia|format_price }}</span>
+                                                                        <span class="precio-valor">${{ precio.precio_por_dia|format_price }}</span>
                                                                     </td>
                                                                     <td class="text-right precio-celda">
-                                                                        <span class="precio-valor">{{ precio.precio_total|format_price }}</span>
+                                                                        <span class="precio-valor">${{ precio.precio_total|format_price }}</span>
                                                                     </td>
                                                                 </tr>
                                                             {% empty %}
@@ -441,9 +441,9 @@
                                                                         <br>
                                                                         <small class="text-muted">
                                                                             {% if disponibilidad.moneda_asegurado == 'USD' %}
-                                                                                Usd{{ disponibilidad.monto_asegurado|format_price|slice:"1:" }}
+                                                                                Usd {{ disponibilidad.monto_asegurado|format_price }}
                                                                             {% else %}
-                                                                                {{ disponibilidad.monto_asegurado|format_price }}
+                                                                                ${{ disponibilidad.monto_asegurado|format_price }}
                                                                             {% endif %}
                                                                         </small>
                                                                         <br>
@@ -519,7 +519,7 @@
                                                 <div class="info-item mb-3">
                                                     <i class="fas fa-key"></i>
                                                     <strong>Precio de autorización:</strong>
-                                                    <span>{{ propiedad.info_venta.precio_autorizacion|format_price }}</span>
+                                                    <span>${{ propiedad.info_venta.precio_autorizacion|format_price }}</span>
                                                 </div>
                                                 <div class="info-item mb-3">
                                                     <i class="fas fa-check-circle"></i>
@@ -534,7 +534,7 @@
                                                     <div class="info-item mb-3">
                                                         <i class="fas fa-receipt"></i>
                                                         <strong>Expensas:</strong>
-                                                        <span>{{ propiedad.info_venta.precio_expensas|format_price }}</span>
+                                                        <span>${{ propiedad.info_venta.precio_expensas|format_price }}</span>
                                                     </div>
                                                 {% endif %}
                                                 {% if propiedad.info_venta.escribania %}
@@ -594,7 +594,7 @@
                                                 <div class="info-item mb-3">
                                                     <i class="fas fa-dollar-sign"></i>
                                                     <strong>Precio mensual:</strong>
-                                                    <span class="h5">{{ propiedad.info_meses.precio_mensual|format_price }}</span>
+                                                    <span class="h5">${{ propiedad.info_meses.precio_mensual|format_price }}</span>
                                                 </div>
                                                 <div class="info-item mb-3">
                                                     <i class="fas fa-check-circle"></i>
@@ -607,7 +607,7 @@
                                                     <div class="info-item mb-3">
                                                         <i class="fas fa-receipt"></i>
                                                         <strong>Expensas:</strong>
-                                                        <span>{{ propiedad.info_meses.precio_expensas|format_price }}</span>
+                                                        <span>${{ propiedad.info_meses.precio_expensas|format_price }}</span>
                                                     </div>
                                                 {% endif %}
                                             </div>
@@ -847,7 +847,7 @@
                                                 <div class="info-item mb-3">
                                                     <i class="fas fa-dollar-sign"></i>
                                                     <strong>Precio mensual:</strong>
-                                                    <span class="h5">{{ propiedad.info_invierno.precio_mensual|format_price }}</span>
+                                                    <span class="h5">${{ propiedad.info_invierno.precio_mensual|format_price }}</span>
                                                 </div>
                                                 <div class="info-item mb-3">
                                                     <i class="fas fa-check-circle"></i>
@@ -860,14 +860,14 @@
                                                 <div class="info-item mb-3">
                                                     <i class="fas fa-building"></i>
                                                     <strong>Expensas:</strong>
-                                                    <span class="h5">{{ propiedad.info_invierno.precio_expensas|format_price }}</span>
+                                                    <span class="h5">${{ propiedad.info_invierno.precio_expensas|format_price }}</span>
                                                 </div>
                                                 {% endif %}
                                                 {% if propiedad.info_invierno.precio_autorizacion %}
                                                 <div class="info-item mb-3">
                                                     <i class="fas fa-file-signature"></i>
                                                     <strong>Precio de autorización:</strong>
-                                                    <span class="h5">{{ propiedad.info_invierno.precio_autorizacion|format_price }}</span>
+                                                    <span class="h5">${{ propiedad.info_invierno.precio_autorizacion|format_price }}</span>
                                                 </div>
                                                 {% endif %}
                                             </div>
