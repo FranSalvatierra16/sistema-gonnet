@@ -9678,7 +9678,9 @@ def dashboard_caja(request):
 def reportes_caja(request):
     """
     Resumen de ingresos/egresos por rango de fechas, con filtros por medio de pago
-    y por cuenta de transferencia (Galicia, Mercado Pago, mixto o cuentas de sucursal).
+    y por cuenta de transferencia. Las opciones fijas (Galicia, Mercado Pago, mixto)
+    solo se ofrecen si la sucursal tiene movimientos con ese destino; el resto son
+    las CuentaBancaria activas de la sucursal (más cuentas inactivas si aún hay historial).
     """
     from inmobiliaria.models.sucursal import CuentaBancaria
 
@@ -9714,24 +9716,61 @@ def reportes_caja(request):
         medio = ''
 
     destino_transferencia = (request.GET.get('destino_transferencia') or '').strip()
-    cuentas_bancarias = CuentaBancaria.objects.filter(sucursal=sucursal, activa=True).order_by('nombre_banco', 'alias')
-    destinos_fijos = {'galicia', 'mp', 'mixto'}
-    opciones_destino = [{'valor': 'galicia', 'etiqueta': 'Galicia'}, {'valor': 'mp', 'etiqueta': 'Mercado Pago'}, {'valor': 'mixto', 'etiqueta': 'Mixto'}]
+    cuentas_bancarias = list(
+        CuentaBancaria.objects.filter(sucursal=sucursal, activa=True).order_by('nombre_banco', 'alias')
+    )
+
+    # Solo destinos que esta sucursal realmente usó en transferencias (evita listar MP/Galicia
+    # en sucursales que solo usan cuentas configuradas en CuentaBancaria).
+    destinos_usados = set(
+        MovimientoCaja.objects.filter(sucursal=sucursal, monto_deposito__gt=0)
+        .exclude(destino_deposito__isnull=True)
+        .exclude(destino_deposito='')
+        .values_list('destino_deposito', flat=True)
+    )
+
+    fijos_etiqueta = {
+        'galicia': 'Galicia',
+        'mp': 'Mercado Pago',
+        'mixto': 'Mixto',
+    }
+    opciones_destino = []
+    for clave in ('galicia', 'mp', 'mixto'):
+        if clave in destinos_usados:
+            opciones_destino.append({'valor': clave, 'etiqueta': fijos_etiqueta[clave]})
+
+    cuentas_map = {c.id: c for c in cuentas_bancarias}
+    vistos_cuenta = set(cuentas_map.keys())
+
     for c in cuentas_bancarias:
         lbl = c.nombre_banco
         if c.alias:
             lbl = f'{lbl} — {c.alias}'
         opciones_destino.append({'valor': f'cuenta_{c.id}', 'etiqueta': lbl})
 
-    if destino_transferencia:
-        if destino_transferencia in destinos_fijos:
-            pass
-        elif destino_transferencia.startswith('cuenta_'):
-            suf = destino_transferencia.replace('cuenta_', '', 1)
-            if not suf.isdigit() or not cuentas_bancarias.filter(id=int(suf)).exists():
-                destino_transferencia = ''
-        else:
-            destino_transferencia = ''
+    for d in destinos_usados:
+        if not isinstance(d, str) or not d.startswith('cuenta_'):
+            continue
+        suf = d.replace('cuenta_', '', 1)
+        if not suf.isdigit():
+            continue
+        cid = int(suf)
+        if cid in vistos_cuenta:
+            continue
+        extra = CuentaBancaria.objects.filter(id=cid, sucursal=sucursal).first()
+        if extra:
+            lbl = extra.nombre_banco
+            if extra.alias:
+                lbl = f'{lbl} — {extra.alias}'
+            if not extra.activa:
+                lbl = f'{lbl} (inactiva)'
+            opciones_destino.append({'valor': f'cuenta_{extra.id}', 'etiqueta': lbl})
+            cuentas_map[extra.id] = extra
+            vistos_cuenta.add(extra.id)
+
+    valores_destino_validos = {op['valor'] for op in opciones_destino}
+    if destino_transferencia and destino_transferencia not in valores_destino_validos:
+        destino_transferencia = ''
 
     qs = (
         MovimientoCaja.objects.filter(
@@ -9763,8 +9802,6 @@ def reportes_caja(request):
         if destino_transferencia:
             q_dep &= Q(destino_deposito=destino_transferencia)
         qs = qs.filter(q_dep)
-
-    cuentas_map = {c.id: c for c in cuentas_bancarias}
 
     def etiqueta_destino(val):
         if not val:
