@@ -9698,10 +9698,8 @@ def dashboard_caja(request):
 @login_required
 def reportes_caja(request):
     """
-    Resumen de ingresos/egresos por rango de fechas, con filtros por medio de pago
-    y por cuenta de transferencia. Las opciones fijas (Galicia, Mercado Pago, mixto)
-    solo se ofrecen si la sucursal tiene movimientos con ese destino; el resto son
-    las CuentaBancaria activas de la sucursal (más cuentas inactivas si aún hay historial).
+    Resumen de ingresos/egresos por rango de fechas, con filtros por medio de pago,
+    cuenta de transferencia y texto en concepto (concepto / concepto_detalle).
     """
     from inmobiliaria.models.sucursal import CuentaBancaria
 
@@ -9737,6 +9735,9 @@ def reportes_caja(request):
         medio = ''
 
     destino_transferencia = (request.GET.get('destino_transferencia') or '').strip()
+    # Texto libre: coincide si aparece en concepto o en concepto_detalle (recibos JSON, etc.)
+    q_concepto = (request.GET.get('q_concepto') or '').strip()[:200]
+
     cuentas_bancarias = list(
         CuentaBancaria.objects.filter(sucursal=sucursal, activa=True).order_by('nombre_banco', 'alias')
     )
@@ -9825,6 +9826,11 @@ def reportes_caja(request):
             q_dep &= Q(destino_deposito=destino_transferencia)
         qs = qs.filter(q_dep)
 
+    if q_concepto:
+        qs = qs.filter(
+            Q(concepto__icontains=q_concepto) | Q(concepto_detalle__icontains=q_concepto)
+        )
+
     def etiqueta_destino(val):
         if not val:
             return '—'
@@ -9898,6 +9904,7 @@ def reportes_caja(request):
         'tipo_mov': tipo_mov,
         'medio': medio,
         'destino_transferencia': destino_transferencia,
+        'q_concepto': q_concepto,
         'opciones_destino': opciones_destino,
         'movimientos': page_obj,
         'total_filtrados': len(movimientos_lista),
