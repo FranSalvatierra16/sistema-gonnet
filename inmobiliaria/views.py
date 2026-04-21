@@ -342,12 +342,72 @@ def dashboard_comisiones(request):
 
     vendedores_data.sort(key=lambda x: x['comisiones_pendientes'], reverse=True)
 
+    total_comisiones_sucursal = sum(
+        (d['total_comisiones'] for d in vendedores_data), start=Decimal('0')
+    )
+    total_vales_egreso_sucursal = sum(
+        (d['total_vales_egreso'] for d in vendedores_data), start=Decimal('0')
+    )
+    total_vales_ingreso_sucursal = sum(
+        (d['total_vales_ingreso'] for d in vendedores_data), start=Decimal('0')
+    )
+    total_saldo_vales_sucursal = sum(
+        (d['total_vales'] for d in vendedores_data), start=Decimal('0')
+    )
+    total_neto_sucursal = sum((d['neto'] for d in vendedores_data), start=Decimal('0'))
+    total_ops_comisiones = ComisionVendedor.objects.filter(
+        vendedor__in=vendedores
+    ).que_suman().count()
+    total_mov_vales = ValeVendedor.objects.filter(vendedor__in=vendedores).count()
+
+    ahora = timezone.now()
+    ay, am = ahora.year, ahora.month
+    comisiones_mes_sucursal = (
+        ComisionVendedor.objects.filter(
+            vendedor__in=vendedores,
+            fecha_operacion__year=ay,
+            fecha_operacion__month=am,
+        )
+        .que_suman()
+        .aggregate(t=models.Sum('monto_comision'))['t']
+        or Decimal('0')
+    )
+    vales_mes_q = ValeVendedor.objects.filter(
+        vendedor__in=vendedores,
+        fecha__year=ay,
+        fecha__month=am,
+    )
+    eg_mes = (
+        vales_mes_q.filter(tipo_vale='EG').aggregate(t=models.Sum('monto'))['t']
+        or Decimal('0')
+    )
+    in_mes = (
+        vales_mes_q.filter(tipo_vale='IN').aggregate(t=models.Sum('monto'))['t']
+        or Decimal('0')
+    )
+    saldo_vales_mes = eg_mes - in_mes
+    neto_mes_sucursal = comisiones_mes_sucursal - saldo_vales_mes
+    cant_ops_mes = ComisionVendedor.objects.filter(
+        vendedor__in=vendedores,
+        fecha_operacion__year=ay,
+        fecha_operacion__month=am,
+    ).que_suman().count()
+
     context = {
         'vendedores_data': vendedores_data,
         'sucursal_actual': request.user.sucursal,
         'porcentaje_sucursal': getattr(
             request.user.sucursal, 'porcentaje_comision_default', None
         ),
+        'total_comisiones_sucursal': total_comisiones_sucursal,
+        'total_vales_egreso_sucursal': total_vales_egreso_sucursal,
+        'total_vales_ingreso_sucursal': total_vales_ingreso_sucursal,
+        'total_saldo_vales_sucursal': total_saldo_vales_sucursal,
+        'total_neto_sucursal': total_neto_sucursal,
+        'total_ops_comisiones': total_ops_comisiones,
+        'total_mov_vales': total_mov_vales,
+        'neto_mes_sucursal': neto_mes_sucursal,
+        'cant_ops_mes': cant_ops_mes,
     }
     return render(request, 'inmobiliaria/comisiones/dashboard.html', context)
 

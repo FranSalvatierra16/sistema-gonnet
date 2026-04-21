@@ -21,6 +21,8 @@
         </a>
     </div>
 
+{% include "inmobiliaria/comisiones/_dashboard_resumen_sucursal.html" %}
+
     <ul class="nav nav-pills mb-3 cv-comisiones-vales-nav" role="tablist">
         <li class="nav-item" role="presentation">
             <button type="button" class="nav-link active rounded-pill px-3 py-2" id="dash-tab-todo" data-bs-toggle="pill" data-bs-target="#dash-pane-todo" role="tab" aria-controls="dash-pane-todo" aria-selected="true">Todo</button>
@@ -54,5 +56,15 @@
 <style>
 .cv-comisiones-vales-nav .nav-link { font-size: 0.9rem; }
 .cv-comisiones-vales-nav .nav-item { margin-right: 0.35rem; }
+.info-box {
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+.info-box-icon { font-size: 2rem; margin-bottom: 10px; }
+.info-box-content { text-align: center; }
+.info-box-text { display: block; font-size: 0.9rem; margin-bottom: 5px; }
+.info-box-number { display: block; font-size: 1.5rem; font-weight: bold; }
 </style>
 {% endblock %}

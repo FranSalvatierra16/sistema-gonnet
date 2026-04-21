@@ -1,0 +1,59 @@
+{% load custom_filters %}
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="info-box bg-success text-white">
+                <div class="info-box-icon">
+                    <i class="fas fa-plus-circle"></i>
+                </div>
+                <div class="info-box-content">
+                    <span class="info-box-text">Comisiones (sucursal)</span>
+                    <span class="info-box-number">${{ total_comisiones_sucursal|format_price }}</span>
+                    <small>{{ total_ops_comisiones }} operaciones</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="info-box bg-white text-dark border shadow-sm">
+                <div class="info-box-icon text-danger">
+                    <i class="fas fa-arrow-down"></i>
+                </div>
+                <div class="info-box-content text-start">
+                    <span class="info-box-text d-block text-danger">Vales egreso (restan)</span>
+                    <span class="info-box-number text-danger">${{ total_vales_egreso_sucursal|format_price }}</span>
+                    <hr class="my-2">
+                    <span class="info-box-text d-block text-success">Vales ingreso (suman)</span>
+                    <span class="info-box-number text-success">+${{ total_vales_ingreso_sucursal|format_price }}</span>
+                    <hr class="my-2">
+                    <small class="text-muted">Saldo acum. (EG − IN): <strong>${{ total_saldo_vales_sucursal|format_price }}</strong> · {{ total_mov_vales }} mov.</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="info-box {% if total_neto_sucursal >= 0 %}bg-primary{% else %}bg-warning{% endif %} text-white">
+                <div class="info-box-icon">
+                    <i class="fas fa-equals"></i>
+                </div>
+                <div class="info-box-content">
+                    <span class="info-box-text">Total neto (sucursal)</span>
+                    <span class="info-box-number">${{ total_neto_sucursal|format_price }}</span>
+                    <small>Σ comisiones − saldo vales por vendedor</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="info-box bg-info text-white">
+                <div class="info-box-icon">
+                    <i class="fas fa-calendar-month"></i>
+                </div>
+                <div class="info-box-content">
+                    <span class="info-box-text">Neto este mes</span>
+                    <span class="info-box-number">${{ neto_mes_sucursal|format_price }}</span>
+                    <small>{{ cant_ops_mes }} operaciones · vales del mes incluidos</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    <p class="text-muted small mb-3">
+        <i class="fas fa-info-circle me-1"></i>
+        En las tablas de abajo usá <strong>Ver detalle</strong> (comisiones) o <strong>Historial</strong> (vales) para ver el detalle por vendedor; al entrar verás el resumen y las comisiones del productor.
+    </p>

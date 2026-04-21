@@ -30,7 +30,7 @@
                                         ${{ item.neto|floatformat:2 }}
                                     </td>
                                     <td class="text-center">
-                                        <a href="{% url 'inmobiliaria:historial_comisiones_vendedor' item.vendedor.id %}" class="btn btn-sm btn-outline-primary">
+                                        <a href="{% url 'inmobiliaria:historial_comisiones_vendedor' item.vendedor.id %}?tab=comisiones" class="btn btn-sm btn-outline-primary">
                                             Ver detalle
                                         </a>
                                     </td>

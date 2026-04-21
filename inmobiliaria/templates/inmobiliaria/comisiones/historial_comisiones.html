@@ -204,4 +204,17 @@
     margin-right: 0.35rem;
 }
 </style>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    try {
+        var q = new URLSearchParams(window.location.search || '');
+        if (q.get('tab') === 'comisiones') {
+            var btn = document.getElementById('hist-tab-comisiones');
+            if (btn && window.bootstrap && window.bootstrap.Tab) {
+                window.bootstrap.Tab.getOrCreateInstance(btn).show();
+            }
+        }
+    } catch (e) { /* noop */ }
+});
+</script>
 {% endblock %}
