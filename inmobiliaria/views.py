@@ -16,6 +16,10 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Modelos usados por vistas definidas antes del import masivo de .models (línea ~871)
+from .models import ComisionVendedor, ValeVendedor
+from .models.persona import Vendedor
+
 # Importar vistas de cuentas bancarias
 from .views_cuentas_bancarias import (
     gestionar_cuentas_bancarias,
@@ -129,16 +133,17 @@ def historial_comisiones_vendedor(request, vendedor_id):
                 'inmobiliaria:resumen_comisiones_mensual',
                 kwargs={
                     'vendedor_id': vendedor.id,
-                    'año': datos['resumen_anio'],
+                    'anio': datos['resumen_anio'],
                     'mes': datos['resumen_mes'],
                 },
             )
-        except NoReverseMatch:
+        except (NoReverseMatch, TypeError, ValueError, KeyError) as exc:
             logger.warning(
-                'historial_comisiones_vendedor: NoReverseMatch resumen mensual v=%s año=%s mes=%s',
+                'historial_comisiones_vendedor: URL resumen mensual v=%s anio=%s mes=%s: %s',
                 vendedor.id,
                 datos.get('resumen_anio'),
                 datos.get('resumen_mes'),
+                exc,
             )
             datos['url_resumen_mes'] = '#'
     
@@ -193,7 +198,7 @@ def detalle_comision(request, comision_id):
     return render(request, 'inmobiliaria/comisiones/detalle_comision.html', context)
 
 @login_required
-def resumen_comisiones_mensual(request, vendedor_id, año=None, mes=None):
+def resumen_comisiones_mensual(request, vendedor_id, anio=None, mes=None):
     """
     Vista para mostrar un resumen de comisiones por mes de un vendedor específico
     Solo accesible para administradores (nivel 4)
@@ -206,14 +211,14 @@ def resumen_comisiones_mensual(request, vendedor_id, año=None, mes=None):
     from datetime import datetime
     from calendar import month_name
     
-    # Usar "is None" para ausencia real de parámetros (no mezclar con 0 u otros valores).
-    if año is None or mes is None:
+    # Parámetro de ruta en ASCII (anio): evita fallos con reverse/WSGI y el nombre "año" con ñ.
+    if anio is None or mes is None:
         ahora = datetime.now()
-        año = ahora.year
+        anio = ahora.year
         mes = ahora.month
     else:
         try:
-            año = int(año)
+            anio = int(anio)
             mes = int(mes)
         except (TypeError, ValueError):
             messages.error(request, 'Año o mes inválido.')
@@ -227,7 +232,7 @@ def resumen_comisiones_mensual(request, vendedor_id, año=None, mes=None):
                 'inmobiliaria:historial_comisiones_vendedor',
                 vendedor_id=vendedor_id,
             )
-        if año < 1970 or año > 2100:
+        if anio < 1970 or anio > 2100:
             messages.error(request, 'El año no es válido.')
             return redirect(
                 'inmobiliaria:historial_comisiones_vendedor',
@@ -241,7 +246,7 @@ def resumen_comisiones_mensual(request, vendedor_id, año=None, mes=None):
         comisiones_mes = (
             ComisionVendedor.objects.filter(
                 vendedor=vendedor,
-                fecha_operacion__year=año,
+                fecha_operacion__year=anio,
                 fecha_operacion__month=mes,
             )
             .que_suman()
@@ -253,9 +258,9 @@ def resumen_comisiones_mensual(request, vendedor_id, año=None, mes=None):
         )['total'] or Decimal('0')
     except (ProgrammingError, OperationalError) as exc:
         logger.exception(
-            'resumen_comisiones_mensual: error de esquema o BD. vendedor_id=%s año=%s mes=%s',
+            'resumen_comisiones_mensual: error de esquema o BD. vendedor_id=%s anio=%s mes=%s',
             vendedor_id,
-            año,
+            anio,
             mes,
         )
         messages.error(
@@ -276,7 +281,7 @@ def resumen_comisiones_mensual(request, vendedor_id, año=None, mes=None):
     context = {
         'comisiones': comisiones_mes,
         'total_mes': total_mes,
-        'año': año,
+        'año': anio,
         'mes': mes,
         'nombre_mes': nombre_mes,
         'vendedor': vendedor,

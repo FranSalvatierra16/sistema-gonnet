@@ -287,7 +287,7 @@ urlpatterns = [
     path('comisiones/', views.dashboard_comisiones, name='dashboard_comisiones'),
     path('vendedores/<int:vendedor_id>/comisiones/', views.historial_comisiones_vendedor, name='historial_comisiones_vendedor'),
     path('comisiones/<int:comision_id>/', views.detalle_comision, name='detalle_comision'),
-    path('vendedores/<int:vendedor_id>/comisiones/mes/<int:año>/<int:mes>/', views.resumen_comisiones_mensual, name='resumen_comisiones_mensual'),
+    path('vendedores/<int:vendedor_id>/comisiones/mes/<int:anio>/<int:mes>/', views.resumen_comisiones_mensual, name='resumen_comisiones_mensual'),
     
     # ✅ URLs para Vales de Vendedores
     path('vales/crear/', views.crear_vale, name='crear_vale'),
