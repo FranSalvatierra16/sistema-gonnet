@@ -1,0 +1,145 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block title %}Resumen caja #{{ caja.numero }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3" id="resumen-caja-print">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 no-print">
+        <div>
+            <h1 class="h4 mb-0"><i class="fas fa-print text-primary"></i> Resumen de movimientos — Caja #{{ caja.numero }}</h1>
+            <p class="text-muted small mb-0">Orden cronológico (como resumen del período / día). Usá el botón Imprimir para generar el PDF o copia en papel.</p>
+        </div>
+        <div class="btn-group">
+            <button type="button" class="btn btn-primary" onclick="window.print()">
+                <i class="fas fa-print"></i> Imprimir
+            </button>
+            <a href="{% url 'inmobiliaria:detalle_caja' caja.numero %}" class="btn btn-outline-secondary">
+                <i class="fas fa-eye"></i> Ver detalle
+            </a>
+            <a href="{% url 'inmobiliaria:lista_cajas' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-list"></i> Lista de cajas
+            </a>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body py-3">
+            <div class="row small">
+                <div class="col-md-4">
+                    <strong>Sucursal:</strong> {{ caja.sucursal }}<br>
+                    <strong>Estado:</strong> {{ caja.get_estado_display }}
+                </div>
+                <div class="col-md-4">
+                    <strong>Apertura:</strong> {{ caja.fecha_apertura|date:"d/m/Y H:i" }}<br>
+                    <strong>Usuario apertura:</strong> {{ caja.usuario_apertura|default:"—" }}
+                </div>
+                <div class="col-md-4">
+                    {% if caja.estado == 'cerrada' %}
+                    <strong>Cierre:</strong> {{ caja.fecha_cierre|date:"d/m/Y H:i"|default:"—" }}<br>
+                    <strong>Usuario cierre:</strong> {{ caja.usuario_cierre|default:"—" }}<br>
+                    {% endif %}
+                    <strong>Saldo inicial:</strong> ${{ caja.saldo_inicial|floatformat:2 }}<br>
+                    <strong>Neto movimientos (ing. − egr.):</strong> ${{ totales.saldo_total|floatformat:2 }}<br>
+                    <strong>Saldo (inicial + neto):</strong> ${{ saldo_teorico_final|floatformat:2 }}
+                    {% if caja.estado == 'cerrada' and caja.saldo_final is not None %}
+                    <br><strong>Saldo al cierre (registrado):</strong> ${{ caja.saldo_final|floatformat:2 }}
+                    {% endif %}
+                </div>
+            </div>
+            {% if caja.observaciones_cierre %}
+            <p class="small mb-0 mt-2"><strong>Obs. cierre:</strong> {{ caja.observaciones_cierre }}</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="table-responsive mb-4">
+        <table class="table table-sm table-bordered align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>#</th>
+                    <th>Fecha / hora</th>
+                    <th>Tipo</th>
+                    <th>Concepto</th>
+                    <th class="text-end">Efect.</th>
+                    <th class="text-end">Chq.</th>
+                    <th class="text-end">Tarj.</th>
+                    <th class="text-end">Transf.</th>
+                    <th class="text-end">Total</th>
+                    <th>Empleado</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for movimiento in movimientos %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td>{{ movimiento.fecha|date:"d/m/Y H:i" }}</td>
+                    <td>{% if movimiento.tipo == 'IN' %}Ingreso{% else %}Egreso{% endif %}</td>
+                    <td style="max-width: 280px; font-size: 0.85rem; white-space: normal;">{{ movimiento.concepto|default:"—" }}</td>
+                    <td class="text-end">${{ movimiento.monto_efectivo|floatformat:2 }}</td>
+                    <td class="text-end">${{ movimiento.monto_cheque|floatformat:2 }}</td>
+                    <td class="text-end">${{ movimiento.monto_tarjeta|floatformat:2 }}</td>
+                    <td class="text-end">${{ movimiento.monto_deposito|floatformat:2 }}</td>
+                    <td class="text-end"><strong>${{ movimiento.monto_total|floatformat:2 }}</strong></td>
+                    <td class="small">{{ movimiento.empleado|default:"—" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="10" class="text-center text-muted">Sin movimientos en esta caja.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="border rounded p-3 h-100">
+                <h6 class="text-success">Ingresos</h6>
+                <p class="small mb-1">Efectivo: ${{ totales.ingresos.efectivo|floatformat:2 }} · Cheques: ${{ totales.ingresos.cheque|floatformat:2 }}</p>
+                <p class="small mb-1">Tarjeta: ${{ totales.ingresos.tarjeta|floatformat:2 }} · Transferencias: ${{ totales.ingresos.deposito|floatformat:2 }}</p>
+                {% for cuenta in cuentas_bancarias %}
+                    {% with cuenta_data=totales.ingresos.cuentas_bancarias|get_item:cuenta.id %}
+                        {% if cuenta_data and cuenta_data.total > 0 %}
+                        <p class="small mb-0">↳ {{ cuenta.nombre_banco }}{% if cuenta.alias %} ({{ cuenta.alias }}){% endif %}: ${{ cuenta_data.total|floatformat:2 }}</p>
+                        {% endif %}
+                    {% endwith %}
+                {% endfor %}
+                <hr class="my-2">
+                <strong>Total ingresos: ${{ totales.ingresos.total|floatformat:2 }}</strong>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="border rounded p-3 h-100">
+                <h6 class="text-danger">Egresos</h6>
+                <p class="small mb-1">Efectivo: ${{ totales.egresos.efectivo|floatformat:2 }} · Cheques: ${{ totales.egresos.cheque|floatformat:2 }}</p>
+                <p class="small mb-1">Tarjeta: ${{ totales.egresos.tarjeta|floatformat:2 }} · Transferencias: ${{ totales.egresos.deposito|floatformat:2 }}</p>
+                {% for cuenta in cuentas_bancarias %}
+                    {% with cuenta_data=totales.egresos.cuentas_bancarias|get_item:cuenta.id %}
+                        {% if cuenta_data and cuenta_data.total > 0 %}
+                        <p class="small mb-0">↳ {{ cuenta.nombre_banco }}{% if cuenta.alias %} ({{ cuenta.alias }}){% endif %}: ${{ cuenta_data.total|floatformat:2 }}</p>
+                        {% endif %}
+                    {% endwith %}
+                {% endfor %}
+                <hr class="my-2">
+                <strong>Total egresos: ${{ totales.egresos.total|floatformat:2 }}</strong>
+            </div>
+        </div>
+    </div>
+
+    <div class="alert {% if es_saldo_positivo %}alert-success{% else %}alert-danger{% endif %} mb-0">
+        <strong>Resultado del período (ingresos − egresos):</strong>
+        ${{ totales.saldo_total|floatformat:2 }}
+    </div>
+</div>
+
+<style>
+@media print {
+    .no-print, nav.navbar, footer.footer { display: none !important; }
+    body { background: #fff !important; font-size: 11pt; }
+    body > .container { margin-top: 0 !important; padding-top: 0 !important; max-width: 100% !important; }
+    #resumen-caja-print { padding: 0 !important; max-width: 100% !important; }
+    .table { font-size: 9pt; }
+    a[href]:after { content: none !important; }
+}
+</style>
+{% endblock %}

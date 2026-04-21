@@ -8730,21 +8730,18 @@ def caja(request):
     
     return render(request, 'inmobiliaria/caja/caja.html', context)
 
-@login_required
-def detalle_caja(request, numero):
-    # Obtener la caja específica
-    caja = get_object_or_404(Caja, numero=numero, sucursal=request.user.sucursal)
-    
-    # Obtener todos los movimientos de la caja
-    movimientos_qs = MovimientoCaja.objects.filter(caja=caja).order_by('-fecha')
+
+def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id')):
+    """Contexto compartido entre detalle de caja y resumen imprimible."""
+    from inmobiliaria.models.sucursal import CuentaBancaria
+
+    movimientos_qs = MovimientoCaja.objects.filter(caja=caja).order_by(*movimientos_order)
     movimientos = list(movimientos_qs)
 
     def _resumir_concepto_crudo(concepto):
-        """Muestra solo el tipo de movimiento (sin conceptos)."""
         texto = (concepto or '').strip()
         if not texto:
             return '-'
-
         t = texto.lower()
         if t.startswith('operación') or t.startswith('operacion'):
             return 'Operación'
@@ -8756,19 +8753,15 @@ def detalle_caja(request, numero):
 
     for mov in movimientos:
         mov.concepto_resumen = _resumir_concepto_crudo(getattr(mov, 'concepto', ''))
-    
-    # Calcular totales por tipo de movimiento
+
     ingresos = movimientos_qs.filter(tipo=TipoMovimientoCajaEnum.INGRESO)
     egresos = movimientos_qs.filter(tipo=TipoMovimientoCajaEnum.EGRESO)
-    
-    # ✅ Obtener cuentas bancarias dinámicamente
-    from inmobiliaria.models.sucursal import CuentaBancaria
+
     cuentas_bancarias = CuentaBancaria.objects.filter(
         sucursal=request.user.sucursal,
         activa=True
     ).order_by('nombre_banco', 'alias')
-    
-    # ✅ Calcular totales para ingresos con cuentas bancarias dinámicas
+
     totales_ingresos = {
         'efectivo': sum(m.monto_efectivo for m in ingresos),
         'cheque': sum(m.monto_cheque for m in ingresos),
@@ -8776,8 +8769,6 @@ def detalle_caja(request, numero):
         'deposito': sum(m.monto_deposito for m in ingresos),
         'total': sum(m.monto_total for m in ingresos)
     }
-    
-    # ✅ Agregar totales por cuenta bancaria dinámica
     totales_ingresos['cuentas_bancarias'] = {}
     for cuenta in cuentas_bancarias:
         total_cuenta = sum(m.monto_deposito for m in ingresos.filter(destino_deposito=f'cuenta_{cuenta.id}'))
@@ -8786,12 +8777,9 @@ def detalle_caja(request, numero):
             'alias': cuenta.alias,
             'total': total_cuenta
         }
-    
-    # ✅ Mantener compatibilidad con campos legacy
     totales_ingresos['deposito_galicia'] = sum(m.monto_deposito for m in ingresos.filter(destino_deposito='galicia'))
     totales_ingresos['deposito_mp'] = sum(m.monto_deposito for m in ingresos.filter(destino_deposito='mp'))
-    
-    # ✅ Calcular totales para egresos con cuentas bancarias dinámicas
+
     totales_egresos = {
         'efectivo': sum(m.monto_efectivo for m in egresos),
         'cheque': sum(m.monto_cheque for m in egresos),
@@ -8799,8 +8787,6 @@ def detalle_caja(request, numero):
         'deposito': sum(m.monto_deposito for m in egresos),
         'total': sum(m.monto_total for m in egresos)
     }
-    
-    # ✅ Agregar totales por cuenta bancaria dinámica para egresos
     totales_egresos['cuentas_bancarias'] = {}
     for cuenta in cuentas_bancarias:
         total_cuenta = sum(m.monto_deposito for m in egresos.filter(destino_deposito=f'cuenta_{cuenta.id}'))
@@ -8809,12 +8795,9 @@ def detalle_caja(request, numero):
             'alias': cuenta.alias,
             'total': total_cuenta
         }
-    
-    # ✅ Mantener compatibilidad con campos legacy
     totales_egresos['deposito_galicia'] = sum(m.monto_deposito for m in egresos.filter(destino_deposito='galicia'))
     totales_egresos['deposito_mp'] = sum(m.monto_deposito for m in egresos.filter(destino_deposito='mp'))
-    
-    # ✅ Calcular saldo actual por método de pago (ingresos - egresos)
+
     saldo_actual = {
         'efectivo': totales_ingresos['efectivo'] - totales_egresos['efectivo'],
         'cheque': totales_ingresos['cheque'] - totales_egresos['cheque'],
@@ -8823,8 +8806,6 @@ def detalle_caja(request, numero):
         'deposito_galicia': totales_ingresos['deposito_galicia'] - totales_egresos['deposito_galicia'],
         'deposito_mp': totales_ingresos['deposito_mp'] - totales_egresos['deposito_mp']
     }
-    
-    # ✅ Agregar saldo por cuenta bancaria dinámica
     saldo_actual['cuentas_bancarias'] = {}
     for cuenta in cuentas_bancarias:
         saldo_cuenta = totales_ingresos['cuentas_bancarias'][cuenta.id]['total'] - totales_egresos['cuentas_bancarias'][cuenta.id]['total']
@@ -8832,31 +8813,45 @@ def detalle_caja(request, numero):
             'nombre': cuenta.nombre_banco,
             'alias': cuenta.alias,
             'saldo': saldo_cuenta
-    }
-    
-    # Calcular saldo total
-    saldo_total = (
-        totales_ingresos['total'] -  # Suma todos los ingresos
-        totales_egresos['total']     # Resta todos los egresos
-    )
-    
-    # Preparar el contexto con todos los totales
+        }
+
+    saldo_total = totales_ingresos['total'] - totales_egresos['total']
     totales = {
         'ingresos': totales_ingresos,
         'egresos': totales_egresos,
         'saldo_actual': saldo_actual,
         'saldo_total': saldo_total
     }
-    
-    context = {
+
+    return {
         'caja': caja,
         'movimientos': movimientos,
         'totales': totales,
-        'cuentas_bancarias': cuentas_bancarias,  # ✅ Agregar cuentas bancarias al contexto
-        'es_saldo_positivo': saldo_total >= 0  # Para el color del saldo
+        'cuentas_bancarias': cuentas_bancarias,
+        'es_saldo_positivo': saldo_total >= 0,
     }
-    
+
+
+@login_required
+def detalle_caja(request, numero):
+    caja = get_object_or_404(Caja, numero=numero, sucursal=request.user.sucursal)
+    context = _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id'))
     return render(request, 'inmobiliaria/caja/detalle_caja.html', context)
+
+
+@login_required
+def imprimir_resumen_caja(request, numero):
+    """
+    Resumen imprimible de movimientos de una caja (orden cronológico).
+    Útil tras el cierre como resumen del período / día.
+    """
+    caja = get_object_or_404(Caja, numero=numero, sucursal=request.user.sucursal)
+    context = _build_context_detalle_caja(request, caja, movimientos_order=('fecha', 'id'))
+    context['es_cierre'] = caja.estado == 'cerrada'
+    neto = context['totales']['saldo_total']
+    neto_dec = neto if isinstance(neto, Decimal) else Decimal(str(neto))
+    context['saldo_teorico_final'] = Decimal(str(caja.saldo_inicial)) + neto_dec
+    return render(request, 'inmobiliaria/caja/resumen_caja_imprimir.html', context)
 
 @login_required
 def nuevo_movimiento(request, numero_caja=None):
@@ -9040,9 +9035,11 @@ def cerrar_caja(request, numero_caja):
                 observaciones_apertura=f'Apertura automática tras cierre de Caja #{caja.numero}',
             )
             
-            messages.success(request, f'✅ Caja #{caja.numero} cerrada exitosamente')
+            num_cerrada = caja.numero
+            messages.success(request, f'✅ Caja #{num_cerrada} cerrada exitosamente')
             messages.success(request, f'🚀 Nueva Caja #{nueva_caja.numero} abierta automáticamente con saldo inicial: ${saldo_final:,.0f}')
-            return redirect('inmobiliaria:lista_cajas')
+            messages.info(request, 'Podés imprimir el resumen de movimientos de la caja cerrada desde la página que se abre.')
+            return redirect('inmobiliaria:imprimir_resumen_caja', numero=num_cerrada)
             
         except Exception as e:
             messages.error(request, f'Error al cerrar/abrir caja: {str(e)}')

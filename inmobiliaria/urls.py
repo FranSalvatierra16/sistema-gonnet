@@ -223,6 +223,7 @@ urlpatterns = [
     path('cajas/<int:numero_caja>/movimiento/', views.nuevo_movimiento, name='nuevo_movimiento'),
     path('cajas/<int:numero_caja>/cerrar/', views.cerrar_caja, name='cerrar_caja'),
     path('cajas/<int:numero>/detalle/', views.detalle_caja, name='detalle_caja'),
+    path('cajas/<int:numero>/resumen-imprimir/', views.imprimir_resumen_caja, name='imprimir_resumen_caja'),
     path('caja/', views.caja, name='caja'),
     path('caja/nuevo-movimiento/', views.nuevo_movimiento, name='nuevo_movimiento_sin_caja'),
     path('caja/dashboard/', views.dashboard_caja, name='dashboard_caja'),
