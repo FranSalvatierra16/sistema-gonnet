@@ -121,7 +121,7 @@
                     </thead>
                     <tbody>
                         {% for m in movimientos %}
-                            <tr>
+                            <tr class="{% if m.tipo == 'EG' %}table-danger{% endif %}">
                                 <td>{{ m.fecha|date:"d/m/Y H:i" }}</td>
                                 <td>{{ m.get_tipo_display }}</td>
                                 <td>{{ m.concepto|default:"-" }}</td>

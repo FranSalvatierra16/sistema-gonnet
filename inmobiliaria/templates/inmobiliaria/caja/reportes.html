@@ -194,7 +194,7 @@
                     </thead>
                     <tbody>
                         {% for m in movimientos %}
-                        <tr>
+                        <tr class="{% if m.tipo == 'EG' %}table-danger{% endif %}">
                             <td>{{ m.fecha|date:"d/m/Y H:i" }}</td>
                             <td>{% if m.caja %}#{{ m.caja.numero }}{% else %}—{% endif %}</td>
                             <td>

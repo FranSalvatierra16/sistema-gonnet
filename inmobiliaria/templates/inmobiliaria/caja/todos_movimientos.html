@@ -273,7 +273,7 @@
                                 </thead>
                                 <tbody>
                                     {% for movimiento in movimientos %}
-                                    <tr class="{% if movimiento.tipo == 'IN' %}table-success-light{% else %}table-danger-light{% endif %}">
+                                    <tr class="{% if movimiento.tipo == 'IN' %}table-success-light{% elif movimiento.tipo == 'EG' %}table-danger{% endif %}">
                                         <td>
                                             <strong class="text-primary">#{{ movimiento.id }}</strong>
                                         </td>
@@ -552,10 +552,6 @@
 
 .table-success-light {
     background-color: #f0f9f4 !important;
-}
-
-.table-danger-light {
-    background-color: #fef5f5 !important;
 }
 
 .sticky-top {

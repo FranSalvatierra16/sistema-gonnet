@@ -83,7 +83,7 @@
                     </thead>
                     <tbody>
                         {% for movimiento in movimientos %}
-                        <tr>
+                        <tr class="{% if movimiento.tipo == 'EG' %}table-danger{% endif %}">
                             <td>{{ movimiento.fecha|date:"d/m/Y H:i" }}</td>
                             <td>
                                 <span class="badge {% if movimiento.tipo == 'IN' %}bg-success{% else %}bg-danger{% endif %}">
@@ -106,7 +106,7 @@
                             <td>
                                 ${{ movimiento.monto_deposito|floatformat:2 }}
                                 {% if movimiento.monto_deposito > 0 %}
-                                    <br><small class="text-muted">({{ movimiento.get_destino_deposito_display|default:"-" }})</small>
+                                    <br><small class="{% if movimiento.tipo == 'EG' %}text-dark{% else %}text-muted{% endif %}">({{ movimiento.get_destino_deposito_display|default:"-" }})</small>
                                 {% endif %}
                             </td>
                             <td>${{ movimiento.monto_total|floatformat:2 }}</td>

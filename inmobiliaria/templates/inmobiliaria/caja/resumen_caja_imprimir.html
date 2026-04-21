@@ -84,7 +84,7 @@
             </thead>
             <tbody>
                 {% for movimiento in movimientos %}
-                <tr>
+                <tr class="{% if movimiento.tipo == 'EG' %}table-danger{% endif %}">
                     <td>{{ forloop.counter }}</td>
                     <td>{{ movimiento.fecha|date:"d/m/Y H:i" }}</td>
                     <td>{% if movimiento.tipo == 'IN' %}Ingreso{% else %}Egreso{% endif %}</td>
@@ -172,6 +172,12 @@
     #resumen-caja-print { padding: 0 !important; max-width: 100% !important; }
     .table { font-size: 8pt; }
     .caja-listado-encabezado { page-break-after: avoid; }
+    tr.table-danger, tr.table-danger > th, tr.table-danger > td {
+        background-color: #f8d7da !important;
+        color: #58151c !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
     a[href]:after { content: none !important; }
 }
 </style>
