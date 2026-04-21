@@ -9735,8 +9735,13 @@ def reportes_caja(request):
         medio = ''
 
     destino_transferencia = (request.GET.get('destino_transferencia') or '').strip()
-    # Texto libre: coincide si aparece en concepto o en concepto_detalle (recibos JSON, etc.)
+    # Catálogo Concepto (id + nombre) o texto libre en el campo del movimiento
+    concepto_catalogo = (request.GET.get('concepto_catalogo') or '').strip()[:30]
     q_concepto = (request.GET.get('q_concepto') or '').strip()[:200]
+
+    conceptos_catalogo = list(
+        Concepto.objects.filter(Q(sucursal=sucursal) | Q(sucursal__isnull=True)).order_by('id')
+    )
 
     cuentas_bancarias = list(
         CuentaBancaria.objects.filter(sucursal=sucursal, activa=True).order_by('nombre_banco', 'alias')
@@ -9826,7 +9831,24 @@ def reportes_caja(request):
             q_dep &= Q(destino_deposito=destino_transferencia)
         qs = qs.filter(q_dep)
 
-    if q_concepto:
+    if concepto_catalogo:
+        c_obj = Concepto.objects.filter(
+            Q(id=concepto_catalogo) & (Q(sucursal=sucursal) | Q(sucursal__isnull=True))
+        ).first()
+        if c_obj:
+            cid = concepto_catalogo
+            nombre = (c_obj.nombre or '').strip()
+            q_cat = (
+                Q(concepto__iexact=cid)
+                | Q(concepto__istartswith=f'{cid} -')
+                | Q(concepto__istartswith=f'{cid} ')
+                | Q(concepto__icontains=f'Concepto {cid}')
+                | Q(concepto_detalle__icontains=cid)
+            )
+            if len(nombre) >= 2:
+                q_cat |= Q(concepto__icontains=nombre) | Q(concepto_detalle__icontains=nombre)
+            qs = qs.filter(q_cat)
+    elif q_concepto:
         qs = qs.filter(
             Q(concepto__icontains=q_concepto) | Q(concepto_detalle__icontains=q_concepto)
         )
@@ -9849,9 +9871,25 @@ def reportes_caja(request):
             return val
         return val
 
+    lookup_nombre_concepto = {c.id: c.nombre for c in conceptos_catalogo}
+
     movimientos_lista = list(qs[:2000])
     for _m in movimientos_lista:
         _m.destino_etiqueta = etiqueta_destino(_m.destino_deposito)
+        raw = (_m.concepto or '').strip()
+        nom_cat = lookup_nombre_concepto.get(raw)
+        primer_token = raw.split(None, 1)[0] if raw else ''
+        if not nom_cat and primer_token:
+            nom_cat = lookup_nombre_concepto.get(primer_token)
+        if nom_cat:
+            if raw == primer_token:
+                _m.concepto_display = f'{primer_token} — {nom_cat}'
+            elif nom_cat.lower() not in raw.lower():
+                _m.concepto_display = f'{raw} — {nom_cat}'
+            else:
+                _m.concepto_display = raw
+        else:
+            _m.concepto_display = raw
 
     def totales_por_tipo(queryset, tipo_code):
         sub = queryset.filter(tipo=tipo_code)
@@ -9904,6 +9942,8 @@ def reportes_caja(request):
         'tipo_mov': tipo_mov,
         'medio': medio,
         'destino_transferencia': destino_transferencia,
+        'concepto_catalogo': concepto_catalogo,
+        'conceptos_catalogo': conceptos_catalogo,
         'q_concepto': q_concepto,
         'opciones_destino': opciones_destino,
         'movimientos': page_obj,
@@ -9927,7 +9967,7 @@ def historial_caja(request):
 
 @login_required
 def buscar_conceptos(request):
-    termino = (request.POST.get('termino') or '').strip()
+    termino = (request.POST.get('termino') or request.GET.get('termino') or request.GET.get('q') or '').strip()
     sucursal = request.user.sucursal
     base_qs = Concepto.objects.filter(Q(sucursal=sucursal) | Q(sucursal__isnull=True))
 
