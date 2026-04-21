@@ -20,16 +20,16 @@
         <div class="col-md-4">
             <div class="card border-danger">
                 <div class="card-body">
-                    <h6 class="text-danger">Total egresos (entregas)</h6>
-                    <p class="h5 mb-0">${{ total_vales_egreso|format_price }}</p>
+                    <h6 class="text-danger">Total egresos (restan del neto)</h6>
+                    <p class="h5 mb-0 text-danger">−${{ total_vales_egreso|format_price }}</p>
                 </div>
             </div>
         </div>
         <div class="col-md-4">
             <div class="card border-success">
                 <div class="card-body">
-                    <h6 class="text-success">Total ingresos (devoluciones)</h6>
-                    <p class="h5 mb-0">${{ total_vales_ingreso|format_price }}</p>
+                    <h6 class="text-success">Total ingresos (suman al empleado)</h6>
+                    <p class="h5 mb-0 text-success">+${{ total_vales_ingreso|format_price }}</p>
                 </div>
             </div>
         </div>
@@ -56,7 +56,7 @@
                             <th>Fecha</th>
                             <th>Tipo</th>
                             <th>Concepto</th>
-                            <th class="text-end">Monto</th>
+                            <th class="text-end">Efecto</th>
                             <th>Caja</th>
                         </tr>
                     </thead>
@@ -74,9 +74,9 @@
                             <td>{{ vale.concepto }}</td>
                             <td class="text-end">
                                 {% if vale.tipo_vale == 'EG' %}
-                                    <span class="text-danger">${{ vale.monto|format_price }}</span>
+                                    <span class="text-danger" title="Resta del neto de comisiones">−${{ vale.monto|format_price }}</span>
                                 {% else %}
-                                    <span class="text-success">${{ vale.monto|format_price }}</span>
+                                    <span class="text-success" title="Suma a favor del empleado">+${{ vale.monto|format_price }}</span>
                                 {% endif %}
                             </td>
                             <td>

@@ -52,8 +52,14 @@ def historial_comisiones_vendedor(request, vendedor_id):
     )['total'] or Decimal('0')
     
     total_vales = ValeVendedor.total_saldo_para_comisiones(vendedor)
+    total_vales_egreso = (
+        vales.filter(tipo_vale='EG').aggregate(t=models.Sum('monto'))['t'] or Decimal('0')
+    )
+    total_vales_ingreso = (
+        vales.filter(tipo_vale='IN').aggregate(t=models.Sum('monto'))['t'] or Decimal('0')
+    )
     
-    # Calcular neto (comisiones - saldo neto de vales: egresos − ingresos)
+    # Calcular neto (comisiones − entregas en vale + devoluciones ingreso a caja)
     total_neto = total_comisiones - total_vales
     
     # Calcular totales por mes
@@ -109,6 +115,8 @@ def historial_comisiones_vendedor(request, vendedor_id):
         'vales': vales,
         'total_comisiones': total_comisiones,
         'total_vales': total_vales,
+        'total_vales_egreso': total_vales_egreso,
+        'total_vales_ingreso': total_vales_ingreso,
         'total_neto': total_neto,
         'comisiones_por_mes': comisiones_por_mes,
         'comision_mes_actual': datos_mes_actual.get('total_comisiones', Decimal('0')),
@@ -193,7 +201,7 @@ def resumen_comisiones_mensual(request, vendedor_id, año=None, mes=None):
 @login_required
 def dashboard_comisiones(request):
     """
-    Panel de comisiones por vendedor, incluyendo posibles omisiones.
+    Panel de comisiones por vendedor.
     Solo accesible para administradores (nivel 4).
     """
     if request.user.nivel != 4:
@@ -221,26 +229,15 @@ def dashboard_comisiones(request):
 
         total_vales = ValeVendedor.total_saldo_para_comisiones(vendedor)
 
-        # Omisiones: reservas pagadas del vendedor sin comisión registrada
-        omisiones = Reserva.objects.filter(
-            vendedor=vendedor,
-            sucursal=request.user.sucursal,
-            estado='pagada',
-            eliminada=False
-        ).exclude(
-            comisiones_vendedor__vendedor=vendedor
-        ).distinct().count()
-
         vendedores_data.append({
             'vendedor': vendedor,
             'total_comisiones': total_comisiones,
             'comisiones_pendientes': comisiones_pendientes,
             'total_vales': total_vales,
             'neto': total_comisiones - total_vales,
-            'omisiones': omisiones,
         })
 
-    vendedores_data.sort(key=lambda x: (x['omisiones'], x['comisiones_pendientes']), reverse=True)
+    vendedores_data.sort(key=lambda x: x['comisiones_pendientes'], reverse=True)
 
     context = {
         'vendedores_data': vendedores_data,
