@@ -228,12 +228,24 @@ def dashboard_comisiones(request):
         ).count()
 
         total_vales = ValeVendedor.total_saldo_para_comisiones(vendedor)
+        total_vales_egreso = (
+            ValeVendedor.objects.filter(vendedor=vendedor, tipo_vale='EG')
+            .aggregate(t=models.Sum('monto'))['t']
+            or Decimal('0')
+        )
+        total_vales_ingreso = (
+            ValeVendedor.objects.filter(vendedor=vendedor, tipo_vale='IN')
+            .aggregate(t=models.Sum('monto'))['t']
+            or Decimal('0')
+        )
 
         vendedores_data.append({
             'vendedor': vendedor,
             'total_comisiones': total_comisiones,
             'comisiones_pendientes': comisiones_pendientes,
             'total_vales': total_vales,
+            'total_vales_egreso': total_vales_egreso,
+            'total_vales_ingreso': total_vales_ingreso,
             'neto': total_comisiones - total_vales,
         })
 

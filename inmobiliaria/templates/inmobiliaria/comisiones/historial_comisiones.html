@@ -2,7 +2,7 @@
 {% load static %}
 {% load custom_filters %}
 
-{% block title %}Historial de Comisiones - {{ vendedor.nombre_completo_vendedor }}{% endblock %}
+{% block title %}Comisiones y vales — {{ vendedor.nombre_completo_vendedor }}{% endblock %}
 
 {% block content %}
 <div class="container-fluid">
@@ -13,7 +13,7 @@
                     <div>
                         <h1 class="page-title">
                             <i class="fas fa-chart-line text-success"></i>
-                            Historial de Comisiones
+                            Comisiones y vales
                         </h1>
                         <p class="page-subtitle">{{ vendedor.nombre_completo_vendedor }} - {{ vendedor.sucursal.nombre }}</p>
                     </div>
@@ -27,61 +27,55 @@
         </div>
     </div>
 
-    <!-- Resumen General -->
-    <div class="row mb-4">
-        <div class="col-md-3">
-            <div class="info-box bg-success text-white">
-                <div class="info-box-icon">
-                    <i class="fas fa-plus-circle"></i>
+    <ul class="nav nav-pills mb-3 cv-comisiones-vales-nav" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button type="button" class="nav-link active rounded-pill px-3 py-2" id="hist-tab-comisiones" data-bs-toggle="pill" data-bs-target="#hist-pane-comisiones" role="tab" aria-controls="hist-pane-comisiones" aria-selected="true">Comisiones</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button type="button" class="nav-link rounded-pill px-3 py-2" id="hist-tab-vales" data-bs-toggle="pill" data-bs-target="#hist-pane-vales" role="tab" aria-controls="hist-pane-vales" aria-selected="false">Vales</button>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+        <div class="tab-pane fade show active" id="hist-pane-comisiones" role="tabpanel" aria-labelledby="hist-tab-comisiones">
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <div class="info-box bg-success text-white">
+                        <div class="info-box-icon">
+                            <i class="fas fa-plus-circle"></i>
+                        </div>
+                        <div class="info-box-content">
+                            <span class="info-box-text">Comisiones</span>
+                            <span class="info-box-number">${{ total_comisiones|format_price }}</span>
+                            <small>{{ comisiones.count }} operaciones</small>
+                        </div>
+                    </div>
                 </div>
-                <div class="info-box-content">
-                    <span class="info-box-text">Comisiones</span>
-                    <span class="info-box-number">${{ total_comisiones|format_price }}</span>
-                    <small>{{ comisiones.count }} operaciones</small>
+                <div class="col-md-4">
+                    <div class="info-box {% if total_neto >= 0 %}bg-primary{% else %}bg-warning{% endif %} text-white">
+                        <div class="info-box-icon">
+                            <i class="fas fa-equals"></i>
+                        </div>
+                        <div class="info-box-content">
+                            <span class="info-box-text">Total Neto</span>
+                            <span class="info-box-number">${{ total_neto|format_price }}</span>
+                            <small>Comisiones − egresos + ingresos vales</small>
+                        </div>
+                    </div>
                 </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="info-box bg-white text-dark border shadow-sm">
-                <div class="info-box-icon text-danger">
-                    <i class="fas fa-arrow-down"></i>
-                </div>
-                <div class="info-box-content text-start">
-                    <span class="info-box-text d-block text-danger">Vales egreso (restan)</span>
-                    <span class="info-box-number text-danger">${{ total_vales_egreso|format_price }}</span>
-                    <hr class="my-2">
-                    <span class="info-box-text d-block text-success">Vales ingreso (suman al empleado)</span>
-                    <span class="info-box-number text-success">+${{ total_vales_ingreso|format_price }}</span>
-                    <hr class="my-2">
-                    <small class="text-muted">Saldo neto (EG − IN): <strong>${{ total_vales|format_price }}</strong> · {{ vales.count }} mov.</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="info-box {% if total_neto >= 0 %}bg-primary{% else %}bg-warning{% endif %} text-white">
-                <div class="info-box-icon">
-                    <i class="fas fa-equals"></i>
-                </div>
-                <div class="info-box-content">
-                    <span class="info-box-text">Total Neto</span>
-                    <span class="info-box-number">${{ total_neto|format_price }}</span>
-                    <small>Comisiones − egresos + ingresos vales</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="info-box bg-info text-white">
-                <div class="info-box-icon">
-                    <i class="fas fa-calendar-month"></i>
-                </div>
-                <div class="info-box-content">
-                    <span class="info-box-text">Neto Este Mes</span>
-                    <span class="info-box-number">${{ neto_mes_actual|format_price }}</span>
-                    <small>{{ cantidad_operaciones }} operaciones</small>
+                <div class="col-md-4">
+                    <div class="info-box bg-info text-white">
+                        <div class="info-box-icon">
+                            <i class="fas fa-calendar-month"></i>
+                        </div>
+                        <div class="info-box-content">
+                            <span class="info-box-text">Neto Este Mes</span>
+                            <span class="info-box-number">${{ neto_mes_actual|format_price }}</span>
+                            <small>{{ cantidad_operaciones }} operaciones</small>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
-    </div>
 
     <!-- Resumen por Mes -->
     {% if comisiones_por_mes %}
@@ -239,9 +233,30 @@
         </div>
     </div>
 
-    <!-- Lista de Vales -->
+        </div>
+
+        <div class="tab-pane fade" id="hist-pane-vales" role="tabpanel" aria-labelledby="hist-tab-vales">
+            <div class="row mb-4">
+                <div class="col-12 col-lg-8 mx-lg-auto">
+                    <div class="info-box bg-white text-dark border shadow-sm">
+                        <div class="info-box-icon text-danger">
+                            <i class="fas fa-arrow-down"></i>
+                        </div>
+                        <div class="info-box-content text-start">
+                            <span class="info-box-text d-block text-danger">Vales egreso (restan)</span>
+                            <span class="info-box-number text-danger">${{ total_vales_egreso|format_price }}</span>
+                            <hr class="my-2">
+                            <span class="info-box-text d-block text-success">Vales ingreso (suman al empleado)</span>
+                            <span class="info-box-number text-success">+${{ total_vales_ingreso|format_price }}</span>
+                            <hr class="my-2">
+                            <small class="text-muted">Saldo neto (EG − IN): <strong>${{ total_vales|format_price }}</strong> · {{ vales.count }} mov.</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
     {% if vales %}
-    <div class="row mt-4">
+    <div class="row mt-2">
         <div class="col-12">
             <div class="card">
                 <div class="card-header bg-warning text-white d-flex justify-content-between align-items-center">
@@ -331,7 +346,16 @@
             </div>
         </div>
     </div>
+    {% else %}
+    <div class="row mt-2">
+        <div class="col-12">
+            <div class="alert alert-light border text-muted mb-0">No hay vales registrados para este productor.</div>
+        </div>
+    </div>
     {% endif %}
+
+        </div>
+    </div>
 </div>
 
 <style>
@@ -377,6 +401,13 @@
 .page-subtitle {
     color: #6c757d;
     margin: 0;
+}
+
+.cv-comisiones-vales-nav .nav-link {
+    font-size: 0.9rem;
+}
+.cv-comisiones-vales-nav .nav-item {
+    margin-right: 0.35rem;
 }
 </style>
 {% endblock %}
