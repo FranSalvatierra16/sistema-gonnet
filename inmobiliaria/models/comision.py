@@ -13,6 +13,41 @@ ROL_COMISION_OP_INVIERNO = 'operacion_invierno'
 ROL_COMISION_OP_24 = 'operacion_24_meses'
 
 
+def rol_comision_al_crear_linea_unica(vendedor, reserva):
+    """
+    Rol coherente con porcentaje_comision_para_reserva() cuando hay una sola línea
+    (pago sin honorarios desglosados). Debe seguir el mismo orden de prioridad que Vendedor.porcentaje_comision_para_reserva.
+    """
+    if not reserva or not getattr(reserva, 'propiedad_id', None):
+        return ROL_COMISION_GENERAL
+    prop = reserva.propiedad
+    try:
+        dias = (reserva.fecha_fin - reserva.fecha_inicio).days
+    except (TypeError, AttributeError):
+        dias = 0
+    es_alquiler_largo = dias >= 600
+    if es_alquiler_largo and vendedor.comision_alquiler_24_meses is not None:
+        return ROL_COMISION_OP_24
+    if (
+        vendedor.comision_invierno is not None
+        and dias < 600
+        and dias >= 14
+        and getattr(prop, 'habilitar_invierno', False)
+    ):
+        try:
+            mes_ini = reserva.fecha_inicio.month
+        except AttributeError:
+            mes_ini = 0
+        if mes_ini in (4, 5, 6, 7, 8, 9, 10):
+            return ROL_COMISION_OP_INVIERNO
+    tipo = getattr(prop, 'tipo_fichaje', None) or 'primer'
+    if tipo == 'segundo' and vendedor.comision_segundo_fichaje is not None:
+        return ROL_COMISION_FICHAJE
+    if tipo == 'primer' and vendedor.comision_primer_fichaje is not None:
+        return ROL_COMISION_FICHAJE
+    return ROL_COMISION_GENERAL
+
+
 def clasificar_tipo_operacion_reserva(reserva):
     """
     Clasifica la reserva para reglas de comisión: alquiler largo (24), invierno o por día.
@@ -338,7 +373,8 @@ class ComisionVendedor(models.Model):
     @classmethod
     def crear_comision(cls, vendedor, reserva, movimiento_caja, monto_total, concepto=""):
         """
-        Comisión única "general" según tipo de reserva (sin desglose por honorarios).
+        Una sola línea de comisión según tipo de reserva (sin desglose por honorarios).
+        El rol refleja la misma regla que el % (fichaje, invierno, 24 meses o general).
         """
         pct = vendedor.porcentaje_comision_para_reserva(reserva)
         if pct is None or pct <= 0:
@@ -347,11 +383,13 @@ class ComisionVendedor(models.Model):
         if getattr(reserva, 'eliminada', False) or getattr(reserva, 'estado', None) == 'cancelada':
             return None
 
+        rol = rol_comision_al_crear_linea_unica(vendedor, reserva)
+
         comision_existente = cls.objects.filter(
             vendedor=vendedor,
             reserva=reserva,
             movimiento_caja=movimiento_caja,
-            rol_comision=ROL_COMISION_GENERAL,
+            rol_comision=rol,
         ).first()
 
         if comision_existente:
@@ -364,7 +402,7 @@ class ComisionVendedor(models.Model):
             monto_base=monto_total,
             porcentaje_comision=pct,
             concepto=concepto or f'Operación {reserva.id}',
-            rol_comision=ROL_COMISION_GENERAL,
+            rol_comision=rol,
         )
     
     def get_monto_comision_mensual(self, año, mes):
