@@ -1,0 +1,100 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block title %}Vales — {{ vendedor.nombre_completo_vendedor }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h1 class="h3">Vales del productor</h1>
+            <p class="text-muted mb-0">{{ vendedor.nombre_completo_vendedor }} — {{ vendedor.sucursal.nombre }}</p>
+        </div>
+        <a href="{% url 'inmobiliaria:historial_comisiones_vendedor' vendedor.id %}" class="btn btn-outline-primary">
+            <i class="fas fa-chart-line"></i> Historial de comisiones
+        </a>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <div class="card border-danger">
+                <div class="card-body">
+                    <h6 class="text-danger">Total egresos (entregas)</h6>
+                    <p class="h5 mb-0">${{ total_vales_egreso|format_price }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-success">
+                <div class="card-body">
+                    <h6 class="text-success">Total ingresos (devoluciones)</h6>
+                    <p class="h5 mb-0">${{ total_vales_ingreso|format_price }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-secondary">
+                <div class="card-body">
+                    <h6 class="text-secondary">Saldo frente a comisiones (EG − IN)</h6>
+                    <p class="h5 mb-0">${{ total_vales|format_price }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if vales %}
+    <div class="card">
+        <div class="card-header">
+            <strong>Listado</strong> ({{ vales.count }} registros)
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Tipo</th>
+                            <th>Concepto</th>
+                            <th class="text-end">Monto</th>
+                            <th>Caja</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for vale in vales %}
+                        <tr>
+                            <td><small>{{ vale.fecha|date:"d/m/Y H:i" }}</small></td>
+                            <td>
+                                {% if vale.tipo_vale == 'EG' %}
+                                    <span class="badge bg-danger">Egreso</span>
+                                {% else %}
+                                    <span class="badge bg-success">Ingreso</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ vale.concepto }}</td>
+                            <td class="text-end">
+                                {% if vale.tipo_vale == 'EG' %}
+                                    <span class="text-danger">${{ vale.monto|format_price }}</span>
+                                {% else %}
+                                    <span class="text-success">${{ vale.monto|format_price }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if vale.movimiento_caja and vale.movimiento_caja.caja %}
+                                    <a href="{% url 'inmobiliaria:detalle_caja' vale.movimiento_caja.caja.numero %}">Caja #{{ vale.movimiento_caja.caja.numero }}</a>
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-info">No hay vales registrados para este productor.</div>
+    {% endif %}
+</div>
+{% endblock %}

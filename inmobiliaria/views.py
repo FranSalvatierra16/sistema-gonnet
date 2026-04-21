@@ -51,11 +51,9 @@ def historial_comisiones_vendedor(request, vendedor_id):
         total=models.Sum('monto_comision')
     )['total'] or Decimal('0')
     
-    total_vales = vales.aggregate(
-        total=models.Sum('monto')
-    )['total'] or Decimal('0')
+    total_vales = ValeVendedor.total_saldo_para_comisiones(vendedor)
     
-    # Calcular neto (comisiones - vales)
+    # Calcular neto (comisiones - saldo neto de vales: egresos − ingresos)
     total_neto = total_comisiones - total_vales
     
     # Calcular totales por mes
@@ -75,7 +73,7 @@ def historial_comisiones_vendedor(request, vendedor_id):
         comisiones_por_mes[mes_key]['total_comisiones'] += comision.monto_comision
         comisiones_por_mes[mes_key]['cantidad'] += 1
     
-    # Agregar vales por mes
+    # Agregar vales por mes (egreso suma al “descuento”, ingreso lo resta)
     for vale in vales:
         mes_key = vale.fecha.strftime('%Y-%m')
         if mes_key not in comisiones_por_mes:
@@ -85,7 +83,10 @@ def historial_comisiones_vendedor(request, vendedor_id):
                 'total_vales': Decimal('0'),
                 'cantidad': 0
             }
-        comisiones_por_mes[mes_key]['total_vales'] += vale.monto
+        if vale.tipo_vale == 'EG':
+            comisiones_por_mes[mes_key]['total_vales'] += vale.monto
+        else:
+            comisiones_por_mes[mes_key]['total_vales'] -= vale.monto
     
     # Calcular neto por mes
     for mes_key in comisiones_por_mes:
@@ -218,9 +219,7 @@ def dashboard_comisiones(request):
             estado='pendiente'
         ).count()
 
-        total_vales = ValeVendedor.objects.filter(
-            vendedor=vendedor
-        ).aggregate(total=models.Sum('monto'))['total'] or Decimal('0')
+        total_vales = ValeVendedor.total_saldo_para_comisiones(vendedor)
 
         # Omisiones: reservas pagadas del vendedor sin comisión registrada
         omisiones = Reserva.objects.filter(
@@ -273,8 +272,10 @@ def crear_vale(request):
                 messages.error(request, 'El monto debe ser mayor a cero.')
                 return redirect('inmobiliaria:dashboard_caja')
             
-            # Obtener vendedor
-            vendedor = get_object_or_404(Vendedor, id=vendedor_id)
+            # Obtener vendedor (misma sucursal)
+            vendedor = get_object_or_404(
+                Vendedor, id=vendedor_id, sucursal=request.user.sucursal
+            )
             
             # Obtener caja activa
             caja_actual = Caja.objects.filter(
@@ -493,18 +494,29 @@ def lista_vales_vendedor(request, vendedor_id):
         messages.error(request, 'No tienes permisos para acceder a esta sección.')
         return redirect('inmobiliaria:dashboard')
     
-    vendedor = get_object_or_404(Vendedor, id=vendedor_id)
-    vales = ValeVendedor.objects.filter(vendedor=vendedor).order_by('-fecha')
+    vendedor = get_object_or_404(
+        Vendedor, id=vendedor_id, sucursal=request.user.sucursal
+    )
+    vales = (
+        ValeVendedor.objects.filter(vendedor=vendedor)
+        .select_related('movimiento_caja', 'movimiento_caja__caja', 'usuario_creador')
+        .order_by('-fecha')
+    )
     
-    # Calcular total de vales
-    total_vales = vales.aggregate(
-        total=models.Sum('monto')
-    )['total'] or Decimal('0')
+    total_vales_saldo = ValeVendedor.total_saldo_para_comisiones(vendedor)
+    total_vales_egreso = (
+        vales.filter(tipo_vale='EG').aggregate(total=models.Sum('monto'))['total'] or Decimal('0')
+    )
+    total_vales_ingreso = (
+        vales.filter(tipo_vale='IN').aggregate(total=models.Sum('monto'))['total'] or Decimal('0')
+    )
     
     context = {
         'vendedor': vendedor,
         'vales': vales,
-        'total_vales': total_vales
+        'total_vales': total_vales_saldo,
+        'total_vales_egreso': total_vales_egreso,
+        'total_vales_ingreso': total_vales_ingreso,
     }
     
     return render(request, 'inmobiliaria/vales/lista_vales.html', context)
@@ -8997,10 +9009,50 @@ def nuevo_movimiento(request, numero_caja=None):
             else:
                 movimiento.cheque_fecha_vencimiento = None
 
-            # Guardar el movimiento
-            movimiento.save()
+            m_ef = Decimal(str(movimiento.monto_efectivo or 0))
+            m_ch = Decimal(str(movimiento.monto_cheque or 0))
+            m_ta = Decimal(str(movimiento.monto_tarjeta or 0))
+            m_dp = Decimal(str(movimiento.monto_deposito or 0))
+            total_mov = m_ef + m_ch + m_ta + m_dp
+            if total_mov <= 0:
+                messages.error(request, 'El importe total del movimiento debe ser mayor a cero.')
+                return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
 
-            messages.success(request, 'Movimiento creado exitosamente')
+            registrar_vale = request.POST.get('registrar_vale') in ('1', 'on', 'true', 'yes')
+            productor_id_raw = (request.POST.get('productor_id') or '').strip()
+            vendedor_vale = None
+            if registrar_vale:
+                if not productor_id_raw:
+                    messages.error(
+                        request,
+                        'Para registrar el vale tenés que elegir un productor (ID o búsqueda).',
+                    )
+                    return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
+                try:
+                    pid = int(productor_id_raw)
+                except (TypeError, ValueError):
+                    messages.error(request, 'ID de productor inválido.')
+                    return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
+                vendedor_vale = get_object_or_404(
+                    Vendedor, id=pid, sucursal=request.user.sucursal
+                )
+
+            with transaction.atomic():
+                movimiento.save()
+                if registrar_vale and vendedor_vale:
+                    ValeVendedor.crear_desde_movimiento(
+                        movimiento,
+                        vendedor_vale,
+                        usuario_creador=request.user,
+                    )
+
+            if registrar_vale and vendedor_vale:
+                messages.success(
+                    request,
+                    'Movimiento creado y vale registrado para el productor en el historial de vales.',
+                )
+            else:
+                messages.success(request, 'Movimiento creado exitosamente')
             return redirect('inmobiliaria:detalle_caja', numero=caja.numero)
 
         except Exception as e:
