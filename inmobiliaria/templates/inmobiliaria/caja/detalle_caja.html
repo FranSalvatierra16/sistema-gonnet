@@ -77,8 +77,6 @@
                             <th>Tarjeta</th>
                             <th>Transferencia</th>
                             <th>Total</th>
-                            <th>Destino</th>
-                            <th>Empleado</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
@@ -102,8 +100,6 @@
                                 {% endif %}
                             </td>
                             <td>${{ movimiento.monto_total|floatformat:2 }}</td>
-                            <td>{{ movimiento.get_a_descontar_display|default:"—" }}</td>
-                            <td>{{ movimiento.empleado }}</td>
                             <td>
                                 <div class="btn-group">
                                     <a href="{% url 'inmobiliaria:ver_recibo_movimiento' movimiento.id %}" 
@@ -128,7 +124,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="11" class="text-center">No hay movimientos registrados</td>
+                            <td colspan="9" class="text-center">No hay movimientos registrados</td>
                         </tr>
                         {% endfor %}
                     </tbody>
