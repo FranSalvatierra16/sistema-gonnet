@@ -51,11 +51,11 @@
                     <strong>Cierre:</strong> {{ caja.fecha_cierre|date:"d/m/Y H:i"|default:"—" }}<br>
                     <strong>Usuario cierre:</strong> {{ caja.usuario_cierre|default:"—" }}<br>
                     {% endif %}
-                    <strong>Saldo inicial:</strong> ${{ caja.saldo_inicial|floatformat:2 }}<br>
-                    <strong>Neto movimientos (ing. − egr.):</strong> ${{ totales.saldo_total|floatformat:2 }}<br>
-                    <strong>Saldo (inicial + neto):</strong> ${{ saldo_teorico_final|floatformat:2 }}
+                    <strong>Saldo inicial:</strong> ${{ caja.saldo_inicial|format_price }}<br>
+                    <strong>Neto movimientos (ing. − egr.):</strong> ${{ totales.saldo_total|format_price }}<br>
+                    <strong>Saldo (inicial + neto):</strong> ${{ saldo_teorico_final|format_price }}
                     {% if caja.estado == 'cerrada' and caja.saldo_final is not None %}
-                    <br><strong>Saldo al cierre (registrado):</strong> ${{ caja.saldo_final|floatformat:2 }}
+                    <br><strong>Saldo al cierre (registrado):</strong> ${{ caja.saldo_final|format_price }}
                     {% endif %}
                 </div>
             </div>
@@ -96,11 +96,11 @@
                         <div class="caja-listado-l3">{{ movimiento.listado_detalle_l1 }}</div>
                         <div class="caja-listado-l4">{{ movimiento.listado_detalle_l2 }}</div>
                     </td>
-                    <td class="text-end">${{ movimiento.monto_efectivo|floatformat:2 }}</td>
-                    <td class="text-end">${{ movimiento.monto_cheque|floatformat:2 }}</td>
-                    <td class="text-end">${{ movimiento.monto_tarjeta|floatformat:2 }}</td>
-                    <td class="text-end">${{ movimiento.monto_deposito|floatformat:2 }}</td>
-                    <td class="text-end"><strong>${{ movimiento.monto_total|floatformat:2 }}</strong></td>
+                    <td class="text-end">${{ movimiento.monto_efectivo|format_price }}</td>
+                    <td class="text-end">${{ movimiento.monto_cheque|format_price }}</td>
+                    <td class="text-end">${{ movimiento.monto_tarjeta|format_price }}</td>
+                    <td class="text-end">${{ movimiento.monto_deposito|format_price }}</td>
+                    <td class="text-end"><strong>${{ movimiento.monto_total|format_price }}</strong></td>
                     <td class="small">{{ movimiento.empleado|default:"—" }}</td>
                 </tr>
                 {% empty %}
@@ -114,40 +114,40 @@
         <div class="col-md-6">
             <div class="border rounded p-3 h-100">
                 <h6 class="text-success">Ingresos</h6>
-                <p class="small mb-1">Efectivo: ${{ totales.ingresos.efectivo|floatformat:2 }} · Cheques: ${{ totales.ingresos.cheque|floatformat:2 }}</p>
-                <p class="small mb-1">Tarjeta: ${{ totales.ingresos.tarjeta|floatformat:2 }} · Transferencias: ${{ totales.ingresos.deposito|floatformat:2 }}</p>
+                <p class="small mb-1">Efectivo: ${{ totales.ingresos.efectivo|format_price }} · Cheques: ${{ totales.ingresos.cheque|format_price }}</p>
+                <p class="small mb-1">Tarjeta: ${{ totales.ingresos.tarjeta|format_price }} · Transferencias: ${{ totales.ingresos.deposito|format_price }}</p>
                 {% for cuenta in cuentas_bancarias %}
                     {% with cuenta_data=totales.ingresos.cuentas_bancarias|get_item:cuenta.id %}
                         {% if cuenta_data and cuenta_data.total > 0 %}
-                        <p class="small mb-0">↳ {{ cuenta.nombre_banco }}{% if cuenta.alias %} ({{ cuenta.alias }}){% endif %}: ${{ cuenta_data.total|floatformat:2 }}</p>
+                        <p class="small mb-0">↳ {{ cuenta.nombre_banco }}{% if cuenta.alias %} ({{ cuenta.alias }}){% endif %}: ${{ cuenta_data.total|format_price }}</p>
                         {% endif %}
                     {% endwith %}
                 {% endfor %}
                 <hr class="my-2">
-                <strong>Total ingresos: ${{ totales.ingresos.total|floatformat:2 }}</strong>
+                <strong>Total ingresos: ${{ totales.ingresos.total|format_price }}</strong>
             </div>
         </div>
         <div class="col-md-6">
             <div class="border rounded p-3 h-100">
                 <h6 class="text-danger">Egresos</h6>
-                <p class="small mb-1">Efectivo: ${{ totales.egresos.efectivo|floatformat:2 }} · Cheques: ${{ totales.egresos.cheque|floatformat:2 }}</p>
-                <p class="small mb-1">Tarjeta: ${{ totales.egresos.tarjeta|floatformat:2 }} · Transferencias: ${{ totales.egresos.deposito|floatformat:2 }}</p>
+                <p class="small mb-1">Efectivo: ${{ totales.egresos.efectivo|format_price }} · Cheques: ${{ totales.egresos.cheque|format_price }}</p>
+                <p class="small mb-1">Tarjeta: ${{ totales.egresos.tarjeta|format_price }} · Transferencias: ${{ totales.egresos.deposito|format_price }}</p>
                 {% for cuenta in cuentas_bancarias %}
                     {% with cuenta_data=totales.egresos.cuentas_bancarias|get_item:cuenta.id %}
                         {% if cuenta_data and cuenta_data.total > 0 %}
-                        <p class="small mb-0">↳ {{ cuenta.nombre_banco }}{% if cuenta.alias %} ({{ cuenta.alias }}){% endif %}: ${{ cuenta_data.total|floatformat:2 }}</p>
+                        <p class="small mb-0">↳ {{ cuenta.nombre_banco }}{% if cuenta.alias %} ({{ cuenta.alias }}){% endif %}: ${{ cuenta_data.total|format_price }}</p>
                         {% endif %}
                     {% endwith %}
                 {% endfor %}
                 <hr class="my-2">
-                <strong>Total egresos: ${{ totales.egresos.total|floatformat:2 }}</strong>
+                <strong>Total egresos: ${{ totales.egresos.total|format_price }}</strong>
             </div>
         </div>
     </div>
 
     <div class="alert {% if es_saldo_positivo %}alert-success{% else %}alert-danger{% endif %} mb-0">
         <strong>Resultado del período (ingresos − egresos):</strong>
-        ${{ totales.saldo_total|floatformat:2 }}
+        ${{ totales.saldo_total|format_price }}
     </div>
 </div>
 

@@ -1,4 +1,5 @@
 {% extends 'inmobiliaria/base.html' %}
+{% load custom_filters %}
 
 {% block content %}
 <div class="container-fluid mt-4 fade-in-up">
@@ -18,8 +19,8 @@
                                 <h5>📊 <strong>Información de la Caja</strong></h5>
                                 <p><strong>Sucursal:</strong> {{ caja.sucursal.nombre }}</p>
                                 <p><strong>Apertura:</strong> {{ caja.fecha_apertura|date:"d/m/Y H:i" }}</p>
-                                <p><strong>Saldo Inicial:</strong> ${{ caja.saldo_inicial|floatformat:0 }}</p>
-                                <p><strong>Saldo Actual:</strong> <span class="text-success font-weight-bold">${{ caja.get_saldo_actual|floatformat:0 }}</span></p>
+                                <p><strong>Saldo Inicial:</strong> ${{ caja.saldo_inicial|format_price:0 }}</p>
+                                <p><strong>Saldo Actual:</strong> <span class="text-success font-weight-bold">${{ caja.get_saldo_actual|format_price:0 }}</span></p>
                             </div>
                         </div>
                         <div class="col-md-6">
@@ -28,7 +29,7 @@
                                 <p class="mb-2">Al cerrar esta caja se abrirá automáticamente una nueva:</p>
                                 <ul class="mb-0">
                                     <li><strong>Nueva Caja:</strong> #{{ caja.numero|add:1 }}</li>
-                                    <li><strong>Saldo Inicial:</strong> ${{ caja.get_saldo_actual|floatformat:0 }}</li>
+                                    <li><strong>Saldo Inicial:</strong> ${{ caja.get_saldo_actual|format_price:0 }}</li>
                                     <li><strong>Estado:</strong> Abierta</li>
                                 </ul>
                             </div>

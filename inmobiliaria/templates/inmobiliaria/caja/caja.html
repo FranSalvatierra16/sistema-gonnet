@@ -1,5 +1,6 @@
 {% extends 'inmobiliaria/base.html' %}
 {% load static %}
+{% load custom_filters %}
 
 {% block content %}
 <div class="container-fluid mt-3">
@@ -47,12 +48,12 @@
                             <td>{{ movimiento.operacion }}</td>
                             <td>{{ movimiento.comprobante }}</td>
                             <td>{{ movimiento.detalle }}</td>
-                            <td class="text-right">{% if movimiento.tipo == 'ingreso' %}{{ movimiento.monto|floatformat:2 }}{% endif %}</td>
-                            <td class="text-right">{% if movimiento.tipo == 'egreso' %}{{ movimiento.monto|floatformat:2 }}{% endif %}</td>
-                            <td class="text-right">{{ movimiento.monto_cheque|default_if_none:""|floatformat:2 }}</td>
-                            <td class="text-right">{{ movimiento.monto_tarjeta|default_if_none:""|floatformat:2 }}</td>
-                            <td class="text-right">{{ movimiento.monto_deposito|default_if_none:""|floatformat:2 }}</td>
-                            <td class="text-right">{{ movimiento.monto_transferencia|default_if_none:""|floatformat:2 }}</td>
+                            <td class="text-right">{% if movimiento.tipo == 'ingreso' %}${{ movimiento.monto|format_price }}{% endif %}</td>
+                            <td class="text-right">{% if movimiento.tipo == 'egreso' %}${{ movimiento.monto|format_price }}{% endif %}</td>
+                            <td class="text-right">${{ movimiento.monto_cheque|default_if_none:""|format_price }}</td>
+                            <td class="text-right">${{ movimiento.monto_tarjeta|default_if_none:""|format_price }}</td>
+                            <td class="text-right">${{ movimiento.monto_deposito|default_if_none:""|format_price }}</td>
+                            <td class="text-right">${{ movimiento.monto_transferencia|default_if_none:""|format_price }}</td>
                             <td class="text-center">
                                 <a href="{% url 'inmobiliaria:ver_recibo_movimiento' movimiento.id %}" 
                                    class="btn btn-success btn-sm" 
@@ -83,33 +84,33 @@
                     <div class="row">
                         <div class="col-md-3">
                             <h6>TOTAL EFECTIVO</h6>
-                            <p class="text-right">${{ totales.efectivo|floatformat:2 }}</p>
+                            <p class="text-right">${{ totales.efectivo|format_price }}</p>
                         </div>
                         <div class="col-md-3">
                             <h6>TOTAL CHEQUES</h6>
-                            <p class="text-right">${{ totales.cheques|floatformat:2 }}</p>
+                            <p class="text-right">${{ totales.cheques|format_price }}</p>
                         </div>
                         <div class="col-md-3">
                             <h6>TOTAL TARJETAS</h6>
-                            <p class="text-right">${{ totales.tarjetas|floatformat:2 }}</p>
+                            <p class="text-right">${{ totales.tarjetas|format_price }}</p>
                         </div>
                         <div class="col-md-3">
                             <h6>TOTAL DEPÓSITOS</h6>
-                            <p class="text-right">${{ totales.depositos|floatformat:2 }}</p>
+                            <p class="text-right">${{ totales.depositos|format_price }}</p>
                         </div>
                     </div>
                     <div class="row mt-3">
                         <div class="col-md-4">
                             <h6>ANTERIOR</h6>
-                            <p class="text-right">${{ saldos.anterior|floatformat:2 }}</p>
+                            <p class="text-right">${{ saldos.anterior|format_price }}</p>
                         </div>
                         <div class="col-md-4">
                             <h6>INGRESOS</h6>
-                            <p class="text-right">${{ saldos.ingresos|floatformat:2 }}</p>
+                            <p class="text-right">${{ saldos.ingresos|format_price }}</p>
                         </div>
                         <div class="col-md-4">
                             <h6>EGRESOS</h6>
-                            <p class="text-right">${{ saldos.egresos|floatformat:2 }}</p>
+                            <p class="text-right">${{ saldos.egresos|format_price }}</p>
                         </div>
                     </div>
                 </div>
@@ -119,15 +120,15 @@
             <div class="card">
                 <div class="card-body">
                     <h6>SALDO ANTER. TOTAL:</h6>
-                    <p class="text-right">${{ saldos.anterior_total|floatformat:2 }}</p>
+                    <p class="text-right">${{ saldos.anterior_total|format_price }}</p>
                     <h6>TOTAL INGRESOS TOTAL:</h6>
-                    <p class="text-right">${{ saldos.ingresos_total|floatformat:2 }}</p>
+                    <p class="text-right">${{ saldos.ingresos_total|format_price }}</p>
                     <h6>TOTAL EGRESOS TOTAL:</h6>
-                    <p class="text-right">${{ saldos.egresos_total|floatformat:2 }}</p>
+                    <p class="text-right">${{ saldos.egresos_total|format_price }}</p>
                     <h6>SALDO DE CAJA DEL DÍA:</h6>
-                    <p class="text-right">${{ saldos.dia|floatformat:2 }}</p>
+                    <p class="text-right">${{ saldos.dia|format_price }}</p>
                     <h6 class="font-weight-bold">SALDO DE CAJA TOTAL - TOTAL</h6>
-                    <p class="text-right font-weight-bold">${{ saldos.total|floatformat:2 }}</p>
+                    <p class="text-right font-weight-bold">${{ saldos.total|format_price }}</p>
                 </div>
             </div>
         </div>

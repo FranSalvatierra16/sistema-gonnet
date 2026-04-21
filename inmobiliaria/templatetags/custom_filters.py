@@ -1,35 +1,91 @@
+import builtins
+
 from django import template
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 register = template.Library()
+_abs = builtins.abs
+
+
+def _parse_decimal(value):
+    """Convierte valor de plantilla a Decimal (acepta AR con puntos miles y coma decimal)."""
+    if value is None or value == '':
+        return Decimal('0')
+    if isinstance(value, Decimal):
+        return value
+    if isinstance(value, str):
+        t = value.strip()
+        if not t:
+            return Decimal('0')
+        # 1.234.567,89 → quitar puntos de miles, coma a punto decimal
+        if ',' in t:
+            t = t.replace('.', '').replace(',', '.')
+        else:
+            # Solo puntos: puede ser miles (1.000) o decimal US (1.5)
+            if t.count('.') == 1 and len(t.split('.')[-1]) <= 2:
+                pass  # decimal corto
+            else:
+                t = t.replace('.', '')
+        return Decimal(t)
+    if isinstance(value, bool):
+        return Decimal(int(value))
+    if isinstance(value, int):
+        return Decimal(value)
+    if isinstance(value, float):
+        return Decimal(str(value))
+    return Decimal(str(value))
+
+
+def _entero_miles_puntos(n: int) -> str:
+    n = _abs(int(n))
+    s = str(n)
+    parts = []
+    while len(s) > 3:
+        parts.insert(0, s[-3:])
+        s = s[:-3]
+    if s:
+        parts.insert(0, s)
+    return '.'.join(parts) if parts else '0'
+
 
 @register.filter
-def format_price(value):
-    """Formatea números como precios con puntos como separadores de miles (sin símbolo $; el $ va en la plantilla)."""
+def format_price(value, arg=None):
+    """
+    Formato argentino: miles con punto, decimales con coma (sin $).
+    Por defecto 2 decimales (ej. 4.500.000,00). Enteros: {{ valor|format_price:0 }}
+    """
     try:
-        # Si el valor es None, 0 o string vacío, devolver "0"
-        if value is None or value == "" or (isinstance(value, str) and value.strip() == ""):
-            return "0"
-        
-        # Si es un Decimal, convertir a float primero
-        if isinstance(value, Decimal):
-            value = float(value)
-        
-        # Si es string, intentar convertir a float
-        if isinstance(value, str):
-            # Remover puntos y comas existentes y convertir
-            cleaned_value = value.replace(".", "").replace(",", ".")
-            value = float(cleaned_value)
-        
-        if isinstance(value, (int, float)):
-            return "{:,.0f}".format(value).replace(',', '.')
-        
-        # Si llegamos aquí, devolver el valor original como string
-        return str(value)
-        
-    except (ValueError, TypeError, InvalidOperation) as e:
-        print(f"Error en format_price con valor '{value}' (tipo: {type(value)}): {e}")
-        return "0"
+        if arg is None or str(arg).strip() == '':
+            dec_places = 2
+        else:
+            dec_places = max(0, min(10, int(arg)))
+    except (TypeError, ValueError):
+        dec_places = 2
+
+    try:
+        d = _parse_decimal(value)
+    except (InvalidOperation, ValueError, TypeError):
+        return '0' if dec_places == 0 else ('0,' + ('0' * dec_places))
+
+    neg = d < 0
+    d = _abs(d)
+
+    if dec_places == 0:
+        q = d.quantize(Decimal('1'), rounding=ROUND_HALF_UP)
+        body = _entero_miles_puntos(int(q))
+    else:
+        exp = Decimal(10) ** -dec_places
+        q = d.quantize(exp, rounding=ROUND_HALF_UP)
+        s = format(q, 'f')
+        if '.' in s:
+            ip_str, fp_str = s.split('.', 1)
+        else:
+            ip_str, fp_str = s, ''
+        fp_str = (fp_str + '0' * dec_places)[:dec_places]
+        intpart = int(ip_str) if ip_str else 0
+        body = f'{_entero_miles_puntos(intpart)},{fp_str}'
+
+    return ('-' if neg else '') + body
 
 @register.filter
 def abs(value):
@@ -37,13 +93,13 @@ def abs(value):
     try:
         # Si ya es un Decimal, usarlo directamente
         if isinstance(value, Decimal):
-            return abs(value)
+            return _abs(value)
         # Si es un float o int, convertirlo a string primero
         if isinstance(value, (float, int)):
-            return abs(Decimal(str(value)))
+            return _abs(Decimal(str(value)))
         # Si es un string, intentar convertirlo
         if isinstance(value, str):
-            return abs(Decimal(value.replace(',', '.')))
+            return _abs(Decimal(value.replace(',', '.')))
         # Si no es ninguno de los tipos anteriores, devolver el valor original
         return value
     except (InvalidOperation, ValueError, TypeError):
