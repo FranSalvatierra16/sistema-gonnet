@@ -1,7 +1,12 @@
+import re
+
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
 from decimal import Decimal
+
+# Palabra "vale" / "vales" en nombre de concepto (caja) para registrar ValeVendedor automático.
+_CONCEPTO_VALE_NOMBRE_RE = re.compile(r"\bvales?\b", re.IGNORECASE)
 
 class TipoMovimientoCajaEnum(models.TextChoices):
     INGRESO = 'IN', 'Ingreso'
@@ -193,6 +198,16 @@ class Concepto(models.Model):
 
     def __str__(self):
         return f"{self.id} - {self.nombre}"
+
+    def indica_movimiento_vale_productor(self):
+        """
+        True si este concepto de caja debe asociar un ValeVendedor al grabar un movimiento
+        con productor (id que empiece por «vale» o nombre que contenga la palabra «vale»).
+        """
+        nid = (self.id or "").strip().lower()
+        if nid.startswith("vale"):
+            return True
+        return bool(_CONCEPTO_VALE_NOMBRE_RE.search(self.nombre or ""))
 
 class Banco(models.Model):
     nombre = models.CharField(max_length=100)

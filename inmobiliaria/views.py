@@ -9018,14 +9018,22 @@ def nuevo_movimiento(request, numero_caja=None):
                 messages.error(request, 'El importe total del movimiento debe ser mayor a cero.')
                 return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
 
-            registrar_vale = request.POST.get('registrar_vale') in ('1', 'on', 'true', 'yes')
             productor_id_raw = (request.POST.get('productor_id') or '').strip()
+            concepto_ref = (concepto_valor or "").strip()
+            concepto_row = None
+            if concepto_ref:
+                concepto_row = Concepto.objects.filter(
+                    id=concepto_ref, sucursal=request.user.sucursal
+                ).first()
+            quiere_vale = bool(
+                concepto_row and concepto_row.indica_movimiento_vale_productor()
+            )
             vendedor_vale = None
-            if registrar_vale:
+            if quiere_vale:
                 if not productor_id_raw:
                     messages.error(
                         request,
-                        'Para registrar el vale tenés que elegir un productor (ID o búsqueda).',
+                        'Este concepto es de vale: elegí un productor (legajo / búsqueda) para registrar el vale.',
                     )
                     return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
                 try:
@@ -9039,14 +9047,14 @@ def nuevo_movimiento(request, numero_caja=None):
 
             with transaction.atomic():
                 movimiento.save()
-                if registrar_vale and vendedor_vale:
+                if quiere_vale and vendedor_vale:
                     ValeVendedor.crear_desde_movimiento(
                         movimiento,
                         vendedor_vale,
                         usuario_creador=request.user,
                     )
 
-            if registrar_vale and vendedor_vale:
+            if quiere_vale and vendedor_vale:
                 messages.success(
                     request,
                     'Movimiento creado y vale registrado para el productor en el historial de vales.',
