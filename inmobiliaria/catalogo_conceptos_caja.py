@@ -1,9 +1,12 @@
 """
-Catálogo único de conceptos de caja para todas las sucursales.
+Catálogo de conceptos de caja compartido entre sucursales.
 
-Se toman los conceptos con sucursal nula (globales) más los asignados a la sucursal
-de referencia (por defecto la que contiene «Corrientes» en el nombre).
-Si no existe esa sucursal, se conserva el comportamiento anterior (globales + sucursal actual).
+- Globales (sucursal nula).
+- Sucursal de referencia (nombre contiene «Corrientes»), como lista maestra común.
+- Además, los conceptos dados de alta en la sucursal del usuario (p. ej. «90 - Vale»
+  en Sucursal Prueba), para que sigan apareciendo en búsqueda y movimientos.
+
+Si no hay sucursal de referencia, solo globales + sucursal actual.
 """
 from django.db.models import Q
 
@@ -20,9 +23,15 @@ def q_conceptos_caja_visibles(sucursal_actual):
     Condición ORM para listar/validar conceptos de caja desde cualquier sucursal.
     """
     ref = get_sucursal_referencia_catalogo_conceptos_caja()
-    if ref:
-        return Q(sucursal__isnull=True) | Q(sucursal_id=ref.pk)
     sid = getattr(sucursal_actual, 'pk', None)
+    if ref and sid:
+        return (
+            Q(sucursal__isnull=True)
+            | Q(sucursal_id=ref.pk)
+            | Q(sucursal_id=sid)
+        )
+    if ref and not sid:
+        return Q(sucursal__isnull=True) | Q(sucursal_id=ref.pk)
     if sid is None:
         return Q(pk__isnull=False)
     return Q(sucursal__isnull=True) | Q(sucursal_id=sid)
