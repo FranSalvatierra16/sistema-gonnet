@@ -1,6 +1,9 @@
 import re
 
 from django.db import models
+
+# Abreviatura «RE» (= recibo) en tipo de comprobante o al inicio del texto de concepto
+_RE_ABREV_RECIBO_INICIO = re.compile(r'^RE\s+', re.IGNORECASE)
 from django.conf import settings
 from django.utils import timezone
 from decimal import Decimal
@@ -187,11 +190,24 @@ class MovimientoCaja(models.Model):
             raw = raw.split('|CONCEPTOS:', 1)[0].strip()
         return raw
 
+    def _texto_concepto_sin_abrev_re(self, texto):
+        """«RE …» al inicio del texto libre → «RECIBO …» (solo presentación)."""
+        if not texto:
+            return texto
+        t = texto.strip()
+        if t.upper() == 'RE':
+            return 'RECIBO'
+        return _RE_ABREV_RECIBO_INICIO.sub('RECIBO ', t, count=1)
+
     def _tipo_comprobante_display_upper(self):
         try:
-            return (self.get_tipo_comprobante_display() or '').strip().upper()
+            raw = (self.get_tipo_comprobante_display() or '').strip().upper()
         except Exception:
-            return ''
+            raw = ''
+        clave = (self.tipo_comprobante or '').strip().upper()
+        if clave == 'RE' or raw == 'RE':
+            return 'RECIBO'
+        return raw
 
     @property
     def listado_concepto_l1(self):
@@ -202,6 +218,8 @@ class MovimientoCaja(models.Model):
         if 'devoluc' in texto and ('garant' in texto or 'deposito' in texto or 'depósito' in texto):
             return 'D.D.G.'
         clave = (self.tipo_comprobante or '').strip().upper()
+        if clave == 'RE':
+            clave = 'RC'
         if clave == 'LQ' or 'liquid' in texto:
             return 'LIQUIDACIONES'
         if clave == 'GS':
@@ -240,7 +258,7 @@ class MovimientoCaja(models.Model):
             return ''
         tr = (data.get('mes_alquiler_texto_recibo') or '').strip()
         if tr:
-            return tr[:200]
+            return self._texto_concepto_sin_abrev_re(tr)[:200]
         cons = data.get('conceptos')
         if isinstance(cons, list) and cons:
             first = cons[0]
@@ -248,7 +266,7 @@ class MovimientoCaja(models.Model):
                 for key in ('nombre', 'concepto', 'descripcion', 'label'):
                     v = first.get(key)
                     if v:
-                        return str(v).strip()[:200]
+                        return self._texto_concepto_sin_abrev_re(str(v).strip())[:200]
         return ''
 
     @property
@@ -257,11 +275,12 @@ class MovimientoCaja(models.Model):
         from_json = self._primer_texto_detalle_desde_json()
         if from_json:
             return from_json
-        t = self.concepto_sin_pipe_conceptos().strip()
+        t = self._texto_concepto_sin_abrev_re(self.concepto_sin_pipe_conceptos().strip())
         if not t:
             return '—'
         if '\n' in t:
-            return t.split('\n', 1)[0].strip()[:160]
+            primera = self._texto_concepto_sin_abrev_re(t.split('\n', 1)[0].strip())
+            return primera[:160]
         if len(t) > 120:
             return t[:117] + '...'
         return t
@@ -270,9 +289,9 @@ class MovimientoCaja(models.Model):
     def listado_detalle_l2(self):
         """Segunda línea: comprobante, período, a quién corresponde."""
         parts = []
-        base = self.concepto_sin_pipe_conceptos()
+        base = self._texto_concepto_sin_abrev_re(self.concepto_sin_pipe_conceptos())
         if '\n' in base:
-            second = base.split('\n', 1)[1].strip()
+            second = self._texto_concepto_sin_abrev_re(base.split('\n', 1)[1].strip())
             if second:
                 parts.append(second[:140])
         if self.numero_liquidacion:
