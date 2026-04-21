@@ -564,6 +564,12 @@ $(document).ready(function() {
     function csrfToken() {
         return $('input[name="csrfmiddlewaretoken"]').val();
     }
+    function conceptoIdEtiqueta(id) {
+        if (id === undefined || id === null) return '';
+        var s = String(id).trim();
+        return (s.toUpperCase() === 'RE') ? 'RECIBO' : s;
+    }
+
     function escapeHtml(s) {
         if (s == null || s === undefined) return '';
         return $('<div>').text(s).html();
@@ -635,7 +641,7 @@ $(document).ready(function() {
             list.forEach(function(c) {
                 var $b = $('<button type="button" class="list-group-item list-group-item-action py-2"></button>');
                 $b.attr('data-id', c.id).attr('data-nombre', c.nombre);
-                $b.html('<span class="fw-semibold">' + escapeHtml(String(c.id)) + '</span> <span class="caja-ac-meta">—</span> ' + escapeHtml(c.nombre));
+                $b.html('<span class="fw-semibold">' + escapeHtml(conceptoIdEtiqueta(c.id)) + '</span> <span class="caja-ac-meta">—</span> ' + escapeHtml(c.nombre));
                 $dd.append($b);
             });
         }
@@ -675,7 +681,7 @@ $(document).ready(function() {
         var id = $(this).data('id');
         var nombre = $(this).data('nombre');
         $('#concepto_id').val(id);
-        $('#concepto_seleccionado_texto').text(id + ' - ' + nombre);
+        $('#concepto_seleccionado_texto').text(conceptoIdEtiqueta(id) + ' - ' + nombre);
         $('#concepto_seleccionado').removeClass('d-none');
         $('#dropdown_conceptos').removeClass('show').empty();
         $('#buscar_concepto').val('');
@@ -713,7 +719,7 @@ $(document).ready(function() {
                 if (response.success) {
                     // Seleccionar el concepto recién creado
                     $('#concepto_id').val(id);
-                    $('#concepto_seleccionado_texto').text(id + ' - ' + nombre);
+                    $('#concepto_seleccionado_texto').text(conceptoIdEtiqueta(id) + ' - ' + nombre);
                     $('#concepto_seleccionado').removeClass('d-none');
                     
                     // Cerrar modal y mostrar mensaje
@@ -1177,7 +1183,7 @@ $(document).ready(function() {
                     // Si hay un concepto asociado
                     if (response.movimiento.concepto) {
                         $('#concepto_id').val(response.movimiento.concepto.id);
-                        $('#concepto_seleccionado_texto').text(response.movimiento.concepto.id + ' - ' + response.movimiento.concepto.nombre);
+                        $('#concepto_seleccionado_texto').text(conceptoIdEtiqueta(response.movimiento.concepto.id) + ' - ' + response.movimiento.concepto.nombre);
                         $('#concepto_seleccionado').removeClass('d-none');
                     }
                     

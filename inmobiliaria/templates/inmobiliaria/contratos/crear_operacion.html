@@ -398,7 +398,7 @@
                         <tbody id="tablaConceptosBusqueda">
                             {% for concepto in conceptos %}
                             <tr data-concepto-id="{{ concepto.id }}" data-concepto-nombre="{{ concepto.nombre|lower }}" data-concepto-desc="{{ concepto.descripcion|default:""|lower }}">
-                                <td><strong>{{ concepto.id }}</strong></td>
+                                <td><strong>{{ concepto.etiqueta_numero_catalogo }}</strong></td>
                                 <td>{{ concepto.nombre }}</td>
                                 <td><small>{{ concepto.descripcion|default:"Sin descripción" }}</small></td>
                                 <td>
@@ -454,6 +454,12 @@ function escapeHtmlAttr(s) {
         .replace(/'/g, '&#39;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
+}
+
+function conceptoCatalogoIdEtiqueta(id) {
+    if (id === undefined || id === null) return '';
+    const s = String(id).trim();
+    return (s.toUpperCase() === 'RE') ? 'RECIBO' : s;
 }
 
 function actualizarObservacionConcepto(conceptoId, valor) {
@@ -584,7 +590,7 @@ function actualizarTablaConceptos() {
                        title="Observaciones que se envían con este concepto">
             </td>
             <td class="text-end">$${concepto.importe.toLocaleString('es-AR')}</td>
-            <td>${escapeHtmlAttr(String(concepto.conceptoId))}</td>
+            <td>${escapeHtmlAttr(conceptoCatalogoIdEtiqueta(concepto.conceptoId))}</td>
             <td>
                 <button type="button" class="btn btn-warning btn-sm me-1" 
                         onclick="editarConcepto(${concepto.id})" title="Cambiar concepto / importe">
@@ -618,7 +624,7 @@ function editarConcepto(conceptoId) {
         
         const infoDiv = document.getElementById('infoConceptoSeleccionado');
         const nombreSpan = document.getElementById('nombreConceptoSeleccionado');
-        nombreSpan.textContent = `ID: ${concepto.conceptoId} - ${concepto.nombre}`;
+        nombreSpan.textContent = `ID: ${conceptoCatalogoIdEtiqueta(concepto.conceptoId)} - ${concepto.nombre}`;
         infoDiv.style.display = 'block';
         
         conceptoSeleccionadoActual = {
@@ -1080,7 +1086,7 @@ function seleccionarConcepto(conceptoId, conceptoNombre) {
     const infoDiv = document.getElementById('infoConceptoSeleccionado');
     const nombreSpan = document.getElementById('nombreConceptoSeleccionado');
     
-    nombreSpan.textContent = `ID: ${conceptoId} - ${conceptoNombre}`;
+    nombreSpan.textContent = `ID: ${conceptoCatalogoIdEtiqueta(conceptoId)} - ${conceptoNombre}`;
     infoDiv.style.display = 'block';
     
     conceptoSeleccionadoActual = {
@@ -1129,7 +1135,7 @@ function crearNuevoConcepto() {
             // Mostrar información del concepto
             const infoDiv = document.getElementById('infoConceptoSeleccionado');
             const nombreSpan = document.getElementById('nombreConceptoSeleccionado');
-            nombreSpan.textContent = `ID: ${data.concepto.id} - ${data.concepto.nombre}`;
+            nombreSpan.textContent = `ID: ${conceptoCatalogoIdEtiqueta(data.concepto.id)} - ${data.concepto.nombre}`;
             infoDiv.style.display = 'block';
             
             // Guardar concepto seleccionado
@@ -1145,7 +1151,7 @@ function crearNuevoConcepto() {
             nuevaFila.setAttribute('data-concepto-nombre', data.concepto.nombre.toLowerCase());
             nuevaFila.setAttribute('data-concepto-desc', 'concepto creado recientemente');
             nuevaFila.innerHTML = `
-                <td><strong>${data.concepto.id}</strong></td>
+                <td><strong>${conceptoCatalogoIdEtiqueta(data.concepto.id)}</strong></td>
                 <td>${data.concepto.nombre}</td>
                 <td><small>Concepto creado recientemente</small></td>
                 <td>

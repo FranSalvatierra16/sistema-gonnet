@@ -311,6 +311,14 @@ class Concepto(models.Model):
     def __str__(self):
         return f"{self.id} - {self.nombre}"
 
+    @property
+    def etiqueta_numero_catalogo(self):
+        """Texto del número en pantallas: el id «RE» se muestra como RECIBO."""
+        cid = (self.id or '').strip().upper()
+        if cid == 'RE':
+            return 'RECIBO'
+        return self.id or ''
+
     def indica_movimiento_vale_productor(self):
         """
         True si este concepto de caja debe asociar un ValeVendedor al grabar un movimiento

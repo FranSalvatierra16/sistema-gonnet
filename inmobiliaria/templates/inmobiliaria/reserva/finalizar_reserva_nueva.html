@@ -19,6 +19,13 @@ let conceptoSeleccionadoActual = null;
 let conceptoEditando = null;
 let contadorConceptos = 1;
 
+/** Id de catálogo «RE» se muestra como RECIBO (el valor guardado sigue siendo RE). */
+function conceptoCatalogoIdEtiqueta(id) {
+    if (id === undefined || id === null) return '';
+    const s = String(id).trim();
+    return (s.toUpperCase() === 'RE') ? 'RECIBO' : s;
+}
+
 // ✅ FUNCIÓN GLOBAL PARA ACTUALIZAR PAGOS (debe estar al principio para los event listeners inline)
 function actualizarPagos() {
     console.log('🔄 ACTUALIZANDO PAGOS...');
@@ -559,7 +566,7 @@ function seleccionarConcepto(id, nombre) {
     const nombreSpan = document.getElementById('nombreConceptoSeleccionado');
     
     if (infoDiv && nombreSpan) {
-        nombreSpan.textContent = `ID: ${id} - ${nombre}`;
+        nombreSpan.textContent = `ID: ${conceptoCatalogoIdEtiqueta(id)} - ${nombre}`;
         infoDiv.style.display = 'block';
     }
     
@@ -592,7 +599,7 @@ function actualizarTablaConceptos() {
             <td>${concepto.nombre}</td>
             <td>${concepto.observaciones}</td>
             <td class="text-end">${concepto.importe.toLocaleString('es-ES')}</td>
-            <td>${concepto.conceptoId}</td>
+            <td>${conceptoCatalogoIdEtiqueta(concepto.conceptoId)}</td>
             <td>
                 <button type="button" class="btn btn-warning btn-sm me-1" 
                         onclick="editarConcepto(${concepto.id})" title="Editar">
@@ -785,7 +792,7 @@ function crearNuevoConcepto() {
             const infoDiv = document.getElementById('infoConceptoSeleccionado');
             const nombreSpan = document.getElementById('nombreConceptoSeleccionado');
             if (infoDiv && nombreSpan) {
-                nombreSpan.textContent = `ID: ${data.concepto.id} - ${data.concepto.nombre}`;
+                nombreSpan.textContent = `ID: ${conceptoCatalogoIdEtiqueta(data.concepto.id)} - ${data.concepto.nombre}`;
                 infoDiv.style.display = 'block';
             }
 
@@ -806,7 +813,7 @@ function crearNuevoConcepto() {
                 nuevaFila.setAttribute('data-concepto-nombre', data.concepto.nombre.toLowerCase());
                 nuevaFila.setAttribute('data-concepto-desc', 'concepto creado recientemente');
                 nuevaFila.innerHTML = `
-                    <td><strong>${data.concepto.id}</strong></td>
+                    <td><strong>${conceptoCatalogoIdEtiqueta(data.concepto.id)}</strong></td>
                     <td>${data.concepto.nombre}</td>
                     <td><small>Concepto creado recientemente</small></td>
                     <td>
@@ -1600,7 +1607,7 @@ if (importeLocacionInput) {
                         <tbody id="tablaConceptosBusqueda">
                             {% for concepto in conceptos_caja %}
                             <tr data-concepto-id="{{ concepto.id }}" data-concepto-nombre="{{ concepto.nombre|lower }}" data-concepto-desc="{{ concepto.descripcion|default:""|lower }}">
-                                <td><strong>{{ concepto.id }}</strong></td>
+                                <td><strong>{{ concepto.etiqueta_numero_catalogo }}</strong></td>
                                 <td>{{ concepto.nombre }}</td>
                                 <td><small>{{ concepto.descripcion|default:"Sin descripción" }}</small></td>
                                 <td>

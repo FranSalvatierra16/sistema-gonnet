@@ -10037,6 +10037,14 @@ def dashboard_caja(request):
     return render(request, 'inmobiliaria/caja/dashboard_caja.html')
 
 
+def _etiqueta_id_concepto_caja_visual(cid):
+    """Presentación: el id de catálogo «RE» se muestra como RECIBO (el id real en BD no cambia)."""
+    s = (cid or '').strip()
+    if s.upper() == 'RE':
+        return 'RECIBO'
+    return s
+
+
 def _filtro_qs_por_buscar_concepto(qs, texto, conceptos_catalogo):
     """
     Un solo criterio de búsqueda por concepto.
@@ -10263,17 +10271,18 @@ def reportes_caja(request):
         raw = (_m.concepto or '').strip()
         nom_cat = lookup_nombre_concepto.get(raw)
         primer_token = raw.split(None, 1)[0] if raw else ''
+        primer_visual = _etiqueta_id_concepto_caja_visual(primer_token)
         if not nom_cat and primer_token:
             nom_cat = lookup_nombre_concepto.get(primer_token)
         if nom_cat:
             if raw == primer_token:
-                _m.concepto_display = f'{primer_token} — {nom_cat}'
+                _m.concepto_display = f'{primer_visual} — {nom_cat}'
             elif nom_cat.lower() not in raw.lower():
                 _m.concepto_display = f'{raw} — {nom_cat}'
             else:
                 _m.concepto_display = raw
         else:
-            _m.concepto_display = raw
+            _m.concepto_display = primer_visual if raw == primer_token else raw
 
     def totales_por_tipo(queryset, tipo_code):
         sub = queryset.filter(tipo=tipo_code)
@@ -13990,7 +13999,9 @@ def recibo_contrato_24(request, contrato_id):
                     pass  # ✅ Bloque vacío
 # print(f"  📋 CONCEPTO {i}: {concepto_data}")
                     importe_valor = float(concepto_data.get('importe', 0))
-                    codigo = concepto_data.get('id', concepto_data.get('codigo', ''))
+                    codigo_raw = concepto_data.get('id', concepto_data.get('codigo', ''))
+                    codigo_txt = '' if codigo_raw is None else str(codigo_raw).strip()
+                    codigo = _etiqueta_id_concepto_caja_visual(codigo_txt) if codigo_txt else ''
                     nombre = concepto_data.get('nombre', concepto_data.get('concepto', ''))
                     
 # print(f"    - Importe: {importe_valor}")

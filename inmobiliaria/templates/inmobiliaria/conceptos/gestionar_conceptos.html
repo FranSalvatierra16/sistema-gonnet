@@ -104,8 +104,8 @@
                                 <td>
                                     {% if concepto.id|length > 0 %}
                                         {% if concepto.id|slugify %}
-                                            <span class="badge badge-primary concepto-id-badge" title="ID: {{ concepto.id }}">
-                                                {{ concepto.id|truncatechars:15 }}
+                                            <span class="badge badge-primary concepto-id-badge" title="ID en base de datos: {{ concepto.id }}">
+                                                {{ concepto.etiqueta_numero_catalogo|truncatechars:15 }}
                                             </span>
                                         {% else %}
                                             <span class="badge badge-warning concepto-id-badge" title="ID con caracteres especiales: '{{ concepto.id }}'">
