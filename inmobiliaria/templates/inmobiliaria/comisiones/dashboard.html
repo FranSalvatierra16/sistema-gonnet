@@ -23,29 +23,29 @@
 
     <ul class="nav nav-pills mb-3 cv-comisiones-vales-nav" role="tablist">
         <li class="nav-item" role="presentation">
-            <button type="button" class="nav-link active rounded-pill px-3 py-2" id="dash-tab-comisiones" data-bs-toggle="pill" data-bs-target="#dash-pane-comisiones" role="tab" aria-controls="dash-pane-comisiones" aria-selected="true">Comisiones</button>
+            <button type="button" class="nav-link active rounded-pill px-3 py-2" id="dash-tab-todo" data-bs-toggle="pill" data-bs-target="#dash-pane-todo" role="tab" aria-controls="dash-pane-todo" aria-selected="true">Todo</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button type="button" class="nav-link rounded-pill px-3 py-2" id="dash-tab-comisiones" data-bs-toggle="pill" data-bs-target="#dash-pane-comisiones" role="tab" aria-controls="dash-pane-comisiones" aria-selected="false">Comisiones</button>
         </li>
         <li class="nav-item" role="presentation">
             <button type="button" class="nav-link rounded-pill px-3 py-2" id="dash-tab-vales" data-bs-toggle="pill" data-bs-target="#dash-pane-vales" role="tab" aria-controls="dash-pane-vales" aria-selected="false">Vales</button>
         </li>
-        <li class="nav-item" role="presentation">
-            <button type="button" class="nav-link rounded-pill px-3 py-2" id="dash-tab-todo" data-bs-toggle="pill" data-bs-target="#dash-pane-todo" role="tab" aria-controls="dash-pane-todo" aria-selected="false">Todo</button>
-        </li>
     </ul>
 
     <div class="tab-content">
-        <div class="tab-pane fade show active" id="dash-pane-comisiones" role="tabpanel" aria-labelledby="dash-tab-comisiones">
+        <div class="tab-pane fade show active" id="dash-pane-todo" role="tabpanel" aria-labelledby="dash-tab-todo">
+            <h5 class="text-muted mb-2"><i class="fas fa-percentage me-1"></i> Comisiones</h5>
+{% include "inmobiliaria/comisiones/_dashboard_card_comisiones.html" %}
+            <h5 class="text-muted mt-4 mb-2"><i class="fas fa-money-bill-wave me-1"></i> Vales</h5>
+{% include "inmobiliaria/comisiones/_dashboard_card_vales.html" %}
+        </div>
+
+        <div class="tab-pane fade" id="dash-pane-comisiones" role="tabpanel" aria-labelledby="dash-tab-comisiones">
 {% include "inmobiliaria/comisiones/_dashboard_card_comisiones.html" %}
         </div>
 
         <div class="tab-pane fade" id="dash-pane-vales" role="tabpanel" aria-labelledby="dash-tab-vales">
-{% include "inmobiliaria/comisiones/_dashboard_card_vales.html" %}
-        </div>
-
-        <div class="tab-pane fade" id="dash-pane-todo" role="tabpanel" aria-labelledby="dash-tab-todo">
-            <h5 class="text-muted mb-2"><i class="fas fa-percentage me-1"></i> Comisiones</h5>
-{% include "inmobiliaria/comisiones/_dashboard_card_comisiones.html" %}
-            <h5 class="text-muted mt-4 mb-2"><i class="fas fa-money-bill-wave me-1"></i> Vales</h5>
 {% include "inmobiliaria/comisiones/_dashboard_card_vales.html" %}
         </div>
     </div>

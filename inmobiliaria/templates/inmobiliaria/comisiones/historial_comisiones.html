@@ -29,67 +29,18 @@
 
     <ul class="nav nav-pills mb-3 cv-comisiones-vales-nav" role="tablist">
         <li class="nav-item" role="presentation">
-            <button type="button" class="nav-link active rounded-pill px-3 py-2" id="hist-tab-comisiones" data-bs-toggle="pill" data-bs-target="#hist-pane-comisiones" role="tab" aria-controls="hist-pane-comisiones" aria-selected="true">Comisiones</button>
+            <button type="button" class="nav-link active rounded-pill px-3 py-2" id="hist-tab-todo" data-bs-toggle="pill" data-bs-target="#hist-pane-todo" role="tab" aria-controls="hist-pane-todo" aria-selected="true">Todo</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button type="button" class="nav-link rounded-pill px-3 py-2" id="hist-tab-comisiones" data-bs-toggle="pill" data-bs-target="#hist-pane-comisiones" role="tab" aria-controls="hist-pane-comisiones" aria-selected="false">Comisiones</button>
         </li>
         <li class="nav-item" role="presentation">
             <button type="button" class="nav-link rounded-pill px-3 py-2" id="hist-tab-vales" data-bs-toggle="pill" data-bs-target="#hist-pane-vales" role="tab" aria-controls="hist-pane-vales" aria-selected="false">Vales</button>
         </li>
-        <li class="nav-item" role="presentation">
-            <button type="button" class="nav-link rounded-pill px-3 py-2" id="hist-tab-todo" data-bs-toggle="pill" data-bs-target="#hist-pane-todo" role="tab" aria-controls="hist-pane-todo" aria-selected="false">Todo</button>
-        </li>
     </ul>
 
     <div class="tab-content">
-        <div class="tab-pane fade show active" id="hist-pane-comisiones" role="tabpanel" aria-labelledby="hist-tab-comisiones">
-            <div class="row mb-4">
-                <div class="col-md-4">
-                    <div class="info-box bg-success text-white">
-                        <div class="info-box-icon">
-                            <i class="fas fa-plus-circle"></i>
-                        </div>
-                        <div class="info-box-content">
-                            <span class="info-box-text">Comisiones</span>
-                            <span class="info-box-number">${{ total_comisiones|format_price }}</span>
-                            <small>{{ comisiones.count }} operaciones</small>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="info-box {% if total_neto >= 0 %}bg-primary{% else %}bg-warning{% endif %} text-white">
-                        <div class="info-box-icon">
-                            <i class="fas fa-equals"></i>
-                        </div>
-                        <div class="info-box-content">
-                            <span class="info-box-text">Total Neto</span>
-                            <span class="info-box-number">${{ total_neto|format_price }}</span>
-                            <small>Comisiones − egresos + ingresos vales</small>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="info-box bg-info text-white">
-                        <div class="info-box-icon">
-                            <i class="fas fa-calendar-month"></i>
-                        </div>
-                        <div class="info-box-content">
-                            <span class="info-box-text">Neto Este Mes</span>
-                            <span class="info-box-number">${{ neto_mes_actual|format_price }}</span>
-                            <small>{{ cantidad_operaciones }} operaciones</small>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-{% include "inmobiliaria/comisiones/_historial_fragment_resumen_mes.html" %}
-{% include "inmobiliaria/comisiones/_historial_fragment_lista_comisiones.html" %}
-
-        </div>
-
-        <div class="tab-pane fade" id="hist-pane-vales" role="tabpanel" aria-labelledby="hist-tab-vales">
-{% include "inmobiliaria/comisiones/_historial_fragment_vales.html" %}
-        </div>
-
-        <div class="tab-pane fade" id="hist-pane-todo" role="tabpanel" aria-labelledby="hist-tab-todo">
+        <div class="tab-pane fade show active" id="hist-pane-todo" role="tabpanel" aria-labelledby="hist-tab-todo">
             <div class="row mb-4">
                 <div class="col-md-3">
                     <div class="info-box bg-success text-white">
@@ -147,6 +98,55 @@
 {% include "inmobiliaria/comisiones/_historial_fragment_resumen_mes.html" %}
 {% include "inmobiliaria/comisiones/_historial_fragment_lista_comisiones.html" %}
             <h5 class="text-muted mt-4 mb-2"><i class="fas fa-money-bill-wave me-1"></i> Vales</h5>
+{% include "inmobiliaria/comisiones/_historial_fragment_vales.html" %}
+        </div>
+
+        <div class="tab-pane fade" id="hist-pane-comisiones" role="tabpanel" aria-labelledby="hist-tab-comisiones">
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <div class="info-box bg-success text-white">
+                        <div class="info-box-icon">
+                            <i class="fas fa-plus-circle"></i>
+                        </div>
+                        <div class="info-box-content">
+                            <span class="info-box-text">Comisiones</span>
+                            <span class="info-box-number">${{ total_comisiones|format_price }}</span>
+                            <small>{{ comisiones.count }} operaciones</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="info-box {% if total_neto >= 0 %}bg-primary{% else %}bg-warning{% endif %} text-white">
+                        <div class="info-box-icon">
+                            <i class="fas fa-equals"></i>
+                        </div>
+                        <div class="info-box-content">
+                            <span class="info-box-text">Total Neto</span>
+                            <span class="info-box-number">${{ total_neto|format_price }}</span>
+                            <small>Comisiones − egresos + ingresos vales</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="info-box bg-info text-white">
+                        <div class="info-box-icon">
+                            <i class="fas fa-calendar-month"></i>
+                        </div>
+                        <div class="info-box-content">
+                            <span class="info-box-text">Neto Este Mes</span>
+                            <span class="info-box-number">${{ neto_mes_actual|format_price }}</span>
+                            <small>{{ cantidad_operaciones }} operaciones</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+{% include "inmobiliaria/comisiones/_historial_fragment_resumen_mes.html" %}
+{% include "inmobiliaria/comisiones/_historial_fragment_lista_comisiones.html" %}
+
+        </div>
+
+        <div class="tab-pane fade" id="hist-pane-vales" role="tabpanel" aria-labelledby="hist-tab-vales">
 {% include "inmobiliaria/comisiones/_historial_fragment_vales.html" %}
         </div>
     </div>
