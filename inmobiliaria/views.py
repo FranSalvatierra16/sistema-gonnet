@@ -42,6 +42,7 @@ def historial_comisiones_vendedor(request, vendedor_id):
     comisiones = (
         ComisionVendedor.objects.filter(vendedor=vendedor)
         .que_suman()
+        .select_related('reserva__propiedad')
         .order_by('-fecha_operacion')
     )
     vales = ValeVendedor.objects.filter(vendedor=vendedor).order_by('-fecha')
@@ -68,10 +69,13 @@ def historial_comisiones_vendedor(request, vendedor_id):
     
     comisiones_por_mes = {}
     for comision in comisiones:
-        mes_key = comision.fecha_operacion.strftime('%Y-%m')
+        fo = comision.fecha_operacion
+        if not fo:
+            continue
+        mes_key = fo.strftime('%Y-%m')
         if mes_key not in comisiones_por_mes:
             comisiones_por_mes[mes_key] = {
-                'mes': comision.fecha_operacion.strftime('%B %Y'),
+                'mes': fo.strftime('%B %Y'),
                 'total_comisiones': Decimal('0'),
                 'total_vales': Decimal('0'),
                 'cantidad': 0
@@ -81,25 +85,34 @@ def historial_comisiones_vendedor(request, vendedor_id):
     
     # Agregar vales por mes (egreso suma al “descuento”, ingreso lo resta)
     for vale in vales:
-        mes_key = vale.fecha.strftime('%Y-%m')
+        vf = vale.fecha
+        if not vf:
+            continue
+        mes_key = vf.strftime('%Y-%m')
         if mes_key not in comisiones_por_mes:
             comisiones_por_mes[mes_key] = {
-                'mes': vale.fecha.strftime('%B %Y'),
+                'mes': vf.strftime('%B %Y'),
                 'total_comisiones': Decimal('0'),
                 'total_vales': Decimal('0'),
                 'cantidad': 0
             }
-        if vale.tipo_vale == 'EG':
+        tipo_v = getattr(vale, 'tipo_vale', None) or 'EG'
+        if tipo_v == 'EG':
             comisiones_por_mes[mes_key]['total_vales'] += vale.monto
         else:
             comisiones_por_mes[mes_key]['total_vales'] -= vale.monto
     
-    # Calcular neto por mes
+    # Calcular neto por mes y enteros para enlaces (evita {% url %} frágil con slice|add)
     for mes_key in comisiones_por_mes:
-        comisiones_por_mes[mes_key]['total_neto'] = (
-            comisiones_por_mes[mes_key]['total_comisiones'] - 
-            comisiones_por_mes[mes_key]['total_vales']
-        )
+        datos = comisiones_por_mes[mes_key]
+        datos['total_neto'] = datos['total_comisiones'] - datos['total_vales']
+        try:
+            parte_anio, parte_mes = mes_key.split('-', 1)
+            datos['resumen_anio'] = int(parte_anio)
+            datos['resumen_mes'] = int(parte_mes)
+        except (ValueError, TypeError, AttributeError):
+            datos['resumen_anio'] = 0
+            datos['resumen_mes'] = 1
     
     # Calcular comisiones del mes actual
     mes_actual = datetime.now().strftime('%Y-%m')

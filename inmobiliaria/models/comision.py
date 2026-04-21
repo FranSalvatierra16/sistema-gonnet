@@ -305,7 +305,11 @@ class ComisionVendedor(models.Model):
         """
         Texto legible para listados (primer/segundo fichaje, alquiler por día, invierno, 24 meses, general).
         """
-        rol = (self.rol_comision or ROL_COMISION_GENERAL).strip() or ROL_COMISION_GENERAL
+        rol_raw = self.rol_comision or ROL_COMISION_GENERAL
+        try:
+            rol = (rol_raw.strip() if isinstance(rol_raw, str) else str(rol_raw).strip()) or ROL_COMISION_GENERAL
+        except (AttributeError, TypeError):
+            rol = ROL_COMISION_GENERAL
         if rol == ROL_COMISION_FICHAJE:
             res = getattr(self, 'reserva', None)
             prop = getattr(res, 'propiedad', None) if res else None
