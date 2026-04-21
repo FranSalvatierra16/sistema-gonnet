@@ -127,7 +127,11 @@ def historial_comisiones_vendedor(request, vendedor_id):
         try:
             datos['url_resumen_mes'] = reverse(
                 'inmobiliaria:resumen_comisiones_mensual',
-                args=[vendedor.id, datos['resumen_anio'], datos['resumen_mes']],
+                kwargs={
+                    'vendedor_id': vendedor.id,
+                    'año': datos['resumen_anio'],
+                    'mes': datos['resumen_mes'],
+                },
             )
         except NoReverseMatch:
             logger.warning(
@@ -202,37 +206,82 @@ def resumen_comisiones_mensual(request, vendedor_id, año=None, mes=None):
     from datetime import datetime
     from calendar import month_name
     
-    if not año or not mes:
+    # Usar "is None" para ausencia real de parámetros (no mezclar con 0 u otros valores).
+    if año is None or mes is None:
         ahora = datetime.now()
         año = ahora.year
         mes = ahora.month
-    
+    else:
+        try:
+            año = int(año)
+            mes = int(mes)
+        except (TypeError, ValueError):
+            messages.error(request, 'Año o mes inválido.')
+            return redirect(
+                'inmobiliaria:historial_comisiones_vendedor',
+                vendedor_id=vendedor_id,
+            )
+        if mes < 1 or mes > 12:
+            messages.error(request, 'El mes debe estar entre 1 y 12.')
+            return redirect(
+                'inmobiliaria:historial_comisiones_vendedor',
+                vendedor_id=vendedor_id,
+            )
+        if año < 1970 or año > 2100:
+            messages.error(request, 'El año no es válido.')
+            return redirect(
+                'inmobiliaria:historial_comisiones_vendedor',
+                vendedor_id=vendedor_id,
+            )
+
     vendedor = get_object_or_404(
         Vendedor, id=vendedor_id, sucursal=request.user.sucursal
     )
-    comisiones_mes = (
-        ComisionVendedor.objects.filter(
-            vendedor=vendedor,
-            fecha_operacion__year=año,
-            fecha_operacion__month=mes,
+    try:
+        comisiones_mes = (
+            ComisionVendedor.objects.filter(
+                vendedor=vendedor,
+                fecha_operacion__year=año,
+                fecha_operacion__month=mes,
+            )
+            .que_suman()
+            .select_related('reserva__propiedad')
+            .order_by('-fecha_operacion')
         )
-        .que_suman()
-        .order_by('-fecha_operacion')
-    )
+        total_mes = comisiones_mes.aggregate(
+            total=models.Sum('monto_comision')
+        )['total'] or Decimal('0')
+    except (ProgrammingError, OperationalError) as exc:
+        logger.exception(
+            'resumen_comisiones_mensual: error de esquema o BD. vendedor_id=%s año=%s mes=%s',
+            vendedor_id,
+            año,
+            mes,
+        )
+        messages.error(
+            request,
+            'No se pudo cargar el resumen (posible migración pendiente en el servidor). '
+            f'{exc.__class__.__name__}',
+        )
+        return redirect(
+            'inmobiliaria:historial_comisiones_vendedor',
+            vendedor_id=vendedor_id,
+        )
 
-    total_mes = comisiones_mes.aggregate(total=models.Sum('monto_comision'))[
-        'total'
-    ] or Decimal('0')
-    
+    try:
+        nombre_mes = month_name[mes]
+    except IndexError:
+        nombre_mes = f'mes {mes}'
+
     context = {
         'comisiones': comisiones_mes,
         'total_mes': total_mes,
         'año': año,
         'mes': mes,
-        'nombre_mes': month_name[mes],
-        'vendedor': vendedor
+        'nombre_mes': nombre_mes,
+        'vendedor': vendedor,
     }
-    
+
     return render(request, 'inmobiliaria/comisiones/resumen_mensual.html', context)
 
 @login_required
