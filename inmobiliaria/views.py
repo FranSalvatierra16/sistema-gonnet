@@ -781,6 +781,11 @@ from .models import (
     TipoMovimientoCajaEnum, ContratoAlquiler, ContratoInquilino, CuotaMensual, ComisionVendedor, ValeVendedor,
     LiquidacionPropietario, GastoPropietario
 )
+from .catalogo_conceptos_caja import (
+    get_sucursal_referencia_catalogo_conceptos_caja,
+    q_conceptos_caja_visibles,
+    sucursal_destino_nuevo_concepto_caja,
+)
 from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm, VentaPropiedadForm, MovimientoCajaForm
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm, SetPasswordForm
 from django.contrib.auth import login
@@ -2947,7 +2952,7 @@ def buscar_propiedades_reserva(request):
 
     # Obtener conceptos para el template
     conceptos = Concepto.objects.filter(
-        Q(sucursal=sucursal_vendedor) | Q(sucursal__isnull=True)
+        q_conceptos_caja_visibles(sucursal_vendedor)
     ).order_by('nombre')
 
     # Calcular conteos para el template
@@ -3083,7 +3088,9 @@ def finalizar_reserva_nueva(request, reserva_id):
         proximo_numero_movimiento = cantidad_movimientos + 1
         
         # Obtener conceptos de caja disponibles
-        conceptos_caja = Concepto.objects.all()
+        conceptos_caja = Concepto.objects.filter(
+            q_conceptos_caja_visibles(request.user.sucursal)
+        ).order_by('id')
         
         # ✅ Obtener cuentas bancarias activas de la sucursal
         from inmobiliaria.models.sucursal import CuentaBancaria
@@ -9023,8 +9030,8 @@ def nuevo_movimiento(request, numero_caja=None):
             concepto_row = None
             if concepto_ref:
                 concepto_row = Concepto.objects.filter(
-                    id=concepto_ref, sucursal=request.user.sucursal
-                ).first()
+                    id=concepto_ref,
+                ).filter(q_conceptos_caja_visibles(request.user.sucursal)).first()
             quiere_vale = bool(
                 concepto_row and concepto_row.indica_movimiento_vale_productor()
             )
@@ -9346,7 +9353,7 @@ def buscar_productores(request):
 
 def conceptos_list(request):
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-        conceptos = Concepto.objects.all().order_by('id')
+        conceptos = Concepto.objects.filter(q_conceptos_caja_visibles(None)).order_by('id')
         data = {
             'conceptos': [
                 {'id': c.id, 'nombre': c.nombre}
@@ -9853,7 +9860,7 @@ def reportes_caja(request):
 
     destino_transferencia = (request.GET.get('destino_transferencia') or '').strip()
     conceptos_catalogo = list(
-        Concepto.objects.filter(Q(sucursal=sucursal) | Q(sucursal__isnull=True)).order_by('id')
+        Concepto.objects.filter(q_conceptos_caja_visibles(sucursal)).order_by('id')
     )
     # Un solo campo GET; compatibilidad con enlaces viejos (?q_concepto= / ?concepto_catalogo=)
     buscar_concepto = (request.GET.get('buscar_concepto') or '').strip()[:200]
@@ -10068,7 +10075,7 @@ def historial_caja(request):
 def buscar_conceptos(request):
     termino = (request.POST.get('termino') or request.GET.get('termino') or request.GET.get('q') or '').strip()
     sucursal = request.user.sucursal
-    base_qs = Concepto.objects.filter(Q(sucursal=sucursal) | Q(sucursal__isnull=True))
+    base_qs = Concepto.objects.filter(q_conceptos_caja_visibles(sucursal))
 
     if not termino:
         conceptos = base_qs.order_by('nombre', 'id')[:100]
@@ -10098,15 +10105,16 @@ def crear_concepto(request):
         return JsonResponse({'success': False, 'error': 'ID y nombre son requeridos'})
     
     try:
-        # Verificar si ya existe un concepto con ese ID en esta sucursal
-        if Concepto.objects.filter(id=id, sucursal=sucursal).exists():
-            return JsonResponse({'success': False, 'error': 'Ya existe un concepto con ese ID en esta sucursal'})
-        
-        # Crear el concepto (fecha_creacion se asignará automáticamente)
+        if Concepto.objects.filter(id=id).exists():
+            return JsonResponse(
+                {'success': False, 'error': 'Ya existe un concepto con ese ID en el catálogo compartido.'}
+            )
+
+        destino = sucursal_destino_nuevo_concepto_caja(sucursal)
         concepto = Concepto.objects.create(
             id=id,
             nombre=nombre,
-            sucursal=sucursal
+            sucursal=destino,
         )
         
         return JsonResponse({
@@ -11070,7 +11078,7 @@ def buscar_propiedades(request):
 
     # Obtener conceptos para el template
     conceptos = Concepto.objects.filter(
-        Q(sucursal=sucursal_vendedor) | Q(sucursal__isnull=True)
+        q_conceptos_caja_visibles(sucursal_vendedor)
     ).order_by('nombre')
 
     # ✅ Calcular totales de propiedades disponibles y reservadas
@@ -11723,7 +11731,7 @@ def crear_operacion_contrato(request, contrato_id):
         messages.success(request, 'Se ha abierto una nueva caja automáticamente.')
 
     conceptos_qs = Concepto.objects.filter(
-        Q(sucursal=request.user.sucursal) | Q(sucursal__isnull=True)
+        q_conceptos_caja_visibles(request.user.sucursal)
     ).order_by('nombre')
 
     config_operacion = {
@@ -12949,7 +12957,9 @@ def finalizar_reserva_nueva(request, reserva_id):
         proximo_numero_movimiento = cantidad_movimientos + 1
         
         # Obtener conceptos de caja disponibles
-        conceptos_caja = Concepto.objects.all()
+        conceptos_caja = Concepto.objects.filter(
+            q_conceptos_caja_visibles(request.user.sucursal)
+        ).order_by('id')
         
         # ✅ Obtener cuentas bancarias activas de la sucursal
         from inmobiliaria.models.sucursal import CuentaBancaria
@@ -14675,7 +14685,7 @@ def gestionar_conceptos(request):
     Vista para gestionar conceptos: listar, crear, editar y eliminar
     """
     sucursal_vendedor = request.user.sucursal
-    qs_base = Concepto.objects.all()
+    qs_base = Concepto.objects.filter(q_conceptos_caja_visibles(sucursal_vendedor))
     total_conceptos = qs_base.count()
 
     def orden_valido(val):
@@ -14696,7 +14706,7 @@ def gestionar_conceptos(request):
                     Concepto.objects.create(
                         id=nuevo_id,
                         nombre=nuevo_nombre,
-                        sucursal=sucursal_vendedor
+                        sucursal=sucursal_destino_nuevo_concepto_caja(sucursal_vendedor),
                     )
                     messages.success(request, f'Concepto "{nuevo_nombre}" creado exitosamente.')
                 except Exception as e:
@@ -14821,10 +14831,15 @@ def gestionar_conceptos(request):
     orden = orden_valido(request.GET.get('orden'))
     conceptos = _ordenar_conceptos(qs_base, orden)
 
+    ref_cat = get_sucursal_referencia_catalogo_conceptos_caja()
     context = {
         'conceptos': conceptos,
         'total_conceptos': total_conceptos,
-        'sucursal': 'Todas las sucursales',
+        'sucursal': (
+            f'Catálogo unificado (referencia: {ref_cat.nombre})'
+            if ref_cat
+            else sucursal_vendedor.nombre
+        ),
         'orden': orden,
     }
     
