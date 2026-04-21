@@ -9,7 +9,7 @@
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <div>
             <h1 class="h3 mb-1"><i class="fas fa-chart-bar text-primary"></i> Reportes de caja</h1>
-            <p class="text-muted mb-0">Resumen por fechas: ingresos, egresos, medio de pago y búsqueda por texto en concepto.</p>
+            <p class="text-muted mb-0">Resumen por fechas: ingresos, egresos, medio de pago y un solo filtro de concepto.</p>
         </div>
         <a href="{% url 'inmobiliaria:dashboard_caja' %}" class="btn btn-outline-secondary">
             <i class="fas fa-arrow-left"></i> Volver a caja
@@ -64,29 +64,19 @@
                         <i class="fas fa-search"></i>
                     </button>
                 </div>
-                <div class="col-12 col-md-6 col-xl-4">
-                    <label class="form-label" for="concepto_catalogo"><i class="fas fa-list text-secondary"></i> Concepto del catálogo</label>
-                    <select class="form-select" id="concepto_catalogo" name="concepto_catalogo">
-                        <option value="">— Todos (sin filtrar por concepto de lista) —</option>
-                        {% for c in conceptos_catalogo %}
-                        <option value="{{ c.id }}" {% if concepto_catalogo == c.id %}selected{% endif %}>{{ c.id }} — {{ c.nombre }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="col-12 col-md-6 col-xl-4">
-                    <label class="form-label" for="q_concepto"><i class="fas fa-keyboard text-secondary"></i> O buscar por texto / ID <span class="text-muted fw-normal">(si no usás la lista)</span></label>
-                    <input type="text" class="form-control" id="q_concepto" name="q_concepto" value="{{ q_concepto|default:'' }}" maxlength="200" list="lista_sugerencias_conceptos" placeholder="Nombre, fragmento o id…" {% if concepto_catalogo %}disabled{% endif %} autocomplete="off">
+                <div class="col-12 col-lg-6">
+                    <label class="form-label" for="buscar_concepto"><i class="fas fa-tag text-secondary"></i> Concepto <span class="text-muted fw-normal">(opcional)</span></label>
+                    <input type="text" class="form-control" id="buscar_concepto" name="buscar_concepto" value="{{ buscar_concepto|default:'' }}" maxlength="200" list="lista_sugerencias_conceptos" placeholder="Escribí id, nombre o elegí una sugerencia…" autocomplete="off">
                     <datalist id="lista_sugerencias_conceptos">
                         {% for c in conceptos_catalogo %}
                         <option value="{{ c.id }} — {{ c.nombre }}"></option>
                         {% endfor %}
                     </datalist>
                 </div>
-                <div class="col-12">
-                    <p class="small text-muted mb-0">
-                        <strong>Lista:</strong> elegí un concepto para traer movimientos que usen ese ID o nombre (incluye texto guardado solo como número).
-                        <strong>Texto libre:</strong> se usa solo si la lista está en “Todos”; coincide con lo anotado en concepto o detalle del recibo.
-                        Si cargás ambos, tiene prioridad la <strong>lista</strong>.
+                <div class="col-12 col-lg-5 d-flex align-items-end">
+                    <p class="small text-muted mb-1 mb-lg-2">
+                        Un solo campo: podés tipear <strong>6</strong>, <strong>EXPENSAS</strong>, o elegir del desplegable al escribir.
+                        Si el movimiento guarda solo el número de concepto, también entra al filtrar por <strong>id — nombre</strong> del catálogo.
                     </p>
                 </div>
             </form>
@@ -247,20 +237,6 @@
     }
     if (medio) medio.addEventListener('change', syncDestino);
     syncDestino();
-
-    var selCat = document.getElementById('concepto_catalogo');
-    var qConcepto = document.getElementById('q_concepto');
-    function syncConceptoLibre() {
-        if (!selCat || !qConcepto) return;
-        if (selCat.value) {
-            qConcepto.disabled = true;
-            qConcepto.value = '';
-        } else {
-            qConcepto.disabled = false;
-        }
-    }
-    if (selCat) selCat.addEventListener('change', syncConceptoLibre);
-    syncConceptoLibre();
 })();
 </script>
 {% endblock %}

@@ -9695,6 +9695,66 @@ def eliminar_todas_imagenes(request, propiedad_id):
 def dashboard_caja(request):
     return render(request, 'inmobiliaria/caja/dashboard_caja.html')
 
+
+def _filtro_qs_por_buscar_concepto(qs, texto, conceptos_catalogo):
+    """
+    Un solo criterio de búsqueda por concepto.
+    Tolera '6', '6 - EXPENSAS', '6 — Expensas' (guiones - – —).
+    Si el movimiento solo guarda el id ('6'), coincide por catálogo aunque el usuario
+    haya elegido '6 - NOMBRE' en la lista (OR con búsqueda por frase completa).
+    """
+    texto = (texto or '').strip()
+    if not texto:
+        return qs
+
+    lookup_id = {c.id: c for c in conceptos_catalogo}
+
+    def q_por_id(cid, c_obj):
+        q = (
+            Q(concepto__iexact=cid)
+            | Q(concepto__istartswith=f'{cid} -')
+            | Q(concepto__istartswith=f'{cid}-')
+            | Q(concepto__istartswith=f'{cid} ')
+            | Q(concepto__icontains=f'Concepto {cid}')
+            | Q(concepto_detalle__icontains=cid)
+        )
+        if c_obj:
+            n = (c_obj.nombre or '').strip()
+            if len(n) >= 2:
+                q |= Q(concepto__icontains=n) | Q(concepto_detalle__icontains=n)
+        return q
+
+    q_full = Q(concepto__icontains=texto) | Q(concepto_detalle__icontains=texto)
+
+    # Solo números: id de catálogo si existe; si no, substring
+    if re.match(r'^\d+$', texto):
+        if texto in lookup_id:
+            return qs.filter(q_por_id(texto, lookup_id[texto]) | q_full)
+        return qs.filter(q_full)
+
+    # "6 - algo" / "6 — algo" (típico al elegir del datalist)
+    m = re.match(r'^(\d+)\s*[-–—]\s*(.+)$', texto)
+    if m:
+        cid = m.group(1)
+        c_obj = lookup_id.get(cid)
+        q_id = q_por_id(cid, c_obj)
+        return qs.filter(q_id | q_full)
+
+    # Texto libre: frase completa; si hay varias partes, también AND suave por tokens
+    partes = [p for p in re.split(r'[\s\-–—]+', texto) if p]
+    if len(partes) <= 1:
+        return qs.filter(q_full)
+
+    q_tok = None
+    for p in partes:
+        if re.match(r'^\d+$', p) and p in lookup_id:
+            qp = q_por_id(p, lookup_id[p])
+        else:
+            qp = Q(concepto__icontains=p) | Q(concepto_detalle__icontains=p)
+        q_tok = qp if q_tok is None else (q_tok & qp)
+    return qs.filter(q_full | q_tok)
+
+
 @login_required
 def reportes_caja(request):
     """
@@ -9735,13 +9795,15 @@ def reportes_caja(request):
         medio = ''
 
     destino_transferencia = (request.GET.get('destino_transferencia') or '').strip()
-    # Catálogo Concepto (id + nombre) o texto libre en el campo del movimiento
-    concepto_catalogo = (request.GET.get('concepto_catalogo') or '').strip()[:30]
-    q_concepto = (request.GET.get('q_concepto') or '').strip()[:200]
-
     conceptos_catalogo = list(
         Concepto.objects.filter(Q(sucursal=sucursal) | Q(sucursal__isnull=True)).order_by('id')
     )
+    # Un solo campo GET; compatibilidad con enlaces viejos (?q_concepto= / ?concepto_catalogo=)
+    buscar_concepto = (request.GET.get('buscar_concepto') or '').strip()[:200]
+    if not buscar_concepto:
+        buscar_concepto = (request.GET.get('q_concepto') or '').strip()[:200]
+    if not buscar_concepto:
+        buscar_concepto = (request.GET.get('concepto_catalogo') or '').strip()[:30]
 
     cuentas_bancarias = list(
         CuentaBancaria.objects.filter(sucursal=sucursal, activa=True).order_by('nombre_banco', 'alias')
@@ -9831,27 +9893,8 @@ def reportes_caja(request):
             q_dep &= Q(destino_deposito=destino_transferencia)
         qs = qs.filter(q_dep)
 
-    if concepto_catalogo:
-        c_obj = Concepto.objects.filter(
-            Q(id=concepto_catalogo) & (Q(sucursal=sucursal) | Q(sucursal__isnull=True))
-        ).first()
-        if c_obj:
-            cid = concepto_catalogo
-            nombre = (c_obj.nombre or '').strip()
-            q_cat = (
-                Q(concepto__iexact=cid)
-                | Q(concepto__istartswith=f'{cid} -')
-                | Q(concepto__istartswith=f'{cid} ')
-                | Q(concepto__icontains=f'Concepto {cid}')
-                | Q(concepto_detalle__icontains=cid)
-            )
-            if len(nombre) >= 2:
-                q_cat |= Q(concepto__icontains=nombre) | Q(concepto_detalle__icontains=nombre)
-            qs = qs.filter(q_cat)
-    elif q_concepto:
-        qs = qs.filter(
-            Q(concepto__icontains=q_concepto) | Q(concepto_detalle__icontains=q_concepto)
-        )
+    if buscar_concepto:
+        qs = _filtro_qs_por_buscar_concepto(qs, buscar_concepto, conceptos_catalogo)
 
     def etiqueta_destino(val):
         if not val:
@@ -9942,9 +9985,8 @@ def reportes_caja(request):
         'tipo_mov': tipo_mov,
         'medio': medio,
         'destino_transferencia': destino_transferencia,
-        'concepto_catalogo': concepto_catalogo,
+        'buscar_concepto': buscar_concepto,
         'conceptos_catalogo': conceptos_catalogo,
-        'q_concepto': q_concepto,
         'opciones_destino': opciones_destino,
         'movimientos': page_obj,
         'total_filtrados': len(movimientos_lista),
