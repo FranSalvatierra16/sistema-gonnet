@@ -28,98 +28,25 @@
         <li class="nav-item" role="presentation">
             <button type="button" class="nav-link rounded-pill px-3 py-2" id="dash-tab-vales" data-bs-toggle="pill" data-bs-target="#dash-pane-vales" role="tab" aria-controls="dash-pane-vales" aria-selected="false">Vales</button>
         </li>
+        <li class="nav-item" role="presentation">
+            <button type="button" class="nav-link rounded-pill px-3 py-2" id="dash-tab-todo" data-bs-toggle="pill" data-bs-target="#dash-pane-todo" role="tab" aria-controls="dash-pane-todo" aria-selected="false">Todo</button>
+        </li>
     </ul>
 
     <div class="tab-content">
         <div class="tab-pane fade show active" id="dash-pane-comisiones" role="tabpanel" aria-labelledby="dash-tab-comisiones">
-            <div class="card shadow-sm">
-                <div class="card-header bg-primary text-white">
-                    <strong>Resumen por vendedor (comisiones)</strong>
-                </div>
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-hover mb-0">
-                            <thead>
-                                <tr>
-                                    <th>Vendedor</th>
-                                    <th class="text-end">Comisiones</th>
-                                    <th class="text-center">Pendientes</th>
-                                    <th class="text-end">Saldo vales</th>
-                                    <th class="text-end">Neto</th>
-                                    <th class="text-center">Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for item in vendedores_data %}
-                                <tr>
-                                    <td>{{ item.vendedor.nombre_completo_vendedor }}</td>
-                                    <td class="text-end">${{ item.total_comisiones|floatformat:2 }}</td>
-                                    <td class="text-center">
-                                        <span class="badge {% if item.comisiones_pendientes > 0 %}bg-warning text-dark{% else %}bg-success{% endif %}">
-                                            {{ item.comisiones_pendientes }}
-                                        </span>
-                                    </td>
-                                    <td class="text-end">${{ item.total_vales|floatformat:2 }}</td>
-                                    <td class="text-end {% if item.neto < 0 %}text-danger{% else %}text-success{% endif %}">
-                                        ${{ item.neto|floatformat:2 }}
-                                    </td>
-                                    <td class="text-center">
-                                        <a href="{% url 'inmobiliaria:historial_comisiones_vendedor' item.vendedor.id %}" class="btn btn-sm btn-outline-primary">
-                                            Ver detalle
-                                        </a>
-                                    </td>
-                                </tr>
-                                {% empty %}
-                                <tr>
-                                    <td colspan="6" class="text-center py-4 text-muted">No hay vendedores activos en esta sucursal.</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
+{% include "inmobiliaria/comisiones/_dashboard_card_comisiones.html" %}
         </div>
 
         <div class="tab-pane fade" id="dash-pane-vales" role="tabpanel" aria-labelledby="dash-tab-vales">
-            <div class="card shadow-sm">
-                <div class="card-header bg-warning text-dark">
-                    <strong>Vales por vendedor</strong>
-                </div>
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-hover mb-0">
-                            <thead>
-                                <tr>
-                                    <th>Vendedor</th>
-                                    <th class="text-end text-danger">Egresos (restan)</th>
-                                    <th class="text-end text-success">Ingresos (suman)</th>
-                                    <th class="text-end">Saldo (EG − IN)</th>
-                                    <th class="text-center">Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for item in vendedores_data %}
-                                <tr>
-                                    <td>{{ item.vendedor.nombre_completo_vendedor }}</td>
-                                    <td class="text-end text-danger">−${{ item.total_vales_egreso|floatformat:2 }}</td>
-                                    <td class="text-end text-success">+${{ item.total_vales_ingreso|floatformat:2 }}</td>
-                                    <td class="text-end">${{ item.total_vales|floatformat:2 }}</td>
-                                    <td class="text-center">
-                                        <a href="{% url 'inmobiliaria:lista_vales_vendedor' item.vendedor.id %}" class="btn btn-sm btn-outline-secondary me-1">Lista vales</a>
-                                        <a href="{% url 'inmobiliaria:historial_comisiones_vendedor' item.vendedor.id %}" class="btn btn-sm btn-outline-primary">Historial</a>
-                                    </td>
-                                </tr>
-                                {% empty %}
-                                <tr>
-                                    <td colspan="5" class="text-center py-4 text-muted">No hay vendedores activos en esta sucursal.</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
+{% include "inmobiliaria/comisiones/_dashboard_card_vales.html" %}
+        </div>
+
+        <div class="tab-pane fade" id="dash-pane-todo" role="tabpanel" aria-labelledby="dash-tab-todo">
+            <h5 class="text-muted mb-2"><i class="fas fa-percentage me-1"></i> Comisiones</h5>
+{% include "inmobiliaria/comisiones/_dashboard_card_comisiones.html" %}
+            <h5 class="text-muted mt-4 mb-2"><i class="fas fa-money-bill-wave me-1"></i> Vales</h5>
+{% include "inmobiliaria/comisiones/_dashboard_card_vales.html" %}
         </div>
     </div>
 </div>

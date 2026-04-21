@@ -1,0 +1,118 @@
+{% load custom_filters %}
+            <div class="row mb-4">
+                <div class="col-12 col-lg-8 mx-lg-auto">
+                    <div class="info-box bg-white text-dark border shadow-sm">
+                        <div class="info-box-icon text-danger">
+                            <i class="fas fa-arrow-down"></i>
+                        </div>
+                        <div class="info-box-content text-start">
+                            <span class="info-box-text d-block text-danger">Vales egreso (restan)</span>
+                            <span class="info-box-number text-danger">${{ total_vales_egreso|format_price }}</span>
+                            <hr class="my-2">
+                            <span class="info-box-text d-block text-success">Vales ingreso (suman al empleado)</span>
+                            <span class="info-box-number text-success">+${{ total_vales_ingreso|format_price }}</span>
+                            <hr class="my-2">
+                            <small class="text-muted">Saldo neto (EG − IN): <strong>${{ total_vales|format_price }}</strong> · {{ vales.count }} mov.</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+    {% if vales %}
+    <div class="row mt-2">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-warning text-white d-flex justify-content-between align-items-center">
+                    <h3 class="card-title mb-0">
+                        <i class="fas fa-money-bill-wave"></i>
+                        Vales (egreso / ingreso)
+                    </h3>
+                    <a href="{% url 'inmobiliaria:lista_vales_vendedor' vendedor.id %}" class="btn btn-light btn-sm text-dark">
+                        <i class="fas fa-list"></i> Lista de vales
+                    </a>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Tipo</th>
+                                    <th>Concepto</th>
+                                    <th>Efecto en neto</th>
+                                    <th>Monto</th>
+                                    <th>Observaciones</th>
+                                    <th>Usuario</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for vale in vales %}
+                                <tr>
+                                    <td>
+                                        <small class="text-muted">
+                                            {{ vale.fecha|date:"d/m/Y" }}<br>
+                                            {{ vale.fecha|time:"H:i" }}
+                                        </small>
+                                    </td>
+                                    <td>
+                                        {% if vale.tipo_vale == 'EG' %}
+                                            <span class="badge bg-danger">Egreso</span>
+                                        {% else %}
+                                            <span class="badge bg-success">Ingreso</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <strong>{{ vale.concepto }}</strong>
+                                    </td>
+                                    <td>
+                                        {% if vale.tipo_vale == 'EG' %}
+                                            <span class="badge bg-danger">Resta del neto</span>
+                                        {% else %}
+                                            <span class="badge bg-success">Suma al empleado</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if vale.tipo_vale == 'EG' %}
+                                            <strong class="text-danger">−${{ vale.monto|format_price }}</strong>
+                                        {% else %}
+                                            <strong class="text-success">+${{ vale.monto|format_price }}</strong>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if vale.observaciones %}
+                                            <small>{{ vale.observaciones }}</small>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if vale.usuario_creador %}
+                                            <small class="text-muted">{{ vale.usuario_creador.nombre }} {{ vale.usuario_creador.apellido }}</small>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr class="table-secondary">
+                                    <td colspan="3" class="text-end"><strong>Saldo vales (EG − IN, positivo resta al empleado):</strong></td>
+                                    <td></td>
+                                    <td><strong>${{ total_vales|format_price }}</strong></td>
+                                    <td colspan="2"></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="row mt-2">
+        <div class="col-12">
+            <div class="alert alert-light border text-muted mb-0">No hay vales registrados para este productor.</div>
+        </div>
+    </div>
+    {% endif %}

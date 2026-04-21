@@ -1,0 +1,38 @@
+            <div class="card shadow-sm">
+                <div class="card-header bg-warning text-dark">
+                    <strong>Vales por vendedor</strong>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Vendedor</th>
+                                    <th class="text-end text-danger">Egresos (restan)</th>
+                                    <th class="text-end text-success">Ingresos (suman)</th>
+                                    <th class="text-end">Saldo (EG − IN)</th>
+                                    <th class="text-center">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in vendedores_data %}
+                                <tr>
+                                    <td>{{ item.vendedor.nombre_completo_vendedor }}</td>
+                                    <td class="text-end text-danger">−${{ item.total_vales_egreso|floatformat:2 }}</td>
+                                    <td class="text-end text-success">+${{ item.total_vales_ingreso|floatformat:2 }}</td>
+                                    <td class="text-end">${{ item.total_vales|floatformat:2 }}</td>
+                                    <td class="text-center">
+                                        <a href="{% url 'inmobiliaria:lista_vales_vendedor' item.vendedor.id %}" class="btn btn-sm btn-outline-secondary me-1">Lista vales</a>
+                                        <a href="{% url 'inmobiliaria:historial_comisiones_vendedor' item.vendedor.id %}" class="btn btn-sm btn-outline-primary">Historial</a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center py-4 text-muted">No hay vendedores activos en esta sucursal.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>

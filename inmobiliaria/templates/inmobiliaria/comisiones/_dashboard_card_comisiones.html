@@ -1,0 +1,47 @@
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <strong>Resumen por vendedor (comisiones)</strong>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Vendedor</th>
+                                    <th class="text-end">Comisiones</th>
+                                    <th class="text-center">Pendientes</th>
+                                    <th class="text-end">Saldo vales</th>
+                                    <th class="text-end">Neto</th>
+                                    <th class="text-center">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in vendedores_data %}
+                                <tr>
+                                    <td>{{ item.vendedor.nombre_completo_vendedor }}</td>
+                                    <td class="text-end">${{ item.total_comisiones|floatformat:2 }}</td>
+                                    <td class="text-center">
+                                        <span class="badge {% if item.comisiones_pendientes > 0 %}bg-warning text-dark{% else %}bg-success{% endif %}">
+                                            {{ item.comisiones_pendientes }}
+                                        </span>
+                                    </td>
+                                    <td class="text-end">${{ item.total_vales|floatformat:2 }}</td>
+                                    <td class="text-end {% if item.neto < 0 %}text-danger{% else %}text-success{% endif %}">
+                                        ${{ item.neto|floatformat:2 }}
+                                    </td>
+                                    <td class="text-center">
+                                        <a href="{% url 'inmobiliaria:historial_comisiones_vendedor' item.vendedor.id %}" class="btn btn-sm btn-outline-primary">
+                                            Ver detalle
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="text-center py-4 text-muted">No hay vendedores activos en esta sucursal.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>

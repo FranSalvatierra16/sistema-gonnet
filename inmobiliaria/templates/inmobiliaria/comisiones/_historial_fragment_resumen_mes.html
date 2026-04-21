@@ -1,0 +1,67 @@
+{% load custom_filters %}
+    <!-- Resumen por Mes -->
+    {% if comisiones_por_mes %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-calendar-alt"></i>
+                        Resumen por Mes
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Mes</th>
+                                    <th>Operaciones</th>
+                                    <th class="text-success">+ Comisiones</th>
+                                    <th>Vales (vs comisiones)</th>
+                                    <th class="text-primary">= Neto</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for mes_key, datos in comisiones_por_mes.items %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ datos.mes }}</strong>
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-primary">{{ datos.cantidad }}</span>
+                                    </td>
+                                    <td>
+                                        <strong class="text-success">${{ datos.total_comisiones|format_price }}</strong>
+                                    </td>
+                                    <td>
+                                        {% if datos.total_vales > 0 %}
+                                            <strong class="text-danger">Restan ${{ datos.total_vales|format_price }}</strong>
+                                        {% elif datos.total_vales < 0 %}
+                                            <strong class="text-success">Suman al empleado ${{ datos.total_vales|abs|format_price }}</strong>
+                                        {% else %}
+                                            <span class="text-muted">$0</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <strong class="{% if datos.total_neto >= 0 %}text-primary{% else %}text-warning{% endif %}">
+                                            ${{ datos.total_neto|format_price }}
+                                        </strong>
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'inmobiliaria:resumen_comisiones_mensual' vendedor.id mes_key|slice:'0:4'|add:0 mes_key|slice:'5:7'|add:0 %}"
+                                           class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-eye"></i> Ver Detalle
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
