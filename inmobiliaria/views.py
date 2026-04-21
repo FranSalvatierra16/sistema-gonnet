@@ -9,6 +9,8 @@ from django.forms import inlineformset_factory
 from django.template.loader import render_to_string
 from django.contrib.auth import authenticate
 from django.db import models, transaction, IntegrityError
+from django.db.utils import OperationalError, ProgrammingError
+from django.urls import NoReverseMatch, reverse
 import re
 import logging
 
@@ -39,26 +41,35 @@ def historial_comisiones_vendedor(request, vendedor_id):
     vendedor = get_object_or_404(
         Vendedor, id=vendedor_id, sucursal=request.user.sucursal
     )
-    comisiones = (
-        ComisionVendedor.objects.filter(vendedor=vendedor)
-        .que_suman()
-        .select_related('reserva__propiedad')
-        .order_by('-fecha_operacion')
-    )
-    vales = ValeVendedor.objects.filter(vendedor=vendedor).order_by('-fecha')
-    
-    # Calcular totales
-    total_comisiones = comisiones.aggregate(
-        total=models.Sum('monto_comision')
-    )['total'] or Decimal('0')
-    
-    total_vales = ValeVendedor.total_saldo_para_comisiones(vendedor)
-    total_vales_egreso = (
-        vales.filter(tipo_vale='EG').aggregate(t=models.Sum('monto'))['t'] or Decimal('0')
-    )
-    total_vales_ingreso = (
-        vales.filter(tipo_vale='IN').aggregate(t=models.Sum('monto'))['t'] or Decimal('0')
-    )
+    try:
+        comisiones = (
+            ComisionVendedor.objects.filter(vendedor=vendedor)
+            .que_suman()
+            .select_related('reserva__propiedad')
+            .order_by('-fecha_operacion')
+        )
+        vales = ValeVendedor.objects.filter(vendedor=vendedor).order_by('-fecha')
+        total_comisiones = comisiones.aggregate(
+            total=models.Sum('monto_comision')
+        )['total'] or Decimal('0')
+        total_vales = ValeVendedor.total_saldo_para_comisiones(vendedor)
+        total_vales_egreso = (
+            vales.filter(tipo_vale='EG').aggregate(t=models.Sum('monto'))['t'] or Decimal('0')
+        )
+        total_vales_ingreso = (
+            vales.filter(tipo_vale='IN').aggregate(t=models.Sum('monto'))['t'] or Decimal('0')
+        )
+    except (ProgrammingError, OperationalError) as exc:
+        logger.exception(
+            'historial_comisiones_vendedor: error de esquema o BD (¿migraciones pendientes?). vendedor_id=%s',
+            vendedor_id,
+        )
+        messages.error(
+            request,
+            'No se pudo cargar comisiones/vales. Verificá que las migraciones estén aplicadas en el servidor '
+            f'(detalle técnico: {exc.__class__.__name__}).',
+        )
+        return redirect('inmobiliaria:vendedores')
     
     # Calcular neto (comisiones − entregas en vale + devoluciones ingreso a caja)
     total_neto = total_comisiones - total_vales
@@ -102,7 +113,7 @@ def historial_comisiones_vendedor(request, vendedor_id):
         else:
             comisiones_por_mes[mes_key]['total_vales'] -= vale.monto
     
-    # Calcular neto por mes y enteros para enlaces (evita {% url %} frágil con slice|add)
+    # Calcular neto por mes, enteros para enlaces y URL resuelta en vista (evita NoReverseMatch al renderizar)
     for mes_key in comisiones_por_mes:
         datos = comisiones_por_mes[mes_key]
         datos['total_neto'] = datos['total_comisiones'] - datos['total_vales']
@@ -113,6 +124,19 @@ def historial_comisiones_vendedor(request, vendedor_id):
         except (ValueError, TypeError, AttributeError):
             datos['resumen_anio'] = 0
             datos['resumen_mes'] = 1
+        try:
+            datos['url_resumen_mes'] = reverse(
+                'inmobiliaria:resumen_comisiones_mensual',
+                args=[vendedor.id, datos['resumen_anio'], datos['resumen_mes']],
+            )
+        except NoReverseMatch:
+            logger.warning(
+                'historial_comisiones_vendedor: NoReverseMatch resumen mensual v=%s año=%s mes=%s',
+                vendedor.id,
+                datos.get('resumen_anio'),
+                datos.get('resumen_mes'),
+            )
+            datos['url_resumen_mes'] = '#'
     
     # Calcular comisiones del mes actual
     mes_actual = datetime.now().strftime('%Y-%m')

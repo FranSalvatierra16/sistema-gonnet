@@ -50,7 +50,7 @@
                                         </strong>
                                     </td>
                                     <td>
-                                        <a href="{% url 'inmobiliaria:resumen_comisiones_mensual' vendedor.id datos.resumen_anio datos.resumen_mes %}"
+                                        <a href="{{ datos.url_resumen_mes }}"
                                            class="btn btn-sm btn-outline-primary">
                                             <i class="fas fa-eye"></i> Ver Detalle
                                         </a>
