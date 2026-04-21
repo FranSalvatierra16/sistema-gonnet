@@ -66,12 +66,13 @@
         </div>
         <div class="card-body">
             <div class="table-responsive">
-                <table class="table table-striped">
+                <table class="table table-striped table-caja-listado">
                     <thead>
                         <tr>
                             <th>Fecha</th>
                             <th>Tipo</th>
                             <th>Concepto</th>
+                            <th>Detalle</th>
                             <th>Efectivo</th>
                             <th>Cheque</th>
                             <th>Tarjeta</th>
@@ -89,7 +90,16 @@
                                     {{ movimiento.get_tipo_display }}
                                 </span>
                             </td>
-                            <td title="{{ movimiento.concepto }}">{{ movimiento.concepto_resumen }}</td>
+                            <td class="caja-listado-celda" title="{{ movimiento.concepto }}">
+                                <div class="caja-listado-l1">{{ movimiento.listado_concepto_l1 }}</div>
+                                {% if movimiento.listado_concepto_l2 %}
+                                <div class="caja-listado-l2">{{ movimiento.listado_concepto_l2 }}</div>
+                                {% endif %}
+                            </td>
+                            <td class="caja-listado-celda" title="{{ movimiento.concepto }}">
+                                <div class="caja-listado-l3">{{ movimiento.listado_detalle_l1 }}</div>
+                                <div class="caja-listado-l4">{{ movimiento.listado_detalle_l2 }}</div>
+                            </td>
                             <td>${{ movimiento.monto_efectivo|floatformat:2 }}</td>
                             <td>${{ movimiento.monto_cheque|floatformat:2 }}</td>
                             <td>${{ movimiento.monto_tarjeta|floatformat:2 }}</td>
@@ -124,7 +134,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="9" class="text-center">No hay movimientos registrados</td>
+                            <td colspan="10" class="text-center">No hay movimientos registrados</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -288,7 +298,10 @@
             <div class="modal-body">
                 <p><strong>Fecha:</strong> {{ movimiento.fecha|date:"d/m/Y H:i" }}</p>
                 <p><strong>Tipo:</strong> {{ movimiento.get_tipo_display }}</p>
-                <p><strong>Concepto:</strong> {{ movimiento.concepto_resumen }}</p>
+                <p class="mb-1"><strong>Concepto (listado):</strong></p>
+                <p class="font-monospace small mb-2">{{ movimiento.listado_concepto_l1 }}{% if movimiento.listado_concepto_l2 %}<br>{{ movimiento.listado_concepto_l2 }}{% endif %}</p>
+                <p class="mb-1"><strong>Detalle (listado):</strong></p>
+                <p class="font-monospace small mb-2">{{ movimiento.listado_detalle_l1 }}<br>{{ movimiento.listado_detalle_l2 }}</p>
                 <p class="text-muted mb-2"><small><strong>Texto original:</strong> {{ movimiento.concepto }}</small></p>
                 <p><strong>Efectivo:</strong> ${{ movimiento.monto_efectivo|floatformat:2 }}</p>
                 <p><strong>Cheque:</strong> ${{ movimiento.monto_cheque|floatformat:2 }}</p>
@@ -360,6 +373,33 @@
 .badge {
     font-size: 0.9em;
     padding: 0.5em 0.7em;
+}
+
+.table-caja-listado .caja-listado-celda {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 0.82rem;
+    line-height: 1.25;
+    vertical-align: middle;
+    max-width: 14rem;
+    white-space: normal;
+    word-break: break-word;
+}
+.table-caja-listado .caja-listado-l1 {
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+.table-caja-listado .caja-listado-l2 {
+    color: #495057;
+    font-size: 0.78rem;
+    margin-top: 0.15rem;
+}
+.table-caja-listado .caja-listado-l3 {
+    font-weight: 500;
+}
+.table-caja-listado .caja-listado-l4 {
+    color: #495057;
+    font-size: 0.78rem;
+    margin-top: 0.15rem;
 }
 </style>
 

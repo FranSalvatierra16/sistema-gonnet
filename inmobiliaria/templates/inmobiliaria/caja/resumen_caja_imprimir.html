@@ -24,6 +24,17 @@
         </div>
     </div>
 
+    <div class="border-bottom pb-2 mb-3 caja-listado-encabezado">
+        <h2 class="h5 mb-1 font-monospace">Listado de Caja</h2>
+        <p class="small mb-0 font-monospace">
+            <strong>Fecha de caja:</strong> {{ caja.fecha_apertura|date:"d/m/Y" }}
+            &nbsp;·&nbsp; <strong>Nº de caja:</strong> {{ caja.numero }}
+            {% if caja.estado == 'cerrada' and caja.fecha_cierre %}
+            &nbsp;·&nbsp; <strong>Cierre:</strong> {{ caja.fecha_cierre|date:"d/m/Y H:i" }}
+            {% endif %}
+        </p>
+    </div>
+
     <div class="card border-0 shadow-sm mb-3">
         <div class="card-body py-3">
             <div class="row small">
@@ -55,13 +66,14 @@
     </div>
 
     <div class="table-responsive mb-4">
-        <table class="table table-sm table-bordered align-middle">
+        <table class="table table-sm table-bordered align-middle table-caja-listado-imprimir">
             <thead class="table-light">
                 <tr>
                     <th>#</th>
                     <th>Fecha / hora</th>
                     <th>Tipo</th>
                     <th>Concepto</th>
+                    <th>Detalle</th>
                     <th class="text-end">Efect.</th>
                     <th class="text-end">Chq.</th>
                     <th class="text-end">Tarj.</th>
@@ -76,7 +88,14 @@
                     <td>{{ forloop.counter }}</td>
                     <td>{{ movimiento.fecha|date:"d/m/Y H:i" }}</td>
                     <td>{% if movimiento.tipo == 'IN' %}Ingreso{% else %}Egreso{% endif %}</td>
-                    <td style="max-width: 280px; font-size: 0.85rem; white-space: normal;">{{ movimiento.concepto|default:"—" }}</td>
+                    <td class="caja-listado-celda">
+                        <div class="caja-listado-l1">{{ movimiento.listado_concepto_l1 }}</div>
+                        {% if movimiento.listado_concepto_l2 %}<div class="caja-listado-l2">{{ movimiento.listado_concepto_l2 }}</div>{% endif %}
+                    </td>
+                    <td class="caja-listado-celda">
+                        <div class="caja-listado-l3">{{ movimiento.listado_detalle_l1 }}</div>
+                        <div class="caja-listado-l4">{{ movimiento.listado_detalle_l2 }}</div>
+                    </td>
                     <td class="text-end">${{ movimiento.monto_efectivo|floatformat:2 }}</td>
                     <td class="text-end">${{ movimiento.monto_cheque|floatformat:2 }}</td>
                     <td class="text-end">${{ movimiento.monto_tarjeta|floatformat:2 }}</td>
@@ -85,7 +104,7 @@
                     <td class="small">{{ movimiento.empleado|default:"—" }}</td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="10" class="text-center text-muted">Sin movimientos en esta caja.</td></tr>
+                <tr><td colspan="11" class="text-center text-muted">Sin movimientos en esta caja.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -133,12 +152,26 @@
 </div>
 
 <style>
+.table-caja-listado-imprimir .caja-listado-celda {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 0.8rem;
+    line-height: 1.2;
+    white-space: normal;
+    word-break: break-word;
+    max-width: 11rem;
+}
+.table-caja-listado-imprimir .caja-listado-l1 { font-weight: 700; }
+.table-caja-listado-imprimir .caja-listado-l2 { font-size: 0.72rem; color: #333; }
+.table-caja-listado-imprimir .caja-listado-l3 { font-weight: 500; }
+.table-caja-listado-imprimir .caja-listado-l4 { font-size: 0.72rem; color: #333; }
+
 @media print {
     .no-print, nav.navbar, footer.footer { display: none !important; }
     body { background: #fff !important; font-size: 11pt; }
     body > .container { margin-top: 0 !important; padding-top: 0 !important; max-width: 100% !important; }
     #resumen-caja-print { padding: 0 !important; max-width: 100% !important; }
-    .table { font-size: 9pt; }
+    .table { font-size: 8pt; }
+    .caja-listado-encabezado { page-break-after: avoid; }
     a[href]:after { content: none !important; }
 }
 </style>

@@ -12,7 +12,7 @@
                             <span class="info-box-text d-block text-success">Vales ingreso (suman al empleado)</span>
                             <span class="info-box-number text-success">+${{ total_vales_ingreso|format_price }}</span>
                             <hr class="my-2">
-                            <small class="text-muted">Saldo neto (EG − IN): <strong>${{ total_vales|format_price }}</strong> · {{ vales.count }} mov.</small>
+                            <small class="text-muted">Saldo neto pendiente (EG − IN): <strong>${{ total_vales|format_price }}</strong> · {{ vales_resumen_count }} mov.</small>
                         </div>
                     </div>
                 </div>
@@ -97,10 +97,10 @@
                             </tbody>
                             <tfoot>
                                 <tr class="table-secondary">
-                                    <td colspan="3" class="text-end"><strong>Saldo vales (EG − IN, positivo resta al empleado):</strong></td>
+                                    <td colspan="3" class="text-end"><strong>Saldo pendiente (excluye meses marcados pagados):</strong></td>
                                     <td></td>
                                     <td><strong>${{ total_vales|format_price }}</strong></td>
-                                    <td colspan="2"></td>
+                                    <td colspan="2"><small class="text-muted">La tabla lista todos los vales; este total coincide con el resumen superior.</small></td>
                                 </tr>
                             </tfoot>
                         </table>

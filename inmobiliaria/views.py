@@ -11,13 +11,14 @@ from django.contrib.auth import authenticate
 from django.db import models, transaction, IntegrityError
 from django.db.utils import OperationalError, ProgrammingError
 from django.urls import NoReverseMatch, reverse
+from django.views.decorators.http import require_POST
 import re
 import logging
 
 logger = logging.getLogger(__name__)
 
 # Modelos usados por vistas definidas antes del import masivo de .models (línea ~871)
-from .models import ComisionVendedor, ValeVendedor
+from .models import ComisionVendedor, ValeVendedor, MesComisionPagadoVendedor
 from .models.persona import Vendedor
 
 # Importar vistas de cuentas bancarias
@@ -75,13 +76,55 @@ def historial_comisiones_vendedor(request, vendedor_id):
         )
         return redirect('inmobiliaria:vendedores')
     
-    # Calcular neto (comisiones − entregas en vale + devoluciones ingreso a caja)
+    # Calcular neto histórico (comisiones − entregas en vale + devoluciones ingreso a caja)
     total_neto = total_comisiones - total_vales
-    
+
+    # Meses marcados como pagados al vendedor (excluidos de totales «pendientes» en cajas superiores)
+    try:
+        meses_pagados_keys = {
+            f'{a:04d}-{m:02d}'
+            for a, m in MesComisionPagadoVendedor.objects.filter(vendedor=vendedor).values_list(
+                'anio', 'mes'
+            )
+        }
+    except (ProgrammingError, OperationalError):
+        meses_pagados_keys = set()
+
+    total_comisiones_pendiente = Decimal('0')
+    comisiones_resumen_count = 0
+    for c in comisiones:
+        fo = c.fecha_operacion
+        if not fo:
+            continue
+        mk = fo.strftime('%Y-%m')
+        if mk in meses_pagados_keys:
+            continue
+        total_comisiones_pendiente += c.monto_comision
+        comisiones_resumen_count += 1
+
+    total_vales_egreso_pendiente = Decimal('0')
+    total_vales_ingreso_pendiente = Decimal('0')
+    vales_resumen_count = 0
+    for vale in vales:
+        vf = vale.fecha
+        if not vf:
+            continue
+        mk = vf.strftime('%Y-%m')
+        if mk in meses_pagados_keys:
+            continue
+        vales_resumen_count += 1
+        tipo_v = getattr(vale, 'tipo_vale', None) or 'EG'
+        if tipo_v == 'EG':
+            total_vales_egreso_pendiente += vale.monto
+        else:
+            total_vales_ingreso_pendiente += vale.monto
+
+    total_vales_pendiente = total_vales_egreso_pendiente - total_vales_ingreso_pendiente
+    total_neto_pendiente = total_comisiones_pendiente - total_vales_pendiente
+
     # Calcular totales por mes
-    from django.db.models import Sum
     from datetime import datetime
-    
+
     comisiones_por_mes = {}
     for comision in comisiones:
         fo = comision.fecha_operacion
@@ -146,34 +189,104 @@ def historial_comisiones_vendedor(request, vendedor_id):
                 exc,
             )
             datos['url_resumen_mes'] = '#'
-    
-    # Calcular comisiones del mes actual
+
+    comisiones_por_mes = dict(
+        sorted(comisiones_por_mes.items(), key=lambda kv: kv[0], reverse=True)
+    )
+    for _mes_key, datos in comisiones_por_mes.items():
+        datos['pagado'] = _mes_key in meses_pagados_keys
+
+    # Calcular comisiones del mes calendario actual (en cero si ese mes está marcado pagado)
     mes_actual = datetime.now().strftime('%Y-%m')
-    datos_mes_actual = comisiones_por_mes.get(mes_actual, {
-        'total_comisiones': Decimal('0'),
-        'total_vales': Decimal('0'),
-        'total_neto': Decimal('0'),
-        'cantidad': 0
-    })
-    
+    if mes_actual in meses_pagados_keys:
+        comision_mes_actual = Decimal('0')
+        vale_mes_actual = Decimal('0')
+        neto_mes_actual = Decimal('0')
+        cantidad_operaciones = 0
+    else:
+        datos_mes_actual = comisiones_por_mes.get(mes_actual, {
+            'total_comisiones': Decimal('0'),
+            'total_vales': Decimal('0'),
+            'total_neto': Decimal('0'),
+            'cantidad': 0,
+        })
+        comision_mes_actual = datos_mes_actual.get('total_comisiones', Decimal('0'))
+        vale_mes_actual = datos_mes_actual.get('total_vales', Decimal('0'))
+        neto_mes_actual = datos_mes_actual.get('total_neto', Decimal('0'))
+        cantidad_operaciones = datos_mes_actual.get('cantidad', 0)
+
     context = {
         'comisiones': comisiones,
         'vales': vales,
-        'total_comisiones': total_comisiones,
-        'total_vales': total_vales,
-        'total_vales_egreso': total_vales_egreso,
-        'total_vales_ingreso': total_vales_ingreso,
-        'total_neto': total_neto,
+        'total_comisiones': total_comisiones_pendiente,
+        'total_vales': total_vales_pendiente,
+        'total_vales_egreso': total_vales_egreso_pendiente,
+        'total_vales_ingreso': total_vales_ingreso_pendiente,
+        'total_neto': total_neto_pendiente,
+        'comisiones_resumen_count': comisiones_resumen_count,
+        'vales_resumen_count': vales_resumen_count,
         'comisiones_por_mes': comisiones_por_mes,
-        'comision_mes_actual': datos_mes_actual.get('total_comisiones', Decimal('0')),
-        'vale_mes_actual': datos_mes_actual.get('total_vales', Decimal('0')),
-        'neto_mes_actual': datos_mes_actual.get('total_neto', Decimal('0')),
-        'cantidad_operaciones': datos_mes_actual.get('cantidad', 0),
+        'comision_mes_actual': comision_mes_actual,
+        'vale_mes_actual': vale_mes_actual,
+        'neto_mes_actual': neto_mes_actual,
+        'cantidad_operaciones': cantidad_operaciones,
         'vendedor': vendedor,
         'porcentaje_comision': vendedor.porcentaje_comision_efectivo(),
     }
-    
+
     return render(request, 'inmobiliaria/comisiones/historial_comisiones.html', context)
+
+
+@login_required
+@require_POST
+def toggle_mes_comision_pagado(request, vendedor_id):
+    """Marca o desmarca un mes calendario como pagado al vendedor (nivel 4, misma sucursal)."""
+    if request.user.nivel != 4:
+        messages.error(request, 'No tienes permisos para acceder a esta sección.')
+        return redirect('inmobiliaria:dashboard')
+
+    vendedor = get_object_or_404(
+        Vendedor, id=vendedor_id, sucursal=request.user.sucursal
+    )
+    try:
+        anio = int(request.POST.get('anio', ''))
+        mes = int(request.POST.get('mes', ''))
+    except (TypeError, ValueError):
+        messages.error(request, 'Año o mes inválido.')
+        return redirect('inmobiliaria:historial_comisiones_vendedor', vendedor_id=vendedor_id)
+
+    if mes < 1 or mes > 12 or anio < 1970 or anio > 2100:
+        messages.error(request, 'Fecha fuera de rango.')
+        return redirect('inmobiliaria:historial_comisiones_vendedor', vendedor_id=vendedor_id)
+
+    accion = (request.POST.get('accion') or '').strip().lower()
+    try:
+        if accion == 'marcar':
+            MesComisionPagadoVendedor.objects.get_or_create(
+                vendedor=vendedor,
+                anio=anio,
+                mes=mes,
+            )
+            messages.success(
+                request,
+                f'Mes {mes:02d}/{anio} marcado como pagado. Deja de sumar en los totales pendientes.',
+            )
+        elif accion == 'desmarcar':
+            MesComisionPagadoVendedor.objects.filter(
+                vendedor=vendedor, anio=anio, mes=mes
+            ).delete()
+            messages.success(request, 'Mes desmarcado como pagado.')
+        else:
+            messages.error(request, 'Acción inválida.')
+    except (ProgrammingError, OperationalError, IntegrityError) as exc:
+        logger.exception('toggle_mes_comision_pagado: vendedor_id=%s', vendedor_id)
+        messages.error(
+            request,
+            'No se pudo actualizar el estado del mes. Verificá migraciones o intentá de nuevo. '
+            f'({exc.__class__.__name__})',
+        )
+
+    return redirect('inmobiliaria:historial_comisiones_vendedor', vendedor_id=vendedor_id)
 
 @login_required
 def detalle_comision(request, comision_id):
@@ -938,7 +1051,7 @@ from .models import (
     Disponibilidad, ImagenPropiedad, Precio, TipoPrecio, 
     Pago, ConceptoPago, HistorialDisponibilidad, VentaPropiedad, 
     AlquilerMeses, AlquilerInvierno, Caja, MovimientoCaja, Cuenta, Concepto, Sucursal,
-    TipoMovimientoCajaEnum, ContratoAlquiler, ContratoInquilino, CuotaMensual, ComisionVendedor, ValeVendedor,
+    TipoMovimientoCajaEnum, ContratoAlquiler, ContratoInquilino, CuotaMensual, ComisionVendedor, ValeVendedor, MesComisionPagadoVendedor,
     LiquidacionPropietario, GastoPropietario
 )
 from .catalogo_conceptos_caja import (
@@ -8914,7 +9027,11 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
     """Contexto compartido entre detalle de caja y resumen imprimible."""
     from inmobiliaria.models.sucursal import CuentaBancaria
 
-    movimientos_qs = MovimientoCaja.objects.filter(caja=caja).order_by(*movimientos_order)
+    movimientos_qs = (
+        MovimientoCaja.objects.filter(caja=caja)
+        .select_related('propiedad', 'empleado')
+        .order_by(*movimientos_order)
+    )
     movimientos = list(movimientos_qs)
 
     def _resumir_concepto_crudo(concepto):

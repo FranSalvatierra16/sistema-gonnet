@@ -423,3 +423,32 @@ class ComisionVendedor(models.Model):
             .aggregate(total=models.Sum('monto_comision'))['total']
             or Decimal('0')
         )
+
+
+class MesComisionPagadoVendedor(models.Model):
+    """
+    Marca un mes calendario (año/mes) de un vendedor como liquidado/pagado al productor.
+    Los totales «pendientes» del historial excluyen comisiones y vales de esos meses.
+    """
+
+    vendedor = models.ForeignKey(
+        Vendedor,
+        on_delete=models.CASCADE,
+        related_name='meses_comision_pagados',
+        verbose_name='Vendedor',
+    )
+    anio = models.PositiveIntegerField(verbose_name='Año')
+    mes = models.PositiveSmallIntegerField(verbose_name='Mes', help_text='1–12')
+    creado_en = models.DateTimeField(auto_now_add=True, verbose_name='Marcado el')
+
+    class Meta:
+        verbose_name = 'Mes comisiones/vales pagado (vendedor)'
+        verbose_name_plural = 'Meses comisiones/vales pagados'
+        unique_together = [('vendedor', 'anio', 'mes')]
+        ordering = ['-anio', '-mes']
+
+    def __str__(self):
+        return f'{self.vendedor_id} {self.anio}-{self.mes:02d} pagado'
+
+    def mes_key(self):
+        return f'{self.anio:04d}-{self.mes:02d}'

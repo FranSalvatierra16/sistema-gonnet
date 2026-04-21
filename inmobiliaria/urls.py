@@ -286,6 +286,11 @@ urlpatterns = [
     # ✅ URLs para Comisiones de Vendedores (Solo Admins)
     path('comisiones/', views.dashboard_comisiones, name='dashboard_comisiones'),
     path('vendedores/<int:vendedor_id>/comisiones/', views.historial_comisiones_vendedor, name='historial_comisiones_vendedor'),
+    path(
+        'vendedores/<int:vendedor_id>/comisiones/mes-pagado/',
+        views.toggle_mes_comision_pagado,
+        name='toggle_mes_comision_pagado',
+    ),
     path('comisiones/<int:comision_id>/', views.detalle_comision, name='detalle_comision'),
     path('vendedores/<int:vendedor_id>/comisiones/mes/<int:anio>/<int:mes>/', views.resumen_comisiones_mensual, name='resumen_comisiones_mensual'),
     

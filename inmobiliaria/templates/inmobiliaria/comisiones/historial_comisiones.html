@@ -50,7 +50,8 @@
                         <div class="info-box-content">
                             <span class="info-box-text">Comisiones</span>
                             <span class="info-box-number">${{ total_comisiones|format_price }}</span>
-                            <small>{{ comisiones.count }} operaciones</small>
+                            <small>{{ comisiones_resumen_count }} operaciones (pendiente)</small>
+                            <small class="d-block text-white-50 mt-1">Excluye meses marcados como pagados</small>
                         </div>
                     </div>
                 </div>
@@ -66,7 +67,8 @@
                             <span class="info-box-text d-block text-success">Vales ingreso (suman al empleado)</span>
                             <span class="info-box-number text-success">+${{ total_vales_ingreso|format_price }}</span>
                             <hr class="my-2">
-                            <small class="text-muted">Saldo neto (EG − IN): <strong>${{ total_vales|format_price }}</strong> · {{ vales.count }} mov.</small>
+                            <small class="text-muted">Saldo neto (EG − IN): <strong>${{ total_vales|format_price }}</strong> · {{ vales_resumen_count }} mov. (pendiente)</small>
+                            <small class="d-block text-muted mt-1">Excluye vales de meses pagados</small>
                         </div>
                     </div>
                 </div>
@@ -78,7 +80,8 @@
                         <div class="info-box-content">
                             <span class="info-box-text">Total Neto</span>
                             <span class="info-box-number">${{ total_neto|format_price }}</span>
-                            <small>Comisiones − egresos + ingresos vales</small>
+                            <small>Comisiones − egresos + ingresos vales (pendiente)</small>
+                            <small class="d-block text-white-50 mt-1">Sin meses ya liquidados</small>
                         </div>
                     </div>
                 </div>
@@ -91,6 +94,7 @@
                             <span class="info-box-text">Neto Este Mes</span>
                             <span class="info-box-number">${{ neto_mes_actual|format_price }}</span>
                             <small>{{ cantidad_operaciones }} operaciones</small>
+                            <small class="d-block text-white-50 mt-1">Mes calendario actual; $0 si el mes está pagado</small>
                         </div>
                     </div>
                 </div>
@@ -111,7 +115,8 @@
                         <div class="info-box-content">
                             <span class="info-box-text">Comisiones</span>
                             <span class="info-box-number">${{ total_comisiones|format_price }}</span>
-                            <small>{{ comisiones.count }} operaciones</small>
+                            <small>{{ comisiones_resumen_count }} operaciones (pendiente)</small>
+                            <small class="d-block text-white-50 mt-1">Excluye meses marcados como pagados</small>
                         </div>
                     </div>
                 </div>
@@ -123,7 +128,8 @@
                         <div class="info-box-content">
                             <span class="info-box-text">Total Neto</span>
                             <span class="info-box-number">${{ total_neto|format_price }}</span>
-                            <small>Comisiones − egresos + ingresos vales</small>
+                            <small>Comisiones − egresos + ingresos vales (pendiente)</small>
+                            <small class="d-block text-white-50 mt-1">Sin meses ya liquidados</small>
                         </div>
                     </div>
                 </div>
@@ -136,6 +142,7 @@
                             <span class="info-box-text">Neto Este Mes</span>
                             <span class="info-box-number">${{ neto_mes_actual|format_price }}</span>
                             <small>{{ cantidad_operaciones }} operaciones</small>
+                            <small class="d-block text-white-50 mt-1">Mes calendario actual; $0 si el mes está pagado</small>
                         </div>
                     </div>
                 </div>

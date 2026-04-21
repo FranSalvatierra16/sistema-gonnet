@@ -264,6 +264,7 @@
                                         <th>Caja</th>
                                         <th>Tipo</th>
                                         <th>Concepto</th>
+                                        <th>Detalle</th>
                                         <th>Empleado</th>
                                         <th class="text-end">Efectivo</th>
                                         <th class="text-end">Transferencia</th>
@@ -303,16 +304,15 @@
                                                 </span>
                                             {% endif %}
                                         </td>
-                                        <td>
-                                            <strong>{{ movimiento.concepto|truncatewords:10 }}</strong>
-                                            {% if movimiento.numero_liquidacion %}
-                                                <br><small class="text-muted">Liq: {{ movimiento.numero_liquidacion }}</small>
+                                        <td class="caja-listado-celda-todos small">
+                                            <div class="fw-bold text-uppercase">{{ movimiento.listado_concepto_l1 }}</div>
+                                            {% if movimiento.listado_concepto_l2 %}
+                                            <div class="text-secondary">{{ movimiento.listado_concepto_l2 }}</div>
                                             {% endif %}
-                                            {% if movimiento.propiedad %}
-                                                <br><small class="text-info">
-                                                    <i class="fas fa-home"></i> {{ movimiento.propiedad.direccion|truncatewords:5 }}
-                                                </small>
-                                            {% endif %}
+                                        </td>
+                                        <td class="caja-listado-celda-todos small">
+                                            <div>{{ movimiento.listado_detalle_l1 }}</div>
+                                            <div class="text-secondary">{{ movimiento.listado_detalle_l2 }}</div>
                                         </td>
                                         <td>
                                             {% if movimiento.empleado %}
@@ -408,6 +408,17 @@
         </div>
     </div>
 </div>
+
+<style>
+.caja-listado-celda-todos {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    line-height: 1.25;
+    max-width: 12rem;
+    white-space: normal;
+    word-break: break-word;
+    vertical-align: middle;
+}
+</style>
 
 <script>
 (function () {

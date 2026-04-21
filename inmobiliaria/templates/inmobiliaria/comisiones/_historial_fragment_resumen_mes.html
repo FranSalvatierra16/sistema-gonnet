@@ -20,12 +20,13 @@
                                     <th class="text-success">+ Comisiones</th>
                                     <th>Vales (vs comisiones)</th>
                                     <th class="text-primary">= Neto</th>
+                                    <th>Estado</th>
                                     <th>Acciones</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for mes_key, datos in comisiones_por_mes.items %}
-                                <tr>
+                                <tr class="{% if datos.pagado %}table-secondary{% endif %}">
                                     <td>
                                         <strong>{{ datos.mes }}</strong>
                                     </td>
@@ -48,6 +49,25 @@
                                         <strong class="{% if datos.total_neto >= 0 %}text-primary{% else %}text-warning{% endif %}">
                                             ${{ datos.total_neto|format_price }}
                                         </strong>
+                                    </td>
+                                    <td>
+                                        {% if datos.pagado %}
+                                            <span class="badge bg-success">Pagado</span>
+                                        {% else %}
+                                            <span class="badge bg-warning text-dark">Pendiente</span>
+                                        {% endif %}
+                                        <form method="post" action="{% url 'inmobiliaria:toggle_mes_comision_pagado' vendedor.id %}" class="d-inline-block ms-1">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="anio" value="{{ datos.resumen_anio }}">
+                                            <input type="hidden" name="mes" value="{{ datos.resumen_mes }}">
+                                            {% if datos.pagado %}
+                                                <input type="hidden" name="accion" value="desmarcar">
+                                                <button type="submit" class="btn btn-sm btn-outline-secondary">Desmarcar</button>
+                                            {% else %}
+                                                <input type="hidden" name="accion" value="marcar">
+                                                <button type="submit" class="btn btn-sm btn-outline-success">Marcar pagado</button>
+                                            {% endif %}
+                                        </form>
                                     </td>
                                     <td>
                                         <a href="{{ datos.url_resumen_mes }}"

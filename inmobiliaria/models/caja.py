@@ -179,7 +179,119 @@ class MovimientoCaja(models.Model):
             self.monto_tarjeta_safe +
             self.monto_deposito_safe
         )
-    
+
+    def concepto_sin_pipe_conceptos(self):
+        """Texto descriptivo del concepto sin el sufijo estructurado |CONCEPTOS:…"""
+        raw = (self.concepto or '').strip()
+        if '|CONCEPTOS:' in raw:
+            raw = raw.split('|CONCEPTOS:', 1)[0].strip()
+        return raw
+
+    def _tipo_comprobante_display_upper(self):
+        try:
+            return (self.get_tipo_comprobante_display() or '').strip().upper()
+        except Exception:
+            return ''
+
+    @property
+    def listado_concepto_l1(self):
+        """Primera línea del bloque «Concepto» (categoría, estilo listado de caja)."""
+        texto = self.concepto_sin_pipe_conceptos().lower()
+        if 'vale' in texto:
+            return 'VALE PERSONAL'
+        if 'devoluc' in texto and ('garant' in texto or 'deposito' in texto or 'depósito' in texto):
+            return 'D.D.G.'
+        clave = (self.tipo_comprobante or '').strip().upper()
+        if clave == 'LQ' or 'liquid' in texto:
+            return 'LIQUIDACIONES'
+        if clave == 'GS':
+            return 'GASTOS'
+        if clave == 'RC':
+            if self.tipo == TipoMovimientoCajaEnum.INGRESO and self.propiedad_id:
+                return 'ALQUILER A COBRAR'
+            return 'RECIBO'
+        if clave == 'OT':
+            return 'OTROS'
+        return self._tipo_comprobante_display_upper() or 'MOVIMIENTO'
+
+    @property
+    def listado_concepto_l2(self):
+        """Segunda línea: dirección / referencia de propiedad."""
+        if not self.propiedad_id:
+            return ''
+        try:
+            prop = self.propiedad
+            dir_ = (getattr(prop, 'direccion', None) or '').strip()
+        except Exception:
+            dir_ = ''
+        if not dir_:
+            return ''
+        return f'{dir_.upper()} ({self.propiedad_id})'
+
+    def _primer_texto_detalle_desde_json(self):
+        raw = (self.concepto_detalle or '').strip()
+        if not raw.startswith('{'):
+            return ''
+        try:
+            import json
+
+            data = json.loads(raw)
+        except Exception:
+            return ''
+        tr = (data.get('mes_alquiler_texto_recibo') or '').strip()
+        if tr:
+            return tr[:200]
+        cons = data.get('conceptos')
+        if isinstance(cons, list) and cons:
+            first = cons[0]
+            if isinstance(first, dict):
+                for key in ('nombre', 'concepto', 'descripcion', 'label'):
+                    v = first.get(key)
+                    if v:
+                        return str(v).strip()[:200]
+        return ''
+
+    @property
+    def listado_detalle_l1(self):
+        """Primera línea del bloque «Detalle» (texto operación / recibo)."""
+        from_json = self._primer_texto_detalle_desde_json()
+        if from_json:
+            return from_json
+        t = self.concepto_sin_pipe_conceptos().strip()
+        if not t:
+            return '—'
+        if '\n' in t:
+            return t.split('\n', 1)[0].strip()[:160]
+        if len(t) > 120:
+            return t[:117] + '...'
+        return t
+
+    @property
+    def listado_detalle_l2(self):
+        """Segunda línea: comprobante, período, a quién corresponde."""
+        parts = []
+        base = self.concepto_sin_pipe_conceptos()
+        if '\n' in base:
+            second = base.split('\n', 1)[1].strip()
+            if second:
+                parts.append(second[:140])
+        if self.numero_liquidacion:
+            parts.append(str(self.numero_liquidacion).strip())
+        if self.fecha_desde and self.fecha_hasta:
+            parts.append(
+                f"{self.fecha_desde.strftime('%d/%m/%Y')} — {self.fecha_hasta.strftime('%d/%m/%Y')}"
+            )
+        elif self.fecha_desde:
+            parts.append(self.fecha_desde.strftime('%d/%m/%Y'))
+        if self.a_descontar:
+            try:
+                parts.append(self.get_a_descontar_display().upper())
+            except Exception:
+                pass
+        if not parts:
+            return '—'
+        return ' · '.join(parts)
+
     class Meta:
         db_table = 'inmobiliaria_movimientocaja'
         ordering = ['-fecha']

@@ -4,7 +4,7 @@ from .sucursal import Sucursal, crear_caja_automatica, CuentaBancaria
 from .caja import *
 from .contrato import TipoOperacion, ContratoAlquiler, ContratoInquilino, CuotaMensual
 from .recibo import Recibo
-from .comision import ComisionVendedor
+from .comision import ComisionVendedor, MesComisionPagadoVendedor
 from .vale import ValeVendedor
 from .liquidacion import LiquidacionPropietario, GastoPropietario
 
@@ -20,6 +20,7 @@ __all__ = [
     'CuotaMensual',
     'Recibo',
     'ComisionVendedor',
+    'MesComisionPagadoVendedor',
     'ValeVendedor',
     'LiquidacionPropietario',
     'GastoPropietario',
