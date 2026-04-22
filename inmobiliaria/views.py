@@ -4,7 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
 from decimal import Decimal, InvalidOperation
-from datetime import datetime
+from datetime import datetime, date, timedelta
 from django.forms import inlineformset_factory
 from django.template.loader import render_to_string
 from django.contrib.auth import authenticate
@@ -804,6 +804,13 @@ def todos_movimientos_caja(request):
     Si hay filtro por propiedad(es), el total y el resumen mensual de ingresos usan el neto al propietario
     (monto_a_pagar de la liquidación vinculada al movimiento), no el monto total en caja.
     """
+    # Imports locales: esta vista está definida antes del bloque masivo de imports del módulo (~L1173).
+    from django.db.models import Q, Sum, Case, When, F, Count, DecimalField
+    from django.db.models.functions import TruncMonth
+
+    from inmobiliaria.models.caja import MovimientoCaja, TipoMovimientoCajaEnum
+    from inmobiliaria.models.liquidacion import LiquidacionPropietario
+
     movimientos = MovimientoCaja.objects.filter(
         sucursal=request.user.sucursal
     ).select_related(
@@ -892,7 +899,7 @@ def todos_movimientos_caja(request):
         )
         total_ingresos = Decimal('0')
 
-        for mov in movimientos.select_related('propiedad').iterator(chunk_size=500):
+        for mov in movimientos.select_related('propiedad'):
             mes_key = date(mov.fecha.year, mov.fecha.month, 1)
             mes_buckets[mes_key]['movimientos'] += 1
             _conc = mov.concepto or ''
