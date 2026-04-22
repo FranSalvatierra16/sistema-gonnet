@@ -42,9 +42,10 @@
             flex-direction: column;
         }
 
-        /* Contenedor principal */
-        .container {
+        /* Área entre navbar y footer: solo este wrapper (no todo .container del sitio) */
+        .main-page-wrapper {
             flex: 1;
+            min-width: 0;
         }
 
         /* Estilo del footer */
@@ -151,7 +152,7 @@
         </div>
     </nav>
 
-    <div class="container mt-4">
+    <div class="{% block page_container_class %}container{% endblock %} mt-4 main-page-wrapper">
             {% bootstrap_messages %}
             {% block content %}{% endblock %}
     </div>
