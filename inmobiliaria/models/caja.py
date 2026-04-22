@@ -311,6 +311,63 @@ class MovimientoCaja(models.Model):
             return '—'
         return ' · '.join(parts)
 
+    def _extraer_numero_operacion_desde_concepto(self):
+        texto = self.concepto_sin_pipe_conceptos()
+        if not texto:
+            return ''
+        for pat in (
+            r'Operaci[oó]n\s*#?\s*(\d+)',
+            r'Operacion\s*#?\s*(\d+)',
+            r'Reserva\s*#?\s*(\d+)',
+        ):
+            m = re.search(pat, texto, re.IGNORECASE)
+            if m:
+                return m.group(1).strip()
+        return ''
+
+    @property
+    def tipo_letra_listado(self):
+        """I / E como en consulta de caja clásica."""
+        return 'I' if (self.tipo or '').strip().upper() == TipoMovimientoCajaEnum.INGRESO else 'E'
+
+    @property
+    def numero_operacion_listado(self):
+        """Nº de operación/reserva inferido del concepto; 0 si no hay."""
+        n = self._extraer_numero_operacion_desde_concepto()
+        return n if n else '0'
+
+    @property
+    def comprobante_listado(self):
+        """Número de comprobante/recibo; formato por defecto si está vacío."""
+        n = (self.numero_liquidacion or '').strip()
+        if n:
+            return n
+        return '0000-00000000'
+
+    @property
+    def listado_detalle_tabla_secundario(self):
+        """Línea secundaria de detalle sin repetir el nº de comprobante (ya va en columna propia)."""
+        parts = []
+        base = self._texto_concepto_sin_abrev_re(self.concepto_sin_pipe_conceptos())
+        if '\n' in base:
+            second = self._texto_concepto_sin_abrev_re(base.split('\n', 1)[1].strip())
+            if second:
+                parts.append(second[:140])
+        if self.fecha_desde and self.fecha_hasta:
+            parts.append(
+                f"{self.fecha_desde.strftime('%d/%m/%Y')} — {self.fecha_hasta.strftime('%d/%m/%Y')}"
+            )
+        elif self.fecha_desde:
+            parts.append(self.fecha_desde.strftime('%d/%m/%Y'))
+        if self.a_descontar:
+            try:
+                parts.append(self.get_a_descontar_display().upper())
+            except Exception:
+                pass
+        if not parts:
+            return '—'
+        return ' · '.join(parts)
+
     class Meta:
         db_table = 'inmobiliaria_movimientocaja'
         ordering = ['-fecha']

@@ -65,15 +65,21 @@
         </div>
     </div>
 
+    <div class="alert alert-warning py-2 mb-2 text-center font-monospace small caja-banner-fecha d-print-block">
+        <strong>CAJA DE FECHA:</strong> {{ caja.fecha_apertura|date:"d/m/Y" }} · <strong>Nº</strong> {{ caja.numero }} · {{ caja.sucursal }}
+    </div>
     <div class="table-responsive mb-4">
         <table class="table table-sm table-bordered align-middle table-caja-listado-imprimir">
             <thead class="table-light">
                 <tr>
                     <th>#</th>
-                    <th>Fecha / hora</th>
-                    <th>Tipo</th>
-                    <th>Concepto</th>
+                    <th>Fecha</th>
+                    <th class="text-center">Tip</th>
+                    <th class="text-end">Oper.</th>
+                    <th>Comprobante</th>
                     <th>Detalle</th>
+                    <th class="text-end">Ingresos</th>
+                    <th class="text-end">Egresos</th>
                     <th class="text-end">Efect.</th>
                     <th class="text-end">Chq.</th>
                     <th class="text-end">Tarj.</th>
@@ -86,16 +92,18 @@
                 {% for movimiento in movimientos %}
                 <tr class="{% if movimiento.tipo == 'EG' %}table-danger{% endif %}">
                     <td>{{ forloop.counter }}</td>
-                    <td>{{ movimiento.fecha|date:"d/m/Y H:i" }}</td>
-                    <td>{% if movimiento.tipo == 'IN' %}Ingreso{% else %}Egreso{% endif %}</td>
+                    <td class="small text-nowrap">{{ movimiento.fecha|date:"d/m/Y" }} {{ movimiento.fecha|time:"H:i" }}</td>
+                    <td class="text-center fw-bold {% if movimiento.tipo == 'IN' %}text-success{% else %}text-danger{% endif %}">{{ movimiento.tipo_letra_listado }}</td>
+                    <td class="text-end font-monospace small">{{ movimiento.numero_operacion_listado }}</td>
+                    <td class="font-monospace small">{{ movimiento.comprobante_listado }}</td>
                     <td class="caja-listado-celda">
                         <div class="caja-listado-l1">{{ movimiento.listado_concepto_l1 }}</div>
                         {% if movimiento.listado_concepto_l2 %}<div class="caja-listado-l2">{{ movimiento.listado_concepto_l2 }}</div>{% endif %}
-                    </td>
-                    <td class="caja-listado-celda">
                         <div class="caja-listado-l3">{{ movimiento.listado_detalle_l1 }}</div>
-                        <div class="caja-listado-l4">{{ movimiento.listado_detalle_l2 }}</div>
+                        {% if movimiento.listado_detalle_tabla_secundario != '—' %}<div class="caja-listado-l4">{{ movimiento.listado_detalle_tabla_secundario }}</div>{% endif %}
                     </td>
+                    <td class="text-end">{% if movimiento.tipo == 'IN' %}<span class="text-success">${{ movimiento.monto_total|format_price }}</span>{% else %}—{% endif %}</td>
+                    <td class="text-end">{% if movimiento.tipo == 'EG' %}<span class="text-danger">${{ movimiento.monto_total|format_price }}</span>{% else %}—{% endif %}</td>
                     <td class="text-end">${{ movimiento.monto_efectivo|format_price }}</td>
                     <td class="text-end">${{ movimiento.monto_cheque|format_price }}</td>
                     <td class="text-end">${{ movimiento.monto_tarjeta|format_price }}</td>
@@ -104,7 +112,7 @@
                     <td class="small">{{ movimiento.empleado|default:"—" }}</td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="11" class="text-center text-muted">Sin movimientos en esta caja.</td></tr>
+                <tr><td colspan="14" class="text-center text-muted">Sin movimientos en esta caja.</td></tr>
                 {% endfor %}
             </tbody>
         </table>

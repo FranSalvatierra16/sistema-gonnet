@@ -65,51 +65,65 @@
             {% endif %}
         </div>
         <div class="card-body">
+            <div class="alert alert-warning py-2 mb-2 text-center caja-banner-fecha font-monospace small mb-3">
+                <strong>CAJA DE FECHA:</strong> {{ caja.fecha_apertura|date:"d/m/Y" }}
+                &nbsp;·&nbsp; <strong>Nº CAJA</strong> {{ caja.numero }}
+                &nbsp;·&nbsp; {{ caja.sucursal }}
+            </div>
             <div class="table-responsive">
-                <table class="table table-striped table-caja-listado">
+                <table class="table table-striped table-caja-listado table-caja-consulta">
                     <thead>
                         <tr>
                             <th>Fecha</th>
-                            <th>Tipo</th>
-                            <th>Concepto</th>
+                            <th class="text-center">Tip</th>
+                            <th class="text-end">Operación</th>
+                            <th>Comprobante</th>
                             <th>Detalle</th>
-                            <th>Efectivo</th>
-                            <th>Cheque</th>
-                            <th>Tarjeta</th>
-                            <th>Transferencia</th>
-                            <th>Total</th>
+                            <th class="text-end">Ingresos</th>
+                            <th class="text-end">Egresos</th>
+                            <th class="text-end">Efectivo</th>
+                            <th class="text-end">Cheque</th>
+                            <th class="text-end">Tarjeta</th>
+                            <th class="text-end">Transf.</th>
+                            <th class="text-end">Total</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for movimiento in movimientos %}
                         <tr class="{% if movimiento.tipo == 'EG' %}table-danger{% endif %}">
-                            <td>{{ movimiento.fecha|date:"d/m/Y H:i" }}</td>
-                            <td>
-                                <span class="badge {% if movimiento.tipo == 'IN' %}bg-success{% else %}bg-danger{% endif %}">
-                                    {{ movimiento.get_tipo_display }}
-                                </span>
+                            <td class="text-nowrap small">{{ movimiento.fecha|date:"d/m/Y" }}<br><span class="text-muted">{{ movimiento.fecha|time:"H:i" }}</span></td>
+                            <td class="text-center align-middle caja-tip-letra {% if movimiento.tipo == 'IN' %}text-success{% else %}text-danger{% endif %}">
+                                {{ movimiento.tipo_letra_listado }}
                             </td>
+                            <td class="text-end font-monospace small">{{ movimiento.numero_operacion_listado }}</td>
+                            <td class="font-monospace small text-nowrap">{{ movimiento.comprobante_listado }}</td>
                             <td class="caja-listado-celda" title="{{ movimiento.concepto }}">
                                 <div class="caja-listado-l1">{{ movimiento.listado_concepto_l1 }}</div>
                                 {% if movimiento.listado_concepto_l2 %}
                                 <div class="caja-listado-l2">{{ movimiento.listado_concepto_l2 }}</div>
                                 {% endif %}
+                                <div class="caja-listado-l3 mt-1">{{ movimiento.listado_detalle_l1 }}</div>
+                                {% if movimiento.listado_detalle_tabla_secundario != '—' %}
+                                <div class="caja-listado-l4">{{ movimiento.listado_detalle_tabla_secundario }}</div>
+                                {% endif %}
                             </td>
-                            <td class="caja-listado-celda" title="{{ movimiento.concepto }}">
-                                <div class="caja-listado-l3">{{ movimiento.listado_detalle_l1 }}</div>
-                                <div class="caja-listado-l4">{{ movimiento.listado_detalle_l2 }}</div>
+                            <td class="text-end caja-col-ingreso">
+                                {% if movimiento.tipo == 'IN' %}<span class="fw-semibold text-success">${{ movimiento.monto_total|format_price }}</span>{% else %}<span class="text-muted">—</span>{% endif %}
                             </td>
-                            <td>${{ movimiento.monto_efectivo|format_price }}</td>
-                            <td>${{ movimiento.monto_cheque|format_price }}</td>
-                            <td>${{ movimiento.monto_tarjeta|format_price }}</td>
+                            <td class="text-end caja-col-egreso">
+                                {% if movimiento.tipo == 'EG' %}<span class="fw-semibold text-danger">${{ movimiento.monto_total|format_price }}</span>{% else %}<span class="text-muted">—</span>{% endif %}
+                            </td>
+                            <td class="text-end">${{ movimiento.monto_efectivo|format_price }}</td>
+                            <td class="text-end">${{ movimiento.monto_cheque|format_price }}</td>
+                            <td class="text-end">${{ movimiento.monto_tarjeta|format_price }}</td>
                             <td>
                                 ${{ movimiento.monto_deposito|format_price }}
                                 {% if movimiento.monto_deposito > 0 %}
                                     <br><small class="{% if movimiento.tipo == 'EG' %}text-dark{% else %}text-muted{% endif %}">({{ movimiento.get_destino_deposito_display|default:"-" }})</small>
                                 {% endif %}
                             </td>
-                            <td>${{ movimiento.monto_total|format_price }}</td>
+                            <td class="text-end fw-bold">${{ movimiento.monto_total|format_price }}</td>
                             <td>
                                 <div class="btn-group">
                                     <a href="{% url 'inmobiliaria:ver_recibo_movimiento' movimiento.id %}" 
@@ -134,7 +148,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="10" class="text-center">No hay movimientos registrados</td>
+                            <td colspan="13" class="text-center">No hay movimientos registrados</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -297,7 +311,9 @@
             </div>
             <div class="modal-body">
                 <p><strong>Fecha:</strong> {{ movimiento.fecha|date:"d/m/Y H:i" }}</p>
-                <p><strong>Tipo:</strong> {{ movimiento.get_tipo_display }}</p>
+                <p><strong>Tipo:</strong> {{ movimiento.get_tipo_display }} (<strong>{{ movimiento.tipo_letra_listado }}</strong>)</p>
+                <p><strong>Operación:</strong> {{ movimiento.numero_operacion_listado }}</p>
+                <p><strong>Comprobante:</strong> {{ movimiento.comprobante_listado }}</p>
                 <p class="mb-1"><strong>Concepto (listado):</strong></p>
                 <p class="font-monospace small mb-2">{{ movimiento.listado_concepto_l1 }}{% if movimiento.listado_concepto_l2 %}<br>{{ movimiento.listado_concepto_l2 }}{% endif %}</p>
                 <p class="mb-1"><strong>Detalle (listado):</strong></p>
@@ -400,6 +416,24 @@
     color: #495057;
     font-size: 0.78rem;
     margin-top: 0.15rem;
+}
+
+.caja-banner-fecha {
+    background: #fff3cd !important;
+    border: 1px solid #ffc107 !important;
+    color: #664d03;
+}
+
+.table-caja-consulta .caja-tip-letra {
+    font-size: 1.1rem;
+    font-weight: 800;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    width: 2.25rem;
+}
+
+.table-caja-consulta td.text-end,
+.table-caja-consulta th.text-end {
+    white-space: nowrap;
 }
 </style>
 
