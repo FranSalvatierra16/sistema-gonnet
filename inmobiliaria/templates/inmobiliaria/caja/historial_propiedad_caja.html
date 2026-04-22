@@ -168,7 +168,7 @@
                                 <td>{% if m.caja %}#{{ m.caja.numero }}{% else %}-{% endif %}</td>
                                 <td>{{ m.empleado|default:"-" }}</td>
                                 <td class="text-end">${{ m.monto_total|format_price }}</td>
-                                <td class="text-end text-success">{% if m.liquidacion_movimiento %}${{ m.liquidacion_movimiento.monto_a_pagar|format_price }}{% else %}—{% endif %}</td>
+                                <td class="text-end text-success">${{ m._neto_propietario_display|format_price }}</td>
                             </tr>
                         {% empty %}
                             <tr><td colspan="7" class="text-center text-muted">Sin movimientos</td></tr>

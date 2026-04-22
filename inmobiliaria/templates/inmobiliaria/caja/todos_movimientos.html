@@ -127,9 +127,10 @@
     {% if ingresos_son_neto_propietario %}
     <div class="alert alert-info py-2 mb-3">
         <small>
-            <strong>Filtro por propiedad activo:</strong> «Total ingresos», «Balance» y la columna «Ingresos» del resumen mensual suman el
-            <strong>neto al propietario</strong> según cada liquidación vinculada al movimiento (<code>monto_a_pagar</code>).
-            Los ingresos sin liquidación suman $0 en ese total. La columna «Total» de cada fila sigue mostrando el monto registrado en caja.
+            <strong>Filtro por propiedad activo:</strong> «Total ingresos», «Balance» y «Ingresos» del resumen mensual reflejan el
+            <strong>neto al propietario</strong>: si hay liquidación vinculada se usa <code>monto_a_pagar</code>; si no, el mismo criterio que liquidaciones
+            (precio toma / precio día sobre el monto del movimiento, o el % de la propiedad y si no hay toma válida, 70%).
+            La columna «Total» sigue siendo el monto en caja.
         </small>
     </div>
     {% endif %}
