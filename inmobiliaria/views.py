@@ -801,6 +801,8 @@ def todos_movimientos_caja(request):
     """
     Vista para mostrar TODOS los movimientos de TODAS las cajas
     Con filtros de búsqueda por ID, concepto, empleado, etc.
+    Si hay filtro por propiedad(es), el total y el resumen mensual de ingresos usan el neto al propietario
+    (monto_a_pagar de la liquidación vinculada al movimiento), no el monto total en caja.
     """
     movimientos = MovimientoCaja.objects.filter(
         sucursal=request.user.sucursal
@@ -854,30 +856,58 @@ def todos_movimientos_caja(request):
     if fecha_hasta:
         movimientos = movimientos.filter(fecha__date__lte=fecha_hasta)
 
-    ingresos = movimientos.filter(tipo=TipoMovimientoCajaEnum.INGRESO).aggregate(
-        efectivo=Sum('monto_efectivo'),
-        cheque=Sum('monto_cheque'),
-        tarjeta=Sum('monto_tarjeta'),
-        deposito=Sum('monto_deposito')
-    )
+    # Con filtro por propiedad(es): los "ingresos" del resumen = neto al propietario (liquidación), no el total en caja.
+    ingresos_son_neto_propietario = bool(propiedad_ids)
+    if ingresos_son_neto_propietario:
+        from django.db.models import OuterRef, Subquery, Value
+        from django.db.models.functions import Coalesce
+
+        _liq_neto_sq = (
+            LiquidacionPropietario.objects.filter(movimiento_caja_id=OuterRef('pk'))
+            .exclude(estado='cancelada')
+            .values('monto_a_pagar')[:1]
+        )
+        _dec14 = DecimalField(max_digits=14, decimal_places=2)
+        movimientos = movimientos.annotate(
+            _neto_propietario_liq=Coalesce(
+                Subquery(_liq_neto_sq, output_field=_dec14),
+                Value(Decimal('0'), output_field=_dec14),
+                output_field=_dec14,
+            )
+        )
+
+    if ingresos_son_neto_propietario:
+        total_ingresos = (
+            movimientos.filter(tipo=TipoMovimientoCajaEnum.INGRESO).aggregate(
+                t=Sum('_neto_propietario_liq')
+            )['t']
+            or Decimal('0')
+        )
+    else:
+        ingresos = movimientos.filter(tipo=TipoMovimientoCajaEnum.INGRESO).aggregate(
+            efectivo=Sum('monto_efectivo'),
+            cheque=Sum('monto_cheque'),
+            tarjeta=Sum('monto_tarjeta'),
+            deposito=Sum('monto_deposito'),
+        )
+        total_ingresos = (
+            (ingresos['efectivo'] or Decimal('0'))
+            + (ingresos['cheque'] or Decimal('0'))
+            + (ingresos['tarjeta'] or Decimal('0'))
+            + (ingresos['deposito'] or Decimal('0'))
+        )
+
     egresos = movimientos.filter(tipo=TipoMovimientoCajaEnum.EGRESO).aggregate(
         efectivo=Sum('monto_efectivo'),
         cheque=Sum('monto_cheque'),
         tarjeta=Sum('monto_tarjeta'),
-        deposito=Sum('monto_deposito')
-    )
-
-    total_ingresos = (
-        (ingresos['efectivo'] or Decimal('0')) +
-        (ingresos['cheque'] or Decimal('0')) +
-        (ingresos['tarjeta'] or Decimal('0')) +
-        (ingresos['deposito'] or Decimal('0'))
+        deposito=Sum('monto_deposito'),
     )
     total_egresos = (
-        (egresos['efectivo'] or Decimal('0')) +
-        (egresos['cheque'] or Decimal('0')) +
-        (egresos['tarjeta'] or Decimal('0')) +
-        (egresos['deposito'] or Decimal('0'))
+        (egresos['efectivo'] or Decimal('0'))
+        + (egresos['cheque'] or Decimal('0'))
+        + (egresos['tarjeta'] or Decimal('0'))
+        + (egresos['deposito'] or Decimal('0'))
     )
 
     total_reservas = movimientos.filter(
@@ -886,42 +916,92 @@ def todos_movimientos_caja(request):
         Q(concepto__icontains='Operación') | Q(concepto__icontains='Reserva')
     ).count()
 
-    resumen_mensual = (
-        movimientos
-        .annotate(mes=TruncMonth('fecha'))
-        .values('mes')
-        .annotate(
-            ingresos=Sum(
-                Case(
-                    When(
-                        tipo=TipoMovimientoCajaEnum.INGRESO,
-                        then=F('monto_efectivo') + F('monto_cheque') + F('monto_tarjeta') + F('monto_deposito'),
-                    ),
-                    default=Decimal('0'),
-                    output_field=DecimalField(max_digits=18, decimal_places=2),
-                )
-            ),
-            egresos=Sum(
-                Case(
-                    When(
-                        tipo=TipoMovimientoCajaEnum.EGRESO,
-                        then=F('monto_efectivo') + F('monto_cheque') + F('monto_tarjeta') + F('monto_deposito'),
-                    ),
-                    default=Decimal('0'),
-                    output_field=DecimalField(max_digits=18, decimal_places=2),
-                )
-            ),
-            reservas=Count(
-                'id',
-                filter=Q(tipo=TipoMovimientoCajaEnum.INGRESO) & (
-                    Q(concepto__icontains='Operación') | Q(concepto__icontains='Reserva')
+    _dec18 = DecimalField(max_digits=18, decimal_places=2)
+    if ingresos_son_neto_propietario:
+        resumen_mensual = (
+            movimientos.annotate(mes=TruncMonth('fecha'))
+            .values('mes')
+            .annotate(
+                ingresos=Sum(
+                    Case(
+                        When(
+                            tipo=TipoMovimientoCajaEnum.INGRESO,
+                            then=F('_neto_propietario_liq'),
+                        ),
+                        default=Decimal('0'),
+                        output_field=_dec18,
+                    )
                 ),
-            ),
-            movimientos=Count('id'),
+                egresos=Sum(
+                    Case(
+                        When(
+                            tipo=TipoMovimientoCajaEnum.EGRESO,
+                            then=F('monto_efectivo')
+                            + F('monto_cheque')
+                            + F('monto_tarjeta')
+                            + F('monto_deposito'),
+                        ),
+                        default=Decimal('0'),
+                        output_field=_dec18,
+                    )
+                ),
+                reservas=Count(
+                    'id',
+                    filter=Q(tipo=TipoMovimientoCajaEnum.INGRESO)
+                    & (
+                        Q(concepto__icontains='Operación')
+                        | Q(concepto__icontains='Reserva')
+                    ),
+                ),
+                movimientos=Count('id'),
+            )
+            .annotate(balance=F('ingresos') - F('egresos'))
+            .order_by('-mes')
         )
-        .annotate(balance=F('ingresos') - F('egresos'))
-        .order_by('-mes')
-    )
+    else:
+        resumen_mensual = (
+            movimientos.annotate(mes=TruncMonth('fecha'))
+            .values('mes')
+            .annotate(
+                ingresos=Sum(
+                    Case(
+                        When(
+                            tipo=TipoMovimientoCajaEnum.INGRESO,
+                            then=F('monto_efectivo')
+                            + F('monto_cheque')
+                            + F('monto_tarjeta')
+                            + F('monto_deposito'),
+                        ),
+                        default=Decimal('0'),
+                        output_field=_dec18,
+                    )
+                ),
+                egresos=Sum(
+                    Case(
+                        When(
+                            tipo=TipoMovimientoCajaEnum.EGRESO,
+                            then=F('monto_efectivo')
+                            + F('monto_cheque')
+                            + F('monto_tarjeta')
+                            + F('monto_deposito'),
+                        ),
+                        default=Decimal('0'),
+                        output_field=_dec18,
+                    )
+                ),
+                reservas=Count(
+                    'id',
+                    filter=Q(tipo=TipoMovimientoCajaEnum.INGRESO)
+                    & (
+                        Q(concepto__icontains='Operación')
+                        | Q(concepto__icontains='Reserva')
+                    ),
+                ),
+                movimientos=Count('id'),
+            )
+            .annotate(balance=F('ingresos') - F('egresos'))
+            .order_by('-mes')
+        )
 
     from django.core.paginator import Paginator
     paginator = Paginator(movimientos, 50)
@@ -949,6 +1029,7 @@ def todos_movimientos_caja(request):
         ).order_by('direccion'),
         'resumen_mensual': resumen_mensual,
         'querystring': query_params.urlencode(),
+        'ingresos_son_neto_propietario': ingresos_son_neto_propietario,
     }
     
     return render(request, 'inmobiliaria/caja/todos_movimientos.html', context)
