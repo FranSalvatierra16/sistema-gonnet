@@ -7,7 +7,7 @@ Neto al propietario por movimiento de caja (ingreso), alineado con liquidaciones
 from __future__ import annotations
 
 from datetime import date, datetime
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
 
 from django.utils import timezone
 
@@ -52,6 +52,12 @@ def _fecha_movimiento(mov) -> date:
     if isinstance(fd, date):
         return fd
     return date.today()
+
+
+def primer_dia_mes_movimiento(mov) -> date:
+    """Primer día del mes calendario del movimiento (misma zona horaria que el neto)."""
+    d = _fecha_movimiento(mov)
+    return date(d.year, d.month, 1)
 
 
 def neto_propietario_movimiento(mov, liq_by_mov_id: dict, precios_por_propiedad: dict) -> Decimal:
@@ -106,10 +112,14 @@ def neto_propietario_movimiento(mov, liq_by_mov_id: dict, precios_por_propiedad:
                 return _q(m_total * share)
 
     pct = getattr(prop, 'porcentaje_propietario', None)
-    if pct is None or pct <= 0:
-        pct_dec = Decimal('70')
-    else:
-        pct_dec = Decimal(str(pct))
+    pct_dec = Decimal('70')
+    if pct is not None:
+        try:
+            pnum = Decimal(str(pct))
+            if pnum > 0:
+                pct_dec = pnum
+        except (InvalidOperation, TypeError, ValueError):
+            pct_dec = Decimal('70')
     return _q(m_total * pct_dec / Decimal('100'))
 
 

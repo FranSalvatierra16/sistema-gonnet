@@ -824,6 +824,10 @@ def todos_movimientos_caja(request):
     propiedad_ids = [p.strip() for p in request.GET.getlist('propiedad_ids') if p.strip()]
     if propiedad_id and propiedad_id not in propiedad_ids:
         propiedad_ids.append(propiedad_id)
+    # Evita URLs enormes / límites del motor SQL y mantiene la vista usable.
+    _max_prop_filtro = 100
+    if len(propiedad_ids) > _max_prop_filtro:
+        propiedad_ids = propiedad_ids[:_max_prop_filtro]
     mes_filtro = request.GET.get('mes', '').strip()  # YYYY-MM
     fecha_desde = request.GET.get('fecha_desde', '')
     fecha_hasta = request.GET.get('fecha_hasta', '')
@@ -837,7 +841,8 @@ def todos_movimientos_caja(request):
             | Q(empleado__apellido__icontains=busqueda)
             | Q(empleado__dni__icontains=busqueda)
         )
-        if busqueda.isdigit():
+        # isdigit() es True para algunos dígitos Unicode donde int() falla → ValueError fuera del try del neto.
+        if busqueda.isascii() and busqueda.isdigit():
             q_bus |= Q(pk=int(busqueda))
         movimientos = movimientos.filter(q_bus)
 
@@ -879,6 +884,7 @@ def todos_movimientos_caja(request):
                 monto_medios_movimiento_decimal,
                 neto_propietario_movimiento,
                 precios_por_propiedad_ids,
+                primer_dia_mes_movimiento,
             )
 
             precios_map = precios_por_propiedad_ids(propiedad_ids)
@@ -905,7 +911,7 @@ def todos_movimientos_caja(request):
             total_ingresos = Decimal('0')
 
             for mov in movimientos.select_related('propiedad'):
-                mes_key = date(mov.fecha.year, mov.fecha.month, 1)
+                mes_key = primer_dia_mes_movimiento(mov)
                 mes_buckets[mes_key]['movimientos'] += 1
                 _conc = mov.concepto or ''
                 if mov.tipo == TipoMovimientoCajaEnum.INGRESO and (
