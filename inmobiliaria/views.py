@@ -957,8 +957,8 @@ def todos_movimientos_caja(request):
 @login_required
 def historial_propiedad_caja(request):
     """
-    Apartado de caja para consultar todo el historial financiero/comercial de una propiedad:
-    movimientos, reservas, contratos y pagos.
+    Apartado de caja: historial por propiedad (movimientos, reservas, contratos, pagos).
+    Los totales superiores se arman desde liquidaciones (parte propietario / neto a pagar / comisión), no desde el monto total de caja.
     """
     termino = request.GET.get('q', '').strip()
     propiedad_id = request.GET.get('propiedad_id', '').strip()
@@ -983,21 +983,37 @@ def historial_propiedad_caja(request):
             if coincidencias.count() == 1:
                 propiedad = coincidencias.first()
 
-    movimientos = MovimientoCaja.objects.none()
+    movimientos = []
     reservas = Reserva.objects.none()
     contratos = ContratoAlquiler.objects.none()
     pagos = Pago.objects.none()
-    total_ingresos = Decimal('0')
-    total_egresos = Decimal('0')
     total_pagos = Decimal('0')
+    liquidaciones = []
+    total_liq_parte_propietario = Decimal('0')
+    total_liq_neto_a_pagar = Decimal('0')
+    total_liq_inmobiliaria = Decimal('0')
 
     if propiedad:
-        movimientos = MovimientoCaja.objects.filter(
-            sucursal=request.user.sucursal,
-            propiedad=propiedad
-        ).select_related(
-            'caja', 'empleado', 'cuenta'
-        ).order_by('-fecha')
+        mov_qs = (
+            MovimientoCaja.objects.filter(
+                sucursal=request.user.sucursal,
+                propiedad=propiedad,
+            )
+            .select_related('caja', 'empleado', 'cuenta')
+            .order_by('-fecha')[:200]
+        )
+        movimientos = list(mov_qs)
+        mov_ids = [m.id for m in movimientos]
+        liq_por_mov = {}
+        if mov_ids:
+            for liq in LiquidacionPropietario.objects.filter(
+                movimiento_caja_id__in=mov_ids
+            ).exclude(estado='cancelada'):
+                mid = liq.movimiento_caja_id
+                if mid not in liq_por_mov:
+                    liq_por_mov[mid] = liq
+        for m in movimientos:
+            setattr(m, 'liquidacion_movimiento', liq_por_mov.get(m.id))
 
         reservas = Reserva.objects.filter(
             propiedad=propiedad,
@@ -1019,28 +1035,39 @@ def historial_propiedad_caja(request):
             'reserva', 'concepto'
         ).order_by('-fecha')
 
-        for mov in movimientos:
-            monto = Decimal(str(mov.monto_total or 0))
-            if mov.tipo == TipoMovimientoCajaEnum.INGRESO:
-                total_ingresos += monto
-            else:
-                total_egresos += monto
-
         total_pagos = pagos.aggregate(total=Sum('monto'))['total'] or Decimal('0')
+
+        liq_base = LiquidacionPropietario.objects.filter(
+            propiedad=propiedad
+        ).exclude(estado='cancelada')
+        agg_liq = liq_base.aggregate(
+            tp=Sum('monto_propietario'),
+            tap=Sum('monto_a_pagar'),
+            ti=Sum('monto_inmobiliaria'),
+        )
+        total_liq_parte_propietario = agg_liq['tp'] or Decimal('0')
+        total_liq_neto_a_pagar = agg_liq['tap'] or Decimal('0')
+        total_liq_inmobiliaria = agg_liq['ti'] or Decimal('0')
+        liquidaciones = list(
+            liq_base.select_related('reserva', 'contrato', 'movimiento_caja').order_by(
+                '-fecha_creacion'
+            )[:100]
+        )
 
     context = {
         'termino': termino,
         'propiedad_id': propiedad_id,
         'propiedad': propiedad,
         'coincidencias': coincidencias,
-        'movimientos': movimientos[:200],
+        'movimientos': movimientos,
         'reservas': reservas[:100],
         'contratos': contratos[:100],
         'pagos': pagos[:200],
-        'total_ingresos': total_ingresos,
-        'total_egresos': total_egresos,
-        'balance': total_ingresos - total_egresos,
         'total_pagos': total_pagos,
+        'liquidaciones': liquidaciones,
+        'total_liq_parte_propietario': total_liq_parte_propietario,
+        'total_liq_neto_a_pagar': total_liq_neto_a_pagar,
+        'total_liq_inmobiliaria': total_liq_inmobiliaria,
     }
     return render(request, 'inmobiliaria/caja/historial_propiedad_caja.html', context)
 

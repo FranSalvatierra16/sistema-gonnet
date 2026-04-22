@@ -71,28 +71,32 @@
             </div>
         </div>
 
+        <p class="text-muted small mb-3">
+            Los importes resumen la <strong>liquidación al propietario</strong> (como en Liquidaciones), no el monto total de la operación en caja.
+        </p>
         <div class="row mb-4">
             <div class="col-md-3">
                 <div class="card border-success">
                     <div class="card-body">
-                        <div class="small text-muted">Total ingresos</div>
-                        <div class="h5 text-success mb-0">${{ total_ingresos|format_price }}</div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card border-danger">
-                    <div class="card-body">
-                        <div class="small text-muted">Total egresos</div>
-                        <div class="h5 text-danger mb-0">${{ total_egresos|format_price }}</div>
+                        <div class="small text-muted">Parte propietario (liquidaciones)</div>
+                        <div class="h5 text-success mb-0">${{ total_liq_parte_propietario|format_price }}</div>
                     </div>
                 </div>
             </div>
             <div class="col-md-3">
                 <div class="card border-primary">
                     <div class="card-body">
-                        <div class="small text-muted">Balance</div>
-                        <div class="h5 mb-0">${{ balance|format_price }}</div>
+                        <div class="small text-muted">Neto a pagar al propietario</div>
+                        <div class="h5 text-primary mb-0">${{ total_liq_neto_a_pagar|format_price }}</div>
+                        <div class="small text-muted mt-1">Tras gastos y retenciones</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-secondary">
+                    <div class="card-body">
+                        <div class="small text-muted">Comisión inmobiliaria</div>
+                        <div class="h5 text-secondary mb-0">${{ total_liq_inmobiliaria|format_price }}</div>
                     </div>
                 </div>
             </div>
@@ -107,6 +111,40 @@
         </div>
 
         <div class="card mb-4">
+            <div class="card-header"><strong>Liquidaciones</strong> ({{ liquidaciones|length }} recientes)</div>
+            <div class="table-responsive">
+                <table class="table table-sm table-striped mb-0">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Estado</th>
+                            <th>Reserva</th>
+                            <th class="text-end">Total operación</th>
+                            <th class="text-end">Parte propietario</th>
+                            <th class="text-end">Neto a pagar</th>
+                            <th class="text-end">Inmobiliaria</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for l in liquidaciones %}
+                            <tr>
+                                <td>{{ l.fecha_creacion|date:"d/m/Y H:i" }}</td>
+                                <td>{{ l.get_estado_display }}</td>
+                                <td>{% if l.reserva_id %}#{{ l.reserva_id }}{% else %}—{% endif %}</td>
+                                <td class="text-end">${{ l.monto_total_operacion|format_price }}</td>
+                                <td class="text-end text-success">${{ l.monto_propietario|format_price }}</td>
+                                <td class="text-end">${{ l.monto_a_pagar|format_price }}</td>
+                                <td class="text-end">${{ l.monto_inmobiliaria|format_price }}</td>
+                            </tr>
+                        {% empty %}
+                            <tr><td colspan="7" class="text-center text-muted">Sin liquidaciones registradas para esta propiedad</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card mb-4">
             <div class="card-header"><strong>Movimientos de caja</strong> ({{ movimientos|length }})</div>
             <div class="table-responsive">
                 <table class="table table-sm table-striped mb-0">
@@ -117,7 +155,8 @@
                             <th>Concepto</th>
                             <th>Caja</th>
                             <th>Empleado</th>
-                            <th class="text-end">Monto</th>
+                            <th class="text-end">Monto en caja</th>
+                            <th class="text-end">Neto al prop. (liquidación)</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -129,9 +168,10 @@
                                 <td>{% if m.caja %}#{{ m.caja.numero }}{% else %}-{% endif %}</td>
                                 <td>{{ m.empleado|default:"-" }}</td>
                                 <td class="text-end">${{ m.monto_total|format_price }}</td>
+                                <td class="text-end text-success">{% if m.liquidacion_movimiento %}${{ m.liquidacion_movimiento.monto_a_pagar|format_price }}{% else %}—{% endif %}</td>
                             </tr>
                         {% empty %}
-                            <tr><td colspan="6" class="text-center text-muted">Sin movimientos</td></tr>
+                            <tr><td colspan="7" class="text-center text-muted">Sin movimientos</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
