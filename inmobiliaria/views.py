@@ -810,6 +810,7 @@ def todos_movimientos_caja(request):
 
     from inmobiliaria.models.caja import MovimientoCaja, TipoMovimientoCajaEnum
     from inmobiliaria.models.liquidacion import LiquidacionPropietario
+    from inmobiliaria.models.propiedad import Propiedad
 
     movimientos = MovimientoCaja.objects.filter(
         sucursal=request.user.sucursal
@@ -828,14 +829,17 @@ def todos_movimientos_caja(request):
     fecha_hasta = request.GET.get('fecha_hasta', '')
 
     if busqueda:
-        movimientos = movimientos.filter(
-            Q(id__icontains=busqueda) |
-            Q(concepto__icontains=busqueda) |
-            Q(numero_liquidacion__icontains=busqueda) |
-            Q(empleado__nombre__icontains=busqueda) |
-            Q(empleado__apellido__icontains=busqueda) |
-            Q(empleado__dni__icontains=busqueda)
+        # id es BigAutoField: icontains en PostgreSQL puede romper el lookup; usar pk exacto si es numérico.
+        q_bus = (
+            Q(concepto__icontains=busqueda)
+            | Q(numero_liquidacion__icontains=busqueda)
+            | Q(empleado__nombre__icontains=busqueda)
+            | Q(empleado__apellido__icontains=busqueda)
+            | Q(empleado__dni__icontains=busqueda)
         )
+        if busqueda.isdigit():
+            q_bus |= Q(pk=int(busqueda))
+        movimientos = movimientos.filter(q_bus)
 
     if tipo_filtro:
         movimientos = movimientos.filter(tipo=tipo_filtro)
@@ -868,67 +872,130 @@ def todos_movimientos_caja(request):
     neto_por_mov_id = {}
 
     if ingresos_son_neto_propietario:
-        from collections import defaultdict
+        try:
+            from collections import defaultdict
 
-        from inmobiliaria.neto_propietario_movimiento import (
-            monto_medios_movimiento_decimal,
-            neto_propietario_movimiento,
-            precios_por_propiedad_ids,
-        )
+            from inmobiliaria.neto_propietario_movimiento import (
+                monto_medios_movimiento_decimal,
+                neto_propietario_movimiento,
+                precios_por_propiedad_ids,
+            )
 
-        precios_map = precios_por_propiedad_ids(propiedad_ids)
-        mov_ids = list(movimientos.values_list('id', flat=True))
-        liq_by_mov = {}
-        _batch = 400
-        for _i in range(0, len(mov_ids), _batch):
-            _chunk = mov_ids[_i : _i + _batch]
-            for _liq in LiquidacionPropietario.objects.filter(movimiento_caja_id__in=_chunk).exclude(
-                estado='cancelada'
-            ):
-                _mid = _liq.movimiento_caja_id
-                if _mid and _mid not in liq_by_mov:
-                    liq_by_mov[_mid] = _liq
+            precios_map = precios_por_propiedad_ids(propiedad_ids)
+            mov_ids = list(movimientos.values_list('id', flat=True))
+            liq_by_mov = {}
+            _batch = 400
+            for _i in range(0, len(mov_ids), _batch):
+                _chunk = mov_ids[_i : _i + _batch]
+                for _liq in LiquidacionPropietario.objects.filter(
+                    movimiento_caja_id__in=_chunk
+                ).exclude(estado='cancelada'):
+                    _mid = _liq.movimiento_caja_id
+                    if _mid and _mid not in liq_by_mov:
+                        liq_by_mov[_mid] = _liq
 
-        mes_buckets = defaultdict(
-            lambda: {
-                'ingresos': Decimal('0'),
-                'egresos': Decimal('0'),
-                'reservas': 0,
-                'movimientos': 0,
-            }
-        )
-        total_ingresos = Decimal('0')
-
-        for mov in movimientos.select_related('propiedad'):
-            mes_key = date(mov.fecha.year, mov.fecha.month, 1)
-            mes_buckets[mes_key]['movimientos'] += 1
-            _conc = mov.concepto or ''
-            if mov.tipo == TipoMovimientoCajaEnum.INGRESO and (
-                'Operación' in _conc or 'Reserva' in _conc
-            ):
-                mes_buckets[mes_key]['reservas'] += 1
-
-            if mov.tipo == TipoMovimientoCajaEnum.INGRESO:
-                _neto = neto_propietario_movimiento(mov, liq_by_mov, precios_map)
-                neto_por_mov_id[mov.id] = _neto
-                total_ingresos += _neto
-                mes_buckets[mes_key]['ingresos'] += _neto
-            elif mov.tipo == TipoMovimientoCajaEnum.EGRESO:
-                neto_por_mov_id[mov.id] = Decimal('0')
-                mes_buckets[mes_key]['egresos'] += monto_medios_movimiento_decimal(mov)
-
-        resumen_mensual = []
-        for mk in sorted(mes_buckets.keys(), reverse=True):
-            v = mes_buckets[mk]
-            resumen_mensual.append(
-                {
-                    'mes': mk,
-                    'ingresos': v['ingresos'],
-                    'egresos': v['egresos'],
-                    'balance': v['ingresos'] - v['egresos'],
-                    'reservas': v['reservas'],
-                    'movimientos': v['movimientos'],
+            mes_buckets = defaultdict(
+                lambda: {
+                    'ingresos': Decimal('0'),
+                    'egresos': Decimal('0'),
+                    'reservas': 0,
+                    'movimientos': 0,
                 }
+            )
+            total_ingresos = Decimal('0')
+
+            for mov in movimientos.select_related('propiedad'):
+                mes_key = date(mov.fecha.year, mov.fecha.month, 1)
+                mes_buckets[mes_key]['movimientos'] += 1
+                _conc = mov.concepto or ''
+                if mov.tipo == TipoMovimientoCajaEnum.INGRESO and (
+                    'Operación' in _conc or 'Reserva' in _conc
+                ):
+                    mes_buckets[mes_key]['reservas'] += 1
+
+                if mov.tipo == TipoMovimientoCajaEnum.INGRESO:
+                    _neto = neto_propietario_movimiento(mov, liq_by_mov, precios_map)
+                    neto_por_mov_id[mov.id] = _neto
+                    total_ingresos += _neto
+                    mes_buckets[mes_key]['ingresos'] += _neto
+                elif mov.tipo == TipoMovimientoCajaEnum.EGRESO:
+                    neto_por_mov_id[mov.id] = Decimal('0')
+                    mes_buckets[mes_key]['egresos'] += monto_medios_movimiento_decimal(mov)
+
+            resumen_mensual = []
+            for mk in sorted(mes_buckets.keys(), reverse=True):
+                v = mes_buckets[mk]
+                resumen_mensual.append(
+                    {
+                        'mes': mk,
+                        'ingresos': v['ingresos'],
+                        'egresos': v['egresos'],
+                        'balance': v['ingresos'] - v['egresos'],
+                        'reservas': v['reservas'],
+                        'movimientos': v['movimientos'],
+                    }
+                )
+        except Exception:
+            logger.exception(
+                'todos_movimientos_caja: falló el cálculo de neto propietario; se muestran totales de caja.'
+            )
+            ingresos_son_neto_propietario = False
+            neto_por_mov_id = {}
+            ingresos = movimientos.filter(tipo=TipoMovimientoCajaEnum.INGRESO).aggregate(
+                efectivo=Sum('monto_efectivo'),
+                cheque=Sum('monto_cheque'),
+                tarjeta=Sum('monto_tarjeta'),
+                deposito=Sum('monto_deposito'),
+            )
+            total_ingresos = (
+                (ingresos['efectivo'] or Decimal('0'))
+                + (ingresos['cheque'] or Decimal('0'))
+                + (ingresos['tarjeta'] or Decimal('0'))
+                + (ingresos['deposito'] or Decimal('0'))
+            )
+            _dec18_fb = DecimalField(max_digits=18, decimal_places=2)
+            resumen_mensual = (
+                movimientos.annotate(mes=TruncMonth('fecha'))
+                .values('mes')
+                .annotate(
+                    ingresos=Sum(
+                        Case(
+                            When(
+                                tipo=TipoMovimientoCajaEnum.INGRESO,
+                                then=F('monto_efectivo')
+                                + F('monto_cheque')
+                                + F('monto_tarjeta')
+                                + F('monto_deposito'),
+                            ),
+                            default=Decimal('0'),
+                            output_field=_dec18_fb,
+                        )
+                    ),
+                    egresos=Sum(
+                        Case(
+                            When(
+                                tipo=TipoMovimientoCajaEnum.EGRESO,
+                                then=F('monto_efectivo')
+                                + F('monto_cheque')
+                                + F('monto_tarjeta')
+                                + F('monto_deposito'),
+                            ),
+                            default=Decimal('0'),
+                            output_field=_dec18_fb,
+                        )
+                    ),
+                    reservas=Count(
+                        'id',
+                        filter=Q(tipo=TipoMovimientoCajaEnum.INGRESO)
+                        & (
+                            Q(concepto__icontains='Operación')
+                            | Q(concepto__icontains='Reserva')
+                        ),
+                    ),
+                    movimientos=Count('id'),
+                )
+                .annotate(balance=F('ingresos') - F('egresos'))
+                .order_by('-mes')
             )
     else:
         ingresos = movimientos.filter(tipo=TipoMovimientoCajaEnum.INGRESO).aggregate(
