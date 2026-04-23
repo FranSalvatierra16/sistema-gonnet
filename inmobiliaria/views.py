@@ -2389,8 +2389,18 @@ def operaciones(request):
                 rid = int(match.group(1))
                 if rid in reserva_ids:
                     movimientos_por_reserva.setdefault(rid, []).append(mov)
+
+        def _mov_orden_por_fecha(m):
+            f = getattr(m, 'fecha', None)
+            if f is None:
+                return (0.0, m.id or 0)
+            try:
+                return (f.timestamp(), m.id or 0)
+            except (OSError, ValueError, TypeError, AttributeError):
+                return (0.0, m.id or 0)
+
         for _rid, lst in movimientos_por_reserva.items():
-            lst.sort(key=lambda m: (m.fecha or date.min), reverse=True)
+            lst.sort(key=_mov_orden_por_fecha, reverse=True)
     
     # Lista para almacenar solo las reservas con pagos
     reservas_con_pagos = []
@@ -2421,8 +2431,9 @@ def operaciones(request):
             saldo_pendiente = Decimal('0')
         
         if total_pagado_mov > 0:
-            reserva.total_pagado = total_pagado_mov
-            reserva.saldo_pendiente = saldo_pendiente
+            # float: evita rarezas en plantillas/filtros con Decimal dinámico
+            reserva.total_pagado = float(total_pagado_mov)
+            reserva.saldo_pendiente = float(saldo_pendiente)
             reserva.total_senia_pagada = reserva.senia or 0
             reserva.total_deposito_pagado = reserva.deposito_garantia or 0
             
@@ -2577,7 +2588,24 @@ def operaciones(request):
         ))
 
     operaciones = list(reservas_con_pagos) + invierno_list
-    operaciones.sort(key=lambda x: getattr(x, 'fecha_operacion_dia', x.fecha_inicio) or x.fecha_inicio, reverse=True)
+
+    def _fecha_orden_operacion(x):
+        d = getattr(x, 'fecha_operacion_dia', None) or getattr(x, 'fecha_inicio', None)
+        if d is None:
+            return (0, 0, 0, 0)
+        if isinstance(d, datetime):
+            dd = d.date() if hasattr(d, 'date') else d
+            return (
+                dd.toordinal(),
+                getattr(d, 'hour', 0),
+                getattr(d, 'minute', 0),
+                getattr(x, 'id', 0) or 0,
+            )
+        if isinstance(d, date):
+            return (d.toordinal(), 0, 0, getattr(x, 'id', 0) or 0)
+        return (0, 0, 0, 0)
+
+    operaciones.sort(key=_fecha_orden_operacion, reverse=True)
 
     # ✅ Paginación: 50 por página para mejorar velocidad de render
     page_size = 50
