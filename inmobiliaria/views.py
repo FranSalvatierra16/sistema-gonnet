@@ -1300,6 +1300,9 @@ from .utils import numero_a_palabras
 import logging
 logger = logging.getLogger(__name__)
 
+# Importes de estos conceptos en |CONCEPTOS:…| suman como «seña» (saldo a ocupar, completar pago, resync reserva).
+CONCEPTOS_SENIA_OPERACION_RESERVA = frozenset({"1", "15", "103", "219"})
+
 
 def _movimientos_caja_ingresos_operacion_reserva(reserva):
     """
@@ -1335,7 +1338,7 @@ def _reserva_id_desde_movimiento_operacion(movimiento):
 
 
 def _sumar_senia_desde_texto_conceptos_movimiento(concepto_text):
-    """Suma importes de conceptos 1, 15 y 103 en el bloque |CONCEPTOS:."""
+    """Suma importes de conceptos que cuentan como seña (1, 15, 103, 219) en el bloque |CONCEPTOS:."""
     total = Decimal("0")
     if not concepto_text or "|CONCEPTOS:" not in concepto_text:
         return total
@@ -1351,7 +1354,7 @@ def _sumar_senia_desde_texto_conceptos_movimiento(concepto_text):
             if len(p) < 3:
                 continue
             concepto_id = p[0].strip()
-            if concepto_id not in ("1", "15", "103"):
+            if concepto_id not in CONCEPTOS_SENIA_OPERACION_RESERVA:
                 continue
             raw_im = p[2].strip()
             try:
@@ -5192,7 +5195,7 @@ def procesar_movimiento_reserva(request):
                 # ✅ CORREGIDO: CALCULAR SEÑA SOLO CON CONCEPTOS QUE NO SEAN DEPÓSITO
                 senia_anterior = reserva.senia or 0
                 
-                # ✅ CORREGIDO: Solo contar conceptos de alquiler como seña (ID: 1)
+                # ✅ CORREGIDO: conceptos que cuentan como seña (incluye 219 saldo a ocupar)
                 senia_real = Decimal('0')
                 
                 # Revisar conceptos para encontrar solo los de alquiler
@@ -5200,8 +5203,7 @@ def procesar_movimiento_reserva(request):
                     concepto_id = request.POST.get(f'concepto_{i}_id')
                     concepto_importe = request.POST.get(f'concepto_{i}_importe')
                     
-                    # ✅ CONCEPTOS QUE CUENTAN COMO SEÑA: 1, 15, 103
-                    if concepto_id in ['1', '15', '103']:
+                    if (concepto_id or "").strip() in CONCEPTOS_SENIA_OPERACION_RESERVA:
                         importe_limpio = conceptos_importes_decimal.get(i, Decimal('0'))
                         senia_real += importe_limpio
 # print(f"💰 SEÑA DETECTADA: Concepto {concepto_id} - ${importe_limpio}")
@@ -13480,8 +13482,7 @@ def finalizar_reserva_nueva(request, reserva_id):
                             concepto_id = parts[0].strip()
                             concepto_importe = parts[2].strip()
                             
-                            # ✅ CONCEPTOS QUE CUENTAN COMO SEÑA: 1, 15, 103
-                            if concepto_id in ['1', '15', '103']:
+                            if concepto_id in CONCEPTOS_SENIA_OPERACION_RESERVA:
                                 try:
                                     importe_num = Decimal(concepto_importe.replace(',', ''))
                                     total_senia_anteriores += importe_num
@@ -13491,7 +13492,7 @@ def finalizar_reserva_nueva(request, reserva_id):
         
 # print(f"📊 CÁLCULO PAGOS ANTERIORES:")
 # print(f"   - Total pagos anteriores: ${total_pagos_anteriores}")
-# print(f"   - Seña anteriores (conceptos 1,15,103): ${total_senia_anteriores}")
+# print(f"   - Seña anteriores (conceptos seña): ${total_senia_anteriores}")
         
         es_completar_pago = total_pagos_anteriores > 0
         
