@@ -26,7 +26,7 @@
                             <tbody>
                                 {% for c in comisiones %}
                                 <tr>
-                                    <td class="text-nowrap"><span class="badge bg-secondary small">{{ c.etiqueta_tipo_comision }}</span></td>
+                                    <td class="text-nowrap">{% include "inmobiliaria/comisiones/_comisiones_badges_tipo_inline.html" with comision=c %}</td>
                                     <td>{% if c.vendedor %}{{ c.vendedor.apellido }}, {{ c.vendedor.nombre }}{% else %}—{% endif %}</td>
                                     <td class="text-end">${{ c.monto_comision|floatformat:2 }}</td>
                                 </tr>

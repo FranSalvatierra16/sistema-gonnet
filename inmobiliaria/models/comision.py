@@ -254,6 +254,25 @@ class ComisionVendedorQuerySet(models.QuerySet):
             .exclude(reserva__eliminada=True)
         )
 
+    def ordenadas_para_listado_historial(self):
+        """
+        Misma fecha de operación: primero línea de fichaje, luego por día / invierno / 24 / general,
+        para que en el listado queden «juntas» las comisiones del mismo pago.
+        """
+        from django.db.models import Case, IntegerField, When
+
+        return self.annotate(
+            _orden_grupo_rol=Case(
+                When(rol_comision=ROL_COMISION_FICHAJE, then=0),
+                When(rol_comision=ROL_COMISION_OP_DIA, then=1),
+                When(rol_comision=ROL_COMISION_OP_INVIERNO, then=2),
+                When(rol_comision=ROL_COMISION_OP_24, then=3),
+                When(rol_comision=ROL_COMISION_GENERAL, then=4),
+                default=9,
+                output_field=IntegerField(),
+            )
+        ).order_by('-fecha_operacion', '_orden_grupo_rol', 'id')
+
 
 class ComisionVendedor(models.Model):
     """
@@ -348,51 +367,116 @@ class ComisionVendedor(models.Model):
     def __str__(self):
         return f"Comisión {self.id} - {self.vendedor.nombre_completo_vendedor()} - ${self.monto_comision}"
 
-    def etiqueta_tipo_comision(self):
-        """
-        Texto legible para listados (primer/segundo fichaje, alquiler por día, invierno, 24 meses, comisión por día).
-        """
+    def _rol_comision_normalizado(self):
         rol_raw = self.rol_comision or ROL_COMISION_GENERAL
         try:
-            rol = (rol_raw.strip() if isinstance(rol_raw, str) else str(rol_raw).strip()) or ROL_COMISION_GENERAL
+            return (rol_raw.strip() if isinstance(rol_raw, str) else str(rol_raw).strip()) or ROL_COMISION_GENERAL
         except (AttributeError, TypeError):
-            rol = ROL_COMISION_GENERAL
-        if rol == ROL_COMISION_FICHAJE:
-            res = getattr(self, 'reserva', None)
-            prop = getattr(res, 'propiedad', None) if res else None
-            vend = getattr(self, 'vendedor', None)
-            concepto_l = (self.concepto_operacion or '').lower()
-            pct_linea = self.porcentaje_comision
+            return ROL_COMISION_GENERAL
 
-            # Línea real de fichaje sobre honorarios (segunda línea del pago)
-            if 'honorarios' in concepto_l and 'fichaje' in concepto_l:
-                tf = (getattr(prop, 'tipo_fichaje', None) or 'primer')
-                if tf == 'segundo':
-                    return 'Comisión por segundo fichaje'
-                return 'Comisión por primer fichaje'
+    def _clasificacion_fichaje_primer_segundo_o_dia(self):
+        """
+        Solo para rol fichaje: ('fichaje', 'primer'|'segundo') o ('por_dia', None) si en realidad es línea por día.
+        """
+        res = getattr(self, 'reserva', None)
+        prop = getattr(res, 'propiedad', None) if res else None
+        vend = getattr(self, 'vendedor', None)
+        concepto_l = (self.concepto_operacion or '').lower()
+        pct_linea = self.porcentaje_comision
 
-            # Línea única o legado con rol «fichaje» pero % distinto al de fichaje → era comisión por día
-            pct_fichaje = None
-            if vend is not None and prop is not None:
-                tipo_prop = getattr(prop, 'tipo_fichaje', None) or 'primer'
-                if tipo_prop == 'segundo':
-                    pct_fichaje = vend.comision_segundo_fichaje
-                else:
-                    pct_fichaje = vend.comision_primer_fichaje
-            if pct_fichaje is not None and pct_linea is not None and pct_linea == pct_fichaje:
-                tf = (getattr(prop, 'tipo_fichaje', None) or 'primer')
-                if tf == 'segundo':
-                    return 'Comisión por segundo fichaje'
-                return 'Comisión por primer fichaje'
-            return 'Comisión por día'
+        if 'honorarios' in concepto_l and 'fichaje' in concepto_l:
+            tf = (getattr(prop, 'tipo_fichaje', None) or 'primer')
+            if tf == 'segundo':
+                return ('fichaje', 'segundo')
+            return ('fichaje', 'primer')
 
+        pct_fichaje = None
+        if vend is not None and prop is not None:
+            tipo_prop = getattr(prop, 'tipo_fichaje', None) or 'primer'
+            if tipo_prop == 'segundo':
+                pct_fichaje = vend.comision_segundo_fichaje
+            else:
+                pct_fichaje = vend.comision_primer_fichaje
+        if pct_fichaje is not None and pct_linea is not None and pct_linea == pct_fichaje:
+            tf = (getattr(prop, 'tipo_fichaje', None) or 'primer')
+            if tf == 'segundo':
+                return ('fichaje', 'segundo')
+            return ('fichaje', 'primer')
+        return ('por_dia', None)
+
+    def clasificacion_listado(self):
+        """
+        Retorna (categoria, subtipo) para badges y agrupación.
+        categoria: por_dia | por_fichaje | por_invierno | por_24_meses | operacion
+        subtipo: primer | segundo | None
+        """
+        rol = self._rol_comision_normalizado()
         if rol == ROL_COMISION_OP_DIA:
-            return 'Comisión por día'
+            return ('por_dia', None)
         if rol == ROL_COMISION_OP_INVIERNO:
-            return 'Comisión por alquiler invierno'
+            return ('por_invierno', None)
         if rol == ROL_COMISION_OP_24:
-            return 'Comisión por alquiler 24 meses'
-        return 'Comisión por día'
+            return ('por_24_meses', None)
+        if rol == ROL_COMISION_GENERAL:
+            return ('operacion', None)
+        if rol == ROL_COMISION_FICHAJE:
+            kind, sub = self._clasificacion_fichaje_primer_segundo_o_dia()
+            if kind == 'por_dia':
+                return ('por_dia', None)
+            return ('por_fichaje', sub)
+        return ('operacion', None)
+
+    @property
+    def id_agrupacion_listado(self):
+        """Clave para agrupar en el template líneas del mismo movimiento de caja (fichaje + operación juntas)."""
+        if self.movimiento_caja_id:
+            return f'm:{self.movimiento_caja_id}'
+        return f'r:{self.reserva_id or 0}'
+
+    def texto_categoria_comision_badge(self):
+        cat, _ = self.clasificacion_listado()
+        return {
+            'por_dia': 'Por día',
+            'por_fichaje': 'Por fichaje',
+            'por_invierno': 'Por invierno',
+            'por_24_meses': 'Por 24 meses',
+            'operacion': 'Operación',
+        }.get(cat, 'Operación')
+
+    def texto_subcategoria_fichaje_badge(self):
+        _, sub = self.clasificacion_listado()
+        if sub == 'primer':
+            return 'Primer fichaje'
+        if sub == 'segundo':
+            return 'Segundo fichaje'
+        return ''
+
+    def clase_badge_categoria_comision(self):
+        cat, _ = self.clasificacion_listado()
+        return {
+            'por_dia': 'bg-primary',
+            'por_fichaje': 'bg-info text-dark',
+            'por_invierno': 'bg-secondary',
+            'por_24_meses': 'bg-dark',
+            'operacion': 'bg-light text-dark border',
+        }.get(cat, 'bg-secondary')
+
+    def etiqueta_tipo_comision(self):
+        """
+        Texto legible para listados y detalle (sinónimo de las categorías por día, fichaje, invierno, 24 meses).
+        """
+        cat, sub = self.clasificacion_listado()
+        if cat == 'por_dia':
+            return 'Comisión por día'
+        if cat == 'por_fichaje':
+            if sub == 'segundo':
+                return 'Comisión por segundo fichaje'
+            return 'Comisión por primer fichaje'
+        if cat == 'por_invierno':
+            return 'Comisión por invierno'
+        if cat == 'por_24_meses':
+            return 'Comisión por 24 meses'
+        return 'Comisión operación'
 
     def save(self, *args, **kwargs):
         # Calcular automáticamente el monto de comisión si no está definido

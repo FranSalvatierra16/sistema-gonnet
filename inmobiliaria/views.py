@@ -52,7 +52,7 @@ def historial_comisiones_vendedor(request, vendedor_id):
             ComisionVendedor.objects.filter(vendedor=vendedor)
             .que_suman()
             .select_related('vendedor', 'reserva__propiedad')
-            .order_by('-fecha_operacion')
+            .ordenadas_para_listado_historial()
         )
         vales = ValeVendedor.objects.filter(vendedor=vendedor).order_by('-fecha')
         total_comisiones = comisiones.aggregate(
@@ -365,7 +365,7 @@ def resumen_comisiones_mensual(request, vendedor_id, anio=None, mes=None):
             )
             .que_suman()
             .select_related('vendedor', 'reserva__propiedad')
-            .order_by('-fecha_operacion')
+            .ordenadas_para_listado_historial()
         )
         total_mes = comisiones_mes.aggregate(
             total=models.Sum('monto_comision')

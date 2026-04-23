@@ -1,0 +1,6 @@
+<span class="badge {{ comision.clase_badge_categoria_comision }} me-1">{{ comision.texto_categoria_comision_badge }}</span>
+{% with sub=comision.texto_subcategoria_fichaje_badge %}
+{% if sub %}
+<span class="badge bg-secondary me-1">{{ sub }}</span>
+{% endif %}
+{% endwith %}

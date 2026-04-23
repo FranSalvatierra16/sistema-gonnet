@@ -25,7 +25,21 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {% for comision in comisiones %}
+                                    {% regroup comisiones by id_agrupacion_listado as grupos_pago %}
+                                    {% for grupo in grupos_pago %}
+                                    {% if grupo.list|length > 1 %}
+                                    <tr class="table-light">
+                                        <td colspan="7" class="py-1 small text-muted border-0">
+                                            <i class="fas fa-layer-group me-1"></i>
+                                            {% if grupo.list.0.movimiento_caja_id %}
+                                                Mismo pago (mov. caja #{{ grupo.list.0.movimiento_caja_id }}): fichaje y comisión de operación juntas · {{ grupo.list|length }} líneas
+                                            {% else %}
+                                                Mismo pago (reserva #{{ grupo.list.0.reserva.id }}): {{ grupo.list|length }} líneas
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endif %}
+                                    {% for comision in grupo.list %}
                                     <tr>
                                         <td>
                                             <small class="text-muted">
@@ -34,11 +48,7 @@
                                             </small>
                                         </td>
                                         <td>
-                                            <span class="badge bg-primary mb-1">{{ comision.etiqueta_tipo_comision }}</span>
-                                            <br><strong class="small">{{ comision.concepto_operacion }}</strong>
-                                            {% if comision.reserva %}
-                                                <br><small class="text-muted">Reserva #{{ comision.reserva.id }}</small>
-                                            {% endif %}
+                                            {% include "inmobiliaria/comisiones/_comisiones_celda_tipo_badges.html" %}
                                         </td>
                                         <td>
                                             {% if comision.reserva and comision.reserva.propiedad %}
@@ -72,6 +82,7 @@
                                             </a>
                                         </td>
                                     </tr>
+                                    {% endfor %}
                                     {% endfor %}
                                 </tbody>
                             </table>

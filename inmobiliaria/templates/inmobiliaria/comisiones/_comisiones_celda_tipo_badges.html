@@ -1,0 +1,6 @@
+{% comment %}Celda «Tipo / detalle»: categorías por día, fichaje (primer/segundo), invierno, 24 meses.{% endcomment %}
+{% include "inmobiliaria/comisiones/_comisiones_badges_tipo_inline.html" %}
+<br><strong class="small">{{ comision.concepto_operacion }}</strong>
+{% if comision.reserva %}
+    <br><small class="text-muted">Reserva #{{ comision.reserva.id }}</small>
+{% endif %}
