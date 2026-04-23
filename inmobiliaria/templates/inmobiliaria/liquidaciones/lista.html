@@ -1,10 +1,12 @@
 {% extends 'inmobiliaria/base.html' %}
 {% load custom_filters %}
 
+{% block page_container_class %}container-fluid{% endblock %}
+
 {% block title %}Liquidaciones de Propietarios{% endblock %}
 
 {% block content %}
-<div class="container-fluid mt-4">
+<div class="mt-4">
     <div class="row mb-4">
         <div class="col-12">
             <h1 class="mb-4">💰 Liquidaciones de Propietarios</h1>
@@ -109,9 +111,9 @@
                                         </small>
                                         {% endif %}
                                     </td>
-                                    <td>
+                                    <td class="text-nowrap font-monospace small">
                                         {% if liquidacion.propietario.cuenta_bancaria %}
-                                        <small class="font-monospace" title="{{ liquidacion.propietario.cuenta_bancaria }}">{{ liquidacion.propietario.cuenta_bancaria|truncatechars:28 }}</small>
+                                        <span title="{{ liquidacion.propietario.cuenta_bancaria }}">{{ liquidacion.propietario.cuenta_bancaria }}</span>
                                         {% else %}
                                         <span class="text-muted">—</span>
                                         {% endif %}

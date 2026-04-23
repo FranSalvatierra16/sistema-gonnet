@@ -1,45 +1,113 @@
 {% extends 'inmobiliaria/base.html' %}
 {% load bootstrap4 %}
 
+{% block page_container_class %}container-fluid{% endblock %}
+
+{% block title %}Detalles del vendedor{% endblock %}
+
 {% block content %}
-<div class="container">
+<div class="mt-4 px-2 px-md-3">
     <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-header">
-                    <h2 class="text-center">Detalles del Vendedor</h2>
+        <div class="col-12 col-xl-11">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-primary text-white d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <h2 class="h4 mb-0">Detalles del vendedor</h2>
+                    <span class="badge bg-light text-dark">ID {{ vendedor.id }}</span>
                 </div>
                 <div class="card-body">
-                    <dl class="row">
+                    <div class="row g-4">
+                        <div class="col-lg-6">
+                            <h5 class="text-muted border-bottom pb-2 mb-3">Datos personales y de acceso</h5>
+                            <dl class="row mb-0 small">
+                                <dt class="col-sm-5">Usuario (login):</dt>
+                                <dd class="col-sm-7"><code>{{ vendedor.username }}</code></dd>
 
-                        <dt class="col-sm-3">Productor:</dt>
-                        <dd class="col-sm-9">{{vendedor.id}}</dd>
-                        <dt class="col-sm-3">Nombre:</dt>
-                        <dd class="col-sm-9">{{ vendedor.nombre }} {{ vendedor.apellido }}</dd>
-                        
-                        <dt class="col-sm-3">Email:</dt>
-                        <dd class="col-sm-9">{{ vendedor.email }}</dd>
-                        
-                        <dt class="col-sm-3">Teléfono:</dt>
-                        <dd class="col-sm-9">{{ vendedor.celular }}</dd>
+                                <dt class="col-sm-5">Nombre:</dt>
+                                <dd class="col-sm-7">{{ vendedor.nombre }}</dd>
 
-                        <dt class="col-sm-3">Fecha nacimiento:</dt>
-                        <dd class="col-sm-9">{{ vendedor.fecha_nacimiento }}</dd>
+                                <dt class="col-sm-5">Apellido:</dt>
+                                <dd class="col-sm-7">{{ vendedor.apellido }}</dd>
 
-                        <dt class="col-sm-3">Documento:</dt>
-                        <dd class="col-sm-9">{{ vendedor.tipo_doc }} {{ vendedor.dni }}</dd>
+                                <dt class="col-sm-5">Email:</dt>
+                                <dd class="col-sm-7"><a href="mailto:{{ vendedor.email }}">{{ vendedor.email }}</a></dd>
 
-                        <dt class="col-sm-3">Tipo ins:</dt>
-                        <dd class="col-sm-9">{{ vendedor.tipo_ins }}</dd>
+                                <dt class="col-sm-5">Celular:</dt>
+                                <dd class="col-sm-7">{% if vendedor.celular %}{{ vendedor.celular }}{% else %}<span class="text-muted">—</span>{% endif %}</dd>
 
-                        <dt class="col-sm-3">Detalles:</dt>
-                        <dd class="col-sm-9">{{ vendedor.observaciones }}</dd>
+                                <dt class="col-sm-5">DNI:</dt>
+                                <dd class="col-sm-7">{% if vendedor.dni %}{{ vendedor.dni }}{% else %}<span class="text-muted">—</span>{% endif %}</dd>
 
-                    </dl>
+                                <dt class="col-sm-5">Fecha de nacimiento:</dt>
+                                <dd class="col-sm-7">{% if vendedor.fecha_nacimiento %}{{ vendedor.fecha_nacimiento|date:"d/m/Y" }}{% else %}<span class="text-muted">—</span>{% endif %}</dd>
+
+                                <dt class="col-sm-5">Nivel:</dt>
+                                <dd class="col-sm-7">{{ vendedor.get_nivel_display }}</dd>
+
+                                <dt class="col-sm-5">Sucursal:</dt>
+                                <dd class="col-sm-7">{{ vendedor.sucursal }}</dd>
+
+                                <dt class="col-sm-5">Cuenta activa:</dt>
+                                <dd class="col-sm-7">{% if vendedor.is_active %}<span class="badge bg-success">Sí</span>{% else %}<span class="badge bg-secondary">No</span>{% endif %}</dd>
+
+                                <dt class="col-sm-5">Staff / administración Django:</dt>
+                                <dd class="col-sm-7">{% if vendedor.is_staff %}<span class="badge bg-info text-dark">Sí</span>{% else %}<span class="text-muted">No</span>{% endif %}</dd>
+
+                                <dt class="col-sm-5">Contraseña temporal:</dt>
+                                <dd class="col-sm-7">{% if vendedor.password_temporal %}<span class="badge bg-warning text-dark">Sí (debe cambiarla al ingresar)</span>{% else %}<span class="text-muted">No</span>{% endif %}</dd>
+
+                                <dt class="col-sm-5">Último acceso:</dt>
+                                <dd class="col-sm-7">{% if vendedor.last_login %}{{ vendedor.last_login|date:"d/m/Y H:i" }}{% else %}<span class="text-muted">Nunca</span>{% endif %}</dd>
+
+                                <dt class="col-sm-5">Alta en el sistema:</dt>
+                                <dd class="col-sm-7">{% if vendedor.date_joined %}{{ vendedor.date_joined|date:"d/m/Y H:i" }}{% else %}<span class="text-muted">—</span>{% endif %}</dd>
+                            </dl>
+                        </div>
+                        <div class="col-lg-6">
+                            <h5 class="text-muted border-bottom pb-2 mb-3">Comisiones (%)</h5>
+                            <dl class="row mb-0 small">
+                                <dt class="col-sm-6">Comisión por día (en ficha):</dt>
+                                <dd class="col-sm-6">
+                                    {% if vendedor.comision is not None %}
+                                        {{ vendedor.comision|floatformat:2 }}%
+                                    {% else %}
+                                        <span class="text-muted">Sin cargar en el vendedor</span>
+                                    {% endif %}
+                                </dd>
+
+                                <dt class="col-sm-6">Default sucursal (por día):</dt>
+                                <dd class="col-sm-6">
+                                    {% if vendedor.sucursal.porcentaje_comision_default is not None %}
+                                        {{ vendedor.sucursal.porcentaje_comision_default|floatformat:2 }}%
+                                    {% else %}
+                                        <span class="text-muted">—</span>
+                                    {% endif %}
+                                </dd>
+
+                                <dt class="col-sm-6">Comisión por día efectiva:</dt>
+                                <dd class="col-sm-6"><strong>{{ vendedor.porcentaje_comision_efectivo|floatformat:2 }}%</strong> <span class="text-muted">(valor usado si no entra otra regla)</span></dd>
+
+                                <dt class="col-sm-6">Primer fichaje:</dt>
+                                <dd class="col-sm-6">{% if vendedor.comision_primer_fichaje is not None %}{{ vendedor.comision_primer_fichaje|floatformat:2 }}%{% else %}<span class="text-muted">—</span>{% endif %}</dd>
+
+                                <dt class="col-sm-6">Segundo fichaje:</dt>
+                                <dd class="col-sm-6">{% if vendedor.comision_segundo_fichaje is not None %}{{ vendedor.comision_segundo_fichaje|floatformat:2 }}%{% else %}<span class="text-muted">—</span>{% endif %}</dd>
+
+                                <dt class="col-sm-6">Alquiler largo / 24 meses:</dt>
+                                <dd class="col-sm-6">{% if vendedor.comision_alquiler_24_meses is not None %}{{ vendedor.comision_alquiler_24_meses|floatformat:2 }}%{% else %}<span class="text-muted">—</span>{% endif %}</dd>
+
+                                <dt class="col-sm-6">Invierno:</dt>
+                                <dd class="col-sm-6">{% if vendedor.comision_invierno is not None %}{{ vendedor.comision_invierno|floatformat:2 }}%{% else %}<span class="text-muted">—</span>{% endif %}</dd>
+                            </dl>
+                            <p class="text-muted small mt-3 mb-0">
+                                El % que se aplica a cada reserva depende de la propiedad (fichaje, invierno, duración) y de estos valores; la columna «efectiva» es solo la base por día (campo o sucursal).
+                            </p>
+                        </div>
+                    </div>
                 </div>
-                <div class="card-footer text-center">
+                <div class="card-footer text-center d-flex flex-wrap justify-content-center gap-2">
                     <a href="{% url 'inmobiliaria:vendedor_editar' vendedor.id %}" class="btn btn-primary">Editar</a>
                     <a href="{% url 'inmobiliaria:vendedor_eliminar' vendedor.id %}" class="btn btn-danger">Eliminar</a>
+                    <a href="{% url 'inmobiliaria:vendedores' %}" class="btn btn-outline-secondary">Volver al listado</a>
                 </div>
             </div>
         </div>

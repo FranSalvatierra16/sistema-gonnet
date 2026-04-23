@@ -88,10 +88,11 @@ class VendedorChangeForm(UserChangeForm):
         fields = [
             'username', 'dni', 'nombre', 'apellido', 'fecha_nacimiento', 'email', 'comision',
             'comision_primer_fichaje', 'comision_segundo_fichaje', 'comision_alquiler_24_meses', 'comision_invierno',
-            'celular', 'nivel',
+            'celular', 'nivel', 'sucursal',
         ]
         widgets = {
             'fecha_nacimiento': forms.DateInput(attrs={'type': 'date'}),
+            'sucursal': forms.Select(attrs={'class': 'form-control form-select'}),
             'comision': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}),
             'comision_primer_fichaje': forms.NumberInput(
                 attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
@@ -106,6 +107,12 @@ class VendedorChangeForm(UserChangeForm):
                 attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
             ),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if 'sucursal' in self.fields:
+            self.fields['sucursal'].queryset = Sucursal.objects.all().order_by('nombre')
+            self.fields['sucursal'].required = True
 
 # Formulario de Inquilino
 class InquilinoForm(forms.ModelForm):

@@ -88,7 +88,7 @@ def _pct_operacion_dia_o_fallback_despues_fichaje(vendedor, hubo_regla_fichaje):
     """
     % para la línea «operación por día» sobre el total de la reserva (desacoplado del % fichaje).
 
-    Si ya corre comisión por fichaje sobre honorarios y el vendedor no tiene % «general» cargado,
+    Si ya corre comisión por fichaje sobre honorarios y el vendedor no tiene % de comisión por día cargado,
     se usa el default de sucursal o 1% para no perder la comisión por la reserva en sí.
     """
     pct = pct_comision_normal_alquiler_dia(vendedor)
@@ -106,7 +106,7 @@ def _crear_linea_operacion_por_dia(
     vendedor, reserva, movimiento_caja, honorarios_monto, creadas, pct_override=None
 ):
     """
-    Comisión de operación «por día»: % general (comisión / default sucursal) sobre el total
+    Comisión de operación «por día»: % comisión por día (campo comisión / default sucursal) sobre el total
     de la reserva; si no hay precio_total cargado, usa el monto de honorarios de este pago.
     """
     pct = pct_override if pct_override is not None else pct_comision_normal_alquiler_dia(vendedor)
@@ -135,9 +135,9 @@ def registrar_comisiones_honorarios_movimiento_reserva(reserva, movimiento_caja,
     Cuando en el movimiento hay honorarios (concepto 25), registra:
     - Comisión por primer/segundo fichaje del vendedor de la operación sobre el monto de honorarios.
     - Según tipo de operación: % invierno o % 24 meses sobre honorarios, o % comisión normal sobre precio total (día).
-    Si hubo regla de fichaje y el vendedor no tiene % general (comisión) ni default de sucursal, la línea
+    Si hubo regla de fichaje y el vendedor no tiene % de comisión por día ni default de sucursal, la línea
     «operación por día» usa el default de sucursal o 1% para no omitir la comisión por la reserva.
-    Si honorarios_monto es 0, no hace nada (el llamador usa la comisión general única sobre la reserva).
+    Si honorarios_monto es 0, no hace nada (el llamador usa la comisión por día única sobre la reserva).
     """
     if (
         not reserva
@@ -334,7 +334,7 @@ class ComisionVendedor(models.Model):
 
     def etiqueta_tipo_comision(self):
         """
-        Texto legible para listados (primer/segundo fichaje, alquiler por día, invierno, 24 meses, general).
+        Texto legible para listados (primer/segundo fichaje, alquiler por día, invierno, 24 meses, comisión por día).
         """
         rol_raw = self.rol_comision or ROL_COMISION_GENERAL
         try:
@@ -354,7 +354,7 @@ class ComisionVendedor(models.Model):
             return 'Comisión por alquiler invierno'
         if rol == ROL_COMISION_OP_24:
             return 'Comisión por alquiler 24 meses'
-        return 'Comisión general'
+        return 'Comisión por día'
 
     def save(self, *args, **kwargs):
         # Calcular automáticamente el monto de comisión si no está definido
@@ -409,7 +409,7 @@ class ComisionVendedor(models.Model):
     def crear_comision(cls, vendedor, reserva, movimiento_caja, monto_total, concepto=""):
         """
         Una sola línea de comisión según tipo de reserva (sin desglose por honorarios).
-        El rol refleja la misma regla que el % (fichaje, invierno, 24 meses o general).
+        El rol refleja la misma regla que el % (fichaje, invierno, 24 meses o comisión por día).
         """
         pct = vendedor.porcentaje_comision_para_reserva(reserva)
         if pct is None or pct <= 0:

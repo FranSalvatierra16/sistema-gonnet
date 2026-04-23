@@ -86,7 +86,8 @@ class Vendedor(AbstractUser):
     comision = models.DecimalField(
         max_digits=5,
         decimal_places=2,
-        help_text='Comisión general (%) usada como respaldo si no hay % específico por fichaje, invierno o 24 meses',
+        verbose_name='Comisión por día (%)',
+        help_text='Porcentaje para alquiler por día (operación estándar). Respaldo si no aplica % de fichaje, invierno ni alquiler largo / 24 meses.',
         null=True,
         blank=True,
     )
@@ -161,7 +162,7 @@ class Vendedor(AbstractUser):
 
     def porcentaje_comision_efectivo(self):
         """
-        Comisión aplicable: la del vendedor si está definida; si no, la de su sucursal.
+        % comisión por día efectivo: el campo comisión si está definido; si no, el default de la sucursal.
         """
         if self.comision is not None:
             return self.comision

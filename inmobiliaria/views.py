@@ -1352,7 +1352,10 @@ def vendedores(request):
 
 @login_required
 def vendedor_detalle(request, vendedor_id):
-    vendedor = get_object_or_404(Vendedor, pk=vendedor_id)
+    vendedor = get_object_or_404(
+        Vendedor.objects.select_related('sucursal'),
+        pk=vendedor_id,
+    )
     return render(request, 'inmobiliaria/vendedores/detalle.html', {'vendedor': vendedor})
 @login_required
 def vendedor_nuevo(request):
@@ -5127,7 +5130,7 @@ def procesar_movimiento_reserva(request):
                 movimiento_principal.honorarios = honorarios_monto
                 movimiento_principal.save(update_fields=['honorarios'])
 
-            # ✅ Comisiones: con honorarios → fichaje + línea por tipo (día / invierno / 24); sin honorarios → una línea general
+            # ✅ Comisiones: con honorarios → fichaje + línea por tipo (día / invierno / 24); sin honorarios → una línea por comisión por día
             if reserva.vendedor:
                 from inmobiliaria.models.comision import (
                     ComisionVendedor,

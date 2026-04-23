@@ -1,10 +1,12 @@
 {% extends 'inmobiliaria/base.html' %}
 {% load custom_filters %}
 
+{% block page_container_class %}container-fluid{% endblock %}
+
 {% block title %}Detalle de Liquidación{% endblock %}
 
 {% block content %}
-<div class="container-fluid mt-4">
+<div class="mt-4">
     <div class="row">
         <div class="col-12">
             <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
@@ -54,12 +56,6 @@
                                         {% endif %}
                                     </td>
                                 </tr>
-                                {% if liquidacion.reserva %}
-                                <tr>
-                                    <th>Operación:</th>
-                                    <td><a href="{% url 'inmobiliaria:reserva_detalle' liquidacion.reserva.id %}">Operación #{{ liquidacion.reserva.id }}</a></td>
-                                </tr>
-                                {% endif %}
                                 <tr>
                                     <th>Estado:</th>
                                     <td>
@@ -100,126 +96,30 @@
                                         {% endif %}
                                     </td>
                                 </tr>
+                                {% if liquidacion.movimiento_caja %}
+                                <tr>
+                                    <th>Movimiento de caja:</th>
+                                    <td>
+                                        #{{ liquidacion.movimiento_caja.id }}
+                                        — {{ liquidacion.movimiento_caja.get_tipo_display }}
+                                        <span class="text-muted small">({{ liquidacion.movimiento_caja.concepto|truncatechars:100 }})</span>
+                                        <a class="btn btn-sm btn-outline-secondary ms-2" href="{% url 'inmobiliaria:ver_recibo_movimiento' liquidacion.movimiento_caja.id %}" target="_blank" rel="noopener">Ver recibo / movimiento</a>
+                                    </td>
+                                </tr>
+                                {% endif %}
+                                {% if liquidacion.observaciones %}
+                                <tr>
+                                    <th>Observaciones:</th>
+                                    <td>
+                                        <div class="border rounded p-2 bg-light small" style="white-space: pre-wrap;">{{ liquidacion.observaciones }}</div>
+                                    </td>
+                                </tr>
+                                {% endif %}
                             </table>
                         </div>
                     </div>
                 </div>
             </div>
-
-            <!-- Período, operaciones incluidas, movimiento de caja -->
-            <div class="row mb-4">
-                <div class="col-12">
-                    <div class="card shadow border-start border-4 border-info">
-                        <div class="card-header bg-info text-white">
-                            <h5 class="mb-0"><i class="fas fa-list-alt me-2"></i>Detalle de la operación liquidada</h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <table class="table table-sm table-borderless mb-0">
-                                        {% if liquidacion.reserva %}
-                                        <tr>
-                                            <th class="text-muted">Operación (enlace):</th>
-                                            <td>
-                                                <a href="{% url 'inmobiliaria:reserva_detalle' liquidacion.reserva.id %}">Operación #{{ liquidacion.reserva.id }}</a>
-                                            </td>
-                                        </tr>
-                                        {% endif %}
-                                        {% if liquidacion.contrato %}
-                                        <tr>
-                                            <th class="text-muted">Contrato (FK):</th>
-                                            <td>
-                                                <a href="{% url 'inmobiliaria:detalle_contrato' liquidacion.contrato.id %}">Contrato #{{ liquidacion.contrato.id }}</a>
-                                            </td>
-                                        </tr>
-                                        {% endif %}
-                                        {% if liquidacion.movimiento_caja %}
-                                        <tr>
-                                            <th class="text-muted">Movimiento de caja:</th>
-                                            <td>
-                                                #{{ liquidacion.movimiento_caja.id }}
-                                                — {{ liquidacion.movimiento_caja.get_tipo_display }}
-                                                <span class="text-muted small">({{ liquidacion.movimiento_caja.concepto|truncatechars:100 }})</span>
-                                                <a class="btn btn-sm btn-outline-secondary ms-2" href="{% url 'inmobiliaria:ver_recibo_movimiento' liquidacion.movimiento_caja.id %}" target="_blank" rel="noopener">Ver recibo / movimiento</a>
-                                            </td>
-                                        </tr>
-                                        {% endif %}
-                                    </table>
-                                </div>
-                                <div class="col-md-6">
-                                    {% if liquidacion.observaciones %}
-                                    <p class="mb-1"><strong class="text-muted">Observaciones:</strong></p>
-                                    <div class="border rounded p-2 bg-light small" style="white-space: pre-wrap;">{{ liquidacion.observaciones }}</div>
-                                    {% else %}
-                                    <p class="text-muted small mb-0">Sin observaciones en esta liquidación.</p>
-                                    {% endif %}
-                                </div>
-                            </div>
-                            {% if operaciones_tabla %}
-                            <hr>
-                            <h6 class="text-muted">Operaciones incluidas en esta liquidación</h6>
-                            <div class="table-responsive">
-                                <table class="table table-sm table-bordered mb-0">
-                                    <thead class="table-light">
-                                        <tr><th>Tipo</th><th>ID</th><th>Referencia</th><th></th></tr>
-                                    </thead>
-                                    <tbody>
-                                        {% for fila in operaciones_tabla %}
-                                        <tr>
-                                            <td>{{ fila.tipo_display|default:fila.tipo }}</td>
-                                            <td>{{ fila.id|default:"—" }}</td>
-                                            <td>{{ fila.etiqueta }}</td>
-                                            <td>
-                                                {% if fila.url %}
-                                                <a href="{{ fila.url }}" class="btn btn-sm btn-outline-primary">Abrir</a>
-                                                {% endif %}
-                                            </td>
-                                        </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
-                            </div>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {% if division_operaciones %}
-            <div class="row mb-4">
-                <div class="col-12">
-                    <div class="card shadow">
-                        <div class="card-header bg-primary text-white">
-                            <h5 class="mb-0">División en 2 Operaciones</h5>
-                        </div>
-                        <div class="card-body p-0">
-                            <div class="table-responsive">
-                                <table class="table table-sm mb-0">
-                                    <thead>
-                                        <tr>
-                                            <th>Operación</th>
-                                            <th>Fecha Desde</th>
-                                            <th>Fecha Hasta</th>
-                                            <th class="text-end">Monto</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {% for op in division_operaciones %}
-                                        <tr>
-                                            <td>#{{ op.numero }}</td>
-                                            <td>{{ op.fecha_desde }}</td>
-                                            <td>{{ op.fecha_hasta }}</td>
-                                            <td class="text-end">${{ op.monto|floatformat:2 }}</td>
-                                        </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
 
             <!-- Gastos -->
             <div class="row mb-4">
