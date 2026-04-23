@@ -1,6 +1,7 @@
 {% extends 'inmobiliaria/base.html' %}
 {% load bootstrap4 %}
 {% load custom_filters %}
+{% load l10n %}
 
 {% block title %}Finalizar Operación - Recibo{% endblock %}
 
@@ -9,8 +10,8 @@
 // ✅ FUNCIONES GLOBALES NECESARIAS PARA EL FUNCIONAMIENTO
 console.log('🚀 CARGANDO SCRIPT - VERSIÓN ACTUALIZADA v2.0 - ' + new Date().toLocaleTimeString());
 
-// Variable con seña ya pagada desde el backend
-const SENIA_PAGADA = {% if total_senia_pagada and total_senia_pagada != None %}{{ total_senia_pagada|floatformat:0 }}{% else %}0{% endif %};
+// Seña ya pagada (número literal JS: sin separadores de miles ni coma decimal de Django)
+const SENIA_PAGADA = {% localize off %}{{ total_senia_pagada|default_if_none:0 }}{% endlocalize %};
 console.log('🔧 SENIA_PAGADA inicializada:', SENIA_PAGADA);
 
 // ✅ VARIABLES GLOBALES PARA CONCEPTOS
@@ -49,12 +50,11 @@ function calcularSaldoOcupar() {
             return; // Salir silenciosamente si no existe el campo
         }
         
-        const importeLocacion = parseFloat((importeLocacionElement.value || '0').replace(/\./g, '')) || 0;
-        const seniaActual = parseFloat((seniaElement?.value || '0').replace(/\./g, '')) || 0;
+        const importeLocacion = parseFloat(String(importeLocacionElement.value || '0').replace(/\./g, '').replace(',', '.')) || 0;
+        const seniaActual = parseFloat(String(seniaElement?.value || '0').replace(/\./g, '').replace(',', '.')) || 0;
         
-        // ✅ CORREGIDO: Queda por Pagar = Precio Total - (Seña Pagada + Seña Actual)
-        // Obtener seña ya pagada desde el backend
-        const seniaPagada = {{ total_senia_pagada|default:0 }};
+        // Queda por Pagar = Importe locación − (seña ya pagada + seña de este recibo). Mismo criterio que el backend.
+        const seniaPagada = Number(SENIA_PAGADA) || 0;
         
         const totalSenia = seniaPagada + seniaActual;
         const quedaPorPagar = Math.max(0, importeLocacion - totalSenia);
@@ -894,10 +894,18 @@ function limpiarInfoVendedor() {
 
 // Event listeners
 document.addEventListener('DOMContentLoaded', function() {
-    // ✅ FORZAR SEÑA A 0 POR DEFECTO (SIEMPRE)
+    // Seña de este movimiento: por defecto 0 (el usuario carga lo que paga ahora en conceptos / montos)
     const seniaInput = document.getElementById('senia');
     if (seniaInput) {
         seniaInput.value = '0';
+        seniaInput.addEventListener('input', function() {
+            if (typeof calcularSaldoOcupar === 'function') {
+                calcularSaldoOcupar();
+            }
+        });
+    }
+    if (typeof calcularSaldoOcupar === 'function') {
+        calcularSaldoOcupar();
     }
     
     // ✅ Event listener para los botones de seleccionar concepto (delegación de eventos)
