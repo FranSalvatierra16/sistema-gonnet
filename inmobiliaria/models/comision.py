@@ -84,12 +84,32 @@ def pct_comision_normal_alquiler_dia(vendedor):
     return Decimal('0')
 
 
-def _crear_linea_operacion_por_dia(vendedor, reserva, movimiento_caja, honorarios_monto, creadas):
+def _pct_operacion_dia_o_fallback_despues_fichaje(vendedor, hubo_regla_fichaje):
+    """
+    % para la línea «operación por día» sobre el total de la reserva (desacoplado del % fichaje).
+
+    Si ya corre comisión por fichaje sobre honorarios y el vendedor no tiene % «general» cargado,
+    se usa el default de sucursal o 1% para no perder la comisión por la reserva en sí.
+    """
+    pct = pct_comision_normal_alquiler_dia(vendedor)
+    if pct is not None and pct > 0:
+        return pct
+    if hubo_regla_fichaje:
+        d = getattr(vendedor.sucursal, 'porcentaje_comision_default', None)
+        if d is not None and d > 0:
+            return d
+        return Decimal('1')
+    return Decimal('0')
+
+
+def _crear_linea_operacion_por_dia(
+    vendedor, reserva, movimiento_caja, honorarios_monto, creadas, pct_override=None
+):
     """
     Comisión de operación «por día»: % general (comisión / default sucursal) sobre el total
     de la reserva; si no hay precio_total cargado, usa el monto de honorarios de este pago.
     """
-    pct = pct_comision_normal_alquiler_dia(vendedor)
+    pct = pct_override if pct_override is not None else pct_comision_normal_alquiler_dia(vendedor)
     if pct is None or pct <= 0:
         return
     base = reserva.precio_total or Decimal('0')
@@ -115,6 +135,8 @@ def registrar_comisiones_honorarios_movimiento_reserva(reserva, movimiento_caja,
     Cuando en el movimiento hay honorarios (concepto 25), registra:
     - Comisión por primer/segundo fichaje del vendedor de la operación sobre el monto de honorarios.
     - Según tipo de operación: % invierno o % 24 meses sobre honorarios, o % comisión normal sobre precio total (día).
+    Si hubo regla de fichaje y el vendedor no tiene % general (comisión) ni default de sucursal, la línea
+    «operación por día» usa el default de sucursal o 1% para no omitir la comisión por la reserva.
     Si honorarios_monto es 0, no hace nada (el llamador usa la comisión general única sobre la reserva).
     """
     if (
@@ -139,7 +161,8 @@ def registrar_comisiones_honorarios_movimiento_reserva(reserva, movimiento_caja,
     else:
         pct_fichaje = vend.comision_primer_fichaje
 
-    if pct_fichaje is not None and pct_fichaje > 0:
+    hubo_regla_fichaje = pct_fichaje is not None and pct_fichaje > 0
+    if hubo_regla_fichaje:
         c = ComisionVendedor.crear_comision_linea(
             vendedor=vend,
             reserva=reserva,
@@ -153,9 +176,13 @@ def registrar_comisiones_honorarios_movimiento_reserva(reserva, movimiento_caja,
             creadas.append(c)
 
     tipo_op = clasificar_tipo_operacion_reserva(reserva)
+    pct_op_dia = _pct_operacion_dia_o_fallback_despues_fichaje(vend, hubo_regla_fichaje)
+    pct_op_dia_kw = pct_op_dia if pct_op_dia and pct_op_dia > 0 else None
 
     if tipo_op == 'dia':
-        _crear_linea_operacion_por_dia(vend, reserva, movimiento_caja, honorarios_monto, creadas)
+        _crear_linea_operacion_por_dia(
+            vend, reserva, movimiento_caja, honorarios_monto, creadas, pct_override=pct_op_dia_kw
+        )
 
     elif tipo_op == 'invierno':
         pct = vend.comision_invierno
@@ -173,7 +200,9 @@ def registrar_comisiones_honorarios_movimiento_reserva(reserva, movimiento_caja,
                 creadas.append(c)
         else:
             # Propiedad con invierno habilitado pero sin % invierno: tratar como operación por día
-            _crear_linea_operacion_por_dia(vend, reserva, movimiento_caja, honorarios_monto, creadas)
+            _crear_linea_operacion_por_dia(
+                vend, reserva, movimiento_caja, honorarios_monto, creadas, pct_override=pct_op_dia_kw
+            )
 
     elif tipo_op == '24':
         pct = vend.comision_alquiler_24_meses
@@ -190,7 +219,9 @@ def registrar_comisiones_honorarios_movimiento_reserva(reserva, movimiento_caja,
             if c:
                 creadas.append(c)
         else:
-            _crear_linea_operacion_por_dia(vend, reserva, movimiento_caja, honorarios_monto, creadas)
+            _crear_linea_operacion_por_dia(
+                vend, reserva, movimiento_caja, honorarios_monto, creadas, pct_override=pct_op_dia_kw
+            )
 
     return creadas
 
