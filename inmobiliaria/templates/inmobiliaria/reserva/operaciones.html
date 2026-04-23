@@ -699,14 +699,17 @@
                             </a>
                             
                             {% if op.todos_recibos %}
-                                {% if op.todos_recibos.count == 1 %}
-                                    <a href="{% url 'inmobiliaria:ver_recibo_movimiento' op.todos_recibos.first.movimiento_caja.id %}" class="btn-action btn-recibo">
+                                {# todos_recibos es list() en la vista, no QuerySet: usar |length y |first #}
+                                {% if op.todos_recibos|length == 1 %}
+                                    {% with recibo=op.todos_recibos|first %}
+                                    <a href="{% url 'inmobiliaria:ver_recibo_movimiento' recibo.movimiento_caja.id %}" class="btn-action btn-recibo">
                                         <i class="fas fa-receipt"></i>Recibo
                                     </a>
+                                    {% endwith %}
                                 {% else %}
                                     <div class="dropdown dropdown-recibos">
                                         <button class="btn-action btn-recibo dropdown-toggle" type="button" id="dropdownRecibos{{ op.id }}" data-bs-toggle="dropdown" aria-expanded="false">
-                                            <i class="fas fa-receipt"></i>Recibos ({{ op.todos_recibos.count }})
+                                            <i class="fas fa-receipt"></i>Recibos ({{ op.todos_recibos|length }})
                                         </button>
                                         <ul class="dropdown-menu dropdown-menu-recibos" aria-labelledby="dropdownRecibos{{ op.id }}">
                                             {% for recibo in op.todos_recibos %}
