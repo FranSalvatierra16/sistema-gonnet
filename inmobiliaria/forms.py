@@ -254,7 +254,7 @@ class PropiedadForm(forms.ModelForm):
         required=True,
         max_length=Propiedad.ID_MAX_LENGTH,
         strip=True,
-        help_text='Número o código único de ficha (editable al guardar; si lo cambiás, se actualizan enlaces en caja, reservas, etc.).',
+        help_text='Número o código único de ficha. En propiedades ya guardadas no se puede modificar desde esta pantalla.',
         widget=forms.TextInput(
             attrs={
                 'class': 'form-control',
@@ -384,6 +384,11 @@ class PropiedadForm(forms.ModelForm):
         self._pk_inicial = str(self.instance.pk).strip() if self.instance.pk else ''
         if 'id' in self.fields and self._pk_inicial:
             self.fields['id'].initial = self._pk_inicial
+            self.fields['id'].disabled = True
+            self.fields['id'].help_text = (
+                'La ficha no se puede cambiar aquí. Para renombrarla, usar el comando de administración '
+                '«renombrar_id_propiedad» (o soporte).'
+            )
 
         # Para propiedades existentes, mostrar el vendedor actual seleccionado
         if self.instance.pk and self.instance.fichado_por:
@@ -489,7 +494,6 @@ class PropiedadForm(forms.ModelForm):
     
     def save(self, commit=True):
         pk_inicial = getattr(self, '_pk_inicial', '') or ''
-        new_id = str(self.cleaned_data.get('id', '')).strip()
 
         propiedad = super(PropiedadForm, self).save(commit=False)
         # Sucursal: solo al crear en BD. No usar "not self.instance.pk": en alta nueva el # de ficha viene del
@@ -512,21 +516,7 @@ class PropiedadForm(forms.ModelForm):
 
         if commit:
             try:
-                if pk_inicial and new_id and pk_inicial != new_id:
-                    from inmobiliaria.propiedad_pk_rename import renombrar_propiedad_pk
-
-                    vals = {}
-                    for f in Propiedad._meta.local_concrete_fields:
-                        if f.primary_key:
-                            continue
-                        vals[f.attname] = f.value_from_object(propiedad)
-                    Propiedad.all_objects.filter(pk=pk_inicial).update(**vals)
-                    renombrar_propiedad_pk(pk_inicial, new_id)
-                    propiedad = Propiedad.all_objects.get(pk=new_id)
-                else:
-                    propiedad.save()
-            except ValidationError:
-                raise
+                propiedad.save()
             except Exception as e:
                 error_msg = str(e)
                 if 'unique constraint' in error_msg.lower() or 'duplicate key' in error_msg.lower():
