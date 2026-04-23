@@ -1300,6 +1300,9 @@ from .utils import numero_a_palabras
 import logging
 logger = logging.getLogger(__name__)
 
+# IDs de concepto en |CONCEPTOS:…| que cuentan como seña / «saldo a ocupar» al finalizar o completar pago de operación.
+CONCEPTOS_SENIA_OPERACION_RESERVA = frozenset({"1", "15", "103", "219"})
+
 
 def get_inquilinos_queryset_unificado(request):
     """Lista de inquilinos unificada: en Colón y Corrientes se muestran los de ambas sucursales; en el resto solo los de la sucursal del usuario."""
@@ -3643,8 +3646,8 @@ def finalizar_reserva_nueva(request, reserva_id):
                             concepto_id = parts[0].strip()
                             concepto_importe = parts[2].strip()
                             
-                            # ✅ CONCEPTOS QUE CUENTAN COMO SEÑA: 1, 15, 103
-                            if concepto_id in ['1', '15', '103']:
+                            # ✅ CONCEPTOS QUE CUENTAN COMO SEÑA / saldo a ocupar: 1, 15, 103, 219
+                            if concepto_id in CONCEPTOS_SENIA_OPERACION_RESERVA:
                                 try:
                                     importe_num = Decimal(concepto_importe.replace(',', ''))
                                     total_senia_anteriores += importe_num
@@ -5257,8 +5260,8 @@ def procesar_movimiento_reserva(request):
                     concepto_id = request.POST.get(f'concepto_{i}_id')
                     concepto_importe = request.POST.get(f'concepto_{i}_importe')
                     
-                    # ✅ CONCEPTOS QUE CUENTAN COMO SEÑA: 1, 15, 103
-                    if concepto_id in ['1', '15', '103']:
+                    # ✅ CONCEPTOS QUE CUENTAN COMO SEÑA / saldo a ocupar: 1, 15, 103, 219
+                    if (concepto_id or "").strip() in CONCEPTOS_SENIA_OPERACION_RESERVA:
                         importe_limpio = conceptos_importes_decimal.get(i, Decimal('0'))
                         senia_real += importe_limpio
 # print(f"💰 SEÑA DETECTADA: Concepto {concepto_id} - ${importe_limpio}")
@@ -13517,8 +13520,8 @@ def finalizar_reserva_nueva(request, reserva_id):
                             concepto_id = parts[0].strip()
                             concepto_importe = parts[2].strip()
                             
-                            # ✅ CONCEPTOS QUE CUENTAN COMO SEÑA: 1, 15, 103
-                            if concepto_id in ['1', '15', '103']:
+                            # ✅ CONCEPTOS QUE CUENTAN COMO SEÑA / saldo a ocupar: 1, 15, 103, 219
+                            if concepto_id in CONCEPTOS_SENIA_OPERACION_RESERVA:
                                 try:
                                     importe_num = Decimal(concepto_importe.replace(',', ''))
                                     total_senia_anteriores += importe_num
