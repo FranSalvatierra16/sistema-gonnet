@@ -1,12 +1,7 @@
 """
 Cambia el id (PK / «ficha») de una Propiedad conservando datos y relaciones.
 
-Estrategia (PK CharField con FKs en muchas tablas):
-1. Anula temporalmente numero_por_propietario en la fila vieja para no chocar con
-   UniqueConstraint(propietario, numero_por_propietario) al existir dos filas un instante.
-2. Inserta la nueva fila con bulk_create (no dispara Propiedad.save() → no duplica Precios por defecto).
-3. Actualiza todas las ForeignKey / OneToOne hacia Propiedad en la app inmobiliaria.
-4. Borra la fila antigua (sin filas hijas que la referencien).
+La lógica vive en inmobiliaria.propiedad_pk_rename (también usada al guardar desde el formulario).
 
 Uso (Railway / producción):
   python manage.py renombrar_id_propiedad 464236 112 --sucursal=Corrientes --apply
@@ -17,30 +12,11 @@ Nota: textos JSON en movimientos (p. ej. concepto_detalle) que guarden el id vie
 literal no se reescriben; revisar manualmente si aplica.
 """
 
-from django.apps import apps
 from django.core.management.base import BaseCommand, CommandError
-from django.db import models, transaction
+from django.core.exceptions import ValidationError
 
 from inmobiliaria.models.propiedad import Propiedad
-
-
-def _iter_fk_fields_to_propiedad():
-    for model in apps.get_models():
-        meta = model._meta
-        if meta.app_label != 'inmobiliaria' or not meta.managed:
-            continue
-        for field in meta.get_fields():
-            if not getattr(field, 'is_relation', False):
-                continue
-            if getattr(field, 'many_to_many', False) or getattr(field, 'auto_created', False):
-                continue
-            if not isinstance(field, (models.ForeignKey, models.OneToOneField)):
-                continue
-            if getattr(field, 'related_model', None) is not Propiedad:
-                continue
-            if field.model is Propiedad:
-                continue
-            yield model, field
+from inmobiliaria.propiedad_pk_rename import iter_fk_fields_to_propiedad, renombrar_propiedad_pk
 
 
 class Command(BaseCommand):
@@ -88,46 +64,24 @@ class Command(BaseCommand):
                     f'no coincide con --sucursal={sucursal_q!r}.'
                 )
 
-        fk_specs = list(_iter_fk_fields_to_propiedad())
+        fk_specs = list(iter_fk_fields_to_propiedad())
         self.stdout.write(self.style.WARNING(f'Plan: {old_id!r} → {new_id!r} (sucursal: {old.sucursal.nombre})'))
         self.stdout.write(f'Modelos con FK a Propiedad a actualizar: {len(fk_specs)}')
 
         for model, field in fk_specs:
-            attname = field.attname  # p. ej. propiedad_id
+            attname = field.attname
             n = model._default_manager.filter(**{attname: old_id}).count()
             if n:
                 self.stdout.write(f'  - {model._meta.label}: {n} fila(s) en {attname}')
 
         if not apply:
-            self.stdout.write(self.style.NOTICE('Dry-run: repetir con --apply para ejecutar.'))
+            self.stdout.write('Dry-run: repetir con --apply para ejecutar.')
             return
 
-        with transaction.atomic():
-            num_backup = old.numero_por_propietario
-            Propiedad.all_objects.filter(pk=old_id).update(numero_por_propietario=None)
-            old.refresh_from_db()
-
-            kwargs = {}
-            for f in Propiedad._meta.local_concrete_fields:
-                if f.primary_key:
-                    continue
-                kwargs[f.name] = f.value_from_object(old)
-
-            clone = Propiedad(pk=new_id, **kwargs)
-            Propiedad.all_objects.bulk_create([clone])
-
-            total_updates = 0
-            for model, field in fk_specs:
-                attname = field.attname
-                updated = model._default_manager.filter(**{attname: old_id}).update(**{attname: new_id})
-                total_updates += updated
-
-            deleted, _details = Propiedad.all_objects.filter(pk=old_id).delete()
-            self.stdout.write(self.style.SUCCESS(f'FKs actualizadas en filas: {total_updates}'))
-            self.stdout.write(self.style.SUCCESS(f'Propiedad antigua eliminada (filas borradas reportadas: {deleted}).'))
-
-        # Restaurar número en la fila nueva (por si el save del modelo hubiera tocado algo; bulk_create no lo hizo)
-        if num_backup is not None:
-            Propiedad.all_objects.filter(pk=new_id).update(numero_por_propietario=num_backup)
+        try:
+            renombrar_propiedad_pk(old_id, new_id)
+        except ValidationError as e:
+            msgs = getattr(e, 'message_dict', None) or getattr(e, 'error_dict', None)
+            raise CommandError(str(msgs) if msgs else str(e)) from e
 
         self.stdout.write(self.style.SUCCESS(f'Listo: propiedad ahora tiene id={new_id!r}.'))

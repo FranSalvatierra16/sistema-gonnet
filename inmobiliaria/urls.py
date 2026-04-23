@@ -53,7 +53,7 @@ urlpatterns = [
     path('propiedades/', views.propiedades, name='propiedades'),
     path('propiedades/<int:propiedad_id>/', views.propiedad_detalle, name='propiedad_detalle'),
     path('propiedades/nuevo/', views.propiedad_nuevo, name='propiedad_nuevo'),
-    path('propiedades/<int:propiedad_id>/editar/', views.propiedad_editar, name='propiedad_editar'),
+    path('propiedades/<str:propiedad_id>/editar/', views.propiedad_editar, name='propiedad_editar'),
     path('propiedades/<int:propiedad_id>/cambiar-sucursal/', views.propiedad_cambiar_sucursal, name='propiedad_cambiar_sucursal'),
     path('propiedades/<int:propiedad_id>/eliminar/', views.propiedad_eliminar, name='propiedad_eliminar'),
     path('propiedades-eliminadas/', views.propiedades_eliminadas, name='propiedades_eliminadas'),
@@ -198,7 +198,7 @@ urlpatterns = [
         name="buscar_propietarios",
     ),
     path("propiedades/nuevo/",               views.propiedad_nuevo,       name="propiedad_nuevo"),
-    path("propiedades/<int:propiedad_id>/editar/",
+    path("propiedades/<str:propiedad_id>/editar/",
          views.propiedad_editar,             name="propiedad_editar"),
     # Rutas de imágenes
     path('imagen/<int:imagen_id>/eliminar/', views.imagen_eliminar, name='imagen_eliminar'),

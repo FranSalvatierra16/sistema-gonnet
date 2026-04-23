@@ -249,10 +249,19 @@ class PropiedadForm(forms.ModelForm):
         widget=forms.Select(attrs={'class': 'select2-propietario'}),
         required=False
     )
-    id = forms.IntegerField(
-        label='ID de la Propiedad',
+    id = forms.CharField(
+        label='Ficha (ID de la propiedad)',
         required=True,
-        help_text='Ingrese el ID deseado para la propiedad'
+        max_length=Propiedad.ID_MAX_LENGTH,
+        strip=True,
+        help_text='Número o código único de ficha (editable al guardar; si lo cambiás, se actualizan enlaces en caja, reservas, etc.).',
+        widget=forms.TextInput(
+            attrs={
+                'class': 'form-control',
+                'placeholder': 'Ej: 464236',
+                'autocomplete': 'off',
+            }
+        ),
     )
     piso = forms.CharField(
         max_length=10,
@@ -372,7 +381,10 @@ class PropiedadForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop('user', None)
         super(PropiedadForm, self).__init__(*args, **kwargs)
-        
+        self._pk_inicial = str(self.instance.pk).strip() if self.instance.pk else ''
+        if 'id' in self.fields and self._pk_inicial:
+            self.fields['id'].initial = self._pk_inicial
+
         # Para propiedades existentes, mostrar el vendedor actual seleccionado
         if self.instance.pk and self.instance.fichado_por:
             self.fields['fichado_por'].initial = self.instance.fichado_por
@@ -393,6 +405,22 @@ class PropiedadForm(forms.ModelForm):
                 }
             )
             self.fields['llave'].label = 'Llave (número o texto)'
+
+    def clean_id(self):
+        raw = self.cleaned_data.get('id')
+        nid = (raw or '').strip() if raw is not None else ''
+        if not nid:
+            raise ValidationError('La ficha (ID) es obligatoria.')
+        if len(nid) > Propiedad.ID_MAX_LENGTH:
+            raise ValidationError(
+                f'La ficha no puede superar los {Propiedad.ID_MAX_LENGTH} caracteres.'
+            )
+        qs = Propiedad.all_objects.filter(pk=nid)
+        if self._pk_inicial:
+            qs = qs.exclude(pk=self._pk_inicial)
+        if qs.exists():
+            raise ValidationError('Ya existe otra propiedad con este ID.')
+        return nid
 
     def clean_llave(self):
         raw = self.cleaned_data.get('llave')
@@ -460,6 +488,9 @@ class PropiedadForm(forms.ModelForm):
         return cleaned_data
     
     def save(self, commit=True):
+        pk_inicial = getattr(self, '_pk_inicial', '') or ''
+        new_id = str(self.cleaned_data.get('id', '')).strip()
+
         propiedad = super(PropiedadForm, self).save(commit=False)
         # Sucursal: solo al crear en BD. No usar "not self.instance.pk": en alta nueva el # de ficha viene del
         # formulario y pk ya está seteado antes del INSERT, entonces la sucursal quedaba vacía.
@@ -467,25 +498,36 @@ class PropiedadForm(forms.ModelForm):
             if propiedad._state.adding:
                 propiedad.sucursal = self.user.sucursal
 
-        # Manejar el campo fichado_por según lo seleccionado en el formulario
         fichado_por_seleccionado = self.cleaned_data.get('fichado_por')
-        
         if fichado_por_seleccionado:
-            # Si se seleccionó un vendedor, usarlo
             propiedad.fichado_por = fichado_por_seleccionado
-            # Solo asignar fecha_fichado si es una nueva propiedad o si cambió el vendedor
-            if not propiedad.pk or (self.instance.pk and self.instance.fichado_por != fichado_por_seleccionado):
+            if not pk_inicial or (
+                pk_inicial
+                and self.instance.fichado_por_id != fichado_por_seleccionado.pk
+            ):
                 propiedad.fecha_fichado = timezone.now()
-        elif not propiedad.pk:
-            # Para nuevas propiedades sin vendedor seleccionado, dejar en blanco
+        elif not pk_inicial:
             propiedad.fichado_por = None
             propiedad.fecha_fichado = None
-            
+
         if commit:
             try:
-                propiedad.save()
+                if pk_inicial and new_id and pk_inicial != new_id:
+                    from inmobiliaria.propiedad_pk_rename import renombrar_propiedad_pk
+
+                    vals = {}
+                    for f in Propiedad._meta.local_concrete_fields:
+                        if f.primary_key:
+                            continue
+                        vals[f.attname] = f.value_from_object(propiedad)
+                    Propiedad.all_objects.filter(pk=pk_inicial).update(**vals)
+                    renombrar_propiedad_pk(pk_inicial, new_id)
+                    propiedad = Propiedad.all_objects.get(pk=new_id)
+                else:
+                    propiedad.save()
+            except ValidationError:
+                raise
             except Exception as e:
-                # Capturar errores específicos y convertirlos en ValidationError
                 error_msg = str(e)
                 if 'unique constraint' in error_msg.lower() or 'duplicate key' in error_msg.lower():
                     if 'id' in error_msg.lower():
@@ -493,7 +535,6 @@ class PropiedadForm(forms.ModelForm):
                     elif 'numero_por_propietario' in error_msg.lower():
                         raise ValidationError('El número de propiedad ya existe para este propietario. Se asignará automáticamente un nuevo número.')
                 elif 'not null constraint' in error_msg.lower() or 'null value' in error_msg.lower():
-                    # Identificar qué campo falta
                     for campo in ['sucursal', 'propietario', 'direccion', 'ubicacion', 'piso', 'departamento']:
                         if campo in error_msg.lower():
                             raise ValidationError({campo: f'El campo {campo} es requerido y no puede estar vacío.'})
