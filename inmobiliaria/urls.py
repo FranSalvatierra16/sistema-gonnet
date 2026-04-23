@@ -318,6 +318,11 @@ urlpatterns = [
     path('liquidaciones/<int:liquidacion_id>/marcar-oficina/', views.marcar_liquidacion_oficina, name='marcar_liquidacion_oficina'),
     path('liquidaciones/<int:liquidacion_id>/procesar/', views.procesar_liquidacion, name='procesar_liquidacion'),
     path('liquidaciones/propiedad/<int:propiedad_id>/operaciones-pendientes/', views.obtener_operaciones_pendientes, name='obtener_operaciones_pendientes'),
+    path(
+        'liquidaciones/propietario/<int:propietario_id>/operaciones-pendientes/',
+        views.obtener_operaciones_pendientes_propietario,
+        name='obtener_operaciones_pendientes_propietario',
+    ),
     path('liquidaciones/gasto-pendiente/crear/', views.crear_gasto_pendiente, name='crear_gasto_pendiente'),
     
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

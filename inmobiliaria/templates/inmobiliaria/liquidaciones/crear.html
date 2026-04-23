@@ -15,6 +15,7 @@
                 <div class="card-body">
                     <form method="POST" id="formCrearLiquidacion">
                         {% csrf_token %}
+                        {{ propietarios_busqueda|json_script:"propietarios-busqueda-data" }}
                         
                         <div class="row mb-3">
                             <div class="col-md-6">
@@ -45,10 +46,24 @@
                                     </option>
                                     {% endfor %}
                                 </select>
-                                <small class="form-text text-muted">Buscá por ID o dirección y seleccioná una propiedad.</small>
+                                <small class="form-text text-muted">Buscá por ID o dirección y seleccioná una propiedad, o usá el buscador de propietario a la derecha.</small>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label">Propietario</label>
+                                <label class="form-label">Buscar propietario</label>
+                                <div class="position-relative" id="propietario-buscador-wrap">
+                                    <input type="text" id="propietario_buscar" class="form-control" autocomplete="off"
+                                           placeholder="Apellido, nombre o DNI...">
+                                    <button type="button" id="btn_limpiar_propietario"
+                                            class="btn btn-sm btn-outline-secondary d-none"
+                                            style="position:absolute; right:8px; top:50%; transform:translateY(-50%); z-index:31;"
+                                            title="Quitar propietario seleccionado" aria-label="Quitar propietario seleccionado">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                    <div id="propietario_resultados" class="list-group position-absolute w-100 d-none"
+                                         style="z-index: 30; max-height: 260px; overflow-y: auto;"></div>
+                                </div>
+                                <small class="form-text text-muted">Si tiene varias propiedades verás todas las operaciones y gastos; al tildar una operación se fija la propiedad de la liquidación.</small>
+                                <label class="form-label mt-3">Propietario</label>
                                 <input type="text" id="propietario_display" class="form-control" readonly>
                                 <label class="form-label mt-2">Nº de cuenta del propietario</label>
                                 <input type="text" id="cuenta_propietario_display" class="form-control form-control-sm font-monospace" readonly placeholder="—">
@@ -207,7 +222,7 @@
                             <a href="{% url 'inmobiliaria:lista_liquidaciones' %}" class="btn btn-secondary">
                                 <i class="fas fa-arrow-left me-2"></i>Cancelar
                             </a>
-                            <button type="submit" class="btn btn-primary" onclick="prepararFormulario()">
+                            <button type="submit" class="btn btn-primary" onclick="return prepararFormulario();">
                                 <i class="fas fa-save me-2"></i>Crear Liquidación
                             </button>
                         </div>
@@ -225,8 +240,21 @@ document.addEventListener('DOMContentLoaded', function() {
     const btnLimpiarPropiedad = document.getElementById('btn_limpiar_propiedad');
     const propiedadResultados = document.getElementById('propiedad_resultados');
     const propiedadWrap = document.getElementById('propiedad-buscador-wrap');
+    const propietarioBuscar = document.getElementById('propietario_buscar');
+    const propietarioResultados = document.getElementById('propietario_resultados');
+    const propietarioWrap = document.getElementById('propietario-buscador-wrap');
+    const btnLimpiarPropietario = document.getElementById('btn_limpiar_propietario');
     const propietarioDisplay = document.getElementById('propietario_display');
     const cuentaPropietarioDisplay = document.getElementById('cuenta_propietario_display');
+    const propietariosBusquedaEl = document.getElementById('propietarios-busqueda-data');
+    let PROPIETARIOS_DATA = [];
+    try {
+        PROPIETARIOS_DATA = propietariosBusquedaEl ? JSON.parse(propietariosBusquedaEl.textContent) : [];
+    } catch (e) {
+        PROPIETARIOS_DATA = [];
+    }
+    let cargaPorPropietarioActiva = false;
+    let opcionesCargaOperacionesExtra = null;
     const montoTotal = document.getElementById('monto_total');
     const montoPropietario = document.getElementById('monto_propietario');
     const montoInmobiliaria = document.getElementById('monto_inmobiliaria');
@@ -238,22 +266,51 @@ document.addEventListener('DOMContentLoaded', function() {
     const op2Monto = document.getElementById('op2_monto');
     const resumenDivision = document.getElementById('division_resumen');
 
+    function limpiarPropietarioBusquedaUI() {
+        if (propietarioBuscar) propietarioBuscar.value = '';
+        if (propietarioResultados) propietarioResultados.classList.add('d-none');
+        if (btnLimpiarPropietario) btnLimpiarPropietario.classList.add('d-none');
+    }
+
+    function limpiarSoloCampoPropiedad() {
+        propiedadSelect.value = '';
+        propiedadBuscar.value = '';
+        btnLimpiarPropiedad.classList.add('d-none');
+        propiedadResultados.classList.add('d-none');
+    }
+
+    function vaciarListasOperacionesYGastosUI() {
+        document.getElementById('operaciones-pendientes-lista').innerHTML = '';
+        document.getElementById('gastos-pendientes-lista').innerHTML = '';
+        document.getElementById('sin-operaciones').style.display = 'none';
+        document.getElementById('sin-gastos').style.display = 'none';
+        document.getElementById('operaciones-pendientes-container').style.display = 'none';
+        document.getElementById('gastos-pendientes-container').style.display = 'none';
+    }
+
     // Actualizar propietario y cargar operaciones pendientes cuando se selecciona una propiedad
     propiedadSelect.addEventListener('change', function() {
         const selectedOption = this.options[this.selectedIndex];
         const propiedadId = selectedOption.value;
-        
+
         if (propiedadId) {
+            cargaPorPropietarioActiva = false;
+            limpiarPropietarioBusquedaUI();
             propietarioDisplay.value = selectedOption.getAttribute('data-propietario');
             const cb = (selectedOption.getAttribute('data-cuenta-bancaria') || '').trim();
             cuentaPropietarioDisplay.value = cb || '';
             cuentaPropietarioDisplay.placeholder = cb ? '' : 'Sin cuenta cargada';
-            cargarOperacionesPendientes(propiedadId);
+            const extraCarga = opcionesCargaOperacionesExtra;
+            opcionesCargaOperacionesExtra = null;
+            cargarOperacionesPendientes(propiedadId, extraCarga);
         } else {
-            propietarioDisplay.value = '';
-            cuentaPropietarioDisplay.value = '';
-            cuentaPropietarioDisplay.placeholder = '—';
-            document.getElementById('operaciones-pendientes-container').style.display = 'none';
+            if (!cargaPorPropietarioActiva) {
+                propietarioDisplay.value = '';
+                cuentaPropietarioDisplay.value = '';
+                cuentaPropietarioDisplay.placeholder = '—';
+                document.getElementById('operaciones-pendientes-container').style.display = 'none';
+                document.getElementById('gastos-pendientes-container').style.display = 'none';
+            }
         }
     });
 
@@ -288,8 +345,9 @@ document.addEventListener('DOMContentLoaded', function() {
         propiedadResultados.classList.remove('d-none');
     }
 
-    function seleccionarPropiedadPorId(id) {
+    function seleccionarPropiedadPorId(id, extraCarga) {
         if (!id) return;
+        opcionesCargaOperacionesExtra = extraCarga || null;
         propiedadSelect.value = String(id);
         const opt = propiedadSelect.options[propiedadSelect.selectedIndex];
         if (opt && opt.value) {
@@ -301,6 +359,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function limpiarPropiedadSeleccionada() {
+        cargaPorPropietarioActiva = false;
+        limpiarPropietarioBusquedaUI();
         propiedadSelect.value = '';
         propiedadBuscar.value = '';
         propietarioDisplay.value = '';
@@ -323,9 +383,14 @@ document.addEventListener('DOMContentLoaded', function() {
         // Si el usuario edita manualmente, se invalida la selección previa
         if (propiedadSelect.value) {
             propiedadSelect.value = '';
+            cargaPorPropietarioActiva = false;
             propietarioDisplay.value = '';
             cuentaPropietarioDisplay.value = '';
             cuentaPropietarioDisplay.placeholder = '—';
+        }
+        if (this.value.trim()) {
+            cargaPorPropietarioActiva = false;
+            limpiarPropietarioBusquedaUI();
         }
         btnLimpiarPropiedad.classList.toggle('d-none', !this.value.trim());
         renderResultadosPropiedad(this.value);
@@ -338,194 +403,444 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     document.addEventListener('click', function(e) {
-        if (!propiedadWrap.contains(e.target)) {
+        if (propiedadWrap && !propiedadWrap.contains(e.target)) {
             propiedadResultados.classList.add('d-none');
+        }
+        if (propietarioWrap && !propietarioWrap.contains(e.target) && propietarioResultados) {
+            propietarioResultados.classList.add('d-none');
         }
     });
     btnLimpiarPropiedad.addEventListener('click', limpiarPropiedadSeleccionada);
 
-    // Función para cargar operaciones pendientes
-    function cargarOperacionesPendientes(propiedadId) {
-        if (!propiedadId) {
-            document.getElementById('operaciones-pendientes-container').style.display = 'none';
+    function mostrarColumnaPropiedadEnLiquidacion(data) {
+        if (data && data.propietario_id) return true;
+        const ids = new Set();
+        (data.operaciones || []).forEach(function(o) {
+            if (o.propiedad_id != null && o.propiedad_id !== '') ids.add(String(o.propiedad_id));
+        });
+        (data.gastos_pendientes || []).forEach(function(g) {
+            if (g.propiedad_id != null && g.propiedad_id !== '') ids.add(String(g.propiedad_id));
+        });
+        return ids.size > 1;
+    }
+
+    function handleOperacionCheckboxChange(cb) {
+        if (!cb.classList.contains('operacion-checkbox')) return;
+        if (!cb.checked) {
+            calcularMontosSeleccionados();
             return;
         }
-        
-        // Mostrar indicador de carga
+        const pid = (cb.getAttribute('data-propiedad-id') || '').trim();
+        if (!pid) {
+            calcularMontosSeleccionados();
+            return;
+        }
+        const otros = Array.from(document.querySelectorAll('.operacion-checkbox:checked')).filter(function(x) { return x !== cb; });
+        for (let i = 0; i < otros.length; i++) {
+            const opid = (otros[i].getAttribute('data-propiedad-id') || '').trim();
+            if (opid && opid !== pid) {
+                alert('Una liquidación es por una sola propiedad. Desmarcá operaciones de otras propiedades o creá otra liquidación.');
+                cb.checked = false;
+                return;
+            }
+        }
+        document.querySelectorAll('.gasto-checkbox:checked').forEach(function(g) {
+            const gpid = (g.getAttribute('data-propiedad-id') || '').trim();
+            if (gpid && gpid !== pid) g.checked = false;
+        });
+        if (propiedadSelect.value !== pid) {
+            seleccionarPropiedadPorId(pid, {
+                restaurarOperacion: {
+                    tipo: cb.getAttribute('data-tipo'),
+                    id: cb.getAttribute('data-id')
+                }
+            });
+        } else {
+            calcularMontosSeleccionados();
+        }
+    }
+
+    function handleGastoCheckboxChange(cb) {
+        if (!cb.classList.contains('gasto-checkbox')) return;
+        if (!cb.checked) {
+            calcularMontosSeleccionados();
+            return;
+        }
+        const gpid = (cb.getAttribute('data-propiedad-id') || '').trim();
+        const propSel = (propiedadSelect.value || '').trim();
+        const ops = document.querySelectorAll('.operacion-checkbox:checked');
+        if (!propSel && gpid && ops.length === 0) {
+            seleccionarPropiedadPorId(gpid, { restaurarGastoId: cb.value });
+            return;
+        }
+        if (gpid && propSel && gpid !== propSel) {
+            alert('Ese gasto corresponde a otra propiedad que la de la liquidación.');
+            cb.checked = false;
+            return;
+        }
+        if (ops.length && gpid) {
+            const pids = new Set();
+            ops.forEach(function(o) {
+                const x = (o.getAttribute('data-propiedad-id') || '').trim();
+                if (x) pids.add(x);
+            });
+            if (pids.size === 1) {
+                const solo = pids.values().next().value;
+                if (solo && solo !== gpid) {
+                    alert('Ese gasto no corresponde a la propiedad de las operaciones seleccionadas.');
+                    cb.checked = false;
+                    return;
+                }
+            }
+        }
+        calcularMontosSeleccionados();
+    }
+
+    function pintarOperacionesYGastosDesdeJson(data, extraCarga) {
         const container = document.getElementById('operaciones-pendientes-container');
         const lista = document.getElementById('operaciones-pendientes-lista');
-        container.style.display = 'block';
-        lista.innerHTML = '<div class="text-center p-3"><i class="fas fa-spinner fa-spin me-2"></i>Cargando operaciones pendientes...</div>';
-        
-        fetch(`{% url 'inmobiliaria:obtener_operaciones_pendientes' 0 %}`.replace('0', propiedadId))
-            .then(response => response.json())
-            .then(data => {
-                const container = document.getElementById('operaciones-pendientes-container');
-                const lista = document.getElementById('operaciones-pendientes-lista');
-                const sinOperaciones = document.getElementById('sin-operaciones');
-                
-                if (data.success && data.operaciones.length > 0) {
-                    container.style.display = 'block';
-                    sinOperaciones.style.display = 'none';
-                    
-                    let html = `
-                        <table class="table table-hover table-sm">
-                            <thead>
-                                <tr>
-                                    <th width="50">
-                                        <input type="checkbox" id="seleccionar-todos" class="form-check-input">
-                                    </th>
-                                    <th>Tipo</th>
-                                    <th>Descripción</th>
-                                    <th>Fecha Desde</th>
-                                    <th>Fecha Hasta</th>
-                                    <th class="text-end">Monto Total</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                    `;
-                    
-                    data.operaciones.forEach((op, index) => {
-                        const tipoEtiqueta = op.tipo_display || (op.tipo === 'reserva' ? 'Por día' : 'Contrato');
-                        const badgeClass = op.tipo === 'reserva' ? 'bg-info text-dark' : 'bg-success';
-                        const noIncluible = op.incluible === false;
-                        const filaClass = noIncluible ? 'table-light text-muted' : '';
-                        const chkDisabled = noIncluible ? 'disabled' : '';
-                        html += `
-                            <tr class="${filaClass}">
-                                <td>
-                                    <input type="checkbox" class="form-check-input operacion-checkbox" 
-                                           data-tipo="${op.tipo}"
-                                           data-id="${op.id}"
-                                           data-monto-total="${op.monto_total}"
-                                           data-monto-propietario="${op.monto_propietario || '0'}"
-                                           data-monto-inmobiliaria="${op.monto_inmobiliaria || '0'}"
-                                           data-fecha-desde="${op.fecha_inicio}"
-                                           data-fecha-hasta="${op.fecha_fin}"
-                                           ${chkDisabled}
-                                           onchange="calcularMontosSeleccionados()">
-                                </td>
-                                <td>
-                                    <span class="badge ${badgeClass}">
-                                        ${tipoEtiqueta}
-                                    </span>
-                                </td>
-                                <td>${op.descripcion}</td>
-                                <td>${op.fecha_inicio ? new Date(op.fecha_inicio).toLocaleDateString('es-AR') : '-'}</td>
-                                <td>${op.fecha_fin ? new Date(op.fecha_fin).toLocaleDateString('es-AR') : '-'}</td>
-                                <td class="text-end">$${parseFloat(op.monto_total).toLocaleString('es-AR', {minimumFractionDigits: 2})}</td>
-                            </tr>
-                        `;
-                    });
-                    
-                    html += `
-                            </tbody>
-                        </table>
-                        <div class="mt-2">
-                            <small class="text-muted">
-                                <i class="fas fa-info-circle me-1"></i>
-                                <strong>Por día</strong> son reservas por estadía; <strong>Contrato</strong> son alquileres mensuales con cuotas.
-                                Las filas atenuadas con casilla deshabilitada son solo referencia (por ejemplo, contrato sin cuotas pagadas aún).
-                                Seleccioná las operaciones a incluir: los montos se calculan automáticamente.
-                            </small>
-                        </div>
-                    `;
-                    
-                    lista.innerHTML = html;
-                    
-                    // Cargar gastos pendientes (mostrar siempre la sección)
-                    console.log('Gastos pendientes recibidos:', data.gastos_pendientes);
-                    mostrarGastosPendientes(data.gastos_pendientes || []);
-                    
-                    // Event listener para seleccionar todos
-                    document.getElementById('seleccionar-todos').addEventListener('change', function() {
-                        document.querySelectorAll('.operacion-checkbox:not(:disabled)').forEach(cb => {
-                            cb.checked = this.checked;
-                        });
-                        calcularMontosSeleccionados();
-                    });
-                } else {
-                    container.style.display = 'block';
-                    lista.innerHTML = '';
-                    sinOperaciones.style.display = 'block';
-                }
-            })
-            .catch(error => {
-                console.error('Error al cargar operaciones pendientes:', error);
-                const lista = document.getElementById('operaciones-pendientes-lista');
-                const container = document.getElementById('operaciones-pendientes-container');
-                container.style.display = 'block';
-                lista.innerHTML = '<div class="alert alert-danger mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Error al cargar operaciones/gastos. Recargá la página o avisá al administrador.</div>';
-            });
-    }
-    window.cargarOperacionesPendientes = cargarOperacionesPendientes;
+        const sinOperaciones = document.getElementById('sin-operaciones');
+        const colProp = mostrarColumnaPropiedadEnLiquidacion(data);
+        const thSelOps = colProp ? '<th width="40"></th>' : '<th width="50"><input type="checkbox" id="seleccionar-todos" class="form-check-input"></th>';
+        const thProp = colProp ? '<th>Propiedad</th>' : '';
 
-    // Función para mostrar gastos pendientes
-    function mostrarGastosPendientes(gastos) {
-        const container = document.getElementById('gastos-pendientes-container');
-        const lista = document.getElementById('gastos-pendientes-lista');
-        const sinGastos = document.getElementById('sin-gastos');
-        
-        container.style.display = 'block';
-        if (gastos && gastos.length > 0) {
-            sinGastos.style.display = 'none';
-            
+        if (data.success && data.operaciones && data.operaciones.length > 0) {
+            container.style.display = 'block';
+            sinOperaciones.style.display = 'none';
+
             let html = `
                 <table class="table table-hover table-sm">
                     <thead>
                         <tr>
-                            <th width="50">
-                                <input type="checkbox" id="seleccionar-todos-gastos" class="form-check-input">
-                            </th>
+                            ${thSelOps}
+                            <th>Tipo</th>
                             <th>Descripción</th>
-                            <th>Fecha Gasto</th>
-                            <th class="text-end">Monto</th>
+                            ${thProp}
+                            <th>Fecha Desde</th>
+                            <th>Fecha Hasta</th>
+                            <th class="text-end">Monto Total</th>
                         </tr>
                     </thead>
                     <tbody>
             `;
-            
-            gastos.forEach((gasto, index) => {
+
+            data.operaciones.forEach(function(op) {
+                const tipoEtiqueta = op.tipo_display || (op.tipo === 'reserva' ? 'Por día' : 'Contrato');
+                const badgeClass = op.tipo === 'reserva' ? 'bg-info text-dark' : 'bg-success';
+                const noIncluible = op.incluible === false;
+                const filaClass = noIncluible ? 'table-light text-muted' : '';
+                const chkDisabled = noIncluible ? 'disabled' : '';
+                const pid = op.propiedad_id != null ? String(op.propiedad_id) : '';
+                const tdSel = colProp
+                    ? `<td><input type="checkbox" class="form-check-input operacion-checkbox"
+                           data-tipo="${op.tipo}"
+                           data-id="${op.id}"
+                           data-propiedad-id="${pid}"
+                           data-monto-total="${op.monto_total}"
+                           data-monto-propietario="${op.monto_propietario || '0'}"
+                           data-monto-inmobiliaria="${op.monto_inmobiliaria || '0'}"
+                           data-fecha-desde="${op.fecha_inicio || ''}"
+                           data-fecha-hasta="${op.fecha_fin || ''}"
+                           ${chkDisabled}></td>`
+                    : `<td><input type="checkbox" class="form-check-input operacion-checkbox"
+                           data-tipo="${op.tipo}"
+                           data-id="${op.id}"
+                           data-propiedad-id="${pid}"
+                           data-monto-total="${op.monto_total}"
+                           data-monto-propietario="${op.monto_propietario || '0'}"
+                           data-monto-inmobiliaria="${op.monto_inmobiliaria || '0'}"
+                           data-fecha-desde="${op.fecha_inicio || ''}"
+                           data-fecha-hasta="${op.fecha_fin || ''}"
+                           ${chkDisabled}></td>`;
+                const tdProp = colProp ? `<td><small class="text-muted">${op.propiedad_label || '—'}</small></td>` : '';
                 html += `
-                    <tr>
-                        <td>
-                            <input type="checkbox" class="form-check-input gasto-checkbox" 
-                                   name="gastos_seleccionados[]"
-                                   value="${gasto.id}"
-                                   data-gasto-id="${gasto.id}"
-                                   data-monto="${gasto.monto}"
-                                   onchange="calcularMontosSeleccionados()">
-                        </td>
-                        <td>${gasto.descripcion}</td>
-                        <td>${gasto.fecha_gasto ? new Date(gasto.fecha_gasto).toLocaleDateString('es-AR') : '-'}</td>
-                        <td class="text-end">$${parseFloat(gasto.monto).toLocaleString('es-AR', {minimumFractionDigits: 2})}</td>
+                    <tr class="${filaClass}">
+                        ${tdSel}
+                        <td><span class="badge ${badgeClass}">${tipoEtiqueta}</span></td>
+                        <td>${op.descripcion}</td>
+                        ${tdProp}
+                        <td>${op.fecha_inicio ? new Date(op.fecha_inicio).toLocaleDateString('es-AR') : '-'}</td>
+                        <td>${op.fecha_fin ? new Date(op.fecha_fin).toLocaleDateString('es-AR') : '-'}</td>
+                        <td class="text-end">$${parseFloat(op.monto_total).toLocaleString('es-AR', {minimumFractionDigits: 2})}</td>
                     </tr>
                 `;
             });
-            
+
             html += `
                     </tbody>
                 </table>
                 <div class="mt-2">
                     <small class="text-muted">
                         <i class="fas fa-info-circle me-1"></i>
-                        Selecciona los gastos que deseas descontar de la liquidación. Se descontarán del monto a pagar al propietario.
+                        <strong>Por día</strong> son reservas por estadía; <strong>Contrato</strong> son alquileres mensuales con cuotas.
+                        Las filas atenuadas con casilla deshabilitada son solo referencia.
+                        ${colProp ? 'Si el propietario tiene más de una propiedad, al tildar una operación se fija la propiedad del formulario y se recargan operaciones y gastos de esa propiedad.' : ''}
                     </small>
                 </div>
             `;
-            
+
             lista.innerHTML = html;
-            
-            // Event listener para seleccionar todos los gastos
-            document.getElementById('seleccionar-todos-gastos').addEventListener('change', function() {
-                const checkboxes = document.querySelectorAll('.gasto-checkbox');
-                checkboxes.forEach(cb => cb.checked = this.checked);
-                calcularMontosSeleccionados();
+            mostrarGastosPendientes(data.gastos_pendientes || [], colProp);
+        } else {
+            container.style.display = 'block';
+            lista.innerHTML = '';
+            sinOperaciones.style.display = 'block';
+            mostrarGastosPendientes(data.gastos_pendientes || [], colProp);
+        }
+        if (extraCarga && extraCarga.restaurarOperacion) {
+            const r = extraCarga.restaurarOperacion;
+            document.querySelectorAll('.operacion-checkbox').forEach(function(el) {
+                if (el.getAttribute('data-tipo') === r.tipo && String(el.getAttribute('data-id')) === String(r.id)) {
+                    el.checked = true;
+                }
             });
+            calcularMontosSeleccionados();
+        }
+        if (extraCarga && extraCarga.restaurarGastoId != null && extraCarga.restaurarGastoId !== '') {
+            const gid = String(extraCarga.restaurarGastoId);
+            document.querySelectorAll('.gasto-checkbox').forEach(function(el) {
+                if (String(el.value) === gid) {
+                    el.checked = true;
+                }
+            });
+            calcularMontosSeleccionados();
+        }
+    }
+
+    // Función para cargar operaciones pendientes (una propiedad)
+    function cargarOperacionesPendientes(propiedadId, extraCarga) {
+        if (!propiedadId) {
+            document.getElementById('operaciones-pendientes-container').style.display = 'none';
+            return;
+        }
+
+        const container = document.getElementById('operaciones-pendientes-container');
+        const lista = document.getElementById('operaciones-pendientes-lista');
+        container.style.display = 'block';
+        lista.innerHTML = '<div class="text-center p-3"><i class="fas fa-spinner fa-spin me-2"></i>Cargando operaciones pendientes...</div>';
+
+        fetch(`{% url 'inmobiliaria:obtener_operaciones_pendientes' 0 %}`.replace('0', propiedadId))
+            .then(function(response) { return response.json(); })
+            .then(function(data) {
+                pintarOperacionesYGastosDesdeJson(data, extraCarga);
+            })
+            .catch(function(error) {
+                console.error('Error al cargar operaciones pendientes:', error);
+                const listaErr = document.getElementById('operaciones-pendientes-lista');
+                const containerErr = document.getElementById('operaciones-pendientes-container');
+                containerErr.style.display = 'block';
+                listaErr.innerHTML = '<div class="alert alert-danger mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Error al cargar operaciones/gastos. Recargá la página o avisá al administrador.</div>';
+            });
+    }
+    window.cargarOperacionesPendientes = cargarOperacionesPendientes;
+
+    function cargarOperacionesPorPropietario(propietarioId) {
+        if (!propietarioId) return;
+        cargaPorPropietarioActiva = true;
+        opcionesCargaOperacionesExtra = null;
+        limpiarSoloCampoPropiedad();
+        const container = document.getElementById('operaciones-pendientes-container');
+        const lista = document.getElementById('operaciones-pendientes-lista');
+        container.style.display = 'block';
+        lista.innerHTML = '<div class="text-center p-3"><i class="fas fa-spinner fa-spin me-2"></i>Cargando operaciones del propietario...</div>';
+
+        fetch(`{% url 'inmobiliaria:obtener_operaciones_pendientes_propietario' 0 %}`.replace('0', propietarioId))
+            .then(function(response) { return response.json(); })
+            .then(function(data) {
+                if (data.success && data.propietario_nombre) {
+                    propietarioDisplay.value = data.propietario_nombre;
+                    const cb = (data.propietario_cuenta_bancaria || '').trim();
+                    cuentaPropietarioDisplay.value = cb || '';
+                    cuentaPropietarioDisplay.placeholder = cb ? '' : 'Sin cuenta cargada';
+                }
+                pintarOperacionesYGastosDesdeJson(data, null);
+            })
+            .catch(function(error) {
+                console.error('Error al cargar por propietario:', error);
+                lista.innerHTML = '<div class="alert alert-danger mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Error al cargar datos del propietario.</div>';
+            });
+    }
+
+    // Función para mostrar gastos pendientes
+    function mostrarGastosPendientes(gastos, colProp) {
+        const container = document.getElementById('gastos-pendientes-container');
+        const lista = document.getElementById('gastos-pendientes-lista');
+        const sinGastos = document.getElementById('sin-gastos');
+        const mostrarCol = Boolean(colProp);
+
+        container.style.display = 'block';
+        if (gastos && gastos.length > 0) {
+            sinGastos.style.display = 'none';
+
+            const thSelG = mostrarCol ? '<th width="40"></th>' : '<th width="50"><input type="checkbox" id="seleccionar-todos-gastos" class="form-check-input"></th>';
+            const thPropG = mostrarCol ? '<th>Propiedad</th>' : '';
+
+            let html = `
+                <table class="table table-hover table-sm">
+                    <thead>
+                        <tr>
+                            ${thSelG}
+                            <th>Descripción</th>
+                            ${thPropG}
+                            <th>Fecha Gasto</th>
+                            <th class="text-end">Monto</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            gastos.forEach(function(gasto) {
+                const gpid = gasto.propiedad_id != null ? String(gasto.propiedad_id) : '';
+                const tdSel = mostrarCol
+                    ? `<td><input type="checkbox" class="form-check-input gasto-checkbox"
+                           name="gastos_seleccionados[]"
+                           value="${gasto.id}"
+                           data-gasto-id="${gasto.id}"
+                           data-propiedad-id="${gpid}"
+                           data-monto="${gasto.monto}"></td>`
+                    : `<td><input type="checkbox" class="form-check-input gasto-checkbox"
+                           name="gastos_seleccionados[]"
+                           value="${gasto.id}"
+                           data-gasto-id="${gasto.id}"
+                           data-propiedad-id="${gpid}"
+                           data-monto="${gasto.monto}"></td>`;
+                const tdPropG = mostrarCol ? `<td><small class="text-muted">${gasto.propiedad_label || '—'}</small></td>` : '';
+                html += `
+                    <tr>
+                        ${tdSel}
+                        <td>${gasto.descripcion}</td>
+                        ${tdPropG}
+                        <td>${gasto.fecha_gasto ? new Date(gasto.fecha_gasto).toLocaleDateString('es-AR') : '-'}</td>
+                        <td class="text-end">$${parseFloat(gasto.monto).toLocaleString('es-AR', {minimumFractionDigits: 2})}</td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                    </tbody>
+                </table>
+                <div class="mt-2">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Seleccioná los gastos a descontar del monto a pagar al propietario.
+                        ${mostrarCol ? 'Solo podés incluir gastos de la misma propiedad que las operaciones elegidas.' : ''}
+                    </small>
+                </div>
+            `;
+
+            lista.innerHTML = html;
         } else {
             lista.innerHTML = '';
             sinGastos.style.display = 'block';
         }
+    }
+
+    const operacionesPendientesContainer = document.getElementById('operaciones-pendientes-container');
+    const gastosPendientesContainer = document.getElementById('gastos-pendientes-container');
+    if (operacionesPendientesContainer) {
+        operacionesPendientesContainer.addEventListener('change', function(e) {
+            const t = e.target;
+            if (t.classList.contains('operacion-checkbox')) {
+                handleOperacionCheckboxChange(t);
+            } else if (t.id === 'seleccionar-todos') {
+                document.querySelectorAll('.operacion-checkbox:not(:disabled)').forEach(function(cb) {
+                    cb.checked = t.checked;
+                });
+                calcularMontosSeleccionados();
+            }
+        });
+    }
+    if (gastosPendientesContainer) {
+        gastosPendientesContainer.addEventListener('change', function(e) {
+            const t = e.target;
+            if (t.classList.contains('gasto-checkbox')) {
+                handleGastoCheckboxChange(t);
+            } else if (t.id === 'seleccionar-todos-gastos') {
+                document.querySelectorAll('.gasto-checkbox').forEach(function(cb) {
+                    cb.checked = t.checked;
+                });
+                calcularMontosSeleccionados();
+            }
+        });
+    }
+
+    function renderResultadosPropietario(query) {
+        const q = (query || '').toLowerCase().trim();
+        const opciones = (PROPIETARIOS_DATA || []).filter(function(p) {
+            if (!q) return true;
+            const blob = [p.id, p.apellido || '', p.nombre || '', p.dni || ''].join(' ').toLowerCase();
+            return blob.includes(q);
+        }).slice(0, 30);
+
+        if (!propietarioResultados) return;
+
+        if (!opciones.length) {
+            propietarioResultados.innerHTML = '<div class="list-group-item text-muted">Sin resultados</div>';
+            propietarioResultados.classList.remove('d-none');
+            return;
+        }
+
+        propietarioResultados.innerHTML = opciones.map(function(p) {
+            const label = (p.apellido || '') + ', ' + (p.nombre || '');
+            const safeLabel = label.replace(/"/g, '&quot;');
+            return (
+                '<button type="button" class="list-group-item list-group-item-action propietario-item" ' +
+                'data-id="' + p.id + '" data-label="' + safeLabel + '">' +
+                '<strong>#' + p.id + '</strong> — ' + label +
+                (p.dni ? ' <span class="text-muted">DNI ' + p.dni + '</span>' : '') +
+                '</button>'
+            );
+        }).join('');
+        propietarioResultados.classList.remove('d-none');
+    }
+
+    function limpiarPropietarioSeleccionado() {
+        cargaPorPropietarioActiva = false;
+        opcionesCargaOperacionesExtra = null;
+        limpiarPropietarioBusquedaUI();
+        if (propiedadSelect.value) {
+            cargarOperacionesPendientes(propiedadSelect.value);
+        } else {
+            propietarioDisplay.value = '';
+            cuentaPropietarioDisplay.value = '';
+            cuentaPropietarioDisplay.placeholder = '—';
+            vaciarListasOperacionesYGastosUI();
+        }
+    }
+
+    if (propietarioBuscar) {
+        propietarioBuscar.addEventListener('focus', function() {
+            renderResultadosPropietario(this.value);
+        });
+        propietarioBuscar.addEventListener('input', function() {
+            if (propiedadSelect.value) {
+                limpiarSoloCampoPropiedad();
+                cargaPorPropietarioActiva = false;
+                propietarioDisplay.value = '';
+                cuentaPropietarioDisplay.value = '';
+                cuentaPropietarioDisplay.placeholder = '—';
+                vaciarListasOperacionesYGastosUI();
+            }
+            btnLimpiarPropietario.classList.toggle('d-none', !this.value.trim());
+            renderResultadosPropietario(this.value);
+        });
+    }
+
+    if (propietarioResultados) {
+        propietarioResultados.addEventListener('click', function(e) {
+            const btn = e.target.closest('.propietario-item');
+            if (!btn) return;
+            const pid = btn.getAttribute('data-id');
+            const label = btn.getAttribute('data-label') || '';
+            propietarioBuscar.value = label ? ('#' + pid + ' — ' + label) : ('#' + pid);
+            btnLimpiarPropietario.classList.remove('d-none');
+            propietarioResultados.classList.add('d-none');
+            cargarOperacionesPorPropietario(pid);
+        });
+    }
+
+    if (btnLimpiarPropietario) {
+        btnLimpiarPropietario.addEventListener('click', limpiarPropietarioSeleccionado);
     }
 
     // Formato consistente: 12.345,67
@@ -740,6 +1055,27 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             if (Math.abs((m1 + m2) - mTotal) >= 0.01) {
                 alert('La suma de Operación 1 y Operación 2 debe ser igual al Monto Total.');
+                return false;
+            }
+        }
+        const propIdForm = (propiedadSelect.value || '').trim();
+        if (!propIdForm) {
+            alert('Debés definir la propiedad de la liquidación: elegí una en el buscador de arriba o tildá una operación si cargaste por propietario.');
+            return false;
+        }
+        const opsMarcadas = document.querySelectorAll('.operacion-checkbox:checked');
+        for (let i = 0; i < opsMarcadas.length; i++) {
+            const pid = (opsMarcadas[i].getAttribute('data-propiedad-id') || '').trim();
+            if (pid && pid !== propIdForm) {
+                alert('Hay operaciones marcadas que no corresponden a la propiedad seleccionada.');
+                return false;
+            }
+        }
+        const gastosMarcados = document.querySelectorAll('.gasto-checkbox:checked');
+        for (let j = 0; j < gastosMarcados.length; j++) {
+            const gpid = (gastosMarcados[j].getAttribute('data-propiedad-id') || '').trim();
+            if (gpid && gpid !== propIdForm) {
+                alert('Hay gastos marcados que no corresponden a la propiedad de la liquidación.');
                 return false;
             }
         }
