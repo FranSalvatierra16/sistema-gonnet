@@ -1301,6 +1301,20 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def _movimientos_caja_ingresos_operacion_reserva(reserva):
+    """
+    Ingresos de caja vinculados a una reserva por el texto del concepto.
+    Incluye «Operación» y «Operacion» (tilde opcional) para no perder movimientos históricos.
+    """
+    rid = reserva.id
+    return MovimientoCaja.objects.filter(
+        propiedad=reserva.propiedad,
+        tipo=TipoMovimientoCajaEnum.INGRESO,
+    ).filter(
+        Q(concepto__icontains=f"Operación {rid}") | Q(concepto__icontains=f"Operacion {rid}")
+    )
+
+
 def get_inquilinos_queryset_unificado(request):
     """Lista de inquilinos unificada: en Colón y Corrientes se muestran los de ambas sucursales; en el resto solo los de la sucursal del usuario."""
     nombre_suc = (getattr(request.user.sucursal, 'nombre', None) or '').lower()
@@ -3619,158 +3633,6 @@ def reserva_exitosa(request, reserva_id):
     return render(request, 'inmobiliaria/reserva/reserva_exitosa.html', context)
 
 @login_required
-def finalizar_reserva_nueva(request, reserva_id):
-    """
-    Nueva vista para finalizar reserva basada en la carga de recibo
-    """
-    try:
-        # Obtener la reserva
-        reserva = get_object_or_404(Reserva, id=reserva_id, sucursal=request.user.sucursal)
-        
-        # 🚀 SOLUCIÓN: Si la reserva tiene precio 0, recalcularlo
-        if reserva.precio_total == 0:
-            pass  # ✅ Bloque vacío
-# print(f"⚠️ Reserva {reserva.id} tiene precio 0, recalculando...")
-            recalcular_precio_reserva(reserva)
-            # Refrescar desde la base de datos
-            reserva.refresh_from_db()
-        
-        # Obtener la caja actual de la sucursal
-        caja_actual = Caja.objects.filter(
-            sucursal=request.user.sucursal,
-            fecha_cierre__isnull=True
-        ).first()
-        
-        if not caja_actual:
-            messages.error(request, 'No hay una caja abierta. Debe abrir una caja primero.')
-            return redirect('inmobiliaria:reservas')
-        
-        # Calcular información del próximo movimiento
-        cantidad_movimientos = MovimientoCaja.objects.filter(caja=caja_actual).count()
-        proximo_numero_movimiento = cantidad_movimientos + 1
-        
-        # Obtener conceptos de caja disponibles
-        conceptos_caja = Concepto.objects.filter(
-            q_conceptos_caja_visibles(request.user.sucursal)
-        ).order_by('id')
-        
-        # ✅ Obtener cuentas bancarias activas de la sucursal
-        from inmobiliaria.models.sucursal import CuentaBancaria
-        cuentas_bancarias = CuentaBancaria.objects.filter(
-            sucursal=request.user.sucursal,
-            activa=True
-        ).order_by('nombre_banco', 'alias')
-        
-        # ✅ CALCULAR SALDO PENDIENTE CONSIDERANDO SOLO LA SEÑA (NO EL DEPÓSITO)
-        # Buscar todos los movimientos de caja pagados para esta reserva
-        pagos_anteriores = MovimientoCaja.objects.filter(
-            propiedad=reserva.propiedad,
-            tipo=TipoMovimientoCajaEnum.INGRESO,
-            concepto__icontains=f"Operaci\u00f3n {reserva.id}"
-        )
-        
-        # ✅ DETECTAR SI ES "COMPLETAR PAGO" O "FINALIZAR RESERVA"
-        # Si ya hay pagos anteriores, es "Completar Pago", sino es "Finalizar Reserva"
-        total_pagos_anteriores = sum(pago.monto_total for pago in pagos_anteriores)
-        
-        # ✅ CALCULAR SOLO LA SEÑA DE PAGOS ANTERIORES (concepto ID: 1)
-        total_senia_anteriores = Decimal('0')
-        for pago in pagos_anteriores:
-            if pago.concepto and "|CONCEPTOS:" in pago.concepto:
-                # Parsear conceptos del formato |CONCEPTOS:id:nombre:importe|
-                concepto_parts = pago.concepto.split("|CONCEPTOS:", 1)
-                if len(concepto_parts) > 1:
-                    conceptos_data = concepto_parts[1]
-                    conceptos_items = [item for item in conceptos_data.split("|") if item.strip()]
-                    
-                    for concepto_item in conceptos_items:
-                        parts = concepto_item.split(":")
-                        if len(parts) >= 3:
-                            concepto_id = parts[0].strip()
-                            concepto_importe = parts[2].strip()
-                            
-                            # ✅ CONCEPTOS QUE CUENTAN COMO SEÑA: 1, 15, 103
-                            if concepto_id in ['1', '15', '103']:
-                                try:
-                                    importe_num = Decimal(concepto_importe.replace(',', ''))
-                                    total_senia_anteriores += importe_num
-# print(f"💰 SEÑA ANTERIOR DETECTADA: Concepto {concepto_id} - ${importe_num}")
-                                except:
-                                    pass
-        
-# print(f"📊 CÁLCULO PAGOS ANTERIORES:")
-# print(f"   - Total pagos anteriores: ${total_pagos_anteriores}")
-# print(f"   - Seña anteriores (conceptos 1,15,103): ${total_senia_anteriores}")
-        
-        es_completar_pago = total_pagos_anteriores > 0
-        
-        if es_completar_pago:
-            # COMPLETAR PAGO: SALDO = PRECIO TOTAL - SOLO LA SEÑA ANTERIOR (concepto ID:1)
-            saldo_a_ocupar = reserva.precio_total - total_senia_anteriores
-        else:
-            # FINALIZAR RESERVA: SALDO = PRECIO TOTAL (no hay seña anterior)
-            saldo_a_ocupar = reserva.precio_total
-        
-        tipo_operacion = "COMPLETAR PAGO" if es_completar_pago else "FINALIZAR RESERVA"
-# print(f"✅ CÁLCULO {tipo_operacion}:")
-# print(f"   - Precio Total: ${reserva.precio_total}")
-# print(f"   - Seña: ${reserva.senia or 0}")
-        if es_completar_pago:
-            pass  # ✅ Bloque vacío
-# print(f"   - Pagos Anteriores: ${total_pagos_anteriores}")
-# print(f"   - Saldo Pendiente: ${saldo_a_ocupar}")
-# print(f"   - Depósito: ${reserva.deposito_garantia or 0}")
-
-        
-        # ✅ CALCULAR SEÑA PENDIENTE: Si ya pagó seña, mostrar 0
-        senia_pendiente = 0  # Por defecto 0, porque si ya pagó seña no debe pagar más
-        if (reserva.senia or 0) == 0:
-            # Si no hay seña pagada aún, puede que necesite pagar algo
-            # Pero normalmente en "finalizar reserva" ya se pagó todo
-            senia_pendiente = 0
-        
-# print(f"✅ SEÑA PENDIENTE CALCULADA:")
-# print(f"   - Seña ya pagada: ${reserva.senia or 0}")
-# print(f"   - Seña pendiente a mostrar: ${senia_pendiente}")
-
-        # Datos para el formulario (solo lectura)
-        # ✅ VARIABLES PARA EL TEMPLATE ORIGINAL (igual que finalizar_reserva)
-        context = {
-            'reserva': reserva,
-            'pagos_previos': pagos_anteriores,  # Lista de MovimientoCaja anteriores
-            'total_pagado': total_pagos_anteriores,  # Total de pagos anteriores
-            'deposito': reserva.deposito_garantia or 0,  # Depósito de garantía
-            'saldo_pendiente': saldo_a_ocupar,  # Saldo pendiente calculado
-            'conceptos_pago': conceptos_caja,  # Conceptos disponibles
-            'conceptos_caja': conceptos_caja,  # Para el template HTML
-            'conceptos_json': list(conceptos_caja.values('id', 'nombre')),  # Para JavaScript
-            'cuentas_bancarias': cuentas_bancarias,  # ✅ Cuentas bancarias de la sucursal
-            'cliente_id': reserva.cliente.id,
-            'cliente_nombre': f"{reserva.cliente.apellido}, {reserva.cliente.nombre}",
-            'interno_caja': caja_actual.numero,
-            'propiedad_id': reserva.propiedad.id,
-            'propiedad_direccion': reserva.propiedad.direccion,
-            'fecha_actual': datetime.now().strftime('%d/%m/%Y'),
-            'numero_movimiento': proximo_numero_movimiento,
-            'numero_recibo': '0000-00000000',  # Para completar
-            'productor_id': reserva.vendedor.id if reserva.vendedor else request.user.id,
-            'productor_nombre': f"{reserva.vendedor.apellido}, {reserva.vendedor.nombre}" if reserva.vendedor else f"{request.user.apellido}, {request.user.nombre}",
-            'saldo_a_ocupar': saldo_a_ocupar,
-            'senia_pendiente': senia_pendiente,  # ✅ NUEVO: Seña pendiente (0 si ya se pagó)
-            'total_senia_pagada': total_senia_anteriores if es_completar_pago else 0,  # ✅ CORREGIDO: Solo seña de pagos anteriores
-            'total_deposito_pagado': reserva.deposito_garantia or 0,  # ✅ SIMPLE: Del casillero
-            'deposito_garantia': reserva.deposito_garantia,
-            'fecha_desde': reserva.fecha_inicio.strftime('%d/%m/%Y'),
-            'fecha_hasta': reserva.fecha_fin.strftime('%d/%m/%Y'),
-        }
-        
-        return render(request, 'inmobiliaria/reserva/finalizar_reserva_nueva.html', context)
-        
-    except Exception as e:
-        messages.error(request, f'Error al cargar la reserva: {str(e)}')
-        return redirect('inmobiliaria:reservas')
-
-@login_required
 def terminar_reserva(request, reserva_id):
     try:
         reserva = get_object_or_404(Reserva, id=reserva_id)
@@ -4877,11 +4739,7 @@ def procesar_movimiento_reserva(request):
             )
             
             # ✅ DETECTAR SI ES "COMPLETAR PAGO" (ya hay pagos anteriores)
-            pagos_anteriores = MovimientoCaja.objects.filter(
-                propiedad=reserva.propiedad,
-                tipo=TipoMovimientoCajaEnum.INGRESO,
-                concepto__icontains=f"Operaci\u00f3n {reserva.id}"
-            )
+            pagos_anteriores = _movimientos_caja_ingresos_operacion_reserva(reserva)
             total_pagos_anteriores = sum(pago.monto_total for pago in pagos_anteriores)
             es_completar_pago = total_pagos_anteriores > 0
             
@@ -5219,12 +5077,8 @@ def procesar_movimiento_reserva(request):
             deposito_garantia_input = limpiar_valor_monetario(request.POST.get('deposito_garantia', '0'))
             importe_locacion_input = limpiar_valor_monetario(request.POST.get('importe_locacion', '0'))
             
-            # ✅ CALCULAR TOTALES PAGADOS ANTES DE ESTE PAGO
-            pagos_anteriores = MovimientoCaja.objects.filter(
-                propiedad=reserva.propiedad,
-                tipo=TipoMovimientoCajaEnum.INGRESO,
-                concepto__icontains=f"Operaci\u00f3n {reserva.id}"
-            )
+            # ✅ CALCULAR TOTALES PAGADOS ANTES DE ESTE PAGO (incluye el movimiento recién creado)
+            pagos_anteriores = _movimientos_caja_ingresos_operacion_reserva(reserva)
             
             total_pagado_anteriormente = sum(
                 (mov.monto_efectivo or 0) + (mov.monto_cheque or 0) + (mov.monto_tarjeta or 0) + (mov.monto_deposito or 0)
@@ -13473,12 +13327,16 @@ def finalizar_reserva_nueva(request, reserva_id):
     try:
         # Obtener la reserva
         reserva = get_object_or_404(Reserva, id=reserva_id, sucursal=request.user.sucursal)
+
+        if (reserva.precio_total or 0) == 0:
+            recalcular_precio_reserva(reserva)
+            reserva.refresh_from_db()
         
-        # Obtener la caja actual de la sucursal
+        # Misma criterio que procesar_movimiento_reserva (estado abierta)
         caja_actual = Caja.objects.filter(
             sucursal=request.user.sucursal,
-            fecha_cierre__isnull=True
-        ).first()
+            estado='abierta',
+        ).order_by('-fecha_apertura').first()
         
         if not caja_actual:
             messages.error(request, 'No hay una caja abierta. Debe abrir una caja primero.')
@@ -13501,12 +13359,8 @@ def finalizar_reserva_nueva(request, reserva_id):
         ).order_by('nombre_banco', 'alias')
         
         # ✅ CALCULAR SALDO PENDIENTE CONSIDERANDO SOLO LA SEÑA (NO EL DEPÓSITO)
-        # Buscar todos los movimientos de caja pagados para esta reserva
-        pagos_anteriores = MovimientoCaja.objects.filter(
-            propiedad=reserva.propiedad,
-            tipo=TipoMovimientoCajaEnum.INGRESO,
-            concepto__icontains=f"Operaci\u00f3n {reserva.id}"
-        )
+        # Ingresos vinculados a esta operación (concepto con o sin tilde en «Operación»)
+        pagos_anteriores = _movimientos_caja_ingresos_operacion_reserva(reserva)
         
         # ✅ DETECTAR SI ES "COMPLETAR PAGO" O "FINALIZAR RESERVA"
         # Si ya hay pagos anteriores, es "Completar Pago", sino es "Finalizar Reserva"
