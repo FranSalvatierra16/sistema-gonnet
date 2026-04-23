@@ -2720,6 +2720,45 @@ def parse_fecha(fecha_str):
     except (ValueError, TypeError, AttributeError):
         raise ValidationError('El formato de fecha debe ser DD/MM/YYYY')
 
+
+def parsear_monto_desde_ui(precio_raw: str) -> Decimal:
+    """
+    Convierte el texto de precio ingresado por el usuario a Decimal.
+
+    - Formato argentino: 350.803,20 (miles con punto, decimales con coma)
+    - Punto como decimal: 350803.20
+    - Solo miles con puntos sin coma: 1.234.567 → 1234567
+    - Entero sin separadores: 350803
+    """
+    s = (precio_raw or '').strip().replace('$', '').replace(' ', '').replace('\u00a0', '')
+    if not s:
+        raise ValueError('el precio está vacío')
+    if ',' in s:
+        entero_raw, decimal_raw = s.rsplit(',', 1)
+        if not decimal_raw.isdigit():
+            raise ValueError('decimales inválidos')
+        entero_limpio = entero_raw.replace('.', '')
+        if not entero_limpio.isdigit():
+            raise ValueError('parte entera inválida')
+        return Decimal(f'{entero_limpio}.{decimal_raw}')
+
+    if '.' in s:
+        partes = s.split('.')
+        ultima = partes[-1]
+        if len(partes) == 2 and ultima.isdigit() and 1 <= len(ultima) <= 2:
+            izquierda = partes[0]
+            if not izquierda.isdigit():
+                raise ValueError('parte entera inválida')
+            return Decimal(f'{izquierda}.{ultima}')
+        if all(p.isdigit() for p in partes):
+            return Decimal(''.join(partes))
+        raise ValueError('formato no reconocido')
+
+    if not s.isdigit():
+        raise ValueError('formato no reconocido')
+    return Decimal(s)
+
+
 def confirmar_reserva(request):
     if request.method == 'POST':
         try:
@@ -2775,23 +2814,17 @@ def confirmar_reserva(request):
                         'error': 'El período seleccionado ya tiene una reserva'
                     })
 
-                # 🔍 DEBUG: Ver qué precio llega del frontend
-# print(f"🔍 PRECIO RECIBIDO DEL FRONTEND:")
-# print(f"   - precio original: '{precio}' (tipo: {type(precio)})")
-                
-                # Limpiar el precio y convertirlo a float
-                precio_limpio = precio.replace('$', '').replace(',', '').replace('.', '').strip()
-# print(f"   - precio limpio: '{precio_limpio}'")
-                
                 try:
-                    precio_float = float(precio_limpio)  # Ya no dividir por 100
-# print(f"   - precio float: {precio_float}")
-                except ValueError:
-                    pass  # ✅ Bloque vacío
-# print(f"   - ERROR: No se pudo convertir '{precio_limpio}' a float")
+                    precio_total_dec = parsear_monto_desde_ui(precio)
+                except ValueError as exc:
                     return JsonResponse({
                         'success': False,
-                        'error': 'El precio no tiene un formato válido'
+                        'error': f'El precio no tiene un formato válido ({exc}). Ejemplos válidos: 350803.20; 350.803,20; 350803',
+                    })
+                if precio_total_dec <= 0:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'El precio debe ser mayor a cero',
                     })
 
                 # Crear la reserva
@@ -2801,7 +2834,7 @@ def confirmar_reserva(request):
                     fecha_fin=fecha_fin,
                     vendedor=vendedor,
                     cliente=inquilino,
-                    precio_total=precio_float,
+                    precio_total=precio_total_dec,
                     estado='confirmada' if es_operacion_directa else 'confirmada_no_pagada',
                     sucursal=request.user.sucursal  # Asignar la sucursal del usuario
                 )
@@ -2828,7 +2861,7 @@ def confirmar_reserva(request):
                         caja=caja_actual,
                         tipo=TipoMovimientoCajaEnum.INGRESO,
                         concepto='Alquiler por día',
-                        monto_efectivo=precio_float,  # Ajustar según la forma de pago
+                        monto_efectivo=precio_total_dec,  # Ajustar según la forma de pago
                         descripcion=f'Alquiler por día - {propiedad.direccion}',
                         reserva=reserva
                     )
