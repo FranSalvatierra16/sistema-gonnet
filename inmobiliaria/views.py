@@ -17348,7 +17348,7 @@ def _operaciones_incluidas_tabla(liquidacion):
             r = Reserva.objects.filter(id=oid).select_related('propiedad').first()
             if r:
                 dir_ = getattr(r.propiedad, 'direccion', '') or ''
-                etiqueta = f'Reserva #{r.id} — {dir_}'
+                etiqueta = f'Operación #{r.id} — {dir_}'
                 url_name = 'inmobiliaria:reserva_detalle'
                 url_args = [r.id]
         elif tipo == 'contrato' and oid:
@@ -17359,8 +17359,15 @@ def _operaciones_incluidas_tabla(liquidacion):
                 url_args = [c.id]
         if not etiqueta:
             etiqueta = f'{tipo or "operación"} #{oid}' if oid else str(op)
+        if tipo == 'reserva':
+            tipo_display = 'Operación'
+        elif tipo == 'contrato':
+            tipo_display = 'Contrato'
+        else:
+            tipo_display = (tipo or '—').title()
         filas.append({
             'tipo': tipo or '—',
+            'tipo_display': tipo_display,
             'id': oid,
             'etiqueta': etiqueta,
             'url': reverse(url_name, args=url_args) if url_name and url_args else None,

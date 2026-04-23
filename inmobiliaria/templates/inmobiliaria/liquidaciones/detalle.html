@@ -1,4 +1,5 @@
 {% extends 'inmobiliaria/base.html' %}
+{% load custom_filters %}
 
 {% block title %}Detalle de Liquidación{% endblock %}
 
@@ -6,8 +7,13 @@
 <div class="container-fluid mt-4">
     <div class="row">
         <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h1>💰 Detalle de Liquidación #{{ liquidacion.id }}</h1>
+            <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+                <div>
+                    <h1 class="mb-2">💰 Detalle de Liquidación #{{ liquidacion.id }}</h1>
+                    <p class="lead mb-0 text-success fw-semibold">
+                        Monto total a pagar al propietario: ${{ liquidacion.monto_a_pagar|format_price }}
+                    </p>
+                </div>
                 <a href="{% url 'inmobiliaria:lista_liquidaciones' %}" class="btn btn-secondary">
                     <i class="fas fa-arrow-left me-2"></i>Volver a Lista
                 </a>
@@ -15,7 +21,7 @@
 
             <!-- Información Principal -->
             <div class="row mb-4">
-                <div class="col-md-6">
+                <div class="col-12">
                     <div class="card shadow">
                         <div class="card-header bg-primary text-white">
                             <h5 class="mb-0">Información General</h5>
@@ -50,8 +56,8 @@
                                 </tr>
                                 {% if liquidacion.reserva %}
                                 <tr>
-                                    <th>Reserva:</th>
-                                    <td>#{{ liquidacion.reserva.id }}</td>
+                                    <th>Operación:</th>
+                                    <td><a href="{% url 'inmobiliaria:reserva_detalle' liquidacion.reserva.id %}">Operación #{{ liquidacion.reserva.id }}</a></td>
                                 </tr>
                                 {% endif %}
                                 <tr>
@@ -82,45 +88,17 @@
                                     <td>{{ liquidacion.fecha_procesamiento|date:"d/m/Y H:i" }}</td>
                                 </tr>
                                 {% endif %}
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-md-6">
-                    <div class="card shadow">
-                        <div class="card-header bg-info text-white">
-                            <h5 class="mb-0">Montos</h5>
-                        </div>
-                        <div class="card-body">
-                            <table class="table table-borderless">
                                 <tr>
-                                    <th width="50%">Monto Total Operación:</th>
-                                    <td class="text-end"><strong>${{ liquidacion.monto_total_operacion|floatformat:2 }}</strong></td>
-                                </tr>
-                                <tr>
-                                    <th>Monto Propietario:</th>
-                                    <td class="text-end">${{ liquidacion.monto_propietario|floatformat:2 }}</td>
-                                </tr>
-                                <tr>
-                                    <th>Monto Inmobiliaria:</th>
-                                    <td class="text-end">${{ liquidacion.monto_inmobiliaria|floatformat:2 }}</td>
-                                </tr>
-                                <tr>
-                                    <th>Cochera:</th>
-                                    <td class="text-end">${{ liquidacion.monto_cochera|floatformat:2 }}</td>
-                                </tr>
-                                <tr>
-                                    <th>Fondo de mantenimiento <span class="text-muted fw-normal">(retenido del pago)</span>:</th>
-                                    <td class="text-end text-danger">-${{ liquidacion.monto_fondo_mantenimiento|floatformat:2 }}</td>
-                                </tr>
-                                <tr>
-                                    <th>Total Gastos:</th>
-                                    <td class="text-end text-danger">-${{ liquidacion.monto_gastos|floatformat:2 }}</td>
-                                </tr>
-                                <tr class="table-success">
-                                    <th><strong>Monto a Pagar al propietario:</strong></th>
-                                    <td class="text-end"><strong>${{ liquidacion.monto_a_pagar|floatformat:2 }}</strong></td>
+                                    <th>Período liquidado:</th>
+                                    <td>
+                                        {% if liquidacion.fecha_desde or liquidacion.fecha_hasta %}
+                                            {{ liquidacion.fecha_desde|date:"d/m/Y"|default:"—" }}
+                                            →
+                                            {{ liquidacion.fecha_hasta|date:"d/m/Y"|default:"—" }}
+                                        {% else %}
+                                            <span class="text-muted">Sin período cargado</span>
+                                        {% endif %}
+                                    </td>
                                 </tr>
                             </table>
                         </div>
@@ -139,23 +117,11 @@
                             <div class="row">
                                 <div class="col-md-6">
                                     <table class="table table-sm table-borderless mb-0">
-                                        <tr>
-                                            <th class="text-muted" style="width:40%">Período liquidado:</th>
-                                            <td>
-                                                {% if liquidacion.fecha_desde or liquidacion.fecha_hasta %}
-                                                    {{ liquidacion.fecha_desde|date:"d/m/Y"|default:"—" }}
-                                                    →
-                                                    {{ liquidacion.fecha_hasta|date:"d/m/Y"|default:"—" }}
-                                                {% else %}
-                                                    <span class="text-muted">Sin período cargado</span>
-                                                {% endif %}
-                                            </td>
-                                        </tr>
                                         {% if liquidacion.reserva %}
                                         <tr>
-                                            <th class="text-muted">Reserva (FK):</th>
+                                            <th class="text-muted">Operación (enlace):</th>
                                             <td>
-                                                <a href="{% url 'inmobiliaria:reserva_detalle' liquidacion.reserva.id %}">Reserva #{{ liquidacion.reserva.id }}</a>
+                                                <a href="{% url 'inmobiliaria:reserva_detalle' liquidacion.reserva.id %}">Operación #{{ liquidacion.reserva.id }}</a>
                                             </td>
                                         </tr>
                                         {% endif %}
@@ -200,7 +166,7 @@
                                     <tbody>
                                         {% for fila in operaciones_tabla %}
                                         <tr>
-                                            <td>{{ fila.tipo }}</td>
+                                            <td>{{ fila.tipo_display|default:fila.tipo }}</td>
                                             <td>{{ fila.id|default:"—" }}</td>
                                             <td>{{ fila.etiqueta }}</td>
                                             <td>

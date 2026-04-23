@@ -86,18 +86,13 @@
                                 <tr>
                                     <th>ID</th>
                                     <th>Propietario</th>
-                                    <th>Cuenta prop.</th>
                                     <th>Propiedad</th>
-                                    <th>Monto Total</th>
-                                    <th>Monto Propietario</th>
-                                    <th>Inmobiliaria</th>
-                                    <th>Cochera</th>
-                                    <th>Fondo mant.</th>
-                                    <th>Gastos</th>
-                                    <th>Monto a Pagar</th>
+                                    <th>Cuenta prop.</th>
+                                    <th class="text-end">Monto a pagar</th>
+                                    <th>Período (desde → hasta)</th>
                                     <th>Estado</th>
-                                    <th>Fecha</th>
-                                    <th>Acciones</th>
+                                    <th>Fecha registro</th>
+                                    <th class="text-end">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -105,13 +100,6 @@
                                 <tr>
                                     <td>{{ liquidacion.id }}</td>
                                     <td>{{ liquidacion.propietario.apellido }}, {{ liquidacion.propietario.nombre }}</td>
-                                    <td>
-                                        {% if liquidacion.propietario.cuenta_bancaria %}
-                                        <small class="font-monospace" title="{{ liquidacion.propietario.cuenta_bancaria }}">{{ liquidacion.propietario.cuenta_bancaria|truncatechars:24 }}</small>
-                                        {% else %}
-                                        <span class="text-muted">—</span>
-                                        {% endif %}
-                                    </td>
                                     <td>
                                         <strong>{{ liquidacion.propiedad.direccion }}</strong>
                                         {% if liquidacion.propiedad.piso or liquidacion.propiedad.departamento %}
@@ -121,13 +109,23 @@
                                         </small>
                                         {% endif %}
                                     </td>
-                                    <td>${{ liquidacion.monto_total_operacion|floatformat:2 }}</td>
-                                    <td>${{ liquidacion.monto_propietario|floatformat:2 }}</td>
-                                    <td>${{ liquidacion.monto_inmobiliaria|floatformat:2 }}</td>
-                                    <td>${{ liquidacion.monto_cochera|floatformat:2 }}</td>
-                                    <td>${{ liquidacion.monto_fondo_mantenimiento|floatformat:2 }}</td>
-                                    <td>${{ liquidacion.monto_gastos|floatformat:2 }}</td>
-                                    <td><strong>${{ liquidacion.monto_a_pagar|floatformat:2 }}</strong></td>
+                                    <td>
+                                        {% if liquidacion.propietario.cuenta_bancaria %}
+                                        <small class="font-monospace" title="{{ liquidacion.propietario.cuenta_bancaria }}">{{ liquidacion.propietario.cuenta_bancaria|truncatechars:28 }}</small>
+                                        {% else %}
+                                        <span class="text-muted">—</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end"><strong>${{ liquidacion.monto_a_pagar|format_price }}</strong></td>
+                                    <td class="small text-nowrap">
+                                        {% if liquidacion.fecha_desde or liquidacion.fecha_hasta %}
+                                            {{ liquidacion.fecha_desde|date:"d/m/Y"|default:"—" }}
+                                            →
+                                            {{ liquidacion.fecha_hasta|date:"d/m/Y"|default:"—" }}
+                                        {% else %}
+                                            <span class="text-muted">—</span>
+                                        {% endif %}
+                                    </td>
                                     <td>
                                         {% if liquidacion.estado == 'pendiente' %}
                                         <span class="badge bg-warning text-dark">Pendiente</span>
@@ -143,8 +141,8 @@
                                         <span class="badge bg-danger">Cancelada</span>
                                         {% endif %}
                                     </td>
-                                    <td>{{ liquidacion.fecha_creacion|date:"d/m/Y" }}</td>
-                                    <td>
+                                    <td class="small">{{ liquidacion.fecha_creacion|date:"d/m/Y H:i" }}</td>
+                                    <td class="text-end">
                                         <a href="{% url 'inmobiliaria:detalle_liquidacion' liquidacion.id %}" 
                                            class="btn btn-sm btn-info" title="Ver detalle">
                                             <i class="fas fa-eye"></i>
