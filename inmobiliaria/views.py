@@ -1,5 +1,5 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from django.http import HttpResponse, JsonResponse, QueryDict
+from django.http import HttpResponse, HttpResponseNotAllowed, JsonResponse, QueryDict
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
@@ -2314,13 +2314,17 @@ def reservas_eliminadas(request):
     })
 
 def operaciones(request):
+    from .models.recibo import Recibo
     # Obtener solo reservas pagadas (completas o con saldo pendiente) ordenadas por fecha más reciente
     # Excluir reservas eliminadas (soft delete)
     reservas = Reserva.objects.filter(
         sucursal=request.user.sucursal,
         estado__in=['pagada', 'confirmada_no_pagada'],
         eliminada=False
-    ).select_related('cliente', 'propiedad', 'propiedad__propietario', 'vendedor').prefetch_related('pagos', 'recibos').order_by('-id')
+    ).select_related('cliente', 'propiedad', 'propiedad__propietario', 'vendedor').prefetch_related(
+        'pagos',
+        Prefetch('recibos', queryset=Recibo.objects.select_related('movimiento_caja__caja')),
+    ).order_by('-id')
     
     # ✅ Filtro de búsqueda por ID
     search_id = request.GET.get('search_id', '').strip()
@@ -2380,7 +2384,11 @@ def operaciones(request):
             propiedad_id__in=propiedad_ids,
             tipo=TipoMovimientoCajaEnum.INGRESO,
             concepto__icontains="Operación"
-        ).only('id', 'propiedad_id', 'concepto', 'monto_efectivo', 'monto_cheque', 'monto_tarjeta', 'monto_deposito')
+        ).select_related('caja').only(
+            'id', 'propiedad_id', 'concepto', 'fecha',
+            'monto_efectivo', 'monto_cheque', 'monto_tarjeta', 'monto_deposito',
+            'caja_id', 'caja__estado', 'caja__fecha_cierre', 'caja__numero',
+        )
         for mov in movs_qs:
             if not mov.concepto:
                 continue
@@ -9209,11 +9217,25 @@ def gestionar_caja(request):
 
 
 @login_required
+@transaction.atomic
 def eliminar_movimiento(request, movimiento_id):
+    if request.method not in ('GET', 'POST', 'HEAD'):
+        return HttpResponseNotAllowed(['GET', 'POST', 'HEAD'])
     movimiento = get_object_or_404(MovimientoCaja, id=movimiento_id, sucursal=request.user.sucursal)
+    caja = movimiento.caja
+    if caja and (getattr(caja, 'estado', None) != 'abierta' or caja.fecha_cierre is not None):
+        messages.error(request, 'Solo se pueden eliminar movimientos de una caja abierta.')
+        if caja and caja.numero is not None:
+            return redirect('inmobiliaria:detalle_caja', numero=caja.numero)
+        return redirect('inmobiliaria:gestionar_caja')
+
     caja_numero = movimiento.caja_id and movimiento.caja.numero
-    movimiento.delete()
-    messages.success(request, 'Movimiento eliminado correctamente.')
+    _eliminar_movimiento_y_anexos(movimiento)
+    messages.success(request, 'Movimiento de caja y recibo asociado eliminados correctamente.')
+
+    next_target = (request.POST.get('next') or request.GET.get('next') or '').strip()
+    if next_target == 'operaciones':
+        return redirect('inmobiliaria:operaciones')
     if caja_numero is not None:
         return redirect('inmobiliaria:detalle_caja', numero=caja_numero)
     return redirect('inmobiliaria:gestionar_caja')
