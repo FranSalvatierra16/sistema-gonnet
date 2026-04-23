@@ -386,8 +386,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     `;
                     
                     data.operaciones.forEach((op, index) => {
+                        const tipoEtiqueta = op.tipo_display || (op.tipo === 'reserva' ? 'Por día' : 'Contrato');
+                        const badgeClass = op.tipo === 'reserva' ? 'bg-info text-dark' : 'bg-success';
+                        const noIncluible = op.incluible === false;
+                        const filaClass = noIncluible ? 'table-light text-muted' : '';
+                        const chkDisabled = noIncluible ? 'disabled' : '';
                         html += `
-                            <tr>
+                            <tr class="${filaClass}">
                                 <td>
                                     <input type="checkbox" class="form-check-input operacion-checkbox" 
                                            data-tipo="${op.tipo}"
@@ -397,11 +402,12 @@ document.addEventListener('DOMContentLoaded', function() {
                                            data-monto-inmobiliaria="${op.monto_inmobiliaria || '0'}"
                                            data-fecha-desde="${op.fecha_inicio}"
                                            data-fecha-hasta="${op.fecha_fin}"
+                                           ${chkDisabled}
                                            onchange="calcularMontosSeleccionados()">
                                 </td>
                                 <td>
-                                    <span class="badge ${op.tipo === 'reserva' ? 'bg-primary' : 'bg-success'}">
-                                        ${op.tipo === 'reserva' ? 'Reserva' : 'Contrato'}
+                                    <span class="badge ${badgeClass}">
+                                        ${tipoEtiqueta}
                                     </span>
                                 </td>
                                 <td>${op.descripcion}</td>
@@ -418,7 +424,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="mt-2">
                             <small class="text-muted">
                                 <i class="fas fa-info-circle me-1"></i>
-                                Selecciona las operaciones que deseas incluir en la liquidación. Los montos se calcularán automáticamente.
+                                <strong>Por día</strong> son reservas por estadía; <strong>Contrato</strong> son alquileres mensuales con cuotas.
+                                Las filas atenuadas con casilla deshabilitada son solo referencia (por ejemplo, contrato sin cuotas pagadas aún).
+                                Seleccioná las operaciones a incluir: los montos se calculan automáticamente.
                             </small>
                         </div>
                     `;
@@ -431,8 +439,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     // Event listener para seleccionar todos
                     document.getElementById('seleccionar-todos').addEventListener('change', function() {
-                        const checkboxes = document.querySelectorAll('.operacion-checkbox');
-                        checkboxes.forEach(cb => cb.checked = this.checked);
+                        document.querySelectorAll('.operacion-checkbox:not(:disabled)').forEach(cb => {
+                            cb.checked = this.checked;
+                        });
                         calcularMontosSeleccionados();
                     });
                 } else {
