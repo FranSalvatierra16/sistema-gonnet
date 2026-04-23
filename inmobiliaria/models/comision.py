@@ -15,19 +15,31 @@ ROL_COMISION_OP_24 = 'operacion_24_meses'
 
 def rol_comision_al_crear_linea_unica(vendedor, reserva):
     """
-    Rol coherente con porcentaje_comision_para_reserva() cuando hay una sola línea
-    (pago sin honorarios desglosados). Debe seguir el mismo orden de prioridad que Vendedor.porcentaje_comision_para_reserva.
+    Rol alineado con el % que realmente devuelve porcentaje_comision_para_reserva()
+    (pago sin honorarios desglosados). Evita marcar «fichaje» solo porque exista % de
+    fichaje en la ficha si en esta reserva aplica el % de comisión por día.
     """
     if not reserva or not getattr(reserva, 'propiedad_id', None):
         return ROL_COMISION_GENERAL
+
+    pct = vendedor.porcentaje_comision_para_reserva(reserva)
+    if pct is None or pct <= 0:
+        return ROL_COMISION_GENERAL
+
     prop = reserva.propiedad
     try:
         dias = (reserva.fecha_fin - reserva.fecha_inicio).days
     except (TypeError, AttributeError):
         dias = 0
+
     es_alquiler_largo = dias >= 600
-    if es_alquiler_largo and vendedor.comision_alquiler_24_meses is not None:
+    if (
+        es_alquiler_largo
+        and vendedor.comision_alquiler_24_meses is not None
+        and pct == vendedor.comision_alquiler_24_meses
+    ):
         return ROL_COMISION_OP_24
+
     if (
         vendedor.comision_invierno is not None
         and dias < 600
@@ -38,13 +50,17 @@ def rol_comision_al_crear_linea_unica(vendedor, reserva):
             mes_ini = reserva.fecha_inicio.month
         except AttributeError:
             mes_ini = 0
-        if mes_ini in (4, 5, 6, 7, 8, 9, 10):
+        if mes_ini in (4, 5, 6, 7, 8, 9, 10) and pct == vendedor.comision_invierno:
             return ROL_COMISION_OP_INVIERNO
+
     tipo = getattr(prop, 'tipo_fichaje', None) or 'primer'
     if tipo == 'segundo' and vendedor.comision_segundo_fichaje is not None:
-        return ROL_COMISION_FICHAJE
+        if pct == vendedor.comision_segundo_fichaje:
+            return ROL_COMISION_FICHAJE
     if tipo == 'primer' and vendedor.comision_primer_fichaje is not None:
-        return ROL_COMISION_FICHAJE
+        if pct == vendedor.comision_primer_fichaje:
+            return ROL_COMISION_FICHAJE
+
     return ROL_COMISION_GENERAL
 
 
@@ -344,12 +360,34 @@ class ComisionVendedor(models.Model):
         if rol == ROL_COMISION_FICHAJE:
             res = getattr(self, 'reserva', None)
             prop = getattr(res, 'propiedad', None) if res else None
-            tf = (getattr(prop, 'tipo_fichaje', None) or 'primer')
-            if tf == 'segundo':
-                return 'Comisión por segundo fichaje'
-            return 'Comisión por primer fichaje'
+            vend = getattr(self, 'vendedor', None)
+            concepto_l = (self.concepto_operacion or '').lower()
+            pct_linea = self.porcentaje_comision
+
+            # Línea real de fichaje sobre honorarios (segunda línea del pago)
+            if 'honorarios' in concepto_l and 'fichaje' in concepto_l:
+                tf = (getattr(prop, 'tipo_fichaje', None) or 'primer')
+                if tf == 'segundo':
+                    return 'Comisión por segundo fichaje'
+                return 'Comisión por primer fichaje'
+
+            # Línea única o legado con rol «fichaje» pero % distinto al de fichaje → era comisión por día
+            pct_fichaje = None
+            if vend is not None and prop is not None:
+                tipo_prop = getattr(prop, 'tipo_fichaje', None) or 'primer'
+                if tipo_prop == 'segundo':
+                    pct_fichaje = vend.comision_segundo_fichaje
+                else:
+                    pct_fichaje = vend.comision_primer_fichaje
+            if pct_fichaje is not None and pct_linea is not None and pct_linea == pct_fichaje:
+                tf = (getattr(prop, 'tipo_fichaje', None) or 'primer')
+                if tf == 'segundo':
+                    return 'Comisión por segundo fichaje'
+                return 'Comisión por primer fichaje'
+            return 'Comisión por día'
+
         if rol == ROL_COMISION_OP_DIA:
-            return 'Comisión por alquiler por día'
+            return 'Comisión por día'
         if rol == ROL_COMISION_OP_INVIERNO:
             return 'Comisión por alquiler invierno'
         if rol == ROL_COMISION_OP_24:
