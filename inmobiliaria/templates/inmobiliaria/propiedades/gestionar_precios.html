@@ -155,8 +155,22 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function desformatearNumero(valor) {
-        // Quitar todos los puntos para obtener el número puro
-        return valor.replace(/\./g, '');
+        let t = String(valor || '').trim().replace(/\s/g, '').replace(/[^\d.,-]/g, '');
+        if (!t || t === ',' || t === '.' || t === '-') return '';
+        let neg = false;
+        if (t.startsWith('-')) { neg = true; t = t.slice(1); }
+        let normalized;
+        if (t.indexOf(',') !== -1) {
+            normalized = t.replace(/\./g, '').replace(',', '.');
+        } else {
+            const parts = t.split('.');
+            const dotCount = parts.length - 1;
+            if (dotCount === 1 && parts[1].length <= 2) normalized = t;
+            else normalized = t.replace(/\./g, '');
+        }
+        const n = parseFloat(neg ? '-' + normalized : normalized);
+        if (isNaN(n)) return '';
+        return String(Math.round(n));
     }
     
     // Aplicar formateo a todos los campos de precio

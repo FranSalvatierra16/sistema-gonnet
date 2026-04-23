@@ -3,37 +3,27 @@ import builtins
 from django import template
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
+from ..decimal_utils import parse_decimal_monto
+
 register = template.Library()
 _abs = builtins.abs
 
 
 def _parse_decimal(value):
-    """Convierte valor de plantilla a Decimal (acepta AR con puntos miles y coma decimal)."""
+    """Convierte valor de plantilla a Decimal (acepta AR y decimal con un punto)."""
     if value is None or value == '':
         return Decimal('0')
     if isinstance(value, Decimal):
         return value
     if isinstance(value, str):
-        t = value.strip()
-        if not t:
-            return Decimal('0')
-        # 1.234.567,89 → quitar puntos de miles, coma a punto decimal
-        if ',' in t:
-            t = t.replace('.', '').replace(',', '.')
-        else:
-            # Solo puntos: puede ser miles (1.000) o decimal US (1.5)
-            if t.count('.') == 1 and len(t.split('.')[-1]) <= 2:
-                pass  # decimal corto
-            else:
-                t = t.replace('.', '')
-        return Decimal(t)
+        return parse_decimal_monto(value)
     if isinstance(value, bool):
         return Decimal(int(value))
     if isinstance(value, int):
         return Decimal(value)
     if isinstance(value, float):
         return Decimal(str(value))
-    return Decimal(str(value))
+    return parse_decimal_monto(str(value))
 
 
 def _entero_miles_puntos(n: int) -> str:

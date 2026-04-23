@@ -332,8 +332,22 @@ function mostrarModalContratoInvierno(propiedadId, direccion, sucursal, precioMe
 // Actualizar precio 2do cuatrimestre cuando cambia el precio mensual (+20%, editable)
 function actualizarPrecioSegundoCuatriInvierno() {
     var input = document.getElementById('precio_mensual_input_invierno');
-    var valor = (input && input.value) ? String(input.value).replace(/\./g, '').replace(',', '.') : '';
-    var num = parseFloat(valor);
+    var raw = (input && input.value) ? String(input.value).trim() : '';
+    var num = (function(v) {
+        if (!v) return NaN;
+        var t = v.replace(/\s/g, '').replace(/[^\d.,-]/g, '');
+        if (!t || t === ',' || t === '.' || t === '-') return NaN;
+        var neg = false;
+        if (t.charAt(0) === '-') { neg = true; t = t.slice(1); }
+        var norm;
+        if (t.indexOf(',') !== -1) norm = t.replace(/\./g, '').replace(',', '.');
+        else {
+            var p = t.split('.');
+            if (p.length === 2 && p[1].length <= 2) norm = t;
+            else norm = t.replace(/\./g, '');
+        }
+        return parseFloat(neg ? '-' + norm : norm);
+    })(raw);
     if (!isNaN(num) && num > 0) {
         var segundo = Math.round(num * 1.2);
         document.getElementById('precio_segundo_cuatri_invierno').value = segundo;

@@ -15,6 +15,8 @@ from django.views.decorators.http import require_POST
 import re
 import logging
 
+from .decimal_utils import parse_decimal_monto
+
 logger = logging.getLogger(__name__)
 
 # Modelos usados por vistas definidas antes del import masivo de .models (línea ~871)
@@ -537,7 +539,7 @@ def crear_vale(request):
         try:
             # Obtener datos del formulario
             vendedor_id = request.POST.get('vendedor_id')
-            monto = Decimal(request.POST.get('monto', '0').replace('.', '').replace(',', '.'))
+            monto = parse_decimal_monto(request.POST.get('monto', '0'))
             concepto = request.POST.get('concepto', 'Vale')
             observaciones = request.POST.get('observaciones', '')
             
@@ -4856,25 +4858,7 @@ def procesar_movimiento_reserva(request):
             
             # ✅ Función para limpiar valores monetarios
             def limpiar_valor_monetario(valor_str):
-                if not valor_str:
-                    return '0'
-                valor = str(valor_str).strip()
-                # Quitar cualquier carácter que no sea dígito, punto, coma o signo
-                valor = re.sub(r'[^\d.,\-]', '', valor)
-                if not valor:
-                    return '0'
-                valor = valor.replace(' ', '')
-                # Normalizar múltiples separadores
-                if valor.count('.') > 1:
-                    partes = valor.split('.')
-                    valor = ''.join(partes[:-1]) + '.' + partes[-1]
-                if valor.count(',') > 1:
-                    partes = valor.split(',')
-                    valor = ''.join(partes[:-1]) + ',' + partes[-1]
-                valor = valor.replace('.', '').replace(',', '.')
-                if valor in {'', '-', '.'}:
-                    return '0'
-                return valor
+                return str(parse_decimal_monto(valor_str or '0'))
 
             def obtener_decimal(nombre_campo, etiqueta=None):
                 """
@@ -11718,21 +11702,15 @@ def crear_contrato_alquiler(request):
             fecha_inicio = request.POST.get('fecha_inicio')
             fecha_fin = request.POST.get('fecha_fin')
             duracion_meses = int(request.POST.get('duracion_meses', 24))
-            precio_mensual = Decimal(request.POST.get('precio_mensual').replace('.', '').replace(',', '.'))
-            _precio_2do = (request.POST.get('precio_segundo_cuatrimestre') or '').strip().replace('.', '').replace(',', '.')
-            try:
-                precio_segundo_cuatrimestre = Decimal(_precio_2do) if _precio_2do else None
-            except (InvalidOperation, ValueError):
-                precio_segundo_cuatrimestre = None
-            deposito_garantia = Decimal(request.POST.get('deposito_garantia').replace('.', '').replace(',', '.'))
+            precio_mensual = parse_decimal_monto(request.POST.get('precio_mensual'))
+            _raw_2do = (request.POST.get('precio_segundo_cuatrimestre') or '').strip()
+            precio_segundo_cuatrimestre = parse_decimal_monto(_raw_2do) if _raw_2do else None
+            deposito_garantia = parse_decimal_monto(request.POST.get('deposito_garantia'))
 
             def _decimal_desde_input_plata(s):
                 if not s or not str(s).strip():
                     return Decimal('0')
-                try:
-                    return Decimal(str(s).strip().replace('.', '').replace(',', '.'))
-                except (InvalidOperation, ValueError):
-                    return Decimal('0')
+                return parse_decimal_monto(s)
 
             honorarios_referencia = _decimal_desde_input_plata(request.POST.get('honorarios_contrato'))
             sellados_referencia = _decimal_desde_input_plata(request.POST.get('sellados_contrato'))
@@ -12239,7 +12217,7 @@ def actualizar_precios_bloques_contrato(request, contrato_id):
             raw_list.append(None)
         else:
             try:
-                raw_list.append(float(Decimal(v.replace('.', '').replace(',', '.'))))
+                raw_list.append(float(parse_decimal_monto(v)))
             except (InvalidOperation, ValueError, TypeError):
                 raw_list.append(None)
 
@@ -12415,12 +12393,7 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
         def limpiar_valor_monetario(valor_str):
             if not valor_str or str(valor_str).strip() == '':
                 return Decimal('0')
-            s = str(valor_str).strip().replace('$', '').replace(' ', '')
-            valor_limpio = s.replace('.', '').replace(',', '.')
-            try:
-                return Decimal(valor_limpio)
-            except Exception:
-                return Decimal('0')
+            return parse_decimal_monto(valor_str)
         
         # ✅ Obtener cuentas bancarias dinámicamente
         from inmobiliaria.models.sucursal import CuentaBancaria
@@ -12664,10 +12637,7 @@ def _decimal_desde_trimestre_json(entry):
     s = str(entry).strip()
     if not s or s.lower() in ('null', 'none'):
         return None
-    try:
-        return Decimal(s.replace('.', '').replace(',', '.'))
-    except (InvalidOperation, ValueError, TypeError):
-        return None
+    return parse_decimal_monto(s)
 
 
 def _montos_cuotas_por_trimestre(contrato):
@@ -12716,7 +12686,7 @@ def procesar_operacion_contrato(request, contrato_id):
         
         if nuevo_precio_mensual:
             try:
-                nuevo_precio_mensual = Decimal(nuevo_precio_mensual.replace('.', '').replace(',', '.'))
+                nuevo_precio_mensual = parse_decimal_monto(nuevo_precio_mensual)
                 contrato.precio_mensual = nuevo_precio_mensual
                 contrato.save()
                 CuotaMensual.objects.filter(
@@ -12755,10 +12725,9 @@ def procesar_operacion_contrato(request, contrato_id):
             for i in range(conceptos_count):
                 cid = (request.POST.get(f'concepto_{i}_id') or '').strip()
                 raw_importe = (request.POST.get(f'concepto_{i}_importe') or '0').strip()
-                raw_limpio = raw_importe.replace('.', '').replace(',', '.')
                 try:
-                    importe_val = float(Decimal(raw_limpio))
-                except (ValueError, InvalidOperation):
+                    importe_val = float(parse_decimal_monto(raw_importe))
+                except (ValueError, InvalidOperation, TypeError):
                     importe_val = 0.0
                 if cid == '10':
                     concepto_10_importe = importe_val
@@ -13672,11 +13641,8 @@ def actualizar_precio_reserva(request, reserva_id):
                 'error': 'El precio no puede estar vacío'
             })
         
-        # Limpiar y convertir el precio (quitar puntos, comas, etc.)
-        nuevo_precio_str = nuevo_precio_str.replace('.', '').replace(',', '').replace('$', '').strip()
-        
         try:
-            nuevo_precio = Decimal(nuevo_precio_str)
+            nuevo_precio = parse_decimal_monto(nuevo_precio_str)
         except (ValueError, InvalidOperation):
             return JsonResponse({
                 'success': False,
@@ -16802,7 +16768,7 @@ def crear_liquidacion(request, reserva_id=None):
     if request.method == 'POST':
         try:
             def parse_decimal_es(valor):
-                return Decimal((valor or '0').replace('.', '').replace(',', '.'))
+                return parse_decimal_monto(valor or '0')
 
             propiedad_id = request.POST.get('propiedad_id')
             monto_total = parse_decimal_es(request.POST.get('monto_total', '0'))
@@ -17642,14 +17608,13 @@ def agregar_gasto(request, liquidacion_id):
 
     try:
         descripcion = request.POST.get('descripcion', '').strip()
-        monto_str = request.POST.get('monto', '0').replace('.', '').replace(',', '.')
         fecha_gasto = request.POST.get('fecha_gasto', '')
         observaciones = request.POST.get('observaciones', '').strip()
 
         if not descripcion:
             return JsonResponse({'success': False, 'error': 'La descripción es obligatoria.'})
 
-        monto = Decimal(monto_str)
+        monto = parse_decimal_monto(request.POST.get('monto', '0'))
         if monto <= 0:
             return JsonResponse({'success': False, 'error': 'El monto debe ser mayor a cero.'})
 
@@ -17715,7 +17680,6 @@ def crear_gasto_pendiente(request):
             propietario_id = request.POST.get('propietario_id')
             propiedad_id = request.POST.get('propiedad_id')
             descripcion = request.POST.get('descripcion', '').strip()
-            monto_str = request.POST.get('monto', '0').replace('.', '').replace(',', '.')
             fecha_gasto = request.POST.get('fecha_gasto', '')
             observaciones = request.POST.get('observaciones', '').strip()
 
@@ -17725,7 +17689,7 @@ def crear_gasto_pendiente(request):
             if not propietario_id and not propiedad_id:
                 return JsonResponse({'success': False, 'error': 'Debe seleccionar un propietario o una propiedad.'})
 
-            monto = Decimal(monto_str)
+            monto = parse_decimal_monto(request.POST.get('monto', '0'))
             if monto <= 0:
                 return JsonResponse({'success': False, 'error': 'El monto debe ser mayor a cero.'})
 
@@ -17916,10 +17880,10 @@ def procesar_liquidacion(request, liquidacion_id):
             return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion_id)
 
         # Obtener método de pago
-        monto_efectivo = Decimal(request.POST.get('monto_efectivo', '0').replace('.', '').replace(',', '.'))
-        monto_cheque = Decimal(request.POST.get('monto_cheque', '0').replace('.', '').replace(',', '.'))
-        monto_tarjeta = Decimal(request.POST.get('monto_tarjeta', '0').replace('.', '').replace(',', '.'))
-        monto_deposito = Decimal(request.POST.get('monto_deposito', '0').replace('.', '').replace(',', '.'))
+        monto_efectivo = parse_decimal_monto(request.POST.get('monto_efectivo', '0'))
+        monto_cheque = parse_decimal_monto(request.POST.get('monto_cheque', '0'))
+        monto_tarjeta = parse_decimal_monto(request.POST.get('monto_tarjeta', '0'))
+        monto_deposito = parse_decimal_monto(request.POST.get('monto_deposito', '0'))
 
         total_pago = monto_efectivo + monto_cheque + monto_tarjeta + monto_deposito
 

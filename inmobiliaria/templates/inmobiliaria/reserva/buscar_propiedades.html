@@ -3814,6 +3814,26 @@ function actualizarTablaPreciosDesdeArray(precios) {
 </div>
 
 <script>
+function parseDecimalMontoJS(val) {
+    if (val == null || val === '') return 0;
+    let t = String(val).trim().replace(/\s/g, '');
+    if (!t) return 0;
+    t = t.replace(/[^\d.,-]/g, '');
+    if (!t || t === ',' || t === '.' || t === '-') return 0;
+    let neg = false;
+    if (t.startsWith('-')) { neg = true; t = t.slice(1); }
+    let normalized;
+    if (t.indexOf(',') !== -1) {
+        normalized = t.replace(/\./g, '').replace(',', '.');
+    } else {
+        const parts = t.split('.');
+        const dotCount = parts.length - 1;
+        if (dotCount === 1 && parts[1].length <= 2) normalized = t;
+        else normalized = t.replace(/\./g, '');
+    }
+    const n = parseFloat(neg ? '-' + normalized : normalized);
+    return isNaN(n) ? 0 : n;
+}
 // Función para abrir el modal de gestión de precios
 function abrirModalGestionPrecios() {
     if (!propiedadSeleccionada || !propiedadSeleccionada.id) {
@@ -4081,7 +4101,7 @@ function guardarPrecioIndividualAutomatico(fila) {
         }
         
         // Obtener todos los valores de la fila
-        const desformatear = (valor) => (valor || '').toString().replace(/\./g, '');
+        const desformatear = (valor) => parseDecimalMontoJS(valor || '');
         const inputToma = fila.querySelector('[data-field="precio_toma"]');
         const inputDiaToma = fila.querySelector('[data-field="precio_dia_toma"]');
         const inputPorDia = fila.querySelector('[data-field="precio_por_dia"]');
@@ -4133,7 +4153,7 @@ function guardarPrecioIndividualAutomatico(fila) {
 // Función para calcular precio de quincena automáticamente
 function calcularPrecioQuincena(fila) {
     // ✅ Desformatear antes de parsear
-    const desformatear = (valor) => (valor || '').toString().replace(/\./g, '');
+    const desformatear = (valor) => parseDecimalMontoJS(valor || '');
     const formatear = (numero) => Math.round(numero).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
     
     const precioPorDia = parseFloat(desformatear(fila.querySelector('[data-field="precio_por_dia"]').value)) || 0;
@@ -4243,7 +4263,7 @@ function guardarCambiosPrecios() {
         console.log('  - Input Por Día:', inputPorDia, inputPorDia ? inputPorDia.value : 'NO ENCONTRADO');
         
         // ✅ Desformatear antes de convertir a número (quitar puntos)
-        const desformatear = (valor) => (valor || '').toString().replace(/\./g, '');
+        const desformatear = (valor) => parseDecimalMontoJS(valor || '');
         
         // ✅ Tipos que NO deben tener precio_total
         const tiposSinQuincena = ['FINDE_LARGO', 'SEMANA_SANTA', 'CARNAVALES'];
@@ -4440,7 +4460,7 @@ function guardarPrecioIndividualAutomatico(fila) {
         }
         
         // Obtener todos los valores de la fila
-        const desformatear = (valor) => (valor || '').toString().replace(/\./g, '');
+        const desformatear = (valor) => parseDecimalMontoJS(valor || '');
         const inputToma = fila.querySelector('[data-field="precio_toma"]');
         const inputDiaToma = fila.querySelector('[data-field="precio_dia_toma"]');
         const inputPorDia = fila.querySelector('[data-field="precio_por_dia"]');
@@ -4492,7 +4512,7 @@ function guardarPrecioIndividualAutomatico(fila) {
 // Función para calcular precio de quincena automáticamente
 function calcularPrecioQuincena(fila) {
     // ✅ Desformatear antes de parsear
-    const desformatear = (valor) => (valor || '').toString().replace(/\./g, '');
+    const desformatear = (valor) => parseDecimalMontoJS(valor || '');
     const formatear = (numero) => Math.round(numero).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
     
     const precioPorDia = parseFloat(desformatear(fila.querySelector('[data-field="precio_por_dia"]').value)) || 0;
@@ -4602,7 +4622,7 @@ function guardarCambiosPrecios() {
         console.log('  - Input Por Día:', inputPorDia, inputPorDia ? inputPorDia.value : 'NO ENCONTRADO');
         
         // ✅ Desformatear antes de convertir a número (quitar puntos)
-        const desformatear = (valor) => (valor || '').toString().replace(/\./g, '');
+        const desformatear = (valor) => parseDecimalMontoJS(valor || '');
         
         // ✅ Tipos que NO deben tener precio_total
         const tiposSinQuincena = ['FINDE_LARGO', 'SEMANA_SANTA', 'CARNAVALES'];
@@ -4758,7 +4778,7 @@ function guardarTodosLosPreciosYCerrar() {
         
         filas.forEach(fila => {
             const tipoPrecio = fila.dataset.precioId;
-            const desformatear = (valor) => (valor || '').toString().replace(/\./g, '');
+            const desformatear = (valor) => parseDecimalMontoJS(valor || '');
             
             const inputToma = fila.querySelector('[data-field="precio_toma"]');
             const inputDiaToma = fila.querySelector('[data-field="precio_dia_toma"]');

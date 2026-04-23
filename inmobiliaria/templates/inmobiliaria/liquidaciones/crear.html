@@ -851,13 +851,25 @@ document.addEventListener('DOMContentLoaded', function() {
         }).format(Number(numero) || 0);
     }
 
-    // Parsear "630.000,00" o "630000" a número
+    // Parsear "630.000,00", "630000" o "350080.20" (un punto = decimal) a número
     function parseNumeroEsAR(val) {
         if (val == null || val === '') return 0;
-        const s = String(val).trim().replace(/\s/g, '');
-        if (!s) return 0;
-        const normalized = s.replace(/\./g, '').replace(',', '.');
-        const n = parseFloat(normalized);
+        let t = String(val).trim().replace(/\s/g, '');
+        if (!t) return 0;
+        t = t.replace(/[^\d.,-]/g, '');
+        if (!t || t === ',' || t === '.' || t === '-') return 0;
+        let neg = false;
+        if (t.startsWith('-')) { neg = true; t = t.slice(1); }
+        let normalized;
+        if (t.indexOf(',') !== -1) {
+            normalized = t.replace(/\./g, '').replace(',', '.');
+        } else {
+            const parts = t.split('.');
+            const dotCount = parts.length - 1;
+            if (dotCount === 1 && parts[1].length <= 2) normalized = t;
+            else normalized = t.replace(/\./g, '');
+        }
+        const n = parseFloat(neg ? '-' + normalized : normalized);
         return isNaN(n) ? 0 : n;
     }
 

@@ -442,6 +442,26 @@
 </style>
 
 <script>
+function parseDecimalMontoJS(val) {
+    if (val == null || val === '') return 0;
+    let t = String(val).trim().replace(/\s/g, '');
+    if (!t) return 0;
+    t = t.replace(/[^\d.,-]/g, '');
+    if (!t || t === ',' || t === '.' || t === '-') return 0;
+    let neg = false;
+    if (t.startsWith('-')) { neg = true; t = t.slice(1); }
+    let normalized;
+    if (t.indexOf(',') !== -1) {
+        normalized = t.replace(/\./g, '').replace(',', '.');
+    } else {
+        const parts = t.split('.');
+        const dotCount = parts.length - 1;
+        if (dotCount === 1 && parts[1].length <= 2) normalized = t;
+        else normalized = t.replace(/\./g, '');
+    }
+    const n = parseFloat(neg ? '-' + normalized : normalized);
+    return isNaN(n) ? 0 : n;
+}
 // Variable global para el timeout de búsqueda
 let busquedaVendedorTimeout;
 
@@ -899,9 +919,8 @@ function actualizarResumenContrato() {
     const precioMensualTexto = document.getElementById('precio_mensual_input').value;
     const depositoTexto = document.getElementById('deposito_garantia').value;
     
-    // Parsear valores (eliminar puntos y convertir)
-    const precioMensual = parseFloat(precioMensualTexto.replace(/\./g, '')) || 0;
-    const deposito = parseFloat(depositoTexto.replace(/\./g, '')) || 0;
+    const precioMensual = parseDecimalMontoJS(precioMensualTexto);
+    const deposito = parseDecimalMontoJS(depositoTexto);
     
     const totalContrato = precioMensual * duracionMeses;
     

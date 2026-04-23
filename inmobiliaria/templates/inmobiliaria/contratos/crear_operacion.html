@@ -471,17 +471,31 @@ function actualizarObservacionConcepto(conceptoId, valor) {
 }
 window.actualizarObservacionConcepto = actualizarObservacionConcepto;
 
-// Función para parsear valores formateados
+function parseDecimalMontoJS(val) {
+    if (val == null || val === '') return 0;
+    let t = String(val).trim().replace(/\s/g, '');
+    if (!t) return 0;
+    t = t.replace(/[^\d.,-]/g, '');
+    if (!t || t === ',' || t === '.' || t === '-') return 0;
+    let neg = false;
+    if (t.startsWith('-')) { neg = true; t = t.slice(1); }
+    let normalized;
+    if (t.indexOf(',') !== -1) {
+        normalized = t.replace(/\./g, '').replace(',', '.');
+    } else {
+        const parts = t.split('.');
+        const dotCount = parts.length - 1;
+        if (dotCount === 1 && parts[1].length <= 2) normalized = t;
+        else normalized = t.replace(/\./g, '');
+    }
+    const n = parseFloat(neg ? '-' + normalized : normalized);
+    return isNaN(n) ? 0 : n;
+}
+
+// Función para parsear valores formateados (AR o decimal con un punto)
 function parsearValorFormateado(valor) {
     if (!valor || valor === '') return 0;
-    
-    // Convertir a string y limpiar: quitar $, espacios y usar punto como miles (argentino)
-    const valorStr = valor.toString().trim().replace(/\$/g, '').replace(/\s/g, '');
-    // Remover puntos de miles (formato argentino); coma es decimal
-    const valorLimpio = valorStr.replace(/\./g, '').replace(',', '.');
-    
-    const resultado = parseFloat(valorLimpio) || 0;
-    return resultado;
+    return parseDecimalMontoJS(valor.toString().trim().replace(/\$/g, ''));
 }
 
 // Función para formatear números en tiempo real
