@@ -149,7 +149,12 @@
                                     <tbody>
                                         {% for gasto in gastos %}
                                         <tr>
-                                            <td>{{ gasto.descripcion }}</td>
+                                            <td>
+                                                {{ gasto.descripcion }}
+                                                {% if gasto.observaciones %}
+                                                <br><small class="text-muted">{{ gasto.observaciones }}</small>
+                                                {% endif %}
+                                            </td>
                                             <td>${{ gasto.monto|floatformat:2 }}</td>
                                             <td>{% if gasto.fecha_gasto %}{{ gasto.fecha_gasto|date:"d/m/Y" }}{% else %}-{% endif %}</td>
                                             <td>
@@ -185,12 +190,66 @@
                             <div class="alert alert-info">
                                 <i class="fas fa-info-circle me-2"></i>
                                 No hay gastos registrados para esta liquidación.
+                                {% if liquidacion.estado == 'pendiente' and gastos_pendientes_disponibles %}
+                                <span class="d-block mt-2">Podés incluir gastos pendientes de caja o manuales desde la sección <strong>Gastos pendientes por incluir</strong> más abajo, o cargar uno nuevo con <strong>Agregar Gasto</strong>.</span>
+                                {% endif %}
                             </div>
                             {% endif %}
                         </div>
                     </div>
                 </div>
             </div>
+
+            {% if liquidacion.estado == 'pendiente' and gastos_pendientes_disponibles %}
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card shadow border-warning">
+                        <div class="card-header bg-warning text-dark">
+                            <h5 class="mb-0"><i class="fas fa-clock me-2"></i>Gastos pendientes por incluir</h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="small text-muted mb-3">
+                                Son los mismos egresos de caja y gastos manuales pendientes que ves al crear una liquidación para esta propiedad.
+                                Al pulsar <strong>Incluir en esta liquidación</strong> se descuentan del monto a pagar (quedan como gastos aceptados de la liquidación).
+                            </p>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Detalle</th>
+                                            <th class="text-end">Monto</th>
+                                            <th>Fecha</th>
+                                            <th class="text-end">Acción</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for row in gastos_pendientes_disponibles %}
+                                        <tr>
+                                            <td>
+                                                <span class="small">{{ row.descripcion }}</span>
+                                                {% if row.tipo == 'egreso_caja' %}
+                                                <br><span class="badge bg-light text-dark border">Egreso caja</span>
+                                                {% else %}
+                                                <br><span class="badge bg-light text-dark border">Gasto manual</span>
+                                                {% endif %}
+                                            </td>
+                                            <td class="text-end">${{ row.monto|format_price }}</td>
+                                            <td class="text-nowrap small">{{ row.fecha_gasto_display|default:"—" }}</td>
+                                            <td class="text-end">
+                                                <button type="button" class="btn btn-sm btn-primary btn-vincular-gasto-pendiente" data-linea-id="{{ row.id }}">
+                                                    Incluir en esta liquidación
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
 
             {% if liquidacion.estado == 'pendiente' %}
             <div class="row mb-3">
@@ -422,6 +481,35 @@ document.addEventListener('DOMContentLoaded', function() {
         const el = document.querySelector('[name=csrfmiddlewaretoken]');
         return el ? el.value : '';
     }
+
+    document.querySelectorAll('.btn-vincular-gasto-pendiente').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const lineaId = this.getAttribute('data-linea-id');
+            if (!lineaId) return;
+            if (!confirm('¿Incluir este gasto pendiente en la liquidación? Se descontará del monto a pagar al propietario.')) {
+                return;
+            }
+            const formData = new FormData();
+            formData.append('csrfmiddlewaretoken', getCsrfToken());
+            formData.append('linea_id', lineaId);
+            fetch('{% url "inmobiliaria:vincular_gasto_pendiente_liquidacion" liquidacion.id %}', {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-CSRFToken': getCsrfToken() }
+            })
+            .then(function(response) { return response.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert(data.error || 'No se pudo vincular el gasto.');
+                }
+            })
+            .catch(function() {
+                alert('Error al vincular el gasto.');
+            });
+        });
+    });
 
     document.querySelectorAll('.eliminar-gasto').forEach(btn => {
         btn.addEventListener('click', function() {

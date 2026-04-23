@@ -368,6 +368,35 @@ class MovimientoCaja(models.Model):
             return '—'
         return ' · '.join(parts)
 
+    def descripcion_para_gasto_liquidacion_propietario(self):
+        """
+        Texto legible para liquidaciones (egreso descontable al propietario).
+        Usa el mismo criterio que el listado de caja (detalle / categoría) en lugar de solo «Egreso #id».
+        """
+        bits = []
+        l1 = (self.listado_detalle_l1 or '').strip()
+        if l1 and l1 != '—':
+            bits.append(l1)
+        l2 = (self.listado_detalle_l2 or '').strip()
+        if l2 and l2 != '—':
+            bits.append(l2)
+        if not bits:
+            base = self.concepto_sin_pipe_conceptos().strip()
+            if base:
+                bits.append(self._texto_concepto_sin_abrev_re(base))
+        if not bits:
+            sec = (self.listado_detalle_tabla_secundario or '').strip()
+            if sec and sec != '—':
+                bits.append(sec)
+        if not bits:
+            try:
+                tipo_c = (self.get_tipo_comprobante_display() or '').strip() or (self.tipo_comprobante or '')
+            except Exception:
+                tipo_c = self.tipo_comprobante or ''
+            suf = f' · {tipo_c}' if tipo_c else ''
+            return f'Egreso de caja #{self.id}{suf} · ${self.monto_total}'
+        return ' · '.join(bits)
+
     class Meta:
         db_table = 'inmobiliaria_movimientocaja'
         ordering = ['-fecha']

@@ -16945,11 +16945,12 @@ def crear_liquidacion(request, reserva_id=None):
                             if movimiento.a_descontar not in ('propietario', 'oficina', None, ''):
                                 continue
                             # Crear un GastoPropietario desde el movimiento de caja
+                            desc_mov = movimiento.descripcion_para_gasto_liquidacion_propietario()[:200]
                             gasto = GastoPropietario.objects.create(
                                 liquidacion=liquidacion,
                                 propietario=propiedad.propietario,
                                 propiedad=propiedad,
-                                descripcion=movimiento.concepto or f'Egreso #{movimiento.id}',
+                                descripcion=desc_mov,
                                 monto=movimiento.monto_total,
                                 fecha_gasto=movimiento.fecha.date() if movimiento.fecha else None,
                                 observaciones=f'Movimiento de caja #{movimiento.id}',
@@ -17305,6 +17306,7 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
             'descripcion': gasto.descripcion,
             'monto': str(gasto.monto),
             'fecha_gasto': gasto.fecha_gasto.strftime('%Y-%m-%d') if gasto.fecha_gasto else '',
+            'fecha_gasto_display': gasto.fecha_gasto.strftime('%d/%m/%Y') if gasto.fecha_gasto else '—',
             'observaciones': gasto.observaciones,
             'tipo': 'gasto_manual'
         })
@@ -17332,16 +17334,14 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
         # Solo agregar si no existe un gasto para este movimiento
         # Incluir todos los egresos, independientemente del valor de a_descontar
         if not existe_gasto:
-            # Determinar la descripción según el concepto o el tipo de comprobante
-            descripcion = egreso.concepto or f'Egreso #{egreso.id}'
-            if egreso.tipo_comprobante == 'GS':  # Gasto
-                descripcion = egreso.concepto or 'Gasto'
-            
+            descripcion = egreso.descripcion_para_gasto_liquidacion_propietario()[:200]
+
             gastos_pendientes_list.append({
                 'id': f'movimiento_{egreso.id}',  # Prefijo para identificar que es un movimiento
                 'descripcion': descripcion,
                 'monto': str(egreso.monto_total),
                 'fecha_gasto': egreso.fecha.strftime('%Y-%m-%d') if egreso.fecha else '',
+                'fecha_gasto_display': egreso.fecha.strftime('%d/%m/%Y') if egreso.fecha else '—',
                 'observaciones': f'Movimiento de caja #{egreso.id}',
                 'tipo': 'egreso_caja',
                 'movimiento_id': egreso.id
@@ -17492,6 +17492,68 @@ def _eliminar_movimiento_y_anexos(movimiento):
     movimiento.delete()
 
 
+def _vincular_linea_gasto_pendiente_a_liquidacion(liquidacion, linea_id, sucursal):
+    """
+    Asocia a la liquidación un gasto manual pendiente o un egreso de caja (mismo criterio que al crear liquidación).
+    Retorna (True, None) o (False, mensaje_error).
+    """
+    propiedad = liquidacion.propiedad
+    propietario = liquidacion.propietario
+    linea_id = (linea_id or '').strip()
+    if not linea_id:
+        return False, 'No se indicó el gasto a vincular.'
+
+    try:
+        if linea_id.startswith('movimiento_'):
+            movimiento_id = int(linea_id.replace('movimiento_', ''))
+            movimiento = MovimientoCaja.objects.get(
+                id=movimiento_id,
+                propiedad=propiedad,
+                tipo=TipoMovimientoCajaEnum.EGRESO,
+                sucursal=sucursal,
+            )
+            if movimiento.a_descontar not in ('propietario', 'oficina', None, ''):
+                return False, 'Ese movimiento no está marcado como descontable al propietario/oficina.'
+            existe = GastoPropietario.objects.filter(
+                Q(propiedad=propiedad) | Q(propietario=propietario),
+                observaciones__icontains=f'Movimiento de caja #{movimiento.id}',
+            ).exists()
+            if existe:
+                return False, 'Ese egreso de caja ya está cargado como gasto en el sistema.'
+            desc_mov = movimiento.descripcion_para_gasto_liquidacion_propietario()[:200]
+            GastoPropietario.objects.create(
+                liquidacion=liquidacion,
+                propietario=propietario,
+                propiedad=propiedad,
+                descripcion=desc_mov,
+                monto=movimiento.monto_total,
+                fecha_gasto=movimiento.fecha.date() if movimiento.fecha else None,
+                observaciones=f'Movimiento de caja #{movimiento.id}',
+                aceptado=True,
+                sucursal=sucursal,
+            )
+            return True, None
+
+        gasto_id = int(linea_id)
+        gasto = GastoPropietario.objects.get(
+            id=gasto_id,
+            propietario=propietario,
+            liquidacion__isnull=True,
+            sucursal=sucursal,
+        )
+        if gasto.propiedad_id and gasto.propiedad_id != propiedad.id:
+            return False, 'Ese gasto pendiente pertenece a otra propiedad.'
+        gasto.liquidacion = liquidacion
+        gasto.propiedad = gasto.propiedad or propiedad
+        gasto.aceptado = True
+        gasto.save()
+        return True, None
+    except (GastoPropietario.DoesNotExist, MovimientoCaja.DoesNotExist, ValueError):
+        return False, 'No se encontró el gasto pendiente o el movimiento de caja indicado.'
+    except Exception as exc:
+        return False, str(exc)
+
+
 @login_required
 def detalle_liquidacion(request, liquidacion_id):
     """
@@ -17511,12 +17573,21 @@ def detalle_liquidacion(request, liquidacion_id):
             division_operaciones = op.get('operaciones') or []
             break
 
+    gastos_pendientes_disponibles = []
+    if liquidacion.estado == 'pendiente':
+        try:
+            data_gp = _operaciones_gastos_pendientes_data(liquidacion.propiedad, liquidacion.sucursal)
+            gastos_pendientes_disponibles = list(data_gp.get('gastos_pendientes') or [])
+        except Exception:
+            gastos_pendientes_disponibles = []
+
     context = {
         'liquidacion': liquidacion,
         'gastos': liquidacion.gastos.all().order_by('-fecha_creacion'),
         'division_operaciones': division_operaciones,
         'operaciones_tabla': _operaciones_incluidas_tabla(liquidacion),
         'puede_eliminar_liquidacion': getattr(request.user, 'nivel', 0) == 4 or getattr(request.user, 'is_superuser', False),
+        'gastos_pendientes_disponibles': gastos_pendientes_disponibles,
     }
 
     return render(request, 'inmobiliaria/liquidaciones/detalle.html', context)
@@ -17584,10 +17655,14 @@ def agregar_gasto(request, liquidacion_id):
 
         gasto = GastoPropietario.objects.create(
             liquidacion=liquidacion,
+            propietario=liquidacion.propietario,
+            propiedad=liquidacion.propiedad,
             descripcion=descripcion,
             monto=monto,
             fecha_gasto=datetime.strptime(fecha_gasto, '%Y-%m-%d').date() if fecha_gasto else None,
-            observaciones=observaciones
+            observaciones=observaciones,
+            aceptado=True,
+            sucursal=liquidacion.sucursal,
         )
 
         # Recalcular monto a pagar
@@ -17604,6 +17679,30 @@ def agregar_gasto(request, liquidacion_id):
         return JsonResponse({'success': False, 'error': f'Error en el formato de datos: {str(e)}'})
     except Exception as e:
         return JsonResponse({'success': False, 'error': f'Error al agregar el gasto: {str(e)}'})
+
+
+@login_required
+@require_POST
+def vincular_gasto_pendiente_liquidacion(request, liquidacion_id):
+    """Asocia a una liquidación pendiente un gasto manual pendiente o un egreso de caja aún no liquidado."""
+    liquidacion = get_object_or_404(
+        LiquidacionPropietario,
+        id=liquidacion_id,
+        sucursal=request.user.sucursal,
+        estado='pendiente',
+    )
+    linea_id = (request.POST.get('linea_id') or '').strip()
+    ok, err = _vincular_linea_gasto_pendiente_a_liquidacion(liquidacion, linea_id, request.user.sucursal)
+    if ok:
+        liquidacion.calcular_monto_a_pagar()
+        return JsonResponse(
+            {
+                'success': True,
+                'message': 'Gasto vinculado correctamente.',
+                'monto_a_pagar': str(liquidacion.monto_a_pagar),
+            }
+        )
+    return JsonResponse({'success': False, 'error': err or 'No se pudo vincular el gasto.'})
 
 
 @login_required
