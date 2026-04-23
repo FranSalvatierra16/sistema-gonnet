@@ -1,4 +1,5 @@
 {% load custom_filters %}
+{% load l10n %}
     <!-- Lista de Comisiones -->
     <div class="row">
         <div class="col-12">
@@ -11,6 +12,24 @@
                 </div>
                 <div class="card-body">
                     {% if comisiones %}
+                        <div class="row g-2 align-items-end mb-3 pb-3 border-bottom cv-comisiones-fecha-bar">
+                            <div class="col-12 col-sm-auto">
+                                <label class="form-label small text-muted mb-0">Desde</label>
+                                <input type="date" class="form-control form-control-sm hist-com-fecha-desde" autocomplete="off" aria-label="Fecha operación desde">
+                            </div>
+                            <div class="col-12 col-sm-auto">
+                                <label class="form-label small text-muted mb-0">Hasta</label>
+                                <input type="date" class="form-control form-control-sm hist-com-fecha-hasta" autocomplete="off" aria-label="Fecha operación hasta">
+                            </div>
+                            <div class="col-12 col-sm-auto">
+                                <button type="button" class="btn btn-sm btn-outline-secondary hist-com-fecha-limpiar">Limpiar fechas</button>
+                            </div>
+                            <div class="col-12 col-md text-md-end mt-2 mt-md-0">
+                                <span class="small text-muted">Total comisiones (filtro activo):</span>
+                                <strong class="text-success hist-com-total-filtrado ms-1">$0,00</strong>
+                                <span class="small text-muted hist-com-count-filtrado ms-2"></span>
+                            </div>
+                        </div>
                         <ul class="nav nav-pills flex-wrap mb-3 cv-comisiones-tipo-filtro" role="toolbar" aria-label="Filtrar comisiones por tipo">
                             <li class="nav-item me-1 mb-1">
                                 <button type="button" class="nav-link active rounded-pill px-3 py-2 comision-filtro-pill" data-cat="todos">Todos</button>
@@ -57,7 +76,9 @@
                                     </tr>
                                     {% endif %}
                                     {% for comision in grupo.list %}
-                                    <tr class="comision-fila-filtro" data-grupo-idx="{{ forloop.parentloop.counter0 }}" data-categoria="{{ comision.categoria_comision_filtro }}">
+                                    <tr class="comision-fila-filtro" data-grupo-idx="{{ forloop.parentloop.counter0 }}" data-categoria="{{ comision.categoria_comision_filtro }}"
+                                        data-fecha-operacion="{% if comision.fecha_operacion %}{{ comision.fecha_operacion|date:'Y-m-d' }}{% endif %}"
+                                        data-monto-comision="{% localize off %}{{ comision.monto_comision|default_if_none:0 }}{% endlocalize %}">
                                         <td>
                                             <small class="text-muted">
                                                 {{ comision.fecha_operacion|date:"d/m/Y" }}<br>

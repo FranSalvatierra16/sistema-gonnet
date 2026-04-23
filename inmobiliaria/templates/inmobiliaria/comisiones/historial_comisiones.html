@@ -243,12 +243,92 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     } catch (e) { /* noop */ }
 
+    var categoriaComisionActiva = 'todos';
+
+    function formatMoneyArHist(n) {
+        var x = Number(n) || 0;
+        return '$' + x.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function leerFechasComisionFiltro() {
+        var bar = document.querySelector('.cv-comisiones-fecha-bar');
+        var d0 = bar ? bar.querySelector('.hist-com-fecha-desde') : document.querySelector('.hist-com-fecha-desde');
+        var h0 = bar ? bar.querySelector('.hist-com-fecha-hasta') : document.querySelector('.hist-com-fecha-hasta');
+        return {
+            desde: (d0 && d0.value) ? d0.value.trim() : '',
+            hasta: (h0 && h0.value) ? h0.value.trim() : ''
+        };
+    }
+
+    function syncFechasComisionInputs(f) {
+        f = f || leerFechasComisionFiltro();
+        document.querySelectorAll('.cv-comisiones-fecha-bar').forEach(function (bar) {
+            var de = bar.querySelector('.hist-com-fecha-desde');
+            var ha = bar.querySelector('.hist-com-fecha-hasta');
+            if (de) {
+                de.value = f.desde;
+            }
+            if (ha) {
+                ha.value = f.hasta;
+            }
+        });
+    }
+
+    function filaPasaFechaComision(tr) {
+        var r = leerFechasComisionFiltro();
+        if (!r.desde && !r.hasta) {
+            return true;
+        }
+        var f = (tr.getAttribute('data-fecha-operacion') || '').trim();
+        if (!f) {
+            return false;
+        }
+        if (r.desde && f < r.desde) {
+            return false;
+        }
+        if (r.hasta && f > r.hasta) {
+            return false;
+        }
+        return true;
+    }
+
+    function actualizarTotalesComisionFiltradas() {
+        var total = 0;
+        var n = 0;
+        // La misma lista se incluye dos veces (pestañas); sumar solo la primera tabla para no duplicar.
+        var table = document.querySelector('table.cv-comisiones-tabla-comisiones');
+        if (table) {
+            table.querySelectorAll('tr.comision-fila-filtro').forEach(function (tr) {
+                if (tr.classList.contains('comision-fila-oculta')) {
+                    return;
+                }
+                var raw = tr.getAttribute('data-monto-comision');
+                var m = raw != null && raw !== '' ? parseFloat(String(raw).replace(',', '.')) : 0;
+                if (!isNaN(m)) {
+                    total += m;
+                    n += 1;
+                }
+            });
+        }
+        document.querySelectorAll('.hist-com-total-filtrado').forEach(function (el) {
+            el.textContent = formatMoneyArHist(total);
+        });
+        var txt = n ? '(' + n + ' línea' + (n === 1 ? '' : 's') + ')' : '(sin líneas visibles)';
+        document.querySelectorAll('.hist-com-count-filtrado').forEach(function (el) {
+            el.textContent = txt;
+        });
+    }
+
     function aplicarFiltroComisiones(cat) {
+        if (typeof cat === 'string' && cat) {
+            categoriaComisionActiva = cat;
+        }
         document.querySelectorAll('table.cv-comisiones-tabla-comisiones').forEach(function (table) {
             table.querySelectorAll('tr.comision-fila-filtro').forEach(function (tr) {
                 var d = (tr.getAttribute('data-categoria') || '').trim();
-                var ok = cat === 'todos' || d === cat;
-                tr.classList.toggle('comision-fila-oculta', !ok);
+                var okCat = categoriaComisionActiva === 'todos' || d === categoriaComisionActiva;
+                var okFecha = filaPasaFechaComision(tr);
+                tr.classList.toggle('comision-fila-oculta', !(okCat && okFecha));
             });
             table.querySelectorAll('tr.comision-grupo-header').forEach(function (header) {
                 var el = header.nextElementSibling;
@@ -267,18 +347,40 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         });
         document.querySelectorAll('.comision-filtro-pill').forEach(function (btn) {
-            btn.classList.toggle('active', (btn.getAttribute('data-cat') || 'todos') === cat);
+            btn.classList.toggle('active', (btn.getAttribute('data-cat') || 'todos') === categoriaComisionActiva);
         });
+        actualizarTotalesComisionFiltradas();
     }
 
     document.addEventListener('click', function (e) {
         var pill = e.target.closest('.comision-filtro-pill');
-        if (!pill) {
+        if (pill) {
+            e.preventDefault();
+            aplicarFiltroComisiones(pill.getAttribute('data-cat') || 'todos');
             return;
         }
-        e.preventDefault();
-        aplicarFiltroComisiones(pill.getAttribute('data-cat') || 'todos');
+        if (e.target.closest('.hist-com-fecha-limpiar')) {
+            e.preventDefault();
+            document.querySelectorAll('.hist-com-fecha-desde').forEach(function (el) { el.value = ''; });
+            document.querySelectorAll('.hist-com-fecha-hasta').forEach(function (el) { el.value = ''; });
+            aplicarFiltroComisiones(categoriaComisionActiva);
+        }
     });
+
+    document.addEventListener('change', function (e) {
+        if (e.target.classList.contains('hist-com-fecha-desde') || e.target.classList.contains('hist-com-fecha-hasta')) {
+            var bar = e.target.closest('.cv-comisiones-fecha-bar');
+            var de = bar ? bar.querySelector('.hist-com-fecha-desde') : null;
+            var ha = bar ? bar.querySelector('.hist-com-fecha-hasta') : null;
+            syncFechasComisionInputs({
+                desde: de ? (de.value || '').trim() : '',
+                hasta: ha ? (ha.value || '').trim() : ''
+            });
+            aplicarFiltroComisiones(categoriaComisionActiva);
+        }
+    });
+
+    aplicarFiltroComisiones('todos');
 });
 </script>
 {% endblock %}

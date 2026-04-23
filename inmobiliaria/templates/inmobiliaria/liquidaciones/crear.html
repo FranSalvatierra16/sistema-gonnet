@@ -661,6 +661,15 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     }
 
+    function escHtmlGasto(s) {
+        if (s == null || s === '') return '';
+        return String(s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
     // Función para mostrar gastos pendientes
     function mostrarGastosPendientes(gastos, colProp) {
         const container = document.getElementById('gastos-pendientes-container');
@@ -680,7 +689,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     <thead>
                         <tr>
                             ${thSelG}
-                            <th>Descripción</th>
+                            <th>Concepto</th>
+                            <th>Detalle</th>
                             ${thPropG}
                             <th>Fecha Gasto</th>
                             <th class="text-end">Monto</th>
@@ -704,11 +714,16 @@ document.addEventListener('DOMContentLoaded', function() {
                            data-gasto-id="${gasto.id}"
                            data-propiedad-id="${gpid}"
                            data-monto="${gasto.monto}"></td>`;
-                const tdPropG = mostrarCol ? `<td><small class="text-muted">${gasto.propiedad_label || '—'}</small></td>` : '';
+                const tdPropG = mostrarCol ? `<td><small class="text-muted">${escHtmlGasto(gasto.propiedad_label) || '—'}</small></td>` : '';
+                const conceptoTxt = (gasto.concepto != null && String(gasto.concepto).trim() !== '') ? String(gasto.concepto).trim() : (gasto.descripcion || '—');
+                const detalleTxt = (gasto.detalle != null && String(gasto.detalle).trim() !== '') ? String(gasto.detalle).trim() : '';
+                const conceptoCell = escHtmlGasto(conceptoTxt) || '—';
+                const detalleCell = detalleTxt ? `<small class="text-muted">${escHtmlGasto(detalleTxt)}</small>` : '<span class="text-muted">—</span>';
                 html += `
                     <tr>
                         ${tdSel}
-                        <td>${gasto.descripcion}</td>
+                        <td>${conceptoCell}</td>
+                        <td>${detalleCell}</td>
                         ${tdPropG}
                         <td>${gasto.fecha_gasto ? new Date(gasto.fecha_gasto).toLocaleDateString('es-AR') : '-'}</td>
                         <td class="text-end">$${parseFloat(gasto.monto).toLocaleString('es-AR', {minimumFractionDigits: 2})}</td>

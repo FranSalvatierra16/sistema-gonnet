@@ -216,6 +216,7 @@
                                 <table class="table table-sm table-hover mb-0">
                                     <thead>
                                         <tr>
+                                            <th>Concepto</th>
                                             <th>Detalle</th>
                                             <th class="text-end">Monto</th>
                                             <th>Fecha</th>
@@ -226,11 +227,18 @@
                                         {% for row in gastos_pendientes_disponibles %}
                                         <tr>
                                             <td>
-                                                <span class="small">{{ row.descripcion }}</span>
+                                                <span class="small">{% if row.concepto %}{{ row.concepto }}{% else %}{{ row.descripcion }}{% endif %}</span>
                                                 {% if row.tipo == 'egreso_caja' %}
                                                 <br><span class="badge bg-light text-dark border">Egreso caja</span>
                                                 {% else %}
                                                 <br><span class="badge bg-light text-dark border">Gasto manual</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if row.detalle %}
+                                                <span class="small text-muted">{{ row.detalle }}</span>
+                                                {% else %}
+                                                <span class="text-muted small">—</span>
                                                 {% endif %}
                                             </td>
                                             <td class="text-end">${{ row.monto|format_price }}</td>

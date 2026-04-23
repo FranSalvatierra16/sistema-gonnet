@@ -17267,9 +17267,12 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
     
     # Agregar gastos de GastoPropietario
     for gasto in gastos_pendientes:
+        obs = (gasto.observaciones or '').strip()
         gastos_pendientes_list.append({
             'id': gasto.id,
             'descripcion': gasto.descripcion,
+            'concepto': gasto.descripcion or '—',
+            'detalle': obs,
             'monto': str(gasto.monto),
             'fecha_gasto': gasto.fecha_gasto.strftime('%Y-%m-%d') if gasto.fecha_gasto else '',
             'fecha_gasto_display': gasto.fecha_gasto.strftime('%d/%m/%Y') if gasto.fecha_gasto else '—',
@@ -17301,10 +17304,30 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
         # Incluir todos los egresos, independientemente del valor de a_descontar
         if not existe_gasto:
             descripcion = egreso.descripcion_para_gasto_liquidacion_propietario()[:200]
+            try:
+                c1 = (getattr(egreso, 'listado_concepto_l1', None) or '').strip()
+            except Exception:
+                c1 = ''
+            try:
+                c2 = (getattr(egreso, 'listado_concepto_l2', None) or '').strip()
+            except Exception:
+                c2 = ''
+            concepto_mov = ' · '.join(x for x in (c1, c2) if x) or '—'
+            try:
+                d1 = (getattr(egreso, 'listado_detalle_l1', None) or '').strip()
+            except Exception:
+                d1 = ''
+            try:
+                d2 = (getattr(egreso, 'listado_detalle_l2', None) or '').strip()
+            except Exception:
+                d2 = ''
+            detalle_mov = ' · '.join(x for x in (d1, d2) if x and x != '—') or ''
 
             gastos_pendientes_list.append({
                 'id': f'movimiento_{egreso.id}',  # Prefijo para identificar que es un movimiento
                 'descripcion': descripcion,
+                'concepto': concepto_mov,
+                'detalle': detalle_mov,
                 'monto': str(egreso.monto_total),
                 'fecha_gasto': egreso.fecha.strftime('%Y-%m-%d') if egreso.fecha else '',
                 'fecha_gasto_display': egreso.fecha.strftime('%d/%m/%Y') if egreso.fecha else '—',
