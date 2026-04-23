@@ -2409,6 +2409,16 @@ def operaciones(request):
     total_operaciones = 0
     operaciones_pendientes = 0
     
+    def _recibo_orden_emision(r):
+        fe = getattr(r, 'fecha_emision', None)
+        rid = getattr(r, 'id', None) or 0
+        if fe is None:
+            return (0.0, rid)
+        try:
+            return (fe.timestamp(), rid)
+        except (OSError, ValueError, TypeError, AttributeError):
+            return (0.0, rid)
+
     # Calcular totales pagados para cada reserva y filtrar las que tienen pagos
     for reserva in reservas:
         movimientos = movimientos_por_reserva.get(reserva.id, [])
@@ -2472,7 +2482,7 @@ def operaciones(request):
             
             # ✅ Recibos ya prefetched en reserva.recibos
             reserva.todos_recibos = list(reserva.recibos.all()) if hasattr(reserva, 'recibos') else []
-            reserva.todos_recibos.sort(key=lambda r: getattr(r, 'fecha_emision', None) or r.id, reverse=True)
+            reserva.todos_recibos.sort(key=_recibo_orden_emision, reverse=True)
             
 # print(f"🔍 DEBUG RECIBOS - Reserva {reserva.id}:")
 # print(f"   - Cantidad de recibos: {recibos_reserva.count()}")
