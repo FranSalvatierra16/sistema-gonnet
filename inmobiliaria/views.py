@@ -2377,7 +2377,10 @@ def operaciones(request):
             propiedad_id__in=propiedad_ids,
             tipo=TipoMovimientoCajaEnum.INGRESO,
             concepto__icontains="Operación"
-        ).only('id', 'propiedad_id', 'concepto', 'monto_efectivo', 'monto_cheque', 'monto_tarjeta', 'monto_deposito')
+        ).only(
+            'id', 'propiedad_id', 'concepto', 'fecha',
+            'monto_efectivo', 'monto_cheque', 'monto_tarjeta', 'monto_deposito',
+        ).order_by('-fecha', '-id')
         for mov in movs_qs:
             if not mov.concepto:
                 continue
@@ -2386,6 +2389,8 @@ def operaciones(request):
                 rid = int(match.group(1))
                 if rid in reserva_ids:
                     movimientos_por_reserva.setdefault(rid, []).append(mov)
+        for _rid, lst in movimientos_por_reserva.items():
+            lst.sort(key=lambda m: (m.fecha or date.min), reverse=True)
     
     # Lista para almacenar solo las reservas con pagos
     reservas_con_pagos = []
@@ -2402,24 +2407,22 @@ def operaciones(request):
         if not movimientos:
             continue
         
-        # ✅ LÓGICA SIMPLE: SALDO = PRECIO TOTAL - SEÑA DEL CASILLERO
-        saldo_pendiente = reserva.precio_total - (reserva.senia or 0)
-        
-# print(f"💰 OPERACIONES - CÁLCULO DIRECTO:")
-# print(f"   - Precio Total: ${reserva.precio_total}")
-# print(f"   - Seña: ${reserva.senia or 0}")
-# print(f"   - Saldo Pendiente: ${saldo_pendiente}")
-        
-        # ✅ VERIFICAR QUE HAYA AL MENOS ALGÚN PAGO REAL
-        total_pagado = sum(
-            float(mov.monto_efectivo or 0) + float(mov.monto_cheque or 0) + float(mov.monto_tarjeta or 0) + float(mov.monto_deposito or 0)
+        # Total cobrado en caja por ingresos vinculados a esta operación (efectivo + medios + transferencias)
+        total_pagado_mov = sum(
+            Decimal(str(mov.monto_efectivo or 0))
+            + Decimal(str(mov.monto_cheque or 0))
+            + Decimal(str(mov.monto_tarjeta or 0))
+            + Decimal(str(mov.monto_deposito or 0))
             for mov in movimientos
         )
+        precio_total_dec = Decimal(str(reserva.precio_total or 0))
+        saldo_pendiente = precio_total_dec - total_pagado_mov
+        if saldo_pendiente < 0:
+            saldo_pendiente = Decimal('0')
         
-        if total_pagado > 0:
-            # ✅ CORREGIDO: total_pagado debe ser solo la seña (sin depósito)
-            reserva.total_pagado = reserva.senia or 0  # Solo la seña
-            reserva.saldo_pendiente = saldo_pendiente  # Ya está calculado correctamente
+        if total_pagado_mov > 0:
+            reserva.total_pagado = total_pagado_mov
+            reserva.saldo_pendiente = saldo_pendiente
             reserva.total_senia_pagada = reserva.senia or 0
             reserva.total_deposito_pagado = reserva.deposito_garantia or 0
             
