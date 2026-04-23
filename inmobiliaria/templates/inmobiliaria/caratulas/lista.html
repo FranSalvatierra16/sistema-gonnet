@@ -19,6 +19,12 @@
 
     <div class="card shadow-sm mb-4">
         <div class="card-body">
+            {% if periodo_completo %}
+            <div class="alert alert-info py-2 small mb-3">
+                Listado <strong>sin filtro de fechas</strong>.
+                <a href="{% url 'inmobiliaria:lista_caratulas' %}" class="alert-link">Solo operaciones de hoy</a>
+            </div>
+            {% endif %}
             <form method="get" class="row g-2 align-items-end">
                 <div class="col-md-3">
                     <label class="form-label small mb-0">Buscar</label>
@@ -32,7 +38,7 @@
                     <label class="form-label small mb-0">Hasta</label>
                     <input type="date" name="fecha_hasta" class="form-control form-control-sm" value="{{ fecha_hasta }}">
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label small mb-0">Tipo</label>
                     <select name="tipo" class="form-select form-select-sm">
                         <option value="" {% if not tipo_filtro %}selected{% endif %}>Todos</option>
@@ -42,10 +48,13 @@
                         <option value="24meses" {% if tipo_filtro == '24meses' %}selected{% endif %}>Solo 24 meses</option>
                     </select>
                 </div>
-                <div class="col-md-2">
-                    <button type="submit" class="btn btn-primary btn-sm w-100">Filtrar</button>
+                <div class="col-md-3 d-flex flex-wrap gap-1 align-items-end">
+                    <button type="submit" class="btn btn-primary btn-sm flex-grow-1">Filtrar</button>
+                    <a class="btn btn-outline-secondary btn-sm" href="{% url 'inmobiliaria:lista_caratulas' %}?q={{ q|urlencode }}&tipo={{ tipo_filtro|urlencode }}" title="Fecha desde y hasta = hoy">Hoy</a>
+                    <a class="btn btn-outline-primary btn-sm" href="{% url 'inmobiliaria:lista_caratulas' %}?todo=1&q={{ q|urlencode }}&tipo={{ tipo_filtro|urlencode }}">Todo</a>
                 </div>
             </form>
+            <p class="small text-muted mb-0 mt-2">Por defecto se listan solo operaciones con fecha de <strong>hoy</strong>; podés ampliar el rango o abrir <strong>Todo</strong>.</p>
         </div>
     </div>
 
@@ -96,11 +105,11 @@
     <nav class="mt-3">
         <ul class="pagination pagination-sm justify-content-center">
             {% if filas.has_previous %}
-            <li class="page-item"><a class="page-link" href="?page={{ filas.previous_page_number }}&q={{ q|urlencode }}&fecha_desde={{ fecha_desde }}&fecha_hasta={{ fecha_hasta }}&tipo={{ tipo_filtro }}">Anterior</a></li>
+            <li class="page-item"><a class="page-link" href="?page={{ filas.previous_page_number }}&q={{ q|urlencode }}&tipo={{ tipo_filtro|urlencode }}{% if periodo_completo %}&todo=1{% else %}&fecha_desde={{ fecha_desde }}&fecha_hasta={{ fecha_hasta }}{% endif %}">Anterior</a></li>
             {% endif %}
             <li class="page-item disabled"><span class="page-link">Página {{ filas.number }} de {{ filas.paginator.num_pages }}</span></li>
             {% if filas.has_next %}
-            <li class="page-item"><a class="page-link" href="?page={{ filas.next_page_number }}&q={{ q|urlencode }}&fecha_desde={{ fecha_desde }}&fecha_hasta={{ fecha_hasta }}&tipo={{ tipo_filtro }}">Siguiente</a></li>
+            <li class="page-item"><a class="page-link" href="?page={{ filas.next_page_number }}&q={{ q|urlencode }}&tipo={{ tipo_filtro|urlencode }}{% if periodo_completo %}&todo=1{% else %}&fecha_desde={{ fecha_desde }}&fecha_hasta={{ fecha_hasta }}{% endif %}">Siguiente</a></li>
             {% endif %}
         </ul>
     </nav>

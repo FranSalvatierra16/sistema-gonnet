@@ -39,6 +39,12 @@
             <h2 class="h5 mb-0"><i class="fas fa-filter me-2"></i>Filtros</h2>
         </div>
         <div class="card-body">
+            {% if periodo_completo %}
+            <div class="alert alert-info py-2 mb-3 small mb-0">
+                Estás viendo <strong>todo el historial</strong> sin filtrar por fecha.
+                <a href="{% url 'inmobiliaria:reporte_movimientos_cuenta_bancaria' cuenta.id %}" class="alert-link">Volver a solo hoy</a>
+            </div>
+            {% endif %}
             <form method="get" class="row g-3 align-items-end">
                 <div class="col-md-3">
                     <label class="form-label" for="fecha_desde">Desde</label>
@@ -48,18 +54,22 @@
                     <label class="form-label" for="fecha_hasta">Hasta</label>
                     <input type="date" class="form-control" id="fecha_hasta" name="fecha_hasta" value="{{ fecha_hasta }}">
                 </div>
-                <div class="col-md-6 d-flex flex-wrap gap-2">
+                <div class="col-md-6 d-flex flex-wrap gap-2 align-items-center">
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-search"></i> Aplicar
                     </button>
-                    <a class="btn btn-outline-secondary" href="{% url 'inmobiliaria:reporte_movimientos_cuenta_bancaria' cuenta.id %}">
-                        Limpiar fechas
+                    <a class="btn btn-outline-secondary" href="{% url 'inmobiliaria:reporte_movimientos_cuenta_bancaria' cuenta.id %}" title="Filtrar solo el día de hoy">
+                        Solo hoy
+                    </a>
+                    <a class="btn btn-outline-primary" href="{% url 'inmobiliaria:reporte_movimientos_cuenta_bancaria' cuenta.id %}?todo=1" title="Quitar filtro de fechas">
+                        Todo el historial
                     </a>
                 </div>
             </form>
             <p class="small text-muted mb-0 mt-3">
-                Se listan movimientos de caja donde el importe por <strong>transferencia / depósito</strong> va a esta cuenta
-                (mismo criterio que el resumen por caja). Otros medios (efectivo, tarjeta, etc.) del mismo movimiento no se suman acá.
+                Por defecto se muestran solo los movimientos del <strong>día de hoy</strong>; podés cambiar el rango y pulsar Aplicar, o abrir <strong>Todo el historial</strong>.
+                Se listan movimientos donde el importe por <strong>transferencia / depósito</strong> va a esta cuenta.
+                Otros medios (efectivo, tarjeta, etc.) del mismo movimiento no se suman acá.
             </p>
         </div>
     </div>

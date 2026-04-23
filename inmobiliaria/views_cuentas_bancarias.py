@@ -8,6 +8,7 @@ from django.core.paginator import Paginator
 from django.db.models import Sum
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 
 from inmobiliaria.models.caja import MovimientoCaja, TipoMovimientoCajaEnum
 from inmobiliaria.models.sucursal import CuentaBancaria
@@ -239,12 +240,25 @@ def reporte_movimientos_cuenta_bancaria(request, cuenta_id):
         .order_by('-fecha', '-id')
     )
 
-    fecha_desde = request.GET.get('fecha_desde', '').strip()
-    fecha_hasta = request.GET.get('fecha_hasta', '').strip()
-    if fecha_desde:
-        movimientos_qs = movimientos_qs.filter(fecha__date__gte=fecha_desde)
-    if fecha_hasta:
-        movimientos_qs = movimientos_qs.filter(fecha__date__lte=fecha_hasta)
+    today = timezone.localdate().isoformat()
+    raw_desde = request.GET.get('fecha_desde', '').strip()
+    raw_hasta = request.GET.get('fecha_hasta', '').strip()
+    periodo_completo = request.GET.get('todo') == '1'
+
+    if periodo_completo:
+        fecha_desde = raw_desde
+        fecha_hasta = raw_hasta
+    elif raw_desde == '' and raw_hasta == '':
+        fecha_desde = fecha_hasta = today
+    else:
+        fecha_desde = raw_desde
+        fecha_hasta = raw_hasta
+
+    if not periodo_completo:
+        if fecha_desde:
+            movimientos_qs = movimientos_qs.filter(fecha__date__gte=fecha_desde)
+        if fecha_hasta:
+            movimientos_qs = movimientos_qs.filter(fecha__date__lte=fecha_hasta)
 
     total_ingresos = (
         movimientos_qs.filter(tipo=TipoMovimientoCajaEnum.INGRESO).aggregate(
@@ -266,8 +280,17 @@ def reporte_movimientos_cuenta_bancaria(request, cuenta_id):
         mov.reporte_bc_extra = _reporte_cuenta_bancaria_movimiento_extras(mov)
 
     query_params = request.GET.copy()
-    if 'page' in query_params:
-        del query_params['page']
+    query_params.pop('page', None)
+    if periodo_completo:
+        query_params['todo'] = '1'
+        query_params.pop('fecha_desde', None)
+        query_params.pop('fecha_hasta', None)
+    else:
+        query_params.pop('todo', None)
+        if fecha_desde:
+            query_params['fecha_desde'] = fecha_desde
+        if fecha_hasta:
+            query_params['fecha_hasta'] = fecha_hasta
 
     return render(
         request,
@@ -280,8 +303,9 @@ def reporte_movimientos_cuenta_bancaria(request, cuenta_id):
             'total_egresos': total_egresos,
             'saldo_transferencias': saldo_transferencias,
             'cantidad_movimientos': movimientos_qs.count(),
-            'fecha_desde': fecha_desde,
-            'fecha_hasta': fecha_hasta,
+            'fecha_desde': fecha_desde if not periodo_completo else '',
+            'fecha_hasta': fecha_hasta if not periodo_completo else '',
             'querystring': query_params.urlencode(),
+            'periodo_completo': periodo_completo,
         },
     )

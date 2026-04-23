@@ -433,9 +433,20 @@ def lista_caratulas(request):
         return HttpResponseForbidden()
     sucursal = getattr(request.user, 'sucursal', None)
     q = request.GET.get('q', '').strip()
-    fecha_desde = request.GET.get('fecha_desde', '').strip()
-    fecha_hasta = request.GET.get('fecha_hasta', '').strip()
     tipo_filtro = request.GET.get('tipo', '').strip()
+    today = timezone.localdate().isoformat()
+    raw_desde = request.GET.get('fecha_desde', '').strip()
+    raw_hasta = request.GET.get('fecha_hasta', '').strip()
+    periodo_completo = request.GET.get('todo') == '1'
+
+    if periodo_completo:
+        fecha_desde = raw_desde
+        fecha_hasta = raw_hasta
+    elif raw_desde == '' and raw_hasta == '':
+        fecha_desde = fecha_hasta = today
+    else:
+        fecha_desde = raw_desde
+        fecha_hasta = raw_hasta
 
     if not sucursal:
         paginator_empty = Paginator([], 40)
@@ -446,9 +457,10 @@ def lista_caratulas(request):
                 'error': 'Tu usuario no tiene sucursal asignada.',
                 'filas': paginator_empty.page(1),
                 'q': q,
-                'fecha_desde': request.GET.get('fecha_desde', '').strip(),
-                'fecha_hasta': request.GET.get('fecha_hasta', '').strip(),
+                'fecha_desde': fecha_desde if not periodo_completo else '',
+                'fecha_hasta': fecha_hasta if not periodo_completo else '',
                 'tipo_filtro': tipo_filtro,
+                'periodo_completo': periodo_completo,
             },
         )
 
@@ -475,18 +487,19 @@ def lista_caratulas(request):
             | Q(cliente__apellido__icontains=q)
         )
 
-    if fecha_desde:
-        try:
-            d = datetime.strptime(fecha_desde, '%Y-%m-%d').date()
-            reservas = reservas.filter(fecha_creacion__date__gte=d)
-        except ValueError:
-            pass
-    if fecha_hasta:
-        try:
-            d = datetime.strptime(fecha_hasta, '%Y-%m-%d').date()
-            reservas = reservas.filter(fecha_creacion__date__lte=d)
-        except ValueError:
-            pass
+    if not periodo_completo:
+        if fecha_desde:
+            try:
+                d = datetime.strptime(fecha_desde, '%Y-%m-%d').date()
+                reservas = reservas.filter(fecha_creacion__date__gte=d)
+            except ValueError:
+                pass
+        if fecha_hasta:
+            try:
+                d = datetime.strptime(fecha_hasta, '%Y-%m-%d').date()
+                reservas = reservas.filter(fecha_creacion__date__lte=d)
+            except ValueError:
+                pass
 
     contratos = ContratoAlquiler.objects.filter(sucursal=sucursal).select_related(
         'propiedad', 'inquilino', 'vendedor'
@@ -507,18 +520,19 @@ def lista_caratulas(request):
             | Q(inquilino__nombre__icontains=q)
             | Q(inquilino__apellido__icontains=q)
         )
-    if fecha_desde:
-        try:
-            d = datetime.strptime(fecha_desde, '%Y-%m-%d').date()
-            contratos = contratos.filter(fecha_operacion__gte=d)
-        except ValueError:
-            pass
-    if fecha_hasta:
-        try:
-            d = datetime.strptime(fecha_hasta, '%Y-%m-%d').date()
-            contratos = contratos.filter(fecha_operacion__lte=d)
-        except ValueError:
-            pass
+    if not periodo_completo:
+        if fecha_desde:
+            try:
+                d = datetime.strptime(fecha_desde, '%Y-%m-%d').date()
+                contratos = contratos.filter(fecha_operacion__gte=d)
+            except ValueError:
+                pass
+        if fecha_hasta:
+            try:
+                d = datetime.strptime(fecha_hasta, '%Y-%m-%d').date()
+                contratos = contratos.filter(fecha_operacion__lte=d)
+            except ValueError:
+                pass
 
     filas = []
 
@@ -592,9 +606,10 @@ def lista_caratulas(request):
         {
             'filas': page_obj,
             'q': q,
-            'fecha_desde': fecha_desde,
-            'fecha_hasta': fecha_hasta,
+            'fecha_desde': fecha_desde if not periodo_completo else '',
+            'fecha_hasta': fecha_hasta if not periodo_completo else '',
             'tipo_filtro': tipo_filtro,
+            'periodo_completo': periodo_completo,
         },
     )
 
