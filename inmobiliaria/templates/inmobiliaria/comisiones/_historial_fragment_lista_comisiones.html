@@ -11,8 +11,25 @@
                 </div>
                 <div class="card-body">
                     {% if comisiones %}
+                        <ul class="nav nav-pills flex-wrap mb-3 cv-comisiones-tipo-filtro" role="toolbar" aria-label="Filtrar comisiones por tipo">
+                            <li class="nav-item me-1 mb-1">
+                                <button type="button" class="nav-link active rounded-pill px-3 py-2 comision-filtro-pill" data-cat="todos">Todos</button>
+                            </li>
+                            <li class="nav-item me-1 mb-1">
+                                <button type="button" class="nav-link rounded-pill px-3 py-2 comision-filtro-pill" data-cat="por_dia">Por día</button>
+                            </li>
+                            <li class="nav-item me-1 mb-1">
+                                <button type="button" class="nav-link rounded-pill px-3 py-2 comision-filtro-pill" data-cat="por_fichaje">Fichaje</button>
+                            </li>
+                            <li class="nav-item me-1 mb-1">
+                                <button type="button" class="nav-link rounded-pill px-3 py-2 comision-filtro-pill" data-cat="por_invierno">Invierno</button>
+                            </li>
+                            <li class="nav-item me-1 mb-1">
+                                <button type="button" class="nav-link rounded-pill px-3 py-2 comision-filtro-pill" data-cat="por_24_meses">24 meses</button>
+                            </li>
+                        </ul>
                         <div class="table-responsive">
-                            <table class="table table-striped table-hover">
+                            <table class="table table-striped table-hover cv-comisiones-tabla-comisiones">
                                 <thead>
                                     <tr>
                                         <th>Fecha</th>
@@ -28,7 +45,7 @@
                                     {% regroup comisiones by id_agrupacion_listado as grupos_pago %}
                                     {% for grupo in grupos_pago %}
                                     {% if grupo.list|length > 1 %}
-                                    <tr class="table-light">
+                                    <tr class="table-light comision-grupo-header" data-grupo-idx="{{ forloop.counter0 }}">
                                         <td colspan="7" class="py-1 small text-muted border-0">
                                             <i class="fas fa-layer-group me-1"></i>
                                             {% if grupo.list.0.movimiento_caja_id %}
@@ -40,7 +57,7 @@
                                     </tr>
                                     {% endif %}
                                     {% for comision in grupo.list %}
-                                    <tr>
+                                    <tr class="comision-fila-filtro" data-grupo-idx="{{ forloop.parentloop.counter0 }}" data-categoria="{{ comision.categoria_comision_filtro }}">
                                         <td>
                                             <small class="text-muted">
                                                 {{ comision.fecha_operacion|date:"d/m/Y" }}<br>

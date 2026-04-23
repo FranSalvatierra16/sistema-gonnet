@@ -212,6 +212,24 @@
 .cv-comisiones-vales-nav .nav-item {
     margin-right: 0.35rem;
 }
+.cv-comisiones-tipo-filtro .nav-link {
+    font-size: 0.9rem;
+    color: #495057;
+    border: 1px solid #dee2e6;
+    background: #fff;
+    cursor: pointer;
+}
+.cv-comisiones-tipo-filtro .nav-link:hover {
+    background: #f8f9fa;
+}
+.cv-comisiones-tipo-filtro .nav-link.active {
+    background: #0d6efd;
+    color: #fff;
+    border-color: #0d6efd;
+}
+.comision-fila-oculta {
+    display: none !important;
+}
 </style>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
@@ -224,6 +242,43 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
     } catch (e) { /* noop */ }
+
+    function aplicarFiltroComisiones(cat) {
+        document.querySelectorAll('table.cv-comisiones-tabla-comisiones').forEach(function (table) {
+            table.querySelectorAll('tr.comision-fila-filtro').forEach(function (tr) {
+                var d = (tr.getAttribute('data-categoria') || '').trim();
+                var ok = cat === 'todos' || d === cat;
+                tr.classList.toggle('comision-fila-oculta', !ok);
+            });
+            table.querySelectorAll('tr.comision-grupo-header').forEach(function (header) {
+                var el = header.nextElementSibling;
+                var visible = false;
+                while (el) {
+                    if (el.classList.contains('comision-grupo-header')) {
+                        break;
+                    }
+                    if (el.classList.contains('comision-fila-filtro') && !el.classList.contains('comision-fila-oculta')) {
+                        visible = true;
+                        break;
+                    }
+                    el = el.nextElementSibling;
+                }
+                header.classList.toggle('comision-fila-oculta', !visible);
+            });
+        });
+        document.querySelectorAll('.comision-filtro-pill').forEach(function (btn) {
+            btn.classList.toggle('active', (btn.getAttribute('data-cat') || 'todos') === cat);
+        });
+    }
+
+    document.addEventListener('click', function (e) {
+        var pill = e.target.closest('.comision-filtro-pill');
+        if (!pill) {
+            return;
+        }
+        e.preventDefault();
+        aplicarFiltroComisiones(pill.getAttribute('data-cat') || 'todos');
+    });
 });
 </script>
 {% endblock %}

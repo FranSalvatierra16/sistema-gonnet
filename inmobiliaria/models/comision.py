@@ -427,6 +427,12 @@ class ComisionVendedor(models.Model):
         return ('operacion', None)
 
     @property
+    def categoria_comision_filtro(self):
+        """Clave para filtrar en listados: por_dia | por_fichaje | por_invierno | por_24_meses | operacion."""
+        cat, _ = self.clasificacion_listado()
+        return cat
+
+    @property
     def id_agrupacion_listado(self):
         """Clave para agrupar en el template líneas del mismo movimiento de caja (fichaje + operación juntas)."""
         if self.movimiento_caja_id:
