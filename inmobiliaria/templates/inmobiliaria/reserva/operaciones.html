@@ -401,56 +401,140 @@
         }
     }
 
-    /* ✅ CSS PARA DROPDOWN DE RECIBOS */
+    /* ✅ Dropdown de recibos: legible y con jerarquía clara */
     .dropdown-recibos {
-        position: static; /* Permitir que se extienda fuera del contenedor */
+        position: static;
     }
 
     .dropdown-menu-recibos {
-        z-index: 9999 !important; /* Alto z-index para estar encima de todo */
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3) !important;
-        border: 1px solid #dee2e6 !important;
-        border-radius: 8px !important;
+        z-index: 9999 !important;
+        min-width: min(22rem, calc(100vw - 2rem)) !important;
+        max-width: 24rem;
+        padding: 0.35rem 0 0.5rem !important;
+        border: none !important;
+        border-radius: 12px !important;
+        box-shadow: 0 12px 40px rgba(33, 37, 41, 0.18), 0 0 0 1px rgba(0, 0, 0, 0.04) !important;
         overflow: visible !important;
-        min-width: 280px !important; /* Ancho mínimo para mostrar bien la info */
     }
 
-    .dropdown-menu-recibos .dropdown-item {
-        padding: 0.75rem 1rem !important;
-        border-bottom: 1px solid #f8f9fa;
+    .dropdown-menu-recibos .dropdown-header-recibos {
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        color: #5c6378 !important;
+        padding-top: 0.65rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid #e9ecef;
     }
 
-    .dropdown-menu-recibos .dropdown-item:last-child {
-        border-bottom: none;
-    }
-
-    .dropdown-menu-recibos .dropdown-item:hover {
-        background-color: #f8f9fa !important;
-    }
-
-    .dropdown-menu-recibos .recibo-fila-operaciones {
+    .dropdown-menu-recibos .recibo-op-card {
         display: flex;
-        align-items: center;
-        gap: 0.35rem;
-        padding: 0.35rem 0.5rem;
-        border-bottom: 1px solid #f8f9fa;
+        align-items: stretch;
+        gap: 0.65rem;
+        padding: 0.6rem 0.65rem;
+        margin: 0.35rem 0.5rem 0;
+        background: #f8f9fc;
+        border: 1px solid #e8eaf6;
+        border-radius: 10px;
+        transition: background 0.15s ease, box-shadow 0.15s ease;
     }
 
-    .dropdown-menu-recibos .recibo-fila-operaciones:last-child {
-        border-bottom: none;
+    .dropdown-menu-recibos .recibo-op-card:hover {
+        background: #fff;
+        box-shadow: 0 4px 14px rgba(102, 126, 234, 0.15);
     }
 
-    .dropdown-menu-recibos .recibo-fila-operaciones .dropdown-item {
+    .dropdown-menu-recibos .recibo-op-card-main {
         flex: 1 1 auto;
         min-width: 0;
-        border-bottom: none !important;
-        white-space: normal;
+        padding: 0.15rem 0.25rem;
+        border-radius: 8px;
+        color: #2c3e50 !important;
+    }
+
+    .dropdown-menu-recibos .recibo-op-card-main:hover {
+        color: #5b21b6 !important;
+    }
+
+    .dropdown-menu-recibos .recibo-op-icon {
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 10px;
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.12) 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        color: #5b21b6;
+        font-size: 1.1rem;
+    }
+
+    .dropdown-menu-recibos .recibo-op-numero {
+        font-size: 0.95rem;
+        font-weight: 700;
+        line-height: 1.25;
+        word-break: break-word;
+    }
+
+    .dropdown-menu-recibos .recibo-op-monto {
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: #198754;
+        margin-top: 0.2rem;
+        letter-spacing: 0.02em;
+    }
+
+    .dropdown-menu-recibos .recibo-op-fecha {
+        font-size: 0.8rem;
+        color: #6c757d;
+        margin-top: 0.15rem;
+    }
+
+    .dropdown-menu-recibos .recibo-op-actions {
+        flex: 0 0 auto;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 0.35rem;
     }
 
     .dropdown-menu-recibos .btn-eliminar-recibo-op {
-        flex: 0 0 auto;
-        padding: 0.2rem 0.45rem;
-        line-height: 1;
+        min-width: 3.1rem;
+        min-height: 3.1rem;
+        padding: 0.35rem 0.45rem !important;
+        border-radius: 8px !important;
+        font-size: 0.95rem;
+        display: inline-flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.15rem;
+        line-height: 1.1;
+    }
+
+    .dropdown-menu-recibos .btn-eliminar-recibo-op .recibo-op-eliminar-texto {
+        font-size: 0.62rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }
+
+    /* Un solo recibo: misma línea visual que el dropdown */
+    .recibo-op-inline-actions .btn-eliminar-recibo-op-inline {
+        min-width: 2.75rem;
+        min-height: 2.75rem;
+        border-radius: 10px !important;
+        display: inline-flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 0.35rem !important;
+    }
+
+    .recibo-op-inline-actions .btn-eliminar-recibo-op-inline .recibo-op-eliminar-texto {
+        font-size: 0.58rem;
+        font-weight: 600;
+        text-transform: uppercase;
     }
 
     /* ✅ OVERRIDE PARA PERMITIR QUE EL DROPDOWN SE VEA */
@@ -726,16 +810,17 @@
                             {% if op.todos_recibos %}
                                 {% if op.todos_recibos|length == 1 %}
                                     {% with recibo=op.todos_recibos|first %}
-                                    <div class="d-inline-flex align-items-center gap-1 flex-wrap">
-                                        <a href="{% url 'inmobiliaria:ver_recibo_movimiento' recibo.movimiento_caja.id %}" class="btn-action btn-recibo">
-                                            <i class="fas fa-receipt"></i>Recibo
+                                    <div class="d-inline-flex align-items-center gap-2 flex-wrap recibo-op-inline-actions">
+                                        <a href="{% url 'inmobiliaria:ver_recibo_movimiento' recibo.movimiento_caja.id %}" class="btn-action btn-recibo" title="Ver recibo {{ recibo.numero_recibo }}">
+                                            <i class="fas fa-file-invoice"></i>{{ recibo.numero_recibo }}
                                         </a>
                                         {% if user.nivel >= 2 and recibo.movimiento_caja.caja and recibo.movimiento_caja.caja.estado == 'abierta' and not recibo.movimiento_caja.caja.fecha_cierre %}
                                         <form method="post" action="{% url 'inmobiliaria:eliminar_movimiento' recibo.movimiento_caja.id %}" class="d-inline m-0" onsubmit="return confirm('¿Eliminar este ingreso de caja y su recibo? La operación volverá a mostrar el saldo pendiente según los pagos que queden.');">
                                             {% csrf_token %}
                                             <input type="hidden" name="next" value="operaciones">
-                                            <button type="submit" class="btn-action btn-eliminar btn-eliminar-recibo-op" title="Eliminar este recibo / movimiento de caja">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger btn-eliminar-recibo-op-inline" title="Eliminar este recibo / movimiento de caja">
                                                 <i class="fas fa-trash-alt"></i>
+                                                <span class="recibo-op-eliminar-texto">Eliminar</span>
                                             </button>
                                         </form>
                                         {% endif %}
@@ -743,25 +828,33 @@
                                     {% endwith %}
                                 {% else %}
                                     <div class="dropdown dropdown-recibos">
-                                        <button class="btn-action btn-recibo dropdown-toggle" type="button" id="dropdownRecibos{{ op.id }}" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <button class="btn-action btn-recibo dropdown-toggle" type="button" id="dropdownRecibos{{ op.id }}" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="outside">
                                             <i class="fas fa-receipt"></i>Recibos ({{ op.todos_recibos|length }})
                                         </button>
-                                        <ul class="dropdown-menu dropdown-menu-recibos p-0" aria-labelledby="dropdownRecibos{{ op.id }}">
+                                        <ul class="dropdown-menu dropdown-menu-end dropdown-menu-recibos" aria-labelledby="dropdownRecibos{{ op.id }}">
+                                            <li><h6 class="dropdown-header dropdown-header-recibos">Recibos de esta operación</h6></li>
                                             {% for recibo in op.todos_recibos %}
                                                 <li class="list-unstyled">
-                                                    <div class="recibo-fila-operaciones">
-                                                        <a class="dropdown-item" href="{% url 'inmobiliaria:ver_recibo_movimiento' recibo.movimiento_caja.id %}">
-                                                            <i class="fas fa-receipt me-2"></i>{{ recibo.numero_recibo }}
-                                                            <small class="text-muted d-block">${{ recibo.monto_este_pago|floatformat:0 }} — {{ recibo.fecha_emision|date:"d/m/Y" }}</small>
+                                                    <div class="recibo-op-card">
+                                                        <a class="recibo-op-card-main text-decoration-none d-flex align-items-start gap-2" href="{% url 'inmobiliaria:ver_recibo_movimiento' recibo.movimiento_caja.id %}" target="_blank" rel="noopener">
+                                                            <span class="recibo-op-icon" aria-hidden="true"><i class="fas fa-file-invoice"></i></span>
+                                                            <span class="d-flex flex-column">
+                                                                <span class="recibo-op-numero">{{ recibo.numero_recibo }}</span>
+                                                                <span class="recibo-op-monto">${{ recibo.monto_este_pago|format_price }}</span>
+                                                                <span class="recibo-op-fecha"><i class="far fa-calendar-alt me-1"></i>{{ recibo.fecha_emision|date:"d/m/Y" }}</span>
+                                                            </span>
                                                         </a>
                                                         {% if user.nivel >= 2 and recibo.movimiento_caja.caja and recibo.movimiento_caja.caja.estado == 'abierta' and not recibo.movimiento_caja.caja.fecha_cierre %}
-                                                        <form method="post" action="{% url 'inmobiliaria:eliminar_movimiento' recibo.movimiento_caja.id %}" class="m-0" onsubmit="return confirm('¿Eliminar este ingreso de caja y su recibo?');">
-                                                            {% csrf_token %}
-                                                            <input type="hidden" name="next" value="operaciones">
-                                                            <button type="submit" class="btn btn-sm btn-outline-danger btn-eliminar-recibo-op" title="Eliminar este recibo / movimiento">
-                                                                <i class="fas fa-trash-alt"></i>
-                                                            </button>
-                                                        </form>
+                                                        <div class="recibo-op-actions">
+                                                            <form method="post" action="{% url 'inmobiliaria:eliminar_movimiento' recibo.movimiento_caja.id %}" class="m-0 h-100 d-flex align-items-stretch" onsubmit="return confirm('¿Eliminar este ingreso de caja y su recibo?');">
+                                                                {% csrf_token %}
+                                                                <input type="hidden" name="next" value="operaciones">
+                                                                <button type="submit" class="btn btn-sm btn-outline-danger btn-eliminar-recibo-op w-100" title="Eliminar este recibo / movimiento de caja">
+                                                                    <i class="fas fa-trash-alt"></i>
+                                                                    <span class="recibo-op-eliminar-texto">Eliminar</span>
+                                                                </button>
+                                                            </form>
+                                                        </div>
                                                         {% endif %}
                                                     </div>
                                                 </li>
@@ -770,16 +863,17 @@
                                     </div>
                                 {% endif %}
                             {% elif op.movimiento_reciente %}
-                                <div class="d-inline-flex align-items-center gap-1 flex-wrap">
-                                    <a href="{% url 'inmobiliaria:ver_recibo_movimiento' op.movimiento_reciente.id %}" class="btn-action btn-recibo">
-                                        <i class="fas fa-receipt"></i>Recibo
+                                <div class="d-inline-flex align-items-center gap-2 flex-wrap recibo-op-inline-actions">
+                                    <a href="{% url 'inmobiliaria:ver_recibo_movimiento' op.movimiento_reciente.id %}" class="btn-action btn-recibo" target="_blank" rel="noopener">
+                                        <i class="fas fa-file-invoice"></i>Recibo
                                     </a>
                                     {% if user.nivel >= 2 and op.movimiento_reciente.caja and op.movimiento_reciente.caja.estado == 'abierta' and not op.movimiento_reciente.caja.fecha_cierre %}
                                     <form method="post" action="{% url 'inmobiliaria:eliminar_movimiento' op.movimiento_reciente.id %}" class="d-inline m-0" onsubmit="return confirm('¿Eliminar este ingreso de caja y su recibo asociado?');">
                                         {% csrf_token %}
                                         <input type="hidden" name="next" value="operaciones">
-                                        <button type="submit" class="btn-action btn-eliminar btn-eliminar-recibo-op" title="Eliminar este movimiento de caja">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger btn-eliminar-recibo-op-inline" title="Eliminar este movimiento de caja">
                                             <i class="fas fa-trash-alt"></i>
+                                            <span class="recibo-op-eliminar-texto">Eliminar</span>
                                         </button>
                                     </form>
                                     {% endif %}
