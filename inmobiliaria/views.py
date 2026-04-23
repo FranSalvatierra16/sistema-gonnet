@@ -1297,9 +1297,6 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth import update_session_auth_hash
 from .utils import numero_a_palabras
 
-import logging
-logger = logging.getLogger(__name__)
-
 # Importes de estos conceptos en |CONCEPTOS:…| suman como «seña» (saldo a ocupar, completar pago, resync reserva).
 CONCEPTOS_SENIA_OPERACION_RESERVA = frozenset({"1", "15", "103", "219"})
 
@@ -2468,7 +2465,6 @@ def operaciones(request):
     vendedores = Vendedor.objects.filter(sucursal=request.user.sucursal).order_by('apellido', 'nombre')
     
     # ✅ Carga masiva de movimientos (evita N+1): una sola query por todas las reservas
-    import re
     reserva_ids = list(reservas.values_list('id', flat=True)[:2000])  # límite razonable
     propiedad_ids = list(reservas.values_list('propiedad_id', flat=True).distinct()[:2000])
     movimientos_por_reserva = {}
@@ -4794,11 +4790,12 @@ def procesar_movimiento_reserva(request):
 # print(f"   - Total pagos anteriores: ${total_pagos_anteriores}")
 # print(f"   - Es completar pago: {es_completar_pago}")
             
-            # Obtener la caja actual
+            # Obtener la caja actual (misma lógica que finalizar_reserva_nueva / gestionar_caja)
             caja_actual = Caja.objects.filter(
                 sucursal=request.user.sucursal,
-                estado='abierta'
-            ).first()
+                estado='abierta',
+                fecha_cierre__isnull=True,
+            ).order_by('-fecha_apertura').first()
             
             if not caja_actual:
                 return JsonResponse({'success': False, 'error': 'No hay una caja abierta'})
@@ -13433,10 +13430,11 @@ def finalizar_reserva_nueva(request, reserva_id):
             recalcular_precio_reserva(reserva)
             reserva.refresh_from_db()
         
-        # Misma criterio que procesar_movimiento_reserva
+        # Misma criterio que gestionar_caja / procesar_movimiento_reserva (caja abierta de la sucursal)
         caja_actual = Caja.objects.filter(
             sucursal=request.user.sucursal,
             estado='abierta',
+            fecha_cierre__isnull=True,
         ).order_by('-fecha_apertura').first()
         
         if not caja_actual:
@@ -13496,12 +13494,13 @@ def finalizar_reserva_nueva(request, reserva_id):
         
         es_completar_pago = total_pagos_anteriores > 0
         
+        precio_dec_ctx = Decimal(str(reserva.precio_total or 0))
         if es_completar_pago:
-            # COMPLETAR PAGO: SALDO = PRECIO TOTAL - SOLO LA SEÑA ANTERIOR (concepto ID:1)
-            saldo_a_ocupar = reserva.precio_total - total_senia_anteriores
+            # COMPLETAR PAGO: saldo = precio total − seña ya registrada (conceptos seña, p. ej. 1, 15, 103, 219)
+            saldo_a_ocupar = precio_dec_ctx - total_senia_anteriores
         else:
-            # FINALIZAR RESERVA: SALDO = PRECIO TOTAL (no hay seña anterior)
-            saldo_a_ocupar = reserva.precio_total
+            # FINALIZAR RESERVA: sin pagos de operación previos
+            saldo_a_ocupar = precio_dec_ctx
         
         # ✅ SEÑA PENDIENTE: Solo lo que falta por pagar (puede ser 0 si quiere pagar todo)
         # El usuario decide cuánto de la seña pagar en este momento
