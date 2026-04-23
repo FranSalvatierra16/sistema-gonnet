@@ -5130,10 +5130,13 @@ def procesar_movimiento_reserva(request):
                 movimiento_principal.honorarios = honorarios_monto
                 movimiento_principal.save(update_fields=['honorarios'])
 
-            # ✅ Comisiones: con honorarios → fichaje + línea por tipo (día / invierno / 24); sin honorarios → una línea por comisión por día
+            # ✅ Comisiones: con concepto 25 (honorarios) → fichaje + línea día/invierno/24.
+            # Sin concepto 25 pero propiedad en primer/segundo fichaje con % cargado y operación «por día»:
+            # misma lógica usando el monto del movimiento como base de fichaje + comisión por día sobre el total de la reserva.
             if reserva.vendedor:
                 from inmobiliaria.models.comision import (
                     ComisionVendedor,
+                    clasificar_tipo_operacion_reserva,
                     registrar_comisiones_honorarios_movimiento_reserva,
                 )
 
@@ -5143,16 +5146,38 @@ def procesar_movimiento_reserva(request):
                             reserva, movimiento_principal, honorarios_monto
                         )
                     else:
-                        pct_comision = reserva.vendedor.porcentaje_comision_para_reserva(reserva)
-                        if pct_comision is not None and pct_comision > 0:
-                            monto_total_reserva = reserva.precio_total or Decimal('0')
-                            ComisionVendedor.crear_comision(
-                                vendedor=reserva.vendedor,
-                                reserva=reserva,
-                                movimiento_caja=movimiento_principal,
-                                monto_total=monto_total_reserva,
-                                concepto=f"Operación {reserva.id} - {reserva.propiedad.direccion}",
+                        vend = reserva.vendedor
+                        prop = reserva.propiedad
+                        tipo_fichaje = getattr(prop, 'tipo_fichaje', None) or 'primer'
+                        pct_fichaje = (
+                            vend.comision_segundo_fichaje
+                            if tipo_fichaje == 'segundo'
+                            else vend.comision_primer_fichaje
+                        )
+                        hubo_fichaje = pct_fichaje is not None and pct_fichaje > 0
+                        tipo_op = clasificar_tipo_operacion_reserva(reserva)
+                        try:
+                            monto_mov_dec = Decimal(str(movimiento_principal.monto_total))
+                        except (InvalidOperation, TypeError, ValueError):
+                            monto_mov_dec = Decimal('0')
+
+                        if hubo_fichaje and tipo_op == 'dia' and monto_mov_dec > 0:
+                            registrar_comisiones_honorarios_movimiento_reserva(
+                                reserva,
+                                movimiento_principal,
+                                monto_mov_dec,
                             )
+                        else:
+                            pct_comision = vend.porcentaje_comision_para_reserva(reserva)
+                            if pct_comision is not None and pct_comision > 0:
+                                monto_total_reserva = reserva.precio_total or Decimal('0')
+                                ComisionVendedor.crear_comision(
+                                    vendedor=vend,
+                                    reserva=reserva,
+                                    movimiento_caja=movimiento_principal,
+                                    monto_total=monto_total_reserva,
+                                    concepto=f"Operación {reserva.id} - {reserva.propiedad.direccion}",
+                                )
                 except Exception:
                     pass
             
