@@ -57,11 +57,13 @@ def renombrar_propiedad_pk(old_id: str, new_id: str) -> None:
         Propiedad.all_objects.filter(pk=old_id).update(numero_por_propietario=None)
         old.refresh_from_db()
 
+        # Usar attname (p. ej. propietario_id) y valores de columna; si se usa f.name con un FK,
+        # value_from_object devuelve el id crudo y Propiedad(**kwargs) exige instancia → error.
         kwargs = {}
         for f in Propiedad._meta.local_concrete_fields:
             if f.primary_key:
                 continue
-            kwargs[f.name] = f.value_from_object(old)
+            kwargs[f.attname] = f.value_from_object(old)
 
         clone = Propiedad(pk=new_id, **kwargs)
         Propiedad.all_objects.bulk_create([clone])
