@@ -17603,6 +17603,50 @@ def aceptar_rechazar_gasto(request, gasto_id):
 
 
 @login_required
+@require_POST
+@transaction.atomic
+def eliminar_gasto_liquidacion(request, gasto_id):
+    """
+    Elimina un gasto asociado a una liquidación en estado pendiente y recalcula el monto a pagar.
+    """
+    gasto = get_object_or_404(
+        GastoPropietario.objects.select_related('liquidacion'),
+        id=gasto_id,
+        liquidacion__sucursal=request.user.sucursal,
+    )
+    liquidacion = gasto.liquidacion
+    if not liquidacion:
+        return JsonResponse(
+            {'success': False, 'error': 'Este gasto no está asociado a una liquidación.'},
+            status=400,
+        )
+    if liquidacion.estado != 'pendiente':
+        return JsonResponse(
+            {
+                'success': False,
+                'error': 'Solo se pueden eliminar gastos mientras la liquidación está pendiente.',
+            },
+            status=400,
+        )
+
+    try:
+        gasto.delete()
+        liquidacion.calcular_monto_a_pagar()
+        return JsonResponse(
+            {
+                'success': True,
+                'message': 'Gasto eliminado correctamente.',
+                'monto_a_pagar': str(liquidacion.monto_a_pagar),
+            }
+        )
+    except Exception as e:
+        return JsonResponse(
+            {'success': False, 'error': f'Error al eliminar el gasto: {str(e)}'},
+            status=500,
+        )
+
+
+@login_required
 @transaction.atomic
 @require_POST
 def confirmar_liquidacion(request, liquidacion_id):

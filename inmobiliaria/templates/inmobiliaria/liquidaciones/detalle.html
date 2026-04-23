@@ -160,13 +160,20 @@
                                                 {% endif %}
                                             </td>
                                             <td>
-                                                {% if liquidacion.estado == 'pendiente' and not gasto.aceptado %}
-                                                <button class="btn btn-sm btn-success aceptar-gasto" data-gasto-id="{{ gasto.id }}">
-                                                    <i class="fas fa-check"></i> Aceptar
-                                                </button>
-                                                <button class="btn btn-sm btn-danger rechazar-gasto" data-gasto-id="{{ gasto.id }}">
-                                                    <i class="fas fa-times"></i> Rechazar
-                                                </button>
+                                                {% if liquidacion.estado == 'pendiente' %}
+                                                <div class="d-flex flex-wrap gap-1">
+                                                    {% if not gasto.aceptado %}
+                                                    <button type="button" class="btn btn-sm btn-success aceptar-gasto" data-gasto-id="{{ gasto.id }}">
+                                                        <i class="fas fa-check"></i> Aceptar
+                                                    </button>
+                                                    <button type="button" class="btn btn-sm btn-outline-danger rechazar-gasto" data-gasto-id="{{ gasto.id }}">
+                                                        <i class="fas fa-times"></i> Rechazar
+                                                    </button>
+                                                    {% endif %}
+                                                    <button type="button" class="btn btn-sm btn-outline-danger eliminar-gasto" data-gasto-id="{{ gasto.id }}" title="Quitar este gasto de la liquidación">
+                                                        <i class="fas fa-trash-alt"></i> Eliminar
+                                                    </button>
+                                                </div>
                                                 {% endif %}
                                             </td>
                                         </tr>
@@ -407,6 +414,38 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .catch(error => {
                 alert('Error al procesar el gasto');
+            });
+        });
+    });
+
+    function getCsrfToken() {
+        const el = document.querySelector('[name=csrfmiddlewaretoken]');
+        return el ? el.value : '';
+    }
+
+    document.querySelectorAll('.eliminar-gasto').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const gastoId = this.getAttribute('data-gasto-id');
+            if (!confirm('¿Eliminar este gasto de la liquidación? Esta acción no se puede deshacer.')) {
+                return;
+            }
+            const formData = new FormData();
+            formData.append('csrfmiddlewaretoken', getCsrfToken());
+            fetch(`{% url 'inmobiliaria:eliminar_gasto_liquidacion' 0 %}`.replace('0', gastoId), {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-CSRFToken': getCsrfToken() }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Error: ' + (data.error || 'No se pudo eliminar'));
+                }
+            })
+            .catch(() => {
+                alert('Error al eliminar el gasto');
             });
         });
     });
