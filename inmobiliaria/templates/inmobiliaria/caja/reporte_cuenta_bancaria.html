@@ -104,14 +104,16 @@
                         <tr>
                             <th>Fecha</th>
                             <th>Caja</th>
-                            <th>Tipo</th>
-                            <th>Concepto</th>
-                            <th class="text-end">Transferencia</th>
+                            <th>Movimiento</th>
+                            <th>Detalle de la operación</th>
+                            <th class="text-end">Ingresos</th>
+                            <th class="text-end">Egresos</th>
                             <th class="text-end">Total mov.</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for m in movimientos %}
+                        {% with x=m.reporte_bc_extra %}
                         <tr>
                             <td class="text-nowrap small">
                                 {{ m.fecha|date:"d/m/Y" }}<br>
@@ -133,17 +135,47 @@
                                 <span class="badge bg-danger">Egreso</span>
                                 {% endif %}
                             </td>
-                            <td class="small" style="max-width: 22rem;">
-                                <div class="text-truncate" title="{{ m.concepto }}">{{ m.concepto|default:"—" }}</div>
+                            <td class="small" style="max-width: 26rem;">
+                                {% if x.etiqueta %}
+                                <div class="mb-1">
+                                    {% if x.etiqueta == 'Por día' %}
+                                    <span class="badge bg-info text-dark">{{ x.etiqueta }}</span>
+                                    {% elif x.etiqueta == 'Contrato' %}
+                                    <span class="badge bg-success">{{ x.etiqueta }}</span>
+                                    {% elif x.etiqueta == 'Liquidación' %}
+                                    <span class="badge bg-secondary">{{ x.etiqueta }}</span>
+                                    {% else %}
+                                    <span class="badge bg-light text-dark border">{{ x.etiqueta }}</span>
+                                    {% endif %}
+                                    {% if x.numero_operacion %}
+                                    <span class="text-muted">· Op. {{ x.numero_operacion }}</span>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                                <div class="fw-medium" title="{{ x.detalle_l1 }}">{{ x.detalle_l1 }}</div>
+                                {% if x.detalle_l2 %}
+                                <div class="text-muted">{{ x.detalle_l2 }}</div>
+                                {% endif %}
                                 {% if m.propiedad_id %}
-                                <div class="text-muted text-truncate">Prop. {{ m.propiedad_id }}</div>
+                                <div class="mt-1">
+                                    <a href="{% url 'inmobiliaria:propiedad_detalle' m.propiedad_id %}" class="text-decoration-none">
+                                        Propiedad #{{ m.propiedad_id }}
+                                    </a>
+                                    {% if x.propiedad_direccion %}
+                                    <span class="text-muted"> — {{ x.propiedad_direccion|truncatechars:56 }}</span>
+                                    {% endif %}
+                                </div>
                                 {% endif %}
                             </td>
-                            <td class="text-end fw-semibold {% if m.tipo == 'IN' %}text-success{% else %}text-danger{% endif %}">
-                                ${{ m.monto_deposito|format_price }}
+                            <td class="text-end text-success fw-semibold">
+                                {% if m.tipo == 'IN' %}${{ m.monto_deposito|format_price }}{% else %}—{% endif %}
+                            </td>
+                            <td class="text-end text-danger fw-semibold">
+                                {% if m.tipo == 'EG' %}${{ m.monto_deposito|format_price }}{% else %}—{% endif %}
                             </td>
                             <td class="text-end text-muted small">${{ m.monto_total|format_price }}</td>
                         </tr>
+                        {% endwith %}
                         {% endfor %}
                     </tbody>
                 </table>

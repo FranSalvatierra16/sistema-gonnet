@@ -1,3 +1,5 @@
+import json
+import re
 from decimal import Decimal
 
 from django.contrib.auth.decorators import login_required
@@ -9,6 +11,86 @@ from django.shortcuts import get_object_or_404, redirect, render
 
 from inmobiliaria.models.caja import MovimientoCaja, TipoMovimientoCajaEnum
 from inmobiliaria.models.sucursal import CuentaBancaria
+
+
+def _concepto_detalle_es_contrato(concepto_detalle: str) -> bool:
+    raw = (concepto_detalle or '').strip()
+    if not raw.startswith('{'):
+        return False
+    try:
+        data = json.loads(raw)
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return False
+    if not isinstance(data, dict):
+        return False
+    if isinstance(data.get('conceptos'), list) and len(data['conceptos']) > 0:
+        return True
+    if data.get('mes_alquiler_tipo') or data.get('mes_alquiler_importe') is not None:
+        return True
+    return False
+
+
+def _reporte_cuenta_bancaria_movimiento_extras(m: MovimientoCaja) -> dict:
+    """
+    Etiqueta de operación (por día / contrato / liquidación) y textos de detalle para el reporte bancario.
+    """
+    concepto = (m.concepto or '').strip()
+    lc = concepto.lower()
+    etiqueta = ''
+
+    if _concepto_detalle_es_contrato(m.concepto_detalle):
+        etiqueta = 'Contrato'
+    elif re.search(r'\bcontrato\b|\bcuota\s+\d', lc) or 'mes de alquiler' in lc or 'mes alquiler' in lc:
+        etiqueta = 'Contrato'
+    elif re.search(
+        r'reserva\s*#?\s*\d|operaci[oó]n\s*#?\s*\d|operacion\s*#?\s*\d|alquiler\s+por\s+d[ií]a',
+        lc,
+    ):
+        etiqueta = 'Por día'
+    elif 'liquidaci' in lc:
+        etiqueta = 'Liquidación'
+    elif (m.tipo_comprobante or '').strip().upper() == 'RC' and m.propiedad_id:
+        try:
+            if m.listado_concepto_l1 == 'ALQUILER A COBRAR':
+                etiqueta = 'Contrato'
+        except Exception:
+            pass
+
+    detalle_l1 = ''
+    detalle_l2 = ''
+    try:
+        detalle_l1 = (m.listado_detalle_l1 or '').strip()
+        detalle_l2 = (m.listado_detalle_l2 or '').strip()
+    except Exception:
+        detalle_l1 = (m.concepto or '')[:200] if m.concepto else '—'
+        detalle_l2 = ''
+
+    if detalle_l2 in ('—', ''):
+        detalle_l2 = ''
+
+    num_op = ''
+    try:
+        raw_num = m.numero_operacion_listado
+        if raw_num and str(raw_num) != '0':
+            num_op = str(raw_num)
+    except Exception:
+        pass
+
+    propiedad_direccion = ''
+    if getattr(m, 'propiedad_id', None):
+        try:
+            prop = m.propiedad
+            propiedad_direccion = (getattr(prop, 'direccion', None) or '').strip()
+        except Exception:
+            propiedad_direccion = ''
+
+    return {
+        'etiqueta': etiqueta,
+        'detalle_l1': detalle_l1 or '—',
+        'detalle_l2': detalle_l2,
+        'numero_operacion': num_op,
+        'propiedad_direccion': propiedad_direccion[:80] if propiedad_direccion else '',
+    }
 
 
 # ========================================
@@ -180,6 +262,8 @@ def reporte_movimientos_cuenta_bancaria(request, cuenta_id):
 
     paginator = Paginator(movimientos_qs, 50)
     page = paginator.get_page(request.GET.get('page'))
+    for mov in page.object_list:
+        mov.reporte_bc_extra = _reporte_cuenta_bancaria_movimiento_extras(mov)
 
     query_params = request.GET.copy()
     if 'page' in query_params:
