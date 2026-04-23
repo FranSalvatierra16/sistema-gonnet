@@ -279,6 +279,11 @@ urlpatterns = [
     # Gestión de Cuentas Bancarias
     path('cuentas-bancarias/', views.gestionar_cuentas_bancarias, name='gestionar_cuentas_bancarias'),
     path('cuentas-bancarias/crear/', views.crear_cuenta_bancaria, name='crear_cuenta_bancaria'),
+    path(
+        'cuentas-bancarias/<int:cuenta_id>/movimientos/',
+        views.reporte_movimientos_cuenta_bancaria,
+        name='reporte_movimientos_cuenta_bancaria',
+    ),
     path('cuentas-bancarias/<int:cuenta_id>/editar/', views.editar_cuenta_bancaria, name='editar_cuenta_bancaria'),
     path('cuentas-bancarias/<int:cuenta_id>/eliminar/', views.eliminar_cuenta_bancaria, name='eliminar_cuenta_bancaria'),
     path('cuentas-bancarias/<int:cuenta_id>/toggle/', views.toggle_cuenta_bancaria, name='toggle_cuenta_bancaria'),

@@ -27,7 +27,8 @@ from .views_cuentas_bancarias import (
     crear_cuenta_bancaria,
     editar_cuenta_bancaria,
     eliminar_cuenta_bancaria,
-    toggle_cuenta_bancaria
+    toggle_cuenta_bancaria,
+    reporte_movimientos_cuenta_bancaria,
 )
 
 # ✅ VISTAS PARA COMISIONES DE VENDEDORES (SOLO ADMINS)

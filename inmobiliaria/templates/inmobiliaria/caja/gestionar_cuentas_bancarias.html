@@ -74,6 +74,10 @@
                                                    class="btn btn-warning btn-sm" title="Editar">
                                                     <i class="fas fa-edit"></i>
                                                 </a>
+                                                <a href="{% url 'inmobiliaria:reporte_movimientos_cuenta_bancaria' cuenta.id %}"
+                                                   class="btn btn-info btn-sm text-white" title="Ingresos y egresos por transferencia a esta cuenta">
+                                                    <i class="fas fa-chart-line"></i>
+                                                </a>
                                                 <button type="button" 
                                                         class="btn btn-{% if cuenta.activa %}secondary{% else %}success{% endif %} btn-sm toggle-cuenta" 
                                                         data-cuenta-id="{{ cuenta.id }}"

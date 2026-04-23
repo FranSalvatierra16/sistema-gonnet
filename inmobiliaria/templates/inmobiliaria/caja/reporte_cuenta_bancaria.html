@@ -1,0 +1,181 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block title %}Movimientos — {{ cuenta.nombre_banco }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid fade-in-up">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-2">
+                    <li class="breadcrumb-item"><a href="{% url 'inmobiliaria:dashboard_caja' %}">Caja</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'inmobiliaria:gestionar_cuentas_bancarias' %}">Cuentas bancarias</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Movimientos</li>
+                </ol>
+            </nav>
+            <h1 class="h3 mb-1">
+                <i class="fas fa-chart-line text-primary me-2"></i>
+                Transferencias a esta cuenta
+            </h1>
+            <p class="text-muted mb-0">
+                <strong>{{ cuenta.nombre_banco }}</strong>
+                {% if cuenta.alias %}<span class="badge bg-light text-dark ms-1">{{ cuenta.alias }}</span>{% endif %}
+                · {{ cuenta.numero_cuenta }}
+            </p>
+        </div>
+        <div>
+            <a href="{% url 'inmobiliaria:gestionar_cuentas_bancarias' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Volver a cuentas
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h2 class="h5 mb-0"><i class="fas fa-filter me-2"></i>Filtros</h2>
+        </div>
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label" for="fecha_desde">Desde</label>
+                    <input type="date" class="form-control" id="fecha_desde" name="fecha_desde" value="{{ fecha_desde }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label" for="fecha_hasta">Hasta</label>
+                    <input type="date" class="form-control" id="fecha_hasta" name="fecha_hasta" value="{{ fecha_hasta }}">
+                </div>
+                <div class="col-md-6 d-flex flex-wrap gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-search"></i> Aplicar
+                    </button>
+                    <a class="btn btn-outline-secondary" href="{% url 'inmobiliaria:reporte_movimientos_cuenta_bancaria' cuenta.id %}">
+                        Limpiar fechas
+                    </a>
+                </div>
+            </form>
+            <p class="small text-muted mb-0 mt-3">
+                Se listan movimientos de caja donde el importe por <strong>transferencia / depósito</strong> va a esta cuenta
+                (mismo criterio que el resumen por caja). Otros medios (efectivo, tarjeta, etc.) del mismo movimiento no se suman acá.
+            </p>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card border-success h-100">
+                <div class="card-body">
+                    <div class="text-success small text-uppercase fw-semibold">Ingresos (transferencia)</div>
+                    <div class="h4 mb-0">${{ total_ingresos|format_price }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-danger h-100">
+                <div class="card-body">
+                    <div class="text-danger small text-uppercase fw-semibold">Egresos (transferencia)</div>
+                    <div class="h4 mb-0">${{ total_egresos|format_price }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-primary h-100">
+                <div class="card-body">
+                    <div class="text-primary small text-uppercase fw-semibold">Saldo (ingresos − egresos)</div>
+                    <div class="h4 mb-0 {% if saldo_transferencias >= 0 %}text-success{% else %}text-warning{% endif %}">
+                        ${{ saldo_transferencias|format_price }}
+                    </div>
+                    <div class="small text-muted">{{ cantidad_movimientos }} movimiento(s) en el período</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h2 class="h5 mb-0"><i class="fas fa-list me-2"></i>Detalle</h2>
+        </div>
+        <div class="card-body p-0">
+            {% if movimientos %}
+            <div class="table-responsive">
+                <table class="table table-hover table-sm mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Caja</th>
+                            <th>Tipo</th>
+                            <th>Concepto</th>
+                            <th class="text-end">Transferencia</th>
+                            <th class="text-end">Total mov.</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for m in movimientos %}
+                        <tr>
+                            <td class="text-nowrap small">
+                                {{ m.fecha|date:"d/m/Y" }}<br>
+                                <span class="text-muted">{{ m.fecha|time:"H:i" }}</span>
+                            </td>
+                            <td>
+                                {% if m.caja %}
+                                <a href="{% url 'inmobiliaria:detalle_caja' m.caja.numero %}" class="text-decoration-none">
+                                    #{{ m.caja.numero }}
+                                </a>
+                                {% else %}
+                                <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if m.tipo == 'IN' %}
+                                <span class="badge bg-success">Ingreso</span>
+                                {% else %}
+                                <span class="badge bg-danger">Egreso</span>
+                                {% endif %}
+                            </td>
+                            <td class="small" style="max-width: 22rem;">
+                                <div class="text-truncate" title="{{ m.concepto }}">{{ m.concepto|default:"—" }}</div>
+                                {% if m.propiedad_id %}
+                                <div class="text-muted text-truncate">Prop. {{ m.propiedad_id }}</div>
+                                {% endif %}
+                            </td>
+                            <td class="text-end fw-semibold {% if m.tipo == 'IN' %}text-success{% else %}text-danger{% endif %}">
+                                ${{ m.monto_deposito|format_price }}
+                            </td>
+                            <td class="text-end text-muted small">${{ m.monto_total|format_price }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% if movimientos.has_other_pages %}
+            <div class="card-footer">
+                <nav aria-label="Paginación">
+                    <ul class="pagination pagination-sm justify-content-center mb-0">
+                        {% if movimientos.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ movimientos.previous_page_number }}{% if querystring %}&{{ querystring }}{% endif %}">Anterior</a>
+                        </li>
+                        {% endif %}
+                        <li class="page-item disabled">
+                            <span class="page-link">Página {{ movimientos.number }} de {{ movimientos.paginator.num_pages }}</span>
+                        </li>
+                        {% if movimientos.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ movimientos.next_page_number }}{% if querystring %}&{{ querystring }}{% endif %}">Siguiente</a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+            {% endif %}
+            {% else %}
+            <div class="p-5 text-center text-muted">
+                <i class="fas fa-inbox fa-2x mb-3 d-block"></i>
+                No hay movimientos con transferencia a esta cuenta en el período seleccionado.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

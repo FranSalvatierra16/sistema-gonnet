@@ -1,7 +1,13 @@
-from django.shortcuts import render, redirect, get_object_or_404
+from decimal import Decimal
+
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.core.paginator import Paginator
+from django.db.models import Sum
 from django.http import JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
+
+from inmobiliaria.models.caja import MovimientoCaja, TipoMovimientoCajaEnum
 from inmobiliaria.models.sucursal import CuentaBancaria
 
 
@@ -130,3 +136,68 @@ def toggle_cuenta_bancaria(request, cuenta_id):
             'success': False,
             'error': str(e)
         })
+
+
+@login_required
+def reporte_movimientos_cuenta_bancaria(request, cuenta_id):
+    """
+    Listado tipo reporte: ingresos y egresos con transferencia/deposito a esta cuenta bancaria
+    (destino_deposito = cuenta_<id>, monto_deposito > 0), filtrable por rango de fechas.
+    """
+    cuenta = get_object_or_404(CuentaBancaria, id=cuenta_id, sucursal=request.user.sucursal)
+    destino = f'cuenta_{cuenta.id}'
+
+    movimientos_qs = (
+        MovimientoCaja.objects.filter(
+            sucursal=request.user.sucursal,
+            destino_deposito=destino,
+            monto_deposito__gt=0,
+        )
+        .select_related('caja', 'empleado', 'propiedad')
+        .order_by('-fecha', '-id')
+    )
+
+    fecha_desde = request.GET.get('fecha_desde', '').strip()
+    fecha_hasta = request.GET.get('fecha_hasta', '').strip()
+    if fecha_desde:
+        movimientos_qs = movimientos_qs.filter(fecha__date__gte=fecha_desde)
+    if fecha_hasta:
+        movimientos_qs = movimientos_qs.filter(fecha__date__lte=fecha_hasta)
+
+    total_ingresos = (
+        movimientos_qs.filter(tipo=TipoMovimientoCajaEnum.INGRESO).aggregate(
+            t=Sum('monto_deposito')
+        )['t']
+        or Decimal('0')
+    )
+    total_egresos = (
+        movimientos_qs.filter(tipo=TipoMovimientoCajaEnum.EGRESO).aggregate(
+            t=Sum('monto_deposito')
+        )['t']
+        or Decimal('0')
+    )
+    saldo_transferencias = total_ingresos - total_egresos
+
+    paginator = Paginator(movimientos_qs, 50)
+    page = paginator.get_page(request.GET.get('page'))
+
+    query_params = request.GET.copy()
+    if 'page' in query_params:
+        del query_params['page']
+
+    return render(
+        request,
+        'inmobiliaria/caja/reporte_cuenta_bancaria.html',
+        {
+            'cuenta': cuenta,
+            'sucursal': request.user.sucursal,
+            'movimientos': page,
+            'total_ingresos': total_ingresos,
+            'total_egresos': total_egresos,
+            'saldo_transferencias': saldo_transferencias,
+            'cantidad_movimientos': movimientos_qs.count(),
+            'fecha_desde': fecha_desde,
+            'fecha_hasta': fecha_hasta,
+            'querystring': query_params.urlencode(),
+        },
+    )
