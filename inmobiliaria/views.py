@@ -1259,7 +1259,7 @@ from .models import (
     Pago, ConceptoPago, HistorialDisponibilidad, VentaPropiedad, 
     AlquilerMeses, AlquilerInvierno, Caja, MovimientoCaja, Cuenta, Concepto, Sucursal,
     TipoMovimientoCajaEnum, ContratoAlquiler, ContratoInquilino, CuotaMensual, ComisionVendedor, ValeVendedor, MesComisionPagadoVendedor,
-    LiquidacionPropietario, GastoPropietario
+    LiquidacionPropietario, GastoPropietario, Recibo
 )
 from .catalogo_conceptos_caja import (
     get_sucursal_referencia_catalogo_conceptos_caja,
@@ -2310,6 +2310,7 @@ def reservas_eliminadas(request):
         'fecha_hasta': fecha_hasta
     })
 
+@login_required
 def operaciones(request):
     # Obtener solo reservas pagadas (completas o con saldo pendiente) ordenadas por fecha más reciente
     # Excluir reservas eliminadas (soft delete)
@@ -2317,7 +2318,13 @@ def operaciones(request):
         sucursal=request.user.sucursal,
         estado__in=['pagada', 'confirmada_no_pagada'],
         eliminada=False
-    ).select_related('cliente', 'propiedad', 'propiedad__propietario', 'vendedor').prefetch_related('pagos', 'recibos').order_by('-id')
+    ).select_related('cliente', 'propiedad', 'propiedad__propietario', 'vendedor').prefetch_related(
+        'pagos',
+        Prefetch(
+            'recibos',
+            queryset=Recibo.objects.select_related('movimiento_caja').order_by('-fecha_emision', '-id'),
+        ),
+    ).order_by('-id')
     
     # ✅ Filtro de búsqueda por ID
     search_id = request.GET.get('search_id', '').strip()
@@ -2395,7 +2402,13 @@ def operaciones(request):
             if f is None:
                 return (0.0, m.id or 0)
             try:
-                return (f.timestamp(), m.id or 0)
+                if isinstance(f, datetime):
+                    ts = f.timestamp()
+                elif isinstance(f, date):
+                    ts = datetime.combine(f, datetime.min.time()).timestamp()
+                else:
+                    ts = 0.0
+                return (ts, m.id or 0)
             except (OSError, ValueError, TypeError, AttributeError):
                 return (0.0, m.id or 0)
 
@@ -2409,15 +2422,14 @@ def operaciones(request):
     total_operaciones = 0
     operaciones_pendientes = 0
     
-    def _recibo_orden_emision(r):
-        fe = getattr(r, 'fecha_emision', None)
-        rid = getattr(r, 'id', None) or 0
-        if fe is None:
-            return (0.0, rid)
-        try:
-            return (fe.timestamp(), rid)
-        except (OSError, ValueError, TypeError, AttributeError):
-            return (0.0, rid)
+    def _monto_mov_a_decimal(mov):
+        total = Decimal('0')
+        for attr in ('monto_efectivo', 'monto_cheque', 'monto_tarjeta', 'monto_deposito'):
+            try:
+                total += Decimal(str(getattr(mov, attr, None) or 0))
+            except (InvalidOperation, TypeError, ValueError):
+                pass
+        return total
 
     # Calcular totales pagados para cada reserva y filtrar las que tienen pagos
     for reserva in reservas:
@@ -2428,13 +2440,7 @@ def operaciones(request):
             continue
         
         # Total cobrado en caja por ingresos vinculados a esta operación (efectivo + medios + transferencias)
-        total_pagado_mov = sum(
-            Decimal(str(mov.monto_efectivo or 0))
-            + Decimal(str(mov.monto_cheque or 0))
-            + Decimal(str(mov.monto_tarjeta or 0))
-            + Decimal(str(mov.monto_deposito or 0))
-            for mov in movimientos
-        )
+        total_pagado_mov = sum((_monto_mov_a_decimal(mov) for mov in movimientos), Decimal('0'))
         precio_total_dec = Decimal(str(reserva.precio_total or 0))
         saldo_pendiente = precio_total_dec - total_pagado_mov
         if saldo_pendiente < 0:
@@ -2482,7 +2488,6 @@ def operaciones(request):
             
             # ✅ Recibos ya prefetched en reserva.recibos
             reserva.todos_recibos = list(reserva.recibos.all()) if hasattr(reserva, 'recibos') else []
-            reserva.todos_recibos.sort(key=_recibo_orden_emision, reverse=True)
             
 # print(f"🔍 DEBUG RECIBOS - Reserva {reserva.id}:")
 # print(f"   - Cantidad de recibos: {recibos_reserva.count()}")
