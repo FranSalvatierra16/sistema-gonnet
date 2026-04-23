@@ -1301,6 +1301,103 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def _movimientos_caja_ingresos_operacion_reserva(reserva):
+    """
+    Ingresos de caja vinculados a una reserva por el texto del concepto.
+    Incluye «Operación» / «Operacion», con o sin «#» antes del id (histórico).
+    """
+    rid = reserva.id
+    return MovimientoCaja.objects.filter(
+        propiedad=reserva.propiedad,
+        tipo=TipoMovimientoCajaEnum.INGRESO,
+    ).filter(
+        Q(concepto__icontains=f"Operación {rid}")
+        | Q(concepto__icontains=f"Operacion {rid}")
+        | Q(concepto__icontains=f"Operación #{rid}")
+        | Q(concepto__icontains=f"Operacion #{rid}")
+    )
+
+
+_OP_MOV_RESERVA_ID_RE = re.compile(r"Operaci[oó]n\s*#?\s*(\d+)", re.IGNORECASE)
+
+
+def _reserva_id_desde_movimiento_operacion(movimiento):
+    """Si el ingreso es de operación de reserva, devuelve el id de reserva; si no, None."""
+    if not movimiento or movimiento.tipo != TipoMovimientoCajaEnum.INGRESO:
+        return None
+    m = _OP_MOV_RESERVA_ID_RE.search(movimiento.concepto or "")
+    if not m:
+        return None
+    try:
+        return int(m.group(1))
+    except (ValueError, TypeError):
+        return None
+
+
+def _sumar_senia_desde_texto_conceptos_movimiento(concepto_text):
+    """Suma importes de conceptos 1, 15 y 103 en el bloque |CONCEPTOS:."""
+    total = Decimal("0")
+    if not concepto_text or "|CONCEPTOS:" not in concepto_text:
+        return total
+    try:
+        partes = concepto_text.split("|CONCEPTOS:", 1)
+        if len(partes) < 2:
+            return total
+        conceptos_data = partes[1]
+        for item in conceptos_data.split("|"):
+            if not item.strip():
+                continue
+            p = item.split(":")
+            if len(p) < 3:
+                continue
+            concepto_id = p[0].strip()
+            if concepto_id not in ("1", "15", "103"):
+                continue
+            raw_im = p[2].strip()
+            try:
+                total += parse_decimal_monto(raw_im)
+            except (InvalidOperation, TypeError, ValueError):
+                try:
+                    total += Decimal(str(raw_im).replace(",", "."))
+                except (InvalidOperation, TypeError, ValueError):
+                    pass
+    except Exception:
+        pass
+    return total
+
+
+def _recalcular_reserva_tras_movimientos_operacion(reserva):
+    """
+    Tras borrar movimientos de caja de la operación: alinea seña, cuota pendiente y estado
+    con lo que queda en caja (coherente con el listado de operaciones).
+    """
+    movs = list(_movimientos_caja_ingresos_operacion_reserva(reserva))
+    precio = Decimal(str(reserva.precio_total or 0))
+
+    total_medios = Decimal("0")
+    total_senia = Decimal("0")
+    for m in movs:
+        total_medios += (
+            Decimal(str(m.monto_efectivo or 0))
+            + Decimal(str(m.monto_cheque or 0))
+            + Decimal(str(m.monto_tarjeta or 0))
+            + Decimal(str(m.monto_deposito or 0))
+        )
+        total_senia += _sumar_senia_desde_texto_conceptos_movimiento(m.concepto or "")
+
+    reserva.senia = total_senia
+    reserva.cuota_pendiente = max(Decimal("0"), precio - total_senia)
+
+    if not movs:
+        reserva.estado = "confirmada_no_pagada"
+    elif precio > 0 and total_medios >= precio - Decimal("0.05"):
+        reserva.estado = "pagada"
+    else:
+        reserva.estado = "confirmada_no_pagada"
+
+    reserva.save(update_fields=["senia", "estado", "cuota_pendiente"])
+
+
 def get_inquilinos_queryset_unificado(request):
     """Lista de inquilinos unificada: en Colón y Corrientes se muestran los de ambas sucursales; en el resto solo los de la sucursal del usuario."""
     nombre_suc = (getattr(request.user.sucursal, 'nombre', None) or '').lower()
@@ -2376,12 +2473,16 @@ def operaciones(request):
         movs_qs = MovimientoCaja.objects.filter(
             propiedad_id__in=propiedad_ids,
             tipo=TipoMovimientoCajaEnum.INGRESO,
-            concepto__icontains="Operación"
-        ).only('id', 'propiedad_id', 'concepto', 'monto_efectivo', 'monto_cheque', 'monto_tarjeta', 'monto_deposito')
+        ).filter(
+            Q(concepto__icontains="Operación") | Q(concepto__icontains="Operacion")
+        ).only(
+            'id', 'propiedad_id', 'concepto', 'fecha',
+            'monto_efectivo', 'monto_cheque', 'monto_tarjeta', 'monto_deposito',
+        ).order_by('-fecha', '-id')
         for mov in movs_qs:
             if not mov.concepto:
                 continue
-            match = re.search(r'Operaci[oó]n\s+(\d+)', mov.concepto, re.IGNORECASE)
+            match = re.search(r'Operaci[oó]n\s*#?\s*(\d+)', mov.concepto, re.IGNORECASE)
             if match:
                 rid = int(match.group(1))
                 if rid in reserva_ids:
@@ -2402,24 +2503,26 @@ def operaciones(request):
         if not movimientos:
             continue
         
-        # ✅ LÓGICA SIMPLE: SALDO = PRECIO TOTAL - SEÑA DEL CASILLERO
-        saldo_pendiente = reserva.precio_total - (reserva.senia or 0)
-        
-# print(f"💰 OPERACIONES - CÁLCULO DIRECTO:")
-# print(f"   - Precio Total: ${reserva.precio_total}")
-# print(f"   - Seña: ${reserva.senia or 0}")
-# print(f"   - Saldo Pendiente: ${saldo_pendiente}")
-        
-        # ✅ VERIFICAR QUE HAYA AL MENOS ALGÚN PAGO REAL
-        total_pagado = sum(
-            float(mov.monto_efectivo or 0) + float(mov.monto_cheque or 0) + float(mov.monto_tarjeta or 0) + float(mov.monto_deposito or 0)
+        # Total cobrado en caja (medios) = lo que baja de "Pagado" si se anula un movimiento
+        total_ingresos_mov = sum(
+            Decimal(str(mov.monto_efectivo or 0))
+            + Decimal(str(mov.monto_cheque or 0))
+            + Decimal(str(mov.monto_tarjeta or 0))
+            + Decimal(str(mov.monto_deposito or 0))
             for mov in movimientos
         )
+        precio_dec = Decimal(str(reserva.precio_total or 0))
+        saldo_dec = precio_dec - total_ingresos_mov
+        if saldo_dec < 0:
+            saldo_dec = Decimal("0")
+        saldo_pendiente = saldo_dec
+        
+        # ✅ VERIFICAR QUE HAYA AL MENOS ALGÚN PAGO REAL
+        total_pagado = float(total_ingresos_mov)
         
         if total_pagado > 0:
-            # ✅ CORREGIDO: total_pagado debe ser solo la seña (sin depósito)
-            reserva.total_pagado = reserva.senia or 0  # Solo la seña
-            reserva.saldo_pendiente = saldo_pendiente  # Ya está calculado correctamente
+            reserva.total_pagado = total_pagado
+            reserva.saldo_pendiente = float(saldo_pendiente)
             reserva.total_senia_pagada = reserva.senia or 0
             reserva.total_deposito_pagado = reserva.deposito_garantia or 0
             
@@ -3573,158 +3676,6 @@ def reserva_exitosa(request, reserva_id):
     return render(request, 'inmobiliaria/reserva/reserva_exitosa.html', context)
 
 @login_required
-def finalizar_reserva_nueva(request, reserva_id):
-    """
-    Nueva vista para finalizar reserva basada en la carga de recibo
-    """
-    try:
-        # Obtener la reserva
-        reserva = get_object_or_404(Reserva, id=reserva_id, sucursal=request.user.sucursal)
-        
-        # 🚀 SOLUCIÓN: Si la reserva tiene precio 0, recalcularlo
-        if reserva.precio_total == 0:
-            pass  # ✅ Bloque vacío
-# print(f"⚠️ Reserva {reserva.id} tiene precio 0, recalculando...")
-            recalcular_precio_reserva(reserva)
-            # Refrescar desde la base de datos
-            reserva.refresh_from_db()
-        
-        # Obtener la caja actual de la sucursal
-        caja_actual = Caja.objects.filter(
-            sucursal=request.user.sucursal,
-            fecha_cierre__isnull=True
-        ).first()
-        
-        if not caja_actual:
-            messages.error(request, 'No hay una caja abierta. Debe abrir una caja primero.')
-            return redirect('inmobiliaria:reservas')
-        
-        # Calcular información del próximo movimiento
-        cantidad_movimientos = MovimientoCaja.objects.filter(caja=caja_actual).count()
-        proximo_numero_movimiento = cantidad_movimientos + 1
-        
-        # Obtener conceptos de caja disponibles
-        conceptos_caja = Concepto.objects.filter(
-            q_conceptos_caja_visibles(request.user.sucursal)
-        ).order_by('id')
-        
-        # ✅ Obtener cuentas bancarias activas de la sucursal
-        from inmobiliaria.models.sucursal import CuentaBancaria
-        cuentas_bancarias = CuentaBancaria.objects.filter(
-            sucursal=request.user.sucursal,
-            activa=True
-        ).order_by('nombre_banco', 'alias')
-        
-        # ✅ CALCULAR SALDO PENDIENTE CONSIDERANDO SOLO LA SEÑA (NO EL DEPÓSITO)
-        # Buscar todos los movimientos de caja pagados para esta reserva
-        pagos_anteriores = MovimientoCaja.objects.filter(
-            propiedad=reserva.propiedad,
-            tipo=TipoMovimientoCajaEnum.INGRESO,
-            concepto__icontains=f"Operaci\u00f3n {reserva.id}"
-        )
-        
-        # ✅ DETECTAR SI ES "COMPLETAR PAGO" O "FINALIZAR RESERVA"
-        # Si ya hay pagos anteriores, es "Completar Pago", sino es "Finalizar Reserva"
-        total_pagos_anteriores = sum(pago.monto_total for pago in pagos_anteriores)
-        
-        # ✅ CALCULAR SOLO LA SEÑA DE PAGOS ANTERIORES (concepto ID: 1)
-        total_senia_anteriores = Decimal('0')
-        for pago in pagos_anteriores:
-            if pago.concepto and "|CONCEPTOS:" in pago.concepto:
-                # Parsear conceptos del formato |CONCEPTOS:id:nombre:importe|
-                concepto_parts = pago.concepto.split("|CONCEPTOS:", 1)
-                if len(concepto_parts) > 1:
-                    conceptos_data = concepto_parts[1]
-                    conceptos_items = [item for item in conceptos_data.split("|") if item.strip()]
-                    
-                    for concepto_item in conceptos_items:
-                        parts = concepto_item.split(":")
-                        if len(parts) >= 3:
-                            concepto_id = parts[0].strip()
-                            concepto_importe = parts[2].strip()
-                            
-                            # ✅ CONCEPTOS QUE CUENTAN COMO SEÑA: 1, 15, 103
-                            if concepto_id in ['1', '15', '103']:
-                                try:
-                                    importe_num = Decimal(concepto_importe.replace(',', ''))
-                                    total_senia_anteriores += importe_num
-# print(f"💰 SEÑA ANTERIOR DETECTADA: Concepto {concepto_id} - ${importe_num}")
-                                except:
-                                    pass
-        
-# print(f"📊 CÁLCULO PAGOS ANTERIORES:")
-# print(f"   - Total pagos anteriores: ${total_pagos_anteriores}")
-# print(f"   - Seña anteriores (conceptos 1,15,103): ${total_senia_anteriores}")
-        
-        es_completar_pago = total_pagos_anteriores > 0
-        
-        if es_completar_pago:
-            # COMPLETAR PAGO: SALDO = PRECIO TOTAL - SOLO LA SEÑA ANTERIOR (concepto ID:1)
-            saldo_a_ocupar = reserva.precio_total - total_senia_anteriores
-        else:
-            # FINALIZAR RESERVA: SALDO = PRECIO TOTAL (no hay seña anterior)
-            saldo_a_ocupar = reserva.precio_total
-        
-        tipo_operacion = "COMPLETAR PAGO" if es_completar_pago else "FINALIZAR RESERVA"
-# print(f"✅ CÁLCULO {tipo_operacion}:")
-# print(f"   - Precio Total: ${reserva.precio_total}")
-# print(f"   - Seña: ${reserva.senia or 0}")
-        if es_completar_pago:
-            pass  # ✅ Bloque vacío
-# print(f"   - Pagos Anteriores: ${total_pagos_anteriores}")
-# print(f"   - Saldo Pendiente: ${saldo_a_ocupar}")
-# print(f"   - Depósito: ${reserva.deposito_garantia or 0}")
-
-        
-        # ✅ CALCULAR SEÑA PENDIENTE: Si ya pagó seña, mostrar 0
-        senia_pendiente = 0  # Por defecto 0, porque si ya pagó seña no debe pagar más
-        if (reserva.senia or 0) == 0:
-            # Si no hay seña pagada aún, puede que necesite pagar algo
-            # Pero normalmente en "finalizar reserva" ya se pagó todo
-            senia_pendiente = 0
-        
-# print(f"✅ SEÑA PENDIENTE CALCULADA:")
-# print(f"   - Seña ya pagada: ${reserva.senia or 0}")
-# print(f"   - Seña pendiente a mostrar: ${senia_pendiente}")
-
-        # Datos para el formulario (solo lectura)
-        # ✅ VARIABLES PARA EL TEMPLATE ORIGINAL (igual que finalizar_reserva)
-        context = {
-            'reserva': reserva,
-            'pagos_previos': pagos_anteriores,  # Lista de MovimientoCaja anteriores
-            'total_pagado': total_pagos_anteriores,  # Total de pagos anteriores
-            'deposito': reserva.deposito_garantia or 0,  # Depósito de garantía
-            'saldo_pendiente': saldo_a_ocupar,  # Saldo pendiente calculado
-            'conceptos_pago': conceptos_caja,  # Conceptos disponibles
-            'conceptos_caja': conceptos_caja,  # Para el template HTML
-            'conceptos_json': list(conceptos_caja.values('id', 'nombre')),  # Para JavaScript
-            'cuentas_bancarias': cuentas_bancarias,  # ✅ Cuentas bancarias de la sucursal
-            'cliente_id': reserva.cliente.id,
-            'cliente_nombre': f"{reserva.cliente.apellido}, {reserva.cliente.nombre}",
-            'interno_caja': caja_actual.numero,
-            'propiedad_id': reserva.propiedad.id,
-            'propiedad_direccion': reserva.propiedad.direccion,
-            'fecha_actual': datetime.now().strftime('%d/%m/%Y'),
-            'numero_movimiento': proximo_numero_movimiento,
-            'numero_recibo': '0000-00000000',  # Para completar
-            'productor_id': reserva.vendedor.id if reserva.vendedor else request.user.id,
-            'productor_nombre': f"{reserva.vendedor.apellido}, {reserva.vendedor.nombre}" if reserva.vendedor else f"{request.user.apellido}, {request.user.nombre}",
-            'saldo_a_ocupar': saldo_a_ocupar,
-            'senia_pendiente': senia_pendiente,  # ✅ NUEVO: Seña pendiente (0 si ya se pagó)
-            'total_senia_pagada': total_senia_anteriores if es_completar_pago else 0,  # ✅ CORREGIDO: Solo seña de pagos anteriores
-            'total_deposito_pagado': reserva.deposito_garantia or 0,  # ✅ SIMPLE: Del casillero
-            'deposito_garantia': reserva.deposito_garantia,
-            'fecha_desde': reserva.fecha_inicio.strftime('%d/%m/%Y'),
-            'fecha_hasta': reserva.fecha_fin.strftime('%d/%m/%Y'),
-        }
-        
-        return render(request, 'inmobiliaria/reserva/finalizar_reserva_nueva.html', context)
-        
-    except Exception as e:
-        messages.error(request, f'Error al cargar la reserva: {str(e)}')
-        return redirect('inmobiliaria:reservas')
-
-@login_required
 def terminar_reserva(request, reserva_id):
     try:
         reserva = get_object_or_404(Reserva, id=reserva_id)
@@ -4831,11 +4782,7 @@ def procesar_movimiento_reserva(request):
             )
             
             # ✅ DETECTAR SI ES "COMPLETAR PAGO" (ya hay pagos anteriores)
-            pagos_anteriores = MovimientoCaja.objects.filter(
-                propiedad=reserva.propiedad,
-                tipo=TipoMovimientoCajaEnum.INGRESO,
-                concepto__icontains=f"Operaci\u00f3n {reserva.id}"
-            )
+            pagos_anteriores = _movimientos_caja_ingresos_operacion_reserva(reserva)
             total_pagos_anteriores = sum(pago.monto_total for pago in pagos_anteriores)
             es_completar_pago = total_pagos_anteriores > 0
             
@@ -5173,12 +5120,8 @@ def procesar_movimiento_reserva(request):
             deposito_garantia_input = limpiar_valor_monetario(request.POST.get('deposito_garantia', '0'))
             importe_locacion_input = limpiar_valor_monetario(request.POST.get('importe_locacion', '0'))
             
-            # ✅ CALCULAR TOTALES PAGADOS ANTES DE ESTE PAGO
-            pagos_anteriores = MovimientoCaja.objects.filter(
-                propiedad=reserva.propiedad,
-                tipo=TipoMovimientoCajaEnum.INGRESO,
-                concepto__icontains=f"Operaci\u00f3n {reserva.id}"
-            )
+            # ✅ CALCULAR TOTALES PAGADOS ANTES DE ESTE PAGO (incluye el movimiento recién creado)
+            pagos_anteriores = _movimientos_caja_ingresos_operacion_reserva(reserva)
             
             total_pagado_anteriormente = sum(
                 (mov.monto_efectivo or 0) + (mov.monto_cheque or 0) + (mov.monto_tarjeta or 0) + (mov.monto_deposito or 0)
@@ -9206,11 +9149,32 @@ def gestionar_caja(request):
 
 
 @login_required
+@transaction.atomic
 def eliminar_movimiento(request, movimiento_id):
     movimiento = get_object_or_404(MovimientoCaja, id=movimiento_id, sucursal=request.user.sucursal)
     caja_numero = movimiento.caja_id and movimiento.caja.numero
-    movimiento.delete()
-    messages.success(request, 'Movimiento eliminado correctamente.')
+
+    rid = _reserva_id_desde_movimiento_operacion(movimiento)
+    reserva_sync = None
+    if rid is not None:
+        reserva_sync = Reserva.objects.filter(
+            id=rid,
+            sucursal=request.user.sucursal,
+        ).first()
+        if reserva_sync and movimiento.propiedad_id and reserva_sync.propiedad_id != movimiento.propiedad_id:
+            reserva_sync = None
+
+    _eliminar_movimiento_y_anexos(movimiento)
+
+    if reserva_sync:
+        _recalcular_reserva_tras_movimientos_operacion(reserva_sync)
+        messages.success(
+            request,
+            'Movimiento eliminado. La operación y el total pagado se actualizaron según los movimientos que quedan en caja.',
+        )
+    else:
+        messages.success(request, 'Movimiento eliminado correctamente.')
+
     if caja_numero is not None:
         return redirect('inmobiliaria:detalle_caja', numero=caja_numero)
     return redirect('inmobiliaria:gestionar_caja')
@@ -13462,12 +13426,16 @@ def finalizar_reserva_nueva(request, reserva_id):
     try:
         # Obtener la reserva
         reserva = get_object_or_404(Reserva, id=reserva_id, sucursal=request.user.sucursal)
+
+        if (reserva.precio_total or 0) == 0:
+            recalcular_precio_reserva(reserva)
+            reserva.refresh_from_db()
         
-        # Obtener la caja actual de la sucursal
+        # Misma criterio que procesar_movimiento_reserva
         caja_actual = Caja.objects.filter(
             sucursal=request.user.sucursal,
-            fecha_cierre__isnull=True
-        ).first()
+            estado='abierta',
+        ).order_by('-fecha_apertura').first()
         
         if not caja_actual:
             messages.error(request, 'No hay una caja abierta. Debe abrir una caja primero.')
@@ -13490,12 +13458,7 @@ def finalizar_reserva_nueva(request, reserva_id):
         ).order_by('nombre_banco', 'alias')
         
         # ✅ CALCULAR SALDO PENDIENTE CONSIDERANDO SOLO LA SEÑA (NO EL DEPÓSITO)
-        # Buscar todos los movimientos de caja pagados para esta reserva
-        pagos_anteriores = MovimientoCaja.objects.filter(
-            propiedad=reserva.propiedad,
-            tipo=TipoMovimientoCajaEnum.INGRESO,
-            concepto__icontains=f"Operaci\u00f3n {reserva.id}"
-        )
+        pagos_anteriores = _movimientos_caja_ingresos_operacion_reserva(reserva)
         
         # ✅ DETECTAR SI ES "COMPLETAR PAGO" O "FINALIZAR RESERVA"
         # Si ya hay pagos anteriores, es "Completar Pago", sino es "Finalizar Reserva"
