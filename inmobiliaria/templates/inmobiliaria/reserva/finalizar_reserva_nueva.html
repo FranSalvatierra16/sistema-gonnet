@@ -120,7 +120,7 @@ function calcularTotales() {
         let totalConceptos = 0;
         if (conceptosAgregados && conceptosAgregados.length > 0) {
             totalConceptos = conceptosAgregados.reduce((sum, concepto) => {
-                return sum + (parseFloat(concepto.importe) || 0);
+                return sum + parseDecimalMontoJS(concepto.importe);
             }, 0);
         }
         
@@ -186,12 +186,9 @@ function calcularTotalPagos() {
         const camposCuentasBancarias = document.querySelectorAll('.cuenta-bancaria-dinamica');
         console.log('   Campos cuentas bancarias encontrados:', camposCuentasBancarias.length);
         
-        // Función helper para parsear valores formateados
         function parsearValor(elemento) {
-            if (!elemento || !elemento.value) return 0;
-            // Remover todos los caracteres que no sean números
-            const valorLimpio = elemento.value.replace(/[^\d]/g, '');
-            return parseFloat(valorLimpio) || 0;
+            if (!elemento || elemento.value == null || String(elemento.value).trim() === '') return 0;
+            return parseDecimalMontoJS(elemento.value);
         }
         
         const efectivo = parsearValor(efectivoElement);
@@ -288,10 +285,10 @@ function procesarMovimiento() {
     const totalPagosElement = document.getElementById('totalPagos');
     const totalReciboElement = document.getElementById('totalRecibo');
     
-    const totalPagos = parseFloat(totalPagosElement?.textContent?.replace(/[^\d]/g, '') || '0') || 0;
-    const totalRecibo = parseFloat(totalReciboElement?.value || '0') || 0;
+    const totalPagos = parseDecimalMontoJS(totalPagosElement?.textContent || '0');
+    const totalRecibo = parseDecimalMontoJS(totalReciboElement?.value || '0');
     
-    if (totalPagos !== totalRecibo) {
+    if (Math.abs(totalPagos - totalRecibo) > 0.02) {
         alert('❌ Los totales no coinciden. Por favor verifica los importes.');
         return;
     }
@@ -518,7 +515,7 @@ function agregarConcepto() {
     // Validar que hay un concepto seleccionado
     const conceptoIdInput = document.getElementById('conceptoId');
     const observaciones = document.getElementById('observaciones').value || 'Sin observaciones';
-    const importe = parseFloat(document.getElementById('importe').value);
+    const importe = parseDecimalMontoJS(document.getElementById('importe').value);
     
     if (!conceptoIdInput.value || !conceptoSeleccionadoActual) {
         alert('Por favor selecciona un concepto válido');
@@ -705,7 +702,7 @@ function actualizarConcepto() {
     }
 
     const observaciones = document.getElementById('observaciones').value || 'Sin observaciones';
-    const importe = parseFloat(document.getElementById('importe').value);
+    const importe = parseDecimalMontoJS(document.getElementById('importe').value);
 
     if (!importe || importe <= 0) {
         alert('Por favor ingresa un importe válido');
