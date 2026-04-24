@@ -11,8 +11,11 @@
     
     <form method="post">
         {% csrf_token %}
+        {% if next %}
+        <input type="hidden" name="next" value="{{ next }}">
+        {% endif %}
         <button type="submit" class="btn btn-danger">Eliminar</button>
-        <a href="{% url 'inmobiliaria:reservas' %}" class="btn btn-secondary">Cancelar</a>
+        <a href="{% if next %}{{ next }}{% else %}{% url 'inmobiliaria:reservas' %}{% endif %}" class="btn btn-secondary">Cancelar</a>
     </form>
 </div>
 {% endblock %}

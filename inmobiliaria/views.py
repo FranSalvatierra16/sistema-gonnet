@@ -2688,11 +2688,20 @@ def reserva_editar(request, reserva_id):
     
     return render(request, 'inmobiliaria/reserva/crear_reserva.html', {'form': form, 'reserva': reserva})
 
+def _sanitize_internal_next_path(raw_next):
+    """Evita open redirects: solo rutas relativas internas."""
+    n = (raw_next or '').strip()
+    if n.startswith('/') and not n.startswith('//'):
+        return n
+    return ''
+
+
 @login_required
 def reserva_eliminar(request, reserva_id):
     reserva = get_object_or_404(Reserva, pk=reserva_id)
-    
+
     if request.method == "POST":
+        next_url = _sanitize_internal_next_path(request.POST.get('next'))
         try:
             # ✅ NUEVO: Cancelar la reserva primero para restaurar disponibilidades
 # print(f"🗑️ ELIMINANDO RESERVA {reserva_id}: {reserva.fecha_inicio} al {reserva.fecha_fin}")
@@ -2720,10 +2729,17 @@ def reserva_eliminar(request, reserva_id):
             pass  # ✅ Bloque vacío
 # print(f"❌ Error al eliminar reserva: {e}")
             messages.error(request, f'Error al eliminar la reserva: {str(e)}')
-            
-        return redirect('inmobiliaria:reservas')  # Redirige a la lista de reservas después de eliminar
-    
-    return render(request, 'inmobiliaria/reserva/confirmar_eliminar.html', {'reserva': reserva})
+
+        if next_url:
+            return redirect(next_url)
+        return redirect('inmobiliaria:reservas')
+
+    next_get = _sanitize_internal_next_path(request.GET.get('next'))
+    return render(
+        request,
+        'inmobiliaria/reserva/confirmar_eliminar.html',
+        {'reserva': reserva, 'next': next_get},
+    )
 def parse_fecha(fecha_str):
     try:
         # Dividir la fecha en sus componentes
