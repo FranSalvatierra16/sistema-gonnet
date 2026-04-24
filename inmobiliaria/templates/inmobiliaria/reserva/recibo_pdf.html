@@ -185,27 +185,27 @@
                         <td style="width: 18%;" class="text-center">
                             <p style="margin: 0; font-size: 8px;">Importe Locación</p>
                             <div style="border-bottom: 1px solid #2d8524; margin: 2px 0;"></div>
-                            <p style="margin: 0; font-size: 9px;">{{ precio_total_operacion|default:"$0" }}</p>
+                            <p style="margin: 0; font-size: 9px;">{{ precio_total_operacion|default:"$0,00" }}</p>
                         </td>
                         <td style="width: 18%;" class="text-center">
                             <p style="margin: 0; font-size: 9px;">SEÑA</p>
                             <div style="border-bottom: 1px solid #2d8524; margin: 2px 0;"></div>
-                            <p style="margin: 0; font-size: 9px;">{{ monto_este_pago|default:"$0" }}</p>
+                            <p style="margin: 0; font-size: 9px;">{{ monto_este_pago|default:"$0,00" }}</p>
                         </td>
                         <td style="width: 18%;" class="text-center">
                             <p style="margin: 0; font-size: 8px;">SALDO RESTANTE</p>
                             <div style="border-bottom: 1px solid #2d8524; margin: 2px 0;"></div>
-                            <p style="margin: 0; font-size: 9px;">{{ saldo_pendiente|default:"$0" }}</p>
+                            <p style="margin: 0; font-size: 9px;">{{ saldo_pendiente|default:"$0,00" }}</p>
                         </td>
                         <td style="width: 18%;" class="text-center">
                             <p style="margin: 0; font-size: 8px;">DEPOSITO GARANTIA</p>
                             <div style="border-bottom: 1px solid #2d8524; margin: 2px 0;"></div>
                             {% if deposito_estado == 'pendiente' %}
-                            <p style="margin: 0; font-size: 9px; color: #ff6b6b;">{{ deposito_garantia|default:"$0" }}</p>
+                            <p style="margin: 0; font-size: 9px; color: #ff6b6b;">{{ deposito_garantia|default:"$0,00" }}</p>
                             {% elif deposito_estado == 'pagado' %}
-                            <p style="margin: 0; font-size: 9px; color: #2d8524;">{{ deposito_garantia|default:"$0" }}</p>
+                            <p style="margin: 0; font-size: 9px; color: #2d8524;">{{ deposito_garantia|default:"$0,00" }}</p>
                             {% else %}
-                            <p style="margin: 0; font-size: 9px;">{{ deposito_garantia|default:"$0" }}</p>
+                            <p style="margin: 0; font-size: 9px;">{{ deposito_garantia|default:"$0,00" }}</p>
                             {% endif %}
                         </td>
                         <td style="width: 28%;" class="text-center">
@@ -287,12 +287,12 @@
             </td>
             <td style="width: 10%;">
                 <table style="width: 100%;">
-                    {% if honorarios and honorarios != '$0' %}
+                    {% if tiene_honorarios|default:False %}
                     <tr>
                         <td style="padding: 2px; border: 1px solid #2d8524; font-size: 8px;" class="text-center">HONORARIOS</td>
                     </tr>
                     {% endif %}
-                    {% if sellados and sellados != '$0' %}
+                    {% if tiene_sellados|default:False %}
                     <tr>
                         <td style="padding: 2px; border: 1px solid #2d8524; font-size: 8px;" class="text-center">SELLADOS</td>
                     </tr>
@@ -304,12 +304,12 @@
             </td>
             <td style="width: 20%;">
                 <table style="width: 100%;">
-                    {% if honorarios and honorarios != '$0' %}
+                    {% if tiene_honorarios|default:False %}
                     <tr>
                         <td style="padding: 2px; border: 1px solid #2d8524; font-size: 8px;" class="text-center">{{ honorarios }}</td>
                     </tr>
                     {% endif %}
-                    {% if sellados and sellados != '$0' %}
+                    {% if tiene_sellados|default:False %}
                     <tr>
                         <td style="padding: 2px; border: 1px solid #2d8524; font-size: 8px;" class="text-center">{{ sellados }}</td>
                     </tr>

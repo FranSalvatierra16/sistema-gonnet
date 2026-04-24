@@ -8,8 +8,11 @@ Parseo de montos ingresados en formularios.
 
 from __future__ import annotations
 
+import builtins
 import re
-from decimal import Decimal, InvalidOperation
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
+
+_abs = builtins.abs
 
 
 def parse_decimal_monto(value) -> Decimal:
@@ -51,3 +54,62 @@ def parse_decimal_monto(value) -> Decimal:
         return Decimal(t)
     except InvalidOperation:
         return Decimal("0")
+
+
+def _entero_miles_puntos(n: int) -> str:
+    n = _abs(int(n))
+    s = str(n)
+    parts = []
+    while len(s) > 3:
+        parts.insert(0, s[-3:])
+        s = s[:-3]
+    if s:
+        parts.insert(0, s)
+    return ".".join(parts) if parts else "0"
+
+
+def format_monto_argentino(value, dec_places: int = 2) -> str:
+    """
+    Formato argentino: miles con punto, decimales con coma (sin símbolo $).
+    dec_places=0 solo muestra la parte entera con separador de miles.
+    """
+    try:
+        dec_places = max(0, min(10, int(dec_places)))
+    except (TypeError, ValueError):
+        dec_places = 2
+
+    try:
+        if isinstance(value, Decimal):
+            d = value
+        elif isinstance(value, bool):
+            d = Decimal(int(value))
+        elif isinstance(value, int):
+            d = Decimal(value)
+        elif isinstance(value, float):
+            d = Decimal(str(value))
+        elif value is None or value == "":
+            d = Decimal("0")
+        else:
+            d = parse_decimal_monto(value)
+    except (InvalidOperation, ValueError, TypeError):
+        return "0" if dec_places == 0 else ("0," + ("0" * dec_places))
+
+    neg = d < 0
+    d = _abs(d)
+
+    if dec_places == 0:
+        q = d.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+        body = _entero_miles_puntos(int(q))
+    else:
+        exp = Decimal(10) ** -dec_places
+        q = d.quantize(exp, rounding=ROUND_HALF_UP)
+        s = format(q, "f")
+        if "." in s:
+            ip_str, fp_str = s.split(".", 1)
+        else:
+            ip_str, fp_str = s, ""
+        fp_str = (fp_str + "0" * dec_places)[:dec_places]
+        intpart = int(ip_str) if ip_str else 0
+        body = f"{_entero_miles_puntos(intpart)},{fp_str}"
+
+    return ("-" if neg else "") + body

@@ -73,8 +73,6 @@
                  {% else %}
                      <img src="{% static 'images/logo.png' %}" alt="logo" style="height: 30%; width: 60%; margin-top: 0%;">
                  {% endif %}
-                 <!-- DEBUG: Indicador de template actualizado -->
-                 <div style="background: red; color: white; padding: 2px; font-size: 8px; position: absolute; top: 0; right: 0;">TEMPLATE ACTUALIZADO v2.0</div>
                 <p style="margin: 0; font-size: 7px;"> de Nestor Oscar Gonnet</p>
                 <p style="margin: 0; font-size: 7px;">{% if sucursal %}{{ sucursal.direccion }}{% else %}Corrientes 1987{% endif %}</p>
                 <p style="margin: 0; font-size: 7px;">(B7600EBO) Mar del Plata - Prov. de Bs. As.</p>
@@ -290,34 +288,34 @@
                
                     <!-- Columna de textos -->
                     <div style="display: flex; flex-direction: column; width: 10%;height: 100%;">
-                        {% if honorarios != '$0' %}
+                        {% if tiene_honorarios|default:False %}
                         <div style="padding: 2px; border-bottom: 1px solid #2d8524;height: 33.33%;border-left: 1px solid #2d8524;display: flex; justify-content: center; align-items: center;">
                             <span style="font-size: 8px;padding: 2px;">HONORARIOS</span>
                         </div>
                         {% endif %}
-                        {% if sellados != '$0' %}
+                        {% if tiene_sellados|default:False %}
                         <div style="padding: 2px; border-bottom: 1px solid #2d8524;height: 33.33%;border-left: 1px solid #2d8524;display: flex; justify-content: center; align-items: center;">
                             <span style="font-size: 8px;padding: 2px;">SELLADOS</span>
                         </div>
                         {% endif %}
-                        <div style="padding: 2px; border-bottom: 1px solid #2d8524;height: {% if honorarios != '$0' or sellados != '$0' %}33.33{% else %}100{% endif %}%;border-left: 1px solid #2d8524;display: flex; justify-content: center; align-items: center;">
+                        <div style="padding: 2px; border-bottom: 1px solid #2d8524;height: {% if tiene_honorarios|default:False or tiene_sellados|default:False %}33.33{% else %}100{% endif %}%;border-left: 1px solid #2d8524;display: flex; justify-content: center; align-items: center;">
                             <span style="font-size: 9px;padding: 3px;">TOTAL</span>
                         </div>
                     </div>
                     
                     <!-- Columna de valores -->
                     <div style="display: flex; flex-direction: column; border: 1px solid #2d8524; width: 20%;height: 100%;">
-                        {% if honorarios != '$0' %}
+                        {% if tiene_honorarios|default:False %}
                         <div style="padding: 2px; border-bottom: 1px solid #2d8524; border-left: 1px solid #2d8524;height: 33.33%;display: flex; justify-content: center; align-items: center;">
                             <span style="font-size: 8px;padding: 2px;">{{ honorarios }}</span>
                         </div>
                         {% endif %}
-                        {% if sellados != '$0' %}
+                        {% if tiene_sellados|default:False %}
                         <div style="padding: 2px; border-bottom: 1px solid #2d8524; border-left: 1px solid #2d8524;height: 33.33%;display: flex; justify-content: center; align-items: center;">
                             <span style="font-size: 8px;padding: 2px;">{{ sellados }}</span>
                         </div>
                         {% endif %}
-                        <div style="padding: 2px; border-bottom: 1px solid #2d8524; border-left: 1px solid #2d8524;height: {% if honorarios != '$0' or sellados != '$0' %}33.33{% else %}100{% endif %}%;display: flex; justify-content: center; align-items: center;">
+                        <div style="padding: 2px; border-bottom: 1px solid #2d8524; border-left: 1px solid #2d8524;height: {% if tiene_honorarios|default:False or tiene_sellados|default:False %}33.33{% else %}100{% endif %}%;display: flex; justify-content: center; align-items: center;">
                             <span style="font-size: 9px;padding: 3px;">{{total_pagado}}</span>
                         </div>
                     </div>

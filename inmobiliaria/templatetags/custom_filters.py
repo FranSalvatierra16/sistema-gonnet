@@ -1,41 +1,12 @@
 import builtins
 
 from django import template
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from decimal import Decimal, InvalidOperation
 
-from ..decimal_utils import parse_decimal_monto
+from ..decimal_utils import format_monto_argentino, parse_decimal_monto
 
 register = template.Library()
 _abs = builtins.abs
-
-
-def _parse_decimal(value):
-    """Convierte valor de plantilla a Decimal (acepta AR y decimal con un punto)."""
-    if value is None or value == '':
-        return Decimal('0')
-    if isinstance(value, Decimal):
-        return value
-    if isinstance(value, str):
-        return parse_decimal_monto(value)
-    if isinstance(value, bool):
-        return Decimal(int(value))
-    if isinstance(value, int):
-        return Decimal(value)
-    if isinstance(value, float):
-        return Decimal(str(value))
-    return parse_decimal_monto(str(value))
-
-
-def _entero_miles_puntos(n: int) -> str:
-    n = _abs(int(n))
-    s = str(n)
-    parts = []
-    while len(s) > 3:
-        parts.insert(0, s[-3:])
-        s = s[:-3]
-    if s:
-        parts.insert(0, s)
-    return '.'.join(parts) if parts else '0'
 
 
 @register.filter
@@ -52,30 +23,7 @@ def format_price(value, arg=None):
     except (TypeError, ValueError):
         dec_places = 2
 
-    try:
-        d = _parse_decimal(value)
-    except (InvalidOperation, ValueError, TypeError):
-        return '0' if dec_places == 0 else ('0,' + ('0' * dec_places))
-
-    neg = d < 0
-    d = _abs(d)
-
-    if dec_places == 0:
-        q = d.quantize(Decimal('1'), rounding=ROUND_HALF_UP)
-        body = _entero_miles_puntos(int(q))
-    else:
-        exp = Decimal(10) ** -dec_places
-        q = d.quantize(exp, rounding=ROUND_HALF_UP)
-        s = format(q, 'f')
-        if '.' in s:
-            ip_str, fp_str = s.split('.', 1)
-        else:
-            ip_str, fp_str = s, ''
-        fp_str = (fp_str + '0' * dec_places)[:dec_places]
-        intpart = int(ip_str) if ip_str else 0
-        body = f'{_entero_miles_puntos(intpart)},{fp_str}'
-
-    return ('-' if neg else '') + body
+    return format_monto_argentino(value, dec_places)
 
 @register.filter
 def abs(value):
