@@ -1185,7 +1185,7 @@
                                 <td>
                                     {% if historial.reserva %}
                                         <small>
-                                            Reserva #{{ historial.reserva.id }} <br>
+                                            {% if historial.estado == 'alquilado' %}Operación #{{ historial.reserva.id }}{% else %}Reserva #{{ historial.reserva.id }}{% endif %} <br>
                                             Cliente: {{ historial.reserva.cliente.apellido }}
                                             {% if historial.reserva.fue_editada %}
                                             <br><span class="badge bg-warning text-dark" title="Esta reserva fue editada desde el historial">
@@ -2875,9 +2875,15 @@ function mostrarDetallesOperacion(operacion, reserva) {
         console.log('❌ Celular es null, undefined o vacío');
     }
     
+    const tituloOperacionOReserva = (
+        (operacion.senia_pagada > 0) ||
+        (operacion.recibos && operacion.recibos.length > 0) ||
+        (reserva.estado === 'pagada')
+    ) ? 'Operación' : 'Reserva';
+
     let html = `
         <div class="operacion-detalles">
-            <h5><i class="fas fa-calendar-check"></i> Reserva #${reserva.id}</h5>
+            <h5><i class="fas fa-calendar-check"></i> ${tituloOperacionOReserva} #${reserva.id}</h5>
             <div class="row">
                 <div class="col-md-6">
                     <p><strong>Cliente:</strong> ${reserva.cliente || 'No especificado'}</p>
