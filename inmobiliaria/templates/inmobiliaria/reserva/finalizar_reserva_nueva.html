@@ -42,6 +42,20 @@ let conceptoSeleccionadoActual = null;
 let conceptoEditando = null;
 let contadorConceptos = 1;
 
+/** Conceptos de caja que suman a «seña pagada» (mismo criterio que el backend). */
+const IDS_CONCEPTO_SUMA_SENIA = new Set(['1', '15', '103', '219']);
+
+function sumaSeniaConceptosReciboActual() {
+    if (!conceptosAgregados || !conceptosAgregados.length) return 0;
+    return conceptosAgregados.reduce((sum, c) => {
+        const cid = String(c.conceptoId ?? '').trim();
+        if (IDS_CONCEPTO_SUMA_SENIA.has(cid)) {
+            return sum + parseDecimalMontoJS(c.importe);
+        }
+        return sum;
+    }, 0);
+}
+
 /** Id de catálogo «RE» se muestra como RECIBO (el valor guardado sigue siendo RE). */
 function conceptoCatalogoIdEtiqueta(id) {
     if (id === undefined || id === null) return '';
@@ -66,44 +80,45 @@ function actualizarPagos() {
 function calcularSaldoOcupar() {
     try {
         const importeLocacionElement = document.querySelector('input[name="importe_locacion"]');
-        const seniaElement = document.querySelector('input[name="senia"]');
-        
         if (!importeLocacionElement) {
-            return; // Salir silenciosamente si no existe el campo
+            return;
         }
         
         const importeLocacion = parseDecimalMontoJS(importeLocacionElement.value || '0');
-        const seniaActual = parseDecimalMontoJS(seniaElement?.value || '0');
+        const seniaPagadaHist = Number(SENIA_PAGADA) || 0;
+        const seniaConceptosEsteRecibo = sumaSeniaConceptosReciboActual();
+        const totalSeniaAcumulada = seniaPagadaHist + seniaConceptosEsteRecibo;
+        const quedaPorPagar = Math.max(0, importeLocacion - totalSeniaAcumulada);
         
-        // Queda por Pagar = Importe locación − (seña ya pagada + seña de este recibo). Mismo criterio que el backend.
-        const seniaPagada = Number(SENIA_PAGADA) || 0;
+        const fmt = (n) => Number(n).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         
-        const totalSenia = seniaPagada + seniaActual;
-        const quedaPorPagar = Math.max(0, importeLocacion - totalSenia);
+        const seniaMostrada = document.getElementById('senia_mostrada');
+        if (seniaMostrada) {
+            seniaMostrada.value = fmt(totalSeniaAcumulada);
+        }
+        const seniaHidden = document.getElementById('senia_hidden');
+        if (seniaHidden) {
+            seniaHidden.value = '0';
+        }
         
-        console.log('🧮 CÁLCULO QUEDA POR PAGAR:');
-        console.log('   Precio Total (Importe Locación):', importeLocacion);
-        console.log('   Seña Ya Pagada:', seniaPagada);
-        console.log('   Seña Actual (del campo):', seniaActual);
-        console.log('   Total Seña:', totalSenia);
-        console.log('   Queda por Pagar:', quedaPorPagar);
-        
-        // Actualizar el campo si existe (usar ID correcto)
         const quedaPorPagarElement = document.getElementById('saldo_ocupar');
         if (quedaPorPagarElement) {
-            quedaPorPagarElement.value = quedaPorPagar.toLocaleString('es-ES');
+            quedaPorPagarElement.value = fmt(quedaPorPagar);
         }
         
-        // Actualizar resumen si existe
         const resumenPendiente = document.getElementById('resumen-pendiente');
         if (resumenPendiente) {
-            resumenPendiente.textContent = '$' + quedaPorPagar.toLocaleString('es-ES');
+            resumenPendiente.textContent = '$' + fmt(quedaPorPagar);
         }
         
-        // Actualizar el precio total en el resumen
         const resumenPrecioTotal = document.getElementById('resumen-precio-total');
         if (resumenPrecioTotal) {
-            resumenPrecioTotal.textContent = '$' + importeLocacion.toLocaleString('es-ES');
+            resumenPrecioTotal.textContent = '$' + fmt(importeLocacion);
+        }
+        
+        const resumenSenia = document.getElementById('resumen-senia-pagada');
+        if (resumenSenia) {
+            resumenSenia.textContent = '$' + fmt(totalSeniaAcumulada);
         }
         
     } catch (error) {
@@ -913,16 +928,6 @@ function limpiarInfoVendedor() {
 
 // Event listeners
 document.addEventListener('DOMContentLoaded', function() {
-    // Seña de este movimiento: por defecto 0 (el usuario carga lo que paga ahora en conceptos / montos)
-    const seniaInput = document.getElementById('senia');
-    if (seniaInput) {
-        seniaInput.value = '0';
-        seniaInput.addEventListener('input', function() {
-            if (typeof calcularSaldoOcupar === 'function') {
-                calcularSaldoOcupar();
-            }
-        });
-    }
     if (typeof calcularSaldoOcupar === 'function') {
         calcularSaldoOcupar();
     }
@@ -1207,10 +1212,11 @@ if (importeLocacionInput) {
                             </div>
                             
                             <div class="col-md-2">
-                                <label class="form-label"><strong>Seña:</strong></label>
-                                <input type="text" class="form-control form-control-sm" name="senia" id="senia"
-                                       value="{% if senia_pendiente and senia_pendiente != 0 %}{{ senia_pendiente|format_price }}{% else %}0{% endif %}" placeholder="0">
-                                <small class="text-muted">💡 Monto a pagar en este momento</small>
+                                <label class="form-label"><strong>Seña pagada:</strong></label>
+                                <input type="text" class="form-control form-control-sm" id="senia_mostrada" readonly
+                                       style="background-color: #f8f9fa;" value="" autocomplete="off">
+                                <input type="hidden" name="senia" id="senia_hidden" value="0">
+                                <small class="text-muted">Suma automática: movimientos anteriores + conceptos 1, 15, 103 o 219 de este recibo.</small>
                             </div>
                             
                             <div class="col-md-2">
@@ -1224,8 +1230,7 @@ if (importeLocacionInput) {
                                 <label class="form-label"><strong>Queda por Pagar:</strong></label>
                                 <input type="text" class="form-control form-control-sm" id="saldo_ocupar"
                                        value="0" readonly style="background-color: #f8f9fa;">
-                                <small class="text-muted">💡 Después de esta operación</small>
-                                <button type="button" class="btn btn-sm btn-info mt-1" onclick="calcularSaldoOcupar()">🔄 Debug Seña</button>
+                                <small class="text-muted">Importe locación menos seña pagada acumulada.</small>
                             </div>
                             
                             <div class="col-md-2">

@@ -3729,8 +3729,8 @@ def finalizar_reserva_nueva(request, reserva_id):
             'productor_id': reserva.vendedor.id if reserva.vendedor else request.user.id,
             'productor_nombre': f"{reserva.vendedor.apellido}, {reserva.vendedor.nombre}" if reserva.vendedor else f"{request.user.apellido}, {request.user.nombre}",
             'saldo_a_ocupar': saldo_a_ocupar,
-            'senia_pendiente': senia_pendiente,  # ✅ NUEVO: Seña pendiente (0 si ya se pagó)
-            'total_senia_pagada': total_senia_anteriores if es_completar_pago else 0,  # ✅ CORREGIDO: Solo seña de pagos anteriores
+            'senia_pendiente': senia_pendiente,
+            'total_senia_pagada': float(total_senia_anteriores),
             'total_deposito_pagado': reserva.deposito_garantia or 0,  # ✅ SIMPLE: Del casillero
             'deposito_garantia': reserva.deposito_garantia,
             'fecha_desde': reserva.fecha_inicio.strftime('%d/%m/%Y'),
@@ -5182,8 +5182,7 @@ def procesar_movimiento_reserva(request):
             # Usar el movimiento principal para la respuesta
             movimiento = movimiento_principal
             
-            # ✅ OBTENER VALORES DIRECTOS DEL FORMULARIO (SEÑA Y DEPÓSITO)
-            senia_input = limpiar_valor_monetario(request.POST.get('senia', '0'))
+            # ✅ Valores del formulario (el campo «senia» del POST no define la seña del recibo; se usa solo la suma de conceptos 1,15,103,219)
             deposito_garantia_input = limpiar_valor_monetario(request.POST.get('deposito_garantia', '0'))
             importe_locacion_input = limpiar_valor_monetario(request.POST.get('importe_locacion', '0'))
             
@@ -5201,10 +5200,8 @@ def procesar_movimiento_reserva(request):
             
             # 🔍 DEBUGGING CRÍTICO: Ver qué llega del formulario
 # print(f"🔥 VALORES CRUDOS DEL FORMULARIO:")
-# print(f"   - request.POST.get('senia'): '{request.POST.get('senia', 'NO_ENVIADO')}'")
 # print(f"   - request.POST.get('deposito_garantia'): '{request.POST.get('deposito_garantia', 'NO_ENVIADO')}'")
 # print(f"   - request.POST.get('importe_locacion'): '{request.POST.get('importe_locacion', 'NO_ENVIADO')}'")
-# print(f"   - senia_input (limpiado): '{senia_input}'")
 # print(f"   - deposito_garantia_input (limpiado): '{deposito_garantia_input}'")
 # print(f"   - importe_locacion_input (limpiado): '{importe_locacion_input}'")
 # print(f"🔥 TODOS LOS CAMPOS DEL POST:")
@@ -5214,7 +5211,6 @@ def procesar_movimiento_reserva(request):
 # print(f"   - {key}: '{value}'")
             
             try:
-                senia = Decimal(senia_input) if senia_input else Decimal('0')
                 deposito_garantia = Decimal(deposito_garantia_input) if deposito_garantia_input else Decimal('0')
                 importe_locacion = Decimal(importe_locacion_input) if importe_locacion_input else Decimal('0')
                 
@@ -5233,23 +5229,17 @@ def procesar_movimiento_reserva(request):
                 # 🔄 NUEVA LÓGICA: No validar conceptos vs seña+depósito
                 # Los conceptos pueden ser diferentes a la seña (ej: gastos bancarios extras)
                 # Solo validamos que formas de pago = total conceptos (se hace más abajo)
-# print(f"✅ NUEVA VALIDACIÓN: Total conceptos: ${total_conceptos}, Seña del campo: ${senia}")
+# print(f"✅ NUEVA VALIDACIÓN: Total conceptos: ${total_conceptos}")
 # print(f"   Los conceptos pueden incluir extras como gastos bancarios")
 # print(f"   Validación principal: formas de pago = total conceptos")
                 
-                # ✅ CORREGIDO: MONTO DE ESTE PAGO debe ser la SEÑA DEL CASILLERO, no el total pagado
                 monto_total_pagado = (monto_efectivo or 0) + (monto_cheque or 0) + (monto_tarjeta or 0) + (monto_deposito or 0)
                 
-                # ✅ NUEVO: monto_este_pago siempre es la seña final del casillero (no el total de este movimiento)
-                monto_este_pago = senia  # Usar la seña del casillero
-                monto_seña_este_pago = senia  # La seña siempre es la del casillero
-                
 # print(f"✅ VALORES DIRECTOS DEL FORMULARIO:")
-# print(f"   - Seña nueva a agregar: ${senia}")
 # print(f"   - Depósito nuevo a agregar: ${deposito_garantia}")
 # print(f"   - Importe Locación TOTAL: ${importe_locacion}")
 # print(f"   - Monto total pagado: ${monto_total_pagado}")
-# print(f"   - Monto para seña: ${monto_seña_este_pago}")
+# print(f"   - Monto seña este recibo (conceptos): ${monto_seña_este_pago}")
 # print(f"   - Total pagado anteriormente: ${total_pagado_anteriormente}")
 # print(f"   - Seña anterior en reserva: ${reserva.senia or 0}")
 # print(f"   - Depósito anterior en reserva: ${reserva.deposito_garantia or 0}")
@@ -5284,6 +5274,9 @@ def procesar_movimiento_reserva(request):
                 else:
                     # En finalizar reserva, usar solo la seña de este pago
                     reserva.senia = senia_real
+                
+                monto_este_pago = senia_real
+                monto_seña_este_pago = senia_real
                 
 # print(f"🔧 CORRECCIÓN SEÑA:")
 # print(f"   - Seña anterior: ${senia_anterior}")
@@ -13568,9 +13561,8 @@ def finalizar_reserva_nueva(request, reserva_id):
             # FINALIZAR RESERVA: SALDO = PRECIO TOTAL (no hay seña anterior)
             saldo_a_ocupar = reserva.precio_total
         
-        # ✅ SEÑA PENDIENTE: Solo lo que falta por pagar (puede ser 0 si quiere pagar todo)
-        # El usuario decide cuánto de la seña pagar en este momento
-        senia_pendiente = saldo_a_ocupar  # Por defecto el saldo pendiente, pero el usuario puede cambiarlo
+        # El casillero «seña» en el template muestra seña acumulada (pagos anteriores + conceptos del recibo), no un monto a ingresar.
+        senia_pendiente = 0
         
 # print(f"🔧 CÁLCULO SALDO Y SEÑA:")
 # print(f"   - Precio Total: ${reserva.precio_total}")
@@ -13636,8 +13628,8 @@ def finalizar_reserva_nueva(request, reserva_id):
             'productor_id': reserva.vendedor.id if reserva.vendedor else request.user.id,
             'productor_nombre': f"{reserva.vendedor.apellido}, {reserva.vendedor.nombre}" if reserva.vendedor else f"{request.user.apellido}, {request.user.nombre}",
             'saldo_a_ocupar': saldo_a_ocupar,  # Para mostrar en resumen
-            'senia_pendiente': senia_pendiente,  # Para prellenar el campo seña
-            'total_senia_pagada': total_senia_anteriores if es_completar_pago else 0,  # ✅ CORREGIDO: Solo seña de pagos anteriores
+            'senia_pendiente': senia_pendiente,
+            'total_senia_pagada': float(total_senia_anteriores),  # Seña ya registrada en movimientos anteriores (conceptos 1,15,103,219)
             'total_deposito_pagado': reserva.deposito_garantia or 0,  
             'deposito_garantia': reserva.deposito_garantia,
             'deposito_estado': deposito_estado,  # ✅ Estado del depósito (pagado/pendiente)
