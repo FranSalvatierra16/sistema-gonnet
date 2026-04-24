@@ -10,6 +10,7 @@
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         min-height: calc(100vh - 120px);
         padding: 2rem 0;
+        overflow: visible;
     }
 
     .header-section {
@@ -81,6 +82,8 @@
 
     .operaciones-lista {
         margin-top: 2rem;
+        overflow: visible;
+        position: relative;
     }
 
     .operacion-card {
@@ -89,13 +92,21 @@
         padding: 1.5rem;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         backdrop-filter: blur(10px);
-        transition: all 0.3s ease;
+        transition: box-shadow 0.3s ease, transform 0.3s ease;
         position: relative;
-        overflow: hidden;
+        /* visible: si es hidden el menú «Recibos» queda debajo de la tarjeta siguiente */
+        overflow: visible;
         margin-bottom: 1rem;
         display: flex;
         align-items: center;
         justify-content: space-between;
+        z-index: 1;
+    }
+
+    /* La tarjeta siguiente pintaba encima del dropdown; subimos la fila mientras el menú está abierto */
+    .operacion-card:has(.dropdown-menu.show),
+    .operacion-card.operacion-card--recibos-abierto {
+        z-index: 1080 !important;
     }
 
     .operacion-card::before {
@@ -402,8 +413,13 @@
     }
 
     /* ✅ Dropdown de recibos: legible y con jerarquía clara */
+    .operaciones-container .container-fluid {
+        overflow: visible;
+    }
+
     .dropdown-recibos {
-        position: static;
+        position: relative;
+        z-index: 2;
     }
 
     .dropdown-menu-recibos {
@@ -537,14 +553,10 @@
         text-transform: uppercase;
     }
 
-    /* ✅ OVERRIDE PARA PERMITIR QUE EL DROPDOWN SE VEA */
-    .operacion-card {
-        overflow: visible !important; /* Cambiar overflow hidden */
-    }
-
     .actions-section {
-        overflow: visible !important; /* Asegurar que las acciones no corten */
+        overflow: visible !important;
         position: relative !important;
+        z-index: 2;
     }
 </style>
 {% endblock %}
@@ -935,6 +947,18 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Subir z-index de la tarjeta al abrir «Recibos» (evita que la tarjeta de abajo tape el menú)
+    document.querySelectorAll('.dropdown-recibos').forEach(function (dd) {
+        dd.addEventListener('show.bs.dropdown', function () {
+            var card = this.closest('.operacion-card');
+            if (card) card.classList.add('operacion-card--recibos-abierto');
+        });
+        dd.addEventListener('hide.bs.dropdown', function () {
+            var card = this.closest('.operacion-card');
+            if (card) card.classList.remove('operacion-card--recibos-abierto');
+        });
+    });
+
     // Animar las cards al aparecer
     const cards = document.querySelectorAll('.operacion-card');
     cards.forEach((card, index) => {
