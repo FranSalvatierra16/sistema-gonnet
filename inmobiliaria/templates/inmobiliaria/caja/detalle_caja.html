@@ -139,12 +139,6 @@
                                             data-bs-toggle="modal" data-bs-target="#modalDetalles{{ movimiento.id }}">
                                         <i class="fas fa-eye"></i>
                                     </button>
-                                    {% if caja.estado == 'abierta' %}
-                                    <a href="#" class="btn btn-sm btn-danger" title="Eliminar"
-                                       onclick="confirmarEliminar('{% url 'inmobiliaria:eliminar_movimiento' movimiento.id %}')">
-                                        <i class="fas fa-trash"></i>
-                                    </a>
-                                    {% endif %}
                                 </div>
                             </td>
                         </tr>
@@ -438,12 +432,4 @@
     white-space: nowrap;
 }
 </style>
-
-<script>
-function confirmarEliminar(url) {
-    if (confirm('¿Estás seguro de que deseas eliminar este movimiento?')) {
-        window.location.href = url;
-    }
-}
-</script>
 {% endblock %} 

@@ -1173,7 +1173,6 @@
                             </tr>
                         </thead>
                         <tbody id="historialTableBody">
-                            {% url 'inmobiliaria:propiedad_detalle' propiedad.id as url_detalle_propiedad %}
                             {% for historial in historiales %}
                             <tr class="{% if historial.estado == 'libre' %}table-success{% elif historial.estado == 'reservado' %}table-warning{% else %}table-danger{% endif %}">
                                 <td>{{ historial.fecha_inicio|date:"d/m/Y" }}</td>
@@ -1223,11 +1222,6 @@
                                                 title="Editar fechas de la reserva (sin cambiar precio ni info)">
                                             <i class="fas fa-edit"></i> Editar fechas
                                         </button>
-                                        <a href="{% url 'inmobiliaria:reserva_eliminar' historial.reserva.id %}?next={{ url_detalle_propiedad|urlencode }}"
-                                           class="btn btn-danger btn-sm"
-                                           title="Eliminar la operación / reserva y liberar estas fechas">
-                                            <i class="fas fa-trash-alt"></i> Eliminar
-                                        </a>
                                     {% elif historial.es_invierno %}
                                         <a href="{% url 'inmobiliaria:detalle_contrato' historial.contrato.id %}" class="btn btn-outline-info btn-sm" title="Ver contrato" target="_blank">
                                             <i class="fas fa-file-contract"></i> Ver contrato
