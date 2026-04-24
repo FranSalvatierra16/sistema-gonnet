@@ -1303,6 +1303,99 @@ logger = logging.getLogger(__name__)
 # IDs de concepto en |CONCEPTOS:…| que cuentan como seña / «saldo a ocupar» al finalizar o completar pago de operación.
 CONCEPTOS_SENIA_OPERACION_RESERVA = frozenset({"1", "15", "103", "219"})
 
+_OP_MOV_RESERVA_ID_RE = re.compile(r"Operaci[oó]n\s*#?\s*(\d+)", re.IGNORECASE)
+
+
+def _movimientos_caja_ingresos_operacion_reserva(reserva):
+    """Ingresos de caja vinculados a una reserva por el texto del concepto (Operación / Operacion, con o sin #)."""
+    rid = reserva.id
+    return MovimientoCaja.objects.filter(
+        propiedad=reserva.propiedad,
+        tipo=TipoMovimientoCajaEnum.INGRESO,
+    ).filter(
+        Q(concepto__icontains=f"Operación {rid}")
+        | Q(concepto__icontains=f"Operacion {rid}")
+        | Q(concepto__icontains=f"Operación #{rid}")
+        | Q(concepto__icontains=f"Operacion #{rid}")
+    )
+
+
+def _reserva_id_desde_movimiento_operacion(movimiento):
+    """Si el ingreso es de operación de reserva, devuelve el id de reserva; si no, None."""
+    if not movimiento or movimiento.tipo != TipoMovimientoCajaEnum.INGRESO:
+        return None
+    m = _OP_MOV_RESERVA_ID_RE.search(movimiento.concepto or "")
+    if not m:
+        return None
+    try:
+        return int(m.group(1))
+    except (ValueError, TypeError):
+        return None
+
+
+def _sumar_senia_desde_texto_conceptos_movimiento(concepto_text):
+    """Suma importes de conceptos de seña en el bloque |CONCEPTOS:|."""
+    total = Decimal("0")
+    if not concepto_text or "|CONCEPTOS:" not in concepto_text:
+        return total
+    try:
+        partes = concepto_text.split("|CONCEPTOS:", 1)
+        if len(partes) < 2:
+            return total
+        conceptos_data = partes[1]
+        for item in conceptos_data.split("|"):
+            if not item.strip():
+                continue
+            p = item.split(":")
+            if len(p) < 3:
+                continue
+            concepto_id = p[0].strip()
+            if concepto_id not in CONCEPTOS_SENIA_OPERACION_RESERVA:
+                continue
+            raw_im = p[2].strip()
+            try:
+                total += parse_decimal_monto(raw_im)
+            except (InvalidOperation, TypeError, ValueError):
+                try:
+                    total += Decimal(str(raw_im).replace(",", "."))
+                except (InvalidOperation, TypeError, ValueError):
+                    pass
+    except Exception:
+        pass
+    return total
+
+
+def _recalcular_reserva_tras_movimientos_operacion(reserva):
+    """
+    Tras borrar (o cambiar) movimientos de caja de la operación: alinea seña, cuota pendiente y estado
+    con lo que queda en caja.
+    """
+    movs = list(_movimientos_caja_ingresos_operacion_reserva(reserva))
+    precio = Decimal(str(reserva.precio_total or 0))
+
+    total_medios = Decimal("0")
+    total_senia = Decimal("0")
+    for m in movs:
+        total_medios += (
+            Decimal(str(m.monto_efectivo or 0))
+            + Decimal(str(m.monto_cheque or 0))
+            + Decimal(str(m.monto_tarjeta or 0))
+            + Decimal(str(m.monto_deposito or 0))
+        )
+        total_senia += _sumar_senia_desde_texto_conceptos_movimiento(m.concepto or "")
+
+    reserva.senia = total_senia
+    reserva.cuota_pendiente = max(Decimal("0"), precio - total_senia)
+
+    if not movs:
+        reserva.estado = "confirmada_no_pagada"
+    elif precio > 0 and total_medios >= precio - Decimal("0.05"):
+        reserva.estado = "pagada"
+    else:
+        reserva.estado = "confirmada_no_pagada"
+
+    reserva.save(update_fields=["senia", "estado", "cuota_pendiente"])
+
 
 def get_inquilinos_queryset_unificado(request):
     """Lista de inquilinos unificada: en Colón y Corrientes se muestran los de ambas sucursales; en el resto solo los de la sucursal del usuario."""
@@ -2383,7 +2476,8 @@ def operaciones(request):
         movs_qs = MovimientoCaja.objects.filter(
             propiedad_id__in=propiedad_ids,
             tipo=TipoMovimientoCajaEnum.INGRESO,
-            concepto__icontains="Operación"
+        ).filter(
+            Q(concepto__icontains="Operación") | Q(concepto__icontains="Operacion")
         ).select_related('caja').only(
             'id', 'propiedad_id', 'concepto', 'fecha',
             'monto_efectivo', 'monto_cheque', 'monto_tarjeta', 'monto_deposito',
@@ -2392,11 +2486,13 @@ def operaciones(request):
         for mov in movs_qs:
             if not mov.concepto:
                 continue
-            match = re.search(r'Operaci[oó]n\s+(\d+)', mov.concepto, re.IGNORECASE)
+            match = _OP_MOV_RESERVA_ID_RE.search(mov.concepto)
             if match:
                 rid = int(match.group(1))
                 if rid in reserva_ids:
                     movimientos_por_reserva.setdefault(rid, []).append(mov)
+        for rid in list(movimientos_por_reserva.keys()):
+            movimientos_por_reserva[rid].sort(key=lambda m: m.id, reverse=True)
     
     # Lista para almacenar solo las reservas con pagos
     reservas_con_pagos = []
@@ -2413,24 +2509,26 @@ def operaciones(request):
         if not movimientos:
             continue
         
-        # ✅ LÓGICA SIMPLE: SALDO = PRECIO TOTAL - SEÑA DEL CASILLERO
-        saldo_pendiente = reserva.precio_total - (reserva.senia or 0)
-        
-# print(f"💰 OPERACIONES - CÁLCULO DIRECTO:")
-# print(f"   - Precio Total: ${reserva.precio_total}")
-# print(f"   - Seña: ${reserva.senia or 0}")
-# print(f"   - Saldo Pendiente: ${saldo_pendiente}")
-        
-        # ✅ VERIFICAR QUE HAYA AL MENOS ALGÚN PAGO REAL
-        total_pagado = sum(
-            float(mov.monto_efectivo or 0) + float(mov.monto_cheque or 0) + float(mov.monto_tarjeta or 0) + float(mov.monto_deposito or 0)
+        # Cobrado en caja por esta operación (medios) = lo que muestra «Pagado» y el saldo real
+        total_ingresos_mov = sum(
+            Decimal(str(mov.monto_efectivo or 0))
+            + Decimal(str(mov.monto_cheque or 0))
+            + Decimal(str(mov.monto_tarjeta or 0))
+            + Decimal(str(mov.monto_deposito or 0))
             for mov in movimientos
         )
+        precio_dec = Decimal(str(reserva.precio_total or 0))
+        saldo_dec = precio_dec - total_ingresos_mov
+        if saldo_dec < 0:
+            saldo_dec = Decimal("0")
+        saldo_pendiente = float(saldo_dec)
+        
+        # ✅ VERIFICAR QUE HAYA AL MENOS ALGÚN PAGO REAL
+        total_pagado = float(total_ingresos_mov)
         
         if total_pagado > 0:
-            # ✅ CORREGIDO: total_pagado debe ser solo la seña (sin depósito)
-            reserva.total_pagado = reserva.senia or 0  # Solo la seña
-            reserva.saldo_pendiente = saldo_pendiente  # Ya está calculado correctamente
+            reserva.total_pagado = total_pagado
+            reserva.saldo_pendiente = saldo_pendiente
             reserva.total_senia_pagada = reserva.senia or 0
             reserva.total_deposito_pagado = reserva.deposito_garantia or 0
             
@@ -9229,9 +9327,26 @@ def eliminar_movimiento(request, movimiento_id):
             return redirect('inmobiliaria:detalle_caja', numero=caja.numero)
         return redirect('inmobiliaria:gestionar_caja')
 
+    rid = _reserva_id_desde_movimiento_operacion(movimiento)
+    reserva_sync = None
+    if rid is not None:
+        reserva_sync = Reserva.objects.filter(
+            id=rid,
+            sucursal=request.user.sucursal,
+        ).first()
+        if reserva_sync and movimiento.propiedad_id and reserva_sync.propiedad_id != movimiento.propiedad_id:
+            reserva_sync = None
+
     caja_numero = movimiento.caja_id and movimiento.caja.numero
     _eliminar_movimiento_y_anexos(movimiento)
-    messages.success(request, 'Movimiento de caja y recibo asociado eliminados correctamente.')
+    if reserva_sync:
+        _recalcular_reserva_tras_movimientos_operacion(reserva_sync)
+        messages.success(
+            request,
+            'Movimiento eliminado. La operación se actualizó (seña, saldo y estado) según los pagos que quedan en caja.',
+        )
+    else:
+        messages.success(request, 'Movimiento de caja y recibo asociado eliminados correctamente.')
 
     next_target = (request.POST.get('next') or request.GET.get('next') or '').strip()
     if next_target == 'operaciones':

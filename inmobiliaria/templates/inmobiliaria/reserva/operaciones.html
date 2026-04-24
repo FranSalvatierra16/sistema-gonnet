@@ -696,8 +696,8 @@
                         {% if op.es_invierno %}
                         {% if op.saldo_pendiente == 0 %}pagada-completa{% else %}pago-parcial{% endif %}
                         {% else %}
-                        {% if op.estado == 'pagada' and op.saldo_pendiente == 0 %}pagada-completa
-                        {% elif op.estado == 'pagada' and op.saldo_pendiente > 0 %}pago-parcial
+                        {% if not op.saldo_pendiente %}pagada-completa
+                        {% elif op.saldo_pendiente > 0 %}pago-parcial
                         {% else %}pendiente{% endif %}
                         {% endif %}" 
                          style="animation-delay: {{ forloop.counter0|add:1|floatformat:1 }}s;">
@@ -708,11 +708,11 @@
                                 <i class="fas fa-home"></i>
                                 {% if op.es_invierno %}
                                 <span class="badge bg-info position-absolute" style="top: -5px; right: -5px; font-size: 0.65rem;">Invierno</span>
-                                {% elif op.estado == 'pagada' and op.saldo_pendiente == 0 %}
+                                {% elif not op.saldo_pendiente %}
                                     <div style="position: absolute; top: -3px; right: -3px; background: #28a745; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center;">
                                         <i class="fas fa-check" style="font-size: 0.6rem; color: white;"></i>
                                     </div>
-                                {% elif op.estado == 'pagada' and op.saldo_pendiente > 0 %}
+                                {% elif op.saldo_pendiente > 0 %}
                                     <div style="position: absolute; top: -3px; right: -3px; background: #ffc107; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center;">
                                         <i class="fas fa-exclamation" style="font-size: 0.6rem; color: #212529;"></i>
                                     </div>
@@ -728,16 +728,16 @@
                                         {% if op.es_invierno %}
                                         {% if op.saldo_pendiente == 0 %}status-pagada{% else %}status-parcial{% endif %}
                                         {% else %}
-                                        {% if op.estado == 'pagada' and op.saldo_pendiente == 0 %}status-pagada
-                                        {% elif op.estado == 'pagada' and op.saldo_pendiente > 0 %}status-parcial
+                                        {% if not op.saldo_pendiente %}status-pagada
+                                        {% elif op.saldo_pendiente > 0 %}status-parcial
                                         {% else %}status-pendiente{% endif %}
                                         {% endif %}" style="font-size: 0.75rem; padding: 0.2rem 0.5rem;">
                                         {% if op.es_invierno %}
                                             {% if op.saldo_pendiente == 0 %}✅ Pagado Completo{% else %}⏳ Pendiente - Seña Pagada{% endif %}
-                                        {% elif op.estado == 'pagada' and op.saldo_pendiente == 0 %}
+                                        {% elif not op.saldo_pendiente %}
                                             ✅ Pagada Completa
-                                        {% elif op.estado == 'pagada' and op.saldo_pendiente > 0 %}
-                                            ⏳ Pendiente - Seña Pagada
+                                        {% elif op.saldo_pendiente > 0 %}
+                                            ⏳ Completar pago
                                         {% elif op.estado == 'confirmada_no_pagada' %}
                                             📋 Sin Pagos
                                         {% else %}
