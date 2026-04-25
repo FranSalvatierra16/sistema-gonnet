@@ -228,6 +228,7 @@ urlpatterns = [
     path('caja/nuevo-movimiento/', views.nuevo_movimiento, name='nuevo_movimiento_sin_caja'),
     path('caja/dashboard/', views.dashboard_caja, name='dashboard_caja'),
     path('caja/reportes/', views.reportes_caja, name='reportes_caja'),
+    path('reportes/entradas/', views.listado_entradas, name='listado_entradas'),
     path('caja/arqueo/', views.arqueo_caja, name='arqueo_caja'),
     path('caja/historial/', views.historial_caja, name='historial_caja'),
     path('caja/movimientos/', views.todos_movimientos_caja, name='todos_movimientos_caja'),

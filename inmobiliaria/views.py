@@ -2629,6 +2629,160 @@ def operaciones(request):
         'previous_page': page - 1,
         'next_page': page + 1,
     })
+
+
+@login_required
+def listado_entradas(request):
+    """
+    Listado de entradas por fecha exacta (inicio de alquiler).
+    Incluye reservas temporales y contratos (invierno/24 meses).
+    """
+    fecha_raw = (request.GET.get('fecha') or '').strip()
+    fecha_obj = None
+
+    if fecha_raw:
+        try:
+            fecha_obj = datetime.strptime(fecha_raw, '%Y-%m-%d').date()
+        except ValueError:
+            fecha_obj = None
+
+    if fecha_obj is None:
+        fecha_obj = timezone.localdate()
+        fecha_raw = fecha_obj.strftime('%Y-%m-%d')
+
+    entradas = []
+
+    reservas = Reserva.objects.filter(
+        sucursal=request.user.sucursal,
+        eliminada=False,
+        estado__in=['confirmada', 'confirmada_no_pagada', 'pagada'],
+        fecha_inicio=fecha_obj,
+    ).select_related('cliente', 'propiedad__propietario', 'vendedor').order_by('fecha_inicio', 'id')
+
+    for r in reservas:
+        titular = '—'
+        if r.cliente:
+            apellido = (getattr(r.cliente, 'apellido', '') or '').strip()
+            nombre = (getattr(r.cliente, 'nombre', '') or '').strip()
+            titular = f'{apellido}, {nombre}'.strip(', ') or '—'
+
+        propietario = '—'
+        if r.propiedad and r.propiedad.propietario:
+            ap = (getattr(r.propiedad.propietario, 'apellido', '') or '').strip()
+            no = (getattr(r.propiedad.propietario, 'nombre', '') or '').strip()
+            propietario = f'{ap}, {no}'.strip(', ') or '—'
+
+        vendedor = '—'
+        if r.vendedor:
+            apv = (getattr(r.vendedor, 'apellido', '') or '').strip()
+            nov = (getattr(r.vendedor, 'nombre', '') or '').strip()
+            vendedor = (apv or nov or '—').upper()
+
+        precio_total = r.precio_total or Decimal('0')
+        senia = r.senia or Decimal('0')
+        saldo = precio_total - senia
+        if saldo < 0:
+            saldo = Decimal('0')
+
+        entradas.append({
+            'tipo': 'reserva',
+            'titular': titular,
+            'propietario': propietario,
+            'operacion': f'{r.id:05d}',
+            'direccion': (getattr(r.propiedad, 'direccion', None) or '—'),
+            'desde': r.fecha_inicio,
+            'hasta': r.fecha_fin,
+            'saldo': saldo,
+            'deposito': r.deposito_garantia or Decimal('0'),
+            'intervino': vendedor,
+            'llave': (getattr(r.propiedad, 'llave', None) or '—'),
+            'fecha_op': (r.fecha_creacion.date() if getattr(r, 'fecha_creacion', None) else r.fecha_inicio),
+        })
+
+    contratos = ContratoAlquiler.objects.filter(
+        sucursal=request.user.sucursal,
+        fecha_inicio=fecha_obj,
+    ).exclude(estado='rescindido').select_related(
+        'inquilino', 'propiedad__propietario', 'vendedor'
+    ).order_by('fecha_inicio', 'id')
+
+    contrato_ids = list(contratos.values_list('id', flat=True))
+    movs_por_contrato = {}
+    if contrato_ids:
+        movs = MovimientoCaja.objects.filter(
+            sucursal=request.user.sucursal,
+            tipo=TipoMovimientoCajaEnum.INGRESO,
+            concepto__icontains='Contrato #',
+        ).only('concepto', 'monto_efectivo', 'monto_cheque', 'monto_tarjeta', 'monto_deposito')
+        for m in movs:
+            if not m.concepto:
+                continue
+            match = re.search(r'Contrato\s*#\s*(\d+)', m.concepto, re.IGNORECASE)
+            if not match:
+                continue
+            cid = int(match.group(1))
+            if cid in contrato_ids:
+                movs_por_contrato.setdefault(cid, []).append(m)
+
+    for c in contratos:
+        titular = '—'
+        if c.inquilino:
+            apellido = (getattr(c.inquilino, 'apellido', '') or '').strip()
+            nombre = (getattr(c.inquilino, 'nombre', '') or '').strip()
+            titular = f'{apellido}, {nombre}'.strip(', ') or '—'
+
+        propietario = '—'
+        if c.propiedad and c.propiedad.propietario:
+            ap = (getattr(c.propiedad.propietario, 'apellido', '') or '').strip()
+            no = (getattr(c.propiedad.propietario, 'nombre', '') or '').strip()
+            propietario = f'{ap}, {no}'.strip(', ') or '—'
+
+        vendedor = '—'
+        if c.vendedor:
+            apv = (getattr(c.vendedor, 'apellido', '') or '').strip()
+            nov = (getattr(c.vendedor, 'nombre', '') or '').strip()
+            vendedor = (apv or nov or '—').upper()
+
+        total_contrato = (c.deposito_garantia or Decimal('0')) + (c.precio_mensual or Decimal('0')) * Decimal(c.duracion_meses or 0)
+        total_pagado = Decimal('0')
+        for m in movs_por_contrato.get(c.id, []):
+            total_pagado += Decimal(str(m.monto_efectivo or 0))
+            total_pagado += Decimal(str(m.monto_cheque or 0))
+            total_pagado += Decimal(str(m.monto_tarjeta or 0))
+            total_pagado += Decimal(str(m.monto_deposito or 0))
+        saldo = total_contrato - total_pagado
+        if saldo < 0:
+            saldo = Decimal('0')
+
+        entradas.append({
+            'tipo': 'contrato',
+            'titular': titular,
+            'propietario': propietario,
+            'operacion': f'{c.id:05d}',
+            'direccion': (getattr(c.propiedad, 'direccion', None) or '—'),
+            'desde': c.fecha_inicio,
+            'hasta': c.fecha_fin,
+            'saldo': saldo,
+            'deposito': c.deposito_garantia or Decimal('0'),
+            'intervino': vendedor,
+            'llave': (getattr(c.propiedad, 'llave', None) or '—'),
+            'fecha_op': (c.fecha_operacion or (c.fecha_creacion.date() if getattr(c, 'fecha_creacion', None) else c.fecha_inicio)),
+        })
+
+    entradas.sort(key=lambda x: (x.get('desde') or fecha_obj, x.get('operacion') or ''))
+
+    return render(
+        request,
+        'inmobiliaria/reportes/listado_entradas.html',
+        {
+            'fecha': fecha_raw,
+            'fecha_obj': fecha_obj,
+            'entradas': entradas,
+            'cantidad_entradas': len(entradas),
+        },
+    )
+
+
 def crear_reserva(request):
 
     if request.method == 'POST':
