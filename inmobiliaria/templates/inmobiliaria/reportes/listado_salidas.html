@@ -1,0 +1,91 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load custom_filters %}
+
+{% block title %}Listado de Salidas{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+        <div>
+            <h1 class="h4 mb-1"><i class="fas fa-sign-out-alt text-danger"></i> Listado de Salidas</h1>
+            <p class="text-muted mb-0">Operaciones que finalizan alquiler en la fecha indicada.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'inmobiliaria:listado_entradas' %}" class="btn btn-outline-primary">
+                <i class="fas fa-sign-in-alt"></i> Ver entradas
+            </a>
+            <a href="{% url 'inmobiliaria:operaciones' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Volver a operaciones
+            </a>
+        </div>
+    </div>
+
+    <form method="get" class="card card-body mb-3">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <label for="fecha" class="form-label">Fecha de salida</label>
+                <input type="date" id="fecha" name="fecha" value="{{ fecha }}" class="form-control" required>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-danger w-100">
+                    <i class="fas fa-search"></i> Buscar
+                </button>
+            </div>
+            <div class="col-md-7 text-md-end">
+                <div class="fw-semibold">Fecha: {{ fecha_obj|date:"d/m/Y" }} · Total salidas: {{ cantidad_salidas }}</div>
+            </div>
+        </div>
+    </form>
+
+    <div class="card">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm table-striped table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>#</th>
+                            <th>Titular</th>
+                            <th>Propietario</th>
+                            <th>Operación</th>
+                            <th>Dirección</th>
+                            <th>Desde</th>
+                            <th>Hasta</th>
+                            <th class="text-end">Saldo</th>
+                            <th class="text-end">Depósito</th>
+                            <th>Intervino</th>
+                            <th>Llave</th>
+                            <th>Fecha</th>
+                            <th>Hora</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in salidas %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td>{{ s.titular }}</td>
+                            <td>{{ s.propietario }}</td>
+                            <td>{{ s.operacion }}</td>
+                            <td>{{ s.direccion }}</td>
+                            <td>{{ s.desde|date:"d/m/Y" }}</td>
+                            <td>{{ s.hasta|date:"d/m/Y" }}</td>
+                            <td class="text-end">${{ s.saldo|format_price }}</td>
+                            <td class="text-end">${{ s.deposito|format_price }}</td>
+                            <td>{{ s.intervino }}</td>
+                            <td>{{ s.llave }}</td>
+                            <td>{{ s.fecha|date:"d/m/Y" }}</td>
+                            <td>{{ s.hora }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="13" class="text-center text-muted py-4">
+                                No hay salidas para esa fecha.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
