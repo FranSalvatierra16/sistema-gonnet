@@ -12691,8 +12691,43 @@ def obtener_valor_concepto_contrato(contrato, campo):
         return getattr(primer, campo, Decimal('0'))
     return Decimal('0')
 
-def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
-    """Procesa los conceptos y crea el movimiento de caja. Retorna (movimiento, total) o (None, 0) y el tercer elemento opcional es el mensaje de error."""
+def _total_medios_pago_operacion_request(request):
+    """Suma efectivo + cheque + tarjeta + depósitos (misma lógica que procesar_conceptos_y_crear_movimiento)."""
+    suc = getattr(request.user, 'sucursal', None)
+    if not suc:
+        return Decimal('0')
+
+    def limpiar_valor_monetario(valor_str):
+        if not valor_str or str(valor_str).strip() == '':
+            return Decimal('0')
+        return parse_decimal_monto(valor_str)
+
+    from inmobiliaria.models.sucursal import CuentaBancaria
+
+    monto_deposito_total = Decimal('0')
+    for cuenta in CuentaBancaria.objects.filter(sucursal=suc, activa=True).order_by('nombre_banco', 'alias'):
+        monto_deposito_total += limpiar_valor_monetario(request.POST.get(cuenta.field_name, '0'))
+
+    monto_efectivo = limpiar_valor_monetario(request.POST.get('monto_efectivo', '0'))
+    monto_cheque = limpiar_valor_monetario(request.POST.get('monto_cheque', '0'))
+    monto_tarjeta = limpiar_valor_monetario(request.POST.get('monto_tarjeta', '0'))
+    monto_deposito_galicia = limpiar_valor_monetario(request.POST.get('monto_deposito_galicia', '0'))
+    monto_deposito_mp = limpiar_valor_monetario(request.POST.get('monto_deposito_mp', '0'))
+    monto_deposito_legacy = monto_deposito_galicia + monto_deposito_mp
+    monto_deposito_final = monto_deposito_total if monto_deposito_total > 0 else monto_deposito_legacy
+    return (
+        (monto_efectivo or Decimal('0'))
+        + (monto_cheque or Decimal('0'))
+        + (monto_tarjeta or Decimal('0'))
+        + (monto_deposito_final or Decimal('0'))
+    )
+
+
+def procesar_conceptos_y_crear_movimiento(request, caja, contrato, pago_cuota_context=None):
+    """Procesa los conceptos y crea el movimiento de caja. Retorna (movimiento, total) o (None, 0) y el tercer elemento opcional es el mensaje de error.
+
+    pago_cuota_context: dict con cuota_id y numero_cuota para cobro de cuota mensual (JSON sin mes alquiler; honorarios/sellados en cero).
+    """
     try:
         import json
 
@@ -12866,7 +12901,20 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
                 sellados_final = Decimal(str(c.get('importe', 0)))
                 break
 
-        if conceptos_data and (mes_alquiler_importe is not None or request.POST.get('mes_alquiler_tipo', '').strip().lower() in ('proporcional', 'mensual')):
+        if pago_cuota_context is not None:
+            honorarios_final = Decimal('0')
+            sellados_final = Decimal('0')
+            if conceptos_data:
+                payload_cuota = {
+                    'conceptos': conceptos_data,
+                    'pago_cuota_mensual': True,
+                    'cuota_id': int(pago_cuota_context['cuota_id']),
+                    'numero_cuota': int(pago_cuota_context['numero_cuota']),
+                }
+                concepto_detalle_json = json.dumps(payload_cuota)
+            else:
+                concepto_detalle_json = ''
+        elif conceptos_data and (mes_alquiler_importe is not None or request.POST.get('mes_alquiler_tipo', '').strip().lower() in ('proporcional', 'mensual')):
             importe_para_json = float(mes_alquiler_importe) if mes_alquiler_importe is not None else 0.0
             payload = {
                 'conceptos': conceptos_data,
@@ -12892,6 +12940,7 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
         movimiento = MovimientoCaja.objects.create(
             caja=caja,
             tipo=TipoMovimientoCajaEnum.INGRESO,
+            tipo_comprobante=TipoComprobanteEnum.RECIBO,
             concepto=concepto_para_busqueda,
             concepto_detalle=concepto_detalle_json,
             monto_efectivo=monto_efectivo,
@@ -12901,8 +12950,10 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato):
             empleado=request.user,
             sucursal=request.user.sucursal,
             propiedad=contrato.propiedad,
+            fecha_desde=contrato.fecha_inicio,
+            fecha_hasta=contrato.fecha_fin,
             honorarios=honorarios_final,
-            sellados=sellados_final
+            sellados=sellados_final,
         )
         
         cuentas_con_monto = [data for data in montos_cuentas_bancarias.values() if data['monto'] > 0]
@@ -13330,6 +13381,245 @@ def pagar_cuota(request, cuota_id):
     except Exception as e:
         logger.exception('pagar_cuota: cuota_id=%s', cuota_id)
         return JsonResponse({'error': str(e) or 'Error al procesar el pago'}, status=400)
+
+
+@login_required
+def crear_pago_cuota_operacion(request, cuota_id):
+    """Pantalla tipo operación de contrato: conceptos editables, medios de pago, sin mes/proporcional ni honorarios/sellados."""
+    cuota = get_object_or_404(
+        CuotaMensual.objects.select_related(
+            'contrato',
+            'contrato__propiedad',
+            'contrato__inquilino',
+            'contrato__vendedor',
+            'contrato__sucursal',
+        ),
+        id=cuota_id,
+        contrato__sucursal=request.user.sucursal,
+    )
+    contrato = cuota.contrato
+
+    if cuota.estado in ('pagada', 'pagada_con_mora'):
+        messages.error(request, 'Esta cuota ya está pagada.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+    if cuota.estado not in ('pendiente', 'vencida'):
+        messages.error(request, 'Esta cuota no admite cobro en este estado.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+    if contrato.cuotas.filter(
+        numero_cuota__lt=cuota.numero_cuota,
+        estado__in=['pendiente', 'vencida'],
+    ).exists():
+        messages.error(
+            request,
+            'Hay cuotas anteriores sin pagar. Cobrá en orden desde el detalle del contrato.',
+        )
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+    if cuota.estado in ('pendiente', 'vencida') and cuota.fecha_vencimiento < timezone.now().date():
+        cuota.recargo_mora = cuota.calcular_mora()
+        cuota.actualizar_monto_total()
+        cuota.save()
+    cuota.refresh_from_db()
+
+    try:
+        caja = Caja.objects.get(sucursal=request.user.sucursal, estado='abierta')
+    except Caja.DoesNotExist:
+        caja = Caja.objects.create(
+            sucursal=request.user.sucursal,
+            usuario_apertura=request.user,
+            saldo_inicial=0,
+            estado='abierta',
+            fecha_apertura=timezone.now(),
+        )
+        messages.success(request, 'Se ha abierto una nueva caja automáticamente.')
+    except Caja.MultipleObjectsReturned:
+        caja = (
+            Caja.objects.filter(
+                sucursal=request.user.sucursal,
+                estado='abierta',
+                fecha_cierre__isnull=True,
+            )
+            .order_by('-fecha_apertura')
+            .first()
+        )
+
+    conceptos_qs = Concepto.objects.filter(q_conceptos_caja_visibles(request.user.sucursal)).order_by('nombre')
+
+    config_operacion = {
+        'tipo_operacion': 'cuota_especifica',
+        'contrato_id': contrato.id,
+        'fecha_inicio': contrato.fecha_inicio.isoformat() if getattr(contrato, 'fecha_inicio', None) else None,
+        'modo_pago_cuota_especifica': True,
+        'cuota_id': cuota.id,
+        'numero_cuota': cuota.numero_cuota,
+        'default_importe_cuota': float(cuota.monto_total or 0),
+        'procesar_pago_cuota_url': reverse('inmobiliaria:procesar_pago_cuota_operacion', args=[cuota.id]),
+    }
+
+    context = {
+        'contrato': contrato,
+        'cuota_pago': cuota,
+        'tipo_operacion': 'cuota_especifica',
+        'modo_pago_cuota_especifica': True,
+        'detalle_contrato_url': reverse('inmobiliaria:detalle_contrato', args=[contrato.id]),
+        'caja': caja,
+        'conceptos': conceptos_qs,
+        'today': timezone.now(),
+        'config_operacion': config_operacion,
+    }
+    return render(request, 'inmobiliaria/contratos/crear_operacion.html', context)
+
+
+@login_required
+@require_POST
+def procesar_pago_cuota_operacion(request, cuota_id):
+    """Registra cobro de una cuota con conceptos + medios de pago (misma lógica de caja que la operación de contrato)."""
+    import json as json_mod
+
+    try:
+        cuota = get_object_or_404(
+            CuotaMensual.objects.select_related('contrato', 'contrato__propiedad'),
+            id=cuota_id,
+            contrato__sucursal=request.user.sucursal,
+        )
+        contrato = cuota.contrato
+
+        if cuota.estado in ('pagada', 'pagada_con_mora'):
+            return JsonResponse({'error': 'Esta cuota ya está pagada.'}, status=400)
+        if cuota.estado not in ('pendiente', 'vencida'):
+            return JsonResponse({'error': 'La cuota no admite cobro en este estado.'}, status=400)
+        if contrato.cuotas.filter(
+            numero_cuota__lt=cuota.numero_cuota,
+            estado__in=['pendiente', 'vencida'],
+        ).exists():
+            return JsonResponse(
+                {'error': 'Hay cuotas anteriores sin pagar (pendientes o vencidas). Cobrá en orden.'},
+                status=400,
+            )
+
+        raw_json = (request.POST.get('conceptos_json') or '').strip()
+        if not raw_json:
+            return JsonResponse({'error': 'Faltan los conceptos del recibo.'}, status=400)
+        try:
+            lista = json_mod.loads(raw_json)
+        except json_mod.JSONDecodeError:
+            return JsonResponse({'error': 'Formato de conceptos inválido.'}, status=400)
+        if not isinstance(lista, list) or len(lista) == 0:
+            return JsonResponse({'error': 'Agregá al menos una línea en conceptos.'}, status=400)
+
+        for item in lista:
+            cid = str(item.get('id') or item.get('codigo') or '').strip()
+            if cid in ('25', '26'):
+                return JsonResponse(
+                    {'error': 'En el cobro de cuota no se usan honorarios (25) ni sellados (26).'},
+                    status=400,
+                )
+
+        importe_alquiler = Decimal('0')
+        tiene_alquiler = False
+        suma_conceptos = Decimal('0')
+        for item in lista:
+            imp = Decimal(str(item.get('importe') or 0))
+            if imp < 0:
+                return JsonResponse({'error': 'Los importes no pueden ser negativos.'}, status=400)
+            suma_conceptos += imp
+            cid = str(item.get('id') or item.get('codigo') or '').strip()
+            if cid == '1':
+                tiene_alquiler = True
+                importe_alquiler = imp
+        if not tiene_alquiler or importe_alquiler <= 0:
+            return JsonResponse(
+                {
+                    'error': (
+                        'Incluí el concepto de alquiler (ID 1) con importe mayor a cero. '
+                        'Ahí cargás el monto de la cuota (editable).'
+                    ),
+                },
+                status=400,
+            )
+
+        total_medios = _total_medios_pago_operacion_request(request)
+        if total_medios <= 0:
+            return JsonResponse({'error': 'El total de medios de pago debe ser mayor a cero.'}, status=400)
+        if abs(suma_conceptos - total_medios) > Decimal('0.03'):
+            return JsonResponse(
+                {
+                    'error': (
+                        f'La suma de conceptos (${suma_conceptos}) debe igualar '
+                        f'la suma de medios de pago (${total_medios}).'
+                    ),
+                },
+                status=400,
+            )
+
+        caja = (
+            Caja.objects.filter(
+                sucursal=request.user.sucursal,
+                estado='abierta',
+                fecha_cierre__isnull=True,
+            )
+            .order_by('-fecha_apertura')
+            .first()
+        )
+        if not caja:
+            return JsonResponse({'error': 'No hay una caja abierta para esta sucursal.'}, status=400)
+
+        with transaction.atomic():
+            resultado = procesar_conceptos_y_crear_movimiento(
+                request,
+                caja,
+                contrato,
+                pago_cuota_context={'cuota_id': cuota.id, 'numero_cuota': cuota.numero_cuota},
+            )
+            movimiento = resultado[0]
+            err = resultado[2] if len(resultado) > 2 else None
+            if not movimiento:
+                return JsonResponse({'error': err or 'No se pudo registrar el movimiento de caja.'}, status=400)
+
+            cuota.estado = 'pagada'
+            cuota.fecha_pago = timezone.now().date()
+            cuota.movimiento = movimiento
+            cuota.monto_base = importe_alquiler
+            cuota.recargo_mora = Decimal('0')
+            cuota.descuento = Decimal('0')
+            cuota.monto_total = importe_alquiler
+            cuota.save()
+
+            siguiente_cuota = contrato.cuotas.filter(numero_cuota=cuota.numero_cuota + 1).first()
+            if siguiente_cuota:
+                fecha_actual = cuota.fecha_vencimiento
+                try:
+                    if fecha_actual.month == 12:
+                        nueva_fecha = date(fecha_actual.year + 1, 1, contrato.dia_vencimiento)
+                    else:
+                        nueva_fecha = date(fecha_actual.year, fecha_actual.month + 1, contrato.dia_vencimiento)
+                    siguiente_cuota.fecha_vencimiento = nueva_fecha
+                except ValueError:
+                    if fecha_actual.month == 12:
+                        nueva_fecha = date(fecha_actual.year + 1, 1, min(contrato.dia_vencimiento, 28))
+                    else:
+                        nueva_fecha = date(
+                            fecha_actual.year, fecha_actual.month + 1, min(contrato.dia_vencimiento, 28)
+                        )
+                    siguiente_cuota.fecha_vencimiento = nueva_fecha
+                siguiente_cuota.save()
+
+        messages.success(
+            request,
+            f'Cuota {cuota.numero_cuota}/{contrato.duracion_meses} cobrada por ${suma_conceptos} '
+            f'(alquiler ID 1: ${importe_alquiler}).',
+        )
+        return JsonResponse(
+            {
+                'success': True,
+                'redirect_url': reverse('inmobiliaria:detalle_contrato', args=[contrato.id]),
+            }
+        )
+
+    except Exception as e:
+        logger.exception('procesar_pago_cuota_operacion cuota_id=%s', cuota_id)
+        return JsonResponse({'error': str(e) or 'Error al procesar el cobro'}, status=400)
+
 
 @login_required
 @require_POST

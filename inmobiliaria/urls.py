@@ -261,6 +261,16 @@ urlpatterns = [
     path('contratos/<int:contrato_id>/cuotas/', views.ver_cuotas_contrato, name='ver_cuotas_contrato'),
     path('api/cuota/<int:cuota_id>/', views.api_cuota_detalle, name='api_cuota_detalle'),
     path('contratos/cuota/<int:cuota_id>/pagar/', views.pagar_cuota, name='pagar_cuota'),
+    path(
+        'contratos/cuota/<int:cuota_id>/pago-operacion/',
+        views.crear_pago_cuota_operacion,
+        name='crear_pago_cuota_operacion',
+    ),
+    path(
+        'contratos/cuota/<int:cuota_id>/pago-operacion/procesar/',
+        views.procesar_pago_cuota_operacion,
+        name='procesar_pago_cuota_operacion',
+    ),
     path('contratos/<int:contrato_id>/cancelar/', views.cancelar_contrato, name='cancelar_contrato'),
     path('contratos/<int:contrato_id>/recibo/', views.recibo_contrato_24, name='recibo_contrato_24'),
     path('contratos/<int:contrato_id>/comodato-invierno/', views.ver_comodato_invierno, name='ver_comodato_invierno'),

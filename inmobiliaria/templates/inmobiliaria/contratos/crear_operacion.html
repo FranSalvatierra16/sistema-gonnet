@@ -5,6 +5,8 @@
 {% block title %}
     {% if tipo_operacion == 'principal' %}
         Operación Principal - Contrato #{{ contrato.id }}
+    {% elif tipo_operacion == 'cuota_especifica' %}
+        Cobro cuota {{ cuota_pago.numero_cuota }}/{{ contrato.duracion_meses }} - Contrato #{{ contrato.id }}
     {% else %}
         Pago Cuota Mensual - Contrato #{{ contrato.id }}
     {% endif %}
@@ -22,6 +24,8 @@
                             <h2 class="mb-2">
                                 {% if tipo_operacion == 'principal' %}
                                     🏠 Operación Principal - Depósito y Gastos
+                                {% elif tipo_operacion == 'cuota_especifica' %}
+                                    💰 Cobro de cuota {{ cuota_pago.numero_cuota }}/{{ contrato.duracion_meses }}
                                 {% else %}
                                     💰 Pago Cuota Mensual
                                 {% endif %}
@@ -52,6 +56,16 @@
                         <div class="col-md-6">
                             <p><strong>Inquilino:</strong> {{ contrato.inquilino.nombre }} {{ contrato.inquilino.apellido }}</p>
                             <p><strong>Propiedad:</strong> {{ contrato.propiedad.direccion }}</p>
+                            {% if modo_pago_cuota_especifica %}
+                            <div class="alert alert-light border mb-0">
+                                <p class="mb-1"><strong>Cuota:</strong> {{ cuota_pago.numero_cuota }} de {{ contrato.duracion_meses }} ·
+                                    <strong>Vencimiento:</strong> {{ cuota_pago.fecha_vencimiento|date:"d/m/Y" }}</p>
+                                <p class="mb-0 small text-muted">
+                                    Se precarga el concepto <strong>ID 1 (alquiler)</strong> con el monto sugerido; podés editarlo y sumar más conceptos.
+                                    La suma de conceptos debe coincidir con los medios de pago. Sin honorarios/sellados ni mes proporcional.
+                                </p>
+                            </div>
+                            {% else %}
                             <div class="form-group mb-2">
                                 <label><strong>Mes alquiler (elegir uno):</strong></label>
                                 <div class="mb-1">
@@ -84,6 +98,7 @@
                                 </div>
                                 <input type="hidden" id="mes_alquiler_valor" name="mes_alquiler_valor" value="">
                             </div>
+                            {% endif %}
                         </div>
                         <div class="col-md-6">
                             <p><strong>Vendedor:</strong> {{ contrato.vendedor.nombre }} {{ contrato.vendedor.apellido }}</p>
@@ -112,10 +127,18 @@
             <form id="formOperacionContrato" method="post">
                 {% csrf_token %}
                 
-                <!-- Ocultos enviados al servidor (sincronizados con los campos visibles) -->
+                {% if modo_pago_cuota_especifica %}
+                <input type="hidden" id="honorarios_top" name="honorarios_top" value="0">
+                <input type="hidden" id="sellados_top" name="sellados_top" value="0">
+                <input type="hidden" id="precio_mensual" name="precio_mensual" value="">
+                <input type="hidden" id="mes_alquiler_valor" name="mes_alquiler_valor" value="">
+                <input type="hidden" name="mes_alquiler_tipo" value="mensual">
+                {% else %}
                 <input type="hidden" id="honorarios_top" name="honorarios_top" value="">
                 <input type="hidden" id="sellados_top" name="sellados_top" value="">
+                {% endif %}
                 
+                {% if not modo_pago_cuota_especifica %}
                 <!-- Honorarios y sellados: campos del movimiento; el total del recibo en pantalla es solo la tabla de conceptos -->
                 <div class="card mb-4" style="display: block !important; visibility: visible !important;">
                     <div class="card-header bg-warning text-dark">
@@ -147,6 +170,7 @@
                         </div>
                     </div>
                 </div>
+                {% endif %}
                 
                 <!-- Sección de Conceptos -->
                 <div class="card mb-4">
@@ -267,12 +291,14 @@
                             <i class="fas fa-check"></i> 
                             {% if tipo_operacion == 'principal' %}
                                 Procesar Operación Principal
+                            {% elif tipo_operacion == 'cuota_especifica' %}
+                                Registrar cobro en caja
                             {% else %}
                                 Procesar Pago Cuota
                             {% endif %}
                         </button>
-                        <a href="{% url 'inmobiliaria:lista_contratos' %}" class="btn btn-secondary btn-lg">
-                            <i class="fas fa-arrow-left"></i> Volver a Contratos
+                        <a href="{% if modo_pago_cuota_especifica and detalle_contrato_url %}{{ detalle_contrato_url }}{% else %}{% url 'inmobiliaria:lista_contratos' %}{% endif %}" class="btn btn-secondary btn-lg">
+                            <i class="fas fa-arrow-left"></i> {% if modo_pago_cuota_especifica %}Volver al contrato{% else %}Volver a Contratos{% endif %}
                         </a>
                     </div>
                 </div>
@@ -436,6 +462,10 @@
     window.tipoOperacion = config.tipo_operacion || 'principal';
     window.contratoId = config.contrato_id || 0;
     window.fechaInicioContrato = config.fecha_inicio || null;
+    window.modoPagoCuotaEspecifica = !!config.modo_pago_cuota_especifica;
+    window.procesarPagoCuotaUrl = config.procesar_pago_cuota_url || '';
+    window.numeroCuotaPago = config.numero_cuota != null ? Number(config.numero_cuota) : 0;
+    window.defaultImporteCuota = config.default_importe_cuota != null ? Number(config.default_importe_cuota) : 0;
 })();
 var tipoOperacion = window.tipoOperacion;
 var contratoId = window.contratoId;
@@ -885,7 +915,8 @@ function procesarOperacion() {
         }
     }
 
-    const nuevoPrecioMensual = parsearValorFormateado(document.getElementById('precio_mensual').value);
+    var precioMensualEl = document.getElementById('precio_mensual');
+    var nuevoPrecioMensual = precioMensualEl ? parsearValorFormateado(precioMensualEl.value) : 0;
     formData.append('nuevo_precio_mensual', nuevoPrecioMensual);
     const mesAlquilerValor = document.getElementById('mes_alquiler_valor');
     if (mesAlquilerValor) formData.append('mes_alquiler_valor', mesAlquilerValor.value || '');
@@ -920,8 +951,10 @@ function procesarOperacion() {
     formData.append('conceptos_count', String(filas.length));
     formData.append('tipo_operacion', tipoOperacion);
     
-    // Enviar al servidor
-    fetch('{% url "inmobiliaria:procesar_operacion_contrato" contrato.id %}', {
+    var urlProcesar = (window.procesarPagoCuotaUrl && String(window.procesarPagoCuotaUrl).length > 0)
+        ? window.procesarPagoCuotaUrl
+        : '{% url "inmobiliaria:procesar_operacion_contrato" contrato.id %}';
+    fetch(urlProcesar, {
         method: 'POST',
         body: formData
     })
@@ -1252,14 +1285,30 @@ document.addEventListener('DOMContentLoaded', function() {
     sincronizarHonorarios();
     sincronizarSellados();
 
-    // Inicializar proporcional y mes alquiler elegido
-    actualizarProporcionalYMesAlquiler();
-    actualizarEtiquetaValorUsar();
-    document.querySelectorAll('input[name="mes_alquiler_tipo"]').forEach(function(radio) {
-        radio.addEventListener('change', function() {
-            actualizarMesAlquilerValorDesdeRadio();
+    if (!window.modoPagoCuotaEspecifica) {
+        // Inicializar proporcional y mes alquiler elegido
+        actualizarProporcionalYMesAlquiler();
+        actualizarEtiquetaValorUsar();
+        document.querySelectorAll('input[name="mes_alquiler_tipo"]').forEach(function(radio) {
+            radio.addEventListener('change', function() {
+                actualizarMesAlquilerValorDesdeRadio();
+            });
         });
-    });
+    }
+
+    if (window.modoPagoCuotaEspecifica && window.defaultImporteCuota > 0) {
+        contadorConceptos += 1;
+        var nCuota = window.numeroCuotaPago || 0;
+        conceptosAgregados.push({
+            id: contadorConceptos,
+            conceptoId: '1',
+            nombre: 'Alquiler / locación (cuota ' + nCuota + ')',
+            observaciones: 'Sin observaciones',
+            importe: window.defaultImporteCuota,
+            fecha: new Date().toLocaleDateString('es-AR')
+        });
+        actualizarTablaConceptos();
+    }
 
     // Inicializar cálculos
     calcularTotales();
@@ -1269,7 +1318,12 @@ document.addEventListener('DOMContentLoaded', function() {
 function sincronizarHonorarios() {
     const v = document.getElementById('honorarios_visible');
     const top = document.getElementById('honorarios_top');
-    if (!v || !top) return;
+    if (!top) return;
+    if (!v) {
+        top.value = '0';
+        calcularTotales();
+        return;
+    }
     const val = (v.value || '').replace(/\$/g, '').trim();
     top.value = val === '' ? '0' : val;
     calcularTotales();
@@ -1278,7 +1332,12 @@ function sincronizarHonorarios() {
 function sincronizarSellados() {
     var el = document.getElementById('sellados_visible');
     var top = document.getElementById('sellados_top');
-    if (!el || !top) return;
+    if (!top) return;
+    if (!el) {
+        top.value = '0';
+        calcularTotales();
+        return;
+    }
     var val = (el.value || '').replace(/\$/g, '').trim();
     top.value = val === '' ? '0' : val;
     calcularTotales();

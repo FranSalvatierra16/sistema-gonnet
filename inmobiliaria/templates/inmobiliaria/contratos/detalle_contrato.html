@@ -203,10 +203,13 @@
                                         <i class="fas fa-lock"></i> Bloqueado
                                     </button>
                                     {% else %}
-                                    <button type="button" class="btn btn-sm btn-success" 
+                                    <a href="{% url 'inmobiliaria:crear_pago_cuota_operacion' cuota.id %}" class="btn btn-sm btn-success" title="Conceptos, importes editables y medios de pago">
+                                        <i class="fas fa-cash-register"></i> Cobrar
+                                    </a>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary ms-1" 
                                             onclick="pagarCuotaEspecifica({{ cuota.id }}, '{{ cuota.monto_total|floatformat:2 }}')" 
-                                            title="Registrar pago en caja (efectivo)">
-                                        <i class="fas fa-dollar-sign"></i> Pagar
+                                            title="Registrar todo en efectivo sin pantalla de operación">
+                                        Efectivo
                                     </button>
                                     {% endif %}
                                 {% elif cuota.estado == 'pagada' %}
