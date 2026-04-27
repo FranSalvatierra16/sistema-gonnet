@@ -501,6 +501,11 @@ function actualizarObservacionConcepto(conceptoId, valor) {
 }
 window.actualizarObservacionConcepto = actualizarObservacionConcepto;
 
+function formatoMontoReciboAR(num) {
+    var n = Number(num) || 0;
+    return n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 function parseDecimalMontoJS(val) {
     if (val == null || val === '') return 0;
     let t = String(val).trim().replace(/\s/g, '');
@@ -633,7 +638,7 @@ function actualizarTablaConceptos() {
                        oninput="actualizarObservacionConcepto(${concepto.id}, this.value)"
                        title="Observaciones que se envían con este concepto">
             </td>
-            <td class="text-end">$${concepto.importe.toLocaleString('es-AR')}</td>
+            <td class="text-end">$${formatoMontoReciboAR(concepto.importe)}</td>
             <td>${escapeHtmlAttr(conceptoCatalogoIdEtiqueta(concepto.conceptoId))}</td>
             <td>
                 <button type="button" class="btn btn-warning btn-sm me-1" 
@@ -751,7 +756,7 @@ function calcularTotales() {
     const elTotConceptos = document.getElementById('totalConceptos');
     const elTotRecibo = document.getElementById('totalRecibo');
     const elTotOperacion = document.getElementById('totalOperacion');
-    const fmt = (n) => (Number(n) || 0).toLocaleString('es-AR');
+    const fmt = (n) => formatoMontoReciboAR(n);
     if (elTotConceptos) elTotConceptos.textContent = fmt(totalConceptos);
     if (elTotRecibo) elTotRecibo.value = fmt(totalRecibo);
     if (elTotOperacion) elTotOperacion.textContent = fmt(totalRecibo);

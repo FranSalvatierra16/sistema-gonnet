@@ -41,7 +41,24 @@ def parse_decimal_monto(value) -> Decimal:
         return Decimal("0")
 
     if "," in t:
-        t = t.replace(".", "").replace(",", ".")
+        # Con puntos: formato AR (1.234.567,89) → quitar puntos y coma decimal.
+        if "." in t:
+            t = t.replace(".", "").replace(",", ".")
+        else:
+            # Solo comas: distinguir decimal AR (10,50) de miles estilo US (300,000 → 300000).
+            parts = [p for p in t.split(",") if p != ""]
+            if parts and all(p.isdigit() for p in parts):
+                last_seg = parts[-1]
+                if len(last_seg) <= 2:
+                    t = parts[0] + "." + last_seg
+                elif len(last_seg) == 3 and len(parts) == 2 and parts[0] == "0":
+                    t = parts[0] + "." + last_seg
+                elif len(last_seg) == 3:
+                    t = "".join(parts)
+                else:
+                    t = t.replace(".", "").replace(",", ".")
+            else:
+                t = t.replace(".", "").replace(",", ".")
     else:
         if t.count(".") == 1 and len(t.split(".")[-1]) <= 2:
             pass

@@ -12410,7 +12410,8 @@ def detalle_contrato(request, contrato_id):
     
     contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
     cuotas = contrato.cuotas.all().order_by('numero_cuota')
-    
+    cuotas_tabla = list(cuotas[:3])
+
     # Estadísticas
     cuotas_pagadas = cuotas.filter(estado='pagada').count()
     cuotas_vencidas = cuotas.filter(estado='pendiente', fecha_vencimiento__lt=timezone.now().date()).count()
@@ -12448,6 +12449,7 @@ def detalle_contrato(request, contrato_id):
     context = {
         'contrato': contrato,
         'cuotas': cuotas,
+        'cuotas_tabla': cuotas_tabla,
         'cuotas_pagadas': cuotas_pagadas,
         'cuotas_vencidas': cuotas_vencidas,
         'total_pagado': total_pagado,
@@ -12461,6 +12463,28 @@ def detalle_contrato(request, contrato_id):
     }
     
     return render(request, 'inmobiliaria/contratos/detalle_contrato.html', context)
+
+
+@login_required
+@require_POST
+def recalcular_cuotas_montos_desde_contrato(request, contrato_id):
+    """Vuelve a calcular monto_base/monto_total de cuotas no pagadas según precio_mensual y precios_bloques del contrato."""
+    contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
+    montos = _montos_cuotas_por_trimestre(contrato)
+    actualizadas = 0
+    for cuota in contrato.cuotas.exclude(estado__in=['pagada', 'pagada_con_mora']).order_by('numero_cuota'):
+        idx = cuota.numero_cuota - 1
+        if idx < len(montos):
+            cuota.monto_base = montos[idx]
+            cuota.recargo_mora = Decimal('0')
+            cuota.descuento = Decimal('0')
+            cuota.actualizar_monto_total()
+            actualizadas += 1
+    messages.success(
+        request,
+        f'Se actualizaron {actualizadas} cuota(s) pendientes según el precio mensual y trimestres del contrato.',
+    )
+    return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
 
 
 @login_required
