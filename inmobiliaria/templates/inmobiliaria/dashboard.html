@@ -141,6 +141,26 @@
                 <span class="badge bg-secondary">Listado + detalle</span>
             </div>
         </div>
+        <div class="col-md-4 mb-4">
+            <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:listado_entradas' %}'">
+                <div class="card-icon">
+                    <i class="fas fa-sign-in-alt"></i>
+                </div>
+                <h3>Listado de entradas</h3>
+                <p>Alquileres que empiezan en la fecha que elijas</p>
+                <span class="badge bg-primary">Por día</span>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:listado_salidas' %}'">
+                <div class="card-icon">
+                    <i class="fas fa-sign-out-alt"></i>
+                </div>
+                <h3>Listado de salidas</h3>
+                <p>Alquileres que terminan en la fecha que elijas</p>
+                <span class="badge bg-danger">Por día</span>
+            </div>
+        </div>
     </div>
     {% endif %}
 </div>

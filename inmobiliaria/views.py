@@ -2637,7 +2637,7 @@ def listado_entradas(request):
     Listado de entradas por fecha exacta (inicio de alquiler).
     Incluye reservas temporales y contratos (invierno/24 meses).
     """
-    if request.user.nivel < 2:
+    if not (request.user.is_superuser or getattr(request.user, 'nivel', None) == 4):
         messages.error(request, 'No tenés permisos para acceder a esta sección.')
         return redirect('inmobiliaria:dashboard')
 
@@ -2793,7 +2793,7 @@ def listado_salidas(request):
     Listado de salidas por fecha exacta (fin de alquiler).
     Incluye reservas temporales y contratos (invierno/24 meses).
     """
-    if request.user.nivel < 2:
+    if not (request.user.is_superuser or getattr(request.user, 'nivel', None) == 4):
         messages.error(request, 'No tenés permisos para acceder a esta sección.')
         return redirect('inmobiliaria:dashboard')
 
