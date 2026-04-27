@@ -1020,71 +1020,7 @@ window.calcularTotales = calcularTotales;
 window.calcularTotalPagos = calcularTotalPagos;
 window.habilitarBotonProcesar = habilitarBotonProcesar;
 
-// ✅ Función para actualizar el precio de la reserva cuando cambia el importe locación
-let timeoutActualizarPrecio = null;
-const importeLocacionInput = document.getElementById('importe_locacion');
-if (importeLocacionInput) {
-    importeLocacionInput.addEventListener('input', function() {
-        // Limpiar timeout anterior
-        if (timeoutActualizarPrecio) {
-            clearTimeout(timeoutActualizarPrecio);
-        }
-        
-        // Esperar 1 segundo después de que el usuario deje de escribir
-        timeoutActualizarPrecio = setTimeout(function() {
-            const nuevoPrecio = String(parseDecimalMontoJS(importeLocacionInput.value));
-            if (!nuevoPrecio || nuevoPrecio === '0' || nuevoPrecio === 'NaN') {
-                return;
-            }
-            
-            // Obtener el ID de la reserva desde la URL
-            const urlParts = window.location.pathname.split('/');
-            const reservaId = urlParts[urlParts.indexOf('reservas') + 1];
-            
-            // Enviar actualización al servidor
-            fetch(`{% url 'inmobiliaria:actualizar_precio_reserva' reserva.id %}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                },
-                body: `precio_total=${encodeURIComponent(nuevoPrecio)}`
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    // Actualizar el resumen con el nuevo precio
-                    const precioFormateado = parseFloat(nuevoPrecio).toLocaleString('es-ES');
-                    const resumenPrecioTotal = document.getElementById('resumen-precio-total');
-                    if (resumenPrecioTotal) {
-                        resumenPrecioTotal.textContent = '$' + precioFormateado;
-                    }
-                    
-                    // Recalcular el saldo a ocupar
-                    if (typeof calcularSaldoOcupar === 'function') {
-                        calcularSaldoOcupar();
-                    }
-                    
-                    console.log('✅ Precio de reserva actualizado:', data.precio_total);
-                } else {
-                    console.error('❌ Error al actualizar precio:', data.error);
-                    alert('Error al actualizar el precio: ' + data.error);
-                }
-            })
-            .catch(error => {
-                console.error('❌ Error en la petición:', error);
-                alert('Error al actualizar el precio. Por favor, intente nuevamente.');
-            });
-        }, 1000);
-    });
-    
-    // También recalcular cuando cambia el importe locación
-    importeLocacionInput.addEventListener('blur', function() {
-        if (typeof calcularSaldoOcupar === 'function') {
-            calcularSaldoOcupar();
-        }
-    });
-}
+// Importe locación es solo lectura: el precio total viene de la reserva (no se edita en este recibo).
 </script>
 {% endblock %}
 
@@ -1222,8 +1158,9 @@ if (importeLocacionInput) {
                             <div class="col-md-2">
                                 <label class="form-label"><strong>Importe Locación:</strong></label>
                                 <input type="text" class="form-control form-control-sm" name="importe_locacion" id="importe_locacion"
-                                       value="{{ reserva.precio_total|floatformat:0 }}" style="border: 2px solid #9c27b0;">
-                                <small class="text-muted">💡 Precio total de la operación (editable)</small>
+                                       value="{{ reserva.precio_total|floatformat:0 }}" readonly
+                                       style="background-color: #f8f9fa;">
+                                <small class="text-muted">Precio total de la operación (solo lectura). Para cambiarlo, editá la reserva desde la ficha.</small>
                             </div>
                             
                             <div class="col-md-2">

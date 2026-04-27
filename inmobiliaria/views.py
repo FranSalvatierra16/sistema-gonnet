@@ -5480,7 +5480,6 @@ def procesar_movimiento_reserva(request):
             
             # ✅ Valores del formulario (el campo «senia» del POST no define la seña del recibo; se usa la suma de CONCEPTOS_SENIA_OPERACION_RESERVA)
             deposito_garantia_input = limpiar_valor_monetario(request.POST.get('deposito_garantia', '0'))
-            importe_locacion_input = limpiar_valor_monetario(request.POST.get('importe_locacion', '0'))
             
             # ✅ CALCULAR TOTALES PAGADOS ANTES DE ESTE PAGO
             pagos_anteriores = MovimientoCaja.objects.filter(
@@ -5497,9 +5496,7 @@ def procesar_movimiento_reserva(request):
             # 🔍 DEBUGGING CRÍTICO: Ver qué llega del formulario
 # print(f"🔥 VALORES CRUDOS DEL FORMULARIO:")
 # print(f"   - request.POST.get('deposito_garantia'): '{request.POST.get('deposito_garantia', 'NO_ENVIADO')}'")
-# print(f"   - request.POST.get('importe_locacion'): '{request.POST.get('importe_locacion', 'NO_ENVIADO')}'")
 # print(f"   - deposito_garantia_input (limpiado): '{deposito_garantia_input}'")
-# print(f"   - importe_locacion_input (limpiado): '{importe_locacion_input}'")
 # print(f"🔥 TODOS LOS CAMPOS DEL POST:")
             for key, value in request.POST.items():
                 if 'csrf' not in key.lower():
@@ -5508,7 +5505,8 @@ def procesar_movimiento_reserva(request):
             
             try:
                 deposito_garantia = Decimal(deposito_garantia_input) if deposito_garantia_input else Decimal('0')
-                importe_locacion = Decimal(importe_locacion_input) if importe_locacion_input else Decimal('0')
+                # Importe locación: siempre el precio total guardado en la reserva (no editable en el recibo; no se toma del POST)
+                importe_locacion = reserva.precio_total or Decimal('0')
                 
                 # ✅ VALIDACIÓN CONCEPTO 10 vs DEPÓSITO DE GARANTÍA (después de definir variables)
                 if deposito_garantia > 0 and not concepto_10_presente:
@@ -5539,12 +5537,6 @@ def procesar_movimiento_reserva(request):
 # print(f"   - Total pagado anteriormente: ${total_pagado_anteriormente}")
 # print(f"   - Seña anterior en reserva: ${reserva.senia or 0}")
 # print(f"   - Depósito anterior en reserva: ${reserva.deposito_garantia or 0}")
-                
-                # ✅ ACTUALIZAR PRECIO TOTAL SI SE PROPORCIONA IMPORTE LOCACIÓN
-                if importe_locacion > 0 and importe_locacion != reserva.precio_total:
-                    pass  # ✅ Bloque vacío
-# print(f"🔄 ACTUALIZANDO PRECIO TOTAL: ${reserva.precio_total} -> ${importe_locacion}")
-                    reserva.precio_total = importe_locacion
                 
                 # ✅ CORREGIDO: CALCULAR SEÑA SOLO CON CONCEPTOS QUE NO SEAN DEPÓSITO
                 senia_anterior = reserva.senia or 0
