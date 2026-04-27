@@ -163,7 +163,8 @@
                         <tr>
                             <th>Cuota</th>
                             <th>Vencimiento</th>
-                            <th>Monto</th>
+                            <th>Cobro mensual<br><span class="small fw-normal text-white-50">(locación)</span></th>
+                            <th>Total<br><span class="small fw-normal text-white-50">a pagar / abonado</span></th>
                             <th>Estado</th>
                             <th>Fecha de Pago</th>
                             <th>Días Vencida</th>
@@ -185,6 +186,15 @@
                             <td>
                                 {% if cuota.numero_cuota > 3 and cuota.monto_base == 0 %}
                                 <span class="text-muted"><i class="fas fa-lock me-1"></i>Sin definir</span>
+                                {% else %}
+                                <strong class="text-dark">${{ cuota.monto_base|format_price }}</strong>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if cuota.numero_cuota > 3 and cuota.monto_base == 0 %}
+                                <span class="text-muted">—</span>
+                                {% elif cuota.estado == 'pagada' %}
+                                <strong class="text-primary">${{ cuota.monto_total|format_price }}</strong>
                                 {% else %}
                                 <strong class="text-success">${{ cuota.monto_total|format_price }}</strong>
                                 {% endif %}
