@@ -13600,10 +13600,12 @@ def procesar_pago_cuota_operacion(request, cuota_id):
             cuota.estado = 'pagada'
             cuota.fecha_pago = timezone.now().date()
             cuota.movimiento = movimiento
+            # monto_base = solo alquiler (ID 1, mayor importe si hubo varias líneas con 1).
+            # monto_total = suma de todas las líneas del recibo (alquiler + depósito, gastos, etc.).
             cuota.monto_base = importe_alquiler
             cuota.recargo_mora = Decimal('0')
             cuota.descuento = Decimal('0')
-            cuota.monto_total = importe_alquiler
+            cuota.monto_total = suma_conceptos
             cuota.save()
 
             siguiente_cuota = contrato.cuotas.filter(numero_cuota=cuota.numero_cuota + 1).first()
