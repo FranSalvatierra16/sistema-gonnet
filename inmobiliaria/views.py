@@ -12410,7 +12410,6 @@ def detalle_contrato(request, contrato_id):
     
     contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
     cuotas = contrato.cuotas.all().order_by('numero_cuota')
-    cuotas_tabla = list(cuotas[:3])
 
     # Estadísticas
     cuotas_pagadas = cuotas.filter(estado='pagada').count()
@@ -12455,7 +12454,6 @@ def detalle_contrato(request, contrato_id):
     context = {
         'contrato': contrato,
         'cuotas': cuotas,
-        'cuotas_tabla': cuotas_tabla,
         'cuotas_pagadas': cuotas_pagadas,
         'cuotas_vencidas': cuotas_vencidas,
         'total_pagado': total_pagado,
