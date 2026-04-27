@@ -26,6 +26,14 @@ class TipoDescuentoEnum(models.TextChoices):
     INQUILINO = 'IN', 'Inquilino'
     OFICINA = 'OF', 'Oficina'
 
+
+class MovimientoCajaActivosManager(models.Manager):
+    """Movimientos que siguen vigentes en la caja (no anulados)."""
+
+    def get_queryset(self):
+        return super().get_queryset().filter(fecha_eliminacion__isnull=True)
+
+
 class Caja(models.Model):
     ESTADO_CHOICES = [
         ('abierta', 'Abierta'),
@@ -140,6 +148,24 @@ class MovimientoCaja(models.Model):
     # Campos para contratos de 24 meses
     honorarios = models.DecimalField(max_digits=14, decimal_places=2, default=0, blank=True)
     sellados = models.DecimalField(max_digits=14, decimal_places=2, default=0, blank=True)
+
+    # Anulación en caja abierta: el registro permanece para auditoría y no entra en totales/saldo.
+    fecha_eliminacion = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text='Si está informado, el movimiento fue anulado y no suma en el saldo de la caja.',
+    )
+    eliminado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='movimientos_caja_eliminados',
+    )
+
+    all_objects = models.Manager()
+    objects = MovimientoCajaActivosManager()
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -400,6 +426,8 @@ class MovimientoCaja(models.Model):
     class Meta:
         db_table = 'inmobiliaria_movimientocaja'
         ordering = ['-fecha']
+        default_manager_name = 'objects'
+        base_manager_name = 'all_objects'
 
 class Concepto(models.Model):
     id = models.CharField(max_length=20, primary_key=True)  # ID personalizado

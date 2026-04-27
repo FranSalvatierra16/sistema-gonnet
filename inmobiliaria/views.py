@@ -9515,8 +9515,11 @@ def eliminar_movimiento(request, movimiento_id):
         return redirect('inmobiliaria:gestionar_caja')
 
     caja_numero = movimiento.caja_id and movimiento.caja.numero
-    _eliminar_movimiento_y_anexos(movimiento)
-    messages.success(request, 'Movimiento de caja y recibo asociado eliminados correctamente.')
+    _eliminar_movimiento_y_anexos(movimiento, eliminado_por=request.user)
+    messages.success(
+        request,
+        'Movimiento anulado. Seguirá visible en «Movimientos eliminados» y ya no suma en el saldo de la caja.',
+    )
 
     next_target = (request.POST.get('next') or request.GET.get('next') or '').strip()
     if next_target == 'operaciones':
@@ -9610,6 +9613,15 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
     for mov in movimientos:
         mov.concepto_resumen = _resumir_concepto_crudo(getattr(mov, 'concepto', ''))
 
+    movimientos_eliminados_qs = (
+        MovimientoCaja.all_objects.filter(caja=caja, fecha_eliminacion__isnull=False)
+        .select_related('propiedad', 'empleado', 'eliminado_por')
+        .order_by('-fecha_eliminacion', '-id')
+    )
+    movimientos_eliminados = list(movimientos_eliminados_qs)
+    for mov in movimientos_eliminados:
+        mov.concepto_resumen = _resumir_concepto_crudo(getattr(mov, 'concepto', ''))
+
     ingresos = movimientos_qs.filter(tipo=TipoMovimientoCajaEnum.INGRESO)
     egresos = movimientos_qs.filter(tipo=TipoMovimientoCajaEnum.EGRESO)
 
@@ -9682,6 +9694,7 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
     return {
         'caja': caja,
         'movimientos': movimientos,
+        'movimientos_eliminados': movimientos_eliminados,
         'totales': totales,
         'cuentas_bancarias': cuentas_bancarias,
         'es_saldo_positivo': saldo_total >= 0,
@@ -18111,17 +18124,39 @@ def _operaciones_incluidas_tabla(liquidacion):
     return filas
 
 
-def _eliminar_movimiento_y_anexos(movimiento):
-    """Quita movimiento de caja y registros que lo referencian (liquidación debe tener FK ya en None)."""
+def _eliminar_movimiento_y_anexos(movimiento, eliminado_por=None):
+    """
+    Anula el movimiento de caja (soft delete): deja de contar en saldos y aparece en «eliminados».
+    La liquidación, si aplica, debe tener movimiento_caja en None antes de llamar aquí.
+    """
     if not movimiento:
         return
+    if getattr(movimiento, 'fecha_eliminacion', None):
+        return
+
+    hoy = timezone.now().date()
+    for cuota in CuotaMensual.objects.filter(movimiento=movimiento):
+        cuota.movimiento = None
+        cuota.fecha_pago = None
+        if cuota.fecha_vencimiento < hoy:
+            cuota.estado = 'vencida'
+        elif cuota.estado in ('pagada', 'pagada_con_mora'):
+            cuota.estado = 'pendiente'
+        cuota.save(update_fields=['movimiento', 'fecha_pago', 'estado'])
+
+    ValeVendedor.objects.filter(movimiento_caja=movimiento).update(movimiento_caja=None)
+
     try:
         from .models.recibo import Recibo
+
         Recibo.objects.filter(movimiento_caja=movimiento).delete()
     except Exception:
         pass
     ComisionVendedor.objects.filter(movimiento_caja=movimiento).delete()
-    movimiento.delete()
+
+    movimiento.fecha_eliminacion = timezone.now()
+    movimiento.eliminado_por = eliminado_por if eliminado_por and getattr(eliminado_por, 'pk', None) else None
+    movimiento.save(update_fields=['fecha_eliminacion', 'eliminado_por'])
 
 
 def _vincular_linea_gasto_pendiente_a_liquidacion(liquidacion, linea_id, sucursal):
@@ -18252,7 +18287,7 @@ def eliminar_liquidacion(request, liquidacion_id):
     liquidacion.movimiento_caja = None
     liquidacion.save(update_fields=['movimiento_caja'])
     if mov:
-        _eliminar_movimiento_y_anexos(mov)
+        _eliminar_movimiento_y_anexos(mov, eliminado_por=request.user)
 
     lid = liquidacion.id
     liquidacion.delete()
