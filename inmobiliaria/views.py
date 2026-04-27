@@ -11351,17 +11351,31 @@ def buscar_propiedades_caja(request):
             Q(direccion__icontains=termino) |
             Q(ubicacion__icontains=termino) |
             Q(piso__icontains=termino) |
-            Q(departamento__icontains=termino)
+            Q(departamento__icontains=termino) |
+            Q(propietario__nombre__icontains=termino) |
+            Q(propietario__apellido__icontains=termino) |
+            Q(propietario__dni__icontains=termino) |
+            Q(propietario__cuit__icontains=termino) |
+            Q(propietario__email__icontains=termino)
         )
         try:
             pid = int(termino)
             q = q | Q(id=pid)
         except (ValueError, TypeError):
             pass
-        propiedades = Propiedad.objects.filter(sucursal=sucursal).filter(q).order_by(
-            'direccion'
-        )[:40]
-        
+        propiedades = (
+            Propiedad.objects.filter(sucursal=sucursal)
+            .filter(q)
+            .select_related('propietario')
+            .order_by('direccion')[:40]
+        )
+
+        def _propietario_txt(p):
+            pr = p.propietario
+            if not pr:
+                return ''
+            return (pr.nombre_completo_propietario() or str(pr)).strip()
+
         return JsonResponse({
             'success': True,
             'propiedades': [{
@@ -11370,6 +11384,7 @@ def buscar_propiedades_caja(request):
                 'ubicacion': p.ubicacion or '',
                 'piso': (p.piso or '').strip(),
                 'departamento': (p.departamento or '').strip(),
+                'propietario': _propietario_txt(p),
             } for p in propiedades]
         })
     except Exception as e:

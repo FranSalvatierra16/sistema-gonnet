@@ -228,10 +228,10 @@
                                         <label class="form-label">Propiedad</label>
                                         <div class="caja-ac-wrap">
                                             <input type="hidden" name="propiedad_id" id="propiedad_id" value="">
-                                            <input type="text" id="propiedad_buscar" class="form-control" placeholder="Nº, calle, piso o depto…" autocomplete="off">
+                                            <input type="text" id="propiedad_buscar" class="form-control" placeholder="Nº, dirección, piso, depto o propietario…" autocomplete="off">
                                             <div id="dropdown_propiedades_main" class="caja-ac-dropdown list-group" role="listbox" aria-label="Propiedades"></div>
                                         </div>
-                                        <small class="text-muted">Búsqueda al escribir; tabla completa en «Listado».</small>
+                                        <small class="text-muted">Búsqueda al escribir (incluye nombre o apellido del propietario); tabla completa en «Listado».</small>
                                     </div>
                                     <div class="col-md-5">
                                         <label class="form-label">Dirección</label>
@@ -435,7 +435,7 @@
                 <!-- Búsqueda -->
                 <div class="form-group">
                             <div class="input-group mb-3">
-                        <input type="text" id="buscar_propiedad_texto" class="form-control" placeholder="ID, dirección, piso o depto…">
+                        <input type="text" id="buscar_propiedad_texto" class="form-control" placeholder="ID, dirección, piso, depto o propietario…">
                         <div class="input-group-append">
                             <button class="btn btn-primary" type="button" id="btn_buscar_propiedad">
                                 <i class="fas fa-search"></i> Buscar
@@ -451,6 +451,7 @@
                                 <tr>
                                 <th>ID</th>
                                 <th>Dirección</th>
+                                <th>Propietario</th>
                                 <th>Piso</th>
                                 <th>Dpto</th>
                                 <th>Ubicación</th>
@@ -804,7 +805,7 @@ $(document).ready(function() {
     function renderPropiedadRows($tbody, list) {
         $tbody.empty();
         if (!list || !list.length) {
-            $tbody.append('<tr><td colspan="6" class="text-center text-muted">Sin resultados</td></tr>');
+            $tbody.append('<tr><td colspan="7" class="text-center text-muted">Sin resultados</td></tr>');
             return;
         }
         list.forEach(function(prop) {
@@ -818,6 +819,7 @@ $(document).ready(function() {
                 $tdDir.append($('<div class="small text-muted"></div>').text(etiquetaSoloPisoDepto(pi, dep)));
             }
             $tr.append($tdDir);
+            $tr.append($('<td></td>').addClass('small').text((prop.propietario || '').trim() || '—'));
             $tr.append($('<td></td>').text(pi || '—'));
             $tr.append($('<td></td>').text(dep || '—'));
             $tr.append($('<td></td>').text(prop.ubicacion || '—'));
@@ -849,9 +851,13 @@ $(document).ready(function() {
                     .attr('data-piso', pi)
                     .attr('data-departamento', dep);
                 var ubi = p.ubicacion ? '<span class="caja-ac-meta d-block">' + escapeHtml(p.ubicacion) + '</span>' : '';
+                var propTxt = (p.propietario || '').trim();
+                var lineaProp = propTxt
+                    ? '<span class="caja-ac-meta d-block text-muted small">Prop.: ' + escapeHtml(propTxt) + '</span>'
+                    : '';
                 $b.html(
                     '<span class="fw-semibold">#' + escapeHtml(String(p.id)) + '</span> ' +
-                    '<span class="d-block">' + escapeHtml(linea) + '</span>' + ubi
+                    '<span class="d-block">' + escapeHtml(linea) + '</span>' + lineaProp + ubi
                 );
                 $dd.append($b);
             });
@@ -921,7 +927,7 @@ $(document).ready(function() {
     function ejecutarBusquedaPropiedadModal() {
         var termino = $('#buscar_propiedad_texto').val().trim();
         if (!termino) {
-            $('#propiedades_lista').html('<tr><td colspan="6" class="text-center text-muted">Escribí al menos un carácter</td></tr>');
+            $('#propiedades_lista').html('<tr><td colspan="7" class="text-center text-muted">Escribí al menos un carácter</td></tr>');
             return;
         }
         fetchPropiedades(termino, $('#propiedades_lista'));

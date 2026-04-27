@@ -22,7 +22,7 @@
                     <label for="q" class="form-label">Buscar propiedad</label>
                     <div class="position-relative" id="buscadorPropiedadWrap">
                         <input type="text" class="form-control" id="q" name="q"
-                               value="{{ termino }}" placeholder="ID, dirección o ubicación">
+                               value="{{ termino }}" placeholder="ID, dirección, ubicación o propietario">
                         <input type="hidden" name="propiedad_id" id="propiedad_id_hidden" value="{{ propiedad_id|default:'' }}">
                         <div class="list-group position-absolute w-100 d-none" id="resultadosPropiedad"
                              style="z-index:30; max-height:260px; overflow-y:auto;"></div>
@@ -301,6 +301,13 @@
         return '';
     }
 
+    function escHtml(s) {
+        if (s == null || s === '') return '';
+        const d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+    }
+
     function renderResultados(items) {
         if (!items.length) {
             resultados.innerHTML = '<div class="list-group-item text-muted">Sin coincidencias</div>';
@@ -313,8 +320,12 @@
             const dep = (p.departamento || '').trim();
             const unidad = [pi ? 'Piso ' + pi : '', dep ? 'Dpto ' + dep : ''].filter(Boolean).join(', ');
             const suf = unidad ? ` — ${unidad}` : '';
+            const propLine = (p.propietario && String(p.propietario).trim())
+                ? `<span class="small text-muted d-block">${escHtml(p.propietario)}</span>`
+                : '';
             return `<button type="button" class="list-group-item list-group-item-action item-propiedad" data-id="${p.id}" data-text="#${p.id} - ${p.direccion}${suf}${ubic}">
                 <strong>#${p.id}</strong> - ${p.direccion}${suf}${ubic}
+                ${propLine}
             </button>`;
         }).join('');
         resultados.classList.remove('d-none');
