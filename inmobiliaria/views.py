@@ -12445,6 +12445,12 @@ def detalle_contrato(request, contrato_id):
                 'idx': idx,
                 'valor': valor_str,
             })
+        for i in range(len(trimestres_extras_ui)):
+            row = trimestres_extras_ui[i]
+            row['trimestre_input_habilitado'] = i == 0 or all(
+                (trimestres_extras_ui[j].get('valor') or '').strip()
+                for j in range(i)
+            )
 
     context = {
         'contrato': contrato,

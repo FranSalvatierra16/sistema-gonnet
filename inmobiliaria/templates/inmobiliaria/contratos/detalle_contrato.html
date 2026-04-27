@@ -97,7 +97,7 @@
             <div class="card shadow-modern border-radius-modern border-warning">
                 <div class="card-header bg-warning text-dark">
                     <h4 class="mb-0"><i class="fas fa-layer-group"></i> <strong>Aumentos cada 3 meses (trimestres)</strong></h4>
-                    <small>Meses 1–3 usan el precio mensual del contrato. Cada trimestre siguiente (4–6, 7–9, …) se define acá; <strong>vacío = sin precio</strong> (cuota bloqueada) hasta que cargues el importe y guardes. Solo se actualizan cuotas <strong>no pagadas</strong>.</small>
+                    <small>Meses 1–3 usan el precio mensual del contrato. Cada trimestre siguiente (4–6, 7–9, …) se define acá; <strong>vacío = sin precio</strong> (cuota bloqueada) hasta que cargues el importe y guardes. Los campos de trimestre se <strong>habilitan de a uno</strong> (primero el 2, luego el 3, etc.) cuando el anterior tiene importe. Solo se actualizan cuotas <strong>no pagadas</strong>.</small>
                 </div>
                 <div class="card-body">
                     {% if puede_activar_modo_trimestres %}
@@ -109,13 +109,20 @@
                         </form>
                     </div>
                     {% endif %}
-                    <form method="post" action="{% url 'inmobiliaria:actualizar_precios_bloques_contrato' contrato.id %}">
+                    <form id="form-precios-trimestres" method="post" action="{% url 'inmobiliaria:actualizar_precios_bloques_contrato' contrato.id %}">
                         {% csrf_token %}
                         <div class="row g-3">
                             {% for row in trimestres_extras_ui %}
                             <div class="col-md-6 col-lg-4">
                                 <label class="form-label small mb-0">Trimestre {{ row.t }} (meses {{ row.mes_desde }}–{{ row.mes_hasta }})</label>
-                                <input type="text" class="form-control" name="precio_trimester_{{ row.idx }}" value="{{ row.valor }}" placeholder="Sin precio hasta cargar" autocomplete="off">
+                                <input type="text"
+                                       class="form-control trimester-precio-input{% if not row.trimestre_input_habilitado %} bg-light text-muted{% endif %}"
+                                       name="precio_trimester_{{ row.idx }}"
+                                       data-trim-idx="{{ row.idx }}"
+                                       value="{{ row.valor }}"
+                                       placeholder="Sin precio hasta cargar"
+                                       autocomplete="off"
+                                       {% if not row.trimestre_input_habilitado %}readonly title="Completá el trimestre anterior (importe no vacío) y guardá, o escribí en orden de izquierda a derecha."{% endif %}>
                             </div>
                             {% endfor %}
                         </div>
@@ -308,5 +315,36 @@ function verReciboCuota(movimientoId) {
         alert('No hay recibo disponible para esta cuota');
     }
 }
+
+(function inicializarTrimestresProgresivos() {
+    var form = document.getElementById('form-precios-trimestres');
+    if (!form) return;
+    var nodes = form.querySelectorAll('.trimester-precio-input');
+    if (!nodes.length) return;
+    var inputs = Array.prototype.slice.call(nodes).sort(function (a, b) {
+        return parseInt(a.getAttribute('data-trim-idx'), 10) - parseInt(b.getAttribute('data-trim-idx'), 10);
+    });
+    function tieneTexto(el) {
+        return el && String(el.value || '').trim().length > 0;
+    }
+    function sincronizarTrimestres() {
+        inputs.forEach(function (inp, i) {
+            var desbloquear = i === 0 || inputs.slice(0, i).every(tieneTexto);
+            inp.readOnly = !desbloquear;
+            inp.classList.toggle('bg-light', !desbloquear);
+            inp.classList.toggle('text-muted', !desbloquear);
+            if (!desbloquear) {
+                inp.setAttribute('title', 'Habilitá el trimestre anterior: cargá un importe en el campo de la izquierda (o guardá y recargá).');
+            } else {
+                inp.removeAttribute('title');
+            }
+        });
+    }
+    inputs.forEach(function (inp) {
+        inp.addEventListener('input', sincronizarTrimestres);
+        inp.addEventListener('change', sincronizarTrimestres);
+    });
+    sincronizarTrimestres();
+})();
 </script>
 {% endblock %} 
