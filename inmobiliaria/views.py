@@ -12819,10 +12819,9 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato, pago_cuota_co
                         nombre = (item.get('nombre') or item.get('concepto') or '').strip()
                         importe_val = item.get('importe', 0)
                         if nombre and importe_val is not None:
-                            try:
-                                imp = float(importe_val)
-                            except (TypeError, ValueError):
-                                imp = float(limpiar_valor_monetario(str(importe_val)))
+                            # No usar float() directo: JSON puede traer números ya mal convertidos en el cliente;
+                            # limpiar_valor_monetario / parse_decimal_monto normaliza strings tipo AR.
+                            imp = float(limpiar_valor_monetario(str(importe_val)))
                             conceptos_data.append({
                                 'id': str(item.get('id') or item.get('codigo') or f'C{i}'),
                                 'nombre': nombre,
@@ -13531,6 +13530,8 @@ def procesar_pago_cuota_operacion(request, cuota_id):
         if not isinstance(lista, list) or len(lista) == 0:
             return JsonResponse({'error': 'Agregá al menos una línea en conceptos.'}, status=400)
 
+        importes_id1 = []
+        suma_conceptos = Decimal('0')
         for item in lista:
             cid = str(item.get('id') or item.get('codigo') or '').strip()
             if cid in ('25', '26'):
@@ -13538,20 +13539,14 @@ def procesar_pago_cuota_operacion(request, cuota_id):
                     {'error': 'En el cobro de cuota no se usan honorarios (25) ni sellados (26).'},
                     status=400,
                 )
-
-        importe_alquiler = Decimal('0')
-        tiene_alquiler = False
-        suma_conceptos = Decimal('0')
-        for item in lista:
-            imp = Decimal(str(item.get('importe') or 0))
+            imp = parse_decimal_monto(item.get('importe'))
             if imp < 0:
                 return JsonResponse({'error': 'Los importes no pueden ser negativos.'}, status=400)
             suma_conceptos += imp
-            cid = str(item.get('id') or item.get('codigo') or '').strip()
             if cid == '1':
-                tiene_alquiler = True
-                importe_alquiler = imp
-        if not tiene_alquiler or importe_alquiler <= 0:
+                importes_id1.append(imp)
+
+        if not importes_id1 or max(importes_id1) <= 0:
             return JsonResponse(
                 {
                     'error': (
@@ -13561,6 +13556,8 @@ def procesar_pago_cuota_operacion(request, cuota_id):
                 },
                 status=400,
             )
+
+        importe_alquiler = max(importes_id1)
 
         total_medios = _total_medios_pago_operacion_request(request)
         if total_medios <= 0:

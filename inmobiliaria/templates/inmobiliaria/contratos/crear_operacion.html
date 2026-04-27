@@ -61,8 +61,9 @@
                                 <p class="mb-1"><strong>Cuota:</strong> {{ cuota_pago.numero_cuota }} de {{ contrato.duracion_meses }} ·
                                     <strong>Vencimiento:</strong> {{ cuota_pago.fecha_vencimiento|date:"d/m/Y" }}</p>
                                 <p class="mb-0 small text-muted">
-                                    Se precarga el concepto <strong>ID 1 (alquiler)</strong> con el monto sugerido; podés editarlo y sumar más conceptos.
-                                    La suma de conceptos debe coincidir con los medios de pago. Sin honorarios/sellados ni mes proporcional.
+                                    Se precarga el concepto <strong>ID 1 (alquiler)</strong> con el monto sugerido; podés editarlo y sumar más conceptos con <strong>otro ID</strong> (gastos, expensas, etc.).
+                                    Si hay más de una línea con ID 1, el sistema toma la de <strong>mayor importe</strong> como alquiler para la cuota.
+                                    La suma de <em>todas</em> las líneas debe coincidir con los medios de pago.
                                 </p>
                             </div>
                             {% else %}
@@ -533,6 +534,13 @@ function parsearValorFormateado(valor) {
     return parseDecimalMontoJS(valor.toString().trim().replace(/\$/g, ''));
 }
 
+/** Evita Number('30.000')===30 o Number('300.000')===300 (en JS el punto es decimal). */
+function importeConceptoANumero(importe) {
+    if (importe == null || importe === '') return 0;
+    if (typeof importe === 'number' && !isNaN(importe) && isFinite(importe)) return importe;
+    return parseDecimalMontoJS(String(importe));
+}
+
 // Función para formatear números en tiempo real
 function formatearNumeroEnTiempoReal(input) {
     if (!input || !input.value) return;
@@ -682,7 +690,7 @@ function editarConcepto(conceptoId) {
         };
         
         document.getElementById('observaciones').value = concepto.observaciones === 'Sin observaciones' ? '' : concepto.observaciones;
-        document.getElementById('importe').value = (typeof concepto.importe === 'number' ? concepto.importe : parseFloat(concepto.importe)).toLocaleString('es-AR');
+        document.getElementById('importe').value = importeConceptoANumero(concepto.importe).toLocaleString('es-AR', { maximumFractionDigits: 2 });
         
         document.getElementById('modalConceptoLabel').textContent = '✏️ Editar Concepto';
         const btnAgregar = document.querySelector('#modalConcepto .btn-success');
@@ -749,7 +757,7 @@ function verificarConcepto10() {
 
 // Función para calcular totales
 function calcularTotales() {
-    const totalConceptos = conceptosAgregados.reduce((sum, concepto) => sum + (Number(concepto.importe) || 0), 0);
+    const totalConceptos = conceptosAgregados.reduce((sum, concepto) => sum + importeConceptoANumero(concepto.importe), 0);
     // Total del recibo = solo filas de la tabla (honorarios/sellados del bloque amarillo van por POST al movimiento, no suman aquí)
     const totalRecibo = totalConceptos;
 
@@ -900,7 +908,7 @@ function procesarOperacion() {
         return;
     }
 
-    const totalRecibo = filas.reduce(function(sum, c) { return sum + (Number(c.importe) || 0); }, 0);
+    const totalRecibo = filas.reduce(function(sum, c) { return sum + importeConceptoANumero(c.importe); }, 0);
     const totalPagos = calcularTotalPagos();
 
     if (Math.abs(totalRecibo - totalPagos) > 0.01) {
@@ -939,7 +947,7 @@ function procesarOperacion() {
         return {
             id: String(c.conceptoId || ''),
             nombre: String(c.nombre || ''),
-            importe: Number(c.importe) || 0,
+            importe: importeConceptoANumero(c.importe),
             observaciones: obs,
             fecha: String(c.fecha || '')
         };
@@ -950,7 +958,7 @@ function procesarOperacion() {
         formData.append('concepto_' + index + '_id', String(concepto.conceptoId || ''));
         formData.append('concepto_' + index + '_nombre', String(concepto.nombre || ''));
         formData.append('concepto_' + index + '_observaciones', obs);
-        formData.append('concepto_' + index + '_importe', String(concepto.importe));
+        formData.append('concepto_' + index + '_importe', String(importeConceptoANumero(concepto.importe)));
         formData.append('concepto_' + index + '_fecha', String(concepto.fecha || ''));
     });
     formData.append('conceptos_count', String(filas.length));
