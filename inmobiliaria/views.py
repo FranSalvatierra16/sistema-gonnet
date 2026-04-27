@@ -2637,6 +2637,10 @@ def listado_entradas(request):
     Listado de entradas por fecha exacta (inicio de alquiler).
     Incluye reservas temporales y contratos (invierno/24 meses).
     """
+    if request.user.nivel < 2:
+        messages.error(request, 'No tenés permisos para acceder a esta sección.')
+        return redirect('inmobiliaria:dashboard')
+
     fecha_raw = (request.GET.get('fecha') or '').strip()
     fecha_obj = None
 
@@ -2789,6 +2793,10 @@ def listado_salidas(request):
     Listado de salidas por fecha exacta (fin de alquiler).
     Incluye reservas temporales y contratos (invierno/24 meses).
     """
+    if request.user.nivel < 2:
+        messages.error(request, 'No tenés permisos para acceder a esta sección.')
+        return redirect('inmobiliaria:dashboard')
+
     fecha_raw = (request.GET.get('fecha') or '').strip()
     fecha_obj = None
 
@@ -2830,12 +2838,6 @@ def listado_salidas(request):
             nov = (getattr(r.vendedor, 'nombre', '') or '').strip()
             vendedor = (apv or nov or '—').upper()
 
-        precio_total = r.precio_total or Decimal('0')
-        senia = r.senia or Decimal('0')
-        saldo = precio_total - senia
-        if saldo < 0:
-            saldo = Decimal('0')
-
         salidas.append({
             'tipo': 'reserva',
             'titular': titular,
@@ -2844,7 +2846,6 @@ def listado_salidas(request):
             'direccion': (getattr(r.propiedad, 'direccion', None) or '—'),
             'desde': r.fecha_inicio,
             'hasta': r.fecha_fin,
-            'saldo': saldo,
             'deposito': r.deposito_garantia or Decimal('0'),
             'intervino': vendedor,
             'llave': (getattr(r.propiedad, 'llave', None) or '—'),
@@ -2858,24 +2859,6 @@ def listado_salidas(request):
     ).exclude(estado='rescindido').select_related(
         'inquilino', 'propiedad__propietario', 'vendedor'
     ).order_by('fecha_fin', 'id')
-
-    contrato_ids = list(contratos.values_list('id', flat=True))
-    movs_por_contrato = {}
-    if contrato_ids:
-        movs = MovimientoCaja.objects.filter(
-            sucursal=request.user.sucursal,
-            tipo=TipoMovimientoCajaEnum.INGRESO,
-            concepto__icontains='Contrato #',
-        ).only('concepto', 'monto_efectivo', 'monto_cheque', 'monto_tarjeta', 'monto_deposito')
-        for m in movs:
-            if not m.concepto:
-                continue
-            match = re.search(r'Contrato\s*#\s*(\d+)', m.concepto, re.IGNORECASE)
-            if not match:
-                continue
-            cid = int(match.group(1))
-            if cid in contrato_ids:
-                movs_por_contrato.setdefault(cid, []).append(m)
 
     for c in contratos:
         titular = '—'
@@ -2896,17 +2879,6 @@ def listado_salidas(request):
             nov = (getattr(c.vendedor, 'nombre', '') or '').strip()
             vendedor = (apv or nov or '—').upper()
 
-        total_contrato = (c.deposito_garantia or Decimal('0')) + (c.precio_mensual or Decimal('0')) * Decimal(c.duracion_meses or 0)
-        total_pagado = Decimal('0')
-        for m in movs_por_contrato.get(c.id, []):
-            total_pagado += Decimal(str(m.monto_efectivo or 0))
-            total_pagado += Decimal(str(m.monto_cheque or 0))
-            total_pagado += Decimal(str(m.monto_tarjeta or 0))
-            total_pagado += Decimal(str(m.monto_deposito or 0))
-        saldo = total_contrato - total_pagado
-        if saldo < 0:
-            saldo = Decimal('0')
-
         salidas.append({
             'tipo': 'contrato',
             'titular': titular,
@@ -2915,7 +2887,6 @@ def listado_salidas(request):
             'direccion': (getattr(c.propiedad, 'direccion', None) or '—'),
             'desde': c.fecha_inicio,
             'hasta': c.fecha_fin,
-            'saldo': saldo,
             'deposito': c.deposito_garantia or Decimal('0'),
             'intervino': vendedor,
             'llave': (getattr(c.propiedad, 'llave', None) or '—'),

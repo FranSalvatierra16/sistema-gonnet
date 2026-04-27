@@ -574,17 +574,9 @@
             </p>
             
             <div class="header-actions">
-                <div class="d-flex gap-2 align-items-center flex-wrap">
-                    <a href="{% url 'inmobiliaria:crear_reserva' %}" class="btn-nueva-operacion">
-                        <i class="fas fa-plus me-2"></i>Nueva Reserva
-                    </a>
-                    <a href="{% url 'inmobiliaria:listado_entradas' %}" class="btn btn-outline-primary btn-sm">
-                        <i class="fas fa-sign-in-alt me-1"></i>Listado de entradas
-                    </a>
-                    <a href="{% url 'inmobiliaria:listado_salidas' %}" class="btn btn-outline-danger btn-sm">
-                        <i class="fas fa-sign-out-alt me-1"></i>Listado de salidas
-                    </a>
-                </div>
+                <a href="{% url 'inmobiliaria:crear_reserva' %}" class="btn-nueva-operacion">
+                    <i class="fas fa-plus me-2"></i>Nueva Reserva
+                </a>
                 
                 <!-- ✅ Botón de estadísticas y filtro de pendientes -->
                 <div style="display: flex; align-items: center; gap: 1rem;">

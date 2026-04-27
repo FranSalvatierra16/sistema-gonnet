@@ -125,6 +125,8 @@
                             {% if user.nivel >= 2 %}
                                 <li><a class="dropdown-item" href="{% url 'inmobiliaria:lista_liquidaciones' %}"><i class="fas fa-money-bill-wave"></i> Liquidaciones Propietarios</a></li>
                                 <li><a class="dropdown-item" href="{% url 'inmobiliaria:reporte_asegurado_liquidaciones' %}"><i class="fas fa-chart-line"></i> Asegurado vs liquidaciones</a></li>
+                                <li><a class="dropdown-item" href="{% url 'inmobiliaria:listado_entradas' %}"><i class="fas fa-sign-in-alt me-1"></i>Listado de entradas</a></li>
+                                <li><a class="dropdown-item" href="{% url 'inmobiliaria:listado_salidas' %}"><i class="fas fa-sign-out-alt me-1"></i>Listado de salidas</a></li>
                             {% endif %}
                             {% if user.nivel == 4 %}
                                 <li><a class="dropdown-item" href="{% url 'inmobiliaria:register' %}">Registrar Usuario</a></li>
