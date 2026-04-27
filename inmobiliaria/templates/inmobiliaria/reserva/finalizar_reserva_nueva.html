@@ -43,7 +43,7 @@ let conceptoEditando = null;
 let contadorConceptos = 1;
 
 /** Conceptos de caja que suman a «seña pagada» (mismo criterio que el backend). */
-const IDS_CONCEPTO_SUMA_SENIA = new Set(['1', '15', '103', '219']);
+const IDS_CONCEPTO_SUMA_SENIA = new Set(['1', '15', '50', '100', '103', '219']);
 
 function sumaSeniaConceptosReciboActual() {
     if (!conceptosAgregados || !conceptosAgregados.length) return 0;
@@ -1216,7 +1216,7 @@ if (importeLocacionInput) {
                                 <input type="text" class="form-control form-control-sm" id="senia_mostrada" readonly
                                        style="background-color: #f8f9fa;" value="" autocomplete="off">
                                 <input type="hidden" name="senia" id="senia_hidden" value="0">
-                                <small class="text-muted">Suma automática: movimientos anteriores + conceptos 1, 15, 103 o 219 de este recibo.</small>
+                                <small class="text-muted">Suma automática: movimientos anteriores + conceptos 1, 15, 50 (refuerzo seña), 100 (saldo locación), 103 o 219 de este recibo.</small>
                             </div>
                             
                             <div class="col-md-2">

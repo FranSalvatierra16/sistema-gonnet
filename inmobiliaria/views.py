@@ -1309,7 +1309,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 # IDs de concepto en |CONCEPTOS:…| que cuentan como seña / «saldo a ocupar» al finalizar o completar pago de operación.
-CONCEPTOS_SENIA_OPERACION_RESERVA = frozenset({"1", "15", "103", "219"})
+# 50 = refuerzo de seña, 100 = saldo locación (además de 1 alquiler, 15, 103, 219).
+CONCEPTOS_SENIA_OPERACION_RESERVA = frozenset({"1", "15", "50", "100", "103", "219"})
 
 
 def get_inquilinos_queryset_unificado(request):
@@ -3957,7 +3958,7 @@ def finalizar_reserva_nueva(request, reserva_id):
                             concepto_id = parts[0].strip()
                             concepto_importe = parts[2].strip()
                             
-                            # ✅ CONCEPTOS QUE CUENTAN COMO SEÑA / saldo a ocupar: 1, 15, 103, 219
+                            # ✅ CONCEPTOS QUE CUENTAN COMO SEÑA / saldo a ocupar: ver CONCEPTOS_SENIA_OPERACION_RESERVA
                             if concepto_id in CONCEPTOS_SENIA_OPERACION_RESERVA:
                                 try:
                                     importe_num = Decimal(concepto_importe.replace(',', ''))
@@ -3968,7 +3969,7 @@ def finalizar_reserva_nueva(request, reserva_id):
         
 # print(f"📊 CÁLCULO PAGOS ANTERIORES:")
 # print(f"   - Total pagos anteriores: ${total_pagos_anteriores}")
-# print(f"   - Seña anteriores (conceptos 1,15,103): ${total_senia_anteriores}")
+# print(f"   - Seña anteriores (conceptos seña/locación): ${total_senia_anteriores}")
         
         es_completar_pago = total_pagos_anteriores > 0
         
@@ -5477,7 +5478,7 @@ def procesar_movimiento_reserva(request):
             # Usar el movimiento principal para la respuesta
             movimiento = movimiento_principal
             
-            # ✅ Valores del formulario (el campo «senia» del POST no define la seña del recibo; se usa solo la suma de conceptos 1,15,103,219)
+            # ✅ Valores del formulario (el campo «senia» del POST no define la seña del recibo; se usa la suma de CONCEPTOS_SENIA_OPERACION_RESERVA)
             deposito_garantia_input = limpiar_valor_monetario(request.POST.get('deposito_garantia', '0'))
             importe_locacion_input = limpiar_valor_monetario(request.POST.get('importe_locacion', '0'))
             
@@ -5556,7 +5557,7 @@ def procesar_movimiento_reserva(request):
                     concepto_id = request.POST.get(f'concepto_{i}_id')
                     concepto_importe = request.POST.get(f'concepto_{i}_importe')
                     
-                    # ✅ CONCEPTOS QUE CUENTAN COMO SEÑA / saldo a ocupar: 1, 15, 103, 219
+                    # ✅ CONCEPTOS QUE CUENTAN COMO SEÑA / saldo a ocupar: ver CONCEPTOS_SENIA_OPERACION_RESERVA
                     if (concepto_id or "").strip() in CONCEPTOS_SENIA_OPERACION_RESERVA:
                         importe_limpio = conceptos_importes_decimal.get(i, Decimal('0'))
                         senia_real += importe_limpio
@@ -5575,7 +5576,7 @@ def procesar_movimiento_reserva(request):
                 
 # print(f"🔧 CORRECCIÓN SEÑA:")
 # print(f"   - Seña anterior: ${senia_anterior}")
-# print(f"   - Seña nueva (conceptos 1,15,103): ${senia_real}")
+# print(f"   - Seña nueva (conceptos seña/locación): ${senia_real}")
 # print(f"   - Es completar pago: {es_completar_pago}")
                 if es_completar_pago:
                     pass  # ✅ Bloque vacío
@@ -13834,7 +13835,7 @@ def finalizar_reserva_nueva(request, reserva_id):
                             concepto_id = parts[0].strip()
                             concepto_importe = parts[2].strip()
                             
-                            # ✅ CONCEPTOS QUE CUENTAN COMO SEÑA / saldo a ocupar: 1, 15, 103, 219
+                            # ✅ CONCEPTOS QUE CUENTAN COMO SEÑA / saldo a ocupar: ver CONCEPTOS_SENIA_OPERACION_RESERVA
                             if concepto_id in CONCEPTOS_SENIA_OPERACION_RESERVA:
                                 try:
                                     importe_num = Decimal(concepto_importe.replace(',', ''))
@@ -13845,7 +13846,7 @@ def finalizar_reserva_nueva(request, reserva_id):
         
 # print(f"📊 CÁLCULO PAGOS ANTERIORES:")
 # print(f"   - Total pagos anteriores: ${total_pagos_anteriores}")
-# print(f"   - Seña anteriores (conceptos 1,15,103): ${total_senia_anteriores}")
+# print(f"   - Seña anteriores (conceptos seña/locación): ${total_senia_anteriores}")
         
         es_completar_pago = total_pagos_anteriores > 0
         
@@ -13861,7 +13862,7 @@ def finalizar_reserva_nueva(request, reserva_id):
         
 # print(f"🔧 CÁLCULO SALDO Y SEÑA:")
 # print(f"   - Precio Total: ${reserva.precio_total}")
-# print(f"   - Seña Anteriores (conceptos 1,15,103): ${total_senia_anteriores}")
+# print(f"   - Seña Anteriores (conceptos seña/locación): ${total_senia_anteriores}")
 # print(f"   - Saldo a Ocupar: ${saldo_a_ocupar}")
 # print(f"   - Seña Pendiente: ${senia_pendiente}")
         
@@ -13924,7 +13925,7 @@ def finalizar_reserva_nueva(request, reserva_id):
             'productor_nombre': f"{reserva.vendedor.apellido}, {reserva.vendedor.nombre}" if reserva.vendedor else f"{request.user.apellido}, {request.user.nombre}",
             'saldo_a_ocupar': saldo_a_ocupar,  # Para mostrar en resumen
             'senia_pendiente': senia_pendiente,
-            'total_senia_pagada': float(total_senia_anteriores),  # Seña ya registrada en movimientos anteriores (conceptos 1,15,103,219)
+            'total_senia_pagada': float(total_senia_anteriores),  # Seña ya registrada (CONCEPTOS_SENIA_OPERACION_RESERVA)
             'total_deposito_pagado': reserva.deposito_garantia or 0,  
             'deposito_garantia': reserva.deposito_garantia,
             'deposito_estado': deposito_estado,  # ✅ Estado del depósito (pagado/pendiente)
