@@ -197,15 +197,15 @@
                                 {% endif %}
                             </td>
                             <td>
-                                {% if cuota.estado == 'pendiente' %}
+                                {% if cuota.estado == 'pendiente' or cuota.estado == 'vencida' %}
                                     {% if cuota.numero_cuota > 3 and cuota.monto_base == 0 %}
                                     <button type="button" class="btn btn-sm btn-secondary" disabled title="Definí primero el monto del trimestre en la sección amarilla">
                                         <i class="fas fa-lock"></i> Bloqueado
                                     </button>
                                     {% else %}
-                                    <button class="btn btn-sm btn-success" 
-                                            onclick="pagarCuotaEspecifica({{ cuota.id }})" 
-                                            title="Pagar Cuota">
+                                    <button type="button" class="btn btn-sm btn-success" 
+                                            onclick="pagarCuotaEspecifica({{ cuota.id }}, '{{ cuota.monto_total|floatformat:2 }}')" 
+                                            title="Registrar pago en caja (efectivo)">
                                         <i class="fas fa-dollar-sign"></i> Pagar
                                     </button>
                                     {% endif %}
@@ -230,15 +230,62 @@
     </div>
 </div>
 
+<form id="csrf-cuota-form" class="d-none">{% csrf_token %}</form>
+
 <script>
-function pagarCuotaEspecifica(cuotaId) {
-    // Esta función la implementaremos después para pagar cuotas específicas
-    alert('Función de pago de cuota específica próximamente disponible');
+const PAGAR_CUOTA_BASE_URL = "{% url 'inmobiliaria:pagar_cuota' 0 %}".replace('/0/', '/__ID__/');
+
+function pagarCuotaEspecifica(cuotaId, montoStr) {
+    const msg = '¿Registrar el pago de esta cuota en efectivo por $' + montoStr + '?\\n\\nDebe haber una caja abierta y no puede haber cuotas anteriores sin pagar.';
+    if (!confirm(msg)) {
+        return;
+    }
+    const tokenInput = document.querySelector('#csrf-cuota-form input[name="csrfmiddlewaretoken"]');
+    if (!tokenInput) {
+        alert('Error de seguridad: recargá la página e intentá de nuevo.');
+        return;
+    }
+    const url = PAGAR_CUOTA_BASE_URL.replace('__ID__', String(cuotaId));
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': tokenInput.value,
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json',
+        },
+        credentials: 'same-origin',
+    })
+        .then(function (r) {
+            return r.text().then(function (text) {
+                var data;
+                try {
+                    data = text ? JSON.parse(text) : {};
+                } catch (e) {
+                    data = { error: (text && text.slice(0, 400)) || ('Error HTTP ' + r.status) };
+                }
+                return { ok: r.ok, status: r.status, data: data };
+            });
+        })
+        .then(function (res) {
+            if (res.ok && res.data.success) {
+                if (res.data.redirect_url) {
+                    window.location.href = res.data.redirect_url;
+                } else {
+                    window.location.reload();
+                }
+                return;
+            }
+            const err = (res.data && res.data.error) ? res.data.error : ('Error ' + (res.status || ''));
+            alert(err);
+        })
+        .catch(function () {
+            alert('Error de red al procesar el pago. Intentá de nuevo.');
+        });
 }
 
 function verReciboCuota(movimientoId) {
     if (movimientoId) {
-        window.open(`/inmobiliaria/recibo-movimiento/${movimientoId}/`, '_blank');
+        window.open(`{% url 'inmobiliaria:ver_recibo_movimiento' 999999 %}`.replace('999999', String(movimientoId)), '_blank');
     } else {
         alert('No hay recibo disponible para esta cuota');
     }

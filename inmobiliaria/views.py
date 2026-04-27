@@ -1265,8 +1265,8 @@ from .models import (
     Vendedor, Inquilino, Propietario, Propiedad, Reserva, 
     Disponibilidad, ImagenPropiedad, Precio, TipoPrecio, 
     Pago, ConceptoPago, HistorialDisponibilidad, VentaPropiedad, 
-    AlquilerMeses, AlquilerInvierno, Caja, MovimientoCaja, Cuenta, Concepto, Sucursal,
-    TipoMovimientoCajaEnum, ContratoAlquiler, ContratoInquilino, CuotaMensual, ComisionVendedor, ValeVendedor, MesComisionPagadoVendedor,
+    AlquilerMeses, AlquilerInvierno,     Caja, MovimientoCaja, Cuenta, Concepto, Sucursal,
+    TipoMovimientoCajaEnum, TipoComprobanteEnum, ContratoAlquiler, ContratoInquilino, CuotaMensual, ComisionVendedor, ValeVendedor, MesComisionPagadoVendedor,
     LiquidacionPropietario, GastoPropietario
 )
 from .catalogo_conceptos_caja import (
@@ -13229,83 +13229,107 @@ def api_cuota_detalle(request, cuota_id):
     })
 
 @login_required
+@require_POST
 def pagar_cuota(request, cuota_id):
+    """Registra el pago de una cuota en efectivo (caja abierta) y marca la cuota como pagada."""
     try:
-        cuota = get_object_or_404(CuotaMensual, id=cuota_id)
+        cuota = get_object_or_404(
+            CuotaMensual.objects.select_related('contrato', 'contrato__propiedad'),
+            id=cuota_id,
+            contrato__sucursal=request.user.sucursal,
+        )
         contrato = cuota.contrato
-        
-        # Verificar que no haya cuotas anteriores pendientes
-        cuotas_anteriores = contrato.cuotas.filter(
+
+        if cuota.estado in ('pagada', 'pagada_con_mora'):
+            return JsonResponse({'error': 'Esta cuota ya está pagada.'}, status=400)
+        if cuota.estado not in ('pendiente', 'vencida'):
+            return JsonResponse(
+                {'error': f'No se puede cobrar esta cuota en estado: {cuota.get_estado_display()}'},
+                status=400,
+            )
+        monto = cuota.monto_total or Decimal('0')
+        if monto <= 0:
+            return JsonResponse({'error': 'La cuota no tiene monto a cobrar.'}, status=400)
+
+        if contrato.cuotas.filter(
             numero_cuota__lt=cuota.numero_cuota,
-            estado='pendiente'
-        ).exists()
-        
-        if cuotas_anteriores:
-            return JsonResponse({
-                'error': 'Hay cuotas anteriores pendientes de pago'
-            }, status=400)
-        
-        # Obtener caja abierta
-        try:
-            caja = Caja.objects.get(sucursal=request.user.sucursal, estado='abierta')
-        except Caja.DoesNotExist:
-            return JsonResponse({
-                'error': 'No hay una caja abierta'
-            }, status=400)
-        
-        # Procesar el pago
+            estado__in=['pendiente', 'vencida'],
+        ).exists():
+            return JsonResponse(
+                {'error': 'Hay cuotas anteriores sin pagar (pendientes o vencidas). Pagá en orden.'},
+                status=400,
+            )
+
+        caja = (
+            Caja.objects.filter(
+                sucursal=request.user.sucursal,
+                estado='abierta',
+                fecha_cierre__isnull=True,
+            )
+            .order_by('-fecha_apertura')
+            .first()
+        )
+        if not caja:
+            return JsonResponse({'error': 'No hay una caja abierta para esta sucursal.'}, status=400)
+
         with transaction.atomic():
-            # Crear movimiento de caja (tipo debe ser código del enum: 'IN')
+            texto_concepto = (
+                f'Contrato #{contrato.id} — Cuota {cuota.numero_cuota}/{contrato.duracion_meses} '
+                f'- {contrato.propiedad.direccion}'
+            )[:200]
             movimiento = MovimientoCaja.objects.create(
                 caja=caja,
                 tipo=TipoMovimientoCajaEnum.INGRESO,
-                concepto=f'Cuota {cuota.numero_cuota}/{contrato.duracion_meses} - {contrato.propiedad.direccion}',
-                monto_efectivo=cuota.monto_total,
+                tipo_comprobante=TipoComprobanteEnum.RECIBO,
+                concepto=texto_concepto,
+                monto_efectivo=monto,
                 fecha=timezone.now(),
                 empleado=request.user,
                 sucursal=request.user.sucursal,
-                propiedad=contrato.propiedad
+                propiedad=contrato.propiedad,
+                fecha_desde=contrato.fecha_inicio,
+                fecha_hasta=contrato.fecha_fin,
             )
-            
-            # Marcar la cuota actual como pagada
+
             cuota.estado = 'pagada'
             cuota.fecha_pago = timezone.now().date()
             cuota.movimiento = movimiento
             cuota.save()
-            
-            # Actualizar fecha de vencimiento de la siguiente cuota
+
             siguiente_cuota = contrato.cuotas.filter(
                 numero_cuota=cuota.numero_cuota + 1
             ).first()
-            
+
             if siguiente_cuota:
-                # Calcular nueva fecha de vencimiento usando el día personalizado del contrato
                 fecha_actual = cuota.fecha_vencimiento
                 try:
-                    # Intentar usar el día de vencimiento personalizado
                     if fecha_actual.month == 12:
                         nueva_fecha = date(fecha_actual.year + 1, 1, contrato.dia_vencimiento)
                     else:
                         nueva_fecha = date(fecha_actual.year, fecha_actual.month + 1, contrato.dia_vencimiento)
                     siguiente_cuota.fecha_vencimiento = nueva_fecha
                 except ValueError:
-                    # Si el día no existe en el próximo mes (ej: 31 en febrero), usar el último día válido
                     if fecha_actual.month == 12:
                         nueva_fecha = date(fecha_actual.year + 1, 1, min(contrato.dia_vencimiento, 28))
                     else:
-                        nueva_fecha = date(fecha_actual.year, fecha_actual.month + 1, min(contrato.dia_vencimiento, 28))
+                        nueva_fecha = date(
+                            fecha_actual.year, fecha_actual.month + 1, min(contrato.dia_vencimiento, 28)
+                        )
                     siguiente_cuota.fecha_vencimiento = nueva_fecha
                 siguiente_cuota.save()
-            
-            return JsonResponse({
-                'success': True,
-                'redirect_url': reverse('inmobiliaria:recibo_contrato_24', args=[contrato.id])
-            })
-            
+
+        messages.success(
+            request,
+            f'Cuota {cuota.numero_cuota}/{contrato.duracion_meses} registrada en caja (${monto}).',
+        )
+        return JsonResponse({
+            'success': True,
+            'redirect_url': reverse('inmobiliaria:detalle_contrato', args=[contrato.id]),
+        })
+
     except Exception as e:
-        pass  # ✅ Bloque vacío
-# print("Error al procesar pago de cuota:", str(e))
-        return JsonResponse({'error': str(e)}, status=400)
+        logger.exception('pagar_cuota: cuota_id=%s', cuota_id)
+        return JsonResponse({'error': str(e) or 'Error al procesar el pago'}, status=400)
 
 @login_required
 @require_POST
