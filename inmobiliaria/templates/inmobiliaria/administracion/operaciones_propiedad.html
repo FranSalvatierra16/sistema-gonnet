@@ -84,7 +84,7 @@
         <div class="col-md-2 col-6 mb-2"><div class="alert alert-light border mb-0">Reservas: <strong>{{ reservas|length }}</strong></div></div>
         <div class="col-md-2 col-6 mb-2"><div class="alert alert-light border mb-0">Contratos: <strong>{{ contratos|length }}</strong></div></div>
         <div class="col-md-2 col-6 mb-2"><div class="alert alert-light border mb-0">Cuotas: <strong>{{ cuotas|length }}</strong></div></div>
-        <div class="col-md-2 col-6 mb-2"><div class="alert alert-light border mb-0">Gastos: <strong>{{ gastos|length }}</strong></div></div>
+        <div class="col-md-2 col-6 mb-2"><div class="alert alert-light border mb-0">Gastos: <strong>{{ gastos_items|length }}</strong></div></div>
         <div class="col-md-2 col-6 mb-2"><div class="alert alert-light border mb-0">Liquidaciones: <strong>{{ liquidaciones|length }}</strong></div></div>
         <div class="col-md-2 col-6 mb-2"><div class="alert alert-light border mb-0">Movimientos: <strong>{{ movimientos|length }}</strong></div></div>
     </div>
@@ -170,19 +170,21 @@
             <table class="table table-sm table-striped mb-0">
                 <thead>
                     <tr>
-                        <th>Fecha</th><th>Concepto</th><th>Estado</th><th>Liquidación</th><th class="text-end">Monto</th>
+                        <th>Fecha</th><th>Concepto</th><th>Origen</th><th>Cargado por</th><th>Estado</th><th>Liquidación</th><th class="text-end">Monto</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for g in gastos %}
+                    {% for g in gastos_items %}
                     <tr>
-                        <td>{{ g.fecha_creacion|date:"d/m/Y H:i" }}</td>
-                        <td>{{ g.descripcion|default:g.concepto|default:"-" }}</td>
-                        <td>{% if g.liquidacion_id %}Liquidado{% else %}Pendiente{% endif %}</td>
+                        <td>{{ g.fecha|date:"d/m/Y H:i" }}</td>
+                        <td>{{ g.concepto|default:"-" }}</td>
+                        <td>{{ g.origen }}</td>
+                        <td>{{ g.empleado|default:"-" }}</td>
+                        <td>{{ g.estado }}</td>
                         <td>{% if g.liquidacion_id %}#{{ g.liquidacion_id }}{% else %}-{% endif %}</td>
                         <td class="text-end">${{ g.monto|format_price }}</td>
                     </tr>
-                    {% empty %}<tr><td colspan="5" class="text-center text-muted">Sin gastos</td></tr>{% endfor %}
+                    {% empty %}<tr><td colspan="7" class="text-center text-muted">Sin gastos</td></tr>{% endfor %}
                 </tbody>
             </table>
         </div>
@@ -218,7 +220,7 @@
             <table class="table table-sm table-striped mb-0">
                 <thead>
                     <tr>
-                        <th>Fecha</th><th>Tipo</th><th>Concepto</th><th>Caja</th><th class="text-end">Monto</th>
+                        <th>Fecha</th><th>Tipo</th><th>Concepto</th><th>Cargado por</th><th>Caja</th><th class="text-end">Monto</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -227,10 +229,11 @@
                         <td>{{ m.fecha|date:"d/m/Y H:i" }}</td>
                         <td>{{ m.get_tipo_display }}</td>
                         <td>{{ m.concepto|default:"-" }}</td>
+                        <td>{{ m.empleado|default:"-" }}</td>
                         <td>{% if m.caja %}#{{ m.caja.numero }}{% else %}-{% endif %}</td>
                         <td class="text-end">${{ m.monto_total|format_price }}</td>
                     </tr>
-                    {% empty %}<tr><td colspan="5" class="text-center text-muted">Sin movimientos</td></tr>{% endfor %}
+                    {% empty %}<tr><td colspan="6" class="text-center text-muted">Sin movimientos</td></tr>{% endfor %}
                 </tbody>
             </table>
         </div>

@@ -1319,6 +1319,7 @@ def administracion_propiedades_operaciones(request):
     liquidaciones = LiquidacionPropietario.objects.none()
     pagos = Pago.objects.none()
     movimientos = MovimientoCaja.objects.none()
+    gastos_items = []
     total_ingresos = Decimal('0')
     total_egresos = Decimal('0')
     balance = Decimal('0')
@@ -1411,6 +1412,34 @@ def administracion_propiedades_operaciones(request):
         pagos = pagos_base.order_by('-fecha', '-id')[:250]
         movimientos = movimientos_base.order_by('-fecha', '-id')[:250]
 
+        gastos_items = [
+            {
+                'fecha': g.fecha_creacion,
+                'concepto': (getattr(g, 'descripcion', None) or getattr(g, 'concepto', None) or '-'),
+                'estado': 'Liquidado' if g.liquidacion_id else 'Pendiente',
+                'liquidacion_id': g.liquidacion_id,
+                'monto': g.monto or Decimal('0'),
+                'origen': 'Gasto',
+                'empleado': None,
+            }
+            for g in gastos
+        ]
+
+        egresos_movimientos = movimientos.filter(tipo=TipoMovimientoCajaEnum.EGRESO)
+        for m in egresos_movimientos:
+            concepto = (m.concepto or '').strip() or '-'
+            gastos_items.append({
+                'fecha': m.fecha,
+                'concepto': f'Egreso de caja: {concepto}',
+                'estado': 'Impacta en caja',
+                'liquidacion_id': None,
+                'monto': m.monto_total or Decimal('0'),
+                'origen': 'Movimiento',
+                'empleado': getattr(m, 'empleado', None),
+            })
+
+        gastos_items.sort(key=lambda x: x.get('fecha') or datetime.min, reverse=True)
+
     context = {
         'termino': termino,
         'propiedad_id': propiedad_id,
@@ -1422,6 +1451,7 @@ def administracion_propiedades_operaciones(request):
         'contratos': contratos,
         'cuotas': cuotas,
         'gastos': gastos,
+        'gastos_items': gastos_items,
         'liquidaciones': liquidaciones,
         'pagos': pagos,
         'movimientos': movimientos,
