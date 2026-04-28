@@ -13642,6 +13642,22 @@ def pagar_cuota(request, cuota_id):
 
 
 @login_required
+def ver_recibo_cuota_contrato(request, cuota_id):
+    """
+    Abre el mismo recibo de caja asociado al cobro de una cuota.
+    """
+    cuota = get_object_or_404(
+        CuotaMensual.objects.select_related('contrato', 'movimiento'),
+        id=cuota_id,
+        contrato__sucursal=request.user.sucursal,
+    )
+    if not cuota.movimiento_id:
+        messages.error(request, 'La cuota no tiene movimiento de caja asociado.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=cuota.contrato_id)
+    return redirect('inmobiliaria:ver_recibo_movimiento', movimiento_id=cuota.movimiento_id)
+
+
+@login_required
 def crear_pago_cuota_operacion(request, cuota_id):
     """Pantalla tipo operación de contrato: conceptos editables, medios de pago, sin mes/proporcional ni honorarios/sellados."""
     cuota = get_object_or_404(

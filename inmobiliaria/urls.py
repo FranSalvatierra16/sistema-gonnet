@@ -272,6 +272,11 @@ urlpatterns = [
     path('api/cuota/<int:cuota_id>/', views.api_cuota_detalle, name='api_cuota_detalle'),
     path('contratos/cuota/<int:cuota_id>/pagar/', views.pagar_cuota, name='pagar_cuota'),
     path(
+        'contratos/cuota/<int:cuota_id>/recibo/',
+        views.ver_recibo_cuota_contrato,
+        name='ver_recibo_cuota_contrato',
+    ),
+    path(
         'contratos/cuota/<int:cuota_id>/pago-operacion/',
         views.crear_pago_cuota_operacion,
         name='crear_pago_cuota_operacion',

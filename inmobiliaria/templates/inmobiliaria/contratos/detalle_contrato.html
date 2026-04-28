@@ -244,11 +244,12 @@
                                     {% endif %}
                                 {% elif cuota.estado == 'pagada' %}
                                     {% if cuota.movimiento %}
-                                    <button class="btn btn-sm btn-info" 
-                                            onclick="verReciboCuota({{ cuota.movimiento.id }})" 
+                                    <a class="btn btn-sm btn-info"
+                                            href="{% url 'inmobiliaria:ver_recibo_cuota_contrato' cuota.id %}"
+                                            target="_blank"
                                             title="Ver Recibo">
                                         <i class="fas fa-receipt"></i> Recibo
-                                    </button>
+                                    </a>
                                     {% else %}
                                     <span class="text-muted small">Sin movimiento</span>
                                     {% endif %}
@@ -314,14 +315,6 @@ function pagarCuotaEspecifica(cuotaId, montoStr) {
         .catch(function () {
             alert('Error de red al procesar el pago. Intentá de nuevo.');
         });
-}
-
-function verReciboCuota(movimientoId) {
-    if (movimientoId) {
-        window.open(`{% url 'inmobiliaria:ver_recibo_movimiento' 999999 %}`.replace('999999', String(movimientoId)), '_blank');
-    } else {
-        alert('No hay recibo disponible para esta cuota');
-    }
 }
 
 (function inicializarTrimestresProgresivos() {
