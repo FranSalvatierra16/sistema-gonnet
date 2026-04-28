@@ -1222,6 +1222,16 @@
                                                 title="Editar fechas de la reserva (sin cambiar precio ni info)">
                                             <i class="fas fa-edit"></i> Editar fechas
                                         </button>
+                                        <form method="post"
+                                              action="{% url 'inmobiliaria:reserva_eliminar' historial.reserva.id %}"
+                                              class="d-inline"
+                                              onsubmit="return confirm('¿Eliminar esta operación? Se liberará la disponibilidad de esas fechas.');">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="next" value="{{ request.path }}">
+                                            <button type="submit" class="btn btn-danger btn-sm" title="Eliminar operación y liberar fechas">
+                                                <i class="fas fa-trash"></i> Eliminar operación
+                                            </button>
+                                        </form>
                                     {% elif historial.es_invierno %}
                                         <a href="{% url 'inmobiliaria:detalle_contrato' historial.contrato.id %}" class="btn btn-outline-info btn-sm" title="Ver contrato" target="_blank">
                                             <i class="fas fa-file-contract"></i> Ver contrato
