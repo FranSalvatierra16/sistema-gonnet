@@ -83,159 +83,150 @@
     <div class="row mb-4">
         <div class="col-md-2 col-6 mb-2"><div class="alert alert-light border mb-0">Reservas: <strong>{{ reservas|length }}</strong></div></div>
         <div class="col-md-2 col-6 mb-2"><div class="alert alert-light border mb-0">Contratos: <strong>{{ contratos|length }}</strong></div></div>
-        <div class="col-md-2 col-6 mb-2"><div class="alert alert-light border mb-0">Cuotas: <strong>{{ cuotas|length }}</strong></div></div>
         <div class="col-md-2 col-6 mb-2"><div class="alert alert-light border mb-0">Gastos: <strong>{{ gastos_items|length }}</strong></div></div>
         <div class="col-md-2 col-6 mb-2"><div class="alert alert-light border mb-0">Liquidaciones: <strong>{{ liquidaciones|length }}</strong></div></div>
         <div class="col-md-2 col-6 mb-2"><div class="alert alert-light border mb-0">Movimientos: <strong>{{ movimientos|length }}</strong></div></div>
     </div>
+    <ul class="nav nav-tabs mb-3" id="opsTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="tab-operaciones" data-bs-toggle="tab" data-bs-target="#pane-operaciones" type="button" role="tab">Operaciones</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-gastos" data-bs-toggle="tab" data-bs-target="#pane-gastos" type="button" role="tab">Gastos</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-historial" data-bs-toggle="tab" data-bs-target="#pane-historial" type="button" role="tab">Historial</button>
+        </li>
+    </ul>
 
-    <div class="card mb-4">
-        <div class="card-header"><strong>Reservas (alquiler por día)</strong></div>
-        <div class="table-responsive">
-            <table class="table table-sm table-striped mb-0">
-                <thead>
-                    <tr>
-                        <th>ID</th><th>Estado</th><th>Inquilino</th><th>Desde</th><th>Hasta</th><th class="text-end">Precio</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for r in reservas %}
-                    <tr>
-                        <td>#{{ r.id }}</td>
-                        <td>{{ r.get_estado_display }}</td>
-                        <td>{{ r.cliente|default:"-" }}</td>
-                        <td>{{ r.fecha_inicio|date:"d/m/Y" }}</td>
-                        <td>{{ r.fecha_fin|date:"d/m/Y" }}</td>
-                        <td class="text-end">${{ r.precio_total|format_price }}</td>
-                    </tr>
-                    {% empty %}<tr><td colspan="6" class="text-center text-muted">Sin reservas</td></tr>{% endfor %}
-                </tbody>
-            </table>
+    <div class="tab-content">
+        <div class="tab-pane fade show active" id="pane-operaciones" role="tabpanel">
+            <div class="card mb-4">
+                <div class="card-header"><strong>Reservas (alquiler por día)</strong></div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped mb-0">
+                        <thead>
+                            <tr>
+                                <th>ID</th><th>Estado</th><th>Inquilino</th><th>Desde</th><th>Hasta</th><th class="text-end">Precio</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for r in reservas %}
+                            <tr>
+                                <td>#{{ r.id }}</td>
+                                <td>{{ r.get_estado_display }}</td>
+                                <td>{{ r.cliente|default:"-" }}</td>
+                                <td>{{ r.fecha_inicio|date:"d/m/Y" }}</td>
+                                <td>{{ r.fecha_fin|date:"d/m/Y" }}</td>
+                                <td class="text-end">${{ r.precio_total|format_price }}</td>
+                            </tr>
+                            {% empty %}<tr><td colspan="6" class="text-center text-muted">Sin reservas</td></tr>{% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card mb-4">
+                <div class="card-header"><strong>Contratos (24 meses)</strong></div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped mb-0">
+                        <thead>
+                            <tr>
+                                <th>ID</th><th>Estado</th><th>Inquilino</th><th>Inicio</th><th>Fin</th><th class="text-end">Mensual</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for c in contratos %}
+                            <tr>
+                                <td>#{{ c.id }}</td>
+                                <td>{{ c.get_estado_display }}</td>
+                                <td>{{ c.inquilino|default:"-" }}</td>
+                                <td>{{ c.fecha_inicio|date:"d/m/Y" }}</td>
+                                <td>{{ c.fecha_fin|date:"d/m/Y" }}</td>
+                                <td class="text-end">${{ c.precio_mensual|format_price }}</td>
+                            </tr>
+                            {% empty %}<tr><td colspan="6" class="text-center text-muted">Sin contratos</td></tr>{% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
-    </div>
 
-    <div class="card mb-4">
-        <div class="card-header"><strong>Contratos (24 meses)</strong></div>
-        <div class="table-responsive">
-            <table class="table table-sm table-striped mb-0">
-                <thead>
-                    <tr>
-                        <th>ID</th><th>Estado</th><th>Inquilino</th><th>Inicio</th><th>Fin</th><th class="text-end">Mensual</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for c in contratos %}
-                    <tr>
-                        <td>#{{ c.id }}</td>
-                        <td>{{ c.get_estado_display }}</td>
-                        <td>{{ c.inquilino|default:"-" }}</td>
-                        <td>{{ c.fecha_inicio|date:"d/m/Y" }}</td>
-                        <td>{{ c.fecha_fin|date:"d/m/Y" }}</td>
-                        <td class="text-end">${{ c.precio_mensual|format_price }}</td>
-                    </tr>
-                    {% empty %}<tr><td colspan="6" class="text-center text-muted">Sin contratos</td></tr>{% endfor %}
-                </tbody>
-            </table>
+        <div class="tab-pane fade" id="pane-gastos" role="tabpanel">
+            <div class="card mb-4">
+                <div class="card-header"><strong>Gastos</strong></div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped mb-0">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th><th>Concepto</th><th>Origen</th><th>Cargado por</th><th>Estado</th><th>Liquidación</th><th class="text-end">Monto</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for g in gastos_items %}
+                            <tr>
+                                <td>{{ g.fecha|date:"d/m/Y H:i" }}</td>
+                                <td>{{ g.concepto|default:"-" }}</td>
+                                <td>{{ g.origen }}</td>
+                                <td>{{ g.empleado|default:"-" }}</td>
+                                <td>{{ g.estado }}</td>
+                                <td>{% if g.liquidacion_id %}#{{ g.liquidacion_id }}{% else %}-{% endif %}</td>
+                                <td class="text-end">${{ g.monto|format_price }}</td>
+                            </tr>
+                            {% empty %}<tr><td colspan="7" class="text-center text-muted">Sin gastos</td></tr>{% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
-    </div>
 
-    <div class="card mb-4">
-        <div class="card-header"><strong>Cuotas mensuales</strong></div>
-        <div class="table-responsive">
-            <table class="table table-sm table-striped mb-0">
-                <thead>
-                    <tr>
-                        <th>Contrato</th><th>Cuota</th><th>Estado</th><th>Vencimiento</th><th>Pago</th><th class="text-end">Monto</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for cu in cuotas %}
-                    <tr>
-                        <td>#{{ cu.contrato_id }}</td>
-                        <td>{{ cu.numero_cuota }}</td>
-                        <td>{{ cu.get_estado_display|default:cu.estado }}</td>
-                        <td>{{ cu.fecha_vencimiento|date:"d/m/Y"|default:"-" }}</td>
-                        <td>{{ cu.fecha_pago|date:"d/m/Y"|default:"-" }}</td>
-                        <td class="text-end">${{ cu.monto_total|format_price }}</td>
-                    </tr>
-                    {% empty %}<tr><td colspan="6" class="text-center text-muted">Sin cuotas</td></tr>{% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <div class="card mb-4">
-        <div class="card-header"><strong>Gastos</strong></div>
-        <div class="table-responsive">
-            <table class="table table-sm table-striped mb-0">
-                <thead>
-                    <tr>
-                        <th>Fecha</th><th>Concepto</th><th>Origen</th><th>Cargado por</th><th>Estado</th><th>Liquidación</th><th class="text-end">Monto</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for g in gastos_items %}
-                    <tr>
-                        <td>{{ g.fecha|date:"d/m/Y H:i" }}</td>
-                        <td>{{ g.concepto|default:"-" }}</td>
-                        <td>{{ g.origen }}</td>
-                        <td>{{ g.empleado|default:"-" }}</td>
-                        <td>{{ g.estado }}</td>
-                        <td>{% if g.liquidacion_id %}#{{ g.liquidacion_id }}{% else %}-{% endif %}</td>
-                        <td class="text-end">${{ g.monto|format_price }}</td>
-                    </tr>
-                    {% empty %}<tr><td colspan="7" class="text-center text-muted">Sin gastos</td></tr>{% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <div class="card mb-4">
-        <div class="card-header"><strong>Liquidaciones</strong></div>
-        <div class="table-responsive">
-            <table class="table table-sm table-striped mb-0">
-                <thead>
-                    <tr>
-                        <th>Fecha</th><th>Estado</th><th>Reserva</th><th>Contrato</th><th class="text-end">Neto propietario</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for l in liquidaciones %}
-                    <tr>
-                        <td>{{ l.fecha_creacion|date:"d/m/Y H:i" }}</td>
-                        <td>{{ l.get_estado_display }}</td>
-                        <td>{% if l.reserva_id %}#{{ l.reserva_id }}{% else %}-{% endif %}</td>
-                        <td>{% if l.contrato_id %}#{{ l.contrato_id }}{% else %}-{% endif %}</td>
-                        <td class="text-end">${{ l.monto_a_pagar|format_price }}</td>
-                    </tr>
-                    {% empty %}<tr><td colspan="5" class="text-center text-muted">Sin liquidaciones</td></tr>{% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <div class="card mb-4">
-        <div class="card-header"><strong>Movimientos de caja</strong></div>
-        <div class="table-responsive">
-            <table class="table table-sm table-striped mb-0">
-                <thead>
-                    <tr>
-                        <th>Fecha</th><th>Tipo</th><th>Concepto</th><th>Cargado por</th><th>Caja</th><th class="text-end">Monto</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for m in movimientos %}
-                    <tr>
-                        <td>{{ m.fecha|date:"d/m/Y H:i" }}</td>
-                        <td>{{ m.get_tipo_display }}</td>
-                        <td>{{ m.concepto|default:"-" }}</td>
-                        <td>{{ m.empleado|default:"-" }}</td>
-                        <td>{% if m.caja %}#{{ m.caja.numero }}{% else %}-{% endif %}</td>
-                        <td class="text-end">${{ m.monto_total|format_price }}</td>
-                    </tr>
-                    {% empty %}<tr><td colspan="6" class="text-center text-muted">Sin movimientos</td></tr>{% endfor %}
-                </tbody>
-            </table>
+        <div class="tab-pane fade" id="pane-historial" role="tabpanel">
+            <div class="card mb-4">
+                <div class="card-header"><strong>Liquidaciones</strong></div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped mb-0">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th><th>Estado</th><th>Reserva</th><th>Contrato</th><th class="text-end">Neto propietario</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for l in liquidaciones %}
+                            <tr>
+                                <td>{{ l.fecha_creacion|date:"d/m/Y H:i" }}</td>
+                                <td>{{ l.get_estado_display }}</td>
+                                <td>{% if l.reserva_id %}#{{ l.reserva_id }}{% else %}-{% endif %}</td>
+                                <td>{% if l.contrato_id %}#{{ l.contrato_id }}{% else %}-{% endif %}</td>
+                                <td class="text-end">${{ l.monto_a_pagar|format_price }}</td>
+                            </tr>
+                            {% empty %}<tr><td colspan="5" class="text-center text-muted">Sin liquidaciones</td></tr>{% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card mb-4">
+                <div class="card-header"><strong>Movimientos de caja</strong></div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped mb-0">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th><th>Tipo</th><th>Concepto</th><th>Cargado por</th><th>Caja</th><th class="text-end">Monto</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for m in movimientos %}
+                            <tr>
+                                <td>{{ m.fecha|date:"d/m/Y H:i" }}</td>
+                                <td>{{ m.get_tipo_display }}</td>
+                                <td>{{ m.concepto|default:"-" }}</td>
+                                <td>{{ m.empleado|default:"-" }}</td>
+                                <td>{% if m.caja %}#{{ m.caja.numero }}{% else %}-{% endif %}</td>
+                                <td class="text-end">${{ m.monto_total|format_price }}</td>
+                            </tr>
+                            {% empty %}<tr><td colspan="6" class="text-center text-muted">Sin movimientos</td></tr>{% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
     {% endif %}
