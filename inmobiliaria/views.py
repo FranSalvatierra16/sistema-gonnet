@@ -1319,6 +1319,7 @@ def administracion_propiedades_operaciones(request):
     liquidaciones = LiquidacionPropietario.objects.none()
     pagos = Pago.objects.none()
     movimientos = MovimientoCaja.objects.none()
+    gastos_items = []
     total_ingresos = Decimal('0')
     total_egresos = Decimal('0')
     balance = Decimal('0')
@@ -1402,6 +1403,7 @@ def administracion_propiedades_operaciones(request):
         total_ingresos = mov_aggr.get('ingresos') or Decimal('0')
         total_egresos = mov_aggr.get('egresos') or Decimal('0')
         balance = total_ingresos - total_egresos
+        total_gastos = (gastos_aggr.get('total') or Decimal('0')) + total_egresos
 
         reservas = reservas_base.order_by('-fecha_inicio', '-id')[:150]
         contratos = contratos_base.order_by('-fecha_inicio', '-id')[:80]
@@ -1410,6 +1412,32 @@ def administracion_propiedades_operaciones(request):
         liquidaciones = liquidaciones_base.order_by('-fecha_creacion', '-id')[:150]
         pagos = pagos_base.order_by('-fecha', '-id')[:250]
         movimientos = movimientos_base.order_by('-fecha', '-id')[:250]
+
+        gastos_items = [
+            {
+                'fecha': g.fecha_creacion,
+                'concepto': (getattr(g, 'descripcion', None) or getattr(g, 'concepto', None) or '-'),
+                'estado': 'Liquidado' if g.liquidacion_id else 'Pendiente',
+                'liquidacion_id': g.liquidacion_id,
+                'monto': g.monto or Decimal('0'),
+                'origen': 'Gasto',
+                'empleado': None,
+            }
+            for g in gastos
+        ]
+        for m in movimientos:
+            if m.tipo != TipoMovimientoCajaEnum.EGRESO:
+                continue
+            gastos_items.append({
+                'fecha': m.fecha,
+                'concepto': f"Egreso de caja: {(m.concepto or '-').strip() or '-'}",
+                'estado': 'Impacta en caja',
+                'liquidacion_id': None,
+                'monto': m.monto_total or Decimal('0'),
+                'origen': 'Movimiento',
+                'empleado': getattr(m, 'empleado', None),
+            })
+        gastos_items.sort(key=lambda x: x.get('fecha') or datetime.min, reverse=True)
 
     context = {
         'termino': termino,
@@ -1422,6 +1450,7 @@ def administracion_propiedades_operaciones(request):
         'contratos': contratos,
         'cuotas': cuotas,
         'gastos': gastos,
+        'gastos_items': gastos_items,
         'liquidaciones': liquidaciones,
         'pagos': pagos,
         'movimientos': movimientos,
