@@ -17482,6 +17482,30 @@ def crear_liquidacion(request, reserva_id=None):
                 if tipo in ('reserva', 'contrato'):
                     operaciones_incluidas.append({'tipo': tipo, 'id': pk})
 
+            # Contrato: guardar qué cuotas entran en esta liquidación (evita doble uso al liquidar meses nuevos).
+            for o in operaciones_incluidas:
+                if not isinstance(o, dict) or o.get('tipo') != 'contrato':
+                    continue
+                try:
+                    cta_id = int(o['id'])
+                except (KeyError, TypeError, ValueError):
+                    continue
+                ctr = ContratoAlquiler.objects.filter(
+                    id=cta_id,
+                    propiedad=propiedad,
+                    sucursal=request.user.sucursal,
+                ).first()
+                if not ctr:
+                    continue
+                excl = _cuotas_excluidas_por_liquidaciones_contrato(propiedad)
+                id_cuotas = list(
+                    ctr.cuotas.filter(estado__in=['pagada', 'pagada_con_mora'])
+                    .exclude(id__in=excl)
+                    .values_list('id', flat=True)
+                )
+                if id_cuotas:
+                    o['cuotas_ids'] = [int(x) for x in id_cuotas]
+
             # División manual en dos operaciones
             dividir_operacion = request.POST.get('dividir_operacion') == '1'
             if dividir_operacion:
@@ -17645,24 +17669,105 @@ def crear_liquidacion(request, reserva_id=None):
     return render(request, 'inmobiliaria/liquidaciones/crear.html', context)
 
 
+def _cuotas_excluidas_por_liquidaciones_contrato(propiedad):
+    """
+    IDs de cuotas (ContratoAlquiler) ya imputadas en liquidaciones no canceladas.
+
+    - Si en operaciones_incluidas hay `cuotas_ids` / `cuota_ids`, se usan tal cual.
+    - Liquidaciones finalizadas sin ese detalle (legacy): cuotas pagadas con
+      fecha_pago <= fecha de cierre de la liquidación (procesamiento o creación).
+    - Liquidaciones en estado pendiente no aplican heurística por fecha (solo
+      bloquean el contrato entero vía `contratos_bloqueados_pendiente`).
+    """
+    cuotas_excluidas = set()
+    qs = (
+        LiquidacionPropietario.objects.filter(propiedad=propiedad)
+        .exclude(estado='cancelada')
+        .only(
+            'operaciones_incluidas',
+            'contrato_id',
+            'estado',
+            'fecha_creacion',
+            'fecha_procesamiento',
+        )
+    )
+    for liq in qs:
+        ops = liq.operaciones_incluidas or []
+        if liq.estado == 'pendiente':
+            for op in ops:
+                if not isinstance(op, dict):
+                    continue
+                if (op.get('tipo') or '').lower() != 'contrato':
+                    continue
+                raw_ids = op.get('cuotas_ids') or op.get('cuota_ids')
+                if raw_ids and isinstance(raw_ids, list):
+                    for x in raw_ids:
+                        try:
+                            cuotas_excluidas.add(int(x))
+                        except (TypeError, ValueError):
+                            pass
+            continue
+
+        ref_dt = liq.fecha_procesamiento or liq.fecha_creacion
+        ref_fecha = ref_dt.date() if ref_dt else None
+        vio_contrato_en_ops = False
+        for op in ops:
+            if not isinstance(op, dict):
+                continue
+            if (op.get('tipo') or '').lower() == 'division':
+                continue
+            if (op.get('tipo') or '').lower() != 'contrato':
+                continue
+            vio_contrato_en_ops = True
+            try:
+                cid = int(op.get('id'))
+            except (TypeError, ValueError):
+                continue
+            raw_ids = op.get('cuotas_ids') or op.get('cuota_ids')
+            if raw_ids and isinstance(raw_ids, list):
+                for x in raw_ids:
+                    try:
+                        cuotas_excluidas.add(int(x))
+                    except (TypeError, ValueError):
+                        pass
+            elif ref_fecha is not None:
+                for cq_id in CuotaMensual.objects.filter(
+                    contrato_id=cid,
+                    estado__in=('pagada', 'pagada_con_mora'),
+                    fecha_pago__isnull=False,
+                    fecha_pago__lte=ref_fecha,
+                ).values_list('id', flat=True):
+                    cuotas_excluidas.add(cq_id)
+        if not vio_contrato_en_ops and liq.contrato_id and ref_fecha is not None:
+            for cq_id in CuotaMensual.objects.filter(
+                contrato_id=liq.contrato_id,
+                estado__in=('pagada', 'pagada_con_mora'),
+                fecha_pago__isnull=False,
+                fecha_pago__lte=ref_fecha,
+            ).values_list('id', flat=True):
+                cuotas_excluidas.add(cq_id)
+    return cuotas_excluidas
+
+
 def _operaciones_gastos_pendientes_data(propiedad, sucursal):
     """
     Lista operaciones y gastos pendientes de liquidación para una propiedad (dict serializable a JSON).
     `sucursal` debe ser la sucursal del usuario (coincidente con la de la propiedad).
     """
-    # Reservas/contratos ya cubiertos por liquidación pendiente o procesada
-    # (FK directa o lista operaciones_incluidas del formulario masivo)
+    # Reservas ya cubiertas por liquidación (FK o operaciones_incluidas).
+    # Contratos: solo se bloquea el alta de otra liquidación *pendiente* del mismo
+    # contrato; las cuotas ya liquidadas se excluyen por ID (ver _cuotas_excluidas_*).
     reservas_excluidas = set()
-    contratos_excluidos = set()
+    contratos_bloqueados_pendiente = set()
     for liq in LiquidacionPropietario.objects.filter(
         propiedad=propiedad,
     ).exclude(
         estado='cancelada'
-    ).only('reserva_id', 'contrato_id', 'operaciones_incluidas'):
+    ).only('reserva_id', 'contrato_id', 'estado', 'operaciones_incluidas'):
         if liq.reserva_id:
             reservas_excluidas.add(liq.reserva_id)
-        if liq.contrato_id:
-            contratos_excluidos.add(liq.contrato_id)
+        if liq.estado == 'pendiente' and liq.contrato_id:
+            contratos_bloqueados_pendiente.add(liq.contrato_id)
         for op in liq.operaciones_incluidas or []:
             if not isinstance(op, dict):
                 continue
@@ -17673,8 +17778,8 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
                 continue
             if t == 'reserva':
                 reservas_excluidas.add(oid)
-            elif t == 'contrato':
-                contratos_excluidos.add(oid)
+
+    cuotas_excluidas = _cuotas_excluidas_por_liquidaciones_contrato(propiedad)
 
     reservas_pendientes = Reserva.objects.filter(
         propiedad=propiedad,
@@ -17687,10 +17792,10 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
     
     contratos_pendientes = ContratoAlquiler.objects.filter(
         propiedad=propiedad,
-        estado='activo',
+        estado__in=['activo', 'reservado'],
         sucursal=sucursal,
     ).exclude(
-        id__in=contratos_excluidos
+        id__in=contratos_bloqueados_pendiente
     ).prefetch_related('cuotas').select_related('inquilino')
     
     operaciones = []
@@ -17809,32 +17914,71 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
                 'dias': dias_reserva,
             })
     
-    # Procesar contratos (cuotas pagadas; sin pagos aún se listan como referencia, no liquidables)
+    # Procesar contratos: cuotas pagadas que aún no entraron en una liquidación cerrada.
     for contrato in contratos_pendientes:
-        cuotas_pagadas = contrato.cuotas.filter(estado='pagada')
+        cuotas_liquidables = list(
+            contrato.cuotas.filter(estado__in=['pagada', 'pagada_con_mora'])
+            .exclude(id__in=cuotas_excluidas)
+            .order_by('numero_cuota')
+        )
         inq = contrato.inquilino
         nombre_inq = f'{inq.apellido}, {inq.nombre}' if inq else '—'
-        if not cuotas_pagadas.exists():
-            operaciones.append({
-                'tipo': 'contrato',
-                'tipo_display': 'Contrato',
-                'incluible': False,
-                'id': contrato.id,
-                'descripcion': (
-                    f'Contrato #{contrato.id} - {nombre_inq} '
-                    f'(sin cuotas pagadas aún; no se puede incluir en la liquidación hasta registrar pagos)'
-                ),
-                'fecha_inicio': contrato.fecha_inicio.strftime('%Y-%m-%d') if contrato.fecha_inicio else '',
-                'fecha_fin': contrato.fecha_fin.strftime('%Y-%m-%d') if contrato.fecha_fin else '',
-                'monto_total': '0',
-                'monto_pagado': '0',
-                'monto_propietario': '0',
-                'monto_inmobiliaria': '0',
-                'dias': 0,
-            })
+        if not cuotas_liquidables:
+            tiene_alguna_pagada = contrato.cuotas.filter(
+                estado__in=['pagada', 'pagada_con_mora']
+            ).exists()
+            if tiene_alguna_pagada:
+                operaciones.append({
+                    'tipo': 'contrato',
+                    'tipo_display': 'Contrato',
+                    'incluible': False,
+                    'id': contrato.id,
+                    'descripcion': (
+                        f'Contrato #{contrato.id} - {nombre_inq} '
+                        f'(cuotas pagadas ya figuran en liquidaciones anteriores)'
+                    ),
+                    'fecha_inicio': contrato.fecha_inicio.strftime('%Y-%m-%d') if contrato.fecha_inicio else '',
+                    'fecha_fin': contrato.fecha_fin.strftime('%Y-%m-%d') if contrato.fecha_fin else '',
+                    'monto_total': '0',
+                    'monto_pagado': '0',
+                    'monto_propietario': '0',
+                    'monto_inmobiliaria': '0',
+                    'dias': 0,
+                })
+            else:
+                operaciones.append({
+                    'tipo': 'contrato',
+                    'tipo_display': 'Contrato',
+                    'incluible': False,
+                    'id': contrato.id,
+                    'descripcion': (
+                        f'Contrato #{contrato.id} - {nombre_inq} '
+                        f'(sin cuotas pagadas aún; no se puede incluir en la liquidación hasta registrar pagos)'
+                    ),
+                    'fecha_inicio': contrato.fecha_inicio.strftime('%Y-%m-%d') if contrato.fecha_inicio else '',
+                    'fecha_fin': contrato.fecha_fin.strftime('%Y-%m-%d') if contrato.fecha_fin else '',
+                    'monto_total': '0',
+                    'monto_pagado': '0',
+                    'monto_propietario': '0',
+                    'monto_inmobiliaria': '0',
+                    'dias': 0,
+                })
             continue
 
-        total_cuotas = sum(float(cuota.monto_total) for cuota in cuotas_pagadas)
+        total_cuotas = sum(float(cuota.monto_total) for cuota in cuotas_liquidables)
+        n_cuotas = len(cuotas_liquidables)
+        nums = [c.numero_cuota for c in cuotas_liquidables]
+        if len(nums) <= 6:
+            det_cuotas = ', '.join(str(n) for n in nums)
+        else:
+            det_cuotas = f'{nums[0]}–{nums[-1]} ({n_cuotas} cuotas)'
+        fvs = [c.fecha_vencimiento for c in cuotas_liquidables if c.fecha_vencimiento]
+        f_ini = min(fvs).strftime('%Y-%m-%d') if fvs else (
+            contrato.fecha_inicio.strftime('%Y-%m-%d') if contrato.fecha_inicio else ''
+        )
+        f_fin = max(fvs).strftime('%Y-%m-%d') if fvs else (
+            contrato.fecha_fin.strftime('%Y-%m-%d') if contrato.fecha_fin else ''
+        )
 
         # Para contratos, usar el precio_23_meses o precio_invierno de la propiedad
         # y calcular según el tipo de operación
@@ -17842,7 +17986,7 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
         monto_inmobiliaria_contrato = Decimal('0')
 
         # Obtener precio mensual del contrato
-        precio_mensual = Decimal(str(total_cuotas)) / Decimal(str(cuotas_pagadas.count()))
+        precio_mensual = Decimal(str(total_cuotas)) / Decimal(str(n_cuotas))
 
         # Buscar precio de toma en precios de la propiedad (usar TEMPORADA_BAJA como referencia)
         try:
@@ -17856,7 +18000,7 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
                 if precio_por_dia > 0:
                     # Calcular precio mensual de toma
                     precio_mensual_toma = (precio_toma / precio_por_dia) * precio_mensual
-                    monto_propietario_contrato = precio_mensual_toma * Decimal(str(cuotas_pagadas.count()))
+                    monto_propietario_contrato = precio_mensual_toma * Decimal(str(n_cuotas))
                     monto_inmobiliaria_contrato = Decimal(str(total_cuotas)) - monto_propietario_contrato
                 else:
                     # Fallback sin precio de toma: 70% propietario / 30% inmobiliaria
@@ -17876,14 +18020,14 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
             'tipo_display': 'Contrato',
             'incluible': True,
             'id': contrato.id,
-            'descripcion': f'Contrato #{contrato.id} - {nombre_inq}',
-            'fecha_inicio': contrato.fecha_inicio.strftime('%Y-%m-%d') if contrato.fecha_inicio else '',
-            'fecha_fin': contrato.fecha_fin.strftime('%Y-%m-%d') if contrato.fecha_fin else '',
+            'descripcion': f'Contrato #{contrato.id} - {nombre_inq} — cuota(s) nº {det_cuotas}',
+            'fecha_inicio': f_ini,
+            'fecha_fin': f_fin,
             'monto_total': str(total_cuotas),
             'monto_pagado': str(total_cuotas),
             'monto_propietario': str(monto_propietario_contrato),
             'monto_inmobiliaria': str(monto_inmobiliaria_contrato),
-            'dias': cuotas_pagadas.count() * 30,  # Aproximación: cada cuota = 30 días
+            'dias': n_cuotas * 30,  # Aproximación: cada cuota = 30 días
         })
     
     # Obtener gastos pendientes del propietario (sin liquidación asociada)
