@@ -1263,111 +1263,81 @@ def historial_propiedad_caja(request):
 @login_required
 def administracion_propiedades_operaciones(request):
     """
-    Administración: buscador unificado de operaciones por propiedad.
+    Administración: buscador de operaciones por propiedad.
+    Implementación independiente de la vista de caja.
     """
-    termino = request.GET.get('q', '').strip()
-    propiedad_id = request.GET.get('propiedad_id', '').strip()
+    termino = (request.GET.get('q') or '').strip()
+    propiedad_id = (request.GET.get('propiedad_id') or '').strip()
 
-    propiedades_base = Propiedad.objects.filter(
-        sucursal=request.user.sucursal
-    ).select_related('propietario', 'sucursal').order_by('direccion')
+    propiedades_qs = (
+        Propiedad.objects.filter(sucursal=request.user.sucursal)
+        .select_related('propietario', 'sucursal')
+        .order_by('direccion')
+    )
 
     propiedad = None
     coincidencias = Propiedad.objects.none()
 
-    if propiedad_id:
-        propiedad = propiedades_base.filter(id=propiedad_id).first()
+    if propiedad_id.isdigit():
+        propiedad = propiedades_qs.filter(id=int(propiedad_id)).first()
     elif termino:
         if termino.isdigit():
-            propiedad = propiedades_base.filter(id=int(termino)).first()
+            propiedad = propiedades_qs.filter(id=int(termino)).first()
         if not propiedad:
-            coincidencias = propiedades_base.filter(
+            coincidencias = propiedades_qs.filter(
                 Q(direccion__icontains=termino) |
                 Q(ubicacion__icontains=termino)
-            )[:20]
+            )[:30]
             if coincidencias.count() == 1:
                 propiedad = coincidencias.first()
 
-    movimientos = []
     reservas = Reserva.objects.none()
     contratos = ContratoAlquiler.objects.none()
+    cuotas = CuotaMensual.objects.none()
+    gastos = GastoPropietario.objects.none()
+    liquidaciones = LiquidacionPropietario.objects.none()
     pagos = Pago.objects.none()
-    total_pagos = Decimal('0')
-    liquidaciones = []
-    total_liq_parte_propietario = Decimal('0')
-    total_liq_neto_a_pagar = Decimal('0')
-    total_liq_inmobiliaria = Decimal('0')
+    movimientos = MovimientoCaja.objects.none()
 
     if propiedad:
-        mov_qs = (
-            MovimientoCaja.objects.filter(
-                sucursal=request.user.sucursal,
-                propiedad=propiedad,
+        reservas = (
+            Reserva.objects.filter(propiedad=propiedad, eliminada=False)
+            .select_related('cliente', 'vendedor')
+            .order_by('-fecha_inicio', '-id')[:150]
+        )
+        contratos = (
+            ContratoAlquiler.objects.filter(propiedad=propiedad)
+            .select_related('inquilino', 'vendedor')
+            .order_by('-fecha_inicio', '-id')[:80]
+        )
+        cuotas = (
+            CuotaMensual.objects.filter(contrato__propiedad=propiedad)
+            .select_related('contrato')
+            .order_by('-fecha_pago', '-fecha_vencimiento', '-id')[:300]
+        )
+        gastos = (
+            GastoPropietario.objects.filter(
+                Q(propiedad=propiedad) |
+                Q(propiedad__isnull=True, propietario=propiedad.propietario)
             )
-            .select_related('caja', 'empleado', 'cuenta', 'propiedad')
-            .order_by('-fecha')[:200]
+            .select_related('liquidacion')
+            .order_by('-fecha_creacion', '-id')[:250]
         )
-        movimientos = list(mov_qs)
-        mov_ids = [m.id for m in movimientos]
-        liq_por_mov = {}
-        if mov_ids:
-            for liq in LiquidacionPropietario.objects.filter(
-                movimiento_caja_id__in=mov_ids
-            ).exclude(estado='cancelada'):
-                mid = liq.movimiento_caja_id
-                if mid not in liq_por_mov:
-                    liq_por_mov[mid] = liq
-        from inmobiliaria.neto_propietario_movimiento import (
-            neto_propietario_movimiento,
-            precios_por_propiedad_ids,
+        liquidaciones = (
+            LiquidacionPropietario.objects.filter(propiedad=propiedad)
+            .exclude(estado='cancelada')
+            .select_related('reserva', 'contrato', 'movimiento_caja')
+            .order_by('-fecha_creacion', '-id')[:150]
         )
-
-        _precios_hist = precios_por_propiedad_ids([propiedad.id])
-        for m in movimientos:
-            setattr(m, 'liquidacion_movimiento', liq_por_mov.get(m.id))
-            setattr(
-                m,
-                '_neto_propietario_display',
-                neto_propietario_movimiento(m, liq_por_mov, _precios_hist),
-            )
-
-        reservas = Reserva.objects.filter(
-            propiedad=propiedad,
-            eliminada=False
-        ).select_related(
-            'cliente', 'vendedor'
-        ).order_by('-fecha_creacion')
-
-        contratos = ContratoAlquiler.objects.filter(
-            propiedad=propiedad
-        ).select_related(
-            'inquilino', 'vendedor'
-        ).order_by('-fecha_creacion')
-
-        pagos = Pago.objects.filter(
-            reserva__propiedad=propiedad,
-            reserva__eliminada=False
-        ).select_related(
-            'reserva', 'concepto'
-        ).order_by('-fecha')
-
-        total_pagos = pagos.aggregate(total=Sum('monto'))['total'] or Decimal('0')
-
-        liq_base = LiquidacionPropietario.objects.filter(
-            propiedad=propiedad
-        ).exclude(estado='cancelada')
-        agg_liq = liq_base.aggregate(
-            tp=Sum('monto_propietario'),
-            tap=Sum('monto_a_pagar'),
-            ti=Sum('monto_inmobiliaria'),
+        pagos = (
+            Pago.objects.filter(reserva__propiedad=propiedad, reserva__eliminada=False)
+            .select_related('reserva', 'concepto')
+            .order_by('-fecha', '-id')[:250]
         )
-        total_liq_parte_propietario = agg_liq['tp'] or Decimal('0')
-        total_liq_neto_a_pagar = agg_liq['tap'] or Decimal('0')
-        total_liq_inmobiliaria = agg_liq['ti'] or Decimal('0')
-        liquidaciones = list(
-            liq_base.select_related('reserva', 'contrato', 'movimiento_caja').order_by(
-                '-fecha_creacion'
-            )[:100]
+        movimientos = (
+            MovimientoCaja.objects.filter(sucursal=request.user.sucursal, propiedad=propiedad)
+            .select_related('caja', 'empleado')
+            .order_by('-fecha', '-id')[:250]
         )
 
     context = {
@@ -1375,17 +1345,15 @@ def administracion_propiedades_operaciones(request):
         'propiedad_id': propiedad_id,
         'propiedad': propiedad,
         'coincidencias': coincidencias,
-        'movimientos': movimientos,
-        'reservas': reservas[:100],
-        'contratos': contratos[:100],
-        'pagos': pagos[:200],
-        'total_pagos': total_pagos,
+        'reservas': reservas,
+        'contratos': contratos,
+        'cuotas': cuotas,
+        'gastos': gastos,
         'liquidaciones': liquidaciones,
-        'total_liq_parte_propietario': total_liq_parte_propietario,
-        'total_liq_neto_a_pagar': total_liq_neto_a_pagar,
-        'total_liq_inmobiliaria': total_liq_inmobiliaria,
+        'pagos': pagos,
+        'movimientos': movimientos,
     }
-    return render(request, 'inmobiliaria/caja/historial_propiedad_caja.html', context)
+    return render(request, 'inmobiliaria/administracion/operaciones_propiedad.html', context)
 
 from xhtml2pdf import pisa
 from io import BytesIO
