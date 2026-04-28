@@ -1,17 +1,17 @@
 {% extends 'inmobiliaria/base.html' %}
 {% load custom_filters %}
 
-{% block title %}Operaciones por Propiedad{% endblock %}
+{% block title %}Historial por Propiedad - Caja{% endblock %}
 
 {% block content %}
 <div class="container-fluid mt-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
-            <h2><i class="fas fa-home"></i> Operaciones por propiedad</h2>
-            <p class="text-muted mb-0">Buscá una propiedad y visualizá alquileres por día, contratos, gastos, liquidaciones y movimientos asociados</p>
+            <h2><i class="fas fa-home"></i> Historial por propiedad</h2>
+            <p class="text-muted mb-0">Buscá una propiedad y visualizá pagos, reservas, contratos y movimientos de caja</p>
         </div>
-        <a href="{% if desde_admin %}{% url 'inmobiliaria:dashboard' %}{% else %}{% url 'inmobiliaria:dashboard_caja' %}{% endif %}" class="btn btn-outline-secondary">
-            <i class="fas fa-arrow-left"></i> {% if desde_admin %}Volver al inicio{% else %}Volver a Caja{% endif %}
+        <a href="{% url 'inmobiliaria:dashboard_caja' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Volver a Caja
         </a>
     </div>
 
