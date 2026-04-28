@@ -1286,7 +1286,12 @@ def administracion_propiedades_operaciones(request):
         if not propiedad:
             coincidencias = propiedades_qs.filter(
                 Q(direccion__icontains=termino) |
-                Q(ubicacion__icontains=termino)
+                Q(ubicacion__icontains=termino) |
+                Q(propietario__nombre__icontains=termino) |
+                Q(propietario__apellido__icontains=termino) |
+                Q(propietario__dni__icontains=termino) |
+                Q(propietario__cuit__icontains=termino) |
+                Q(propietario__email__icontains=termino)
             )[:30]
             if coincidencias.count() == 1:
                 propiedad = coincidencias.first()

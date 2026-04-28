@@ -17,10 +17,14 @@
 
     <div class="card mb-4">
         <div class="card-body">
-            <form method="get" class="row g-2 align-items-end">
+            <form method="get" class="row g-2 align-items-end" id="formBuscarPropiedadAdmin">
                 <div class="col-md-10">
                     <label for="q" class="form-label">Buscar propiedad</label>
-                    <input type="text" id="q" name="q" class="form-control" value="{{ termino }}" placeholder="ID, dirección o ubicación">
+                    <div class="position-relative" id="buscadorPropiedadWrapAdmin">
+                        <input type="text" id="q" name="q" class="form-control" value="{{ termino }}" placeholder="ID, dirección, ubicación o propietario">
+                        <input type="hidden" name="propiedad_id" id="propiedad_id_hidden_admin" value="{{ propiedad_id|default:'' }}">
+                        <div class="list-group position-absolute w-100 d-none" id="resultadosPropiedadAdmin" style="z-index: 30; max-height: 300px; overflow-y: auto;"></div>
+                    </div>
                 </div>
                 <div class="col-md-2">
                     <button type="submit" class="btn btn-primary w-100">
@@ -217,4 +221,112 @@
     </div>
     {% endif %}
 </div>
+<script>
+(function () {
+    const input = document.getElementById('q');
+    const hiddenId = document.getElementById('propiedad_id_hidden_admin');
+    const resultados = document.getElementById('resultadosPropiedadAdmin');
+    const wrap = document.getElementById('buscadorPropiedadWrapAdmin');
+    const form = document.getElementById('formBuscarPropiedadAdmin');
+    if (!input || !hiddenId || !resultados || !wrap || !form) return;
+
+    let debounceTimer = null;
+
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+        return '';
+    }
+
+    function escHtml(s) {
+        if (s == null || s === '') return '';
+        const d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+    }
+
+    function renderResultados(items) {
+        if (!items.length) {
+            resultados.innerHTML = '<div class="list-group-item text-muted">Sin coincidencias</div>';
+            resultados.classList.remove('d-none');
+            return;
+        }
+        resultados.innerHTML = items.map(function (p) {
+            const ubic = p.ubicacion ? ` (${p.ubicacion})` : '';
+            const pi = (p.piso || '').trim();
+            const dep = (p.departamento || '').trim();
+            const unidad = [pi ? 'Piso ' + pi : '', dep ? 'Dpto ' + dep : ''].filter(Boolean).join(', ');
+            const suf = unidad ? ` — ${unidad}` : '';
+            const propLine = (p.propietario && String(p.propietario).trim())
+                ? `<span class="small text-muted d-block">${escHtml(p.propietario)}</span>`
+                : '';
+            const txt = `#${p.id} - ${p.direccion}${suf}${ubic}`;
+            return `<button type="button" class="list-group-item list-group-item-action item-propiedad-admin" data-id="${p.id}" data-text="${escHtml(txt)}">
+                <strong>#${p.id}</strong> - ${escHtml(p.direccion)}${escHtml(suf)}${escHtml(ubic)}
+                ${propLine}
+            </button>`;
+        }).join('');
+        resultados.classList.remove('d-none');
+    }
+
+    function buscar() {
+        const termino = (input.value || '').trim();
+        hiddenId.value = '';
+        if (termino.length < 2) {
+            resultados.classList.add('d-none');
+            resultados.innerHTML = '';
+            return;
+        }
+        fetch("{% url 'inmobiliaria:buscar_propiedades_caja' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                'X-CSRFToken': getCookie('csrftoken'),
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: new URLSearchParams({ termino: termino }).toString()
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) {
+                resultados.classList.add('d-none');
+                return;
+            }
+            renderResultados(data.propiedades || []);
+        })
+        .catch(() => {
+            resultados.classList.add('d-none');
+        });
+    }
+
+    input.addEventListener('input', function () {
+        hiddenId.value = '';
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(buscar, 180);
+    });
+
+    input.addEventListener('focus', function () {
+        if ((input.value || '').trim().length >= 2) buscar();
+    });
+
+    resultados.addEventListener('click', function (e) {
+        const btn = e.target.closest('.item-propiedad-admin');
+        if (!btn) return;
+        hiddenId.value = btn.getAttribute('data-id') || '';
+        input.value = btn.textContent.trim().replace(/\s+/g, ' ');
+        resultados.classList.add('d-none');
+        form.submit();
+    });
+
+    form.addEventListener('submit', function () {
+        if ((hiddenId.value || '').trim()) return;
+        resultados.classList.add('d-none');
+    });
+
+    document.addEventListener('click', function (e) {
+        if (!wrap.contains(e.target)) resultados.classList.add('d-none');
+    });
+})();
+</script>
 {% endblock %}
