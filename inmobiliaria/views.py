@@ -6269,7 +6269,6 @@ def ver_recibo_movimiento(request, movimiento_id):
         # Si encontramos una reserva, usar el nuevo diseño de recibo
         if reserva:
             # Usar el mismo código que la función ver_recibo
-            from datetime import datetime
             fecha_actual = timezone.now()
             
             # Obtener los pagos de la reserva
