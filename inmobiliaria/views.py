@@ -1133,8 +1133,17 @@ def todos_movimientos_caja(request):
 
 @login_required
 def historial_propiedad_caja(request):
+    return _historial_propiedad_operaciones(request, desde_admin=False)
+
+
+@login_required
+def administracion_propiedades_operaciones(request):
+    return _historial_propiedad_operaciones(request, desde_admin=True)
+
+
+def _historial_propiedad_operaciones(request, desde_admin=False):
     """
-    Apartado de caja: historial por propiedad (movimientos, reservas, contratos, pagos).
+    Historial por propiedad (movimientos, reservas, contratos, pagos).
     Los totales superiores se arman desde liquidaciones (parte propietario / neto a pagar / comisión), no desde el monto total de caja.
     """
     termino = request.GET.get('q', '').strip()
@@ -1256,6 +1265,7 @@ def historial_propiedad_caja(request):
         'total_liq_parte_propietario': total_liq_parte_propietario,
         'total_liq_neto_a_pagar': total_liq_neto_a_pagar,
         'total_liq_inmobiliaria': total_liq_inmobiliaria,
+        'desde_admin': desde_admin,
     }
     return render(request, 'inmobiliaria/caja/historial_propiedad_caja.html', context)
 
