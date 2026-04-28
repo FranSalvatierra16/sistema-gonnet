@@ -18,13 +18,21 @@
     <div class="card mb-4">
         <div class="card-body">
             <form method="get" class="row g-2 align-items-end" id="formBuscarPropiedadAdmin">
-                <div class="col-md-10">
+                <div class="col-md-6">
                     <label for="q" class="form-label">Buscar propiedad</label>
                     <div class="position-relative" id="buscadorPropiedadWrapAdmin">
                         <input type="text" id="q" name="q" class="form-control" value="{{ termino }}" placeholder="ID, dirección, ubicación o propietario">
                         <input type="hidden" name="propiedad_id" id="propiedad_id_hidden_admin" value="{{ propiedad_id|default:'' }}">
                         <div class="list-group position-absolute w-100 d-none" id="resultadosPropiedadAdmin" style="z-index: 30; max-height: 300px; overflow-y: auto;"></div>
                     </div>
+                </div>
+                <div class="col-md-2">
+                    <label for="fecha_desde" class="form-label">Desde</label>
+                    <input type="date" id="fecha_desde" name="fecha_desde" class="form-control" value="{{ fecha_desde|default:'' }}">
+                </div>
+                <div class="col-md-2">
+                    <label for="fecha_hasta" class="form-label">Hasta</label>
+                    <input type="date" id="fecha_hasta" name="fecha_hasta" class="form-control" value="{{ fecha_hasta|default:'' }}">
                 </div>
                 <div class="col-md-2">
                     <button type="submit" class="btn btn-primary w-100">
@@ -62,6 +70,14 @@
                 <div class="col-md-4"><strong>Propietario:</strong> {{ propiedad.propietario }}</div>
             </div>
         </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-4 col-12 mb-2"><div class="alert alert-success border mb-0">Ingresos: <strong>${{ total_ingresos|format_price }}</strong></div></div>
+        <div class="col-md-4 col-12 mb-2"><div class="alert alert-danger border mb-0">Egresos: <strong>${{ total_egresos|format_price }}</strong></div></div>
+        <div class="col-md-4 col-12 mb-2"><div class="alert alert-primary border mb-0">Balance: <strong>${{ balance|format_price }}</strong></div></div>
+        <div class="col-md-6 col-12 mb-2"><div class="alert alert-info border mb-0">Pagos cobrados (reservas): <strong>${{ total_pagos|format_price }}</strong></div></div>
+        <div class="col-md-6 col-12 mb-2"><div class="alert alert-warning border mb-0">Gastos registrados: <strong>${{ total_gastos|format_price }}</strong></div></div>
     </div>
 
     <div class="row mb-4">

@@ -1268,6 +1268,22 @@ def administracion_propiedades_operaciones(request):
     """
     termino = (request.GET.get('q') or '').strip()
     propiedad_id = (request.GET.get('propiedad_id') or '').strip()
+    fecha_desde_s = (request.GET.get('fecha_desde') or '').strip()
+    fecha_hasta_s = (request.GET.get('fecha_hasta') or '').strip()
+
+    def _parse_fecha(s):
+        if not s:
+            return None
+        try:
+            return datetime.strptime(s, '%Y-%m-%d').date()
+        except (ValueError, TypeError):
+            return None
+
+    fecha_desde = _parse_fecha(fecha_desde_s)
+    fecha_hasta = _parse_fecha(fecha_hasta_s)
+    if fecha_desde and fecha_hasta and fecha_hasta < fecha_desde:
+        fecha_desde, fecha_hasta = fecha_hasta, fecha_desde
+        fecha_desde_s, fecha_hasta_s = fecha_desde.strftime('%Y-%m-%d'), fecha_hasta.strftime('%Y-%m-%d')
 
     propiedades_qs = (
         Propiedad.objects.filter(sucursal=request.user.sucursal)
@@ -1303,51 +1319,103 @@ def administracion_propiedades_operaciones(request):
     liquidaciones = LiquidacionPropietario.objects.none()
     pagos = Pago.objects.none()
     movimientos = MovimientoCaja.objects.none()
+    total_ingresos = Decimal('0')
+    total_egresos = Decimal('0')
+    balance = Decimal('0')
+    total_pagos = Decimal('0')
+    total_gastos = Decimal('0')
 
     if propiedad:
-        reservas = (
+        reservas_base = (
             Reserva.objects.filter(propiedad=propiedad, eliminada=False)
             .select_related('cliente', 'vendedor')
-            .order_by('-fecha_inicio', '-id')[:150]
         )
-        contratos = (
+        contratos_base = (
             ContratoAlquiler.objects.filter(propiedad=propiedad)
             .select_related('inquilino', 'vendedor')
-            .order_by('-fecha_inicio', '-id')[:80]
         )
-        cuotas = (
+        cuotas_base = (
             CuotaMensual.objects.filter(contrato__propiedad=propiedad)
             .select_related('contrato')
-            .order_by('-fecha_pago', '-fecha_vencimiento', '-id')[:300]
         )
-        gastos = (
+        gastos_base = (
             GastoPropietario.objects.filter(
                 Q(propiedad=propiedad) |
                 Q(propiedad__isnull=True, propietario=propiedad.propietario)
             )
             .select_related('liquidacion')
-            .order_by('-fecha_creacion', '-id')[:250]
         )
-        liquidaciones = (
+        liquidaciones_base = (
             LiquidacionPropietario.objects.filter(propiedad=propiedad)
             .exclude(estado='cancelada')
             .select_related('reserva', 'contrato', 'movimiento_caja')
-            .order_by('-fecha_creacion', '-id')[:150]
         )
-        pagos = (
+        pagos_base = (
             Pago.objects.filter(reserva__propiedad=propiedad, reserva__eliminada=False)
             .select_related('reserva', 'concepto')
-            .order_by('-fecha', '-id')[:250]
         )
-        movimientos = (
+        movimientos_base = (
             MovimientoCaja.objects.filter(sucursal=request.user.sucursal, propiedad=propiedad)
             .select_related('caja', 'empleado')
-            .order_by('-fecha', '-id')[:250]
         )
+
+        if fecha_desde:
+            reservas_base = reservas_base.filter(fecha_fin__gte=fecha_desde)
+            contratos_base = contratos_base.filter(fecha_fin__gte=fecha_desde)
+            cuotas_base = cuotas_base.filter(
+                Q(fecha_pago__date__gte=fecha_desde) |
+                Q(fecha_pago__isnull=True, fecha_vencimiento__gte=fecha_desde)
+            )
+            gastos_base = gastos_base.filter(fecha_creacion__date__gte=fecha_desde)
+            liquidaciones_base = liquidaciones_base.filter(fecha_creacion__date__gte=fecha_desde)
+            pagos_base = pagos_base.filter(fecha__gte=fecha_desde)
+            movimientos_base = movimientos_base.filter(fecha__date__gte=fecha_desde)
+
+        if fecha_hasta:
+            reservas_base = reservas_base.filter(fecha_inicio__lte=fecha_hasta)
+            contratos_base = contratos_base.filter(fecha_inicio__lte=fecha_hasta)
+            cuotas_base = cuotas_base.filter(
+                Q(fecha_pago__date__lte=fecha_hasta) |
+                Q(fecha_pago__isnull=True, fecha_vencimiento__lte=fecha_hasta)
+            )
+            gastos_base = gastos_base.filter(fecha_creacion__date__lte=fecha_hasta)
+            liquidaciones_base = liquidaciones_base.filter(fecha_creacion__date__lte=fecha_hasta)
+            pagos_base = pagos_base.filter(fecha__lte=fecha_hasta)
+            movimientos_base = movimientos_base.filter(fecha__date__lte=fecha_hasta)
+
+        pagos_aggr = pagos_base.aggregate(total=Sum('monto'))
+        total_pagos = pagos_aggr.get('total') or Decimal('0')
+
+        gastos_aggr = gastos_base.aggregate(total=Sum('monto'))
+        total_gastos = gastos_aggr.get('total') or Decimal('0')
+
+        mov_aggr = movimientos_base.aggregate(
+            ingresos=Sum(
+                F('monto_efectivo') + F('monto_cheque') + F('monto_tarjeta') + F('monto_deposito'),
+                filter=Q(tipo=TipoMovimientoCajaEnum.INGRESO),
+            ),
+            egresos=Sum(
+                F('monto_efectivo') + F('monto_cheque') + F('monto_tarjeta') + F('monto_deposito'),
+                filter=Q(tipo=TipoMovimientoCajaEnum.EGRESO),
+            ),
+        )
+        total_ingresos = mov_aggr.get('ingresos') or Decimal('0')
+        total_egresos = mov_aggr.get('egresos') or Decimal('0')
+        balance = total_ingresos - total_egresos
+
+        reservas = reservas_base.order_by('-fecha_inicio', '-id')[:150]
+        contratos = contratos_base.order_by('-fecha_inicio', '-id')[:80]
+        cuotas = cuotas_base.order_by('-fecha_pago', '-fecha_vencimiento', '-id')[:300]
+        gastos = gastos_base.order_by('-fecha_creacion', '-id')[:250]
+        liquidaciones = liquidaciones_base.order_by('-fecha_creacion', '-id')[:150]
+        pagos = pagos_base.order_by('-fecha', '-id')[:250]
+        movimientos = movimientos_base.order_by('-fecha', '-id')[:250]
 
     context = {
         'termino': termino,
         'propiedad_id': propiedad_id,
+        'fecha_desde': fecha_desde_s,
+        'fecha_hasta': fecha_hasta_s,
         'propiedad': propiedad,
         'coincidencias': coincidencias,
         'reservas': reservas,
@@ -1357,6 +1425,11 @@ def administracion_propiedades_operaciones(request):
         'liquidaciones': liquidaciones,
         'pagos': pagos,
         'movimientos': movimientos,
+        'total_ingresos': total_ingresos,
+        'total_egresos': total_egresos,
+        'balance': balance,
+        'total_pagos': total_pagos,
+        'total_gastos': total_gastos,
     }
     return render(request, 'inmobiliaria/administracion/operaciones_propiedad.html', context)
 
