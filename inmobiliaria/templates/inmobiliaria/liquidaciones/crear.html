@@ -525,8 +525,12 @@ document.addEventListener('DOMContentLoaded', function() {
             `;
 
             data.operaciones.forEach(function(op) {
-                const tipoEtiqueta = op.tipo_display || (op.tipo === 'reserva' ? 'Por día' : 'Contrato');
-                const badgeClass = op.tipo === 'reserva' ? 'bg-info text-dark' : 'bg-success';
+                const tipoEtiqueta = op.tipo_display || (
+                    op.tipo === 'reserva' ? 'Por día' : (op.tipo === 'contrato_cuota' ? 'Cuota mensual' : 'Contrato')
+                );
+                const badgeClass = op.tipo === 'reserva'
+                    ? 'bg-info text-dark'
+                    : (op.tipo === 'contrato_cuota' ? 'bg-primary' : 'bg-success');
                 const noIncluible = op.incluible === false;
                 const filaClass = noIncluible ? 'table-light text-muted' : '';
                 const chkDisabled = noIncluible ? 'disabled' : '';
@@ -572,8 +576,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="mt-2">
                     <small class="text-muted">
                         <i class="fas fa-info-circle me-1"></i>
-                        <strong>Por día</strong> son reservas por estadía; <strong>Contrato</strong> agrupa las cuotas mensuales pagadas que aún no entraron en una liquidación cerrada (se muestra el rango y el nº de cuota/s).
-                        Tras liquidar, las cuotas nuevas que cobres vuelven a aparecer en otra fila de contrato.
+                        <strong>Por día</strong> son reservas por estadía. Cada <strong>Cuota mensual</strong> pagada pendiente de liquidar es una fila distinta (mismo contrato = varias filas si cobraste varios meses).
+                        Tras liquidar, las cuotas nuevas que cobres vuelven a aparecer como filas nuevas.
                         Las filas atenuadas con casilla deshabilitada son solo referencia.
                         ${colProp ? 'Si el propietario tiene más de una propiedad, al tildar una operación se fija la propiedad del formulario y se recargan operaciones y gastos de esa propiedad.' : ''}
                     </small>
