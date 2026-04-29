@@ -1413,6 +1413,42 @@ def administracion_propiedades_operaciones(request):
         pagos = pagos_base.order_by('-fecha', '-id')[:250]
         movimientos = movimientos_base.order_by('-fecha', '-id')[:250]
 
+        def _concepto_y_detalle_mov(mov):
+            raw = (getattr(mov, 'concepto_detalle', None) or '').strip()
+            nombres = []
+            detalles = []
+            if raw:
+                try:
+                    data = json.loads(raw)
+                except Exception:
+                    data = None
+                conceptos = []
+                if isinstance(data, dict) and isinstance(data.get('conceptos'), list):
+                    conceptos = data.get('conceptos') or []
+                elif isinstance(data, list):
+                    conceptos = data
+                for item in conceptos:
+                    if not isinstance(item, dict):
+                        continue
+                    n = str(item.get('nombre') or item.get('concepto') or '').strip()
+                    if not n:
+                        cid = str(item.get('id') or item.get('codigo') or '').strip()
+                        n = concepto_nombre_por_id.get(cid, '')
+                    if n and n not in nombres:
+                        nombres.append(n)
+                    d = str(item.get('observaciones') or '').strip()
+                    if d and d.lower() not in ('sin observaciones', 'sin observaciones.') and d not in detalles:
+                        detalles.append(d)
+            concepto = ' + '.join(nombres)[:200] if nombres else (mov.concepto_sin_pipe_conceptos() or (mov.concepto or '-') or '-')
+            detalle = ' | '.join(detalles)[:400] if detalles else ''
+            return concepto, detalle
+
+        for m in movimientos:
+            c_nom, c_det = _concepto_y_detalle_mov(m)
+            setattr(m, '_concepto_nombre_admin', c_nom)
+            setattr(m, '_concepto_detalle_admin', c_det)
+            setattr(m, '_intervino_admin', m.empleado_id)
+
         gastos_items = [
             {
                 'fecha': g.fecha_creacion,

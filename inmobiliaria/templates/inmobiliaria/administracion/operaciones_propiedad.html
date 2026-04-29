@@ -213,20 +213,21 @@
                     <table class="table table-sm table-striped mb-0">
                         <thead>
                             <tr>
-                                <th>Fecha</th><th>Tipo</th><th>Concepto</th><th>Cargado por</th><th>Caja</th><th class="text-end">Monto</th>
+                                <th>Fecha</th><th>ID mov.</th><th>Tipo</th><th>Concepto</th><th>Detalle</th><th>Intervino</th><th class="text-end">Monto</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for m in movimientos %}
                             <tr>
                                 <td>{{ m.fecha|date:"d/m/Y H:i" }}</td>
+                                <td>#{{ m.id }}</td>
                                 <td>{{ m.get_tipo_display }}</td>
-                                <td>{{ m.concepto|default:"-" }}</td>
-                                <td>{{ m.empleado|default:"-" }}</td>
-                                <td>{% if m.caja %}#{{ m.caja.numero }}{% else %}-{% endif %}</td>
+                                <td>{{ m._concepto_nombre_admin|default:"-" }}</td>
+                                <td>{{ m._concepto_detalle_admin|default:"-" }}</td>
+                                <td>{% if m._intervino_admin %}#{{ m._intervino_admin }}{% else %}-{% endif %}</td>
                                 <td class="text-end">${{ m.monto_total|format_price }}</td>
                             </tr>
-                            {% empty %}<tr><td colspan="6" class="text-center text-muted">Sin movimientos</td></tr>{% endfor %}
+                            {% empty %}<tr><td colspan="7" class="text-center text-muted">Sin movimientos</td></tr>{% endfor %}
                         </tbody>
                     </table>
                 </div>
