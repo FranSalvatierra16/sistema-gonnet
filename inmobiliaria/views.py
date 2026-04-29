@@ -1442,9 +1442,9 @@ def administracion_propiedades_operaciones(request):
             return ' | '.join(obs)[:400]
 
         for m in movimientos:
-            m._concepto_nombre_admin = _nombre_concepto_mov(m)
-            m._concepto_detalle_admin = _detalle_mov(m)
-            m._intervino_admin = getattr(m, 'empleado_id', None)
+            m.concepto_nombre_admin = _nombre_concepto_mov(m)
+            m.concepto_detalle_admin = _detalle_mov(m)
+            m.intervino_admin = getattr(m, 'empleado_id', None)
 
         gastos_items = []
         for g in gastos:
