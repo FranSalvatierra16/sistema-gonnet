@@ -1412,13 +1412,17 @@ def administracion_propiedades_operaciones(request):
         liquidaciones = liquidaciones_base.order_by('-fecha_creacion', '-id')[:150]
         pagos = pagos_base.order_by('-fecha', '-id')[:250]
         movimientos = movimientos_base.order_by('-fecha', '-id')[:250]
-        conceptos_visibles = list(
-            Concepto.objects.filter(q_conceptos_caja_visibles(request.user.sucursal)).only('id', 'nombre')
-        )
-        concepto_nombre_por_id = {str(c.id).strip(): (c.nombre or '').strip() for c in conceptos_visibles}
+        try:
+            conceptos_visibles = list(
+                Concepto.objects.filter(q_conceptos_caja_visibles(request.user.sucursal)).only('id', 'nombre')
+            )
+            concepto_nombre_por_id = {str(c.id).strip(): (c.nombre or '').strip() for c in conceptos_visibles}
+        except Exception:
+            concepto_nombre_por_id = {}
 
         def _concepto_y_detalle_mov(mov):
-            raw = (getattr(mov, 'concepto_detalle', None) or '').strip()
+            raw_val = getattr(mov, 'concepto_detalle', None)
+            raw = raw_val.strip() if isinstance(raw_val, str) else ''
             nombres = []
             detalles = []
             if raw:
@@ -1443,15 +1447,24 @@ def administracion_propiedades_operaciones(request):
                     d = str(item.get('observaciones') or '').strip()
                     if d and d.lower() not in ('sin observaciones', 'sin observaciones.') and d not in detalles:
                         detalles.append(d)
-            concepto = ' + '.join(nombres)[:200] if nombres else (mov.concepto_sin_pipe_conceptos() or (mov.concepto or '-') or '-')
+            try:
+                base_concepto = mov.concepto_sin_pipe_conceptos()
+            except Exception:
+                base_concepto = (getattr(mov, 'concepto', None) or '-')
+            concepto = ' + '.join(nombres)[:200] if nombres else (base_concepto or (getattr(mov, 'concepto', None) or '-') or '-')
             detalle = ' | '.join(detalles)[:400] if detalles else ''
             return concepto, detalle
 
         for m in movimientos:
-            c_nom, c_det = _concepto_y_detalle_mov(m)
-            setattr(m, '_concepto_nombre_admin', c_nom)
-            setattr(m, '_concepto_detalle_admin', c_det)
-            setattr(m, '_intervino_admin', m.empleado_id)
+            try:
+                c_nom, c_det = _concepto_y_detalle_mov(m)
+                setattr(m, '_concepto_nombre_admin', c_nom)
+                setattr(m, '_concepto_detalle_admin', c_det)
+                setattr(m, '_intervino_admin', getattr(m, 'empleado_id', None))
+            except Exception:
+                setattr(m, '_concepto_nombre_admin', (getattr(m, 'concepto', None) or '-'))
+                setattr(m, '_concepto_detalle_admin', '')
+                setattr(m, '_intervino_admin', getattr(m, 'empleado_id', None))
 
         gastos_items = [
             {
@@ -1468,7 +1481,8 @@ def administracion_propiedades_operaciones(request):
             for g in gastos
         ]
         def _detalle_movimiento(mov):
-            raw = (getattr(mov, 'concepto_detalle', None) or '').strip()
+            raw_val = getattr(mov, 'concepto_detalle', None)
+            raw = raw_val.strip() if isinstance(raw_val, str) else ''
             if not raw:
                 return ''
             try:
@@ -1492,7 +1506,8 @@ def administracion_propiedades_operaciones(request):
             return ' | '.join(obs)[:400]
 
         def _concepto_desde_movimiento(mov):
-            raw = (getattr(mov, 'concepto_detalle', None) or '').strip()
+            raw_val = getattr(mov, 'concepto_detalle', None)
+            raw = raw_val.strip() if isinstance(raw_val, str) else ''
             if raw:
                 try:
                     data = json.loads(raw)
@@ -1516,7 +1531,7 @@ def administracion_propiedades_operaciones(request):
                 if nombres:
                     return ' + '.join(nombres)[:200]
 
-            base = ((mov.concepto or '').strip() or '-')
+            base = ((getattr(mov, 'concepto', None) or '').strip() or '-')
             first = base.split('-', 1)[0].strip()
             if first.isdigit() and first in concepto_nombre_por_id:
                 return concepto_nombre_por_id[first]
@@ -1527,17 +1542,30 @@ def administracion_propiedades_operaciones(request):
         for m in movimientos:
             if m.tipo != TipoMovimientoCajaEnum.EGRESO:
                 continue
-            gastos_items.append({
-                'fecha': m.fecha,
-                'concepto': _concepto_desde_movimiento(m),
-                'detalle': _detalle_movimiento(m),
-                'movimiento_num': m.id,
-                'estado': 'Impacta en caja',
-                'liquidacion_id': None,
-                'monto': m.monto_total or Decimal('0'),
-                'origen': 'Movimiento',
-                'empleado': getattr(m, 'empleado', None),
-            })
+            try:
+                gastos_items.append({
+                    'fecha': m.fecha,
+                    'concepto': _concepto_desde_movimiento(m),
+                    'detalle': _detalle_movimiento(m),
+                    'movimiento_num': m.id,
+                    'estado': 'Impacta en caja',
+                    'liquidacion_id': None,
+                    'monto': m.monto_total or Decimal('0'),
+                    'origen': 'Movimiento',
+                    'empleado': getattr(m, 'empleado', None),
+                })
+            except Exception:
+                gastos_items.append({
+                    'fecha': getattr(m, 'fecha', None),
+                    'concepto': (getattr(m, 'concepto', None) or '-'),
+                    'detalle': '',
+                    'movimiento_num': getattr(m, 'id', None),
+                    'estado': 'Impacta en caja',
+                    'liquidacion_id': None,
+                    'monto': Decimal(str(getattr(m, 'monto_total', 0) or 0)),
+                    'origen': 'Movimiento',
+                    'empleado': getattr(m, 'empleado', None),
+                })
         def _sort_ts(item):
             f = item.get('fecha')
             if not f:
