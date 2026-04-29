@@ -3051,6 +3051,34 @@ def listado_entradas(request):
             if cid in contrato_ids:
                 movs_por_contrato.setdefault(cid, []).append(m)
 
+    def _monto_total_mov(mov):
+        return (
+            Decimal(str(mov.monto_efectivo or 0))
+            + Decimal(str(mov.monto_cheque or 0))
+            + Decimal(str(mov.monto_tarjeta or 0))
+            + Decimal(str(mov.monto_deposito or 0))
+        )
+
+    def _pagado_primera_operacion(movs_contrato):
+        """
+        Suma lo abonado en la primera operación del contrato.
+        Si hay numero_liquidacion, toma todos los movimientos de ese primer interno.
+        """
+        if not movs_contrato:
+            return Decimal('0')
+        ordenados = sorted(
+            movs_contrato,
+            key=lambda x: (
+                (x.fecha if getattr(x, 'fecha', None) else timezone.now()),
+                (x.id or 0),
+            ),
+        )
+        primero = ordenados[0]
+        interno = (getattr(primero, 'numero_liquidacion', None) or '').strip()
+        if interno:
+            return sum((_monto_total_mov(m) for m in ordenados if (getattr(m, 'numero_liquidacion', None) or '').strip() == interno), Decimal('0'))
+        return _monto_total_mov(primero)
+
     for c in contratos:
         titular = '—'
         if c.inquilino:
@@ -3070,14 +3098,14 @@ def listado_entradas(request):
             nov = (getattr(c.vendedor, 'nombre', '') or '').strip()
             vendedor = (apv or nov or '—').upper()
 
-        total_contrato = (c.deposito_garantia or Decimal('0')) + (c.precio_mensual or Decimal('0')) * Decimal(c.duracion_meses or 0)
-        total_pagado = Decimal('0')
-        for m in movs_por_contrato.get(c.id, []):
-            total_pagado += Decimal(str(m.monto_efectivo or 0))
-            total_pagado += Decimal(str(m.monto_cheque or 0))
-            total_pagado += Decimal(str(m.monto_tarjeta or 0))
-            total_pagado += Decimal(str(m.monto_deposito or 0))
-        saldo = total_contrato - total_pagado
+        # Saldo a cobrar en este reporte: operación inicial del contrato.
+        base_operacion_inicial = (
+            Decimal(str(c.precio_mensual or 0))
+            + Decimal(str(c.honorarios_referencia or 0))
+            + Decimal(str(c.sellados_referencia or 0))
+        )
+        pagado_operacion_inicial = _pagado_primera_operacion(movs_por_contrato.get(c.id, []))
+        saldo = base_operacion_inicial - pagado_operacion_inicial
         if saldo < 0:
             saldo = Decimal('0')
 
