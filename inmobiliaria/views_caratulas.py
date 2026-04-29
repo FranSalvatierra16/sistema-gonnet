@@ -281,26 +281,42 @@ def _domicilio_una_linea(persona):
 
 
 def _propietario_legado(propi):
+    """Formato legado: línea 1 = id | apellido nombre; línea 2 = domicilio | CP | localidad."""
     if not propi:
-        return {'id_fmt': '0', 'rotulo': '—', 'ubic': '—'}
+        return {
+            'id_fmt': '0',
+            'rotulo': '—',
+            'ubic': '—',
+            'linea1': '—',
+            'linea2': '—',
+        }
     id_fmt = _formato_miles_ar(propi.id)
-    rotulo = ((propi.apellido or '').strip()[:1] or '—').upper()
+    ap = (propi.apellido or '').strip().upper()
+    nom = (propi.nombre or '').strip().upper()
+    nombre = f'{ap} {nom}'.strip() or '—'
+    linea1 = f'{id_fmt} | {nombre}'
+    dom = (propi.domicilio or '').strip().upper()
     cp = (getattr(propi, 'codigo_postal', None) or '').strip()
     loc = (propi.localidad or '').strip().upper()
-    ubic = f'{cp} {loc}'.strip() or loc or '—'
-    return {'id_fmt': id_fmt, 'rotulo': rotulo, 'ubic': ubic}
+    prov = (propi.provincia or '').strip().upper()
+    partes = [p for p in (dom, cp, loc or prov) if p]
+    linea2 = ' | '.join(partes) if partes else '—'
+    rotulo = (ap[:1] if ap else '—')
+    return {'id_fmt': id_fmt, 'rotulo': rotulo, 'ubic': linea2, 'linea1': linea1, 'linea2': linea2}
 
 
 def _turista_legado(cli):
     if not cli:
-        return {'dni': '0', 'nombre': '—', 'dom': '—'}
+        return {'dni': '0', 'nombre': '—', 'dom': '—', 'linea1': '—'}
     ap = (cli.apellido or '').strip().upper()
     nom = (cli.nombre or '').strip().upper()
     nombre_fmt = f'{ap} {nom}'.strip() or '—'
+    dni_fmt = _dni_formato_legado(cli.dni)
     return {
-        'dni': _dni_formato_legado(cli.dni),
+        'dni': dni_fmt,
         'nombre': nombre_fmt,
         'dom': _domicilio_una_linea(cli).upper(),
+        'linea1': f'{dni_fmt} | {nombre_fmt}',
     }
 
 
@@ -309,7 +325,16 @@ def _origen_operacion_sucursal(sucursal):
         return '1 OFICINA'
     sid = getattr(sucursal, 'id', '') or '1'
     nom = (getattr(sucursal, 'nombre', None) or 'OFICINA').strip().upper()
-    return f'{sid} {nom}'[:48]
+    return f'{sid} | {nom}'[:48]
+
+
+def _prop_piso_depto_campos(prop):
+    """Piso y depto por separado para formato legado con | entre columnas."""
+    if not prop:
+        return ('—', '—')
+    pi = (prop.piso or '').strip().upper() or '—'
+    dep = (prop.departamento or '').strip().upper() or '—'
+    return (pi, dep)
 
 
 def _build_legacy_reserva(reserva, recibos, comisiones, saldo_reserva, tipo_operacion_str):
@@ -323,6 +348,7 @@ def _build_legacy_reserva(reserva, recibos, comisiones, saldo_reserva, tipo_oper
 
     comision_total = sum(Decimal(str(c.monto_comision or 0)) for c in comisiones)
 
+    pi_disp, dep_disp = _prop_piso_depto_campos(prop)
     piso_dto = '—'
     if prop:
         pi = (prop.piso or '').strip()
@@ -336,9 +362,23 @@ def _build_legacy_reserva(reserva, recibos, comisiones, saldo_reserva, tipo_oper
 
     productor = '—'
     if vend:
-        productor = f'{vend.id} {(vend.apellido or vend.nombre or "")}'.strip().upper()[:48]
+        productor = f'{_formato_miles_ar(vend.id)} | {(vend.apellido or vend.nombre or "").strip().upper()}'[:56]
 
     terceros = _formato_miles_ar(vend.id) if vend else '0'
+
+    dias_estadia = 1
+    if reserva.fecha_fin and reserva.fecha_inicio:
+        dias_estadia = max(1, (reserva.fecha_fin - reserva.fecha_inicio).days)
+    loc_mensual = Decimal('0')
+    if reserva.precio_total:
+        try:
+            loc_mensual = (Decimal(str(reserva.precio_total)) / Decimal(dias_estadia)).quantize(
+                Decimal('0.01')
+            )
+        except (ArithmeticError, ValueError, TypeError):
+            loc_mensual = Decimal('0')
+
+    tr = _turista_legado(cli)
 
     return {
         'numero_original': '0',
@@ -348,10 +388,13 @@ def _build_legacy_reserva(reserva, recibos, comisiones, saldo_reserva, tipo_oper
         'ficha_prop': _formato_ficha_legacy(prop.id) if prop else '—',
         'dir_prop': (prop.direccion or '—').upper() if prop else '—',
         'piso_depto': piso_dto,
+        'prop_piso': pi_disp,
+        'prop_depto': dep_disp,
         'codigo_llave': llave_cod,
         'propietario': _propietario_legado(propi),
-        'turista': _turista_legado(cli),
-        'garante_id': '0',
+        'turista': tr,
+        'garante_id': tr['dni'],
+        'garante_linea': tr['linea1'],
         'caratula_rotulo': _caratula_rotulo_prop_cli(prop, cli),
         'importe_locacion': _formato_importe_us(reserva.precio_total),
         'senia': _formato_importe_us(reserva.senia),
@@ -367,8 +410,8 @@ def _build_legacy_reserva(reserva, recibos, comisiones, saldo_reserva, tipo_oper
         'terceros': terceros,
         'origen_operacion': _origen_operacion_sucursal(reserva.sucursal),
         'estado_txt': reserva.get_estado_display(),
-        'locacion_mensual': _formato_importe_us(0),
-        'carpeta': '0',
+        'locacion_mensual': _formato_importe_us(loc_mensual),
+        'carpeta': str(dias_estadia),
         'tipo_operacion_str': tipo_operacion_str,
     }
 
@@ -380,18 +423,27 @@ def _build_legacy_contrato(contrato, cuotas, tipo_label):
     vend = contrato.vendedor
 
     garantes = list(contrato.garantes.all()[:1])
+    tr_inq = _turista_legado(inq)
     if garantes:
-        garante_id = _dni_formato_legado(garantes[0].dni)
+        g0 = garantes[0]
+        garante_id = _dni_formato_legado(g0.dni)
+        garante_linea = _turista_legado(g0)['linea1']
     elif contrato.garante_dni:
         garante_id = _dni_formato_legado(contrato.garante_dni)
+        ap_g = (contrato.garante_apellido or '').strip().upper()
+        nom_g = (contrato.garante_nombre or '').strip().upper()
+        nom_g_fmt = f'{ap_g} {nom_g}'.strip() or '—'
+        garante_linea = f'{garante_id} | {nom_g_fmt}'
     else:
-        garante_id = '0'
+        garante_id = tr_inq['dni']
+        garante_linea = tr_inq['linea1']
 
     total_contrato = (contrato.precio_mensual or Decimal(0)) * Decimal(contrato.duracion_meses or 0)
     saldo_cuotas = sum(
         Decimal(str(c.monto_total or 0)) for c in cuotas if getattr(c, 'estado', '') == 'pendiente'
     )
 
+    pi_disp, dep_disp = _prop_piso_depto_campos(prop)
     piso_dto = '—'
     if prop:
         pi = (prop.piso or '').strip()
@@ -405,8 +457,10 @@ def _build_legacy_contrato(contrato, cuotas, tipo_label):
 
     productor = '—'
     if vend:
-        productor = f'{vend.id} {(vend.apellido or vend.nombre or "")}'.strip().upper()[:48]
+        productor = f'{_formato_miles_ar(vend.id)} | {(vend.apellido or vend.nombre or "").strip().upper()}'[:56]
     terceros = _formato_miles_ar(vend.id) if vend else '0'
+
+    meses_contrato = int(contrato.duracion_meses or 0)
 
     return {
         'numero_original': '0',
@@ -417,10 +471,13 @@ def _build_legacy_contrato(contrato, cuotas, tipo_label):
         'ficha_prop': _formato_ficha_legacy(prop.id) if prop else '—',
         'dir_prop': (prop.direccion or '—').upper() if prop else '—',
         'piso_depto': piso_dto,
+        'prop_piso': pi_disp,
+        'prop_depto': dep_disp,
         'codigo_llave': llave_cod,
         'propietario': _propietario_legado(propi),
-        'turista': _turista_legado(inq),
+        'turista': tr_inq,
         'garante_id': garante_id,
+        'garante_linea': garante_linea,
         'caratula_rotulo': _caratula_rotulo_prop_cli(prop, inq),
         'importe_locacion': _formato_importe_us(total_contrato),
         'senia': _formato_importe_us(0),
@@ -437,7 +494,7 @@ def _build_legacy_contrato(contrato, cuotas, tipo_label):
         'origen_operacion': _origen_operacion_sucursal(contrato.sucursal),
         'estado_txt': contrato.get_estado_display(),
         'locacion_mensual': _formato_importe_us(contrato.precio_mensual),
-        'carpeta': '0',
+        'carpeta': str(meses_contrato),
         'tipo_operacion_str': tipo_label,
     }
 

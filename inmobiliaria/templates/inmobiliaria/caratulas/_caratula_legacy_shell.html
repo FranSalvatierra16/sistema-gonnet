@@ -4,7 +4,8 @@
     <div class="caratula-legacy-sub">General — {{ cl.tipo_operacion_str }}</div>
 
     <div class="caratula-legacy-top">
-        <div>
+        <div class="tipo-mov-block">
+            <span class="lbl-tipo-mov">TIPO MOVIMIENTO</span>
             <div class="caratula-legacy-radios">
                 <label><input type="radio" disabled {% if cl.tipo_mov == 'alquiler' %}checked{% endif %}> Alquiler</label>
                 <label><input type="radio" disabled {% if cl.tipo_mov == 'invierno' %}checked{% endif %}> Invierno</label>
@@ -23,23 +24,38 @@
     </div>
 
     <div class="caratula-band caratula-band-blue">
-        <div><span class="lbl">PROPIEDAD</span>
-            {{ cl.ficha_prop }} {{ cl.dir_prop }} {{ cl.piso_depto }} <strong>{{ cl.codigo_llave }}</strong>
+        <div>
+            <span class="lbl">PROPIEDAD</span>
+            <span class="caratula-valor-pipe">{{ cl.ficha_prop }} | {{ cl.dir_prop }} | {{ cl.prop_piso }} | {{ cl.prop_depto }}</span>
+            {% if cl.codigo_llave and cl.codigo_llave != '0' %}
+                <span class="lbl lbl-llave">LLAVE</span> <strong class="caratula-llave-cod">{{ cl.codigo_llave }}</strong>
+            {% endif %}
         </div>
-        <div class="mt-1"><span class="lbl">PROPIETARIO</span>
-            {{ cl.propietario.id_fmt }} {{ cl.propietario.rotulo }} {{ cl.propietario.ubic }}
+        <div class="mt-1">
+            <span class="lbl">PROPIETARIOS</span>
+            <div class="caratula-dos-lineas">
+                <div>{{ cl.propietario.linea1 }}</div>
+                <div class="caratula-subline">{{ cl.propietario.linea2 }}</div>
+            </div>
         </div>
     </div>
 
     <div class="caratula-band caratula-band-yellow">
-        <div><span class="lbl">TURISTA</span>
-            {{ cl.turista.dni }} {{ cl.turista.nombre }} {{ cl.turista.dom }}
+        <div>
+            <span class="lbl">TURISTA</span>
+            <div class="caratula-dos-lineas">
+                <div>{{ cl.turista.linea1 }}</div>
+                <div class="caratula-subline">{{ cl.turista.dom }}</div>
+            </div>
         </div>
-        <div class="mt-1"><span class="lbl">GARANTE</span> {{ cl.garante_id }}</div>
+        <div class="mt-1">
+            <span class="lbl">GARANTE</span>
+            <span class="caratula-valor-pipe">{{ cl.garante_linea }}</span>
+        </div>
     </div>
 
     <div class="caratula-band caratula-band-green">
-        <div><span class="lbl">CARATULA</span> {{ cl.caratula_rotulo }}</div>
+        <div><span class="lbl">CARÁTULA</span> {{ cl.caratula_rotulo }}</div>
 
         <div class="caratula-grid">
             <div class="caratula-cell span-4">
@@ -102,13 +118,23 @@
             </div>
         </div>
 
-        <div class="caratula-footer-row">
-            <span><strong>PRODUCTOR</strong> {{ cl.productor }}</span>
-            <span><strong>TERCEROS</strong> {{ cl.terceros }}</span>
-            <span><strong>ORIGEN OPERACION</strong> {{ cl.origen_operacion }}</span>
-            <span><strong>ESTADO</strong> {{ cl.estado_txt }}</span>
-            <span><strong>LOCACION MENSUAL</strong> {{ cl.locacion_mensual }}</span>
-            <span><strong>CARPETA</strong> {{ cl.carpeta }}</span>
+        <div class="caratula-green-footer">
+            <div class="caratula-green-footer-left">
+                <span><strong>PRODUCTOR</strong> {{ cl.productor }}</span>
+                <span><strong>TERCEROS</strong> {{ cl.terceros }}</span>
+                <span><strong>ORIGEN OPERACIÓN</strong> {{ cl.origen_operacion }}</span>
+                <span><strong>ESTADO</strong> {{ cl.estado_txt }}</span>
+            </div>
+            <div class="caratula-legacy-mini-box" aria-label="Locación mensual y carpeta">
+                <div class="mini-row">
+                    <span class="k">LOCACIÓN MENSUAL</span>
+                    <span class="v">{{ cl.locacion_mensual }}</span>
+                </div>
+                <div class="mini-row">
+                    <span class="k">CARPETA</span>
+                    <span class="v">{{ cl.carpeta }}</span>
+                </div>
+            </div>
         </div>
     </div>
 
