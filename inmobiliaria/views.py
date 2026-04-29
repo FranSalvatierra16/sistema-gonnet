@@ -1417,6 +1417,7 @@ def administracion_propiedades_operaciones(request):
             {
                 'fecha': g.fecha_creacion,
                 'concepto': (getattr(g, 'descripcion', None) or getattr(g, 'concepto', None) or '-'),
+                'detalle': (getattr(g, 'observaciones', None) or '').strip(),
                 'estado': 'Liquidado' if g.liquidacion_id else 'Pendiente',
                 'liquidacion_id': g.liquidacion_id,
                 'monto': g.monto or Decimal('0'),
@@ -1425,12 +1426,37 @@ def administracion_propiedades_operaciones(request):
             }
             for g in gastos
         ]
+        def _detalle_movimiento(mov):
+            raw = (getattr(mov, 'concepto_detalle', None) or '').strip()
+            if not raw:
+                return ''
+            try:
+                data = json.loads(raw)
+            except Exception:
+                return ''
+            if isinstance(data, dict):
+                conceptos = data.get('conceptos') if isinstance(data.get('conceptos'), list) else []
+            elif isinstance(data, list):
+                conceptos = data
+            else:
+                conceptos = []
+            obs = []
+            for item in conceptos:
+                if not isinstance(item, dict):
+                    continue
+                t = str(item.get('observaciones') or '').strip()
+                if not t or t.lower() in ('sin observaciones', 'sin observaciones.'):
+                    continue
+                obs.append(t)
+            return ' | '.join(obs)[:400]
+
         for m in movimientos:
             if m.tipo != TipoMovimientoCajaEnum.EGRESO:
                 continue
             gastos_items.append({
                 'fecha': m.fecha,
                 'concepto': f"Egreso de caja: {(m.concepto or '-').strip() or '-'}",
+                'detalle': _detalle_movimiento(m),
                 'estado': 'Impacta en caja',
                 'liquidacion_id': None,
                 'monto': m.monto_total or Decimal('0'),

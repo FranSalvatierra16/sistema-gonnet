@@ -161,7 +161,7 @@
                     <table class="table table-sm table-striped mb-0">
                         <thead>
                             <tr>
-                                <th>Fecha</th><th>Concepto</th><th>Origen</th><th>Cargado por</th><th>Estado</th><th>Liquidación</th><th class="text-end">Monto</th>
+                                <th>Fecha</th><th>Concepto</th><th>Detalle</th><th class="text-end">Monto</th><th>Cargado por</th><th>Estado</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -169,13 +169,12 @@
                             <tr>
                                 <td>{{ g.fecha|date:"d/m/Y H:i" }}</td>
                                 <td>{{ g.concepto|default:"-" }}</td>
-                                <td>{{ g.origen }}</td>
+                                <td>{{ g.detalle|default:"-" }}</td>
+                                <td class="text-end">${{ g.monto|format_price }}</td>
                                 <td>{{ g.empleado|default:"-" }}</td>
                                 <td>{{ g.estado }}</td>
-                                <td>{% if g.liquidacion_id %}#{{ g.liquidacion_id }}{% else %}-{% endif %}</td>
-                                <td class="text-end">${{ g.monto|format_price }}</td>
                             </tr>
-                            {% empty %}<tr><td colspan="7" class="text-center text-muted">Sin gastos</td></tr>{% endfor %}
+                            {% empty %}<tr><td colspan="6" class="text-center text-muted">Sin gastos</td></tr>{% endfor %}
                         </tbody>
                     </table>
                 </div>
