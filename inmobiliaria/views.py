@@ -1284,13 +1284,21 @@ def administracion_propiedades_operaciones(request):
         fecha_desde, fecha_hasta = fecha_hasta, fecha_desde
         fecha_desde_s, fecha_hasta_s = fecha_desde.strftime('%Y-%m-%d'), fecha_hasta.strftime('%Y-%m-%d')
 
+    def _safe_render(context):
+        try:
+            return render(request, 'inmobiliaria/administracion/operaciones_propiedad.html', context)
+        except Exception:
+            logger.exception('administracion_propiedades_operaciones: error al renderizar template')
+            # Último fallback para evitar 500 incluso si el template falla.
+            return HttpResponse('Error al cargar la pantalla de operaciones. Reintentá en unos segundos.', status=200)
+
     contexto_base = {
         'termino': termino,
         'propiedad_id': propiedad_id,
         'fecha_desde': fecha_desde_s,
         'fecha_hasta': fecha_hasta_s,
         'propiedad': None,
-        'coincidencias': Propiedad.objects.none(),
+        'coincidencias': [],
         'reservas': [],
         'contratos': [],
         'cuotas': [],
@@ -1313,7 +1321,7 @@ def administracion_propiedades_operaciones(request):
             .order_by('direccion')
         )
         propiedad = None
-        coincidencias = Propiedad.objects.none()
+        coincidencias = []
 
         if propiedad_id.isdigit():
             propiedad = propiedades_qs.filter(id=int(propiedad_id)).first()
@@ -1321,7 +1329,7 @@ def administracion_propiedades_operaciones(request):
             if termino.isdigit():
                 propiedad = propiedades_qs.filter(id=int(termino)).first()
             if not propiedad:
-                coincidencias = propiedades_qs.filter(
+                coincidencias = list(propiedades_qs.filter(
                     Q(direccion__icontains=termino) |
                     Q(ubicacion__icontains=termino) |
                     Q(propietario__nombre__icontains=termino) |
@@ -1329,14 +1337,14 @@ def administracion_propiedades_operaciones(request):
                     Q(propietario__dni__icontains=termino) |
                     Q(propietario__cuit__icontains=termino) |
                     Q(propietario__email__icontains=termino)
-                )[:30]
-                if coincidencias.count() == 1:
-                    propiedad = coincidencias.first()
+                )[:30])
+                if len(coincidencias) == 1:
+                    propiedad = coincidencias[0]
 
         contexto_base['propiedad'] = propiedad
         contexto_base['coincidencias'] = coincidencias
         if not propiedad:
-            return render(request, 'inmobiliaria/administracion/operaciones_propiedad.html', contexto_base)
+            return _safe_render(contexto_base)
 
         reservas_qs = Reserva.objects.filter(propiedad=propiedad, eliminada=False).select_related('cliente', 'vendedor')
         contratos_qs = ContratoAlquiler.objects.filter(propiedad=propiedad).select_related('inquilino', 'vendedor')
@@ -1453,13 +1461,21 @@ def administracion_propiedades_operaciones(request):
                 'detalle': _detalle_mov(m),
                 'monto': Decimal(str(getattr(m, 'monto_total', 0) or 0)),
             })
-        gastos_items.sort(
-            key=lambda x: (
-                datetime.combine(x['fecha'], datetime.min.time()) if isinstance(x.get('fecha'), date) and not isinstance(x.get('fecha'), datetime)
-                else (x.get('fecha') or datetime.min)
-            ),
-            reverse=True
-        )
+        def _fecha_sort_key(item):
+            f = item.get('fecha')
+            if isinstance(f, datetime):
+                try:
+                    return f.timestamp()
+                except Exception:
+                    return 0
+            if isinstance(f, date):
+                try:
+                    return datetime.combine(f, datetime.min.time()).timestamp()
+                except Exception:
+                    return 0
+            return 0
+
+        gastos_items.sort(key=_fecha_sort_key, reverse=True)
 
         ag_pagos = pagos_qs.aggregate(t=Sum('monto'))
         ag_gastos = gastos_qs.aggregate(t=Sum('monto'))
@@ -1485,11 +1501,11 @@ def administracion_propiedades_operaciones(request):
             'total_pagos': ag_pagos.get('t') or Decimal('0'),
             'total_gastos': (ag_gastos.get('t') or Decimal('0')) + total_egresos,
         })
-        return render(request, 'inmobiliaria/administracion/operaciones_propiedad.html', contexto_base)
+        return _safe_render(contexto_base)
     except Exception:
         logger.exception('administracion_propiedades_operaciones: error fatal')
         messages.error(request, 'Ocurrió un error al cargar operaciones. Intentá nuevamente.')
-        return render(request, 'inmobiliaria/administracion/operaciones_propiedad.html', contexto_base)
+        return _safe_render(contexto_base)
 
 from xhtml2pdf import pisa
 from io import BytesIO
