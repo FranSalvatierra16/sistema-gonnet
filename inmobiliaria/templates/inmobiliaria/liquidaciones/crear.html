@@ -1210,6 +1210,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 form.appendChild(inp);
             });
         }
+        const btnEnviar = form ? form.querySelector('button[type="submit"]') : null;
+        if (btnEnviar) {
+            btnEnviar.disabled = true;
+            btnEnviar.classList.add('disabled');
+        }
         return true;
     };
 });

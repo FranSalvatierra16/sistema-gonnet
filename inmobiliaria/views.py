@@ -17766,13 +17766,19 @@ def crear_liquidacion(request, reserva_id=None):
         reserva = get_object_or_404(Reserva, id=reserva_id, sucursal=request.user.sucursal)
 
         # Verificar si ya existe una liquidación para esta reserva
-        liquidacion_existente = LiquidacionPropietario.objects.filter(
-            reserva=reserva,
-            estado='pendiente'
-        ).first()
+        liquidacion_existente = (
+            LiquidacionPropietario.objects.filter(reserva=reserva)
+            .exclude(estado='cancelada')
+            .order_by('-id')
+            .first()
+        )
 
         if liquidacion_existente:
-            messages.warning(request, 'Ya existe una liquidación pendiente para esta reserva.')
+            messages.warning(
+                request,
+                f'Ya existe una liquidación para esta reserva (nº {liquidacion_existente.id}, '
+                f'{liquidacion_existente.get_estado_display()}).',
+            )
             return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion_existente.id)
 
     if request.method == 'POST':
@@ -17941,72 +17947,101 @@ def crear_liquidacion(request, reserva_id=None):
                             'Las cuotas seleccionadas deben ser todas del mismo contrato de alquiler.'
                         )
 
-            liquidacion = LiquidacionPropietario.objects.create(
-                propietario=propiedad.propietario,
-                propiedad=propiedad,
-                reserva=reserva,
-                contrato=contrato_fk,
-                estado='pendiente',
-                monto_total_operacion=monto_total,
-                monto_propietario=monto_propietario,
-                monto_inmobiliaria=monto_inmobiliaria,
-                monto_cochera=monto_cochera,
-                monto_fondo_mantenimiento=monto_fondo_mantenimiento,
-                fecha_desde=datetime.strptime(fecha_desde, '%Y-%m-%d').date() if fecha_desde else None,
-                fecha_hasta=datetime.strptime(fecha_hasta, '%Y-%m-%d').date() if fecha_hasta else None,
-                observaciones=observaciones,
-                operaciones_incluidas=operaciones_incluidas,
-                sucursal=request.user.sucursal,
-                usuario_creacion=request.user
-            )
+            reserva_ids_nuevas = set()
+            for o in operaciones_incluidas:
+                if not isinstance(o, dict):
+                    continue
+                if (o.get('tipo') or '').lower() != 'reserva':
+                    continue
+                try:
+                    reserva_ids_nuevas.add(int(o['id']))
+                except (KeyError, TypeError, ValueError):
+                    pass
+            if reserva is not None:
+                reserva_ids_nuevas.add(int(reserva.id))
 
-            # Asociar gastos pendientes seleccionados a la liquidación
-            gastos_seleccionados = request.POST.getlist('gastos_seleccionados[]')
-            if gastos_seleccionados:
-                for gasto_id_str in gastos_seleccionados:
-                    try:
-                        # Verificar si es un movimiento de caja (prefijo 'movimiento_')
-                        if gasto_id_str.startswith('movimiento_'):
-                            movimiento_id = int(gasto_id_str.replace('movimiento_', ''))
-                            movimiento = MovimientoCaja.objects.get(
-                                id=movimiento_id,
-                                propiedad=propiedad,
-                                tipo=TipoMovimientoCajaEnum.EGRESO,
-                                sucursal=request.user.sucursal
-                            )
-                            # Solo permitir egresos descontables al propietario
-                            if movimiento.a_descontar not in ('propietario', 'oficina', None, ''):
-                                continue
-                            # Crear un GastoPropietario desde el movimiento de caja
-                            desc_mov = movimiento.descripcion_para_gasto_liquidacion_propietario()[:200]
-                            gasto = GastoPropietario.objects.create(
-                                liquidacion=liquidacion,
-                                propietario=propiedad.propietario,
-                                propiedad=propiedad,
-                                descripcion=desc_mov,
-                                monto=movimiento.monto_total,
-                                fecha_gasto=movimiento.fecha.date() if movimiento.fecha else None,
-                                observaciones=f'Movimiento de caja #{movimiento.id}',
-                                aceptado=True,
-                                sucursal=request.user.sucursal
-                            )
-                        else:
-                            # Es un gasto manual existente
-                            gasto_id = int(gasto_id_str)
-                            gasto = GastoPropietario.objects.get(
-                                id=gasto_id,
-                                propietario=propiedad.propietario,
-                                liquidacion__isnull=True,
-                                sucursal=request.user.sucursal
-                            )
-                            gasto.liquidacion = liquidacion
-                            gasto.aceptado = True  # Automáticamente aceptado al asociarlo
-                            gasto.save()
-                    except (GastoPropietario.DoesNotExist, MovimientoCaja.DoesNotExist, ValueError):
-                        pass  # Ignorar si el gasto/movimiento no existe o ya está asociado
+            with transaction.atomic():
+                # Bloquea la fila de propiedad para evitar dos liquidaciones simultáneas
+                # de la misma operación (doble clic / doble POST).
+                Propiedad.objects.select_for_update().get(
+                    pk=propiedad.pk, sucursal=request.user.sucursal
+                )
+                if reserva_ids_nuevas:
+                    ya_usadas = _reserva_ids_ya_liquidadas_propiedad(propiedad)
+                    conflicto = reserva_ids_nuevas & ya_usadas
+                    if conflicto:
+                        lista = ', '.join(str(x) for x in sorted(conflicto))
+                        raise ValueError(
+                            f'La(s) reserva(s) / operación(es) {lista} ya tiene(n) una liquidación '
+                            f'registrada (no cancelada). No se puede duplicar.'
+                        )
 
-            # Recalcular monto a pagar con los gastos
-            liquidacion.calcular_monto_a_pagar()
+                liquidacion = LiquidacionPropietario.objects.create(
+                    propietario=propiedad.propietario,
+                    propiedad=propiedad,
+                    reserva=reserva,
+                    contrato=contrato_fk,
+                    estado='pendiente',
+                    monto_total_operacion=monto_total,
+                    monto_propietario=monto_propietario,
+                    monto_inmobiliaria=monto_inmobiliaria,
+                    monto_cochera=monto_cochera,
+                    monto_fondo_mantenimiento=monto_fondo_mantenimiento,
+                    fecha_desde=datetime.strptime(fecha_desde, '%Y-%m-%d').date() if fecha_desde else None,
+                    fecha_hasta=datetime.strptime(fecha_hasta, '%Y-%m-%d').date() if fecha_hasta else None,
+                    observaciones=observaciones,
+                    operaciones_incluidas=operaciones_incluidas,
+                    sucursal=request.user.sucursal,
+                    usuario_creacion=request.user
+                )
+
+                # Asociar gastos pendientes seleccionados a la liquidación
+                gastos_seleccionados = request.POST.getlist('gastos_seleccionados[]')
+                if gastos_seleccionados:
+                    for gasto_id_str in gastos_seleccionados:
+                        try:
+                            # Verificar si es un movimiento de caja (prefijo 'movimiento_')
+                            if gasto_id_str.startswith('movimiento_'):
+                                movimiento_id = int(gasto_id_str.replace('movimiento_', ''))
+                                movimiento = MovimientoCaja.objects.get(
+                                    id=movimiento_id,
+                                    propiedad=propiedad,
+                                    tipo=TipoMovimientoCajaEnum.EGRESO,
+                                    sucursal=request.user.sucursal
+                                )
+                                # Solo permitir egresos descontables al propietario
+                                if movimiento.a_descontar not in ('propietario', 'oficina', None, ''):
+                                    continue
+                                # Crear un GastoPropietario desde el movimiento de caja
+                                desc_mov = movimiento.descripcion_para_gasto_liquidacion_propietario()[:200]
+                                GastoPropietario.objects.create(
+                                    liquidacion=liquidacion,
+                                    propietario=propiedad.propietario,
+                                    propiedad=propiedad,
+                                    descripcion=desc_mov,
+                                    monto=movimiento.monto_total,
+                                    fecha_gasto=movimiento.fecha.date() if movimiento.fecha else None,
+                                    observaciones=f'Movimiento de caja #{movimiento.id}',
+                                    aceptado=True,
+                                    sucursal=request.user.sucursal
+                                )
+                            else:
+                                # Es un gasto manual existente
+                                gasto_id = int(gasto_id_str)
+                                gasto = GastoPropietario.objects.get(
+                                    id=gasto_id,
+                                    propietario=propiedad.propietario,
+                                    liquidacion__isnull=True,
+                                    sucursal=request.user.sucursal
+                                )
+                                gasto.liquidacion = liquidacion
+                                gasto.aceptado = True  # Automáticamente aceptado al asociarlo
+                                gasto.save()
+                        except (GastoPropietario.DoesNotExist, MovimientoCaja.DoesNotExist, ValueError):
+                            pass  # Ignorar si el gasto/movimiento no existe o ya está asociado
+
+                # Recalcular monto a pagar con los gastos
+                liquidacion.calcular_monto_a_pagar()
 
             messages.success(request, 'Liquidación creada correctamente.')
             return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion.id)
@@ -18134,6 +18169,31 @@ def _cuotas_excluidas_por_liquidaciones_contrato(propiedad):
             ).values_list('id', flat=True):
                 cuotas_excluidas.add(cq_id)
     return cuotas_excluidas
+
+
+def _reserva_ids_ya_liquidadas_propiedad(propiedad):
+    """
+    IDs de reserva que ya están en una liquidación de esta propiedad no cancelada
+    (FK reserva o tipo «reserva» en operaciones_incluidas).
+    """
+    usados = set()
+    for liq in (
+        LiquidacionPropietario.objects.filter(propiedad=propiedad)
+        .exclude(estado='cancelada')
+        .only('reserva_id', 'operaciones_incluidas')
+    ):
+        if liq.reserva_id:
+            usados.add(int(liq.reserva_id))
+        for op in liq.operaciones_incluidas or []:
+            if not isinstance(op, dict):
+                continue
+            if (op.get('tipo') or '').lower() != 'reserva':
+                continue
+            try:
+                usados.add(int(op['id']))
+            except (KeyError, TypeError, ValueError):
+                pass
+    return usados
 
 
 def _monto_propietario_inmobiliaria_cuota_mensual(propiedad, monto_cuota):
