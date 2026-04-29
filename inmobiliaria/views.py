@@ -1364,7 +1364,7 @@ def administracion_propiedades_operaciones(request):
             reservas_base = reservas_base.filter(fecha_fin__gte=fecha_desde)
             contratos_base = contratos_base.filter(fecha_fin__gte=fecha_desde)
             cuotas_base = cuotas_base.filter(
-                Q(fecha_pago__date__gte=fecha_desde) |
+                Q(fecha_pago__gte=fecha_desde) |
                 Q(fecha_pago__isnull=True, fecha_vencimiento__gte=fecha_desde)
             )
             gastos_base = gastos_base.filter(fecha_creacion__date__gte=fecha_desde)
@@ -1376,7 +1376,7 @@ def administracion_propiedades_operaciones(request):
             reservas_base = reservas_base.filter(fecha_inicio__lte=fecha_hasta)
             contratos_base = contratos_base.filter(fecha_inicio__lte=fecha_hasta)
             cuotas_base = cuotas_base.filter(
-                Q(fecha_pago__date__lte=fecha_hasta) |
+                Q(fecha_pago__lte=fecha_hasta) |
                 Q(fecha_pago__isnull=True, fecha_vencimiento__lte=fecha_hasta)
             )
             gastos_base = gastos_base.filter(fecha_creacion__date__lte=fecha_hasta)
