@@ -28,7 +28,7 @@
             <form method="get" class="row g-2 align-items-end">
                 <div class="col-md-3">
                     <label class="form-label small mb-0">Buscar</label>
-                    <input type="text" name="q" class="form-control form-control-sm" placeholder="Cliente, dirección, ficha…" value="{{ q }}">
+                    <input type="text" name="q" class="form-control form-control-sm" placeholder="Cliente, dirección, título, ubicación, propietario, Nº operación…" value="{{ q }}">
                 </div>
                 <div class="col-md-2">
                     <label class="form-label small mb-0">Desde</label>
@@ -54,7 +54,10 @@
                     <a class="btn btn-outline-primary btn-sm" href="{% url 'inmobiliaria:lista_caratulas' %}?todo=1&q={{ q|urlencode }}&tipo={{ tipo_filtro|urlencode }}">Todo</a>
                 </div>
             </form>
-            <p class="small text-muted mb-0 mt-2">Por defecto se listan solo operaciones con fecha de <strong>hoy</strong>; podés ampliar el rango o abrir <strong>Todo</strong>.</p>
+            <p class="small text-muted mb-0 mt-2">
+                Por defecto el rango <strong>Desde / Hasta</strong> es <strong>hoy</strong>: se listan reservas y contratos cuyo período <strong>se solapa</strong> con esas fechas (entrada/salida o inicio/fin de contrato).
+                Podés ampliar el rango o usar <strong>Todo</strong> para quitar el filtro de fechas.
+            </p>
         </div>
     </div>
 
@@ -66,6 +69,7 @@
                     <th>Nº</th>
                     <th>Fecha</th>
                     <th>Carátula</th>
+                    <th>Propiedad</th>
                     <th>Dirección</th>
                     <th>Piso / Dto</th>
                     <th>Ficha</th>
@@ -80,6 +84,10 @@
                     <td>{{ f.numero }}</td>
                     <td>{{ f.fecha|date:"d/m/Y" }}</td>
                     <td>{{ f.caratula }}</td>
+                    <td class="small">
+                        <strong>{{ f.propiedad_linea }}</strong>
+                        {% if f.propiedad_sub %}<br><span class="text-muted">{{ f.propiedad_sub|truncatechars:56 }}</span>{% endif %}
+                    </td>
                     <td class="small">{{ f.direccion|truncatechars:48 }}</td>
                     <td class="small text-muted">{{ f.piso_dto }}</td>
                     <td><code>{{ f.ficha }}</code></td>
@@ -95,7 +103,7 @@
                     </td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="9" class="text-center text-muted py-4">No hay operaciones con los filtros actuales.</td></tr>
+                <tr><td colspan="10" class="text-center text-muted py-4">No hay operaciones con los filtros actuales.</td></tr>
                 {% endfor %}
             </tbody>
         </table>

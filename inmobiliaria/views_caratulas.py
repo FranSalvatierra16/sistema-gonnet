@@ -43,6 +43,22 @@ def _propiedad_desc_corta(prop):
     return f'{amb_txt}{tin} {(prop.direccion or "").strip()[:55]}'.strip().upper()
 
 
+def _etiqueta_propiedad_lista(prop):
+    """Título/nombre de la propiedad + línea secundaria (dirección / ubicación) para listados."""
+    if not prop:
+        return '—', ''
+    tit = (getattr(prop, 'titulo', None) or '').strip()
+    direc = (prop.direccion or '').strip()
+    ubic = (getattr(prop, 'ubicacion', None) or '').strip()
+    if tit:
+        sub = ' · '.join([p for p in (direc, ubic) if p])
+        return tit, sub
+    if direc:
+        sub = ubic if ubic and ubic.lower() != direc.lower() else ''
+        return direc, sub
+    return ubic or '—', ''
+
+
 def _direccion_piso_depto_papel(prop):
     if not prop:
         return '—'
@@ -480,26 +496,50 @@ def lista_caratulas(request):
         reservas = reservas.exclude(propiedad__tipo_cliente='ESTUDIANTE')
 
     if q:
-        reservas = reservas.filter(
+        q_res = (
             Q(propiedad__direccion__icontains=q)
+            | Q(propiedad__ubicacion__icontains=q)
+            | Q(propiedad__titulo__icontains=q)
             | Q(propiedad__id__icontains=q)
+            | Q(propiedad__propietario__nombre__icontains=q)
+            | Q(propiedad__propietario__apellido__icontains=q)
+            | Q(propiedad__propietario__dni__icontains=q)
+            | Q(propiedad__propietario__cuit__icontains=q)
+            | Q(propiedad__propietario__email__icontains=q)
             | Q(cliente__nombre__icontains=q)
             | Q(cliente__apellido__icontains=q)
         )
+        if q.isdigit():
+            try:
+                q_res |= Q(id=int(q))
+            except (TypeError, ValueError):
+                pass
+        reservas = reservas.filter(q_res)
 
+    dr_desde = None
+    dr_hasta = None
     if not periodo_completo:
         if fecha_desde:
             try:
-                d = datetime.strptime(fecha_desde, '%Y-%m-%d').date()
-                reservas = reservas.filter(fecha_creacion__date__gte=d)
+                dr_desde = datetime.strptime(fecha_desde, '%Y-%m-%d').date()
             except ValueError:
                 pass
         if fecha_hasta:
             try:
-                d = datetime.strptime(fecha_hasta, '%Y-%m-%d').date()
-                reservas = reservas.filter(fecha_creacion__date__lte=d)
+                dr_hasta = datetime.strptime(fecha_hasta, '%Y-%m-%d').date()
             except ValueError:
                 pass
+        if dr_desde and dr_hasta and dr_hasta < dr_desde:
+            dr_desde, dr_hasta = dr_hasta, dr_desde
+        if dr_desde and dr_hasta:
+            reservas = reservas.filter(
+                fecha_inicio__lte=dr_hasta,
+                fecha_fin__gte=dr_desde,
+            )
+        elif dr_desde:
+            reservas = reservas.filter(fecha_fin__gte=dr_desde)
+        elif dr_hasta:
+            reservas = reservas.filter(fecha_inicio__lte=dr_hasta)
 
     contratos = ContratoAlquiler.objects.filter(sucursal=sucursal).select_related(
         'propiedad', 'inquilino', 'vendedor'
@@ -514,25 +554,35 @@ def lista_caratulas(request):
     contratos = contratos.order_by('-fecha_creacion', '-id')
 
     if q:
-        contratos = contratos.filter(
+        q_ctr = (
             Q(propiedad__direccion__icontains=q)
+            | Q(propiedad__ubicacion__icontains=q)
+            | Q(propiedad__titulo__icontains=q)
             | Q(propiedad__id__icontains=q)
+            | Q(propiedad__propietario__nombre__icontains=q)
+            | Q(propiedad__propietario__apellido__icontains=q)
+            | Q(propiedad__propietario__dni__icontains=q)
+            | Q(propiedad__propietario__cuit__icontains=q)
+            | Q(propiedad__propietario__email__icontains=q)
             | Q(inquilino__nombre__icontains=q)
             | Q(inquilino__apellido__icontains=q)
         )
+        if q.isdigit():
+            try:
+                q_ctr |= Q(id=int(q))
+            except (TypeError, ValueError):
+                pass
+        contratos = contratos.filter(q_ctr)
     if not periodo_completo:
-        if fecha_desde:
-            try:
-                d = datetime.strptime(fecha_desde, '%Y-%m-%d').date()
-                contratos = contratos.filter(fecha_operacion__gte=d)
-            except ValueError:
-                pass
-        if fecha_hasta:
-            try:
-                d = datetime.strptime(fecha_hasta, '%Y-%m-%d').date()
-                contratos = contratos.filter(fecha_operacion__lte=d)
-            except ValueError:
-                pass
+        if dr_desde and dr_hasta:
+            contratos = contratos.filter(
+                fecha_inicio__lte=dr_hasta,
+                fecha_fin__gte=dr_desde,
+            )
+        elif dr_desde:
+            contratos = contratos.filter(fecha_fin__gte=dr_desde)
+        elif dr_hasta:
+            contratos = contratos.filter(fecha_inicio__lte=dr_hasta)
 
     filas = []
 
@@ -544,14 +594,17 @@ def lista_caratulas(request):
             pi = (p.piso or '').strip() or '—'
             dep = (p.departamento or '').strip() or '—'
             piso_dto = f'{pi} / {dep}'
+        plinea, psub = _etiqueta_propiedad_lista(p)
         filas.append(
             {
                 'kind': 'reserva',
                 'pk': r.id,
                 'tipo': tipo,
                 'numero': r.id,
-                'fecha': r.fecha_creacion.date() if r.fecha_creacion else r.fecha_inicio,
+                'fecha': r.fecha_inicio,
                 'caratula': _caratula_nombre_cliente(r.cliente),
+                'propiedad_linea': plinea,
+                'propiedad_sub': psub,
                 'direccion': p.direccion if p else '—',
                 'piso_dto': piso_dto,
                 'ficha': p.id if p else '—',
@@ -573,6 +626,7 @@ def lista_caratulas(request):
             pi = (p.piso or '').strip() or '—'
             dep = (p.departamento or '').strip() or '—'
             piso_dto = f'{pi} / {dep}'
+        clinea, csub = _etiqueta_propiedad_lista(p)
         filas.append(
             {
                 'kind': 'contrato',
@@ -581,6 +635,8 @@ def lista_caratulas(request):
                 'numero': c.id,
                 'fecha': c.fecha_operacion,
                 'caratula': _caratula_nombre_cliente(c.inquilino),
+                'propiedad_linea': clinea,
+                'propiedad_sub': csub,
                 'direccion': p.direccion if p else '—',
                 'piso_dto': piso_dto,
                 'ficha': p.id if p else '—',
