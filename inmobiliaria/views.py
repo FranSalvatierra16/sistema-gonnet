@@ -1287,10 +1287,14 @@ def administracion_propiedades_operaciones(request):
     def _safe_render(context):
         try:
             return render(request, 'inmobiliaria/administracion/operaciones_propiedad.html', context)
-        except Exception:
+        except Exception as e:
             logger.exception('administracion_propiedades_operaciones: error al renderizar template')
             # Último fallback para evitar 500 incluso si el template falla.
-            return HttpResponse('Error al cargar la pantalla de operaciones. Reintentá en unos segundos.', status=200)
+            detalle = str(e).strip() or e.__class__.__name__
+            return HttpResponse(
+                f'Error al cargar la pantalla de operaciones. Detalle: {detalle}',
+                status=200
+            )
 
     contexto_base = {
         'termino': termino,
@@ -3031,16 +3035,25 @@ def listado_entradas(request):
             nov = (getattr(c.vendedor, 'nombre', '') or '').strip()
             vendedor = (apv or nov or '—').upper()
 
-        # Saldo a cobrar en este reporte: operación inicial del contrato.
-        base_operacion_inicial = (
-            Decimal(str(c.precio_mensual or 0))
-            + Decimal(str(c.honorarios_referencia or 0))
-            + Decimal(str(c.sellados_referencia or 0))
-        )
-        pagado_operacion_inicial = _pagado_primera_operacion(movs_por_contrato.get(c.id, []))
-        saldo = base_operacion_inicial - pagado_operacion_inicial
-        if saldo < 0:
-            saldo = Decimal('0')
+        # Saldo a cobrar en este reporte: neto a la posesión guardado en el contrato.
+        # Fallback: si aún no está persistido, se calcula con la misma lógica y se guarda.
+        saldo = Decimal(str(getattr(c, 'neto_a_posesion_referencia', 0) or 0))
+        if saldo <= 0:
+            base_operacion_inicial = (
+                Decimal(str(c.precio_mensual or 0))
+                + Decimal(str(c.honorarios_referencia or 0))
+                + Decimal(str(c.sellados_referencia or 0))
+            )
+            pagado_operacion_inicial = _pagado_primera_operacion(movs_por_contrato.get(c.id, []))
+            saldo = base_operacion_inicial - pagado_operacion_inicial
+            if saldo < 0:
+                saldo = Decimal('0')
+            if saldo != Decimal(str(getattr(c, 'neto_a_posesion_referencia', 0) or 0)):
+                try:
+                    c.neto_a_posesion_referencia = saldo
+                    c.save(update_fields=['neto_a_posesion_referencia'])
+                except Exception:
+                    pass
 
         entradas.append({
             'tipo': 'contrato',
@@ -15544,6 +15557,14 @@ def recibo_contrato_24(request, contrato_id):
         neto_a_posesion = Decimal(str(total_a_abonar)) - total_solo
         if neto_a_posesion < 0:
             neto_a_posesion = Decimal('0')
+
+        # Persistir referencia para reutilizar en reportes (Listado de Entradas).
+        try:
+            if contrato.neto_a_posesion_referencia != neto_a_posesion:
+                contrato.neto_a_posesion_referencia = neto_a_posesion
+                contrato.save(update_fields=['neto_a_posesion_referencia'])
+        except Exception:
+            pass
         
         subtotal = total_a_abonar
         total_contrato = total_a_abonar

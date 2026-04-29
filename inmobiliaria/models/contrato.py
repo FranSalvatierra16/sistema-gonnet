@@ -50,6 +50,13 @@ class ContratoAlquiler(models.Model):
         verbose_name='Sellados (referencia)',
         help_text='Monto informado al crear el contrato; precarga en operación principal.',
     )
+    neto_a_posesion_referencia = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        verbose_name='Neto a la posesión (referencia)',
+        help_text='Saldo neto de la operación inicial (recibo): total a abonar menos lo efectivamente pagado.',
+    )
     # Opcional: aumentos cada 3 meses. Lista alineada a trimestres 2, 3, … (índice 0 = meses 4–6).
     # null en un elemento o ausencia = repetir el monto del trimestre anterior (arranca en precio_mensual).
     precios_bloques = models.JSONField(
