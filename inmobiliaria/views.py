@@ -1453,9 +1453,16 @@ def administracion_propiedades_operaciones(request):
         for m in movimientos:
             if m.tipo != TipoMovimientoCajaEnum.EGRESO:
                 continue
+            concepto_mov = (
+                (getattr(m, 'listado_detalle_l1', None) or '').strip()
+                or (m.concepto or '').strip()
+                or '-'
+            )
+            if concepto_mov == '—':
+                concepto_mov = (m.concepto or '').strip() or '-'
             gastos_items.append({
                 'fecha': m.fecha,
-                'concepto': f"Egreso de caja: {(m.concepto or '-').strip() or '-'}",
+                'concepto': concepto_mov,
                 'detalle': _detalle_movimiento(m),
                 'estado': 'Impacta en caja',
                 'liquidacion_id': None,

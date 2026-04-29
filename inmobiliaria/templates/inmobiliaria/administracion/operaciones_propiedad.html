@@ -161,7 +161,7 @@
                     <table class="table table-sm table-striped mb-0">
                         <thead>
                             <tr>
-                                <th>Fecha</th><th>Concepto</th><th>Detalle</th><th class="text-end">Monto</th><th>Cargado por</th><th>Estado</th>
+                                <th>Fecha</th><th>Concepto</th><th>Detalle</th><th class="text-end">Monto</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -171,10 +171,8 @@
                                 <td>{{ g.concepto|default:"-" }}</td>
                                 <td>{{ g.detalle|default:"-" }}</td>
                                 <td class="text-end">${{ g.monto|format_price }}</td>
-                                <td>{{ g.empleado|default:"-" }}</td>
-                                <td>{{ g.estado }}</td>
                             </tr>
-                            {% empty %}<tr><td colspan="6" class="text-center text-muted">Sin gastos</td></tr>{% endfor %}
+                            {% empty %}<tr><td colspan="4" class="text-center text-muted">Sin gastos</td></tr>{% endfor %}
                         </tbody>
                     </table>
                 </div>
