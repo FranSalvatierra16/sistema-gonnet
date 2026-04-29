@@ -2,9 +2,10 @@
 {% load custom_filters %}
 
 {% block title %}Listado de Salidas{% endblock %}
+{% block page_container_class %}container-fluid px-2{% endblock %}
 
 {% block content %}
-<div class="container-fluid mt-4">
+<div class="w-100 mt-3" style="max-width: 100vw;">
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
         <div>
             <h1 class="h4 mb-1"><i class="fas fa-sign-out-alt text-danger"></i> Listado de Salidas</h1>
@@ -48,13 +49,14 @@
                             <th>Propietario</th>
                             <th>Operación</th>
                             <th>Dirección</th>
+                            <th>Piso</th>
+                            <th>Depto</th>
                             <th>Desde</th>
                             <th>Hasta</th>
                             <th class="text-end">Depósito</th>
                             <th>Intervino</th>
                             <th>Llave</th>
                             <th>Fecha</th>
-                            <th>Hora</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -65,17 +67,18 @@
                             <td>{{ s.propietario }}</td>
                             <td>{{ s.operacion }}</td>
                             <td>{{ s.direccion }}</td>
+                            <td>{{ s.piso }}</td>
+                            <td>{{ s.depto }}</td>
                             <td>{{ s.desde|date:"d/m/Y" }}</td>
                             <td>{{ s.hasta|date:"d/m/Y" }}</td>
                             <td class="text-end">${{ s.deposito|format_price }}</td>
                             <td>{{ s.intervino }}</td>
                             <td>{{ s.llave }}</td>
                             <td>{{ s.fecha|date:"d/m/Y" }}</td>
-                            <td>{{ s.hora }}</td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="12" class="text-center text-muted py-4">
+                            <td colspan="13" class="text-center text-muted py-4">
                                 No hay salidas para esa fecha.
                             </td>
                         </tr>
