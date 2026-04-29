@@ -1264,343 +1264,232 @@ def historial_propiedad_caja(request):
 def administracion_propiedades_operaciones(request):
     """
     Administración: buscador de operaciones por propiedad.
-    Implementación independiente de la vista de caja.
+    Versión robusta: nunca debe romper la pantalla con 500.
     """
-    termino = (request.GET.get('q') or '').strip()
-    propiedad_id = (request.GET.get('propiedad_id') or '').strip()
-    fecha_desde_s = (request.GET.get('fecha_desde') or '').strip()
-    fecha_hasta_s = (request.GET.get('fecha_hasta') or '').strip()
-
     def _parse_fecha(s):
         if not s:
             return None
         try:
             return datetime.strptime(s, '%Y-%m-%d').date()
-        except (ValueError, TypeError):
+        except Exception:
             return None
 
+    termino = (request.GET.get('q') or '').strip()
+    propiedad_id = (request.GET.get('propiedad_id') or '').strip()
+    fecha_desde_s = (request.GET.get('fecha_desde') or '').strip()
+    fecha_hasta_s = (request.GET.get('fecha_hasta') or '').strip()
     fecha_desde = _parse_fecha(fecha_desde_s)
     fecha_hasta = _parse_fecha(fecha_hasta_s)
     if fecha_desde and fecha_hasta and fecha_hasta < fecha_desde:
         fecha_desde, fecha_hasta = fecha_hasta, fecha_desde
         fecha_desde_s, fecha_hasta_s = fecha_desde.strftime('%Y-%m-%d'), fecha_hasta.strftime('%Y-%m-%d')
 
-    propiedades_qs = (
-        Propiedad.objects.filter(sucursal=request.user.sucursal)
-        .select_related('propietario', 'sucursal')
-        .order_by('direccion')
-    )
-
-    propiedad = None
-    coincidencias = Propiedad.objects.none()
-
-    if propiedad_id.isdigit():
-        propiedad = propiedades_qs.filter(id=int(propiedad_id)).first()
-    elif termino:
-        if termino.isdigit():
-            propiedad = propiedades_qs.filter(id=int(termino)).first()
-        if not propiedad:
-            coincidencias = propiedades_qs.filter(
-                Q(direccion__icontains=termino) |
-                Q(ubicacion__icontains=termino) |
-                Q(propietario__nombre__icontains=termino) |
-                Q(propietario__apellido__icontains=termino) |
-                Q(propietario__dni__icontains=termino) |
-                Q(propietario__cuit__icontains=termino) |
-                Q(propietario__email__icontains=termino)
-            )[:30]
-            if coincidencias.count() == 1:
-                propiedad = coincidencias.first()
-
-    reservas = Reserva.objects.none()
-    contratos = ContratoAlquiler.objects.none()
-    cuotas = CuotaMensual.objects.none()
-    gastos = GastoPropietario.objects.none()
-    liquidaciones = LiquidacionPropietario.objects.none()
-    pagos = Pago.objects.none()
-    movimientos = MovimientoCaja.objects.none()
-    gastos_items = []
-    total_ingresos = Decimal('0')
-    total_egresos = Decimal('0')
-    balance = Decimal('0')
-    total_pagos = Decimal('0')
-    total_gastos = Decimal('0')
-
-    if propiedad:
-        reservas_base = (
-            Reserva.objects.filter(propiedad=propiedad, eliminada=False)
-            .select_related('cliente', 'vendedor')
-        )
-        contratos_base = (
-            ContratoAlquiler.objects.filter(propiedad=propiedad)
-            .select_related('inquilino', 'vendedor')
-        )
-        cuotas_base = (
-            CuotaMensual.objects.filter(contrato__propiedad=propiedad)
-            .select_related('contrato')
-        )
-        gastos_base = (
-            GastoPropietario.objects.filter(
-                Q(propiedad=propiedad) |
-                Q(propiedad__isnull=True, propietario=propiedad.propietario)
-            )
-            .select_related('liquidacion')
-        )
-        liquidaciones_base = (
-            LiquidacionPropietario.objects.filter(propiedad=propiedad)
-            .exclude(estado='cancelada')
-            .select_related('reserva', 'contrato', 'movimiento_caja')
-        )
-        pagos_base = (
-            Pago.objects.filter(reserva__propiedad=propiedad, reserva__eliminada=False)
-            .select_related('reserva', 'concepto')
-        )
-        movimientos_base = (
-            MovimientoCaja.objects.filter(sucursal=request.user.sucursal, propiedad=propiedad)
-            .select_related('caja', 'empleado')
-        )
-
-        if fecha_desde:
-            reservas_base = reservas_base.filter(fecha_fin__gte=fecha_desde)
-            contratos_base = contratos_base.filter(fecha_fin__gte=fecha_desde)
-            cuotas_base = cuotas_base.filter(
-                Q(fecha_pago__gte=fecha_desde) |
-                Q(fecha_pago__isnull=True, fecha_vencimiento__gte=fecha_desde)
-            )
-            gastos_base = gastos_base.filter(fecha_creacion__date__gte=fecha_desde)
-            liquidaciones_base = liquidaciones_base.filter(fecha_creacion__date__gte=fecha_desde)
-            pagos_base = pagos_base.filter(fecha__gte=fecha_desde)
-            movimientos_base = movimientos_base.filter(fecha__date__gte=fecha_desde)
-
-        if fecha_hasta:
-            reservas_base = reservas_base.filter(fecha_inicio__lte=fecha_hasta)
-            contratos_base = contratos_base.filter(fecha_inicio__lte=fecha_hasta)
-            cuotas_base = cuotas_base.filter(
-                Q(fecha_pago__lte=fecha_hasta) |
-                Q(fecha_pago__isnull=True, fecha_vencimiento__lte=fecha_hasta)
-            )
-            gastos_base = gastos_base.filter(fecha_creacion__date__lte=fecha_hasta)
-            liquidaciones_base = liquidaciones_base.filter(fecha_creacion__date__lte=fecha_hasta)
-            pagos_base = pagos_base.filter(fecha__lte=fecha_hasta)
-            movimientos_base = movimientos_base.filter(fecha__date__lte=fecha_hasta)
-
-        pagos_aggr = pagos_base.aggregate(total=Sum('monto'))
-        total_pagos = pagos_aggr.get('total') or Decimal('0')
-
-        gastos_aggr = gastos_base.aggregate(total=Sum('monto'))
-        total_gastos = gastos_aggr.get('total') or Decimal('0')
-
-        mov_aggr = movimientos_base.aggregate(
-            ingresos=Sum(
-                F('monto_efectivo') + F('monto_cheque') + F('monto_tarjeta') + F('monto_deposito'),
-                filter=Q(tipo=TipoMovimientoCajaEnum.INGRESO),
-            ),
-            egresos=Sum(
-                F('monto_efectivo') + F('monto_cheque') + F('monto_tarjeta') + F('monto_deposito'),
-                filter=Q(tipo=TipoMovimientoCajaEnum.EGRESO),
-            ),
-        )
-        total_ingresos = mov_aggr.get('ingresos') or Decimal('0')
-        total_egresos = mov_aggr.get('egresos') or Decimal('0')
-        balance = total_ingresos - total_egresos
-        total_gastos = (gastos_aggr.get('total') or Decimal('0')) + total_egresos
-
-        reservas = reservas_base.order_by('-fecha_inicio', '-id')[:150]
-        contratos = contratos_base.order_by('-fecha_inicio', '-id')[:80]
-        cuotas = cuotas_base.order_by('-fecha_pago', '-fecha_vencimiento', '-id')[:300]
-        gastos = gastos_base.order_by('-fecha_creacion', '-id')[:250]
-        liquidaciones = liquidaciones_base.order_by('-fecha_creacion', '-id')[:150]
-        pagos = pagos_base.order_by('-fecha', '-id')[:250]
-        movimientos = movimientos_base.order_by('-fecha', '-id')[:250]
-        try:
-            conceptos_visibles = list(
-                Concepto.objects.filter(q_conceptos_caja_visibles(request.user.sucursal)).only('id', 'nombre')
-            )
-            concepto_nombre_por_id = {str(c.id).strip(): (c.nombre or '').strip() for c in conceptos_visibles}
-        except Exception:
-            concepto_nombre_por_id = {}
-
-        def _concepto_y_detalle_mov(mov):
-            raw_val = getattr(mov, 'concepto_detalle', None)
-            raw = raw_val.strip() if isinstance(raw_val, str) else ''
-            nombres = []
-            detalles = []
-            if raw:
-                try:
-                    data = json.loads(raw)
-                except Exception:
-                    data = None
-                conceptos = []
-                if isinstance(data, dict) and isinstance(data.get('conceptos'), list):
-                    conceptos = data.get('conceptos') or []
-                elif isinstance(data, list):
-                    conceptos = data
-                for item in conceptos:
-                    if not isinstance(item, dict):
-                        continue
-                    n = str(item.get('nombre') or item.get('concepto') or '').strip()
-                    if not n:
-                        cid = str(item.get('id') or item.get('codigo') or '').strip()
-                        n = concepto_nombre_por_id.get(cid, '')
-                    if n and n not in nombres:
-                        nombres.append(n)
-                    d = str(item.get('observaciones') or '').strip()
-                    if d and d.lower() not in ('sin observaciones', 'sin observaciones.') and d not in detalles:
-                        detalles.append(d)
-            try:
-                base_concepto = mov.concepto_sin_pipe_conceptos()
-            except Exception:
-                base_concepto = (getattr(mov, 'concepto', None) or '-')
-            concepto = ' + '.join(nombres)[:200] if nombres else (base_concepto or (getattr(mov, 'concepto', None) or '-') or '-')
-            detalle = ' | '.join(detalles)[:400] if detalles else ''
-            return concepto, detalle
-
-        for m in movimientos:
-            try:
-                c_nom, c_det = _concepto_y_detalle_mov(m)
-                setattr(m, '_concepto_nombre_admin', c_nom)
-                setattr(m, '_concepto_detalle_admin', c_det)
-                setattr(m, '_intervino_admin', getattr(m, 'empleado_id', None))
-            except Exception:
-                setattr(m, '_concepto_nombre_admin', (getattr(m, 'concepto', None) or '-'))
-                setattr(m, '_concepto_detalle_admin', '')
-                setattr(m, '_intervino_admin', getattr(m, 'empleado_id', None))
-
-        gastos_items = [
-            {
-                'fecha': g.fecha_creacion,
-                'concepto': (getattr(g, 'descripcion', None) or getattr(g, 'concepto', None) or '-'),
-                'detalle': (getattr(g, 'observaciones', None) or '').strip(),
-                'movimiento_num': getattr(getattr(g, 'liquidacion', None), 'movimiento_caja_id', None),
-                'estado': 'Liquidado' if g.liquidacion_id else 'Pendiente',
-                'liquidacion_id': g.liquidacion_id,
-                'monto': g.monto or Decimal('0'),
-                'origen': 'Gasto',
-                'empleado': None,
-            }
-            for g in gastos
-        ]
-        def _detalle_movimiento(mov):
-            raw_val = getattr(mov, 'concepto_detalle', None)
-            raw = raw_val.strip() if isinstance(raw_val, str) else ''
-            if not raw:
-                return ''
-            try:
-                data = json.loads(raw)
-            except Exception:
-                return ''
-            if isinstance(data, dict):
-                conceptos = data.get('conceptos') if isinstance(data.get('conceptos'), list) else []
-            elif isinstance(data, list):
-                conceptos = data
-            else:
-                conceptos = []
-            obs = []
-            for item in conceptos:
-                if not isinstance(item, dict):
-                    continue
-                t = str(item.get('observaciones') or '').strip()
-                if not t or t.lower() in ('sin observaciones', 'sin observaciones.'):
-                    continue
-                obs.append(t)
-            return ' | '.join(obs)[:400]
-
-        def _concepto_desde_movimiento(mov):
-            raw_val = getattr(mov, 'concepto_detalle', None)
-            raw = raw_val.strip() if isinstance(raw_val, str) else ''
-            if raw:
-                try:
-                    data = json.loads(raw)
-                except Exception:
-                    data = None
-                conceptos = []
-                if isinstance(data, dict) and isinstance(data.get('conceptos'), list):
-                    conceptos = data.get('conceptos') or []
-                elif isinstance(data, list):
-                    conceptos = data
-                nombres = []
-                for item in conceptos:
-                    if not isinstance(item, dict):
-                        continue
-                    nombre = str(item.get('nombre') or item.get('concepto') or '').strip()
-                    if not nombre:
-                        cid = str(item.get('id') or item.get('codigo') or '').strip()
-                        nombre = concepto_nombre_por_id.get(cid, '')
-                    if nombre and nombre not in nombres:
-                        nombres.append(nombre)
-                if nombres:
-                    return ' + '.join(nombres)[:200]
-
-            base = ((getattr(mov, 'concepto', None) or '').strip() or '-')
-            first = base.split('-', 1)[0].strip()
-            if first.isdigit() and first in concepto_nombre_por_id:
-                return concepto_nombre_por_id[first]
-            if base.isdigit() and base in concepto_nombre_por_id:
-                return concepto_nombre_por_id[base]
-            return base
-
-        for m in movimientos:
-            if m.tipo != TipoMovimientoCajaEnum.EGRESO:
-                continue
-            try:
-                gastos_items.append({
-                    'fecha': m.fecha,
-                    'concepto': _concepto_desde_movimiento(m),
-                    'detalle': _detalle_movimiento(m),
-                    'movimiento_num': m.id,
-                    'estado': 'Impacta en caja',
-                    'liquidacion_id': None,
-                    'monto': m.monto_total or Decimal('0'),
-                    'origen': 'Movimiento',
-                    'empleado': getattr(m, 'empleado', None),
-                })
-            except Exception:
-                gastos_items.append({
-                    'fecha': getattr(m, 'fecha', None),
-                    'concepto': (getattr(m, 'concepto', None) or '-'),
-                    'detalle': '',
-                    'movimiento_num': getattr(m, 'id', None),
-                    'estado': 'Impacta en caja',
-                    'liquidacion_id': None,
-                    'monto': Decimal(str(getattr(m, 'monto_total', 0) or 0)),
-                    'origen': 'Movimiento',
-                    'empleado': getattr(m, 'empleado', None),
-                })
-        def _sort_ts(item):
-            f = item.get('fecha')
-            if not f:
-                return float('-inf')
-            if isinstance(f, date) and not isinstance(f, datetime):
-                f = datetime.combine(f, datetime.min.time())
-            try:
-                return f.timestamp()
-            except Exception:
-                return float('-inf')
-
-        gastos_items.sort(key=_sort_ts, reverse=True)
-
-    context = {
+    contexto_base = {
         'termino': termino,
         'propiedad_id': propiedad_id,
         'fecha_desde': fecha_desde_s,
         'fecha_hasta': fecha_hasta_s,
-        'propiedad': propiedad,
-        'coincidencias': coincidencias,
-        'reservas': reservas,
-        'contratos': contratos,
-        'cuotas': cuotas,
-        'gastos': gastos,
-        'gastos_items': gastos_items,
-        'liquidaciones': liquidaciones,
-        'pagos': pagos,
-        'movimientos': movimientos,
-        'total_ingresos': total_ingresos,
-        'total_egresos': total_egresos,
-        'balance': balance,
-        'total_pagos': total_pagos,
-        'total_gastos': total_gastos,
+        'propiedad': None,
+        'coincidencias': Propiedad.objects.none(),
+        'reservas': [],
+        'contratos': [],
+        'cuotas': [],
+        'gastos': [],
+        'gastos_items': [],
+        'liquidaciones': [],
+        'pagos': [],
+        'movimientos': [],
+        'total_ingresos': Decimal('0'),
+        'total_egresos': Decimal('0'),
+        'balance': Decimal('0'),
+        'total_pagos': Decimal('0'),
+        'total_gastos': Decimal('0'),
     }
-    return render(request, 'inmobiliaria/administracion/operaciones_propiedad.html', context)
+
+    try:
+        propiedades_qs = (
+            Propiedad.objects.filter(sucursal=request.user.sucursal)
+            .select_related('propietario', 'sucursal')
+            .order_by('direccion')
+        )
+        propiedad = None
+        coincidencias = Propiedad.objects.none()
+
+        if propiedad_id.isdigit():
+            propiedad = propiedades_qs.filter(id=int(propiedad_id)).first()
+        elif termino:
+            if termino.isdigit():
+                propiedad = propiedades_qs.filter(id=int(termino)).first()
+            if not propiedad:
+                coincidencias = propiedades_qs.filter(
+                    Q(direccion__icontains=termino) |
+                    Q(ubicacion__icontains=termino) |
+                    Q(propietario__nombre__icontains=termino) |
+                    Q(propietario__apellido__icontains=termino) |
+                    Q(propietario__dni__icontains=termino) |
+                    Q(propietario__cuit__icontains=termino) |
+                    Q(propietario__email__icontains=termino)
+                )[:30]
+                if coincidencias.count() == 1:
+                    propiedad = coincidencias.first()
+
+        contexto_base['propiedad'] = propiedad
+        contexto_base['coincidencias'] = coincidencias
+        if not propiedad:
+            return render(request, 'inmobiliaria/administracion/operaciones_propiedad.html', contexto_base)
+
+        reservas_qs = Reserva.objects.filter(propiedad=propiedad, eliminada=False).select_related('cliente', 'vendedor')
+        contratos_qs = ContratoAlquiler.objects.filter(propiedad=propiedad).select_related('inquilino', 'vendedor')
+        cuotas_qs = CuotaMensual.objects.filter(contrato__propiedad=propiedad).select_related('contrato')
+        gastos_qs = GastoPropietario.objects.filter(
+            Q(propiedad=propiedad) | Q(propiedad__isnull=True, propietario=propiedad.propietario)
+        ).select_related('liquidacion')
+        liquidaciones_qs = LiquidacionPropietario.objects.filter(propiedad=propiedad).exclude(estado='cancelada').select_related(
+            'reserva', 'contrato', 'movimiento_caja'
+        )
+        pagos_qs = Pago.objects.filter(reserva__propiedad=propiedad, reserva__eliminada=False).select_related('reserva', 'concepto')
+        movimientos_qs = MovimientoCaja.objects.filter(sucursal=request.user.sucursal, propiedad=propiedad).select_related('empleado')
+
+        if fecha_desde:
+            reservas_qs = reservas_qs.filter(fecha_fin__gte=fecha_desde)
+            contratos_qs = contratos_qs.filter(fecha_fin__gte=fecha_desde)
+            cuotas_qs = cuotas_qs.filter(Q(fecha_pago__gte=fecha_desde) | Q(fecha_pago__isnull=True, fecha_vencimiento__gte=fecha_desde))
+            gastos_qs = gastos_qs.filter(fecha_creacion__date__gte=fecha_desde)
+            liquidaciones_qs = liquidaciones_qs.filter(fecha_creacion__date__gte=fecha_desde)
+            pagos_qs = pagos_qs.filter(fecha__gte=fecha_desde)
+            movimientos_qs = movimientos_qs.filter(fecha__date__gte=fecha_desde)
+        if fecha_hasta:
+            reservas_qs = reservas_qs.filter(fecha_inicio__lte=fecha_hasta)
+            contratos_qs = contratos_qs.filter(fecha_inicio__lte=fecha_hasta)
+            cuotas_qs = cuotas_qs.filter(Q(fecha_pago__lte=fecha_hasta) | Q(fecha_pago__isnull=True, fecha_vencimiento__lte=fecha_hasta))
+            gastos_qs = gastos_qs.filter(fecha_creacion__date__lte=fecha_hasta)
+            liquidaciones_qs = liquidaciones_qs.filter(fecha_creacion__date__lte=fecha_hasta)
+            pagos_qs = pagos_qs.filter(fecha__lte=fecha_hasta)
+            movimientos_qs = movimientos_qs.filter(fecha__date__lte=fecha_hasta)
+
+        reservas = list(reservas_qs.order_by('-fecha_inicio', '-id')[:150])
+        contratos = list(contratos_qs.order_by('-fecha_inicio', '-id')[:80])
+        cuotas = list(cuotas_qs.order_by('-fecha_pago', '-fecha_vencimiento', '-id')[:300])
+        gastos = list(gastos_qs.order_by('-fecha_creacion', '-id')[:250])
+        liquidaciones = list(liquidaciones_qs.order_by('-fecha_creacion', '-id')[:150])
+        pagos = list(pagos_qs.order_by('-fecha', '-id')[:250])
+        movimientos = list(movimientos_qs.order_by('-fecha', '-id')[:250])
+
+        conceptos_map = {}
+        try:
+            for c in Concepto.objects.filter(q_conceptos_caja_visibles(request.user.sucursal)).only('id', 'nombre'):
+                conceptos_map[str(c.id).strip()] = (c.nombre or '').strip()
+        except Exception:
+            pass
+
+        def _parse_conceptos_detalle(raw):
+            if not isinstance(raw, str) or not raw.strip():
+                return []
+            try:
+                data = json.loads(raw)
+            except Exception:
+                return []
+            if isinstance(data, dict):
+                arr = data.get('conceptos')
+                return arr if isinstance(arr, list) else []
+            if isinstance(data, list):
+                return data
+            return []
+
+        def _nombre_concepto_mov(m):
+            items = _parse_conceptos_detalle(getattr(m, 'concepto_detalle', None))
+            nombres = []
+            for it in items:
+                if not isinstance(it, dict):
+                    continue
+                n = str(it.get('nombre') or it.get('concepto') or '').strip()
+                if not n:
+                    cid = str(it.get('id') or it.get('codigo') or '').strip()
+                    n = conceptos_map.get(cid, '')
+                if n and n not in nombres:
+                    nombres.append(n)
+            if nombres:
+                return ' + '.join(nombres)[:200]
+            base = str(getattr(m, 'concepto', '') or '').strip()
+            if '|CONCEPTOS:' in base:
+                base = base.split('|CONCEPTOS:', 1)[0].strip()
+            first = base.split('-', 1)[0].strip()
+            if first.isdigit() and first in conceptos_map:
+                return conceptos_map[first]
+            return base or '-'
+
+        def _detalle_mov(m):
+            items = _parse_conceptos_detalle(getattr(m, 'concepto_detalle', None))
+            obs = []
+            for it in items:
+                if not isinstance(it, dict):
+                    continue
+                t = str(it.get('observaciones') or '').strip()
+                if t and t.lower() not in ('sin observaciones', 'sin observaciones.') and t not in obs:
+                    obs.append(t)
+            return ' | '.join(obs)[:400]
+
+        for m in movimientos:
+            m._concepto_nombre_admin = _nombre_concepto_mov(m)
+            m._concepto_detalle_admin = _detalle_mov(m)
+            m._intervino_admin = getattr(m, 'empleado_id', None)
+
+        gastos_items = []
+        for g in gastos:
+            gastos_items.append({
+                'fecha': g.fecha_creacion,
+                'movimiento_num': getattr(getattr(g, 'liquidacion', None), 'movimiento_caja_id', None),
+                'concepto': str(getattr(g, 'descripcion', '') or '-'),
+                'detalle': str(getattr(g, 'observaciones', '') or '').strip(),
+                'monto': g.monto or Decimal('0'),
+            })
+        for m in movimientos:
+            if m.tipo != TipoMovimientoCajaEnum.EGRESO:
+                continue
+            gastos_items.append({
+                'fecha': m.fecha,
+                'movimiento_num': m.id,
+                'concepto': _nombre_concepto_mov(m),
+                'detalle': _detalle_mov(m),
+                'monto': Decimal(str(getattr(m, 'monto_total', 0) or 0)),
+            })
+        gastos_items.sort(
+            key=lambda x: (
+                datetime.combine(x['fecha'], datetime.min.time()) if isinstance(x.get('fecha'), date) and not isinstance(x.get('fecha'), datetime)
+                else (x.get('fecha') or datetime.min)
+            ),
+            reverse=True
+        )
+
+        ag_pagos = pagos_qs.aggregate(t=Sum('monto'))
+        ag_gastos = gastos_qs.aggregate(t=Sum('monto'))
+        ag_mov = movimientos_qs.aggregate(
+            i=Sum(F('monto_efectivo') + F('monto_cheque') + F('monto_tarjeta') + F('monto_deposito'), filter=Q(tipo=TipoMovimientoCajaEnum.INGRESO)),
+            e=Sum(F('monto_efectivo') + F('monto_cheque') + F('monto_tarjeta') + F('monto_deposito'), filter=Q(tipo=TipoMovimientoCajaEnum.EGRESO)),
+        )
+        total_ingresos = ag_mov.get('i') or Decimal('0')
+        total_egresos = ag_mov.get('e') or Decimal('0')
+
+        contexto_base.update({
+            'reservas': reservas,
+            'contratos': contratos,
+            'cuotas': cuotas,
+            'gastos': gastos,
+            'gastos_items': gastos_items,
+            'liquidaciones': liquidaciones,
+            'pagos': pagos,
+            'movimientos': movimientos,
+            'total_ingresos': total_ingresos,
+            'total_egresos': total_egresos,
+            'balance': total_ingresos - total_egresos,
+            'total_pagos': ag_pagos.get('t') or Decimal('0'),
+            'total_gastos': (ag_gastos.get('t') or Decimal('0')) + total_egresos,
+        })
+        return render(request, 'inmobiliaria/administracion/operaciones_propiedad.html', contexto_base)
+    except Exception:
+        logger.exception('administracion_propiedades_operaciones: error fatal')
+        messages.error(request, 'Ocurrió un error al cargar operaciones. Intentá nuevamente.')
+        return render(request, 'inmobiliaria/administracion/operaciones_propiedad.html', contexto_base)
 
 from xhtml2pdf import pisa
 from io import BytesIO
