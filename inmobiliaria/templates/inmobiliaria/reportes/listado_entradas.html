@@ -83,7 +83,13 @@
                             <td>{{ e.desde|date:"d/m/Y" }}</td>
                             <td>{{ e.hasta|date:"d/m/Y" }}</td>
                             <td class="text-end">${{ e.saldo|format_price }}</td>
-                            <td class="text-end">${{ e.deposito|format_price }}</td>
+                            <td class="text-end">
+                                {% if e.tipo_menu == 'dia' %}
+                                    ${{ e.deposito|format_price }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
                             <td>{{ e.intervino }}</td>
                             <td>{{ e.llave }}</td>
                             <td>{{ e.fecha_op|date:"d/m/Y" }}</td>

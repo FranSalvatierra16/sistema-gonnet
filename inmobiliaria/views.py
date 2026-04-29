@@ -3068,7 +3068,7 @@ def listado_entradas(request):
             'desde': c.fecha_inicio,
             'hasta': c.fecha_fin,
             'saldo': saldo,
-            'deposito': c.deposito_garantia or Decimal('0'),
+            'deposito': None,
             'intervino': vendedor,
             'llave': (getattr(c.propiedad, 'llave', None) or '—'),
             'fecha_op': (c.fecha_operacion or (c.fecha_creacion.date() if getattr(c, 'fecha_creacion', None) else c.fecha_inicio)),
@@ -3079,7 +3079,11 @@ def listado_entradas(request):
 
     entradas.sort(key=lambda x: (x.get('desde') or fecha_obj, x.get('operacion') or ''))
     total_saldo = sum((e.get('saldo') or Decimal('0')) for e in entradas)
-    total_deposito = sum((e.get('deposito') or Decimal('0')) for e in entradas)
+    total_deposito = sum(
+        (e.get('deposito') or Decimal('0'))
+        for e in entradas
+        if e.get('tipo_menu') == 'dia'
+    )
 
     return render(
         request,
