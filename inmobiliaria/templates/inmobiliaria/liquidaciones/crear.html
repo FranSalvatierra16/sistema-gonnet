@@ -70,6 +70,15 @@
                                 <small class="form-text text-muted">Tomado de la ficha del propietario en el sistema.</small>
                             </div>
                         </div>
+                        <div class="row mb-3 d-none" id="filtro-propiedad-propietario-container">
+                            <div class="col-md-6">
+                                <label class="form-label">Elegir propiedad del propietario</label>
+                                <select id="filtro_propiedad_propietario" class="form-select">
+                                    <option value="">Todas las propiedades</option>
+                                </select>
+                                <small class="form-text text-muted">Seleccioná una para filtrar las operaciones que aparecen abajo.</small>
+                            </div>
+                        </div>
 
                         <!-- Operaciones Pendientes -->
                         <div class="row mb-3" id="operaciones-pendientes-container" style="display: none;">
@@ -247,6 +256,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const propietarioDisplay = document.getElementById('propietario_display');
     const cuentaPropietarioDisplay = document.getElementById('cuenta_propietario_display');
     const propietariosBusquedaEl = document.getElementById('propietarios-busqueda-data');
+    const filtroPropiedadPropietarioContainer = document.getElementById('filtro-propiedad-propietario-container');
+    const filtroPropiedadPropietario = document.getElementById('filtro_propiedad_propietario');
     let PROPIETARIOS_DATA = [];
     try {
         PROPIETARIOS_DATA = propietariosBusquedaEl ? JSON.parse(propietariosBusquedaEl.textContent) : [];
@@ -288,6 +299,56 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('gastos-pendientes-container').style.display = 'none';
     }
 
+    function ocultarFiltroPropiedadPropietario() {
+        if (filtroPropiedadPropietarioContainer) {
+            filtroPropiedadPropietarioContainer.classList.add('d-none');
+        }
+        if (filtroPropiedadPropietario) {
+            filtroPropiedadPropietario.innerHTML = '<option value="">Todas las propiedades</option>';
+            filtroPropiedadPropietario.value = '';
+        }
+    }
+
+    function construirPropiedadesDesdeData(data) {
+        const mapa = new Map();
+        (data.operaciones || []).forEach(function(op) {
+            if (op.propiedad_id == null || op.propiedad_id === '') return;
+            const pid = String(op.propiedad_id);
+            if (!mapa.has(pid)) mapa.set(pid, op.propiedad_label || ('Propiedad #' + pid));
+        });
+        (data.gastos_pendientes || []).forEach(function(g) {
+            if (g.propiedad_id == null || g.propiedad_id === '') return;
+            const pid = String(g.propiedad_id);
+            if (!mapa.has(pid)) mapa.set(pid, g.propiedad_label || ('Propiedad #' + pid));
+        });
+        return Array.from(mapa.entries())
+            .map(function(x) { return { id: x[0], label: x[1] }; })
+            .sort(function(a, b) { return a.label.localeCompare(b.label, 'es', { sensitivity: 'base' }); });
+    }
+
+    function renderFiltroPropiedadPropietario(data) {
+        if (!filtroPropiedadPropietarioContainer || !filtroPropiedadPropietario) return;
+        if (!cargaPorPropietarioActiva) {
+            ocultarFiltroPropiedadPropietario();
+            return;
+        }
+        const props = construirPropiedadesDesdeData(data || {});
+        if (props.length <= 1) {
+            ocultarFiltroPropiedadPropietario();
+            return;
+        }
+        filtroPropiedadPropietario.innerHTML = '<option value="">Todas las propiedades</option>' + props.map(function(p) {
+            const safe = String(p.label || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+            return '<option value="' + p.id + '">' + safe + '</option>';
+        }).join('');
+        filtroPropiedadPropietario.value = '';
+        filtroPropiedadPropietarioContainer.classList.remove('d-none');
+    }
+
     // Actualizar propietario y cargar operaciones pendientes cuando se selecciona una propiedad
     propiedadSelect.addEventListener('change', function() {
         const selectedOption = this.options[this.selectedIndex];
@@ -295,6 +356,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (propiedadId) {
             cargaPorPropietarioActiva = false;
+            ocultarFiltroPropiedadPropietario();
             limpiarPropietarioBusquedaUI();
             propietarioDisplay.value = selectedOption.getAttribute('data-propietario');
             const cb = (selectedOption.getAttribute('data-cuenta-bancaria') || '').trim();
@@ -360,6 +422,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function limpiarPropiedadSeleccionada() {
         cargaPorPropietarioActiva = false;
+        ocultarFiltroPropiedadPropietario();
         limpiarPropietarioBusquedaUI();
         propiedadSelect.value = '';
         propiedadBuscar.value = '';
@@ -658,10 +721,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     cuentaPropietarioDisplay.value = cb || '';
                     cuentaPropietarioDisplay.placeholder = cb ? '' : 'Sin cuenta cargada';
                 }
+                renderFiltroPropiedadPropietario(data);
                 pintarOperacionesYGastosDesdeJson(data, null);
             })
             .catch(function(error) {
                 console.error('Error al cargar por propietario:', error);
+                ocultarFiltroPropiedadPropietario();
                 lista.innerHTML = '<div class="alert alert-danger mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Error al cargar datos del propietario.</div>';
             });
     }
@@ -817,6 +882,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function limpiarPropietarioSeleccionado() {
         cargaPorPropietarioActiva = false;
         opcionesCargaOperacionesExtra = null;
+        ocultarFiltroPropiedadPropietario();
         limpiarPropietarioBusquedaUI();
         if (propiedadSelect.value) {
             cargarOperacionesPendientes(propiedadSelect.value);
@@ -861,6 +927,22 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (btnLimpiarPropietario) {
         btnLimpiarPropietario.addEventListener('click', limpiarPropietarioSeleccionado);
+    }
+
+    if (filtroPropiedadPropietario) {
+        filtroPropiedadPropietario.addEventListener('change', function() {
+            const propiedadId = (this.value || '').trim();
+            if (propiedadId) {
+                seleccionarPropiedadPorId(propiedadId);
+                return;
+            }
+            if (!cargaPorPropietarioActiva || !propietarioBuscar) return;
+            const txt = propietarioBuscar.value || '';
+            const match = txt.match(/^#(\d+)/);
+            if (match && match[1]) {
+                cargarOperacionesPorPropietario(match[1]);
+            }
+        });
     }
 
     // Formato consistente: 12.345,67
