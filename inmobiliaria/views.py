@@ -1418,6 +1418,7 @@ def administracion_propiedades_operaciones(request):
                 'fecha': g.fecha_creacion,
                 'concepto': (getattr(g, 'descripcion', None) or getattr(g, 'concepto', None) or '-'),
                 'detalle': (getattr(g, 'observaciones', None) or '').strip(),
+                'movimiento_num': getattr(getattr(g, 'liquidacion', None), 'movimiento_caja_id', None),
                 'estado': 'Liquidado' if g.liquidacion_id else 'Pendiente',
                 'liquidacion_id': g.liquidacion_id,
                 'monto': g.monto or Decimal('0'),
@@ -1450,20 +1451,52 @@ def administracion_propiedades_operaciones(request):
                 obs.append(t)
             return ' | '.join(obs)[:400]
 
+        conceptos_visibles = list(
+            Concepto.objects.filter(q_conceptos_caja_visibles(request.user.sucursal)).only('id', 'nombre')
+        )
+        concepto_nombre_por_id = {str(c.id).strip(): (c.nombre or '').strip() for c in conceptos_visibles}
+
+        def _concepto_desde_movimiento(mov):
+            raw = (getattr(mov, 'concepto_detalle', None) or '').strip()
+            if raw:
+                try:
+                    data = json.loads(raw)
+                except Exception:
+                    data = None
+                conceptos = []
+                if isinstance(data, dict) and isinstance(data.get('conceptos'), list):
+                    conceptos = data.get('conceptos') or []
+                elif isinstance(data, list):
+                    conceptos = data
+                nombres = []
+                for item in conceptos:
+                    if not isinstance(item, dict):
+                        continue
+                    nombre = str(item.get('nombre') or item.get('concepto') or '').strip()
+                    if not nombre:
+                        cid = str(item.get('id') or item.get('codigo') or '').strip()
+                        nombre = concepto_nombre_por_id.get(cid, '')
+                    if nombre and nombre not in nombres:
+                        nombres.append(nombre)
+                if nombres:
+                    return ' + '.join(nombres)[:200]
+
+            base = ((mov.concepto or '').strip() or '-')
+            first = base.split('-', 1)[0].strip()
+            if first.isdigit() and first in concepto_nombre_por_id:
+                return concepto_nombre_por_id[first]
+            if base.isdigit() and base in concepto_nombre_por_id:
+                return concepto_nombre_por_id[base]
+            return base
+
         for m in movimientos:
             if m.tipo != TipoMovimientoCajaEnum.EGRESO:
                 continue
-            concepto_mov = (
-                (getattr(m, 'listado_detalle_l1', None) or '').strip()
-                or (m.concepto or '').strip()
-                or '-'
-            )
-            if concepto_mov == '—':
-                concepto_mov = (m.concepto or '').strip() or '-'
             gastos_items.append({
                 'fecha': m.fecha,
-                'concepto': concepto_mov,
+                'concepto': _concepto_desde_movimiento(m),
                 'detalle': _detalle_movimiento(m),
+                'movimiento_num': m.id,
                 'estado': 'Impacta en caja',
                 'liquidacion_id': None,
                 'monto': m.monto_total or Decimal('0'),
