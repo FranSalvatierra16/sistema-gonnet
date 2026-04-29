@@ -1412,6 +1412,10 @@ def administracion_propiedades_operaciones(request):
         liquidaciones = liquidaciones_base.order_by('-fecha_creacion', '-id')[:150]
         pagos = pagos_base.order_by('-fecha', '-id')[:250]
         movimientos = movimientos_base.order_by('-fecha', '-id')[:250]
+        conceptos_visibles = list(
+            Concepto.objects.filter(q_conceptos_caja_visibles(request.user.sucursal)).only('id', 'nombre')
+        )
+        concepto_nombre_por_id = {str(c.id).strip(): (c.nombre or '').strip() for c in conceptos_visibles}
 
         def _concepto_y_detalle_mov(mov):
             raw = (getattr(mov, 'concepto_detalle', None) or '').strip()
@@ -1486,11 +1490,6 @@ def administracion_propiedades_operaciones(request):
                     continue
                 obs.append(t)
             return ' | '.join(obs)[:400]
-
-        conceptos_visibles = list(
-            Concepto.objects.filter(q_conceptos_caja_visibles(request.user.sucursal)).only('id', 'nombre')
-        )
-        concepto_nombre_por_id = {str(c.id).strip(): (c.nombre or '').strip() for c in conceptos_visibles}
 
         def _concepto_desde_movimiento(mov):
             raw = (getattr(mov, 'concepto_detalle', None) or '').strip()
