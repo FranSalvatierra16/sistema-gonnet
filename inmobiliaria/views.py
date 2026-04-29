@@ -1437,7 +1437,18 @@ def administracion_propiedades_operaciones(request):
                 'origen': 'Movimiento',
                 'empleado': getattr(m, 'empleado', None),
             })
-        gastos_items.sort(key=lambda x: x.get('fecha') or datetime.min, reverse=True)
+        def _sort_ts(item):
+            f = item.get('fecha')
+            if not f:
+                return float('-inf')
+            if isinstance(f, date) and not isinstance(f, datetime):
+                f = datetime.combine(f, datetime.min.time())
+            try:
+                return f.timestamp()
+            except Exception:
+                return float('-inf')
+
+        gastos_items.sort(key=_sort_ts, reverse=True)
 
     context = {
         'termino': termino,
