@@ -34,6 +34,14 @@
             <div class="col-md-7 text-md-end">
                 <div class="fw-semibold">Fecha: {{ fecha_obj|date:"d/m/Y" }} · Total entradas: {{ cantidad_entradas }}</div>
             </div>
+            <div class="col-12">
+                <div class="btn-group mt-2" role="group" aria-label="Filtro por tipo">
+                    <a href="?fecha={{ fecha }}&tipo=todos" class="btn btn-sm {% if tipo_filtro == 'todos' %}btn-primary{% else %}btn-outline-primary{% endif %}">Todos</a>
+                    <a href="?fecha={{ fecha }}&tipo=dia" class="btn btn-sm {% if tipo_filtro == 'dia' %}btn-primary{% else %}btn-outline-primary{% endif %}">Alquiler por día</a>
+                    <a href="?fecha={{ fecha }}&tipo=invierno" class="btn btn-sm {% if tipo_filtro == 'invierno' %}btn-primary{% else %}btn-outline-primary{% endif %}">Invierno</a>
+                    <a href="?fecha={{ fecha }}&tipo=24_meses" class="btn btn-sm {% if tipo_filtro == '24_meses' %}btn-primary{% else %}btn-outline-primary{% endif %}">24 meses</a>
+                </div>
+            </div>
         </div>
     </form>
 
@@ -81,6 +89,14 @@
                         </tr>
                         {% endfor %}
                     </tbody>
+                    <tfoot>
+                        <tr class="table-warning fw-semibold">
+                            <td colspan="7" class="text-end">Totales</td>
+                            <td class="text-end">${{ total_saldo|format_price }}</td>
+                            <td class="text-end">${{ total_deposito|format_price }}</td>
+                            <td colspan="3"></td>
+                        </tr>
+                    </tfoot>
                 </table>
             </div>
         </div>
