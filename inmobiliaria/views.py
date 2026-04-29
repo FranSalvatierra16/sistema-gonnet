@@ -2958,6 +2958,9 @@ def listado_entradas(request):
         return redirect('inmobiliaria:dashboard')
 
     fecha_raw = (request.GET.get('fecha') or '').strip()
+    tipo_filtro = (request.GET.get('tipo') or 'todos').strip().lower()
+    if tipo_filtro not in ('todos', 'dia', 'invierno', '24_meses'):
+        tipo_filtro = 'todos'
     fecha_obj = None
 
     if fecha_raw:
@@ -3006,10 +3009,14 @@ def listado_entradas(request):
 
         entradas.append({
             'tipo': 'reserva',
+            'tipo_alquiler': 'Por día',
+            'tipo_menu': 'dia',
             'titular': titular,
             'propietario': propietario,
             'operacion': f'{r.id:05d}',
             'direccion': (getattr(r.propiedad, 'direccion', None) or '—'),
+            'piso': (getattr(r.propiedad, 'piso', None) or '—'),
+            'depto': (getattr(r.propiedad, 'departamento', None) or '—'),
             'desde': r.fecha_inicio,
             'hasta': r.fecha_fin,
             'saldo': saldo,
@@ -3076,10 +3083,14 @@ def listado_entradas(request):
 
         entradas.append({
             'tipo': 'contrato',
+            'tipo_alquiler': ('Invierno' if int(c.duracion_meses or 0) <= 9 else '24 meses'),
+            'tipo_menu': ('invierno' if int(c.duracion_meses or 0) <= 9 else '24_meses'),
             'titular': titular,
             'propietario': propietario,
             'operacion': f'{c.id:05d}',
             'direccion': (getattr(c.propiedad, 'direccion', None) or '—'),
+            'piso': (getattr(c.propiedad, 'piso', None) or '—'),
+            'depto': (getattr(c.propiedad, 'departamento', None) or '—'),
             'desde': c.fecha_inicio,
             'hasta': c.fecha_fin,
             'saldo': saldo,
@@ -3089,7 +3100,12 @@ def listado_entradas(request):
             'fecha_op': (c.fecha_operacion or (c.fecha_creacion.date() if getattr(c, 'fecha_creacion', None) else c.fecha_inicio)),
         })
 
+    if tipo_filtro != 'todos':
+        entradas = [e for e in entradas if e.get('tipo_menu') == tipo_filtro]
+
     entradas.sort(key=lambda x: (x.get('desde') or fecha_obj, x.get('operacion') or ''))
+    total_saldo = sum((e.get('saldo') or Decimal('0')) for e in entradas)
+    total_deposito = sum((e.get('deposito') or Decimal('0')) for e in entradas)
 
     return render(
         request,
@@ -3097,8 +3113,11 @@ def listado_entradas(request):
         {
             'fecha': fecha_raw,
             'fecha_obj': fecha_obj,
+            'tipo_filtro': tipo_filtro,
             'entradas': entradas,
             'cantidad_entradas': len(entradas),
+            'total_saldo': total_saldo,
+            'total_deposito': total_deposito,
         },
     )
 
