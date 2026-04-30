@@ -56,10 +56,15 @@ def _set_carpeta_override(request, kind, op_id, carpeta):
 
 def _carpeta_para_operacion(request, kind, op_id):
     key = f'{kind}:{op_id}'
-    overrides = request.session.get(CARATULA_CARPETA_OVERRIDES_KEY, {})
+    overrides = dict(request.session.get(CARATULA_CARPETA_OVERRIDES_KEY, {}))
     if key in overrides:
         return _normalizar_carpeta(overrides.get(key))
-    return _carpeta_default_actual(request)
+    # Congela carpeta histórica de la operación la primera vez que se consulta.
+    carpeta_historica = _carpeta_default_actual(request)
+    overrides[key] = carpeta_historica
+    request.session[CARATULA_CARPETA_OVERRIDES_KEY] = overrides
+    request.session.modified = True
+    return carpeta_historica
 
 
 def _nombre_cliente_papel(persona):
@@ -689,6 +694,7 @@ def lista_caratulas(request):
     filas = []
 
     for r in reservas:
+        carpeta_hist = _carpeta_para_operacion(request, 'reserva', r.id)
         tipo = _tipo_reserva(r.propiedad)
         p = r.propiedad
         piso_dto = ''
@@ -711,11 +717,13 @@ def lista_caratulas(request):
                 'piso_dto': piso_dto,
                 'ficha': p.id if p else '—',
                 'estado': r.get_estado_display() if hasattr(r, 'get_estado_display') else r.estado,
+                'carpeta': carpeta_hist,
                 'sort': r.fecha_creacion or r.fecha_inicio,
             }
         )
 
     for c in contratos:
+        carpeta_hist = _carpeta_para_operacion(request, 'contrato', c.id)
         if c.duracion_meses == 9:
             tipo_c = 'Invierno'
         elif c.duracion_meses == 24:
@@ -743,6 +751,7 @@ def lista_caratulas(request):
                 'piso_dto': piso_dto,
                 'ficha': p.id if p else '—',
                 'estado': c.get_estado_display() if hasattr(c, 'get_estado_display') else c.estado,
+                'carpeta': carpeta_hist,
                 'sort': c.fecha_creacion,
             }
         )
