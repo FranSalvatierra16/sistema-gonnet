@@ -18357,13 +18357,23 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
                     monto_propietario_total += precio_promedio * Decimal('0.70')
                     monto_inmobiliaria_total += precio_promedio * Decimal('0.30')
 
-            # Si no hay ningún precio de toma configurado, forzar 70/30.
+            # Si no hay ningún precio de toma configurado, forzar % de propiedad.
             total_reserva = Decimal(str(reserva.precio_total))
             if not hay_precio_toma:
                 monto_propietario_total = (total_reserva * Decimal('0.70')).quantize(Decimal('0.01'))
                 monto_inmobiliaria_total = (total_reserva - monto_propietario_total).quantize(Decimal('0.01'))
 
-            # Si la suma no cierra con el precio de la reserva, repartir por % de propiedad (default 70%).
+            # Regla principal para reservas por día:
+            # - si existe toma, respetar el total de toma para propietario
+            # - la inmobiliaria es la diferencia contra el total de la reserva
+            # Esto evita deformar el reparto cuando precio_total de la reserva no coincide exacto
+            # con la suma teórica de precio_por_dia x días.
+            if hay_precio_toma and monto_propietario_total > 0:
+                monto_propietario_total = monto_propietario_total.quantize(Decimal('0.01'))
+                monto_inmobiliaria_total = (total_reserva - monto_propietario_total).quantize(Decimal('0.01'))
+
+            # Fallback por porcentaje solo si la cuenta quedó inválida (p.ej. inmobiliaria negativa)
+            # o no hubo valores válidos para calcular por toma.
             suma_split = monto_propietario_total + monto_inmobiliaria_total
             pct_prop = propiedad.porcentaje_propietario
             if pct_prop is None or pct_prop <= 0:
@@ -18374,6 +18384,7 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
             if (
                 monto_propietario_total <= 0
                 or suma_split <= 0
+                or monto_inmobiliaria_total < 0
                 or abs(suma_split - total_reserva) > tolerancia
             ):
                 monto_propietario_total = (total_reserva * pct_prop / Decimal('100')).quantize(Decimal('0.01'))
