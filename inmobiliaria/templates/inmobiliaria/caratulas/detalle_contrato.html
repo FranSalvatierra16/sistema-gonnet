@@ -9,6 +9,13 @@
     <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
         <a href="{% url 'inmobiliaria:lista_caratulas' %}" class="small text-decoration-none">&larr; Volver al listado</a>
         <a href="{% url 'inmobiliaria:imprimir_caratula_contrato' contrato.id %}" class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener"><i class="fas fa-print me-1"></i>Imprimir carátula</a>
+        <form method="post" class="ms-auto d-flex align-items-center gap-1">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="set_carpeta_contrato">
+            <label class="small text-muted mb-0">Nro carpeta</label>
+            <input type="number" min="0" step="1" name="carpeta" value="{{ carpeta_actual }}" class="form-control form-control-sm" style="width: 100px;">
+            <button type="submit" class="btn btn-sm btn-outline-primary">Aplicar</button>
+        </form>
     </div>
 
     {% url 'inmobiliaria:detalle_contrato' contrato.id as url_cancel_contrato %}

@@ -7,7 +7,17 @@
             <h1 class="h3 mb-0"><i class="fas fa-folder-open text-primary me-2"></i>Consulta de carátulas</h1>
             <p class="text-muted mb-0 small">Detalle de cada operación: reservas por día, invierno y contratos.</p>
         </div>
-        <div class="d-flex flex-wrap gap-2">
+        <div class="d-flex flex-wrap gap-2 align-items-end">
+            <form method="post" action="{% url 'inmobiliaria:lista_caratulas' %}" class="d-flex align-items-end gap-1">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="set_carpeta_default">
+                <input type="hidden" name="redirect_to" value="{{ request.get_full_path }}">
+                <div>
+                    <label class="form-label small mb-0">Nro carpeta actual</label>
+                    <input type="number" min="0" step="1" name="carpeta_default" value="{{ carpeta_default }}" class="form-control form-control-sm" style="width: 120px;">
+                </div>
+                <button type="submit" class="btn btn-sm btn-primary">Guardar</button>
+            </form>
             <a href="{% url 'inmobiliaria:operaciones' %}" class="btn btn-outline-secondary btn-sm">Listado operaciones</a>
             <a href="{% url 'inmobiliaria:dashboard' %}" class="btn btn-outline-secondary btn-sm">Volver al inicio</a>
         </div>

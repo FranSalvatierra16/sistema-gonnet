@@ -9,7 +9,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
 from django.db.models import Prefetch, Q
 from django.http import HttpResponseForbidden
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 
@@ -22,6 +22,44 @@ from inmobiliaria.models import (
     Reserva,
 )
 from inmobiliaria.models.caja import TipoMovimientoCajaEnum
+
+CARATULA_CARPETA_DEFAULT_KEY = 'caratulas_carpeta_default'
+CARATULA_CARPETA_OVERRIDES_KEY = 'caratulas_carpeta_overrides'
+
+
+def _normalizar_carpeta(raw):
+    val = (raw or '').strip()
+    if not val:
+        return '0'
+    solo_num = re.sub(r'[^0-9]', '', val)
+    if not solo_num:
+        return '0'
+    return solo_num[:8]
+
+
+def _carpeta_default_actual(request):
+    return _normalizar_carpeta(request.session.get(CARATULA_CARPETA_DEFAULT_KEY, '0'))
+
+
+def _set_carpeta_default(request, carpeta):
+    request.session[CARATULA_CARPETA_DEFAULT_KEY] = _normalizar_carpeta(carpeta)
+    request.session.modified = True
+
+
+def _set_carpeta_override(request, kind, op_id, carpeta):
+    key = f'{kind}:{op_id}'
+    overrides = dict(request.session.get(CARATULA_CARPETA_OVERRIDES_KEY, {}))
+    overrides[key] = _normalizar_carpeta(carpeta)
+    request.session[CARATULA_CARPETA_OVERRIDES_KEY] = overrides
+    request.session.modified = True
+
+
+def _carpeta_para_operacion(request, kind, op_id):
+    key = f'{kind}:{op_id}'
+    overrides = request.session.get(CARATULA_CARPETA_OVERRIDES_KEY, {})
+    if key in overrides:
+        return _normalizar_carpeta(overrides.get(key))
+    return _carpeta_default_actual(request)
 
 
 def _nombre_cliente_papel(persona):
@@ -337,7 +375,9 @@ def _prop_piso_depto_campos(prop):
     return (pi, dep)
 
 
-def _build_legacy_reserva(reserva, recibos, comisiones, saldo_reserva, tipo_operacion_str):
+def _build_legacy_reserva(
+    reserva, recibos, comisiones, saldo_reserva, tipo_operacion_str, carpeta_override=None
+):
     prop = reserva.propiedad
     cli = reserva.cliente
     propi = getattr(prop, 'propietario', None) if prop else None
@@ -411,12 +451,12 @@ def _build_legacy_reserva(reserva, recibos, comisiones, saldo_reserva, tipo_oper
         'origen_operacion': _origen_operacion_sucursal(reserva.sucursal),
         'estado_txt': reserva.get_estado_display(),
         'locacion_mensual': _formato_importe_us(loc_mensual),
-        'carpeta': str(dias_estadia),
+        'carpeta': _normalizar_carpeta(carpeta_override) if carpeta_override is not None else str(dias_estadia),
         'tipo_operacion_str': tipo_operacion_str,
     }
 
 
-def _build_legacy_contrato(contrato, cuotas, tipo_label):
+def _build_legacy_contrato(contrato, cuotas, tipo_label, carpeta_override=None):
     prop = contrato.propiedad
     inq = contrato.inquilino
     propi = getattr(prop, 'propietario', None) if prop else None
@@ -494,7 +534,7 @@ def _build_legacy_contrato(contrato, cuotas, tipo_label):
         'origen_operacion': _origen_operacion_sucursal(contrato.sucursal),
         'estado_txt': contrato.get_estado_display(),
         'locacion_mensual': _formato_importe_us(contrato.precio_mensual),
-        'carpeta': str(meses_contrato),
+        'carpeta': _normalizar_carpeta(carpeta_override) if carpeta_override is not None else str(meses_contrato),
         'tipo_operacion_str': tipo_label,
     }
 
@@ -504,6 +544,10 @@ def lista_caratulas(request):
     """Tabla tipo consultorio: tipo, número, fecha, carátula, dirección, piso/depto, ficha."""
     if not _puede_ver_caratulas(request.user):
         return HttpResponseForbidden()
+    if request.method == 'POST' and request.POST.get('action') == 'set_carpeta_default':
+        _set_carpeta_default(request, request.POST.get('carpeta_default'))
+        redirect_to = request.POST.get('redirect_to', '').strip() or reverse('inmobiliaria:lista_caratulas')
+        return redirect(redirect_to)
     sucursal = getattr(request.user, 'sucursal', None)
     q = request.GET.get('q', '').strip()
     tipo_filtro = request.GET.get('tipo', '').strip()
@@ -534,6 +578,7 @@ def lista_caratulas(request):
                 'fecha_hasta': fecha_hasta if not periodo_completo else '',
                 'tipo_filtro': tipo_filtro,
                 'periodo_completo': periodo_completo,
+                'carpeta_default': _carpeta_default_actual(request),
             },
         )
 
@@ -723,6 +768,7 @@ def lista_caratulas(request):
             'fecha_hasta': fecha_hasta if not periodo_completo else '',
             'tipo_filtro': tipo_filtro,
             'periodo_completo': periodo_completo,
+            'carpeta_default': _carpeta_default_actual(request),
         },
     )
 
@@ -731,6 +777,9 @@ def lista_caratulas(request):
 def caratula_reserva(request, reserva_id):
     if not _puede_ver_caratulas(request.user):
         return HttpResponseForbidden()
+    if request.method == 'POST' and request.POST.get('action') == 'set_carpeta_reserva':
+        _set_carpeta_override(request, 'reserva', reserva_id, request.POST.get('carpeta'))
+        return redirect('inmobiliaria:caratula_reserva', reserva_id=reserva_id)
     reserva = get_object_or_404(
         Reserva.objects.select_related(
             'cliente', 'propiedad', 'propiedad__propietario', 'vendedor', 'sucursal'
@@ -775,6 +824,7 @@ def caratula_reserva(request, reserva_id):
 
     saldo_reserva = (reserva.precio_total or Decimal('0')) - (reserva.senia or Decimal('0'))
     tipo_op = _tipo_reserva(reserva.propiedad)
+    carpeta_actual = _carpeta_para_operacion(request, 'reserva', reserva.id)
     ctx = {
         'reserva': reserva,
         'propiedad': reserva.propiedad,
@@ -784,7 +834,16 @@ def caratula_reserva(request, reserva_id):
         'comisiones': comisiones,
         'total_movimientos': total_mov,
         'saldo_reserva': saldo_reserva,
-        'caratula_legacy': _build_legacy_reserva(reserva, recibos, comisiones, saldo_reserva, tipo_op),
+        'caratula_legacy': _build_legacy_reserva(
+            reserva,
+            recibos,
+            comisiones,
+            saldo_reserva,
+            tipo_op,
+            carpeta_override=carpeta_actual,
+        ),
+        'carpeta_actual': carpeta_actual,
+        'carpeta_default': _carpeta_default_actual(request),
     }
     return render(request, 'inmobiliaria/caratulas/detalle_reserva.html', ctx)
 
@@ -793,6 +852,9 @@ def caratula_reserva(request, reserva_id):
 def caratula_contrato(request, contrato_id):
     if not _puede_ver_caratulas(request.user):
         return HttpResponseForbidden()
+    if request.method == 'POST' and request.POST.get('action') == 'set_carpeta_contrato':
+        _set_carpeta_override(request, 'contrato', contrato_id, request.POST.get('carpeta'))
+        return redirect('inmobiliaria:caratula_contrato', contrato_id=contrato_id)
     contrato = get_object_or_404(
         ContratoAlquiler.objects.select_related(
             'propiedad', 'propiedad__propietario', 'inquilino', 'vendedor', 'sucursal'
@@ -834,6 +896,7 @@ def caratula_contrato(request, contrato_id):
         tipo_label = '24 meses'
     else:
         tipo_label = f'Contrato {contrato.duracion_meses} meses'
+    carpeta_actual = _carpeta_para_operacion(request, 'contrato', contrato.id)
 
     ctx = {
         'contrato': contrato,
@@ -842,7 +905,14 @@ def caratula_contrato(request, contrato_id):
         'movimientos': movimientos,
         'total_movimientos': total_mov,
         'cuotas': cuotas,
-        'caratula_legacy': _build_legacy_contrato(contrato, cuotas, tipo_label),
+        'caratula_legacy': _build_legacy_contrato(
+            contrato,
+            cuotas,
+            tipo_label,
+            carpeta_override=carpeta_actual,
+        ),
+        'carpeta_actual': carpeta_actual,
+        'carpeta_default': _carpeta_default_actual(request),
     }
     return render(request, 'inmobiliaria/caratulas/detalle_contrato.html', ctx)
 
@@ -873,7 +943,14 @@ def imprimir_caratula_reserva(request, reserva_id):
     comisiones = list(reserva.comisiones_vendedor.all())
     saldo_reserva = (reserva.precio_total or Decimal('0')) - (reserva.senia or Decimal('0'))
     tipo_op = _tipo_reserva(reserva.propiedad)
-    cl = _build_legacy_reserva(reserva, recibos, comisiones, saldo_reserva, tipo_op)
+    cl = _build_legacy_reserva(
+        reserva,
+        recibos,
+        comisiones,
+        saldo_reserva,
+        tipo_op,
+        carpeta_override=_carpeta_para_operacion(request, 'reserva', reserva.id),
+    )
     filas_contab = _contabilizacion_para_reserva(reserva, recibos)
     suc = reserva.sucursal
     ciudad_ref = 'MAR DEL PLATA'
@@ -936,7 +1013,12 @@ def imprimir_caratula_contrato(request, contrato_id):
         tipo_label = '24 meses'
     else:
         tipo_label = f'Contrato {contrato.duracion_meses} meses'
-    cl = _build_legacy_contrato(contrato, cuotas, tipo_label)
+    cl = _build_legacy_contrato(
+        contrato,
+        cuotas,
+        tipo_label,
+        carpeta_override=_carpeta_para_operacion(request, 'contrato', contrato.id),
+    )
     filas_contab = _contabilizacion_para_contrato(contrato)
     suc = contrato.sucursal
     ciudad_ref = 'MAR DEL PLATA'
