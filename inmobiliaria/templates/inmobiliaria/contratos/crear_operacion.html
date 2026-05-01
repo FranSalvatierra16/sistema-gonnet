@@ -596,6 +596,7 @@ window.mostrarModalConcepto = mostrarModalConcepto;
 function agregarConcepto() {
     const observaciones = document.getElementById('observaciones').value;
     // Usar formato argentino: "30.000" y "270.000" se parsean correctamente
+    const rawImporte = (document.getElementById('importe').value || '').trim();
     const importe = parsearValorFormateado(document.getElementById('importe').value);
     
     if (!conceptoSeleccionadoActual) {
@@ -603,8 +604,8 @@ function agregarConcepto() {
         return;
     }
     
-    if (!importe || importe <= 0) {
-        alert('Por favor ingresa un importe válido');
+    if (!rawImporte || !Number.isFinite(importe) || importe === 0) {
+        alert('Ingresá un importe distinto de cero (se permiten valores negativos, ej. descuentos).');
         return;
     }
     
@@ -705,6 +706,7 @@ function editarConcepto(conceptoId) {
 // Función para actualizar concepto
 function actualizarConcepto() {
     const observaciones = document.getElementById('observaciones').value;
+    const rawImporte = (document.getElementById('importe').value || '').trim();
     const importe = parsearValorFormateado(document.getElementById('importe').value);
     
     if (!conceptoSeleccionadoActual) {
@@ -712,8 +714,8 @@ function actualizarConcepto() {
         return;
     }
     
-    if (!importe || importe <= 0) {
-        alert('Por favor ingresa un importe válido');
+    if (!rawImporte || !Number.isFinite(importe) || importe === 0) {
+        alert('Ingresá un importe distinto de cero (se permiten valores negativos, ej. descuentos).');
         return;
     }
     

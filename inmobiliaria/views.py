@@ -13903,8 +13903,13 @@ def procesar_pago_cuota_operacion(request, cuota_id):
                     status=400,
                 )
             imp = parse_decimal_monto(item.get('importe'))
-            if imp < 0:
-                return JsonResponse({'error': 'Los importes no pueden ser negativos.'}, status=400)
+            # Se permiten importes negativos en líneas de concepto (descuentos, ajustes).
+            # El concepto de alquiler (1) sigue validado abajo: debe haber al menos una línea 1 > 0.
+            if cid == '1' and imp < 0:
+                return JsonResponse(
+                    {'error': 'El concepto de alquiler (ID 1) no puede tener importe negativo.'},
+                    status=400,
+                )
             suma_conceptos += imp
             if cid == '1':
                 importes_id1.append(imp)

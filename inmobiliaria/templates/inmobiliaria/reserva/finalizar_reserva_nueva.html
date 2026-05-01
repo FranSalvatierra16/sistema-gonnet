@@ -530,6 +530,7 @@ function agregarConcepto() {
     // Validar que hay un concepto seleccionado
     const conceptoIdInput = document.getElementById('conceptoId');
     const observaciones = document.getElementById('observaciones').value || 'Sin observaciones';
+    const rawImporte = (document.getElementById('importe').value || '').trim();
     const importe = parseDecimalMontoJS(document.getElementById('importe').value);
     
     if (!conceptoIdInput.value || !conceptoSeleccionadoActual) {
@@ -537,8 +538,8 @@ function agregarConcepto() {
         return;
     }
     
-    if (!importe || importe <= 0) {
-        alert('Por favor ingresa un importe válido mayor a 0');
+    if (!rawImporte || !Number.isFinite(importe) || importe === 0) {
+        alert('Ingresá un importe distinto de cero (se permiten valores negativos, ej. descuentos).');
         return;
     }
     
@@ -717,10 +718,11 @@ function actualizarConcepto() {
     }
 
     const observaciones = document.getElementById('observaciones').value || 'Sin observaciones';
+    const rawImporte = (document.getElementById('importe').value || '').trim();
     const importe = parseDecimalMontoJS(document.getElementById('importe').value);
 
-    if (!importe || importe <= 0) {
-        alert('Por favor ingresa un importe válido');
+    if (!rawImporte || !Number.isFinite(importe) || importe === 0) {
+        alert('Ingresá un importe distinto de cero (se permiten valores negativos, ej. descuentos).');
         return;
     }
 
