@@ -12962,6 +12962,7 @@ def crear_operacion_contrato(request, contrato_id):
         q_conceptos_caja_visibles(request.user.sucursal)
     ).order_by('nombre')
 
+    hon_ui, sel_ui = importes_honorarios_sellados_ui_contrato(contrato)
     config_operacion = {
         'tipo_operacion': tipo_operacion,
         'contrato_id': contrato.id,
@@ -12982,6 +12983,8 @@ def crear_operacion_contrato(request, contrato_id):
         'modo_cargos_iniciales': False,
         'honorarios_pendiente': None,
         'sellados_pendiente': None,
+        'honorarios_ui': hon_ui,
+        'sellados_ui': sel_ui,
     }
     return render(request, 'inmobiliaria/contratos/crear_operacion.html', context)
 
@@ -13298,6 +13301,28 @@ def obtener_valor_concepto_contrato(contrato, campo):
     if primer:
         return getattr(primer, campo, Decimal('0'))
     return Decimal('0')
+
+
+def importes_honorarios_sellados_ui_contrato(contrato):
+    """
+    Mismos importes que la lista de contratos para Hon./Sell.:
+    si en caja hay honorarios/sellados en el movimiento, se muestran aunque la
+    referencia del alta sea 0; si no, se usa la referencia del contrato.
+    """
+    mov_h = obtener_valor_concepto_contrato(contrato, 'honorarios')
+    mov_s = obtener_valor_concepto_contrato(contrato, 'sellados')
+    ref_h = getattr(contrato, 'honorarios_referencia', None) or Decimal('0')
+    ref_s = getattr(contrato, 'sellados_referencia', None) or Decimal('0')
+    if determinar_estado_concepto_contrato(contrato, '25') == 'pagado':
+        out_h = mov_h
+    else:
+        out_h = mov_h if mov_h > 0 else ref_h
+    if determinar_estado_concepto_contrato(contrato, '26') == 'pagado':
+        out_s = mov_s
+    else:
+        out_s = mov_s if mov_s > 0 else ref_s
+    return out_h, out_s
+
 
 def _total_medios_pago_operacion_request(request):
     """Suma efectivo + cheque + tarjeta + depósitos (misma lógica que procesar_conceptos_y_crear_movimiento)."""
@@ -14068,6 +14093,7 @@ def crear_pago_cuota_operacion(request, cuota_id):
 
     conceptos_qs = Concepto.objects.filter(q_conceptos_caja_visibles(request.user.sucursal)).order_by('nombre')
 
+    hon_ui, sel_ui = importes_honorarios_sellados_ui_contrato(contrato)
     config_operacion = {
         'tipo_operacion': 'cuota_especifica',
         'contrato_id': contrato.id,
@@ -14089,6 +14115,8 @@ def crear_pago_cuota_operacion(request, cuota_id):
         'conceptos': conceptos_qs,
         'today': timezone.now(),
         'config_operacion': config_operacion,
+        'honorarios_ui': hon_ui,
+        'sellados_ui': sel_ui,
     }
     return render(request, 'inmobiliaria/contratos/crear_operacion.html', context)
 

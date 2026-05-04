@@ -167,20 +167,20 @@
                                 <div class="form-group">
                                     <label><strong>Honorarios:</strong></label>
                                     <input type="text" class="form-control" id="honorarios_visible" 
-                                           value="{{ contrato.honorarios_referencia|format_price }}" 
+                                           value="{{ honorarios_ui|format_price }}" 
                                            onchange="formatearNumeroEnTiempoReal(this); sincronizarHonorarios()" 
                                            oninput="formatearNumeroEnTiempoReal(this); sincronizarHonorarios()">
-                                    <small class="form-text text-muted">Opcional: también podés usar el concepto 25 en la tabla.</small>
+                                    <small class="form-text text-muted">Coincide con la lista de contratos: referencia del alta o importe ya cargado en caja. Podés usar también el concepto 25 en la tabla.</small>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="form-group">
                                     <label><strong>Sellados:</strong></label>
                                     <input type="text" class="form-control" id="sellados_visible" 
-                                           value="{{ contrato.sellados_referencia|format_price }}" 
+                                           value="{{ sellados_ui|format_price }}" 
                                            onchange="formatearNumeroEnTiempoReal(this); sincronizarSellados()" 
                                            oninput="formatearNumeroEnTiempoReal(this); sincronizarSellados()">
-                                    <small class="form-text text-muted">Aparece en el recibo. Opcional: también concepto 26 en la tabla.</small>
+                                    <small class="form-text text-muted">Referencia o importe en caja. Opcional: concepto 26 en la tabla.</small>
                                 </div>
                             </div>
                         </div>
