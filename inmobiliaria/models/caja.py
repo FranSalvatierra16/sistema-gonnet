@@ -103,6 +103,12 @@ class MovimientoCaja(models.Model):
     monto_cheque = models.DecimalField(max_digits=14, decimal_places=2, default=0)
     monto_tarjeta = models.DecimalField(max_digits=14, decimal_places=2, default=0)
     monto_deposito = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    monto_dolares = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=0,
+        help_text='Dólares (USD) del movimiento: ingreso o egreso en efectivo dólar; no suma al total en ARS.',
+    )
     destino_deposito = models.CharField(
         max_length=50,  # ✅ Aumentado para permitir "cuenta_1", "cuenta_2", etc.
         choices=[
@@ -175,6 +181,7 @@ class MovimientoCaja(models.Model):
             self.monto_cheque = self.monto_cheque or 0
             self.monto_tarjeta = self.monto_tarjeta or 0
             self.monto_deposito = self.monto_deposito or 0
+            self.monto_dolares = self.monto_dolares or 0
 
     def __str__(self):
         return f"{self.get_tipo_display()} - ${self.monto_total}"
@@ -201,13 +208,17 @@ class MovimientoCaja(models.Model):
 
     @property
     def monto_total(self):
-        """Calcula el monto total sumando todos los métodos de pago"""
+        """Calcula el monto total sumando todos los métodos de pago (solo ARS; USD va aparte en monto_dolares)."""
         return (
             self.monto_efectivo_safe +
             self.monto_cheque_safe +
             self.monto_tarjeta_safe +
             self.monto_deposito_safe
         )
+
+    @property
+    def monto_dolares_safe(self):
+        return float(self.monto_dolares or 0)
 
     def concepto_sin_pipe_conceptos(self):
         """Texto descriptivo del concepto sin el sufijo estructurado |CONCEPTOS:…"""

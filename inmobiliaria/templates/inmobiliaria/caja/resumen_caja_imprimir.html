@@ -52,8 +52,9 @@
                     <strong>Usuario cierre:</strong> {{ caja.usuario_cierre|default:"—" }}<br>
                     {% endif %}
                     <strong>Saldo inicial:</strong> ${{ caja.saldo_inicial|format_price }}<br>
-                    <strong>Neto movimientos (ing. − egr.):</strong> ${{ totales.saldo_total|format_price }}<br>
-                    <strong>Saldo (inicial + neto):</strong> ${{ saldo_teorico_final|format_price }}
+                    <strong>Neto movimientos ARS (ing. − egr.):</strong> ${{ totales.saldo_total|format_price }}<br>
+                    <strong>Saldo USD efectivo (ing. − egr.):</strong> U$S {{ totales.saldo_actual.dolares|format_price }}<br>
+                    <strong>Saldo (inicial + neto ARS):</strong> ${{ saldo_teorico_final|format_price }}
                     {% if caja.estado == 'cerrada' and caja.saldo_final is not None %}
                     <br><strong>Saldo al cierre (registrado):</strong> ${{ caja.saldo_final|format_price }}
                     {% endif %}
@@ -84,7 +85,8 @@
                     <th class="text-end">Chq.</th>
                     <th class="text-end">Tarj.</th>
                     <th class="text-end">Transf.</th>
-                    <th class="text-end">Total</th>
+                    <th class="text-end">USD</th>
+                    <th class="text-end">Total ARS</th>
                     <th>Empleado</th>
                 </tr>
             </thead>
@@ -108,11 +110,16 @@
                     <td class="text-end">${{ movimiento.monto_cheque|format_price }}</td>
                     <td class="text-end">${{ movimiento.monto_tarjeta|format_price }}</td>
                     <td class="text-end">${{ movimiento.monto_deposito|format_price }}</td>
+                    <td class="text-end small">
+                        {% if movimiento.monto_dolares and movimiento.monto_dolares > 0 %}
+                            {% if movimiento.tipo == 'IN' %}<span class="text-success">+ U$S {{ movimiento.monto_dolares|format_price }}</span>{% else %}<span class="text-danger">− U$S {{ movimiento.monto_dolares|format_price }}</span>{% endif %}
+                        {% else %}—{% endif %}
+                    </td>
                     <td class="text-end"><strong>${{ movimiento.monto_total|format_price }}</strong></td>
                     <td class="small">{{ movimiento.empleado|default:"—" }}</td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="14" class="text-center text-muted">Sin movimientos en esta caja.</td></tr>
+                <tr><td colspan="15" class="text-center text-muted">Sin movimientos en esta caja.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -132,7 +139,8 @@
                     {% endwith %}
                 {% endfor %}
                 <hr class="my-2">
-                <strong>Total ingresos: ${{ totales.ingresos.total|format_price }}</strong>
+                <p class="small mb-1">USD: U$S {{ totales.ingresos.dolares|format_price }}</p>
+                <strong>Total ingresos ARS: ${{ totales.ingresos.total|format_price }}</strong>
             </div>
         </div>
         <div class="col-md-6">
@@ -148,14 +156,17 @@
                     {% endwith %}
                 {% endfor %}
                 <hr class="my-2">
-                <strong>Total egresos: ${{ totales.egresos.total|format_price }}</strong>
+                <p class="small mb-1">USD: U$S {{ totales.egresos.dolares|format_price }}</p>
+                <strong>Total egresos ARS: ${{ totales.egresos.total|format_price }}</strong>
             </div>
         </div>
     </div>
 
     <div class="alert {% if es_saldo_positivo %}alert-success{% else %}alert-danger{% endif %} mb-0">
-        <strong>Resultado del período (ingresos − egresos):</strong>
+        <strong>Resultado del período ARS (ingresos − egresos):</strong>
         ${{ totales.saldo_total|format_price }}
+        &nbsp;·&nbsp;
+        <strong>Saldo USD:</strong> U$S {{ totales.saldo_actual.dolares|format_price }}
     </div>
 </div>
 

@@ -9968,6 +9968,7 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
         }
     totales_ingresos['deposito_galicia'] = sum(m.monto_deposito for m in ingresos.filter(destino_deposito='galicia'))
     totales_ingresos['deposito_mp'] = sum(m.monto_deposito for m in ingresos.filter(destino_deposito='mp'))
+    totales_ingresos['dolares'] = sum((m.monto_dolares or 0) for m in ingresos)
 
     totales_egresos = {
         'efectivo': sum(m.monto_efectivo for m in egresos),
@@ -9986,6 +9987,7 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
         }
     totales_egresos['deposito_galicia'] = sum(m.monto_deposito for m in egresos.filter(destino_deposito='galicia'))
     totales_egresos['deposito_mp'] = sum(m.monto_deposito for m in egresos.filter(destino_deposito='mp'))
+    totales_egresos['dolares'] = sum((m.monto_dolares or 0) for m in egresos)
 
     saldo_actual = {
         'efectivo': totales_ingresos['efectivo'] - totales_egresos['efectivo'],
@@ -10003,6 +10005,7 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
             'alias': cuenta.alias,
             'saldo': saldo_cuenta
         }
+    saldo_actual['dolares'] = totales_ingresos['dolares'] - totales_egresos['dolares']
 
     saldo_total = totales_ingresos['total'] - totales_egresos['total']
     totales = {
@@ -10192,8 +10195,18 @@ def nuevo_movimiento(request, numero_caja=None):
             m_ta = Decimal(str(movimiento.monto_tarjeta or 0))
             m_dp = Decimal(str(movimiento.monto_deposito or 0))
             total_mov = m_ef + m_ch + m_ta + m_dp
-            if total_mov <= 0:
-                messages.error(request, 'El importe total del movimiento debe ser mayor a cero.')
+            try:
+                m_dol = parse_decimal_monto(request.POST.get('dolares', '0') or '0')
+            except Exception:
+                m_dol = Decimal('0')
+            if m_dol < 0:
+                m_dol = Decimal('0')
+            movimiento.monto_dolares = m_dol
+            if total_mov <= 0 and m_dol <= 0:
+                messages.error(
+                    request,
+                    'El importe total en pesos o el monto en dólares (USD) debe ser mayor a cero.',
+                )
                 return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
 
             productor_id_raw = (request.POST.get('productor_id') or '').strip()

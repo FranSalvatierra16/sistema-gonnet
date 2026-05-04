@@ -87,7 +87,8 @@
                             <th class="text-end">Cheque</th>
                             <th class="text-end">Tarjeta</th>
                             <th class="text-end">Transf.</th>
-                            <th class="text-end">Total</th>
+                            <th class="text-end">USD</th>
+                            <th class="text-end">Total ARS</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
@@ -125,6 +126,17 @@
                                     <br><small class="{% if movimiento.tipo == 'EG' %}text-dark{% else %}text-muted{% endif %}">({{ movimiento.get_destino_deposito_display|default:"-" }})</small>
                                 {% endif %}
                             </td>
+                            <td class="text-end text-nowrap small">
+                                {% if movimiento.monto_dolares and movimiento.monto_dolares > 0 %}
+                                    {% if movimiento.tipo == 'IN' %}
+                                        <span class="text-success fw-semibold" title="Ingreso USD">+ U$S {{ movimiento.monto_dolares|format_price }}</span>
+                                    {% else %}
+                                        <span class="text-danger fw-semibold" title="Egreso USD">− U$S {{ movimiento.monto_dolares|format_price }}</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
                             <td class="text-end fw-bold">${{ movimiento.monto_total|format_price }}</td>
                             <td>
                                 <div class="btn-group">
@@ -144,7 +156,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="13" class="text-center">No hay movimientos registrados</td>
+                            <td colspan="14" class="text-center">No hay movimientos registrados</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -179,7 +191,8 @@
                             <th class="text-end">Cheque</th>
                             <th class="text-end">Tarjeta</th>
                             <th class="text-end">Transf.</th>
-                            <th class="text-end">Total</th>
+                            <th class="text-end">USD</th>
+                            <th class="text-end">Total ARS</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
@@ -222,6 +235,17 @@
                                 ${{ movimiento.monto_deposito|format_price }}
                                 {% if movimiento.monto_deposito > 0 %}
                                     <br><small class="{% if movimiento.tipo == 'EG' %}text-dark{% else %}text-muted{% endif %}">({{ movimiento.get_destino_deposito_display|default:"-" }})</small>
+                                {% endif %}
+                            </td>
+                            <td class="text-end text-nowrap small">
+                                {% if movimiento.monto_dolares and movimiento.monto_dolares > 0 %}
+                                    {% if movimiento.tipo == 'IN' %}
+                                        <span class="text-success">+ U$S {{ movimiento.monto_dolares|format_price }}</span>
+                                    {% else %}
+                                        <span class="text-danger">− U$S {{ movimiento.monto_dolares|format_price }}</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted">—</span>
                                 {% endif %}
                             </td>
                             <td class="text-end fw-bold">${{ movimiento.monto_total|format_price }}</td>
@@ -277,7 +301,8 @@
                         </div>
                     </div>
                     <hr>
-                    <h5>Total Ingresos: ${{ totales.ingresos.total|format_price }}</h5>
+                    <p class="mb-1"><strong>USD (efectivo dólar):</strong> U$S {{ totales.ingresos.dolares|format_price }}</p>
+                    <h5>Total Ingresos ARS: ${{ totales.ingresos.total|format_price }}</h5>
                 </div>
             </div>
         </div>
@@ -316,7 +341,8 @@
                         </div>
                     </div>
                     <hr>
-                    <h5>Total Egresos: ${{ totales.egresos.total|format_price }}</h5>
+                    <p class="mb-1"><strong>USD (efectivo dólar):</strong> U$S {{ totales.egresos.dolares|format_price }}</p>
+                    <h5>Total Egresos ARS: ${{ totales.egresos.total|format_price }}</h5>
                 </div>
             </div>
         </div>
@@ -328,15 +354,21 @@
             <div class="row">
                 <div class="col-md-3">
                     <div class="info-box {% if es_saldo_positivo %}bg-success{% else %}bg-danger{% endif %} text-white">
-                        <h5>Saldo Actual</h5>
+                        <h5>Saldo actual (ARS)</h5>
                         <h3>${{ totales.saldo_total|format_price }}</h3>
                     </div>
                 </div>
                 <div class="col-md-9">
                     <div class="row">
                         <div class="col-md-3">
+                            <div class="info-box border border-primary">
+                                <h6>USD (ing. − egr.)</h6>
+                                <p class="mb-0 fw-bold">U$S {{ totales.saldo_actual.dolares|format_price }}</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
                             <div class="info-box">
-                                <h6>Efectivo</h6>
+                                <h6>Efectivo ARS</h6>
                                 <p>${{ totales.saldo_actual.efectivo|format_price }}</p>
                             </div>
                         </div>
@@ -424,7 +456,10 @@
                     {% endif %}
                 {% endif %}
                 <p><strong>Transferencia:</strong> ${{ movimiento.monto_deposito|format_price }}</p>
-                <p><strong>Total:</strong> ${{ movimiento.monto_total|format_price }}</p>
+                {% if movimiento.monto_dolares and movimiento.monto_dolares > 0 %}
+                <p><strong>Dólares (USD):</strong> U$S {{ movimiento.monto_dolares|format_price }}</p>
+                {% endif %}
+                <p><strong>Total ARS:</strong> ${{ movimiento.monto_total|format_price }}</p>
                 <p><strong>Corresponde a:</strong> {{ movimiento.get_a_descontar_display|default:"—" }}</p>
                 <p><strong>Empleado:</strong> {{ movimiento.empleado }}</p>
                 {% if movimiento.destino_deposito %}
@@ -483,7 +518,10 @@
                     {% endif %}
                 {% endif %}
                 <p><strong>Transferencia:</strong> ${{ movimiento.monto_deposito|format_price }}</p>
-                <p><strong>Total:</strong> ${{ movimiento.monto_total|format_price }}</p>
+                {% if movimiento.monto_dolares and movimiento.monto_dolares > 0 %}
+                <p><strong>Dólares (USD):</strong> U$S {{ movimiento.monto_dolares|format_price }}</p>
+                {% endif %}
+                <p><strong>Total ARS:</strong> ${{ movimiento.monto_total|format_price }}</p>
                 <p><strong>Corresponde a:</strong> {{ movimiento.get_a_descontar_display|default:"—" }}</p>
                 <p><strong>Empleado:</strong> {{ movimiento.empleado }}</p>
                 {% if movimiento.destino_deposito %}
