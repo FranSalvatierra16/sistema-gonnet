@@ -15557,13 +15557,32 @@ def recibo_contrato_24(request, contrato_id):
         deposito_estado = determinar_estado_concepto_contrato(contrato, '10')
         # Total a abonar = Mes alquiler + Depósito + Honorarios + Sellados
         total_a_abonar = float(alquiler_mensual) + float(deposito_garantia) + float(honorarios) + float(sellados)
-        
-        # Total solo = suma de los conceptos cargados (lo que se ha cobrado/pagado)
-        total_solo = sum(Decimal(str(c['importe_numerico'])) for c in conceptos_contrato)
+
+        def _importe_concepto_recibo(c):
+            try:
+                return Decimal(str(c.get('importe_numerico', 0)))
+            except Exception:
+                return Decimal('0')
+
+        suma_todas_lineas = sum(_importe_concepto_recibo(c) for c in conceptos_contrato)
+        suma_lineas_positivas = sum(
+            _importe_concepto_recibo(c) for c in conceptos_contrato if _importe_concepto_recibo(c) > 0
+        )
+        # Líneas negativas = créditos (p. ej. reserva ad referendum ya pagada). No son «menos abonado»:
+        # restan del total a pagar en este comprobante, pero el dinero de la reserva ya ingresó antes.
+        # Si total_solo = suma algebráica incluyendo negativos, se muestra TOTAL ABONADO muy bajo y
+        # NETO A LA POSESIÓN como si faltara lo ya cubierto por la reserva.
+        tiene_credito_en_lineas = any(_importe_concepto_recibo(c) < 0 for c in conceptos_contrato)
+        if tiene_credito_en_lineas:
+            total_abonado_recibo = suma_lineas_positivas
+            neto_a_posesion = Decimal(str(total_a_abonar)) - suma_lineas_positivas
+        else:
+            total_abonado_recibo = suma_todas_lineas
+            neto_a_posesion = Decimal(str(total_a_abonar)) - suma_todas_lineas
+
+        total_solo = total_abonado_recibo
         total_solo_float = float(total_solo)
-        
-        # Neto a la posesión = Total a abonar - conceptos pagados (total solo)
-        neto_a_posesion = Decimal(str(total_a_abonar)) - total_solo
+
         if neto_a_posesion < 0:
             neto_a_posesion = Decimal('0')
 
