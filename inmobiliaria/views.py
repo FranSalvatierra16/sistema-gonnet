@@ -12985,6 +12985,7 @@ def crear_operacion_contrato(request, contrato_id):
         'sellados_pendiente': None,
         'honorarios_ui': hon_ui,
         'sellados_ui': sel_ui,
+        'complemento_operacion_principal': tipo_operacion == 'principal' and contrato.operacion_principal,
     }
     return render(request, 'inmobiliaria/contratos/crear_operacion.html', context)
 
@@ -13688,9 +13689,6 @@ def procesar_operacion_contrato(request, contrato_id):
             except (ValueError, InvalidOperation):
                 return JsonResponse({'error': 'El precio mensual proporcionado no es válido'}, status=400)
         
-        if tipo_operacion == 'principal' and contrato.operacion_principal:
-            return JsonResponse({'error': 'La operación principal ya fue realizada'}, status=400)
-
         # Pago de cuota (mensual u otro no principal): permitir recibo combinado (cuota + depósito + honorarios, etc.).
         # Antes se exigía total_movimiento == monto cuota; eso rechaza montos mayores aunque la parte 1/15 cubra la cuota.
         if tipo_operacion != 'principal':
@@ -13748,10 +13746,13 @@ def procesar_operacion_contrato(request, contrato_id):
             return JsonResponse({'error': mensaje}, status=400)
         
         if tipo_operacion == 'principal':
-            # Vencimientos siempre el día 5
-            contrato.dia_vencimiento = 5
-            contrato.save(update_fields=['dia_vencimiento'])
-            
+            # La primera vez genera cuotas y marca el contrato; los cobros posteriores con el mismo tipo
+            # completan importes del alta (depósito, alquiler, etc.) sin duplicar cuotas.
+            es_primera_operacion_principal = not contrato.operacion_principal
+            if es_primera_operacion_principal:
+                contrato.dia_vencimiento = 5
+                contrato.save(update_fields=['dia_vencimiento'])
+
             # Leer concepto 10 y 1 desde POST si el usuario los agregó (no son obligatorios)
             conceptos_count = int(request.POST.get('conceptos_count', 0))
             concepto_10_importe = None
@@ -13780,98 +13781,83 @@ def procesar_operacion_contrato(request, contrato_id):
                 update_fields.append('precio_mensual')
             if update_fields:
                 contrato.save(update_fields=update_fields)
-            
-            # Usar el día de vencimiento seleccionado para crear las fechas
-            fecha_actual = timezone.now().date()
-            
-            # Si es contrato de invierno (9 meses), generar cuotas de marzo a diciembre
-            if contrato.duracion_meses == 9:
-                # Para invierno: marzo (3) a diciembre (12) - 9 cuotas
-                meses_invierno = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
-                # Determinar el año base (si estamos antes de marzo, usar año anterior)
-                año_base = fecha_actual.year
-                if fecha_actual.month < 3:
-                    año_base = fecha_actual.year - 1
-                
-                # Generar cuotas de marzo a diciembre (9 cuotas)
-                for i, mes in enumerate(meses_invierno[:9], start=1):
+
+            if es_primera_operacion_principal:
+                fecha_actual = timezone.now().date()
+
+                if contrato.duracion_meses == 9:
+                    meses_invierno = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+                    año_base = fecha_actual.year
+                    if fecha_actual.month < 3:
+                        año_base = fecha_actual.year - 1
+
+                    for i, mes in enumerate(meses_invierno[:9], start=1):
+                        try:
+                            fecha_vencimiento = date(año_base, mes, contrato.dia_vencimiento)
+                        except ValueError:
+                            from calendar import monthrange
+
+                            ultimo_dia = monthrange(año_base, mes)[1]
+                            fecha_vencimiento = date(año_base, mes, min(contrato.dia_vencimiento, ultimo_dia))
+
+                        CuotaMensual.objects.create(
+                            contrato=contrato,
+                            numero_cuota=i,
+                            fecha_vencimiento=fecha_vencimiento,
+                            monto_base=contrato.precio_mensual,
+                            monto_total=contrato.precio_mensual,
+                            estado='pendiente',
+                            movimiento=None,
+                            fecha_pago=None,
+                        )
+                else:
                     try:
-                        fecha_vencimiento = date(año_base, mes, contrato.dia_vencimiento)
+                        fecha_vencimiento = date(fecha_actual.year, fecha_actual.month, contrato.dia_vencimiento)
+                        if fecha_actual.day >= contrato.dia_vencimiento:
+                            fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
                     except ValueError:
-                        # Si el día no existe en el mes, usar el último día del mes
-                        from calendar import monthrange
-                        ultimo_dia = monthrange(año_base, mes)[1]
-                        fecha_vencimiento = date(año_base, mes, min(contrato.dia_vencimiento, ultimo_dia))
-                    
-                    CuotaMensual.objects.create(
-                        contrato=contrato, 
-                        numero_cuota=i, 
-                        fecha_vencimiento=fecha_vencimiento,
-                        monto_base=contrato.precio_mensual, 
-                        monto_total=contrato.precio_mensual,
-                        estado='pendiente', 
-                        movimiento=None, 
-                        fecha_pago=None
-                    )
-            else:
-                # Para contratos normales (24 meses u otros), usar lógica original
-                try:
-                    fecha_vencimiento = date(fecha_actual.year, fecha_actual.month, contrato.dia_vencimiento)
-                    # Si ya pasó el día este mes, programar para el próximo mes
-                    if fecha_actual.day >= contrato.dia_vencimiento:
-                        fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
-                except ValueError:
-                    # Si el día no existe en el mes actual (ej: 31 en febrero), usar el último día del mes
-                    fecha_vencimiento = date(fecha_actual.year, fecha_actual.month, 28)
-                    if fecha_actual.day >= 28:
-                        fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
-                
-                montos_meses = _montos_cuotas_por_trimestre(contrato)
-                for i in range(contrato.duracion_meses):
-                    monto_cuota = montos_meses[i] if i < len(montos_meses) else contrato.precio_mensual
-                    CuotaMensual.objects.create(
-                        contrato=contrato,
-                        numero_cuota=i + 1,
-                        fecha_vencimiento=fecha_vencimiento,
-                        monto_base=monto_cuota,
-                        monto_total=monto_cuota,
-                        estado='pendiente',
-                        movimiento=None,
-                        fecha_pago=None
-                    )
-                    # Avanzar al siguiente mes manteniendo el día de vencimiento
-                    try:
-                        fecha_vencimiento = fecha_vencimiento.replace(month=fecha_vencimiento.month + 1)
-                    except ValueError:
-                        # Si el día no existe en el próximo mes, ajustar el año
-                        if fecha_vencimiento.month == 12:
-                            fecha_vencimiento = fecha_vencimiento.replace(year=fecha_vencimiento.year + 1, month=1)
-                        else:
+                        fecha_vencimiento = date(fecha_actual.year, fecha_actual.month, 28)
+                        if fecha_actual.day >= 28:
+                            fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
+
+                    montos_meses = _montos_cuotas_por_trimestre(contrato)
+                    for i in range(contrato.duracion_meses):
+                        monto_cuota = montos_meses[i] if i < len(montos_meses) else contrato.precio_mensual
+                        CuotaMensual.objects.create(
+                            contrato=contrato,
+                            numero_cuota=i + 1,
+                            fecha_vencimiento=fecha_vencimiento,
+                            monto_base=monto_cuota,
+                            monto_total=monto_cuota,
+                            estado='pendiente',
+                            movimiento=None,
+                            fecha_pago=None,
+                        )
+                        try:
                             fecha_vencimiento = fecha_vencimiento.replace(month=fecha_vencimiento.month + 1)
-                    except:
-                        # Usar relativedelta como fallback
-                        fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
-            
-            contrato.operacion_principal = True
-            contrato.estado = 'activo'  # Cambiar estado a activo después de la operación principal
-            contrato.save()
-            
-            # Actualizar estado de la propiedad
-            # Actualizar estado de la propiedad según el tipo de contrato
-            if contrato.duracion_meses == 9:
-                # Contrato de invierno
-                if hasattr(contrato.propiedad, 'info_invierno'):
-                    contrato.propiedad.info_invierno.estado = 'ocupado'
-                    contrato.propiedad.info_invierno.save()
-                # Asegurar que el historial no muestre "Libre" superpuesto con el contrato
-                actualizar_historial_por_contrato_invierno(
-                    contrato.propiedad, contrato.fecha_inicio, contrato.fecha_fin
-                )
-            else:
-                # Contrato de 24 meses
-                if hasattr(contrato.propiedad, 'info_meses'):
-                    contrato.propiedad.info_meses.estado = 'ocupado'
-                    contrato.propiedad.info_meses.save()
+                        except ValueError:
+                            if fecha_vencimiento.month == 12:
+                                fecha_vencimiento = fecha_vencimiento.replace(year=fecha_vencimiento.year + 1, month=1)
+                            else:
+                                fecha_vencimiento = fecha_vencimiento.replace(month=fecha_vencimiento.month + 1)
+                        except Exception:
+                            fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
+
+                contrato.operacion_principal = True
+                contrato.estado = 'activo'
+                contrato.save()
+
+                if contrato.duracion_meses == 9:
+                    if hasattr(contrato.propiedad, 'info_invierno'):
+                        contrato.propiedad.info_invierno.estado = 'ocupado'
+                        contrato.propiedad.info_invierno.save()
+                    actualizar_historial_por_contrato_invierno(
+                        contrato.propiedad, contrato.fecha_inicio, contrato.fecha_fin
+                    )
+                else:
+                    if hasattr(contrato.propiedad, 'info_meses'):
+                        contrato.propiedad.info_meses.estado = 'ocupado'
+                        contrato.propiedad.info_meses.save()
         else:
             cuota = contrato.cuotas.filter(estado='pendiente').order_by('fecha_vencimiento').first()
             if not cuota:

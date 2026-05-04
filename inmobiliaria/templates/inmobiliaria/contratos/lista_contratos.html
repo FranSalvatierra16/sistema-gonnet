@@ -259,6 +259,9 @@
                                         <a href="{% url 'inmobiliaria:recibo_contrato_24' contrato.id %}" class="btn btn-sm btn-info" title="Ver Recibo" target="_blank">
                                             <i class="fas fa-file-invoice"></i>
                                         </a>
+                                        <a href="{% url 'inmobiliaria:crear_operacion_contrato' contrato.id %}?tipo=principal" class="btn btn-sm btn-outline-primary" title="Completar cobros del alta (depósito, honorarios, etc. en el mismo tipo operación principal)">
+                                            <i class="fas fa-plus-circle"></i>
+                                        </a>
                                         {% endif %}
                                         {% if contrato.duracion_meses == 9 %}
                                         <a href="{% url 'inmobiliaria:ver_contrato_estudiante' contrato.id %}" class="btn btn-sm btn-outline-success" title="Ver Contrato Estudiante (locación)" target="_blank">

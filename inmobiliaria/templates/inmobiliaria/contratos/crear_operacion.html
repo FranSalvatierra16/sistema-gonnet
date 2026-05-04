@@ -3,7 +3,9 @@
 {% load bootstrap4 %}
 
 {% block title %}
-    {% if tipo_operacion == 'principal' %}
+    {% if tipo_operacion == 'principal' and complemento_operacion_principal %}
+        Completar cobro del alta - Contrato #{{ contrato.id }}
+    {% elif tipo_operacion == 'principal' %}
         Operación Principal - Contrato #{{ contrato.id }}
     {% elif tipo_operacion == 'cargos_iniciales' %}
         Honorarios y sellados - Contrato #{{ contrato.id }}
@@ -19,13 +21,15 @@
     <div class="row justify-content-center">
         <div class="col-md-10">
             <!-- Header -->
-            <div class="card mb-4" style="{% if modo_cargos_iniciales %}background: linear-gradient(135deg, #e65100 0%, #ef6c00 100%);{% else %}background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);{% endif %} color: white;">
+            <div class="card mb-4" style="{% if modo_cargos_iniciales %}background: linear-gradient(135deg, #e65100 0%, #ef6c00 100%);{% elif complemento_operacion_principal %}background: linear-gradient(135deg, #1565c0 0%, #1976d2 100%);{% else %}background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);{% endif %} color: white;">
                 <div class="card-body">
                     <div class="row align-items-center">
                         <div class="col-md-8">
                             <h2 class="mb-2">
                                 {% if tipo_operacion == 'cargos_iniciales' %}
                                     📋 Paso 1 — Honorarios y sellados (antes de la operación principal)
+                                {% elif tipo_operacion == 'principal' and complemento_operacion_principal %}
+                                    💵 Completar cobros del alta (mismo recibo operación principal)
                                 {% elif tipo_operacion == 'principal' %}
                                     🏠 Operación Principal - Depósito y Gastos
                                 {% elif tipo_operacion == 'cuota_especifica' %}
@@ -318,6 +322,8 @@
                             <i class="fas fa-check"></i> 
                             {% if tipo_operacion == 'cargos_iniciales' %}
                                 Registrar honorarios y sellados
+                            {% elif tipo_operacion == 'principal' and complemento_operacion_principal %}
+                                Registrar cobro (completar alta)
                             {% elif tipo_operacion == 'principal' %}
                                 Procesar Operación Principal
                             {% elif tipo_operacion == 'cuota_especifica' %}
@@ -1062,6 +1068,9 @@ function procesarOperacion() {
             const errorMsg = data.error || 'Error desconocido al procesar la operación';
             console.error('Error del servidor:', errorMsg);
             alert('❌ Error: ' + errorMsg);
+            if (data.redirect_url) {
+                window.location.href = data.redirect_url;
+            }
         }
     })
     .catch(error => {
