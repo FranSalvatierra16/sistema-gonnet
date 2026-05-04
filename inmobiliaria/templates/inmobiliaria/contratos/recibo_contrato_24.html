@@ -272,9 +272,9 @@
                             </tr>
                             <tr style="border-bottom: 1px solid black;">
                                 <td style="padding: 5px 4px; text-align: center; border-right: 1px solid black;">{{ alquiler_mensual|default:"0.00" }}</td>
-                                <td style="padding: 5px 4px; text-align: center; border-right: 1px solid black;">{{ deposito_garantia|default:"0.00" }}</td>
-                                <td style="padding: 5px 4px; text-align: center; border-right: 1px solid black;">{{ honorarios|default:"0.00" }}</td>
-                                <td style="padding: 5px 4px; text-align: center; border-right: 1px solid black;">{{ sellados|default:"$0.00" }}</td>
+                                <td style="padding: 5px 4px; text-align: center; border-right: 1px solid black;">{{ deposito_garantia|default:"0.00" }}{% if deposito_estado == 'pendiente' %} <span style="font-size:6px;color:#a00;">(pend.)</span>{% endif %}</td>
+                                <td style="padding: 5px 4px; text-align: center; border-right: 1px solid black;">{{ honorarios|default:"0.00" }}{% if recibo_muestra_pendiente_hon %} <span style="font-size:6px;color:#a00;">(pend. ref. ${{ contrato.honorarios_referencia|format_price }})</span>{% endif %}</td>
+                                <td style="padding: 5px 4px; text-align: center; border-right: 1px solid black;">{{ sellados|default:"$0.00" }}{% if recibo_muestra_pendiente_sel %} <span style="font-size:6px;color:#a00;">(pend. ref. ${{ contrato.sellados_referencia|format_price }})</span>{% endif %}</td>
                                 <td style="padding: 5px 4px; text-align: center; font-weight: bold;">{{ total_a_abonar|default:"0.00" }}</td>
                             </tr>
                         </table>

@@ -16097,6 +16097,8 @@ def recibo_contrato_24(request, contrato_id):
             'alquiler_mensual': format_currency(alquiler_mensual),
             'deposito_garantia': format_currency(deposito_garantia),
             'deposito_estado': deposito_estado,
+            'recibo_muestra_pendiente_hon': recibo_muestra_pendiente_hon,
+            'recibo_muestra_pendiente_sel': recibo_muestra_pendiente_sel,
             'honorarios': format_currency(honorarios),
             'sellados': format_currency(sellados),
             'total_a_abonar': format_currency(total_a_abonar),
