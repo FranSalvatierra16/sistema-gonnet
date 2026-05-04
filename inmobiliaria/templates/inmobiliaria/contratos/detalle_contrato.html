@@ -91,6 +91,36 @@
         </div>
     </div>
 
+    {% if not contrato.operacion_principal %}
+    <div class="row mb-3">
+        <div class="col-12">
+            {% if cargos_iniciales_pendientes %}
+            <div class="alert alert-warning shadow-sm border-warning mb-0 d-flex flex-wrap justify-content-between align-items-center gap-3">
+                <div>
+                    <strong><i class="fas fa-exclamation-circle"></i> Faltan honorarios y/o sellados</strong>
+                    <span class="d-block small mt-1 text-dark">
+                        Antes de la operación principal (primer mes, depósito, etc.) tenés que registrar en caja el cobro de honorarios (concepto 25) y sellados (26) hasta las referencias del contrato.
+                    </span>
+                </div>
+                <a href="{% url 'inmobiliaria:completar_cargos_iniciales_contrato' contrato.id %}" class="btn btn-warning btn-lg text-nowrap">
+                    <i class="fas fa-balance-scale"></i> Completar honorarios y sellados
+                </a>
+            </div>
+            {% else %}
+            <div class="alert alert-info shadow-sm mb-0 d-flex flex-wrap justify-content-between align-items-center gap-3">
+                <div>
+                    <strong><i class="fas fa-hand-holding-usd"></i> Operación principal pendiente</strong>
+                    <span class="d-block small mt-1">Ya están cubiertos honorarios y sellados según referencias. Podés registrar depósito, primer mes y demás.</span>
+                </div>
+                <a href="{% url 'inmobiliaria:crear_operacion_contrato' contrato.id %}?tipo=principal" class="btn btn-success btn-lg text-nowrap">
+                    <i class="fas fa-cash-register"></i> Operación principal
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
     {% if contrato.duracion_meses != 9 %}
     <div class="row mb-4">
         <div class="col-12">

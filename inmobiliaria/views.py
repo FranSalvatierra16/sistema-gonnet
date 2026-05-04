@@ -1,5 +1,11 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from django.http import HttpResponse, HttpResponseNotAllowed, JsonResponse, QueryDict
+from django.http import (
+    HttpResponse,
+    HttpResponseNotAllowed,
+    HttpResponseRedirect,
+    JsonResponse,
+    QueryDict,
+)
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
@@ -12807,6 +12813,10 @@ def detalle_contrato(request, contrato_id):
         'puede_activar_modo_trimestres': (
             contrato.duracion_meses != 9 and getattr(contrato, 'precios_bloques', None) is None
         ),
+        'cargos_iniciales_pendientes': (
+            (not contrato.operacion_principal)
+            and contrato_requiere_cargos_iniciales_antes_operacion(contrato)
+        ),
     }
     
     return render(request, 'inmobiliaria/contratos/detalle_contrato.html', context)
@@ -12926,7 +12936,14 @@ def actualizar_precios_bloques_contrato(request, contrato_id):
 def crear_operacion_contrato(request, contrato_id):
     contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
     tipo_operacion = request.GET.get('tipo', 'principal')
-    
+
+    if tipo_operacion == 'principal' and contrato_requiere_cargos_iniciales_antes_operacion(contrato):
+        messages.warning(
+            request,
+            'Antes de la operación principal tenés que cobrar honorarios y sellados pendientes del contrato (paso previo).',
+        )
+        return redirect('inmobiliaria:completar_cargos_iniciales_contrato', contrato_id=contrato.id)
+
     # Verificar si hay una caja abierta
     try:
         caja = Caja.objects.get(sucursal=request.user.sucursal, estado='abierta')
@@ -12949,6 +12966,11 @@ def crear_operacion_contrato(request, contrato_id):
         'tipo_operacion': tipo_operacion,
         'contrato_id': contrato.id,
         'fecha_inicio': contrato.fecha_inicio.isoformat() if getattr(contrato, 'fecha_inicio', None) else None,
+        'modo_cargos_iniciales': False,
+        'honorarios_pendiente': 0.0,
+        'sellados_pendiente': 0.0,
+        'honorarios_referencia': float(contrato.honorarios_referencia or 0),
+        'sellados_referencia': float(contrato.sellados_referencia or 0),
     }
     context = {
         'contrato': contrato,
@@ -12957,8 +12979,149 @@ def crear_operacion_contrato(request, contrato_id):
         'conceptos': conceptos_qs,
         'today': timezone.now(),
         'config_operacion': config_operacion,
+        'modo_cargos_iniciales': False,
+        'honorarios_pendiente': None,
+        'sellados_pendiente': None,
     }
     return render(request, 'inmobiliaria/contratos/crear_operacion.html', context)
+
+
+@login_required
+def completar_cargos_iniciales_contrato(request, contrato_id):
+    """Paso previo a la operación principal: cobrar honorarios (25) y sellados (26) hasta cubrir referencias."""
+    contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
+    if contrato.operacion_principal:
+        messages.info(request, 'La operación principal ya está registrada.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+    if not contrato_requiere_cargos_iniciales_antes_operacion(contrato):
+        messages.info(
+            request,
+            'No hay honorarios ni sellados pendientes respecto de las referencias del contrato. Podés continuar con la operación principal.',
+        )
+        url = reverse('inmobiliaria:crear_operacion_contrato', args=[contrato.id]) + '?tipo=principal'
+        return HttpResponseRedirect(url)
+
+    try:
+        caja = Caja.objects.get(sucursal=request.user.sucursal, estado='abierta')
+    except Caja.DoesNotExist:
+        caja = Caja.objects.create(
+            sucursal=request.user.sucursal,
+            usuario_apertura=request.user,
+            saldo_inicial=0,
+            estado='abierta',
+            fecha_apertura=timezone.now(),
+        )
+        messages.success(request, 'Se ha abierto una nueva caja automáticamente.')
+
+    conceptos_qs = Concepto.objects.filter(q_conceptos_caja_visibles(request.user.sucursal)).order_by('nombre')
+
+    hon_pend = _pendiente_cargo_inicial(contrato, contrato.honorarios_referencia, '25')
+    sel_pend = _pendiente_cargo_inicial(contrato, contrato.sellados_referencia, '26')
+
+    procesar_cargos_url = reverse('inmobiliaria:procesar_cargos_iniciales_contrato', args=[contrato.id])
+    config_operacion = {
+        'tipo_operacion': 'cargos_iniciales',
+        'contrato_id': contrato.id,
+        'fecha_inicio': contrato.fecha_inicio.isoformat() if getattr(contrato, 'fecha_inicio', None) else None,
+        'modo_cargos_iniciales': True,
+        'honorarios_pendiente': float(hon_pend),
+        'sellados_pendiente': float(sel_pend),
+        'honorarios_referencia': float(contrato.honorarios_referencia or 0),
+        'sellados_referencia': float(contrato.sellados_referencia or 0),
+        'procesar_cargos_url': procesar_cargos_url,
+    }
+    context = {
+        'contrato': contrato,
+        'tipo_operacion': 'cargos_iniciales',
+        'caja': caja,
+        'conceptos': conceptos_qs,
+        'today': timezone.now(),
+        'config_operacion': config_operacion,
+        'modo_cargos_iniciales': True,
+        'honorarios_pendiente': hon_pend,
+        'sellados_pendiente': sel_pend,
+    }
+    return render(request, 'inmobiliaria/contratos/crear_operacion.html', context)
+
+
+@login_required
+@require_POST
+def procesar_cargos_iniciales_contrato(request, contrato_id):
+    """Registra en caja solo el cobro de honorarios/sellados pendientes (sin operación principal ni cuotas)."""
+    import json as json_mod
+    from decimal import Decimal
+
+    contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
+    if contrato.operacion_principal:
+        return JsonResponse({'error': 'La operación principal ya fue registrada.'}, status=400)
+    if not contrato_requiere_cargos_iniciales_antes_operacion(contrato):
+        return JsonResponse({'error': 'No hay cargos iniciales pendientes para este contrato.'}, status=400)
+
+    raw_json = (request.POST.get('conceptos_json') or '').strip()
+    if not raw_json:
+        return JsonResponse({'error': 'Faltan los conceptos del cobro.'}, status=400)
+    try:
+        lista = json_mod.loads(raw_json)
+    except json_mod.JSONDecodeError:
+        return JsonResponse({'error': 'Formato de conceptos inválido.'}, status=400)
+    if not isinstance(lista, list):
+        return JsonResponse({'error': 'Los conceptos deben ser una lista.'}, status=400)
+
+    tol = Decimal('0.05')
+    hon_ref = Decimal(str(contrato.honorarios_referencia or 0))
+    sel_ref = Decimal(str(contrato.sellados_referencia or 0))
+    sum25 = Decimal('0')
+    sum26 = Decimal('0')
+    for item in lista:
+        cid = str(item.get('id') or item.get('codigo') or '').strip()
+        imp = parse_decimal_monto(item.get('importe'))
+        if cid == '25':
+            sum25 += imp
+        elif cid == '26':
+            sum26 += imp
+
+    ya25 = _sum_importe_concepto_en_movimientos_contrato(contrato, '25')
+    ya26 = _sum_importe_concepto_en_movimientos_contrato(contrato, '26')
+
+    if hon_ref > 0 and ya25 + sum25 + tol < hon_ref:
+        return JsonResponse(
+            {
+                'error': (
+                    f'Honorarios: la referencia es ${hon_ref} y con este cobro quedarían cubiertos '
+                    f'${ya25 + sum25}. Falta al menos ${hon_ref - ya25 - sum25}.'
+                ),
+            },
+            status=400,
+        )
+    if sel_ref > 0 and ya26 + sum26 + tol < sel_ref:
+        return JsonResponse(
+            {
+                'error': (
+                    f'Sellados: la referencia es ${sel_ref} y con este cobro quedarían cubiertos '
+                    f'${ya26 + sum26}. Falta al menos ${sel_ref - ya26 - sum26}.'
+                ),
+            },
+            status=400,
+        )
+
+    caja = obtener_caja_abierta(request)
+    if not caja:
+        return JsonResponse({'error': 'No hay una caja abierta'}, status=400)
+
+    resultado = procesar_conceptos_y_crear_movimiento(request, caja, contrato)
+    movimiento = resultado[0]
+    err = resultado[2] if len(resultado) > 2 else None
+    if not movimiento:
+        return JsonResponse({'error': err or 'No se pudo registrar el movimiento.'}, status=400)
+
+    return JsonResponse(
+        {
+            'success': True,
+            'mensaje': 'Honorarios y sellados quedaron cubiertos respecto de las referencias del contrato. Podés continuar con la operación principal.',
+            'redirect_url': reverse('inmobiliaria:detalle_contrato', args=[contrato.id]),
+        }
+    )
+
 
 def obtener_caja_abierta(request):
     """Obtiene la caja abierta para la sucursal del usuario"""
@@ -13038,6 +13201,80 @@ def determinar_estado_concepto_contrato(contrato, concepto_id):
     
 # print(f"   ❌ CONCEPTO {concepto_id} NO ENCONTRADO = PENDIENTE")
     return 'pendiente'
+
+
+def _sum_importe_concepto_en_movimientos_contrato(contrato, codigo_buscado):
+    """Suma importes del concepto (id) en movimientos de caja vinculados al contrato (JSON en concepto_detalle o concepto)."""
+    import json
+    from decimal import Decimal
+
+    total = Decimal('0')
+    codigo_buscado = str(codigo_buscado).strip()
+    movimientos = MovimientoCaja.objects.filter(
+        propiedad=contrato.propiedad,
+        sucursal=contrato.sucursal,
+        concepto__icontains=f'Contrato #{contrato.id}',
+    ).order_by('id')
+    for mov in movimientos:
+        parsed_list = []
+        detalle = (getattr(mov, 'concepto_detalle', None) or '').strip()
+        try:
+            if detalle:
+                parsed = json.loads(detalle)
+                if isinstance(parsed, dict) and 'conceptos' in parsed:
+                    parsed_list = parsed.get('conceptos') or []
+                elif isinstance(parsed, list):
+                    parsed_list = parsed
+            if not parsed_list and (mov.concepto or '').strip().startswith('['):
+                parsed_list = json.loads(mov.concepto)
+        except (json.JSONDecodeError, ValueError, TypeError):
+            continue
+        for concepto in parsed_list:
+            cid = str(concepto.get('id', concepto.get('codigo', ''))).strip()
+            if cid != codigo_buscado:
+                continue
+            try:
+                total += parse_decimal_monto(concepto.get('importe', 0))
+            except Exception:
+                pass
+    return total
+
+
+def contrato_requiere_cargos_iniciales_antes_operacion(contrato):
+    """
+    True si aún no hay operación principal y faltan cobrar honorarios (25) o sellados (26)
+    respecto de honorarios_referencia / sellados_referencia. Solo contratos 9 o 24 meses.
+    """
+    from decimal import Decimal
+
+    if getattr(contrato, 'operacion_principal', False):
+        return False
+    if contrato.duracion_meses not in (9, 24):
+        return False
+    hon_ref = Decimal(str(contrato.honorarios_referencia or 0))
+    sel_ref = Decimal(str(contrato.sellados_referencia or 0))
+    if hon_ref <= 0 and sel_ref <= 0:
+        return False
+    tol = Decimal('0.05')
+    h_pag = _sum_importe_concepto_en_movimientos_contrato(contrato, '25')
+    s_pag = _sum_importe_concepto_en_movimientos_contrato(contrato, '26')
+    if hon_ref > 0 and h_pag + tol < hon_ref:
+        return True
+    if sel_ref > 0 and s_pag + tol < sel_ref:
+        return True
+    return False
+
+
+def _pendiente_cargo_inicial(contrato, monto_referencia, codigo_concepto):
+    from decimal import Decimal
+
+    ref = Decimal(str(monto_referencia or 0))
+    if ref <= 0:
+        return Decimal('0')
+    pag = _sum_importe_concepto_en_movimientos_contrato(contrato, codigo_concepto)
+    resto = ref - pag
+    return resto if resto > 0 else Decimal('0')
+
 
 def obtener_valor_concepto_contrato(contrato, campo):
     """

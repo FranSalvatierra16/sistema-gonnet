@@ -5,6 +5,8 @@
 {% block title %}
     {% if tipo_operacion == 'principal' %}
         Operación Principal - Contrato #{{ contrato.id }}
+    {% elif tipo_operacion == 'cargos_iniciales' %}
+        Honorarios y sellados - Contrato #{{ contrato.id }}
     {% elif tipo_operacion == 'cuota_especifica' %}
         Cobro cuota {{ cuota_pago.numero_cuota }}/{{ contrato.duracion_meses }} - Contrato #{{ contrato.id }}
     {% else %}
@@ -17,12 +19,14 @@
     <div class="row justify-content-center">
         <div class="col-md-10">
             <!-- Header -->
-            <div class="card mb-4" style="background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); color: white;">
+            <div class="card mb-4" style="{% if modo_cargos_iniciales %}background: linear-gradient(135deg, #e65100 0%, #ef6c00 100%);{% else %}background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);{% endif %} color: white;">
                 <div class="card-body">
                     <div class="row align-items-center">
                         <div class="col-md-8">
                             <h2 class="mb-2">
-                                {% if tipo_operacion == 'principal' %}
+                                {% if tipo_operacion == 'cargos_iniciales' %}
+                                    📋 Paso 1 — Honorarios y sellados (antes de la operación principal)
+                                {% elif tipo_operacion == 'principal' %}
                                     🏠 Operación Principal - Depósito y Gastos
                                 {% elif tipo_operacion == 'cuota_especifica' %}
                                     💰 Cobro de cuota {{ cuota_pago.numero_cuota }}/{{ contrato.duracion_meses }}
@@ -66,6 +70,11 @@
                                     La suma de <em>todas</em> las líneas debe coincidir con los medios de pago.
                                 </p>
                             </div>
+                            {% elif modo_cargos_iniciales %}
+                            <div class="alert alert-warning border mb-0 text-dark">
+                                <p class="mb-1"><strong>Solo cargos iniciales:</strong> este recibo es para completar <strong>concepto 25 (honorarios)</strong> y <strong>26 (sellados)</strong> hasta las referencias del contrato.</p>
+                                <p class="mb-0 small">Cuando queden cubiertos, desde el detalle del contrato vas a poder abrir la <strong>operación principal</strong> (primer mes, depósito, etc.).</p>
+                            </div>
                             {% else %}
                             <div class="form-group mb-2">
                                 <label><strong>Mes alquiler (elegir uno):</strong></label>
@@ -104,6 +113,12 @@
                         <div class="col-md-6">
                             <p><strong>Vendedor:</strong> {{ contrato.vendedor.nombre }} {{ contrato.vendedor.apellido }}</p>
                             <p><strong>Período:</strong> {{ contrato.fecha_inicio|date:"d/m/Y" }} - {{ contrato.fecha_fin|date:"d/m/Y" }}</p>
+                            {% if modo_cargos_iniciales %}
+                            <ul class="list-unstyled small mb-0">
+                                <li><strong>Referencia honorarios:</strong> ${{ contrato.honorarios_referencia|format_price }}{% if honorarios_pendiente is not None %} · <span class="text-danger">Falta cubrir (aprox.):</span> ${{ honorarios_pendiente|format_price }}{% endif %}</li>
+                                <li><strong>Referencia sellados:</strong> ${{ contrato.sellados_referencia|format_price }}{% if sellados_pendiente is not None %} · <span class="text-danger">Falta cubrir (aprox.):</span> ${{ sellados_pendiente|format_price }}{% endif %}</li>
+                            </ul>
+                            {% endif %}
                             {% if tipo_operacion == 'principal' %}
                             <div class="form-group">
                                 <label><strong>Depósito Garantía:</strong></label>
@@ -139,7 +154,7 @@
                 <input type="hidden" id="sellados_top" name="sellados_top" value="">
                 {% endif %}
                 
-                {% if not modo_pago_cuota_especifica %}
+                {% if not modo_pago_cuota_especifica and not modo_cargos_iniciales %}
                 <!-- Honorarios y sellados: campos del movimiento; el total del recibo en pantalla es solo la tabla de conceptos -->
                 <div class="card mb-4" style="display: block !important; visibility: visible !important;">
                     <div class="card-header bg-warning text-dark">
@@ -171,6 +186,13 @@
                         </div>
                     </div>
                 </div>
+                {% elif modo_cargos_iniciales %}
+                <div class="card mb-4 border-warning">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0">💼 Cargos iniciales (tabla de conceptos)</h5>
+                        <small class="text-muted">Usá <strong>concepto 25</strong> y <strong>26</strong> en la tabla. La suma de lo que ingreses en este movimiento, más lo ya cobrado en caja en esos conceptos, tiene que alcanzar las referencias de arriba.</small>
+                    </div>
+                </div>
                 {% endif %}
                 
                 <!-- Sección de Conceptos -->
@@ -188,6 +210,10 @@
                         {% if tipo_operacion == 'principal' %}
                         <p class="text-muted small mb-2">
                             <strong>Operación principal:</strong> Agregá los conceptos con «+ Agregar Concepto». Si agregás el <strong>concepto 10 (depósito de garantía)</strong>, el depósito se marcará como pagado; no es obligatorio.
+                        </p>
+                        {% elif tipo_operacion == 'cargos_iniciales' %}
+                        <p class="text-muted small mb-2">
+                            <strong>Paso 1:</strong> en la tabla cargá al menos <strong>25 (honorarios)</strong> y <strong>26 (sellados)</strong> con los importes de este cobro. El total de la tabla debe coincidir con los medios de pago. Si las referencias son 0, no hace falta esa línea.
                         </p>
                         {% endif %}
                         <!-- Tabla de Conceptos -->
@@ -290,7 +316,9 @@
                     <div class="card-body text-center">
                         <button type="button" class="btn btn-success btn-lg me-3" id="btnProcesarOperacion" onclick="procesarOperacion()">
                             <i class="fas fa-check"></i> 
-                            {% if tipo_operacion == 'principal' %}
+                            {% if tipo_operacion == 'cargos_iniciales' %}
+                                Registrar honorarios y sellados
+                            {% elif tipo_operacion == 'principal' %}
                                 Procesar Operación Principal
                             {% elif tipo_operacion == 'cuota_especifica' %}
                                 Registrar cobro en caja
@@ -298,8 +326,8 @@
                                 Procesar Pago Cuota
                             {% endif %}
                         </button>
-                        <a href="{% if modo_pago_cuota_especifica and detalle_contrato_url %}{{ detalle_contrato_url }}{% else %}{% url 'inmobiliaria:lista_contratos' %}{% endif %}" class="btn btn-secondary btn-lg">
-                            <i class="fas fa-arrow-left"></i> {% if modo_pago_cuota_especifica %}Volver al contrato{% else %}Volver a Contratos{% endif %}
+                        <a href="{% if modo_cargos_iniciales %}{% url 'inmobiliaria:detalle_contrato' contrato.id %}{% elif modo_pago_cuota_especifica and detalle_contrato_url %}{{ detalle_contrato_url }}{% else %}{% url 'inmobiliaria:lista_contratos' %}{% endif %}" class="btn btn-secondary btn-lg">
+                            <i class="fas fa-arrow-left"></i> {% if modo_cargos_iniciales %}Volver al contrato{% elif modo_pago_cuota_especifica %}Volver al contrato{% else %}Volver a Contratos{% endif %}
                         </a>
                     </div>
                 </div>
@@ -464,7 +492,13 @@
     window.contratoId = config.contrato_id || 0;
     window.fechaInicioContrato = config.fecha_inicio || null;
     window.modoPagoCuotaEspecifica = !!config.modo_pago_cuota_especifica;
+    window.modoCargosIniciales = !!config.modo_cargos_iniciales;
     window.procesarPagoCuotaUrl = config.procesar_pago_cuota_url || '';
+    window.procesarCargosUrl = config.procesar_cargos_url || '';
+    window.honorariosPendienteCfg = config.honorarios_pendiente != null ? Number(config.honorarios_pendiente) : 0;
+    window.selladosPendienteCfg = config.sellados_pendiente != null ? Number(config.sellados_pendiente) : 0;
+    window.honorariosRefCfg = config.honorarios_referencia != null ? Number(config.honorarios_referencia) : 0;
+    window.selladosRefCfg = config.sellados_referencia != null ? Number(config.sellados_referencia) : 0;
     window.numeroCuotaPago = config.numero_cuota != null ? Number(config.numero_cuota) : 0;
     window.defaultImporteCuota = config.default_importe_cuota != null ? Number(config.default_importe_cuota) : 0;
 })();
@@ -903,6 +937,11 @@ function procesarOperacion() {
     sincronizarHonorarios();
     sincronizarSellados();
 
+    if (tipoOperacion === 'cargos_iniciales' && (!window.procesarCargosUrl || String(window.procesarCargosUrl).length === 0)) {
+        alert('Error de configuración: falta la URL para registrar cargos iniciales. Recargá la página.');
+        return;
+    }
+
     const filas = conceptosAgregados.slice();
 
     if (filas.length === 0) {
@@ -912,6 +951,27 @@ function procesarOperacion() {
 
     const totalRecibo = filas.reduce(function(sum, c) { return sum + importeConceptoANumero(c.importe); }, 0);
     const totalPagos = calcularTotalPagos();
+
+    if (tipoOperacion === 'cargos_iniciales') {
+        var s25 = 0;
+        var s26 = 0;
+        filas.forEach(function(c) {
+            var id = String(c.conceptoId || '').trim();
+            if (id === '25') s25 += importeConceptoANumero(c.importe);
+            if (id === '26') s26 += importeConceptoANumero(c.importe);
+        });
+        var tolC = 0.051;
+        if (window.honorariosRefCfg > 0 && s25 + tolC < window.honorariosPendienteCfg) {
+            alert('Honorarios: en este movimiento el concepto 25 debe sumar al menos el pendiente (aprox. $' +
+                (window.honorariosPendienteCfg).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ').');
+            return;
+        }
+        if (window.selladosRefCfg > 0 && s26 + tolC < window.selladosPendienteCfg) {
+            alert('Sellados: en este movimiento el concepto 26 debe sumar al menos el pendiente (aprox. $' +
+                (window.selladosPendienteCfg).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ').');
+            return;
+        }
+    }
 
     if (Math.abs(totalRecibo - totalPagos) > 0.01) {
         alert(`⚠️ Los pagos deben coincidir exactamente con el total del recibo.\nTotal Recibo: $${totalRecibo.toLocaleString('es-AR')}\nTotal Pagos: $${totalPagos.toLocaleString('es-AR')}\nDiferencia: $${Math.abs(totalRecibo - totalPagos).toLocaleString('es-AR')}`);
@@ -966,9 +1026,14 @@ function procesarOperacion() {
     formData.append('conceptos_count', String(filas.length));
     formData.append('tipo_operacion', tipoOperacion);
     
-    var urlProcesar = (window.procesarPagoCuotaUrl && String(window.procesarPagoCuotaUrl).length > 0)
-        ? window.procesarPagoCuotaUrl
-        : '{% url "inmobiliaria:procesar_operacion_contrato" contrato.id %}';
+    var urlProcesar;
+    if (tipoOperacion === 'cargos_iniciales' && window.procesarCargosUrl) {
+        urlProcesar = window.procesarCargosUrl;
+    } else {
+        urlProcesar = (window.procesarPagoCuotaUrl && String(window.procesarPagoCuotaUrl).length > 0)
+            ? window.procesarPagoCuotaUrl
+            : '{% url "inmobiliaria:procesar_operacion_contrato" contrato.id %}';
+    }
     fetch(urlProcesar, {
         method: 'POST',
         body: formData
@@ -987,7 +1052,11 @@ function procesarOperacion() {
     })
     .then(data => {
         if (data.success) {
-            alert('✅ Operación procesada exitosamente');
+            if (data.mensaje) {
+                alert('✅ ' + data.mensaje);
+            } else {
+                alert('✅ Operación procesada exitosamente');
+            }
             window.location.href = data.redirect_url;
         } else {
             const errorMsg = data.error || 'Error desconocido al procesar la operación';
@@ -1300,7 +1369,7 @@ document.addEventListener('DOMContentLoaded', function() {
     sincronizarHonorarios();
     sincronizarSellados();
 
-    if (!window.modoPagoCuotaEspecifica) {
+    if (!window.modoPagoCuotaEspecifica && !window.modoCargosIniciales) {
         // Inicializar proporcional y mes alquiler elegido
         actualizarProporcionalYMesAlquiler();
         actualizarEtiquetaValorUsar();
@@ -1309,6 +1378,41 @@ document.addEventListener('DOMContentLoaded', function() {
                 actualizarMesAlquilerValorDesdeRadio();
             });
         });
+    }
+
+    if (window.modoCargosIniciales) {
+        var hp = window.honorariosPendienteCfg || 0;
+        var sp = window.selladosPendienteCfg || 0;
+        if (hp > 0) {
+            contadorConceptos += 1;
+            conceptosAgregados.push({
+                id: contadorConceptos,
+                conceptoId: '25',
+                nombre: 'Honorarios',
+                observaciones: 'Sin observaciones',
+                importe: hp,
+                fecha: new Date().toLocaleDateString('es-AR')
+            });
+        }
+        if (sp > 0) {
+            contadorConceptos += 1;
+            conceptosAgregados.push({
+                id: contadorConceptos,
+                conceptoId: '26',
+                nombre: 'Sellados',
+                observaciones: 'Sin observaciones',
+                importe: sp,
+                fecha: new Date().toLocaleDateString('es-AR')
+            });
+        }
+        actualizarTablaConceptos();
+        var totCargos = conceptosAgregados.reduce(function(acc, c) { return acc + importeConceptoANumero(c.importe); }, 0);
+        if (totCargos > 0) {
+            var efC = document.getElementById('monto_efectivo');
+            if (efC) {
+                efC.value = Math.round(totCargos).toLocaleString('es-AR');
+            }
+        }
     }
 
     if (window.modoPagoCuotaEspecifica && window.defaultImporteCuota > 0) {
