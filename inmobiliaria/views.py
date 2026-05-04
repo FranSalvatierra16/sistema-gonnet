@@ -15932,6 +15932,13 @@ def recibo_contrato_24(request, contrato_id):
         else:
             monto_cobro_lineas = suma_todas_lineas
 
+        # Líneas negativas (p. ej. reserva ya pagada / crédito): cuentan como monto ya reconocido para cerrar la obligación.
+        creditos_lineas_negativas = Decimal('0')
+        for c in conceptos_contrato:
+            imp = _importe_concepto_recibo(c)
+            if imp < 0:
+                creditos_lineas_negativas -= imp
+
         total_pagado_mov = Decimal('0')
         if primer_movimiento:
             total_pagado_mov = (
@@ -15997,7 +16004,8 @@ def recibo_contrato_24(request, contrato_id):
                     alquiler_mensual + deposito_garantia + honorarios + sellados
                 )
                 total_abonado_recibo = total_pagado_mov if total_pagado_mov > 0 else monto_cobro_lineas
-                neto_a_posesion = total_obligacion - total_abonado_recibo
+                total_cubierto_ops = total_abonado_recibo + creditos_lineas_negativas
+                neto_a_posesion = total_obligacion - total_cubierto_ops
                 if neto_a_posesion < 0:
                     neto_a_posesion = Decimal('0')
         else:
@@ -16040,7 +16048,8 @@ def recibo_contrato_24(request, contrato_id):
                         break
             total_obligacion = alquiler_mensual + deposito_garantia + honorarios + sellados
             total_abonado_recibo = monto_cobro_lineas
-            neto_a_posesion = total_obligacion - total_abonado_recibo
+            total_cubierto_ops = total_abonado_recibo + creditos_lineas_negativas
+            neto_a_posesion = total_obligacion - total_cubierto_ops
             if neto_a_posesion < 0:
                 neto_a_posesion = Decimal('0')
 
