@@ -15476,7 +15476,22 @@ def recibo_contrato_24(request, contrato_id):
                 ).first()
             except (TypeError, ValueError):
                 movimiento_forzado = None
-        recibo_solo_movimiento = movimiento_forzado is not None
+        # Sin movimiento_id: fijar URL al último cobro para que el comprobante sea siempre de un solo movimiento
+        # (evita totales del contrato mezclados con líneas de un cobro y sumas acumuladas entre recibos).
+        if movimiento_forzado is None and not (request.GET.get('recibo_completo') or '').strip():
+            q_mov = MovimientoCaja.objects.filter(
+                concepto__icontains=f'Contrato #{contrato.id}',
+                propiedad=contrato.propiedad,
+                sucursal=request.user.sucursal,
+            ).order_by('-fecha', '-id')
+            ultimo = q_mov.first()
+            if ultimo:
+                return HttpResponseRedirect(
+                    reverse('inmobiliaria:recibo_contrato_24', args=[contrato_id])
+                    + f'?movimiento_id={ultimo.id}'
+                )
+        # Un recibo PDF = un solo MovimientoCaja (líneas y montos de ese cobro; no consolidar varios cobros).
+        recibo_solo_movimiento = True
         
         # Obtener los conceptos del primer pago del contrato
         conceptos_contrato = []
@@ -15485,6 +15500,7 @@ def recibo_contrato_24(request, contrato_id):
         precio_mensual_completo_recibo = None  # precio mensual del formulario (para "Mes alquiler" en recibo)
         mes_alquiler_texto_recibo = ''  # texto que va en los puntos del recibo (ej. "marzo 2026")
         sellados_importe_json = None  # sellados en raíz de concepto_detalle {..., "sellados": n}
+        honorarios_importe_json = None  # honorarios en raíz del detalle {..., "honorarios": n}
 
         primer_movimiento = movimiento_forzado
         if not primer_movimiento:
@@ -15579,6 +15595,13 @@ def recibo_contrato_24(request, contrato_id):
                                 sellados_importe_json = None
                         except (TypeError, ValueError, ArithmeticError):
                             sellados_importe_json = None
+                    if obj.get('honorarios') is not None:
+                        try:
+                            honorarios_importe_json = Decimal(str(obj['honorarios']))
+                            if honorarios_importe_json < 0:
+                                honorarios_importe_json = None
+                        except (TypeError, ValueError, ArithmeticError):
+                            honorarios_importe_json = None
                 else:
                     if not (json_str and json_str.strip().startswith('[')):
                         json_str = '[]'
@@ -15787,8 +15810,8 @@ def recibo_contrato_24(request, contrato_id):
                 
 # print(f"  📊 TOTAL CONCEPTOS ENCONTRADOS: {len(conceptos_contrato)}")
             
-            # ✅ SI AÚN NO HAY CONCEPTOS, FORZAR CREACIÓN DETALLADA (solo recibo consolidado; no inventar líneas del contrato en un cobro puntual)
-            if len(conceptos_contrato) == 0 and not recibo_solo_movimiento:
+            # ✅ SI AÚN NO HAY CONCEPTOS: antes se forzaba aquí el consolidado; ya no (cada recibo = un movimiento).
+            if False and len(conceptos_contrato) == 0 and not recibo_solo_movimiento:
                 pass  # ✅ Bloque vacío
 # print(f"🚨 FORZANDO CONCEPTOS DETALLADOS - NO MÁS GENÉRICOS")
 # print(f"🚨 DATOS PARA FORZAR:")
@@ -15888,7 +15911,7 @@ def recibo_contrato_24(request, contrato_id):
             except Exception:
                 return Decimal('0')
 
-        if recibo_solo_movimiento:
+        if primer_movimiento:
             def _sum_codigos_recibo(codes):
                 cset = {str(x) for x in codes}
                 total = Decimal('0')
@@ -15899,6 +15922,15 @@ def recibo_contrato_24(request, contrato_id):
             alquiler_mensual = _sum_codigos_recibo(('1', '15'))
             deposito_garantia = _sum_codigos_recibo(('10',))
             honorarios = _sum_codigos_recibo(('25',))
+            if honorarios == 0 and honorarios_importe_json is not None and honorarios_importe_json > 0:
+                honorarios = honorarios_importe_json
+            elif honorarios == 0 and getattr(primer_movimiento, 'honorarios', None):
+                try:
+                    hm = Decimal(str(primer_movimiento.honorarios))
+                    if hm > 0:
+                        honorarios = hm
+                except Exception:
+                    pass
             ss_line = _sum_codigos_recibo(('26',))
             if ss_line != 0:
                 sellados = ss_line
@@ -15953,7 +15985,14 @@ def recibo_contrato_24(request, contrato_id):
                             sellados = Decimal('0')
                         break
         
-        deposito_estado = determinar_estado_concepto_contrato(contrato, '10')
+        if primer_movimiento:
+            dep_en_lineas = Decimal('0')
+            for c in conceptos_contrato:
+                if str(c.get('codigo') or '').strip() == '10':
+                    dep_en_lineas += _importe_concepto_recibo(c)
+            deposito_estado = 'pagado' if dep_en_lineas > 0 else 'pendiente'
+        else:
+            deposito_estado = determinar_estado_concepto_contrato(contrato, '10')
 
         suma_todas_lineas = sum(_importe_concepto_recibo(c) for c in conceptos_contrato)
         suma_lineas_positivas = sum(
@@ -15961,23 +16000,14 @@ def recibo_contrato_24(request, contrato_id):
         )
         tiene_credito_en_lineas = any(_importe_concepto_recibo(c) < 0 for c in conceptos_contrato)
 
-        if recibo_solo_movimiento:
-            # Un solo movimiento de caja: totales del comprobante = lo cobrado en esas líneas (incl. créditos con reglas de signo).
-            if tiene_credito_en_lineas:
-                monto_cobro_vista = suma_lineas_positivas
-            else:
-                monto_cobro_vista = suma_todas_lineas
-            total_a_abonar = float(monto_cobro_vista)
-            total_abonado_recibo = monto_cobro_vista
-            neto_a_posesion = Decimal('0')
+        # Totales del comprobante = solo lo que figura en las líneas de ESTE recibo (un movimiento = un comprobante).
+        if tiene_credito_en_lineas:
+            monto_cobro_vista = suma_lineas_positivas
         else:
-            total_a_abonar = float(alquiler_mensual) + float(deposito_garantia) + float(honorarios) + float(sellados)
-            if tiene_credito_en_lineas:
-                total_abonado_recibo = suma_lineas_positivas
-                neto_a_posesion = Decimal(str(total_a_abonar)) - suma_lineas_positivas
-            else:
-                total_abonado_recibo = suma_todas_lineas
-                neto_a_posesion = Decimal(str(total_a_abonar)) - suma_todas_lineas
+            monto_cobro_vista = suma_todas_lineas
+        total_a_abonar = float(monto_cobro_vista)
+        total_abonado_recibo = monto_cobro_vista
+        neto_a_posesion = Decimal('0')
 
         total_solo = total_abonado_recibo
         total_solo_float = float(total_solo)
@@ -15985,15 +16015,23 @@ def recibo_contrato_24(request, contrato_id):
         if neto_a_posesion < 0:
             neto_a_posesion = Decimal('0')
 
-        # Persistir referencia para reutilizar en reportes (Listado de Entradas).
-        if not recibo_solo_movimiento:
-            try:
-                if contrato.neto_a_posesion_referencia != neto_a_posesion:
-                    contrato.neto_a_posesion_referencia = neto_a_posesion
-                    contrato.save(update_fields=['neto_a_posesion_referencia'])
-            except Exception:
-                pass
-        
+        # Referencia neto en contrato: solo actualizaba la vista consolidada (ya no se usa aquí).
+
+        try:
+            hon_ref_ctx = Decimal(str(contrato.honorarios_referencia or 0))
+        except Exception:
+            hon_ref_ctx = Decimal('0')
+        try:
+            sel_ref_ctx = Decimal(str(contrato.sellados_referencia or 0))
+        except Exception:
+            sel_ref_ctx = Decimal('0')
+        recibo_muestra_pendiente_hon = bool(
+            primer_movimiento is not None and hon_ref_ctx > 0 and honorarios == 0
+        )
+        recibo_muestra_pendiente_sel = bool(
+            primer_movimiento is not None and sel_ref_ctx > 0 and sellados == 0
+        )
+
         subtotal = total_a_abonar
         total_contrato = total_a_abonar
         
