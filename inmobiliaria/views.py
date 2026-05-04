@@ -12760,6 +12760,17 @@ def detalle_contrato(request, contrato_id):
     contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
     cuotas = contrato.cuotas.all().order_by('numero_cuota')
 
+    from inmobiliaria.models.caja import MovimientoCaja, TipoMovimientoCajaEnum
+
+    movimientos_recibo_contrato = list(
+        MovimientoCaja.objects.filter(
+            concepto__icontains=f'Contrato #{contrato.id}',
+            propiedad=contrato.propiedad,
+            sucursal=request.user.sucursal,
+            tipo=TipoMovimientoCajaEnum.INGRESO,
+        ).order_by('fecha', 'id')[:40]
+    )
+
     # Estadísticas
     cuotas_pagadas = cuotas.filter(estado='pagada').count()
     cuotas_vencidas = cuotas.filter(estado='pendiente', fecha_vencimiento__lt=timezone.now().date()).count()
@@ -12817,6 +12828,7 @@ def detalle_contrato(request, contrato_id):
             (not contrato.operacion_principal)
             and contrato_requiere_cargos_iniciales_antes_operacion(contrato)
         ),
+        'movimientos_recibo_contrato': movimientos_recibo_contrato,
     }
     
     return render(request, 'inmobiliaria/contratos/detalle_contrato.html', context)
@@ -13869,7 +13881,11 @@ def procesar_operacion_contrato(request, contrato_id):
         
         return JsonResponse({
             'success': True,
-            'redirect_url': reverse('inmobiliaria:recibo_contrato_24', args=[contrato.id])
+            'redirect_url': (
+                reverse('inmobiliaria:recibo_contrato_24', args=[contrato.id])
+                + f'?movimiento_id={movimiento.id}'
+            ),
+            'movimiento_id': movimiento.id,
         })
     except Exception as e:
         import traceback
@@ -15409,6 +15425,21 @@ def recibo_contrato_24(request, contrato_id):
     from decimal import Decimal
     try:
         contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
+
+        movimiento_forzado = None
+        mg_raw = request.GET.get('movimiento_id')
+        if mg_raw:
+            try:
+                mid = int(str(mg_raw).strip())
+                movimiento_forzado = MovimientoCaja.objects.filter(
+                    id=mid,
+                    sucursal=request.user.sucursal,
+                    propiedad=contrato.propiedad,
+                    concepto__icontains=f'Contrato #{contrato.id}',
+                ).first()
+            except (TypeError, ValueError):
+                movimiento_forzado = None
+        recibo_solo_movimiento = movimiento_forzado is not None
         
         # Obtener los conceptos del primer pago del contrato
         conceptos_contrato = []
@@ -15418,26 +15449,27 @@ def recibo_contrato_24(request, contrato_id):
         mes_alquiler_texto_recibo = ''  # texto que va en los puntos del recibo (ej. "marzo 2026")
         sellados_importe_json = None  # sellados en raíz de concepto_detalle {..., "sellados": n}
 
-        # Buscar movimientos del contrato (más reciente primero) y usar el que tenga concepto_detalle
-        movimientos_contrato = MovimientoCaja.objects.filter(
-            concepto__icontains=f'Contrato #{contrato.id}',
-            propiedad=contrato.propiedad,
-            sucursal=request.user.sucursal
-        ).order_by('-id')
-        
-        primer_movimiento = None
-        for mov in movimientos_contrato:
-            detalle = (getattr(mov, 'concepto_detalle', None) or '').strip()
-            if detalle and (detalle.startswith('[') or detalle.startswith('{')):
-                primer_movimiento = mov
-                break
+        primer_movimiento = movimiento_forzado
         if not primer_movimiento:
-            primer_movimiento = movimientos_contrato.first()
-        
-        if not primer_movimiento:
-            cuota_pagada = contrato.cuotas.filter(estado='pagada', movimiento__isnull=False).first()
-            if cuota_pagada and cuota_pagada.movimiento:
-                primer_movimiento = cuota_pagada.movimiento
+            # Buscar movimientos del contrato (más reciente primero) y usar el que tenga concepto_detalle
+            movimientos_contrato = MovimientoCaja.objects.filter(
+                concepto__icontains=f'Contrato #{contrato.id}',
+                propiedad=contrato.propiedad,
+                sucursal=request.user.sucursal
+            ).order_by('-id')
+            
+            for mov in movimientos_contrato:
+                detalle = (getattr(mov, 'concepto_detalle', None) or '').strip()
+                if detalle and (detalle.startswith('[') or detalle.startswith('{')):
+                    primer_movimiento = mov
+                    break
+            if not primer_movimiento:
+                primer_movimiento = movimientos_contrato.first()
+            
+            if not primer_movimiento:
+                cuota_pagada = contrato.cuotas.filter(estado='pagada', movimiento__isnull=False).first()
+                if cuota_pagada and cuota_pagada.movimiento:
+                    primer_movimiento = cuota_pagada.movimiento
         
         # ✅ LÓGICA SIMPLIFICADA: SIEMPRE CREAR CONCEPTOS DETALLADOS
         if primer_movimiento:
@@ -15517,6 +15549,19 @@ def recibo_contrato_24(request, contrato_id):
 # print(f"🎯 CONCEPTOS JSON ENCONTRADOS: {len(conceptos_data)} conceptos")
 # print(f"🎯 DATOS COMPLETOS: {conceptos_data}")
 
+                from datetime import datetime as _dt_conv
+
+                def _fecha_linea_concepto_recibo(concepto_data, mov):
+                    raw = (concepto_data.get('fecha') or '').strip()
+                    if raw:
+                        for fmt in ('%d/%m/%Y', '%Y-%m-%d'):
+                            try:
+                                return _dt_conv.strptime(raw[:10], fmt).date()
+                            except ValueError:
+                                continue
+                    mf = mov.fecha
+                    return mf.date() if hasattr(mf, 'date') else mf
+
                 for i, concepto_data in enumerate(conceptos_data):
                     pass  # ✅ Bloque vacío
 # print(f"  📋 CONCEPTO {i}: {concepto_data}")
@@ -15532,7 +15577,7 @@ def recibo_contrato_24(request, contrato_id):
                     
                     # Incluir TODOS los conceptos del detalle (alquiler, gas, etc.), no solo uno
                     conceptos_contrato.append({
-                        'fecha': primer_movimiento.fecha,
+                        'fecha': _fecha_linea_concepto_recibo(concepto_data, primer_movimiento),
                         'codigo': codigo,
                         'nombre': nombre,
                         'observaciones': observaciones_para_recibo(concepto_data.get('observaciones')),
@@ -15553,8 +15598,8 @@ def recibo_contrato_24(request, contrato_id):
 # print(f"⚠️ CONTENIDO QUE FALLÓ: '{primer_movimiento.concepto[:100]}...'")
                 conceptos_contrato = []  # Limpiar cualquier concepto previo
             
-            # ✅ FALLBACK: Si no hay conceptos del JSON, crear desde TODOS los movimientos
-            if len(conceptos_contrato) == 0:
+            # ✅ FALLBACK: Si no hay conceptos del JSON, crear desde TODOS los movimientos (no mezclar si pidieron un solo cobro)
+            if not recibo_solo_movimiento and len(conceptos_contrato) == 0:
                 pass  # ✅ Bloque vacío
 # print(f"🔧 FALLBACK: Buscando conceptos en TODOS los movimientos del contrato...")
                 
@@ -15705,8 +15750,8 @@ def recibo_contrato_24(request, contrato_id):
                 
 # print(f"  📊 TOTAL CONCEPTOS ENCONTRADOS: {len(conceptos_contrato)}")
             
-            # ✅ SI AÚN NO HAY CONCEPTOS, FORZAR CREACIÓN DETALLADA
-            if len(conceptos_contrato) == 0:
+            # ✅ SI AÚN NO HAY CONCEPTOS, FORZAR CREACIÓN DETALLADA (solo recibo consolidado; no inventar líneas del contrato en un cobro puntual)
+            if len(conceptos_contrato) == 0 and not recibo_solo_movimiento:
                 pass  # ✅ Bloque vacío
 # print(f"🚨 FORZANDO CONCEPTOS DETALLADOS - NO MÁS GENÉRICOS")
 # print(f"🚨 DATOS PARA FORZAR:")
@@ -15766,6 +15811,22 @@ def recibo_contrato_24(request, contrato_id):
                 
 # print(f"🔥 CONCEPTOS FORZADOS FINALES: {len(conceptos_contrato)}")
             
+            if len(conceptos_contrato) == 0 and recibo_solo_movimiento and primer_movimiento:
+                m = primer_movimiento
+                tot = float(
+                    (m.monto_efectivo or 0) + (m.monto_cheque or 0) +
+                    (m.monto_tarjeta or 0) + (m.monto_deposito or 0)
+                )
+                fb = m.fecha.date() if hasattr(m.fecha, 'date') else m.fecha
+                conceptos_contrato.append({
+                    'fecha': fb,
+                    'codigo': '',
+                    'nombre': 'Cobro registrado (sin detalle de conceptos)',
+                    'observaciones': '',
+                    'importe': f"${tot:,.2f}".replace(',', '.'),
+                    'importe_numerico': tot,
+                })
+            
 # print(f"🎯 TOTAL CONCEPTOS FINALES: {len(conceptos_contrato)}")
         else:
             # Si no hay movimientos, crear conceptos básicos (NO genéricos)
@@ -15784,77 +15845,102 @@ def recibo_contrato_24(request, contrato_id):
         
         from decimal import Decimal
 
-        # Mes alquiler: prioridad = valor guardado en movimiento (mensual/proporcional elegido); luego contrato; luego concepto 1; luego propiedad
-        alquiler_mensual = mes_alquiler_importe_recibo if mes_alquiler_importe_recibo is not None else None
-        if alquiler_mensual is None:
-            alquiler_mensual = contrato.precio_mensual or Decimal('0')
-        if alquiler_mensual == 0 and conceptos_contrato:
-            for c in conceptos_contrato:
-                co = str(c.get('codigo') or c.get('id') or '')
-                nom = (c.get('nombre') or '').lower()
-                if co == '1' or 'alquiler' in nom:
-                    alquiler_mensual = Decimal(str(c['importe_numerico']))
-                    break
-        if alquiler_mensual == 0 and contrato.propiedad:
-            try:
-                if contrato.duracion_meses == 9 and getattr(contrato.propiedad, 'info_invierno', None):
-                    if contrato.propiedad.info_invierno and contrato.propiedad.info_invierno.precio_mensual:
-                        alquiler_mensual = Decimal(str(contrato.propiedad.info_invierno.precio_mensual))
-                elif getattr(contrato.propiedad, 'info_meses', None) and contrato.propiedad.info_meses:
-                    if contrato.propiedad.info_meses.precio_mensual:
-                        alquiler_mensual = Decimal(str(contrato.propiedad.info_meses.precio_mensual))
-            except Exception:
-                pass
-        deposito_garantia = contrato.deposito_garantia or Decimal('0')
-        # Honorarios = lo cargado en el campo "Honorarios" al hacer la operación (formulario)
-        honorarios = Decimal('0')
-        if primer_movimiento and getattr(primer_movimiento, 'honorarios', None):
-            honorarios = Decimal(str(primer_movimiento.honorarios))
-        # Sellados = raíz JSON del detalle, campo del movimiento o concepto 26 en conceptos[]
-        sellados = Decimal('0')
-        if sellados_importe_json is not None and sellados_importe_json > 0:
-            sellados = sellados_importe_json
-        elif primer_movimiento and getattr(primer_movimiento, 'sellados', None):
-            try:
-                sellados = Decimal(str(primer_movimiento.sellados))
-            except Exception:
-                sellados = Decimal('0')
-        if sellados == 0 and conceptos_contrato:
-            for c in conceptos_contrato:
-                co = str(c.get('codigo') or c.get('id') or '')
-                nom = (c.get('nombre') or '').lower()
-                if co == '26' or 'sellado' in nom:
-                    try:
-                        sellados = Decimal(str(c.get('importe_numerico', 0)))
-                    except Exception:
-                        sellados = Decimal('0')
-                    break
-        
-        deposito_estado = determinar_estado_concepto_contrato(contrato, '10')
-        # Total a abonar = Mes alquiler + Depósito + Honorarios + Sellados
-        total_a_abonar = float(alquiler_mensual) + float(deposito_garantia) + float(honorarios) + float(sellados)
-
         def _importe_concepto_recibo(c):
             try:
                 return Decimal(str(c.get('importe_numerico', 0)))
             except Exception:
                 return Decimal('0')
 
+        if recibo_solo_movimiento:
+            def _sum_codigos_recibo(codes):
+                cset = {str(x) for x in codes}
+                total = Decimal('0')
+                for c in conceptos_contrato:
+                    if str(c.get('codigo') or '').strip() in cset:
+                        total += _importe_concepto_recibo(c)
+                return total
+            alquiler_mensual = _sum_codigos_recibo(('1', '15'))
+            deposito_garantia = _sum_codigos_recibo(('10',))
+            honorarios = _sum_codigos_recibo(('25',))
+            ss_line = _sum_codigos_recibo(('26',))
+            if ss_line != 0:
+                sellados = ss_line
+            elif sellados_importe_json is not None and sellados_importe_json > 0:
+                sellados = sellados_importe_json
+            else:
+                sellados = Decimal('0')
+        else:
+            # Mes alquiler: prioridad = valor guardado en movimiento (mensual/proporcional elegido); luego contrato; luego concepto 1; luego propiedad
+            alquiler_mensual = mes_alquiler_importe_recibo if mes_alquiler_importe_recibo is not None else None
+            if alquiler_mensual is None:
+                alquiler_mensual = contrato.precio_mensual or Decimal('0')
+            if alquiler_mensual == 0 and conceptos_contrato:
+                for c in conceptos_contrato:
+                    co = str(c.get('codigo') or c.get('id') or '')
+                    nom = (c.get('nombre') or '').lower()
+                    if co == '1' or 'alquiler' in nom:
+                        alquiler_mensual = Decimal(str(c['importe_numerico']))
+                        break
+            if alquiler_mensual == 0 and contrato.propiedad:
+                try:
+                    if contrato.duracion_meses == 9 and getattr(contrato.propiedad, 'info_invierno', None):
+                        if contrato.propiedad.info_invierno and contrato.propiedad.info_invierno.precio_mensual:
+                            alquiler_mensual = Decimal(str(contrato.propiedad.info_invierno.precio_mensual))
+                    elif getattr(contrato.propiedad, 'info_meses', None) and contrato.propiedad.info_meses:
+                        if contrato.propiedad.info_meses.precio_mensual:
+                            alquiler_mensual = Decimal(str(contrato.propiedad.info_meses.precio_mensual))
+                except Exception:
+                    pass
+            deposito_garantia = contrato.deposito_garantia or Decimal('0')
+            # Honorarios = lo cargado en el campo "Honorarios" al hacer la operación (formulario)
+            honorarios = Decimal('0')
+            if primer_movimiento and getattr(primer_movimiento, 'honorarios', None):
+                honorarios = Decimal(str(primer_movimiento.honorarios))
+            # Sellados = raíz JSON del detalle, campo del movimiento o concepto 26 en conceptos[]
+            sellados = Decimal('0')
+            if sellados_importe_json is not None and sellados_importe_json > 0:
+                sellados = sellados_importe_json
+            elif primer_movimiento and getattr(primer_movimiento, 'sellados', None):
+                try:
+                    sellados = Decimal(str(primer_movimiento.sellados))
+                except Exception:
+                    sellados = Decimal('0')
+            if sellados == 0 and conceptos_contrato:
+                for c in conceptos_contrato:
+                    co = str(c.get('codigo') or c.get('id') or '')
+                    nom = (c.get('nombre') or '').lower()
+                    if co == '26' or 'sellado' in nom:
+                        try:
+                            sellados = Decimal(str(c.get('importe_numerico', 0)))
+                        except Exception:
+                            sellados = Decimal('0')
+                        break
+        
+        deposito_estado = determinar_estado_concepto_contrato(contrato, '10')
+
         suma_todas_lineas = sum(_importe_concepto_recibo(c) for c in conceptos_contrato)
         suma_lineas_positivas = sum(
             _importe_concepto_recibo(c) for c in conceptos_contrato if _importe_concepto_recibo(c) > 0
         )
-        # Líneas negativas = créditos (p. ej. reserva ad referendum ya pagada). No son «menos abonado»:
-        # restan del total a pagar en este comprobante, pero el dinero de la reserva ya ingresó antes.
-        # Si total_solo = suma algebráica incluyendo negativos, se muestra TOTAL ABONADO muy bajo y
-        # NETO A LA POSESIÓN como si faltara lo ya cubierto por la reserva.
         tiene_credito_en_lineas = any(_importe_concepto_recibo(c) < 0 for c in conceptos_contrato)
-        if tiene_credito_en_lineas:
-            total_abonado_recibo = suma_lineas_positivas
-            neto_a_posesion = Decimal(str(total_a_abonar)) - suma_lineas_positivas
+
+        if recibo_solo_movimiento:
+            # Un solo movimiento de caja: totales del comprobante = lo cobrado en esas líneas (incl. créditos con reglas de signo).
+            if tiene_credito_en_lineas:
+                monto_cobro_vista = suma_lineas_positivas
+            else:
+                monto_cobro_vista = suma_todas_lineas
+            total_a_abonar = float(monto_cobro_vista)
+            total_abonado_recibo = monto_cobro_vista
+            neto_a_posesion = Decimal('0')
         else:
-            total_abonado_recibo = suma_todas_lineas
-            neto_a_posesion = Decimal(str(total_a_abonar)) - suma_todas_lineas
+            total_a_abonar = float(alquiler_mensual) + float(deposito_garantia) + float(honorarios) + float(sellados)
+            if tiene_credito_en_lineas:
+                total_abonado_recibo = suma_lineas_positivas
+                neto_a_posesion = Decimal(str(total_a_abonar)) - suma_lineas_positivas
+            else:
+                total_abonado_recibo = suma_todas_lineas
+                neto_a_posesion = Decimal(str(total_a_abonar)) - suma_todas_lineas
 
         total_solo = total_abonado_recibo
         total_solo_float = float(total_solo)
@@ -15863,12 +15949,13 @@ def recibo_contrato_24(request, contrato_id):
             neto_a_posesion = Decimal('0')
 
         # Persistir referencia para reutilizar en reportes (Listado de Entradas).
-        try:
-            if contrato.neto_a_posesion_referencia != neto_a_posesion:
-                contrato.neto_a_posesion_referencia = neto_a_posesion
-                contrato.save(update_fields=['neto_a_posesion_referencia'])
-        except Exception:
-            pass
+        if not recibo_solo_movimiento:
+            try:
+                if contrato.neto_a_posesion_referencia != neto_a_posesion:
+                    contrato.neto_a_posesion_referencia = neto_a_posesion
+                    contrato.save(update_fields=['neto_a_posesion_referencia'])
+            except Exception:
+                pass
         
         subtotal = total_a_abonar
         total_contrato = total_a_abonar

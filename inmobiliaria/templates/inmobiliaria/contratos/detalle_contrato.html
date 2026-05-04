@@ -18,6 +18,23 @@
                 <i class="fas fa-file-alt"></i> Ver contrato estudiante
             </a>
             {% endif %}
+            {% if movimientos_recibo_contrato %}
+            <div class="dropdown">
+                <button class="btn btn-outline-info dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Un recibo por cada cobro registrado en caja">
+                    <i class="fas fa-receipt"></i> Recibos por cobro
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    {% for m in movimientos_recibo_contrato %}
+                    <li>
+                        <a class="dropdown-item" target="_blank" rel="noopener" href="{% url 'inmobiliaria:recibo_contrato_24' contrato.id %}?movimiento_id={{ m.id }}">
+                            {{ m.fecha|date:"d/m/Y H:i" }} — Mov. #{{ m.id }}
+                            {% if m.numero_liquidacion %}({{ m.numero_liquidacion }}){% endif %}
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
         </div>
     </div>
 
