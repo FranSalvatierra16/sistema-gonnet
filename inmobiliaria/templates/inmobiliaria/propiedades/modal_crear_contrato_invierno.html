@@ -205,6 +205,42 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Honorarios y sellados (referencia en el contrato; mismo POST que contrato 24 meses) -->
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <div class="card border-warning">
+                                <div class="card-header bg-warning text-dark">
+                                    <h5 class="mb-0">💼 Honorarios y sellados (referencia)</h5>
+                                    <small class="text-muted">Se guardan en el contrato y precargan en caja. El <strong>precio mensual</strong> de arriba es el alquiler, no los honorarios.</small>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label"><strong>Honorarios (referencia):</strong></label>
+                                                <input type="text" class="form-control" id="honorarios_contrato_invierno" name="honorarios_contrato"
+                                                       placeholder="Ej: 450000" autocomplete="off"
+                                                       onchange="formatearNumeroEnTiempoReal(this)"
+                                                       oninput="formatearNumeroEnTiempoReal(this)">
+                                                <small class="form-text text-muted">Profesionales / inmobiliaria (concepto 25 en operación).</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label"><strong>Sellados (referencia):</strong></label>
+                                                <input type="text" class="form-control" id="sellados_contrato_invierno" name="sellados_contrato"
+                                                       placeholder="0 si no aplica" autocomplete="off"
+                                                       onchange="formatearNumeroEnTiempoReal(this)"
+                                                       oninput="formatearNumeroEnTiempoReal(this)">
+                                                <small class="form-text text-muted">En comodato invierno suele quedar en 0.</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -295,6 +331,17 @@
 // Variable global para el timeout de búsqueda
 let busquedaVendedorTimeoutInvierno;
 
+/** Miles con punto (AR); definida acá para no depender del modal de 24 meses en la misma página. */
+function formatearNumeroEnTiempoReal(input) {
+    if (!input || input.value === undefined || input.value === null) return;
+    var valor = String(input.value).replace(/\D/g, '');
+    if (valor === '') {
+        input.value = '';
+        return;
+    }
+    input.value = parseInt(valor, 10).toLocaleString('es-AR');
+}
+
 // Función para mostrar el modal de contrato de invierno
 function mostrarModalContratoInvierno(propiedadId, direccion, sucursal, precioMensual, precioExpensas) {
     // Llenar los campos del modal
@@ -323,6 +370,11 @@ function mostrarModalContratoInvierno(propiedadId, direccion, sucursal, precioMe
     actualizarListaInquilinosInvierno();
     garantesSeleccionadosInvierno = [];
     actualizarListaGarantesInvierno();
+
+    var honInv = document.getElementById('honorarios_contrato_invierno');
+    var selInv = document.getElementById('sellados_contrato_invierno');
+    if (honInv) honInv.value = '';
+    if (selInv) selInv.value = '';
     
     // Mostrar el modal
     const modal = new bootstrap.Modal(document.getElementById('modalContratoInvierno'));
