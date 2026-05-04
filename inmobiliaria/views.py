@@ -15949,6 +15949,7 @@ def recibo_contrato_24(request, contrato_id):
             )
 
         total_obligacion = Decimal('0')
+        total_saldo_a_abonar = Decimal('0')  # lo que falta cubrir en este recibo (obligación − créditos en líneas)
         total_abonado_recibo = Decimal('0')
         neto_a_posesion = Decimal('0')
 
@@ -15979,7 +15980,12 @@ def recibo_contrato_24(request, contrato_id):
                     sellados = Decimal('0')
                 total_obligacion = monto_cobro_lineas
                 total_abonado_recibo = total_pagado_mov if total_pagado_mov > 0 else monto_cobro_lineas
-                neto_a_posesion = Decimal('0')
+                total_saldo_a_abonar = total_obligacion - creditos_lineas_negativas
+                if total_saldo_a_abonar < 0:
+                    total_saldo_a_abonar = Decimal('0')
+                neto_a_posesion = total_saldo_a_abonar - total_abonado_recibo
+                if neto_a_posesion < 0:
+                    neto_a_posesion = Decimal('0')
             else:
                 # Cuadro resumen = obligación según contrato y referencias (no atribuir todo el cobro a honorarios si la línea es otra).
                 alquiler_mensual = (
@@ -16004,8 +16010,10 @@ def recibo_contrato_24(request, contrato_id):
                     alquiler_mensual + deposito_garantia + honorarios + sellados
                 )
                 total_abonado_recibo = total_pagado_mov if total_pagado_mov > 0 else monto_cobro_lineas
-                total_cubierto_ops = total_abonado_recibo + creditos_lineas_negativas
-                neto_a_posesion = total_obligacion - total_cubierto_ops
+                total_saldo_a_abonar = total_obligacion - creditos_lineas_negativas
+                if total_saldo_a_abonar < 0:
+                    total_saldo_a_abonar = Decimal('0')
+                neto_a_posesion = total_saldo_a_abonar - total_abonado_recibo
                 if neto_a_posesion < 0:
                     neto_a_posesion = Decimal('0')
         else:
@@ -16048,8 +16056,10 @@ def recibo_contrato_24(request, contrato_id):
                         break
             total_obligacion = alquiler_mensual + deposito_garantia + honorarios + sellados
             total_abonado_recibo = monto_cobro_lineas
-            total_cubierto_ops = total_abonado_recibo + creditos_lineas_negativas
-            neto_a_posesion = total_obligacion - total_cubierto_ops
+            total_saldo_a_abonar = total_obligacion - creditos_lineas_negativas
+            if total_saldo_a_abonar < 0:
+                total_saldo_a_abonar = Decimal('0')
+            neto_a_posesion = total_saldo_a_abonar - total_abonado_recibo
             if neto_a_posesion < 0:
                 neto_a_posesion = Decimal('0')
 
@@ -16071,7 +16081,7 @@ def recibo_contrato_24(request, contrato_id):
         else:
             deposito_estado = determinar_estado_concepto_contrato(contrato, '10')
 
-        total_a_abonar = float(total_obligacion)
+        total_a_abonar = float(total_saldo_a_abonar)
         total_solo = total_abonado_recibo
         total_solo_float = float(total_solo)
 
