@@ -12949,12 +12949,7 @@ def crear_operacion_contrato(request, contrato_id):
     contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
     tipo_operacion = request.GET.get('tipo', 'principal')
 
-    if tipo_operacion == 'principal' and contrato_requiere_cargos_iniciales_antes_operacion(contrato):
-        messages.warning(
-            request,
-            'Antes de la operación principal tenés que cobrar honorarios y sellados pendientes del contrato (paso previo).',
-        )
-        return redirect('inmobiliaria:completar_cargos_iniciales_contrato', contrato_id=contrato.id)
+    # Honorarios/sellados pueden cubrirse en recibos aparte o dentro de la operación principal; no forzar otro paso previo.
 
     # Verificar si hay una caja abierta
     try:
@@ -13004,7 +12999,7 @@ def crear_operacion_contrato(request, contrato_id):
 
 @login_required
 def completar_cargos_iniciales_contrato(request, contrato_id):
-    """Paso previo a la operación principal: cobrar honorarios (25) y sellados (26) hasta cubrir referencias."""
+    """Recibo opcional para cargos antes del alta (hon./sell., reserva, etc.). Las referencias 25/26 pueden cubrirse también en la operación principal."""
     contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
     if contrato.operacion_principal:
         messages.info(request, 'La operación principal ya está registrada.')
@@ -13063,9 +13058,8 @@ def completar_cargos_iniciales_contrato(request, contrato_id):
 @login_required
 @require_POST
 def procesar_cargos_iniciales_contrato(request, contrato_id):
-    """Registra en caja solo el cobro de honorarios/sellados pendientes (sin operación principal ni cuotas)."""
+    """Registra en caja cobros previos al alta (reserva, parte de hon./sell., etc.) sin operación principal ni cuotas."""
     import json as json_mod
-    from decimal import Decimal
 
     contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
     if contrato.operacion_principal:
@@ -13083,43 +13077,6 @@ def procesar_cargos_iniciales_contrato(request, contrato_id):
     if not isinstance(lista, list):
         return JsonResponse({'error': 'Los conceptos deben ser una lista.'}, status=400)
 
-    tol = Decimal('0.05')
-    hon_ref = Decimal(str(contrato.honorarios_referencia or 0))
-    sel_ref = Decimal(str(contrato.sellados_referencia or 0))
-    sum25 = Decimal('0')
-    sum26 = Decimal('0')
-    for item in lista:
-        cid = str(item.get('id') or item.get('codigo') or '').strip()
-        imp = parse_decimal_monto(item.get('importe'))
-        if cid == '25':
-            sum25 += imp
-        elif cid == '26':
-            sum26 += imp
-
-    ya25 = _sum_importe_concepto_en_movimientos_contrato(contrato, '25')
-    ya26 = _sum_importe_concepto_en_movimientos_contrato(contrato, '26')
-
-    if hon_ref > 0 and ya25 + sum25 + tol < hon_ref:
-        return JsonResponse(
-            {
-                'error': (
-                    f'Honorarios: la referencia es ${hon_ref} y con este cobro quedarían cubiertos '
-                    f'${ya25 + sum25}. Falta al menos ${hon_ref - ya25 - sum25}.'
-                ),
-            },
-            status=400,
-        )
-    if sel_ref > 0 and ya26 + sum26 + tol < sel_ref:
-        return JsonResponse(
-            {
-                'error': (
-                    f'Sellados: la referencia es ${sel_ref} y con este cobro quedarían cubiertos '
-                    f'${ya26 + sum26}. Falta al menos ${sel_ref - ya26 - sum26}.'
-                ),
-            },
-            status=400,
-        )
-
     caja = obtener_caja_abierta(request)
     if not caja:
         return JsonResponse({'error': 'No hay una caja abierta'}, status=400)
@@ -13130,10 +13087,21 @@ def procesar_cargos_iniciales_contrato(request, contrato_id):
     if not movimiento:
         return JsonResponse({'error': err or 'No se pudo registrar el movimiento.'}, status=400)
 
+    if contrato_requiere_cargos_iniciales_antes_operacion(contrato):
+        mensaje_ok = (
+            'Cobro registrado. Aún faltan honorarios y/o sellados respecto de las referencias del contrato; '
+            'podés completarlos en otro recibo o al hacer la operación principal.'
+        )
+    else:
+        mensaje_ok = (
+            'Honorarios y sellados quedaron cubiertos respecto de las referencias del contrato. '
+            'Podés continuar con la operación principal.'
+        )
+
     return JsonResponse(
         {
             'success': True,
-            'mensaje': 'Honorarios y sellados quedaron cubiertos respecto de las referencias del contrato. Podés continuar con la operación principal.',
+            'mensaje': mensaje_ok,
             'redirect_url': reverse('inmobiliaria:detalle_contrato', args=[contrato.id]),
         }
     )

@@ -76,8 +76,8 @@
                             </div>
                             {% elif modo_cargos_iniciales %}
                             <div class="alert alert-warning border mb-0 text-dark">
-                                <p class="mb-1"><strong>Solo cargos iniciales:</strong> este recibo es para completar <strong>concepto 25 (honorarios)</strong> y <strong>26 (sellados)</strong> hasta las referencias del contrato.</p>
-                                <p class="mb-0 small">Cuando queden cubiertos, desde el detalle del contrato vas a poder abrir la <strong>operación principal</strong> (primer mes, depósito, etc.).</p>
+                                <p class="mb-1"><strong>Cargos en caja (opcional):</strong> podés registrar acá lo que quieras (reserva, parte de honorarios, sellados, etc.). No es obligatorio cubrir en este recibo las referencias de <strong>25</strong> y <strong>26</strong>.</p>
+                                <p class="mb-0 small">Lo que falte respecto de las referencias podés cargarlo después en la <strong>operación principal</strong> u otro recibo de este contrato.</p>
                             </div>
                             {% else %}
                             <div class="form-group mb-2">
@@ -193,8 +193,8 @@
                 {% elif modo_cargos_iniciales %}
                 <div class="card mb-4 border-warning">
                     <div class="card-header bg-light">
-                        <h5 class="mb-0">💼 Cargos iniciales (tabla de conceptos)</h5>
-                        <small class="text-muted">Usá <strong>concepto 25</strong> y <strong>26</strong> en la tabla. La suma de lo que ingreses en este movimiento, más lo ya cobrado en caja en esos conceptos, tiene que alcanzar las referencias de arriba.</small>
+                        <h5 class="mb-0">💼 Cargos en caja (antes del alta)</h5>
+                        <small class="text-muted">Agregá los conceptos que corresponda (25, 26, reserva u otros). El total de la tabla debe coincidir con los medios de pago. Lo que falte de hon./sell. podés cargarlo después en la operación principal.</small>
                     </div>
                 </div>
                 {% endif %}
@@ -217,7 +217,7 @@
                         </p>
                         {% elif tipo_operacion == 'cargos_iniciales' %}
                         <p class="text-muted small mb-2">
-                            <strong>Paso 1:</strong> en la tabla cargá al menos <strong>25 (honorarios)</strong> y <strong>26 (sellados)</strong> con los importes de este cobro. El total de la tabla debe coincidir con los medios de pago. Si las referencias son 0, no hace falta esa línea.
+                            Sumá las líneas que quieras registrar en este recibo (por ejemplo solo reserva). Para honorarios y sellados podés usar <strong>25</strong> y <strong>26</strong> si cobrás algo acá; si no, los cargás cuando hagas la <strong>operación principal</strong>.
                         </p>
                         {% endif %}
                         <!-- Tabla de Conceptos -->
@@ -958,27 +958,6 @@ function procesarOperacion() {
     const totalRecibo = filas.reduce(function(sum, c) { return sum + importeConceptoANumero(c.importe); }, 0);
     const totalPagos = calcularTotalPagos();
 
-    if (tipoOperacion === 'cargos_iniciales') {
-        var s25 = 0;
-        var s26 = 0;
-        filas.forEach(function(c) {
-            var id = String(c.conceptoId || '').trim();
-            if (id === '25') s25 += importeConceptoANumero(c.importe);
-            if (id === '26') s26 += importeConceptoANumero(c.importe);
-        });
-        var tolC = 0.051;
-        if (window.honorariosRefCfg > 0 && s25 + tolC < window.honorariosPendienteCfg) {
-            alert('Honorarios: en este movimiento el concepto 25 debe sumar al menos el pendiente (aprox. $' +
-                (window.honorariosPendienteCfg).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ').');
-            return;
-        }
-        if (window.selladosRefCfg > 0 && s26 + tolC < window.selladosPendienteCfg) {
-            alert('Sellados: en este movimiento el concepto 26 debe sumar al menos el pendiente (aprox. $' +
-                (window.selladosPendienteCfg).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ').');
-            return;
-        }
-    }
-
     if (Math.abs(totalRecibo - totalPagos) > 0.01) {
         alert(`⚠️ Los pagos deben coincidir exactamente con el total del recibo.\nTotal Recibo: $${totalRecibo.toLocaleString('es-AR')}\nTotal Pagos: $${totalPagos.toLocaleString('es-AR')}\nDiferencia: $${Math.abs(totalRecibo - totalPagos).toLocaleString('es-AR')}`);
         return;
@@ -1387,41 +1366,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 actualizarMesAlquilerValorDesdeRadio();
             });
         });
-    }
-
-    if (window.modoCargosIniciales) {
-        var hp = window.honorariosPendienteCfg || 0;
-        var sp = window.selladosPendienteCfg || 0;
-        if (hp > 0) {
-            contadorConceptos += 1;
-            conceptosAgregados.push({
-                id: contadorConceptos,
-                conceptoId: '25',
-                nombre: 'Honorarios',
-                observaciones: 'Sin observaciones',
-                importe: hp,
-                fecha: new Date().toLocaleDateString('es-AR')
-            });
-        }
-        if (sp > 0) {
-            contadorConceptos += 1;
-            conceptosAgregados.push({
-                id: contadorConceptos,
-                conceptoId: '26',
-                nombre: 'Sellados',
-                observaciones: 'Sin observaciones',
-                importe: sp,
-                fecha: new Date().toLocaleDateString('es-AR')
-            });
-        }
-        actualizarTablaConceptos();
-        var totCargos = conceptosAgregados.reduce(function(acc, c) { return acc + importeConceptoANumero(c.importe); }, 0);
-        if (totCargos > 0) {
-            var efC = document.getElementById('monto_efectivo');
-            if (efC) {
-                efC.value = Math.round(totCargos).toLocaleString('es-AR');
-            }
-        }
     }
 
     if (window.modoPagoCuotaEspecifica && window.defaultImporteCuota > 0) {
