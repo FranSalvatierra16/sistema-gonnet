@@ -13690,7 +13690,48 @@ def procesar_operacion_contrato(request, contrato_id):
         
         if tipo_operacion == 'principal' and contrato.operacion_principal:
             return JsonResponse({'error': 'La operación principal ya fue realizada'}, status=400)
-        
+
+        # Pago de cuota (mensual u otro no principal): permitir recibo combinado (cuota + depósito + honorarios, etc.).
+        # Antes se exigía total_movimiento == monto cuota; eso rechaza montos mayores aunque la parte 1/15 cubra la cuota.
+        if tipo_operacion != 'principal':
+            import json as json_mod
+
+            cuota_chk = contrato.cuotas.filter(estado='pendiente').order_by('fecha_vencimiento').first()
+            if not cuota_chk:
+                return JsonResponse({'error': 'No hay cuotas pendientes para pagar'}, status=400)
+            raw_json = (request.POST.get('conceptos_json') or '').strip()
+            try:
+                lista_conceptos = json_mod.loads(raw_json) if raw_json else []
+            except json_mod.JSONDecodeError:
+                return JsonResponse({'error': 'Formato de conceptos inválido.'}, status=400)
+            if not isinstance(lista_conceptos, list):
+                lista_conceptos = []
+            sum_alquiler_locacion = Decimal('0')
+            for item in lista_conceptos:
+                cid = str(item.get('id') or item.get('codigo') or '').strip()
+                if cid in ('1', '15'):
+                    sum_alquiler_locacion += parse_decimal_monto(item.get('importe'))
+            total_medios = _total_medios_pago_operacion_request(request)
+            monto_cuota = Decimal(str(cuota_chk.monto_total))
+            tol = Decimal('0.05')
+            pago_solo_mes = abs(total_medios - monto_cuota) <= tol
+            recibo_combinado_ok = (sum_alquiler_locacion + tol >= monto_cuota) and (total_medios + tol >= monto_cuota)
+            if not pago_solo_mes and not recibo_combinado_ok:
+                return JsonResponse(
+                    {
+                        'error': (
+                            f'Para marcar esta cuota (${monto_cuota}), incluí en el recibo conceptos '
+                            f'1 (alquiler) y/o 15 (locación a cuenta) que sumen al menos ese importe '
+                            f'(ahora suman ${sum_alquiler_locacion}). '
+                            f'Total medios de pago: ${total_medios}. '
+                            f'Si cobrás solo el mes, el total debe igualar la cuota; si sumás depósito (10), '
+                            f'honorarios (25), reservas u otros conceptos, el total será mayor y debe '
+                            f'haber líneas 1 y/o 15 que cubran el valor de la cuota.'
+                        )
+                    },
+                    status=400,
+                )
+
         caja = obtener_caja_abierta(request)
         if not caja:
             return JsonResponse({'error': 'No hay una caja abierta'}, status=400)
@@ -13835,26 +13876,10 @@ def procesar_operacion_contrato(request, contrato_id):
             cuota = contrato.cuotas.filter(estado='pendiente').order_by('fecha_vencimiento').first()
             if not cuota:
                 return JsonResponse({'error': 'No hay cuotas pendientes para pagar'}, status=400)
-            
-            if nuevo_precio_mensual:
-                cuota.monto_base = nuevo_precio_mensual
-                cuota.monto_total = nuevo_precio_mensual
-                cuota.save()
-            
-            total_esperado = cuota.monto_total
-            mensaje_error = f'El monto total (${total_movimiento}) debe ser igual al valor de la cuota (${cuota.monto_total})'
-            
             cuota.estado = 'pagada'
             cuota.fecha_pago = timezone.now().date()
             cuota.movimiento = movimiento
             cuota.save()
-            
-            # Validación solo para pago de cuota: monto debe coincidir con el valor de la cuota
-            diferencia = abs(float(total_movimiento) - float(total_esperado))
-            if diferencia > 0.01:
-                return JsonResponse({
-                    'error': mensaje_error + f' (Diferencia: ${diferencia:.2f})'
-                }, status=400)
         
         return JsonResponse({
             'success': True,
