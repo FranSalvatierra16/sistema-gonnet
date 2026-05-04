@@ -13125,7 +13125,8 @@ def determinar_estado_concepto_contrato(contrato, concepto_id):
     # Buscar movimientos de caja relacionados con este contrato
     movimientos = MovimientoCaja.objects.filter(
         propiedad=contrato.propiedad,
-        concepto__icontains=f'Contrato #{contrato.id}'
+        sucursal=contrato.sucursal,
+        concepto__icontains=f'Contrato #{contrato.id}',
     )
     
 # print(f"🔍 ESTADO CONCEPTO {concepto_id} - Contrato #{contrato.id}")
@@ -13139,6 +13140,7 @@ def determinar_estado_concepto_contrato(contrato, concepto_id):
         try:
             # ✅ Usar concepto_detalle (JSON completo); puede ser array o objeto {conceptos, ...}
             json_str = getattr(movimiento, 'concepto_detalle', None)
+            parsed = None
             if json_str and json_str.strip():
                 parsed = json.loads(json_str)
                 if isinstance(parsed, dict) and 'conceptos' in parsed:
@@ -13157,6 +13159,31 @@ def determinar_estado_concepto_contrato(contrato, concepto_id):
                 concepto_id_actual = str(concepto.get('id', concepto.get('codigo', '')))
                 if concepto_id_actual == str(concepto_id):
                     return 'pagado'
+
+            # Objeto JSON con sellados/honorarios en raíz o campos del movimiento (operación principal suele
+            # guardar sellados en `sellados` del detalle sin línea 26; honorarios en campo `honorarios` del movimiento).
+            if isinstance(parsed, dict):
+                if str(concepto_id) == '26' and parsed.get('sellados') is not None:
+                    try:
+                        if float(parsed.get('sellados')) > 0:
+                            return 'pagado'
+                    except (TypeError, ValueError):
+                        pass
+                if str(concepto_id) == '25' and parsed.get('honorarios') is not None:
+                    try:
+                        if float(parsed.get('honorarios')) > 0:
+                            return 'pagado'
+                    except (TypeError, ValueError):
+                        pass
+            try:
+                if str(concepto_id) == '26' and getattr(movimiento, 'sellados', None):
+                    if float(movimiento.sellados or 0) > 0:
+                        return 'pagado'
+                if str(concepto_id) == '25' and getattr(movimiento, 'honorarios', None):
+                    if float(movimiento.honorarios or 0) > 0:
+                        return 'pagado'
+            except (TypeError, ValueError):
+                pass
             
             # Si no hay concepto_detalle y no encontramos en JSON, buscar en texto (contratos antiguos)
             if not (json_str and json_str.strip().startswith('[')) and (movimiento.concepto or ''):
@@ -13201,26 +13228,55 @@ def _sum_importe_concepto_en_movimientos_contrato(contrato, codigo_buscado):
     ).order_by('id')
     for mov in movimientos:
         parsed_list = []
+        parsed_dict = None
         detalle = (getattr(mov, 'concepto_detalle', None) or '').strip()
         try:
             if detalle:
-                parsed = json.loads(detalle)
-                if isinstance(parsed, dict) and 'conceptos' in parsed:
-                    parsed_list = parsed.get('conceptos') or []
-                elif isinstance(parsed, list):
-                    parsed_list = parsed
+                raw_p = json.loads(detalle)
+                if isinstance(raw_p, dict):
+                    parsed_dict = raw_p
+                    if 'conceptos' in raw_p:
+                        parsed_list = raw_p.get('conceptos') or []
+                elif isinstance(raw_p, list):
+                    parsed_list = raw_p
             if not parsed_list and (mov.concepto or '').strip().startswith('['):
-                parsed_list = json.loads(mov.concepto)
+                pl2 = json.loads(mov.concepto)
+                if isinstance(pl2, list):
+                    parsed_list = pl2
         except (json.JSONDecodeError, ValueError, TypeError):
             continue
+        sub = Decimal('0')
         for concepto in parsed_list:
             cid = str(concepto.get('id', concepto.get('codigo', ''))).strip()
             if cid != codigo_buscado:
                 continue
             try:
-                total += parse_decimal_monto(concepto.get('importe', 0))
+                sub += parse_decimal_monto(concepto.get('importe', 0))
             except Exception:
                 pass
+        if codigo_buscado == '26' and sub == 0 and isinstance(parsed_dict, dict) and parsed_dict.get('sellados') is not None:
+            try:
+                sub = parse_decimal_monto(parsed_dict.get('sellados'))
+            except Exception:
+                pass
+        if codigo_buscado == '26' and sub == 0 and getattr(mov, 'sellados', None):
+            try:
+                if float(mov.sellados or 0) > 0:
+                    sub = parse_decimal_monto(mov.sellados)
+            except Exception:
+                pass
+        if codigo_buscado == '25' and sub == 0 and isinstance(parsed_dict, dict) and parsed_dict.get('honorarios') is not None:
+            try:
+                sub = parse_decimal_monto(parsed_dict.get('honorarios'))
+            except Exception:
+                pass
+        if codigo_buscado == '25' and sub == 0 and getattr(mov, 'honorarios', None):
+            try:
+                if float(mov.honorarios or 0) > 0:
+                    sub = parse_decimal_monto(mov.honorarios)
+            except Exception:
+                pass
+        total += sub
     return total
 
 
