@@ -14358,9 +14358,13 @@ def procesar_pago_cuota_operacion(request, cuota_id):
             return JsonResponse({'error': 'Agregá al menos una línea en conceptos.'}, status=400)
 
         importes_id1 = []
-        suma_conceptos = Decimal('0')
+        suma_conceptos_ars = Decimal('0')
+        suma_conceptos_usd = Decimal('0')
         for item in lista:
             cid = str(item.get('id') or item.get('codigo') or '').strip()
+            moneda = str(item.get('moneda') or 'ARS').strip().upper()
+            if moneda not in ('ARS', 'USD'):
+                moneda = 'ARS'
             if cid in ('25', '26'):
                 return JsonResponse(
                     {'error': 'En el cobro de cuota no se usan honorarios (25) ni sellados (26).'},
@@ -14374,8 +14378,11 @@ def procesar_pago_cuota_operacion(request, cuota_id):
                     {'error': 'El concepto de alquiler (ID 1) no puede tener importe negativo.'},
                     status=400,
                 )
-            suma_conceptos += imp
-            if cid == '1':
+            if moneda == 'USD':
+                suma_conceptos_usd += imp
+            else:
+                suma_conceptos_ars += imp
+            if cid == '1' and moneda != 'USD':
                 importes_id1.append(imp)
 
         if not importes_id1 or max(importes_id1) <= 0:
@@ -14391,15 +14398,17 @@ def procesar_pago_cuota_operacion(request, cuota_id):
 
         importe_alquiler = max(importes_id1)
 
-        total_medios = _total_medios_pago_operacion_request(request)
-        if total_medios <= 0:
+        total_medios_ars = _total_medios_pago_operacion_request(request)
+        total_medios_usd = parse_decimal_monto(request.POST.get('monto_dolares', request.POST.get('dolares', '0')))
+        if total_medios_ars <= 0 and total_medios_usd <= 0:
             return JsonResponse({'error': 'El total de medios de pago debe ser mayor a cero.'}, status=400)
-        if abs(suma_conceptos - total_medios) > Decimal('0.03'):
+        if abs(suma_conceptos_ars - total_medios_ars) > Decimal('0.03') or abs(suma_conceptos_usd - total_medios_usd) > Decimal('0.03'):
             return JsonResponse(
                 {
                     'error': (
-                        f'La suma de conceptos (${suma_conceptos}) debe igualar '
-                        f'la suma de medios de pago (${total_medios}).'
+                        f'La suma de conceptos debe igualar la suma de medios de pago por moneda. '
+                        f'ARS conceptos: ${suma_conceptos_ars} vs ARS pagos: ${total_medios_ars}. '
+                        f'USD conceptos: U$S {suma_conceptos_usd} vs USD pagos: U$S {total_medios_usd}.'
                     ),
                 },
                 status=400,
@@ -14437,7 +14446,7 @@ def procesar_pago_cuota_operacion(request, cuota_id):
             cuota.monto_base = importe_alquiler
             cuota.recargo_mora = Decimal('0')
             cuota.descuento = Decimal('0')
-            cuota.monto_total = suma_conceptos
+            cuota.monto_total = suma_conceptos_ars
             cuota.save()
 
             siguiente_cuota = contrato.cuotas.filter(numero_cuota=cuota.numero_cuota + 1).first()
@@ -14461,7 +14470,8 @@ def procesar_pago_cuota_operacion(request, cuota_id):
 
         messages.success(
             request,
-            f'Cuota {cuota.numero_cuota}/{contrato.duracion_meses} cobrada por ${suma_conceptos} '
+            f'Cuota {cuota.numero_cuota}/{contrato.duracion_meses} cobrada por ${suma_conceptos_ars} '
+            f'{f"y U$S {suma_conceptos_usd} " if suma_conceptos_usd > 0 else ""}'
             f'(alquiler ID 1: ${importe_alquiler}).',
         )
         return JsonResponse(
