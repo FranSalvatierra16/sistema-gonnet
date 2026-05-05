@@ -12448,7 +12448,13 @@ def crear_contrato_alquiler(request):
             fecha_operacion = request.POST.get('fecha_operacion')
             fecha_inicio = request.POST.get('fecha_inicio')
             fecha_fin = request.POST.get('fecha_fin')
-            duracion_meses = int(request.POST.get('duracion_meses', 24))
+            duracion_raw = (request.POST.get('duracion_meses', '24') or '24').strip()
+            try:
+                duracion_meses = int(duracion_raw)
+            except (TypeError, ValueError):
+                return JsonResponse({'error': 'La duración debe ser un número entero de meses.'}, status=400)
+            if duracion_meses <= 0:
+                return JsonResponse({'error': 'La duración debe ser mayor a 0 meses.'}, status=400)
             precio_mensual = parse_decimal_monto(request.POST.get('precio_mensual'))
             _raw_2do = (request.POST.get('precio_segundo_cuatrimestre') or '').strip()
             precio_segundo_cuatrimestre = parse_decimal_monto(_raw_2do) if _raw_2do else None

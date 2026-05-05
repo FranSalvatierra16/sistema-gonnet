@@ -66,12 +66,9 @@
                                     <div class="row">
                                         <div class="col-6">
                                             <div class="mb-3">
-                                                <label class="form-label"><strong>Duración:</strong></label>
-                                                <select class="form-control" id="duracion_meses" name="duracion_meses">
-                                                    <option value="24" selected>24 Meses</option>
-                                                    <option value="12">12 Meses</option>
-                                                    <option value="36">36 Meses</option>
-                                                </select>
+                                                <label class="form-label"><strong>Duración (meses):</strong></label>
+                                                <input type="number" class="form-control" id="duracion_meses" name="duracion_meses" min="1" max="120" step="1" value="24" required>
+                                                <small class="text-muted">Podés ingresar cualquier cantidad de meses (ej: 6, 20, 30).</small>
                                             </div>
                                         </div>
                                         <div class="col-6">
@@ -931,6 +928,10 @@ function actualizarResumenContrato() {
 
 // Event listeners
 document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('duracion_meses').addEventListener('input', function() {
+        actualizarResumenContrato();
+        renderTrimestresPrecio();
+    });
     document.getElementById('duracion_meses').addEventListener('change', function() {
         actualizarResumenContrato();
         renderTrimestresPrecio();
