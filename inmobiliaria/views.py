@@ -6269,15 +6269,8 @@ def ver_recibo_movimiento(request, movimiento_id):
                 pass  # ✅ Bloque vacío
 # print(f"❌ Error al buscar reserva desde concepto: {e}")
         
-        # Fallback por propiedad solo para textos de reserva/operación.
-        if (
-            not es_movimiento_contrato
-            and not reserva
-            and movimiento.propiedad
-            and ("Operaci\u00f3n" in concepto_txt or "Reserva" in concepto_txt)
-        ):
-            reserva = movimiento.propiedad.reservas.filter(estado__in=['pagada', 'confirmada_no_pagada']).first()
-# print(f"🔍 RESERVA FALLBACK desde propiedad: {reserva.id if reserva else 'No encontrada'}")
+        # NO usar fallback por propiedad: puede mezclar cobros de cuota/contrato con una reserva
+        # distinta que comparta inmueble y termina mostrando seña/depósito incorrectos.
         
         # ✅ CORRECCIÓN: Buscar movimientos DE ESTA OPERACIÓN ESPECÍFICA (mismo número de recibo)
         movimientos_relacionados = MovimientoCaja.objects.filter(
