@@ -257,6 +257,17 @@
                 </table>
             </div>
 
+            {% if recibo_es_pago_cuota %}
+            <!-- Cobro de cuota: mostrar recibo simple (solo conceptos + total) -->
+            <div style="display: flex; justify-content: flex-end; height: 22%;">
+                <div style="width: 48%; border: 1px solid #2d8524; padding: 5px;">
+                    <div style="text-align: right; margin-bottom: 10px;">
+                        <div style="border-bottom: 1px solid black; margin-bottom: 5px; text-align: center; font-size: 10px; font-weight: bold;">TOTAL</div>
+                        <div style="border-bottom: 1px solid black; margin-bottom: 5px; text-align: center; font-size: 11px; font-weight: bold;">{{ total_solo|default:"0.00" }}</div>
+                    </div>
+                </div>
+            </div>
+            {% else %}
             <!-- Tabla de honorarios y resumen -->
             <div style="display: flex; justify-content: space-between; height: 22%;">
                 <div style="width: 50%; border: 1px solid #2d8524; padding: 5px;">
@@ -292,6 +303,7 @@
                     </div>
                 </div>
             </div>
+            {% endif %}
         </div>
 
         <!-- Pie del recibo -->

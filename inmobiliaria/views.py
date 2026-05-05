@@ -16285,6 +16285,7 @@ def recibo_contrato_24(request, contrato_id):
             'lista_inquilinos': lista_inquilinos,
             'lista_garantes_recibo': lista_garantes_recibo,
             'conceptos_contrato': conceptos_contrato,
+            'recibo_es_pago_cuota': pago_cuota_mensual_recibo,
             'alquiler_mensual': format_currency(alquiler_mensual),
             'deposito_garantia': format_currency(deposito_garantia),
             'deposito_estado': deposito_estado,
