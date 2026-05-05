@@ -6315,6 +6315,45 @@ def ver_recibo_movimiento(request, movimiento_id):
             total_deposito_galicia = movimiento.monto_deposito
         
         total_movimiento = total_efectivo + total_cheque + total_tarjeta + total_deposito
+
+        def _concepto_legible_movimiento(mov):
+            """Devuelve un concepto amigable para impresión, evitando JSON crudo."""
+            try:
+                import json
+                detalle_raw = (getattr(mov, 'concepto_detalle', None) or '').strip()
+                if detalle_raw:
+                    parsed = json.loads(detalle_raw)
+                else:
+                    base_raw = (getattr(mov, 'concepto', None) or '').strip()
+                    parsed = json.loads(base_raw) if base_raw.startswith('[') or base_raw.startswith('{') else None
+            except Exception:
+                parsed = None
+
+            items = []
+            if isinstance(parsed, dict):
+                arr = parsed.get('conceptos')
+                items = arr if isinstance(arr, list) else []
+            elif isinstance(parsed, list):
+                items = parsed
+
+            nombres = []
+            for it in items:
+                if not isinstance(it, dict):
+                    continue
+                nombre = str(it.get('nombre') or it.get('concepto') or '').strip()
+                if nombre and nombre not in nombres:
+                    nombres.append(nombre)
+            if nombres:
+                return ' + '.join(nombres)[:220]
+
+            base = str(getattr(mov, 'concepto', '') or '').strip()
+            if '|CONCEPTOS:' in base:
+                base = base.split('|CONCEPTOS:', 1)[0].strip()
+            if base.startswith('[') or base.startswith('{'):
+                return f"Movimiento #{mov.id}"
+            return base or f"Movimiento #{mov.id}"
+
+        concepto_mostrar = _concepto_legible_movimiento(movimiento)
         
 # print(f"🧾 RECIBO ÚNICO - Movimiento ID: {movimiento.id}, Número: {movimiento.numero_liquidacion}")
 # print(f"🧾 DESGLOSE - Efectivo: {total_efectivo}, Cheque: {total_cheque}, Tarjeta: {total_tarjeta}")
@@ -6767,6 +6806,7 @@ def ver_recibo_movimiento(request, movimiento_id):
         # Si no hay reserva, usar el template original
         context = {
             'movimiento': movimiento,
+            'concepto_mostrar': concepto_mostrar,
             'reserva': reserva,
             'total_movimiento': total_movimiento,
             'total_efectivo': total_efectivo,

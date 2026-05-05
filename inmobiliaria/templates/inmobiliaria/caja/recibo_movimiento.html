@@ -150,7 +150,7 @@
             
             <div class="info-row">
                 <span class="info-label">Concepto:</span>
-                <span class="info-value">{{ movimiento.concepto }}</span>
+                <span class="info-value">{{ concepto_mostrar|default:movimiento.concepto }}</span>
             </div>
             
             {% if movimiento.numero_liquidacion %}
