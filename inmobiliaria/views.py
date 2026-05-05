@@ -12744,20 +12744,18 @@ def lista_contratos(request):
         contrato.sellados_estado = determinar_estado_concepto_contrato(contrato, '26')  # Concepto 26 = sellados
         
         # Honorarios/sellados: si ya hay movimiento, usarlo; si no está pagado y hay referencia del alta, mostrarla
-        if not hasattr(contrato, 'honorarios'):
-            mov_h = obtener_valor_concepto_contrato(contrato, 'honorarios')
-            if contrato.honorarios_estado == 'pagado':
-                contrato.honorarios = mov_h
-            else:
-                ref_h = getattr(contrato, 'honorarios_referencia', None) or Decimal('0')
-                contrato.honorarios = mov_h if mov_h > 0 else ref_h
-        if not hasattr(contrato, 'sellados'):
-            mov_s = obtener_valor_concepto_contrato(contrato, 'sellados')
-            if contrato.sellados_estado == 'pagado':
-                contrato.sellados = mov_s
-            else:
-                ref_s = getattr(contrato, 'sellados_referencia', None) or Decimal('0')
-                contrato.sellados = mov_s if mov_s > 0 else ref_s
+        mov_h = obtener_valor_concepto_contrato(contrato, 'honorarios')
+        if contrato.honorarios_estado == 'pagado':
+            contrato.honorarios = mov_h
+        else:
+            ref_h = getattr(contrato, 'honorarios_referencia', None) or Decimal('0')
+            contrato.honorarios = mov_h if mov_h > 0 else ref_h
+        mov_s = obtener_valor_concepto_contrato(contrato, 'sellados')
+        if contrato.sellados_estado == 'pagado':
+            contrato.sellados = mov_s
+        else:
+            ref_s = getattr(contrato, 'sellados_referencia', None) or Decimal('0')
+            contrato.sellados = mov_s if mov_s > 0 else ref_s
     
     context = {
         'contratos': contratos,
@@ -13410,6 +13408,7 @@ def obtener_valor_concepto_contrato(contrato, campo):
     Usa el mismo criterio que el recibo: preferir el movimiento con concepto_detalle (más reciente con datos).
     """
     from decimal import Decimal
+    import json
     
     movimientos = MovimientoCaja.objects.filter(
         propiedad=contrato.propiedad,
@@ -13418,13 +13417,40 @@ def obtener_valor_concepto_contrato(contrato, campo):
     ).order_by('-id')
     
     for mov in movimientos:
+        # 1) campo directo del movimiento (prioridad alta)
+        try:
+            val_campo = Decimal(str(getattr(mov, campo, 0) or 0))
+        except Exception:
+            val_campo = Decimal('0')
+        if val_campo > 0:
+            return val_campo
+
+        # 2) fallback JSON raíz en concepto_detalle (dict con honorarios/sellados)
         detalle = (getattr(mov, 'concepto_detalle', None) or '').strip()
-        if detalle and detalle.startswith('['):
-            return getattr(mov, campo, Decimal('0'))
-    
+        if not detalle:
+            continue
+        if not (detalle.startswith('[') or detalle.startswith('{')):
+            continue
+        try:
+            parsed = json.loads(detalle)
+        except Exception:
+            continue
+        if isinstance(parsed, dict):
+            raw = parsed.get(campo)
+            if raw is not None:
+                try:
+                    vjson = Decimal(str(raw or 0))
+                except Exception:
+                    vjson = Decimal('0')
+                if vjson > 0:
+                    return vjson
+
     primer = movimientos.first()
     if primer:
-        return getattr(primer, campo, Decimal('0'))
+        try:
+            return Decimal(str(getattr(primer, campo, 0) or 0))
+        except Exception:
+            return Decimal('0')
     return Decimal('0')
 
 
