@@ -264,6 +264,10 @@
                     <div style="text-align: right; margin-bottom: 10px;">
                         <div style="border-bottom: 1px solid black; margin-bottom: 5px; text-align: center; font-size: 10px; font-weight: bold;">TOTAL</div>
                         <div style="border-bottom: 1px solid black; margin-bottom: 5px; text-align: center; font-size: 11px; font-weight: bold;">{{ total_solo|default:"0.00" }}</div>
+                        {% if muestra_total_usd %}
+                        <div style="border-bottom: 1px solid black; margin-bottom: 5px; text-align: center; font-size: 9px; font-weight: bold;">TOTAL USD</div>
+                        <div style="border-bottom: 1px solid black; margin-bottom: 5px; text-align: center; font-size: 11px; font-weight: bold;">{{ total_solo_usd }}</div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -296,8 +300,12 @@
                     <div style="text-align: right; margin-bottom: 10px;">
                         <div style="border-bottom: 1px solid black; margin-bottom: 5px; text-align: center; font-size: 10px; font-weight: bold;">TOTAL A ABONAR</div>
                         <div style="border-bottom: 1px solid black; margin-bottom: 5px; text-align: center; font-size: 10px; font-weight: bold;">{{ total_a_abonar|default:"0.00" }}</div>
-                        <div style="border-bottom: 1px solid black; margin-bottom: 5px; text-align: center; font-size: 9px;">TOTAL ABONADO</div>
+                        <div style="border-bottom: 1px solid black; margin-bottom: 5px; text-align: center; font-size: 9px;">{% if muestra_total_usd %}TOTAL ABONADO (ARS){% else %}TOTAL ABONADO{% endif %}</div>
                         <div style="border-bottom: 1px solid black; margin-bottom: 5px; text-align: center; font-size: 9px;">{{ total_solo|default:"0.00" }}</div>
+                        {% if muestra_total_usd %}
+                        <div style="border-bottom: 1px solid black; margin-bottom: 5px; text-align: center; font-size: 9px;">TOTAL ABONADO (USD)</div>
+                        <div style="border-bottom: 1px solid black; margin-bottom: 5px; text-align: center; font-size: 9px;">{{ total_solo_usd }}</div>
+                        {% endif %}
                         <div style="border-bottom: 1px solid black; margin-bottom: 5px; text-align: center; font-size: 11px; font-weight: bold;">NETO A LA POSESIÓN</div>
                         <div style="text-align: center; font-size: 13px; font-weight: bold;">{{ neto_a_posesion|default:"0.00" }}</div>
                     </div>
@@ -315,7 +323,7 @@
                     <p style="margin: 0;">• La firma GONNET PROPIEDADES recibe este importe por cuenta y orden del propietario, por lo que se aclara expresamente que el presente se realiza sujeto a su aprobación.</p>
                     <p style="margin: 0;">• En el caso de no aprobarse esta operación la sera devuelto únicamente el importe que se recibe en este</p>
                     <p style="margin: 0; font-weight: bold;">"Oficialización al Consumidor Provincia de Buenos Aires 0800-222-9042"</p>
-                    <p style="margin: 0; text-align: center; font-weight: bold;">LA SUMA DE: {{ suma_en_letras|default:"" }}</p>
+                    <p style="margin: 0; text-align: center; font-weight: bold;">LA SUMA DE: {% if suma_en_letras %}{{ suma_en_letras }}{% endif %}{% if muestra_total_usd and suma_en_letras_usd %}{% if suma_en_letras %} — {% endif %}{{ suma_en_letras_usd }}{% endif %}</p>
                 </div>
                 <div style="width: 25%; text-align: center;">
                     <div class="recibo-firma" style="border: 1px solid black; height: 40%; margin-bottom: 10px; display: flex; align-items: center; justify-content: center;">

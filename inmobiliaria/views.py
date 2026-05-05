@@ -6825,11 +6825,13 @@ def ver_recibo_movimiento(request, movimiento_id):
             })
         
         # Si no hay reserva, usar el template original
+        total_dolares = float(getattr(movimiento, 'monto_dolares', None) or 0)
         context = {
             'movimiento': movimiento,
             'concepto_mostrar': concepto_mostrar,
             'reserva': reserva,
             'total_movimiento': total_movimiento,
+            'total_dolares': total_dolares,
             'total_efectivo': total_efectivo,
             'total_cheque': total_cheque,
             'total_tarjeta': total_tarjeta,
@@ -15778,6 +15780,13 @@ def recibo_contrato_24(request, contrato_id):
                     codigo_txt = '' if codigo_raw is None else str(codigo_raw).strip()
                     codigo = _etiqueta_id_concepto_caja_visual(codigo_txt) if codigo_txt else ''
                     nombre = concepto_data.get('nombre', concepto_data.get('concepto', ''))
+                    moneda_linea = (
+                        'USD' if str(concepto_data.get('moneda') or 'ARS').strip().upper() == 'USD' else 'ARS'
+                    )
+                    if moneda_linea == 'USD':
+                        importe_fmt = f"U$S {importe_valor:,.2f}".replace(',', '.')
+                    else:
+                        importe_fmt = f"${importe_valor:,.2f}".replace(',', '.')
                     
 # print(f"    - Importe: {importe_valor}")
 # print(f"    - Código: '{codigo}'")
@@ -15789,8 +15798,9 @@ def recibo_contrato_24(request, contrato_id):
                         'codigo': codigo,
                         'nombre': nombre,
                         'observaciones': observaciones_para_recibo(concepto_data.get('observaciones')),
-                        'importe': f"${importe_valor:,.2f}".replace(',', '.'),
-                        'importe_numerico': importe_valor
+                        'importe': importe_fmt,
+                        'importe_numerico': importe_valor,
+                        'moneda': moneda_linea,
                     })
                 
                 if len(conceptos_contrato) > 0:
@@ -15836,6 +15846,14 @@ def recibo_contrato_24(request, contrato_id):
                             concepto_id = str(concepto.get('id', concepto.get('codigo', '')))
                             concepto_nombre = concepto.get('nombre', '')
                             concepto_importe = float(concepto.get('importe', 0))
+                            moneda_c = (
+                                'USD' if str(concepto.get('moneda') or 'ARS').strip().upper() == 'USD' else 'ARS'
+                            )
+                            imp_c = (
+                                f"U$S {concepto_importe:,.2f}".replace(',', '.')
+                                if moneda_c == 'USD'
+                                else f"${concepto_importe:,.2f}".replace(',', '.')
+                            )
                             
                             if concepto_importe > 0 and concepto_id not in conceptos_encontrados:
                                 conceptos_encontrados[concepto_id] = {
@@ -15843,8 +15861,9 @@ def recibo_contrato_24(request, contrato_id):
                                     'codigo': concepto_id,
                                     'nombre': concepto_nombre,
                                     'observaciones': observaciones_para_recibo(concepto.get('observaciones')),
-                                    'importe': f"${concepto_importe:,.2f}".replace(',', '.'),
-                                    'importe_numerico': concepto_importe
+                                    'importe': imp_c,
+                                    'importe_numerico': concepto_importe,
+                                    'moneda': moneda_c,
                                 }
 # print(f"        ✅ CONCEPTO ENCONTRADO: {concepto_id} - {concepto_nombre} - ${concepto_importe}")
                             
@@ -15865,7 +15884,8 @@ def recibo_contrato_24(request, contrato_id):
                                 'nombre': 'Alquiler',
                                 'observaciones': '',
                                 'importe': f"${float(contrato.precio_mensual):,.2f}".replace(',', '.'),
-                                'importe_numerico': float(contrato.precio_mensual)
+                                'importe_numerico': float(contrato.precio_mensual),
+                                'moneda': 'ARS',
                             }
 # print(f"        ✅ ALQUILER AGREGADO (precio mensual)")
                         
@@ -15887,7 +15907,8 @@ def recibo_contrato_24(request, contrato_id):
                                     'nombre': 'Depósito de garantía',
                                     'observaciones': '',
                                     'importe': f"${deposito_valor:,.2f}".replace(',', '.'),
-                                    'importe_numerico': deposito_valor
+                                    'importe_numerico': deposito_valor,
+                                    'moneda': 'ARS',
                                 }
 # print(f"        ✅ DEPÓSITO AGREGADO: ${deposito_valor}")
                         
@@ -15920,7 +15941,8 @@ def recibo_contrato_24(request, contrato_id):
                                     'nombre': 'Honorarios',
                                     'observaciones': '',
                                     'importe': f"${honorarios_valor:,.2f}".replace(',', '.'),
-                                    'importe_numerico': honorarios_valor
+                                    'importe_numerico': honorarios_valor,
+                                    'moneda': 'ARS',
                                 }
 # print(f"        ✅ HONORARIOS AGREGADO: ${honorarios_valor}")
                         
@@ -15947,7 +15969,8 @@ def recibo_contrato_24(request, contrato_id):
                                     'nombre': 'Sellados',
                                     'observaciones': '',
                                     'importe': f"${sellados_valor:,.2f}".replace(',', '.'),
-                                    'importe_numerico': sellados_valor
+                                    'importe_numerico': sellados_valor,
+                                    'moneda': 'ARS',
                                 }
 # print(f"        ✅ SELLADOS AGREGADO: ${sellados_valor}")
                 
@@ -16025,15 +16048,28 @@ def recibo_contrato_24(request, contrato_id):
                     (m.monto_efectivo or 0) + (m.monto_cheque or 0) +
                     (m.monto_tarjeta or 0) + (m.monto_deposito or 0)
                 )
+                tot_usd_fb = float(getattr(m, 'monto_dolares', None) or 0)
                 fb = m.fecha.date() if hasattr(m.fecha, 'date') else m.fecha
-                conceptos_contrato.append({
-                    'fecha': fb,
-                    'codigo': '',
-                    'nombre': 'Cobro registrado (sin detalle de conceptos)',
-                    'observaciones': '',
-                    'importe': f"${tot:,.2f}".replace(',', '.'),
-                    'importe_numerico': tot,
-                })
+                if tot > 0:
+                    conceptos_contrato.append({
+                        'fecha': fb,
+                        'codigo': '',
+                        'nombre': 'Cobro registrado (sin detalle de conceptos)',
+                        'observaciones': '',
+                        'importe': f"${tot:,.2f}".replace(',', '.'),
+                        'importe_numerico': tot,
+                        'moneda': 'ARS',
+                    })
+                if tot_usd_fb > 0:
+                    conceptos_contrato.append({
+                        'fecha': fb,
+                        'codigo': '',
+                        'nombre': 'Cobro registrado (sin detalle de conceptos) — USD',
+                        'observaciones': '',
+                        'importe': f"U$S {tot_usd_fb:,.2f}".replace(',', '.'),
+                        'importe_numerico': tot_usd_fb,
+                        'moneda': 'USD',
+                    })
             
 # print(f"🎯 TOTAL CONCEPTOS FINALES: {len(conceptos_contrato)}")
         else:
@@ -16047,7 +16083,8 @@ def recibo_contrato_24(request, contrato_id):
                     'nombre': 'Alquiler',
                     'observaciones': '',
                     'importe': f"${precio_mensual_valor:,.2f}".replace(',', '.'),
-                    'importe_numerico': precio_mensual_valor
+                    'importe_numerico': precio_mensual_valor,
+                    'moneda': 'ARS',
                 })
 # print(f"  ✅ SIN MOVIMIENTO: Alquiler ${precio_mensual_valor}")
         
@@ -16067,24 +16104,50 @@ def recibo_contrato_24(request, contrato_id):
             except Exception:
                 return Decimal('0')
 
-        suma_todas_lineas = sum(_importe_concepto_recibo(c) for c in conceptos_contrato)
-        suma_lineas_positivas = sum(
-            _importe_concepto_recibo(c) for c in conceptos_contrato if _importe_concepto_recibo(c) > 0
-        )
-        tiene_credito_en_lineas = any(_importe_concepto_recibo(c) < 0 for c in conceptos_contrato)
-        if tiene_credito_en_lineas:
-            monto_cobro_lineas = suma_lineas_positivas
-        else:
-            monto_cobro_lineas = suma_todas_lineas
+        def _moneda_linea_recibo(c):
+            return 'USD' if str(c.get('moneda') or 'ARS').strip().upper() == 'USD' else 'ARS'
 
-        # Líneas negativas (p. ej. reserva ya pagada / crédito): cuentan como monto ya reconocido para cerrar la obligación.
+        def _importe_ars_linea_recibo(c):
+            if _moneda_linea_recibo(c) == 'USD':
+                return Decimal('0')
+            return _importe_concepto_recibo(c)
+
+        def _importe_usd_linea_recibo(c):
+            if _moneda_linea_recibo(c) != 'USD':
+                return Decimal('0')
+            return _importe_concepto_recibo(c)
+
+        suma_todas_lineas_ars = sum(_importe_ars_linea_recibo(c) for c in conceptos_contrato)
+        suma_lineas_positivas_ars = sum(
+            _importe_ars_linea_recibo(c) for c in conceptos_contrato if _importe_ars_linea_recibo(c) > 0
+        )
+        tiene_credito_en_lineas_ars = any(_importe_ars_linea_recibo(c) < 0 for c in conceptos_contrato)
+        if tiene_credito_en_lineas_ars:
+            monto_cobro_lineas = suma_lineas_positivas_ars
+        else:
+            monto_cobro_lineas = suma_todas_lineas_ars
+
+        suma_todas_lineas_usd = sum(_importe_usd_linea_recibo(c) for c in conceptos_contrato)
+        suma_lineas_positivas_usd = sum(
+            _importe_usd_linea_recibo(c) for c in conceptos_contrato if _importe_usd_linea_recibo(c) > 0
+        )
+        tiene_credito_en_lineas_usd = any(_importe_usd_linea_recibo(c) < 0 for c in conceptos_contrato)
+        if tiene_credito_en_lineas_usd:
+            monto_cobro_lineas_usd = suma_lineas_positivas_usd
+        else:
+            monto_cobro_lineas_usd = suma_todas_lineas_usd
+
+        # Líneas negativas en ARS (crédito sobre obligación en pesos).
         creditos_lineas_negativas = Decimal('0')
         for c in conceptos_contrato:
+            if _moneda_linea_recibo(c) == 'USD':
+                continue
             imp = _importe_concepto_recibo(c)
             if imp < 0:
                 creditos_lineas_negativas -= imp
 
         total_pagado_mov = Decimal('0')
+        total_pagado_usd_mov = Decimal('0')
         if primer_movimiento:
             total_pagado_mov = (
                 _dec_contrato_recibo(primer_movimiento.monto_efectivo)
@@ -16092,6 +16155,7 @@ def recibo_contrato_24(request, contrato_id):
                 + _dec_contrato_recibo(primer_movimiento.monto_tarjeta)
                 + _dec_contrato_recibo(primer_movimiento.monto_deposito)
             )
+            total_pagado_usd_mov = _dec_contrato_recibo(getattr(primer_movimiento, 'monto_dolares', None))
 
         total_obligacion = Decimal('0')
         total_saldo_a_abonar = Decimal('0')  # lo que falta cubrir en este recibo (obligación − créditos en líneas)
@@ -16103,6 +16167,8 @@ def recibo_contrato_24(request, contrato_id):
                 cset = {str(x) for x in codes}
                 total = Decimal('0')
                 for c in conceptos_contrato:
+                    if _moneda_linea_recibo(c) == 'USD':
+                        continue
                     if str(c.get('codigo') or '').strip() in cset:
                         total += _importe_concepto_recibo(c)
                 return total
@@ -16168,6 +16234,8 @@ def recibo_contrato_24(request, contrato_id):
                 alquiler_mensual = _dec_contrato_recibo(contrato.precio_mensual)
             if alquiler_mensual == 0 and conceptos_contrato:
                 for c in conceptos_contrato:
+                    if _moneda_linea_recibo(c) == 'USD':
+                        continue
                     co = str(c.get('codigo') or c.get('id') or '')
                     nom = (c.get('nombre') or '').lower()
                     if co == '1' or 'alquiler' in nom:
@@ -16191,6 +16259,8 @@ def recibo_contrato_24(request, contrato_id):
                 sellados = _dec_contrato_recibo(contrato.sellados_referencia)
             if sellados == 0 and conceptos_contrato:
                 for c in conceptos_contrato:
+                    if _moneda_linea_recibo(c) == 'USD':
+                        continue
                     co = str(c.get('codigo') or c.get('id') or '')
                     nom = (c.get('nombre') or '').lower()
                     if co == '26' or 'sellado' in nom:
@@ -16211,6 +16281,8 @@ def recibo_contrato_24(request, contrato_id):
         if primer_movimiento:
             dep_en_lineas = Decimal('0')
             for c in conceptos_contrato:
+                if _moneda_linea_recibo(c) == 'USD':
+                    continue
                 if str(c.get('codigo') or '').strip() == '10':
                     dep_en_lineas += _importe_concepto_recibo(c)
             dep_res = _dec_contrato_recibo(contrato.deposito_garantia)
@@ -16253,6 +16325,17 @@ def recibo_contrato_24(request, contrato_id):
         # Convertir números a formato de pesos argentinos
         def format_currency(amount):
             return f"${float(amount):,.2f}".replace(',', '.')
+
+        def format_currency_usd(amount):
+            return f"U$S {float(amount):,.2f}".replace(',', '.')
+
+        total_solo_usd_float = float(total_pagado_usd_mov)
+        if total_solo_usd_float <= 0 and float(monto_cobro_lineas_usd) > 0:
+            total_solo_usd_float = float(monto_cobro_lineas_usd)
+        muestra_total_usd = total_solo_usd_float > 0.0001
+        suma_en_letras_usd = ''
+        if muestra_total_usd:
+            suma_en_letras_usd = f"DÓLARES ESTADOUNIDENSES {str(int(total_solo_usd_float)).upper()}"
         
         # Obtener logo en base64
         logo_base64 = None
@@ -16319,10 +16402,13 @@ def recibo_contrato_24(request, contrato_id):
             'sellados': format_currency(sellados),
             'total_a_abonar': format_currency(total_a_abonar),
             'total_solo': format_currency(total_solo_float),
+            'total_solo_usd': format_currency_usd(total_solo_usd_float),
+            'muestra_total_usd': muestra_total_usd,
             'neto_a_posesion': format_currency(neto_a_posesion),
             'subtotal': format_currency(subtotal),
             'total_contrato': format_currency(total_contrato),
             'suma_en_letras': numero_a_texto(total_solo_float),
+            'suma_en_letras_usd': suma_en_letras_usd,
             'logo_base64': logo_base64,
             'precio_mensual_contrato': precio_mensual_contrato,
             'mes_alquiler_es_proporcional': mes_alquiler_tipo_recibo == 'proporcional',

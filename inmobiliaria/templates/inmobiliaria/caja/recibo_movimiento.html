@@ -262,10 +262,23 @@
             </div>
             {% endif %}
             
+            {% if total_dolares > 0 %}
             <div class="pago-item">
-                <span><strong>TOTAL RECIBIDO:</strong></span>
+                <span><strong>💵 USD (efectivo):</strong></span>
+                <span><strong>U$S {{ total_dolares|format_price }}</strong></span>
+            </div>
+            {% endif %}
+            
+            <div class="pago-item">
+                <span><strong>{% if total_dolares > 0 %}TOTAL RECIBIDO (ARS){% else %}TOTAL RECIBIDO{% endif %}:</strong></span>
                 <span><strong>${{ total_movimiento|format_price }}</strong></span>
             </div>
+            {% if total_dolares > 0 %}
+            <div class="pago-item">
+                <span><strong>TOTAL RECIBIDO (USD):</strong></span>
+                <span><strong>U$S {{ total_dolares|format_price }}</strong></span>
+            </div>
+            {% endif %}
         </div>
 
         <!-- Información de Saldo -->
@@ -324,7 +337,12 @@
 
         <!-- Total General -->
         <div class="total-general">
+            {% if total_dolares > 0 %}
+            TOTAL DE ESTA OPERACIÓN (ARS): ${{ total_movimiento|format_price }}
+            <br>TOTAL DE ESTA OPERACIÓN (USD): U$S {{ total_dolares|format_price }}
+            {% else %}
             TOTAL DE ESTA OPERACIÓN: ${{ total_movimiento|format_price }}
+            {% endif %}
         </div>
 
         <!-- Botones de Acción -->
