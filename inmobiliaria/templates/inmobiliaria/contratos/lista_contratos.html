@@ -31,7 +31,7 @@
     .tabla-contratos-wrapper .table th:nth-child(9) { width: 7%; }   /* Honorarios */
     .tabla-contratos-wrapper .table th:nth-child(10) { width: 6%; }  /* Sellados */
     .tabla-contratos-wrapper .table th:nth-child(11) { width: 6%; }  /* Estado */
-    .tabla-contratos-wrapper .table th:nth-child(12) { width: 13%; } /* Acciones */
+    .tabla-contratos-wrapper .table th:nth-child(12) { width: 16%; } /* Acciones */
     .tabla-contratos-wrapper .table td div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
     .tabla-contratos-wrapper .table .btn-group .btn { padding: 0.2rem 0.35rem; font-size: 0.75rem; }
     .tabla-contratos-wrapper .table .badge { font-size: 0.7rem; }
@@ -39,7 +39,6 @@
 {% endblock %}
 
 {% block content %}
-{% csrf_token %}
 <div class="container-fluid mt-4 fade-in-up overflow-x-hidden">
     <!-- Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -251,42 +250,29 @@
                                     {% endif %}
                                 </td>
                                 <td>
-                                    <div class="btn-group">
-                                        <a href="{% url 'inmobiliaria:detalle_contrato' contrato.id %}" class="btn btn-sm btn-primary" title="Ver Detalle">
-                                            <i class="fas fa-eye"></i>
+                                    <div class="d-flex flex-column gap-1 align-items-stretch" style="min-width: 8.5rem;">
+                                        <a href="{% url 'inmobiliaria:detalle_contrato' contrato.id %}" class="btn btn-sm btn-outline-primary text-nowrap" title="Ver contrato: cuotas, comodato y rescisión">
+                                            <i class="fas fa-eye"></i> Ver
                                         </a>
-                                        {% if contrato.operacion_principal %}
-                                        <a href="{% url 'inmobiliaria:crear_operacion_contrato' contrato.id %}?tipo=principal" class="btn btn-sm btn-outline-primary" title="Completar cobros del alta (depósito, honorarios, etc. en el mismo tipo operación principal)">
-                                            <i class="fas fa-plus-circle"></i>
-                                        </a>
-                                        {% endif %}
-                                        {% if contrato.duracion_meses == 9 %}
-                                        <a href="{% url 'inmobiliaria:ver_contrato_estudiante' contrato.id %}" class="btn btn-sm btn-outline-success" title="Ver Contrato Estudiante (locación)" target="_blank">
-                                            <i class="fas fa-file-alt"></i>
-                                        </a>
-                                        {% endif %}
                                         {% if contrato.estado == 'activo' or contrato.estado == 'reservado' %}
-                                            {% if not contrato.operacion_principal %}
-                                            <button class="btn btn-sm btn-warning" 
-                                                    onclick="crearOperacionPrincipal({{ contrato.id }}, '{{ contrato.propiedad.direccion|escapejs }}', {{ contrato.deposito_garantia }}, {{ contrato.precio_mensual }})" 
-                                                    title="Operación Principal (Depósito)">
-                                                <i class="fas fa-home"></i>
+                                        <a href="{% url 'inmobiliaria:crear_operacion_contrato' contrato.id %}?tipo=principal" class="btn btn-sm btn-warning text-nowrap" title="Operación principal o completar cobros del alta (depósito, honorarios, sellados, etc.)">
+                                            <i class="fas fa-cash-register"></i> Completar pago
+                                        </a>
+                                        {% if contrato.proxima_cuota %}
+                                            {% if contrato.tiene_cuotas_anteriores_pendientes %}
+                                            <button type="button" class="btn btn-sm btn-secondary text-nowrap" disabled title="Hay cuotas anteriores sin cobrar: usá Ver y cobrá en orden desde el detalle.">
+                                                <i class="fas fa-calendar-check"></i> Pagar mes
                                             </button>
+                                            {% else %}
+                                            <a href="{% url 'inmobiliaria:crear_pago_cuota_operacion' contrato.proxima_cuota.id %}" class="btn btn-sm btn-success text-nowrap" title="Cobrar la cuota que corresponde ahora ({{ contrato.proxima_cuota.numero_cuota }}/{{ contrato.duracion_meses }}, vence {{ contrato.proxima_cuota.fecha_vencimiento|date:'d/m/Y' }})">
+                                                <i class="fas fa-calendar-check"></i> Pagar mes
+                                            </a>
                                             {% endif %}
-                                            {% if contrato.proxima_cuota and not contrato.tiene_cuotas_anteriores_pendientes %}
-                                            <button class="btn btn-sm btn-success {% if contrato.tiene_cuotas_anteriores_pendientes %}disabled{% endif %}" 
-                                                    onclick="pagarCuotaMensual({{ contrato.id }}, '{{ contrato.propiedad.direccion|escapejs }}', {{ contrato.precio_mensual }})" 
-                                                    title="{% if contrato.tiene_cuotas_anteriores_pendientes %}Hay cuotas anteriores pendientes{% else %}Pagar Cuota Mensual{% endif %}">
-                                                <i class="fas fa-dollar-sign"></i>
-                                            </button>
-                                            {% endif %}
-                                            <button class="btn btn-sm btn-danger" 
-                                                    onclick="mostrarModalCancelar({{ contrato.id }}, '{{ contrato.propiedad.direccion|escapejs }}')"
-                                                    title="Cancelar Contrato">
-                                                <i class="fas fa-times"></i>
-                                            </button>
+                                        {% else %}
+                                            <span class="badge bg-secondary w-100 text-wrap small">Cuotas al día</span>
+                                        {% endif %}
                                         {% elif contrato.estado == 'rescindido' %}
-                                            <span class="badge bg-danger">Contrato Cancelado</span>
+                                            <span class="badge bg-danger">Rescindido</span>
                                         {% endif %}
                                     </div>
                                 </td>
@@ -310,107 +296,4 @@
         </div>
     </div>
 </div>
-
-<!-- Modal de Cancelación -->
-<div class="modal fade" id="modalCancelarContrato" tabindex="-1" aria-labelledby="modalCancelarContratoLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title" id="modalCancelarContratoLabel">
-                    <i class="fas fa-exclamation-triangle"></i> Cancelar Contrato
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <form id="formCancelarContrato" method="post">
-                {% csrf_token %}
-                <input type="hidden" id="contrato_id_cancelar" name="contrato_id">
-                
-                <div class="modal-body">
-                    <div class="alert alert-warning">
-                        <i class="fas fa-exclamation-circle"></i>
-                        <strong>¡Atención!</strong> Esta acción no se puede deshacer.
-                    </div>
-                    
-                    <p class="mb-3">¿Estás seguro que deseas cancelar el contrato de la propiedad <strong id="direccion_cancelar"></strong>?</p>
-                    
-                    <div class="form-group">
-                        <label for="motivo_cancelacion" class="form-label">Motivo de la cancelación: <span class="text-danger">*</span></label>
-                        <textarea class="form-control" id="motivo_cancelacion" name="motivo" rows="3" required></textarea>
-                    </div>
-                </div>
-                
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                        <i class="fas fa-times"></i> Cancelar
-                    </button>
-                    <button type="submit" class="btn btn-danger">
-                        <i class="fas fa-check"></i> Confirmar Cancelación
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<script>
-function crearOperacionPrincipal(contratoId, direccion, deposito, precioMensual) {
-    window.location.href = `/contratos/${contratoId}/operacion/?tipo=principal`;
-}
-
-function pagarCuotaMensual(contratoId, direccion, precioMensual) {
-    window.location.href = `/contratos/${contratoId}/operacion/?tipo=mensual`;
-}
-
-function mostrarModalCancelar(contratoId, direccion) {
-    document.getElementById('contrato_id_cancelar').value = contratoId;
-    document.getElementById('direccion_cancelar').textContent = direccion;
-    
-    const modal = new bootstrap.Modal(document.getElementById('modalCancelarContrato'));
-    modal.show();
-}
-
-document.getElementById('formCancelarContrato').addEventListener('submit', function(e) {
-    e.preventDefault();
-    
-    const contratoId = document.getElementById('contrato_id_cancelar').value;
-    const motivo = document.getElementById('motivo_cancelacion').value;
-    
-    if (!motivo.trim()) {
-        alert('Por favor, ingresa el motivo de la cancelación');
-        return;
-    }
-    
-    const formData = new FormData();
-    formData.append('motivo', motivo);
-    
-    fetch(`/contratos/${contratoId}/cancelar/`, {
-        method: 'POST',
-        body: formData,
-        headers: {
-            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
-            'X-Requested-With': 'XMLHttpRequest'
-        }
-    })
-    .then(response => {
-        const ct = response.headers.get('content-type') || '';
-        if (!ct.includes('application/json')) {
-            return response.text().then(function (text) {
-                throw new Error(response.ok ? 'Respuesta inesperada del servidor' : (text || 'Error ' + response.status));
-            });
-        }
-        return response.json();
-    })
-    .then(data => {
-        if (data.success) {
-            location.reload();
-        } else {
-            alert(data.error || 'Error al cancelar el contrato');
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert(error.message || 'Error al procesar la solicitud');
-    });
-});
-</script>
 {% endblock %} 

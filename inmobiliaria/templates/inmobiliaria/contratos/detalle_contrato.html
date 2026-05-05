@@ -14,9 +14,17 @@
                 <i class="fas fa-arrow-left"></i> Volver a Contratos
             </a>
             {% if contrato.duracion_meses == 9 %}
-            <a href="{% url 'inmobiliaria:ver_contrato_estudiante' contrato.id %}" class="btn btn-success" target="_blank" title="Ver Contrato de Locación para Uso Estudiantil">
+            <a href="{% url 'inmobiliaria:ver_comodato_invierno' contrato.id %}" class="btn btn-outline-success" target="_blank" rel="noopener" title="Documento comodato invierno">
+                <i class="fas fa-file-contract"></i> Ver comodato
+            </a>
+            <a href="{% url 'inmobiliaria:ver_contrato_estudiante' contrato.id %}" class="btn btn-success" target="_blank" rel="noopener" title="Contrato de locación para uso estudiantil">
                 <i class="fas fa-file-alt"></i> Ver contrato estudiante
             </a>
+            {% endif %}
+            {% if contrato.estado == 'activo' or contrato.estado == 'reservado' %}
+            <button type="button" class="btn btn-outline-danger" onclick="mostrarModalRescindirContrato('{{ contrato.propiedad.direccion|escapejs }}')" title="Marcar el contrato como rescindido">
+                <i class="fas fa-ban"></i> Rescindir contrato
+            </button>
             {% endif %}
             {% if movimientos_recibo_contrato %}
             <div class="dropdown">
@@ -319,6 +327,101 @@
 </div>
 
 <form id="csrf-cuota-form" class="d-none">{% csrf_token %}</form>
+
+<!-- Rescindir contrato (desde detalle; en la lista solo queda Ver / Completar pago / Pagar mes) -->
+<div class="modal fade" id="modalRescindirContrato" tabindex="-1" aria-labelledby="modalRescindirContratoLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="modalRescindirContratoLabel">
+                    <i class="fas fa-exclamation-triangle"></i> Rescindir contrato
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <form id="formRescindirContrato" method="post">
+                {% csrf_token %}
+                <input type="hidden" id="rescindir_contrato_id" name="contrato_id" value="{{ contrato.id }}" data-cancel-url="{% url 'inmobiliaria:cancelar_contrato' contrato.id %}">
+                <div class="modal-body">
+                    <div class="alert alert-warning mb-3">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <strong>Atención.</strong> Esta acción marca el contrato como rescindido y no se puede deshacer desde acá.
+                    </div>
+                    <p class="mb-3">¿Rescindir el contrato de <strong id="rescindir_direccion_txt"></strong>?</p>
+                    <div class="mb-0">
+                        <label for="motivo_rescision" class="form-label">Motivo <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="motivo_rescision" name="motivo" rows="3" required placeholder="Ej.: rescisión por mutuo acuerdo, desistimiento del inquilino…"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="submit" class="btn btn-danger"><i class="fas fa-check"></i> Confirmar rescisión</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function mostrarModalRescindirContrato(direccion) {
+    document.getElementById('rescindir_direccion_txt').textContent = direccion || '';
+    var modal = new bootstrap.Modal(document.getElementById('modalRescindirContrato'));
+    modal.show();
+}
+
+(function () {
+    var form = document.getElementById('formRescindirContrato');
+    if (!form) return;
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var hid = document.getElementById('rescindir_contrato_id');
+        var cancelUrl = (hid && hid.getAttribute('data-cancel-url')) || '';
+        var motivo = (document.getElementById('motivo_rescision') || {}).value || '';
+        if (!String(motivo).trim()) {
+            alert('Ingresá el motivo de la rescisión.');
+            return;
+        }
+        if (!cancelUrl) {
+            alert('Error interno: falta URL de rescisión.');
+            return;
+        }
+        var tokenEl = document.querySelector('#formRescindirContrato input[name="csrfmiddlewaretoken"]')
+            || document.querySelector('#csrf-cuota-form input[name="csrfmiddlewaretoken"]');
+        if (!tokenEl) {
+            alert('Error de seguridad: recargá la página.');
+            return;
+        }
+        var fd = new FormData();
+        fd.append('motivo', motivo.trim());
+        fetch(cancelUrl, {
+            method: 'POST',
+            body: fd,
+            headers: {
+                'X-CSRFToken': tokenEl.value,
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        })
+            .then(function (response) {
+                var ct = response.headers.get('content-type') || '';
+                if (!ct.includes('application/json')) {
+                    return response.text().then(function (text) {
+                        throw new Error(response.ok ? 'Respuesta inesperada del servidor' : (text || 'Error ' + response.status));
+                    });
+                }
+                return response.json();
+            })
+            .then(function (data) {
+                if (data.success) {
+                    window.location.href = '{% url "inmobiliaria:lista_contratos" %}';
+                } else {
+                    alert(data.error || 'No se pudo rescindir el contrato.');
+                }
+            })
+            .catch(function (err) {
+                alert(err.message || 'Error al procesar la solicitud');
+            });
+    });
+})();
+</script>
 
 <script>
 const PAGAR_CUOTA_BASE_URL = "{% url 'inmobiliaria:pagar_cuota' 0 %}".replace('/0/', '/__ID__/');
