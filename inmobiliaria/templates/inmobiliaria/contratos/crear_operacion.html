@@ -227,6 +227,7 @@
                                     <tr>
                                         <th>Fecha</th>
                                         <th>Concepto</th>
+                                        <th>Moneda</th>
                                         <th>Observaciones</th>
                                         <th>Importe</th>
                                         <th>ID</th>
@@ -245,9 +246,15 @@
                             <div class="col-md-4">
                                 <div class="alert alert-success">
                                     <div class="row mb-2">
-                                        <div class="col-8"><strong>TOTAL DE LOS CONCEPTOS:</strong></div>
-                                        <div class="col-4 text-end">
+                                        <div class="col-6"><strong>TOTAL CONCEPTOS ARS:</strong></div>
+                                        <div class="col-6 text-end">
                                             <span id="totalConceptos">0.00</span>
+                                        </div>
+                                    </div>
+                                    <div class="row mb-2">
+                                        <div class="col-6"><strong>TOTAL CONCEPTOS USD:</strong></div>
+                                        <div class="col-6 text-end">
+                                            <span id="totalConceptosUsd">0.00</span>
                                         </div>
                                     </div>
                                     <hr>
@@ -257,6 +264,14 @@
                                             <input type="text" class="form-control form-control-lg fw-bold" 
                                                    id="totalRecibo" readonly 
                                                    style="background-color: #d1ecf1; font-size: 24px; padding: 15px; height: 60px; text-align: right;">
+                                        </div>
+                                    </div>
+                                    <div class="row mt-2">
+                                        <div class="col-8"><strong>TOTAL DEL RECIBO USD:</strong></div>
+                                        <div class="col-4">
+                                            <input type="text" class="form-control form-control-lg fw-bold"
+                                                   id="totalReciboUsd" readonly
+                                                   style="background-color: #e8f7ff; font-size: 24px; padding: 15px; height: 60px; text-align: right;">
                                         </div>
                                     </div>
                                 </div>
@@ -281,6 +296,11 @@
                                 <div class="mb-3">
                                     <label for="monto_cheque" class="form-label"><strong>🏦 Cheque:</strong></label>
                                     <input type="text" class="form-control" id="monto_cheque" name="monto_cheque" 
+                                           placeholder="0" onchange="actualizarTotales()" oninput="formatearNumeroEnTiempoReal(this); actualizarTotales()">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="monto_dolares" class="form-label"><strong>💵 USD (efectivo):</strong></label>
+                                    <input type="text" class="form-control" id="monto_dolares" name="monto_dolares"
                                            placeholder="0" onchange="actualizarTotales()" oninput="formatearNumeroEnTiempoReal(this); actualizarTotales()">
                                 </div>
                             </div>
@@ -308,6 +328,7 @@
                             <div class="col-md-6">
                                 <div class="alert alert-info">
                                     <h5><strong>💰 Total Operación: $<span id="totalOperacion">0</span></strong></h5>
+                                    <h6 class="mb-0"><strong>💵 Total Operación USD: U$S <span id="totalOperacionUsd">0</span></strong></h6>
                                 </div>
                             </div>
                         </div>
@@ -386,6 +407,13 @@
                         <label for="importe" class="form-label"><strong>Importe:</strong></label>
                         <input type="text" class="form-control" id="importe" required placeholder="ej: 30.000 o 270.000" inputmode="numeric">
                         <small class="text-muted">Podés usar punto para miles (ej: 300.000)</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="moneda" class="form-label"><strong>Moneda:</strong></label>
+                        <select class="form-control" id="moneda">
+                            <option value="ARS" selected>Pesos (ARS)</option>
+                            <option value="USD">Dólares (USD)</option>
+                        </select>
                     </div>
                 </form>
             </div>
@@ -609,6 +637,8 @@ function mostrarModalConcepto() {
     if (formElement) {
         formElement.reset();
     }
+    const monedaEl = document.getElementById('moneda');
+    if (monedaEl) monedaEl.value = 'ARS';
 
     // Resetear estado
     conceptoEditando = null;
@@ -655,6 +685,7 @@ function agregarConcepto() {
         id: ++contadorConceptos,
         conceptoId: conceptoSeleccionadoActual.id,
         nombre: conceptoSeleccionadoActual.nombre,
+        moneda: (document.getElementById('moneda')?.value || 'ARS').toUpperCase() === 'USD' ? 'USD' : 'ARS',
         observaciones: observaciones || 'Sin observaciones',
         importe: importe,
         fecha: fechaActual
@@ -680,6 +711,7 @@ function actualizarTablaConceptos() {
         fila.innerHTML = `
             <td>${escapeHtmlAttr(concepto.fecha)}</td>
             <td>${escapeHtmlAttr(concepto.nombre)}</td>
+            <td>${escapeHtmlAttr((concepto.moneda || 'ARS') === 'USD' ? 'USD' : 'ARS')}</td>
             <td style="min-width: 200px;">
                 <input type="text" class="form-control form-control-sm" 
                        placeholder="Observaciones de esta línea"
@@ -687,7 +719,7 @@ function actualizarTablaConceptos() {
                        oninput="actualizarObservacionConcepto(${concepto.id}, this.value)"
                        title="Observaciones que se envían con este concepto">
             </td>
-            <td class="text-end">$${formatoMontoReciboAR(concepto.importe)}</td>
+            <td class="text-end">${(concepto.moneda || 'ARS') === 'USD' ? 'U$S ' : '$'}${formatoMontoReciboAR(concepto.importe)}</td>
             <td>${escapeHtmlAttr(conceptoCatalogoIdEtiqueta(concepto.conceptoId))}</td>
             <td>
                 <button type="button" class="btn btn-warning btn-sm me-1" 
@@ -732,6 +764,8 @@ function editarConcepto(conceptoId) {
         
         document.getElementById('observaciones').value = concepto.observaciones === 'Sin observaciones' ? '' : concepto.observaciones;
         document.getElementById('importe').value = importeConceptoANumero(concepto.importe).toLocaleString('es-AR', { maximumFractionDigits: 2 });
+        const monedaEl = document.getElementById('moneda');
+        if (monedaEl) monedaEl.value = (concepto.moneda || 'ARS') === 'USD' ? 'USD' : 'ARS';
         
         document.getElementById('modalConceptoLabel').textContent = '✏️ Editar Concepto';
         const btnAgregar = document.getElementById('btnModalConceptoConfirmar');
@@ -767,6 +801,7 @@ function actualizarConcepto() {
     
     conceptoEditando.conceptoId = conceptoSeleccionadoActual.id;
     conceptoEditando.nombre = conceptoSeleccionadoActual.nombre;
+    conceptoEditando.moneda = (document.getElementById('moneda')?.value || 'ARS').toUpperCase() === 'USD' ? 'USD' : 'ARS';
     conceptoEditando.observaciones = observaciones || 'Sin observaciones';
     conceptoEditando.importe = importe;
     
@@ -805,26 +840,38 @@ function verificarConcepto10() {
 
 // Función para calcular totales
 function calcularTotales() {
-    const totalConceptos = conceptosAgregados.reduce((sum, concepto) => sum + importeConceptoANumero(concepto.importe), 0);
-    // Total del recibo = solo filas de la tabla (honorarios/sellados del bloque amarillo van por POST al movimiento, no suman aquí)
-    const totalRecibo = totalConceptos;
+    const totalConceptosArs = conceptosAgregados.reduce((sum, concepto) => {
+        return sum + (((concepto.moneda || 'ARS') === 'USD') ? 0 : importeConceptoANumero(concepto.importe));
+    }, 0);
+    const totalConceptosUsd = conceptosAgregados.reduce((sum, concepto) => {
+        return sum + (((concepto.moneda || 'ARS') === 'USD') ? importeConceptoANumero(concepto.importe) : 0);
+    }, 0);
+    const totalRecibo = totalConceptosArs;
+    const totalReciboUsd = totalConceptosUsd;
 
     const elTotConceptos = document.getElementById('totalConceptos');
+    const elTotConceptosUsd = document.getElementById('totalConceptosUsd');
     const elTotRecibo = document.getElementById('totalRecibo');
+    const elTotReciboUsd = document.getElementById('totalReciboUsd');
     const elTotOperacion = document.getElementById('totalOperacion');
+    const elTotOperacionUsd = document.getElementById('totalOperacionUsd');
     const fmt = (n) => formatoMontoReciboAR(n);
-    if (elTotConceptos) elTotConceptos.textContent = fmt(totalConceptos);
+    if (elTotConceptos) elTotConceptos.textContent = fmt(totalConceptosArs);
+    if (elTotConceptosUsd) elTotConceptosUsd.textContent = fmt(totalConceptosUsd);
     if (elTotRecibo) elTotRecibo.value = fmt(totalRecibo);
+    if (elTotReciboUsd) elTotReciboUsd.value = fmt(totalReciboUsd);
     if (elTotOperacion) elTotOperacion.textContent = fmt(totalRecibo);
+    if (elTotOperacionUsd) elTotOperacionUsd.textContent = fmt(totalReciboUsd);
 
     const totalPagos = calcularTotalPagos();
-    const diferencia = totalPagos - totalRecibo;
+    const diferenciaArs = totalPagos.ars - totalRecibo;
+    const diferenciaUsd = totalPagos.usd - totalReciboUsd;
     
     // Mostrar estado de depósito, honorarios y sellados
     actualizarEstadoDepositoHonorariosYSellados();
     
     // Habilitar/deshabilitar botón según la diferencia
-    habilitarBotonProcesar(diferencia === 0 && totalRecibo > 0);
+    habilitarBotonProcesar(Math.abs(diferenciaArs) <= 0.01 && Math.abs(diferenciaUsd) <= 0.01 && (totalRecibo > 0 || totalReciboUsd > 0));
 }
 
 // Función para actualizar el estado visual de depósito, honorarios y sellados
@@ -903,6 +950,7 @@ function calcularTotalPagos() {
     const efectivo = v('monto_efectivo');
     const cheque = v('monto_cheque');
     const tarjeta = v('monto_tarjeta');
+    const dolares = v('monto_dolares');
     const depositoGalicia = v('monto_deposito_galicia');
     const depositoMp = v('monto_deposito_mp');
     
@@ -915,25 +963,31 @@ function calcularTotalPagos() {
         }
     });
     
-    return efectivo + cheque + tarjeta + depositoGalicia + depositoMp + depositosDinamicos;
+    return {
+        ars: efectivo + cheque + tarjeta + depositoGalicia + depositoMp + depositosDinamicos,
+        usd: dolares
+    };
 }
 
 // Función para actualizar totales cuando cambian los métodos de pago
 function actualizarTotales() {
     const totalRecibo = parsearValorFormateado(document.getElementById('totalRecibo').value || 0);
+    const totalReciboUsd = parsearValorFormateado(document.getElementById('totalReciboUsd')?.value || 0);
     const totalPagos = calcularTotalPagos();
-    const diferencia = totalPagos - totalRecibo;
+    const diferenciaArs = totalPagos.ars - totalRecibo;
+    const diferenciaUsd = totalPagos.usd - totalReciboUsd;
     
     // Habilitar/deshabilitar botón según la diferencia
-    habilitarBotonProcesar(diferencia === 0 && totalRecibo > 0);
+    habilitarBotonProcesar(Math.abs(diferenciaArs) <= 0.01 && Math.abs(diferenciaUsd) <= 0.01 && (totalRecibo > 0 || totalReciboUsd > 0));
 }
 
 // Función para habilitar/deshabilitar el botón de procesar
 function habilitarBotonProcesar(habilitar) {
     const boton = document.getElementById('btnProcesarOperacion');
     const totalRecibo = parsearValorFormateado(document.getElementById('totalRecibo').value || 0);
+    const totalReciboUsd = parsearValorFormateado(document.getElementById('totalReciboUsd')?.value || 0);
     
-    if (habilitar && totalRecibo > 0) {
+    if (habilitar && (totalRecibo > 0 || totalReciboUsd > 0)) {
         boton.disabled = false;
         boton.classList.remove('btn-secondary');
         boton.classList.add('btn-success');
@@ -961,15 +1015,24 @@ function procesarOperacion() {
         return;
     }
 
-    const totalRecibo = filas.reduce(function(sum, c) { return sum + importeConceptoANumero(c.importe); }, 0);
+    const totalRecibo = filas.reduce(function(sum, c) {
+        return sum + (((c.moneda || 'ARS') === 'USD') ? 0 : importeConceptoANumero(c.importe));
+    }, 0);
+    const totalReciboUsd = filas.reduce(function(sum, c) {
+        return sum + (((c.moneda || 'ARS') === 'USD') ? importeConceptoANumero(c.importe) : 0);
+    }, 0);
     const totalPagos = calcularTotalPagos();
 
-    if (Math.abs(totalRecibo - totalPagos) > 0.01) {
-        alert(`⚠️ Los pagos deben coincidir exactamente con el total del recibo.\nTotal Recibo: $${totalRecibo.toLocaleString('es-AR')}\nTotal Pagos: $${totalPagos.toLocaleString('es-AR')}\nDiferencia: $${Math.abs(totalRecibo - totalPagos).toLocaleString('es-AR')}`);
+    if (Math.abs(totalRecibo - totalPagos.ars) > 0.01 || Math.abs(totalReciboUsd - totalPagos.usd) > 0.01) {
+        alert(
+            `⚠️ Los pagos deben coincidir por moneda.\n` +
+            `ARS Recibo: $${totalRecibo.toLocaleString('es-AR')} | ARS Pagos: $${totalPagos.ars.toLocaleString('es-AR')}\n` +
+            `USD Recibo: U$S ${totalReciboUsd.toLocaleString('es-AR')} | USD Pagos: U$S ${totalPagos.usd.toLocaleString('es-AR')}`
+        );
         return;
     }
 
-    if (!confirm(`¿Confirmar operación por $${totalRecibo.toLocaleString('es-AR')}?`)) {
+    if (!confirm(`¿Confirmar operación por ARS $${totalRecibo.toLocaleString('es-AR')} y USD U$S ${totalReciboUsd.toLocaleString('es-AR')}?`)) {
         return;
     }
 
@@ -1001,6 +1064,7 @@ function procesarOperacion() {
             id: String(c.conceptoId || ''),
             nombre: String(c.nombre || ''),
             importe: importeConceptoANumero(c.importe),
+            moneda: ((c.moneda || 'ARS') === 'USD') ? 'USD' : 'ARS',
             observaciones: obs,
             fecha: String(c.fecha || '')
         };
@@ -1010,6 +1074,7 @@ function procesarOperacion() {
         const obs = String(concepto.observaciones || '').trim() || 'Sin observaciones';
         formData.append('concepto_' + index + '_id', String(concepto.conceptoId || ''));
         formData.append('concepto_' + index + '_nombre', String(concepto.nombre || ''));
+        formData.append('concepto_' + index + '_moneda', ((concepto.moneda || 'ARS') === 'USD') ? 'USD' : 'ARS');
         formData.append('concepto_' + index + '_observaciones', obs);
         formData.append('concepto_' + index + '_importe', String(importeConceptoANumero(concepto.importe)));
         formData.append('concepto_' + index + '_fecha', String(concepto.fecha || ''));
@@ -1327,7 +1392,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Event listeners para los campos de pago
-    ['monto_efectivo', 'monto_cheque', 'monto_tarjeta', 'monto_deposito_galicia', 'monto_deposito_mp'].forEach(id => {
+    ['monto_efectivo', 'monto_cheque', 'monto_tarjeta', 'monto_dolares', 'monto_deposito_galicia', 'monto_deposito_mp'].forEach(id => {
         const input = document.getElementById(id);
         if (input) {
             input.addEventListener('input', function() {

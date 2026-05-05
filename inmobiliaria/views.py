@@ -13588,6 +13588,9 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato, pago_cuota_co
         monto_efectivo = limpiar_valor_monetario(request.POST.get('monto_efectivo', '0'))
         monto_cheque = limpiar_valor_monetario(request.POST.get('monto_cheque', '0'))
         monto_tarjeta = limpiar_valor_monetario(request.POST.get('monto_tarjeta', '0'))
+        monto_dolares = limpiar_valor_monetario(
+            request.POST.get('monto_dolares', request.POST.get('dolares', '0'))
+        )
         
         total_movimiento = ((monto_efectivo or 0) + (monto_cheque or 0) + (monto_tarjeta or 0) + 
                           (monto_deposito_final or 0))
@@ -13612,6 +13615,7 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato, pago_cuota_co
                                 'id': str(item.get('id') or item.get('codigo') or f'C{i}'),
                                 'nombre': nombre,
                                 'importe': imp,
+                                'moneda': 'USD' if str(item.get('moneda', 'ARS')).strip().upper() == 'USD' else 'ARS',
                                 'observaciones': str(item.get('observaciones') or ''),
                                 'fecha': str(item.get('fecha') or '')
                             })
@@ -13635,6 +13639,7 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato, pago_cuota_co
                 concepto_importe = request.POST.get(f'concepto_{i}_importe')
                 concepto_observaciones = request.POST.get(f'concepto_{i}_observaciones', '')
                 concepto_fecha = request.POST.get(f'concepto_{i}_fecha')
+                concepto_moneda = (request.POST.get(f'concepto_{i}_moneda') or 'ARS').strip().upper()
                 if not concepto_nombre:
                     continue
                 raw_importe = (concepto_importe if concepto_importe is not None else '').strip()
@@ -13646,6 +13651,7 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato, pago_cuota_co
                     'id': id_para_json,
                     'nombre': concepto_nombre,
                     'importe': float(importe_limpio),
+                    'moneda': 'USD' if concepto_moneda == 'USD' else 'ARS',
                     'observaciones': concepto_observaciones or '',
                     'fecha': concepto_fecha or ''
                 })
@@ -13755,6 +13761,7 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato, pago_cuota_co
             monto_efectivo=monto_efectivo,
             monto_cheque=monto_cheque,
             monto_tarjeta=monto_tarjeta,
+            monto_dolares=monto_dolares,
             fecha=timezone.now(),
             empleado=request.user,
             sucursal=request.user.sucursal,
@@ -13883,7 +13890,8 @@ def procesar_operacion_contrato(request, contrato_id):
             sum_alquiler_locacion = Decimal('0')
             for item in lista_conceptos:
                 cid = str(item.get('id') or item.get('codigo') or '').strip()
-                if cid in ('1', '15'):
+                moneda = str(item.get('moneda') or 'ARS').strip().upper()
+                if cid in ('1', '15') and moneda != 'USD':
                     sum_alquiler_locacion += parse_decimal_monto(item.get('importe'))
             total_medios = _total_medios_pago_operacion_request(request)
             monto_cuota = Decimal(str(cuota_chk.monto_total))
