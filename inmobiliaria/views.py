@@ -12745,12 +12745,22 @@ def lista_contratos(request):
         
         # Honorarios/sellados: si ya hay movimiento, usarlo; si no está pagado y hay referencia del alta, mostrarla
         mov_h = obtener_valor_concepto_contrato(contrato, 'honorarios')
+        if mov_h <= 0:
+            try:
+                mov_h = _sum_importe_concepto_en_movimientos_contrato(contrato, '25')
+            except Exception:
+                pass
         if contrato.honorarios_estado == 'pagado':
             contrato.honorarios = mov_h
         else:
             ref_h = getattr(contrato, 'honorarios_referencia', None) or Decimal('0')
             contrato.honorarios = mov_h if mov_h > 0 else ref_h
         mov_s = obtener_valor_concepto_contrato(contrato, 'sellados')
+        if mov_s <= 0:
+            try:
+                mov_s = _sum_importe_concepto_en_movimientos_contrato(contrato, '26')
+            except Exception:
+                pass
         if contrato.sellados_estado == 'pagado':
             contrato.sellados = mov_s
         else:
@@ -13462,6 +13472,16 @@ def importes_honorarios_sellados_ui_contrato(contrato):
     """
     mov_h = obtener_valor_concepto_contrato(contrato, 'honorarios')
     mov_s = obtener_valor_concepto_contrato(contrato, 'sellados')
+    if mov_h <= 0:
+        try:
+            mov_h = _sum_importe_concepto_en_movimientos_contrato(contrato, '25')
+        except Exception:
+            pass
+    if mov_s <= 0:
+        try:
+            mov_s = _sum_importe_concepto_en_movimientos_contrato(contrato, '26')
+        except Exception:
+            pass
     ref_h = getattr(contrato, 'honorarios_referencia', None) or Decimal('0')
     ref_s = getattr(contrato, 'sellados_referencia', None) or Decimal('0')
     if determinar_estado_concepto_contrato(contrato, '25') == 'pagado':
