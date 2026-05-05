@@ -6252,6 +6252,34 @@ def ver_recibo_movimiento(request, movimiento_id):
             or '"cuota_id"' in detalle_txt
         )
 
+        # Para cobros de contrato/cuota, usar el mismo formato que los otros recibos de contrato.
+        if es_movimiento_contrato:
+            try:
+                import re
+                m_contrato = re.search(r'Contrato\s*#\s*(\d+)', concepto_txt)
+                contrato = None
+                if m_contrato:
+                    contrato = ContratoAlquiler.objects.filter(
+                        id=int(m_contrato.group(1)),
+                        sucursal=request.user.sucursal
+                    ).first()
+                if not contrato and movimiento.propiedad_id:
+                    contrato = (
+                        ContratoAlquiler.objects.filter(
+                            propiedad_id=movimiento.propiedad_id,
+                            sucursal=request.user.sucursal
+                        )
+                        .order_by('-id')
+                        .first()
+                    )
+                if contrato:
+                    return HttpResponseRedirect(
+                        reverse('inmobiliaria:recibo_contrato_24', args=[contrato.id])
+                        + f'?movimiento_id={movimiento.id}'
+                    )
+            except Exception:
+                pass
+
         reserva = None
         if not es_movimiento_contrato and concepto_txt and "Operaci\u00f3n" in concepto_txt:
             try:
