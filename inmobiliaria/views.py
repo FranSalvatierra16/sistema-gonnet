@@ -6242,13 +6242,22 @@ def ver_recibo_movimiento(request, movimiento_id):
         # Obtener el movimiento de caja principal
         movimiento = get_object_or_404(MovimientoCaja, id=movimiento_id, sucursal=request.user.sucursal)
         
-        # Obtener la reserva relacionada desde el concepto del movimiento
+        # Obtener la reserva relacionada desde el concepto del movimiento.
+        # IMPORTANTE: en cobros de contrato/cuotas no mezclar con reserva por propiedad.
+        concepto_txt = (movimiento.concepto or '')
+        detalle_txt = (getattr(movimiento, 'concepto_detalle', None) or '').strip()
+        es_movimiento_contrato = (
+            'Contrato #' in concepto_txt
+            or 'pago_cuota_mensual' in detalle_txt
+            or '"cuota_id"' in detalle_txt
+        )
+
         reserva = None
-        if movimiento.concepto and "Operaci\u00f3n" in movimiento.concepto:
+        if not es_movimiento_contrato and concepto_txt and "Operaci\u00f3n" in concepto_txt:
             try:
                 # Extraer el ID de la reserva del concepto (formato: "Operaci\u00f3n 123 - Dirección")
                 import re
-                match = re.search(r'Operaci\u00f3n (\d+)', movimiento.concepto)
+                match = re.search(r'Operaci\u00f3n (\d+)', concepto_txt)
                 if match:
                     reserva_id = int(match.group(1))
                     reserva = Reserva.objects.filter(id=reserva_id).first()
@@ -6260,8 +6269,13 @@ def ver_recibo_movimiento(request, movimiento_id):
                 pass  # ✅ Bloque vacío
 # print(f"❌ Error al buscar reserva desde concepto: {e}")
         
-        # Fallback: buscar por propiedad si no se encontró por concepto
-        if not reserva and movimiento.propiedad:
+        # Fallback por propiedad solo para textos de reserva/operación.
+        if (
+            not es_movimiento_contrato
+            and not reserva
+            and movimiento.propiedad
+            and ("Operaci\u00f3n" in concepto_txt or "Reserva" in concepto_txt)
+        ):
             reserva = movimiento.propiedad.reservas.filter(estado__in=['pagada', 'confirmada_no_pagada']).first()
 # print(f"🔍 RESERVA FALLBACK desde propiedad: {reserva.id if reserva else 'No encontrada'}")
         
