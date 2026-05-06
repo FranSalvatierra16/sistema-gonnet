@@ -14171,6 +14171,11 @@ def procesar_operacion_contrato(request, contrato_id):
                     cuota.estado = 'pagada'
                     cuota.fecha_pago = hoy_pago
                     cuota.movimiento = movimiento
+                    # Si en el concepto 1000 se ingresó otro importe (ej. 500.000), la cuota queda con ese valor.
+                    cuota.monto_base = cubierto
+                    cuota.monto_total = cubierto
+                    cuota.recargo_mora = Decimal('0')
+                    cuota.descuento = Decimal('0')
                     cuota.save()
                     cuotas_pagadas_ids.append(cuota.numero_cuota)
             else:
@@ -14607,6 +14612,9 @@ def procesar_pago_cuota_operacion(request, cuota_id):
                     csel.estado = 'pagada'
                     csel.fecha_pago = hoy_pago
                     csel.movimiento = movimiento
+                    # Respetar el importe cargado en la línea de concepto 1000 para esa cuota.
+                    csel.monto_base = cubierto
+                    csel.monto_total = cubierto
                     csel.recargo_mora = Decimal('0')
                     csel.descuento = Decimal('0')
                     csel.save()
