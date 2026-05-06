@@ -23,8 +23,9 @@
             </h1>
             <p class="text-muted mb-0">
                 <strong>{{ cuenta.nombre_banco }}</strong>
-                {% if cuenta.alias %}<span class="badge bg-light text-dark ms-1">{{ cuenta.alias }}</span>{% endif %}
-                · {{ cuenta.numero_cuenta }}
+                · Titular: {{ cuenta.titular }}
+                · <span class="badge bg-light text-dark">{{ cuenta.alias }}</span>
+                {% if cuenta.numero_cuenta %}· Cuenta: {{ cuenta.numero_cuenta }}{% endif %}
             </p>
         </div>
         <div>

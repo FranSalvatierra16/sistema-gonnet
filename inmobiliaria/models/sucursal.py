@@ -99,8 +99,16 @@ class CuentaBancaria(models.Model):
     """
     sucursal = models.ForeignKey(Sucursal, on_delete=models.CASCADE, related_name='cuentas_bancarias')
     nombre_banco = models.CharField(max_length=100, help_text="Nombre del banco (ej: Banco Provincia)")
-    alias = models.CharField(max_length=100, blank=True, help_text="Alias de la cuenta (ej: GONNET-ALQUILERES)")
-    numero_cuenta = models.CharField(max_length=50, help_text="Número de cuenta bancaria")
+    titular = models.CharField(max_length=200, help_text="Titular de la cuenta")
+    alias = models.CharField(
+        max_length=100,
+        help_text="CBU, CVU o alias para transferencias (ej: 22 dígitos o MI.ALIAS.MP)",
+    )
+    numero_cuenta = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text="Número de cuenta (opcional, solo referencia)",
+    )
     tipo_cuenta = models.CharField(
         max_length=20,
         choices=[
@@ -119,7 +127,9 @@ class CuentaBancaria(models.Model):
         ordering = ['nombre_banco', 'alias']
         
     def __str__(self):
-        return f"{self.nombre_banco} - {self.alias} ({self.numero_cuenta})"
+        extra = (self.numero_cuenta or '').strip()
+        sufijo = f" · Cuenta {extra}" if extra else ''
+        return f"{self.nombre_banco} — {self.titular} — {self.alias}{sufijo}"
     
     @property
     def field_name(self):

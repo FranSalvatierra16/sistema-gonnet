@@ -32,8 +32,9 @@
                                 <thead class="table-dark">
                                     <tr>
                                         <th>Banco</th>
-                                        <th>Alias</th>
-                                        <th>Número de Cuenta</th>
+                                        <th>Titular</th>
+                                        <th>CBU / Alias</th>
+                                        <th>Cuenta</th>
                                         <th>Tipo</th>
                                         <th>Estado</th>
                                         <th>Fecha Creación</th>
@@ -51,8 +52,9 @@
                                             {% endif %}
                                             {{ cuenta.nombre_banco }}
                                         </td>
-                                        <td>{{ cuenta.alias }}</td>
-                                        <td>{{ cuenta.numero_cuenta }}</td>
+                                        <td>{{ cuenta.titular }}</td>
+                                        <td><code class="small">{{ cuenta.alias }}</code></td>
+                                        <td>{% if cuenta.numero_cuenta %}<span class="text-muted">{{ cuenta.numero_cuenta }}</span>{% else %}<span class="text-muted">—</span>{% endif %}</td>
                                         <td>
                                             {% if cuenta.tipo_cuenta == 'banco' %}
                                                 <span class="badge bg-primary">Banco</span>
@@ -126,7 +128,7 @@
                         <li>Las cuentas bancarias aparecerán automáticamente en los formularios de pago</li>
                         <li>Solo las cuentas <strong>activas</strong> se mostrarán en los formularios</li>
                         <li>Puedes desactivar una cuenta sin eliminarla para mantener el historial</li>
-                        <li>El alias es opcional pero recomendado para identificar fácilmente cada cuenta</li>
+                        <li>Se exige <strong>banco</strong>, <strong>titular</strong> y <strong>CBU o alias</strong>; el número de cuenta es opcional</li>
                     </ul>
                 </div>
             </div>

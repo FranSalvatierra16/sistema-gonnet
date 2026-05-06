@@ -23,31 +23,31 @@
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label for="nombre_banco" class="form-label">
-                                    <i class="fas fa-university"></i> Nombre del Banco *
+                                    <i class="fas fa-university"></i> Banco *
                                 </label>
                                 <input type="text" class="form-control" id="nombre_banco" name="nombre_banco" 
-                                       placeholder="Ej: Banco Provincia, Banco Galicia, Mercado Pago" required>
-                                <div class="form-text">Nombre completo del banco o billetera virtual</div>
+                                       placeholder="Ej: Banco Provincia, Galicia, Mercado Pago" required>
+                                <div class="form-text">Nombre del banco o billetera</div>
                             </div>
                             
                             <div class="col-md-6 mb-3">
-                                <label for="alias" class="form-label">
-                                    <i class="fas fa-tag"></i> Alias (Opcional)
+                                <label for="titular" class="form-label">
+                                    <i class="fas fa-user"></i> Titular *
                                 </label>
-                                <input type="text" class="form-control" id="alias" name="alias" 
-                                       placeholder="Ej: GONNET-ALQUILERES">
-                                <div class="form-text">Alias para identificar fácilmente esta cuenta</div>
+                                <input type="text" class="form-control" id="titular" name="titular" 
+                                       placeholder="Nombre del titular de la cuenta" required>
+                                <div class="form-text">Titular según el banco</div>
                             </div>
                         </div>
 
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label for="numero_cuenta" class="form-label">
-                                    <i class="fas fa-hashtag"></i> Número de Cuenta *
+                                <label for="alias" class="form-label">
+                                    <i class="fas fa-barcode"></i> CBU / CVU / Alias *
                                 </label>
-                                <input type="text" class="form-control" id="numero_cuenta" name="numero_cuenta" 
-                                       placeholder="Ej: 1234567890123456789012" required>
-                                <div class="form-text">Número de cuenta bancaria o CBU</div>
+                                <input type="text" class="form-control" id="alias" name="alias" 
+                                       placeholder="22 dígitos (CBU/CVU) o alias" required autocomplete="off">
+                                <div class="form-text">Dato que usan para transferirte (CBU, CVU o alias)</div>
                             </div>
                             
                             <div class="col-md-6 mb-3">
@@ -58,7 +58,18 @@
                                     <option value="banco">🏛️ Banco</option>
                                     <option value="billetera">💰 Billetera Virtual</option>
                                 </select>
-                                <div class="form-text">Selecciona el tipo de cuenta</div>
+                                <div class="form-text">Banco tradicional o billetera</div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="numero_cuenta" class="form-label">
+                                    <i class="fas fa-hashtag"></i> Número de cuenta
+                                </label>
+                                <input type="text" class="form-control" id="numero_cuenta" name="numero_cuenta" 
+                                       placeholder="Opcional, solo referencia interna">
+                                <div class="form-text">Opcional — no es obligatorio para cobrar transferencias</div>
                             </div>
                         </div>
 
@@ -69,7 +80,7 @@
                                     <label class="form-check-label" for="activa">
                                         <i class="fas fa-check-circle"></i> Cuenta Activa
                                     </label>
-                                    <div class="form-text">Las cuentas activas aparecerán en los formularios de pago</div>
+                                    <div class="form-text">Las cuentas activas aparecen en los formularios de pago</div>
                                 </div>
                             </div>
                         </div>
@@ -90,29 +101,27 @@
                 </div>
             </div>
 
-            <!-- Información adicional -->
             <div class="card border-info mt-4">
                 <div class="card-header bg-info text-white">
                     <h6 class="mb-0">
-                        <i class="fas fa-lightbulb"></i> Consejos para Configurar Cuentas
+                        <i class="fas fa-lightbulb"></i> Consejos
                     </h6>
                 </div>
                 <div class="card-body">
                     <div class="row">
                         <div class="col-md-6">
-                            <h6><i class="fas fa-university text-primary"></i> Bancos Tradicionales:</h6>
-                            <ul class="small">
-                                <li>Usa el nombre completo del banco</li>
-                                <li>El alias puede ser algo como "GONNET-ALQUILERES"</li>
-                                <li>El número puede ser CBU o número de cuenta</li>
+                            <h6><i class="fas fa-university text-primary"></i> Bancos</h6>
+                            <ul class="small mb-0">
+                                <li>Banco y titular deben coincidir con la cuenta</li>
+                                <li>En CBU / alias cargá el dato que usan para transferirte</li>
+                                <li>El número de cuenta es solo referencia; podés dejarlo vacío</li>
                             </ul>
                         </div>
                         <div class="col-md-6">
-                            <h6><i class="fas fa-mobile-alt text-success"></i> Billeteras Virtuales:</h6>
-                            <ul class="small">
-                                <li>Ejemplos: Mercado Pago, Ualá, Naranja X</li>
-                                <li>El alias puede ser tu nombre de usuario</li>
-                                <li>El número puede ser tu CVU o alias</li>
+                            <h6><i class="fas fa-mobile-alt text-success"></i> Billeteras</h6>
+                            <ul class="small mb-0">
+                                <li>Mercado Pago, Ualá, etc.: el CVU o alias va en CBU / alias</li>
+                                <li>El titular es el de la cuenta en esa billetera</li>
                             </ul>
                         </div>
                     </div>
@@ -124,44 +133,37 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Formatear número de cuenta mientras se escribe
-    const numeroCuentaInput = document.getElementById('numero_cuenta');
-    numeroCuentaInput.addEventListener('input', function() {
-        // Remover espacios y caracteres especiales
-        let value = this.value.replace(/\s+/g, '').replace(/[^0-9]/g, '');
-        
-        // Limitar a 22 caracteres (CBU típico)
-        if (value.length > 22) {
+    const aliasInput = document.getElementById('alias');
+    aliasInput.addEventListener('input', function() {
+        let value = this.value.replace(/\s+/g, '');
+        if (/^\d+$/.test(value) && value.length > 22) {
             value = value.substring(0, 22);
         }
-        
         this.value = value;
     });
 
-    // Validación del formulario
     const form = document.querySelector('form');
     form.addEventListener('submit', function(e) {
         const nombreBanco = document.getElementById('nombre_banco').value.trim();
-        const numeroCuenta = document.getElementById('numero_cuenta').value.trim();
+        const titular = document.getElementById('titular').value.trim();
+        const alias = document.getElementById('alias').value.trim();
         
         if (!nombreBanco) {
             e.preventDefault();
-            alert('Por favor ingresa el nombre del banco');
+            alert('Ingresá el banco');
             document.getElementById('nombre_banco').focus();
             return;
         }
-        
-        if (!numeroCuenta) {
+        if (!titular) {
             e.preventDefault();
-            alert('Por favor ingresa el número de cuenta');
-            document.getElementById('numero_cuenta').focus();
+            alert('Ingresá el titular');
+            document.getElementById('titular').focus();
             return;
         }
-        
-        if (numeroCuenta.length < 10) {
+        if (!alias) {
             e.preventDefault();
-            alert('El número de cuenta debe tener al menos 10 dígitos');
-            document.getElementById('numero_cuenta').focus();
+            alert('Ingresá el CBU o alias');
+            document.getElementById('alias').focus();
             return;
         }
     });

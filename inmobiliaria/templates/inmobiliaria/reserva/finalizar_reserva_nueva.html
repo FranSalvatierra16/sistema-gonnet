@@ -1365,17 +1365,15 @@ window.habilitarBotonProcesar = habilitarBotonProcesar;
                                             {% for cuenta in cuentas_bancarias %}
                                             <div class="transferencia-item">
                                                 {% if cuenta.tipo_cuenta == 'banco' %}
-                                                    <label class="form-label">🏛️ {{ cuenta.nombre_banco }}{% if cuenta.alias %} - {{ cuenta.alias }}{% endif %}:</label>
+                                                    <label class="form-label">🏛️ {{ cuenta.nombre_banco }} — {{ cuenta.titular }}</label>
                                                 {% else %}
-                                                    <label class="form-label">💰 {{ cuenta.nombre_banco }}{% if cuenta.alias %} - {{ cuenta.alias }}{% endif %}:</label>
+                                                    <label class="form-label">💰 {{ cuenta.nombre_banco }} — {{ cuenta.titular }}</label>
                                                 {% endif %}
                                                 <input type="text" class="form-control form-control-xs importe-pago cuenta-bancaria-dinamica" 
                                                        id="{{ cuenta.field_name }}" name="{{ cuenta.field_name }}" 
                                                        placeholder="0" onchange="actualizarPagos()" oninput="actualizarPagos()"
                                                        data-cuenta-id="{{ cuenta.id }}">
-                                                {% if cuenta.numero_cuenta %}
-                                                <small class="text-muted">{{ cuenta.numero_cuenta }}</small>
-                                                {% endif %}
+                                                <small class="text-muted d-block">CBU / alias: {{ cuenta.alias }}{% if cuenta.numero_cuenta %} · Cuenta: {{ cuenta.numero_cuenta }}{% endif %}</small>
                                             </div>
                                             {% empty %}
                                             <div class="transferencia-item">

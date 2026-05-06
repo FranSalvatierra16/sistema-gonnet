@@ -118,6 +118,15 @@ def gestionar_cuentas_bancarias(request):
         messages.error(request, f'Error al acceder a las cuentas bancarias: {str(e)}')
         return redirect('inmobiliaria:dashboard_caja')
 
+def _post_cuenta_bancaria_limpio(request):
+    """Banco, titular y CBU/alias obligatorios; número de cuenta opcional."""
+    nombre_banco = (request.POST.get('nombre_banco') or '').strip()
+    titular = (request.POST.get('titular') or '').strip()
+    alias = (request.POST.get('alias') or '').strip()
+    numero_cuenta = (request.POST.get('numero_cuenta') or '').strip()
+    return nombre_banco, titular, alias, numero_cuenta
+
+
 @login_required
 def crear_cuenta_bancaria(request):
     """
@@ -126,13 +135,24 @@ def crear_cuenta_bancaria(request):
     if request.method == 'POST':
         try:
             sucursal = request.user.sucursal
-            
+            nombre_banco, titular, alias, numero_cuenta = _post_cuenta_bancaria_limpio(request)
+            if not nombre_banco:
+                messages.error(request, 'El banco es obligatorio.')
+                return redirect('inmobiliaria:crear_cuenta_bancaria')
+            if not titular:
+                messages.error(request, 'El titular es obligatorio.')
+                return redirect('inmobiliaria:crear_cuenta_bancaria')
+            if not alias:
+                messages.error(request, 'El CBU o alias es obligatorio.')
+                return redirect('inmobiliaria:crear_cuenta_bancaria')
+
             # Crear la cuenta bancaria
             cuenta = CuentaBancaria.objects.create(
                 sucursal=sucursal,
-                nombre_banco=request.POST.get('nombre_banco'),
-                alias=request.POST.get('alias'),
-                numero_cuenta=request.POST.get('numero_cuenta'),
+                nombre_banco=nombre_banco,
+                titular=titular,
+                alias=alias,
+                numero_cuenta=numero_cuenta,
                 tipo_cuenta=request.POST.get('tipo_cuenta', 'banco'),
                 activa=request.POST.get('activa') == 'on'
             )
@@ -159,10 +179,20 @@ def editar_cuenta_bancaria(request, cuenta_id):
         cuenta = get_object_or_404(CuentaBancaria, id=cuenta_id, sucursal=request.user.sucursal)
         
         if request.method == 'POST':
-            # Actualizar la cuenta bancaria
-            cuenta.nombre_banco = request.POST.get('nombre_banco')
-            cuenta.alias = request.POST.get('alias')
-            cuenta.numero_cuenta = request.POST.get('numero_cuenta')
+            nombre_banco, titular, alias, numero_cuenta = _post_cuenta_bancaria_limpio(request)
+            if not nombre_banco:
+                messages.error(request, 'El banco es obligatorio.')
+                return redirect('inmobiliaria:editar_cuenta_bancaria', cuenta_id=cuenta_id)
+            if not titular:
+                messages.error(request, 'El titular es obligatorio.')
+                return redirect('inmobiliaria:editar_cuenta_bancaria', cuenta_id=cuenta_id)
+            if not alias:
+                messages.error(request, 'El CBU o alias es obligatorio.')
+                return redirect('inmobiliaria:editar_cuenta_bancaria', cuenta_id=cuenta_id)
+            cuenta.nombre_banco = nombre_banco
+            cuenta.titular = titular
+            cuenta.alias = alias
+            cuenta.numero_cuenta = numero_cuenta
             cuenta.tipo_cuenta = request.POST.get('tipo_cuenta', 'banco')
             cuenta.activa = request.POST.get('activa') == 'on'
             cuenta.save()

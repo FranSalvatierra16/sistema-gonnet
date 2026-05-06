@@ -10062,6 +10062,7 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
         total_cuenta = sum(m.monto_deposito for m in ingresos.filter(destino_deposito=f'cuenta_{cuenta.id}'))
         totales_ingresos['cuentas_bancarias'][cuenta.id] = {
             'nombre': cuenta.nombre_banco,
+            'titular': cuenta.titular,
             'alias': cuenta.alias,
             'total': total_cuenta
         }
@@ -10081,6 +10082,7 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
         total_cuenta = sum(m.monto_deposito for m in egresos.filter(destino_deposito=f'cuenta_{cuenta.id}'))
         totales_egresos['cuentas_bancarias'][cuenta.id] = {
             'nombre': cuenta.nombre_banco,
+            'titular': cuenta.titular,
             'alias': cuenta.alias,
             'total': total_cuenta
         }
@@ -10101,6 +10103,7 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
         saldo_cuenta = totales_ingresos['cuentas_bancarias'][cuenta.id]['total'] - totales_egresos['cuentas_bancarias'][cuenta.id]['total']
         saldo_actual['cuentas_bancarias'][cuenta.id] = {
             'nombre': cuenta.nombre_banco,
+            'titular': cuenta.titular,
             'alias': cuenta.alias,
             'saldo': saldo_cuenta
         }
@@ -11265,7 +11268,7 @@ def reportes_caja(request):
             if rest.isdigit():
                 c = cuentas_map.get(int(rest))
                 if c:
-                    return f'{c.nombre_banco}' + (f' ({c.alias})' if c.alias else '')
+                    return f'{c.nombre_banco} — {c.titular} ({c.alias})'
             return val
         return val
 

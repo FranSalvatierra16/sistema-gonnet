@@ -23,31 +23,31 @@
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label for="nombre_banco" class="form-label">
-                                    <i class="fas fa-university"></i> Nombre del Banco *
+                                    <i class="fas fa-university"></i> Banco *
                                 </label>
                                 <input type="text" class="form-control" id="nombre_banco" name="nombre_banco" 
                                        value="{{ cuenta.nombre_banco }}" required>
-                                <div class="form-text">Nombre completo del banco o billetera virtual</div>
+                                <div class="form-text">Nombre del banco o billetera</div>
                             </div>
                             
                             <div class="col-md-6 mb-3">
-                                <label for="alias" class="form-label">
-                                    <i class="fas fa-tag"></i> Alias (Opcional)
+                                <label for="titular" class="form-label">
+                                    <i class="fas fa-user"></i> Titular *
                                 </label>
-                                <input type="text" class="form-control" id="alias" name="alias" 
-                                       value="{{ cuenta.alias }}">
-                                <div class="form-text">Alias para identificar fácilmente esta cuenta</div>
+                                <input type="text" class="form-control" id="titular" name="titular" 
+                                       value="{{ cuenta.titular }}" required>
+                                <div class="form-text">Titular según el banco</div>
                             </div>
                         </div>
 
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label for="numero_cuenta" class="form-label">
-                                    <i class="fas fa-hashtag"></i> Número de Cuenta *
+                                <label for="alias" class="form-label">
+                                    <i class="fas fa-barcode"></i> CBU / CVU / Alias *
                                 </label>
-                                <input type="text" class="form-control" id="numero_cuenta" name="numero_cuenta" 
-                                       value="{{ cuenta.numero_cuenta }}" required>
-                                <div class="form-text">Número de cuenta bancaria o CBU</div>
+                                <input type="text" class="form-control" id="alias" name="alias" 
+                                       value="{{ cuenta.alias }}" required autocomplete="off">
+                                <div class="form-text">Dato para transferencias</div>
                             </div>
                             
                             <div class="col-md-6 mb-3">
@@ -58,7 +58,18 @@
                                     <option value="banco" {% if cuenta.tipo_cuenta == 'banco' %}selected{% endif %}>🏛️ Banco</option>
                                     <option value="billetera" {% if cuenta.tipo_cuenta == 'billetera' %}selected{% endif %}>💰 Billetera Virtual</option>
                                 </select>
-                                <div class="form-text">Selecciona el tipo de cuenta</div>
+                                <div class="form-text">Banco tradicional o billetera</div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="numero_cuenta" class="form-label">
+                                    <i class="fas fa-hashtag"></i> Número de cuenta
+                                </label>
+                                <input type="text" class="form-control" id="numero_cuenta" name="numero_cuenta" 
+                                       value="{{ cuenta.numero_cuenta }}">
+                                <div class="form-text">Opcional — referencia interna</div>
                             </div>
                         </div>
 
@@ -70,7 +81,7 @@
                                     <label class="form-check-label" for="activa">
                                         <i class="fas fa-check-circle"></i> Cuenta Activa
                                     </label>
-                                    <div class="form-text">Las cuentas activas aparecerán en los formularios de pago</div>
+                                    <div class="form-text">Las cuentas activas aparecen en los formularios de pago</div>
                                 </div>
                             </div>
                         </div>
@@ -91,7 +102,6 @@
                 </div>
             </div>
 
-            <!-- Información de la cuenta -->
             <div class="card border-info mt-4">
                 <div class="card-header bg-info text-white">
                     <h6 class="mb-0">
@@ -129,44 +139,37 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Formatear número de cuenta mientras se escribe
-    const numeroCuentaInput = document.getElementById('numero_cuenta');
-    numeroCuentaInput.addEventListener('input', function() {
-        // Remover espacios y caracteres especiales
-        let value = this.value.replace(/\s+/g, '').replace(/[^0-9]/g, '');
-        
-        // Limitar a 22 caracteres (CBU típico)
-        if (value.length > 22) {
+    const aliasInput = document.getElementById('alias');
+    aliasInput.addEventListener('input', function() {
+        let value = this.value.replace(/\s+/g, '');
+        if (/^\d+$/.test(value) && value.length > 22) {
             value = value.substring(0, 22);
         }
-        
         this.value = value;
     });
 
-    // Validación del formulario
     const form = document.querySelector('form');
     form.addEventListener('submit', function(e) {
         const nombreBanco = document.getElementById('nombre_banco').value.trim();
-        const numeroCuenta = document.getElementById('numero_cuenta').value.trim();
+        const titular = document.getElementById('titular').value.trim();
+        const alias = document.getElementById('alias').value.trim();
         
         if (!nombreBanco) {
             e.preventDefault();
-            alert('Por favor ingresa el nombre del banco');
+            alert('Ingresá el banco');
             document.getElementById('nombre_banco').focus();
             return;
         }
-        
-        if (!numeroCuenta) {
+        if (!titular) {
             e.preventDefault();
-            alert('Por favor ingresa el número de cuenta');
-            document.getElementById('numero_cuenta').focus();
+            alert('Ingresá el titular');
+            document.getElementById('titular').focus();
             return;
         }
-        
-        if (numeroCuenta.length < 10) {
+        if (!alias) {
             e.preventDefault();
-            alert('El número de cuenta debe tener al menos 10 dígitos');
-            document.getElementById('numero_cuenta').focus();
+            alert('Ingresá el CBU o alias');
+            document.getElementById('alias').focus();
             return;
         }
     });

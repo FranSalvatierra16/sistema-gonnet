@@ -19,6 +19,7 @@ def crear_cuentas_ejemplo():
     cuentas_ejemplo = [
         {
             'nombre_banco': 'Banco Provincia',
+            'titular': 'Inmobiliaria Gonnet',
             'alias': 'GONNET-ALQUILERES',
             'numero_cuenta': '1234567890123456789012',
             'tipo_cuenta': 'banco',
@@ -26,6 +27,7 @@ def crear_cuentas_ejemplo():
         },
         {
             'nombre_banco': 'Banco Galicia',
+            'titular': 'Inmobiliaria Gonnet',
             'alias': 'GONNET-DEPOSITOS',
             'numero_cuenta': '9876543210987654321098',
             'tipo_cuenta': 'banco',
@@ -33,6 +35,7 @@ def crear_cuentas_ejemplo():
         },
         {
             'nombre_banco': 'Mercado Pago',
+            'titular': 'Inmobiliaria Gonnet',
             'alias': 'GONNET-MP',
             'numero_cuenta': '0000003100001234567890',
             'tipo_cuenta': 'billetera',
@@ -40,6 +43,7 @@ def crear_cuentas_ejemplo():
         },
         {
             'nombre_banco': 'Ualá',
+            'titular': 'Inmobiliaria Gonnet',
             'alias': 'GONNET-UALA',
             'numero_cuenta': '0000003200001234567890',
             'tipo_cuenta': 'billetera',

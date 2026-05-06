@@ -293,7 +293,7 @@
                                     <select name="destino_deposito" id="destino_deposito_mov" class="form-select flex-grow-1" style="min-width: 11rem; max-width: 22rem;" aria-label="Cuenta destino transferencia">
                                         <option value="">— Cuenta —</option>
                                         {% for cuenta in cuentas_bancarias %}
-                                        <option value="cuenta_{{ cuenta.id }}">{{ cuenta.nombre_banco }}{% if cuenta.alias %} — {{ cuenta.alias }}{% endif %}</option>
+                                        <option value="cuenta_{{ cuenta.id }}">{{ cuenta.nombre_banco }} — {{ cuenta.titular }} — {{ cuenta.alias }}</option>
                                         {% empty %}
                                         <option value="" disabled>Sin cuentas en esta sucursal</option>
                                         {% endfor %}
