@@ -1793,8 +1793,30 @@ def propietarios(request):
 
 @login_required
 def propietario_detalle(request, propietario_id):
-    propietario = get_object_or_404(Propietario, pk=propietario_id)
-    return render(request, 'inmobiliaria/propietarios/detalle.html', {'propietario': propietario})
+    propietario = get_object_or_404(
+        Propietario,
+        pk=propietario_id,
+        sucursal=request.user.sucursal,
+    )
+    if request.method == "POST":
+        form = PropietarioForm(request.POST, instance=propietario, user=request.user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Propietario actualizado exitosamente.')
+            return redirect('inmobiliaria:propietario_detalle', propietario_id=propietario.id)
+    else:
+        form = PropietarioForm(instance=propietario, user=request.user)
+
+    propiedades_count = Propiedad.objects.filter(propietario=propietario).count()
+    return render(
+        request,
+        'inmobiliaria/propietarios/detalle.html',
+        {
+            'propietario': propietario,
+            'form': form,
+            'propiedades_count': propiedades_count,
+        },
+    )
 
 @login_required
 def propietario_nuevo(request):
