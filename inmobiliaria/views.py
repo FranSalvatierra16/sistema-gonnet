@@ -13930,6 +13930,35 @@ def _cuotas_objetivo_desde_conceptos(contrato, lista_conceptos):
     return cuotas_map, suma_objetivo, errores
 
 
+def _actualizar_pendientes_al_ultimo_importe(contrato):
+    """
+    Ajusta cuotas pendientes/vencidas al importe de la última cuota pagada.
+    """
+    ultima_pagada = (
+        contrato.cuotas.filter(estado__in=['pagada', 'pagada_con_mora'])
+        .order_by('-numero_cuota', '-id')
+        .first()
+    )
+    if not ultima_pagada:
+        return 0
+    nuevo_importe = Decimal(str(ultima_pagada.monto_total or 0))
+    if nuevo_importe <= 0:
+        return 0
+    pendientes = contrato.cuotas.filter(
+        numero_cuota__gt=ultima_pagada.numero_cuota,
+        estado__in=['pendiente', 'vencida'],
+    )
+    actualizadas = 0
+    for c in pendientes:
+        c.monto_base = nuevo_importe
+        c.monto_total = nuevo_importe
+        c.recargo_mora = Decimal('0')
+        c.descuento = Decimal('0')
+        c.save()
+        actualizadas += 1
+    return actualizadas
+
+
 @login_required
 @require_POST
 def procesar_operacion_contrato(request, contrato_id):
@@ -14150,6 +14179,7 @@ def procesar_operacion_contrato(request, contrato_id):
                     if hasattr(contrato.propiedad, 'info_meses'):
                         contrato.propiedad.info_meses.estado = 'ocupado'
                         contrato.propiedad.info_meses.save()
+                _actualizar_pendientes_al_ultimo_importe(contrato)
         else:
             if cuotas_objetivo_map:
                 hoy_pago = timezone.now().date()
@@ -14186,6 +14216,7 @@ def procesar_operacion_contrato(request, contrato_id):
                 cuota.fecha_pago = timezone.now().date()
                 cuota.movimiento = movimiento
                 cuota.save()
+            _actualizar_pendientes_al_ultimo_importe(contrato)
         
         return JsonResponse({
             'success': True,
@@ -14648,6 +14679,8 @@ def procesar_pago_cuota_operacion(request, cuota_id):
                             )
                         siguiente_cuota.fecha_vencimiento = nueva_fecha
                     siguiente_cuota.save()
+
+            _actualizar_pendientes_al_ultimo_importe(contrato)
 
         messages.success(
             request,
