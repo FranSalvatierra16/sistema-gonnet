@@ -87,7 +87,7 @@
                 </div>
                 <div class="col-md-2">
                     <label class="form-label"><i class="fas fa-search"></i> Buscar</label>
-                    <input type="text" name="q" class="form-control" placeholder="Inquilino o Dirección..." 
+                    <input type="text" name="q" class="form-control" placeholder="Inquilino, dirección o propietario..." 
                            value="{{ request.GET.q }}">
                 </div>
                 <div class="col-md-2 d-flex align-items-end">
@@ -180,6 +180,12 @@
                                         <strong>{{ contrato.propiedad.direccion }}</strong>
                                         <br>
                                         <small class="text-muted">Ficha #{{ contrato.propiedad.id }}</small>
+                                        <br>
+                                        {% if contrato.propiedad.propietario %}
+                                        <small class="text-muted">Prop.: {{ contrato.propiedad.propietario.apellido }}, {{ contrato.propiedad.propietario.nombre }}</small>
+                                        {% else %}
+                                        <small class="text-muted">Prop.: -</small>
+                                        {% endif %}
                                     </div>
                                 </td>
                                 <td>

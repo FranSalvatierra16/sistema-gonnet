@@ -383,6 +383,14 @@
 </div>
 
 <script>
+(function bloquearVolverAtrasEnRecibo() {
+    if (!window.opener) return;
+    history.pushState(null, document.title, location.href);
+    window.addEventListener('popstate', function () {
+        history.pushState(null, document.title, location.href);
+    });
+})();
+
 async function compartirWhatsApp() {
     try {
         // Mostrar loading

@@ -12646,7 +12646,7 @@ def lista_contratos(request):
     mostrar_eliminados = request.GET.get('mostrar_eliminados') == '1'
     contratos = ContratoAlquiler.objects.filter(
         sucursal=request.user.sucursal
-    ).select_related('propiedad', 'inquilino', 'vendedor')
+    ).select_related('propiedad', 'propiedad__propietario', 'inquilino', 'vendedor')
     if not mostrar_eliminados:
         contratos = contratos.filter(estado__in=['activo', 'reservado'])
     
@@ -12696,7 +12696,9 @@ def lista_contratos(request):
         contratos = contratos.filter(
             Q(inquilino__nombre__icontains=busqueda) |
             Q(inquilino__apellido__icontains=busqueda) |
-            Q(propiedad__direccion__icontains=busqueda)
+            Q(propiedad__direccion__icontains=busqueda) |
+            Q(propiedad__propietario__nombre__icontains=busqueda) |
+            Q(propiedad__propietario__apellido__icontains=busqueda)
         )
     
     # Ordenar por fecha de creación
