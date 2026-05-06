@@ -227,6 +227,7 @@
                                     <tr>
                                         <th>Fecha</th>
                                         <th>Concepto</th>
+                                        <th>Cuota/Mes</th>
                                         <th>Moneda</th>
                                         <th>Observaciones</th>
                                         <th>Importe</th>
@@ -415,6 +416,13 @@
                             <option value="USD">Dólares (USD)</option>
                         </select>
                     </div>
+                    <div class="mb-3" id="grupoCuotaObjetivo" style="display: none;">
+                        <label for="cuotaObjetivoId" class="form-label"><strong>Cuota objetivo (concepto 1000):</strong></label>
+                        <select class="form-control" id="cuotaObjetivoId">
+                            <option value="">Seleccionar cuota...</option>
+                        </select>
+                        <small class="text-muted">Para concepto 1000, elegí la cuota/mes al que se imputa.</small>
+                    </div>
                 </form>
             </div>
             <div class="modal-footer">
@@ -535,6 +543,7 @@
     window.selladosRefCfg = config.sellados_referencia != null ? Number(config.sellados_referencia) : 0;
     window.numeroCuotaPago = config.numero_cuota != null ? Number(config.numero_cuota) : 0;
     window.defaultImporteCuota = config.default_importe_cuota != null ? Number(config.default_importe_cuota) : 0;
+    window.cuotasPendientesCfg = Array.isArray(config.cuotas_pendientes) ? config.cuotas_pendientes : [];
 })();
 var tipoOperacion = window.tipoOperacion;
 var contratoId = window.contratoId;
@@ -544,6 +553,37 @@ let conceptosAgregados = [];
 let contadorConceptos = 0;
 let conceptoEditando = null;
 let conceptoSeleccionadoActual = null;
+
+function etiquetaCuotaDesdeCfg(cuotaId) {
+    const qid = Number(cuotaId || 0);
+    if (!qid) return '';
+    const arr = Array.isArray(window.cuotasPendientesCfg) ? window.cuotasPendientesCfg : [];
+    const it = arr.find(function(q) { return Number(q.id) === qid; });
+    if (!it) return '';
+    return `Cuota ${it.numero_cuota} (${it.mes})`;
+}
+
+function renderOpcionesCuotasObjetivo(selectedId) {
+    const grupo = document.getElementById('grupoCuotaObjetivo');
+    const select = document.getElementById('cuotaObjetivoId');
+    if (!grupo || !select) return;
+    const conceptoId = String((conceptoSeleccionadoActual && conceptoSeleccionadoActual.id) || '').trim();
+    const mostrar = conceptoId === '1000';
+    grupo.style.display = mostrar ? 'block' : 'none';
+    if (!mostrar) {
+        select.value = '';
+        return;
+    }
+    const prev = String(selectedId || select.value || '');
+    const opciones = ['<option value="">Seleccionar cuota...</option>'];
+    (window.cuotasPendientesCfg || []).forEach(function(q) {
+        const sel = String(q.id) === prev ? ' selected' : '';
+        opciones.push(
+            `<option value="${q.id}"${sel}>Cuota ${q.numero_cuota} · ${q.mes} · vence ${q.fecha_vencimiento} · $${formatoMontoReciboAR(q.monto_total || 0)}</option>`
+        );
+    });
+    select.innerHTML = opciones.join('');
+}
 
 function escapeHtmlAttr(s) {
     if (s == null || s === '') return '';
@@ -639,6 +679,7 @@ function mostrarModalConcepto() {
     }
     const monedaEl = document.getElementById('moneda');
     if (monedaEl) monedaEl.value = 'ARS';
+    renderOpcionesCuotasObjetivo('');
 
     // Resetear estado
     conceptoEditando = null;
@@ -688,8 +729,14 @@ function agregarConcepto() {
         moneda: (document.getElementById('moneda')?.value || 'ARS').toUpperCase() === 'USD' ? 'USD' : 'ARS',
         observaciones: observaciones || 'Sin observaciones',
         importe: importe,
-        fecha: fechaActual
+        fecha: fechaActual,
+        cuotaObjetivoId: document.getElementById('cuotaObjetivoId')?.value || '',
+        cuotaObjetivoLabel: etiquetaCuotaDesdeCfg(document.getElementById('cuotaObjetivoId')?.value || ''),
     };
+    if (String(nuevoConcepto.conceptoId).trim() === '1000' && !String(nuevoConcepto.cuotaObjetivoId || '').trim()) {
+        alert('Para concepto 1000 tenés que elegir la cuota/mes objetivo.');
+        return;
+    }
     
     conceptosAgregados.push(nuevoConcepto);
     actualizarTablaConceptos();
@@ -711,6 +758,7 @@ function actualizarTablaConceptos() {
         fila.innerHTML = `
             <td>${escapeHtmlAttr(concepto.fecha)}</td>
             <td>${escapeHtmlAttr(concepto.nombre)}</td>
+            <td>${escapeHtmlAttr(concepto.cuotaObjetivoLabel || '-')}</td>
             <td>${escapeHtmlAttr((concepto.moneda || 'ARS') === 'USD' ? 'USD' : 'ARS')}</td>
             <td style="min-width: 200px;">
                 <input type="text" class="form-control form-control-sm" 
@@ -761,6 +809,7 @@ function editarConcepto(conceptoId) {
             id: concepto.conceptoId,
             nombre: concepto.nombre
         };
+        renderOpcionesCuotasObjetivo(concepto.cuotaObjetivoId || '');
         
         document.getElementById('observaciones').value = concepto.observaciones === 'Sin observaciones' ? '' : concepto.observaciones;
         document.getElementById('importe').value = importeConceptoANumero(concepto.importe).toLocaleString('es-AR', { maximumFractionDigits: 2 });
@@ -801,6 +850,12 @@ function actualizarConcepto() {
     
     conceptoEditando.conceptoId = conceptoSeleccionadoActual.id;
     conceptoEditando.nombre = conceptoSeleccionadoActual.nombre;
+    conceptoEditando.cuotaObjetivoId = document.getElementById('cuotaObjetivoId')?.value || '';
+    conceptoEditando.cuotaObjetivoLabel = etiquetaCuotaDesdeCfg(conceptoEditando.cuotaObjetivoId);
+    if (String(conceptoEditando.conceptoId).trim() === '1000' && !String(conceptoEditando.cuotaObjetivoId || '').trim()) {
+        alert('Para concepto 1000 tenés que elegir la cuota/mes objetivo.');
+        return;
+    }
     conceptoEditando.moneda = (document.getElementById('moneda')?.value || 'ARS').toUpperCase() === 'USD' ? 'USD' : 'ARS';
     conceptoEditando.observaciones = observaciones || 'Sin observaciones';
     conceptoEditando.importe = importe;
@@ -1066,7 +1121,8 @@ function procesarOperacion() {
             importe: importeConceptoANumero(c.importe),
             moneda: ((c.moneda || 'ARS') === 'USD') ? 'USD' : 'ARS',
             observaciones: obs,
-            fecha: String(c.fecha || '')
+            fecha: String(c.fecha || ''),
+            cuota_objetivo_id: String(c.cuotaObjetivoId || '').trim() || null
         };
     });
     formData.append('conceptos_json', JSON.stringify(conceptosParaEnviar));
@@ -1078,6 +1134,7 @@ function procesarOperacion() {
         formData.append('concepto_' + index + '_observaciones', obs);
         formData.append('concepto_' + index + '_importe', String(importeConceptoANumero(concepto.importe)));
         formData.append('concepto_' + index + '_fecha', String(concepto.fecha || ''));
+        formData.append('concepto_' + index + '_cuota_objetivo_id', String(concepto.cuotaObjetivoId || ''));
     });
     formData.append('conceptos_count', String(filas.length));
     formData.append('tipo_operacion', tipoOperacion);
@@ -1230,10 +1287,12 @@ function buscarConceptoPorId(raw) {
         nombreSpan.textContent = 'ID: ' + elegido.id + ' - ' + elegido.nombre;
         infoDiv.style.display = 'block';
         conceptoSeleccionadoActual = { id: elegido.id, nombre: elegido.nombre };
+        renderOpcionesCuotasObjetivo('');
         document.getElementById('conceptoId').value = elegido.id;
     } else {
         infoDiv.style.display = 'none';
         conceptoSeleccionadoActual = null;
+        renderOpcionesCuotasObjetivo('');
     }
 }
 
@@ -1283,6 +1342,7 @@ function seleccionarConcepto(conceptoId, conceptoNombre) {
         id: conceptoId,
         nombre: conceptoNombre
     };
+    renderOpcionesCuotasObjetivo('');
     
     cerrarModalBuscar();
 }
@@ -1333,6 +1393,7 @@ function crearNuevoConcepto() {
                 id: data.concepto.id,
                 nombre: data.concepto.nombre
             };
+            renderOpcionesCuotasObjetivo('');
             
             // Agregar a la tabla de búsqueda
             const tablaConceptos = document.getElementById('tablaConceptosBusqueda');
@@ -1446,6 +1507,8 @@ document.addEventListener('DOMContentLoaded', function() {
             id: contadorConceptos,
             conceptoId: '1',
             nombre: 'Alquiler / locación (cuota ' + nCuota + ')',
+            cuotaObjetivoId: '',
+            cuotaObjetivoLabel: '',
             observaciones: 'Sin observaciones',
             importe: window.defaultImporteCuota,
             fecha: new Date().toLocaleDateString('es-AR')

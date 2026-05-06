@@ -13076,6 +13076,17 @@ def crear_operacion_contrato(request, contrato_id):
     ).order_by('nombre')
 
     hon_ui, sel_ui = importes_honorarios_sellados_ui_contrato(contrato)
+    cuotas_pendientes_cfg = [
+        {
+            'id': c.id,
+            'numero_cuota': c.numero_cuota,
+            'mes': c.fecha_vencimiento.strftime('%m/%Y') if c.fecha_vencimiento else '',
+            'fecha_vencimiento': c.fecha_vencimiento.strftime('%d/%m/%Y') if c.fecha_vencimiento else '',
+            'monto_total': float(c.monto_total or 0),
+        }
+        for c in contrato.cuotas.filter(estado__in=['pendiente', 'vencida']).order_by('numero_cuota')
+    ]
+
     config_operacion = {
         'tipo_operacion': tipo_operacion,
         'contrato_id': contrato.id,
@@ -13085,6 +13096,7 @@ def crear_operacion_contrato(request, contrato_id):
         'sellados_pendiente': 0.0,
         'honorarios_referencia': float(contrato.honorarios_referencia or 0),
         'sellados_referencia': float(contrato.sellados_referencia or 0),
+        'cuotas_pendientes': cuotas_pendientes_cfg,
     }
     context = {
         'contrato': contrato,
@@ -13621,7 +13633,8 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato, pago_cuota_co
                                 'importe': imp,
                                 'moneda': 'USD' if str(item.get('moneda', 'ARS')).strip().upper() == 'USD' else 'ARS',
                                 'observaciones': str(item.get('observaciones') or ''),
-                                'fecha': str(item.get('fecha') or '')
+                                'fecha': str(item.get('fecha') or ''),
+                                'cuota_objetivo_id': int(item.get('cuota_objetivo_id')) if str(item.get('cuota_objetivo_id') or '').strip().isdigit() else None,
                             })
                             conceptos_detalle.append(f"{nombre} ${imp}")
             except (json.JSONDecodeError, ValueError, TypeError):
@@ -13657,7 +13670,8 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato, pago_cuota_co
                     'importe': float(importe_limpio),
                     'moneda': 'USD' if concepto_moneda == 'USD' else 'ARS',
                     'observaciones': concepto_observaciones or '',
-                    'fecha': concepto_fecha or ''
+                    'fecha': concepto_fecha or '',
+                    'cuota_objetivo_id': int(request.POST.get(f'concepto_{i}_cuota_objetivo_id')) if str(request.POST.get(f'concepto_{i}_cuota_objetivo_id') or '').strip().isdigit() else None,
                 })
                 conceptos_detalle.append(f"{concepto_nombre} ${importe_limpio}")
         
@@ -13857,6 +13871,65 @@ def _montos_cuotas_por_trimestre(contrato):
     return out
 
 
+def _cuotas_objetivo_desde_conceptos(contrato, lista_conceptos):
+    """
+    Devuelve (cuotas_map, suma_objetivo, errores) usando concepto 1000.
+    cuotas_map: {cuota_id: {'cuota': CuotaMensual, 'importe_lineas': Decimal}}
+    """
+    cuotas_map = {}
+    errores = []
+    ids_pedidos = set()
+    for item in lista_conceptos or []:
+        cid = str(item.get('id') or item.get('codigo') or '').strip()
+        if cid != '1000':
+            continue
+        raw_cid = str(item.get('cuota_objetivo_id') or '').strip()
+        if not raw_cid.isdigit():
+            errores.append('El concepto 1000 requiere seleccionar una cuota objetivo.')
+            continue
+        qid = int(raw_cid)
+        ids_pedidos.add(qid)
+
+    if not ids_pedidos:
+        return {}, Decimal('0'), errores
+
+    cuotas_qs = contrato.cuotas.filter(id__in=list(ids_pedidos)).order_by('numero_cuota')
+    cuotas_by_id = {c.id: c for c in cuotas_qs}
+    faltantes = [str(i) for i in ids_pedidos if i not in cuotas_by_id]
+    if faltantes:
+        errores.append(f'Cuota(s) inválida(s) para este contrato: {", ".join(faltantes)}.')
+        return {}, Decimal('0'), errores
+
+    for item in lista_conceptos or []:
+        cid = str(item.get('id') or item.get('codigo') or '').strip()
+        if cid != '1000':
+            continue
+        raw_q = str(item.get('cuota_objetivo_id') or '').strip()
+        if not raw_q.isdigit():
+            continue
+        qid = int(raw_q)
+        cuota = cuotas_by_id.get(qid)
+        if not cuota:
+            continue
+        if cuota.estado in ('pagada', 'pagada_con_mora'):
+            errores.append(f'La cuota {cuota.numero_cuota} ya está pagada.')
+            continue
+        imp = parse_decimal_monto(item.get('importe'))
+        if imp <= 0:
+            errores.append(f'El concepto 1000 de cuota {cuota.numero_cuota} debe tener importe mayor a cero.')
+            continue
+        prev = cuotas_map.get(qid)
+        if not prev:
+            cuotas_map[qid] = {'cuota': cuota, 'importe_lineas': imp}
+        else:
+            prev['importe_lineas'] += imp
+
+    suma_objetivo = Decimal('0')
+    for data in cuotas_map.values():
+        suma_objetivo += Decimal(str(data['cuota'].monto_total or 0))
+    return cuotas_map, suma_objetivo, errores
+
+
 @login_required
 @require_POST
 def procesar_operacion_contrato(request, contrato_id):
@@ -13878,10 +13951,11 @@ def procesar_operacion_contrato(request, contrato_id):
         
         # Pago de cuota (mensual u otro no principal): permitir recibo combinado (cuota + depósito + honorarios, etc.).
         # Antes se exigía total_movimiento == monto cuota; eso rechaza montos mayores aunque la parte 1/15 cubra la cuota.
+        cuotas_objetivo_map = {}
         if tipo_operacion != 'principal':
             import json as json_mod
 
-            cuota_chk = contrato.cuotas.filter(estado='pendiente').order_by('fecha_vencimiento').first()
+            cuota_chk = contrato.cuotas.filter(estado__in=['pendiente', 'vencida']).order_by('fecha_vencimiento').first()
             if not cuota_chk:
                 return JsonResponse({'error': 'No hay cuotas pendientes para pagar'}, status=400)
             raw_json = (request.POST.get('conceptos_json') or '').strip()
@@ -13898,11 +13972,19 @@ def procesar_operacion_contrato(request, contrato_id):
                 if cid in ('1', '15') and moneda != 'USD':
                     sum_alquiler_locacion += parse_decimal_monto(item.get('importe'))
             total_medios = _total_medios_pago_operacion_request(request)
-            monto_cuota = Decimal(str(cuota_chk.monto_total))
+            cuotas_objetivo_map, suma_objetivo_cuotas, errores_cuotas_obj = _cuotas_objetivo_desde_conceptos(
+                contrato, lista_conceptos
+            )
+            if errores_cuotas_obj:
+                return JsonResponse({'error': ' '.join(errores_cuotas_obj)}, status=400)
+            monto_cuota = (
+                suma_objetivo_cuotas if suma_objetivo_cuotas > 0 else Decimal(str(cuota_chk.monto_total))
+            )
             tol = Decimal('0.05')
             pago_solo_mes = abs(total_medios - monto_cuota) <= tol
             recibo_combinado_ok = (sum_alquiler_locacion + tol >= monto_cuota) and (total_medios + tol >= monto_cuota)
-            if not pago_solo_mes and not recibo_combinado_ok:
+            pago_por_cuota_objetivo_ok = bool(cuotas_objetivo_map) and (total_medios + tol >= monto_cuota)
+            if not pago_solo_mes and not recibo_combinado_ok and not pago_por_cuota_objetivo_ok:
                 return JsonResponse(
                     {
                         'error': (
@@ -13912,7 +13994,8 @@ def procesar_operacion_contrato(request, contrato_id):
                             f'Total medios de pago: ${total_medios}. '
                             f'Si cobrás solo el mes, el total debe igualar la cuota; si sumás depósito (10), '
                             f'honorarios (25), reservas u otros conceptos, el total será mayor y debe '
-                            f'haber líneas 1 y/o 15 que cubran el valor de la cuota.'
+                            f'haber líneas 1 y/o 15 que cubran el valor de la cuota. '
+                            f'Alternativa: usar concepto 1000 e indicar la/s cuota/s objetivo.'
                         )
                     },
                     status=400,
@@ -14035,6 +14118,27 @@ def procesar_operacion_contrato(request, contrato_id):
                 contrato.estado = 'activo'
                 contrato.save()
 
+                # Si en el alta se cobró el mes (concepto 1/15), imputar ese mismo recibo a la cuota 1.
+                try:
+                    import json as _json_marca
+                    detalle = (getattr(movimiento, 'concepto_detalle', None) or '').strip()
+                    payload_det = _json_marca.loads(detalle) if detalle.startswith('{') else {}
+                    lineas = payload_det.get('conceptos', []) if isinstance(payload_det, dict) else []
+                    suma_alq_ars = Decimal('0')
+                    for it in lineas:
+                        cid = str(it.get('id') or it.get('codigo') or '').strip()
+                        moneda = str(it.get('moneda') or 'ARS').strip().upper()
+                        if cid in ('1', '15') and moneda != 'USD':
+                            suma_alq_ars += parse_decimal_monto(it.get('importe'))
+                    cuota_1 = contrato.cuotas.filter(numero_cuota=1, estado__in=['pendiente', 'vencida']).first()
+                    if cuota_1 and suma_alq_ars + Decimal('0.05') >= Decimal(str(cuota_1.monto_total or 0)):
+                        cuota_1.estado = 'pagada'
+                        cuota_1.fecha_pago = timezone.now().date()
+                        cuota_1.movimiento = movimiento
+                        cuota_1.save()
+                except Exception:
+                    pass
+
                 if contrato.duracion_meses == 9:
                     if hasattr(contrato.propiedad, 'info_invierno'):
                         contrato.propiedad.info_invierno.estado = 'ocupado'
@@ -14047,13 +14151,36 @@ def procesar_operacion_contrato(request, contrato_id):
                         contrato.propiedad.info_meses.estado = 'ocupado'
                         contrato.propiedad.info_meses.save()
         else:
-            cuota = contrato.cuotas.filter(estado='pendiente').order_by('fecha_vencimiento').first()
-            if not cuota:
-                return JsonResponse({'error': 'No hay cuotas pendientes para pagar'}, status=400)
-            cuota.estado = 'pagada'
-            cuota.fecha_pago = timezone.now().date()
-            cuota.movimiento = movimiento
-            cuota.save()
+            if cuotas_objetivo_map:
+                hoy_pago = timezone.now().date()
+                cuotas_pagadas_ids = []
+                for qid, data in cuotas_objetivo_map.items():
+                    cuota = data['cuota']
+                    cubierto = data['importe_lineas']
+                    objetivo = Decimal(str(cuota.monto_total or 0))
+                    if cubierto + Decimal('0.05') < objetivo:
+                        return JsonResponse(
+                            {
+                                'error': (
+                                    f'La cuota {cuota.numero_cuota} requiere ${objetivo} y en concepto 1000 '
+                                    f'tiene ${cubierto}.'
+                                )
+                            },
+                            status=400,
+                        )
+                    cuota.estado = 'pagada'
+                    cuota.fecha_pago = hoy_pago
+                    cuota.movimiento = movimiento
+                    cuota.save()
+                    cuotas_pagadas_ids.append(cuota.numero_cuota)
+            else:
+                cuota = contrato.cuotas.filter(estado__in=['pendiente', 'vencida']).order_by('fecha_vencimiento').first()
+                if not cuota:
+                    return JsonResponse({'error': 'No hay cuotas pendientes para pagar'}, status=400)
+                cuota.estado = 'pagada'
+                cuota.fecha_pago = timezone.now().date()
+                cuota.movimiento = movimiento
+                cuota.save()
         
         return JsonResponse({
             'success': True,
@@ -14297,6 +14424,17 @@ def crear_pago_cuota_operacion(request, cuota_id):
     conceptos_qs = Concepto.objects.filter(q_conceptos_caja_visibles(request.user.sucursal)).order_by('nombre')
 
     hon_ui, sel_ui = importes_honorarios_sellados_ui_contrato(contrato)
+    cuotas_pendientes_cfg = [
+        {
+            'id': c.id,
+            'numero_cuota': c.numero_cuota,
+            'mes': c.fecha_vencimiento.strftime('%m/%Y') if c.fecha_vencimiento else '',
+            'fecha_vencimiento': c.fecha_vencimiento.strftime('%d/%m/%Y') if c.fecha_vencimiento else '',
+            'monto_total': float(c.monto_total or 0),
+        }
+        for c in contrato.cuotas.filter(estado__in=['pendiente', 'vencida']).order_by('numero_cuota')
+    ]
+
     config_operacion = {
         'tipo_operacion': 'cuota_especifica',
         'contrato_id': contrato.id,
@@ -14306,6 +14444,7 @@ def crear_pago_cuota_operacion(request, cuota_id):
         'numero_cuota': cuota.numero_cuota,
         'default_importe_cuota': float(cuota.monto_total or 0),
         'procesar_pago_cuota_url': reverse('inmobiliaria:procesar_pago_cuota_operacion', args=[cuota.id]),
+        'cuotas_pendientes': cuotas_pendientes_cfg,
     }
 
     context = {
@@ -14389,7 +14528,14 @@ def procesar_pago_cuota_operacion(request, cuota_id):
             if cid == '1' and moneda != 'USD':
                 importes_id1.append(imp)
 
-        if not importes_id1 or max(importes_id1) <= 0:
+        cuotas_objetivo_map, _suma_objetivo_cuotas, errores_cuotas_obj = _cuotas_objetivo_desde_conceptos(
+            contrato, lista
+        )
+        if errores_cuotas_obj:
+            return JsonResponse({'error': ' '.join(errores_cuotas_obj)}, status=400)
+
+        requiere_id1 = not cuotas_objetivo_map
+        if requiere_id1 and (not importes_id1 or max(importes_id1) <= 0):
             return JsonResponse(
                 {
                     'error': (
@@ -14400,7 +14546,7 @@ def procesar_pago_cuota_operacion(request, cuota_id):
                 status=400,
             )
 
-        importe_alquiler = max(importes_id1)
+        importe_alquiler = max(importes_id1) if importes_id1 else Decimal('0')
 
         total_medios_ars = _total_medios_pago_operacion_request(request)
         total_medios_usd = parse_decimal_monto(request.POST.get('monto_dolares', request.POST.get('dolares', '0')))
@@ -14442,41 +14588,64 @@ def procesar_pago_cuota_operacion(request, cuota_id):
             if not movimiento:
                 return JsonResponse({'error': err or 'No se pudo registrar el movimiento de caja.'}, status=400)
 
-            cuota.estado = 'pagada'
-            cuota.fecha_pago = timezone.now().date()
-            cuota.movimiento = movimiento
-            # monto_base = solo alquiler (ID 1, mayor importe si hubo varias líneas con 1).
-            # monto_total = suma de todas las líneas del recibo (alquiler + depósito, gastos, etc.).
-            cuota.monto_base = importe_alquiler
-            cuota.recargo_mora = Decimal('0')
-            cuota.descuento = Decimal('0')
-            cuota.monto_total = suma_conceptos_ars
-            cuota.save()
-
-            siguiente_cuota = contrato.cuotas.filter(numero_cuota=cuota.numero_cuota + 1).first()
-            if siguiente_cuota:
-                fecha_actual = cuota.fecha_vencimiento
-                try:
-                    if fecha_actual.month == 12:
-                        nueva_fecha = date(fecha_actual.year + 1, 1, contrato.dia_vencimiento)
-                    else:
-                        nueva_fecha = date(fecha_actual.year, fecha_actual.month + 1, contrato.dia_vencimiento)
-                    siguiente_cuota.fecha_vencimiento = nueva_fecha
-                except ValueError:
-                    if fecha_actual.month == 12:
-                        nueva_fecha = date(fecha_actual.year + 1, 1, min(contrato.dia_vencimiento, 28))
-                    else:
-                        nueva_fecha = date(
-                            fecha_actual.year, fecha_actual.month + 1, min(contrato.dia_vencimiento, 28)
+            if cuotas_objetivo_map:
+                hoy_pago = timezone.now().date()
+                for _, data in cuotas_objetivo_map.items():
+                    csel = data['cuota']
+                    cubierto = data['importe_lineas']
+                    objetivo = Decimal(str(csel.monto_total or 0))
+                    if cubierto + Decimal('0.05') < objetivo:
+                        return JsonResponse(
+                            {
+                                'error': (
+                                    f'La cuota {csel.numero_cuota} requiere ${objetivo} y en concepto 1000 '
+                                    f'tiene ${cubierto}.'
+                                )
+                            },
+                            status=400,
                         )
-                    siguiente_cuota.fecha_vencimiento = nueva_fecha
-                siguiente_cuota.save()
+                    csel.estado = 'pagada'
+                    csel.fecha_pago = hoy_pago
+                    csel.movimiento = movimiento
+                    csel.recargo_mora = Decimal('0')
+                    csel.descuento = Decimal('0')
+                    csel.save()
+            else:
+                cuota.estado = 'pagada'
+                cuota.fecha_pago = timezone.now().date()
+                cuota.movimiento = movimiento
+                # monto_base = solo alquiler (ID 1, mayor importe si hubo varias líneas con 1).
+                # monto_total = suma de todas las líneas del recibo (alquiler + depósito, gastos, etc.).
+                cuota.monto_base = importe_alquiler
+                cuota.recargo_mora = Decimal('0')
+                cuota.descuento = Decimal('0')
+                cuota.monto_total = suma_conceptos_ars
+                cuota.save()
+
+                siguiente_cuota = contrato.cuotas.filter(numero_cuota=cuota.numero_cuota + 1).first()
+                if siguiente_cuota:
+                    fecha_actual = cuota.fecha_vencimiento
+                    try:
+                        if fecha_actual.month == 12:
+                            nueva_fecha = date(fecha_actual.year + 1, 1, contrato.dia_vencimiento)
+                        else:
+                            nueva_fecha = date(fecha_actual.year, fecha_actual.month + 1, contrato.dia_vencimiento)
+                        siguiente_cuota.fecha_vencimiento = nueva_fecha
+                    except ValueError:
+                        if fecha_actual.month == 12:
+                            nueva_fecha = date(fecha_actual.year + 1, 1, min(contrato.dia_vencimiento, 28))
+                        else:
+                            nueva_fecha = date(
+                                fecha_actual.year, fecha_actual.month + 1, min(contrato.dia_vencimiento, 28)
+                            )
+                        siguiente_cuota.fecha_vencimiento = nueva_fecha
+                    siguiente_cuota.save()
 
         messages.success(
             request,
-            f'Cuota {cuota.numero_cuota}/{contrato.duracion_meses} cobrada por ${suma_conceptos_ars} '
+            f'Cobro registrado por ${suma_conceptos_ars} '
             f'{f"y U$S {suma_conceptos_usd} " if suma_conceptos_usd > 0 else ""}'
-            f'(alquiler ID 1: ${importe_alquiler}).',
+            f'{f"(alquiler ID 1: ${importe_alquiler})." if requiere_id1 else "(imputado por concepto 1000 a cuotas seleccionadas)."}',
         )
         return JsonResponse(
             {
