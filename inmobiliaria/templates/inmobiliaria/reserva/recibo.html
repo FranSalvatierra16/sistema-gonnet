@@ -3,6 +3,29 @@
 {% load static %}
 {% block title %}Recibo{% endblock %}
 
+{% block extra_css %}
+<style>
+    nav.navbar,
+    footer.footer,
+    .main-page-wrapper > .alert {
+        display: none !important;
+    }
+    .main-page-wrapper {
+        margin-top: 0 !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        padding: 0 !important;
+    }
+    body {
+        background: #fff !important;
+        background-image: none !important;
+    }
+    body::before {
+        display: none !important;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="printable">
 <script>
