@@ -554,6 +554,7 @@ let conceptosAgregados = [];
 let contadorConceptos = 0;
 let conceptoEditando = null;
 let conceptoSeleccionadoActual = null;
+let operacionGuardActiva = true;
 
 function etiquetaCuotaDesdeCfg(cuotaId) {
     const qid = Number(cuotaId || 0);
@@ -1039,6 +1040,20 @@ function calcularTotalPagos() {
     };
 }
 
+function hayCambiosOperacion() {
+    if (conceptosAgregados.length > 0) return true;
+    const totalPagos = calcularTotalPagos();
+    if ((totalPagos.ars || 0) > 0.0001) return true;
+    if ((totalPagos.usd || 0) > 0.0001) return true;
+    return false;
+}
+
+function confirmarAbandonoOperacion() {
+    if (!operacionGuardActiva) return true;
+    if (!hayCambiosOperacion()) return true;
+    return confirm('Tenés una operación en curso. ¿Seguro que querés abandonar? Se perderán los cambios no guardados.');
+}
+
 // Función para actualizar totales cuando cambian los métodos de pago
 function actualizarTotales() {
     const totalRecibo = parsearValorFormateado(document.getElementById('totalRecibo').value || 0);
@@ -1184,6 +1199,7 @@ function procesarOperacion() {
     })
     .then(data => {
         if (data.success) {
+            operacionGuardActiva = false;
             if (data.mensaje) {
                 alert('✅ ' + data.mensaje);
             } else {
@@ -1504,6 +1520,41 @@ document.addEventListener('DOMContentLoaded', function() {
             seleccionarConcepto(conceptoId, conceptoNombre);
         }
     });
+
+    // Aviso al cerrar/recargar/cambiar URL
+    window.addEventListener('beforeunload', function (event) {
+        if (!operacionGuardActiva || !hayCambiosOperacion()) return;
+        event.preventDefault();
+        event.returnValue = '';
+    });
+
+    // Aviso para links/botones de navegación dentro de la pantalla
+    document.addEventListener('click', function (event) {
+        if (!operacionGuardActiva) return;
+        const link = event.target.closest('a[href]');
+        if (link && !link.hasAttribute('download') && link.getAttribute('href') !== '#') {
+            if (!confirmarAbandonoOperacion()) {
+                event.preventDefault();
+                return;
+            }
+            operacionGuardActiva = false;
+            return;
+        }
+
+        const btn = event.target.closest('button');
+        if (!btn) return;
+        const texto = (btn.textContent || '').toLowerCase();
+        const esVolver = texto.includes('volver');
+        const esCancelar = texto.includes('cancelar') && !texto.includes('registrar');
+        if (esVolver || esCancelar) {
+            if (!confirmarAbandonoOperacion()) {
+                event.preventDefault();
+                event.stopPropagation();
+                return;
+            }
+            operacionGuardActiva = false;
+        }
+    }, true);
 
     sincronizarHonorarios();
     sincronizarSellados();
