@@ -13254,11 +13254,54 @@ def obtener_caja_abierta(request):
     except Caja.DoesNotExist:
         return None
 
+
+def _movimiento_json_conceptos_parsed(movimiento):
+    """
+    parsed + lista conceptos desde concepto_detalle o concepto (array).
+    parsed: dict, list o None; conceptos_data: lista de ítems con id/codigo/importe.
+    """
+    import json
+
+    json_str = getattr(movimiento, 'concepto_detalle', None)
+    parsed = None
+    conceptos_data = []
+    if json_str and json_str.strip():
+        try:
+            parsed = json.loads(json_str)
+            if isinstance(parsed, dict) and 'conceptos' in parsed:
+                conceptos_data = parsed.get('conceptos', []) or []
+            elif isinstance(parsed, list):
+                conceptos_data = parsed
+        except (json.JSONDecodeError, ValueError, TypeError):
+            parsed = None
+            conceptos_data = []
+    else:
+        try:
+            if (movimiento.concepto or '').strip().startswith('['):
+                conceptos_data = json.loads(movimiento.concepto)
+                if isinstance(conceptos_data, list):
+                    parsed = conceptos_data
+                else:
+                    conceptos_data = []
+            else:
+                conceptos_data = []
+        except (json.JSONDecodeError, ValueError, TypeError):
+            conceptos_data = []
+    if not isinstance(conceptos_data, list):
+        conceptos_data = []
+    return parsed, conceptos_data
+
+
 def determinar_estado_concepto_contrato(contrato, concepto_id):
     """
     Determina si un concepto específico está pagado para un contrato.
     Solo devuelve 'pagado' si el concepto está efectivamente en algún movimiento (JSON o texto).
     El depósito (concepto 10) queda pendiente si no se cargó ese concepto en la operación.
+
+    Movimientos con `concepto_detalle` tipo { "conceptos": [...] } (operaciones actuales): solo
+    cuentan líneas con id/código y importe > 0. El campo modelo `honorarios`/`sellados` o claves en
+    raíz del JSON pueden repetir el importe de referencia del formulario sin haber cobrado la
+    línea 25/26; no deben marcar como pagado.
     """
     import json
     
@@ -13295,35 +13338,58 @@ def determinar_estado_concepto_contrato(contrato, concepto_id):
                 except (json.JSONDecodeError, ValueError, TypeError):
                     conceptos_data = []
 
+            detalle_dict_con_lista = isinstance(parsed, dict) and 'conceptos' in parsed
+            lineas_conceptos_no_vacias = len(conceptos_data) > 0
+            # Movimiento con líneas en JSON (dict conceptos o lista): no fiarse solo del campo modelo 25/26.
+            json_con_lineas = lineas_conceptos_no_vacias and (
+                detalle_dict_con_lista or isinstance(parsed, list)
+            )
+
             for concepto in conceptos_data:
                 concepto_id_actual = str(concepto.get('id', concepto.get('codigo', '')))
-                if concepto_id_actual == str(concepto_id):
-                    return 'pagado'
+                if concepto_id_actual != str(concepto_id):
+                    continue
+                try:
+                    if parse_decimal_monto(concepto.get('importe', 0)) > 0:
+                        return 'pagado'
+                except Exception:
+                    pass
 
-            # Objeto JSON con sellados/honorarios en raíz o campos del movimiento (operación principal suele
-            # guardar sellados en `sellados` del detalle sin línea 26; honorarios en campo `honorarios` del movimiento).
-            if isinstance(parsed, dict):
-                if str(concepto_id) == '26' and parsed.get('sellados') is not None:
-                    try:
-                        if float(parsed.get('sellados')) > 0:
+            # Sellados (26): suele ir en la raíz del JSON aunque no haya línea 26.
+            if str(concepto_id) == '26' and isinstance(parsed, dict) and parsed.get('sellados') is not None:
+                try:
+                    if float(parsed.get('sellados')) > 0:
+                        return 'pagado'
+                except (TypeError, ValueError):
+                    pass
+
+            # Honorarios (25) / sellados (26) en campos del modelo: si ya hay líneas en `conceptos`,
+            # el valor del formulario puede copiar la referencia sin cobrar — no marcar pagado.
+            if str(concepto_id) == '26' and json_con_lineas:
+                pass
+            else:
+                try:
+                    if str(concepto_id) == '26' and getattr(movimiento, 'sellados', None):
+                        if float(movimiento.sellados or 0) > 0:
                             return 'pagado'
-                    except (TypeError, ValueError):
-                        pass
-                if str(concepto_id) == '25' and parsed.get('honorarios') is not None:
+                except (TypeError, ValueError):
+                    pass
+
+            if str(concepto_id) == '25' and json_con_lineas:
+                pass
+            else:
+                if isinstance(parsed, dict) and parsed.get('honorarios') is not None:
                     try:
                         if float(parsed.get('honorarios')) > 0:
                             return 'pagado'
                     except (TypeError, ValueError):
                         pass
-            try:
-                if str(concepto_id) == '26' and getattr(movimiento, 'sellados', None):
-                    if float(movimiento.sellados or 0) > 0:
-                        return 'pagado'
-                if str(concepto_id) == '25' and getattr(movimiento, 'honorarios', None):
-                    if float(movimiento.honorarios or 0) > 0:
-                        return 'pagado'
-            except (TypeError, ValueError):
-                pass
+                try:
+                    if str(concepto_id) == '25' and getattr(movimiento, 'honorarios', None):
+                        if float(movimiento.honorarios or 0) > 0:
+                            return 'pagado'
+                except (TypeError, ValueError):
+                    pass
             
             # Si no hay concepto_detalle y no encontramos en JSON, buscar en texto (contratos antiguos)
             if not (json_str and json_str.strip().startswith('[')) and (movimiento.concepto or ''):
@@ -13356,7 +13422,6 @@ def determinar_estado_concepto_contrato(contrato, concepto_id):
 
 def _sum_importe_concepto_en_movimientos_contrato(contrato, codigo_buscado):
     """Suma importes del concepto (id) en movimientos de caja vinculados al contrato (JSON en concepto_detalle o concepto)."""
-    import json
     from decimal import Decimal
 
     total = Decimal('0')
@@ -13367,24 +13432,14 @@ def _sum_importe_concepto_en_movimientos_contrato(contrato, codigo_buscado):
         concepto__icontains=f'Contrato #{contrato.id}',
     ).order_by('id')
     for mov in movimientos:
-        parsed_list = []
-        parsed_dict = None
-        detalle = (getattr(mov, 'concepto_detalle', None) or '').strip()
-        try:
-            if detalle:
-                raw_p = json.loads(detalle)
-                if isinstance(raw_p, dict):
-                    parsed_dict = raw_p
-                    if 'conceptos' in raw_p:
-                        parsed_list = raw_p.get('conceptos') or []
-                elif isinstance(raw_p, list):
-                    parsed_list = raw_p
-            if not parsed_list and (mov.concepto or '').strip().startswith('['):
-                pl2 = json.loads(mov.concepto)
-                if isinstance(pl2, list):
-                    parsed_list = pl2
-        except (json.JSONDecodeError, ValueError, TypeError):
-            continue
+        parsed, parsed_list = _movimiento_json_conceptos_parsed(mov)
+        parsed_dict = parsed if isinstance(parsed, dict) else None
+        detalle_dict_con_lista = isinstance(parsed, dict) and 'conceptos' in parsed
+        lineas_no_vacias = len(parsed_list) > 0
+        json_con_lineas = lineas_no_vacias and (
+            detalle_dict_con_lista or isinstance(parsed, list)
+        )
+
         sub = Decimal('0')
         for concepto in parsed_list:
             cid = str(concepto.get('id', concepto.get('codigo', ''))).strip()
@@ -13401,18 +13456,24 @@ def _sum_importe_concepto_en_movimientos_contrato(contrato, codigo_buscado):
                 pass
         if codigo_buscado == '26' and sub == 0 and getattr(mov, 'sellados', None):
             try:
-                if float(mov.sellados or 0) > 0:
+                if float(mov.sellados or 0) > 0 and not json_con_lineas:
                     sub = parse_decimal_monto(mov.sellados)
             except Exception:
                 pass
-        if codigo_buscado == '25' and sub == 0 and isinstance(parsed_dict, dict) and parsed_dict.get('honorarios') is not None:
+        if (
+            codigo_buscado == '25'
+            and sub == 0
+            and isinstance(parsed_dict, dict)
+            and parsed_dict.get('honorarios') is not None
+            and not (detalle_dict_con_lista and lineas_no_vacias)
+        ):
             try:
                 sub = parse_decimal_monto(parsed_dict.get('honorarios'))
             except Exception:
                 pass
         if codigo_buscado == '25' and sub == 0 and getattr(mov, 'honorarios', None):
             try:
-                if float(mov.honorarios or 0) > 0:
+                if float(mov.honorarios or 0) > 0 and not json_con_lineas:
                     sub = parse_decimal_monto(mov.honorarios)
             except Exception:
                 pass
@@ -13471,11 +13532,51 @@ def obtener_valor_concepto_contrato(contrato, campo):
     ).order_by('-id')
     
     for mov in movimientos:
-        # 1) campo directo del movimiento (prioridad alta)
+        parsed, conceptos_data = _movimiento_json_conceptos_parsed(mov)
+        detalle_dict_con_lista = isinstance(parsed, dict) and 'conceptos' in parsed
+        lineas_conceptos_no_vacias = len(conceptos_data) > 0
+        json_con_lineas = lineas_conceptos_no_vacias and (
+            detalle_dict_con_lista or isinstance(parsed, list)
+        )
+
+        # 1) campo directo del movimiento (si no contradice líneas JSON sin 25/26)
         try:
             val_campo = Decimal(str(getattr(mov, campo, 0) or 0))
         except Exception:
             val_campo = Decimal('0')
+        if val_campo > 0:
+            if campo == 'honorarios' and json_con_lineas:
+                ok = False
+                for c in conceptos_data:
+                    if str(c.get('id', c.get('codigo', ''))) != '25':
+                        continue
+                    try:
+                        if parse_decimal_monto(c.get('importe', 0)) > 0:
+                            ok = True
+                            break
+                    except Exception:
+                        pass
+                if not ok:
+                    val_campo = Decimal('0')
+            elif campo == 'sellados' and json_con_lineas:
+                ok = False
+                for c in conceptos_data:
+                    if str(c.get('id', c.get('codigo', ''))) != '26':
+                        continue
+                    try:
+                        if parse_decimal_monto(c.get('importe', 0)) > 0:
+                            ok = True
+                            break
+                    except Exception:
+                        pass
+                if not ok and isinstance(parsed, dict) and parsed.get('sellados') is not None:
+                    try:
+                        if float(parsed.get('sellados')) > 0:
+                            ok = True
+                    except (TypeError, ValueError):
+                        pass
+                if not ok:
+                    val_campo = Decimal('0')
         if val_campo > 0:
             return val_campo
 
@@ -13486,25 +13587,22 @@ def obtener_valor_concepto_contrato(contrato, campo):
         if not (detalle.startswith('[') or detalle.startswith('{')):
             continue
         try:
-            parsed = json.loads(detalle)
+            parsed_root = json.loads(detalle)
         except Exception:
             continue
-        if isinstance(parsed, dict):
-            raw = parsed.get(campo)
-            if raw is not None:
-                try:
-                    vjson = Decimal(str(raw or 0))
-                except Exception:
-                    vjson = Decimal('0')
-                if vjson > 0:
-                    return vjson
+        if isinstance(parsed_root, dict):
+            if campo == 'honorarios' and detalle_dict_con_lista and lineas_conceptos_no_vacias:
+                pass
+            else:
+                raw = parsed_root.get(campo)
+                if raw is not None:
+                    try:
+                        vjson = Decimal(str(raw or 0))
+                    except Exception:
+                        vjson = Decimal('0')
+                    if vjson > 0:
+                        return vjson
 
-    primer = movimientos.first()
-    if primer:
-        try:
-            return Decimal(str(getattr(primer, campo, 0) or 0))
-        except Exception:
-            return Decimal('0')
     return Decimal('0')
 
 
