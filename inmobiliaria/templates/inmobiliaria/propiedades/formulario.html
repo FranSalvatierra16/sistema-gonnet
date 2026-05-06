@@ -469,15 +469,33 @@
                     </div>
 
                     <!-- Información Bancaria -->
-                    <div class="row g-3 mb-4">
-                        <div class="col-12">
-                            <label for="propietario_cuenta_bancaria" class="form-label">
-                                <i class="fas fa-university me-1"></i>Cuenta Bancaria
+                    <div class="row g-3 mb-2">
+                        <div class="col-md-6">
+                            <label for="propietario_cuenta_banco" class="form-label">
+                                <i class="fas fa-university me-1"></i>Banco
                             </label>
-                            <input type="text" class="form-control" id="propietario_cuenta_bancaria" name="cuenta_bancaria" 
-                                   placeholder="Número de cuenta para depósitos">
+                            <input type="text" class="form-control" id="propietario_cuenta_banco" name="cuenta_banco" placeholder="Opcional">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="propietario_cuenta_titular" class="form-label">
+                                <i class="fas fa-user me-1"></i>Titular
+                            </label>
+                            <input type="text" class="form-control" id="propietario_cuenta_titular" name="cuenta_titular" placeholder="Opcional">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="propietario_cuenta_cbu_alias" class="form-label">
+                                <i class="fas fa-barcode me-1"></i>CBU / CVU / Alias
+                            </label>
+                            <input type="text" class="form-control" id="propietario_cuenta_cbu_alias" name="cuenta_cbu_alias" placeholder="Opcional">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="propietario_cuenta_numero" class="form-label">
+                                <i class="fas fa-hashtag me-1"></i>Nº de cuenta
+                            </label>
+                            <input type="text" class="form-control" id="propietario_cuenta_numero" name="cuenta_numero" placeholder="Opcional">
                         </div>
                     </div>
+                    <p class="small text-muted mb-4">Todos los datos bancarios son opcionales al crear el propietario.</p>
 
                     <!-- Observaciones -->
                     <div class="row g-3">

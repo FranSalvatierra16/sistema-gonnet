@@ -7098,7 +7098,10 @@ def crear_propietario_ajax(request):
                 domicilio=request.POST['domicilio'],
                 codigo_postal=request.POST.get('codigo_postal', ''),
                 observaciones=request.POST.get('observaciones', ''),
-                cuenta_bancaria=request.POST.get('cuenta_bancaria', ''),
+                cuenta_banco=(request.POST.get('cuenta_banco') or '').strip(),
+                cuenta_titular=(request.POST.get('cuenta_titular') or '').strip(),
+                cuenta_cbu_alias=(request.POST.get('cuenta_cbu_alias') or '').strip(),
+                cuenta_numero=(request.POST.get('cuenta_numero') or '').strip(),
                 sucursal=sucursal  # Agregar la sucursal
             )
             return JsonResponse({
@@ -10675,7 +10678,7 @@ def guardar_movimiento(request):
         if propietario_id and cuenta_bancaria is not None:
             try:
                 propietario = Propietario.objects.get(id=propietario_id)
-                propietario.cuenta_bancaria = cuenta_bancaria
+                propietario.cuenta_cbu_alias = (cuenta_bancaria or '').strip()[:100]
                 propietario.save()
             except Propietario.DoesNotExist:
                 messages.error(request, "No se encontró el propietario seleccionado.")

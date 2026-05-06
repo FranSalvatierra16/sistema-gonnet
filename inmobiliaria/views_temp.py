@@ -3584,7 +3584,7 @@ def guardar_movimiento(request):
         if propietario_id and cuenta_bancaria is not None:
             try:
                 propietario = Propietario.objects.get(id=propietario_id)
-                propietario.cuenta_bancaria = cuenta_bancaria
+                propietario.cuenta_cbu_alias = (cuenta_bancaria or '').strip()[:100]
                 propietario.save()
             except Propietario.DoesNotExist:
                 messages.error(request, "No se encontró el propietario seleccionado.")

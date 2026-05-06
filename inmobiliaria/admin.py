@@ -22,7 +22,7 @@ class InquilinoAdmin(admin.ModelAdmin):
 
 @admin.register(Propietario)
 class PropietarioAdmin(admin.ModelAdmin):
-    list_display = ('dni', 'nombre', 'apellido', 'email', 'celular', 'cuenta_bancaria')
+    list_display = ('dni', 'nombre', 'apellido', 'email', 'celular', 'cuenta_cbu_alias', 'cuenta_banco')
     search_fields = ('dni', 'nombre', 'apellido', 'email')
     list_filter = ('fecha_nacimiento',)
 

@@ -43,8 +43,22 @@
                         <div class="col-md-6">
                             <div class="info-box"><strong>CUIT:</strong> {{ propietario.cuit|default:"-" }}</div>
                         </div>
-                        <div class="col-md-6">
-                            <div class="info-box"><strong>Cuenta bancaria:</strong> {{ propietario.cuenta_bancaria|default:"-" }}</div>
+                        <div class="col-md-12">
+                            <div class="info-box">
+                                <strong>Datos bancarios:</strong>
+                                {% if propietario.cuenta_banco or propietario.cuenta_titular or propietario.cuenta_cbu_alias or propietario.cuenta_numero %}
+                                <ul class="mb-0 mt-2 small">
+                                    {% if propietario.cuenta_banco %}<li><strong>Banco:</strong> {{ propietario.cuenta_banco }}</li>{% endif %}
+                                    {% if propietario.cuenta_titular %}<li><strong>Titular:</strong> {{ propietario.cuenta_titular }}</li>{% endif %}
+                                    {% if propietario.cuenta_cbu_alias %}<li><strong>CBU / alias:</strong> <code class="user-select-all">{{ propietario.cuenta_cbu_alias }}</code></li>{% endif %}
+                                    {% if propietario.cuenta_numero %}<li><strong>Cuenta:</strong> {{ propietario.cuenta_numero }}</li>{% endif %}
+                                </ul>
+                                {% elif propietario.cuenta_bancaria %}
+                                <span class="small text-muted d-block mt-1">{{ propietario.cuenta_bancaria }}</span>
+                                {% else %}
+                                <span class="text-muted">—</span>
+                                {% endif %}
+                            </div>
                         </div>
                         <div class="col-md-12">
                             <div class="info-box"><strong>Domicilio:</strong> {{ propietario.domicilio|default:"-" }}{% if propietario.localidad %} · {{ propietario.localidad }}{% endif %}{% if propietario.provincia %} · {{ propietario.provincia }}{% endif %}</div>
@@ -109,9 +123,21 @@
                                     <label for="id_cuit" class="form-label">CUIT</label>
                                     {{ form.cuit }}
                                 </div>
-                                <div class="col-md-4">
-                                    <label for="id_cuenta_bancaria" class="form-label">Cuenta bancaria</label>
-                                    {{ form.cuenta_bancaria }}
+                                <div class="col-md-6">
+                                    <label for="id_cuenta_banco" class="form-label">Banco</label>
+                                    {{ form.cuenta_banco }}
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="id_cuenta_titular" class="form-label">Titular</label>
+                                    {{ form.cuenta_titular }}
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="id_cuenta_cbu_alias" class="form-label">CBU / alias</label>
+                                    {{ form.cuenta_cbu_alias }}
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="id_cuenta_numero" class="form-label">Nº cuenta <small class="text-muted">(opc.)</small></label>
+                                    {{ form.cuenta_numero }}
                                 </div>
                                 <div class="col-md-6">
                                     <label for="id_localidad" class="form-label">Localidad</label>

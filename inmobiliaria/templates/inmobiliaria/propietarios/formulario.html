@@ -180,17 +180,45 @@
                     </div>
                     <div class="card-body">
                         <div class="row g-4">
-                            <div class="col-md-12 mb-3">
-                                <label for="id_cuenta_bancaria" class="form-label">
-                                    <i class="fas fa-credit-card me-1"></i>Cuenta Bancaria <small class="text-muted">(opcional)</small>
+                            <div class="col-md-6 mb-3">
+                                <label for="id_cuenta_banco" class="form-label">
+                                    <i class="fas fa-university me-1"></i>Banco <small class="text-muted">(opcional)</small>
                                 </label>
-                                {{ form.cuenta_bancaria }}
-                                {% if form.cuenta_bancaria.help_text %}
-                                    <small class="form-text text-muted">
-                                        <i class="fas fa-info-circle me-1"></i>{{ form.cuenta_bancaria.help_text }}
-                                    </small>
+                                {{ form.cuenta_banco }}
+                                {% if form.cuenta_banco.help_text %}
+                                    <small class="form-text text-muted">{{ form.cuenta_banco.help_text }}</small>
                                 {% endif %}
-                                {{ form.cuenta_bancaria.errors }}
+                                {{ form.cuenta_banco.errors }}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="id_cuenta_titular" class="form-label">
+                                    <i class="fas fa-user me-1"></i>Titular <small class="text-muted">(opcional)</small>
+                                </label>
+                                {{ form.cuenta_titular }}
+                                {% if form.cuenta_titular.help_text %}
+                                    <small class="form-text text-muted">{{ form.cuenta_titular.help_text }}</small>
+                                {% endif %}
+                                {{ form.cuenta_titular.errors }}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="id_cuenta_cbu_alias" class="form-label">
+                                    <i class="fas fa-barcode me-1"></i>CBU / CVU / Alias <small class="text-muted">(opcional)</small>
+                                </label>
+                                {{ form.cuenta_cbu_alias }}
+                                {% if form.cuenta_cbu_alias.help_text %}
+                                    <small class="form-text text-muted">{{ form.cuenta_cbu_alias.help_text }}</small>
+                                {% endif %}
+                                {{ form.cuenta_cbu_alias.errors }}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="id_cuenta_numero" class="form-label">
+                                    <i class="fas fa-hashtag me-1"></i>Nº de cuenta <small class="text-muted">(opcional)</small>
+                                </label>
+                                {{ form.cuenta_numero }}
+                                {% if form.cuenta_numero.help_text %}
+                                    <small class="form-text text-muted">{{ form.cuenta_numero.help_text }}</small>
+                                {% endif %}
+                                {{ form.cuenta_numero.errors }}
                             </div>
                             <div class="col-md-12">
                                 <label for="id_observaciones" class="form-label">
@@ -307,15 +335,13 @@ textarea.form-control {
     font-weight: bold;
 }
 
-/* Efecto especial para cuenta bancaria */
-#id_cuenta_bancaria {
+/* Campos cuenta bancaria */
+#id_cuenta_banco, #id_cuenta_titular, #id_cuenta_cbu_alias, #id_cuenta_numero {
     background: linear-gradient(45deg, #f8f9fa 0%, #ffffff 100%);
-    border-left: 4px solid #11998e;
+    border-left: 4px solid #667eea;
 }
-
-#id_cuenta_bancaria:focus {
-    background: #ffffff;
-    border-left: 4px solid #38ef7d;
+#id_cuenta_cbu_alias {
+    border-left-color: #11998e;
 }
 </style>
 {% endblock %}

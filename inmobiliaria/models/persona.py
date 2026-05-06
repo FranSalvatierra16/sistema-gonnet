@@ -273,9 +273,54 @@ class Inquilino(Persona):
         verbose_name_plural = "Inquilinos"
 
 class Propietario(Persona):
-    cuenta_bancaria = models.CharField(max_length=100, blank=True, help_text="Número de cuenta bancaria para depósitos")
+    cuenta_bancaria = models.CharField(
+        max_length=500,
+        blank=True,
+        help_text="Resumen automático (banco, titular, CBU/alias, cuenta) para listados e integraciones",
+    )
+    cuenta_banco = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Nombre del banco o billetera",
+    )
+    cuenta_titular = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Titular de la cuenta",
+    )
+    cuenta_cbu_alias = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="CBU, CVU o alias para transferencias",
+    )
+    cuenta_numero = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text="Número de cuenta (opcional, referencia)",
+    )
     sucursal = models.ForeignKey(Sucursal, on_delete=models.CASCADE, related_name='propietarios')
     dni = models.CharField(max_length=8, unique=True, validators=[validate_dni], blank=True, null=True)
+
+    def _actualizar_resumen_cuenta_bancaria(self):
+        parts = []
+        b = (self.cuenta_banco or '').strip()
+        t = (self.cuenta_titular or '').strip()
+        c = (self.cuenta_cbu_alias or '').strip()
+        n = (self.cuenta_numero or '').strip()
+        if b:
+            parts.append(f'Banco: {b}')
+        if t:
+            parts.append(f'Titular: {t}')
+        if c:
+            parts.append(f'CBU/Alias: {c}')
+        if n:
+            parts.append(f'Cuenta: {n}')
+        self.cuenta_bancaria = ' · '.join(parts)[:500]
+
+    def save(self, *args, **kwargs):
+        self._actualizar_resumen_cuenta_bancaria()
+        super().save(*args, **kwargs)
+
     def nombre_completo_propietario(self):
         return f"{self.apellido}, {self.nombre}" if self.apellido and self.nombre else f"{self.nombre} {self.apellido}"
     class Meta:

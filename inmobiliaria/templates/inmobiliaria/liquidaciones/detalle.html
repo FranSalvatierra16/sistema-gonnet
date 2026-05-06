@@ -35,13 +35,22 @@
                                     <td>{{ liquidacion.propietario.apellido }}, {{ liquidacion.propietario.nombre }}</td>
                                 </tr>
                                 <tr>
-                                    <th>Nº de cuenta del propietario:</th>
+                                    <th>Datos bancarios del propietario:</th>
                                     <td>
-                                        {% if liquidacion.propietario.cuenta_bancaria %}
-                                        <code class="user-select-all">{{ liquidacion.propietario.cuenta_bancaria }}</code>
+                                        {% with p=liquidacion.propietario %}
+                                        {% if p.cuenta_banco or p.cuenta_titular or p.cuenta_cbu_alias or p.cuenta_numero %}
+                                        <ul class="mb-0 small">
+                                            {% if p.cuenta_banco %}<li><strong>Banco:</strong> {{ p.cuenta_banco }}</li>{% endif %}
+                                            {% if p.cuenta_titular %}<li><strong>Titular:</strong> {{ p.cuenta_titular }}</li>{% endif %}
+                                            {% if p.cuenta_cbu_alias %}<li><strong>CBU / alias:</strong> <code class="user-select-all">{{ p.cuenta_cbu_alias }}</code></li>{% endif %}
+                                            {% if p.cuenta_numero %}<li><strong>Cuenta:</strong> {{ p.cuenta_numero }}</li>{% endif %}
+                                        </ul>
+                                        {% elif p.cuenta_bancaria %}
+                                        <code class="user-select-all">{{ p.cuenta_bancaria }}</code>
                                         {% else %}
-                                        <span class="text-muted">No cargada en la ficha del propietario</span>
+                                        <span class="text-muted">No cargados en la ficha del propietario</span>
                                         {% endif %}
+                                        {% endwith %}
                                     </td>
                                 </tr>
                                 <tr>

@@ -163,13 +163,22 @@ class PropietarioForm(forms.ModelForm):
         model = Propietario
         fields = ['nombre', 'apellido', 'fecha_nacimiento', 'email', 'celular', 
                  'tipo_doc', 'dni', 'tipo_ins', 'cuit', 'localidad', 'provincia', 
-                 'domicilio', 'observaciones', 'cuenta_bancaria']
+                 'domicilio', 'observaciones',
+                 'cuenta_banco', 'cuenta_titular', 'cuenta_cbu_alias', 'cuenta_numero']
         widgets = {
             'fecha_nacimiento': forms.DateInput(attrs={'type': 'date'}),
             'observaciones': forms.Textarea(attrs={'rows': 3}),
-            'cuenta_bancaria': forms.TextInput(attrs={
-                'placeholder': 'Ingrese CBU o número de cuenta bancaria',
-                'class': 'form-control'
+            'cuenta_banco': forms.TextInput(attrs={
+                'placeholder': 'Ej: Banco Provincia, Galicia, Mercado Pago',
+            }),
+            'cuenta_titular': forms.TextInput(attrs={
+                'placeholder': 'Titular de la cuenta',
+            }),
+            'cuenta_cbu_alias': forms.TextInput(attrs={
+                'placeholder': 'CBU, CVU o alias',
+            }),
+            'cuenta_numero': forms.TextInput(attrs={
+                'placeholder': 'Opcional — número de cuenta',
             }),
         }
 
@@ -182,10 +191,12 @@ class PropietarioForm(forms.ModelForm):
         self.fields['apellido'].required = True
         self.fields['dni'].required = False  # DNI ahora es opcional
         self.fields['cuit'].required = False
-        self.fields['cuenta_bancaria'].required = False
-        
-        # Agregar ayuda para cuenta bancaria
-        self.fields['cuenta_bancaria'].help_text = 'Número de cuenta bancaria para depósitos'
+        for _fn in ('cuenta_banco', 'cuenta_titular', 'cuenta_cbu_alias', 'cuenta_numero'):
+            self.fields[_fn].required = False
+        self.fields['cuenta_banco'].help_text = 'Nombre del banco o billetera (opcional)'
+        self.fields['cuenta_titular'].help_text = 'Titular según el banco (opcional)'
+        self.fields['cuenta_cbu_alias'].help_text = 'CBU, CVU o alias para transferencias (opcional)'
+        self.fields['cuenta_numero'].help_text = 'Número de cuenta solo referencia (opcional)'
         
         # Agregar clases de Bootstrap
         for field in self.fields:
