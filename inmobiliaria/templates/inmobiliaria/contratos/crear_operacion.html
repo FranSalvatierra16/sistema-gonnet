@@ -243,8 +243,8 @@
 
                         <!-- Totales -->
                         <div class="row mt-3">
-                            <div class="col-md-8"></div>
-                            <div class="col-md-4">
+                            <div class="col-md-6"></div>
+                            <div class="col-md-6">
                                 <div class="alert alert-success p-3" id="panelTotalesConceptos" style="min-height: 220px; border: 2px solid #8fd19e;">
                                     <div class="row mb-2">
                                         <div class="col-6"><strong>TOTAL CONCEPTOS ARS:</strong></div>
@@ -541,6 +541,7 @@
     window.selladosPendienteCfg = config.sellados_pendiente != null ? Number(config.sellados_pendiente) : 0;
     window.honorariosRefCfg = config.honorarios_referencia != null ? Number(config.honorarios_referencia) : 0;
     window.selladosRefCfg = config.sellados_referencia != null ? Number(config.sellados_referencia) : 0;
+    window.cuotaIdPago = config.cuota_id != null ? Number(config.cuota_id) : 0;
     window.numeroCuotaPago = config.numero_cuota != null ? Number(config.numero_cuota) : 0;
     window.defaultImporteCuota = config.default_importe_cuota != null ? Number(config.default_importe_cuota) : 0;
     window.cuotasPendientesCfg = Array.isArray(config.cuotas_pendientes) ? config.cuotas_pendientes : [];
@@ -1102,7 +1103,10 @@ function procesarOperacion() {
         return;
     }
 
-    if (!confirm(`¿Confirmar operación por ARS $${totalRecibo.toLocaleString('es-AR')} y USD U$S ${totalReciboUsd.toLocaleString('es-AR')}?`)) {
+    const msgConfirmacion = (totalReciboUsd > 0.0001)
+        ? `¿Confirmar operación por ARS $${totalRecibo.toLocaleString('es-AR')} y USD U$S ${totalReciboUsd.toLocaleString('es-AR')}?`
+        : `¿Confirmar operación por ARS $${totalRecibo.toLocaleString('es-AR')}?`;
+    if (!confirm(msgConfirmacion)) {
         return;
     }
 
@@ -1518,12 +1522,14 @@ document.addEventListener('DOMContentLoaded', function() {
     if (window.modoPagoCuotaEspecifica && window.defaultImporteCuota > 0) {
         contadorConceptos += 1;
         var nCuota = window.numeroCuotaPago || 0;
+        var cuotaIdDefault = window.cuotaIdPago || 0;
+        var cuotaEtiqueta = etiquetaCuotaDesdeCfg(cuotaIdDefault);
         conceptosAgregados.push({
             id: contadorConceptos,
             conceptoId: '1',
             nombre: 'Alquiler / locación (cuota ' + nCuota + ')',
-            cuotaObjetivoId: '',
-            cuotaObjetivoLabel: '',
+            cuotaObjetivoId: cuotaIdDefault ? String(cuotaIdDefault) : '',
+            cuotaObjetivoLabel: cuotaEtiqueta || (nCuota ? ('Cuota ' + nCuota) : ''),
             observaciones: 'Sin observaciones',
             importe: window.defaultImporteCuota,
             fecha: new Date().toLocaleDateString('es-AR')
