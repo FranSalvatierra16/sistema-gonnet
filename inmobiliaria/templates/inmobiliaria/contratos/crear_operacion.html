@@ -245,34 +245,34 @@
                         <div class="row mt-3">
                             <div class="col-md-8"></div>
                             <div class="col-md-4">
-                                <div class="alert alert-success">
+                                <div class="alert alert-success p-3" id="panelTotalesConceptos" style="min-height: 220px; border: 2px solid #8fd19e;">
                                     <div class="row mb-2">
                                         <div class="col-6"><strong>TOTAL CONCEPTOS ARS:</strong></div>
                                         <div class="col-6 text-end">
                                             <span id="totalConceptos">0.00</span>
                                         </div>
                                     </div>
-                                    <div class="row mb-2">
+                                    <div class="row mb-2" id="rowTotalConceptosUsd">
                                         <div class="col-6"><strong>TOTAL CONCEPTOS USD:</strong></div>
                                         <div class="col-6 text-end">
                                             <span id="totalConceptosUsd">0.00</span>
                                         </div>
                                     </div>
-                                    <hr>
+                                    <hr id="sepTotalesUsd">
                                     <div class="row">
                                         <div class="col-8"><strong>TOTAL DEL RECIBO:</strong></div>
                                         <div class="col-4">
                                             <input type="text" class="form-control form-control-lg fw-bold" 
                                                    id="totalRecibo" readonly 
-                                                   style="background-color: #d1ecf1; font-size: 24px; padding: 15px; height: 60px; text-align: right;">
+                                                   style="background-color: #d1ecf1; font-size: 32px; padding: 18px; height: 72px; text-align: right;">
                                         </div>
                                     </div>
-                                    <div class="row mt-2">
+                                    <div class="row mt-2" id="rowTotalReciboUsd">
                                         <div class="col-8"><strong>TOTAL DEL RECIBO USD:</strong></div>
                                         <div class="col-4">
                                             <input type="text" class="form-control form-control-lg fw-bold"
                                                    id="totalReciboUsd" readonly
-                                                   style="background-color: #e8f7ff; font-size: 24px; padding: 15px; height: 60px; text-align: right;">
+                                                   style="background-color: #e8f7ff; font-size: 28px; padding: 16px; height: 68px; text-align: right;">
                                         </div>
                                     </div>
                                 </div>
@@ -299,7 +299,7 @@
                                     <input type="text" class="form-control" id="monto_cheque" name="monto_cheque" 
                                            placeholder="0" onchange="actualizarTotales()" oninput="formatearNumeroEnTiempoReal(this); actualizarTotales()">
                                 </div>
-                                <div class="mb-3">
+                                <div class="mb-3" id="grupoMontoDolares">
                                     <label for="monto_dolares" class="form-label"><strong>💵 USD (efectivo):</strong></label>
                                     <input type="text" class="form-control" id="monto_dolares" name="monto_dolares"
                                            placeholder="0" onchange="actualizarTotales()" oninput="formatearNumeroEnTiempoReal(this); actualizarTotales()">
@@ -329,7 +329,7 @@
                             <div class="col-md-6">
                                 <div class="alert alert-info">
                                     <h5><strong>💰 Total Operación: $<span id="totalOperacion">0</span></strong></h5>
-                                    <h6 class="mb-0"><strong>💵 Total Operación USD: U$S <span id="totalOperacionUsd">0</span></strong></h6>
+                                    <h6 class="mb-0" id="rowTotalOperacionUsd"><strong>💵 Total Operación USD: U$S <span id="totalOperacionUsd">0</span></strong></h6>
                                 </div>
                             </div>
                         </div>
@@ -893,6 +893,19 @@ function verificarConcepto10() {
     });
 }
 
+function actualizarVisibilidadUsd(totalConceptosUsd, totalPagosUsd) {
+    const mostrarUsd = (Number(totalConceptosUsd || 0) > 0.0001) || (Number(totalPagosUsd || 0) > 0.0001);
+    const toggle = function(id) {
+        const el = document.getElementById(id);
+        if (el) el.style.display = mostrarUsd ? '' : 'none';
+    };
+    toggle('grupoMontoDolares');
+    toggle('rowTotalConceptosUsd');
+    toggle('rowTotalReciboUsd');
+    toggle('rowTotalOperacionUsd');
+    toggle('sepTotalesUsd');
+}
+
 // Función para calcular totales
 function calcularTotales() {
     const totalConceptosArs = conceptosAgregados.reduce((sum, concepto) => {
@@ -919,6 +932,7 @@ function calcularTotales() {
     if (elTotOperacionUsd) elTotOperacionUsd.textContent = fmt(totalReciboUsd);
 
     const totalPagos = calcularTotalPagos();
+    actualizarVisibilidadUsd(totalReciboUsd, totalPagos.usd);
     const diferenciaArs = totalPagos.ars - totalRecibo;
     const diferenciaUsd = totalPagos.usd - totalReciboUsd;
     
@@ -1029,6 +1043,7 @@ function actualizarTotales() {
     const totalRecibo = parsearValorFormateado(document.getElementById('totalRecibo').value || 0);
     const totalReciboUsd = parsearValorFormateado(document.getElementById('totalReciboUsd')?.value || 0);
     const totalPagos = calcularTotalPagos();
+    actualizarVisibilidadUsd(totalReciboUsd, totalPagos.usd);
     const diferenciaArs = totalPagos.ars - totalRecibo;
     const diferenciaUsd = totalPagos.usd - totalReciboUsd;
     
