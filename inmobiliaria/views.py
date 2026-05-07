@@ -2604,17 +2604,13 @@ def reservas_eliminadas(request):
 
 def operaciones(request):
     from .models.recibo import Recibo
-    # Obtener solo reservas pagadas (completas o con saldo pendiente) ordenadas por fecha más reciente
-    # Excluir reservas eliminadas (soft delete)
+    # Query base sin joins pesados: primero identificamos reservas con movimientos de operación.
     reservas = Reserva.objects.filter(
         sucursal=request.user.sucursal,
         estado__in=['pagada', 'confirmada_no_pagada'],
-        eliminada=False
-    ).select_related('cliente', 'propiedad', 'propiedad__propietario', 'vendedor').prefetch_related(
-        'pagos',
-        Prefetch('recibos', queryset=Recibo.objects.select_related('movimiento_caja__caja')),
+        eliminada=False,
     ).order_by('-id')
-    
+
     # ✅ Filtro de búsqueda por ID
     search_id = request.GET.get('search_id', '').strip()
     if search_id:
@@ -2622,25 +2618,25 @@ def operaciones(request):
             reservas = reservas.filter(id=int(search_id))
         except ValueError:
             reservas = reservas.filter(id__icontains=search_id)
-    
+
     # ✅ Filtro por fecha (fecha de inicio de la reserva)
     fecha_desde = request.GET.get('fecha_desde', '').strip()
     fecha_hasta = request.GET.get('fecha_hasta', '').strip()
-    
+
     if fecha_desde:
         try:
             fecha_desde_obj = datetime.strptime(fecha_desde, '%Y-%m-%d').date()
             reservas = reservas.filter(fecha_inicio__gte=fecha_desde_obj)
         except ValueError:
             pass
-    
+
     if fecha_hasta:
         try:
             fecha_hasta_obj = datetime.strptime(fecha_hasta, '%Y-%m-%d').date()
             reservas = reservas.filter(fecha_inicio__lte=fecha_hasta_obj)
         except ValueError:
             pass
-    
+
     # ✅ Filtro por vendedor (ID del vendedor seleccionado)
     search_vendedor_id = request.GET.get('search_vendedor', '').strip()
     if search_vendedor_id:
@@ -2648,7 +2644,7 @@ def operaciones(request):
             reservas = reservas.filter(vendedor_id=int(search_vendedor_id))
         except ValueError:
             pass
-    
+
     # ✅ Filtro por número de ficha (numero_por_propietario)
     search_ficha = request.GET.get('search_ficha', '').strip()
     if search_ficha:
@@ -2656,134 +2652,151 @@ def operaciones(request):
             reservas = reservas.filter(propiedad__numero_por_propietario=int(search_ficha))
         except ValueError:
             reservas = reservas.filter(propiedad__numero_por_propietario__icontains=search_ficha)
-    
-    # ✅ Filtro de pendientes de pago
+
     solo_pendientes = request.GET.get('solo_pendientes', '') == 'true'
-    
-    # Obtener lista de vendedores para el select
+
     vendedores = Vendedor.objects.filter(sucursal=request.user.sucursal).order_by('apellido', 'nombre')
-    
-    # ✅ Carga masiva de movimientos (evita N+1): una sola query por todas las reservas
-    import re
-    reserva_ids = list(reservas.values_list('id', flat=True)[:2000])  # límite razonable
-    propiedad_ids = list(reservas.values_list('propiedad_id', flat=True).distinct()[:2000])
+
+    reserva_rows = list(
+        reservas.values(
+            'id',
+            'propiedad_id',
+            'precio_total',
+            'senia',
+            'deposito_garantia',
+            'fecha_creacion',
+            'fecha_inicio',
+        )
+    )
+    reserva_ids_set = {r['id'] for r in reserva_rows}
+    propiedad_ids = list({r['propiedad_id'] for r in reserva_rows if r.get('propiedad_id')})
+
     movimientos_por_reserva = {}
-    if reserva_ids and propiedad_ids:
+    sucursal_id = getattr(request.user, 'sucursal_id', None)
+    if reserva_ids_set and propiedad_ids and sucursal_id:
         movs_qs = MovimientoCaja.objects.filter(
+            sucursal_id=sucursal_id,
             propiedad_id__in=propiedad_ids,
             tipo=TipoMovimientoCajaEnum.INGRESO,
-            concepto__icontains="Operación"
+            concepto__icontains='Operación',
         ).select_related('caja').only(
-            'id', 'propiedad_id', 'concepto', 'fecha',
-            'monto_efectivo', 'monto_cheque', 'monto_tarjeta', 'monto_deposito',
-            'caja_id', 'caja__estado', 'caja__fecha_cierre', 'caja__numero',
+            'id',
+            'propiedad_id',
+            'concepto',
+            'fecha',
+            'monto_efectivo',
+            'monto_cheque',
+            'monto_tarjeta',
+            'monto_deposito',
+            'caja_id',
+            'caja__estado',
+            'caja__fecha_cierre',
+            'caja__numero',
         )
-        for mov in movs_qs:
+        for mov in movs_qs.iterator(chunk_size=500):
             if not mov.concepto:
                 continue
             match = re.search(r'Operaci[oó]n\s+(\d+)', mov.concepto, re.IGNORECASE)
             if match:
                 rid = int(match.group(1))
-                if rid in reserva_ids:
+                if rid in reserva_ids_set:
                     movimientos_por_reserva.setdefault(rid, []).append(mov)
-    
-    # Lista para almacenar solo las reservas con pagos
-    reservas_con_pagos = []
-    
-    # ✅ Variables para estadísticas
+
+    for _rid, movs in movimientos_por_reserva.items():
+        movs.sort(key=lambda m: (m.fecha is not None, m.fecha, m.id), reverse=True)
+
     total_operaciones = 0
     operaciones_pendientes = 0
-    
-    # Calcular totales pagados para cada reserva y filtrar las que tienen pagos
-    for reserva in reservas:
-        movimientos = movimientos_por_reserva.get(reserva.id, [])
-        
-        # ❌ FILTRO: Si no hay movimientos de pago, no incluir en operaciones
+    ordered_included_ids = []
+    extras_por_reserva = {}
+
+    for row in reserva_rows:
+        rid = row['id']
+        movimientos = movimientos_por_reserva.get(rid, [])
         if not movimientos:
             continue
-        
-        # ✅ LÓGICA SIMPLE: SALDO = PRECIO TOTAL - SEÑA DEL CASILLERO
-        saldo_pendiente = reserva.precio_total - (reserva.senia or 0)
-        
-# print(f"💰 OPERACIONES - CÁLCULO DIRECTO:")
-# print(f"   - Precio Total: ${reserva.precio_total}")
-# print(f"   - Seña: ${reserva.senia or 0}")
-# print(f"   - Saldo Pendiente: ${saldo_pendiente}")
-        
-        # ✅ VERIFICAR QUE HAYA AL MENOS ALGÚN PAGO REAL
-        total_pagado = sum(
-            float(mov.monto_efectivo or 0) + float(mov.monto_cheque or 0) + float(mov.monto_tarjeta or 0) + float(mov.monto_deposito or 0)
+
+        precio_total = row['precio_total'] or 0
+        senia = row['senia'] or 0
+        saldo_pendiente = precio_total - senia
+
+        total_pagado_mov = sum(
+            float(mov.monto_efectivo or 0)
+            + float(mov.monto_cheque or 0)
+            + float(mov.monto_tarjeta or 0)
+            + float(mov.monto_deposito or 0)
             for mov in movimientos
         )
-        
-        if total_pagado > 0:
-            # ✅ CORREGIDO: total_pagado debe ser solo la seña (sin depósito)
-            reserva.total_pagado = reserva.senia or 0  # Solo la seña
-            reserva.saldo_pendiente = saldo_pendiente  # Ya está calculado correctamente
+
+        if total_pagado_mov <= 0:
+            continue
+
+        total_operaciones += 1
+        if saldo_pendiente > 0:
+            operaciones_pendientes += 1
+
+        deposito_pagado = False
+        for movimiento in movimientos:
+            if movimiento.concepto and '|CONCEPTOS:' in movimiento.concepto:
+                concepto_parts = movimiento.concepto.split('|CONCEPTOS:', 1)
+                if len(concepto_parts) > 1:
+                    conceptos_data = concepto_parts[1]
+                    concepto_10_encontrado = False
+                    if '|10:' in conceptos_data or ':10:' in conceptos_data:
+                        concepto_10_encontrado = True
+                    else:
+                        conceptos_items = [item for item in conceptos_data.split('|') if item.strip()]
+                        for concepto_item in conceptos_items:
+                            parts = concepto_item.split(':', 1)
+                            if len(parts) > 0 and parts[0].strip() == '10':
+                                concepto_10_encontrado = True
+                                break
+
+                    if concepto_10_encontrado:
+                        deposito_pagado = True
+                        break
+
+        if solo_pendientes and saldo_pendiente == 0:
+            continue
+
+        ordered_included_ids.append(rid)
+        extras_por_reserva[rid] = {'deposito_pagado': deposito_pagado}
+
+    reservas_con_pagos = []
+    if ordered_included_ids:
+        prefetched = (
+            Reserva.objects.filter(id__in=ordered_included_ids)
+            .select_related('cliente', 'propiedad', 'propiedad__propietario', 'vendedor')
+            .prefetch_related(
+                Prefetch('recibos', queryset=Recibo.objects.select_related('movimiento_caja__caja')),
+            )
+        )
+        by_id = {r.id: r for r in prefetched}
+        for rid in ordered_included_ids:
+            reserva = by_id.get(rid)
+            if not reserva:
+                continue
+            movimientos = movimientos_por_reserva.get(rid, [])
+            ex = extras_por_reserva[rid]
+            saldo_pendiente = reserva.precio_total - (reserva.senia or 0)
+
+            reserva.total_pagado = reserva.senia or 0
+            reserva.saldo_pendiente = saldo_pendiente
             reserva.total_senia_pagada = reserva.senia or 0
             reserva.total_deposito_pagado = reserva.deposito_garantia or 0
-            
-            # ✅ DETECTAR SI EL DEPÓSITO FUE PAGADO (concepto 10)
-            deposito_pagado = False
-            for movimiento in movimientos:
-                if movimiento.concepto and "|CONCEPTOS:" in movimiento.concepto:
-                    # Buscar concepto 10 en la estructura
-                    concepto_parts = movimiento.concepto.split("|CONCEPTOS:", 1)
-                    if len(concepto_parts) > 1:
-                        conceptos_data = concepto_parts[1]
-                        # ✅ MEJORADO: Buscar concepto 10 de forma más robusta
-                        concepto_10_encontrado = False
-                        if "|10:" in conceptos_data or ":10:" in conceptos_data:
-                            concepto_10_encontrado = True
-                        else:
-                            # Buscar en cada item individual
-                            conceptos_items = [item for item in conceptos_data.split("|") if item.strip()]
-                            for concepto_item in conceptos_items:
-                                parts = concepto_item.split(":", 1)
-                                if len(parts) > 0 and parts[0].strip() == "10":
-                                    concepto_10_encontrado = True
-                                    break
-                        
-                        if concepto_10_encontrado:  # Concepto 10 presente
-                            deposito_pagado = True
-                            break
-            
-            # Agregar estado del depósito
-            reserva.deposito_estado = 'pagado' if deposito_pagado else 'pendiente'
-            
-# print(f"✅ OPERACIONES - Reserva {reserva.id}: Precio Total: {reserva.precio_total}, Seña: {reserva.senia or 0}, Depósito: {reserva.deposito_garantia or 0} ({reserva.deposito_estado}), Saldo: {reserva.saldo_pendiente}")
-            
-            # Obtener el movimiento más reciente para el enlace del recibo
+            reserva.deposito_estado = 'pagado' if ex['deposito_pagado'] else 'pendiente'
             reserva.movimiento_reciente = movimientos[0] if movimientos else None
-            
-            # ✅ Recibos ya prefetched en reserva.recibos
-            reserva.todos_recibos = list(reserva.recibos.all()) if hasattr(reserva, 'recibos') else []
-            reserva.todos_recibos.sort(key=lambda r: getattr(r, 'fecha_emision', None) or r.id, reverse=True)
-            
-# print(f"🔍 DEBUG RECIBOS - Reserva {reserva.id}:")
-# print(f"   - Cantidad de recibos: {recibos_reserva.count()}")
-# print(f"   - QuerySet evaluado: {list(recibos_reserva.values('id', 'numero_recibo', 'monto_este_pago'))}")
-            
-            # ✅ VERIFICAR SI HAY MÚLTIPLES RECIBOS (ya no se usa para nada crítico aquí)
-            
-            # ✅ Contar estadísticas
-            total_operaciones += 1
-            if saldo_pendiente > 0:
-                operaciones_pendientes += 1
-            
-            # ✅ Aplicar filtro de pendientes si está activo
-            if solo_pendientes and saldo_pendiente == 0:
-                # Si solo queremos pendientes y esta está pagada completa, saltarla
-                continue
-            
-            # Fecha en que se hizo la operación (para ordenar): fecha de creación de la reserva
-            reserva.fecha_operacion_dia = reserva.fecha_creacion.date() if getattr(reserva, 'fecha_creacion', None) else reserva.fecha_inicio
-            
+            reserva.todos_recibos = list(reserva.recibos.all())
+            reserva.todos_recibos.sort(
+                key=lambda r: getattr(r, 'fecha_emision', None) or r.id, reverse=True
+            )
+            reserva.fecha_operacion_dia = (
+                reserva.fecha_creacion.date()
+                if getattr(reserva, 'fecha_creacion', None)
+                else reserva.fecha_inicio
+            )
             reserva.es_invierno = False
             reservas_con_pagos.append(reserva)
-        else:
-            pass  # ✅ Bloque vacío
-# print(f"❌ OPERACIONES - Reserva {reserva.id} SIN PAGOS REALES - No se incluye en operaciones")
 
     # ✅ Incluir operaciones de invierno (ContratoAlquiler 9 meses con movimientos de caja)
     from types import SimpleNamespace
@@ -2822,24 +2835,36 @@ def operaciones(request):
             contratos_invierno_qs = contratos_invierno_qs.filter(propiedad__numero_por_propietario__icontains=search_ficha)
 
     # ✅ Carga masiva movimientos para contratos invierno (una sola query)
-    contrato_invierno_ids = list(contratos_invierno_qs.values_list('id', flat=True)[:2000])
-    prop_ids_invierno = list(contratos_invierno_qs.values_list('propiedad_id', flat=True).distinct()[:2000])
+    contrato_invierno_ids = list(contratos_invierno_qs.values_list('id', flat=True))
+    prop_ids_invierno = list(contratos_invierno_qs.values_list('propiedad_id', flat=True).distinct())
     movimientos_por_contrato = {}
-    if contrato_invierno_ids and prop_ids_invierno:
+    contrato_ids_set = set(contrato_invierno_ids)
+    if contrato_invierno_ids and prop_ids_invierno and sucursal_id:
         movs_inv_all = MovimientoCaja.objects.filter(
             propiedad_id__in=prop_ids_invierno,
-            sucursal=request.user.sucursal,
+            sucursal_id=sucursal_id,
             tipo=TipoMovimientoCajaEnum.INGRESO,
-            concepto__icontains="Contrato #"
-        ).only('id', 'propiedad_id', 'concepto', 'monto_efectivo', 'monto_cheque', 'monto_tarjeta', 'monto_deposito')
-        for mov in movs_inv_all:
+            concepto__icontains='Contrato #',
+        ).only(
+            'id',
+            'propiedad_id',
+            'concepto',
+            'fecha',
+            'monto_efectivo',
+            'monto_cheque',
+            'monto_tarjeta',
+            'monto_deposito',
+        )
+        for mov in movs_inv_all.iterator(chunk_size=500):
             if not mov.concepto:
                 continue
             match = re.search(r'Contrato\s*#\s*(\d+)', mov.concepto, re.IGNORECASE)
             if match:
                 cid = int(match.group(1))
-                if cid in contrato_invierno_ids:
+                if cid in contrato_ids_set:
                     movimientos_por_contrato.setdefault(cid, []).append(mov)
+    for _cid, movs in movimientos_por_contrato.items():
+        movs.sort(key=lambda m: (m.fecha is not None, m.fecha, m.id), reverse=True)
     invierno_list = []
     for contrato in contratos_invierno_qs:
         movimientos = movimientos_por_contrato.get(contrato.id, [])
