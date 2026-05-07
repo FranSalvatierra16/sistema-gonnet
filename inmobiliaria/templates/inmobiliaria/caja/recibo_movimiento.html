@@ -203,6 +203,51 @@
             </div>
         </div>
 
+        {% if liquidacion_relacionada %}
+        <div class="recibo-info">
+            <h4 class="text-center mb-3" style="color: #495057;">🧾 DETALLE DE LIQUIDACIÓN</h4>
+            <div class="info-row">
+                <span class="info-label">Liquidación:</span>
+                <span class="info-value">#{{ liquidacion_relacionada.id }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Monto propietario:</span>
+                <span class="info-value">${{ liquidacion_relacionada.monto_propietario|format_price }}</span>
+            </div>
+            {% if total_gastos_descontados > 0 %}
+            <div class="info-row">
+                <span class="info-label">Gastos descontados:</span>
+                <span class="info-value text-danger">-${{ total_gastos_descontados|format_price }}</span>
+            </div>
+            {% endif %}
+            {% if liquidacion_relacionada.monto_fondo_mantenimiento > 0 %}
+            <div class="info-row">
+                <span class="info-label">Fondo mantenimiento:</span>
+                <span class="info-value text-danger">-${{ liquidacion_relacionada.monto_fondo_mantenimiento|format_price }}</span>
+            </div>
+            {% endif %}
+            <div class="info-row">
+                <span class="info-label">Neto pagado:</span>
+                <span class="info-value"><strong>${{ liquidacion_relacionada.monto_a_pagar|format_price }}</strong></span>
+            </div>
+
+            {% if gastos_liquidacion_recibo %}
+            <div class="mt-3">
+                <div class="small fw-bold text-muted mb-1">Gastos incluidos en esta liquidación:</div>
+                <ul class="mb-0 small">
+                    {% for g in gastos_liquidacion_recibo %}
+                    <li>
+                        {{ g.descripcion }}
+                        {% if g.fecha_gasto %}({{ g.fecha_gasto|date:"d/m/Y" }}){% endif %}
+                        — ${{ g.monto|format_price }}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
         <!-- Información de la Reserva (si existe) -->
         {% if reserva %}
         <div class="recibo-info">

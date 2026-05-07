@@ -6847,6 +6847,31 @@ def ver_recibo_movimiento(request, movimiento_id):
             })
         
         # Si no hay reserva, usar el template original
+        liquidacion_relacionada = None
+        gastos_liquidacion_recibo = []
+        total_gastos_descontados = Decimal('0')
+        try:
+            liquidacion_relacionada = (
+                LiquidacionPropietario.objects
+                .filter(movimiento_caja=movimiento)
+                .prefetch_related('gastos')
+                .first()
+            )
+            if liquidacion_relacionada:
+                gastos_qs = liquidacion_relacionada.gastos.filter(aceptado=True).order_by('fecha_gasto', 'id')
+                for g in gastos_qs:
+                    monto = g.monto or Decimal('0')
+                    total_gastos_descontados += monto
+                    gastos_liquidacion_recibo.append({
+                        'descripcion': (g.descripcion or 'Gasto sin descripción').strip(),
+                        'monto': monto,
+                        'fecha_gasto': g.fecha_gasto,
+                    })
+        except Exception:
+            liquidacion_relacionada = None
+            gastos_liquidacion_recibo = []
+            total_gastos_descontados = Decimal('0')
+
         total_dolares = float(getattr(movimiento, 'monto_dolares', None) or 0)
         context = {
             'movimiento': movimiento,
@@ -6869,6 +6894,9 @@ def ver_recibo_movimiento(request, movimiento_id):
             'caja': movimiento.caja,
             'propiedad': movimiento.propiedad,
             'empleado': movimiento.empleado,
+            'liquidacion_relacionada': liquidacion_relacionada,
+            'gastos_liquidacion_recibo': gastos_liquidacion_recibo,
+            'total_gastos_descontados': total_gastos_descontados,
         }
         
         return render(request, 'inmobiliaria/caja/recibo_movimiento.html', context)
