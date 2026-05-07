@@ -2604,20 +2604,31 @@ def reservas_eliminadas(request):
 
 @login_required
 def operaciones(request):
+    from collections import defaultdict
     from types import SimpleNamespace
     from .models.recibo import Recibo
 
     # Límites para evitar timeout (Railway / DB): sin búsqueda por ID se trabaja sobre un subconjunto reciente.
-    MAX_CANDIDATAS_RESERVA = 6000
-    MAX_CANDIDATOS_INVIERNO = 2000
-    CHUNK_PROPIEDADES_MOV = 100
+    MAX_CANDIDATAS_RESERVA = 4000
+    MAX_CANDIDATOS_INVIERNO = 1500
+    # Muchas consultas pequeñas empeoran el tiempo total; pocas consultas grandes saturan MySQL: equilibrio ~450 IDs por query.
+    MAX_PROPIEDADES_POR_QUERY_MOV = 450
+
+    user_sucursal = getattr(request.user, 'sucursal', None)
+    sucursal_id = getattr(request.user, 'sucursal_id', None)
+    if user_sucursal is None or sucursal_id is None:
+        messages.error(
+            request,
+            'Tu usuario no tiene sucursal asignada. No se puede listar operaciones.',
+        )
+        return redirect('inmobiliaria:dashboard')
 
     def _chunks(seq, size):
         for i in range(0, len(seq), size):
             yield seq[i : i + size]
 
     reservas = Reserva.objects.filter(
-        sucursal=request.user.sucursal,
+        sucursal=user_sucursal,
         estado__in=['pagada', 'confirmada_no_pagada'],
         eliminada=False,
     ).order_by('-id')
@@ -2662,7 +2673,7 @@ def operaciones(request):
 
     solo_pendientes = request.GET.get('solo_pendientes', '') == 'true'
 
-    vendedores = Vendedor.objects.filter(sucursal=request.user.sucursal).order_by('apellido', 'nombre')
+    vendedores = Vendedor.objects.filter(sucursal=user_sucursal).order_by('apellido', 'nombre')
 
     lista_reservas_acotada = False
     if search_id:
@@ -2700,16 +2711,21 @@ def operaciones(request):
     reserva_ids_set = set(rows_by_id.keys())
     propiedad_ids = list({r['propiedad_id'] for r in reserva_rows if r.get('propiedad_id')})
 
-    movimientos_por_reserva = {}
-    sucursal_id = getattr(request.user, 'sucursal_id', None)
-    if reserva_ids_set and propiedad_ids and sucursal_id:
-        for pid_chunk in _chunks(propiedad_ids, CHUNK_PROPIEDADES_MOV):
-            movs_qs = MovimientoCaja.objects.filter(
+    movimientos_por_reserva = defaultdict(list)
+    if reserva_ids_set and propiedad_ids:
+        nprops = len(propiedad_ids)
+        prop_chunks = (
+            [propiedad_ids]
+            if nprops <= MAX_PROPIEDADES_POR_QUERY_MOV
+            else list(_chunks(propiedad_ids, MAX_PROPIEDADES_POR_QUERY_MOV))
+        )
+        for pid_chunk in prop_chunks:
+            vals_qs = MovimientoCaja.objects.filter(
                 sucursal_id=sucursal_id,
                 propiedad_id__in=pid_chunk,
                 tipo=TipoMovimientoCajaEnum.INGRESO,
                 concepto__icontains='Operación',
-            ).select_related('caja').only(
+            ).values(
                 'id',
                 'propiedad_id',
                 'concepto',
@@ -2718,22 +2734,19 @@ def operaciones(request):
                 'monto_cheque',
                 'monto_tarjeta',
                 'monto_deposito',
-                'caja_id',
-                'caja__estado',
-                'caja__fecha_cierre',
-                'caja__numero',
             )
-            for mov in movs_qs.iterator(chunk_size=400):
-                if not mov.concepto:
+            for row in vals_qs.iterator(chunk_size=1500):
+                conc = row.get('concepto') or ''
+                if not conc:
                     continue
-                match = re.search(r'Operaci[oó]n\s+(\d+)', mov.concepto, re.IGNORECASE)
+                match = re.search(r'Operaci[oó]n\s+(\d+)', conc, re.IGNORECASE)
                 if match:
                     rid = int(match.group(1))
                     if rid in reserva_ids_set:
-                        movimientos_por_reserva.setdefault(rid, []).append(mov)
+                        movimientos_por_reserva[rid].append(row)
 
     for _rid, movs in movimientos_por_reserva.items():
-        movs.sort(key=lambda m: (m.fecha is not None, m.fecha, m.id), reverse=True)
+        movs.sort(key=lambda r: (r['fecha'] is not None, r['fecha'], r['id']), reverse=True)
 
     total_operaciones = 0
     operaciones_pendientes = 0
@@ -2751,10 +2764,10 @@ def operaciones(request):
         saldo_pendiente = precio_total - senia
 
         total_pagado_mov = sum(
-            float(mov.monto_efectivo or 0)
-            + float(mov.monto_cheque or 0)
-            + float(mov.monto_tarjeta or 0)
-            + float(mov.monto_deposito or 0)
+            float(mov['monto_efectivo'] or 0)
+            + float(mov['monto_cheque'] or 0)
+            + float(mov['monto_tarjeta'] or 0)
+            + float(mov['monto_deposito'] or 0)
             for mov in movimientos
         )
 
@@ -2767,8 +2780,9 @@ def operaciones(request):
 
         deposito_pagado = False
         for movimiento in movimientos:
-            if movimiento.concepto and '|CONCEPTOS:' in movimiento.concepto:
-                concepto_parts = movimiento.concepto.split('|CONCEPTOS:', 1)
+            conc = movimiento.get('concepto') or ''
+            if conc and '|CONCEPTOS:' in conc:
+                concepto_parts = conc.split('|CONCEPTOS:', 1)
                 if len(concepto_parts) > 1:
                     conceptos_data = concepto_parts[1]
                     concepto_10_encontrado = False
@@ -2792,7 +2806,7 @@ def operaciones(request):
         ordered_included_ids.append(rid)
         extras_por_reserva[rid] = {
             'deposito_pagado': deposito_pagado,
-            'mov_reciente_id': movimientos[0].id if movimientos else None,
+            'mov_reciente_id': movimientos[0]['id'] if movimientos else None,
         }
 
     movimientos_por_reserva.clear()
@@ -2801,11 +2815,16 @@ def operaciones(request):
     for rid in ordered_included_ids:
         row = rows_by_id[rid]
         fc = row.get('fecha_creacion')
-        fecha_op = fc.date() if fc else row['fecha_inicio']
+        try:
+            fecha_op = fc.date() if hasattr(fc, 'date') else fc
+        except (AttributeError, TypeError):
+            fecha_op = row['fecha_inicio']
+        if fecha_op is None:
+            fecha_op = row.get('fecha_inicio')
         merge_items.append(('reserva', rid, fecha_op))
 
     contratos_invierno_qs = ContratoAlquiler.objects.filter(
-        sucursal=request.user.sucursal,
+        sucursal=user_sucursal,
         duracion_meses=9,
     ).select_related('propiedad', 'vendedor').order_by('-id')
 
@@ -2847,16 +2866,22 @@ def operaciones(request):
     contratos_inv_ordered = [contratos_by_id[i] for i in invierno_ids_ordered if i in contratos_by_id]
 
     prop_ids_invierno = list({c.propiedad_id for c in contratos_inv_ordered if c.propiedad_id})
-    movimientos_por_contrato = {}
+    movimientos_por_contrato = defaultdict(list)
     contrato_ids_set = set(invierno_ids_ordered)
-    if contrato_ids_set and prop_ids_invierno and sucursal_id:
-        for pid_chunk in _chunks(prop_ids_invierno, CHUNK_PROPIEDADES_MOV):
-            movs_inv_all = MovimientoCaja.objects.filter(
+    if contrato_ids_set and prop_ids_invierno:
+        ninv = len(prop_ids_invierno)
+        inv_chunks = (
+            [prop_ids_invierno]
+            if ninv <= MAX_PROPIEDADES_POR_QUERY_MOV
+            else list(_chunks(prop_ids_invierno, MAX_PROPIEDADES_POR_QUERY_MOV))
+        )
+        for pid_chunk in inv_chunks:
+            vals_inv = MovimientoCaja.objects.filter(
                 propiedad_id__in=pid_chunk,
                 sucursal_id=sucursal_id,
                 tipo=TipoMovimientoCajaEnum.INGRESO,
                 concepto__icontains='Contrato #',
-            ).only(
+            ).values(
                 'id',
                 'propiedad_id',
                 'concepto',
@@ -2866,26 +2891,27 @@ def operaciones(request):
                 'monto_tarjeta',
                 'monto_deposito',
             )
-            for mov in movs_inv_all.iterator(chunk_size=400):
-                if not mov.concepto:
+            for row in vals_inv.iterator(chunk_size=1500):
+                conc = row.get('concepto') or ''
+                if not conc:
                     continue
-                match = re.search(r'Contrato\s*#\s*(\d+)', mov.concepto, re.IGNORECASE)
+                match = re.search(r'Contrato\s*#\s*(\d+)', conc, re.IGNORECASE)
                 if match:
                     cid = int(match.group(1))
                     if cid in contrato_ids_set:
-                        movimientos_por_contrato.setdefault(cid, []).append(mov)
+                        movimientos_por_contrato[cid].append(row)
     for _cid, movs in movimientos_por_contrato.items():
-        movs.sort(key=lambda m: (m.fecha is not None, m.fecha, m.id), reverse=True)
+        movs.sort(key=lambda r: (r['fecha'] is not None, r['fecha'], r['id']), reverse=True)
 
     invierno_by_id = {}
     for contrato in contratos_inv_ordered:
         movimientos = movimientos_por_contrato.get(contrato.id, [])
         total_pagado = (
             sum(
-                float(mov.monto_efectivo or 0)
-                + float(mov.monto_cheque or 0)
-                + float(mov.monto_tarjeta or 0)
-                + float(mov.monto_deposito or 0)
+                float(mov['monto_efectivo'] or 0)
+                + float(mov['monto_cheque'] or 0)
+                + float(mov['monto_tarjeta'] or 0)
+                + float(mov['monto_deposito'] or 0)
                 for mov in movimientos
             )
             if movimientos
@@ -2901,6 +2927,7 @@ def operaciones(request):
         if saldo_pendiente > 0:
             operaciones_pendientes += 1
         deposito_ok = contrato.deposito_garantia and total_pagado >= float(contrato.deposito_garantia or 0)
+        mov_rec_id_inv = movimientos[0]['id'] if movimientos else None
         ns = SimpleNamespace(
             es_invierno=True,
             contrato=contrato,
@@ -2915,14 +2942,18 @@ def operaciones(request):
             estado=contrato.estado,
             deposito_estado='pagado' if deposito_ok else 'pendiente',
             total_deposito_pagado=contrato.deposito_garantia or Decimal('0'),
-            movimiento_reciente=movimientos[0] if movimientos else None,
+            movimiento_reciente=None,
+            _mov_reciente_id=mov_rec_id_inv,
             todos_recibos=None,
         )
         invierno_by_id[contrato.id] = ns
         f_sort = contrato.fecha_operacion or contrato.fecha_inicio
         merge_items.append(('invierno', contrato.id, f_sort))
 
-    merge_items.sort(key=lambda x: x[2] or date.min, reverse=True)
+    merge_items.sort(
+        key=lambda x: x[2] if x[2] is not None else date.min,
+        reverse=True,
+    )
 
     page_size = 50
     try:
@@ -2944,8 +2975,9 @@ def operaciones(request):
     for kind, oid, _ in page_slice:
         if kind == 'invierno':
             inv = invierno_by_id.get(oid)
-            if inv and inv.movimiento_reciente:
-                mov_ids_page.append(inv.movimiento_reciente.id)
+            mid_inv = getattr(inv, '_mov_reciente_id', None) if inv else None
+            if mid_inv:
+                mov_ids_page.append(mid_inv)
 
     mov_map = {
         m.id: m
@@ -2994,8 +3026,8 @@ def operaciones(request):
         else:
             inv = invierno_by_id.get(oid)
             if inv:
-                if inv.movimiento_reciente:
-                    inv.movimiento_reciente = mov_map.get(inv.movimiento_reciente.id, inv.movimiento_reciente)
+                mid_inv = getattr(inv, '_mov_reciente_id', None)
+                inv.movimiento_reciente = mov_map.get(mid_inv) if mid_inv else None
                 operaciones_pagina.append(inv)
 
     return render(
