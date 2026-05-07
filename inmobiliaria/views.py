@@ -12817,13 +12817,21 @@ def lista_contratos(request):
         contratos = contratos.filter(filtro_mes).distinct()
     
     if busqueda:
-        contratos = contratos.filter(
-            Q(inquilino__nombre__icontains=busqueda) |
-            Q(inquilino__apellido__icontains=busqueda) |
-            Q(propiedad__direccion__icontains=busqueda) |
-            Q(propiedad__propietario__nombre__icontains=busqueda) |
-            Q(propiedad__propietario__apellido__icontains=busqueda)
+        busqueda = busqueda.strip()
+        q_buscar = (
+            Q(inquilino__nombre__icontains=busqueda)
+            | Q(inquilino__apellido__icontains=busqueda)
+            | Q(propiedad__direccion__icontains=busqueda)
+            | Q(propiedad__propietario__nombre__icontains=busqueda)
+            | Q(propiedad__propietario__apellido__icontains=busqueda)
         )
+        raw_id = busqueda.lstrip('#').strip()
+        if raw_id.isdigit():
+            try:
+                q_buscar |= Q(pk=int(raw_id))
+            except (ValueError, OverflowError):
+                pass
+        contratos = contratos.filter(q_buscar)
     
     # Ordenar por fecha de creación
     contratos = contratos.order_by('-fecha_creacion')
