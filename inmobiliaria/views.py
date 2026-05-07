@@ -6493,7 +6493,17 @@ def ver_recibo_movimiento(request, movimiento_id):
 
             def _concepto_es_negativo(codigo, nombre):
                 txt = f"{codigo or ''} {nombre or ''}".lower()
-                return any(k in txt for k in ('gasto', 'descuento', 'retencion', 'retención'))
+                return any(
+                    k in txt
+                    for k in (
+                        'gasto',
+                        'gto',
+                        'descuento',
+                        'retencion',
+                        'retención',
+                        'bancario',
+                    )
+                )
             
             # Búsqueda simple de conceptos para evitar errores
 # print(f"🔍 DEBUG SIMPLE - Movimiento ID: {movimiento.id}")
@@ -6521,11 +6531,14 @@ def ver_recibo_movimiento(request, movimiento_id):
                         concepto_desc = f'{registro.concepto.id} - {registro.concepto.nombre}'
                     else:
                         concepto_desc = 'Concepto no especificado'
-                    es_negativo = _concepto_es_negativo(
+                    monto_valor = registro.liquidacion or 0
+                    es_negativo = (
+                        (monto_valor < 0)
+                        or _concepto_es_negativo(
                         getattr(registro.concepto, 'id', ''),
                         getattr(registro.concepto, 'nombre', concepto_desc),
+                        )
                     )
-                    monto_valor = registro.liquidacion or 0
                     
 # print(f"💰 CONCEPTO: {concepto_desc} - ${registro.liquidacion}")
                     
@@ -6588,14 +6601,15 @@ def ver_recibo_movimiento(request, movimiento_id):
                                     
                                     # ✅ SIEMPRE agregar el concepto, incluso si el importe es 0
                                     # Esto asegura que conceptos como depósito y gastos bancarios se muestren
+                                    es_negativo = (importe_num < 0) or _concepto_es_negativo(concepto_id, concepto_nombre)
                                     pagos.append({
                                         'fecha': fecha_mov,
                                         'codigo': concepto_id,
                                         'concepto': concepto_nombre,
-                                        'monto': _recibo_monto_str(abs(importe_num)) if importe_num > 0 else '',
-                                        'es_negativo': _concepto_es_negativo(concepto_id, concepto_nombre),
+                                        'monto': _recibo_monto_str(abs(importe_num)) if importe_num != 0 else '',
+                                        'es_negativo': es_negativo,
                                     })
-                                    if _concepto_es_negativo(concepto_id, concepto_nombre):
+                                    if es_negativo:
                                         total_pagado += -abs(importe_num)
                                     else:
                                         total_pagado += importe_num
