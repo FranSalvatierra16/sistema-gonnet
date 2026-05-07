@@ -293,29 +293,29 @@
                                 <div class="mb-3">
                                     <label for="monto_efectivo" class="form-label"><strong>💵 Efectivo:</strong></label>
                                     <input type="text" class="form-control" id="monto_efectivo" name="monto_efectivo" 
-                                           placeholder="0" onchange="actualizarTotales()" oninput="formatearNumeroEnTiempoReal(this); actualizarTotales()">
+                                           placeholder="0" autocomplete="off">
                                 </div>
                                 <div class="mb-3">
                                     <label for="monto_cheque" class="form-label"><strong>🏦 Cheque:</strong></label>
                                     <input type="text" class="form-control" id="monto_cheque" name="monto_cheque" 
-                                           placeholder="0" onchange="actualizarTotales()" oninput="formatearNumeroEnTiempoReal(this); actualizarTotales()">
+                                           placeholder="0" autocomplete="off">
                                 </div>
                                 <div class="mb-3" id="grupoMontoDolares">
                                     <label for="monto_dolares" class="form-label"><strong>💵 USD (efectivo):</strong></label>
                                     <input type="text" class="form-control" id="monto_dolares" name="monto_dolares"
-                                           placeholder="0" onchange="actualizarTotales()" oninput="formatearNumeroEnTiempoReal(this); actualizarTotales()">
+                                           placeholder="0" autocomplete="off">
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label for="monto_tarjeta" class="form-label"><strong>💳 Tarjeta:</strong></label>
                                     <input type="text" class="form-control" id="monto_tarjeta" name="monto_tarjeta" 
-                                           placeholder="0" onchange="actualizarTotales()" oninput="formatearNumeroEnTiempoReal(this); actualizarTotales()">
+                                           placeholder="0" autocomplete="off">
                                 </div>
                                 <div class="mb-3">
                                     <label for="monto_deposito_galicia" class="form-label"><strong>🏛️ Depósito Galicia:</strong></label>
                                     <input type="text" class="form-control" id="monto_deposito_galicia" name="monto_deposito_galicia" 
-                                           placeholder="0" onchange="actualizarTotales()" oninput="formatearNumeroEnTiempoReal(this); actualizarTotales()">
+                                           placeholder="0" autocomplete="off">
                                 </div>
                             </div>
                         </div>
@@ -324,7 +324,7 @@
                                 <div class="mb-3">
                                     <label for="monto_deposito_mp" class="form-label"><strong>💱 Mercado Pago:</strong></label>
                                     <input type="text" class="form-control" id="monto_deposito_mp" name="monto_deposito_mp" 
-                                           placeholder="0" onchange="actualizarTotales()" oninput="formatearNumeroEnTiempoReal(this); actualizarTotales()">
+                                           placeholder="0" autocomplete="off">
                                 </div>
                             </div>
                             <div class="col-md-6">
@@ -655,26 +655,32 @@ function importeConceptoANumero(importe) {
     return parseDecimalMontoJS(String(importe));
 }
 
-// Formato AR en vivo: miles con punto, decimales con coma (usa parseDecimalMontoJS).
-// Antes se borraban coma/punto con \\D y parseInt → imposible cargar centavos.
-function formatearNumeroEnTiempoReal(input) {
+// Formato AR en vivo (usa parseDecimalMontoJS). En input: no forzar siempre 2 decimales (así se puede seguir escribiendo).
+// En blur (strict): dos decimales fijos para alinear con el recibo.
+function formatearNumeroEnTiempoReal(input, opts) {
+    opts = opts || {};
+    var strict = !!opts.strict;
     if (!input) return;
-    let raw = String(input.value ?? '').trim().replace(/\$/g, '').replace(/\s/g, '');
+    var raw = String(input.value ?? '').trim().replace(/\$/g, '').replace(/\s/g, '');
     if (raw === '') {
         input.value = '';
         return;
     }
-    const endsWithDecimalSep = /[,.]$/.test(raw);
-    const num = parseDecimalMontoJS(raw);
-    if (endsWithDecimalSep) {
-        const neg = num < 0;
-        const absInt = Math.floor(Math.abs(num));
-        let formatted = (neg ? '-' : '') + absInt.toLocaleString('es-AR');
+    var endsWithDecimalSep = /[,.]$/.test(raw);
+    var num = parseDecimalMontoJS(raw);
+    if (!Number.isFinite(num)) return;
+    if (endsWithDecimalSep && !strict) {
+        var neg = num < 0;
+        var absInt = Math.floor(Math.abs(num));
+        var formatted = (neg ? '-' : '') + absInt.toLocaleString('es-AR');
         input.value = formatted + (raw.endsWith(',') ? ',' : '.');
         return;
     }
-    if (!Number.isFinite(num)) return;
-    input.value = formatoMontoReciboAR(num);
+    if (strict) {
+        input.value = formatoMontoReciboAR(num);
+    } else {
+        input.value = num.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    }
 }
 window.formatearNumeroEnTiempoReal = formatearNumeroEnTiempoReal;
 
@@ -944,10 +950,12 @@ function calcularTotales() {
     if (elTotConceptosUsd) elTotConceptosUsd.textContent = fmt(totalConceptosUsd);
     if (elTotRecibo) elTotRecibo.value = fmt(totalRecibo);
     if (elTotReciboUsd) elTotReciboUsd.value = fmt(totalReciboUsd);
-    if (elTotOperacion) elTotOperacion.textContent = fmt(totalRecibo);
-    if (elTotOperacionUsd) elTotOperacionUsd.textContent = fmt(totalReciboUsd);
 
     const totalPagos = calcularTotalPagos();
+    // Suma de medios de pago (lo que el usuario carga abajo), no el total del recibo por conceptos
+    if (elTotOperacion) elTotOperacion.textContent = fmt(totalPagos.ars);
+    if (elTotOperacionUsd) elTotOperacionUsd.textContent = fmt(totalPagos.usd);
+
     actualizarVisibilidadUsd(totalReciboUsd, totalPagos.usd);
     const diferenciaArs = totalPagos.ars - totalRecibo;
     const diferenciaUsd = totalPagos.usd - totalReciboUsd;
@@ -1501,16 +1509,22 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Event listeners para los campos de pago
-    ['monto_efectivo', 'monto_cheque', 'monto_tarjeta', 'monto_dolares', 'monto_deposito_galicia', 'monto_deposito_mp'].forEach(id => {
-        const input = document.getElementById(id);
-        if (input) {
-            input.addEventListener('input', function() {
-                formatearNumeroEnTiempoReal(this);
-                calcularTotales();
-            });
-        }
+    function bindMediosPagoInput(el) {
+        if (!el || el.dataset.mediosPagoBound === '1') return;
+        el.dataset.mediosPagoBound = '1';
+        el.addEventListener('input', function() {
+            formatearNumeroEnTiempoReal(this, { strict: false });
+            calcularTotales();
+        });
+        el.addEventListener('blur', function() {
+            formatearNumeroEnTiempoReal(this, { strict: true });
+            calcularTotales();
+        });
+    }
+    ['monto_efectivo', 'monto_cheque', 'monto_tarjeta', 'monto_dolares', 'monto_deposito_galicia', 'monto_deposito_mp'].forEach(function(id) {
+        bindMediosPagoInput(document.getElementById(id));
     });
+    document.querySelectorAll('input[id^="monto_deposito_"]').forEach(bindMediosPagoInput);
     
     // Event listeners para precio mensual y depósito
     const inputs = ['precio_mensual'];
