@@ -7051,14 +7051,6 @@ def crear_inquilino_ajax(request):
                     'error': f'El DNI debe tener 7 u 8 dígitos. Usted ingresó {len(dni_limpio)} dígito(s). Por favor, verifique el DNI.'
                 })
             
-            # Verificar si el DNI ya existe
-            if Inquilino.objects.filter(dni=dni_limpio).exists():
-                inquilino_existente = Inquilino.objects.get(dni=dni_limpio)
-                return JsonResponse({
-                    'success': False,
-                    'error': f'Ya existe un inquilino con el DNI {dni_limpio}. Inquilino: {inquilino_existente.apellido}, {inquilino_existente.nombre}'
-                })
-            
             # Validar y limpiar CUIT (opcional)
             cuit_raw = request.POST.get('cuit', '').strip()
             cuit_limpio = None
@@ -7171,14 +7163,6 @@ def crear_propietario_ajax(request):
                         'error': f'El DNI debe tener 7 u 8 dígitos. Usted ingresó {len(dni_limpio)} dígito(s). Por favor, verifique el DNI.'
                     })
                 
-                # Verificar si el DNI ya existe
-                if Propietario.objects.filter(dni=dni_limpio).exists():
-                    propietario_existente = Propietario.objects.get(dni=dni_limpio)
-                    return JsonResponse({
-                        'success': False,
-                        'error': f'Ya existe un propietario con el DNI {dni_limpio}. Propietario: {propietario_existente.apellido}, {propietario_existente.nombre}'
-                    })
-            
             propietario = Propietario.objects.create(
                 nombre=request.POST['nombre'],
                 apellido=request.POST['apellido'],
@@ -7227,7 +7211,7 @@ def crear_propietario_ajax(request):
             elif 'unique constraint' in error_str.lower() or 'duplicate key' in error_str.lower():
                 return JsonResponse({
                     'success': False,
-                    'error': 'Ya existe un propietario con este DNI. Por favor, verifique que el DNI no esté duplicado.'
+                    'error': 'No se pudo guardar: conflicto de datos únicos en base de datos. Si persiste, contactá soporte.'
                 })
             elif 'dni' in error_str.lower():
                 return JsonResponse({

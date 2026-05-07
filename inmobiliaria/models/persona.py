@@ -265,7 +265,7 @@ class Vendedor(AbstractUser):
 class Inquilino(Persona):
     garantia = models.TextField(blank=True, help_text="Información sobre la garantía del inquilino")
     sucursal = models.ForeignKey(Sucursal, on_delete=models.CASCADE, related_name='inquilinos')
-    dni = models.CharField(max_length=8, unique=True, validators=[validate_dni], blank=True, null=True)
+    dni = models.CharField(max_length=8, validators=[validate_dni], blank=True, null=True)
     def nombre_completo_inquilino(self):
         return f"{self.apellido}, {self.nombre}" if self.apellido and self.nombre else f"{self.nombre} {self.apellido}"
     class Meta:
@@ -299,7 +299,7 @@ class Propietario(Persona):
         help_text="Número de cuenta (opcional, referencia)",
     )
     sucursal = models.ForeignKey(Sucursal, on_delete=models.CASCADE, related_name='propietarios')
-    dni = models.CharField(max_length=8, unique=True, validators=[validate_dni], blank=True, null=True)
+    dni = models.CharField(max_length=8, validators=[validate_dni], blank=True, null=True)
 
     def _actualizar_resumen_cuenta_bancaria(self):
         parts = []

@@ -204,17 +204,6 @@ class PropietarioForm(forms.ModelForm):
                 'class': 'form-control'
             })
 
-    def clean(self):
-        cleaned_data = super().clean()
-        dni = cleaned_data.get('dni')
-        
-        # Validar DNI único
-        if dni and Propietario.objects.filter(dni=dni).exists():
-            if not self.instance.pk or (self.instance.pk and str(self.instance.dni) != str(dni)):
-                raise ValidationError({'dni': 'Ya existe un propietario con este DNI'})
-        
-        return cleaned_data
-
     def save(self, commit=True):
         propietario = super(PropietarioForm, self).save(commit=False)
         
