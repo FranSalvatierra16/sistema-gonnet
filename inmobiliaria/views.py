@@ -6490,6 +6490,10 @@ def ver_recibo_movimiento(request, movimiento_id):
             pagos = []
             total_pagado = 0
             formas_de_pago = []
+
+            def _concepto_es_negativo(codigo, nombre):
+                txt = f"{codigo or ''} {nombre or ''}".lower()
+                return any(k in txt for k in ('gasto', 'descuento', 'retencion', 'retención'))
             
             # Búsqueda simple de conceptos para evitar errores
 # print(f"🔍 DEBUG SIMPLE - Movimiento ID: {movimiento.id}")
@@ -6517,6 +6521,11 @@ def ver_recibo_movimiento(request, movimiento_id):
                         concepto_desc = f'{registro.concepto.id} - {registro.concepto.nombre}'
                     else:
                         concepto_desc = 'Concepto no especificado'
+                    es_negativo = _concepto_es_negativo(
+                        getattr(registro.concepto, 'id', ''),
+                        getattr(registro.concepto, 'nombre', concepto_desc),
+                    )
+                    monto_valor = registro.liquidacion or 0
                     
 # print(f"💰 CONCEPTO: {concepto_desc} - ${registro.liquidacion}")
                     
@@ -6524,9 +6533,10 @@ def ver_recibo_movimiento(request, movimiento_id):
                         'fecha': registro.fecha_comprobante.strftime('%d/%m/%Y'),
                         'codigo': registro.interno_caja or f'R{registro.id:04d}',
                         'concepto': concepto_desc,
-                        'monto': _recibo_monto_str(registro.liquidacion),
+                        'monto': _recibo_monto_str(abs(monto_valor)),
+                        'es_negativo': es_negativo,
                     })
-                    total_pagado += registro.liquidacion
+                    total_pagado += (-abs(monto_valor) if es_negativo else monto_valor)
             else:
                 # Fallback: extraer conceptos individuales del campo concepto del movimiento
 # print("📋 FALLBACK: Extrayendo conceptos individuales desde movimiento.concepto")
@@ -6582,9 +6592,13 @@ def ver_recibo_movimiento(request, movimiento_id):
                                         'fecha': fecha_mov,
                                         'codigo': concepto_id,
                                         'concepto': concepto_nombre,
-                                        'monto': _recibo_monto_str(importe_num) if importe_num > 0 else ''
+                                        'monto': _recibo_monto_str(abs(importe_num)) if importe_num > 0 else '',
+                                        'es_negativo': _concepto_es_negativo(concepto_id, concepto_nombre),
                                     })
-                                    total_pagado += importe_num
+                                    if _concepto_es_negativo(concepto_id, concepto_nombre):
+                                        total_pagado += -abs(importe_num)
+                                    else:
+                                        total_pagado += importe_num
 # print(f"💰 CONCEPTO: ID={concepto_id}, {concepto_nombre} - ${importe_num:,.0f}")
                             
                             conceptos_procesados = True
@@ -6607,16 +6621,26 @@ def ver_recibo_movimiento(request, movimiento_id):
                             for i, concepto_nombre in enumerate(conceptos_individuales):
                                 # Distribuir el monto total entre los conceptos
                                 monto_por_concepto = movimiento.monto_total / len(conceptos_individuales)
+                                es_negativo = _concepto_es_negativo(codigo_mov, concepto_nombre)
                                 
                                 pagos.append({
                                     'fecha': fecha_mov,
                                     'codigo': f'{codigo_mov}_{i+1}' if len(conceptos_individuales) > 1 else codigo_mov,
                                     'concepto': concepto_nombre,
                                     'monto': _recibo_monto_str(monto_por_concepto),
+                                    'es_negativo': es_negativo,
                                 })
 # print(f"💰 CONCEPTO {i+1}: {concepto_nombre} - ${monto_por_concepto:,.0f}")
                             
-                            total_pagado += movimiento.monto_total
+                            for p in pagos:
+                                try:
+                                    monto_txt = (p.get('monto') or '').replace('$', '').replace('.', '').replace(',', '.').strip()
+                                    if not monto_txt:
+                                        continue
+                                    monto_num = Decimal(monto_txt)
+                                    total_pagado += (-monto_num if p.get('es_negativo') else monto_num)
+                                except Exception:
+                                    continue
                         else:
                             pass  # ✅ Bloque vacío
                             # No se pudo parsear, usar concepto único
@@ -6643,8 +6667,13 @@ def ver_recibo_movimiento(request, movimiento_id):
                             'codigo': codigo_mov,
                             'concepto': concepto_nombre,
                             'monto': _recibo_monto_str(movimiento.monto_total),
+                            'es_negativo': _concepto_es_negativo(codigo_mov, concepto_nombre),
                         })
-                        total_pagado += movimiento.monto_total
+                        total_pagado += (
+                            -abs(movimiento.monto_total)
+                            if _concepto_es_negativo(codigo_mov, concepto_nombre)
+                            else movimiento.monto_total
+                        )
 # print(f"💰 CONCEPTO FALLBACK: {concepto_nombre} - ${movimiento.monto_total:,.0f}")
                     
                 except Exception as e:
