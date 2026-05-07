@@ -651,16 +651,26 @@ function importeConceptoANumero(importe) {
     return parseDecimalMontoJS(String(importe));
 }
 
-// Función para formatear números en tiempo real
+// Formato AR en vivo: miles con punto, decimales con coma (usa parseDecimalMontoJS).
+// Antes se borraban coma/punto con \\D y parseInt → imposible cargar centavos.
 function formatearNumeroEnTiempoReal(input) {
-    if (!input || !input.value) return;
-    let valor = input.value.replace(/\D/g, '');
-    if (valor === '') {
+    if (!input) return;
+    let raw = String(input.value ?? '').trim().replace(/\$/g, '').replace(/\s/g, '');
+    if (raw === '') {
         input.value = '';
         return;
     }
-    let numero = parseInt(valor, 10);
-    input.value = numero.toLocaleString('es-AR');
+    const endsWithDecimalSep = /[,.]$/.test(raw);
+    const num = parseDecimalMontoJS(raw);
+    if (endsWithDecimalSep) {
+        const neg = num < 0;
+        const absInt = Math.floor(Math.abs(num));
+        let formatted = (neg ? '-' : '') + absInt.toLocaleString('es-AR');
+        input.value = formatted + (raw.endsWith(',') ? ',' : '.');
+        return;
+    }
+    if (!Number.isFinite(num)) return;
+    input.value = formatoMontoReciboAR(num);
 }
 window.formatearNumeroEnTiempoReal = formatearNumeroEnTiempoReal;
 
