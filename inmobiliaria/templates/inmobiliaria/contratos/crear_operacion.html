@@ -69,8 +69,9 @@
                                 <p class="mb-1"><strong>Cuota:</strong> {{ cuota_pago.numero_cuota }} de {{ contrato.duracion_meses }} ·
                                     <strong>Vencimiento:</strong> {{ cuota_pago.fecha_vencimiento|date:"d/m/Y" }}</p>
                                 <p class="mb-0 small text-muted">
-                                    Se precarga el concepto <strong>ID 1 (alquiler)</strong> con el monto sugerido; podés editarlo y sumar más conceptos con <strong>otro ID</strong> (gastos, expensas, etc.).
-                                    Si hay más de una línea con ID 1, el sistema toma la de <strong>mayor importe</strong> como alquiler para la cuota.
+                                    Se precarga el concepto <strong>1000</strong> con la cuota actual como objetivo y el monto sugerido; así podés cambiar el mes/cuota desde el modal si corresponde.
+                                    También podés sumar líneas con otros IDs (gastos, expensas, etc.).
+                                    Si no usás el 1000, podés usar el concepto <strong>ID 1 (alquiler)</strong>; si hay más de una línea con ID 1, el sistema toma la de <strong>mayor importe</strong> como referencia de alquiler para marcar la cuota.
                                     La suma de <em>todas</em> las líneas debe coincidir con los medios de pago.
                                 </p>
                             </div>
@@ -545,6 +546,9 @@
     window.numeroCuotaPago = config.numero_cuota != null ? Number(config.numero_cuota) : 0;
     window.defaultImporteCuota = config.default_importe_cuota != null ? Number(config.default_importe_cuota) : 0;
     window.cuotasPendientesCfg = Array.isArray(config.cuotas_pendientes) ? config.cuotas_pendientes : [];
+    window.defaultNombreConceptoCuota = (config.default_concepto_cuota_nombre != null && String(config.default_concepto_cuota_nombre).trim())
+        ? String(config.default_concepto_cuota_nombre).trim()
+        : 'Imputación mensual / cuota (1000)';
 })();
 var tipoOperacion = window.tipoOperacion;
 var contratoId = window.contratoId;
@@ -1585,10 +1589,11 @@ document.addEventListener('DOMContentLoaded', function() {
         var nCuota = window.numeroCuotaPago || 0;
         var cuotaIdDefault = window.cuotaIdPago || 0;
         var cuotaEtiqueta = etiquetaCuotaDesdeCfg(cuotaIdDefault);
+        var nombrePrecargaCuota = window.defaultNombreConceptoCuota || 'Imputación mensual / cuota (1000)';
         conceptosAgregados.push({
             id: contadorConceptos,
-            conceptoId: '1',
-            nombre: 'Alquiler / locación (cuota ' + nCuota + ')',
+            conceptoId: '1000',
+            nombre: nombrePrecargaCuota,
             cuotaObjetivoId: cuotaIdDefault ? String(cuotaIdDefault) : '',
             cuotaObjetivoLabel: cuotaEtiqueta || (nCuota ? ('Cuota ' + nCuota) : ''),
             observaciones: 'Sin observaciones',

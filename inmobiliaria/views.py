@@ -14681,6 +14681,13 @@ def crear_pago_cuota_operacion(request, cuota_id):
 
     conceptos_qs = Concepto.objects.filter(q_conceptos_caja_visibles(request.user.sucursal)).order_by('nombre')
 
+    nombre_c1000 = (
+        Concepto.objects.filter(pk=1000)
+        .values_list('nombre', flat=True)
+        .first()
+    )
+    default_nombre_concepto_cuota = (nombre_c1000 or '').strip() or 'Imputación mensual / cuota'
+
     hon_ui, sel_ui = importes_honorarios_sellados_ui_contrato(contrato)
     cuotas_pendientes_cfg = [
         {
@@ -14701,6 +14708,7 @@ def crear_pago_cuota_operacion(request, cuota_id):
         'cuota_id': cuota.id,
         'numero_cuota': cuota.numero_cuota,
         'default_importe_cuota': float(cuota.monto_total or 0),
+        'default_concepto_cuota_nombre': default_nombre_concepto_cuota,
         'procesar_pago_cuota_url': reverse('inmobiliaria:procesar_pago_cuota_operacion', args=[cuota.id]),
         'cuotas_pendientes': cuotas_pendientes_cfg,
     }
@@ -14797,8 +14805,8 @@ def procesar_pago_cuota_operacion(request, cuota_id):
             return JsonResponse(
                 {
                     'error': (
-                        'Incluí el concepto de alquiler (ID 1) con importe mayor a cero. '
-                        'Ahí cargás el monto de la cuota (editable).'
+                        'Incluí el concepto 1000 eligiendo la cuota/mes objetivo (recomendado) '
+                        'o el concepto de alquiler (ID 1) con importe mayor a cero.'
                     ),
                 },
                 status=400,
