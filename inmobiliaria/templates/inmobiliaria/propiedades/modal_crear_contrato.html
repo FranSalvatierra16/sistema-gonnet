@@ -1,10 +1,10 @@
-<!-- Modal de Contrato 24 Meses -->
+<!-- Modal de contrato de alquiler (duración en meses configurable, ej. 19 o 24) -->
 <div class="modal fade" id="modalContrato" tabindex="-1" aria-labelledby="modalContratoLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl">
         <div class="modal-content">
             <div class="modal-header bg-primary text-white">
                 <h4 class="modal-title" id="modalContratoLabel">
-                    🏠 <strong>Crear Contrato de Alquiler - 24 Meses</strong>
+                    🏠 <strong>Crear contrato de alquiler</strong> <span class="fw-normal opacity-75">(elegí el plazo en meses)</span>
                 </h4>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -47,19 +47,20 @@
                                         <div class="col-4">
                                             <div class="mb-3">
                                                 <label class="form-label"><strong>📅 Fecha Operación:</strong></label>
-                                                <input type="date" class="form-control" id="fecha_operacion" name="fecha_operacion" required>
+                                                <input type="date" class="form-control" id="modal_contrato_fecha_operacion" name="fecha_operacion" required>
                                             </div>
                                         </div>
                                         <div class="col-4">
                                             <div class="mb-3">
                                                 <label class="form-label"><strong>🗓️ Fecha Inicio:</strong></label>
-                                                <input type="date" class="form-control" id="fecha_inicio" name="fecha_inicio" required>
+                                                <input type="date" class="form-control" id="modal_contrato_fecha_inicio" name="fecha_inicio" required>
                                             </div>
                                         </div>
                                         <div class="col-4">
                                             <div class="mb-3">
-                                                <label class="form-label"><strong>🏁 Fecha Fin:</strong></label>
-                                                <input type="date" class="form-control" id="fecha_fin" name="fecha_fin" required>
+                                                <label class="form-label"><strong>🏁 Fecha fin:</strong></label>
+                                                <input type="date" class="form-control" id="modal_contrato_fecha_fin" name="fecha_fin" required>
+                                                <small class="text-muted">Se calcula sola según inicio y duración; podés corregirla si hace falta.</small>
                                             </div>
                                         </div>
                                     </div>
@@ -278,7 +279,7 @@
                         ❌ Cancelar
                     </button>
                     <button type="submit" class="btn btn-success btn-lg">
-                        ✅ Crear Contrato de 24 Meses
+                        ✅ Crear contrato
                     </button>
                 </div>
             </form>
@@ -462,6 +463,43 @@ function parseDecimalMontoJS(val) {
 // Variable global para el timeout de búsqueda
 let busquedaVendedorTimeout;
 
+function pad2ModalContrato(n) {
+    return n < 10 ? '0' + n : '' + n;
+}
+/** Suma n meses de calendario respetando último día del mes (ej. 31 ene + 1 mes → 28/29 feb). */
+function addCalendarMonthsClampedModal(iso, n) {
+    var parts = iso.split('-').map(Number);
+    var y = parts[0], mo = parts[1], day = parts[2];
+    for (var i = 0; i < n; i++) {
+        mo++;
+        if (mo > 12) { mo = 1; y++; }
+        var ld = new Date(y, mo, 0).getDate();
+        if (day > ld) day = ld;
+    }
+    return y + '-' + pad2ModalContrato(mo) + '-' + pad2ModalContrato(day);
+}
+/** Último día del plazo de N meses: día anterior al aniversario de N meses desde el inicio. */
+function calcularFechaFinDesdeInicioYDuracionModal(fechaInicioIso, meses) {
+    if (!fechaInicioIso || !meses || meses < 1) return '';
+    var finAniversario = addCalendarMonthsClampedModal(fechaInicioIso, meses);
+    var p = finAniversario.split('-').map(Number);
+    var d = new Date(p[0], p[1] - 1, p[2]);
+    d.setDate(d.getDate() - 1);
+    return d.getFullYear() + '-' + pad2ModalContrato(d.getMonth() + 1) + '-' + pad2ModalContrato(d.getDate());
+}
+function aplicarFechaFinSegunDuracionModal() {
+    var fi = document.getElementById('modal_contrato_fecha_inicio');
+    var ff = document.getElementById('modal_contrato_fecha_fin');
+    var dm = document.getElementById('duracion_meses');
+    if (!fi || !ff || !dm) return;
+    var meses = parseInt(dm.value, 10);
+    if (isNaN(meses) || meses < 1) return;
+    var iso = fi.value;
+    if (!iso) return;
+    var calculada = calcularFechaFinDesdeInicioYDuracionModal(iso, meses);
+    if (calculada) ff.value = calculada;
+}
+
 function numTrimestresContrato() {
     var el = document.getElementById('duracion_meses');
     var d = el ? parseInt(el.value, 10) : 24;
@@ -508,7 +546,7 @@ function renderTrimestresPrecio() {
 
 // Función principal para mostrar el modal
 function mostrarModalContrato(propiedadId, direccion, sucursal, precioMensual, expensas) {
-    console.log('🏠 Abriendo modal para contrato 24 meses:', {
+    console.log('🏠 Abriendo modal de contrato de alquiler:', {
         propiedadId, direccion, sucursal, precioMensual, expensas
     });
     
@@ -519,14 +557,14 @@ function mostrarModalContrato(propiedadId, direccion, sucursal, precioMensual, e
     
     // Auto-completar fecha de operación con la fecha actual
     const today = new Date().toISOString().split('T')[0];
-    document.getElementById('fecha_operacion').value = today;
+    document.getElementById('modal_contrato_fecha_operacion').value = today;
     
     // ✅ LLENAR INFORMACIÓN DIRECTAMENTE (sin API)
     document.getElementById('modal_ficha').textContent = `#${propiedadId}`;
     document.getElementById('modal_direccion').textContent = direccion || 'No especificada';
     document.getElementById('modal_sucursal').textContent = sucursal || 'No especificada';
     
-    // Información específica de 24 meses
+    // Precio y expensas de la ficha
     if (precioMensual && precioMensual > 0) {
         console.log(`💰 Usando datos directos - Precio: ${precioMensual}, Expensas: ${expensas}`);
         
@@ -554,13 +592,16 @@ function mostrarModalContrato(propiedadId, direccion, sucursal, precioMensual, e
     
     // Fecha inicio sugerida = hoy; sin min (permite cargar contratos atrasados / históricos)
     const hoy = new Date().toISOString().split('T')[0];
-    const fi = document.getElementById('fecha_inicio');
+    var dmReset = document.getElementById('duracion_meses');
+    if (dmReset) dmReset.value = '24';
+    const fi = document.getElementById('modal_contrato_fecha_inicio');
     fi.removeAttribute('min');
     fi.value = hoy;
-    const ff = document.getElementById('fecha_fin');
+    const ff = document.getElementById('modal_contrato_fecha_fin');
     if (ff) ff.removeAttribute('min');
-    const fo = document.getElementById('fecha_operacion');
+    const fo = document.getElementById('modal_contrato_fecha_operacion');
     if (fo) fo.removeAttribute('min');
+    aplicarFechaFinSegunDuracionModal();
     
     // Limpiar inquilinos y garantes
     inquilinosSeleccionados24 = [];
@@ -928,11 +969,19 @@ function actualizarResumenContrato() {
 
 // Event listeners
 document.addEventListener('DOMContentLoaded', function() {
+    var fiModal = document.getElementById('modal_contrato_fecha_inicio');
+    if (fiModal) {
+        fiModal.addEventListener('change', function() {
+            aplicarFechaFinSegunDuracionModal();
+        });
+    }
     document.getElementById('duracion_meses').addEventListener('input', function() {
+        aplicarFechaFinSegunDuracionModal();
         actualizarResumenContrato();
         renderTrimestresPrecio();
     });
     document.getElementById('duracion_meses').addEventListener('change', function() {
+        aplicarFechaFinSegunDuracionModal();
         actualizarResumenContrato();
         renderTrimestresPrecio();
     });
