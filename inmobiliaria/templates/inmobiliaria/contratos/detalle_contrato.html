@@ -209,6 +209,24 @@
             <a href="{% url 'inmobiliaria:ver_cuotas_contrato' contrato.id %}" class="btn btn-sm btn-outline-light" title="Vista alternativa solo de cuotas">
                 <i class="fas fa-list"></i> Solo cuotas
             </a>
+            {% if puede_agregar_cuota %}
+            <form method="post" action="{% url 'inmobiliaria:agregar_cuota_contrato' contrato.id %}" class="d-inline"
+                  onsubmit="return confirm('Se agregará una nueva cuota al final del plan. ¿Continuar?');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-success" title="Agrega una cuota al final y extiende duración/fecha fin">
+                    <i class="fas fa-plus"></i> Agregar cuota
+                </button>
+            </form>
+            {% endif %}
+            {% if puede_eliminar_ultima_cuota %}
+            <form method="post" action="{% url 'inmobiliaria:eliminar_ultima_cuota_contrato' contrato.id %}" class="d-inline"
+                  onsubmit="return confirm('Se eliminará la última cuota ({{ ultima_cuota.numero_cuota }}/{{ contrato.duracion_meses }}) porque no está pagada. ¿Continuar?');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-danger" title="Elimina la última cuota no pagada y acorta duración/fecha fin">
+                    <i class="fas fa-minus"></i> Eliminar última cuota
+                </button>
+            </form>
+            {% endif %}
             <form method="post" action="{% url 'inmobiliaria:recalcular_cuotas_montos_desde_contrato' contrato.id %}" class="d-inline"
                   onsubmit="return confirm('Se actualizarán los montos de todas las cuotas pendientes según el precio mensual y trimestres del contrato. ¿Continuar?');">
                 {% csrf_token %}

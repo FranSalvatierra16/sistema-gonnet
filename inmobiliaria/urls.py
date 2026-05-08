@@ -275,6 +275,16 @@ urlpatterns = [
     path('contratos/<int:contrato_id>/procesar-operacion/', views.procesar_operacion_contrato, name='procesar_operacion_contrato'),
     path('contratos/<int:contrato_id>/cuotas/', views.ver_cuotas_contrato, name='ver_cuotas_contrato'),
     path(
+        'contratos/<int:contrato_id>/cuotas/agregar/',
+        views.agregar_cuota_contrato,
+        name='agregar_cuota_contrato',
+    ),
+    path(
+        'contratos/<int:contrato_id>/cuotas/eliminar-ultima/',
+        views.eliminar_ultima_cuota_contrato,
+        name='eliminar_ultima_cuota_contrato',
+    ),
+    path(
         'contratos/<int:contrato_id>/recalcular-montos-cuotas/',
         views.recalcular_cuotas_montos_desde_contrato,
         name='recalcular_cuotas_montos_desde_contrato',

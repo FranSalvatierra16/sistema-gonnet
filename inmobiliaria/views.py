@@ -13155,6 +13155,16 @@ def detalle_contrato(request, contrato_id):
                 for j in range(i)
             )
 
+    ultima_cuota = cuotas.order_by('-numero_cuota').first()
+    total_cuotas = cuotas.count()
+    puede_agregar_cuota = contrato.estado in ('activo', 'reservado')
+    puede_eliminar_ultima_cuota = bool(
+        ultima_cuota
+        and total_cuotas > 1
+        and ultima_cuota.estado not in ('pagada', 'pagada_con_mora')
+        and contrato.estado in ('activo', 'reservado')
+    )
+
     context = {
         'contrato': contrato,
         'cuotas': cuotas,
@@ -13173,9 +13183,107 @@ def detalle_contrato(request, contrato_id):
             and contrato_requiere_cargos_iniciales_antes_operacion(contrato)
         ),
         'movimientos_recibo_contrato': movimientos_recibo_contrato,
+        'puede_agregar_cuota': puede_agregar_cuota,
+        'puede_eliminar_ultima_cuota': puede_eliminar_ultima_cuota,
+        'ultima_cuota': ultima_cuota,
     }
     
     return render(request, 'inmobiliaria/contratos/detalle_contrato.html', context)
+
+
+def _fecha_fin_desde_inicio_y_duracion(fecha_inicio, duracion_meses):
+    """Fecha de fin = día anterior al aniversario de N meses desde inicio."""
+    if not fecha_inicio or not duracion_meses or duracion_meses < 1:
+        return fecha_inicio
+    return fecha_inicio + relativedelta(months=duracion_meses) - timedelta(days=1)
+
+
+@login_required
+@require_POST
+def agregar_cuota_contrato(request, contrato_id):
+    contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
+    if contrato.estado not in ('activo', 'reservado'):
+        messages.error(request, 'Solo podés agregar cuotas en contratos activos o reservados.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+    ultima = contrato.cuotas.order_by('-numero_cuota').first()
+    if not ultima:
+        messages.error(request, 'No hay cuotas para usar como referencia.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+    nuevo_numero = int(ultima.numero_cuota) + 1
+    nueva_fecha_venc = ultima.fecha_vencimiento + relativedelta(months=1)
+
+    if contrato.duracion_meses != 9:
+        duracion_temp = contrato.duracion_meses
+        contrato.duracion_meses = nuevo_numero
+        montos = _montos_cuotas_por_trimestre(contrato)
+        contrato.duracion_meses = duracion_temp
+        monto_nuevo = montos[nuevo_numero - 1] if (nuevo_numero - 1) < len(montos) else Decimal(str(contrato.precio_mensual or 0))
+    else:
+        monto_nuevo = Decimal(str(contrato.precio_mensual or 0))
+
+    CuotaMensual.objects.create(
+        contrato=contrato,
+        numero_cuota=nuevo_numero,
+        fecha_vencimiento=nueva_fecha_venc,
+        monto_base=monto_nuevo,
+        monto_total=monto_nuevo,
+        estado='pendiente',
+        movimiento=None,
+        fecha_pago=None,
+    )
+
+    contrato.duracion_meses = nuevo_numero
+    contrato.fecha_fin = _fecha_fin_desde_inicio_y_duracion(contrato.fecha_inicio, nuevo_numero)
+    contrato.save(update_fields=['duracion_meses', 'fecha_fin'])
+
+    messages.success(request, f'Se agregó la cuota {nuevo_numero}/{contrato.duracion_meses}.')
+    return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+
+@login_required
+@require_POST
+def eliminar_ultima_cuota_contrato(request, contrato_id):
+    contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
+    if contrato.estado not in ('activo', 'reservado'):
+        messages.error(request, 'Solo podés eliminar cuotas en contratos activos o reservados.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+    cuotas_qs = contrato.cuotas.order_by('-numero_cuota')
+    ultima = cuotas_qs.first()
+    total = contrato.cuotas.count()
+
+    if not ultima:
+        messages.error(request, 'El contrato no tiene cuotas para eliminar.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+    if total <= 1:
+        messages.error(request, 'No se puede eliminar la única cuota del contrato.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+    if ultima.estado in ('pagada', 'pagada_con_mora'):
+        messages.error(
+            request,
+            f'No se puede eliminar la última cuota ({ultima.numero_cuota}) porque está pagada.',
+        )
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+    numero_eliminado = ultima.numero_cuota
+    ultima.delete()
+
+    nueva_duracion = total - 1
+    contrato.duracion_meses = nueva_duracion
+    contrato.fecha_fin = _fecha_fin_desde_inicio_y_duracion(contrato.fecha_inicio, nueva_duracion)
+
+    if contrato.duracion_meses != 9 and isinstance(contrato.precios_bloques, list):
+        num_bloques = max(1, (nueva_duracion + 2) // 3)
+        n_extra = max(0, num_bloques - 1)
+        contrato.precios_bloques = list(contrato.precios_bloques[:n_extra])
+        contrato.save(update_fields=['duracion_meses', 'fecha_fin', 'precios_bloques'])
+    else:
+        contrato.save(update_fields=['duracion_meses', 'fecha_fin'])
+
+    messages.success(request, f'Se eliminó la cuota {numero_eliminado}.')
+    return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
 
 
 @login_required
