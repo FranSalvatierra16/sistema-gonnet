@@ -16718,6 +16718,8 @@ def recibo_contrato_24(request, contrato_id):
         total_abonado_recibo = Decimal('0')
         neto_a_posesion = Decimal('0')
 
+        hon_line = Decimal('0')
+        sel_line = Decimal('0')
         if primer_movimiento:
             def _sum_codigos_recibo(codes):
                 cset = {str(x) for x in codes}
@@ -16868,11 +16870,20 @@ def recibo_contrato_24(request, contrato_id):
             sel_ref_ctx = Decimal(str(contrato.sellados_referencia or 0))
         except Exception:
             sel_ref_ctx = Decimal('0')
+        # Mostrar "pend." cuando existe referencia/cargo informado pero no se cubrió
+        # completamente en líneas del recibo (códigos 25/26), igual que se hace con depósito.
+        tol_pendiente = Decimal('0.05')
+        hon_ref_visual = honorarios if honorarios > hon_ref_ctx else hon_ref_ctx
+        sel_ref_visual = sellados if sellados > sel_ref_ctx else sel_ref_ctx
         recibo_muestra_pendiente_hon = bool(
-            primer_movimiento is not None and hon_ref_ctx > 0 and honorarios == 0
+            primer_movimiento is not None
+            and hon_ref_visual > 0
+            and (hon_line + tol_pendiente) < hon_ref_visual
         )
         recibo_muestra_pendiente_sel = bool(
-            primer_movimiento is not None and sel_ref_ctx > 0 and sellados == 0
+            primer_movimiento is not None
+            and sel_ref_visual > 0
+            and (sel_line + tol_pendiente) < sel_ref_visual
         )
 
         subtotal = total_a_abonar
