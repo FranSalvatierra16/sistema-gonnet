@@ -12830,10 +12830,16 @@ def crear_contrato_alquiler(request):
                 )
 
             # Marcar la propiedad como reservada según tipo de contrato
+            # No usar hasattr() con reverse OneToOne: si no hay fila relacionada, hasattr puede
+            # devolver False sin error y el contrato quedaría creado con la ficha aún "disponible".
             if duracion_meses == 9:
-                if hasattr(propiedad, 'info_invierno') and propiedad.info_invierno:
-                    propiedad.info_invierno.estado = 'reservado'
-                    propiedad.info_invierno.save()
+                info_invierno, _ = AlquilerInvierno.objects.get_or_create(
+                    propiedad=propiedad,
+                    defaults={'disponible': True, 'estado': 'disponible'},
+                )
+                info_invierno.disponible = True
+                info_invierno.estado = 'reservado'
+                info_invierno.save()
                 # Actualizar historial: truncar "Libre" que superponga con el contrato
                 try:
                     fi = datetime.strptime(fecha_inicio.strip(), '%Y-%m-%d').date()
@@ -12847,9 +12853,21 @@ def crear_contrato_alquiler(request):
                     except (ValueError, TypeError, AttributeError):
                         pass
             else:
-                if hasattr(propiedad, 'info_meses') and propiedad.info_meses:
-                    propiedad.info_meses.estado = 'reservado'
-                    propiedad.info_meses.save()
+                info_meses, _ = AlquilerMeses.objects.get_or_create(
+                    propiedad=propiedad,
+                    defaults={
+                        'disponible': True,
+                        'estado': 'disponible',
+                        'precio_mensual': precio_mensual,
+                    },
+                )
+                info_meses.disponible = True
+                info_meses.estado = 'reservado'
+                info_meses.fecha_inicio = contrato.fecha_inicio
+                info_meses.fecha_fin = contrato.fecha_fin
+                if precio_mensual is not None:
+                    info_meses.precio_mensual = precio_mensual
+                info_meses.save()
 
             messages.success(request, 'Contrato creado. Completá la operación principal (depósito + primer mes).')
             # Redirigir a operación principal para unificar creación de contrato con el pago (estudiantes, 24 meses, invierno)
@@ -14648,16 +14666,24 @@ def procesar_operacion_contrato(request, contrato_id):
                 contrato.save()
 
                 if contrato.duracion_meses == 9:
-                    if hasattr(contrato.propiedad, 'info_invierno'):
-                        contrato.propiedad.info_invierno.estado = 'ocupado'
-                        contrato.propiedad.info_invierno.save()
+                    info_invierno, _ = AlquilerInvierno.objects.get_or_create(
+                        propiedad=contrato.propiedad,
+                        defaults={'disponible': True, 'estado': 'disponible'},
+                    )
+                    info_invierno.estado = 'ocupado'
+                    info_invierno.save()
                     actualizar_historial_por_contrato_invierno(
                         contrato.propiedad, contrato.fecha_inicio, contrato.fecha_fin
                     )
                 else:
-                    if hasattr(contrato.propiedad, 'info_meses'):
-                        contrato.propiedad.info_meses.estado = 'ocupado'
-                        contrato.propiedad.info_meses.save()
+                    info_meses, _ = AlquilerMeses.objects.get_or_create(
+                        propiedad=contrato.propiedad,
+                        defaults={'disponible': True, 'estado': 'disponible'},
+                    )
+                    info_meses.estado = 'ocupado'
+                    info_meses.fecha_inicio = contrato.fecha_inicio
+                    info_meses.fecha_fin = contrato.fecha_fin
+                    info_meses.save()
                 _actualizar_pendientes_al_ultimo_importe(contrato)
         else:
             if cuotas_objetivo_map:
