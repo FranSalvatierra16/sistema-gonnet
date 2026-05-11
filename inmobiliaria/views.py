@@ -14543,23 +14543,32 @@ def procesar_operacion_contrato(request, contrato_id):
                 fecha_actual = timezone.now().date()
 
                 if contrato.duracion_meses == 9:
-                    meses_invierno = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
-                    año_base = fecha_actual.year
-                    if fecha_actual.month < 3:
-                        año_base = fecha_actual.year - 1
-
-                    for i, mes in enumerate(meses_invierno[:9], start=1):
+                    # Vencimientos alineados al contrato (fecha_inicio), no al año del día del cobro.
+                    fi = contrato.fecha_inicio
+                    if not fi:
+                        fi = fecha_actual
+                    if isinstance(fi, str):
                         try:
-                            fecha_vencimiento = date(año_base, mes, contrato.dia_vencimiento)
-                        except ValueError:
-                            from calendar import monthrange
+                            fi = datetime.strptime(fi.strip(), '%Y-%m-%d').date()
+                        except (ValueError, TypeError, AttributeError):
+                            try:
+                                fi = datetime.strptime(fi.strip(), '%d/%m/%Y').date()
+                            except (ValueError, TypeError, AttributeError):
+                                fi = fecha_actual
+                    d_dia = int(contrato.dia_vencimiento or 5)
+                    from calendar import monthrange
 
-                            ultimo_dia = monthrange(año_base, mes)[1]
-                            fecha_vencimiento = date(año_base, mes, min(contrato.dia_vencimiento, ultimo_dia))
+                    for i in range(9):
+                        ref_mes = fi + relativedelta(months=i)
+                        try:
+                            fecha_vencimiento = ref_mes.replace(day=d_dia)
+                        except ValueError:
+                            ultimo_dia = monthrange(ref_mes.year, ref_mes.month)[1]
+                            fecha_vencimiento = ref_mes.replace(day=min(d_dia, ultimo_dia))
 
                         CuotaMensual.objects.create(
                             contrato=contrato,
-                            numero_cuota=i,
+                            numero_cuota=i + 1,
                             fecha_vencimiento=fecha_vencimiento,
                             monto_base=contrato.precio_mensual,
                             monto_total=contrato.precio_mensual,
