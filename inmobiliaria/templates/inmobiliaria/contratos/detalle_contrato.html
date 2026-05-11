@@ -31,13 +31,24 @@
                 <button class="btn btn-outline-info dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Un recibo por cada cobro registrado en caja">
                     <i class="fas fa-receipt"></i> Recibos por cobro
                 </button>
-                <ul class="dropdown-menu dropdown-menu-end">
+                <ul class="dropdown-menu dropdown-menu-end p-0 overflow-hidden" style="min-width: 22rem;">
                     {% for m in movimientos_recibo_contrato %}
-                    <li>
-                        <a class="dropdown-item" target="_blank" rel="noopener" href="{% url 'inmobiliaria:recibo_contrato_24' contrato.id %}?movimiento_id={{ m.id }}">
-                            {{ m.fecha|date:"d/m/Y H:i" }} — Mov. #{{ m.id }}
-                            {% if m.numero_liquidacion %}({{ m.numero_liquidacion }}){% endif %}
-                        </a>
+                    <li class="border-bottom">
+                        <div class="dropdown-item-text d-flex flex-wrap align-items-center justify-content-between gap-2 py-2 px-3">
+                            <a class="text-decoration-none flex-grow-1" target="_blank" rel="noopener" href="{% url 'inmobiliaria:recibo_contrato_24' contrato.id %}?movimiento_id={{ m.id }}">
+                                <i class="fas fa-file-invoice text-info me-1"></i>
+                                {{ m.fecha|date:"d/m/Y H:i" }} — Mov. #{{ m.id }}
+                                {% if m.numero_liquidacion %}<span class="text-muted">({{ m.numero_liquidacion }})</span>{% endif %}
+                            </a>
+                            {% if user.nivel == 5 and m.caja and m.caja.estado == 'abierta' and not m.caja.fecha_cierre %}
+                            <form method="post" action="{% url 'inmobiliaria:eliminar_movimiento' m.id %}" class="m-0" onsubmit="return confirm('¿Anular este movimiento y su recibo?');">
+                                {% csrf_token %}
+                                <input type="hidden" name="next" value="detalle_contrato">
+                                <input type="hidden" name="contrato_id" value="{{ contrato.id }}">
+                                <button type="submit" class="btn btn-sm btn-outline-danger text-nowrap">Anular</button>
+                            </form>
+                            {% endif %}
+                        </div>
                     </li>
                     {% endfor %}
                 </ul>
@@ -45,6 +56,79 @@
             {% endif %}
         </div>
     </div>
+
+    {% if user.nivel == 5 and movimientos_recibo_contrato %}
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="card border-warning shadow-sm">
+                <div class="card-header bg-dark text-warning d-flex align-items-center gap-2">
+                    <i class="fas fa-shield-alt"></i>
+                    <strong>Super administrador</strong>
+                    <span class="text-white-50 small ms-1">— Cobros en caja de este contrato</span>
+                </div>
+                <div class="card-body py-3">
+                    <p class="small text-muted mb-3">
+                        Cada fila es un ingreso registrado en caja vinculado a este contrato.
+                        <strong>Anular</strong> elimina el recibo y ese importe deja de sumar en la caja (solo si la caja sigue <strong>abierta</strong>).
+                    </p>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Movimiento</th>
+                                    <th class="text-end">Total ARS</th>
+                                    <th>Caja</th>
+                                    <th class="text-end">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for m in movimientos_recibo_contrato %}
+                                <tr>
+                                    <td class="text-nowrap">{{ m.fecha|date:"d/m/Y H:i" }}</td>
+                                    <td>#{{ m.id }}{% if m.numero_liquidacion %} <span class="text-muted">({{ m.numero_liquidacion }})</span>{% endif %}</td>
+                                    <td class="text-end font-monospace">${{ m.monto_total|format_price }}</td>
+                                    <td>
+                                        {% if m.caja %}
+                                            {% if m.caja.estado == 'abierta' and not m.caja.fecha_cierre %}
+                                                <span class="badge bg-success">Abierta #{{ m.caja.numero }}</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">Cerrada</span>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="text-muted">—</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end text-nowrap">
+                                        <a href="{% url 'inmobiliaria:recibo_contrato_24' contrato.id %}?movimiento_id={{ m.id }}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" title="Ver recibo de este cobro">
+                                            <i class="fas fa-file-invoice"></i> Recibo
+                                        </a>
+                                        <a href="{% url 'inmobiliaria:ver_recibo_movimiento' m.id }}" class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener" title="Movimiento en caja">
+                                            <i class="fas fa-cash-register"></i>
+                                        </a>
+                                        {% if m.caja and m.caja.estado == 'abierta' and not m.caja.fecha_cierre %}
+                                        <form method="post" action="{% url 'inmobiliaria:eliminar_movimiento' m.id %}" class="d-inline" onsubmit="return confirm('¿Anular este movimiento de caja y su recibo? El dinero dejará de sumar en la caja y las cuotas vinculadas pueden quedar pendientes según corresponda.');">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="next" value="detalle_contrato">
+                                            <input type="hidden" name="contrato_id" value="{{ contrato.id }}">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                <i class="fas fa-ban"></i> Anular
+                                            </button>
+                                        </form>
+                                        {% elif m.caja %}
+                                        <span class="small text-muted ms-1">Sin anular (caja cerrada)</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Información del Contrato -->
     <div class="row mb-4">

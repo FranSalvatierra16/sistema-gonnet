@@ -10142,24 +10142,31 @@ def eliminar_movimiento(request, movimiento_id):
     if request.method not in ('GET', 'POST', 'HEAD'):
         return HttpResponseNotAllowed(['GET', 'POST', 'HEAD'])
     movimiento = get_object_or_404(MovimientoCaja, id=movimiento_id, sucursal=request.user.sucursal)
+
+    def _redirect_tras_eliminar_movimiento(caja_num_fallback):
+        next_target = (request.POST.get('next') or request.GET.get('next') or '').strip()
+        if next_target == 'operaciones':
+            return redirect('inmobiliaria:operaciones')
+        cid = (request.POST.get('contrato_id') or request.GET.get('contrato_id') or '').strip()
+        if next_target == 'detalle_contrato' and cid.isdigit():
+            return redirect('inmobiliaria:detalle_contrato', contrato_id=int(cid))
+        if caja_num_fallback is not None:
+            return redirect('inmobiliaria:detalle_caja', numero=caja_num_fallback)
+        return redirect('inmobiliaria:gestionar_caja')
+
     if not usuario_puede_eliminar_movimiento_caja(request.user):
         messages.error(
             request,
             'Solo el super administrador puede anular movimientos de caja y sus recibos.',
         )
-        next_target = (request.POST.get('next') or request.GET.get('next') or '').strip()
-        if next_target == 'operaciones':
-            return redirect('inmobiliaria:operaciones')
         caja_prev = movimiento.caja
-        if caja_prev and caja_prev.numero is not None:
-            return redirect('inmobiliaria:detalle_caja', numero=caja_prev.numero)
-        return redirect('inmobiliaria:gestionar_caja')
+        num = caja_prev.numero if caja_prev and caja_prev.numero is not None else None
+        return _redirect_tras_eliminar_movimiento(num)
     caja = movimiento.caja
     if caja and (getattr(caja, 'estado', None) != 'abierta' or caja.fecha_cierre is not None):
         messages.error(request, 'Solo se pueden eliminar movimientos de una caja abierta.')
-        if caja and caja.numero is not None:
-            return redirect('inmobiliaria:detalle_caja', numero=caja.numero)
-        return redirect('inmobiliaria:gestionar_caja')
+        num = caja.numero if caja and caja.numero is not None else None
+        return _redirect_tras_eliminar_movimiento(num)
 
     caja_numero = movimiento.caja_id and movimiento.caja.numero
     _eliminar_movimiento_y_anexos(movimiento, eliminado_por=request.user)
@@ -10168,12 +10175,7 @@ def eliminar_movimiento(request, movimiento_id):
         'Movimiento anulado. Seguirá visible en «Movimientos eliminados» y ya no suma en el saldo de la caja.',
     )
 
-    next_target = (request.POST.get('next') or request.GET.get('next') or '').strip()
-    if next_target == 'operaciones':
-        return redirect('inmobiliaria:operaciones')
-    if caja_numero is not None:
-        return redirect('inmobiliaria:detalle_caja', numero=caja_numero)
-    return redirect('inmobiliaria:gestionar_caja')
+    return _redirect_tras_eliminar_movimiento(caja_numero)
 
 @login_required
 def caja(request):
@@ -13152,7 +13154,9 @@ def detalle_contrato(request, contrato_id):
             propiedad=contrato.propiedad,
             sucursal=request.user.sucursal,
             tipo=TipoMovimientoCajaEnum.INGRESO,
-        ).order_by('fecha', 'id')[:40]
+        )
+        .select_related('caja')
+        .order_by('fecha', 'id')[:40]
     )
 
     # Estadísticas
