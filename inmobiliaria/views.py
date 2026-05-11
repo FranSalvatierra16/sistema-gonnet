@@ -35,7 +35,11 @@ def _recibo_monto_str(valor, dec_places=2):
 
 # Modelos usados por vistas definidas antes del import masivo de .models (línea ~871)
 from .models import ComisionVendedor, ValeVendedor, MesComisionPagadoVendedor
-from .models.persona import Vendedor
+from .models.persona import (
+    Vendedor,
+    usuario_es_nivel_administracion,
+    usuario_puede_eliminar_movimiento_caja,
+)
 
 # Importar vistas de cuentas bancarias
 from .views_cuentas_bancarias import (
@@ -53,10 +57,9 @@ from .views_cuentas_bancarias import (
 def historial_comisiones_vendedor(request, vendedor_id):
     """
     Vista para mostrar el historial de comisiones de un vendedor específico
-    Solo accesible para administradores (nivel 4)
+    Solo accesible para administración (nivel 4, 5 o superusuario Django).
     """
-    # Verificar que el usuario sea nivel 4
-    if request.user.nivel != 4:
+    if not usuario_es_nivel_administracion(request.user):
         messages.error(request, 'No tienes permisos para acceder a esta sección.')
         return redirect('inmobiliaria:dashboard')
     
@@ -258,7 +261,7 @@ def historial_comisiones_vendedor(request, vendedor_id):
 @require_POST
 def toggle_mes_comision_pagado(request, vendedor_id):
     """Marca o desmarca un mes calendario como pagado al vendedor (nivel 4, misma sucursal)."""
-    if request.user.nivel != 4:
+    if not usuario_es_nivel_administracion(request.user):
         messages.error(request, 'No tienes permisos para acceder a esta sección.')
         return redirect('inmobiliaria:dashboard')
 
@@ -312,7 +315,7 @@ def detalle_comision(request, comision_id):
     Solo accesible para administradores (nivel 4)
     """
     # Verificar que el usuario sea nivel 4
-    if request.user.nivel != 4:
+    if not usuario_es_nivel_administracion(request.user):
         messages.error(request, 'No tienes permisos para acceder a esta sección.')
         return redirect('inmobiliaria:dashboard')
     
@@ -334,7 +337,7 @@ def resumen_comisiones_mensual(request, vendedor_id, anio=None, mes=None):
     Solo accesible para administradores (nivel 4)
     """
     # Verificar que el usuario sea nivel 4
-    if request.user.nivel != 4:
+    if not usuario_es_nivel_administracion(request.user):
         messages.error(request, 'No tienes permisos para acceder a esta sección.')
         return redirect('inmobiliaria:dashboard')
     
@@ -425,7 +428,7 @@ def dashboard_comisiones(request):
     Panel de comisiones por vendedor.
     Solo accesible para administradores (nivel 4).
     """
-    if request.user.nivel != 4:
+    if not usuario_es_nivel_administracion(request.user):
         messages.error(request, 'No tienes permisos para acceder a esta sección.')
         return redirect('inmobiliaria:dashboard')
 
@@ -780,7 +783,7 @@ def lista_vales_vendedor(request, vendedor_id):
     Solo accesible para administradores (nivel 4)
     """
     # Verificar que el usuario sea nivel 4
-    if request.user.nivel != 4:
+    if not usuario_es_nivel_administracion(request.user):
         messages.error(request, 'No tienes permisos para acceder a esta sección.')
         return redirect('inmobiliaria:dashboard')
     
@@ -1742,7 +1745,7 @@ def propietarios(request):
     form = PropietarioBuscarForm(request.GET or None)
     
     # Determinar qué propietarios mostrar según el nivel del usuario
-    if request.user.is_superuser or request.user.nivel == 4:
+    if usuario_es_nivel_administracion(request.user):
         propietarios = Propietario.objects.filter(sucursal=request.user.sucursal)
     else:
         # Filtrar por la sucursal del vendedor logueado
@@ -2227,8 +2230,8 @@ def propiedad_nuevo(request):
 
 
 def _puede_usar_cambio_sucursal_propiedad(user):
-    """Solo superusuario o nivel 4 (administración)."""
-    return bool(getattr(user, 'is_superuser', False) or getattr(user, 'nivel', 0) == 4)
+    """Superusuario Django o nivel 4/5 (administración)."""
+    return usuario_es_nivel_administracion(user)
 
 
 def _propiedad_accesible_por_sucursal_usuario(request, propiedad):
@@ -3072,7 +3075,7 @@ def listado_entradas(request):
     Listado de entradas por fecha exacta (inicio de alquiler).
     Incluye reservas temporales y contratos (invierno/24 meses).
     """
-    if not (request.user.is_superuser or getattr(request.user, 'nivel', None) == 4):
+    if not usuario_es_nivel_administracion(request.user):
         messages.error(request, 'No tenés permisos para acceder a esta sección.')
         return redirect('inmobiliaria:dashboard')
 
@@ -3288,7 +3291,7 @@ def listado_salidas(request):
     Listado de salidas por fecha exacta (fin de alquiler).
     Incluye reservas temporales y contratos (invierno/24 meses).
     """
-    if not (request.user.is_superuser or getattr(request.user, 'nivel', None) == 4):
+    if not usuario_es_nivel_administracion(request.user):
         messages.error(request, 'No tenés permisos para acceder a esta sección.')
         return redirect('inmobiliaria:dashboard')
 
@@ -10139,6 +10142,18 @@ def eliminar_movimiento(request, movimiento_id):
     if request.method not in ('GET', 'POST', 'HEAD'):
         return HttpResponseNotAllowed(['GET', 'POST', 'HEAD'])
     movimiento = get_object_or_404(MovimientoCaja, id=movimiento_id, sucursal=request.user.sucursal)
+    if not usuario_puede_eliminar_movimiento_caja(request.user):
+        messages.error(
+            request,
+            'Solo el super administrador puede anular movimientos de caja y sus recibos.',
+        )
+        next_target = (request.POST.get('next') or request.GET.get('next') or '').strip()
+        if next_target == 'operaciones':
+            return redirect('inmobiliaria:operaciones')
+        caja_prev = movimiento.caja
+        if caja_prev and caja_prev.numero is not None:
+            return redirect('inmobiliaria:detalle_caja', numero=caja_prev.numero)
+        return redirect('inmobiliaria:gestionar_caja')
     caja = movimiento.caja
     if caja and (getattr(caja, 'estado', None) != 'abierta' or caja.fecha_cierre is not None):
         messages.error(request, 'Solo se pueden eliminar movimientos de una caja abierta.')
@@ -11016,8 +11031,8 @@ def sucursales(request):
     total_sucursales = Sucursal.objects.all().count()
 # print(f"Total de sucursales en BD: {total_sucursales}")
     
-    # Mostrar todas las sucursales solo si es administrador (nivel 4)
-    if request.user.nivel == 4:
+    # Mostrar todas las sucursales solo si es administrador (nivel 4 o 5)
+    if usuario_es_nivel_administracion(request.user):
         sucursales = Sucursal.objects.all()
 # print(f"Usuario es administrador - mostrando {sucursales.count()} sucursales")
     else:
@@ -11049,7 +11064,7 @@ def editar_sucursal(request, sucursal_id):
     sucursal = get_object_or_404(Sucursal, id=sucursal_id)
     
     # Verificar permisos - solo administrador (nivel 4)
-    if request.user.nivel != 4:
+    if not usuario_es_nivel_administracion(request.user):
         messages.error(request, 'No tienes permisos para editar sucursales.')
         return redirect('inmobiliaria:sucursal_detalle', sucursal_id=sucursal.id)
     
@@ -11072,7 +11087,7 @@ def editar_sucursal(request, sucursal_id):
 def crear_sucursal(request):
     """Crea una nueva sucursal"""
     # Solo administrador (nivel 4)
-    if request.user.nivel != 4:
+    if not usuario_es_nivel_administracion(request.user):
         messages.error(request, 'No tienes permisos para crear sucursales.')
         return redirect('inmobiliaria:sucursales')
     
@@ -20312,7 +20327,7 @@ def detalle_liquidacion(request, liquidacion_id):
         'gastos': liquidacion.gastos.all().order_by('-fecha_creacion'),
         'division_operaciones': division_operaciones,
         'operaciones_tabla': _operaciones_incluidas_tabla(liquidacion),
-        'puede_eliminar_liquidacion': getattr(request.user, 'nivel', 0) == 4 or getattr(request.user, 'is_superuser', False),
+        'puede_eliminar_liquidacion': usuario_es_nivel_administracion(request.user),
         'gastos_pendientes_disponibles': gastos_pendientes_disponibles,
     }
 
@@ -20325,9 +20340,9 @@ def detalle_liquidacion(request, liquidacion_id):
 def eliminar_liquidacion(request, liquidacion_id):
     """
     Elimina una liquidación y, si estaba pagada, el movimiento de egreso asociado.
-    Solo nivel 4 (administrador). Requiere confirmar escribiendo el ID en el formulario.
+    Solo administración (nivel 4, 5 o superusuario Django). Requiere confirmar escribiendo el ID en el formulario.
     """
-    if getattr(request.user, 'nivel', 0) != 4 and not getattr(request.user, 'is_superuser', False):
+    if not usuario_es_nivel_administracion(request.user):
         messages.error(request, 'Solo administradores pueden eliminar liquidaciones.')
         return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion_id)
 

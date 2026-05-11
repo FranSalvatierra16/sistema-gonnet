@@ -74,7 +74,25 @@ NIVELES_VENDEDOR = [
     (2, 'Intermedio'),
     (3, 'Avanzado'),
     (4, 'Administrador'),
+    (5, 'Super administrador'),
 ]
+
+
+def usuario_es_nivel_administracion(user):
+    """Nivel 4 o 5, o superusuario de Django (mismas rutas de administración que antes tenía solo el 4)."""
+    if not user or not getattr(user, 'is_authenticated', False):
+        return False
+    if getattr(user, 'is_superuser', False):
+        return True
+    return getattr(user, 'nivel', None) in (4, 5)
+
+
+def usuario_puede_eliminar_movimiento_caja(user):
+    """Solo super administrador (nivel 5): anula movimiento de caja y recibo asociado."""
+    if not user or not getattr(user, 'is_authenticated', False):
+        return False
+    return getattr(user, 'nivel', None) == 5
+
 
 class Vendedor(AbstractUser):
     dni = models.CharField(max_length=8, blank=True, null=True)

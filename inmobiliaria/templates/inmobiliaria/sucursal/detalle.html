@@ -84,7 +84,7 @@
                                         </div>
                                     {% endif %}
                                     
-                                    {% if user.nivel == 4 %}
+                                    {% if user.is_superuser or user.nivel >= 4 %}
                                         <div class="text-center mt-3">
                                             <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalNumeracionRecibos">
                                                 <i class="fas fa-cog"></i> Configurar Numeración

@@ -133,6 +133,8 @@
                                                 <i class="fas fa-star me-1"></i><i class="fas fa-star me-1"></i><i class="fas fa-star me-1"></i>Avanzado
                                             {% elif vendedor.nivel == 4 %}
                                                 <i class="fas fa-crown me-1"></i>Admin
+                                            {% elif vendedor.nivel == 5 %}
+                                                <i class="fas fa-shield-alt me-1"></i>Super admin
                                             {% endif %}
                                         </span>
                                     </td>
@@ -170,7 +172,7 @@
                                                title="Historial">
                                                 <i class="fas fa-history"></i>
                                             </a>
-                                            {% if user.nivel == 4 %}
+                                            {% if user.is_superuser or user.nivel >= 4 %}
                                             <a href="{% url 'inmobiliaria:historial_comisiones_vendedor' vendedor.id %}" 
                                                class="btn btn-outline-success btn-sm action-btn" 
                                                title="Comisiones y vales">
@@ -329,6 +331,11 @@
 .nivel-4 {
     background: linear-gradient(135deg, #dc3545 0%, #e83e8c 100%);
     color: white;
+}
+
+.nivel-5 {
+    background: linear-gradient(135deg, #212529 0%, #495057 100%);
+    color: #ffc107;
 }
 
 /* Badge para comisión */

@@ -122,7 +122,7 @@
      
     </div>
 
-    {% if user.is_superuser or user.nivel == 4 %}
+    {% if user.is_superuser or user.nivel >= 4 %}
     <div class="row justify-content-center mt-4">
         <div class="col-12 col-lg-10">
             <h2 class="h4 mb-3 text-secondary border-bottom pb-2">

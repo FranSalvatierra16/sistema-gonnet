@@ -568,7 +568,7 @@
         <div class="header-section fade-in">
             <h1 class="page-title">📊 Listado de Operaciones</h1>
             <p class="subtitle">Gestiona todas las operaciones procesadas y pendientes de pago.
-                {% if user.is_superuser or user.nivel == 4 %}
+                {% if user.is_superuser or user.nivel >= 4 %}
                 <a href="{% url 'inmobiliaria:lista_caratulas' %}" class="text-decoration-none ms-1"><i class="fas fa-folder-open"></i> Consulta de carátulas</a>
                 {% endif %}
             </p>
@@ -834,7 +834,7 @@
                                         <a href="{% url 'inmobiliaria:ver_recibo_movimiento' recibo.movimiento_caja.id %}" class="btn-action btn-recibo" title="Ver recibo {{ recibo.numero_recibo }}">
                                             <i class="fas fa-file-invoice"></i>{{ recibo.numero_recibo }}
                                         </a>
-                                        {% if user.nivel >= 2 and recibo.movimiento_caja.caja and recibo.movimiento_caja.caja.estado == 'abierta' and not recibo.movimiento_caja.caja.fecha_cierre %}
+                                        {% if user.nivel == 5 and recibo.movimiento_caja.caja and recibo.movimiento_caja.caja.estado == 'abierta' and not recibo.movimiento_caja.caja.fecha_cierre %}
                                         <form method="post" action="{% url 'inmobiliaria:eliminar_movimiento' recibo.movimiento_caja.id %}" class="d-inline m-0" onsubmit="return confirm('¿Eliminar este ingreso de caja y su recibo? La operación volverá a mostrar el saldo pendiente según los pagos que queden.');">
                                             {% csrf_token %}
                                             <input type="hidden" name="next" value="operaciones">
@@ -864,7 +864,7 @@
                                                                 <span class="recibo-op-fecha"><i class="far fa-calendar-alt me-1"></i>{{ recibo.fecha_emision|date:"d/m/Y" }}</span>
                                                             </span>
                                                         </a>
-                                                        {% if user.nivel >= 2 and recibo.movimiento_caja.caja and recibo.movimiento_caja.caja.estado == 'abierta' and not recibo.movimiento_caja.caja.fecha_cierre %}
+                                                        {% if user.nivel == 5 and recibo.movimiento_caja.caja and recibo.movimiento_caja.caja.estado == 'abierta' and not recibo.movimiento_caja.caja.fecha_cierre %}
                                                         <div class="recibo-op-actions">
                                                             <form method="post" action="{% url 'inmobiliaria:eliminar_movimiento' recibo.movimiento_caja.id %}" class="m-0 h-100 d-flex align-items-stretch" onsubmit="return confirm('¿Eliminar este ingreso de caja y su recibo?');">
                                                                 {% csrf_token %}
@@ -887,7 +887,7 @@
                                     <a href="{% url 'inmobiliaria:ver_recibo_movimiento' op.movimiento_reciente.id %}" class="btn-action btn-recibo" target="_blank" rel="noopener">
                                         <i class="fas fa-file-invoice"></i>Recibo
                                     </a>
-                                    {% if user.nivel >= 2 and op.movimiento_reciente.caja and op.movimiento_reciente.caja.estado == 'abierta' and not op.movimiento_reciente.caja.fecha_cierre %}
+                                    {% if user.nivel == 5 and op.movimiento_reciente.caja and op.movimiento_reciente.caja.estado == 'abierta' and not op.movimiento_reciente.caja.fecha_cierre %}
                                     <form method="post" action="{% url 'inmobiliaria:eliminar_movimiento' op.movimiento_reciente.id %}" class="d-inline m-0" onsubmit="return confirm('¿Eliminar este ingreso de caja y su recibo asociado?');">
                                         {% csrf_token %}
                                         <input type="hidden" name="next" value="operaciones">

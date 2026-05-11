@@ -14,7 +14,7 @@
                         Lista de Sucursales
                     </h3>
                     <div class="card-tools">
-                        {% if user.nivel == 4 %}
+                        {% if user.is_superuser or user.nivel >= 4 %}
                             <a href="{% url 'inmobiliaria:crear_sucursal' %}" class="btn btn-primary">
                                 <i class="fas fa-plus"></i> Nueva Sucursal
                             </a>
@@ -64,7 +64,7 @@
                                                        class="btn btn-info btn-sm" title="Ver detalles">
                                                         <i class="fas fa-eye"></i>
                                                     </a>
-                                                    {% if user.nivel == 4 %}
+                                                    {% if user.is_superuser or user.nivel >= 4 %}
                                                         <a href="{% url 'inmobiliaria:editar_sucursal' sucursal.id %}" 
                                                            class="btn btn-warning btn-sm" title="Editar">
                                                             <i class="fas fa-edit"></i>
@@ -93,7 +93,7 @@
                         <div class="alert alert-info">
                             <i class="fas fa-info-circle"></i>
                             No hay sucursales registradas.
-                            {% if user.nivel == 4 %}
+                            {% if user.is_superuser or user.nivel >= 4 %}
                                 <a href="{% url 'inmobiliaria:crear_sucursal' %}" class="btn btn-primary btn-sm ml-2">
                                     <i class="fas fa-plus"></i> Crear Primera Sucursal
                                 </a>
@@ -109,8 +109,8 @@
 <!-- Debug: Ver nivel del usuario -->
 <div class="mt-2">
     <small class="text-muted">
-        Debug: Nivel de usuario = {{ user.nivel }} 
-        {% if user.nivel == 4 %}(Administrador){% endif %}
+        Debug: Nivel de usuario = {{ user.nivel }}
+        {% if user.nivel == 5 %}(Super administrador){% elif user.is_superuser or user.nivel >= 4 %}(Administrador){% endif %}
     </small>
 </div>
 {% endblock %}
