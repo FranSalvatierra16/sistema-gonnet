@@ -18,27 +18,27 @@
                 <!-- Menú de pestañas -->
                 <ul class="nav nav-tabs" id="propertyTab" role="tablist">
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link active" id="info-tab" data-bs-toggle="tab" data-bs-target="#info" type="button" role="tab" aria-controls="info" aria-selected="true">
+                        <button class="nav-link{% if active_tab == 'info' %} active{% endif %}" id="info-tab" data-bs-toggle="tab" data-bs-target="#info" type="button" role="tab" aria-controls="info" aria-selected="{% if active_tab == 'info' %}true{% else %}false{% endif %}">
                             <i class="fas fa-info-circle"></i> Información
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="venta-tab" data-bs-toggle="tab" data-bs-target="#venta" type="button" role="tab" aria-controls="venta" aria-selected="false">
+                        <button class="nav-link{% if active_tab == 'venta' %} active{% endif %}" id="venta-tab" data-bs-toggle="tab" data-bs-target="#venta" type="button" role="tab" aria-controls="venta" aria-selected="{% if active_tab == 'venta' %}true{% else %}false{% endif %}">
                             <i class="fas fa-dollar-sign"></i> Venta
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="meses-tab" data-bs-toggle="tab" data-bs-target="#meses" type="button" role="tab" aria-controls="meses" aria-selected="false">
+                        <button class="nav-link{% if active_tab == 'meses' %} active{% endif %}" id="meses-tab" data-bs-toggle="tab" data-bs-target="#meses" type="button" role="tab" aria-controls="meses" aria-selected="{% if active_tab == 'meses' %}true{% else %}false{% endif %}">
                             <i class="fas fa-calendar"></i> 24 Meses
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="invierno-tab" data-bs-toggle="tab" data-bs-target="#invierno" type="button" role="tab" aria-controls="invierno" aria-selected="false">
+                        <button class="nav-link{% if active_tab == 'invierno' %} active{% endif %}" id="invierno-tab" data-bs-toggle="tab" data-bs-target="#invierno" type="button" role="tab" aria-controls="invierno" aria-selected="{% if active_tab == 'invierno' %}true{% else %}false{% endif %}">
                             <i class="fas fa-snowflake"></i> Invierno
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="imagenes-tab" data-bs-toggle="tab" data-bs-target="#imagenes" type="button" role="tab" aria-controls="imagenes" aria-selected="false">
+                        <button class="nav-link{% if active_tab == 'imagenes' %} active{% endif %}" id="imagenes-tab" data-bs-toggle="tab" data-bs-target="#imagenes" type="button" role="tab" aria-controls="imagenes" aria-selected="{% if active_tab == 'imagenes' %}true{% else %}false{% endif %}">
                             <i class="fas fa-images"></i> Imágenes
                         </button>
                     </li>
@@ -47,7 +47,7 @@
                 <!-- Contenido de las pestañas -->
                 <div class="tab-content" id="propertyTabContent">
                     <!-- Pestaña de Información -->
-                    <div class="tab-pane fade show active" id="info" role="tabpanel">
+                    <div class="tab-pane fade{% if active_tab == 'info' %} show active{% endif %}" id="info" role="tabpanel">
                         <div class="card-body">
                             <div class="row">
                                 <!-- Columna izquierda: Información Principal y Características -->
@@ -495,7 +495,7 @@
 
 
                     <!-- Pestaña de Venta -->
-                    <div class="tab-pane fade" id="venta" role="tabpanel">
+                    <div class="tab-pane fade{% if active_tab == 'venta' %} show active{% endif %}" id="venta" role="tabpanel">
                         <div class="container mt-4">
                             {% if info_venta and info_venta.en_venta %}
                                 <div class="card">
@@ -581,7 +581,7 @@
                     </div>
 
                     <!-- Pestaña de 24 Meses -->
-                    <div class="tab-pane fade" id="meses" role="tabpanel">
+                    <div class="tab-pane fade{% if active_tab == 'meses' %} show active{% endif %}" id="meses" role="tabpanel">
                         <div class="container mt-4">
                             {% if propiedad.info_meses and propiedad.info_meses.disponible %}
                                 <div class="card">
@@ -694,8 +694,8 @@
                                     </div>
                                     <div class="modal-body">
                                         <div class="form-check mb-3">
-                                            <input class="form-check-input" type="checkbox" name="disponible" id="disponible_meses" 
-                                                   {% if propiedad.info_meses.disponible %}checked{% endif %}>
+                                            <input class="form-check-input" type="checkbox" name="disponible" id="disponible_meses"
+                                                   {% if propiedad.info_meses and propiedad.info_meses.disponible %}checked{% endif %}>
                                             <label class="form-check-label" for="disponible_meses">
                                                 Habilitar alquiler por 24 meses
                                             </label>
@@ -834,7 +834,7 @@
                     </div>
 
                     <!-- Pestaña de Invierno -->
-                    <div class="tab-pane fade" id="invierno" role="tabpanel">
+                    <div class="tab-pane fade{% if active_tab == 'invierno' %} show active{% endif %}" id="invierno" role="tabpanel">
                         <div class="container mt-4">
                             {% if propiedad.info_invierno and propiedad.info_invierno.disponible %}
                                 <div class="card">
@@ -935,58 +935,9 @@
                             {% endif %}
                         </div>
                     </div>
-                </div>
-
-                <!-- Botones de acciones -->
-                <div class="card-footer text-center">
-                    <a href="{% url 'inmobiliaria:propiedad_editar' propiedad_id=propiedad.id %}" class="btn btn-primary">
-                        <i class="fas fa-edit"></i> Editar
-                    </a>
-                    {% if puede_cambiar_sucursal_propiedad %}
-                    <a href="{% url 'inmobiliaria:propiedad_cambiar_sucursal' propiedad_id=propiedad.id %}" class="btn btn-outline-warning" title="Requiere confirmación por escrito">
-                        <i class="fas fa-building"></i> Cambiar sucursal
-                    </a>
-                    {% endif %}
-                    {% if user.nivel >= 2 %}
-                    <a href="{% url 'inmobiliaria:propiedad_eliminar' propiedad_id=propiedad.id %}" class="btn btn-danger">
-                        <i class="fas fa-trash"></i> Eliminar
-                    </a>
-                    <a href="{% url 'inmobiliaria:crear_disponibilidad' propiedad_id=propiedad.id %}" class="btn btn-success">
-                        <i class="fas fa-calendar-plus"></i> Agregar Disponibilidad
-                    </a>
-                    <a href="{% url 'inmobiliaria:gestionar_precios' propiedad_id=propiedad.id %}" class="btn btn-success">
-                        <i class="fas fa-dollar-sign"></i> Gestionar Precios
-                    </a>
-                    <!-- Botón de WhatsApp con más información -->
-                    <a href="https://wa.me/549{{ telefono_empresa }}?text={% spaceless %}
-                        *Consulta por propiedad en {{ propiedad.direccion }}*%0A
-                        {% if propiedad.tipo_inmueble %}Tipo: {{ propiedad.get_tipo_inmueble_display }}%0A{% endif %}
-                        {% if propiedad.ambientes %}Ambientes: {{ propiedad.ambientes }}%0A{% endif %}
-                        {% if propiedad.metros_cuadrados %}Superficie: {{ propiedad.metros_cuadrados }}m²%0A{% endif %}
-                        {% if propiedad.precio_usd %}Precio: U$D {{ propiedad.precio_usd}}%0A{% endif %}
-                        %0AMás información: https://{{ request.get_host }}/propiedad/{{ propiedad.id }}
-                        {% endspaceless %}"
-                       target="_blank" 
-                       class="btn btn-success">
-                        <i class="fab fa-whatsapp"></i> Consultar por WhatsApp
-                    </a>
-                    {% endif %}
-                    <button type="button" class="btn btn-info" onclick="verHistorial()">
-                        <i class="fas fa-history"></i> Ver Historial
-                    </button>
-                </div>
-            
-
-                    <div class="tab-pane fade" id="meses" role="tabpanel">
-                        <!-- Contenido de 24 meses -->
-                    </div>
-
-                    <div class="tab-pane fade" id="invierno" role="tabpanel">
-                        <!-- Contenido de invierno -->
-                    </div>
 
                     <!-- Pestaña de Gestión de Imágenes -->
-                    <div class="tab-pane fade" id="imagenes" role="tabpanel">
+                    <div class="tab-pane fade{% if active_tab == 'imagenes' %} show active{% endif %}" id="imagenes" role="tabpanel">
                         <div class="container mt-4">
                             <div class="row">
                                 <div class="col-12">
@@ -1058,6 +1009,44 @@
                             </div>
                         </div>
                     </div>
+                </div>
+
+                <!-- Botones de acciones (fuera de tab-content: todas las pestañas son hermanas) -->
+                <div class="card-footer text-center">
+                    <a href="{% url 'inmobiliaria:propiedad_editar' propiedad_id=propiedad.id %}" class="btn btn-primary">
+                        <i class="fas fa-edit"></i> Editar
+                    </a>
+                    {% if puede_cambiar_sucursal_propiedad %}
+                    <a href="{% url 'inmobiliaria:propiedad_cambiar_sucursal' propiedad_id=propiedad.id %}" class="btn btn-outline-warning" title="Requiere confirmación por escrito">
+                        <i class="fas fa-building"></i> Cambiar sucursal
+                    </a>
+                    {% endif %}
+                    {% if user.nivel >= 2 %}
+                    <a href="{% url 'inmobiliaria:propiedad_eliminar' propiedad_id=propiedad.id %}" class="btn btn-danger">
+                        <i class="fas fa-trash"></i> Eliminar
+                    </a>
+                    <a href="{% url 'inmobiliaria:crear_disponibilidad' propiedad_id=propiedad.id %}" class="btn btn-success">
+                        <i class="fas fa-calendar-plus"></i> Agregar Disponibilidad
+                    </a>
+                    <a href="{% url 'inmobiliaria:gestionar_precios' propiedad_id=propiedad.id %}" class="btn btn-success">
+                        <i class="fas fa-dollar-sign"></i> Gestionar Precios
+                    </a>
+                    <a href="https://wa.me/549{{ telefono_empresa }}?text={% spaceless %}
+                        *Consulta por propiedad en {{ propiedad.direccion }}*%0A
+                        {% if propiedad.tipo_inmueble %}Tipo: {{ propiedad.get_tipo_inmueble_display }}%0A{% endif %}
+                        {% if propiedad.ambientes %}Ambientes: {{ propiedad.ambientes }}%0A{% endif %}
+                        {% if propiedad.metros_cuadrados %}Superficie: {{ propiedad.metros_cuadrados }}m²%0A{% endif %}
+                        {% if propiedad.precio_usd %}Precio: U$D {{ propiedad.precio_usd}}%0A{% endif %}
+                        %0AMás información: https://{{ request.get_host }}/propiedad/{{ propiedad.id }}
+                        {% endspaceless %}"
+                       target="_blank"
+                       class="btn btn-success">
+                        <i class="fab fa-whatsapp"></i> Consultar por WhatsApp
+                    </a>
+                    {% endif %}
+                    <button type="button" class="btn btn-info" onclick="verHistorial()">
+                        <i class="fas fa-history"></i> Ver Historial
+                    </button>
                 </div>
 
                 <!-- Modal de Venta -->

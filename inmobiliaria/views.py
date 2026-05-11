@@ -1877,6 +1877,13 @@ def propiedades(request):
         'propiedades': propiedades_list
     })
 
+def _active_tab_propiedad_detalle(request):
+    """Pestaña inicial en ficha propiedad: ?tab=info|venta|meses|invierno|imagenes (default info)."""
+    allowed = frozenset({'info', 'venta', 'meses', 'invierno', 'imagenes'})
+    t = (request.GET.get('tab') or 'info').strip().lower()
+    return t if t in allowed else 'info'
+
+
 @login_required
 def propiedad_detalle(request, propiedad_id):
     propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
@@ -2153,7 +2160,7 @@ def propiedad_detalle(request, propiedad_id):
         'precios': precios,
         'imagenes': imagenes,
         'historiales': historiales,  # Agregamos el historial al contexto
-        'active_tab': request.GET.get('tab', 'alquiler'),  # default a 'alquiler'
+        'active_tab': _active_tab_propiedad_detalle(request),
         'info_venta': info_venta,  # ✅ Agregamos info_venta al contexto
         'info_meses': info_meses,  # ✅ Agregamos info_meses al contexto
         'info_invierno': info_invierno,  # ✅ Agregamos info_invierno al contexto
