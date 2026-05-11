@@ -14496,9 +14496,9 @@ def procesar_operacion_contrato(request, contrato_id):
         total_movimiento = result[1]
         error_detalle = result[2] if len(result) > 2 else None
         if not movimiento:
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.error(f"Error al procesar movimiento para contrato {contrato_id}: {error_detalle}")
+            logging.getLogger(__name__).error(
+                'Error al procesar movimiento para contrato %s: %s', contrato_id, error_detalle
+            )
             mensaje = error_detalle or 'Error al procesar el movimiento. Verifica los logs del servidor para más detalles.'
             return JsonResponse({'error': mensaje}, status=400)
         
@@ -14541,8 +14541,10 @@ def procesar_operacion_contrato(request, contrato_id):
 
             if es_primera_operacion_principal:
                 fecha_actual = timezone.now().date()
+                # Reintento tras error parcial: no volver a crear cuotas si ya existen (unique contrato+numero_cuota).
+                crear_cuotas_nuevas = not contrato.cuotas.exists()
 
-                if contrato.duracion_meses == 9:
+                if crear_cuotas_nuevas and contrato.duracion_meses == 9:
                     # Vencimientos alineados al contrato (fecha_inicio), no al año del día del cobro.
                     fi = contrato.fecha_inicio
                     if not fi:
@@ -14576,7 +14578,7 @@ def procesar_operacion_contrato(request, contrato_id):
                             movimiento=None,
                             fecha_pago=None,
                         )
-                else:
+                elif crear_cuotas_nuevas:
                     try:
                         fecha_vencimiento = date(fecha_actual.year, fecha_actual.month, contrato.dia_vencimiento)
                         if fecha_actual.day >= contrato.dia_vencimiento:
@@ -14702,10 +14704,9 @@ def procesar_operacion_contrato(request, contrato_id):
         })
     except Exception as e:
         import traceback
-        import logging
-        logger = logging.getLogger(__name__)
+
         error_msg = f"Error al procesar operación contrato {contrato_id}: {str(e)}\n{traceback.format_exc()}"
-        logger.error(error_msg)
+        logging.getLogger(__name__).error(error_msg)
         return JsonResponse({'error': f'Error al procesar la operación: {str(e)}'}, status=400)
 
 @login_required
