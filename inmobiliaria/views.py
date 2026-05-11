@@ -14600,66 +14600,26 @@ def procesar_operacion_contrato(request, contrato_id):
                         except Exception:
                             fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
 
-                # En operación principal, si hay concepto 1000 imputar cuotas explícitas
-                # o, si no hay objetivo, por orden desde la primera cuota pendiente.
+                # En operación principal: imputar cuotas desde líneas 1000 ARS en concepto_detalle del movimiento.
+                from inmobiliaria.cuotas_imputacion import imputar_cuotas_mensuales_desde_movimiento_1000
+
                 try:
-                    import json as _json_cuotas_principal
-                    raw_det = (getattr(movimiento, 'concepto_detalle', None) or '').strip()
-                    payload_det = _json_cuotas_principal.loads(raw_det) if raw_det.startswith('{') else {}
-                    lineas = payload_det.get('conceptos', []) if isinstance(payload_det, dict) else []
-
-                    lineas_1000 = []
-                    for it in lineas:
-                        cid = str(it.get('id') or it.get('codigo') or '').strip()
-                        moneda = str(it.get('moneda') or 'ARS').strip().upper()
-                        if cid != '1000' or moneda == 'USD':
-                            continue
-                        imp = parse_decimal_monto(it.get('importe'))
-                        if imp > 0:
-                            lineas_1000.append(it)
-
-                    if lineas_1000:
-                        cuotas_pendientes = list(
-                            contrato.cuotas.filter(estado__in=['pendiente', 'vencida']).order_by('numero_cuota')
+                    n_imp = imputar_cuotas_mensuales_desde_movimiento_1000(contrato, movimiento)
+                    if n_imp == 0 and contrato.cuotas.filter(
+                        estado__in=['pendiente', 'vencida']
+                    ).exists():
+                        logger.warning(
+                            'Operación principal contrato=%s movimiento=%s: hay cuotas pendientes pero '
+                            'no se imputó ninguna (concepto_detalle sin líneas 1000 ARS o montos no alcanzan).',
+                            contrato.id,
+                            movimiento.id,
                         )
-                        cuotas_by_id = {c.id: c for c in cuotas_pendientes}
-                        asignado_por_cuota = {}
-                        idx_primera_pendiente = 0
-
-                        for it in lineas_1000:
-                            imp = parse_decimal_monto(it.get('importe'))
-                            raw_qid = str(it.get('cuota_objetivo_id') or '').strip()
-                            cuota_target = None
-                            if raw_qid.isdigit():
-                                cuota_target = cuotas_by_id.get(int(raw_qid))
-                            if not cuota_target:
-                                while idx_primera_pendiente < len(cuotas_pendientes):
-                                    cnd = cuotas_pendientes[idx_primera_pendiente]
-                                    idx_primera_pendiente += 1
-                                    if cnd.estado in ('pendiente', 'vencida'):
-                                        cuota_target = cnd
-                                        break
-                            if not cuota_target:
-                                break
-                            prev = asignado_por_cuota.get(cuota_target.id, Decimal('0'))
-                            asignado_por_cuota[cuota_target.id] = prev + imp
-
-                        tol_q = Decimal('0.05')
-                        hoy_q = timezone.now().date()
-                        for cq in cuotas_pendientes:
-                            cubierto = asignado_por_cuota.get(cq.id, Decimal('0'))
-                            objetivo = Decimal(str(cq.monto_total or 0))
-                            if cubierto > 0 and cubierto + tol_q >= objetivo:
-                                cq.estado = 'pagada'
-                                cq.fecha_pago = hoy_q
-                                cq.movimiento = movimiento
-                                cq.monto_base = cubierto
-                                cq.monto_total = cubierto
-                                cq.recargo_mora = Decimal('0')
-                                cq.descuento = Decimal('0')
-                                cq.save()
                 except Exception:
-                    pass
+                    logger.exception(
+                        'Fallo imputación cuotas operación principal contrato=%s movimiento=%s',
+                        contrato.id,
+                        getattr(movimiento, 'id', None),
+                    )
 
                 contrato.operacion_principal = True
                 contrato.estado = 'activo'
