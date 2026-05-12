@@ -393,7 +393,7 @@
                             <div id="conceptoSugerenciasLista" class="list-group position-absolute w-100 shadow-sm border rounded mt-1 d-none"
                                  style="max-height: 260px; overflow-y: auto; z-index: 1060; top: 100%; left: 0;"></div>
                         </div>
-                        <small class="text-muted">Con <strong>2+ letras</strong> o parte del nombre aparecen sugerencias abajo; tocá una para elegir. Con <strong>ID exacto</strong> se selecciona al toque. «Buscar» sigue abriendo la tabla completa.</small>
+                        <small class="text-muted">Con <strong>2+ letras</strong> aparecen sugerencias abajo: <strong>siempre</strong> tocá una para elegir (no se elige sola). Solo con <strong>ID exacto</strong> (ej. 1000) se aplica sin tocar la lista. «Buscar» abre la tabla completa.</small>
                     </div>
                     
                     <!-- Información del concepto seleccionado -->
@@ -1403,10 +1403,6 @@ function buscarConceptoPorId(raw) {
         conceptoSeleccionadoActual = null;
         renderOpcionesCuotasObjetivo('');
         ocultarSugerenciasConceptoLista();
-        return;
-    }
-    if (slice.length === 1) {
-        aplicarSeleccionConceptoModal(slice[0].id, slice[0].nombre);
         return;
     }
     if (infoDiv) infoDiv.style.display = 'none';

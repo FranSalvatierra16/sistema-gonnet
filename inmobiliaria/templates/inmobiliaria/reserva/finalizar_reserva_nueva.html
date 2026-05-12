@@ -578,10 +578,6 @@ function buscarConceptoPorId(raw) {
         ocultarSugerenciasConceptoLista();
         return;
     }
-    if (slice.length === 1) {
-        aplicarSeleccionConceptoModal(slice[0].id, slice[0].nombre);
-        return;
-    }
     if (infoDiv) infoDiv.style.display = 'none';
     conceptoSeleccionadoActual = null;
     if (!listEl) return;
@@ -1577,7 +1573,7 @@ window.habilitarBotonProcesar = habilitarBotonProcesar;
                             <div id="conceptoSugerenciasLista" class="list-group position-absolute w-100 shadow-sm border rounded mt-1 d-none"
                                  style="max-height: 260px; overflow-y: auto; z-index: 1060; top: 100%; left: 0;"></div>
                         </div>
-                        <small class="text-muted">Con <strong>2+ letras</strong> aparecen sugerencias debajo; tocá una para elegir. Con <strong>ID exacto</strong> se selecciona al toque.</small>
+                        <small class="text-muted">Con <strong>2+ letras</strong> aparecen sugerencias: <strong>tocá</strong> la que quieras (no se elige sola). Solo <strong>ID exacto</strong> se aplica al toque.</small>
                     </div>
                     
                     <!-- Información del concepto seleccionado -->
