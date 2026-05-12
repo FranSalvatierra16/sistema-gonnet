@@ -285,6 +285,11 @@ urlpatterns = [
         name='eliminar_ultima_cuota_contrato',
     ),
     path(
+        'contratos/<int:contrato_id>/cuotas/<int:cuota_id>/eliminar-super/',
+        views.eliminar_cuota_contrato_super_admin,
+        name='eliminar_cuota_contrato_super_admin',
+    ),
+    path(
         'contratos/<int:contrato_id>/recalcular-montos-cuotas/',
         views.recalcular_cuotas_montos_desde_contrato,
         name='recalcular_cuotas_montos_desde_contrato',

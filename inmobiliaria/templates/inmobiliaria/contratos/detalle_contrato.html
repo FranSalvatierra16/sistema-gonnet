@@ -406,6 +406,18 @@
                                         Efectivo
                                     </button>
                                     {% endif %}
+                                    {% if user.nivel == 5 and cuotas.count > 1 %}
+                                    <div class="mt-1">
+                                        <form method="post" class="d-inline"
+                                              action="{% url 'inmobiliaria:eliminar_cuota_contrato_super_admin' contrato.id cuota.id %}"
+                                              onsubmit="return confirm('¿Quitar la cuota {{ cuota.numero_cuota }}/{{ contrato.duracion_meses }} del plan? Las cuotas posteriores se renumeran, los vencimientos se adelantan un mes y la duración del contrato baja un mes.{% if cuota.movimiento_id %} Si hay un único cobro en caja asociado a esta cuota, también se anula.{% endif %}');">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Solo super administrador">
+                                                <i class="fas fa-calendar-minus"></i> Quitar mes
+                                            </button>
+                                        </form>
+                                    </div>
+                                    {% endif %}
                                 {% elif cuota.estado == 'pagada' %}
                                     {% if cuota.movimiento %}
                                     <a class="btn btn-sm btn-info"

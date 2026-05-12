@@ -13332,6 +13332,125 @@ def eliminar_ultima_cuota_contrato(request, contrato_id):
 
 @login_required
 @require_POST
+@transaction.atomic
+def eliminar_cuota_contrato_super_admin(request, contrato_id, cuota_id):
+    """
+    Elimina una cuota mensual concreta (no solo la última): acorta el plan un mes,
+    renumera las cuotas posteriores y adelanta sus vencimientos un mes.
+    Solo super administrador (nivel 5). No aplica a cuotas pagadas.
+    Si la cuota tiene movimiento de caja exclusivo de esa cuota, lo anula antes.
+    """
+    if not usuario_puede_eliminar_movimiento_caja(request.user):
+        messages.error(request, 'Solo el super administrador puede eliminar cuotas del plan de esta forma.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato_id)
+
+    contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
+    if contrato.estado not in ('activo', 'reservado'):
+        messages.error(request, 'Solo podés eliminar cuotas en contratos activos o reservados.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+    cuota = get_object_or_404(
+        CuotaMensual.objects.select_related('contrato', 'movimiento', 'movimiento__caja'),
+        id=cuota_id,
+        contrato=contrato,
+    )
+
+    total = contrato.cuotas.count()
+    if total <= 1:
+        messages.error(request, 'No se puede eliminar la única cuota del contrato.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+    if cuota.estado in ('pagada', 'pagada_con_mora'):
+        messages.error(
+            request,
+            f'No se puede eliminar la cuota {cuota.numero_cuota} porque consta como pagada.',
+        )
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+    mov = cuota.movimiento
+    mov_id = getattr(mov, 'id', None) if mov else None
+    if mov_id:
+        if getattr(mov, 'fecha_eliminacion', None):
+            messages.error(
+                request,
+                'La cuota apunta a un movimiento de caja ya anulado; actualizá la página o corregí el vínculo.',
+            )
+            return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+        n_con_cuota = CuotaMensual.objects.filter(movimiento_id=mov_id).count()
+        if n_con_cuota > 1:
+            messages.error(
+                request,
+                'Este cobro está imputado a más de una cuota. Anulá primero el movimiento de caja (desde recibos / caja) y luego ajustá las cuotas manualmente si hace falta.',
+            )
+            return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+        caja = mov.caja
+        if not caja or getattr(caja, 'estado', None) != 'abierta' or caja.fecha_cierre is not None:
+            messages.error(
+                request,
+                'La cuota tiene un cobro en caja y la caja no está abierta; no se puede anular desde acá.',
+            )
+            return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+        _eliminar_movimiento_y_anexos(mov, eliminado_por=request.user)
+        cuota.refresh_from_db()
+
+    K = int(cuota.numero_cuota)
+    TEMP = 1_000_000 + int(contrato.id) * 1_000
+
+    later_desc = list(contrato.cuotas.filter(numero_cuota__gt=K).order_by('-numero_cuota'))
+    for q in later_desc:
+        q.numero_cuota = int(q.numero_cuota) + TEMP
+        q.save(update_fields=['numero_cuota'])
+
+    numero_eliminado = K
+    cuota.delete()
+
+    for q in contrato.cuotas.filter(numero_cuota__gt=TEMP).order_by('numero_cuota'):
+        old_temp = int(q.numero_cuota)
+        nuevo_num = old_temp - TEMP - 1
+        nueva_fecha = q.fecha_vencimiento - relativedelta(months=1)
+        q.numero_cuota = nuevo_num
+        q.fecha_vencimiento = nueva_fecha
+        q.save(update_fields=['numero_cuota', 'fecha_vencimiento'])
+
+    nueva_duracion = total - 1
+    contrato.duracion_meses = nueva_duracion
+    contrato.fecha_fin = _fecha_fin_desde_inicio_y_duracion(contrato.fecha_inicio, nueva_duracion)
+
+    if contrato.duracion_meses != 9 and isinstance(contrato.precios_bloques, list):
+        num_bloques = max(1, (nueva_duracion + 2) // 3)
+        n_extra = max(0, num_bloques - 1)
+        contrato.precios_bloques = list(contrato.precios_bloques[:n_extra])
+        contrato.save(update_fields=['duracion_meses', 'fecha_fin', 'precios_bloques'])
+    else:
+        contrato.save(update_fields=['duracion_meses', 'fecha_fin'])
+
+    montos = _montos_cuotas_por_trimestre(contrato)
+    for c in contrato.cuotas.exclude(estado__in=['pagada', 'pagada_con_mora']).order_by('numero_cuota'):
+        idx = int(c.numero_cuota) - 1
+        if idx < len(montos):
+            c.monto_base = montos[idx]
+            c.recargo_mora = Decimal('0')
+            c.descuento = Decimal('0')
+            c.actualizar_monto_total()
+
+    hoy = timezone.now().date()
+    for c in contrato.cuotas.exclude(estado__in=['pagada', 'pagada_con_mora']):
+        if c.fecha_vencimiento < hoy and c.estado == 'pendiente':
+            c.estado = 'vencida'
+            c.save(update_fields=['estado'])
+        elif c.fecha_vencimiento >= hoy and c.estado == 'vencida':
+            c.estado = 'pendiente'
+            c.save(update_fields=['estado'])
+
+    messages.success(
+        request,
+        f'Se eliminó la cuota {numero_eliminado} del plan y se reacomodaron las siguientes ({nueva_duracion} meses en total).',
+    )
+    return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+
+@login_required
+@require_POST
 def recalcular_cuotas_montos_desde_contrato(request, contrato_id):
     """Vuelve a calcular monto_base/monto_total de cuotas no pagadas según precio_mensual y precios_bloques del contrato."""
     contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
