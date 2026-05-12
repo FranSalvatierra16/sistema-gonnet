@@ -63,6 +63,23 @@ function conceptoCatalogoIdEtiqueta(id) {
     return (s.toUpperCase() === 'RE') ? 'RECIBO' : s;
 }
 
+function escapeHtmlAttr(s) {
+    if (s == null || s === '') return '';
+    return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
+function ocultarSugerenciasConceptoLista() {
+    const listEl = document.getElementById('conceptoSugerenciasLista');
+    if (!listEl) return;
+    listEl.classList.add('d-none');
+    listEl.innerHTML = '';
+}
+
 // ✅ FUNCIÓN GLOBAL PARA ACTUALIZAR PAGOS (debe estar al principio para los event listeners inline)
 function actualizarPagos() {
     console.log('🔄 ACTUALIZANDO PAGOS...');
@@ -444,6 +461,7 @@ function mostrarModalConcepto() {
     if (formElement) {
         formElement.reset();
     }
+    ocultarSugerenciasConceptoLista();
 
     // Mostrar modal usando Bootstrap 5
     try {
@@ -483,19 +501,41 @@ function mostrarModalNuevoConcepto() {
     }
 }
 
+function _scoreConceptoMatch(termLower, idStr, nombreLower, descLower) {
+    if (nombreLower.indexOf(termLower) === 0) return 0;
+    if (nombreLower.includes(termLower)) return 1;
+    if (descLower.includes(termLower)) return 2;
+    if (idStr.includes(termLower)) return 3;
+    return 99;
+}
+
+function aplicarSeleccionConceptoModal(idStr, nombreMostrar) {
+    const infoDiv = document.getElementById('infoConceptoSeleccionado');
+    const nombreSpan = document.getElementById('nombreConceptoSeleccionado');
+    const inp = document.getElementById('conceptoId');
+    if (nombreSpan) nombreSpan.textContent = 'ID: ' + conceptoCatalogoIdEtiqueta(idStr) + ' - ' + nombreMostrar;
+    if (infoDiv) infoDiv.style.display = 'block';
+    conceptoSeleccionadoActual = { id: idStr, nombre: nombreMostrar };
+    if (inp) inp.value = idStr;
+    ocultarSugerenciasConceptoLista();
+}
+
 function buscarConceptoPorId(raw) {
     const infoDiv = document.getElementById('infoConceptoSeleccionado');
     const nombreSpan = document.getElementById('nombreConceptoSeleccionado');
+    const inp = document.getElementById('conceptoId');
+    const listEl = document.getElementById('conceptoSugerenciasLista');
     const term = (raw || '').toString().trim();
     if (!term) {
         if (infoDiv) infoDiv.style.display = 'none';
         conceptoSeleccionadoActual = null;
+        ocultarSugerenciasConceptoLista();
         return;
     }
     const termLower = term.toLowerCase();
     const filas = document.querySelectorAll('#tablaConceptosBusqueda tr[data-concepto-id]');
-    let exact = null;
-    const porNombre = [];
+    let exactId = null;
+    const porTexto = [];
     filas.forEach(function(fila) {
         const idStr = String(fila.dataset.conceptoId || '').trim();
         const nombreCell = fila.querySelector('td:nth-child(2)');
@@ -503,25 +543,64 @@ function buscarConceptoPorId(raw) {
         const nombreLower = nombreMostrar.toLowerCase();
         const descLower = (fila.dataset.conceptoDesc || '').toLowerCase();
         if (idStr === term || idStr.toLowerCase() === termLower) {
-            exact = { id: idStr, nombre: nombreMostrar };
-        } else if (termLower.length >= 3 && (nombreLower.includes(termLower) || descLower.includes(termLower))) {
-            porNombre.push({ id: idStr, nombre: nombreMostrar });
+            exactId = { id: idStr, nombre: nombreMostrar };
+            return;
+        }
+        if (termLower.length >= 2) {
+            if (nombreLower.includes(termLower) || descLower.includes(termLower) || idStr.toLowerCase().includes(termLower)) {
+                porTexto.push({
+                    id: idStr,
+                    nombre: nombreMostrar,
+                    _score: _scoreConceptoMatch(termLower, idStr.toLowerCase(), nombreLower, descLower),
+                });
+            }
         }
     });
-    let elegido = exact;
-    if (!elegido && porNombre.length > 0) {
-        elegido = { id: porNombre[0].id, nombre: porNombre[0].nombre };
+    if (exactId) {
+        aplicarSeleccionConceptoModal(exactId.id, exactId.nombre);
+        return;
     }
-    if (elegido) {
-        if (nombreSpan) nombreSpan.textContent = 'ID: ' + elegido.id + ' - ' + elegido.nombre;
-        if (infoDiv) infoDiv.style.display = 'block';
-        conceptoSeleccionadoActual = { id: elegido.id, nombre: elegido.nombre };
-        const inp = document.getElementById('conceptoId');
-        if (inp) inp.value = elegido.id;
-    } else {
+    if (termLower.length < 2) {
         if (infoDiv) infoDiv.style.display = 'none';
         conceptoSeleccionadoActual = null;
+        ocultarSugerenciasConceptoLista();
+        return;
     }
+    porTexto.sort(function(a, b) {
+        if (a._score !== b._score) return a._score - b._score;
+        return parseInt(a.id, 10) - parseInt(b.id, 10);
+    });
+    const maxN = 25;
+    const slice = porTexto.slice(0, maxN);
+    if (slice.length === 0) {
+        if (infoDiv) infoDiv.style.display = 'none';
+        conceptoSeleccionadoActual = null;
+        ocultarSugerenciasConceptoLista();
+        return;
+    }
+    if (slice.length === 1) {
+        aplicarSeleccionConceptoModal(slice[0].id, slice[0].nombre);
+        return;
+    }
+    if (infoDiv) infoDiv.style.display = 'none';
+    conceptoSeleccionadoActual = null;
+    if (!listEl) return;
+    const esc = escapeHtmlAttr;
+    listEl.innerHTML = slice.map(function(m) {
+        return (
+            '<button type="button" class="list-group-item list-group-item-action py-2 px-3 text-start concepto-sugerencia-item" ' +
+            'data-sug-id="' + esc(m.id) + '" data-sug-nombre="' + esc(m.nombre) + '">' +
+            '<span class="fw-semibold text-primary">' + esc(conceptoCatalogoIdEtiqueta(m.id)) + '</span>' +
+            '<span class="text-muted"> — </span>' +
+            '<span>' + esc(m.nombre) + '</span>' +
+            '</button>'
+        );
+    }).join('');
+    if (porTexto.length > maxN) {
+        listEl.insertAdjacentHTML('beforeend',
+            '<div class="list-group-item small text-muted py-1">…y ' + (porTexto.length - maxN) + ' más (afiná la búsqueda o usá «Buscar»)</div>');
+    }
+    listEl.classList.remove('d-none');
 }
 
 function agregarConcepto() {
@@ -590,6 +669,7 @@ function agregarConcepto() {
 // Función para seleccionar un concepto
 function seleccionarConcepto(id, nombre) {
     console.log('🔧 seleccionarConcepto llamada:', id, nombre);
+    ocultarSugerenciasConceptoLista();
     
     conceptoSeleccionadoActual = { id: id, nombre: nombre };
     
@@ -692,9 +772,10 @@ function editarConcepto(conceptoId) {
     const infoDiv = document.getElementById('infoConceptoSeleccionado');
     const nombreSpan = document.getElementById('nombreConceptoSeleccionado');
     if (infoDiv && nombreSpan) {
-        nombreSpan.textContent = `ID: ${concepto.conceptoId} - ${concepto.nombre}`;
+        nombreSpan.textContent = `ID: ${conceptoCatalogoIdEtiqueta(concepto.conceptoId)} - ${concepto.nombre}`;
         infoDiv.style.display = 'block';
     }
+    ocultarSugerenciasConceptoLista();
     
     // Cambiar el título del modal y el botón
     document.getElementById('modalConceptoLabel').textContent = '✏️ Editar Concepto';
@@ -936,6 +1017,20 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // ✅ Event listener para los botones de seleccionar concepto (delegación de eventos)
     document.addEventListener('click', function(e) {
+        const sug = e.target.closest('.concepto-sugerencia-item');
+        if (sug && sug.dataset.sugId) {
+            aplicarSeleccionConceptoModal(String(sug.dataset.sugId), String(sug.dataset.sugNombre || ''));
+            e.preventDefault();
+            return;
+        }
+        const wrapSug = document.getElementById('wrapConceptoIdSugerencias');
+        const listSug = document.getElementById('conceptoSugerenciasLista');
+        if (
+            wrapSug && listSug && !listSug.classList.contains('d-none')
+            && !wrapSug.contains(e.target)
+        ) {
+            ocultarSugerenciasConceptoLista();
+        }
         const btnSeleccionar = e.target.closest('.btn-seleccionar-concepto');
         if (btnSeleccionar) {
             e.preventDefault();
@@ -1467,18 +1562,22 @@ window.habilitarBotonProcesar = habilitarBotonProcesar;
                     <!-- Input para ID del concepto -->
                     <div class="mb-3">
                         <label for="conceptoId" class="form-label"><strong>ID o nombre del concepto:</strong></label>
-                        <div class="input-group">
-                            <input type="text" class="form-control" id="conceptoId" 
-                                   placeholder="Ej: 10 o parte del nombre (3+ letras)" 
-                                   oninput="buscarConceptoPorId(this.value)" autocomplete="off">
-                            <button type="button" class="btn btn-outline-primary" onclick="mostrarModalBuscarConcepto()">
-                                🔍 Buscar
-                            </button>
-                            <button type="button" class="btn btn-success" onclick="mostrarModalNuevoConcepto()">
-                                ➕ Nuevo
-                            </button>
+                        <div class="position-relative" id="wrapConceptoIdSugerencias">
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="conceptoId"
+                                       placeholder="Escribí para filtrar o el ID exacto (ej. 1000)"
+                                       oninput="buscarConceptoPorId(this.value)" autocomplete="off">
+                                <button type="button" class="btn btn-outline-primary" onclick="mostrarModalBuscarConcepto()">
+                                    🔍 Buscar
+                                </button>
+                                <button type="button" class="btn btn-success" onclick="mostrarModalNuevoConcepto()">
+                                    ➕ Nuevo
+                                </button>
+                            </div>
+                            <div id="conceptoSugerenciasLista" class="list-group position-absolute w-100 shadow-sm border rounded mt-1 d-none"
+                                 style="max-height: 260px; overflow-y: auto; z-index: 1060; top: 100%; left: 0;"></div>
                         </div>
-                        <small class="text-muted">Coincidencia exacta por ID, o por nombre/descripción con al menos 3 caracteres (se toma la primera coincidencia; usá «Buscar» para ver todas).</small>
+                        <small class="text-muted">Con <strong>2+ letras</strong> aparecen sugerencias debajo; tocá una para elegir. Con <strong>ID exacto</strong> se selecciona al toque.</small>
                     </div>
                     
                     <!-- Información del concepto seleccionado -->
