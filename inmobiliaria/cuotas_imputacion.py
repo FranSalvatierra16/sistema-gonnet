@@ -79,6 +79,14 @@ def imputar_cuotas_mensuales_desde_movimiento_1000(contrato, movimiento) -> int:
     if not lineas_imputables:
         return 0
 
+    tol_q = Decimal('0.05')
+    monto_lineas = sum(parse_decimal_monto(it.get('importe')) for it in lineas_imputables)
+    monto_ya_imputado = Decimal('0')
+    for cq in contrato.cuotas.filter(movimiento=movimiento, estado__in=['pagada', 'pagada_con_mora']):
+        monto_ya_imputado += Decimal(str(cq.monto_total or 0))
+    if monto_ya_imputado > 0 and monto_ya_imputado + tol_q >= monto_lineas:
+        return 0
+
     cuotas_pendientes = list(
         contrato.cuotas.filter(estado__in=['pendiente', 'vencida']).order_by('numero_cuota')
     )
@@ -107,7 +115,6 @@ def imputar_cuotas_mensuales_desde_movimiento_1000(contrato, movimiento) -> int:
         prev = asignado_por_cuota.get(cuota_target.id, Decimal('0'))
         asignado_por_cuota[cuota_target.id] = prev + imp
 
-    tol_q = Decimal('0.05')
     from django.utils import timezone
 
     hoy_q = timezone.now().date()

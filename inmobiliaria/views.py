@@ -13168,15 +13168,6 @@ def detalle_contrato(request, contrato_id):
         .order_by('fecha', 'id')[:40]
     )
 
-    if movimientos_recibo_contrato and cuotas.filter(estado__in=['pendiente', 'vencida']).exists():
-        from inmobiliaria.cuotas_imputacion import imputar_cuotas_mensuales_desde_movimiento_1000
-
-        imputadas = 0
-        for mov in movimientos_recibo_contrato:
-            imputadas += imputar_cuotas_mensuales_desde_movimiento_1000(contrato, mov)
-        if imputadas:
-            cuotas = contrato.cuotas.all().order_by('numero_cuota')
-
     # Estadísticas
     cuotas_pagadas = cuotas.filter(estado='pagada').count()
     cuotas_vencidas = cuotas.filter(estado='pendiente', fecha_vencimiento__lt=timezone.now().date()).count()
