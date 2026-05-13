@@ -33,6 +33,17 @@ class ContratoAlquiler(models.Model):
     dia_vencimiento = models.PositiveIntegerField(default=5, help_text='Día del mes para vencimiento de cuotas (1-28)')
     
     # Montos
+    MONEDA_CUOTA_CHOICES = [
+        ('ARS', 'Pesos (ARS)'),
+        ('USD', 'Dólares (USD)'),
+    ]
+    moneda = models.CharField(
+        max_length=3,
+        choices=MONEDA_CUOTA_CHOICES,
+        default='ARS',
+        verbose_name='Moneda de cuotas',
+        help_text='Moneda en la que se expresan el precio mensual y las cuotas del plan.',
+    )
     precio_mensual = models.DecimalField(max_digits=10, decimal_places=2)
     precio_segundo_cuatrimestre = models.DecimalField(
         max_digits=10, decimal_places=2, null=True, blank=True,

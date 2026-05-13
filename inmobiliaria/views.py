@@ -12712,6 +12712,9 @@ def crear_contrato_alquiler(request):
             if duracion_meses <= 0:
                 return JsonResponse({'error': 'La duración debe ser mayor a 0 meses.'}, status=400)
             precio_mensual = parse_decimal_monto(request.POST.get('precio_mensual'))
+            moneda = (request.POST.get('moneda') or 'ARS').strip().upper()
+            if moneda not in ('ARS', 'USD'):
+                moneda = 'ARS'
             _raw_2do = (request.POST.get('precio_segundo_cuatrimestre') or '').strip()
             precio_segundo_cuatrimestre = parse_decimal_monto(_raw_2do) if _raw_2do else None
             deposito_garantia = parse_decimal_monto(request.POST.get('deposito_garantia'))
@@ -12814,6 +12817,7 @@ def crear_contrato_alquiler(request):
                 fecha_inicio=fecha_inicio,
                 fecha_fin=fecha_fin,
                 duracion_meses=duracion_meses,
+                moneda=moneda,
                 precio_mensual=precio_mensual,
                 deposito_garantia=deposito_garantia,
                 honorarios_referencia=honorarios_referencia,
@@ -13564,6 +13568,24 @@ def actualizar_precios_bloques_contrato(request, contrato_id):
     )
     return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
 
+
+@login_required
+@require_POST
+def actualizar_moneda_cuotas_contrato(request, contrato_id):
+    """Actualiza la moneda de referencia del plan de cuotas (ARS o USD)."""
+    contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
+    moneda = (request.POST.get('moneda') or 'ARS').strip().upper()
+    if moneda not in ('ARS', 'USD'):
+        moneda = 'ARS'
+    if contrato.moneda != moneda:
+        contrato.moneda = moneda
+        contrato.save(update_fields=['moneda'])
+        messages.success(request, f'Moneda de cuotas actualizada a {contrato.get_moneda_display()}.')
+    else:
+        messages.info(request, f'La moneda de cuotas ya era {contrato.get_moneda_display()}.')
+    return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+
 @login_required
 def crear_operacion_contrato(request, contrato_id):
     contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
@@ -13611,6 +13633,7 @@ def crear_operacion_contrato(request, contrato_id):
         'honorarios_referencia': float(contrato.honorarios_referencia or 0),
         'sellados_referencia': float(contrato.sellados_referencia or 0),
         'cuotas_pendientes': cuotas_pendientes_cfg,
+        'moneda_cuotas': getattr(contrato, 'moneda', 'ARS') or 'ARS',
     }
     context = {
         'contrato': contrato,
@@ -15154,6 +15177,7 @@ def crear_pago_cuota_operacion(request, cuota_id):
         'default_concepto_cuota_nombre': default_nombre_concepto_cuota,
         'procesar_pago_cuota_url': reverse('inmobiliaria:procesar_pago_cuota_operacion', args=[cuota.id]),
         'cuotas_pendientes': cuotas_pendientes_cfg,
+        'moneda_cuotas': getattr(contrato, 'moneda', 'ARS') or 'ARS',
     }
 
     context = {

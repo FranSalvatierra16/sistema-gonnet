@@ -199,7 +199,7 @@
                                     <span class="badge bg-info">{{ contrato.duracion_meses }} meses</span>
                                 </td>
                                 <td>
-                                    <strong class="text-success">${{ contrato.precio_mensual|format_price }}</strong>
+                                    <strong class="text-success">{{ contrato.precio_mensual|format_importe_moneda:contrato.moneda }}</strong>
                                 </td>
                                 <td>
                                     {{ contrato.fecha_inicio|date:"d/m/Y" }}

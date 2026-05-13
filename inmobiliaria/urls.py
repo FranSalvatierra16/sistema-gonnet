@@ -260,6 +260,7 @@ urlpatterns = [
     path('contratos/actualizar-historiales-invierno/', views.actualizar_historiales_invierno, name='actualizar_historiales_invierno'),
     path('contratos/<int:contrato_id>/', views.detalle_contrato, name='detalle_contrato'),
     path('contratos/<int:contrato_id>/precios-bloques/', views.actualizar_precios_bloques_contrato, name='actualizar_precios_bloques_contrato'),
+    path('contratos/<int:contrato_id>/moneda-cuotas/', views.actualizar_moneda_cuotas_contrato, name='actualizar_moneda_cuotas_contrato'),
     path('contratos/<int:contrato_id>/activar-trimestres/', views.activar_precios_trimestres_contrato, name='activar_precios_trimestres_contrato'),
     path('contratos/<int:contrato_id>/operacion/', views.crear_operacion_contrato, name='crear_operacion_contrato'),
     path(

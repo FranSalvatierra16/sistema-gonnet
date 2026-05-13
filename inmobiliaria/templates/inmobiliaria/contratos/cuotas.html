@@ -16,8 +16,8 @@
                         <tr>
                             <th>Cuota</th>
                             <th>Vencimiento</th>
-                            <th class="text-end">Cobro mensual</th>
-                            <th class="text-end">Total abonado</th>
+                            <th class="text-end">Cobro mensual ({{ contrato.get_moneda_display }})</th>
+                            <th class="text-end">Total abonado ({{ contrato.get_moneda_display }})</th>
                             <th>Estado</th>
                             <th>Acciones</th>
                         </tr>
@@ -27,7 +27,7 @@
                         <tr class="{% if cuota.estado == 'vencida' %}table-danger{% elif cuota.estado == 'pagada' %}table-success{% endif %}">
                             <td>{{ cuota.numero_cuota }}/{{ contrato.duracion_meses }}</td>
                             <td>{{ cuota.fecha_vencimiento|date:"d/m/Y" }}</td>
-                            <td>${{ cuota.monto_total|format_price }}</td>
+                            <td>{{ cuota.monto_total|format_importe_moneda:contrato.moneda }}</td>
                             <td>
                                 <span class="badge {% if cuota.estado == 'pendiente' %}bg-warning{% elif cuota.estado == 'pagada' %}bg-success{% elif cuota.estado == 'vencida' %}bg-danger{% elif cuota.estado == 'pagada_con_mora' %}bg-info{% endif %}">
                                     {{ cuota.get_estado_display }}

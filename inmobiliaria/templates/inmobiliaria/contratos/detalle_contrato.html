@@ -159,11 +159,22 @@
                             <p><strong>Duración:</strong> {{ contrato.duracion_meses }} meses</p>
                             
                             <h5><i class="fas fa-dollar-sign text-success"></i> <strong>Montos</strong></h5>
-                            <p><strong>Precio mensual (base meses 1–3):</strong> ${{ contrato.precio_mensual|format_price }}</p>
-                            <p><strong>Depósito de Garantía:</strong> ${{ contrato.deposito_garantia|format_price }}</p>
-                            <p class="mb-1"><strong>Honorarios (referencia contrato):</strong> ${{ contrato.honorarios_referencia|format_price }}</p>
-                            <p class="mb-1"><strong>Sellados (referencia contrato):</strong> ${{ contrato.sellados_referencia|format_price }}</p>
-                            <p><strong>Total del contrato (suma de cuotas):</strong> ${{ total_cuotas_plan|format_price }}</p>
+                            <p class="mb-2">
+                                <strong>Moneda de cuotas:</strong>
+                                <form method="post" action="{% url 'inmobiliaria:actualizar_moneda_cuotas_contrato' contrato.id %}" class="d-inline-flex flex-wrap align-items-center gap-2 ms-1">
+                                    {% csrf_token %}
+                                    <select name="moneda" class="form-select form-select-sm" style="width: auto; min-width: 10rem;">
+                                        <option value="ARS"{% if contrato.moneda == 'ARS' %} selected{% endif %}>Pesos (ARS)</option>
+                                        <option value="USD"{% if contrato.moneda == 'USD' %} selected{% endif %}>Dólares (USD)</option>
+                                    </select>
+                                    <button type="submit" class="btn btn-sm btn-outline-primary">Guardar</button>
+                                </form>
+                            </p>
+                            <p><strong>Precio mensual (base meses 1–3):</strong> {{ contrato.precio_mensual|format_importe_moneda:contrato.moneda }}</p>
+                            <p><strong>Depósito de Garantía:</strong> {{ contrato.deposito_garantia|format_importe_moneda:contrato.moneda }}</p>
+                            <p class="mb-1"><strong>Honorarios (referencia contrato):</strong> {{ contrato.honorarios_referencia|format_importe_moneda:contrato.moneda }}</p>
+                            <p class="mb-1"><strong>Sellados (referencia contrato):</strong> {{ contrato.sellados_referencia|format_importe_moneda:contrato.moneda }}</p>
+                            <p><strong>Total del contrato (suma de cuotas):</strong> {{ total_cuotas_plan|format_importe_moneda:contrato.moneda }}</p>
                         </div>
                     </div>
                 </div>
@@ -193,10 +204,10 @@
                     </div>
                     <hr>
                     <p><strong>Total Pagado:</strong></p>
-                    <h4 class="text-success">${{ total_pagado|format_price }}</h4>
+                    <h4 class="text-success">{{ total_pagado|format_importe_moneda:contrato.moneda }}</h4>
                     
                     <p><strong>Pendiente de Pago:</strong></p>
-                    <h4 class="text-warning">${{ total_pendiente_cuotas|format_price }}</h4>
+                    <h4 class="text-warning">{{ total_pendiente_cuotas|format_importe_moneda:contrato.moneda }}</h4>
                 </div>
             </div>
         </div>
@@ -260,7 +271,7 @@
                         <div class="row g-3">
                             {% for row in trimestres_extras_ui %}
                             <div class="col-md-6 col-lg-4">
-                                <label class="form-label small mb-0">Trimestre {{ row.t }} (meses {{ row.mes_desde }}–{{ row.mes_hasta }})</label>
+                                <label class="form-label small mb-0">Trimestre {{ row.t }} (meses {{ row.mes_desde }}–{{ row.mes_hasta }}) · {{ contrato.get_moneda_display }}</label>
                                 <input type="text"
                                        class="form-control trimester-precio-input{% if not row.trimestre_input_habilitado %} bg-light text-muted{% endif %}"
                                        name="precio_trimester_{{ row.idx }}"
@@ -327,8 +338,8 @@
                         <tr>
                             <th>Cuota</th>
                             <th>Vencimiento</th>
-                            <th>Cobro mensual<br><span class="small fw-normal text-white-50">(locación)</span></th>
-                            <th>Total<br><span class="small fw-normal text-white-50">a pagar / abonado</span></th>
+                            <th>Cobro mensual<br><span class="small fw-normal text-white-50">(locación · {{ contrato.get_moneda_display }})</span></th>
+                            <th>Total<br><span class="small fw-normal text-white-50">a pagar / abonado · {{ contrato.get_moneda_display }}</span></th>
                             <th>Estado</th>
                             <th>Fecha de Pago</th>
                             <th>Días Vencida</th>
@@ -351,16 +362,16 @@
                                 {% if cuota.numero_cuota > 3 and cuota.monto_base == 0 %}
                                 <span class="text-muted"><i class="fas fa-lock me-1"></i>Sin definir</span>
                                 {% else %}
-                                <strong class="text-dark">${{ cuota.monto_base|format_price }}</strong>
+                                <strong class="text-dark">{{ cuota.monto_base|format_importe_moneda:contrato.moneda }}</strong>
                                 {% endif %}
                             </td>
                             <td>
                                 {% if cuota.numero_cuota > 3 and cuota.monto_base == 0 %}
                                 <span class="text-muted">—</span>
                                 {% elif cuota.estado == 'pagada' %}
-                                <strong class="text-primary">${{ cuota.monto_total|format_price }}</strong>
+                                <strong class="text-primary">{{ cuota.monto_total|format_importe_moneda:contrato.moneda }}</strong>
                                 {% else %}
-                                <strong class="text-success">${{ cuota.monto_total|format_price }}</strong>
+                                <strong class="text-success">{{ cuota.monto_total|format_importe_moneda:contrato.moneda }}</strong>
                                 {% endif %}
                             </td>
                             <td>

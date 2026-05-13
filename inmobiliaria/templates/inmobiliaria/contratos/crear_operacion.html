@@ -67,7 +67,8 @@
                             {% if modo_pago_cuota_especifica %}
                             <div class="alert alert-light border mb-0">
                                 <p class="mb-1"><strong>Cuota:</strong> {{ cuota_pago.numero_cuota }} de {{ contrato.duracion_meses }} ·
-                                    <strong>Vencimiento:</strong> {{ cuota_pago.fecha_vencimiento|date:"d/m/Y" }}</p>
+                                    <strong>Vencimiento:</strong> {{ cuota_pago.fecha_vencimiento|date:"d/m/Y" }} ·
+                                    <strong>Importe:</strong> {{ cuota_pago.monto_total|format_importe_moneda:contrato.moneda }}</p>
                                 <p class="mb-0 small text-muted">
                                     Se precarga el concepto <strong>1000</strong> con la cuota actual como objetivo y el monto sugerido; así podés cambiar el mes/cuota desde el modal si corresponde.
                                     También podés sumar líneas con otros IDs (gastos, expensas, etc.).
@@ -84,7 +85,7 @@
                             <div class="form-group mb-2">
                                 <label><strong>Mes alquiler (elegir uno):</strong></label>
                                 <div class="mb-1">
-                                    <label class="me-2"><strong>Mes alquiler (precio mensual):</strong></label>
+                                    <label class="me-2"><strong>Mes alquiler (precio mensual · {{ contrato.get_moneda_display }}):</strong></label>
                                     <input type="text" class="form-control d-inline-block" id="precio_mensual" name="precio_mensual" style="max-width: 140px;"
                                            value="{{ contrato.precio_mensual|format_price }}" 
                                            onchange="formatearNumeroEnTiempoReal(this); actualizarProporcionalYMesAlquiler(); actualizarTotalEsperado(); actualizarEtiquetaValorUsar()" 
@@ -553,6 +554,7 @@
     window.defaultNombreConceptoCuota = (config.default_concepto_cuota_nombre != null && String(config.default_concepto_cuota_nombre).trim())
         ? String(config.default_concepto_cuota_nombre).trim()
         : 'Imputación mensual / cuota (1000)';
+    window.monedaCuotasContrato = String(config.moneda_cuotas || 'ARS').toUpperCase() === 'USD' ? 'USD' : 'ARS';
 })();
 var tipoOperacion = window.tipoOperacion;
 var contratoId = window.contratoId;
@@ -573,6 +575,10 @@ function etiquetaCuotaDesdeCfg(cuotaId) {
     return `Cuota ${it.numero_cuota} (${it.mes})`;
 }
 
+function prefijoMonedaCuotaContrato() {
+    return window.monedaCuotasContrato === 'USD' ? 'U$S ' : '$';
+}
+
 function renderOpcionesCuotasObjetivo(selectedId) {
     const grupo = document.getElementById('grupoCuotaObjetivo');
     const select = document.getElementById('cuotaObjetivoId');
@@ -589,7 +595,7 @@ function renderOpcionesCuotasObjetivo(selectedId) {
     (window.cuotasPendientesCfg || []).forEach(function(q) {
         const sel = String(q.id) === prev ? ' selected' : '';
         opciones.push(
-            `<option value="${q.id}"${sel}>Cuota ${q.numero_cuota} · ${q.mes} · vence ${q.fecha_vencimiento} · $${formatoMontoReciboAR(q.monto_total || 0)}</option>`
+            `<option value="${q.id}"${sel}>Cuota ${q.numero_cuota} · ${q.mes} · vence ${q.fecha_vencimiento} · ${prefijoMonedaCuotaContrato()}${formatoMontoReciboAR(q.monto_total || 0)}</option>`
         );
     });
     select.innerHTML = opciones.join('');
@@ -704,7 +710,7 @@ function mostrarModalConcepto() {
         formElement.reset();
     }
     const monedaEl = document.getElementById('moneda');
-    if (monedaEl) monedaEl.value = 'ARS';
+    if (monedaEl) monedaEl.value = window.monedaCuotasContrato || 'ARS';
     renderOpcionesCuotasObjetivo('');
     ocultarSugerenciasConceptoLista();
 
@@ -1696,6 +1702,7 @@ document.addEventListener('DOMContentLoaded', function() {
             id: contadorConceptos,
             conceptoId: '1000',
             nombre: nombrePrecargaCuota,
+            moneda: window.monedaCuotasContrato || 'ARS',
             cuotaObjetivoId: cuotaIdDefault ? String(cuotaIdDefault) : '',
             cuotaObjetivoLabel: cuotaEtiqueta || (nCuota ? ('Cuota ' + nCuota) : ''),
             observaciones: 'Sin observaciones',

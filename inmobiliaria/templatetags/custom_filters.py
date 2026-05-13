@@ -26,6 +26,14 @@ def format_price(value, arg=None):
     return format_monto_argentino(value, dec_places)
 
 @register.filter
+def format_importe_moneda(value, moneda='ARS'):
+    """Importe con símbolo según moneda del contrato (ARS $ / USD U$S)."""
+    formatted = format_monto_argentino(value, 2)
+    if str(moneda or 'ARS').strip().upper() == 'USD':
+        return f'U$S {formatted}'
+    return f'${formatted}'
+
+@register.filter
 def abs(value):
     """Returns the absolute value of a number"""
     try:
