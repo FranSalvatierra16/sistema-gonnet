@@ -1,5 +1,5 @@
 """
-Imputación de CuotaMensual desde líneas concepto 1000 (ARS) guardadas en MovimientoCaja.concepto_detalle.
+Imputación de CuotaMensual desde líneas concepto 1000 (ARS o USD) guardadas en MovimientoCaja.concepto_detalle.
 Usado en operación principal y en reparaciones por management command.
 """
 from __future__ import annotations
@@ -57,8 +57,8 @@ def payload_conceptos_desde_movimiento_detalle(movimiento) -> list:
 
 def imputar_cuotas_mensuales_desde_movimiento_1000(contrato, movimiento) -> int:
     """
-    Marca pagadas las cuotas pendientes/vencidas según líneas 1000 ARS del movimiento (por cuota_objetivo_id
-    o en orden de numero_cuota). Devuelve la cantidad de cuotas guardadas como pagadas.
+    Marca pagadas las cuotas pendientes/vencidas según líneas 1000 del movimiento (ARS o USD),
+    por cuota_objetivo_id o en orden de numero_cuota. Devuelve la cantidad de cuotas guardadas como pagadas.
     """
     lineas = payload_conceptos_desde_movimiento_detalle(movimiento)
     lineas_1000 = []
@@ -67,8 +67,7 @@ def imputar_cuotas_mensuales_desde_movimiento_1000(contrato, movimiento) -> int:
         if cid_raw is None:
             cid_raw = it.get('codigo')
         cid = _normalizar_codigo_concepto_caja(cid_raw)
-        moneda = str(it.get('moneda') or 'ARS').strip().upper()
-        if cid != '1000' or moneda == 'USD':
+        if cid != '1000':
             continue
         imp = parse_decimal_monto(it.get('importe'))
         if imp > 0:

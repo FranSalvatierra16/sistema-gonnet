@@ -49,19 +49,24 @@ class Command(BaseCommand):
             return
 
         conceptos = payload_conceptos_desde_movimiento_detalle(mov)
-        n1000 = 0
+        n1000_ars = 0
+        n1000_usd = 0
         for it in conceptos:
             rid = it.get('id')
             if rid is None:
                 rid = it.get('codigo')
             cod = _normalizar_codigo_concepto_caja(rid)
+            if cod != '1000':
+                continue
             moneda = str(it.get('moneda') or 'ARS').strip().upper()
-            if cod == '1000' and moneda != 'USD':
-                n1000 += 1
+            if moneda == 'USD':
+                n1000_usd += 1
+            else:
+                n1000_ars += 1
         pend = contrato.cuotas.filter(estado__in=['pendiente', 'vencida']).count()
         self.stdout.write(
             f'Contrato #{cid}, movimiento #{mid}: {len(conceptos)} líneas en detalle, '
-            f'~{n1000} líneas 1000 ARS, cuotas pendientes/vencidas: {pend}'
+            f'~{n1000_ars} líneas 1000 ARS, ~{n1000_usd} líneas 1000 USD, cuotas pendientes/vencidas: {pend}'
         )
 
         if dry:

@@ -14678,7 +14678,10 @@ def procesar_operacion_contrato(request, contrato_id):
                 return JsonResponse({'error': 'Formato de conceptos inválido.'}, status=400)
             if not isinstance(lista_conceptos, list):
                 lista_conceptos = []
-            total_medios = _total_medios_pago_operacion_request(request)
+            total_medios_ars = _total_medios_pago_operacion_request(request)
+            total_medios_usd = parse_decimal_monto(
+                request.POST.get('monto_dolares', request.POST.get('dolares', '0'))
+            )
             cuotas_objetivo_map, suma_objetivo_cuotas, errores_cuotas_obj = _cuotas_objetivo_desde_conceptos(
                 contrato, lista_conceptos
             )
@@ -14693,21 +14696,53 @@ def procesar_operacion_contrato(request, contrato_id):
                     },
                     status=400,
                 )
-            monto_cuota = (
-                suma_objetivo_cuotas if suma_objetivo_cuotas > 0 else Decimal(str(cuota_chk.monto_total))
-            )
+            suma_imput_ars = Decimal('0')
+            suma_imput_usd = Decimal('0')
+            for item in lista_conceptos:
+                cid = str(item.get('id') or item.get('codigo') or '').strip()
+                if cid != '1000':
+                    continue
+                moneda = str(item.get('moneda') or 'ARS').strip().upper()
+                imp = parse_decimal_monto(item.get('importe'))
+                if moneda == 'USD':
+                    suma_imput_usd += imp
+                else:
+                    suma_imput_ars += imp
             tol = Decimal('0.05')
-            pago_por_cuota_objetivo_ok = total_medios + tol >= monto_cuota
-            if not pago_por_cuota_objetivo_ok:
+            if suma_imput_ars > 0 and total_medios_ars + tol < suma_imput_ars:
                 return JsonResponse(
                     {
                         'error': (
-                            f'Para marcar cuota/s con concepto 1000, el total de medios de pago debe cubrir '
-                            f'al menos ${monto_cuota}. Total medios actual: ${total_medios}.'
+                            'Para marcar cuota/s con concepto 1000 en pesos, los medios de pago en ARS deben cubrir '
+                            f'al menos ${suma_imput_ars}. Total ARS actual: ${total_medios_ars}.'
                         )
                     },
                     status=400,
                 )
+            if suma_imput_usd > 0 and total_medios_usd + tol < suma_imput_usd:
+                return JsonResponse(
+                    {
+                        'error': (
+                            'Para marcar cuota/s con concepto 1000 en dólares, el medio en USD debe cubrir '
+                            f'al menos U$S {suma_imput_usd}. Total USD actual: U$S {total_medios_usd}.'
+                        )
+                    },
+                    status=400,
+                )
+            if suma_imput_ars <= 0 and suma_imput_usd <= 0:
+                monto_cuota = (
+                    suma_objetivo_cuotas if suma_objetivo_cuotas > 0 else Decimal(str(cuota_chk.monto_total))
+                )
+                if total_medios_ars + tol < monto_cuota:
+                    return JsonResponse(
+                        {
+                            'error': (
+                                f'Para marcar cuota/s con concepto 1000, el total de medios de pago debe cubrir '
+                                f'al menos ${monto_cuota}. Total medios actual: ${total_medios_ars}.'
+                            )
+                        },
+                        status=400,
+                    )
 
         caja = obtener_caja_abierta(request)
         if not caja:
@@ -14766,7 +14801,7 @@ def procesar_operacion_contrato(request, contrato_id):
                 if not contrato.cuotas.exists():
                     _asegurar_cuotas_plan_contrato(contrato)
 
-                # En operación principal: imputar cuotas desde líneas 1000 ARS en concepto_detalle del movimiento.
+                # En operación principal: imputar cuotas desde líneas 1000 en concepto_detalle del movimiento.
                 from inmobiliaria.cuotas_imputacion import imputar_cuotas_mensuales_desde_movimiento_1000
 
                 try:
@@ -14776,7 +14811,7 @@ def procesar_operacion_contrato(request, contrato_id):
                     ).exists():
                         logger.warning(
                             'Operación principal contrato=%s movimiento=%s: hay cuotas pendientes pero '
-                            'no se imputó ninguna (concepto_detalle sin líneas 1000 ARS o montos no alcanzan).',
+                            'no se imputó ninguna (concepto_detalle sin líneas 1000 o montos no alcanzan).',
                             contrato.id,
                             movimiento.id,
                         )
@@ -17088,6 +17123,12 @@ def recibo_contrato_24(request, contrato_id):
             if total_saldo_a_abonar < 0:
                 total_saldo_a_abonar = Decimal('0')
             neto_a_posesion = total_saldo_a_abonar - total_abonado_recibo
+            if neto_a_posesion < 0:
+                neto_a_posesion = Decimal('0')
+
+        abonado_usd_para_neto = total_pagado_usd_mov if total_pagado_usd_mov > 0 else monto_cobro_lineas_usd
+        if abonado_usd_para_neto > 0:
+            neto_a_posesion -= abonado_usd_para_neto
             if neto_a_posesion < 0:
                 neto_a_posesion = Decimal('0')
 
