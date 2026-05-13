@@ -13460,6 +13460,53 @@ def eliminar_cuota_contrato_super_admin(request, contrato_id, cuota_id):
 
 @login_required
 @require_POST
+@transaction.atomic
+def anular_pago_cuota_contrato_super_admin(request, contrato_id, cuota_id):
+    """Quita la imputación de cobro de una cuota pagada sin anular el movimiento de caja."""
+    if not usuario_puede_eliminar_movimiento_caja(request.user):
+        messages.error(request, 'Solo el super administrador puede anular cobros imputados a cuotas.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato_id)
+
+    contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
+    cuota = get_object_or_404(CuotaMensual, id=cuota_id, contrato=contrato)
+
+    if cuota.estado not in ('pagada', 'pagada_con_mora'):
+        messages.error(request, f'La cuota {cuota.numero_cuota} no está marcada como pagada.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+    _anular_pago_cuota_mensual(cuota, contrato)
+    messages.success(
+        request,
+        f'Se anuló el cobro imputado a la cuota {cuota.numero_cuota}/{contrato.duracion_meses}. '
+        'El movimiento de caja sigue vigente si existía.',
+    )
+    return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+
+@login_required
+@require_POST
+@transaction.atomic
+def reiniciar_plan_cuotas_contrato_super_admin(request, contrato_id):
+    """Reinicia todas las cuotas del contrato a pendiente/vencida (no anula caja)."""
+    if not usuario_puede_eliminar_movimiento_caja(request.user):
+        messages.error(request, 'Solo el super administrador puede reiniciar el plan de cuotas.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato_id)
+
+    contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
+    if not contrato.cuotas.exists():
+        messages.error(request, 'El contrato no tiene cuotas para reiniciar.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+    n = _reiniciar_cuotas_contrato(contrato)
+    messages.success(
+        request,
+        f'Se reiniciaron {n} cuota(s) del plan. Los cobros en caja no se anularon; podés reimputar el recibo correcto.',
+    )
+    return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+
+@login_required
+@require_POST
 def recalcular_cuotas_montos_desde_contrato(request, contrato_id):
     """Vuelve a calcular monto_base/monto_total de cuotas no pagadas según precio_mensual y precios_bloques del contrato."""
     contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
@@ -14510,6 +14557,49 @@ def _estado_inicial_cuota_por_vencimiento(fecha_vencimiento, hoy):
     if fecha_vencimiento and fecha_vencimiento < hoy:
         return 'vencida'
     return 'pendiente'
+
+
+def _monto_plan_cuota_contrato(contrato, numero_cuota):
+    idx = int(numero_cuota) - 1
+    if int(contrato.duracion_meses or 0) == 9:
+        return Decimal(str(contrato.precio_mensual or 0))
+    montos_plan = _montos_cuotas_por_trimestre(contrato)
+    if 0 <= idx < len(montos_plan):
+        return montos_plan[idx]
+    return Decimal(str(contrato.precio_mensual or 0))
+
+
+def _anular_pago_cuota_mensual(cuota, contrato, hoy=None):
+    """Quita el cobro imputado a la cuota sin anular el movimiento de caja."""
+    hoy = hoy or timezone.now().date()
+    monto = _monto_plan_cuota_contrato(contrato, cuota.numero_cuota)
+    cuota.movimiento = None
+    cuota.fecha_pago = None
+    cuota.monto_base = monto
+    cuota.monto_total = monto
+    cuota.recargo_mora = Decimal('0')
+    cuota.descuento = Decimal('0')
+    cuota.estado = _estado_inicial_cuota_por_vencimiento(cuota.fecha_vencimiento, hoy)
+    cuota.save(
+        update_fields=[
+            'movimiento',
+            'fecha_pago',
+            'monto_base',
+            'monto_total',
+            'recargo_mora',
+            'descuento',
+            'estado',
+        ]
+    )
+
+
+def _reiniciar_cuotas_contrato(contrato, hoy=None):
+    """Reinicia todas las cuotas del plan (no toca movimientos de caja)."""
+    hoy = hoy or timezone.now().date()
+    cuotas = list(contrato.cuotas.order_by('numero_cuota'))
+    for cq in cuotas:
+        _anular_pago_cuota_mensual(cq, contrato, hoy=hoy)
+    return len(cuotas)
 
 
 def _asegurar_cuotas_plan_contrato(contrato):

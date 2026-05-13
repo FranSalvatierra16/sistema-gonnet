@@ -291,6 +291,16 @@ urlpatterns = [
         name='eliminar_cuota_contrato_super_admin',
     ),
     path(
+        'contratos/<int:contrato_id>/cuotas/<int:cuota_id>/anular-pago-super/',
+        views.anular_pago_cuota_contrato_super_admin,
+        name='anular_pago_cuota_contrato_super_admin',
+    ),
+    path(
+        'contratos/<int:contrato_id>/cuotas/reiniciar-plan-super/',
+        views.reiniciar_plan_cuotas_contrato_super_admin,
+        name='reiniciar_plan_cuotas_contrato_super_admin',
+    ),
+    path(
         'contratos/<int:contrato_id>/recalcular-montos-cuotas/',
         views.recalcular_cuotas_montos_desde_contrato,
         name='recalcular_cuotas_montos_desde_contrato',

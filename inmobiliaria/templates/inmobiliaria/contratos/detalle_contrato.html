@@ -329,6 +329,15 @@
                     <i class="fas fa-sync-alt"></i> Alinear montos pendientes
                 </button>
             </form>
+            {% if user.nivel == 5 %}
+            <form method="post" action="{% url 'inmobiliaria:reiniciar_plan_cuotas_contrato_super_admin' contrato.id %}" class="d-inline"
+                  onsubmit="return confirm('Se quitará el cobro imputado de TODAS las cuotas del plan (vuelven a pendiente o vencida). Los movimientos de caja NO se anulan. ¿Continuar?');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-danger" title="Solo super administrador">
+                    <i class="fas fa-undo"></i> Reiniciar plan de cuotas
+                </button>
+            </form>
+            {% endif %}
             </div>
         </div>
         <div class="card-body">
@@ -368,7 +377,7 @@
                             <td>
                                 {% if cuota.numero_cuota > 3 and cuota.monto_base == 0 %}
                                 <span class="text-muted">—</span>
-                                {% elif cuota.estado == 'pagada' %}
+                                {% elif cuota.estado == 'pagada' or cuota.estado == 'pagada_con_mora' %}
                                 <strong class="text-primary">{{ cuota.monto_total|format_importe_moneda:contrato.moneda }}</strong>
                                 {% else %}
                                 <strong class="text-success">{{ cuota.monto_total|format_importe_moneda:contrato.moneda }}</strong>
@@ -429,7 +438,7 @@
                                         </form>
                                     </div>
                                     {% endif %}
-                                {% elif cuota.estado == 'pagada' %}
+                                {% elif cuota.estado == 'pagada' or cuota.estado == 'pagada_con_mora' %}
                                     {% if cuota.movimiento %}
                                     <a class="btn btn-sm btn-info"
                                             href="{% url 'inmobiliaria:ver_recibo_cuota_contrato' cuota.id %}"
@@ -439,6 +448,16 @@
                                     </a>
                                     {% else %}
                                     <span class="text-muted small">Sin movimiento</span>
+                                    {% endif %}
+                                    {% if user.nivel == 5 %}
+                                    <form method="post" class="d-inline ms-1"
+                                          action="{% url 'inmobiliaria:anular_pago_cuota_contrato_super_admin' contrato.id cuota.id %}"
+                                          onsubmit="return confirm('¿Anular el cobro imputado a la cuota {{ cuota.numero_cuota }}/{{ contrato.duracion_meses }}? El movimiento de caja no se anula.');">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Solo super administrador">
+                                            <i class="fas fa-undo"></i> Anular pago
+                                        </button>
+                                    </form>
                                     {% endif %}
                                 {% endif %}
                             </td>
