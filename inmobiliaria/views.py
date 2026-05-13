@@ -13168,6 +13168,15 @@ def detalle_contrato(request, contrato_id):
         .order_by('fecha', 'id')[:40]
     )
 
+    if movimientos_recibo_contrato and cuotas.filter(estado__in=['pendiente', 'vencida']).exists():
+        from inmobiliaria.cuotas_imputacion import imputar_cuotas_mensuales_desde_movimiento_1000
+
+        imputadas = 0
+        for mov in movimientos_recibo_contrato:
+            imputadas += imputar_cuotas_mensuales_desde_movimiento_1000(contrato, mov)
+        if imputadas:
+            cuotas = contrato.cuotas.all().order_by('numero_cuota')
+
     # Estadísticas
     cuotas_pagadas = cuotas.filter(estado='pagada').count()
     cuotas_vencidas = cuotas.filter(estado='pendiente', fecha_vencimiento__lt=timezone.now().date()).count()
@@ -14819,32 +14828,30 @@ def procesar_operacion_contrato(request, contrato_id):
             if update_fields:
                 contrato.save(update_fields=update_fields)
 
-            if es_primera_operacion_principal:
-                fecha_actual = timezone.now().date()
-                if not contrato.cuotas.exists():
-                    _asegurar_cuotas_plan_contrato(contrato)
+            if es_primera_operacion_principal and not contrato.cuotas.exists():
+                _asegurar_cuotas_plan_contrato(contrato)
 
-                # En operación principal: imputar cuotas desde líneas 1000 en concepto_detalle del movimiento.
-                from inmobiliaria.cuotas_imputacion import imputar_cuotas_mensuales_desde_movimiento_1000
+            from inmobiliaria.cuotas_imputacion import imputar_cuotas_mensuales_desde_movimiento_1000
 
-                try:
-                    n_imp = imputar_cuotas_mensuales_desde_movimiento_1000(contrato, movimiento)
-                    if n_imp == 0 and contrato.cuotas.filter(
-                        estado__in=['pendiente', 'vencida']
-                    ).exists():
-                        logger.warning(
-                            'Operación principal contrato=%s movimiento=%s: hay cuotas pendientes pero '
-                            'no se imputó ninguna (concepto_detalle sin líneas 1000 o montos no alcanzan).',
-                            contrato.id,
-                            movimiento.id,
-                        )
-                except Exception:
-                    logger.exception(
-                        'Fallo imputación cuotas operación principal contrato=%s movimiento=%s',
+            try:
+                n_imp = imputar_cuotas_mensuales_desde_movimiento_1000(contrato, movimiento)
+                if n_imp == 0 and contrato.cuotas.filter(
+                    estado__in=['pendiente', 'vencida']
+                ).exists():
+                    logger.warning(
+                        'Operación principal contrato=%s movimiento=%s: hay cuotas pendientes pero '
+                        'no se imputó ninguna (concepto_detalle sin líneas 1000/1/15 o montos no alcanzan).',
                         contrato.id,
-                        getattr(movimiento, 'id', None),
+                        movimiento.id,
                     )
+            except Exception:
+                logger.exception(
+                    'Fallo imputación cuotas operación principal contrato=%s movimiento=%s',
+                    contrato.id,
+                    getattr(movimiento, 'id', None),
+                )
 
+            if es_primera_operacion_principal:
                 contrato.operacion_principal = True
                 contrato.estado = 'activo'
                 contrato.save()
@@ -14868,7 +14875,7 @@ def procesar_operacion_contrato(request, contrato_id):
                     info_meses.fecha_inicio = contrato.fecha_inicio
                     info_meses.fecha_fin = contrato.fecha_fin
                     info_meses.save()
-                _actualizar_pendientes_al_ultimo_importe(contrato)
+            _actualizar_pendientes_al_ultimo_importe(contrato)
         else:
             if cuotas_objetivo_map:
                 hoy_pago = timezone.now().date()

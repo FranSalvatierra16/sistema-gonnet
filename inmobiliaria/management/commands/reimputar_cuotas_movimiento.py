@@ -10,6 +10,7 @@ Ejemplo:
 from django.core.management.base import BaseCommand
 
 from inmobiliaria.cuotas_imputacion import (
+    CODIGOS_IMPUTACION_ALQUILER_CUOTA,
     _normalizar_codigo_concepto_caja,
     imputar_cuotas_mensuales_desde_movimiento_1000,
     payload_conceptos_desde_movimiento_detalle,
@@ -49,24 +50,25 @@ class Command(BaseCommand):
             return
 
         conceptos = payload_conceptos_desde_movimiento_detalle(mov)
-        n1000_ars = 0
-        n1000_usd = 0
+        n_imputables_ars = 0
+        n_imputables_usd = 0
         for it in conceptos:
             rid = it.get('id')
             if rid is None:
                 rid = it.get('codigo')
             cod = _normalizar_codigo_concepto_caja(rid)
-            if cod != '1000':
+            if cod not in CODIGOS_IMPUTACION_ALQUILER_CUOTA:
                 continue
             moneda = str(it.get('moneda') or 'ARS').strip().upper()
             if moneda == 'USD':
-                n1000_usd += 1
+                n_imputables_usd += 1
             else:
-                n1000_ars += 1
+                n_imputables_ars += 1
         pend = contrato.cuotas.filter(estado__in=['pendiente', 'vencida']).count()
         self.stdout.write(
             f'Contrato #{cid}, movimiento #{mid}: {len(conceptos)} líneas en detalle, '
-            f'~{n1000_ars} líneas 1000 ARS, ~{n1000_usd} líneas 1000 USD, cuotas pendientes/vencidas: {pend}'
+            f'~{n_imputables_ars} líneas imputables ARS, ~{n_imputables_usd} líneas imputables USD, '
+            f'cuotas pendientes/vencidas: {pend}'
         )
 
         if dry:

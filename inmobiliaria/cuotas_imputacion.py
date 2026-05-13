@@ -12,6 +12,8 @@ from .decimal_utils import parse_decimal_monto
 
 logger = logging.getLogger(__name__)
 
+CODIGOS_IMPUTACION_ALQUILER_CUOTA = frozenset({'1000', '1', '15'})
+
 
 def _normalizar_codigo_concepto_caja(cid_raw) -> str:
     if cid_raw is None or cid_raw == '':
@@ -57,23 +59,24 @@ def payload_conceptos_desde_movimiento_detalle(movimiento) -> list:
 
 def imputar_cuotas_mensuales_desde_movimiento_1000(contrato, movimiento) -> int:
     """
-    Marca pagadas las cuotas pendientes/vencidas según líneas 1000 del movimiento (ARS o USD),
-    por cuota_objetivo_id o en orden de numero_cuota. Devuelve la cantidad de cuotas guardadas como pagadas.
+    Marca pagadas las cuotas pendientes/vencidas según líneas de alquiler/cuota del movimiento
+    (conceptos 1000, 1 o 15; ARS o USD), por cuota_objetivo_id o en orden de numero_cuota.
+    Devuelve la cantidad de cuotas guardadas como pagadas.
     """
     lineas = payload_conceptos_desde_movimiento_detalle(movimiento)
-    lineas_1000 = []
+    lineas_imputables = []
     for it in lineas:
         cid_raw = it.get('id')
         if cid_raw is None:
             cid_raw = it.get('codigo')
         cid = _normalizar_codigo_concepto_caja(cid_raw)
-        if cid != '1000':
+        if cid not in CODIGOS_IMPUTACION_ALQUILER_CUOTA:
             continue
         imp = parse_decimal_monto(it.get('importe'))
         if imp > 0:
-            lineas_1000.append(it)
+            lineas_imputables.append(it)
 
-    if not lineas_1000:
+    if not lineas_imputables:
         return 0
 
     cuotas_pendientes = list(
@@ -86,7 +89,7 @@ def imputar_cuotas_mensuales_desde_movimiento_1000(contrato, movimiento) -> int:
     asignado_por_cuota: dict[int, Decimal] = {}
     idx_primera_pendiente = 0
 
-    for it in lineas_1000:
+    for it in lineas_imputables:
         imp = parse_decimal_monto(it.get('importe'))
         raw_qid = str(it.get('cuota_objetivo_id') or '').strip()
         cuota_target = None
