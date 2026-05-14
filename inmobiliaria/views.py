@@ -12913,6 +12913,17 @@ def crear_contrato_alquiler(request):
 
     return render(request, 'inmobiliaria/contratos/crear.html')
 
+def _activar_contrato_si_hay_cuotas_pagadas(contrato):
+    """Si el contrato sigue reservado pero ya hay cuotas cobradas, lo marca activo."""
+    if contrato.estado != 'reservado':
+        return False
+    if not contrato.cuotas.filter(estado__in=['pagada', 'pagada_con_mora']).exists():
+        return False
+    contrato.estado = 'activo'
+    contrato.save(update_fields=['estado'])
+    return True
+
+
 @login_required
 def lista_contratos(request):
     """Vista para listar todos los contratos de alquiler"""
@@ -13018,6 +13029,7 @@ def lista_contratos(request):
     
     # Obtener la próxima cuota para cada contrato
     for contrato in contratos:
+        _activar_contrato_si_hay_cuotas_pagadas(contrato)
         # Obtener la próxima cuota pendiente o vencida
         contrato.proxima_cuota = contrato.cuotas.filter(
             estado__in=['pendiente', 'vencida']
@@ -14957,6 +14969,7 @@ def procesar_operacion_contrato(request, contrato_id):
                     info_meses.fecha_fin = contrato.fecha_fin
                     info_meses.save()
             _actualizar_pendientes_al_ultimo_importe(contrato)
+            _activar_contrato_si_hay_cuotas_pagadas(contrato)
         else:
             if cuotas_objetivo_map:
                 hoy_pago = timezone.now().date()
@@ -14994,6 +15007,7 @@ def procesar_operacion_contrato(request, contrato_id):
                 cuota.movimiento = movimiento
                 cuota.save()
             _actualizar_pendientes_al_ultimo_importe(contrato)
+            _activar_contrato_si_hay_cuotas_pagadas(contrato)
         
         return JsonResponse({
             'success': True,
@@ -15142,6 +15156,8 @@ def pagar_cuota(request, cuota_id):
                         )
                     siguiente_cuota.fecha_vencimiento = nueva_fecha
                 siguiente_cuota.save()
+
+            _activar_contrato_si_hay_cuotas_pagadas(contrato)
 
         messages.success(
             request,
@@ -15427,6 +15443,7 @@ def procesar_pago_cuota_operacion(request, cuota_id):
                 csel.save()
 
             _actualizar_pendientes_al_ultimo_importe(contrato)
+            _activar_contrato_si_hay_cuotas_pagadas(contrato)
 
         messages.success(
             request,
