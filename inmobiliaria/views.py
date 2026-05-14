@@ -7205,24 +7205,43 @@ def crear_inquilino_ajax(request):
                         'error': f'El CUIT debe tener 11 dígitos. Usted ingresó {len(cuit_limpio)} dígito(s). Por favor, verifique el CUIT.'
                     })
             
-            inquilino = Inquilino.objects.create(
-                nombre=request.POST['nombre'],
-                apellido=request.POST['apellido'],
-                fecha_nacimiento=fecha_nacimiento,
-                email=request.POST['email'],
-                celular=request.POST['celular'],
-                tipo_doc=tipo_doc,
-                dni=dni_limpio,  # Puede ser None si no se proporciona
-                tipo_ins=request.POST.get('tipo_ins', 'otro'),  # Valor por defecto
-                cuit=cuit_limpio or request.POST.get('cuit', ''),  # Usar CUIT limpio o el valor original
-                localidad=request.POST['localidad'],
-                provincia=request.POST['provincia'],
-                domicilio=request.POST['domicilio'],
-                codigo_postal=request.POST.get('codigo_postal', ''),
-                observaciones=request.POST.get('observaciones', ''),
-                garantia=request.POST.get('garantia', ''),
-                sucursal=sucursal  # Agregar la sucursal
-            )
+            try:
+                inquilino = Inquilino.objects.create(
+                    nombre=request.POST['nombre'],
+                    apellido=request.POST['apellido'],
+                    fecha_nacimiento=fecha_nacimiento,
+                    email=request.POST['email'],
+                    celular=request.POST['celular'],
+                    tipo_doc=tipo_doc,
+                    dni=dni_limpio,  # Puede ser None si no se proporciona
+                    tipo_ins=request.POST.get('tipo_ins', 'otro'),  # Valor por defecto
+                    cuit=cuit_limpio or request.POST.get('cuit', ''),  # Usar CUIT limpio o el valor original
+                    localidad=request.POST['localidad'],
+                    provincia=request.POST['provincia'],
+                    domicilio=request.POST['domicilio'],
+                    codigo_postal=request.POST.get('codigo_postal', ''),
+                    observaciones=request.POST.get('observaciones', ''),
+                    garantia=request.POST.get('garantia', ''),
+                    sucursal=sucursal  # Agregar la sucursal
+                )
+            except IntegrityError:
+                existente = (
+                    Inquilino.objects.filter(sucursal=sucursal, dni=dni_limpio).order_by('id').first()
+                )
+                if existente:
+                    return JsonResponse(
+                        {
+                            'success': True,
+                            'inquilino': {
+                                'id': existente.id,
+                                'nombre': existente.nombre,
+                                'apellido': existente.apellido,
+                                'dni': existente.dni,
+                            },
+                            'reutilizado': True,
+                        }
+                    )
+                raise
             return JsonResponse({
                 'success': True,
                 'inquilino': {
@@ -7295,27 +7314,50 @@ def crear_propietario_ajax(request):
                         'error': f'El DNI debe tener 7 u 8 dígitos. Usted ingresó {len(dni_limpio)} dígito(s). Por favor, verifique el DNI.'
                     })
                 
-            propietario = Propietario.objects.create(
-                nombre=request.POST['nombre'],
-                apellido=request.POST['apellido'],
-                fecha_nacimiento=fecha_nacimiento,
-                email=request.POST['email'],
-                celular=request.POST['celular'],
-                tipo_doc=request.POST.get('tipo_doc', 'dni'),  # Valor por defecto si no se envía
-                dni=dni_limpio,
-                tipo_ins=request.POST.get('tipo_ins', 'otro'),  # Valor por defecto
-                cuit=request.POST.get('cuit', ''),
-                localidad=request.POST['localidad'],
-                provincia=request.POST['provincia'],
-                domicilio=request.POST['domicilio'],
-                codigo_postal=request.POST.get('codigo_postal', ''),
-                observaciones=request.POST.get('observaciones', ''),
-                cuenta_banco=(request.POST.get('cuenta_banco') or '').strip(),
-                cuenta_titular=(request.POST.get('cuenta_titular') or '').strip(),
-                cuenta_cbu_alias=(request.POST.get('cuenta_cbu_alias') or '').strip(),
-                cuenta_numero=(request.POST.get('cuenta_numero') or '').strip(),
-                sucursal=sucursal  # Agregar la sucursal
-            )
+            try:
+                propietario = Propietario.objects.create(
+                    nombre=request.POST['nombre'],
+                    apellido=request.POST['apellido'],
+                    fecha_nacimiento=fecha_nacimiento,
+                    email=request.POST['email'],
+                    celular=request.POST['celular'],
+                    tipo_doc=request.POST.get('tipo_doc', 'dni'),  # Valor por defecto si no se envía
+                    dni=dni_limpio,
+                    tipo_ins=request.POST.get('tipo_ins', 'otro'),  # Valor por defecto
+                    cuit=request.POST.get('cuit', ''),
+                    localidad=request.POST['localidad'],
+                    provincia=request.POST['provincia'],
+                    domicilio=request.POST['domicilio'],
+                    codigo_postal=request.POST.get('codigo_postal', ''),
+                    observaciones=request.POST.get('observaciones', ''),
+                    cuenta_banco=(request.POST.get('cuenta_banco') or '').strip(),
+                    cuenta_titular=(request.POST.get('cuenta_titular') or '').strip(),
+                    cuenta_cbu_alias=(request.POST.get('cuenta_cbu_alias') or '').strip(),
+                    cuenta_numero=(request.POST.get('cuenta_numero') or '').strip(),
+                    sucursal=sucursal  # Agregar la sucursal
+                )
+            except IntegrityError:
+                existente = None
+                if dni_limpio:
+                    existente = (
+                        Propietario.objects.filter(sucursal=sucursal, dni=dni_limpio)
+                        .order_by('id')
+                        .first()
+                    )
+                if existente:
+                    return JsonResponse(
+                        {
+                            'success': True,
+                            'propietario': {
+                                'id': existente.id,
+                                'nombre': existente.nombre,
+                                'apellido': existente.apellido,
+                                'dni': existente.dni,
+                            },
+                            'reutilizado': True,
+                        }
+                    )
+                raise
             return JsonResponse({
                 'success': True,
                 'propietario': {
@@ -7341,10 +7383,17 @@ def crear_propietario_ajax(request):
                     'error': 'El DNI ingresado es demasiado largo. El DNI debe tener exactamente 8 dígitos sin puntos ni guiones.'
                 })
             elif 'unique constraint' in error_str.lower() or 'duplicate key' in error_str.lower():
-                return JsonResponse({
-                    'success': False,
-                    'error': 'No se pudo guardar: conflicto de datos únicos en base de datos. Si persiste, contactá soporte.'
-                })
+                return JsonResponse(
+                    {
+                        'success': False,
+                        'error': (
+                            'Ya existe un registro con ese DNI o email en esta sucursal. '
+                            'Buscá al propietario en el desplegable o verificá los datos. '
+                            'Si acabás de guardar y ves este mensaje, recargá la página: '
+                            'puede haber quedado un índice único viejo en la base (correr migraciones).'
+                        ),
+                    }
+                )
             elif 'dni' in error_str.lower():
                 return JsonResponse({
                     'success': False,
@@ -13029,6 +13078,10 @@ def lista_contratos(request):
     
     # Obtener la próxima cuota para cada contrato
     for contrato in contratos:
+        # Contratos sin filas de cuota (carga vieja o error intermedio): generar plan al vuelo
+        n_cuotas_creadas = _asegurar_cuotas_plan_contrato(contrato)
+        if n_cuotas_creadas and getattr(contrato, '_prefetched_objects_cache', None):
+            contrato._prefetched_objects_cache.pop('cuotas', None)
         _activar_contrato_si_hay_cuotas_pagadas(contrato)
         # Obtener la próxima cuota pendiente o vencida
         contrato.proxima_cuota = contrato.cuotas.filter(

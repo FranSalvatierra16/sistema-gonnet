@@ -3576,7 +3576,12 @@ document.addEventListener('DOMContentLoaded', function() {
 <script>
 // Función para guardar el inquilino
 function guardarInquilino() {
+    if (window._guardandoNuevoInquilino) {
+        return;
+    }
     const form = document.getElementById('crearInquilinoForm');
+    const modalInq = document.getElementById('crearInquilinoModal');
+    const btnGuardarInq = modalInq ? modalInq.querySelector('button[onclick="guardarInquilino()"]') : null;
     
     // Validar campos requeridos
     const camposRequeridos = ['nombre', 'apellido', 'email', 'celular', 'tipo_doc', 'localidad', 'provincia', 'domicilio'];
@@ -3595,6 +3600,13 @@ function guardarInquilino() {
     }
     
     const formData = new FormData(form);
+    let textoBtnInq = '';
+    if (btnGuardarInq) {
+        textoBtnInq = btnGuardarInq.innerHTML;
+        btnGuardarInq.disabled = true;
+        btnGuardarInq.innerHTML = 'Guardando...';
+    }
+    window._guardandoNuevoInquilino = true;
     
     // Debug: mostrar todos los datos que se van a enviar
     console.log('💾 Guardando inquilino...');
@@ -3669,14 +3681,20 @@ function guardarInquilino() {
                 inquilinoSelect.add(nuevaOpcion);
                 console.log('✅ Nuevo inquilino agregado a la lista:', `${data.inquilino.apellido}, ${data.inquilino.nombre}`);
                 
-                // Actualizar también la lista original para búsquedas
-                inquilinosOriginales.push({
-                    value: data.inquilino.id,
-                    text: `ID: ${data.inquilino.id} - ${data.inquilino.apellido}, ${data.inquilino.nombre} (DNI: ${data.inquilino.dni})`,
-                    id: data.inquilino.id,
-                    nombre: `${data.inquilino.nombre.toLowerCase()} ${data.inquilino.apellido.toLowerCase()}`,
-                    dni: data.inquilino.dni || ''
-                });
+                // Actualizar también la lista original para búsquedas (sin duplicar por id)
+                const idInq = data.inquilino.id;
+                const yaEnOriginales = typeof inquilinosOriginales !== 'undefined' && inquilinosOriginales.some(
+                    (x) => String(x.id) === String(idInq) || String(x.value) === String(idInq)
+                );
+                if (!yaEnOriginales) {
+                    inquilinosOriginales.push({
+                        value: data.inquilino.id,
+                        text: `ID: ${data.inquilino.id} - ${data.inquilino.apellido}, ${data.inquilino.nombre} (DNI: ${data.inquilino.dni})`,
+                        id: data.inquilino.id,
+                        nombre: `${data.inquilino.nombre.toLowerCase()} ${data.inquilino.apellido.toLowerCase()}`,
+                        dni: data.inquilino.dni || ''
+                    });
+                }
                 console.log('📋 Lista inquilinosOriginales actualizada');
             }
             
@@ -3687,7 +3705,11 @@ function guardarInquilino() {
             
             // 4. Mostrar mensaje de éxito (con delay para que se vea después del cierre)
             setTimeout(() => {
-                alert('✅ Inquilino creado correctamente: ' + data.inquilino.apellido + ', ' + data.inquilino.nombre);
+                if (data.reutilizado) {
+                    alert('Ya existía un inquilino con ese DNI en la sucursal; se seleccionó ese registro: ' + data.inquilino.apellido + ', ' + data.inquilino.nombre);
+                } else {
+                    alert('✅ Inquilino creado correctamente: ' + data.inquilino.apellido + ', ' + data.inquilino.nombre);
+                }
             }, 200);
             
             console.log('✅ Proceso completo: Modal cerrado, inquilino agregado y seleccionado');
@@ -3699,6 +3721,13 @@ function guardarInquilino() {
     .catch(error => {
         console.error('💥 Error en la solicitud:', error);
         alert(error && error.message ? 'Error: ' + error.message : 'Error de conexión o respuesta inválida. Revisá la consola.');
+    })
+    .finally(() => {
+        window._guardandoNuevoInquilino = false;
+        if (btnGuardarInq && textoBtnInq) {
+            btnGuardarInq.disabled = false;
+            btnGuardarInq.innerHTML = textoBtnInq;
+        }
     });
 }
 

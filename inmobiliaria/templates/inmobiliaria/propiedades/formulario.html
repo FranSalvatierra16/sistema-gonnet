@@ -1154,6 +1154,9 @@ $(document).ready(function() {
 
     // Función para guardar nuevo propietario
     window.guardarPropietario = function() {
+        if (window._guardandoNuevoPropietario) {
+            return;
+        }
         const form = document.getElementById('formNuevoPropietario');
         
         // Validar campos requeridos
@@ -1179,6 +1182,7 @@ $(document).ready(function() {
         const textoOriginal = btnGuardar.innerHTML;
         btnGuardar.disabled = true;
         btnGuardar.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Guardando...';
+        window._guardandoNuevoPropietario = true;
         
         console.log('💾 Guardando propietario...');
         console.log('📋 URL:', '{% url "inmobiliaria:crear_propietario_ajax" %}');
@@ -1221,13 +1225,25 @@ $(document).ready(function() {
                 // Agregar el nuevo propietario al select
                 const selectPropietario = document.getElementById('id_propietario');
                 if (selectPropietario) {
-                    const nuevaOpcion = new Option(
-                        `${data.propietario.apellido}, ${data.propietario.nombre} (${data.propietario.dni})`,
-                        data.propietario.id,
-                        true,
-                        true
-                    );
-                    selectPropietario.add(nuevaOpcion);
+                    const idStr = String(data.propietario.id);
+                    let existeOpcion = false;
+                    for (let i = 0; i < selectPropietario.options.length; i++) {
+                        if (String(selectPropietario.options[i].value) === idStr) {
+                            existeOpcion = true;
+                            break;
+                        }
+                    }
+                    if (!existeOpcion) {
+                        const nuevaOpcion = new Option(
+                            `${data.propietario.apellido}, ${data.propietario.nombre} (${data.propietario.dni})`,
+                            data.propietario.id,
+                            true,
+                            true
+                        );
+                        selectPropietario.add(nuevaOpcion);
+                    } else {
+                        selectPropietario.value = idStr;
+                    }
                     
                     // Si es Select2, actualizar
                     if ($(selectPropietario).hasClass('select2-hidden-accessible')) {
@@ -1242,8 +1258,11 @@ $(document).ready(function() {
                 }
                 form.reset();
                 
-                // Mostrar mensaje de éxito
-                showToast('✅ Propietario creado exitosamente', 'success');
+                if (data.reutilizado) {
+                    showToast('Ya existía un propietario con ese DNI en la sucursal; se seleccionó ese registro.', 'success');
+                } else {
+                    showToast('✅ Propietario creado exitosamente', 'success');
+                }
                 
             } else {
                 console.error('❌ Error:', data.error || data.errors);
@@ -1255,8 +1274,8 @@ $(document).ready(function() {
                     alert('⚠️ Error en el DNI\n\n' + mensajeError);
                 } else if (mensajeError.includes('Faltan campos')) {
                     alert('⚠️ Campos incompletos\n\n' + mensajeError + '\n\nPor favor, complete todos los campos requeridos.');
-                } else if (mensajeError.includes('duplicado') || mensajeError.includes('Ya existe')) {
-                    alert('⚠️ DNI duplicado\n\n' + mensajeError + '\n\nPor favor, verifique que el DNI no esté registrado anteriormente.');
+                } else if (mensajeError.includes('duplicado') || mensajeError.includes('Ya existe') || mensajeError.includes('único') || mensajeError.includes('unico') || mensajeError.includes('unique') || mensajeError.includes('conflicto')) {
+                    alert('⚠️ Datos duplicados\n\n' + mensajeError + '\n\nBuscá al propietario en el desplegable o verificá DNI/email.');
                 } else {
                     alert('❌ Error\n\n' + mensajeError + '\n\nPor favor, verifique los datos e intente nuevamente.');
                 }
@@ -1276,6 +1295,7 @@ $(document).ready(function() {
             }
         })
         .finally(() => {
+            window._guardandoNuevoPropietario = false;
             // Restaurar botón
             btnGuardar.disabled = false;
             btnGuardar.innerHTML = textoOriginal;
