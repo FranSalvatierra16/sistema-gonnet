@@ -148,10 +148,67 @@ def propagar_credito_excedente_cuotas(contrato, despues_de_numero_cuota: int, ex
             marcar_cuota_pagada_totalmente_cubierta_por_credito(sig, movimiento, hoy)
 
 
+def aplicar_adelanto_parcial_cuota(
+    cuota,
+    importe: Decimal,
+    movimiento,
+    hoy,
+    origen_numero_cuota: int | None = None,
+) -> None:
+    """
+    Abono parcial a una cuota pendiente/vencida (concepto 29/1000 con importe menor al saldo).
+    Suma en credito_aplicado sin marcar la cuota como pagada.
+    """
+    tol = Decimal('0.05')
+    importe = Decimal(str(importe or 0))
+    if importe <= tol:
+        return
+    if cuota.estado not in ('pendiente', 'vencida'):
+        raise ValueError(f'La cuota {cuota.numero_cuota} no admite adelanto en estado {cuota.estado}.')
+    saldo = cuota.saldo_para_cobro()
+    if importe > saldo + tol:
+        raise ValueError(
+            f'El importe {importe} supera el saldo a cobrar ({saldo}) de la cuota {cuota.numero_cuota}.'
+        )
+    cred = Decimal(str(cuota.credito_aplicado or 0))
+    cuota.credito_aplicado = cred + importe
+    if origen_numero_cuota is not None:
+        cuota.credito_origen_numero_cuota = int(origen_numero_cuota)
+    cuota.save(update_fields=['credito_aplicado', 'credito_origen_numero_cuota'])
+    cuota.refresh_from_db()
+    if cuota.saldo_para_cobro() <= tol:
+        marcar_cuota_pagada_totalmente_cubierta_por_credito(cuota, movimiento, hoy)
+
+
+def imputar_importe_a_cuota(
+    cuota,
+    cubierto: Decimal,
+    movimiento,
+    hoy,
+    *,
+    origen_numero_cuota: int | None = None,
+) -> str:
+    """
+    Imputa un importe a una cuota: pago total (y excedente a siguientes) o adelanto parcial.
+    Devuelve 'pagada', 'adelanto' o 'sin_cambio'.
+    """
+    tol = Decimal('0.05')
+    cubierto = Decimal(str(cubierto or 0))
+    if cubierto <= tol:
+        return 'sin_cambio'
+    saldo = cuota.saldo_para_cobro()
+    if cubierto + tol >= saldo:
+        marcar_cuota_pagada_con_excedente_a_favor(cuota, cubierto, movimiento, hoy)
+        return 'pagada'
+    aplicar_adelanto_parcial_cuota(cuota, cubierto, movimiento, hoy, origen_numero_cuota)
+    return 'adelanto'
+
+
 def marcar_cuota_pagada_con_excedente_a_favor(cuota, cubierto: Decimal, movimiento, hoy) -> None:
     """
     Marca la cuota pagada registrando el importe de obligación (monto_total actual),
     limpia mora/descuento en el registro y propaga cubierto - saldo a la siguiente cuota.
+    Solo usar cuando el importe cubre el saldo completo; para parciales usar imputar_importe_a_cuota.
     """
     tol = Decimal('0.05')
     saldo = cuota.saldo_para_cobro()
@@ -237,11 +294,19 @@ def imputar_cuotas_mensuales_desde_movimiento_1000(contrato, movimiento) -> int:
 
     hoy_q = timezone.now().date()
     n = 0
+    ultima_cuota_pagada_num = None
     for cq in cuotas_pendientes:
         cq.refresh_from_db()
         cubierto = asignado_por_cuota.get(cq.id, Decimal('0'))
-        saldo = cq.saldo_para_cobro()
-        if cubierto > 0 and cubierto + tol_q >= saldo:
-            marcar_cuota_pagada_con_excedente_a_favor(cq, cubierto, movimiento, hoy_q)
+        if cubierto <= tol_q:
+            continue
+        origen = ultima_cuota_pagada_num if ultima_cuota_pagada_num is not None else int(cq.numero_cuota)
+        resultado = imputar_importe_a_cuota(
+            cq, cubierto, movimiento, hoy_q, origen_numero_cuota=origen
+        )
+        if resultado == 'pagada':
+            ultima_cuota_pagada_num = int(cq.numero_cuota)
+            n += 1
+        elif resultado == 'adelanto':
             n += 1
     return n

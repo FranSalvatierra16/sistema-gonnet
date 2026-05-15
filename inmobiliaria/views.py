@@ -15098,15 +15098,29 @@ def procesar_operacion_contrato(request, contrato_id):
                 hoy_pago = timezone.now().date()
                 cuotas_pagadas_ids = []
                 from django.db import transaction
-                from inmobiliaria.cuotas_imputacion import marcar_cuota_pagada_con_excedente_a_favor
+                from inmobiliaria.cuotas_imputacion import imputar_importe_a_cuota
 
                 try:
                     with transaction.atomic():
-                        for qid, data in cuotas_objetivo_map.items():
+                        ultima_cuota_pagada_num = None
+                        items_ordenados = sorted(
+                            cuotas_objetivo_map.items(),
+                            key=lambda x: x[1]['cuota'].numero_cuota,
+                        )
+                        for _, data in items_ordenados:
                             cuota = CuotaMensual.objects.get(pk=data['cuota'].id, contrato=contrato)
                             cubierto = data['importe_lineas']
-                            marcar_cuota_pagada_con_excedente_a_favor(cuota, cubierto, movimiento, hoy_pago)
-                            cuotas_pagadas_ids.append(cuota.numero_cuota)
+                            origen = (
+                                ultima_cuota_pagada_num
+                                if ultima_cuota_pagada_num is not None
+                                else int(cuota.numero_cuota)
+                            )
+                            resultado = imputar_importe_a_cuota(
+                                cuota, cubierto, movimiento, hoy_pago, origen_numero_cuota=origen
+                            )
+                            if resultado == 'pagada':
+                                ultima_cuota_pagada_num = int(cuota.numero_cuota)
+                                cuotas_pagadas_ids.append(cuota.numero_cuota)
                 except ValueError as e:
                     return JsonResponse({'error': str(e)}, status=400)
             else:
@@ -15531,13 +15545,27 @@ def procesar_pago_cuota_operacion(request, cuota_id):
                 return JsonResponse({'error': err or 'No se pudo registrar el movimiento de caja.'}, status=400)
 
             hoy_pago = timezone.now().date()
-            from inmobiliaria.cuotas_imputacion import marcar_cuota_pagada_con_excedente_a_favor
+            from inmobiliaria.cuotas_imputacion import imputar_importe_a_cuota
 
-            for _, data in cuotas_objetivo_map.items():
+            ultima_cuota_pagada_num = None
+            items_ordenados = sorted(
+                cuotas_objetivo_map.items(),
+                key=lambda x: x[1]['cuota'].numero_cuota,
+            )
+            for _, data in items_ordenados:
                 csel = CuotaMensual.objects.get(pk=data['cuota'].id, contrato=contrato)
                 cubierto = data['importe_lineas']
+                origen = (
+                    ultima_cuota_pagada_num
+                    if ultima_cuota_pagada_num is not None
+                    else int(csel.numero_cuota)
+                )
                 try:
-                    marcar_cuota_pagada_con_excedente_a_favor(csel, cubierto, movimiento, hoy_pago)
+                    resultado = imputar_importe_a_cuota(
+                        csel, cubierto, movimiento, hoy_pago, origen_numero_cuota=origen
+                    )
+                    if resultado == 'pagada':
+                        ultima_cuota_pagada_num = int(csel.numero_cuota)
                 except ValueError as e:
                     return JsonResponse({'error': str(e)}, status=400)
 
