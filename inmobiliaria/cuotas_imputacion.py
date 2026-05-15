@@ -17,6 +17,8 @@ logger = logging.getLogger(__name__)
 CODIGOS_IMPUTACION_ALQUILER_CUOTA = frozenset({'1000', '1', '15', '29'})
 # Igual que 1000: exigen elegir cuota objetivo en operaciones de cobro de cuota.
 CONCEPTOS_CUOTA_OBJETIVO = frozenset({'1000', '29'})
+# En operación principal (depósito/honorarios) solo imputan 1000/29 o 1/15 con cuota elegida.
+CONCEPTOS_ALQUILER_LEGACY_SIN_CUOTA_OBJETIVO = frozenset({'1', '15'})
 
 
 def _normalizar_codigo_concepto_caja(cid_raw) -> str:
@@ -59,6 +61,88 @@ def payload_conceptos_desde_movimiento_detalle(movimiento) -> list:
     except (json.JSONDecodeError, TypeError, ValueError) as e:
         logger.warning('JSON concepto_detalle inválido movimiento_id=%s: %s', getattr(movimiento, 'id', None), e)
     return []
+
+
+def lineas_imputables_desde_movimiento(movimiento, *, operacion_principal: bool = False) -> list:
+    """
+    Líneas del movimiento que pueden marcar cuotas.
+    No usa mes_alquiler_importe del JSON raíz (solo referencia de recibo).
+    En operación principal no imputa concepto 1/15 sin cuota_objetivo_id (evita marcar meses
+    por el valor oculto «mes alquiler» o líneas de alquiler no cobradas en el recibo).
+    """
+    lineas = payload_conceptos_desde_movimiento_detalle(movimiento)
+    out = []
+    for it in lineas:
+        cid_raw = it.get('id')
+        if cid_raw is None:
+            cid_raw = it.get('codigo')
+        cid = _normalizar_codigo_concepto_caja(cid_raw)
+        if cid not in CODIGOS_IMPUTACION_ALQUILER_CUOTA:
+            continue
+        imp = parse_decimal_monto(it.get('importe'))
+        if imp <= 0:
+            continue
+        if operacion_principal:
+            raw_qid = str(it.get('cuota_objetivo_id') or '').strip()
+            if cid in CONCEPTOS_CUOTA_OBJETIVO:
+                out.append(it)
+            elif cid in CONCEPTOS_ALQUILER_LEGACY_SIN_CUOTA_OBJETIVO and raw_qid.isdigit():
+                out.append(it)
+            continue
+        out.append(it)
+    return out
+
+
+def movimiento_tiene_lineas_imputables_cuota(movimiento, *, operacion_principal: bool = False) -> bool:
+    return len(lineas_imputables_desde_movimiento(movimiento, operacion_principal=operacion_principal)) > 0
+
+
+def revertir_cuota_imputacion(cuota, contrato, hoy=None) -> None:
+    """Quita cobro imputado a la cuota y revierte crédito propagado a cuotas posteriores."""
+    from django.utils import timezone as tz
+
+    from inmobiliaria.models.contrato import CuotaMensual
+
+    hoy = hoy or tz.now().date()
+    if cuota.estado not in ('pagada', 'pagada_con_mora'):
+        return
+    nk = int(cuota.numero_cuota)
+    revertir_credito_propagado_por_cuota_annulada(contrato, nk)
+    cuota.movimiento = None
+    cuota.fecha_pago = None
+    cuota.credito_aplicado = Decimal('0')
+    cuota.credito_origen_numero_cuota = None
+    if cuota.fecha_vencimiento and cuota.fecha_vencimiento < hoy:
+        cuota.estado = 'vencida'
+    else:
+        cuota.estado = 'pendiente'
+    cuota.save(
+        update_fields=[
+            'movimiento',
+            'fecha_pago',
+            'credito_aplicado',
+            'credito_origen_numero_cuota',
+            'estado',
+        ]
+    )
+
+
+def desimputar_cuotas_de_movimiento(contrato, movimiento, hoy=None, *, forzar: bool = False) -> int:
+    """
+    Revierte cuotas marcadas pagadas por un movimiento que no tenía líneas de alquiler/cuota
+    imputables (p. ej. solo depósito 10 y honorarios 25).
+    """
+    from django.utils import timezone as tz
+
+    hoy = hoy or tz.now().date()
+    if not forzar and movimiento_tiene_lineas_imputables_cuota(movimiento, operacion_principal=False):
+        return 0
+    n = 0
+    for cq in contrato.cuotas.filter(movimiento=movimiento).order_by('numero_cuota'):
+        if cq.estado in ('pagada', 'pagada_con_mora'):
+            revertir_cuota_imputacion(cq, contrato, hoy=hoy)
+            n += 1
+    return n
 
 
 def marcar_cuota_pagada_totalmente_cubierta_por_credito(cuota, movimiento, hoy) -> None:
@@ -232,24 +316,17 @@ def marcar_cuota_pagada_con_excedente_a_favor(cuota, cubierto: Decimal, movimien
         propagar_credito_excedente_cuotas(cuota.contrato, cuota.numero_cuota, exceso, movimiento, hoy)
 
 
-def imputar_cuotas_mensuales_desde_movimiento_1000(contrato, movimiento) -> int:
+def imputar_cuotas_mensuales_desde_movimiento_1000(
+    contrato, movimiento, *, operacion_principal: bool = False
+) -> int:
     """
     Marca pagadas las cuotas pendientes/vencidas según líneas de alquiler/cuota del movimiento
     (conceptos 1000, 29, 1 o 15; ARS o USD), por cuota_objetivo_id o en orden de numero_cuota.
-    Devuelve la cantidad de cuotas guardadas como pagadas.
+    Devuelve la cantidad de cuotas afectadas (pagadas o adelanto).
     """
-    lineas = payload_conceptos_desde_movimiento_detalle(movimiento)
-    lineas_imputables = []
-    for it in lineas:
-        cid_raw = it.get('id')
-        if cid_raw is None:
-            cid_raw = it.get('codigo')
-        cid = _normalizar_codigo_concepto_caja(cid_raw)
-        if cid not in CODIGOS_IMPUTACION_ALQUILER_CUOTA:
-            continue
-        imp = parse_decimal_monto(it.get('importe'))
-        if imp > 0:
-            lineas_imputables.append(it)
+    lineas_imputables = lineas_imputables_desde_movimiento(
+        movimiento, operacion_principal=operacion_principal
+    )
 
     if not lineas_imputables:
         return 0

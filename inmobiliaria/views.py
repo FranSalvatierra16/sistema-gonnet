@@ -15050,7 +15050,9 @@ def procesar_operacion_contrato(request, contrato_id):
             from inmobiliaria.cuotas_imputacion import imputar_cuotas_mensuales_desde_movimiento_1000
 
             try:
-                n_imp = imputar_cuotas_mensuales_desde_movimiento_1000(contrato, movimiento)
+                n_imp = imputar_cuotas_mensuales_desde_movimiento_1000(
+                    contrato, movimiento, operacion_principal=True
+                )
                 if n_imp == 0 and contrato.cuotas.filter(
                     estado__in=['pendiente', 'vencida']
                 ).exists():
