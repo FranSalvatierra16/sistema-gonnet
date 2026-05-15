@@ -552,6 +552,9 @@
     window.numeroCuotaPago = config.numero_cuota != null ? Number(config.numero_cuota) : 0;
     window.defaultImporteCuota = config.default_importe_cuota != null ? Number(config.default_importe_cuota) : 0;
     window.cuotasPendientesCfg = Array.isArray(config.cuotas_pendientes) ? config.cuotas_pendientes : [];
+    window.cuotasSelectorCfg = Array.isArray(config.cuotas_selector) && config.cuotas_selector.length
+        ? config.cuotas_selector
+        : window.cuotasPendientesCfg;
     window.defaultNombreConceptoCuota = (config.default_concepto_cuota_nombre != null && String(config.default_concepto_cuota_nombre).trim())
         ? String(config.default_concepto_cuota_nombre).trim()
         : 'Imputación mensual / cuota (1000)';
@@ -570,7 +573,9 @@ let operacionGuardActiva = true;
 function etiquetaCuotaDesdeCfg(cuotaId) {
     const qid = Number(cuotaId || 0);
     if (!qid) return '';
-    const arr = Array.isArray(window.cuotasPendientesCfg) ? window.cuotasPendientesCfg : [];
+    const arr = (Array.isArray(window.cuotasSelectorCfg) && window.cuotasSelectorCfg.length)
+        ? window.cuotasSelectorCfg
+        : (Array.isArray(window.cuotasPendientesCfg) ? window.cuotasPendientesCfg : []);
     const it = arr.find(function(q) { return Number(q.id) === qid; });
     if (!it) return '';
     return `Cuota ${it.numero_cuota} (${it.mes})`;
@@ -599,10 +604,27 @@ function renderOpcionesCuotasObjetivo(selectedId) {
     }
     const prev = String(selectedId || select.value || '');
     const opciones = ['<option value="">Seleccionar cuota...</option>'];
-    (window.cuotasPendientesCfg || []).forEach(function(q) {
+    const lista = (Array.isArray(window.cuotasSelectorCfg) && window.cuotasSelectorCfg.length)
+        ? window.cuotasSelectorCfg
+        : (window.cuotasPendientesCfg || []);
+    lista.forEach(function(q) {
         const sel = String(q.id) === prev ? ' selected' : '';
+        const bloq = !!q.bloqueada;
+        const dis = bloq ? ' disabled' : '';
+        const saldo = (q.monto_saldo != null && q.monto_saldo !== undefined)
+            ? Number(q.monto_saldo)
+            : Number(q.monto_total || 0);
+        const cred = Number(q.credito_aplicado || 0);
+        let suf;
+        if (bloq) {
+            suf = ' · PAGADA (no imputable)';
+        } else if (cred > 0.001) {
+            suf = ` · saldo ${prefijoMonedaCuotaContrato()}${formatoMontoReciboAR(saldo)} (a favor ${prefijoMonedaCuotaContrato()}${formatoMontoReciboAR(cred)})`;
+        } else {
+            suf = ` · a pagar ${prefijoMonedaCuotaContrato()}${formatoMontoReciboAR(saldo)}`;
+        }
         opciones.push(
-            `<option value="${q.id}"${sel}>Cuota ${q.numero_cuota} · ${q.mes} · vence ${q.fecha_vencimiento} · ${prefijoMonedaCuotaContrato()}${formatoMontoReciboAR(q.monto_total || 0)}</option>`
+            `<option value="${q.id}"${dis}${sel}>Cuota ${q.numero_cuota} · ${q.mes} · vence ${q.fecha_vencimiento}${suf}</option>`
         );
     });
     select.innerHTML = opciones.join('');

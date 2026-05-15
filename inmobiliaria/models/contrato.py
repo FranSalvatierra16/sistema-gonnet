@@ -184,7 +184,15 @@ class CuotaMensual(models.Model):
     
     # Relación con movimiento de caja
     movimiento = models.ForeignKey(MovimientoCaja, on_delete=models.SET_NULL, null=True, blank=True)
-    
+
+    credito_aplicado = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        verbose_name='Crédito aplicado (excedente de pago anterior)',
+        help_text='Importe cubierto por un cobro anterior mayor al saldo; reduce lo que falta pagar de esta cuota.',
+    )
+
     class Meta:
         verbose_name = 'Cuota Mensual'
         verbose_name_plural = 'Cuotas Mensuales'
@@ -210,4 +218,12 @@ class CuotaMensual(models.Model):
     def actualizar_monto_total(self):
         """Actualiza el monto total considerando mora y descuentos"""
         self.monto_total = self.monto_base + self.recargo_mora - self.descuento
-        self.save() 
+        self.save()
+
+    def saldo_para_cobro(self):
+        """Saldo pendiente en moneda de la cuota (monto_total menos crédito por excedente de pagos anteriores)."""
+        if self.estado not in ('pendiente', 'vencida'):
+            return Decimal('0')
+        tot = Decimal(str(self.monto_total or 0))
+        cred = Decimal(str(self.credito_aplicado or 0))
+        return max(Decimal('0'), tot - cred) 

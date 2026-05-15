@@ -13583,6 +13583,7 @@ def recalcular_cuotas_montos_desde_contrato(request, contrato_id):
             cuota.monto_base = montos[idx]
             cuota.recargo_mora = Decimal('0')
             cuota.descuento = Decimal('0')
+            cuota.credito_aplicado = Decimal('0')
             cuota.actualizar_monto_total()
             actualizadas += 1
     messages.success(
@@ -13614,6 +13615,7 @@ def activar_precios_trimestres_contrato(request, contrato_id):
             cuota.monto_base = montos[idx]
             cuota.recargo_mora = Decimal('0')
             cuota.descuento = Decimal('0')
+            cuota.credito_aplicado = Decimal('0')
             cuota.actualizar_monto_total()
             n += 1
     messages.success(
@@ -13671,6 +13673,7 @@ def actualizar_precios_bloques_contrato(request, contrato_id):
             cuota.monto_base = montos[idx]
             cuota.recargo_mora = Decimal('0')
             cuota.descuento = Decimal('0')
+            cuota.credito_aplicado = Decimal('0')
             cuota.actualizar_monto_total()
             actualizadas += 1
 
@@ -13734,6 +13737,7 @@ def crear_operacion_contrato(request, contrato_id):
         }
         for c in contrato.cuotas.filter(estado__in=['pendiente', 'vencida']).order_by('numero_cuota')
     ]
+    cuotas_selector_cfg = _cuotas_selector_operacion_cfg(contrato)
 
     config_operacion = {
         'tipo_operacion': tipo_operacion,
@@ -13745,6 +13749,7 @@ def crear_operacion_contrato(request, contrato_id):
         'honorarios_referencia': float(contrato.honorarios_referencia or 0),
         'sellados_referencia': float(contrato.sellados_referencia or 0),
         'cuotas_pendientes': cuotas_pendientes_cfg,
+        'cuotas_selector': cuotas_selector_cfg,
         'moneda_cuotas': getattr(contrato, 'moneda', 'ARS') or 'ARS',
     }
     context = {
@@ -14644,6 +14649,7 @@ def _anular_pago_cuota_mensual(cuota, contrato, hoy=None):
     cuota.monto_total = monto
     cuota.recargo_mora = Decimal('0')
     cuota.descuento = Decimal('0')
+    cuota.credito_aplicado = Decimal('0')
     cuota.estado = _estado_inicial_cuota_por_vencimiento(cuota.fecha_vencimiento, hoy)
     cuota.save(
         update_fields=[
@@ -14653,6 +14659,7 @@ def _anular_pago_cuota_mensual(cuota, contrato, hoy=None):
             'monto_total',
             'recargo_mora',
             'descuento',
+            'credito_aplicado',
             'estado',
         ]
     )
@@ -14798,8 +14805,30 @@ def _cuotas_objetivo_desde_conceptos(contrato, lista_conceptos):
 
     suma_objetivo = Decimal('0')
     for data in cuotas_map.values():
-        suma_objetivo += Decimal(str(data['cuota'].monto_total or 0))
+        suma_objetivo += data['cuota'].saldo_para_cobro()
     return cuotas_map, suma_objetivo, errores
+
+
+def _cuotas_selector_operacion_cfg(contrato):
+    """Todas las cuotas del plan para el modal (pagadas bloqueadas; pendientes con saldo y crédito)."""
+    out = []
+    for c in contrato.cuotas.order_by('numero_cuota'):
+        bloq = c.estado in ('pagada', 'pagada_con_mora')
+        saldo = float(c.saldo_para_cobro()) if not bloq else 0.0
+        out.append(
+            {
+                'id': c.id,
+                'numero_cuota': c.numero_cuota,
+                'mes': c.fecha_vencimiento.strftime('%m/%Y') if c.fecha_vencimiento else '',
+                'fecha_vencimiento': c.fecha_vencimiento.strftime('%d/%m/%Y') if c.fecha_vencimiento else '',
+                'monto_nominal': float(c.monto_total or 0),
+                'monto_saldo': saldo,
+                'credito_aplicado': float(getattr(c, 'credito_aplicado', None) or 0),
+                'estado': c.estado,
+                'bloqueada': bloq,
+            }
+        )
+    return out
 
 
 def _actualizar_pendientes_al_ultimo_importe(contrato):
@@ -15042,30 +15071,18 @@ def procesar_operacion_contrato(request, contrato_id):
             if cuotas_objetivo_map:
                 hoy_pago = timezone.now().date()
                 cuotas_pagadas_ids = []
-                for qid, data in cuotas_objetivo_map.items():
-                    cuota = data['cuota']
-                    cubierto = data['importe_lineas']
-                    objetivo = Decimal(str(cuota.monto_total or 0))
-                    if cubierto + Decimal('0.05') < objetivo:
-                        return JsonResponse(
-                            {
-                                'error': (
-                                    f'La cuota {cuota.numero_cuota} requiere ${objetivo} y en concepto de cuota '
-                                    f'(1000 o 29) tenés ${cubierto}.'
-                                )
-                            },
-                            status=400,
-                        )
-                    cuota.estado = 'pagada'
-                    cuota.fecha_pago = hoy_pago
-                    cuota.movimiento = movimiento
-                    # Si en la línea de concepto de cuota (1000 o 29) se ingresó otro importe (ej. 500.000), la cuota queda con ese valor.
-                    cuota.monto_base = cubierto
-                    cuota.monto_total = cubierto
-                    cuota.recargo_mora = Decimal('0')
-                    cuota.descuento = Decimal('0')
-                    cuota.save()
-                    cuotas_pagadas_ids.append(cuota.numero_cuota)
+                from django.db import transaction
+                from inmobiliaria.cuotas_imputacion import marcar_cuota_pagada_con_excedente_a_favor
+
+                try:
+                    with transaction.atomic():
+                        for qid, data in cuotas_objetivo_map.items():
+                            cuota = CuotaMensual.objects.get(pk=data['cuota'].id, contrato=contrato)
+                            cubierto = data['importe_lineas']
+                            marcar_cuota_pagada_con_excedente_a_favor(cuota, cubierto, movimiento, hoy_pago)
+                            cuotas_pagadas_ids.append(cuota.numero_cuota)
+                except ValueError as e:
+                    return JsonResponse({'error': str(e)}, status=400)
             else:
                 cuota = contrato.cuotas.filter(estado__in=['pendiente', 'vencida']).order_by('fecha_vencimiento').first()
                 if not cuota:
@@ -15337,6 +15354,7 @@ def crear_pago_cuota_operacion(request, cuota_id):
         }
         for c in contrato.cuotas.filter(estado__in=['pendiente', 'vencida']).order_by('numero_cuota')
     ]
+    cuotas_selector_cfg = _cuotas_selector_operacion_cfg(contrato)
 
     config_operacion = {
         'tipo_operacion': 'cuota_especifica',
@@ -15345,10 +15363,11 @@ def crear_pago_cuota_operacion(request, cuota_id):
         'modo_pago_cuota_especifica': True,
         'cuota_id': cuota.id,
         'numero_cuota': cuota.numero_cuota,
-        'default_importe_cuota': float(cuota.monto_total or 0),
+        'default_importe_cuota': float(cuota.saldo_para_cobro()),
         'default_concepto_cuota_nombre': default_nombre_concepto_cuota,
         'procesar_pago_cuota_url': reverse('inmobiliaria:procesar_pago_cuota_operacion', args=[cuota.id]),
         'cuotas_pendientes': cuotas_pendientes_cfg,
+        'cuotas_selector': cuotas_selector_cfg,
         'moneda_cuotas': getattr(contrato, 'moneda', 'ARS') or 'ARS',
     }
 
@@ -15486,29 +15505,15 @@ def procesar_pago_cuota_operacion(request, cuota_id):
                 return JsonResponse({'error': err or 'No se pudo registrar el movimiento de caja.'}, status=400)
 
             hoy_pago = timezone.now().date()
+            from inmobiliaria.cuotas_imputacion import marcar_cuota_pagada_con_excedente_a_favor
+
             for _, data in cuotas_objetivo_map.items():
-                csel = data['cuota']
+                csel = CuotaMensual.objects.get(pk=data['cuota'].id, contrato=contrato)
                 cubierto = data['importe_lineas']
-                objetivo = Decimal(str(csel.monto_total or 0))
-                if cubierto + Decimal('0.05') < objetivo:
-                    return JsonResponse(
-                        {
-                            'error': (
-                                f'La cuota {csel.numero_cuota} requiere ${objetivo} y en concepto de cuota '
-                                f'(1000 o 29) tenés ${cubierto}.'
-                            )
-                        },
-                        status=400,
-                    )
-                csel.estado = 'pagada'
-                csel.fecha_pago = hoy_pago
-                csel.movimiento = movimiento
-                # Respetar el importe cargado en la línea de concepto de cuota (1000 o 29) para esa cuota.
-                csel.monto_base = cubierto
-                csel.monto_total = cubierto
-                csel.recargo_mora = Decimal('0')
-                csel.descuento = Decimal('0')
-                csel.save()
+                try:
+                    marcar_cuota_pagada_con_excedente_a_favor(csel, cubierto, movimiento, hoy_pago)
+                except ValueError as e:
+                    return JsonResponse({'error': str(e)}, status=400)
 
             _actualizar_pendientes_al_ultimo_importe(contrato)
             _activar_contrato_si_hay_cuotas_pagadas(contrato)

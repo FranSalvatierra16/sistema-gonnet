@@ -381,6 +381,9 @@
                                 <strong class="text-primary">{{ cuota.monto_total|format_importe_moneda:contrato.moneda }}</strong>
                                 {% else %}
                                 <strong class="text-success">{{ cuota.monto_total|format_importe_moneda:contrato.moneda }}</strong>
+                                {% if cuota.credito_aplicado %}
+                                <br><small class="text-primary">Saldo a cobrar: {{ cuota.saldo_para_cobro|format_importe_moneda:contrato.moneda }} <span class="text-muted">(a favor {{ cuota.credito_aplicado|format_importe_moneda:contrato.moneda }})</span></small>
+                                {% endif %}
                                 {% endif %}
                             </td>
                             <td>
@@ -421,7 +424,7 @@
                                         <i class="fas fa-cash-register"></i> Cobrar
                                     </a>
                                     <button type="button" class="btn btn-sm btn-outline-secondary ms-1" 
-                                            onclick="pagarCuotaEspecifica({{ cuota.id }}, '{{ cuota.monto_total|floatformat:2 }}')" 
+                                            onclick="pagarCuotaEspecifica({{ cuota.id }}, '{{ cuota.saldo_para_cobro|floatformat:2 }}')" 
                                             title="Registrar todo en efectivo sin pantalla de operación">
                                         Efectivo
                                     </button>
