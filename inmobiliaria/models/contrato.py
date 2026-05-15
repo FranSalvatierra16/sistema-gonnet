@@ -192,6 +192,12 @@ class CuotaMensual(models.Model):
         verbose_name='Crédito aplicado (excedente de pago anterior)',
         help_text='Importe cubierto por un cobro anterior mayor al saldo; reduce lo que falta pagar de esta cuota.',
     )
+    credito_origen_numero_cuota = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name='Crédito procedente de cuota N',
+        help_text='Número de cuota cuyo pago con excedente generó este crédito; se limpia al anular ese cobro.',
+    )
 
     class Meta:
         verbose_name = 'Cuota Mensual'

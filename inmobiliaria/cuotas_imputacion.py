@@ -81,7 +81,36 @@ def marcar_cuota_pagada_totalmente_cubierta_por_credito(cuota, movimiento, hoy) 
     cuota.recargo_mora = Decimal('0')
     cuota.descuento = Decimal('0')
     cuota.credito_aplicado = Decimal('0')
-    cuota.save()
+    cuota.credito_origen_numero_cuota = None
+    cuota.save(
+        update_fields=[
+            'estado',
+            'fecha_pago',
+            'movimiento',
+            'monto_base',
+            'monto_total',
+            'recargo_mora',
+            'descuento',
+            'credito_aplicado',
+            'credito_origen_numero_cuota',
+        ]
+    )
+
+
+def revertir_credito_propagado_por_cuota_annulada(contrato, numero_cuota_origen: int) -> int:
+    """
+    Quita credito_aplicado en cuotas posteriores que quedó imputado al excedente del cobro de la cuota N.
+    Devuelve la cantidad de filas actualizadas.
+    """
+    from inmobiliaria.models.contrato import CuotaMensual
+
+    nk = int(numero_cuota_origen)
+    return CuotaMensual.objects.filter(
+        contrato=contrato,
+        estado__in=['pendiente', 'vencida'],
+        numero_cuota__gt=nk,
+        credito_origen_numero_cuota=nk,
+    ).update(credito_aplicado=Decimal('0'), credito_origen_numero_cuota=None)
 
 
 def propagar_credito_excedente_cuotas(contrato, despues_de_numero_cuota: int, exceso: Decimal, movimiento, hoy) -> None:
@@ -93,8 +122,9 @@ def propagar_credito_excedente_cuotas(contrato, despues_de_numero_cuota: int, ex
     if exceso <= tol:
         return
     rest = exceso
+    nk = int(despues_de_numero_cuota)
     sigs = contrato.cuotas.filter(
-        numero_cuota__gt=int(despues_de_numero_cuota),
+        numero_cuota__gt=nk,
         estado__in=['pendiente', 'vencida'],
     ).order_by('numero_cuota')
     for sig in sigs:
@@ -107,7 +137,11 @@ def propagar_credito_excedente_cuotas(contrato, despues_de_numero_cuota: int, ex
             continue
         add = min(rest, cap)
         sig.credito_aplicado = cred + add
-        sig.save(update_fields=['credito_aplicado'])
+        if add > tol:
+            sig.credito_origen_numero_cuota = nk
+            sig.save(update_fields=['credito_aplicado', 'credito_origen_numero_cuota'])
+        else:
+            sig.save(update_fields=['credito_aplicado'])
         rest -= add
         sig.refresh_from_db()
         if movimiento is not None and sig.estado in ('pendiente', 'vencida') and sig.saldo_para_cobro() <= tol:
@@ -135,6 +169,7 @@ def marcar_cuota_pagada_con_excedente_a_favor(cuota, cubierto: Decimal, movimien
     cuota.recargo_mora = Decimal('0')
     cuota.descuento = Decimal('0')
     cuota.credito_aplicado = Decimal('0')
+    cuota.credito_origen_numero_cuota = None
     cuota.save()
     if exceso > tol:
         propagar_credito_excedente_cuotas(cuota.contrato, cuota.numero_cuota, exceso, movimiento, hoy)

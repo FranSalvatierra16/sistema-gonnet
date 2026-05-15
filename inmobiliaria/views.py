@@ -13584,6 +13584,7 @@ def recalcular_cuotas_montos_desde_contrato(request, contrato_id):
             cuota.recargo_mora = Decimal('0')
             cuota.descuento = Decimal('0')
             cuota.credito_aplicado = Decimal('0')
+            cuota.credito_origen_numero_cuota = None
             cuota.actualizar_monto_total()
             actualizadas += 1
     messages.success(
@@ -13616,6 +13617,7 @@ def activar_precios_trimestres_contrato(request, contrato_id):
             cuota.recargo_mora = Decimal('0')
             cuota.descuento = Decimal('0')
             cuota.credito_aplicado = Decimal('0')
+            cuota.credito_origen_numero_cuota = None
             cuota.actualizar_monto_total()
             n += 1
     messages.success(
@@ -13674,6 +13676,7 @@ def actualizar_precios_bloques_contrato(request, contrato_id):
             cuota.recargo_mora = Decimal('0')
             cuota.descuento = Decimal('0')
             cuota.credito_aplicado = Decimal('0')
+            cuota.credito_origen_numero_cuota = None
             cuota.actualizar_monto_total()
             actualizadas += 1
 
@@ -14641,7 +14644,11 @@ def _monto_plan_cuota_contrato(contrato, numero_cuota):
 
 def _anular_pago_cuota_mensual(cuota, contrato, hoy=None):
     """Quita el cobro imputado a la cuota sin anular el movimiento de caja."""
+    from .cuotas_imputacion import revertir_credito_propagado_por_cuota_annulada
+
     hoy = hoy or timezone.now().date()
+    nk = int(cuota.numero_cuota)
+    revertir_credito_propagado_por_cuota_annulada(contrato, nk)
     monto = _monto_plan_cuota_contrato(contrato, cuota.numero_cuota)
     cuota.movimiento = None
     cuota.fecha_pago = None
@@ -14650,6 +14657,7 @@ def _anular_pago_cuota_mensual(cuota, contrato, hoy=None):
     cuota.recargo_mora = Decimal('0')
     cuota.descuento = Decimal('0')
     cuota.credito_aplicado = Decimal('0')
+    cuota.credito_origen_numero_cuota = None
     cuota.estado = _estado_inicial_cuota_por_vencimiento(cuota.fecha_vencimiento, hoy)
     cuota.save(
         update_fields=[
@@ -14660,6 +14668,7 @@ def _anular_pago_cuota_mensual(cuota, contrato, hoy=None):
             'recargo_mora',
             'descuento',
             'credito_aplicado',
+            'credito_origen_numero_cuota',
             'estado',
         ]
     )
@@ -20601,8 +20610,16 @@ def _eliminar_movimiento_y_anexos(movimiento, eliminado_por=None):
     if getattr(movimiento, 'fecha_eliminacion', None):
         return
 
+    from .cuotas_imputacion import revertir_credito_propagado_por_cuota_annulada
+
+    cuotas_linked = list(CuotaMensual.objects.filter(movimiento=movimiento))
+    contrato_nks = {}
+    for cuota in cuotas_linked:
+        if cuota.estado in ('pagada', 'pagada_con_mora'):
+            contrato_nks.setdefault(cuota.contrato_id, set()).add(int(cuota.numero_cuota))
+
     hoy = timezone.now().date()
-    for cuota in CuotaMensual.objects.filter(movimiento=movimiento):
+    for cuota in cuotas_linked:
         cuota.movimiento = None
         cuota.fecha_pago = None
         if cuota.fecha_vencimiento < hoy:
@@ -20610,6 +20627,13 @@ def _eliminar_movimiento_y_anexos(movimiento, eliminado_por=None):
         elif cuota.estado in ('pagada', 'pagada_con_mora'):
             cuota.estado = 'pendiente'
         cuota.save(update_fields=['movimiento', 'fecha_pago', 'estado'])
+
+    for cid, nks in contrato_nks.items():
+        co = ContratoAlquiler.objects.filter(pk=cid).first()
+        if not co:
+            continue
+        for nk in nks:
+            revertir_credito_propagado_por_cuota_annulada(co, nk)
 
     ValeVendedor.objects.filter(movimiento_caja=movimiento).update(movimiento_caja=None)
 
