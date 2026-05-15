@@ -10212,10 +10212,20 @@ def eliminar_movimiento(request, movimiento_id):
         num = caja_prev.numero if caja_prev and caja_prev.numero is not None else None
         return _redirect_tras_eliminar_movimiento(num)
     caja = movimiento.caja
-    if caja and (getattr(caja, 'estado', None) != 'abierta' or caja.fecha_cierre is not None):
-        messages.error(request, 'Solo se pueden eliminar movimientos de una caja abierta.')
-        num = caja.numero if caja and caja.numero is not None else None
-        return _redirect_tras_eliminar_movimiento(num)
+    caja_cerrada = bool(
+        caja
+        and (
+            getattr(caja, 'estado', None) != 'abierta'
+            or caja.fecha_cierre is not None
+        )
+    )
+    if caja_cerrada:
+        messages.warning(
+            request,
+            'La caja de este movimiento está cerrada. Se anula igualmente en el sistema '
+            '(no suma en saldos ni reportes actuales). Si el arqueo físico de ese día '
+            'ya quedó cerrado, revisá que los efectivo cuadren con la realidad.',
+        )
 
     caja_numero = movimiento.caja_id and movimiento.caja.numero
     _eliminar_movimiento_y_anexos(movimiento, eliminado_por=request.user)

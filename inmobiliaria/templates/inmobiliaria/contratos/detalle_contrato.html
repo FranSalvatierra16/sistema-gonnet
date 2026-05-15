@@ -40,12 +40,13 @@
                                 {{ m.fecha|date:"d/m/Y H:i" }} — Mov. #{{ m.id }}
                                 {% if m.numero_liquidacion %}<span class="text-muted">({{ m.numero_liquidacion }})</span>{% endif %}
                             </a>
-                            {% if user.nivel == 5 and m.caja and m.caja.estado == 'abierta' and not m.caja.fecha_cierre %}
-                            <form method="post" action="{% url 'inmobiliaria:eliminar_movimiento' m.id %}" class="m-0" onsubmit="return confirm('¿Anular este movimiento y su recibo?');">
+                            {% if user.nivel == 5 and m.caja %}
+                            <form method="post" action="{% url 'inmobiliaria:eliminar_movimiento' m.id %}" class="m-0"
+                                  onsubmit="return confirm({% if m.caja.estado == 'abierta' and not m.caja.fecha_cierre %}'¿Anular este movimiento y su recibo?'{% else %}'¿Anular este movimiento aunque la caja ya está cerrada? El dinero dejará de contar en el sistema; revisá arqueo si hace falta.'{% endif %});">
                                 {% csrf_token %}
                                 <input type="hidden" name="next" value="detalle_contrato">
                                 <input type="hidden" name="contrato_id" value="{{ contrato.id }}">
-                                <button type="submit" class="btn btn-sm btn-outline-danger text-nowrap">Anular</button>
+                                <button type="submit" class="btn btn-sm btn-outline-danger text-nowrap" {% if m.caja.estado != 'abierta' or m.caja.fecha_cierre %}title="Caja cerrada: igual podés anular duplicados u errores"{% endif %}>Anular</button>
                             </form>
                             {% endif %}
                         </div>
@@ -69,7 +70,7 @@
                 <div class="card-body py-3">
                     <p class="small text-muted mb-3">
                         Cada fila es un ingreso registrado en caja vinculado a este contrato.
-                        <strong>Anular</strong> elimina el recibo y ese importe deja de sumar en la caja (solo si la caja sigue <strong>abierta</strong>).
+                        <strong>Anular</strong> elimina el recibo y ese importe deja de sumar en el sistema. También podés anular movimientos de una <strong>caja cerrada</strong> (duplicados o errores); revisá el arqueo de ese día si ya estaba rendido.
                     </p>
                     <div class="table-responsive">
                         <table class="table table-sm table-hover align-middle mb-0">
@@ -106,17 +107,16 @@
                                         <a href="{% url 'inmobiliaria:ver_recibo_movimiento' m.id }}" class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener" title="Movimiento en caja">
                                             <i class="fas fa-cash-register"></i>
                                         </a>
-                                        {% if m.caja and m.caja.estado == 'abierta' and not m.caja.fecha_cierre %}
-                                        <form method="post" action="{% url 'inmobiliaria:eliminar_movimiento' m.id %}" class="d-inline" onsubmit="return confirm('¿Anular este movimiento de caja y su recibo? El dinero dejará de sumar en la caja y las cuotas vinculadas pueden quedar pendientes según corresponda.');">
+                                        {% if m.caja %}
+                                        <form method="post" action="{% url 'inmobiliaria:eliminar_movimiento' m.id %}" class="d-inline"
+                                              onsubmit="return confirm({% if m.caja.estado == 'abierta' and not m.caja.fecha_cierre %}'¿Anular este movimiento de caja y su recibo? El dinero dejará de sumar en la caja y las cuotas vinculadas pueden quedar pendientes según corresponda.'{% else %}'¿Anular este movimiento aunque la caja está cerrada? Útil para duplicados. Las cuotas vinculadas se desimputan si aplicaba.'{% endif %});">
                                             {% csrf_token %}
                                             <input type="hidden" name="next" value="detalle_contrato">
                                             <input type="hidden" name="contrato_id" value="{{ contrato.id }}">
-                                            <button type="submit" class="btn btn-sm btn-outline-danger">
-                                                <i class="fas fa-ban"></i> Anular
+                                            <button type="submit" class="btn btn-sm btn-outline-danger" {% if m.caja.estado != 'abierta' or m.caja.fecha_cierre %}title="Caja cerrada: podés anular igual si fue duplicado o error"{% endif %}>
+                                                <i class="fas fa-ban"></i> Anular{% if m.caja.estado != 'abierta' or m.caja.fecha_cierre %} <span class="small">(cerrada)</span>{% endif %}
                                             </button>
                                         </form>
-                                        {% elif m.caja %}
-                                        <span class="small text-muted ms-1">Sin anular (caja cerrada)</span>
                                         {% endif %}
                                     </td>
                                 </tr>
