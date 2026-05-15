@@ -71,8 +71,9 @@
                                     <strong>Importe:</strong> {{ cuota_pago.monto_total|format_importe_moneda:contrato.moneda }}</p>
                                 <p class="mb-0 small text-muted">
                                     Se precarga el concepto <strong>1000</strong> con la cuota actual como objetivo y el monto sugerido; así podés cambiar el mes/cuota desde el modal si corresponde.
+                                    El concepto <strong>29</strong> funciona igual (elegís cuota objetivo e importe).
                                     También podés sumar líneas con otros IDs (gastos, expensas, etc.).
-                                    Para que se marque la cuota como pagada, la imputación se hace por <strong>concepto 1000</strong> con cuota objetivo seleccionada.
+                                    Para que se marque la cuota como pagada, la imputación se hace por <strong>concepto 1000 o 29</strong> con cuota objetivo seleccionada.
                                     La suma de <em>todas</em> las líneas debe coincidir con los medios de pago.
                                 </p>
                             </div>
@@ -423,11 +424,11 @@
                         </select>
                     </div>
                     <div class="mb-3" id="grupoCuotaObjetivo" style="display: none;">
-                        <label for="cuotaObjetivoId" class="form-label"><strong>Cuota objetivo (concepto 1000):</strong></label>
+                        <label for="cuotaObjetivoId" class="form-label"><strong>Cuota objetivo (conceptos 1000 o 29):</strong></label>
                         <select class="form-control" id="cuotaObjetivoId">
                             <option value="">Seleccionar cuota...</option>
                         </select>
-                        <small class="text-muted">Para concepto 1000, elegí la cuota/mes al que se imputa.</small>
+                        <small class="text-muted">Para concepto 1000 o 29, elegí la cuota/mes al que se imputa.</small>
                     </div>
                 </form>
             </div>
@@ -579,12 +580,18 @@ function prefijoMonedaCuotaContrato() {
     return window.monedaCuotasContrato === 'USD' ? 'U$S ' : '$';
 }
 
+/** Conceptos de catálogo que imputan a una cuota y exigen elegir cuota objetivo (misma lógica que 1000). */
+function conceptoCatalogoRequiereCuotaObjetivo(catalogId) {
+    const s = String(catalogId == null ? '' : catalogId).trim();
+    return s === '1000' || s === '29';
+}
+
 function renderOpcionesCuotasObjetivo(selectedId) {
     const grupo = document.getElementById('grupoCuotaObjetivo');
     const select = document.getElementById('cuotaObjetivoId');
     if (!grupo || !select) return;
     const conceptoId = String((conceptoSeleccionadoActual && conceptoSeleccionadoActual.id) || '').trim();
-    const mostrar = conceptoId === '1000';
+    const mostrar = conceptoCatalogoRequiereCuotaObjetivo(conceptoId);
     grupo.style.display = mostrar ? 'block' : 'none';
     if (!mostrar) {
         select.value = '';
@@ -766,8 +773,8 @@ function agregarConcepto() {
         cuotaObjetivoId: document.getElementById('cuotaObjetivoId')?.value || '',
         cuotaObjetivoLabel: etiquetaCuotaDesdeCfg(document.getElementById('cuotaObjetivoId')?.value || ''),
     };
-    if (String(nuevoConcepto.conceptoId).trim() === '1000' && !String(nuevoConcepto.cuotaObjetivoId || '').trim()) {
-        alert('Para concepto 1000 tenés que elegir la cuota/mes objetivo.');
+    if (conceptoCatalogoRequiereCuotaObjetivo(nuevoConcepto.conceptoId) && !String(nuevoConcepto.cuotaObjetivoId || '').trim()) {
+        alert('Para concepto 1000 o 29 tenés que elegir la cuota/mes objetivo.');
         return;
     }
     
@@ -886,8 +893,8 @@ function actualizarConcepto() {
     conceptoEditando.nombre = conceptoSeleccionadoActual.nombre;
     conceptoEditando.cuotaObjetivoId = document.getElementById('cuotaObjetivoId')?.value || '';
     conceptoEditando.cuotaObjetivoLabel = etiquetaCuotaDesdeCfg(conceptoEditando.cuotaObjetivoId);
-    if (String(conceptoEditando.conceptoId).trim() === '1000' && !String(conceptoEditando.cuotaObjetivoId || '').trim()) {
-        alert('Para concepto 1000 tenés que elegir la cuota/mes objetivo.');
+    if (conceptoCatalogoRequiereCuotaObjetivo(conceptoEditando.conceptoId) && !String(conceptoEditando.cuotaObjetivoId || '').trim()) {
+        alert('Para concepto 1000 o 29 tenés que elegir la cuota/mes objetivo.');
         return;
     }
     conceptoEditando.moneda = (document.getElementById('moneda')?.value || 'ARS').toUpperCase() === 'USD' ? 'USD' : 'ARS';

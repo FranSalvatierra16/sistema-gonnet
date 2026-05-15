@@ -14735,19 +14735,27 @@ def _asegurar_cuotas_plan_contrato(contrato):
 
 def _cuotas_objetivo_desde_conceptos(contrato, lista_conceptos):
     """
-    Devuelve (cuotas_map, suma_objetivo, errores) usando concepto 1000.
+    Devuelve (cuotas_map, suma_objetivo, errores) usando conceptos de imputación a cuota
+    (1000 y 29: requieren cuota_objetivo_id en cobros de cuota).
     cuotas_map: {cuota_id: {'cuota': CuotaMensual, 'importe_lineas': Decimal}}
     """
+    from inmobiliaria.cuotas_imputacion import (
+        CONCEPTOS_CUOTA_OBJETIVO,
+        _normalizar_codigo_concepto_caja,
+    )
+
     cuotas_map = {}
     errores = []
     ids_pedidos = set()
     for item in lista_conceptos or []:
-        cid = str(item.get('id') or item.get('codigo') or '').strip()
-        if cid != '1000':
+        cid = _normalizar_codigo_concepto_caja(item.get('id') or item.get('codigo'))
+        if cid not in CONCEPTOS_CUOTA_OBJETIVO:
             continue
         raw_cid = str(item.get('cuota_objetivo_id') or '').strip()
         if not raw_cid.isdigit():
-            errores.append('El concepto 1000 requiere seleccionar una cuota objetivo.')
+            errores.append(
+                'Los conceptos de imputación a cuota (1000 o 29) requieren seleccionar una cuota objetivo.'
+            )
             continue
         qid = int(raw_cid)
         ids_pedidos.add(qid)
@@ -14763,8 +14771,8 @@ def _cuotas_objetivo_desde_conceptos(contrato, lista_conceptos):
         return {}, Decimal('0'), errores
 
     for item in lista_conceptos or []:
-        cid = str(item.get('id') or item.get('codigo') or '').strip()
-        if cid != '1000':
+        cid = _normalizar_codigo_concepto_caja(item.get('id') or item.get('codigo'))
+        if cid not in CONCEPTOS_CUOTA_OBJETIVO:
             continue
         raw_q = str(item.get('cuota_objetivo_id') or '').strip()
         if not raw_q.isdigit():
@@ -14778,7 +14786,9 @@ def _cuotas_objetivo_desde_conceptos(contrato, lista_conceptos):
             continue
         imp = parse_decimal_monto(item.get('importe'))
         if imp <= 0:
-            errores.append(f'El concepto 1000 de cuota {cuota.numero_cuota} debe tener importe mayor a cero.')
+            errores.append(
+                f'El importe para la cuota {cuota.numero_cuota} (conceptos 1000 o 29) debe ser mayor a cero.'
+            )
             continue
         prev = cuotas_map.get(qid)
         if not prev:
@@ -14846,6 +14856,11 @@ def procesar_operacion_contrato(request, contrato_id):
         if tipo_operacion != 'principal':
             import json as json_mod
 
+            from inmobiliaria.cuotas_imputacion import (
+                CONCEPTOS_CUOTA_OBJETIVO,
+                _normalizar_codigo_concepto_caja,
+            )
+
             cuota_chk = contrato.cuotas.filter(estado__in=['pendiente', 'vencida']).order_by('fecha_vencimiento').first()
             if not cuota_chk:
                 return JsonResponse({'error': 'No hay cuotas pendientes para pagar'}, status=400)
@@ -14869,7 +14884,7 @@ def procesar_operacion_contrato(request, contrato_id):
                 return JsonResponse(
                     {
                         'error': (
-                            'Para pagar cuotas del contrato usá concepto 1000 y elegí la cuota/mes objetivo.'
+                            'Para pagar cuotas del contrato usá concepto 1000 o 29 y elegí la cuota/mes objetivo.'
                         )
                     },
                     status=400,
@@ -14877,8 +14892,8 @@ def procesar_operacion_contrato(request, contrato_id):
             suma_imput_ars = Decimal('0')
             suma_imput_usd = Decimal('0')
             for item in lista_conceptos:
-                cid = str(item.get('id') or item.get('codigo') or '').strip()
-                if cid != '1000':
+                cid = _normalizar_codigo_concepto_caja(item.get('id') or item.get('codigo'))
+                if cid not in CONCEPTOS_CUOTA_OBJETIVO:
                     continue
                 moneda = str(item.get('moneda') or 'ARS').strip().upper()
                 imp = parse_decimal_monto(item.get('importe'))
@@ -14891,7 +14906,7 @@ def procesar_operacion_contrato(request, contrato_id):
                 return JsonResponse(
                     {
                         'error': (
-                            'Para marcar cuota/s con concepto 1000 en pesos, los medios de pago en ARS deben cubrir '
+                            'Para marcar cuota/s con concepto 1000 o 29 en pesos, los medios de pago en ARS deben cubrir '
                             f'al menos ${suma_imput_ars}. Total ARS actual: ${total_medios_ars}.'
                         )
                     },
@@ -14901,7 +14916,7 @@ def procesar_operacion_contrato(request, contrato_id):
                 return JsonResponse(
                     {
                         'error': (
-                            'Para marcar cuota/s con concepto 1000 en dólares, el medio en USD debe cubrir '
+                            'Para marcar cuota/s con concepto 1000 o 29 en dólares, el medio en USD debe cubrir '
                             f'al menos U$S {suma_imput_usd}. Total USD actual: U$S {total_medios_usd}.'
                         )
                     },
@@ -14915,7 +14930,7 @@ def procesar_operacion_contrato(request, contrato_id):
                     return JsonResponse(
                         {
                             'error': (
-                                f'Para marcar cuota/s con concepto 1000, el total de medios de pago debe cubrir '
+                                f'Para marcar cuota/s con concepto 1000 o 29, el total de medios de pago debe cubrir '
                                 f'al menos ${monto_cuota}. Total medios actual: ${total_medios_ars}.'
                             )
                         },
@@ -14986,7 +15001,7 @@ def procesar_operacion_contrato(request, contrato_id):
                 ).exists():
                     logger.warning(
                         'Operación principal contrato=%s movimiento=%s: hay cuotas pendientes pero '
-                        'no se imputó ninguna (concepto_detalle sin líneas 1000/1/15 o montos no alcanzan).',
+                        'no se imputó ninguna (concepto_detalle sin líneas 1000/29/1/15 o montos no alcanzan).',
                         contrato.id,
                         movimiento.id,
                     )
@@ -15035,8 +15050,8 @@ def procesar_operacion_contrato(request, contrato_id):
                         return JsonResponse(
                             {
                                 'error': (
-                                    f'La cuota {cuota.numero_cuota} requiere ${objetivo} y en concepto 1000 '
-                                    f'tiene ${cubierto}.'
+                                    f'La cuota {cuota.numero_cuota} requiere ${objetivo} y en concepto de cuota '
+                                    f'(1000 o 29) tenés ${cubierto}.'
                                 )
                             },
                             status=400,
@@ -15044,7 +15059,7 @@ def procesar_operacion_contrato(request, contrato_id):
                     cuota.estado = 'pagada'
                     cuota.fecha_pago = hoy_pago
                     cuota.movimiento = movimiento
-                    # Si en el concepto 1000 se ingresó otro importe (ej. 500.000), la cuota queda con ese valor.
+                    # Si en la línea de concepto de cuota (1000 o 29) se ingresó otro importe (ej. 500.000), la cuota queda con ese valor.
                     cuota.monto_base = cubierto
                     cuota.monto_total = cubierto
                     cuota.recargo_mora = Decimal('0')
@@ -15423,9 +15438,9 @@ def procesar_pago_cuota_operacion(request, cuota_id):
         if not cuotas_objetivo_map:
             return JsonResponse(
                 {
-                    'error': (
-                        'Para cobrar cuotas del contrato usá concepto 1000 y elegí la cuota/mes objetivo.'
-                    ),
+                        'error': (
+                            'Para cobrar cuotas del contrato usá concepto 1000 o 29 y elegí la cuota/mes objetivo.'
+                        ),
                 },
                 status=400,
             )
@@ -15479,8 +15494,8 @@ def procesar_pago_cuota_operacion(request, cuota_id):
                     return JsonResponse(
                         {
                             'error': (
-                                f'La cuota {csel.numero_cuota} requiere ${objetivo} y en concepto 1000 '
-                                f'tiene ${cubierto}.'
+                                f'La cuota {csel.numero_cuota} requiere ${objetivo} y en concepto de cuota '
+                                f'(1000 o 29) tenés ${cubierto}.'
                             )
                         },
                         status=400,
@@ -15488,7 +15503,7 @@ def procesar_pago_cuota_operacion(request, cuota_id):
                 csel.estado = 'pagada'
                 csel.fecha_pago = hoy_pago
                 csel.movimiento = movimiento
-                # Respetar el importe cargado en la línea de concepto 1000 para esa cuota.
+                # Respetar el importe cargado en la línea de concepto de cuota (1000 o 29) para esa cuota.
                 csel.monto_base = cubierto
                 csel.monto_total = cubierto
                 csel.recargo_mora = Decimal('0')
@@ -15502,7 +15517,7 @@ def procesar_pago_cuota_operacion(request, cuota_id):
             request,
             f'Cobro registrado por ${suma_conceptos_ars} '
             f'{f"y U$S {suma_conceptos_usd} " if suma_conceptos_usd > 0 else ""}'
-            f'(imputado por concepto 1000 a cuotas seleccionadas).',
+            f'(imputado por concepto 1000 o 29 a cuotas seleccionadas).',
         )
         return JsonResponse(
             {

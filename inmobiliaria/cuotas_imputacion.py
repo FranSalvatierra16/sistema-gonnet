@@ -1,5 +1,6 @@
 """
-Imputación de CuotaMensual desde líneas concepto 1000 (ARS o USD) guardadas en MovimientoCaja.concepto_detalle.
+Imputación de CuotaMensual desde líneas de concepto de alquiler/cuota (1000, 29, 1 o 15)
+guardadas en MovimientoCaja.concepto_detalle.
 Usado en operación principal y en reparaciones por management command.
 """
 from __future__ import annotations
@@ -12,7 +13,10 @@ from .decimal_utils import parse_decimal_monto
 
 logger = logging.getLogger(__name__)
 
-CODIGOS_IMPUTACION_ALQUILER_CUOTA = frozenset({'1000', '1', '15'})
+# Conceptos cuyo importe se imputa a una CuotaMensual (con cuota_objetivo_id o en orden).
+CODIGOS_IMPUTACION_ALQUILER_CUOTA = frozenset({'1000', '1', '15', '29'})
+# Igual que 1000: exigen elegir cuota objetivo en operaciones de cobro de cuota.
+CONCEPTOS_CUOTA_OBJETIVO = frozenset({'1000', '29'})
 
 
 def _normalizar_codigo_concepto_caja(cid_raw) -> str:
@@ -60,7 +64,7 @@ def payload_conceptos_desde_movimiento_detalle(movimiento) -> list:
 def imputar_cuotas_mensuales_desde_movimiento_1000(contrato, movimiento) -> int:
     """
     Marca pagadas las cuotas pendientes/vencidas según líneas de alquiler/cuota del movimiento
-    (conceptos 1000, 1 o 15; ARS o USD), por cuota_objetivo_id o en orden de numero_cuota.
+    (conceptos 1000, 29, 1 o 15; ARS o USD), por cuota_objetivo_id o en orden de numero_cuota.
     Devuelve la cantidad de cuotas guardadas como pagadas.
     """
     lineas = payload_conceptos_desde_movimiento_detalle(movimiento)
