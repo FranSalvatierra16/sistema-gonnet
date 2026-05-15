@@ -357,7 +357,7 @@
                     </thead>
                     <tbody>
                         {% for cuota in cuotas %}
-                        <tr class="{% if cuota.estado == 'pagada' %}table-success{% elif cuota.estado == 'vencida' %}table-danger{% elif cuota.fecha_vencimiento < today %}table-warning{% endif %}{% if cuota.numero_cuota > 3 and cuota.monto_base == 0 %} table-secondary{% endif %}">
+                        <tr class="{% if cuota.estado == 'pagada' %}table-success{% elif cuota.estado == 'vencida' %}table-danger{% elif cuota.tiene_adelanto_abonado %}table-info{% elif cuota.fecha_vencimiento < today %}table-warning{% endif %}{% if cuota.numero_cuota > 3 and cuota.monto_base == 0 %} table-secondary{% endif %}">
                             <td>
                                 <strong>{{ cuota.numero_cuota }}/{{ contrato.duracion_meses }}</strong>
                                 {% if cuota.numero_cuota > 3 and cuota.monto_base == 0 %}
@@ -389,11 +389,17 @@
                             <td>
                                 {% if cuota.estado == 'pagada' %}
                                     <span class="badge bg-success">Pagada</span>
-                                {% elif cuota.estado == 'pendiente' %}
-                                    {% if cuota.fecha_vencimiento < today %}
+                                {% elif cuota.estado == 'pagada_con_mora' %}
+                                    <span class="badge bg-success">{{ cuota.get_estado_display }}</span>
+                                {% elif cuota.estado == 'pendiente' or cuota.estado == 'vencida' %}
+                                    {% if cuota.tiene_adelanto_abonado %}
+                                        <span class="badge bg-primary" title="Hay abono a cuenta desde otro cobro; falta completar el saldo de esta cuota">Adelanto</span>
+                                    {% elif cuota.estado == 'pendiente' and cuota.fecha_vencimiento < today %}
                                         <span class="badge bg-danger">Vencida</span>
-                                    {% else %}
+                                    {% elif cuota.estado == 'pendiente' %}
                                         <span class="badge bg-warning">Pendiente</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">{{ cuota.get_estado_display }}</span>
                                     {% endif %}
                                 {% else %}
                                     <span class="badge bg-info">{{ cuota.get_estado_display }}</span>

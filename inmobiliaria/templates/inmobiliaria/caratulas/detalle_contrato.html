@@ -35,7 +35,7 @@
                                 <tr>
                                     <td>{{ c.fecha_vencimiento|date:"d/m/Y" }}</td>
                                     <td>${{ c.monto_total|floatformat:2 }}</td>
-                                    <td>{{ c.get_estado_display }}</td>
+                                    <td>{% if c.tiene_adelanto_abonado %}Adelanto{% else %}{{ c.get_estado_display }}{% endif %}</td>
                                 </tr>
                                 {% empty %}
                                 <tr><td colspan="3" class="text-center text-muted py-3">Sin cuotas</td></tr>

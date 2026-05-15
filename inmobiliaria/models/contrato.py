@@ -232,4 +232,11 @@ class CuotaMensual(models.Model):
             return Decimal('0')
         tot = Decimal(str(self.monto_total or 0))
         cred = Decimal(str(self.credito_aplicado or 0))
-        return max(Decimal('0'), tot - cred) 
+        return max(Decimal('0'), tot - cred)
+
+    def tiene_adelanto_abonado(self) -> bool:
+        """True si hay abono a cuenta (excedente de otro cobro imputado a esta cuota aún no saldada)."""
+        if self.estado not in ('pendiente', 'vencida'):
+            return False
+        cred = Decimal(str(self.credito_aplicado or 0))
+        return cred > Decimal('0.009')

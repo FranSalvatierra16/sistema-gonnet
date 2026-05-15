@@ -24,13 +24,13 @@
                     </thead>
                     <tbody>
                         {% for cuota in cuotas %}
-                        <tr class="{% if cuota.estado == 'vencida' %}table-danger{% elif cuota.estado == 'pagada' %}table-success{% endif %}">
+                        <tr class="{% if cuota.estado == 'vencida' %}table-danger{% elif cuota.estado == 'pagada' %}table-success{% elif cuota.tiene_adelanto_abonado %}table-info{% endif %}">
                             <td>{{ cuota.numero_cuota }}/{{ contrato.duracion_meses }}</td>
                             <td>{{ cuota.fecha_vencimiento|date:"d/m/Y" }}</td>
                             <td>{{ cuota.monto_total|format_importe_moneda:contrato.moneda }}</td>
                             <td>
-                                <span class="badge {% if cuota.estado == 'pendiente' %}bg-warning{% elif cuota.estado == 'pagada' %}bg-success{% elif cuota.estado == 'vencida' %}bg-danger{% elif cuota.estado == 'pagada_con_mora' %}bg-info{% endif %}">
-                                    {{ cuota.get_estado_display }}
+                                <span class="badge {% if cuota.tiene_adelanto_abonado %}bg-primary{% elif cuota.estado == 'pendiente' %}bg-warning{% elif cuota.estado == 'pagada' %}bg-success{% elif cuota.estado == 'vencida' %}bg-danger{% elif cuota.estado == 'pagada_con_mora' %}bg-info{% endif %}">
+                                    {% if cuota.tiene_adelanto_abonado %}Adelanto{% else %}{{ cuota.get_estado_display }}{% endif %}
                                 </span>
                             </td>
                             <td>

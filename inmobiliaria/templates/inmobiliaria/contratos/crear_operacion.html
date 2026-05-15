@@ -619,7 +619,7 @@ function renderOpcionesCuotasObjetivo(selectedId) {
         if (bloq) {
             suf = ' · PAGADA (no imputable)';
         } else if (cred > 0.001) {
-            suf = ` · saldo ${prefijoMonedaCuotaContrato()}${formatoMontoReciboAR(saldo)} (a favor ${prefijoMonedaCuotaContrato()}${formatoMontoReciboAR(cred)})`;
+            suf = ` · Adelanto — saldo ${prefijoMonedaCuotaContrato()}${formatoMontoReciboAR(saldo)} (a favor ${prefijoMonedaCuotaContrato()}${formatoMontoReciboAR(cred)})`;
         } else {
             suf = ` · a pagar ${prefijoMonedaCuotaContrato()}${formatoMontoReciboAR(saldo)}`;
         }
