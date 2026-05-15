@@ -12802,6 +12802,18 @@ def crear_contrato_alquiler(request):
             if not all([propiedad_id, inquilino_id, vendedor_id, fecha_operacion, fecha_inicio, fecha_fin]):
                 return JsonResponse({'error': 'Todos los campos son requeridos'}, status=400)
 
+            fecha_operacion_d = _parse_fecha_contrato_post(fecha_operacion)
+            fecha_inicio_d = _parse_fecha_contrato_post(fecha_inicio)
+            fecha_fin_d = _parse_fecha_contrato_post(fecha_fin)
+            if not all([fecha_operacion_d, fecha_inicio_d, fecha_fin_d]):
+                return JsonResponse(
+                    {
+                        'error': 'Las fechas de operación, inicio o fin no son válidas (formato esperado AAAA-MM-DD).',
+                    },
+                    status=400,
+                )
+            fecha_operacion, fecha_inicio, fecha_fin = fecha_operacion_d, fecha_inicio_d, fecha_fin_d
+
             # Obtener objetos
             try:
                 propiedad = Propiedad.objects.get(id=propiedad_id)
@@ -12827,15 +12839,8 @@ def crear_contrato_alquiler(request):
 
             # Si es contrato de invierno (9 meses), verificar que no haya reservas por día que se superpongan
             if duracion_meses == 9:
-                try:
-                    fi = datetime.strptime(fecha_inicio.strip(), '%Y-%m-%d').date()
-                    ff = datetime.strptime(fecha_fin.strip(), '%Y-%m-%d').date()
-                except (ValueError, TypeError, AttributeError):
-                    try:
-                        fi = datetime.strptime(fecha_inicio.strip(), '%d/%m/%Y').date()
-                        ff = datetime.strptime(fecha_fin.strip(), '%d/%m/%Y').date()
-                    except (ValueError, TypeError, AttributeError):
-                        fi = ff = None
+                fi = fecha_inicio
+                ff = fecha_fin
                 if fi and ff:
                     reservas_solapadas = Reserva.objects.filter(
                         propiedad=propiedad,
@@ -12919,16 +12924,11 @@ def crear_contrato_alquiler(request):
                 info_invierno.save()
                 # Actualizar historial: truncar "Libre" que superponga con el contrato
                 try:
-                    fi = datetime.strptime(fecha_inicio.strip(), '%Y-%m-%d').date()
-                    ff = datetime.strptime(fecha_fin.strip(), '%Y-%m-%d').date()
-                    actualizar_historial_por_contrato_invierno(propiedad, fi, ff)
+                    actualizar_historial_por_contrato_invierno(
+                        propiedad, contrato.fecha_inicio, contrato.fecha_fin
+                    )
                 except (ValueError, TypeError, AttributeError):
-                    try:
-                        fi = datetime.strptime(fecha_inicio.strip(), '%d/%m/%Y').date()
-                        ff = datetime.strptime(fecha_fin.strip(), '%d/%m/%Y').date()
-                        actualizar_historial_por_contrato_invierno(propiedad, fi, ff)
-                    except (ValueError, TypeError, AttributeError):
-                        pass
+                    pass
             else:
                 info_meses, _ = AlquilerMeses.objects.get_or_create(
                     propiedad=propiedad,
@@ -14674,6 +14674,23 @@ def _reiniciar_cuotas_contrato(contrato, hoy=None):
     return len(cuotas)
 
 
+def _parse_fecha_contrato_post(s):
+    """ISO (AAAA-MM-DD desde input type=date) o dd/mm/aaaa → date; None si inválido."""
+    if s is None:
+        return None
+    st = str(s).strip()
+    if not st:
+        return None
+    try:
+        return datetime.strptime(st[:10], '%Y-%m-%d').date()
+    except ValueError:
+        pass
+    try:
+        return datetime.strptime(st[:10], '%d/%m/%Y').date()
+    except ValueError:
+        return None
+
+
 def _asegurar_cuotas_plan_contrato(contrato):
     """
     Crea el plan de cuotas mensuales en pendiente/vencida si el contrato aún no tiene filas.
@@ -14691,7 +14708,7 @@ def _asegurar_cuotas_plan_contrato(contrato):
 
     hoy = timezone.now().date()
     d_dia = int(contrato.dia_vencimiento or 5)
-    fi = contrato.fecha_inicio or hoy
+    fi = _parse_fecha_contrato_post(getattr(contrato, 'fecha_inicio', None)) or hoy
     creadas = 0
 
     if n == 9:
