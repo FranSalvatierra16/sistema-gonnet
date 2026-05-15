@@ -33,6 +33,67 @@ def _recibo_monto_str(valor, dec_places=2):
     except Exception:
         return f'${valor}'
 
+
+def _formas_de_pago_desde_movimiento_caja(movimiento, format_usd=None):
+    """
+    Texto para pie de recibo: medios del MovimientoCaja con montos (misma idea que alquiler por día).
+    Incluye USD (efectivo) si monto_dolares > 0.
+    """
+    if not movimiento:
+        return ''
+
+    def _dec_mov(v):
+        try:
+            if v is None:
+                return Decimal('0')
+            return Decimal(str(v))
+        except Exception:
+            return Decimal('0')
+
+    formas_con_montos = []
+    me = _dec_mov(getattr(movimiento, 'monto_efectivo', None))
+    mt = _dec_mov(getattr(movimiento, 'monto_tarjeta', None))
+    mc = _dec_mov(getattr(movimiento, 'monto_cheque', None))
+    md = _dec_mov(getattr(movimiento, 'monto_deposito', None))
+    musd = _dec_mov(getattr(movimiento, 'monto_dolares', None))
+
+    if me > 0:
+        formas_con_montos.append(f'Efectivo {_recibo_monto_str(movimiento.monto_efectivo)}')
+    if mt > 0:
+        formas_con_montos.append(f'Tarjeta {_recibo_monto_str(movimiento.monto_tarjeta)}')
+    if mc > 0:
+        formas_con_montos.append(f'Cheque {_recibo_monto_str(movimiento.monto_cheque)}')
+    if md > 0:
+        dest = (getattr(movimiento, 'destino_deposito', None) or '') or ''
+        if dest == 'galicia':
+            formas_con_montos.append(f'Transferencia Galicia {_recibo_monto_str(movimiento.monto_deposito)}')
+        elif dest == 'mp':
+            formas_con_montos.append(f'Transferencia Mercado Pago {_recibo_monto_str(movimiento.monto_deposito)}')
+        elif dest.startswith('cuenta_'):
+            label = 'Transferencia'
+            try:
+                from .models.sucursal import CuentaBancaria
+
+                cid = int(dest.replace('cuenta_', '', 1))
+                row = CuentaBancaria.objects.filter(pk=cid).values_list('alias', 'nombre_banco').first()
+                if row:
+                    alias, nb = row
+                    label = (alias or nb or f'Cuenta #{cid}').strip() or f'Cuenta #{cid}'
+            except Exception:
+                pass
+            formas_con_montos.append(f'Transferencia {label} {_recibo_monto_str(movimiento.monto_deposito)}')
+        else:
+            formas_con_montos.append(f'Transferencia {_recibo_monto_str(movimiento.monto_deposito)}')
+
+    if musd > 0:
+        if callable(format_usd):
+            usd_txt = format_usd(float(musd))
+        else:
+            usd_txt = f"U$S {float(musd):,.2f}".replace(',', '.')
+        formas_con_montos.append(f'USD (efectivo) {usd_txt}')
+
+    return ', '.join(formas_con_montos)
+
 # Modelos usados por vistas definidas antes del import masivo de .models (línea ~871)
 from .models import ComisionVendedor, ValeVendedor, MesComisionPagadoVendedor
 from .models.persona import (
@@ -17518,6 +17579,10 @@ def recibo_contrato_24(request, contrato_id):
                 domicilio=contrato.garante_domicilio or ''
             )]
 
+        formas_de_pago_recibo = _formas_de_pago_desde_movimiento_caja(primer_movimiento, format_currency_usd)
+        if not formas_de_pago_recibo:
+            formas_de_pago_recibo = 'EFECTIVO'
+
         context = {
             'contrato': contrato,
             'lista_inquilinos': lista_inquilinos,
@@ -17544,6 +17609,7 @@ def recibo_contrato_24(request, contrato_id):
             'precio_mensual_contrato': precio_mensual_contrato,
             'mes_alquiler_es_proporcional': mes_alquiler_tipo_recibo == 'proporcional',
             'mes_alquiler_texto_recibo': mes_alquiler_texto_recibo,
+            'formas_de_pago': formas_de_pago_recibo,
         }
         
         return render(request, 'inmobiliaria/contratos/recibo_contrato_24.html', context)

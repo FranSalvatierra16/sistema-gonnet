@@ -342,6 +342,8 @@
                     <p style="margin: 0;">• En el caso de no aprobarse esta operación la sera devuelto únicamente el importe que se recibe en este</p>
                     <p style="margin: 0; font-weight: bold;">"Oficialización al Consumidor Provincia de Buenos Aires 0800-222-9042"</p>
                     <p style="margin: 0; text-align: center; font-weight: bold;">LA SUMA DE: {% if suma_en_letras %}{{ suma_en_letras }}{% endif %}{% if muestra_total_usd and suma_en_letras_usd %}{% if suma_en_letras %} — {% endif %}{{ suma_en_letras_usd }}{% endif %}</p>
+                    <p style="margin: 4px 0 0 0; text-align: center; font-weight: bold;">FORMA DE PAGO:<u>&nbsp;&nbsp;&nbsp;{{ formas_de_pago|default:"EFECTIVO" }}&nbsp;&nbsp;&nbsp;</u></p>
+                    <div style="border-bottom: 1px dotted black; height: 4px; margin-top: 2px;"></div>
                 </div>
                 <div style="width: 25%; text-align: center;">
                     <div class="recibo-firma" style="border: 1px solid black; height: 40%; margin-bottom: 10px; display: flex; align-items: center; justify-content: center;">
