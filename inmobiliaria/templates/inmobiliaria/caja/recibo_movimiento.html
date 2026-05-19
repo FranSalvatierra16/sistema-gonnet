@@ -194,7 +194,7 @@
             
             <div class="info-row">
                 <span class="info-label">Empleado:</span>
-                <span class="info-value">{{ movimiento.empleado.nombre }} {{ movimiento.empleado.apellido }}</span>
+                <span class="info-value">{{ movimiento.empleado|apellido_nombre }}</span>
             </div>
             
             <div class="info-row">
@@ -255,12 +255,12 @@
             
             <div class="info-row">
                 <span class="info-label">Cliente:</span>
-                <span class="info-value">{{ reserva.inquilino.nombre }} {{ reserva.inquilino.apellido }}</span>
+                <span class="info-value">{% if reserva.cliente %}{{ reserva.cliente|apellido_nombre }}{% elif reserva.inquilino %}{{ reserva.inquilino|apellido_nombre }}{% endif %}</span>
             </div>
             
             <div class="info-row">
                 <span class="info-label">Vendedor:</span>
-                <span class="info-value">{{ reserva.vendedor.nombre }} {{ reserva.vendedor.apellido }}</span>
+                <span class="info-value">{{ reserva.vendedor|apellido_nombre }}</span>
             </div>
             
             <div class="info-row">

@@ -22,6 +22,7 @@ import re
 import logging
 
 from .decimal_utils import format_monto_argentino, parse_decimal_monto
+from .templatetags.custom_filters import formato_apellido_nombre
 
 logger = logging.getLogger(__name__)
 
@@ -3882,7 +3883,7 @@ def obtener_info_reserva(request, reserva_id):
                 'id': reserva.vendedor.id,
                 'nombre': reserva.vendedor.nombre or '',
                 'apellido': reserva.vendedor.apellido or '',
-                'nombre_completo': f"{reserva.vendedor.apellido or ''}, {reserva.vendedor.nombre or ''}".strip(', ').strip() or 'N/A'
+                'nombre_completo': formato_apellido_nombre(reserva.vendedor) or 'N/A'
             }
         
         reserva_data = {
@@ -4990,7 +4991,7 @@ def ver_recibo(request, reserva_id):
         # Preparar datos del cliente con campos adicionales
         cliente_data = reserva.cliente
         cliente_completo = {
-            'nombre_completo': f"{cliente_data.apellido}, {cliente_data.nombre}",
+            'nombre_completo': formato_apellido_nombre(cliente_data),
             'domicilio': cliente_data.domicilio or '',
             'localidad': cliente_data.localidad or '',
             'provincia': cliente_data.provincia or '',
@@ -5204,7 +5205,7 @@ def generar_recibo_pdf(reserva, pago_senia):
     # Preparar datos del cliente con campos adicionales
     cliente_data = reserva.cliente
     cliente_completo = {
-        'nombre_completo': f"{cliente_data.nombre} {cliente_data.apellido}",
+        'nombre_completo': formato_apellido_nombre(cliente_data),
         'domicilio': cliente_data.domicilio or '',
         'localidad': cliente_data.localidad or '',
         'provincia': cliente_data.provincia or '',
@@ -7044,7 +7045,7 @@ def ver_recibo_movimiento(request, movimiento_id):
             # Preparar datos del cliente con campos adicionales
             cliente_data = reserva.cliente
             cliente_completo = {
-                'nombre_completo': f"{cliente_data.apellido}, {cliente_data.nombre}",
+                'nombre_completo': formato_apellido_nombre(cliente_data),
                 'domicilio': cliente_data.domicilio or '',
                 'localidad': cliente_data.localidad or '',
                 'provincia': cliente_data.provincia or '',
@@ -7682,7 +7683,7 @@ def obtener_vendedor(request, vendedor_id):
             'success': True,
             'vendedor': {
                 'id': vendedor.id,
-                'nombre_completo': f"{vendedor.apellido}, {vendedor.nombre}"
+                'nombre_completo': formato_apellido_nombre(vendedor)
             }
         })
     except Vendedor.DoesNotExist:
@@ -18491,7 +18492,7 @@ def ver_recibo_pdf(request, reserva_id):
         # Preparar datos del cliente con formato correcto (igual que en ver_recibo)
         cliente_data = reserva.cliente
         cliente_completo = {
-            'nombre_completo': f"{cliente_data.apellido}, {cliente_data.nombre}",
+            'nombre_completo': formato_apellido_nombre(cliente_data),
             'domicilio': cliente_data.domicilio or '',
             'localidad': cliente_data.localidad or '',
             'provincia': cliente_data.provincia or '',
@@ -18519,7 +18520,7 @@ def ver_recibo_pdf(request, reserva_id):
         if reserva.vendedor:
             vendedor_completo = {
                 'id': reserva.vendedor.id,
-                'nombre_completo': f"{reserva.vendedor.apellido}, {reserva.vendedor.nombre}",
+                'nombre_completo': formato_apellido_nombre(reserva.vendedor),
             }
         
         # Obtener pagos de la reserva
@@ -18858,7 +18859,7 @@ def ver_recibo_publico(request, reserva_id, token):
         # Preparar datos del cliente con formato correcto (igual que en ver_recibo)
         cliente_data = reserva.cliente
         cliente_completo = {
-            'nombre_completo': f"{cliente_data.apellido}, {cliente_data.nombre}",
+            'nombre_completo': formato_apellido_nombre(cliente_data),
             'domicilio': cliente_data.domicilio or '',
             'localidad': cliente_data.localidad or '',
             'provincia': cliente_data.provincia or '',
@@ -18884,7 +18885,7 @@ def ver_recibo_publico(request, reserva_id, token):
         if reserva.vendedor:
             vendedor_completo = {
                 'id': reserva.vendedor.id,
-                'nombre_completo': f"{reserva.vendedor.apellido}, {reserva.vendedor.nombre}",
+                'nombre_completo': formato_apellido_nombre(reserva.vendedor),
             }
         
         # Preparar contexto para el template
@@ -19201,7 +19202,7 @@ def ver_recibo_movimiento_pdf(request, movimiento_id):
         
         # Preparar datos del cliente con formato correcto
         cliente_completo = {
-            'nombre_completo': f"{cliente.apellido}, {cliente.nombre}",
+            'nombre_completo': formato_apellido_nombre(cliente),
             'domicilio': cliente.domicilio or '',
             'localidad': cliente.localidad or '',
             'provincia': cliente.provincia or '',
@@ -19228,7 +19229,7 @@ def ver_recibo_movimiento_pdf(request, movimiento_id):
         if reserva.vendedor:
             vendedor_completo = {
                 'id': reserva.vendedor.id,
-                'nombre_completo': f"{reserva.vendedor.apellido}, {reserva.vendedor.nombre}",
+                'nombre_completo': formato_apellido_nombre(reserva.vendedor),
             }
         
         # Obtener pagos del movimiento

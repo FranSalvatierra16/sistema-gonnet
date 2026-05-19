@@ -145,3 +145,23 @@ def get_item(dictionary, key):
         return dictionary.get(key)
     except (AttributeError, TypeError):
         return None
+
+
+def formato_apellido_nombre(persona):
+    """Apellido primero, luego nombre (recibos y comprobantes)."""
+    if persona is None:
+        return ''
+    if isinstance(persona, dict):
+        apellido = str(persona.get('apellido') or '').strip()
+        nombre = str(persona.get('nombre') or '').strip()
+    else:
+        apellido = str(getattr(persona, 'apellido', None) or '').strip()
+        nombre = str(getattr(persona, 'nombre', None) or '').strip()
+    if apellido and nombre:
+        return f'{apellido}, {nombre}'
+    return apellido or nombre or ''
+
+
+@register.filter(name='apellido_nombre')
+def apellido_nombre_filter(persona):
+    return formato_apellido_nombre(persona)
