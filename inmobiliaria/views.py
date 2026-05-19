@@ -15713,10 +15713,16 @@ def procesar_pago_cuota_operacion(request, cuota_id):
             f'{f"y U$S {suma_conceptos_usd} " if suma_conceptos_usd > 0 else ""}'
             f'(imputado por concepto 1000 o 29 a cuotas seleccionadas).',
         )
+        from urllib.parse import urlencode
+
+        detalle_url = reverse('inmobiliaria:detalle_contrato', args=[contrato.id])
+        recibo_params = {'movimiento_id': movimiento.id, 'next': detalle_url}
         return JsonResponse(
             {
                 'success': True,
-                'redirect_url': reverse('inmobiliaria:detalle_contrato', args=[contrato.id]),
+                'redirect_url': reverse('inmobiliaria:recibo_contrato_24', args=[contrato.id])
+                + '?' + urlencode(recibo_params),
+                'movimiento_id': movimiento.id,
             }
         )
 
