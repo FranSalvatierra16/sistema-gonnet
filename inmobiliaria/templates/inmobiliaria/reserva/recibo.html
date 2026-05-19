@@ -403,17 +403,13 @@
     <button onclick="descargarPDF();" class="btn btn-danger">
         <i class="fas fa-file-pdf me-2"></i>Descargar PDF
     </button>
+
+    <a href="{{ url_volver }}" class="btn btn-secondary">
+        <i class="fas fa-arrow-left me-2"></i>Volver
+    </a>
 </div>
 
 <script>
-(function bloquearVolverAtrasEnRecibo() {
-    if (!window.opener) return;
-    history.pushState(null, document.title, location.href);
-    window.addEventListener('popstate', function () {
-        history.pushState(null, document.title, location.href);
-    });
-})();
-
 async function compartirWhatsApp() {
     try {
         // Mostrar loading

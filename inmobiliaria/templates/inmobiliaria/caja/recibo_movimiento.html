@@ -413,8 +413,8 @@
             <button onclick="window.print()" class="btn btn-print">
                 🖨️ Imprimir Recibo
             </button>
-            <a href="{% url 'inmobiliaria:lista_cajas' %}" class="btn btn-secondary">
-                ⬅️ Volver a Cajas
+            <a href="{{ url_volver }}" class="btn btn-secondary">
+                ⬅️ Volver
             </a>
             <a href="{% url 'inmobiliaria:reservas' %}" class="btn btn-success">
                 📋 Ver Reservas
@@ -422,13 +422,4 @@
         </div>
     </div>
 </div>
-<script>
-(function bloquearVolverAtrasEnRecibo() {
-    if (!window.opener) return;
-    history.pushState(null, document.title, location.href);
-    window.addEventListener('popstate', function () {
-        history.pushState(null, document.title, location.href);
-    });
-})();
-</script>
 {% endblock %} 

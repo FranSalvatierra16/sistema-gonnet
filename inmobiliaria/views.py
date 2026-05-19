@@ -94,6 +94,50 @@ def _formas_de_pago_desde_movimiento_caja(movimiento, format_usd=None):
 
     return ', '.join(formas_con_montos)
 
+
+def _validar_url_volver_recibo(url, request):
+    """Path+query interno seguro para volver desde un recibo, o None."""
+    from urllib.parse import urlparse
+
+    if not url or not str(url).strip():
+        return None
+    raw = str(url).strip()
+    path = raw
+    if raw.startswith('http://') or raw.startswith('https://'):
+        try:
+            parsed = urlparse(raw)
+        except Exception:
+            return None
+        if parsed.netloc and parsed.netloc != request.get_host():
+            return None
+        path = parsed.path or '/'
+        if parsed.query:
+            path = f'{path}?{parsed.query}'
+    elif not raw.startswith('/') or raw.startswith('//'):
+        return None
+    if path.split('?', 1)[0] == request.path:
+        return None
+    return path
+
+
+def _next_para_redirect_recibo(request):
+    """Valor para propagar en ?next= al encadenar redirecciones de recibo."""
+    explicit = (request.GET.get('next') or '').strip()
+    if explicit:
+        return _validar_url_volver_recibo(explicit, request)
+    referer = (request.META.get('HTTP_REFERER') or '').strip()
+    return _validar_url_volver_recibo(referer, request)
+
+
+def _url_volver_recibo(request, default=None):
+    """URL del botón Volver: ?next=, Referer del mismo sitio, o default."""
+    back = _next_para_redirect_recibo(request)
+    if back:
+        return back
+    if default is not None:
+        return default
+    return reverse('inmobiliaria:dashboard')
+
 # Modelos usados por vistas definidas antes del import masivo de .models (línea ~871)
 from .models import ComisionVendedor, ValeVendedor, MesComisionPagadoVendedor
 from .models.persona import (
@@ -5050,6 +5094,10 @@ def ver_recibo(request, reserva_id):
             'tiene_sellados': sellados_monto > 0,
             'logo_base64': logo_base64,
             'sucursal': sucursal,  # Agregar sucursal al contexto
+            'url_volver': _url_volver_recibo(
+                request,
+                default=reverse('inmobiliaria:operaciones'),
+            ),
         })
         
     except Exception as e:
@@ -6513,9 +6561,15 @@ def ver_recibo_movimiento(request, movimiento_id):
                         .first()
                     )
                 if contrato:
+                    from urllib.parse import urlencode
+
+                    redirect_params = {'movimiento_id': movimiento.id}
+                    back_next = _next_para_redirect_recibo(request)
+                    if back_next:
+                        redirect_params['next'] = back_next
                     return HttpResponseRedirect(
                         reverse('inmobiliaria:recibo_contrato_24', args=[contrato.id])
-                        + f'?movimiento_id={movimiento.id}'
+                        + '?' + urlencode(redirect_params)
                     )
             except Exception:
                 pass
@@ -7105,6 +7159,10 @@ def ver_recibo_movimiento(request, movimiento_id):
                 'tiene_honorarios': honorarios_monto > 0,
                 'tiene_sellados': sellados_monto > 0,
                 'sucursal': sucursal,  # Agregar sucursal al contexto
+                'url_volver': _url_volver_recibo(
+                    request,
+                    default=reverse('inmobiliaria:operaciones'),
+                ),
             })
         
         # Si no hay reserva, usar el template original
@@ -7158,6 +7216,10 @@ def ver_recibo_movimiento(request, movimiento_id):
             'liquidacion_relacionada': liquidacion_relacionada,
             'gastos_liquidacion_recibo': gastos_liquidacion_recibo,
             'total_gastos_descontados': total_gastos_descontados,
+            'url_volver': _url_volver_recibo(
+                request,
+                default=reverse('inmobiliaria:lista_cajas'),
+            ),
         }
         
         return render(request, 'inmobiliaria/caja/recibo_movimiento.html', context)
@@ -16808,9 +16870,15 @@ def recibo_contrato_24(request, contrato_id):
             ).order_by('-fecha', '-id')
             ultimo = q_mov.first()
             if ultimo:
+                from urllib.parse import urlencode
+
+                redirect_params = {'movimiento_id': ultimo.id}
+                back_next = _next_para_redirect_recibo(request)
+                if back_next:
+                    redirect_params['next'] = back_next
                 return HttpResponseRedirect(
                     reverse('inmobiliaria:recibo_contrato_24', args=[contrato_id])
-                    + f'?movimiento_id={ultimo.id}'
+                    + '?' + urlencode(redirect_params)
                 )
         # Un recibo PDF = un solo MovimientoCaja (líneas y montos de ese cobro; no consolidar varios cobros).
         recibo_solo_movimiento = True
@@ -17610,6 +17678,10 @@ def recibo_contrato_24(request, contrato_id):
             'mes_alquiler_es_proporcional': mes_alquiler_tipo_recibo == 'proporcional',
             'mes_alquiler_texto_recibo': mes_alquiler_texto_recibo,
             'formas_de_pago': formas_de_pago_recibo,
+            'url_volver': _url_volver_recibo(
+                request,
+                default=reverse('inmobiliaria:detalle_contrato', args=[contrato.id]),
+            ),
         }
         
         return render(request, 'inmobiliaria/contratos/recibo_contrato_24.html', context)

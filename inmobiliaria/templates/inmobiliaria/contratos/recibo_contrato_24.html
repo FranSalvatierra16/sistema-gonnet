@@ -362,18 +362,9 @@
         <button type="button" onclick="window.print();" class="btn btn-primary">
             <i class="fas fa-print"></i> Imprimir Recibo
         </button>
-        <a href="{% url 'inmobiliaria:dashboard' %}" class="btn btn-secondary ms-2">
+        <a href="{{ url_volver }}" class="btn btn-secondary ms-2">
             <i class="fas fa-arrow-left"></i> Volver
         </a>
     </div>
 </div>
-<script>
-(function bloquearVolverAtrasEnRecibo() {
-    if (!window.opener) return;
-    history.pushState(null, document.title, location.href);
-    window.addEventListener('popstate', function () {
-        history.pushState(null, document.title, location.href);
-    });
-})();
-</script>
 {% endblock %}
