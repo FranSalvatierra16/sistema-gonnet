@@ -1,7 +1,7 @@
 {% extends 'inmobiliaria/base.html' %}
 {% load custom_filters %}
 {% load static %}
-{% block title %}Recibo Contrato 24 Meses{% endblock %}
+{% block title %}Recibo Contrato {% if contrato.duracion_meses == 9 %}Invierno{% else %}24 Meses{% endif %}{% endblock %}
 
 {% block extra_css %}
 {{ block.super }}
@@ -151,7 +151,7 @@
             </div>
             <div style="height: 100%; width: 33%; display: flex; flex-direction: column; justify-content: flex-start; align-items: flex-end; text-align: right; padding-right: 10px;">
                 <h1 style="margin: 0; color: green; font-size: 24px;">RECIBO</h1>
-                <h2 style="margin: 0; color: green; font-size: 12px;">CONTRATO 24M</h2>
+                <h2 style="margin: 0; color: green; font-size: 12px;">{% if contrato.duracion_meses == 9 %}CONTRATO INVIERNO{% else %}CONTRATO 24M{% endif %}</h2>
                 <h2 style="margin: 0; color: black; font-size: 9px; font-weight: bold;">Precio mensual: {{ precio_mensual_contrato|default:"0.00" }}</h2>
                 <h2 style="margin: 0; color: black; font-size: 8px;">Fecha:</h2>
                 <h2 style="margin: 0; color: black; font-size: 8px;">Hora:</h2>
