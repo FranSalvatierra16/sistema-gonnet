@@ -66,10 +66,10 @@
                                             <h6><i class="fas fa-check-circle"></i> Numeración Automática Activa</h6>
                                             <div class="row">
                                                 <div class="col-md-4">
-                                                    <strong>Prefijo:</strong> {{ sucursal.prefijo_recibo }}
+                                                    <strong>Prefijo:</strong> {{ sucursal.prefijo_recibo|stringformat:"03d" }}
                                                 </div>
                                                 <div class="col-md-4">
-                                                    <strong>Último número:</strong> {{ sucursal.ultimo_numero_recibo|stringformat:"08d" }}
+                                                    <strong>Último número usado:</strong> {{ sucursal.ultimo_numero_recibo|stringformat:"02d" }}
                                                 </div>
                                                 <div class="col-md-4">
                                                     <strong>Próximo recibo:</strong> 
@@ -129,8 +129,8 @@
                     <div id="configuracion-numeracion" {% if not sucursal.usar_numeracion_automatica %}style="display: none;"{% endif %}>
                         <div class="alert alert-info">
                             <h6><i class="fas fa-info-circle"></i> Formato de numeración</h6>
-                            <p class="mb-2">Los recibos seguirán el formato: <strong>X-XX</strong></p>
-                            <p class="mb-0">Ejemplo: <strong>1-01</strong>, <strong>1-1000</strong></p>
+                            <p class="mb-2">Los recibos seguirán el formato: <strong>PPP-NN</strong> (prefijo 3 dígitos + número 2 dígitos)</p>
+                            <p class="mb-0">Ejemplo: <strong>007-01</strong>, <strong>007-99</strong></p>
                         </div>
                         
                         <div class="row g-3">
@@ -140,20 +140,27 @@
                                 </label>
                                 <input type="number" class="form-control" id="prefijo_recibo" name="prefijo_recibo" 
                                        value="{{ sucursal.prefijo_recibo|default:'' }}" 
-                                       min="1" max="99999" placeholder="1"
+                                       min="1" max="999" placeholder="7"
                                        oninput="actualizarPreview()">
-                                <div class="form-text">Número que aparecerá antes del guión (ej: 1, 2, 100)</div>
+                                <div class="form-text">Ingresá <strong>7</strong> para que el prefijo sea <strong>007</strong> (siempre 3 dígitos)</div>
                             </div>
                             <div class="col-md-6">
                                 <label for="ultimo_numero_recibo" class="form-label">
-                                    <i class="fas fa-counter"></i> Contador inicial *
+                                    <i class="fas fa-counter"></i> Último número usado *
                                 </label>
                                 <input type="number" class="form-control" id="ultimo_numero_recibo" name="ultimo_numero_recibo" 
                                        value="{{ sucursal.ultimo_numero_recibo }}" 
-                                       min="1" max="99999" placeholder="1"
+                                       min="0" max="99999" placeholder="0"
                                        oninput="actualizarPreview()">
-                                <div class="form-text">Número del primer recibo (ej: 1 → 1-01)</div>
+                                <div class="form-text"><strong>0</strong> = el próximo recibo será <strong>007-01</strong>. <strong>978</strong> = el próximo será <strong>007-979</strong>.</div>
                             </div>
+                        </div>
+
+                        <div class="form-check mt-3">
+                            <input class="form-check-input" type="checkbox" id="reiniciar_contador_recibo" name="reiniciar_contador_recibo">
+                            <label class="form-check-label" for="reiniciar_contador_recibo">
+                                <strong>Reiniciar contador</strong> (permite bajar el número aunque ya se hayan emitido recibos)
+                            </label>
                         </div>
                         
                         <!-- Preview del próximo número -->
@@ -177,8 +184,8 @@
                             <h6><i class="fas fa-exclamation-triangle"></i> Importante</h6>
                             <ul class="mb-0">
                                 <li>Una vez activada la numeración automática, los números se asignan secuencialmente</li>
-                                <li>No se puede decrementar el contador una vez que se han generado recibos</li>
-                                <li>Asegúrate de que el prefijo y número inicial sean correctos</li>
+                                <li>Para arrancar en <strong>007-01</strong>: prefijo <strong>7</strong> y último número usado <strong>0</strong> (marcá reiniciar si ya había recibos)</li>
+                                <li>Sin «Reiniciar contador» no se puede bajar el número respecto del actual</li>
                             </ul>
                         </div>
                     </div>
@@ -208,8 +215,8 @@ function toggleNumeracionConfig() {
         if (!prefijoInput.value) {
             prefijoInput.value = '1';
         }
-        if (!numeroInput.value || numeroInput.value < 1) {
-            numeroInput.value = '1';
+        if (numeroInput.value === '' || numeroInput.value === null) {
+            numeroInput.value = '0';
         }
     } else {
         config.style.display = 'none';
@@ -224,12 +231,13 @@ function actualizarPreview() {
     const numero = parseInt(document.getElementById('ultimo_numero_recibo').value) || 0;
     const preview = document.getElementById('preview-numero');
     
-    if (checkbox.checked && prefijo && numero > 0) {
+    if (checkbox.checked && prefijo !== '' && numero >= 0) {
+        const prefijoFmt = String(parseInt(prefijo, 10) || 0).padStart(3, '0');
         const proximoNumero = numero + 1;
         const numeroFormateado = proximoNumero.toString().padStart(2, '0');
-        preview.textContent = `${prefijo}-${numeroFormateado}`;
+        preview.textContent = `${prefijoFmt}-${numeroFormateado}`;
     } else {
-        preview.textContent = '1-01';
+        preview.textContent = '007-01';
     }
 }
 
@@ -245,28 +253,35 @@ document.getElementById('formNumeracionRecibos').addEventListener('submit', func
         if (!prefijoInput.value) {
             prefijoInput.value = '1';
         }
-        if (!numeroInput.value || parseInt(numeroInput.value) < 1) {
-            numeroInput.value = '1';
+        if (numeroInput.value === '' || numeroInput.value === null) {
+            numeroInput.value = '0';
         }
-        
-        const prefijo = parseInt(prefijoInput.value);
-        const numero = parseInt(numeroInput.value);
-        
-        console.log(`🔍 VALIDANDO ENVÍO:`, { prefijo, numero });
-        
-        if (!prefijo || prefijo < 1 || prefijo > 99999) {
+
+        const prefijo = parseInt(prefijoInput.value, 10);
+        const numero = parseInt(numeroInput.value, 10);
+        const reiniciar = document.getElementById('reiniciar_contador_recibo').checked;
+
+        if (!prefijo || prefijo < 1 || prefijo > 999) {
             e.preventDefault();
-            alert('❌ El número identificador debe ser entre 1 y 99999');
+            alert('❌ El prefijo debe ser entre 1 y 999 (ej: 7 para 007)');
             return;
         }
-        
-        if (!numero || numero < 1 || numero > 99999) {
+
+        if (Number.isNaN(numero) || numero < 0 || numero > 99999) {
             e.preventDefault();
-            alert(`❌ El contador inicial debe ser entre 1 y 99999. Valor actual: ${numero}`);
+            alert('❌ El último número usado debe ser entre 0 y 99999 (0 = próximo 01)');
             return;
         }
-        
-        console.log('✅ Validación exitosa, enviando formulario');
+
+        const ultimoActual = {{ sucursal.ultimo_numero_recibo|default:0 }};
+        if (numero < ultimoActual && !reiniciar) {
+            e.preventDefault();
+            alert(
+                '❌ No podés bajar el contador sin marcar «Reiniciar contador». '
+                + 'Último usado: ' + ultimoActual
+            );
+            return;
+        }
     }
 });
 </script>

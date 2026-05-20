@@ -16778,12 +16778,13 @@ def configurar_numeracion_recibos(request, sucursal_id):
             if usar_numeracion:
                 prefijo = request.POST.get('prefijo_recibo', '').strip()
                 ultimo_numero = request.POST.get('ultimo_numero_recibo', '').strip()
-                
+                reiniciar_contador = request.POST.get('reiniciar_contador_recibo') == 'on'
+
                 # Si es la primera configuración y están vacíos, usar valores por defecto
                 if not prefijo:
                     prefijo = '1'  # Valor por defecto
-                if not ultimo_numero:
-                    ultimo_numero = '1'  # Valor por defecto
+                if ultimo_numero == '':
+                    ultimo_numero = '0'  # 0 = el próximo recibo será ...-01
                 
 # print(f"   📋 DATOS RECIBIDOS:")
 # print(f"      - Prefijo: '{prefijo}'")
@@ -16800,24 +16801,31 @@ def configurar_numeracion_recibos(request, sucursal_id):
                 
                 try:
                     ultimo_numero_int = int(ultimo_numero)
-                    if ultimo_numero_int < 1 or ultimo_numero_int > 99999:
+                    if ultimo_numero_int < 0 or ultimo_numero_int > 99999:
                         raise ValueError()
                 except (ValueError, TypeError):
-                    messages.error(request, 'El contador inicial debe ser entre 1 y 99999')
+                    messages.error(request, 'El último número usado debe ser entre 0 y 99999 (0 = el próximo será 01)')
                     return redirect('inmobiliaria:sucursal_detalle', sucursal_id=sucursal.id)
-                
-                # Si ya tenía numeración automática y se está cambiando el prefijo/número
-                if sucursal.usar_numeracion_automatica:
-                    if sucursal.prefijo_recibo != prefijo_int:
-                        pass  # ✅ Bloque vacío
-# print(f"   📝 Cambiando prefijo: {sucursal.prefijo_recibo} → {prefijo_int}")
-                    if sucursal.ultimo_numero_recibo != ultimo_numero_int:
-                        # Solo permitir incrementar el número, no decrementar
-                        if ultimo_numero_int < sucursal.ultimo_numero_recibo:
-                            messages.warning(request, 
-                                f'No se puede decrementar el contador. Último número usado: {sucursal.ultimo_numero_recibo}')
-                            return redirect('inmobiliaria:sucursal_detalle', sucursal_id=sucursal.id)
-# print(f"   📈 Ajustando número: {sucursal.ultimo_numero_recibo} → {ultimo_numero_int}")
+
+                prefijo_cambio = (
+                    sucursal.usar_numeracion_automatica
+                    and sucursal.prefijo_recibo is not None
+                    and sucursal.prefijo_recibo != prefijo_int
+                )
+
+                # Si ya tenía numeración automática y se baja el contador sin autorización
+                if (
+                    sucursal.usar_numeracion_automatica
+                    and ultimo_numero_int < sucursal.ultimo_numero_recibo
+                    and not reiniciar_contador
+                    and not prefijo_cambio
+                ):
+                    messages.warning(
+                        request,
+                        f'No se puede bajar el contador sin reiniciar. Último número usado: '
+                        f'{sucursal.ultimo_numero_recibo}. Marcá «Reiniciar contador» si querés arrancar de nuevo.',
+                    )
+                    return redirect('inmobiliaria:sucursal_detalle', sucursal_id=sucursal.id)
                 
                 # Actualizar configuración
                 sucursal.usar_numeracion_automatica = True
@@ -16852,7 +16860,11 @@ def recibo_contrato_24(request, contrato_id):
     """Vista para mostrar el recibo de un contrato de 24 meses"""
     from decimal import Decimal
     try:
-        contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
+        contrato = get_object_or_404(
+            ContratoAlquiler.objects.select_related('propiedad'),
+            id=contrato_id,
+            sucursal=request.user.sucursal,
+        )
 
         movimiento_forzado = None
         mg_raw = request.GET.get('movimiento_id')
@@ -17689,6 +17701,8 @@ def recibo_contrato_24(request, contrato_id):
                 request,
                 default=reverse('inmobiliaria:detalle_contrato', args=[contrato.id]),
             ),
+            'recibo_etiqueta_tipo_contrato': contrato.etiqueta_recibo_tipo_contrato,
+            'recibo_es_contrato_invierno': contrato.es_contrato_invierno(),
         }
         
         return render(request, 'inmobiliaria/contratos/recibo_contrato_24.html', context)

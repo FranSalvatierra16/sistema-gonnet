@@ -39,30 +39,32 @@ class Sucursal(models.Model):
     def __str__(self):
         return self.nombre
     
+    def _prefijo_recibo_formateado(self):
+        """Prefijo con 3 dígitos (ej. 7 → 007)."""
+        if self.prefijo_recibo is None:
+            return ''
+        return f'{int(self.prefijo_recibo):03d}'
+
     def generar_numero_recibo(self):
         """
-        Genera el próximo número de recibo automáticamente
-        Formato: X-XX (ej: 1-01, 1-1000)
+        Genera el próximo número de recibo automáticamente.
+        Formato: PPP-NN (ej: 007-01, 007-978).
         """
         if not self.usar_numeracion_automatica or self.prefijo_recibo is None:
             return None
-            
-        # Incrementar el contador
+
         self.ultimo_numero_recibo += 1
         self.save(update_fields=['ultimo_numero_recibo'])
-        
-        # Retornar formato simple: X-XX
-        return f"{self.prefijo_recibo}-{self.ultimo_numero_recibo:02d}"
-    
+
+        return f'{self._prefijo_recibo_formateado()}-{self.ultimo_numero_recibo:02d}'
+
     def obtener_proximo_numero_recibo(self):
-        """
-        Obtiene el próximo número sin incrementar el contador (para preview)
-        """
+        """Próximo número sin incrementar el contador (vista previa)."""
         if not self.usar_numeracion_automatica or self.prefijo_recibo is None:
             return None
-            
+
         proximo_numero = self.ultimo_numero_recibo + 1
-        return f"{self.prefijo_recibo}-{proximo_numero:02d}"
+        return f'{self._prefijo_recibo_formateado()}-{proximo_numero:02d}'
 
     def crear_caja_inicial(self, usuario):
         """Método para crear una caja inicial para la sucursal"""

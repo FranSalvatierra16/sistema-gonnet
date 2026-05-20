@@ -133,6 +133,36 @@ class ContratoAlquiler(models.Model):
         """Devuelve la próxima cuota a pagar"""
         return self.cuotas.filter(estado='pendiente').order_by('fecha_vencimiento').first()
 
+    def es_contrato_invierno(self):
+        """Temporada invierno / estudiante (9 meses o equivalente en el plan de cuotas)."""
+        d = int(self.duracion_meses or 0)
+        if 0 < d <= 9:
+            return True
+        try:
+            if self.precio_segundo_cuatrimestre is not None:
+                if Decimal(str(self.precio_segundo_cuatrimestre)) > 0:
+                    return True
+        except Exception:
+            pass
+        try:
+            if self.cuotas.count() == 9 and d != 24:
+                return True
+        except Exception:
+            pass
+        return False
+
+    @property
+    def etiqueta_recibo_tipo_contrato(self):
+        """Texto del encabezado del recibo según tipo de contrato."""
+        if self.es_contrato_invierno():
+            return 'CONTRATO INVIERNO'
+        d = int(self.duracion_meses or 0)
+        if d == 24:
+            return 'CONTRATO 24M'
+        if d > 0:
+            return f'CONTRATO {d}M'
+        return 'CONTRATO'
+
     def cancelar(self, motivo):
         """Cancela el contrato y marca la propiedad como disponible"""
         self.estado = 'rescindido'
