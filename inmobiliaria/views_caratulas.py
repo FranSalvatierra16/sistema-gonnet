@@ -216,7 +216,8 @@ def _contabilizacion_para_contrato(contrato):
 
 
 def _puede_ver_caratulas(user):
-    return bool(getattr(user, 'is_superuser', False) or getattr(user, 'nivel', None) == 4)
+    nivel = getattr(user, 'nivel', None)
+    return bool(getattr(user, 'is_superuser', False) or (nivel is not None and nivel >= 4))
 
 
 def _caratula_nombre_cliente(cliente):
