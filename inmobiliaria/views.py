@@ -2038,21 +2038,29 @@ def propiedad_detalle(request, propiedad_id):
                         seen.add(key)
                         historiales.append(h)
 
-    # Incluir solo contratos de invierno vigentes (no cancelados/rescindidos); si hay superposición de fechas, solo el más reciente
+    # Incluir contratos vigentes (no cancelados/rescindidos) para reflejarlos en el historial aunque no
+    # existan reservas por día cargadas.
     from types import SimpleNamespace
-    _contratos_inv = list(ContratoAlquiler.objects.filter(
+    _contratos_vigentes = list(ContratoAlquiler.objects.filter(
         propiedad=propiedad,
-        duracion_meses=9,
         estado__in=['activo', 'reservado']
     ).select_related('inquilino').order_by('-id'))
+    _contratos_inv = [c for c in _contratos_vigentes if int(getattr(c, 'duracion_meses', 0) or 0) == 9]
+    _contratos_largos = [c for c in _contratos_vigentes if int(getattr(c, 'duracion_meses', 0) or 0) != 9]
     contratos_invierno = []
     for c in _contratos_inv:
         if any(c.fecha_inicio < ex.fecha_fin and c.fecha_fin > ex.fecha_inicio for ex in contratos_invierno):
             continue
         contratos_invierno.append(c)
     contratos_invierno.sort(key=lambda x: (x.fecha_inicio, x.fecha_fin))
+    contratos_largos = []
+    for c in _contratos_largos:
+        if any(c.fecha_inicio < ex.fecha_fin and c.fecha_fin > ex.fecha_inicio for ex in contratos_largos):
+            continue
+        contratos_largos.append(c)
+    contratos_largos.sort(key=lambda x: (x.fecha_inicio, x.fecha_fin))
     # Recortar segmentos "Libre" del historial que se superpongan con contratos de invierno
-    rangos_contrato = [(c.fecha_inicio, c.fecha_fin) for c in contratos_invierno]
+    rangos_contrato = [(c.fecha_inicio, c.fecha_fin) for c in (contratos_invierno + contratos_largos)]
     new_historiales = []
     for h in historiales:
         if getattr(h, 'estado', None) != 'libre':
@@ -2080,13 +2088,13 @@ def propiedad_detalle(request, propiedad_id):
             if hasattr(h, 'reserva') or isinstance(h, SimpleNamespace):
                 new_historiales.append(SimpleNamespace(
                     fecha_inicio=a, fecha_fin=b, estado='libre', reserva=getattr(h, 'reserva', None),
-                    es_libre_invierno=False, es_invierno=False, contrato=None,
+                    es_libre_invierno=False, es_invierno=False, es_contrato_largo=False, contrato=None,
                     fecha_actualizacion=getattr(h, 'fecha_actualizacion', None),
                 ))
             else:
                 new_historiales.append(SimpleNamespace(
                     fecha_inicio=a, fecha_fin=b, estado='libre', reserva=h.reserva if hasattr(h, 'reserva') else None,
-                    es_libre_invierno=False, es_invierno=False, contrato=None,
+                    es_libre_invierno=False, es_invierno=False, es_contrato_largo=False, contrato=None,
                     fecha_actualizacion=getattr(h, 'fecha_actualizacion', None),
                 ))
     historiales = new_historiales
@@ -2105,6 +2113,7 @@ def propiedad_detalle(request, propiedad_id):
                         estado='alquilado',
                         reserva=None,
                         es_invierno=True,
+                        es_contrato_largo=False,
                         contrato=c,
                         fecha_actualizacion=getattr(h, 'fecha_actualizacion', c.fecha_creacion),
                     )
@@ -2120,10 +2129,49 @@ def propiedad_detalle(request, propiedad_id):
             estado='alquilado',
             reserva=None,
             es_invierno=True,
+            es_contrato_largo=False,
             contrato=contrato,
             fecha_actualizacion=contrato.fecha_creacion,
         )
         historiales.append(entry)
+
+    contratos_largos_ya_mostrados = set()
+    for i, h in enumerate(historiales):
+        if getattr(h, 'reserva', None) is None and getattr(h, 'estado', None) in ('alquilado', 'reservado'):
+            if getattr(h, 'es_invierno', False):
+                continue
+            for c in contratos_largos:
+                if c.id in contratos_largos_ya_mostrados:
+                    continue
+                if h.fecha_inicio < c.fecha_fin and h.fecha_fin > c.fecha_inicio:
+                    historiales[i] = SimpleNamespace(
+                        fecha_inicio=h.fecha_inicio,
+                        fecha_fin=h.fecha_fin,
+                        estado='alquilado',
+                        reserva=None,
+                        es_invierno=False,
+                        es_libre_invierno=False,
+                        es_contrato_largo=True,
+                        contrato=c,
+                        fecha_actualizacion=getattr(h, 'fecha_actualizacion', c.fecha_creacion),
+                    )
+                    contratos_largos_ya_mostrados.add(c.id)
+                    break
+
+    for contrato in contratos_largos:
+        if contrato.id in contratos_largos_ya_mostrados:
+            continue
+        historiales.append(SimpleNamespace(
+            fecha_inicio=contrato.fecha_inicio,
+            fecha_fin=contrato.fecha_fin,
+            estado='alquilado',
+            reserva=None,
+            es_invierno=False,
+            es_libre_invierno=False,
+            es_contrato_largo=True,
+            contrato=contrato,
+            fecha_actualizacion=contrato.fecha_creacion,
+        ))
 
     # Incluir períodos "Libre (Invierno)" entre y después de contratos invierno, para que se vea la fecha disponible
     try:
@@ -2146,6 +2194,7 @@ def propiedad_detalle(request, propiedad_id):
                     reserva=None,
                     es_libre_invierno=True,
                     es_invierno=False,
+                    es_contrato_largo=False,
                     contrato=None,
                     fecha_actualizacion=info_invierno.fecha_actualizacion,
                 ))
@@ -2195,6 +2244,7 @@ def propiedad_detalle(request, propiedad_id):
                     reserva=None,
                     es_libre_invierno=True,
                     es_invierno=False,
+                    es_contrato_largo=False,
                     contrato=None,
                     fecha_actualizacion=info_invierno.fecha_actualizacion,
                 ))
@@ -8488,7 +8538,7 @@ def logout_view(request):
     return redirect('inmobiliaria:login')
 
 def _clip_libre_por_contratos_invierno(items, contratos_invierno):
-    """Recorta segmentos 'libre' para que no se superpongan con contratos de invierno."""
+    """Recorta segmentos 'libre' para que no se superpongan con contratos vigentes."""
     if not contratos_invierno:
         return items
     from datetime import datetime as dt
@@ -8582,18 +8632,21 @@ def ver_historial_disponibilidad(request, propiedad_id):
             'cliente': h.reserva.cliente.nombre if h.reserva and h.reserva.cliente else None,
             'ultima_actualizacion': h.fecha_actualizacion.strftime('%d/%m/%Y %H:%M'),
             'es_invierno': False,
+            'es_contrato_largo': False,
             'contrato_id': None,
+            'tipo_contrato': None,
             'inquilino_texto': None,
             'es_libre_invierno': False,
             '_sort': (h.fecha_inicio, h.fecha_fin),
         })
 
-    # Incluir solo contratos de invierno vigentes (no cancelados/rescindidos)
-    contratos_invierno_qs = ContratoAlquiler.objects.filter(
+    # Incluir contratos vigentes para reflejar alquileres invierno y 24 meses.
+    contratos_qs = ContratoAlquiler.objects.filter(
         propiedad=propiedad,
-        duracion_meses=9,
         estado__in=['activo', 'reservado']
     ).select_related('inquilino').order_by('-id')
+    contratos_invierno_qs = [c for c in contratos_qs if int(getattr(c, 'duracion_meses', 0) or 0) == 9]
+    contratos_largos_qs = [c for c in contratos_qs if int(getattr(c, 'duracion_meses', 0) or 0) != 9]
     # Si hay varios con fechas superpuestas, mostrar solo el más reciente (mayor id) por rango
     contratos_invierno = []
     for c in contratos_invierno_qs:
@@ -8601,6 +8654,12 @@ def ver_historial_disponibilidad(request, propiedad_id):
             continue
         contratos_invierno.append(c)
     contratos_invierno.sort(key=lambda x: (x.fecha_inicio, x.fecha_fin))
+    contratos_largos = []
+    for c in contratos_largos_qs:
+        if any(c.fecha_inicio < ex.fecha_fin and c.fecha_fin > ex.fecha_inicio for ex in contratos_largos):
+            continue
+        contratos_largos.append(c)
+    contratos_largos.sort(key=lambda x: (x.fecha_inicio, x.fecha_fin))
     for c in contratos_invierno:
         items.append({
             'id': None,
@@ -8611,7 +8670,27 @@ def ver_historial_disponibilidad(request, propiedad_id):
             'cliente': None,
             'ultima_actualizacion': c.fecha_creacion.strftime('%d/%m/%Y %H:%M') if c.fecha_creacion else '',
             'es_invierno': True,
+            'es_contrato_largo': False,
             'contrato_id': c.id,
+            'tipo_contrato': 'Invierno',
+            'inquilino_texto': f'{c.inquilino.apellido}, {c.inquilino.nombre}' if c.inquilino else '-',
+            'es_libre_invierno': False,
+            '_sort': (c.fecha_inicio, c.fecha_fin),
+        })
+
+    for c in contratos_largos:
+        items.append({
+            'id': None,
+            'fecha_inicio': c.fecha_inicio.strftime('%d/%m/%Y'),
+            'fecha_fin': c.fecha_fin.strftime('%d/%m/%Y'),
+            'estado': 'alquilado',
+            'reserva_id': None,
+            'cliente': None,
+            'ultima_actualizacion': c.fecha_creacion.strftime('%d/%m/%Y %H:%M') if c.fecha_creacion else '',
+            'es_invierno': False,
+            'es_contrato_largo': True,
+            'contrato_id': c.id,
+            'tipo_contrato': '24 meses' if int(getattr(c, 'duracion_meses', 0) or 0) == 24 else f'{c.duracion_meses} meses',
             'inquilino_texto': f'{c.inquilino.apellido}, {c.inquilino.nombre}' if c.inquilino else '-',
             'es_libre_invierno': False,
             '_sort': (c.fecha_inicio, c.fecha_fin),
@@ -8639,7 +8718,9 @@ def ver_historial_disponibilidad(request, propiedad_id):
                     'cliente': None,
                     'ultima_actualizacion': info_invierno.fecha_actualizacion.strftime('%d/%m/%Y %H:%M') if info_invierno.fecha_actualizacion else '',
                     'es_invierno': False,
+                    'es_contrato_largo': False,
                     'contrato_id': None,
+                    'tipo_contrato': None,
                     'inquilino_texto': None,
                     'es_libre_invierno': True,
                     '_sort': (libre_inicio, libre_fin),
@@ -8697,14 +8778,16 @@ def ver_historial_disponibilidad(request, propiedad_id):
                     'cliente': None,
                     'ultima_actualizacion': ultima_act,
                     'es_invierno': False,
+                    'es_contrato_largo': False,
                     'contrato_id': None,
+                    'tipo_contrato': None,
                     'inquilino_texto': None,
                     'es_libre_invierno': True,
                     '_sort': (a, b),
                 })
 
-    # Recortar segmentos 'libre' que se superpongan con contratos de invierno
-    items = _clip_libre_por_contratos_invierno(items, contratos_invierno)
+    # Recortar segmentos 'libre' que se superpongan con contratos vigentes.
+    items = _clip_libre_por_contratos_invierno(items, contratos_invierno + contratos_largos)
 
     items.sort(key=lambda x: x['_sort'])
     for it in items:

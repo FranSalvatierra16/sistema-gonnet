@@ -5640,11 +5640,21 @@ window.verHistorial = function() {
                                       h.estado === 'reservado' ? 'table-warning' : 'table-danger';
                     const estadoBadge = h.estado === 'libre' ? 'bg-success' : 
                                        h.estado === 'reservado' ? 'bg-warning' : 'bg-danger';
-                    const estadoDisplay = h.estado === 'libre' ? 'Libre' : 
+                    const estadoDisplay = h.es_libre_invierno ? 'Libre (Invierno)' :
+                                         h.es_invierno ? 'Operación (Invierno)' :
+                                         h.es_contrato_largo ? `Operación (${h.tipo_contrato || '24 meses'})` :
+                                         h.estado === 'libre' ? 'Libre' : 
                                          h.estado === 'reservado' ? 'Reservado' : 'Operación';
                     
                     const reservaInfo = h.reserva_id ? 
-                        `<small>Reserva #${h.reserva_id}<br>Cliente: ${h.cliente || '-'}</small>` : 
+                        `<small>Reserva #${h.reserva_id}<br>Cliente: ${h.cliente || '-'}</small>` :
+                        h.contrato_id ?
+                        `<small><strong>${h.tipo_contrato || 'Contrato'}</strong> — Contrato #${h.contrato_id}<br>Inquilino: ${h.inquilino_texto || '-'}</small>` :
+                        h.es_libre_invierno ?
+                        '<small class="text-muted">Disponible para alquiler invierno</small>' :
+                        '-';
+                    const acciones = h.contrato_id ?
+                        `<a href="/contratos/${h.contrato_id}/" class="btn btn-outline-info btn-sm" target="_blank" rel="noopener">Ver contrato</a>` :
                         '-';
                     
                     return `
@@ -5656,7 +5666,7 @@ window.verHistorial = function() {
                             </td>
                             <td>${reservaInfo}</td>
                             <td>${h.ultima_actualizacion}</td>
-                            <td>-</td>
+                            <td>${acciones}</td>
                         </tr>
                     `;
                 }).join('');
