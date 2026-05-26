@@ -555,6 +555,7 @@ def lista_caratulas(request):
         return redirect(redirect_to)
     sucursal = getattr(request.user, 'sucursal', None)
     q = request.GET.get('q', '').strip()
+    operacion = request.GET.get('operacion', '').strip()
     tipo_filtro = request.GET.get('tipo', '').strip()
     today = timezone.localdate().isoformat()
     raw_desde = request.GET.get('fecha_desde', '').strip()
@@ -579,6 +580,7 @@ def lista_caratulas(request):
                 'error': 'Tu usuario no tiene sucursal asignada.',
                 'filas': paginator_empty.page(1),
                 'q': q,
+                'operacion': operacion,
                 'fecha_desde': fecha_desde if not periodo_completo else '',
                 'fecha_hasta': fecha_hasta if not periodo_completo else '',
                 'tipo_filtro': tipo_filtro,
@@ -601,6 +603,16 @@ def lista_caratulas(request):
         reservas = reservas.filter(propiedad__tipo_cliente='ESTUDIANTE')
     elif tipo_filtro == 'dia':
         reservas = reservas.exclude(propiedad__tipo_cliente='ESTUDIANTE')
+
+    operacion_num = None
+    if operacion:
+        solo_num = re.sub(r'[^0-9]', '', operacion)
+        if solo_num:
+            try:
+                operacion_num = int(solo_num.lstrip('0') or '0')
+            except (TypeError, ValueError):
+                operacion_num = None
+        reservas = reservas.filter(id=operacion_num) if operacion_num is not None else reservas.none()
 
     if q:
         q_res = (
@@ -657,6 +669,9 @@ def lista_caratulas(request):
         contratos = contratos.filter(duracion_meses=24)
     elif tipo_filtro in ('dia', 'estudiante'):
         contratos = contratos.none()
+
+    if operacion:
+        contratos = contratos.filter(id=operacion_num) if operacion_num is not None else contratos.none()
 
     contratos = contratos.order_by('-fecha_creacion', '-id')
 
@@ -773,6 +788,7 @@ def lista_caratulas(request):
         {
             'filas': page_obj,
             'q': q,
+            'operacion': operacion,
             'fecha_desde': fecha_desde if not periodo_completo else '',
             'fecha_hasta': fecha_hasta if not periodo_completo else '',
             'tipo_filtro': tipo_filtro,
