@@ -6769,12 +6769,11 @@ def ver_recibo_movimiento(request, movimiento_id):
                 return any(
                     k in txt
                     for k in (
-                        'gasto',
-                        'gto',
                         'descuento',
                         'retencion',
                         'retención',
-                        'bancario',
+                        'bonificación',
+                        'bonificacion',
                     )
                 )
             
