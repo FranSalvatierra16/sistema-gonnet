@@ -65,33 +65,6 @@
             </div>
         </div>
 
-        <!-- Contratos 24 Meses -->
-        {% if user.nivel >= 2 %}
-        <div class="col-md-4 mb-4">
-            <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:lista_contratos' %}'">
-                <div class="card-icon">
-                    <i class="fas fa-file-contract"></i>
-                </div>
-                <h3>Contratos de Alquiler</h3>
-                <p>Gestión de contratos y cuotas mensuales</p>
-                <span class="badge bg-success">24 Meses</span>
-            </div>
-        </div>
-        {% endif %}
-
-        <!-- Caja -->
-        {% if user.nivel >= 2 %}
-        <div class="col-md-4 mb-4">
-            <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:dashboard_caja' %}'">
-                <div class="card-icon">
-                    <i class="fas fa-cash-register"></i>
-                </div>
-                <h3>Caja</h3>
-                <p>Control de ingresos y egresos</p>
-            </div>
-        </div>
-        {% endif %}
-
         <!-- Sucursales -->
         {% if user.nivel >= 2 %}
         <div class="col-md-4 mb-4">
@@ -122,24 +95,98 @@
      
     </div>
 
-    {% if user.is_superuser or user.nivel >= 4 %}
+    {% if user.nivel >= 2 %}
     <div class="row justify-content-center mt-4">
         <div class="col-12 col-lg-10">
             <h2 class="h4 mb-3 text-secondary border-bottom pb-2">
                 <i class="fas fa-user-shield me-2"></i>Administración
             </h2>
+            {% if user.is_superuser or user.nivel >= 4 %}
+            <p class="text-muted small mb-0">
+                Carátulas, recibos, comisiones y liquidaciones siguen el mismo hilo que en el sistema anterior; contratos y caja quedan junto a ellos.
+            </p>
+            {% endif %}
         </div>
     </div>
+
+    {% if user.is_superuser or user.nivel >= 4 %}
     <div class="row justify-content-center">
+        <div class="col-12 col-lg-10 mb-2">
+            <p class="small text-uppercase text-muted fw-semibold mb-2">Consulta y documentación</p>
+        </div>
         <div class="col-md-4 mb-4">
             <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:lista_caratulas' %}'">
                 <div class="card-icon">
                     <i class="fas fa-folder-open"></i>
                 </div>
                 <h3>Carátulas</h3>
-                <p>Consulta de operaciones: reservas, invierno y contratos</p>
-                <span class="badge bg-secondary">Listado + detalle</span>
+                <p>Consulta unificada: reservas, invierno y contratos</p>
+                <span class="badge bg-secondary">Hilo conductor</span>
             </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:operaciones' %}'">
+                <div class="card-icon">
+                    <i class="fas fa-receipt"></i>
+                </div>
+                <h3>Operaciones y recibos</h3>
+                <p>Listado de operaciones y acceso a recibos por reserva</p>
+                <span class="badge bg-primary">Recibos</span>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:dashboard_comisiones' %}'">
+                <div class="card-icon">
+                    <i class="fas fa-percent"></i>
+                </div>
+                <h3>Comisiones</h3>
+                <p>Comisiones de vendedores y vales</p>
+                <span class="badge bg-warning text-dark">Vendedores</span>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:lista_liquidaciones' %}'">
+                <div class="card-icon">
+                    <i class="fas fa-hand-holding-usd"></i>
+                </div>
+                <h3>Liquidaciones a propietarios</h3>
+                <p>Pagos y liquidaciones de propietarios</p>
+                <span class="badge bg-success">Propietarios</span>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-10 mb-2">
+            <p class="small text-uppercase text-muted fw-semibold mb-2">Operativa diaria</p>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:lista_contratos' %}'">
+                <div class="card-icon">
+                    <i class="fas fa-file-contract"></i>
+                </div>
+                <h3>Contratos de alquiler</h3>
+                <p>Contratos 24 meses, cuotas y cobros</p>
+                <span class="badge bg-info">24 meses</span>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:dashboard_caja' %}'">
+                <div class="card-icon">
+                    <i class="fas fa-cash-register"></i>
+                </div>
+                <h3>Caja</h3>
+                <p>Ingresos, egresos y movimientos de caja</p>
+                <span class="badge bg-dark">Caja</span>
+            </div>
+        </div>
+    </div>
+
+    {% if user.is_superuser or user.nivel >= 4 %}
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-10 mb-2">
+            <p class="small text-uppercase text-muted fw-semibold mb-2">Reportes y búsqueda</p>
         </div>
         <div class="col-md-4 mb-4">
             <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:listado_entradas' %}'">
@@ -167,11 +214,12 @@
                     <i class="fas fa-building"></i>
                 </div>
                 <h3>Propiedades: operaciones</h3>
-                <p>Buscador completo por propiedad: día, 24 meses, gastos y liquidaciones</p>
-                <span class="badge bg-dark">Administración</span>
+                <p>Buscador por propiedad: día, 24 meses, gastos y liquidaciones</p>
+                <span class="badge bg-dark">Por propiedad</span>
             </div>
         </div>
     </div>
+    {% endif %}
     {% endif %}
 </div>
 
