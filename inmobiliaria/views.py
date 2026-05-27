@@ -2305,6 +2305,17 @@ def propiedad_detalle(request, propiedad_id):
     except:
         info_meses = None
 
+    contrato_24_actual = (
+        ContratoAlquiler.objects.filter(
+            propiedad=propiedad,
+            estado__in=['activo', 'reservado'],
+        )
+        .exclude(duracion_meses=9)
+        .select_related('inquilino')
+        .order_by('-fecha_inicio', '-id')
+        .first()
+    )
+
     # ✅ Obtener información de invierno si existe
     try:
         info_invierno = propiedad.info_invierno
@@ -2322,6 +2333,7 @@ def propiedad_detalle(request, propiedad_id):
         'active_tab': _active_tab_propiedad_detalle(request),
         'info_venta': info_venta,  # ✅ Agregamos info_venta al contexto
         'info_meses': info_meses,  # ✅ Agregamos info_meses al contexto
+        'contrato_24_actual': contrato_24_actual,
         'info_invierno': info_invierno,  # ✅ Agregamos info_invierno al contexto
         'inquilinos': get_inquilinos_queryset_unificado(request),
         'vendedores': Vendedor.objects.filter(sucursal=request.user.sucursal).order_by('apellido', 'nombre'),

@@ -623,6 +623,23 @@
                                                         <strong>Fecha fin:</strong>
                                                         <span>{{ propiedad.info_meses.fecha_fin|date:"d/m/Y" }}</span>
                                                     </div>
+                                                    {% if contrato_24_actual %}
+                                                        <div class="info-item mb-3">
+                                                            <i class="fas fa-file-contract"></i>
+                                                            <strong>Contrato:</strong>
+                                                            <span>#{{ contrato_24_actual.id }}</span>
+                                                        </div>
+                                                        <div class="info-item mb-3">
+                                                            <i class="fas fa-user"></i>
+                                                            <strong>Inquilino:</strong>
+                                                            <span>{{ contrato_24_actual.inquilino.apellido }}, {{ contrato_24_actual.inquilino.nombre }}</span>
+                                                        </div>
+                                                        <div class="mt-2">
+                                                            <a href="{% url 'inmobiliaria:detalle_contrato' contrato_24_actual.id %}" class="btn btn-outline-info btn-sm" target="_blank" rel="noopener">
+                                                                <i class="fas fa-file-contract"></i> Ver contrato #{{ contrato_24_actual.id }}
+                                                            </a>
+                                                        </div>
+                                                    {% endif %}
                                                 {% endif %}
                                             </div>
                                         </div>
