@@ -143,13 +143,13 @@
                     <div class="row">
                         <div class="col-md-6">
                             <h5><i class="fas fa-home text-success"></i> <strong>Propiedad</strong></h5>
-                            <p><strong>Dirección:</strong> {{ contrato.propiedad.direccion }}</p>
+                            <p><strong>Dirección:</strong> {{ contrato.propiedad.direccion }}{% if contrato.propiedad.piso or contrato.propiedad.departamento %} — {% if contrato.propiedad.piso %}Piso {{ contrato.propiedad.piso }}{% endif %}{% if contrato.propiedad.piso and contrato.propiedad.departamento %} · {% endif %}{% if contrato.propiedad.departamento %}Dpto {{ contrato.propiedad.departamento }}{% endif %}{% endif %}</p>
                             <p><strong>Ficha:</strong> #{{ contrato.propiedad.id }}</p>
                             <p><strong>Sucursal:</strong> {{ contrato.propiedad.sucursal.nombre }}</p>
                             
                             <h5><i class="fas fa-user text-info"></i> <strong>Inquilino</strong></h5>
                             <p><strong>Nombre:</strong> {{ contrato.inquilino.nombre }} {{ contrato.inquilino.apellido }}</p>
-                            <p><strong>Teléfono:</strong> {{ contrato.inquilino.telefono }}</p>
+                            <p><strong>Celular:</strong> {{ contrato.inquilino.celular|default:"—" }}</p>
                             <p><strong>Email:</strong> {{ contrato.inquilino.email }}</p>
                         </div>
                         <div class="col-md-6">

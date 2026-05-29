@@ -178,6 +178,12 @@
                                 <td>
                                     <div>
                                         <strong>{{ contrato.propiedad.direccion }}</strong>
+                                        {% if contrato.propiedad.piso or contrato.propiedad.departamento %}
+                                        <br>
+                                        <small class="text-muted">
+                                            {% if contrato.propiedad.piso %}Piso {{ contrato.propiedad.piso }}{% endif %}{% if contrato.propiedad.piso and contrato.propiedad.departamento %} · {% endif %}{% if contrato.propiedad.departamento %}Dpto {{ contrato.propiedad.departamento }}{% endif %}
+                                        </small>
+                                        {% endif %}
                                         <br>
                                         <small class="text-muted">Ficha #{{ contrato.propiedad.id }}</small>
                                     </div>

@@ -12938,7 +12938,8 @@ def api_inquilino_detalle(request, inquilino_id):
             'id': inquilino.id,
             'nombre': inquilino.nombre,
             'apellido': inquilino.apellido,
-            'telefono': inquilino.telefono,
+            'telefono': inquilino.celular or '',
+            'celular': inquilino.celular or '',
             'email': inquilino.email,
             'dni': inquilino.dni,
         }
