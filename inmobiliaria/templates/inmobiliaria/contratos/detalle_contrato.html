@@ -101,11 +101,8 @@
                                         {% endif %}
                                     </td>
                                     <td class="text-end text-nowrap">
-                                        <a href="{% url 'inmobiliaria:recibo_contrato_24' contrato.id %}?movimiento_id={{ m.id }}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" title="Ver recibo de este cobro">
+                                        <a href="{% url 'inmobiliaria:recibo_contrato_24' contrato.id %}?movimiento_id={{ m.id }}&next={% url 'inmobiliaria:detalle_contrato' contrato.id %}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" title="Ver e imprimir recibo de este cobro">
                                             <i class="fas fa-file-invoice"></i> Recibo
-                                        </a>
-                                        <a href="{% url 'inmobiliaria:ver_recibo_movimiento' m.id }}" class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener" title="Movimiento en caja">
-                                            <i class="fas fa-cash-register"></i>
                                         </a>
                                         {% if m.caja %}
                                         <form method="post" action="{% url 'inmobiliaria:eliminar_movimiento' m.id %}" class="d-inline"

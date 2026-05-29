@@ -831,7 +831,7 @@
                                 {% if op.todos_recibos|length == 1 %}
                                     {% with recibo=op.todos_recibos|first %}
                                     <div class="d-inline-flex align-items-center gap-2 flex-wrap recibo-op-inline-actions">
-                                        <a href="{% url 'inmobiliaria:ver_recibo_movimiento' recibo.movimiento_caja.id %}" class="btn-action btn-recibo" title="Ver recibo {{ recibo.numero_recibo }}">
+                                        <a href="{% url_recibo_movimiento recibo.movimiento_caja %}" class="btn-action btn-recibo" title="Ver recibo {{ recibo.numero_recibo }}" target="_blank" rel="noopener">
                                             <i class="fas fa-file-invoice"></i>{{ recibo.numero_recibo }}
                                         </a>
                                         {% if user.nivel == 5 and recibo.movimiento_caja.caja and recibo.movimiento_caja.caja.estado == 'abierta' and not recibo.movimiento_caja.caja.fecha_cierre %}
@@ -856,7 +856,7 @@
                                             {% for recibo in op.todos_recibos %}
                                                 <li class="list-unstyled">
                                                     <div class="recibo-op-card">
-                                                        <a class="recibo-op-card-main text-decoration-none d-flex align-items-start gap-2" href="{% url 'inmobiliaria:ver_recibo_movimiento' recibo.movimiento_caja.id %}" target="_blank" rel="noopener">
+                                                        <a class="recibo-op-card-main text-decoration-none d-flex align-items-start gap-2" href="{% url_recibo_movimiento recibo.movimiento_caja %}" target="_blank" rel="noopener">
                                                             <span class="recibo-op-icon" aria-hidden="true"><i class="fas fa-file-invoice"></i></span>
                                                             <span class="d-flex flex-column">
                                                                 <span class="recibo-op-numero">{{ recibo.numero_recibo }}</span>
@@ -884,7 +884,7 @@
                                 {% endif %}
                             {% elif op.movimiento_reciente %}
                                 <div class="d-inline-flex align-items-center gap-2 flex-wrap recibo-op-inline-actions">
-                                    <a href="{% url 'inmobiliaria:ver_recibo_movimiento' op.movimiento_reciente.id %}" class="btn-action btn-recibo" target="_blank" rel="noopener">
+                                    <a href="{% url_recibo_movimiento op.movimiento_reciente %}" class="btn-action btn-recibo" target="_blank" rel="noopener">
                                         <i class="fas fa-file-invoice"></i>Recibo
                                     </a>
                                     {% if user.nivel == 5 and op.movimiento_reciente.caja and op.movimiento_reciente.caja.estado == 'abierta' and not op.movimiento_reciente.caja.fecha_cierre %}

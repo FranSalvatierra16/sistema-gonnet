@@ -140,10 +140,11 @@
                             <td class="text-end fw-bold">${{ movimiento.monto_total|format_price }}</td>
                             <td>
                                 <div class="btn-group">
-                                    <a href="{% url 'inmobiliaria:ver_recibo_movimiento' movimiento.id %}" 
+                                    <a href="{{ movimiento.url_recibo }}" 
                                        class="btn btn-sm btn-success" 
-                                       title="Ver Recibo" 
+                                       title="Ver e imprimir recibo" 
                                        target="_blank"
+                                       rel="noopener"
                                        style="background-color: #28a745; border-color: #28a745; color: white; text-decoration: none;">
                                         RECIBO
                                     </a>

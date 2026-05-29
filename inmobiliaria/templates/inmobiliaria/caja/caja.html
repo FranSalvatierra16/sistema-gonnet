@@ -55,10 +55,11 @@
                             <td class="text-right">${{ movimiento.monto_deposito|default_if_none:""|format_price }}</td>
                             <td class="text-right">${{ movimiento.monto_transferencia|default_if_none:""|format_price }}</td>
                             <td class="text-center">
-                                <a href="{% url 'inmobiliaria:ver_recibo_movimiento' movimiento.id %}" 
+                                <a href="{{ movimiento.url_recibo }}" 
                                    class="btn btn-success btn-sm" 
                                    style="margin-right: 5px; background-color: #28a745; border-color: #28a745; color: white; text-decoration: none;"
-                                   target="_blank">
+                                   target="_blank"
+                                   rel="noopener">
                                     RECIBO
                                 </a>
                                 <a href="#" class="btn btn-info btn-sm" style="margin-right: 5px;">

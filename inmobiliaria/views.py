@@ -7240,6 +7240,16 @@ def ver_recibo_movimiento(request, movimiento_id):
             total_gastos_descontados = Decimal('0')
 
         total_dolares = float(getattr(movimiento, 'monto_dolares', None) or 0)
+        url_recibo_formal = _url_recibo_para_movimiento(
+            movimiento,
+            request.user.sucursal,
+            next_url=_next_para_redirect_recibo(request),
+        )
+        if url_recibo_formal != reverse(
+            'inmobiliaria:ver_recibo_movimiento', args=[movimiento.id]
+        ):
+            return HttpResponseRedirect(url_recibo_formal)
+
         contrato_recibo = (
             _obtener_contrato_desde_movimiento(movimiento, request.user.sucursal)
             if movimiento.tipo == TipoMovimientoCajaEnum.INGRESO
@@ -10461,9 +10471,14 @@ def caja(request):
         return redirect('inmobiliaria:gestionar_caja')
     
     # Obtener todos los movimientos de la caja
-    movimientos = MovimientoCaja.objects.filter(
-        caja=caja
-    ).order_by('-fecha')
+    movimientos = list(
+        MovimientoCaja.objects.filter(caja=caja).order_by('-fecha')
+    )
+    next_path = request.get_full_path()
+    for mov in movimientos:
+        mov.url_recibo = _url_recibo_para_movimiento(
+            mov, sucursal, next_url=next_path
+        )
     
     # Calcular totales
     totales = {
@@ -10532,8 +10547,12 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
             return 'Reserva'
         return 'Movimiento'
 
+    next_path = request.get_full_path() if request else None
     for mov in movimientos:
         mov.concepto_resumen = _resumir_concepto_crudo(getattr(mov, 'concepto', ''))
+        mov.url_recibo = _url_recibo_para_movimiento(
+            mov, request.user.sucursal, next_url=next_path
+        )
 
     movimientos_eliminados_qs = (
         MovimientoCaja.all_objects.filter(caja=caja, fecha_eliminacion__isnull=False)
@@ -14301,6 +14320,33 @@ def _conceptos_lineas_recibo_desde_movimiento_simple(movimiento, sucursal):
     return lineas
 
 
+def _url_recibo_para_movimiento(movimiento, sucursal, next_url=None):
+    """
+    URL del comprobante imprimible en formato Gonnet (recibo de contrato o de reserva por día).
+    Evita abrir el resumen «RECIBO DE CAJA» cuando corresponde el recibo formal.
+    """
+    from urllib.parse import urlencode
+    import re
+
+    if getattr(movimiento, 'tipo', None) == TipoMovimientoCajaEnum.INGRESO:
+        contrato = _obtener_contrato_desde_movimiento(movimiento, sucursal)
+        if contrato:
+            params = {'movimiento_id': movimiento.id}
+            if next_url:
+                params['next'] = next_url
+            return (
+                reverse('inmobiliaria:recibo_contrato_24', args=[contrato.id])
+                + '?' + urlencode(params)
+            )
+
+    concepto_txt = (movimiento.concepto or '')
+    m_res = re.search(r'Operaci[oó]n\s*(\d+)', concepto_txt, re.I)
+    if m_res:
+        return reverse('inmobiliaria:ver_recibo', args=[int(m_res.group(1))])
+
+    return reverse('inmobiliaria:ver_recibo_movimiento', args=[movimiento.id])
+
+
 def determinar_estado_concepto_contrato(contrato, concepto_id):
     """
     Determina si un concepto específico está pagado para un contrato.
@@ -15687,7 +15733,13 @@ def ver_recibo_cuota_contrato(request, cuota_id):
     if not cuota.movimiento_id:
         messages.error(request, 'La cuota no tiene movimiento de caja asociado.')
         return redirect('inmobiliaria:detalle_contrato', contrato_id=cuota.contrato_id)
-    return redirect('inmobiliaria:ver_recibo_movimiento', movimiento_id=cuota.movimiento_id)
+    from urllib.parse import urlencode
+
+    back = reverse('inmobiliaria:detalle_contrato', args=[cuota.contrato_id])
+    return redirect(
+        reverse('inmobiliaria:recibo_contrato_24', args=[cuota.contrato_id])
+        + '?' + urlencode({'movimiento_id': cuota.movimiento_id, 'next': back})
+    )
 
 
 @login_required

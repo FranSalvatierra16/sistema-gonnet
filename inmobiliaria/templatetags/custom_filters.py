@@ -165,3 +165,18 @@ def formato_apellido_nombre(persona):
 @register.filter(name='apellido_nombre')
 def apellido_nombre_filter(persona):
     return formato_apellido_nombre(persona)
+
+
+@register.simple_tag(takes_context=True)
+def url_recibo_movimiento(context, movimiento):
+    """Enlace al recibo imprimible (contrato 24m, reserva por día o caja)."""
+    if not movimiento:
+        return '#'
+    request = context.get('request')
+    sucursal = getattr(movimiento, 'sucursal', None)
+    if sucursal is None and request and getattr(request, 'user', None):
+        sucursal = getattr(request.user, 'sucursal', None)
+    next_url = request.get_full_path() if request and hasattr(request, 'get_full_path') else None
+    from inmobiliaria.views import _url_recibo_para_movimiento
+
+    return _url_recibo_para_movimiento(movimiento, sucursal, next_url=next_url)
