@@ -6597,32 +6597,16 @@ def ver_recibo_movimiento(request, movimiento_id):
         # IMPORTANTE: en cobros de contrato/cuotas no mezclar con reserva por propiedad.
         concepto_txt = (movimiento.concepto or '')
         detalle_txt = (getattr(movimiento, 'concepto_detalle', None) or '').strip()
-        es_movimiento_contrato = (
-            'Contrato #' in concepto_txt
-            or 'pago_cuota_mensual' in detalle_txt
-            or '"cuota_id"' in detalle_txt
-        )
+        contrato_vinculado = None
+        es_movimiento_contrato = False
+        if movimiento.tipo == TipoMovimientoCajaEnum.INGRESO:
+            contrato_vinculado = _obtener_contrato_desde_movimiento(movimiento, request.user.sucursal)
+            es_movimiento_contrato = contrato_vinculado is not None
 
         # Para cobros de contrato/cuota, usar el mismo formato que los otros recibos de contrato.
         if es_movimiento_contrato:
             try:
-                import re
-                m_contrato = re.search(r'Contrato\s*#\s*(\d+)', concepto_txt)
-                contrato = None
-                if m_contrato:
-                    contrato = ContratoAlquiler.objects.filter(
-                        id=int(m_contrato.group(1)),
-                        sucursal=request.user.sucursal
-                    ).first()
-                if not contrato and movimiento.propiedad_id:
-                    contrato = (
-                        ContratoAlquiler.objects.filter(
-                            propiedad_id=movimiento.propiedad_id,
-                            sucursal=request.user.sucursal
-                        )
-                        .order_by('-id')
-                        .first()
-                    )
+                contrato = contrato_vinculado
                 if contrato:
                     from urllib.parse import urlencode
 
@@ -6719,6 +6703,9 @@ def ver_recibo_movimiento(request, movimiento_id):
                 if not isinstance(it, dict):
                     continue
                 nombre = str(it.get('nombre') or it.get('concepto') or '').strip()
+                if not nombre:
+                    cid = str(it.get('id') or it.get('codigo') or '').strip()
+                    nombre = _nombre_concepto_caja(cid, mov.sucursal) or cid
                 if nombre and nombre not in nombres:
                     nombres.append(nombre)
             if nombres:
@@ -6729,6 +6716,10 @@ def ver_recibo_movimiento(request, movimiento_id):
                 base = base.split('|CONCEPTOS:', 1)[0].strip()
             if base.startswith('[') or base.startswith('{'):
                 return f"Movimiento #{mov.id}"
+            if base.isdigit() or (len(base) <= 6 and base.replace('.', '').isdigit()):
+                legible = _nombre_concepto_caja(base, mov.sucursal)
+                if legible:
+                    return legible
             return base or f"Movimiento #{mov.id}"
 
         concepto_mostrar = _concepto_legible_movimiento(movimiento)
@@ -7254,9 +7245,15 @@ def ver_recibo_movimiento(request, movimiento_id):
             total_gastos_descontados = Decimal('0')
 
         total_dolares = float(getattr(movimiento, 'monto_dolares', None) or 0)
+        contrato_recibo = (
+            _obtener_contrato_desde_movimiento(movimiento, request.user.sucursal)
+            if movimiento.tipo == TipoMovimientoCajaEnum.INGRESO
+            else None
+        )
         context = {
             'movimiento': movimiento,
             'concepto_mostrar': concepto_mostrar,
+            'contrato_recibo': contrato_recibo,
             'reserva': reserva,
             'total_movimiento': total_movimiento,
             'total_dolares': total_dolares,
@@ -7280,7 +7277,11 @@ def ver_recibo_movimiento(request, movimiento_id):
             'total_gastos_descontados': total_gastos_descontados,
             'url_volver': _url_volver_recibo(
                 request,
-                default=reverse('inmobiliaria:lista_cajas'),
+                default=(
+                    reverse('inmobiliaria:detalle_contrato', args=[contrato_recibo.id])
+                    if contrato_recibo
+                    else reverse('inmobiliaria:lista_cajas')
+                ),
             ),
         }
         
@@ -14156,6 +14157,83 @@ def _movimiento_json_conceptos_parsed(movimiento):
     return parsed, conceptos_data
 
 
+def _nombre_concepto_caja(cid, sucursal):
+    """Nombre legible de un concepto de caja (id «24» → «24 - Alquiler mensual», etc.)."""
+    from .models.caja import Concepto
+
+    cid = str(cid or '').strip()
+    if not cid:
+        return ''
+    c = Concepto.objects.filter(id=cid, sucursal=sucursal).first()
+    if c:
+        etiqueta = getattr(c, 'etiqueta_numero_catalogo', None) or c.id
+        return f'{etiqueta} - {c.nombre}'
+    return ''
+
+
+def _obtener_contrato_desde_movimiento(movimiento, sucursal):
+    """Contrato de alquiler vinculado a un movimiento de caja (varios criterios)."""
+    import re
+    from .models import ContratoAlquiler, CuotaMensual
+
+    concepto_txt = (movimiento.concepto or '')
+    detalle_txt = (getattr(movimiento, 'concepto_detalle', None) or '').strip()
+
+    m = re.search(r'Contrato\s*#\s*(\d+)', concepto_txt)
+    if m:
+        contrato = ContratoAlquiler.objects.filter(
+            id=int(m.group(1)), sucursal=sucursal
+        ).first()
+        if contrato:
+            return contrato
+
+    cuota_vinc = CuotaMensual.objects.filter(
+        movimiento_id=movimiento.id
+    ).select_related('contrato').first()
+    if cuota_vinc and cuota_vinc.contrato_id:
+        return cuota_vinc.contrato
+
+    if detalle_txt:
+        try:
+            import json
+            parsed = json.loads(detalle_txt)
+            if isinstance(parsed, dict):
+                cuota_id_raw = parsed.get('cuota_id')
+                if cuota_id_raw is not None:
+                    cuota_ref = CuotaMensual.objects.filter(
+                        id=int(cuota_id_raw),
+                        contrato__sucursal=sucursal,
+                    ).select_related('contrato').first()
+                    if cuota_ref:
+                        return cuota_ref.contrato
+        except Exception:
+            pass
+
+    parsed_det, conceptos_list = _movimiento_json_conceptos_parsed(movimiento)
+    es_cobro_contrato = bool(
+        (isinstance(parsed_det, dict) and parsed_det.get('pago_cuota_mensual'))
+        or 'pago_cuota_mensual' in detalle_txt
+        or '"cuota_id"' in detalle_txt
+        or any(
+            isinstance(it, dict) and it.get('cuota_objetivo_id')
+            for it in conceptos_list
+        )
+        or (conceptos_list and movimiento.propiedad_id)
+        or concepto_txt.strip().isdigit()
+    )
+    if es_cobro_contrato and movimiento.propiedad_id:
+        return (
+            ContratoAlquiler.objects.filter(
+                propiedad_id=movimiento.propiedad_id,
+                sucursal=sucursal,
+                estado__in=['activo', 'reservado'],
+            )
+            .order_by('-id')
+            .first()
+        )
+    return None
+
+
 def determinar_estado_concepto_contrato(contrato, concepto_id):
     """
     Determina si un concepto específico está pagado para un contrato.
@@ -16970,7 +17048,6 @@ def recibo_contrato_24(request, contrato_id):
                     id=mid,
                     sucursal=request.user.sucursal,
                     propiedad=contrato.propiedad,
-                    concepto__icontains=f'Contrato #{contrato.id}',
                 ).first()
             except (TypeError, ValueError):
                 movimiento_forzado = None

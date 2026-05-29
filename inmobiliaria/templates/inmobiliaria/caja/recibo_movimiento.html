@@ -416,9 +416,15 @@
             <a href="{{ url_volver }}" class="btn btn-secondary">
                 ⬅️ Volver
             </a>
+            {% if contrato_recibo %}
+            <a href="{% url 'inmobiliaria:recibo_contrato_24' contrato_recibo.id %}?movimiento_id={{ movimiento.id }}" class="btn btn-success" target="_blank" rel="noopener">
+                📄 Recibo de contrato
+            </a>
+            {% elif reserva %}
             <a href="{% url 'inmobiliaria:reservas' %}" class="btn btn-success">
                 📋 Ver Reservas
             </a>
+            {% endif %}
         </div>
     </div>
 </div>
