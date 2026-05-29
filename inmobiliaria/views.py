@@ -6603,23 +6603,18 @@ def ver_recibo_movimiento(request, movimiento_id):
             contrato_vinculado = _obtener_contrato_desde_movimiento(movimiento, request.user.sucursal)
             es_movimiento_contrato = contrato_vinculado is not None
 
-        # Para cobros de contrato/cuota, usar el mismo formato que los otros recibos de contrato.
-        if es_movimiento_contrato:
-            try:
-                contrato = contrato_vinculado
-                if contrato:
-                    from urllib.parse import urlencode
+        # Para cobros de contrato/cuota, usar el mismo formato Gonnet que los otros recibos.
+        if es_movimiento_contrato and contrato_vinculado:
+            from urllib.parse import urlencode
 
-                    redirect_params = {'movimiento_id': movimiento.id}
-                    back_next = _next_para_redirect_recibo(request)
-                    if back_next:
-                        redirect_params['next'] = back_next
-                    return HttpResponseRedirect(
-                        reverse('inmobiliaria:recibo_contrato_24', args=[contrato.id])
-                        + '?' + urlencode(redirect_params)
-                    )
-            except Exception:
-                pass
+            redirect_params = {'movimiento_id': movimiento.id}
+            back_next = _next_para_redirect_recibo(request)
+            if back_next:
+                redirect_params['next'] = back_next
+            return HttpResponseRedirect(
+                reverse('inmobiliaria:recibo_contrato_24', args=[contrato_vinculado.id])
+                + '?' + urlencode(redirect_params)
+            )
 
         reserva = None
         if not es_movimiento_contrato and concepto_txt and "Operaci\u00f3n" in concepto_txt:
@@ -14234,6 +14229,78 @@ def _obtener_contrato_desde_movimiento(movimiento, sucursal):
     return None
 
 
+def _conceptos_lineas_recibo_desde_movimiento_simple(movimiento, sucursal):
+    """
+    Líneas del recibo Gonnet cuando el movimiento no trae JSON (concepto solo «24», caja manual, etc.).
+    """
+    from decimal import Decimal
+    from .models import CuotaMensual
+
+    _, items = _movimiento_json_conceptos_parsed(movimiento)
+    if items:
+        return []
+
+    concepto_raw = (movimiento.concepto or '').strip()
+    if '|CONCEPTOS:' in concepto_raw:
+        concepto_raw = concepto_raw.split('|CONCEPTOS:', 1)[0].strip()
+
+    lineas = []
+    fecha_fb = movimiento.fecha.date() if hasattr(movimiento.fecha, 'date') else movimiento.fecha
+
+    def _append_linea(cid, nombre, importe_dec, moneda='ARS'):
+        if importe_dec <= 0:
+            return
+        imp_f = float(importe_dec)
+        if moneda == 'USD':
+            imp_fmt = f"U$S {imp_f:,.2f}".replace(',', '.')
+        else:
+            imp_fmt = f"${imp_f:,.2f}".replace(',', '.')
+        lineas.append({
+            'fecha': fecha_fb,
+            'codigo': _etiqueta_id_concepto_caja_visual(cid) if cid else '',
+            'nombre': nombre,
+            'observaciones': '',
+            'importe': imp_fmt,
+            'importe_numerico': imp_f,
+            'moneda': moneda,
+        })
+
+    tot_ars = Decimal(str(
+        (movimiento.monto_efectivo or 0) + (movimiento.monto_cheque or 0) +
+        (movimiento.monto_tarjeta or 0) + (movimiento.monto_deposito or 0)
+    ))
+    tot_usd = Decimal(str(getattr(movimiento, 'monto_dolares', None) or 0))
+    cuota = CuotaMensual.objects.filter(movimiento_id=movimiento.id).select_related('contrato').first()
+
+    cid_simple = ''
+    if concepto_raw.isdigit():
+        cid_simple = concepto_raw
+    elif concepto_raw and concepto_raw.replace('.', '', 1).isdigit():
+        cid_simple = concepto_raw.split('.')[0]
+
+    if cid_simple:
+        nombre_cat = _nombre_concepto_caja(cid_simple, sucursal)
+        if nombre_cat and ' - ' in nombre_cat:
+            nombre = nombre_cat.split(' - ', 1)[1]
+        else:
+            nombre = nombre_cat or f'Concepto {cid_simple}'
+        if cuota:
+            nombre = f'{nombre} (cuota {cuota.numero_cuota}/{cuota.contrato.duracion_meses})'
+        _append_linea(cid_simple, nombre, tot_ars, 'ARS')
+        if tot_usd > 0:
+            _append_linea(cid_simple, f'{nombre} — USD', tot_usd, 'USD')
+        return lineas
+
+    if concepto_raw and tot_ars > 0:
+        nombre = concepto_raw[:120]
+        if cuota:
+            nombre = f'Cuota {cuota.numero_cuota}/{cuota.contrato.duracion_meses} — {nombre}'
+        _append_linea('', nombre, tot_ars, 'ARS')
+    if tot_usd > 0:
+        _append_linea('', 'Cobro en USD', tot_usd, 'USD')
+    return lineas
+
+
 def determinar_estado_concepto_contrato(contrato, concepto_id):
     """
     Determina si un concepto específico está pagado para un contrato.
@@ -17145,7 +17212,13 @@ def recibo_contrato_24(request, contrato_id):
             try:
                 import json
                 concepto_detalle_raw = (getattr(primer_movimiento, 'concepto_detalle', None) or '').strip()
-                json_str = concepto_detalle_raw if concepto_detalle_raw else (primer_movimiento.concepto or '[]')
+                concepto_mov_raw = (primer_movimiento.concepto or '').strip()
+                if concepto_detalle_raw:
+                    json_str = concepto_detalle_raw
+                elif concepto_mov_raw.startswith('[') or concepto_mov_raw.startswith('{'):
+                    json_str = concepto_mov_raw
+                else:
+                    json_str = ''
                 if json_str.strip().startswith('{'):
                     obj = json.loads(json_str)
                     conceptos_data = obj.get('conceptos', [])
@@ -17477,33 +17550,39 @@ def recibo_contrato_24(request, contrato_id):
 # print(f"🔥 CONCEPTOS FORZADOS FINALES: {len(conceptos_contrato)}")
             
             if len(conceptos_contrato) == 0 and recibo_solo_movimiento and primer_movimiento:
-                m = primer_movimiento
-                tot = float(
-                    (m.monto_efectivo or 0) + (m.monto_cheque or 0) +
-                    (m.monto_tarjeta or 0) + (m.monto_deposito or 0)
+                lineas_simple = _conceptos_lineas_recibo_desde_movimiento_simple(
+                    primer_movimiento, request.user.sucursal
                 )
-                tot_usd_fb = float(getattr(m, 'monto_dolares', None) or 0)
-                fb = m.fecha.date() if hasattr(m.fecha, 'date') else m.fecha
-                if tot > 0:
-                    conceptos_contrato.append({
-                        'fecha': fb,
-                        'codigo': '',
-                        'nombre': 'Cobro registrado (sin detalle de conceptos)',
-                        'observaciones': '',
-                        'importe': f"${tot:,.2f}".replace(',', '.'),
-                        'importe_numerico': tot,
-                        'moneda': 'ARS',
-                    })
-                if tot_usd_fb > 0:
-                    conceptos_contrato.append({
-                        'fecha': fb,
-                        'codigo': '',
-                        'nombre': 'Cobro registrado (sin detalle de conceptos) — USD',
-                        'observaciones': '',
-                        'importe': f"U$S {tot_usd_fb:,.2f}".replace(',', '.'),
-                        'importe_numerico': tot_usd_fb,
-                        'moneda': 'USD',
-                    })
+                if lineas_simple:
+                    conceptos_contrato.extend(lineas_simple)
+                else:
+                    m = primer_movimiento
+                    tot = float(
+                        (m.monto_efectivo or 0) + (m.monto_cheque or 0) +
+                        (m.monto_tarjeta or 0) + (m.monto_deposito or 0)
+                    )
+                    tot_usd_fb = float(getattr(m, 'monto_dolares', None) or 0)
+                    fb = m.fecha.date() if hasattr(m.fecha, 'date') else m.fecha
+                    if tot > 0:
+                        conceptos_contrato.append({
+                            'fecha': fb,
+                            'codigo': '',
+                            'nombre': 'Cobro registrado (sin detalle de conceptos)',
+                            'observaciones': '',
+                            'importe': f"${tot:,.2f}".replace(',', '.'),
+                            'importe_numerico': tot,
+                            'moneda': 'ARS',
+                        })
+                    if tot_usd_fb > 0:
+                        conceptos_contrato.append({
+                            'fecha': fb,
+                            'codigo': '',
+                            'nombre': 'Cobro registrado (sin detalle de conceptos) — USD',
+                            'observaciones': '',
+                            'importe': f"U$S {tot_usd_fb:,.2f}".replace(',', '.'),
+                            'importe_numerico': tot_usd_fb,
+                            'moneda': 'USD',
+                        })
             
 # print(f"🎯 TOTAL CONCEPTOS FINALES: {len(conceptos_contrato)}")
         else:
