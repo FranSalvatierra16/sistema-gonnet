@@ -152,9 +152,12 @@
             <div style="height: 100%; width: 33%; display: flex; flex-direction: column; justify-content: flex-start; align-items: flex-end; text-align: right; padding-right: 10px;">
                 <h1 style="margin: 0; color: green; font-size: 24px;">RECIBO</h1>
                 <h2 style="margin: 0; color: green; font-size: 12px;">{{ recibo_etiqueta_tipo_contrato|default:contrato.etiqueta_recibo_tipo_contrato }}</h2>
+                {% if numero_recibo %}
+                <h1 style="margin: 4px 0 0 0; color: black; font-size: 11px; font-weight: bold;">Nº: {{ numero_recibo }}</h1>
+                {% endif %}
                 <h2 style="margin: 0; color: black; font-size: 9px; font-weight: bold;">Precio mensual: {{ precio_mensual_contrato|default:"0.00" }}</h2>
-                <h2 style="margin: 0; color: black; font-size: 8px;">Fecha:</h2>
-                <h2 style="margin: 0; color: black; font-size: 8px;">Hora:</h2>
+                <h2 style="margin: 0; color: black; font-size: 8px;">Fecha: {% if fecha_recibo %}{{ fecha_recibo }}{% else %}&nbsp;{% endif %}</h2>
+                <h2 style="margin: 0; color: black; font-size: 8px;">Hora: {% if hora_recibo %}{{ hora_recibo }}{% else %}&nbsp;{% endif %}</h2>
                 <h2 style="margin: 0; color: black; font-size: 8px;">ING.BRUTOS: 20-10757577-6</h2>
                 <h2 style="margin: 0; color: black; font-size: 8px;">JUB.: 60629826 C.P.S.M.C.P.B.A. Ley 7614</h2>
                 <h2 style="margin: 0; color: black; font-size: 8px;">INSC.: 1200098 REG. 1575</h2>

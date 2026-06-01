@@ -14724,6 +14724,40 @@ def _total_medios_pago_operacion_request(request):
     )
 
 
+def _asignar_numero_recibo_a_movimiento(movimiento, sucursal=None):
+    """
+    Asigna numero_liquidacion al movimiento (contador de sucursal o fallback M-000123).
+    No sobrescribe si ya tiene número.
+    """
+    actual = (getattr(movimiento, 'numero_liquidacion', None) or '').strip()
+    if actual:
+        return actual
+
+    sucursal = sucursal or getattr(movimiento, 'sucursal', None)
+    numero = None
+    if sucursal and sucursal.usar_numeracion_automatica and sucursal.prefijo_recibo is not None:
+        numero = sucursal.generar_numero_recibo()
+
+    if not numero:
+        numero = f'M-{int(movimiento.id):06d}'
+
+    movimiento.numero_liquidacion = str(numero)[:50]
+    movimiento.save(update_fields=['numero_liquidacion'])
+    return movimiento.numero_liquidacion
+
+
+def _numero_recibo_mostrar_movimiento(movimiento, sucursal=None, asignar_si_falta=False):
+    """Número para imprimir en recibo; opcionalmente asigna contador si aún no existe."""
+    if not movimiento:
+        return ''
+    actual = (getattr(movimiento, 'numero_liquidacion', None) or '').strip()
+    if actual:
+        return actual
+    if asignar_si_falta:
+        return _asignar_numero_recibo_a_movimiento(movimiento, sucursal=sucursal)
+    return f'M-{int(movimiento.id):06d}'
+
+
 def procesar_conceptos_y_crear_movimiento(request, caja, contrato, pago_cuota_context=None):
     """Procesa los conceptos y crea el movimiento de caja. Retorna (movimiento, total) o (None, 0) y el tercer elemento opcional es el mensaje de error.
 
@@ -14981,7 +15015,8 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato, pago_cuota_co
                 movimiento.destino_deposito = 'mp'
                 movimiento.monto_deposito = monto_deposito_mp
         movimiento.save()
-        
+        _asignar_numero_recibo_a_movimiento(movimiento, sucursal=request.user.sucursal)
+
         return movimiento, total_movimiento
         
     except Exception as e:
@@ -15758,6 +15793,7 @@ def pagar_cuota(request, cuota_id):
                 fecha_desde=contrato.fecha_inicio,
                 fecha_hasta=contrato.fecha_fin,
             )
+            _asignar_numero_recibo_a_movimiento(movimiento, sucursal=request.user.sucursal)
 
             cuota.estado = 'pagada'
             cuota.fecha_pago = timezone.now().date()
@@ -18067,8 +18103,25 @@ def recibo_contrato_24(request, contrato_id):
         if not formas_de_pago_recibo:
             formas_de_pago_recibo = 'EFECTIVO'
 
+        numero_recibo = ''
+        fecha_recibo = ''
+        hora_recibo = ''
+        if primer_movimiento:
+            numero_recibo = _numero_recibo_mostrar_movimiento(
+                primer_movimiento,
+                sucursal=request.user.sucursal,
+                asignar_si_falta=True,
+            )
+            mf = primer_movimiento.fecha
+            if mf:
+                fecha_recibo = mf.strftime('%d/%m/%Y')
+                hora_recibo = mf.strftime('%H:%M')
+
         context = {
             'contrato': contrato,
+            'numero_recibo': numero_recibo,
+            'fecha_recibo': fecha_recibo,
+            'hora_recibo': hora_recibo,
             'lista_inquilinos': lista_inquilinos,
             'lista_garantes_recibo': lista_garantes_recibo,
             'conceptos_contrato': conceptos_contrato,
