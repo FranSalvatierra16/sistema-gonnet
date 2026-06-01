@@ -15277,6 +15277,75 @@ def _cuotas_selector_operacion_cfg(contrato):
     return out
 
 
+def _aplicar_precio_mensual_desde_cuota(contrato, numero_cuota_desde, nuevo_precio):
+    """
+    Actualiza precio_mensual (o el bloque trimestral vigente) y asigna el mismo importe
+    a la cuota desde la indicada y a todas las siguientes pendientes/vencidas.
+    """
+    nuevo_precio = Decimal(str(nuevo_precio))
+    if nuevo_precio < 0:
+        raise ValueError('El precio mensual no puede ser negativo.')
+
+    n_desde = max(1, int(numero_cuota_desde))
+    update_fields = []
+    dur = int(contrato.duracion_meses or 0)
+
+    if dur == 9:
+        contrato.precio_mensual = nuevo_precio
+        update_fields.append('precio_mensual')
+    else:
+        bloque_idx = (n_desde - 1) // 3
+        raw_pb = getattr(contrato, 'precios_bloques', None)
+        if raw_pb is None:
+            contrato.precio_mensual = nuevo_precio
+            update_fields.append('precio_mensual')
+        elif bloque_idx == 0:
+            contrato.precio_mensual = nuevo_precio
+            update_fields.append('precio_mensual')
+        else:
+            pb = list(raw_pb or [])
+            idx_pb = bloque_idx - 1
+            while len(pb) <= idx_pb:
+                pb.append(None)
+            pb[idx_pb] = float(nuevo_precio)
+            contrato.precios_bloques = pb
+            update_fields.append('precios_bloques')
+
+    if update_fields:
+        contrato.save(update_fields=update_fields)
+
+    hoy = timezone.now().date()
+    actualizadas = 0
+    for cq in contrato.cuotas.filter(
+        numero_cuota__gte=n_desde,
+        estado__in=['pendiente', 'vencida'],
+    ).order_by('numero_cuota'):
+        cq.monto_base = nuevo_precio
+        if cq.estado == 'vencida' and cq.fecha_vencimiento and cq.fecha_vencimiento < hoy:
+            cq.recargo_mora = cq.calcular_mora()
+        else:
+            cq.recargo_mora = Decimal('0')
+        cq.descuento = Decimal('0')
+        cq.actualizar_monto_total()
+        cq.save(
+            update_fields=['monto_base', 'monto_total', 'recargo_mora', 'descuento']
+        )
+        actualizadas += 1
+    return actualizadas
+
+
+def _parse_nuevo_precio_mensual_post(request):
+    """nuevo_precio_mensual o precio_mensual del POST → Decimal o None si vacío/inválido."""
+    raw = (request.POST.get('nuevo_precio_mensual') or request.POST.get('precio_mensual') or '').strip()
+    if not raw:
+        return None
+    try:
+        val = parse_decimal_monto(raw)
+    except (ValueError, InvalidOperation, TypeError):
+        return None
+    return val if val > 0 else None
+
+
 def _actualizar_pendientes_al_ultimo_importe(contrato):
     """
     Ajusta cuotas pendientes/vencidas al importe de la última cuota pagada.
@@ -15312,18 +15381,14 @@ def procesar_operacion_contrato(request, contrato_id):
     try:
         contrato = get_object_or_404(ContratoAlquiler, id=contrato_id)
         tipo_operacion = request.POST.get('tipo_operacion', '')
-        nuevo_precio_mensual = request.POST.get('nuevo_precio_mensual')
-        
-        if nuevo_precio_mensual:
-            try:
-                nuevo_precio_mensual = parse_decimal_monto(nuevo_precio_mensual)
-                contrato.precio_mensual = nuevo_precio_mensual
-                contrato.save()
-                CuotaMensual.objects.filter(
-                    contrato=contrato, estado='pendiente'
-                ).update(monto_base=nuevo_precio_mensual, monto_total=nuevo_precio_mensual)
-            except (ValueError, InvalidOperation):
-                return JsonResponse({'error': 'El precio mensual proporcionado no es válido'}, status=400)
+        nuevo_precio_valor = _parse_nuevo_precio_mensual_post(request)
+
+        if tipo_operacion == 'principal' and nuevo_precio_valor is not None:
+            contrato.precio_mensual = nuevo_precio_valor
+            contrato.save(update_fields=['precio_mensual'])
+            CuotaMensual.objects.filter(
+                contrato=contrato, estado__in=['pendiente', 'vencida']
+            ).update(monto_base=nuevo_precio_valor, monto_total=nuevo_precio_valor)
         
         # Pago de cuota (mensual u otro no principal): permitir recibo combinado (cuota + depósito + honorarios, etc.).
         # Antes se exigía total_movimiento == monto cuota; eso rechaza montos mayores aunque la parte 1/15 cubra la cuota.
@@ -15553,7 +15618,24 @@ def procesar_operacion_contrato(request, contrato_id):
                 cuota.fecha_pago = timezone.now().date()
                 cuota.movimiento = movimiento
                 cuota.save()
-            _actualizar_pendientes_al_ultimo_importe(contrato)
+            if nuevo_precio_valor is not None:
+                if cuotas_objetivo_map:
+                    desde_num = min(
+                        int(d['cuota'].numero_cuota) for d in cuotas_objetivo_map.values()
+                    )
+                else:
+                    c_prim = (
+                        contrato.cuotas.filter(estado__in=['pendiente', 'vencida'])
+                        .order_by('numero_cuota')
+                        .first()
+                    )
+                    desde_num = int(c_prim.numero_cuota) if c_prim else 1
+                try:
+                    _aplicar_precio_mensual_desde_cuota(contrato, desde_num, nuevo_precio_valor)
+                except ValueError as e:
+                    return JsonResponse({'error': str(e)}, status=400)
+            else:
+                _actualizar_pendientes_al_ultimo_importe(contrato)
             _activar_contrato_si_hay_cuotas_pagadas(contrato)
         
         return JsonResponse({
@@ -15960,7 +16042,18 @@ def procesar_pago_cuota_operacion(request, cuota_id):
         if not caja:
             return JsonResponse({'error': 'No hay una caja abierta para esta sucursal.'}, status=400)
 
+        nuevo_precio_valor = _parse_nuevo_precio_mensual_post(request)
+
         with transaction.atomic():
+            if nuevo_precio_valor is not None:
+                try:
+                    _aplicar_precio_mensual_desde_cuota(
+                        contrato, cuota.numero_cuota, nuevo_precio_valor
+                    )
+                    cuota.refresh_from_db()
+                except ValueError as e:
+                    return JsonResponse({'error': str(e)}, status=400)
+
             resultado = procesar_conceptos_y_crear_movimiento(
                 request,
                 caja,
@@ -15997,7 +16090,8 @@ def procesar_pago_cuota_operacion(request, cuota_id):
                 except ValueError as e:
                     return JsonResponse({'error': str(e)}, status=400)
 
-            _actualizar_pendientes_al_ultimo_importe(contrato)
+            if nuevo_precio_valor is None:
+                _actualizar_pendientes_al_ultimo_importe(contrato)
             _activar_contrato_si_hay_cuotas_pagadas(contrato)
 
         messages.success(
