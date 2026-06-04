@@ -18116,7 +18116,7 @@ def recibo_contrato_24(request, contrato_id):
             if mf:
                 mf_local = timezone.localtime(mf) if timezone.is_aware(mf) else mf
                 fecha_recibo = mf_local.strftime('%d/%m/%Y')
-                hora_recibo = mf_local.strftime('%H:%M')
+                hora_recibo = mf_local.strftime('%H:%M:%S')
 
         context = {
             'contrato': contrato,

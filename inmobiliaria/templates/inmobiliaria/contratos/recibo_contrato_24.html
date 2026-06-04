@@ -128,39 +128,45 @@
     <div class="recibo-marco" style="height: 49%; width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid;">
         <!-- Contenido del recibo -->
         <div style="height: 15%; width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid; display: flex; flex-direction: row; justify-content: space-between;">
-            <div style="height: 100%; width: 33%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
-                 {% if logo_base64 %}
-                    <img src="data:image/png;base64,{{ logo_base64 }}" alt="Logo" style="max-width: 80%; max-height: 80%; object-fit: contain;">
+            <!-- Izquierda: logo y datos de la inmobiliaria (como recibo legacy) -->
+            <div style="height: 100%; width: 33%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 4px 6px; box-sizing: border-box;">
+                {% if logo_base64 %}
+                    <img src="data:image/png;base64,{{ logo_base64 }}" alt="Logo Gonnet" style="max-width: 85%; max-height: 55%; object-fit: contain;">
                 {% else %}
-                    <img src="{% static 'images/logo.png' %}" alt="Logo" style="max-width: 80%; max-height: 80%; object-fit: contain;">
+                    <img src="{% static 'images/logo.png' %}" alt="Logo Gonnet" style="max-width: 85%; max-height: 55%; object-fit: contain;">
                 {% endif %}
+                <p style="margin: 2px 0 0 0; font-size: 7px; color: #000;">de Nestor Oscar Gonnet</p>
+                <p style="margin: 0; font-size: 7px; color: #000; line-height: 1.25;">
+                    Corrientes 1987 - Telefax. (0223) 4952171 - 4947625<br>
+                    (B7600EBO) Mar del Plata - Prov. Bs. As.<br>
+                    http://www.gonnet.com.ar<br>
+                    e-mail: info@gonnet.com.ar
+                </p>
             </div>
-            <div style="height: 100%; width: 34%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
-                <div style="display: flex; align-items: center; justify-content: center; height: 100%; width: 100%;">
-                    <div style="width: 100%; text-align: center; position: relative;">
-                        <h1 style="margin: 0; color: green; font-size: 24px; text-align: center;">PROPIEDADES</h1>
-                        <h1 style="margin: 0; color: black; font-size: 10px; text-align: center;">de Nestor Oscar Gonnet</h1>
-                        <h1 style="margin: 0; color: black; font-size: 8px; text-align: center;">
-                            Corrientes 1987 - Telefax. (0223) 4952171 - 4947625<br>
-                            (B7600EBO) Mar del Plata - Prov. Bs. As<br>
-                            http://www.gonnet.com.ar<br>
-                            e-mail: info@gonnet.com.ar
-                        </h1>
-                    </div>
-                </div>
+            <!-- Centro: RECIBO + cobro por cuenta y orden (como sistema viejo) -->
+            <div style="height: 100%; width: 34%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 2px 4px; box-sizing: border-box;">
+                <div style="display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border: 2px solid #2d8524; color: #2d8524; font-size: 18px; font-weight: bold; line-height: 1; margin-bottom: 2px;">X</div>
+                <h1 style="margin: 0; color: #2d8524; font-size: 22px; font-weight: bold; letter-spacing: 1px;">RECIBO</h1>
+                <p style="margin: 2px 0 0 0; color: #2d8524; font-size: 8px; font-weight: bold; line-height: 1.2; text-transform: uppercase;">
+                    COBRO POR<br>
+                    CUENTA Y ORDEN<br>
+                    DEL PROPIETARIO
+                </p>
+                <p style="margin: 4px 0 0 0; color: #2d8524; font-size: 7px; font-weight: bold; text-transform: uppercase;">DOCUMENTO NO VALIDO COMO FACTURA</p>
             </div>
-            <div style="height: 100%; width: 33%; display: flex; flex-direction: column; justify-content: flex-start; align-items: flex-end; text-align: right; padding-right: 10px;">
-                <h1 style="margin: 0; color: green; font-size: 24px;">RECIBO</h1>
+            <!-- Derecha: numeración, fecha, hora y datos fiscales -->
+            <div style="height: 100%; width: 33%; display: flex; flex-direction: column; justify-content: flex-start; align-items: flex-end; text-align: right; padding: 4px 10px 4px 4px; box-sizing: border-box;">
                 {% if numero_recibo %}
-                <h1 style="margin: 4px 0 0 0; color: black; font-size: 11px; font-weight: bold;">Nº: {{ numero_recibo }}</h1>
+                <h1 style="margin: 0; color: #2d8524; font-size: 11px; font-weight: bold;">Nº: {{ numero_recibo }}</h1>
                 {% endif %}
-                <h2 style="margin: 0; color: black; font-size: 10px;">Fecha: <u>&nbsp;&nbsp;{% if fecha_recibo %}{{ fecha_recibo }}{% endif %}&nbsp;&nbsp;</u></h2>
-                <h2 style="margin: 0; color: black; font-size: 9px;">Hora: <u>&nbsp;&nbsp;{% if hora_recibo %}{{ hora_recibo }}{% endif %}&nbsp;&nbsp;</u></h2>
-                <h2 style="margin: 0; color: black; font-size: 8px;">ING.BRUTOS: 20-10757577-6</h2>
-                <h2 style="margin: 0; color: black; font-size: 8px;">JUB.: 60629826 C.P.S.M.C.P.B.A. Ley 7614</h2>
-                <h2 style="margin: 0; color: black; font-size: 8px;">INSC.: 1200098 REG. 1575</h2>
-                <h2 style="margin: 0; color: black; font-size: 8px;">INICIO ACTIVIDAD: 01/01/77</h2>
-                <h2 style="margin: 0; color: red; font-size: 8px;">DOCUMENTO NO VALIDO COMO FACTURA</h2>
+                <h2 style="margin: 2px 0 0 0; color: #000; font-size: 10px;">Fecha: <u>&nbsp;&nbsp;{% if fecha_recibo %}{{ fecha_recibo }}{% endif %}&nbsp;&nbsp;</u></h2>
+                <h2 style="margin: 0; color: #000; font-size: 9px;">Hora: <u>&nbsp;&nbsp;{% if hora_recibo %}{{ hora_recibo }}{% endif %}&nbsp;&nbsp;</u></h2>
+                <h2 style="margin: 4px 0 0 0; color: #000; font-size: 7px;">I.V.A.: RESPONSABLE INSCRIPTO</h2>
+                <h2 style="margin: 0; color: #000; font-size: 7px;">C.U.I.T.: 20-10757572-4</h2>
+                <h2 style="margin: 0; color: #000; font-size: 7px;">ING. BRUTOS: 20-10757572-4</h2>
+                <h2 style="margin: 0; color: #000; font-size: 7px;">JUB.: 60629856 C.P.S.M.C.P.P.B.A. Ley 7014</h2>
+                <h2 style="margin: 0; color: #000; font-size: 7px;">INSC.: 120609/8 REG. 1572</h2>
+                <h2 style="margin: 0; color: #000; font-size: 7px;">INICIO ACTIVIDAD: 01/01/1977</h2>
             </div>
         </div>
 
