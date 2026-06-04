@@ -18114,8 +18114,9 @@ def recibo_contrato_24(request, contrato_id):
             )
             mf = primer_movimiento.fecha
             if mf:
-                fecha_recibo = mf.strftime('%d/%m/%Y')
-                hora_recibo = mf.strftime('%H:%M')
+                mf_local = timezone.localtime(mf) if timezone.is_aware(mf) else mf
+                fecha_recibo = mf_local.strftime('%d/%m/%Y')
+                hora_recibo = mf_local.strftime('%H:%M')
 
         context = {
             'contrato': contrato,
