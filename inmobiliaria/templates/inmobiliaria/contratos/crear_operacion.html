@@ -66,23 +66,13 @@
                             <p><strong>Propiedad:</strong> {{ contrato.propiedad.direccion }}</p>
                             {% if modo_pago_cuota_especifica %}
                             <div class="alert alert-light border mb-2">
-                                <p class="mb-1"><strong>Cuota:</strong> {{ cuota_pago.numero_cuota }} de {{ contrato.duracion_meses }} ·
-                                    <strong>Vencimiento:</strong> {{ cuota_pago.fecha_vencimiento|date:"d/m/Y" }} ·
-                                    <strong>Importe actual:</strong> {{ cuota_pago.monto_total|format_importe_moneda:contrato.moneda }}</p>
-                                <div class="mb-2">
-                                    <label class="me-2"><strong>Precio mensual ({{ contrato.get_moneda_display }}) — esta cuota y las siguientes:</strong></label>
-                                    <input type="text" class="form-control d-inline-block" id="precio_mensual" name="precio_mensual" style="max-width: 160px;"
-                                           value="{% if cuota_pago.monto_base %}{{ cuota_pago.monto_base|format_price }}{% else %}{{ contrato.precio_mensual|format_price }}{% endif %}"
-                                           onchange="formatearNumeroEnTiempoReal(this); actualizarConceptoCuotaDesdePrecioMensual();"
-                                           oninput="formatearNumeroEnTiempoReal(this); actualizarConceptoCuotaDesdePrecioMensual();"
-                                           title="Si lo modificás, se actualiza el contrato y todas las cuotas pendientes desde esta en adelante">
-                                </div>
+                                <p class="mb-2"><strong>Cuota:</strong> {{ cuota_pago.numero_cuota }} de {{ contrato.duracion_meses }} ·
+                                    <strong>Vencimiento:</strong> {{ cuota_pago.fecha_vencimiento|date:"d/m/Y" }}</p>
+                                {% include 'inmobiliaria/contratos/_bloque_tipo_cobro_mes.html' with cuota_ref=cuota_pago %}
                                 <p class="mb-0 small text-muted">
-                                    Se precarga el concepto <strong>1000</strong> con la cuota actual; al cambiar el precio mensual arriba, se actualiza también el importe de la línea 1000/29.
-                                    El concepto <strong>29</strong> funciona igual (elegís cuota objetivo e importe).
-                                    También podés sumar líneas con otros IDs (gastos, expensas, etc.).
-                                    Para que se marque la cuota como pagada, la imputación se hace por <strong>concepto 1000 o 29</strong> con cuota objetivo seleccionada.
-                                    La suma de <em>todas</em> las líneas debe coincidir con los medios de pago.
+                                    Se precarga el concepto <strong>1000</strong> con el importe según la opción elegida arriba.
+                                    También podés usar concepto <strong>29</strong> (elegís cuota objetivo).
+                                    La suma de líneas debe coincidir con los medios de pago.
                                 </p>
                             </div>
                             {% elif modo_cargos_iniciales %}
@@ -91,39 +81,7 @@
                                 <p class="mb-0 small">Lo que falte respecto de las referencias podés cargarlo después en la <strong>operación principal</strong> u otro recibo de este contrato.</p>
                             </div>
                             {% else %}
-                            <div class="form-group mb-2">
-                                <label><strong>Mes alquiler (elegir uno):</strong></label>
-                                <div class="mb-1">
-                                    <label class="me-2"><strong>Mes alquiler (precio mensual · {{ contrato.get_moneda_display }}):</strong></label>
-                                    <input type="text" class="form-control d-inline-block" id="precio_mensual" name="precio_mensual" style="max-width: 140px;"
-                                           value="{{ contrato.precio_mensual|format_price }}" 
-                                           onchange="formatearNumeroEnTiempoReal(this); actualizarProporcionalYMesAlquiler(); actualizarTotalEsperado(); actualizarEtiquetaValorUsar(); actualizarConceptoCuotaDesdePrecioMensual();" 
-                                           oninput="formatearNumeroEnTiempoReal(this); actualizarProporcionalYMesAlquiler(); actualizarTotalEsperado(); actualizarEtiquetaValorUsar(); actualizarConceptoCuotaDesdePrecioMensual();"
-                                           title="Si cobrás una cuota mensual, este precio se aplica a esa cuota y a todas las pendientes siguientes">
-                                </div>
-                                <div class="mb-2">
-                                    <label class="me-2"><strong>Proporcional:</strong></label>
-                                    <input type="text" class="form-control d-inline-block" id="proporcional_display" name="proporcional_display" style="max-width: 140px;"
-                                           placeholder="0 o escribí el valor"
-                                           onchange="formatearNumeroEnTiempoReal(this); actualizarMesAlquilerValorDesdeRadio(); actualizarEtiquetaValorUsar()"
-                                           oninput="formatearNumeroEnTiempoReal(this); actualizarMesAlquilerValorDesdeRadio(); actualizarEtiquetaValorUsar()"
-                                           title="Escribí el proporcional (ej. 0) o se calcula desde fecha inicio hasta fin de mes">
-                                </div>
-                                <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="radio" name="mes_alquiler_tipo" id="mes_alquiler_mensual" value="mensual" checked>
-                                    <label class="form-check-label" for="mes_alquiler_mensual">Usar precio mensual</label>
-                                </div>
-                                <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="radio" name="mes_alquiler_tipo" id="mes_alquiler_proporcional" value="proporcional">
-                                    <label class="form-check-label" for="mes_alquiler_proporcional">Usar proporcional</label>
-                                </div>
-                                <div class="mt-2 small d-flex align-items-center flex-wrap gap-1">
-                                    <strong>Valor a usar:</strong> <span id="etiqueta_mes_o_proporcional">Mes alquiler</span>
-                                    <input type="text" id="mes_alquiler_texto_recibo" class="form-control form-control-sm d-inline-block" style="width: 140px; max-width: 100%;" placeholder="ej. marzo 2026, primer mes..." title="Texto que aparece en el recibo en los puntos">
-                                    <span id="valor_mes_o_proporcional">0</span>
-                                </div>
-                                <input type="hidden" id="mes_alquiler_valor" name="mes_alquiler_valor" value="">
-                            </div>
+                            {% include 'inmobiliaria/contratos/_bloque_tipo_cobro_mes.html' %}
                             {% endif %}
                         </div>
                         <div class="col-md-6">
@@ -162,8 +120,6 @@
                 {% if modo_pago_cuota_especifica %}
                 <input type="hidden" id="honorarios_top" name="honorarios_top" value="0">
                 <input type="hidden" id="sellados_top" name="sellados_top" value="0">
-                <input type="hidden" id="mes_alquiler_valor" name="mes_alquiler_valor" value="">
-                <input type="hidden" name="mes_alquiler_tipo" value="mensual">
                 {% else %}
                 <input type="hidden" id="honorarios_top" name="honorarios_top" value="">
                 <input type="hidden" id="sellados_top" name="sellados_top" value="">
@@ -566,7 +522,9 @@
     window.defaultNombreConceptoCuota = (config.default_concepto_cuota_nombre != null && String(config.default_concepto_cuota_nombre).trim())
         ? String(config.default_concepto_cuota_nombre).trim()
         : 'Imputación mensual / cuota (1000)';
-    window.monedaCuotasContrato = String(config.moneda_cuotas || 'ARS').toUpperCase() === 'USD' ? 'USD' : 'ARS';
+    window.cuotaCobroNominal = config.cuota_monto_nominal != null ? Number(config.cuota_monto_nominal) : 0;
+    window.cuotaCobroSaldo = config.cuota_saldo_cobro != null ? Number(config.cuota_saldo_cobro) : 0;
+    window.cuotaCobroCredito = config.cuota_credito_aplicado != null ? Number(config.cuota_credito_aplicado) : 0;
 })();
 var tipoOperacion = window.tipoOperacion;
 var contratoId = window.contratoId;
@@ -1205,12 +1163,15 @@ function procesarOperacion() {
     }
 
     var precioMensualEl = document.getElementById('precio_mensual');
-    var nuevoPrecioMensual = precioMensualEl ? parsearValorFormateado(precioMensualEl.value) : 0;
+    var nuevoPrecioMensual = typeof obtenerPrecioMensualReferencia === 'function'
+        ? obtenerPrecioMensualReferencia()
+        : (precioMensualEl ? parsearValorFormateado(precioMensualEl.value) : 0);
     formData.append('nuevo_precio_mensual', nuevoPrecioMensual);
     const mesAlquilerValor = document.getElementById('mes_alquiler_valor');
     if (mesAlquilerValor) formData.append('mes_alquiler_valor', mesAlquilerValor.value || '');
-    const radioProporcional = document.getElementById('mes_alquiler_proporcional');
-    const mesAlquilerTipo = (radioProporcional && radioProporcional.checked) ? 'proporcional' : 'mensual';
+    const mesAlquilerTipo = typeof obtenerMesAlquilerTipo === 'function'
+        ? obtenerMesAlquilerTipo()
+        : 'mensual';
     formData.append('mes_alquiler_tipo', mesAlquilerTipo);
     const textoRecibo = document.getElementById('mes_alquiler_texto_recibo');
     if (textoRecibo) formData.append('mes_alquiler_texto_recibo', (textoRecibo.value || '').trim());
@@ -1298,34 +1259,81 @@ function actualizarTotalEsperado() {
     calcularTotales();
 }
 
-/** Sincroniza líneas 1000/29 con el precio mensual editado (cobro de cuota o pago mensual). */
+/** @deprecated usar sincronizarConceptoCuotaDesdeMesAlquiler */
 function actualizarConceptoCuotaDesdePrecioMensual() {
-    var precioInput = document.getElementById('precio_mensual');
-    if (!precioInput) return;
-    var precio = parsearValorFormateado(precioInput.value);
-    if (precio <= 0) return;
-    var cambio = false;
-    conceptosAgregados.forEach(function(c) {
-        var cid = String(c.conceptoId || '').trim();
-        if (cid === '1000' || cid === '29') {
-            c.importe = precio;
-            cambio = true;
-        }
-    });
-    if (cambio) {
-        actualizarTablaConceptos();
-        calcularTotales();
+    sincronizarConceptoCuotaDesdeMesAlquiler();
+}
+
+function obtenerPrecioMensualReferencia() {
+    var el = document.getElementById('precio_mensual_ref');
+    if (el) return parsearValorFormateado(el.value);
+    var hidden = document.getElementById('precio_mensual');
+    if (hidden && hidden.value) return parsearValorFormateado(hidden.value);
+    return 0;
+}
+
+function obtenerMesAlquilerTipo() {
+    var rAdel = document.getElementById('mes_alquiler_adelanto');
+    if (rAdel && rAdel.checked) return 'adelanto';
+    var rProp = document.getElementById('mes_alquiler_proporcional');
+    if (rProp && rProp.checked) return 'proporcional';
+    return 'mensual';
+}
+
+function obtenerSaldoMesParaCobro() {
+    if (window.modoPagoCuotaEspecifica && window.cuotaCobroSaldo > 0) {
+        return window.cuotaCobroSaldo;
     }
+    return obtenerPrecioMensualReferencia();
+}
+
+function obtenerTotalNominalMes() {
+    if (window.modoPagoCuotaEspecifica && window.cuotaCobroNominal > 0) {
+        return window.cuotaCobroNominal;
+    }
+    return obtenerPrecioMensualReferencia();
+}
+
+function actualizarResumenMesCobro() {
+    var elTotal = document.getElementById('mes_total_nominal');
+    var elSaldo = document.getElementById('mes_saldo_cobro');
+    var elCred = document.getElementById('mes_credito_info');
+    var pref = prefijoMonedaCuotaContrato();
+    var total = obtenerTotalNominalMes();
+    var saldo = obtenerSaldoMesParaCobro();
+    if (elTotal) elTotal.textContent = pref + formatoMontoReciboAR(total);
+    if (elSaldo) elSaldo.textContent = pref + formatoMontoReciboAR(saldo);
+    if (elCred) {
+        var cred = window.cuotaCobroCredito || 0;
+        if (cred > 0.001) {
+            elCred.style.display = '';
+            elCred.textContent = '(ya abonado ' + pref + formatoMontoReciboAR(cred) + ')';
+        } else {
+            elCred.style.display = 'none';
+            elCred.textContent = '';
+        }
+    }
+    var grupoAdel = document.getElementById('grupo_adelanto_monto');
+    if (grupoAdel) {
+        grupoAdel.style.display = (obtenerMesAlquilerTipo() === 'adelanto') ? 'block' : 'none';
+    }
+    var elSaldoDesp = document.getElementById('mes_saldo_despues_adelanto');
+    if (elSaldoDesp && obtenerMesAlquilerTipo() === 'adelanto') {
+        var adel = parsearValorFormateado(document.getElementById('adelanto_monto_display') ? document.getElementById('adelanto_monto_display').value : '0');
+        var rest = Math.max(0, saldo - adel);
+        elSaldoDesp.textContent = pref + formatoMontoReciboAR(rest);
+    }
+    var hiddenPm = document.getElementById('precio_mensual');
+    if (hiddenPm) hiddenPm.value = String(obtenerPrecioMensualReferencia());
 }
 
 // Calcular proporcional (desde fecha_inicio hasta fin del mes) y actualizar mes_alquiler_valor
 function actualizarProporcionalYMesAlquiler() {
-    var precioInput = document.getElementById('precio_mensual');
     var proporcionalDisplay = document.getElementById('proporcional_display');
     var mesAlquilerValor = document.getElementById('mes_alquiler_valor');
-    if (!precioInput || !proporcionalDisplay || !mesAlquilerValor) return;
+    if (!proporcionalDisplay || !mesAlquilerValor) return;
 
-    var precioMensual = parsearValorFormateado(precioInput.value);
+    var precioMensual = obtenerPrecioMensualReferencia();
     var fechaInicioStr = window.fechaInicioContrato;
     var proporcional = 0;
     if (precioMensual > 0 && fechaInicioStr) {
@@ -1336,9 +1344,7 @@ function actualizarProporcionalYMesAlquiler() {
                 var month = d.getMonth();
                 var lastDay = new Date(year, month + 1, 0).getDate();
                 var dayStart = d.getDate();
-                if (dayStart === 1) {
-                    proporcional = 0;
-                } else {
+                if (dayStart !== 1) {
                     var dias = lastDay - dayStart + 1;
                     if (dias < 1) dias = 1;
                     if (dias > 31) dias = lastDay;
@@ -1349,47 +1355,56 @@ function actualizarProporcionalYMesAlquiler() {
         } catch (e) { /* mantener 0 */ }
     }
     proporcionalDisplay.value = proporcional > 0 ? proporcional.toLocaleString('es-AR') : '0';
-
-    var usarProporcional = document.getElementById('mes_alquiler_proporcional') && document.getElementById('mes_alquiler_proporcional').checked;
-    var valorElegido = usarProporcional ? proporcional : precioMensual;
-    mesAlquilerValor.value = String(valorElegido);
-    sincronizarConcepto1ConMesAlquiler();
+    actualizarMesAlquilerValorDesdeRadio();
 }
 
 function actualizarMesAlquilerValorDesdeRadio() {
-    var precioMensual = parsearValorFormateado(document.getElementById('precio_mensual').value);
+    var tipo = obtenerMesAlquilerTipo();
+    var precioMensual = obtenerPrecioMensualReferencia();
     var proporcionalDisplay = document.getElementById('proporcional_display');
     var proporcional = parsearValorFormateado(proporcionalDisplay ? proporcionalDisplay.value : '0');
-    var usarProporcional = document.getElementById('mes_alquiler_proporcional') && document.getElementById('mes_alquiler_proporcional').checked;
+    var adelantoEl = document.getElementById('adelanto_monto_display');
+    var adelanto = parsearValorFormateado(adelantoEl ? adelantoEl.value : '0');
+    var saldo = obtenerSaldoMesParaCobro();
     var mesAlquilerValor = document.getElementById('mes_alquiler_valor');
-    if (mesAlquilerValor) mesAlquilerValor.value = String(usarProporcional ? proporcional : precioMensual);
+    var valor = saldo;
+    if (tipo === 'proporcional') {
+        valor = proporcional > 0 ? proporcional : precioMensual;
+    } else if (tipo === 'adelanto') {
+        valor = adelanto;
+    }
+    if (mesAlquilerValor) mesAlquilerValor.value = String(valor);
     actualizarEtiquetaValorUsar();
 }
 
 function actualizarEtiquetaValorUsar() {
-    var usarProporcional = document.getElementById('mes_alquiler_proporcional') && document.getElementById('mes_alquiler_proporcional').checked;
-    var precioMensual = parsearValorFormateado(document.getElementById('precio_mensual').value);
-    var proporcionalDisplay = document.getElementById('proporcional_display');
-    var proporcional = parsearValorFormateado(proporcionalDisplay ? proporcionalDisplay.value : '0');
-    var etiq = document.getElementById('etiqueta_mes_o_proporcional');
+    actualizarResumenMesCobro();
+    var tipo = obtenerMesAlquilerTipo();
     var valSpan = document.getElementById('valor_mes_o_proporcional');
-    if (etiq) etiq.textContent = usarProporcional ? 'Proporcional' : 'Mes alquiler';
+    var mesAlquilerValor = document.getElementById('mes_alquiler_valor');
+    var importe = mesAlquilerValor ? parsearValorFormateado(mesAlquilerValor.value) : 0;
     if (valSpan) {
-        var valor = usarProporcional ? proporcional : precioMensual;
-        valSpan.textContent = typeof valor === 'number' ? '$' + (valor || 0).toLocaleString('es-AR') : '$0';
+        valSpan.textContent = prefijoMonedaCuotaContrato() + formatoMontoReciboAR(importe);
     }
-    sincronizarConcepto1ConMesAlquiler();
+    sincronizarConceptoCuotaDesdeMesAlquiler();
 }
 
-function sincronizarConcepto1ConMesAlquiler() {
+function sincronizarConceptoCuotaDesdeMesAlquiler() {
     var mesAlquilerValor = document.getElementById('mes_alquiler_valor');
     if (!mesAlquilerValor || !conceptosAgregados.length) return;
     var importe = parsearValorFormateado(mesAlquilerValor.value);
     if (importe <= 0) return;
+    var cuotaIdDefault = window.cuotaIdPago || 0;
     var cambio = false;
     conceptosAgregados.forEach(function(c) {
         var cid = String(c.conceptoId || '').trim();
-        if (cid === '1' || cid === '15') {
+        if (cid === '1' || cid === '15' || cid === '1000' || cid === '29') {
+            if (cid === '1000' || cid === '29') {
+                if (!c.cuotaObjetivoId && cuotaIdDefault) {
+                    c.cuotaObjetivoId = String(cuotaIdDefault);
+                    c.cuotaObjetivoLabel = etiquetaCuotaDesdeCfg(cuotaIdDefault);
+                }
+            }
             c.importe = importe;
             cambio = true;
         }
@@ -1400,8 +1415,13 @@ function sincronizarConcepto1ConMesAlquiler() {
     }
 }
 
+function sincronizarConcepto1ConMesAlquiler() {
+    sincronizarConceptoCuotaDesdeMesAlquiler();
+}
+
 function aplicarDefaultProporcionalSiCorresponde() {
-    if (window.modoPagoCuotaEspecifica || window.modoCargosIniciales) return;
+    if (window.modoCargosIniciales) return;
+    if (window.modoPagoCuotaEspecifica) return;
     if (window.tipoOperacion !== 'principal') return;
     var fechaInicioStr = window.fechaInicioContrato;
     var proporcionalDisplay = document.getElementById('proporcional_display');
@@ -1417,7 +1437,6 @@ function aplicarDefaultProporcionalSiCorresponde() {
     var radioProp = document.getElementById('mes_alquiler_proporcional');
     if (radioProp) radioProp.checked = true;
     actualizarMesAlquilerValorDesdeRadio();
-    actualizarEtiquetaValorUsar();
     var textoRecibo = document.getElementById('mes_alquiler_texto_recibo');
     if (textoRecibo && !String(textoRecibo.value || '').trim()) {
         var meses = ['', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
@@ -1785,27 +1804,24 @@ document.addEventListener('DOMContentLoaded', function() {
     sincronizarHonorarios();
     sincronizarSellados();
 
-    if (!window.modoPagoCuotaEspecifica && !window.modoCargosIniciales) {
-        // Inicializar proporcional y mes alquiler elegido
+    if (!window.modoCargosIniciales && document.getElementById('bloqueTipoCobroMes')) {
         actualizarProporcionalYMesAlquiler();
         actualizarEtiquetaValorUsar();
         aplicarDefaultProporcionalSiCorresponde();
         document.querySelectorAll('input[name="mes_alquiler_tipo"]').forEach(function(radio) {
             radio.addEventListener('change', function() {
                 actualizarMesAlquilerValorDesdeRadio();
-                actualizarEtiquetaValorUsar();
             });
         });
         var proporcionalInput = document.getElementById('proporcional_display');
         if (proporcionalInput) {
-            proporcionalInput.addEventListener('change', function() {
-                actualizarProporcionalYMesAlquiler();
-                actualizarEtiquetaValorUsar();
-            });
-            proporcionalInput.addEventListener('input', function() {
-                actualizarProporcionalYMesAlquiler();
-                actualizarEtiquetaValorUsar();
-            });
+            proporcionalInput.addEventListener('change', actualizarMesAlquilerValorDesdeRadio);
+            proporcionalInput.addEventListener('input', actualizarMesAlquilerValorDesdeRadio);
+        }
+        var adelantoInput = document.getElementById('adelanto_monto_display');
+        if (adelantoInput) {
+            adelantoInput.addEventListener('change', actualizarMesAlquilerValorDesdeRadio);
+            adelantoInput.addEventListener('input', actualizarMesAlquilerValorDesdeRadio);
         }
     }
 
@@ -1827,11 +1843,7 @@ document.addEventListener('DOMContentLoaded', function() {
             fecha: new Date().toLocaleDateString('es-AR')
         });
         actualizarTablaConceptos();
-        var precioCuotaEl = document.getElementById('precio_mensual');
-        if (precioCuotaEl) {
-            precioCuotaEl.addEventListener('change', actualizarConceptoCuotaDesdePrecioMensual);
-            precioCuotaEl.addEventListener('input', actualizarConceptoCuotaDesdePrecioMensual);
-        }
+        actualizarMesAlquilerValorDesdeRadio();
     }
 
     // Inicializar cálculos

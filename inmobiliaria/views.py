@@ -14904,14 +14904,14 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato, pago_cuota_co
         # Guardar mes_alquiler_importe y mes_alquiler_tipo (elegido: mensual o proporcional) para el recibo
         mes_alquiler_valor_raw = (request.POST.get('mes_alquiler_valor') or '').strip()
         mes_alquiler_tipo = (request.POST.get('mes_alquiler_tipo') or '').strip().lower()
-        if mes_alquiler_tipo not in ('proporcional', 'mensual'):
+        if mes_alquiler_tipo not in ('proporcional', 'mensual', 'adelanto'):
             mes_alquiler_tipo = 'mensual'
         try:
             mes_alquiler_importe = float(limpiar_valor_monetario(mes_alquiler_valor_raw)) if mes_alquiler_valor_raw else None
         except (TypeError, ValueError):
             mes_alquiler_importe = None
         # Si no vino el valor pero sí el tipo, usar importe del concepto 1 (alquiler) o 0
-        if mes_alquiler_importe is None and mes_alquiler_tipo and request.POST.get('mes_alquiler_tipo', '').strip().lower() in ('proporcional', 'mensual'):
+        if mes_alquiler_importe is None and mes_alquiler_tipo in ('proporcional', 'mensual', 'adelanto'):
             for c in conceptos_data:
                 if str(c.get('id') or c.get('codigo')) == '1':
                     try:
@@ -14953,10 +14953,22 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato, pago_cuota_co
                     'cuota_id': int(pago_cuota_context['cuota_id']),
                     'numero_cuota': int(pago_cuota_context['numero_cuota']),
                 }
+                if mes_alquiler_tipo in ('proporcional', 'mensual', 'adelanto'):
+                    payload_cuota['mes_alquiler_tipo'] = mes_alquiler_tipo
+                if mes_alquiler_importe is not None:
+                    payload_cuota['mes_alquiler_importe'] = float(mes_alquiler_importe)
+                if precio_mensual_completo is not None:
+                    payload_cuota['precio_mensual_completo'] = precio_mensual_completo
+                texto_recibo_cuota = (request.POST.get('mes_alquiler_texto_recibo') or '').strip()[:200]
+                if texto_recibo_cuota:
+                    payload_cuota['mes_alquiler_texto_recibo'] = texto_recibo_cuota
                 concepto_detalle_json = json.dumps(payload_cuota)
             else:
                 concepto_detalle_json = ''
-        elif conceptos_data and (mes_alquiler_importe is not None or request.POST.get('mes_alquiler_tipo', '').strip().lower() in ('proporcional', 'mensual')):
+        elif conceptos_data and (
+            mes_alquiler_importe is not None
+            or request.POST.get('mes_alquiler_tipo', '').strip().lower() in ('proporcional', 'mensual', 'adelanto')
+        ):
             importe_para_json = float(mes_alquiler_importe) if mes_alquiler_importe is not None else 0.0
             payload = {
                 'conceptos': conceptos_data,
@@ -15312,6 +15324,66 @@ def _cuotas_selector_operacion_cfg(contrato):
     return out
 
 
+def _parse_mes_alquiler_cobro_post(request):
+    """tipo (mensual|proporcional|adelanto), importe del cobro del mes, precio mensual de referencia."""
+    tipo = (request.POST.get('mes_alquiler_tipo') or 'mensual').strip().lower()
+    if tipo not in ('mensual', 'proporcional', 'adelanto'):
+        tipo = 'mensual'
+    raw_val = (request.POST.get('mes_alquiler_valor') or '').strip()
+    valor = None
+    if raw_val:
+        try:
+            valor = parse_decimal_monto(raw_val)
+        except (ValueError, InvalidOperation, TypeError):
+            valor = None
+    pm_raw = (request.POST.get('precio_mensual') or request.POST.get('nuevo_precio_mensual') or '').strip()
+    precio_ref = None
+    if pm_raw:
+        try:
+            precio_ref = parse_decimal_monto(pm_raw)
+        except (ValueError, InvalidOperation, TypeError):
+            precio_ref = None
+    return tipo, valor, precio_ref
+
+
+def _aplicar_monto_solo_cuota(cuota, nuevo_monto, hoy=None):
+    """Ajusta monto_base/monto_total de una sola cuota (p. ej. proporcional de un mes)."""
+    nuevo_monto = Decimal(str(nuevo_monto))
+    if nuevo_monto < 0:
+        raise ValueError('El importe del mes no puede ser negativo.')
+    hoy = hoy or timezone.now().date()
+    cuota.monto_base = nuevo_monto
+    if cuota.estado == 'vencida' and cuota.fecha_vencimiento and cuota.fecha_vencimiento < hoy:
+        cuota.recargo_mora = cuota.calcular_mora()
+    else:
+        cuota.recargo_mora = Decimal('0')
+    cuota.descuento = Decimal('0')
+    cuota.actualizar_monto_total()
+    return cuota
+
+
+def _aplicar_tipo_cobro_mes_a_cuotas(contrato, cuotas, mes_tipo, mes_valor, tol=None):
+    """
+    proporcional: el mes pasa a valer mes_valor (solo esas cuotas).
+    adelanto: no cambia el total del mes (validación de tope antes del cobro).
+    mensual: sin cambio de montos del plan.
+    """
+    tol = tol if tol is not None else Decimal('0.05')
+    mes_tipo = (mes_tipo or 'mensual').strip().lower()
+    if mes_tipo == 'proporcional' and mes_valor is not None and mes_valor > 0:
+        for cq in cuotas:
+            _aplicar_monto_solo_cuota(cq, mes_valor)
+        return
+    if mes_tipo == 'adelanto' and mes_valor is not None and mes_valor > 0:
+        for cq in cuotas:
+            cq.refresh_from_db()
+            if mes_valor > cq.saldo_para_cobro() + tol:
+                raise ValueError(
+                    f'El adelanto ${mes_valor} supera el saldo a cobrar (${cq.saldo_para_cobro()}) '
+                    f'de la cuota {cq.numero_cuota}.'
+                )
+
+
 def _aplicar_precio_mensual_desde_cuota(contrato, numero_cuota_desde, nuevo_precio):
     """
     Actualiza precio_mensual (o el bloque trimestral vigente) y asigna el mismo importe
@@ -15416,14 +15488,7 @@ def procesar_operacion_contrato(request, contrato_id):
     try:
         contrato = get_object_or_404(ContratoAlquiler, id=contrato_id)
         tipo_operacion = request.POST.get('tipo_operacion', '')
-        nuevo_precio_valor = _parse_nuevo_precio_mensual_post(request)
-
-        if tipo_operacion == 'principal' and nuevo_precio_valor is not None:
-            contrato.precio_mensual = nuevo_precio_valor
-            contrato.save(update_fields=['precio_mensual'])
-            CuotaMensual.objects.filter(
-                contrato=contrato, estado__in=['pendiente', 'vencida']
-            ).update(monto_base=nuevo_precio_valor, monto_total=nuevo_precio_valor)
+        mes_tipo, mes_valor, precio_ref = _parse_mes_alquiler_cobro_post(request)
         
         # Pago de cuota (mensual u otro no principal): permitir recibo combinado (cuota + depósito + honorarios, etc.).
         # Antes se exigía total_movimiento == monto cuota; eso rechaza montos mayores aunque la parte 1/15 cubra la cuota.
@@ -15567,6 +15632,19 @@ def procesar_operacion_contrato(request, contrato_id):
             if es_primera_operacion_principal and not contrato.cuotas.exists():
                 _asegurar_cuotas_plan_contrato(contrato)
 
+            primera_pend = (
+                contrato.cuotas.filter(estado__in=['pendiente', 'vencida'])
+                .order_by('numero_cuota')
+                .first()
+            )
+            if primera_pend and mes_tipo == 'proporcional' and mes_valor and mes_valor > 0:
+                _aplicar_monto_solo_cuota(primera_pend, mes_valor)
+            elif primera_pend and mes_tipo == 'adelanto' and mes_valor and mes_valor > 0:
+                try:
+                    _aplicar_tipo_cobro_mes_a_cuotas(contrato, [primera_pend], mes_tipo, mes_valor)
+                except ValueError as e:
+                    return JsonResponse({'error': str(e)}, status=400)
+
             from inmobiliaria.cuotas_imputacion import imputar_cuotas_mensuales_desde_movimiento_1000
 
             try:
@@ -15617,6 +15695,17 @@ def procesar_operacion_contrato(request, contrato_id):
             _activar_contrato_si_hay_cuotas_pagadas(contrato)
         else:
             if cuotas_objetivo_map:
+                cuotas_target_ids = sorted(
+                    {int(d['cuota'].id) for d in cuotas_objetivo_map.values()}
+                )
+                cuotas_target = list(
+                    CuotaMensual.objects.filter(id__in=cuotas_target_ids, contrato=contrato)
+                )
+                try:
+                    _aplicar_tipo_cobro_mes_a_cuotas(contrato, cuotas_target, mes_tipo, mes_valor)
+                except ValueError as e:
+                    return JsonResponse({'error': str(e)}, status=400)
+
                 hoy_pago = timezone.now().date()
                 cuotas_pagadas_ids = []
                 from django.db import transaction
@@ -15653,23 +15742,7 @@ def procesar_operacion_contrato(request, contrato_id):
                 cuota.fecha_pago = timezone.now().date()
                 cuota.movimiento = movimiento
                 cuota.save()
-            if nuevo_precio_valor is not None:
-                if cuotas_objetivo_map:
-                    desde_num = min(
-                        int(d['cuota'].numero_cuota) for d in cuotas_objetivo_map.values()
-                    )
-                else:
-                    c_prim = (
-                        contrato.cuotas.filter(estado__in=['pendiente', 'vencida'])
-                        .order_by('numero_cuota')
-                        .first()
-                    )
-                    desde_num = int(c_prim.numero_cuota) if c_prim else 1
-                try:
-                    _aplicar_precio_mensual_desde_cuota(contrato, desde_num, nuevo_precio_valor)
-                except ValueError as e:
-                    return JsonResponse({'error': str(e)}, status=400)
-            else:
+            if mes_tipo == 'mensual':
                 _actualizar_pendientes_al_ultimo_importe(contrato)
             _activar_contrato_si_hay_cuotas_pagadas(contrato)
         
@@ -15951,6 +16024,9 @@ def crear_pago_cuota_operacion(request, cuota_id):
         'numero_cuota': cuota.numero_cuota,
         'default_importe_cuota': float(cuota.saldo_para_cobro()),
         'default_concepto_cuota_nombre': default_nombre_concepto_cuota,
+        'cuota_monto_nominal': float(cuota.monto_total or 0),
+        'cuota_saldo_cobro': float(cuota.saldo_para_cobro()),
+        'cuota_credito_aplicado': float(cuota.credito_aplicado or 0),
         'procesar_pago_cuota_url': reverse('inmobiliaria:procesar_pago_cuota_operacion', args=[cuota.id]),
         'cuotas_pendientes': cuotas_pendientes_cfg,
         'cuotas_selector': cuotas_selector_cfg,
@@ -16078,17 +16154,20 @@ def procesar_pago_cuota_operacion(request, cuota_id):
         if not caja:
             return JsonResponse({'error': 'No hay una caja abierta para esta sucursal.'}, status=400)
 
-        nuevo_precio_valor = _parse_nuevo_precio_mensual_post(request)
+        mes_tipo, mes_valor, _precio_ref = _parse_mes_alquiler_cobro_post(request)
+        cuotas_target = list(
+            CuotaMensual.objects.filter(
+                id__in=sorted({int(d['cuota'].id) for d in cuotas_objetivo_map.values()}),
+                contrato=contrato,
+            )
+        )
 
         with transaction.atomic():
-            if nuevo_precio_valor is not None:
-                try:
-                    _aplicar_precio_mensual_desde_cuota(
-                        contrato, cuota.numero_cuota, nuevo_precio_valor
-                    )
-                    cuota.refresh_from_db()
-                except ValueError as e:
-                    return JsonResponse({'error': str(e)}, status=400)
+            try:
+                _aplicar_tipo_cobro_mes_a_cuotas(contrato, cuotas_target, mes_tipo, mes_valor)
+                cuota.refresh_from_db()
+            except ValueError as e:
+                return JsonResponse({'error': str(e)}, status=400)
 
             resultado = procesar_conceptos_y_crear_movimiento(
                 request,
@@ -16126,7 +16205,7 @@ def procesar_pago_cuota_operacion(request, cuota_id):
                 except ValueError as e:
                     return JsonResponse({'error': str(e)}, status=400)
 
-            if nuevo_precio_valor is None:
+            if mes_tipo == 'mensual':
                 _actualizar_pendientes_al_ultimo_importe(contrato)
             _activar_contrato_si_hay_cuotas_pagadas(contrato)
 
@@ -18107,6 +18186,9 @@ def recibo_contrato_24(request, contrato_id):
                 es_proporcional_recibo = False
         if es_proporcional_recibo and mes_alquiler_importe_recibo is not None:
             mes_alquiler_linea_etiqueta = 'Proporcional'
+            mes_alquiler_linea_importe = format_currency(mes_alquiler_importe_recibo)
+        elif mes_alquiler_tipo_recibo == 'adelanto' and mes_alquiler_importe_recibo is not None:
+            mes_alquiler_linea_etiqueta = 'Adelanto abonado'
             mes_alquiler_linea_importe = format_currency(mes_alquiler_importe_recibo)
         if not (mes_alquiler_texto_recibo or '').strip() and getattr(contrato, 'fecha_inicio', None):
             fi = contrato.fecha_inicio

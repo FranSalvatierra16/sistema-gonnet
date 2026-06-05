@@ -1,0 +1,50 @@
+{% load custom_filters %}
+<div class="form-group mb-2 bloque-tipo-cobro-mes" id="bloqueTipoCobroMes">
+    <label><strong>Cobro del mes{% if cuota_ref %} (cuota {{ cuota_ref.numero_cuota }}){% endif %}:</strong></label>
+    <div class="small text-muted mb-2">
+        Total del mes: <strong id="mes_total_nominal">—</strong>
+        · Saldo a cobrar ahora: <strong id="mes_saldo_cobro">—</strong>
+        <span id="mes_credito_info" class="text-primary" style="display:none;"></span>
+    </div>
+    <div class="mb-2">
+        <label class="me-2"><strong>Precio mensual de referencia ({{ contrato.get_moneda_display }}):</strong></label>
+        <input type="text" class="form-control d-inline-block" id="precio_mensual_ref" style="max-width: 140px;"
+               value="{% if cuota_ref and cuota_ref.monto_base %}{{ cuota_ref.monto_base|format_price }}{% else %}{{ contrato.precio_mensual|format_price }}{% endif %}"
+               readonly tabindex="-1">
+    </div>
+    <div class="mb-2" id="grupo_proporcional_calc">
+        <label class="me-2"><strong>Proporcional calculado:</strong></label>
+        <input type="text" class="form-control d-inline-block" id="proporcional_display" name="proporcional_display" style="max-width: 140px;"
+               placeholder="0"
+               onchange="formatearNumeroEnTiempoReal(this); actualizarMesAlquilerValorDesdeRadio(); actualizarEtiquetaValorUsar();"
+               oninput="formatearNumeroEnTiempoReal(this); actualizarMesAlquilerValorDesdeRadio(); actualizarEtiquetaValorUsar();"
+               title="Días desde inicio de contrato hasta fin de mes, o escribí el valor">
+    </div>
+    <div class="mb-2" id="grupo_adelanto_monto" style="display:none;">
+        <label class="me-2"><strong>Importe del adelanto:</strong></label>
+        <input type="text" class="form-control d-inline-block" id="adelanto_monto_display" style="max-width: 140px;"
+               placeholder="0"
+               onchange="formatearNumeroEnTiempoReal(this); actualizarMesAlquilerValorDesdeRadio(); actualizarEtiquetaValorUsar();"
+               oninput="formatearNumeroEnTiempoReal(this); actualizarMesAlquilerValorDesdeRadio(); actualizarEtiquetaValorUsar();"
+               title="Se abona a cuenta; el mes mantiene el total y queda saldo pendiente">
+        <span class="small text-muted ms-1">Saldo del mes después: <strong id="mes_saldo_despues_adelanto">—</strong></span>
+    </div>
+    <div class="form-check">
+        <input class="form-check-input" type="radio" name="mes_alquiler_tipo" id="mes_alquiler_mensual" value="mensual" checked>
+        <label class="form-check-label" for="mes_alquiler_mensual">Mes completo — cobrar el saldo pendiente del mes</label>
+    </div>
+    <div class="form-check">
+        <input class="form-check-input" type="radio" name="mes_alquiler_tipo" id="mes_alquiler_proporcional" value="proporcional">
+        <label class="form-check-label" for="mes_alquiler_proporcional">Proporcional — el mes pasa a valer ese importe (total del mes)</label>
+    </div>
+    <div class="form-check">
+        <input class="form-check-input" type="radio" name="mes_alquiler_tipo" id="mes_alquiler_adelanto" value="adelanto">
+        <label class="form-check-label" for="mes_alquiler_adelanto">Adelanto — abono parcial; se descuenta del total del mes y queda pendiente el resto</label>
+    </div>
+    <div class="mt-2 small d-flex align-items-center flex-wrap gap-1">
+        <strong>Importe a registrar en concepto 1 / 1000:</strong> <span id="valor_mes_o_proporcional">0</span>
+        <input type="text" id="mes_alquiler_texto_recibo" class="form-control form-control-sm d-inline-block" style="width: 140px; max-width: 100%;" placeholder="ej. marzo 2026" title="Texto en el recibo">
+    </div>
+    <input type="hidden" id="mes_alquiler_valor" name="mes_alquiler_valor" value="">
+    <input type="hidden" id="precio_mensual" name="precio_mensual" value="">
+</div>
