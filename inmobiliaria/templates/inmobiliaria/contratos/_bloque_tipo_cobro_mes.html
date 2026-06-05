@@ -12,7 +12,7 @@
                value="{% if cuota_ref and cuota_ref.monto_base %}{{ cuota_ref.monto_base|format_price }}{% else %}{{ contrato.precio_mensual|format_price }}{% endif %}"
                readonly tabindex="-1">
     </div>
-    <div class="mb-2" id="grupo_proporcional_calc">
+    <div class="mb-2" id="grupo_proporcional_calc" style="display:none;">
         <label class="me-2"><strong>Proporcional (editable):</strong></label>
         <input type="text" class="form-control d-inline-block" id="proporcional_display" name="proporcional_display" style="max-width: 140px;"
                placeholder="0"

@@ -2,6 +2,8 @@
 {% load custom_filters %}
 {% load bootstrap4 %}
 
+{% block page_container_class %}container-fluid px-3 px-lg-4{% endblock %}
+
 {% block title %}
     {% if tipo_operacion == 'principal' and complemento_operacion_principal %}
         Completar cobro del alta - Contrato #{{ contrato.id }}
@@ -17,9 +19,8 @@
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid mt-4">
-    <div class="row justify-content-center">
-        <div class="col-md-10">
+<div class="row">
+        <div class="col-12">
             <!-- Header -->
             <div class="card mb-4" style="{% if modo_cargos_iniciales %}background: linear-gradient(135deg, #e65100 0%, #ef6c00 100%);{% elif complemento_operacion_principal %}background: linear-gradient(135deg, #1565c0 0%, #1976d2 100%);{% else %}background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);{% endif %} color: white;">
                 <div class="card-body">
@@ -328,7 +329,6 @@
                 </div>
             </form>
         </div>
-    </div>
 </div>
 
 <!-- Modal para Agregar Concepto -->
@@ -1536,7 +1536,7 @@ function actualizarResumenMesCobro() {
     var grupoProp = document.getElementById('grupo_proporcional_calc');
     if (grupoProp) {
         var tipoMes = obtenerMesAlquilerTipo();
-        grupoProp.style.display = (tipoMes === 'proporcional' || tipoMes === 'mensual') ? 'block' : 'none';
+        grupoProp.style.display = (tipoMes === 'proporcional') ? 'block' : 'none';
     }
     var elSaldoDesp = document.getElementById('mes_saldo_despues_adelanto');
     if (elSaldoDesp && obtenerMesAlquilerTipo() === 'adelanto') {
@@ -1657,28 +1657,13 @@ function sincronizarConcepto1ConMesAlquiler() {
 }
 
 function aplicarDefaultProporcionalSiCorresponde() {
+    /* Precalcula el proporcional sugerido pero no cambia la opción: por defecto queda «mes completo». */
     if (window.modoCargosIniciales) return;
     if (window.tipoOperacion !== 'principal' && !window.modoPagoCuotaEspecifica) return;
     var fechaInicioStr = window.fechaInicioContrato;
     var proporcionalDisplay = document.getElementById('proporcional_display');
     if (!fechaInicioStr || !proporcionalDisplay) return;
     actualizarProporcionalYMesAlquiler();
-    var proporcional = parsearValorFormateado(proporcionalDisplay.value);
-    if (proporcional <= 0) return;
-    var d;
-    try {
-        d = new Date(fechaInicioStr + 'T12:00:00');
-        if (isNaN(d.getTime()) || d.getDate() === 1) return;
-    } catch (e) { return; }
-    var radioProp = document.getElementById('mes_alquiler_proporcional');
-    if (radioProp) radioProp.checked = true;
-    actualizarMesAlquilerValorDesdeRadio();
-    var textoRecibo = document.getElementById('mes_alquiler_texto_recibo');
-    if (textoRecibo && !String(textoRecibo.value || '').trim()) {
-        var meses = ['', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-            'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-        textoRecibo.value = meses[d.getMonth() + 1] + ' ' + d.getFullYear();
-    }
 }
 
 function ocultarSugerenciasConceptoLista() {
@@ -2045,6 +2030,8 @@ document.addEventListener('DOMContentLoaded', function() {
     sincronizarSellados();
 
     if (!window.modoCargosIniciales && document.getElementById('bloqueTipoCobroMes')) {
+        var radioMensual = document.getElementById('mes_alquiler_mensual');
+        if (radioMensual) radioMensual.checked = true;
         actualizarProporcionalYMesAlquiler();
         actualizarEtiquetaValorUsar();
         document.querySelectorAll('input[name="mes_alquiler_tipo"]').forEach(function(radio) {
