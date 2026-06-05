@@ -44,13 +44,32 @@ def sucursal_destino_nuevo_concepto_caja(sucursal_actual):
 
 def proximo_id_numerico_libre_concepto_caja():
     """
-    Menor entero positivo no usado como id numérico de concepto de caja (1, 2, 3…).
+    Menor entero positivo no usado como id numérico de concepto (1, 2, 3…).
+    El id es PK global: cuenta todos los conceptos de todas las sucursales.
     Ignora ids alfabéticos (ej. RE).
     """
     from .models.caja import Concepto
 
     usados = set()
     for cid in Concepto.objects.values_list('id', flat=True):
+        s = str(cid or '').strip()
+        if s.isdigit():
+            usados.add(int(s))
+    n = 1
+    while n in usados:
+        n += 1
+    return str(n)
+
+
+def proximo_id_numerico_libre_catalogo_visible(sucursal_actual):
+    """
+    Menor entero que no aparece en el catálogo visible del usuario (solo referencia visual).
+    Puede ser menor que proximo_id_numerico_libre_concepto_caja() si hay ids en otras sucursales.
+    """
+    from .models.caja import Concepto
+
+    usados = set()
+    for cid in Concepto.objects.filter(q_conceptos_caja_visibles(sucursal_actual)).values_list('id', flat=True):
         s = str(cid or '').strip()
         if s.isdigit():
             usados.add(int(s))

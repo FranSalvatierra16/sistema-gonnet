@@ -11,7 +11,7 @@
             <div class="d-flex justify-content-between align-items-center">
                 <div>
                     <h2><i class="fas fa-tags"></i> Gestión de Conceptos</h2>
-                    <p class="text-muted">Sucursal: {{ sucursal }} | Total: {{ total_conceptos }} conceptos</p>
+                    <p class="text-muted">Catálogo: {{ sucursal }} | Mostrando <strong>todos</strong> los conceptos del sistema ({{ total_conceptos }})</p>
                     <div class="mt-2">
                         <small class="text-info">
                             <i class="fas fa-info-circle"></i> 
@@ -206,7 +206,10 @@
                         <input type="text" class="form-control" id="nuevo_id" name="nuevo_id" 
                                placeholder="Vacío = asignar {{ proximo_id_sugerido }} (menor número libre)" maxlength="20">
                         <small class="form-text text-muted">
-                            Si no elegís ID, se asigna el menor número libre (ej. si faltan 1, 2, 3… usa el primero disponible).
+                            Si no elegís ID, se asigna el <strong>{{ proximo_id_sugerido }}</strong> (menor número libre en todo el sistema).
+                            {% if proximo_id_visible_catalogo != proximo_id_sugerido %}
+                            En tu catálogo visible falta el {{ proximo_id_visible_catalogo }}, pero ese número ya está usado en otra sucursal.
+                            {% endif %}
                             También podés poner uno alfanumérico (ABC01).
                         </small>
                     </div>
@@ -449,7 +452,7 @@ $(document).ready(function() {
             $(this).siblings('.form-text').text('Solo se permiten letras y números, máximo 20 caracteres.');
         } else {
             $(this).removeClass('is-invalid');
-            $(this).siblings('.form-text').text('Si no elegís ID, se asigna el menor número libre. También podés poner uno alfanumérico (ABC01).');
+            $(this).siblings('.form-text').html('Si no elegís ID, se asigna el <strong>{{ proximo_id_sugerido }}</strong> (menor número libre en todo el sistema). También podés poner uno alfanumérico (ABC01).');
         }
     });
 });

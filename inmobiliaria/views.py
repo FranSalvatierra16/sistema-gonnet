@@ -1641,6 +1641,7 @@ from .catalogo_conceptos_caja import (
     q_conceptos_caja_visibles,
     sucursal_destino_nuevo_concepto_caja,
     proximo_id_numerico_libre_concepto_caja,
+    proximo_id_numerico_libre_catalogo_visible,
 )
 from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm, VentaPropiedadForm, MovimientoCajaForm
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm, SetPasswordForm
@@ -18982,8 +18983,10 @@ def gestionar_conceptos(request):
     Vista para gestionar conceptos: listar, crear, editar y eliminar
     """
     sucursal_vendedor = request.user.sucursal
-    qs_base = Concepto.objects.filter(q_conceptos_caja_visibles(sucursal_vendedor))
+    qs_base = Concepto.objects.select_related('sucursal').all()
     total_conceptos = qs_base.count()
+    id_libre_global = proximo_id_numerico_libre_concepto_caja()
+    id_libre_visible = proximo_id_numerico_libre_catalogo_visible(sucursal_vendedor)
 
     def orden_valido(val):
         v = (val or 'detalle').lower()
@@ -19161,7 +19164,8 @@ def gestionar_conceptos(request):
     context = {
         'conceptos': conceptos,
         'total_conceptos': total_conceptos,
-        'proximo_id_sugerido': proximo_id_numerico_libre_concepto_caja(),
+        'proximo_id_sugerido': id_libre_global,
+        'proximo_id_visible_catalogo': id_libre_visible,
         'sucursal': (
             f'Catálogo unificado (referencia: {ref_cat.nombre})'
             if ref_cat
