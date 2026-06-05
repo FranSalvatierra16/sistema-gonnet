@@ -13,12 +13,14 @@
                readonly tabindex="-1">
     </div>
     <div class="mb-2" id="grupo_proporcional_calc">
-        <label class="me-2"><strong>Proporcional calculado:</strong></label>
+        <label class="me-2"><strong>Proporcional (editable):</strong></label>
         <input type="text" class="form-control d-inline-block" id="proporcional_display" name="proporcional_display" style="max-width: 140px;"
                placeholder="0"
-               onchange="formatearNumeroEnTiempoReal(this); actualizarMesAlquilerValorDesdeRadio(); actualizarEtiquetaValorUsar();"
-               oninput="formatearNumeroEnTiempoReal(this); actualizarMesAlquilerValorDesdeRadio(); actualizarEtiquetaValorUsar();"
-               title="Días desde inicio de contrato hasta fin de mes, o escribí el valor">
+               onchange="formatearNumeroEnTiempoReal(this); marcarProporcionalEditadoManual(); actualizarMesAlquilerValorDesdeRadio();"
+               oninput="formatearNumeroEnTiempoReal(this); marcarProporcionalEditadoManual(); actualizarMesAlquilerValorDesdeRadio();"
+               title="Sugerido por días del mes; podés corregirlo a mano">
+        <button type="button" class="btn btn-link btn-sm p-0 ms-1 align-baseline" id="btn_recalcular_proporcional"
+                title="Volver a calcular desde fecha de inicio y precio mensual">Recalcular</button>
     </div>
     <div class="mb-2" id="grupo_adelanto_monto" style="display:none;">
         <label class="me-2"><strong>Importe del adelanto:</strong></label>

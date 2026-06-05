@@ -15336,6 +15336,13 @@ def _parse_mes_alquiler_cobro_post(request):
             valor = parse_decimal_monto(raw_val)
         except (ValueError, InvalidOperation, TypeError):
             valor = None
+    if tipo == 'proporcional' and (valor is None or valor <= 0):
+        raw_prop = (request.POST.get('proporcional_display') or '').strip()
+        if raw_prop:
+            try:
+                valor = parse_decimal_monto(raw_prop)
+            except (ValueError, InvalidOperation, TypeError):
+                valor = None
     pm_raw = (request.POST.get('precio_mensual') or request.POST.get('nuevo_precio_mensual') or '').strip()
     precio_ref = None
     if pm_raw:
@@ -16161,6 +16168,21 @@ def procesar_pago_cuota_operacion(request, cuota_id):
                 contrato=contrato,
             )
         )
+
+        if mes_tipo == 'proporcional' and mes_valor is not None and mes_valor > 0:
+            tol_prop = Decimal('0.05')
+            for _, data in cuotas_objetivo_map.items():
+                imp_lineas = Decimal(str(data.get('importe_lineas') or 0))
+                if imp_lineas > mes_valor + tol_prop:
+                    return JsonResponse(
+                        {
+                            'error': (
+                                f'Con proporcional, el concepto 1000/29 debe ser ${mes_valor} '
+                                f'(no ${imp_lineas}). Actualizá el importe del concepto o el campo proporcional.'
+                            ),
+                        },
+                        status=400,
+                    )
 
         with transaction.atomic():
             try:

@@ -370,15 +370,54 @@
                         </div>
                     </div>
                     
-                    <div class="mb-3">
-                        <label for="observaciones" class="form-label">Observaciones:</label>
-                        <textarea class="form-control" id="observaciones" rows="3" placeholder="Observaciones opcionales..."></textarea>
+                    <div class="mb-3" id="grupoCuotaObjetivo" style="display: none;">
+                        <label for="cuotaObjetivoId" class="form-label"><strong>Cuota objetivo (conceptos 1000 o 29):</strong></label>
+                        <select class="form-control" id="cuotaObjetivoId">
+                            <option value="">Seleccionar cuota...</option>
+                        </select>
+                        <small class="text-muted">Para concepto 1000 o 29, elegí la cuota/mes al que se imputa.</small>
                     </div>
-                    
+
+                    <div class="mb-3 border rounded p-2 bg-light" id="grupoTipoCobroMesModal" style="display: none;">
+                        <label class="form-label mb-1"><strong>Tipo de cobro del mes:</strong></label>
+                        <div class="small text-muted mb-2">
+                            Saldo de la cuota: <strong id="modal_mes_saldo_cobro">—</strong>
+                        </div>
+                        <div class="mb-2" id="modal_grupo_proporcional_calc" style="display:none;">
+                            <label class="me-2"><strong>Proporcional (editable):</strong></label>
+                            <input type="text" class="form-control d-inline-block" id="modal_proporcional_display" style="max-width: 140px;"
+                                   placeholder="0"
+                                   onchange="formatearNumeroEnTiempoReal(this); marcarProporcionalEditadoManualModal(); onModalTipoCobroChange();"
+                                   oninput="formatearNumeroEnTiempoReal(this); marcarProporcionalEditadoManualModal(); onModalTipoCobroChange();">
+                            <button type="button" class="btn btn-link btn-sm p-0 ms-1 align-baseline" id="btn_recalcular_proporcional_modal"
+                                    title="Recalcular desde fecha de inicio">Recalcular</button>
+                        </div>
+                        <div class="mb-2" id="modal_grupo_adelanto_monto" style="display:none;">
+                            <label class="me-2"><strong>Importe del adelanto:</strong></label>
+                            <input type="text" class="form-control d-inline-block" id="modal_adelanto_monto_display" style="max-width: 140px;"
+                                   placeholder="0"
+                                   onchange="formatearNumeroEnTiempoReal(this); onModalTipoCobroChange();"
+                                   oninput="formatearNumeroEnTiempoReal(this); onModalTipoCobroChange();">
+                            <span class="small text-muted ms-1">Queda pendiente: <strong id="modal_mes_saldo_despues_adelanto">—</strong></span>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="mes_alquiler_tipo_modal" id="modal_mes_alquiler_mensual" value="mensual" checked>
+                            <label class="form-check-label" for="modal_mes_alquiler_mensual">Mes completo — cobrar el saldo pendiente</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="mes_alquiler_tipo_modal" id="modal_mes_alquiler_proporcional" value="proporcional">
+                            <label class="form-check-label" for="modal_mes_alquiler_proporcional">Proporcional — el mes pasa a valer ese importe</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="mes_alquiler_tipo_modal" id="modal_mes_alquiler_adelanto" value="adelanto">
+                            <label class="form-check-label" for="modal_mes_alquiler_adelanto">Adelanto — abono parcial; queda pendiente el resto</label>
+                        </div>
+                    </div>
+
                     <div class="mb-3">
                         <label for="importe" class="form-label"><strong>Importe:</strong></label>
                         <input type="text" class="form-control" id="importe" required placeholder="ej: 30.000 o 270.000" inputmode="numeric">
-                        <small class="text-muted">Podés usar punto para miles (ej: 300.000)</small>
+                        <small class="text-muted">Podés usar punto para miles (ej: 300.000). Con concepto 1000/29 se completa según el tipo de cobro.</small>
                     </div>
                     <div class="mb-3">
                         <label for="moneda" class="form-label"><strong>Moneda:</strong></label>
@@ -387,12 +426,10 @@
                             <option value="USD">Dólares (USD)</option>
                         </select>
                     </div>
-                    <div class="mb-3" id="grupoCuotaObjetivo" style="display: none;">
-                        <label for="cuotaObjetivoId" class="form-label"><strong>Cuota objetivo (conceptos 1000 o 29):</strong></label>
-                        <select class="form-control" id="cuotaObjetivoId">
-                            <option value="">Seleccionar cuota...</option>
-                        </select>
-                        <small class="text-muted">Para concepto 1000 o 29, elegí la cuota/mes al que se imputa.</small>
+
+                    <div class="mb-3">
+                        <label for="observaciones" class="form-label">Observaciones:</label>
+                        <textarea class="form-control" id="observaciones" rows="3" placeholder="Observaciones opcionales..."></textarea>
                     </div>
                 </form>
             </div>
@@ -566,9 +603,13 @@ function renderOpcionesCuotasObjetivo(selectedId) {
     grupo.style.display = mostrar ? 'block' : 'none';
     if (!mostrar) {
         select.value = '';
+        renderGrupoTipoCobroMesModal();
         return;
     }
-    const prev = String(selectedId || select.value || '');
+    var prev = String(selectedId || select.value || '');
+    if (!prev && window.modoPagoCuotaEspecifica && window.cuotaIdPago) {
+        prev = String(window.cuotaIdPago);
+    }
     const opciones = ['<option value="">Seleccionar cuota...</option>'];
     const lista = (Array.isArray(window.cuotasSelectorCfg) && window.cuotasSelectorCfg.length)
         ? window.cuotasSelectorCfg
@@ -594,7 +635,154 @@ function renderOpcionesCuotasObjetivo(selectedId) {
         );
     });
     select.innerHTML = opciones.join('');
+    renderGrupoTipoCobroMesModal();
 }
+
+function bloqueTipoCobroMesDisponible() {
+    return !!document.getElementById('bloqueTipoCobroMes');
+}
+
+function obtenerSaldoCuotaModal() {
+    var select = document.getElementById('cuotaObjetivoId');
+    var cuotaId = select ? Number(select.value || 0) : 0;
+    if (cuotaId) {
+        var arr = (Array.isArray(window.cuotasSelectorCfg) && window.cuotasSelectorCfg.length)
+            ? window.cuotasSelectorCfg
+            : (window.cuotasPendientesCfg || []);
+        var it = arr.find(function(q) { return Number(q.id) === cuotaId; });
+        if (it && it.monto_saldo != null && it.monto_saldo !== undefined) {
+            return Number(it.monto_saldo);
+        }
+        if (it) return Number(it.monto_total || 0);
+    }
+    return obtenerSaldoMesParaCobro();
+}
+
+function obtenerMesAlquilerTipoModal() {
+    var rAdel = document.getElementById('modal_mes_alquiler_adelanto');
+    if (rAdel && rAdel.checked) return 'adelanto';
+    var rProp = document.getElementById('modal_mes_alquiler_proporcional');
+    if (rProp && rProp.checked) return 'proporcional';
+    return 'mensual';
+}
+
+function marcarProporcionalEditadoManualModal() {
+    window.proporcionalEditadoManualModal = true;
+}
+
+function calcularProporcionalSugeridoModal() {
+    if (typeof calcularProporcionalSugerido === 'function') {
+        return calcularProporcionalSugerido();
+    }
+    return 0;
+}
+
+function calcularImporteTipoCobroModal() {
+    var tipo = obtenerMesAlquilerTipoModal();
+    var saldo = obtenerSaldoCuotaModal();
+    var propEl = document.getElementById('modal_proporcional_display');
+    var adelEl = document.getElementById('modal_adelanto_monto_display');
+    var proporcional = parsearValorFormateado(propEl ? propEl.value : '0');
+    var adelanto = parsearValorFormateado(adelEl ? adelEl.value : '0');
+    var precioMensual = obtenerPrecioMensualReferencia();
+    if (tipo === 'proporcional') {
+        return proporcional > 0 ? proporcional : precioMensual;
+    }
+    if (tipo === 'adelanto') {
+        return adelanto;
+    }
+    return saldo;
+}
+
+function syncPrincipalTipoCobroDesdeModal() {
+    if (!bloqueTipoCobroMesDisponible()) return;
+    var tipo = obtenerMesAlquilerTipoModal();
+    var map = {
+        mensual: 'mes_alquiler_mensual',
+        proporcional: 'mes_alquiler_proporcional',
+        adelanto: 'mes_alquiler_adelanto'
+    };
+    var mainRadio = document.getElementById(map[tipo] || 'mes_alquiler_mensual');
+    if (mainRadio) mainRadio.checked = true;
+    var modalProp = document.getElementById('modal_proporcional_display');
+    var mainProp = document.getElementById('proporcional_display');
+    if (modalProp && mainProp) mainProp.value = modalProp.value;
+    var modalAdel = document.getElementById('modal_adelanto_monto_display');
+    var mainAdel = document.getElementById('adelanto_monto_display');
+    if (modalAdel && mainAdel) mainAdel.value = modalAdel.value;
+    if (typeof actualizarMesAlquilerValorDesdeRadio === 'function') {
+        actualizarMesAlquilerValorDesdeRadio();
+    }
+}
+
+function syncModalTipoCobroDesdePrincipal() {
+    if (!bloqueTipoCobroMesDisponible()) return;
+    var tipo = typeof obtenerMesAlquilerTipo === 'function' ? obtenerMesAlquilerTipo() : 'mensual';
+    var map = {
+        mensual: 'modal_mes_alquiler_mensual',
+        proporcional: 'modal_mes_alquiler_proporcional',
+        adelanto: 'modal_mes_alquiler_adelanto'
+    };
+    var modalRadio = document.getElementById(map[tipo] || 'modal_mes_alquiler_mensual');
+    if (modalRadio) modalRadio.checked = true;
+    var mainProp = document.getElementById('proporcional_display');
+    var modalProp = document.getElementById('modal_proporcional_display');
+    if (mainProp && modalProp) modalProp.value = mainProp.value;
+    var mainAdel = document.getElementById('adelanto_monto_display');
+    var modalAdel = document.getElementById('modal_adelanto_monto_display');
+    if (mainAdel && modalAdel) modalAdel.value = mainAdel.value;
+}
+
+function actualizarImporteModalDesdeTipoCobro() {
+    var importeEl = document.getElementById('importe');
+    if (!importeEl) return;
+    var importe = calcularImporteTipoCobroModal();
+    if (importe > 0) {
+        importeEl.value = importe.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    }
+}
+
+function onModalTipoCobroChange() {
+    actualizarModalTipoCobroUI(false);
+    syncPrincipalTipoCobroDesdeModal();
+}
+
+function actualizarModalTipoCobroUI(recalcularProporcional) {
+    recalcularProporcional = !!recalcularProporcional;
+    var pref = prefijoMonedaCuotaContrato();
+    var saldo = obtenerSaldoCuotaModal();
+    var elSaldo = document.getElementById('modal_mes_saldo_cobro');
+    if (elSaldo) elSaldo.textContent = pref + formatoMontoReciboAR(saldo);
+    var tipo = obtenerMesAlquilerTipoModal();
+    var grupoProp = document.getElementById('modal_grupo_proporcional_calc');
+    var grupoAdel = document.getElementById('modal_grupo_adelanto_monto');
+    if (grupoProp) grupoProp.style.display = (tipo === 'proporcional') ? 'block' : 'none';
+    if (grupoAdel) grupoAdel.style.display = (tipo === 'adelanto') ? 'block' : 'none';
+    var modalProp = document.getElementById('modal_proporcional_display');
+    if (recalcularProporcional && modalProp && !window.proporcionalEditadoManualModal) {
+        var sugerido = calcularProporcionalSugeridoModal();
+        modalProp.value = sugerido > 0 ? sugerido.toLocaleString('es-AR') : '0';
+    }
+    var elSaldoDesp = document.getElementById('modal_mes_saldo_despues_adelanto');
+    if (elSaldoDesp && tipo === 'adelanto') {
+        var adel = parsearValorFormateado(document.getElementById('modal_adelanto_monto_display') ? document.getElementById('modal_adelanto_monto_display').value : '0');
+        elSaldoDesp.textContent = pref + formatoMontoReciboAR(Math.max(0, saldo - adel));
+    }
+    actualizarImporteModalDesdeTipoCobro();
+}
+
+function renderGrupoTipoCobroMesModal() {
+    var grupo = document.getElementById('grupoTipoCobroMesModal');
+    if (!grupo) return;
+    var conceptoId = String((conceptoSeleccionadoActual && conceptoSeleccionadoActual.id) || '').trim();
+    var mostrar = conceptoCatalogoRequiereCuotaObjetivo(conceptoId) && bloqueTipoCobroMesDisponible();
+    grupo.style.display = mostrar ? 'block' : 'none';
+    if (!mostrar) return;
+    syncModalTipoCobroDesdePrincipal();
+    actualizarModalTipoCobroUI(true);
+}
+window.onModalTipoCobroChange = onModalTipoCobroChange;
+window.marcarProporcionalEditadoManualModal = marcarProporcionalEditadoManualModal;
 
 function escapeHtmlAttr(s) {
     if (s == null || s === '') return '';
@@ -708,6 +896,9 @@ function mostrarModalConcepto() {
     if (monedaEl) monedaEl.value = window.monedaCuotasContrato || 'ARS';
     renderOpcionesCuotasObjetivo('');
     ocultarSugerenciasConceptoLista();
+    var grupoTipoModal = document.getElementById('grupoTipoCobroMesModal');
+    if (grupoTipoModal) grupoTipoModal.style.display = 'none';
+    window.proporcionalEditadoManualModal = false;
 
     // Resetear estado
     conceptoEditando = null;
@@ -764,6 +955,10 @@ function agregarConcepto() {
     if (conceptoCatalogoRequiereCuotaObjetivo(nuevoConcepto.conceptoId) && !String(nuevoConcepto.cuotaObjetivoId || '').trim()) {
         alert('Para concepto 1000 o 29 tenés que elegir la cuota/mes objetivo.');
         return;
+    }
+
+    if (conceptoCatalogoRequiereCuotaObjetivo(nuevoConcepto.conceptoId) && bloqueTipoCobroMesDisponible()) {
+        syncPrincipalTipoCobroDesdeModal();
     }
     
     conceptosAgregados.push(nuevoConcepto);
@@ -839,6 +1034,7 @@ function editarConcepto(conceptoId) {
         };
         renderOpcionesCuotasObjetivo(concepto.cuotaObjetivoId || '');
         ocultarSugerenciasConceptoLista();
+        window.proporcionalEditadoManualModal = true;
         
         document.getElementById('observaciones').value = concepto.observaciones === 'Sin observaciones' ? '' : concepto.observaciones;
         document.getElementById('importe').value = importeConceptoANumero(concepto.importe).toLocaleString('es-AR', { maximumFractionDigits: 2 });
@@ -884,6 +1080,9 @@ function actualizarConcepto() {
     if (conceptoCatalogoRequiereCuotaObjetivo(conceptoEditando.conceptoId) && !String(conceptoEditando.cuotaObjetivoId || '').trim()) {
         alert('Para concepto 1000 o 29 tenés que elegir la cuota/mes objetivo.');
         return;
+    }
+    if (conceptoCatalogoRequiereCuotaObjetivo(conceptoEditando.conceptoId) && bloqueTipoCobroMesDisponible()) {
+        syncPrincipalTipoCobroDesdeModal();
     }
     conceptoEditando.moneda = (document.getElementById('moneda')?.value || 'ARS').toUpperCase() === 'USD' ? 'USD' : 'ARS';
     conceptoEditando.observaciones = observaciones || 'Sin observaciones';
@@ -1117,6 +1316,9 @@ function habilitarBotonProcesar(habilitar) {
 function procesarOperacion() {
     sincronizarHonorarios();
     sincronizarSellados();
+    if (document.getElementById('bloqueTipoCobroMes') && typeof actualizarMesAlquilerValorDesdeRadio === 'function') {
+        actualizarMesAlquilerValorDesdeRadio();
+    }
 
     if (tipoOperacion === 'cargos_iniciales' && (!window.procesarCargosUrl || String(window.procesarCargosUrl).length === 0)) {
         alert('Error de configuración: falta la URL para registrar cargos iniciales. Recargá la página.');
@@ -1169,6 +1371,8 @@ function procesarOperacion() {
     formData.append('nuevo_precio_mensual', nuevoPrecioMensual);
     const mesAlquilerValor = document.getElementById('mes_alquiler_valor');
     if (mesAlquilerValor) formData.append('mes_alquiler_valor', mesAlquilerValor.value || '');
+    const proporcionalDisplay = document.getElementById('proporcional_display');
+    if (proporcionalDisplay) formData.append('proporcional_display', (proporcionalDisplay.value || '').trim());
     const mesAlquilerTipo = typeof obtenerMesAlquilerTipo === 'function'
         ? obtenerMesAlquilerTipo()
         : 'mensual';
@@ -1317,6 +1521,11 @@ function actualizarResumenMesCobro() {
     if (grupoAdel) {
         grupoAdel.style.display = (obtenerMesAlquilerTipo() === 'adelanto') ? 'block' : 'none';
     }
+    var grupoProp = document.getElementById('grupo_proporcional_calc');
+    if (grupoProp) {
+        var tipoMes = obtenerMesAlquilerTipo();
+        grupoProp.style.display = (tipoMes === 'proporcional' || tipoMes === 'mensual') ? 'block' : 'none';
+    }
     var elSaldoDesp = document.getElementById('mes_saldo_despues_adelanto');
     if (elSaldoDesp && obtenerMesAlquilerTipo() === 'adelanto') {
         var adel = parsearValorFormateado(document.getElementById('adelanto_monto_display') ? document.getElementById('adelanto_monto_display').value : '0');
@@ -1327,12 +1536,11 @@ function actualizarResumenMesCobro() {
     if (hiddenPm) hiddenPm.value = String(obtenerPrecioMensualReferencia());
 }
 
-// Calcular proporcional (desde fecha_inicio hasta fin del mes) y actualizar mes_alquiler_valor
-function actualizarProporcionalYMesAlquiler() {
-    var proporcionalDisplay = document.getElementById('proporcional_display');
-    var mesAlquilerValor = document.getElementById('mes_alquiler_valor');
-    if (!proporcionalDisplay || !mesAlquilerValor) return;
+function marcarProporcionalEditadoManual() {
+    window.proporcionalEditadoManual = true;
+}
 
+function calcularProporcionalSugerido() {
     var precioMensual = obtenerPrecioMensualReferencia();
     var fechaInicioStr = window.fechaInicioContrato;
     var proporcional = 0;
@@ -1354,7 +1562,24 @@ function actualizarProporcionalYMesAlquiler() {
             }
         } catch (e) { /* mantener 0 */ }
     }
-    proporcionalDisplay.value = proporcional > 0 ? proporcional.toLocaleString('es-AR') : '0';
+    return proporcional;
+}
+
+function asignarProporcionalDisplay(valor, opts) {
+    opts = opts || {};
+    var proporcionalDisplay = document.getElementById('proporcional_display');
+    if (!proporcionalDisplay) return;
+    if (window.proporcionalEditadoManual && !opts.forzar) return;
+    proporcionalDisplay.value = valor > 0 ? valor.toLocaleString('es-AR') : '0';
+}
+
+// Calcular proporcional sugerido (desde fecha_inicio hasta fin del mes) y actualizar mes_alquiler_valor
+function actualizarProporcionalYMesAlquiler(opts) {
+    opts = opts || {};
+    var mesAlquilerValor = document.getElementById('mes_alquiler_valor');
+    if (!document.getElementById('proporcional_display') || !mesAlquilerValor) return;
+    var proporcional = calcularProporcionalSugerido();
+    asignarProporcionalDisplay(proporcional, { forzar: !!opts.forzar });
     actualizarMesAlquilerValorDesdeRadio();
 }
 
@@ -1421,8 +1646,7 @@ function sincronizarConcepto1ConMesAlquiler() {
 
 function aplicarDefaultProporcionalSiCorresponde() {
     if (window.modoCargosIniciales) return;
-    if (window.modoPagoCuotaEspecifica) return;
-    if (window.tipoOperacion !== 'principal') return;
+    if (window.tipoOperacion !== 'principal' && !window.modoPagoCuotaEspecifica) return;
     var fechaInicioStr = window.fechaInicioContrato;
     var proporcionalDisplay = document.getElementById('proporcional_display');
     if (!fechaInicioStr || !proporcionalDisplay) return;
@@ -1807,22 +2031,56 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!window.modoCargosIniciales && document.getElementById('bloqueTipoCobroMes')) {
         actualizarProporcionalYMesAlquiler();
         actualizarEtiquetaValorUsar();
-        aplicarDefaultProporcionalSiCorresponde();
         document.querySelectorAll('input[name="mes_alquiler_tipo"]').forEach(function(radio) {
             radio.addEventListener('change', function() {
                 actualizarMesAlquilerValorDesdeRadio();
             });
         });
+        var btnRecalcProp = document.getElementById('btn_recalcular_proporcional');
+        if (btnRecalcProp) {
+            btnRecalcProp.addEventListener('click', function() {
+                window.proporcionalEditadoManual = false;
+                actualizarProporcionalYMesAlquiler({ forzar: true });
+            });
+        }
         var proporcionalInput = document.getElementById('proporcional_display');
         if (proporcionalInput) {
-            proporcionalInput.addEventListener('change', actualizarMesAlquilerValorDesdeRadio);
-            proporcionalInput.addEventListener('input', actualizarMesAlquilerValorDesdeRadio);
+            proporcionalInput.addEventListener('change', function() {
+                marcarProporcionalEditadoManual();
+                actualizarMesAlquilerValorDesdeRadio();
+            });
+            proporcionalInput.addEventListener('input', function() {
+                marcarProporcionalEditadoManual();
+                actualizarMesAlquilerValorDesdeRadio();
+            });
         }
         var adelantoInput = document.getElementById('adelanto_monto_display');
         if (adelantoInput) {
             adelantoInput.addEventListener('change', actualizarMesAlquilerValorDesdeRadio);
             adelantoInput.addEventListener('input', actualizarMesAlquilerValorDesdeRadio);
         }
+    }
+
+    document.querySelectorAll('input[name="mes_alquiler_tipo_modal"]').forEach(function(radio) {
+        radio.addEventListener('change', onModalTipoCobroChange);
+    });
+    var btnRecalcPropModal = document.getElementById('btn_recalcular_proporcional_modal');
+    if (btnRecalcPropModal) {
+        btnRecalcPropModal.addEventListener('click', function() {
+            window.proporcionalEditadoManualModal = false;
+            actualizarModalTipoCobroUI(true);
+            syncPrincipalTipoCobroDesdeModal();
+        });
+    }
+    var cuotaObjetivoSelect = document.getElementById('cuotaObjetivoId');
+    if (cuotaObjetivoSelect) {
+        cuotaObjetivoSelect.addEventListener('change', function() {
+            if (document.getElementById('grupoTipoCobroMesModal') &&
+                document.getElementById('grupoTipoCobroMesModal').style.display !== 'none') {
+                actualizarModalTipoCobroUI(false);
+                syncPrincipalTipoCobroDesdeModal();
+            }
+        });
     }
 
     if (window.modoPagoCuotaEspecifica && window.defaultImporteCuota > 0) {
@@ -1843,6 +2101,10 @@ document.addEventListener('DOMContentLoaded', function() {
             fecha: new Date().toLocaleDateString('es-AR')
         });
         actualizarTablaConceptos();
+    }
+
+    if (!window.modoCargosIniciales && document.getElementById('bloqueTipoCobroMes')) {
+        aplicarDefaultProporcionalSiCorresponde();
         actualizarMesAlquilerValorDesdeRadio();
     }
 
