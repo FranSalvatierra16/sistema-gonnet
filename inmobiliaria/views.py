@@ -17441,6 +17441,25 @@ def recibo_contrato_24(request, contrato_id):
                             honorarios_importe_json = None
                     if obj.get('pago_cuota_mensual'):
                         pago_cuota_mensual_recibo = True
+                    if mes_alquiler_importe_recibo is None and conceptos_data:
+                        for citem in conceptos_data:
+                            cid = str(citem.get('id') or citem.get('codigo') or '').strip()
+                            if cid in ('1', '15'):
+                                try:
+                                    mes_alquiler_importe_recibo = Decimal(str(citem.get('importe', 0)))
+                                except (TypeError, ValueError, ArithmeticError):
+                                    pass
+                                break
+                    if (
+                        mes_alquiler_tipo_recibo != 'proporcional'
+                        and mes_alquiler_importe_recibo is not None
+                        and contrato.precio_mensual
+                    ):
+                        try:
+                            if abs(float(mes_alquiler_importe_recibo) - float(contrato.precio_mensual)) > 0.01:
+                                mes_alquiler_tipo_recibo = 'proporcional'
+                        except (TypeError, ValueError):
+                            pass
                 else:
                     if not (json_str and json_str.strip().startswith('[')):
                         json_str = '[]'
@@ -18069,11 +18088,32 @@ def recibo_contrato_24(request, contrato_id):
                 return f"PESOS {str(int(float(numero))).upper()}"
             return ""
         
-        # Precio mensual del contrato (siempre el valor mensual, no el proporcional) para "Mes alquiler" en el recibo
+        # Precio mensual de referencia del contrato (siempre el valor mensual completo)
         if precio_mensual_completo_recibo is not None and float(precio_mensual_completo_recibo) > 0:
             precio_mensual_contrato = format_currency(precio_mensual_completo_recibo)
         else:
             precio_mensual_contrato = format_currency(contrato.precio_mensual or 0)
+
+        # Línea DESDE/HASTA: si hubo proporcional (ej. marzo), mostrar ese importe y no el mes completo
+        mes_alquiler_linea_etiqueta = 'Mes alquiler'
+        mes_alquiler_linea_importe = precio_mensual_contrato
+        es_proporcional_recibo = mes_alquiler_tipo_recibo == 'proporcional'
+        if not es_proporcional_recibo and mes_alquiler_importe_recibo is not None and contrato.precio_mensual:
+            try:
+                es_proporcional_recibo = abs(
+                    float(mes_alquiler_importe_recibo) - float(contrato.precio_mensual)
+                ) > 0.01
+            except (TypeError, ValueError):
+                es_proporcional_recibo = False
+        if es_proporcional_recibo and mes_alquiler_importe_recibo is not None:
+            mes_alquiler_linea_etiqueta = 'Proporcional'
+            mes_alquiler_linea_importe = format_currency(mes_alquiler_importe_recibo)
+        if not (mes_alquiler_texto_recibo or '').strip() and getattr(contrato, 'fecha_inicio', None):
+            fi = contrato.fecha_inicio
+            if 1 <= fi.month <= 12:
+                mes_alquiler_texto_recibo = MESES_ES[fi.month]
+                if fi.year:
+                    mes_alquiler_texto_recibo = f'{mes_alquiler_texto_recibo} {fi.year}'
 
         # CLIENTE(S) = todos los inquilinos/estudiantes cargados en el contrato (pueden ser varios)
         through_list = list(contrato.contrato_inquilinos.select_related('inquilino').order_by('id'))
@@ -18145,7 +18185,9 @@ def recibo_contrato_24(request, contrato_id):
             'suma_en_letras_usd': suma_en_letras_usd,
             'logo_base64': logo_base64,
             'precio_mensual_contrato': precio_mensual_contrato,
-            'mes_alquiler_es_proporcional': mes_alquiler_tipo_recibo == 'proporcional',
+            'mes_alquiler_linea_etiqueta': mes_alquiler_linea_etiqueta,
+            'mes_alquiler_linea_importe': mes_alquiler_linea_importe,
+            'mes_alquiler_es_proporcional': es_proporcional_recibo,
             'mes_alquiler_texto_recibo': mes_alquiler_texto_recibo,
             'formas_de_pago': formas_de_pago_recibo,
             'url_volver': _url_volver_recibo(

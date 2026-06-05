@@ -1353,6 +1353,7 @@ function actualizarProporcionalYMesAlquiler() {
     var usarProporcional = document.getElementById('mes_alquiler_proporcional') && document.getElementById('mes_alquiler_proporcional').checked;
     var valorElegido = usarProporcional ? proporcional : precioMensual;
     mesAlquilerValor.value = String(valorElegido);
+    sincronizarConcepto1ConMesAlquiler();
 }
 
 function actualizarMesAlquilerValorDesdeRadio() {
@@ -1376,6 +1377,52 @@ function actualizarEtiquetaValorUsar() {
     if (valSpan) {
         var valor = usarProporcional ? proporcional : precioMensual;
         valSpan.textContent = typeof valor === 'number' ? '$' + (valor || 0).toLocaleString('es-AR') : '$0';
+    }
+    sincronizarConcepto1ConMesAlquiler();
+}
+
+function sincronizarConcepto1ConMesAlquiler() {
+    var mesAlquilerValor = document.getElementById('mes_alquiler_valor');
+    if (!mesAlquilerValor || !conceptosAgregados.length) return;
+    var importe = parsearValorFormateado(mesAlquilerValor.value);
+    if (importe <= 0) return;
+    var cambio = false;
+    conceptosAgregados.forEach(function(c) {
+        var cid = String(c.conceptoId || '').trim();
+        if (cid === '1' || cid === '15') {
+            c.importe = importe;
+            cambio = true;
+        }
+    });
+    if (cambio) {
+        actualizarTablaConceptos();
+        calcularTotales();
+    }
+}
+
+function aplicarDefaultProporcionalSiCorresponde() {
+    if (window.modoPagoCuotaEspecifica || window.modoCargosIniciales) return;
+    if (window.tipoOperacion !== 'principal') return;
+    var fechaInicioStr = window.fechaInicioContrato;
+    var proporcionalDisplay = document.getElementById('proporcional_display');
+    if (!fechaInicioStr || !proporcionalDisplay) return;
+    actualizarProporcionalYMesAlquiler();
+    var proporcional = parsearValorFormateado(proporcionalDisplay.value);
+    if (proporcional <= 0) return;
+    var d;
+    try {
+        d = new Date(fechaInicioStr + 'T12:00:00');
+        if (isNaN(d.getTime()) || d.getDate() === 1) return;
+    } catch (e) { return; }
+    var radioProp = document.getElementById('mes_alquiler_proporcional');
+    if (radioProp) radioProp.checked = true;
+    actualizarMesAlquilerValorDesdeRadio();
+    actualizarEtiquetaValorUsar();
+    var textoRecibo = document.getElementById('mes_alquiler_texto_recibo');
+    if (textoRecibo && !String(textoRecibo.value || '').trim()) {
+        var meses = ['', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+            'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+        textoRecibo.value = meses[d.getMonth() + 1] + ' ' + d.getFullYear();
     }
 }
 
@@ -1742,11 +1789,24 @@ document.addEventListener('DOMContentLoaded', function() {
         // Inicializar proporcional y mes alquiler elegido
         actualizarProporcionalYMesAlquiler();
         actualizarEtiquetaValorUsar();
+        aplicarDefaultProporcionalSiCorresponde();
         document.querySelectorAll('input[name="mes_alquiler_tipo"]').forEach(function(radio) {
             radio.addEventListener('change', function() {
                 actualizarMesAlquilerValorDesdeRadio();
+                actualizarEtiquetaValorUsar();
             });
         });
+        var proporcionalInput = document.getElementById('proporcional_display');
+        if (proporcionalInput) {
+            proporcionalInput.addEventListener('change', function() {
+                actualizarProporcionalYMesAlquiler();
+                actualizarEtiquetaValorUsar();
+            });
+            proporcionalInput.addEventListener('input', function() {
+                actualizarProporcionalYMesAlquiler();
+                actualizarEtiquetaValorUsar();
+            });
+        }
     }
 
     if (window.modoPagoCuotaEspecifica && window.defaultImporteCuota > 0) {
