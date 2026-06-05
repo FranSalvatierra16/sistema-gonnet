@@ -15502,10 +15502,13 @@ def _parse_nuevo_precio_mensual_post(request):
     return val if val > 0 else None
 
 
-def _actualizar_pendientes_al_ultimo_importe(contrato):
+def _actualizar_pendientes_al_ultimo_importe(contrato, mes_tipo='mensual'):
     """
-    Ajusta cuotas pendientes/vencidas al importe de la última cuota pagada.
+    Tras un cobro de mes completo, alinea cuotas pendientes posteriores al plan del contrato
+    (precio_mensual / trimestres). Con proporcional o adelanto no modifica meses siguientes.
     """
+    if (mes_tipo or 'mensual').strip().lower() in ('proporcional', 'adelanto'):
+        return 0
     ultima_pagada = (
         contrato.cuotas.filter(estado__in=['pagada', 'pagada_con_mora'])
         .order_by('-numero_cuota', '-id')
@@ -15513,20 +15516,30 @@ def _actualizar_pendientes_al_ultimo_importe(contrato):
     )
     if not ultima_pagada:
         return 0
-    nuevo_importe = Decimal(str(ultima_pagada.monto_total or 0))
-    if nuevo_importe <= 0:
-        return 0
     pendientes = contrato.cuotas.filter(
         numero_cuota__gt=ultima_pagada.numero_cuota,
         estado__in=['pendiente', 'vencida'],
     )
+    hoy = timezone.now().date()
     actualizadas = 0
     for c in pendientes:
-        c.monto_base = nuevo_importe
-        c.monto_total = nuevo_importe
-        c.recargo_mora = Decimal('0')
+        monto = _monto_plan_cuota_contrato(contrato, c.numero_cuota)
+        if monto <= 0:
+            continue
+        tol = Decimal('0.05')
+        saldo_actual = c.saldo_para_cobro() if hasattr(c, 'saldo_para_cobro') else Decimal(str(c.monto_total or 0))
+        if (
+            abs(Decimal(str(c.monto_base or 0)) - monto) <= tol
+            and abs(saldo_actual - monto) <= tol
+        ):
+            continue
+        c.monto_base = monto
+        if c.estado == 'vencida' and c.fecha_vencimiento and c.fecha_vencimiento < hoy:
+            c.recargo_mora = c.calcular_mora()
+        else:
+            c.recargo_mora = Decimal('0')
         c.descuento = Decimal('0')
-        c.save()
+        c.actualizar_monto_total()
         actualizadas += 1
     return actualizadas
 
@@ -15740,7 +15753,8 @@ def procesar_operacion_contrato(request, contrato_id):
                     info_meses.fecha_inicio = contrato.fecha_inicio
                     info_meses.fecha_fin = contrato.fecha_fin
                     info_meses.save()
-            _actualizar_pendientes_al_ultimo_importe(contrato)
+            if mes_tipo == 'mensual':
+                _actualizar_pendientes_al_ultimo_importe(contrato, mes_tipo=mes_tipo)
             _activar_contrato_si_hay_cuotas_pagadas(contrato)
         else:
             if cuotas_objetivo_map:
@@ -15792,7 +15806,7 @@ def procesar_operacion_contrato(request, contrato_id):
                 cuota.movimiento = movimiento
                 cuota.save()
             if mes_tipo == 'mensual':
-                _actualizar_pendientes_al_ultimo_importe(contrato)
+                _actualizar_pendientes_al_ultimo_importe(contrato, mes_tipo=mes_tipo)
             _activar_contrato_si_hay_cuotas_pagadas(contrato)
         
         return JsonResponse({
@@ -16270,7 +16284,20 @@ def procesar_pago_cuota_operacion(request, cuota_id):
                     return JsonResponse({'error': str(e)}, status=400)
 
             if mes_tipo == 'mensual':
-                _actualizar_pendientes_al_ultimo_importe(contrato)
+                nuevo_precio = _parse_nuevo_precio_mensual_post(request)
+                if nuevo_precio is not None:
+                    plan_cuota = _monto_plan_cuota_contrato(contrato, cuota.numero_cuota)
+                    if abs(nuevo_precio - plan_cuota) > Decimal('0.05'):
+                        try:
+                            _aplicar_precio_mensual_desde_cuota(
+                                contrato, cuota.numero_cuota, nuevo_precio
+                            )
+                        except ValueError as e:
+                            return JsonResponse({'error': str(e)}, status=400)
+                    else:
+                        _actualizar_pendientes_al_ultimo_importe(contrato, mes_tipo=mes_tipo)
+                else:
+                    _actualizar_pendientes_al_ultimo_importe(contrato, mes_tipo=mes_tipo)
             _activar_contrato_si_hay_cuotas_pagadas(contrato)
 
         messages.success(
