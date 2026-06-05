@@ -20,16 +20,19 @@
                                 <p><strong>Sucursal:</strong> {{ caja.sucursal.nombre }}</p>
                                 <p><strong>Apertura:</strong> {{ caja.fecha_apertura|date:"d/m/Y H:i" }}</p>
                                 <p><strong>Saldo Inicial:</strong> ${{ caja.saldo_inicial|format_price:0 }}</p>
-                                <p><strong>Saldo Actual:</strong> <span class="text-success font-weight-bold">${{ caja.get_saldo_actual|format_price:0 }}</span></p>
+                                <p><strong>Saldo teórico (movimientos):</strong>
+                                    <span class="text-success font-weight-bold">${{ saldo_teorico|format_price:0 }}</span>
+                                </p>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="alert alert-info">
                                 <h5>🚀 <strong>Apertura Automática</strong></h5>
-                                <p class="mb-2">Al cerrar esta caja se abrirá automáticamente una nueva:</p>
+                                <p class="mb-2">Al cerrar se abrirá una caja nueva con el saldo que indiques abajo:</p>
                                 <ul class="mb-0">
-                                    <li><strong>Nueva Caja:</strong> #{{ caja.numero|add:1 }}</li>
-                                    <li><strong>Saldo Inicial:</strong> ${{ caja.get_saldo_actual|format_price:0 }}</li>
+                                    <li><strong>Saldo inicial próxima caja:</strong>
+                                        <span id="preview_saldo_proxima" class="fw-bold">${{ saldo_teorico|format_price:0 }}</span>
+                                    </li>
                                     <li><strong>Estado:</strong> Abierta</li>
                                 </ul>
                             </div>
@@ -44,6 +47,23 @@
                     
                     <form method="post">
                         {% csrf_token %}
+                        <div class="form-group mb-3">
+                            <label for="saldo_final" class="form-label">
+                                <strong>💰 Saldo real / saldo para la próxima caja:</strong>
+                            </label>
+                            <input type="text"
+                                   class="form-control form-control-lg fw-bold"
+                                   id="saldo_final"
+                                   name="saldo_final"
+                                   required
+                                   inputmode="decimal"
+                                   value="{% if saldo_final_form %}{{ saldo_final_form }}{% else %}{{ saldo_teorico|format_price:0 }}{% endif %}"
+                                   placeholder="Ej: 150.000,00">
+                            <small class="text-muted">
+                                Por defecto coincide con el saldo teórico. Modificá este valor si contaste efectivo distinto
+                                o querés que la próxima caja arranque desde otro importe.
+                            </small>
+                        </div>
                         <div class="form-group mb-3">
                             <label for="observaciones" class="form-label">
                                 <strong>📝 Observaciones de Cierre (Opcional):</strong>
@@ -69,4 +89,17 @@
         </div>
     </div>
 </div>
-{% endblock %} 
+<script>
+(function() {
+    var input = document.getElementById('saldo_final');
+    var preview = document.getElementById('preview_saldo_proxima');
+    if (!input || !preview) return;
+    function actualizarPreview() {
+        var val = (input.value || '').trim();
+        preview.textContent = val ? ('$' + val) : '—';
+    }
+    input.addEventListener('input', actualizarPreview);
+    input.addEventListener('change', actualizarPreview);
+})();
+</script>
+{% endblock %}

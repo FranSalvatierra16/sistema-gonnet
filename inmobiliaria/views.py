@@ -10886,11 +10886,33 @@ def nuevo_movimiento(request, numero_caja=None):
 @login_required
 def cerrar_caja(request, numero_caja):
     caja = get_object_or_404(Caja, numero=numero_caja, sucursal=request.user.sucursal, estado='abierta')
-    
+    saldo_teorico = caja.get_saldo_actual()
+
     if request.method == 'POST':
-        observaciones = request.POST.get('observaciones', '')
-        saldo_final = caja.get_saldo_actual()
-        
+        observaciones = (request.POST.get('observaciones') or '').strip()
+        raw_saldo_final = (request.POST.get('saldo_final') or '').strip()
+        try:
+            saldo_final = parse_decimal_monto(raw_saldo_final) if raw_saldo_final else saldo_teorico
+        except (ValueError, InvalidOperation, TypeError):
+            messages.error(request, 'El saldo final ingresado no es válido.')
+            return render(
+                request,
+                'inmobiliaria/caja/cerrar_caja.html',
+                {
+                    'caja': caja,
+                    'saldo_teorico': saldo_teorico,
+                    'saldo_final_form': raw_saldo_final,
+                },
+            )
+
+        tol = Decimal('0.01')
+        if abs(saldo_final - saldo_teorico) > tol:
+            ajuste = (
+                f'[Ajuste cierre] Saldo teórico ${format_monto_argentino(saldo_teorico)} '
+                f'→ saldo real ${format_monto_argentino(saldo_final)}.'
+            )
+            observaciones = f'{ajuste}\n{observaciones}'.strip() if observaciones else ajuste
+
         try:
             # Cerrar la caja actual
             caja.fecha_cierre = timezone.now()
@@ -10899,27 +10921,47 @@ def cerrar_caja(request, numero_caja):
             caja.usuario_cierre = request.user
             caja.observaciones_cierre = observaciones
             caja.save()
-            
+
             # Apertura automática de nueva caja (numero = PK autoincremental; no fijar a mano).
             nueva_caja = Caja.objects.create(
                 sucursal=request.user.sucursal,
                 estado='abierta',
                 usuario_apertura=request.user,
                 saldo_inicial=saldo_final,
-                observaciones_apertura=f'Apertura automática tras cierre de Caja #{caja.numero}',
+                observaciones_apertura=(
+                    f'Apertura automática tras cierre de Caja #{caja.numero} '
+                    f'(saldo inicial ${format_monto_argentino(saldo_final)})'
+                ),
             )
-            
+
             num_cerrada = caja.numero
             messages.success(request, f'✅ Caja #{num_cerrada} cerrada exitosamente')
-            messages.success(request, f'🚀 Nueva Caja #{nueva_caja.numero} abierta automáticamente con saldo inicial: ${saldo_final:,.0f}')
+            messages.success(
+                request,
+                f'🚀 Nueva Caja #{nueva_caja.numero} abierta con saldo inicial: '
+                f'${format_monto_argentino(saldo_final)}',
+            )
+            if abs(saldo_final - saldo_teorico) > tol:
+                messages.info(
+                    request,
+                    f'Se registró ajuste respecto del saldo teórico '
+                    f'(${format_monto_argentino(saldo_teorico)}).',
+                )
             messages.info(request, 'Podés imprimir el resumen de movimientos de la caja cerrada desde la página que se abre.')
             return redirect('inmobiliaria:imprimir_resumen_caja', numero=num_cerrada)
-            
+
         except Exception as e:
             messages.error(request, f'Error al cerrar/abrir caja: {str(e)}')
             return redirect('inmobiliaria:lista_cajas')
-    
-    return render(request, 'inmobiliaria/caja/cerrar_caja.html', {'caja': caja})
+
+    return render(
+        request,
+        'inmobiliaria/caja/cerrar_caja.html',
+        {
+            'caja': caja,
+            'saldo_teorico': saldo_teorico,
+        },
+    )
 
 @login_required
 def nuevo_registro(request):
