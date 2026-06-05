@@ -28,10 +28,10 @@
                         <div class="col-md-6">
                             <div class="alert alert-info">
                                 <h5>🚀 <strong>Apertura Automática</strong></h5>
-                                <p class="mb-2">Al cerrar se abrirá una caja nueva con el saldo que indiques abajo:</p>
+                                <p class="mb-2">Al cerrar se abrirá una caja nueva con el saldo teórico calculado:</p>
                                 <ul class="mb-0">
                                     <li><strong>Saldo inicial próxima caja:</strong>
-                                        <span id="preview_saldo_proxima" class="fw-bold">${{ saldo_teorico|format_price:0 }}</span>
+                                        <span class="fw-bold">${{ saldo_teorico|format_price:0 }}</span>
                                     </li>
                                     <li><strong>Estado:</strong> Abierta</li>
                                 </ul>
@@ -48,20 +48,14 @@
                     <form method="post">
                         {% csrf_token %}
                         <div class="form-group mb-3">
-                            <label for="saldo_final" class="form-label">
-                                <strong>💰 Saldo real / saldo para la próxima caja:</strong>
+                            <label class="form-label">
+                                <strong>💰 Saldo de cierre / saldo para la próxima caja:</strong>
                             </label>
-                            <input type="text"
-                                   class="form-control form-control-lg fw-bold"
-                                   id="saldo_final"
-                                   name="saldo_final"
-                                   required
-                                   inputmode="decimal"
-                                   value="{% if saldo_final_form %}{{ saldo_final_form }}{% else %}{{ saldo_teorico|format_price:0 }}{% endif %}"
-                                   placeholder="Ej: 150.000,00">
+                            <div class="form-control form-control-lg fw-bold bg-light text-success">
+                                ${{ saldo_teorico|format_price:0 }}
+                            </div>
                             <small class="text-muted">
-                                Por defecto coincide con el saldo teórico. Modificá este valor si contaste efectivo distinto
-                                o querés que la próxima caja arranque desde otro importe. Se registrará <strong>100% en efectivo</strong>.
+                                Se toma automáticamente del saldo teórico (movimientos). No se puede modificar al cerrar.
                             </small>
                         </div>
                         <div class="form-group mb-3">
@@ -89,17 +83,4 @@
         </div>
     </div>
 </div>
-<script>
-(function() {
-    var input = document.getElementById('saldo_final');
-    var preview = document.getElementById('preview_saldo_proxima');
-    if (!input || !preview) return;
-    function actualizarPreview() {
-        var val = (input.value || '').trim();
-        preview.textContent = val ? ('$' + val) : '—';
-    }
-    input.addEventListener('input', actualizarPreview);
-    input.addEventListener('change', actualizarPreview);
-})();
-</script>
 {% endblock %}

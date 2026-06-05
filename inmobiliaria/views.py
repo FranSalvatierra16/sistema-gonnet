@@ -10921,28 +10921,7 @@ def cerrar_caja(request, numero_caja):
 
     if request.method == 'POST':
         observaciones = (request.POST.get('observaciones') or '').strip()
-        raw_saldo_final = (request.POST.get('saldo_final') or '').strip()
-        try:
-            saldo_final = parse_decimal_monto(raw_saldo_final) if raw_saldo_final else saldo_teorico
-        except (ValueError, InvalidOperation, TypeError):
-            messages.error(request, 'El saldo final ingresado no es válido.')
-            return render(
-                request,
-                'inmobiliaria/caja/cerrar_caja.html',
-                {
-                    'caja': caja,
-                    'saldo_teorico': saldo_teorico,
-                    'saldo_final_form': raw_saldo_final,
-                },
-            )
-
-        tol = Decimal('0.01')
-        if abs(saldo_final - saldo_teorico) > tol:
-            ajuste = (
-                f'[Ajuste cierre] Saldo teórico ${format_monto_argentino(saldo_teorico)} '
-                f'→ saldo real ${format_monto_argentino(saldo_final)}.'
-            )
-            observaciones = f'{ajuste}\n{observaciones}'.strip() if observaciones else ajuste
+        saldo_final = saldo_teorico
 
         try:
             # Cerrar la caja actual
@@ -10972,12 +10951,6 @@ def cerrar_caja(request, numero_caja):
                 f'🚀 Nueva Caja #{nueva_caja.numero} abierta con saldo inicial: '
                 f'${format_monto_argentino(saldo_final)}',
             )
-            if abs(saldo_final - saldo_teorico) > tol:
-                messages.info(
-                    request,
-                    f'Se registró ajuste respecto del saldo teórico '
-                    f'(${format_monto_argentino(saldo_teorico)}).',
-                )
             messages.info(request, 'Podés imprimir el resumen de movimientos de la caja cerrada desde la página que se abre.')
             return redirect('inmobiliaria:imprimir_resumen_caja', numero=num_cerrada)
 
