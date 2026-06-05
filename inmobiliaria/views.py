@@ -18995,21 +18995,48 @@ def gestionar_conceptos(request):
         action = request.POST.get('action')
         
         if action == 'crear':
-            nuevo_id = request.POST.get('nuevo_id')
-            nuevo_nombre = request.POST.get('nuevo_nombre')
-            
-            if nuevo_id and nuevo_nombre:
+            nuevo_id = (request.POST.get('nuevo_id') or '').strip()
+            nuevo_nombre = (request.POST.get('nuevo_nombre') or '').strip()
+
+            def _id_concepto_valido_crear(s):
+                return bool(re.fullmatch(r'[a-zA-Z0-9]{1,20}', s or ''))
+
+            if not nuevo_nombre:
+                messages.error(request, 'El nombre es requerido.')
+            else:
                 try:
-                    Concepto.objects.create(
-                        id=nuevo_id,
-                        nombre=nuevo_nombre,
-                        sucursal=sucursal_destino_nuevo_concepto_caja(sucursal_vendedor),
-                    )
-                    messages.success(request, f'Concepto "{nuevo_nombre}" creado exitosamente.')
+                    if nuevo_id:
+                        if not _id_concepto_valido_crear(nuevo_id):
+                            messages.error(
+                                request,
+                                'El ID solo puede tener letras y números, entre 1 y 20 caracteres.',
+                            )
+                        elif Concepto.objects.filter(id=nuevo_id).exists():
+                            messages.error(request, f'Ya existe un concepto con el ID "{nuevo_id}".')
+                        else:
+                            id_asignar = nuevo_id
+                            Concepto.objects.create(
+                                id=id_asignar,
+                                nombre=nuevo_nombre,
+                                sucursal=sucursal_destino_nuevo_concepto_caja(sucursal_vendedor),
+                            )
+                            messages.success(
+                                request,
+                                f'Concepto "{nuevo_nombre}" creado exitosamente (ID {id_asignar}).',
+                            )
+                    else:
+                        id_asignar = proximo_id_numerico_libre_concepto_caja()
+                        Concepto.objects.create(
+                            id=id_asignar,
+                            nombre=nuevo_nombre,
+                            sucursal=sucursal_destino_nuevo_concepto_caja(sucursal_vendedor),
+                        )
+                        messages.success(
+                            request,
+                            f'Concepto "{nuevo_nombre}" creado exitosamente (ID {id_asignar} asignado automáticamente).',
+                        )
                 except Exception as e:
                     messages.error(request, f'Error al crear concepto: {e}')
-            else:
-                messages.error(request, 'ID y nombre son requeridos.')
         
         elif action == 'editar':
             concepto_id = (request.POST.get('concepto_id') or '').strip()
@@ -19025,7 +19052,9 @@ def gestionar_conceptos(request):
 
             if not nuevo_nombre:
                 messages.error(request, 'El nombre no puede estar vacío.')
-            elif not concepto_id and nuevo_id_asignar:
+            elif not concepto_id:
+                if not nuevo_id_asignar:
+                    nuevo_id_asignar = proximo_id_numerico_libre_concepto_caja()
                 if not _id_concepto_valido(nuevo_id_asignar):
                     messages.error(
                         request,
@@ -19106,7 +19135,7 @@ def gestionar_conceptos(request):
             else:
                 messages.error(
                     request,
-                    'Este concepto no tiene ID: completá el campo "Nuevo ID" y guardá de nuevo.',
+                    'No se pudo identificar el concepto a editar.',
                 )
         
         elif action == 'eliminar':
@@ -19132,6 +19161,7 @@ def gestionar_conceptos(request):
     context = {
         'conceptos': conceptos,
         'total_conceptos': total_conceptos,
+        'proximo_id_sugerido': proximo_id_numerico_libre_concepto_caja(),
         'sucursal': (
             f'Catálogo unificado (referencia: {ref_cat.nombre})'
             if ref_cat

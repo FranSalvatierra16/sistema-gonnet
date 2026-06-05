@@ -117,8 +117,8 @@
                                             <i class="fas fa-times"></i> Sin ID
                                         </span>
                                         <input type="text" class="form-control form-control-sm concepto-nuevo-id-input d-none mt-1"
-                                               maxlength="20" placeholder="Nuevo ID (obligatorio al guardar)" autocomplete="off"
-                                               title="Solo letras y números, máx. 20 caracteres">
+                                               maxlength="20" placeholder="Opcional — se asigna el menor número libre" autocomplete="off"
+                                               title="Solo letras y números, máx. 20 caracteres; vacío = automático">
                                     {% endif %}
                                 </td>
                                 <td>
@@ -202,11 +202,12 @@
                 
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label for="nuevo_id"><strong>ID del Concepto *</strong></label>
+                        <label for="nuevo_id"><strong>ID del Concepto</strong> <span class="text-muted fw-normal">(opcional)</span></label>
                         <input type="text" class="form-control" id="nuevo_id" name="nuevo_id" 
-                               placeholder="Ej: 27, ABC01, etc." required maxlength="20">
+                               placeholder="Vacío = asignar {{ proximo_id_sugerido }} (menor número libre)" maxlength="20">
                         <small class="form-text text-muted">
-                            Identificador único para el concepto. Puede ser numérico o alfanumérico.
+                            Si no elegís ID, se asigna el menor número libre (ej. si faltan 1, 2, 3… usa el primero disponible).
+                            También podés poner uno alfanumérico (ABC01).
                         </small>
                     </div>
                     
@@ -379,11 +380,7 @@ $(document).ready(function() {
             return;
         }
         if (sinId) {
-            if (!nuevoId) {
-                alert('Este concepto no tiene ID. Completá el campo "Nuevo ID" (solo letras y números, máximo 20 caracteres).');
-                return;
-            }
-            if (!/^[a-zA-Z0-9]{1,20}$/.test(nuevoId)) {
+            if (nuevoId && !/^[a-zA-Z0-9]{1,20}$/.test(nuevoId)) {
                 alert('El ID solo puede tener letras y números, entre 1 y 20 caracteres.');
                 return;
             }
@@ -437,9 +434,9 @@ $(document).ready(function() {
         }
     });
     
-    // Auto-focus en modal de crear
+    // Auto-focus en modal de crear (nombre primero; ID es opcional)
     $('#crearConceptoModal').on('shown.bs.modal', function () {
-        $('#nuevo_id').focus();
+        $('#nuevo_nombre').focus();
     });
     
     // Validación en tiempo real para ID
@@ -452,7 +449,7 @@ $(document).ready(function() {
             $(this).siblings('.form-text').text('Solo se permiten letras y números, máximo 20 caracteres.');
         } else {
             $(this).removeClass('is-invalid');
-            $(this).siblings('.form-text').text('Identificador único para el concepto. Puede ser numérico o alfanumérico.');
+            $(this).siblings('.form-text').text('Si no elegís ID, se asigna el menor número libre. También podés poner uno alfanumérico (ABC01).');
         }
     });
 });
