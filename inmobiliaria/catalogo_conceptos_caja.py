@@ -40,3 +40,21 @@ def q_conceptos_caja_visibles(sucursal_actual):
 def sucursal_destino_nuevo_concepto_caja(sucursal_actual):
     """FK sucursal al crear conceptos nuevos: la de referencia si existe, si no la del usuario."""
     return get_sucursal_referencia_catalogo_conceptos_caja() or sucursal_actual
+
+
+def proximo_id_numerico_libre_concepto_caja():
+    """
+    Menor entero positivo no usado como id numérico de concepto de caja (1, 2, 3…).
+    Ignora ids alfabéticos (ej. RE).
+    """
+    from .models.caja import Concepto
+
+    usados = set()
+    for cid in Concepto.objects.values_list('id', flat=True):
+        s = str(cid or '').strip()
+        if s.isdigit():
+            usados.add(int(s))
+    n = 1
+    while n in usados:
+        n += 1
+    return str(n)

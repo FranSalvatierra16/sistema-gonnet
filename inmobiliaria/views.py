@@ -1640,6 +1640,7 @@ from .catalogo_conceptos_caja import (
     get_sucursal_referencia_catalogo_conceptos_caja,
     q_conceptos_caja_visibles,
     sucursal_destino_nuevo_concepto_caja,
+    proximo_id_numerico_libre_concepto_caja,
 )
 from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm, VentaPropiedadForm, MovimientoCajaForm
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm, SetPasswordForm
@@ -5747,27 +5748,36 @@ def crear_concepto_ajax(request):
                     'error': 'Ya existe un concepto con ese nombre'
                 })
             
+            destino = sucursal_destino_nuevo_concepto_caja(request.user.sucursal)
+
             # Si se proporciona un ID personalizado
             if id_personalizado:
                 try:
                     id_num = int(id_personalizado)
-                    if Concepto.objects.filter(id=id_num).exists():
+                    id_str = str(id_num)
+                    if Concepto.objects.filter(id=id_str).exists():
                         return JsonResponse({
                             'success': False,
                             'error': f'Ya existe un concepto con el ID {id_num}'
                         })
-                    
-                    # Crear concepto con ID específico
-                    concepto = Concepto(id=id_num, nombre=nombre)
-                    concepto.save()
+
+                    concepto = Concepto.objects.create(
+                        id=id_str,
+                        nombre=nombre,
+                        sucursal=destino,
+                    )
                 except ValueError:
                     return JsonResponse({
                         'success': False,
                         'error': 'El ID debe ser un número válido'
                     })
             else:
-                # Crear concepto con ID automático
-                concepto = Concepto.objects.create(nombre=nombre)
+                id_str = proximo_id_numerico_libre_concepto_caja()
+                concepto = Concepto.objects.create(
+                    id=id_str,
+                    nombre=nombre,
+                    sucursal=destino,
+                )
             
             return JsonResponse({
                 'success': True,
@@ -10523,6 +10533,24 @@ def caja(request):
     return render(request, 'inmobiliaria/caja/caja.html', context)
 
 
+def _saldo_inicial_efectivo_caja(caja):
+    """Saldo de apertura de la caja: se considera 100% efectivo en ARS."""
+    return Decimal(str(getattr(caja, 'saldo_inicial', None) or 0))
+
+
+def _aplicar_saldo_inicial_a_totales_efectivo(caja, totales):
+    """Suma el saldo inicial al efectivo y al saldo total ARS (coherente con get_saldo_actual)."""
+    saldo_ini = _saldo_inicial_efectivo_caja(caja)
+    if saldo_ini == 0:
+        totales['saldo_inicial_efectivo'] = Decimal('0')
+        return totales
+    totales['ingresos']['efectivo'] = Decimal(str(totales['ingresos']['efectivo'])) + saldo_ini
+    totales['saldo_actual']['efectivo'] = Decimal(str(totales['saldo_actual']['efectivo'])) + saldo_ini
+    totales['saldo_total'] = Decimal(str(totales['saldo_total'])) + saldo_ini
+    totales['saldo_inicial_efectivo'] = saldo_ini
+    return totales
+
+
 def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id')):
     """Contexto compartido entre detalle de caja y resumen imprimible."""
     from inmobiliaria.models.sucursal import CuentaBancaria
@@ -10637,6 +10665,8 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
         'saldo_actual': saldo_actual,
         'saldo_total': saldo_total
     }
+    totales = _aplicar_saldo_inicial_a_totales_efectivo(caja, totales)
+    saldo_total = totales['saldo_total']
 
     return {
         'caja': caja,
@@ -10664,9 +10694,9 @@ def imprimir_resumen_caja(request, numero):
     caja = get_object_or_404(Caja, numero=numero, sucursal=request.user.sucursal)
     context = _build_context_detalle_caja(request, caja, movimientos_order=('fecha', 'id'))
     context['es_cierre'] = caja.estado == 'cerrada'
-    neto = context['totales']['saldo_total']
-    neto_dec = neto if isinstance(neto, Decimal) else Decimal(str(neto))
-    context['saldo_teorico_final'] = Decimal(str(caja.saldo_inicial)) + neto_dec
+    saldo_ini = _saldo_inicial_efectivo_caja(caja)
+    context['saldo_teorico_final'] = caja.get_saldo_actual()
+    context['neto_movimientos_ars'] = context['totales']['saldo_total'] - saldo_ini
     return render(request, 'inmobiliaria/caja/resumen_caja_imprimir.html', context)
 
 @login_required
@@ -11955,22 +11985,30 @@ def crear_concepto(request):
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Método no permitido'})
     
-    id = request.POST.get('id')
-    nombre = request.POST.get('nombre')
+    id_raw = (request.POST.get('id') or '').strip()
+    nombre = (request.POST.get('nombre') or '').strip()
     sucursal = request.user.sucursal
-    
-    if not id or not nombre:
-        return JsonResponse({'success': False, 'error': 'ID y nombre son requeridos'})
-    
+
+    if not nombre:
+        return JsonResponse({'success': False, 'error': 'El nombre es requerido'})
+
     try:
-        if Concepto.objects.filter(id=id).exists():
+        if id_raw:
+            try:
+                id_concepto = str(int(id_raw))
+            except ValueError:
+                return JsonResponse({'success': False, 'error': 'El ID debe ser un número válido'})
+        else:
+            id_concepto = proximo_id_numerico_libre_concepto_caja()
+
+        if Concepto.objects.filter(id=id_concepto).exists():
             return JsonResponse(
                 {'success': False, 'error': 'Ya existe un concepto con ese ID en el catálogo compartido.'}
             )
 
         destino = sucursal_destino_nuevo_concepto_caja(sucursal)
         concepto = Concepto.objects.create(
-            id=id,
+            id=id_concepto,
             nombre=nombre,
             sucursal=destino,
         )

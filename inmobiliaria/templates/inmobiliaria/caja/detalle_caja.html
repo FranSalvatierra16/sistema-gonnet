@@ -369,7 +369,7 @@
                         </div>
                         <div class="col-md-3">
                             <div class="info-box">
-                                <h6>Efectivo ARS</h6>
+                                <h6>Efectivo ARS{% if totales.saldo_inicial_efectivo %} <span class="text-muted small">(incl. saldo inicial)</span>{% endif %}</h6>
                                 <p>${{ totales.saldo_actual.efectivo|format_price }}</p>
                             </div>
                         </div>

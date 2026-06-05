@@ -51,8 +51,8 @@
                     <strong>Cierre:</strong> {{ caja.fecha_cierre|date:"d/m/Y H:i"|default:"—" }}<br>
                     <strong>Usuario cierre:</strong> {{ caja.usuario_cierre|default:"—" }}<br>
                     {% endif %}
-                    <strong>Saldo inicial:</strong> ${{ caja.saldo_inicial|format_price }}<br>
-                    <strong>Neto movimientos ARS (ing. − egr.):</strong> ${{ totales.saldo_total|format_price }}<br>
+                    <strong>Saldo inicial (efectivo):</strong> ${{ caja.saldo_inicial|format_price }}<br>
+                    <strong>Neto movimientos ARS (ing. − egr.):</strong> ${{ neto_movimientos_ars|format_price }}<br>
                     <strong>Saldo USD efectivo (ing. − egr.):</strong> U$S {{ totales.saldo_actual.dolares|format_price }}<br>
                     <strong>Saldo (inicial + neto ARS):</strong> ${{ saldo_teorico_final|format_price }}
                     {% if caja.estado == 'cerrada' and caja.saldo_final is not None %}
@@ -163,8 +163,10 @@
     </div>
 
     <div class="alert {% if es_saldo_positivo %}alert-success{% else %}alert-danger{% endif %} mb-0">
-        <strong>Resultado del período ARS (ingresos − egresos):</strong>
+        <strong>Saldo total ARS (inicial en efectivo + movimientos):</strong>
         ${{ totales.saldo_total|format_price }}
+        &nbsp;·&nbsp;
+        <strong>Neto movimientos ARS:</strong> ${{ neto_movimientos_ars|format_price }}
         &nbsp;·&nbsp;
         <strong>Saldo USD:</strong> U$S {{ totales.saldo_actual.dolares|format_price }}
     </div>

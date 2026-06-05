@@ -455,7 +455,7 @@
                         <label for="idNuevoConcepto" class="form-label"><strong>ID del Concepto:</strong></label>
                         <input type="number" class="form-control" id="idNuevoConcepto" min="1" 
                                placeholder="Ej: 1, 2, 3, etc.">
-                        <small class="text-muted">💡 Deja vacío para asignar ID automáticamente</small>
+                        <small class="text-muted">💡 Si dejás el ID vacío, se asigna el <strong>menor número libre</strong> (1, 2, 3…)</small>
                     </div>
                     
                     <div class="mb-3">
@@ -877,6 +877,16 @@ function formatearNumeroEnTiempoReal(input, opts) {
 }
 window.formatearNumeroEnTiempoReal = formatearNumeroEnTiempoReal;
 
+function enfocarInputModal(modalElement, inputId) {
+    if (!modalElement || !inputId) return;
+    modalElement.addEventListener('shown.bs.modal', function handler() {
+        var el = document.getElementById(inputId);
+        if (el && typeof el.focus === 'function') {
+            el.focus({ preventScroll: true });
+        }
+    }, { once: true });
+}
+
 // Función para mostrar el modal de concepto
 function mostrarModalConcepto() {
     console.log('mostrarModalConcepto llamada');
@@ -917,6 +927,7 @@ function mostrarModalConcepto() {
     }
     
     // Mostrar modal usando Bootstrap 5
+    enfocarInputModal(modalElement, 'conceptoId');
     const modal = new bootstrap.Modal(modalElement);
     modal.show();
 }
@@ -1049,6 +1060,7 @@ function editarConcepto(conceptoId) {
         }
         
         var modalConcepto = new bootstrap.Modal(document.getElementById('modalConcepto'));
+        enfocarInputModal(document.getElementById('modalConcepto'), 'conceptoId');
         modalConcepto.show();
     }
 }
@@ -1834,7 +1846,9 @@ function seleccionarConcepto(conceptoId, conceptoNombre) {
 // Función para mostrar modal de nuevo concepto
 function mostrarModalNuevoConcepto() {
     document.getElementById('formNuevoConcepto').reset();
-    var modalNuevo = new bootstrap.Modal(document.getElementById('modalNuevoConcepto'));
+    var modalEl = document.getElementById('modalNuevoConcepto');
+    enfocarInputModal(modalEl, 'nombreNuevoConcepto');
+    var modalNuevo = new bootstrap.Modal(modalEl);
     modalNuevo.show();
 }
 
@@ -1903,8 +1917,10 @@ function crearNuevoConcepto() {
             // Cerrar modal
             var modalNuevo = bootstrap.Modal.getInstance(document.getElementById('modalNuevoConcepto'));
             modalNuevo.hide();
-            
-            alert('✅ Concepto creado exitosamente');
+            setTimeout(function() {
+                var imp = document.getElementById('importe');
+                if (imp) imp.focus({ preventScroll: true });
+            }, 200);
         } else {
             alert('❌ Error: ' + (data.error || 'Error desconocido'));
         }
