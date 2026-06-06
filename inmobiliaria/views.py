@@ -14825,7 +14825,8 @@ def _numero_recibo_mostrar_movimiento(movimiento, sucursal=None, asignar_si_falt
 def procesar_conceptos_y_crear_movimiento(request, caja, contrato, pago_cuota_context=None):
     """Procesa los conceptos y crea el movimiento de caja. Retorna (movimiento, total) o (None, 0) y el tercer elemento opcional es el mensaje de error.
 
-    pago_cuota_context: dict con cuota_id y numero_cuota para cobro de cuota mensual (JSON sin mes alquiler; honorarios/sellados en cero).
+    pago_cuota_context: dict con cuota_id y numero_cuota para cobro de cuota mensual.
+    Honorarios (25) y sellados (26) pueden ir en la tabla de conceptos como en otras operaciones.
     """
     try:
         import json
@@ -15008,8 +15009,6 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato, pago_cuota_co
                 break
 
         if pago_cuota_context is not None:
-            honorarios_final = Decimal('0')
-            sellados_final = Decimal('0')
             if conceptos_data:
                 payload_cuota = {
                     'conceptos': conceptos_data,
@@ -15017,6 +15016,10 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato, pago_cuota_co
                     'cuota_id': int(pago_cuota_context['cuota_id']),
                     'numero_cuota': int(pago_cuota_context['numero_cuota']),
                 }
+                if honorarios_final and honorarios_final > 0:
+                    payload_cuota['honorarios'] = float(honorarios_final)
+                if sellados_final and sellados_final > 0:
+                    payload_cuota['sellados'] = float(sellados_final)
                 if mes_alquiler_tipo in ('proporcional', 'mensual', 'adelanto'):
                     payload_cuota['mes_alquiler_tipo'] = mes_alquiler_tipo
                 if mes_alquiler_importe is not None:
@@ -16178,11 +16181,6 @@ def procesar_pago_cuota_operacion(request, cuota_id):
             moneda = str(item.get('moneda') or 'ARS').strip().upper()
             if moneda not in ('ARS', 'USD'):
                 moneda = 'ARS'
-            if cid in ('25', '26'):
-                return JsonResponse(
-                    {'error': 'En el cobro de cuota no se usan honorarios (25) ni sellados (26).'},
-                    status=400,
-                )
             imp = parse_decimal_monto(item.get('importe'))
             # Se permiten importes negativos en líneas de concepto (descuentos, ajustes).
             if cid == '1' and imp < 0:

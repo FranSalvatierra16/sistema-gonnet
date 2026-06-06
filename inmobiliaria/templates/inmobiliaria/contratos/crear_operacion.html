@@ -183,6 +183,10 @@
                         <p class="text-muted small mb-2">
                             <strong>Operación principal:</strong> Agregá los conceptos con «+ Agregar Concepto». Si agregás el <strong>concepto 10 (depósito de garantía)</strong>, el depósito se marcará como pagado; no es obligatorio.
                         </p>
+                        {% elif tipo_operacion == 'cuota_especifica' %}
+                        <p class="text-muted small mb-2">
+                            Podés sumar la cuota (1000 o 29) y también <strong>honorarios (25)</strong> o <strong>sellados (26)</strong> en la misma operación. El total debe coincidir con los medios de pago.
+                        </p>
                         {% elif tipo_operacion == 'cargos_iniciales' %}
                         <p class="text-muted small mb-2">
                             Sumá las líneas que quieras registrar en este recibo (por ejemplo solo reserva). Para honorarios y sellados podés usar <strong>25</strong> y <strong>26</strong> si cobrás algo acá; si no, los cargás cuando hagas la <strong>operación principal</strong>.
