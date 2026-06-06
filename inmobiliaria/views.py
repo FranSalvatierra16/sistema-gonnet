@@ -13541,35 +13541,7 @@ def detalle_contrato(request, contrato_id):
     total_cuotas_plan = sum((Decimal(str(c.monto_total)) for c in cuotas), start=Decimal('0'))
     total_pendiente_cuotas = total_cuotas_plan - total_pagado
 
-    trimestres_extras_ui = []
-    if contrato.duracion_meses != 9:
-        trimestres_total = max(1, (contrato.duracion_meses + 2) // 3)
-        bloques = contrato.precios_bloques or []
-        if not isinstance(bloques, list):
-            bloques = []
-        for t in range(2, trimestres_total + 1):
-            idx = t - 2
-            raw = bloques[idx] if idx < len(bloques) else None
-            valor_str = ''
-            if raw is not None and str(raw).strip() not in ('', 'null', 'None'):
-                try:
-                    n = int(Decimal(str(raw)))
-                    valor_str = f'{n:,}'.replace(',', '.')
-                except (InvalidOperation, ValueError, TypeError):
-                    valor_str = str(raw)
-            trimestres_extras_ui.append({
-                't': t,
-                'mes_desde': (t - 1) * 3 + 1,
-                'mes_hasta': min(t * 3, contrato.duracion_meses),
-                'idx': idx,
-                'valor': valor_str,
-            })
-        for i in range(len(trimestres_extras_ui)):
-            row = trimestres_extras_ui[i]
-            row['trimestre_input_habilitado'] = i == 0 or all(
-                (trimestres_extras_ui[j].get('valor') or '').strip()
-                for j in range(i)
-            )
+    trimestres_extras_ui = _meses_precio_ui_contrato(contrato)
 
     ultima_cuota = cuotas.order_by('-numero_cuota').first()
     total_cuotas = cuotas.count()
@@ -13605,6 +13577,76 @@ def detalle_contrato(request, contrato_id):
     }
     
     return render(request, 'inmobiliaria/contratos/detalle_contrato.html', context)
+
+
+def _precios_bloques_es_modo_mensual(contrato):
+    """True si precios_bloques tiene un valor por mes (desde el mes 2)."""
+    n = int(contrato.duracion_meses or 0)
+    if n <= 1:
+        return False
+    raw = getattr(contrato, 'precios_bloques', None)
+    if not isinstance(raw, list):
+        return False
+    return len(raw) >= n - 1
+
+
+def _format_precio_mes_ui(valor):
+    if valor is None:
+        return ''
+    try:
+        d = Decimal(str(valor))
+    except (InvalidOperation, ValueError, TypeError):
+        s = str(valor or '').strip()
+        return s if s and s.lower() not in ('null', 'none') else ''
+    if d <= 0:
+        return ''
+    return f'{int(d):,}'.replace(',', '.')
+
+
+def _meses_precio_ui_contrato(contrato):
+    """Filas para el formulario: un campo por mes del contrato (1..duracion)."""
+    n = int(contrato.duracion_meses or 0)
+    if n <= 1 or n == 9:
+        return []
+
+    raw = getattr(contrato, 'precios_bloques', None)
+    rows = []
+
+    if raw is None:
+        base = contrato.precio_mensual or Decimal('0')
+        for mes in range(1, n + 1):
+            rows.append({
+                'mes': mes,
+                'idx': mes - 1,
+                'valor': _format_precio_mes_ui(base),
+            })
+    elif _precios_bloques_es_modo_mensual(contrato):
+        for mes in range(1, n + 1):
+            if mes == 1:
+                valor = contrato.precio_mensual
+            else:
+                entry = raw[mes - 2] if mes - 2 < len(raw) else None
+                valor = _decimal_desde_trimestre_json(entry)
+            rows.append({
+                'mes': mes,
+                'idx': mes - 1,
+                'valor': _format_precio_mes_ui(valor),
+            })
+    else:
+        montos = _montos_cuotas_por_trimestre(contrato)
+        for mes in range(1, n + 1):
+            v = montos[mes - 1] if mes - 1 < len(montos) else Decimal('0')
+            rows.append({
+                'mes': mes,
+                'idx': mes - 1,
+                'valor': _format_precio_mes_ui(v),
+            })
+
+    for i, row in enumerate(rows):
+        row['mes_input_habilitado'] = i == 0 or all(
+            (rows[j].get('valor') or '').strip() for j in range(i)
+        )
+    return rows
 
 
 def _fecha_fin_desde_inicio_y_duracion(fecha_inicio, duracion_meses):
@@ -13684,7 +13726,15 @@ def agregar_cuota_contrato(request, contrato_id):
 
     contrato.duracion_meses = nuevo_numero
     contrato.fecha_fin = _fecha_fin_desde_inicio_y_duracion(contrato.fecha_inicio, nuevo_numero)
-    contrato.save(update_fields=['duracion_meses', 'fecha_fin'])
+    update_fields = ['duracion_meses', 'fecha_fin']
+    if contrato.duracion_meses != 9 and isinstance(contrato.precios_bloques, list):
+        pb = list(contrato.precios_bloques)
+        objetivo = max(0, nuevo_numero - 1)
+        while len(pb) < objetivo:
+            pb.append(None)
+        contrato.precios_bloques = pb[:objetivo]
+        update_fields.append('precios_bloques')
+    contrato.save(update_fields=update_fields)
 
     messages.success(request, f'Se agregó la cuota {nuevo_numero}/{contrato.duracion_meses}.')
     return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
@@ -13723,9 +13773,13 @@ def eliminar_ultima_cuota_contrato(request, contrato_id):
     contrato.fecha_fin = _fecha_fin_desde_inicio_y_duracion(contrato.fecha_inicio, nueva_duracion)
 
     if contrato.duracion_meses != 9 and isinstance(contrato.precios_bloques, list):
-        num_bloques = max(1, (nueva_duracion + 2) // 3)
-        n_extra = max(0, num_bloques - 1)
-        contrato.precios_bloques = list(contrato.precios_bloques[:n_extra])
+        n_meses = int(contrato.duracion_meses or 0)
+        if _precios_bloques_es_modo_mensual(contrato) or len(contrato.precios_bloques) >= max(0, n_meses - 1):
+            contrato.precios_bloques = list(contrato.precios_bloques[: max(0, n_meses - 1)])
+        else:
+            num_bloques = max(1, (n_meses + 2) // 3)
+            n_extra = max(0, num_bloques - 1)
+            contrato.precios_bloques = list(contrato.precios_bloques[:n_extra])
         contrato.save(update_fields=['duracion_meses', 'fecha_fin', 'precios_bloques'])
     else:
         contrato.save(update_fields=['duracion_meses', 'fecha_fin'])
@@ -13816,9 +13870,13 @@ def eliminar_cuota_contrato_super_admin(request, contrato_id, cuota_id):
     contrato.fecha_fin = _fecha_fin_desde_inicio_y_duracion(contrato.fecha_inicio, nueva_duracion)
 
     if contrato.duracion_meses != 9 and isinstance(contrato.precios_bloques, list):
-        num_bloques = max(1, (nueva_duracion + 2) // 3)
-        n_extra = max(0, num_bloques - 1)
-        contrato.precios_bloques = list(contrato.precios_bloques[:n_extra])
+        n_meses = int(contrato.duracion_meses or 0)
+        if _precios_bloques_es_modo_mensual(contrato) or len(contrato.precios_bloques) >= max(0, n_meses - 1):
+            contrato.precios_bloques = list(contrato.precios_bloques[: max(0, n_meses - 1)])
+        else:
+            num_bloques = max(1, (n_meses + 2) // 3)
+            n_extra = max(0, num_bloques - 1)
+            contrato.precios_bloques = list(contrato.precios_bloques[:n_extra])
         contrato.save(update_fields=['duracion_meses', 'fecha_fin', 'precios_bloques'])
     else:
         contrato.save(update_fields=['duracion_meses', 'fecha_fin'])
@@ -13897,7 +13955,7 @@ def recalcular_cuotas_montos_desde_contrato(request, contrato_id):
             actualizadas += 1
     messages.success(
         request,
-        f'Se actualizaron {actualizadas} cuota(s) pendientes según el precio mensual y trimestres del contrato.',
+        f'Se actualizaron {actualizadas} cuota(s) pendientes según el precio de cada mes del contrato.',
     )
     return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
 
@@ -13911,10 +13969,10 @@ def activar_precios_trimestres_contrato(request, contrato_id):
         messages.error(request, 'No aplica a contratos de invierno.')
         return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
     if contrato.precios_bloques is not None:
-        messages.warning(request, 'Este contrato ya está en modo trimestres.')
+        messages.warning(request, 'Este contrato ya tiene precios por mes configurados.')
         return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
 
-    contrato.precios_bloques = []
+    contrato.precios_bloques = [None] * max(0, int(contrato.duracion_meses or 0) - 1)
     contrato.save(update_fields=['precios_bloques'])
     montos = _montos_cuotas_por_trimestre(contrato)
     n = 0
@@ -13930,7 +13988,7 @@ def activar_precios_trimestres_contrato(request, contrato_id):
             n += 1
     messages.success(
         request,
-        f'Modo trimestres activado: meses 1–3 con el precio mensual del contrato; meses 4+ sin monto hasta que cargues cada trimestre abajo. Se actualizaron {n} cuota(s) no pagadas.',
+        f'Modo precios por mes activado: mes 1 con el precio mensual del contrato; meses 2+ sin monto hasta que cargues cada mes abajo. Se actualizaron {n} cuota(s) no pagadas.',
     )
     return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
 
@@ -13938,32 +13996,43 @@ def activar_precios_trimestres_contrato(request, contrato_id):
 @login_required
 @require_POST
 def actualizar_precios_bloques_contrato(request, contrato_id):
-    """Guarda precios_bloques y recalcula montos de cuotas no pagadas (contratos viejos o correcciones)."""
+    """Guarda precio por mes (mes 1 → precio_mensual; meses 2+ → precios_bloques) y recalcula cuotas pendientes."""
     contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
     if contrato.duracion_meses == 9:
         messages.error(request, 'Esta herramienta no aplica a contratos de invierno (9 meses).')
         return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
 
-    num_bloques = max(1, (contrato.duracion_meses + 2) // 3)
-    n_extra = num_bloques - 1
+    n = int(contrato.duracion_meses or 0)
+    n_extra = max(0, n - 1)
 
-    def _post_trimestres_todos_vacios():
-        for i in range(n_extra):
-            if (request.POST.get(f'precio_trimester_{i}') or '').strip():
+    def _post_meses_extra_todos_vacios():
+        for i in range(1, n):
+            if (request.POST.get(f'precio_mes_{i}') or '').strip():
                 return False
         return True
 
-    if contrato.precios_bloques is None and _post_trimestres_todos_vacios():
-        messages.info(
-            request,
-            'Sin cambios: este contrato sigue con el mismo precio en todos los meses (modo anterior). '
-            'Completá al menos un importe de trimestre para pasar a cuotas por bloques de 3 meses.',
-        )
-        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+    if contrato.precios_bloques is None and _post_meses_extra_todos_vacios():
+        v_mes1 = (request.POST.get('precio_mes_0') or '').strip()
+        if not v_mes1:
+            messages.info(
+                request,
+                'Sin cambios: este contrato sigue con el mismo precio en todos los meses (modo anterior). '
+                'Completá al menos un importe de mes 2 en adelante para definir precios mes a mes.',
+            )
+            return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+    v_mes1 = (request.POST.get('precio_mes_0') or '').strip()
+    if v_mes1:
+        try:
+            contrato.precio_mensual = parse_decimal_monto(v_mes1)
+            contrato.save(update_fields=['precio_mensual'])
+        except (InvalidOperation, ValueError, TypeError):
+            messages.error(request, 'El importe del mes 1 no es válido.')
+            return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
 
     raw_list = []
-    for i in range(n_extra):
-        v = (request.POST.get(f'precio_trimester_{i}') or '').strip()
+    for i in range(1, n):
+        v = (request.POST.get(f'precio_mes_{i}') or '').strip()
         if not v:
             raw_list.append(None)
         else:
@@ -13990,7 +14059,7 @@ def actualizar_precios_bloques_contrato(request, contrato_id):
 
     messages.success(
         request,
-        f'Precios por trimestre guardados. Se recalcularon {actualizadas} cuota(s) no pagadas (pendientes / vencidas).',
+        f'Precios por mes guardados. Se recalcularon {actualizadas} cuota(s) no pagadas (pendientes / vencidas).',
     )
     return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
 
@@ -15128,20 +15197,31 @@ def _montos_cuotas_por_trimestre(contrato):
     """
     Monto por cada mes del contrato (len = duracion_meses).
     - precios_bloques **None** (legacy): mismo precio_mensual todos los meses.
-    - precios_bloques **lista** (contratos nuevos o ya migrados): trimestre 1 = precio_mensual;
-      trimestres siguientes usan precios_bloques[0], [1], … (meses 4–6, 7–9, …).
-      Valor ausente/null = **0** (sin precio hasta cargar ese trimestre en el detalle del contrato).
+    - precios_bloques con len >= duracion-1: **modo mensual** (índice i = mes i+2).
+    - precios_bloques lista corta: trimestres 2+ (meses 4–6, 7–9, … comparten importe).
+      Valor ausente/null = **0** (cuota bloqueada hasta cargar precio).
     """
     n = int(contrato.duracion_meses or 0)
     if n <= 0:
         return []
     base = contrato.precio_mensual or Decimal('0')
-    num_bloques = max(1, (n + 2) // 3)
     raw = getattr(contrato, 'precios_bloques', None)
     if raw is None:
         return [base] * n
     if not isinstance(raw, list):
         raw = []
+
+    if _precios_bloques_es_modo_mensual(contrato):
+        out = [base]
+        for i in range(1, n):
+            parsed = _decimal_desde_trimestre_json(raw[i - 1]) if i - 1 < len(raw) else None
+            if parsed is not None and parsed >= 0:
+                out.append(parsed)
+            else:
+                out.append(Decimal('0'))
+        return out
+
+    num_bloques = max(1, (n + 2) // 3)
     bloque_monto = []
     for b in range(num_bloques):
         if b == 0:

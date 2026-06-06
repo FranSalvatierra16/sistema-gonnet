@@ -250,16 +250,16 @@
         <div class="col-12">
             <div class="card shadow-modern border-radius-modern border-warning">
                 <div class="card-header bg-warning text-dark">
-                    <h4 class="mb-0"><i class="fas fa-layer-group"></i> <strong>Aumentos cada 3 meses (trimestres)</strong></h4>
-                    <small>Meses 1–3 usan el precio mensual del contrato. Cada trimestre siguiente (4–6, 7–9, …) se define acá; <strong>vacío = sin precio</strong> (cuota bloqueada) hasta que cargues el importe y guardes. Los campos de trimestre se <strong>habilitan de a uno</strong> (primero el 2, luego el 3, etc.) cuando el anterior tiene importe. Solo se actualizan cuotas <strong>no pagadas</strong>.</small>
+                    <h4 class="mb-0"><i class="fas fa-calendar-day"></i> <strong>Precio de cada mes</strong></h4>
+                    <small>Cargá el importe de <strong>cada mes</strong> del contrato ({{ contrato.get_moneda_display }}). <strong>Vacío = sin precio</strong> (cuota bloqueada) hasta que guardés. Podés completar de a uno: se habilita el mes siguiente cuando el anterior tiene importe. Solo se actualizan cuotas <strong>no pagadas</strong>.</small>
                 </div>
                 <div class="card-body">
                     {% if puede_activar_modo_trimestres %}
                     <div class="alert alert-info mb-3">
-                        <p class="mb-2">Este contrato tiene el mismo monto en todos los meses (carga antigua). Para dejar solo los primeros 3 meses con precio y el resto <strong>sin monto hasta definir cada trimestre</strong>:</p>
-                        <form method="post" action="{% url 'inmobiliaria:activar_precios_trimestres_contrato' contrato.id %}" class="d-inline" onsubmit="return confirm('Se pondrán en $0 las cuotas pendientes desde el mes 4 en adelante hasta que cargues cada trimestre. ¿Continuar?');">
+                        <p class="mb-2">Este contrato tiene el mismo monto en todos los meses (carga antigua). Para definir <strong>cada mes por separado</strong> (mes 2 en adelante sin monto hasta que lo cargues):</p>
+                        <form method="post" action="{% url 'inmobiliaria:activar_precios_trimestres_contrato' contrato.id %}" class="d-inline" onsubmit="return confirm('Se pondrán en $0 las cuotas pendientes desde el mes 2 en adelante hasta que cargues cada mes. ¿Continuar?');">
                             {% csrf_token %}
-                            <button type="submit" class="btn btn-warning"><i class="fas fa-columns"></i> Activar modo trimestres (meses 4+ sin precio)</button>
+                            <button type="submit" class="btn btn-warning"><i class="fas fa-columns"></i> Activar precios por mes (mes 2+ sin precio)</button>
                         </form>
                     </div>
                     {% endif %}
@@ -267,16 +267,16 @@
                         {% csrf_token %}
                         <div class="row g-3">
                             {% for row in trimestres_extras_ui %}
-                            <div class="col-md-6 col-lg-4">
-                                <label class="form-label small mb-0">Trimestre {{ row.t }} (meses {{ row.mes_desde }}–{{ row.mes_hasta }}) · {{ contrato.get_moneda_display }}</label>
+                            <div class="col-md-6 col-lg-3">
+                                <label class="form-label small mb-0">Mes {{ row.mes }}/{{ contrato.duracion_meses }} · {{ contrato.get_moneda_display }}</label>
                                 <input type="text"
-                                       class="form-control trimester-precio-input{% if not row.trimestre_input_habilitado %} bg-light text-muted{% endif %}"
-                                       name="precio_trimester_{{ row.idx }}"
-                                       data-trim-idx="{{ row.idx }}"
+                                       class="form-control mes-precio-input{% if not row.mes_input_habilitado %} bg-light text-muted{% endif %}"
+                                       name="precio_mes_{{ row.idx }}"
+                                       data-mes-idx="{{ row.idx }}"
                                        value="{{ row.valor }}"
                                        placeholder="Sin precio hasta cargar"
                                        autocomplete="off"
-                                       {% if not row.trimestre_input_habilitado %}readonly title="Completá el trimestre anterior (importe no vacío) y guardá, o escribí en orden de izquierda a derecha."{% endif %}>
+                                       {% if not row.mes_input_habilitado %}readonly title="Completá el mes anterior (importe no vacío) y guardá, o escribí en orden."{% endif %}>
                             </div>
                             {% endfor %}
                         </div>
@@ -320,7 +320,7 @@
             </form>
             {% endif %}
             <form method="post" action="{% url 'inmobiliaria:recalcular_cuotas_montos_desde_contrato' contrato.id %}" class="d-inline"
-                  onsubmit="return confirm('Se actualizarán los montos de todas las cuotas pendientes según el precio mensual y trimestres del contrato. ¿Continuar?');">
+                  onsubmit="return confirm('Se actualizarán los montos de todas las cuotas pendientes según el precio de cada mes del contrato. ¿Continuar?');">
                 {% csrf_token %}
                 <button type="submit" class="btn btn-sm btn-outline-warning" title="Si los importes quedaron mal cargados, los alinea con el precio del contrato">
                     <i class="fas fa-sync-alt"></i> Alinear montos pendientes
@@ -354,25 +354,25 @@
                     </thead>
                     <tbody>
                         {% for cuota in cuotas %}
-                        <tr class="{% if cuota.estado == 'pagada' %}table-success{% elif cuota.estado == 'vencida' %}table-danger{% elif cuota.tiene_adelanto_abonado %}table-info{% elif cuota.fecha_vencimiento < today %}table-warning{% endif %}{% if cuota.numero_cuota > 3 and cuota.monto_base == 0 %} table-secondary{% endif %}">
+                        <tr class="{% if cuota.estado == 'pagada' %}table-success{% elif cuota.estado == 'vencida' %}table-danger{% elif cuota.tiene_adelanto_abonado %}table-info{% elif cuota.fecha_vencimiento < today %}table-warning{% endif %}{% if cuota.monto_base == 0 and cuota.estado != 'pagada' and cuota.estado != 'pagada_con_mora' %} table-secondary{% endif %}">
                             <td>
                                 <strong>{{ cuota.numero_cuota }}/{{ contrato.duracion_meses }}</strong>
-                                {% if cuota.numero_cuota > 3 and cuota.monto_base == 0 %}
-                                <span class="badge bg-secondary ms-1" title="Definí el importe del trimestre en el recuadro amarillo">Sin precio</span>
+                                {% if cuota.monto_base == 0 and cuota.estado != 'pagada' and cuota.estado != 'pagada_con_mora' %}
+                                <span class="badge bg-secondary ms-1" title="Definí el importe de este mes en el recuadro amarillo">Sin precio</span>
                                 {% endif %}
                             </td>
                             <td>
                                 {{ cuota.fecha_vencimiento|date:"d/m/Y" }}
                             </td>
                             <td>
-                                {% if cuota.numero_cuota > 3 and cuota.monto_base == 0 %}
+                                {% if cuota.monto_base == 0 and cuota.estado != 'pagada' and cuota.estado != 'pagada_con_mora' %}
                                 <span class="text-muted"><i class="fas fa-lock me-1"></i>Sin definir</span>
                                 {% else %}
                                 <strong class="text-dark">{{ cuota.monto_base|format_importe_moneda:contrato.moneda }}</strong>
                                 {% endif %}
                             </td>
                             <td>
-                                {% if cuota.numero_cuota > 3 and cuota.monto_base == 0 %}
+                                {% if cuota.monto_base == 0 and cuota.estado != 'pagada' and cuota.estado != 'pagada_con_mora' %}
                                 <span class="text-muted">—</span>
                                 {% elif cuota.estado == 'pagada' or cuota.estado == 'pagada_con_mora' %}
                                 <strong class="text-primary">{{ cuota.monto_total|format_importe_moneda:contrato.moneda }}</strong>
@@ -418,8 +418,8 @@
                             </td>
                             <td>
                                 {% if cuota.estado == 'pendiente' or cuota.estado == 'vencida' %}
-                                    {% if cuota.numero_cuota > 3 and cuota.monto_base == 0 %}
-                                    <button type="button" class="btn btn-sm btn-secondary" disabled title="Definí primero el monto del trimestre en la sección amarilla">
+                                    {% if cuota.monto_base == 0 and cuota.estado != 'pagada' and cuota.estado != 'pagada_con_mora' %}
+                                    <button type="button" class="btn btn-sm btn-secondary" disabled title="Definí primero el precio de este mes en la sección amarilla">
                                         <i class="fas fa-lock"></i> Bloqueado
                                     </button>
                                     {% else %}
@@ -624,35 +624,35 @@ function pagarCuotaEspecifica(cuotaId, montoStr) {
         });
 }
 
-(function inicializarTrimestresProgresivos() {
+(function inicializarMesesPrecioProgresivos() {
     var form = document.getElementById('form-precios-trimestres');
     if (!form) return;
-    var nodes = form.querySelectorAll('.trimester-precio-input');
+    var nodes = form.querySelectorAll('.mes-precio-input');
     if (!nodes.length) return;
     var inputs = Array.prototype.slice.call(nodes).sort(function (a, b) {
-        return parseInt(a.getAttribute('data-trim-idx'), 10) - parseInt(b.getAttribute('data-trim-idx'), 10);
+        return parseInt(a.getAttribute('data-mes-idx'), 10) - parseInt(b.getAttribute('data-mes-idx'), 10);
     });
     function tieneTexto(el) {
         return el && String(el.value || '').trim().length > 0;
     }
-    function sincronizarTrimestres() {
+    function sincronizarMeses() {
         inputs.forEach(function (inp, i) {
             var desbloquear = i === 0 || inputs.slice(0, i).every(tieneTexto);
             inp.readOnly = !desbloquear;
             inp.classList.toggle('bg-light', !desbloquear);
             inp.classList.toggle('text-muted', !desbloquear);
             if (!desbloquear) {
-                inp.setAttribute('title', 'Habilitá el trimestre anterior: cargá un importe en el campo de la izquierda (o guardá y recargá).');
+                inp.setAttribute('title', 'Habilitá el mes anterior: cargá un importe en el campo previo (o guardá y recargá).');
             } else {
                 inp.removeAttribute('title');
             }
         });
     }
     inputs.forEach(function (inp) {
-        inp.addEventListener('input', sincronizarTrimestres);
-        inp.addEventListener('change', sincronizarTrimestres);
+        inp.addEventListener('input', sincronizarMeses);
+        inp.addEventListener('change', sincronizarMeses);
     });
-    sincronizarTrimestres();
+    sincronizarMeses();
 })();
 </script>
 {% endblock %} 
