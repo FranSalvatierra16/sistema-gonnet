@@ -13614,6 +13614,42 @@ def _fecha_fin_desde_inicio_y_duracion(fecha_inicio, duracion_meses):
     return fecha_inicio + relativedelta(months=duracion_meses) - timedelta(days=1)
 
 
+def _reacomodar_plan_cuotas_tras_eliminar(contrato, numero_cuota_eliminada, cuota_pk):
+    """
+    Elimina una cuota del medio o del final y corre las posteriores:
+    bajan un número, adelantan vencimiento un mes y ajustan créditos referenciados.
+    Usa update() directo en DB para evitar choques de unique_together al renumerar.
+    """
+    K = int(numero_cuota_eliminada)
+    later = list(
+        CuotaMensual.objects.filter(contrato=contrato, numero_cuota__gt=K)
+        .order_by('numero_cuota')
+        .values_list('id', 'numero_cuota', 'fecha_vencimiento')
+    )
+    TEMP = 1_000_000 + int(contrato.id) * 1_000
+
+    for cid, num, _ in reversed(later):
+        CuotaMensual.objects.filter(pk=cid).update(numero_cuota=int(num) + TEMP)
+
+    CuotaMensual.objects.filter(pk=cuota_pk).delete()
+
+    CuotaMensual.objects.filter(
+        contrato=contrato,
+        credito_origen_numero_cuota=K,
+    ).update(credito_aplicado=Decimal('0'), credito_origen_numero_cuota=None)
+    if later:
+        CuotaMensual.objects.filter(
+            contrato=contrato,
+            credito_origen_numero_cuota__gt=K,
+        ).update(credito_origen_numero_cuota=F('credito_origen_numero_cuota') - 1)
+
+        for cid, num, fecha in later:
+            CuotaMensual.objects.filter(pk=cid).update(
+                numero_cuota=int(num) - 1,
+                fecha_vencimiento=fecha - relativedelta(months=1),
+            )
+
+
 @login_required
 @require_POST
 def agregar_cuota_contrato(request, contrato_id):
@@ -13766,23 +13802,18 @@ def eliminar_cuota_contrato_super_admin(request, contrato_id, cuota_id):
         cuota.refresh_from_db()
 
     K = int(cuota.numero_cuota)
-    TEMP = 1_000_000 + int(contrato.id) * 1_000
-
-    later_desc = list(contrato.cuotas.filter(numero_cuota__gt=K).order_by('-numero_cuota'))
-    for q in later_desc:
-        q.numero_cuota = int(q.numero_cuota) + TEMP
-        q.save(update_fields=['numero_cuota'])
-
+    cuota_pk = cuota.pk
     numero_eliminado = K
-    cuota.delete()
 
-    for q in contrato.cuotas.filter(numero_cuota__gt=TEMP).order_by('numero_cuota'):
-        old_temp = int(q.numero_cuota)
-        nuevo_num = old_temp - TEMP - 1
-        nueva_fecha = q.fecha_vencimiento - relativedelta(months=1)
-        q.numero_cuota = nuevo_num
-        q.fecha_vencimiento = nueva_fecha
-        q.save(update_fields=['numero_cuota', 'fecha_vencimiento'])
+    try:
+        _reacomodar_plan_cuotas_tras_eliminar(contrato, K, cuota_pk)
+    except IntegrityError as e:
+        transaction.set_rollback(True)
+        messages.error(
+            request,
+            f'No se pudo reacomodar el plan tras eliminar la cuota {numero_eliminado}: {e}',
+        )
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
 
     nueva_duracion = total - 1
     contrato.duracion_meses = nueva_duracion
