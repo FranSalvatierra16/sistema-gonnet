@@ -13616,19 +13616,18 @@ def _fecha_fin_desde_inicio_y_duracion(fecha_inicio, duracion_meses):
 
 def _reacomodar_plan_cuotas_tras_eliminar(contrato, numero_cuota_eliminada, cuota_pk):
     """
-    Elimina una cuota del medio o del final y corre las posteriores:
-    bajan un número, adelantan vencimiento un mes y ajustan créditos referenciados.
-    Usa update() directo en DB para evitar choques de unique_together al renumerar.
+    Elimina una cuota del medio o del final y renumerar las posteriores (n-1).
+    Los vencimientos y montos de las cuotas restantes no se modifican acá.
     """
     K = int(numero_cuota_eliminada)
     later = list(
         CuotaMensual.objects.filter(contrato=contrato, numero_cuota__gt=K)
         .order_by('numero_cuota')
-        .values_list('id', 'numero_cuota', 'fecha_vencimiento')
+        .values_list('id', 'numero_cuota')
     )
     TEMP = 1_000_000 + int(contrato.id) * 1_000
 
-    for cid, num, _ in reversed(later):
+    for cid, num in reversed(later):
         CuotaMensual.objects.filter(pk=cid).update(numero_cuota=int(num) + TEMP)
 
     CuotaMensual.objects.filter(pk=cuota_pk).delete()
@@ -13643,11 +13642,8 @@ def _reacomodar_plan_cuotas_tras_eliminar(contrato, numero_cuota_eliminada, cuot
             credito_origen_numero_cuota__gt=K,
         ).update(credito_origen_numero_cuota=F('credito_origen_numero_cuota') - 1)
 
-        for cid, num, fecha in later:
-            CuotaMensual.objects.filter(pk=cid).update(
-                numero_cuota=int(num) - 1,
-                fecha_vencimiento=fecha - relativedelta(months=1),
-            )
+        for cid, num in later:
+            CuotaMensual.objects.filter(pk=cid).update(numero_cuota=int(num) - 1)
 
 
 @login_required
@@ -13743,8 +13739,8 @@ def eliminar_ultima_cuota_contrato(request, contrato_id):
 @transaction.atomic
 def eliminar_cuota_contrato_super_admin(request, contrato_id, cuota_id):
     """
-    Elimina una cuota mensual concreta (no solo la última): acorta el plan un mes,
-    renumera las cuotas posteriores y adelanta sus vencimientos un mes.
+    Elimina una cuota mensual concreta (no solo la última): acorta el plan un mes
+    y renumerar las cuotas posteriores. Vencimientos e importes de las restantes no cambian.
     Solo super administrador (nivel 5). No aplica a cuotas pagadas.
     Si la cuota tiene movimiento de caja exclusivo de esa cuota, lo anula antes.
     """
@@ -13827,27 +13823,10 @@ def eliminar_cuota_contrato_super_admin(request, contrato_id, cuota_id):
     else:
         contrato.save(update_fields=['duracion_meses', 'fecha_fin'])
 
-    montos = _montos_cuotas_por_trimestre(contrato)
-    for c in contrato.cuotas.exclude(estado__in=['pagada', 'pagada_con_mora']).order_by('numero_cuota'):
-        idx = int(c.numero_cuota) - 1
-        if idx < len(montos):
-            c.monto_base = montos[idx]
-            c.recargo_mora = Decimal('0')
-            c.descuento = Decimal('0')
-            c.actualizar_monto_total()
-
-    hoy = timezone.now().date()
-    for c in contrato.cuotas.exclude(estado__in=['pagada', 'pagada_con_mora']):
-        if c.fecha_vencimiento < hoy and c.estado == 'pendiente':
-            c.estado = 'vencida'
-            c.save(update_fields=['estado'])
-        elif c.fecha_vencimiento >= hoy and c.estado == 'vencida':
-            c.estado = 'pendiente'
-            c.save(update_fields=['estado'])
-
     messages.success(
         request,
-        f'Se eliminó la cuota {numero_eliminado} del plan y se reacomodaron las siguientes ({nueva_duracion} meses en total).',
+        f'Se eliminó la cuota {numero_eliminado}. Las demás conservan vencimientos e importes; '
+        f'se renumeraron las posteriores ({nueva_duracion} meses en total).',
     )
     return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
 
