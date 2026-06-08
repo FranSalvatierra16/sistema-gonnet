@@ -167,6 +167,32 @@ def apellido_nombre_filter(persona):
     return formato_apellido_nombre(persona)
 
 
+@register.filter
+def numero_recibo_display(recibo):
+    """Número de recibo: modelo Recibo, numero_liquidacion del movimiento o fallback M-000123."""
+    if not recibo:
+        return ''
+    n = (getattr(recibo, 'numero_recibo', None) or '').strip()
+    if n:
+        return n
+    mov = getattr(recibo, 'movimiento_caja', None)
+    if mov:
+        from inmobiliaria.views import _numero_recibo_mostrar_movimiento
+
+        return _numero_recibo_mostrar_movimiento(mov)
+    return ''
+
+
+@register.filter
+def numero_recibo_movimiento(movimiento):
+    """Número de recibo asociado a un movimiento de caja."""
+    if not movimiento:
+        return ''
+    from inmobiliaria.views import _numero_recibo_mostrar_movimiento
+
+    return _numero_recibo_mostrar_movimiento(movimiento)
+
+
 @register.simple_tag(takes_context=True)
 def url_recibo_movimiento(context, movimiento):
     """Enlace al recibo imprimible (contrato 24m, reserva por día o caja)."""

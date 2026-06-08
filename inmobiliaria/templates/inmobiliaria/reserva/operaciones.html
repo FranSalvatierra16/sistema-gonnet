@@ -831,8 +831,8 @@
                                 {% if op.todos_recibos|length == 1 %}
                                     {% with recibo=op.todos_recibos|first %}
                                     <div class="d-inline-flex align-items-center gap-2 flex-wrap recibo-op-inline-actions">
-                                        <a href="{% url_recibo_movimiento recibo.movimiento_caja %}" class="btn-action btn-recibo" title="Ver recibo {{ recibo.numero_recibo }}" target="_blank" rel="noopener">
-                                            <i class="fas fa-file-invoice"></i>{{ recibo.numero_recibo }}
+                                        <a href="{% url_recibo_movimiento recibo.movimiento_caja %}" class="btn-action btn-recibo" title="Ver recibo {{ recibo|numero_recibo_display }}" target="_blank" rel="noopener">
+                                            <i class="fas fa-file-invoice"></i>{{ recibo|numero_recibo_display }}
                                         </a>
                                         {% if user.nivel == 5 and recibo.movimiento_caja.caja and recibo.movimiento_caja.caja.estado == 'abierta' and not recibo.movimiento_caja.caja.fecha_cierre %}
                                         <form method="post" action="{% url 'inmobiliaria:eliminar_movimiento' recibo.movimiento_caja.id %}" class="d-inline m-0" onsubmit="return confirm('¿Eliminar este ingreso de caja y su recibo? La operación volverá a mostrar el saldo pendiente según los pagos que queden.');">
@@ -859,7 +859,7 @@
                                                         <a class="recibo-op-card-main text-decoration-none d-flex align-items-start gap-2" href="{% url_recibo_movimiento recibo.movimiento_caja %}" target="_blank" rel="noopener">
                                                             <span class="recibo-op-icon" aria-hidden="true"><i class="fas fa-file-invoice"></i></span>
                                                             <span class="d-flex flex-column">
-                                                                <span class="recibo-op-numero">{{ recibo.numero_recibo }}</span>
+                                                                <span class="recibo-op-numero">{{ recibo|numero_recibo_display }}</span>
                                                                 <span class="recibo-op-monto">${{ recibo.monto_este_pago|format_price }}</span>
                                                                 <span class="recibo-op-fecha"><i class="far fa-calendar-alt me-1"></i>{{ recibo.fecha_emision|date:"d/m/Y" }}</span>
                                                             </span>
@@ -884,8 +884,8 @@
                                 {% endif %}
                             {% elif op.movimiento_reciente %}
                                 <div class="d-inline-flex align-items-center gap-2 flex-wrap recibo-op-inline-actions">
-                                    <a href="{% url_recibo_movimiento op.movimiento_reciente %}" class="btn-action btn-recibo" target="_blank" rel="noopener">
-                                        <i class="fas fa-file-invoice"></i>Recibo
+                                    <a href="{% url_recibo_movimiento op.movimiento_reciente %}" class="btn-action btn-recibo" title="Ver recibo {{ op.movimiento_reciente|numero_recibo_movimiento }}" target="_blank" rel="noopener">
+                                        <i class="fas fa-file-invoice"></i>{{ op.movimiento_reciente|numero_recibo_movimiento }}
                                     </a>
                                     {% if user.nivel == 5 and op.movimiento_reciente.caja and op.movimiento_reciente.caja.estado == 'abierta' and not op.movimiento_reciente.caja.fecha_cierre %}
                                     <form method="post" action="{% url 'inmobiliaria:eliminar_movimiento' op.movimiento_reciente.id %}" class="d-inline m-0" onsubmit="return confirm('¿Eliminar este ingreso de caja y su recibo asociado?');">

@@ -1,4 +1,5 @@
 {% extends 'inmobiliaria/base.html' %}
+{% load custom_filters %}
 {% block title %}Consulta de Carátulas — Reserva {{ reserva.id }}{% endblock %}
 {% block extra_css %}
 {{ block.super }}
@@ -55,7 +56,17 @@
                                 {% for r in recibos %}
                                 <tr>
                                     <td>{{ r.fecha_emision|date:"d/m/Y H:i" }}</td>
-                                    <td><code>{{ r.numero_recibo }}</code></td>
+                                    <td>
+                                        {% if r.movimiento_caja %}
+                                        <a href="{% url_recibo_movimiento r.movimiento_caja %}" class="text-decoration-none" target="_blank" rel="noopener" title="Ver recibo">
+                                            <code>{{ r|numero_recibo_display }}</code>
+                                        </a>
+                                        {% else %}
+                                        <a href="{% url 'inmobiliaria:ver_recibo' reserva.id %}" class="text-decoration-none" target="_blank" rel="noopener" title="Ver recibo">
+                                            <code>{{ r|numero_recibo_display }}</code>
+                                        </a>
+                                        {% endif %}
+                                    </td>
                                     <td class="text-end">${{ r.monto_este_pago|floatformat:2 }}</td>
                                 </tr>
                                 {% empty %}
@@ -74,16 +85,21 @@
                     </div>
                     <div class="card-body p-0 table-responsive">
                         <table class="table table-sm mb-0 small">
-                            <thead><tr><th>Fecha</th><th>Concepto</th><th class="text-end">Total</th></tr></thead>
+                            <thead><tr><th>Fecha</th><th>Recibo</th><th>Concepto</th><th class="text-end">Total</th></tr></thead>
                             <tbody>
                                 {% for m in movimientos %}
                                 <tr>
                                     <td>{{ m.fecha|date:"d/m/Y H:i" }}</td>
+                                    <td>
+                                        <a href="{% url_recibo_movimiento m %}" class="text-decoration-none" target="_blank" rel="noopener" title="Ver recibo">
+                                            <code>{{ m|numero_recibo_movimiento }}</code>
+                                        </a>
+                                    </td>
                                     <td class="text-break">{{ m.concepto|truncatechars:80 }}</td>
                                     <td class="text-end">${{ m.monto_total|floatformat:2 }}</td>
                                 </tr>
                                 {% empty %}
-                                <tr><td colspan="3" class="text-muted text-center py-3">Sin movimientos con referencia a esta operación</td></tr>
+                                <tr><td colspan="4" class="text-muted text-center py-3">Sin movimientos con referencia a esta operación</td></tr>
                                 {% endfor %}
                             </tbody>
                         </table>

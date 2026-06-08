@@ -153,6 +153,60 @@ def _movimientos_contrato_qs(contrato):
     )
 
 
+def _operacion_en_concepto(concepto, operacion_id):
+    if not concepto:
+        return False
+    return bool(
+        re.search(rf'Operaci[oó]n\s*#?\s*{operacion_id}\b', concepto, re.IGNORECASE)
+    )
+
+
+def _numero_recibo_desde_movimiento(m):
+    if not m:
+        return '—'
+    try:
+        r = getattr(m, 'recibo', None)
+        if r:
+            n = (getattr(r, 'numero_recibo', None) or '').strip()
+            if n:
+                return n
+    except Exception:
+        pass
+    nl = (getattr(m, 'numero_liquidacion', None) or '').strip()
+    if nl:
+        return nl
+    return f'M-{int(m.id):06d}'
+
+
+def _numero_recibo_desde_recibo(r):
+    if not r:
+        return '—'
+    n = (getattr(r, 'numero_recibo', None) or '').strip()
+    if n:
+        return n
+    mov = getattr(r, 'movimiento_caja', None)
+    return _numero_recibo_desde_movimiento(mov) if mov else '—'
+
+
+def _recibos_legacy_par(movs, recibos):
+    """Primer y segundo número de recibo para el bloque legado de carátula."""
+    numeros = []
+    vistos = set()
+    for r in sorted(recibos, key=lambda x: x.fecha_emision or datetime.min):
+        n = _numero_recibo_desde_recibo(r)
+        if n and n != '—' and n not in vistos:
+            numeros.append(n)
+            vistos.add(n)
+    for m in sorted(movs, key=lambda x: (x.fecha, x.id)):
+        n = _numero_recibo_desde_movimiento(m)
+        if n and n != '—' and n not in vistos:
+            numeros.append(n)
+            vistos.add(n)
+    loc = numeros[0] if numeros else '0000-00000000'
+    locat = numeros[1] if len(numeros) > 1 else loc
+    return loc, locat
+
+
 def _filas_contabilizacion_desde_movimientos(movs):
     """Filas estilo libro: fecha, recibo, detalle, salidas, entradas (ARS formateados)."""
     filas = []
@@ -164,13 +218,7 @@ def _filas_contabilizacion_desde_movimientos(movs):
         if mt == 0 and not (m.concepto or '').strip():
             continue
         det = (m.concepto or '').strip()[:100] or 'Movimiento de caja'
-        recibo_num = '—'
-        try:
-            r = getattr(m, 'recibo', None)
-            if r:
-                recibo_num = r.numero_recibo
-        except Exception:
-            pass
+        recibo_num = _numero_recibo_desde_movimiento(m)
         is_ingreso = m.tipo == TipoMovimientoCajaEnum.INGRESO
         filas.append(
             {
@@ -197,7 +245,7 @@ def _filas_contabilizacion_desde_recibos(recibos):
         filas.append(
             {
                 'fecha': r.fecha_emision,
-                'recibo': r.numero_recibo,
+                'recibo': _numero_recibo_desde_recibo(r),
                 'detalle': det,
                 'salidas': '',
                 'entradas': _formato_importe_us(mt),
@@ -209,7 +257,7 @@ def _filas_contabilizacion_desde_recibos(recibos):
 def _contabilizacion_para_reserva(reserva, recibos):
     movs = []
     for mov in _movimientos_reserva_qs(reserva)[:250]:
-        if mov.concepto and re.search(rf'Operaci[oó]n\s+{reserva.id}\b', mov.concepto, re.IGNORECASE):
+        if _operacion_en_concepto(mov.concepto, reserva.id):
             movs.append(mov)
     if movs:
         return _filas_contabilizacion_desde_movimientos(movs)
@@ -402,15 +450,20 @@ def _prop_piso_depto_campos(prop):
 
 
 def _build_legacy_reserva(
-    reserva, recibos, comisiones, saldo_reserva, tipo_operacion_str, carpeta_override=None
+    reserva,
+    recibos,
+    comisiones,
+    saldo_reserva,
+    tipo_operacion_str,
+    carpeta_override=None,
+    movimientos=None,
 ):
     prop = reserva.propiedad
     cli = reserva.cliente
     propi = getattr(prop, 'propietario', None) if prop else None
     vend = reserva.vendedor
 
-    recibo_loc = recibos[0].numero_recibo if recibos else '0000-00000000'
-    recibo_locat = recibos[1].numero_recibo if len(recibos) > 1 else '0000-00000000'
+    recibo_loc, recibo_locat = _recibos_legacy_par(movimientos or [], recibos)
 
     comision_total = sum(Decimal(str(c.monto_comision or 0)) for c in comisiones)
 
@@ -482,7 +535,7 @@ def _build_legacy_reserva(
     }
 
 
-def _build_legacy_contrato(contrato, cuotas, tipo_label, carpeta_override=None):
+def _build_legacy_contrato(contrato, cuotas, tipo_label, carpeta_override=None, movimientos=None):
     prop = contrato.propiedad
     inq = contrato.inquilino
     propi = getattr(prop, 'propietario', None) if prop else None
@@ -527,6 +580,7 @@ def _build_legacy_contrato(contrato, cuotas, tipo_label, carpeta_override=None):
     terceros = _formato_miles_ar(vend.id) if vend else '0'
 
     meses_contrato = int(contrato.duracion_meses or 0)
+    recibo_loc, recibo_locat = _recibos_legacy_par(movimientos or [], [])
 
     return {
         'numero_original': '0',
@@ -553,8 +607,8 @@ def _build_legacy_contrato(contrato, cuotas, tipo_label, carpeta_override=None):
         'saldo': _formato_importe_us(saldo_cuotas),
         'comision_locador': _formato_importe_us(0),
         'comision_locatario': _formato_importe_us(0),
-        'recibo_locador': '0000-00000000',
-        'recibo_locatario': '0000-00000000',
+        'recibo_locador': recibo_loc,
+        'recibo_locatario': recibo_locat,
         'productor': productor,
         'terceros': terceros,
         'origen_operacion': _origen_operacion_sucursal(contrato.sucursal),
@@ -831,7 +885,10 @@ def caratula_reserva(request, reserva_id):
             'cliente', 'propiedad', 'propiedad__propietario', 'vendedor', 'sucursal'
         )
         .prefetch_related(
-            Prefetch('recibos', queryset=Recibo.objects.order_by('-fecha_emision')),
+            Prefetch(
+                'recibos',
+                queryset=Recibo.objects.select_related('movimiento_caja').order_by('-fecha_emision'),
+            ),
             Prefetch(
                 'comisiones_vendedor',
                 queryset=ComisionVendedor.objects.select_related('vendedor').exclude(estado='cancelada'),
@@ -851,10 +908,11 @@ def caratula_reserva(request, reserva_id):
                 propiedad_id=reserva.propiedad_id,
                 sucursal_id=reserva.sucursal_id,
             )
+            .select_related('recibo')
             .order_by('-fecha')
         )
         for mov in movs_qs[:200]:
-            if mov.concepto and re.search(rf'Operaci[oó]n\s+{reserva.id}\b', mov.concepto, re.IGNORECASE):
+            if _operacion_en_concepto(mov.concepto, reserva.id):
                 movimientos.append(mov)
 
     recibos = list(reserva.recibos.all())
@@ -887,6 +945,7 @@ def caratula_reserva(request, reserva_id):
             saldo_reserva,
             tipo_op,
             carpeta_override=carpeta_actual,
+            movimientos=movimientos,
         ),
         'carpeta_actual': carpeta_actual,
         'carpeta_default': _carpeta_default_actual(request),
@@ -917,11 +976,15 @@ def caratula_contrato(request, contrato_id):
 
     movimientos = []
     if contrato.propiedad_id:
-        movs_qs = MovimientoCaja.objects.filter(
-            propiedad_id=contrato.propiedad_id,
-            sucursal_id=contrato.sucursal_id,
-            tipo=TipoMovimientoCajaEnum.INGRESO,
-        ).order_by('-fecha')
+        movs_qs = (
+            MovimientoCaja.objects.filter(
+                propiedad_id=contrato.propiedad_id,
+                sucursal_id=contrato.sucursal_id,
+                tipo=TipoMovimientoCajaEnum.INGRESO,
+            )
+            .select_related('recibo')
+            .order_by('-fecha')
+        )
         for mov in movs_qs[:300]:
             if mov.concepto and re.search(rf'Contrato\s*#\s*{contrato.id}\b', mov.concepto, re.IGNORECASE):
                 movimientos.append(mov)
@@ -956,6 +1019,7 @@ def caratula_contrato(request, contrato_id):
             cuotas,
             tipo_label,
             carpeta_override=carpeta_actual,
+            movimientos=movimientos,
         ),
         'carpeta_actual': carpeta_actual,
         'carpeta_default': _carpeta_default_actual(request),
@@ -989,6 +1053,10 @@ def imprimir_caratula_reserva(request, reserva_id):
     comisiones = list(reserva.comisiones_vendedor.all())
     saldo_reserva = (reserva.precio_total or Decimal('0')) - (reserva.senia or Decimal('0'))
     tipo_op = _tipo_reserva(reserva.propiedad)
+    movs_legacy = []
+    for mov in _movimientos_reserva_qs(reserva)[:250]:
+        if _operacion_en_concepto(mov.concepto, reserva.id):
+            movs_legacy.append(mov)
     cl = _build_legacy_reserva(
         reserva,
         recibos,
@@ -996,6 +1064,7 @@ def imprimir_caratula_reserva(request, reserva_id):
         saldo_reserva,
         tipo_op,
         carpeta_override=_carpeta_para_operacion(request, 'reserva', reserva.id),
+        movimientos=movs_legacy,
     )
     filas_contab = _contabilizacion_para_reserva(reserva, recibos)
     suc = reserva.sucursal
@@ -1062,11 +1131,18 @@ def imprimir_caratula_contrato(request, contrato_id):
         tipo_label = '24 meses'
     else:
         tipo_label = f'Contrato {contrato.duracion_meses} meses'
+    movs_legacy = []
+    for mov in _movimientos_contrato_qs(contrato)[:300]:
+        if mov.tipo != TipoMovimientoCajaEnum.INGRESO:
+            continue
+        if mov.concepto and re.search(rf'Contrato\s*#\s*{contrato.id}\b', mov.concepto, re.IGNORECASE):
+            movs_legacy.append(mov)
     cl = _build_legacy_contrato(
         contrato,
         cuotas,
         tipo_label,
         carpeta_override=_carpeta_para_operacion(request, 'contrato', contrato.id),
+        movimientos=movs_legacy,
     )
     filas_contab = _contabilizacion_para_contrato(contrato)
     suc = contrato.sucursal

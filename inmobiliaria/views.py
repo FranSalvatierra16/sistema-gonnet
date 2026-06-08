@@ -2919,7 +2919,7 @@ def operaciones(request):
                 conc = row.get('concepto') or ''
                 if not conc:
                     continue
-                match = re.search(r'Operaci[oó]n\s+(\d+)', conc, re.IGNORECASE)
+                match = re.search(r'Operaci[oó]n\s*#?\s*(\d+)', conc, re.IGNORECASE)
                 if match:
                     rid = int(match.group(1))
                     if rid in reserva_ids_set:
@@ -14479,7 +14479,7 @@ def _url_recibo_para_movimiento(movimiento, sucursal, next_url=None):
             )
 
     concepto_txt = (movimiento.concepto or '')
-    m_res = re.search(r'Operaci[oó]n\s*(\d+)', concepto_txt, re.I)
+    m_res = re.search(r'Operaci[oó]n\s*#?\s*(\d+)', concepto_txt, re.I)
     if m_res:
         return reverse('inmobiliaria:ver_recibo', args=[int(m_res.group(1))])
 
