@@ -862,8 +862,18 @@ document.addEventListener('DOMContentLoaded', function() {
         lista.innerHTML = '<div class="text-center p-3"><i class="fas fa-spinner fa-spin me-2"></i>Cargando operaciones pendientes...</div>';
 
         fetch(`{% url 'inmobiliaria:obtener_operaciones_pendientes' 0 %}`.replace('0', propiedadId))
-            .then(function(response) { return response.json(); })
+            .then(function(response) {
+                if (!response.ok) {
+                    return response.json().catch(function() { return {}; }).then(function(body) {
+                        throw new Error(body.error || ('Error del servidor (HTTP ' + response.status + ')'));
+                    });
+                }
+                return response.json();
+            })
             .then(function(data) {
+                if (!data || data.success === false) {
+                    throw new Error((data && data.error) || 'No se pudieron cargar las operaciones.');
+                }
                 pintarOperacionesYGastosDesdeJson(data, extraCarga);
             })
             .catch(function(error) {
@@ -871,7 +881,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 const listaErr = document.getElementById('operaciones-pendientes-lista');
                 const containerErr = document.getElementById('operaciones-pendientes-container');
                 containerErr.style.display = 'block';
-                listaErr.innerHTML = '<div class="alert alert-danger mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Error al cargar operaciones/gastos. Recargá la página o avisá al administrador.</div>';
+                const msg = (error && error.message) ? error.message : 'Error desconocido';
+                listaErr.innerHTML = '<div class="alert alert-danger mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Error al cargar operaciones/gastos: ' + escHtmlGasto(msg) + '</div>';
             });
     }
     window.cargarOperacionesPendientes = cargarOperacionesPendientes;
@@ -887,9 +898,19 @@ document.addEventListener('DOMContentLoaded', function() {
         lista.innerHTML = '<div class="text-center p-3"><i class="fas fa-spinner fa-spin me-2"></i>Cargando operaciones del propietario...</div>';
 
         fetch(`{% url 'inmobiliaria:obtener_operaciones_pendientes_propietario' 0 %}`.replace('0', propietarioId))
-            .then(function(response) { return response.json(); })
+            .then(function(response) {
+                if (!response.ok) {
+                    return response.json().catch(function() { return {}; }).then(function(body) {
+                        throw new Error(body.error || ('Error del servidor (HTTP ' + response.status + ')'));
+                    });
+                }
+                return response.json();
+            })
             .then(function(data) {
-                if (data.success && data.propietario_nombre) {
+                if (!data || data.success === false) {
+                    throw new Error((data && data.error) || 'No se pudieron cargar los datos del propietario.');
+                }
+                if (data.propietario_nombre) {
                     propietarioDisplay.value = data.propietario_nombre;
                     const cb = (data.propietario_cuenta_bancaria || '').trim();
                     cuentaPropietarioDisplay.value = cb || '';
@@ -897,11 +918,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 renderFiltroPropiedadPropietario(data);
                 pintarOperacionesYGastosDesdeJson(data, null);
+                if (data.errores_propiedades && data.errores_propiedades.length) {
+                    const aviso = document.createElement('div');
+                    aviso.className = 'alert alert-warning mt-2 mb-0 small';
+                    aviso.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>Algunas propiedades no se pudieron leer; el resto sí. Recargá o avisá al administrador si falta algo importante.';
+                    lista.appendChild(aviso);
+                }
             })
             .catch(function(error) {
                 console.error('Error al cargar por propietario:', error);
                 ocultarFiltroPropiedadPropietario();
-                lista.innerHTML = '<div class="alert alert-danger mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Error al cargar datos del propietario.</div>';
+                const msg = (error && error.message) ? error.message : 'Error desconocido';
+                lista.innerHTML = '<div class="alert alert-danger mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Error al cargar datos del propietario: ' + escHtmlGasto(msg) + '</div>';
             });
     }
 

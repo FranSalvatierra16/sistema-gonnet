@@ -21078,6 +21078,17 @@ def _monto_propietario_inmobiliaria_cuota_mensual(propiedad, monto_cuota):
     )
 
 
+def _nombre_cliente_reserva_liquidacion(reserva):
+    cli = getattr(reserva, 'cliente', None)
+    if not cli:
+        return '—'
+    ap = (getattr(cli, 'apellido', None) or '').strip()
+    nom = (getattr(cli, 'nombre', None) or '').strip()
+    if ap and nom:
+        return f'{ap}, {nom}'
+    return ap or nom or '—'
+
+
 def _operaciones_gastos_pendientes_data(propiedad, sucursal):
     """
     Lista operaciones y gastos pendientes de liquidación para una propiedad (dict serializable a JSON).
@@ -21169,7 +21180,10 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
         # Incluir la reserva si tiene pagos o está marcada como pagada
         if total_pagado > 0 or reserva.estado == 'pagada':
             # Calcular días de la reserva (mínimo 1 para no dejar el bucle vacío ni dividir por 0)
-            dias_reserva = (reserva.fecha_fin - reserva.fecha_inicio).days
+            if reserva.fecha_inicio and reserva.fecha_fin:
+                dias_reserva = (reserva.fecha_fin - reserva.fecha_inicio).days
+            else:
+                dias_reserva = 1
             if dias_reserva <= 0:
                 dias_reserva = 1
             
@@ -21180,6 +21194,8 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
             
             # Calcular día por día
             for i in range(dias_reserva):
+                if not reserva.fecha_inicio:
+                    break
                 fecha_actual = reserva.fecha_inicio + timedelta(days=i)
                 tipo_precio = obtener_tipo_precio(fecha_actual)
                 
@@ -21244,9 +21260,9 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
                 'tipo_display': 'Por día',
                 'incluible': True,
                 'id': reserva.id,
-                'descripcion': f'Reserva #{reserva.id} - {reserva.cliente.apellido}, {reserva.cliente.nombre}',
-                'fecha_inicio': reserva.fecha_inicio.strftime('%Y-%m-%d'),
-                'fecha_fin': reserva.fecha_fin.strftime('%Y-%m-%d'),
+                'descripcion': f'Reserva #{reserva.id} - {_nombre_cliente_reserva_liquidacion(reserva)}',
+                'fecha_inicio': reserva.fecha_inicio.strftime('%Y-%m-%d') if reserva.fecha_inicio else '',
+                'fecha_fin': reserva.fecha_fin.strftime('%Y-%m-%d') if reserva.fecha_fin else '',
                 'monto_total': str(reserva.precio_total),
                 'monto_pagado': str(total_pagado if total_pagado > 0 else reserva.precio_total),
                 'monto_propietario': str(monto_propietario_total),
@@ -21344,19 +21360,17 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
             _fila_cuota_liquidable(cuota, monto_parcial, parcial=True)
     
     # Obtener gastos pendientes del propietario (sin liquidación asociada)
-    gastos_pendientes = GastoPropietario.objects.filter(
-        propietario=propiedad.propietario,
+    propi = getattr(propiedad, 'propietario', None)
+    gastos_base = GastoPropietario.objects.filter(
         liquidacion__isnull=True,
         sucursal=sucursal,
-    ).order_by('-fecha_creacion')
-    
-    # Si no hay gastos con propietario, buscar por propiedad
-    if not gastos_pendientes.exists():
-        gastos_pendientes = GastoPropietario.objects.filter(
-            propiedad=propiedad,
-            liquidacion__isnull=True,
-            sucursal=sucursal,
-        ).order_by('-fecha_creacion')
+    )
+    if propi:
+        gastos_pendientes = gastos_base.filter(propietario=propi).order_by('-fecha_creacion')
+        if not gastos_pendientes.exists():
+            gastos_pendientes = gastos_base.filter(propiedad=propiedad).order_by('-fecha_creacion')
+    else:
+        gastos_pendientes = gastos_base.filter(propiedad=propiedad).order_by('-fecha_creacion')
     
     # Obtener egresos de caja con a_descontar='oficina' relacionados con esta propiedad
     # que no estén asociados a ninguna liquidación procesada
@@ -21423,9 +21437,12 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
             continue
         # Verificar si ya existe un GastoPropietario para este movimiento
         # Buscamos por observaciones que contengan el ID del movimiento
+        q_gasto_mov = Q(propiedad=propiedad)
+        if getattr(propiedad, 'propietario_id', None):
+            q_gasto_mov |= Q(propietario=propiedad.propietario)
         existe_gasto = GastoPropietario.objects.filter(
-            Q(propiedad=propiedad) | Q(propietario=propiedad.propietario),
-            observaciones__icontains=f'Movimiento de caja #{egreso.id}'
+            q_gasto_mov,
+            observaciones__icontains=f'Movimiento de caja #{egreso.id}',
         ).exists()
         
         # Solo agregar si no existe un gasto para este movimiento
@@ -21569,16 +21586,20 @@ def buscar_operacion_liquidacion(request):
 @login_required
 def obtener_operaciones_pendientes(request, propiedad_id):
     """Vista AJAX: operaciones y gastos pendientes para una propiedad."""
-    propiedad = get_object_or_404(Propiedad, id=propiedad_id, sucursal=request.user.sucursal)
-    data = _operaciones_gastos_pendientes_data(propiedad, request.user.sucursal)
-    lbl = _etiqueta_propiedad_liquidacion(propiedad)
-    for op in data.get('operaciones') or []:
-        op['propiedad_id'] = propiedad.id
-        op['propiedad_label'] = lbl
-    for g in data.get('gastos_pendientes') or []:
-        g['propiedad_id'] = propiedad.id
-        g['propiedad_label'] = lbl
-    return JsonResponse({'success': True, **data})
+    try:
+        propiedad = get_object_or_404(Propiedad, id=propiedad_id, sucursal=request.user.sucursal)
+        data = _operaciones_gastos_pendientes_data(propiedad, request.user.sucursal)
+        lbl = _etiqueta_propiedad_liquidacion(propiedad)
+        for op in data.get('operaciones') or []:
+            op['propiedad_id'] = propiedad.id
+            op['propiedad_label'] = lbl
+        for g in data.get('gastos_pendientes') or []:
+            g['propiedad_id'] = propiedad.id
+            g['propiedad_label'] = lbl
+        return JsonResponse({'success': True, **data})
+    except Exception as exc:
+        logger.exception('Error en obtener_operaciones_pendientes propiedad %s', propiedad_id)
+        return JsonResponse({'success': False, 'error': str(exc)}, status=500)
 
 
 @login_required
@@ -21587,48 +21608,69 @@ def obtener_operaciones_pendientes_propietario(request, propietario_id):
     Vista AJAX: operaciones y gastos pendientes agrupados para todas las propiedades
     del propietario en la sucursal (una liquidación sigue siendo por una sola propiedad).
     """
-    propietario = get_object_or_404(Propietario, id=propietario_id, sucursal=request.user.sucursal)
-    operaciones = []
-    gastos_merged = []
-    seen_gasto_key = set()
-    total_egresos = 0
-    props = list(
-        Propiedad.objects.filter(
-            propietario=propietario,
-            sucursal=request.user.sucursal,
-        ).order_by('direccion')
-    )
-    for propiedad in props:
-        data = _operaciones_gastos_pendientes_data(propiedad, request.user.sucursal)
-        lbl = _etiqueta_propiedad_liquidacion(propiedad)
-        for op in data.get('operaciones') or []:
-            operaciones.append({**op, 'propiedad_id': propiedad.id, 'propiedad_label': lbl})
-        for g in data.get('gastos_pendientes') or []:
-            gkey = g.get('id')
-            if gkey in seen_gasto_key:
+    try:
+        propietario = get_object_or_404(Propietario, id=propietario_id, sucursal=request.user.sucursal)
+        operaciones = []
+        gastos_merged = []
+        seen_gasto_key = set()
+        total_egresos = 0
+        errores_propiedades = []
+        props = list(
+            Propiedad.objects.filter(
+                propietario=propietario,
+                sucursal=request.user.sucursal,
+            ).order_by('direccion')
+        )
+        for propiedad in props:
+            try:
+                data = _operaciones_gastos_pendientes_data(propiedad, request.user.sucursal)
+            except Exception as exc:
+                logger.exception(
+                    'Error al armar operaciones pendientes propiedad %s (propietario %s)',
+                    propiedad.id,
+                    propietario_id,
+                )
+                errores_propiedades.append(
+                    {
+                        'propiedad_id': propiedad.id,
+                        'direccion': (propiedad.direccion or '')[:120],
+                        'error': str(exc),
+                    }
+                )
                 continue
-            seen_gasto_key.add(gkey)
-            gastos_merged.append({**g, 'propiedad_id': propiedad.id, 'propiedad_label': lbl})
-        dbg = data.get('debug') or {}
-        try:
-            total_egresos += int(dbg.get('total_egresos_encontrados') or 0)
-        except (TypeError, ValueError):
-            pass
-    return JsonResponse(
-        {
-            'success': True,
-            'operaciones': operaciones,
-            'gastos_pendientes': gastos_merged,
-            'propietario_id': propietario.id,
-            'propietario_nombre': f'{propietario.apellido}, {propietario.nombre}',
-            'propietario_cuenta_bancaria': (propietario.cuenta_bancaria or '').strip(),
-            'debug': {
-                'total_egresos_encontrados': total_egresos,
-                'total_gastos_agregados': len(gastos_merged),
-                'propiedades_consideradas': len(props),
-            },
-        }
-    )
+            lbl = _etiqueta_propiedad_liquidacion(propiedad)
+            for op in data.get('operaciones') or []:
+                operaciones.append({**op, 'propiedad_id': propiedad.id, 'propiedad_label': lbl})
+            for g in data.get('gastos_pendientes') or []:
+                gkey = g.get('id')
+                if gkey in seen_gasto_key:
+                    continue
+                seen_gasto_key.add(gkey)
+                gastos_merged.append({**g, 'propiedad_id': propiedad.id, 'propiedad_label': lbl})
+            dbg = data.get('debug') or {}
+            try:
+                total_egresos += int(dbg.get('total_egresos_encontrados') or 0)
+            except (TypeError, ValueError):
+                pass
+        return JsonResponse(
+            {
+                'success': True,
+                'operaciones': operaciones,
+                'gastos_pendientes': gastos_merged,
+                'propietario_id': propietario.id,
+                'propietario_nombre': f'{propietario.apellido}, {propietario.nombre}',
+                'propietario_cuenta_bancaria': (propietario.cuenta_bancaria or '').strip(),
+                'errores_propiedades': errores_propiedades,
+                'debug': {
+                    'total_egresos_encontrados': total_egresos,
+                    'total_gastos_agregados': len(gastos_merged),
+                    'propiedades_consideradas': len(props),
+                },
+            }
+        )
+    except Exception as exc:
+        logger.exception('Error en obtener_operaciones_pendientes_propietario %s', propietario_id)
+        return JsonResponse({'success': False, 'error': str(exc)}, status=500)
 
 
 def _operaciones_incluidas_tabla(liquidacion):
