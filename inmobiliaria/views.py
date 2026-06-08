@@ -21692,6 +21692,38 @@ def _etiqueta_propiedad_liquidacion(propiedad):
     return lbl
 
 
+def _filtrar_operaciones_liquidacion_por_busqueda(operaciones, *, tipo_busqueda, operacion_id):
+    """Al buscar por nº de contrato/reserva, solo la operación buscada (no todo el historial de la propiedad)."""
+    try:
+        oid = int(operacion_id)
+    except (TypeError, ValueError):
+        return list(operaciones or [])
+
+    filtradas = []
+    for op in operaciones or []:
+        if not isinstance(op, dict) or op.get('incluible') is False:
+            continue
+        tipo = (op.get('tipo') or '').strip().lower()
+        try:
+            op_id = int(op.get('id'))
+        except (TypeError, ValueError):
+            op_id = None
+
+        if tipo_busqueda == 'reserva':
+            if tipo == 'reserva' and op_id == oid:
+                filtradas.append(op)
+        elif tipo_busqueda == 'contrato':
+            if tipo == 'contrato_cuota':
+                try:
+                    if int(op.get('contrato_id')) == oid:
+                        filtradas.append(op)
+                except (TypeError, ValueError):
+                    pass
+            elif tipo == 'contrato' and op_id == oid:
+                filtradas.append(op)
+    return filtradas
+
+
 @login_required
 def buscar_operacion_liquidacion(request):
     """Busca contrato o reserva por número y devuelve operaciones pendientes de liquidar."""
@@ -21709,6 +21741,11 @@ def buscar_operacion_liquidacion(request):
     if contrato:
         prop = contrato.propiedad
         data = _operaciones_gastos_pendientes_data(prop, sucursal)
+        data['operaciones'] = _filtrar_operaciones_liquidacion_por_busqueda(
+            data.get('operaciones'),
+            tipo_busqueda='contrato',
+            operacion_id=pk,
+        )
         lbl = _etiqueta_propiedad_liquidacion(prop)
         for op in data.get('operaciones') or []:
             op['propiedad_id'] = prop.id
@@ -21743,6 +21780,11 @@ def buscar_operacion_liquidacion(request):
     if reserva:
         prop = reserva.propiedad
         data = _operaciones_gastos_pendientes_data(prop, sucursal)
+        data['operaciones'] = _filtrar_operaciones_liquidacion_por_busqueda(
+            data.get('operaciones'),
+            tipo_busqueda='reserva',
+            operacion_id=pk,
+        )
         lbl = _etiqueta_propiedad_liquidacion(prop)
         for op in data.get('operaciones') or []:
             op['propiedad_id'] = prop.id
