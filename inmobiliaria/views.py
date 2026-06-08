@@ -21174,10 +21174,11 @@ def _nombre_cliente_reserva_liquidacion(reserva):
 
 def _egreso_no_es_gasto_descontable_liquidacion(movimiento) -> bool:
     """
-    True si un egreso de caja no debe ofrecerse como «gasto pendiente» en liquidación.
-    Los cobros de alquiler y operaciones de contrato/reserva no son gastos descontables,
-    aunque en caja figuren mal cargados como egreso (comprobante RC + concepto de alquiler).
+    True si un movimiento de caja NO debe ofrecerse como «gasto pendiente» en liquidación.
+    Excluye cobros/recibos de alquiler (ingresos o egresos mal cargados) y operaciones de contrato.
+    Solo deben listarse egresos reales descontables al propietario (comprobante GS, gastos de oficina, etc.).
     """
+    from inmobiliaria.models.caja import TipoMovimientoCajaEnum
     from inmobiliaria.views_cuentas_bancarias import _concepto_detalle_es_contrato
     from inmobiliaria.cuotas_imputacion import (
         CODIGOS_IMPUTACION_ALQUILER_CUOTA,
@@ -21187,8 +21188,26 @@ def _egreso_no_es_gasto_descontable_liquidacion(movimiento) -> bool:
         payload_raiz_desde_movimiento_detalle,
     )
 
+    tipo_mov = (getattr(movimiento, 'tipo', None) or '').strip().upper()
+    if tipo_mov == TipoMovimientoCajaEnum.INGRESO:
+        return True
+
     concepto = (getattr(movimiento, 'concepto', None) or '').strip()
     lc = concepto.lower()
+
+    try:
+        categoria_listado = (movimiento.listado_concepto_l1 or '').strip().upper()
+    except Exception:
+        categoria_listado = ''
+    if categoria_listado in ('RECIBO', 'ALQUILER A COBRAR'):
+        return True
+
+    tc = (getattr(movimiento, 'tipo_comprobante', None) or '').strip().upper()
+    if tc == 'RE':
+        tc = 'RC'
+    # Recibo de propiedad = cobro de alquiler/operación, no gasto a descontar
+    if tc == 'RC' and getattr(movimiento, 'propiedad_id', None):
+        return True
 
     if 'liquidación propietario' in lc or 'liquidacion propietario' in lc:
         return True
@@ -21212,21 +21231,33 @@ def _egreso_no_es_gasto_descontable_liquidacion(movimiento) -> bool:
     if movimiento_tiene_lineas_imputables_cuota(movimiento):
         return True
 
-    tc = (getattr(movimiento, 'tipo_comprobante', None) or '').strip().upper()
     if tc == 'GS':
         return False
 
     conceptos_cobro = set(CODIGOS_IMPUTACION_ALQUILER_CUOTA) | {'10', '17'}
-    if tc == 'RC' and getattr(movimiento, 'propiedad_id', None):
-        texto_concepto = concepto.split('|', 1)[0].strip() if '|' in concepto else concepto
-        m_cid = re.match(r'^(\d+)', texto_concepto)
-        if m_cid and m_cid.group(1) in conceptos_cobro:
-            return True
-        for it in payload_conceptos_desde_movimiento_detalle(movimiento):
-            cid_raw = it.get('id') if it.get('id') is not None else it.get('codigo')
-            cid = _normalizar_codigo_concepto_caja(cid_raw)
-            if cid in conceptos_cobro:
+    for fragmento in (
+        concepto,
+        (getattr(movimiento, 'concepto_detalle', None) or ''),
+    ):
+        for m in re.finditer(r'(?:^|[\s|,;|])(\d{1,4})(?:\s*[-–—]\s*|\s|$)', str(fragmento)):
+            if m.group(1) in conceptos_cobro:
                 return True
+    try:
+        for det in (
+            (movimiento.listado_detalle_l1 or '').strip(),
+            (movimiento.listado_detalle_l2 or '').strip(),
+        ):
+            m_det = re.match(r'^(\d{1,4})\s*[-–—]\s*', det)
+            if m_det and m_det.group(1) in conceptos_cobro:
+                return True
+    except Exception:
+        pass
+
+    for it in payload_conceptos_desde_movimiento_detalle(movimiento):
+        cid_raw = it.get('id') if it.get('id') is not None else it.get('codigo')
+        cid = _normalizar_codigo_concepto_caja(cid_raw)
+        if cid in conceptos_cobro:
+            return True
 
     return False
 
