@@ -72,6 +72,33 @@
                 &nbsp;·&nbsp; <strong>Nº CAJA</strong> {{ caja.numero }}
                 &nbsp;·&nbsp; {{ caja.sucursal }}
             </div>
+            <form method="get" class="row g-2 align-items-end mb-3">
+                <div class="col-lg-8 col-md-7">
+                    <label for="q" class="form-label small mb-1">
+                        <i class="fas fa-search text-muted"></i> Buscar movimientos
+                    </label>
+                    <input type="search" class="form-control" id="q" name="q" value="{{ busqueda }}"
+                           placeholder="ID propiedad, nº ficha, dirección, propietario, operación, concepto, comprobante, empleado…"
+                           autocomplete="off">
+                </div>
+                <div class="col-lg-4 col-md-5 d-flex flex-wrap gap-2 pb-1">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-search"></i> Buscar
+                    </button>
+                    {% if busqueda %}
+                    <a href="{% url 'inmobiliaria:detalle_caja' caja.numero %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-times"></i> Limpiar
+                    </a>
+                    {% endif %}
+                </div>
+            </form>
+            {% if busqueda %}
+            <p class="small text-muted mb-2">
+                Mostrando <strong>{{ movimientos_filtrados }}</strong> de <strong>{{ movimientos_total }}</strong>
+                movimiento{{ movimientos_total|pluralize }} para «{{ busqueda }}».
+                Los totales de caja abajo siguen siendo de todos los movimientos.
+            </p>
+            {% endif %}
             <div class="table-responsive">
                 <table class="table table-striped table-caja-listado table-caja-consulta">
                     <thead>
@@ -172,7 +199,14 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="14" class="text-center">No hay movimientos registrados</td>
+                            <td colspan="14" class="text-center py-4">
+                                {% if busqueda %}
+                                No hay movimientos que coincidan con «{{ busqueda }}».
+                                <a href="{% url 'inmobiliaria:detalle_caja' caja.numero %}" class="ms-1">Ver todos</a>
+                                {% else %}
+                                No hay movimientos registrados
+                                {% endif %}
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>

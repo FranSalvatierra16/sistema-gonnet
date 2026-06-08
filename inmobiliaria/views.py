@@ -10755,19 +10755,63 @@ def _total_ars_desde_arqueo_dict(data):
     return total
 
 
-def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id')):
+def _aplicar_filtro_busqueda_movimientos_caja(qs, busqueda):
+    """Filtra movimientos por propiedad, propietario, operación, concepto, comprobante, etc."""
+    busqueda = (busqueda or '').strip()
+    if not busqueda:
+        return qs
+
+    q_bus = (
+        Q(concepto__icontains=busqueda)
+        | Q(concepto_detalle__icontains=busqueda)
+        | Q(numero_liquidacion__icontains=busqueda)
+        | Q(empleado__nombre__icontains=busqueda)
+        | Q(empleado__apellido__icontains=busqueda)
+        | Q(empleado__dni__icontains=busqueda)
+        | Q(propiedad__direccion__icontains=busqueda)
+        | Q(propiedad__ubicacion__icontains=busqueda)
+        | Q(propiedad__piso__icontains=busqueda)
+        | Q(propiedad__departamento__icontains=busqueda)
+        | Q(propiedad__propietario__nombre__icontains=busqueda)
+        | Q(propiedad__propietario__apellido__icontains=busqueda)
+        | Q(propiedad__propietario__dni__icontains=busqueda)
+    )
+    if busqueda.isascii() and busqueda.isdigit():
+        num = int(busqueda)
+        q_bus |= (
+            Q(pk=num)
+            | Q(propiedad_id=num)
+            | Q(propiedad__numero_por_propietario=num)
+            | Q(propiedad__propietario_id=num)
+        )
+    return qs.filter(q_bus).distinct()
+
+
+def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id'), busqueda=''):
     """Contexto compartido entre detalle de caja y resumen imprimible."""
     from inmobiliaria.models.sucursal import CuentaBancaria
 
+    busqueda = (busqueda or '').strip()
+
     movimientos_qs = (
         MovimientoCaja.objects.filter(caja=caja)
-        .select_related('propiedad', 'empleado')
+        .select_related('propiedad', 'propiedad__propietario', 'empleado')
         .order_by(*movimientos_order)
     )
-    movimientos = list(movimientos_qs)
-    MovimientoCaja.precargar_nombres_concepto(movimientos, sucursal=request.user.sucursal)
-    for mov in movimientos:
+    movimientos_all = list(movimientos_qs)
+    movimientos_total = len(movimientos_all)
+    MovimientoCaja.precargar_nombres_concepto(movimientos_all, sucursal=request.user.sucursal)
+    for mov in movimientos_all:
         _reparar_montos_movimiento_si_corresponde(mov, sucursal=request.user.sucursal)
+
+    if busqueda:
+        ids_filtrados = set(
+            _aplicar_filtro_busqueda_movimientos_caja(movimientos_qs, busqueda).values_list('id', flat=True)
+        )
+        movimientos = [m for m in movimientos_all if m.id in ids_filtrados]
+    else:
+        movimientos = movimientos_all
+    movimientos_filtrados = len(movimientos)
 
     def _resumir_concepto_crudo(concepto):
         texto = (concepto or '').strip()
@@ -10791,16 +10835,21 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
 
     movimientos_eliminados_qs = (
         MovimientoCaja.all_objects.filter(caja=caja, fecha_eliminacion__isnull=False)
-        .select_related('propiedad', 'empleado', 'eliminado_por')
+        .select_related('propiedad', 'propiedad__propietario', 'empleado', 'eliminado_por')
         .order_by('-fecha_eliminacion', '-id')
     )
-    movimientos_eliminados = list(movimientos_eliminados_qs)
+    if busqueda:
+        movimientos_eliminados = list(
+            _aplicar_filtro_busqueda_movimientos_caja(movimientos_eliminados_qs, busqueda)
+        )
+    else:
+        movimientos_eliminados = list(movimientos_eliminados_qs)
     MovimientoCaja.precargar_nombres_concepto(movimientos_eliminados, sucursal=request.user.sucursal)
     for mov in movimientos_eliminados:
         mov.concepto_resumen = _resumir_concepto_crudo(getattr(mov, 'concepto', ''))
 
-    ingresos = [m for m in movimientos if m.tipo == TipoMovimientoCajaEnum.INGRESO]
-    egresos = [m for m in movimientos if m.tipo == TipoMovimientoCajaEnum.EGRESO]
+    ingresos = [m for m in movimientos_all if m.tipo == TipoMovimientoCajaEnum.INGRESO]
+    egresos = [m for m in movimientos_all if m.tipo == TipoMovimientoCajaEnum.EGRESO]
 
     cuentas_bancarias = CuentaBancaria.objects.filter(
         sucursal=request.user.sucursal,
@@ -10892,6 +10941,9 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
         'caja': caja,
         'movimientos': movimientos,
         'movimientos_eliminados': movimientos_eliminados,
+        'busqueda': busqueda,
+        'movimientos_total': movimientos_total,
+        'movimientos_filtrados': movimientos_filtrados,
         'totales': totales,
         'cuentas_bancarias': cuentas_bancarias,
         'es_saldo_positivo': saldo_total >= 0,
@@ -10903,7 +10955,10 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
 @login_required
 def detalle_caja(request, numero):
     caja = get_object_or_404(Caja, numero=numero, sucursal=request.user.sucursal)
-    context = _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id'))
+    busqueda = request.GET.get('q', '').strip()
+    context = _build_context_detalle_caja(
+        request, caja, movimientos_order=('-fecha', '-id'), busqueda=busqueda
+    )
     return render(request, 'inmobiliaria/caja/detalle_caja.html', context)
 
 
