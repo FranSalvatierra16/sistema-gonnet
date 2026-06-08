@@ -80,7 +80,59 @@ class Caja(models.Model):
         verbose_name_plural = 'Cajas'
         ordering = ['-fecha_apertura']
 
-class MovimientoCaja(models.Model):
+
+class CajaArqueoCierre(models.Model):
+    """Conteo físico al cierre (superusuario): saldo por medio de pago / cuenta."""
+
+    caja = models.OneToOneField(
+        Caja,
+        on_delete=models.CASCADE,
+        related_name='arqueo_cierre',
+    )
+    efectivo = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    cheque = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    tarjeta = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    dolares = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    deposito_galicia = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    deposito_mp = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    cuentas_json = models.JSONField(default=dict, blank=True)
+    registrado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='arqueos_caja_registrados',
+    )
+    fecha_registro = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'inmobiliaria_caja_arqueo_cierre'
+        verbose_name = 'Arqueo de cierre de caja'
+        verbose_name_plural = 'Arqueos de cierre de caja'
+
+    def __str__(self):
+        return f'Arqueo caja #{self.caja_id} — ${self.total_ars()}'
+
+    def total_ars(self):
+        total = Decimal('0')
+        for attr in ('efectivo', 'cheque', 'tarjeta', 'deposito_galicia', 'deposito_mp'):
+            total += Decimal(str(getattr(self, attr, None) or 0))
+        for val in (self.cuentas_json or {}).values():
+            try:
+                total += Decimal(str(val or 0))
+            except Exception:
+                pass
+        return total
+
+    def monto_cuenta(self, cuenta_id):
+        raw = (self.cuentas_json or {}).get(str(cuenta_id))
+        if raw is None:
+            return Decimal('0')
+        try:
+            return Decimal(str(raw))
+        except Exception:
+            return Decimal('0')
+
     fecha = models.DateTimeField(auto_now_add=True)
     tipo = models.CharField(
         max_length=2,

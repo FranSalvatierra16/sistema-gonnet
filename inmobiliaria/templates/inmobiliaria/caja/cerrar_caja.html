@@ -4,7 +4,7 @@
 {% block content %}
 <div class="container-fluid mt-4 fade-in-up">
     <div class="row justify-content-center">
-        <div class="col-md-8">
+        <div class="col-lg-10">
             <div class="card shadow-modern border-radius-modern">
                 <div class="card-header bg-gradient-danger text-white">
                     <h3 class="card-title mb-0">
@@ -12,22 +12,25 @@
                     </h3>
                 </div>
                 <div class="card-body">
-                    <!-- Información de la caja actual -->
                     <div class="row mb-4">
                         <div class="col-md-6">
                             <div class="info-box bg-light p-3 rounded">
                                 <h5>📊 <strong>Información de la Caja</strong></h5>
                                 <p><strong>Sucursal:</strong> {{ caja.sucursal.nombre }}</p>
                                 <p><strong>Apertura:</strong> {{ caja.fecha_apertura|date:"d/m/Y H:i" }}</p>
-                                <p><strong>Saldo Inicial:</strong> ${{ caja.saldo_inicial|format_price:0 }}</p>
-                                <p><strong>Saldo teórico (movimientos):</strong>
-                                    <span class="text-success font-weight-bold">${{ saldo_teorico|format_price:0 }}</span>
+                                <p><strong>Saldo inicial (efectivo):</strong> ${{ caja.saldo_inicial|format_price:0 }}</p>
+                                <p><strong>Saldo teórico total ARS:</strong>
+                                    <span class="text-success fw-bold">${{ saldo_teorico|format_price:0 }}</span>
                                 </p>
                             </div>
                         </div>
                         <div class="col-md-6">
-                            <div class="alert alert-info">
-                                <h5>🚀 <strong>Apertura Automática</strong></h5>
+                            <div class="alert alert-info mb-0">
+                                <h5>🚀 <strong>Próxima caja</strong></h5>
+                                {% if puede_arqueo %}
+                                <p class="mb-2">Como superusuario, cargás el <strong>conteo físico</strong> por medio. La nueva caja abrirá con el <strong>efectivo en pesos</strong> que indiques.</p>
+                                <p class="mb-0 small">Total ARS de cierre = efectivo + cheques + tarjeta + transferencias (cuentas).</p>
+                                {% else %}
                                 <p class="mb-2">Al cerrar se abrirá una caja nueva con el saldo teórico calculado:</p>
                                 <ul class="mb-0">
                                     <li><strong>Saldo inicial próxima caja:</strong>
@@ -35,47 +38,131 @@
                                     </li>
                                     <li><strong>Estado:</strong> Abierta</li>
                                 </ul>
+                                {% endif %}
                             </div>
                         </div>
                     </div>
 
-                    <!-- Confirmación -->
                     <div class="alert alert-warning">
                         <h5>⚠️ <strong>Confirmación</strong></h5>
                         <p class="mb-0">¿Está seguro que desea cerrar la Caja #{{ caja.numero }}? Esta acción no se puede deshacer.</p>
                     </div>
-                    
-                    <form method="post">
+
+                    <form method="post" id="formCerrarCaja">
                         {% csrf_token %}
+
+                        {% if puede_arqueo %}
+                        <div class="card mb-4 border-primary">
+                            <div class="card-header bg-primary text-white">
+                                <strong>Arqueo de cierre — conteo físico</strong>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-hover mb-0 align-middle">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Medio / cuenta</th>
+                                                <th class="text-end" style="min-width: 8rem;">Teórico</th>
+                                                <th class="text-end" style="min-width: 10rem;">Contado (cierre)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td><strong>Efectivo ARS</strong> <small class="text-muted">(abre la próxima caja)</small></td>
+                                                <td class="text-end text-muted">${{ saldos_teoricos.efectivo|format_price }}</td>
+                                                <td class="text-end">
+                                                    <input type="number" name="arqueo_efectivo" class="form-control form-control-sm text-end arqueo-input" step="0.01" min="0" value="{{ saldos_teoricos.efectivo|stringformat:'f' }}" required>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>USD (efectivo)</strong></td>
+                                                <td class="text-end text-muted">U$S {{ saldos_teoricos.dolares|format_price }}</td>
+                                                <td class="text-end">
+                                                    <input type="number" name="arqueo_dolares" class="form-control form-control-sm text-end arqueo-input" step="0.01" min="0" value="{{ saldos_teoricos.dolares|stringformat:'f' }}">
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Cheques</strong></td>
+                                                <td class="text-end text-muted">${{ saldos_teoricos.cheque|format_price }}</td>
+                                                <td class="text-end">
+                                                    <input type="number" name="arqueo_cheque" class="form-control form-control-sm text-end arqueo-input" step="0.01" min="0" value="{{ saldos_teoricos.cheque|stringformat:'f' }}">
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Tarjeta</strong></td>
+                                                <td class="text-end text-muted">${{ saldos_teoricos.tarjeta|format_price }}</td>
+                                                <td class="text-end">
+                                                    <input type="number" name="arqueo_tarjeta" class="form-control form-control-sm text-end arqueo-input" step="0.01" min="0" value="{{ saldos_teoricos.tarjeta|stringformat:'f' }}">
+                                                </td>
+                                            </tr>
+                                            {% if saldos_teoricos.deposito_galicia or saldos_teoricos.deposito_mp %}
+                                            <tr class="table-light">
+                                                <td colspan="3" class="small text-muted py-1">Cuentas legacy (si no usás cuentas dinámicas)</td>
+                                            </tr>
+                                            {% endif %}
+                                            <tr>
+                                                <td>Transferencia Galicia <small class="text-muted">(legacy)</small></td>
+                                                <td class="text-end text-muted">${{ saldos_teoricos.deposito_galicia|format_price }}</td>
+                                                <td class="text-end">
+                                                    <input type="number" name="arqueo_galicia" class="form-control form-control-sm text-end arqueo-input arqueo-ars" step="0.01" min="0" value="{{ saldos_teoricos.deposito_galicia|stringformat:'f' }}">
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>Transferencia Mercado Pago <small class="text-muted">(legacy)</small></td>
+                                                <td class="text-end text-muted">${{ saldos_teoricos.deposito_mp|format_price }}</td>
+                                                <td class="text-end">
+                                                    <input type="number" name="arqueo_mp" class="form-control form-control-sm text-end arqueo-input arqueo-ars" step="0.01" min="0" value="{{ saldos_teoricos.deposito_mp|stringformat:'f' }}">
+                                                </td>
+                                            </tr>
+                                            {% for item in cuentas_arqueo %}
+                                            <tr>
+                                                <td>
+                                                    <strong>{{ item.cuenta.nombre_banco }}</strong><br>
+                                                    <small class="text-muted">{{ item.cuenta.titular }} · {{ item.cuenta.alias }}</small>
+                                                </td>
+                                                <td class="text-end text-muted">${{ item.teorico|format_price }}</td>
+                                                <td class="text-end">
+                                                    <input type="number" name="arqueo_cuenta_{{ item.cuenta.id }}" class="form-control form-control-sm text-end arqueo-input arqueo-ars" step="0.01" min="0" value="{{ item.teorico|stringformat:'f' }}">
+                                                </td>
+                                            </tr>
+                                            {% empty %}
+                                            <tr><td colspan="3" class="text-muted small">No hay cuentas bancarias activas en esta sucursal.</td></tr>
+                                            {% endfor %}
+                                        </tbody>
+                                        <tfoot class="table-secondary">
+                                            <tr>
+                                                <td class="text-end fw-bold">Total ARS (sin USD)</td>
+                                                <td class="text-end fw-bold">${{ saldo_teorico|format_price }}</td>
+                                                <td class="text-end fw-bold text-success" id="arqueo_total_ars">$0,00</td>
+                                            </tr>
+                                            <tr>
+                                                <td colspan="3" class="small text-muted">
+                                                    Próxima caja — saldo inicial efectivo: <strong id="arqueo_prox_efectivo">$0,00</strong>
+                                                </td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        {% else %}
                         <div class="form-group mb-3">
-                            <label class="form-label">
-                                <strong>💰 Saldo de cierre / saldo para la próxima caja:</strong>
-                            </label>
+                            <label class="form-label"><strong>💰 Saldo de cierre / saldo para la próxima caja:</strong></label>
                             <div class="form-control form-control-lg fw-bold bg-light text-success">
                                 ${{ saldo_teorico|format_price:0 }}
                             </div>
-                            <small class="text-muted">
-                                Se toma automáticamente del saldo teórico (movimientos). No se puede modificar al cerrar.
-                            </small>
+                            <small class="text-muted">Se toma automáticamente del saldo teórico (movimientos).</small>
                         </div>
+                        {% endif %}
+
                         <div class="form-group mb-3">
-                            <label for="observaciones" class="form-label">
-                                <strong>📝 Observaciones de Cierre (Opcional):</strong>
-                            </label>
-                            <textarea class="form-control" 
-                                      id="observaciones" 
-                                      name="observaciones" 
-                                      rows="3" 
-                                      placeholder="Escriba cualquier observación sobre el cierre de esta caja..."></textarea>
+                            <label for="observaciones" class="form-label"><strong>📝 Observaciones de cierre (opcional)</strong></label>
+                            <textarea class="form-control" id="observaciones" name="observaciones" rows="3" placeholder="Diferencias, billetes grandes, etc."></textarea>
                         </div>
 
                         <div class="d-flex justify-content-end gap-2">
-                            <a href="{% url 'inmobiliaria:lista_cajas' %}" class="btn btn-secondary">
-                                ↩️ Cancelar
-                            </a>
-                            <button type="submit" class="btn btn-danger btn-lg">
-                                🔒 Cerrar Caja y Abrir Nueva
-                            </button>
+                            <a href="{% url 'inmobiliaria:detalle_caja' caja.numero %}" class="btn btn-secondary">↩️ Cancelar</a>
+                            <button type="submit" class="btn btn-danger btn-lg">🔒 Cerrar caja y abrir nueva</button>
                         </div>
                     </form>
                 </div>
@@ -83,4 +170,31 @@
         </div>
     </div>
 </div>
+
+{% if puede_arqueo %}
+<script>
+(function() {
+    function parseNum(el) {
+        var v = parseFloat((el.value || '0').replace(',', '.'));
+        return isNaN(v) ? 0 : v;
+    }
+    function fmt(n) {
+        return '$' + n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    function recalc() {
+        var total = 0;
+        document.querySelectorAll('.arqueo-ars, input[name="arqueo_efectivo"], input[name="arqueo_cheque"], input[name="arqueo_tarjeta"]').forEach(function(el) {
+            total += parseNum(el);
+        });
+        var ef = document.querySelector('input[name="arqueo_efectivo"]');
+        document.getElementById('arqueo_total_ars').textContent = fmt(total);
+        if (ef) document.getElementById('arqueo_prox_efectivo').textContent = fmt(parseNum(ef));
+    }
+    document.querySelectorAll('.arqueo-input').forEach(function(el) {
+        el.addEventListener('input', recalc);
+    });
+    recalc();
+})();
+</script>
+{% endif %}
 {% endblock %}

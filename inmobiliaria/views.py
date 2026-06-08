@@ -10364,6 +10364,100 @@ def _aplicar_saldo_inicial_a_totales_efectivo(caja, totales):
     return totales
 
 
+def _usuario_puede_arqueo_cierre_caja(user):
+    return bool(user and getattr(user, 'is_authenticated', False) and getattr(user, 'is_superuser', False))
+
+
+def _calcular_saldos_caja_por_medio(caja, sucursal):
+    """Saldos teóricos por medio de pago al cierre (movimientos + saldo inicial en efectivo)."""
+    from inmobiliaria.models.sucursal import CuentaBancaria
+
+    movimientos_qs = MovimientoCaja.objects.filter(caja=caja)
+    ingresos = movimientos_qs.filter(tipo=TipoMovimientoCajaEnum.INGRESO)
+    egresos = movimientos_qs.filter(tipo=TipoMovimientoCajaEnum.EGRESO)
+    saldo_ini = _saldo_inicial_efectivo_caja(caja)
+
+    def _net(campo):
+        return (
+            sum(Decimal(str(getattr(m, campo, None) or 0)) for m in ingresos)
+            - sum(Decimal(str(getattr(m, campo, None) or 0)) for m in egresos)
+        )
+
+    efectivo = _net('monto_efectivo') + saldo_ini
+    cheque = _net('monto_cheque')
+    tarjeta = _net('monto_tarjeta')
+    dolares = _net('monto_dolares')
+    galicia = (
+        sum(Decimal(str(m.monto_deposito or 0)) for m in ingresos.filter(destino_deposito='galicia'))
+        - sum(Decimal(str(m.monto_deposito or 0)) for m in egresos.filter(destino_deposito='galicia'))
+    )
+    mp = (
+        sum(Decimal(str(m.monto_deposito or 0)) for m in ingresos.filter(destino_deposito='mp'))
+        - sum(Decimal(str(m.monto_deposito or 0)) for m in egresos.filter(destino_deposito='mp'))
+    )
+
+    cuentas_bancarias = list(
+        CuentaBancaria.objects.filter(sucursal=sucursal, activa=True).order_by('nombre_banco', 'alias')
+    )
+    cuentas = []
+    total_cuentas = Decimal('0')
+    for cuenta in cuentas_bancarias:
+        dest = f'cuenta_{cuenta.id}'
+        t_ing = sum(Decimal(str(m.monto_deposito or 0)) for m in ingresos.filter(destino_deposito=dest))
+        t_egr = sum(Decimal(str(m.monto_deposito or 0)) for m in egresos.filter(destino_deposito=dest))
+        teorico = t_ing - t_egr
+        total_cuentas += teorico
+        cuentas.append({'cuenta': cuenta, 'teorico': teorico})
+
+    total_ars = efectivo + cheque + tarjeta + galicia + mp + total_cuentas
+
+    return {
+        'efectivo': efectivo,
+        'cheque': cheque,
+        'tarjeta': tarjeta,
+        'dolares': dolares,
+        'deposito_galicia': galicia,
+        'deposito_mp': mp,
+        'cuentas': cuentas,
+        'total_ars': total_ars,
+        'saldo_inicial_efectivo': saldo_ini,
+    }
+
+
+def _parse_arqueo_cierre_post(request, cuentas_bancarias):
+    from inmobiliaria.decimal_utils import parse_decimal_monto
+
+    def _m(key, default='0'):
+        try:
+            val = parse_decimal_monto(request.POST.get(key, default) or default)
+        except Exception:
+            val = Decimal('0')
+        return val if val >= 0 else Decimal('0')
+
+    cuentas_json = {}
+    for cuenta in cuentas_bancarias:
+        cuentas_json[str(cuenta.id)] = str(_m(f'arqueo_cuenta_{cuenta.id}'))
+
+    return {
+        'efectivo': _m('arqueo_efectivo'),
+        'cheque': _m('arqueo_cheque'),
+        'tarjeta': _m('arqueo_tarjeta'),
+        'dolares': _m('arqueo_dolares'),
+        'deposito_galicia': _m('arqueo_galicia'),
+        'deposito_mp': _m('arqueo_mp'),
+        'cuentas_json': cuentas_json,
+    }
+
+
+def _total_ars_desde_arqueo_dict(data):
+    total = Decimal('0')
+    for key in ('efectivo', 'cheque', 'tarjeta', 'deposito_galicia', 'deposito_mp'):
+        total += Decimal(str(data.get(key) or 0))
+    for val in (data.get('cuentas_json') or {}).values():
+        total += Decimal(str(val or 0))
+    return total
+
+
 def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id')):
     """Contexto compartido entre detalle de caja y resumen imprimible."""
     from inmobiliaria.models.sucursal import CuentaBancaria
@@ -10513,6 +10607,13 @@ def imprimir_resumen_caja(request, numero):
     saldo_ini = _saldo_inicial_efectivo_caja(caja)
     context['saldo_teorico_final'] = caja.get_saldo_actual()
     context['neto_movimientos_ars'] = context['totales']['saldo_total'] - saldo_ini
+    context['saldos_teoricos_cierre'] = _calcular_saldos_caja_por_medio(caja, request.user.sucursal)
+    from inmobiliaria.models.caja import CajaArqueoCierre
+    arqueo = CajaArqueoCierre.objects.filter(caja=caja).first()
+    if arqueo:
+        for item in context['saldos_teoricos_cierre']['cuentas']:
+            item['contado'] = arqueo.monto_cuenta(item['cuenta'].id)
+    context['arqueo_cierre'] = arqueo
     return render(request, 'inmobiliaria/caja/resumen_caja_imprimir.html', context)
 
 _MOVIMIENTO_UID_SESSION_KEY = 'caja_movimiento_uids_procesados'
@@ -10879,41 +10980,75 @@ def nuevo_movimiento(request, numero_caja=None):
 
 @login_required
 def cerrar_caja(request, numero_caja):
+    from inmobiliaria.models.caja import CajaArqueoCierre
+
     caja = get_object_or_404(Caja, numero=numero_caja, sucursal=request.user.sucursal, estado='abierta')
-    saldo_teorico = caja.get_saldo_actual()
+    sucursal = request.user.sucursal
+    saldos_teoricos = _calcular_saldos_caja_por_medio(caja, sucursal)
+    saldo_teorico = saldos_teoricos['total_ars']
+    puede_arqueo = _usuario_puede_arqueo_cierre_caja(request.user)
+    cuentas_arqueo = saldos_teoricos['cuentas']
 
     if request.method == 'POST':
         observaciones = (request.POST.get('observaciones') or '').strip()
-        saldo_final = saldo_teorico
 
         try:
-            # Cerrar la caja actual
-            caja.fecha_cierre = timezone.now()
-            caja.estado = 'cerrada'
-            caja.saldo_final = saldo_final
-            caja.usuario_cierre = request.user
-            caja.observaciones_cierre = observaciones
-            caja.save()
+            with transaction.atomic():
+                if puede_arqueo:
+                    arqueo_data = _parse_arqueo_cierre_post(request, [c['cuenta'] for c in cuentas_arqueo])
+                    saldo_final = _total_ars_desde_arqueo_dict(arqueo_data)
+                    saldo_inicial_siguiente = arqueo_data['efectivo']
+                else:
+                    saldo_final = saldo_teorico
+                    saldo_inicial_siguiente = saldo_final
+                    arqueo_data = None
 
-            # Apertura automática de nueva caja (numero = PK autoincremental; no fijar a mano).
-            nueva_caja = Caja.objects.create(
-                sucursal=request.user.sucursal,
-                estado='abierta',
-                usuario_apertura=request.user,
-                saldo_inicial=saldo_final,
-                observaciones_apertura=(
-                    f'Apertura automática tras cierre de Caja #{caja.numero} '
-                    f'(saldo inicial ${format_monto_argentino(saldo_final)})'
-                ),
-            )
+                caja.fecha_cierre = timezone.now()
+                caja.estado = 'cerrada'
+                caja.saldo_final = saldo_final
+                caja.usuario_cierre = request.user
+                caja.observaciones_cierre = observaciones
+                caja.save()
+
+                if puede_arqueo and arqueo_data is not None:
+                    CajaArqueoCierre.objects.create(
+                        caja=caja,
+                        efectivo=arqueo_data['efectivo'],
+                        cheque=arqueo_data['cheque'],
+                        tarjeta=arqueo_data['tarjeta'],
+                        dolares=arqueo_data['dolares'],
+                        deposito_galicia=arqueo_data['deposito_galicia'],
+                        deposito_mp=arqueo_data['deposito_mp'],
+                        cuentas_json=arqueo_data['cuentas_json'],
+                        registrado_por=request.user,
+                    )
+
+                nueva_caja = Caja.objects.create(
+                    sucursal=sucursal,
+                    estado='abierta',
+                    usuario_apertura=request.user,
+                    saldo_inicial=saldo_inicial_siguiente,
+                    observaciones_apertura=(
+                        f'Apertura automática tras cierre de Caja #{caja.numero} '
+                        f'(saldo inicial efectivo ${format_monto_argentino(saldo_inicial_siguiente)})'
+                    ),
+                )
 
             num_cerrada = caja.numero
             messages.success(request, f'✅ Caja #{num_cerrada} cerrada exitosamente')
-            messages.success(
-                request,
-                f'🚀 Nueva Caja #{nueva_caja.numero} abierta con saldo inicial: '
-                f'${format_monto_argentino(saldo_final)}',
-            )
+            if puede_arqueo:
+                messages.success(
+                    request,
+                    f'Arqueo registrado: total ARS ${format_monto_argentino(saldo_final)} · '
+                    f'próxima caja #{nueva_caja.numero} abre con efectivo '
+                    f'${format_monto_argentino(saldo_inicial_siguiente)}.',
+                )
+            else:
+                messages.success(
+                    request,
+                    f'🚀 Nueva Caja #{nueva_caja.numero} abierta con saldo inicial: '
+                    f'${format_monto_argentino(saldo_inicial_siguiente)}',
+                )
             messages.info(request, 'Podés imprimir el resumen de movimientos de la caja cerrada desde la página que se abre.')
             return redirect('inmobiliaria:imprimir_resumen_caja', numero=num_cerrada)
 
@@ -10927,6 +11062,9 @@ def cerrar_caja(request, numero_caja):
         {
             'caja': caja,
             'saldo_teorico': saldo_teorico,
+            'saldos_teoricos': saldos_teoricos,
+            'cuentas_arqueo': cuentas_arqueo,
+            'puede_arqueo': puede_arqueo,
         },
     )
 

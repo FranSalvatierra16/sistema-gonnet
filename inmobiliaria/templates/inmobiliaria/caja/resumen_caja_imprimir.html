@@ -162,7 +162,7 @@
         </div>
     </div>
 
-    <div class="alert {% if es_saldo_positivo %}alert-success{% else %}alert-danger{% endif %} mb-0">
+    <div class="alert {% if es_saldo_positivo %}alert-success{% else %}alert-danger{% endif %} mb-3">
         <strong>Saldo total ARS (inicial en efectivo + movimientos):</strong>
         ${{ totales.saldo_total|format_price }}
         &nbsp;·&nbsp;
@@ -170,6 +170,76 @@
         &nbsp;·&nbsp;
         <strong>Saldo USD:</strong> U$S {{ totales.saldo_actual.dolares|format_price }}
     </div>
+
+    {% if arqueo_cierre %}
+    <div class="card mb-0 border-dark">
+        <div class="card-header bg-dark text-white py-2">
+            <strong>Arqueo físico al cierre</strong>
+            {% if arqueo_cierre.registrado_por %}
+            <span class="small text-white-50 ms-2">— {{ arqueo_cierre.registrado_por }} · {{ arqueo_cierre.fecha_registro|date:"d/m/Y H:i" }}</span>
+            {% endif %}
+        </div>
+        <div class="card-body py-2">
+            <div class="table-responsive">
+                <table class="table table-sm mb-0">
+                    <thead>
+                        <tr>
+                            <th>Medio</th>
+                            <th class="text-end">Teórico</th>
+                            <th class="text-end">Contado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Efectivo ARS</td>
+                            <td class="text-end">${{ saldos_teoricos_cierre.efectivo|format_price }}</td>
+                            <td class="text-end fw-bold">${{ arqueo_cierre.efectivo|format_price }}</td>
+                        </tr>
+                        <tr>
+                            <td>USD</td>
+                            <td class="text-end">U$S {{ saldos_teoricos_cierre.dolares|format_price }}</td>
+                            <td class="text-end fw-bold">U$S {{ arqueo_cierre.dolares|format_price }}</td>
+                        </tr>
+                        <tr>
+                            <td>Cheques</td>
+                            <td class="text-end">${{ saldos_teoricos_cierre.cheque|format_price }}</td>
+                            <td class="text-end">${{ arqueo_cierre.cheque|format_price }}</td>
+                        </tr>
+                        <tr>
+                            <td>Tarjeta</td>
+                            <td class="text-end">${{ saldos_teoricos_cierre.tarjeta|format_price }}</td>
+                            <td class="text-end">${{ arqueo_cierre.tarjeta|format_price }}</td>
+                        </tr>
+                        <tr>
+                            <td>Galicia (legacy)</td>
+                            <td class="text-end">${{ saldos_teoricos_cierre.deposito_galicia|format_price }}</td>
+                            <td class="text-end">${{ arqueo_cierre.deposito_galicia|format_price }}</td>
+                        </tr>
+                        <tr>
+                            <td>Mercado Pago (legacy)</td>
+                            <td class="text-end">${{ saldos_teoricos_cierre.deposito_mp|format_price }}</td>
+                            <td class="text-end">${{ arqueo_cierre.deposito_mp|format_price }}</td>
+                        </tr>
+                        {% for item in saldos_teoricos_cierre.cuentas %}
+                        <tr>
+                            <td>{{ item.cuenta.nombre_banco }} · {{ item.cuenta.alias }}</td>
+                            <td class="text-end">${{ item.teorico|format_price }}</td>
+                            <td class="text-end">${{ item.contado|default:0|format_price }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr class="table-light">
+                            <td class="fw-bold">Total ARS</td>
+                            <td class="text-end">${{ saldos_teoricos_cierre.total_ars|format_price }}</td>
+                            <td class="text-end fw-bold">${{ arqueo_cierre.total_ars|format_price }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 <style>
