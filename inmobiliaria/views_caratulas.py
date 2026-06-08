@@ -734,6 +734,9 @@ def lista_caratulas(request):
                 operacion_num = None
         reservas = reservas.filter(id=operacion_num) if operacion_num is not None else reservas.none()
 
+    busqueda_por_numero = operacion_num is not None or (bool(q) and q.isdigit())
+    omitir_filtro_fechas = periodo_completo or busqueda_por_numero
+
     if q:
         q_res = (
             Q(propiedad__direccion__icontains=q)
@@ -757,7 +760,7 @@ def lista_caratulas(request):
 
     dr_desde = None
     dr_hasta = None
-    if not periodo_completo:
+    if not omitir_filtro_fechas:
         if fecha_desde:
             try:
                 dr_desde = datetime.strptime(fecha_desde, '%Y-%m-%d').date()
@@ -815,7 +818,7 @@ def lista_caratulas(request):
             except (TypeError, ValueError):
                 pass
         contratos = contratos.filter(q_ctr)
-    if not periodo_completo:
+    if not omitir_filtro_fechas:
         if dr_desde and dr_hasta:
             contratos = contratos.filter(
                 fecha_inicio__lte=dr_hasta,
@@ -913,6 +916,7 @@ def lista_caratulas(request):
             'fecha_hasta': fecha_hasta if not periodo_completo else '',
             'tipo_filtro': tipo_filtro,
             'periodo_completo': periodo_completo,
+            'busqueda_por_numero': busqueda_por_numero,
             'carpeta_default': _carpeta_default_actual(request),
         },
     )

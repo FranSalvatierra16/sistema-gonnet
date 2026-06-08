@@ -152,7 +152,7 @@
                             <div class="col">
                                 <label class="form-label">Monto para la Inmobiliaria</label>
                                 <input type="text" name="monto_inmobiliaria" id="monto_inmobiliaria" class="form-control" placeholder="0,00">
-                                <small class="form-text text-muted">Se actualiza como Total − Propietario al cambiar esos dos; podés ajustarlo.</small>
+                                <small class="form-text text-muted">Se actualiza como Total − Propietario − Cochera; podés ajustarlo.</small>
                             </div>
                             <div class="col">
                                 <label class="form-label">Cochera</label>
@@ -171,7 +171,7 @@
                                 <div class="alert alert-success">
                                     <strong>Monto Final a Pagar al Propietario:</strong> 
                                     $<span id="monto-final-pagar">0.00</span>
-                                    <small class="text-muted ms-2">(Monto propietario − gastos seleccionados − fondo de mantenimiento)</small>
+                                    <small class="text-muted ms-2">(Propietario + cochera − gastos − fondo de mantenimiento)</small>
                                 </div>
                             </div>
                         </div>
@@ -284,6 +284,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const montoPropietario = document.getElementById('monto_propietario');
     const montoInmobiliaria = document.getElementById('monto_inmobiliaria');
     const montoFondoMantenimiento = document.getElementById('monto_fondo_mantenimiento');
+    const montoCochera = document.getElementById('monto_cochera');
     const dividirToggle = document.getElementById('dividir_operacion_toggle');
     const dividirHidden = document.getElementById('dividir_operacion');
     const bloqueDivision = document.getElementById('bloque_division_operaciones');
@@ -1185,11 +1186,16 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     let montoInmobiliariaEditadoManual = false;
+    function leerCochera() {
+        return montoCochera ? parseNumeroEsAR(montoCochera.value) : 0;
+    }
+
     function actualizarInmobiliariaPorDiferencia() {
         if (montoInmobiliariaEditadoManual) return;
         const t = parseNumeroEsAR(montoTotal.value);
         const p = parseNumeroEsAR(montoPropietario.value);
-        montoInmobiliaria.value = formatearNumero((t - p).toFixed(2));
+        const c = leerCochera();
+        montoInmobiliaria.value = formatearNumero(Math.max(0, t - p - c).toFixed(2));
     }
     
     // Función para calcular montos de las operaciones seleccionadas (global)
@@ -1243,7 +1249,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // IMPORTANTE:
             // - Monto Propietario = bruto de operaciones (sin descontar gastos)
             // - Monto Inmobiliaria = bruto de operaciones
-            // - Monto Final a Pagar = propietario bruto - gastos seleccionados - fondo de mantenimiento (manual)
+            // - Monto Final a Pagar = propietario + cochera - gastos - fondo de mantenimiento
             montoPropietario.value = formatearNumero(totalMontoPropietario.toFixed(2));
             montoInmobiliariaEditadoManual = false;
             montoInmobiliaria.value = formatearNumero(totalMontoInmobiliaria.toFixed(2));
@@ -1251,7 +1257,8 @@ document.addEventListener('DOMContentLoaded', function() {
             actualizarInmobiliariaPorDiferencia();
 
             const fondo = montoFondoMantenimiento ? parseNumeroEsAR(montoFondoMantenimiento.value) : 0;
-            const montoPropietarioFinal = totalMontoPropietario - totalGastos - fondo;
+            const cochera = leerCochera();
+            const montoPropietarioFinal = totalMontoPropietario + cochera - totalGastos - fondo;
             // Actualizar monto final a pagar
             const montoFinalPagar = document.getElementById('monto-final-pagar');
             if (montoFinalPagar) {
@@ -1294,6 +1301,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function recalcularMontoFinalDesdeCampos() {
         const prop = parseNumeroEsAR(montoPropietario.value);
+        const cochera = leerCochera();
         const fondo = montoFondoMantenimiento ? parseNumeroEsAR(montoFondoMantenimiento.value) : 0;
         const gastosCheckboxes = document.querySelectorAll('.gasto-checkbox:checked');
         let totalGastos = 0;
@@ -1302,12 +1310,21 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         const montoFinalPagar = document.getElementById('monto-final-pagar');
         if (montoFinalPagar) {
-            montoFinalPagar.textContent = formatearNumero(Math.max(0, prop - totalGastos - fondo).toFixed(2));
+            montoFinalPagar.textContent = formatearNumero(
+                Math.max(0, prop + cochera - totalGastos - fondo).toFixed(2)
+            );
         }
     }
 
     if (montoFondoMantenimiento) {
         montoFondoMantenimiento.addEventListener('input', recalcularMontoFinalDesdeCampos);
+    }
+    if (montoCochera) {
+        montoCochera.addEventListener('input', function() {
+            montoInmobiliariaEditadoManual = false;
+            actualizarInmobiliariaPorDiferencia();
+            recalcularMontoFinalDesdeCampos();
+        });
     }
 
     // Desde carátula u otra pantalla: buscar operación por número y pre-cargar pendientes
@@ -1359,23 +1376,24 @@ document.addEventListener('DOMContentLoaded', function() {
         const mTotal = parseNumeroEsAR(montoTotal.value);
         const mProp = parseNumeroEsAR(montoPropietario.value);
         const mInm = parseNumeroEsAR(montoInmobiliaria.value);
+        const mCoch = leerCochera();
 
         if (mTotal <= 0) {
             alert('El monto total de la operación debe ser mayor a cero.');
             montoTotal.focus();
             return false;
         }
-        if (mProp < 0) {
-            alert('El monto para el propietario no puede ser negativo.');
-            montoPropietario.focus();
+        if (mProp < 0 || mCoch < 0) {
+            alert('Los montos para el propietario y la cochera no pueden ser negativos.');
             return false;
         }
-        if (Math.abs((mProp + mInm) - mTotal) >= 0.02) {
+        if (Math.abs((mProp + mInm + mCoch) - mTotal) >= 0.02) {
             alert(
-                'Monto propietario + inmobiliaria debe coincidir con el monto total.\n'
+                'Propietario + inmobiliaria + cochera debe coincidir con el monto total.\n'
                 + 'Total: ' + formatearNumero(mTotal.toFixed(2))
                 + ' | Propietario: ' + formatearNumero(mProp.toFixed(2))
                 + ' | Inmobiliaria: ' + formatearNumero(mInm.toFixed(2))
+                + ' | Cochera: ' + formatearNumero(mCoch.toFixed(2))
             );
             return false;
         }

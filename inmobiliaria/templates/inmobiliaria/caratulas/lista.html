@@ -34,6 +34,10 @@
                 Listado <strong>sin filtro de fechas</strong>.
                 <a href="{% url 'inmobiliaria:lista_caratulas' %}" class="alert-link">Solo operaciones de hoy</a>
             </div>
+            {% elif busqueda_por_numero %}
+            <div class="alert alert-info py-2 small mb-3">
+                Búsqueda por <strong>número de operación</strong>: se ignoran las fechas para encontrar la operación aunque no sea de hoy.
+            </div>
             {% endif %}
             <form method="get" class="row g-2 align-items-end">
                 <div class="col-md-3">
@@ -70,6 +74,7 @@
             </form>
             <p class="small text-muted mb-0 mt-2">
                 Por defecto el rango <strong>Desde / Hasta</strong> es <strong>hoy</strong>: se listan reservas y contratos cuyo período <strong>se solapa</strong> con esas fechas (entrada/salida o inicio/fin de contrato).
+                Si buscás por <strong>N° operación</strong> (o un número en <strong>Buscar</strong>), no se aplica ese filtro.
                 Podés ampliar el rango o usar <strong>Todo</strong> para quitar el filtro de fechas.
             </p>
         </div>
