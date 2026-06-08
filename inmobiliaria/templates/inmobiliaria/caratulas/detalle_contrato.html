@@ -35,16 +35,56 @@
                     <div class="card-header py-2 small"><strong>Cuotas</strong></div>
                     <div class="card-body p-0 table-responsive">
                         <table class="table table-sm mb-0 small">
-                            <thead><tr><th>Vencimiento</th><th>Monto</th><th>Estado</th></tr></thead>
+                            <thead><tr><th>Vencimiento</th><th>Monto</th><th>Estado</th><th class="text-end">Acciones</th></tr></thead>
                             <tbody>
                                 {% for c in cuotas %}
                                 <tr>
                                     <td>{{ c.fecha_vencimiento|date:"d/m/Y" }}</td>
                                     <td>${{ c.monto_total|floatformat:2 }}</td>
                                     <td>{% if c.tiene_adelanto_abonado %}Adelanto{% else %}{{ c.get_estado_display }}{% endif %}</td>
+                                    <td class="text-end text-nowrap">
+                                        {% if c.estado == 'pagada' or c.estado == 'pagada_con_mora' %}
+                                            {% if c.recibos_cobro %}
+                                                {% if c.recibos_cobro|length == 1 %}
+                                                <a href="{% url_recibo_movimiento c.recibos_cobro.0 %}" class="btn btn-sm btn-outline-info" target="_blank" rel="noopener" title="Ver recibo del cobro">
+                                                    <i class="fas fa-receipt me-1"></i>Ver recibo
+                                                </a>
+                                                {% else %}
+                                                <div class="dropdown d-inline-block">
+                                                    <button class="btn btn-sm btn-outline-info dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Esta cuota tiene {{ c.recibos_cobro|length }} cobros">
+                                                        <i class="fas fa-receipt me-1"></i>Ver recibo
+                                                    </button>
+                                                    <ul class="dropdown-menu dropdown-menu-end p-0 overflow-hidden" style="min-width: 14rem;">
+                                                        {% for m in c.recibos_cobro %}
+                                                        <li class="{% if not forloop.last %}border-bottom{% endif %}">
+                                                            <a class="dropdown-item py-2" href="{% url_recibo_movimiento m %}" target="_blank" rel="noopener">
+                                                                <i class="fas fa-file-invoice text-info me-1"></i>
+                                                                {{ m.fecha|date:"d/m/Y H:i" }}
+                                                                <span class="text-muted small">({{ m|numero_recibo_movimiento }})</span>
+                                                            </a>
+                                                        </li>
+                                                        {% endfor %}
+                                                    </ul>
+                                                </div>
+                                                {% endif %}
+                                            {% else %}
+                                            <span class="text-muted small">Sin recibo</span>
+                                            {% endif %}
+                                        {% elif c.estado == 'pendiente' or c.estado == 'vencida' or c.tiene_adelanto_abonado %}
+                                            {% if c.monto_base == 0 %}
+                                            <span class="text-muted small">Sin precio</span>
+                                            {% else %}
+                                            <a href="{% url 'inmobiliaria:crear_pago_cuota_operacion' c.id %}" class="btn btn-sm btn-success" title="Cobrar esta cuota">
+                                                <i class="fas fa-cash-register me-1"></i>Ir a cobrar
+                                            </a>
+                                            {% endif %}
+                                        {% else %}
+                                        <span class="text-muted small">—</span>
+                                        {% endif %}
+                                    </td>
                                 </tr>
                                 {% empty %}
-                                <tr><td colspan="3" class="text-center text-muted py-3">Sin cuotas</td></tr>
+                                <tr><td colspan="4" class="text-center text-muted py-3">Sin cuotas</td></tr>
                                 {% endfor %}
                             </tbody>
                         </table>

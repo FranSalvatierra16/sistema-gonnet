@@ -1021,7 +1021,10 @@ def caratula_contrato(request, contrato_id):
         ContratoAlquiler.objects.select_related(
             'propiedad', 'propiedad__propietario', 'inquilino', 'vendedor', 'sucursal'
         ).prefetch_related(
-            Prefetch('cuotas', queryset=CuotaMensual.objects.order_by('fecha_vencimiento')),
+            Prefetch(
+                'cuotas',
+                queryset=CuotaMensual.objects.select_related('movimiento').order_by('fecha_vencimiento'),
+            ),
             'garantes',
         ),
         pk=contrato_id,
@@ -1054,7 +1057,13 @@ def caratula_contrato(request, contrato_id):
         for m in movimientos
     )
 
-    cuotas = list(contrato.cuotas.all()) if hasattr(contrato, 'cuotas') else []
+    cuotas_list = list(contrato.cuotas.all()) if hasattr(contrato, 'cuotas') else []
+    if cuotas_list:
+        from inmobiliaria.cuotas_imputacion import mapa_movimientos_recibo_por_cuota_id
+
+        recibos_por_cuota = mapa_movimientos_recibo_por_cuota_id(cuotas_list, movimientos)
+        for c in cuotas_list:
+            c.recibos_cobro = recibos_por_cuota.get(int(c.id), [])
 
     if contrato.duracion_meses == 9:
         tipo_label = 'Invierno (9 meses)'
@@ -1070,10 +1079,10 @@ def caratula_contrato(request, contrato_id):
         'tipo_label': tipo_label,
         'movimientos': movimientos,
         'total_movimientos': total_mov,
-        'cuotas': cuotas,
+        'cuotas': cuotas_list,
         'caratula_legacy': _build_legacy_contrato(
             contrato,
-            cuotas,
+            cuotas_list,
             tipo_label,
             carpeta_override=carpeta_actual,
             movimientos=movimientos,
