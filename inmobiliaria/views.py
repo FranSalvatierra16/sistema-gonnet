@@ -1469,14 +1469,25 @@ def administracion_propiedades_operaciones(request):
         reservas_qs = Reserva.objects.filter(propiedad=propiedad, eliminada=False).select_related('cliente', 'vendedor')
         contratos_qs = ContratoAlquiler.objects.filter(propiedad=propiedad).select_related('inquilino', 'vendedor')
         cuotas_qs = CuotaMensual.objects.filter(contrato__propiedad=propiedad).select_related('contrato')
-        gastos_qs = GastoPropietario.objects.filter(
-            Q(propiedad=propiedad) | Q(propiedad__isnull=True, propietario=propiedad.propietario)
-        ).select_related('liquidacion')
+        propi = getattr(propiedad, 'propietario', None)
+        gastos_qs = GastoPropietario.objects.filter(sucursal=request.user.sucursal)
+        if propi:
+            gastos_qs = gastos_qs.filter(Q(propiedad=propiedad) | Q(propietario=propi))
+        else:
+            gastos_qs = gastos_qs.filter(propiedad=propiedad)
+        gastos_qs = gastos_qs.select_related('liquidacion')
         liquidaciones_qs = LiquidacionPropietario.objects.filter(propiedad=propiedad).exclude(estado='cancelada').select_related(
             'reserva', 'contrato', 'movimiento_caja'
         )
         pagos_qs = Pago.objects.filter(reserva__propiedad=propiedad, reserva__eliminada=False).select_related('reserva', 'concepto')
         movimientos_qs = MovimientoCaja.objects.filter(sucursal=request.user.sucursal, propiedad=propiedad).select_related('empleado')
+        egresos_gasto_qs = MovimientoCaja.objects.filter(
+            sucursal=request.user.sucursal,
+            propiedad=propiedad,
+            tipo=TipoMovimientoCajaEnum.EGRESO,
+        ).exclude(
+            a_descontar='inquilino',
+        ).select_related('empleado')
 
         if fecha_desde:
             reservas_qs = reservas_qs.filter(fecha_fin__gte=fecha_desde)
@@ -1486,6 +1497,7 @@ def administracion_propiedades_operaciones(request):
             liquidaciones_qs = liquidaciones_qs.filter(fecha_creacion__date__gte=fecha_desde)
             pagos_qs = pagos_qs.filter(fecha__gte=fecha_desde)
             movimientos_qs = movimientos_qs.filter(fecha__date__gte=fecha_desde)
+            egresos_gasto_qs = egresos_gasto_qs.filter(fecha__date__gte=fecha_desde)
         if fecha_hasta:
             reservas_qs = reservas_qs.filter(fecha_inicio__lte=fecha_hasta)
             contratos_qs = contratos_qs.filter(fecha_inicio__lte=fecha_hasta)
@@ -1494,6 +1506,7 @@ def administracion_propiedades_operaciones(request):
             liquidaciones_qs = liquidaciones_qs.filter(fecha_creacion__date__lte=fecha_hasta)
             pagos_qs = pagos_qs.filter(fecha__lte=fecha_hasta)
             movimientos_qs = movimientos_qs.filter(fecha__date__lte=fecha_hasta)
+            egresos_gasto_qs = egresos_gasto_qs.filter(fecha__date__lte=fecha_hasta)
 
         reservas = list(reservas_qs.order_by('-fecha_inicio', '-id')[:150])
         contratos = list(contratos_qs.order_by('-fecha_inicio', '-id')[:80])
@@ -1502,6 +1515,7 @@ def administracion_propiedades_operaciones(request):
         liquidaciones = list(liquidaciones_qs.order_by('-fecha_creacion', '-id')[:150])
         pagos = list(pagos_qs.order_by('-fecha', '-id')[:250])
         movimientos = list(movimientos_qs.order_by('-fecha', '-id')[:250])
+        egresos_gasto = list(egresos_gasto_qs.order_by('-fecha', '-id')[:500])
 
         conceptos_map = {}
         try:
@@ -1562,6 +1576,16 @@ def administracion_propiedades_operaciones(request):
             m.concepto_detalle_admin = _detalle_mov(m)
             m.intervino_admin = getattr(m, 'empleado_id', None)
 
+        movimientos_ya_en_gastos = set()
+        for g in gastos:
+            obs = (getattr(g, 'observaciones', None) or '')
+            mref = re.search(r'Movimiento de caja #(\d+)', obs)
+            if mref:
+                try:
+                    movimientos_ya_en_gastos.add(int(mref.group(1)))
+                except (TypeError, ValueError):
+                    pass
+
         gastos_items = []
         for g in gastos:
             gastos_items.append({
@@ -1570,16 +1594,30 @@ def administracion_propiedades_operaciones(request):
                 'concepto': str(getattr(g, 'descripcion', '') or '-'),
                 'detalle': str(getattr(g, 'observaciones', '') or '').strip(),
                 'monto': g.monto or Decimal('0'),
+                'cargo': 'Propietario',
             })
-        for m in movimientos:
-            if m.tipo != TipoMovimientoCajaEnum.EGRESO:
+        for m in egresos_gasto:
+            if m.id in movimientos_ya_en_gastos:
                 continue
+            cargo = ''
+            if getattr(m, 'a_descontar', None):
+                try:
+                    cargo = m.get_a_descontar_display()
+                except Exception:
+                    cargo = str(m.a_descontar)
+            detalle_parts = []
+            if cargo:
+                detalle_parts.append(cargo)
+            det = _detalle_mov(m)
+            if det:
+                detalle_parts.append(det)
             gastos_items.append({
                 'fecha': m.fecha,
                 'movimiento_num': m.id,
                 'concepto': _nombre_concepto_mov(m),
-                'detalle': _detalle_mov(m),
+                'detalle': ' · '.join(detalle_parts),
                 'monto': Decimal(str(getattr(m, 'monto_total', 0) or 0)),
+                'cargo': cargo or 'Egreso caja',
             })
         def _fecha_sort_key(item):
             f = item.get('fecha')
@@ -1598,13 +1636,13 @@ def administracion_propiedades_operaciones(request):
         gastos_items.sort(key=_fecha_sort_key, reverse=True)
 
         ag_pagos = pagos_qs.aggregate(t=Sum('monto'))
-        ag_gastos = gastos_qs.aggregate(t=Sum('monto'))
         ag_mov = movimientos_qs.aggregate(
             i=Sum(F('monto_efectivo') + F('monto_cheque') + F('monto_tarjeta') + F('monto_deposito'), filter=Q(tipo=TipoMovimientoCajaEnum.INGRESO)),
             e=Sum(F('monto_efectivo') + F('monto_cheque') + F('monto_tarjeta') + F('monto_deposito'), filter=Q(tipo=TipoMovimientoCajaEnum.EGRESO)),
         )
         total_ingresos = ag_mov.get('i') or Decimal('0')
         total_egresos = ag_mov.get('e') or Decimal('0')
+        total_gastos = sum((item['monto'] for item in gastos_items), Decimal('0'))
 
         contexto_base.update({
             'reservas': reservas,
@@ -1619,7 +1657,7 @@ def administracion_propiedades_operaciones(request):
             'total_egresos': total_egresos,
             'balance': total_ingresos - total_egresos,
             'total_pagos': ag_pagos.get('t') or Decimal('0'),
-            'total_gastos': (ag_gastos.get('t') or Decimal('0')) + total_egresos,
+            'total_gastos': total_gastos,
         })
         return _safe_render(contexto_base)
     except Exception:
@@ -10681,6 +10719,18 @@ def nuevo_movimiento(request, numero_caja=None):
                 messages.error(
                     request,
                     'El importe total en pesos o el monto en dólares (USD) debe ser mayor a cero.',
+                )
+                return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
+
+            if (
+                tipo == TipoMovimientoCajaEnum.EGRESO
+                and a_descontar_raw in ('propietario', 'oficina')
+                and not movimiento.propiedad_id
+            ):
+                messages.error(
+                    request,
+                    'Para un egreso a cargo del propietario u oficina tenés que indicar la propiedad '
+                    '(así figura en operaciones por propiedad y en liquidaciones).',
                 )
                 return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
 
