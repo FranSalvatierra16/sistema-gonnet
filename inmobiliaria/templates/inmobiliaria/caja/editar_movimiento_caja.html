@@ -29,6 +29,12 @@
                         </div>
                     </div>
 
+                    {% if montos_precargados %}
+                    <div class="alert alert-info">
+                        Este movimiento estaba en <strong>$0</strong> en caja. Se precargaron los importes desde el recibo o conceptos vinculados; revisá y guardá.
+                    </div>
+                    {% endif %}
+
                     <form method="post">
                         {% csrf_token %}
                         {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
@@ -37,31 +43,31 @@
                             <div class="col-md-4">
                                 <label class="form-label">Efectivo ARS</label>
                                 <input type="number" name="monto_efectivo" class="form-control monto-edit" step="0.01" min="0"
-                                       value="{{ movimiento.monto_efectivo|stringformat:'f' }}" required>
+                                       value="{{ montos_form.monto_efectivo|stringformat:'f' }}" required>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Cheques</label>
                                 <input type="number" name="monto_cheque" class="form-control monto-edit" step="0.01" min="0"
-                                       value="{{ movimiento.monto_cheque|stringformat:'f' }}">
+                                       value="{{ montos_form.monto_cheque|stringformat:'f' }}">
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Tarjeta</label>
                                 <input type="number" name="monto_tarjeta" class="form-control monto-edit" step="0.01" min="0"
-                                       value="{{ movimiento.monto_tarjeta|stringformat:'f' }}">
+                                       value="{{ montos_form.monto_tarjeta|stringformat:'f' }}">
                             </div>
                         </div>
                         <div class="row g-3 mb-3">
                             <div class="col-md-6">
                                 <label class="form-label">Transferencia</label>
                                 <input type="number" name="monto_deposito" id="monto_deposito_edit" class="form-control monto-edit" step="0.01" min="0"
-                                       value="{{ movimiento.monto_deposito|stringformat:'f' }}">
+                                       value="{{ montos_form.monto_deposito|stringformat:'f' }}">
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Cuenta destino</label>
                                 <select name="destino_deposito" id="destino_deposito_edit" class="form-select">
                                     <option value="">— Cuenta —</option>
-                                    <option value="galicia" {% if movimiento.destino_deposito == 'galicia' %}selected{% endif %}>Galicia (legacy)</option>
-                                    <option value="mp" {% if movimiento.destino_deposito == 'mp' %}selected{% endif %}>Mercado Pago (legacy)</option>
+                                    <option value="galicia" {% if montos_form.destino_deposito == 'galicia' or movimiento.destino_deposito == 'galicia' %}selected{% endif %}>Galicia (legacy)</option>
+                                    <option value="mp" {% if montos_form.destino_deposito == 'mp' or movimiento.destino_deposito == 'mp' %}selected{% endif %}>Mercado Pago (legacy)</option>
                                     {% for cuenta in cuentas_bancarias %}
                                     <option value="cuenta_{{ cuenta.id }}" {% if destino_cuenta_id == cuenta.id %}selected{% endif %}>
                                         {{ cuenta.nombre_banco }} — {{ cuenta.alias }}
@@ -72,7 +78,7 @@
                             <div class="col-md-4">
                                 <label class="form-label">USD (efectivo)</label>
                                 <input type="number" name="monto_dolares" class="form-control monto-edit" step="0.01" min="0"
-                                       value="{{ movimiento.monto_dolares|stringformat:'f' }}">
+                                       value="{{ montos_form.monto_dolares|stringformat:'f' }}">
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Total ARS</label>

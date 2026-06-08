@@ -4982,45 +4982,7 @@ def ver_recibo(request, reserva_id):
 # print(f"🧾 Reserva ID: {reserva_id}")
     try:
         reserva = get_object_or_404(Reserva, id=reserva_id)
-        
-        # Crear movimiento de caja automáticamente
-        caja_actual = Caja.objects.filter(
-            sucursal=request.user.sucursal,
-            estado='abierta'
-        ).first()
-        
-        if caja_actual:
-            # Crear el movimiento
-            movimiento = MovimientoCaja(
-                caja=caja_actual,
-                tipo=TipoMovimientoCajaEnum.INGRESO,
-                concepto=f"Operaci\u00f3n #{reserva.id} - {reserva.propiedad.direccion}",
-                fecha_desde=reserva.fecha_inicio,
-                fecha_hasta=reserva.fecha_fin,
-                propiedad=reserva.propiedad,
-                sucursal=request.user.sucursal,
-                empleado=request.user
-                # Removemos a_descontar ya que es un ingreso
-            )
-            
-            # Asignar montos según los pagos de la reserva
-            for pago in reserva.pagos.all():
-                if pago.forma_pago == 'efectivo':
-                    movimiento.monto_efectivo = (movimiento.monto_efectivo or 0) + (pago.monto or 0)
-                elif pago.forma_pago == 'tarjeta':
-                    movimiento.monto_tarjeta = (movimiento.monto_tarjeta or 0) + (pago.monto or 0)
-                elif pago.forma_pago == 'transferencia':
-                    movimiento.monto_deposito = (movimiento.monto_deposito or 0) + (pago.monto or 0)
-                    movimiento.destino_deposito = pago.destino_deposito
-                elif pago.forma_pago == 'cheque':
-                    movimiento.monto_cheque = (movimiento.monto_cheque or 0) + (pago.monto or 0)
-            
-            movimiento.save()
-            
-            messages.success(request, 'Movimiento de caja creado exitosamente')
-        else:
-            messages.warning(request, 'No hay una caja abierta para registrar el movimiento')
-        
+
         # Preparar datos para el recibo
         from .models.recibo import Recibo
 
@@ -10285,6 +10247,127 @@ def eliminar_movimiento(request, movimiento_id):
     return _redirect_tras_eliminar_movimiento(caja_numero)
 
 
+def _montos_dict_desde_recibo(recibo, movimiento):
+    """Importes de formas de pago guardadas en el recibo, o monto_este_pago en efectivo."""
+    det = getattr(recibo, 'conceptos_detalle', None) or {}
+    formas = det.get('formas_pago') if isinstance(det, dict) else None
+    if isinstance(formas, dict):
+        ef = Decimal(str(formas.get('efectivo') or 0))
+        ch = Decimal(str(formas.get('cheque') or 0))
+        ta = Decimal(str(formas.get('tarjeta') or 0))
+        dep = Decimal(str(formas.get('deposito') or 0))
+        if ef + ch + ta + dep > 0:
+            return {
+                'monto_efectivo': ef,
+                'monto_cheque': ch,
+                'monto_tarjeta': ta,
+                'monto_deposito': dep,
+                'monto_dolares': Decimal('0'),
+                'destino_deposito': movimiento.destino_deposito,
+            }
+    monto = Decimal(str(recibo.monto_este_pago or 0))
+    if monto > 0:
+        return {
+            'monto_efectivo': monto,
+            'monto_cheque': Decimal('0'),
+            'monto_tarjeta': Decimal('0'),
+            'monto_deposito': Decimal('0'),
+            'monto_dolares': Decimal('0'),
+            'destino_deposito': movimiento.destino_deposito,
+        }
+    return None
+
+
+def _montos_desde_concepto_detalle_json(movimiento):
+    """Suma importes ARS/USD de concepto_detalle cuando el movimiento quedó en cero."""
+    _parsed, items = _movimiento_json_conceptos_parsed(movimiento)
+    if not items:
+        return None
+    total_ars = Decimal('0')
+    total_usd = Decimal('0')
+    for it in items:
+        if not isinstance(it, dict):
+            continue
+        imp = _importe_decimal_concepto_recibo(it.get('importe') or it.get('monto') or 0)
+        moneda = str(it.get('moneda', 'ARS')).strip().upper()
+        if moneda == 'USD':
+            total_usd += abs(imp)
+        else:
+            total_ars += abs(imp)
+    if total_ars <= 0 and total_usd <= 0:
+        return None
+    return {
+        'monto_efectivo': total_ars if total_ars > 0 else Decimal('0'),
+        'monto_cheque': Decimal('0'),
+        'monto_tarjeta': Decimal('0'),
+        'monto_deposito': Decimal('0'),
+        'monto_dolares': total_usd if total_usd > 0 else Decimal('0'),
+        'destino_deposito': movimiento.destino_deposito,
+    }
+
+
+def _montos_sugeridos_movimiento_caja(movimiento, sucursal=None):
+    """
+    Montos a corregir cuando el movimiento está en $0 pero el recibo vinculado o
+    concepto_detalle tienen importe. No usa recibos de otra fila (duplicados fantasma).
+    """
+    if movimiento is None:
+        return None
+    total_actual = Decimal(str(movimiento.monto_total or 0))
+    usd_actual = Decimal(str(movimiento.monto_dolares or 0))
+    if total_actual > 0 or usd_actual > 0:
+        return None
+
+    from inmobiliaria.models.recibo import Recibo
+
+    recibo = Recibo.objects.filter(movimiento_caja=movimiento).first()
+    if recibo:
+        montos = _montos_dict_desde_recibo(recibo, movimiento)
+        if montos:
+            return montos
+
+    desde_json = _montos_desde_concepto_detalle_json(movimiento)
+    if desde_json:
+        return desde_json
+    return None
+
+
+def _reparar_montos_movimiento_si_corresponde(movimiento, sucursal=None, save=True):
+    """Persiste montos desde recibo/conceptos si el movimiento quedó en cero por error."""
+    montos = _montos_sugeridos_movimiento_caja(movimiento, sucursal=sucursal)
+    if not montos:
+        return False
+    for campo in (
+        'monto_efectivo', 'monto_cheque', 'monto_tarjeta',
+        'monto_deposito', 'monto_dolares',
+    ):
+        setattr(movimiento, campo, montos.get(campo, Decimal('0')))
+    if montos.get('destino_deposito'):
+        movimiento.destino_deposito = montos['destino_deposito']
+    if save:
+        movimiento.save(update_fields=[
+            'monto_efectivo', 'monto_cheque', 'monto_tarjeta',
+            'monto_deposito', 'monto_dolares', 'destino_deposito',
+        ])
+        _sincronizar_montos_anexos_movimiento(movimiento)
+    return True
+
+
+def _montos_form_edicion_movimiento(movimiento, sucursal=None):
+    """Valores para el formulario de edición (reales o sugeridos si están en cero)."""
+    sugeridos = _montos_sugeridos_movimiento_caja(movimiento, sucursal=sucursal)
+    if sugeridos:
+        return sugeridos, True
+    return {
+        'monto_efectivo': movimiento.monto_efectivo or Decimal('0'),
+        'monto_cheque': movimiento.monto_cheque or Decimal('0'),
+        'monto_tarjeta': movimiento.monto_tarjeta or Decimal('0'),
+        'monto_deposito': movimiento.monto_deposito or Decimal('0'),
+        'monto_dolares': movimiento.monto_dolares or Decimal('0'),
+        'destino_deposito': movimiento.destino_deposito,
+    }, False
+
+
 def _sincronizar_montos_anexos_movimiento(movimiento):
     """Actualiza vales y recibo vinculados cuando cambian los montos del movimiento."""
     from inmobiliaria.models.vale import ValeVendedor
@@ -10398,7 +10481,10 @@ def editar_movimiento_caja(request, movimiento_id):
         return _volver()
 
     MovimientoCaja.precargar_nombres_concepto([movimiento], sucursal=request.user.sucursal)
-    dest_raw = (movimiento.destino_deposito or '').strip()
+    montos_form, montos_precargados = _montos_form_edicion_movimiento(
+        movimiento, sucursal=request.user.sucursal
+    )
+    dest_raw = (montos_form.get('destino_deposito') or movimiento.destino_deposito or '').strip()
     destino_cuenta_id = None
     if dest_raw.startswith('cuenta_'):
         suf = dest_raw.replace('cuenta_', '', 1)
@@ -10409,6 +10495,8 @@ def editar_movimiento_caja(request, movimiento_id):
         'inmobiliaria/caja/editar_movimiento_caja.html',
         {
             'movimiento': movimiento,
+            'montos_form': montos_form,
+            'montos_precargados': montos_precargados,
             'caja': movimiento.caja,
             'cuentas_bancarias': cuentas_bancarias,
             'next': next_url,
@@ -10603,6 +10691,8 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
     )
     movimientos = list(movimientos_qs)
     MovimientoCaja.precargar_nombres_concepto(movimientos, sucursal=request.user.sucursal)
+    for mov in movimientos:
+        _reparar_montos_movimiento_si_corresponde(mov, sucursal=request.user.sucursal)
 
     def _resumir_concepto_crudo(concepto):
         texto = (concepto or '').strip()
@@ -10634,8 +10724,8 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
     for mov in movimientos_eliminados:
         mov.concepto_resumen = _resumir_concepto_crudo(getattr(mov, 'concepto', ''))
 
-    ingresos = movimientos_qs.filter(tipo=TipoMovimientoCajaEnum.INGRESO)
-    egresos = movimientos_qs.filter(tipo=TipoMovimientoCajaEnum.EGRESO)
+    ingresos = [m for m in movimientos if m.tipo == TipoMovimientoCajaEnum.INGRESO]
+    egresos = [m for m in movimientos if m.tipo == TipoMovimientoCajaEnum.EGRESO]
 
     cuentas_bancarias = CuentaBancaria.objects.filter(
         sucursal=request.user.sucursal,
@@ -10651,15 +10741,21 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
     }
     totales_ingresos['cuentas_bancarias'] = {}
     for cuenta in cuentas_bancarias:
-        total_cuenta = sum(m.monto_deposito for m in ingresos.filter(destino_deposito=f'cuenta_{cuenta.id}'))
+        total_cuenta = sum(
+            m.monto_deposito for m in ingresos if m.destino_deposito == f'cuenta_{cuenta.id}'
+        )
         totales_ingresos['cuentas_bancarias'][cuenta.id] = {
             'nombre': cuenta.nombre_banco,
             'titular': cuenta.titular,
             'alias': cuenta.alias,
             'total': total_cuenta
         }
-    totales_ingresos['deposito_galicia'] = sum(m.monto_deposito for m in ingresos.filter(destino_deposito='galicia'))
-    totales_ingresos['deposito_mp'] = sum(m.monto_deposito for m in ingresos.filter(destino_deposito='mp'))
+    totales_ingresos['deposito_galicia'] = sum(
+        m.monto_deposito for m in ingresos if m.destino_deposito == 'galicia'
+    )
+    totales_ingresos['deposito_mp'] = sum(
+        m.monto_deposito for m in ingresos if m.destino_deposito == 'mp'
+    )
     totales_ingresos['dolares'] = sum((m.monto_dolares or 0) for m in ingresos)
 
     totales_egresos = {
@@ -10671,15 +10767,21 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
     }
     totales_egresos['cuentas_bancarias'] = {}
     for cuenta in cuentas_bancarias:
-        total_cuenta = sum(m.monto_deposito for m in egresos.filter(destino_deposito=f'cuenta_{cuenta.id}'))
+        total_cuenta = sum(
+            m.monto_deposito for m in egresos if m.destino_deposito == f'cuenta_{cuenta.id}'
+        )
         totales_egresos['cuentas_bancarias'][cuenta.id] = {
             'nombre': cuenta.nombre_banco,
             'titular': cuenta.titular,
             'alias': cuenta.alias,
             'total': total_cuenta
         }
-    totales_egresos['deposito_galicia'] = sum(m.monto_deposito for m in egresos.filter(destino_deposito='galicia'))
-    totales_egresos['deposito_mp'] = sum(m.monto_deposito for m in egresos.filter(destino_deposito='mp'))
+    totales_egresos['deposito_galicia'] = sum(
+        m.monto_deposito for m in egresos if m.destino_deposito == 'galicia'
+    )
+    totales_egresos['deposito_mp'] = sum(
+        m.monto_deposito for m in egresos if m.destino_deposito == 'mp'
+    )
     totales_egresos['dolares'] = sum((m.monto_dolares or 0) for m in egresos)
 
     saldo_actual = {
@@ -14850,9 +14952,8 @@ def _url_recibo_para_movimiento(movimiento, sucursal, next_url=None):
             )
 
     concepto_txt = (movimiento.concepto or '')
-    m_res = re.search(r'Operaci[oó]n\s*#?\s*(\d+)', concepto_txt, re.I)
-    if m_res:
-        return reverse('inmobiliaria:ver_recibo', args=[int(m_res.group(1))])
+    if re.search(r'Operaci[oó]n\s*#?\s*(\d+)', concepto_txt, re.I):
+        return reverse('inmobiliaria:ver_recibo_movimiento', args=[movimiento.id])
 
     return reverse('inmobiliaria:ver_recibo_movimiento', args=[movimiento.id])
 
