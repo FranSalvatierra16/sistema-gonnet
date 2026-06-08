@@ -4955,87 +4955,52 @@ def ver_recibo(request, reserva_id):
             messages.warning(request, 'No hay una caja abierta para registrar el movimiento')
         
         # Preparar datos para el recibo
-        from datetime import datetime
-        from django.utils.dateformat import format
-        
-        fecha_actual = timezone.now()
-        
-        # Obtener los pagos de la reserva
-        pagos = []
-        total_pagado = 0
+        from .models.recibo import Recibo
+
+        ultimo_mov = (
+            MovimientoCaja.objects.filter(
+                propiedad=reserva.propiedad,
+                sucursal=request.user.sucursal,
+                tipo=TipoMovimientoCajaEnum.INGRESO,
+            )
+            .filter(
+                Q(concepto__icontains=f'Operación {reserva.id}')
+                | Q(concepto__icontains=f'Operación #{reserva.id}')
+            )
+            .order_by('-fecha', '-id')
+            .first()
+        )
+        recibo_r = Recibo.objects.filter(reserva=reserva).order_by('-fecha_emision').first()
+        pagos, total_pagado = _lineas_pagos_recibo_desde_movimiento(
+            ultimo_mov,
+            recibo_obj=recibo_r,
+            sucursal=request.user.sucursal,
+        )
+        fecha_str, hora_str = _fecha_hora_recibo_operacion(ultimo_mov, recibo_r)
         formas_de_pago = []
-        
-        # Buscar si hay conceptos detallados de la operación
-        from .models import Registro
-        conceptos_operacion = None
-        
-        # Intentar encontrar registros relacionados usando número de recibo o ID de reserva
-        try:
-            # Buscar por número de recibo si existe un movimiento reciente
-            if hasattr(reserva, 'movimiento_reciente') and reserva.movimiento_reciente:
-                conceptos_operacion = Registro.objects.filter(
-                    interno_caja=reserva.movimiento_reciente.numero_liquidacion
-                ).order_by('fecha')
-        except:
-            pass
-        
-        if conceptos_operacion and conceptos_operacion.exists():
-            # Usar los conceptos de la operación
-            for registro in conceptos_operacion:
-                concepto_desc = ''
-                if registro.concepto:
-                    concepto_desc = f'{registro.concepto.id} - {registro.concepto.nombre}'
-                else:
-                    concepto_desc = 'Concepto no especificado'
-                
-                pagos.append({
-                    'fecha': registro.fecha_comprobante.strftime('%d/%m/%Y'),
-                    'codigo': registro.interno_caja or f'R{registro.id:04d}',
-                    'concepto': concepto_desc,
-                    'monto': _recibo_monto_str(registro.liquidacion),
-                })
-                total_pagado += (registro.liquidacion or 0)
-        else:
-            # Fallback: usar los pagos de la reserva como antes
-            for pago in reserva.pagos.all():
-                # Obtener el concepto correcto del pago
-                concepto_desc = ''
-                if hasattr(pago, 'concepto') and pago.concepto:
-                    concepto_desc = f'{pago.concepto.codigo} - {pago.concepto.nombre}'
-                else:
-                    concepto_desc = f'Pago reserva {reserva.id}'
-                
-                pagos.append({
-                    'fecha': pago.fecha.strftime('%d/%m/%Y') if pago.fecha else '',
-                    'codigo': pago.codigo if hasattr(pago, 'codigo') and pago.codigo else f'P{pago.id:04d}',
-                    'concepto': concepto_desc,
-                    'monto': _recibo_monto_str(pago.monto),
-                })
-                total_pagado += (pago.monto or 0)
-                if pago.forma_pago not in formas_de_pago:
-                    formas_de_pago.append(pago.forma_pago.title())
-        
-        # Si no hay formas de pago desde pagos, intentar obtener del movimiento creado
-        if not formas_de_pago and 'movimiento' in locals():
+
+        movimiento_ref = ultimo_mov if ultimo_mov else locals().get('movimiento')
+        # Si no hay formas de pago desde pagos, intentar obtener del movimiento de la operación
+        if not formas_de_pago and movimiento_ref:
             formas_con_montos = []
-            if (movimiento.monto_efectivo or 0) > 0:
-                formas_con_montos.append(f'Efectivo {_recibo_monto_str(movimiento.monto_efectivo)}')
+            if (movimiento_ref.monto_efectivo or 0) > 0:
+                formas_con_montos.append(f'Efectivo {_recibo_monto_str(movimiento_ref.monto_efectivo)}')
                 formas_de_pago.append('Efectivo')
-            if (movimiento.monto_tarjeta or 0) > 0:
-                formas_con_montos.append(f'Tarjeta {_recibo_monto_str(movimiento.monto_tarjeta)}')
+            if (movimiento_ref.monto_tarjeta or 0) > 0:
+                formas_con_montos.append(f'Tarjeta {_recibo_monto_str(movimiento_ref.monto_tarjeta)}')
                 formas_de_pago.append('Tarjeta')
-            if (movimiento.monto_cheque or 0) > 0:
-                formas_con_montos.append(f'Cheque {_recibo_monto_str(movimiento.monto_cheque)}')
+            if (movimiento_ref.monto_cheque or 0) > 0:
+                formas_con_montos.append(f'Cheque {_recibo_monto_str(movimiento_ref.monto_cheque)}')
                 formas_de_pago.append('Cheque')
-            if (movimiento.monto_deposito or 0) > 0:
-                if movimiento.destino_deposito == 'galicia':
-                    formas_con_montos.append(f'Transferencia Galicia {_recibo_monto_str(movimiento.monto_deposito)}')
+            if (movimiento_ref.monto_deposito or 0) > 0:
+                if movimiento_ref.destino_deposito == 'galicia':
+                    formas_con_montos.append(f'Transferencia Galicia {_recibo_monto_str(movimiento_ref.monto_deposito)}')
                     formas_de_pago.append('Galicia')
-                elif movimiento.destino_deposito == 'mp':
-                    formas_con_montos.append(f'Transferencia Mercado Pago {_recibo_monto_str(movimiento.monto_deposito)}')
+                elif movimiento_ref.destino_deposito == 'mp':
+                    formas_con_montos.append(f'Transferencia Mercado Pago {_recibo_monto_str(movimiento_ref.monto_deposito)}')
                     formas_de_pago.append('Mercado Pago')
                 else:
-                    formas_con_montos.append(f'Transferencia {_recibo_monto_str(movimiento.monto_deposito)}')
+                    formas_con_montos.append(f'Transferencia {_recibo_monto_str(movimiento_ref.monto_deposito)}')
                     formas_de_pago.append('Transferencia')
             
             # Siempre usar formas con montos para mostrar el desglose completo
@@ -5110,9 +5075,9 @@ def ver_recibo(request, reserva_id):
         # Obtener honorarios y sellados del movimiento si existe
         honorarios_monto = 0
         sellados_monto = 0
-        if 'movimiento' in locals() and movimiento:
-            honorarios_monto = float(movimiento.honorarios or 0)
-            sellados_monto = float(movimiento.sellados or 0)
+        if movimiento_ref:
+            honorarios_monto = float(movimiento_ref.honorarios or 0)
+            sellados_monto = float(movimiento_ref.sellados or 0)
         
         # Generar logo en base64 para evitar problemas de carga con html2canvas
         import base64
@@ -5132,19 +5097,22 @@ def ver_recibo(request, reserva_id):
         sucursal = request.user.sucursal if hasattr(request.user, 'sucursal') and request.user.sucursal else None
         
         # Continuar con la generación del recibo usando el template correcto
+        numero_recibo_ver = (
+            recibo_r.numero_recibo if recibo_r else f'R{reserva.id:06d}'
+        )
         return render(request, 'inmobiliaria/reserva/recibo.html', {
             'reserva': reserva_formateada,
             'cliente': cliente_completo,
             'propiedad': propiedad_completa,
-            'numero_recibo': f'R{reserva.id:06d}',
-            'fecha': fecha_actual.strftime('%d/%m/%Y'),
-            'hora': fecha_actual.strftime('%H:%M'),
+            'numero_recibo': numero_recibo_ver,
+            'fecha': fecha_str,
+            'hora': hora_str,
             'fecha_inicio': reserva.fecha_inicio.strftime('%d/%m/%Y'),
             'fecha_fin': reserva.fecha_fin.strftime('%d/%m/%Y'),
             'descripcion': 'Alquiler temporario por días',
             'pagos': pagos,
             'total_pagado': _recibo_monto_str(total_pagado),
-            'monto_en_palabras': numero_a_palabras(total_pagado),
+            'monto_en_palabras': numero_a_palabras(int(total_pagado)),
             'formas_de_pago': ', '.join(formas_de_pago_mostrar) if formas_de_pago_mostrar else 'EFECTIVO',
             # ✅ AGREGAR VARIABLES QUE NECESITA EL TEMPLATE
             'precio_total_operacion': _recibo_monto_str(precio_total),
@@ -6632,7 +6600,7 @@ def ver_recibo_movimiento(request, movimiento_id):
             try:
                 # Extraer el ID de la reserva del concepto (formato: "Operaci\u00f3n 123 - Dirección")
                 import re
-                match = re.search(r'Operaci\u00f3n (\d+)', concepto_txt)
+                match = re.search(r'Operaci[oó]n\s*#?\s*(\d+)', concepto_txt, re.I)
                 if match:
                     reserva_id = int(match.group(1))
                     reserva = Reserva.objects.filter(id=reserva_id).first()
@@ -6815,230 +6783,14 @@ def ver_recibo_movimiento(request, movimiento_id):
         
         # Si encontramos una reserva, usar el nuevo diseño de recibo
         if reserva:
-            # Usar el mismo código que la función ver_recibo
-            fecha_actual = timezone.now()
-            
-            # Obtener los pagos de la reserva
-            pagos = []
-            total_pagado = 0
+            pagos, total_pagado = _lineas_pagos_recibo_desde_movimiento(
+                movimiento,
+                recibo_obj=recibo_obj,
+                sucursal=request.user.sucursal,
+            )
+            fecha_recibo, hora_recibo = _fecha_hora_recibo_operacion(movimiento, recibo_obj)
             formas_de_pago = []
 
-            def _concepto_es_negativo(codigo, nombre):
-                txt = f"{codigo or ''} {nombre or ''}".lower()
-                return any(
-                    k in txt
-                    for k in (
-                        'descuento',
-                        'retencion',
-                        'retención',
-                        'bonificación',
-                        'bonificacion',
-                    )
-                )
-            
-            # Búsqueda simple de conceptos para evitar errores
-# print(f"🔍 DEBUG SIMPLE - Movimiento ID: {movimiento.id}")
-# print(f"🔍 Número liquidación: '{movimiento.numero_liquidacion}'")
-            
-            conceptos_operacion = None
-            
-            try:
-                from .models import Registro
-                # Búsqueda básica
-                conceptos_operacion = Registro.objects.filter(
-                    interno_caja=movimiento.numero_liquidacion
-                ).order_by('fecha')
-# print(f"🔍 CONCEPTOS ENCONTRADOS: {conceptos_operacion.count()}")
-            except Exception as e:
-                pass  # ✅ Bloque vacío
-# print(f"❌ Error en búsqueda básica: {e}")
-                conceptos_operacion = None
-            
-            if conceptos_operacion and conceptos_operacion.exists():
-                # Usar los conceptos de la operación
-                for registro in conceptos_operacion:
-                    concepto_desc = ''
-                    if registro.concepto:
-                        concepto_desc = f'{registro.concepto.id} - {registro.concepto.nombre}'
-                    else:
-                        concepto_desc = 'Concepto no especificado'
-                    monto_valor = registro.liquidacion or 0
-                    es_negativo = (
-                        (monto_valor < 0)
-                        or _concepto_es_negativo(
-                        getattr(registro.concepto, 'id', ''),
-                        getattr(registro.concepto, 'nombre', concepto_desc),
-                        )
-                    )
-                    
-# print(f"💰 CONCEPTO: {concepto_desc} - ${registro.liquidacion}")
-                    
-                    pagos.append({
-                        'fecha': registro.fecha_comprobante.strftime('%d/%m/%Y'),
-                        'codigo': registro.interno_caja or f'R{registro.id:04d}',
-                        'concepto': concepto_desc,
-                        'monto': _recibo_monto_str(abs(monto_valor)),
-                        'es_negativo': es_negativo,
-                    })
-                    total_pagado += (-abs(monto_valor) if es_negativo else monto_valor)
-            else:
-                # Fallback: extraer conceptos individuales del campo concepto del movimiento
-# print("📋 FALLBACK: Extrayendo conceptos individuales desde movimiento.concepto")
-                
-                # ✅ INICIALIZAR VARIABLE DE CONTROL
-                conceptos_procesados = False
-                
-                try:
-                    fecha_mov = movimiento.fecha.strftime('%d/%m/%Y')
-                    codigo_mov = movimiento.numero_liquidacion or f'M{movimiento.id:04d}'
-                    
-                    # Intentar extraer conceptos individuales del campo concepto
-                    # Nuevo formato esperado: "Reserva 85 - limpieza + alquiler + deposito|CONCEPTOS:11:limpieza:35000|1:alquiler:35000|10:deposito:20000|"
-                    concepto_texto = movimiento.concepto or ""
-# print(f"📝 CONCEPTO COMPLETO: {concepto_texto}")
-# print(f"📝 LONGITUD: {len(concepto_texto)} caracteres")
-# print(f"📝 TIPO: {type(concepto_texto)}")
-                    
-                    # ✅ MEJORADO: Detectar si tiene formato estructurado |CONCEPTOS:
-                    conceptos_procesados = False
-                    
-                    # Si no es JSON, continuar con el formato anterior
-                    if not conceptos_procesados and "|CONCEPTOS:" in concepto_texto:
-                        # Extraer la parte estructurada
-                        concepto_parts = concepto_texto.split("|CONCEPTOS:", 1)
-                        if len(concepto_parts) > 1:
-                            conceptos_data = concepto_parts[1]  # "11:limpieza:35000|1:alquiler:35000|10:deposito:20000|"
-                            conceptos_items = [item for item in conceptos_data.split("|") if item.strip()]
-# print(f"✅ CONCEPTOS ENCONTRADOS: {len(conceptos_items)} items")
-                            
-                            # Crear una entrada por cada concepto individual
-                            for i, concepto_item in enumerate(conceptos_items):
-                                parts = concepto_item.split(":")
-                                if len(parts) >= 3:
-                                    concepto_id = parts[0].strip()
-                                    concepto_nombre = parts[1].strip()
-                                    concepto_importe = parts[2].strip()
-                                    
-                                    # Limpiar y convertir el importe
-                                    try:
-                                        # Remover puntos y comas, luego convertir
-                                        importe_limpio = concepto_importe.replace('.', '').replace(',', '').strip()
-                                        if importe_limpio:
-                                            importe_num = float(importe_limpio)
-                                        else:
-                                            importe_num = 0
-                                    except (ValueError, AttributeError):
-                                        importe_num = 0
-                                    
-                                    # ✅ SIEMPRE agregar el concepto, incluso si el importe es 0
-                                    # Esto asegura que conceptos como depósito y gastos bancarios se muestren
-                                    es_negativo = (importe_num < 0) or _concepto_es_negativo(concepto_id, concepto_nombre)
-                                    pagos.append({
-                                        'fecha': fecha_mov,
-                                        'codigo': concepto_id,
-                                        'concepto': concepto_nombre,
-                                        'monto': _recibo_monto_str(abs(importe_num)) if importe_num != 0 else '',
-                                        'es_negativo': es_negativo,
-                                    })
-                                    if es_negativo:
-                                        total_pagado += -abs(importe_num)
-                                    else:
-                                        total_pagado += importe_num
-# print(f"💰 CONCEPTO: ID={concepto_id}, {concepto_nombre} - ${importe_num:,.0f}")
-                            
-                            conceptos_procesados = True
-# print(f"✅ CONCEPTOS PROCESADOS: {len(pagos)} conceptos")
-                        else:
-                            # Fallback al método anterior
-# print("⚠️ No se pudo parsear información estructurada, usando método anterior")
-                            conceptos_procesados = False
-                    
-                    # ✅ SOLO EJECUTAR FALLBACK SI NO HAY CONCEPTOS PROCESADOS
-                    if not conceptos_procesados and not pagos and " + " in concepto_texto:
-                        # Extraer la parte después del número de reserva
-                        parts = concepto_texto.split(" - ", 1)
-                        if len(parts) > 1:
-                            conceptos_parte = parts[1].split("|")[0]  # Tomar solo la parte antes de |CONCEPTOS si existe
-                            conceptos_individuales = [c.strip() for c in conceptos_parte.split(" + ")]
-# print(f"🔍 CONCEPTOS ENCONTRADOS (método anterior): {conceptos_individuales}")
-                            
-                            # Crear una entrada por cada concepto individual
-                            for i, concepto_nombre in enumerate(conceptos_individuales):
-                                # Distribuir el monto total entre los conceptos
-                                monto_por_concepto = movimiento.monto_total / len(conceptos_individuales)
-                                es_negativo = _concepto_es_negativo(codigo_mov, concepto_nombre)
-                                
-                                pagos.append({
-                                    'fecha': fecha_mov,
-                                    'codigo': f'{codigo_mov}_{i+1}' if len(conceptos_individuales) > 1 else codigo_mov,
-                                    'concepto': concepto_nombre,
-                                    'monto': _recibo_monto_str(monto_por_concepto),
-                                    'es_negativo': es_negativo,
-                                })
-# print(f"💰 CONCEPTO {i+1}: {concepto_nombre} - ${monto_por_concepto:,.0f}")
-                            
-                            for p in pagos:
-                                try:
-                                    monto_txt = (p.get('monto') or '').replace('$', '').replace('.', '').replace(',', '.').strip()
-                                    if not monto_txt:
-                                        continue
-                                    monto_num = Decimal(monto_txt)
-                                    total_pagado += (-monto_num if p.get('es_negativo') else monto_num)
-                                except Exception:
-                                    continue
-                        else:
-                            pass  # ✅ Bloque vacío
-                            # No se pudo parsear, usar concepto único
-# print("⚠️ No se pudieron extraer conceptos individuales, usando concepto único")
-                    
-                    # ✅ FALLBACK FINAL: Si no se procesaron conceptos, usar el concepto completo
-                    if not conceptos_procesados and not pagos:
-                        # Si es un concepto simple como "Operación X - Dirección", crear un concepto genérico
-                        if concepto_texto and "Operación" in concepto_texto and " - " in concepto_texto:
-                            pass  # ✅ Bloque vacío
-# print(f"🔄 CONCEPTO SIMPLE DETECTADO: {concepto_texto}")
-                            # Extraer información básica
-                            partes = concepto_texto.split(" - ", 1)
-                            if len(partes) > 1:
-                                direccion = partes[1]
-                                concepto_nombre = f"Alquiler - {direccion}"
-                            else:
-                                concepto_nombre = "Alquiler temporario"
-                        else:
-                            concepto_nombre = concepto_texto or 'ALQ - Alquiler temporario'
-                        
-                        pagos.append({
-                            'fecha': fecha_mov,
-                            'codigo': codigo_mov,
-                            'concepto': concepto_nombre,
-                            'monto': _recibo_monto_str(movimiento.monto_total),
-                            'es_negativo': _concepto_es_negativo(codigo_mov, concepto_nombre),
-                        })
-                        total_pagado += (
-                            -abs(movimiento.monto_total)
-                            if _concepto_es_negativo(codigo_mov, concepto_nombre)
-                            else movimiento.monto_total
-                        )
-# print(f"💰 CONCEPTO FALLBACK: {concepto_nombre} - ${movimiento.monto_total:,.0f}")
-                    
-                except Exception as e:
-                    pass  # ✅ Bloque vacío
-# print(f"❌ Error en fallback: {e}")
-                    # Solo usar fallback ultra simple si no se procesaron conceptos
-                    if not conceptos_procesados:
-                        pass  # ✅ Bloque vacío
-# print("🚨 USANDO FALLBACK ULTRA SIMPLE")
-                        pagos.append({
-                            'fecha': '15/09/2025',
-                            'codigo': 'M0001',
-                            'concepto': 'ALQ - Alquiler temporario',
-                            'monto': _recibo_monto_str(130000),
-                        })
-                        total_pagado = 130000
-                    else:
-                        pass  # ✅ Bloque vacío
-# print("✅ CONCEPTOS YA PROCESADOS - No usar fallback ultra simple")
-            
             # Obtener formas de pago del movimiento con montos detallados
             formas_con_montos = []
             if (movimiento.monto_efectivo or 0) > 0:
@@ -7142,12 +6894,6 @@ def ver_recibo_movimiento(request, movimiento_id):
 # print(f"🧾 PAGOS COUNT: {len(pagos)}")
 # print(f"🧾 MONTO MOVIMIENTO: ${movimiento.monto_total:,.0f}")
             
-            # Si no hay pagos específicos, usar el total del movimiento
-            if total_pagado == 0:
-                pass  # ✅ Bloque vacío
-# print("⚠️ TOTAL PAGADO ES 0 - USANDO MONTO DEL MOVIMIENTO")
-                total_pagado = movimiento.monto_total
-            
             # Generar logo en base64 para evitar problemas de carga
             import base64
             import os
@@ -7195,14 +6941,14 @@ def ver_recibo_movimiento(request, movimiento_id):
                 'cliente': cliente_completo,
                 'propiedad': propiedad_completa,
                 'numero_recibo': numero_recibo_mostrar,
-                'fecha': fecha_actual.strftime('%d/%m/%Y'),
-                'hora': fecha_actual.strftime('%H:%M'),
+                'fecha': fecha_recibo,
+                'hora': hora_recibo,
                 'fecha_inicio': reserva.fecha_inicio.strftime('%d/%m/%Y'),
                 'fecha_fin': reserva.fecha_fin.strftime('%d/%m/%Y'),
                 'descripcion': 'Alquiler temporario por días',
                 'pagos': pagos,
                 'total_pagado': _recibo_monto_str(total_pagado),
-                'monto_en_palabras': numero_a_palabras(total_pagado),
+                'monto_en_palabras': numero_a_palabras(int(total_pagado)),
                 'formas_de_pago': ', '.join(formas_de_pago_mostrar) if formas_de_pago_mostrar else 'EFECTIVO',
                 'logo_base64': logo_base64,
                 # ✅ DATOS CORREGIDOS PARA MOSTRAR EN RECIBO
@@ -14308,6 +14054,141 @@ def _movimiento_json_conceptos_parsed(movimiento):
     if not isinstance(conceptos_data, list):
         conceptos_data = []
     return parsed, conceptos_data
+
+
+def _concepto_es_negativo_recibo(codigo, nombre):
+    txt = f'{codigo or ""} {nombre or ""}'.lower()
+    return any(
+        k in txt
+        for k in (
+            'descuento',
+            'retencion',
+            'retención',
+            'bonificación',
+            'bonificacion',
+        )
+    )
+
+
+def _importe_decimal_concepto_recibo(raw):
+    if raw is None or raw == '':
+        return Decimal('0')
+    if isinstance(raw, Decimal):
+        return raw
+    if isinstance(raw, (int, float)):
+        return Decimal(str(raw))
+    return parse_decimal_monto(raw)
+
+
+def _fecha_hora_recibo_operacion(movimiento=None, recibo_obj=None):
+    """Fecha/hora del recibo = día del cobro (movimiento o emisión del recibo), no hoy."""
+    dt = None
+    if movimiento and getattr(movimiento, 'fecha', None):
+        dt = movimiento.fecha
+    elif recibo_obj and getattr(recibo_obj, 'fecha_emision', None):
+        dt = recibo_obj.fecha_emision
+    if dt is None:
+        dt = timezone.now()
+    if timezone.is_aware(dt):
+        dt = timezone.localtime(dt)
+    return dt.strftime('%d/%m/%Y'), dt.strftime('%H:%M')
+
+
+def _lineas_pagos_recibo_desde_movimiento(movimiento, recibo_obj=None, sucursal=None):
+    """
+    Arma filas del recibo (conceptos + importes) desde Recibo.conceptos_detalle,
+    movimiento.concepto_detalle, |CONCEPTOS:| o monto del movimiento/recibo.
+    """
+    pagos = []
+    total = Decimal('0')
+    sucursal = sucursal or (getattr(movimiento, 'sucursal', None) if movimiento else None)
+
+    fecha_mov = ''
+    if movimiento and getattr(movimiento, 'fecha', None):
+        try:
+            fm = movimiento.fecha
+            if timezone.is_aware(fm):
+                fm = timezone.localtime(fm)
+            fecha_mov = fm.strftime('%d/%m/%Y')
+        except Exception:
+            fecha_mov = ''
+
+    codigo_mov = ''
+    if movimiento:
+        codigo_mov = (getattr(movimiento, 'numero_liquidacion', None) or '').strip()
+        if not codigo_mov:
+            codigo_mov = f'M-{int(movimiento.id):06d}'
+
+    def _append_linea(cid, nombre, importe_raw):
+        nonlocal total
+        imp = _importe_decimal_concepto_recibo(importe_raw)
+        es_neg = (imp < 0) or _concepto_es_negativo_recibo(cid, nombre)
+        monto_firm = -abs(imp) if es_neg else imp
+        nombre_show = (nombre or '').strip()
+        if not nombre_show and cid and sucursal:
+            nombre_show = _nombre_concepto_caja(cid, sucursal) or str(cid)
+        if imp == 0 and not nombre_show:
+            return
+        total += monto_firm
+        pagos.append(
+            {
+                'fecha': fecha_mov,
+                'codigo': str(cid or codigo_mov),
+                'concepto': nombre_show or 'Concepto',
+                'monto': _recibo_monto_str(abs(imp)) if imp != 0 else '',
+                'es_negativo': es_neg,
+            }
+        )
+
+    conceptos_items = []
+    if recibo_obj:
+        det = getattr(recibo_obj, 'conceptos_detalle', None)
+        if isinstance(det, dict):
+            conceptos_items = det.get('conceptos') or []
+
+    if not conceptos_items and movimiento:
+        _parsed, conceptos_items = _movimiento_json_conceptos_parsed(movimiento)
+
+    for it in conceptos_items or []:
+        if not isinstance(it, dict):
+            continue
+        cid = it.get('id') or it.get('codigo') or ''
+        nombre = it.get('nombre') or it.get('concepto') or ''
+        imp_raw = it.get('importe') or it.get('monto') or 0
+        _append_linea(cid, nombre, imp_raw)
+
+    if not pagos and movimiento:
+        concepto_texto = movimiento.concepto or ''
+        if '|CONCEPTOS:' in concepto_texto:
+            conceptos_data = concepto_texto.split('|CONCEPTOS:', 1)[1]
+            for concepto_item in [x for x in conceptos_data.split('|') if x.strip()]:
+                parts = concepto_item.split(':')
+                if len(parts) >= 3:
+                    _append_linea(parts[0].strip(), parts[1].strip(), parts[2].strip())
+
+    if not pagos:
+        monto_fb = Decimal('0')
+        if recibo_obj and recibo_obj.monto_este_pago is not None:
+            monto_fb = Decimal(str(recibo_obj.monto_este_pago))
+        elif movimiento and movimiento.monto_total is not None:
+            monto_fb = Decimal(str(movimiento.monto_total))
+        if monto_fb > 0:
+            concepto_nombre = 'Pago de operación'
+            if movimiento and movimiento.concepto:
+                ct = (movimiento.concepto or '').split('|CONCEPTOS:', 1)[0].strip()
+                if ' - ' in ct:
+                    concepto_nombre = ct.split(' - ', 1)[-1][:80] or concepto_nombre
+                elif ct:
+                    concepto_nombre = ct[:80]
+            _append_linea(codigo_mov, concepto_nombre, monto_fb)
+
+    if total == 0:
+        if recibo_obj and recibo_obj.monto_este_pago is not None:
+            total = Decimal(str(recibo_obj.monto_este_pago))
+        elif movimiento and movimiento.monto_total is not None:
+            total = Decimal(str(movimiento.monto_total))
+
+    return pagos, total
 
 
 def _nombre_concepto_caja(cid, sucursal):
