@@ -175,6 +175,7 @@ urlpatterns = [
     path('caja/', views.caja, name='caja'),
     path('caja/nuevo/', views.nuevo_movimiento, name='nuevo_movimiento'),
     path('caja/eliminar/<int:movimiento_id>/', views.eliminar_movimiento, name='eliminar_movimiento'),
+    path('caja/movimiento/<int:movimiento_id>/editar/', views.editar_movimiento_caja, name='editar_movimiento_caja'),
     path('cajas/', views.lista_cajas, name='lista_cajas'),
     path('cajas/abrir/', views.abrir_caja, name='abrir_caja'),
     path('cajas/<int:numero>/', views.detalle_caja, name='detalle_caja'),

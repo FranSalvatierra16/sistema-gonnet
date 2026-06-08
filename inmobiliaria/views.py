@@ -146,6 +146,7 @@ from .models.persona import (
     Vendedor,
     usuario_es_nivel_administracion,
     usuario_puede_eliminar_movimiento_caja,
+    usuario_puede_editar_movimiento_caja,
 )
 
 # Importar vistas de cuentas bancarias
@@ -10283,6 +10284,139 @@ def eliminar_movimiento(request, movimiento_id):
 
     return _redirect_tras_eliminar_movimiento(caja_numero)
 
+
+def _sincronizar_montos_anexos_movimiento(movimiento):
+    """Actualiza vales y recibo vinculados cuando cambian los montos del movimiento."""
+    from inmobiliaria.models.vale import ValeVendedor
+
+    nuevo_total = ValeVendedor.monto_total_movimiento(movimiento)
+    ValeVendedor.objects.filter(movimiento_caja=movimiento).update(monto=nuevo_total)
+
+    try:
+        from inmobiliaria.models.recibo import Recibo
+
+        recibo = Recibo.objects.filter(movimiento_caja=movimiento).first()
+        if recibo:
+            recibo.monto_este_pago = movimiento.monto_total
+            if recibo.precio_total_operacion is not None:
+                recibo.saldo_pendiente = (
+                    Decimal(str(recibo.precio_total_operacion or 0))
+                    - Decimal(str(recibo.total_pagado_antes or 0))
+                    - Decimal(str(recibo.monto_este_pago or 0))
+                )
+            recibo.save(update_fields=['monto_este_pago', 'saldo_pendiente'])
+    except Exception:
+        pass
+
+
+@login_required
+@transaction.atomic
+def editar_movimiento_caja(request, movimiento_id):
+    if not usuario_puede_editar_movimiento_caja(request.user):
+        messages.error(request, 'Solo el superusuario puede editar montos de movimientos de caja.')
+        return redirect('inmobiliaria:gestionar_caja')
+
+    movimiento = get_object_or_404(
+        MovimientoCaja.objects.select_related('caja', 'propiedad', 'empleado'),
+        id=movimiento_id,
+        sucursal=request.user.sucursal,
+    )
+    if getattr(movimiento, 'fecha_eliminacion', None):
+        messages.error(request, 'No se pueden editar montos de un movimiento anulado.')
+        caja_num = movimiento.caja.numero if movimiento.caja_id else None
+        if caja_num:
+            return redirect('inmobiliaria:detalle_caja', numero=caja_num)
+        return redirect('inmobiliaria:todos_movimientos_caja')
+
+    from inmobiliaria.models.sucursal import CuentaBancaria
+
+    cuentas_bancarias = CuentaBancaria.objects.filter(
+        sucursal=request.user.sucursal,
+        activa=True,
+    ).order_by('nombre_banco', 'alias')
+
+    caja_numero = movimiento.caja.numero if movimiento.caja_id else None
+    next_url = (request.POST.get('next') or request.GET.get('next') or '').strip()
+
+    def _volver():
+        if next_url == 'todos_movimientos':
+            return redirect('inmobiliaria:todos_movimientos_caja')
+        if caja_numero is not None:
+            return redirect('inmobiliaria:detalle_caja', numero=caja_numero)
+        return redirect('inmobiliaria:todos_movimientos_caja')
+
+    if request.method == 'POST':
+        try:
+            movimiento.monto_efectivo = parse_decimal_monto(request.POST.get('monto_efectivo', '0') or '0')
+            movimiento.monto_cheque = parse_decimal_monto(request.POST.get('monto_cheque', '0') or '0')
+            movimiento.monto_tarjeta = parse_decimal_monto(request.POST.get('monto_tarjeta', '0') or '0')
+            movimiento.monto_deposito = parse_decimal_monto(request.POST.get('monto_deposito', '0') or '0')
+            movimiento.monto_dolares = parse_decimal_monto(request.POST.get('monto_dolares', '0') or '0')
+        except (ValueError, TypeError, InvalidOperation):
+            messages.error(request, 'Error en los montos ingresados.')
+            return _volver()
+
+        for campo in (
+            'monto_efectivo', 'monto_cheque', 'monto_tarjeta',
+            'monto_deposito', 'monto_dolares',
+        ):
+            if getattr(movimiento, campo) < 0:
+                messages.error(request, 'Los montos no pueden ser negativos.')
+                return _volver()
+
+        total_ars = movimiento.monto_total
+        if total_ars <= 0 and (movimiento.monto_dolares or 0) <= 0:
+            messages.error(request, 'El total en pesos o el monto en USD debe ser mayor a cero.')
+            return _volver()
+
+        dd_raw = (request.POST.get('destino_deposito') or '').strip()
+        if movimiento.monto_deposito and float(movimiento.monto_deposito) > 0:
+            destino_ok = None
+            if dd_raw.startswith('cuenta_'):
+                suf = dd_raw.replace('cuenta_', '', 1)
+                if suf.isdigit() and cuentas_bancarias.filter(id=int(suf)).exists():
+                    destino_ok = dd_raw
+            elif dd_raw in ('galicia', 'mp', 'mixto'):
+                destino_ok = dd_raw
+            if not destino_ok:
+                messages.error(request, 'Con transferencia tenés que elegir una cuenta destino válida.')
+                return _volver()
+            movimiento.destino_deposito = destino_ok
+        else:
+            movimiento.destino_deposito = None
+
+        movimiento.save(update_fields=[
+            'monto_efectivo', 'monto_cheque', 'monto_tarjeta',
+            'monto_deposito', 'monto_dolares', 'destino_deposito',
+        ])
+        _sincronizar_montos_anexos_movimiento(movimiento)
+        messages.success(
+            request,
+            f'Montos del movimiento #{movimiento.id} actualizados. Total ARS: '
+            f'${format_monto_argentino(movimiento.monto_total)}.',
+        )
+        return _volver()
+
+    MovimientoCaja.precargar_nombres_concepto([movimiento], sucursal=request.user.sucursal)
+    dest_raw = (movimiento.destino_deposito or '').strip()
+    destino_cuenta_id = None
+    if dest_raw.startswith('cuenta_'):
+        suf = dest_raw.replace('cuenta_', '', 1)
+        if suf.isdigit():
+            destino_cuenta_id = int(suf)
+    return render(
+        request,
+        'inmobiliaria/caja/editar_movimiento_caja.html',
+        {
+            'movimiento': movimiento,
+            'caja': movimiento.caja,
+            'cuentas_bancarias': cuentas_bancarias,
+            'next': next_url,
+            'destino_cuenta_id': destino_cuenta_id,
+        },
+    )
+
+
 @login_required
 def caja(request):
     # Obtener la caja actual
@@ -10585,6 +10719,7 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
         'cuentas_bancarias': cuentas_bancarias,
         'es_saldo_positivo': saldo_total >= 0,
         'puede_eliminar_movimiento_caja': usuario_puede_eliminar_movimiento_caja(request.user),
+        'puede_editar_movimiento_caja': usuario_puede_editar_movimiento_caja(request.user),
     }
 
 

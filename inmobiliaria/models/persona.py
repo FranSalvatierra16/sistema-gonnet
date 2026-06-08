@@ -96,6 +96,13 @@ def usuario_puede_eliminar_movimiento_caja(user):
     return getattr(user, 'nivel', None) == 5
 
 
+def usuario_puede_editar_movimiento_caja(user):
+    """Superusuario Django: corrige montos de un movimiento de caja."""
+    if not user or not getattr(user, 'is_authenticated', False):
+        return False
+    return getattr(user, 'is_superuser', False)
+
+
 class Vendedor(AbstractUser):
     dni = models.CharField(max_length=8, blank=True, null=True)
     nombre = models.CharField(max_length=100)

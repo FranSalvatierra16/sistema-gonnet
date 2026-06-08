@@ -1,0 +1,120 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load custom_filters %}
+
+{% block title %}Editar montos — Mov. #{{ movimiento.id }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-warning text-dark">
+                    <h4 class="mb-0"><i class="fas fa-edit me-2"></i>Editar montos — Movimiento #{{ movimiento.id }}</h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-light border mb-4">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p class="mb-1"><strong>Caja:</strong> #{{ caja.numero }} · {{ caja.sucursal.nombre }}</p>
+                                <p class="mb-1"><strong>Fecha:</strong> {{ movimiento.fecha|date:"d/m/Y H:i" }}</p>
+                                <p class="mb-1"><strong>Tipo:</strong> {{ movimiento.get_tipo_display }}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <p class="mb-1"><strong>Concepto:</strong> {{ movimiento.nombre_concepto_catalogo|default:movimiento.listado_detalle_l1 }}</p>
+                                {% if movimiento.propiedad %}
+                                <p class="mb-1"><strong>Propiedad:</strong> {{ movimiento.propiedad.direccion }} (#{{ movimiento.propiedad_id }})</p>
+                                {% endif %}
+                                <p class="mb-0 text-muted small">Solo se modifican importes; concepto, tipo y fecha no cambian.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <form method="post">
+                        {% csrf_token %}
+                        {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Efectivo ARS</label>
+                                <input type="number" name="monto_efectivo" class="form-control monto-edit" step="0.01" min="0"
+                                       value="{{ movimiento.monto_efectivo|stringformat:'f' }}" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Cheques</label>
+                                <input type="number" name="monto_cheque" class="form-control monto-edit" step="0.01" min="0"
+                                       value="{{ movimiento.monto_cheque|stringformat:'f' }}">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Tarjeta</label>
+                                <input type="number" name="monto_tarjeta" class="form-control monto-edit" step="0.01" min="0"
+                                       value="{{ movimiento.monto_tarjeta|stringformat:'f' }}">
+                            </div>
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Transferencia</label>
+                                <input type="number" name="monto_deposito" id="monto_deposito_edit" class="form-control monto-edit" step="0.01" min="0"
+                                       value="{{ movimiento.monto_deposito|stringformat:'f' }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Cuenta destino</label>
+                                <select name="destino_deposito" id="destino_deposito_edit" class="form-select">
+                                    <option value="">— Cuenta —</option>
+                                    <option value="galicia" {% if movimiento.destino_deposito == 'galicia' %}selected{% endif %}>Galicia (legacy)</option>
+                                    <option value="mp" {% if movimiento.destino_deposito == 'mp' %}selected{% endif %}>Mercado Pago (legacy)</option>
+                                    {% for cuenta in cuentas_bancarias %}
+                                    <option value="cuenta_{{ cuenta.id }}" {% if destino_cuenta_id == cuenta.id %}selected{% endif %}>
+                                        {{ cuenta.nombre_banco }} — {{ cuenta.alias }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">USD (efectivo)</label>
+                                <input type="number" name="monto_dolares" class="form-control monto-edit" step="0.01" min="0"
+                                       value="{{ movimiento.monto_dolares|stringformat:'f' }}">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Total ARS</label>
+                                <input type="text" id="total_ars_edit" class="form-control fw-bold bg-light" readonly value="0.00">
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between flex-wrap gap-2">
+                            {% if caja %}
+                            <a href="{% url 'inmobiliaria:detalle_caja' caja.numero %}" class="btn btn-secondary">Cancelar</a>
+                            {% else %}
+                            <a href="{% url 'inmobiliaria:todos_movimientos_caja' %}" class="btn btn-secondary">Cancelar</a>
+                            {% endif %}
+                            <button type="submit" class="btn btn-warning" onclick="return confirm('¿Guardar los nuevos montos de este movimiento?');">
+                                <i class="fas fa-save me-1"></i>Guardar montos
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+(function() {
+    function parseNum(v) {
+        var n = parseFloat(String(v || '0').replace(',', '.'));
+        return isNaN(n) ? 0 : n;
+    }
+    function recalc() {
+        var t = 0;
+        ['monto_efectivo', 'monto_cheque', 'monto_tarjeta', 'monto_deposito'].forEach(function(name) {
+            var el = document.querySelector('[name="' + name + '"]');
+            if (el) t += parseNum(el.value);
+        });
+        var out = document.getElementById('total_ars_edit');
+        if (out) out.value = t.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    document.querySelectorAll('.monto-edit').forEach(function(el) {
+        el.addEventListener('input', recalc);
+    });
+    recalc();
+})();
+</script>
+{% endblock %}
