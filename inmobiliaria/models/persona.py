@@ -88,9 +88,11 @@ def usuario_es_nivel_administracion(user):
 
 
 def usuario_puede_eliminar_movimiento_caja(user):
-    """Solo super administrador (nivel 5): anula movimiento de caja y recibo asociado."""
+    """Super administrador (nivel 5) o superusuario Django: anula movimiento de caja y recibo asociado."""
     if not user or not getattr(user, 'is_authenticated', False):
         return False
+    if getattr(user, 'is_superuser', False):
+        return True
     return getattr(user, 'nivel', None) == 5
 
 

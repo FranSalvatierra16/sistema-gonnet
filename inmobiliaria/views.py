@@ -10461,6 +10461,7 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
         'totales': totales,
         'cuentas_bancarias': cuentas_bancarias,
         'es_saldo_positivo': saldo_total >= 0,
+        'puede_eliminar_movimiento_caja': usuario_puede_eliminar_movimiento_caja(request.user),
     }
 
 

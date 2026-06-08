@@ -152,6 +152,15 @@
                                             data-bs-toggle="modal" data-bs-target="#modalDetalles{{ movimiento.id }}">
                                         <i class="fas fa-eye"></i>
                                     </button>
+                                    {% if puede_eliminar_movimiento_caja %}
+                                    <form method="post" action="{% url 'inmobiliaria:eliminar_movimiento' movimiento.id %}" class="d-inline m-0"
+                                          onsubmit="return confirm({% if caja.estado == 'abierta' and not caja.fecha_cierre %}'¿Anular este movimiento? Dejará de sumar en el saldo de la caja y el recibo asociado se eliminará.'{% else %}'¿Anular este movimiento aunque la caja ya está cerrada? Dejará de contar en el sistema; revisá el arqueo de ese día si hace falta.'{% endif %});">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Anular movimiento">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                    </form>
+                                    {% endif %}
                                 </div>
                             </td>
                         </tr>
