@@ -16,9 +16,14 @@
                         Monto total a pagar al propietario: ${{ liquidacion.monto_a_pagar|format_price }}
                     </p>
                 </div>
-                <a href="{% url 'inmobiliaria:lista_liquidaciones' %}" class="btn btn-secondary">
-                    <i class="fas fa-arrow-left me-2"></i>Volver a Lista
-                </a>
+                <div class="d-flex flex-wrap gap-2">
+                    <a href="{% url 'inmobiliaria:imprimir_liquidacion_cobranzas' liquidacion.id %}" class="btn btn-outline-primary" target="_blank" rel="noopener">
+                        <i class="fas fa-print me-2"></i>Imprimir liquidación de cobranzas
+                    </a>
+                    <a href="{% url 'inmobiliaria:lista_liquidaciones' %}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Volver a Lista
+                    </a>
+                </div>
             </div>
 
             <!-- Información Principal -->
@@ -130,6 +135,56 @@
                 </div>
             </div>
 
+            <!-- Liquidación de cobranzas (Debe / Haber) -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card shadow">
+                        <div class="card-header bg-light d-flex flex-wrap justify-content-between align-items-center gap-2">
+                            <h5 class="mb-0"><i class="fas fa-balance-scale me-2"></i>Liquidación de cobranzas (detalle Debe / Haber)</h5>
+                            <a href="{% url 'inmobiliaria:imprimir_liquidacion_cobranzas' liquidacion.id %}" class="btn btn-sm btn-primary" target="_blank" rel="noopener">
+                                <i class="fas fa-print me-1"></i>Imprimir
+                            </a>
+                        </div>
+                        <div class="card-body liq-cobranzas-preview">
+                            <style>
+                                .liq-cobranzas-preview .liq-cobranzas-doc { font-family: "Times New Roman", Times, serif; font-size: 0.95rem; }
+                                .liq-cobranzas-preview .liq-cobranzas-titulo {
+                                    text-align: center; font-weight: bold; font-size: 1.05rem;
+                                    border-bottom: 2px solid #333; padding-bottom: 6px; margin-bottom: 10px;
+                                }
+                                .liq-cobranzas-preview .liq-cobranzas-sub,
+                                .liq-cobranzas-preview .liq-cobranzas-meta { font-size: 0.88rem; margin-bottom: 4px; }
+                                .liq-cobranzas-preview .liq-cobranzas-meta {
+                                    display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px;
+                                }
+                                .liq-cobranzas-preview .liq-cobranzas-tabla {
+                                    width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.9rem;
+                                }
+                                .liq-cobranzas-preview .liq-cobranzas-tabla th,
+                                .liq-cobranzas-preview .liq-cobranzas-tabla td {
+                                    border: 1px solid #333; padding: 6px 8px; vertical-align: top;
+                                }
+                                .liq-cobranzas-preview .liq-cobranzas-tabla th { text-align: center; background: #f8f9fa; }
+                                .liq-cobranzas-preview .col-detalle { width: 58%; }
+                                .liq-cobranzas-preview .col-importe { width: 21%; }
+                                .liq-cobranzas-preview .text-end { text-align: right; }
+                                .liq-cobranzas-preview .liq-cobranzas-saldo td {
+                                    border-top: 2px solid #333; font-weight: bold; text-align: right;
+                                }
+                                .liq-cobranzas-preview .liq-cobranzas-firmas {
+                                    display: flex; justify-content: space-between; gap: 24px; margin-top: 20px;
+                                }
+                                .liq-cobranzas-preview .liq-cobranzas-firma { flex: 1; text-align: center; font-size: 0.8rem; }
+                                .liq-cobranzas-preview .liq-cobranzas-linea {
+                                    border-bottom: 1px solid #333; height: 28px; margin-bottom: 4px;
+                                }
+                            </style>
+                            {% include 'inmobiliaria/liquidaciones/_liquidacion_cobranzas_documento.html' %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Gastos -->
             <div class="row mb-4">
                 <div class="col-12">
@@ -218,8 +273,9 @@
                         </div>
                         <div class="card-body">
                             <p class="small text-muted mb-3">
-                                Son los mismos egresos de caja y gastos manuales pendientes que ves al crear una liquidación para esta propiedad.
-                                Al pulsar <strong>Incluir en esta liquidación</strong> se descuentan del monto a pagar (quedan como gastos aceptados de la liquidación).
+                                Solo aparecen <strong>egresos de caja descontables</strong> (gastos pagados por la oficina a cargo del propietario) y gastos manuales pendientes.
+                                Los <strong>cobros de alquiler</strong> (ingresos / recibos de cuota) no se listan acá: van en las operaciones a liquidar al propietario.
+                                Al pulsar <strong>Incluir en esta liquidación</strong> se descuentan del monto a pagar.
                             </p>
                             <div class="table-responsive">
                                 <table class="table table-sm table-hover mb-0">

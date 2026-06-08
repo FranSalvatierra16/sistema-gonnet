@@ -379,6 +379,11 @@ urlpatterns = [
     ),
     path('liquidaciones/<int:liquidacion_id>/eliminar/', views.eliminar_liquidacion, name='eliminar_liquidacion'),
     path('liquidaciones/<int:liquidacion_id>/', views.detalle_liquidacion, name='detalle_liquidacion'),
+    path(
+        'liquidaciones/<int:liquidacion_id>/imprimir-cobranzas/',
+        views.imprimir_liquidacion_cobranzas,
+        name='imprimir_liquidacion_cobranzas',
+    ),
     path('liquidaciones/<int:liquidacion_id>/agregar-gasto/', views.agregar_gasto, name='agregar_gasto'),
     path(
         'liquidaciones/<int:liquidacion_id>/vincular-gasto-pendiente/',

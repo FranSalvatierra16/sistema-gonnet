@@ -21161,6 +21161,65 @@ def _nombre_cliente_reserva_liquidacion(reserva):
     return ap or nom or '—'
 
 
+def _egreso_no_es_gasto_descontable_liquidacion(movimiento) -> bool:
+    """
+    True si un egreso de caja no debe ofrecerse como «gasto pendiente» en liquidación.
+    Los cobros de alquiler y operaciones de contrato/reserva no son gastos descontables,
+    aunque en caja figuren mal cargados como egreso (comprobante RC + concepto de alquiler).
+    """
+    from inmobiliaria.views_cuentas_bancarias import _concepto_detalle_es_contrato
+    from inmobiliaria.cuotas_imputacion import (
+        CODIGOS_IMPUTACION_ALQUILER_CUOTA,
+        _normalizar_codigo_concepto_caja,
+        movimiento_tiene_lineas_imputables_cuota,
+        payload_conceptos_desde_movimiento_detalle,
+        payload_raiz_desde_movimiento_detalle,
+    )
+
+    concepto = (getattr(movimiento, 'concepto', None) or '').strip()
+    lc = concepto.lower()
+
+    if 'liquidación propietario' in lc or 'liquidacion propietario' in lc:
+        return True
+    if re.search(r'contrato\s*#\s*\d', lc, re.I):
+        return True
+    if re.search(
+        r'operaci[oó]n\s*#?\s*\d|reserva\s*#?\s*\d|alquiler\s+por\s+d[ií]a',
+        lc,
+        re.I,
+    ):
+        return True
+    if 'mes de alquiler' in lc or 'mes alquiler' in lc or re.search(r'cuota\s+\d', lc, re.I):
+        return True
+
+    if _concepto_detalle_es_contrato(getattr(movimiento, 'concepto_detalle', None)):
+        return True
+
+    payload = payload_raiz_desde_movimiento_detalle(movimiento)
+    if payload.get('pago_cuota_mensual'):
+        return True
+    if movimiento_tiene_lineas_imputables_cuota(movimiento):
+        return True
+
+    tc = (getattr(movimiento, 'tipo_comprobante', None) or '').strip().upper()
+    if tc == 'GS':
+        return False
+
+    conceptos_cobro = set(CODIGOS_IMPUTACION_ALQUILER_CUOTA) | {'10', '17'}
+    if tc == 'RC' and getattr(movimiento, 'propiedad_id', None):
+        texto_concepto = concepto.split('|', 1)[0].strip() if '|' in concepto else concepto
+        m_cid = re.match(r'^(\d+)', texto_concepto)
+        if m_cid and m_cid.group(1) in conceptos_cobro:
+            return True
+        for it in payload_conceptos_desde_movimiento_detalle(movimiento):
+            cid_raw = it.get('id') if it.get('id') is not None else it.get('codigo')
+            cid = _normalizar_codigo_concepto_caja(cid_raw)
+            if cid in conceptos_cobro:
+                return True
+
+    return False
+
+
 def _operaciones_gastos_pendientes_data(propiedad, sucursal):
     """
     Lista operaciones y gastos pendientes de liquidación para una propiedad (dict serializable a JSON).
@@ -21507,6 +21566,8 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
     for egreso in egresos_propiedad:
         if egreso.id in movimientos_ya_liquidados:
             continue
+        if _egreso_no_es_gasto_descontable_liquidacion(egreso):
+            continue
         # Verificar si ya existe un GastoPropietario para este movimiento
         # Buscamos por observaciones que contengan el ID del movimiento
         q_gasto_mov = Q(propiedad=propiedad)
@@ -21745,6 +21806,228 @@ def obtener_operaciones_pendientes_propietario(request, propietario_id):
         return JsonResponse({'success': False, 'error': str(exc)}, status=500)
 
 
+_MESES_LIQUIDACION_ES = (
+    'ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO',
+    'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE',
+)
+
+
+def _periodo_mes_anio_liquidacion(fecha):
+    if not fecha:
+        return ''
+    try:
+        return f'{_MESES_LIQUIDACION_ES[fecha.month - 1]} DE {fecha.year}'
+    except (IndexError, AttributeError):
+        return ''
+
+
+def _contrato_de_liquidacion(liquidacion):
+    if getattr(liquidacion, 'contrato_id', None) and liquidacion.contrato_id:
+        return liquidacion.contrato
+    cuota_ids = []
+    for op in liquidacion.operaciones_incluidas or []:
+        if not isinstance(op, dict) or op.get('tipo') == 'division':
+            continue
+        if op.get('tipo') == 'contrato_cuota':
+            try:
+                cuota_ids.append(int(op['id']))
+            except (KeyError, TypeError, ValueError):
+                pass
+        elif op.get('tipo') == 'contrato':
+            for cid in op.get('cuotas_ids') or []:
+                try:
+                    cuota_ids.append(int(cid))
+                except (TypeError, ValueError):
+                    pass
+    if not cuota_ids:
+        return None
+    cq = (
+        CuotaMensual.objects.filter(id__in=cuota_ids)
+        .select_related('contrato')
+        .order_by('fecha_vencimiento')
+        .first()
+    )
+    return cq.contrato if cq else None
+
+
+def _cuotas_resueltas_liquidacion(liquidacion):
+    cuota_ids = []
+    for op in liquidacion.operaciones_incluidas or []:
+        if not isinstance(op, dict) or op.get('tipo') == 'division':
+            continue
+        if op.get('tipo') == 'contrato_cuota':
+            try:
+                cuota_ids.append(int(op['id']))
+            except (KeyError, TypeError, ValueError):
+                pass
+        elif op.get('tipo') == 'contrato':
+            for cid in op.get('cuotas_ids') or []:
+                try:
+                    cuota_ids.append(int(cid))
+                except (TypeError, ValueError):
+                    pass
+    if not cuota_ids:
+        return []
+    return list(
+        CuotaMensual.objects.filter(
+            id__in=cuota_ids,
+            contrato__propiedad_id=liquidacion.propiedad_id,
+        )
+        .select_related('contrato')
+        .order_by('fecha_vencimiento', 'numero_cuota')
+    )
+
+
+def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
+    """
+    Detalle contable estilo liquidación de cobranzas (legacy).
+    Haber = alquiler/cochera a favor del propietario; Debe = comisión, gastos, fondo.
+    """
+    filas = []
+    propiedad = liquidacion.propiedad
+    cuotas = _cuotas_resueltas_liquidacion(liquidacion)
+
+    if cuotas:
+        for cq in cuotas:
+            monto_cuota = Decimal(str(cq.monto_total or 0))
+            _mp, mi = _monto_propietario_inmobiliaria_cuota_mensual(propiedad, monto_cuota)
+            per = _periodo_mes_anio_liquidacion(cq.fecha_vencimiento)
+            if monto_cuota > Decimal('0.01'):
+                filas.append({
+                    'detalle': f'ALQUILER A PAGAR // {per}' if per else 'ALQUILER A PAGAR',
+                    'haber': monto_cuota.quantize(Decimal('0.01')),
+                    'debe': Decimal('0'),
+                })
+            if mi > Decimal('0.01'):
+                filas.append({
+                    'detalle': f'COMISION GESTION COBRANZAS // {per}' if per else 'COMISION GESTION COBRANZAS',
+                    'haber': Decimal('0'),
+                    'debe': mi.quantize(Decimal('0.01')),
+                })
+    else:
+        monto_tot = Decimal(str(liquidacion.monto_total_operacion or 0))
+        monto_inm = Decimal(str(liquidacion.monto_inmobiliaria or 0))
+        periodo = _periodo_mes_anio_liquidacion(liquidacion.fecha_desde) or _periodo_mes_anio_liquidacion(
+            liquidacion.fecha_hasta
+        )
+        if monto_tot > Decimal('0.01'):
+            filas.append({
+                'detalle': f'ALQUILER A PAGAR // {periodo}' if periodo else 'ALQUILER A PAGAR',
+                'haber': monto_tot.quantize(Decimal('0.01')),
+                'debe': Decimal('0'),
+            })
+        if monto_inm > Decimal('0.01'):
+            filas.append({
+                'detalle': f'COMISION GESTION COBRANZAS // {periodo}' if periodo else 'COMISION GESTION COBRANZAS',
+                'haber': Decimal('0'),
+                'debe': monto_inm.quantize(Decimal('0.01')),
+            })
+
+    cochera = Decimal(str(liquidacion.monto_cochera or 0))
+    if cochera > Decimal('0.01'):
+        filas.append({'detalle': 'COCHERA', 'haber': cochera.quantize(Decimal('0.01')), 'debe': Decimal('0')})
+
+    fondo = Decimal(str(liquidacion.monto_fondo_mantenimiento or 0))
+    if fondo > Decimal('0.01'):
+        filas.append({
+            'detalle': 'FONDO DE MANTENIMIENTO',
+            'haber': Decimal('0'),
+            'debe': fondo.quantize(Decimal('0.01')),
+        })
+
+    gastos_qs = liquidacion.gastos.filter(aceptado=True).order_by('fecha_gasto', 'id')
+    if hasattr(liquidacion, '_prefetched_objects_cache') and 'gastos' in liquidacion._prefetched_objects_cache:
+        gastos_qs = sorted(
+            [g for g in liquidacion.gastos.all() if g.aceptado],
+            key=lambda g: (g.fecha_gasto or timezone.now().date(), g.id),
+        )
+    for gasto in gastos_qs:
+        m = Decimal(str(gasto.monto or 0))
+        if m > Decimal('0.01'):
+            filas.append({
+                'detalle': (gasto.descripcion or 'GASTO').strip().upper(),
+                'haber': Decimal('0'),
+                'debe': m.quantize(Decimal('0.01')),
+            })
+
+    total_haber = sum((f['haber'] for f in filas), Decimal('0'))
+    total_debe = sum((f['debe'] for f in filas), Decimal('0'))
+    saldo_favor = (total_haber - total_debe).quantize(Decimal('0.01'))
+    return {
+        'filas': filas,
+        'total_haber': total_haber.quantize(Decimal('0.01')),
+        'total_debe': total_debe.quantize(Decimal('0.01')),
+        'saldo_favor': saldo_favor if saldo_favor > 0 else Decimal('0'),
+    }
+
+
+def _monto_liquidacion_en_letras(monto):
+    monto = Decimal(str(monto or 0)).quantize(Decimal('0.01'))
+    entero = int(monto)
+    centavos = int((monto - Decimal(entero)) * 100)
+    texto = _numero_a_letras_es(entero).upper()
+    return f'{texto} con {centavos:02d}/100'
+
+
+def _context_liquidacion_cobranzas(liquidacion, request=None):
+    contrato = _contrato_de_liquidacion(liquidacion)
+    propietario = liquidacion.propietario
+    propiedad = liquidacion.propiedad
+    dh = _filas_debe_haber_liquidacion_cobranzas(liquidacion)
+
+    if contrato:
+        if contrato.duracion_meses == 24:
+            tipo_label = '24 MESES'
+        elif contrato.duracion_meses == 9:
+            tipo_label = 'INVIERNO (9 MESES)'
+        else:
+            tipo_label = f'{contrato.duracion_meses} MESES'
+        locacion_mensual = contrato.precio_mensual
+        fecha_desde_ct = contrato.fecha_inicio
+        fecha_hasta_ct = contrato.fecha_fin
+    else:
+        tipo_label = 'COBRANZAS'
+        locacion_mensual = None
+        fecha_desde_ct = liquidacion.fecha_desde
+        fecha_hasta_ct = liquidacion.fecha_hasta
+
+    fpago_parts = []
+    if propietario:
+        if (propietario.cuenta_banco or '').strip():
+            fpago_parts.append(propietario.cuenta_banco.strip().upper())
+        if (propietario.cuenta_cbu_alias or '').strip():
+            fpago_parts.append(f'NRO.{propietario.cuenta_cbu_alias.strip()}')
+        elif (propietario.cuenta_numero or '').strip():
+            fpago_parts.append(f'NRO.{propietario.cuenta_numero.strip()}')
+        elif (propietario.cuenta_bancaria or '').strip():
+            fpago_parts.append(propietario.cuenta_bancaria.strip().upper())
+
+    sucursal = liquidacion.sucursal
+    volver_url = None
+    if request and liquidacion.id:
+        volver_url = reverse('inmobiliaria:detalle_liquidacion', args=[liquidacion.id])
+
+    return {
+        'liquidacion': liquidacion,
+        'contrato': contrato,
+        'propietario': propietario,
+        'propiedad': propiedad,
+        'sucursal': sucursal,
+        'tipo_contrato_label': tipo_label,
+        'filas': dh['filas'],
+        'total_haber': dh['total_haber'],
+        'total_debe': dh['total_debe'],
+        'saldo_favor': dh['saldo_favor'],
+        'monto_letras': _monto_liquidacion_en_letras(dh['saldo_favor']),
+        'forma_pago': ' · '.join(fpago_parts),
+        'locacion_mensual': locacion_mensual,
+        'fecha_desde_ct': fecha_desde_ct,
+        'fecha_hasta_ct': fecha_hasta_ct,
+        'fecha_impresion': timezone.now(),
+        'volver_url': volver_url,
+    }
+
+
 def _operaciones_incluidas_tabla(liquidacion):
     """Filas para template: reservas/contratos del JSON operaciones_incluidas (sin bloque division)."""
     filas = []
@@ -21946,9 +22229,27 @@ def detalle_liquidacion(request, liquidacion_id):
         'operaciones_tabla': _operaciones_incluidas_tabla(liquidacion),
         'puede_eliminar_liquidacion': usuario_es_nivel_administracion(request.user),
         'gastos_pendientes_disponibles': gastos_pendientes_disponibles,
+        **_context_liquidacion_cobranzas(liquidacion, request),
     }
 
     return render(request, 'inmobiliaria/liquidaciones/detalle.html', context)
+
+
+@login_required
+def imprimir_liquidacion_cobranzas(request, liquidacion_id):
+    """Liquidación de cobranzas imprimible (Debe/Haber) en todo momento."""
+    liquidacion = get_object_or_404(
+        LiquidacionPropietario.objects.select_related(
+            'propietario', 'propiedad', 'contrato', 'sucursal'
+        ).prefetch_related('gastos'),
+        id=liquidacion_id,
+        sucursal=request.user.sucursal,
+    )
+    if liquidacion.estado == 'cancelada':
+        messages.error(request, 'No se puede imprimir una liquidación cancelada.')
+        return redirect('inmobiliaria:lista_liquidaciones')
+    ctx = _context_liquidacion_cobranzas(liquidacion, request)
+    return render(request, 'inmobiliaria/liquidaciones/imprimir_liquidacion_cobranzas.html', ctx)
 
 
 @login_required

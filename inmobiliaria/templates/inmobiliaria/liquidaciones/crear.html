@@ -178,6 +178,41 @@
 
                         <div class="row mb-3">
                             <div class="col-12">
+                                <div class="card border-secondary">
+                                    <div class="card-header bg-light">
+                                        <strong><i class="fas fa-balance-scale me-2"></i>Vista previa — Liquidación de cobranzas (Haber / Debe)</strong>
+                                        <small class="text-muted ms-2">Se actualiza al tildar operaciones o cambiar montos. Tras guardar podés imprimirla desde el detalle.</small>
+                                    </div>
+                                    <div class="card-body p-0 table-responsive">
+                                        <table class="table table-sm table-bordered mb-0" id="tabla-preview-cobranzas">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>DETALLE</th>
+                                                    <th class="text-end">HABER</th>
+                                                    <th class="text-end">DEBE</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="preview-cobranzas-body">
+                                                <tr><td colspan="3" class="text-center text-muted py-3">Seleccioná operaciones para ver el detalle.</td></tr>
+                                            </tbody>
+                                            <tfoot id="preview-cobranzas-foot" class="d-none">
+                                                <tr class="fw-bold">
+                                                    <td>TOTALES</td>
+                                                    <td class="text-end" id="preview-total-haber">0,00</td>
+                                                    <td class="text-end" id="preview-total-debe">0,00</td>
+                                                </tr>
+                                                <tr class="fw-bold">
+                                                    <td colspan="3" class="text-end">Saldo a SU favor: <span id="preview-saldo-favor">0,00</span></td>
+                                                </tr>
+                                            </tfoot>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-12">
                                 <div class="card border-primary">
                                     <div class="card-header bg-light d-flex justify-content-between align-items-center">
                                         <strong><i class="fas fa-code-branch me-2"></i>Dividir operación en dos liquidaciones</strong>
@@ -973,21 +1008,24 @@ document.addEventListener('DOMContentLoaded', function() {
 
             gastos.forEach(function(gasto) {
                 const gpid = gasto.propiedad_id != null ? String(gasto.propiedad_id) : '';
+                const conceptoTxt = (gasto.concepto != null && String(gasto.concepto).trim() !== '') ? String(gasto.concepto).trim() : (gasto.descripcion || '—');
+                const descGastoAttr = escHtmlGasto(conceptoTxt).replace(/"/g, '&quot;');
                 const tdSel = mostrarCol
                     ? `<td><input type="checkbox" class="form-check-input gasto-checkbox"
                            name="gastos_seleccionados[]"
                            value="${gasto.id}"
                            data-gasto-id="${gasto.id}"
                            data-propiedad-id="${gpid}"
-                           data-monto="${gasto.monto}"></td>`
+                           data-monto="${gasto.monto}"
+                           data-descripcion="${descGastoAttr}"></td>`
                     : `<td><input type="checkbox" class="form-check-input gasto-checkbox"
                            name="gastos_seleccionados[]"
                            value="${gasto.id}"
                            data-gasto-id="${gasto.id}"
                            data-propiedad-id="${gpid}"
-                           data-monto="${gasto.monto}"></td>`;
+                           data-monto="${gasto.monto}"
+                           data-descripcion="${descGastoAttr}"></td>`;
                 const tdPropG = mostrarCol ? `<td><small class="text-muted">${escHtmlGasto(gasto.propiedad_label) || '—'}</small></td>` : '';
-                const conceptoTxt = (gasto.concepto != null && String(gasto.concepto).trim() !== '') ? String(gasto.concepto).trim() : (gasto.descripcion || '—');
                 const detalleTxt = (gasto.detalle != null && String(gasto.detalle).trim() !== '') ? String(gasto.detalle).trim() : '';
                 const conceptoCell = escHtmlGasto(conceptoTxt) || '—';
                 const detalleCell = detalleTxt ? `<small class="text-muted">${escHtmlGasto(detalleTxt)}</small>` : '<span class="text-muted">—</span>';
@@ -1217,6 +1255,122 @@ document.addEventListener('DOMContentLoaded', function() {
         return montoCochera ? parseNumeroEsAR(montoCochera.value) : 0;
     }
 
+    const MESES_LIQ_ES = [
+        'ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO',
+        'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'
+    ];
+
+    function periodoDesdeFechaIso(iso) {
+        if (!iso) return '';
+        const p = String(iso).split('-');
+        if (p.length < 2) return '';
+        const mes = parseInt(p[1], 10);
+        const anio = p[0];
+        if (!mes || mes < 1 || mes > 12) return '';
+        return MESES_LIQ_ES[mes - 1] + ' DE ' + anio;
+    }
+
+    function actualizarPreviewCobranzas() {
+        const tbody = document.getElementById('preview-cobranzas-body');
+        const tfoot = document.getElementById('preview-cobranzas-foot');
+        if (!tbody) return;
+
+        const filas = [];
+        let totalHaber = 0;
+        let totalDebe = 0;
+
+        const ops = document.querySelectorAll('.operacion-checkbox:checked');
+        if (ops.length > 0) {
+            ops.forEach(function(cb) {
+                const montoTot = parseFloat(cb.getAttribute('data-monto-total')) || 0;
+                const montoInm = parseFloat(cb.getAttribute('data-monto-inmobiliaria')) || 0;
+                const per = periodoDesdeFechaIso(cb.getAttribute('data-fecha-hasta') || cb.getAttribute('data-fecha-desde'));
+                if (montoTot > 0.009) {
+                    filas.push({
+                        detalle: per ? ('ALQUILER A PAGAR // ' + per) : 'ALQUILER A PAGAR',
+                        haber: montoTot,
+                        debe: 0
+                    });
+                    totalHaber += montoTot;
+                }
+                if (montoInm > 0.009) {
+                    filas.push({
+                        detalle: per ? ('COMISION GESTION COBRANZAS // ' + per) : 'COMISION GESTION COBRANZAS',
+                        haber: 0,
+                        debe: montoInm
+                    });
+                    totalDebe += montoInm;
+                }
+            });
+        } else {
+            const mt = parseNumeroEsAR(montoTotal.value);
+            const mi = parseNumeroEsAR(montoInmobiliaria.value);
+            const fd = document.querySelector('input[name="fecha_desde"]');
+            const fh = document.querySelector('input[name="fecha_hasta"]');
+            const per = periodoDesdeFechaIso((fh && fh.value) || (fd && fd.value));
+            if (mt > 0.009) {
+                filas.push({
+                    detalle: per ? ('ALQUILER A PAGAR // ' + per) : 'ALQUILER A PAGAR',
+                    haber: mt,
+                    debe: 0
+                });
+                totalHaber += mt;
+            }
+            if (mi > 0.009) {
+                filas.push({
+                    detalle: per ? ('COMISION GESTION COBRANZAS // ' + per) : 'COMISION GESTION COBRANZAS',
+                    haber: 0,
+                    debe: mi
+                });
+                totalDebe += mi;
+            }
+        }
+
+        const cochera = leerCochera();
+        if (cochera > 0.009) {
+            filas.push({ detalle: 'COCHERA', haber: cochera, debe: 0 });
+            totalHaber += cochera;
+        }
+
+        const fondo = montoFondoMantenimiento ? parseNumeroEsAR(montoFondoMantenimiento.value) : 0;
+        if (fondo > 0.009) {
+            filas.push({ detalle: 'FONDO DE MANTENIMIENTO', haber: 0, debe: fondo });
+            totalDebe += fondo;
+        }
+
+        document.querySelectorAll('.gasto-checkbox:checked').forEach(function(cb) {
+            const m = parseFloat(cb.getAttribute('data-monto')) || 0;
+            const desc = (cb.getAttribute('data-descripcion') || 'GASTO').toUpperCase();
+            if (m > 0.009) {
+                filas.push({ detalle: desc, haber: 0, debe: m });
+                totalDebe += m;
+            }
+        });
+
+        if (!filas.length) {
+            tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-3">Seleccioná operaciones para ver el detalle.</td></tr>';
+            if (tfoot) tfoot.classList.add('d-none');
+            return;
+        }
+
+        tbody.innerHTML = filas.map(function(f) {
+            return '<tr>'
+                + '<td>' + f.detalle + '</td>'
+                + '<td class="text-end">' + (f.haber ? formatearNumero(f.haber.toFixed(2)) : '') + '</td>'
+                + '<td class="text-end">' + (f.debe ? formatearNumero(f.debe.toFixed(2)) : '') + '</td>'
+                + '</tr>';
+        }).join('');
+
+        const saldo = Math.max(0, totalHaber - totalDebe);
+        const elH = document.getElementById('preview-total-haber');
+        const elD = document.getElementById('preview-total-debe');
+        const elS = document.getElementById('preview-saldo-favor');
+        if (elH) elH.textContent = formatearNumero(totalHaber.toFixed(2));
+        if (elD) elD.textContent = formatearNumero(totalDebe.toFixed(2));
+        if (elS) elS.textContent = formatearNumero(saldo.toFixed(2));
+        if (tfoot) tfoot.classList.remove('d-none');
+    }
+
     let montosEditadosManualmente = false;
     function marcarMontosEditadosManualmente() {
         montosEditadosManualmente = true;
@@ -1300,6 +1454,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 montoFinalPagar.textContent = '0,00';
             }
         }
+        actualizarPreviewCobranzas();
     };
 
     montoTotal.addEventListener('input', function() {
@@ -1330,6 +1485,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 Math.max(0, prop + cochera - totalGastos - fondo).toFixed(2)
             );
         }
+        actualizarPreviewCobranzas();
     }
 
     if (montoFondoMantenimiento) {

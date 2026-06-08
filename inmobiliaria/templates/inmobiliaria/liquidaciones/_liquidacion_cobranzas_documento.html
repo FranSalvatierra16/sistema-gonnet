@@ -1,0 +1,98 @@
+{% load custom_filters %}
+<div class="liq-cobranzas-doc">
+    <div class="liq-cobranzas-encabezado">
+        <div class="liq-cobranzas-titulo">LIQUIDACIÓN DE COBRANZAS ({{ tipo_contrato_label }})</div>
+        <div class="liq-cobranzas-sub">
+            <strong>SR.</strong>
+            {{ propietario.apellido|upper }} {{ propietario.nombre|upper }}
+            {% if propietario.direccion %} — {{ propietario.direccion|upper }}{% endif %}
+            {% if propietario.email %} — {{ propietario.email }}{% endif %}
+            {% if propietario.celular or propietario.telefono %}
+            — TEL: {{ propietario.celular|default:propietario.telefono }}
+            {% endif %}
+        </div>
+        <div class="liq-cobranzas-meta">
+            <span><strong>Carpeta:</strong> {{ liquidacion.id }} — {{ propietario.apellido|upper }}</span>
+            <span><strong>Fecha:</strong> {{ fecha_impresion|date:"d/m/Y H:i:s" }}</span>
+        </div>
+        <div class="liq-cobranzas-meta">
+            <span>
+                <strong>Ubicación:</strong>
+                {{ propiedad.direccion|upper }}
+                {% if propiedad.piso %} {{ propiedad.piso }}{% endif %}
+                {% if propiedad.departamento %} {{ propiedad.departamento }}{% endif %}
+            </span>
+        </div>
+        {% if fecha_desde_ct or fecha_hasta_ct %}
+        <div class="liq-cobranzas-meta">
+            <span>
+                <strong>Locación:</strong>
+                {% if fecha_desde_ct %}desde el {{ fecha_desde_ct|date:"j/n/Y" }}{% endif %}
+                {% if fecha_hasta_ct %} hasta el {{ fecha_hasta_ct|date:"j/n/Y" }}{% endif %}
+            </span>
+            {% if locacion_mensual %}
+            <span><strong>Locación mensual:</strong> {{ locacion_mensual|format_price }}</span>
+            {% endif %}
+        </div>
+        {% endif %}
+        {% if forma_pago %}
+        <div class="liq-cobranzas-meta">
+            <span><strong>F. PAGO:</strong> {{ forma_pago }}</span>
+        </div>
+        {% endif %}
+    </div>
+
+    <table class="liq-cobranzas-tabla">
+        <thead>
+            <tr>
+                <th class="col-detalle">DETALLE</th>
+                <th class="col-importe">HABER</th>
+                <th class="col-importe">DEBE</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for fila in filas %}
+            <tr>
+                <td class="col-detalle">{{ fila.detalle }}</td>
+                <td class="col-importe text-end">{% if fila.haber %}{{ fila.haber|format_price }}{% endif %}</td>
+                <td class="col-importe text-end">{% if fila.debe %}{{ fila.debe|format_price }}{% endif %}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="3" class="text-center text-muted py-3">Sin movimientos cargados en la liquidación.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr class="liq-cobranzas-totales">
+                <td class="col-detalle"><strong>TOTALES</strong></td>
+                <td class="col-importe text-end"><strong>{{ total_haber|format_price }}</strong></td>
+                <td class="col-importe text-end"><strong>{{ total_debe|format_price }}</strong></td>
+            </tr>
+            <tr class="liq-cobranzas-saldo">
+                <td colspan="3" class="text-end">
+                    <strong>Saldo a SU favor: {{ saldo_favor|format_price }}</strong>
+                </td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <div class="liq-cobranzas-pie">
+        <p class="liq-cobranzas-letras"><strong>LA SUMA DE:</strong> {{ monto_letras }}</p>
+        <p class="liq-cobranzas-legal small">
+            Recibí conforme el importe que antecede en concepto de liquidación de cobranzas.
+            Mar del Plata, {{ fecha_impresion|date:"d/m/Y" }}.
+        </p>
+        <div class="liq-cobranzas-firmas">
+            <div class="liq-cobranzas-firma">
+                <div class="liq-cobranzas-linea"></div>
+                <div>ACLARACIÓN</div>
+            </div>
+            <div class="liq-cobranzas-firma">
+                <div class="liq-cobranzas-linea"></div>
+                <div>P/GONNET PROPIEDADES</div>
+            </div>
+        </div>
+        <p class="small text-muted mb-0">NOTA: Rogamos devolver el original debidamente firmado.</p>
+    </div>
+</div>
