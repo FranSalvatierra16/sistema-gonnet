@@ -13513,14 +13513,15 @@ def detalle_contrato(request, contrato_id):
     from .models import ContratoAlquiler
     
     contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
-    cuotas = contrato.cuotas.all().order_by('numero_cuota')
+    cuotas = contrato.cuotas.select_related('movimiento').order_by('numero_cuota')
     if not cuotas.exists() and contrato.estado in ('activo', 'reservado'):
         _asegurar_cuotas_plan_contrato(contrato)
-        cuotas = contrato.cuotas.all().order_by('numero_cuota')
+        cuotas = contrato.cuotas.select_related('movimiento').order_by('numero_cuota')
 
     from inmobiliaria.models.caja import MovimientoCaja, TipoMovimientoCajaEnum
+    from inmobiliaria.cuotas_imputacion import mapa_movimientos_recibo_por_cuota_id
 
-    movimientos_recibo_contrato = list(
+    movimientos_contrato_qs = (
         MovimientoCaja.objects.filter(
             concepto__icontains=f'Contrato #{contrato.id}',
             propiedad=contrato.propiedad,
@@ -13528,23 +13529,34 @@ def detalle_contrato(request, contrato_id):
             tipo=TipoMovimientoCajaEnum.INGRESO,
         )
         .select_related('caja')
-        .order_by('fecha', 'id')[:40]
+        .order_by('fecha', 'id')
     )
+    movimientos_contrato = list(movimientos_contrato_qs)
+    movimientos_recibo_contrato = movimientos_contrato[-40:] if len(movimientos_contrato) > 40 else movimientos_contrato
+
+    cuotas_list = list(cuotas)
+    recibos_por_cuota = mapa_movimientos_recibo_por_cuota_id(cuotas_list, movimientos_contrato)
+    for c in cuotas_list:
+        c.recibos_cobro = recibos_por_cuota.get(int(c.id), [])
+    cuotas = cuotas_list
 
     # Estadísticas
-    cuotas_pagadas = cuotas.filter(estado='pagada').count()
-    cuotas_vencidas = cuotas.filter(estado='pendiente', fecha_vencimiento__lt=timezone.now().date()).count()
+    hoy = timezone.now().date()
+    cuotas_pagadas = sum(1 for c in cuotas_list if c.estado == 'pagada')
+    cuotas_vencidas = sum(
+        1 for c in cuotas_list if c.estado == 'pendiente' and c.fecha_vencimiento < hoy
+    )
     total_pagado = sum(
-        (Decimal(str(c.monto_total)) for c in cuotas.filter(estado='pagada')),
+        (Decimal(str(c.monto_total)) for c in cuotas_list if c.estado == 'pagada'),
         start=Decimal('0'),
     )
-    total_cuotas_plan = sum((Decimal(str(c.monto_total)) for c in cuotas), start=Decimal('0'))
+    total_cuotas_plan = sum((Decimal(str(c.monto_total)) for c in cuotas_list), start=Decimal('0'))
     total_pendiente_cuotas = total_cuotas_plan - total_pagado
 
     trimestres_extras_ui = _meses_precio_ui_contrato(contrato)
 
-    ultima_cuota = cuotas.order_by('-numero_cuota').first()
-    total_cuotas = cuotas.count()
+    ultima_cuota = max(cuotas_list, key=lambda c: c.numero_cuota) if cuotas_list else None
+    total_cuotas = len(cuotas_list)
     puede_agregar_cuota = contrato.estado in ('activo', 'reservado')
     puede_eliminar_ultima_cuota = bool(
         ultima_cuota
@@ -13562,7 +13574,7 @@ def detalle_contrato(request, contrato_id):
         'total_cuotas_plan': total_cuotas_plan,
         'total_pendiente_cuotas': total_pendiente_cuotas,
         'trimestres_extras_ui': trimestres_extras_ui,
-        'today': timezone.now().date(),
+        'today': hoy,
         'puede_activar_modo_trimestres': (
             contrato.duracion_meses != 9 and getattr(contrato, 'precios_bloques', None) is None
         ),

@@ -387,3 +387,60 @@ def imputar_cuotas_mensuales_desde_movimiento_1000(
         elif resultado == 'adelanto':
             n += 1
     return n
+
+
+def payload_raiz_desde_movimiento_detalle(movimiento) -> dict:
+    """Objeto JSON raíz de concepto_detalle (p. ej. pago_cuota_mensual + cuota_id)."""
+    raw = (getattr(movimiento, 'concepto_detalle', None) or '').strip().lstrip('\ufeff')
+    if not raw or not raw.startswith('{'):
+        return {}
+    try:
+        data = json.loads(raw)
+        return data if isinstance(data, dict) else {}
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return {}
+
+
+def movimiento_imputa_cuota(movimiento, cuota, *, operacion_principal: bool = False) -> bool:
+    """True si el movimiento registró cobro (total o parcial) imputado a esta cuota."""
+    cuota_id = int(cuota.id)
+    numero = int(cuota.numero_cuota)
+    contrato_id = int(cuota.contrato_id)
+
+    payload = payload_raiz_desde_movimiento_detalle(movimiento)
+    if payload.get('pago_cuota_mensual') and int(payload.get('cuota_id') or 0) == cuota_id:
+        return True
+
+    for it in lineas_imputables_desde_movimiento(movimiento, operacion_principal=operacion_principal):
+        raw_qid = str(it.get('cuota_objetivo_id') or '').strip()
+        if raw_qid.isdigit() and int(raw_qid) == cuota_id:
+            return True
+
+    concepto = getattr(movimiento, 'concepto', None) or ''
+    if f'Contrato #{contrato_id} — Cuota {numero}/' in concepto:
+        return True
+    if f'Cuota {numero}/' in concepto and f'Contrato #{contrato_id}' in concepto:
+        return True
+    return False
+
+
+def movimientos_recibo_por_cuota(cuota, movimientos_iterable) -> list:
+    """Movimientos de caja con recibo imputados a esta cuota (incluye adelantos parciales)."""
+    vistos: set[int] = set()
+    result = []
+    for mov in movimientos_iterable:
+        if movimiento_imputa_cuota(mov, cuota):
+            mid = int(mov.id)
+            if mid not in vistos:
+                vistos.add(mid)
+                result.append(mov)
+    if cuota.movimiento_id and int(cuota.movimiento_id) not in vistos:
+        mov_final = getattr(cuota, 'movimiento', None)
+        if mov_final is not None:
+            result.append(mov_final)
+    result.sort(key=lambda m: (m.fecha, m.id))
+    return result
+
+
+def mapa_movimientos_recibo_por_cuota_id(cuotas, movimientos_iterable) -> dict[int, list]:
+    return {int(c.id): movimientos_recibo_por_cuota(c, movimientos_iterable) for c in cuotas}
