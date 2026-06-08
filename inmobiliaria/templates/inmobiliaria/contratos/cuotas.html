@@ -35,15 +35,9 @@
                             </td>
                             <td>
                                 {% if cuota.estado == 'pendiente' or cuota.estado == 'vencida' %}
-                                    {% if not cuota.hay_cuotas_anteriores_pendientes %}
                                         <button class="btn btn-primary btn-sm" onclick="mostrarModalPago({{ cuota.id }})">
                                             Pagar Cuota
                                         </button>
-                                    {% else %}
-                                        <button class="btn btn-secondary btn-sm" disabled title="Debe pagar las cuotas anteriores primero">
-                                            Pagar Cuota
-                                        </button>
-                                    {% endif %}
                                 {% else %}
                                     <button class="btn btn-info btn-sm" onclick="verRecibo({{ cuota.movimiento.id }})">
                                         Ver Recibo

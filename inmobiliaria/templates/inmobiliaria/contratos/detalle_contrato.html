@@ -591,7 +591,7 @@ function mostrarModalRescindirContrato(direccion) {
 const PAGAR_CUOTA_BASE_URL = "{% url 'inmobiliaria:pagar_cuota' 0 %}".replace('/0/', '/__ID__/');
 
 function pagarCuotaEspecifica(cuotaId, montoStr) {
-    const msg = '¿Registrar el pago de esta cuota en efectivo por $' + montoStr + '?\\n\\nDebe haber una caja abierta y no puede haber cuotas anteriores sin pagar.';
+    const msg = '¿Registrar el pago de esta cuota en efectivo por $' + montoStr + '?\\n\\nDebe haber una caja abierta.';
     if (!confirm(msg)) {
         return;
     }

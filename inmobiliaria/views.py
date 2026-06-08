@@ -13391,12 +13391,6 @@ def lista_contratos(request):
             contrato.proxima_cuota.estado = 'vencida'
             contrato.proxima_cuota.save()
         
-        # Verificar si hay cuotas anteriores pendientes
-        contrato.tiene_cuotas_anteriores_pendientes = contrato.cuotas.filter(
-            Q(estado__in=['pendiente', 'vencida']) &
-            Q(fecha_vencimiento__lt=contrato.proxima_cuota.fecha_vencimiento if contrato.proxima_cuota else timezone.now().date())
-        ).exists()
-        
         # Determinar estado de depósito, honorarios y sellados
         contrato.deposito_estado = determinar_estado_concepto_contrato(contrato, '10')  # Concepto 10 = depósito
         contrato.honorarios_estado = determinar_estado_concepto_contrato(contrato, '25')  # Concepto 25 = honorarios  
@@ -15954,12 +15948,6 @@ def ver_cuotas_contrato(request, contrato_id):
             cuota.estado = 'vencida'
             cuota.save()
         
-        # Verificar si hay cuotas anteriores pendientes
-        cuota.hay_cuotas_anteriores_pendientes = cuotas.filter(
-            numero_cuota__lt=cuota.numero_cuota,
-            estado__in=['pendiente', 'vencida']
-        ).exists()
-    
     return render(request, 'inmobiliaria/contratos/cuotas.html', {
         'contrato': contrato,
         'cuotas': cuotas
@@ -16006,15 +15994,6 @@ def pagar_cuota(request, cuota_id):
         monto = cuota.monto_total or Decimal('0')
         if monto <= 0:
             return JsonResponse({'error': 'La cuota no tiene monto a cobrar.'}, status=400)
-
-        if contrato.cuotas.filter(
-            numero_cuota__lt=cuota.numero_cuota,
-            estado__in=['pendiente', 'vencida'],
-        ).exists():
-            return JsonResponse(
-                {'error': 'Hay cuotas anteriores sin pagar (pendientes o vencidas). Pagá en orden.'},
-                status=400,
-            )
 
         caja = (
             Caja.objects.filter(
@@ -16135,15 +16114,6 @@ def crear_pago_cuota_operacion(request, cuota_id):
     if cuota.estado not in ('pendiente', 'vencida'):
         messages.error(request, 'Esta cuota no admite cobro en este estado.')
         return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
-    if contrato.cuotas.filter(
-        numero_cuota__lt=cuota.numero_cuota,
-        estado__in=['pendiente', 'vencida'],
-    ).exists():
-        messages.error(
-            request,
-            'Hay cuotas anteriores sin pagar. Cobrá en orden desde el detalle del contrato.',
-        )
-        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
 
     if cuota.estado in ('pendiente', 'vencida') and cuota.fecha_vencimiento < timezone.now().date():
         cuota.recargo_mora = cuota.calcular_mora()
@@ -16247,14 +16217,6 @@ def procesar_pago_cuota_operacion(request, cuota_id):
             return JsonResponse({'error': 'Esta cuota ya está pagada.'}, status=400)
         if cuota.estado not in ('pendiente', 'vencida'):
             return JsonResponse({'error': 'La cuota no admite cobro en este estado.'}, status=400)
-        if contrato.cuotas.filter(
-            numero_cuota__lt=cuota.numero_cuota,
-            estado__in=['pendiente', 'vencida'],
-        ).exists():
-            return JsonResponse(
-                {'error': 'Hay cuotas anteriores sin pagar (pendientes o vencidas). Cobrá en orden.'},
-                status=400,
-            )
 
         raw_json = (request.POST.get('conceptos_json') or '').strip()
         if not raw_json:
