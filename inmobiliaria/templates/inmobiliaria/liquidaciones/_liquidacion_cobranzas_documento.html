@@ -5,10 +5,10 @@
         <div class="liq-cobranzas-sub">
             <strong>SR.</strong>
             {{ propietario.apellido|upper }} {{ propietario.nombre|upper }}
-            {% if propietario.direccion %} — {{ propietario.direccion|upper }}{% endif %}
+            {% if propietario.domicilio %} — {{ propietario.domicilio|upper }}{% endif %}
             {% if propietario.email %} — {{ propietario.email }}{% endif %}
-            {% if propietario.celular or propietario.telefono %}
-            — TEL: {{ propietario.celular|default:propietario.telefono }}
+            {% if propietario.celular %}
+            — TEL: {{ propietario.celular }}
             {% endif %}
         </div>
         <div class="liq-cobranzas-meta">
