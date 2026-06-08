@@ -171,11 +171,13 @@ class LiquidacionPropietario(models.Model):
         neto = prop + cochera - gastos - fondo
         self.monto_a_pagar = neto if neto > 0 else Decimal('0')
 
-        # Calcular monto de inmobiliaria si no está definido
-        if self.monto_total_operacion and self.monto_propietario is not None and not self.monto_inmobiliaria:
-            self.monto_inmobiliaria = (
-                self.monto_total_operacion - self.monto_propietario - cochera
-            )
+        # Calcular monto de inmobiliaria solo si no fue informado (cochera no participa del reparto inmobiliaria)
+        if (
+            self.monto_total_operacion
+            and self.monto_propietario is not None
+            and self.monto_inmobiliaria is None
+        ):
+            self.monto_inmobiliaria = self.monto_total_operacion - self.monto_propietario
 
         super().save(*args, **kwargs)
 

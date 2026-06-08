@@ -157,7 +157,7 @@
                             <div class="col">
                                 <label class="form-label">Cochera</label>
                                 <input type="text" name="monto_cochera" id="monto_cochera" class="form-control" value="0,00" placeholder="0,00" autocomplete="off">
-                                <small class="form-text text-muted">Importe de cochera si aplica; editable.</small>
+                                <small class="form-text text-muted">Solo suma al monto final del propietario; no cambia la inmobiliaria.</small>
                             </div>
                             <div class="col">
                                 <label class="form-label">Fondo de mantenimiento</label>
@@ -1188,6 +1188,11 @@ document.addEventListener('DOMContentLoaded', function() {
     function leerCochera() {
         return montoCochera ? parseNumeroEsAR(montoCochera.value) : 0;
     }
+
+    let montosEditadosManualmente = false;
+    function marcarMontosEditadosManualmente() {
+        montosEditadosManualmente = true;
+    }
     
     // Función para calcular montos de las operaciones seleccionadas (global)
     window.calcularMontosSeleccionados = function() {
@@ -1233,20 +1238,18 @@ document.addEventListener('DOMContentLoaded', function() {
             totalGastos += montoGasto;
         });
         
-        // Actualizar montos automáticamente
+        // Sugerir montos al tildar operaciones (si el usuario ya corrigió a mano, no pisar total/prop/inm)
         if (totalMonto > 0) {
-            montoTotal.value = formatearNumero(totalMonto.toFixed(2));
+            if (!montosEditadosManualmente) {
+                montoTotal.value = formatearNumero(totalMonto.toFixed(2));
+                montoPropietario.value = formatearNumero(totalMontoPropietario.toFixed(2));
+                montoInmobiliaria.value = formatearNumero(totalMontoInmobiliaria.toFixed(2));
+            }
 
-            // IMPORTANTE:
-            // - Monto Propietario = bruto de operaciones (sin descontar gastos)
-            // - Monto Inmobiliaria = bruto de operaciones
-            // - Monto Final a Pagar = propietario + cochera - gastos - fondo de mantenimiento
-            montoPropietario.value = formatearNumero(totalMontoPropietario.toFixed(2));
-            montoInmobiliaria.value = formatearNumero(totalMontoInmobiliaria.toFixed(2));
-
+            const propActual = parseNumeroEsAR(montoPropietario.value);
             const fondo = montoFondoMantenimiento ? parseNumeroEsAR(montoFondoMantenimiento.value) : 0;
             const cochera = leerCochera();
-            const montoPropietarioFinal = totalMontoPropietario + cochera - totalGastos - fondo;
+            const montoPropietarioFinal = propActual + cochera - totalGastos - fondo;
             // Actualizar monto final a pagar
             const montoFinalPagar = document.getElementById('monto-final-pagar');
             if (montoFinalPagar) {
@@ -1271,9 +1274,18 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
 
-    montoTotal.addEventListener('input', recalcularMontoFinalDesdeCampos);
-    montoPropietario.addEventListener('input', recalcularMontoFinalDesdeCampos);
-    montoInmobiliaria.addEventListener('input', recalcularMontoFinalDesdeCampos);
+    montoTotal.addEventListener('input', function() {
+        marcarMontosEditadosManualmente();
+        recalcularMontoFinalDesdeCampos();
+    });
+    montoPropietario.addEventListener('input', function() {
+        marcarMontosEditadosManualmente();
+        recalcularMontoFinalDesdeCampos();
+    });
+    montoInmobiliaria.addEventListener('input', function() {
+        marcarMontosEditadosManualmente();
+        recalcularMontoFinalDesdeCampos();
+    });
 
     function recalcularMontoFinalDesdeCampos() {
         const prop = parseNumeroEsAR(montoPropietario.value);
@@ -1296,7 +1308,10 @@ document.addEventListener('DOMContentLoaded', function() {
         montoFondoMantenimiento.addEventListener('input', recalcularMontoFinalDesdeCampos);
     }
     if (montoCochera) {
-        montoCochera.addEventListener('input', recalcularMontoFinalDesdeCampos);
+        montoCochera.addEventListener('input', function() {
+            // Cochera solo afecta el monto final al propietario, nunca la inmobiliaria
+            recalcularMontoFinalDesdeCampos();
+        });
     }
 
     // Desde carátula u otra pantalla: buscar operación por número y pre-cargar pendientes
