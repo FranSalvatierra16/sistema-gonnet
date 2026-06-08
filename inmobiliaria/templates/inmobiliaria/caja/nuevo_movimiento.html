@@ -380,6 +380,7 @@
                 <!-- Campos ocultos para datos del sistema -->
                 <input type="hidden" name="sucursal" value="{{ request.user.sucursal.id }}">
                 <input type="hidden" name="empleado" value="{{ request.user.id }}">
+                <input type="hidden" name="movimiento_uid" id="movimiento_uid" value="{{ movimiento_uid }}">
 
                 <!-- Botones -->
                                 <div class="row">
@@ -1277,11 +1278,14 @@ $(document).ready(function() {
     });
 
     // Evitar doble envío del formulario (doble clic o reenvío del navegador)
-    $('#formMovimiento').on('submit', function() {
-        var $btn = $('#btn_guardar_movimiento');
-        if ($btn.prop('disabled')) {
+    var enviandoMovimientoCaja = false;
+    $('#formMovimiento').on('submit', function(e) {
+        if (enviandoMovimientoCaja) {
+            e.preventDefault();
             return false;
         }
+        enviandoMovimientoCaja = true;
+        var $btn = $('#btn_guardar_movimiento');
         $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Guardando...');
     });
 });

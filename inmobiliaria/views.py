@@ -20,6 +20,7 @@ from django.urls import NoReverseMatch, reverse
 from django.views.decorators.http import require_POST
 import re
 import logging
+import uuid
 
 from .decimal_utils import format_monto_argentino, parse_decimal_monto
 from .templatetags.custom_filters import formato_apellido_nombre
@@ -10446,6 +10447,27 @@ def imprimir_resumen_caja(request, numero):
     context['neto_movimientos_ars'] = context['totales']['saldo_total'] - saldo_ini
     return render(request, 'inmobiliaria/caja/resumen_caja_imprimir.html', context)
 
+_MOVIMIENTO_UID_SESSION_KEY = 'caja_movimiento_uids_procesados'
+_MAX_MOVIMIENTO_UIDS_SESSION = 50
+
+
+def _movimiento_uid_ya_usado(request, uid):
+    uid = (uid or '').strip()
+    if not uid or len(uid) > 64:
+        return False
+    return uid in request.session.get(_MOVIMIENTO_UID_SESSION_KEY, [])
+
+
+def _marcar_movimiento_uid_usado(request, uid):
+    uid = (uid or '').strip()
+    if not uid:
+        return
+    uids = list(request.session.get(_MOVIMIENTO_UID_SESSION_KEY, []))
+    uids.append(uid)
+    request.session[_MOVIMIENTO_UID_SESSION_KEY] = uids[-_MAX_MOVIMIENTO_UIDS_SESSION:]
+    request.session.modified = True
+
+
 def _buscar_movimiento_caja_duplicado_reciente(
     caja,
     tipo,
@@ -10456,10 +10478,20 @@ def _buscar_movimiento_caja_duplicado_reciente(
     m_ta,
     m_dp,
     m_dol,
-    ventana_seg=120,
+    *,
+    tipo_comprobante=None,
+    a_descontar=None,
+    empleado_id=None,
+    ventana_seg=300,
 ):
     """Evita doble alta si el formulario se envió dos veces (doble clic o reenvío del navegador)."""
     desde = timezone.now() - timedelta(seconds=ventana_seg)
+    q = Decimal('0.01')
+    m_ef = Decimal(m_ef).quantize(q)
+    m_ch = Decimal(m_ch).quantize(q)
+    m_ta = Decimal(m_ta).quantize(q)
+    m_dp = Decimal(m_dp).quantize(q)
+    m_dol = Decimal(m_dol).quantize(q)
     qs = MovimientoCaja.objects.filter(
         caja=caja,
         tipo=tipo,
@@ -10475,6 +10507,12 @@ def _buscar_movimiento_caja_duplicado_reciente(
         qs = qs.filter(propiedad_id=propiedad_id)
     else:
         qs = qs.filter(propiedad_id__isnull=True)
+    if tipo_comprobante:
+        qs = qs.filter(tipo_comprobante=tipo_comprobante)
+    if a_descontar:
+        qs = qs.filter(a_descontar=a_descontar)
+    if empleado_id:
+        qs = qs.filter(empleado_id=empleado_id)
     concepto_norm = (concepto or '').strip()
     if concepto_norm:
         qs = qs.filter(concepto=concepto_norm)
@@ -10506,6 +10544,7 @@ def nuevo_movimiento(request, numero_caja=None):
             'caja': caja,
             'fecha_actual': timezone.now(),
             'cuentas_bancarias': cuentas_bancarias,
+            'movimiento_uid': uuid.uuid4().hex,
         }
         if extra:
             ctx.update(extra)
@@ -10513,6 +10552,7 @@ def nuevo_movimiento(request, numero_caja=None):
 
     if request.method == 'POST':
         try:
+            movimiento_uid = (request.POST.get('movimiento_uid') or '').strip()
             # Procesar fechas
             fecha_desde = None
             fecha_hasta = None
@@ -10584,11 +10624,11 @@ def nuevo_movimiento(request, numero_caja=None):
 
             # Procesar los montos
             try:
-                movimiento.monto_efectivo = float(request.POST.get('monto_efectivo', '0').replace(',', '.') or '0')
-                movimiento.monto_cheque = float(request.POST.get('monto_cheque', '0').replace(',', '.') or '0')
-                movimiento.monto_tarjeta = float(request.POST.get('monto_tarjeta', '0').replace(',', '.') or '0')
-                movimiento.monto_deposito = float(request.POST.get('monto_deposito', '0').replace(',', '.') or '0')
-            except (ValueError, TypeError):
+                movimiento.monto_efectivo = parse_decimal_monto(request.POST.get('monto_efectivo', '0') or '0')
+                movimiento.monto_cheque = parse_decimal_monto(request.POST.get('monto_cheque', '0') or '0')
+                movimiento.monto_tarjeta = parse_decimal_monto(request.POST.get('monto_tarjeta', '0') or '0')
+                movimiento.monto_deposito = parse_decimal_monto(request.POST.get('monto_deposito', '0') or '0')
+            except (ValueError, TypeError, InvalidOperation):
                 messages.error(request, 'Error en los montos ingresados')
                 return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
 
@@ -10671,27 +10711,59 @@ def nuevo_movimiento(request, numero_caja=None):
                     Vendedor, id=pid, sucursal=request.user.sucursal
                 )
 
-            duplicado = _buscar_movimiento_caja_duplicado_reciente(
-                caja,
-                tipo,
-                movimiento.propiedad_id,
-                movimiento.concepto,
-                m_ef,
-                m_ch,
-                m_ta,
-                m_dp,
-                m_dol,
-            )
-            if duplicado:
-                messages.warning(
-                    request,
-                    f'Este movimiento ya fue registrado hace un momento '
-                    f'(movimiento #{duplicado.id}). No se creó un duplicado.',
-                )
-                return redirect('inmobiliaria:detalle_caja', numero=caja.numero)
+            empleado_id = getattr(request.user, 'pk', None)
 
             with transaction.atomic():
+                # Bloqueo de caja: dos POST simultáneos no pueden pasar el control de duplicado a la vez.
+                Caja.objects.select_for_update().get(pk=caja.pk)
+
+                if _movimiento_uid_ya_usado(request, movimiento_uid):
+                    duplicado_uid = _buscar_movimiento_caja_duplicado_reciente(
+                        caja,
+                        tipo,
+                        movimiento.propiedad_id,
+                        movimiento.concepto,
+                        m_ef,
+                        m_ch,
+                        m_ta,
+                        m_dp,
+                        m_dol,
+                        tipo_comprobante=tipo_comprobante,
+                        a_descontar=a_descontar_raw,
+                        empleado_id=empleado_id,
+                    )
+                    ref = f' #{duplicado_uid.id}' if duplicado_uid else ''
+                    messages.warning(
+                        request,
+                        f'Este movimiento ya fue guardado (envío duplicado). No se creó otro registro{ref}.',
+                    )
+                    return redirect('inmobiliaria:detalle_caja', numero=caja.numero)
+
+                duplicado = _buscar_movimiento_caja_duplicado_reciente(
+                    caja,
+                    tipo,
+                    movimiento.propiedad_id,
+                    movimiento.concepto,
+                    m_ef,
+                    m_ch,
+                    m_ta,
+                    m_dp,
+                    m_dol,
+                    tipo_comprobante=tipo_comprobante,
+                    a_descontar=a_descontar_raw,
+                    empleado_id=empleado_id,
+                )
+                if duplicado:
+                    _marcar_movimiento_uid_usado(request, movimiento_uid)
+                    messages.warning(
+                        request,
+                        f'Este movimiento ya fue registrado hace un momento '
+                        f'(movimiento #{duplicado.id}). No se creó un duplicado.',
+                    )
+                    return redirect('inmobiliaria:detalle_caja', numero=caja.numero)
+
                 movimiento.save()
+                _marcar_movimiento_uid_usado(request, movimiento_uid)
                 if quiere_vale and vendedor_vale:
                     ValeVendedor.crear_desde_movimiento(
                         movimiento,
