@@ -446,15 +446,26 @@
                                     {% endif %}
                                 {% elif cuota.estado == 'pagada' or cuota.estado == 'pagada_con_mora' %}
                                     {% if cuota.recibos_cobro %}
-                                    {% for m in cuota.recibos_cobro %}
-                                    <a class="btn btn-sm btn-info{% if not forloop.first %} ms-1{% endif %}"
-                                            href="{% url 'inmobiliaria:recibo_contrato_24' contrato.id %}?movimiento_id={{ m.id }}"
-                                            target="_blank"
-                                            rel="noopener"
-                                            title="Recibo del {{ m.fecha|date:'d/m/Y H:i' }}{% if m.numero_liquidacion %} — {{ m.numero_liquidacion }}{% endif %}">
-                                        <i class="fas fa-receipt"></i> Recibo{% if cuota.recibos_cobro|length > 1 %} {{ forloop.counter }}{% endif %}
-                                    </a>
-                                    {% endfor %}
+                                    <div class="dropdown d-inline-block">
+                                        <button class="btn btn-sm btn-info dropdown-toggle" type="button"
+                                                data-bs-toggle="dropdown" aria-expanded="false"
+                                                title="{% if cuota.recibos_cobro|length > 1 %}Esta cuota tiene {{ cuota.recibos_cobro|length }} cobros{% else %}Ver recibo del cobro{% endif %}">
+                                            <i class="fas fa-receipt"></i> Recibo{% if cuota.recibos_cobro|length > 1 %}s{% endif %}
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end p-0 overflow-hidden" style="min-width: 14rem;">
+                                            {% for m in cuota.recibos_cobro %}
+                                            <li class="{% if not forloop.last %}border-bottom{% endif %}">
+                                                <a class="dropdown-item py-2"
+                                                   href="{% url 'inmobiliaria:recibo_contrato_24' contrato.id %}?movimiento_id={{ m.id }}"
+                                                   target="_blank" rel="noopener">
+                                                    <i class="fas fa-file-invoice text-info me-1"></i>
+                                                    {{ m.fecha|date:"d/m/Y H:i" }}
+                                                    {% if m.numero_liquidacion %}<span class="text-muted small">({{ m.numero_liquidacion }})</span>{% endif %}
+                                                </a>
+                                            </li>
+                                            {% endfor %}
+                                        </ul>
+                                    </div>
                                     {% else %}
                                     <span class="text-muted small">Sin movimiento</span>
                                     {% endif %}
