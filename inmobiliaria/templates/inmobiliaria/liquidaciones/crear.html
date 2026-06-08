@@ -178,6 +178,55 @@
 
                         <div class="row mb-3">
                             <div class="col-12">
+                                <div class="card border-secondary">
+                                    <div class="card-header bg-light">
+                                        <strong><i class="fas fa-file-invoice-dollar me-2"></i>Resumen de liquidación</strong>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row g-3">
+                                            <div class="col-md-6">
+                                                <h6 class="text-success mb-2">Lo que le pagás al propietario</h6>
+                                                <div class="table-responsive">
+                                                    <table class="table table-sm table-bordered mb-0">
+                                                        <tbody id="resumen-pagos-body">
+                                                            <tr><td colspan="2" class="text-center text-muted py-3">Seleccioná operaciones para ver el detalle.</td></tr>
+                                                        </tbody>
+                                                        <tfoot id="resumen-pagos-foot" class="d-none">
+                                                            <tr class="fw-bold table-success">
+                                                                <td>Total al propietario</td>
+                                                                <td class="text-end" id="resumen-total-pagos">0,00</td>
+                                                            </tr>
+                                                        </tfoot>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <h6 class="text-danger mb-2">Gastos descontados</h6>
+                                                <div class="table-responsive">
+                                                    <table class="table table-sm table-bordered mb-0">
+                                                        <tbody id="resumen-gastos-body">
+                                                            <tr><td colspan="2" class="text-center text-muted py-3">Sin gastos seleccionados.</td></tr>
+                                                        </tbody>
+                                                        <tfoot id="resumen-gastos-foot" class="d-none">
+                                                            <tr class="fw-bold table-danger">
+                                                                <td>Total descontado</td>
+                                                                <td class="text-end" id="resumen-total-gastos">0,00</td>
+                                                            </tr>
+                                                        </tfoot>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="mt-3 pt-2 border-top text-end">
+                                            <strong>Neto a pagar: $<span id="resumen-neto-pagar">0,00</span></strong>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-12">
                                 <div class="card border-primary">
                                     <div class="card-header bg-light d-flex justify-content-between align-items-center">
                                         <strong><i class="fas fa-code-branch me-2"></i>Dividir operación en dos liquidaciones</strong>
@@ -763,12 +812,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 const chkDisabled = noIncluible ? 'disabled' : '';
                 const pid = op.propiedad_id != null ? String(op.propiedad_id) : '';
                 const cid = op.contrato_id != null ? String(op.contrato_id) : '';
+                const conceptoPago = escHtmlGasto(op.concepto_pago || tipoEtiqueta);
                 const tdSel = colProp
                     ? `<td><input type="checkbox" class="form-check-input operacion-checkbox"
                            data-tipo="${op.tipo}"
                            data-id="${op.id}"
                            data-contrato-id="${cid}"
                            data-propiedad-id="${pid}"
+                           data-concepto-pago="${conceptoPago.replace(/"/g, '&quot;')}"
                            data-monto-total="${op.monto_total}"
                            data-monto-propietario="${op.monto_propietario || '0'}"
                            data-monto-inmobiliaria="${op.monto_inmobiliaria || '0'}"
@@ -780,6 +831,7 @@ document.addEventListener('DOMContentLoaded', function() {
                            data-id="${op.id}"
                            data-contrato-id="${cid}"
                            data-propiedad-id="${pid}"
+                           data-concepto-pago="${conceptoPago.replace(/"/g, '&quot;')}"
                            data-monto-total="${op.monto_total}"
                            data-monto-propietario="${op.monto_propietario || '0'}"
                            data-monto-inmobiliaria="${op.monto_inmobiliaria || '0'}"
@@ -1220,6 +1272,104 @@ document.addEventListener('DOMContentLoaded', function() {
         return montoCochera ? parseNumeroEsAR(montoCochera.value) : 0;
     }
 
+    function etiquetaConceptoOperacion(cb) {
+        const tipo = cb.getAttribute('data-tipo') || '';
+        const custom = (cb.getAttribute('data-concepto-pago') || '').trim();
+        if (custom) return custom;
+        if (tipo === 'reserva') return 'Alquiler por día';
+        return 'Alquiler';
+    }
+
+    function periodoCortoDesdeIso(iso) {
+        if (!iso) return '';
+        const p = String(iso).split('-');
+        if (p.length < 3) return '';
+        const meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+        const mes = parseInt(p[1], 10);
+        if (!mes || mes < 1 || mes > 12) return '';
+        return `${meses[mes - 1]} ${p[0]}`;
+    }
+
+    function actualizarResumenLiquidacion() {
+        const pagosBody = document.getElementById('resumen-pagos-body');
+        const pagosFoot = document.getElementById('resumen-pagos-foot');
+        const gastosBody = document.getElementById('resumen-gastos-body');
+        const gastosFoot = document.getElementById('resumen-gastos-foot');
+        if (!pagosBody || !gastosBody) return;
+
+        const filasPago = [];
+        let totalPago = 0;
+        document.querySelectorAll('.operacion-checkbox:checked').forEach(function(cb) {
+            const monto = parseFloat(cb.getAttribute('data-monto-propietario')) || 0;
+            if (monto <= 0.009) return;
+            let concepto = etiquetaConceptoOperacion(cb);
+            const per = periodoCortoDesdeIso(cb.getAttribute('data-fecha-hasta') || cb.getAttribute('data-fecha-desde'));
+            if (per && cb.getAttribute('data-tipo') !== 'reserva') {
+                concepto = `${concepto} (${per})`;
+            }
+            filasPago.push({ concepto: concepto, monto: monto });
+            totalPago += monto;
+        });
+
+        const cochera = leerCochera();
+        if (cochera > 0.009) {
+            filasPago.push({ concepto: 'Cochera', monto: cochera });
+            totalPago += cochera;
+        }
+
+        if (!filasPago.length) {
+            const propManual = parseNumeroEsAR(montoPropietario.value);
+            if (propManual > 0.009) {
+                filasPago.push({ concepto: 'Monto propietario', monto: propManual });
+                totalPago = propManual + cochera;
+            }
+        }
+
+        if (!filasPago.length) {
+            pagosBody.innerHTML = '<tr><td colspan="2" class="text-center text-muted py-3">Seleccioná operaciones para ver el detalle.</td></tr>';
+            if (pagosFoot) pagosFoot.classList.add('d-none');
+        } else {
+            pagosBody.innerHTML = filasPago.map(function(f) {
+                return '<tr><td>' + f.concepto + '</td><td class="text-end">$' + formatearNumero(f.monto.toFixed(2)) + '</td></tr>';
+            }).join('');
+            const elTotalPagos = document.getElementById('resumen-total-pagos');
+            if (elTotalPagos) elTotalPagos.textContent = formatearNumero(totalPago.toFixed(2));
+            if (pagosFoot) pagosFoot.classList.remove('d-none');
+        }
+
+        const filasGasto = [];
+        let totalGasto = 0;
+        document.querySelectorAll('.gasto-checkbox:checked').forEach(function(cb) {
+            const monto = parseFloat(cb.getAttribute('data-monto')) || 0;
+            const concepto = (cb.getAttribute('data-descripcion') || 'Gasto').trim();
+            if (monto <= 0.009) return;
+            filasGasto.push({ concepto: concepto, monto: monto });
+            totalGasto += monto;
+        });
+
+        const fondo = montoFondoMantenimiento ? parseNumeroEsAR(montoFondoMantenimiento.value) : 0;
+        if (fondo > 0.009) {
+            filasGasto.push({ concepto: 'Fondo de mantenimiento', monto: fondo });
+            totalGasto += fondo;
+        }
+
+        if (!filasGasto.length) {
+            gastosBody.innerHTML = '<tr><td colspan="2" class="text-center text-muted py-3">Sin gastos seleccionados.</td></tr>';
+            if (gastosFoot) gastosFoot.classList.add('d-none');
+        } else {
+            gastosBody.innerHTML = filasGasto.map(function(f) {
+                return '<tr><td>' + f.concepto + '</td><td class="text-end">$' + formatearNumero(f.monto.toFixed(2)) + '</td></tr>';
+            }).join('');
+            const elTotalGastos = document.getElementById('resumen-total-gastos');
+            if (elTotalGastos) elTotalGastos.textContent = formatearNumero(totalGasto.toFixed(2));
+            if (gastosFoot) gastosFoot.classList.remove('d-none');
+        }
+
+        const neto = Math.max(0, totalPago - totalGasto);
+        const elNeto = document.getElementById('resumen-neto-pagar');
+        if (elNeto) elNeto.textContent = formatearNumero(neto.toFixed(2));
+    }
+
     let montosEditadosManualmente = false;
     function marcarMontosEditadosManualmente() {
         montosEditadosManualmente = true;
@@ -1303,6 +1453,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 montoFinalPagar.textContent = '0,00';
             }
         }
+        actualizarResumenLiquidacion();
     };
 
     montoTotal.addEventListener('input', function() {
@@ -1333,6 +1484,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 Math.max(0, prop + cochera - totalGastos - fondo).toFixed(2)
             );
         }
+        actualizarResumenLiquidacion();
     }
 
     if (montoFondoMantenimiento) {

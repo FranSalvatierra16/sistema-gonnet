@@ -21172,6 +21172,20 @@ def _nombre_cliente_reserva_liquidacion(reserva):
     return ap or nom or '—'
 
 
+def _concepto_pago_liquidacion_operacion(tipo, contrato=None):
+    """Etiqueta legible del concepto a pagar al propietario según tipo de operación."""
+    if tipo == 'reserva':
+        return 'Alquiler por día'
+    duracion = int(getattr(contrato, 'duracion_meses', 0) or 0) if contrato else 0
+    if duracion == 9:
+        return 'Invierno'
+    if duracion == 24:
+        return '24 meses'
+    if duracion > 0:
+        return f'{duracion} meses'
+    return 'Alquiler'
+
+
 def _egreso_no_es_gasto_descontable_liquidacion(movimiento) -> bool:
     """
     True si un movimiento de caja NO debe ofrecerse como «gasto pendiente» en liquidación.
@@ -21431,6 +21445,7 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
             operaciones.append({
                 'tipo': 'reserva',
                 'tipo_display': 'Por día',
+                'concepto_pago': _concepto_pago_liquidacion_operacion('reserva'),
                 'incluible': True,
                 'id': reserva.id,
                 'descripcion': f'Reserva #{reserva.id} - {_nombre_cliente_reserva_liquidacion(reserva)}',
@@ -21510,6 +21525,7 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
             operaciones.append({
                 'tipo': 'contrato_cuota',
                 'tipo_display': 'Cuota mensual',
+                'concepto_pago': _concepto_pago_liquidacion_operacion('contrato_cuota', contrato),
                 'incluible': True,
                 'id': cuota.id,
                 'contrato_id': contrato.id,
