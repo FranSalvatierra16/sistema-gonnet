@@ -133,6 +133,8 @@ class CajaArqueoCierre(models.Model):
         except Exception:
             return Decimal('0')
 
+
+class MovimientoCaja(models.Model):
     fecha = models.DateTimeField(auto_now_add=True)
     tipo = models.CharField(
         max_length=2,
