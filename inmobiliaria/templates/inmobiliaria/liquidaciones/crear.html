@@ -13,7 +13,7 @@
                     <h5 class="mb-0">Datos de la Liquidación</h5>
                 </div>
                 <div class="card-body">
-                    <form method="POST" id="formCrearLiquidacion">
+                    <form method="POST" id="formCrearLiquidacion" novalidate>
                         {% csrf_token %}
                         {{ propietarios_busqueda|json_script:"propietarios-busqueda-data" }}
                         
@@ -245,7 +245,7 @@
                             <a href="{% url 'inmobiliaria:lista_liquidaciones' %}" class="btn btn-secondary">
                                 <i class="fas fa-arrow-left me-2"></i>Cancelar
                             </a>
-                            <button type="submit" class="btn btn-primary" onclick="return prepararFormulario();">
+                            <button type="submit" class="btn btn-primary" id="btn_crear_liquidacion">
                                 <i class="fas fa-save me-2"></i>Crear Liquidación
                             </button>
                         </div>
@@ -421,15 +421,45 @@ document.addEventListener('DOMContentLoaded', function() {
         propiedadResultados.classList.remove('d-none');
     }
 
-    function seleccionarPropiedadPorId(id, extraCarga) {
+    function asegurarOpcionPropiedad(id, label, propietario, cuentaBancaria) {
+        const sid = String(id);
+        let opt = Array.from(propiedadSelect.options).find(function(o) { return o.value === sid; });
+        if (!opt) {
+            opt = document.createElement('option');
+            opt.value = sid;
+            opt.textContent = (label || ('Propiedad #' + sid)).replace(/^#\d+\s*-\s*/, '');
+            opt.setAttribute('data-propietario', propietario || '');
+            opt.setAttribute('data-cuenta-bancaria', cuentaBancaria || '');
+            propiedadSelect.appendChild(opt);
+        }
+        return opt;
+    }
+
+    function fijarPropiedadEnFormulario(id, label, propietario, cuentaBancaria) {
         if (!id) return;
-        opcionesCargaOperacionesExtra = extraCarga || null;
+        const opt = asegurarOpcionPropiedad(id, label, propietario, cuentaBancaria);
         propiedadSelect.value = String(id);
-        const opt = propiedadSelect.options[propiedadSelect.selectedIndex];
         if (opt && opt.value) {
             propiedadBuscar.value = `#${opt.value} - ${opt.textContent.trim()}`;
             btnLimpiarPropiedad.classList.remove('d-none');
         }
+        if (propietario) {
+            propietarioDisplay.value = propietario;
+        } else if (opt) {
+            const pn = opt.getAttribute('data-propietario');
+            if (pn) propietarioDisplay.value = pn;
+        }
+        const cb = (cuentaBancaria || (opt && opt.getAttribute('data-cuenta-bancaria')) || '').trim();
+        if (cb) {
+            cuentaPropietarioDisplay.value = cb;
+            cuentaPropietarioDisplay.placeholder = '';
+        }
+    }
+
+    function seleccionarPropiedadPorId(id, extraCarga) {
+        if (!id) return;
+        opcionesCargaOperacionesExtra = extraCarga || null;
+        fijarPropiedadEnFormulario(id);
         propiedadSelect.dispatchEvent(new Event('change'));
         propiedadResultados.classList.add('d-none');
     }
@@ -542,6 +572,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 cargaPorPropietarioActiva = false;
                 ocultarFiltroPropiedadPropietario();
                 if (data.propiedad_id) {
+                    asegurarOpcionPropiedad(
+                        data.propiedad_id,
+                        data.propiedad_label,
+                        data.propietario_nombre,
+                        data.propietario_cuenta_bancaria
+                    );
                     propiedadSelect.value = String(data.propiedad_id);
                     propiedadBuscar.value = data.propiedad_label || ('#' + data.propiedad_id);
                     btnLimpiarPropiedad.classList.remove('d-none');
@@ -628,12 +664,23 @@ document.addEventListener('DOMContentLoaded', function() {
             if (gpid && gpid !== pid) g.checked = false;
         });
         if (propiedadSelect.value !== pid) {
-            seleccionarPropiedadPorId(pid, {
-                restaurarOperacion: {
-                    tipo: cb.getAttribute('data-tipo'),
-                    id: cb.getAttribute('data-id')
-                }
-            });
+            if (cargaPorPropietarioActiva) {
+                fijarPropiedadEnFormulario(
+                    pid,
+                    null,
+                    propietarioDisplay.value,
+                    cuentaPropietarioDisplay.value
+                );
+                calcularMontosSeleccionados();
+            } else {
+                const marcadas = Array.from(document.querySelectorAll('.operacion-checkbox:checked')).map(function(x) {
+                    return {
+                        tipo: x.getAttribute('data-tipo'),
+                        id: x.getAttribute('data-id')
+                    };
+                });
+                seleccionarPropiedadPorId(pid, { restaurarOperaciones: marcadas });
+            }
         } else {
             calcularMontosSeleccionados();
         }
@@ -774,14 +821,21 @@ document.addEventListener('DOMContentLoaded', function() {
             sinOperaciones.style.display = 'block';
             mostrarGastosPendientes(data.gastos_pendientes || [], colProp);
         }
-        if (extraCarga && extraCarga.restaurarOperacion) {
-            const r = extraCarga.restaurarOperacion;
-            document.querySelectorAll('.operacion-checkbox').forEach(function(el) {
-                if (el.getAttribute('data-tipo') === r.tipo && String(el.getAttribute('data-id')) === String(r.id)) {
-                    el.checked = true;
-                }
+        function restaurarOperacionesMarcadas(lista) {
+            (lista || []).forEach(function(r) {
+                if (!r || !r.tipo || r.id == null) return;
+                document.querySelectorAll('.operacion-checkbox').forEach(function(el) {
+                    if (el.getAttribute('data-tipo') === r.tipo && String(el.getAttribute('data-id')) === String(r.id)) {
+                        el.checked = true;
+                    }
+                });
             });
             calcularMontosSeleccionados();
+        }
+        if (extraCarga && extraCarga.restaurarOperaciones && extraCarga.restaurarOperaciones.length) {
+            restaurarOperacionesMarcadas(extraCarga.restaurarOperaciones);
+        } else if (extraCarga && extraCarga.restaurarOperacion) {
+            restaurarOperacionesMarcadas([extraCarga.restaurarOperacion]);
         }
         if (extraCarga && extraCarga.restaurarGastoId != null && extraCarga.restaurarGastoId !== '') {
             const gid = String(extraCarga.restaurarGastoId);
@@ -1268,10 +1322,61 @@ document.addEventListener('DOMContentLoaded', function() {
         cargarOperacionesPendientes(propiedadSelect.value);
     }
 
-    // Función para preparar el formulario antes de enviarlo
+    function normalizarCamposMontosAntesEnvio() {
+        [montoTotal, montoPropietario, montoInmobiliaria, montoFondoMantenimiento].forEach(function(el) {
+            if (!el || !el.value) return;
+            const n = parseNumeroEsAR(el.value);
+            if (n > 0 || el === montoTotal || el === montoPropietario) {
+                el.value = formatearNumero(n.toFixed(2));
+            }
+        });
+        const cocheraEl = document.getElementById('monto_cochera');
+        if (cocheraEl && cocheraEl.value) {
+            cocheraEl.value = formatearNumero(parseNumeroEsAR(cocheraEl.value).toFixed(2));
+        }
+    }
+
+    function resolverPropiedadIdFormulario() {
+        let propIdForm = (propiedadSelect.value || '').trim();
+        if (propIdForm) return propIdForm;
+        const opsMarcadas = document.querySelectorAll('.operacion-checkbox:checked');
+        if (opsMarcadas.length > 0) {
+            propIdForm = (opsMarcadas[0].getAttribute('data-propiedad-id') || '').trim();
+            if (propIdForm) {
+                asegurarOpcionPropiedad(propIdForm);
+                propiedadSelect.value = propIdForm;
+            }
+        }
+        return propIdForm;
+    }
+
+    // Validar y armar datos antes de enviar (no deshabilitar el botón acá)
     window.prepararFormulario = function() {
+        const mTotal = parseNumeroEsAR(montoTotal.value);
+        const mProp = parseNumeroEsAR(montoPropietario.value);
+        const mInm = parseNumeroEsAR(montoInmobiliaria.value);
+
+        if (mTotal <= 0) {
+            alert('El monto total de la operación debe ser mayor a cero.');
+            montoTotal.focus();
+            return false;
+        }
+        if (mProp < 0) {
+            alert('El monto para el propietario no puede ser negativo.');
+            montoPropietario.focus();
+            return false;
+        }
+        if (Math.abs((mProp + mInm) - mTotal) >= 0.02) {
+            alert(
+                'Monto propietario + inmobiliaria debe coincidir con el monto total.\n'
+                + 'Total: ' + formatearNumero(mTotal.toFixed(2))
+                + ' | Propietario: ' + formatearNumero(mProp.toFixed(2))
+                + ' | Inmobiliaria: ' + formatearNumero(mInm.toFixed(2))
+            );
+            return false;
+        }
+
         if (dividirToggle && dividirToggle.checked) {
-            const mTotal = parseNumeroEsAR(montoTotal.value);
             const m1 = parseNumeroEsAR(op1Monto.value);
             const m2 = parseNumeroEsAR(op2Monto.value);
             const f1d = document.getElementById('op1_fecha_desde').value;
@@ -1291,12 +1396,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 return false;
             }
         }
-        const propIdForm = (propiedadSelect.value || '').trim();
+
+        const propIdForm = resolverPropiedadIdFormulario();
         if (!propIdForm) {
             alert('Debés definir la propiedad de la liquidación: elegí una en el buscador de arriba o tildá una operación si cargaste por propietario.');
             return false;
         }
+
         const opsMarcadas = document.querySelectorAll('.operacion-checkbox:checked');
+        if (opsMarcadas.length === 0) {
+            alert('Tildá al menos una operación (reserva o cuota) que estés liquidando.');
+            return false;
+        }
         for (let i = 0; i < opsMarcadas.length; i++) {
             const pid = (opsMarcadas[i].getAttribute('data-propiedad-id') || '').trim();
             if (pid && pid !== propIdForm) {
@@ -1312,12 +1423,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 return false;
             }
         }
+
+        normalizarCamposMontosAntesEnvio();
+
         const form = document.getElementById('formCrearLiquidacion');
         if (form) {
             form.querySelectorAll('input.dynamic-operacion-seleccionada').forEach(function(el) {
                 el.remove();
             });
-            document.querySelectorAll('.operacion-checkbox:checked').forEach(function(cb) {
+            opsMarcadas.forEach(function(cb) {
                 const tipo = cb.getAttribute('data-tipo');
                 const id = cb.getAttribute('data-id');
                 if (!tipo || !id) return;
@@ -1329,13 +1443,31 @@ document.addEventListener('DOMContentLoaded', function() {
                 form.appendChild(inp);
             });
         }
-        const btnEnviar = form ? form.querySelector('button[type="submit"]') : null;
-        if (btnEnviar) {
-            btnEnviar.disabled = true;
-            btnEnviar.classList.add('disabled');
-        }
         return true;
     };
+
+    const formCrearLiquidacion = document.getElementById('formCrearLiquidacion');
+    const btnCrearLiquidacion = document.getElementById('btn_crear_liquidacion');
+    if (formCrearLiquidacion) {
+        formCrearLiquidacion.addEventListener('submit', function(e) {
+            if (!window.prepararFormulario()) {
+                e.preventDefault();
+                return false;
+            }
+            if (btnCrearLiquidacion) {
+                btnCrearLiquidacion.disabled = true;
+                btnCrearLiquidacion.dataset.originalHtml = btnCrearLiquidacion.innerHTML;
+                btnCrearLiquidacion.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Guardando...';
+                window.setTimeout(function() {
+                    btnCrearLiquidacion.disabled = false;
+                    if (btnCrearLiquidacion.dataset.originalHtml) {
+                        btnCrearLiquidacion.innerHTML = btnCrearLiquidacion.dataset.originalHtml;
+                    }
+                }, 90000);
+            }
+            return true;
+        });
+    }
 });
 </script>
 

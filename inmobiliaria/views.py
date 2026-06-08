@@ -20877,7 +20877,7 @@ def crear_liquidacion(request, reserva_id=None):
 
         except Exception as e:
             messages.error(request, f'Error al crear la liquidación: {str(e)}')
-            return redirect('inmobiliaria:lista_liquidaciones')
+            return redirect('inmobiliaria:crear_liquidacion')
 
     # Si hay reserva, pre-llenar datos
     propiedades = Propiedad.objects.filter(
