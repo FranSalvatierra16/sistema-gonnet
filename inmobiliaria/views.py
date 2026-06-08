@@ -10313,7 +10313,7 @@ def _sincronizar_montos_anexos_movimiento(movimiento):
 @transaction.atomic
 def editar_movimiento_caja(request, movimiento_id):
     if not usuario_puede_editar_movimiento_caja(request.user):
-        messages.error(request, 'Solo el superusuario puede editar montos de movimientos de caja.')
+        messages.error(request, 'Solo el super administrador puede editar montos de movimientos de caja.')
         return redirect('inmobiliaria:gestionar_caja')
 
     movimiento = get_object_or_404(
@@ -10499,7 +10499,7 @@ def _aplicar_saldo_inicial_a_totales_efectivo(caja, totales):
 
 
 def _usuario_puede_arqueo_cierre_caja(user):
-    return bool(user and getattr(user, 'is_authenticated', False) and getattr(user, 'is_superuser', False))
+    return usuario_puede_editar_movimiento_caja(user)
 
 
 def _calcular_saldos_caja_por_medio(caja, sucursal):

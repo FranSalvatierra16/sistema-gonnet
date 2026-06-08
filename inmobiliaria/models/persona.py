@@ -97,10 +97,12 @@ def usuario_puede_eliminar_movimiento_caja(user):
 
 
 def usuario_puede_editar_movimiento_caja(user):
-    """Superusuario Django: corrige montos de un movimiento de caja."""
+    """Super administrador (nivel 5) o superusuario Django: corrige montos de un movimiento de caja."""
     if not user or not getattr(user, 'is_authenticated', False):
         return False
-    return getattr(user, 'is_superuser', False)
+    if getattr(user, 'is_superuser', False):
+        return True
+    return getattr(user, 'nivel', None) == 5
 
 
 class Vendedor(AbstractUser):
