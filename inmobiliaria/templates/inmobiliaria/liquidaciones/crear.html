@@ -1310,8 +1310,12 @@ document.addEventListener('DOMContentLoaded', function() {
         montoFondoMantenimiento.addEventListener('input', recalcularMontoFinalDesdeCampos);
     }
 
-    // Inicializar propietario y cargar operaciones si hay una propiedad seleccionada
-    if (propiedadSelect.value) {
+    // Desde carátula u otra pantalla: buscar operación por número y pre-cargar pendientes
+    const operacionInicial = '{{ operacion_buscar_inicial|default:"" }}';
+    if (operacionInicial && operacionBuscarInput) {
+        operacionBuscarInput.value = operacionInicial;
+        buscarOperacionPorNumero();
+    } else if (propiedadSelect.value) {
         const selectedOption = propiedadSelect.options[propiedadSelect.selectedIndex];
         propiedadBuscar.value = `#${selectedOption.value} - ${selectedOption.textContent.trim()}`;
         btnLimpiarPropiedad.classList.remove('d-none');

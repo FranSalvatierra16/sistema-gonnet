@@ -372,6 +372,11 @@ urlpatterns = [
     path('liquidaciones/', views.lista_liquidaciones, name='lista_liquidaciones'),
     path('liquidaciones/crear/', views.crear_liquidacion, name='crear_liquidacion'),
     path('liquidaciones/crear/<int:reserva_id>/', views.crear_liquidacion, name='crear_liquidacion_reserva'),
+    path(
+        'liquidaciones/crear/contrato/<int:contrato_id>/',
+        views.crear_liquidacion,
+        name='crear_liquidacion_contrato',
+    ),
     path('liquidaciones/<int:liquidacion_id>/eliminar/', views.eliminar_liquidacion, name='eliminar_liquidacion'),
     path('liquidaciones/<int:liquidacion_id>/', views.detalle_liquidacion, name='detalle_liquidacion'),
     path('liquidaciones/<int:liquidacion_id>/agregar-gasto/', views.agregar_gasto, name='agregar_gasto'),

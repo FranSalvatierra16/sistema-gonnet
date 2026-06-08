@@ -20586,13 +20586,17 @@ def lista_liquidaciones(request):
 
 
 @login_required
-def crear_liquidacion(request, reserva_id=None):
+def crear_liquidacion(request, reserva_id=None, contrato_id=None):
     """
-    Vista para crear una nueva liquidación desde una reserva
+    Vista para crear una nueva liquidación desde una reserva o un contrato.
     """
     reserva = None
+    contrato = None
+    operacion_buscar_inicial = None
+
     if reserva_id:
         reserva = get_object_or_404(Reserva, id=reserva_id, sucursal=request.user.sucursal)
+        operacion_buscar_inicial = reserva.id
 
         # Verificar si ya existe una liquidación para esta reserva
         liquidacion_existente = (
@@ -20606,6 +20610,25 @@ def crear_liquidacion(request, reserva_id=None):
             messages.warning(
                 request,
                 f'Ya existe una liquidación para esta reserva (nº {liquidacion_existente.id}, '
+                f'{liquidacion_existente.get_estado_display()}).',
+            )
+            return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion_existente.id)
+
+    if contrato_id:
+        contrato = get_object_or_404(
+            ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal
+        )
+        operacion_buscar_inicial = contrato.id
+        liquidacion_existente = (
+            LiquidacionPropietario.objects.filter(contrato=contrato)
+            .exclude(estado='cancelada')
+            .order_by('-id')
+            .first()
+        )
+        if liquidacion_existente:
+            messages.warning(
+                request,
+                f'Ya existe una liquidación para este contrato (nº {liquidacion_existente.id}, '
                 f'{liquidacion_existente.get_estado_display()}).',
             )
             return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion_existente.id)
@@ -20892,8 +20915,10 @@ def crear_liquidacion(request, reserva_id=None):
 
     context = {
         'reserva': reserva,
+        'contrato': contrato,
         'propiedades': propiedades,
         'propietarios_busqueda': propietarios_busqueda,
+        'operacion_buscar_inicial': operacion_buscar_inicial,
     }
 
     if reserva:
@@ -20901,6 +20926,10 @@ def crear_liquidacion(request, reserva_id=None):
         context['monto_total'] = reserva.precio_total
         context['fecha_desde'] = reserva.fecha_inicio
         context['fecha_hasta'] = reserva.fecha_fin
+    elif contrato:
+        context['propiedad'] = contrato.propiedad
+        context['fecha_desde'] = contrato.fecha_inicio
+        context['fecha_hasta'] = contrato.fecha_fin
 
     return render(request, 'inmobiliaria/liquidaciones/crear.html', context)
 

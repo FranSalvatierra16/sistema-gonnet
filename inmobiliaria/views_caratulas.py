@@ -17,6 +17,7 @@ from inmobiliaria.models import (
     ComisionVendedor,
     ContratoAlquiler,
     CuotaMensual,
+    LiquidacionPropietario,
     MovimientoCaja,
     Recibo,
     Reserva,
@@ -277,6 +278,50 @@ def _contabilizacion_para_contrato(contrato):
 def _puede_ver_caratulas(user):
     nivel = getattr(user, 'nivel', None)
     return bool(getattr(user, 'is_superuser', False) or (nivel is not None and nivel >= 4))
+
+
+def _ctx_liquidacion_operacion(*, reserva=None, contrato=None):
+    """Enlace a crear o ver liquidación del propietario para esta operación."""
+    ctx = {
+        'liquidacion_operacion': None,
+        'url_liquidacion_operacion': None,
+        'etiqueta_liquidacion_operacion': 'Liquidar operación',
+    }
+    if reserva is not None:
+        liq = (
+            LiquidacionPropietario.objects.filter(reserva=reserva)
+            .exclude(estado='cancelada')
+            .order_by('-id')
+            .first()
+        )
+        if liq:
+            ctx['liquidacion_operacion'] = liq
+            ctx['url_liquidacion_operacion'] = reverse(
+                'inmobiliaria:detalle_liquidacion', args=[liq.id]
+            )
+            ctx['etiqueta_liquidacion_operacion'] = f'Ver liquidación #{liq.id}'
+        else:
+            ctx['url_liquidacion_operacion'] = reverse(
+                'inmobiliaria:crear_liquidacion_reserva', args=[reserva.id]
+            )
+    elif contrato is not None:
+        liq = (
+            LiquidacionPropietario.objects.filter(contrato=contrato)
+            .exclude(estado='cancelada')
+            .order_by('-id')
+            .first()
+        )
+        if liq:
+            ctx['liquidacion_operacion'] = liq
+            ctx['url_liquidacion_operacion'] = reverse(
+                'inmobiliaria:detalle_liquidacion', args=[liq.id]
+            )
+            ctx['etiqueta_liquidacion_operacion'] = f'Ver liquidación #{liq.id}'
+        else:
+            ctx['url_liquidacion_operacion'] = reverse(
+                'inmobiliaria:crear_liquidacion_contrato', args=[contrato.id]
+            )
+    return ctx
 
 
 def _caratula_nombre_cliente(cliente):
@@ -949,6 +994,7 @@ def caratula_reserva(request, reserva_id):
         ),
         'carpeta_actual': carpeta_actual,
         'carpeta_default': _carpeta_default_actual(request),
+        **_ctx_liquidacion_operacion(reserva=reserva),
     }
     return render(request, 'inmobiliaria/caratulas/detalle_reserva.html', ctx)
 
@@ -1023,6 +1069,7 @@ def caratula_contrato(request, contrato_id):
         ),
         'carpeta_actual': carpeta_actual,
         'carpeta_default': _carpeta_default_actual(request),
+        **_ctx_liquidacion_operacion(contrato=contrato),
     }
     return render(request, 'inmobiliaria/caratulas/detalle_contrato.html', ctx)
 
