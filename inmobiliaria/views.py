@@ -893,7 +893,23 @@ def lista_vales_vendedor(request, vendedor_id):
     if not usuario_es_nivel_administracion(request.user):
         messages.error(request, 'No tienes permisos para acceder a esta sección.')
         return redirect('inmobiliaria:dashboard')
-    
+
+    def _parse_fecha(s):
+        if not s:
+            return None
+        try:
+            return datetime.strptime(s, '%Y-%m-%d').date()
+        except Exception:
+            return None
+
+    fecha_desde_s = (request.GET.get('fecha_desde') or '').strip()
+    fecha_hasta_s = (request.GET.get('fecha_hasta') or '').strip()
+    fecha_desde = _parse_fecha(fecha_desde_s)
+    fecha_hasta = _parse_fecha(fecha_hasta_s)
+    if fecha_desde and fecha_hasta and fecha_hasta < fecha_desde:
+        fecha_desde, fecha_hasta = fecha_hasta, fecha_desde
+        fecha_desde_s, fecha_hasta_s = fecha_desde.strftime('%Y-%m-%d'), fecha_hasta.strftime('%Y-%m-%d')
+
     vendedor = get_object_or_404(
         Vendedor, id=vendedor_id, sucursal=request.user.sucursal
     )
@@ -902,23 +918,30 @@ def lista_vales_vendedor(request, vendedor_id):
         .select_related('movimiento_caja', 'movimiento_caja__caja', 'usuario_creador')
         .order_by('-fecha')
     )
-    
-    total_vales_saldo = ValeVendedor.total_saldo_para_comisiones(vendedor)
+    if fecha_desde:
+        vales = vales.filter(fecha__date__gte=fecha_desde)
+    if fecha_hasta:
+        vales = vales.filter(fecha__date__lte=fecha_hasta)
+
     total_vales_egreso = (
         vales.filter(tipo_vale='EG').aggregate(total=models.Sum('monto'))['total'] or Decimal('0')
     )
     total_vales_ingreso = (
         vales.filter(tipo_vale='IN').aggregate(total=models.Sum('monto'))['total'] or Decimal('0')
     )
-    
+    total_vales_saldo = total_vales_egreso - total_vales_ingreso
+
     context = {
         'vendedor': vendedor,
         'vales': vales,
         'total_vales': total_vales_saldo,
         'total_vales_egreso': total_vales_egreso,
         'total_vales_ingreso': total_vales_ingreso,
+        'fecha_desde': fecha_desde_s,
+        'fecha_hasta': fecha_hasta_s,
+        'hay_filtro_fecha': bool(fecha_desde or fecha_hasta),
     }
-    
+
     return render(request, 'inmobiliaria/vales/lista_vales.html', context)
 
 # ✅ VISTA PARA MOVIMIENTOS HISTÓRICOS DE TODAS LAS CAJAS

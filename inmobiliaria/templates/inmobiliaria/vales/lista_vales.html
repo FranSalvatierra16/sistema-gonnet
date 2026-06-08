@@ -16,6 +16,34 @@
         </a>
     </div>
 
+    <div class="card mb-3">
+        <div class="card-body">
+            <form method="get" class="row g-2 align-items-end">
+                <div class="col-md-3">
+                    <label for="fecha_desde" class="form-label">Desde</label>
+                    <input type="date" id="fecha_desde" name="fecha_desde" class="form-control" value="{{ fecha_desde|default:'' }}">
+                </div>
+                <div class="col-md-3">
+                    <label for="fecha_hasta" class="form-label">Hasta</label>
+                    <input type="date" id="fecha_hasta" name="fecha_hasta" class="form-control" value="{{ fecha_hasta|default:'' }}">
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search me-1"></i>Buscar
+                    </button>
+                </div>
+                {% if hay_filtro_fecha %}
+                <div class="col-md-2">
+                    <a href="{% url 'inmobiliaria:lista_vales_vendedor' vendedor.id %}" class="btn btn-outline-secondary w-100">Limpiar</a>
+                </div>
+                {% endif %}
+            </form>
+            {% if hay_filtro_fecha %}
+            <p class="text-muted small mb-0 mt-2">Mostrando vales del rango seleccionado. Los totales corresponden solo a ese período.</p>
+            {% endif %}
+        </div>
+    </div>
+
     <div class="row mb-3">
         <div class="col-md-4">
             <div class="card border-danger">

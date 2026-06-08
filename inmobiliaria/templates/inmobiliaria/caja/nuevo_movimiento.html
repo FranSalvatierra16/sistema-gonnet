@@ -103,6 +103,10 @@
                             <option value="IN">Ingreso (I)</option>
                             <option value="EG">Egreso (E)</option>
                         </select>
+                        <small id="hint_vale_egreso" class="text-warning d-none mt-1 d-block">
+                            Concepto de vale: se usa <strong>Egreso (E)</strong> (plata que sale de caja al productor).
+                            Ingreso solo si el productor devuelve plata a caja.
+                        </small>
                                         </div>
                     <div class="col-md-2">
                         <label class="form-label">Tipo de Comprobante</label>
@@ -573,6 +577,21 @@ $(document).ready(function() {
         return (s.toUpperCase() === 'RE') ? 'RECIBO' : s;
     }
 
+    function esConceptoVale(id, nombre) {
+        var nid = String(id || '').trim().toLowerCase();
+        if (nid.indexOf('vale') === 0) return true;
+        return /\bvales?\b/i.test(String(nombre || ''));
+    }
+
+    function aplicarTipoSiConceptoVale(id, nombre) {
+        if (!esConceptoVale(id, nombre)) {
+            $('#hint_vale_egreso').addClass('d-none');
+            return;
+        }
+        $('select[name="tipo"]').val('EG');
+        $('#hint_vale_egreso').removeClass('d-none');
+    }
+
     function escapeHtml(s) {
         if (s == null || s === undefined) return '';
         return $('<div>').text(s).html();
@@ -688,12 +707,40 @@ $(document).ready(function() {
         $('#concepto_seleccionado').removeClass('d-none');
         $('#dropdown_conceptos').removeClass('show').empty();
         $('#buscar_concepto').val('');
+        aplicarTipoSiConceptoVale(id, nombre);
     });
 
     // Limpiar concepto seleccionado
     $('#btn_limpiar_concepto').click(function() {
         $('#concepto_id').val('');
         $('#concepto_seleccionado').addClass('d-none');
+        $('#hint_vale_egreso').addClass('d-none');
+    });
+
+    $('select[name="tipo"]').on('change', function() {
+        var id = $('#concepto_id').val();
+        var txt = ($('#concepto_seleccionado_texto').text() || '').trim();
+        var nombre = txt.indexOf(' - ') >= 0 ? txt.split(' - ').slice(1).join(' - ') : txt;
+        if (esConceptoVale(id, nombre) && $(this).val() === 'IN') {
+            $('#hint_vale_egreso').removeClass('d-none');
+        } else if (!esConceptoVale(id, nombre)) {
+            $('#hint_vale_egreso').addClass('d-none');
+        }
+    });
+
+    $('#formMovimiento').on('submit', function(e) {
+        var id = $('#concepto_id').val();
+        var txt = ($('#concepto_seleccionado_texto').text() || '').trim();
+        var nombre = txt.indexOf(' - ') >= 0 ? txt.split(' - ').slice(1).join(' - ') : txt;
+        if (esConceptoVale(id, nombre) && $('select[name="tipo"]').val() === 'IN') {
+            if (!confirm(
+                'Este concepto es de VALE y elegiste INGRESO (I).\n\n'
+                + 'Eso registra una DEVOLUCIÓN del productor a caja, no un vale entregado.\n\n'
+                + '¿Guardar igual como ingreso?'
+            )) {
+                e.preventDefault();
+            }
+        }
     });
 
     // Guardar nuevo concepto
@@ -724,6 +771,7 @@ $(document).ready(function() {
                     $('#concepto_id').val(id);
                     $('#concepto_seleccionado_texto').text(conceptoIdEtiqueta(id) + ' - ' + nombre);
                     $('#concepto_seleccionado').removeClass('d-none');
+                    aplicarTipoSiConceptoVale(id, nombre);
                     
                     // Cerrar modal y mostrar mensaje
                     var modalNuevoConcepto = bootstrap.Modal.getInstance(document.getElementById('modalNuevoConcepto'));
