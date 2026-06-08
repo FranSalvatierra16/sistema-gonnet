@@ -152,7 +152,7 @@
                             <div class="col">
                                 <label class="form-label">Monto para la Inmobiliaria</label>
                                 <input type="text" name="monto_inmobiliaria" id="monto_inmobiliaria" class="form-control" placeholder="0,00">
-                                <small class="form-text text-muted">Se actualiza como Total − Propietario − Cochera; podés ajustarlo.</small>
+                                <small class="form-text text-muted">Ingresalo manualmente; no se recalcula solo al editar otros montos.</small>
                             </div>
                             <div class="col">
                                 <label class="form-label">Cochera</label>
@@ -1185,17 +1185,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    let montoInmobiliariaEditadoManual = false;
     function leerCochera() {
         return montoCochera ? parseNumeroEsAR(montoCochera.value) : 0;
-    }
-
-    function actualizarInmobiliariaPorDiferencia() {
-        if (montoInmobiliariaEditadoManual) return;
-        const t = parseNumeroEsAR(montoTotal.value);
-        const p = parseNumeroEsAR(montoPropietario.value);
-        const c = leerCochera();
-        montoInmobiliaria.value = formatearNumero(Math.max(0, t - p - c).toFixed(2));
     }
     
     // Función para calcular montos de las operaciones seleccionadas (global)
@@ -1251,10 +1242,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // - Monto Inmobiliaria = bruto de operaciones
             // - Monto Final a Pagar = propietario + cochera - gastos - fondo de mantenimiento
             montoPropietario.value = formatearNumero(totalMontoPropietario.toFixed(2));
-            montoInmobiliariaEditadoManual = false;
             montoInmobiliaria.value = formatearNumero(totalMontoInmobiliaria.toFixed(2));
-            // Si el backend ya repartió bien, preferir diferencia total − propietario para que cierre con el total mostrado
-            actualizarInmobiliariaPorDiferencia();
 
             const fondo = montoFondoMantenimiento ? parseNumeroEsAR(montoFondoMantenimiento.value) : 0;
             const cochera = leerCochera();
@@ -1276,7 +1264,6 @@ document.addEventListener('DOMContentLoaded', function() {
             montoTotal.value = '';
             montoPropietario.value = '';
             montoInmobiliaria.value = '';
-            montoInmobiliariaEditadoManual = false;
             const montoFinalPagar = document.getElementById('monto-final-pagar');
             if (montoFinalPagar) {
                 montoFinalPagar.textContent = '0,00';
@@ -1284,20 +1271,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
 
-    montoTotal.addEventListener('input', function() {
-        montoInmobiliariaEditadoManual = false;
-        actualizarInmobiliariaPorDiferencia();
-        recalcularMontoFinalDesdeCampos();
-    });
-    montoPropietario.addEventListener('input', function() {
-        montoInmobiliariaEditadoManual = false;
-        actualizarInmobiliariaPorDiferencia();
-        recalcularMontoFinalDesdeCampos();
-    });
-    montoInmobiliaria.addEventListener('input', function() {
-        montoInmobiliariaEditadoManual = true;
-        recalcularMontoFinalDesdeCampos();
-    });
+    montoTotal.addEventListener('input', recalcularMontoFinalDesdeCampos);
+    montoPropietario.addEventListener('input', recalcularMontoFinalDesdeCampos);
+    montoInmobiliaria.addEventListener('input', recalcularMontoFinalDesdeCampos);
 
     function recalcularMontoFinalDesdeCampos() {
         const prop = parseNumeroEsAR(montoPropietario.value);
@@ -1320,11 +1296,7 @@ document.addEventListener('DOMContentLoaded', function() {
         montoFondoMantenimiento.addEventListener('input', recalcularMontoFinalDesdeCampos);
     }
     if (montoCochera) {
-        montoCochera.addEventListener('input', function() {
-            montoInmobiliariaEditadoManual = false;
-            actualizarInmobiliariaPorDiferencia();
-            recalcularMontoFinalDesdeCampos();
-        });
+        montoCochera.addEventListener('input', recalcularMontoFinalDesdeCampos);
     }
 
     // Desde carátula u otra pantalla: buscar operación por número y pre-cargar pendientes

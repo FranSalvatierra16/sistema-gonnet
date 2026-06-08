@@ -89,6 +89,17 @@ def _nombre_propietario_papel(propi):
     return (ap or nom or '—')
 
 
+def _nombre_productor_papel(vendedor):
+    """Solo nombre del productor (sin legajo ni ID)."""
+    if not vendedor:
+        return '—'
+    ap = (getattr(vendedor, 'apellido', None) or '').strip().upper()
+    nom = (getattr(vendedor, 'nombre', None) or '').strip().upper()
+    if ap and nom:
+        return f'{ap}, {nom}'
+    return (ap or nom or '—')
+
+
 def _propiedad_desc_corta(prop):
     if not prop:
         return '—'
@@ -524,9 +535,7 @@ def _build_legacy_reserva(
         raw = (getattr(prop, 'llave', None) or '').strip()
         llave_cod = raw if raw else '0'
 
-    productor = '—'
-    if vend:
-        productor = f'{_formato_miles_ar(vend.id)} | {(vend.apellido or vend.nombre or "").strip().upper()}'[:56]
+    productor = _nombre_productor_papel(vend)
 
     terceros = _formato_miles_ar(vend.id) if vend else '0'
 
@@ -619,9 +628,7 @@ def _build_legacy_contrato(contrato, cuotas, tipo_label, carpeta_override=None, 
         raw = (getattr(prop, 'llave', None) or '').strip()
         llave_cod = raw if raw else '0'
 
-    productor = '—'
-    if vend:
-        productor = f'{_formato_miles_ar(vend.id)} | {(vend.apellido or vend.nombre or "").strip().upper()}'[:56]
+    productor = _nombre_productor_papel(vend)
     terceros = _formato_miles_ar(vend.id) if vend else '0'
 
     meses_contrato = int(contrato.duracion_meses or 0)
@@ -1153,6 +1160,7 @@ def imprimir_caratula_reserva(request, reserva_id):
         'direccion_ficha': _direccion_piso_depto_papel(reserva.propiedad),
         'deposito_fmt': cl['deposito'],
         'operacion_id': reserva.id,
+        'productor_nombre': _nombre_productor_papel(reserva.vendedor),
     }
     return render(request, 'inmobiliaria/caratulas/imprimir_caratula_papel.html', ctx)
 
@@ -1231,5 +1239,6 @@ def imprimir_caratula_contrato(request, contrato_id):
         'direccion_ficha': _direccion_piso_depto_papel(contrato.propiedad),
         'deposito_fmt': cl['deposito'],
         'operacion_id': contrato.id,
+        'productor_nombre': _nombre_productor_papel(contrato.vendedor),
     }
     return render(request, 'inmobiliaria/caratulas/imprimir_caratula_papel.html', ctx)

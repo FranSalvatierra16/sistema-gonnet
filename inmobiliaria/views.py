@@ -10446,6 +10446,41 @@ def imprimir_resumen_caja(request, numero):
     context['neto_movimientos_ars'] = context['totales']['saldo_total'] - saldo_ini
     return render(request, 'inmobiliaria/caja/resumen_caja_imprimir.html', context)
 
+def _buscar_movimiento_caja_duplicado_reciente(
+    caja,
+    tipo,
+    propiedad_id,
+    concepto,
+    m_ef,
+    m_ch,
+    m_ta,
+    m_dp,
+    m_dol,
+    ventana_seg=120,
+):
+    """Evita doble alta si el formulario se envió dos veces (doble clic o reenvío del navegador)."""
+    desde = timezone.now() - timedelta(seconds=ventana_seg)
+    qs = MovimientoCaja.objects.filter(
+        caja=caja,
+        tipo=tipo,
+        fecha__gte=desde,
+        fecha_eliminacion__isnull=True,
+        monto_efectivo=m_ef,
+        monto_cheque=m_ch,
+        monto_tarjeta=m_ta,
+        monto_deposito=m_dp,
+        monto_dolares=m_dol,
+    )
+    if propiedad_id:
+        qs = qs.filter(propiedad_id=propiedad_id)
+    else:
+        qs = qs.filter(propiedad_id__isnull=True)
+    concepto_norm = (concepto or '').strip()
+    if concepto_norm:
+        qs = qs.filter(concepto=concepto_norm)
+    return qs.order_by('-fecha', '-id').first()
+
+
 @login_required
 def nuevo_movimiento(request, numero_caja=None):
     from inmobiliaria.models.sucursal import CuentaBancaria
@@ -10635,6 +10670,25 @@ def nuevo_movimiento(request, numero_caja=None):
                 vendedor_vale = get_object_or_404(
                     Vendedor, id=pid, sucursal=request.user.sucursal
                 )
+
+            duplicado = _buscar_movimiento_caja_duplicado_reciente(
+                caja,
+                tipo,
+                movimiento.propiedad_id,
+                movimiento.concepto,
+                m_ef,
+                m_ch,
+                m_ta,
+                m_dp,
+                m_dol,
+            )
+            if duplicado:
+                messages.warning(
+                    request,
+                    f'Este movimiento ya fue registrado hace un momento '
+                    f'(movimiento #{duplicado.id}). No se creó un duplicado.',
+                )
+                return redirect('inmobiliaria:detalle_caja', numero=caja.numero)
 
             with transaction.atomic():
                 movimiento.save()

@@ -384,7 +384,7 @@
                 <!-- Botones -->
                                 <div class="row">
                     <div class="col">
-                        <button type="submit" class="btn btn-primary">Guardar</button>
+                        <button type="submit" class="btn btn-primary" id="btn_guardar_movimiento">Guardar</button>
                         <a href="{% url 'inmobiliaria:detalle_caja' caja.numero %}" class="btn btn-secondary">Cancelar</a>
                                             </div>
                                         </div>
@@ -1274,6 +1274,15 @@ $(document).ready(function() {
         $('#buscar_operacion_num').val(operacion);
         $('#btn_buscar_operacion').click();
         hideBsModal('modalResultadosMovimientos');
+    });
+
+    // Evitar doble envío del formulario (doble clic o reenvío del navegador)
+    $('#formMovimiento').on('submit', function() {
+        var $btn = $('#btn_guardar_movimiento');
+        if ($btn.prop('disabled')) {
+            return false;
+        }
+        $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Guardando...');
     });
 });
 </script>
