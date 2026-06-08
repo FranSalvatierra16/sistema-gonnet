@@ -246,6 +246,71 @@ class MovimientoCaja(models.Model):
             return 'RECIBO'
         return raw
 
+    def concepto_catalogo_id(self):
+        """ID del concepto de catálogo si el campo `concepto` guardó solo el código."""
+        raw = self.concepto_sin_pipe_conceptos().strip()
+        if not raw or '|CONCEPTOS:' in raw:
+            return None
+        if raw.lower().startswith('operaci'):
+            return None
+        if '\n' in raw:
+            raw = raw.split('\n', 1)[0].strip()
+        if ' — ' in raw:
+            head = raw.split(' — ', 1)[0].strip()
+            if head and not head.isdigit() and len(head) > 1:
+                return None
+            raw = head
+        if len(raw) <= 20 and ' ' not in raw:
+            return raw
+        return None
+
+    @property
+    def nombre_concepto_catalogo(self):
+        """Nombre legible del concepto (catálogo o texto ya guardado)."""
+        cached = getattr(self, '_concepto_nombre_cache', None)
+        if cached is not None:
+            return cached
+        raw = self.concepto_sin_pipe_conceptos().strip()
+        if ' — ' in raw:
+            head = raw.split(' — ', 1)[0].strip()
+            if head and not head.isdigit():
+                return self._texto_concepto_sin_abrev_re(head)[:120]
+        cid = self.concepto_catalogo_id()
+        if cid:
+            try:
+                c = Concepto.objects.filter(pk=cid).only('nombre').first()
+                if c and (c.nombre or '').strip():
+                    return (c.nombre or '').strip()[:120]
+            except Exception:
+                pass
+            return ''
+        if raw.isdigit():
+            return ''
+        first = raw.split('\n', 1)[0].strip()
+        return self._texto_concepto_sin_abrev_re(first)[:120] if first else ''
+
+    @classmethod
+    def precargar_nombres_concepto(cls, movimientos, sucursal=None):
+        ids = set()
+        for m in movimientos:
+            cid = m.concepto_catalogo_id()
+            if cid:
+                ids.add(cid)
+        if not ids:
+            for m in movimientos:
+                m._concepto_nombre_cache = m.nombre_concepto_catalogo
+            return
+        qs = Concepto.objects.filter(id__in=ids)
+        if sucursal is not None:
+            qs = qs.filter(models.Q(sucursal=sucursal) | models.Q(sucursal__isnull=True))
+        nmap = {(c.id or '').strip(): (c.nombre or '').strip() for c in qs.only('id', 'nombre')}
+        for m in movimientos:
+            cid = m.concepto_catalogo_id()
+            if cid and cid in nmap and nmap[cid]:
+                m._concepto_nombre_cache = nmap[cid][:120]
+            else:
+                m._concepto_nombre_cache = m.nombre_concepto_catalogo
+
     @property
     def listado_concepto_l1(self):
         """Primera línea del bloque «Concepto» (categoría, estilo listado de caja)."""
@@ -308,10 +373,13 @@ class MovimientoCaja(models.Model):
 
     @property
     def listado_detalle_l1(self):
-        """Primera línea del bloque «Detalle» (texto operación / recibo)."""
+        """Primera línea del bloque «Detalle» (nombre del concepto / operación)."""
         from_json = self._primer_texto_detalle_desde_json()
         if from_json:
             return from_json
+        nombre = self.nombre_concepto_catalogo
+        if nombre:
+            return nombre
         t = self._texto_concepto_sin_abrev_re(self.concepto_sin_pipe_conceptos().strip())
         if not t:
             return '—'
@@ -321,6 +389,20 @@ class MovimientoCaja(models.Model):
         if len(t) > 120:
             return t[:117] + '...'
         return t
+
+    @property
+    def listado_detalle_observacion(self):
+        """Texto libre del movimiento (detalle del formulario o segunda línea del concepto)."""
+        raw = self.concepto_sin_pipe_conceptos().strip()
+        if ' — ' in raw:
+            tail = raw.split(' — ', 1)[1].strip()
+            if tail:
+                return tail[:200]
+        if '\n' in raw:
+            tail = raw.split('\n', 1)[1].strip()
+            if tail:
+                return tail[:200]
+        return ''
 
     @property
     def listado_detalle_l2(self):
@@ -385,10 +467,13 @@ class MovimientoCaja(models.Model):
     def listado_detalle_tabla_secundario(self):
         """Línea secundaria de detalle sin repetir el nº de comprobante (ya va en columna propia)."""
         parts = []
+        obs = (self.listado_detalle_observacion or '').strip()
+        if obs:
+            parts.append(obs)
         base = self._texto_concepto_sin_abrev_re(self.concepto_sin_pipe_conceptos())
         if '\n' in base:
             second = self._texto_concepto_sin_abrev_re(base.split('\n', 1)[1].strip())
-            if second:
+            if second and second not in parts:
                 parts.append(second[:140])
         if self.fecha_desde and self.fecha_hasta:
             parts.append(

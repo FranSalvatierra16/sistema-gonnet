@@ -1235,6 +1235,10 @@ def todos_movimientos_caja(request):
     paginator = Paginator(movimientos, 50)
     page_number = request.GET.get('page')
     movimientos_paginados = paginator.get_page(page_number)
+    MovimientoCaja.precargar_nombres_concepto(
+        list(movimientos_paginados.object_list),
+        sucursal=request.user.sucursal,
+    )
     if ingresos_son_neto_propietario:
         for _m in movimientos_paginados:
             setattr(
@@ -10370,6 +10374,7 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
         .order_by(*movimientos_order)
     )
     movimientos = list(movimientos_qs)
+    MovimientoCaja.precargar_nombres_concepto(movimientos, sucursal=request.user.sucursal)
 
     def _resumir_concepto_crudo(concepto):
         texto = (concepto or '').strip()
@@ -10397,6 +10402,7 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
         .order_by('-fecha_eliminacion', '-id')
     )
     movimientos_eliminados = list(movimientos_eliminados_qs)
+    MovimientoCaja.precargar_nombres_concepto(movimientos_eliminados, sucursal=request.user.sucursal)
     for mov in movimientos_eliminados:
         mov.concepto_resumen = _resumir_concepto_crudo(getattr(mov, 'concepto', ''))
 
@@ -10628,9 +10634,25 @@ def nuevo_movimiento(request, numero_caja=None):
                 return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
 
             # ✅ Truncar concepto a 200 caracteres para evitar error de base de datos
-            concepto_valor = request.POST.get('concepto_id', '')
+            concepto_valor = (request.POST.get('concepto_id') or '').strip()
+            detalles_txt = (request.POST.get('detalles') or '').strip()
             if len(concepto_valor) > 200:
                 concepto_valor = concepto_valor[:197] + "..."
+            
+            concepto_row = None
+            if concepto_valor:
+                concepto_row = Concepto.objects.filter(
+                    id=concepto_valor,
+                ).filter(q_conceptos_caja_visibles(request.user.sucursal)).first()
+            if concepto_row:
+                base_concepto = (concepto_row.nombre or '').strip() or concepto_valor
+                concepto_guardado = f'{base_concepto} — {detalles_txt}' if detalles_txt else base_concepto
+            elif detalles_txt:
+                concepto_guardado = detalles_txt
+            else:
+                concepto_guardado = concepto_valor
+            if len(concepto_guardado) > 200:
+                concepto_guardado = concepto_guardado[:197] + '...'
             
             # Obtener y validar tipo (debe ser 'IN' o 'EG')
             tipo_raw = (request.POST.get('tipo', 'IN') or '').strip()
@@ -10670,7 +10692,7 @@ def nuevo_movimiento(request, numero_caja=None):
                 tipo=tipo,
                 tipo_comprobante=tipo_comprobante,
                 numero_liquidacion=request.POST.get('numero_liquidacion', ''),
-                concepto=concepto_valor,  # ✅ Truncado si es necesario
+                concepto=concepto_guardado,
                 propiedad_id=request.POST.get('propiedad_id') if request.POST.get('propiedad_id') else None,
                 fecha_desde=fecha_desde,
                 fecha_hasta=fecha_hasta,
@@ -10759,12 +10781,7 @@ def nuevo_movimiento(request, numero_caja=None):
                 return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
 
             productor_id_raw = (request.POST.get('productor_id') or '').strip()
-            concepto_ref = (concepto_valor or "").strip()
-            concepto_row = None
-            if concepto_ref:
-                concepto_row = Concepto.objects.filter(
-                    id=concepto_ref,
-                ).filter(q_conceptos_caja_visibles(request.user.sucursal)).first()
+            concepto_ref = concepto_valor
             quiere_vale = bool(
                 concepto_row and concepto_row.indica_movimiento_vale_productor()
             )
