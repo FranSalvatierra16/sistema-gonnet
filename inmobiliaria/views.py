@@ -21025,6 +21025,55 @@ def _reserva_ids_ya_liquidadas_propiedad(propiedad):
     return usados
 
 
+def _importe_cobrado_cuota_en_movimientos_caja(contrato, cuota, sucursal):
+    """Suma importes de conceptos 1000/29 imputados a esta cuota en ingresos de caja."""
+    from inmobiliaria.cuotas_imputacion import (
+        lineas_imputables_desde_movimiento,
+        payload_raiz_desde_movimiento_detalle,
+    )
+
+    total = Decimal('0')
+    movs = MovimientoCaja.objects.filter(
+        propiedad=contrato.propiedad,
+        sucursal=sucursal,
+        tipo=TipoMovimientoCajaEnum.INGRESO,
+        fecha_eliminacion__isnull=True,
+    ).filter(concepto__icontains=f'Contrato #{contrato.id}')
+    for mov in movs:
+        payload = payload_raiz_desde_movimiento_detalle(mov)
+        payload_cuota_id = int(payload.get('cuota_id') or 0) if payload.get('pago_cuota_mensual') else 0
+        for line in lineas_imputables_desde_movimiento(mov):
+            raw_q = str(line.get('cuota_objetivo_id') or '').strip()
+            if not raw_q.isdigit() and payload_cuota_id:
+                raw_q = str(payload_cuota_id)
+            if not raw_q.isdigit() or int(raw_q) != int(cuota.id):
+                continue
+            imp = parse_decimal_monto(line.get('importe'))
+            if imp > 0:
+                total += imp
+    return total
+
+
+def _cuotas_cobro_parcial_liquidable(contrato, cuotas_excluidas, sucursal):
+    """
+    Cuotas aún pendientes/vencidas con cobro registrado (adelanto en plan o solo en caja)
+    que aún no entraron en una liquidación.
+    """
+    out = []
+    for cuota in contrato.cuotas.filter(estado__in=['pendiente', 'vencida']).order_by('numero_cuota'):
+        if cuota.id in cuotas_excluidas:
+            continue
+        cred = Decimal(str(cuota.credito_aplicado or 0))
+        cobrado_caja = _importe_cobrado_cuota_en_movimientos_caja(contrato, cuota, sucursal)
+        monto = cred if cred > Decimal('0.05') else cobrado_caja
+        if monto <= Decimal('0.05'):
+            continue
+        if cuota.saldo_para_cobro() <= Decimal('0.05') and Decimal(str(cuota.monto_total or 0)) > 0:
+            monto = Decimal(str(cuota.monto_total or 0))
+        out.append((cuota, monto.quantize(Decimal('0.01'))))
+    return out
+
+
 def _monto_propietario_inmobiliaria_cuota_mensual(propiedad, monto_cuota):
     """
     Reparto propietario / inmobiliaria para el monto de una sola cuota mensual cobrada
@@ -21234,16 +21283,22 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
                 'dias': dias_reserva,
             })
     
-    # Procesar contratos: cuotas pagadas que aún no entraron en una liquidación cerrada.
+    # Procesar contratos: cuotas pagadas o con cobro parcial aún no liquidados.
     for contrato in contratos_pendientes:
-        cuotas_liquidables = list(
+        cuotas_pagadas_liq = list(
             contrato.cuotas.filter(estado__in=['pagada', 'pagada_con_mora'])
             .exclude(id__in=cuotas_excluidas)
             .order_by('numero_cuota')
         )
+        ids_pagadas = {c.id for c in cuotas_pagadas_liq}
+        cuotas_parciales_liq = [
+            (c, m)
+            for c, m in _cuotas_cobro_parcial_liquidable(contrato, cuotas_excluidas, sucursal)
+            if c.id not in ids_pagadas
+        ]
         inq = contrato.inquilino
         nombre_inq = f'{inq.apellido}, {inq.nombre}' if inq else '—'
-        if not cuotas_liquidables:
+        if not cuotas_pagadas_liq and not cuotas_parciales_liq:
             tiene_alguna_pagada = contrato.cuotas.filter(
                 estado__in=['pagada', 'pagada_con_mora']
             ).exists()
@@ -21286,11 +21341,12 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
             continue
 
         prop_label = ((propiedad.direccion or '').strip()[:120] or f'#{propiedad.id}')
-        for cuota in cuotas_liquidables:
-            monto_mes = Decimal(str(cuota.monto_total))
+
+        def _fila_cuota_liquidable(cuota, monto_mes, *, parcial=False):
             mp, mi = _monto_propietario_inmobiliaria_cuota_mensual(propiedad, monto_mes)
             fv = cuota.fecha_vencimiento
             fv_s = fv.strftime('%Y-%m-%d') if fv else ''
+            suf = ' (cobro parcial registrado)' if parcial else ''
             operaciones.append({
                 'tipo': 'contrato_cuota',
                 'tipo_display': 'Cuota mensual',
@@ -21300,7 +21356,7 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
                 'propiedad_id': propiedad.id,
                 'propiedad_label': prop_label,
                 'descripcion': (
-                    f'Contrato #{contrato.id} — Cuota {cuota.numero_cuota}/{contrato.duracion_meses} — {nombre_inq}'
+                    f'Contrato #{contrato.id} — Cuota {cuota.numero_cuota}/{contrato.duracion_meses} — {nombre_inq}{suf}'
                 ),
                 'fecha_inicio': fv_s,
                 'fecha_fin': fv_s,
@@ -21310,6 +21366,11 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
                 'monto_inmobiliaria': str(mi),
                 'dias': 30,
             })
+
+        for cuota in cuotas_pagadas_liq:
+            _fila_cuota_liquidable(cuota, Decimal(str(cuota.monto_total)), parcial=False)
+        for cuota, monto_parcial in cuotas_parciales_liq:
+            _fila_cuota_liquidable(cuota, monto_parcial, parcial=True)
     
     # Obtener gastos pendientes del propietario (sin liquidación asociada)
     gastos_pendientes = GastoPropietario.objects.filter(
@@ -21450,6 +21511,88 @@ def _etiqueta_propiedad_liquidacion(propiedad):
     if getattr(propiedad, 'piso', None) or getattr(propiedad, 'departamento', None):
         lbl += f' — Piso {propiedad.piso or "—"} Dpto {propiedad.departamento or "—"}'
     return lbl
+
+
+@login_required
+def buscar_operacion_liquidacion(request):
+    """Busca contrato o reserva por número y devuelve operaciones pendientes de liquidar."""
+    raw = (request.GET.get('q') or request.GET.get('operacion') or '').strip()
+    if not raw.isdigit():
+        return JsonResponse({'success': False, 'message': 'Ingresá el número de contrato o reserva.'})
+    pk = int(raw)
+    sucursal = request.user.sucursal
+
+    contrato = (
+        ContratoAlquiler.objects.filter(pk=pk, sucursal=sucursal)
+        .select_related('propiedad', 'propiedad__propietario')
+        .first()
+    )
+    if contrato:
+        prop = contrato.propiedad
+        data = _operaciones_gastos_pendientes_data(prop, sucursal)
+        lbl = _etiqueta_propiedad_liquidacion(prop)
+        for op in data.get('operaciones') or []:
+            op['propiedad_id'] = prop.id
+            op['propiedad_label'] = lbl
+        for g in data.get('gastos_pendientes') or []:
+            g['propiedad_id'] = prop.id
+            g['propiedad_label'] = lbl
+        propietario = prop.propietario
+        return JsonResponse(
+            {
+                'success': True,
+                'tipo_busqueda': 'contrato',
+                'operacion_id': pk,
+                'propiedad_id': prop.id,
+                'propiedad_label': lbl,
+                'propietario_id': propietario.id if propietario else None,
+                'propietario_nombre': (
+                    f'{propietario.apellido}, {propietario.nombre}' if propietario else ''
+                ),
+                'propietario_cuenta_bancaria': (
+                    (propietario.cuenta_bancaria or '').strip() if propietario else ''
+                ),
+                **data,
+            }
+        )
+
+    reserva = (
+        Reserva.objects.filter(pk=pk, sucursal=sucursal)
+        .select_related('propiedad', 'propiedad__propietario')
+        .first()
+    )
+    if reserva:
+        prop = reserva.propiedad
+        data = _operaciones_gastos_pendientes_data(prop, sucursal)
+        lbl = _etiqueta_propiedad_liquidacion(prop)
+        for op in data.get('operaciones') or []:
+            op['propiedad_id'] = prop.id
+            op['propiedad_label'] = lbl
+        for g in data.get('gastos_pendientes') or []:
+            g['propiedad_id'] = prop.id
+            g['propiedad_label'] = lbl
+        propietario = prop.propietario
+        return JsonResponse(
+            {
+                'success': True,
+                'tipo_busqueda': 'reserva',
+                'operacion_id': pk,
+                'propiedad_id': prop.id,
+                'propiedad_label': lbl,
+                'propietario_id': propietario.id if propietario else None,
+                'propietario_nombre': (
+                    f'{propietario.apellido}, {propietario.nombre}' if propietario else ''
+                ),
+                'propietario_cuenta_bancaria': (
+                    (propietario.cuenta_bancaria or '').strip() if propietario else ''
+                ),
+                **data,
+            }
+        )
+
+    return JsonResponse(
+        {'success': False, 'message': f'No se encontró contrato ni reserva con número {pk}.'}
+    )
 
 
 @login_required

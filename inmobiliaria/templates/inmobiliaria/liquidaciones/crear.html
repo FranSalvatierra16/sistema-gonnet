@@ -19,6 +19,20 @@
                         
                         <div class="row mb-3">
                             <div class="col-md-6">
+                                <label class="form-label">Nº de operación (contrato o reserva)</label>
+                                <div class="input-group">
+                                    <input type="text" id="operacion_buscar" class="form-control" autocomplete="off"
+                                           placeholder="Ej: 284" inputmode="numeric">
+                                    <button type="button" id="btn_buscar_operacion_liq" class="btn btn-outline-primary">
+                                        <i class="fas fa-search"></i> Buscar
+                                    </button>
+                                </div>
+                                <small class="form-text text-muted">Carga la propiedad y las cuotas o reservas pendientes de liquidar de esa operación.</small>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
                                 <label class="form-label">Propiedad <span class="text-danger">*</span></label>
                                 <div class="position-relative" id="propiedad-buscador-wrap">
                                     <input type="text" id="propiedad_buscar" class="form-control"
@@ -475,6 +489,108 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     btnLimpiarPropiedad.addEventListener('click', limpiarPropiedadSeleccionada);
 
+    function marcarOperacionesBusqueda(data) {
+        if (!data || !data.success || data.operacion_id == null) return;
+        const oid = String(data.operacion_id);
+        const tipo = data.tipo_busqueda || '';
+        let marcadas = 0;
+        document.querySelectorAll('.operacion-checkbox:not(:disabled)').forEach(function(cb) {
+            const t = cb.getAttribute('data-tipo') || '';
+            const id = String(cb.getAttribute('data-id') || '');
+            const cid = String(cb.getAttribute('data-contrato-id') || '');
+            let match = false;
+            if (tipo === 'reserva' && t === 'reserva' && id === oid) {
+                match = true;
+            } else if (tipo === 'contrato') {
+                if (t === 'contrato_cuota' && cid === oid) {
+                    match = true;
+                } else if (t === 'contrato' && id === oid) {
+                    match = true;
+                }
+            }
+            if (match) {
+                cb.checked = true;
+                marcadas += 1;
+            }
+        });
+        if (marcadas > 0) {
+            calcularMontosSeleccionados();
+        }
+    }
+
+    function buscarOperacionPorNumero() {
+        const input = document.getElementById('operacion_buscar');
+        const q = (input && input.value || '').trim();
+        if (!q) {
+            alert('Ingresá el número de contrato o reserva.');
+            return;
+        }
+        const lista = document.getElementById('operaciones-pendientes-lista');
+        const container = document.getElementById('operaciones-pendientes-container');
+        container.style.display = 'block';
+        lista.innerHTML = '<div class="text-center p-3"><i class="fas fa-spinner fa-spin me-2"></i>Buscando operación...</div>';
+
+        fetch('{% url "inmobiliaria:buscar_operacion_liquidacion" %}?q=' + encodeURIComponent(q))
+            .then(function(response) { return response.json(); })
+            .then(function(data) {
+                if (!data.success) {
+                    alert(data.message || 'Operación no encontrada.');
+                    lista.innerHTML = '';
+                    container.style.display = 'none';
+                    return;
+                }
+                cargaPorPropietarioActiva = false;
+                ocultarFiltroPropiedadPropietario();
+                if (data.propiedad_id) {
+                    propiedadSelect.value = String(data.propiedad_id);
+                    propiedadBuscar.value = data.propiedad_label || ('#' + data.propiedad_id);
+                    btnLimpiarPropiedad.classList.remove('d-none');
+                }
+                if (data.propietario_nombre) {
+                    propietarioDisplay.value = data.propietario_nombre;
+                }
+                const cb = (data.propietario_cuenta_bancaria || '').trim();
+                cuentaPropietarioDisplay.value = cb || '';
+                cuentaPropietarioDisplay.placeholder = cb ? '' : 'Sin cuenta cargada';
+                pintarOperacionesYGastosDesdeJson(data, null);
+                marcarOperacionesBusqueda(data);
+                const incluibles = (data.operaciones || []).filter(function(o) { return o.incluible !== false; });
+                const delContrato = incluibles.filter(function(o) {
+                    if (data.tipo_busqueda === 'reserva') {
+                        return o.tipo === 'reserva' && String(o.id) === String(data.operacion_id);
+                    }
+                    return (o.tipo === 'contrato_cuota' && String(o.contrato_id) === String(data.operacion_id))
+                        || (o.tipo === 'contrato' && String(o.id) === String(data.operacion_id));
+                });
+                if (!delContrato.length) {
+                    alert(
+                        'Se cargó la propiedad del contrato/reserva #' + q + ', pero no hay cuotas o reservas '
+                        + 'pendientes de liquidar (revisá que haya cobros registrados y que no estén ya liquidados).'
+                    );
+                }
+            })
+            .catch(function(err) {
+                console.error(err);
+                alert('Error al buscar la operación.');
+                lista.innerHTML = '';
+                container.style.display = 'none';
+            });
+    }
+
+    const btnBuscarOperacionLiq = document.getElementById('btn_buscar_operacion_liq');
+    const operacionBuscarInput = document.getElementById('operacion_buscar');
+    if (btnBuscarOperacionLiq) {
+        btnBuscarOperacionLiq.addEventListener('click', buscarOperacionPorNumero);
+    }
+    if (operacionBuscarInput) {
+        operacionBuscarInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                buscarOperacionPorNumero();
+            }
+        });
+    }
+
     function mostrarColumnaPropiedadEnLiquidacion(data) {
         if (data && data.propietario_id) return true;
         const ids = new Set();
@@ -598,10 +714,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 const filaClass = noIncluible ? 'table-light text-muted' : '';
                 const chkDisabled = noIncluible ? 'disabled' : '';
                 const pid = op.propiedad_id != null ? String(op.propiedad_id) : '';
+                const cid = op.contrato_id != null ? String(op.contrato_id) : '';
                 const tdSel = colProp
                     ? `<td><input type="checkbox" class="form-check-input operacion-checkbox"
                            data-tipo="${op.tipo}"
                            data-id="${op.id}"
+                           data-contrato-id="${cid}"
                            data-propiedad-id="${pid}"
                            data-monto-total="${op.monto_total}"
                            data-monto-propietario="${op.monto_propietario || '0'}"
@@ -612,6 +730,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     : `<td><input type="checkbox" class="form-check-input operacion-checkbox"
                            data-tipo="${op.tipo}"
                            data-id="${op.id}"
+                           data-contrato-id="${cid}"
                            data-propiedad-id="${pid}"
                            data-monto-total="${op.monto_total}"
                            data-monto-propietario="${op.monto_propietario || '0'}"
