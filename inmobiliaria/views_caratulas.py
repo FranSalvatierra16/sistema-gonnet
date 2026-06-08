@@ -77,6 +77,17 @@ def _nombre_cliente_papel(persona):
     return (ap or nom or '—')
 
 
+def _nombre_propietario_papel(propi):
+    """Nombre del propietario para impresión (misma legibilidad que dirección / cliente)."""
+    if not propi:
+        return '—'
+    ap = (propi.apellido or '').strip().upper()
+    nom = (propi.nombre or '').strip().upper()
+    if ap and nom:
+        return f'{ap}, {nom}'
+    return (ap or nom or '—')
+
+
 def _propiedad_desc_corta(prop):
     if not prop:
         return '—'
@@ -333,12 +344,14 @@ def _propietario_legado(propi):
             'ubic': '—',
             'linea1': '—',
             'linea2': '—',
+            'nombre_display': '—',
         }
     id_fmt = _formato_miles_ar(propi.id)
     ap = (propi.apellido or '').strip().upper()
     nom = (propi.nombre or '').strip().upper()
     nombre = f'{ap} {nom}'.strip() or '—'
     linea1 = f'{id_fmt} | {nombre}'
+    nombre_display = _nombre_propietario_papel(propi)
     dom = (propi.domicilio or '').strip().upper()
     cp = (getattr(propi, 'codigo_postal', None) or '').strip()
     loc = (propi.localidad or '').strip().upper()
@@ -346,7 +359,14 @@ def _propietario_legado(propi):
     partes = [p for p in (dom, cp, loc or prov) if p]
     linea2 = ' | '.join(partes) if partes else '—'
     rotulo = (ap[:1] if ap else '—')
-    return {'id_fmt': id_fmt, 'rotulo': rotulo, 'ubic': linea2, 'linea1': linea1, 'linea2': linea2}
+    return {
+        'id_fmt': id_fmt,
+        'rotulo': rotulo,
+        'ubic': linea2,
+        'linea1': linea1,
+        'linea2': linea2,
+        'nombre_display': nombre_display,
+    }
 
 
 def _turista_legado(cli):
@@ -1000,6 +1020,9 @@ def imprimir_caratula_reserva(request, reserva_id):
         'tipo_operacion': tipo_op,
         'propiedad_desc': _propiedad_desc_corta(reserva.propiedad),
         'ciudad_ref': ciudad_ref,
+        'propietario_nombre': _nombre_propietario_papel(
+            getattr(reserva.propiedad, 'propietario', None) if reserva.propiedad else None
+        ),
         'cliente_nombre': _nombre_cliente_papel(reserva.cliente),
         'cl': cl,
         'fecha_desde': reserva.fecha_inicio,
@@ -1068,6 +1091,9 @@ def imprimir_caratula_contrato(request, contrato_id):
         'tipo_operacion': tipo_label,
         'propiedad_desc': _propiedad_desc_corta(contrato.propiedad),
         'ciudad_ref': ciudad_ref,
+        'propietario_nombre': _nombre_propietario_papel(
+            getattr(contrato.propiedad, 'propietario', None) if contrato.propiedad else None
+        ),
         'cliente_nombre': _nombre_cliente_papel(contrato.inquilino),
         'cl': cl,
         'fecha_desde': contrato.fecha_inicio,

@@ -17,9 +17,9 @@
             </div>
         </div>
         <div class="caratula-legacy-meta">
-            <div><strong>NUMERO ORIGINAL</strong> {{ cl.numero_original }}</div>
-            <div><strong>NUMERO</strong> {{ cl.numero_operacion }}</div>
-            <div><strong>FECHA</strong> {{ cl.fecha_registro|date:"d/m/Y" }}</div>
+            <div><strong>NUMERO ORIGINAL</strong> <span class="caratula-meta-valor">{{ cl.numero_original }}</span></div>
+            <div class="caratula-meta-numero"><strong>NUMERO</strong> <span class="caratula-numero-op">{{ cl.numero_operacion }}</span></div>
+            <div><strong>FECHA</strong> <span class="caratula-meta-valor">{{ cl.fecha_registro|date:"d/m/Y" }}</span></div>
         </div>
     </div>
 
@@ -33,8 +33,9 @@
         </div>
         <div class="mt-1">
             <span class="lbl">PROPIETARIOS</span>
-            <div class="caratula-dos-lineas">
-                <div>{{ cl.propietario.linea1 }}</div>
+            <div class="caratula-dos-lineas caratula-propietario-block">
+                <div class="caratula-propietario-nombre">{{ cl.propietario.nombre_display }}</div>
+                <div class="caratula-subline">{{ cl.propietario.linea1 }}</div>
                 <div class="caratula-subline">{{ cl.propietario.linea2 }}</div>
             </div>
         </div>

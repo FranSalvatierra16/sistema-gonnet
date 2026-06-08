@@ -41,22 +41,63 @@
         .meta-grid {
             display: grid;
             grid-template-columns: 1fr 1fr 1fr;
-            gap: 6px 12px;
-            margin: 10px 0 12px;
-            font-size: 10pt;
+            gap: 8px 14px;
+            margin: 10px 0 14px;
+            font-size: 11pt;
         }
-        .meta-grid div { border-bottom: 1px solid #333; padding: 2px 0; }
-        .meta-grid strong { display: block; font-size: 8pt; letter-spacing: 0.05em; }
+        .meta-grid > div {
+            border-bottom: 1px solid #333;
+            padding: 4px 0 6px;
+        }
+        .meta-grid strong {
+            display: block;
+            font-size: 8pt;
+            letter-spacing: 0.08em;
+            margin-bottom: 3px;
+        }
+        .meta-grid .meta-valor {
+            font-size: 12pt;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+        }
+        .meta-grid .meta-valor-numero {
+            font-size: 16pt;
+            font-weight: 800;
+            letter-spacing: 0.04em;
+        }
+        .ficha-destacada {
+            border: 1px solid #000;
+            padding: 10px 12px;
+            margin: 10px 0 12px;
+        }
+        .ficha-destacada .fila {
+            margin-bottom: 8px;
+        }
+        .ficha-destacada .fila:last-child {
+            margin-bottom: 0;
+        }
+        .ficha-destacada .lbl {
+            display: block;
+            font-size: 8pt;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            margin-bottom: 3px;
+        }
+        .ficha-destacada .val {
+            display: block;
+            font-size: 13pt;
+            font-weight: 700;
+            line-height: 1.25;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+        }
         .cliente-box {
             border: 1px solid #000;
             padding: 8px 10px;
             margin: 10px 0;
             font-weight: 700;
-            text-transform: uppercase;
-        }
-        .prop-mini {
-            font-size: 9pt;
-            margin: 4px 0 8px;
+            font-size: 12pt;
             text-transform: uppercase;
         }
         table.fin {
@@ -131,14 +172,28 @@
     <h1 class="rubro">{{ rubro_title }}</h1>
 
     <div class="meta-grid">
-        <div><strong>NÚMERO</strong>{{ numero_display }}</div>
-        <div><strong>LLAVE</strong>{{ llave }}</div>
-        <div><strong>FECHA</strong>{{ fecha_documento|date:"d/m/Y" }}</div>
+        <div><strong>Nº OPERACIÓN</strong><span class="meta-valor meta-valor-numero">{{ numero_display }}</span></div>
+        <div><strong>LLAVE</strong><span class="meta-valor">{{ llave }}</span></div>
+        <div><strong>FECHA</strong><span class="meta-valor">{{ fecha_documento|date:"d/m/Y" }}</span></div>
     </div>
 
-    <div class="prop-mini">{{ propiedad_desc }} — {{ ciudad_ref }}</div>
+    <div class="ficha-destacada">
+        <div class="fila">
+            <span class="lbl">PROPIETARIO</span>
+            <span class="val">{{ propietario_nombre }}</span>
+        </div>
+        <div class="fila">
+            <span class="lbl">INMUEBLE</span>
+            <span class="val">{{ propiedad_desc }} — {{ ciudad_ref }}</span>
+        </div>
+    </div>
     <div class="cliente-box">Cliente / locatario: {{ cliente_nombre }}</div>
-    <div class="prop-mini">Tipo: {{ tipo_operacion }}</div>
+    <div class="ficha-destacada" style="padding: 6px 12px;">
+        <div class="fila" style="margin:0;">
+            <span class="lbl">TIPO DE OPERACIÓN</span>
+            <span class="val" style="font-size: 11pt;">{{ tipo_operacion }}</span>
+        </div>
+    </div>
 
     <table class="fin">
         <tbody>
@@ -190,7 +245,7 @@
             <strong>Inmueble</strong><br>
             {{ direccion_ficha }}<br><br>
             <strong>Depósito de garantía</strong> $ {{ deposito_fmt }}<br>
-            <span style="font-size:8pt;color:#444;">Ref. operación #{{ operacion_id }}</span>
+            <span style="font-size:10pt;font-weight:700;">Ref. operación #{{ operacion_id }}</span>
         </div>
         <div>
             <p class="legal">

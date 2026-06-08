@@ -5,8 +5,16 @@
 .caratula-legacy-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px; border: 1px solid #9cb3c9; padding: 8px 10px; background: #f0f4f8; }
 .tipo-mov-block { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 200px; }
 .lbl-tipo-mov { font-weight: 700; font-size: 11px; color: #222; letter-spacing: 0.02em; }
-.caratula-legacy-meta { text-align: right; font-size: 11px; line-height: 1.5; }
-.caratula-legacy-meta strong { color: #333; }
+.caratula-legacy-meta { text-align: right; font-size: 12px; line-height: 1.55; }
+.caratula-legacy-meta strong { color: #333; font-size: 10px; letter-spacing: 0.06em; }
+.caratula-legacy-meta .caratula-meta-valor { font-weight: 700; font-size: 13px; }
+.caratula-legacy-meta .caratula-meta-numero { margin: 2px 0; }
+.caratula-legacy-meta .caratula-numero-op {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  color: #111;
+}
 .caratula-legacy-radios { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; margin-top: 0; }
 .caratula-legacy-radios label { margin: 0; font-weight: normal; cursor: default; white-space: nowrap; }
 .caratula-legacy-radios input { margin-right: 4px; vertical-align: middle; pointer-events: none; }
@@ -16,7 +24,15 @@
 .caratula-band-green { background: #c8e6c9; }
 .caratula-band .lbl { font-weight: 700; color: #222; margin-right: 6px; }
 .caratula-band .lbl.lbl-llave { margin-left: 10px; }
-.caratula-valor-pipe { font-weight: 600; }
+.caratula-valor-pipe { font-weight: 700; font-size: 14px; letter-spacing: 0.02em; }
+.caratula-propietario-nombre {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #111;
+  line-height: 1.3;
+}
+.caratula-propietario-block .caratula-subline { font-size: 11px; margin-top: 4px; }
 .caratula-llave-cod { font-weight: 700; }
 .caratula-dos-lineas { display: inline-block; vertical-align: top; max-width: 100%; }
 .caratula-dos-lineas .caratula-subline { font-size: 11px; margin-top: 3px; color: #1a1a1a; }
@@ -46,5 +62,15 @@
 @media (max-width: 768px) {
   .caratula-cell { grid-column: span 6; }
   .caratula-legacy-meta { text-align: left; }
+}
+@media print {
+  .caratula-legacy-wrap { font-size: 13px; }
+  .caratula-valor-pipe { font-size: 15px !important; }
+  .caratula-propietario-nombre { font-size: 16px !important; }
+  .caratula-legacy-meta .caratula-numero-op { font-size: 20px !important; }
+  .caratula-legacy-meta .caratula-meta-valor { font-size: 14px !important; }
+  .caratula-web-extra { display: none !important; }
+  .caratula-legacy-actions { display: none !important; }
+  .d-flex.flex-wrap.mb-2 { display: none !important; }
 }
 </style>
