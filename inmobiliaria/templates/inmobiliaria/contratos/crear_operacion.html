@@ -1139,15 +1139,15 @@ function verificarConcepto10() {
 
 function actualizarVisibilidadUsd(totalConceptosUsd, totalPagosUsd) {
     const mostrarUsd = (Number(totalConceptosUsd || 0) > 0.0001) || (Number(totalPagosUsd || 0) > 0.0001);
-    const toggle = function(id) {
+    const toggle = function(id, visible) {
         const el = document.getElementById(id);
-        if (el) el.style.display = mostrarUsd ? '' : 'none';
+        if (el) el.style.display = visible ? '' : 'none';
     };
-    toggle('grupoMontoDolares');
-    toggle('rowTotalConceptosUsd');
-    toggle('rowTotalReciboUsd');
-    toggle('rowTotalOperacionUsd');
-    toggle('sepTotalesUsd');
+    toggle('grupoMontoDolares', true);
+    toggle('rowTotalConceptosUsd', mostrarUsd);
+    toggle('rowTotalReciboUsd', mostrarUsd);
+    toggle('rowTotalOperacionUsd', mostrarUsd);
+    toggle('sepTotalesUsd', mostrarUsd);
 }
 
 // Función para calcular totales
@@ -1492,6 +1492,27 @@ function obtenerPrecioMensualReferencia() {
     return 0;
 }
 
+function obtenerCreditoCuotaCobro() {
+    if (!window.modoPagoCuotaEspecifica) return 0;
+    if (window.cuotaCobroCredito > 0.001) return window.cuotaCobroCredito;
+    if (window.cuotaCobroNominal > 0) {
+        return Math.max(0, window.cuotaCobroNominal - (window.cuotaCobroSaldo || 0));
+    }
+    return 0;
+}
+
+function onPrecioMensualRefCambiado() {
+    var hidden = document.getElementById('precio_mensual');
+    var el = document.getElementById('precio_mensual_ref');
+    if (hidden && el) hidden.value = el.value;
+    actualizarResumenMesCobro();
+    if (obtenerMesAlquilerTipo() === 'proporcional' && !window.proporcionalEditadoManual) {
+        actualizarProporcionalYMesAlquiler();
+    } else {
+        actualizarMesAlquilerValorDesdeRadio();
+    }
+}
+
 function obtenerMesAlquilerTipo() {
     var rAdel = document.getElementById('mes_alquiler_adelanto');
     if (rAdel && rAdel.checked) return 'adelanto';
@@ -1501,16 +1522,15 @@ function obtenerMesAlquilerTipo() {
 }
 
 function obtenerSaldoMesParaCobro() {
-    if (window.modoPagoCuotaEspecifica && window.cuotaCobroSaldo > 0) {
-        return window.cuotaCobroSaldo;
+    var precio = obtenerPrecioMensualReferencia();
+    if (window.modoPagoCuotaEspecifica) {
+        var credito = obtenerCreditoCuotaCobro();
+        return Math.max(0, precio - credito);
     }
-    return obtenerPrecioMensualReferencia();
+    return precio;
 }
 
 function obtenerTotalNominalMes() {
-    if (window.modoPagoCuotaEspecifica && window.cuotaCobroNominal > 0) {
-        return window.cuotaCobroNominal;
-    }
     return obtenerPrecioMensualReferencia();
 }
 
