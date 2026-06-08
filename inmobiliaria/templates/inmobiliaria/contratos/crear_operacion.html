@@ -66,13 +66,22 @@
                             <p><strong>Inquilino:</strong> {{ contrato.inquilino.nombre }} {{ contrato.inquilino.apellido }}</p>
                             <p><strong>Propiedad:</strong> {{ contrato.propiedad.direccion }}</p>
                             {% if modo_pago_cuota_especifica %}
-                            <div class="alert alert-light border mb-2">
+                            <div class="alert {% if modo_cobro_extra_cuota_pagada %}alert-info{% else %}alert-light border{% endif %} mb-2">
                                 <p class="mb-2"><strong>Cuota:</strong> {{ cuota_pago.numero_cuota }} de {{ contrato.duracion_meses }} ·
-                                    <strong>Vencimiento:</strong> {{ cuota_pago.fecha_vencimiento|date:"d/m/Y" }}</p>
+                                    <strong>Vencimiento:</strong> {{ cuota_pago.fecha_vencimiento|date:"d/m/Y" }}
+                                    {% if modo_cobro_extra_cuota_pagada %}<span class="badge bg-success ms-1">Alquiler pagado</span>{% endif %}
+                                </p>
+                                {% if not modo_cobro_extra_cuota_pagada %}
                                 {% include 'inmobiliaria/contratos/_bloque_tipo_cobro_mes.html' with cuota_ref=cuota_pago %}
+                                {% endif %}
                                 <p class="mb-0 small text-muted">
-                                    Se precarga el concepto <strong>1000</strong> con el importe según la opción elegida arriba.
-                                    También podés usar concepto <strong>29</strong> (elegís cuota objetivo).
+                                    El recibo queda vinculado a la <strong>cuota {{ cuota_pago.numero_cuota }}</strong> de este mes.
+                                    {% if modo_cobro_extra_cuota_pagada %}
+                                    Agregá los conceptos que quieras (servicios, expensas, etc.). <strong>No uses 1000 ni 29</strong> porque el alquiler ya está pagado.
+                                    {% else %}
+                                    Podés cobrar <strong>solo servicios u otros conceptos</strong> (sin 1000/29), sumar alquiler con <strong>1000</strong> o <strong>29</strong>, o mezclar ambos.
+                                    Si quitás el 1000 precargado, la cuota de alquiler no se marca pagada; el recibo igual figura en este mes.
+                                    {% endif %}
                                     La suma de líneas debe coincidir con los medios de pago.
                                 </p>
                             </div>
@@ -185,7 +194,8 @@
                         </p>
                         {% elif tipo_operacion == 'cuota_especifica' %}
                         <p class="text-muted small mb-2">
-                            Podés sumar la cuota (1000 o 29) y también <strong>honorarios (25)</strong> o <strong>sellados (26)</strong> en la misma operación. El total debe coincidir con los medios de pago.
+                            Podés registrar <strong>solo servicios u otros conceptos</strong> del mes (sin 1000/29), o incluir el alquiler con concepto <strong>1000</strong> o <strong>29</strong>.
+                            También podés sumar <strong>honorarios (25)</strong> o <strong>sellados (26)</strong>. El total debe coincidir con los medios de pago.
                         </p>
                         {% elif tipo_operacion == 'cargos_iniciales' %}
                         <p class="text-muted small mb-2">
@@ -546,6 +556,7 @@
     window.contratoId = config.contrato_id || 0;
     window.fechaInicioContrato = config.fecha_inicio || null;
     window.modoPagoCuotaEspecifica = !!config.modo_pago_cuota_especifica;
+    window.modoCobroExtraCuotaPagada = !!config.modo_cobro_extra_cuota_pagada;
     window.modoCargosIniciales = !!config.modo_cargos_iniciales;
     window.procesarPagoCuotaUrl = config.procesar_pago_cuota_url || '';
     window.procesarCargosUrl = config.procesar_cargos_url || '';
@@ -2138,7 +2149,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    if (window.modoPagoCuotaEspecifica && window.defaultImporteCuota > 0) {
+    if (window.modoPagoCuotaEspecifica && !window.modoCobroExtraCuotaPagada && window.defaultImporteCuota > 0) {
         contadorConceptos += 1;
         var nCuota = window.numeroCuotaPago || 0;
         var cuotaIdDefault = window.cuotaIdPago || 0;

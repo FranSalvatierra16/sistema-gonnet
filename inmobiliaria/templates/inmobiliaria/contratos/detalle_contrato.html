@@ -445,8 +445,11 @@
                                     </div>
                                     {% endif %}
                                 {% elif cuota.estado == 'pagada' or cuota.estado == 'pagada_con_mora' %}
+                                    <a href="{% url 'inmobiliaria:crear_pago_cuota_operacion' cuota.id %}" class="btn btn-sm btn-outline-success" title="Cobrar servicios u otros conceptos de este mes (sin marcar de nuevo el alquiler)">
+                                        <i class="fas fa-plus-circle"></i> Servicios
+                                    </a>
                                     {% if cuota.recibos_cobro %}
-                                    <div class="dropdown d-inline-block">
+                                    <div class="dropdown d-inline-block ms-1">
                                         <button class="btn btn-sm btn-info dropdown-toggle" type="button"
                                                 data-bs-toggle="dropdown" aria-expanded="false"
                                                 title="{% if cuota.recibos_cobro|length > 1 %}Esta cuota tiene {{ cuota.recibos_cobro|length }} cobros{% else %}Ver recibo del cobro{% endif %}">

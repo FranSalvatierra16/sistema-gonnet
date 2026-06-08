@@ -16115,14 +16115,12 @@ def crear_pago_cuota_operacion(request, cuota_id):
     )
     contrato = cuota.contrato
 
-    if cuota.estado in ('pagada', 'pagada_con_mora'):
-        messages.error(request, 'Esta cuota ya está pagada.')
-        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
-    if cuota.estado not in ('pendiente', 'vencida'):
+    modo_cobro_extra = cuota.estado in ('pagada', 'pagada_con_mora')
+    if not modo_cobro_extra and cuota.estado not in ('pendiente', 'vencida'):
         messages.error(request, 'Esta cuota no admite cobro en este estado.')
         return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
 
-    if cuota.estado in ('pendiente', 'vencida') and cuota.fecha_vencimiento < timezone.now().date():
+    if not modo_cobro_extra and cuota.estado in ('pendiente', 'vencida') and cuota.fecha_vencimiento < timezone.now().date():
         cuota.recargo_mora = cuota.calcular_mora()
         cuota.actualizar_monto_total()
         cuota.save()
@@ -16177,9 +16175,10 @@ def crear_pago_cuota_operacion(request, cuota_id):
         'contrato_id': contrato.id,
         'fecha_inicio': contrato.fecha_inicio.isoformat() if getattr(contrato, 'fecha_inicio', None) else None,
         'modo_pago_cuota_especifica': True,
+        'modo_cobro_extra_cuota_pagada': modo_cobro_extra,
         'cuota_id': cuota.id,
         'numero_cuota': cuota.numero_cuota,
-        'default_importe_cuota': float(cuota.saldo_para_cobro()),
+        'default_importe_cuota': float(cuota.saldo_para_cobro()) if not modo_cobro_extra else 0.0,
         'default_concepto_cuota_nombre': default_nombre_concepto_cuota,
         'cuota_monto_nominal': float(cuota.monto_total or 0),
         'cuota_saldo_cobro': float(cuota.saldo_para_cobro()),
@@ -16195,6 +16194,7 @@ def crear_pago_cuota_operacion(request, cuota_id):
         'cuota_pago': cuota,
         'tipo_operacion': 'cuota_especifica',
         'modo_pago_cuota_especifica': True,
+        'modo_cobro_extra_cuota_pagada': modo_cobro_extra,
         'detalle_contrato_url': reverse('inmobiliaria:detalle_contrato', args=[contrato.id]),
         'caja': caja,
         'conceptos': conceptos_qs,
@@ -16220,9 +16220,8 @@ def procesar_pago_cuota_operacion(request, cuota_id):
         )
         contrato = cuota.contrato
 
-        if cuota.estado in ('pagada', 'pagada_con_mora'):
-            return JsonResponse({'error': 'Esta cuota ya está pagada.'}, status=400)
-        if cuota.estado not in ('pendiente', 'vencida'):
+        modo_cobro_extra = cuota.estado in ('pagada', 'pagada_con_mora')
+        if not modo_cobro_extra and cuota.estado not in ('pendiente', 'vencida'):
             return JsonResponse({'error': 'La cuota no admite cobro en este estado.'}, status=400)
 
         raw_json = (request.POST.get('conceptos_json') or '').strip()
@@ -16259,13 +16258,13 @@ def procesar_pago_cuota_operacion(request, cuota_id):
         )
         if errores_cuotas_obj:
             return JsonResponse({'error': ' '.join(errores_cuotas_obj)}, status=400)
-
-        if not cuotas_objetivo_map:
+        if modo_cobro_extra and cuotas_objetivo_map:
             return JsonResponse(
                 {
-                        'error': (
-                            'Para cobrar cuotas del contrato usá concepto 1000 o 29 y elegí la cuota/mes objetivo.'
-                        ),
+                    'error': (
+                        'Esta cuota de alquiler ya está pagada. '
+                        'Para cobros adicionales usá otros conceptos (servicios, expensas, etc.) sin 1000 ni 29.'
+                    ),
                 },
                 status=400,
             )
@@ -16299,14 +16298,16 @@ def procesar_pago_cuota_operacion(request, cuota_id):
             return JsonResponse({'error': 'No hay una caja abierta para esta sucursal.'}, status=400)
 
         mes_tipo, mes_valor, _precio_ref = _parse_mes_alquiler_cobro_post(request)
-        cuotas_target = list(
-            CuotaMensual.objects.filter(
-                id__in=sorted({int(d['cuota'].id) for d in cuotas_objetivo_map.values()}),
-                contrato=contrato,
+        cuotas_target = []
+        if cuotas_objetivo_map:
+            cuotas_target = list(
+                CuotaMensual.objects.filter(
+                    id__in=sorted({int(d['cuota'].id) for d in cuotas_objetivo_map.values()}),
+                    contrato=contrato,
+                )
             )
-        )
 
-        if mes_tipo == 'proporcional' and mes_valor is not None and mes_valor > 0:
+        if cuotas_objetivo_map and mes_tipo == 'proporcional' and mes_valor is not None and mes_valor > 0:
             tol_prop = Decimal('0.05')
             for _, data in cuotas_objetivo_map.items():
                 imp_lineas = Decimal(str(data.get('importe_lineas') or 0))
@@ -16322,11 +16323,12 @@ def procesar_pago_cuota_operacion(request, cuota_id):
                     )
 
         with transaction.atomic():
-            try:
-                _aplicar_tipo_cobro_mes_a_cuotas(contrato, cuotas_target, mes_tipo, mes_valor)
-                cuota.refresh_from_db()
-            except ValueError as e:
-                return JsonResponse({'error': str(e)}, status=400)
+            if cuotas_target:
+                try:
+                    _aplicar_tipo_cobro_mes_a_cuotas(contrato, cuotas_target, mes_tipo, mes_valor)
+                    cuota.refresh_from_db()
+                except ValueError as e:
+                    return JsonResponse({'error': str(e)}, status=400)
 
             resultado = procesar_conceptos_y_crear_movimiento(
                 request,
@@ -16339,54 +16341,63 @@ def procesar_pago_cuota_operacion(request, cuota_id):
             if not movimiento:
                 return JsonResponse({'error': err or 'No se pudo registrar el movimiento de caja.'}, status=400)
 
-            hoy_pago = timezone.now().date()
-            from inmobiliaria.cuotas_imputacion import imputar_importe_a_cuota
+            if cuotas_objetivo_map:
+                hoy_pago = timezone.now().date()
+                from inmobiliaria.cuotas_imputacion import imputar_importe_a_cuota
 
-            ultima_cuota_pagada_num = None
-            items_ordenados = sorted(
-                cuotas_objetivo_map.items(),
-                key=lambda x: x[1]['cuota'].numero_cuota,
-            )
-            for _, data in items_ordenados:
-                csel = CuotaMensual.objects.get(pk=data['cuota'].id, contrato=contrato)
-                cubierto = data['importe_lineas']
-                origen = (
-                    ultima_cuota_pagada_num
-                    if ultima_cuota_pagada_num is not None
-                    else int(csel.numero_cuota)
+                ultima_cuota_pagada_num = None
+                items_ordenados = sorted(
+                    cuotas_objetivo_map.items(),
+                    key=lambda x: x[1]['cuota'].numero_cuota,
                 )
-                try:
-                    resultado = imputar_importe_a_cuota(
-                        csel, cubierto, movimiento, hoy_pago, origen_numero_cuota=origen
+                for _, data in items_ordenados:
+                    csel = CuotaMensual.objects.get(pk=data['cuota'].id, contrato=contrato)
+                    cubierto = data['importe_lineas']
+                    origen = (
+                        ultima_cuota_pagada_num
+                        if ultima_cuota_pagada_num is not None
+                        else int(csel.numero_cuota)
                     )
-                    if resultado == 'pagada':
-                        ultima_cuota_pagada_num = int(csel.numero_cuota)
-                except ValueError as e:
-                    return JsonResponse({'error': str(e)}, status=400)
+                    try:
+                        resultado_imp = imputar_importe_a_cuota(
+                            csel, cubierto, movimiento, hoy_pago, origen_numero_cuota=origen
+                        )
+                        if resultado_imp == 'pagada':
+                            ultima_cuota_pagada_num = int(csel.numero_cuota)
+                    except ValueError as e:
+                        return JsonResponse({'error': str(e)}, status=400)
 
-            if mes_tipo == 'mensual':
-                nuevo_precio = _parse_nuevo_precio_mensual_post(request)
-                if nuevo_precio is not None:
-                    plan_cuota = _monto_plan_cuota_contrato(contrato, cuota.numero_cuota)
-                    if abs(nuevo_precio - plan_cuota) > Decimal('0.05'):
-                        try:
-                            _aplicar_precio_mensual_desde_cuota(
-                                contrato, cuota.numero_cuota, nuevo_precio
-                            )
-                        except ValueError as e:
-                            return JsonResponse({'error': str(e)}, status=400)
+                if mes_tipo == 'mensual':
+                    nuevo_precio = _parse_nuevo_precio_mensual_post(request)
+                    if nuevo_precio is not None:
+                        plan_cuota = _monto_plan_cuota_contrato(contrato, cuota.numero_cuota)
+                        if abs(nuevo_precio - plan_cuota) > Decimal('0.05'):
+                            try:
+                                _aplicar_precio_mensual_desde_cuota(
+                                    contrato, cuota.numero_cuota, nuevo_precio
+                                )
+                            except ValueError as e:
+                                return JsonResponse({'error': str(e)}, status=400)
+                        else:
+                            _actualizar_pendientes_al_ultimo_importe(contrato, mes_tipo=mes_tipo)
                     else:
                         _actualizar_pendientes_al_ultimo_importe(contrato, mes_tipo=mes_tipo)
-                else:
-                    _actualizar_pendientes_al_ultimo_importe(contrato, mes_tipo=mes_tipo)
-            _activar_contrato_si_hay_cuotas_pagadas(contrato)
+                _activar_contrato_si_hay_cuotas_pagadas(contrato)
 
-        messages.success(
-            request,
-            f'Cobro registrado por ${suma_conceptos_ars} '
-            f'{f"y U$S {suma_conceptos_usd} " if suma_conceptos_usd > 0 else ""}'
-            f'(imputado por concepto 1000 o 29 a cuotas seleccionadas).',
-        )
+        if cuotas_objetivo_map:
+            msg_exito = (
+                f'Cobro registrado por ${suma_conceptos_ars} '
+                f'{"y U$S " + str(suma_conceptos_usd) + " " if suma_conceptos_usd > 0 else ""}'
+                f'(imputado por concepto 1000 o 29 a la cuota del mes).'
+            )
+        else:
+            msg_exito = (
+                f'Cobro registrado por ${suma_conceptos_ars} '
+                f'{"y U$S " + str(suma_conceptos_usd) + " " if suma_conceptos_usd > 0 else ""}'
+                f'en la cuota {cuota.numero_cuota} (recibo vinculado a este mes). '
+                f'La cuota de alquiler sigue pendiente si no incluiste concepto 1000 o 29.'
+            )
+        messages.success(request, msg_exito)
         from urllib.parse import urlencode
 
         detalle_url = reverse('inmobiliaria:detalle_contrato', args=[contrato.id])
