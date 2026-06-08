@@ -90,14 +90,11 @@ def _nombre_propietario_papel(propi):
 
 
 def _nombre_productor_papel(vendedor):
-    """Solo nombre del productor (sin legajo ni ID)."""
+    """Solo nombre del productor (sin apellido, legajo ni ID)."""
     if not vendedor:
         return '—'
-    ap = (getattr(vendedor, 'apellido', None) or '').strip().upper()
     nom = (getattr(vendedor, 'nombre', None) or '').strip().upper()
-    if ap and nom:
-        return f'{ap}, {nom}'
-    return (ap or nom or '—')
+    return nom or '—'
 
 
 def _propiedad_desc_corta(prop):
