@@ -4999,13 +4999,30 @@ def ver_recibo(request, reserva_id):
             .order_by('-fecha', '-id')
             .first()
         )
+        if ultimo_mov:
+            ultimo_mov = _movimiento_canonico_operacion(ultimo_mov, sucursal=request.user.sucursal)
         recibo_r = Recibo.objects.filter(reserva=reserva).order_by('-fecha_emision').first()
+        if not recibo_r and ultimo_mov:
+            recibo_r = _buscar_recibo_para_movimiento(ultimo_mov, sucursal=request.user.sucursal)
         pagos, total_pagado = _lineas_pagos_recibo_desde_movimiento(
             ultimo_mov,
             recibo_obj=recibo_r,
             sucursal=request.user.sucursal,
         )
         fecha_str, hora_str = _fecha_hora_recibo_operacion(ultimo_mov, recibo_r)
+        if not pagos and reserva.senia:
+            monto_fb = Decimal(str(reserva.senia or 0))
+            if recibo_r and recibo_r.monto_este_pago is not None:
+                monto_fb = Decimal(str(recibo_r.monto_este_pago))
+            if monto_fb > 0:
+                pagos = [{
+                    'fecha': fecha_str,
+                    'codigo': (recibo_r.numero_recibo if recibo_r else f'R{reserva.id:06d}'),
+                    'concepto': 'Seña / Alquiler temporario',
+                    'monto': _recibo_monto_str(monto_fb),
+                    'es_negativo': False,
+                }]
+                total_pagado = monto_fb
         formas_de_pago = []
 
         movimiento_ref = ultimo_mov if ultimo_mov else locals().get('movimiento')
@@ -6600,6 +6617,22 @@ def ver_recibo_movimiento(request, movimiento_id):
     try:
         # Obtener el movimiento de caja principal
         movimiento = get_object_or_404(MovimientoCaja, id=movimiento_id, sucursal=request.user.sucursal)
+
+        if movimiento.tipo == TipoMovimientoCajaEnum.INGRESO:
+            contrato_tmp = _obtener_contrato_desde_movimiento(movimiento, request.user.sucursal)
+            if not contrato_tmp:
+                canon = _movimiento_canonico_operacion(movimiento, request.user.sucursal)
+                if canon and canon.id != movimiento.id:
+                    from urllib.parse import urlencode
+
+                    params = {}
+                    back_next = _next_para_redirect_recibo(request)
+                    if back_next:
+                        params['next'] = back_next
+                    url = reverse('inmobiliaria:ver_recibo_movimiento', args=[canon.id])
+                    if params:
+                        url += '?' + urlencode(params)
+                    return HttpResponseRedirect(url)
         
         # Obtener la reserva relacionada desde el concepto del movimiento.
         # IMPORTANTE: en cobros de contrato/cuotas no mezclar con reserva por propiedad.
@@ -6753,15 +6786,12 @@ def ver_recibo_movimiento(request, movimiento_id):
                 total_mov = (mov.monto_efectivo or 0) + (mov.monto_cheque or 0) + (mov.monto_tarjeta or 0) + (mov.monto_deposito or 0)
 # print(f"🔍 Movimiento ID: {mov.id}, Concepto: '{mov.concepto}', Total: {total_mov}")
             
-            # ✅ INTENTAR OBTENER EL RECIBO ASOCIADO A ESTE MOVIMIENTO
-            recibo_obj = None
-            try:
-                from .models.recibo import Recibo
-                recibo_obj = Recibo.objects.get(movimiento_caja=movimiento)
-# print(f"🧾 RECIBO ENCONTRADO: {recibo_obj.numero_recibo}")
-            except Recibo.DoesNotExist:
-                pass  # ✅ Bloque vacío
-# print("⚠️ No se encontró recibo asociado a este movimiento")
+            # ✅ RECIBO: el de este movimiento o el de la operación (si la fila es duplicada en $0)
+            recibo_obj = _buscar_recibo_para_movimiento(movimiento, sucursal=request.user.sucursal)
+            if recibo_obj:
+                pass
+            else:
+                recibo_obj = None
             
             if recibo_obj:
                 # ✅ USAR DATOS DEL RECIBO (MÁS PRECISOS)
@@ -6799,16 +6829,14 @@ def ver_recibo_movimiento(request, movimiento_id):
 # print(f"   - Seña (reserva.senia): ${total_senia_pagada_recibo}")
 # print(f"   - Depósito (reserva.deposito_garantia): ${total_deposito_pagado_recibo}")
 # print(f"   - Concepto 10 presente: {concepto_10_en_recibo}")
-            
-            # ✅ CORREGIDO: Solo la seña cuenta para el total pagado (el depósito es aparte)
-            total_pagado_reserva = total_senia_pagada_recibo
-            
-            # ✅ NUEVO CÁLCULO: El saldo pendiente es precio total - SOLO LA SEÑA (NO EL DEPÓSITO)
-            saldo_pendiente = reserva.precio_total - total_senia_pagada_recibo
+                
+                total_pagado_reserva = total_senia_pagada_recibo
+                saldo_pendiente = reserva.precio_total - total_senia_pagada_recibo
             
 # print(f"💰 SALDO RECIBO - Precio Total: {reserva.precio_total}, Seña Pagada: {total_senia_pagada_recibo}, Depósito: {total_deposito_pagado_recibo}, Saldo Pendiente: {saldo_pendiente}")
         else:
             total_pagado_reserva = total_movimiento
+            recibo_obj = None
         
         # Si encontramos una reserva, usar el nuevo diseño de recibo
         if reserva:
@@ -6818,6 +6846,28 @@ def ver_recibo_movimiento(request, movimiento_id):
                 sucursal=request.user.sucursal,
             )
             fecha_recibo, hora_recibo = _fecha_hora_recibo_operacion(movimiento, recibo_obj)
+
+            if not pagos:
+                monto_fb = Decimal('0')
+                if recibo_obj and recibo_obj.monto_este_pago is not None:
+                    monto_fb = Decimal(str(recibo_obj.monto_este_pago))
+                elif reserva.senia:
+                    monto_fb = Decimal(str(reserva.senia or 0))
+                if monto_fb > 0:
+                    codigo_linea = (
+                        (recibo_obj.numero_recibo or '').strip()
+                        if recibo_obj
+                        else f'R{reserva.id:06d}'
+                    )
+                    pagos = [{
+                        'fecha': fecha_recibo,
+                        'codigo': codigo_linea,
+                        'concepto': 'Seña / Alquiler temporario',
+                        'monto': _recibo_monto_str(monto_fb),
+                        'es_negativo': False,
+                    }]
+                    total_pagado = monto_fb
+
             formas_de_pago = []
 
             # Obtener formas de pago del movimiento con montos detallados
@@ -6841,6 +6891,31 @@ def ver_recibo_movimiento(request, movimiento_id):
                 else:
                     formas_con_montos.append(f'Transferencia {_recibo_monto_str(movimiento.monto_deposito)}')
                     formas_de_pago.append('Transferencia')
+
+            if not formas_con_montos and recibo_obj:
+                det = recibo_obj.conceptos_detalle or {}
+                formas = det.get('formas_pago') if isinstance(det, dict) else None
+                if isinstance(formas, dict):
+                    if float(formas.get('efectivo') or 0) > 0:
+                        formas_con_montos.append(
+                            f'Efectivo {_recibo_monto_str(formas.get("efectivo"))}'
+                        )
+                        formas_de_pago.append('Efectivo')
+                    if float(formas.get('tarjeta') or 0) > 0:
+                        formas_con_montos.append(
+                            f'Tarjeta {_recibo_monto_str(formas.get("tarjeta"))}'
+                        )
+                        formas_de_pago.append('Tarjeta')
+                    if float(formas.get('cheque') or 0) > 0:
+                        formas_con_montos.append(
+                            f'Cheque {_recibo_monto_str(formas.get("cheque"))}'
+                        )
+                        formas_de_pago.append('Cheque')
+                    if float(formas.get('deposito') or 0) > 0:
+                        formas_con_montos.append(
+                            f'Transferencia {_recibo_monto_str(formas.get("deposito"))}'
+                        )
+                        formas_de_pago.append('Transferencia')
             
             # Siempre usar formas con montos para mostrar el desglose completo
             formas_de_pago_mostrar = formas_con_montos if formas_con_montos else formas_de_pago
@@ -14633,12 +14708,25 @@ def _movimiento_json_conceptos_parsed(movimiento):
             conceptos_data = []
     else:
         try:
-            if (movimiento.concepto or '').strip().startswith('['):
-                conceptos_data = json.loads(movimiento.concepto)
+            concepto_raw = (movimiento.concepto or '').strip()
+            if concepto_raw.startswith('['):
+                conceptos_data = json.loads(concepto_raw)
                 if isinstance(conceptos_data, list):
                     parsed = conceptos_data
                 else:
                     conceptos_data = []
+            elif '|CONCEPTOS:' in concepto_raw:
+                trozo = concepto_raw.split('|CONCEPTOS:', 1)[1]
+                for item in [x for x in trozo.split('|') if x.strip()]:
+                    parts = item.split(':')
+                    if len(parts) >= 3:
+                        conceptos_data.append({
+                            'id': parts[0].strip(),
+                            'nombre': parts[1].strip(),
+                            'importe': parts[2].strip(),
+                        })
+                if conceptos_data:
+                    parsed = {'conceptos': conceptos_data}
             else:
                 conceptos_data = []
         except (json.JSONDecodeError, ValueError, TypeError):
@@ -14686,6 +14774,74 @@ def _fecha_hora_recibo_operacion(movimiento=None, recibo_obj=None):
     return dt.strftime('%d/%m/%Y'), dt.strftime('%H:%M')
 
 
+def _extraer_reserva_id_movimiento(movimiento):
+    """ID de operación/reserva desde el concepto del movimiento."""
+    import re
+
+    texto = (getattr(movimiento, 'concepto', None) or '')
+    m = re.search(r'Operaci[oó]n\s*#?\s*(\d+)', texto, re.I)
+    if m:
+        return int(m.group(1))
+    return None
+
+
+def _buscar_recibo_para_movimiento(movimiento, sucursal=None):
+    """Recibo vinculado al movimiento o, si es duplicado en cero, el de la misma operación."""
+    from inmobiliaria.models.recibo import Recibo
+
+    if not movimiento:
+        return None
+    recibo = Recibo.objects.filter(movimiento_caja=movimiento).first()
+    if recibo:
+        return recibo
+    rid = _extraer_reserva_id_movimiento(movimiento)
+    if not rid:
+        return None
+    qs = Recibo.objects.filter(reserva_id=rid).select_related('movimiento_caja', 'reserva')
+    if sucursal is not None:
+        qs = qs.filter(reserva__sucursal=sucursal)
+    return qs.order_by('-fecha_emision', '-id').first()
+
+
+def _movimiento_canonico_operacion(movimiento, sucursal=None):
+    """
+    Movimiento real de la operación (con recibo, montos o |CONCEPTOS:|).
+    Evita recibos en blanco al abrir filas duplicadas en $0.
+    """
+    from inmobiliaria.models.recibo import Recibo
+
+    if not movimiento:
+        return movimiento
+    sucursal = sucursal or getattr(movimiento, 'sucursal', None)
+
+    recibo = _buscar_recibo_para_movimiento(movimiento, sucursal=sucursal)
+    if recibo and recibo.movimiento_caja_id:
+        return recibo.movimiento_caja
+
+    rid = _extraer_reserva_id_movimiento(movimiento)
+    if not rid or sucursal is None:
+        return movimiento
+
+    siblings = MovimientoCaja.objects.filter(
+        sucursal=sucursal,
+        tipo=TipoMovimientoCajaEnum.INGRESO,
+    ).filter(
+        Q(concepto__icontains=f'Operación {rid}')
+        | Q(concepto__icontains=f'Operación #{rid}')
+    ).order_by('-id')
+
+    for s in siblings:
+        if (s.monto_total or 0) > 0:
+            return s
+    for s in siblings:
+        if '|CONCEPTOS:' in (s.concepto or ''):
+            return s
+    for s in siblings:
+        if Recibo.objects.filter(movimiento_caja=s).exists():
+            return s
+    return movimiento
+
+
 def _lineas_pagos_recibo_desde_movimiento(movimiento, recibo_obj=None, sucursal=None):
     """
     Arma filas del recibo (conceptos + importes) desde Recibo.conceptos_detalle,
@@ -14694,6 +14850,18 @@ def _lineas_pagos_recibo_desde_movimiento(movimiento, recibo_obj=None, sucursal=
     pagos = []
     total = Decimal('0')
     sucursal = sucursal or (getattr(movimiento, 'sucursal', None) if movimiento else None)
+
+    if recibo_obj is None and movimiento:
+        recibo_obj = _buscar_recibo_para_movimiento(movimiento, sucursal=sucursal)
+
+    mov_conceptos = movimiento
+    if movimiento:
+        canon = _movimiento_canonico_operacion(movimiento, sucursal=sucursal)
+        if canon and (
+            '|CONCEPTOS:' in (canon.concepto or '')
+            or _movimiento_json_conceptos_parsed(canon)[1]
+        ):
+            mov_conceptos = canon
 
     fecha_mov = ''
     if movimiento and getattr(movimiento, 'fecha', None):
@@ -14738,8 +14906,8 @@ def _lineas_pagos_recibo_desde_movimiento(movimiento, recibo_obj=None, sucursal=
         if isinstance(det, dict):
             conceptos_items = det.get('conceptos') or []
 
-    if not conceptos_items and movimiento:
-        _parsed, conceptos_items = _movimiento_json_conceptos_parsed(movimiento)
+    if not conceptos_items and mov_conceptos:
+        _parsed, conceptos_items = _movimiento_json_conceptos_parsed(mov_conceptos)
 
     for it in conceptos_items or []:
         if not isinstance(it, dict):
@@ -14749,8 +14917,8 @@ def _lineas_pagos_recibo_desde_movimiento(movimiento, recibo_obj=None, sucursal=
         imp_raw = it.get('importe') or it.get('monto') or 0
         _append_linea(cid, nombre, imp_raw)
 
-    if not pagos and movimiento:
-        concepto_texto = movimiento.concepto or ''
+    if not pagos and mov_conceptos:
+        concepto_texto = mov_conceptos.concepto or ''
         if '|CONCEPTOS:' in concepto_texto:
             conceptos_data = concepto_texto.split('|CONCEPTOS:', 1)[1]
             for concepto_item in [x for x in conceptos_data.split('|') if x.strip()]:
@@ -14762,21 +14930,29 @@ def _lineas_pagos_recibo_desde_movimiento(movimiento, recibo_obj=None, sucursal=
         monto_fb = Decimal('0')
         if recibo_obj and recibo_obj.monto_este_pago is not None:
             monto_fb = Decimal(str(recibo_obj.monto_este_pago))
+        elif mov_conceptos and mov_conceptos.monto_total is not None:
+            monto_fb = Decimal(str(mov_conceptos.monto_total))
         elif movimiento and movimiento.monto_total is not None:
             monto_fb = Decimal(str(movimiento.monto_total))
         if monto_fb > 0:
             concepto_nombre = 'Pago de operación'
-            if movimiento and movimiento.concepto:
-                ct = (movimiento.concepto or '').split('|CONCEPTOS:', 1)[0].strip()
+            ref = mov_conceptos or movimiento
+            if ref and ref.concepto:
+                ct = (ref.concepto or '').split('|CONCEPTOS:', 1)[0].strip()
                 if ' - ' in ct:
                     concepto_nombre = ct.split(' - ', 1)[-1][:80] or concepto_nombre
                 elif ct:
                     concepto_nombre = ct[:80]
-            _append_linea(codigo_mov, concepto_nombre, monto_fb)
+            codigo_fb = codigo_mov
+            if recibo_obj and (recibo_obj.numero_recibo or '').strip():
+                codigo_fb = recibo_obj.numero_recibo.strip()
+            _append_linea(codigo_fb, concepto_nombre, monto_fb)
 
     if total == 0:
         if recibo_obj and recibo_obj.monto_este_pago is not None:
             total = Decimal(str(recibo_obj.monto_este_pago))
+        elif mov_conceptos and mov_conceptos.monto_total is not None:
+            total = Decimal(str(mov_conceptos.monto_total))
         elif movimiento and movimiento.monto_total is not None:
             total = Decimal(str(movimiento.monto_total))
 
@@ -14953,9 +15129,23 @@ def _url_recibo_para_movimiento(movimiento, sucursal, next_url=None):
 
     concepto_txt = (movimiento.concepto or '')
     if re.search(r'Operaci[oó]n\s*#?\s*(\d+)', concepto_txt, re.I):
-        return reverse('inmobiliaria:ver_recibo_movimiento', args=[movimiento.id])
+        canon = _movimiento_canonico_operacion(movimiento, sucursal)
+        mid = canon.id if canon else movimiento.id
+        params = {}
+        if next_url:
+            params['next'] = next_url
+        url = reverse('inmobiliaria:ver_recibo_movimiento', args=[mid])
+        if params:
+            url += '?' + urlencode(params)
+        return url
 
-    return reverse('inmobiliaria:ver_recibo_movimiento', args=[movimiento.id])
+    params = {}
+    if next_url:
+        params['next'] = next_url
+    url = reverse('inmobiliaria:ver_recibo_movimiento', args=[movimiento.id])
+    if params:
+        url += '?' + urlencode(params)
+    return url
 
 
 def determinar_estado_concepto_contrato(contrato, concepto_id):
