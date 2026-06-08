@@ -972,7 +972,8 @@ function agregarConcepto() {
         return;
     }
 
-    if (conceptoCatalogoRequiereCuotaObjetivo(nuevoConcepto.conceptoId) && bloqueTipoCobroMesDisponible()) {
+    if (conceptoCatalogoRequiereCuotaObjetivo(nuevoConcepto.conceptoId) && bloqueTipoCobroMesDisponible()
+        && cuotaObjetivoEsMesPrincipal(nuevoConcepto.cuotaObjetivoId)) {
         syncPrincipalTipoCobroDesdeModal();
     }
     
@@ -1097,7 +1098,8 @@ function actualizarConcepto() {
         alert('Para concepto 1000 o 29 tenés que elegir la cuota/mes objetivo.');
         return;
     }
-    if (conceptoCatalogoRequiereCuotaObjetivo(conceptoEditando.conceptoId) && bloqueTipoCobroMesDisponible()) {
+    if (conceptoCatalogoRequiereCuotaObjetivo(conceptoEditando.conceptoId) && bloqueTipoCobroMesDisponible()
+        && cuotaObjetivoEsMesPrincipal(conceptoEditando.cuotaObjetivoId)) {
         syncPrincipalTipoCobroDesdeModal();
     }
     conceptoEditando.moneda = (document.getElementById('moneda')?.value || 'ARS').toUpperCase() === 'USD' ? 'USD' : 'ARS';
@@ -1650,25 +1652,51 @@ function actualizarEtiquetaValorUsar() {
     sincronizarConceptoCuotaDesdeMesAlquiler();
 }
 
+function cuotaIdSincronizacionMesAlquiler() {
+    if (window.modoPagoCuotaEspecifica && window.cuotaIdPago) {
+        return String(window.cuotaIdPago);
+    }
+    return '';
+}
+
+/** True si la línea debe tomar el importe del bloque «cobro del mes» (no otras cuotas agregadas a mano). */
+function conceptoDebeSincronizarImporteMesAlquiler(c) {
+    var cid = String(c.conceptoId || '').trim();
+    if (cid !== '1' && cid !== '15' && cid !== '1000' && cid !== '29') return false;
+    var syncCuotaId = cuotaIdSincronizacionMesAlquiler();
+    var qid = String(c.cuotaObjetivoId || '').trim();
+    if (syncCuotaId) {
+        if (cid === '1000' || cid === '29') {
+            return !qid || qid === syncCuotaId;
+        }
+        return false;
+    }
+    return !qid;
+}
+
+function cuotaObjetivoEsMesPrincipal(cuotaObjetivoId) {
+    var syncCuotaId = cuotaIdSincronizacionMesAlquiler();
+    var qid = String(cuotaObjetivoId || '').trim();
+    if (!syncCuotaId) return !qid;
+    return !qid || qid === syncCuotaId;
+}
+
 function sincronizarConceptoCuotaDesdeMesAlquiler() {
     var mesAlquilerValor = document.getElementById('mes_alquiler_valor');
     if (!mesAlquilerValor || !conceptosAgregados.length) return;
     var importe = parsearValorFormateado(mesAlquilerValor.value);
     if (importe <= 0) return;
-    var cuotaIdDefault = window.cuotaIdPago || 0;
+    var syncCuotaId = cuotaIdSincronizacionMesAlquiler();
     var cambio = false;
     conceptosAgregados.forEach(function(c) {
+        if (!conceptoDebeSincronizarImporteMesAlquiler(c)) return;
         var cid = String(c.conceptoId || '').trim();
-        if (cid === '1' || cid === '15' || cid === '1000' || cid === '29') {
-            if (cid === '1000' || cid === '29') {
-                if (!c.cuotaObjetivoId && cuotaIdDefault) {
-                    c.cuotaObjetivoId = String(cuotaIdDefault);
-                    c.cuotaObjetivoLabel = etiquetaCuotaDesdeCfg(cuotaIdDefault);
-                }
-            }
-            c.importe = importe;
-            cambio = true;
+        if ((cid === '1000' || cid === '29') && !c.cuotaObjetivoId && syncCuotaId) {
+            c.cuotaObjetivoId = syncCuotaId;
+            c.cuotaObjetivoLabel = etiquetaCuotaDesdeCfg(syncCuotaId);
         }
+        c.importe = importe;
+        cambio = true;
     });
     if (cambio) {
         actualizarTablaConceptos();
