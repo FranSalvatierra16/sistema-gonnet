@@ -138,6 +138,12 @@
                         {% endif %}
                     {% endwith %}
                 {% endfor %}
+                {% if totales.ingresos.deposito_galicia > 0 %}
+                <p class="small mb-0">↳ Galicia: ${{ totales.ingresos.deposito_galicia|format_price }}</p>
+                {% endif %}
+                {% if totales.ingresos.deposito_mp > 0 %}
+                <p class="small mb-0">↳ Mercado Pago (legacy): ${{ totales.ingresos.deposito_mp|format_price }}</p>
+                {% endif %}
                 <hr class="my-2">
                 <p class="small mb-1">USD: U$S {{ totales.ingresos.dolares|format_price }}</p>
                 <strong>Total ingresos ARS: ${{ totales.ingresos.total|format_price }}</strong>
@@ -155,12 +161,20 @@
                         {% endif %}
                     {% endwith %}
                 {% endfor %}
+                {% if totales.egresos.deposito_galicia > 0 %}
+                <p class="small mb-0">↳ Galicia: ${{ totales.egresos.deposito_galicia|format_price }}</p>
+                {% endif %}
+                {% if totales.egresos.deposito_mp > 0 %}
+                <p class="small mb-0">↳ Mercado Pago (legacy): ${{ totales.egresos.deposito_mp|format_price }}</p>
+                {% endif %}
                 <hr class="my-2">
                 <p class="small mb-1">USD: U$S {{ totales.egresos.dolares|format_price }}</p>
                 <strong>Total egresos ARS: ${{ totales.egresos.total|format_price }}</strong>
             </div>
         </div>
     </div>
+
+    {% include 'inmobiliaria/caja/_saldos_por_medio.html' with titulo=bloque_saldos_cierre.titulo efectivo=bloque_saldos_cierre.efectivo cheque=bloque_saldos_cierre.cheque tarjeta=bloque_saldos_cierre.tarjeta dolares=bloque_saldos_cierre.dolares lineas_transferencias=bloque_saldos_cierre.lineas_transferencias total_transferencias=bloque_saldos_cierre.total_transferencias total_ars=bloque_saldos_cierre.total_ars %}
 
     <div class="alert {% if es_saldo_positivo %}alert-success{% else %}alert-danger{% endif %} mb-3">
         <strong>Saldo total ARS (inicial en efectivo + movimientos):</strong>

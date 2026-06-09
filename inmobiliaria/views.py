@@ -10721,6 +10721,62 @@ def _calcular_saldos_caja_por_medio(caja, sucursal):
     }
 
 
+def _context_bloque_saldos_por_medio(
+    saldos,
+    *,
+    titulo=None,
+    nota_proxima_caja=None,
+    cuentas_items=None,
+):
+    """Contexto para el partial _saldos_por_medio.html."""
+    galicia = Decimal(str(saldos.get('deposito_galicia') or 0))
+    mp = Decimal(str(saldos.get('deposito_mp') or 0))
+    lineas = []
+    if galicia != 0:
+        lineas.append({'etiqueta': 'Galicia', 'monto': galicia})
+    if mp != 0:
+        lineas.append({'etiqueta': 'Mercado Pago (legacy)', 'monto': mp})
+
+    total_cuentas = Decimal('0')
+    for item in cuentas_items or []:
+        if isinstance(item, dict) and 'cuenta' in item:
+            cuenta = item['cuenta']
+            monto = Decimal(str(item.get('teorico') or item.get('saldo') or item.get('monto') or 0))
+            etiqueta = getattr(cuenta, 'nombre_banco', '') or 'Cuenta'
+            alias = getattr(cuenta, 'alias', '') or ''
+            if alias:
+                etiqueta = f'{etiqueta} — {alias}'
+        else:
+            monto = Decimal(str(getattr(item, 'monto', 0) or 0))
+            etiqueta = getattr(item, 'etiqueta', 'Cuenta')
+        if monto != 0:
+            lineas.append({'etiqueta': etiqueta, 'monto': monto})
+        total_cuentas += monto
+
+    total_transferencias = galicia + mp + total_cuentas
+    efectivo = Decimal(str(saldos.get('efectivo') or 0))
+    cheque = Decimal(str(saldos.get('cheque') or 0))
+    tarjeta = Decimal(str(saldos.get('tarjeta') or 0))
+    dolares = Decimal(str(saldos.get('dolares') or 0))
+    total_ars = saldos.get('total_ars')
+    if total_ars is None:
+        total_ars = efectivo + cheque + tarjeta + total_transferencias
+    else:
+        total_ars = Decimal(str(total_ars))
+
+    return {
+        'titulo': titulo,
+        'efectivo': efectivo,
+        'cheque': cheque,
+        'tarjeta': tarjeta,
+        'dolares': dolares,
+        'lineas_transferencias': lineas,
+        'total_transferencias': total_transferencias,
+        'total_ars': total_ars,
+        'nota_proxima_caja': nota_proxima_caja,
+    }
+
+
 def _parse_arqueo_cierre_post(request, cuentas_bancarias):
     from inmobiliaria.decimal_utils import parse_decimal_monto
 
@@ -11104,6 +11160,11 @@ def imprimir_resumen_caja(request, numero):
         for item in context['saldos_teoricos_cierre']['cuentas']:
             item['contado'] = arqueo.monto_cuenta(item['cuenta'].id)
     context['arqueo_cierre'] = arqueo
+    context['bloque_saldos_cierre'] = _context_bloque_saldos_por_medio(
+        context['saldos_teoricos_cierre'],
+        titulo='Saldos en caja al cierre',
+        cuentas_items=context['saldos_teoricos_cierre']['cuentas'],
+    )
     return render(request, 'inmobiliaria/caja/resumen_caja_imprimir.html', context)
 
 _MOVIMIENTO_UID_SESSION_KEY = 'caja_movimiento_uids_procesados'
@@ -11572,6 +11633,18 @@ def cerrar_caja(request, numero_caja):
             'cuentas_arqueo': cuentas_arqueo,
             'puede_arqueo': puede_arqueo,
             'arqueo_manual': arqueo_manual,
+            'bloque_saldos_cierre': _context_bloque_saldos_por_medio(
+                saldos_teoricos,
+                titulo='Dinero en caja al cierre (según movimientos)',
+                nota_proxima_caja=(
+                    f'La próxima caja abrirá con el efectivo en pesos que indiques abajo '
+                    f'(teórico hoy: ${format_monto_argentino(saldos_teoricos["efectivo"])}).'
+                    if puede_arqueo
+                    else f'La próxima caja abrirá con saldo inicial '
+                    f'${format_monto_argentino(saldo_teorico)} (total teórico calculado).'
+                ),
+                cuentas_items=saldos_teoricos['cuentas'],
+            ),
         },
     )
 

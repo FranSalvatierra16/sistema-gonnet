@@ -44,6 +44,8 @@
                         </div>
                     </div>
 
+                    {% include 'inmobiliaria/caja/_saldos_por_medio.html' with titulo=bloque_saldos_cierre.titulo efectivo=bloque_saldos_cierre.efectivo cheque=bloque_saldos_cierre.cheque tarjeta=bloque_saldos_cierre.tarjeta dolares=bloque_saldos_cierre.dolares lineas_transferencias=bloque_saldos_cierre.lineas_transferencias total_transferencias=bloque_saldos_cierre.total_transferencias total_ars=bloque_saldos_cierre.total_ars nota_proxima_caja=bloque_saldos_cierre.nota_proxima_caja %}
+
                     <div class="alert alert-warning">
                         <h5>⚠️ <strong>Confirmación</strong></h5>
                         <p class="mb-0">¿Está seguro que desea cerrar la Caja #{{ caja.numero }}? Esta acción no se puede deshacer.</p>
@@ -147,13 +149,7 @@
                             </div>
                         </div>
                         {% else %}
-                        <div class="form-group mb-3">
-                            <label class="form-label"><strong>💰 Saldo de cierre / saldo para la próxima caja:</strong></label>
-                            <div class="form-control form-control-lg fw-bold bg-light text-success">
-                                ${{ saldo_teorico|format_price:0 }}
-                            </div>
-                            <small class="text-muted">Se toma automáticamente del saldo teórico (movimientos).</small>
-                        </div>
+                        <input type="hidden" name="saldo_cierre_confirmado" value="1">
                         {% endif %}
 
                         <div class="form-group mb-3">
