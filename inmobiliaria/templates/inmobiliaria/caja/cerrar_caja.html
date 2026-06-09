@@ -1,4 +1,5 @@
 {% extends 'inmobiliaria/base.html' %}
+{% load static %}
 {% load custom_filters %}
 
 {% block content %}
@@ -71,28 +72,28 @@
                                                 <td><strong>Efectivo ARS</strong> <small class="text-muted">(abre la próxima caja)</small></td>
                                                 <td class="text-end text-muted">${{ saldos_teoricos.efectivo|format_price }}</td>
                                                 <td class="text-end">
-                                                    <input type="number" name="arqueo_efectivo" class="form-control form-control-sm text-end arqueo-input" step="0.01" min="0" value="{{ saldos_teoricos.efectivo|stringformat:'f' }}" required>
+                                                    <input type="text" name="arqueo_efectivo" class="form-control form-control-sm text-end arqueo-input input-monto-ar" inputmode="decimal" autocomplete="off" value="{{ saldos_prefill.efectivo|format_price }}" required>
                                                 </td>
                                             </tr>
                                             <tr>
                                                 <td><strong>USD (efectivo)</strong></td>
                                                 <td class="text-end text-muted">U$S {{ saldos_teoricos.dolares|format_price }}</td>
                                                 <td class="text-end">
-                                                    <input type="number" name="arqueo_dolares" class="form-control form-control-sm text-end arqueo-input" step="0.01" min="0" value="{{ saldos_teoricos.dolares|stringformat:'f' }}">
+                                                    <input type="text" name="arqueo_dolares" class="form-control form-control-sm text-end arqueo-input input-monto-ar" inputmode="decimal" autocomplete="off" value="{{ saldos_prefill.dolares|format_price }}">
                                                 </td>
                                             </tr>
                                             <tr>
                                                 <td><strong>Cheques</strong></td>
                                                 <td class="text-end text-muted">${{ saldos_teoricos.cheque|format_price }}</td>
                                                 <td class="text-end">
-                                                    <input type="number" name="arqueo_cheque" class="form-control form-control-sm text-end arqueo-input" step="0.01" min="0" value="{{ saldos_teoricos.cheque|stringformat:'f' }}">
+                                                    <input type="text" name="arqueo_cheque" class="form-control form-control-sm text-end arqueo-input input-monto-ar" inputmode="decimal" autocomplete="off" value="{{ saldos_prefill.cheque|format_price }}">
                                                 </td>
                                             </tr>
                                             <tr>
                                                 <td><strong>Tarjeta</strong></td>
                                                 <td class="text-end text-muted">${{ saldos_teoricos.tarjeta|format_price }}</td>
                                                 <td class="text-end">
-                                                    <input type="number" name="arqueo_tarjeta" class="form-control form-control-sm text-end arqueo-input" step="0.01" min="0" value="{{ saldos_teoricos.tarjeta|stringformat:'f' }}">
+                                                    <input type="text" name="arqueo_tarjeta" class="form-control form-control-sm text-end arqueo-input input-monto-ar" inputmode="decimal" autocomplete="off" value="{{ saldos_prefill.tarjeta|format_price }}">
                                                 </td>
                                             </tr>
                                             {% if saldos_teoricos.deposito_galicia or saldos_teoricos.deposito_mp %}
@@ -104,14 +105,14 @@
                                                 <td>Transferencia Galicia <small class="text-muted">(legacy)</small></td>
                                                 <td class="text-end text-muted">${{ saldos_teoricos.deposito_galicia|format_price }}</td>
                                                 <td class="text-end">
-                                                    <input type="number" name="arqueo_galicia" class="form-control form-control-sm text-end arqueo-input arqueo-ars" step="0.01" min="0" value="{{ saldos_teoricos.deposito_galicia|stringformat:'f' }}">
+                                                    <input type="text" name="arqueo_galicia" class="form-control form-control-sm text-end arqueo-input arqueo-ars input-monto-ar" inputmode="decimal" autocomplete="off" value="{{ saldos_prefill.deposito_galicia|format_price }}">
                                                 </td>
                                             </tr>
                                             <tr>
                                                 <td>Transferencia Mercado Pago <small class="text-muted">(legacy)</small></td>
                                                 <td class="text-end text-muted">${{ saldos_teoricos.deposito_mp|format_price }}</td>
                                                 <td class="text-end">
-                                                    <input type="number" name="arqueo_mp" class="form-control form-control-sm text-end arqueo-input arqueo-ars" step="0.01" min="0" value="{{ saldos_teoricos.deposito_mp|stringformat:'f' }}">
+                                                    <input type="text" name="arqueo_mp" class="form-control form-control-sm text-end arqueo-input arqueo-ars input-monto-ar" inputmode="decimal" autocomplete="off" value="{{ saldos_prefill.deposito_mp|format_price }}">
                                                 </td>
                                             </tr>
                                             {% for item in cuentas_arqueo %}
@@ -122,7 +123,7 @@
                                                 </td>
                                                 <td class="text-end text-muted">${{ item.teorico|format_price }}</td>
                                                 <td class="text-end">
-                                                    <input type="number" name="arqueo_cuenta_{{ item.cuenta.id }}" class="form-control form-control-sm text-end arqueo-input arqueo-ars" step="0.01" min="0" value="{{ item.teorico|stringformat:'f' }}">
+                                                    <input type="text" name="arqueo_cuenta_{{ item.cuenta.id }}" class="form-control form-control-sm text-end arqueo-input arqueo-ars input-monto-ar" inputmode="decimal" autocomplete="off" value="{{ item.contado|format_price }}">
                                                 </td>
                                             </tr>
                                             {% empty %}
@@ -172,26 +173,24 @@
 </div>
 
 {% if puede_arqueo %}
+<script src="{% static 'js/monto-argentino.js' %}"></script>
 <script>
 (function() {
-    function parseNum(el) {
-        var v = parseFloat((el.value || '0').replace(',', '.'));
-        return isNaN(v) ? 0 : v;
-    }
     function fmt(n) {
-        return '$' + n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return '$' + formatMontoAR(n);
     }
     function recalc() {
         var total = 0;
         document.querySelectorAll('.arqueo-ars, input[name="arqueo_efectivo"], input[name="arqueo_cheque"], input[name="arqueo_tarjeta"]').forEach(function(el) {
-            total += parseNum(el);
+            total += parseMontoAR(el.value);
         });
         var ef = document.querySelector('input[name="arqueo_efectivo"]');
         document.getElementById('arqueo_total_ars').textContent = fmt(total);
-        if (ef) document.getElementById('arqueo_prox_efectivo').textContent = fmt(parseNum(ef));
+        if (ef) document.getElementById('arqueo_prox_efectivo').textContent = fmt(parseMontoAR(ef.value));
     }
     document.querySelectorAll('.arqueo-input').forEach(function(el) {
         el.addEventListener('input', recalc);
+        el.addEventListener('blur', recalc);
     });
     recalc();
 })();

@@ -1,4 +1,5 @@
 {% extends 'inmobiliaria/base.html' %}
+{% load static %}
 {% load custom_filters %}
 
 {% block title %}Editar montos — Mov. #{{ movimiento.id }}{% endblock %}
@@ -42,25 +43,25 @@
                         <div class="row g-3 mb-3">
                             <div class="col-md-4">
                                 <label class="form-label">Efectivo ARS</label>
-                                <input type="number" name="monto_efectivo" class="form-control monto-edit" step="0.01" min="0"
-                                       value="{{ montos_form.monto_efectivo|stringformat:'f' }}" required>
+                                <input type="text" name="monto_efectivo" class="form-control monto-edit input-monto-ar" inputmode="decimal" autocomplete="off"
+                                       value="{{ montos_form.monto_efectivo|format_price }}" required>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Cheques</label>
-                                <input type="number" name="monto_cheque" class="form-control monto-edit" step="0.01" min="0"
-                                       value="{{ montos_form.monto_cheque|stringformat:'f' }}">
+                                <input type="text" name="monto_cheque" class="form-control monto-edit input-monto-ar" inputmode="decimal" autocomplete="off"
+                                       value="{{ montos_form.monto_cheque|format_price }}">
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Tarjeta</label>
-                                <input type="number" name="monto_tarjeta" class="form-control monto-edit" step="0.01" min="0"
-                                       value="{{ montos_form.monto_tarjeta|stringformat:'f' }}">
+                                <input type="text" name="monto_tarjeta" class="form-control monto-edit input-monto-ar" inputmode="decimal" autocomplete="off"
+                                       value="{{ montos_form.monto_tarjeta|format_price }}">
                             </div>
                         </div>
                         <div class="row g-3 mb-3">
                             <div class="col-md-6">
                                 <label class="form-label">Transferencia</label>
-                                <input type="number" name="monto_deposito" id="monto_deposito_edit" class="form-control monto-edit" step="0.01" min="0"
-                                       value="{{ montos_form.monto_deposito|stringformat:'f' }}">
+                                <input type="text" name="monto_deposito" id="monto_deposito_edit" class="form-control monto-edit input-monto-ar" inputmode="decimal" autocomplete="off"
+                                       value="{{ montos_form.monto_deposito|format_price }}">
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Cuenta destino</label>
@@ -77,12 +78,12 @@
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">USD (efectivo)</label>
-                                <input type="number" name="monto_dolares" class="form-control monto-edit" step="0.01" min="0"
-                                       value="{{ montos_form.monto_dolares|stringformat:'f' }}">
+                                <input type="text" name="monto_dolares" class="form-control monto-edit input-monto-ar" inputmode="decimal" autocomplete="off"
+                                       value="{{ montos_form.monto_dolares|format_price }}">
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Total ARS</label>
-                                <input type="text" id="total_ars_edit" class="form-control fw-bold bg-light" readonly value="0.00">
+                                <input type="text" id="total_ars_edit" class="form-control fw-bold bg-light" readonly value="0,00">
                             </div>
                         </div>
 
@@ -102,23 +103,21 @@
         </div>
     </div>
 </div>
+<script src="{% static 'js/monto-argentino.js' %}"></script>
 <script>
 (function() {
-    function parseNum(v) {
-        var n = parseFloat(String(v || '0').replace(',', '.'));
-        return isNaN(n) ? 0 : n;
-    }
     function recalc() {
         var t = 0;
         ['monto_efectivo', 'monto_cheque', 'monto_tarjeta', 'monto_deposito'].forEach(function(name) {
             var el = document.querySelector('[name="' + name + '"]');
-            if (el) t += parseNum(el.value);
+            if (el) t += parseMontoAR(el.value);
         });
         var out = document.getElementById('total_ars_edit');
-        if (out) out.value = t.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        if (out) out.value = formatMontoAR(t);
     }
     document.querySelectorAll('.monto-edit').forEach(function(el) {
         el.addEventListener('input', recalc);
+        el.addEventListener('blur', recalc);
     });
     recalc();
 })();

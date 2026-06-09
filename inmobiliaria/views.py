@@ -10755,6 +10755,44 @@ def _total_ars_desde_arqueo_dict(data):
     return total
 
 
+def _saldo_actual_desde_arqueo_dict(arqueo_data, cuentas_bancarias):
+    """Arma el bloque saldo_actual a partir de un arqueo (manual o de cierre)."""
+    galicia = Decimal(str(arqueo_data.get('deposito_galicia') or 0))
+    mp = Decimal(str(arqueo_data.get('deposito_mp') or 0))
+    deposito = galicia + mp
+    cuentas_saldos = {}
+    cuentas_json = arqueo_data.get('cuentas_json') or {}
+    for cuenta in cuentas_bancarias:
+        val = Decimal(str(cuentas_json.get(str(cuenta.id), 0) or 0))
+        deposito += val
+        cuentas_saldos[cuenta.id] = {
+            'nombre': cuenta.nombre_banco,
+            'titular': cuenta.titular,
+            'alias': cuenta.alias,
+            'saldo': val,
+        }
+    return {
+        'efectivo': Decimal(str(arqueo_data.get('efectivo') or 0)),
+        'cheque': Decimal(str(arqueo_data.get('cheque') or 0)),
+        'tarjeta': Decimal(str(arqueo_data.get('tarjeta') or 0)),
+        'deposito': deposito,
+        'deposito_galicia': galicia,
+        'deposito_mp': mp,
+        'cuentas_bancarias': cuentas_saldos,
+        'dolares': Decimal(str(arqueo_data.get('dolares') or 0)),
+    }
+
+
+def _aplicar_arqueo_manual_a_totales(totales, arqueo_manual, cuentas_bancarias):
+    if not arqueo_manual:
+        return totales
+    data = arqueo_manual.como_dict_arqueo()
+    totales['saldo_actual'] = _saldo_actual_desde_arqueo_dict(data, cuentas_bancarias)
+    totales['saldo_total'] = _total_ars_desde_arqueo_dict(data)
+    totales['es_arqueo_manual'] = True
+    return totales
+
+
 def _aplicar_filtro_busqueda_movimientos_caja(qs, busqueda):
     """Filtra movimientos por propiedad, propietario, operación, concepto, comprobante, etc."""
     busqueda = (busqueda or '').strip()
@@ -10936,6 +10974,36 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
     }
     totales = _aplicar_saldo_inicial_a_totales_efectivo(caja, totales)
     saldo_total = totales['saldo_total']
+    es_saldo_positivo = saldo_total >= 0
+
+    from inmobiliaria.models.caja import CajaArqueoManual
+
+    saldos_teoricos = _calcular_saldos_caja_por_medio(caja, request.user.sucursal)
+    arqueo_manual = None
+    if getattr(caja, 'estado', None) == 'abierta':
+        arqueo_manual = CajaArqueoManual.objects.filter(caja=caja).first()
+    if arqueo_manual:
+        totales = _aplicar_arqueo_manual_a_totales(totales, arqueo_manual, cuentas_bancarias)
+        saldo_total = totales['saldo_total']
+        es_saldo_positivo = saldo_total >= 0
+
+    puede_editar_arqueo = (
+        getattr(caja, 'estado', None) == 'abierta'
+        and _usuario_puede_arqueo_cierre_caja(request.user)
+    )
+    saldos_arqueo_form = (
+        arqueo_manual.como_dict_arqueo() if arqueo_manual else saldos_teoricos
+    )
+    cuentas_arqueo = [
+        {
+            'cuenta': item['cuenta'],
+            'teorico': item['teorico'],
+            'contado': arqueo_manual.monto_cuenta(item['cuenta'].id)
+            if arqueo_manual
+            else item['teorico'],
+        }
+        for item in saldos_teoricos['cuentas']
+    ]
 
     return {
         'caja': caja,
@@ -10946,9 +11014,14 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
         'movimientos_filtrados': movimientos_filtrados,
         'totales': totales,
         'cuentas_bancarias': cuentas_bancarias,
-        'es_saldo_positivo': saldo_total >= 0,
+        'es_saldo_positivo': es_saldo_positivo,
         'puede_eliminar_movimiento_caja': usuario_puede_eliminar_movimiento_caja(request.user),
         'puede_editar_movimiento_caja': usuario_puede_editar_movimiento_caja(request.user),
+        'puede_editar_arqueo_caja': puede_editar_arqueo,
+        'arqueo_manual': arqueo_manual,
+        'saldos_teoricos': saldos_teoricos,
+        'saldos_arqueo_form': saldos_arqueo_form,
+        'cuentas_arqueo': cuentas_arqueo,
     }
 
 
@@ -10960,6 +11033,56 @@ def detalle_caja(request, numero):
         request, caja, movimientos_order=('-fecha', '-id'), busqueda=busqueda
     )
     return render(request, 'inmobiliaria/caja/detalle_caja.html', context)
+
+
+@login_required
+@require_POST
+@transaction.atomic
+def guardar_arqueo_caja(request, numero):
+    """Super admin: ajusta saldos reales por medio mientras la caja está abierta."""
+    if not _usuario_puede_arqueo_cierre_caja(request.user):
+        messages.error(request, 'Solo el super administrador puede ajustar los saldos de la caja.')
+        return redirect('inmobiliaria:gestionar_caja')
+
+    from inmobiliaria.models.caja import CajaArqueoManual
+    from inmobiliaria.models.sucursal import CuentaBancaria
+
+    caja = get_object_or_404(
+        Caja,
+        numero=numero,
+        sucursal=request.user.sucursal,
+        estado='abierta',
+    )
+    cuentas_bancarias = list(
+        CuentaBancaria.objects.filter(sucursal=request.user.sucursal, activa=True).order_by(
+            'nombre_banco', 'alias'
+        )
+    )
+    try:
+        arqueo_data = _parse_arqueo_cierre_post(request, cuentas_bancarias)
+    except Exception:
+        messages.error(request, 'Revisá los montos ingresados en el arqueo.')
+        return redirect('inmobiliaria:detalle_caja', numero=caja.numero)
+
+    CajaArqueoManual.objects.update_or_create(
+        caja=caja,
+        defaults={
+            'efectivo': arqueo_data['efectivo'],
+            'cheque': arqueo_data['cheque'],
+            'tarjeta': arqueo_data['tarjeta'],
+            'dolares': arqueo_data['dolares'],
+            'deposito_galicia': arqueo_data['deposito_galicia'],
+            'deposito_mp': arqueo_data['deposito_mp'],
+            'cuentas_json': arqueo_data['cuentas_json'],
+            'registrado_por': request.user,
+        },
+    )
+    total = _total_ars_desde_arqueo_dict(arqueo_data)
+    messages.success(
+        request,
+        f'Saldos de caja actualizados. Total ARS: ${format_monto_argentino(total)}.',
+    )
+    return redirect('inmobiliaria:detalle_caja', numero=caja.numero)
 
 
 @login_required
@@ -11347,14 +11470,27 @@ def nuevo_movimiento(request, numero_caja=None):
 
 @login_required
 def cerrar_caja(request, numero_caja):
-    from inmobiliaria.models.caja import CajaArqueoCierre
+    from inmobiliaria.models.caja import CajaArqueoCierre, CajaArqueoManual
 
     caja = get_object_or_404(Caja, numero=numero_caja, sucursal=request.user.sucursal, estado='abierta')
     sucursal = request.user.sucursal
     saldos_teoricos = _calcular_saldos_caja_por_medio(caja, sucursal)
     saldo_teorico = saldos_teoricos['total_ars']
     puede_arqueo = _usuario_puede_arqueo_cierre_caja(request.user)
-    cuentas_arqueo = saldos_teoricos['cuentas']
+    arqueo_manual = CajaArqueoManual.objects.filter(caja=caja).first()
+    saldos_prefill = arqueo_manual.como_dict_arqueo() if arqueo_manual else saldos_teoricos
+    cuentas_arqueo = [
+        {
+            'cuenta': item['cuenta'],
+            'teorico': item['teorico'],
+            'contado': (
+                arqueo_manual.monto_cuenta(item['cuenta'].id)
+                if arqueo_manual
+                else item['teorico']
+            ),
+        }
+        for item in saldos_teoricos['cuentas']
+    ]
 
     if request.method == 'POST':
         observaciones = (request.POST.get('observaciones') or '').strip()
@@ -11389,6 +11525,8 @@ def cerrar_caja(request, numero_caja):
                         cuentas_json=arqueo_data['cuentas_json'],
                         registrado_por=request.user,
                     )
+
+                CajaArqueoManual.objects.filter(caja=caja).delete()
 
                 nueva_caja = Caja.objects.create(
                     sucursal=sucursal,
@@ -11430,8 +11568,10 @@ def cerrar_caja(request, numero_caja):
             'caja': caja,
             'saldo_teorico': saldo_teorico,
             'saldos_teoricos': saldos_teoricos,
+            'saldos_prefill': saldos_prefill,
             'cuentas_arqueo': cuentas_arqueo,
             'puede_arqueo': puede_arqueo,
+            'arqueo_manual': arqueo_manual,
         },
     )
 

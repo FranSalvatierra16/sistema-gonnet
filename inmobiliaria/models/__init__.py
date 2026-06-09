@@ -13,6 +13,7 @@ __all__ = [
     'CuentaBancaria',
     'Caja',
     'CajaArqueoCierre',
+    'CajaArqueoManual',
     'MovimientoCaja',
     'TipoMovimientoCajaEnum',
     'TipoOperacion',

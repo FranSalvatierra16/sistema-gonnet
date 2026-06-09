@@ -400,10 +400,26 @@
 
     <!-- Saldo Actual -->
     <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2 {% if totales.es_arqueo_manual %}bg-warning text-dark{% else %}bg-light{% endif %}">
+            <div>
+                <h5 class="mb-0">Saldo actual en caja</h5>
+                {% if totales.es_arqueo_manual %}
+                <small class="text-dark">Ajustado manualmente{% if arqueo_manual.fecha_actualizacion %} · {{ arqueo_manual.fecha_actualizacion|date:"d/m/Y H:i" }}{% endif %}</small>
+                {% else %}
+                <small class="text-muted">Calculado desde movimientos + saldo inicial</small>
+                {% endif %}
+            </div>
+            {% if puede_editar_arqueo_caja %}
+            <button type="button" class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#modalArqueoCaja">
+                <i class="fas fa-edit"></i> Editar montos por medio
+            </button>
+            {% endif %}
+        </div>
         <div class="card-body">
             <div class="row">
                 <div class="col-md-3">
-                    <div class="info-box {% if es_saldo_positivo %}bg-success{% else %}bg-danger{% endif %} text-white">
+                    <div class="info-box {% if es_saldo_positivo %}bg-success{% else %}bg-danger{% endif %} text-white {% if puede_editar_arqueo_caja %}caja-saldo-clickeable{% endif %}"
+                         {% if puede_editar_arqueo_caja %}role="button" data-bs-toggle="modal" data-bs-target="#modalArqueoCaja" title="Clic para editar saldos"{% endif %}>
                         <h5>Saldo actual (ARS)</h5>
                         <h3>${{ totales.saldo_total|format_price }}</h3>
                     </div>
@@ -464,6 +480,147 @@
         </div>
     </div>
 </div>
+
+{% if puede_editar_arqueo_caja %}
+<div class="modal fade" id="modalArqueoCaja" tabindex="-1" aria-labelledby="modalArqueoCajaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <form method="post" action="{% url 'inmobiliaria:guardar_arqueo_caja' caja.numero %}">
+                {% csrf_token %}
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title" id="modalArqueoCajaLabel">
+                        <i class="fas fa-cash-register me-1"></i> Ajustar saldos — Caja #{{ caja.numero }}
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small text-muted">
+                        Cargá cuánto hay <strong>realmente</strong> en cada medio. El saldo de la pantalla se actualiza con estos valores.
+                        Los movimientos no cambian; esto es un arqueo / conteo físico.
+                    </p>
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Medio / cuenta</th>
+                                    <th class="text-end">Teórico</th>
+                                    <th class="text-end" style="min-width: 10rem;">Real</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Efectivo ARS</strong></td>
+                                    <td class="text-end text-muted">${{ saldos_teoricos.efectivo|format_price }}</td>
+                                    <td>
+                                        <input type="text" name="arqueo_efectivo" class="form-control form-control-sm text-end arqueo-caja-input input-monto-ar" inputmode="decimal" autocomplete="off"
+                                               value="{{ saldos_arqueo_form.efectivo|format_price }}" required>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>USD (efectivo)</strong></td>
+                                    <td class="text-end text-muted">U$S {{ saldos_teoricos.dolares|format_price }}</td>
+                                    <td>
+                                        <input type="text" name="arqueo_dolares" class="form-control form-control-sm text-end input-monto-ar" inputmode="decimal" autocomplete="off"
+                                               value="{{ saldos_arqueo_form.dolares|format_price }}">
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Cheques</strong></td>
+                                    <td class="text-end text-muted">${{ saldos_teoricos.cheque|format_price }}</td>
+                                    <td>
+                                        <input type="text" name="arqueo_cheque" class="form-control form-control-sm text-end arqueo-caja-input input-monto-ar" inputmode="decimal" autocomplete="off"
+                                               value="{{ saldos_arqueo_form.cheque|format_price }}">
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Tarjeta</strong></td>
+                                    <td class="text-end text-muted">${{ saldos_teoricos.tarjeta|format_price }}</td>
+                                    <td>
+                                        <input type="text" name="arqueo_tarjeta" class="form-control form-control-sm text-end arqueo-caja-input input-monto-ar" inputmode="decimal" autocomplete="off"
+                                               value="{{ saldos_arqueo_form.tarjeta|format_price }}">
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>Galicia <small class="text-muted">(legacy)</small></td>
+                                    <td class="text-end text-muted">${{ saldos_teoricos.deposito_galicia|format_price }}</td>
+                                    <td>
+                                        <input type="text" name="arqueo_galicia" class="form-control form-control-sm text-end arqueo-caja-input input-monto-ar" inputmode="decimal" autocomplete="off"
+                                               value="{{ saldos_arqueo_form.deposito_galicia|format_price }}">
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>Mercado Pago <small class="text-muted">(legacy)</small></td>
+                                    <td class="text-end text-muted">${{ saldos_teoricos.deposito_mp|format_price }}</td>
+                                    <td>
+                                        <input type="text" name="arqueo_mp" class="form-control form-control-sm text-end arqueo-caja-input input-monto-ar" inputmode="decimal" autocomplete="off"
+                                               value="{{ saldos_arqueo_form.deposito_mp|format_price }}">
+                                    </td>
+                                </tr>
+                                {% for item in cuentas_arqueo %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ item.cuenta.nombre_banco }}</strong>
+                                        {% if item.cuenta.alias %}<br><small class="text-muted">{{ item.cuenta.alias }}</small>{% endif %}
+                                    </td>
+                                    <td class="text-end text-muted">${{ item.teorico|format_price }}</td>
+                                    <td>
+                                        <input type="text" name="arqueo_cuenta_{{ item.cuenta.id }}" class="form-control form-control-sm text-end arqueo-caja-input input-monto-ar" inputmode="decimal" autocomplete="off"
+                                               value="{{ item.contado|format_price }}">
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot class="table-light">
+                                <tr>
+                                    <th>Total ARS</th>
+                                    <th class="text-end text-muted">${{ saldos_teoricos.total_ars|format_price }}</th>
+                                    <th class="text-end fw-bold" id="arqueoCajaTotalPreview">—</th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-warning" onclick="return confirm('¿Guardar estos saldos como el arqueo actual de la caja?');">
+                        <i class="fas fa-save"></i> Guardar saldos
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<script src="{% static 'js/monto-argentino.js' %}"></script>
+<script>
+(function() {
+    function recalcArqueoTotal() {
+        var t = 0;
+        document.querySelectorAll('#modalArqueoCaja .arqueo-caja-input').forEach(function(el) {
+            t += parseMontoAR(el.value);
+        });
+        var out = document.getElementById('arqueoCajaTotalPreview');
+        if (out) {
+            out.textContent = formatMontoAR(t);
+        }
+    }
+    document.querySelectorAll('#modalArqueoCaja .arqueo-caja-input').forEach(function(el) {
+        el.addEventListener('input', recalcArqueoTotal);
+        el.addEventListener('blur', recalcArqueoTotal);
+    });
+    var modal = document.getElementById('modalArqueoCaja');
+    if (modal) {
+        modal.addEventListener('shown.bs.modal', function() {
+            initMontoARInputs(modal);
+            recalcArqueoTotal();
+        });
+    }
+})();
+</script>
+<style>
+.caja-saldo-clickeable { cursor: pointer; }
+.caja-saldo-clickeable:hover { filter: brightness(1.05); }
+</style>
+{% endif %}
 
 <!-- Modal de Detalles -->
 {% for movimiento in movimientos %}

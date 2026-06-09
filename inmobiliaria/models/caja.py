@@ -134,6 +134,71 @@ class CajaArqueoCierre(models.Model):
             return Decimal('0')
 
 
+class CajaArqueoManual(models.Model):
+    """Conteo físico ajustado por super admin mientras la caja está abierta."""
+
+    caja = models.OneToOneField(
+        Caja,
+        on_delete=models.CASCADE,
+        related_name='arqueo_manual',
+    )
+    efectivo = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    cheque = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    tarjeta = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    dolares = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    deposito_galicia = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    deposito_mp = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    cuentas_json = models.JSONField(default=dict, blank=True)
+    registrado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='arqueos_manuales_caja',
+    )
+    fecha_registro = models.DateTimeField(auto_now_add=True)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'inmobiliaria_caja_arqueo_manual'
+        verbose_name = 'Arqueo manual de caja'
+        verbose_name_plural = 'Arqueos manuales de caja'
+
+    def __str__(self):
+        return f'Arqueo manual caja #{self.caja_id} — ${self.total_ars()}'
+
+    def total_ars(self):
+        total = Decimal('0')
+        for attr in ('efectivo', 'cheque', 'tarjeta', 'deposito_galicia', 'deposito_mp'):
+            total += Decimal(str(getattr(self, attr, None) or 0))
+        for val in (self.cuentas_json or {}).values():
+            try:
+                total += Decimal(str(val or 0))
+            except Exception:
+                pass
+        return total
+
+    def monto_cuenta(self, cuenta_id):
+        raw = (self.cuentas_json or {}).get(str(cuenta_id))
+        if raw is None:
+            return Decimal('0')
+        try:
+            return Decimal(str(raw))
+        except Exception:
+            return Decimal('0')
+
+    def como_dict_arqueo(self):
+        return {
+            'efectivo': self.efectivo,
+            'cheque': self.cheque,
+            'tarjeta': self.tarjeta,
+            'dolares': self.dolares,
+            'deposito_galicia': self.deposito_galicia,
+            'deposito_mp': self.deposito_mp,
+            'cuentas_json': self.cuentas_json or {},
+        }
+
+
 class MovimientoCaja(models.Model):
     fecha = models.DateTimeField(auto_now_add=True)
     tipo = models.CharField(
