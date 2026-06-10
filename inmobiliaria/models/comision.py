@@ -54,12 +54,20 @@ def rol_comision_al_crear_linea_unica(vendedor, reserva):
             return ROL_COMISION_OP_INVIERNO
 
     tipo = getattr(prop, 'tipo_fichaje', None) or 'primer'
-    if tipo == 'segundo' and vendedor.comision_segundo_fichaje is not None:
-        if pct == vendedor.comision_segundo_fichaje:
-            return ROL_COMISION_FICHAJE
-    if tipo == 'primer' and vendedor.comision_primer_fichaje is not None:
-        if pct == vendedor.comision_primer_fichaje:
-            return ROL_COMISION_FICHAJE
+    if (
+        tipo == 'segundo'
+        and vendedor.comision_segundo_fichaje is not None
+        and vendedor.comision_segundo_fichaje > 0
+        and pct == vendedor.comision_segundo_fichaje
+    ):
+        return ROL_COMISION_FICHAJE
+    if (
+        tipo == 'primer'
+        and vendedor.comision_primer_fichaje is not None
+        and vendedor.comision_primer_fichaje > 0
+        and pct == vendedor.comision_primer_fichaje
+    ):
+        return ROL_COMISION_FICHAJE
 
     return ROL_COMISION_GENERAL
 
@@ -124,9 +132,19 @@ def _crear_linea_operacion_por_dia(
     """
     Comisión de operación «por día»: % comisión por día (campo comisión / default sucursal) sobre el total
     de la reserva; si no hay precio_total cargado, usa el monto de honorarios de este pago.
+    Solo una línea por reserva (no se duplica en pagos parciales).
     """
     pct = pct_override if pct_override is not None else pct_comision_normal_alquiler_dia(vendedor)
     if pct is None or pct <= 0:
+        return
+    existente = ComisionVendedor.objects.filter(
+        vendedor=vendedor,
+        reserva=reserva,
+        rol_comision=ROL_COMISION_OP_DIA,
+    ).exclude(estado='cancelada').first()
+    if existente:
+        if creadas is not None and existente not in creadas:
+            creadas.append(existente)
         return
     base = reserva.precio_total or Decimal('0')
     if base <= 0:
@@ -239,6 +257,67 @@ def registrar_comisiones_honorarios_movimiento_reserva(reserva, movimiento_caja,
                 vend, reserva, movimiento_caja, honorarios_monto, creadas, pct_override=pct_op_dia_kw
             )
 
+    return creadas
+
+
+def asegurar_comisiones_movimiento_reserva(reserva, movimiento_caja, honorarios_monto=None):
+    """
+    Registra comisiones faltantes para un movimiento de caja de una reserva. Idempotente.
+    """
+    if not reserva or not movimiento_caja or not reserva.vendedor_id:
+        return []
+
+    if getattr(reserva, 'eliminada', False) or getattr(reserva, 'estado', None) == 'cancelada':
+        return []
+
+    vend = reserva.vendedor
+    if honorarios_monto is None:
+        honorarios_monto = Decimal(str(getattr(movimiento_caja, 'honorarios', 0) or 0))
+    else:
+        honorarios_monto = Decimal(str(honorarios_monto or 0))
+
+    prop = reserva.propiedad
+    tipo_fichaje = getattr(prop, 'tipo_fichaje', None) or 'primer'
+    pct_fichaje = (
+        vend.comision_segundo_fichaje
+        if tipo_fichaje == 'segundo'
+        else vend.comision_primer_fichaje
+    )
+    hubo_fichaje = pct_fichaje is not None and pct_fichaje > 0
+    tipo_op = clasificar_tipo_operacion_reserva(reserva)
+
+    try:
+        monto_mov_dec = Decimal(str(movimiento_caja.monto_total))
+    except (TypeError, ValueError, ArithmeticError):
+        monto_mov_dec = Decimal('0')
+
+    if honorarios_monto > 0:
+        return registrar_comisiones_honorarios_movimiento_reserva(
+            reserva, movimiento_caja, honorarios_monto
+        )
+
+    if hubo_fichaje and tipo_op == 'dia' and monto_mov_dec > 0:
+        return registrar_comisiones_honorarios_movimiento_reserva(
+            reserva, movimiento_caja, monto_mov_dec
+        )
+
+    creadas = []
+    if tipo_op == 'dia':
+        _crear_linea_operacion_por_dia(vend, reserva, movimiento_caja, Decimal('0'), creadas)
+        return creadas
+
+    pct_comision = vend.porcentaje_comision_para_reserva(reserva)
+    if pct_comision is not None and pct_comision > 0:
+        monto_total_reserva = reserva.precio_total or Decimal('0')
+        c = ComisionVendedor.crear_comision(
+            vendedor=vend,
+            reserva=reserva,
+            movimiento_caja=movimiento_caja,
+            monto_total=monto_total_reserva,
+            concepto=f'Operación {reserva.id} - {getattr(prop, "direccion", "")}',
+        )
+        if c:
+            creadas.append(c)
     return creadas
 
 

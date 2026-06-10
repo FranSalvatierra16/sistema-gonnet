@@ -6135,56 +6135,30 @@ def procesar_movimiento_reserva(request):
                 movimiento_principal.honorarios = honorarios_monto
                 movimiento_principal.save(update_fields=['honorarios'])
 
-            # ✅ Comisiones: con concepto 25 (honorarios) → fichaje + línea día/invierno/24.
-            # Sin concepto 25 pero propiedad en primer/segundo fichaje con % cargado y operación «por día»:
-            # misma lógica usando el monto del movimiento como base de fichaje + comisión por día sobre el total de la reserva.
-            if reserva.vendedor:
-                from inmobiliaria.models.comision import (
-                    ComisionVendedor,
-                    clasificar_tipo_operacion_reserva,
-                    registrar_comisiones_honorarios_movimiento_reserva,
-                )
+            # Productor / vendedor antes de comisiones (el POST puede asignarlo en este pago)
+            productor_id = request.POST.get('productor_id')
+            if productor_id and productor_id.strip():
+                try:
+                    nuevo_vendedor = Vendedor.objects.get(id=int(productor_id))
+                    if reserva.vendedor_id != nuevo_vendedor.id:
+                        reserva.vendedor = nuevo_vendedor
+                        reserva.save(update_fields=['vendedor'])
+                except (Vendedor.DoesNotExist, ValueError):
+                    pass
+
+            if reserva.vendedor_id:
+                from inmobiliaria.models.comision import asegurar_comisiones_movimiento_reserva
 
                 try:
-                    if honorarios_monto > 0:
-                        registrar_comisiones_honorarios_movimiento_reserva(
-                            reserva, movimiento_principal, honorarios_monto
-                        )
-                    else:
-                        vend = reserva.vendedor
-                        prop = reserva.propiedad
-                        tipo_fichaje = getattr(prop, 'tipo_fichaje', None) or 'primer'
-                        pct_fichaje = (
-                            vend.comision_segundo_fichaje
-                            if tipo_fichaje == 'segundo'
-                            else vend.comision_primer_fichaje
-                        )
-                        hubo_fichaje = pct_fichaje is not None and pct_fichaje > 0
-                        tipo_op = clasificar_tipo_operacion_reserva(reserva)
-                        try:
-                            monto_mov_dec = Decimal(str(movimiento_principal.monto_total))
-                        except (InvalidOperation, TypeError, ValueError):
-                            monto_mov_dec = Decimal('0')
-
-                        if hubo_fichaje and tipo_op == 'dia' and monto_mov_dec > 0:
-                            registrar_comisiones_honorarios_movimiento_reserva(
-                                reserva,
-                                movimiento_principal,
-                                monto_mov_dec,
-                            )
-                        else:
-                            pct_comision = vend.porcentaje_comision_para_reserva(reserva)
-                            if pct_comision is not None and pct_comision > 0:
-                                monto_total_reserva = reserva.precio_total or Decimal('0')
-                                ComisionVendedor.crear_comision(
-                                    vendedor=vend,
-                                    reserva=reserva,
-                                    movimiento_caja=movimiento_principal,
-                                    monto_total=monto_total_reserva,
-                                    concepto=f"Operación {reserva.id} - {reserva.propiedad.direccion}",
-                                )
+                    asegurar_comisiones_movimiento_reserva(
+                        reserva, movimiento_principal, honorarios_monto
+                    )
                 except Exception:
-                    pass
+                    logger.exception(
+                        'procesar_movimiento_reserva: error al registrar comisiones reserva_id=%s mov=%s',
+                        reserva.id,
+                        movimiento_principal.id,
+                    )
             
             # Usar el movimiento principal para la respuesta
             movimiento = movimiento_principal
@@ -6369,20 +6343,6 @@ def procesar_movimiento_reserva(request):
                 reserva.senia = Decimal('0')
                 deposito_garantia = Decimal('0')
                 
-            # ✅ ACTUALIZAR VENDEDOR SI SE CAMBIÓ EN EL FORMULARIO
-            productor_id = request.POST.get('productor_id')
-            if productor_id and productor_id.strip():
-                try:
-                    nuevo_vendedor = Vendedor.objects.get(id=int(productor_id))
-                    if reserva.vendedor != nuevo_vendedor:
-                        pass  # ✅ Bloque vacío
-# print(f"🔄 Cambiando vendedor de {reserva.vendedor} a {nuevo_vendedor}")
-                        reserva.vendedor = nuevo_vendedor
-                except (Vendedor.DoesNotExist, ValueError) as e:
-                    pass  # ✅ Bloque vacío
-# print(f"⚠️ Error al cambiar vendedor: {e}")
-                    # No cambiar el vendedor si hay error, mantener el original
-            
             # Cambiar estado de la reserva
             reserva.estado = 'pagada'
             reserva.save()

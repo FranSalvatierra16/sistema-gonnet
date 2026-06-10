@@ -971,6 +971,17 @@ def caratula_reserva(request, reserva_id):
     recibos = list(reserva.recibos.all())
     comisiones = list(reserva.comisiones_vendedor.all())
 
+    if not comisiones and movimientos and reserva.vendedor_id:
+        from inmobiliaria.models.comision import asegurar_comisiones_movimiento_reserva
+
+        for mov in movimientos:
+            asegurar_comisiones_movimiento_reserva(reserva, mov)
+        comisiones = list(
+            ComisionVendedor.objects.filter(reserva=reserva)
+            .exclude(estado='cancelada')
+            .select_related('vendedor')
+        )
+
     total_mov = sum(
         Decimal(str(m.monto_efectivo or 0))
         + Decimal(str(m.monto_cheque or 0))

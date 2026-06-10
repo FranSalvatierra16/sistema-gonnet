@@ -216,12 +216,17 @@ class Vendedor(AbstractUser):
 
         # ~20 meses o más: se considera alquiler largo / 24 meses para comisión
         es_alquiler_largo = dias >= 600
-        if es_alquiler_largo and self.comision_alquiler_24_meses is not None:
+        if (
+            es_alquiler_largo
+            and self.comision_alquiler_24_meses is not None
+            and self.comision_alquiler_24_meses > 0
+        ):
             return self.comision_alquiler_24_meses
 
         # Invierno / temporada fría: propiedad con alquiler invierno habilitado, no largo plazo
         if (
             self.comision_invierno is not None
+            and self.comision_invierno > 0
             and dias < 600
             and dias >= 14
             and getattr(prop, 'habilitar_invierno', False)
@@ -235,9 +240,17 @@ class Vendedor(AbstractUser):
                 return self.comision_invierno
 
         tipo = getattr(prop, 'tipo_fichaje', None) or 'primer'
-        if tipo == 'segundo' and self.comision_segundo_fichaje is not None:
+        if (
+            tipo == 'segundo'
+            and self.comision_segundo_fichaje is not None
+            and self.comision_segundo_fichaje > 0
+        ):
             return self.comision_segundo_fichaje
-        if tipo == 'primer' and self.comision_primer_fichaje is not None:
+        if (
+            tipo == 'primer'
+            and self.comision_primer_fichaje is not None
+            and self.comision_primer_fichaje > 0
+        ):
             return self.comision_primer_fichaje
 
         return self.porcentaje_comision_efectivo()
