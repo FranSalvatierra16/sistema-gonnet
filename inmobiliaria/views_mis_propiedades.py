@@ -184,13 +184,13 @@ def mis_propiedades(request):
 @require_GET
 def mis_propiedades_buscar_propietario(request):
     term = (request.GET.get('q') or '').strip()
-    if len(term) < 2:
+    if not term:
         return JsonResponse({'results': []})
-    qs = Propietario.objects.filter(sucursal=request.user.sucursal).filter(
-        Q(nombre__icontains=term)
-        | Q(apellido__icontains=term)
-        | Q(dni__icontains=term)
-    ).order_by('apellido', 'nombre')[:15]
+    from inmobiliaria.busqueda_persona import ordenar_queryset_persona_por_termino, q_busqueda_persona
+    qs = ordenar_queryset_persona_por_termino(
+        Propietario.objects.filter(sucursal=request.user.sucursal).filter(q_busqueda_persona(term)),
+        term,
+    )[:15]
     results = [
         {
             'id': p.id,

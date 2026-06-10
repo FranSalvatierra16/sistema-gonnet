@@ -1943,24 +1943,12 @@ def propietarios(request):
     if form.is_valid():
         termino = form.cleaned_data.get('termino')
         if termino:
+            from inmobiliaria.busqueda_persona import q_busqueda_persona, ordenar_queryset_persona_por_termino
             termino = termino.strip()
-            # 1) Coincidir término completo en nombre, apellido, DNI o ID (apellidos con espacio ej. "de Marcos")
-            query = (
-                Q(nombre__icontains=termino) |
-                Q(apellido__icontains=termino) |
-                Q(dni__icontains=termino) |
-                Q(id__icontains=termino)
+            propietarios = ordenar_queryset_persona_por_termino(
+                propietarios.filter(q_busqueda_persona(termino)),
+                termino,
             )
-            # 2) Si hay varias palabras, también coincidir si TODAS aparecen en nombre o apellido
-            palabras = [p.strip() for p in termino.split() if p.strip()]
-            if len(palabras) > 1:
-                query_palabras = Q()
-                for palabra in palabras:
-                    query_palabras &= (Q(nombre__icontains=palabra) | Q(apellido__icontains=palabra))
-                query = query | query_palabras
-            elif len(palabras) == 1:
-                query |= Q(nombre__icontains=palabras[0]) | Q(apellido__icontains=palabras[0])
-            propietarios = propietarios.filter(query)
 
     # Detectar si la solicitud es AJAX
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
@@ -5535,24 +5523,12 @@ def buscar_propietarios(request):
         qs = qs.filter(sucursal=request.user.sucursal)
 
     if term:
-        # Término completo (apellidos con espacio, ej. "de Marcos") y por palabras
+        from inmobiliaria.busqueda_persona import q_busqueda_persona, ordenar_queryset_persona_por_termino
         term = term.strip()
-        q = (
-            Q(nombre__icontains=term) |
-            Q(apellido__icontains=term) |
-            Q(dni__icontains=term) |
-            Q(id__icontains=term)
-        )
-        palabras = [p.strip() for p in term.split() if p.strip()]
-        if len(palabras) > 1:
-            q_palabras = Q()
-            for p in palabras:
-                q_palabras &= (Q(nombre__icontains=p) | Q(apellido__icontains=p))
-            q = q | q_palabras
-        qs = qs.filter(q)
+        qs = ordenar_queryset_persona_por_termino(qs.filter(q_busqueda_persona(term)), term)
 
     total = qs.count()
-    propietarios = qs.order_by("apellido", "nombre")[offset: offset + page_size]
+    propietarios = qs[offset: offset + page_size]
 
     results = [
         {
@@ -13568,14 +13544,13 @@ def buscar_propiedades_caja(request):
         return JsonResponse({'success': True, 'propiedades': []})
     
     try:
+        from inmobiliaria.busqueda_persona import q_busqueda_persona
         q = (
             Q(direccion__icontains=termino) |
             Q(ubicacion__icontains=termino) |
             Q(piso__icontains=termino) |
             Q(departamento__icontains=termino) |
-            Q(propietario__nombre__icontains=termino) |
-            Q(propietario__apellido__icontains=termino) |
-            Q(propietario__dni__icontains=termino) |
+            q_busqueda_persona(termino, incluir_id=False, prefix='propietario__') |
             Q(propietario__cuit__icontains=termino) |
             Q(propietario__email__icontains=termino)
         )

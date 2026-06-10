@@ -1106,12 +1106,29 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    function renderResultadosPropietario(query) {
+    function partesBusquedaPersona(query) {
+        return (query || '').toLowerCase().replace(/,/g, ' ').trim().split(/\s+/).filter(Boolean);
+    }
+
+    function coincidePropietarioBusqueda(p, query) {
         const q = (query || '').toLowerCase().trim();
+        if (!q) return true;
+        const ap = (p.apellido || '').toLowerCase();
+        const no = (p.nombre || '').toLowerCase();
+        const dni = String(p.dni || '').toLowerCase();
+        const etiqueta = (ap && no) ? (ap + ', ' + no) : (ap + ' ' + no).trim();
+        const blob = [String(p.id), ap, no, dni, etiqueta, ap + ' ' + no].join(' ');
+        const qPlano = q.replace(/,/g, ' ').trim();
+        if (blob.includes(qPlano)) return true;
+        const partes = partesBusquedaPersona(q);
+        return partes.every(function(parte) {
+            return ap.includes(parte) || no.includes(parte) || dni.includes(parte);
+        });
+    }
+
+    function renderResultadosPropietario(query) {
         const opciones = (PROPIETARIOS_DATA || []).filter(function(p) {
-            if (!q) return true;
-            const blob = [p.id, p.apellido || '', p.nombre || '', p.dni || ''].join(' ').toLowerCase();
-            return blob.includes(q);
+            return coincidePropietarioBusqueda(p, query);
         }).slice(0, 30);
 
         if (!propietarioResultados) return;
