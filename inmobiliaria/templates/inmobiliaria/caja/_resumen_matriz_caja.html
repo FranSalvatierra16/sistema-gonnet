@@ -1,0 +1,48 @@
+{% load custom_filters %}
+<div class="card mb-4 border-success shadow-sm caja-resumen-matriz">
+    <div class="card-header bg-success text-white py-2">
+        <strong>Resumen de caja por medio de pago</strong>
+        <small class="ms-2 opacity-75">Anterior + Ingresos − Egresos = Saldo actual</small>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-bordered table-sm mb-0 text-end caja-matriz-tabla">
+                <thead>
+                    <tr class="table-success">
+                        <th class="text-start" style="min-width: 8rem;"></th>
+                        {% for key, label in resumen_matriz.columnas %}
+                        <th>{{ label }}</th>
+                        {% endfor %}
+                        <th class="bg-success text-white">TOTAL ARS</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fila in resumen_matriz.filas %}
+                    <tr class="{% if fila.destacado %}table-warning fw-bold{% endif %}">
+                        <th class="text-start {% if fila.egresos %}text-danger{% endif %}">{{ fila.label }}</th>
+                        {% for key, label in resumen_matriz.columnas %}
+                        <td class="{% if fila.egresos %}text-danger{% endif %}">
+                            ${{ fila.valores|get_item:key|format_price }}
+                        </td>
+                        {% endfor %}
+                        <td class="{% if fila.egresos %}text-danger{% else %}fw-semibold{% endif %}">
+                            ${{ fila.total|format_price }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="table-light">
+                    <tr>
+                        <th class="text-start">USD (efectivo)</th>
+                        <td colspan="5" class="text-start small">
+                            Anterior: <strong>U$S {{ resumen_matriz.usd.anterior|format_price }}</strong>
+                            &nbsp;·&nbsp; Ingresos: <span class="text-success">U$S {{ resumen_matriz.usd.ingresos|format_price }}</span>
+                            &nbsp;·&nbsp; Egresos: <span class="text-danger">U$S {{ resumen_matriz.usd.egresos|format_price }}</span>
+                            &nbsp;·&nbsp; Saldo: <strong>U$S {{ resumen_matriz.usd.saldo|format_price }}</strong>
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>

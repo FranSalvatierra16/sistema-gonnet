@@ -10665,6 +10665,108 @@ def _usuario_puede_arqueo_cierre_caja(user):
     return usuario_puede_editar_movimiento_caja(user)
 
 
+def _build_resumen_matriz_caja(caja, ingresos, egresos, arqueo_manual=None, saldos_teoricos=None):
+    """
+    Grilla Anterior / Ingresos / Egresos / Saldo por medio (estilo listado legacy).
+    Los ingresos y egresos son solo movimientos del período; el saldo inicial va en ANTERIOR (efectivo).
+  """
+    saldo_ini = _saldo_inicial_efectivo_caja(caja)
+
+    def _sum(movs, attr):
+        return sum(Decimal(str(getattr(m, attr) or 0)) for m in movs)
+
+    medios = (
+        ('efectivo', 'monto_efectivo'),
+        ('cheque', 'monto_cheque'),
+        ('tarjeta', 'monto_tarjeta'),
+        ('deposito', 'monto_deposito'),
+    )
+    ingresos_por = {k: _sum(ingresos, a) for k, a in medios}
+    egresos_por = {k: _sum(egresos, a) for k, a in medios}
+
+    def _deposito_arqueo(data):
+        total = Decimal(str(data.get('deposito_galicia') or 0)) + Decimal(str(data.get('deposito_mp') or 0))
+        for val in (data.get('cuentas_json') or {}).values():
+            total += Decimal(str(val or 0))
+        return total
+
+    if arqueo_manual:
+        arqueo_map = {
+            'efectivo': Decimal(str(arqueo_manual.efectivo or 0)),
+            'cheque': Decimal(str(arqueo_manual.cheque or 0)),
+            'tarjeta': Decimal(str(arqueo_manual.tarjeta or 0)),
+            'deposito': _deposito_arqueo(arqueo_manual.como_dict_arqueo()),
+        }
+        saldo_por = dict(arqueo_map)
+        anterior_por = {
+            k: arqueo_map[k] - ingresos_por[k] + egresos_por[k] for k in ingresos_por
+        }
+    else:
+        saldo_por = {
+            'efectivo': saldos_teoricos['efectivo'] if saldos_teoricos else (
+                saldo_ini + ingresos_por['efectivo'] - egresos_por['efectivo']
+            ),
+            'cheque': saldos_teoricos['cheque'] if saldos_teoricos else (
+                ingresos_por['cheque'] - egresos_por['cheque']
+            ),
+            'tarjeta': saldos_teoricos['tarjeta'] if saldos_teoricos else (
+                ingresos_por['tarjeta'] - egresos_por['tarjeta']
+            ),
+            'deposito': (
+                (saldos_teoricos['deposito_galicia'] + saldos_teoricos['deposito_mp'] + sum(
+                    Decimal(str(c.get('teorico') or 0)) for c in saldos_teoricos.get('cuentas') or []
+                ))
+                if saldos_teoricos
+                else ingresos_por['deposito'] - egresos_por['deposito']
+            ),
+        }
+        anterior_por = {
+            'efectivo': saldo_ini,
+            'cheque': Decimal('0'),
+            'tarjeta': Decimal('0'),
+            'deposito': Decimal('0'),
+        }
+        for k in ('cheque', 'tarjeta', 'deposito'):
+            anterior_por[k] = saldo_por[k] - ingresos_por[k] + egresos_por[k]
+
+    def _fila_total(vals):
+        return sum(vals.values())
+
+    filas = [
+        {'key': 'anterior', 'label': 'ANTERIOR', 'valores': anterior_por},
+        {'key': 'ingresos', 'label': 'INGRESOS', 'valores': ingresos_por},
+        {'key': 'egresos', 'label': 'EGRESOS', 'valores': egresos_por, 'egresos': True},
+        {'key': 'saldo', 'label': 'SALDO ACTUAL', 'valores': saldo_por, 'destacado': True},
+    ]
+    for fila in filas:
+        fila['total'] = _fila_total(fila['valores'])
+
+    ing_usd = _sum(ingresos, 'monto_dolares')
+    egr_usd = _sum(egresos, 'monto_dolares')
+    if arqueo_manual:
+        saldo_usd = Decimal(str(arqueo_manual.dolares or 0))
+        anterior_usd = saldo_usd - ing_usd + egr_usd
+    else:
+        saldo_usd = ing_usd - egr_usd
+        anterior_usd = Decimal('0')
+
+    return {
+        'columnas': [
+            ('efectivo', 'TOTAL EFECTIVO'),
+            ('cheque', 'TOTAL CHEQUES'),
+            ('tarjeta', 'TOTAL TARJETAS'),
+            ('deposito', 'TOTAL DEPÓSITOS'),
+        ],
+        'filas': filas,
+        'usd': {
+            'anterior': anterior_usd,
+            'ingresos': ing_usd,
+            'egresos': egr_usd,
+            'saldo': saldo_usd,
+        },
+    }
+
+
 def _calcular_saldos_caja_por_medio(caja, sucursal):
     """Saldos teóricos por medio de pago al cierre (movimientos + saldo inicial en efectivo)."""
     from inmobiliaria.models.sucursal import CuentaBancaria
@@ -11102,6 +11204,14 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
         for item in saldos_teoricos['cuentas']
     ]
 
+    resumen_matriz = _build_resumen_matriz_caja(
+        caja,
+        ingresos,
+        egresos,
+        arqueo_manual=arqueo_manual,
+        saldos_teoricos=saldos_teoricos,
+    )
+
     return {
         'caja': caja,
         'movimientos': movimientos,
@@ -11119,6 +11229,7 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
         'saldos_teoricos': saldos_teoricos,
         'saldos_arqueo_form': saldos_arqueo_form,
         'cuentas_arqueo': cuentas_arqueo,
+        'resumen_matriz': resumen_matriz,
     }
 
 

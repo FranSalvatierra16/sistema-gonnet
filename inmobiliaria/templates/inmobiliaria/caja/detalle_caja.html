@@ -479,6 +479,8 @@
             </div>
         </div>
     </div>
+
+    {% include 'inmobiliaria/caja/_resumen_matriz_caja.html' %}
 </div>
 
 {% if puede_editar_arqueo_caja %}
@@ -826,6 +828,17 @@
 .table-caja-consulta td.text-end,
 .table-caja-consulta th.text-end {
     white-space: nowrap;
+}
+
+.caja-matriz-tabla th,
+.caja-matriz-tabla td {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 0.9rem;
+    vertical-align: middle;
+}
+.caja-resumen-matriz .table-success th {
+    font-size: 0.75rem;
+    letter-spacing: 0.02em;
 }
 </style>
 {% endblock %} 
