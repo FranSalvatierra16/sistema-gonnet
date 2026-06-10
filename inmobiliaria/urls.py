@@ -8,6 +8,7 @@ from . import views_caratulas
 from . import views_migrar  # TEMPORAL - ELIMINAR DESPUÉS
 from . import views_mis_propiedades
 from . import views_honorarios
+from . import views_administracion
 
 app_name = 'inmobiliaria'
 
@@ -247,6 +248,11 @@ urlpatterns = [
         'administracion/propiedades/operaciones/',
         views.administracion_propiedades_operaciones,
         name='administracion_propiedades_operaciones',
+    ),
+    path(
+        'administracion/operaciones/',
+        views_administracion.administracion_listado_operaciones,
+        name='administracion_listado_operaciones',
     ),
     path('caja/obtener-actual/', views.obtener_caja_actual, name='obtener_caja_actual'),
     

@@ -1,0 +1,169 @@
+{% extends 'inmobiliaria/base.html' %}
+
+{% block title %}Administración — Operaciones{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <div>
+            <h2 class="mb-1"><i class="fas fa-list-alt me-2 text-primary"></i>Operaciones registradas</h2>
+            <p class="text-muted mb-0 small">Todas las operaciones de la sucursal. Filtrá por fecha de alta y por tipo (por día, invierno, 24 meses, etc.).</p>
+        </div>
+        <a href="{% url 'inmobiliaria:dashboard' %}" class="btn btn-outline-secondary btn-sm">
+            <i class="fas fa-arrow-left me-1"></i>Volver al inicio
+        </a>
+    </div>
+
+    {% if error %}
+    <div class="alert alert-warning">{{ error }}</div>
+    {% endif %}
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card border-primary h-100 shadow-sm">
+                <div class="card-body text-center">
+                    <div class="text-muted small text-uppercase">Operaciones en el período</div>
+                    <div class="display-5 fw-bold text-primary">{{ total_periodo }}</div>
+                    {% if tipo_filtro %}
+                    <div class="small text-muted mt-1">Mostrando <strong>{{ total_operaciones }}</strong> del tipo seleccionado</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% for item in conteos_tipo %}
+        <div class="col-md-4 col-lg">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body py-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-muted small">{{ item.label }}</span>
+                        <span class="badge rounded-pill fs-6
+                            {% if item.key == 'dia' %}bg-primary
+                            {% elif item.key == 'estudiante' %}bg-info text-dark
+                            {% elif item.key == 'invierno' %}bg-warning text-dark
+                            {% elif item.key == '24' %}bg-dark
+                            {% else %}bg-secondary{% endif %}">
+                            {{ item.cantidad }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col">
+            <div class="alert alert-light border mb-0">No hay operaciones en el período elegido.</div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            {% if periodo_completo %}
+            <div class="alert alert-info py-2 small mb-3">
+                Sin filtro de fechas (todas las operaciones).
+                <a href="{% url 'inmobiliaria:administracion_listado_operaciones' %}" class="alert-link">Mes en curso</a>
+            </div>
+            {% else %}
+            <div class="alert alert-light border py-2 small mb-3">
+                Fecha de referencia: <strong>alta de la operación</strong> (cuando se cargó en el sistema).
+            </div>
+            {% endif %}
+            <form method="get" class="row g-2 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label small mb-0">Buscar</label>
+                    <input type="text" name="q" class="form-control form-control-sm" placeholder="N°, dirección, cliente, vendedor…" value="{{ q }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small mb-0">Desde</label>
+                    <input type="date" name="fecha_desde" class="form-control form-control-sm" value="{{ fecha_desde }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small mb-0">Hasta</label>
+                    <input type="date" name="fecha_hasta" class="form-control form-control-sm" value="{{ fecha_hasta }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small mb-0">Tipo</label>
+                    <select name="tipo" class="form-select form-select-sm">
+                        <option value="" {% if not tipo_filtro %}selected{% endif %}>Todos</option>
+                        <option value="dia" {% if tipo_filtro == 'dia' %}selected{% endif %}>Por día</option>
+                        <option value="estudiante" {% if tipo_filtro == 'estudiante' %}selected{% endif %}>Estudiante</option>
+                        <option value="invierno" {% if tipo_filtro == 'invierno' %}selected{% endif %}>Invierno (9 meses)</option>
+                        <option value="24meses" {% if tipo_filtro == '24meses' %}selected{% endif %}>24 meses</option>
+                        <option value="otro" {% if tipo_filtro == 'otro' %}selected{% endif %}>Otro contrato</option>
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex flex-wrap gap-1">
+                    <button type="submit" class="btn btn-primary btn-sm flex-grow-1">Filtrar</button>
+                    <a href="{% url 'inmobiliaria:administracion_listado_operaciones' %}?q={{ q|urlencode }}&tipo={{ tipo_filtro|urlencode }}" class="btn btn-outline-secondary btn-sm" title="Mes actual">Mes</a>
+                    <a href="{% url 'inmobiliaria:administracion_listado_operaciones' %}?todo=1&q={{ q|urlencode }}&tipo={{ tipo_filtro|urlencode }}" class="btn btn-outline-primary btn-sm">Todo</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <strong>Detalle ({{ operaciones.paginator.count }} operación{{ operaciones.paginator.count|pluralize:"es" }})</strong>
+            <span class="small text-muted">Página {{ operaciones.number }} de {{ operaciones.paginator.num_pages }}</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover table-sm mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>N°</th>
+                        <th>Tipo</th>
+                        <th>Fecha alta</th>
+                        <th>Entrada</th>
+                        <th>Salida</th>
+                        <th>Cliente / inquilino</th>
+                        <th>Propiedad</th>
+                        <th>Vendedor</th>
+                        <th>Estado</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for op in operaciones %}
+                    <tr>
+                        <td class="font-monospace">{{ op.numero }}</td>
+                        <td>
+                            <span class="badge
+                                {% if op.tipo_key == 'dia' %}bg-primary
+                                {% elif op.tipo_key == 'estudiante' %}bg-info text-dark
+                                {% elif op.tipo_key == 'invierno' %}bg-warning text-dark
+                                {% elif op.tipo_key == '24' %}bg-dark
+                                {% else %}bg-secondary{% endif %}">
+                                {{ op.tipo }}
+                            </span>
+                        </td>
+                        <td class="small">{% if op.fecha_registro %}{{ op.fecha_registro|date:"d/m/Y H:i" }}{% else %}—{% endif %}</td>
+                        <td class="small">{% if op.fecha_inicio %}{{ op.fecha_inicio|date:"d/m/Y" }}{% else %}—{% endif %}</td>
+                        <td class="small">{% if op.fecha_fin %}{{ op.fecha_fin|date:"d/m/Y" }}{% else %}—{% endif %}</td>
+                        <td>{{ op.cliente }}</td>
+                        <td class="small">{{ op.propiedad }}{% if op.propiedad_id %} <span class="text-muted">(#{{ op.propiedad_id }})</span>{% endif %}</td>
+                        <td class="small">{{ op.vendedor }}</td>
+                        <td class="small">{{ op.estado }}</td>
+                        <td>
+                            <a href="{{ op.url_detalle }}" class="btn btn-outline-primary btn-sm py-0">Ver</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="10" class="text-center text-muted py-4">No hay operaciones con los filtros aplicados.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if operaciones.has_other_pages %}
+        <div class="card-footer d-flex justify-content-center gap-2">
+            {% if operaciones.has_previous %}
+            <a class="btn btn-sm btn-outline-secondary" href="?page={{ operaciones.previous_page_number }}&q={{ q|urlencode }}&tipo={{ tipo_filtro|urlencode }}&fecha_desde={{ fecha_desde|urlencode }}&fecha_hasta={{ fecha_hasta|urlencode }}{% if periodo_completo %}&todo=1{% endif %}">Anterior</a>
+            {% endif %}
+            {% if operaciones.has_next %}
+            <a class="btn btn-sm btn-outline-secondary" href="?page={{ operaciones.next_page_number }}&q={{ q|urlencode }}&tipo={{ tipo_filtro|urlencode }}&fecha_desde={{ fecha_desde|urlencode }}&fecha_hasta={{ fecha_hasta|urlencode }}{% if periodo_completo %}&todo=1{% endif %}">Siguiente</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

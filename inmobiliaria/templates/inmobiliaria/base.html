@@ -113,6 +113,7 @@
                             {% if user.nivel >= 4 %}
                             <li><a class="dropdown-item" href="{% url 'inmobiliaria:lista_caratulas' %}"><i class="fas fa-folder-open me-2"></i>Carátulas</a></li>
                             <li><a class="dropdown-item" href="{% url 'inmobiliaria:operaciones' %}"><i class="fas fa-receipt me-2"></i>Operaciones y recibos</a></li>
+                            <li><a class="dropdown-item" href="{% url 'inmobiliaria:administracion_listado_operaciones' %}"><i class="fas fa-list-alt me-2"></i>Resumen de operaciones</a></li>
                             <li><a class="dropdown-item" href="{% url 'inmobiliaria:dashboard_comisiones' %}"><i class="fas fa-percent me-2"></i>Comisiones</a></li>
                             <li><a class="dropdown-item" href="{% url 'inmobiliaria:lista_liquidaciones' %}"><i class="fas fa-hand-holding-usd me-2"></i>Liquidaciones a propietarios</a></li>
                             <li><a class="dropdown-item" href="{% url 'inmobiliaria:honorarios_oficina' %}"><i class="fas fa-coins me-2"></i>Honorarios (ganancias oficina)</a></li>

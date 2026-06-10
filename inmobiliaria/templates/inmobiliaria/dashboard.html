@@ -209,6 +209,16 @@
             </div>
         </div>
         <div class="col-md-4 mb-4">
+            <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:administracion_listado_operaciones' %}'">
+                <div class="card-icon">
+                    <i class="fas fa-list-alt"></i>
+                </div>
+                <h3>Resumen de operaciones</h3>
+                <p>Cantidad por tipo (día, invierno, 24 meses…) filtrando por fecha de alta</p>
+                <span class="badge bg-primary">Administración</span>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
             <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:administracion_propiedades_operaciones' %}'">
                 <div class="card-icon">
                     <i class="fas fa-building"></i>
