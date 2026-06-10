@@ -143,9 +143,29 @@ def _nivel_usuario_request(request):
         return 0
 
 
+def _url_caja_actual_usuario(request):
+    """Detalle de la caja abierta de la sucursal, o None si no hay ninguna."""
+    sucursal = getattr(request.user, 'sucursal', None)
+    if not sucursal:
+        return None
+    from inmobiliaria.models.caja import Caja
+
+    caja_actual = (
+        Caja.objects.filter(sucursal=sucursal, estado='abierta')
+        .order_by('-fecha_apertura')
+        .first()
+    )
+    if not caja_actual:
+        return None
+    return reverse('inmobiliaria:detalle_caja', args=[caja_actual.numero])
+
+
 def _default_url_volver_recibo(request):
-    """Destino por defecto al salir de un recibo: caja (nivel ≥3) o menú principal."""
+    """Destino por defecto al salir de un recibo: caja actual (nivel ≥3) o menú principal."""
     if _nivel_usuario_request(request) >= 3:
+        url_caja = _url_caja_actual_usuario(request)
+        if url_caja:
+            return url_caja
         return reverse('inmobiliaria:dashboard_caja')
     return reverse('inmobiliaria:dashboard')
 
