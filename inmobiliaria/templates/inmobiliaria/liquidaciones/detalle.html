@@ -371,23 +371,23 @@
                                 <div class="row mb-3">
                                     <div class="col-md-3">
                                         <label class="form-label">Efectivo</label>
-                                        <input type="text" name="monto_efectivo" id="monto_efectivo" class="form-control" 
-                                               value="0" placeholder="0.00">
+                                        <input type="text" name="monto_efectivo" id="monto_efectivo" class="form-control input-monto-ar monto" 
+                                               inputmode="numeric" autocomplete="off" value="" placeholder="0">
                                     </div>
                                     <div class="col-md-3">
                                         <label class="form-label">Cheque</label>
-                                        <input type="text" name="monto_cheque" id="monto_cheque" class="form-control" 
-                                               value="0" placeholder="0.00">
+                                        <input type="text" name="monto_cheque" id="monto_cheque" class="form-control input-monto-ar monto" 
+                                               inputmode="numeric" autocomplete="off" value="" placeholder="0">
                                     </div>
                                     <div class="col-md-3">
                                         <label class="form-label">Tarjeta</label>
-                                        <input type="text" name="monto_tarjeta" id="monto_tarjeta" class="form-control" 
-                                               value="0" placeholder="0.00">
+                                        <input type="text" name="monto_tarjeta" id="monto_tarjeta" class="form-control input-monto-ar monto" 
+                                               inputmode="numeric" autocomplete="off" value="" placeholder="0">
                                     </div>
                                     <div class="col-md-3">
                                         <label class="form-label">Depósito</label>
-                                        <input type="text" name="monto_deposito" id="monto_deposito" class="form-control" 
-                                               value="0" placeholder="0.00">
+                                        <input type="text" name="monto_deposito" id="monto_deposito" class="form-control input-monto-ar monto" 
+                                               inputmode="numeric" autocomplete="off" value="" placeholder="0">
                                     </div>
                                 </div>
                                 <div class="row mb-3">
@@ -500,16 +500,25 @@ document.addEventListener('DOMContentLoaded', function() {
     const montos = ['monto_efectivo', 'monto_cheque', 'monto_tarjeta', 'monto_deposito'];
     const totalIngresado = document.getElementById('total-ingresado');
     
+    function parseMontoCampo(val) {
+        if (typeof parseMontoAR === 'function') return parseMontoAR(val);
+        return parseDecimalMontoJS(val);
+    }
+
+    function fmtMontoCampo(n) {
+        if (typeof formatMontoAR === 'function') return formatMontoAR(n);
+        return Number(n).toFixed(2);
+    }
+
     function calcularTotal() {
         if (!totalIngresado) return;
         let total = 0;
         montos.forEach(id => {
             const input = document.getElementById(id);
             if (!input) return;
-            const valor = parseDecimalMontoJS(input.value);
-            total += valor;
+            total += parseMontoCampo(input.value);
         });
-        totalIngresado.textContent = total.toFixed(2);
+        totalIngresado.textContent = fmtMontoCampo(total);
     }
     
     montos.forEach(id => {

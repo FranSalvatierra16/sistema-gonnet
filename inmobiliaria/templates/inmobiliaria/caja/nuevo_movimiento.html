@@ -306,20 +306,20 @@
                         <div class="row mb-3">
                             <div class="col-md-2">
                                 <label class="form-label">Efectivo</label>
-                                <input type="text" name="monto_efectivo" class="form-control monto input-monto-ar" inputmode="decimal" autocomplete="off" value="0,00">
+                                <input type="text" name="monto_efectivo" class="form-control monto input-monto-ar" inputmode="numeric" autocomplete="off" value="" placeholder="0">
                             </div>
                             <div class="col-md-2">
                                 <label class="form-label">Cheques</label>
-                                <input type="text" name="monto_cheque" class="form-control monto input-monto-ar" inputmode="decimal" autocomplete="off" value="0,00">
+                                <input type="text" name="monto_cheque" class="form-control monto input-monto-ar" inputmode="numeric" autocomplete="off" value="" placeholder="0">
                             </div>
                             <div class="col-md-2">
                                 <label class="form-label">Tarjeta</label>
-                                <input type="text" name="monto_tarjeta" class="form-control monto input-monto-ar" inputmode="decimal" autocomplete="off" value="0,00">
+                                <input type="text" name="monto_tarjeta" class="form-control monto input-monto-ar" inputmode="numeric" autocomplete="off" value="" placeholder="0">
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Transferencia</label>
                                 <div class="input-group flex-nowrap">
-                                    <input type="text" name="monto_deposito" class="form-control monto input-monto-ar" inputmode="decimal" autocomplete="off" value="0,00" aria-label="Importe transferencia">
+                                    <input type="text" name="monto_deposito" class="form-control monto input-monto-ar" inputmode="numeric" autocomplete="off" value="" placeholder="0" aria-label="Importe transferencia">
                                     <select name="destino_deposito" id="destino_deposito_mov" class="form-select flex-grow-1" style="min-width: 11rem; max-width: 22rem;" aria-label="Cuenta destino transferencia">
                                         <option value="">— Cuenta —</option>
                                         {% for cuenta in cuentas_bancarias %}
@@ -333,7 +333,7 @@
                             </div>
                             <div class="col-md-2">
                                 <label class="form-label">USD (efectivo)</label>
-                                <input type="number" name="dolares" id="monto_dolares_mov" class="form-control" step="0.01" min="0" value="0.00" placeholder="0">
+                                <input type="text" name="dolares" id="monto_dolares_mov" class="form-control input-monto-ar" inputmode="numeric" autocomplete="off" value="" placeholder="0">
                                 <small class="text-muted">Ingreso o egreso en dólares (no suma al total ARS). Podés cargar solo USD si no hay pesos.</small>
                             </div>
                         </div>
@@ -385,17 +385,17 @@
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label" for="monto_a_oficina">A depto / oficina</label>
-                                <input type="text" name="monto_a_oficina" id="monto_a_oficina" class="form-control input-monto-corresponde input-monto-ar" inputmode="decimal" autocomplete="off" value="0,00">
+                                <input type="text" name="monto_a_oficina" id="monto_a_oficina" class="form-control input-monto-corresponde input-monto-ar" inputmode="numeric" autocomplete="off" value="" placeholder="0">
                                 <small class="text-muted">Resto → inquilino</small>
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label" for="monto_a_propietario">A propietario</label>
-                                <input type="text" name="monto_a_propietario" id="monto_a_propietario" class="form-control input-monto-corresponde input-monto-ar" inputmode="decimal" autocomplete="off" value="0,00">
+                                <input type="text" name="monto_a_propietario" id="monto_a_propietario" class="form-control input-monto-corresponde input-monto-ar" inputmode="numeric" autocomplete="off" value="" placeholder="0">
                                 <small class="text-muted">Resto → inquilino</small>
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label" for="monto_a_inquilino">A inquilino</label>
-                                <input type="text" name="monto_a_inquilino" id="monto_a_inquilino" class="form-control input-monto-corresponde input-monto-ar" inputmode="decimal" autocomplete="off" value="0,00">
+                                <input type="text" name="monto_a_inquilino" id="monto_a_inquilino" class="form-control input-monto-corresponde input-monto-ar" inputmode="numeric" autocomplete="off" value="" placeholder="0">
                                 <small class="text-muted">Resto → propietario</small>
                             </div>
                             <div class="col-md-3">
@@ -585,7 +585,6 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/monto-argentino.js' %}?v=4"></script>
 <script>
 $(document).ready(function() {
     // Limpiar el formulario cuando se abre el modal
@@ -925,30 +924,14 @@ $(document).ready(function() {
         $('#bloque_detalle_cheque').toggleClass('d-none', ch <= 0);
     }
 
-    function formatearMontoAlEscribir(el) {
-        if (!el) return;
-        if (typeof formatMontoARTyping === 'function') {
-            el.value = formatMontoARTyping(el.value);
-        }
-    }
-
-    // Formato argentino al escribir (70.000) + total
-    $('#formMovimiento').on('input', '.monto, .input-monto-ar', function() {
-        formatearMontoAlEscribir(this);
-        if ($(this).hasClass('monto')) {
-            calcularTotal();
-            actualizarVisibilidadMediosPago();
-        }
+    // Total al cambiar importes (el formato 70.000 lo hace monto-argentino.js global)
+    $('#formMovimiento').on('input', '.monto', function() {
+        calcularTotal();
+        actualizarVisibilidadMediosPago();
     });
     $('.monto').on('blur', function() {
-        if (typeof formatMontoAR === 'function' && this.value.trim() !== '') {
-            this.value = formatMontoAR(this.value);
-        }
         sincronizarCorresponde(ultimoCasilleroCorresponde);
     });
-    if (typeof initMontoARInputs === 'function') {
-        initMontoARInputs(document.getElementById('formMovimiento') || document);
-    }
     calcularTotal();
     actualizarVisibilidadMediosPago();
     sincronizarCorresponde('oficina');
@@ -1320,9 +1303,9 @@ $(document).ready(function() {
 
                     // Cargar importes sugeridos (todo a efectivo por defecto)
                     $('input[name="monto_efectivo"]').val(fmtMontoLocal(l.monto_a_pagar || 0));
-                    $('input[name="monto_cheque"]').val('0,00');
-                    $('input[name="monto_tarjeta"]').val('0,00');
-                    $('input[name="monto_deposito"]').val('0,00');
+                    $('input[name="monto_cheque"]').val('');
+                    $('input[name="monto_tarjeta"]').val('');
+                    $('input[name="monto_deposito"]').val('');
                     ultimoCasilleroCorresponde = 'propietario';
                     $('.monto').trigger('input');
                     $('#monto_a_propietario').val(fmtMontoLocal(l.monto_a_pagar || 0));
