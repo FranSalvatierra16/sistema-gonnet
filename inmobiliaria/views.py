@@ -11016,6 +11016,53 @@ def _context_bloque_saldos_por_medio(
     }
 
 
+def _context_bloque_saldos_desde_totales(totales, cuentas_bancarias, *, titulo=None):
+    """Mismo desglose por medio que muestra el detalle de caja en pantalla."""
+    saldo_actual = totales.get('saldo_actual') or {}
+    cuentas_items = []
+    for cuenta in cuentas_bancarias:
+        cuenta_data = (saldo_actual.get('cuentas_bancarias') or {}).get(cuenta.id) or {}
+        cuentas_items.append({
+            'cuenta': cuenta,
+            'teorico': Decimal(str(cuenta_data.get('saldo') or 0)),
+        })
+    deposito_total = Decimal(str(saldo_actual.get('deposito') or 0))
+    return _context_bloque_saldos_por_medio(
+        {
+            'efectivo': Decimal(str(saldo_actual.get('efectivo') or 0)),
+            'cheque': Decimal(str(saldo_actual.get('cheque') or 0)),
+            'tarjeta': Decimal(str(saldo_actual.get('tarjeta') or 0)),
+            'dolares': Decimal(str(saldo_actual.get('dolares') or 0)),
+            'deposito_total': deposito_total,
+            'total_ars': Decimal(str(totales.get('saldo_total') or 0)),
+        },
+        titulo=titulo,
+        cuentas_items=cuentas_items,
+    )
+
+
+def _context_bloque_saldos_desde_arqueo_cierre(arqueo, cuentas_bancarias, *, titulo=None):
+    """Arqueo físico registrado al cerrar la caja."""
+    cuentas_items = []
+    deposito_total = Decimal('0')
+    for cuenta in cuentas_bancarias:
+        monto = arqueo.monto_cuenta(cuenta.id)
+        deposito_total += Decimal(str(monto or 0))
+        cuentas_items.append({'cuenta': cuenta, 'teorico': monto})
+    return _context_bloque_saldos_por_medio(
+        {
+            'efectivo': arqueo.efectivo,
+            'cheque': arqueo.cheque,
+            'tarjeta': arqueo.tarjeta,
+            'dolares': arqueo.dolares,
+            'deposito_total': deposito_total,
+            'total_ars': arqueo.total_ars(),
+        },
+        titulo=titulo,
+        cuentas_items=cuentas_items,
+    )
+
+
 def _parse_arqueo_cierre_post(request, cuentas_bancarias):
     from inmobiliaria.decimal_utils import parse_decimal_monto
 
@@ -11345,12 +11392,12 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
         }
     saldo_actual['dolares'] = totales_ingresos['dolares'] - totales_egresos['dolares']
 
-    saldo_total = totales_ingresos['total'] - totales_egresos['total']
+    neto_movimientos_ars = totales_ingresos['total'] - totales_egresos['total']
     totales = {
         'ingresos': totales_ingresos,
         'egresos': totales_egresos,
         'saldo_actual': saldo_actual,
-        'saldo_total': saldo_total
+        'saldo_total': neto_movimientos_ars,
     }
     totales = _aplicar_saldo_inicial_a_totales_efectivo(caja, totales)
     saldo_total = totales['saldo_total']
@@ -11441,6 +11488,7 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
         'cuentas_arqueo': cuentas_arqueo,
         'resumen_matriz': resumen_matriz,
         'matriz_cuentas_bancarias': matriz_cuentas_bancarias,
+        'neto_movimientos_ars': neto_movimientos_ars,
     }
 
 
@@ -11644,9 +11692,7 @@ def imprimir_resumen_caja(request, numero):
     caja = get_object_or_404(Caja, numero=numero, sucursal=request.user.sucursal)
     context = _build_context_detalle_caja(request, caja, movimientos_order=('fecha', 'id'))
     context['es_cierre'] = caja.estado == 'cerrada'
-    saldo_ini = _saldo_inicial_efectivo_caja(caja)
-    context['saldo_teorico_final'] = caja.get_saldo_actual()
-    context['neto_movimientos_ars'] = context['totales']['saldo_total'] - saldo_ini
+    context['saldo_teorico_final'] = context['totales']['saldo_total']
     context['saldos_teoricos_cierre'] = _calcular_saldos_caja_por_medio(caja, request.user.sucursal)
     from inmobiliaria.models.caja import CajaArqueoCierre
     arqueo = CajaArqueoCierre.objects.filter(caja=caja).first()
@@ -11654,11 +11700,24 @@ def imprimir_resumen_caja(request, numero):
         for item in context['saldos_teoricos_cierre']['cuentas']:
             item['contado'] = arqueo.monto_cuenta(item['cuenta'].id)
     context['arqueo_cierre'] = arqueo
-    context['bloque_saldos_cierre'] = _context_bloque_saldos_por_medio(
-        context['saldos_teoricos_cierre'],
-        titulo='Saldos en caja al cierre',
-        cuentas_items=context['saldos_teoricos_cierre']['cuentas'],
-    )
+    if arqueo and caja.estado == 'cerrada':
+        context['bloque_saldos_cierre'] = _context_bloque_saldos_desde_arqueo_cierre(
+            arqueo,
+            context['cuentas_bancarias'],
+            titulo='Saldos en caja al cierre (arqueo físico)',
+        )
+    else:
+        titulo_saldos = (
+            'Saldos en caja al cierre'
+            if caja.estado == 'cerrada'
+            else 'Saldo actual en caja'
+        )
+        context['bloque_saldos_cierre'] = _context_bloque_saldos_desde_totales(
+            context['totales'],
+            context['cuentas_bancarias'],
+            titulo=titulo_saldos,
+        )
+    context['puede_editar_arqueo_caja'] = False
     return render(request, 'inmobiliaria/caja/resumen_caja_imprimir.html', context)
 
 _MOVIMIENTO_UID_SESSION_KEY = 'caja_movimiento_uids_procesados'

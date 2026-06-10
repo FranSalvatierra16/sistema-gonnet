@@ -52,9 +52,12 @@
                     <strong>Usuario cierre:</strong> {{ caja.usuario_cierre|default:"—" }}<br>
                     {% endif %}
                     <strong>Saldo inicial (efectivo):</strong> ${{ caja.saldo_inicial|format_price }}<br>
-                    <strong>Neto movimientos ARS (ing. − egr.):</strong> ${{ neto_movimientos_ars|format_price }}<br>
-                    <strong>Saldo USD efectivo (ing. − egr.):</strong> U$S {{ totales.saldo_actual.dolares|format_price }}<br>
-                    <strong>Saldo (inicial + neto ARS):</strong> ${{ saldo_teorico_final|format_price }}
+                    <strong>Neto movimientos ARS (solo ing. − egr.):</strong> ${{ neto_movimientos_ars|format_price }}<br>
+                    <strong>Saldo USD efectivo:</strong> U$S {{ totales.saldo_actual.dolares|format_price }}<br>
+                    <strong>Saldo actual ARS:</strong> ${{ totales.saldo_total|format_price }}
+                    {% if totales.es_arqueo_manual %}
+                    <br><span class="text-warning">Incluye arqueo / saldos anteriores ajustados manualmente.</span>
+                    {% endif %}
                     {% if caja.estado == 'cerrada' and caja.saldo_final is not None %}
                     <br><strong>Saldo al cierre (registrado):</strong> ${{ caja.saldo_final|format_price }}
                     {% endif %}
@@ -138,9 +141,12 @@
                         {% endif %}
                     {% endwith %}
                 {% endfor %}
+                {% if totales.saldo_inicial_efectivo %}
+                <p class="small text-muted mb-1">Incluye saldo inicial en efectivo: ${{ totales.saldo_inicial_efectivo|format_price }}</p>
+                {% endif %}
                 <hr class="my-2">
                 <p class="small mb-1">USD: U$S {{ totales.ingresos.dolares|format_price }}</p>
-                <strong>Total ingresos ARS: ${{ totales.ingresos.total|format_price }}</strong>
+                <strong>Total ingresos ARS (movimientos):</strong> ${{ totales.ingresos.total|format_price }}
             </div>
         </div>
         <div class="col-md-6">
@@ -162,11 +168,12 @@
         </div>
     </div>
 
+    {% include 'inmobiliaria/caja/_resumen_matriz_caja.html' %}
+
     {% include 'inmobiliaria/caja/_saldos_por_medio.html' with titulo=bloque_saldos_cierre.titulo efectivo=bloque_saldos_cierre.efectivo cheque=bloque_saldos_cierre.cheque tarjeta=bloque_saldos_cierre.tarjeta dolares=bloque_saldos_cierre.dolares lineas_transferencias=bloque_saldos_cierre.lineas_transferencias total_transferencias=bloque_saldos_cierre.total_transferencias total_ars=bloque_saldos_cierre.total_ars %}
 
     <div class="alert {% if es_saldo_positivo %}alert-success{% else %}alert-danger{% endif %} mb-3">
-        <strong>Saldo total ARS (inicial en efectivo + movimientos):</strong>
-        ${{ totales.saldo_total|format_price }}
+        <strong>Saldo actual ARS:</strong> ${{ totales.saldo_total|format_price }}
         &nbsp;·&nbsp;
         <strong>Neto movimientos ARS:</strong> ${{ neto_movimientos_ars|format_price }}
         &nbsp;·&nbsp;
@@ -250,6 +257,7 @@
 
 @media print {
     .no-print, nav.navbar, footer.footer { display: none !important; }
+    .caja-resumen-matriz, .caja-resumen-matriz-cuentas { page-break-inside: avoid; }
     body { background: #fff !important; font-size: 11pt; }
     body > .container { margin-top: 0 !important; padding-top: 0 !important; max-width: 100% !important; }
     #resumen-caja-print { padding: 0 !important; max-width: 100% !important; }

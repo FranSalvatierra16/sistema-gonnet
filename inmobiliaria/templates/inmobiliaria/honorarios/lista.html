@@ -1,0 +1,132 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load custom_filters %}
+
+{% block page_container_class %}container-fluid{% endblock %}
+{% block title %}Honorarios — Ganancias oficina{% endblock %}
+
+{% block content %}
+<div class="mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="mb-2"><i class="fas fa-coins text-warning me-2"></i>Honorarios — Ganancias de oficina</h1>
+            <p class="text-muted mb-4">
+                Comisión inmobiliaria ingresa al <strong>crear la liquidación</strong>.
+                Cochera y fondo de mantenimiento ingresan el <strong>día de entrada</strong> del departamento.
+            </p>
+
+            <div class="d-flex flex-wrap gap-2 mb-4">
+                <div class="alert alert-primary mb-0 py-2">
+                    <strong>Total período:</strong> ${{ total_general|format_price }}
+                </div>
+                <div class="alert alert-success mb-0 py-2">
+                    <strong>Comisión inmob.:</strong> ${{ total_comision|format_price }}
+                </div>
+                <div class="alert alert-info mb-0 py-2">
+                    <strong>Cochera:</strong> ${{ total_cochera|format_price }}
+                </div>
+                <div class="alert alert-secondary mb-0 py-2">
+                    <strong>Fondo mant.:</strong> ${{ total_fondo|format_price }}
+                </div>
+            </div>
+
+            <div class="card shadow mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="fas fa-filter me-2"></i>Buscar por fecha</h5>
+                </div>
+                <div class="card-body">
+                    <form method="get" class="row g-3 align-items-end">
+                        <div class="col-md-2">
+                            <label class="form-label">Desde</label>
+                            <input type="date" name="fecha_desde" class="form-control" value="{{ fecha_desde_s }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Hasta</label>
+                            <input type="date" name="fecha_hasta" class="form-control" value="{{ fecha_hasta_s }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Tipo</label>
+                            <select name="tipo" class="form-select">
+                                <option value="">Todos</option>
+                                <option value="comision" {% if tipo_filtro == 'comision' %}selected{% endif %}>Comisión inmobiliaria</option>
+                                <option value="cochera" {% if tipo_filtro == 'cochera' %}selected{% endif %}>Cochera</option>
+                                <option value="fondo" {% if tipo_filtro == 'fondo' %}selected{% endif %}>Fondo mantenimiento</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Buscar</label>
+                            <input type="text" name="q" class="form-control" value="{{ busqueda }}" placeholder="Propiedad, propietario, nº liquidación…">
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-search me-1"></i>Buscar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card shadow">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">Detalle de ingresos a oficina</h5>
+                </div>
+                <div class="card-body p-0 table-responsive">
+                    <table class="table table-hover table-sm mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Fecha ingreso</th>
+                                <th>Tipo</th>
+                                <th>Liquidación</th>
+                                <th>Propiedad</th>
+                                <th>Propietario</th>
+                                <th>Operación</th>
+                                <th class="text-end">Monto</th>
+                                <th class="text-center">Criterio</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for f in filas %}
+                            <tr>
+                                <td class="text-nowrap">{{ f.fecha|date:"d/m/Y" }}</td>
+                                <td>
+                                    {% if f.tipo == 'comision' %}
+                                    <span class="badge bg-success">{{ f.tipo_display }}</span>
+                                    {% elif f.tipo == 'cochera' %}
+                                    <span class="badge bg-info text-dark">{{ f.tipo_display }}</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">{{ f.tipo_display }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{{ f.liquidacion_url }}" class="text-decoration-none">#{{ f.liquidacion_id }}</a>
+                                    <span class="text-muted small">({{ f.estado_liq }})</span>
+                                </td>
+                                <td>{{ f.propiedad }}</td>
+                                <td class="small">{{ f.propietario }}</td>
+                                <td class="small">{{ f.operacion }}</td>
+                                <td class="text-end fw-semibold">${{ f.monto|format_price }}</td>
+                                <td class="text-center small text-muted">{{ f.nota }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="8" class="text-center text-muted py-5">
+                                    No hay ingresos a oficina en el período seleccionado.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        {% if filas %}
+                        <tfoot class="table-warning">
+                            <tr>
+                                <th colspan="6" class="text-end">Total</th>
+                                <th class="text-end">${{ total_general|format_price }}</th>
+                                <th></th>
+                            </tr>
+                        </tfoot>
+                        {% endif %}
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
