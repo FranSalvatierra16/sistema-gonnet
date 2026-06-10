@@ -288,12 +288,132 @@ def _puede_ver_caratulas(user):
     return bool(getattr(user, 'is_superuser', False) or (nivel is not None and nivel >= 4))
 
 
+def _resumen_liquidacion_caratula(*, reserva=None, contrato=None, liquidacion=None, sucursal=None):
+    """
+    Cuadro estilo «crear liquidación»: total operación, propietario (depto), oficina, cochera, gastos, neto.
+    Si hay liquidación guardada usa esos montos; si no, sugiere según la operación pendiente.
+    """
+    if liquidacion:
+        gastos_qs = liquidacion.gastos.filter(aceptado=True).order_by('fecha_gasto', 'id')
+        gastos_filas = [
+            {'descripcion': (g.descripcion or 'Gasto').strip(), 'monto': g.monto}
+            for g in gastos_qs
+        ]
+        monto_prop = Decimal(str(liquidacion.monto_propietario or 0))
+        monto_coch = Decimal(str(liquidacion.monto_cochera or 0))
+        filas_pago = []
+        if monto_prop > 0:
+            filas_pago.append({'concepto': 'Monto al propietario (depto)', 'monto': monto_prop})
+        if monto_coch > 0:
+            filas_pago.append({'concepto': 'Cochera', 'monto': monto_coch})
+        monto_fondo = Decimal(str(liquidacion.monto_fondo_mantenimiento or 0))
+        monto_gastos = Decimal(str(liquidacion.monto_gastos or 0))
+        return {
+            'tiene_datos': True,
+            'desde_liquidacion': True,
+            'liquidacion_id': liquidacion.id,
+            'estado_liquidacion': liquidacion.get_estado_display(),
+            'monto_total': liquidacion.monto_total_operacion,
+            'monto_propietario': liquidacion.monto_propietario,
+            'monto_inmobiliaria': liquidacion.monto_inmobiliaria,
+            'monto_cochera': monto_coch,
+            'monto_fondo': monto_fondo,
+            'monto_gastos': monto_gastos,
+            'monto_a_pagar': liquidacion.monto_a_pagar,
+            'subtotal_propietario_cochera': monto_prop + monto_coch,
+            'total_descontado': monto_gastos + monto_fondo,
+            'filas_pago': filas_pago,
+            'gastos_filas': gastos_filas,
+        }
+
+    if not sucursal:
+        return {'tiene_datos': False}
+
+    from inmobiliaria.views import _operaciones_gastos_pendientes_data
+
+    propiedad = None
+    if reserva is not None:
+        propiedad = reserva.propiedad
+    elif contrato is not None:
+        propiedad = contrato.propiedad
+
+    if not propiedad:
+        return {'tiene_datos': False}
+
+    data = _operaciones_gastos_pendientes_data(propiedad, sucursal)
+    op_match = None
+    for op in data.get('operaciones') or []:
+        if reserva is not None and op.get('tipo') == 'reserva':
+            try:
+                if int(op.get('id')) == reserva.id:
+                    op_match = op
+                    break
+            except (TypeError, ValueError):
+                continue
+        if contrato is not None and op.get('tipo') in ('contrato', 'contrato_cuota'):
+            try:
+                if int(op.get('id')) == contrato.id:
+                    op_match = op
+                    break
+            except (TypeError, ValueError):
+                continue
+
+    if not op_match and reserva is not None and reserva.precio_total:
+        total = Decimal(str(reserva.precio_total))
+        pct = getattr(propiedad, 'porcentaje_propietario', None)
+        if pct is None or pct <= 0:
+            pct = Decimal('70')
+        else:
+            pct = Decimal(str(pct))
+        prop = (total * pct / Decimal('100')).quantize(Decimal('0.01'))
+        inm = (total - prop).quantize(Decimal('0.01'))
+        op_match = {
+            'descripcion': f'Reserva #{reserva.id}',
+            'monto_total': str(total),
+            'monto_propietario': str(prop),
+            'monto_inmobiliaria': str(inm),
+        }
+
+    if not op_match:
+        return {'tiene_datos': False}
+
+    total = Decimal(str(op_match.get('monto_total') or 0))
+    prop = Decimal(str(op_match.get('monto_propietario') or 0))
+    inm = Decimal(str(op_match.get('monto_inmobiliaria') or 0))
+    if inm <= 0 and total > prop:
+        inm = (total - prop).quantize(Decimal('0.01'))
+
+    return {
+        'tiene_datos': True,
+        'desde_liquidacion': False,
+        'liquidacion_id': None,
+        'estado_liquidacion': None,
+        'monto_total': total,
+        'monto_propietario': prop,
+        'monto_inmobiliaria': inm,
+        'monto_cochera': Decimal('0'),
+        'monto_fondo': Decimal('0'),
+        'monto_gastos': Decimal('0'),
+        'monto_a_pagar': prop,
+        'subtotal_propietario_cochera': prop,
+        'total_descontado': Decimal('0'),
+        'filas_pago': [
+            {
+                'concepto': (op_match.get('descripcion') or 'Operación').strip(),
+                'monto': prop,
+            }
+        ],
+        'gastos_filas': [],
+    }
+
+
 def _ctx_liquidacion_operacion(*, reserva=None, contrato=None):
     """Enlace a crear o ver liquidación del propietario para esta operación."""
     ctx = {
         'liquidacion_operacion': None,
         'url_liquidacion_operacion': None,
         'etiqueta_liquidacion_operacion': 'Liquidar operación',
+        'resumen_liquidacion': {'tiene_datos': False},
     }
     if reserva is not None:
         liq = (
@@ -312,6 +432,11 @@ def _ctx_liquidacion_operacion(*, reserva=None, contrato=None):
             ctx['url_liquidacion_operacion'] = reverse(
                 'inmobiliaria:crear_liquidacion_reserva', args=[reserva.id]
             )
+        ctx['resumen_liquidacion'] = _resumen_liquidacion_caratula(
+            reserva=reserva,
+            liquidacion=ctx['liquidacion_operacion'],
+            sucursal=reserva.sucursal,
+        )
     elif contrato is not None:
         liq = (
             LiquidacionPropietario.objects.filter(contrato=contrato)
@@ -329,6 +454,11 @@ def _ctx_liquidacion_operacion(*, reserva=None, contrato=None):
             ctx['url_liquidacion_operacion'] = reverse(
                 'inmobiliaria:crear_liquidacion_contrato', args=[contrato.id]
             )
+        ctx['resumen_liquidacion'] = _resumen_liquidacion_caratula(
+            contrato=contrato,
+            liquidacion=ctx['liquidacion_operacion'],
+            sucursal=contrato.sucursal,
+        )
     return ctx
 
 
