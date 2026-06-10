@@ -6,6 +6,7 @@ from django.conf.urls.static import static
 from . import views
 from . import views_caratulas
 from . import views_migrar  # TEMPORAL - ELIMINAR DESPUÉS
+from . import views_mis_propiedades
 
 app_name = 'inmobiliaria'
 
@@ -177,6 +178,7 @@ urlpatterns = [
     path('caja/eliminar/<int:movimiento_id>/', views.eliminar_movimiento, name='eliminar_movimiento'),
     path('caja/movimiento/<int:movimiento_id>/editar/', views.editar_movimiento_caja, name='editar_movimiento_caja'),
     path('cajas/<int:numero>/arqueo/', views.guardar_arqueo_caja, name='guardar_arqueo_caja'),
+    path('cajas/<int:numero>/anterior-matriz/', views.guardar_anterior_matriz_caja, name='guardar_anterior_matriz_caja'),
     path('cajas/', views.lista_cajas, name='lista_cajas'),
     path('cajas/abrir/', views.abrir_caja, name='abrir_caja'),
     path('cajas/<int:numero>/', views.detalle_caja, name='detalle_caja'),
@@ -405,5 +407,12 @@ urlpatterns = [
         name='obtener_operaciones_pendientes_propietario',
     ),
     path('liquidaciones/gasto-pendiente/crear/', views.crear_gasto_pendiente, name='crear_gasto_pendiente'),
+
+    # Mis propiedades (cartera por usuario)
+    path('mis-propiedades/', views_mis_propiedades.mis_propiedades, name='mis_propiedades'),
+    path('mis-propiedades/buscar-inquilino/', views_mis_propiedades.mis_propiedades_buscar_inquilino, name='mis_propiedades_buscar_inquilino'),
+    path('mis-propiedades/agregar/', views_mis_propiedades.mis_propiedades_agregar, name='mis_propiedades_agregar'),
+    path('mis-propiedades/<int:pk>/quitar/', views_mis_propiedades.mis_propiedades_quitar, name='mis_propiedades_quitar'),
+    path('mis-propiedades/<int:pk>/porcentaje/', views_mis_propiedades.mis_propiedades_editar_porcentaje, name='mis_propiedades_editar_porcentaje'),
     
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

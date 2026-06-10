@@ -826,7 +826,7 @@ $(document).ready(function() {
         return total;
     }
 
-    function sincronizarCorresponde(origen) {
+    function sincronizarCorresponde(origen, campoActivoId) {
         if (origen) {
             ultimoCasilleroCorresponde = origen;
         }
@@ -840,9 +840,9 @@ $(document).ready(function() {
         var src = ultimoCasilleroCorresponde || 'oficina';
 
         if (total <= 0) {
-            $of.val(fmtMontoLocal(0));
-            $prop.val(fmtMontoLocal(0));
-            $inq.val(fmtMontoLocal(0));
+            if (campoActivoId !== 'monto_a_oficina') $of.val(fmtMontoLocal(0));
+            if (campoActivoId !== 'monto_a_propietario') $prop.val(fmtMontoLocal(0));
+            if (campoActivoId !== 'monto_a_inquilino') $inq.val(fmtMontoLocal(0));
             return;
         }
 
@@ -878,9 +878,9 @@ $(document).ready(function() {
             }
         }
 
-        $of.val(fmtMontoLocal(of));
-        $prop.val(fmtMontoLocal(prop));
-        $inq.val(fmtMontoLocal(inq));
+        if (campoActivoId !== 'monto_a_oficina') $of.val(fmtMontoLocal(of));
+        if (campoActivoId !== 'monto_a_propietario') $prop.val(fmtMontoLocal(prop));
+        if (campoActivoId !== 'monto_a_inquilino') $inq.val(fmtMontoLocal(inq));
     }
 
     function actualizarVisibilidadMediosPago() {
@@ -890,23 +890,31 @@ $(document).ready(function() {
         $('#bloque_detalle_cheque').toggleClass('d-none', ch <= 0);
     }
 
-    // Actualizar total cuando cambian los montos
+    // Actualizar total cuando cambian los montos de pago (sin reformatear imputación en cada tecla)
     $('.monto').on('input', function() {
         calcularTotal();
         actualizarVisibilidadMediosPago();
-        sincronizarCorresponde();
+    });
+    $('.monto').on('blur', function() {
+        sincronizarCorresponde(ultimoCasilleroCorresponde);
     });
     calcularTotal();
     actualizarVisibilidadMediosPago();
     sincronizarCorresponde('oficina');
 
-    $('#monto_a_oficina').on('input focus', function() {
+    $('#monto_a_oficina').on('focus', function() {
+        ultimoCasilleroCorresponde = 'oficina';
+    }).on('blur', function() {
         sincronizarCorresponde('oficina');
     });
-    $('#monto_a_propietario').on('input focus', function() {
+    $('#monto_a_propietario').on('focus', function() {
+        ultimoCasilleroCorresponde = 'propietario';
+    }).on('blur', function() {
         sincronizarCorresponde('propietario');
     });
-    $('#monto_a_inquilino').on('input focus', function() {
+    $('#monto_a_inquilino').on('focus', function() {
+        ultimoCasilleroCorresponde = 'inquilino';
+    }).on('blur', function() {
         sincronizarCorresponde('inquilino');
     });
 

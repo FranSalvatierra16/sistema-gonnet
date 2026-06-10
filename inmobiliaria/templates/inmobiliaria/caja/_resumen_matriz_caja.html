@@ -3,6 +3,9 @@
     <div class="card-header bg-success text-white py-2">
         <strong>Resumen de caja por medio de pago</strong>
         <small class="ms-2 opacity-75">Anterior + Ingresos − Egresos = Saldo actual</small>
+        {% if puede_editar_arqueo_caja %}
+        <small class="d-block opacity-75 mt-1">Doble clic en la fila ANTERIOR para editar saldos previos.</small>
+        {% endif %}
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
@@ -21,8 +24,13 @@
                     <tr class="{% if fila.destacado %}table-warning fw-bold{% endif %}">
                         <th class="text-start {% if fila.egresos %}text-danger{% endif %}">{{ fila.label }}</th>
                         {% for key, label in resumen_matriz.columnas %}
-                        <td class="{% if fila.egresos %}text-danger{% endif %}">
-                            ${{ fila.valores|get_item:key|format_price }}
+                        <td class="{% if fila.egresos %}text-danger{% endif %}{% if fila.key == 'anterior' and puede_editar_arqueo_caja %} caja-anterior-editable{% endif %}"
+                            {% if fila.key == 'anterior' and puede_editar_arqueo_caja %}
+                            data-medio="{{ key }}"
+                            data-valor="{{ resumen_matriz.anterior_edit|get_item:key|get_item:'anterior' }}"
+                            title="Doble clic para editar"
+                            {% endif %}>
+                            <span class="caja-anterior-display">${{ fila.valores|get_item:key|format_price }}</span>
                         </td>
                         {% endfor %}
                         <td class="{% if fila.egresos %}text-danger{% else %}fw-semibold{% endif %}">
@@ -35,7 +43,17 @@
                     <tr>
                         <th class="text-start">USD (efectivo)</th>
                         <td colspan="5" class="text-start small">
-                            Anterior: <strong>U$S {{ resumen_matriz.usd.anterior|format_price }}</strong>
+                            Anterior:
+                            {% if puede_editar_arqueo_caja %}
+                            <span class="caja-anterior-editable caja-anterior-usd d-inline-block"
+                                  data-medio="usd"
+                                  data-valor="{{ resumen_matriz.usd.anterior }}"
+                                  title="Doble clic para editar">
+                                <strong class="caja-anterior-display">U$S {{ resumen_matriz.usd.anterior|format_price }}</strong>
+                            </span>
+                            {% else %}
+                            <strong>U$S {{ resumen_matriz.usd.anterior|format_price }}</strong>
+                            {% endif %}
                             &nbsp;·&nbsp; Ingresos: <span class="text-success">U$S {{ resumen_matriz.usd.ingresos|format_price }}</span>
                             &nbsp;·&nbsp; Egresos: <span class="text-danger">U$S {{ resumen_matriz.usd.egresos|format_price }}</span>
                             &nbsp;·&nbsp; Saldo: <strong>U$S {{ resumen_matriz.usd.saldo|format_price }}</strong>
@@ -46,3 +64,92 @@
         </div>
     </div>
 </div>
+
+{% if puede_editar_arqueo_caja %}
+<form id="formAnteriorMatrizCaja" method="post" action="{% url 'inmobiliaria:guardar_anterior_matriz_caja' caja.numero %}" class="d-none">
+    {% csrf_token %}
+    <input type="hidden" name="medio" id="anteriorMatrizMedio">
+    <input type="hidden" name="valor" id="anteriorMatrizValor">
+</form>
+<style>
+.caja-anterior-editable { cursor: pointer; }
+.caja-anterior-editable:hover { background-color: rgba(255, 193, 7, 0.2); }
+.caja-anterior-editable.is-editing { padding: 0 !important; }
+.caja-anterior-editable.is-editing input {
+    border: 2px solid #ffc107;
+    text-align: right;
+    font-size: inherit;
+    min-width: 7rem;
+}
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var form = document.getElementById('formAnteriorMatrizCaja');
+    if (!form) return;
+
+    function iniciarEdicion(cell) {
+        if (cell.classList.contains('is-editing')) return;
+        var medio = cell.getAttribute('data-medio');
+        var esUsd = medio === 'usd';
+        var raw = cell.getAttribute('data-valor') || '0';
+        var display = cell.querySelector('.caja-anterior-display');
+        var prevHtml = display ? display.textContent : '';
+        cell.classList.add('is-editing');
+
+        var input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'form-control form-control-sm';
+        input.inputMode = 'decimal';
+        input.autocomplete = 'off';
+        input.value = typeof formatMontoAR === 'function' ? formatMontoAR(raw) : raw;
+        if (display) display.style.display = 'none';
+        cell.appendChild(input);
+        input.focus();
+        input.select();
+
+        var cancelado = false;
+
+        function cancelar() {
+            cancelado = true;
+            cell.classList.remove('is-editing');
+            input.remove();
+            if (display) {
+                display.style.display = '';
+                display.textContent = prevHtml;
+            }
+        }
+
+        function guardar() {
+            if (cancelado) return;
+            document.getElementById('anteriorMatrizMedio').value = medio;
+            document.getElementById('anteriorMatrizValor').value = input.value;
+            form.submit();
+        }
+
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                guardar();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                cancelar();
+            }
+        });
+        input.addEventListener('blur', function() {
+            setTimeout(function() {
+                if (!cancelado && cell.classList.contains('is-editing')) {
+                    guardar();
+                }
+            }, 120);
+        });
+    }
+
+    document.querySelectorAll('.caja-anterior-editable').forEach(function(cell) {
+        cell.addEventListener('dblclick', function(e) {
+            e.preventDefault();
+            iniciarEdicion(cell);
+        });
+    });
+});
+</script>
+{% endif %}

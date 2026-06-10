@@ -462,6 +462,9 @@
         </div>
     </div>
 
+    {% if puede_editar_arqueo_caja %}
+    <script src="{% static 'js/monto-argentino.js' %}"></script>
+    {% endif %}
     {% include 'inmobiliaria/caja/_resumen_matriz_caja.html' %}
 </div>
 

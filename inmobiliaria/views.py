@@ -10779,6 +10779,15 @@ def _build_resumen_matriz_caja(caja, ingresos, egresos, arqueo_manual=None, sald
         saldo_usd = ing_usd - egr_usd
         anterior_usd = Decimal('0')
 
+    anterior_edit = {
+        k: {
+            'anterior': anterior_por[k],
+            'ingreso': ingresos_por[k],
+            'egreso': egresos_por[k],
+        }
+        for k in ingresos_por
+    }
+
     return {
         'columnas': [
             ('efectivo', 'TOTAL EFECTIVO'),
@@ -10787,6 +10796,7 @@ def _build_resumen_matriz_caja(caja, ingresos, egresos, arqueo_manual=None, sald
             ('deposito', 'TOTAL DEPÓSITOS'),
         ],
         'filas': filas,
+        'anterior_edit': anterior_edit,
         'usd': {
             'anterior': anterior_usd,
             'ingresos': ing_usd,
@@ -10925,6 +10935,36 @@ def _total_ars_desde_arqueo_dict(data):
     for val in (data.get('cuentas_json') or {}).values():
         total += Decimal(str(val or 0))
     return total
+
+
+def _redistribuir_cuentas_json_por_total(nuevo_total, base_cuentas_json, cuentas_bancarias):
+    """Reparte un total de depósitos entre cuentas según proporción del arqueo/teórico base."""
+    nuevo_total = Decimal(str(nuevo_total or 0))
+    base = {str(k): Decimal(str(v or 0)) for k, v in (base_cuentas_json or {}).items()}
+    if not base and cuentas_bancarias:
+        return {str(cuentas_bancarias[0].id): str(nuevo_total.quantize(Decimal('0.01')))}
+
+    base_total = sum(base.values())
+    if base_total <= 0:
+        ids = [str(c.id) for c in cuentas_bancarias]
+        if not ids:
+            return base
+        por_cuenta = (nuevo_total / len(ids)).quantize(Decimal('0.01'))
+        result = {cid: str(por_cuenta) for cid in ids}
+        diff = nuevo_total - sum(Decimal(v) for v in result.values())
+        if diff and ids:
+            result[ids[0]] = str((Decimal(result[ids[0]]) + diff).quantize(Decimal('0.01')))
+        return result
+
+    factor = nuevo_total / base_total
+    result = {}
+    for k, v in base.items():
+        result[k] = str((v * factor).quantize(Decimal('0.01')))
+    diff = nuevo_total - sum(Decimal(v) for v in result.values())
+    if diff:
+        first_key = next(iter(result))
+        result[first_key] = str((Decimal(result[first_key]) + diff).quantize(Decimal('0.01')))
+    return result
 
 
 def _saldos_teoricos_a_dict_arqueo(saldos_teoricos):
@@ -11284,6 +11324,103 @@ def guardar_arqueo_caja(request, numero):
         request,
         f'Saldos de caja actualizados. Total ARS: ${format_monto_argentino(total)}.',
     )
+    return redirect('inmobiliaria:detalle_caja', numero=caja.numero)
+
+
+@login_required
+@require_POST
+@transaction.atomic
+def guardar_anterior_matriz_caja(request, numero):
+    """Ajusta la fila ANTERIOR del resumen: recalcula saldos vía arqueo manual."""
+    if not _usuario_puede_arqueo_cierre_caja(request.user):
+        messages.error(request, 'Solo el super administrador puede ajustar los saldos de la caja.')
+        return redirect('inmobiliaria:gestionar_caja')
+
+    from inmobiliaria.decimal_utils import parse_decimal_monto
+    from inmobiliaria.models.caja import CajaArqueoManual, MovimientoCaja, TipoMovimientoCajaEnum
+    from inmobiliaria.models.sucursal import CuentaBancaria
+
+    caja = get_object_or_404(
+        Caja,
+        numero=numero,
+        sucursal=request.user.sucursal,
+        estado='abierta',
+    )
+    medio = (request.POST.get('medio') or '').strip().lower()
+    medios_validos = {'efectivo', 'cheque', 'tarjeta', 'deposito', 'usd'}
+    if medio not in medios_validos:
+        messages.error(request, 'Medio de pago inválido.')
+        return redirect('inmobiliaria:detalle_caja', numero=caja.numero)
+
+    try:
+        nuevo_anterior = parse_decimal_monto(request.POST.get('valor', '0') or '0')
+    except Exception:
+        messages.error(request, 'El monto ingresado no es válido.')
+        return redirect('inmobiliaria:detalle_caja', numero=caja.numero)
+
+    cuentas_bancarias = list(
+        CuentaBancaria.objects.filter(sucursal=request.user.sucursal, activa=True).order_by(
+            'nombre_banco', 'alias'
+        )
+    )
+    saldos_teoricos = _calcular_saldos_caja_por_medio(caja, request.user.sucursal)
+    movimientos_qs = MovimientoCaja.objects.filter(caja=caja)
+    ingresos = movimientos_qs.filter(tipo=TipoMovimientoCajaEnum.INGRESO)
+    egresos = movimientos_qs.filter(tipo=TipoMovimientoCajaEnum.EGRESO)
+
+    def _sum(movs, attr):
+        return sum(Decimal(str(getattr(m, attr) or 0)) for m in movs)
+
+    ingresos_por = {
+        'efectivo': _sum(ingresos, 'monto_efectivo'),
+        'cheque': _sum(ingresos, 'monto_cheque'),
+        'tarjeta': _sum(ingresos, 'monto_tarjeta'),
+        'deposito': _sum(ingresos, 'monto_deposito'),
+    }
+    egresos_por = {
+        'efectivo': _sum(egresos, 'monto_efectivo'),
+        'cheque': _sum(egresos, 'monto_cheque'),
+        'tarjeta': _sum(egresos, 'monto_tarjeta'),
+        'deposito': _sum(egresos, 'monto_deposito'),
+    }
+    ing_usd = _sum(ingresos, 'monto_dolares')
+    egr_usd = _sum(egresos, 'monto_dolares')
+
+    arqueo_manual = CajaArqueoManual.objects.filter(caja=caja).first()
+    base = (
+        arqueo_manual.como_dict_arqueo()
+        if arqueo_manual
+        else _saldos_teoricos_a_dict_arqueo(saldos_teoricos)
+    )
+
+    if medio == 'usd':
+        nuevo_saldo = nuevo_anterior + ing_usd - egr_usd
+        base['dolares'] = nuevo_saldo
+    elif medio == 'deposito':
+        nuevo_saldo = nuevo_anterior + ingresos_por['deposito'] - egresos_por['deposito']
+        base['cuentas_json'] = _redistribuir_cuentas_json_por_total(
+            nuevo_saldo,
+            base.get('cuentas_json') or {},
+            cuentas_bancarias,
+        )
+    else:
+        nuevo_saldo = nuevo_anterior + ingresos_por[medio] - egresos_por[medio]
+        base[medio] = nuevo_saldo
+
+    CajaArqueoManual.objects.update_or_create(
+        caja=caja,
+        defaults={
+            'efectivo': base['efectivo'],
+            'cheque': base['cheque'],
+            'tarjeta': base['tarjeta'],
+            'dolares': base['dolares'],
+            'deposito_galicia': Decimal('0'),
+            'deposito_mp': Decimal('0'),
+            'cuentas_json': base.get('cuentas_json') or {},
+            'registrado_por': request.user,
+        },
+    )
+    messages.success(request, 'Saldo anterior actualizado.')
     return redirect('inmobiliaria:detalle_caja', numero=caja.numero)
 
 
