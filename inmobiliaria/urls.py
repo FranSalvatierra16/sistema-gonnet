@@ -394,6 +394,11 @@ urlpatterns = [
         views.vincular_gasto_pendiente_liquidacion,
         name='vincular_gasto_pendiente_liquidacion',
     ),
+    path(
+        'liquidaciones/<int:liquidacion_id>/eliminar-gasto-pendiente/',
+        views.eliminar_gasto_pendiente_liquidacion,
+        name='eliminar_gasto_pendiente_liquidacion',
+    ),
     path('liquidaciones/gasto/<int:gasto_id>/aceptar-rechazar/', views.aceptar_rechazar_gasto, name='aceptar_rechazar_gasto'),
     path('liquidaciones/gasto/<int:gasto_id>/eliminar/', views.eliminar_gasto_liquidacion, name='eliminar_gasto_liquidacion'),
     path('liquidaciones/<int:liquidacion_id>/confirmar/', views.confirmar_liquidacion, name='confirmar_liquidacion'),

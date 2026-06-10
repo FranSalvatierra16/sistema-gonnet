@@ -308,9 +308,12 @@
                                             </td>
                                             <td class="text-end">${{ row.monto|format_price }}</td>
                                             <td class="text-nowrap small">{{ row.fecha_gasto_display|default:"—" }}</td>
-                                            <td class="text-end">
+                                            <td class="text-end text-nowrap">
                                                 <button type="button" class="btn btn-sm btn-primary btn-vincular-gasto-pendiente" data-linea-id="{{ row.id }}">
                                                     Incluir en esta liquidación
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-danger btn-eliminar-gasto-pendiente ms-1" data-linea-id="{{ row.id }}" title="Eliminar este gasto pendiente">
+                                                    <i class="fas fa-trash-alt"></i>
                                                 </button>
                                             </td>
                                         </tr>
@@ -600,6 +603,35 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .catch(function() {
                 alert('Error al vincular el gasto.');
+            });
+        });
+    });
+
+    document.querySelectorAll('.btn-eliminar-gasto-pendiente').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const lineaId = this.getAttribute('data-linea-id');
+            if (!lineaId) return;
+            if (!confirm('¿Eliminar este gasto pendiente? No se incluirá en ninguna liquidación.')) {
+                return;
+            }
+            const formData = new FormData();
+            formData.append('csrfmiddlewaretoken', getCsrfToken());
+            formData.append('linea_id', lineaId);
+            fetch('{% url "inmobiliaria:eliminar_gasto_pendiente_liquidacion" liquidacion.id %}', {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-CSRFToken': getCsrfToken() }
+            })
+            .then(function(response) { return response.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert(data.error || 'No se pudo eliminar el gasto.');
+                }
+            })
+            .catch(function() {
+                alert('Error al eliminar el gasto.');
             });
         });
     });
