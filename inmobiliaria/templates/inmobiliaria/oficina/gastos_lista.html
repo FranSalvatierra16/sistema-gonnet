@@ -8,12 +8,24 @@
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
         <div>
             <h2 class="mb-1"><i class="fas fa-file-invoice-dollar text-danger me-2"></i>Gastos de oficina</h2>
-            <p class="text-muted small mb-0">Sueldos, servicios, gastos contables y demás imputables a la oficina.</p>
+            <p class="text-muted small mb-0">Consulta de sueldos, servicios, gastos contables y demás imputables a la oficina.</p>
         </div>
         <div class="d-flex gap-2">
             <a href="{% url 'inmobiliaria:oficina_dashboard' %}" class="btn btn-outline-secondary btn-sm">Panel oficina</a>
             <a href="{% url 'inmobiliaria:oficina_categorias' %}" class="btn btn-outline-primary btn-sm">Categorías</a>
+            {% if caja_abierta %}
+            <a href="{% url 'inmobiliaria:nuevo_movimiento' %}?gasto_oficina=1" class="btn btn-danger btn-sm">
+                <i class="fas fa-plus me-1"></i>Cargar gasto en caja
+            </a>
+            {% endif %}
         </div>
+    </div>
+
+    <div class="alert alert-info py-2 mb-3 small">
+        Los gastos se registran desde <strong>Caja → Nuevo movimiento</strong>, activando «Gasto de oficina».
+        {% if not caja_abierta %}
+        <span class="text-danger">No hay caja abierta para cargar un gasto ahora.</span>
+        {% endif %}
     </div>
 
     <div class="alert alert-danger py-2 mb-3">
@@ -27,110 +39,84 @@
         {% endif %}
     </div>
 
-    <div class="row g-4">
-        <div class="col-lg-4">
-            <div class="card shadow-sm">
-                <div class="card-header bg-light"><strong>Nuevo gasto</strong></div>
-                <div class="card-body">
-                    <form method="post" action="{% url 'inmobiliaria:oficina_gasto_crear' %}">
-                        {% csrf_token %}
-                        <div class="mb-2">
-                            <label class="form-label small">Categoría / subcategoría</label>
-                            <select name="categoria_id" class="form-select form-select-sm" required>
-                                <option value="">— Elegir —</option>
-                                {% for op in categorias_opciones %}
-                                <option value="{{ op.id }}">{{ op.label }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="mb-2">
-                            <label class="form-label small">Fecha</label>
-                            <input type="date" name="fecha" class="form-control form-control-sm" value="{% now 'Y-m-d' %}" required>
-                        </div>
-                        <div class="mb-2">
-                            <label class="form-label small">Descripción</label>
-                            <input type="text" name="descripcion" class="form-control form-control-sm" maxlength="255" placeholder="Ej. Sueldo marzo — administración" required>
-                        </div>
-                        <div class="mb-2">
-                            <label class="form-label small">Monto</label>
-                            <input type="text" name="monto" class="form-control form-control-sm input-monto-ar" inputmode="numeric" autocomplete="off" placeholder="0" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label small">Observaciones</label>
-                            <textarea name="observaciones" class="form-control form-control-sm" rows="2"></textarea>
-                        </div>
-                        <button type="submit" class="btn btn-danger btn-sm w-100">Registrar gasto</button>
-                    </form>
+    <div class="card shadow-sm mb-3">
+        <div class="card-body">
+            <form method="get" class="row g-2 align-items-end">
+                <div class="col-md-2">
+                    <label class="form-label small mb-0">Desde</label>
+                    <input type="date" name="fecha_desde" class="form-control form-control-sm" value="{{ fecha_desde }}">
                 </div>
-            </div>
+                <div class="col-md-2">
+                    <label class="form-label small mb-0">Hasta</label>
+                    <input type="date" name="fecha_hasta" class="form-control form-control-sm" value="{{ fecha_hasta }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small mb-0">Categoría</label>
+                    <select name="categoria" class="form-select form-select-sm">
+                        <option value="">Todas</option>
+                        {% for r in raices_filtro %}
+                        <option value="{{ r.id }}" {% if categoria_filtro == r.id|stringformat:"s" %}selected{% endif %}>{{ r.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small mb-0">Buscar</label>
+                    <input type="text" name="q" class="form-control form-control-sm" value="{{ q }}" placeholder="Descripción…">
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary btn-sm w-100">Filtrar</button>
+                </div>
+            </form>
         </div>
-        <div class="col-lg-8">
-            <div class="card shadow-sm mb-3">
-                <div class="card-body">
-                    <form method="get" class="row g-2 align-items-end">
-                        <div class="col-md-2">
-                            <label class="form-label small mb-0">Desde</label>
-                            <input type="date" name="fecha_desde" class="form-control form-control-sm" value="{{ fecha_desde }}">
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label small mb-0">Hasta</label>
-                            <input type="date" name="fecha_hasta" class="form-control form-control-sm" value="{{ fecha_hasta }}">
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label small mb-0">Categoría</label>
-                            <select name="categoria" class="form-select form-select-sm">
-                                <option value="">Todas</option>
-                                {% for r in raices_filtro %}
-                                <option value="{{ r.id }}" {% if categoria_filtro == r.id|stringformat:"s" %}selected{% endif %}>{{ r.nombre }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label small mb-0">Buscar</label>
-                            <input type="text" name="q" class="form-control form-control-sm" value="{{ q }}" placeholder="Descripción…">
-                        </div>
-                        <div class="col-md-2">
-                            <button type="submit" class="btn btn-primary btn-sm w-100">Filtrar</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-            <div class="card shadow-sm">
-                <div class="table-responsive">
-                    <table class="table table-sm table-hover mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Fecha</th>
-                                <th>Categoría</th>
-                                <th>Descripción</th>
-                                <th class="text-end">Monto</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for g in gastos %}
-                            <tr>
-                                <td class="small">{{ g.fecha|date:"d/m/Y" }}</td>
-                                <td class="small">{{ g.categoria.nombre_ruta }}</td>
-                                <td>
-                                    {{ g.descripcion }}
-                                    {% if g.observaciones %}<br><span class="text-muted small">{{ g.observaciones }}</span>{% endif %}
-                                </td>
-                                <td class="text-end text-danger fw-semibold">${{ g.monto|format_price }}</td>
-                                <td class="text-end">
-                                    <form method="post" action="{% url 'inmobiliaria:oficina_gasto_eliminar' g.id %}" class="d-inline" onsubmit="return confirm('¿Eliminar este gasto?');">
-                                        {% csrf_token %}
-                                        <button type="submit" class="btn btn-outline-danger btn-sm py-0">×</button>
-                                    </form>
-                                </td>
-                            </tr>
-                            {% empty %}
-                            <tr><td colspan="5" class="text-center text-muted py-4">No hay gastos con los filtros aplicados.</td></tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Categoría</th>
+                        <th>Descripción</th>
+                        <th>Productor</th>
+                        <th class="text-end">Monto</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for g in gastos %}
+                    <tr>
+                        <td class="small">{{ g.fecha|date:"d/m/Y" }}</td>
+                        <td class="small">{{ g.categoria.nombre_ruta }}</td>
+                        <td>
+                            {{ g.descripcion }}
+                            {% if g.observaciones %}<br><span class="text-muted small">{{ g.observaciones }}</span>{% endif %}
+                            {% if g.movimiento_caja_id %}
+                            <br><span class="text-muted small">Mov. caja #{{ g.movimiento_caja_id }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="small">
+                            {% if g.vendedor %}
+                            {{ g.vendedor.nombre }} {{ g.vendedor.apellido }}
+                            {% else %}
+                            —
+                            {% endif %}
+                        </td>
+                        <td class="text-end text-danger fw-semibold">${{ g.monto|format_price }}</td>
+                        <td class="text-end">
+                            {% if not g.movimiento_caja_id %}
+                            <form method="post" action="{% url 'inmobiliaria:oficina_gasto_eliminar' g.id %}" class="d-inline" onsubmit="return confirm('¿Eliminar este gasto?');">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-outline-danger btn-sm py-0">×</button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="text-center text-muted py-4">No hay gastos con los filtros aplicados.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
 </div>

@@ -11734,6 +11734,12 @@ def _buscar_movimiento_caja_duplicado_reciente(
 @login_required
 def nuevo_movimiento(request, numero_caja=None):
     from inmobiliaria.models.sucursal import CuentaBancaria
+    from inmobiliaria.oficina_gastos import (
+        asegurar_categorias_base,
+        categorias_opciones_con_flags,
+        registrar_gasto_oficina_desde_movimiento,
+        validar_gasto_oficina_post,
+    )
 
     if numero_caja:
         caja = get_object_or_404(Caja, numero=numero_caja, sucursal=request.user.sucursal, estado='abierta')
@@ -11750,6 +11756,9 @@ def nuevo_movimiento(request, numero_caja=None):
 
     sucursal = request.user.sucursal
     cuentas_bancarias = CuentaBancaria.objects.filter(sucursal=sucursal, activa=True).order_by('nombre_banco', 'alias')
+    asegurar_categorias_base(sucursal)
+    categorias_gasto_oficina = categorias_opciones_con_flags(sucursal)
+    pre_gasto_oficina = (request.GET.get('gasto_oficina') or '').strip() in ('1', 'true', 'si', 'yes')
 
     def _ctx_nuevo_movimiento(extra=None):
         ctx = {
@@ -11757,6 +11766,8 @@ def nuevo_movimiento(request, numero_caja=None):
             'fecha_actual': timezone.now(),
             'cuentas_bancarias': cuentas_bancarias,
             'movimiento_uid': uuid.uuid4().hex,
+            'categorias_gasto_oficina': categorias_gasto_oficina,
+            'pre_gasto_oficina': pre_gasto_oficina,
         }
         if extra:
             ctx.update(extra)
@@ -11764,6 +11775,7 @@ def nuevo_movimiento(request, numero_caja=None):
 
     if request.method == 'POST':
         try:
+            es_gasto_oficina = (request.POST.get('es_gasto_oficina') or '').strip() in ('1', 'on', 'true')
             movimiento_uid = (request.POST.get('movimiento_uid') or '').strip()
             # Procesar fechas
             fecha_desde = None
@@ -11798,6 +11810,22 @@ def nuevo_movimiento(request, numero_caja=None):
             if len(concepto_guardado) > 200:
                 concepto_guardado = concepto_guardado[:197] + '...'
             
+            gasto_oficina_categoria = None
+            gasto_oficina_vendedor = None
+            gasto_oficina_descripcion = ''
+            gasto_oficina_observaciones = ''
+            if es_gasto_oficina:
+                gasto_oficina_descripcion = (request.POST.get('gasto_oficina_descripcion') or '').strip()
+                gasto_oficina_observaciones = (request.POST.get('gasto_oficina_observaciones') or '').strip()
+                cat_id = (request.POST.get('gasto_oficina_categoria_id') or '').strip()
+                vend_id = (request.POST.get('gasto_oficina_vendedor_id') or '').strip()
+                gasto_oficina_categoria, gasto_oficina_vendedor, err_gasto = validar_gasto_oficina_post(
+                    sucursal, cat_id, gasto_oficina_descripcion, vend_id
+                )
+                if err_gasto:
+                    messages.error(request, err_gasto)
+                    return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
+
             # Obtener y validar tipo (debe ser 'IN' o 'EG')
             tipo_raw = (request.POST.get('tipo', 'IN') or '').strip()
             tipo_raw_upper = tipo_raw.upper()
@@ -11814,6 +11842,9 @@ def nuevo_movimiento(request, numero_caja=None):
                 tipo = 'EG'
             else:
                 tipo = 'IN'  # Default seguro
+
+            if es_gasto_oficina:
+                tipo = TipoMovimientoCajaEnum.EGRESO
             
             # Obtener y validar tipo_comprobante (debe ser código de 2 caracteres)
             tipo_comprobante_raw = request.POST.get('tipo_comprobante', 'RC')
@@ -11825,6 +11856,15 @@ def nuevo_movimiento(request, numero_caja=None):
                 'OT': 'OT', 'Otro': 'OT'
             }
             tipo_comprobante = tipo_comprobante_map.get(tipo_comprobante_raw, tipo_comprobante_raw[:2] if len(tipo_comprobante_raw) > 2 else tipo_comprobante_raw)
+            if es_gasto_oficina:
+                tipo_comprobante = 'GS'
+
+            if es_gasto_oficina and gasto_oficina_categoria:
+                concepto_guardado = (
+                    f'Gasto oficina — {gasto_oficina_categoria.nombre_ruta()} — {gasto_oficina_descripcion}'
+                )
+                if len(concepto_guardado) > 200:
+                    concepto_guardado = concepto_guardado[:197] + '...'
             
             # Crear el movimiento con valores iniciales
             movimiento = MovimientoCaja(
@@ -11833,7 +11873,11 @@ def nuevo_movimiento(request, numero_caja=None):
                 tipo_comprobante=tipo_comprobante,
                 numero_liquidacion=request.POST.get('numero_liquidacion', ''),
                 concepto=concepto_guardado,
-                propiedad_id=request.POST.get('propiedad_id') if request.POST.get('propiedad_id') else None,
+                propiedad_id=(
+                    None
+                    if es_gasto_oficina
+                    else (request.POST.get('propiedad_id') if request.POST.get('propiedad_id') else None)
+                ),
                 fecha_desde=fecha_desde,
                 fecha_hasta=fecha_hasta,
                 monto_efectivo=0,
@@ -11907,14 +11951,19 @@ def nuevo_movimiento(request, numero_caja=None):
                 )
                 return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
 
-            try:
-                m_of, m_prop, m_inq = _parse_imputacion_corresponde_post(request, total_mov)
-            except ValueError:
-                messages.error(
-                    request,
-                    'El reparto entre oficina, propietario e inquilino debe sumar el total del movimiento.',
-                )
-                return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
+            if es_gasto_oficina:
+                m_of = total_mov
+                m_prop = Decimal('0')
+                m_inq = Decimal('0')
+            else:
+                try:
+                    m_of, m_prop, m_inq = _parse_imputacion_corresponde_post(request, total_mov)
+                except ValueError:
+                    messages.error(
+                        request,
+                        'El reparto entre oficina, propietario e inquilino debe sumar el total del movimiento.',
+                    )
+                    return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
 
             movimiento.monto_a_oficina = m_of
             movimiento.monto_a_propietario = m_prop
@@ -11923,7 +11972,8 @@ def nuevo_movimiento(request, numero_caja=None):
             movimiento.a_descontar = a_descontar_raw
 
             if (
-                tipo == TipoMovimientoCajaEnum.EGRESO
+                not es_gasto_oficina
+                and tipo == TipoMovimientoCajaEnum.EGRESO
                 and (m_prop > 0 or m_of > 0)
                 and not movimiento.propiedad_id
             ):
@@ -12029,7 +12079,16 @@ def nuevo_movimiento(request, numero_caja=None):
 
                 movimiento.save()
                 _marcar_movimiento_uid_usado(request, movimiento_uid)
-                if quiere_vale and (vendedor_vale or tipo_beneficiario_vale == TipoBeneficiarioVale.OTRO):
+                if es_gasto_oficina and gasto_oficina_categoria:
+                    registrar_gasto_oficina_desde_movimiento(
+                        movimiento,
+                        gasto_oficina_categoria,
+                        gasto_oficina_descripcion,
+                        observaciones=gasto_oficina_observaciones,
+                        vendedor=gasto_oficina_vendedor,
+                        usuario=request.user,
+                    )
+                elif quiere_vale and (vendedor_vale or tipo_beneficiario_vale == TipoBeneficiarioVale.OTRO):
                     ValeVendedor.crear_desde_movimiento(
                         movimiento,
                         vendedor=vendedor_vale,
@@ -12040,7 +12099,12 @@ def nuevo_movimiento(request, numero_caja=None):
                         beneficiario_dni=beneficiario_dni_vale,
                     )
 
-            if quiere_vale and (vendedor_vale or tipo_beneficiario_vale == TipoBeneficiarioVale.OTRO):
+            if es_gasto_oficina:
+                messages.success(
+                    request,
+                    'Egreso de caja y gasto de oficina registrados.',
+                )
+            elif quiere_vale and (vendedor_vale or tipo_beneficiario_vale == TipoBeneficiarioVale.OTRO):
                 messages.success(
                     request,
                     'Movimiento creado y vale registrado en el historial.',

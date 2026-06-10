@@ -139,6 +139,70 @@
                         <input type="hidden" name="fecha" value="{{ fecha_actual|date:'Y-m-d H:i:s' }}">
                             </div>
                         </div>
+
+                <!-- Gasto de oficina -->
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="es_gasto_oficina" value="1" id="es_gasto_oficina" {% if pre_gasto_oficina %}checked{% endif %}>
+                            <label class="form-check-label fw-semibold" for="es_gasto_oficina">
+                                Gasto de oficina
+                            </label>
+                            <small class="text-muted d-block">
+                                Egreso imputable a la oficina (sueldos, servicios, contables). Se registra en el panel Oficina.
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                <div id="bloque_gasto_oficina" class="row mb-3 {% if not pre_gasto_oficina %}d-none{% endif %}">
+                    <div class="col-12">
+                        <div class="card border-danger">
+                            <div class="card-header bg-light text-danger"><strong>Gasto de oficina</strong></div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-5">
+                                        <label class="form-label">Categoría / subcategoría</label>
+                                        <select name="gasto_oficina_categoria_id" id="gasto_oficina_categoria_id" class="form-select">
+                                            <option value="">— Elegir —</option>
+                                            {% for op in categorias_gasto_oficina %}
+                                            <option value="{{ op.id }}" data-requiere-productor="{% if op.requiere_productor %}1{% else %}0{% endif %}">{{ op.label }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-md-7">
+                                        <label class="form-label">Descripción</label>
+                                        <input type="text" name="gasto_oficina_descripcion" id="gasto_oficina_descripcion" class="form-control" maxlength="255" placeholder="Ej. Sueldo marzo — administración">
+                                    </div>
+                                    <div class="col-md-12 d-none" id="bloque_productor_gasto_oficina">
+                                        <label class="form-label">Productor / vendedor <span class="text-danger">*</span></label>
+                                        <div class="row g-2 align-items-end">
+                                            <div class="col-md-6">
+                                                <div class="caja-ac-wrap">
+                                                    <div class="input-group">
+                                                        <input type="text" id="buscar_productor_gasto_oficina" class="form-control" placeholder="ID, nombre o apellido" autocomplete="off">
+                                                        <button type="button" class="btn btn-primary" id="btn_buscar_productor_gasto_oficina" title="Buscar">
+                                                            <i class="fas fa-search"></i>
+                                                        </button>
+                                                    </div>
+                                                    <div id="dropdown_productores_gasto_oficina" class="caja-ac-dropdown list-group" role="listbox"></div>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <input type="text" id="productor_gasto_oficina_nombre" class="form-control" readonly placeholder="Nombre del productor">
+                                                <input type="hidden" name="gasto_oficina_vendedor_id" id="gasto_oficina_vendedor_id">
+                                            </div>
+                                        </div>
+                                        <small class="text-muted">Obligatorio para Sueldos › Productores.</small>
+                                    </div>
+                                    <div class="col-md-12">
+                                        <label class="form-label">Observaciones (opcional)</label>
+                                        <textarea name="gasto_oficina_observaciones" id="gasto_oficina_observaciones" class="form-control" rows="2"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                         
                 <!-- Rango de Fechas (opcional) -->
                 <div class="row mb-3">
@@ -204,7 +268,7 @@
                 </div>
                                         
                 <!-- Concepto -->
-                <div class="row mb-3">
+                <div class="row mb-3" id="bloque_concepto_mov">
                     <div class="col-md-12">
                         <div class="card">
                             <div class="card-header">
@@ -246,7 +310,7 @@
                                     </div>
                                     
                 <!-- Propiedad -->
-                <div class="row mb-3">
+                <div class="row mb-3" id="bloque_propiedad_mov">
                     <div class="col-md-12">
                         <div class="card">
                             <div class="card-header">
@@ -290,7 +354,7 @@
                         </div>
                         
                 <!-- Detalles -->
-                <div class="row mb-3">
+                <div class="row mb-3" id="bloque_detalles_mov">
                     <div class="col-md-12">
                         <label class="form-label">Detalles</label>
                         <textarea name="detalles" class="form-control" rows="3"></textarea>
@@ -375,7 +439,7 @@
                                 <input type="date" name="cheque_fecha_vencimiento" class="form-control">
                             </div>
                         </div>
-                        <div class="row mb-3 mt-2">
+                        <div class="row mb-3 mt-2" id="bloque_imputacion_mov">
                             <div class="col-12">
                                 <hr>
                                 <label class="form-label fw-semibold mb-2">A quién corresponde el importe</label>
@@ -679,8 +743,101 @@ $(document).ready(function() {
     }
 
     function hideAllCajaDropdowns() {
-        $('#dropdown_conceptos, #dropdown_propiedades_main, #dropdown_productores').removeClass('show').empty();
+        $('#dropdown_conceptos, #dropdown_propiedades_main, #dropdown_productores, #dropdown_productores_gasto_oficina')
+            .removeClass('show').empty();
     }
+
+    function categoriaGastoOficinaRequiereProductor() {
+        var $opt = $('#gasto_oficina_categoria_id option:selected');
+        return $opt.data('requiere-productor') === 1 || $opt.data('requiere-productor') === '1';
+    }
+
+    function actualizarModoGastoOficina() {
+        var activo = $('#es_gasto_oficina').is(':checked');
+        $('#bloque_gasto_oficina').toggleClass('d-none', !activo);
+        $('#bloque_concepto_mov, #bloque_propiedad_mov, #bloque_detalles_mov, #bloque_beneficiario_vale')
+            .toggleClass('d-none', activo);
+        $('#bloque_imputacion_mov').toggleClass('d-none', activo);
+        if (activo) {
+            $('select[name="tipo"]').val('EG');
+            $('#bloque_productor_gasto_oficina').toggleClass('d-none', !categoriaGastoOficinaRequiereProductor());
+        } else {
+            $('#bloque_productor_gasto_oficina').addClass('d-none');
+        }
+    }
+
+    $('#es_gasto_oficina').on('change', actualizarModoGastoOficina);
+    $('#gasto_oficina_categoria_id').on('change', function() {
+        if ($('#es_gasto_oficina').is(':checked')) {
+            var req = categoriaGastoOficinaRequiereProductor();
+            $('#bloque_productor_gasto_oficina').toggleClass('d-none', !req);
+            if (!req) {
+                $('#gasto_oficina_vendedor_id').val('');
+                $('#productor_gasto_oficina_nombre').val('');
+                $('#buscar_productor_gasto_oficina').val('');
+            }
+        }
+    });
+    actualizarModoGastoOficina();
+
+    function aplicarProductorGastoOficina(id, nombre, apellido) {
+        $('#buscar_productor_gasto_oficina').val(String(id));
+        $('#productor_gasto_oficina_nombre').val($.trim(nombre + ' ' + apellido));
+        $('#gasto_oficina_vendedor_id').val(id);
+        $('#dropdown_productores_gasto_oficina').removeClass('show').empty();
+    }
+
+    function renderProductoresGastoOficinaDropdown(list) {
+        var $dd = $('#dropdown_productores_gasto_oficina');
+        $dd.empty();
+        if (!list || !list.length) {
+            $dd.append('<div class="list-group-item text-muted py-2">Sin resultados</div>');
+        } else {
+            list.forEach(function(v) {
+                var $b = $('<button type="button" class="list-group-item list-group-item-action py-2"></button>');
+                $b.attr('data-id', v.id).attr('data-nombre', v.nombre).attr('data-apellido', v.apellido);
+                $b.html('<span class="fw-semibold">#' + escapeHtml(String(v.id)) + '</span> ' +
+                    escapeHtml(v.nombre) + ' ' + escapeHtml(v.apellido));
+                $dd.append($b);
+            });
+        }
+        $dd.addClass('show');
+    }
+
+    function fetchProductoresGastoOficina(termino) {
+        $.ajax({
+            url: '{% url "inmobiliaria:buscar_vendedores" %}',
+            data: { termino: termino || '', csrfmiddlewaretoken: csrfToken() },
+            method: 'POST',
+            success: function(response) {
+                renderProductoresGastoOficinaDropdown(response.vendedores || []);
+            },
+            error: function() {
+                renderProductoresGastoOficinaDropdown([]);
+            }
+        });
+    }
+
+    var debouncedProductoresGastoOficina = debounce(function() {
+        var t = $('#buscar_productor_gasto_oficina').val().trim();
+        if (t.length < 1) {
+            $('#dropdown_productores_gasto_oficina').removeClass('show').empty();
+            return;
+        }
+        fetchProductoresGastoOficina(t);
+    }, 260);
+
+    $('#buscar_productor_gasto_oficina').on('input', debouncedProductoresGastoOficina);
+    $('#buscar_productor_gasto_oficina').on('focus', function() {
+        var t = $(this).val().trim();
+        if (t.length >= 1) fetchProductoresGastoOficina(t);
+    });
+    $('#btn_buscar_productor_gasto_oficina').on('click', function() {
+        fetchProductoresGastoOficina($('#buscar_productor_gasto_oficina').val().trim());
+    });
+    $(document).on('click', '#dropdown_productores_gasto_oficina .list-group-item-action', function() {
+        aplicarProductorGastoOficina($(this).data('id'), $(this).data('nombre'), $(this).data('apellido'));
+    });
     $(document).on('click', function(e) {
         if (!$(e.target).closest('.caja-ac-wrap').length) {
             hideAllCajaDropdowns();
@@ -1442,7 +1599,29 @@ $(document).ready(function() {
     // Evitar doble envío del formulario (doble clic o reenvío del navegador)
     var enviandoMovimientoCaja = false;
     $('#formMovimiento').on('submit', function(e) {
-        sincronizarCorresponde();
+        if ($('#es_gasto_oficina').is(':checked')) {
+            if (!$('#gasto_oficina_categoria_id').val()) {
+                e.preventDefault();
+                alert('Elegí la categoría del gasto de oficina.');
+                return false;
+            }
+            if (!$('#gasto_oficina_descripcion').val().trim()) {
+                e.preventDefault();
+                alert('La descripción del gasto de oficina es obligatoria.');
+                return false;
+            }
+            if (categoriaGastoOficinaRequiereProductor() && !$('#gasto_oficina_vendedor_id').val()) {
+                e.preventDefault();
+                alert('Para Sueldos › Productores tenés que elegir el productor.');
+                return false;
+            }
+            var totalGo = calcularTotal();
+            $('#monto_a_oficina').val(fmtMontoLocal(totalGo));
+            $('#monto_a_propietario').val(fmtMontoLocal(0));
+            $('#monto_a_inquilino').val(fmtMontoLocal(0));
+        } else {
+            sincronizarCorresponde();
+        }
         if (enviandoMovimientoCaja) {
             e.preventDefault();
             return false;

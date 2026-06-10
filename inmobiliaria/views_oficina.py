@@ -12,6 +12,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from inmobiliaria.models import (
+    Caja,
     CarteraPropiedadUsuario,
     CategoriaGastoOficina,
     ComisionVendedor,
@@ -20,13 +21,7 @@ from inmobiliaria.models import (
     ValeVendedor,
 )
 from inmobiliaria.models.persona import usuario_es_nivel_administracion
-
-CATEGORIAS_INICIALES = [
-    ('Sueldos', ['Administración', 'Productores', 'Cargas sociales']),
-    ('Gastos contables', ['Honorarios contador', 'Cargas sociales', 'Impuestos']),
-    ('Servicios', ['Luz', 'Internet', 'Teléfono', 'Limpieza']),
-    ('Inmueble oficina', ['Alquiler', 'Expensas', 'Mantenimiento']),
-]
+from inmobiliaria.oficina_gastos import asegurar_categorias_base
 
 
 def _parse_fecha(s):
@@ -40,45 +35,6 @@ def _parse_fecha(s):
 
 def _puede_oficina(user):
     return usuario_es_nivel_administracion(user)
-
-
-def _asegurar_categorias_base(sucursal):
-    if CategoriaGastoOficina.objects.filter(sucursal=sucursal).exists():
-        return False
-    orden = 0
-    for raiz, hijos in CATEGORIAS_INICIALES:
-        parent = CategoriaGastoOficina.objects.create(
-            sucursal=sucursal,
-            nombre=raiz,
-            orden=orden,
-        )
-        orden += 1
-        for i, hijo in enumerate(hijos):
-            CategoriaGastoOficina.objects.create(
-                sucursal=sucursal,
-                parent=parent,
-                nombre=hijo,
-                orden=i,
-            )
-    return True
-
-
-def _categorias_opciones(sucursal):
-    """Lista plana para selects: solo hojas (subcategorías) o raíces sin hijos."""
-    raices = (
-        CategoriaGastoOficina.objects.filter(sucursal=sucursal, activa=True, parent__isnull=True)
-        .prefetch_related('subcategorias')
-        .order_by('orden', 'nombre')
-    )
-    opciones = []
-    for raiz in raices:
-        hijos = [s for s in raiz.subcategorias.all() if s.activa]
-        if hijos:
-            for hijo in sorted(hijos, key=lambda x: (x.orden, x.nombre)):
-                opciones.append({'id': hijo.id, 'label': hijo.nombre_ruta()})
-        else:
-            opciones.append({'id': raiz.id, 'label': raiz.nombre})
-    return opciones
 
 
 def _arbol_categorias(sucursal):
@@ -109,7 +65,7 @@ def oficina_dashboard(request):
         return HttpResponseForbidden()
 
     sucursal = request.user.sucursal
-    _asegurar_categorias_base(sucursal)
+    asegurar_categorias_base(sucursal)
 
     today = timezone.localdate()
     mes_ini = today.replace(day=1)
@@ -172,7 +128,7 @@ def oficina_gastos(request):
         return HttpResponseForbidden()
 
     sucursal = request.user.sucursal
-    _asegurar_categorias_base(sucursal)
+    asegurar_categorias_base(sucursal)
 
     fecha_desde_s = (request.GET.get('fecha_desde') or '').strip()
     fecha_hasta_s = (request.GET.get('fecha_hasta') or '').strip()
@@ -191,7 +147,7 @@ def oficina_gastos(request):
         fecha_desde_s, fecha_hasta_s = dr_desde.isoformat(), dr_hasta.isoformat()
 
     qs = GastoOficina.objects.filter(sucursal=sucursal).select_related(
-        'categoria', 'categoria__parent', 'usuario_creacion'
+        'categoria', 'categoria__parent', 'usuario_creacion', 'vendedor', 'movimiento_caja'
     )
     if dr_desde:
         qs = qs.filter(fecha__gte=dr_desde)
@@ -220,6 +176,12 @@ def oficina_gastos(request):
         sucursal=sucursal, parent__isnull=True, activa=True
     ).order_by('orden', 'nombre')
 
+    caja_abierta = (
+        Caja.objects.filter(sucursal=sucursal, estado='abierta')
+        .order_by('-fecha_apertura')
+        .first()
+    )
+
     return render(
         request,
         'inmobiliaria/oficina/gastos_lista.html',
@@ -232,7 +194,7 @@ def oficina_gastos(request):
             'categoria_filtro': categoria_id,
             'q': q,
             'raices_filtro': raices_filtro,
-            'categorias_opciones': _categorias_opciones(sucursal),
+            'caja_abierta': caja_abierta,
         },
     )
 
@@ -240,46 +202,15 @@ def oficina_gastos(request):
 @login_required
 @require_POST
 def oficina_gasto_crear(request):
+    """Los gastos se cargan desde Nuevo movimiento de caja, no desde este panel."""
     if not _puede_oficina(request.user):
         return HttpResponseForbidden()
 
-    sucursal = request.user.sucursal
-    from inmobiliaria.decimal_utils import parse_decimal_monto
-
-    categoria_id = (request.POST.get('categoria_id') or '').strip()
-    fecha_s = (request.POST.get('fecha') or '').strip()
-    descripcion = (request.POST.get('descripcion') or '').strip()
-    observaciones = (request.POST.get('observaciones') or '').strip()
-    monto = parse_decimal_monto(request.POST.get('monto'))
-
-    if not categoria_id.isdigit():
-        messages.error(request, 'Elegí una categoría.')
-        return redirect('inmobiliaria:oficina_gastos')
-
-    categoria = get_object_or_404(
-        CategoriaGastoOficina,
-        id=int(categoria_id),
-        sucursal=sucursal,
-        activa=True,
+    messages.info(
+        request,
+        'Los gastos de oficina se registran desde Caja → Nuevo movimiento, '
+        'marcando «Gasto de oficina».',
     )
-    fecha = _parse_fecha(fecha_s) or timezone.localdate()
-    if not descripcion:
-        messages.error(request, 'La descripción es obligatoria.')
-        return redirect('inmobiliaria:oficina_gastos')
-    if monto is None or monto <= 0:
-        messages.error(request, 'El monto debe ser mayor a cero.')
-        return redirect('inmobiliaria:oficina_gastos')
-
-    GastoOficina.objects.create(
-        sucursal=sucursal,
-        categoria=categoria,
-        fecha=fecha,
-        monto=monto,
-        descripcion=descripcion[:255],
-        observaciones=observaciones,
-        usuario_creacion=request.user,
-    )
-    messages.success(request, 'Gasto de oficina registrado.')
     return redirect('inmobiliaria:oficina_gastos')
 
 
@@ -289,7 +220,18 @@ def oficina_gasto_eliminar(request, gasto_id):
     if not _puede_oficina(request.user):
         return HttpResponseForbidden()
 
-    gasto = get_object_or_404(GastoOficina, id=gasto_id, sucursal=request.user.sucursal)
+    gasto = get_object_or_404(
+        GastoOficina.objects.select_related('movimiento_caja'),
+        id=gasto_id,
+        sucursal=request.user.sucursal,
+    )
+    if gasto.movimiento_caja_id:
+        messages.error(
+            request,
+            f'Este gasto está vinculado al movimiento de caja #{gasto.movimiento_caja_id}. '
+            'Eliminá o anulá el movimiento desde la caja.',
+        )
+        return redirect('inmobiliaria:oficina_gastos')
     gasto.delete()
     messages.success(request, 'Gasto eliminado.')
     return redirect('inmobiliaria:oficina_gastos')
@@ -301,7 +243,7 @@ def oficina_categorias(request):
         return HttpResponseForbidden()
 
     sucursal = request.user.sucursal
-    _asegurar_categorias_base(sucursal)
+    asegurar_categorias_base(sucursal)
 
     return render(
         request,

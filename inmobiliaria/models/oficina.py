@@ -71,7 +71,16 @@ class GastoOficina(models.Model):
         null=True,
         blank=True,
         related_name='gastos_oficina_vinculados',
-        help_text='Opcional: egreso de caja que pagó este gasto.',
+        help_text='Egreso de caja que pagó este gasto.',
+    )
+    vendedor = models.ForeignKey(
+        'Vendedor',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='gastos_oficina_sueldo',
+        verbose_name='Productor / vendedor',
+        help_text='Obligatorio para sueldos a productores.',
     )
     usuario_creacion = models.ForeignKey(
         settings.AUTH_USER_MODEL,
