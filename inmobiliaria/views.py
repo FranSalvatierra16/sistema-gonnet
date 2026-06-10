@@ -131,14 +131,28 @@ def _next_para_redirect_recibo(request):
     return _validar_url_volver_recibo(referer, request)
 
 
-def _url_volver_recibo(request, default=None):
-    """URL del botón Volver: ?next=, Referer del mismo sitio, o default."""
-    back = _next_para_redirect_recibo(request)
-    if back:
-        return back
-    if default is not None:
-        return default
+def _nivel_usuario_request(request):
+    user = getattr(request, 'user', None)
+    if not user or not getattr(user, 'is_authenticated', False):
+        return 0
+    if getattr(user, 'is_superuser', False):
+        return 5
+    try:
+        return int(getattr(user, 'nivel', 0) or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _default_url_volver_recibo(request):
+    """Destino por defecto al salir de un recibo: caja (nivel ≥3) o menú principal."""
+    if _nivel_usuario_request(request) >= 3:
+        return reverse('inmobiliaria:dashboard_caja')
     return reverse('inmobiliaria:dashboard')
+
+
+def _url_volver_recibo(request, default=None):
+    """URL del botón Volver en pantallas de recibo (según nivel del usuario)."""
+    return _default_url_volver_recibo(request)
 
 # Modelos usados por vistas definidas antes del import masivo de .models (línea ~871)
 from .models import ComisionVendedor, ValeVendedor, MesComisionPagadoVendedor
@@ -5175,10 +5189,7 @@ def ver_recibo(request, reserva_id):
             'tiene_sellados': sellados_monto > 0,
             'logo_base64': logo_base64,
             'sucursal': sucursal,  # Agregar sucursal al contexto
-            'url_volver': _url_volver_recibo(
-                request,
-                default=reverse('inmobiliaria:operaciones'),
-            ),
+            'url_volver': _url_volver_recibo(request),
         })
         
     except Exception as e:
@@ -7018,10 +7029,7 @@ def ver_recibo_movimiento(request, movimiento_id):
                 'tiene_honorarios': honorarios_monto > 0,
                 'tiene_sellados': sellados_monto > 0,
                 'sucursal': sucursal,  # Agregar sucursal al contexto
-                'url_volver': _url_volver_recibo(
-                    request,
-                    default=reverse('inmobiliaria:operaciones'),
-                ),
+                'url_volver': _url_volver_recibo(request),
             })
         
         # Si no hay reserva, usar el template original
@@ -7091,14 +7099,7 @@ def ver_recibo_movimiento(request, movimiento_id):
             'liquidacion_relacionada': liquidacion_relacionada,
             'gastos_liquidacion_recibo': gastos_liquidacion_recibo,
             'total_gastos_descontados': total_gastos_descontados,
-            'url_volver': _url_volver_recibo(
-                request,
-                default=(
-                    reverse('inmobiliaria:detalle_contrato', args=[contrato_recibo.id])
-                    if contrato_recibo
-                    else reverse('inmobiliaria:lista_cajas')
-                ),
-            ),
+            'url_volver': _url_volver_recibo(request),
         }
         
         return render(request, 'inmobiliaria/caja/recibo_movimiento.html', context)
@@ -19895,10 +19896,7 @@ def recibo_contrato_24(request, contrato_id):
             'mes_alquiler_es_proporcional': es_proporcional_recibo,
             'mes_alquiler_texto_recibo': mes_alquiler_texto_recibo,
             'formas_de_pago': formas_de_pago_recibo,
-            'url_volver': _url_volver_recibo(
-                request,
-                default=reverse('inmobiliaria:detalle_contrato', args=[contrato.id]),
-            ),
+            'url_volver': _url_volver_recibo(request),
             'recibo_etiqueta_tipo_contrato': contrato.etiqueta_recibo_tipo_contrato,
             'recibo_es_contrato_invierno': contrato.es_contrato_invierno(),
         }
