@@ -23925,6 +23925,72 @@ def agregar_gasto(request, liquidacion_id):
         return JsonResponse({'success': False, 'error': f'Error al agregar el gasto: {str(e)}'})
 
 
+def _eliminar_linea_gasto_pendiente(liquidacion, linea_id, sucursal):
+    """
+    Quita un gasto de la lista de pendientes:
+    - gasto manual (GastoPropietario sin liquidación): se elimina.
+    - egreso de caja (movimiento_N): se marca como inquilino para no volver a ofrecerlo.
+    """
+    propiedad = liquidacion.propiedad
+    propietario = liquidacion.propietario
+    linea_id = (linea_id or '').strip()
+    if not linea_id:
+        return False, 'No se indicó el gasto a eliminar.'
+
+    try:
+        if linea_id.startswith('movimiento_'):
+            movimiento_id = int(linea_id.split('_', 1)[1])
+            movimiento = MovimientoCaja.objects.get(
+                id=movimiento_id,
+                propiedad=propiedad,
+                sucursal=sucursal,
+                tipo=TipoMovimientoCajaEnum.EGRESO,
+            )
+            existe = GastoPropietario.objects.filter(
+                Q(propiedad=propiedad) | Q(propietario=propietario),
+                observaciones__icontains=f'Movimiento de caja #{movimiento.id}',
+            ).exists()
+            if existe:
+                return False, 'Ese egreso ya está vinculado como gasto en el sistema.'
+            movimiento.a_descontar = 'inquilino'
+            movimiento.save(update_fields=['a_descontar'])
+            return True, None
+
+        gasto_id = int(linea_id)
+        gasto = GastoPropietario.objects.get(
+            id=gasto_id,
+            liquidacion__isnull=True,
+            sucursal=sucursal,
+        )
+        if gasto.propietario_id and gasto.propietario_id != propietario.id:
+            return False, 'Ese gasto pertenece a otro propietario.'
+        if gasto.propiedad_id and gasto.propiedad_id != propiedad.id:
+            return False, 'Ese gasto pertenece a otra propiedad.'
+        gasto.delete()
+        return True, None
+    except (GastoPropietario.DoesNotExist, MovimientoCaja.DoesNotExist, ValueError):
+        return False, 'No se encontró el gasto pendiente indicado.'
+    except Exception as exc:
+        return False, str(exc)
+
+
+@login_required
+@require_POST
+def eliminar_gasto_pendiente_liquidacion(request, liquidacion_id):
+    """Elimina un gasto manual pendiente o quita un egreso de caja de la lista de pendientes."""
+    liquidacion = get_object_or_404(
+        LiquidacionPropietario,
+        id=liquidacion_id,
+        sucursal=request.user.sucursal,
+        estado='pendiente',
+    )
+    linea_id = (request.POST.get('linea_id') or '').strip()
+    ok, err = _eliminar_linea_gasto_pendiente(liquidacion, linea_id, request.user.sucursal)
+    if ok:
+        return JsonResponse({'success': True, 'message': 'Gasto eliminado correctamente.'})
+    return JsonResponse({'success': False, 'error': err or 'No se pudo eliminar el gasto.'})
+
+
 @login_required
 @require_POST
 def vincular_gasto_pendiente_liquidacion(request, liquidacion_id):
@@ -24048,9 +24114,6 @@ def aceptar_rechazar_gasto(request, gasto_id):
 @login_required
 @require_POST
 @transaction.atomic
-@login_required
-@require_POST
-@transaction.atomic
 def eliminar_alquiler_liquidacion(request, liquidacion_id):
     """
     Quita el alquiler a pagar de una liquidación pendiente (monto_propietario = 0) y recalcula el neto.
@@ -24092,6 +24155,9 @@ def eliminar_alquiler_liquidacion(request, liquidacion_id):
         )
 
 
+@login_required
+@require_POST
+@transaction.atomic
 def eliminar_gasto_liquidacion(request, gasto_id):
     """
     Elimina un gasto asociado a una liquidación en estado pendiente y recalcula el monto a pagar.
