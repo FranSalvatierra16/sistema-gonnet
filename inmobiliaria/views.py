@@ -647,6 +647,7 @@ def dashboard_comisiones(request):
         'total_neto_sucursal': total_neto_sucursal,
         'total_ops_comisiones': total_ops_comisiones,
         'total_mov_vales': total_mov_vales,
+        'comisiones_mes_sucursal': comisiones_mes_sucursal,
         'neto_mes_sucursal': neto_mes_sucursal,
         'cant_ops_mes': cant_ops_mes,
     }
@@ -11016,53 +11017,6 @@ def _context_bloque_saldos_por_medio(
     }
 
 
-def _context_bloque_saldos_desde_totales(totales, cuentas_bancarias, *, titulo=None):
-    """Mismo desglose por medio que muestra el detalle de caja en pantalla."""
-    saldo_actual = totales.get('saldo_actual') or {}
-    cuentas_items = []
-    for cuenta in cuentas_bancarias:
-        cuenta_data = (saldo_actual.get('cuentas_bancarias') or {}).get(cuenta.id) or {}
-        cuentas_items.append({
-            'cuenta': cuenta,
-            'teorico': Decimal(str(cuenta_data.get('saldo') or 0)),
-        })
-    deposito_total = Decimal(str(saldo_actual.get('deposito') or 0))
-    return _context_bloque_saldos_por_medio(
-        {
-            'efectivo': Decimal(str(saldo_actual.get('efectivo') or 0)),
-            'cheque': Decimal(str(saldo_actual.get('cheque') or 0)),
-            'tarjeta': Decimal(str(saldo_actual.get('tarjeta') or 0)),
-            'dolares': Decimal(str(saldo_actual.get('dolares') or 0)),
-            'deposito_total': deposito_total,
-            'total_ars': Decimal(str(totales.get('saldo_total') or 0)),
-        },
-        titulo=titulo,
-        cuentas_items=cuentas_items,
-    )
-
-
-def _context_bloque_saldos_desde_arqueo_cierre(arqueo, cuentas_bancarias, *, titulo=None):
-    """Arqueo físico registrado al cerrar la caja."""
-    cuentas_items = []
-    deposito_total = Decimal('0')
-    for cuenta in cuentas_bancarias:
-        monto = arqueo.monto_cuenta(cuenta.id)
-        deposito_total += Decimal(str(monto or 0))
-        cuentas_items.append({'cuenta': cuenta, 'teorico': monto})
-    return _context_bloque_saldos_por_medio(
-        {
-            'efectivo': arqueo.efectivo,
-            'cheque': arqueo.cheque,
-            'tarjeta': arqueo.tarjeta,
-            'dolares': arqueo.dolares,
-            'deposito_total': deposito_total,
-            'total_ars': arqueo.total_ars(),
-        },
-        titulo=titulo,
-        cuentas_items=cuentas_items,
-    )
-
-
 def _parse_arqueo_cierre_post(request, cuentas_bancarias):
     from inmobiliaria.decimal_utils import parse_decimal_monto
 
@@ -11392,12 +11346,12 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
         }
     saldo_actual['dolares'] = totales_ingresos['dolares'] - totales_egresos['dolares']
 
-    neto_movimientos_ars = totales_ingresos['total'] - totales_egresos['total']
+    saldo_total = totales_ingresos['total'] - totales_egresos['total']
     totales = {
         'ingresos': totales_ingresos,
         'egresos': totales_egresos,
         'saldo_actual': saldo_actual,
-        'saldo_total': neto_movimientos_ars,
+        'saldo_total': saldo_total
     }
     totales = _aplicar_saldo_inicial_a_totales_efectivo(caja, totales)
     saldo_total = totales['saldo_total']
@@ -11488,7 +11442,6 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
         'cuentas_arqueo': cuentas_arqueo,
         'resumen_matriz': resumen_matriz,
         'matriz_cuentas_bancarias': matriz_cuentas_bancarias,
-        'neto_movimientos_ars': neto_movimientos_ars,
     }
 
 
@@ -11692,7 +11645,9 @@ def imprimir_resumen_caja(request, numero):
     caja = get_object_or_404(Caja, numero=numero, sucursal=request.user.sucursal)
     context = _build_context_detalle_caja(request, caja, movimientos_order=('fecha', 'id'))
     context['es_cierre'] = caja.estado == 'cerrada'
-    context['saldo_teorico_final'] = context['totales']['saldo_total']
+    saldo_ini = _saldo_inicial_efectivo_caja(caja)
+    context['saldo_teorico_final'] = caja.get_saldo_actual()
+    context['neto_movimientos_ars'] = context['totales']['saldo_total'] - saldo_ini
     context['saldos_teoricos_cierre'] = _calcular_saldos_caja_por_medio(caja, request.user.sucursal)
     from inmobiliaria.models.caja import CajaArqueoCierre
     arqueo = CajaArqueoCierre.objects.filter(caja=caja).first()
@@ -11700,24 +11655,11 @@ def imprimir_resumen_caja(request, numero):
         for item in context['saldos_teoricos_cierre']['cuentas']:
             item['contado'] = arqueo.monto_cuenta(item['cuenta'].id)
     context['arqueo_cierre'] = arqueo
-    if arqueo and caja.estado == 'cerrada':
-        context['bloque_saldos_cierre'] = _context_bloque_saldos_desde_arqueo_cierre(
-            arqueo,
-            context['cuentas_bancarias'],
-            titulo='Saldos en caja al cierre (arqueo físico)',
-        )
-    else:
-        titulo_saldos = (
-            'Saldos en caja al cierre'
-            if caja.estado == 'cerrada'
-            else 'Saldo actual en caja'
-        )
-        context['bloque_saldos_cierre'] = _context_bloque_saldos_desde_totales(
-            context['totales'],
-            context['cuentas_bancarias'],
-            titulo=titulo_saldos,
-        )
-    context['puede_editar_arqueo_caja'] = False
+    context['bloque_saldos_cierre'] = _context_bloque_saldos_por_medio(
+        context['saldos_teoricos_cierre'],
+        titulo='Saldos en caja al cierre',
+        cuentas_items=context['saldos_teoricos_cierre']['cuentas'],
+    )
     return render(request, 'inmobiliaria/caja/resumen_caja_imprimir.html', context)
 
 _MOVIMIENTO_UID_SESSION_KEY = 'caja_movimiento_uids_procesados'
@@ -19638,7 +19580,7 @@ def recibo_contrato_24(request, contrato_id):
         for c in conceptos_contrato:
             if _moneda_linea_recibo(c) == 'USD':
                 continue
-            cod = str(c.get('codigo') or c.get('id') or '').strip()
+            cod = str(c.get('codigo') or '').strip()
             if cod not in _CODIGOS_A_FAVOR_RECIBO:
                 continue
             imp = _importe_concepto_recibo(c)
@@ -19722,7 +19664,7 @@ def recibo_contrato_24(request, contrato_id):
                     alquiler_mensual + deposito_garantia + honorarios + sellados
                 )
                 total_abonado_recibo = total_pagado_mov if total_pagado_mov > 0 else monto_cobro_lineas
-                total_saldo_a_abonar = total_obligacion - a_favor_recibo
+                total_saldo_a_abonar = total_obligacion - creditos_lineas_negativas
                 if total_saldo_a_abonar < 0:
                     total_saldo_a_abonar = Decimal('0')
                 neto_a_posesion = total_saldo_a_abonar - total_abonado_recibo
@@ -19772,7 +19714,7 @@ def recibo_contrato_24(request, contrato_id):
                         break
             total_obligacion = alquiler_mensual + deposito_garantia + honorarios + sellados
             total_abonado_recibo = monto_cobro_lineas
-            total_saldo_a_abonar = total_obligacion - a_favor_recibo
+            total_saldo_a_abonar = total_obligacion - creditos_lineas_negativas
             if total_saldo_a_abonar < 0:
                 total_saldo_a_abonar = Decimal('0')
             neto_a_posesion = total_saldo_a_abonar - total_abonado_recibo
@@ -19962,8 +19904,6 @@ def recibo_contrato_24(request, contrato_id):
             'recibo_muestra_pendiente_sel': recibo_muestra_pendiente_sel,
             'honorarios': format_currency(honorarios),
             'sellados': format_currency(sellados),
-            'a_favor_recibo': format_currency(a_favor_recibo) if a_favor_recibo > 0 else '',
-            'muestra_a_favor_recibo': a_favor_recibo > 0,
             'total_a_abonar': format_currency(total_a_abonar),
             'total_solo': format_currency(total_solo_float),
             'total_solo_usd': format_currency_usd(total_solo_usd_float),
@@ -22445,9 +22385,6 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                 # Recalcular monto a pagar con los gastos
                 liquidacion.calcular_monto_a_pagar()
 
-                from inmobiliaria.models.comision import confirmar_comisiones_por_liquidacion
-                confirmar_comisiones_por_liquidacion(liquidacion)
-
             messages.success(request, 'Liquidación creada correctamente.')
             return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion.id)
 
@@ -23449,67 +23386,6 @@ def _periodo_mes_anio_liquidacion(fecha):
         return ''
 
 
-def _reserva_de_liquidacion(liquidacion):
-    """Reserva vinculada a la liquidación (FK o operaciones_incluidas)."""
-    if getattr(liquidacion, 'reserva_id', None):
-        reserva = getattr(liquidacion, 'reserva', None)
-        if reserva is not None:
-            return reserva
-        return Reserva.objects.filter(pk=liquidacion.reserva_id).first()
-    for op in liquidacion.operaciones_incluidas or []:
-        if not isinstance(op, dict) or op.get('tipo') != 'reserva':
-            continue
-        try:
-            rid = int(op.get('id'))
-        except (TypeError, ValueError):
-            continue
-        r = Reserva.objects.filter(pk=rid).select_related('propiedad').first()
-        if r:
-            return r
-    return None
-
-
-def _es_liquidacion_alquiler_por_dia(liquidacion, contrato=None):
-    """True si la liquidación es de una operación por día (no contrato invierno/24)."""
-    if contrato:
-        return False
-    reserva = _reserva_de_liquidacion(liquidacion)
-    if reserva:
-        from inmobiliaria.models.comision import clasificar_tipo_operacion_reserva
-
-        return clasificar_tipo_operacion_reserva(reserva) == 'dia'
-    fd = liquidacion.fecha_desde
-    fh = liquidacion.fecha_hasta
-    if fd and fh:
-        try:
-            return (fh - fd).days < 14
-        except TypeError:
-            pass
-    return False
-
-
-def _detalle_haber_alquiler_liquidacion_cobranzas(liquidacion, contrato=None):
-    """Texto DETALLE para la fila de alquiler en liquidación de cobranzas."""
-    reserva = _reserva_de_liquidacion(liquidacion)
-    fd = liquidacion.fecha_desde
-    fh = liquidacion.fecha_hasta
-    if reserva:
-        fd = fd or reserva.fecha_inicio
-        fh = fh or reserva.fecha_fin
-
-    if _es_liquidacion_alquiler_por_dia(liquidacion, contrato):
-        if fd and fh:
-            return (
-                f'ALQUILER X DÍA // {fd.strftime("%d/%m/%Y")} — {fh.strftime("%d/%m/%Y")}'
-            )
-        if fd:
-            return f'ALQUILER X DÍA // {fd.strftime("%d/%m/%Y")}'
-        return 'ALQUILER X DÍA'
-
-    periodo = _periodo_mes_anio_liquidacion(fd) or _periodo_mes_anio_liquidacion(fh)
-    return f'ALQUILER A PAGAR // {periodo}' if periodo else 'ALQUILER A PAGAR'
-
-
 def _contrato_de_liquidacion(liquidacion):
     if getattr(liquidacion, 'contrato_id', None) and liquidacion.contrato_id:
         return liquidacion.contrato
@@ -23567,6 +23443,40 @@ def _cuotas_resueltas_liquidacion(liquidacion):
     )
 
 
+def _fechas_alquiler_liquidacion(liquidacion):
+    """Fechas de entrada/salida para la fila de alquiler (liquidación o reserva vinculada)."""
+    fecha_desde = liquidacion.fecha_desde
+    fecha_hasta = liquidacion.fecha_hasta
+    reserva = getattr(liquidacion, 'reserva', None)
+    if reserva:
+        if not fecha_desde and reserva.fecha_inicio:
+            fecha_desde = reserva.fecha_inicio
+        if not fecha_hasta and reserva.fecha_fin:
+            fecha_hasta = reserva.fecha_fin
+    return fecha_desde, fecha_hasta
+
+
+def _dias_alquiler_liquidacion(liquidacion):
+    fecha_desde, fecha_hasta = _fechas_alquiler_liquidacion(liquidacion)
+    if fecha_desde and fecha_hasta:
+        dias = (fecha_hasta - fecha_desde).days
+        return dias if dias > 0 else 1
+    return None
+
+
+def _precio_dia_alquiler_liquidacion(liquidacion, monto_propietario=None):
+    """Precio por día del alquiler a pagar al propietario."""
+    monto = Decimal(str(
+        monto_propietario if monto_propietario is not None else (liquidacion.monto_propietario or 0)
+    ))
+    if monto <= Decimal('0.01'):
+        return None
+    dias = _dias_alquiler_liquidacion(liquidacion)
+    if not dias:
+        return None
+    return (monto / Decimal(str(dias))).quantize(Decimal('0.01'))
+
+
 def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
     """
     Detalle de liquidación de cobranzas para el propietario.
@@ -23576,13 +23486,21 @@ def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
     filas = []
     monto_prop = Decimal(str(liquidacion.monto_propietario or 0))
     cochera = Decimal(str(liquidacion.monto_cochera or 0))
-    contrato = _contrato_de_liquidacion(liquidacion)
+    periodo = _periodo_mes_anio_liquidacion(liquidacion.fecha_desde) or _periodo_mes_anio_liquidacion(
+        liquidacion.fecha_hasta
+    )
+    fecha_entrada, fecha_salida = _fechas_alquiler_liquidacion(liquidacion)
+    precio_dia = _precio_dia_alquiler_liquidacion(liquidacion, monto_prop)
 
     if monto_prop > Decimal('0.01'):
         filas.append({
-            'detalle': _detalle_haber_alquiler_liquidacion_cobranzas(liquidacion, contrato),
+            'detalle': f'ALQUILER A PAGAR // {periodo}' if periodo else 'ALQUILER A PAGAR',
             'haber': monto_prop.quantize(Decimal('0.01')),
             'debe': Decimal('0'),
+            'es_alquiler': True,
+            'fecha_entrada': fecha_entrada,
+            'fecha_salida': fecha_salida,
+            'precio_dia': precio_dia,
         })
     if cochera > Decimal('0.01'):
         filas.append({'detalle': 'COCHERA', 'haber': cochera.quantize(Decimal('0.01')), 'debe': Decimal('0')})
@@ -23896,6 +23814,7 @@ def detalle_liquidacion(request, liquidacion_id):
         'operaciones_tabla': _operaciones_incluidas_tabla(liquidacion),
         'puede_eliminar_liquidacion': usuario_es_nivel_administracion(request.user),
         'gastos_pendientes_disponibles': gastos_pendientes_disponibles,
+        'liq_editable': liquidacion.estado == 'pendiente',
         **_context_liquidacion_cobranzas(liquidacion, request),
     }
 
@@ -24004,72 +23923,6 @@ def agregar_gasto(request, liquidacion_id):
         return JsonResponse({'success': False, 'error': f'Error en el formato de datos: {str(e)}'})
     except Exception as e:
         return JsonResponse({'success': False, 'error': f'Error al agregar el gasto: {str(e)}'})
-
-
-def _eliminar_linea_gasto_pendiente(liquidacion, linea_id, sucursal):
-    """
-    Quita un gasto de la lista de pendientes:
-    - gasto manual (GastoPropietario sin liquidación): se elimina.
-    - egreso de caja (movimiento_N): se marca como inquilino para no volver a ofrecerlo.
-    """
-    propiedad = liquidacion.propiedad
-    propietario = liquidacion.propietario
-    linea_id = (linea_id or '').strip()
-    if not linea_id:
-        return False, 'No se indicó el gasto a eliminar.'
-
-    try:
-        if linea_id.startswith('movimiento_'):
-            movimiento_id = int(linea_id.split('_', 1)[1])
-            movimiento = MovimientoCaja.objects.get(
-                id=movimiento_id,
-                propiedad=propiedad,
-                sucursal=sucursal,
-                tipo=TipoMovimientoCajaEnum.EGRESO,
-            )
-            existe = GastoPropietario.objects.filter(
-                Q(propiedad=propiedad) | Q(propietario=propietario),
-                observaciones__icontains=f'Movimiento de caja #{movimiento.id}',
-            ).exists()
-            if existe:
-                return False, 'Ese egreso ya está vinculado como gasto en el sistema.'
-            movimiento.a_descontar = 'inquilino'
-            movimiento.save(update_fields=['a_descontar'])
-            return True, None
-
-        gasto_id = int(linea_id)
-        gasto = GastoPropietario.objects.get(
-            id=gasto_id,
-            liquidacion__isnull=True,
-            sucursal=sucursal,
-        )
-        if gasto.propietario_id and gasto.propietario_id != propietario.id:
-            return False, 'Ese gasto pertenece a otro propietario.'
-        if gasto.propiedad_id and gasto.propiedad_id != propiedad.id:
-            return False, 'Ese gasto pertenece a otra propiedad.'
-        gasto.delete()
-        return True, None
-    except (GastoPropietario.DoesNotExist, MovimientoCaja.DoesNotExist, ValueError):
-        return False, 'No se encontró el gasto pendiente indicado.'
-    except Exception as exc:
-        return False, str(exc)
-
-
-@login_required
-@require_POST
-def eliminar_gasto_pendiente_liquidacion(request, liquidacion_id):
-    """Elimina un gasto manual pendiente o quita un egreso de caja de la lista de pendientes."""
-    liquidacion = get_object_or_404(
-        LiquidacionPropietario,
-        id=liquidacion_id,
-        sucursal=request.user.sucursal,
-        estado='pendiente',
-    )
-    linea_id = (request.POST.get('linea_id') or '').strip()
-    ok, err = _eliminar_linea_gasto_pendiente(liquidacion, linea_id, request.user.sucursal)
-    if ok:
-        return JsonResponse({'success': True, 'message': 'Gasto eliminado correctamente.'})
-    return JsonResponse({'success': False, 'error': err or 'No se pudo eliminar el gasto.'})
 
 
 @login_required
@@ -24195,6 +24048,50 @@ def aceptar_rechazar_gasto(request, gasto_id):
 @login_required
 @require_POST
 @transaction.atomic
+@login_required
+@require_POST
+@transaction.atomic
+def eliminar_alquiler_liquidacion(request, liquidacion_id):
+    """
+    Quita el alquiler a pagar de una liquidación pendiente (monto_propietario = 0) y recalcula el neto.
+    """
+    liquidacion = get_object_or_404(
+        LiquidacionPropietario,
+        id=liquidacion_id,
+        sucursal=request.user.sucursal,
+    )
+    if liquidacion.estado != 'pendiente':
+        return JsonResponse(
+            {
+                'success': False,
+                'error': 'Solo se puede quitar el alquiler mientras la liquidación está pendiente.',
+            },
+            status=400,
+        )
+    monto_prop = Decimal(str(liquidacion.monto_propietario or 0))
+    if monto_prop <= Decimal('0.01'):
+        return JsonResponse(
+            {'success': False, 'error': 'No hay alquiler cargado en esta liquidación.'},
+            status=400,
+        )
+
+    try:
+        liquidacion.monto_propietario = Decimal('0')
+        liquidacion.calcular_monto_a_pagar()
+        return JsonResponse(
+            {
+                'success': True,
+                'message': 'Alquiler eliminado de la liquidación.',
+                'monto_a_pagar': str(liquidacion.monto_a_pagar),
+            }
+        )
+    except Exception as e:
+        return JsonResponse(
+            {'success': False, 'error': f'Error al quitar el alquiler: {str(e)}'},
+            status=500,
+        )
+
+
 def eliminar_gasto_liquidacion(request, gasto_id):
     """
     Elimina un gasto asociado a una liquidación en estado pendiente y recalcula el monto a pagar.

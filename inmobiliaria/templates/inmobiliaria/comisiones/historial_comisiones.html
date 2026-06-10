@@ -43,108 +43,85 @@
 
     <div class="tab-content">
         <div class="tab-pane fade show active" id="hist-pane-todo" role="tabpanel" aria-labelledby="hist-tab-todo">
-            <div class="row mb-4">
-                <div class="col-md-3">
-                    <div class="info-box bg-success text-white">
-                        <div class="info-box-icon">
-                            <i class="fas fa-plus-circle"></i>
-                        </div>
-                        <div class="info-box-content">
-                            <span class="info-box-text">Comisiones</span>
-                            <span class="info-box-number">${{ total_comisiones|format_price }}</span>
-                            <small>{{ comisiones_resumen_count }} operaciones (pendiente)</small>
-                            <small class="d-block text-white-50 mt-1">Excluye meses marcados como pagados</small>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="info-box bg-white text-dark border shadow-sm">
-                        <div class="info-box-icon text-danger">
-                            <i class="fas fa-arrow-down"></i>
-                        </div>
-                        <div class="info-box-content text-start">
-                            <span class="info-box-text d-block text-danger">Vales egreso (restan)</span>
-                            <span class="info-box-number text-danger">${{ total_vales_egreso|format_price }}</span>
-                            <hr class="my-2">
-                            <span class="info-box-text d-block text-success">Vales ingreso (suman al empleado)</span>
-                            <span class="info-box-number text-success">+${{ total_vales_ingreso|format_price }}</span>
-                            <hr class="my-2">
-                            <small class="text-muted">Saldo neto (EG − IN): <strong>${{ total_vales|format_price }}</strong> · {{ vales_resumen_count }} mov. (pendiente)</small>
-                            <small class="d-block text-muted mt-1">Excluye vales de meses pagados</small>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="info-box {% if total_neto >= 0 %}bg-primary{% else %}bg-warning{% endif %} text-white">
-                        <div class="info-box-icon">
-                            <i class="fas fa-equals"></i>
-                        </div>
-                        <div class="info-box-content">
-                            <span class="info-box-text">Total Neto</span>
-                            <span class="info-box-number">${{ total_neto|format_price }}</span>
-                            <small>Comisiones − egresos + ingresos vales (pendiente)</small>
-                            <small class="d-block text-white-50 mt-1">Sin meses ya liquidados</small>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="info-box bg-info text-white">
-                        <div class="info-box-icon">
-                            <i class="fas fa-calendar-month"></i>
-                        </div>
-                        <div class="info-box-content">
-                            <span class="info-box-text">Neto Este Mes</span>
-                            <span class="info-box-number">${{ neto_mes_actual|format_price }}</span>
-                            <small>{{ cantidad_operaciones }} operaciones</small>
-                            <small class="d-block text-white-50 mt-1">Mes calendario actual; $0 si el mes está pagado</small>
-                        </div>
+            <div class="row mb-3">
+                <div class="col-12">
+                    <div class="alert alert-light border py-2 mb-0 d-flex flex-wrap align-items-center justify-content-between gap-2">
+                        <span class="text-muted small mb-0">
+                            <i class="fas fa-equals me-1"></i>
+                            Total neto pendiente (comisiones − saldo vales):
+                        </span>
+                        <strong class="{% if total_neto >= 0 %}text-primary{% else %}text-warning{% endif %} mb-0">
+                            ${{ total_neto|format_price }}
+                        </strong>
                     </div>
                 </div>
             </div>
+            <div class="row cv-split-comisiones-vales g-4">
+                <div class="col-lg-6 cv-col-comisiones">
+                    <h5 class="text-muted border-bottom pb-2 mb-3"><i class="fas fa-percentage me-1"></i> Comisiones</h5>
+                    <div class="row g-3 mb-4">
+                        <div class="col-sm-6">
+                            <div class="info-box bg-success text-white mb-0">
+                                <div class="info-box-icon">
+                                    <i class="fas fa-plus-circle"></i>
+                                </div>
+                                <div class="info-box-content">
+                                    <span class="info-box-text">Total pendiente</span>
+                                    <span class="info-box-number">${{ total_comisiones|format_price }}</span>
+                                    <small>{{ comisiones_resumen_count }} operaciones</small>
+                                    <small class="d-block text-white-50 mt-1">Excluye meses pagados</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="info-box bg-info text-white mb-0">
+                                <div class="info-box-icon">
+                                    <i class="fas fa-calendar-month"></i>
+                                </div>
+                                <div class="info-box-content">
+                                    <span class="info-box-text">Este mes</span>
+                                    <span class="info-box-number">${{ comision_mes_actual|format_price }}</span>
+                                    <small>{{ cantidad_operaciones }} operaciones</small>
+                                    <small class="d-block text-white-50 mt-1">$0 si el mes está pagado</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 {% include "inmobiliaria/comisiones/_historial_fragment_resumen_mes.html" %}
 {% include "inmobiliaria/comisiones/_historial_fragment_lista_comisiones.html" %}
-            <h5 class="text-muted mt-4 mb-2"><i class="fas fa-money-bill-wave me-1"></i> Vales</h5>
+                </div>
+                <div class="col-lg-6 cv-col-vales border-start-lg ps-lg-4">
+                    <h5 class="text-muted border-bottom pb-2 mb-3"><i class="fas fa-money-bill-wave me-1"></i> Vales</h5>
 {% include "inmobiliaria/comisiones/_historial_fragment_vales.html" %}
+                </div>
+            </div>
         </div>
 
         <div class="tab-pane fade" id="hist-pane-comisiones" role="tabpanel" aria-labelledby="hist-tab-comisiones">
-            <div class="row mb-4">
+            <div class="row g-3 mb-4">
                 <div class="col-md-4">
-                    <div class="info-box bg-success text-white">
+                    <div class="info-box bg-success text-white mb-0">
                         <div class="info-box-icon">
                             <i class="fas fa-plus-circle"></i>
                         </div>
                         <div class="info-box-content">
-                            <span class="info-box-text">Comisiones</span>
+                            <span class="info-box-text">Comisiones pendientes</span>
                             <span class="info-box-number">${{ total_comisiones|format_price }}</span>
-                            <small>{{ comisiones_resumen_count }} operaciones (pendiente)</small>
+                            <small>{{ comisiones_resumen_count }} operaciones</small>
                             <small class="d-block text-white-50 mt-1">Excluye meses marcados como pagados</small>
                         </div>
                     </div>
                 </div>
                 <div class="col-md-4">
-                    <div class="info-box {% if total_neto >= 0 %}bg-primary{% else %}bg-warning{% endif %} text-white">
-                        <div class="info-box-icon">
-                            <i class="fas fa-equals"></i>
-                        </div>
-                        <div class="info-box-content">
-                            <span class="info-box-text">Total Neto</span>
-                            <span class="info-box-number">${{ total_neto|format_price }}</span>
-                            <small>Comisiones − egresos + ingresos vales (pendiente)</small>
-                            <small class="d-block text-white-50 mt-1">Sin meses ya liquidados</small>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="info-box bg-info text-white">
+                    <div class="info-box bg-info text-white mb-0">
                         <div class="info-box-icon">
                             <i class="fas fa-calendar-month"></i>
                         </div>
                         <div class="info-box-content">
-                            <span class="info-box-text">Neto Este Mes</span>
-                            <span class="info-box-number">${{ neto_mes_actual|format_price }}</span>
+                            <span class="info-box-text">Comisiones este mes</span>
+                            <span class="info-box-number">${{ comision_mes_actual|format_price }}</span>
                             <small>{{ cantidad_operaciones }} operaciones</small>
-                            <small class="d-block text-white-50 mt-1">Mes calendario actual; $0 si el mes está pagado</small>
+                            <small class="d-block text-white-50 mt-1">Mes calendario actual</small>
                         </div>
                     </div>
                 </div>
@@ -156,6 +133,7 @@
         </div>
 
         <div class="tab-pane fade" id="hist-pane-vales" role="tabpanel" aria-labelledby="hist-tab-vales">
+            <h5 class="text-muted border-bottom pb-2 mb-3"><i class="fas fa-money-bill-wave me-1"></i> Vales</h5>
 {% include "inmobiliaria/comisiones/_historial_fragment_vales.html" %}
         </div>
     </div>
@@ -212,6 +190,15 @@
 .cv-comisiones-vales-nav .nav-item {
     margin-right: 0.35rem;
 }
+.cv-split-comisiones-vales .border-start-lg {
+    border-left: 1px solid #dee2e6;
+}
+@media (max-width: 991.98px) {
+    .cv-split-comisiones-vales .border-start-lg {
+        border-left: none !important;
+        padding-left: 0 !important;
+    }
+}
 .cv-comisiones-tipo-filtro .nav-link {
     font-size: 0.9rem;
     color: #495057;
@@ -235,8 +222,9 @@
 document.addEventListener('DOMContentLoaded', function () {
     try {
         var q = new URLSearchParams(window.location.search || '');
-        if (q.get('tab') === 'comisiones') {
-            var btn = document.getElementById('hist-tab-comisiones');
+        var tab = q.get('tab');
+        if (tab === 'comisiones' || tab === 'vales') {
+            var btn = document.getElementById('hist-tab-' + tab);
             if (btn && window.bootstrap && window.bootstrap.Tab) {
                 window.bootstrap.Tab.getOrCreateInstance(btn).show();
             }
@@ -295,7 +283,6 @@ document.addEventListener('DOMContentLoaded', function () {
     function actualizarTotalesComisionFiltradas() {
         var total = 0;
         var n = 0;
-        // La misma lista se incluye dos veces (pestañas); sumar solo la primera tabla para no duplicar.
         var table = document.querySelector('table.cv-comisiones-tabla-comisiones');
         if (table) {
             table.querySelectorAll('tr.comision-fila-filtro').forEach(function (tr) {

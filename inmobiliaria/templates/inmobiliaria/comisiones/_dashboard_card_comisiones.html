@@ -10,8 +10,6 @@
                                     <th>Vendedor</th>
                                     <th class="text-end">Comisiones</th>
                                     <th class="text-center">Pendientes</th>
-                                    <th class="text-end">Saldo vales</th>
-                                    <th class="text-end">Neto</th>
                                     <th class="text-center">Acciones</th>
                                 </tr>
                             </thead>
@@ -25,10 +23,6 @@
                                             {{ item.comisiones_pendientes }}
                                         </span>
                                     </td>
-                                    <td class="text-end">${{ item.total_vales|floatformat:2 }}</td>
-                                    <td class="text-end {% if item.neto < 0 %}text-danger{% else %}text-success{% endif %}">
-                                        ${{ item.neto|floatformat:2 }}
-                                    </td>
                                     <td class="text-center">
                                         <a href="{% url 'inmobiliaria:historial_comisiones_vendedor' item.vendedor.id %}?tab=comisiones" class="btn btn-sm btn-outline-primary">
                                             Ver detalle
@@ -37,7 +31,7 @@
                                 </tr>
                                 {% empty %}
                                 <tr>
-                                    <td colspan="6" class="text-center py-4 text-muted">No hay vendedores activos en esta sucursal.</td>
+                                    <td colspan="4" class="text-center py-4 text-muted">No hay vendedores activos en esta sucursal.</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>

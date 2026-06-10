@@ -23,7 +23,7 @@
                                     <td class="text-end">${{ item.total_vales|floatformat:2 }}</td>
                                     <td class="text-center">
                                         <a href="{% url 'inmobiliaria:lista_vales_vendedor' item.vendedor.id %}" class="btn btn-sm btn-outline-secondary me-1">Lista vales</a>
-                                        <a href="{% url 'inmobiliaria:historial_comisiones_vendedor' item.vendedor.id %}" class="btn btn-sm btn-outline-primary">Historial</a>
+                                        <a href="{% url 'inmobiliaria:historial_comisiones_vendedor' item.vendedor.id %}?tab=vales" class="btn btn-sm btn-outline-primary">Historial</a>
                                     </td>
                                 </tr>
                                 {% empty %}
