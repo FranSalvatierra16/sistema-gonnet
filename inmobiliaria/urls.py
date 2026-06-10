@@ -410,7 +410,7 @@ urlpatterns = [
 
     # Mis propiedades (cartera por usuario)
     path('mis-propiedades/', views_mis_propiedades.mis_propiedades, name='mis_propiedades'),
-    path('mis-propiedades/buscar-inquilino/', views_mis_propiedades.mis_propiedades_buscar_inquilino, name='mis_propiedades_buscar_inquilino'),
+    path('mis-propiedades/buscar-propietario/', views_mis_propiedades.mis_propiedades_buscar_propietario, name='mis_propiedades_buscar_propietario'),
     path('mis-propiedades/agregar/', views_mis_propiedades.mis_propiedades_agregar, name='mis_propiedades_agregar'),
     path('mis-propiedades/<int:pk>/quitar/', views_mis_propiedades.mis_propiedades_quitar, name='mis_propiedades_quitar'),
     path('mis-propiedades/<int:pk>/porcentaje/', views_mis_propiedades.mis_propiedades_editar_porcentaje, name='mis_propiedades_editar_porcentaje'),

@@ -8,7 +8,7 @@
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
         <div>
             <h1 class="h3 mb-1"><i class="fas fa-home text-primary"></i> Mis propiedades</h1>
-            <p class="text-muted mb-0">Seguí propiedades por inquilino y consultá tu parte de ingresos y gastos de oficina.</p>
+            <p class="text-muted mb-0">Seguí propiedades por propietario y consultá tu parte de ingresos y gastos de oficina.</p>
         </div>
     </div>
 
@@ -47,7 +47,9 @@
         </div>
         <div class="card-body">
             <p class="mb-2"><strong>{{ detalle.item.propiedad.direccion }}</strong>
-                {% if detalle.item.inquilino %}<span class="text-muted"> · ref. inquilino: {{ detalle.item.inquilino.apellido }}, {{ detalle.item.inquilino.nombre }}</span>{% endif %}
+                {% if detalle.item.propiedad.propietario %}
+                <span class="text-muted"> · propietario: {{ detalle.item.propiedad.propietario.apellido }}, {{ detalle.item.propiedad.propietario.nombre }}</span>
+                {% endif %}
             </p>
             <div class="row mb-3">
                 <div class="col-md-6">
@@ -142,7 +144,7 @@
                             </td>
                         </tr>
                         {% empty %}
-                        <tr><td colspan="6" class="text-center text-muted py-4">Todavía no agregaste propiedades. Buscá un inquilino abajo para empezar.</td></tr>
+                        <tr><td colspan="6" class="text-center text-muted py-4">Todavía no agregaste propiedades. Buscá un propietario abajo para empezar.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
@@ -151,26 +153,26 @@
     </div>
 
     <div class="card mb-4">
-        <div class="card-header bg-light"><strong>Agregar propiedades por inquilino</strong></div>
+        <div class="card-header bg-light"><strong>Agregar propiedades por propietario</strong></div>
         <div class="card-body">
             <div class="row g-3 mb-3">
                 <div class="col-md-8 position-relative">
-                    <label class="form-label">Buscar inquilino</label>
-                    <input type="text" id="buscar_inquilino_mis_prop" class="form-control" placeholder="Nombre, apellido o DNI…" autocomplete="off"
-                           value="{% if inquilino %}{{ inquilino.apellido }}, {{ inquilino.nombre }}{% endif %}">
-                    <input type="hidden" id="inquilino_id_sel" value="{{ inquilino_id }}">
-                    <div id="dropdown_inquilinos_mis_prop" class="list-group position-absolute shadow-sm d-none w-100" style="z-index:1050; max-height:240px; overflow-y:auto;"></div>
+                    <label class="form-label">Buscar propietario</label>
+                    <input type="text" id="buscar_propietario_mis_prop" class="form-control" placeholder="Nombre, apellido o DNI…" autocomplete="off"
+                           value="{% if propietario %}{{ propietario.apellido }}, {{ propietario.nombre }}{% endif %}">
+                    <input type="hidden" id="propietario_id_sel" value="{{ propietario_id }}">
+                    <div id="dropdown_propietarios_mis_prop" class="list-group position-absolute shadow-sm d-none w-100" style="z-index:1050; max-height:240px; overflow-y:auto;"></div>
                 </div>
                 <div class="col-md-4 d-flex align-items-end">
                     <a href="{% url 'inmobiliaria:mis_propiedades' %}" class="btn btn-outline-secondary">Limpiar búsqueda</a>
                 </div>
             </div>
 
-            {% if inquilino %}
-            <p class="mb-2">Propiedades vinculadas a <strong>{{ inquilino.apellido }}, {{ inquilino.nombre }}</strong> (reservas y contratos):</p>
+            {% if propietario %}
+            <p class="mb-2">Propiedades de <strong>{{ propietario.apellido }}, {{ propietario.nombre }}</strong>:</p>
             <form method="post" action="{% url 'inmobiliaria:mis_propiedades_agregar' %}" id="formAgregarCartera">
                 {% csrf_token %}
-                <input type="hidden" name="inquilino_id" value="{{ inquilino.id }}">
+                <input type="hidden" name="propietario_id" value="{{ propietario.id }}">
                 <div class="table-responsive mb-3">
                     <table class="table table-sm table-bordered">
                         <thead class="table-light">
@@ -180,12 +182,12 @@
                                 </th>
                                 <th>#</th>
                                 <th>Dirección</th>
-                                <th>Propietario</th>
+                                <th>Ubicación</th>
                                 <th>Estado</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% for row in propiedades_inquilino %}
+                            {% for row in propiedades_propietario %}
                             <tr class="{% if row.ya_en_cartera %}table-secondary{% endif %}">
                                 <td>
                                     {% if not row.ya_en_cartera %}
@@ -196,23 +198,23 @@
                                 </td>
                                 <td>{{ row.propiedad.id }}</td>
                                 <td>{{ row.propiedad.direccion }}</td>
-                                <td class="small">{% if row.propiedad.propietario %}{{ row.propiedad.propietario.apellido }}, {{ row.propiedad.propietario.nombre }}{% else %}—{% endif %}</td>
+                                <td class="small">{{ row.propiedad.ubicacion|default:"—" }}</td>
                                 <td class="small">{% if row.ya_en_cartera %}En cartera{% else %}—{% endif %}</td>
                             </tr>
                             {% empty %}
-                            <tr><td colspan="5" class="text-muted text-center">No hay propiedades de esta sucursal para este inquilino.</td></tr>
+                            <tr><td colspan="5" class="text-muted text-center">Este propietario no tiene propiedades en tu sucursal.</td></tr>
                             {% endfor %}
                         </tbody>
                     </table>
                 </div>
-                <button type="button" class="btn btn-primary" id="btnAbrirModalPorcentaje" {% if not propiedades_inquilino %}disabled{% endif %}>
+                <button type="button" class="btn btn-primary" id="btnAbrirModalPorcentaje" {% if not propiedades_propietario %}disabled{% endif %}>
                     <i class="fas fa-plus"></i> Agregar seleccionadas
                 </button>
             </form>
-            {% elif inquilino_id %}
-            <div class="alert alert-warning mb-0">No se encontró el inquilino indicado.</div>
+            {% elif propietario_id %}
+            <div class="alert alert-warning mb-0">No se encontró el propietario indicado.</div>
             {% else %}
-            <p class="text-muted mb-0">Escribí al menos 2 caracteres para buscar un inquilino y ver sus propiedades.</p>
+            <p class="text-muted mb-0">Escribí al menos 2 caracteres para buscar un propietario y ver sus propiedades.</p>
             {% endif %}
         </div>
     </div>
@@ -243,8 +245,8 @@
 {% block extra_js %}
 <script>
 (function() {
-    var $buscar = $('#buscar_inquilino_mis_prop');
-    var $dd = $('#dropdown_inquilinos_mis_prop');
+    var $buscar = $('#buscar_propietario_mis_prop');
+    var $dd = $('#dropdown_propietarios_mis_prop');
     var timer = null;
 
     $buscar.on('input', function() {
@@ -255,7 +257,7 @@
             return;
         }
         timer = setTimeout(function() {
-            $.get('{% url "inmobiliaria:mis_propiedades_buscar_inquilino" %}', { q: q }, function(data) {
+            $.get('{% url "inmobiliaria:mis_propiedades_buscar_propietario" %}', { q: q }, function(data) {
                 $dd.empty();
                 if (!data.results || !data.results.length) {
                     $dd.append('<div class="list-group-item text-muted">Sin resultados</div>');
@@ -273,11 +275,11 @@
 
     $dd.on('click', 'button', function() {
         var id = $(this).data('id');
-        window.location.href = '{% url "inmobiliaria:mis_propiedades" %}?inquilino_id=' + id;
+        window.location.href = '{% url "inmobiliaria:mis_propiedades" %}?propietario_id=' + id;
     });
 
     $(document).on('click', function(e) {
-        if (!$(e.target).closest('#buscar_inquilino_mis_prop, #dropdown_inquilinos_mis_prop').length) {
+        if (!$(e.target).closest('#buscar_propietario_mis_prop, #dropdown_propietarios_mis_prop').length) {
             $dd.addClass('d-none');
         }
     });

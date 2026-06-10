@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import Q, Sum
+from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -12,25 +12,18 @@ from django.views.decorators.http import require_GET, require_POST
 from inmobiliaria.decimal_utils import format_monto_argentino, parse_decimal_monto
 from inmobiliaria.models.caja import MovimientoCaja, TipoMovimientoCajaEnum
 from inmobiliaria.models.cartera_usuario import CarteraPropiedadUsuario
-from inmobiliaria.models.contrato import ContratoAlquiler
 from inmobiliaria.models.liquidacion import LiquidacionPropietario
-from inmobiliaria.models.persona import Inquilino
-from inmobiliaria.models.propiedad import Propiedad, Reserva
+from inmobiliaria.models.persona import Propietario
+from inmobiliaria.models.propiedad import Propiedad
 from inmobiliaria.neto_propietario_movimiento import (
     neto_propietario_movimiento,
     precios_por_propiedad_ids,
 )
 
 
-def _propiedades_de_inquilino(inquilino_id, sucursal):
+def _propiedades_de_propietario(propietario_id, sucursal):
     return (
-        Propiedad.objects.filter(sucursal=sucursal)
-        .filter(
-            Q(reservas__cliente_id=inquilino_id, reservas__eliminada=False)
-            | Q(contratos__inquilino_id=inquilino_id)
-            | Q(contratos__inquilinos=inquilino_id)
-        )
-        .distinct()
+        Propiedad.objects.filter(sucursal=sucursal, propietario_id=propietario_id)
         .select_related('propietario', 'sucursal')
         .order_by('direccion', 'id')
     )
@@ -138,7 +131,7 @@ def mis_propiedades(request):
     sucursal = request.user.sucursal
     cartera_qs = (
         CarteraPropiedadUsuario.objects.filter(usuario=request.user, propiedad__sucursal=sucursal)
-        .select_related('propiedad', 'propiedad__propietario', 'inquilino')
+        .select_related('propiedad', 'propiedad__propietario', 'propietario')
         .order_by('-fecha_alta')
     )
     cartera_items = _enriquecer_cartera_items(list(cartera_qs), sucursal)
@@ -160,15 +153,15 @@ def mis_propiedades(request):
         resumen = _resumen_movimientos_propiedad(item.propiedad_id, sucursal, item.porcentaje)
         detalle = {'item': item, **resumen}
 
-    inquilino_id = request.GET.get('inquilino_id', '').strip()
-    inquilino = None
-    propiedades_inquilino = []
+    propietario_id = request.GET.get('propietario_id', '').strip()
+    propietario = None
+    propiedades_propietario = []
     ids_en_cartera = set(cartera_qs.values_list('propiedad_id', flat=True))
-    if inquilino_id.isdigit():
-        inquilino = Inquilino.objects.filter(pk=int(inquilino_id), sucursal=sucursal).first()
-        if inquilino:
-            for p in _propiedades_de_inquilino(inquilino.id, sucursal):
-                propiedades_inquilino.append({
+    if propietario_id.isdigit():
+        propietario = Propietario.objects.filter(pk=int(propietario_id), sucursal=sucursal).first()
+        if propietario:
+            for p in _propiedades_de_propietario(propietario.id, sucursal):
+                propiedades_propietario.append({
                     'propiedad': p,
                     'ya_en_cartera': p.id in ids_en_cartera,
                 })
@@ -180,33 +173,30 @@ def mis_propiedades(request):
             'cartera_items': cartera_items,
             'totales': totales,
             'detalle': detalle,
-            'inquilino': inquilino,
-            'propiedades_inquilino': propiedades_inquilino,
-            'inquilino_id': inquilino_id,
+            'propietario': propietario,
+            'propiedades_propietario': propiedades_propietario,
+            'propietario_id': propietario_id,
         },
     )
 
 
 @login_required
 @require_GET
-def mis_propiedades_buscar_inquilino(request):
-    from inmobiliaria.views import get_inquilinos_queryset_unificado
-
+def mis_propiedades_buscar_propietario(request):
     term = (request.GET.get('q') or '').strip()
     if len(term) < 2:
         return JsonResponse({'results': []})
-    base = get_inquilinos_queryset_unificado(request)
-    qs = base.filter(
+    qs = Propietario.objects.filter(sucursal=request.user.sucursal).filter(
         Q(nombre__icontains=term)
         | Q(apellido__icontains=term)
         | Q(dni__icontains=term)
-    )[:15]
+    ).order_by('apellido', 'nombre')[:15]
     results = [
         {
-            'id': i.id,
-            'text': f'{i.apellido}, {i.nombre} (DNI {i.dni or "—"})',
+            'id': p.id,
+            'text': f'{p.apellido}, {p.nombre} (DNI {p.dni or "—"})',
         }
-        for i in qs
+        for p in qs
     ]
     return JsonResponse({'results': results})
 
@@ -216,7 +206,7 @@ def mis_propiedades_buscar_inquilino(request):
 def mis_propiedades_agregar(request):
     sucursal = request.user.sucursal
     propiedad_ids = request.POST.getlist('propiedad_ids')
-    inquilino_id = (request.POST.get('inquilino_id') or '').strip()
+    propietario_id = (request.POST.get('propietario_id') or '').strip()
     try:
         porcentaje = parse_decimal_monto(request.POST.get('porcentaje', '100') or '100')
     except Exception:
@@ -227,9 +217,9 @@ def mis_propiedades_agregar(request):
         messages.error(request, 'El porcentaje debe estar entre 0,01 y 100.')
         return redirect('inmobiliaria:mis_propiedades')
 
-    inquilino = None
-    if inquilino_id.isdigit():
-        inquilino = Inquilino.objects.filter(pk=int(inquilino_id), sucursal=sucursal).first()
+    propietario = None
+    if propietario_id.isdigit():
+        propietario = Propietario.objects.filter(pk=int(propietario_id), sucursal=sucursal).first()
 
     ids_validos = []
     for raw in propiedad_ids:
@@ -250,7 +240,7 @@ def mis_propiedades_agregar(request):
             propiedad=prop,
             defaults={
                 'porcentaje': porcentaje,
-                'inquilino': inquilino,
+                'propietario': propietario or prop.propietario,
             },
         )
         if created:
@@ -267,8 +257,8 @@ def mis_propiedades_agregar(request):
         messages.info(request, f'Se actualizó el porcentaje de {actualizadas} propiedad(es) ya existentes.')
 
     url = reverse('inmobiliaria:mis_propiedades')
-    if inquilino:
-        url = f'{url}?inquilino_id={inquilino.id}'
+    if propietario:
+        url = f'{url}?propietario_id={propietario.id}'
     return redirect(url)
 
 

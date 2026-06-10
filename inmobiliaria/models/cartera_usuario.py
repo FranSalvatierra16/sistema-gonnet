@@ -18,13 +18,13 @@ class CarteraPropiedadUsuario(models.Model):
         on_delete=models.CASCADE,
         related_name='en_carteras_usuario',
     )
-    inquilino = models.ForeignKey(
-        'Inquilino',
+    propietario = models.ForeignKey(
+        'Propietario',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='carteras_por_inquilino',
-        help_text='Inquilino usado al agregar la propiedad (referencia).',
+        related_name='carteras_por_propietario',
+        help_text='Propietario usado al agregar la propiedad (referencia).',
     )
     porcentaje = models.DecimalField(
         max_digits=5,
