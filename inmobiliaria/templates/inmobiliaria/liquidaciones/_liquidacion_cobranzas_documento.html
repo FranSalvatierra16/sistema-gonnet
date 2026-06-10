@@ -53,7 +53,17 @@
         <tbody>
             {% for fila in filas %}
             <tr>
-                <td class="col-detalle">{{ fila.detalle }}</td>
+                <td class="col-detalle">
+                    {{ fila.detalle }}
+                    {% if fila.es_alquiler and fila.fecha_entrada and fila.fecha_salida %}
+                    <div class="liq-cobranzas-alquiler-dias small">
+                        Entrada: {{ fila.fecha_entrada|date:"d/m/Y" }}
+                        — Salida: {{ fila.fecha_salida|date:"d/m/Y" }}
+                        {% if fila.dias %} — {{ fila.dias }} día{% if fila.dias != 1 %}s{% endif %}{% endif %}
+                        {% if fila.precio_dia %} — Precio/día: {{ fila.precio_dia|format_price }}{% endif %}
+                    </div>
+                    {% endif %}
+                </td>
                 <td class="col-importe text-end">{% if fila.haber %}{{ fila.haber|format_price }}{% endif %}</td>
                 <td class="col-importe text-end">{% if fila.debe %}{{ fila.debe|format_price }}{% endif %}</td>
             </tr>

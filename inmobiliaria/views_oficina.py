@@ -21,7 +21,7 @@ from inmobiliaria.models import (
     ValeVendedor,
 )
 from inmobiliaria.models.persona import usuario_es_nivel_administracion
-from inmobiliaria.oficina_gastos import asegurar_categorias_base
+from inmobiliaria.oficina_gastos import asegurar_categoria_vales, asegurar_categorias_base
 
 
 def _parse_fecha(s):
@@ -66,6 +66,7 @@ def oficina_dashboard(request):
 
     sucursal = request.user.sucursal
     asegurar_categorias_base(sucursal)
+    asegurar_categoria_vales(sucursal)
 
     today = timezone.localdate()
     mes_ini = today.replace(day=1)
@@ -129,6 +130,7 @@ def oficina_gastos(request):
 
     sucursal = request.user.sucursal
     asegurar_categorias_base(sucursal)
+    asegurar_categoria_vales(sucursal)
 
     fecha_desde_s = (request.GET.get('fecha_desde') or '').strip()
     fecha_hasta_s = (request.GET.get('fecha_hasta') or '').strip()
@@ -244,6 +246,7 @@ def oficina_categorias(request):
 
     sucursal = request.user.sucursal
     asegurar_categorias_base(sucursal)
+    asegurar_categoria_vales(sucursal)
 
     return render(
         request,

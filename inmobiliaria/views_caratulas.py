@@ -197,23 +197,56 @@ def _numero_recibo_desde_recibo(r):
     return _numero_recibo_desde_movimiento(mov) if mov else '—'
 
 
-def _recibos_legacy_par(movs, recibos):
-    """Primer y segundo número de recibo para el bloque legado de carátula."""
-    numeros = []
+def _recibos_legacy_items(movs, recibos):
+    """Lista ordenada de recibos únicos con movimiento/recibo asociado."""
+    items = []
     vistos = set()
     for r in sorted(recibos, key=lambda x: x.fecha_emision or datetime.min):
         n = _numero_recibo_desde_recibo(r)
         if n and n != '—' and n not in vistos:
-            numeros.append(n)
+            items.append({
+                'numero': n,
+                'movimiento': getattr(r, 'movimiento_caja', None),
+                'recibo': r,
+            })
             vistos.add(n)
     for m in sorted(movs, key=lambda x: (x.fecha, x.id)):
         n = _numero_recibo_desde_movimiento(m)
         if n and n != '—' and n not in vistos:
-            numeros.append(n)
+            items.append({
+                'numero': n,
+                'movimiento': m,
+                'recibo': getattr(m, 'recibo', None),
+            })
             vistos.add(n)
-    loc = numeros[0] if numeros else '0000-00000000'
-    locat = numeros[1] if len(numeros) > 1 else loc
-    return loc, locat
+    return items
+
+
+def _url_recibo_legacy_item(item, sucursal, *, reserva=None):
+    if not item:
+        return None
+    mov = item.get('movimiento')
+    if mov:
+        from inmobiliaria.views import _url_recibo_para_movimiento
+
+        return _url_recibo_para_movimiento(mov, sucursal)
+    if reserva is not None:
+        return reverse('inmobiliaria:ver_recibo', args=[reserva.id])
+    return None
+
+
+def _recibos_legacy_par(movs, recibos, *, sucursal=None, reserva=None):
+    """Números y URLs de recibo para el bloque legado de carátula."""
+    items = _recibos_legacy_items(movs, recibos)
+    loc = items[0]['numero'] if items else '0000-00000000'
+    locat = items[1]['numero'] if len(items) > 1 else loc
+    url_loc = _url_recibo_legacy_item(items[0], sucursal, reserva=reserva) if items else None
+    url_locat = _url_recibo_legacy_item(
+        items[1] if len(items) > 1 else items[0],
+        sucursal,
+        reserva=reserva,
+    ) if items else None
+    return loc, locat, url_loc, url_locat
 
 
 def _filas_contabilizacion_desde_movimientos(movs):
@@ -313,6 +346,7 @@ def _resumen_liquidacion_caratula(*, reserva=None, contrato=None, liquidacion=No
             'desde_liquidacion': True,
             'liquidacion_id': liquidacion.id,
             'estado_liquidacion': liquidacion.get_estado_display(),
+            'liquidacion_pendiente': liquidacion.estado == 'pendiente',
             'monto_total': liquidacion.monto_total_operacion,
             'monto_propietario': liquidacion.monto_propietario,
             'monto_inmobiliaria': liquidacion.monto_inmobiliaria,
@@ -646,7 +680,12 @@ def _build_legacy_reserva(
     propi = getattr(prop, 'propietario', None) if prop else None
     vend = reserva.vendedor
 
-    recibo_loc, recibo_locat = _recibos_legacy_par(movimientos or [], recibos)
+    recibo_loc, recibo_locat, url_recibo_loc, url_recibo_locat = _recibos_legacy_par(
+        movimientos or [],
+        recibos,
+        sucursal=reserva.sucursal,
+        reserva=reserva,
+    )
 
     comision_total = sum(Decimal(str(c.monto_comision or 0)) for c in comisiones)
 
@@ -706,6 +745,8 @@ def _build_legacy_reserva(
         'comision_locatario': _formato_importe_us(comision_total),
         'recibo_locador': recibo_loc,
         'recibo_locatario': recibo_locat,
+        'url_recibo_locador': url_recibo_loc,
+        'url_recibo_locatario': url_recibo_locat,
         'productor': productor,
         'terceros': terceros,
         'origen_operacion': _origen_operacion_sucursal(reserva.sucursal),
@@ -713,6 +754,23 @@ def _build_legacy_reserva(
         'locacion_mensual': _formato_importe_us(loc_mensual),
         'carpeta': _normalizar_carpeta(carpeta_override) if carpeta_override is not None else str(dias_estadia),
         'tipo_operacion_str': tipo_operacion_str,
+    }
+
+
+def _ctx_completar_pago_reserva(reserva):
+    saldo = Decimal(str(reserva.cuota_pendiente or 0))
+    if saldo <= 0:
+        saldo = (Decimal(str(reserva.precio_total or 0)) - Decimal(str(reserva.senia or 0)))
+    puede = saldo > Decimal('0.005')
+    return {
+        'saldo_pendiente_pago': saldo,
+        'puede_completar_pago': puede,
+        'url_completar_pago': (
+            reverse('inmobiliaria:finalizar_reserva_nueva', args=[reserva.id]) if puede else None
+        ),
+        'etiqueta_completar_pago': (
+            'Completar pago' if (reserva.senia or 0) > 0 else 'Finalizar reserva'
+        ),
     }
 
 
@@ -759,7 +817,11 @@ def _build_legacy_contrato(contrato, cuotas, tipo_label, carpeta_override=None, 
     terceros = _formato_miles_ar(vend.id) if vend else '0'
 
     meses_contrato = int(contrato.duracion_meses or 0)
-    recibo_loc, recibo_locat = _recibos_legacy_par(movimientos or [], [])
+    recibo_loc, recibo_locat, url_recibo_loc, url_recibo_locat = _recibos_legacy_par(
+        movimientos or [],
+        [],
+        sucursal=contrato.sucursal,
+    )
 
     return {
         'numero_original': '0',
@@ -788,6 +850,8 @@ def _build_legacy_contrato(contrato, cuotas, tipo_label, carpeta_override=None, 
         'comision_locatario': _formato_importe_us(0),
         'recibo_locador': recibo_loc,
         'recibo_locatario': recibo_locat,
+        'url_recibo_locador': url_recibo_loc,
+        'url_recibo_locatario': url_recibo_locat,
         'productor': productor,
         'terceros': terceros,
         'origen_operacion': _origen_operacion_sucursal(contrato.sucursal),
@@ -1188,6 +1252,7 @@ def caratula_reserva(request, reserva_id):
         'carpeta_actual': carpeta_actual,
         'carpeta_default': _carpeta_default_actual(request),
         **_ctx_liquidacion_operacion(reserva=reserva),
+        **_ctx_completar_pago_reserva(reserva),
     }
     return render(request, 'inmobiliaria/caratulas/detalle_reserva.html', ctx)
 

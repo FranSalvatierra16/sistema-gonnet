@@ -79,6 +79,7 @@
                         <th>Categoría</th>
                         <th>Descripción</th>
                         <th>Productor</th>
+                        <th>Tipo</th>
                         <th class="text-end">Monto</th>
                         <th></th>
                     </tr>
@@ -102,7 +103,16 @@
                             —
                             {% endif %}
                         </td>
-                        <td class="text-end text-danger fw-semibold">${{ g.monto|format_price }}</td>
+                        <td class="small">
+                            {% if g.monto < 0 %}
+                            <span class="badge bg-success">Ingreso / devolución</span>
+                            {% else %}
+                            <span class="badge bg-danger">Egreso</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end fw-semibold {% if g.monto < 0 %}text-success{% else %}text-danger{% endif %}">
+                            {% if g.monto < 0 %}-{% endif %}${{ g.monto|abs|format_price }}
+                        </td>
                         <td class="text-end">
                             {% if not g.movimiento_caja_id %}
                             <form method="post" action="{% url 'inmobiliaria:oficina_gasto_eliminar' g.id %}" class="d-inline" onsubmit="return confirm('¿Eliminar este gasto?');">
@@ -113,7 +123,7 @@
                         </td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="6" class="text-center text-muted py-4">No hay gastos con los filtros aplicados.</td></tr>
+                    <tr><td colspan="7" class="text-center text-muted py-4">No hay gastos con los filtros aplicados.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>

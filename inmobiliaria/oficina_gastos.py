@@ -4,9 +4,11 @@ from decimal import Decimal
 from django.utils import timezone
 
 from inmobiliaria.models import CategoriaGastoOficina, GastoOficina, Vendedor
+from inmobiliaria.models.caja import TipoMovimientoCajaEnum
 
 CATEGORIAS_INICIALES = [
     ('Sueldos', ['Administración', 'Productores', 'Cargas sociales']),
+    ('Vales', ['Productores']),
     ('Gastos contables', ['Honorarios contador', 'Cargas sociales', 'Impuestos']),
     ('Servicios', ['Luz', 'Internet', 'Teléfono', 'Limpieza']),
     ('Inmueble oficina', ['Alquiler', 'Expensas', 'Mantenimiento']),
@@ -31,7 +33,47 @@ def asegurar_categorias_base(sucursal):
                 nombre=hijo,
                 orden=i,
             )
+    asegurar_categoria_vales(sucursal)
     return True
+
+
+def asegurar_categoria_vales(sucursal):
+    """Agrega categoría Vales › Productores si la sucursal aún no la tiene."""
+    raiz = CategoriaGastoOficina.objects.filter(
+        sucursal=sucursal,
+        parent__isnull=True,
+        nombre__iexact='Vales',
+    ).first()
+    if not raiz:
+        orden = CategoriaGastoOficina.objects.filter(
+            sucursal=sucursal,
+            parent__isnull=True,
+        ).count()
+        raiz = CategoriaGastoOficina.objects.create(
+            sucursal=sucursal,
+            nombre='Vales',
+            orden=orden,
+        )
+    if not CategoriaGastoOficina.objects.filter(sucursal=sucursal, parent=raiz).exists():
+        CategoriaGastoOficina.objects.create(
+            sucursal=sucursal,
+            parent=raiz,
+            nombre='Productores',
+            orden=0,
+        )
+    return raiz
+
+
+def categoria_gasto_raiz(categoria):
+    cat = categoria
+    while cat and cat.parent_id:
+        cat = cat.parent
+    return cat
+
+
+def categoria_gasto_es_vale(categoria):
+    raiz = categoria_gasto_raiz(categoria)
+    return bool(raiz and (raiz.nombre or '').strip().lower() == 'vales')
 
 
 def categorias_opciones(sucursal):
@@ -53,7 +95,9 @@ def categorias_opciones(sucursal):
 
 
 def categoria_gasto_requiere_productor(categoria):
-    """Sueldos › Productores exige elegir vendedor/productor."""
+    """Sueldos › Productores y Vales › Productores exigen elegir vendedor/productor."""
+    if categoria_gasto_es_vale(categoria):
+        return True
     if not categoria or not categoria.parent_id:
         return False
     parent = categoria.parent
@@ -73,6 +117,7 @@ def categorias_opciones_con_flags(sucursal):
     for op in opciones:
         cat = cats.get(op['id'])
         op['requiere_productor'] = categoria_gasto_requiere_productor(cat)
+        op['es_vale'] = categoria_gasto_es_vale(cat)
     return opciones
 
 
@@ -90,6 +135,8 @@ def registrar_gasto_oficina_desde_movimiento(
         + Decimal(str(movimiento.monto_tarjeta or 0))
         + Decimal(str(movimiento.monto_deposito or 0))
     )
+    if movimiento.tipo == TipoMovimientoCajaEnum.INGRESO:
+        total = -total
     fecha = timezone.localdate()
     if movimiento.fecha:
         fecha = timezone.localtime(movimiento.fecha).date()
@@ -130,6 +177,8 @@ def validar_gasto_oficina_post(sucursal, categoria_id, descripcion, vendedor_id_
     vendedor = None
     if categoria_gasto_requiere_productor(categoria):
         if not vendedor_id_raw:
+            if categoria_gasto_es_vale(categoria):
+                return None, None, 'Para Vales › Productores tenés que elegir el productor.'
             return None, None, 'Para Sueldos › Productores tenés que elegir el productor.'
         try:
             vid = int(vendedor_id_raw)

@@ -149,7 +149,7 @@
                                 Gasto de oficina
                             </label>
                             <small class="text-muted d-block">
-                                Egreso imputable a la oficina (sueldos, servicios, contables). Se registra en el panel Oficina.
+                                Imputable a la oficina: sueldos, servicios, contables y vales (egreso o ingreso). Se registra en el panel Oficina.
                             </small>
                         </div>
                     </div>
@@ -165,7 +165,7 @@
                                         <select name="gasto_oficina_categoria_id" id="gasto_oficina_categoria_id" class="form-select">
                                             <option value="">— Elegir —</option>
                                             {% for op in categorias_gasto_oficina %}
-                                            <option value="{{ op.id }}" data-requiere-productor="{% if op.requiere_productor %}1{% else %}0{% endif %}">{{ op.label }}</option>
+                                            <option value="{{ op.id }}" data-requiere-productor="{% if op.requiere_productor %}1{% else %}0{% endif %}" data-es-vale="{% if op.es_vale %}1{% else %}0{% endif %}">{{ op.label }}</option>
                                             {% endfor %}
                                         </select>
                                     </div>
@@ -192,7 +192,13 @@
                                                 <input type="hidden" name="gasto_oficina_vendedor_id" id="gasto_oficina_vendedor_id">
                                             </div>
                                         </div>
-                                        <small class="text-muted">Obligatorio para Sueldos › Productores.</small>
+                                        <small class="text-muted" id="hint_productor_gasto_oficina">Obligatorio para Sueldos › Productores y Vales › Productores.</small>
+                                    </div>
+                                    <div class="col-md-12 d-none" id="hint_gasto_oficina_vale">
+                                        <div class="alert alert-warning py-2 mb-0 small">
+                                            <strong>Vales:</strong> usá <strong>Egreso (E)</strong> para entregar plata al productor
+                                            e <strong>Ingreso (I)</strong> si devuelve dinero a caja. El vale queda en el historial de comisiones.
+                                        </div>
                                     </div>
                                     <div class="col-md-12">
                                         <label class="form-label">Observaciones (opcional)</label>
@@ -752,17 +758,27 @@ $(document).ready(function() {
         return $opt.data('requiere-productor') === 1 || $opt.data('requiere-productor') === '1';
     }
 
+    function categoriaGastoOficinaEsVale() {
+        var $opt = $('#gasto_oficina_categoria_id option:selected');
+        return $opt.data('es-vale') === 1 || $opt.data('es-vale') === '1';
+    }
+
     function actualizarModoGastoOficina() {
         var activo = $('#es_gasto_oficina').is(':checked');
+        var esVale = activo && categoriaGastoOficinaEsVale();
         $('#bloque_gasto_oficina').toggleClass('d-none', !activo);
         $('#bloque_concepto_mov, #bloque_propiedad_mov, #bloque_detalles_mov, #bloque_beneficiario_vale')
             .toggleClass('d-none', activo);
         $('#bloque_imputacion_mov').toggleClass('d-none', activo);
+        $('#hint_gasto_oficina_vale').toggleClass('d-none', !esVale);
         if (activo) {
-            $('select[name="tipo"]').val('EG');
+            if (!esVale) {
+                $('select[name="tipo"]').val('EG');
+            }
             $('#bloque_productor_gasto_oficina').toggleClass('d-none', !categoriaGastoOficinaRequiereProductor());
         } else {
             $('#bloque_productor_gasto_oficina').addClass('d-none');
+            $('#hint_gasto_oficina_vale').addClass('d-none');
         }
     }
 
@@ -770,7 +786,12 @@ $(document).ready(function() {
     $('#gasto_oficina_categoria_id').on('change', function() {
         if ($('#es_gasto_oficina').is(':checked')) {
             var req = categoriaGastoOficinaRequiereProductor();
+            var esVale = categoriaGastoOficinaEsVale();
             $('#bloque_productor_gasto_oficina').toggleClass('d-none', !req);
+            $('#hint_gasto_oficina_vale').toggleClass('d-none', !esVale);
+            if (!esVale) {
+                $('select[name="tipo"]').val('EG');
+            }
             if (!req) {
                 $('#gasto_oficina_vendedor_id').val('');
                 $('#productor_gasto_oficina_nombre').val('');
@@ -1612,7 +1633,11 @@ $(document).ready(function() {
             }
             if (categoriaGastoOficinaRequiereProductor() && !$('#gasto_oficina_vendedor_id').val()) {
                 e.preventDefault();
-                alert('Para Sueldos › Productores tenés que elegir el productor.');
+                alert(
+                    categoriaGastoOficinaEsVale()
+                        ? 'Para Vales › Productores tenés que elegir el productor.'
+                        : 'Para Sueldos › Productores tenés que elegir el productor.'
+                );
                 return false;
             }
             var totalGo = calcularTotal();

@@ -11735,7 +11735,9 @@ def _buscar_movimiento_caja_duplicado_reciente(
 def nuevo_movimiento(request, numero_caja=None):
     from inmobiliaria.models.sucursal import CuentaBancaria
     from inmobiliaria.oficina_gastos import (
+        asegurar_categoria_vales,
         asegurar_categorias_base,
+        categoria_gasto_es_vale,
         categorias_opciones_con_flags,
         registrar_gasto_oficina_desde_movimiento,
         validar_gasto_oficina_post,
@@ -11757,6 +11759,7 @@ def nuevo_movimiento(request, numero_caja=None):
     sucursal = request.user.sucursal
     cuentas_bancarias = CuentaBancaria.objects.filter(sucursal=sucursal, activa=True).order_by('nombre_banco', 'alias')
     asegurar_categorias_base(sucursal)
+    asegurar_categoria_vales(sucursal)
     categorias_gasto_oficina = categorias_opciones_con_flags(sucursal)
     pre_gasto_oficina = (request.GET.get('gasto_oficina') or '').strip() in ('1', 'true', 'si', 'yes')
 
@@ -11843,9 +11846,9 @@ def nuevo_movimiento(request, numero_caja=None):
             else:
                 tipo = 'IN'  # Default seguro
 
-            if es_gasto_oficina:
+            if es_gasto_oficina and not categoria_gasto_es_vale(gasto_oficina_categoria):
                 tipo = TipoMovimientoCajaEnum.EGRESO
-            
+
             # Obtener y validar tipo_comprobante (debe ser código de 2 caracteres)
             tipo_comprobante_raw = request.POST.get('tipo_comprobante', 'RC')
             # Mapear valores comunes a códigos de 2 caracteres
@@ -12088,6 +12091,16 @@ def nuevo_movimiento(request, numero_caja=None):
                         vendedor=gasto_oficina_vendedor,
                         usuario=request.user,
                     )
+                    if (
+                        categoria_gasto_es_vale(gasto_oficina_categoria)
+                        and gasto_oficina_vendedor
+                    ):
+                        ValeVendedor.crear_desde_movimiento(
+                            movimiento,
+                            vendedor=gasto_oficina_vendedor,
+                            usuario_creador=request.user,
+                            observaciones=gasto_oficina_observaciones,
+                        )
                 elif quiere_vale and (vendedor_vale or tipo_beneficiario_vale == TipoBeneficiarioVale.OTRO):
                     ValeVendedor.crear_desde_movimiento(
                         movimiento,
@@ -12100,10 +12113,21 @@ def nuevo_movimiento(request, numero_caja=None):
                     )
 
             if es_gasto_oficina:
-                messages.success(
-                    request,
-                    'Egreso de caja y gasto de oficina registrados.',
-                )
+                if categoria_gasto_es_vale(gasto_oficina_categoria):
+                    etiqueta_vale = (
+                        'Egreso (vale entregado)'
+                        if tipo == TipoMovimientoCajaEnum.EGRESO
+                        else 'Ingreso (devolución de vale)'
+                    )
+                    messages.success(
+                        request,
+                        f'Movimiento de {etiqueta_vale}, vale y gasto de oficina registrados.',
+                    )
+                else:
+                    messages.success(
+                        request,
+                        'Egreso de caja y gasto de oficina registrados.',
+                    )
             elif quiere_vale and (vendedor_vale or tipo_beneficiario_vale == TipoBeneficiarioVale.OTRO):
                 messages.success(
                     request,
@@ -23443,6 +23467,32 @@ def _periodo_mes_anio_liquidacion(fecha):
         return ''
 
 
+def _periodo_detalle_alquiler_liquidacion(liquidacion):
+    """
+    Por día (reserva): «DEL 5 AL 11 DE JUNIO DE 2026».
+    Contrato mensual: «JUNIO DE 2026».
+    """
+    fecha_desde, fecha_hasta = _fechas_alquiler_liquidacion(liquidacion)
+    es_por_dia = bool(getattr(liquidacion, 'reserva_id', None))
+    if fecha_desde and fecha_hasta and es_por_dia:
+        try:
+            if (
+                fecha_desde.month == fecha_hasta.month
+                and fecha_desde.year == fecha_hasta.year
+            ):
+                mes = _MESES_LIQUIDACION_ES[fecha_desde.month - 1]
+                return f'DEL {fecha_desde.day} AL {fecha_hasta.day} DE {mes} DE {fecha_desde.year}'
+            return (
+                f'DEL {fecha_desde.strftime("%d/%m/%Y")} '
+                f'AL {fecha_hasta.strftime("%d/%m/%Y")}'
+            )
+        except (IndexError, AttributeError):
+            pass
+    return _periodo_mes_anio_liquidacion(liquidacion.fecha_desde) or _periodo_mes_anio_liquidacion(
+        liquidacion.fecha_hasta
+    )
+
+
 def _contrato_de_liquidacion(liquidacion):
     if getattr(liquidacion, 'contrato_id', None) and liquidacion.contrato_id:
         return liquidacion.contrato
@@ -23543,11 +23593,10 @@ def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
     filas = []
     monto_prop = Decimal(str(liquidacion.monto_propietario or 0))
     cochera = Decimal(str(liquidacion.monto_cochera or 0))
-    periodo = _periodo_mes_anio_liquidacion(liquidacion.fecha_desde) or _periodo_mes_anio_liquidacion(
-        liquidacion.fecha_hasta
-    )
+    periodo = _periodo_detalle_alquiler_liquidacion(liquidacion)
     fecha_entrada, fecha_salida = _fechas_alquiler_liquidacion(liquidacion)
     precio_dia = _precio_dia_alquiler_liquidacion(liquidacion, monto_prop)
+    dias_alquiler = _dias_alquiler_liquidacion(liquidacion)
 
     if monto_prop > Decimal('0.01'):
         filas.append({
@@ -23558,6 +23607,7 @@ def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
             'fecha_entrada': fecha_entrada,
             'fecha_salida': fecha_salida,
             'precio_dia': precio_dia,
+            'dias': dias_alquiler,
         })
     if cochera > Decimal('0.01'):
         filas.append({'detalle': 'COCHERA', 'haber': cochera.quantize(Decimal('0.01')), 'debe': Decimal('0')})

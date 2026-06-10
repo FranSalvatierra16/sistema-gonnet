@@ -10,6 +10,12 @@
     <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
         <a href="{% url 'inmobiliaria:lista_caratulas' %}" class="small text-decoration-none">&larr; Volver al listado</a>
         <a href="{% url 'inmobiliaria:imprimir_caratula_reserva' reserva.id %}" class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener"><i class="fas fa-print me-1"></i>Imprimir carátula</a>
+        {% if puede_completar_pago and url_completar_pago %}
+        <a href="{{ url_completar_pago }}" class="btn btn-sm btn-warning">
+            <i class="fas fa-money-bill-wave me-1"></i>{{ etiqueta_completar_pago }}
+            <span class="ms-1">(${{ saldo_pendiente_pago|format_price }})</span>
+        </a>
+        {% endif %}
         {% if url_liquidacion_operacion %}
         <a href="{{ url_liquidacion_operacion }}" class="btn btn-sm {% if liquidacion_operacion %}btn-outline-success{% else %}btn-success{% endif %}">
             <i class="fas fa-hand-holding-usd me-1"></i>{{ etiqueta_liquidacion_operacion }}
@@ -56,7 +62,7 @@
                     <div class="card-header py-2 small"><strong>Recibos</strong></div>
                     <div class="card-body p-0">
                         <table class="table table-sm mb-0 small">
-                            <thead><tr><th>Fecha</th><th>Número</th><th class="text-end">Importe</th></tr></thead>
+                            <thead><tr><th>Fecha</th><th>Número</th><th class="text-end">Importe</th><th></th></tr></thead>
                             <tbody>
                                 {% for r in recibos %}
                                 <tr>
@@ -73,9 +79,20 @@
                                         {% endif %}
                                     </td>
                                     <td class="text-end">${{ r.monto_este_pago|floatformat:2 }}</td>
+                                    <td class="text-end text-nowrap">
+                                        {% if r.movimiento_caja %}
+                                        <a href="{% url_recibo_movimiento r.movimiento_caja %}" class="btn btn-outline-primary btn-sm py-0" target="_blank" rel="noopener" title="Ver recibo">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        {% else %}
+                                        <a href="{% url 'inmobiliaria:ver_recibo' reserva.id %}" class="btn btn-outline-primary btn-sm py-0" target="_blank" rel="noopener" title="Ver recibo">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        {% endif %}
+                                    </td>
                                 </tr>
                                 {% empty %}
-                                <tr><td colspan="3" class="text-muted text-center py-3">Sin recibos</td></tr>
+                                <tr><td colspan="4" class="text-muted text-center py-3">Sin recibos</td></tr>
                                 {% endfor %}
                             </tbody>
                         </table>
@@ -90,7 +107,7 @@
                     </div>
                     <div class="card-body p-0 table-responsive">
                         <table class="table table-sm mb-0 small">
-                            <thead><tr><th>Fecha</th><th>Recibo</th><th>Concepto</th><th class="text-end">Total</th></tr></thead>
+                            <thead><tr><th>Fecha</th><th>Recibo</th><th>Concepto</th><th class="text-end">Total</th><th></th></tr></thead>
                             <tbody>
                                 {% for m in movimientos %}
                                 <tr>
@@ -102,9 +119,14 @@
                                     </td>
                                     <td class="text-break">{{ m.concepto|truncatechars:80 }}</td>
                                     <td class="text-end">${{ m.monto_total|floatformat:2 }}</td>
+                                    <td class="text-end">
+                                        <a href="{% url_recibo_movimiento m %}" class="btn btn-outline-primary btn-sm py-0" target="_blank" rel="noopener" title="Ver recibo">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                    </td>
                                 </tr>
                                 {% empty %}
-                                <tr><td colspan="4" class="text-muted text-center py-3">Sin movimientos con referencia a esta operación</td></tr>
+                                <tr><td colspan="5" class="text-muted text-center py-3">Sin movimientos con referencia a esta operación</td></tr>
                                 {% endfor %}
                             </tbody>
                         </table>

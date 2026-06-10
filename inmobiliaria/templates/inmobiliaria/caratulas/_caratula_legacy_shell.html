@@ -111,11 +111,27 @@
             </div>
             <div class="caratula-cell span-6">
                 <span class="k">RECIBO LOCADOR</span>
-                <span class="v">{{ cl.recibo_locador }}</span>
+                <span class="v">
+                    {% if cl.url_recibo_locador %}
+                    <a href="{{ cl.url_recibo_locador }}" class="caratula-recibo-link" target="_blank" rel="noopener" title="Ver recibo locador">
+                        <i class="fas fa-receipt"></i> {{ cl.recibo_locador }}
+                    </a>
+                    {% else %}
+                    {{ cl.recibo_locador }}
+                    {% endif %}
+                </span>
             </div>
             <div class="caratula-cell span-6">
                 <span class="k">RECIBO LOCATARIO</span>
-                <span class="v">{{ cl.recibo_locatario }}</span>
+                <span class="v">
+                    {% if cl.url_recibo_locatario %}
+                    <a href="{{ cl.url_recibo_locatario }}" class="caratula-recibo-link" target="_blank" rel="noopener" title="Ver recibo locatario">
+                        <i class="fas fa-receipt"></i> {{ cl.recibo_locatario }}
+                    </a>
+                    {% else %}
+                    {{ cl.recibo_locatario }}
+                    {% endif %}
+                </span>
             </div>
         </div>
 
