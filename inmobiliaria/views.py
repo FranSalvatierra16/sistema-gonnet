@@ -10687,7 +10687,73 @@ def _deposito_total_desde_arqueo_dict(data):
     total = Decimal('0')
     for val in (data.get('cuentas_json') or {}).values():
         total += Decimal(str(val or 0))
+    total += Decimal(str(data.get('deposito_galicia') or 0))
+    total += Decimal(str(data.get('deposito_mp') or 0))
     return total
+
+
+def _dict_arqueo_desde_registro(arqueo):
+    """Dict unificado de saldos por medio (arqueo manual o de cierre)."""
+    cuentas_json = arqueo.cuentas_json or {}
+    if isinstance(cuentas_json, dict):
+        cuentas_json = {str(k): str(v) for k, v in cuentas_json.items()}
+    else:
+        cuentas_json = {}
+    return {
+        'efectivo': Decimal(str(getattr(arqueo, 'efectivo', None) or 0)),
+        'cheque': Decimal(str(getattr(arqueo, 'cheque', None) or 0)),
+        'tarjeta': Decimal(str(getattr(arqueo, 'tarjeta', None) or 0)),
+        'dolares': Decimal(str(getattr(arqueo, 'dolares', None) or 0)),
+        'cuentas_json': cuentas_json,
+        'deposito_galicia': Decimal(str(getattr(arqueo, 'deposito_galicia', None) or 0)),
+        'deposito_mp': Decimal(str(getattr(arqueo, 'deposito_mp', None) or 0)),
+    }
+
+
+def _apertura_saldos_desde_cierre(arqueo_manual, saldos_teoricos):
+    """Saldos que abren la próxima caja: arqueo vigente o teóricos por movimientos."""
+    if arqueo_manual:
+        return _dict_arqueo_desde_registro(arqueo_manual)
+    return _saldos_teoricos_a_dict_arqueo(saldos_teoricos)
+
+
+def _deposito_ing_egr_cuenta(ingresos, egresos, cuenta):
+    """Ingresos/egresos por cuenta, incl. destinos legacy galicia/mp."""
+    dest = f'cuenta_{cuenta.id}'
+    ing = sum(
+        Decimal(str(m.monto_deposito or 0))
+        for m in ingresos
+        if getattr(m, 'destino_deposito', None) == dest
+    )
+    egr = sum(
+        Decimal(str(m.monto_deposito or 0))
+        for m in egresos
+        if getattr(m, 'destino_deposito', None) == dest
+    )
+    texto = f'{(cuenta.nombre_banco or "").lower()} {(cuenta.alias or "").lower()}'
+    if 'galicia' in texto:
+        ing += sum(
+            Decimal(str(m.monto_deposito or 0))
+            for m in ingresos
+            if getattr(m, 'destino_deposito', None) == 'galicia'
+        )
+        egr += sum(
+            Decimal(str(m.monto_deposito or 0))
+            for m in egresos
+            if getattr(m, 'destino_deposito', None) == 'galicia'
+        )
+    if 'mercado' in texto or ' mp' in f' {texto}' or texto.strip().endswith(' mp'):
+        ing += sum(
+            Decimal(str(m.monto_deposito or 0))
+            for m in ingresos
+            if getattr(m, 'destino_deposito', None) == 'mp'
+        )
+        egr += sum(
+            Decimal(str(m.monto_deposito or 0))
+            for m in egresos
+            if getattr(m, 'destino_deposito', None) == 'mp'
+        )
+    return ing, egr
 
 
 def _anteriores_matriz_desde_arqueo(arqueo_manual, ingresos_por, egresos_por, saldo_ini):
@@ -10878,17 +10944,7 @@ def _build_matriz_cuentas_bancarias(ingresos, egresos, cuentas_bancarias, saldos
 
     for cuenta in cuentas_bancarias:
         cid = cuenta.id
-        dest = f'cuenta_{cid}'
-        ing = sum(
-            Decimal(str(m.monto_deposito or 0))
-            for m in ingresos
-            if getattr(m, 'destino_deposito', None) == dest
-        )
-        egr = sum(
-            Decimal(str(m.monto_deposito or 0))
-            for m in egresos
-            if getattr(m, 'destino_deposito', None) == dest
-        )
+        ing, egr = _deposito_ing_egr_cuenta(ingresos, egresos, cuenta)
         saldo = Decimal(str(saldos_por_cuenta.get(cid, 0) or 0))
         anterior = saldo - ing + egr
         etiqueta = cuenta.nombre_banco
@@ -10941,10 +10997,10 @@ def _calcular_saldos_caja_por_medio(caja, sucursal):
     )
     cuentas = []
     total_cuentas = Decimal('0')
+    ingresos_list = list(ingresos)
+    egresos_list = list(egresos)
     for cuenta in cuentas_bancarias:
-        dest = f'cuenta_{cuenta.id}'
-        t_ing = sum(Decimal(str(m.monto_deposito or 0)) for m in ingresos.filter(destino_deposito=dest))
-        t_egr = sum(Decimal(str(m.monto_deposito or 0)) for m in egresos.filter(destino_deposito=dest))
+        t_ing, t_egr = _deposito_ing_egr_cuenta(ingresos_list, egresos_list, cuenta)
         teorico = t_ing - t_egr
         total_cuentas += teorico
         cuentas.append({'cuenta': cuenta, 'teorico': teorico})
@@ -11295,14 +11351,12 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
     }
     totales_ingresos['cuentas_bancarias'] = {}
     for cuenta in cuentas_bancarias:
-        total_cuenta = sum(
-            m.monto_deposito for m in ingresos if m.destino_deposito == f'cuenta_{cuenta.id}'
-        )
+        ing_c, _ = _deposito_ing_egr_cuenta(ingresos, egresos, cuenta)
         totales_ingresos['cuentas_bancarias'][cuenta.id] = {
             'nombre': cuenta.nombre_banco,
             'titular': cuenta.titular,
             'alias': cuenta.alias,
-            'total': total_cuenta
+            'total': ing_c,
         }
     totales_ingresos['dolares'] = sum((m.monto_dolares or 0) for m in ingresos)
 
@@ -11315,14 +11369,12 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
     }
     totales_egresos['cuentas_bancarias'] = {}
     for cuenta in cuentas_bancarias:
-        total_cuenta = sum(
-            m.monto_deposito for m in egresos if m.destino_deposito == f'cuenta_{cuenta.id}'
-        )
+        _, egr_c = _deposito_ing_egr_cuenta(ingresos, egresos, cuenta)
         totales_egresos['cuentas_bancarias'][cuenta.id] = {
             'nombre': cuenta.nombre_banco,
             'titular': cuenta.titular,
             'alias': cuenta.alias,
-            'total': total_cuenta
+            'total': egr_c,
         }
     totales_egresos['dolares'] = sum((m.monto_dolares or 0) for m in egresos)
 
@@ -11358,12 +11410,23 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
 
     saldos_teoricos = _calcular_saldos_caja_por_medio(caja, request.user.sucursal)
     arqueo_manual = None
+    arqueo_cierre = None
     if getattr(caja, 'estado', None) == 'abierta':
         arqueo_manual = CajaArqueoManual.objects.filter(caja=caja).first()
+    elif getattr(caja, 'estado', None) == 'cerrada':
+        from inmobiliaria.models.caja import CajaArqueoCierre
+        arqueo_cierre = CajaArqueoCierre.objects.filter(caja=caja).first()
     if arqueo_manual:
         totales = _aplicar_arqueo_manual_a_totales(
             totales, arqueo_manual, cuentas_bancarias, caja=caja
         )
+        saldo_total = totales['saldo_total']
+        es_saldo_positivo = saldo_total >= 0
+    elif arqueo_cierre:
+        arqueo_data = _dict_arqueo_desde_registro(arqueo_cierre)
+        totales['saldo_actual'] = _saldo_actual_desde_arqueo_dict(arqueo_data, cuentas_bancarias)
+        totales['saldo_total'] = _total_ars_desde_arqueo_dict(arqueo_data)
+        totales['es_arqueo_manual'] = True
         saldo_total = totales['saldo_total']
         es_saldo_positivo = saldo_total >= 0
 
@@ -11434,6 +11497,7 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
         'puede_editar_movimiento_caja': usuario_puede_editar_movimiento_caja(request.user),
         'puede_editar_arqueo_caja': puede_editar_arqueo,
         'arqueo_manual': arqueo_manual,
+        'arqueo_cierre': arqueo_cierre,
         'saldos_teoricos': saldos_teoricos,
         'saldos_arqueo_form': saldos_arqueo_form,
         'cuentas_arqueo': cuentas_arqueo,
@@ -12150,10 +12214,11 @@ def cerrar_caja(request, numero_caja):
     caja = get_object_or_404(Caja, numero=numero_caja, sucursal=request.user.sucursal, estado='abierta')
     sucursal = request.user.sucursal
     saldos_teoricos = _calcular_saldos_caja_por_medio(caja, sucursal)
-    saldo_teorico = saldos_teoricos['total_ars']
-    puede_arqueo = _usuario_puede_arqueo_cierre_caja(request.user)
     arqueo_manual = CajaArqueoManual.objects.filter(caja=caja).first()
-    saldos_prefill = arqueo_manual.como_dict_arqueo() if arqueo_manual else saldos_teoricos
+    saldos_cierre = _apertura_saldos_desde_cierre(arqueo_manual, saldos_teoricos)
+    saldo_teorico = _total_ars_desde_arqueo_dict(saldos_cierre)
+    puede_arqueo = _usuario_puede_arqueo_cierre_caja(request.user)
+    saldos_prefill = saldos_cierre
     cuentas_arqueo = [
         {
             'cuenta': item['cuenta'],
@@ -12178,8 +12243,8 @@ def cerrar_caja(request, numero_caja):
                     saldo_inicial_siguiente = arqueo_data['efectivo']
                     apertura_saldos = arqueo_data
                 else:
-                    saldo_final = saldo_teorico
-                    apertura_saldos = _saldos_teoricos_a_dict_arqueo(saldos_teoricos)
+                    apertura_saldos = _apertura_saldos_desde_cierre(arqueo_manual, saldos_teoricos)
+                    saldo_final = _total_ars_desde_arqueo_dict(apertura_saldos)
                     saldo_inicial_siguiente = apertura_saldos['efectivo']
                     arqueo_data = None
 
@@ -12252,16 +12317,37 @@ def cerrar_caja(request, numero_caja):
             'puede_arqueo': puede_arqueo,
             'arqueo_manual': arqueo_manual,
             'bloque_saldos_cierre': _context_bloque_saldos_por_medio(
-                saldos_teoricos,
-                titulo='Dinero en caja al cierre (según movimientos)',
+                {
+                    'efectivo': saldos_cierre['efectivo'],
+                    'cheque': saldos_cierre['cheque'],
+                    'tarjeta': saldos_cierre['tarjeta'],
+                    'dolares': saldos_cierre['dolares'],
+                    'deposito_total': _deposito_total_desde_arqueo_dict(saldos_cierre),
+                    'total_ars': saldo_teorico,
+                },
+                titulo=(
+                    'Dinero en caja al cierre (arqueo registrado)'
+                    if arqueo_manual
+                    else 'Dinero en caja al cierre (según movimientos)'
+                ),
                 nota_proxima_caja=(
                     f'La próxima caja abrirá con el efectivo en pesos que indiques abajo '
-                    f'(teórico hoy: ${format_monto_argentino(saldos_teoricos["efectivo"])}).'
+                    f'(hoy: ${format_monto_argentino(saldos_cierre["efectivo"])}).'
                     if puede_arqueo
-                    else f'La próxima caja abrirá con saldo inicial '
-                    f'${format_monto_argentino(saldo_teorico)} (total teórico calculado).'
+                    else f'La próxima caja abrirá con los mismos saldos por medio '
+                    f'(total ARS ${format_monto_argentino(saldo_teorico)}).'
                 ),
-                cuentas_items=saldos_teoricos['cuentas'],
+                cuentas_items=[
+                    {
+                        'cuenta': item['cuenta'],
+                        'teorico': (
+                            arqueo_manual.monto_cuenta(item['cuenta'].id)
+                            if arqueo_manual
+                            else item['teorico']
+                        ),
+                    }
+                    for item in saldos_teoricos['cuentas']
+                ],
             ),
         },
     )

@@ -392,7 +392,7 @@
             <div>
                 <h5 class="mb-0">Saldo actual en caja</h5>
                 {% if totales.es_arqueo_manual %}
-                <small class="text-dark">Ajustado manualmente{% if arqueo_manual.fecha_actualizacion %} · {{ arqueo_manual.fecha_actualizacion|date:"d/m/Y H:i" }}{% endif %}</small>
+                <small class="text-dark">Ajustado manualmente{% if arqueo_manual.fecha_actualizacion %} · {{ arqueo_manual.fecha_actualizacion|date:"d/m/Y H:i" }}{% elif arqueo_cierre %} · cierre {{ arqueo_cierre.fecha_registro|date:"d/m/Y H:i" }}{% endif %}</small>
                 {% else %}
                 <small class="text-muted">Calculado desde movimientos + saldo inicial</small>
                 {% endif %}
