@@ -9,6 +9,7 @@ from . import views_migrar  # TEMPORAL - ELIMINAR DESPUÉS
 from . import views_mis_propiedades
 from . import views_honorarios
 from . import views_administracion
+from . import views_oficina
 
 app_name = 'inmobiliaria'
 
@@ -254,6 +255,13 @@ urlpatterns = [
         views_administracion.administracion_listado_operaciones,
         name='administracion_listado_operaciones',
     ),
+    path('oficina/', views_oficina.oficina_dashboard, name='oficina_dashboard'),
+    path('oficina/gastos/', views_oficina.oficina_gastos, name='oficina_gastos'),
+    path('oficina/gastos/nuevo/', views_oficina.oficina_gasto_crear, name='oficina_gasto_crear'),
+    path('oficina/gastos/<int:gasto_id>/eliminar/', views_oficina.oficina_gasto_eliminar, name='oficina_gasto_eliminar'),
+    path('oficina/categorias/', views_oficina.oficina_categorias, name='oficina_categorias'),
+    path('oficina/categorias/nueva/', views_oficina.oficina_categoria_crear, name='oficina_categoria_crear'),
+    path('oficina/categorias/<int:categoria_id>/toggle/', views_oficina.oficina_categoria_toggle, name='oficina_categoria_toggle'),
     path('caja/obtener-actual/', views.obtener_caja_actual, name='obtener_caja_actual'),
     
     # ============================

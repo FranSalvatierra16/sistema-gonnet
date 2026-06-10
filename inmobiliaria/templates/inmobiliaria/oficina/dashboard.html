@@ -1,0 +1,138 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load custom_filters %}
+
+{% block title %}Oficina{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+        <div>
+            <h1 class="h3 mb-1"><i class="fas fa-building text-primary me-2"></i>Oficina</h1>
+            <p class="text-muted mb-0 small">Gastos, ingresos, sueldos, vales, comisiones y propiedades de la sucursal.</p>
+        </div>
+        <a href="{% url 'inmobiliaria:dashboard' %}" class="btn btn-outline-secondary btn-sm">Volver al inicio</a>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card border-danger h-100 shadow-sm">
+                <div class="card-body">
+                    <div class="text-muted small">Gastos {{ mes_label }}</div>
+                    <div class="h4 text-danger mb-0">${{ total_gastos_mes|format_price }}</div>
+                    <a href="{% url 'inmobiliaria:oficina_gastos' %}" class="small">Ver gastos →</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-success h-100 shadow-sm">
+                <div class="card-body">
+                    <div class="text-muted small">Honorarios {{ mes_label }}</div>
+                    <div class="h4 text-success mb-0">${{ ingresos_honorarios_mes|format_price }}</div>
+                    <a href="{% url 'inmobiliaria:honorarios_oficina' %}" class="small">Ver honorarios →</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body text-center">
+                    <div class="text-muted small">Comisiones pend.</div>
+                    <div class="h4 mb-0">{{ comisiones_pendientes }}</div>
+                    <a href="{% url 'inmobiliaria:dashboard_comisiones' %}" class="small">Ir →</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body text-center">
+                    <div class="text-muted small">Vales</div>
+                    <div class="h4 mb-0">{{ vales_count }}</div>
+                    <a href="{% url 'inmobiliaria:dashboard_comisiones' %}?tab=vales" class="small">Ir →</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body text-center">
+                    <div class="text-muted small">Mis propiedades</div>
+                    <div class="h4 mb-0">{{ propiedades_cartera }}</div>
+                    <a href="{% url 'inmobiliaria:mis_propiedades' %}" class="small">Ir →</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if totales_por_categoria %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header"><strong>Gastos del mes por categoría</strong></div>
+        <div class="card-body py-2">
+            <div class="d-flex flex-wrap gap-2">
+                {% for nombre, monto in totales_por_categoria %}
+                <span class="badge bg-light text-dark border px-3 py-2">{{ nombre }}: <strong>${{ monto|format_price }}</strong></span>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="row g-3">
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm menu-card-lite" onclick="window.location='{% url 'inmobiliaria:oficina_gastos' %}'">
+                <div class="card-body text-center py-4">
+                    <i class="fas fa-file-invoice-dollar fa-2x text-danger mb-2"></i>
+                    <h5>Gastos de oficina</h5>
+                    <p class="text-muted small mb-0">Cargar sueldos, servicios, contables y más por categoría.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm menu-card-lite" onclick="window.location='{% url 'inmobiliaria:oficina_categorias' %}'">
+                <div class="card-body text-center py-4">
+                    <i class="fas fa-sitemap fa-2x text-secondary mb-2"></i>
+                    <h5>Categorías</h5>
+                    <p class="text-muted small mb-0">Categorías y subcategorías (ej. Gastos contables → Cargas sociales).</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm menu-card-lite" onclick="window.location='{% url 'inmobiliaria:honorarios_oficina' %}'">
+                <div class="card-body text-center py-4">
+                    <i class="fas fa-coins fa-2x text-warning mb-2"></i>
+                    <h5>Honorarios / ingresos</h5>
+                    <p class="text-muted small mb-0">Comisiones, cochera y fondo desde liquidaciones.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm menu-card-lite" onclick="window.location='{% url 'inmobiliaria:dashboard_comisiones' %}'">
+                <div class="card-body text-center py-4">
+                    <i class="fas fa-percent fa-2x text-primary mb-2"></i>
+                    <h5>Comisiones</h5>
+                    <p class="text-muted small mb-0">Comisiones de productores por sucursal.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm menu-card-lite" onclick="window.location='{% url 'inmobiliaria:dashboard_comisiones' %}'">
+                <div class="card-body text-center py-4">
+                    <i class="fas fa-money-bill-wave fa-2x text-warning mb-2"></i>
+                    <h5>Vales</h5>
+                    <p class="text-muted small mb-0">Vales de egreso e ingreso por vendedor.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm menu-card-lite" onclick="window.location='{% url 'inmobiliaria:mis_propiedades' %}'">
+                <div class="card-body text-center py-4">
+                    <i class="fas fa-home fa-2x text-info mb-2"></i>
+                    <h5>Mis propiedades</h5>
+                    <p class="text-muted small mb-0">Cartera de propiedades con % de ganancias y gastos oficina.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<style>
+.menu-card-lite { cursor: pointer; transition: transform .15s, box-shadow .15s; }
+.menu-card-lite:hover { transform: translateY(-3px); box-shadow: 0 .5rem 1rem rgba(0,0,0,.12)!important; }
+</style>
+{% endblock %}

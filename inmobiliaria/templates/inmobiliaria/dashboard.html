@@ -189,6 +189,16 @@
             <p class="small text-uppercase text-muted fw-semibold mb-2">Reportes y búsqueda</p>
         </div>
         <div class="col-md-4 mb-4">
+            <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:oficina_dashboard' %}'">
+                <div class="card-icon">
+                    <i class="fas fa-building"></i>
+                </div>
+                <h3>Oficina</h3>
+                <p>Gastos, categorías, sueldos, vales, comisiones y cartera</p>
+                <span class="badge bg-primary">Administración</span>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
             <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:listado_entradas' %}'">
                 <div class="card-icon">
                     <i class="fas fa-sign-in-alt"></i>
