@@ -149,6 +149,11 @@ class CajaArqueoManual(models.Model):
     deposito_galicia = models.DecimalField(max_digits=14, decimal_places=2, default=0)
     deposito_mp = models.DecimalField(max_digits=14, decimal_places=2, default=0)
     cuentas_json = models.JSONField(default=dict, blank=True)
+    anteriores_json = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='Saldos ANTERIOR por medio (fijos). El saldo actual = anterior + ingresos − egresos.',
+    )
     registrado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

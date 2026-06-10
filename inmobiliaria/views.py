@@ -10696,13 +10696,7 @@ def _derivar_a_descontar_desde_imputacion(m_of, m_prop, m_inq):
     return 'oficina'
 
 
-def _build_resumen_matriz_caja(caja, ingresos, egresos, arqueo_manual=None, saldos_teoricos=None):
-    """
-    Grilla Anterior / Ingresos / Egresos / Saldo por medio (estilo listado legacy).
-    Los ingresos y egresos son solo movimientos del período; el saldo inicial va en ANTERIOR (efectivo).
-  """
-    saldo_ini = _saldo_inicial_efectivo_caja(caja)
-
+def _ingresos_egresos_por_medio_matriz(ingresos, egresos):
     def _sum(movs, attr):
         return sum(Decimal(str(getattr(m, attr) or 0)) for m in movs)
 
@@ -10712,26 +10706,120 @@ def _build_resumen_matriz_caja(caja, ingresos, egresos, arqueo_manual=None, sald
         ('tarjeta', 'monto_tarjeta'),
         ('deposito', 'monto_deposito'),
     )
-    ingresos_por = {k: _sum(ingresos, a) for k, a in medios}
-    egresos_por = {k: _sum(egresos, a) for k, a in medios}
+    return (
+        {k: _sum(ingresos, a) for k, a in medios},
+        {k: _sum(egresos, a) for k, a in medios},
+    )
 
-    def _deposito_arqueo(data):
-        total = Decimal('0')
-        for val in (data.get('cuentas_json') or {}).values():
-            total += Decimal(str(val or 0))
-        return total
 
-    if arqueo_manual:
-        arqueo_map = {
-            'efectivo': Decimal(str(arqueo_manual.efectivo or 0)),
-            'cheque': Decimal(str(arqueo_manual.cheque or 0)),
-            'tarjeta': Decimal(str(arqueo_manual.tarjeta or 0)),
-            'deposito': _deposito_arqueo(arqueo_manual.como_dict_arqueo()),
+def _deposito_total_desde_arqueo_dict(data):
+    total = Decimal('0')
+    for val in (data.get('cuentas_json') or {}).values():
+        total += Decimal(str(val or 0))
+    return total
+
+
+def _anteriores_matriz_desde_arqueo(arqueo_manual, ingresos_por, egresos_por, saldo_ini):
+    """Anteriores fijos guardados, o derivados del snapshot legacy (solo lectura)."""
+    raw = arqueo_manual.anteriores_json or {}
+    medios = ('efectivo', 'cheque', 'tarjeta', 'deposito')
+    arqueo_map = {
+        'efectivo': Decimal(str(arqueo_manual.efectivo or 0)),
+        'cheque': Decimal(str(arqueo_manual.cheque or 0)),
+        'tarjeta': Decimal(str(arqueo_manual.tarjeta or 0)),
+        'deposito': _deposito_total_desde_arqueo_dict(arqueo_manual.como_dict_arqueo()),
+    }
+    derivado = {k: arqueo_map[k] - ingresos_por[k] + egresos_por[k] for k in medios}
+    if raw:
+        anterior = {}
+        for k in medios:
+            if raw.get(k) is not None:
+                anterior[k] = Decimal(str(raw[k]))
+            elif k == 'efectivo':
+                anterior[k] = saldo_ini
+            else:
+                anterior[k] = derivado[k]
+        return anterior
+    return derivado
+
+
+def _saldos_matriz_desde_anteriores(anteriores_por, ingresos_por, egresos_por):
+    return {
+        k: anteriores_por[k] + ingresos_por[k] - egresos_por[k]
+        for k in anteriores_por
+    }
+
+
+def _anterior_usd_desde_arqueo(arqueo_manual, ing_usd, egr_usd):
+    raw = arqueo_manual.anteriores_json or {}
+    if raw.get('usd') is not None:
+        return Decimal(str(raw['usd']))
+    return Decimal(str(arqueo_manual.dolares or 0)) - ing_usd + egr_usd
+
+
+def _anteriores_json_desde_saldos_y_movimientos(saldos_dict, ingresos_por, egresos_por, ing_usd, egr_usd):
+    dep_saldo = _deposito_total_desde_arqueo_dict(saldos_dict)
+    return {
+        'efectivo': str(
+            Decimal(str(saldos_dict.get('efectivo') or 0))
+            - ingresos_por['efectivo']
+            + egresos_por['efectivo']
+        ),
+        'cheque': str(
+            Decimal(str(saldos_dict.get('cheque') or 0))
+            - ingresos_por['cheque']
+            + egresos_por['cheque']
+        ),
+        'tarjeta': str(
+            Decimal(str(saldos_dict.get('tarjeta') or 0))
+            - ingresos_por['tarjeta']
+            + egresos_por['tarjeta']
+        ),
+        'deposito': str(dep_saldo - ingresos_por['deposito'] + egresos_por['deposito']),
+        'usd': str(Decimal(str(saldos_dict.get('dolares') or 0)) - ing_usd + egr_usd),
+    }
+
+
+def _anteriores_json_desde_apertura(saldos_dict):
+    """Al abrir caja sin movimientos, el saldo de apertura es el anterior."""
+    dep = _deposito_total_desde_arqueo_dict(saldos_dict)
+    return {
+        'efectivo': str(saldos_dict.get('efectivo') or 0),
+        'cheque': str(saldos_dict.get('cheque') or 0),
+        'tarjeta': str(saldos_dict.get('tarjeta') or 0),
+        'deposito': str(dep),
+        'usd': str(saldos_dict.get('dolares') or 0),
+    }
+
+
+def _build_resumen_matriz_caja(caja, ingresos, egresos, arqueo_manual=None, saldos_teoricos=None):
+    """
+    Grilla Anterior / Ingresos / Egresos / Saldo por medio (estilo listado legacy).
+    Los ingresos y egresos son solo movimientos del período; el saldo inicial va en ANTERIOR (efectivo).
+  """
+    saldo_ini = _saldo_inicial_efectivo_caja(caja)
+    ingresos_por, egresos_por = _ingresos_egresos_por_medio_matriz(ingresos, egresos)
+
+    if arqueo_manual and (arqueo_manual.anteriores_json or {}):
+        anterior_por = _anteriores_matriz_desde_arqueo(
+            arqueo_manual, ingresos_por, egresos_por, saldo_ini
+        )
+        saldo_por = _saldos_matriz_desde_anteriores(anterior_por, ingresos_por, egresos_por)
+    elif arqueo_manual and saldos_teoricos:
+        saldo_por = {
+            'efectivo': saldos_teoricos['efectivo'],
+            'cheque': saldos_teoricos['cheque'],
+            'tarjeta': saldos_teoricos['tarjeta'],
+            'deposito': saldos_teoricos['deposito_total'],
         }
-        saldo_por = dict(arqueo_map)
         anterior_por = {
-            k: arqueo_map[k] - ingresos_por[k] + egresos_por[k] for k in ingresos_por
+            'efectivo': saldo_ini,
+            'cheque': Decimal('0'),
+            'tarjeta': Decimal('0'),
+            'deposito': Decimal('0'),
         }
+        for k in ('cheque', 'tarjeta', 'deposito'):
+            anterior_por[k] = saldo_por[k] - ingresos_por[k] + egresos_por[k]
     else:
         saldo_por = {
             'efectivo': saldos_teoricos['efectivo'] if saldos_teoricos else (
@@ -10770,10 +10858,13 @@ def _build_resumen_matriz_caja(caja, ingresos, egresos, arqueo_manual=None, sald
     for fila in filas:
         fila['total'] = _fila_total(fila['valores'])
 
-    ing_usd = _sum(ingresos, 'monto_dolares')
-    egr_usd = _sum(egresos, 'monto_dolares')
-    if arqueo_manual:
-        saldo_usd = Decimal(str(arqueo_manual.dolares or 0))
+    ing_usd = sum(Decimal(str(getattr(m, 'monto_dolares', None) or 0)) for m in ingresos)
+    egr_usd = sum(Decimal(str(getattr(m, 'monto_dolares', None) or 0)) for m in egresos)
+    if arqueo_manual and (arqueo_manual.anteriores_json or {}):
+        anterior_usd = _anterior_usd_desde_arqueo(arqueo_manual, ing_usd, egr_usd)
+        saldo_usd = anterior_usd + ing_usd - egr_usd
+    elif arqueo_manual and saldos_teoricos:
+        saldo_usd = saldos_teoricos['dolares']
         anterior_usd = saldo_usd - ing_usd + egr_usd
     else:
         saldo_usd = ing_usd - egr_usd
@@ -11002,6 +11093,7 @@ def _crear_arqueo_manual_desde_dict(caja, data, usuario):
         deposito_galicia=Decimal('0'),
         deposito_mp=Decimal('0'),
         cuentas_json=cuentas_json,
+        anteriores_json=_anteriores_json_desde_apertura(data),
         registrado_por=usuario,
     )
 
@@ -11030,12 +11122,47 @@ def _saldo_actual_desde_arqueo_dict(arqueo_data, cuentas_bancarias):
     }
 
 
-def _aplicar_arqueo_manual_a_totales(totales, arqueo_manual, cuentas_bancarias):
+def _aplicar_arqueo_manual_a_totales(totales, arqueo_manual, cuentas_bancarias, caja=None):
     if not arqueo_manual:
         return totales
-    data = arqueo_manual.como_dict_arqueo()
-    totales['saldo_actual'] = _saldo_actual_desde_arqueo_dict(data, cuentas_bancarias)
-    totales['saldo_total'] = _total_ars_desde_arqueo_dict(data)
+
+    saldo_ini = _saldo_inicial_efectivo_caja(caja) if caja else Decimal('0')
+    ingresos_por = {
+        'efectivo': Decimal(str(totales['ingresos']['efectivo'])) - saldo_ini,
+        'cheque': Decimal(str(totales['ingresos']['cheque'])),
+        'tarjeta': Decimal(str(totales['ingresos']['tarjeta'])),
+        'deposito': Decimal(str(totales['ingresos']['deposito'])),
+    }
+    egresos_por = {
+        'efectivo': Decimal(str(totales['egresos']['efectivo'])),
+        'cheque': Decimal(str(totales['egresos']['cheque'])),
+        'tarjeta': Decimal(str(totales['egresos']['tarjeta'])),
+        'deposito': Decimal(str(totales['egresos']['deposito'])),
+    }
+    ing_usd = Decimal(str(totales['ingresos'].get('dolares') or 0))
+    egr_usd = Decimal(str(totales['egresos'].get('dolares') or 0))
+
+    if arqueo_manual.anteriores_json:
+        anterior_por = _anteriores_matriz_desde_arqueo(
+            arqueo_manual, ingresos_por, egresos_por, saldo_ini
+        )
+        saldo_por = _saldos_matriz_desde_anteriores(anterior_por, ingresos_por, egresos_por)
+        saldo_usd = _anterior_usd_desde_arqueo(arqueo_manual, ing_usd, egr_usd) + ing_usd - egr_usd
+        cuentas_json = _redistribuir_cuentas_json_por_total(
+            saldo_por['deposito'],
+            arqueo_manual.cuentas_json or {},
+            list(cuentas_bancarias),
+        )
+        data = {
+            'efectivo': saldo_por['efectivo'],
+            'cheque': saldo_por['cheque'],
+            'tarjeta': saldo_por['tarjeta'],
+            'dolares': saldo_usd,
+            'cuentas_json': cuentas_json,
+        }
+        totales['saldo_actual'] = _saldo_actual_desde_arqueo_dict(data, cuentas_bancarias)
+        totales['saldo_total'] = _total_ars_desde_arqueo_dict(data)
+
     totales['es_arqueo_manual'] = True
     return totales
 
@@ -11216,7 +11343,9 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
     if getattr(caja, 'estado', None) == 'abierta':
         arqueo_manual = CajaArqueoManual.objects.filter(caja=caja).first()
     if arqueo_manual:
-        totales = _aplicar_arqueo_manual_a_totales(totales, arqueo_manual, cuentas_bancarias)
+        totales = _aplicar_arqueo_manual_a_totales(
+            totales, arqueo_manual, cuentas_bancarias, caja=caja
+        )
         saldo_total = totales['saldo_total']
         es_saldo_positivo = saldo_total >= 0
 
@@ -11224,19 +11353,36 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
         getattr(caja, 'estado', None) == 'abierta'
         and _usuario_puede_arqueo_cierre_caja(request.user)
     )
-    saldos_arqueo_form = (
-        arqueo_manual.como_dict_arqueo() if arqueo_manual else saldos_teoricos
-    )
-    cuentas_arqueo = [
-        {
+    if arqueo_manual and arqueo_manual.anteriores_json:
+        saldos_arqueo_form = {
+            'efectivo': totales['saldo_actual']['efectivo'],
+            'cheque': totales['saldo_actual']['cheque'],
+            'tarjeta': totales['saldo_actual']['tarjeta'],
+            'dolares': totales['saldo_actual']['dolares'],
+            'cuentas_json': {
+                str(cid): str(item['saldo'])
+                for cid, item in totales['saldo_actual']['cuentas_bancarias'].items()
+            },
+        }
+    elif arqueo_manual:
+        saldos_arqueo_form = arqueo_manual.como_dict_arqueo()
+    else:
+        saldos_arqueo_form = saldos_teoricos
+    cuentas_arqueo = []
+    for item in saldos_teoricos['cuentas']:
+        cid = item['cuenta'].id
+        if arqueo_manual and arqueo_manual.anteriores_json:
+            cuentas_form = saldos_arqueo_form.get('cuentas_json') or {}
+            contado = Decimal(str(cuentas_form.get(str(cid), item['teorico']) or 0))
+        elif arqueo_manual:
+            contado = arqueo_manual.monto_cuenta(cid)
+        else:
+            contado = item['teorico']
+        cuentas_arqueo.append({
             'cuenta': item['cuenta'],
             'teorico': item['teorico'],
-            'contado': arqueo_manual.monto_cuenta(item['cuenta'].id)
-            if arqueo_manual
-            else item['teorico'],
-        }
-        for item in saldos_teoricos['cuentas']
-    ]
+            'contado': contado,
+        })
 
     resumen_matriz = _build_resumen_matriz_caja(
         caja,
@@ -11306,6 +11452,20 @@ def guardar_arqueo_caja(request, numero):
         messages.error(request, 'Revisá los montos ingresados en el arqueo.')
         return redirect('inmobiliaria:detalle_caja', numero=caja.numero)
 
+    from inmobiliaria.models.caja import MovimientoCaja, TipoMovimientoCajaEnum
+
+    movimientos_qs = MovimientoCaja.objects.filter(caja=caja)
+    ingresos = movimientos_qs.filter(tipo=TipoMovimientoCajaEnum.INGRESO)
+    egresos = movimientos_qs.filter(tipo=TipoMovimientoCajaEnum.EGRESO)
+    ingresos_por, egresos_por = _ingresos_egresos_por_medio_matriz(ingresos, egresos)
+    ing_usd = sum(Decimal(str(getattr(m, 'monto_dolares', None) or 0)) for m in ingresos)
+    egr_usd = sum(Decimal(str(getattr(m, 'monto_dolares', None) or 0)) for m in egresos)
+    anteriores_json = _anteriores_json_desde_saldos_y_movimientos(
+        arqueo_data, ingresos_por, egresos_por, ing_usd, egr_usd
+    )
+    caja.saldo_inicial = Decimal(str(anteriores_json['efectivo']))
+    caja.save(update_fields=['saldo_inicial'])
+
     CajaArqueoManual.objects.update_or_create(
         caja=caja,
         defaults={
@@ -11316,6 +11476,7 @@ def guardar_arqueo_caja(request, numero):
             'deposito_galicia': Decimal('0'),
             'deposito_mp': Decimal('0'),
             'cuentas_json': arqueo_data['cuentas_json'],
+            'anteriores_json': anteriores_json,
             'registrado_por': request.user,
         },
     )
@@ -11363,60 +11524,79 @@ def guardar_anterior_matriz_caja(request, numero):
             'nombre_banco', 'alias'
         )
     )
-    saldos_teoricos = _calcular_saldos_caja_por_medio(caja, request.user.sucursal)
     movimientos_qs = MovimientoCaja.objects.filter(caja=caja)
     ingresos = movimientos_qs.filter(tipo=TipoMovimientoCajaEnum.INGRESO)
     egresos = movimientos_qs.filter(tipo=TipoMovimientoCajaEnum.EGRESO)
-
-    def _sum(movs, attr):
-        return sum(Decimal(str(getattr(m, attr) or 0)) for m in movs)
-
-    ingresos_por = {
-        'efectivo': _sum(ingresos, 'monto_efectivo'),
-        'cheque': _sum(ingresos, 'monto_cheque'),
-        'tarjeta': _sum(ingresos, 'monto_tarjeta'),
-        'deposito': _sum(ingresos, 'monto_deposito'),
-    }
-    egresos_por = {
-        'efectivo': _sum(egresos, 'monto_efectivo'),
-        'cheque': _sum(egresos, 'monto_cheque'),
-        'tarjeta': _sum(egresos, 'monto_tarjeta'),
-        'deposito': _sum(egresos, 'monto_deposito'),
-    }
-    ing_usd = _sum(ingresos, 'monto_dolares')
-    egr_usd = _sum(egresos, 'monto_dolares')
+    ingresos_por, egresos_por = _ingresos_egresos_por_medio_matriz(ingresos, egresos)
 
     arqueo_manual = CajaArqueoManual.objects.filter(caja=caja).first()
-    base = (
+    saldos_teoricos = _calcular_saldos_caja_por_medio(caja, request.user.sucursal)
+    if arqueo_manual and arqueo_manual.anteriores_json:
+        anteriores = dict(arqueo_manual.anteriores_json)
+    elif arqueo_manual:
+        ant_boot = _anteriores_matriz_desde_arqueo(
+            arqueo_manual, ingresos_por, egresos_por, _saldo_inicial_efectivo_caja(caja)
+        )
+        anteriores = {k: str(v) for k, v in ant_boot.items()}
+        ing_usd_b = sum(Decimal(str(getattr(m, 'monto_dolares', None) or 0)) for m in ingresos)
+        egr_usd_b = sum(Decimal(str(getattr(m, 'monto_dolares', None) or 0)) for m in egresos)
+        anteriores['usd'] = str(_anterior_usd_desde_arqueo(arqueo_manual, ing_usd_b, egr_usd_b))
+    else:
+        anteriores = {
+            'efectivo': str(_saldo_inicial_efectivo_caja(caja)),
+            'cheque': '0',
+            'tarjeta': '0',
+            'deposito': '0',
+            'usd': '0',
+        }
+        for k in ('cheque', 'tarjeta', 'deposito'):
+            saldo_k = (
+                saldos_teoricos['deposito_total']
+                if k == 'deposito'
+                else saldos_teoricos[k]
+            )
+            anteriores[k] = str(saldo_k - ingresos_por[k] + egresos_por[k])
+
+    if medio == 'usd':
+        anteriores['usd'] = str(nuevo_anterior)
+    elif medio == 'deposito':
+        anteriores['deposito'] = str(nuevo_anterior)
+    else:
+        anteriores[medio] = str(nuevo_anterior)
+
+    if medio == 'efectivo':
+        caja.saldo_inicial = nuevo_anterior
+        caja.save(update_fields=['saldo_inicial'])
+
+    snapshot = (
         arqueo_manual.como_dict_arqueo()
         if arqueo_manual
         else _saldos_teoricos_a_dict_arqueo(saldos_teoricos)
     )
-
-    if medio == 'usd':
-        nuevo_saldo = nuevo_anterior + ing_usd - egr_usd
-        base['dolares'] = nuevo_saldo
-    elif medio == 'deposito':
-        nuevo_saldo = nuevo_anterior + ingresos_por['deposito'] - egresos_por['deposito']
-        base['cuentas_json'] = _redistribuir_cuentas_json_por_total(
-            nuevo_saldo,
-            base.get('cuentas_json') or {},
-            cuentas_bancarias,
-        )
-    else:
-        nuevo_saldo = nuevo_anterior + ingresos_por[medio] - egresos_por[medio]
-        base[medio] = nuevo_saldo
+    anterior_por = {
+        k: Decimal(str(anteriores.get(k) or 0))
+        for k in ('efectivo', 'cheque', 'tarjeta', 'deposito')
+    }
+    saldo_por = _saldos_matriz_desde_anteriores(anterior_por, ingresos_por, egresos_por)
+    ing_usd = sum(Decimal(str(getattr(m, 'monto_dolares', None) or 0)) for m in ingresos)
+    egr_usd = sum(Decimal(str(getattr(m, 'monto_dolares', None) or 0)) for m in egresos)
+    saldo_usd = Decimal(str(anteriores.get('usd') or 0)) + ing_usd - egr_usd
 
     CajaArqueoManual.objects.update_or_create(
         caja=caja,
         defaults={
-            'efectivo': base['efectivo'],
-            'cheque': base['cheque'],
-            'tarjeta': base['tarjeta'],
-            'dolares': base['dolares'],
+            'efectivo': saldo_por['efectivo'],
+            'cheque': saldo_por['cheque'],
+            'tarjeta': saldo_por['tarjeta'],
+            'dolares': saldo_usd,
             'deposito_galicia': Decimal('0'),
             'deposito_mp': Decimal('0'),
-            'cuentas_json': base.get('cuentas_json') or {},
+            'cuentas_json': _redistribuir_cuentas_json_por_total(
+                saldo_por['deposito'],
+                snapshot.get('cuentas_json') or {},
+                cuentas_bancarias,
+            ),
+            'anteriores_json': anteriores,
             'registrado_por': request.user,
         },
     )
