@@ -325,6 +325,10 @@
                 
                 <div style="width: 48%; border: 1px solid #2d8524; padding: 5px;">
                     <div style="text-align: right; margin-bottom: 10px;">
+                        {% if muestra_a_favor_recibo %}
+                        <div style="border-bottom: 1px solid black; margin-bottom: 5px; text-align: center; font-size: 10px; font-weight: bold;">A FAVOR</div>
+                        <div style="border-bottom: 1px solid black; margin-bottom: 5px; text-align: center; font-size: 10px; font-weight: bold;">{{ a_favor_recibo }}</div>
+                        {% endif %}
                         <div style="border-bottom: 1px solid black; margin-bottom: 5px; text-align: center; font-size: 10px; font-weight: bold;">TOTAL A ABONAR</div>
                         <div style="border-bottom: 1px solid black; margin-bottom: 5px; text-align: center; font-size: 10px; font-weight: bold;">{{ total_a_abonar|default:"0.00" }}</div>
                         <div style="border-bottom: 1px solid black; margin-bottom: 5px; text-align: center; font-size: 9px;">{% if muestra_total_usd %}TOTAL ABONADO (ARS){% else %}TOTAL ABONADO{% endif %}</div>
