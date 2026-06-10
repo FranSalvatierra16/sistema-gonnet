@@ -65,6 +65,45 @@
     </div>
 </div>
 
+{% if matriz_cuentas_bancarias.columnas %}
+<div class="card mb-4 border-info shadow-sm caja-resumen-matriz-cuentas">
+    <div class="card-header bg-info text-white py-2">
+        <strong>Saldos bancarios por cuenta</strong>
+        <small class="ms-2 opacity-75">Anterior + Ingresos − Egresos = Saldo actual</small>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-bordered table-sm mb-0 text-end caja-matriz-tabla">
+                <thead>
+                    <tr class="table-info">
+                        <th class="text-start" style="min-width: 8rem;"></th>
+                        {% for col in matriz_cuentas_bancarias.columnas %}
+                        <th class="small">{{ col.label }}</th>
+                        {% endfor %}
+                        <th class="bg-info text-white">TOTAL</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fila in matriz_cuentas_bancarias.filas %}
+                    <tr class="{% if fila.destacado %}table-warning fw-bold{% endif %}">
+                        <th class="text-start {% if fila.egresos %}text-danger{% endif %}">{{ fila.label }}</th>
+                        {% for col in matriz_cuentas_bancarias.columnas %}
+                        <td class="{% if fila.egresos %}text-danger{% endif %}">
+                            ${{ fila.valores|get_item:col.id|format_price }}
+                        </td>
+                        {% endfor %}
+                        <td class="{% if fila.egresos %}text-danger{% else %}fw-semibold{% endif %}">
+                            ${{ fila.total|format_price }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 {% if puede_editar_arqueo_caja %}
 <form id="formAnteriorMatrizCaja" method="post" action="{% url 'inmobiliaria:guardar_anterior_matriz_caja' caja.numero %}" class="d-none">
     {% csrf_token %}

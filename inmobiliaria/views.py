@@ -10884,7 +10884,7 @@ def _build_resumen_matriz_caja(caja, ingresos, egresos, arqueo_manual=None, sald
             ('efectivo', 'TOTAL EFECTIVO'),
             ('cheque', 'TOTAL CHEQUES'),
             ('tarjeta', 'TOTAL TARJETAS'),
-            ('deposito', 'TOTAL DEPÓSITOS'),
+            ('deposito', 'SALDOS BANCARIOS'),
         ],
         'filas': filas,
         'anterior_edit': anterior_edit,
@@ -10895,6 +10895,53 @@ def _build_resumen_matriz_caja(caja, ingresos, egresos, arqueo_manual=None, sald
             'saldo': saldo_usd,
         },
     }
+
+
+def _build_matriz_cuentas_bancarias(ingresos, egresos, cuentas_bancarias, saldos_por_cuenta):
+    """Grilla Anterior / Ingresos / Egresos / Saldo por cuenta bancaria."""
+    columnas = []
+    anterior_por = {}
+    ingresos_por = {}
+    egresos_por = {}
+    saldo_por = {}
+
+    for cuenta in cuentas_bancarias:
+        cid = cuenta.id
+        dest = f'cuenta_{cid}'
+        ing = sum(
+            Decimal(str(m.monto_deposito or 0))
+            for m in ingresos
+            if getattr(m, 'destino_deposito', None) == dest
+        )
+        egr = sum(
+            Decimal(str(m.monto_deposito or 0))
+            for m in egresos
+            if getattr(m, 'destino_deposito', None) == dest
+        )
+        saldo = Decimal(str(saldos_por_cuenta.get(cid, 0) or 0))
+        anterior = saldo - ing + egr
+        etiqueta = cuenta.nombre_banco
+        if cuenta.alias:
+            etiqueta = f'{etiqueta} — {cuenta.alias}'
+        columnas.append({'id': cid, 'label': etiqueta})
+        anterior_por[cid] = anterior
+        ingresos_por[cid] = ing
+        egresos_por[cid] = egr
+        saldo_por[cid] = saldo
+
+    def _fila_total(vals):
+        return sum(vals.values())
+
+    filas = [
+        {'key': 'anterior', 'label': 'ANTERIOR', 'valores': anterior_por},
+        {'key': 'ingresos', 'label': 'INGRESOS', 'valores': ingresos_por},
+        {'key': 'egresos', 'label': 'EGRESOS', 'valores': egresos_por, 'egresos': True},
+        {'key': 'saldo', 'label': 'SALDO ACTUAL', 'valores': saldo_por, 'destacado': True},
+    ]
+    for fila in filas:
+        fila['total'] = _fila_total(fila['valores'])
+
+    return {'columnas': columnas, 'filas': filas}
 
 
 def _calcular_saldos_caja_por_medio(caja, sucursal):
@@ -11391,6 +11438,16 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
         arqueo_manual=arqueo_manual,
         saldos_teoricos=saldos_teoricos,
     )
+    saldos_cuenta_map = {
+        cid: item['saldo']
+        for cid, item in totales['saldo_actual']['cuentas_bancarias'].items()
+    }
+    matriz_cuentas_bancarias = _build_matriz_cuentas_bancarias(
+        ingresos,
+        egresos,
+        list(cuentas_bancarias),
+        saldos_cuenta_map,
+    )
 
     return {
         'caja': caja,
@@ -11410,6 +11467,7 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
         'saldos_arqueo_form': saldos_arqueo_form,
         'cuentas_arqueo': cuentas_arqueo,
         'resumen_matriz': resumen_matriz,
+        'matriz_cuentas_bancarias': matriz_cuentas_bancarias,
     }
 
 
