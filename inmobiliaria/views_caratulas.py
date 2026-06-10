@@ -811,6 +811,7 @@ def lista_caratulas(request):
     q = request.GET.get('q', '').strip()
     operacion = request.GET.get('operacion', '').strip()
     tipo_filtro = request.GET.get('tipo', '').strip()
+    liquidacion_filtro = request.GET.get('liquidacion', '').strip()
     today = timezone.localdate().isoformat()
     raw_desde = request.GET.get('fecha_desde', '').strip()
     raw_hasta = request.GET.get('fecha_hasta', '').strip()
@@ -838,6 +839,7 @@ def lista_caratulas(request):
                 'fecha_desde': fecha_desde if not periodo_completo else '',
                 'fecha_hasta': fecha_hasta if not periodo_completo else '',
                 'tipo_filtro': tipo_filtro,
+                'liquidacion_filtro': liquidacion_filtro,
                 'periodo_completo': periodo_completo,
                 'carpeta_default': _carpeta_default_actual(request),
             },
@@ -963,6 +965,31 @@ def lista_caratulas(request):
         elif dr_hasta:
             contratos = contratos.filter(fecha_inicio__lte=dr_hasta)
 
+    reserva_ids = list(reservas.values_list('id', flat=True))
+    contrato_ids = list(contratos.values_list('id', flat=True))
+
+    liq_por_reserva = {}
+    if reserva_ids:
+        for row in (
+            LiquidacionPropietario.objects.filter(reserva_id__in=reserva_ids)
+            .exclude(estado='cancelada')
+            .order_by('-id')
+            .values('reserva_id', 'id')
+        ):
+            if row['reserva_id'] not in liq_por_reserva:
+                liq_por_reserva[row['reserva_id']] = row['id']
+
+    liq_por_contrato = {}
+    if contrato_ids:
+        for row in (
+            LiquidacionPropietario.objects.filter(contrato_id__in=contrato_ids)
+            .exclude(estado='cancelada')
+            .order_by('-id')
+            .values('contrato_id', 'id')
+        ):
+            if row['contrato_id'] not in liq_por_contrato:
+                liq_por_contrato[row['contrato_id']] = row['id']
+
     filas = []
 
     for r in reservas:
@@ -975,6 +1002,12 @@ def lista_caratulas(request):
             dep = (p.departamento or '').strip() or '—'
             piso_dto = f'{pi} / {dep}'
         plinea, psub = _etiqueta_propiedad_lista(p)
+        liquidacion_id = liq_por_reserva.get(r.id)
+        tiene_liquidacion = liquidacion_id is not None
+        if liquidacion_filtro == 'pendiente' and tiene_liquidacion:
+            continue
+        if liquidacion_filtro == 'liquidada' and not tiene_liquidacion:
+            continue
         filas.append(
             {
                 'kind': 'reserva',
@@ -991,6 +1024,8 @@ def lista_caratulas(request):
                 'estado': r.get_estado_display() if hasattr(r, 'get_estado_display') else r.estado,
                 'carpeta': carpeta_hist,
                 'sort': r.fecha_creacion or r.fecha_inicio,
+                'tiene_liquidacion': tiene_liquidacion,
+                'liquidacion_id': liquidacion_id,
             }
         )
 
@@ -1009,6 +1044,12 @@ def lista_caratulas(request):
             dep = (p.departamento or '').strip() or '—'
             piso_dto = f'{pi} / {dep}'
         clinea, csub = _etiqueta_propiedad_lista(p)
+        liquidacion_id = liq_por_contrato.get(c.id)
+        tiene_liquidacion = liquidacion_id is not None
+        if liquidacion_filtro == 'pendiente' and tiene_liquidacion:
+            continue
+        if liquidacion_filtro == 'liquidada' and not tiene_liquidacion:
+            continue
         filas.append(
             {
                 'kind': 'contrato',
@@ -1025,6 +1066,8 @@ def lista_caratulas(request):
                 'estado': c.get_estado_display() if hasattr(c, 'get_estado_display') else c.estado,
                 'carpeta': carpeta_hist,
                 'sort': c.fecha_creacion,
+                'tiene_liquidacion': tiene_liquidacion,
+                'liquidacion_id': liquidacion_id,
             }
         )
 
@@ -1049,6 +1092,7 @@ def lista_caratulas(request):
             'fecha_desde': fecha_desde if not periodo_completo else '',
             'fecha_hasta': fecha_hasta if not periodo_completo else '',
             'tipo_filtro': tipo_filtro,
+            'liquidacion_filtro': liquidacion_filtro,
             'periodo_completo': periodo_completo,
             'busqueda_por_numero': busqueda_por_numero,
             'carpeta_default': _carpeta_default_actual(request),

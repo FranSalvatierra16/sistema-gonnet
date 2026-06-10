@@ -66,16 +66,25 @@
                         <option value="24meses" {% if tipo_filtro == '24meses' %}selected{% endif %}>Solo 24 meses</option>
                     </select>
                 </div>
+                <div class="col-md-2">
+                    <label class="form-label small mb-0">Liquidación</label>
+                    <select name="liquidacion" class="form-select form-select-sm">
+                        <option value="" {% if not liquidacion_filtro %}selected{% endif %}>Todas</option>
+                        <option value="pendiente" {% if liquidacion_filtro == 'pendiente' %}selected{% endif %}>Pendiente de liquidar</option>
+                        <option value="liquidada" {% if liquidacion_filtro == 'liquidada' %}selected{% endif %}>Ya liquidadas</option>
+                    </select>
+                </div>
                 <div class="col-md-2 d-flex flex-wrap gap-1 align-items-end">
                     <button type="submit" class="btn btn-primary btn-sm flex-grow-1">Filtrar</button>
-                    <a class="btn btn-outline-secondary btn-sm" href="{% url 'inmobiliaria:lista_caratulas' %}?q={{ q|urlencode }}&operacion={{ operacion|urlencode }}&tipo={{ tipo_filtro|urlencode }}" title="Fecha desde y hasta = hoy">Hoy</a>
-                    <a class="btn btn-outline-primary btn-sm" href="{% url 'inmobiliaria:lista_caratulas' %}?todo=1&q={{ q|urlencode }}&operacion={{ operacion|urlencode }}&tipo={{ tipo_filtro|urlencode }}">Todo</a>
+                    <a class="btn btn-outline-secondary btn-sm" href="{% url 'inmobiliaria:lista_caratulas' %}?q={{ q|urlencode }}&operacion={{ operacion|urlencode }}&tipo={{ tipo_filtro|urlencode }}&liquidacion={{ liquidacion_filtro|urlencode }}" title="Fecha desde y hasta = hoy">Hoy</a>
+                    <a class="btn btn-outline-primary btn-sm" href="{% url 'inmobiliaria:lista_caratulas' %}?todo=1&q={{ q|urlencode }}&operacion={{ operacion|urlencode }}&tipo={{ tipo_filtro|urlencode }}&liquidacion={{ liquidacion_filtro|urlencode }}">Todo</a>
                 </div>
             </form>
             <p class="small text-muted mb-0 mt-2">
                 Por defecto el rango <strong>Desde / Hasta</strong> es <strong>hoy</strong>: se listan reservas y contratos cuyo período <strong>se solapa</strong> con esas fechas (entrada/salida o inicio/fin de contrato).
                 Si buscás por <strong>N° operación</strong> (o un número en <strong>Buscar</strong>), no se aplica ese filtro.
                 Podés ampliar el rango o usar <strong>Todo</strong> para quitar el filtro de fechas.
+                Las filas en <span class="badge bg-success">verde</span> ya tienen liquidación al propietario.
             </p>
         </div>
     </div>
@@ -98,7 +107,7 @@
             </thead>
             <tbody>
                 {% for f in filas %}
-                <tr>
+                <tr class="{% if f.tiene_liquidacion %}table-success{% endif %}">
                     <td><span class="badge bg-secondary">{{ f.tipo }}</span></td>
                     <td>{{ f.numero }}</td>
                     <td>{{ f.fecha|date:"d/m/Y" }}</td>
@@ -110,7 +119,14 @@
                     <td class="small">{{ f.direccion|truncatechars:48 }}</td>
                     <td class="small text-muted">{{ f.piso_dto }}</td>
                     <td><code>{{ f.ficha }}</code></td>
-                    <td class="small">{{ f.estado }}</td>
+                    <td class="small">
+                        {{ f.estado }}
+                        {% if f.tiene_liquidacion %}
+                        <br><a href="{% url 'inmobiliaria:detalle_liquidacion' f.liquidacion_id %}" class="badge bg-success text-decoration-none" title="Ver liquidación">Liquidada #{{ f.liquidacion_id }}</a>
+                        {% else %}
+                        <br><span class="badge bg-warning text-dark">Pendiente</span>
+                        {% endif %}
+                    </td>
                     <td class="text-nowrap">
                         {% if f.kind == 'reserva' %}
                         <a class="btn btn-sm btn-outline-primary" href="{% url 'inmobiliaria:caratula_reserva' f.pk %}">Ver</a>
@@ -132,11 +148,11 @@
     <nav class="mt-3">
         <ul class="pagination pagination-sm justify-content-center">
             {% if filas.has_previous %}
-            <li class="page-item"><a class="page-link" href="?page={{ filas.previous_page_number }}&q={{ q|urlencode }}&operacion={{ operacion|urlencode }}&tipo={{ tipo_filtro|urlencode }}{% if periodo_completo %}&todo=1{% else %}&fecha_desde={{ fecha_desde }}&fecha_hasta={{ fecha_hasta }}{% endif %}">Anterior</a></li>
+            <li class="page-item"><a class="page-link" href="?page={{ filas.previous_page_number }}&q={{ q|urlencode }}&operacion={{ operacion|urlencode }}&tipo={{ tipo_filtro|urlencode }}&liquidacion={{ liquidacion_filtro|urlencode }}{% if periodo_completo %}&todo=1{% else %}&fecha_desde={{ fecha_desde }}&fecha_hasta={{ fecha_hasta }}{% endif %}">Anterior</a></li>
             {% endif %}
             <li class="page-item disabled"><span class="page-link">Página {{ filas.number }} de {{ filas.paginator.num_pages }}</span></li>
             {% if filas.has_next %}
-            <li class="page-item"><a class="page-link" href="?page={{ filas.next_page_number }}&q={{ q|urlencode }}&operacion={{ operacion|urlencode }}&tipo={{ tipo_filtro|urlencode }}{% if periodo_completo %}&todo=1{% else %}&fecha_desde={{ fecha_desde }}&fecha_hasta={{ fecha_hasta }}{% endif %}">Siguiente</a></li>
+            <li class="page-item"><a class="page-link" href="?page={{ filas.next_page_number }}&q={{ q|urlencode }}&operacion={{ operacion|urlencode }}&tipo={{ tipo_filtro|urlencode }}&liquidacion={{ liquidacion_filtro|urlencode }}{% if periodo_completo %}&todo=1{% else %}&fecha_desde={{ fecha_desde }}&fecha_hasta={{ fecha_hasta }}{% endif %}">Siguiente</a></li>
             {% endif %}
         </ul>
     </nav>

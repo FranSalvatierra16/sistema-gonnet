@@ -306,20 +306,20 @@
                         <div class="row mb-3">
                             <div class="col-md-2">
                                 <label class="form-label">Efectivo</label>
-                                <input type="number" name="monto_efectivo" class="form-control monto" step="0.01" value="0.00">
+                                <input type="text" name="monto_efectivo" class="form-control monto input-monto-ar" inputmode="decimal" autocomplete="off" value="0,00">
                             </div>
                             <div class="col-md-2">
                                 <label class="form-label">Cheques</label>
-                                <input type="number" name="monto_cheque" class="form-control monto" step="0.01" value="0.00">
+                                <input type="text" name="monto_cheque" class="form-control monto input-monto-ar" inputmode="decimal" autocomplete="off" value="0,00">
                             </div>
                             <div class="col-md-2">
                                 <label class="form-label">Tarjeta</label>
-                                <input type="number" name="monto_tarjeta" class="form-control monto" step="0.01" value="0.00">
+                                <input type="text" name="monto_tarjeta" class="form-control monto input-monto-ar" inputmode="decimal" autocomplete="off" value="0,00">
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Transferencia</label>
                                 <div class="input-group flex-nowrap">
-                                    <input type="number" name="monto_deposito" class="form-control monto" step="0.01" value="0.00" aria-label="Importe transferencia">
+                                    <input type="text" name="monto_deposito" class="form-control monto input-monto-ar" inputmode="decimal" autocomplete="off" value="0,00" aria-label="Importe transferencia">
                                     <select name="destino_deposito" id="destino_deposito_mov" class="form-select flex-grow-1" style="min-width: 11rem; max-width: 22rem;" aria-label="Cuenta destino transferencia">
                                         <option value="">— Cuenta —</option>
                                         {% for cuenta in cuentas_bancarias %}
@@ -385,17 +385,17 @@
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label" for="monto_a_oficina">A depto / oficina</label>
-                                <input type="text" name="monto_a_oficina" id="monto_a_oficina" class="form-control input-monto-corresponde" inputmode="decimal" autocomplete="off" value="0,00">
+                                <input type="text" name="monto_a_oficina" id="monto_a_oficina" class="form-control input-monto-corresponde input-monto-ar" inputmode="decimal" autocomplete="off" value="0,00">
                                 <small class="text-muted">Resto → inquilino</small>
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label" for="monto_a_propietario">A propietario</label>
-                                <input type="text" name="monto_a_propietario" id="monto_a_propietario" class="form-control input-monto-corresponde" inputmode="decimal" autocomplete="off" value="0,00">
+                                <input type="text" name="monto_a_propietario" id="monto_a_propietario" class="form-control input-monto-corresponde input-monto-ar" inputmode="decimal" autocomplete="off" value="0,00">
                                 <small class="text-muted">Resto → inquilino</small>
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label" for="monto_a_inquilino">A inquilino</label>
-                                <input type="text" name="monto_a_inquilino" id="monto_a_inquilino" class="form-control input-monto-corresponde" inputmode="decimal" autocomplete="off" value="0,00">
+                                <input type="text" name="monto_a_inquilino" id="monto_a_inquilino" class="form-control input-monto-corresponde input-monto-ar" inputmode="decimal" autocomplete="off" value="0,00">
                                 <small class="text-muted">Resto → propietario</small>
                             </div>
                             <div class="col-md-3">
@@ -855,7 +855,7 @@ $(document).ready(function() {
     function calcularTotal() {
         var total = 0;
         $('.monto').each(function() {
-            total += parseFloat(String($(this).val() || '0').replace(',', '.')) || 0;
+            total += parseMontoLocal($(this).val());
         });
         $('#total').val(fmtMontoLocal(total));
         return total;
@@ -919,8 +919,8 @@ $(document).ready(function() {
     }
 
     function actualizarVisibilidadMediosPago() {
-        var tj = parseFloat(String($('input[name="monto_tarjeta"]').val() || '0').replace(',', '.')) || 0;
-        var ch = parseFloat(String($('input[name="monto_cheque"]').val() || '0').replace(',', '.')) || 0;
+        var tj = parseMontoLocal($('input[name="monto_tarjeta"]').val());
+        var ch = parseMontoLocal($('input[name="monto_cheque"]').val());
         $('#bloque_detalle_tarjeta').toggleClass('d-none', tj <= 0);
         $('#bloque_detalle_cheque').toggleClass('d-none', ch <= 0);
     }
@@ -933,6 +933,9 @@ $(document).ready(function() {
     $('.monto').on('blur', function() {
         sincronizarCorresponde(ultimoCasilleroCorresponde);
     });
+    if (typeof initMontoARInputs === 'function') {
+        initMontoARInputs(document.getElementById('formMovimiento') || document);
+    }
     calcularTotal();
     actualizarVisibilidadMediosPago();
     sincronizarCorresponde('oficina');
@@ -1303,10 +1306,10 @@ $(document).ready(function() {
                     $('textarea[name="detalles"]').val(detalle);
 
                     // Cargar importes sugeridos (todo a efectivo por defecto)
-                    $('input[name="monto_efectivo"]').val((l.monto_a_pagar || 0).toFixed(2));
-                    $('input[name="monto_cheque"]').val('0.00');
-                    $('input[name="monto_tarjeta"]').val('0.00');
-                    $('input[name="monto_deposito"]').val('0.00');
+                    $('input[name="monto_efectivo"]').val(fmtMontoLocal(l.monto_a_pagar || 0));
+                    $('input[name="monto_cheque"]').val('0,00');
+                    $('input[name="monto_tarjeta"]').val('0,00');
+                    $('input[name="monto_deposito"]').val('0,00');
                     ultimoCasilleroCorresponde = 'propietario';
                     $('.monto').trigger('input');
                     $('#monto_a_propietario').val(fmtMontoLocal(l.monto_a_pagar || 0));
