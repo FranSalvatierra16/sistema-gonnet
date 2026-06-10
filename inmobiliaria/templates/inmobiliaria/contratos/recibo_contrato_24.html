@@ -310,6 +310,9 @@
                                 <td style="padding: 2px 4px; text-align: center; border-right: 1px solid black; font-size: 8px;">Depósito</td>
                                 <td style="padding: 2px 4px; text-align: center; border-right: 1px solid black; font-size: 8px;">Honorarios</td>
                                 <td style="padding: 2px 4px; text-align: center; border-right: 1px solid black; font-size: 8px;">Sellados</td>
+                                {% if muestra_a_favor_recibo %}
+                                <td style="padding: 2px 4px; text-align: center; border-right: 1px solid black; font-size: 8px;">A favor</td>
+                                {% endif %}
                                 <td style="padding: 2px 4px; text-align: center; font-size: 8px;">Total a abonar</td>
                             </tr>
                             <tr style="border-bottom: 1px solid black;">
@@ -317,6 +320,9 @@
                                 <td style="padding: 5px 4px; text-align: center; border-right: 1px solid black;">{{ deposito_garantia|default:"0.00" }}{% if deposito_estado == 'pendiente' %} <span style="font-size:6px;color:#a00;">(pend.)</span>{% endif %}</td>
                                 <td style="padding: 5px 4px; text-align: center; border-right: 1px solid black;">{{ honorarios|default:"0.00" }}{% if recibo_muestra_pendiente_hon %} <span style="font-size:6px;color:#a00;">(pend. ref. ${{ contrato.honorarios_referencia|format_price }})</span>{% endif %}</td>
                                 <td style="padding: 5px 4px; text-align: center; border-right: 1px solid black;">{{ sellados|default:"$0.00" }}{% if recibo_muestra_pendiente_sel %} <span style="font-size:6px;color:#a00;">(pend. ref. ${{ contrato.sellados_referencia|format_price }})</span>{% endif %}</td>
+                                {% if muestra_a_favor_recibo %}
+                                <td style="padding: 5px 4px; text-align: center; border-right: 1px solid black; font-weight: bold;">{{ a_favor_recibo }}</td>
+                                {% endif %}
                                 <td style="padding: 5px 4px; text-align: center; font-weight: bold;">{{ total_a_abonar|default:"0.00" }}</td>
                             </tr>
                         </table>
@@ -325,10 +331,6 @@
                 
                 <div style="width: 48%; border: 1px solid #2d8524; padding: 5px;">
                     <div style="text-align: right; margin-bottom: 10px;">
-                        {% if muestra_a_favor_recibo %}
-                        <div style="border-bottom: 1px solid black; margin-bottom: 5px; text-align: center; font-size: 10px; font-weight: bold;">A FAVOR</div>
-                        <div style="border-bottom: 1px solid black; margin-bottom: 5px; text-align: center; font-size: 10px; font-weight: bold;">{{ a_favor_recibo }}</div>
-                        {% endif %}
                         <div style="border-bottom: 1px solid black; margin-bottom: 5px; text-align: center; font-size: 10px; font-weight: bold;">TOTAL A ABONAR</div>
                         <div style="border-bottom: 1px solid black; margin-bottom: 5px; text-align: center; font-size: 10px; font-weight: bold;">{{ total_a_abonar|default:"0.00" }}</div>
                         <div style="border-bottom: 1px solid black; margin-bottom: 5px; text-align: center; font-size: 9px;">{% if muestra_total_usd %}TOTAL ABONADO (ARS){% else %}TOTAL ABONADO{% endif %}</div>
