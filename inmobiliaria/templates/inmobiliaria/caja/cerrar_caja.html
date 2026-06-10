@@ -98,25 +98,6 @@
                                                     <input type="text" name="arqueo_tarjeta" class="form-control form-control-sm text-end arqueo-input input-monto-ar" inputmode="decimal" autocomplete="off" value="{{ saldos_prefill.tarjeta|format_price }}">
                                                 </td>
                                             </tr>
-                                            {% if saldos_teoricos.deposito_galicia or saldos_teoricos.deposito_mp %}
-                                            <tr class="table-light">
-                                                <td colspan="3" class="small text-muted py-1">Cuentas legacy (si no usás cuentas dinámicas)</td>
-                                            </tr>
-                                            {% endif %}
-                                            <tr>
-                                                <td>Transferencia Galicia <small class="text-muted">(legacy)</small></td>
-                                                <td class="text-end text-muted">${{ saldos_teoricos.deposito_galicia|format_price }}</td>
-                                                <td class="text-end">
-                                                    <input type="text" name="arqueo_galicia" class="form-control form-control-sm text-end arqueo-input arqueo-ars input-monto-ar" inputmode="decimal" autocomplete="off" value="{{ saldos_prefill.deposito_galicia|format_price }}">
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td>Transferencia Mercado Pago <small class="text-muted">(legacy)</small></td>
-                                                <td class="text-end text-muted">${{ saldos_teoricos.deposito_mp|format_price }}</td>
-                                                <td class="text-end">
-                                                    <input type="text" name="arqueo_mp" class="form-control form-control-sm text-end arqueo-input arqueo-ars input-monto-ar" inputmode="decimal" autocomplete="off" value="{{ saldos_prefill.deposito_mp|format_price }}">
-                                                </td>
-                                            </tr>
                                             {% for item in cuentas_arqueo %}
                                             <tr>
                                                 <td>

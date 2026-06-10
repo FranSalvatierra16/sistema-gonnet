@@ -67,8 +67,9 @@
                                 <label class="form-label">Cuenta destino</label>
                                 <select name="destino_deposito" id="destino_deposito_edit" class="form-select">
                                     <option value="">— Cuenta —</option>
-                                    <option value="galicia" {% if montos_form.destino_deposito == 'galicia' or movimiento.destino_deposito == 'galicia' %}selected{% endif %}>Galicia (legacy)</option>
-                                    <option value="mp" {% if montos_form.destino_deposito == 'mp' or movimiento.destino_deposito == 'mp' %}selected{% endif %}>Mercado Pago (legacy)</option>
+                                    {% if movimiento.destino_deposito == 'galicia' or movimiento.destino_deposito == 'mp' or movimiento.destino_deposito == 'mixto' %}
+                                    <option value="{{ movimiento.destino_deposito }}" selected disabled>Registro antiguo — seleccioná una cuenta de la sucursal</option>
+                                    {% endif %}
                                     {% for cuenta in cuentas_bancarias %}
                                     <option value="cuenta_{{ cuenta.id }}" {% if destino_cuenta_id == cuenta.id %}selected{% endif %}>
                                         {{ cuenta.nombre_banco }} — {{ cuenta.alias }}

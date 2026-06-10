@@ -10685,7 +10685,7 @@ def _build_resumen_matriz_caja(caja, ingresos, egresos, arqueo_manual=None, sald
     egresos_por = {k: _sum(egresos, a) for k, a in medios}
 
     def _deposito_arqueo(data):
-        total = Decimal(str(data.get('deposito_galicia') or 0)) + Decimal(str(data.get('deposito_mp') or 0))
+        total = Decimal('0')
         for val in (data.get('cuentas_json') or {}).values():
             total += Decimal(str(val or 0))
         return total
@@ -10713,9 +10713,7 @@ def _build_resumen_matriz_caja(caja, ingresos, egresos, arqueo_manual=None, sald
                 ingresos_por['tarjeta'] - egresos_por['tarjeta']
             ),
             'deposito': (
-                (saldos_teoricos['deposito_galicia'] + saldos_teoricos['deposito_mp'] + sum(
-                    Decimal(str(c.get('teorico') or 0)) for c in saldos_teoricos.get('cuentas') or []
-                ))
+                saldos_teoricos['deposito_total']
                 if saldos_teoricos
                 else ingresos_por['deposito'] - egresos_por['deposito']
             ),
@@ -10786,14 +10784,7 @@ def _calcular_saldos_caja_por_medio(caja, sucursal):
     cheque = _net('monto_cheque')
     tarjeta = _net('monto_tarjeta')
     dolares = _net('monto_dolares')
-    galicia = (
-        sum(Decimal(str(m.monto_deposito or 0)) for m in ingresos.filter(destino_deposito='galicia'))
-        - sum(Decimal(str(m.monto_deposito or 0)) for m in egresos.filter(destino_deposito='galicia'))
-    )
-    mp = (
-        sum(Decimal(str(m.monto_deposito or 0)) for m in ingresos.filter(destino_deposito='mp'))
-        - sum(Decimal(str(m.monto_deposito or 0)) for m in egresos.filter(destino_deposito='mp'))
-    )
+    deposito_total = _net('monto_deposito')
 
     cuentas_bancarias = list(
         CuentaBancaria.objects.filter(sucursal=sucursal, activa=True).order_by('nombre_banco', 'alias')
@@ -10808,15 +10799,14 @@ def _calcular_saldos_caja_por_medio(caja, sucursal):
         total_cuentas += teorico
         cuentas.append({'cuenta': cuenta, 'teorico': teorico})
 
-    total_ars = efectivo + cheque + tarjeta + galicia + mp + total_cuentas
+    total_ars = efectivo + cheque + tarjeta + deposito_total
 
     return {
         'efectivo': efectivo,
         'cheque': cheque,
         'tarjeta': tarjeta,
         'dolares': dolares,
-        'deposito_galicia': galicia,
-        'deposito_mp': mp,
+        'deposito_total': deposito_total,
         'cuentas': cuentas,
         'total_ars': total_ars,
         'saldo_inicial_efectivo': saldo_ini,
@@ -10831,14 +10821,7 @@ def _context_bloque_saldos_por_medio(
     cuentas_items=None,
 ):
     """Contexto para el partial _saldos_por_medio.html."""
-    galicia = Decimal(str(saldos.get('deposito_galicia') or 0))
-    mp = Decimal(str(saldos.get('deposito_mp') or 0))
     lineas = []
-    if galicia != 0:
-        lineas.append({'etiqueta': 'Galicia', 'monto': galicia})
-    if mp != 0:
-        lineas.append({'etiqueta': 'Mercado Pago (legacy)', 'monto': mp})
-
     total_cuentas = Decimal('0')
     for item in cuentas_items or []:
         if isinstance(item, dict) and 'cuenta' in item:
@@ -10855,7 +10838,9 @@ def _context_bloque_saldos_por_medio(
             lineas.append({'etiqueta': etiqueta, 'monto': monto})
         total_cuentas += monto
 
-    total_transferencias = galicia + mp + total_cuentas
+    total_transferencias = total_cuentas
+    if total_transferencias == 0 and saldos.get('deposito_total') is not None:
+        total_transferencias = Decimal(str(saldos.get('deposito_total') or 0))
     efectivo = Decimal(str(saldos.get('efectivo') or 0))
     cheque = Decimal(str(saldos.get('cheque') or 0))
     tarjeta = Decimal(str(saldos.get('tarjeta') or 0))
@@ -10898,15 +10883,13 @@ def _parse_arqueo_cierre_post(request, cuentas_bancarias):
         'cheque': _m('arqueo_cheque'),
         'tarjeta': _m('arqueo_tarjeta'),
         'dolares': _m('arqueo_dolares'),
-        'deposito_galicia': _m('arqueo_galicia'),
-        'deposito_mp': _m('arqueo_mp'),
         'cuentas_json': cuentas_json,
     }
 
 
 def _total_ars_desde_arqueo_dict(data):
     total = Decimal('0')
-    for key in ('efectivo', 'cheque', 'tarjeta', 'deposito_galicia', 'deposito_mp'):
+    for key in ('efectivo', 'cheque', 'tarjeta'):
         total += Decimal(str(data.get(key) or 0))
     for val in (data.get('cuentas_json') or {}).values():
         total += Decimal(str(val or 0))
@@ -10925,8 +10908,6 @@ def _saldos_teoricos_a_dict_arqueo(saldos_teoricos):
         'cheque': saldos_teoricos.get('cheque') or Decimal('0'),
         'tarjeta': saldos_teoricos.get('tarjeta') or Decimal('0'),
         'dolares': saldos_teoricos.get('dolares') or Decimal('0'),
-        'deposito_galicia': saldos_teoricos.get('deposito_galicia') or Decimal('0'),
-        'deposito_mp': saldos_teoricos.get('deposito_mp') or Decimal('0'),
         'cuentas_json': cuentas_json,
     }
 
@@ -10947,8 +10928,8 @@ def _crear_arqueo_manual_desde_dict(caja, data, usuario):
         cheque=Decimal(str(data.get('cheque') or 0)),
         tarjeta=Decimal(str(data.get('tarjeta') or 0)),
         dolares=Decimal(str(data.get('dolares') or 0)),
-        deposito_galicia=Decimal(str(data.get('deposito_galicia') or 0)),
-        deposito_mp=Decimal(str(data.get('deposito_mp') or 0)),
+        deposito_galicia=Decimal('0'),
+        deposito_mp=Decimal('0'),
         cuentas_json=cuentas_json,
         registrado_por=usuario,
     )
@@ -10956,9 +10937,7 @@ def _crear_arqueo_manual_desde_dict(caja, data, usuario):
 
 def _saldo_actual_desde_arqueo_dict(arqueo_data, cuentas_bancarias):
     """Arma el bloque saldo_actual a partir de un arqueo (manual o de cierre)."""
-    galicia = Decimal(str(arqueo_data.get('deposito_galicia') or 0))
-    mp = Decimal(str(arqueo_data.get('deposito_mp') or 0))
-    deposito = galicia + mp
+    deposito = Decimal('0')
     cuentas_saldos = {}
     cuentas_json = arqueo_data.get('cuentas_json') or {}
     for cuenta in cuentas_bancarias:
@@ -10975,8 +10954,6 @@ def _saldo_actual_desde_arqueo_dict(arqueo_data, cuentas_bancarias):
         'cheque': Decimal(str(arqueo_data.get('cheque') or 0)),
         'tarjeta': Decimal(str(arqueo_data.get('tarjeta') or 0)),
         'deposito': deposito,
-        'deposito_galicia': galicia,
-        'deposito_mp': mp,
         'cuentas_bancarias': cuentas_saldos,
         'dolares': Decimal(str(arqueo_data.get('dolares') or 0)),
     }
@@ -11111,12 +11088,6 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
             'alias': cuenta.alias,
             'total': total_cuenta
         }
-    totales_ingresos['deposito_galicia'] = sum(
-        m.monto_deposito for m in ingresos if m.destino_deposito == 'galicia'
-    )
-    totales_ingresos['deposito_mp'] = sum(
-        m.monto_deposito for m in ingresos if m.destino_deposito == 'mp'
-    )
     totales_ingresos['dolares'] = sum((m.monto_dolares or 0) for m in ingresos)
 
     totales_egresos = {
@@ -11137,12 +11108,6 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
             'alias': cuenta.alias,
             'total': total_cuenta
         }
-    totales_egresos['deposito_galicia'] = sum(
-        m.monto_deposito for m in egresos if m.destino_deposito == 'galicia'
-    )
-    totales_egresos['deposito_mp'] = sum(
-        m.monto_deposito for m in egresos if m.destino_deposito == 'mp'
-    )
     totales_egresos['dolares'] = sum((m.monto_dolares or 0) for m in egresos)
 
     saldo_actual = {
@@ -11150,8 +11115,6 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
         'cheque': totales_ingresos['cheque'] - totales_egresos['cheque'],
         'tarjeta': totales_ingresos['tarjeta'] - totales_egresos['tarjeta'],
         'deposito': totales_ingresos['deposito'] - totales_egresos['deposito'],
-        'deposito_galicia': totales_ingresos['deposito_galicia'] - totales_egresos['deposito_galicia'],
-        'deposito_mp': totales_ingresos['deposito_mp'] - totales_egresos['deposito_mp']
     }
     saldo_actual['cuentas_bancarias'] = {}
     for cuenta in cuentas_bancarias:
@@ -11279,8 +11242,8 @@ def guardar_arqueo_caja(request, numero):
             'cheque': arqueo_data['cheque'],
             'tarjeta': arqueo_data['tarjeta'],
             'dolares': arqueo_data['dolares'],
-            'deposito_galicia': arqueo_data['deposito_galicia'],
-            'deposito_mp': arqueo_data['deposito_mp'],
+            'deposito_galicia': Decimal('0'),
+            'deposito_mp': Decimal('0'),
             'cuentas_json': arqueo_data['cuentas_json'],
             'registrado_por': request.user,
         },
@@ -11735,8 +11698,8 @@ def cerrar_caja(request, numero_caja):
                         cheque=arqueo_data['cheque'],
                         tarjeta=arqueo_data['tarjeta'],
                         dolares=arqueo_data['dolares'],
-                        deposito_galicia=arqueo_data['deposito_galicia'],
-                        deposito_mp=arqueo_data['deposito_mp'],
+                        deposito_galicia=Decimal('0'),
+                        deposito_mp=Decimal('0'),
                         cuentas_json=arqueo_data['cuentas_json'],
                         registrado_por=request.user,
                     )
@@ -12580,16 +12543,12 @@ def reportes_caja(request):
         .values_list('destino_deposito', flat=True)
     )
 
-    # Etiquetas distintas a las cuentas bancarias (ej. "Banco Galicia") para no duplicar el nombre en el select.
     fijos_etiqueta = {
-        'galicia': 'Galicia (registros antiguos)',
-        'mp': 'Mercado Pago (registros antiguos)',
-        'mixto': 'Mixto (registros antiguos)',
+        'galicia': 'Galicia (registro antiguo)',
+        'mp': 'Mercado Pago (registro antiguo)',
+        'mixto': 'Mixto (registro antiguo)',
     }
     opciones_destino = []
-    for clave in ('galicia', 'mp', 'mixto'):
-        if clave in destinos_usados:
-            opciones_destino.append({'valor': clave, 'etiqueta': fijos_etiqueta[clave]})
 
     cuentas_map = {c.id: c for c in cuentas_bancarias}
     vistos_cuenta = set(cuentas_map.keys())

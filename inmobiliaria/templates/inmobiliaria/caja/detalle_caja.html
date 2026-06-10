@@ -339,13 +339,7 @@
                                         {% endif %}
                                     {% endwith %}
                                 {% empty %}
-                                    <!-- Fallback a campos legacy si no hay cuentas bancarias -->
-                                    {% if totales.ingresos.deposito_galicia > 0 %}
-                                        <small><strong>Galicia:</strong> ${{ totales.ingresos.deposito_galicia|format_price }}</small><br>
-                                    {% endif %}
-                                    {% if totales.ingresos.deposito_mp > 0 %}
-                                        <small><strong>MP:</strong> ${{ totales.ingresos.deposito_mp|format_price }}</small><br>
-                                    {% endif %}
+                                    <small class="text-muted">Sin cuentas configuradas en la sucursal.</small>
                                 {% endfor %}
                             </div>
                         </div>
@@ -379,13 +373,7 @@
                                         {% endif %}
                                     {% endwith %}
                                 {% empty %}
-                                    <!-- Fallback a campos legacy si no hay cuentas bancarias -->
-                                    {% if totales.egresos.deposito_galicia > 0 %}
-                                        <small><strong>Galicia:</strong> ${{ totales.egresos.deposito_galicia|format_price }}</small><br>
-                                    {% endif %}
-                                    {% if totales.egresos.deposito_mp > 0 %}
-                                        <small><strong>MP:</strong> ${{ totales.egresos.deposito_mp|format_price }}</small><br>
-                                    {% endif %}
+                                    <small class="text-muted">Sin cuentas configuradas en la sucursal.</small>
                                 {% endfor %}
                             </div>
                         </div>
@@ -463,13 +451,7 @@
                                             {% endif %}
                                         {% endwith %}
                                     {% empty %}
-                                        <!-- Fallback a campos legacy si no hay cuentas bancarias -->
-                                        {% if totales.saldo_actual.deposito_galicia != 0 %}
-                                            <div><strong>Galicia:</strong> ${{ totales.saldo_actual.deposito_galicia|format_price }}</div>
-                                        {% endif %}
-                                        {% if totales.saldo_actual.deposito_mp != 0 %}
-                                            <div><strong>MP:</strong> ${{ totales.saldo_actual.deposito_mp|format_price }}</div>
-                                        {% endif %}
+                                        <span class="text-muted">Sin cuentas configuradas.</span>
                                     {% endfor %}
                                 </div>
                             </div>
@@ -540,22 +522,6 @@
                                     <td>
                                         <input type="text" name="arqueo_tarjeta" class="form-control form-control-sm text-end arqueo-caja-input input-monto-ar" inputmode="decimal" autocomplete="off"
                                                value="{{ saldos_arqueo_form.tarjeta|format_price }}">
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td>Galicia <small class="text-muted">(legacy)</small></td>
-                                    <td class="text-end text-muted">${{ saldos_teoricos.deposito_galicia|format_price }}</td>
-                                    <td>
-                                        <input type="text" name="arqueo_galicia" class="form-control form-control-sm text-end arqueo-caja-input input-monto-ar" inputmode="decimal" autocomplete="off"
-                                               value="{{ saldos_arqueo_form.deposito_galicia|format_price }}">
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td>Mercado Pago <small class="text-muted">(legacy)</small></td>
-                                    <td class="text-end text-muted">${{ saldos_teoricos.deposito_mp|format_price }}</td>
-                                    <td>
-                                        <input type="text" name="arqueo_mp" class="form-control form-control-sm text-end arqueo-caja-input input-monto-ar" inputmode="decimal" autocomplete="off"
-                                               value="{{ saldos_arqueo_form.deposito_mp|format_price }}">
                                     </td>
                                 </tr>
                                 {% for item in cuentas_arqueo %}

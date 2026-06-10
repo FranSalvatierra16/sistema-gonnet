@@ -138,12 +138,6 @@
                         {% endif %}
                     {% endwith %}
                 {% endfor %}
-                {% if totales.ingresos.deposito_galicia > 0 %}
-                <p class="small mb-0">↳ Galicia: ${{ totales.ingresos.deposito_galicia|format_price }}</p>
-                {% endif %}
-                {% if totales.ingresos.deposito_mp > 0 %}
-                <p class="small mb-0">↳ Mercado Pago (legacy): ${{ totales.ingresos.deposito_mp|format_price }}</p>
-                {% endif %}
                 <hr class="my-2">
                 <p class="small mb-1">USD: U$S {{ totales.ingresos.dolares|format_price }}</p>
                 <strong>Total ingresos ARS: ${{ totales.ingresos.total|format_price }}</strong>
@@ -161,12 +155,6 @@
                         {% endif %}
                     {% endwith %}
                 {% endfor %}
-                {% if totales.egresos.deposito_galicia > 0 %}
-                <p class="small mb-0">↳ Galicia: ${{ totales.egresos.deposito_galicia|format_price }}</p>
-                {% endif %}
-                {% if totales.egresos.deposito_mp > 0 %}
-                <p class="small mb-0">↳ Mercado Pago (legacy): ${{ totales.egresos.deposito_mp|format_price }}</p>
-                {% endif %}
                 <hr class="my-2">
                 <p class="small mb-1">USD: U$S {{ totales.egresos.dolares|format_price }}</p>
                 <strong>Total egresos ARS: ${{ totales.egresos.total|format_price }}</strong>
@@ -223,16 +211,6 @@
                             <td>Tarjeta</td>
                             <td class="text-end">${{ saldos_teoricos_cierre.tarjeta|format_price }}</td>
                             <td class="text-end">${{ arqueo_cierre.tarjeta|format_price }}</td>
-                        </tr>
-                        <tr>
-                            <td>Galicia (legacy)</td>
-                            <td class="text-end">${{ saldos_teoricos_cierre.deposito_galicia|format_price }}</td>
-                            <td class="text-end">${{ arqueo_cierre.deposito_galicia|format_price }}</td>
-                        </tr>
-                        <tr>
-                            <td>Mercado Pago (legacy)</td>
-                            <td class="text-end">${{ saldos_teoricos_cierre.deposito_mp|format_price }}</td>
-                            <td class="text-end">${{ arqueo_cierre.deposito_mp|format_price }}</td>
                         </tr>
                         {% for item in saldos_teoricos_cierre.cuentas %}
                         <tr>
