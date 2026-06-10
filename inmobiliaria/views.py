@@ -23449,6 +23449,67 @@ def _periodo_mes_anio_liquidacion(fecha):
         return ''
 
 
+def _reserva_de_liquidacion(liquidacion):
+    """Reserva vinculada a la liquidación (FK o operaciones_incluidas)."""
+    if getattr(liquidacion, 'reserva_id', None):
+        reserva = getattr(liquidacion, 'reserva', None)
+        if reserva is not None:
+            return reserva
+        return Reserva.objects.filter(pk=liquidacion.reserva_id).first()
+    for op in liquidacion.operaciones_incluidas or []:
+        if not isinstance(op, dict) or op.get('tipo') != 'reserva':
+            continue
+        try:
+            rid = int(op.get('id'))
+        except (TypeError, ValueError):
+            continue
+        r = Reserva.objects.filter(pk=rid).select_related('propiedad').first()
+        if r:
+            return r
+    return None
+
+
+def _es_liquidacion_alquiler_por_dia(liquidacion, contrato=None):
+    """True si la liquidación es de una operación por día (no contrato invierno/24)."""
+    if contrato:
+        return False
+    reserva = _reserva_de_liquidacion(liquidacion)
+    if reserva:
+        from inmobiliaria.models.comision import clasificar_tipo_operacion_reserva
+
+        return clasificar_tipo_operacion_reserva(reserva) == 'dia'
+    fd = liquidacion.fecha_desde
+    fh = liquidacion.fecha_hasta
+    if fd and fh:
+        try:
+            return (fh - fd).days < 14
+        except TypeError:
+            pass
+    return False
+
+
+def _detalle_haber_alquiler_liquidacion_cobranzas(liquidacion, contrato=None):
+    """Texto DETALLE para la fila de alquiler en liquidación de cobranzas."""
+    reserva = _reserva_de_liquidacion(liquidacion)
+    fd = liquidacion.fecha_desde
+    fh = liquidacion.fecha_hasta
+    if reserva:
+        fd = fd or reserva.fecha_inicio
+        fh = fh or reserva.fecha_fin
+
+    if _es_liquidacion_alquiler_por_dia(liquidacion, contrato):
+        if fd and fh:
+            return (
+                f'ALQUILER X DÍA // {fd.strftime("%d/%m/%Y")} — {fh.strftime("%d/%m/%Y")}'
+            )
+        if fd:
+            return f'ALQUILER X DÍA // {fd.strftime("%d/%m/%Y")}'
+        return 'ALQUILER X DÍA'
+
+    periodo = _periodo_mes_anio_liquidacion(fd) or _periodo_mes_anio_liquidacion(fh)
+    return f'ALQUILER A PAGAR // {periodo}' if periodo else 'ALQUILER A PAGAR'
+
+
 def _contrato_de_liquidacion(liquidacion):
     if getattr(liquidacion, 'contrato_id', None) and liquidacion.contrato_id:
         return liquidacion.contrato
@@ -23515,13 +23576,11 @@ def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
     filas = []
     monto_prop = Decimal(str(liquidacion.monto_propietario or 0))
     cochera = Decimal(str(liquidacion.monto_cochera or 0))
-    periodo = _periodo_mes_anio_liquidacion(liquidacion.fecha_desde) or _periodo_mes_anio_liquidacion(
-        liquidacion.fecha_hasta
-    )
+    contrato = _contrato_de_liquidacion(liquidacion)
 
     if monto_prop > Decimal('0.01'):
         filas.append({
-            'detalle': f'ALQUILER A PAGAR // {periodo}' if periodo else 'ALQUILER A PAGAR',
+            'detalle': _detalle_haber_alquiler_liquidacion_cobranzas(liquidacion, contrato),
             'haber': monto_prop.quantize(Decimal('0.01')),
             'debe': Decimal('0'),
         })
