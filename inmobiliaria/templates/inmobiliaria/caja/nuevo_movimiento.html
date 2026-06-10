@@ -585,7 +585,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/monto-argentino.js' %}"></script>
+<script src="{% static 'js/monto-argentino.js' %}?v=4"></script>
 <script>
 $(document).ready(function() {
     // Limpiar el formulario cuando se abre el modal
@@ -925,12 +925,25 @@ $(document).ready(function() {
         $('#bloque_detalle_cheque').toggleClass('d-none', ch <= 0);
     }
 
-    // Actualizar total cuando cambian los montos de pago (sin reformatear imputación en cada tecla)
-    $('.monto').on('input', function() {
-        calcularTotal();
-        actualizarVisibilidadMediosPago();
+    function formatearMontoAlEscribir(el) {
+        if (!el) return;
+        if (typeof formatMontoARTyping === 'function') {
+            el.value = formatMontoARTyping(el.value);
+        }
+    }
+
+    // Formato argentino al escribir (70.000) + total
+    $('#formMovimiento').on('input', '.monto, .input-monto-ar', function() {
+        formatearMontoAlEscribir(this);
+        if ($(this).hasClass('monto')) {
+            calcularTotal();
+            actualizarVisibilidadMediosPago();
+        }
     });
     $('.monto').on('blur', function() {
+        if (typeof formatMontoAR === 'function' && this.value.trim() !== '') {
+            this.value = formatMontoAR(this.value);
+        }
         sincronizarCorresponde(ultimoCasilleroCorresponde);
     });
     if (typeof initMontoARInputs === 'function') {

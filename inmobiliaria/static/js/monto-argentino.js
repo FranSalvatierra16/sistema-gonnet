@@ -36,13 +36,37 @@
         return isNaN(n) ? 0 : n;
     }
 
+    function formatEnteroConPuntos(n) {
+        var neg = n < 0;
+        var s = String(Math.abs(parseInt(n, 10) || 0));
+        var out = '';
+        for (var i = 0; i < s.length; i++) {
+            if (i > 0 && (s.length - i) % 3 === 0) {
+                out += '.';
+            }
+            out += s.charAt(i);
+        }
+        return (neg ? '-' : '') + out;
+    }
+
     function formatMontoAR(num, dec) {
         dec = dec === undefined ? 2 : Math.max(0, dec);
         var n = typeof num === 'number' ? num : parseMontoAR(num);
         if (dec === 0) {
-            return Math.round(n).toLocaleString('es-AR', { maximumFractionDigits: 0 });
+            return formatEnteroConPuntos(Math.round(n));
         }
-        return n.toLocaleString('es-AR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+        var ent = Math.trunc(Math.abs(n));
+        var frac = Math.round((Math.abs(n) - ent) * Math.pow(10, dec));
+        if (frac >= Math.pow(10, dec)) {
+            ent += 1;
+            frac = 0;
+        }
+        var fracStr = String(frac);
+        while (fracStr.length < dec) {
+            fracStr = '0' + fracStr;
+        }
+        var sign = n < 0 ? '-' : '';
+        return sign + formatEnteroConPuntos(ent) + ',' + fracStr;
     }
 
     /** Formato mientras se escribe: miles con punto (70.000), decimales opcionales con coma. */
@@ -58,7 +82,7 @@
             var intDigits = (parts[0] || '').replace(/\D/g, '');
             var decRaw = parts.slice(1).join('').replace(/\D/g, '').slice(0, 2);
             var intN = parseInt(intDigits || '0', 10);
-            var formatted = intN.toLocaleString('es-AR', { maximumFractionDigits: 0 });
+            var formatted = formatEnteroConPuntos(intN);
             if (t.endsWith(',') && !decRaw) {
                 return (neg ? '-' : '') + formatted + ',';
             }
@@ -68,46 +92,55 @@
         var digits = t.replace(/\D/g, '');
         if (!digits) return neg ? '-' : '';
         var n = parseInt(digits, 10);
-        return (neg ? '-' : '') + n.toLocaleString('es-AR', { maximumFractionDigits: 0 });
+        return (neg ? '-' : '') + formatEnteroConPuntos(n);
+    }
+
+    function bindMontoARInput(el) {
+        if (!el || el.dataset.montoArInit) return;
+        el.dataset.montoArInit = '1';
+        if (el.value && String(el.value).trim() !== '') {
+            el.value = formatMontoAR(el.value);
+        }
+        el.addEventListener('input', function () {
+            var pos = el.selectionStart;
+            var oldLen = (el.value || '').length;
+            el.value = formatMontoARTyping(el.value);
+            var newLen = (el.value || '').length;
+            if (typeof pos === 'number') {
+                var newPos = Math.max(0, pos + (newLen - oldLen));
+                try {
+                    el.setSelectionRange(newPos, newPos);
+                } catch (e) { /* noop */ }
+            }
+        });
+        el.addEventListener('blur', function () {
+            if (String(el.value || '').trim() !== '') {
+                el.value = formatMontoAR(el.value);
+            }
+        });
+        el.addEventListener('focus', function () {
+            el.select();
+        });
     }
 
     function initMontoARInputs(root) {
         root = root || document;
-        root.querySelectorAll('input.input-monto-ar').forEach(function (el) {
-            if (el.dataset.montoArInit) return;
-            el.dataset.montoArInit = '1';
-            if (el.value && el.value.trim() !== '') {
-                el.value = formatMontoAR(el.value);
-            }
-            el.addEventListener('input', function () {
-                var pos = el.selectionStart;
-                var oldLen = (el.value || '').length;
-                el.value = formatMontoARTyping(el.value);
-                var newLen = (el.value || '').length;
-                if (typeof pos === 'number') {
-                    var newPos = Math.max(0, pos + (newLen - oldLen));
-                    try {
-                        el.setSelectionRange(newPos, newPos);
-                    } catch (e) { /* input no soporta selección */ }
-                }
-            });
-            el.addEventListener('blur', function () {
-                if (el.value.trim() !== '') {
-                    el.value = formatMontoAR(el.value);
-                }
-            });
-            el.addEventListener('focus', function () {
-                el.select();
-            });
-        });
+        root.querySelectorAll('input.input-monto-ar').forEach(bindMontoARInput);
     }
 
     global.parseMontoAR = parseMontoAR;
     global.formatMontoAR = formatMontoAR;
     global.formatMontoARTyping = formatMontoARTyping;
+    global.bindMontoARInput = bindMontoARInput;
     global.initMontoARInputs = initMontoARInputs;
 
-    document.addEventListener('DOMContentLoaded', function () {
+    function boot() {
         initMontoARInputs();
-    });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', boot);
+    } else {
+        boot();
+    }
 })(window);

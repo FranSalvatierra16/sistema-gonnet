@@ -327,8 +327,9 @@ class ComisionVendedorQuerySet(models.QuerySet):
     """
 
     def que_suman(self):
+        """Solo comisiones acreditadas (tras liquidación) o ya pagadas al vendedor."""
         return (
-            self.exclude(estado='cancelada')
+            self.filter(estado__in=('confirmada', 'pagada'))
             .exclude(reserva__estado='cancelada')
             .exclude(reserva__eliminada=True)
         )
@@ -425,7 +426,7 @@ class ComisionVendedor(models.Model):
     estado = models.CharField(
         max_length=20,
         choices=ESTADO_CHOICES,
-        default='confirmada',
+        default='pendiente',
         verbose_name="Estado"
     )
     
@@ -610,6 +611,7 @@ class ComisionVendedor(models.Model):
             concepto_operacion=(concepto or f'Operación {reserva.id}')[:200],
             rol_comision=rol_comision,
             fecha_operacion=movimiento_caja.fecha if movimiento_caja else timezone.now(),
+            estado='pendiente',
         )
 
     @classmethod
@@ -661,6 +663,54 @@ class ComisionVendedor(models.Model):
             .aggregate(total=models.Sum('monto_comision'))['total']
             or Decimal('0')
         )
+
+
+def _reserva_ids_desde_liquidacion(liquidacion):
+    """IDs de reserva vinculadas a una liquidación al propietario."""
+    ids = set()
+    if not liquidacion:
+        return ids
+    if liquidacion.reserva_id:
+        ids.add(int(liquidacion.reserva_id))
+    for op in liquidacion.operaciones_incluidas or []:
+        if not isinstance(op, dict):
+            continue
+        if op.get('tipo') == 'reserva' and op.get('id'):
+            try:
+                ids.add(int(op['id']))
+            except (TypeError, ValueError):
+                pass
+    if not ids and liquidacion.contrato_id and liquidacion.propiedad_id:
+        contrato = liquidacion.contrato
+        if contrato and contrato.fecha_inicio and contrato.fecha_fin:
+            ids.update(
+                Reserva.objects.filter(
+                    propiedad_id=liquidacion.propiedad_id,
+                    eliminada=False,
+                )
+                .exclude(estado='cancelada')
+                .filter(
+                    fecha_inicio__lte=contrato.fecha_fin,
+                    fecha_fin__gte=contrato.fecha_inicio,
+                )
+                .values_list('id', flat=True)
+            )
+    return ids
+
+
+def confirmar_comisiones_por_liquidacion(liquidacion):
+    """
+    Acredita comisiones de vendedor (pendiente → confirmada) al crear liquidación al propietario.
+    """
+    if not liquidacion or getattr(liquidacion, 'estado', None) == 'cancelada':
+        return 0
+    reserva_ids = _reserva_ids_desde_liquidacion(liquidacion)
+    if not reserva_ids:
+        return 0
+    return ComisionVendedor.objects.filter(
+        reserva_id__in=reserva_ids,
+        estado='pendiente',
+    ).update(estado='confirmada')
 
 
 class MesComisionPagadoVendedor(models.Model):
