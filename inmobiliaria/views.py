@@ -10665,6 +10665,37 @@ def _usuario_puede_arqueo_cierre_caja(user):
     return usuario_puede_editar_movimiento_caja(user)
 
 
+def _parse_imputacion_corresponde_post(request, total_mov):
+    """Lee y valida el reparto oficina / propietario / inquilino del movimiento."""
+    m_of = parse_decimal_monto(request.POST.get('monto_a_oficina', '0') or '0')
+    m_prop = parse_decimal_monto(request.POST.get('monto_a_propietario', '0') or '0')
+    m_inq = parse_decimal_monto(request.POST.get('monto_a_inquilino', '0') or '0')
+    total_mov = Decimal(str(total_mov or 0))
+    suma = m_of + m_prop + m_inq
+    if total_mov > 0 and suma == 0:
+        m_of = total_mov
+    elif abs(suma - total_mov) > Decimal('0.02'):
+        raise ValueError('imputacion')
+    return m_of, m_prop, m_inq
+
+
+def _derivar_a_descontar_desde_imputacion(m_of, m_prop, m_inq):
+    """Compatibilidad con filtros y liquidaciones que usan a_descontar."""
+    if m_prop > 0 and m_inq == 0 and m_of == 0:
+        return 'propietario'
+    if m_inq > 0 and m_prop == 0 and m_of == 0:
+        return 'inquilino'
+    if m_of > 0 and m_prop == 0 and m_inq == 0:
+        return 'oficina'
+    if m_of > 0 and m_inq > 0:
+        return 'oficina'
+    if m_prop > 0 and m_inq > 0:
+        return 'propietario'
+    if m_of > 0:
+        return 'oficina'
+    return 'oficina'
+
+
 def _build_resumen_matriz_caja(caja, ingresos, egresos, arqueo_manual=None, saldos_teoricos=None):
     """
     Grilla Anterior / Ingresos / Egresos / Saldo por medio (estilo listado legacy).
@@ -11449,10 +11480,6 @@ def nuevo_movimiento(request, numero_caja=None):
             }
             tipo_comprobante = tipo_comprobante_map.get(tipo_comprobante_raw, tipo_comprobante_raw[:2] if len(tipo_comprobante_raw) > 2 else tipo_comprobante_raw)
             
-            a_descontar_raw = (request.POST.get('a_descontar') or 'oficina').strip().lower()
-            if a_descontar_raw not in ('oficina', 'propietario', 'inquilino'):
-                a_descontar_raw = 'oficina'
-
             # Crear el movimiento con valores iniciales
             movimiento = MovimientoCaja(
                 caja=caja,
@@ -11468,7 +11495,6 @@ def nuevo_movimiento(request, numero_caja=None):
                 monto_tarjeta=0,
                 monto_deposito=0,
                 destino_deposito=None,
-                a_descontar=a_descontar_raw,
                 sucursal=request.user.sucursal,
                 empleado=request.user
             )
@@ -11535,9 +11561,24 @@ def nuevo_movimiento(request, numero_caja=None):
                 )
                 return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
 
+            try:
+                m_of, m_prop, m_inq = _parse_imputacion_corresponde_post(request, total_mov)
+            except ValueError:
+                messages.error(
+                    request,
+                    'El reparto entre oficina, propietario e inquilino debe sumar el total del movimiento.',
+                )
+                return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
+
+            movimiento.monto_a_oficina = m_of
+            movimiento.monto_a_propietario = m_prop
+            movimiento.monto_a_inquilino = m_inq
+            a_descontar_raw = _derivar_a_descontar_desde_imputacion(m_of, m_prop, m_inq)
+            movimiento.a_descontar = a_descontar_raw
+
             if (
                 tipo == TipoMovimientoCajaEnum.EGRESO
-                and a_descontar_raw in ('propietario', 'oficina')
+                and (m_prop > 0 or m_of > 0)
                 and not movimiento.propiedad_id
             ):
                 messages.error(

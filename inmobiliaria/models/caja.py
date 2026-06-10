@@ -266,6 +266,18 @@ class MovimientoCaja(models.Model):
         blank=True,  # Permitimos que esté vacío
         help_text='Solo necesario para egresos'
     )
+    monto_a_oficina = models.DecimalField(
+        max_digits=14, decimal_places=2, default=0,
+        help_text='Parte del total que corresponde a la oficina / depto.',
+    )
+    monto_a_propietario = models.DecimalField(
+        max_digits=14, decimal_places=2, default=0,
+        help_text='Parte del total que corresponde al propietario.',
+    )
+    monto_a_inquilino = models.DecimalField(
+        max_digits=14, decimal_places=2, default=0,
+        help_text='Parte del total que corresponde al inquilino.',
+    )
     sucursal = models.ForeignKey('Sucursal', on_delete=models.CASCADE)
     empleado = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
     caja = models.ForeignKey('Caja', on_delete=models.CASCADE, null=True, blank=True)
@@ -540,7 +552,10 @@ class MovimientoCaja(models.Model):
             )
         elif self.fecha_desde:
             parts.append(self.fecha_desde.strftime('%d/%m/%Y'))
-        if self.a_descontar:
+        imput = self.etiqueta_imputacion_corresponde()
+        if imput:
+            parts.append(imput)
+        elif self.a_descontar:
             try:
                 parts.append(self.get_a_descontar_display().upper())
             except Exception:
@@ -548,6 +563,21 @@ class MovimientoCaja(models.Model):
         if not parts:
             return '—'
         return ' · '.join(parts)
+
+    def etiqueta_imputacion_corresponde(self):
+        """Texto del reparto oficina / propietario / inquilino si hay montos cargados."""
+        from inmobiliaria.decimal_utils import format_monto_argentino
+
+        bloques = []
+        for etiqueta, val in (
+            ('OF', getattr(self, 'monto_a_oficina', None)),
+            ('PROP', getattr(self, 'monto_a_propietario', None)),
+            ('INQ', getattr(self, 'monto_a_inquilino', None)),
+        ):
+            m = Decimal(str(val or 0))
+            if m > 0:
+                bloques.append(f'{etiqueta} ${format_monto_argentino(m)}')
+        return ' · '.join(bloques)
 
     def _extraer_numero_operacion_desde_concepto(self):
         texto = self.concepto_sin_pipe_conceptos()

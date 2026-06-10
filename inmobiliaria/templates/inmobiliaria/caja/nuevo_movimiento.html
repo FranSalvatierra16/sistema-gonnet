@@ -349,35 +349,34 @@
                                 <input type="date" name="cheque_fecha_vencimiento" class="form-control">
                             </div>
                         </div>
-                        <div class="row mb-3">
-                            <div class="col-md-12">
+                        <div class="row mb-3 mt-2">
+                            <div class="col-12">
                                 <hr>
-                                <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="radio" name="a_descontar" id="corresponde_oficina" value="oficina" checked>
-                                    <label class="form-check-label" for="corresponde_oficina">Corresponde a oficina</label>
+                                <label class="form-label fw-semibold mb-2">A quién corresponde el importe</label>
+                                <small class="text-muted d-block mb-2">
+                                    El total se reparte entre oficina, propietario e inquilino. Si cargás en un casillero, el resto se completa según la regla indicada.
+                                </small>
                             </div>
-                                <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="radio" name="a_descontar" id="corresponde_propietario" value="propietario">
-                                    <label class="form-check-label" for="corresponde_propietario">Corresponde a propietario</label>
-                                    </div>
-                                <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="radio" name="a_descontar" id="corresponde_inquilino" value="inquilino">
-                                    <label class="form-check-label" for="corresponde_inquilino">Corresponde a inquilino</label>
-                                    </div>
-                                </div>
-                                    </div>
-                        <div id="monto_propietario_container" class="row mt-3 d-none">
                             <div class="col-md-3">
-                                <label class="form-label" id="monto_destino_label">Monto que corresponde al propietario</label>
-                                <input type="number" name="monto_propietario" class="form-control" step="0.01" value="0.00">
+                                <label class="form-label" for="monto_a_oficina">A depto / oficina</label>
+                                <input type="text" name="monto_a_oficina" id="monto_a_oficina" class="form-control input-monto-corresponde" inputmode="decimal" autocomplete="off" value="0,00">
+                                <small class="text-muted">Resto → inquilino</small>
                             </div>
-                        </div>
-                        <div class="row mt-3">
+                            <div class="col-md-3">
+                                <label class="form-label" for="monto_a_propietario">A propietario</label>
+                                <input type="text" name="monto_a_propietario" id="monto_a_propietario" class="form-control input-monto-corresponde" inputmode="decimal" autocomplete="off" value="0,00">
+                                <small class="text-muted">Resto → inquilino</small>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label" for="monto_a_inquilino">A inquilino</label>
+                                <input type="text" name="monto_a_inquilino" id="monto_a_inquilino" class="form-control input-monto-corresponde" inputmode="decimal" autocomplete="off" value="0,00">
+                                <small class="text-muted">Resto → propietario</small>
+                            </div>
                             <div class="col-md-3">
                                 <label class="form-label">TOTAL</label>
-                                <input type="text" id="total" class="form-control" readonly value="0.00">
+                                <input type="text" id="total" class="form-control fw-bold bg-light" readonly value="0,00">
                             </div>
-                                </div>
+                        </div>
                             </div>
                         </div>
 
@@ -560,6 +559,7 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="{% static 'js/monto-argentino.js' %}"></script>
 <script>
 $(document).ready(function() {
     // Limpiar el formulario cuando se abre el modal
@@ -799,13 +799,88 @@ $(document).ready(function() {
         $('#btn_guardar_concepto').click();
     });
 
+    var ultimoCasilleroCorresponde = 'oficina';
+
+    function parseMontoLocal(v) {
+        if (typeof parseMontoAR === 'function') {
+            return parseMontoAR(v);
+        }
+        var n = parseFloat(String(v || '0').replace(/\./g, '').replace(',', '.'));
+        return isNaN(n) ? 0 : n;
+    }
+
+    function fmtMontoLocal(n) {
+        if (typeof formatMontoAR === 'function') {
+            return formatMontoAR(n);
+        }
+        return (Math.round(n * 100) / 100).toFixed(2).replace('.', ',');
+    }
+
     // Calcular total
     function calcularTotal() {
         var total = 0;
         $('.monto').each(function() {
-            total += parseFloat($(this).val() || 0);
+            total += parseFloat(String($(this).val() || '0').replace(',', '.')) || 0;
         });
-        $('#total').val(total.toFixed(2));
+        $('#total').val(fmtMontoLocal(total));
+        return total;
+    }
+
+    function sincronizarCorresponde(origen) {
+        if (origen) {
+            ultimoCasilleroCorresponde = origen;
+        }
+        var total = calcularTotal();
+        var $of = $('#monto_a_oficina');
+        var $prop = $('#monto_a_propietario');
+        var $inq = $('#monto_a_inquilino');
+        var of = parseMontoLocal($of.val());
+        var prop = parseMontoLocal($prop.val());
+        var inq = parseMontoLocal($inq.val());
+        var src = ultimoCasilleroCorresponde || 'oficina';
+
+        if (total <= 0) {
+            $of.val(fmtMontoLocal(0));
+            $prop.val(fmtMontoLocal(0));
+            $inq.val(fmtMontoLocal(0));
+            return;
+        }
+
+        if (src === 'oficina') {
+            of = Math.min(of, total);
+            if (of >= total - 0.005) {
+                of = total;
+                prop = 0;
+                inq = 0;
+            } else {
+                prop = 0;
+                inq = Math.max(0, total - of);
+            }
+        } else if (src === 'propietario') {
+            prop = Math.min(prop, total);
+            if (prop >= total - 0.005) {
+                prop = total;
+                of = 0;
+                inq = 0;
+            } else {
+                of = 0;
+                inq = Math.max(0, total - prop);
+            }
+        } else if (src === 'inquilino') {
+            inq = Math.min(inq, total);
+            if (inq >= total - 0.005) {
+                inq = total;
+                of = 0;
+                prop = 0;
+            } else {
+                of = 0;
+                prop = Math.max(0, total - inq);
+            }
+        }
+
+        $of.val(fmtMontoLocal(of));
+        $prop.val(fmtMontoLocal(prop));
+        $inq.val(fmtMontoLocal(inq));
     }
 
     function actualizarVisibilidadMediosPago() {
@@ -819,24 +894,20 @@ $(document).ready(function() {
     $('.monto').on('input', function() {
         calcularTotal();
         actualizarVisibilidadMediosPago();
+        sincronizarCorresponde();
     });
     calcularTotal();
     actualizarVisibilidadMediosPago();
+    sincronizarCorresponde('oficina');
 
-    // Mostrar/ocultar monto adicional (propietario o inquilino)
-    $('input[name="a_descontar"]').change(function() {
-        var v = $(this).val();
-        if (v === 'propietario' || v === 'inquilino') {
-            $('#monto_propietario_container').removeClass('d-none');
-            $('#monto_destino_label').text(
-                v === 'inquilino'
-                    ? 'Monto que corresponde al inquilino'
-                    : 'Monto que corresponde al propietario'
-            );
-        } else {
-            $('#monto_propietario_container').addClass('d-none');
-            $('input[name="monto_propietario"]').val('0.00');
-        }
+    $('#monto_a_oficina').on('input focus', function() {
+        sincronizarCorresponde('oficina');
+    });
+    $('#monto_a_propietario').on('input focus', function() {
+        sincronizarCorresponde('propietario');
+    });
+    $('#monto_a_inquilino').on('input focus', function() {
+        sincronizarCorresponde('inquilino');
     });
 
     function cargarPropiedad(id, direccion, ubicacion, piso, depto) {
@@ -1193,9 +1264,10 @@ $(document).ready(function() {
                     $('input[name="monto_cheque"]').val('0.00');
                     $('input[name="monto_tarjeta"]').val('0.00');
                     $('input[name="monto_deposito"]').val('0.00');
-                    $('#corresponde_propietario').prop('checked', true).trigger('change');
-                    $('input[name="monto_propietario"]').val((l.monto_a_pagar || 0).toFixed(2));
+                    ultimoCasilleroCorresponde = 'propietario';
                     $('.monto').trigger('input');
+                    $('#monto_a_propietario').val(fmtMontoLocal(l.monto_a_pagar || 0));
+                    sincronizarCorresponde('propietario');
                 },
                 error: function() {
                     alert('Error al buscar la liquidación');
@@ -1328,6 +1400,7 @@ $(document).ready(function() {
     // Evitar doble envío del formulario (doble clic o reenvío del navegador)
     var enviandoMovimientoCaja = false;
     $('#formMovimiento').on('submit', function(e) {
+        sincronizarCorresponde();
         if (enviandoMovimientoCaja) {
             e.preventDefault();
             return false;
