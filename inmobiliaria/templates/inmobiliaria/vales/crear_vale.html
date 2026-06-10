@@ -13,9 +13,9 @@
                     <div>
                         <h1 class="page-title">
                             <i class="fas fa-money-bill-wave text-warning"></i>
-                            Crear Vale para Vendedor
+                            Crear Vale
                         </h1>
-                        <p class="page-subtitle">El vale se descuenta del efectivo de caja</p>
+                        <p class="page-subtitle">Para vendedor o cualquier otra persona — se descuenta del efectivo de caja</p>
                     </div>
                     <div>
                         <a href="{% url 'inmobiliaria:dashboard_caja' %}" class="btn btn-outline-secondary">
@@ -37,74 +37,89 @@
                     </h3>
                 </div>
                 <div class="card-body">
-                    <form method="POST" action="{% url 'inmobiliaria:crear_vale' %}">
+                    <form method="POST" action="{% url 'inmobiliaria:crear_vale' %}" id="formCrearVale">
                         {% csrf_token %}
-                        
-                        <!-- Vendedor -->
+
                         <div class="mb-4">
+                            <label class="form-label fw-semibold">¿A quién va el vale?</label>
+                            <div class="btn-group w-100" role="group">
+                                <input type="radio" class="btn-check" name="tipo_beneficiario" id="tb_vendedor" value="vendedor" checked>
+                                <label class="btn btn-outline-primary" for="tb_vendedor">Vendedor / productor</label>
+                                <input type="radio" class="btn-check" name="tipo_beneficiario" id="tb_otro" value="otro">
+                                <label class="btn btn-outline-primary" for="tb_otro">Otra persona</label>
+                            </div>
+                        </div>
+
+                        <div id="bloque_vendedor_vale" class="mb-4">
                             <label for="vendedor_id" class="form-label">
                                 <i class="fas fa-user"></i> Vendedor *
                             </label>
-                            <select class="form-control form-control-lg" id="vendedor_id" name="vendedor_id" required>
+                            <select class="form-control form-control-lg" id="vendedor_id" name="vendedor_id">
                                 <option value="">Seleccione un vendedor...</option>
                                 {% for vendedor in vendedores %}
-                                <option value="{{ vendedor.id }}" data-comision="{{ vendedor.comision|default:0 }}">
+                                <option value="{{ vendedor.id }}">
                                     {{ vendedor.nombre }} {{ vendedor.apellido }} ({{ vendedor.dni }})
-                                    {% if vendedor.comision %} - Comisión: {{ vendedor.comision }}%{% endif %}
+                                    {% if vendedor.comision %} — Comisión: {{ vendedor.comision }}%{% endif %}
                                 </option>
                                 {% endfor %}
                             </select>
                             <small class="form-text text-muted">
-                                Selecciona el vendedor que recibirá el vale (préstamo)
+                                Si es vendedor, el vale se descuenta también de sus comisiones.
                             </small>
                         </div>
 
-                        <!-- Monto -->
+                        <div id="bloque_otro_vale" class="mb-4 d-none">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label for="beneficiario_apellido" class="form-label">Apellido *</label>
+                                    <input type="text" class="form-control" id="beneficiario_apellido" name="beneficiario_apellido" maxlength="100">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="beneficiario_nombre" class="form-label">Nombre *</label>
+                                    <input type="text" class="form-control" id="beneficiario_nombre" name="beneficiario_nombre" maxlength="100">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="beneficiario_dni" class="form-label">DNI (opcional)</label>
+                                    <input type="text" class="form-control" id="beneficiario_dni" name="beneficiario_dni" maxlength="20">
+                                </div>
+                            </div>
+                            <small class="form-text text-muted">
+                                Persona que no es vendedor: solo afecta caja, no comisiones.
+                            </small>
+                        </div>
+
                         <div class="mb-4">
                             <label for="monto" class="form-label">
                                 <i class="fas fa-dollar-sign"></i> Monto del Vale *
                             </label>
                             <div class="input-group input-group-lg">
                                 <span class="input-group-text">$</span>
-                                <input type="text" class="form-control" id="monto" name="monto" 
-                                       placeholder="0" required
-                                       onkeyup="formatearMoneda(this)">
+                                <input type="text" class="form-control" id="monto" name="monto"
+                                       placeholder="0" required onkeyup="formatearMoneda(this)">
                             </div>
-                            <small class="form-text text-muted">
-                                Este monto se descontará del efectivo de caja y de las comisiones del vendedor
-                            </small>
                         </div>
 
-                        <!-- Concepto -->
                         <div class="mb-4">
                             <label for="concepto" class="form-label">
                                 <i class="fas fa-tag"></i> Concepto
                             </label>
-                            <input type="text" class="form-control" id="concepto" name="concepto" 
-                                   value="Vale" maxlength="200"
-                                   placeholder="Ej: Vale, Adelanto, Préstamo">
-                            <small class="form-text text-muted">
-                                Descripción breve del vale (opcional)
-                            </small>
+                            <input type="text" class="form-control" id="concepto" name="concepto"
+                                   value="Vale" maxlength="200" placeholder="Ej: Vale, Adelanto, Préstamo">
                         </div>
 
-                        <!-- Observaciones -->
                         <div class="mb-4">
                             <label for="observaciones" class="form-label">
                                 <i class="fas fa-comment"></i> Observaciones
                             </label>
-                            <textarea class="form-control" id="observaciones" name="observaciones" 
+                            <textarea class="form-control" id="observaciones" name="observaciones"
                                       rows="3" placeholder="Detalles adicionales (opcional)"></textarea>
                         </div>
 
-                        <!-- Alerta informativa -->
                         <div class="alert alert-warning" role="alert">
                             <i class="fas fa-exclamation-triangle"></i>
-                            <strong>Importante:</strong> Este vale se descontará del efectivo de caja inmediatamente 
-                            y se restará de las comisiones del vendedor en su historial.
+                            <strong>Importante:</strong> El monto se descuenta del efectivo de caja al confirmar.
                         </div>
 
-                        <!-- Botones -->
                         <div class="d-flex justify-content-between mt-4">
                             <a href="{% url 'inmobiliaria:dashboard_caja' %}" class="btn btn-secondary btn-lg">
                                 <i class="fas fa-times"></i> Cancelar
@@ -122,52 +137,52 @@
 
 <script>
 function formatearMoneda(input) {
-    // Remover todo excepto números
-    let valor = input.value.replace(/\D/g, '');
-    
-    // Formatear con puntos como separadores de miles
+    var valor = input.value.replace(/\D/g, '');
     if (valor) {
-        valor = parseInt(valor).toLocaleString('es-AR');
+        valor = parseInt(valor, 10).toLocaleString('es-AR');
     }
-    
     input.value = valor;
 }
 
-// Validación del formulario
 document.addEventListener('DOMContentLoaded', function() {
-    const form = document.querySelector('form');
-    
-    form.addEventListener('submit', function(e) {
-        const vendedorSelect = document.getElementById('vendedor_id');
-        const montoInput = document.getElementById('monto');
-        
-        // Validar que se haya seleccionado un vendedor
-        if (!vendedorSelect.value) {
-            e.preventDefault();
-            alert('Por favor, selecciona un vendedor.');
-            vendedorSelect.focus();
-            return false;
-        }
-        
-        // Validar que el monto sea mayor a 0
-        const monto = parseInt(montoInput.value.replace(/\D/g, ''));
+    var $bloqueV = $('#bloque_vendedor_vale');
+    var $bloqueO = $('#bloque_otro_vale');
+    var $selV = $('#vendedor_id');
+
+    function actualizarTipo() {
+        var esOtro = $('#tb_otro').is(':checked');
+        $bloqueV.toggleClass('d-none', esOtro);
+        $bloqueO.toggleClass('d-none', !esOtro);
+        $selV.prop('required', !esOtro);
+    }
+    $('input[name="tipo_beneficiario"]').on('change', actualizarTipo);
+    actualizarTipo();
+
+    $('#formCrearVale').on('submit', function(e) {
+        var esOtro = $('#tb_otro').is(':checked');
+        var monto = parseInt($('#monto').val().replace(/\D/g, ''), 10);
         if (!monto || monto <= 0) {
             e.preventDefault();
-            alert('Por favor, ingresa un monto válido mayor a 0.');
-            montoInput.focus();
+            alert('Ingresá un monto válido mayor a 0.');
             return false;
         }
-        
-        // Confirmar la operación
-        const vendedorTexto = vendedorSelect.options[vendedorSelect.selectedIndex].text;
-        const confirmacion = confirm(
-            `¿Confirmar creación de vale?\n\n` +
-            `Vendedor: ${vendedorTexto}\n` +
-            `Monto: $${montoInput.value}\n\n` +
-            `Este monto se descontará del efectivo de caja.`
-        );
-        
-        if (!confirmacion) {
+        if (esOtro) {
+            var ape = $('#beneficiario_apellido').val().trim();
+            var nom = $('#beneficiario_nombre').val().trim();
+            if (!ape && !nom) {
+                e.preventDefault();
+                alert('Indicá apellido o nombre de la persona.');
+                return false;
+            }
+        } else if (!$selV.val()) {
+            e.preventDefault();
+            alert('Seleccioná un vendedor.');
+            return false;
+        }
+        var destino = esOtro
+            ? (ape + ', ' + nom).replace(/^,\s*|,\s*$/g, '')
+            : $selV.find('option:selected').text();
+        if (!confirm('¿Confirmar vale?\n\nBeneficiario: ' + destino + '\nMonto: $' + $('#monto').val())) {
             e.preventDefault();
             return false;
         }
@@ -176,40 +191,12 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <style>
-.page-header {
-    margin-bottom: 30px;
-    padding-bottom: 20px;
-    border-bottom: 2px solid #e9ecef;
-}
-
-.page-title {
-    color: #2c3e50;
-    margin-bottom: 5px;
-}
-
-.page-subtitle {
-    color: #6c757d;
-    margin: 0;
-}
-
-.card {
-    border-radius: 10px;
-    border: none;
-}
-
-.card-header {
-    border-radius: 10px 10px 0 0 !important;
-}
-
-.form-label {
-    font-weight: 600;
-    color: #495057;
-}
-
-.btn-lg {
-    padding: 12px 30px;
-    font-size: 1.1rem;
-}
+.page-header { margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #e9ecef; }
+.page-title { color: #2c3e50; margin-bottom: 5px; }
+.page-subtitle { color: #6c757d; margin: 0; }
+.card { border-radius: 10px; border: none; }
+.card-header { border-radius: 10px 10px 0 0 !important; }
+.form-label { font-weight: 600; color: #495057; }
+.btn-lg { padding: 12px 30px; font-size: 1.1rem; }
 </style>
 {% endblock %}
-

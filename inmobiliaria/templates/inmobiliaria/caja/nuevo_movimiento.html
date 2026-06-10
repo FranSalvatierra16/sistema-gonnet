@@ -152,10 +152,19 @@
                                         </div>
                                     </div>
                                     
-                <!-- Productor -->
-                <div class="row mb-3">
-                    <div class="col-md-5">
-                        <label class="form-label">Productor</label>
+                <!-- Beneficiario del vale / productor -->
+                <div class="row mb-3" id="bloque_beneficiario_vale">
+                    <div class="col-12 mb-2">
+                        <label class="form-label fw-semibold">Beneficiario del vale</label>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <input type="radio" class="btn-check" name="tipo_beneficiario_vale" id="tb_vale_vendedor" value="vendedor" checked>
+                            <label class="btn btn-outline-primary" for="tb_vale_vendedor">Vendedor / productor</label>
+                            <input type="radio" class="btn-check" name="tipo_beneficiario_vale" id="tb_vale_otro" value="otro">
+                            <label class="btn btn-outline-primary" for="tb_vale_otro">Otra persona</label>
+                        </div>
+                    </div>
+                    <div class="col-md-5" id="bloque_productor_vale">
+                        <label class="form-label">Vendedor / productor</label>
                         <div class="caja-ac-wrap">
                             <div class="input-group">
                                 <input type="text" id="buscar_productor_id" class="form-control" placeholder="ID, nombre o apellido — se busca al escribir" autocomplete="off">
@@ -170,10 +179,27 @@
                         </div>
                         <small class="text-muted">Escribí unas letras o el número de legajo; clic en una fila para elegir.</small>
                     </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Nombre del Productor</label>
+                    <div class="col-md-4" id="bloque_productor_nombre_vale">
+                        <label class="form-label">Nombre del productor</label>
                         <input type="text" id="productor_nombre" class="form-control" readonly>
                         <input type="hidden" name="productor_id" id="productor_id_hidden">
+                    </div>
+                    <div class="col-md-9 d-none" id="bloque_otro_beneficiario_vale">
+                        <div class="row g-2">
+                            <div class="col-md-4">
+                                <label class="form-label">Apellido</label>
+                                <input type="text" class="form-control" name="beneficiario_apellido_vale" id="beneficiario_apellido_vale" maxlength="100">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Nombre</label>
+                                <input type="text" class="form-control" name="beneficiario_nombre_vale" id="beneficiario_nombre_vale" maxlength="100">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">DNI (opcional)</label>
+                                <input type="text" class="form-control" name="beneficiario_dni_vale" id="beneficiario_dni_vale" maxlength="20">
+                            </div>
+                        </div>
+                        <small class="text-muted">Persona que no es vendedor: el vale solo afecta caja.</small>
                     </div>
                 </div>
                                         
@@ -583,6 +609,12 @@ $(document).ready(function() {
         return /\bvales?\b/i.test(String(nombre || ''));
     }
 
+    function actualizarTipoBeneficiarioVale() {
+        var esOtro = $('#tb_vale_otro').is(':checked');
+        $('#bloque_productor_vale, #bloque_productor_nombre_vale').toggleClass('d-none', esOtro);
+        $('#bloque_otro_beneficiario_vale').toggleClass('d-none', !esOtro);
+    }
+
     function aplicarTipoSiConceptoVale(id, nombre) {
         if (!esConceptoVale(id, nombre)) {
             $('#hint_vale_egreso').addClass('d-none');
@@ -591,6 +623,9 @@ $(document).ready(function() {
         $('select[name="tipo"]').val('EG');
         $('#hint_vale_egreso').removeClass('d-none');
     }
+
+    $('input[name="tipo_beneficiario_vale"]').on('change', actualizarTipoBeneficiarioVale);
+    actualizarTipoBeneficiarioVale();
 
     function escapeHtml(s) {
         if (s == null || s === undefined) return '';

@@ -657,60 +657,73 @@ def dashboard_comisiones(request):
 @login_required
 def crear_vale(request):
     """
-    Vista para crear un vale (préstamo) a un vendedor
-    El vale se descuenta del efectivo de caja
+    Vista para crear un vale (préstamo) a un vendedor u otra persona.
+    El vale se descuenta del efectivo de caja.
     """
+    from inmobiliaria.models.vale import TipoBeneficiarioVale
+
     if request.method == 'POST':
         try:
-            # Obtener datos del formulario
-            vendedor_id = request.POST.get('vendedor_id')
+            tipo_beneficiario = (request.POST.get('tipo_beneficiario') or 'vendedor').strip()
+            vendedor_id = (request.POST.get('vendedor_id') or '').strip()
+            beneficiario_nombre = (request.POST.get('beneficiario_nombre') or '').strip()
+            beneficiario_apellido = (request.POST.get('beneficiario_apellido') or '').strip()
+            beneficiario_dni = (request.POST.get('beneficiario_dni') or '').strip()
             monto = parse_decimal_monto(request.POST.get('monto', '0'))
             concepto = request.POST.get('concepto', 'Vale')
             observaciones = request.POST.get('observaciones', '')
-            
-            # Validar monto
+
             if monto <= 0:
                 messages.error(request, 'El monto debe ser mayor a cero.')
-                return redirect('inmobiliaria:dashboard_caja')
-            
-            # Obtener vendedor (misma sucursal)
-            vendedor = get_object_or_404(
-                Vendedor, id=vendedor_id, sucursal=request.user.sucursal
-            )
-            
-            # Obtener caja activa
+                return redirect('inmobiliaria:crear_vale')
+
+            vendedor = None
+            if tipo_beneficiario == TipoBeneficiarioVale.VENDEDOR:
+                if not vendedor_id:
+                    messages.error(request, 'Seleccioná un vendedor.')
+                    return redirect('inmobiliaria:crear_vale')
+                vendedor = get_object_or_404(
+                    Vendedor, id=vendedor_id, sucursal=request.user.sucursal
+                )
+            else:
+                if not beneficiario_nombre and not beneficiario_apellido:
+                    messages.error(request, 'Indicá nombre o apellido de la persona.')
+                    return redirect('inmobiliaria:crear_vale')
+                tipo_beneficiario = TipoBeneficiarioVale.OTRO
+
             caja_actual = Caja.objects.filter(
                 sucursal=request.user.sucursal,
-                estado='abierta'
+                estado='abierta',
             ).first()
-            
             if not caja_actual:
                 messages.error(request, 'No hay una caja abierta. Debes abrir una caja primero.')
                 return redirect('inmobiliaria:dashboard_caja')
-            
-            # Crear el vale
+
             vale = ValeVendedor.crear_vale(
-                vendedor=vendedor,
                 monto=monto,
                 caja=caja_actual,
                 concepto=concepto,
                 observaciones=observaciones,
-                usuario_creador=request.user
+                usuario_creador=request.user,
+                vendedor=vendedor,
+                tipo_beneficiario=tipo_beneficiario,
+                beneficiario_nombre=beneficiario_nombre,
+                beneficiario_apellido=beneficiario_apellido,
+                beneficiario_dni=beneficiario_dni,
             )
-            
-            messages.success(request, f'Vale de ${monto:,.0f} creado exitosamente para {vendedor.nombre_completo_vendedor()}.')
+
+            messages.success(
+                request,
+                f'Vale de ${format_monto_argentino(monto)} creado para {vale.nombre_beneficiario()}.',
+            )
             return redirect('inmobiliaria:dashboard_caja')
-            
+
         except Exception as e:
             messages.error(request, f'Error al crear el vale: {str(e)}')
-            return redirect('inmobiliaria:dashboard_caja')
-    
-    # GET - Mostrar formulario
+            return redirect('inmobiliaria:crear_vale')
+
     vendedores = Vendedor.objects.filter(sucursal=request.user.sucursal).order_by('nombre', 'apellido')
-    context = {
-        'vendedores': vendedores
-    }
-    return render(request, 'inmobiliaria/vales/crear_vale.html', context)
+    return render(request, 'inmobiliaria/vales/crear_vale.html', {'vendedores': vendedores})
 
 # ============================================================================
 # LIQUIDACIONES - SISTEMA DE LIQUIDACIÓN DE PROPIETARIOS
@@ -11968,22 +11981,42 @@ def nuevo_movimiento(request, numero_caja=None):
             quiere_vale = bool(
                 concepto_row and concepto_row.indica_movimiento_vale_productor()
             )
+            from inmobiliaria.models.vale import TipoBeneficiarioVale
+
             vendedor_vale = None
+            tipo_beneficiario_vale = TipoBeneficiarioVale.VENDEDOR
+            beneficiario_nombre_vale = ''
+            beneficiario_apellido_vale = ''
+            beneficiario_dni_vale = ''
             if quiere_vale:
-                if not productor_id_raw:
-                    messages.error(
-                        request,
-                        'Este concepto es de vale: elegí un productor (legajo / búsqueda) para registrar el vale.',
+                tipo_beneficiario_vale = (
+                    request.POST.get('tipo_beneficiario_vale') or TipoBeneficiarioVale.VENDEDOR
+                ).strip()
+                if tipo_beneficiario_vale == TipoBeneficiarioVale.OTRO:
+                    beneficiario_nombre_vale = (request.POST.get('beneficiario_nombre_vale') or '').strip()
+                    beneficiario_apellido_vale = (request.POST.get('beneficiario_apellido_vale') or '').strip()
+                    beneficiario_dni_vale = (request.POST.get('beneficiario_dni_vale') or '').strip()
+                    if not beneficiario_nombre_vale and not beneficiario_apellido_vale:
+                        messages.error(
+                            request,
+                            'Este concepto es de vale: indicá nombre o apellido de la persona.',
+                        )
+                        return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
+                else:
+                    if not productor_id_raw:
+                        messages.error(
+                            request,
+                            'Este concepto es de vale: elegí un vendedor/productor o usá «Otra persona».',
+                        )
+                        return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
+                    try:
+                        pid = int(productor_id_raw)
+                    except (TypeError, ValueError):
+                        messages.error(request, 'ID de productor inválido.')
+                        return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
+                    vendedor_vale = get_object_or_404(
+                        Vendedor, id=pid, sucursal=request.user.sucursal
                     )
-                    return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
-                try:
-                    pid = int(productor_id_raw)
-                except (TypeError, ValueError):
-                    messages.error(request, 'ID de productor inválido.')
-                    return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
-                vendedor_vale = get_object_or_404(
-                    Vendedor, id=pid, sucursal=request.user.sucursal
-                )
 
             empleado_id = getattr(request.user, 'pk', None)
 
@@ -12038,17 +12071,21 @@ def nuevo_movimiento(request, numero_caja=None):
 
                 movimiento.save()
                 _marcar_movimiento_uid_usado(request, movimiento_uid)
-                if quiere_vale and vendedor_vale:
+                if quiere_vale and (vendedor_vale or tipo_beneficiario_vale == TipoBeneficiarioVale.OTRO):
                     ValeVendedor.crear_desde_movimiento(
                         movimiento,
-                        vendedor_vale,
+                        vendedor=vendedor_vale,
                         usuario_creador=request.user,
+                        tipo_beneficiario=tipo_beneficiario_vale,
+                        beneficiario_nombre=beneficiario_nombre_vale,
+                        beneficiario_apellido=beneficiario_apellido_vale,
+                        beneficiario_dni=beneficiario_dni_vale,
                     )
 
-            if quiere_vale and vendedor_vale:
+            if quiere_vale and (vendedor_vale or tipo_beneficiario_vale == TipoBeneficiarioVale.OTRO):
                 messages.success(
                     request,
-                    'Movimiento creado y vale registrado para el productor en el historial de vales.',
+                    'Movimiento creado y vale registrado en el historial.',
                 )
             else:
                 messages.success(request, 'Movimiento creado exitosamente')
@@ -23434,50 +23471,23 @@ def _cuotas_resueltas_liquidacion(liquidacion):
 
 def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
     """
-    Detalle contable estilo liquidación de cobranzas (legacy).
-    Haber = alquiler/cochera a favor del propietario; Debe = comisión, gastos, fondo.
+    Detalle de liquidación de cobranzas para el propietario.
+    Haber = lo que le corresponde al propietario; Debe = gastos y fondo descontados.
+    La comisión de la inmobiliaria no se muestra en esta tabla.
     """
     filas = []
-    propiedad = liquidacion.propiedad
-    cuotas = _cuotas_resueltas_liquidacion(liquidacion)
-
-    if cuotas:
-        for cq in cuotas:
-            monto_cuota = Decimal(str(cq.monto_total or 0))
-            _mp, mi = _monto_propietario_inmobiliaria_cuota_mensual(propiedad, monto_cuota)
-            per = _periodo_mes_anio_liquidacion(cq.fecha_vencimiento)
-            if monto_cuota > Decimal('0.01'):
-                filas.append({
-                    'detalle': f'ALQUILER A PAGAR // {per}' if per else 'ALQUILER A PAGAR',
-                    'haber': monto_cuota.quantize(Decimal('0.01')),
-                    'debe': Decimal('0'),
-                })
-            if mi > Decimal('0.01'):
-                filas.append({
-                    'detalle': f'COMISION GESTION COBRANZAS // {per}' if per else 'COMISION GESTION COBRANZAS',
-                    'haber': Decimal('0'),
-                    'debe': mi.quantize(Decimal('0.01')),
-                })
-    else:
-        monto_tot = Decimal(str(liquidacion.monto_total_operacion or 0))
-        monto_inm = Decimal(str(liquidacion.monto_inmobiliaria or 0))
-        periodo = _periodo_mes_anio_liquidacion(liquidacion.fecha_desde) or _periodo_mes_anio_liquidacion(
-            liquidacion.fecha_hasta
-        )
-        if monto_tot > Decimal('0.01'):
-            filas.append({
-                'detalle': f'ALQUILER A PAGAR // {periodo}' if periodo else 'ALQUILER A PAGAR',
-                'haber': monto_tot.quantize(Decimal('0.01')),
-                'debe': Decimal('0'),
-            })
-        if monto_inm > Decimal('0.01'):
-            filas.append({
-                'detalle': f'COMISION GESTION COBRANZAS // {periodo}' if periodo else 'COMISION GESTION COBRANZAS',
-                'haber': Decimal('0'),
-                'debe': monto_inm.quantize(Decimal('0.01')),
-            })
-
+    monto_prop = Decimal(str(liquidacion.monto_propietario or 0))
     cochera = Decimal(str(liquidacion.monto_cochera or 0))
+    periodo = _periodo_mes_anio_liquidacion(liquidacion.fecha_desde) or _periodo_mes_anio_liquidacion(
+        liquidacion.fecha_hasta
+    )
+
+    if monto_prop > Decimal('0.01'):
+        filas.append({
+            'detalle': f'ALQUILER A PAGAR // {periodo}' if periodo else 'ALQUILER A PAGAR',
+            'haber': monto_prop.quantize(Decimal('0.01')),
+            'debe': Decimal('0'),
+        })
     if cochera > Decimal('0.01'):
         filas.append({'detalle': 'COCHERA', 'haber': cochera.quantize(Decimal('0.01')), 'debe': Decimal('0')})
 
@@ -23504,9 +23514,16 @@ def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
                 'debe': m.quantize(Decimal('0.01')),
             })
 
-    total_haber = sum((f['haber'] for f in filas), Decimal('0'))
-    total_debe = sum((f['debe'] for f in filas), Decimal('0'))
-    saldo_favor = (total_haber - total_debe).quantize(Decimal('0.01'))
+    total_haber = monto_prop + cochera
+    total_debe = fondo + sum(
+        (Decimal(str(g.monto or 0)) for g in gastos_qs),
+        Decimal('0'),
+    )
+    saldo_favor = Decimal(str(liquidacion.monto_a_pagar or 0))
+    if saldo_favor <= Decimal('0'):
+        saldo_favor = (total_haber - total_debe).quantize(Decimal('0.01'))
+        if saldo_favor < 0:
+            saldo_favor = Decimal('0')
     return {
         'filas': filas,
         'total_haber': total_haber.quantize(Decimal('0.01')),

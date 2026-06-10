@@ -83,6 +83,7 @@
                         <tr>
                             <th>Fecha</th>
                             <th>Tipo</th>
+                            <th>Beneficiario</th>
                             <th>Concepto</th>
                             <th class="text-end">Efecto</th>
                             <th>Caja</th>
@@ -99,6 +100,7 @@
                                     <span class="badge bg-success">Ingreso</span>
                                 {% endif %}
                             </td>
+                            <td class="small">{{ vale.nombre_beneficiario }}</td>
                             <td>{{ vale.concepto }}</td>
                             <td class="text-end">
                                 {% if vale.tipo_vale == 'EG' %}
