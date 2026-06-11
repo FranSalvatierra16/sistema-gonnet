@@ -173,11 +173,11 @@
     {% include 'inmobiliaria/caja/_saldos_por_medio.html' with titulo=bloque_saldos_cierre.titulo efectivo=bloque_saldos_cierre.efectivo cheque=bloque_saldos_cierre.cheque tarjeta=bloque_saldos_cierre.tarjeta dolares=bloque_saldos_cierre.dolares lineas_transferencias=bloque_saldos_cierre.lineas_transferencias total_transferencias=bloque_saldos_cierre.total_transferencias total_ars=bloque_saldos_cierre.total_ars %}
 
     <div class="alert {% if es_saldo_positivo %}alert-success{% else %}alert-danger{% endif %} mb-3">
-        <strong>Saldo actual ARS:</strong> ${{ totales.saldo_total|format_price }}
+        <strong>Saldo al cierre ARS{% if arqueo_cierre %} (conteo físico){% endif %}:</strong> ${{ totales.saldo_total|format_price }}
         &nbsp;·&nbsp;
         <strong>Neto movimientos ARS:</strong> ${{ neto_movimientos_ars|format_price }}
         &nbsp;·&nbsp;
-        <strong>Saldo USD:</strong> U$S {{ totales.saldo_actual.dolares|format_price }}
+        <strong>Saldo USD{% if arqueo_cierre %} (conteo físico){% endif %}:</strong> U$S {{ totales.saldo_actual.dolares|format_price }}
     </div>
 
     {% if arqueo_cierre %}

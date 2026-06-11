@@ -11019,6 +11019,45 @@ def _calcular_saldos_caja_por_medio(caja, sucursal):
     }
 
 
+def _context_bloque_saldos_desde_arqueo_dict(
+    arqueo_dict,
+    cuentas_bancarias,
+    *,
+    titulo='Saldos en caja al cierre (conteo físico)',
+    nota_proxima_caja=None,
+):
+    """Bloque de saldos por medio a partir del arqueo contado (cierre o apertura)."""
+    cuentas_items = []
+    for cuenta in cuentas_bancarias:
+        cuentas_items.append({
+            'cuenta': cuenta,
+            'teorico': arqueo_dict['cuentas_json'].get(str(cuenta.id), 0),
+        })
+    deposito_total = _deposito_total_desde_arqueo_dict(arqueo_dict)
+    total_ars = _total_ars_desde_arqueo_dict(arqueo_dict)
+    return _context_bloque_saldos_por_medio(
+        {
+            'efectivo': arqueo_dict['efectivo'],
+            'cheque': arqueo_dict['cheque'],
+            'tarjeta': arqueo_dict['tarjeta'],
+            'dolares': arqueo_dict['dolares'],
+            'deposito_total': deposito_total,
+            'total_ars': total_ars,
+        },
+        titulo=titulo,
+        nota_proxima_caja=nota_proxima_caja,
+        cuentas_items=cuentas_items,
+    )
+
+
+def _aplicar_arqueo_dict_a_totales_impresion(totales, arqueo_dict, cuentas_bancarias):
+    """Reemplaza saldo actual/total por los montos contados del arqueo de cierre."""
+    totales['saldo_actual'] = _saldo_actual_desde_arqueo_dict(arqueo_dict, cuentas_bancarias)
+    totales['saldo_total'] = _total_ars_desde_arqueo_dict(arqueo_dict)
+    totales['es_arqueo_manual'] = True
+    return totales
+
+
 def _context_bloque_saldos_por_medio(
     saldos,
     *,
@@ -11168,6 +11207,30 @@ def _crear_arqueo_manual_desde_dict(caja, data, usuario):
         deposito_mp=Decimal('0'),
         cuentas_json=cuentas_json,
         anteriores_json=_anteriores_json_desde_apertura(data),
+        registrado_por=usuario,
+    )
+
+
+def _crear_arqueo_cierre_desde_dict(caja, data, usuario):
+    """Guarda el conteo físico al cerrar la caja (siempre, con o sin formulario de arqueo)."""
+    from inmobiliaria.models.caja import CajaArqueoCierre
+
+    cuentas_json = data.get('cuentas_json') or {}
+    if isinstance(cuentas_json, dict):
+        cuentas_json = {str(k): str(v) for k, v in cuentas_json.items()}
+    else:
+        cuentas_json = {}
+
+    CajaArqueoCierre.objects.filter(caja=caja).delete()
+    return CajaArqueoCierre.objects.create(
+        caja=caja,
+        efectivo=Decimal(str(data.get('efectivo') or 0)),
+        cheque=Decimal(str(data.get('cheque') or 0)),
+        tarjeta=Decimal(str(data.get('tarjeta') or 0)),
+        dolares=Decimal(str(data.get('dolares') or 0)),
+        deposito_galicia=Decimal('0'),
+        deposito_mp=Decimal('0'),
+        cuentas_json=cuentas_json,
         registrado_por=usuario,
     )
 
@@ -11713,14 +11776,29 @@ def imprimir_resumen_caja(request, numero):
     from inmobiliaria.models.caja import CajaArqueoCierre
     arqueo = CajaArqueoCierre.objects.filter(caja=caja).first()
     if arqueo:
+        arqueo_dict = _dict_arqueo_desde_registro(arqueo)
         for item in context['saldos_teoricos_cierre']['cuentas']:
             item['contado'] = arqueo.monto_cuenta(item['cuenta'].id)
+        context['bloque_saldos_cierre'] = _context_bloque_saldos_desde_arqueo_dict(
+            arqueo_dict,
+            context['cuentas_bancarias'],
+            titulo='Saldos en caja al cierre (conteo físico)',
+        )
+        context['totales'] = _aplicar_arqueo_dict_a_totales_impresion(
+            context['totales'],
+            arqueo_dict,
+            context['cuentas_bancarias'],
+        )
+        context['neto_movimientos_ars'] = (
+            context['totales']['saldo_total'] - _saldo_inicial_efectivo_caja(caja)
+        )
+    else:
+        context['bloque_saldos_cierre'] = _context_bloque_saldos_por_medio(
+            context['saldos_teoricos_cierre'],
+            titulo='Saldos en caja al cierre',
+            cuentas_items=context['saldos_teoricos_cierre']['cuentas'],
+        )
     context['arqueo_cierre'] = arqueo
-    context['bloque_saldos_cierre'] = _context_bloque_saldos_por_medio(
-        context['saldos_teoricos_cierre'],
-        titulo='Saldos en caja al cierre',
-        cuentas_items=context['saldos_teoricos_cierre']['cuentas'],
-    )
     return render(request, 'inmobiliaria/caja/resumen_caja_imprimir.html', context)
 
 _MOVIMIENTO_UID_SESSION_KEY = 'caja_movimiento_uids_procesados'
@@ -12255,18 +12333,7 @@ def cerrar_caja(request, numero_caja):
                 caja.observaciones_cierre = observaciones
                 caja.save()
 
-                if puede_arqueo and arqueo_data is not None:
-                    CajaArqueoCierre.objects.create(
-                        caja=caja,
-                        efectivo=arqueo_data['efectivo'],
-                        cheque=arqueo_data['cheque'],
-                        tarjeta=arqueo_data['tarjeta'],
-                        dolares=arqueo_data['dolares'],
-                        deposito_galicia=Decimal('0'),
-                        deposito_mp=Decimal('0'),
-                        cuentas_json=arqueo_data['cuentas_json'],
-                        registrado_por=request.user,
-                    )
+                _crear_arqueo_cierre_desde_dict(caja, apertura_saldos, request.user)
 
                 CajaArqueoManual.objects.filter(caja=caja).delete()
 
