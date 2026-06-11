@@ -150,6 +150,7 @@
                             </label>
                             <small class="text-muted d-block">
                                 Imputable a la oficina: sueldos, servicios, contables y vales (egreso o ingreso). Se registra en el panel Oficina.
+                                Si el gasto es de una propiedad (aunque se descuente de oficina), indicá la propiedad más abajo para que figure en operaciones por propiedad.
                             </small>
                         </div>
                     </div>
@@ -767,7 +768,7 @@ $(document).ready(function() {
         var activo = $('#es_gasto_oficina').is(':checked');
         var esVale = activo && categoriaGastoOficinaEsVale();
         $('#bloque_gasto_oficina').toggleClass('d-none', !activo);
-        $('#bloque_concepto_mov, #bloque_propiedad_mov, #bloque_detalles_mov, #bloque_beneficiario_vale')
+        $('#bloque_concepto_mov, #bloque_detalles_mov, #bloque_beneficiario_vale')
             .toggleClass('d-none', activo);
         $('#bloque_imputacion_mov').toggleClass('d-none', activo);
         $('#hint_gasto_oficina_vale').toggleClass('d-none', !esVale);
