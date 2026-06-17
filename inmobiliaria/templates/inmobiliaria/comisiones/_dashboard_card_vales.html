@@ -1,16 +1,18 @@
             <div class="card shadow-sm">
                 <div class="card-header bg-warning text-dark">
                     <strong>Vales por vendedor</strong>
+                    <small class="d-block opacity-75 mt-1">Recibidos = descuentan sus comisiones · Otorgados = vales que cargó a otros</small>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
-                        <table class="table table-hover mb-0">
+                        <table class="table table-hover mb-0 table-sm">
                             <thead>
                                 <tr>
                                     <th>Vendedor</th>
-                                    <th class="text-end text-danger">Egresos (restan)</th>
-                                    <th class="text-end text-success">Ingresos (suman)</th>
-                                    <th class="text-end">Saldo (EG − IN)</th>
+                                    <th class="text-end text-danger" title="Vales recibidos (restan)">Rec. egreso</th>
+                                    <th class="text-end text-success">Rec. ingreso</th>
+                                    <th class="text-end">Saldo rec.</th>
+                                    <th class="text-end text-danger" title="Vales que otorgó a otra persona u otro productor">Otorg. egreso</th>
                                     <th class="text-center">Acciones</th>
                                 </tr>
                             </thead>
@@ -21,14 +23,27 @@
                                     <td class="text-end text-danger">−${{ item.total_vales_egreso|floatformat:2 }}</td>
                                     <td class="text-end text-success">+${{ item.total_vales_ingreso|floatformat:2 }}</td>
                                     <td class="text-end">${{ item.total_vales|floatformat:2 }}</td>
-                                    <td class="text-center">
-                                        <a href="{% url 'inmobiliaria:lista_vales_vendedor' item.vendedor.id %}" class="btn btn-sm btn-outline-secondary me-1">Lista vales</a>
+                                    <td class="text-end text-danger">
+                                        {% if item.cant_otorgados %}
+                                        −${{ item.total_otorgados_egreso|floatformat:2 }}
+                                        {% if item.cant_otorgados_a_otros %}
+                                        <br><small class="text-muted">({{ item.cant_otorgados_a_otros }} a otros)</small>
+                                        {% endif %}
+                                        {% else %}
+                                        <span class="text-muted">—</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center text-nowrap">
+                                        <a href="{% url 'inmobiliaria:lista_vales_vendedor' item.vendedor.id %}" class="btn btn-sm btn-outline-secondary me-1" title="Vales recibidos">Recibidos</a>
+                                        {% if item.cant_otorgados %}
+                                        <a href="{% url 'inmobiliaria:lista_vales_vendedor' item.vendedor.id %}?vista=otorgados" class="btn btn-sm btn-outline-warning me-1" title="Vales otorgados a otros">Otorgados</a>
+                                        {% endif %}
                                         <a href="{% url 'inmobiliaria:historial_comisiones_vendedor' item.vendedor.id %}?tab=vales" class="btn btn-sm btn-outline-primary">Historial</a>
                                     </td>
                                 </tr>
                                 {% empty %}
                                 <tr>
-                                    <td colspan="5" class="text-center py-4 text-muted">No hay vendedores activos en esta sucursal.</td>
+                                    <td colspan="6" class="text-center py-4 text-muted">No hay vendedores activos en esta sucursal.</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>

@@ -580,6 +580,9 @@ def dashboard_comisiones(request):
     ).order_by('apellido', 'nombre')
 
     vendedores_data = []
+    sucursal = request.user.sucursal
+    from inmobiliaria.models.vale import TipoBeneficiarioVale
+
     for vendedor in vendedores:
         total_comisiones = (
             ComisionVendedor.objects.filter(vendedor=vendedor)
@@ -605,6 +608,21 @@ def dashboard_comisiones(request):
             or Decimal('0')
         )
 
+        otorgados_qs = ValeVendedor.objects.filter(usuario_creador=vendedor)
+        total_otorgados_egreso = (
+            otorgados_qs.filter(tipo_vale='EG').aggregate(t=models.Sum('monto'))['t']
+            or Decimal('0')
+        )
+        total_otorgados_ingreso = (
+            otorgados_qs.filter(tipo_vale='IN').aggregate(t=models.Sum('monto'))['t']
+            or Decimal('0')
+        )
+        cant_otorgados = otorgados_qs.count()
+        cant_otorgados_a_otros = otorgados_qs.exclude(
+            tipo_beneficiario=TipoBeneficiarioVale.VENDEDOR,
+            vendedor=vendedor,
+        ).count()
+
         vendedores_data.append({
             'vendedor': vendedor,
             'total_comisiones': total_comisiones,
@@ -612,6 +630,10 @@ def dashboard_comisiones(request):
             'total_vales': total_vales,
             'total_vales_egreso': total_vales_egreso,
             'total_vales_ingreso': total_vales_ingreso,
+            'total_otorgados_egreso': total_otorgados_egreso,
+            'total_otorgados_ingreso': total_otorgados_ingreso,
+            'cant_otorgados': cant_otorgados,
+            'cant_otorgados_a_otros': cant_otorgados_a_otros,
             'neto': total_comisiones - total_vales,
         })
 
@@ -620,20 +642,26 @@ def dashboard_comisiones(request):
     total_comisiones_sucursal = sum(
         (d['total_comisiones'] for d in vendedores_data), start=Decimal('0')
     )
-    total_vales_egreso_sucursal = sum(
-        (d['total_vales_egreso'] for d in vendedores_data), start=Decimal('0')
-    )
-    total_vales_ingreso_sucursal = sum(
-        (d['total_vales_ingreso'] for d in vendedores_data), start=Decimal('0')
-    )
-    total_saldo_vales_sucursal = sum(
-        (d['total_vales'] for d in vendedores_data), start=Decimal('0')
-    )
     total_neto_sucursal = sum((d['neto'] for d in vendedores_data), start=Decimal('0'))
     total_ops_comisiones = ComisionVendedor.objects.filter(
         vendedor__in=vendedores
     ).que_suman().count()
-    total_mov_vales = ValeVendedor.objects.filter(vendedor__in=vendedores).count()
+
+    vales_sucursal_qs = ValeVendedor.objects.filter(
+        models.Q(vendedor__sucursal=sucursal)
+        | models.Q(usuario_creador__sucursal=sucursal)
+        | models.Q(movimiento_caja__sucursal=sucursal)
+    ).distinct()
+    total_mov_vales = vales_sucursal_qs.count()
+    total_vales_egreso_sucursal = (
+        vales_sucursal_qs.filter(tipo_vale='EG').aggregate(t=models.Sum('monto'))['t']
+        or Decimal('0')
+    )
+    total_vales_ingreso_sucursal = (
+        vales_sucursal_qs.filter(tipo_vale='IN').aggregate(t=models.Sum('monto'))['t']
+        or Decimal('0')
+    )
+    total_saldo_vales_sucursal = total_vales_egreso_sucursal - total_vales_ingreso_sucursal
 
     ahora = timezone.now()
     ay, am = ahora.year, ahora.month
@@ -647,8 +675,7 @@ def dashboard_comisiones(request):
         .aggregate(t=models.Sum('monto_comision'))['t']
         or Decimal('0')
     )
-    vales_mes_q = ValeVendedor.objects.filter(
-        vendedor__in=vendedores,
+    vales_mes_q = vales_sucursal_qs.filter(
         fecha__year=ay,
         fecha__month=am,
     )
@@ -962,11 +989,22 @@ def lista_vales_vendedor(request, vendedor_id):
     vendedor = get_object_or_404(
         Vendedor, id=vendedor_id, sucursal=request.user.sucursal
     )
-    vales = (
-        ValeVendedor.objects.filter(vendedor=vendedor)
-        .select_related('movimiento_caja', 'movimiento_caja__caja', 'usuario_creador')
-        .order_by('-fecha')
-    )
+    vista = (request.GET.get('vista') or 'recibidos').strip().lower()
+    if vista not in ('recibidos', 'otorgados'):
+        vista = 'recibidos'
+
+    if vista == 'otorgados':
+        vales = (
+            ValeVendedor.objects.filter(usuario_creador=vendedor)
+            .select_related('movimiento_caja', 'movimiento_caja__caja', 'vendedor', 'usuario_creador')
+            .order_by('-fecha')
+        )
+    else:
+        vales = (
+            ValeVendedor.objects.filter(vendedor=vendedor)
+            .select_related('movimiento_caja', 'movimiento_caja__caja', 'usuario_creador')
+            .order_by('-fecha')
+        )
     if fecha_desde:
         vales = vales.filter(fecha__date__gte=fecha_desde)
     if fecha_hasta:
@@ -983,6 +1021,7 @@ def lista_vales_vendedor(request, vendedor_id):
     context = {
         'vendedor': vendedor,
         'vales': vales,
+        'vista': vista,
         'total_vales': total_vales_saldo,
         'total_vales_egreso': total_vales_egreso,
         'total_vales_ingreso': total_vales_ingreso,

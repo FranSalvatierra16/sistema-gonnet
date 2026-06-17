@@ -6,19 +6,48 @@
 
 {% block content %}
 <div class="container-fluid mt-3">
-    <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <div>
-            <h1 class="h3">Vales del productor</h1>
-            <p class="text-muted mb-0">{{ vendedor.nombre_completo_vendedor }} — {{ vendedor.sucursal.nombre }}</p>
+            <h1 class="h3 mb-1">
+                {% if vista == 'otorgados' %}
+                Vales otorgados por {{ vendedor.nombre_completo_vendedor }}
+                {% else %}
+                Vales recibidos — {{ vendedor.nombre_completo_vendedor }}
+                {% endif %}
+            </h1>
+            <p class="text-muted mb-0">{{ vendedor.sucursal.nombre }}</p>
         </div>
         <a href="{% url 'inmobiliaria:historial_comisiones_vendedor' vendedor.id %}" class="btn btn-outline-primary">
             <i class="fas fa-chart-line"></i> Historial de comisiones
         </a>
     </div>
 
+    <ul class="nav nav-tabs mb-3">
+        <li class="nav-item">
+            <a class="nav-link {% if vista == 'recibidos' %}active{% endif %}"
+               href="{% url 'inmobiliaria:lista_vales_vendedor' vendedor.id %}?vista=recibidos{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}">
+                Recibidos (descuentan comisiones)
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if vista == 'otorgados' %}active{% endif %}"
+               href="{% url 'inmobiliaria:lista_vales_vendedor' vendedor.id %}?vista=otorgados{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}">
+                Otorgados a otros
+            </a>
+        </li>
+    </ul>
+
+    {% if vista == 'otorgados' %}
+    <div class="alert alert-light border py-2 small mb-3">
+        Vales que <strong>{{ vendedor.nombre_completo_vendedor }}</strong> cargó en caja a favor de otra persona u otro productor.
+        No restan de sus comisiones; figuran acá para control y seguimiento.
+    </div>
+    {% endif %}
+
     <div class="card mb-3">
         <div class="card-body">
             <form method="get" class="row g-2 align-items-end">
+                <input type="hidden" name="vista" value="{{ vista }}">
                 <div class="col-md-3">
                     <label for="fecha_desde" class="form-label">Desde</label>
                     <input type="date" id="fecha_desde" name="fecha_desde" class="form-control" value="{{ fecha_desde|default:'' }}">
@@ -34,7 +63,7 @@
                 </div>
                 {% if hay_filtro_fecha %}
                 <div class="col-md-2">
-                    <a href="{% url 'inmobiliaria:lista_vales_vendedor' vendedor.id %}" class="btn btn-outline-secondary w-100">Limpiar</a>
+                    <a href="{% url 'inmobiliaria:lista_vales_vendedor' vendedor.id %}?vista={{ vista }}" class="btn btn-outline-secondary w-100">Limpiar</a>
                 </div>
                 {% endif %}
             </form>
@@ -48,7 +77,7 @@
         <div class="col-md-4">
             <div class="card border-danger">
                 <div class="card-body">
-                    <h6 class="text-danger">Total egresos (restan del neto)</h6>
+                    <h6 class="text-danger">Total egresos</h6>
                     <p class="h5 mb-0 text-danger">−${{ total_vales_egreso|format_price }}</p>
                 </div>
             </div>
@@ -56,7 +85,7 @@
         <div class="col-md-4">
             <div class="card border-success">
                 <div class="card-body">
-                    <h6 class="text-success">Total ingresos (suman al empleado)</h6>
+                    <h6 class="text-success">Total ingresos</h6>
                     <p class="h5 mb-0 text-success">+${{ total_vales_ingreso|format_price }}</p>
                 </div>
             </div>
@@ -64,7 +93,7 @@
         <div class="col-md-4">
             <div class="card border-secondary">
                 <div class="card-body">
-                    <h6 class="text-secondary">Saldo frente a comisiones (EG − IN)</h6>
+                    <h6 class="text-secondary">Saldo (EG − IN)</h6>
                     <p class="h5 mb-0">${{ total_vales|format_price }}</p>
                 </div>
             </div>
@@ -85,7 +114,7 @@
                             <th>Tipo</th>
                             <th>Beneficiario</th>
                             <th>Concepto</th>
-                            <th class="text-end">Efecto</th>
+                            <th class="text-end">Monto</th>
                             <th>Caja</th>
                         </tr>
                     </thead>
@@ -100,13 +129,20 @@
                                     <span class="badge bg-success">Ingreso</span>
                                 {% endif %}
                             </td>
-                            <td class="small">{{ vale.nombre_beneficiario }}</td>
+                            <td class="small">
+                                <strong>{{ vale.nombre_beneficiario }}</strong>
+                                {% if vale.tipo_beneficiario == 'otro' %}
+                                <br><span class="badge bg-light text-dark border">Otra persona</span>
+                                {% elif vale.vendedor_id and vale.vendedor_id != vendedor.id %}
+                                <br><span class="badge bg-light text-dark border">Otro productor</span>
+                                {% endif %}
+                            </td>
                             <td>{{ vale.concepto }}</td>
                             <td class="text-end">
                                 {% if vale.tipo_vale == 'EG' %}
-                                    <span class="text-danger" title="Resta del neto de comisiones">−${{ vale.monto|format_price }}</span>
+                                    <span class="text-danger">−${{ vale.monto|format_price }}</span>
                                 {% else %}
-                                    <span class="text-success" title="Suma a favor del empleado">+${{ vale.monto|format_price }}</span>
+                                    <span class="text-success">+${{ vale.monto|format_price }}</span>
                                 {% endif %}
                             </td>
                             <td>
@@ -124,7 +160,13 @@
         </div>
     </div>
     {% else %}
-    <div class="alert alert-info">No hay vales registrados para este productor.</div>
+    <div class="alert alert-info">
+        {% if vista == 'otorgados' %}
+        No hay vales otorgados por este productor{% if hay_filtro_fecha %} en el período{% endif %}.
+        {% else %}
+        No hay vales recibidos por este productor{% if hay_filtro_fecha %} en el período{% endif %}.
+        {% endif %}
+    </div>
     {% endif %}
 </div>
 {% endblock %}
