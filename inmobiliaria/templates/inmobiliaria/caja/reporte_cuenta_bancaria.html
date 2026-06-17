@@ -68,7 +68,8 @@
                 </div>
             </form>
             <p class="small text-muted mb-0 mt-3">
-                Por defecto se muestran solo los movimientos del <strong>día de hoy</strong>; podés cambiar el rango y pulsar Aplicar, o abrir <strong>Todo el historial</strong>.
+                Por defecto se muestran solo los movimientos del <strong>día de hoy</strong> según la <strong>fecha de transferencia/depósito</strong> cargada en caja
+                (no la fecha de registro en el sistema); podés cambiar el rango y pulsar Aplicar, o abrir <strong>Todo el historial</strong>.
                 Se listan movimientos donde el importe por <strong>transferencia / depósito</strong> va a esta cuenta.
                 Otros medios (efectivo, tarjeta, etc.) del mismo movimiento no se suman acá.
             </p>
@@ -115,7 +116,7 @@
                 <table class="table table-hover table-sm mb-0 align-middle">
                     <thead class="table-light">
                         <tr>
-                            <th>Fecha</th>
+                            <th>Fecha banco</th>
                             <th>Caja</th>
                             <th>Movimiento</th>
                             <th>Detalle de la operación</th>
@@ -129,8 +130,14 @@
                         {% with x=m.reporte_bc_extra %}
                         <tr>
                             <td class="text-nowrap small">
-                                {{ m.fecha|date:"d/m/Y" }}<br>
-                                <span class="text-muted">{{ m.fecha|time:"H:i" }}</span>
+                                {% if m.fecha_banco_efectiva %}
+                                <strong>{{ m.fecha_banco_efectiva|date:"d/m/Y" }}</strong>
+                                {% else %}
+                                {{ m.fecha|date:"d/m/Y" }}
+                                {% endif %}
+                                {% if m.fecha_transferencia and m.fecha_transferencia != m.fecha|date:"Y-m-d" %}
+                                <br><span class="text-muted" title="Fecha de carga en el sistema">Caja: {{ m.fecha|date:"d/m/Y" }}</span>
+                                {% endif %}
                             </td>
                             <td>
                                 {% if m.caja %}
@@ -149,7 +156,10 @@
                                 {% endif %}
                             </td>
                             <td class="small">
-                                {% if x.etiqueta %}
+                                {% if x.op_line %}
+                                <div class="fw-semibold mb-1">{{ x.op_line }}</div>
+                                {% endif %}
+                                {% if x.etiqueta or x.categoria %}
                                 <div class="mb-1">
                                     {% if x.etiqueta == 'Por día' %}
                                     <span class="badge bg-info text-dark">{{ x.etiqueta }}</span>
@@ -157,19 +167,22 @@
                                     <span class="badge bg-success">{{ x.etiqueta }}</span>
                                     {% elif x.etiqueta == 'Liquidación' %}
                                     <span class="badge bg-secondary">{{ x.etiqueta }}</span>
-                                    {% else %}
+                                    {% elif x.etiqueta %}
                                     <span class="badge bg-light text-dark border">{{ x.etiqueta }}</span>
                                     {% endif %}
-                                    {% if x.numero_operacion %}
-                                    <span class="text-muted">· Op. {{ x.numero_operacion }}</span>
+                                    {% if x.categoria and x.categoria != x.etiqueta %}
+                                    <span class="badge bg-light text-dark border">{{ x.categoria }}</span>
                                     {% endif %}
                                 </div>
                                 {% endif %}
-                                <div class="fw-medium" title="{{ x.detalle_l1 }}">{{ x.detalle_l1 }}</div>
-                                {% if x.detalle_l2 %}
-                                <div class="text-muted">{{ x.detalle_l2 }}</div>
+                                <div class="fw-medium" title="{{ x.concepto_nombre }}">{{ x.concepto_nombre }}</div>
+                                {% if x.direccion %}
+                                <div class="text-muted">{{ x.direccion }}</div>
                                 {% endif %}
-                                {% if m.propiedad_id %}
+                                {% if x.observaciones %}
+                                <div class="text-muted fst-italic">{{ x.observaciones }}</div>
+                                {% endif %}
+                                {% if m.propiedad_id and not x.direccion %}
                                 <div class="mt-1">
                                     <a href="{% url 'inmobiliaria:propiedad_detalle' m.propiedad_id %}" class="text-decoration-none">
                                         Propiedad #{{ m.propiedad_id }}

@@ -5,13 +5,42 @@ from decimal import Decimal
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.paginator import Paginator
-from django.db.models import Sum
+from django.db.models import F, Sum
+from django.db.models.functions import Coalesce, TruncDate
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from inmobiliaria.models.caja import MovimientoCaja, TipoMovimientoCajaEnum
 from inmobiliaria.models.sucursal import CuentaBancaria
+
+
+def _etiqueta_inquilino_movimiento(m: MovimientoCaja) -> str:
+    """Apellido, nombre del inquilino vinculado a operación o contrato."""
+    texto = (m.concepto or '')
+    rid_m = re.search(r'Operaci[oó]n\s*#?\s*(\d+)', texto, re.I)
+    if rid_m:
+        from inmobiliaria.models.propiedad import Reserva
+
+        r = Reserva.objects.select_related('cliente').filter(pk=int(rid_m.group(1))).first()
+        if r and r.cliente:
+            ap = (r.cliente.apellido or '').strip()
+            no = (r.cliente.nombre or '').strip()
+            partes = [p for p in (ap, no) if p]
+            if partes:
+                return ', '.join(partes)
+    cid_m = re.search(r'[Cc]ontrato\s*#?\s*(\d+)', texto)
+    if cid_m:
+        from inmobiliaria.models.contrato import ContratoAlquiler
+
+        c = ContratoAlquiler.objects.select_related('inquilino').filter(pk=int(cid_m.group(1))).first()
+        if c and c.inquilino:
+            ap = (c.inquilino.apellido or '').strip()
+            no = (c.inquilino.nombre or '').strip()
+            partes = [p for p in (ap, no) if p]
+            if partes:
+                return ', '.join(partes)
+    return ''
 
 
 def _concepto_detalle_es_contrato(concepto_detalle: str) -> bool:
@@ -35,6 +64,8 @@ def _reporte_cuenta_bancaria_movimiento_extras(m: MovimientoCaja) -> dict:
     """
     Etiqueta de operación (por día / contrato / liquidación) y textos de detalle para el reporte bancario.
     """
+    MovimientoCaja.precargar_nombres_concepto([m], sucursal=getattr(m, 'sucursal', None))
+
     concepto = (m.concepto or '').strip()
     lc = concepto.lower()
     etiqueta = ''
@@ -57,17 +88,18 @@ def _reporte_cuenta_bancaria_movimiento_extras(m: MovimientoCaja) -> dict:
         except Exception:
             pass
 
-    detalle_l1 = ''
-    detalle_l2 = ''
+    categoria = ''
+    direccion = ''
+    concepto_nombre = '—'
+    observaciones = ''
     try:
-        detalle_l1 = (m.listado_detalle_l1 or '').strip()
-        detalle_l2 = (m.listado_detalle_l2 or '').strip()
+        categoria = (m.listado_concepto_l1 or '').strip()
+        direccion = (m.listado_concepto_l2 or '').strip()
+        concepto_nombre = (m.listado_detalle_l1 or '').strip() or '—'
+        obs = (m.listado_detalle_tabla_secundario or '').strip()
+        observaciones = '' if obs == '—' else obs
     except Exception:
-        detalle_l1 = (m.concepto or '')[:200] if m.concepto else '—'
-        detalle_l2 = ''
-
-    if detalle_l2 in ('—', ''):
-        detalle_l2 = ''
+        concepto_nombre = (m.concepto or '')[:200] if m.concepto else '—'
 
     num_op = ''
     try:
@@ -77,6 +109,13 @@ def _reporte_cuenta_bancaria_movimiento_extras(m: MovimientoCaja) -> dict:
     except Exception:
         pass
 
+    inquilino = _etiqueta_inquilino_movimiento(m)
+    op_line = ''
+    if num_op:
+        op_line = f'Op. {num_op}'
+        if inquilino:
+            op_line = f'{op_line} — {inquilino}'
+
     propiedad_direccion = ''
     if getattr(m, 'propiedad_id', None):
         try:
@@ -84,12 +123,20 @@ def _reporte_cuenta_bancaria_movimiento_extras(m: MovimientoCaja) -> dict:
             propiedad_direccion = (getattr(prop, 'direccion', None) or '').strip()
         except Exception:
             propiedad_direccion = ''
+    if not direccion and propiedad_direccion:
+        direccion = propiedad_direccion[:80]
 
     return {
         'etiqueta': etiqueta,
-        'detalle_l1': detalle_l1 or '—',
-        'detalle_l2': detalle_l2,
+        'op_line': op_line,
+        'categoria': categoria,
+        'direccion': direccion,
+        'concepto_nombre': concepto_nombre,
+        'observaciones': observaciones,
+        'detalle_l1': concepto_nombre,
+        'detalle_l2': observaciones,
         'numero_operacion': num_op,
+        'inquilino': inquilino,
         'propiedad_direccion': propiedad_direccion[:80] if propiedad_direccion else '',
     }
 
@@ -267,7 +314,8 @@ def reporte_movimientos_cuenta_bancaria(request, cuenta_id):
             monto_deposito__gt=0,
         )
         .select_related('caja', 'empleado', 'propiedad')
-        .order_by('-fecha', '-id')
+        .annotate(fecha_banco=Coalesce(F('fecha_transferencia'), TruncDate('fecha')))
+        .order_by('-fecha_banco', '-fecha', '-id')
     )
 
     today = timezone.localdate().isoformat()
@@ -286,9 +334,9 @@ def reporte_movimientos_cuenta_bancaria(request, cuenta_id):
 
     if not periodo_completo:
         if fecha_desde:
-            movimientos_qs = movimientos_qs.filter(fecha__date__gte=fecha_desde)
+            movimientos_qs = movimientos_qs.filter(fecha_banco__gte=fecha_desde)
         if fecha_hasta:
-            movimientos_qs = movimientos_qs.filter(fecha__date__lte=fecha_hasta)
+            movimientos_qs = movimientos_qs.filter(fecha_banco__lte=fecha_hasta)
 
     total_ingresos = (
         movimientos_qs.filter(tipo=TipoMovimientoCajaEnum.INGRESO).aggregate(

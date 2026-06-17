@@ -151,6 +151,9 @@
                                 ${{ movimiento.monto_deposito|format_price }}
                                 {% if movimiento.monto_deposito > 0 %}
                                     <br><small class="{% if movimiento.tipo == 'EG' %}text-dark{% else %}text-muted{% endif %}">({{ movimiento.get_destino_deposito_display|default:"-" }})</small>
+                                    {% if movimiento.fecha_transferencia %}
+                                    <br><small class="text-muted" title="Fecha real transferencia/depósito">Banco: {{ movimiento.fecha_transferencia|date:"d/m/Y" }}</small>
+                                    {% endif %}
                                 {% endif %}
                             </td>
                             <td class="text-end text-nowrap small">
@@ -285,6 +288,9 @@
                                 ${{ movimiento.monto_deposito|format_price }}
                                 {% if movimiento.monto_deposito > 0 %}
                                     <br><small class="{% if movimiento.tipo == 'EG' %}text-dark{% else %}text-muted{% endif %}">({{ movimiento.get_destino_deposito_display|default:"-" }})</small>
+                                    {% if movimiento.fecha_transferencia %}
+                                    <br><small class="text-muted" title="Fecha real transferencia/depósito">Banco: {{ movimiento.fecha_transferencia|date:"d/m/Y" }}</small>
+                                    {% endif %}
                                 {% endif %}
                             </td>
                             <td class="text-end text-nowrap small">

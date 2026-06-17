@@ -25,7 +25,7 @@
                                 {% if movimiento.propiedad %}
                                 <p class="mb-1"><strong>Propiedad:</strong> {{ movimiento.propiedad.direccion }} (#{{ movimiento.propiedad_id }})</p>
                                 {% endif %}
-                                <p class="mb-0 text-muted small">Solo se modifican importes; concepto, tipo y fecha no cambian.</p>
+                                <p class="mb-0 text-muted small">Se modifican importes y, si hay transferencia, la fecha real del depósito.</p>
                             </div>
                         </div>
                     </div>
@@ -76,6 +76,12 @@
                                     </option>
                                     {% endfor %}
                                 </select>
+                            </div>
+                            <div class="col-md-6" id="bloque_fecha_transferencia_edit">
+                                <label class="form-label">Fecha transferencia / depósito</label>
+                                <input type="date" name="fecha_transferencia" class="form-control"
+                                       value="{% if movimiento.fecha_transferencia %}{{ movimiento.fecha_transferencia|date:'Y-m-d' }}{% else %}{{ movimiento.fecha|date:'Y-m-d' }}{% endif %}">
+                                <small class="text-muted">Fecha real del banco (conciliación).</small>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">USD (efectivo)</label>

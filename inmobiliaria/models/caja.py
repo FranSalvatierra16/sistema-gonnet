@@ -260,6 +260,12 @@ class MovimientoCaja(models.Model):
     cheque_numero = models.CharField(max_length=32, blank=True)
     cheque_banco = models.CharField(max_length=100, blank=True)
     cheque_fecha_vencimiento = models.DateField(null=True, blank=True)
+    fecha_transferencia = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name='Fecha transferencia/depósito',
+        help_text='Fecha real en que se acreditó o envió la transferencia/depósito (conciliación bancaria).',
+    )
     a_descontar = models.CharField(
         max_length=20,
         choices=[
@@ -321,7 +327,19 @@ class MovimientoCaja(models.Model):
 
     def __str__(self):
         return f"{self.get_tipo_display()} - ${self.monto_total}"
-    
+
+    @property
+    def fecha_banco_efectiva(self):
+        """Fecha para conciliación bancaria: transferencia real o día del movimiento en caja."""
+        if self.fecha_transferencia:
+            return self.fecha_transferencia
+        if self.fecha:
+            dt = self.fecha
+            if timezone.is_aware(dt):
+                dt = timezone.localtime(dt)
+            return dt.date()
+        return None
+
     @property
     def monto_efectivo_safe(self):
         """Retorna monto_efectivo asegurando que nunca sea None"""

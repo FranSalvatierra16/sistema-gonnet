@@ -408,6 +408,14 @@
                                 <small class="text-muted">Ingreso o egreso en dólares (no suma al total ARS). Podés cargar solo USD si no hay pesos.</small>
                             </div>
                         </div>
+                        <div id="bloque_fecha_transferencia" class="row mb-3 d-none border rounded p-3 bg-light">
+                            <div class="col-md-4">
+                                <label class="form-label">Fecha transferencia / depósito <span class="text-danger">*</span></label>
+                                <input type="date" name="fecha_transferencia" id="fecha_transferencia_mov" class="form-control"
+                                       value="{% now 'Y-m-d' %}">
+                                <small class="text-muted">Día en que se acreditó o envió el dinero al banco (puede ser anterior a hoy).</small>
+                            </div>
+                        </div>
                         <div id="bloque_detalle_tarjeta" class="row mb-3 d-none border rounded p-3 bg-light">
                             <div class="col-12">
                                 <h6 class="text-muted mb-2">Datos de tarjeta <small>(opcional)</small></h6>
@@ -1099,8 +1107,10 @@ $(document).ready(function() {
     function actualizarVisibilidadMediosPago() {
         var tj = parseMontoLocal($('input[name="monto_tarjeta"]').val());
         var ch = parseMontoLocal($('input[name="monto_cheque"]').val());
+        var dep = parseMontoLocal($('input[name="monto_deposito"]').val());
         $('#bloque_detalle_tarjeta').toggleClass('d-none', tj <= 0);
         $('#bloque_detalle_cheque').toggleClass('d-none', ch <= 0);
+        $('#bloque_fecha_transferencia').toggleClass('d-none', dep <= 0);
     }
 
     // Total al cambiar importes (el formato 70.000 lo hace monto-argentino.js global)

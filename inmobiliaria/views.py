@@ -10521,12 +10521,25 @@ def editar_movimiento_caja(request, movimiento_id):
                 messages.error(request, 'Con transferencia tenés que elegir una cuenta destino válida.')
                 return _volver()
             movimiento.destino_deposito = destino_ok
+            ft_raw = (request.POST.get('fecha_transferencia') or '').strip()
+            if not ft_raw:
+                messages.error(
+                    request,
+                    'Con transferencia tenés que indicar la fecha en que se hizo el depósito.',
+                )
+                return _volver()
+            try:
+                movimiento.fecha_transferencia = datetime.strptime(ft_raw, '%Y-%m-%d').date()
+            except ValueError:
+                messages.error(request, 'Fecha de transferencia/depósito inválida.')
+                return _volver()
         else:
             movimiento.destino_deposito = None
+            movimiento.fecha_transferencia = None
 
         movimiento.save(update_fields=[
             'monto_efectivo', 'monto_cheque', 'monto_tarjeta',
-            'monto_deposito', 'monto_dolares', 'destino_deposito',
+            'monto_deposito', 'monto_dolares', 'destino_deposito', 'fecha_transferencia',
         ])
         _sincronizar_montos_anexos_movimiento(movimiento)
         messages.success(
@@ -12125,8 +12138,22 @@ def nuevo_movimiento(request, numero_caja=None):
                     )
                     return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
                 movimiento.destino_deposito = destino_ok
+                ft_raw = (request.POST.get('fecha_transferencia') or '').strip()
+                if not ft_raw:
+                    messages.error(
+                        request,
+                        'Con transferencia o depósito tenés que indicar la fecha en que se hizo '
+                        '(la que figura en el banco o en el comprobante).',
+                    )
+                    return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
+                try:
+                    movimiento.fecha_transferencia = datetime.strptime(ft_raw, '%Y-%m-%d').date()
+                except ValueError:
+                    messages.error(request, 'Fecha de transferencia/depósito inválida.')
+                    return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
             else:
                 movimiento.destino_deposito = None
+                movimiento.fecha_transferencia = None
 
             movimiento.tarjeta_numero = (request.POST.get('tarjeta_numero') or '')[:32]
             movimiento.tarjeta_cupon = (request.POST.get('tarjeta_cupon') or '')[:64]
