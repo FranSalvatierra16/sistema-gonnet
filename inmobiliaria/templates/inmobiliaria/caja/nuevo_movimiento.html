@@ -135,8 +135,9 @@
                                 </div>
                     <div class="col-md-3">
                         <label class="form-label">Fecha</label>
-                        <input type="text" class="form-control" value="{{ fecha_actual|date:'d/m/Y H:i' }}" readonly>
-                        <input type="hidden" name="fecha" value="{{ fecha_actual|date:'Y-m-d H:i:s' }}">
+                        <input type="datetime-local" name="fecha" id="fecha_movimiento" class="form-control" required
+                               value="{{ fecha_actual|date:'Y-m-d' }}T{{ fecha_actual|date:'H:i' }}">
+                        <small class="form-text text-muted">Por defecto ahora; cambiala si el pago fue otro día. El movimiento queda en la caja abierta actual.</small>
                             </div>
                         </div>
 
@@ -406,14 +407,6 @@
                                 <label class="form-label">USD (efectivo)</label>
                                 <input type="text" name="dolares" id="monto_dolares_mov" class="form-control input-monto-ar" inputmode="numeric" autocomplete="off" value="" placeholder="0">
                                 <small class="text-muted">Ingreso o egreso en dólares (no suma al total ARS). Podés cargar solo USD si no hay pesos.</small>
-                            </div>
-                        </div>
-                        <div id="bloque_fecha_transferencia" class="row mb-3 d-none border rounded p-3 bg-light">
-                            <div class="col-md-4">
-                                <label class="form-label">Fecha transferencia / depósito <span class="text-danger">*</span></label>
-                                <input type="date" name="fecha_transferencia" id="fecha_transferencia_mov" class="form-control"
-                                       value="{% now 'Y-m-d' %}">
-                                <small class="text-muted">Día en que se acreditó o envió el dinero al banco (puede ser anterior a hoy).</small>
                             </div>
                         </div>
                         <div id="bloque_detalle_tarjeta" class="row mb-3 d-none border rounded p-3 bg-light">
@@ -1107,10 +1100,8 @@ $(document).ready(function() {
     function actualizarVisibilidadMediosPago() {
         var tj = parseMontoLocal($('input[name="monto_tarjeta"]').val());
         var ch = parseMontoLocal($('input[name="monto_cheque"]').val());
-        var dep = parseMontoLocal($('input[name="monto_deposito"]').val());
         $('#bloque_detalle_tarjeta').toggleClass('d-none', tj <= 0);
         $('#bloque_detalle_cheque').toggleClass('d-none', ch <= 0);
-        $('#bloque_fecha_transferencia').toggleClass('d-none', dep <= 0);
     }
 
     // Total al cambiar importes (el formato 70.000 lo hace monto-argentino.js global)

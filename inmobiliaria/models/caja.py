@@ -205,7 +205,10 @@ class CajaArqueoManual(models.Model):
 
 
 class MovimientoCaja(models.Model):
-    fecha = models.DateTimeField(auto_now_add=True)
+    fecha = models.DateTimeField(
+        default=timezone.now,
+        help_text='Fecha del movimiento (comprobante/transferencia). Puede ser anterior al día de carga en caja.',
+    )
     tipo = models.CharField(
         max_length=2,
         choices=TipoMovimientoCajaEnum.choices,
