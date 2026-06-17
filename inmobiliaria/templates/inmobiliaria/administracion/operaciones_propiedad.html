@@ -39,6 +39,15 @@
                         <i class="fas fa-search me-1"></i>Buscar
                     </button>
                 </div>
+                <div class="col-md-4">
+                    <label for="concepto_gasto" class="form-label">Concepto (gastos)</label>
+                    <input type="text" id="concepto_gasto" name="concepto_gasto" class="form-control"
+                           value="{{ concepto_gasto|default:'' }}"
+                           placeholder="Ej: luz, servicios, honorarios…">
+                </div>
+                <div class="col-md-8 d-flex align-items-end">
+                    <small class="text-muted mb-2">Filtra la pestaña Gastos por concepto o detalle. Dejá vacío para ver todos.</small>
+                </div>
             </form>
         </div>
     </div>
@@ -152,7 +161,12 @@
 
         <div class="tab-pane fade" id="pane-gastos" role="tabpanel">
             <div class="card mb-4">
-                <div class="card-header"><strong>Gastos</strong></div>
+                <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <strong>Gastos</strong>
+                    {% if concepto_gasto %}
+                    <span class="badge bg-secondary">Filtro: «{{ concepto_gasto }}» — {{ gastos_items|length }} resultado{{ gastos_items|length|pluralize }}</span>
+                    {% endif %}
+                </div>
                 <div class="table-responsive">
                     <table class="table table-sm table-striped mb-0">
                         <thead>
@@ -169,7 +183,11 @@
                                 <td>{{ g.detalle|default:"-" }}</td>
                                 <td class="text-end">${{ g.monto|format_price }}</td>
                             </tr>
-                            {% empty %}<tr><td colspan="5" class="text-center text-muted">Sin gastos</td></tr>{% endfor %}
+                            {% empty %}
+                            <tr><td colspan="5" class="text-center text-muted">
+                                {% if concepto_gasto %}Sin gastos para «{{ concepto_gasto }}»{% else %}Sin gastos{% endif %}
+                            </td></tr>
+                            {% endfor %}
                         </tbody>
                     </table>
                 </div>
@@ -312,5 +330,16 @@
         if (!wrap.contains(e.target)) resultados.classList.add('d-none');
     });
 })();
+
+{% if concepto_gasto %}
+(function () {
+    document.addEventListener('DOMContentLoaded', function () {
+        var tab = document.getElementById('tab-gastos');
+        if (tab && typeof bootstrap !== 'undefined' && bootstrap.Tab) {
+            bootstrap.Tab.getOrCreateInstance(tab).show();
+        }
+    });
+})();
+{% endif %}
 </script>
 {% endblock %}

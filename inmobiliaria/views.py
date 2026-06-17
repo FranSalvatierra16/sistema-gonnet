@@ -1470,6 +1470,7 @@ def administracion_propiedades_operaciones(request):
     propiedad_id = (request.GET.get('propiedad_id') or '').strip()
     fecha_desde_s = (request.GET.get('fecha_desde') or '').strip()
     fecha_hasta_s = (request.GET.get('fecha_hasta') or '').strip()
+    concepto_gasto = (request.GET.get('concepto_gasto') or '').strip()
     fecha_desde = _parse_fecha(fecha_desde_s)
     fecha_hasta = _parse_fecha(fecha_hasta_s)
     if fecha_desde and fecha_hasta and fecha_hasta < fecha_desde:
@@ -1493,6 +1494,7 @@ def administracion_propiedades_operaciones(request):
         'propiedad_id': propiedad_id,
         'fecha_desde': fecha_desde_s,
         'fecha_hasta': fecha_hasta_s,
+        'concepto_gasto': concepto_gasto,
         'propiedad': None,
         'coincidencias': [],
         'reservas': [],
@@ -1710,6 +1712,14 @@ def administracion_propiedades_operaciones(request):
             return 0
 
         gastos_items.sort(key=_fecha_sort_key, reverse=True)
+
+        if concepto_gasto:
+            term_concepto = concepto_gasto.casefold()
+            gastos_items = [
+                item for item in gastos_items
+                if term_concepto in (str(item.get('concepto') or '').casefold())
+                or term_concepto in (str(item.get('detalle') or '').casefold())
+            ]
 
         ag_pagos = pagos_qs.aggregate(t=Sum('monto'))
         ag_mov = movimientos_qs.aggregate(
