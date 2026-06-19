@@ -1321,6 +1321,7 @@ $(document).ready(function() {
     });
 
     var ultimoCasilleroCorresponde = 'oficina';
+    var correspondeEditadoManual = false;
 
     function parseMontoLocal(v) {
         if (typeof parseMontoAR === 'function') {
@@ -1427,35 +1428,43 @@ $(document).ready(function() {
     $('#formMovimiento').on('input', '.monto', function() {
         calcularTotal();
         actualizarVisibilidadMediosPago();
-        sincronizarCorresponde(ultimoCasilleroCorresponde);
+        // No repartir en cada tecla: evita 4 → oficina 4 + inquilino 39996 al escribir 40.000
     });
     $('.monto').on('blur', function() {
+        var total = calcularTotal();
+        actualizarVisibilidadMediosPago();
+        if (total <= 1) return;
+        if (!correspondeEditadoManual) {
+            $('#monto_a_oficina, #monto_a_propietario, #monto_a_inquilino').val(fmtMontoLocal(0));
+        }
         sincronizarCorresponde(ultimoCasilleroCorresponde);
     });
     calcularTotal();
     actualizarVisibilidadMediosPago();
 
+    $('.input-monto-corresponde').on('focus', function() {
+        $(this).data('val-focus', $(this).val());
+        ultimoCasilleroCorresponde = this.id === 'monto_a_propietario'
+            ? 'propietario'
+            : (this.id === 'monto_a_inquilino' ? 'inquilino' : 'oficina');
+    });
     $('.input-monto-corresponde').on('input', function() {
+        correspondeEditadoManual = true;
         ultimoCasilleroCorresponde = this.id === 'monto_a_propietario'
             ? 'propietario'
             : (this.id === 'monto_a_inquilino' ? 'inquilino' : 'oficina');
         sincronizarCorresponde(ultimoCasilleroCorresponde, this.id);
     });
-
-    $('#monto_a_oficina').on('focus', function() {
-        ultimoCasilleroCorresponde = 'oficina';
-    }).on('blur', function() {
-        sincronizarCorresponde('oficina', 'monto_a_oficina');
-    });
-    $('#monto_a_propietario').on('focus', function() {
-        ultimoCasilleroCorresponde = 'propietario';
-    }).on('blur', function() {
-        sincronizarCorresponde('propietario', 'monto_a_propietario');
-    });
-    $('#monto_a_inquilino').on('focus', function() {
-        ultimoCasilleroCorresponde = 'inquilino';
-    }).on('blur', function() {
-        sincronizarCorresponde('inquilino', 'monto_a_inquilino');
+    $('.input-monto-corresponde').on('blur', function() {
+        var vf = parseMontoLocal($(this).data('val-focus'));
+        var vn = parseMontoLocal($(this).val());
+        if (Math.abs(vf - vn) <= 0.005) {
+            return;
+        }
+        ultimoCasilleroCorresponde = this.id === 'monto_a_propietario'
+            ? 'propietario'
+            : (this.id === 'monto_a_inquilino' ? 'inquilino' : 'oficina');
+        sincronizarCorresponde(ultimoCasilleroCorresponde, this.id);
     });
 
     function cargarPropiedad(id, direccion, ubicacion, piso, depto) {
@@ -1883,10 +1892,11 @@ $(document).ready(function() {
         if (esLiq && montoSug > 0) {
             $('input[name="monto_efectivo"]').val(fmtMontoLocal(montoSug));
             $('input[name="monto_cheque"], input[name="monto_tarjeta"], input[name="monto_deposito"]').val('');
+            correspondeEditadoManual = false;
             ultimoCasilleroCorresponde = 'propietario';
+            $('#monto_a_oficina, #monto_a_inquilino').val(fmtMontoLocal(0));
             $('#monto_a_propietario').val(fmtMontoLocal(montoSug));
-            sincronizarCorresponde('propietario');
-            $('.monto').trigger('input');
+            calcularTotal();
             return;
         }
 
@@ -1901,10 +1911,11 @@ $(document).ready(function() {
         if (op.puede_devolver && montoSug > 0) {
             $('input[name="monto_efectivo"]').val(fmtMontoLocal(montoSug));
             $('input[name="monto_cheque"], input[name="monto_tarjeta"], input[name="monto_deposito"]').val('');
+            correspondeEditadoManual = false;
             ultimoCasilleroCorresponde = 'oficina';
+            $('#monto_a_propietario, #monto_a_inquilino').val(fmtMontoLocal(0));
             $('#monto_a_oficina').val(fmtMontoLocal(montoSug));
-            sincronizarCorresponde('oficina');
-            $('.monto').trigger('input');
+            calcularTotal();
         }
     }
 
