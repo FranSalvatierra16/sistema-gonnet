@@ -93,6 +93,7 @@
         <div class="col-md-2 col-6 mb-2"><div class="alert alert-light border mb-0">Reservas: <strong>{{ reservas|length }}</strong></div></div>
         <div class="col-md-2 col-6 mb-2"><div class="alert alert-light border mb-0">Contratos: <strong>{{ contratos|length }}</strong></div></div>
         <div class="col-md-2 col-6 mb-2"><div class="alert alert-light border mb-0">Gastos: <strong>{{ gastos_items|length }}</strong></div></div>
+        <div class="col-md-2 col-6 mb-2"><div class="alert alert-light border mb-0">Ingresos: <strong>{{ ingresos_items|length }}</strong></div></div>
         <div class="col-md-2 col-6 mb-2"><div class="alert alert-light border mb-0">Liquidaciones: <strong>{{ liquidaciones|length }}</strong></div></div>
     </div>
     <ul class="nav nav-tabs mb-3" id="opsTabs" role="tablist">
@@ -101,6 +102,9 @@
         </li>
         <li class="nav-item" role="presentation">
             <button class="nav-link" id="tab-gastos" data-bs-toggle="tab" data-bs-target="#pane-gastos" type="button" role="tab">Gastos</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-ingresos" data-bs-toggle="tab" data-bs-target="#pane-ingresos" type="button" role="tab">Ingresos</button>
         </li>
         <li class="nav-item" role="presentation">
             <button class="nav-link" id="tab-liquidaciones" data-bs-toggle="tab" data-bs-target="#pane-liquidaciones" type="button" role="tab">Liquidaciones</button>
@@ -171,7 +175,7 @@
                     <table class="table table-sm table-striped mb-0">
                         <thead>
                             <tr>
-                                <th>Fecha</th><th>Nro. mov.</th><th>Concepto</th><th>Detalle</th><th class="text-end">Monto</th>
+                                <th>Fecha</th><th>Nro. mov.</th><th>Concepto</th><th>Detalle</th><th class="text-end">Monto</th><th class="text-center">Recibo</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -182,11 +186,53 @@
                                 <td>{{ g.concepto|default:"-" }}</td>
                                 <td>{{ g.detalle|default:"-" }}</td>
                                 <td class="text-end">${{ g.monto|format_price }}</td>
+                                <td class="text-center">
+                                    {% if g.url_recibo %}
+                                    <a href="{{ g.url_recibo }}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" title="Ver recibo">
+                                        <i class="fas fa-receipt"></i>
+                                    </a>
+                                    {% else %}—{% endif %}
+                                </td>
                             </tr>
                             {% empty %}
-                            <tr><td colspan="5" class="text-center text-muted">
+                            <tr><td colspan="6" class="text-center text-muted">
                                 {% if concepto_gasto %}Sin gastos para «{{ concepto_gasto }}»{% else %}Sin gastos{% endif %}
                             </td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="pane-ingresos" role="tabpanel">
+            <div class="card mb-4">
+                <div class="card-header"><strong>Ingresos (movimientos de caja)</strong></div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped mb-0">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th><th>Nro. mov.</th><th>Concepto</th><th>Detalle</th><th class="text-end">Monto</th><th class="text-center">Recibo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for i in ingresos_items %}
+                            <tr>
+                                <td>{{ i.fecha|date:"d/m/Y H:i" }}</td>
+                                <td>#{{ i.movimiento_num }}</td>
+                                <td>{{ i.concepto|default:"-" }}</td>
+                                <td>{{ i.detalle|default:"-" }}</td>
+                                <td class="text-end">${{ i.monto|format_price }}</td>
+                                <td class="text-center">
+                                    {% if i.url_recibo %}
+                                    <a href="{{ i.url_recibo }}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" title="Ver recibo">
+                                        <i class="fas fa-receipt"></i>
+                                    </a>
+                                    {% else %}—{% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="6" class="text-center text-muted">Sin ingresos</td></tr>
                             {% endfor %}
                         </tbody>
                     </table>
@@ -275,7 +321,8 @@
     function buscar() {
         const termino = (input.value || '').trim();
         hiddenId.value = '';
-        if (termino.length < 2) {
+        const minLen = /^\d+$/.test(termino) ? 1 : 2;
+        if (termino.length < minLen) {
             resultados.classList.add('d-none');
             resultados.innerHTML = '';
             return;
@@ -309,7 +356,9 @@
     });
 
     input.addEventListener('focus', function () {
-        if ((input.value || '').trim().length >= 2) buscar();
+        const t = (input.value || '').trim();
+        const minLen = /^\d+$/.test(t) ? 1 : 2;
+        if (t.length >= minLen) buscar();
     });
 
     resultados.addEventListener('click', function (e) {

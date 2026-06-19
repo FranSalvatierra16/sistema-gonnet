@@ -1541,6 +1541,7 @@ def administracion_propiedades_operaciones(request):
         'cuotas': [],
         'gastos': [],
         'gastos_items': [],
+        'ingresos_items': [],
         'liquidaciones': [],
         'pagos': [],
         'movimientos': [],
@@ -1560,12 +1561,12 @@ def administracion_propiedades_operaciones(request):
         propiedad = None
         coincidencias = []
 
-        if propiedad_id.isdigit():
-            propiedad = propiedades_qs.filter(id=int(propiedad_id)).first()
+        if propiedad_id:
+            propiedad = propiedades_qs.filter(id=propiedad_id).first()
         elif termino:
-            if termino.isdigit():
-                propiedad = propiedades_qs.filter(id=int(termino)).first()
-            if not propiedad:
+            if termino.isascii() and termino.isdigit():
+                propiedad = propiedades_qs.filter(id=termino).first()
+            else:
                 coincidencias = list(propiedades_qs.filter(
                     Q(direccion__icontains=termino) |
                     Q(ubicacion__icontains=termino) |
@@ -1633,6 +1634,25 @@ def administracion_propiedades_operaciones(request):
         pagos = list(pagos_qs.order_by('-fecha', '-id')[:250])
         movimientos = list(movimientos_qs.order_by('-fecha', '-id')[:250])
         egresos_gasto = list(egresos_gasto_qs.order_by('-fecha', '-id')[:500])
+        ingresos_qs = movimientos_qs.filter(tipo=TipoMovimientoCajaEnum.INGRESO)
+        ingresos_mov = list(ingresos_qs.order_by('-fecha', '-id')[:500])
+
+        next_path = request.get_full_path()
+        mov_por_id = {m.id: m for m in movimientos + egresos_gasto + ingresos_mov}
+
+        def _url_recibo_admin(mov_id):
+            if not mov_id:
+                return None
+            mov = mov_por_id.get(mov_id)
+            if not mov:
+                mov = MovimientoCaja.objects.filter(
+                    pk=mov_id, sucursal=request.user.sucursal
+                ).first()
+            if not mov:
+                return None
+            return _url_recibo_para_movimiento(
+                mov, request.user.sucursal, next_url=next_path
+            )
 
         conceptos_map = {}
         try:
@@ -1705,13 +1725,15 @@ def administracion_propiedades_operaciones(request):
 
         gastos_items = []
         for g in gastos:
+            mov_num = getattr(getattr(g, 'liquidacion', None), 'movimiento_caja_id', None)
             gastos_items.append({
                 'fecha': g.fecha_creacion,
-                'movimiento_num': getattr(getattr(g, 'liquidacion', None), 'movimiento_caja_id', None),
+                'movimiento_num': mov_num,
                 'concepto': str(getattr(g, 'descripcion', '') or '-'),
                 'detalle': str(getattr(g, 'observaciones', '') or '').strip(),
                 'monto': g.monto or Decimal('0'),
                 'cargo': 'Propietario',
+                'url_recibo': _url_recibo_admin(mov_num),
             })
         for m in egresos_gasto:
             if m.id in movimientos_ya_en_gastos:
@@ -1735,6 +1757,27 @@ def administracion_propiedades_operaciones(request):
                 'detalle': ' · '.join(detalle_parts),
                 'monto': Decimal(str(getattr(m, 'monto_total', 0) or 0)),
                 'cargo': cargo or 'Egreso caja',
+                'url_recibo': _url_recibo_admin(m.id),
+            })
+
+        ingresos_items = []
+        for m in ingresos_mov:
+            detalle_parts = []
+            if getattr(m, 'a_descontar', None):
+                try:
+                    detalle_parts.append(m.get_a_descontar_display())
+                except Exception:
+                    detalle_parts.append(str(m.a_descontar))
+            det = _detalle_mov(m)
+            if det:
+                detalle_parts.append(det)
+            ingresos_items.append({
+                'fecha': m.fecha,
+                'movimiento_num': m.id,
+                'concepto': _nombre_concepto_mov(m),
+                'detalle': ' · '.join(detalle_parts) or '—',
+                'monto': Decimal(str(getattr(m, 'monto_total', 0) or 0)),
+                'url_recibo': _url_recibo_admin(m.id),
             })
         def _fecha_sort_key(item):
             f = item.get('fecha')
@@ -1775,6 +1818,7 @@ def administracion_propiedades_operaciones(request):
             'cuotas': cuotas,
             'gastos': gastos,
             'gastos_items': gastos_items,
+            'ingresos_items': ingresos_items,
             'liquidaciones': liquidaciones,
             'pagos': pagos,
             'movimientos': movimientos,
@@ -13973,26 +14017,30 @@ def buscar_propiedades_caja(request):
     
     try:
         from inmobiliaria.busqueda_persona import q_busqueda_persona
-        q = (
-            Q(direccion__icontains=termino) |
-            Q(ubicacion__icontains=termino) |
-            Q(piso__icontains=termino) |
-            Q(departamento__icontains=termino) |
-            q_busqueda_persona(termino, incluir_id=False, prefix='propietario__') |
-            Q(propietario__cuit__icontains=termino) |
-            Q(propietario__email__icontains=termino)
-        )
-        try:
-            pid = int(termino)
-            q = q | Q(id=pid)
-        except (ValueError, TypeError):
-            pass
-        propiedades = (
-            Propiedad.objects.filter(sucursal=sucursal)
-            .filter(q)
-            .select_related('propietario')
-            .order_by('direccion')[:40]
-        )
+
+        # Número puro → solo coincidencia exacta por ID de ficha (evita "112" en direcciones).
+        if termino.isascii() and termino.isdigit():
+            propiedades = (
+                Propiedad.objects.filter(sucursal=sucursal, id=termino)
+                .select_related('propietario')
+                .order_by('direccion')[:40]
+            )
+        else:
+            q = (
+                Q(direccion__icontains=termino) |
+                Q(ubicacion__icontains=termino) |
+                Q(piso__icontains=termino) |
+                Q(departamento__icontains=termino) |
+                q_busqueda_persona(termino, incluir_id=False, prefix='propietario__') |
+                Q(propietario__cuit__icontains=termino) |
+                Q(propietario__email__icontains=termino)
+            )
+            propiedades = (
+                Propiedad.objects.filter(sucursal=sucursal)
+                .filter(q)
+                .select_related('propietario')
+                .order_by('direccion')[:40]
+            )
 
         def _propietario_txt(p):
             pr = p.propietario
