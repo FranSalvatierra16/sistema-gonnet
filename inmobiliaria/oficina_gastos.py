@@ -119,27 +119,27 @@ def desactivar_categorias_legacy_oficina(sucursal):
         if nombre_l not in raices_cierre:
             continue
 
-        if not raiz.activa:
-            raiz.activa = True
-            raiz.save(update_fields=['activa'])
-
         for hijo in CategoriaGastoOficina.objects.filter(sucursal=sucursal, parent=raiz):
             nombre_hijo = (hijo.nombre or '').strip()
             nombre_h_l = nombre_hijo.lower()
-            activa = False
 
             if nombre_l in raices_vendedor:
-                activa = bool(hijo.vendedor_id)
-                if not activa and nombre_l == 'sueldos' and nombre_h_l in SUBCATEGORIAS_LEGACY_SUELDOS:
-                    activa = False
-                elif not activa and nombre_l == 'vales' and nombre_h_l in SUBCATEGORIAS_LEGACY_VALES:
-                    activa = False
-            else:
-                validos = hijos_estaticos.get(nombre_l, set())
-                activa = nombre_h_l in validos
+                # Solo desactivar legacy sin vendedor; respetar activa/inactiva manual en filas de vendedor.
+                if hijo.vendedor_id:
+                    continue
+                if nombre_l == 'sueldos' and nombre_h_l in SUBCATEGORIAS_LEGACY_SUELDOS:
+                    if hijo.activa:
+                        hijo.activa = False
+                        hijo.save(update_fields=['activa'])
+                elif nombre_l == 'vales' and nombre_h_l in SUBCATEGORIAS_LEGACY_VALES:
+                    if hijo.activa:
+                        hijo.activa = False
+                        hijo.save(update_fields=['activa'])
+                continue
 
-            if hijo.activa != activa:
-                hijo.activa = activa
+            validos = hijos_estaticos.get(nombre_l, set())
+            if nombre_h_l not in validos and hijo.activa:
+                hijo.activa = False
                 hijo.save(update_fields=['activa'])
 
 
@@ -161,9 +161,6 @@ def _get_or_create_raiz(sucursal, nombre, orden):
         if raiz.orden != orden:
             raiz.orden = orden
             updates.append('orden')
-        if not raiz.activa:
-            raiz.activa = True
-            updates.append('activa')
         if updates:
             raiz.save(update_fields=updates)
         return raiz, False
@@ -194,9 +191,6 @@ def _get_or_create_hijo(sucursal, parent, nombre, orden, vendedor=None):
         if vendedor_id and cat.vendedor_id != vendedor_id:
             cat.vendedor_id = vendedor_id
             updates.append('vendedor')
-        if not cat.activa:
-            cat.activa = True
-            updates.append('activa')
         if updates:
             cat.save(update_fields=updates)
         return cat, False
