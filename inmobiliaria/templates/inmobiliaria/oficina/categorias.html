@@ -10,6 +10,7 @@
             <p class="text-muted small mb-0">Organizá los gastos de oficina en categorías y subcategorías.</p>
         </div>
         <div class="d-flex gap-2">
+            <a href="{% url 'inmobiliaria:oficina_resumen_cierre' %}" class="btn btn-outline-success btn-sm">Resumen cierre</a>
             <a href="{% url 'inmobiliaria:oficina_gastos' %}" class="btn btn-outline-danger btn-sm">Gastos</a>
             <a href="{% url 'inmobiliaria:oficina_dashboard' %}" class="btn btn-outline-secondary btn-sm">Panel oficina</a>
         </div>
@@ -73,7 +74,7 @@
                         <ul class="list-unstyled ms-4 mt-2 mb-0">
                             {% for hijo in item.hijos %}
                             <li class="small py-1 {% if not hijo.activa %}text-muted text-decoration-line-through{% endif %}">
-                                <i class="fas fa-angle-right text-secondary me-1"></i>{{ hijo.nombre }}
+                                <i class="fas fa-angle-right text-secondary me-1"></i>{{ hijo.nombre }}{% if hijo.vendedor_id %} <span class="badge bg-light text-muted border">vendedor</span>{% endif %}
                             </li>
                             {% endfor %}
                         </ul>

@@ -12077,6 +12077,7 @@ def nuevo_movimiento(request, numero_caja=None):
     from inmobiliaria.oficina_gastos import (
         asegurar_categoria_vales,
         asegurar_categorias_base,
+        asegurar_estructura_cierre_oficina,
         categoria_gasto_es_vale,
         categorias_opciones_con_flags,
         registrar_gasto_oficina_desde_movimiento,
@@ -12099,7 +12100,7 @@ def nuevo_movimiento(request, numero_caja=None):
     sucursal = request.user.sucursal
     cuentas_bancarias = CuentaBancaria.objects.filter(sucursal=sucursal, activa=True).order_by('nombre_banco', 'alias')
     asegurar_categorias_base(sucursal)
-    asegurar_categoria_vales(sucursal)
+    asegurar_estructura_cierre_oficina(sucursal)
     categorias_gasto_oficina = categorias_opciones_con_flags(sucursal)
     pre_gasto_oficina = (request.GET.get('gasto_oficina') or '').strip() in ('1', 'true', 'si', 'yes')
 

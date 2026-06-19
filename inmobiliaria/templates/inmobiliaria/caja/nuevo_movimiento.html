@@ -167,7 +167,7 @@
                                         <select name="gasto_oficina_categoria_id" id="gasto_oficina_categoria_id" class="form-select">
                                             <option value="">— Elegir —</option>
                                             {% for op in categorias_gasto_oficina %}
-                                            <option value="{{ op.id }}" data-requiere-productor="{% if op.requiere_productor %}1{% else %}0{% endif %}" data-es-vale="{% if op.es_vale %}1{% else %}0{% endif %}">{{ op.label }}</option>
+                                            <option value="{{ op.id }}" data-requiere-productor="{% if op.requiere_productor %}1{% else %}0{% endif %}" data-es-vale="{% if op.es_vale %}1{% else %}0{% endif %}"{% if op.vendedor_id %} data-vendedor-id="{{ op.vendedor_id }}"{% endif %}>{{ op.label }}</option>
                                             {% endfor %}
                                         </select>
                                     </div>
@@ -791,14 +791,21 @@ $(document).ready(function() {
     $('#es_gasto_oficina').on('change', actualizarModoGastoOficina);
     $('#gasto_oficina_categoria_id').on('change', function() {
         if ($('#es_gasto_oficina').is(':checked')) {
+            var $opt = $(this).find('option:selected');
             var req = categoriaGastoOficinaRequiereProductor();
             var esVale = categoriaGastoOficinaEsVale();
-            $('#bloque_productor_gasto_oficina').toggleClass('d-none', !req);
+            var vidCat = $opt.data('vendedor-id');
+            $('#bloque_productor_gasto_oficina').toggleClass('d-none', !req && !vidCat);
             $('#hint_gasto_oficina_vale').toggleClass('d-none', !esVale);
             if (!esVale) {
                 $('select[name="tipo"]').val('EG');
             }
-            if (!req) {
+            if (vidCat) {
+                $('#gasto_oficina_vendedor_id').val(String(vidCat));
+                var label = ($opt.text() || '').split('›').pop().trim();
+                $('#productor_gasto_oficina_nombre').val(label);
+                $('#buscar_productor_gasto_oficina').val(String(vidCat));
+            } else if (!req) {
                 $('#gasto_oficina_vendedor_id').val('');
                 $('#productor_gasto_oficina_nombre').val('');
                 $('#buscar_productor_gasto_oficina').val('');

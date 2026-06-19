@@ -261,6 +261,7 @@ urlpatterns = [
     path('oficina/categorias/', views_oficina.oficina_categorias, name='oficina_categorias'),
     path('oficina/categorias/nueva/', views_oficina.oficina_categoria_crear, name='oficina_categoria_crear'),
     path('oficina/categorias/<int:categoria_id>/toggle/', views_oficina.oficina_categoria_toggle, name='oficina_categoria_toggle'),
+    path('oficina/resumen-cierre/', views_oficina.oficina_resumen_cierre, name='oficina_resumen_cierre'),
     path('caja/obtener-actual/', views.obtener_caja_actual, name='obtener_caja_actual'),
     
     # ============================

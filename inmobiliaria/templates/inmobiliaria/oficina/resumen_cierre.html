@@ -1,0 +1,137 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load custom_filters %}
+
+{% block title %}Resumen de entradas y salidas — {{ mes_label }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3 resumen-cierre-wrap">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2 no-print">
+        <div>
+            <h1 class="h4 mb-1"><i class="fas fa-table text-primary me-2"></i>Resumen de entradas y salidas</h1>
+            <p class="text-muted mb-0 small">{{ sucursal.nombre }} — modelo cierre mensual</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <form method="get" class="d-flex flex-wrap gap-2 align-items-end">
+                <div>
+                    <label class="form-label small mb-0">Mes</label>
+                    <select name="mes" class="form-select form-select-sm">
+                        {% for num, nombre in meses_opts %}
+                        <option value="{{ num }}" {% if num == mes_sel %}selected{% endif %}>{{ nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label small mb-0">Año</label>
+                    <select name="anio" class="form-select form-select-sm">
+                        {% for a in anios_opts %}
+                        <option value="{{ a }}" {% if a == anio_sel %}selected{% endif %}>{{ a }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm">Ver</button>
+            </form>
+            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="window.print()">
+                <i class="fas fa-print me-1"></i>Imprimir
+            </button>
+            <a href="{% url 'inmobiliaria:oficina_dashboard' %}" class="btn btn-outline-secondary btn-sm">Volver</a>
+        </div>
+    </div>
+
+    <div class="resumen-cierre-sheet border shadow-sm bg-white p-3">
+        <div class="text-center mb-3 resumen-titulo">
+            <div class="fw-bold text-uppercase">Resumen de entradas y salidas</div>
+            <div class="fw-bold">Mes: {{ mes_label }}</div>
+            <div class="small text-muted">{{ sucursal.nombre }}</div>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-lg-7">
+                <div class="resumen-col-header bg-warning-subtle border fw-bold text-center py-1 mb-2">EGRESOS</div>
+                {% for bloque in bloques_egresos %}
+                <div class="resumen-bloque mb-3">
+                    <div class="resumen-bloque-titulo fw-bold border-bottom pb-1 mb-1">{{ bloque.titulo }}</div>
+                    <table class="table table-sm table-borderless resumen-tabla mb-1">
+                        <tbody>
+                            {% for fila in bloque.filas %}
+                            <tr>
+                                <td class="ps-2">{{ fila.nombre }}</td>
+                                <td class="text-end resumen-monto">${{ fila.monto|format_price }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td class="ps-2 text-muted small" colspan="2">Sin movimientos</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    <div class="d-flex justify-content-between resumen-subtotal px-2">
+                        <span class="fw-semibold">TOTAL:</span>
+                        <span class="fw-bold">${{ bloque.total|format_price }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+                <div class="resumen-total-grande bg-warning text-center py-2 fw-bold mt-2">
+                    TOTAL EGRESOS: ${{ total_egresos|format_price }}
+                </div>
+            </div>
+
+            <div class="col-lg-5">
+                {% if bloque_ingresos %}
+                <div class="resumen-col-header bg-success-subtle border fw-bold text-center py-1 mb-2">INGRESOS</div>
+                <div class="resumen-bloque mb-3">
+                    <table class="table table-sm table-borderless resumen-tabla mb-1">
+                        <tbody>
+                            {% for fila in bloque_ingresos.filas %}
+                            <tr>
+                                <td class="ps-2">{{ fila.nombre }}</td>
+                                <td class="text-end resumen-monto">${{ fila.monto|format_price }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td class="ps-2 text-muted small" colspan="2">Sin ingresos</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    <div class="resumen-total-grande bg-warning text-center py-2 fw-bold">
+                        TOTAL INGRESOS: ${{ total_ingresos|format_price }}
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="resumen-bloque resumen-resumen-general border mt-3 p-2">
+                    <div class="fw-bold text-center border-bottom pb-1 mb-2">RESUMEN GENERAL</div>
+                    <div class="d-flex justify-content-between mb-1">
+                        <span>INGRESOS</span>
+                        <span class="text-success fw-semibold">${{ total_ingresos|format_price }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1">
+                        <span>EGRESOS</span>
+                        <span class="text-danger fw-semibold">${{ total_egresos|format_price }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between resumen-saldo bg-info-subtle px-2 py-2 mt-2 fw-bold">
+                        <span>SALDO</span>
+                        <span>${{ saldo|format_price }}</span>
+                    </div>
+                </div>
+
+                <div class="small text-muted mt-3 no-print">
+                    Los egresos se arman desde gastos de oficina (Caja → Nuevo movimiento → Gasto de oficina).
+                    Los ingresos incluyen honorarios de liquidaciones del mes más ingresos cargados en la categoría Ingresos.
+                    Sueldos, Vales y Comisiones muestran una fila por vendedor de la sucursal.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.resumen-cierre-sheet { font-size: 0.82rem; }
+.resumen-tabla td { padding: 0.12rem 0.35rem; vertical-align: top; }
+.resumen-tabla .resumen-monto { min-width: 6.5rem; white-space: nowrap; }
+.resumen-bloque-titulo { font-size: 0.78rem; letter-spacing: 0.02em; }
+.resumen-subtotal { font-size: 0.78rem; background: #f8f9fa; }
+.resumen-total-grande { font-size: 0.85rem; }
+@media print {
+    .no-print, nav, footer, .navbar { display: none !important; }
+    .resumen-cierre-wrap { margin: 0; padding: 0; }
+    .resumen-cierre-sheet { border: none !important; box-shadow: none !important; }
+}
+</style>
+{% endblock %}

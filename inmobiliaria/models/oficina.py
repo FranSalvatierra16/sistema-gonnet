@@ -23,6 +23,15 @@ class CategoriaGastoOficina(models.Model):
     nombre = models.CharField(max_length=120)
     activa = models.BooleanField(default=True)
     orden = models.PositiveSmallIntegerField(default=0)
+    vendedor = models.ForeignKey(
+        'Vendedor',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='categorias_gasto_oficina',
+        verbose_name='Vendedor vinculado',
+        help_text='Subcategorías de Sueldos, Vales o Comisiones generadas por vendedor.',
+    )
 
     class Meta:
         verbose_name = 'Categoría gasto oficina'

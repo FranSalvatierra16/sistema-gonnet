@@ -21,7 +21,8 @@ from inmobiliaria.models import (
     ValeVendedor,
 )
 from inmobiliaria.models.persona import usuario_es_nivel_administracion
-from inmobiliaria.oficina_gastos import asegurar_categoria_vales, asegurar_categorias_base
+from inmobiliaria.oficina_gastos import asegurar_categoria_vales, asegurar_categorias_base, asegurar_estructura_cierre_oficina
+from inmobiliaria.oficina_resumen import construir_resumen_cierre
 
 
 def _parse_fecha(s):
@@ -37,15 +38,19 @@ def _puede_oficina(user):
     return usuario_es_nivel_administracion(user)
 
 
-def _arbol_categorias(sucursal):
+def _arbol_categorias(sucursal, solo_activas=True):
     raices = (
         CategoriaGastoOficina.objects.filter(sucursal=sucursal, parent__isnull=True)
-        .prefetch_related('subcategorias')
+        .prefetch_related('subcategorias__vendedor')
         .order_by('orden', 'nombre')
     )
     arbol = []
     for raiz in raices:
+        if solo_activas and not raiz.activa:
+            continue
         hijos = list(raiz.subcategorias.order_by('orden', 'nombre'))
+        if solo_activas:
+            hijos = [h for h in hijos if h.activa]
         arbol.append({'categoria': raiz, 'hijos': hijos})
     return arbol
 
@@ -66,7 +71,7 @@ def oficina_dashboard(request):
 
     sucursal = request.user.sucursal
     asegurar_categorias_base(sucursal)
-    asegurar_categoria_vales(sucursal)
+    asegurar_estructura_cierre_oficina(sucursal)
 
     today = timezone.localdate()
     mes_ini = today.replace(day=1)
@@ -130,7 +135,7 @@ def oficina_gastos(request):
 
     sucursal = request.user.sucursal
     asegurar_categorias_base(sucursal)
-    asegurar_categoria_vales(sucursal)
+    asegurar_estructura_cierre_oficina(sucursal)
 
     fecha_desde_s = (request.GET.get('fecha_desde') or '').strip()
     fecha_hasta_s = (request.GET.get('fecha_hasta') or '').strip()
@@ -246,7 +251,7 @@ def oficina_categorias(request):
 
     sucursal = request.user.sucursal
     asegurar_categorias_base(sucursal)
-    asegurar_categoria_vales(sucursal)
+    asegurar_estructura_cierre_oficina(sucursal)
 
     return render(
         request,
@@ -313,3 +318,44 @@ def oficina_categoria_toggle(request, categoria_id):
         )
     messages.success(request, 'Categoría actualizada.')
     return redirect('inmobiliaria:oficina_categorias')
+
+
+@login_required
+def oficina_resumen_cierre(request):
+    if not _puede_oficina(request.user):
+        return HttpResponseForbidden()
+
+    sucursal = request.user.sucursal
+    asegurar_estructura_cierre_oficina(sucursal)
+
+    today = timezone.localdate()
+    anio_s = (request.GET.get('anio') or '').strip()
+    mes_s = (request.GET.get('mes') or '').strip()
+    try:
+        anio = int(anio_s) if anio_s else today.year
+        mes = int(mes_s) if mes_s else today.month
+        if mes < 1 or mes > 12:
+            raise ValueError
+    except (TypeError, ValueError):
+        anio, mes = today.year, today.month
+
+    resumen = construir_resumen_cierre(sucursal, anio, mes)
+
+    anios_opts = list(range(today.year - 2, today.year + 2))
+    meses_opts = list(enumerate(
+        ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+         'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
+        start=1,
+    ))
+
+    return render(
+        request,
+        'inmobiliaria/oficina/resumen_cierre.html',
+        {
+            **resumen,
+            'anios_opts': anios_opts,
+            'meses_opts': meses_opts,
+            'anio_sel': anio,
+            'mes_sel': mes,
+        },
+    )
