@@ -735,8 +735,22 @@ $(document).ready(function() {
 
     function esConceptoVale(id, nombre) {
         var nid = String(id || '').trim().toLowerCase();
-        if (nid.indexOf('vale') === 0) return true;
+        if (nid === '90' || nid.indexOf('vale') === 0) return true;
         return /\bvales?\b/i.test(String(nombre || ''));
+    }
+
+    function conceptoSeleccionadoActual() {
+        var id = $('#concepto_id').val();
+        var txt = ($('#concepto_seleccionado_texto').text() || '').trim();
+        var nombre = txt.indexOf(' - ') >= 0 ? txt.split(' - ').slice(1).join(' - ') : txt;
+        return { id: id, nombre: nombre };
+    }
+
+    function normalizarTipoMov(tipo) {
+        var t = String(tipo || '').trim().toUpperCase();
+        if (t === 'EG' || t === 'EGRESO' || t === 'E') return 'EG';
+        if (t === 'IN' || t === 'INGRESO' || t === 'I') return 'IN';
+        return '';
     }
 
     var CONCEPTO_DEVOLUCION_DEPOSITO = {
@@ -1018,8 +1032,9 @@ $(document).ready(function() {
         var vidCat = op && op.vendedor_id;
         $('#bloque_productor_gasto_oficina').toggleClass('d-none', !req && !vidCat);
         $('#hint_gasto_oficina_vale').toggleClass('d-none', !esVale);
-        if (!esVale) {
-            $('select[name="tipo"]').val('EG');
+        $('select[name="tipo"]').val('EG');
+        if (esVale) {
+            $('#hint_vale_egreso').removeClass('d-none');
         }
         if (vidCat) {
             $('#gasto_oficina_vendedor_id').val(String(vidCat));
@@ -1043,8 +1058,9 @@ $(document).ready(function() {
         $('#bloque_imputacion_mov').toggleClass('d-none', activo);
         $('#hint_gasto_oficina_vale').toggleClass('d-none', !esVale);
         if (activo) {
-            if (!esVale) {
-                $('select[name="tipo"]').val('EG');
+            $('select[name="tipo"]').val('EG');
+            if (esVale) {
+                $('#hint_vale_egreso').removeClass('d-none');
             }
             var op = gastoOficinaCategoriaActual;
             var req = !!(op && op.requiere_productor);
@@ -1824,8 +1840,18 @@ $(document).ready(function() {
         op = op || mov;
         if (!mov || !op) return;
 
-        if (mov.tipo) $('select[name="tipo"]').val(mov.tipo);
-        if (mov.tipo_comprobante) {
+        var sel = conceptoSeleccionadoActual();
+        var esValeActual = esConceptoVale(sel.id, sel.nombre);
+        var esDevolucionActual = esConceptoDevolucionDeposito(sel.id, sel.nombre);
+
+        if (esValeActual) {
+            $('select[name="tipo"]').val('EG');
+            $('#hint_vale_egreso').removeClass('d-none');
+        } else if (mov.tipo) {
+            var tipoNorm = normalizarTipoMov(mov.tipo);
+            if (tipoNorm) $('select[name="tipo"]').val(tipoNorm);
+        }
+        if (mov.tipo_comprobante && !esValeActual) {
             var tc = String(mov.tipo_comprobante).toLowerCase();
             if (tc === 'ot') tc = 'otro';
             if (tc === 'lq') tc = 'liquidacion';
@@ -1841,6 +1867,10 @@ $(document).ready(function() {
         var pr = (op && op.propiedad) || mov.propiedad;
         if (pr && pr.id) {
             cargarPropiedad(pr.id, pr.direccion || '', pr.ubicacion || '', pr.piso || '', pr.departamento || '');
+        }
+
+        if (esValeActual && op.vendedor && op.vendedor.id) {
+            aplicarProductor(op.vendedor.id, op.vendedor.nombre || '', op.vendedor.apellido || '');
         }
 
         mostrarInfoOperacionReserva(op, mov);
@@ -1860,8 +1890,12 @@ $(document).ready(function() {
             return;
         }
 
+        if (esValeActual) {
+            return;
+        }
+
         var cDev = mov.concepto_devolucion || CONCEPTO_DEVOLUCION_DEPOSITO;
-        if (op.puede_devolver && cDev && cDev.id) {
+        if (!esDevolucionActual && op.puede_devolver && cDev && cDev.id) {
             seleccionarConceptoCatalogo(cDev.id, cDev.nombre || CONCEPTO_DEVOLUCION_DEPOSITO.nombre);
         }
         if (op.puede_devolver && montoSug > 0) {

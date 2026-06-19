@@ -262,6 +262,15 @@ def datos_operacion_reserva_caja(reserva) -> dict:
     if monto_sugerido <= 0:
         mensajes.append('La operación no tiene monto de depósito a devolver.')
 
+    vendedor = getattr(reserva, 'vendedor', None)
+    vendedor_data = None
+    if vendedor:
+        vendedor_data = {
+            'id': int(vendedor.id),
+            'nombre': (getattr(vendedor, 'nombre', None) or '').strip(),
+            'apellido': (getattr(vendedor, 'apellido', None) or '').strip(),
+        }
+
     return {
         'tipo': 'reserva',
         'id': int(reserva.id),
@@ -280,6 +289,7 @@ def datos_operacion_reserva_caja(reserva) -> dict:
             and monto_sugerido > 0
         ),
         'mensaje': ' '.join(mensajes),
+        'vendedor': vendedor_data,
         'propiedad': {
             'id': prop.id,
             'direccion': prop.direccion or '',

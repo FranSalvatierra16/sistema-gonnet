@@ -99,6 +99,14 @@ def datos_operacion_contrato_caja(contrato) -> dict:
         mensajes.append('No se detectó el cobro del depósito (concepto 10) en caja para este contrato.')
     if ya_devuelto:
         mensajes.append('Ya existe un egreso de devolución de depósito para este contrato.')
+    vendedor = getattr(contrato, 'vendedor', None)
+    vendedor_data = None
+    if vendedor:
+        vendedor_data = {
+            'id': int(vendedor.id),
+            'nombre': (getattr(vendedor, 'nombre', None) or '').strip(),
+            'apellido': (getattr(vendedor, 'apellido', None) or '').strip(),
+        }
     return {
         'tipo': 'contrato',
         'tipo_label': f'Contrato {contrato.duracion_meses} meses',
@@ -115,6 +123,7 @@ def datos_operacion_contrato_caja(contrato) -> dict:
         'monto_devolucion_sugerido': float(monto_sug),
         'puede_devolver': deposito_estado == 'pagado' and not ya_devuelto and monto_sug > 0,
         'mensaje': ' '.join(mensajes),
+        'vendedor': vendedor_data,
         'propiedad': _propiedad_dict(contrato.propiedad),
         'precio_mensual': float(contrato.precio_mensual or 0),
         'moneda': getattr(contrato, 'moneda', 'ARS') or 'ARS',
@@ -276,7 +285,7 @@ def _movimiento_desde_operacion(operacion: dict, concepto_dev: dict) -> dict:
         if operacion.get('cuenta_bancaria'):
             detalle += f'\nCuenta propietario: {operacion["cuenta_bancaria"]}'
         return {
-            'tipo': TipoMovimientoCajaEnum.EGRESO,
+            'tipo': 'EG',
             'tipo_comprobante': 'LQ',
             'numero_liquidacion': f'0000-{int(oid):08d}',
             'fecha_desde': operacion.get('fecha_desde') or '',
@@ -298,7 +307,7 @@ def _movimiento_desde_operacion(operacion: dict, concepto_dev: dict) -> dict:
     if tipo_op == 'contrato':
         detalle += f' — Contrato {operacion.get("duracion_meses") or ""} meses'.replace('  meses', ' meses')
     return {
-        'tipo': TipoMovimientoCajaEnum.EGRESO,
+        'tipo': 'EG',
         'tipo_comprobante': 'OT',
         'numero_liquidacion': '',
         'fecha_desde': operacion.get('fecha_desde') or '',

@@ -726,10 +726,10 @@ class Concepto(models.Model):
     def indica_movimiento_vale_productor(self):
         """
         True si este concepto de caja debe asociar un ValeVendedor al grabar un movimiento
-        con productor (id que empiece por «vale» o nombre que contenga la palabra «vale»).
+        con productor (id «90», que empiece por «vale» o nombre que contenga «vale»).
         """
         nid = (self.id or "").strip().lower()
-        if nid.startswith("vale"):
+        if nid in ("90",) or nid.startswith("vale"):
             return True
         return bool(_CONCEPTO_VALE_NOMBRE_RE.search(self.nombre or ""))
 
