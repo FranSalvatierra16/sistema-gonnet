@@ -22673,6 +22673,12 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
             monto_fondo_mantenimiento = parse_decimal_es(request.POST.get('monto_fondo_mantenimiento', '0'))
             if monto_fondo_mantenimiento < 0:
                 monto_fondo_mantenimiento = Decimal('0')
+            comision_locador = parse_decimal_es(request.POST.get('comision_locador', '0'))
+            comision_locatario = parse_decimal_es(request.POST.get('comision_locatario', '0'))
+            if comision_locador < 0:
+                comision_locador = Decimal('0')
+            if comision_locatario < 0:
+                comision_locatario = Decimal('0')
             fecha_desde = request.POST.get('fecha_desde')
             fecha_hasta = request.POST.get('fecha_hasta')
             observaciones = request.POST.get('observaciones', '')
@@ -22690,11 +22696,16 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
             else:
                 monto_inmobiliaria = monto_total - monto_propietario - monto_cochera
 
-            suma_partes = monto_propietario + monto_inmobiliaria + monto_cochera
+            suma_partes = (
+                monto_propietario + monto_inmobiliaria + monto_cochera
+                + comision_locador + comision_locatario
+            )
             if (suma_partes - monto_total).copy_abs() >= Decimal('0.02'):
                 raise ValueError(
-                    'La suma de propietario + inmobiliaria + cochera debe coincidir con el monto total '
-                    f'({monto_propietario} + {monto_inmobiliaria} + {monto_cochera} ≠ {monto_total}).'
+                    'La suma de propietario + inmobiliaria + cochera + comisiones locador/locatario '
+                    'debe coincidir con el monto total '
+                    f'({monto_propietario} + {monto_inmobiliaria} + {monto_cochera} '
+                    f'+ {comision_locador} + {comision_locatario} ≠ {monto_total}).'
                 )
 
             # Operaciones marcadas en el formulario (reserva:ID / contrato:ID)
@@ -22887,6 +22898,8 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                     monto_inmobiliaria=monto_inmobiliaria,
                     monto_cochera=monto_cochera,
                     monto_fondo_mantenimiento=monto_fondo_mantenimiento,
+                    comision_locador=comision_locador,
+                    comision_locatario=comision_locatario,
                     fecha_desde=datetime.strptime(fecha_desde, '%Y-%m-%d').date() if fecha_desde else None,
                     fecha_hasta=datetime.strptime(fecha_hasta, '%Y-%m-%d').date() if fecha_hasta else None,
                     observaciones=observaciones,
@@ -23149,6 +23162,32 @@ def _cuotas_cobro_parcial_liquidable(contrato, cuotas_excluidas, sucursal):
             monto = Decimal(str(cuota.monto_total or 0))
         out.append((cuota, monto.quantize(Decimal('0.01'))))
     return out
+
+
+def _comisiones_sugeridas_primera_cuota_contrato(contrato) -> dict:
+    """
+    Comisiones de la primera operación (cuota 1) en contratos 9 o 24 meses.
+    Locatario ≈ honorarios (concepto 25); locador queda en 0 salvo cobro explícito.
+    """
+    locatario = _sum_importe_concepto_en_movimientos_contrato(contrato, '25')
+    if locatario <= Decimal('0.05'):
+        mov_h = obtener_valor_concepto_contrato(contrato, 'honorarios')
+        if mov_h > Decimal('0.05'):
+            locatario = mov_h
+        else:
+            locatario = Decimal(str(contrato.honorarios_referencia or 0))
+    locador = Decimal('0')
+    return {
+        'comision_locador': str(locador.quantize(Decimal('0.01'))),
+        'comision_locatario': str(locatario.quantize(Decimal('0.01'))),
+    }
+
+
+def _es_primera_cuota_contrato_mensual(contrato, cuota) -> bool:
+    return (
+        int(getattr(cuota, 'numero_cuota', 0) or 0) == 1
+        and int(getattr(contrato, 'duracion_meses', 0) or 0) in (9, 24)
+    )
 
 
 def _numero_cuota_frontera_liquidacion(contrato, cuotas_excluidas):
@@ -23550,12 +23589,17 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
                 suf = ' (liquidación anticipada — cobro aún no registrado)'
             else:
                 suf = ''
-            operaciones.append({
+            es_primera = _es_primera_cuota_contrato_mensual(contrato, cuota)
+            comisiones = _comisiones_sugeridas_primera_cuota_contrato(contrato) if es_primera else {}
+            if es_primera:
+                mi = Decimal('0')
+            fila = {
                 'tipo': 'contrato_cuota',
                 'tipo_display': 'Cuota mensual',
                 'concepto_pago': _concepto_pago_liquidacion_operacion('contrato_cuota', contrato),
                 'incluible': True,
                 'anticipada': anticipada,
+                'es_primera_cuota_mensual': es_primera,
                 'id': cuota.id,
                 'contrato_id': contrato.id,
                 'propiedad_id': propiedad.id,
@@ -23570,7 +23614,10 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
                 'monto_propietario': str(mp),
                 'monto_inmobiliaria': str(mi),
                 'dias': 30,
-            })
+            }
+            if es_primera:
+                fila.update(comisiones)
+            operaciones.append(fila)
 
         if not cuotas_pagadas_liq and not cuotas_parciales_liq:
             cuota_anticipada = _cuota_siguiente_anticipada_liquidable(
@@ -24165,6 +24212,21 @@ def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
             'debe': fondo.quantize(Decimal('0.01')),
         })
 
+    com_loc = Decimal(str(getattr(liquidacion, 'comision_locador', None) or 0))
+    if com_loc > Decimal('0.01'):
+        filas.append({
+            'detalle': 'COMISIÓN LOCADOR',
+            'haber': Decimal('0'),
+            'debe': com_loc.quantize(Decimal('0.01')),
+        })
+    com_locat = Decimal(str(getattr(liquidacion, 'comision_locatario', None) or 0))
+    if com_locat > Decimal('0.01'):
+        filas.append({
+            'detalle': 'COMISIÓN LOCATARIO',
+            'haber': Decimal('0'),
+            'debe': com_locat.quantize(Decimal('0.01')),
+        })
+
     gastos_qs = liquidacion.gastos.filter(aceptado=True).order_by('fecha_gasto', 'id')
     if hasattr(liquidacion, '_prefetched_objects_cache') and 'gastos' in liquidacion._prefetched_objects_cache:
         gastos_qs = sorted(
@@ -24181,7 +24243,7 @@ def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
             })
 
     total_haber = monto_prop + cochera
-    total_debe = fondo + sum(
+    total_debe = fondo + com_loc + com_locat + sum(
         (Decimal(str(g.monto or 0)) for g in gastos_qs),
         Decimal('0'),
     )

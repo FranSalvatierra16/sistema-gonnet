@@ -166,6 +166,19 @@
                             </div>
                         </div>
 
+                        <div class="row row-cols-1 row-cols-md-2 g-3 mb-3 d-none" id="bloque_comisiones_primera_op">
+                            <div class="col">
+                                <label class="form-label">Comisión locador</label>
+                                <input type="text" name="comision_locador" id="comision_locador" class="form-control" value="0,00" placeholder="0,00" autocomplete="off">
+                                <small class="form-text text-muted">Primera cuota 9/24 meses: parte del total a cargo del locador.</small>
+                            </div>
+                            <div class="col">
+                                <label class="form-label">Comisión locatario</label>
+                                <input type="text" name="comision_locatario" id="comision_locatario" class="form-control" value="0,00" placeholder="0,00" autocomplete="off">
+                                <small class="form-text text-muted">Honorarios / comisión locatario (sugerido desde el contrato).</small>
+                            </div>
+                        </div>
+
                         <div class="row mb-3">
                             <div class="col-md-12">
                                 <div class="alert alert-success">
@@ -334,6 +347,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const montoInmobiliaria = document.getElementById('monto_inmobiliaria');
     const montoFondoMantenimiento = document.getElementById('monto_fondo_mantenimiento');
     const montoCochera = document.getElementById('monto_cochera');
+    const bloqueComisionesPrimeraOp = document.getElementById('bloque_comisiones_primera_op');
+    const comisionLocador = document.getElementById('comision_locador');
+    const comisionLocatario = document.getElementById('comision_locatario');
     const dividirToggle = document.getElementById('dividir_operacion_toggle');
     const dividirHidden = document.getElementById('dividir_operacion');
     const bloqueDivision = document.getElementById('bloque_division_operaciones');
@@ -817,6 +833,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 const pid = op.propiedad_id != null ? String(op.propiedad_id) : '';
                 const cid = op.contrato_id != null ? String(op.contrato_id) : '';
                 const conceptoPago = escHtmlGasto(op.concepto_pago || tipoEtiqueta);
+                const esPrimeraCuota = op.es_primera_cuota_mensual ? '1' : '0';
+                const comLoc = op.comision_locador || '0';
+                const comLocat = op.comision_locatario || '0';
                 const tdSel = colProp
                     ? `<td><input type="checkbox" class="form-check-input operacion-checkbox"
                            data-tipo="${op.tipo}"
@@ -827,6 +846,9 @@ document.addEventListener('DOMContentLoaded', function() {
                            data-monto-total="${op.monto_total}"
                            data-monto-propietario="${op.monto_propietario || '0'}"
                            data-monto-inmobiliaria="${op.monto_inmobiliaria || '0'}"
+                           data-es-primera-cuota="${esPrimeraCuota}"
+                           data-comision-locador="${comLoc}"
+                           data-comision-locatario="${comLocat}"
                            data-fecha-desde="${op.fecha_inicio || ''}"
                            data-fecha-hasta="${op.fecha_fin || ''}"
                            ${chkDisabled}></td>`
@@ -839,6 +861,9 @@ document.addEventListener('DOMContentLoaded', function() {
                            data-monto-total="${op.monto_total}"
                            data-monto-propietario="${op.monto_propietario || '0'}"
                            data-monto-inmobiliaria="${op.monto_inmobiliaria || '0'}"
+                           data-es-primera-cuota="${esPrimeraCuota}"
+                           data-comision-locador="${comLoc}"
+                           data-comision-locatario="${comLocat}"
                            data-fecha-desde="${op.fecha_inicio || ''}"
                            data-fecha-hasta="${op.fecha_fin || ''}"
                            ${chkDisabled}></td>`;
@@ -1290,6 +1315,43 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    function leerComisionLocador() {
+        return comisionLocador ? parseNumeroEsAR(comisionLocador.value) : 0;
+    }
+
+    function leerComisionLocatario() {
+        return comisionLocatario ? parseNumeroEsAR(comisionLocatario.value) : 0;
+    }
+
+    function actualizarBloqueComisionesPrimeraOp() {
+        if (!bloqueComisionesPrimeraOp) return;
+        let hayPrimera = false;
+        let sumLoc = 0;
+        let sumLocat = 0;
+        document.querySelectorAll('.operacion-checkbox:checked').forEach(function(cb) {
+            if (cb.getAttribute('data-es-primera-cuota') === '1') {
+                hayPrimera = true;
+                sumLoc += parseFloat(cb.getAttribute('data-comision-locador')) || 0;
+                sumLocat += parseFloat(cb.getAttribute('data-comision-locatario')) || 0;
+            }
+        });
+        if (hayPrimera) {
+            bloqueComisionesPrimeraOp.classList.remove('d-none');
+            if (!montosEditadosManualmente) {
+                if (comisionLocador) {
+                    comisionLocador.value = formatearNumero(sumLoc.toFixed(2));
+                }
+                if (comisionLocatario) {
+                    comisionLocatario.value = formatearNumero(sumLocat.toFixed(2));
+                }
+            }
+        } else {
+            bloqueComisionesPrimeraOp.classList.add('d-none');
+            if (comisionLocador) comisionLocador.value = '0,00';
+            if (comisionLocatario) comisionLocatario.value = '0,00';
+        }
+    }
+
     function leerCochera() {
         return montoCochera ? parseNumeroEsAR(montoCochera.value) : 0;
     }
@@ -1453,6 +1515,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         
         // Sugerir montos al tildar operaciones (si el usuario ya corrigió a mano, no pisar total/prop/inm)
+        actualizarBloqueComisionesPrimeraOp();
         if (totalMonto > 0) {
             if (!montosEditadosManualmente) {
                 montoTotal.value = formatearNumero(totalMonto.toFixed(2));
@@ -1481,6 +1544,7 @@ document.addEventListener('DOMContentLoaded', function() {
             montoTotal.value = '';
             montoPropietario.value = '';
             montoInmobiliaria.value = '';
+            actualizarBloqueComisionesPrimeraOp();
             const montoFinalPagar = document.getElementById('monto-final-pagar');
             if (montoFinalPagar) {
                 montoFinalPagar.textContent = '0,00';
@@ -1501,6 +1565,16 @@ document.addEventListener('DOMContentLoaded', function() {
         marcarMontosEditadosManualmente();
         recalcularMontoFinalDesdeCampos();
     });
+    if (comisionLocador) {
+        comisionLocador.addEventListener('input', function() {
+            marcarMontosEditadosManualmente();
+        });
+    }
+    if (comisionLocatario) {
+        comisionLocatario.addEventListener('input', function() {
+            marcarMontosEditadosManualmente();
+        });
+    }
 
     function recalcularMontoFinalDesdeCampos() {
         const prop = parseNumeroEsAR(montoPropietario.value);
@@ -1547,7 +1621,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function normalizarCamposMontosAntesEnvio() {
-        [montoTotal, montoPropietario, montoInmobiliaria, montoFondoMantenimiento].forEach(function(el) {
+        [montoTotal, montoPropietario, montoInmobiliaria, montoFondoMantenimiento, comisionLocador, comisionLocatario].forEach(function(el) {
             if (!el || !el.value) return;
             const n = parseNumeroEsAR(el.value);
             if (n > 0 || el === montoTotal || el === montoPropietario) {
@@ -1580,23 +1654,27 @@ document.addEventListener('DOMContentLoaded', function() {
         const mProp = parseNumeroEsAR(montoPropietario.value);
         const mInm = parseNumeroEsAR(montoInmobiliaria.value);
         const mCoch = leerCochera();
+        const mComLoc = leerComisionLocador();
+        const mComLocat = leerComisionLocatario();
 
         if (mTotal <= 0) {
             alert('El monto total de la operación debe ser mayor a cero.');
             montoTotal.focus();
             return false;
         }
-        if (mProp < 0 || mCoch < 0) {
-            alert('Los montos para el propietario y la cochera no pueden ser negativos.');
+        if (mProp < 0 || mCoch < 0 || mComLoc < 0 || mComLocat < 0) {
+            alert('Los montos para el propietario, cochera y comisiones no pueden ser negativos.');
             return false;
         }
-        if (Math.abs((mProp + mInm + mCoch) - mTotal) >= 0.02) {
+        if (Math.abs((mProp + mInm + mCoch + mComLoc + mComLocat) - mTotal) >= 0.02) {
             alert(
-                'Propietario + inmobiliaria + cochera debe coincidir con el monto total.\n'
+                'Propietario + inmobiliaria + cochera + comisiones locador/locatario debe coincidir con el monto total.\n'
                 + 'Total: ' + formatearNumero(mTotal.toFixed(2))
                 + ' | Propietario: ' + formatearNumero(mProp.toFixed(2))
                 + ' | Inmobiliaria: ' + formatearNumero(mInm.toFixed(2))
                 + ' | Cochera: ' + formatearNumero(mCoch.toFixed(2))
+                + ' | Com. locador: ' + formatearNumero(mComLoc.toFixed(2))
+                + ' | Com. locatario: ' + formatearNumero(mComLocat.toFixed(2))
             );
             return false;
         }

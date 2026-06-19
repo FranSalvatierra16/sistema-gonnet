@@ -93,6 +93,20 @@ class LiquidacionPropietario(models.Model):
         verbose_name="Fondo de mantenimiento",
         help_text="Importe de fondo de mantenimiento en la liquidación (opcional)",
     )
+    comision_locador = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0'),
+        verbose_name="Comisión locador",
+        help_text="Primera operación (9/24 meses): comisión a cargo del locador.",
+    )
+    comision_locatario = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0'),
+        verbose_name="Comisión locatario",
+        help_text="Primera operación (9/24 meses): honorarios / comisión locatario.",
+    )
     monto_gastos = models.DecimalField(
         max_digits=12,
         decimal_places=2,
