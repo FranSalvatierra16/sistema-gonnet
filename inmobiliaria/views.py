@@ -12345,6 +12345,46 @@ def nuevo_movimiento(request, numero_caja=None):
                 )
                 return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
 
+            from inmobiliaria.caja_devolucion_deposito import (
+                concepto_guardado_devolucion_deposito,
+                es_concepto_devolucion_deposito,
+                payload_concepto_detalle_devolucion,
+                validar_devolucion_deposito_caja,
+            )
+
+            es_devolucion_deposito = es_concepto_devolucion_deposito(
+                concepto_row, concepto_id=concepto_valor
+            )
+            reserva_devolucion = None
+            if es_devolucion_deposito:
+                rid_raw = (request.POST.get('reserva_operacion_id') or '').strip()
+                if not rid_raw.isdigit():
+                    messages.error(
+                        request,
+                        'Para devolver el depósito buscá la operación con el botón de lupa (N° Operación).',
+                    )
+                    return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
+                reserva_devolucion = Reserva.objects.filter(
+                    id=int(rid_raw),
+                    sucursal=sucursal,
+                    eliminada=False,
+                ).select_related('propiedad').first()
+                err_dev = validar_devolucion_deposito_caja(reserva_devolucion, total_mov)
+                if err_dev:
+                    messages.error(request, err_dev)
+                    return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
+                if not movimiento.propiedad_id and reserva_devolucion:
+                    movimiento.propiedad_id = reserva_devolucion.propiedad_id
+                concepto_guardado = concepto_guardado_devolucion_deposito(
+                    reserva_devolucion, detalles_txt
+                )
+                movimiento.concepto = concepto_guardado
+                movimiento.concepto_detalle = payload_concepto_detalle_devolucion(reserva_devolucion.id)
+                tipo = TipoMovimientoCajaEnum.EGRESO
+                movimiento.tipo = tipo
+                if not movimiento.a_descontar:
+                    movimiento.a_descontar = 'oficina'
+
             productor_id_raw = (request.POST.get('productor_id') or '').strip()
             concepto_ref = concepto_valor
             quiere_vale = bool(
@@ -13750,51 +13790,59 @@ def buscar_propiedad(request):
 def buscar_movimiento(request):
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Método no permitido'})
-    
-    operacion = request.POST.get('operacion')
+
+    from inmobiliaria.caja_devolucion_deposito import datos_operacion_reserva_caja
+
+    operacion_raw = (request.POST.get('operacion') or '').strip()
     sucursal = request.user.sucursal
-    
-    try:
-        movimiento = MovimientoCaja.objects.select_related(
-            'productor',
-            'propiedad',
-            'concepto'
-        ).get(operacion=operacion, caja__sucursal=sucursal)
-        
-        return JsonResponse({
-            'success': True,
-            'movimiento': {
-                'tipo': movimiento.tipo,
-                'tipo_comprobante': movimiento.tipo_comprobante,
-                'numero_liquidacion': movimiento.numero_liquidacion,
-                'detalles': movimiento.detalles,
-                'productor': {
-                    'id': movimiento.productor.id,
-                    'nombre': movimiento.productor.nombre,
-                    'apellido': movimiento.productor.apellido
-                } if movimiento.productor else None,
-                'propiedad': {
-                    'id': movimiento.propiedad.id,
-                    'direccion': movimiento.propiedad.direccion,
-                    'ubicacion': getattr(movimiento.propiedad, 'ubicacion', None) or '',
-                    'piso': (movimiento.propiedad.piso or '').strip(),
-                    'departamento': (movimiento.propiedad.departamento or '').strip(),
-                } if movimiento.propiedad else None,
-                'concepto': {
-                    'id': movimiento.concepto.id,
-                    'nombre': movimiento.concepto.nombre
-                } if movimiento.concepto else None
-            }
-        })
-    except MovimientoCaja.DoesNotExist:
+
+    if not operacion_raw:
+        return JsonResponse({'success': False, 'error': 'Ingrese un número de operación'})
+
+    if not operacion_raw.isdigit():
         return JsonResponse({
             'success': False,
-            'error': 'No se encontró el movimiento'
+            'error': 'El N° de operación debe ser numérico (ej. 1782).',
+        })
+
+    try:
+        reserva = (
+            Reserva.objects.select_related('propiedad', 'cliente')
+            .filter(id=int(operacion_raw), sucursal=sucursal, eliminada=False)
+            .first()
+        )
+        if not reserva:
+            return JsonResponse({
+                'success': False,
+                'error': f'No se encontró la operación #{operacion_raw} en esta sucursal.',
+            })
+
+        operacion = datos_operacion_reserva_caja(reserva)
+        return JsonResponse({
+            'success': True,
+            'operacion': operacion,
+            'movimiento': {
+                'tipo': TipoMovimientoCajaEnum.EGRESO,
+                'tipo_comprobante': 'OT',
+                'fecha_desde': operacion.get('fecha_desde') or '',
+                'fecha_hasta': operacion.get('fecha_hasta') or '',
+                'detalles': (
+                    f'Operación #{operacion["id"]}'
+                    + (f' — {operacion["cliente"]}' if operacion.get('cliente') else '')
+                    + f' — depósito a devolver'
+                ),
+                'propiedad': operacion.get('propiedad'),
+                'monto_devolucion_sugerido': operacion.get('monto_devolucion_sugerido'),
+                'deposito_estado': operacion.get('deposito_estado'),
+                'deposito_ya_devuelto': operacion.get('deposito_ya_devuelto'),
+                'puede_devolver': operacion.get('puede_devolver'),
+                'mensaje': operacion.get('mensaje'),
+            },
         })
     except Exception as e:
         return JsonResponse({
             'success': False,
-            'error': str(e)
+            'error': str(e),
         })
 
 
