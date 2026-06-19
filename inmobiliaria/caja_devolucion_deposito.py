@@ -290,18 +290,36 @@ def datos_operacion_reserva_caja(reserva) -> dict:
     }
 
 
-def validar_devolucion_deposito_caja(reserva, monto_total: Decimal) -> str | None:
+def validar_devolucion_deposito_caja(entidad, monto_total: Decimal, *, tipo: str = 'reserva') -> str | None:
     """None si OK; mensaje de error si no se puede registrar."""
-    if not reserva:
+    if not entidad:
         return 'Operación no encontrada.'
-    if ya_devolvio_deposito_reserva(reserva):
-        return f'Ya se registró la devolución del depósito de la operación #{reserva.id}.'
-    if deposito_estado_reserva(reserva) != 'pagado':
-        return (
-            f'No se puede devolver el depósito de la operación #{reserva.id}: '
-            'no figura cobrado en caja (concepto 10).'
+    tipo = (tipo or 'reserva').strip().lower()
+    eid = int(entidad.id)
+    if tipo == 'contrato':
+        from inmobiliaria.caja_buscar_operacion import (
+            _monto_deposito_cobrado_contrato,
+            _ya_devolvio_deposito_contrato,
         )
-    sugerido = monto_devolucion_sugerido_reserva(reserva)
+
+        if _ya_devolvio_deposito_contrato(entidad):
+            return f'Ya se registró la devolución del depósito del contrato #{eid}.'
+        cobrado = _monto_deposito_cobrado_contrato(entidad)
+        if cobrado <= Decimal('0.05'):
+            return (
+                f'No se puede devolver el depósito del contrato #{eid}: '
+                'no figura cobrado en caja (concepto 10).'
+            )
+        sugerido = cobrado if cobrado > 0 else Decimal(str(entidad.deposito_garantia or 0))
+    else:
+        if ya_devolvio_deposito_reserva(entidad):
+            return f'Ya se registró la devolución del depósito de la operación #{eid}.'
+        if deposito_estado_reserva(entidad) != 'pagado':
+            return (
+                f'No se puede devolver el depósito de la operación #{eid}: '
+                'no figura cobrado en caja (concepto 10).'
+            )
+        sugerido = monto_devolucion_sugerido_reserva(entidad)
     if sugerido <= Decimal('0'):
         return 'La operación no tiene depósito a devolver.'
     if monto_total <= Decimal('0'):
@@ -309,12 +327,20 @@ def validar_devolucion_deposito_caja(reserva, monto_total: Decimal) -> str | Non
     return None
 
 
-def concepto_guardado_devolucion_deposito(reserva, detalles: str = '') -> str:
-    base = f'Devolución depósito operación {reserva.id} - {(reserva.propiedad.direccion or "").strip()}'
+def concepto_guardado_devolucion_deposito(entidad, detalles: str = '', *, tipo: str = 'reserva') -> str:
+    tipo = (tipo or 'reserva').strip().lower()
+    direccion = (getattr(entidad.propiedad, 'direccion', None) or '').strip()
+    if tipo == 'contrato':
+        base = f'Devolución depósito contrato {entidad.id} - {direccion}'
+    else:
+        base = f'Devolución depósito operación {entidad.id} - {direccion}'
     extra = (detalles or '').strip()
     txt = f'{base} — {extra}' if extra else base
     return txt[:200]
 
 
-def payload_concepto_detalle_devolucion(reserva_id: int) -> str:
-    return json.dumps({'devolucion_deposito_operacion_id': int(reserva_id)}, ensure_ascii=False)
+def payload_concepto_detalle_devolucion(ref_id: int, *, tipo: str = 'reserva') -> str:
+    tipo = (tipo or 'reserva').strip().lower()
+    if tipo == 'contrato':
+        return json.dumps({'devolucion_deposito_contrato_id': int(ref_id)}, ensure_ascii=False)
+    return json.dumps({'devolucion_deposito_operacion_id': int(ref_id)}, ensure_ascii=False)

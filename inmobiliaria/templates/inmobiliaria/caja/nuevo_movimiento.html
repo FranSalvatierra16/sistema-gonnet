@@ -128,7 +128,7 @@
                                 <i class="fas fa-search"></i>
                             </button>
                         </div>
-                        <small class="text-muted">Nº de operación/reserva; cargá datos y depósito a devolver.</small>
+                        <small class="text-muted">Reserva, contrato o liquidación — carga todos los datos.</small>
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">N° Comprobante</label>
@@ -144,21 +144,29 @@
                         </div>
 
                 <input type="hidden" name="reserva_operacion_id" id="reserva_operacion_id" value="">
+                <input type="hidden" name="operacion_ref_tipo" id="operacion_ref_tipo" value="">
+                <input type="hidden" name="operacion_ref_id" id="operacion_ref_id" value="">
                 <div id="bloque_info_operacion" class="row mb-3 d-none">
                     <div class="col-12">
                         <div class="alert mb-0" id="alert_info_operacion">
                             <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
-                                <div>
-                                    <strong>Operación #<span id="info_operacion_id"></span></strong>
+                                <div class="flex-grow-1">
+                                    <span class="badge bg-secondary me-2" id="info_operacion_tipo"></span>
+                                    <strong>#<span id="info_operacion_id"></span></strong>
                                     <span id="info_operacion_cliente" class="ms-2 text-muted"></span>
                                     <div class="small mt-1">
                                         <span id="info_operacion_fechas"></span>
                                         · Propiedad: <span id="info_operacion_propiedad"></span>
                                     </div>
-                                    <div class="mt-2">
-                                        Depósito a devolver:
-                                        <strong id="info_monto_devolucion" class="fs-5"></strong>
+                                    <div id="bloque_info_liquidacion" class="small mt-2 d-none">
+                                        A pagar al propietario: <strong id="info_monto_liquidacion"></strong>
+                                        <span id="info_liquidacion_estado" class="badge bg-info ms-1"></span>
+                                    </div>
+                                    <div id="bloque_info_deposito" class="mt-2">
+                                        <span class="text-muted">Depósito en garantía:</span>
+                                        <strong id="info_monto_devolucion" class="fs-5 ms-1"></strong>
                                         <span id="info_deposito_estado" class="badge ms-2"></span>
+                                        <span id="info_deposito_cobrado" class="small text-muted ms-2"></span>
                                     </div>
                                     <div id="info_operacion_mensaje" class="small mt-2"></div>
                                 </div>
@@ -1724,9 +1732,10 @@ $(document).ready(function() {
     });
 
     function limpiarOperacionReserva() {
-        $('#reserva_operacion_id').val('');
+        $('#reserva_operacion_id, #operacion_ref_tipo, #operacion_ref_id').val('');
         $('#bloque_info_operacion').addClass('d-none');
         $('#info_operacion_mensaje').empty();
+        $('#bloque_info_liquidacion, #bloque_info_deposito').addClass('d-none');
     }
 
     function mostrarInfoOperacionReserva(op, mov) {
@@ -1734,11 +1743,17 @@ $(document).ready(function() {
             limpiarOperacionReserva();
             return;
         }
-        if (op.deposito_ya_devuelto) {
-            limpiarOperacionReserva();
-            return;
+        var refTipo = op.tipo || mov.operacion_ref_tipo || 'reserva';
+        var refId = String(op.id);
+        $('#operacion_ref_tipo').val(refTipo);
+        $('#operacion_ref_id').val(refId);
+        if (refTipo === 'reserva') {
+            $('#reserva_operacion_id').val(refId);
+        } else {
+            $('#reserva_operacion_id').val('');
         }
-        $('#reserva_operacion_id').val(String(op.id));
+
+        $('#info_operacion_tipo').text(op.tipo_label || refTipo);
         $('#info_operacion_id').text(op.id);
         $('#info_operacion_cliente').text(op.cliente ? ('— ' + op.cliente) : '');
         var fechas = '';
@@ -1748,72 +1763,108 @@ $(document).ready(function() {
         $('#info_operacion_propiedad').text(
             op.propiedad ? (op.propiedad.direccion || ('Ficha ' + op.propiedad.id)) : '—'
         );
-        var monto = mov && mov.monto_devolucion_sugerido != null
-            ? mov.monto_devolucion_sugerido
-            : (op.monto_devolucion_sugerido || 0);
-        $('#info_monto_devolucion').text('$' + fmtMontoLocal(monto));
-        var $est = $('#info_deposito_estado');
-        $est.removeClass('bg-success bg-warning bg-danger');
-        if (op.deposito_ya_devuelto) {
-            $est.addClass('bg-danger').text('Ya devuelto');
-        } else if (op.deposito_estado === 'pagado') {
-            $est.addClass('bg-success').text('Depósito cobrado');
+
+        if (refTipo === 'liquidacion' && op.monto_a_pagar != null) {
+            $('#bloque_info_liquidacion').removeClass('d-none');
+            $('#info_monto_liquidacion').text('$' + fmtMontoLocal(op.monto_a_pagar || 0));
+            $('#info_liquidacion_estado').text(op.estado || '');
         } else {
-            $est.addClass('bg-warning').text('Depósito no detectado');
+            $('#bloque_info_liquidacion').addClass('d-none');
         }
+
+        var depGarantia = op.deposito_garantia || 0;
+        var depCobrado = op.deposito_cobrado || 0;
+        var depEstado = op.deposito_estado || 'no_aplica';
+        if (depGarantia > 0 || depCobrado > 0 || depEstado !== 'no_aplica') {
+            $('#bloque_info_deposito').removeClass('d-none');
+            var montoDep = op.monto_devolucion_sugerido || depGarantia || depCobrado || 0;
+            $('#info_monto_devolucion').text('$' + fmtMontoLocal(montoDep));
+            if (depCobrado > 0) {
+                $('#info_deposito_cobrado').text('(cobrado $' + fmtMontoLocal(depCobrado) + ')');
+            } else {
+                $('#info_deposito_cobrado').text('');
+            }
+        } else {
+            $('#bloque_info_deposito').addClass('d-none');
+        }
+
+        var $est = $('#info_deposito_estado');
+        $est.removeClass('bg-success bg-warning bg-danger bg-secondary');
+        if (op.deposito_ya_devuelto) {
+            $est.addClass('bg-danger').text('Depósito ya devuelto');
+        } else if (depEstado === 'pagado') {
+            $est.addClass('bg-success').text('Depósito cobrado');
+        } else if (depEstado === 'pendiente') {
+            $est.addClass('bg-warning').text('Depósito pendiente');
+        } else {
+            $est.addClass('bg-secondary').text('Sin depósito');
+        }
+
         var msg = (mov && mov.mensaje) || op.mensaje || '';
+        if (op.deposito_ya_devuelto && msg.indexOf('devuelto') < 0) {
+            msg = (msg ? msg + ' ' : '') + 'El depósito ya fue devuelto; no se puede repetir.';
+        }
+        $('#info_operacion_mensaje').text(msg);
+
         var $alert = $('#alert_info_operacion');
         $alert.removeClass('alert-info alert-warning alert-danger alert-success');
         if (op.deposito_ya_devuelto) {
             $alert.addClass('alert-danger');
         } else if (op.puede_devolver || (mov && mov.puede_devolver)) {
             $alert.addClass('alert-success');
+        } else if (refTipo === 'liquidacion') {
+            $alert.addClass('alert-info');
         } else {
             $alert.addClass('alert-warning');
         }
-        $('#info_operacion_mensaje').text(msg);
         $('#bloque_info_operacion').removeClass('d-none');
     }
 
     function aplicarDatosOperacionReserva(mov, op) {
         op = op || mov;
         if (!mov || !op) return;
-        if (op.deposito_ya_devuelto) {
-            alert(
-                (mov.mensaje || op.mensaje) ||
-                ('La operación #' + op.id + ' ya tiene registrada la devolución del depósito.')
-            );
-            limpiarOperacionReserva();
-            $('#buscar_operacion_num').val('');
-            return;
-        }
-        if (!op.puede_devolver && !(mov && mov.puede_devolver)) {
-            alert(mov.mensaje || op.mensaje || 'Esta operación no admite devolución de depósito.');
-            limpiarOperacionReserva();
-            return;
-        }
+
         if (mov.tipo) $('select[name="tipo"]').val(mov.tipo);
         if (mov.tipo_comprobante) {
             var tc = String(mov.tipo_comprobante).toLowerCase();
             if (tc === 'ot') tc = 'otro';
+            if (tc === 'lq') tc = 'liquidacion';
             $('select[name="tipo_comprobante"]').val(tc);
+        }
+        if (mov.numero_liquidacion !== undefined) {
+            $('input[name="numero_liquidacion"]').val(mov.numero_liquidacion || '');
         }
         if (mov.fecha_desde) $('input[name="fecha_desde"]').val(mov.fecha_desde);
         if (mov.fecha_hasta) $('input[name="fecha_hasta"]').val(mov.fecha_hasta);
         if (mov.detalles) $('textarea[name="detalles"]').val(mov.detalles);
+
         var pr = (op && op.propiedad) || mov.propiedad;
         if (pr && pr.id) {
             cargarPropiedad(pr.id, pr.direccion || '', pr.ubicacion || '', pr.piso || '', pr.departamento || '');
         }
+
+        mostrarInfoOperacionReserva(op, mov);
+
+        var esLiq = (op.tipo || '') === 'liquidacion';
+        var montoSug = mov.monto_sugerido != null
+            ? mov.monto_sugerido
+            : (esLiq ? (op.monto_a_pagar || 0) : (op.monto_devolucion_sugerido || 0));
+
+        if (esLiq && montoSug > 0) {
+            $('input[name="monto_efectivo"]').val(fmtMontoLocal(montoSug));
+            $('input[name="monto_cheque"], input[name="monto_tarjeta"], input[name="monto_deposito"]').val('');
+            ultimoCasilleroCorresponde = 'propietario';
+            $('#monto_a_propietario').val(fmtMontoLocal(montoSug));
+            sincronizarCorresponde('propietario');
+            $('.monto').trigger('input');
+            return;
+        }
+
         var cDev = mov.concepto_devolucion || CONCEPTO_DEVOLUCION_DEPOSITO;
-        if (cDev && cDev.id) {
+        if (op.puede_devolver && cDev && cDev.id) {
             seleccionarConceptoCatalogo(cDev.id, cDev.nombre || CONCEPTO_DEVOLUCION_DEPOSITO.nombre);
         }
-        mostrarInfoOperacionReserva(op, mov);
-        var montoSug = mov.monto_devolucion_sugerido != null
-            ? mov.monto_devolucion_sugerido
-            : (op.monto_devolucion_sugerido || 0);
-        if (montoSug > 0) {
+        if (op.puede_devolver && montoSug > 0) {
             $('input[name="monto_efectivo"]').val(fmtMontoLocal(montoSug));
             $('input[name="monto_cheque"], input[name="monto_tarjeta"], input[name="monto_deposito"]').val('');
             ultimoCasilleroCorresponde = 'oficina';
@@ -1825,64 +1876,11 @@ $(document).ready(function() {
 
     $('#btn_limpiar_operacion').on('click', limpiarOperacionReserva);
 
-    // Búsqueda de operación
+    // Búsqueda de operación (reserva, contrato o liquidación)
     $('#btn_buscar_operacion').click(function() {
         var operacion = $('#buscar_operacion_num').val();
         if (!operacion) {
             alert('Ingrese un número de operación');
-            return;
-        }
-        var tipoComprobanteSeleccionado = $('select[name="tipo_comprobante"]').val();
-        if (tipoComprobanteSeleccionado === 'liquidacion') {
-            $.ajax({
-                url: '{% url "inmobiliaria:buscar_liquidacion_caja" %}',
-                data: {
-                    liquidacion_id: operacion,
-                    csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
-                },
-                method: 'POST',
-                success: function(response) {
-                    if (!(response.success && response.liquidacion)) {
-                        alert(response.error || 'No se encontró la liquidación');
-                        return;
-                    }
-                    var l = response.liquidacion;
-                    var numeroComprobanteFormateado = '0000-' + String(l.id || 0).padStart(8, '0');
-                    $('select[name="tipo"]').val('EG');
-                    $('select[name="tipo_comprobante"]').val('liquidacion');
-                    $('input[name="numero_liquidacion"]').val(numeroComprobanteFormateado);
-                    $('input[name="fecha_desde"]').val(l.fecha_desde || '');
-                    $('input[name="fecha_hasta"]').val(l.fecha_hasta || '');
-
-                    if (l.propiedad && l.propiedad.id) {
-                        cargarPropiedad(
-                            l.propiedad.id,
-                            l.propiedad.direccion || '',
-                            l.propiedad.ubicacion || '',
-                            l.propiedad.piso || '',
-                            l.propiedad.departamento || ''
-                        );
-                    }
-
-                    var detalle = 'Pago liquidación #' + l.id + ' - ' + (l.propietario || '');
-                    if (l.estado) detalle += ' (' + l.estado + ')';
-                    if (l.cuenta_bancaria) detalle += '\nCuenta propietario: ' + l.cuenta_bancaria;
-                    $('textarea[name="detalles"]').val(detalle);
-
-                    // Cargar importes sugeridos (todo a efectivo por defecto)
-                    $('input[name="monto_efectivo"]').val(fmtMontoLocal(l.monto_a_pagar || 0));
-                    $('input[name="monto_cheque"]').val('');
-                    $('input[name="monto_tarjeta"]').val('');
-                    $('input[name="monto_deposito"]').val('');
-                    ultimoCasilleroCorresponde = 'propietario';
-                    $('.monto').trigger('input');
-                    $('#monto_a_propietario').val(fmtMontoLocal(l.monto_a_pagar || 0));
-                    sincronizarCorresponde('propietario');
-                },
-                error: function() {
-                    alert('Error al buscar la liquidación');
-                }
-            });
             return;
         }
 
@@ -1890,17 +1888,12 @@ $(document).ready(function() {
             url: '{% url "inmobiliaria:buscar_movimiento" %}',
             data: {
                 operacion: operacion,
+                tipo_comprobante: $('select[name="tipo_comprobante"]').val(),
                 csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
             },
             method: 'POST',
             success: function(response) {
                 if (response.success && (response.operacion || response.movimiento)) {
-                    if (response.operacion && response.operacion.deposito_ya_devuelto) {
-                        alert(response.error || response.operacion.mensaje || 'Esta operación ya tiene la devolución registrada.');
-                        limpiarOperacionReserva();
-                        $('#buscar_operacion_num').val('');
-                        return;
-                    }
                     aplicarDatosOperacionReserva(response.movimiento || {}, response.operacion);
                 } else {
                     alert(response.error || 'No se encontró la operación');
@@ -2022,14 +2015,14 @@ $(document).ready(function() {
             sincronizarCorresponde();
         }
         if (esConceptoDevolucionDeposito($('#concepto_id').val(), $('#concepto_seleccionado_texto').text())) {
-            if (!$('#reserva_operacion_id').val()) {
+            if (!$('#operacion_ref_id').val() && !$('#reserva_operacion_id').val()) {
                 e.preventDefault();
                 alert('Para devolver el depósito buscá la operación con el N° Operación y el botón de lupa.');
                 enviandoMovimientoCaja = false;
                 $('#btn_guardar_movimiento').prop('disabled', false).html('<i class="fas fa-save"></i> Guardar movimiento');
                 return false;
             }
-            if ($('#info_deposito_estado').text() === 'Ya devuelto') {
+            if ($('#info_deposito_estado').text() === 'Depósito ya devuelto') {
                 e.preventDefault();
                 alert('Esta operación ya tiene registrada la devolución del depósito.');
                 enviandoMovimientoCaja = false;
