@@ -22712,6 +22712,21 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                 if tipo in ('reserva', 'contrato', 'contrato_cuota'):
                     operaciones_incluidas.append({'tipo': tipo, 'id': pk})
 
+            for o in operaciones_incluidas:
+                if (o.get('tipo') or '').lower() != 'contrato_cuota':
+                    continue
+                try:
+                    cq_pk = int(o['id'])
+                except (KeyError, TypeError, ValueError):
+                    continue
+                cq = CuotaMensual.objects.filter(
+                    pk=cq_pk,
+                    contrato__propiedad=propiedad,
+                    contrato__sucursal=request.user.sucursal,
+                ).first()
+                if cq and cq.estado in ('pendiente', 'vencida'):
+                    o['anticipada'] = True
+
             # Contrato / cuotas: guardar IDs de cuotas imputadas (evita doble uso).
             excl_prev = _cuotas_excluidas_por_liquidaciones_contrato(propiedad)
             for o in operaciones_incluidas:
@@ -23136,6 +23151,48 @@ def _cuotas_cobro_parcial_liquidable(contrato, cuotas_excluidas, sucursal):
     return out
 
 
+def _numero_cuota_frontera_liquidacion(contrato, cuotas_excluidas):
+    """Mayor N° de cuota ya liquidada; si ninguna, mayor cuota pagada."""
+    liq_nums = list(
+        CuotaMensual.objects.filter(
+            contrato=contrato,
+            id__in=cuotas_excluidas,
+        ).values_list('numero_cuota', flat=True)
+    )
+    if liq_nums:
+        return max(liq_nums)
+    paid_nums = list(
+        contrato.cuotas.filter(estado__in=['pagada', 'pagada_con_mora'])
+        .values_list('numero_cuota', flat=True)
+    )
+    return max(paid_nums) if paid_nums else 0
+
+
+def _cuota_siguiente_anticipada_liquidable(contrato, cuotas_excluidas, ids_ya_en_lista):
+    """
+    Cuota del mes siguiente aún sin cobrar, preparable por anticipado.
+    Contratos de alquiler mensual (9 o 24 meses).
+    """
+    duracion = int(contrato.duracion_meses or 0)
+    if duracion < 9:
+        return None
+
+    frontera = _numero_cuota_frontera_liquidacion(contrato, cuotas_excluidas)
+    next_num = frontera + 1
+    if next_num > duracion:
+        return None
+
+    ids_excl = set(cuotas_excluidas or ()) | set(ids_ya_en_lista or ())
+    return (
+        contrato.cuotas.filter(
+            numero_cuota=next_num,
+            estado__in=['pendiente', 'vencida'],
+        )
+        .exclude(id__in=ids_excl)
+        .first()
+    )
+
+
 def _monto_propietario_inmobiliaria_cuota_mensual(propiedad, monto_cuota):
     """
     Reparto propietario / inmobiliaria para el monto de una sola cuota mensual cobrada
@@ -23481,7 +23538,51 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
         ]
         inq = contrato.inquilino
         nombre_inq = f'{inq.apellido}, {inq.nombre}' if inq else '—'
+        prop_label = ((propiedad.direccion or '').strip()[:120] or f'#{propiedad.id}')
+
+        def _fila_cuota_liquidable(cuota, monto_mes, *, parcial=False, anticipada=False):
+            mp, mi = _monto_propietario_inmobiliaria_cuota_mensual(propiedad, monto_mes)
+            fv = cuota.fecha_vencimiento
+            fv_s = fv.strftime('%Y-%m-%d') if fv else ''
+            if parcial:
+                suf = ' (cobro parcial registrado)'
+            elif anticipada:
+                suf = ' (liquidación anticipada — cobro aún no registrado)'
+            else:
+                suf = ''
+            operaciones.append({
+                'tipo': 'contrato_cuota',
+                'tipo_display': 'Cuota mensual',
+                'concepto_pago': _concepto_pago_liquidacion_operacion('contrato_cuota', contrato),
+                'incluible': True,
+                'anticipada': anticipada,
+                'id': cuota.id,
+                'contrato_id': contrato.id,
+                'propiedad_id': propiedad.id,
+                'propiedad_label': prop_label,
+                'descripcion': (
+                    f'Contrato #{contrato.id} — Cuota {cuota.numero_cuota}/{contrato.duracion_meses} — {nombre_inq}{suf}'
+                ),
+                'fecha_inicio': fv_s,
+                'fecha_fin': fv_s,
+                'monto_total': str(monto_mes),
+                'monto_pagado': '0' if anticipada else str(monto_mes),
+                'monto_propietario': str(mp),
+                'monto_inmobiliaria': str(mi),
+                'dias': 30,
+            })
+
         if not cuotas_pagadas_liq and not cuotas_parciales_liq:
+            cuota_anticipada = _cuota_siguiente_anticipada_liquidable(
+                contrato, cuotas_excluidas, set()
+            )
+            if cuota_anticipada:
+                _fila_cuota_liquidable(
+                    cuota_anticipada,
+                    Decimal(str(cuota_anticipada.monto_total)),
+                    anticipada=True,
+                )
+                continue
             tiene_alguna_pagada = contrato.cuotas.filter(
                 estado__in=['pagada', 'pagada_con_mora']
             ).exists()
@@ -23523,38 +23624,20 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
                 })
             continue
 
-        prop_label = ((propiedad.direccion or '').strip()[:120] or f'#{propiedad.id}')
-
-        def _fila_cuota_liquidable(cuota, monto_mes, *, parcial=False):
-            mp, mi = _monto_propietario_inmobiliaria_cuota_mensual(propiedad, monto_mes)
-            fv = cuota.fecha_vencimiento
-            fv_s = fv.strftime('%Y-%m-%d') if fv else ''
-            suf = ' (cobro parcial registrado)' if parcial else ''
-            operaciones.append({
-                'tipo': 'contrato_cuota',
-                'tipo_display': 'Cuota mensual',
-                'concepto_pago': _concepto_pago_liquidacion_operacion('contrato_cuota', contrato),
-                'incluible': True,
-                'id': cuota.id,
-                'contrato_id': contrato.id,
-                'propiedad_id': propiedad.id,
-                'propiedad_label': prop_label,
-                'descripcion': (
-                    f'Contrato #{contrato.id} — Cuota {cuota.numero_cuota}/{contrato.duracion_meses} — {nombre_inq}{suf}'
-                ),
-                'fecha_inicio': fv_s,
-                'fecha_fin': fv_s,
-                'monto_total': str(monto_mes),
-                'monto_pagado': str(monto_mes),
-                'monto_propietario': str(mp),
-                'monto_inmobiliaria': str(mi),
-                'dias': 30,
-            })
-
         for cuota in cuotas_pagadas_liq:
             _fila_cuota_liquidable(cuota, Decimal(str(cuota.monto_total)), parcial=False)
         for cuota, monto_parcial in cuotas_parciales_liq:
             _fila_cuota_liquidable(cuota, monto_parcial, parcial=True)
+        ids_ya_listados = ids_pagadas | {c.id for c, _ in cuotas_parciales_liq}
+        cuota_anticipada = _cuota_siguiente_anticipada_liquidable(
+            contrato, cuotas_excluidas, ids_ya_listados
+        )
+        if cuota_anticipada:
+            _fila_cuota_liquidable(
+                cuota_anticipada,
+                Decimal(str(cuota_anticipada.monto_total)),
+                anticipada=True,
+            )
     
     # Obtener gastos pendientes del propietario (sin liquidación asociada)
     propi = getattr(propiedad, 'propietario', None)
