@@ -12,12 +12,39 @@ from django.utils import timezone
 from inmobiliaria.decimal_utils import parse_decimal_monto
 from inmobiliaria.models.caja import MovimientoCaja, TipoMovimientoCajaEnum
 
+CONCEPTO_DEVOLUCION_DEPOSITO_ID = '140'
+
+
+def concepto_devolucion_deposito_catalogo(sucursal):
+    """Concepto 140 (devolución de depósitos) visible para la sucursal."""
+    from inmobiliaria.catalogo_conceptos_caja import q_conceptos_caja_visibles
+    from inmobiliaria.models.caja import Concepto
+
+    cat = Concepto.objects.filter(
+        q_conceptos_caja_visibles(sucursal),
+        id=CONCEPTO_DEVOLUCION_DEPOSITO_ID,
+    ).first()
+    if cat:
+        return {'id': str(cat.id), 'nombre': cat.nombre or ''}
+    cat = (
+        Concepto.objects.filter(q_conceptos_caja_visibles(sucursal))
+        .filter(nombre__icontains='devoluc')
+        .filter(nombre__icontains='deposit')
+        .first()
+    )
+    if cat:
+        return {'id': str(cat.id), 'nombre': cat.nombre or ''}
+    return {'id': CONCEPTO_DEVOLUCION_DEPOSITO_ID, 'nombre': 'Devolución de depósitos'}
+
 
 def es_concepto_devolucion_deposito(concepto_row=None, *, concepto_id: str = '', nombre: str = '') -> bool:
     """True si el concepto de caja es devolución de depósito en garantía (D.D.G.)."""
     if concepto_row is not None:
         concepto_id = str(getattr(concepto_row, 'id', '') or '')
         nombre = str(getattr(concepto_row, 'nombre', '') or '')
+    cid = str(concepto_id or '').strip()
+    if cid == CONCEPTO_DEVOLUCION_DEPOSITO_ID:
+        return True
     texto = f'{concepto_id} {nombre}'.lower()
     return 'devoluc' in texto and (
         'deposit' in texto or 'depósit' in texto or 'garant' in texto or 'ddg' in texto
@@ -146,8 +173,45 @@ def deposito_estado_reserva(reserva) -> str:
     return 'pendiente'
 
 
+def _monto_total_movimiento(movimiento) -> Decimal:
+    return (
+        Decimal(str(getattr(movimiento, 'monto_efectivo', None) or 0))
+        + Decimal(str(getattr(movimiento, 'monto_cheque', None) or 0))
+        + Decimal(str(getattr(movimiento, 'monto_tarjeta', None) or 0))
+        + Decimal(str(getattr(movimiento, 'monto_deposito', None) or 0))
+    )
+
+
+def _egreso_es_devolucion_deposito_reserva(movimiento, reserva, nombre_concepto_140: str = '') -> bool:
+    rid = int(reserva.id)
+    conc = (getattr(movimiento, 'concepto', None) or '')
+    conc_l = conc.lower()
+    raw = (getattr(movimiento, 'concepto_detalle', None) or '')
+    if f'"devolucion_deposito_operacion_id": {rid}' in raw or f'"devolucion_deposito_operacion_id":{rid}' in raw:
+        return True
+    if _movimiento_vinculado_reserva(movimiento, rid) and es_concepto_devolucion_deposito(nombre=conc):
+        return True
+    nom140 = (nombre_concepto_140 or '').strip().lower()
+    if nom140 and nom140 in conc_l:
+        if re.search(rf'Operaci[oó]n\s*#?\s*{rid}\b', conc, re.IGNORECASE):
+            return True
+        if re.search(rf'Devoluci[oó]n dep[oó]sito operaci[oó]n\s*{rid}\b', conc, re.IGNORECASE):
+            return True
+    if re.search(rf'Devoluci[oó]n dep[oó]sito operaci[oó]n\s*{rid}\b', conc, re.IGNORECASE):
+        return True
+    if re.search(rf'Operaci[oó]n\s*#?\s*{rid}\b', conc, re.IGNORECASE) and 'devoluc' in conc_l:
+        return True
+    if nom140 and nom140 in conc_l:
+        dep = Decimal(str(reserva.deposito_garantia or 0))
+        monto = _monto_total_movimiento(movimiento)
+        if dep > Decimal('0') and monto > Decimal('0') and abs(monto - dep) <= Decimal('0.06'):
+            return True
+    return False
+
+
 def ya_devolvio_deposito_reserva(reserva) -> bool:
     rid = int(reserva.id)
+    nombre_140 = concepto_devolucion_deposito_catalogo(reserva.sucursal).get('nombre') or ''
     qs = MovimientoCaja.objects.filter(
         sucursal=reserva.sucursal,
         tipo=TipoMovimientoCajaEnum.EGRESO,
@@ -164,10 +228,11 @@ def ya_devolvio_deposito_reserva(reserva) -> bool:
         q |= Q(concepto__icontains=p) | Q(concepto_detalle__icontains=p)
     if qs.filter(q).exists():
         return True
-    return any(
-        _movimiento_vinculado_reserva(m, rid) and es_concepto_devolucion_deposito(nombre=(m.concepto or ''))
-        for m in qs.filter(propiedad=reserva.propiedad)
-    )
+    candidatos = qs.filter(propiedad=reserva.propiedad).order_by('-fecha', '-id')
+    for mov in candidatos:
+        if _egreso_es_devolucion_deposito_reserva(mov, reserva, nombre_140):
+            return True
+    return False
 
 
 def monto_devolucion_sugerido_reserva(reserva) -> Decimal:

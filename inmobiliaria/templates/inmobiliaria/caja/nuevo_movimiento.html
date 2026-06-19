@@ -731,12 +731,30 @@ $(document).ready(function() {
         return /\bvales?\b/i.test(String(nombre || ''));
     }
 
+    var CONCEPTO_DEVOLUCION_DEPOSITO = {
+        id: '{{ concepto_devolucion_deposito.id|default:"140"|escapejs }}',
+        nombre: '{{ concepto_devolucion_deposito.nombre|default:"Devolución de depósitos"|escapejs }}'
+    };
+
     function esConceptoDevolucionDeposito(id, nombre) {
+        var cid = String(id || '').trim();
+        if (cid === CONCEPTO_DEVOLUCION_DEPOSITO.id || cid === '140') return true;
         var txt = (String(id || '') + ' ' + String(nombre || '')).toLowerCase();
         return txt.indexOf('devoluc') >= 0 && (
             txt.indexOf('deposit') >= 0 || txt.indexOf('depósit') >= 0 ||
             txt.indexOf('garant') >= 0 || txt.indexOf('ddg') >= 0
         );
+    }
+
+    function seleccionarConceptoCatalogo(id, nombre) {
+        if (!id) return;
+        var nom = nombre || '';
+        $('#concepto_id').val(String(id));
+        $('#concepto_seleccionado_texto').text(conceptoIdEtiqueta(id) + ' - ' + nom);
+        $('#concepto_seleccionado').removeClass('d-none');
+        $('#buscar_concepto').val('');
+        aplicarTipoSiConceptoVale(id, nom);
+        aplicarTipoSiConceptoDevolucionDeposito(id, nom);
     }
 
     function aplicarTipoSiConceptoDevolucionDeposito(id, nombre) {
@@ -1697,6 +1715,10 @@ $(document).ready(function() {
             limpiarOperacionReserva();
             return;
         }
+        if (op.deposito_ya_devuelto) {
+            limpiarOperacionReserva();
+            return;
+        }
         $('#reserva_operacion_id').val(String(op.id));
         $('#info_operacion_id').text(op.id);
         $('#info_operacion_cliente').text(op.cliente ? ('— ' + op.cliente) : '');
@@ -1736,7 +1758,21 @@ $(document).ready(function() {
 
     function aplicarDatosOperacionReserva(mov, op) {
         op = op || mov;
-        if (!mov) return;
+        if (!mov || !op) return;
+        if (op.deposito_ya_devuelto) {
+            alert(
+                (mov.mensaje || op.mensaje) ||
+                ('La operación #' + op.id + ' ya tiene registrada la devolución del depósito.')
+            );
+            limpiarOperacionReserva();
+            $('#buscar_operacion_num').val('');
+            return;
+        }
+        if (!op.puede_devolver && !(mov && mov.puede_devolver)) {
+            alert(mov.mensaje || op.mensaje || 'Esta operación no admite devolución de depósito.');
+            limpiarOperacionReserva();
+            return;
+        }
         if (mov.tipo) $('select[name="tipo"]').val(mov.tipo);
         if (mov.tipo_comprobante) {
             var tc = String(mov.tipo_comprobante).toLowerCase();
@@ -1750,15 +1786,15 @@ $(document).ready(function() {
         if (pr && pr.id) {
             cargarPropiedad(pr.id, pr.direccion || '', pr.ubicacion || '', pr.piso || '', pr.departamento || '');
         }
+        var cDev = mov.concepto_devolucion || CONCEPTO_DEVOLUCION_DEPOSITO;
+        if (cDev && cDev.id) {
+            seleccionarConceptoCatalogo(cDev.id, cDev.nombre || CONCEPTO_DEVOLUCION_DEPOSITO.nombre);
+        }
         mostrarInfoOperacionReserva(op, mov);
-        var idConcepto = $('#concepto_id').val();
-        var txtConcepto = ($('#concepto_seleccionado_texto').text() || '');
-        var montoSug = mov.monto_devolucion_sugerido;
-        if (
-            montoSug != null && montoSug > 0 &&
-            esConceptoDevolucionDeposito(idConcepto, txtConcepto) &&
-            !(op && op.deposito_ya_devuelto)
-        ) {
+        var montoSug = mov.monto_devolucion_sugerido != null
+            ? mov.monto_devolucion_sugerido
+            : (op.monto_devolucion_sugerido || 0);
+        if (montoSug > 0) {
             $('input[name="monto_efectivo"]').val(fmtMontoLocal(montoSug));
             $('input[name="monto_cheque"], input[name="monto_tarjeta"], input[name="monto_deposito"]').val('');
             ultimoCasilleroCorresponde = 'oficina';
@@ -1840,9 +1876,16 @@ $(document).ready(function() {
             method: 'POST',
             success: function(response) {
                 if (response.success && (response.operacion || response.movimiento)) {
+                    if (response.operacion && response.operacion.deposito_ya_devuelto) {
+                        alert(response.error || response.operacion.mensaje || 'Esta operación ya tiene la devolución registrada.');
+                        limpiarOperacionReserva();
+                        $('#buscar_operacion_num').val('');
+                        return;
+                    }
                     aplicarDatosOperacionReserva(response.movimiento || {}, response.operacion);
                 } else {
                     alert(response.error || 'No se encontró la operación');
+                    limpiarOperacionReserva();
                 }
             },
             error: function() {

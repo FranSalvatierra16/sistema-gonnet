@@ -12107,6 +12107,8 @@ def nuevo_movimiento(request, numero_caja=None):
     pre_gasto_oficina = (request.GET.get('gasto_oficina') or '').strip() in ('1', 'true', 'si', 'yes')
 
     def _ctx_nuevo_movimiento(extra=None):
+        from inmobiliaria.caja_devolucion_deposito import concepto_devolucion_deposito_catalogo
+
         ctx = {
             'caja': caja,
             'fecha_actual': timezone.now(),
@@ -12115,6 +12117,7 @@ def nuevo_movimiento(request, numero_caja=None):
             'categorias_gasto_oficina': categorias_gasto_oficina,
             'categorias_gasto_oficina_grupos': categorias_gasto_oficina_grupos,
             'pre_gasto_oficina': pre_gasto_oficina,
+            'concepto_devolucion_deposito': concepto_devolucion_deposito_catalogo(sucursal),
         }
         if extra:
             ctx.update(extra)
@@ -13818,9 +13821,23 @@ def buscar_movimiento(request):
             })
 
         operacion = datos_operacion_reserva_caja(reserva)
+        if operacion.get('deposito_ya_devuelto'):
+            return JsonResponse({
+                'success': False,
+                'error': (
+                    f'La operación #{operacion_raw} ya tiene registrada la devolución del depósito. '
+                    'No se puede volver a cargar.'
+                ),
+                'operacion': operacion,
+            })
+
+        from inmobiliaria.caja_devolucion_deposito import concepto_devolucion_deposito_catalogo
+
+        concepto_dev = concepto_devolucion_deposito_catalogo(sucursal)
         return JsonResponse({
             'success': True,
             'operacion': operacion,
+            'concepto_devolucion': concepto_dev,
             'movimiento': {
                 'tipo': TipoMovimientoCajaEnum.EGRESO,
                 'tipo_comprobante': 'OT',
@@ -13837,6 +13854,7 @@ def buscar_movimiento(request):
                 'deposito_ya_devuelto': operacion.get('deposito_ya_devuelto'),
                 'puede_devolver': operacion.get('puede_devolver'),
                 'mensaje': operacion.get('mensaje'),
+                'concepto_devolucion': concepto_dev,
             },
         })
     except Exception as e:
