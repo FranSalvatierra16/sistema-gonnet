@@ -146,7 +146,7 @@ def desimputar_cuotas_de_movimiento(contrato, movimiento, hoy=None, *, forzar: b
 
 
 def marcar_cuota_pagada_totalmente_cubierta_por_credito(cuota, movimiento, hoy) -> None:
-    """Si el saldo llegó a cero solo por credito_aplicado, marca la cuota pagada (mismo movimiento que originó el crédito)."""
+    """Si el saldo llegó a cero solo por credito_aplicado, marca la cuota pagada."""
     from django.utils import timezone as tz
 
     hoy = hoy or tz.now().date()
@@ -157,28 +157,79 @@ def marcar_cuota_pagada_totalmente_cubierta_por_credito(cuota, movimiento, hoy) 
     obligacion = Decimal(str(cuota.monto_total or 0))
     if obligacion <= 0:
         return
+    fecha_pago = hoy
+    if movimiento is not None and getattr(movimiento, 'fecha', None):
+        fecha_pago = movimiento.fecha
+    elif cuota.credito_origen_numero_cuota:
+        orig = (
+            cuota.contrato.cuotas.filter(numero_cuota=cuota.credito_origen_numero_cuota)
+            .values('fecha_pago', 'movimiento_id')
+            .first()
+        )
+        if orig and orig.get('fecha_pago'):
+            fecha_pago = orig['fecha_pago']
+    if movimiento is None and cuota.credito_origen_numero_cuota:
+        orig_cuota = (
+            cuota.contrato.cuotas.filter(numero_cuota=cuota.credito_origen_numero_cuota)
+            .select_related('movimiento')
+            .first()
+        )
+        if orig_cuota and orig_cuota.movimiento_id:
+            movimiento = orig_cuota.movimiento
     cuota.estado = 'pagada'
-    cuota.fecha_pago = hoy
-    cuota.movimiento = movimiento
+    cuota.fecha_pago = fecha_pago
+    if movimiento is not None:
+        cuota.movimiento = movimiento
     cuota.monto_base = obligacion
     cuota.monto_total = obligacion
     cuota.recargo_mora = Decimal('0')
     cuota.descuento = Decimal('0')
     cuota.credito_aplicado = Decimal('0')
     cuota.credito_origen_numero_cuota = None
-    cuota.save(
-        update_fields=[
-            'estado',
-            'fecha_pago',
-            'movimiento',
-            'monto_base',
-            'monto_total',
-            'recargo_mora',
-            'descuento',
-            'credito_aplicado',
-            'credito_origen_numero_cuota',
-        ]
-    )
+    update_fields = [
+        'estado',
+        'fecha_pago',
+        'monto_base',
+        'monto_total',
+        'recargo_mora',
+        'descuento',
+        'credito_aplicado',
+        'credito_origen_numero_cuota',
+    ]
+    if movimiento is not None:
+        update_fields.append('movimiento')
+    cuota.save(update_fields=update_fields)
+
+
+def sincronizar_cuotas_totalmente_cubiertas_por_credito(contrato, hoy=None, *, movimiento_fallback=None) -> int:
+    """
+    Corrige cuotas pendientes/vencidas cuyo saldo ya es cero por crédito/advance total.
+    Devuelve la cantidad de cuotas marcadas pagadas.
+    """
+    from django.utils import timezone as tz
+
+    tol = Decimal('0.05')
+    hoy = hoy or tz.now().date()
+    n = 0
+    for cuota in contrato.cuotas.filter(estado__in=['pendiente', 'vencida']).order_by('numero_cuota'):
+        cuota.refresh_from_db()
+        if cuota.saldo_para_cobro() > tol:
+            continue
+        cred = Decimal(str(cuota.credito_aplicado or 0))
+        if cred <= tol:
+            continue
+        mov = movimiento_fallback
+        if mov is None and cuota.credito_origen_numero_cuota:
+            orig = (
+                cuota.contrato.cuotas.filter(numero_cuota=cuota.credito_origen_numero_cuota)
+                .select_related('movimiento')
+                .first()
+            )
+            if orig and orig.movimiento_id:
+                mov = orig.movimiento
+        marcar_cuota_pagada_totalmente_cubierta_por_credito(cuota, mov, hoy)
+        n += 1
+    return n
 
 
 def revertir_credito_propagado_por_cuota_annulada(contrato, numero_cuota_origen: int) -> int:
@@ -218,6 +269,13 @@ def propagar_credito_excedente_cuotas(contrato, despues_de_numero_cuota: int, ex
         cred = Decimal(str(sig.credito_aplicado or 0))
         cap = max(Decimal('0'), tot - cred)
         if cap <= tol:
+            if (
+                movimiento is not None
+                and sig.estado in ('pendiente', 'vencida')
+                and sig.saldo_para_cobro() <= tol
+                and cred > tol
+            ):
+                marcar_cuota_pagada_totalmente_cubierta_por_credito(sig, movimiento, hoy)
             continue
         add = min(rest, cap)
         sig.credito_aplicado = cred + add
@@ -386,6 +444,7 @@ def imputar_cuotas_mensuales_desde_movimiento_1000(
             n += 1
         elif resultado == 'adelanto':
             n += 1
+    sincronizar_cuotas_totalmente_cubiertas_por_credito(contrato, hoy_q, movimiento_fallback=movimiento)
     return n
 
 

@@ -15194,6 +15194,11 @@ def detalle_contrato(request, contrato_id):
     from .models import ContratoAlquiler
     
     contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
+    hoy = timezone.now().date()
+    from inmobiliaria.cuotas_imputacion import sincronizar_cuotas_totalmente_cubiertas_por_credito
+
+    if sincronizar_cuotas_totalmente_cubiertas_por_credito(contrato, hoy):
+        contrato.refresh_from_db()
     cuotas = contrato.cuotas.select_related('movimiento').order_by('numero_cuota')
     if not cuotas.exists() and contrato.estado in ('activo', 'reservado'):
         _asegurar_cuotas_plan_contrato(contrato)
@@ -15222,7 +15227,6 @@ def detalle_contrato(request, contrato_id):
     cuotas = cuotas_list
 
     # Estadísticas
-    hoy = timezone.now().date()
     cuotas_pagadas = sum(1 for c in cuotas_list if c.estado == 'pagada')
     cuotas_vencidas = sum(
         1 for c in cuotas_list if c.estado == 'pendiente' and c.fecha_vencimiento < hoy
@@ -17849,6 +17853,13 @@ def procesar_operacion_contrato(request, contrato_id):
                             if resultado == 'pagada':
                                 ultima_cuota_pagada_num = int(cuota.numero_cuota)
                                 cuotas_pagadas_ids.append(cuota.numero_cuota)
+                        from inmobiliaria.cuotas_imputacion import (
+                            sincronizar_cuotas_totalmente_cubiertas_por_credito,
+                        )
+
+                        sincronizar_cuotas_totalmente_cubiertas_por_credito(
+                            contrato, hoy_pago, movimiento_fallback=movimiento
+                        )
                 except ValueError as e:
                     return JsonResponse({'error': str(e)}, status=400)
             else:
@@ -17882,10 +17893,13 @@ def procesar_operacion_contrato(request, contrato_id):
 def ver_cuotas_contrato(request, contrato_id):
     """Vista para ver todas las cuotas de un contrato"""
     contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
+    hoy = timezone.now().date()
+    from inmobiliaria.cuotas_imputacion import sincronizar_cuotas_totalmente_cubiertas_por_credito
+
+    sincronizar_cuotas_totalmente_cubiertas_por_credito(contrato, hoy)
     cuotas = contrato.cuotas.all().order_by('numero_cuota')
     
     # Marcar cuotas vencidas
-    hoy = timezone.now().date()
     for cuota in cuotas:
         if cuota.estado == 'pendiente' and cuota.fecha_vencimiento < hoy:
             cuota.estado = 'vencida'
@@ -18302,6 +18316,14 @@ def procesar_pago_cuota_operacion(request, cuota_id):
                             ultima_cuota_pagada_num = int(csel.numero_cuota)
                     except ValueError as e:
                         return JsonResponse({'error': str(e)}, status=400)
+
+                from inmobiliaria.cuotas_imputacion import (
+                    sincronizar_cuotas_totalmente_cubiertas_por_credito,
+                )
+
+                sincronizar_cuotas_totalmente_cubiertas_por_credito(
+                    contrato, hoy_pago, movimiento_fallback=movimiento
+                )
 
                 if mes_tipo == 'mensual':
                     nuevo_precio = _parse_nuevo_precio_mensual_post(request)
