@@ -240,7 +240,7 @@ $(document).ready(function() {
                                 ${propietario.nombre.charAt(0).toUpperCase()}
                             </div>
                             <div>
-                                <div class="fw-bold">${propietario.nombre} ${propietario.apellido}</div>
+                                <div class="fw-bold">${formatApellidoNombre(propietario.nombre, propietario.apellido)}</div>
                                 <small class="text-muted">
                                     <i class="fas fa-map-marker-alt me-1"></i>${propietario.localidad || 'Sin localidad'}
                                 </small>

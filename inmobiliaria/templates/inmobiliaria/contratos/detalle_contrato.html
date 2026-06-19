@@ -145,7 +145,7 @@
                             <p><strong>Sucursal:</strong> {{ contrato.propiedad.sucursal.nombre }}</p>
                             
                             <h5><i class="fas fa-user text-info"></i> <strong>Inquilino</strong></h5>
-                            <p><strong>Nombre:</strong> {{ contrato.inquilino.nombre }} {{ contrato.inquilino.apellido }}</p>
+                            <p><strong>Nombre:</strong> {{ contrato.inquilino|apellido_nombre }}</p>
                             <p><strong>Celular:</strong> {{ contrato.inquilino.celular|default:"—" }}</p>
                             <p><strong>Email:</strong> {{ contrato.inquilino.email }}</p>
                         </div>

@@ -20630,7 +20630,7 @@ def ver_contrato_estudiante(request, contrato_id):
 
     # Locador (propietario)
     if propi:
-        locador_nombre = f"{getattr(propi, 'nombre', '') or ''} {getattr(propi, 'apellido', '') or ''}".strip() or '—'
+        locador_nombre = formato_apellido_nombre(propi) or '—'
         locador_dni = (getattr(propi, 'dni', None) or '').strip() or '—'
         locador_domicilio = (getattr(propi, 'domicilio', None) or '—')[:120]
         locador_ciudad = (getattr(propi, 'localidad', None) or '—')[:80]

@@ -4,7 +4,7 @@
         <div class="liq-cobranzas-titulo">LIQUIDACIÓN DE COBRANZAS ({{ tipo_contrato_label }})</div>
         <div class="liq-cobranzas-sub">
             <strong>SR.</strong>
-            {{ propietario.apellido|upper }} {{ propietario.nombre|upper }}
+            {{ propietario|apellido_nombre|upper }}
             {% if propietario.domicilio %} — {{ propietario.domicilio|upper }}{% endif %}
             {% if propietario.email %} — {{ propietario.email }}{% endif %}
             {% if propietario.celular %}

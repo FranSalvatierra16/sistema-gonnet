@@ -59,8 +59,16 @@ class Persona(models.Model):
     class Meta:
         abstract = True
 
+    def nombre_completo_display(self):
+        """Apellido primero, luego nombre cuando hay ambos."""
+        ap = (self.apellido or '').strip()
+        nom = (self.nombre or '').strip()
+        if ap and nom:
+            return f'{ap}, {nom}'
+        return ap or nom or ''
+
     def __str__(self):
-        return f"{self.apellido}, {self.nombre}" if self.apellido and self.nombre else f"{self.nombre} {self.apellido}"
+        return self.nombre_completo_display() or super().__str__()
  
     def clean(self):
         super().clean()
@@ -180,14 +188,15 @@ class Vendedor(AbstractUser):
     )
 
     def __str__(self):
-        return f"#{self.id} - {self.apellido}, {self.nombre}" if self.apellido and self.nombre else f"#{self.id} - {self.nombre} {self.apellido}"
+        nc = self.nombre_completo_display()
+        return f'#{self.id} - {nc}' if nc else f'#{self.id}'
 
     def clean(self):
         super().clean()
         if self.celular:
             self.celular = ''.join(filter(str.isdigit, self.celular))
     def nombre_completo_vendedor(self):
-        return f"{self.apellido}, {self.nombre}" if self.apellido and self.nombre else f"{self.nombre} {self.apellido}"
+        return self.nombre_completo_display()
 
     def porcentaje_comision_efectivo(self):
         """
@@ -309,7 +318,7 @@ class Inquilino(Persona):
     sucursal = models.ForeignKey(Sucursal, on_delete=models.CASCADE, related_name='inquilinos')
     dni = models.CharField(max_length=8, validators=[validate_dni], blank=True, null=True)
     def nombre_completo_inquilino(self):
-        return f"{self.apellido}, {self.nombre}" if self.apellido and self.nombre else f"{self.nombre} {self.apellido}"
+        return self.nombre_completo_display()
     class Meta:
         verbose_name = "Inquilino"
         verbose_name_plural = "Inquilinos"
@@ -364,7 +373,7 @@ class Propietario(Persona):
         super().save(*args, **kwargs)
 
     def nombre_completo_propietario(self):
-        return f"{self.apellido}, {self.nombre}" if self.apellido and self.nombre else f"{self.nombre} {self.apellido}"
+        return self.nombre_completo_display()
     class Meta:
         verbose_name = "Propietario"
         verbose_name_plural = "Propietarios"

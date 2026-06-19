@@ -185,7 +185,7 @@
                                         <td>{{ movimiento.concepto|truncatewords:8 }}</td>
                                         <td>
                                             {% if movimiento.empleado %}
-                                                <small>{{ movimiento.empleado.nombre }} {{ movimiento.empleado.apellido }}</small>
+                                                <small>{{ movimiento.empleado|apellido_nombre }}</small>
                                             {% else %}
                                                 <span class="text-muted">-</span>
                                             {% endif %}

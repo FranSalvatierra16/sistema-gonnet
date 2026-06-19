@@ -1,0 +1,11 @@
+<script>
+(function (global) {
+    function formatApellidoNombre(nombre, apellido) {
+        var nom = String(nombre || '').trim();
+        var ap = String(apellido || '').trim();
+        if (ap && nom) return ap + ', ' + nom;
+        return ap || nom || '';
+    }
+    global.formatApellidoNombre = formatApellidoNombre;
+})(window);
+</script>

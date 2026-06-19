@@ -98,7 +98,7 @@
                         </td>
                         <td class="small">
                             {% if g.vendedor %}
-                            {{ g.vendedor.nombre }} {{ g.vendedor.apellido }}
+                            {{ g.vendedor|apellido_nombre }}
                             {% else %}
                             —
                             {% endif %}

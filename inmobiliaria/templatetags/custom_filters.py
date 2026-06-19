@@ -152,14 +152,26 @@ def formato_apellido_nombre(persona):
     if persona is None:
         return ''
     if isinstance(persona, dict):
-        apellido = str(persona.get('apellido') or '').strip()
-        nombre = str(persona.get('nombre') or '').strip()
-    else:
-        apellido = str(getattr(persona, 'apellido', None) or '').strip()
-        nombre = str(getattr(persona, 'nombre', None) or '').strip()
-    if apellido and nombre:
-        return f'{apellido}, {nombre}'
-    return apellido or nombre or ''
+        return formato_apellido_nombre_desde(
+            persona.get('nombre'),
+            persona.get('apellido'),
+        )
+    fn = getattr(persona, 'nombre_completo_display', None)
+    if callable(fn):
+        return fn() or ''
+    return formato_apellido_nombre_desde(
+        getattr(persona, 'nombre', None),
+        getattr(persona, 'apellido', None),
+    )
+
+
+def formato_apellido_nombre_desde(nombre, apellido):
+    """Apellido, Nombre a partir de campos sueltos."""
+    ap = str(apellido or '').strip()
+    nom = str(nombre or '').strip()
+    if ap and nom:
+        return f'{ap}, {nom}'
+    return ap or nom or ''
 
 
 @register.filter(name='apellido_nombre')

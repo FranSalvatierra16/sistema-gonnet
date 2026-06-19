@@ -1,6 +1,7 @@
 {% extends 'inmobiliaria/base.html' %}
 {% load static %}
 {% load bootstrap4 %}
+{% load custom_filters %}
 
 {% block title %}Crear Vale{% endblock %}
 
@@ -58,7 +59,7 @@
                                 <option value="">Seleccione un vendedor...</option>
                                 {% for vendedor in vendedores %}
                                 <option value="{{ vendedor.id }}">
-                                    {{ vendedor.nombre }} {{ vendedor.apellido }} ({{ vendedor.dni }})
+                                    {{ vendedor|apellido_nombre }} ({{ vendedor.dni }})
                                     {% if vendedor.comision %} — Comisión: {{ vendedor.comision }}%{% endif %}
                                 </option>
                                 {% endfor %}

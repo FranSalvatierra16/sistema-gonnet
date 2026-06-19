@@ -1074,7 +1074,7 @@ $(document).ready(function() {
 
     function aplicarProductorGastoOficina(id, nombre, apellido) {
         $('#buscar_productor_gasto_oficina').val(String(id));
-        $('#productor_gasto_oficina_nombre').val($.trim(nombre + ' ' + apellido));
+        $('#productor_gasto_oficina_nombre').val(formatApellidoNombre(nombre, apellido));
         $('#gasto_oficina_vendedor_id').val(id);
         $('#dropdown_productores_gasto_oficina').removeClass('show').empty();
     }
@@ -1126,7 +1126,7 @@ $(document).ready(function() {
                 var $b = $('<button type="button" class="list-group-item list-group-item-action py-2"></button>');
                 $b.attr('data-id', v.id).attr('data-nombre', v.nombre).attr('data-apellido', v.apellido);
                 $b.html('<span class="fw-semibold">#' + escapeHtml(String(v.id)) + '</span> ' +
-                    escapeHtml(v.nombre) + ' ' + escapeHtml(v.apellido));
+                    escapeHtml(formatApellidoNombre(v.nombre, v.apellido)));
                 $dd.append($b);
             });
         }
@@ -1641,7 +1641,7 @@ $(document).ready(function() {
     // --- Productores / vendedores ---
     function aplicarProductor(id, nombre, apellido) {
         $('#buscar_productor_id').val(String(id));
-        $('#productor_nombre').val($.trim(nombre + ' ' + apellido));
+        $('#productor_nombre').val(formatApellidoNombre(nombre, apellido));
         $('#productor_id_hidden').val(id);
         $('#dropdown_productores').removeClass('show').empty();
     }
@@ -1656,7 +1656,7 @@ $(document).ready(function() {
                 var $b = $('<button type="button" class="list-group-item list-group-item-action py-2"></button>');
                 $b.attr('data-id', v.id).attr('data-nombre', v.nombre).attr('data-apellido', v.apellido);
                 $b.html('<span class="fw-semibold">#' + escapeHtml(String(v.id)) + '</span> ' +
-                    escapeHtml(v.nombre) + ' ' + escapeHtml(v.apellido));
+                    escapeHtml(formatApellidoNombre(v.nombre, v.apellido)));
                 $dd.append($b);
             });
         }
@@ -1678,7 +1678,7 @@ $(document).ready(function() {
                         list.forEach(function(v) {
                             var $tr = $('<tr></tr>');
                             $tr.append($('<td></td>').text(v.id));
-                            $tr.append($('<td></td>').text(v.nombre + ' ' + v.apellido));
+                            $tr.append($('<td></td>').text(formatApellidoNombre(v.nombre, v.apellido)));
                             var $btn = $('<button type="button" class="btn btn-sm btn-primary seleccionar-productor"><i class="fas fa-check"></i></button>');
                             $btn.attr('data-id', v.id).attr('data-nombre', v.nombre).attr('data-apellido', v.apellido);
                             $tr.append($('<td></td>').append($btn));
@@ -2008,7 +2008,7 @@ $(document).ready(function() {
                 '<td>' + (mov.tipo === 'ingreso' ? 'Ingreso (I)' : 'Egreso (E)') + '</td>' +
                 '<td>' + mov.operacion + '</td>' +
                 '<td>' + mov.numero_liquidacion + '</td>' +
-                '<td>' + (mov.productor ? mov.productor.nombre + ' ' + mov.productor.apellido : '-') + '</td>' +
+                '<td>' + (mov.productor ? formatApellidoNombre(mov.productor.nombre, mov.productor.apellido) : '-') + '</td>' +
                 '<td>' + (mov.propiedad ? mov.propiedad.direccion : '-') + '</td>' +
                 '<td>' + (mov.concepto ? mov.concepto.nombre : '-') + '</td>' +
                 '<td>' + mov.detalles + '</td>' +

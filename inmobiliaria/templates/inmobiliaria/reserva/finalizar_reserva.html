@@ -12,7 +12,7 @@
     <div class="card mb-4">
         <div class="card-body">
             <h5 class="card-title">Detalles de la Operación</h5>
-            <p><strong>Cliente:</strong> {{ reserva.inquilino.nombre }} {{ reserva.inquilino.apellido }}</p>
+            <p><strong>Cliente:</strong> {{ reserva.inquilino|apellido_nombre }}</p>
             <p><strong>Propiedad:</strong> {{ reserva.propiedad.direccion }}</p>
             <p><strong>Precio Total:</strong> ${{ reserva.precio_total|floatformat:2 }}</p>
             <p><strong>Saldo Pendiente:</strong> ${{ reserva.cuota_pendiente|floatformat:2 }}</p>

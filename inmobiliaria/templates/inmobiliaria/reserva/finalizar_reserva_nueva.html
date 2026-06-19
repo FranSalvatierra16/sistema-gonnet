@@ -991,7 +991,7 @@ function obtenerVendedorPorId(id) {
 // Función para actualizar la información del vendedor
 function actualizarInfoVendedor(vendedor) {
     // La vista devuelve nombre_completo, no nombre y apellido por separado
-    const nombreCompleto = vendedor.nombre_completo || `${vendedor.nombre || ''} ${vendedor.apellido || ''}`.trim();
+    const nombreCompleto = vendedor.nombre_completo || formatApellidoNombre(vendedor.nombre, vendedor.apellido);
     
     document.getElementById('productor_nombre').value = nombreCompleto;
     document.getElementById('productor_info').textContent = nombreCompleto;

@@ -1,5 +1,6 @@
 {% extends 'inmobiliaria/base.html' %}
 {% load bootstrap4 %}
+{% load custom_filters %}
 
 {% block content %}
 <div class="container">
@@ -12,7 +13,7 @@
                 <div class="card-body">
                     <dl class="row">
                         <dt class="col-sm-3">Nombre:</dt>
-                        <dd class="col-sm-9">{{ inquilino.nombre }} {{ inquilino.apellido }}</dd>
+                        <dd class="col-sm-9">{{ inquilino|apellido_nombre }}</dd>
                         
                         <dt class="col-sm-3">Email:</dt>
                         <dd class="col-sm-9">{{ inquilino.email }}</dd>

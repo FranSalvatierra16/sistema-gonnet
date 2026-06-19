@@ -1,5 +1,6 @@
 {% extends 'inmobiliaria/base.html' %}
 {% load bootstrap4 %}
+{% load custom_filters %}
 
 {% block title %}Detalle propietario #{{ propietario.id }}{% endblock %}
 
@@ -23,7 +24,7 @@
                 <div class="card-body">
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <div class="info-box"><strong>Nombre:</strong> {{ propietario.nombre }} {{ propietario.apellido }}</div>
+                            <div class="info-box"><strong>Nombre:</strong> {{ propietario|apellido_nombre }}</div>
                         </div>
                         <div class="col-md-6">
                             <div class="info-box"><strong>Email:</strong> {{ propietario.email|default:"-" }}</div>

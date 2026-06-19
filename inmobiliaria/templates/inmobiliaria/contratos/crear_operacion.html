@@ -63,7 +63,7 @@
                 <div class="card-body">
                     <div class="row">
                         <div class="col-md-6">
-                            <p><strong>Inquilino:</strong> {{ contrato.inquilino.nombre }} {{ contrato.inquilino.apellido }}</p>
+                            <p><strong>Inquilino:</strong> {{ contrato.inquilino|apellido_nombre }}</p>
                             <p><strong>Propiedad:</strong> {{ contrato.propiedad.direccion }}</p>
                             {% if modo_pago_cuota_especifica %}
                             <div class="alert {% if modo_cobro_extra_cuota_pagada %}alert-info{% else %}alert-light border{% endif %} mb-2">
@@ -95,7 +95,7 @@
                             {% endif %}
                         </div>
                         <div class="col-md-6">
-                            <p><strong>Vendedor:</strong> {{ contrato.vendedor.nombre }} {{ contrato.vendedor.apellido }}</p>
+                            <p><strong>Vendedor:</strong> {{ contrato.vendedor|apellido_nombre }}</p>
                             <p><strong>Período:</strong> {{ contrato.fecha_inicio|date:"d/m/Y" }} - {{ contrato.fecha_fin|date:"d/m/Y" }}</p>
                             {% if modo_cargos_iniciales %}
                             <ul class="list-unstyled small mb-0">
