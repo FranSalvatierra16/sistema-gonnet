@@ -298,6 +298,12 @@
                                     <input type="text" class="form-control" id="monto_deposito_galicia" name="monto_deposito_galicia" 
                                            placeholder="0" autocomplete="off">
                                 </div>
+                                <div class="mb-3">
+                                    <label for="fecha_transferencia" class="form-label"><strong>📅 Fecha de transferencia:</strong></label>
+                                    <input type="date" class="form-control" id="fecha_transferencia" name="fecha_transferencia"
+                                           value="{% now 'Y-m-d' %}" style="max-width: 11rem;">
+                                    <small class="text-muted">Por defecto hoy; podés cambiarla si se acreditó otro día.</small>
+                                </div>
                             </div>
                         </div>
                         <div class="row">

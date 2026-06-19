@@ -1451,6 +1451,12 @@ window.habilitarBotonProcesar = habilitarBotonProcesar;
                                 <div class="row mb-2">
                                     <div class="col-md-6">
                                         <label class="form-label"><strong>TRANSFERENCIAS:</strong></label>
+                                        <div class="mb-2">
+                                            <label class="form-label mb-0 small" for="fecha_transferencia"><strong>Fecha de transferencia:</strong></label>
+                                            <input type="date" class="form-control form-control-sm" name="fecha_transferencia"
+                                                   id="fecha_transferencia" value="{% now 'Y-m-d' %}" style="max-width: 11rem;">
+                                            <small class="text-muted">Por defecto hoy; podés cambiarla si se acreditó otro día.</small>
+                                        </div>
                                         <div class="transferencias-container" id="transferencias-dinamicas-container">
                                             <!-- Se cargarán dinámicamente las cuentas bancarias de la sucursal -->
                                             {% for cuenta in cuentas_bancarias %}

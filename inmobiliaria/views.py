@@ -6222,6 +6222,13 @@ def procesar_movimiento_reserva(request):
                     concepto_actualizado = f"Operaci\u00f3n {reserva.id} - Galicia: ${monto_deposito_galicia}, MP: ${monto_deposito_mp}"
                     movimiento_principal.concepto = concepto_actualizado
                     movimiento_principal.save()
+
+            if monto_deposito and monto_deposito > 0:
+                try:
+                    movimiento_principal.fecha_transferencia = _fecha_transferencia_desde_post(request)
+                except ValueError:
+                    return JsonResponse({'success': False, 'error': 'Fecha de transferencia inválida.'})
+                movimiento_principal.save(update_fields=['fecha_transferencia'])
             
             total_movimiento_creado = (monto_efectivo or 0) + (monto_cheque or 0) + (monto_tarjeta or 0) + (monto_deposito or 0)
 # print(f"✅ MOVIMIENTO ÚNICO CREADO - ID: {movimiento_principal.id}, Total: ${total_movimiento_creado}")
@@ -10737,6 +10744,17 @@ def _fecha_movimiento_desde_post(request):
     raise ValueError('fecha_movimiento')
 
 
+def _fecha_transferencia_desde_post(request):
+    """Fecha real de transferencia/depósito (editable; default hoy)."""
+    raw = (request.POST.get('fecha_transferencia') or '').strip()
+    if raw:
+        try:
+            return datetime.strptime(raw, '%Y-%m-%d').date()
+        except ValueError:
+            raise ValueError('fecha_transferencia')
+    return timezone.localdate()
+
+
 def _saldo_inicial_efectivo_caja(caja):
     """Saldo de apertura de la caja: se considera 100% efectivo en ARS."""
     return Decimal(str(getattr(caja, 'saldo_inicial', None) or 0))
@@ -12248,7 +12266,11 @@ def nuevo_movimiento(request, numero_caja=None):
                 return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
 
             if movimiento.monto_deposito and float(movimiento.monto_deposito) > 0:
-                movimiento.fecha_transferencia = timezone.localtime(movimiento.fecha).date()
+                try:
+                    movimiento.fecha_transferencia = _fecha_transferencia_desde_post(request)
+                except ValueError:
+                    messages.error(request, 'Fecha de transferencia/depósito inválida.')
+                    return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
             else:
                 movimiento.fecha_transferencia = None
 
@@ -17078,6 +17100,13 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato, pago_cuota_co
             elif monto_deposito_mp > 0:
                 movimiento.destino_deposito = 'mp'
                 movimiento.monto_deposito = monto_deposito_mp
+        if movimiento.monto_deposito and float(movimiento.monto_deposito) > 0:
+            try:
+                movimiento.fecha_transferencia = _fecha_transferencia_desde_post(request)
+            except ValueError:
+                return None, 0, 'Fecha de transferencia inválida.'
+        else:
+            movimiento.fecha_transferencia = None
         movimiento.save()
         _asignar_numero_recibo_a_movimiento(movimiento, sucursal=request.user.sucursal)
 

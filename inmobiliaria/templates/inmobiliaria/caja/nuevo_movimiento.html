@@ -401,6 +401,10 @@
                                         {% endfor %}
                                     </select>
                                 </div>
+                                <label class="form-label small mt-1 mb-0" for="fecha_transferencia_mov">Fecha de transferencia</label>
+                                <input type="date" name="fecha_transferencia" id="fecha_transferencia_mov" class="form-control form-control-sm"
+                                       value="{% now 'Y-m-d' %}" style="max-width: 11rem;">
+                                <small class="text-muted d-block">Por defecto hoy; usada en el reporte bancario.</small>
                                 <small class="text-muted">Solo cuentas dadas de alta para <strong>{{ request.user.sucursal.nombre }}</strong>. <a href="{% url 'inmobiliaria:gestionar_cuentas_bancarias' %}">Gestionar cuentas bancarias</a></small>
                             </div>
                             <div class="col-md-2">
