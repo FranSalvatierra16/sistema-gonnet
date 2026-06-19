@@ -7,7 +7,7 @@
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
         <div>
             <h2 class="mb-1"><i class="fas fa-sitemap me-2"></i>Categorías de gastos</h2>
-            <p class="text-muted small mb-0">Organizá los gastos de oficina en categorías y subcategorías.</p>
+            <p class="text-muted small mb-0">Editá, activá/desactivá o eliminá categorías y subcategorías.</p>
         </div>
         <div class="d-flex gap-2">
             <a href="{% url 'inmobiliaria:oficina_resumen_cierre' %}" class="btn btn-outline-success btn-sm">Resumen cierre</a>
@@ -17,7 +17,7 @@
     </div>
 
     <div class="row g-4">
-        <div class="col-lg-5">
+        <div class="col-lg-4">
             <div class="card shadow-sm mb-3">
                 <div class="card-header bg-light"><strong>Nueva categoría (raíz)</strong></div>
                 <div class="card-body">
@@ -52,42 +52,167 @@
                     </form>
                 </div>
             </div>
+            <div class="alert alert-light border small mt-3 mb-0">
+                <strong>Desactivar grupo:</strong> en una categoría raíz desactiva también todas sus subcategorías.<br>
+                <strong>Vendedor:</strong> las filas con badge «vendedor» se sincronizan solas; podés activar/desactivar, no renombrar ni borrar.
+            </div>
         </div>
-        <div class="col-lg-7">
+        <div class="col-lg-8">
             <div class="card shadow-sm">
-                <div class="card-header"><strong>Árbol de categorías</strong></div>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <strong>Árbol de categorías</strong>
+                    <span class="badge bg-secondary">{{ arbol|length }} categorías</span>
+                </div>
                 <ul class="list-group list-group-flush">
                     {% for item in arbol %}
-                    <li class="list-group-item">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <span class="fw-semibold {% if not item.categoria.activa %}text-muted text-decoration-line-through{% endif %}">
-                                <i class="fas fa-folder text-warning me-1"></i>{{ item.categoria.nombre }}
-                            </span>
-                            <form method="post" action="{% url 'inmobiliaria:oficina_categoria_toggle' item.categoria.id %}" class="d-inline">
-                                {% csrf_token %}
-                                <button type="submit" class="btn btn-sm btn-outline-secondary py-0">
-                                    {% if item.categoria.activa %}Desactivar{% else %}Activar{% endif %}
+                    <li class="list-group-item {% if not item.categoria.activa %}bg-light{% endif %}">
+                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                            <div>
+                                <span class="fw-semibold {% if not item.categoria.activa %}text-muted text-decoration-line-through{% endif %}">
+                                    <i class="fas fa-folder text-warning me-1"></i>{{ item.categoria.nombre }}
+                                </span>
+                                {% if item.categoria.activa %}
+                                <span class="badge bg-success ms-1">Activa</span>
+                                {% else %}
+                                <span class="badge bg-secondary ms-1">Inactiva</span>
+                                {% endif %}
+                                {% if item.categoria.num_gastos %}
+                                <span class="badge bg-light text-muted border ms-1" title="Gastos en esta categoría">{{ item.categoria.num_gastos }} gasto{{ item.categoria.num_gastos|pluralize }}</span>
+                                {% endif %}
+                            </div>
+                            <div class="btn-group btn-group-sm">
+                                <button type="button" class="btn btn-outline-primary btn-editar-cat"
+                                        data-id="{{ item.categoria.id }}"
+                                        data-nombre="{{ item.categoria.nombre }}"
+                                        data-vendedor="0"
+                                        title="Editar nombre">
+                                    <i class="fas fa-pen"></i>
                                 </button>
-                            </form>
+                                <form method="post" action="{% url 'inmobiliaria:oficina_categoria_toggle' item.categoria.id %}" class="d-inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-outline-secondary" title="Activar/desactivar categoría y todas sus subcategorías">
+                                        {% if item.categoria.activa %}<i class="fas fa-eye-slash"></i> Grupo{% else %}<i class="fas fa-eye"></i> Grupo{% endif %}
+                                    </button>
+                                </form>
+                                <form method="post" action="{% url 'inmobiliaria:oficina_categoria_toggle' item.categoria.id %}" class="d-inline">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="solo_esta" value="1">
+                                    <button type="submit" class="btn btn-outline-secondary" title="Activar/desactivar solo esta categoría raíz (sin tocar subcategorías)">
+                                        {% if item.categoria.activa %}Solo off{% else %}Solo on{% endif %}
+                                    </button>
+                                </form>
+                                <form method="post" action="{% url 'inmobiliaria:oficina_categoria_eliminar' item.categoria.id %}" class="d-inline"
+                                      onsubmit="return confirm('¿Eliminar la categoría «{{ item.categoria.nombre }}» y todas sus subcategorías sin gastos?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-outline-danger" title="Eliminar">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
                         </div>
                         {% if item.hijos %}
-                        <ul class="list-unstyled ms-4 mt-2 mb-0">
+                        <ul class="list-unstyled ms-3 mt-2 mb-0 border-start ps-3">
                             {% for hijo in item.hijos %}
-                            <li class="small py-1 {% if not hijo.activa %}text-muted text-decoration-line-through{% endif %}">
-                                <i class="fas fa-angle-right text-secondary me-1"></i>{{ hijo.nombre }}{% if hijo.vendedor_id %} <span class="badge bg-light text-muted border">vendedor</span>{% endif %}
+                            <li class="py-2 {% if not forloop.last %}border-bottom{% endif %}">
+                                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                                    <div class="small">
+                                        <span class="{% if not hijo.activa %}text-muted text-decoration-line-through{% endif %}">
+                                            <i class="fas fa-angle-right text-secondary me-1"></i>{{ hijo.nombre }}
+                                        </span>
+                                        {% if hijo.vendedor_id %}
+                                        <span class="badge bg-light text-muted border">vendedor</span>
+                                        {% endif %}
+                                        {% if hijo.activa %}
+                                        <span class="badge bg-success">Activa</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">Inactiva</span>
+                                        {% endif %}
+                                        {% if hijo.num_gastos %}
+                                        <span class="badge bg-light text-muted border">{{ hijo.num_gastos }} gasto{{ hijo.num_gastos|pluralize }}</span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="btn-group btn-group-sm">
+                                        {% if not hijo.vendedor_id %}
+                                        <button type="button" class="btn btn-outline-primary btn-editar-cat"
+                                                data-id="{{ hijo.id }}"
+                                                data-nombre="{{ hijo.nombre }}"
+                                                data-vendedor="0"
+                                                title="Editar">
+                                            <i class="fas fa-pen"></i>
+                                        </button>
+                                        {% endif %}
+                                        <form method="post" action="{% url 'inmobiliaria:oficina_categoria_toggle' hijo.id %}" class="d-inline">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="solo_esta" value="1">
+                                            <button type="submit" class="btn btn-outline-secondary" title="Activar/desactivar solo esta">
+                                                {% if hijo.activa %}<i class="fas fa-eye-slash"></i>{% else %}<i class="fas fa-eye"></i>{% endif %}
+                                            </button>
+                                        </form>
+                                        {% if not hijo.vendedor_id %}
+                                        <form method="post" action="{% url 'inmobiliaria:oficina_categoria_eliminar' hijo.id %}" class="d-inline"
+                                              onsubmit="return confirm('¿Eliminar «{{ hijo.nombre }}»?');">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-outline-danger" title="Eliminar" {% if hijo.num_gastos %}disabled{% endif %}>
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </form>
+                                        {% endif %}
+                                    </div>
+                                </div>
                             </li>
                             {% endfor %}
                         </ul>
                         {% else %}
-                        <p class="small text-muted ms-4 mb-0 mt-1">Sin subcategorías (los gastos pueden usar esta categoría directamente).</p>
+                        <p class="small text-muted ms-4 mb-0 mt-2">Sin subcategorías.</p>
                         {% endif %}
                     </li>
                     {% empty %}
-                    <li class="list-group-item text-muted">No hay categorías. Se crearán automáticamente al entrar al panel.</li>
+                    <li class="list-group-item text-muted">No hay categorías.</li>
                     {% endfor %}
                 </ul>
             </div>
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="modalEditarCategoria" tabindex="-1" aria-labelledby="modalEditarCategoriaLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" id="formEditarCategoria">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalEditarCategoriaLabel">Editar categoría</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <label for="editar_categoria_nombre" class="form-label">Nombre</label>
+                    <input type="text" class="form-control" id="editar_categoria_nombre" name="nombre" maxlength="120" required>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.querySelectorAll('.btn-editar-cat').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        if (btn.getAttribute('data-vendedor') === '1') return;
+        var id = btn.getAttribute('data-id');
+        var nombre = btn.getAttribute('data-nombre') || '';
+        var form = document.getElementById('formEditarCategoria');
+        form.action = '{% url "inmobiliaria:oficina_categoria_editar" 0 %}'.replace('/0/', '/' + id + '/');
+        document.getElementById('editar_categoria_nombre').value = nombre;
+        var modal = document.getElementById('modalEditarCategoria');
+        if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+            bootstrap.Modal.getOrCreateInstance(modal).show();
+        }
+    });
+});
+</script>
 {% endblock %}

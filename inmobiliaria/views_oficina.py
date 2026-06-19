@@ -5,7 +5,7 @@ from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import Sum
+from django.db.models import Count, ProtectedError, Sum
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -53,6 +53,29 @@ def _arbol_categorias(sucursal, solo_activas=True):
             hijos = [h for h in hijos if h.activa]
         arbol.append({'categoria': raiz, 'hijos': hijos})
     return arbol
+
+
+def _arbol_categorias_admin(sucursal):
+    """Árbol completo (activas e inactivas) con conteo de gastos."""
+    raices = (
+        CategoriaGastoOficina.objects.filter(sucursal=sucursal, parent__isnull=True)
+        .annotate(num_gastos=Count('gastos'))
+        .prefetch_related('subcategorias__vendedor')
+        .order_by('orden', 'nombre')
+    )
+    arbol = []
+    for raiz in raices:
+        hijos = list(
+            raiz.subcategorias.annotate(num_gastos=Count('gastos'))
+            .select_related('vendedor')
+            .order_by('orden', 'nombre')
+        )
+        arbol.append({'categoria': raiz, 'hijos': hijos})
+    return arbol
+
+
+def _categoria_bloqueada_por_vendedor(cat):
+    return bool(getattr(cat, 'vendedor_id', None))
 
 
 def _totales_gastos_por_raiz(qs_gastos):
@@ -257,7 +280,7 @@ def oficina_categorias(request):
         request,
         'inmobiliaria/oficina/categorias.html',
         {
-            'arbol': _arbol_categorias(sucursal),
+            'arbol': _arbol_categorias_admin(sucursal),
         },
     )
 
@@ -312,11 +335,97 @@ def oficina_categoria_toggle(request, categoria_id):
     cat = get_object_or_404(CategoriaGastoOficina, id=categoria_id, sucursal=request.user.sucursal)
     cat.activa = not cat.activa
     cat.save(update_fields=['activa'])
-    if cat.parent_id is None:
+    if cat.parent_id is None and not (request.POST.get('solo_esta') == '1'):
         CategoriaGastoOficina.objects.filter(sucursal=cat.sucursal, parent=cat).update(
             activa=cat.activa
         )
-    messages.success(request, 'Categoría actualizada.')
+        messages.success(
+            request,
+            f'Categoría «{cat.nombre}» y sus subcategorías '
+            f'{"activadas" if cat.activa else "desactivadas"}.',
+        )
+    else:
+        messages.success(
+            request,
+            f'{"Activada" if cat.activa else "Desactivada"}: {cat.nombre_ruta()}.',
+        )
+    return redirect('inmobiliaria:oficina_categorias')
+
+
+@login_required
+@require_POST
+def oficina_categoria_editar(request, categoria_id):
+    if not _puede_oficina(request.user):
+        return HttpResponseForbidden()
+
+    cat = get_object_or_404(CategoriaGastoOficina, id=categoria_id, sucursal=request.user.sucursal)
+    if _categoria_bloqueada_por_vendedor(cat):
+        messages.error(
+            request,
+            'Las subcategorías vinculadas a un vendedor se sincronizan solas; '
+            'no se pueden renombrar desde acá.',
+        )
+        return redirect('inmobiliaria:oficina_categorias')
+
+    nombre = (request.POST.get('nombre') or '').strip()
+    if not nombre:
+        messages.error(request, 'El nombre es obligatorio.')
+        return redirect('inmobiliaria:oficina_categorias')
+
+    if CategoriaGastoOficina.objects.filter(
+        sucursal=cat.sucursal,
+        parent=cat.parent,
+        nombre__iexact=nombre,
+    ).exclude(pk=cat.pk).exists():
+        messages.error(request, 'Ya existe otra categoría con ese nombre.')
+        return redirect('inmobiliaria:oficina_categorias')
+
+    cat.nombre = nombre
+    cat.save(update_fields=['nombre'])
+    messages.success(request, f'Nombre actualizado: {cat.nombre_ruta()}.')
+    return redirect('inmobiliaria:oficina_categorias')
+
+
+@login_required
+@require_POST
+def oficina_categoria_eliminar(request, categoria_id):
+    if not _puede_oficina(request.user):
+        return HttpResponseForbidden()
+
+    cat = get_object_or_404(
+        CategoriaGastoOficina.objects.select_related('parent'),
+        id=categoria_id,
+        sucursal=request.user.sucursal,
+    )
+    if _categoria_bloqueada_por_vendedor(cat):
+        messages.error(
+            request,
+            'No se puede eliminar una subcategoría de vendedor; desactivarla si no la usás.',
+        )
+        return redirect('inmobiliaria:oficina_categorias')
+
+    nombre = cat.nombre_ruta()
+    num_gastos = cat.gastos.count()
+    if cat.parent_id is None:
+        num_gastos += GastoOficina.objects.filter(categoria__parent=cat).count()
+    if num_gastos:
+        messages.error(
+            request,
+            f'No se puede eliminar «{nombre}»: tiene {num_gastos} gasto(s) registrado(s). '
+            'Desactivarla en su lugar.',
+        )
+        return redirect('inmobiliaria:oficina_categorias')
+
+    try:
+        cat.delete()
+    except ProtectedError:
+        messages.error(
+            request,
+            f'No se puede eliminar «{nombre}» porque hay gastos vinculados.',
+        )
+        return redirect('inmobiliaria:oficina_categorias')
+
+    messages.success(request, f'Eliminada: {nombre}.')
     return redirect('inmobiliaria:oficina_categorias')
 
 
