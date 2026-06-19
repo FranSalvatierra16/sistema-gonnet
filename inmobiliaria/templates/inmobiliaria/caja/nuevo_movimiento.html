@@ -163,13 +163,30 @@
                             <div class="card-body">
                                 <div class="row g-3">
                                     <div class="col-md-5">
-                                        <label class="form-label">Categoría / subcategoría</label>
-                                        <select name="gasto_oficina_categoria_id" id="gasto_oficina_categoria_id" class="form-select">
-                                            <option value="">— Elegir —</option>
-                                            {% for op in categorias_gasto_oficina %}
-                                            <option value="{{ op.id }}" data-requiere-productor="{% if op.requiere_productor %}1{% else %}0{% endif %}" data-es-vale="{% if op.es_vale %}1{% else %}0{% endif %}"{% if op.vendedor_id %} data-vendedor-id="{{ op.vendedor_id }}"{% endif %}>{{ op.label }}</option>
-                                            {% endfor %}
-                                        </select>
+                                        <label class="form-label">Concepto</label>
+                                        <div class="row g-2 mb-2">
+                                            <div class="col-md-5">
+                                                <label class="form-label small text-muted mb-0" for="filtro_raiz_gasto_oficina">Categoría</label>
+                                                <select id="filtro_raiz_gasto_oficina" class="form-select form-select-sm">
+                                                    <option value="">Todas</option>
+                                                    {% for g in categorias_gasto_oficina_grupos %}
+                                                    <option value="{{ g.raiz }}">{{ g.raiz }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                            <div class="col-md-7">
+                                                <label class="form-label small text-muted mb-0" for="buscar_gasto_oficina_categoria">Buscar subcategoría</label>
+                                                <div class="caja-ac-wrap">
+                                                    <input type="text" id="buscar_gasto_oficina_categoria" class="form-control form-control-sm"
+                                                           placeholder="Escribí: luz, sueldo, vale, apellido…" autocomplete="off">
+                                                    <div id="dropdown_gasto_oficina_categorias" class="caja-ac-dropdown list-group" role="listbox"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <input type="hidden" name="gasto_oficina_categoria_id" id="gasto_oficina_categoria_id" value="">
+                                        <div id="gasto_oficina_categoria_sel" class="small border rounded px-2 py-2 bg-light text-muted">
+                                            <i class="fas fa-tag me-1"></i><span id="gasto_oficina_categoria_sel_txt">Ninguno elegido — buscá arriba o filtrá por categoría</span>
+                                        </div>
                                     </div>
                                     <div class="col-md-7">
                                         <label class="form-label">Descripción</label>
@@ -661,6 +678,7 @@
 {% endblock %}
 
 {% block extra_js %}
+{{ categorias_gasto_oficina|json_script:"categorias-gasto-oficina-data" }}
 <script>
 $(document).ready(function() {
     // Limpiar el formulario cuando se abre el modal
@@ -755,18 +773,118 @@ $(document).ready(function() {
     }
 
     function hideAllCajaDropdowns() {
-        $('#dropdown_conceptos, #dropdown_propiedades_main, #dropdown_productores, #dropdown_productores_gasto_oficina')
+        $('#dropdown_conceptos, #dropdown_propiedades_main, #dropdown_productores, #dropdown_productores_gasto_oficina, #dropdown_gasto_oficina_categorias')
             .removeClass('show').empty();
     }
 
+    var CATEGORIAS_GASTO_OFICINA = [];
+    try {
+        CATEGORIAS_GASTO_OFICINA = JSON.parse(document.getElementById('categorias-gasto-oficina-data').textContent);
+    } catch (e) {
+        CATEGORIAS_GASTO_OFICINA = [];
+    }
+    var gastoOficinaCategoriaActual = null;
+
+    function normalizarBusquedaGastoOficina(s) {
+        return (s || '').toString().trim().casefold ? (s || '').toString().trim().casefold()
+            : (s || '').toString().trim().toLowerCase();
+    }
+
+    function filtrarCategoriasGastoOficina() {
+        var raiz = ($('#filtro_raiz_gasto_oficina').val() || '').trim();
+        var term = normalizarBusquedaGastoOficina($('#buscar_gasto_oficina_categoria').val());
+        return CATEGORIAS_GASTO_OFICINA.filter(function(op) {
+            if (raiz && op.raiz_nombre !== raiz) return false;
+            if (!term) return true;
+            var txt = op.busqueda || normalizarBusquedaGastoOficina((op.raiz_nombre || '') + ' ' + (op.subnombre || op.label || ''));
+            return txt.indexOf(term) !== -1;
+        });
+    }
+
+    function renderDropdownCategoriasGastoOficina() {
+        var $dd = $('#dropdown_gasto_oficina_categorias');
+        var raiz = ($('#filtro_raiz_gasto_oficina').val() || '').trim();
+        var term = normalizarBusquedaGastoOficina($('#buscar_gasto_oficina_categoria').val());
+        var items;
+        if (!term && !raiz) {
+            items = CATEGORIAS_GASTO_OFICINA.slice(0, 20);
+        } else {
+            items = filtrarCategoriasGastoOficina().slice(0, 40);
+        }
+        $dd.empty();
+        if (!term && !raiz && items.length) {
+            $dd.append('<div class="list-group-item text-muted py-1 small">Elegí una categoría arriba o escribí para acotar</div>');
+        }
+        if (!items.length) {
+            $dd.append('<div class="list-group-item text-muted py-2">Sin coincidencias</div>');
+        } else {
+            items.forEach(function(op) {
+                var sub = op.subnombre || op.label || '';
+                var raiz = op.raiz_nombre || '';
+                var badge = op.es_vale ? ' <span class="badge bg-warning text-dark ms-1">Vale</span>' : '';
+                var $b = $('<button type="button" class="list-group-item list-group-item-action py-2"></button>');
+                $b.attr('data-id', op.id);
+                $b.html('<span class="text-muted small">' + escapeHtml(raiz) + ' ›</span> <strong>' + escapeHtml(sub) + '</strong>' + badge);
+                $dd.append($b);
+            });
+        }
+        $dd.addClass('show');
+    }
+
+    function aplicarCategoriaGastoOficina(op) {
+        if (!op) return;
+        gastoOficinaCategoriaActual = op;
+        $('#gasto_oficina_categoria_id').val(String(op.id));
+        var sub = op.subnombre || op.label || '';
+        var raiz = op.raiz_nombre || '';
+        $('#gasto_oficina_categoria_sel_txt').html('<strong>' + escapeHtml(raiz) + '</strong> › ' + escapeHtml(sub));
+        $('#gasto_oficina_categoria_sel').removeClass('text-muted').addClass('text-dark');
+        $('#buscar_gasto_oficina_categoria').val(sub);
+        $('#dropdown_gasto_oficina_categorias').removeClass('show').empty();
+        if (raiz) {
+            $('#filtro_raiz_gasto_oficina').val(raiz);
+        }
+        onCategoriaGastoOficinaElegida(op);
+    }
+
+    function limpiarCategoriaGastoOficina() {
+        gastoOficinaCategoriaActual = null;
+        $('#gasto_oficina_categoria_id').val('');
+        $('#gasto_oficina_categoria_sel_txt').text('Ninguno elegido — buscá arriba o filtrá por categoría');
+        $('#gasto_oficina_categoria_sel').addClass('text-muted').removeClass('text-dark');
+    }
+
     function categoriaGastoOficinaRequiereProductor() {
-        var $opt = $('#gasto_oficina_categoria_id option:selected');
-        return $opt.data('requiere-productor') === 1 || $opt.data('requiere-productor') === '1';
+        var op = gastoOficinaCategoriaActual;
+        return !!(op && op.requiere_productor);
     }
 
     function categoriaGastoOficinaEsVale() {
-        var $opt = $('#gasto_oficina_categoria_id option:selected');
-        return $opt.data('es-vale') === 1 || $opt.data('es-vale') === '1';
+        var op = gastoOficinaCategoriaActual;
+        return !!(op && op.es_vale);
+    }
+
+    function onCategoriaGastoOficinaElegida(op) {
+        if (!$('#es_gasto_oficina').is(':checked')) return;
+        var req = !!(op && op.requiere_productor);
+        var esVale = !!(op && op.es_vale);
+        var vidCat = op && op.vendedor_id;
+        $('#bloque_productor_gasto_oficina').toggleClass('d-none', !req && !vidCat);
+        $('#hint_gasto_oficina_vale').toggleClass('d-none', !esVale);
+        if (!esVale) {
+            $('select[name="tipo"]').val('EG');
+        }
+        if (vidCat) {
+            $('#gasto_oficina_vendedor_id').val(String(vidCat));
+            var label = (op.subnombre || op.label || '').trim();
+            $('#productor_gasto_oficina_nombre').val(label);
+            $('#buscar_productor_gasto_oficina').val(String(vidCat));
+        } else if (!req) {
+            $('#gasto_oficina_vendedor_id').val('');
+            $('#productor_gasto_oficina_nombre').val('');
+            $('#buscar_productor_gasto_oficina').val('');
+        }
+        actualizarModoGastoOficina();
     }
 
     function actualizarModoGastoOficina() {
@@ -781,38 +899,15 @@ $(document).ready(function() {
             if (!esVale) {
                 $('select[name="tipo"]').val('EG');
             }
-            $('#bloque_productor_gasto_oficina').toggleClass('d-none', !categoriaGastoOficinaRequiereProductor());
+            var op = gastoOficinaCategoriaActual;
+            var req = !!(op && op.requiere_productor);
+            var vidCat = op && op.vendedor_id;
+            $('#bloque_productor_gasto_oficina').toggleClass('d-none', !req && !vidCat);
         } else {
             $('#bloque_productor_gasto_oficina').addClass('d-none');
             $('#hint_gasto_oficina_vale').addClass('d-none');
         }
     }
-
-    $('#es_gasto_oficina').on('change', actualizarModoGastoOficina);
-    $('#gasto_oficina_categoria_id').on('change', function() {
-        if ($('#es_gasto_oficina').is(':checked')) {
-            var $opt = $(this).find('option:selected');
-            var req = categoriaGastoOficinaRequiereProductor();
-            var esVale = categoriaGastoOficinaEsVale();
-            var vidCat = $opt.data('vendedor-id');
-            $('#bloque_productor_gasto_oficina').toggleClass('d-none', !req && !vidCat);
-            $('#hint_gasto_oficina_vale').toggleClass('d-none', !esVale);
-            if (!esVale) {
-                $('select[name="tipo"]').val('EG');
-            }
-            if (vidCat) {
-                $('#gasto_oficina_vendedor_id').val(String(vidCat));
-                var label = ($opt.text() || '').split('›').pop().trim();
-                $('#productor_gasto_oficina_nombre').val(label);
-                $('#buscar_productor_gasto_oficina').val(String(vidCat));
-            } else if (!req) {
-                $('#gasto_oficina_vendedor_id').val('');
-                $('#productor_gasto_oficina_nombre').val('');
-                $('#buscar_productor_gasto_oficina').val('');
-            }
-        }
-    });
-    actualizarModoGastoOficina();
 
     function aplicarProductorGastoOficina(id, nombre, apellido) {
         $('#buscar_productor_gasto_oficina').val(String(id));
@@ -820,6 +915,47 @@ $(document).ready(function() {
         $('#gasto_oficina_vendedor_id').val(id);
         $('#dropdown_productores_gasto_oficina').removeClass('show').empty();
     }
+
+    $('#es_gasto_oficina').on('change', function() {
+        if (!$(this).is(':checked')) {
+            limpiarCategoriaGastoOficina();
+            $('#buscar_gasto_oficina_categoria').val('');
+        }
+        actualizarModoGastoOficina();
+    });
+
+    var debouncedBuscarCategoriaGastoOficina = debounce(function() {
+        if (!$('#es_gasto_oficina').is(':checked')) return;
+        renderDropdownCategoriasGastoOficina();
+    }, 180);
+
+    $('#buscar_gasto_oficina_categoria').on('input focus', function() {
+        debouncedBuscarCategoriaGastoOficina();
+    });
+
+    $('#filtro_raiz_gasto_oficina').on('change', function() {
+        limpiarCategoriaGastoOficina();
+        $('#buscar_gasto_oficina_categoria').val('');
+        if ($('#es_gasto_oficina').is(':checked')) {
+            renderDropdownCategoriasGastoOficina();
+        }
+    });
+
+    $(document).on('click', '#dropdown_gasto_oficina_categorias .list-group-item-action', function() {
+        var id = $(this).data('id');
+        var op = CATEGORIAS_GASTO_OFICINA.find(function(x) { return String(x.id) === String(id); });
+        if (op) aplicarCategoriaGastoOficina(op);
+    });
+
+    $('#buscar_gasto_oficina_categoria').on('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            var $first = $('#dropdown_gasto_oficina_categorias .list-group-item-action').first();
+            if ($first.length) $first.trigger('click');
+        }
+    });
+
+    actualizarModoGastoOficina();
 
     function renderProductoresGastoOficinaDropdown(list) {
         var $dd = $('#dropdown_productores_gasto_oficina');

@@ -346,7 +346,32 @@ def categorias_opciones_con_flags(sucursal):
         op['es_vale'] = categoria_gasto_es_vale(cat)
         op['es_ingreso'] = categoria_gasto_es_ingreso(cat)
         op['vendedor_id'] = getattr(cat, 'vendedor_id', None)
+        if cat and cat.parent_id:
+            op['raiz_nombre'] = (cat.parent.nombre or '').strip()
+            op['subnombre'] = (cat.nombre or '').strip()
+        elif cat:
+            op['raiz_nombre'] = (cat.nombre or '').strip()
+            op['subnombre'] = (cat.nombre or '').strip()
+        else:
+            partes = (op.get('label') or '').split(' › ', 1)
+            op['raiz_nombre'] = partes[0].strip()
+            op['subnombre'] = partes[1].strip() if len(partes) > 1 else partes[0].strip()
+        op['busqueda'] = f"{op['raiz_nombre']} {op['subnombre']}".casefold()
     return opciones
+
+
+def categorias_opciones_grupos(sucursal):
+    """Agrupa subcategorías por categoría raíz (para filtro + autocomplete)."""
+    opciones = categorias_opciones_con_flags(sucursal)
+    orden = []
+    mapa = {}
+    for op in opciones:
+        raiz = op.get('raiz_nombre') or 'Otros'
+        if raiz not in mapa:
+            mapa[raiz] = []
+            orden.append(raiz)
+        mapa[raiz].append(op)
+    return [{'raiz': raiz, 'opciones': mapa[raiz]} for raiz in orden]
 
 
 def vendedor_desde_categoria(categoria):

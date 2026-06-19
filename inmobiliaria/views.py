@@ -12080,6 +12080,7 @@ def nuevo_movimiento(request, numero_caja=None):
         asegurar_estructura_cierre_oficina,
         categoria_gasto_es_vale,
         categorias_opciones_con_flags,
+        categorias_opciones_grupos,
         registrar_gasto_oficina_desde_movimiento,
         validar_gasto_oficina_post,
     )
@@ -12102,6 +12103,7 @@ def nuevo_movimiento(request, numero_caja=None):
     asegurar_categorias_base(sucursal)
     asegurar_estructura_cierre_oficina(sucursal)
     categorias_gasto_oficina = categorias_opciones_con_flags(sucursal)
+    categorias_gasto_oficina_grupos = categorias_opciones_grupos(sucursal)
     pre_gasto_oficina = (request.GET.get('gasto_oficina') or '').strip() in ('1', 'true', 'si', 'yes')
 
     def _ctx_nuevo_movimiento(extra=None):
@@ -12111,6 +12113,7 @@ def nuevo_movimiento(request, numero_caja=None):
             'cuentas_bancarias': cuentas_bancarias,
             'movimiento_uid': uuid.uuid4().hex,
             'categorias_gasto_oficina': categorias_gasto_oficina,
+            'categorias_gasto_oficina_grupos': categorias_gasto_oficina_grupos,
             'pre_gasto_oficina': pre_gasto_oficina,
         }
         if extra:
