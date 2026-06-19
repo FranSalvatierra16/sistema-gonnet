@@ -187,6 +187,14 @@ class Vendedor(AbstractUser):
         help_text='Indica si el usuario debe cambiar su contraseña en el próximo inicio de sesión'
     )
 
+    def nombre_completo_display(self):
+        """Apellido primero, luego nombre cuando hay ambos."""
+        ap = (self.apellido or '').strip()
+        nom = (self.nombre or '').strip()
+        if ap and nom:
+            return f'{ap}, {nom}'
+        return ap or nom or ''
+
     def __str__(self):
         nc = self.nombre_completo_display()
         return f'#{self.id} - {nc}' if nc else f'#{self.id}'
@@ -195,6 +203,7 @@ class Vendedor(AbstractUser):
         super().clean()
         if self.celular:
             self.celular = ''.join(filter(str.isdigit, self.celular))
+
     def nombre_completo_vendedor(self):
         return self.nombre_completo_display()
 

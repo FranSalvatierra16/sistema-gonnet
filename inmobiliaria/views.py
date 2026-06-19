@@ -10675,9 +10675,8 @@ def caja(request):
         return redirect('inmobiliaria:gestionar_caja')
     
     # Obtener todos los movimientos de la caja
-    movimientos = list(
-        MovimientoCaja.objects.filter(caja=caja).order_by('-fecha')
-    )
+    movimientos_qs = MovimientoCaja.objects.filter(caja=caja).order_by('-fecha')
+    movimientos = list(movimientos_qs)
     next_path = request.get_full_path()
     for mov in movimientos:
         mov.url_recibo = _url_recibo_para_movimiento(
@@ -10693,8 +10692,8 @@ def caja(request):
     }
     
     # Calcular saldos (tipo en BD: IN / EG, ver TipoMovimientoCajaEnum)
-    ingresos = movimientos.filter(tipo=TipoMovimientoCajaEnum.INGRESO)
-    egresos = movimientos.filter(tipo=TipoMovimientoCajaEnum.EGRESO)
+    ingresos = [m for m in movimientos if m.tipo == TipoMovimientoCajaEnum.INGRESO]
+    egresos = [m for m in movimientos if m.tipo == TipoMovimientoCajaEnum.EGRESO]
 
     def _suma_medios(m):
         return (
