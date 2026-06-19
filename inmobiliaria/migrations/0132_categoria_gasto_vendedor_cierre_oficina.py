@@ -2,14 +2,6 @@ from django.db import migrations, models
 import django.db.models.deletion
 
 
-def aplicar_estructura_cierre_corrientes(apps, schema_editor):
-    Sucursal = apps.get_model('inmobiliaria', 'Sucursal')
-    from inmobiliaria.oficina_gastos import asegurar_estructura_cierre_oficina
-
-    for sucursal in Sucursal.objects.all():
-        asegurar_estructura_cierre_oficina(sucursal)
-
-
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -30,5 +22,4 @@ class Migration(migrations.Migration):
                 verbose_name='Vendedor vinculado',
             ),
         ),
-        migrations.RunPython(aplicar_estructura_cierre_corrientes, migrations.RunPython.noop),
     ]
