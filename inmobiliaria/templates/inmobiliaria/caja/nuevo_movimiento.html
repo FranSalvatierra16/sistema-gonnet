@@ -1360,8 +1360,8 @@ $(document).ready(function() {
         var inq = parseMontoLocal($inq.val());
         var src = ultimoCasilleroCorresponde || 'oficina';
 
-        // Sin importe en medios de pago: no tocar lo que el usuario escribió acá
-        if (total <= 0) {
+        // Sin importe real cargado (> 1): no tocar lo que el usuario escribió acá
+        if (total <= 1) {
             return;
         }
 
