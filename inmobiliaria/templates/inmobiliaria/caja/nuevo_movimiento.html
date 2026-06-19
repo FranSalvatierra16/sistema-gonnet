@@ -1336,14 +1336,26 @@ $(document).ready(function() {
         var inq = parseMontoLocal($inq.val());
         var src = ultimoCasilleroCorresponde || 'oficina';
 
+        // Sin importe en medios de pago: no tocar lo que el usuario escribió acá
         if (total <= 0) {
-            if (campoActivoId !== 'monto_a_oficina') $of.val(fmtMontoLocal(0));
-            if (campoActivoId !== 'monto_a_propietario') $prop.val(fmtMontoLocal(0));
-            if (campoActivoId !== 'monto_a_inquilino') $inq.val(fmtMontoLocal(0));
             return;
         }
 
-        if (src === 'oficina') {
+        var suma = of + prop + inq;
+
+        // Si aún no repartió nada, asignar el total al casillero activo / último usado
+        if (suma <= 0.005) {
+            of = 0;
+            prop = 0;
+            inq = 0;
+            if (src === 'propietario') {
+                prop = total;
+            } else if (src === 'inquilino') {
+                inq = total;
+            } else {
+                of = total;
+            }
+        } else if (src === 'oficina') {
             of = Math.min(of, total);
             if (of >= total - 0.005) {
                 of = total;
@@ -1391,28 +1403,35 @@ $(document).ready(function() {
     $('#formMovimiento').on('input', '.monto', function() {
         calcularTotal();
         actualizarVisibilidadMediosPago();
+        sincronizarCorresponde(ultimoCasilleroCorresponde);
     });
     $('.monto').on('blur', function() {
         sincronizarCorresponde(ultimoCasilleroCorresponde);
     });
     calcularTotal();
     actualizarVisibilidadMediosPago();
-    sincronizarCorresponde('oficina');
+
+    $('.input-monto-corresponde').on('input', function() {
+        ultimoCasilleroCorresponde = this.id === 'monto_a_propietario'
+            ? 'propietario'
+            : (this.id === 'monto_a_inquilino' ? 'inquilino' : 'oficina');
+        sincronizarCorresponde(ultimoCasilleroCorresponde, this.id);
+    });
 
     $('#monto_a_oficina').on('focus', function() {
         ultimoCasilleroCorresponde = 'oficina';
     }).on('blur', function() {
-        sincronizarCorresponde('oficina');
+        sincronizarCorresponde('oficina', 'monto_a_oficina');
     });
     $('#monto_a_propietario').on('focus', function() {
         ultimoCasilleroCorresponde = 'propietario';
     }).on('blur', function() {
-        sincronizarCorresponde('propietario');
+        sincronizarCorresponde('propietario', 'monto_a_propietario');
     });
     $('#monto_a_inquilino').on('focus', function() {
         ultimoCasilleroCorresponde = 'inquilino';
     }).on('blur', function() {
-        sincronizarCorresponde('inquilino');
+        sincronizarCorresponde('inquilino', 'monto_a_inquilino');
     });
 
     function cargarPropiedad(id, direccion, ubicacion, piso, depto) {
