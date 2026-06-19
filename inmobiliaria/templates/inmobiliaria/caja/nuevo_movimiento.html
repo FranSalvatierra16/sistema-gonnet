@@ -80,6 +80,7 @@
 .caja-ac-dropdown .list-group-item:first-child { border-top: 0; }
 .caja-ac-dropdown .list-group-item:hover,
 .caja-ac-dropdown .list-group-item.active { background: #e7f1ff; }
+.caja-ac-dropdown .list-group-item.active { font-weight: 500; }
 .caja-ac-meta { font-size: 0.75rem; color: #6c757d; }
 </style>
 {% endblock %}
@@ -754,6 +755,84 @@ $(document).ready(function() {
             t = setTimeout(function() { fn.apply(self, args); }, ms);
         };
     }
+
+    function cajaAcItemsAccionables($dropdown) {
+        return $dropdown.find('.list-group-item-action');
+    }
+
+    function cajaAcActivarItem($items, idx) {
+        $items.removeClass('active');
+        if (idx >= 0 && idx < $items.length) {
+            var $el = $items.eq(idx);
+            $el.addClass('active');
+            var el = $el[0];
+            if (el && el.scrollIntoView) {
+                el.scrollIntoView({ block: 'nearest' });
+            }
+            return idx;
+        }
+        return -1;
+    }
+
+    function cajaAcIndiceActivo($items) {
+        var i = $items.index($items.filter('.active').first());
+        return i >= 0 ? i : -1;
+    }
+
+    /** Flechas ↑↓, Enter y Escape en listas caja-ac. Devuelve true si consumió el evento. */
+    function cajaAcTecladoDropdown(e, $dropdown) {
+        if (!$dropdown.hasClass('show')) return false;
+        var $items = cajaAcItemsAccionables($dropdown);
+        if (!$items.length) return false;
+
+        var key = e.key;
+        if (key === 'ArrowDown' || key === 'ArrowUp') {
+            e.preventDefault();
+            var cur = cajaAcIndiceActivo($items);
+            if (key === 'ArrowDown') {
+                cur = cur < 0 ? 0 : Math.min(cur + 1, $items.length - 1);
+            } else {
+                cur = cur < 0 ? $items.length - 1 : Math.max(cur - 1, 0);
+            }
+            cajaAcActivarItem($items, cur);
+            return true;
+        }
+        if (key === 'Enter') {
+            e.preventDefault();
+            var $sel = $items.filter('.active').first();
+            if (!$sel.length) $sel = $items.first();
+            if ($sel.length) $sel.trigger('click');
+            return true;
+        }
+        if (key === 'Escape') {
+            e.preventDefault();
+            $dropdown.removeClass('show');
+            return true;
+        }
+        return false;
+    }
+
+    function bindCajaAcTeclado(inputSelector, dropdownSelector, abrirSiCerrado) {
+        $(inputSelector).on('keydown', function(e) {
+            var $dd = $(dropdownSelector);
+            if (!$dd.hasClass('show') && e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (typeof abrirSiCerrado === 'function') abrirSiCerrado();
+                setTimeout(function() {
+                    var $items = cajaAcItemsAccionables($dd);
+                    if ($items.length) cajaAcActivarItem($items, 0);
+                }, 80);
+                return;
+            }
+            cajaAcTecladoDropdown(e, $dd);
+        });
+    }
+
+    $(document).on('mouseenter', '.caja-ac-dropdown .list-group-item-action', function() {
+        var $dd = $(this).closest('.caja-ac-dropdown');
+        cajaAcItemsAccionables($dd).removeClass('active');
+        $(this).addClass('active');
+    });
     function showBsModal(id) {
         var el = document.getElementById(id);
         if (el && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
@@ -947,12 +1026,8 @@ $(document).ready(function() {
         if (op) aplicarCategoriaGastoOficina(op);
     });
 
-    $('#buscar_gasto_oficina_categoria').on('keydown', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            var $first = $('#dropdown_gasto_oficina_categorias .list-group-item-action').first();
-            if ($first.length) $first.trigger('click');
-        }
+    bindCajaAcTeclado('#buscar_gasto_oficina_categoria', '#dropdown_gasto_oficina_categorias', function() {
+        if ($('#es_gasto_oficina').is(':checked')) renderDropdownCategoriasGastoOficina();
     });
 
     actualizarModoGastoOficina();
@@ -1008,6 +1083,10 @@ $(document).ready(function() {
     $(document).on('click', '#dropdown_productores_gasto_oficina .list-group-item-action', function() {
         aplicarProductorGastoOficina($(this).data('id'), $(this).data('nombre'), $(this).data('apellido'));
     });
+    bindCajaAcTeclado('#buscar_productor_gasto_oficina', '#dropdown_productores_gasto_oficina', function() {
+        var t = $('#buscar_productor_gasto_oficina').val().trim();
+        if (t.length >= 1) fetchProductoresGastoOficina(t);
+    });
     $(document).on('click', function(e) {
         if (!$(e.target).closest('.caja-ac-wrap').length) {
             hideAllCajaDropdowns();
@@ -1052,12 +1131,8 @@ $(document).ready(function() {
         fetchConceptos($(this).val().trim());
     });
     $('#buscar_concepto').on('input', debouncedConceptos);
-    $('#buscar_concepto').on('keydown', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            var $first = $('#dropdown_conceptos .list-group-item-action').first();
-            if ($first.length) $first.trigger('click');
-        }
+    bindCajaAcTeclado('#buscar_concepto', '#dropdown_conceptos', function() {
+        fetchConceptos($('#buscar_concepto').val().trim());
     });
 
     $(document).on('click', '#dropdown_conceptos .list-group-item-action', function() {
@@ -1388,20 +1463,9 @@ $(document).ready(function() {
     }, 280);
 
     $('#propiedad_buscar').on('input', debouncedPropMain);
-    $('#propiedad_buscar').on('keydown', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            var $f = $('#dropdown_propiedades_main .list-group-item-action').first();
-            if ($f.length) {
-                cargarPropiedad(
-                    $f.data('id'),
-                    $f.data('direccion'),
-                    $f.data('ubicacion'),
-                    $f.data('piso'),
-                    $f.data('departamento')
-                );
-            }
-        }
+    bindCajaAcTeclado('#propiedad_buscar', '#dropdown_propiedades_main', function() {
+        var t = $('#propiedad_buscar').val().trim();
+        if (t.length >= 1) fetchPropiedades(t, null);
     });
     $(document).on('click', '#dropdown_propiedades_main .list-group-item-action', function() {
         var $t = $(this);
@@ -1536,14 +1600,9 @@ $(document).ready(function() {
         var t = $(this).val().trim();
         if (t.length >= 1) fetchVendedores(t, null);
     });
-    $('#buscar_productor_id').on('keydown', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            var $f = $('#dropdown_productores .list-group-item-action').first();
-            if ($f.length) {
-                aplicarProductor($f.data('id'), $f.data('nombre'), $f.data('apellido'));
-            }
-        }
+    bindCajaAcTeclado('#buscar_productor_id', '#dropdown_productores', function() {
+        var t = $('#buscar_productor_id').val().trim();
+        if (t.length >= 1) fetchVendedores(t, null);
     });
 
     $('#btn_buscar_productor').on('click', function() {
