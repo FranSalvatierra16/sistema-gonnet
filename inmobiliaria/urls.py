@@ -374,6 +374,7 @@ urlpatterns = [
     
     # ✅ URLs para Comisiones de Vendedores (Solo Admins)
     path('comisiones/', views.dashboard_comisiones, name='dashboard_comisiones'),
+    path('vales/', views.dashboard_vales, name='dashboard_vales'),
     path('vendedores/<int:vendedor_id>/comisiones/', views.historial_comisiones_vendedor, name='historial_comisiones_vendedor'),
     path(
         'vendedores/<int:vendedor_id>/comisiones/mes-pagado/',

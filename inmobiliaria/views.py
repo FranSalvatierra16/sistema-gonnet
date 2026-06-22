@@ -564,25 +564,16 @@ def resumen_comisiones_mensual(request, vendedor_id, anio=None, mes=None):
 
     return render(request, 'inmobiliaria/comisiones/resumen_mensual.html', context)
 
-@login_required
-def dashboard_comisiones(request):
-    """
-    Panel de comisiones por vendedor.
-    Solo accesible para administradores (nivel 4).
-    """
-    if not usuario_es_nivel_administracion(request.user):
-        messages.error(request, 'No tienes permisos para acceder a esta sección.')
-        return redirect('inmobiliaria:dashboard')
+def _build_vendedores_dashboard_data(sucursal):
+    """Totales de comisiones y vales por productor activo de la sucursal."""
+    from inmobiliaria.models.vale import TipoBeneficiarioVale
 
     vendedores = Vendedor.objects.filter(
-        sucursal=request.user.sucursal,
-        is_active=True
+        sucursal=sucursal,
+        is_active=True,
     ).order_by('apellido', 'nombre')
 
     vendedores_data = []
-    sucursal = request.user.sucursal
-    from inmobiliaria.models.vale import TipoBeneficiarioVale
-
     for vendedor in vendedores:
         total_comisiones = (
             ComisionVendedor.objects.filter(vendedor=vendedor)
@@ -590,12 +581,10 @@ def dashboard_comisiones(request):
             .aggregate(total=models.Sum('monto_comision'))['total']
             or Decimal('0')
         )
-
         comisiones_pendientes = ComisionVendedor.objects.filter(
             vendedor=vendedor,
-            estado='pendiente'
+            estado='pendiente',
         ).count()
-
         total_vales = ValeVendedor.total_saldo_para_comisiones(vendedor)
         total_vales_egreso = (
             ValeVendedor.objects.filter(vendedor=vendedor, tipo_vale='EG')
@@ -607,7 +596,6 @@ def dashboard_comisiones(request):
             .aggregate(t=models.Sum('monto'))['t']
             or Decimal('0')
         )
-
         otorgados_qs = ValeVendedor.objects.filter(usuario_creador=vendedor)
         total_otorgados_egreso = (
             otorgados_qs.filter(tipo_vale='EG').aggregate(t=models.Sum('monto'))['t']
@@ -622,7 +610,6 @@ def dashboard_comisiones(request):
             tipo_beneficiario=TipoBeneficiarioVale.VENDEDOR,
             vendedor=vendedor,
         ).count()
-
         vendedores_data.append({
             'vendedor': vendedor,
             'total_comisiones': total_comisiones,
@@ -638,6 +625,32 @@ def dashboard_comisiones(request):
         })
 
     vendedores_data.sort(key=lambda x: x['comisiones_pendientes'], reverse=True)
+    return vendedores, vendedores_data
+
+
+def _vales_sucursal_qs(sucursal):
+    return ValeVendedor.objects.filter(
+        models.Q(vendedor__sucursal=sucursal)
+        | models.Q(usuario_creador__sucursal=sucursal)
+        | models.Q(movimiento_caja__sucursal=sucursal)
+    ).distinct()
+
+
+@login_required
+def dashboard_comisiones(request):
+    """
+    Panel de comisiones por vendedor.
+    Solo accesible para administradores (nivel 4).
+    """
+    if not usuario_es_nivel_administracion(request.user):
+        messages.error(request, 'No tienes permisos para acceder a esta sección.')
+        return redirect('inmobiliaria:dashboard')
+
+    if (request.GET.get('tab') or '').strip().lower() == 'vales':
+        return redirect('inmobiliaria:dashboard_vales')
+
+    sucursal = request.user.sucursal
+    vendedores, vendedores_data = _build_vendedores_dashboard_data(sucursal)
 
     total_comisiones_sucursal = sum(
         (d['total_comisiones'] for d in vendedores_data), start=Decimal('0')
@@ -646,22 +659,6 @@ def dashboard_comisiones(request):
     total_ops_comisiones = ComisionVendedor.objects.filter(
         vendedor__in=vendedores
     ).que_suman().count()
-
-    vales_sucursal_qs = ValeVendedor.objects.filter(
-        models.Q(vendedor__sucursal=sucursal)
-        | models.Q(usuario_creador__sucursal=sucursal)
-        | models.Q(movimiento_caja__sucursal=sucursal)
-    ).distinct()
-    total_mov_vales = vales_sucursal_qs.count()
-    total_vales_egreso_sucursal = (
-        vales_sucursal_qs.filter(tipo_vale='EG').aggregate(t=models.Sum('monto'))['t']
-        or Decimal('0')
-    )
-    total_vales_ingreso_sucursal = (
-        vales_sucursal_qs.filter(tipo_vale='IN').aggregate(t=models.Sum('monto'))['t']
-        or Decimal('0')
-    )
-    total_saldo_vales_sucursal = total_vales_egreso_sucursal - total_vales_ingreso_sucursal
 
     ahora = timezone.now()
     ay, am = ahora.year, ahora.month
@@ -675,25 +672,47 @@ def dashboard_comisiones(request):
         .aggregate(t=models.Sum('monto_comision'))['t']
         or Decimal('0')
     )
-    vales_mes_q = vales_sucursal_qs.filter(
-        fecha__year=ay,
-        fecha__month=am,
-    )
-    eg_mes = (
-        vales_mes_q.filter(tipo_vale='EG').aggregate(t=models.Sum('monto'))['t']
-        or Decimal('0')
-    )
-    in_mes = (
-        vales_mes_q.filter(tipo_vale='IN').aggregate(t=models.Sum('monto'))['t']
-        or Decimal('0')
-    )
-    saldo_vales_mes = eg_mes - in_mes
-    neto_mes_sucursal = comisiones_mes_sucursal - saldo_vales_mes
     cant_ops_mes = ComisionVendedor.objects.filter(
         vendedor__in=vendedores,
         fecha_operacion__year=ay,
         fecha_operacion__month=am,
     ).que_suman().count()
+
+    context = {
+        'vendedores_data': vendedores_data,
+        'porcentaje_sucursal': getattr(sucursal, 'porcentaje_comision_default', None),
+        'total_comisiones_sucursal': total_comisiones_sucursal,
+        'total_neto_sucursal': total_neto_sucursal,
+        'total_ops_comisiones': total_ops_comisiones,
+        'comisiones_mes_sucursal': comisiones_mes_sucursal,
+        'cant_ops_mes': cant_ops_mes,
+    }
+    return render(request, 'inmobiliaria/comisiones/dashboard_comisiones.html', context)
+
+
+@login_required
+def dashboard_vales(request):
+    """Panel de vales de la sucursal (productores y otras personas)."""
+    if not usuario_es_nivel_administracion(request.user):
+        messages.error(request, 'No tienes permisos para acceder a esta sección.')
+        return redirect('inmobiliaria:dashboard')
+
+    from inmobiliaria.models.vale import TipoBeneficiarioVale
+
+    sucursal = request.user.sucursal
+    vendedores, vendedores_data = _build_vendedores_dashboard_data(sucursal)
+
+    vales_sucursal_qs = _vales_sucursal_qs(sucursal)
+    total_mov_vales = vales_sucursal_qs.count()
+    total_vales_egreso_sucursal = (
+        vales_sucursal_qs.filter(tipo_vale='EG').aggregate(t=models.Sum('monto'))['t']
+        or Decimal('0')
+    )
+    total_vales_ingreso_sucursal = (
+        vales_sucursal_qs.filter(tipo_vale='IN').aggregate(t=models.Sum('monto'))['t']
+        or Decimal('0')
+    )
+    total_saldo_vales_sucursal = total_vales_egreso_sucursal - total_vales_ingreso_sucursal
 
     vales_otras_personas_qs = (
         ValeVendedor.objects.filter(
@@ -718,34 +737,20 @@ def dashboard_comisiones(request):
     cant_vales_otros = vales_otras_personas_qs.count()
     vales_otras_personas = list(vales_otras_personas_qs[:200])
 
-    tab = (request.GET.get('tab') or 'comisiones').strip().lower()
-    if tab not in ('comisiones', 'vales'):
-        tab = 'comisiones'
-
     context = {
         'vendedores_data': vendedores_data,
-        'sucursal_actual': request.user.sucursal,
-        'porcentaje_sucursal': getattr(
-            request.user.sucursal, 'porcentaje_comision_default', None
-        ),
-        'total_comisiones_sucursal': total_comisiones_sucursal,
         'total_vales_egreso_sucursal': total_vales_egreso_sucursal,
         'total_vales_ingreso_sucursal': total_vales_ingreso_sucursal,
         'total_saldo_vales_sucursal': total_saldo_vales_sucursal,
-        'total_neto_sucursal': total_neto_sucursal,
-        'total_ops_comisiones': total_ops_comisiones,
         'total_mov_vales': total_mov_vales,
-        'comisiones_mes_sucursal': comisiones_mes_sucursal,
-        'neto_mes_sucursal': neto_mes_sucursal,
-        'cant_ops_mes': cant_ops_mes,
         'vales_otras_personas': vales_otras_personas,
         'cant_vales_otros': cant_vales_otros,
         'total_otros_egreso': total_otros_egreso,
         'total_otros_ingreso': total_otros_ingreso,
         'total_otros_saldo': total_otros_egreso - total_otros_ingreso,
-        'tab': tab,
     }
-    return render(request, 'inmobiliaria/comisiones/dashboard.html', context)
+    return render(request, 'inmobiliaria/comisiones/dashboard_vales.html', context)
+
 
 # ✅ VISTAS PARA VALES DE VENDEDORES
 

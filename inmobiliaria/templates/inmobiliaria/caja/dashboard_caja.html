@@ -94,14 +94,25 @@
             </div>
         </div>
 
-        <!-- Comisiones y vales -->
+        <!-- Comisiones -->
         <div class="col-md-4 mb-4">
             <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:dashboard_comisiones' %}'">
                 <div class="card-icon">
                     <i class="fas fa-percentage"></i>
                 </div>
-                <h3>Comisiones y vales</h3>
-                <p>Resumen por vendedor: comisiones y movimientos de vale</p>
+                <h3>Comisiones</h3>
+                <p>Resumen de comisiones por productor</p>
+            </div>
+        </div>
+
+        <!-- Vales -->
+        <div class="col-md-4 mb-4">
+            <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:dashboard_vales' %}'">
+                <div class="card-icon">
+                    <i class="fas fa-money-bill-wave"></i>
+                </div>
+                <h3>Vales</h3>
+                <p>Productores y otras personas</p>
             </div>
         </div>
 
