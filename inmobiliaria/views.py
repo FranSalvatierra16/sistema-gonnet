@@ -695,6 +695,33 @@ def dashboard_comisiones(request):
         fecha_operacion__month=am,
     ).que_suman().count()
 
+    vales_otras_personas_qs = (
+        ValeVendedor.objects.filter(
+            tipo_beneficiario=TipoBeneficiarioVale.OTRO,
+        )
+        .filter(
+            models.Q(movimiento_caja__sucursal=sucursal)
+            | models.Q(usuario_creador__sucursal=sucursal)
+        )
+        .select_related('movimiento_caja', 'movimiento_caja__caja', 'usuario_creador')
+        .distinct()
+        .order_by('-fecha')
+    )
+    total_otros_egreso = (
+        vales_otras_personas_qs.filter(tipo_vale='EG').aggregate(t=models.Sum('monto'))['t']
+        or Decimal('0')
+    )
+    total_otros_ingreso = (
+        vales_otras_personas_qs.filter(tipo_vale='IN').aggregate(t=models.Sum('monto'))['t']
+        or Decimal('0')
+    )
+    cant_vales_otros = vales_otras_personas_qs.count()
+    vales_otras_personas = list(vales_otras_personas_qs[:200])
+
+    tab = (request.GET.get('tab') or 'comisiones').strip().lower()
+    if tab not in ('comisiones', 'vales'):
+        tab = 'comisiones'
+
     context = {
         'vendedores_data': vendedores_data,
         'sucursal_actual': request.user.sucursal,
@@ -711,6 +738,12 @@ def dashboard_comisiones(request):
         'comisiones_mes_sucursal': comisiones_mes_sucursal,
         'neto_mes_sucursal': neto_mes_sucursal,
         'cant_ops_mes': cant_ops_mes,
+        'vales_otras_personas': vales_otras_personas,
+        'cant_vales_otros': cant_vales_otros,
+        'total_otros_egreso': total_otros_egreso,
+        'total_otros_ingreso': total_otros_ingreso,
+        'total_otros_saldo': total_otros_egreso - total_otros_ingreso,
+        'tab': tab,
     }
     return render(request, 'inmobiliaria/comisiones/dashboard.html', context)
 

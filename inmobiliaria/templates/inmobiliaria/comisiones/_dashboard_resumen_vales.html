@@ -1,0 +1,41 @@
+{% load custom_filters %}
+<div class="row mb-4 g-3">
+    <div class="col-lg-4">
+        <div class="info-box bg-white text-dark border shadow-sm mb-0 h-100">
+            <div class="info-box-icon text-danger">
+                <i class="fas fa-arrow-down"></i>
+            </div>
+            <div class="info-box-content">
+                <span class="info-box-text d-block text-danger">Egresos (restan)</span>
+                <span class="info-box-number text-danger">${{ total_vales_egreso_sucursal|format_price }}</span>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="info-box bg-white text-dark border shadow-sm mb-0 h-100">
+            <div class="info-box-icon text-success">
+                <i class="fas fa-arrow-up"></i>
+            </div>
+            <div class="info-box-content">
+                <span class="info-box-text d-block text-success">Ingresos (suman)</span>
+                <span class="info-box-number text-success">+${{ total_vales_ingreso_sucursal|format_price }}</span>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="info-box bg-white text-dark border shadow-sm mb-0 h-100">
+            <div class="info-box-icon text-warning">
+                <i class="fas fa-balance-scale"></i>
+            </div>
+            <div class="info-box-content">
+                <span class="info-box-text d-block text-muted">Saldo acumulado (EG − IN)</span>
+                <span class="info-box-number">${{ total_saldo_vales_sucursal|format_price }}</span>
+                <small class="text-muted">{{ total_mov_vales }} movimientos</small>
+            </div>
+        </div>
+    </div>
+</div>
+<p class="text-muted small mb-3">
+    <i class="fas fa-info-circle me-1"></i>
+    Los vales a <strong>productores</strong> descuentan sus comisiones. Los vales a <strong>otras personas</strong> (no vendedores) figuran en el listado inferior y no afectan comisiones.
+</p>
