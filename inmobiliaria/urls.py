@@ -374,6 +374,7 @@ urlpatterns = [
     
     # ✅ URLs para Comisiones de Vendedores (Solo Admins)
     path('comisiones/', views.dashboard_comisiones, name='dashboard_comisiones'),
+    path('vales/crear/', views.crear_vale, name='crear_vale'),
     path('vales/', views.dashboard_vales, name='dashboard_vales'),
     path('vendedores/<int:vendedor_id>/comisiones/', views.historial_comisiones_vendedor, name='historial_comisiones_vendedor'),
     path(
@@ -385,7 +386,6 @@ urlpatterns = [
     path('vendedores/<int:vendedor_id>/comisiones/mes/<int:anio>/<int:mes>/', views.resumen_comisiones_mensual, name='resumen_comisiones_mensual'),
     
     # ✅ URLs para Vales de Vendedores
-    path('vales/crear/', views.crear_vale, name='crear_vale'),
     path('vendedores/<int:vendedor_id>/vales/', views.lista_vales_vendedor, name='lista_vales_vendedor'),
     
     # ✅ URLs para Liquidaciones de Propietarios

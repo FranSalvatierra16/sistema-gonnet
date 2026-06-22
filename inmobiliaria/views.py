@@ -697,9 +697,13 @@ def dashboard_vales(request):
         messages.error(request, 'No tienes permisos para acceder a esta sección.')
         return redirect('inmobiliaria:dashboard')
 
+    sucursal = request.user.sucursal
+    if not sucursal:
+        messages.error(request, 'Tu usuario no tiene sucursal asignada.')
+        return redirect('inmobiliaria:dashboard')
+
     from inmobiliaria.models.vale import TipoBeneficiarioVale
 
-    sucursal = request.user.sucursal
     vendedores, vendedores_data = _build_vendedores_dashboard_data(sucursal)
 
     vales_sucursal_qs = _vales_sucursal_qs(sucursal)
@@ -726,16 +730,28 @@ def dashboard_vales(request):
         .distinct()
         .order_by('-fecha')
     )
-    total_otros_egreso = (
-        vales_otras_personas_qs.filter(tipo_vale='EG').aggregate(t=models.Sum('monto'))['t']
-        or Decimal('0')
-    )
-    total_otros_ingreso = (
-        vales_otras_personas_qs.filter(tipo_vale='IN').aggregate(t=models.Sum('monto'))['t']
-        or Decimal('0')
-    )
-    cant_vales_otros = vales_otras_personas_qs.count()
-    vales_otras_personas = list(vales_otras_personas_qs[:200])
+    try:
+        total_otros_egreso = (
+            vales_otras_personas_qs.filter(tipo_vale='EG').aggregate(t=models.Sum('monto'))['t']
+            or Decimal('0')
+        )
+        total_otros_ingreso = (
+            vales_otras_personas_qs.filter(tipo_vale='IN').aggregate(t=models.Sum('monto'))['t']
+            or Decimal('0')
+        )
+        cant_vales_otros = vales_otras_personas_qs.count()
+        vales_otras_personas = list(vales_otras_personas_qs[:200])
+    except (ProgrammingError, OperationalError):
+        logger.exception('dashboard_vales: consulta vales otras personas (¿migración 0126?)')
+        total_otros_egreso = Decimal('0')
+        total_otros_ingreso = Decimal('0')
+        cant_vales_otros = 0
+        vales_otras_personas = []
+        messages.warning(
+            request,
+            'No se pudo cargar el listado de vales a otras personas. '
+            'Verificá que las migraciones estén aplicadas.',
+        )
 
     context = {
         'vendedores_data': vendedores_data,
