@@ -84,6 +84,7 @@ urlpatterns = [
     path('propiedades/<str:propiedad_id>/reconstruir-historial/', views.reconstruir_historial_propiedad_ajax, name='reconstruir_historial_propiedad_ajax'),
     path('propiedades/<str:propiedad_id>/actualizar-historial-invierno/', views.actualizar_historial_invierno_propiedad, name='actualizar_historial_invierno_propiedad'),
     path('editar-historial-reserva/', views.editar_historial_reserva, name='editar_historial_reserva'),
+    path('reservas/<int:reserva_id>/toggle-sindicato/', views.toggle_alquiler_sindicato_reserva, name='toggle_alquiler_sindicato_reserva'),
     path('limpieza-brutal/', views.limpieza_brutal, name='limpieza_brutal'),
     # Estudiantes
     path('estudiantes/', views.estudiantes, name='estudiantes'),

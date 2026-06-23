@@ -2342,7 +2342,7 @@ def propiedad_detalle(request, propiedad_id):
     # Obtener el historial de disponibilidad (sin duplicados: mismo rango+estado+reserva solo una vez)
     historiales_qs = HistorialDisponibilidad.objects.filter(
         propiedad=propiedad
-    ).order_by('fecha_inicio', 'fecha_fin')
+    ).select_related('reserva', 'reserva__cliente').order_by('fecha_inicio', 'fecha_fin')
     seen = set()
     historiales = []
     for h in historiales_qs:
@@ -2673,6 +2673,7 @@ def propiedad_detalle(request, propiedad_id):
         'inquilinos': get_inquilinos_queryset_unificado(request),
         'vendedores': Vendedor.objects.filter(sucursal=request.user.sucursal).order_by('apellido', 'nombre'),
         'puede_cambiar_sucursal_propiedad': _puede_usar_cambio_sucursal_propiedad(request.user),
+        'puede_marcar_sindicato': _nivel_usuario_request(request) >= 5,
     }
     
     return render(request, 'inmobiliaria/propiedades/detalle.html', context)
@@ -4129,7 +4130,8 @@ def confirmar_reserva(request):
                     propiedad=propiedad,
                     fecha_inicio__lt=fecha_fin,
                     fecha_fin__gt=fecha_inicio,
-                    estado__in=['confirmada', 'confirmada_no_pagada']
+                    estado__in=['confirmada', 'confirmada_no_pagada'],
+                    es_alquiler_sindicato=False,
                 )
 
                 if reservas_existentes.exists():
@@ -4340,7 +4342,8 @@ def calcular_disponibilidad_real(propiedad, disponibilidades, reservas, fecha_in
         Q(estado='confirmada') | Q(estado='pagada') | Q(estado='confirmada_no_pagada'),
         fecha_inicio__lt=fecha_fin,
         fecha_fin__gt=fecha_inicio,
-        eliminada=False
+        eliminada=False,
+        es_alquiler_sindicato=False,
     )
     
     # Si no hay reservas, usar el rango completo de disponibilidad
@@ -4639,14 +4642,18 @@ def buscar_propiedades_reserva(request):
             ).exists():
                 continue  # No mostrar como disponible: está ocupada por operación
 
-            if reservas.filter(estado='pagada').exists():
+            if reservas.filter(estado='pagada', es_alquiler_sindicato=False).exists():
                 continue  # Saltar esta propiedad si ya tiene una reserva pagada
 
+            reservas_bloquean = reservas.filter(es_alquiler_sindicato=False)
+
             # Verificar si existe una reserva que debe mostrarse en rojo
-            reserva_confirmada_no_pagada = reservas.filter(Q(estado='confirmada_no_pagada') | Q(estado='confirmada') | Q(estado='en_espera')).first()
+            reserva_confirmada_no_pagada = reservas_bloquean.filter(
+                Q(estado='confirmada_no_pagada') | Q(estado='confirmada') | Q(estado='en_espera')
+            ).first()
 
             # Evaluar la disponibilidad y las reservas de la propiedad
-            if disponibilidades.exists() and not reservas.filter(estado='confirmada').exists():
+            if disponibilidades.exists() and not reservas_bloquean.filter(estado='confirmada').exists():
                 if reserva_confirmada_no_pagada:
                     propiedad.reserva = reserva_confirmada_no_pagada
                     propiedad.estado_reserva = 'confirmada_no_pagada'  # Siempre mostrar como confirmada_no_pagada en frontend
@@ -9091,7 +9098,7 @@ def editar_historial_reserva(request):
         historial = get_object_or_404(HistorialDisponibilidad, id=historial_id)
         if historial.propiedad.sucursal != request.user.sucursal:
             return JsonResponse({'success': False, 'error': 'No tienes permisos para editar este historial'})
-        if not historial.reserva_id or historial.estado not in ('reservado', 'alquilado'):
+        if not historial.reserva_id or historial.estado not in ('reservado', 'alquilado', 'alquiler_sindicato'):
             return JsonResponse({'success': False, 'error': 'Este historial no corresponde a una reserva editable'})
         fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
         fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date()
@@ -9118,7 +9125,7 @@ def editar_historial_reserva(request):
             # Esto evita duplicados porque actualizamos los existentes en lugar de crear nuevos
             HistorialDisponibilidad.objects.filter(
                 reserva=reserva,
-                estado__in=('reservado', 'alquilado')
+                estado__in=('reservado', 'alquilado', 'alquiler_sindicato')
             ).update(
                 fecha_inicio=fecha_inicio,
                 fecha_fin=fecha_fin
@@ -9352,6 +9359,33 @@ def limpieza_brutal(request):
             })
     
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
+
+
+@login_required
+@require_POST
+def toggle_alquiler_sindicato_reserva(request, reserva_id):
+    """
+    Marca o desmarca una operación por día como alquiler sindicato.
+    Solo nivel 5+. Aparece en el historial pero no bloquea disponibilidad.
+    """
+    if _nivel_usuario_request(request) < 5:
+        return JsonResponse({'success': False, 'error': 'Sin permiso (requiere nivel 5 o superior).'}, status=403)
+    reserva = get_object_or_404(
+        Reserva.objects.select_related('propiedad'),
+        id=reserva_id,
+        sucursal=request.user.sucursal,
+        eliminada=False,
+    )
+    reserva.es_alquiler_sindicato = not reserva.es_alquiler_sindicato
+    reserva.save(update_fields=['es_alquiler_sindicato'])
+    reserva.reconstruir_historial_cronologico()
+    etiqueta = 'Alquiler sindicato' if reserva.es_alquiler_sindicato else 'Operación normal'
+    return JsonResponse({
+        'success': True,
+        'es_alquiler_sindicato': reserva.es_alquiler_sindicato,
+        'mensaje': f'Operación #{reserva.id} marcada como {etiqueta}.',
+    })
+
 
 def reconstruir_historial_propiedad(propiedad):
     """
@@ -14545,8 +14579,10 @@ def buscar_propiedades(request):
             ).exists():
                 continue  # No mostrar como disponible: está ocupada por operación
 
-            if reservas.filter(estado='pagada').exists():
+            if reservas.filter(estado='pagada', es_alquiler_sindicato=False).exists():
                 continue  # Saltar esta propiedad si ya tiene una reserva pagada
+
+            reservas_bloquean = reservas.filter(es_alquiler_sindicato=False)
 
             # 🎯 DEBUGGING: Ver todas las reservas encontradas
 # print(f"🏠 Propiedad {propiedad.id} - Búsqueda: {fecha_inicio} al {fecha_fin}")
@@ -14556,7 +14592,9 @@ def buscar_propiedades(request):
 # print(f"   - Reserva {r.id}: {r.fecha_inicio} al {r.fecha_fin}, estado='{r.estado}'")
             
             # Verificar si existe una reserva confirmada no pagada, confirmada o en espera
-            reserva_confirmada_no_pagada = reservas.filter(Q(estado='confirmada_no_pagada') | Q(estado='confirmada') | Q(estado='en_espera')).first()
+            reserva_confirmada_no_pagada = reservas_bloquean.filter(
+                Q(estado='confirmada_no_pagada') | Q(estado='confirmada') | Q(estado='en_espera')
+            ).first()
 # print(f"   ¿Reserva para mostrar en rojo? {bool(reserva_confirmada_no_pagada)}")
             if reserva_confirmada_no_pagada:
                 pass  # ✅ Bloque vacío
@@ -14577,7 +14615,7 @@ def buscar_propiedades(request):
             # 🎯 CORREGIDO: Manejar propiedades CON O SIN disponibilidades
             
             # Verificar reservas conflictivas PRIMERO (solo las pagadas)
-            reservas_conflictivas = reservas.filter(
+            reservas_conflictivas = reservas_bloquean.filter(
                 Q(estado='pagada')
             )
             
@@ -14614,7 +14652,8 @@ def buscar_propiedades(request):
                 reserva_termina_en_inicio = propiedad.reservas.filter(
                     eliminada=False,
                     fecha_fin=fecha_inicio,
-                    estado__in=['confirmada', 'confirmada_no_pagada', 'en_espera']
+                    estado__in=['confirmada', 'confirmada_no_pagada', 'en_espera'],
+                    es_alquiler_sindicato=False,
                 ).exclude(
                     # Excluir reservas que también empiezan en fecha_inicio (esas están en el rango)
                     fecha_inicio=fecha_inicio

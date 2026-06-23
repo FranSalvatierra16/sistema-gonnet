@@ -53,11 +53,19 @@ TIPOS_INMUEBLES = [
     ('deposito', 'Depósito'), 
 ]
 
+ESTADOS_RESERVA_OCUPAN_DISPONIBILIDAD = [
+    'confirmada',
+    'confirmada_no_pagada',
+    'pagada',
+]
+
+
 class HistorialDisponibilidad(models.Model):
     ESTADO_CHOICES = [
         ('libre', 'Libre'),
         ('reservado', 'Reservado'),
-        ('alquilado', 'Operación')
+        ('alquilado', 'Operación'),
+        ('alquiler_sindicato', 'Alquiler sindicato'),
     ]
 
     propiedad = models.ForeignKey(
@@ -292,6 +300,14 @@ class Propiedad(models.Model):
     def __str__(self):
         return f"{self.id} - {self.direccion}"
 
+    def reservas_que_ocupan_disponibilidad(self):
+        """Reservas activas que bloquean fechas (excluye alquiler sindicato e eliminadas)."""
+        return self.reservas.filter(
+            estado__in=ESTADOS_RESERVA_OCUPAN_DISPONIBILIDAD,
+            eliminada=False,
+            es_alquiler_sindicato=False,
+        )
+
     def esta_disponible_en_fecha(self, fecha_inicio, fecha_fin):
         """Verifica si una propiedad está disponible entre las fechas dadas, reconociendo disponibilidades contiguas."""
         if not fecha_inicio or not fecha_fin:
@@ -332,13 +348,10 @@ class Propiedad(models.Model):
             if cobertura_inicio <= fecha_inicio and cobertura_fin >= fecha_fin:
                 periodo_cubierto = True
 
-        # 3️⃣ Verificar si hay reservas que se superpongan
-        # Excluir reservas eliminadas
-        reservas_superpuestas = self.reservas.filter(
+        # 3️⃣ Verificar si hay reservas que se superpongan (sin alquiler sindicato)
+        reservas_superpuestas = self.reservas_que_ocupan_disponibilidad().filter(
             fecha_inicio__lt=fecha_fin,
             fecha_fin__gt=fecha_inicio,
-            estado__in=['confirmada', 'confirmada_no_pagada'],
-            eliminada=False
         ).exists()
 
         # La propiedad está disponible si:
@@ -557,6 +570,11 @@ class Reserva(models.Model):
     )
 
     deposito_garantia = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    es_alquiler_sindicato = models.BooleanField(
+        default=False,
+        verbose_name='Alquiler sindicato',
+        help_text='Figura en el historial pero no bloquea la disponibilidad de la propiedad.',
+    )
     eliminada = models.BooleanField(default=False)
     fecha_eliminacion = models.DateTimeField(null=True, blank=True)
     usuario_eliminacion = models.ForeignKey('Vendedor', on_delete=models.SET_NULL, null=True, blank=True, related_name='reservas_eliminadas')
@@ -623,8 +641,14 @@ class Reserva(models.Model):
         # 2️⃣ OBTENER disponibilidades manuales y reservas
         disponibilidades_manuales = self.propiedad.disponibilidades.filter(es_manual=True).order_by('fecha_inicio')
         reservas = self.propiedad.reservas.filter(
-            estado__in=['confirmada', 'confirmada_no_pagada', 'pagada'],
-            eliminada=False
+            estado__in=ESTADOS_RESERVA_OCUPAN_DISPONIBILIDAD,
+            eliminada=False,
+            es_alquiler_sindicato=False,
+        ).order_by('fecha_inicio')
+        reservas_sindicato = self.propiedad.reservas.filter(
+            es_alquiler_sindicato=True,
+            eliminada=False,
+            estado__in=ESTADOS_RESERVA_OCUPAN_DISPONIBILIDAD,
         ).order_by('fecha_inicio')
 
         # 3️⃣ Unir rangos superpuestos: evita duplicados cuando hay disponibilidades que se solapan
@@ -657,6 +681,15 @@ class Reserva(models.Model):
                 )
             else:
                 self._fragmentar_rango_con_reservas(fecha_inicio, fecha_fin, reservas_en_rango)
+
+        for reserva_sind in reservas_sindicato:
+            HistorialDisponibilidad.objects.create(
+                propiedad=self.propiedad,
+                fecha_inicio=reserva_sind.fecha_inicio,
+                fecha_fin=reserva_sind.fecha_fin,
+                estado='alquiler_sindicato',
+                reserva=reserva_sind,
+            )
     
     def _fragmentar_rango_con_reservas(self, fecha_inicio, fecha_fin, reservas_en_rango):
         """Fragmenta un rango (fecha_inicio, fecha_fin) en períodos libres y ocupados por reservas."""
