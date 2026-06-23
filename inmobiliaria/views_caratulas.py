@@ -1485,9 +1485,22 @@ def imprimir_caratula_contrato(request, contrato_id):
         except Exception:
             fdoc = contrato.fecha_creacion.date() if hasattr(contrato.fecha_creacion, 'date') else timezone.localdate()
 
+    from inmobiliaria.views import _validar_url_volver_recibo
+
+    volver_explicito = _validar_url_volver_recibo(
+        (request.GET.get('next') or '').strip(), request
+    )
+    if volver_explicito:
+        volver_url = volver_explicito
+        volver_label = 'Volver'
+    else:
+        volver_url = reverse('inmobiliaria:caratula_contrato', args=[contrato_id])
+        volver_label = 'Volver a la carátula'
+
     ctx = {
         'es_reserva': False,
-        'volver_url': reverse('inmobiliaria:caratula_contrato', args=[contrato_id]),
+        'volver_url': volver_url,
+        'volver_label': volver_label,
         'rubro_title': 'CONTRATO DE LOCACIÓN',
         'numero_display': f"Nº CT {_formato_miles_ar(contrato.id)}",
         'llave': cl['codigo_llave'],

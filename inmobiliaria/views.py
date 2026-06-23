@@ -218,12 +218,38 @@ def _url_recibo_movimiento_siguiente_caratula(movimiento, sucursal, reserva_id, 
     return _url_recibo_para_movimiento(movimiento, sucursal, next_url=caratula)
 
 
+def _url_imprimir_caratula_contrato(contrato_id, request=None):
+    """Carátula imprimible de contrato; con request encadena volver a caja o menú."""
+    url = reverse('inmobiliaria:imprimir_caratula_contrato', args=[contrato_id])
+    if request is not None:
+        url = _url_con_query_param(
+            url, 'next', _default_url_volver_recibo(request), request
+        )
+    return url
+
+
+def _contexto_botones_recibo_contrato(request, contrato_id):
+    """Volver al detalle/caja y Siguiente hacia carátula imprimible."""
+    explicit = (request.GET.get('next') or '').strip()
+    validated = _validar_url_volver_recibo(explicit, request)
+    url_volver = validated or reverse('inmobiliaria:detalle_contrato', args=[contrato_id])
+    return {
+        'url_volver': url_volver,
+        'url_siguiente': _url_imprimir_caratula_contrato(contrato_id, request),
+        'muestra_siguiente_caratula': True,
+    }
+
+
 def _contexto_boton_volver_recibo(request, default=None):
     url = _url_volver_recibo(request, default=default)
-    es_caratula = '/caratulas/reserva/' in (url or '') and '/imprimir/' in (url or '')
+    es_caratula = (
+        '/caratulas/reserva/' in (url or '') and '/imprimir/' in (url or '')
+    ) or (
+        '/caratulas/contrato/' in (url or '') and '/imprimir/' in (url or '')
+    )
     return {
         'url_volver': url,
-        'texto_boton_volver': 'Continuar a carátula' if es_caratula else 'Volver',
+        'texto_boton_volver': 'Siguiente' if es_caratula else 'Volver',
         'icono_boton_volver': 'fa-arrow-right' if es_caratula else 'fa-arrow-left',
     }
 
@@ -20593,7 +20619,7 @@ def recibo_contrato_24(request, contrato_id):
             'mes_alquiler_es_proporcional': es_proporcional_recibo,
             'mes_alquiler_texto_recibo': mes_alquiler_texto_recibo,
             'formas_de_pago': formas_de_pago_recibo,
-            'url_volver': _url_volver_recibo(request),
+            **_contexto_botones_recibo_contrato(request, contrato.id),
             'recibo_etiqueta_tipo_contrato': contrato.etiqueta_recibo_tipo_contrato,
             'recibo_es_contrato_invierno': contrato.es_contrato_invierno(),
         }
