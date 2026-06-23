@@ -171,8 +171,61 @@ def _default_url_volver_recibo(request):
 
 
 def _url_volver_recibo(request, default=None):
-    """URL del botón Volver en pantallas de recibo (según nivel del usuario)."""
+    """URL del botón Volver/Continuar en pantallas de recibo."""
+    explicit = (request.GET.get('next') or '').strip()
+    validated = _validar_url_volver_recibo(explicit, request)
+    if validated:
+        return validated
+    if default is not None:
+        return default
     return _default_url_volver_recibo(request)
+
+
+def _url_con_query_param(url, param_name, param_value, request):
+    from urllib.parse import urlencode
+
+    if param_name == 'next':
+        validated = _validar_url_volver_recibo(param_value, request)
+    else:
+        validated = (param_value or '').strip() or None
+    if not validated:
+        return url
+    sep = '&' if '?' in url else '?'
+    return f'{url}{sep}{urlencode({param_name: validated})}'
+
+
+def _url_imprimir_caratula_reserva(reserva_id, request=None):
+    """Carátula imprimible; con request encadena volver a caja o menú."""
+    url = reverse('inmobiliaria:imprimir_caratula_reserva', args=[reserva_id])
+    if request is not None:
+        url = _url_con_query_param(
+            url, 'next', _default_url_volver_recibo(request), request
+        )
+    return url
+
+
+def _url_recibo_reserva_siguiente_caratula(reserva_id, request):
+    """Recibo de operación por día con siguiente paso = carátula."""
+    url = reverse('inmobiliaria:ver_recibo', args=[reserva_id])
+    return _url_con_query_param(
+        url, 'next', _url_imprimir_caratula_reserva(reserva_id, request), request
+    )
+
+
+def _url_recibo_movimiento_siguiente_caratula(movimiento, sucursal, reserva_id, request):
+    """Recibo del movimiento con siguiente paso = carátula (operación finalizada)."""
+    caratula = _url_imprimir_caratula_reserva(reserva_id, request)
+    return _url_recibo_para_movimiento(movimiento, sucursal, next_url=caratula)
+
+
+def _contexto_boton_volver_recibo(request, default=None):
+    url = _url_volver_recibo(request, default=default)
+    es_caratula = '/caratulas/reserva/' in (url or '') and '/imprimir/' in (url or '')
+    return {
+        'url_volver': url,
+        'texto_boton_volver': 'Continuar a carátula' if es_caratula else 'Volver',
+        'icono_boton_volver': 'fa-arrow-right' if es_caratula else 'fa-arrow-left',
+    }
 
 # Modelos usados por vistas definidas antes del import masivo de .models (línea ~871)
 from .models import ComisionVendedor, ValeVendedor, MesComisionPagadoVendedor
@@ -4121,7 +4174,11 @@ def confirmar_reserva(request):
                     'estado_asignado': estado_asignado,
                     'tipo_operacion': tipo_operacion,
                     'mensaje_estado': f'{tipo_operacion} creada con estado: {estado_asignado}',
-                    'redirect_url': reverse('inmobiliaria:ver_recibo', args=[reserva.id]) if es_operacion_directa else reverse('inmobiliaria:reserva_exitosa', args=[reserva.id])
+                    'redirect_url': (
+                        _url_recibo_reserva_siguiente_caratula(reserva.id, request)
+                        if es_operacion_directa
+                        else reverse('inmobiliaria:reserva_exitosa', args=[reserva.id])
+                    )
                 })
 
         except Exception as e:
@@ -5098,10 +5155,15 @@ def terminar_reserva(request, reserva_id):
                     
                     reserva.save()
                     
+                    redirect_recibo = reverse('inmobiliaria:ver_recibo', args=[reserva.id])
+                    if reserva.cuota_pendiente <= 0:
+                        redirect_recibo = _url_recibo_reserva_siguiente_caratula(
+                            reserva.id, request
+                        )
                     return JsonResponse({
                         'success': True,
                         'message': 'Pago registrado exitosamente',
-                        'redirect_url': reverse('inmobiliaria:ver_recibo', args=[reserva.id]),
+                        'redirect_url': redirect_recibo,
                         'detalles': {
                             'total_pagado': float(total_pagado),
                             'saldo_pendiente': float(reserva.cuota_pendiente),
@@ -5360,7 +5422,7 @@ def ver_recibo(request, reserva_id):
             'tiene_sellados': sellados_monto > 0,
             'logo_base64': logo_base64,
             'sucursal': sucursal,  # Agregar sucursal al contexto
-            'url_volver': _url_volver_recibo(request),
+            **_contexto_boton_volver_recibo(request),
         })
         
     except Exception as e:
@@ -6566,10 +6628,18 @@ def procesar_movimiento_reserva(request):
             
 # print(f"=== MOVIMIENTO CREADO EXITOSAMENTE - ID: {movimiento.id} ===")
             
+            if saldo_pendiente <= 0:
+                redirect_url = _url_recibo_movimiento_siguiente_caratula(
+                    movimiento, request.user.sucursal, reserva.id, request
+                )
+            else:
+                redirect_url = _url_recibo_para_movimiento(
+                    movimiento, request.user.sucursal
+                )
             return JsonResponse({
                 'success': True,
                 'movimiento_id': movimiento.id,
-                'redirect_url': reverse('inmobiliaria:ver_recibo_movimiento', args=[movimiento.id])
+                'redirect_url': redirect_url,
             })
             
         except Exception as e:
@@ -7207,7 +7277,7 @@ def ver_recibo_movimiento(request, movimiento_id):
                 'tiene_honorarios': honorarios_monto > 0,
                 'tiene_sellados': sellados_monto > 0,
                 'sucursal': sucursal,  # Agregar sucursal al contexto
-                'url_volver': _url_volver_recibo(request),
+                **_contexto_boton_volver_recibo(request),
             })
         
         # Si no hay reserva, usar el template original
@@ -7277,7 +7347,7 @@ def ver_recibo_movimiento(request, movimiento_id):
             'liquidacion_relacionada': liquidacion_relacionada,
             'gastos_liquidacion_recibo': gastos_liquidacion_recibo,
             'total_gastos_descontados': total_gastos_descontados,
-            'url_volver': _url_volver_recibo(request),
+            **_contexto_boton_volver_recibo(request),
         }
         
         return render(request, 'inmobiliaria/caja/recibo_movimiento.html', context)

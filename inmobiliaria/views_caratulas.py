@@ -1393,9 +1393,22 @@ def imprimir_caratula_reserva(request, reserva_id):
         except Exception:
             fdoc = reserva.fecha_creacion.date() if hasattr(reserva.fecha_creacion, 'date') else reserva.fecha_inicio
 
+    from inmobiliaria.views import _validar_url_volver_recibo
+
+    volver_explicito = _validar_url_volver_recibo(
+        (request.GET.get('next') or '').strip(), request
+    )
+    if volver_explicito:
+        volver_url = volver_explicito
+        volver_label = 'Volver'
+    else:
+        volver_url = reverse('inmobiliaria:caratula_reserva', args=[reserva_id])
+        volver_label = 'Volver a la carátula'
+
     ctx = {
         'es_reserva': True,
-        'volver_url': reverse('inmobiliaria:caratula_reserva', args=[reserva_id]),
+        'volver_url': volver_url,
+        'volver_label': volver_label,
         'rubro_title': 'ALQUILERES',
         'numero_display': f"Nº OP {_formato_miles_ar(reserva.id)}",
         'llave': cl['codigo_llave'],

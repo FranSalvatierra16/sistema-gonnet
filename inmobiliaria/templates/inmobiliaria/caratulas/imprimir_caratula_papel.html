@@ -165,7 +165,7 @@
 </head>
 <body>
     <div class="noprint">
-        <a href="{{ volver_url }}">&larr; Volver a la carátula</a>
+        <a href="{{ volver_url }}">&larr; {{ volver_label|default:"Volver a la carátula" }}</a>
         <button type="button" onclick="window.print()">Imprimir / PDF</button>
     </div>
 
