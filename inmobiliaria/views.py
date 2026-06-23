@@ -650,6 +650,10 @@ def dashboard_comisiones(request):
         return redirect('inmobiliaria:dashboard_vales')
 
     sucursal = request.user.sucursal
+    if not sucursal:
+        messages.error(request, 'Tu usuario no tiene sucursal asignada.')
+        return redirect('inmobiliaria:dashboard')
+
     vendedores, vendedores_data = _build_vendedores_dashboard_data(sucursal)
 
     total_comisiones_sucursal = sum(

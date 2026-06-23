@@ -19,7 +19,7 @@
                 <tbody>
                     {% for item in vendedores_data %}
                     <tr>
-                        <td>{{ item.vendedor.nombre_completo_vendedor }}</td>
+                        <td>{{ item.vendedor|apellido_nombre }}</td>
                         <td class="text-end text-danger">−${{ item.total_vales_egreso|format_price }}</td>
                         <td class="text-end text-success">+${{ item.total_vales_ingreso|format_price }}</td>
                         <td class="text-end">${{ item.total_vales|format_price }}</td>

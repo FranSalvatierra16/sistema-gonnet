@@ -1,3 +1,4 @@
+{% load custom_filters %}
             <div class="card shadow-sm">
                 <div class="card-header bg-primary text-white">
                     <strong>Resumen por vendedor (comisiones)</strong>
@@ -16,7 +17,7 @@
                             <tbody>
                                 {% for item in vendedores_data %}
                                 <tr>
-                                    <td>{{ item.vendedor.nombre_completo_vendedor }}</td>
+                                    <td>{{ item.vendedor|apellido_nombre }}</td>
                                     <td class="text-end">${{ item.total_comisiones|format_price }}</td>
                                     <td class="text-center">
                                         <span class="badge {% if item.comisiones_pendientes > 0 %}bg-warning text-dark{% else %}bg-success{% endif %}">
