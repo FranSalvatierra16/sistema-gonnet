@@ -690,32 +690,8 @@ document.addEventListener('DOMContentLoaded', function() {
     btnLimpiarPropiedad.addEventListener('click', limpiarPropiedadSeleccionada);
 
     function marcarOperacionesBusqueda(data) {
-        if (!data || !data.success || data.operacion_id == null) return;
-        const oid = String(data.operacion_id);
-        const tipo = data.tipo_busqueda || '';
-        let marcadas = 0;
-        document.querySelectorAll('.operacion-checkbox:not(:disabled)').forEach(function(cb) {
-            const t = cb.getAttribute('data-tipo') || '';
-            const id = String(cb.getAttribute('data-id') || '');
-            const cid = String(cb.getAttribute('data-contrato-id') || '');
-            let match = false;
-            if (tipo === 'reserva' && t === 'reserva' && id === oid) {
-                match = true;
-            } else if (tipo === 'contrato') {
-                if (t === 'contrato_cuota' && cid === oid) {
-                    match = true;
-                } else if (t === 'contrato' && id === oid) {
-                    match = true;
-                }
-            }
-            if (match) {
-                cb.checked = true;
-                marcadas += 1;
-            }
-        });
-        if (marcadas > 0) {
-            calcularMontosSeleccionados();
-        }
+        // No tildar filas al buscar: el usuario elige qué cuotas/reservas liquidar.
+        if (!data || !data.success) return;
     }
 
     function buscarOperacionPorNumero() {
@@ -962,6 +938,7 @@ document.addEventListener('DOMContentLoaded', function() {
                            data-monto-propietario="${op.monto_propietario || '0'}"
                            data-monto-inmobiliaria="${op.monto_inmobiliaria || '0'}"
                            data-es-primera-cuota="${esPrimeraCuota}"
+                           data-anticipada="${op.anticipada ? '1' : '0'}"
                            data-comision-locador="${comLoc}"
                            data-comision-locatario="${comLocat}"
                            data-fecha-desde="${op.fecha_inicio || ''}"
@@ -977,6 +954,7 @@ document.addEventListener('DOMContentLoaded', function() {
                            data-monto-propietario="${op.monto_propietario || '0'}"
                            data-monto-inmobiliaria="${op.monto_inmobiliaria || '0'}"
                            data-es-primera-cuota="${esPrimeraCuota}"
+                           data-anticipada="${op.anticipada ? '1' : '0'}"
                            data-comision-locador="${comLoc}"
                            data-comision-locatario="${comLocat}"
                            data-fecha-desde="${op.fecha_inicio || ''}"

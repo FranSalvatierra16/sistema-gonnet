@@ -16830,8 +16830,13 @@ def _sum_importe_concepto_en_movimientos_contrato(contrato, codigo_buscado):
                 pass
         if codigo_buscado == '25' and sub == 0 and getattr(mov, 'honorarios', None):
             try:
-                if float(mov.honorarios or 0) > 0 and not json_con_lineas:
-                    sub = parse_decimal_monto(mov.honorarios)
+                if float(mov.honorarios or 0) > 0:
+                    tiene_linea_25 = any(
+                        str(c.get('id', c.get('codigo', ''))).strip() == '25'
+                        for c in parsed_list
+                    )
+                    if not tiene_linea_25:
+                        sub = parse_decimal_monto(mov.honorarios)
             except Exception:
                 pass
         total += sub
@@ -16914,7 +16919,12 @@ def obtener_valor_concepto_contrato(contrato, campo):
                     except Exception:
                         pass
                 if not ok:
-                    val_campo = Decimal('0')
+                    tiene_linea_25 = any(
+                        str(c.get('id', c.get('codigo', ''))).strip() == '25'
+                        for c in conceptos_data
+                    )
+                    if tiene_linea_25:
+                        val_campo = Decimal('0')
             elif campo == 'sellados' and json_con_lineas:
                 ok = False
                 for c in conceptos_data:
@@ -23363,18 +23373,66 @@ def _cuotas_cobro_parcial_liquidable(contrato, cuotas_excluidas, sucursal):
     return out
 
 
+def _honorarios_cobrados_en_movimiento_contrato(mov) -> Decimal:
+    """
+    Honorarios (concepto 25) de un movimiento de contrato.
+    En operación principal 24 meses suelen ir en mov.honorarios aunque haya otras líneas JSON (alquiler 1000).
+    """
+    from decimal import Decimal
+
+    parsed, parsed_list = _movimiento_json_conceptos_parsed(mov)
+    sub = Decimal('0')
+    for concepto in parsed_list:
+        cid = str(concepto.get('id', concepto.get('codigo', ''))).strip()
+        if cid != '25':
+            continue
+        try:
+            sub += parse_decimal_monto(concepto.get('importe', 0))
+        except Exception:
+            pass
+    if sub > Decimal('0.05'):
+        return sub.quantize(Decimal('0.01'))
+
+    parsed_dict = parsed if isinstance(parsed, dict) else None
+    if isinstance(parsed_dict, dict) and parsed_dict.get('honorarios') is not None:
+        try:
+            v = parse_decimal_monto(parsed_dict.get('honorarios'))
+            if v > Decimal('0.05'):
+                return v.quantize(Decimal('0.01'))
+        except Exception:
+            pass
+
+    try:
+        h = Decimal(str(getattr(mov, 'honorarios', None) or 0))
+    except Exception:
+        h = Decimal('0')
+    if h > Decimal('0.05'):
+        return h.quantize(Decimal('0.01'))
+    return Decimal('0')
+
+
+def _honorarios_cobrados_contrato(contrato) -> Decimal:
+    """Suma honorarios cobrados en todos los movimientos del contrato."""
+    from decimal import Decimal
+
+    total = Decimal('0')
+    for mov in MovimientoCaja.objects.filter(
+        propiedad=contrato.propiedad,
+        sucursal=contrato.sucursal,
+        concepto__icontains=f'Contrato #{contrato.id}',
+    ).order_by('id'):
+        total += _honorarios_cobrados_en_movimiento_contrato(mov)
+    return total.quantize(Decimal('0.01'))
+
+
 def _comisiones_sugeridas_primera_cuota_contrato(contrato) -> dict:
     """
     Comisiones de la primera operación (cuota 1) en contratos 9 o 24 meses.
-    Locatario ≈ honorarios (concepto 25); locador queda en 0 salvo cobro explícito.
+    Locatario ≈ honorarios (concepto 25 o campo honorarios del movimiento principal).
     """
-    locatario = _sum_importe_concepto_en_movimientos_contrato(contrato, '25')
+    locatario = _honorarios_cobrados_contrato(contrato)
     if locatario <= Decimal('0.05'):
-        mov_h = obtener_valor_concepto_contrato(contrato, 'honorarios')
-        if mov_h > Decimal('0.05'):
-            locatario = mov_h
-        else:
-            locatario = Decimal(str(contrato.honorarios_referencia or 0))
+        locatario = Decimal(str(contrato.honorarios_referencia or 0))
     locador = Decimal('0')
     return {
         'comision_locador': str(locador.quantize(Decimal('0.01'))),
