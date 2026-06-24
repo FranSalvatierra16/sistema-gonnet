@@ -20515,6 +20515,9 @@ def recibo_contrato_24(request, contrato_id):
             and (sel_line + tol_pendiente) < sel_ref_visual
         )
 
+        a_favor_monto = max(a_favor_recibo, creditos_lineas_negativas)
+        muestra_a_favor_recibo = not pago_cuota_mensual_recibo
+
         subtotal = total_a_abonar
         total_contrato = total_a_abonar
         
@@ -20658,6 +20661,8 @@ def recibo_contrato_24(request, contrato_id):
             'mes_alquiler_es_proporcional': es_proporcional_recibo,
             'mes_alquiler_texto_recibo': mes_alquiler_texto_recibo,
             'formas_de_pago': formas_de_pago_recibo,
+            'muestra_a_favor_recibo': muestra_a_favor_recibo,
+            'a_favor_recibo': format_currency(a_favor_monto),
             **_contexto_botones_recibo_contrato(request, contrato.id),
             'recibo_etiqueta_tipo_contrato': contrato.etiqueta_recibo_tipo_contrato,
             'recibo_es_contrato_invierno': contrato.es_contrato_invierno(),
