@@ -14269,31 +14269,19 @@ def buscar_propiedades_caja(request):
         return JsonResponse({'success': True, 'propiedades': []})
     
     try:
-        from inmobiliaria.busqueda_persona import q_busqueda_persona
+        from inmobiliaria.busqueda_propiedad import (
+            limite_busqueda_propiedad,
+            ordenar_propiedades,
+            q_busqueda_propiedad,
+        )
 
-        # Número puro → solo coincidencia exacta por ID de ficha (evita "112" en direcciones).
-        if termino.isascii() and termino.isdigit():
-            propiedades = (
-                Propiedad.objects.filter(sucursal=sucursal, id=termino)
-                .select_related('propietario')
-                .order_by('direccion')[:40]
-            )
-        else:
-            q = (
-                Q(direccion__icontains=termino) |
-                Q(ubicacion__icontains=termino) |
-                Q(piso__icontains=termino) |
-                Q(departamento__icontains=termino) |
-                q_busqueda_persona(termino, incluir_id=False, prefix='propietario__') |
-                Q(propietario__cuit__icontains=termino) |
-                Q(propietario__email__icontains=termino)
-            )
-            propiedades = (
-                Propiedad.objects.filter(sucursal=sucursal)
-                .filter(q)
-                .select_related('propietario')
-                .order_by('direccion')[:40]
-            )
+        q = q_busqueda_propiedad(termino)
+        limite = limite_busqueda_propiedad(termino)
+        propiedades = ordenar_propiedades(
+            Propiedad.objects.filter(sucursal=sucursal)
+            .filter(q)
+            .select_related('propietario')[:limite]
+        )
 
         def _propietario_txt(p):
             pr = p.propietario
@@ -14307,6 +14295,7 @@ def buscar_propiedades_caja(request):
                 'id': p.id,
                 'direccion': p.direccion,
                 'ubicacion': p.ubicacion or '',
+                'titulo': (p.titulo or '').strip(),
                 'piso': (p.piso or '').strip(),
                 'departamento': (p.departamento or '').strip(),
                 'propietario': _propietario_txt(p),
@@ -24196,11 +24185,13 @@ def obtener_operaciones_pendientes_propietario(request, propietario_id):
         seen_gasto_key = set()
         total_egresos = 0
         errores_propiedades = []
-        props = list(
+        from inmobiliaria.busqueda_propiedad import ordenar_propiedades
+
+        props = ordenar_propiedades(
             Propiedad.objects.filter(
                 propietario=propietario,
                 sucursal=request.user.sucursal,
-            ).order_by('direccion')
+            ).select_related('propietario')
         )
         for propiedad in props:
             try:

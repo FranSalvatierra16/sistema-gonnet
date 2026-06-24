@@ -36,7 +36,7 @@
                                 <label class="form-label">Propiedad <span class="text-danger">*</span></label>
                                 <div class="position-relative" id="propiedad-buscador-wrap">
                                     <input type="text" id="propiedad_buscar" class="form-control"
-                                           placeholder="Escribí ID o dirección de la propiedad...">
+                                           placeholder="ID, dirección, edificio, depto (ej. deptos G), piso o propietario...">
                                     <button type="button" id="btn_limpiar_propiedad"
                                             class="btn btn-sm btn-outline-secondary d-none"
                                             style="position:absolute; right:8px; top:50%; transform:translateY(-50%); z-index:31;"
@@ -60,7 +60,7 @@
                                     </option>
                                     {% endfor %}
                                 </select>
-                                <small class="form-text text-muted">Buscá por ID o dirección y seleccioná una propiedad, o usá el buscador de propietario a la derecha.</small>
+                                <small class="form-text text-muted">Buscá por ID, dirección, edificio (ej. Marbella), depto (ej. deptos G), piso o propietario.</small>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Buscar propietario</label>
@@ -389,6 +389,17 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    function claveOrdenPropiedadLabel(label) {
+        const txt = String(label || '').toLowerCase();
+        const mPiso = txt.match(/piso\s+([^d]+?)(?:\s+dpto|\s*$)/i);
+        const mDepto = txt.match(/dpto\s+([a-z0-9]+)/i);
+        const piso = (mPiso && mPiso[1] || '').trim();
+        const depto = (mDepto && mDepto[1] || '').trim();
+        const pisoNum = (piso.match(/(\d+)/) || [])[1];
+        const pisoKey = pisoNum ? parseInt(pisoNum, 10) : (piso.indexOf('pb') >= 0 ? 0 : 99999);
+        return [txt.split('—')[0].trim(), pisoKey, depto];
+    }
+
     function construirPropiedadesDesdeData(data) {
         const mapa = new Map();
         (data.operaciones || []).forEach(function(op) {
@@ -403,7 +414,15 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         return Array.from(mapa.entries())
             .map(function(x) { return { id: x[0], label: x[1] }; })
-            .sort(function(a, b) { return a.label.localeCompare(b.label, 'es', { sensitivity: 'base' }); });
+            .sort(function(a, b) {
+                const ka = claveOrdenPropiedadLabel(a.label);
+                const kb = claveOrdenPropiedadLabel(b.label);
+                for (let i = 0; i < 3; i++) {
+                    if (ka[i] < kb[i]) return -1;
+                    if (ka[i] > kb[i]) return 1;
+                }
+                return 0;
+            });
     }
 
     function renderFiltroPropiedadPropietario(data) {
@@ -456,35 +475,97 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    function obtenerOpcionesPropiedad() {
-        return Array.from(propiedadSelect.options)
-            .filter(opt => opt.value)
-            .map(opt => ({
-                id: opt.value,
-                text: (opt.textContent || '').trim(),
-                propietario: opt.getAttribute('data-propietario') || ''
-            }));
+    let debouncePropiedadBuscar = null;
+
+    function escHtmlLiq(s) {
+        return String(s || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
     }
 
-    function renderResultadosPropiedad(query) {
-        const q = (query || '').toLowerCase().trim();
-        const opciones = obtenerOpcionesPropiedad().filter(op =>
-            !q || op.id.toLowerCase().includes(q) || op.text.toLowerCase().includes(q)
-        ).slice(0, 30);
+    function etiquetaPropiedadBusqueda(p) {
+        const pi = (p.piso || '').trim();
+        const dep = (p.departamento || '').trim();
+        const partes = [p.direccion || ''];
+        if (pi || dep) {
+            partes.push('— Piso ' + (pi || '—') + (dep ? ' Dpto ' + dep : ''));
+        }
+        const ubi = (p.ubicacion || '').trim();
+        if (ubi) partes.push('(' + ubi + ')');
+        return partes.join(' ');
+    }
 
-        if (!opciones.length) {
+    function renderResultadosPropiedadDesdeApi(propiedades) {
+        if (!propiedades.length) {
             propiedadResultados.innerHTML = '<div class="list-group-item text-muted">Sin resultados</div>';
             propiedadResultados.classList.remove('d-none');
             return;
         }
 
-        propiedadResultados.innerHTML = opciones.map(op => `
-            <button type="button" class="list-group-item list-group-item-action propiedad-item"
-                    data-id="${op.id}" data-text="${op.text.replace(/"/g, '&quot;')}">
-                <strong>#${op.id}</strong> - ${op.text}
-            </button>
-        `).join('');
+        propiedadResultados.innerHTML = propiedades.map(function(p) {
+            const linea = etiquetaPropiedadBusqueda(p);
+            const propTxt = (p.propietario || '').trim();
+            const propLine = propTxt
+                ? '<span class="small text-muted d-block">Prop.: ' + escHtmlLiq(propTxt) + '</span>'
+                : '';
+            return '<button type="button" class="list-group-item list-group-item-action propiedad-item"' +
+                ' data-id="' + escHtmlLiq(p.id) + '"' +
+                ' data-text="' + escHtmlLiq(linea) + '"' +
+                ' data-propietario="' + escHtmlLiq(propTxt) + '">' +
+                '<strong>#' + escHtmlLiq(p.id) + '</strong> - ' + escHtmlLiq(linea) +
+                propLine +
+                '</button>';
+        }).join('');
         propiedadResultados.classList.remove('d-none');
+    }
+
+    function buscarPropiedadesEnServidor(query) {
+        const q = (query || '').trim();
+        if (!q) {
+            propiedadResultados.classList.add('d-none');
+            propiedadResultados.innerHTML = '';
+            return;
+        }
+        const minLen = /^\d+$/.test(q) ? 1 : 2;
+        if (q.length < minLen) {
+            propiedadResultados.classList.add('d-none');
+            return;
+        }
+
+        const formData = new URLSearchParams();
+        formData.append('termino', q);
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+
+        fetch('{% url "inmobiliaria:buscar_propiedades_caja" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: formData.toString()
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (!data || !data.success) {
+                propiedadResultados.innerHTML = '<div class="list-group-item text-danger">Error al buscar</div>';
+                propiedadResultados.classList.remove('d-none');
+                return;
+            }
+            renderResultadosPropiedadDesdeApi(data.propiedades || []);
+        })
+        .catch(function() {
+            propiedadResultados.innerHTML = '<div class="list-group-item text-danger">Error al buscar</div>';
+            propiedadResultados.classList.remove('d-none');
+        });
+    }
+
+    function renderResultadosPropiedad(query) {
+        clearTimeout(debouncePropiedadBuscar);
+        debouncePropiedadBuscar = setTimeout(function() {
+            buscarPropiedadesEnServidor(query);
+        }, 220);
     }
 
     function asegurarOpcionPropiedad(id, label, propietario, cuentaBancaria) {
@@ -522,10 +603,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    function seleccionarPropiedadPorId(id, extraCarga) {
+    function seleccionarPropiedadPorId(id, extraCarga, label, propietario, cuentaBancaria) {
         if (!id) return;
         opcionesCargaOperacionesExtra = extraCarga || null;
-        fijarPropiedadEnFormulario(id);
+        fijarPropiedadEnFormulario(id, label, propietario, cuentaBancaria);
         propiedadSelect.dispatchEvent(new Event('change'));
         propiedadResultados.classList.add('d-none');
     }
@@ -572,7 +653,12 @@ document.addEventListener('DOMContentLoaded', function() {
     propiedadResultados.addEventListener('click', function(e) {
         const btn = e.target.closest('.propiedad-item');
         if (!btn) return;
-        seleccionarPropiedadPorId(btn.getAttribute('data-id'));
+        seleccionarPropiedadPorId(
+            btn.getAttribute('data-id'),
+            null,
+            btn.getAttribute('data-text') || '',
+            btn.getAttribute('data-propietario') || ''
+        );
     });
 
     document.addEventListener('click', function(e) {
