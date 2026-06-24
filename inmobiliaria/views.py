@@ -22919,7 +22919,7 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                     pk = int(sid.strip())
                 except ValueError:
                     continue
-                if tipo in ('reserva', 'contrato', 'contrato_cuota'):
+                if tipo in ('reserva', 'contrato', 'contrato_cuota', 'movimiento_caja'):
                     operaciones_incluidas.append({'tipo': tipo, 'id': pk})
 
             for o in operaciones_incluidas:
@@ -23489,25 +23489,13 @@ def _concepto_pago_liquidacion_operacion(tipo, contrato=None):
     return 'Alquiler'
 
 
-def _egreso_no_es_gasto_descontable_liquidacion(movimiento) -> bool:
-    """
-    True si un movimiento de caja NO debe ofrecerse como «gasto pendiente» en liquidación.
-    Excluye cobros/recibos de alquiler (ingresos o egresos mal cargados) y operaciones de contrato.
-    Solo deben listarse egresos reales descontables al propietario (comprobante GS, gastos de oficina, etc.).
-    """
-    from inmobiliaria.models.caja import TipoMovimientoCajaEnum
+def _movimiento_patron_cobro_alquiler_base(movimiento) -> bool:
+    """Patrones de recibo / contrato / reserva (sin códigos numéricos de concepto)."""
     from inmobiliaria.views_cuentas_bancarias import _concepto_detalle_es_contrato
     from inmobiliaria.cuotas_imputacion import (
-        CODIGOS_IMPUTACION_ALQUILER_CUOTA,
-        _normalizar_codigo_concepto_caja,
         movimiento_tiene_lineas_imputables_cuota,
-        payload_conceptos_desde_movimiento_detalle,
         payload_raiz_desde_movimiento_detalle,
     )
-
-    tipo_mov = (getattr(movimiento, 'tipo', None) or '').strip().upper()
-    if tipo_mov == TipoMovimientoCajaEnum.INGRESO:
-        return True
 
     concepto = (getattr(movimiento, 'concepto', None) or '').strip()
     lc = concepto.lower()
@@ -23548,9 +23536,18 @@ def _egreso_no_es_gasto_descontable_liquidacion(movimiento) -> bool:
     if movimiento_tiene_lineas_imputables_cuota(movimiento):
         return True
 
-    if tc == 'GS':
-        return False
+    return False
 
+
+def _movimiento_patron_cobro_conceptos_numerados(movimiento) -> bool:
+    """Conceptos de caja típicos de alquiler / cuota (códigos 10, 17, 1000, etc.)."""
+    from inmobiliaria.cuotas_imputacion import (
+        CODIGOS_IMPUTACION_ALQUILER_CUOTA,
+        _normalizar_codigo_concepto_caja,
+        payload_conceptos_desde_movimiento_detalle,
+    )
+
+    concepto = (getattr(movimiento, 'concepto', None) or '').strip()
     conceptos_cobro = set(CODIGOS_IMPUTACION_ALQUILER_CUOTA) | {'10', '17'}
     for fragmento in (
         concepto,
@@ -23577,6 +23574,106 @@ def _egreso_no_es_gasto_descontable_liquidacion(movimiento) -> bool:
             return True
 
     return False
+
+
+def _movimiento_es_cobro_alquiler_reserva_o_cuota(movimiento) -> bool:
+    """Cobro de alquiler/reserva/cuota por patrones de texto o conceptos numerados."""
+    if _movimiento_patron_cobro_alquiler_base(movimiento):
+        return True
+    return _movimiento_patron_cobro_conceptos_numerados(movimiento)
+
+
+def _egreso_no_es_gasto_descontable_liquidacion(movimiento) -> bool:
+    """
+    True si un movimiento de caja NO debe ofrecerse como «gasto pendiente» en liquidación.
+    Excluye cobros/recibos de alquiler (ingresos o egresos mal cargados) y operaciones de contrato.
+    Solo deben listarse egresos reales descontables al propietario (comprobante GS, gastos de oficina, etc.).
+    """
+    from inmobiliaria.models.caja import TipoMovimientoCajaEnum
+
+    tipo_mov = (getattr(movimiento, 'tipo', None) or '').strip().upper()
+    if tipo_mov == TipoMovimientoCajaEnum.INGRESO:
+        return True
+    if _movimiento_patron_cobro_alquiler_base(movimiento):
+        return True
+    tc = (getattr(movimiento, 'tipo_comprobante', None) or '').strip().upper()
+    if tc == 'RE':
+        tc = 'RC'
+    if tc == 'GS':
+        return False
+    if _movimiento_patron_cobro_conceptos_numerados(movimiento):
+        return True
+    return False
+
+
+def _movimientos_caja_excluidos_liquidacion_propiedad(propiedad):
+    """IDs de movimientos de caja ya incluidos en liquidaciones no canceladas."""
+    excluidos = set()
+    for liq in LiquidacionPropietario.objects.filter(
+        propiedad=propiedad,
+    ).exclude(estado='cancelada').only('operaciones_incluidas'):
+        for op in liq.operaciones_incluidas or []:
+            if not isinstance(op, dict):
+                continue
+            if (op.get('tipo') or '').lower() != 'movimiento_caja':
+                continue
+            try:
+                excluidos.add(int(op['id']))
+            except (TypeError, ValueError):
+                pass
+    return excluidos
+
+
+def _monto_pago_a_favor_propietario_movimiento(movimiento) -> Decimal:
+    """Importe del movimiento que corresponde pagar al propietario en una liquidación."""
+    from inmobiliaria.neto_propietario_movimiento import monto_medios_movimiento_decimal
+
+    m_prop = Decimal(str(getattr(movimiento, 'monto_a_propietario', None) or 0))
+    if m_prop > 0:
+        return m_prop.quantize(Decimal('0.01'))
+    if (getattr(movimiento, 'a_descontar', None) or '').strip().lower() == 'propietario':
+        total = monto_medios_movimiento_decimal(movimiento)
+        if total > 0:
+            return total.quantize(Decimal('0.01'))
+    return Decimal('0')
+
+
+def _movimiento_pago_a_favor_propietario_liquidable(movimiento) -> bool:
+    """
+    Ingresos de caja con parte a propietario (servicios, etc.) que aún no se liquidaron.
+    Excluye cobros de alquiler/reserva/cuota ya cubiertos por filas de operación.
+    """
+    from inmobiliaria.models.caja import TipoMovimientoCajaEnum
+
+    if (getattr(movimiento, 'tipo', None) or '').strip().upper() != TipoMovimientoCajaEnum.INGRESO:
+        return False
+    if _movimiento_es_cobro_alquiler_reserva_o_cuota(movimiento):
+        return False
+    return _monto_pago_a_favor_propietario_movimiento(movimiento) > 0
+
+
+def _descripcion_movimiento_pago_liquidacion(movimiento) -> str:
+    try:
+        c1 = (movimiento.listado_concepto_l1 or '').strip()
+    except Exception:
+        c1 = ''
+    try:
+        d1 = (movimiento.listado_detalle_l1 or '').strip()
+    except Exception:
+        d1 = ''
+    partes = [f'Mov. caja #{movimiento.id}']
+    if d1 and d1 != '—':
+        partes.append(d1[:160])
+    elif c1 and c1 != '—':
+        partes.append(c1[:160])
+    else:
+        conc = (getattr(movimiento, 'concepto', None) or '').strip()
+        if conc:
+            partes.append(conc.split('|')[0][:160])
+    imput = movimiento.etiqueta_imputacion_corresponde()
+    if imput:
+        partes.append(imput)
+    return ' — '.join(partes)
 
 
 def _operaciones_gastos_pendientes_data(propiedad, sucursal):
@@ -23884,6 +23981,51 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
                 Decimal(str(cuota_anticipada.monto_total)),
                 anticipada=True,
             )
+
+    # Ingresos de caja con importe a propietario (servicios, etc.) pendientes de liquidar.
+    movimientos_caja_excluidos = _movimientos_caja_excluidos_liquidacion_propiedad(propiedad)
+    ingresos_pago_prop = MovimientoCaja.objects.filter(
+        propiedad=propiedad,
+        sucursal=sucursal,
+        tipo=TipoMovimientoCajaEnum.INGRESO,
+    ).exclude(
+        id__in=movimientos_caja_excluidos,
+    ).order_by('-fecha')
+    for mov in ingresos_pago_prop:
+        if not _movimiento_pago_a_favor_propietario_liquidable(mov):
+            continue
+        m_prop = _monto_pago_a_favor_propietario_movimiento(mov)
+        if m_prop <= 0:
+            continue
+        fecha_mov = mov.fecha
+        if fecha_mov:
+            try:
+                if timezone.is_aware(fecha_mov):
+                    fecha_mov = timezone.localtime(fecha_mov)
+                fecha_iso = fecha_mov.date().strftime('%Y-%m-%d')
+            except Exception:
+                fecha_iso = ''
+        else:
+            fecha_iso = ''
+        try:
+            concepto_l1 = (mov.listado_concepto_l1 or '').strip()
+        except Exception:
+            concepto_l1 = ''
+        operaciones.append({
+            'tipo': 'movimiento_caja',
+            'tipo_display': 'Pago a favor',
+            'concepto_pago': concepto_l1 or 'Pago a favor del propietario',
+            'incluible': True,
+            'id': mov.id,
+            'descripcion': _descripcion_movimiento_pago_liquidacion(mov),
+            'fecha_inicio': fecha_iso,
+            'fecha_fin': fecha_iso,
+            'monto_total': str(m_prop),
+            'monto_pagado': str(m_prop),
+            'monto_propietario': str(m_prop),
+            'monto_inmobiliaria': '0',
+            'dias': 0,
+        })
     
     # Obtener gastos pendientes del propietario (sin liquidación asociada)
     propi = getattr(propiedad, 'propietario', None)
@@ -24563,6 +24705,14 @@ def _operaciones_incluidas_tabla(liquidacion):
                 etiqueta = f'Contrato #{cq.contrato_id} — cuota {cq.numero_cuota}'
                 url_name = 'inmobiliaria:detalle_contrato'
                 url_args = [cq.contrato_id]
+        elif tipo == 'movimiento_caja' and oid:
+            mov = MovimientoCaja.objects.filter(
+                id=oid, propiedad_id=liquidacion.propiedad_id
+            ).first()
+            if mov:
+                etiqueta = _descripcion_movimiento_pago_liquidacion(mov)
+            else:
+                etiqueta = f'Mov. caja #{oid}'
         if not etiqueta:
             etiqueta = f'{tipo or "operación"} #{oid}' if oid else str(op)
         if tipo == 'reserva':
@@ -24571,6 +24721,8 @@ def _operaciones_incluidas_tabla(liquidacion):
             tipo_display = 'Contrato'
         elif tipo == 'contrato_cuota':
             tipo_display = 'Cuota mensual'
+        elif tipo == 'movimiento_caja':
+            tipo_display = 'Pago a favor'
         else:
             tipo_display = (tipo or '—').title()
         filas.append({

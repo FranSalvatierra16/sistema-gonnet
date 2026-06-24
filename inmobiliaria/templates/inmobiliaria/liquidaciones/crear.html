@@ -78,9 +78,9 @@
                                 </div>
                                 <small class="form-text text-muted">Si tiene varias propiedades verás todas las operaciones y gastos; al tildar una operación se fija la propiedad de la liquidación.</small>
                                 <label class="form-label mt-3">Propietario</label>
-                                <input type="text" id="propietario_display" class="form-control" readonly>
+                                <input type="text" id="propietario_display" class="form-control" readonly tabindex="-1">
                                 <label class="form-label mt-2">Nº de cuenta del propietario</label>
-                                <input type="text" id="cuenta_propietario_display" class="form-control form-control-sm font-monospace" readonly placeholder="—">
+                                <input type="text" id="cuenta_propietario_display" class="form-control form-control-sm font-monospace" readonly placeholder="—" tabindex="-1">
                                 <small class="form-text text-muted">Tomado de la ficha del propietario en el sistema.</small>
                             </div>
                         </div>
@@ -325,6 +325,21 @@ document.addEventListener('DOMContentLoaded', function() {
     const btnLimpiarPropiedad = document.getElementById('btn_limpiar_propiedad');
     const propiedadResultados = document.getElementById('propiedad_resultados');
     const propiedadWrap = document.getElementById('propiedad-buscador-wrap');
+    function ocultarDropdownsBusquedaLiquidacion() {
+        if (propiedadResultados) propiedadResultados.classList.add('d-none');
+        if (propietarioResultados) propietarioResultados.classList.add('d-none');
+    }
+
+    function bindTabSaltaAutocomplete(inputEl) {
+        if (!inputEl) return;
+        inputEl.addEventListener('keydown', function(e) {
+            if (e.key === 'Tab') {
+                ocultarDropdownsBusquedaLiquidacion();
+            }
+        });
+    }
+
+    bindTabSaltaAutocomplete(propiedadBuscar);
     const propietarioBuscar = document.getElementById('propietario_buscar');
     const propietarioResultados = document.getElementById('propietario_resultados');
     const propietarioWrap = document.getElementById('propietario-buscador-wrap');
@@ -334,6 +349,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const propietariosBusquedaEl = document.getElementById('propietarios-busqueda-data');
     const filtroPropiedadPropietarioContainer = document.getElementById('filtro-propiedad-propietario-container');
     const filtroPropiedadPropietario = document.getElementById('filtro_propiedad_propietario');
+    bindTabSaltaAutocomplete(propietarioBuscar);
     let PROPIETARIOS_DATA = [];
     try {
         PROPIETARIOS_DATA = propietariosBusquedaEl ? JSON.parse(propietariosBusquedaEl.textContent) : [];
@@ -631,7 +647,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     propiedadBuscar.addEventListener('focus', function() {
-        renderResultadosPropiedad(this.value);
+        if (this.value.trim()) {
+            renderResultadosPropiedad(this.value);
+        }
     });
     propiedadBuscar.addEventListener('input', function() {
         // Si el usuario edita manualmente, se invalida la selección previa
@@ -774,11 +792,16 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     if (operacionBuscarInput) {
         operacionBuscarInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Tab') {
+                ocultarDropdownsBusquedaLiquidacion();
+                return;
+            }
             if (e.key === 'Enter') {
                 e.preventDefault();
                 buscarOperacionPorNumero();
             }
         });
+        bindTabSaltaAutocomplete(operacionBuscarInput);
     }
 
     function mostrarColumnaPropiedadEnLiquidacion(data) {
@@ -909,9 +932,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     ? 'bg-info text-dark'
                     : (op.tipo === 'contrato_cuota'
                         ? (op.anticipada ? 'bg-warning text-dark' : 'bg-primary')
-                        : 'bg-success');
+                        : (op.tipo === 'movimiento_caja'
+                            ? 'bg-secondary'
+                            : 'bg-success'));
                 const tipoEtiqueta = op.tipo_display || (
-                    op.tipo === 'reserva' ? 'Por día' : (op.tipo === 'contrato_cuota' ? 'Cuota mensual' : 'Contrato')
+                    op.tipo === 'reserva' ? 'Por día' : (
+                        op.tipo === 'contrato_cuota' ? 'Cuota mensual' : (
+                            op.tipo === 'movimiento_caja' ? 'Pago a favor' : 'Contrato'
+                        )
+                    )
                 ) + (op.anticipada ? ' (anticipada)' : '');
                 const noIncluible = op.incluible === false;
                 const filaClass = noIncluible ? 'table-light text-muted' : '';
@@ -975,6 +1004,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <i class="fas fa-info-circle me-1"></i>
                         <strong>Por día</strong> son reservas por estadía. Cada <strong>Cuota mensual</strong> pagada pendiente de liquidar es una fila distinta (mismo contrato = varias filas si cobraste varios meses).
                         En contratos de <strong>9 o 24 meses</strong> también aparece el <strong>mes siguiente por anticipado</strong> (badge amarillo), aunque el inquilino aún no haya pagado.
+                        Los <strong>Pago a favor</strong> son ingresos de caja con importe imputado al propietario (servicios, etc.) que aún no liquidaste.
                         Tras liquidar, las cuotas nuevas que cobres vuelven a aparecer como filas nuevas.
                         Las filas atenuadas con casilla deshabilitada son solo referencia.
                         ${colProp ? 'Si el propietario tiene más de una propiedad, al tildar una operación se fija la propiedad del formulario y se recargan operaciones y gastos de esa propiedad.' : ''}
@@ -1243,11 +1273,17 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function renderResultadosPropietario(query) {
-        const opciones = (PROPIETARIOS_DATA || []).filter(function(p) {
-            return coincidePropietarioBusqueda(p, query);
-        }).slice(0, 30);
-
+        const q = (query || '').trim();
         if (!propietarioResultados) return;
+        if (!q) {
+            propietarioResultados.classList.add('d-none');
+            propietarioResultados.innerHTML = '';
+            return;
+        }
+
+        const opciones = (PROPIETARIOS_DATA || []).filter(function(p) {
+            return coincidePropietarioBusqueda(p, q);
+        }).slice(0, 30);
 
         if (!opciones.length) {
             propietarioResultados.innerHTML = '<div class="list-group-item text-muted">Sin resultados</div>';
@@ -1286,7 +1322,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (propietarioBuscar) {
         propietarioBuscar.addEventListener('focus', function() {
-            renderResultadosPropietario(this.value);
+            if (this.value.trim()) {
+                renderResultadosPropietario(this.value);
+            }
         });
         propietarioBuscar.addEventListener('input', function() {
             if (propiedadSelect.value) {
