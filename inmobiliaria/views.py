@@ -23427,7 +23427,7 @@ def _honorarios_cobrados_contrato(contrato) -> Decimal:
 
 def _comisiones_sugeridas_primera_cuota_contrato(contrato) -> dict:
     """
-    Comisiones de la primera operación (cuota 1) en contratos 9 o 24 meses.
+    Comisiones de la primera operación (cuota 1) en contratos de alquiler mensual (≥ 9 meses).
     Locatario ≈ honorarios (concepto 25 o campo honorarios del movimiento principal).
     """
     locatario = _honorarios_cobrados_contrato(contrato)
@@ -23440,10 +23440,15 @@ def _comisiones_sugeridas_primera_cuota_contrato(contrato) -> dict:
     }
 
 
+def _contrato_es_alquiler_mensual_largo(contrato) -> bool:
+    """Contratos por cuotas mensuales (invierno 9, largo 24 u otra duración ≥ 9 meses)."""
+    return int(getattr(contrato, 'duracion_meses', 0) or 0) >= 9
+
+
 def _es_primera_cuota_contrato_mensual(contrato, cuota) -> bool:
     return (
         int(getattr(cuota, 'numero_cuota', 0) or 0) == 1
-        and int(getattr(contrato, 'duracion_meses', 0) or 0) in (9, 24)
+        and _contrato_es_alquiler_mensual_largo(contrato)
     )
 
 
@@ -23533,8 +23538,10 @@ def _nombre_cliente_reserva_liquidacion(reserva):
     return ap or nom or '—'
 
 
-def _concepto_pago_liquidacion_operacion(tipo, contrato=None):
+def _concepto_pago_liquidacion_operacion(tipo, contrato=None, *, es_primera_cuota=False):
     """Etiqueta legible del concepto a pagar al propietario según tipo de operación."""
+    if es_primera_cuota:
+        return 'Operación principal'
     if tipo == 'reserva':
         return 'Alquiler por día'
     duracion = int(getattr(contrato, 'duracion_meses', 0) or 0) if contrato else 0
@@ -23947,10 +23954,13 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
             comisiones = _comisiones_sugeridas_primera_cuota_contrato(contrato) if es_primera else {}
             if es_primera:
                 mi = Decimal('0')
+            tipo_fila = 'Operación principal' if es_primera else 'Cuota mensual'
             fila = {
                 'tipo': 'contrato_cuota',
-                'tipo_display': 'Cuota mensual',
-                'concepto_pago': _concepto_pago_liquidacion_operacion('contrato_cuota', contrato),
+                'tipo_display': tipo_fila,
+                'concepto_pago': _concepto_pago_liquidacion_operacion(
+                    'contrato_cuota', contrato, es_primera_cuota=es_primera
+                ),
                 'incluible': True,
                 'anticipada': anticipada,
                 'es_primera_cuota_mensual': es_primera,

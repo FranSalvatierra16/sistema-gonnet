@@ -906,15 +906,19 @@ document.addEventListener('DOMContentLoaded', function() {
             data.operaciones.forEach(function(op) {
                 const badgeClass = op.tipo === 'reserva'
                     ? 'bg-info text-dark'
-                    : (op.tipo === 'contrato_cuota'
-                        ? (op.anticipada ? 'bg-warning text-dark' : 'bg-primary')
-                        : (op.tipo === 'movimiento_caja'
-                            ? 'bg-secondary'
-                            : 'bg-success'));
+                    : (op.es_primera_cuota_mensual
+                        ? 'bg-success'
+                        : (op.tipo === 'contrato_cuota'
+                            ? (op.anticipada ? 'bg-warning text-dark' : 'bg-primary')
+                            : (op.tipo === 'movimiento_caja'
+                                ? 'bg-secondary'
+                                : 'bg-success')));
                 const tipoEtiqueta = op.tipo_display || (
-                    op.tipo === 'reserva' ? 'Por día' : (
-                        op.tipo === 'contrato_cuota' ? 'Cuota mensual' : (
-                            op.tipo === 'movimiento_caja' ? 'Pago a favor' : 'Contrato'
+                    op.es_primera_cuota_mensual ? 'Operación principal' : (
+                        op.tipo === 'reserva' ? 'Por día' : (
+                            op.tipo === 'contrato_cuota' ? 'Cuota mensual' : (
+                                op.tipo === 'movimiento_caja' ? 'Pago a favor' : 'Contrato'
+                            )
                         )
                     )
                 ) + (op.anticipada ? ' (anticipada)' : '');
@@ -981,6 +985,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <small class="text-muted">
                         <i class="fas fa-info-circle me-1"></i>
                         <strong>Por día</strong> son reservas por estadía. Cada <strong>Cuota mensual</strong> pagada pendiente de liquidar es una fila distinta (mismo contrato = varias filas si cobraste varios meses).
+                        La <strong>Operación principal</strong> (badge verde, cuota 1) incluye honorarios/comisiones del alta en contratos de 9 meses o más.
                         En contratos de <strong>9 o 24 meses</strong> también aparece el <strong>mes siguiente por anticipado</strong> (badge amarillo), aunque el inquilino aún no haya pagado.
                         Los <strong>Pago a favor</strong> son ingresos de caja con importe imputado al propietario (servicios, etc.) que aún no liquidaste.
                         Tras liquidar, las cuotas nuevas que cobres vuelven a aparecer como filas nuevas.
@@ -1460,6 +1465,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function etiquetaConceptoOperacion(cb) {
         const tipo = cb.getAttribute('data-tipo') || '';
+        if (cb.getAttribute('data-es-primera-cuota') === '1') {
+            return 'Operación principal';
+        }
         const custom = (cb.getAttribute('data-concepto-pago') || '').trim();
         if (custom) return custom;
         if (tipo === 'reserva') return 'Alquiler por día';
