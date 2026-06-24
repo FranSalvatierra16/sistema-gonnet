@@ -16074,6 +16074,7 @@ def crear_operacion_contrato(request, contrato_id):
         'honorarios_ui': hon_ui,
         'sellados_ui': sel_ui,
         'complemento_operacion_principal': tipo_operacion == 'principal' and contrato.operacion_principal,
+        'cuentas_bancarias': _cuentas_bancarias_activas_sucursal(request.user.sucursal),
     }
     return render(request, 'inmobiliaria/contratos/crear_operacion.html', context)
 
@@ -16132,6 +16133,7 @@ def completar_cargos_iniciales_contrato(request, contrato_id):
         'modo_cargos_iniciales': True,
         'honorarios_pendiente': hon_pend,
         'sellados_pendiente': sel_pend,
+        'cuentas_bancarias': _cuentas_bancarias_activas_sucursal(request.user.sucursal),
     }
     return render(request, 'inmobiliaria/contratos/crear_operacion.html', context)
 
@@ -17001,6 +17003,16 @@ def importes_honorarios_sellados_ui_contrato(contrato):
     else:
         out_s = mov_s if mov_s > 0 else ref_s
     return out_h, out_s
+
+
+def _cuentas_bancarias_activas_sucursal(sucursal):
+    from inmobiliaria.models.sucursal import CuentaBancaria
+
+    if not sucursal:
+        return CuentaBancaria.objects.none()
+    return CuentaBancaria.objects.filter(sucursal=sucursal, activa=True).order_by(
+        'nombre_banco', 'alias'
+    )
 
 
 def _total_medios_pago_operacion_request(request):
@@ -18384,6 +18396,7 @@ def crear_pago_cuota_operacion(request, cuota_id):
         'config_operacion': config_operacion,
         'honorarios_ui': hon_ui,
         'sellados_ui': sel_ui,
+        'cuentas_bancarias': _cuentas_bancarias_activas_sucursal(request.user.sucursal),
     }
     return render(request, 'inmobiliaria/contratos/crear_operacion.html', context)
 

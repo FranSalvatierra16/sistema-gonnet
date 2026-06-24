@@ -294,11 +294,6 @@
                                            placeholder="0" autocomplete="off">
                                 </div>
                                 <div class="mb-3">
-                                    <label for="monto_deposito_galicia" class="form-label"><strong>🏛️ Depósito Galicia:</strong></label>
-                                    <input type="text" class="form-control" id="monto_deposito_galicia" name="monto_deposito_galicia" 
-                                           placeholder="0" autocomplete="off">
-                                </div>
-                                <div class="mb-3">
                                     <label for="fecha_transferencia" class="form-label"><strong>📅 Fecha de transferencia:</strong></label>
                                     <input type="date" class="form-control" id="fecha_transferencia" name="fecha_transferencia"
                                            value="{% now 'Y-m-d' %}" style="max-width: 11rem;">
@@ -307,13 +302,28 @@
                             </div>
                         </div>
                         <div class="row">
+                            {% for cuenta in cuentas_bancarias %}
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label for="monto_deposito_mp" class="form-label"><strong>💱 Mercado Pago:</strong></label>
-                                    <input type="text" class="form-control" id="monto_deposito_mp" name="monto_deposito_mp" 
-                                           placeholder="0" autocomplete="off">
+                                    <label for="{{ cuenta.field_name }}" class="form-label">
+                                        <strong>{% if cuenta.tipo_cuenta == 'banco' %}🏛️{% else %}💰{% endif %}
+                                        {{ cuenta.nombre_banco }}{% if cuenta.alias %} — {{ cuenta.alias }}{% endif %}:</strong>
+                                    </label>
+                                    <input type="text" class="form-control cuenta-bancaria-dinamica"
+                                           id="{{ cuenta.field_name }}" name="{{ cuenta.field_name }}"
+                                           placeholder="0" autocomplete="off"
+                                           data-cuenta-id="{{ cuenta.id }}">
+                                    <small class="text-muted">{{ cuenta.titular }}{% if cuenta.numero_cuenta %} · Cuenta {{ cuenta.numero_cuenta }}{% endif %}</small>
                                 </div>
                             </div>
+                            {% empty %}
+                            <div class="col-12">
+                                <p class="text-muted mb-3">
+                                    No hay cuentas bancarias activas en esta sucursal.
+                                    <a href="{% url 'inmobiliaria:gestionar_cuentas_bancarias' %}">Gestionar cuentas</a>
+                                </p>
+                            </div>
+                            {% endfor %}
                             <div class="col-md-6">
                                 <div class="alert alert-info">
                                     <h5><strong>💰 Total Operación: $<span id="totalOperacion">0</span></strong></h5>
@@ -321,6 +331,12 @@
                                 </div>
                             </div>
                         </div>
+                        {% if cuentas_bancarias %}
+                        <p class="text-muted small mb-0">
+                            Cuentas de <strong>{{ request.user.sucursal.nombre }}</strong>.
+                            <a href="{% url 'inmobiliaria:gestionar_cuentas_bancarias' %}">Gestionar cuentas bancarias</a>
+                        </p>
+                        {% endif %}
                     </div>
                 </div>
 
@@ -1285,20 +1301,13 @@ function calcularTotalPagos() {
     const cheque = v('monto_cheque');
     const tarjeta = v('monto_tarjeta');
     const dolares = v('monto_dolares');
-    const depositoGalicia = v('monto_deposito_galicia');
-    const depositoMp = v('monto_deposito_mp');
-    
-    // Obtener montos de cuentas bancarias dinámicas si existen
-    let depositosDinamicos = 0;
-    const inputsDepositos = document.querySelectorAll('input[id^="monto_deposito_"]');
-    inputsDepositos.forEach(input => {
-        if (input.id !== 'monto_deposito_galicia' && input.id !== 'monto_deposito_mp') {
-            depositosDinamicos += parsearValorFormateado(input.value);
-        }
+    let depositos = 0;
+    document.querySelectorAll('input[id^="monto_deposito_"]').forEach(input => {
+        depositos += parsearValorFormateado(input.value);
     });
     
     return {
-        ars: efectivo + cheque + tarjeta + depositoGalicia + depositoMp + depositosDinamicos,
+        ars: efectivo + cheque + tarjeta + depositos,
         usd: dolares
     };
 }
@@ -2019,7 +2028,7 @@ document.addEventListener('DOMContentLoaded', function() {
             calcularTotales();
         });
     }
-    ['monto_efectivo', 'monto_cheque', 'monto_tarjeta', 'monto_dolares', 'monto_deposito_galicia', 'monto_deposito_mp'].forEach(function(id) {
+    ['monto_efectivo', 'monto_cheque', 'monto_tarjeta', 'monto_dolares'].forEach(function(id) {
         bindMediosPagoInput(document.getElementById(id));
     });
     document.querySelectorAll('input[id^="monto_deposito_"]').forEach(bindMediosPagoInput);
