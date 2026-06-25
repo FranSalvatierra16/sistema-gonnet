@@ -26,6 +26,18 @@ from inmobiliaria.models.caja import TipoMovimientoCajaEnum
 
 CARATULA_CARPETA_DEFAULT_KEY = 'caratulas_carpeta_default'
 CARATULA_CARPETA_OVERRIDES_KEY = 'caratulas_carpeta_overrides'
+CARATULA_COMISIONES_OVERRIDES_KEY = 'caratulas_comisiones_overrides'
+
+_CONCEPTO_HONORARIOS_LABELS = {
+    '1': 'Alquiler (1er mes)',
+    '10': 'Depósito en garantía',
+    '15': 'Gastos adicionales',
+    '25': 'Honorarios',
+    '26': 'Sellados',
+    '85': 'Participación locador',
+    '1000': 'Alquiler mensual',
+    '29': 'Adelanto',
+}
 
 
 def _normalizar_carpeta(raw):
@@ -631,7 +643,30 @@ def _liquidacion_contrato(contrato):
     )
 
 
-def _comisiones_cobradas_contrato(contrato, movimientos=None, liquidacion=None):
+def _comisiones_override_caratula(request, contrato_id):
+    overrides = dict(request.session.get(CARATULA_COMISIONES_OVERRIDES_KEY, {}))
+    raw = overrides.get(str(contrato_id)) or {}
+    out = {}
+    for key in ('comision_locador', 'comision_locatario'):
+        if raw.get(key) is not None:
+            try:
+                out[key] = Decimal(str(raw[key])).quantize(Decimal('0.01'))
+            except (ArithmeticError, TypeError, ValueError):
+                pass
+    return out or None
+
+
+def _set_comisiones_override_caratula(request, contrato_id, comision_locador, comision_locatario):
+    overrides = dict(request.session.get(CARATULA_COMISIONES_OVERRIDES_KEY, {}))
+    overrides[str(contrato_id)] = {
+        'comision_locador': str(comision_locador.quantize(Decimal('0.01'))),
+        'comision_locatario': str(comision_locatario.quantize(Decimal('0.01'))),
+    }
+    request.session[CARATULA_COMISIONES_OVERRIDES_KEY] = overrides
+    request.session.modified = True
+
+
+def _comisiones_cobradas_contrato(contrato, movimientos=None, liquidacion=None, override=None):
     """Participación (85) y honorarios (25) de la operación principal del contrato."""
     from inmobiliaria.views import (
         _comisiones_sugeridas_primera_cuota_contrato,
@@ -661,10 +696,15 @@ def _comisiones_cobradas_contrato(contrato, movimientos=None, liquidacion=None):
     if liquidacion:
         liq_loc = Decimal(str(getattr(liquidacion, 'comision_locador', None) or 0))
         liq_locat = Decimal(str(getattr(liquidacion, 'comision_locatario', None) or 0))
-        if locador <= Decimal('0.05') and liq_loc > Decimal('0.05'):
+        if liq_loc > Decimal('0.05'):
             locador = liq_loc.quantize(Decimal('0.01'))
-        if locatario <= Decimal('0.05') and liq_locat > Decimal('0.05'):
+        if liq_locat > Decimal('0.05'):
             locatario = liq_locat.quantize(Decimal('0.01'))
+    elif override:
+        if override.get('comision_locador') is not None:
+            locador = Decimal(str(override['comision_locador'])).quantize(Decimal('0.01'))
+        if override.get('comision_locatario') is not None:
+            locatario = Decimal(str(override['comision_locatario'])).quantize(Decimal('0.01'))
 
     if getattr(contrato, 'operacion_principal', False):
         sugeridas = _comisiones_sugeridas_primera_cuota_contrato(contrato)
@@ -674,6 +714,160 @@ def _comisiones_cobradas_contrato(contrato, movimientos=None, liquidacion=None):
             locatario = Decimal(str(sugeridas.get('comision_locatario') or 0)).quantize(Decimal('0.01'))
 
     return locador, locatario
+
+
+def _filas_honorarios_caratula_contrato(contrato, movimientos=None):
+    """Líneas de conceptos cobrados en la operación principal (primer ingreso del contrato)."""
+    from inmobiliaria.decimal_utils import parse_decimal_monto
+    from inmobiliaria.views import _movimiento_json_conceptos_parsed
+
+    movs_op = sorted(
+        [
+            m
+            for m in (movimientos or [])
+            if m.tipo == TipoMovimientoCajaEnum.INGRESO
+        ],
+        key=lambda x: (x.fecha or datetime.min, x.id),
+    )
+    if not movs_op and contrato.propiedad_id:
+        movs_op = sorted(
+            [
+                m
+                for m in _movimientos_contrato_qs(contrato)[:300]
+                if m.tipo == TipoMovimientoCajaEnum.INGRESO
+                and m.concepto
+                and re.search(rf'Contrato\s*#\s*{contrato.id}\b', m.concepto, re.IGNORECASE)
+            ],
+            key=lambda x: (x.fecha or datetime.min, x.id),
+        )
+    if not movs_op:
+        return []
+
+    mov = movs_op[0]
+    _, conceptos = _movimiento_json_conceptos_parsed(mov)
+    recibo = _numero_recibo_desde_movimiento(mov)
+    fecha = mov.fecha
+    filas = []
+
+    if conceptos:
+        for c in conceptos:
+            cid = str(c.get('id', c.get('codigo', ''))).strip()
+            nombre = (c.get('nombre') or _CONCEPTO_HONORARIOS_LABELS.get(cid) or f'Concepto {cid}').strip()
+            imp = parse_decimal_monto(c.get('importe', 0))
+            if imp <= Decimal('0.05'):
+                continue
+            filas.append(
+                {
+                    'recibo': recibo,
+                    'fecha': fecha,
+                    'codigo': cid,
+                    'concepto': nombre,
+                    'importe': imp.quantize(Decimal('0.01')),
+                }
+            )
+    else:
+        part = Decimal('0')
+        hon = Decimal('0')
+        from inmobiliaria.views import (
+            _honorarios_cobrados_en_movimiento_contrato,
+            _participacion_cobrada_en_movimiento_contrato,
+        )
+
+        part = _participacion_cobrada_en_movimiento_contrato(mov)
+        hon = _honorarios_cobrados_en_movimiento_contrato(mov)
+        if part > Decimal('0.05'):
+            filas.append(
+                {
+                    'recibo': recibo,
+                    'fecha': fecha,
+                    'codigo': '85',
+                    'concepto': _CONCEPTO_HONORARIOS_LABELS['85'],
+                    'importe': part,
+                }
+            )
+        if hon > Decimal('0.05'):
+            filas.append(
+                {
+                    'recibo': recibo,
+                    'fecha': fecha,
+                    'codigo': '25',
+                    'concepto': _CONCEPTO_HONORARIOS_LABELS['25'],
+                    'importe': hon,
+                }
+            )
+
+    return filas
+
+
+def _pct_productor_contrato_caratula(contrato):
+    """Porcentajes del vendedor para calcular comisión del productor sobre honorarios."""
+    if not contrato or not contrato.vendedor_id:
+        return {}
+
+    vend = contrato.vendedor
+    prop = contrato.propiedad
+    tipo_fichaje = getattr(prop, 'tipo_fichaje', None) or 'primer'
+    pct_fichaje = (
+        vend.comision_segundo_fichaje
+        if tipo_fichaje == 'segundo'
+        else vend.comision_primer_fichaje
+    )
+    dm = int(contrato.duracion_meses or 0)
+    if dm == 9:
+        pct_tipo = vend.comision_invierno
+        label_tipo = 'Invierno'
+    elif dm >= 24:
+        pct_tipo = vend.comision_alquiler_24_meses
+        label_tipo = '24 meses' if dm == 24 else 'Largo plazo'
+    else:
+        pct_tipo = None
+        label_tipo = ''
+
+    return {
+        'tipo_fichaje': tipo_fichaje,
+        'pct_fichaje': float(pct_fichaje) if pct_fichaje is not None else None,
+        'pct_tipo': float(pct_tipo) if pct_tipo is not None else None,
+        'label_tipo': label_tipo,
+        'productor': _nombre_productor_papel(vend),
+    }
+
+
+def _ctx_honorarios_comisiones_caratula_contrato(
+    contrato, movimientos=None, liquidacion=None, override=None
+):
+    from inmobiliaria.decimal_utils import format_monto_argentino
+
+    if liquidacion is None:
+        liquidacion = _liquidacion_contrato(contrato)
+
+    comision_locador, comision_locatario = _comisiones_cobradas_contrato(
+        contrato, movimientos, liquidacion=liquidacion, override=override
+    )
+    comisiones_vendedor = _comisiones_vendedor_contrato_caratula(contrato, comision_locatario)
+    comision_productor_total = sum(
+        (Decimal(str(cv.get('monto') or 0)) for cv in comisiones_vendedor),
+        Decimal('0'),
+    ).quantize(Decimal('0.01'))
+
+    pct = _pct_productor_contrato_caratula(contrato)
+    import json as _json
+
+    return {
+        'filas_honorarios': _filas_honorarios_caratula_contrato(contrato, movimientos),
+        'comision_locador': comision_locador,
+        'comision_locatario': comision_locatario,
+        'comision_locador_fmt': format_monto_argentino(comision_locador),
+        'comision_locatario_fmt': format_monto_argentino(comision_locatario),
+        'comisiones_total': (comision_locador + comision_locatario).quantize(Decimal('0.01')),
+        'comisiones_total_fmt': format_monto_argentino(comision_locador + comision_locatario),
+        'comisiones_vendedor': comisiones_vendedor,
+        'comision_productor_total': comision_productor_total,
+        'comision_productor_total_fmt': format_monto_argentino(comision_productor_total),
+        'pct_productor': pct,
+        'pct_productor_json': _json.dumps(pct),
+        'liquidacion_id': getattr(liquidacion, 'id', None),
+        'puede_guardar_comisiones': liquidacion is not None,
+    }
 
 
 def _comisiones_vendedor_contrato_caratula(contrato, honorarios_monto):
@@ -927,7 +1121,7 @@ def _ctx_completar_pago_reserva(reserva):
     }
 
 
-def _build_legacy_contrato(contrato, cuotas, tipo_label, carpeta_override=None, movimientos=None, liquidacion=None):
+def _build_legacy_contrato(contrato, cuotas, tipo_label, carpeta_override=None, movimientos=None, liquidacion=None, override=None):
     prop = contrato.propiedad
     inq = contrato.inquilino
     propi = getattr(prop, 'propietario', None) if prop else None
@@ -977,7 +1171,7 @@ def _build_legacy_contrato(contrato, cuotas, tipo_label, carpeta_override=None, 
     )
 
     comision_locador, comision_locatario = _comisiones_cobradas_contrato(
-        contrato, movimientos, liquidacion=liquidacion
+        contrato, movimientos, liquidacion=liquidacion, override=override
     )
     comisiones_vendedor = _comisiones_vendedor_contrato_caratula(contrato, comision_locatario)
     comisiones_total = (comision_locador + comision_locatario).quantize(Decimal('0.01'))
@@ -1423,9 +1617,7 @@ def caratula_reserva(request, reserva_id):
 def caratula_contrato(request, contrato_id):
     if not _puede_ver_caratulas(request.user):
         return HttpResponseForbidden()
-    if request.method == 'POST' and request.POST.get('action') == 'set_carpeta_contrato':
-        _persistir_carpeta_operacion('contrato', contrato_id, request.POST.get('carpeta'))
-        return redirect('inmobiliaria:caratula_contrato', contrato_id=contrato_id)
+
     contrato = get_object_or_404(
         ContratoAlquiler.objects.select_related(
             'propiedad', 'propiedad__propietario', 'inquilino', 'vendedor', 'sucursal'
@@ -1442,6 +1634,36 @@ def caratula_contrato(request, contrato_id):
         request.user, 'is_superuser', False
     ):
         return HttpResponseForbidden()
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        if action == 'set_carpeta_contrato':
+            _persistir_carpeta_operacion('contrato', contrato_id, request.POST.get('carpeta'))
+            return redirect('inmobiliaria:caratula_contrato', contrato_id=contrato_id)
+        if action == 'save_comisiones_caratula':
+            from django.contrib import messages
+            from inmobiliaria.decimal_utils import parse_decimal_monto
+
+            com_loc = parse_decimal_monto(request.POST.get('comision_locador', '0'))
+            com_locat = parse_decimal_monto(request.POST.get('comision_locatario', '0'))
+            if com_loc < 0:
+                com_loc = Decimal('0')
+            if com_locat < 0:
+                com_locat = Decimal('0')
+            liq = _liquidacion_contrato(contrato)
+            if liq:
+                liq.comision_locador = com_loc.quantize(Decimal('0.01'))
+                liq.comision_locatario = com_locat.quantize(Decimal('0.01'))
+                liq.save(update_fields=['comision_locador', 'comision_locatario'])
+                overrides = dict(request.session.get(CARATULA_COMISIONES_OVERRIDES_KEY, {}))
+                overrides.pop(str(contrato_id), None)
+                request.session[CARATULA_COMISIONES_OVERRIDES_KEY] = overrides
+                request.session.modified = True
+                messages.success(request, 'Comisiones guardadas en la liquidación.')
+            else:
+                _set_comisiones_override_caratula(request, contrato_id, com_loc, com_locat)
+                messages.success(request, 'Comisiones guardadas para esta carátula.')
+            return redirect('inmobiliaria:caratula_contrato', contrato_id=contrato_id)
 
     movimientos = []
     if contrato.propiedad_id:
@@ -1481,6 +1703,14 @@ def caratula_contrato(request, contrato_id):
     else:
         tipo_label = f'Contrato {contrato.duracion_meses} meses'
     carpeta_actual = _carpeta_para_operacion(request, 'contrato', contrato.id, contrato=contrato)
+    liquidacion = _liquidacion_contrato(contrato)
+    override = _comisiones_override_caratula(request, contrato.id)
+    honorarios_ctx = _ctx_honorarios_comisiones_caratula_contrato(
+        contrato,
+        movimientos,
+        liquidacion=liquidacion,
+        override=override,
+    )
 
     caratula_legacy = _build_legacy_contrato(
         contrato,
@@ -1488,6 +1718,8 @@ def caratula_contrato(request, contrato_id):
         tipo_label,
         carpeta_override=carpeta_actual,
         movimientos=movimientos,
+        liquidacion=liquidacion,
+        override=override,
     )
 
     ctx = {
@@ -1497,7 +1729,8 @@ def caratula_contrato(request, contrato_id):
         'movimientos': movimientos,
         'total_movimientos': total_mov,
         'cuotas': cuotas_list,
-        'comisiones_vendedor': caratula_legacy.get('comisiones_vendedor') or [],
+        'honorarios_ctx': honorarios_ctx,
+        'comisiones_vendedor': honorarios_ctx.get('comisiones_vendedor') or [],
         'caratula_legacy': caratula_legacy,
         'carpeta_actual': carpeta_actual,
         'carpeta_default': _carpeta_default_actual(request),

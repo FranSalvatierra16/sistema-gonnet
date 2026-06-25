@@ -1,0 +1,207 @@
+{% load custom_filters %}
+<div class="card mb-3">
+    <div class="card-header py-2 d-flex flex-wrap align-items-center gap-2">
+        <strong><i class="fas fa-coins me-1"></i>Honorarios y comisiones — operación principal</strong>
+        {% if honorarios_ctx.liquidacion_id %}
+        <span class="badge bg-light text-dark border small">Liquidación #{{ honorarios_ctx.liquidacion_id }}</span>
+        {% endif %}
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-sm mb-0 small">
+                <thead class="table-light">
+                    <tr>
+                        <th>Recibo</th>
+                        <th>Fecha</th>
+                        <th>Concepto</th>
+                        <th class="text-end">Importe cobrado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for f in honorarios_ctx.filas_honorarios %}
+                    <tr>
+                        <td><code>{{ f.recibo }}</code></td>
+                        <td>{{ f.fecha|date:"d/m/Y" }}</td>
+                        <td>
+                            {% if f.codigo %}<span class="text-muted">{{ f.codigo }}</span> — {% endif %}{{ f.concepto }}
+                        </td>
+                        <td class="text-end">${{ f.importe|floatformat:2 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center text-muted py-3">Sin conceptos en el cobro de operación principal</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <form method="post" id="form-comisiones-caratula" class="border-top bg-light p-3">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="save_comisiones_caratula">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label for="comision_locador" class="form-label small fw-bold mb-1">Comisión locador</label>
+                    <input type="text" name="comision_locador" id="comision_locador" class="form-control form-control-sm text-end"
+                           value="{{ honorarios_ctx.comision_locador_fmt }}" autocomplete="off" inputmode="decimal">
+                </div>
+                <div class="col-md-3">
+                    <label for="comision_locatario" class="form-label small fw-bold mb-1">Comisión locatario</label>
+                    <input type="text" name="comision_locatario" id="comision_locatario" class="form-control form-control-sm text-end"
+                           value="{{ honorarios_ctx.comision_locatario_fmt }}" autocomplete="off" inputmode="decimal">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold mb-1">Total comisiones</label>
+                    <div class="form-control form-control-sm text-end bg-white fw-semibold" id="comisiones_total_display" readonly>
+                        {{ honorarios_ctx.comisiones_total_fmt }}
+                    </div>
+                </div>
+                <div class="col-md-4 text-md-end">
+                    <button type="submit" class="btn btn-sm btn-primary">
+                        <i class="fas fa-save me-1"></i>Guardar comisiones
+                    </button>
+                    {% if not honorarios_ctx.puede_guardar_comisiones %}
+                    <div class="small text-muted mt-1">Sin liquidación: se guarda solo en esta sesión.</div>
+                    {% endif %}
+                </div>
+            </div>
+        </form>
+
+        <div class="border-top p-3">
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                <strong class="small">Comisión del productor</strong>
+                {% if honorarios_ctx.pct_productor.productor %}
+                <span class="badge bg-secondary">{{ honorarios_ctx.pct_productor.productor }}</span>
+                {% endif %}
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm mb-0 small" id="tabla-comision-productor">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Concepto</th>
+                            <th class="text-end">Base (honorarios)</th>
+                            <th class="text-end">%</th>
+                            <th class="text-end">Importe</th>
+                        </tr>
+                    </thead>
+                    <tbody id="filas-comision-productor">
+                        {% for cv in honorarios_ctx.comisiones_vendedor %}
+                        <tr>
+                            <td>{{ cv.label }}</td>
+                            <td class="text-end base-honorarios">${{ honorarios_ctx.comision_locatario|floatformat:2 }}</td>
+                            <td class="text-end">{% if cv.porcentaje %}{{ cv.porcentaje|floatformat:2 }}%{% else %}—{% endif %}</td>
+                            <td class="text-end fw-semibold">${{ cv.monto|floatformat:2 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr id="sin-comision-productor">
+                            <td colspan="4" class="text-muted text-center py-2">
+                                Sin % de comisión cargado para este tipo de contrato en la ficha del productor.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="table-light">
+                        <tr>
+                            <th colspan="3" class="text-end">Total productor</th>
+                            <th class="text-end text-success" id="total-productor-display">${{ honorarios_ctx.comision_productor_total|floatformat:2 }}</th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script id="pct-productor-config" type="application/json">{{ honorarios_ctx.pct_productor_json|safe }}</script>
+<script>
+(function () {
+    let cfg = {};
+    try {
+        const el = document.getElementById('pct-productor-config');
+        cfg = el ? JSON.parse(el.textContent) : {};
+    } catch (e) {
+        cfg = {};
+    }
+    const inpLoc = document.getElementById('comision_locador');
+    const inpLocat = document.getElementById('comision_locatario');
+    const totalDisplay = document.getElementById('comisiones_total_display');
+    const filasBody = document.getElementById('filas-comision-productor');
+    const totalProd = document.getElementById('total-productor-display');
+
+    function parseMontoAR(val) {
+        if (!val) return 0;
+        let t = String(val).trim().replace(/[^\d.,-]/g, '');
+        if (!t) return 0;
+        if (t.indexOf(',') >= 0) {
+            if (t.indexOf('.') >= 0) {
+                t = t.replace(/\./g, '').replace(',', '.');
+            } else {
+                const parts = t.split(',');
+                const last = parts[parts.length - 1];
+                t = (last.length <= 2) ? parts.slice(0, -1).join('') + '.' + last : t.replace(/,/g, '');
+            }
+        } else if ((t.match(/\./g) || []).length > 1) {
+            t = t.replace(/\./g, '');
+        }
+        const n = parseFloat(t);
+        return isNaN(n) ? 0 : n;
+    }
+
+    function formatMontoAR(n) {
+        const neg = n < 0;
+        n = Math.abs(n);
+        const fixed = n.toFixed(2);
+        const parts = fixed.split('.');
+        const intPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        return (neg ? '-' : '') + intPart + ',' + parts[1];
+    }
+
+    function recalcProductor() {
+        const base = parseMontoAR(inpLocat && inpLocat.value);
+        const loc = parseMontoAR(inpLoc && inpLoc.value);
+        if (totalDisplay) {
+            totalDisplay.textContent = formatMontoAR(loc + base);
+        }
+        if (!filasBody || !totalProd) return;
+
+        const lineas = [];
+        if (cfg.pct_fichaje && cfg.pct_fichaje > 0) {
+            lineas.push({
+                label: 'Comisión fichaje (' + (cfg.tipo_fichaje || 'primer') + ')',
+                pct: cfg.pct_fichaje,
+                monto: base * cfg.pct_fichaje / 100,
+            });
+        }
+        if (cfg.pct_tipo && cfg.pct_tipo > 0 && cfg.label_tipo) {
+            lineas.push({
+                label: 'Comisión ' + cfg.label_tipo,
+                pct: cfg.pct_tipo,
+                monto: base * cfg.pct_tipo / 100,
+            });
+        }
+
+        if (!lineas.length) {
+            filasBody.innerHTML = '<tr><td colspan="4" class="text-muted text-center py-2">Sin % de comisión cargado para este tipo de contrato en la ficha del productor.</td></tr>';
+            totalProd.textContent = '$0,00';
+            return;
+        }
+
+        let total = 0;
+        filasBody.innerHTML = lineas.map(function (ln) {
+            total += ln.monto;
+            return '<tr><td>' + ln.label + '</td>'
+                + '<td class="text-end base-honorarios">$' + formatMontoAR(base) + '</td>'
+                + '<td class="text-end">' + ln.pct.toFixed(2).replace('.', ',') + '%</td>'
+                + '<td class="text-end fw-semibold">$' + formatMontoAR(ln.monto) + '</td></tr>';
+        }).join('');
+        totalProd.textContent = '$' + formatMontoAR(total);
+    }
+
+    [inpLoc, inpLocat].forEach(function (el) {
+        if (el) {
+            el.addEventListener('input', recalcProductor);
+            el.addEventListener('change', recalcProductor);
+        }
+    });
+})();
+</script>
