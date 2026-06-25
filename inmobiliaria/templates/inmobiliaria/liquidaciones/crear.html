@@ -1124,13 +1124,16 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function badgesMovimientoHtml(gasto) {
-        const tm = gasto.tipo_movimiento_display || (gasto.tipo_movimiento === 'ingreso' ? 'Ingreso' : 'Egreso');
-        const ef = gasto.efecto_inquilino === 'favor' ? 'A favor inq.' : 'Contra inq.';
-        const op = gasto.operacion_monto === 'suma' ? 'Suma' : 'Resta';
-        const opClass = gasto.operacion_monto === 'suma' ? 'success' : 'danger';
+        const esIngreso = gasto.tipo_movimiento === 'ingreso';
+        const tm = esIngreso ? 'Ingreso' : 'Egreso';
+        const lbl = esIngreso ? 'A favor prop.' : 'Contra prop.';
+        const opClass = esIngreso ? 'success' : 'danger';
         return `<span class="badge bg-light text-dark border me-1">${escHtmlGasto(tm)}</span>`
-            + `<span class="badge bg-light text-dark border me-1">${escHtmlGasto(ef)}</span>`
-            + `<span class="badge bg-${opClass}">${escHtmlGasto(op)}</span>`;
+            + `<span class="badge bg-${opClass}">${escHtmlGasto(lbl)}</span>`;
+    }
+
+    function operacionDesdeTipoMovimiento(gasto) {
+        return gasto.tipo_movimiento === 'ingreso' ? 'suma' : 'resta';
     }
 
     function netoMovimientosSeleccionados() {
@@ -1167,7 +1170,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <tr>
                             ${thSelG}
                             <th>Concepto</th>
-                            <th>Tipo / Efecto</th>
+                            <th>Tipo</th>
                             <th>Detalle</th>
                             ${thPropG}
                             <th>Fecha</th>
@@ -1181,7 +1184,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const gpid = gasto.propiedad_id != null ? String(gasto.propiedad_id) : '';
                 const conceptoTxt = (gasto.concepto != null && String(gasto.concepto).trim() !== '') ? String(gasto.concepto).trim() : (gasto.descripcion || '—');
                 const descGastoAttr = escHtmlGasto(conceptoTxt).replace(/"/g, '&quot;');
-                const operacion = gasto.operacion_monto || 'resta';
+                const operacion = operacionDesdeTipoMovimiento(gasto);
                 const tdSel = mostrarCol
                     ? `<td><input type="checkbox" class="form-check-input gasto-checkbox"
                            name="gastos_seleccionados[]"
@@ -1915,8 +1918,10 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
 </div>
 
+{% include 'inmobiliaria/liquidaciones/_script_selector_concepto_movimiento.html' %}
+
 <script>
-    // Función para mostrar el modal de agregar movimiento
+    // Manejar el envío del formulario de movimiento
     window.mostrarModalAgregarMovimiento = function() {
         const propiedadId = document.getElementById('propiedad_id').value;
         if (!propiedadId) {
@@ -1953,6 +1958,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Limpiar formulario
                 this.reset();
+                if (typeof limpiarConceptoMovimientoModal === 'function') {
+                    limpiarConceptoMovimientoModal();
+                }
                 
                 // Recargar operaciones pendientes para mostrar el nuevo gasto
                 cargarOperacionesPendientes(propiedadId);

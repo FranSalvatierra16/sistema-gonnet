@@ -1,0 +1,127 @@
+<script>
+(function() {
+    const urlBuscar = '{% url "inmobiliaria:buscar_conceptos" %}';
+    const csrf = '{{ csrf_token }}';
+    let debounceTimer = null;
+
+    function esc(s) {
+        return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    }
+
+    function etiquetaConcepto(c) {
+        const id = (c.id || '').toString();
+        const nom = (c.nombre || '').trim();
+        return id + ' — ' + nom;
+    }
+
+    function limpiarConceptoMov() {
+        const hid = document.getElementById('mov_concepto_id');
+        const box = document.getElementById('mov_concepto_seleccionado');
+        const txt = document.getElementById('mov_concepto_texto');
+        const inp = document.getElementById('mov_buscar_concepto');
+        if (hid) hid.value = '';
+        if (box) box.classList.add('d-none');
+        if (txt) txt.textContent = '';
+        if (inp) inp.value = '';
+        ocultarDropdown();
+    }
+
+    function seleccionarConceptoMov(c) {
+        const hid = document.getElementById('mov_concepto_id');
+        const box = document.getElementById('mov_concepto_seleccionado');
+        const txt = document.getElementById('mov_concepto_texto');
+        const inp = document.getElementById('mov_buscar_concepto');
+        if (hid) hid.value = c.id;
+        if (txt) txt.textContent = etiquetaConcepto(c);
+        if (box) box.classList.remove('d-none');
+        if (inp) inp.value = '';
+        ocultarDropdown();
+    }
+
+    function ocultarDropdown() {
+        const dd = document.getElementById('mov_dropdown_conceptos');
+        if (dd) {
+            dd.style.display = 'none';
+            dd.innerHTML = '';
+        }
+    }
+
+    function renderDropdown(conceptos) {
+        const dd = document.getElementById('mov_dropdown_conceptos');
+        if (!dd) return;
+        if (!conceptos || !conceptos.length) {
+            dd.innerHTML = '<div class="list-group-item text-muted small">Sin resultados</div>';
+            dd.style.display = 'block';
+            return;
+        }
+        dd.innerHTML = conceptos.map(function(c) {
+            return '<button type="button" class="list-group-item list-group-item-action py-2 mov-concepto-opt" '
+                + 'data-id="' + esc(c.id) + '" data-nombre="' + esc(c.nombre) + '">'
+                + '<strong>' + esc(c.id) + '</strong> <span class="text-muted">—</span> ' + esc(c.nombre)
+                + '</button>';
+        }).join('');
+        dd.style.display = 'block';
+    }
+
+    function fetchConceptos(termino) {
+        const fd = new FormData();
+        fd.append('termino', termino || '');
+        fetch(urlBuscar, {
+            method: 'POST',
+            body: fd,
+            headers: { 'X-CSRFToken': csrf },
+        })
+            .then(function(r) { return r.json(); })
+            .then(function(data) { renderDropdown(data.conceptos || []); })
+            .catch(function() { ocultarDropdown(); });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const inp = document.getElementById('mov_buscar_concepto');
+        const dd = document.getElementById('mov_dropdown_conceptos');
+        const btnLimpiar = document.getElementById('mov_limpiar_concepto');
+        const modal = document.getElementById('modalAgregarGasto');
+
+        if (btnLimpiar) {
+            btnLimpiar.addEventListener('click', limpiarConceptoMov);
+        }
+        if (inp) {
+            inp.addEventListener('focus', function() { fetchConceptos(inp.value.trim()); });
+            inp.addEventListener('input', function() {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(function() {
+                    fetchConceptos(inp.value.trim());
+                }, 250);
+            });
+        }
+        if (dd) {
+            dd.addEventListener('click', function(e) {
+                const btn = e.target.closest('.mov-concepto-opt');
+                if (!btn) return;
+                seleccionarConceptoMov({ id: btn.getAttribute('data-id'), nombre: btn.getAttribute('data-nombre') });
+            });
+        }
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('#mov_buscar_concepto') && !e.target.closest('#mov_dropdown_conceptos')) {
+                ocultarDropdown();
+            }
+        });
+        if (modal) {
+            modal.addEventListener('hidden.bs.modal', limpiarConceptoMov);
+        }
+
+        const form = document.getElementById('formAgregarGasto');
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                if (!(document.getElementById('mov_concepto_id') || {}).value) {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    alert('Seleccioná un concepto del catálogo de caja.');
+                }
+            }, true);
+        }
+    });
+
+    window.limpiarConceptoMovimientoModal = limpiarConceptoMov;
+})();
+</script>

@@ -1,34 +1,26 @@
-<div class="mb-3">
-    <label class="form-label">Descripción <span class="text-danger">*</span></label>
-    <input type="text" name="descripcion" class="form-control" required
-           placeholder="Ej: Luz, Gas, Devolución depósito...">
+<div class="mb-3 position-relative">
+    <label class="form-label">Concepto <span class="text-danger">*</span></label>
+    <input type="text" id="mov_buscar_concepto" class="form-control" autocomplete="off"
+           placeholder="Número o nombre del concepto (catálogo de caja)…">
+    <div id="mov_dropdown_conceptos" class="list-group shadow-sm border rounded mt-1"
+         style="display:none;max-height:220px;overflow:auto;z-index:1060;position:absolute;left:0;right:0;"></div>
+    <div id="mov_concepto_seleccionado" class="d-none mt-2 alert alert-success py-2 mb-0 small">
+        <span id="mov_concepto_texto"></span>
+        <button type="button" class="btn-close float-end" id="mov_limpiar_concepto" aria-label="Quitar"></button>
+    </div>
+    <input type="hidden" name="concepto_id" id="mov_concepto_id" value="">
 </div>
-<div class="row g-2 mb-3">
-    <div class="col-md-4">
-        <label class="form-label">Tipo</label>
-        <select name="tipo_movimiento" class="form-select">
-            <option value="egreso" selected>Egreso</option>
-            <option value="ingreso">Ingreso</option>
-        </select>
-    </div>
-    <div class="col-md-4">
-        <label class="form-label">Efecto inquilino</label>
-        <select name="efecto_inquilino" class="form-select">
-            <option value="contra" selected>En contra</option>
-            <option value="favor">A favor</option>
-        </select>
-    </div>
-    <div class="col-md-4">
-        <label class="form-label">Operación</label>
-        <select name="operacion_monto" class="form-select">
-            <option value="resta" selected>Resta</option>
-            <option value="suma">Suma</option>
-        </select>
-    </div>
+<div class="mb-3">
+    <label class="form-label">Tipo</label>
+    <select name="tipo_movimiento" class="form-select">
+        <option value="egreso" selected>Egreso — en contra del propietario</option>
+        <option value="ingreso">Ingreso — a favor del propietario</option>
+    </select>
 </div>
 <div class="mb-3">
     <label class="form-label">Monto <span class="text-danger">*</span></label>
-    <input type="text" name="monto" class="form-control" required placeholder="0.00" oninput="if(typeof formatearNumeroInput==='function')formatearNumeroInput(this)">
+    <input type="text" name="monto" class="form-control" required placeholder="0.00"
+           oninput="if(typeof formatearNumeroInput==='function')formatearNumeroInput(this)">
 </div>
 <div class="mb-3">
     <label class="form-label">Fecha</label>
@@ -39,5 +31,5 @@
     <textarea name="observaciones" class="form-control" rows="2"></textarea>
 </div>
 <p class="small text-muted mb-0">
-    <strong>Resta</strong> descuenta del monto a pagar al propietario; <strong>Suma</strong> lo aumenta.
+    Elegí un concepto del catálogo de caja. El <strong>ingreso</strong> suma al propietario; el <strong>egreso</strong> descuenta.
 </p>

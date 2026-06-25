@@ -224,10 +224,8 @@
                                 <table class="table table-hover">
                                     <thead>
                                         <tr>
-                                            <th>Descripción</th>
+                                            <th>Concepto</th>
                                             <th>Tipo</th>
-                                            <th>Efecto inquilino</th>
-                                            <th>Operación</th>
                                             <th>Monto</th>
                                             <th>Fecha</th>
                                             <th>Estado</th>
@@ -243,10 +241,13 @@
                                                 <br><small class="text-muted">{{ gasto.observaciones }}</small>
                                                 {% endif %}
                                             </td>
-                                            <td><span class="badge bg-light text-dark border">{{ gasto.get_tipo_movimiento_display }}</span></td>
-                                            <td><span class="badge bg-light text-dark border">{% if gasto.efecto_inquilino == 'favor' %}A favor{% else %}En contra{% endif %}</span></td>
-                                            <td><span class="badge bg-{% if gasto.operacion_monto == 'suma' %}success{% else %}danger{% endif %}">{{ gasto.get_operacion_monto_display }}</span></td>
-                                            <td>{% if gasto.operacion_monto == 'suma' %}+{% else %}−{% endif %}${{ gasto.monto|floatformat:2 }}</td>
+                                            <td>
+                                                <span class="badge bg-light text-dark border">{{ gasto.get_tipo_movimiento_display }}</span>
+                                                <span class="badge bg-{% if gasto.tipo_movimiento == 'ingreso' %}success{% else %}danger{% endif %}">
+                                                    {% if gasto.tipo_movimiento == 'ingreso' %}A favor prop.{% else %}Contra prop.{% endif %}
+                                                </span>
+                                            </td>
+                                            <td>{% if gasto.tipo_movimiento == 'ingreso' %}+{% else %}−{% endif %}${{ gasto.monto|floatformat:2 }}</td>
                                             <td>{% if gasto.fecha_gasto %}{{ gasto.fecha_gasto|date:"d/m/Y" }}{% else %}-{% endif %}</td>
                                             <td>
                                                 {% if gasto.aceptado %}
@@ -484,6 +485,8 @@
         </div>
     </div>
 </div>
+
+{% include 'inmobiliaria/liquidaciones/_script_selector_concepto_movimiento.html' %}
 
 <script>
 function parseDecimalMontoJS(val) {

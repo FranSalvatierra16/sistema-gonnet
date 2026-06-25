@@ -24623,8 +24623,7 @@ def _precio_dia_alquiler_liquidacion(liquidacion, monto_propietario=None):
 def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
     """
     Detalle de liquidación de cobranzas para el propietario.
-    Haber = lo que le corresponde al propietario; Debe = gastos y fondo descontados.
-    La comisión de la inmobiliaria no se muestra en esta tabla.
+    Debe = a favor del propietario; Haber = en contra del propietario.
     """
     filas = []
     monto_prop = Decimal(str(liquidacion.monto_propietario or 0))
@@ -24636,8 +24635,8 @@ def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
     if monto_prop > Decimal('0.01'):
         filas.append({
             'detalle': f'ALQUILER A PAGAR // {periodo}' if periodo else 'ALQUILER A PAGAR',
-            'haber': monto_prop.quantize(Decimal('0.01')),
-            'debe': Decimal('0'),
+            'debe': monto_prop.quantize(Decimal('0.01')),
+            'haber': Decimal('0'),
             'es_alquiler': True,
             'fecha_entrada': fecha_entrada,
             'fecha_salida': fecha_salida,
@@ -24649,23 +24648,23 @@ def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
     if fondo > Decimal('0.01'):
         filas.append({
             'detalle': 'FONDO DE MANTENIMIENTO',
-            'haber': Decimal('0'),
-            'debe': fondo.quantize(Decimal('0.01')),
+            'debe': Decimal('0'),
+            'haber': fondo.quantize(Decimal('0.01')),
         })
 
     com_loc = Decimal(str(getattr(liquidacion, 'comision_locador', None) or 0))
     if com_loc > Decimal('0.01'):
         filas.append({
             'detalle': 'COMISIÓN LOCADOR',
-            'haber': Decimal('0'),
-            'debe': com_loc.quantize(Decimal('0.01')),
+            'debe': Decimal('0'),
+            'haber': com_loc.quantize(Decimal('0.01')),
         })
     com_locat = Decimal(str(getattr(liquidacion, 'comision_locatario', None) or 0))
     if com_locat > Decimal('0.01'):
         filas.append({
             'detalle': 'COMISIÓN LOCATARIO',
-            'haber': Decimal('0'),
-            'debe': com_locat.quantize(Decimal('0.01')),
+            'debe': Decimal('0'),
+            'haber': com_locat.quantize(Decimal('0.01')),
         })
 
     gastos_qs = liquidacion.gastos.filter(aceptado=True).order_by('fecha_gasto', 'id')
@@ -24674,48 +24673,40 @@ def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
             [g for g in liquidacion.gastos.all() if g.aceptado],
             key=lambda g: (g.fecha_gasto or timezone.now().date(), g.id),
         )
+    total_ingresos = Decimal('0')
+    total_egresos = Decimal('0')
     for gasto in gastos_qs:
         m = Decimal(str(gasto.monto or 0))
         if m <= Decimal('0.01'):
             continue
         det = (gasto.descripcion or 'MOVIMIENTO').strip().upper()
-        tipo_lbl = gasto.get_tipo_movimiento_display()
-        efecto_lbl = 'Favor inq.' if gasto.efecto_inquilino == 'favor' else 'Contra inq.'
-        op_lbl = gasto.get_operacion_monto_display()
-        detalle = f'{det} ({tipo_lbl} · {efecto_lbl} · {op_lbl})'
-        if gasto.operacion_monto == 'suma':
+        tipo_lbl = gasto.get_tipo_movimiento_display().upper()
+        if gasto.tipo_movimiento == 'ingreso':
+            total_ingresos += m
             filas.append({
-                'detalle': detalle,
-                'haber': m.quantize(Decimal('0.01')),
-                'debe': Decimal('0'),
+                'detalle': f'{det} ({tipo_lbl})',
+                'debe': m.quantize(Decimal('0.01')),
+                'haber': Decimal('0'),
             })
         else:
+            total_egresos += m
             filas.append({
-                'detalle': detalle,
-                'haber': Decimal('0'),
-                'debe': m.quantize(Decimal('0.01')),
+                'detalle': f'{det} ({tipo_lbl})',
+                'debe': Decimal('0'),
+                'haber': m.quantize(Decimal('0.01')),
             })
 
-    total_haber = monto_prop
-    total_resta = Decimal('0')
-    total_suma = Decimal('0')
-    for g in gastos_qs:
-        mg = Decimal(str(g.monto or 0))
-        if g.operacion_monto == 'suma':
-            total_suma += mg
-            total_haber += mg
-        else:
-            total_resta += mg
-    total_debe = fondo + com_loc + com_locat + total_resta
+    total_debe = monto_prop + total_ingresos
+    total_haber = fondo + com_loc + com_locat + total_egresos
     saldo_favor = Decimal(str(liquidacion.monto_a_pagar or 0))
     if saldo_favor <= Decimal('0'):
-        saldo_favor = (total_haber - total_debe).quantize(Decimal('0.01'))
+        saldo_favor = (total_debe - total_haber).quantize(Decimal('0.01'))
         if saldo_favor < 0:
             saldo_favor = Decimal('0')
     return {
         'filas': filas,
-        'total_haber': total_haber.quantize(Decimal('0.01')),
         'total_debe': total_debe.quantize(Decimal('0.01')),
+        'total_haber': total_haber.quantize(Decimal('0.01')),
         'saldo_favor': saldo_favor if saldo_favor > 0 else Decimal('0'),
     }
 
@@ -25071,13 +25062,22 @@ def _parse_campos_movimiento_gasto(post):
     tipo = (post.get('tipo_movimiento') or 'egreso').strip().lower()
     if tipo not in ('egreso', 'ingreso'):
         tipo = 'egreso'
-    efecto = (post.get('efecto_inquilino') or 'contra').strip().lower()
-    if efecto not in ('favor', 'contra'):
-        efecto = 'contra'
-    operacion = (post.get('operacion_monto') or 'resta').strip().lower()
-    if operacion not in ('suma', 'resta'):
-        operacion = 'resta'
-    return tipo, efecto, operacion
+    if tipo == 'ingreso':
+        return tipo, 'favor', 'suma'
+    return tipo, 'contra', 'resta'
+
+
+def _concepto_gasto_desde_post(post, sucursal):
+    cid = (post.get('concepto_id') or '').strip()
+    if not cid:
+        return None, None, 'Debe seleccionar un concepto del catálogo de caja.'
+    concepto = Concepto.objects.filter(
+        id=cid,
+    ).filter(q_conceptos_caja_visibles(sucursal)).first()
+    if not concepto:
+        return None, None, 'El concepto seleccionado no es válido.'
+    descripcion = f'{concepto.id} - {concepto.nombre}'
+    return concepto, descripcion, None
 
 
 def _dict_gasto_pendiente(gasto, **extra):
@@ -25092,10 +25092,7 @@ def _dict_gasto_pendiente(gasto, **extra):
         'observaciones': gasto.observaciones,
         'tipo_movimiento': gasto.tipo_movimiento,
         'tipo_movimiento_display': gasto.get_tipo_movimiento_display(),
-        'efecto_inquilino': gasto.efecto_inquilino,
-        'efecto_inquilino_display': gasto.get_efecto_inquilino_display(),
-        'operacion_monto': gasto.operacion_monto,
-        'operacion_monto_display': gasto.get_operacion_monto_display(),
+        'concepto_caja_id': gasto.concepto_caja_id or '',
         'tipo': 'gasto_manual',
     }
     data.update(extra)
@@ -25115,12 +25112,12 @@ def agregar_gasto(request, liquidacion_id):
     )
 
     try:
-        descripcion = request.POST.get('descripcion', '').strip()
+        concepto, descripcion, err_con = _concepto_gasto_desde_post(request.POST, request.user.sucursal)
+        if err_con:
+            return JsonResponse({'success': False, 'error': err_con})
+
         fecha_gasto = request.POST.get('fecha_gasto', '')
         observaciones = request.POST.get('observaciones', '').strip()
-
-        if not descripcion:
-            return JsonResponse({'success': False, 'error': 'La descripción es obligatoria.'})
 
         monto = parse_decimal_monto(request.POST.get('monto', '0'))
         if monto <= 0:
@@ -25133,6 +25130,7 @@ def agregar_gasto(request, liquidacion_id):
             propietario=liquidacion.propietario,
             propiedad=liquidacion.propiedad,
             descripcion=descripcion,
+            concepto_caja_id=concepto.id,
             monto=monto,
             tipo_movimiento=tipo_mov,
             efecto_inquilino=efecto_inq,
@@ -25256,14 +25254,14 @@ def crear_gasto_pendiente(request):
     """
     if request.method == 'POST':
         try:
+            concepto, descripcion, err_con = _concepto_gasto_desde_post(request.POST, request.user.sucursal)
+            if err_con:
+                return JsonResponse({'success': False, 'error': err_con})
+
             propietario_id = request.POST.get('propietario_id')
             propiedad_id = request.POST.get('propiedad_id')
-            descripcion = request.POST.get('descripcion', '').strip()
             fecha_gasto = request.POST.get('fecha_gasto', '')
             observaciones = request.POST.get('observaciones', '').strip()
-
-            if not descripcion:
-                return JsonResponse({'success': False, 'error': 'La descripción es obligatoria.'})
 
             if not propietario_id and not propiedad_id:
                 return JsonResponse({'success': False, 'error': 'Debe seleccionar un propietario o una propiedad.'})
@@ -25288,6 +25286,7 @@ def crear_gasto_pendiente(request):
                 propietario=propietario,
                 propiedad=propiedad,
                 descripcion=descripcion,
+                concepto_caja_id=concepto.id,
                 monto=monto,
                 tipo_movimiento=tipo_mov,
                 efecto_inquilino=efecto_inq,
@@ -25303,12 +25302,11 @@ def crear_gasto_pendiente(request):
                 'gasto': {
                     'id': gasto.id,
                     'descripcion': gasto.descripcion,
+                    'concepto_caja_id': gasto.concepto_caja_id,
                     'monto': str(gasto.monto),
                     'fecha_gasto': gasto.fecha_gasto.strftime('%Y-%m-%d') if gasto.fecha_gasto else '',
                     'observaciones': gasto.observaciones,
                     'tipo_movimiento': gasto.tipo_movimiento,
-                    'efecto_inquilino': gasto.efecto_inquilino,
-                    'operacion_monto': gasto.operacion_monto,
                 }
             })
 

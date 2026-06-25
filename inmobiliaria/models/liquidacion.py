@@ -197,17 +197,17 @@ class LiquidacionPropietario(models.Model):
     def calcular_monto_a_pagar(self):
         """Recalcula el monto a pagar según movimientos aceptados y fondo de mantenimiento."""
         aceptados = self.gastos.filter(aceptado=True)
-        restas = sum(
-            (g.monto for g in aceptados if g.operacion_monto != 'suma'),
+        ingresos = sum(
+            (g.monto for g in aceptados if g.tipo_movimiento == 'ingreso'),
             Decimal('0'),
         )
-        sumas = sum(
-            (g.monto for g in aceptados if g.operacion_monto == 'suma'),
+        egresos = sum(
+            (g.monto for g in aceptados if g.tipo_movimiento != 'ingreso'),
             Decimal('0'),
         )
         fondo = self.monto_fondo_mantenimiento or Decimal('0')
-        self.monto_gastos = restas
-        neto = self.monto_propietario - restas - fondo + sumas
+        self.monto_gastos = egresos
+        neto = self.monto_propietario - egresos - fondo + ingresos
         self.monto_a_pagar = neto if neto > 0 else Decimal('0')
         self.save(update_fields=['monto_gastos', 'monto_a_pagar'])
 
@@ -273,7 +273,13 @@ class GastoPropietario(models.Model):
     descripcion = models.CharField(
         max_length=200,
         verbose_name="Descripción",
-        help_text="Descripción del gasto (ej: Luz, Gas, Mantenimiento)"
+        help_text="Nombre del concepto de caja"
+    )
+    concepto_caja_id = models.CharField(
+        max_length=20,
+        blank=True,
+        verbose_name='Concepto caja',
+        help_text='ID del concepto del catálogo de caja',
     )
     monto = models.DecimalField(
         max_digits=12,
@@ -329,11 +335,17 @@ class GastoPropietario(models.Model):
     def monto_signed(self):
         """Impacto neto del movimiento sobre el monto a pagar al propietario."""
         m = self.monto if self.monto is not None else Decimal('0')
-        if self.operacion_monto == 'suma':
+        if self.tipo_movimiento == 'ingreso':
             return m
         return -m
 
     def save(self, *args, **kwargs):
+        if self.tipo_movimiento == 'ingreso':
+            self.operacion_monto = 'suma'
+            self.efecto_inquilino = 'favor'
+        else:
+            self.operacion_monto = 'resta'
+            self.efecto_inquilino = 'contra'
         # Si no hay liquidación pero hay propietario, obtener la sucursal del propietario
         if not self.sucursal and self.propietario:
             self.sucursal = self.propietario.sucursal
