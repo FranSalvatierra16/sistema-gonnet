@@ -1019,15 +1019,34 @@ document.addEventListener('DOMContentLoaded', function() {
         } else if (extraCarga && extraCarga.restaurarOperacion) {
             restaurarOperacionesMarcadas([extraCarga.restaurarOperacion]);
         }
-        if (extraCarga && extraCarga.restaurarGastoId != null && extraCarga.restaurarGastoId !== '') {
-            const gid = String(extraCarga.restaurarGastoId);
-            document.querySelectorAll('.gasto-checkbox').forEach(function(el) {
-                if (String(el.value) === gid) {
-                    el.checked = true;
-                }
-            });
-            calcularMontosSeleccionados();
+        restaurarGastosMarcados(extraCarga);
+    }
+
+    function capturarSeleccionPendientesParaRecarga() {
+        return {
+            restaurarOperaciones: Array.from(document.querySelectorAll('.operacion-checkbox:checked')).map(function(x) {
+                return { tipo: x.getAttribute('data-tipo'), id: x.getAttribute('data-id') };
+            }),
+            restaurarGastosIds: Array.from(document.querySelectorAll('.gasto-checkbox:checked')).map(function(x) {
+                return String(x.value);
+            }),
+        };
+    }
+
+    function restaurarGastosMarcados(extraCarga) {
+        if (!extraCarga) return;
+        const ids = new Set();
+        if (extraCarga.restaurarGastoId != null && extraCarga.restaurarGastoId !== '') {
+            ids.add(String(extraCarga.restaurarGastoId));
         }
+        (extraCarga.restaurarGastosIds || []).forEach(function(id) {
+            if (id != null && id !== '') ids.add(String(id));
+        });
+        if (!ids.size) return;
+        document.querySelectorAll('.gasto-checkbox').forEach(function(el) {
+            if (ids.has(String(el.value))) el.checked = true;
+        });
+        calcularMontosSeleccionados();
     }
 
     // Función para cargar operaciones pendientes (una propiedad)
@@ -1068,10 +1087,25 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     window.cargarOperacionesPendientes = cargarOperacionesPendientes;
 
-    function cargarOperacionesPorPropietario(propietarioId) {
+    window.recargarPendientesTrasNuevoGasto = function(propiedadId, gastoId) {
+        const extraRecarga = capturarSeleccionPendientesParaRecarga();
+        if (gastoId != null && gastoId !== '') {
+            extraRecarga.restaurarGastosIds.push(String(gastoId));
+        }
+        const propietarioId = (document.getElementById('propietario_id') || {}).value;
+        if (cargaPorPropietarioActiva && propietarioId) {
+            cargarOperacionesPorPropietario(propietarioId, extraRecarga);
+        } else {
+            cargarOperacionesPendientes(propiedadId, extraRecarga);
+        }
+    };
+
+    function cargarOperacionesPorPropietario(propietarioId, extraCarga) {
         if (!propietarioId) return;
         cargaPorPropietarioActiva = true;
-        opcionesCargaOperacionesExtra = null;
+        if (!extraCarga) {
+            opcionesCargaOperacionesExtra = null;
+        }
         limpiarSoloCampoPropiedad();
         const container = document.getElementById('operaciones-pendientes-container');
         const lista = document.getElementById('operaciones-pendientes-lista');
@@ -1098,7 +1132,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     cuentaPropietarioDisplay.placeholder = cb ? '' : 'Sin cuenta cargada';
                 }
                 renderFiltroPropiedadPropietario(data);
-                pintarOperacionesYGastosDesdeJson(data, null);
+                pintarOperacionesYGastosDesdeJson(data, extraCarga || null);
                 if (data.errores_propiedades && data.errores_propiedades.length) {
                     const aviso = document.createElement('div');
                     aviso.className = 'alert alert-warning mt-2 mb-0 small';
@@ -1235,6 +1269,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <small class="text-muted">
                         <i class="fas fa-info-circle me-1"></i>
                         Seleccioná los movimientos a incluir en la liquidación (resta descuenta; suma aumenta lo que se paga al propietario).
+                        Los que agregues desde aquí se marcan solos; podés desmarcarlos si no querés incluirlos.
                         ${mostrarCol ? 'Solo podés incluir gastos de la misma propiedad que las operaciones elegidas.' : ''}
                     </small>
                 </div>
@@ -2026,8 +2061,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     limpiarConceptoMovimientoModal();
                 }
                 
-                // Recargar operaciones pendientes para mostrar el nuevo gasto
-                cargarOperacionesPendientes(propiedadId);
+                // Recargar lista y marcar el movimiento recién creado (conservando lo ya seleccionado)
+                const gastoId = data.gasto && data.gasto.id != null ? data.gasto.id : null;
+                if (typeof window.recargarPendientesTrasNuevoGasto === 'function') {
+                    window.recargarPendientesTrasNuevoGasto(propiedadId, gastoId);
+                } else {
+                    window.cargarOperacionesPendientes(propiedadId, gastoId ? { restaurarGastoId: gastoId } : null);
+                }
                 
                 // Mostrar mensaje de éxito
                 alert('Movimiento pendiente creado correctamente.');

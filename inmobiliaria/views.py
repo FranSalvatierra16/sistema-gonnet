@@ -23531,56 +23531,15 @@ def _cuota_siguiente_anticipada_liquidable(contrato, cuotas_excluidas, ids_ya_en
     )
 
 
-def _contrato_liquidacion_todo_propietario(contrato):
-    """Invierno (9 meses) y 24 meses: el cobro mensual va íntegro al propietario por defecto."""
-    if contrato is None:
-        return False
-    duracion = int(getattr(contrato, 'duracion_meses', 0) or 0)
-    if duracion in (9, 24):
-        return True
-    try:
-        if duracion > 0 and duracion < 9 and getattr(contrato, 'es_contrato_invierno', lambda: False)():
-            return True
-    except Exception:
-        pass
-    return False
-
-
 def _monto_propietario_inmobiliaria_cuota_mensual(propiedad, monto_cuota, contrato=None):
     """
-    Reparto propietario / inmobiliaria para el monto de una sola cuota mensual cobrada.
-    Invierno y 24 meses: 100% propietario. Resto: precio toma o fallback 70/30 (editable al liquidar).
+    Reparto para cuotas de contrato (mensual, invierno, 24 meses, etc.):
+    100% propietario por defecto (editable al liquidar).
+    Solo las reservas por día usan precio toma o 70/30.
     """
     total_cuotas = Decimal(str(monto_cuota))
-    if _contrato_liquidacion_todo_propietario(contrato):
-        mp = total_cuotas.quantize(Decimal('0.01'))
-        return mp, Decimal('0')
-
-    precio_mensual = total_cuotas
-    monto_propietario = Decimal('0')
-    monto_inmobiliaria = Decimal('0')
-    try:
-        precio_ref = Precio.objects.filter(propiedad=propiedad).first()
-        if precio_ref and precio_ref.precio_toma:
-            precio_toma = Decimal(str(precio_ref.precio_toma))
-            precio_por_dia = Decimal(str(precio_ref.precio_por_dia or 100))
-            if precio_por_dia > 0:
-                precio_mensual_toma = (precio_toma / precio_por_dia) * precio_mensual
-                monto_propietario = precio_mensual_toma
-                monto_inmobiliaria = total_cuotas - monto_propietario
-            else:
-                monto_propietario = total_cuotas * Decimal('0.70')
-                monto_inmobiliaria = total_cuotas * Decimal('0.30')
-        else:
-            monto_propietario = total_cuotas * Decimal('0.70')
-            monto_inmobiliaria = total_cuotas * Decimal('0.30')
-    except Exception:
-        monto_propietario = total_cuotas * Decimal('0.70')
-        monto_inmobiliaria = total_cuotas * Decimal('0.30')
-    return (
-        monto_propietario.quantize(Decimal('0.01')),
-        monto_inmobiliaria.quantize(Decimal('0.01')),
-    )
+    mp = total_cuotas.quantize(Decimal('0.01'))
+    return mp, Decimal('0')
 
 
 def _nombre_cliente_reserva_liquidacion(reserva):
