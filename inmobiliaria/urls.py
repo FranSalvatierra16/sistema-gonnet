@@ -432,6 +432,7 @@ urlpatterns = [
         name='obtener_operaciones_pendientes_propietario',
     ),
     path('liquidaciones/gasto-pendiente/crear/', views.crear_gasto_pendiente, name='crear_gasto_pendiente'),
+    path('liquidaciones/gasto-pendiente/eliminar/', views.eliminar_gasto_pendiente, name='eliminar_gasto_pendiente'),
 
     # Mis propiedades (cartera por usuario)
     path('mis-propiedades/', views_mis_propiedades.mis_propiedades, name='mis_propiedades'),

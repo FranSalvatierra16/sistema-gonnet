@@ -99,7 +99,7 @@
                             <div class="col-12">
                                 <div class="card border-info">
                                     <div class="card-header bg-info text-white">
-                                        <h6 class="mb-0"><i class="fas fa-list me-2"></i>Pagos Pendientes al Propietario</h6>
+                                        <h6 class="mb-0"><i class="fas fa-list me-2"></i>Pagos pendientes a favor del propietario</h6>
                                     </div>
                                     <div class="card-body">
                                         <div id="operaciones-pendientes-lista" class="table-responsive">
@@ -198,15 +198,15 @@
                                     <div class="card-body">
                                         <div class="row g-3">
                                             <div class="col-md-6">
-                                                <h6 class="text-success mb-2">Lo que le pagás al propietario</h6>
+                                                <h6 class="text-success mb-2">A favor del propietario</h6>
                                                 <div class="table-responsive">
                                                     <table class="table table-sm table-bordered mb-0">
                                                         <tbody id="resumen-pagos-body">
-                                                            <tr><td colspan="2" class="text-center text-muted py-3">Seleccioná operaciones para ver el detalle.</td></tr>
+                                                            <tr><td colspan="2" class="text-center text-muted py-3">Seleccioná operaciones o movimientos a favor.</td></tr>
                                                         </tbody>
                                                         <tfoot id="resumen-pagos-foot" class="d-none">
                                                             <tr class="fw-bold table-success">
-                                                                <td>Total al propietario</td>
+                                                                <td>Total a favor</td>
                                                                 <td class="text-end" id="resumen-total-pagos">0,00</td>
                                                             </tr>
                                                         </tfoot>
@@ -214,15 +214,15 @@
                                                 </div>
                                             </div>
                                             <div class="col-md-6">
-                                                <h6 class="text-danger mb-2">Movimientos</h6>
+                                                <h6 class="text-danger mb-2">En contra del propietario</h6>
                                                 <div class="table-responsive">
                                                     <table class="table table-sm table-bordered mb-0">
                                                         <tbody id="resumen-gastos-body">
-                                                            <tr><td colspan="2" class="text-center text-muted py-3">Sin gastos seleccionados.</td></tr>
+                                                            <tr><td colspan="2" class="text-center text-muted py-3">Sin movimientos en contra.</td></tr>
                                                         </tbody>
                                                         <tfoot id="resumen-gastos-foot" class="d-none">
                                                             <tr class="fw-bold table-danger">
-                                                                <td>Total descontado</td>
+                                                                <td>Total en contra</td>
                                                                 <td class="text-end" id="resumen-total-gastos">0,00</td>
                                                             </tr>
                                                         </tfoot>
@@ -1175,6 +1175,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             ${thPropG}
                             <th>Fecha</th>
                             <th class="text-end">Monto</th>
+                            <th class="text-end" width="50">Acción</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1215,6 +1216,14 @@ document.addEventListener('DOMContentLoaded', function() {
                         ${tdPropG}
                         <td>${gasto.fecha_gasto ? new Date(gasto.fecha_gasto).toLocaleDateString('es-AR') : '-'}</td>
                         <td class="text-end">${operacion === 'suma' ? '+' : '−'}$${parseFloat(gasto.monto).toLocaleString('es-AR', {minimumFractionDigits: 2})}</td>
+                        <td class="text-end">
+                            <button type="button" class="btn btn-sm btn-outline-danger btn-eliminar-mov-pendiente"
+                                    data-linea-id="${escHtmlGasto(String(gasto.id))}"
+                                    data-propiedad-id="${gpid}"
+                                    title="Eliminar movimiento">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </td>
                     </tr>
                 `;
             });
@@ -1264,6 +1273,50 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
                 calcularMontosSeleccionados();
             }
+        });
+        gastosPendientesContainer.addEventListener('click', function(e) {
+            const btn = e.target.closest('.btn-eliminar-mov-pendiente');
+            if (!btn) return;
+            e.preventDefault();
+            const lineaId = btn.getAttribute('data-linea-id');
+            const propiedadMov = btn.getAttribute('data-propiedad-id')
+                || (document.getElementById('propiedad_id') || {}).value
+                || '';
+            if (!lineaId || !propiedadMov) {
+                alert('No se pudo identificar el movimiento a eliminar.');
+                return;
+            }
+            if (!confirm('¿Eliminar este movimiento pendiente? No se incluirá en ninguna liquidación.')) {
+                return;
+            }
+            const fd = new FormData();
+            fd.append('linea_id', lineaId);
+            fd.append('propiedad_id', propiedadMov);
+            fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+            fetch('{% url "inmobiliaria:eliminar_gasto_pendiente" %}', {
+                method: 'POST',
+                body: fd,
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+            })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.success) {
+                        const propId = document.getElementById('propiedad_id').value;
+                        if (propId) {
+                            cargarOperacionesPendientes(propId);
+                        } else {
+                            const propietarioId = (document.getElementById('propietario_id') || {}).value;
+                            if (propietarioId) {
+                                cargarOperacionesPorPropietario(propietarioId);
+                            }
+                        }
+                    } else {
+                        alert(data.error || 'No se pudo eliminar el movimiento.');
+                    }
+                })
+                .catch(function() {
+                    alert('Error al eliminar el movimiento.');
+                });
         });
     }
 
@@ -1524,8 +1577,8 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!pagosBody || !gastosBody) return;
 
         const propManual = parseNumeroEsAR(montoPropietario.value);
-        const filasPago = [];
-        let totalPago = propManual;
+        const filasAFavor = [];
+        let totalAFavor = 0;
 
         const opsChecked = document.querySelectorAll('.operacion-checkbox:checked');
         if (opsChecked.length && !montosEditadosManualmente) {
@@ -1537,7 +1590,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (per && cb.getAttribute('data-tipo') !== 'reserva') {
                     concepto = `${concepto} (${per})`;
                 }
-                filasPago.push({ concepto: concepto, monto: monto });
+                filasAFavor.push({ concepto: concepto, monto: monto });
+                totalAFavor += monto;
             });
         } else if (propManual > 0.009) {
             let concepto = 'Monto al propietario';
@@ -1550,53 +1604,63 @@ document.addEventListener('DOMContentLoaded', function() {
                     concepto = `${concepto} (${per})`;
                 }
             }
-            filasPago.push({ concepto: concepto, monto: propManual });
+            filasAFavor.push({ concepto: concepto, monto: propManual });
+            totalAFavor += propManual;
         }
 
-        if (!filasPago.length) {
-            pagosBody.innerHTML = '<tr><td colspan="2" class="text-center text-muted py-3">Seleccioná operaciones para ver el detalle.</td></tr>';
+        document.querySelectorAll('.gasto-checkbox:checked').forEach(function(cb) {
+            const operacion = cb.getAttribute('data-operacion') || 'resta';
+            if (operacion !== 'suma') return;
+            const monto = parseFloat(cb.getAttribute('data-monto')) || 0;
+            const concepto = (cb.getAttribute('data-descripcion') || 'Movimiento').trim();
+            if (monto <= 0.009) return;
+            filasAFavor.push({ concepto: concepto, monto: monto });
+            totalAFavor += monto;
+        });
+
+        if (!filasAFavor.length) {
+            pagosBody.innerHTML = '<tr><td colspan="2" class="text-center text-muted py-3">Seleccioná operaciones o movimientos a favor.</td></tr>';
             if (pagosFoot) pagosFoot.classList.add('d-none');
         } else {
-            pagosBody.innerHTML = filasPago.map(function(f) {
+            pagosBody.innerHTML = filasAFavor.map(function(f) {
                 return '<tr><td>' + f.concepto + '</td><td class="text-end">$' + formatearNumero(f.monto.toFixed(2)) + '</td></tr>';
             }).join('');
             const elTotalPagos = document.getElementById('resumen-total-pagos');
-            if (elTotalPagos) elTotalPagos.textContent = formatearNumero(totalPago.toFixed(2));
+            if (elTotalPagos) elTotalPagos.textContent = formatearNumero(totalAFavor.toFixed(2));
             if (pagosFoot) pagosFoot.classList.remove('d-none');
         }
 
-        const filasGasto = [];
-        let totalDescuento = 0;
+        const filasContra = [];
+        let totalContra = 0;
         document.querySelectorAll('.gasto-checkbox:checked').forEach(function(cb) {
-            const monto = parseFloat(cb.getAttribute('data-monto')) || 0;
             const operacion = cb.getAttribute('data-operacion') || 'resta';
+            if (operacion === 'suma') return;
+            const monto = parseFloat(cb.getAttribute('data-monto')) || 0;
             const concepto = (cb.getAttribute('data-descripcion') || 'Movimiento').trim();
             if (monto <= 0.009) return;
-            const pref = operacion === 'suma' ? '+ ' : '− ';
-            filasGasto.push({ concepto: concepto, monto: monto, pref: pref });
-            if (operacion === 'suma') totalDescuento -= monto;
-            else totalDescuento += monto;
+            filasContra.push({ concepto: concepto, monto: monto });
+            totalContra += monto;
         });
 
         const fondo = montoFondoMantenimiento ? parseNumeroEsAR(montoFondoMantenimiento.value) : 0;
         if (fondo > 0.009) {
-            filasGasto.push({ concepto: 'Fondo de mantenimiento', monto: fondo, pref: '− ' });
-            totalDescuento += fondo;
+            filasContra.push({ concepto: 'Fondo de mantenimiento', monto: fondo });
+            totalContra += fondo;
         }
 
-        if (!filasGasto.length) {
-            gastosBody.innerHTML = '<tr><td colspan="2" class="text-center text-muted py-3">Sin movimientos seleccionados.</td></tr>';
+        if (!filasContra.length) {
+            gastosBody.innerHTML = '<tr><td colspan="2" class="text-center text-muted py-3">Sin movimientos en contra.</td></tr>';
             if (gastosFoot) gastosFoot.classList.add('d-none');
         } else {
-            gastosBody.innerHTML = filasGasto.map(function(f) {
-                return '<tr><td>' + f.concepto + '</td><td class="text-end">' + f.pref + '$' + formatearNumero(f.monto.toFixed(2)) + '</td></tr>';
+            gastosBody.innerHTML = filasContra.map(function(f) {
+                return '<tr><td>' + f.concepto + '</td><td class="text-end">$' + formatearNumero(f.monto.toFixed(2)) + '</td></tr>';
             }).join('');
             const elTotalGastos = document.getElementById('resumen-total-gastos');
-            if (elTotalGastos) elTotalGastos.textContent = formatearNumero(totalDescuento.toFixed(2));
+            if (elTotalGastos) elTotalGastos.textContent = formatearNumero(totalContra.toFixed(2));
             if (gastosFoot) gastosFoot.classList.remove('d-none');
         }
 
-        const neto = Math.max(0, totalPago - totalDescuento);
+        const neto = Math.max(0, totalAFavor - totalContra);
         const elNeto = document.getElementById('resumen-neto-pagar');
         if (elNeto) elNeto.textContent = formatearNumero(neto.toFixed(2));
     }

@@ -25157,17 +25157,17 @@ def agregar_gasto(request, liquidacion_id):
         return JsonResponse({'success': False, 'error': f'Error al agregar el gasto: {str(e)}'})
 
 
-def _eliminar_linea_gasto_pendiente(liquidacion, linea_id, sucursal):
+def _eliminar_linea_gasto_pendiente(propiedad, propietario, linea_id, sucursal):
     """
-    Quita un gasto de la lista de pendientes:
+    Quita un movimiento de la lista de pendientes:
     - gasto manual (GastoPropietario sin liquidación): se elimina.
     - egreso de caja (movimiento_N): se marca como inquilino para no volver a ofrecerlo.
     """
-    propiedad = liquidacion.propiedad
-    propietario = liquidacion.propietario
     linea_id = (linea_id or '').strip()
     if not linea_id:
-        return False, 'No se indicó el gasto a eliminar.'
+        return False, 'No se indicó el movimiento a eliminar.'
+    if not propiedad:
+        return False, 'No se indicó la propiedad.'
 
     try:
         if linea_id.startswith('movimiento_'):
@@ -25178,12 +25178,15 @@ def _eliminar_linea_gasto_pendiente(liquidacion, linea_id, sucursal):
                 sucursal=sucursal,
                 tipo=TipoMovimientoCajaEnum.EGRESO,
             )
+            q_gasto_mov = Q(propiedad=propiedad)
+            if propietario:
+                q_gasto_mov |= Q(propietario=propietario)
             existe = GastoPropietario.objects.filter(
-                Q(propiedad=propiedad) | Q(propietario=propietario),
+                q_gasto_mov,
                 observaciones__icontains=f'Movimiento de caja #{movimiento.id}',
             ).exists()
             if existe:
-                return False, 'Ese egreso ya está vinculado como gasto en el sistema.'
+                return False, 'Ese egreso ya está vinculado como movimiento en el sistema.'
             movimiento.a_descontar = 'inquilino'
             movimiento.save(update_fields=['a_descontar'])
             return True, None
@@ -25194,14 +25197,14 @@ def _eliminar_linea_gasto_pendiente(liquidacion, linea_id, sucursal):
             liquidacion__isnull=True,
             sucursal=sucursal,
         )
-        if gasto.propietario_id and gasto.propietario_id != propietario.id:
-            return False, 'Ese gasto pertenece a otro propietario.'
+        if propietario and gasto.propietario_id and gasto.propietario_id != propietario.id:
+            return False, 'Ese movimiento pertenece a otro propietario.'
         if gasto.propiedad_id and gasto.propiedad_id != propiedad.id:
-            return False, 'Ese gasto pertenece a otra propiedad.'
+            return False, 'Ese movimiento pertenece a otra propiedad.'
         gasto.delete()
         return True, None
     except (GastoPropietario.DoesNotExist, MovimientoCaja.DoesNotExist, ValueError):
-        return False, 'No se encontró el gasto pendiente indicado.'
+        return False, 'No se encontró el movimiento pendiente indicado.'
     except Exception as exc:
         return False, str(exc)
 
@@ -25217,10 +25220,36 @@ def eliminar_gasto_pendiente_liquidacion(request, liquidacion_id):
         estado='pendiente',
     )
     linea_id = (request.POST.get('linea_id') or '').strip()
-    ok, err = _eliminar_linea_gasto_pendiente(liquidacion, linea_id, request.user.sucursal)
+    ok, err = _eliminar_linea_gasto_pendiente(
+        liquidacion.propiedad,
+        liquidacion.propietario,
+        linea_id,
+        request.user.sucursal,
+    )
     if ok:
-        return JsonResponse({'success': True, 'message': 'Gasto eliminado correctamente.'})
-    return JsonResponse({'success': False, 'error': err or 'No se pudo eliminar el gasto.'})
+        return JsonResponse({'success': True, 'message': 'Movimiento eliminado correctamente.'})
+    return JsonResponse({'success': False, 'error': err or 'No se pudo eliminar el movimiento.'})
+
+
+@login_required
+@require_POST
+def eliminar_gasto_pendiente(request):
+    """Elimina un movimiento pendiente al crear liquidación (sin liquidación creada aún)."""
+    propiedad_id = request.POST.get('propiedad_id')
+    linea_id = (request.POST.get('linea_id') or '').strip()
+    if not propiedad_id:
+        return JsonResponse({'success': False, 'error': 'Debe indicar la propiedad.'})
+    propiedad = get_object_or_404(Propiedad, id=propiedad_id, sucursal=request.user.sucursal)
+    propietario = getattr(propiedad, 'propietario', None)
+    ok, err = _eliminar_linea_gasto_pendiente(
+        propiedad,
+        propietario,
+        linea_id,
+        request.user.sucursal,
+    )
+    if ok:
+        return JsonResponse({'success': True, 'message': 'Movimiento eliminado correctamente.'})
+    return JsonResponse({'success': False, 'error': err or 'No se pudo eliminar el movimiento.'})
 
 
 @login_required
