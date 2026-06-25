@@ -82,7 +82,11 @@
             </tr>
             <tr class="liq-cobranzas-saldo">
                 <td colspan="3" class="text-end">
+                    {% if saldo_favor < 0 %}
+                    <strong>Saldo en SU contra: {{ saldo_favor|format_price }}</strong>
+                    {% else %}
                     <strong>Saldo a SU favor: {{ saldo_favor|format_price }}</strong>
+                    {% endif %}
                 </td>
             </tr>
         </tfoot>

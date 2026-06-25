@@ -177,9 +177,11 @@ class LiquidacionPropietario(models.Model):
     )
 
     def _recalcular_monto_a_pagar_fields(self):
-        """Neto al propietario: alquiler + ingresos − egresos − fondo (cochera aparte)."""
+        """Neto al propietario: alquiler + ingresos − egresos − fondo − comisiones (cochera aparte)."""
         prop = self.monto_propietario if self.monto_propietario is not None else Decimal('0')
         fondo = self.monto_fondo_mantenimiento if self.monto_fondo_mantenimiento is not None else Decimal('0')
+        com_loc = self.comision_locador if self.comision_locador is not None else Decimal('0')
+        com_locat = self.comision_locatario if self.comision_locatario is not None else Decimal('0')
         ingresos = Decimal('0')
         egresos = Decimal('0')
         if self.pk:
@@ -191,9 +193,9 @@ class LiquidacionPropietario(models.Model):
                     egresos += m
         else:
             egresos = self.monto_gastos if self.monto_gastos is not None else Decimal('0')
-        neto = prop - egresos - fondo + ingresos
+        neto = prop - egresos - fondo + ingresos - com_loc - com_locat
         self.monto_gastos = egresos
-        self.monto_a_pagar = neto if neto > 0 else Decimal('0')
+        self.monto_a_pagar = neto.quantize(Decimal('0.01'))
 
     def save(self, *args, **kwargs):
         self._recalcular_monto_a_pagar_fields()

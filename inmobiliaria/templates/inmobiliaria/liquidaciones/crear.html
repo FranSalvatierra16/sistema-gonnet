@@ -170,12 +170,12 @@
                             <div class="col">
                                 <label class="form-label">Comisión locador</label>
                                 <input type="text" name="comision_locador" id="comision_locador" class="form-control" value="0,00" placeholder="0,00" autocomplete="off">
-                                <small class="form-text text-muted">Primera cuota 9/24 meses: parte del total a cargo del locador.</small>
+                                <small class="form-text text-muted">Primera cuota 9/24 meses: un mes de participación (editable). Se descuenta del neto; no suma al monto total de la operación.</small>
                             </div>
                             <div class="col">
                                 <label class="form-label">Comisión locatario</label>
                                 <input type="text" name="comision_locatario" id="comision_locatario" class="form-control" value="0,00" placeholder="0,00" autocomplete="off">
-                                <small class="form-text text-muted">Honorarios / comisión locatario (sugerido desde el contrato).</small>
+                                <small class="form-text text-muted">Honorarios / comisión locatario (referencia del contrato). Se descuenta del neto; no suma al monto total de la operación.</small>
                             </div>
                         </div>
 
@@ -184,7 +184,7 @@
                                 <div class="alert alert-success">
                                     <strong>Monto Final a Pagar al Propietario:</strong> 
                                     $<span id="monto-final-pagar">0.00</span>
-                                    <small class="text-muted ms-2">(Propietario − movimientos que restan + movimientos que suman − fondo; la cochera no se paga al propietario)</small>
+                                    <small class="text-muted ms-2">(A favor − movimientos en contra + movimientos a favor − fondo − comisiones locador/locatario; la cochera no se paga al propietario)</small>
                                 </div>
                             </div>
                         </div>
@@ -1550,6 +1550,15 @@ document.addEventListener('DOMContentLoaded', function() {
         return comisionLocatario ? parseNumeroEsAR(comisionLocatario.value) : 0;
     }
 
+    function comisionesPrimeraOpEnContra() {
+        if (!bloqueComisionesPrimeraOp || bloqueComisionesPrimeraOp.classList.contains('d-none')) {
+            return { locador: 0, locatario: 0, total: 0 };
+        }
+        const loc = leerComisionLocador();
+        const locat = leerComisionLocatario();
+        return { locador: loc, locatario: locat, total: loc + locat };
+    }
+
     function actualizarBloqueComisionesPrimeraOp() {
         if (!bloqueComisionesPrimeraOp) return;
         let hayPrimera = false;
@@ -1683,6 +1692,16 @@ document.addEventListener('DOMContentLoaded', function() {
             totalContra += fondo;
         }
 
+        const comisiones = comisionesPrimeraOpEnContra();
+        if (comisiones.locador > 0.009) {
+            filasContra.push({ concepto: 'Comisión locador', monto: comisiones.locador });
+            totalContra += comisiones.locador;
+        }
+        if (comisiones.locatario > 0.009) {
+            filasContra.push({ concepto: 'Comisión locatario', monto: comisiones.locatario });
+            totalContra += comisiones.locatario;
+        }
+
         if (!filasContra.length) {
             gastosBody.innerHTML = '<tr><td colspan="2" class="text-center text-muted py-3">Sin movimientos en contra.</td></tr>';
             if (gastosFoot) gastosFoot.classList.add('d-none');
@@ -1695,9 +1714,20 @@ document.addEventListener('DOMContentLoaded', function() {
             if (gastosFoot) gastosFoot.classList.remove('d-none');
         }
 
-        const neto = Math.max(0, totalAFavor - totalContra);
+        const neto = totalAFavor - totalContra;
         const elNeto = document.getElementById('resumen-neto-pagar');
-        if (elNeto) elNeto.textContent = formatearNumero(neto.toFixed(2));
+        if (elNeto) {
+            elNeto.textContent = formatearNumero(neto.toFixed(2));
+            elNeto.classList.toggle('text-danger', neto < -0.009);
+            elNeto.classList.toggle('text-success', neto >= -0.009);
+        }
+        const montoFinalPagar = document.getElementById('monto-final-pagar');
+        if (montoFinalPagar) {
+            montoFinalPagar.textContent = formatearNumero(neto.toFixed(2));
+            montoFinalPagar.classList.toggle('text-danger', neto < -0.009);
+            montoFinalPagar.classList.toggle('text-success', neto >= -0.009);
+        }
+        return neto;
     }
 
     let montosEditadosManualmente = false;
@@ -1741,7 +1771,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
-        const movs = netoMovimientosSeleccionados();
         // Sugerir montos al tildar operaciones (si el usuario ya corrigió a mano, no pisar total/prop/inm)
         actualizarBloqueComisionesPrimeraOp();
         if (totalMonto > 0) {
@@ -1751,16 +1780,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 montoInmobiliaria.value = formatearNumero(totalMontoInmobiliaria.toFixed(2));
             }
 
-            const propActual = parseNumeroEsAR(montoPropietario.value);
-            const fondo = montoFondoMantenimiento ? parseNumeroEsAR(montoFondoMantenimiento.value) : 0;
-            const montoPropietarioFinal = propActual - movs.netoDescuento - fondo;
-            // Actualizar monto final a pagar
-            const montoFinalPagar = document.getElementById('monto-final-pagar');
-            if (montoFinalPagar) {
-                montoFinalPagar.textContent = formatearNumero(Math.max(0, montoPropietarioFinal).toFixed(2));
-            }
-            
-            // Actualizar fechas si están disponibles
+            actualizarResumenLiquidacion();
             if (fechaDesdeMin) {
                 document.querySelector('input[name="fecha_desde"]').value = fechaDesdeMin;
             }
@@ -1776,8 +1796,9 @@ document.addEventListener('DOMContentLoaded', function() {
             if (montoFinalPagar) {
                 montoFinalPagar.textContent = '0,00';
             }
+            actualizarResumenLiquidacion();
+            return;
         }
-        actualizarResumenLiquidacion();
     };
 
     montoTotal.addEventListener('input', function() {
@@ -1795,24 +1816,17 @@ document.addEventListener('DOMContentLoaded', function() {
     if (comisionLocador) {
         comisionLocador.addEventListener('input', function() {
             marcarMontosEditadosManualmente();
+            recalcularMontoFinalDesdeCampos();
         });
     }
     if (comisionLocatario) {
         comisionLocatario.addEventListener('input', function() {
             marcarMontosEditadosManualmente();
+            recalcularMontoFinalDesdeCampos();
         });
     }
 
     function recalcularMontoFinalDesdeCampos() {
-        const prop = parseNumeroEsAR(montoPropietario.value);
-        const fondo = montoFondoMantenimiento ? parseNumeroEsAR(montoFondoMantenimiento.value) : 0;
-        const movs = netoMovimientosSeleccionados();
-        const montoFinalPagar = document.getElementById('monto-final-pagar');
-        if (montoFinalPagar) {
-            montoFinalPagar.textContent = formatearNumero(
-                Math.max(0, prop - movs.netoDescuento - fondo).toFixed(2)
-            );
-        }
         actualizarResumenLiquidacion();
     }
 
@@ -1888,15 +1902,14 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('Los montos para el propietario, cochera y comisiones no pueden ser negativos.');
             return false;
         }
-        if (Math.abs((mProp + mInm + mCoch + mComLoc + mComLocat) - mTotal) >= 0.02) {
+        if (Math.abs((mProp + mInm + mCoch) - mTotal) >= 0.02) {
             alert(
-                'Propietario + inmobiliaria + cochera + comisiones locador/locatario debe coincidir con el monto total.\n'
+                'Propietario + inmobiliaria + cochera debe coincidir con el monto total de la operación.\n'
                 + 'Total: ' + formatearNumero(mTotal.toFixed(2))
                 + ' | Propietario: ' + formatearNumero(mProp.toFixed(2))
                 + ' | Inmobiliaria: ' + formatearNumero(mInm.toFixed(2))
                 + ' | Cochera: ' + formatearNumero(mCoch.toFixed(2))
-                + ' | Com. locador: ' + formatearNumero(mComLoc.toFixed(2))
-                + ' | Com. locatario: ' + formatearNumero(mComLocat.toFixed(2))
+                + '\n(Las comisiones locador/locatario van aparte y se descuentan del neto a pagar.)'
             );
             return false;
         }

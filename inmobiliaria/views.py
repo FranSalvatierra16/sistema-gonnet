@@ -22942,16 +22942,12 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
             else:
                 monto_inmobiliaria = monto_total - monto_propietario - monto_cochera
 
-            suma_partes = (
-                monto_propietario + monto_inmobiliaria + monto_cochera
-                + comision_locador + comision_locatario
-            )
+            suma_partes = monto_propietario + monto_inmobiliaria + monto_cochera
             if (suma_partes - monto_total).copy_abs() >= Decimal('0.02'):
                 raise ValueError(
-                    'La suma de propietario + inmobiliaria + cochera + comisiones locador/locatario '
-                    'debe coincidir con el monto total '
-                    f'({monto_propietario} + {monto_inmobiliaria} + {monto_cochera} '
-                    f'+ {comision_locador} + {comision_locatario} ≠ {monto_total}).'
+                    'La suma de propietario + inmobiliaria + cochera debe coincidir con el monto total '
+                    f'({monto_propietario} + {monto_inmobiliaria} + {monto_cochera} ≠ {monto_total}). '
+                    'Las comisiones locador/locatario son aparte y se descuentan del neto al propietario.'
                 )
 
             # Operaciones marcadas en el formulario (reserva:ID / contrato:ID)
@@ -23462,15 +23458,45 @@ def _honorarios_cobrados_contrato(contrato) -> Decimal:
     return total.quantize(Decimal('0.01'))
 
 
+def _participacion_cobrada_en_movimiento_contrato(mov) -> Decimal:
+    """Participación locador (concepto 85) en un movimiento de contrato."""
+    parsed, parsed_list = _movimiento_json_conceptos_parsed(mov)
+    sub = Decimal('0')
+    for concepto in parsed_list:
+        cid = str(concepto.get('id', concepto.get('codigo', ''))).strip()
+        if cid != '85':
+            continue
+        try:
+            sub += parse_decimal_monto(concepto.get('importe', 0))
+        except Exception:
+            pass
+    return sub.quantize(Decimal('0.01')) if sub > Decimal('0.05') else Decimal('0')
+
+
+def _participacion_cobrada_contrato(contrato) -> Decimal:
+    """Suma participación (85) cobrada en movimientos del contrato."""
+    total = Decimal('0')
+    for mov in MovimientoCaja.objects.filter(
+        propiedad=contrato.propiedad,
+        sucursal=contrato.sucursal,
+        concepto__icontains=f'Contrato #{contrato.id}',
+    ).order_by('id'):
+        total += _participacion_cobrada_en_movimiento_contrato(mov)
+    return total.quantize(Decimal('0.01'))
+
+
 def _comisiones_sugeridas_primera_cuota_contrato(contrato) -> dict:
     """
     Comisiones de la primera operación (cuota 1) en contratos de alquiler mensual (≥ 9 meses).
-    Locatario ≈ honorarios (concepto 25 o campo honorarios del movimiento principal).
+    Locador: participación cobrada (85) o, si no hay, un mes de alquiler (precio_mensual).
+    Locatario: honorarios cobrados (25) o referencia del contrato.
     """
     locatario = _honorarios_cobrados_contrato(contrato)
     if locatario <= Decimal('0.05'):
         locatario = Decimal(str(contrato.honorarios_referencia or 0))
-    locador = Decimal('0')
+    locador = _participacion_cobrada_contrato(contrato)
+    if locador <= Decimal('0.05'):
+        locador = Decimal(str(contrato.precio_mensual or 0))
     return {
         'comision_locador': str(locador.quantize(Decimal('0.01'))),
         'comision_locatario': str(locatario.quantize(Decimal('0.01'))),
@@ -24677,22 +24703,23 @@ def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
     total_haber = monto_prop + total_ingresos
     total_debe = fondo + com_loc + com_locat + total_egresos
     saldo_favor = (total_haber - total_debe).quantize(Decimal('0.01'))
-    if saldo_favor < 0:
-        saldo_favor = Decimal('0')
     return {
         'filas': filas,
         'total_debe': total_debe.quantize(Decimal('0.01')),
         'total_haber': total_haber.quantize(Decimal('0.01')),
-        'saldo_favor': saldo_favor if saldo_favor > 0 else Decimal('0'),
+        'saldo_favor': saldo_favor,
     }
 
 
 def _monto_liquidacion_en_letras(monto):
     monto = Decimal(str(monto or 0)).quantize(Decimal('0.01'))
-    entero = int(monto)
-    centavos = int((monto - Decimal(entero)) * 100)
+    neg = monto < 0
+    monto_abs = abs(monto)
+    entero = int(monto_abs)
+    centavos = int((monto_abs - Decimal(entero)) * 100)
     texto = _numero_a_letras_es(entero).upper()
-    return f'{texto} con {centavos:02d}/100'
+    prefijo = 'MENOS ' if neg else ''
+    return f'{prefijo}{texto} con {centavos:02d}/100'
 
 
 def _context_liquidacion_cobranzas(liquidacion, request=None):

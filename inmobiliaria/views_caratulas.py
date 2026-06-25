@@ -382,8 +382,6 @@ def _resumen_liquidacion_caratula(*, reserva=None, contrato=None, liquidacion=No
         monto_fondo = Decimal(str(liquidacion.monto_fondo_mantenimiento or 0))
         monto_gastos = Decimal(str(liquidacion.monto_gastos or 0))
         monto_a_pagar = monto_prop - monto_gastos - monto_fondo
-        if monto_a_pagar < 0:
-            monto_a_pagar = Decimal('0')
         return {
             'tiene_datos': True,
             'desde_liquidacion': True,
