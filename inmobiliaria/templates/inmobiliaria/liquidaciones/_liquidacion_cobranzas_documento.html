@@ -1,7 +1,7 @@
 {% load custom_filters %}
 <div class="liq-cobranzas-doc">
     <div class="liq-cobranzas-encabezado">
-        <div class="liq-cobranzas-titulo">LIQUIDACIÓN DE COBRANZAS ({{ tipo_contrato_label }})</div>
+        <div class="liq-cobranzas-titulo">LIQUIDACIÓN DE COBRANZAS ({{ tipo_contrato_label }}) — Nº {{ liquidacion.id }}</div>
         <div class="liq-cobranzas-sub">
             <strong>SR.</strong>
             {{ propietario|apellido_nombre|upper }}
@@ -12,7 +12,8 @@
             {% endif %}
         </div>
         <div class="liq-cobranzas-meta">
-            <span><strong>Carpeta:</strong> {% if info_operacion_liquidacion.muestra_carpeta and info_operacion_liquidacion.numero_carpeta %}{{ info_operacion_liquidacion.numero_carpeta }}{% elif info_operacion_liquidacion.muestra_carpeta %}—{% else %}{{ liquidacion.id }}{% endif %} — {{ propietario.apellido|upper }}</span>
+            <span><strong>Nº liquidación:</strong> {{ liquidacion.id }}</span>
+            <span><strong>Carpeta:</strong> {% if info_operacion_liquidacion.muestra_carpeta and info_operacion_liquidacion.numero_carpeta %}{{ info_operacion_liquidacion.numero_carpeta }}{% elif info_operacion_liquidacion.muestra_carpeta %}—{% else %}—{% endif %}{% if info_operacion_liquidacion.muestra_carpeta %} — {{ propietario.apellido|upper }}{% endif %}</span>
             <span><strong>Tipo:</strong> {{ info_operacion_liquidacion.tipo_display }}</span>
             <span><strong>Fecha:</strong> {{ fecha_impresion|date:"d/m/Y H:i:s" }}</span>
         </div>
@@ -90,7 +91,7 @@
     <div class="liq-cobranzas-pie">
         <p class="liq-cobranzas-letras"><strong>LA SUMA DE:</strong> {{ monto_letras }}</p>
         <p class="liq-cobranzas-legal small">
-            Recibí conforme el importe que antecede en concepto de liquidación de cobranzas.
+            Recibí conforme el importe que antecede en concepto de liquidación de cobranzas Nº {{ liquidacion.id }}.
             Mar del Plata, {{ fecha_impresion|date:"d/m/Y" }}.
         </p>
         <div class="liq-cobranzas-firmas">
