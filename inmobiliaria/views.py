@@ -23531,12 +23531,31 @@ def _cuota_siguiente_anticipada_liquidable(contrato, cuotas_excluidas, ids_ya_en
     )
 
 
-def _monto_propietario_inmobiliaria_cuota_mensual(propiedad, monto_cuota):
+def _contrato_liquidacion_todo_propietario(contrato):
+    """Invierno (9 meses) y 24 meses: el cobro mensual va íntegro al propietario por defecto."""
+    if contrato is None:
+        return False
+    duracion = int(getattr(contrato, 'duracion_meses', 0) or 0)
+    if duracion in (9, 24):
+        return True
+    try:
+        if duracion > 0 and duracion < 9 and getattr(contrato, 'es_contrato_invierno', lambda: False)():
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def _monto_propietario_inmobiliaria_cuota_mensual(propiedad, monto_cuota, contrato=None):
     """
-    Reparto propietario / inmobiliaria para el monto de una sola cuota mensual cobrada
-    (misma lógica que el bloque agregado por contrato: Precio toma / fallback 70-30).
+    Reparto propietario / inmobiliaria para el monto de una sola cuota mensual cobrada.
+    Invierno y 24 meses: 100% propietario. Resto: precio toma o fallback 70/30 (editable al liquidar).
     """
     total_cuotas = Decimal(str(monto_cuota))
+    if _contrato_liquidacion_todo_propietario(contrato):
+        mp = total_cuotas.quantize(Decimal('0.01'))
+        return mp, Decimal('0')
+
     precio_mensual = total_cuotas
     monto_propietario = Decimal('0')
     monto_inmobiliaria = Decimal('0')
@@ -23978,7 +23997,7 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
         prop_label = ((propiedad.direccion or '').strip()[:120] or f'#{propiedad.id}')
 
         def _fila_cuota_liquidable(cuota, monto_mes, *, parcial=False, anticipada=False):
-            mp, mi = _monto_propietario_inmobiliaria_cuota_mensual(propiedad, monto_mes)
+            mp, mi = _monto_propietario_inmobiliaria_cuota_mensual(propiedad, monto_mes, contrato=contrato)
             fv = cuota.fecha_vencimiento
             fv_s = fv.strftime('%Y-%m-%d') if fv else ''
             if parcial:
