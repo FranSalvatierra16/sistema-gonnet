@@ -109,6 +109,13 @@ class ContratoAlquiler(models.Model):
     garante_celular = models.CharField(max_length=30, blank=True)
     garante_email = models.EmailField(max_length=120, blank=True)
     garante_domicilio = models.CharField(max_length=200, blank=True)
+    numero_carpeta = models.CharField(
+        max_length=8,
+        blank=True,
+        default='',
+        verbose_name='Nº carpeta',
+        help_text='Número de carpeta física para contratos invierno / 24 meses.',
+    )
 
     class Meta:
         verbose_name = 'Contrato de Alquiler'

@@ -57,21 +57,13 @@ def _set_carpeta_override(request, kind, op_id, carpeta):
 
 def _persistir_carpeta_operacion(kind, op_id, carpeta):
     val = _normalizar_carpeta(carpeta)
-    if kind == 'reserva':
-        Reserva.objects.filter(pk=op_id).update(numero_carpeta=val)
-    elif kind == 'contrato':
+    if kind == 'contrato':
         ContratoAlquiler.objects.filter(pk=op_id).update(numero_carpeta=val)
     return val
 
 
 def _leer_carpeta_db(kind, op_id=None, reserva=None, contrato=None):
-    if kind == 'reserva':
-        obj = reserva
-        if obj is None and op_id:
-            obj = Reserva.objects.filter(pk=op_id).only('numero_carpeta').first()
-        if obj and (getattr(obj, 'numero_carpeta', None) or '').strip():
-            return _normalizar_carpeta(obj.numero_carpeta)
-    elif kind == 'contrato':
+    if kind == 'contrato':
         obj = contrato
         if obj is None and op_id:
             obj = ContratoAlquiler.objects.filter(pk=op_id).only('numero_carpeta').first()
@@ -723,7 +715,6 @@ def _build_legacy_reserva(
     comisiones,
     saldo_reserva,
     tipo_operacion_str,
-    carpeta_override=None,
     movimientos=None,
 ):
     prop = reserva.propiedad
@@ -803,7 +794,7 @@ def _build_legacy_reserva(
         'origen_operacion': _origen_operacion_sucursal(reserva.sucursal),
         'estado_txt': reserva.get_estado_display(),
         'locacion_mensual': _formato_importe_us(loc_mensual),
-        'carpeta': _normalizar_carpeta(carpeta_override) if carpeta_override is not None else str(dias_estadia),
+        'carpeta': '—',
         'tipo_operacion_str': tipo_operacion_str,
     }
 
@@ -1108,7 +1099,6 @@ def lista_caratulas(request):
     filas = []
 
     for r in reservas:
-        carpeta_hist = _carpeta_para_operacion(request, 'reserva', r.id, reserva=r)
         tipo = _tipo_reserva(r.propiedad)
         p = r.propiedad
         piso_dto = ''
@@ -1139,7 +1129,7 @@ def lista_caratulas(request):
                 'piso_dto': piso_dto,
                 'ficha': p.id if p else '—',
                 'estado': r.get_estado_display() if hasattr(r, 'get_estado_display') else r.estado,
-                'carpeta': carpeta_hist,
+                'carpeta': '—',
                 'sort': r.fecha_creacion or r.fecha_inicio,
                 'tiene_liquidacion': tiene_liquidacion,
                 'liquidacion_id': liquidacion_id,
@@ -1223,9 +1213,6 @@ def lista_caratulas(request):
 def caratula_reserva(request, reserva_id):
     if not _puede_ver_caratulas(request.user):
         return HttpResponseForbidden()
-    if request.method == 'POST' and request.POST.get('action') == 'set_carpeta_reserva':
-        _persistir_carpeta_operacion('reserva', reserva_id, request.POST.get('carpeta'))
-        return redirect('inmobiliaria:caratula_reserva', reserva_id=reserva_id)
     reserva = get_object_or_404(
         Reserva.objects.select_related(
             'cliente', 'propiedad', 'propiedad__propietario', 'vendedor', 'sucursal'
@@ -1285,10 +1272,6 @@ def caratula_reserva(request, reserva_id):
 
     saldo_reserva = (reserva.precio_total or Decimal('0')) - (reserva.senia or Decimal('0'))
     tipo_op = _tipo_reserva(reserva.propiedad)
-    carpeta_actual = _carpeta_para_operacion(
-        request, 'reserva', reserva.id, reserva=reserva,
-        fallback=str(max(1, (reserva.fecha_fin - reserva.fecha_inicio).days)) if reserva.fecha_fin and reserva.fecha_inicio else None,
-    )
     ctx = {
         'reserva': reserva,
         'propiedad': reserva.propiedad,
@@ -1304,11 +1287,8 @@ def caratula_reserva(request, reserva_id):
             comisiones,
             saldo_reserva,
             tipo_op,
-            carpeta_override=carpeta_actual,
             movimientos=movimientos,
         ),
-        'carpeta_actual': carpeta_actual,
-        'carpeta_default': _carpeta_default_actual(request),
         **_ctx_liquidacion_operacion(reserva=reserva),
         **_ctx_completar_pago_reserva(reserva),
     }
@@ -1433,10 +1413,6 @@ def imprimir_caratula_reserva(request, reserva_id):
         comisiones,
         saldo_reserva,
         tipo_op,
-        carpeta_override=_carpeta_para_operacion(
-            request, 'reserva', reserva.id, reserva=reserva,
-            fallback=str(max(1, (reserva.fecha_fin - reserva.fecha_inicio).days)) if reserva.fecha_fin and reserva.fecha_inicio else None,
-        ),
         movimientos=movs_legacy,
     )
     filas_contab = _contabilizacion_para_reserva(reserva, recibos)

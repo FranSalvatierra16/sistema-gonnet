@@ -56,12 +56,11 @@ def info_operacion_liquidacion(liquidacion):
 
     if reserva is not None:
         key = _categoria_reserva(reserva)
-        carpeta = (getattr(reserva, 'numero_carpeta', None) or '').strip() or None
         return {
             'tipo_key': key,
             'tipo_display': ETIQUETAS_TIPO_OPERACION.get(key, key),
-            'numero_carpeta': carpeta,
-            'muestra_carpeta': key in ('invierno', '24'),
+            'numero_carpeta': None,
+            'muestra_carpeta': False,
             'operacion_ref': f'Reserva #{reserva.id}',
             'url_caratula': reverse('inmobiliaria:caratula_reserva', args=[reserva.id]),
         }
@@ -91,12 +90,11 @@ def info_operacion_liquidacion(liquidacion):
             r = Reserva.objects.filter(pk=pk).first()
             if r:
                 key = _categoria_reserva(r)
-                carpeta = (r.numero_carpeta or '').strip() or None
                 return {
                     'tipo_key': key,
                     'tipo_display': ETIQUETAS_TIPO_OPERACION.get(key, key),
-                    'numero_carpeta': carpeta,
-                    'muestra_carpeta': key in ('invierno', '24'),
+                    'numero_carpeta': None,
+                    'muestra_carpeta': False,
                     'operacion_ref': f'Reserva #{r.id}',
                     'url_caratula': reverse('inmobiliaria:caratula_reserva', args=[r.id]),
                 }
