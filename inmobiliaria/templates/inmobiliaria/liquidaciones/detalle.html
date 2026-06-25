@@ -71,6 +71,24 @@
                                     </td>
                                 </tr>
                                 <tr>
+                                    <th>Tipo de operación:</th>
+                                    <td><span class="badge bg-secondary">{{ info_operacion_liquidacion.tipo_display }}</span></td>
+                                </tr>
+                                {% if info_operacion_liquidacion.muestra_carpeta %}
+                                <tr>
+                                    <th>Nº carpeta:</th>
+                                    <td>
+                                        {% if info_operacion_liquidacion.numero_carpeta %}
+                                        <strong>{{ info_operacion_liquidacion.numero_carpeta }}</strong>
+                                        {% elif info_operacion_liquidacion.url_caratula %}
+                                        <span class="text-warning">Sin asignar — <a href="{{ info_operacion_liquidacion.url_caratula }}">cargar en carátula</a></span>
+                                        {% else %}
+                                        <span class="text-muted">—</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endif %}
+                                <tr>
                                     <th>Estado:</th>
                                     <td>
                                         {% if liquidacion.estado == 'pendiente' %}

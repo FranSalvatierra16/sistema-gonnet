@@ -49,7 +49,17 @@
                                 <option value="cancelada" {% if estado_filtro == 'cancelada' %}selected{% endif %}>Cancelada</option>
                             </select>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-2">
+                            <label class="form-label">Tipo operación</label>
+                            <select name="tipo" class="form-select">
+                                <option value="">Todos</option>
+                                <option value="dia" {% if tipo_filtro == 'dia' %}selected{% endif %}>Por día</option>
+                                <option value="estudiante" {% if tipo_filtro == 'estudiante' %}selected{% endif %}>Estudiante</option>
+                                <option value="invierno" {% if tipo_filtro == 'invierno' %}selected{% endif %}>Invierno (9 meses)</option>
+                                <option value="24meses" {% if tipo_filtro == '24meses' %}selected{% endif %}>24 meses</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
                             <label class="form-label">Propietario</label>
                             <select name="propietario" class="form-select">
                                 <option value="">Todos</option>
@@ -60,7 +70,7 @@
                                 {% endfor %}
                             </select>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label class="form-label">Buscar</label>
                             <input type="text" name="busqueda" class="form-control" 
                                    placeholder="Dirección, propietario, ID..." value="{{ busqueda }}">
@@ -87,6 +97,8 @@
                             <thead>
                                 <tr>
                                     <th>ID</th>
+                                    <th>Tipo</th>
+                                    <th>Carpeta</th>
                                     <th>Propietario</th>
                                     <th>Propiedad</th>
                                     <th>Cuenta prop.</th>
@@ -101,6 +113,20 @@
                                 {% for liquidacion in liquidaciones %}
                                 <tr>
                                     <td>{{ liquidacion.id }}</td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ liquidacion.tipo_operacion_display|default:"—" }}</span>
+                                    </td>
+                                    <td class="text-nowrap">
+                                        {% if liquidacion.muestra_carpeta %}
+                                            {% if liquidacion.numero_carpeta_display %}
+                                            <strong>{{ liquidacion.numero_carpeta_display }}</strong>
+                                            {% else %}
+                                            <span class="text-muted" title="Asignar en carátula del contrato">—</span>
+                                            {% endif %}
+                                        {% else %}
+                                        <span class="text-muted">—</span>
+                                        {% endif %}
+                                    </td>
                                     <td>{{ liquidacion.propietario.apellido }}, {{ liquidacion.propietario.nombre }}</td>
                                     <td>
                                         <strong>{{ liquidacion.propiedad.direccion }}</strong>

@@ -55,17 +55,43 @@ def _set_carpeta_override(request, kind, op_id, carpeta):
     request.session.modified = True
 
 
-def _carpeta_para_operacion(request, kind, op_id):
+def _persistir_carpeta_operacion(kind, op_id, carpeta):
+    val = _normalizar_carpeta(carpeta)
+    if kind == 'reserva':
+        Reserva.objects.filter(pk=op_id).update(numero_carpeta=val)
+    elif kind == 'contrato':
+        ContratoAlquiler.objects.filter(pk=op_id).update(numero_carpeta=val)
+    return val
+
+
+def _leer_carpeta_db(kind, op_id=None, reserva=None, contrato=None):
+    if kind == 'reserva':
+        obj = reserva
+        if obj is None and op_id:
+            obj = Reserva.objects.filter(pk=op_id).only('numero_carpeta').first()
+        if obj and (getattr(obj, 'numero_carpeta', None) or '').strip():
+            return _normalizar_carpeta(obj.numero_carpeta)
+    elif kind == 'contrato':
+        obj = contrato
+        if obj is None and op_id:
+            obj = ContratoAlquiler.objects.filter(pk=op_id).only('numero_carpeta').first()
+        if obj and (getattr(obj, 'numero_carpeta', None) or '').strip():
+            return _normalizar_carpeta(obj.numero_carpeta)
+    return None
+
+
+def _carpeta_para_operacion(request, kind, op_id, reserva=None, contrato=None, fallback=None):
+    db_val = _leer_carpeta_db(kind, op_id, reserva=reserva, contrato=contrato)
+    if db_val:
+        return db_val
     key = f'{kind}:{op_id}'
     overrides = dict(request.session.get(CARATULA_CARPETA_OVERRIDES_KEY, {}))
     if key in overrides:
         return _normalizar_carpeta(overrides.get(key))
-    # Congela carpeta histórica de la operación la primera vez que se consulta.
-    carpeta_historica = _carpeta_default_actual(request)
-    overrides[key] = carpeta_historica
-    request.session[CARATULA_CARPETA_OVERRIDES_KEY] = overrides
-    request.session.modified = True
-    return carpeta_historica
+    if fallback is not None:
+        return _normalizar_carpeta(fallback)
+    return _carpeta_default_actual(request)
+
 
 
 def _nombre_cliente_papel(persona):
@@ -882,7 +908,7 @@ def _build_legacy_contrato(contrato, cuotas, tipo_label, carpeta_override=None, 
         'origen_operacion': _origen_operacion_sucursal(contrato.sucursal),
         'estado_txt': contrato.get_estado_display(),
         'locacion_mensual': _formato_importe_us(contrato.precio_mensual),
-        'carpeta': _normalizar_carpeta(carpeta_override) if carpeta_override is not None else str(meses_contrato),
+        'carpeta': _normalizar_carpeta(carpeta_override) if carpeta_override is not None else '0',
         'tipo_operacion_str': tipo_label,
     }
 
@@ -1082,7 +1108,7 @@ def lista_caratulas(request):
     filas = []
 
     for r in reservas:
-        carpeta_hist = _carpeta_para_operacion(request, 'reserva', r.id)
+        carpeta_hist = _carpeta_para_operacion(request, 'reserva', r.id, reserva=r)
         tipo = _tipo_reserva(r.propiedad)
         p = r.propiedad
         piso_dto = ''
@@ -1121,7 +1147,7 @@ def lista_caratulas(request):
         )
 
     for c in contratos:
-        carpeta_hist = _carpeta_para_operacion(request, 'contrato', c.id)
+        carpeta_hist = _carpeta_para_operacion(request, 'contrato', c.id, contrato=c)
         if c.duracion_meses == 9:
             tipo_c = 'Invierno'
         elif c.duracion_meses == 24:
@@ -1198,7 +1224,7 @@ def caratula_reserva(request, reserva_id):
     if not _puede_ver_caratulas(request.user):
         return HttpResponseForbidden()
     if request.method == 'POST' and request.POST.get('action') == 'set_carpeta_reserva':
-        _set_carpeta_override(request, 'reserva', reserva_id, request.POST.get('carpeta'))
+        _persistir_carpeta_operacion('reserva', reserva_id, request.POST.get('carpeta'))
         return redirect('inmobiliaria:caratula_reserva', reserva_id=reserva_id)
     reserva = get_object_or_404(
         Reserva.objects.select_related(
@@ -1259,7 +1285,10 @@ def caratula_reserva(request, reserva_id):
 
     saldo_reserva = (reserva.precio_total or Decimal('0')) - (reserva.senia or Decimal('0'))
     tipo_op = _tipo_reserva(reserva.propiedad)
-    carpeta_actual = _carpeta_para_operacion(request, 'reserva', reserva.id)
+    carpeta_actual = _carpeta_para_operacion(
+        request, 'reserva', reserva.id, reserva=reserva,
+        fallback=str(max(1, (reserva.fecha_fin - reserva.fecha_inicio).days)) if reserva.fecha_fin and reserva.fecha_inicio else None,
+    )
     ctx = {
         'reserva': reserva,
         'propiedad': reserva.propiedad,
@@ -1291,7 +1320,7 @@ def caratula_contrato(request, contrato_id):
     if not _puede_ver_caratulas(request.user):
         return HttpResponseForbidden()
     if request.method == 'POST' and request.POST.get('action') == 'set_carpeta_contrato':
-        _set_carpeta_override(request, 'contrato', contrato_id, request.POST.get('carpeta'))
+        _persistir_carpeta_operacion('contrato', contrato_id, request.POST.get('carpeta'))
         return redirect('inmobiliaria:caratula_contrato', contrato_id=contrato_id)
     contrato = get_object_or_404(
         ContratoAlquiler.objects.select_related(
@@ -1347,7 +1376,7 @@ def caratula_contrato(request, contrato_id):
         tipo_label = '24 meses'
     else:
         tipo_label = f'Contrato {contrato.duracion_meses} meses'
-    carpeta_actual = _carpeta_para_operacion(request, 'contrato', contrato.id)
+    carpeta_actual = _carpeta_para_operacion(request, 'contrato', contrato.id, contrato=contrato)
 
     ctx = {
         'contrato': contrato,
@@ -1404,7 +1433,10 @@ def imprimir_caratula_reserva(request, reserva_id):
         comisiones,
         saldo_reserva,
         tipo_op,
-        carpeta_override=_carpeta_para_operacion(request, 'reserva', reserva.id),
+        carpeta_override=_carpeta_para_operacion(
+            request, 'reserva', reserva.id, reserva=reserva,
+            fallback=str(max(1, (reserva.fecha_fin - reserva.fecha_inicio).days)) if reserva.fecha_fin and reserva.fecha_inicio else None,
+        ),
         movimientos=movs_legacy,
     )
     filas_contab = _contabilizacion_para_reserva(reserva, recibos)
@@ -1484,7 +1516,7 @@ def imprimir_caratula_contrato(request, contrato_id):
         contrato,
         cuotas,
         tipo_label,
-        carpeta_override=_carpeta_para_operacion(request, 'contrato', contrato.id),
+        carpeta_override=_carpeta_para_operacion(request, 'contrato', contrato.id, contrato=contrato),
         movimientos=movs_legacy,
     )
     filas_contab = _contabilizacion_para_contrato(contrato)

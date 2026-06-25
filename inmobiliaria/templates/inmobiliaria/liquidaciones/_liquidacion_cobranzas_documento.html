@@ -12,7 +12,8 @@
             {% endif %}
         </div>
         <div class="liq-cobranzas-meta">
-            <span><strong>Carpeta:</strong> {{ liquidacion.id }} — {{ propietario.apellido|upper }}</span>
+            <span><strong>Carpeta:</strong> {% if info_operacion_liquidacion.muestra_carpeta and info_operacion_liquidacion.numero_carpeta %}{{ info_operacion_liquidacion.numero_carpeta }}{% elif info_operacion_liquidacion.muestra_carpeta %}—{% else %}{{ liquidacion.id }}{% endif %} — {{ propietario.apellido|upper }}</span>
+            <span><strong>Tipo:</strong> {{ info_operacion_liquidacion.tipo_display }}</span>
             <span><strong>Fecha:</strong> {{ fecha_impresion|date:"d/m/Y H:i:s" }}</span>
         </div>
         <div class="liq-cobranzas-meta">
@@ -46,8 +47,8 @@
         <thead>
             <tr>
                 <th class="col-detalle">DETALLE</th>
-                <th class="col-importe">HABER</th>
                 <th class="col-importe">DEBE</th>
+                <th class="col-importe">HABER</th>
             </tr>
         </thead>
         <tbody>
@@ -63,8 +64,8 @@
                     </div>
                     {% endif %}
                 </td>
-                <td class="col-importe text-end">{% if fila.haber %}{{ fila.haber|format_price }}{% endif %}</td>
                 <td class="col-importe text-end">{% if fila.debe %}{{ fila.debe|format_price }}{% endif %}</td>
+                <td class="col-importe text-end">{% if fila.haber %}{{ fila.haber|format_price }}{% endif %}</td>
             </tr>
             {% empty %}
             <tr>
@@ -75,8 +76,8 @@
         <tfoot>
             <tr class="liq-cobranzas-totales">
                 <td class="col-detalle"><strong>TOTALES</strong></td>
-                <td class="col-importe text-end"><strong>{{ total_haber|format_price }}</strong></td>
                 <td class="col-importe text-end"><strong>{{ total_debe|format_price }}</strong></td>
+                <td class="col-importe text-end"><strong>{{ total_haber|format_price }}</strong></td>
             </tr>
             <tr class="liq-cobranzas-saldo">
                 <td colspan="3" class="text-end">

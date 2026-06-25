@@ -101,6 +101,7 @@
                     <th>Dirección</th>
                     <th>Piso / Dto</th>
                     <th>Ficha</th>
+                    <th>Carpeta</th>
                     <th>Estado</th>
                     <th></th>
                 </tr>
@@ -125,6 +126,13 @@
                     <td class="small">{{ f.direccion|truncatechars:48 }}</td>
                     <td class="small text-muted">{{ f.piso_dto }}</td>
                     <td><code>{{ f.ficha }}</code></td>
+                    <td class="text-nowrap">
+                        {% if f.kind == 'contrato' %}
+                        <strong>{{ f.carpeta|default:"—" }}</strong>
+                        {% else %}
+                        <span class="text-muted">{{ f.carpeta|default:"—" }}</span>
+                        {% endif %}
+                    </td>
                     <td class="small">
                         {{ f.estado }}
                         {% if f.tiene_liquidacion %}

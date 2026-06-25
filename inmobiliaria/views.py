@@ -22793,6 +22793,7 @@ def lista_liquidaciones(request):
     estado_filtro = request.GET.get('estado', '')
     propietario_id = request.GET.get('propietario', '')
     busqueda = request.GET.get('busqueda', '')
+    tipo_filtro = request.GET.get('tipo', '').strip()
 
     if estado_filtro:
         liquidaciones = liquidaciones.filter(estado=estado_filtro)
@@ -22808,26 +22809,46 @@ def lista_liquidaciones(request):
             Q(id__icontains=busqueda)
         )
 
-    # Calcular totales
-    total_pendiente = liquidaciones.filter(estado='pendiente').aggregate(
-        total=Sum('monto_a_pagar')
-    )['total'] or Decimal('0')
+    from inmobiliaria.liquidacion_operacion import info_operacion_liquidacion
 
-    total_procesado = liquidaciones.filter(
-        estado__in=['cerrada', 'pagada', 'oficina', 'procesada']
-    ).aggregate(
-        total=Sum('monto_a_pagar')
-    )['total'] or Decimal('0')
+    liquidaciones_list = list(liquidaciones)
+    for liq in liquidaciones_list:
+        info = info_operacion_liquidacion(liq)
+        liq.tipo_operacion_display = info['tipo_display']
+        liq.tipo_operacion_key = info['tipo_key']
+        liq.numero_carpeta_display = info['numero_carpeta'] if info['muestra_carpeta'] else None
+        liq.muestra_carpeta = info['muestra_carpeta']
+
+    if tipo_filtro:
+        if tipo_filtro == '24meses':
+            tipo_filtro_key = '24'
+        else:
+            tipo_filtro_key = tipo_filtro
+        liquidaciones_list = [l for l in liquidaciones_list if l.tipo_operacion_key == tipo_filtro_key]
+
+    total_pendiente = sum(
+        (l.monto_a_pagar for l in liquidaciones_list if l.estado == 'pendiente'),
+        Decimal('0'),
+    )
+    total_procesado = sum(
+        (
+            l.monto_a_pagar
+            for l in liquidaciones_list
+            if l.estado in ('cerrada', 'pagada', 'oficina', 'procesada')
+        ),
+        Decimal('0'),
+    )
 
     propietarios = Propietario.objects.filter(
         sucursal=request.user.sucursal
     ).order_by('apellido', 'nombre')
 
     context = {
-        'liquidaciones': liquidaciones,
+        'liquidaciones': liquidaciones_list,
         'estado_filtro': estado_filtro,
         'propietario_id': propietario_id,
         'busqueda': busqueda,
+        'tipo_filtro': tipo_filtro,
         'propietarios': propietarios,
         'total_pendiente': total_pendiente,
         'total_procesado': total_procesado,
@@ -24730,8 +24751,13 @@ def _context_liquidacion_cobranzas(liquidacion, request=None):
     if request and liquidacion.id:
         volver_url = reverse('inmobiliaria:detalle_liquidacion', args=[liquidacion.id])
 
+    from inmobiliaria.liquidacion_operacion import info_operacion_liquidacion
+
+    info_op = info_operacion_liquidacion(liquidacion)
+
     return {
         'liquidacion': liquidacion,
+        'info_operacion_liquidacion': info_op,
         'contrato': contrato,
         'propietario': propietario,
         'propiedad': propiedad,
@@ -24955,8 +24981,13 @@ def detalle_liquidacion(request, liquidacion_id):
         except Exception:
             gastos_pendientes_disponibles = []
 
+    from inmobiliaria.liquidacion_operacion import info_operacion_liquidacion
+
+    info_op = info_operacion_liquidacion(liquidacion)
+
     context = {
         'liquidacion': liquidacion,
+        'info_operacion_liquidacion': info_op,
         'gastos': liquidacion.gastos.all().order_by('-fecha_creacion'),
         'division_operaciones': division_operaciones,
         'operaciones_tabla': _operaciones_incluidas_tabla(liquidacion),
