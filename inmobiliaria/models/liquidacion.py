@@ -176,13 +176,27 @@ class LiquidacionPropietario(models.Model):
         verbose_name="Usuario que creó la liquidación"
     )
 
-    def save(self, *args, **kwargs):
-        # Neto al propietario: alquiler menos gastos y fondo (cochera queda en inmobiliaria)
+    def _recalcular_monto_a_pagar_fields(self):
+        """Neto al propietario: alquiler + ingresos − egresos − fondo (cochera aparte)."""
         prop = self.monto_propietario if self.monto_propietario is not None else Decimal('0')
-        gastos = self.monto_gastos if self.monto_gastos is not None else Decimal('0')
         fondo = self.monto_fondo_mantenimiento if self.monto_fondo_mantenimiento is not None else Decimal('0')
-        neto = prop - gastos - fondo
+        ingresos = Decimal('0')
+        egresos = Decimal('0')
+        if self.pk:
+            for g in self.gastos.filter(aceptado=True):
+                m = g.monto if g.monto is not None else Decimal('0')
+                if g.tipo_movimiento == 'ingreso':
+                    ingresos += m
+                else:
+                    egresos += m
+        else:
+            egresos = self.monto_gastos if self.monto_gastos is not None else Decimal('0')
+        neto = prop - egresos - fondo + ingresos
+        self.monto_gastos = egresos
         self.monto_a_pagar = neto if neto > 0 else Decimal('0')
+
+    def save(self, *args, **kwargs):
+        self._recalcular_monto_a_pagar_fields()
 
         # Calcular monto de inmobiliaria solo si no fue informado (cochera no participa del reparto inmobiliaria)
         if (
@@ -196,19 +210,7 @@ class LiquidacionPropietario(models.Model):
 
     def calcular_monto_a_pagar(self):
         """Recalcula el monto a pagar según movimientos aceptados y fondo de mantenimiento."""
-        aceptados = self.gastos.filter(aceptado=True)
-        ingresos = sum(
-            (g.monto for g in aceptados if g.tipo_movimiento == 'ingreso'),
-            Decimal('0'),
-        )
-        egresos = sum(
-            (g.monto for g in aceptados if g.tipo_movimiento != 'ingreso'),
-            Decimal('0'),
-        )
-        fondo = self.monto_fondo_mantenimiento or Decimal('0')
-        self.monto_gastos = egresos
-        neto = self.monto_propietario - egresos - fondo + ingresos
-        self.monto_a_pagar = neto if neto > 0 else Decimal('0')
+        self._recalcular_monto_a_pagar_fields()
         self.save(update_fields=['monto_gastos', 'monto_a_pagar'])
 
     def __str__(self):

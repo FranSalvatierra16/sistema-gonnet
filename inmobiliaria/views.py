@@ -24676,11 +24676,9 @@ def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
 
     total_debe = monto_prop + total_ingresos
     total_haber = fondo + com_loc + com_locat + total_egresos
-    saldo_favor = Decimal(str(liquidacion.monto_a_pagar or 0))
-    if saldo_favor <= Decimal('0'):
-        saldo_favor = (total_debe - total_haber).quantize(Decimal('0.01'))
-        if saldo_favor < 0:
-            saldo_favor = Decimal('0')
+    saldo_favor = (total_debe - total_haber).quantize(Decimal('0.01'))
+    if saldo_favor < 0:
+        saldo_favor = Decimal('0')
     return {
         'filas': filas,
         'total_debe': total_debe.quantize(Decimal('0.01')),
@@ -24950,6 +24948,7 @@ def detalle_liquidacion(request, liquidacion_id):
         id=liquidacion_id,
         sucursal=request.user.sucursal
     )
+    liquidacion.calcular_monto_a_pagar()
 
     division_operaciones = []
     for op in (liquidacion.operaciones_incluidas or []):
@@ -24994,6 +24993,7 @@ def imprimir_liquidacion_cobranzas(request, liquidacion_id):
         id=liquidacion_id,
         sucursal=request.user.sucursal,
     )
+    liquidacion.calcular_monto_a_pagar()
     if liquidacion.estado == 'cancelada':
         messages.error(request, 'No se puede imprimir una liquidación cancelada.')
         return redirect('inmobiliaria:lista_liquidaciones')
