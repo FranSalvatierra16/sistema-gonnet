@@ -2977,6 +2977,7 @@ window.mostrarModalReserva = function(esOperacionDirecta = false) {
     }
     
     // Campos ocultos - guardar fechas en formato DD/MM/YYYY
+    const precioTotal = propiedadSeleccionada.precio || 0;
     document.getElementById('modalPropiedadId').value = propiedadSeleccionada.id || '';
     document.getElementById('modalFechaInicio').value = convertirFechaDisplay(fechaInicio);
     document.getElementById('modalFechaFin').value = convertirFechaDisplay(fechaFin);
@@ -5453,6 +5454,13 @@ function resetearFiltros() {
 let accionPendiente = null;
 let urlDestino = null;
 
+function cerrarModalAutenticacionSeguridad() {
+    const el = document.getElementById('modalAutenticacionSeguridad');
+    if (!el) return;
+    const inst = bootstrap.Modal.getInstance(el) || bootstrap.Modal.getOrCreateInstance(el);
+    inst.hide();
+}
+
 // Función para mostrar modal de autenticación antes de finalizar
 function mostrarAutenticacionSeguridad(url, accion = 'Finalizar Operación') {
     console.log('🔐 Solicitando autenticación para:', accion);
@@ -5501,7 +5509,15 @@ function procesarAutenticacionSeguridad() {
     const formData = new FormData();
     formData.append('usuario', usuario);
     formData.append('contrasena', contrasena);
-    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    const csrfInput = document.querySelector('#formAutenticacionSeguridad [name=csrfmiddlewaretoken]')
+        || document.querySelector('[name=csrfmiddlewaretoken]');
+    if (!csrfInput) {
+        mostrarErrorAutenticacion('Error de seguridad. Recarga la página e intenta de nuevo.');
+        btnAutenticar.innerHTML = textoOriginal;
+        btnAutenticar.disabled = false;
+        return;
+    }
+    formData.append('csrfmiddlewaretoken', csrfInput.value);
     
     fetch('{% url "inmobiliaria:autenticar_seguridad" %}', {
         method: 'POST',
@@ -5512,9 +5528,7 @@ function procesarAutenticacionSeguridad() {
         if (data.success) {
             console.log('✅ Autenticación exitosa');
             
-            // Cerrar modal
-            const modal = bootstrap.Modal.getInstance(document.getElementById('modalAutenticacionSeguridad'));
-            modal.hide();
+            cerrarModalAutenticacionSeguridad();
             
             // Verificar si es una acción de reserva
             if (window.accionPendienteReserva === 'reservar') {
@@ -5525,7 +5539,12 @@ function procesarAutenticacionSeguridad() {
                 
                 // Mostrar el modal de reserva después de un breve delay
                 setTimeout(() => {
-                    window.mostrarModalReserva(false); // false = reserva normal
+                    try {
+                        window.mostrarModalReserva(false); // false = reserva normal
+                    } catch (err) {
+                        console.error('Error al abrir modal de reserva:', err);
+                        alert('Autenticación exitosa, pero hubo un error al abrir la reserva. Intenta de nuevo.');
+                    }
                 }, 300);
                 
             } else if (urlDestino) {
