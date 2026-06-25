@@ -24979,6 +24979,7 @@ def detalle_liquidacion(request, liquidacion_id):
         sucursal=request.user.sucursal
     )
     liquidacion.calcular_monto_a_pagar()
+    liquidacion.sync_gasto_saldo_negativo_pendiente()
 
     division_operaciones = []
     for op in (liquidacion.operaciones_incluidas or []):
@@ -25054,6 +25055,8 @@ def eliminar_liquidacion(request, liquidacion_id):
         sucursal=request.user.sucursal,
     )
 
+    from inmobiliaria.models.liquidacion import eliminar_gastos_pendientes_liquidacion_origen
+
     mov = liquidacion.movimiento_caja
     liquidacion.movimiento_caja = None
     liquidacion.save(update_fields=['movimiento_caja'])
@@ -25061,6 +25064,7 @@ def eliminar_liquidacion(request, liquidacion_id):
         _eliminar_movimiento_y_anexos(mov, eliminado_por=request.user)
 
     lid = liquidacion.id
+    eliminar_gastos_pendientes_liquidacion_origen(lid, sucursal=request.user.sucursal)
     liquidacion.delete()
     messages.success(request, f'Liquidación #{lid} eliminada. Las operaciones vuelven a aparecer como pendientes de liquidar si correspondía.')
     return redirect('inmobiliaria:lista_liquidaciones')
@@ -25490,11 +25494,20 @@ def confirmar_liquidacion(request, liquidacion_id):
         estado='pendiente'
     )
 
+    liquidacion.calcular_monto_a_pagar()
     liquidacion.estado = 'cerrada'
     liquidacion.fecha_procesamiento = timezone.now()
-    liquidacion.save(update_fields=['estado', 'fecha_procesamiento'])
+    liquidacion.save(update_fields=['estado', 'fecha_procesamiento', 'monto_gastos', 'monto_a_pagar'])
+    liquidacion.sync_gasto_saldo_negativo_pendiente()
 
-    messages.success(request, 'Liquidación confirmada y cerrada. Ahora podés volver y pagarla cuando quieras.')
+    if (liquidacion.monto_a_pagar or 0) < 0:
+        messages.success(
+            request,
+            'Liquidación confirmada y cerrada. Quedó saldo en contra del propietario; '
+            'se generó un movimiento «Liquidación pendiente» para descontar en la próxima liquidación.',
+        )
+    else:
+        messages.success(request, 'Liquidación confirmada y cerrada. Ahora podés volver y pagarla cuando quieras.')
     return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion.id)
 
 
@@ -25512,11 +25525,20 @@ def marcar_liquidacion_oficina(request, liquidacion_id):
         estado__in=['pendiente', 'cerrada']
     )
 
+    liquidacion.calcular_monto_a_pagar()
     liquidacion.estado = 'oficina'
     liquidacion.fecha_procesamiento = timezone.now()
-    liquidacion.save(update_fields=['estado', 'fecha_procesamiento'])
+    liquidacion.save(update_fields=['estado', 'fecha_procesamiento', 'monto_gastos', 'monto_a_pagar'])
+    liquidacion.sync_gasto_saldo_negativo_pendiente()
 
-    messages.success(request, 'Liquidación marcada como Oficina.')
+    if (liquidacion.monto_a_pagar or 0) < 0:
+        messages.success(
+            request,
+            'Liquidación marcada como Oficina. Quedó saldo en contra del propietario; '
+            'se generó un movimiento «Liquidación pendiente» para la próxima liquidación.',
+        )
+    else:
+        messages.success(request, 'Liquidación marcada como Oficina.')
     return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion.id)
 
 

@@ -213,6 +213,10 @@ class LiquidacionPropietario(models.Model):
         self._recalcular_monto_a_pagar_fields()
         self.save(update_fields=['monto_gastos', 'monto_a_pagar'])
 
+    def sync_gasto_saldo_negativo_pendiente(self):
+        """Si el saldo es negativo y la liquidación está cerrada, genera gasto pendiente para la próxima."""
+        return sync_gasto_saldo_negativo_liquidacion(self)
+
     def __str__(self):
         return f"Liquidación {self.id} - {self.propietario} - {self.propiedad} - ${self.monto_a_pagar}"
 
@@ -366,4 +370,97 @@ class GastoPropietario(models.Model):
         verbose_name = "Gasto Propietario"
         verbose_name_plural = "Gastos Propietarios"
         ordering = ['-fecha_creacion']
+
+
+def marcador_gasto_liquidacion_pendiente(liquidacion_id):
+    return f'liquidacion_pendiente_origen:{int(liquidacion_id)}'
+
+
+def sync_gasto_saldo_negativo_liquidacion(liquidacion):
+    """
+    Liquidación con saldo negativo (propietario debe a la inmobiliaria):
+    crea/actualiza un GastoPropietario pendiente para descontar en la próxima liquidación.
+    """
+    if not liquidacion or not liquidacion.pk:
+        return None
+
+    marker = marcador_gasto_liquidacion_pendiente(liquidacion.id)
+    estados_cobranza = ('cerrada', 'pagada', 'oficina', 'procesada')
+
+    pendientes_qs = GastoPropietario.objects.filter(
+        liquidacion__isnull=True,
+        sucursal=liquidacion.sucursal,
+        observaciones__contains=marker,
+    )
+    cobrado_en_otra = GastoPropietario.objects.filter(
+        observaciones__contains=marker,
+        liquidacion__isnull=False,
+    ).exists()
+
+    if liquidacion.estado == 'cancelada' or liquidacion.estado not in estados_cobranza:
+        pendientes_qs.delete()
+        return None
+
+    if cobrado_en_otra:
+        pendientes_qs.delete()
+        return None
+
+    monto = liquidacion.monto_a_pagar
+    if monto is None or monto >= Decimal('0'):
+        pendientes_qs.delete()
+        return None
+
+    deuda = abs(monto).quantize(Decimal('0.01'))
+    if deuda <= Decimal('0'):
+        pendientes_qs.delete()
+        return None
+
+    fp = liquidacion.fecha_procesamiento or liquidacion.fecha_creacion
+    try:
+        fecha_g = timezone.localtime(fp).date() if fp else timezone.now().date()
+    except Exception:
+        fecha_g = timezone.now().date()
+
+    obs = (
+        f'{marker}\n'
+        f'Saldo en contra del propietario — liquidación #{liquidacion.id} '
+        f'({liquidacion.get_estado_display()}).'
+    )
+
+    existing = pendientes_qs.first()
+    if existing:
+        existing.monto = deuda
+        existing.descripcion = 'Liquidación pendiente'
+        existing.propietario = liquidacion.propietario
+        existing.propiedad = liquidacion.propiedad
+        existing.tipo_movimiento = 'egreso'
+        existing.fecha_gasto = fecha_g
+        existing.observaciones = obs
+        existing.save()
+        return existing
+
+    return GastoPropietario.objects.create(
+        liquidacion=None,
+        propietario=liquidacion.propietario,
+        propiedad=liquidacion.propiedad,
+        descripcion='Liquidación pendiente',
+        monto=deuda,
+        tipo_movimiento='egreso',
+        observaciones=obs,
+        fecha_gasto=fecha_g,
+        aceptado=False,
+        sucursal=liquidacion.sucursal,
+    )
+
+
+def eliminar_gastos_pendientes_liquidacion_origen(liquidacion_id, sucursal=None):
+    """Quita gastos pendientes generados por una liquidación (p. ej. al borrar la liquidación)."""
+    marker = marcador_gasto_liquidacion_pendiente(liquidacion_id)
+    qs = GastoPropietario.objects.filter(
+        liquidacion__isnull=True,
+        observaciones__contains=marker,
+    )
+    if sucursal is not None:
+        qs = qs.filter(sucursal=sucursal)
+    qs.delete()
 
