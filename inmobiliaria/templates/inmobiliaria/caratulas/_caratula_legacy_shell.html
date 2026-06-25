@@ -118,9 +118,15 @@
             {% for cv in cl.comisiones_vendedor %}
             <div class="caratula-cell span-4">
                 <span class="k">{{ cv.label }}</span>
-                <span class="v">{{ cv.monto_fmt }}</span>
+                <span class="v">{{ cv.monto_fmt }}{% if cv.porcentaje %} <span class="text-muted small">({{ cv.porcentaje|floatformat:2 }}%)</span>{% endif %}</span>
             </div>
             {% endfor %}
+            {% if cl.comision_productor_total and cl.comision_productor_total != "0.00" %}
+            <div class="caratula-cell span-4">
+                <span class="k">COMIS. PRODUCTOR (TOTAL)</span>
+                <span class="v">{{ cl.comision_productor_total }}</span>
+            </div>
+            {% endif %}
             <div class="caratula-cell span-6">
                 <span class="k">RECIBO LOCADOR</span>
                 <span class="v">
@@ -150,6 +156,9 @@
         <div class="caratula-green-footer">
             <div class="caratula-green-footer-left">
                 <span><strong>PRODUCTOR</strong> {{ cl.productor }}</span>
+                {% if cl.comision_productor_total and cl.comision_productor_total != "0.00" %}
+                <span><strong>COMIS. PRODUCTOR</strong> {{ cl.comision_productor_total }}</span>
+                {% endif %}
                 <span><strong>TERCEROS</strong> {{ cl.terceros }}</span>
                 <span><strong>ORIGEN OPERACIÓN</strong> {{ cl.origen_operacion }}</span>
                 <span><strong>ESTADO</strong> {{ cl.estado_txt }}</span>

@@ -620,8 +620,19 @@ def _tipo_movimiento_codigo_contrato(contrato):
     return 'otros'
 
 
-def _comisiones_cobradas_contrato(contrato, movimientos=None):
-    """Participación (85) y honorarios (25) cobrados en la operación principal del contrato."""
+def _liquidacion_contrato(contrato):
+    if not contrato:
+        return None
+    return (
+        LiquidacionPropietario.objects.filter(contrato=contrato)
+        .exclude(estado='cancelada')
+        .order_by('-id')
+        .first()
+    )
+
+
+def _comisiones_cobradas_contrato(contrato, movimientos=None, liquidacion=None):
+    """Participación (85) y honorarios (25) de la operación principal del contrato."""
     from inmobiliaria.views import (
         _comisiones_sugeridas_primera_cuota_contrato,
         _honorarios_cobrados_en_movimiento_contrato,
@@ -645,9 +656,17 @@ def _comisiones_cobradas_contrato(contrato, movimientos=None):
     locador = locador.quantize(Decimal('0.01'))
     locatario = locatario.quantize(Decimal('0.01'))
 
-    if locador <= Decimal('0.05') and locatario <= Decimal('0.05') and getattr(
-        contrato, 'operacion_principal', False
-    ):
+    if liquidacion is None:
+        liquidacion = _liquidacion_contrato(contrato)
+    if liquidacion:
+        liq_loc = Decimal(str(getattr(liquidacion, 'comision_locador', None) or 0))
+        liq_locat = Decimal(str(getattr(liquidacion, 'comision_locatario', None) or 0))
+        if locador <= Decimal('0.05') and liq_loc > Decimal('0.05'):
+            locador = liq_loc.quantize(Decimal('0.01'))
+        if locatario <= Decimal('0.05') and liq_locat > Decimal('0.05'):
+            locatario = liq_locat.quantize(Decimal('0.01'))
+
+    if getattr(contrato, 'operacion_principal', False):
         sugeridas = _comisiones_sugeridas_primera_cuota_contrato(contrato)
         if locador <= Decimal('0.05'):
             locador = Decimal(str(sugeridas.get('comision_locador') or 0)).quantize(Decimal('0.01'))
@@ -692,9 +711,9 @@ def _comisiones_vendedor_contrato_caratula(contrato, honorarios_monto):
     if dm == 9:
         pct = vend.comision_invierno
         label = 'COMIS. VENDEDOR (INVIERNO)'
-    elif dm == 24:
+    elif dm >= 24:
         pct = vend.comision_alquiler_24_meses
-        label = 'COMIS. VENDEDOR (24 MESES)'
+        label = 'COMIS. VENDEDOR (24 MESES)' if dm == 24 else 'COMIS. VENDEDOR (LARGO PLAZO)'
     else:
         return lineas
 
@@ -876,6 +895,7 @@ def _build_legacy_reserva(
         'comision_locatario': _formato_importe_us(comision_total),
         'comisiones_total': _formato_importe_us(comision_total),
         'comisiones_vendedor': [],
+        'comision_productor_total': _formato_importe_us(0),
         'recibo_locador': recibo_loc,
         'recibo_locatario': recibo_locat,
         'url_recibo_locador': url_recibo_loc,
@@ -907,7 +927,7 @@ def _ctx_completar_pago_reserva(reserva):
     }
 
 
-def _build_legacy_contrato(contrato, cuotas, tipo_label, carpeta_override=None, movimientos=None):
+def _build_legacy_contrato(contrato, cuotas, tipo_label, carpeta_override=None, movimientos=None, liquidacion=None):
     prop = contrato.propiedad
     inq = contrato.inquilino
     propi = getattr(prop, 'propietario', None) if prop else None
@@ -956,9 +976,15 @@ def _build_legacy_contrato(contrato, cuotas, tipo_label, carpeta_override=None, 
         sucursal=contrato.sucursal,
     )
 
-    comision_locador, comision_locatario = _comisiones_cobradas_contrato(contrato, movimientos)
+    comision_locador, comision_locatario = _comisiones_cobradas_contrato(
+        contrato, movimientos, liquidacion=liquidacion
+    )
     comisiones_vendedor = _comisiones_vendedor_contrato_caratula(contrato, comision_locatario)
     comisiones_total = (comision_locador + comision_locatario).quantize(Decimal('0.01'))
+    comision_productor_total = sum(
+        (Decimal(str(cv.get('monto') or 0)) for cv in comisiones_vendedor),
+        Decimal('0'),
+    ).quantize(Decimal('0.01'))
 
     return {
         'numero_original': '0',
@@ -987,6 +1013,7 @@ def _build_legacy_contrato(contrato, cuotas, tipo_label, carpeta_override=None, 
         'comision_locatario': _formato_importe_us(comision_locatario),
         'comisiones_total': _formato_importe_us(comisiones_total),
         'comisiones_vendedor': comisiones_vendedor,
+        'comision_productor_total': _formato_importe_us(comision_productor_total),
         'recibo_locador': recibo_loc,
         'recibo_locatario': recibo_locat,
         'url_recibo_locador': url_recibo_loc,
