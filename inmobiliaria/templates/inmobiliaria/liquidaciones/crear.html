@@ -184,7 +184,7 @@
                                 <div class="alert alert-success">
                                     <strong>Monto Final a Pagar al Propietario:</strong> 
                                     $<span id="monto-final-pagar">0.00</span>
-                                    <small class="text-muted ms-2">(Propietario + cochera − gastos − fondo de mantenimiento)</small>
+                                    <small class="text-muted ms-2">(Propietario − gastos − fondo de mantenimiento; la cochera no se paga al propietario)</small>
                                 </div>
                             </div>
                         </div>
@@ -1492,9 +1492,8 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!pagosBody || !gastosBody) return;
 
         const propManual = parseNumeroEsAR(montoPropietario.value);
-        const cochera = leerCochera();
         const filasPago = [];
-        let totalPago = propManual + cochera;
+        let totalPago = propManual;
 
         const opsChecked = document.querySelectorAll('.operacion-checkbox:checked');
         if (opsChecked.length && !montosEditadosManualmente) {
@@ -1508,26 +1507,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 filasPago.push({ concepto: concepto, monto: monto });
             });
-            if (cochera > 0.009) {
-                filasPago.push({ concepto: 'Cochera', monto: cochera });
-            }
-        } else if (propManual > 0.009 || cochera > 0.009) {
-            if (propManual > 0.009) {
-                let concepto = 'Monto al propietario';
-                if (opsChecked.length === 1) {
-                    concepto = etiquetaConceptoOperacion(opsChecked[0]);
-                    const per = periodoCortoDesdeIso(
-                        opsChecked[0].getAttribute('data-fecha-hasta') || opsChecked[0].getAttribute('data-fecha-desde')
-                    );
-                    if (per && opsChecked[0].getAttribute('data-tipo') !== 'reserva') {
-                        concepto = `${concepto} (${per})`;
-                    }
+        } else if (propManual > 0.009) {
+            let concepto = 'Monto al propietario';
+            if (opsChecked.length === 1) {
+                concepto = etiquetaConceptoOperacion(opsChecked[0]);
+                const per = periodoCortoDesdeIso(
+                    opsChecked[0].getAttribute('data-fecha-hasta') || opsChecked[0].getAttribute('data-fecha-desde')
+                );
+                if (per && opsChecked[0].getAttribute('data-tipo') !== 'reserva') {
+                    concepto = `${concepto} (${per})`;
                 }
-                filasPago.push({ concepto: concepto, monto: propManual });
             }
-            if (cochera > 0.009) {
-                filasPago.push({ concepto: 'Cochera', monto: cochera });
-            }
+            filasPago.push({ concepto: concepto, monto: propManual });
         }
 
         if (!filasPago.length) {
@@ -1635,8 +1626,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const propActual = parseNumeroEsAR(montoPropietario.value);
             const fondo = montoFondoMantenimiento ? parseNumeroEsAR(montoFondoMantenimiento.value) : 0;
-            const cochera = leerCochera();
-            const montoPropietarioFinal = propActual + cochera - totalGastos - fondo;
+            const montoPropietarioFinal = propActual - totalGastos - fondo;
             // Actualizar monto final a pagar
             const montoFinalPagar = document.getElementById('monto-final-pagar');
             if (montoFinalPagar) {
@@ -1688,7 +1678,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function recalcularMontoFinalDesdeCampos() {
         const prop = parseNumeroEsAR(montoPropietario.value);
-        const cochera = leerCochera();
         const fondo = montoFondoMantenimiento ? parseNumeroEsAR(montoFondoMantenimiento.value) : 0;
         const gastosCheckboxes = document.querySelectorAll('.gasto-checkbox:checked');
         let totalGastos = 0;
@@ -1698,7 +1687,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const montoFinalPagar = document.getElementById('monto-final-pagar');
         if (montoFinalPagar) {
             montoFinalPagar.textContent = formatearNumero(
-                Math.max(0, prop + cochera - totalGastos - fondo).toFixed(2)
+                Math.max(0, prop - totalGastos - fondo).toFixed(2)
             );
         }
         actualizarResumenLiquidacion();

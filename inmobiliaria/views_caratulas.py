@@ -361,10 +361,11 @@ def _resumen_liquidacion_caratula(*, reserva=None, contrato=None, liquidacion=No
         filas_pago = []
         if monto_prop > 0:
             filas_pago.append({'concepto': 'Monto al propietario (depto)', 'monto': monto_prop})
-        if monto_coch > 0:
-            filas_pago.append({'concepto': 'Cochera', 'monto': monto_coch})
         monto_fondo = Decimal(str(liquidacion.monto_fondo_mantenimiento or 0))
         monto_gastos = Decimal(str(liquidacion.monto_gastos or 0))
+        monto_a_pagar = monto_prop - monto_gastos - monto_fondo
+        if monto_a_pagar < 0:
+            monto_a_pagar = Decimal('0')
         return {
             'tiene_datos': True,
             'desde_liquidacion': True,
@@ -377,8 +378,8 @@ def _resumen_liquidacion_caratula(*, reserva=None, contrato=None, liquidacion=No
             'monto_cochera': monto_coch,
             'monto_fondo': monto_fondo,
             'monto_gastos': monto_gastos,
-            'monto_a_pagar': liquidacion.monto_a_pagar,
-            'subtotal_propietario_cochera': monto_prop + monto_coch,
+            'monto_a_pagar': monto_a_pagar,
+            'subtotal_propietario': monto_prop,
             'total_descontado': monto_gastos + monto_fondo,
             'filas_pago': filas_pago,
             'gastos_filas': gastos_filas,
@@ -453,7 +454,7 @@ def _resumen_liquidacion_caratula(*, reserva=None, contrato=None, liquidacion=No
         'monto_fondo': Decimal('0'),
         'monto_gastos': Decimal('0'),
         'monto_a_pagar': prop,
-        'subtotal_propietario_cochera': prop,
+        'subtotal_propietario': prop,
         'total_descontado': Decimal('0'),
         'filas_pago': [
             {
@@ -531,10 +532,10 @@ def _caratula_nombre_cliente(cliente):
 
 def _tipo_reserva(propiedad):
     if not propiedad:
-        return 'Por día'
+        return 'Alquiler por día'
     if getattr(propiedad, 'tipo_cliente', None) == 'ESTUDIANTE':
         return 'Estudiante'
-    return 'Por día'
+    return 'Alquiler por día'
 
 
 def _formato_miles_ar(val):
@@ -1101,7 +1102,9 @@ def lista_caratulas(request):
                 'kind': 'reserva',
                 'pk': r.id,
                 'tipo': tipo,
+                'tipo_display': f'Reserva · {tipo}',
                 'numero': r.id,
+                'numero_display': f'OP {r.id}',
                 'fecha': r.fecha_inicio,
                 'caratula': _caratula_nombre_cliente(r.cliente),
                 'propiedad_linea': plinea,
@@ -1143,7 +1146,9 @@ def lista_caratulas(request):
                 'kind': 'contrato',
                 'pk': c.id,
                 'tipo': tipo_c,
+                'tipo_display': f'Contrato · {tipo_c}',
                 'numero': c.id,
+                'numero_display': f'CT {c.id}',
                 'fecha': c.fecha_operacion,
                 'caratula': _caratula_nombre_cliente(c.inquilino),
                 'propiedad_linea': clinea,

@@ -24611,7 +24611,6 @@ def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
     """
     filas = []
     monto_prop = Decimal(str(liquidacion.monto_propietario or 0))
-    cochera = Decimal(str(liquidacion.monto_cochera or 0))
     periodo = _periodo_detalle_alquiler_liquidacion(liquidacion)
     fecha_entrada, fecha_salida = _fechas_alquiler_liquidacion(liquidacion)
     precio_dia = _precio_dia_alquiler_liquidacion(liquidacion, monto_prop)
@@ -24628,8 +24627,6 @@ def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
             'precio_dia': precio_dia,
             'dias': dias_alquiler,
         })
-    if cochera > Decimal('0.01'):
-        filas.append({'detalle': 'COCHERA', 'haber': cochera.quantize(Decimal('0.01')), 'debe': Decimal('0')})
 
     fondo = Decimal(str(liquidacion.monto_fondo_mantenimiento or 0))
     if fondo > Decimal('0.01'):
@@ -24669,7 +24666,7 @@ def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
                 'debe': m.quantize(Decimal('0.01')),
             })
 
-    total_haber = monto_prop + cochera
+    total_haber = monto_prop
     total_debe = fondo + com_loc + com_locat + sum(
         (Decimal(str(g.monto or 0)) for g in gastos_qs),
         Decimal('0'),

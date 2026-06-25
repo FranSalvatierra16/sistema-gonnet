@@ -108,8 +108,14 @@
             <tbody>
                 {% for f in filas %}
                 <tr class="{% if f.tiene_liquidacion %}table-success{% endif %}">
-                    <td><span class="badge bg-secondary">{{ f.tipo }}</span></td>
-                    <td>{{ f.numero }}</td>
+                    <td>
+                        {% if f.kind == 'reserva' %}
+                        <span class="badge bg-info text-dark">{{ f.tipo_display|default:f.tipo }}</span>
+                        {% else %}
+                        <span class="badge bg-dark">{{ f.tipo_display|default:f.tipo }}</span>
+                        {% endif %}
+                    </td>
+                    <td><strong>{{ f.numero_display|default:f.numero }}</strong></td>
                     <td>{{ f.fecha|date:"d/m/Y" }}</td>
                     <td>{{ f.caratula }}</td>
                     <td class="small">
