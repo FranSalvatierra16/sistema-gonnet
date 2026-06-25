@@ -24601,7 +24601,7 @@ def _precio_dia_alquiler_liquidacion(liquidacion, monto_propietario=None):
 def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
     """
     Detalle de liquidación de cobranzas para el propietario.
-    Debe = a favor del propietario; Haber = en contra del propietario.
+    Haber = a favor del propietario (alquiler, ingresos); Debe = en contra (gastos, comisiones).
     """
     filas = []
     monto_prop = Decimal(str(liquidacion.monto_propietario or 0))
@@ -24613,8 +24613,8 @@ def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
     if monto_prop > Decimal('0.01'):
         filas.append({
             'detalle': f'ALQUILER A PAGAR // {periodo}' if periodo else 'ALQUILER A PAGAR',
-            'debe': monto_prop.quantize(Decimal('0.01')),
-            'haber': Decimal('0'),
+            'debe': Decimal('0'),
+            'haber': monto_prop.quantize(Decimal('0.01')),
             'es_alquiler': True,
             'fecha_entrada': fecha_entrada,
             'fecha_salida': fecha_salida,
@@ -24626,23 +24626,23 @@ def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
     if fondo > Decimal('0.01'):
         filas.append({
             'detalle': 'FONDO DE MANTENIMIENTO',
-            'debe': Decimal('0'),
-            'haber': fondo.quantize(Decimal('0.01')),
+            'debe': fondo.quantize(Decimal('0.01')),
+            'haber': Decimal('0'),
         })
 
     com_loc = Decimal(str(getattr(liquidacion, 'comision_locador', None) or 0))
     if com_loc > Decimal('0.01'):
         filas.append({
             'detalle': 'COMISIÓN LOCADOR',
-            'debe': Decimal('0'),
-            'haber': com_loc.quantize(Decimal('0.01')),
+            'debe': com_loc.quantize(Decimal('0.01')),
+            'haber': Decimal('0'),
         })
     com_locat = Decimal(str(getattr(liquidacion, 'comision_locatario', None) or 0))
     if com_locat > Decimal('0.01'):
         filas.append({
             'detalle': 'COMISIÓN LOCATARIO',
-            'debe': Decimal('0'),
-            'haber': com_locat.quantize(Decimal('0.01')),
+            'debe': com_locat.quantize(Decimal('0.01')),
+            'haber': Decimal('0'),
         })
 
     gastos_qs = liquidacion.gastos.filter(aceptado=True).order_by('fecha_gasto', 'id')
@@ -24663,20 +24663,20 @@ def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
             total_ingresos += m
             filas.append({
                 'detalle': f'{det} ({tipo_lbl})',
-                'debe': m.quantize(Decimal('0.01')),
-                'haber': Decimal('0'),
+                'debe': Decimal('0'),
+                'haber': m.quantize(Decimal('0.01')),
             })
         else:
             total_egresos += m
             filas.append({
                 'detalle': f'{det} ({tipo_lbl})',
-                'debe': Decimal('0'),
-                'haber': m.quantize(Decimal('0.01')),
+                'debe': m.quantize(Decimal('0.01')),
+                'haber': Decimal('0'),
             })
 
-    total_debe = monto_prop + total_ingresos
-    total_haber = fondo + com_loc + com_locat + total_egresos
-    saldo_favor = (total_debe - total_haber).quantize(Decimal('0.01'))
+    total_haber = monto_prop + total_ingresos
+    total_debe = fondo + com_loc + com_locat + total_egresos
+    saldo_favor = (total_haber - total_debe).quantize(Decimal('0.01'))
     if saldo_favor < 0:
         saldo_favor = Decimal('0')
     return {
