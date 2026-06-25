@@ -60,7 +60,6 @@
                         Entrada: {{ fila.fecha_entrada|date:"d/m/Y" }}
                         — Salida: {{ fila.fecha_salida|date:"d/m/Y" }}
                         {% if fila.dias %} — {{ fila.dias }} día{% if fila.dias != 1 %}s{% endif %}{% endif %}
-                        {% if fila.precio_dia %} — Precio/día: {{ fila.precio_dia|format_price }}{% endif %}
                     </div>
                     {% endif %}
                 </td>

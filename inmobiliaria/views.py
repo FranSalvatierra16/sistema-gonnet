@@ -194,12 +194,25 @@ def _url_con_query_param(url, param_name, param_value, request):
     return f'{url}{sep}{urlencode({param_name: validated})}'
 
 
+def _url_volver_desde_imprimir_caratula(request, *, reserva_id=None, contrato_id=None):
+    """Destino del botón Volver en carátula imprimible según nivel del usuario."""
+    if _nivel_usuario_request(request) >= 4:
+        if reserva_id:
+            return reverse('inmobiliaria:caratula_reserva', args=[reserva_id])
+        if contrato_id:
+            return reverse('inmobiliaria:caratula_contrato', args=[contrato_id])
+    return reverse('inmobiliaria:dashboard')
+
+
 def _url_imprimir_caratula_reserva(reserva_id, request=None):
-    """Carátula imprimible; con request encadena volver a caja o menú."""
+    """Carátula imprimible; con request encadena volver según nivel (carátula completa o menú)."""
     url = reverse('inmobiliaria:imprimir_caratula_reserva', args=[reserva_id])
     if request is not None:
         url = _url_con_query_param(
-            url, 'next', _default_url_volver_recibo(request), request
+            url,
+            'next',
+            _url_volver_desde_imprimir_caratula(request, reserva_id=reserva_id),
+            request,
         )
     return url
 
@@ -219,11 +232,14 @@ def _url_recibo_movimiento_siguiente_caratula(movimiento, sucursal, reserva_id, 
 
 
 def _url_imprimir_caratula_contrato(contrato_id, request=None):
-    """Carátula imprimible de contrato; con request encadena volver a caja o menú."""
+    """Carátula imprimible de contrato; con request encadena volver según nivel."""
     url = reverse('inmobiliaria:imprimir_caratula_contrato', args=[contrato_id])
     if request is not None:
         url = _url_con_query_param(
-            url, 'next', _default_url_volver_recibo(request), request
+            url,
+            'next',
+            _url_volver_desde_imprimir_caratula(request, contrato_id=contrato_id),
+            request,
         )
     return url
 

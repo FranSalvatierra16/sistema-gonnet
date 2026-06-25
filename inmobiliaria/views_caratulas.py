@@ -321,6 +321,30 @@ def _puede_ver_caratulas(user):
     return bool(getattr(user, 'is_superuser', False) or (nivel is not None and nivel >= 4))
 
 
+def _nivel_usuario_caratulas(user):
+    if getattr(user, 'is_superuser', False):
+        return 5
+    try:
+        return int(getattr(user, 'nivel', 0) or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _volver_imprimir_caratula(request, *, reserva_id=None, contrato_id=None):
+    """URL y etiqueta del botón Volver en vista de impresión de carátula."""
+    from inmobiliaria.views import _validar_url_volver_recibo, _url_volver_desde_imprimir_caratula
+
+    explicit = _validar_url_volver_recibo((request.GET.get('next') or '').strip(), request)
+    if explicit:
+        return explicit, 'Volver'
+    if _nivel_usuario_caratulas(request.user) >= 4:
+        if reserva_id:
+            return reverse('inmobiliaria:caratula_reserva', args=[reserva_id]), 'Volver a la carátula'
+        if contrato_id:
+            return reverse('inmobiliaria:caratula_contrato', args=[contrato_id]), 'Volver a la carátula'
+    return reverse('inmobiliaria:dashboard'), 'Volver al menú'
+
+
 def _resumen_liquidacion_caratula(*, reserva=None, contrato=None, liquidacion=None, sucursal=None):
     """
     Cuadro estilo «crear liquidación»: total operación, propietario (depto), oficina, cochera, gastos, neto.
@@ -1343,9 +1367,7 @@ def caratula_contrato(request, contrato_id):
 
 @login_required
 def imprimir_caratula_reserva(request, reserva_id):
-    """Vista sólo impresión: formato papel tipo libro de alquileres."""
-    if not _puede_ver_caratulas(request.user):
-        return HttpResponseForbidden()
+    """Vista sólo impresión: formato papel tipo libro de alquileres (todos los vendedores)."""
     reserva = get_object_or_404(
         Reserva.objects.select_related(
             'cliente', 'propiedad', 'propiedad__propietario', 'vendedor', 'sucursal'
@@ -1393,17 +1415,7 @@ def imprimir_caratula_reserva(request, reserva_id):
         except Exception:
             fdoc = reserva.fecha_creacion.date() if hasattr(reserva.fecha_creacion, 'date') else reserva.fecha_inicio
 
-    from inmobiliaria.views import _validar_url_volver_recibo
-
-    volver_explicito = _validar_url_volver_recibo(
-        (request.GET.get('next') or '').strip(), request
-    )
-    if volver_explicito:
-        volver_url = volver_explicito
-        volver_label = 'Volver'
-    else:
-        volver_url = reverse('inmobiliaria:caratula_reserva', args=[reserva_id])
-        volver_label = 'Volver a la carátula'
+    volver_url, volver_label = _volver_imprimir_caratula(request, reserva_id=reserva_id)
 
     ctx = {
         'es_reserva': True,
@@ -1436,8 +1448,6 @@ def imprimir_caratula_reserva(request, reserva_id):
 
 @login_required
 def imprimir_caratula_contrato(request, contrato_id):
-    if not _puede_ver_caratulas(request.user):
-        return HttpResponseForbidden()
     contrato = get_object_or_404(
         ContratoAlquiler.objects.select_related(
             'propiedad', 'propiedad__propietario', 'inquilino', 'vendedor', 'sucursal'
@@ -1485,17 +1495,7 @@ def imprimir_caratula_contrato(request, contrato_id):
         except Exception:
             fdoc = contrato.fecha_creacion.date() if hasattr(contrato.fecha_creacion, 'date') else timezone.localdate()
 
-    from inmobiliaria.views import _validar_url_volver_recibo
-
-    volver_explicito = _validar_url_volver_recibo(
-        (request.GET.get('next') or '').strip(), request
-    )
-    if volver_explicito:
-        volver_url = volver_explicito
-        volver_label = 'Volver'
-    else:
-        volver_url = reverse('inmobiliaria:caratula_contrato', args=[contrato_id])
-        volver_label = 'Volver a la carátula'
+    volver_url, volver_label = _volver_imprimir_caratula(request, contrato_id=contrato_id)
 
     ctx = {
         'es_reserva': False,

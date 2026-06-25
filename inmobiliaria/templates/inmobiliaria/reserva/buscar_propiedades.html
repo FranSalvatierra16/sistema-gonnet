@@ -1409,10 +1409,10 @@
                 <h4 style="color: #334155; margin: 0 0 16px 0; font-size: 16px; font-weight: 600;">Precio Total</h4>
                 <div style="position: relative;">
                     <span style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); font-size: 18px; font-weight: 500; color: #64748b; z-index: 1;">$</span>
-                    <input type="number" id="precio_total_editable" step="0.01" min="0" 
+                    <input type="text" id="precio_total_editable" inputmode="numeric" autocomplete="off"
                            style="width: 100%; padding: 16px 16px 16px 40px; font-size: 18px; font-weight: 600; border: 1px solid #d1d5db; border-radius: 8px; background: white; transition: all 0.2s; color: #1e293b;"
                            onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
-                           onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'">
+                           onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'; if(window.formatearPrecio){this.value=window.formatearPrecio(window.parseDecimalMontoJS(this.value));}">
                 </div>
             </div>
 
@@ -2586,6 +2586,27 @@ function verPrecios() {
         }, 500);
     }
 // Función para formatear precios disponible globalmente
+window.parseDecimalMontoJS = function(val) {
+    if (val == null || val === '') return 0;
+    let t = String(val).trim().replace(/\s/g, '');
+    if (!t) return 0;
+    t = t.replace(/[^\d.,-]/g, '');
+    if (!t || t === ',' || t === '.' || t === '-') return 0;
+    let neg = false;
+    if (t.startsWith('-')) { neg = true; t = t.slice(1); }
+    let normalized;
+    if (t.indexOf(',') !== -1) {
+        normalized = t.replace(/\./g, '').replace(',', '.');
+    } else {
+        const parts = t.split('.');
+        const dotCount = parts.length - 1;
+        if (dotCount === 1 && parts[1].length <= 2) normalized = t;
+        else normalized = t.replace(/\./g, '');
+    }
+    const n = parseFloat(neg ? '-' + normalized : normalized);
+    return isNaN(n) ? 0 : n;
+};
+
 window.formatearPrecio = function(precio) {
     if (!precio && precio !== 0) return '0';
     
@@ -2738,7 +2759,8 @@ function confirmarReservaFinal() {
     // Validar campos requeridos
     const vendedorId = document.getElementById('modalVendedorId')?.value;
     const inquilinoId = document.getElementById('modalInquilinoId')?.value;
-    const precioTotal = document.getElementById('precio_total_editable')?.value || document.getElementById('modalPrecioTotal')?.value;
+    const precioTotalRaw = document.getElementById('precio_total_editable')?.value || document.getElementById('modalPrecioTotal')?.value;
+    const precioTotal = window.parseDecimalMontoJS ? window.parseDecimalMontoJS(precioTotalRaw) : parseFloat(precioTotalRaw || 0);
     const propiedadId = document.getElementById('modalPropiedadId')?.value;
     const fechaInicio = document.getElementById('modalFechaInicio')?.value;
     const fechaFin = document.getElementById('modalFechaFin')?.value;
@@ -2917,7 +2939,7 @@ window.mostrarModalReserva = function(esOperacionDirecta = false) {
     
     // Precio - formatear para mostrar
     const precioFormateado = window.formatearPrecio(propiedadSeleccionada.precio || 0);
-    document.getElementById('precio_total_editable').value = propiedadSeleccionada.precio || 0; // Valor numérico para edición
+    document.getElementById('precio_total_editable').value = precioFormateado;
     
     // Actualizar el display del precio también
     const precioDisplay = document.getElementById('precio_total_display');
@@ -2958,7 +2980,7 @@ window.mostrarModalReserva = function(esOperacionDirecta = false) {
     document.getElementById('modalPropiedadId').value = propiedadSeleccionada.id || '';
     document.getElementById('modalFechaInicio').value = convertirFechaDisplay(fechaInicio);
     document.getElementById('modalFechaFin').value = convertirFechaDisplay(fechaFin);
-    document.getElementById('modalPrecioTotal').value = propiedadSeleccionada.precio || 0;
+    document.getElementById('modalPrecioTotal').value = precioTotal;
     document.getElementById('esOperacionDirecta').value = esOperacionDirecta ? 'true' : 'false';
     
     console.log('🔧 Campos ocultos configurados:', {
