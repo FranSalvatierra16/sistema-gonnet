@@ -24627,7 +24627,8 @@ def _precio_dia_alquiler_liquidacion(liquidacion, monto_propietario=None):
 def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
     """
     Detalle de liquidación de cobranzas para el propietario.
-    Haber = a favor del propietario (alquiler, ingresos); Debe = en contra (gastos, comisiones).
+    Haber = a favor (alquiler, ingresos); Debe = en contra (gastos, fondo).
+    Comisión locador/locatario se listan como referencia pero no entran en totales ni saldo.
     """
     filas = []
     monto_prop = Decimal(str(liquidacion.monto_propietario or 0))
@@ -24662,6 +24663,7 @@ def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
             'detalle': 'COMISIÓN LOCADOR',
             'debe': com_loc.quantize(Decimal('0.01')),
             'haber': Decimal('0'),
+            'excluir_totales': True,
         })
     com_locat = Decimal(str(getattr(liquidacion, 'comision_locatario', None) or 0))
     if com_locat > Decimal('0.01'):
@@ -24669,6 +24671,7 @@ def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
             'detalle': 'COMISIÓN LOCATARIO',
             'debe': com_locat.quantize(Decimal('0.01')),
             'haber': Decimal('0'),
+            'excluir_totales': True,
         })
 
     gastos_qs = liquidacion.gastos.filter(aceptado=True).order_by('fecha_gasto', 'id')
@@ -24701,7 +24704,7 @@ def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
             })
 
     total_haber = monto_prop + total_ingresos
-    total_debe = fondo + com_loc + com_locat + total_egresos
+    total_debe = fondo + total_egresos
     saldo_favor = (total_haber - total_debe).quantize(Decimal('0.01'))
     return {
         'filas': filas,
