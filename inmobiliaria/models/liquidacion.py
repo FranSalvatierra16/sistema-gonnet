@@ -195,13 +195,19 @@ class LiquidacionPropietario(models.Model):
         super().save(*args, **kwargs)
 
     def calcular_monto_a_pagar(self):
-        """Recalcula el monto a pagar según gastos aceptados y fondo de mantenimiento."""
-        gastos_aceptados = self.gastos.filter(aceptado=True).aggregate(
-            total=models.Sum('monto')
-        )['total'] or Decimal('0')
+        """Recalcula el monto a pagar según movimientos aceptados y fondo de mantenimiento."""
+        aceptados = self.gastos.filter(aceptado=True)
+        restas = sum(
+            (g.monto for g in aceptados if g.operacion_monto != 'suma'),
+            Decimal('0'),
+        )
+        sumas = sum(
+            (g.monto for g in aceptados if g.operacion_monto == 'suma'),
+            Decimal('0'),
+        )
         fondo = self.monto_fondo_mantenimiento or Decimal('0')
-        self.monto_gastos = gastos_aceptados
-        neto = self.monto_propietario - gastos_aceptados - fondo
+        self.monto_gastos = restas
+        neto = self.monto_propietario - restas - fondo + sumas
         self.monto_a_pagar = neto if neto > 0 else Decimal('0')
         self.save(update_fields=['monto_gastos', 'monto_a_pagar'])
 
@@ -223,6 +229,18 @@ class GastoPropietario(models.Model):
         ('pendiente', 'Pendiente'),
         ('aceptado', 'Aceptado'),
         ('rechazado', 'Rechazado'),
+    ]
+    TIPO_MOVIMIENTO_CHOICES = [
+        ('egreso', 'Egreso'),
+        ('ingreso', 'Ingreso'),
+    ]
+    EFECTO_INQUILINO_CHOICES = [
+        ('favor', 'A favor del inquilino'),
+        ('contra', 'En contra del inquilino'),
+    ]
+    OPERACION_MONTO_CHOICES = [
+        ('resta', 'Resta'),
+        ('suma', 'Suma'),
     ]
 
     liquidacion = models.ForeignKey(
@@ -262,6 +280,25 @@ class GastoPropietario(models.Model):
         decimal_places=2,
         verbose_name="Monto"
     )
+    tipo_movimiento = models.CharField(
+        max_length=10,
+        choices=TIPO_MOVIMIENTO_CHOICES,
+        default='egreso',
+        verbose_name='Tipo de movimiento',
+    )
+    efecto_inquilino = models.CharField(
+        max_length=10,
+        choices=EFECTO_INQUILINO_CHOICES,
+        default='contra',
+        verbose_name='Efecto sobre el inquilino',
+    )
+    operacion_monto = models.CharField(
+        max_length=10,
+        choices=OPERACION_MONTO_CHOICES,
+        default='resta',
+        verbose_name='Operación',
+        help_text='Suma aumenta lo que se paga al propietario; resta lo descuenta.',
+    )
     fecha_gasto = models.DateField(
         null=True,
         blank=True,
@@ -288,6 +325,13 @@ class GastoPropietario(models.Model):
         null=True,
         blank=True
     )
+
+    def monto_signed(self):
+        """Impacto neto del movimiento sobre el monto a pagar al propietario."""
+        m = self.monto if self.monto is not None else Decimal('0')
+        if self.operacion_monto == 'suma':
+            return m
+        return -m
 
     def save(self, *args, **kwargs):
         # Si no hay liquidación pero hay propietario, obtener la sucursal del propietario

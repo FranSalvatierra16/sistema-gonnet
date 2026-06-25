@@ -211,10 +211,10 @@
                 <div class="col-12">
                     <div class="card shadow">
                         <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0">Gastos del Propietario</h5>
+                            <h5 class="mb-0">Movimientos del propietario</h5>
                             {% if liquidacion.estado == 'pendiente' %}
                             <button type="button" class="btn btn-sm btn-light" data-bs-toggle="modal" data-bs-target="#modalAgregarGasto">
-                                <i class="fas fa-plus me-2"></i>Agregar Gasto
+                                <i class="fas fa-plus me-2"></i>Agregar Movimiento
                             </button>
                             {% endif %}
                         </div>
@@ -225,8 +225,11 @@
                                     <thead>
                                         <tr>
                                             <th>Descripción</th>
+                                            <th>Tipo</th>
+                                            <th>Efecto inquilino</th>
+                                            <th>Operación</th>
                                             <th>Monto</th>
-                                            <th>Fecha Gasto</th>
+                                            <th>Fecha</th>
                                             <th>Estado</th>
                                             <th>Acciones</th>
                                         </tr>
@@ -240,7 +243,10 @@
                                                 <br><small class="text-muted">{{ gasto.observaciones }}</small>
                                                 {% endif %}
                                             </td>
-                                            <td>${{ gasto.monto|floatformat:2 }}</td>
+                                            <td><span class="badge bg-light text-dark border">{{ gasto.get_tipo_movimiento_display }}</span></td>
+                                            <td><span class="badge bg-light text-dark border">{% if gasto.efecto_inquilino == 'favor' %}A favor{% else %}En contra{% endif %}</span></td>
+                                            <td><span class="badge bg-{% if gasto.operacion_monto == 'suma' %}success{% else %}danger{% endif %}">{{ gasto.get_operacion_monto_display }}</span></td>
+                                            <td>{% if gasto.operacion_monto == 'suma' %}+{% else %}−{% endif %}${{ gasto.monto|floatformat:2 }}</td>
                                             <td>{% if gasto.fecha_gasto %}{{ gasto.fecha_gasto|date:"d/m/Y" }}{% else %}-{% endif %}</td>
                                             <td>
                                                 {% if gasto.aceptado %}
@@ -274,9 +280,9 @@
                             {% else %}
                             <div class="alert alert-info">
                                 <i class="fas fa-info-circle me-2"></i>
-                                No hay gastos registrados para esta liquidación.
+                                No hay movimientos registrados para esta liquidación.
                                 {% if liquidacion.estado == 'pendiente' and gastos_pendientes_disponibles %}
-                                <span class="d-block mt-2">Podés incluir gastos pendientes de caja o manuales desde la sección <strong>Gastos pendientes por incluir</strong> más abajo, o cargar uno nuevo con <strong>Agregar Gasto</strong>.</span>
+                                <span class="d-block mt-2">Podés incluir movimientos pendientes de caja o manuales desde la sección <strong>Movimientos pendientes por incluir</strong> más abajo, o cargar uno nuevo con <strong>Agregar Movimiento</strong>.</span>
                                 {% endif %}
                             </div>
                             {% endif %}
@@ -290,7 +296,7 @@
                 <div class="col-12">
                     <div class="card shadow border-warning">
                         <div class="card-header bg-warning text-dark">
-                            <h5 class="mb-0"><i class="fas fa-clock me-2"></i>Gastos pendientes por incluir</h5>
+                            <h5 class="mb-0"><i class="fas fa-clock me-2"></i>Movimientos pendientes por incluir</h5>
                         </div>
                         <div class="card-body">
                             <p class="small text-muted mb-3">
@@ -457,38 +463,22 @@
     </div>
 </div>
 
-<!-- Modal Agregar Gasto -->
+<!-- Modal Agregar Movimiento -->
 <div class="modal fade" id="modalAgregarGasto" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Agregar Gasto</h5>
+                <h5 class="modal-title">Agregar Movimiento</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form id="formAgregarGasto">
                 {% csrf_token %}
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Descripción <span class="text-danger">*</span></label>
-                        <input type="text" name="descripcion" class="form-control" required 
-                               placeholder="Ej: Luz, Gas, Mantenimiento...">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Monto <span class="text-danger">*</span></label>
-                        <input type="text" name="monto" class="form-control" required placeholder="0.00">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Fecha del Gasto</label>
-                        <input type="date" name="fecha_gasto" class="form-control">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Observaciones</label>
-                        <textarea name="observaciones" class="form-control" rows="2"></textarea>
-                    </div>
+                    {% include 'inmobiliaria/liquidaciones/_campos_agregar_movimiento.html' %}
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Agregar Gasto</button>
+                    <button type="submit" class="btn btn-primary">Agregar Movimiento</button>
                 </div>
             </form>
         </div>

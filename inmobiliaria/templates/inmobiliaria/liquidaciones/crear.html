@@ -113,14 +113,14 @@
                             </div>
                         </div>
 
-                        <!-- Gastos Pendientes del Propietario -->
+                        <!-- Movimientos pendientes del propietario -->
                         <div class="row mb-3" id="gastos-pendientes-container" style="display: none;">
                             <div class="col-12">
                                 <div class="card border-warning">
                                     <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
-                                        <h6 class="mb-0"><i class="fas fa-receipt me-2"></i>Gastos Pendientes del Propietario</h6>
-                                        <button type="button" class="btn btn-sm btn-light" onclick="mostrarModalAgregarGasto()">
-                                            <i class="fas fa-plus me-1"></i>Agregar Gasto
+                                        <h6 class="mb-0"><i class="fas fa-exchange-alt me-2"></i>Movimientos pendientes del propietario</h6>
+                                        <button type="button" class="btn btn-sm btn-light" onclick="mostrarModalAgregarMovimiento()">
+                                            <i class="fas fa-plus me-1"></i>Agregar Movimiento
                                         </button>
                                     </div>
                                     <div class="card-body">
@@ -128,7 +128,7 @@
                                             <!-- Se llenará dinámicamente -->
                                         </div>
                                         <div id="sin-gastos" class="alert alert-info mb-0" style="display: none;">
-                                            <i class="fas fa-info-circle me-2"></i>No hay gastos pendientes para este propietario.
+                                            <i class="fas fa-info-circle me-2"></i>No hay movimientos pendientes para este propietario.
                                         </div>
                                     </div>
                                 </div>
@@ -184,7 +184,7 @@
                                 <div class="alert alert-success">
                                     <strong>Monto Final a Pagar al Propietario:</strong> 
                                     $<span id="monto-final-pagar">0.00</span>
-                                    <small class="text-muted ms-2">(Propietario − gastos − fondo de mantenimiento; la cochera no se paga al propietario)</small>
+                                    <small class="text-muted ms-2">(Propietario − movimientos que restan + movimientos que suman − fondo; la cochera no se paga al propietario)</small>
                                 </div>
                             </div>
                         </div>
@@ -214,7 +214,7 @@
                                                 </div>
                                             </div>
                                             <div class="col-md-6">
-                                                <h6 class="text-danger mb-2">Gastos descontados</h6>
+                                                <h6 class="text-danger mb-2">Movimientos</h6>
                                                 <div class="table-responsive">
                                                     <table class="table table-sm table-bordered mb-0">
                                                         <tbody id="resumen-gastos-body">
@@ -1123,7 +1123,31 @@ document.addEventListener('DOMContentLoaded', function() {
             .replace(/"/g, '&quot;');
     }
 
-    // Función para mostrar gastos pendientes
+    function badgesMovimientoHtml(gasto) {
+        const tm = gasto.tipo_movimiento_display || (gasto.tipo_movimiento === 'ingreso' ? 'Ingreso' : 'Egreso');
+        const ef = gasto.efecto_inquilino === 'favor' ? 'A favor inq.' : 'Contra inq.';
+        const op = gasto.operacion_monto === 'suma' ? 'Suma' : 'Resta';
+        const opClass = gasto.operacion_monto === 'suma' ? 'success' : 'danger';
+        return `<span class="badge bg-light text-dark border me-1">${escHtmlGasto(tm)}</span>`
+            + `<span class="badge bg-light text-dark border me-1">${escHtmlGasto(ef)}</span>`
+            + `<span class="badge bg-${opClass}">${escHtmlGasto(op)}</span>`;
+    }
+
+    function netoMovimientosSeleccionados() {
+        let restas = 0;
+        let sumas = 0;
+        document.querySelectorAll('.gasto-checkbox:checked').forEach(function(cb) {
+            const m = parseFloat(cb.getAttribute('data-monto')) || 0;
+            if ((cb.getAttribute('data-operacion') || 'resta') === 'suma') {
+                sumas += m;
+            } else {
+                restas += m;
+            }
+        });
+        return { restas: restas, sumas: sumas, netoDescuento: restas - sumas };
+    }
+
+    // Función para mostrar movimientos pendientes
     function mostrarGastosPendientes(gastos, colProp) {
         const container = document.getElementById('gastos-pendientes-container');
         const lista = document.getElementById('gastos-pendientes-lista');
@@ -1143,9 +1167,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         <tr>
                             ${thSelG}
                             <th>Concepto</th>
+                            <th>Tipo / Efecto</th>
                             <th>Detalle</th>
                             ${thPropG}
-                            <th>Fecha Gasto</th>
+                            <th>Fecha</th>
                             <th class="text-end">Monto</th>
                         </tr>
                     </thead>
@@ -1156,6 +1181,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const gpid = gasto.propiedad_id != null ? String(gasto.propiedad_id) : '';
                 const conceptoTxt = (gasto.concepto != null && String(gasto.concepto).trim() !== '') ? String(gasto.concepto).trim() : (gasto.descripcion || '—');
                 const descGastoAttr = escHtmlGasto(conceptoTxt).replace(/"/g, '&quot;');
+                const operacion = gasto.operacion_monto || 'resta';
                 const tdSel = mostrarCol
                     ? `<td><input type="checkbox" class="form-check-input gasto-checkbox"
                            name="gastos_seleccionados[]"
@@ -1163,6 +1189,7 @@ document.addEventListener('DOMContentLoaded', function() {
                            data-gasto-id="${gasto.id}"
                            data-propiedad-id="${gpid}"
                            data-monto="${gasto.monto}"
+                           data-operacion="${operacion}"
                            data-descripcion="${descGastoAttr}"></td>`
                     : `<td><input type="checkbox" class="form-check-input gasto-checkbox"
                            name="gastos_seleccionados[]"
@@ -1170,6 +1197,7 @@ document.addEventListener('DOMContentLoaded', function() {
                            data-gasto-id="${gasto.id}"
                            data-propiedad-id="${gpid}"
                            data-monto="${gasto.monto}"
+                           data-operacion="${operacion}"
                            data-descripcion="${descGastoAttr}"></td>`;
                 const tdPropG = mostrarCol ? `<td><small class="text-muted">${escHtmlGasto(gasto.propiedad_label) || '—'}</small></td>` : '';
                 const detalleTxt = (gasto.detalle != null && String(gasto.detalle).trim() !== '') ? String(gasto.detalle).trim() : '';
@@ -1179,10 +1207,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     <tr>
                         ${tdSel}
                         <td>${conceptoCell}</td>
+                        <td class="small">${badgesMovimientoHtml(gasto)}</td>
                         <td>${detalleCell}</td>
                         ${tdPropG}
                         <td>${gasto.fecha_gasto ? new Date(gasto.fecha_gasto).toLocaleDateString('es-AR') : '-'}</td>
-                        <td class="text-end">$${parseFloat(gasto.monto).toLocaleString('es-AR', {minimumFractionDigits: 2})}</td>
+                        <td class="text-end">${operacion === 'suma' ? '+' : '−'}$${parseFloat(gasto.monto).toLocaleString('es-AR', {minimumFractionDigits: 2})}</td>
                     </tr>
                 `;
             });
@@ -1193,7 +1222,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="mt-2">
                     <small class="text-muted">
                         <i class="fas fa-info-circle me-1"></i>
-                        Seleccioná los gastos a descontar del monto a pagar al propietario.
+                        Seleccioná los movimientos a incluir en la liquidación (resta descuenta; suma aumenta lo que se paga al propietario).
                         ${mostrarCol ? 'Solo podés incluir gastos de la misma propiedad que las operaciones elegidas.' : ''}
                     </small>
                 </div>
@@ -1534,34 +1563,37 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         const filasGasto = [];
-        let totalGasto = 0;
+        let totalDescuento = 0;
         document.querySelectorAll('.gasto-checkbox:checked').forEach(function(cb) {
             const monto = parseFloat(cb.getAttribute('data-monto')) || 0;
-            const concepto = (cb.getAttribute('data-descripcion') || 'Gasto').trim();
+            const operacion = cb.getAttribute('data-operacion') || 'resta';
+            const concepto = (cb.getAttribute('data-descripcion') || 'Movimiento').trim();
             if (monto <= 0.009) return;
-            filasGasto.push({ concepto: concepto, monto: monto });
-            totalGasto += monto;
+            const pref = operacion === 'suma' ? '+ ' : '− ';
+            filasGasto.push({ concepto: concepto, monto: monto, pref: pref });
+            if (operacion === 'suma') totalDescuento -= monto;
+            else totalDescuento += monto;
         });
 
         const fondo = montoFondoMantenimiento ? parseNumeroEsAR(montoFondoMantenimiento.value) : 0;
         if (fondo > 0.009) {
-            filasGasto.push({ concepto: 'Fondo de mantenimiento', monto: fondo });
-            totalGasto += fondo;
+            filasGasto.push({ concepto: 'Fondo de mantenimiento', monto: fondo, pref: '− ' });
+            totalDescuento += fondo;
         }
 
         if (!filasGasto.length) {
-            gastosBody.innerHTML = '<tr><td colspan="2" class="text-center text-muted py-3">Sin gastos seleccionados.</td></tr>';
+            gastosBody.innerHTML = '<tr><td colspan="2" class="text-center text-muted py-3">Sin movimientos seleccionados.</td></tr>';
             if (gastosFoot) gastosFoot.classList.add('d-none');
         } else {
             gastosBody.innerHTML = filasGasto.map(function(f) {
-                return '<tr><td>' + f.concepto + '</td><td class="text-end">$' + formatearNumero(f.monto.toFixed(2)) + '</td></tr>';
+                return '<tr><td>' + f.concepto + '</td><td class="text-end">' + f.pref + '$' + formatearNumero(f.monto.toFixed(2)) + '</td></tr>';
             }).join('');
             const elTotalGastos = document.getElementById('resumen-total-gastos');
-            if (elTotalGastos) elTotalGastos.textContent = formatearNumero(totalGasto.toFixed(2));
+            if (elTotalGastos) elTotalGastos.textContent = formatearNumero(totalDescuento.toFixed(2));
             if (gastosFoot) gastosFoot.classList.remove('d-none');
         }
 
-        const neto = Math.max(0, totalPago - totalGasto);
+        const neto = Math.max(0, totalPago - totalDescuento);
         const elNeto = document.getElementById('resumen-neto-pagar');
         if (elNeto) elNeto.textContent = formatearNumero(neto.toFixed(2));
     }
@@ -1574,12 +1606,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // Función para calcular montos de las operaciones seleccionadas (global)
     window.calcularMontosSeleccionados = function() {
         const checkboxes = document.querySelectorAll('.operacion-checkbox:checked');
-        const gastosCheckboxes = document.querySelectorAll('.gasto-checkbox:checked');
         
         let totalMonto = 0;
         let totalMontoPropietario = 0;
         let totalMontoInmobiliaria = 0;
-        let totalGastos = 0;
         let fechaDesdeMin = null;
         let fechaHastaMax = null;
         
@@ -1609,12 +1639,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
-        // Calcular total de gastos seleccionados
-        gastosCheckboxes.forEach(cb => {
-            const montoGasto = parseFloat(cb.getAttribute('data-monto')) || 0;
-            totalGastos += montoGasto;
-        });
-        
+        const movs = netoMovimientosSeleccionados();
         // Sugerir montos al tildar operaciones (si el usuario ya corrigió a mano, no pisar total/prop/inm)
         actualizarBloqueComisionesPrimeraOp();
         if (totalMonto > 0) {
@@ -1626,7 +1651,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const propActual = parseNumeroEsAR(montoPropietario.value);
             const fondo = montoFondoMantenimiento ? parseNumeroEsAR(montoFondoMantenimiento.value) : 0;
-            const montoPropietarioFinal = propActual - totalGastos - fondo;
+            const montoPropietarioFinal = propActual - movs.netoDescuento - fondo;
             // Actualizar monto final a pagar
             const montoFinalPagar = document.getElementById('monto-final-pagar');
             if (montoFinalPagar) {
@@ -1679,15 +1704,11 @@ document.addEventListener('DOMContentLoaded', function() {
     function recalcularMontoFinalDesdeCampos() {
         const prop = parseNumeroEsAR(montoPropietario.value);
         const fondo = montoFondoMantenimiento ? parseNumeroEsAR(montoFondoMantenimiento.value) : 0;
-        const gastosCheckboxes = document.querySelectorAll('.gasto-checkbox:checked');
-        let totalGastos = 0;
-        gastosCheckboxes.forEach(cb => {
-            totalGastos += parseFloat(cb.getAttribute('data-monto')) || 0;
-        });
+        const movs = netoMovimientosSeleccionados();
         const montoFinalPagar = document.getElementById('monto-final-pagar');
         if (montoFinalPagar) {
             montoFinalPagar.textContent = formatearNumero(
-                Math.max(0, prop - totalGastos - fondo).toFixed(2)
+                Math.max(0, prop - movs.netoDescuento - fondo).toFixed(2)
             );
         }
         actualizarResumenLiquidacion();
@@ -1873,39 +1894,21 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-<!-- Modal para Agregar Gasto Pendiente -->
+<!-- Modal para Agregar Movimiento Pendiente -->
 <div class="modal fade" id="modalAgregarGasto" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Agregar Gasto Pendiente</h5>
+                <h5 class="modal-title">Agregar Movimiento</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form id="formAgregarGasto">
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Descripción <span class="text-danger">*</span></label>
-                        <input type="text" name="descripcion" class="form-control" required 
-                               placeholder="Ej: Luz, Gas, Mantenimiento">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Monto <span class="text-danger">*</span></label>
-                        <input type="text" name="monto" class="form-control" required 
-                               placeholder="0.00" oninput="formatearNumeroInput(this)">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Fecha del Gasto</label>
-                        <input type="date" name="fecha_gasto" class="form-control">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Observaciones</label>
-                        <textarea name="observaciones" class="form-control" rows="3" 
-                                  placeholder="Observaciones adicionales..."></textarea>
-                    </div>
+                    {% include 'inmobiliaria/liquidaciones/_campos_agregar_movimiento.html' %}
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Guardar Gasto</button>
+                    <button type="submit" class="btn btn-primary">Guardar Movimiento</button>
                 </div>
             </form>
         </div>
@@ -1913,8 +1916,8 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 
 <script>
-    // Función para mostrar el modal de agregar gasto
-    window.mostrarModalAgregarGasto = function() {
+    // Función para mostrar el modal de agregar movimiento
+    window.mostrarModalAgregarMovimiento = function() {
         const propiedadId = document.getElementById('propiedad_id').value;
         if (!propiedadId) {
             alert('Debe seleccionar una propiedad primero.');
@@ -1924,6 +1927,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const modal = new bootstrap.Modal(document.getElementById('modalAgregarGasto'));
         modal.show();
     };
+    window.mostrarModalAgregarGasto = window.mostrarModalAgregarMovimiento;
 
     // Manejar el envío del formulario de gasto
     document.getElementById('formAgregarGasto').addEventListener('submit', function(e) {
@@ -1954,14 +1958,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 cargarOperacionesPendientes(propiedadId);
                 
                 // Mostrar mensaje de éxito
-                alert('Gasto pendiente creado correctamente.');
+                alert('Movimiento pendiente creado correctamente.');
             } else {
                 alert('Error: ' + data.error);
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            alert('Error al crear el gasto pendiente.');
+            alert('Error al crear el movimiento pendiente.');
         });
     });
 </script>

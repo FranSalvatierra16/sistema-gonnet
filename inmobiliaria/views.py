@@ -24183,17 +24183,7 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
     # Agregar gastos de GastoPropietario
     for gasto in gastos_pendientes:
         obs = (gasto.observaciones or '').strip()
-        gastos_pendientes_list.append({
-            'id': gasto.id,
-            'descripcion': gasto.descripcion,
-            'concepto': gasto.descripcion or '—',
-            'detalle': obs,
-            'monto': str(gasto.monto),
-            'fecha_gasto': gasto.fecha_gasto.strftime('%Y-%m-%d') if gasto.fecha_gasto else '',
-            'fecha_gasto_display': gasto.fecha_gasto.strftime('%d/%m/%Y') if gasto.fecha_gasto else '—',
-            'observaciones': gasto.observaciones,
-            'tipo': 'gasto_manual'
-        })
+        gastos_pendientes_list.append(_dict_gasto_pendiente(gasto, detalle=obs))
     
     # Agregar egresos de caja como gastos pendientes
     # Incluir todos los egresos relacionados con la propiedad
@@ -24252,8 +24242,14 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
                 'fecha_gasto': egreso.fecha.strftime('%Y-%m-%d') if egreso.fecha else '',
                 'fecha_gasto_display': egreso.fecha.strftime('%d/%m/%Y') if egreso.fecha else '—',
                 'observaciones': f'Movimiento de caja #{egreso.id}',
+                'tipo_movimiento': 'egreso',
+                'tipo_movimiento_display': 'Egreso',
+                'efecto_inquilino': 'contra',
+                'efecto_inquilino_display': 'En contra del inquilino',
+                'operacion_monto': 'resta',
+                'operacion_monto_display': 'Resta',
                 'tipo': 'egreso_caja',
-                'movimiento_id': egreso.id
+                'movimiento_id': egreso.id,
             })
     
     # Debug: contar egresos encontrados
@@ -24680,18 +24676,37 @@ def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
         )
     for gasto in gastos_qs:
         m = Decimal(str(gasto.monto or 0))
-        if m > Decimal('0.01'):
+        if m <= Decimal('0.01'):
+            continue
+        det = (gasto.descripcion or 'MOVIMIENTO').strip().upper()
+        tipo_lbl = gasto.get_tipo_movimiento_display()
+        efecto_lbl = 'Favor inq.' if gasto.efecto_inquilino == 'favor' else 'Contra inq.'
+        op_lbl = gasto.get_operacion_monto_display()
+        detalle = f'{det} ({tipo_lbl} · {efecto_lbl} · {op_lbl})'
+        if gasto.operacion_monto == 'suma':
             filas.append({
-                'detalle': (gasto.descripcion or 'GASTO').strip().upper(),
+                'detalle': detalle,
+                'haber': m.quantize(Decimal('0.01')),
+                'debe': Decimal('0'),
+            })
+        else:
+            filas.append({
+                'detalle': detalle,
                 'haber': Decimal('0'),
                 'debe': m.quantize(Decimal('0.01')),
             })
 
     total_haber = monto_prop
-    total_debe = fondo + com_loc + com_locat + sum(
-        (Decimal(str(g.monto or 0)) for g in gastos_qs),
-        Decimal('0'),
-    )
+    total_resta = Decimal('0')
+    total_suma = Decimal('0')
+    for g in gastos_qs:
+        mg = Decimal(str(g.monto or 0))
+        if g.operacion_monto == 'suma':
+            total_suma += mg
+            total_haber += mg
+        else:
+            total_resta += mg
+    total_debe = fondo + com_loc + com_locat + total_resta
     saldo_favor = Decimal(str(liquidacion.monto_a_pagar or 0))
     if saldo_favor <= Decimal('0'):
         saldo_favor = (total_haber - total_debe).quantize(Decimal('0.01'))
@@ -25052,6 +25067,41 @@ def eliminar_liquidacion(request, liquidacion_id):
     return redirect('inmobiliaria:lista_liquidaciones')
 
 
+def _parse_campos_movimiento_gasto(post):
+    tipo = (post.get('tipo_movimiento') or 'egreso').strip().lower()
+    if tipo not in ('egreso', 'ingreso'):
+        tipo = 'egreso'
+    efecto = (post.get('efecto_inquilino') or 'contra').strip().lower()
+    if efecto not in ('favor', 'contra'):
+        efecto = 'contra'
+    operacion = (post.get('operacion_monto') or 'resta').strip().lower()
+    if operacion not in ('suma', 'resta'):
+        operacion = 'resta'
+    return tipo, efecto, operacion
+
+
+def _dict_gasto_pendiente(gasto, **extra):
+    data = {
+        'id': gasto.id,
+        'descripcion': gasto.descripcion,
+        'concepto': gasto.descripcion or '—',
+        'detalle': (gasto.observaciones or '').strip(),
+        'monto': str(gasto.monto),
+        'fecha_gasto': gasto.fecha_gasto.strftime('%Y-%m-%d') if gasto.fecha_gasto else '',
+        'fecha_gasto_display': gasto.fecha_gasto.strftime('%d/%m/%Y') if gasto.fecha_gasto else '—',
+        'observaciones': gasto.observaciones,
+        'tipo_movimiento': gasto.tipo_movimiento,
+        'tipo_movimiento_display': gasto.get_tipo_movimiento_display(),
+        'efecto_inquilino': gasto.efecto_inquilino,
+        'efecto_inquilino_display': gasto.get_efecto_inquilino_display(),
+        'operacion_monto': gasto.operacion_monto,
+        'operacion_monto_display': gasto.get_operacion_monto_display(),
+        'tipo': 'gasto_manual',
+    }
+    data.update(extra)
+    return data
+
+
 @login_required
 @require_POST
 def agregar_gasto(request, liquidacion_id):
@@ -25076,12 +25126,17 @@ def agregar_gasto(request, liquidacion_id):
         if monto <= 0:
             return JsonResponse({'success': False, 'error': 'El monto debe ser mayor a cero.'})
 
+        tipo_mov, efecto_inq, operacion = _parse_campos_movimiento_gasto(request.POST)
+
         gasto = GastoPropietario.objects.create(
             liquidacion=liquidacion,
             propietario=liquidacion.propietario,
             propiedad=liquidacion.propiedad,
             descripcion=descripcion,
             monto=monto,
+            tipo_movimiento=tipo_mov,
+            efecto_inquilino=efecto_inq,
+            operacion_monto=operacion,
             fecha_gasto=datetime.strptime(fecha_gasto, '%Y-%m-%d').date() if fecha_gasto else None,
             observaciones=observaciones,
             aceptado=True,
@@ -25093,7 +25148,7 @@ def agregar_gasto(request, liquidacion_id):
 
         return JsonResponse({
             'success': True,
-            'message': 'Gasto agregado correctamente.',
+            'message': 'Movimiento agregado correctamente.',
             'gasto_id': gasto.id,
             'monto_a_pagar': str(liquidacion.monto_a_pagar)
         })
@@ -25217,6 +25272,8 @@ def crear_gasto_pendiente(request):
             if monto <= 0:
                 return JsonResponse({'success': False, 'error': 'El monto debe ser mayor a cero.'})
 
+            tipo_mov, efecto_inq, operacion = _parse_campos_movimiento_gasto(request.POST)
+
             propietario = None
             propiedad = None
             
@@ -25232,6 +25289,9 @@ def crear_gasto_pendiente(request):
                 propiedad=propiedad,
                 descripcion=descripcion,
                 monto=monto,
+                tipo_movimiento=tipo_mov,
+                efecto_inquilino=efecto_inq,
+                operacion_monto=operacion,
                 fecha_gasto=datetime.strptime(fecha_gasto, '%Y-%m-%d').date() if fecha_gasto else None,
                 observaciones=observaciones,
                 sucursal=request.user.sucursal
@@ -25239,13 +25299,16 @@ def crear_gasto_pendiente(request):
 
             return JsonResponse({
                 'success': True,
-                'message': 'Gasto pendiente creado correctamente.',
+                'message': 'Movimiento pendiente creado correctamente.',
                 'gasto': {
                     'id': gasto.id,
                     'descripcion': gasto.descripcion,
                     'monto': str(gasto.monto),
                     'fecha_gasto': gasto.fecha_gasto.strftime('%Y-%m-%d') if gasto.fecha_gasto else '',
                     'observaciones': gasto.observaciones,
+                    'tipo_movimiento': gasto.tipo_movimiento,
+                    'efecto_inquilino': gasto.efecto_inquilino,
+                    'operacion_monto': gasto.operacion_monto,
                 }
             })
 
