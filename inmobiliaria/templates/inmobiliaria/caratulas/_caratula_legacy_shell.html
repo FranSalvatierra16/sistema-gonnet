@@ -109,6 +109,18 @@
                 <span class="k">COMISION LOCATARIO</span>
                 <span class="v">{{ cl.comision_locatario }}</span>
             </div>
+            {% if cl.comisiones_total and cl.comisiones_total != "0.00" %}
+            <div class="caratula-cell span-4">
+                <span class="k">TOTAL COMISIONES</span>
+                <span class="v">{{ cl.comisiones_total }}</span>
+            </div>
+            {% endif %}
+            {% for cv in cl.comisiones_vendedor %}
+            <div class="caratula-cell span-4">
+                <span class="k">{{ cv.label }}</span>
+                <span class="v">{{ cv.monto_fmt }}</span>
+            </div>
+            {% endfor %}
             <div class="caratula-cell span-6">
                 <span class="k">RECIBO LOCADOR</span>
                 <span class="v">

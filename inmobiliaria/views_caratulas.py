@@ -620,6 +620,97 @@ def _tipo_movimiento_codigo_contrato(contrato):
     return 'otros'
 
 
+def _comisiones_cobradas_contrato(contrato, movimientos=None):
+    """Participación (85) y honorarios (25) cobrados en la operación principal del contrato."""
+    from inmobiliaria.views import (
+        _comisiones_sugeridas_primera_cuota_contrato,
+        _honorarios_cobrados_en_movimiento_contrato,
+        _participacion_cobrada_en_movimiento_contrato,
+    )
+
+    locador = Decimal('0')
+    locatario = Decimal('0')
+    movs = list(movimientos or [])
+    if not movs and contrato.propiedad_id:
+        movs = [
+            m
+            for m in _movimientos_contrato_qs(contrato)[:300]
+            if m.tipo == TipoMovimientoCajaEnum.INGRESO
+            and m.concepto
+            and re.search(rf'Contrato\s*#\s*{contrato.id}\b', m.concepto, re.IGNORECASE)
+        ]
+    for mov in movs:
+        locador += _participacion_cobrada_en_movimiento_contrato(mov)
+        locatario += _honorarios_cobrados_en_movimiento_contrato(mov)
+    locador = locador.quantize(Decimal('0.01'))
+    locatario = locatario.quantize(Decimal('0.01'))
+
+    if locador <= Decimal('0.05') and locatario <= Decimal('0.05') and getattr(
+        contrato, 'operacion_principal', False
+    ):
+        sugeridas = _comisiones_sugeridas_primera_cuota_contrato(contrato)
+        if locador <= Decimal('0.05'):
+            locador = Decimal(str(sugeridas.get('comision_locador') or 0)).quantize(Decimal('0.01'))
+        if locatario <= Decimal('0.05'):
+            locatario = Decimal(str(sugeridas.get('comision_locatario') or 0)).quantize(Decimal('0.01'))
+
+    return locador, locatario
+
+
+def _comisiones_vendedor_contrato_caratula(contrato, honorarios_monto):
+    """
+    Líneas de comisión del productor sobre honorarios (fichaje + invierno o 24 meses),
+    según los % cargados en la ficha del vendedor.
+    """
+    if not contrato or not contrato.vendedor_id or honorarios_monto <= Decimal('0.05'):
+        return []
+
+    vend = contrato.vendedor
+    prop = contrato.propiedad
+    lineas = []
+
+    tipo_fichaje = getattr(prop, 'tipo_fichaje', None) or 'primer'
+    pct_fichaje = (
+        vend.comision_segundo_fichaje
+        if tipo_fichaje == 'segundo'
+        else vend.comision_primer_fichaje
+    )
+    if pct_fichaje is not None and pct_fichaje > 0:
+        monto = (honorarios_monto * Decimal(str(pct_fichaje)) / Decimal('100')).quantize(
+            Decimal('0.01')
+        )
+        lineas.append(
+            {
+                'label': 'COMIS. VENDEDOR (FICHAJE)',
+                'monto': monto,
+                'monto_fmt': _formato_importe_us(monto),
+                'porcentaje': pct_fichaje,
+            }
+        )
+
+    dm = int(contrato.duracion_meses or 0)
+    if dm == 9:
+        pct = vend.comision_invierno
+        label = 'COMIS. VENDEDOR (INVIERNO)'
+    elif dm == 24:
+        pct = vend.comision_alquiler_24_meses
+        label = 'COMIS. VENDEDOR (24 MESES)'
+    else:
+        return lineas
+
+    if pct is not None and pct > 0:
+        monto = (honorarios_monto * Decimal(str(pct)) / Decimal('100')).quantize(Decimal('0.01'))
+        lineas.append(
+            {
+                'label': label,
+                'monto': monto,
+                'monto_fmt': _formato_importe_us(monto),
+                'porcentaje': pct,
+            }
+        )
+    return lineas
+
+
 def _dni_formato_legado(dni):
     if not dni:
         return '0'
@@ -783,6 +874,8 @@ def _build_legacy_reserva(
         'saldo': _formato_importe_us(saldo_reserva),
         'comision_locador': _formato_importe_us(0),
         'comision_locatario': _formato_importe_us(comision_total),
+        'comisiones_total': _formato_importe_us(comision_total),
+        'comisiones_vendedor': [],
         'recibo_locador': recibo_loc,
         'recibo_locatario': recibo_locat,
         'url_recibo_locador': url_recibo_loc,
@@ -863,6 +956,10 @@ def _build_legacy_contrato(contrato, cuotas, tipo_label, carpeta_override=None, 
         sucursal=contrato.sucursal,
     )
 
+    comision_locador, comision_locatario = _comisiones_cobradas_contrato(contrato, movimientos)
+    comisiones_vendedor = _comisiones_vendedor_contrato_caratula(contrato, comision_locatario)
+    comisiones_total = (comision_locador + comision_locatario).quantize(Decimal('0.01'))
+
     return {
         'numero_original': '0',
         'numero_operacion': _formato_miles_ar(contrato.id),
@@ -886,8 +983,10 @@ def _build_legacy_contrato(contrato, cuotas, tipo_label, carpeta_override=None, 
         'fecha_refuerzo': '',
         'deposito': _formato_importe_us(contrato.deposito_garantia),
         'saldo': _formato_importe_us(saldo_cuotas),
-        'comision_locador': _formato_importe_us(0),
-        'comision_locatario': _formato_importe_us(0),
+        'comision_locador': _formato_importe_us(comision_locador),
+        'comision_locatario': _formato_importe_us(comision_locatario),
+        'comisiones_total': _formato_importe_us(comisiones_total),
+        'comisiones_vendedor': comisiones_vendedor,
         'recibo_locador': recibo_loc,
         'recibo_locatario': recibo_locat,
         'url_recibo_locador': url_recibo_loc,
@@ -1356,6 +1455,14 @@ def caratula_contrato(request, contrato_id):
         tipo_label = f'Contrato {contrato.duracion_meses} meses'
     carpeta_actual = _carpeta_para_operacion(request, 'contrato', contrato.id, contrato=contrato)
 
+    caratula_legacy = _build_legacy_contrato(
+        contrato,
+        cuotas_list,
+        tipo_label,
+        carpeta_override=carpeta_actual,
+        movimientos=movimientos,
+    )
+
     ctx = {
         'contrato': contrato,
         'propiedad': contrato.propiedad,
@@ -1363,13 +1470,8 @@ def caratula_contrato(request, contrato_id):
         'movimientos': movimientos,
         'total_movimientos': total_mov,
         'cuotas': cuotas_list,
-        'caratula_legacy': _build_legacy_contrato(
-            contrato,
-            cuotas_list,
-            tipo_label,
-            carpeta_override=carpeta_actual,
-            movimientos=movimientos,
-        ),
+        'comisiones_vendedor': caratula_legacy.get('comisiones_vendedor') or [],
+        'caratula_legacy': caratula_legacy,
         'carpeta_actual': carpeta_actual,
         'carpeta_default': _carpeta_default_actual(request),
         **_ctx_liquidacion_operacion(contrato=contrato),
