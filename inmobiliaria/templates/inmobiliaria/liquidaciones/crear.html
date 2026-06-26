@@ -706,6 +706,18 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    function tildarPrincipalInicialSiCorresponde() {
+        {% if principal_liquidacion_inicial %}
+        const cb = document.querySelector(
+            '.operacion-checkbox[data-tipo="contrato_operacion_principal"]'
+        );
+        if (cb && !cb.disabled) {
+            cb.checked = true;
+            cb.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        {% endif %}
+    }
+
     function buscarOperacionPorNumero() {
         const input = document.getElementById('operacion_buscar');
         const q = (input && input.value || '').trim();
@@ -765,6 +777,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     );
                 }
                 tildarCuotaInicialSiCorresponde();
+                tildarPrincipalInicialSiCorresponde();
             })
             .catch(function(err) {
                 console.error(err);
@@ -919,7 +932,7 @@ document.addEventListener('DOMContentLoaded', function() {
             data.operaciones.forEach(function(op) {
                 const badgeClass = op.tipo === 'reserva'
                     ? 'bg-info text-dark'
-                    : (op.es_primera_cuota_mensual
+                    : (op.tipo === 'contrato_operacion_principal' || op.es_operacion_principal_honorarios
                         ? 'bg-success'
                         : (op.tipo === 'contrato_cuota'
                             ? (op.anticipada ? 'bg-warning text-dark' : 'bg-primary')
@@ -927,13 +940,13 @@ document.addEventListener('DOMContentLoaded', function() {
                                 ? 'bg-secondary'
                                 : 'bg-success')));
                 const tipoEtiqueta = op.tipo_display || (
-                    op.es_primera_cuota_mensual ? 'Operación principal' : (
-                        op.tipo === 'reserva' ? 'Por día' : (
+                    (op.tipo === 'contrato_operacion_principal' || op.es_operacion_principal_honorarios)
+                        ? 'Operación principal'
+                        : (op.tipo === 'reserva' ? 'Por día' : (
                             op.tipo === 'contrato_cuota' ? 'Cuota mensual' : (
                                 op.tipo === 'movimiento_caja' ? 'Pago a favor' : 'Contrato'
                             )
-                        )
-                    )
+                        ))
                 ) + (op.anticipada ? ' (anticipada)' : '');
                 const noIncluible = op.incluible === false;
                 const filaClass = noIncluible ? 'table-light text-muted' : '';

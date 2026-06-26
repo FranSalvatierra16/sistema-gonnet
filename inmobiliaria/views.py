@@ -22955,7 +22955,7 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                     pk = int(sid.strip())
                 except ValueError:
                     continue
-                if tipo in ('reserva', 'contrato', 'contrato_cuota', 'movimiento_caja'):
+                if tipo in ('reserva', 'contrato', 'contrato_cuota', 'contrato_operacion_principal', 'movimiento_caja'):
                     operaciones_incluidas.append({'tipo': tipo, 'id': pk})
 
             for o in operaciones_incluidas:
@@ -23066,10 +23066,24 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
             if reserva is None:
                 ids_ct = [o['id'] for o in operaciones_incluidas if o.get('tipo') == 'contrato']
                 ids_cuota = [o['id'] for o in operaciones_incluidas if o.get('tipo') == 'contrato_cuota']
-                if ids_ct and ids_cuota:
+                ids_op_princ = [
+                    o['id'] for o in operaciones_incluidas if o.get('tipo') == 'contrato_operacion_principal'
+                ]
+                if ids_ct and (ids_cuota or ids_op_princ):
                     raise ValueError(
-                        'No podés combinar el formato antiguo «contrato» con cuotas sueltas en la misma liquidación.'
+                        'No podés combinar el formato antiguo «contrato» con cuotas u operación principal '
+                        'en la misma liquidación.'
                     )
+                if ids_op_princ and len(ids_op_princ) > 1:
+                    raise ValueError('Solo podés incluir una operación principal por liquidación.')
+                if len(ids_op_princ) == 1:
+                    contrato_fk = ContratoAlquiler.objects.filter(
+                        id=ids_op_princ[0], propiedad=propiedad, sucursal=request.user.sucursal
+                    ).first()
+                    if contrato_fk and _operacion_principal_liquidada_contrato(contrato_fk):
+                        raise ValueError(
+                            'La operación principal de este contrato ya tiene una liquidación registrada.'
+                        )
                 if len(ids_ct) == 1:
                     contrato_fk = ContratoAlquiler.objects.filter(
                         id=ids_ct[0], propiedad=propiedad, sucursal=request.user.sucursal
@@ -23216,6 +23230,7 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
         'propietarios_busqueda': propietarios_busqueda,
         'operacion_buscar_inicial': operacion_buscar_inicial,
         'cuota_liquidacion_inicial': (request.GET.get('cuota') or '').strip(),
+        'principal_liquidacion_inicial': request.GET.get('principal') == '1',
     }
 
     if reserva:
@@ -23497,6 +23512,89 @@ def _comisiones_sugeridas_primera_cuota_contrato(contrato) -> dict:
     }
 
 
+CUOTAS_LIQUIDACION_ANTICIPADA_ADELANTE = 2
+
+
+def _liquidacion_operacion_principal_contrato(contrato):
+    """Liquidación no cancelada con honorarios / operación principal del contrato."""
+    if not contrato or not contrato.propiedad_id:
+        return None
+    cuota1_ids = set(contrato.cuotas.filter(numero_cuota=1).values_list('id', flat=True))
+    for liq in (
+        LiquidacionPropietario.objects.filter(propiedad_id=contrato.propiedad_id)
+        .exclude(estado='cancelada')
+        .order_by('-id')
+    ):
+        for op in liq.operaciones_incluidas or []:
+            if not isinstance(op, dict):
+                continue
+            t = (op.get('tipo') or '').lower()
+            if t == 'contrato_operacion_principal':
+                try:
+                    if int(op.get('id')) == contrato.id:
+                        return liq
+                except (TypeError, ValueError):
+                    pass
+            if t == 'contrato_cuota' and op.get('es_primera_cuota_mensual'):
+                try:
+                    if int(op.get('id')) in cuota1_ids:
+                        return liq
+                except (TypeError, ValueError):
+                    pass
+    return None
+
+
+def _operacion_principal_liquidada_contrato(contrato) -> bool:
+    return _liquidacion_operacion_principal_contrato(contrato) is not None
+
+
+def _fila_operacion_principal_liquidacion(contrato, propiedad):
+    """Operación de honorarios/comisiones (cobro inicial), separada de las cuotas mensuales."""
+    if not _contrato_es_alquiler_mensual_largo(contrato):
+        return None
+    if not getattr(contrato, 'operacion_principal', False):
+        return None
+    if _operacion_principal_liquidada_contrato(contrato):
+        return None
+
+    inq = contrato.inquilino
+    nombre_inq = f'{inq.apellido}, {inq.nombre}' if inq else '—'
+    prop_label = ((propiedad.direccion or '').strip()[:120] or f'#{propiedad.id}')
+    comisiones = _comisiones_sugeridas_primera_cuota_contrato(contrato)
+    participacion = Decimal(str(comisiones.get('comision_locador') or 0))
+    honorarios = Decimal(str(comisiones.get('comision_locatario') or 0))
+    monto_total = (participacion + honorarios).quantize(Decimal('0.01'))
+    fi = contrato.fecha_inicio
+    fi_s = fi.strftime('%Y-%m-%d') if fi else ''
+
+    return {
+        'tipo': 'contrato_operacion_principal',
+        'tipo_display': 'Operación principal',
+        'concepto_pago': _concepto_pago_liquidacion_operacion(
+            'contrato_operacion_principal', contrato, es_primera_cuota=True
+        ),
+        'incluible': True,
+        'anticipada': False,
+        'es_primera_cuota_mensual': False,
+        'es_operacion_principal_honorarios': True,
+        'id': contrato.id,
+        'contrato_id': contrato.id,
+        'propiedad_id': propiedad.id,
+        'propiedad_label': prop_label,
+        'descripcion': (
+            f'Contrato #{contrato.id} — Operación principal (honorarios y comisiones) — {nombre_inq}'
+        ),
+        'fecha_inicio': fi_s,
+        'fecha_fin': fi_s,
+        'monto_total': str(monto_total),
+        'monto_pagado': str(monto_total),
+        'monto_propietario': str(participacion.quantize(Decimal('0.01'))),
+        'monto_inmobiliaria': '0',
+        'dias': 0,
+        **comisiones,
+    }
+
+
 def _contrato_es_alquiler_mensual_largo(contrato) -> bool:
     """Contratos por cuotas mensuales (invierno 9, largo 24 u otra duración ≥ 9 meses)."""
     return int(getattr(contrato, 'duracion_meses', 0) or 0) >= 9
@@ -23526,29 +23624,43 @@ def _numero_cuota_frontera_liquidacion(contrato, cuotas_excluidas):
     return max(paid_nums) if paid_nums else 0
 
 
-def _cuota_siguiente_anticipada_liquidable(contrato, cuotas_excluidas, ids_ya_en_lista):
+def _cuotas_anticipadas_liquidables(contrato, cuotas_excluidas, ids_ya_en_lista, adelante=None):
     """
-    Cuota del mes siguiente aún sin cobrar, preparable por anticipado.
-    Contratos de alquiler mensual (9 o 24 meses).
+    Cuotas mensuales aún sin cobrar, liquidables por anticipado.
+    Por defecto incluye hasta dos meses siguientes a la frontera liquidada.
     """
+    if adelante is None:
+        adelante = CUOTAS_LIQUIDACION_ANTICIPADA_ADELANTE
     duracion = int(contrato.duracion_meses or 0)
-    if duracion < 9:
-        return None
+    if duracion < 9 or adelante < 1:
+        return []
 
     frontera = _numero_cuota_frontera_liquidacion(contrato, cuotas_excluidas)
-    next_num = frontera + 1
-    if next_num > duracion:
-        return None
-
     ids_excl = set(cuotas_excluidas or ()) | set(ids_ya_en_lista or ())
-    return (
-        contrato.cuotas.filter(
-            numero_cuota=next_num,
-            estado__in=['pendiente', 'vencida'],
+    out = []
+    for offset in range(1, int(adelante) + 1):
+        next_num = frontera + offset
+        if next_num > duracion:
+            break
+        cuota = (
+            contrato.cuotas.filter(
+                numero_cuota=next_num,
+                estado__in=['pendiente', 'vencida'],
+            )
+            .exclude(id__in=ids_excl)
+            .first()
         )
-        .exclude(id__in=ids_excl)
-        .first()
-    )
+        if not cuota:
+            continue
+        out.append(cuota)
+        ids_excl.add(cuota.id)
+    return out
+
+
+def _cuota_siguiente_anticipada_liquidable(contrato, cuotas_excluidas, ids_ya_en_lista):
+    """Primera cuota anticipada liquidable (compatibilidad)."""
+    cuotas = _cuotas_anticipadas_liquidables(contrato, cuotas_excluidas, ids_ya_en_lista, adelante=1)
+    return cuotas[0] if cuotas else None
 
 
 def _monto_propietario_inmobiliaria_cuota_mensual(propiedad, monto_cuota, contrato=None):
@@ -23985,20 +24097,18 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
                 suf = ' (liquidación anticipada — cobro aún no registrado)'
             else:
                 suf = ''
-            es_primera = _es_primera_cuota_contrato_mensual(contrato, cuota)
-            comisiones = _comisiones_sugeridas_primera_cuota_contrato(contrato) if es_primera else {}
-            if es_primera:
-                mi = Decimal('0')
-            tipo_fila = 'Operación principal' if es_primera else 'Cuota mensual'
+            es_primera = False
+            comisiones = {}
+            tipo_fila = 'Cuota mensual'
             fila = {
                 'tipo': 'contrato_cuota',
                 'tipo_display': tipo_fila,
                 'concepto_pago': _concepto_pago_liquidacion_operacion(
-                    'contrato_cuota', contrato, es_primera_cuota=es_primera
+                    'contrato_cuota', contrato, es_primera_cuota=False
                 ),
                 'incluible': True,
                 'anticipada': anticipada,
-                'es_primera_cuota_mensual': es_primera,
+                'es_primera_cuota_mensual': False,
                 'id': cuota.id,
                 'contrato_id': contrato.id,
                 'propiedad_id': propiedad.id,
@@ -24014,20 +24124,21 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
                 'monto_inmobiliaria': str(mi),
                 'dias': 30,
             }
-            if es_primera:
-                fila.update(comisiones)
             operaciones.append(fila)
 
+        fila_op = _fila_operacion_principal_liquidacion(contrato, propiedad)
+        if fila_op:
+            operaciones.append(fila_op)
+
         if not cuotas_pagadas_liq and not cuotas_parciales_liq:
-            cuota_anticipada = _cuota_siguiente_anticipada_liquidable(
-                contrato, cuotas_excluidas, set()
-            )
-            if cuota_anticipada:
+            anticipadas = _cuotas_anticipadas_liquidables(contrato, cuotas_excluidas, set())
+            for cuota_anticipada in anticipadas:
                 _fila_cuota_liquidable(
                     cuota_anticipada,
                     Decimal(str(cuota_anticipada.monto_total)),
                     anticipada=True,
                 )
+            if anticipadas or fila_op:
                 continue
             tiene_alguna_pagada = contrato.cuotas.filter(
                 estado__in=['pagada', 'pagada_con_mora']
@@ -24075,10 +24186,9 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
         for cuota, monto_parcial in cuotas_parciales_liq:
             _fila_cuota_liquidable(cuota, monto_parcial, parcial=True)
         ids_ya_listados = ids_pagadas | {c.id for c, _ in cuotas_parciales_liq}
-        cuota_anticipada = _cuota_siguiente_anticipada_liquidable(
+        for cuota_anticipada in _cuotas_anticipadas_liquidables(
             contrato, cuotas_excluidas, ids_ya_listados
-        )
-        if cuota_anticipada:
+        ):
             _fila_cuota_liquidable(
                 cuota_anticipada,
                 Decimal(str(cuota_anticipada.monto_total)),

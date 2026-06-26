@@ -543,6 +543,7 @@ def _ctx_liquidacion_operacion(*, reserva=None, contrato=None):
         )
         resumen_ctr = _resumen_liquidacion_contrato_caratula(contrato, contrato.sucursal)
         proxima = resumen_ctr.get('proxima_cuota_liquidar')
+        estado_op_princ = _estado_liquidacion_operacion_principal_caratula(contrato, contrato.sucursal)
 
         if liq_pendiente:
             ctx['liquidacion_operacion'] = liq_pendiente
@@ -552,6 +553,17 @@ def _ctx_liquidacion_operacion(*, reserva=None, contrato=None):
             ctx['etiqueta_liquidacion_operacion'] = (
                 f'Liquidación pendiente #{liq_pendiente.id}'
             )
+        elif estado_op_princ.get('liq_estado') in ('pendiente', 'bloqueada') and estado_op_princ.get(
+            'url_liquidar'
+        ):
+            ctx['url_liquidacion_operacion'] = estado_op_princ['url_liquidar']
+            if estado_op_princ['liq_estado'] == 'bloqueada':
+                ctx['etiqueta_liquidacion_operacion'] = (
+                    f'Cerrar liq. #{estado_op_princ["liquidacion_bloqueo_id"]} '
+                    f'para liquidar operación principal'
+                )
+            else:
+                ctx['etiqueta_liquidacion_operacion'] = 'Liquidar operación principal'
         elif proxima and proxima.url_liquidar:
             ctx['url_liquidacion_operacion'] = proxima.url_liquidar
             if proxima.liq_estado == 'bloqueada':
@@ -565,8 +577,6 @@ def _ctx_liquidacion_operacion(*, reserva=None, contrato=None):
                         f'Cerrar liq. #{proxima.liquidacion_bloqueo_id} '
                         f'para liquidar cuota {proxima.numero_cuota}/{contrato.duracion_meses}'
                     )
-            elif proxima.es_operacion_principal:
-                ctx['etiqueta_liquidacion_operacion'] = 'Liquidar operación principal'
             elif proxima.es_anticipada_liquidable:
                 ctx['etiqueta_liquidacion_operacion'] = (
                     f'Liquidar cuota {proxima.numero_cuota}/{contrato.duracion_meses} (anticipada)'
@@ -750,7 +760,7 @@ def _cuotas_liquidables_contrato(contrato, sucursal):
     from inmobiliaria.views import (
         _cuotas_excluidas_por_liquidaciones_contrato,
         _cuotas_cobro_parcial_liquidable,
-        _cuota_siguiente_anticipada_liquidable,
+        _cuotas_anticipadas_liquidables,
     )
 
     if not contrato or not contrato.propiedad_id:
@@ -767,9 +777,9 @@ def _cuotas_liquidables_contrato(contrato, sucursal):
         if cuota.id not in cuotas_excluidas:
             out.add(cuota.id)
 
-    cuota_anticipada = _cuota_siguiente_anticipada_liquidable(contrato, cuotas_excluidas, out)
-    if cuota_anticipada:
-        out.add(cuota_anticipada.id)
+    cuota_anticipada = _cuotas_anticipadas_liquidables(contrato, cuotas_excluidas, out)
+    for cuota in cuota_anticipada:
+        out.add(cuota.id)
 
     return out
 
@@ -842,7 +852,68 @@ def _enriquecer_cuotas_liquidacion(cuotas_list, contrato, sucursal):
             c.url_liquidar = None
             c.liquidacion_bloqueo_id = None
             c.es_anticipada_liquidable = False
-        c.es_operacion_principal = int(getattr(c, 'numero_cuota', 0) or 0) == 1
+        c.es_operacion_principal = False
+
+
+def _estado_liquidacion_operacion_principal_caratula(contrato, sucursal):
+    """Estado de liquidación de honorarios / operación principal (no es una cuota mensual)."""
+    from inmobiliaria.views import (
+        _fila_operacion_principal_liquidacion,
+        _liquidacion_operacion_principal_contrato,
+    )
+
+    ctx = {
+        'liq_estado': 'espera',
+        'liquidacion_id': None,
+        'liquidacion_estado': '',
+        'liquidacion_url': None,
+        'url_liquidar': None,
+        'liquidacion_bloqueo_id': None,
+    }
+    if not contrato or not contrato.propiedad_id:
+        return ctx
+
+    liq = _liquidacion_operacion_principal_contrato(contrato)
+    if liq:
+        ctx.update(
+            {
+                'liq_estado': 'liquidada',
+                'liquidacion_id': liq.id,
+                'liquidacion_estado': liq.get_estado_display(),
+                'liquidacion_url': reverse('inmobiliaria:detalle_liquidacion', args=[liq.id]),
+            }
+        )
+        return ctx
+
+    if not _fila_operacion_principal_liquidacion(contrato, contrato.propiedad):
+        return ctx
+
+    liq_pendiente = (
+        LiquidacionPropietario.objects.filter(contrato=contrato, estado='pendiente')
+        .order_by('-id')
+        .first()
+    )
+    if liq_pendiente:
+        ctx.update(
+            {
+                'liq_estado': 'bloqueada',
+                'liquidacion_bloqueo_id': liq_pendiente.id,
+                'url_liquidar': reverse(
+                    'inmobiliaria:detalle_liquidacion', args=[liq_pendiente.id]
+                ),
+            }
+        )
+    else:
+        ctx.update(
+            {
+                'liq_estado': 'pendiente',
+                'url_liquidar': (
+                    reverse('inmobiliaria:crear_liquidacion_contrato', args=[contrato.id])
+                    + '?principal=1'
+                ),
+            }
+        )
+    return ctx
 
 
 def _resumen_liquidacion_contrato_caratula(contrato, sucursal):
@@ -1075,9 +1146,10 @@ def _ctx_honorarios_comisiones_caratula_contrato(
     contrato, movimientos=None, liquidacion=None, override=None
 ):
     from inmobiliaria.decimal_utils import format_monto_argentino
+    from inmobiliaria.views import _liquidacion_operacion_principal_contrato
 
     if liquidacion is None:
-        liquidacion = _liquidacion_contrato(contrato)
+        liquidacion = _liquidacion_operacion_principal_contrato(contrato)
 
     comision_locador, comision_locatario = _comisiones_cobradas_contrato(
         contrato, movimientos, liquidacion=liquidacion, override=override
@@ -1953,13 +2025,18 @@ def caratula_contrato(request, contrato_id):
 
     tipo_label = _tipo_label_contrato_caratula(contrato)
     carpeta_actual = _carpeta_para_operacion(request, 'contrato', contrato.id, contrato=contrato)
-    liquidacion = _liquidacion_contrato(contrato)
+    from inmobiliaria.views import _liquidacion_operacion_principal_contrato
+
+    liquidacion_hon = _liquidacion_operacion_principal_contrato(contrato)
     override = _comisiones_override_caratula(request, contrato.id)
     honorarios_ctx = _ctx_honorarios_comisiones_caratula_contrato(
         contrato,
         movimientos,
-        liquidacion=liquidacion,
+        liquidacion=liquidacion_hon,
         override=override,
+    )
+    honorarios_ctx.update(
+        _estado_liquidacion_operacion_principal_caratula(contrato, contrato.sucursal)
     )
 
     if honorarios_ctx.get('comision_locatario', 0) > Decimal('0.05'):
@@ -1974,8 +2051,11 @@ def caratula_contrato(request, contrato_id):
         honorarios_ctx = _ctx_honorarios_comisiones_caratula_contrato(
             contrato,
             movimientos,
-            liquidacion=liquidacion,
+            liquidacion=liquidacion_hon,
             override=override,
+        )
+        honorarios_ctx.update(
+            _estado_liquidacion_operacion_principal_caratula(contrato, contrato.sucursal)
         )
 
     caratula_legacy = _build_legacy_contrato(
