@@ -24017,6 +24017,17 @@ def _egreso_no_es_gasto_descontable_liquidacion(movimiento) -> bool:
         tc = 'RC'
     if tc == 'GS':
         return False
+    if tc == 'LQ':
+        return True
+    texto = (getattr(movimiento, 'concepto', None) or '').lower()
+    if 'liquidación propietario' in texto or 'liquidacion propietario' in texto:
+        return True
+    try:
+        det = (movimiento.listado_detalle_l1 or '').lower()
+        if 'pago liquidacion' in det or 'pago liquidación' in det:
+            return True
+    except Exception:
+        pass
     if _movimiento_patron_cobro_conceptos_numerados(movimiento):
         return True
     return False
@@ -24432,126 +24443,24 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
             'dias': 0,
         })
     
-    # Gastos pendientes solo de esta propiedad (no de otras del mismo propietario).
-    gastos_base = GastoPropietario.objects.filter(
+    # Gastos pendientes: solo deudas por liquidaciones cerradas con saldo en contra del propietario.
+    gastos_saldo_negativo = GastoPropietario.objects.filter(
         liquidacion__isnull=True,
         sucursal=sucursal,
-    )
-    gastos_pendientes = gastos_base.filter(propiedad=propiedad).order_by('-fecha_creacion')
-    
-    # Obtener egresos de caja con a_descontar='oficina' relacionados con esta propiedad
-    # que no estén asociados a ninguna liquidación procesada
-    liquidaciones_procesadas = LiquidacionPropietario.objects.filter(
         propiedad=propiedad,
-        estado__in=['cerrada', 'pagada', 'oficina', 'procesada']
-    ).values_list('id', flat=True)
-    
-    # Obtener descripciones de gastos que ya están en liquidaciones procesadas
-    # para evitar duplicar egresos que ya fueron convertidos en gastos
-    gastos_procesados = GastoPropietario.objects.filter(
-        liquidacion_id__in=liquidaciones_procesadas,
-        propiedad=propiedad
-    ).values_list('observaciones', flat=True)
-    
-    # Buscar movimientos de caja (egresos) relacionados con la propiedad.
-    # Incluir:
-    # - propietario (descuento directo),
-    # - oficina (muchos registros históricos se cargaron así),
-    # - vacíos/NULL (legacy).
-    egresos_propiedad = MovimientoCaja.objects.filter(
-        propiedad=propiedad,
-        tipo=TipoMovimientoCajaEnum.EGRESO,
-        sucursal=sucursal,
-    ).filter(
-        Q(a_descontar='propietario') |
-        Q(a_descontar='oficina') |
-        Q(a_descontar__isnull=True) |
-        Q(a_descontar='')
-    ).exclude(
-        # Evitar reciclar pagos al propietario como "gasto pendiente"
-        concepto__icontains='Liquidación Propietario'
-    ).order_by('-fecha')
-    
-    gastos_pendientes_list = []
-    
-    # Agregar gastos de GastoPropietario
-    for gasto in gastos_pendientes:
-        obs = (gasto.observaciones or '').strip()
-        gastos_pendientes_list.append(_dict_gasto_pendiente(gasto, detalle=obs))
-    
-    # Agregar egresos de caja como gastos pendientes
-    # Incluir todos los egresos relacionados con la propiedad
-    # IDs de movimientos ya usados en liquidaciones (compatibilidad amplia)
-    movimientos_ya_liquidados = set(
-        LiquidacionPropietario.objects.filter(
-            propiedad=propiedad,
-            movimiento_caja__isnull=False
-        ).values_list('movimiento_caja_id', flat=True)
-    )
+        tipo_movimiento='egreso',
+        observaciones__contains='liquidacion_pendiente_origen:',
+    ).order_by('-fecha_creacion')
 
-    for egreso in egresos_propiedad:
-        if egreso.id in movimientos_ya_liquidados:
-            continue
-        if _egreso_no_es_gasto_descontable_liquidacion(egreso):
-            continue
-        # Verificar si ya existe un GastoPropietario para este movimiento
-        # Buscamos por observaciones que contengan el ID del movimiento
-        existe_gasto = GastoPropietario.objects.filter(
-            propiedad=propiedad,
-            observaciones__icontains=f'Movimiento de caja #{egreso.id}',
-        ).exists()
-        
-        # Solo agregar si no existe un gasto para este movimiento
-        # Incluir todos los egresos, independientemente del valor de a_descontar
-        if not existe_gasto:
-            descripcion = egreso.descripcion_para_gasto_liquidacion_propietario()[:200]
-            try:
-                c1 = (getattr(egreso, 'listado_concepto_l1', None) or '').strip()
-            except Exception:
-                c1 = ''
-            try:
-                c2 = (getattr(egreso, 'listado_concepto_l2', None) or '').strip()
-            except Exception:
-                c2 = ''
-            concepto_mov = ' · '.join(x for x in (c1, c2) if x) or '—'
-            try:
-                d1 = (getattr(egreso, 'listado_detalle_l1', None) or '').strip()
-            except Exception:
-                d1 = ''
-            try:
-                d2 = (getattr(egreso, 'listado_detalle_l2', None) or '').strip()
-            except Exception:
-                d2 = ''
-            detalle_mov = ' · '.join(x for x in (d1, d2) if x and x != '—') or ''
+    gastos_pendientes_list = [
+        _dict_gasto_saldo_negativo_liquidacion(gasto) for gasto in gastos_saldo_negativo
+    ]
 
-            gastos_pendientes_list.append({
-                'id': f'movimiento_{egreso.id}',  # Prefijo para identificar que es un movimiento
-                'descripcion': descripcion,
-                'concepto': concepto_mov,
-                'detalle': detalle_mov,
-                'monto': str(egreso.monto_total),
-                'fecha_gasto': egreso.fecha.strftime('%Y-%m-%d') if egreso.fecha else '',
-                'fecha_gasto_display': egreso.fecha.strftime('%d/%m/%Y') if egreso.fecha else '—',
-                'observaciones': f'Movimiento de caja #{egreso.id}',
-                'tipo_movimiento': 'egreso',
-                'tipo_movimiento_display': 'Egreso',
-                'efecto_inquilino': 'contra',
-                'efecto_inquilino_display': 'En contra del inquilino',
-                'operacion_monto': 'resta',
-                'operacion_monto_display': 'Resta',
-                'tipo': 'egreso_caja',
-                'movimiento_id': egreso.id,
-            })
-    
-    # Debug: contar egresos encontrados
-    total_egresos = egresos_propiedad.count()
-    
     return {
         'operaciones': operaciones,
         'gastos_pendientes': gastos_pendientes_list,
         'debug': {
-            'total_egresos_encontrados': total_egresos,
-            'total_gastos_agregados': len(gastos_pendientes_list),
+            'total_gastos_saldo_negativo': len(gastos_pendientes_list),
         },
     }
 
@@ -25372,6 +25281,27 @@ def _concepto_gasto_desde_post(post, sucursal):
         return None, None, 'El concepto seleccionado no es válido.'
     descripcion = f'{concepto.id} - {concepto.nombre}'
     return concepto, descripcion, None
+
+
+def _dict_gasto_saldo_negativo_liquidacion(gasto):
+    """Gasto generado por sync_gasto_saldo_negativo_liquidacion (deuda del propietario)."""
+    obs = (gasto.observaciones or '').strip()
+    liq_id = None
+    m = re.search(r'liquidacion_pendiente_origen:(\d+)', obs)
+    if m:
+        liq_id = m.group(1)
+    concepto = 'Liquidación en negativo'
+    if liq_id:
+        concepto = f'Liquidación #{liq_id} — saldo en contra'
+    detalle = obs.split('\n', 1)[-1].strip() if obs else ''
+    data = _dict_gasto_pendiente(
+        gasto,
+        concepto=concepto,
+        detalle=detalle or gasto.descripcion,
+        tipo='saldo_negativo_liquidacion',
+        liquidacion_origen_id=liq_id,
+    )
+    return data
 
 
 def _dict_gasto_pendiente(gasto, **extra):
