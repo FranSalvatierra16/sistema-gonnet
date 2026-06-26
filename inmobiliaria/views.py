@@ -22953,20 +22953,6 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
             ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal
         )
         operacion_buscar_inicial = contrato.id
-        liquidacion_pendiente = (
-            LiquidacionPropietario.objects.filter(contrato=contrato, estado='pendiente')
-            .order_by('-id')
-            .first()
-        )
-        if liquidacion_pendiente:
-            messages.warning(
-                request,
-                f'Hay una liquidación pendiente de este contrato (nº {liquidacion_pendiente.id}). '
-                f'Cerrala o cancelala antes de crear otra.',
-            )
-            return redirect(
-                'inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion_pendiente.id
-            )
 
     if request.method == 'POST':
         try:
@@ -23315,8 +23301,8 @@ def _cuotas_excluidas_por_liquidaciones_contrato(propiedad):
     - Si en operaciones_incluidas hay `cuotas_ids` / `cuota_ids`, se usan tal cual.
     - Liquidaciones finalizadas sin ese detalle (legacy): cuotas pagadas con
       fecha_pago <= fecha de cierre de la liquidación (procesamiento o creación).
-    - Liquidaciones en estado pendiente no aplican heurística por fecha (solo
-      bloquean el contrato entero vía `contratos_bloqueados_pendiente`).
+    - Liquidaciones en estado pendiente: solo excluyen las cuotas que figuran
+      explícitamente en operaciones_incluidas (no bloquean el resto del contrato).
     """
     cuotas_excluidas = set()
     qs = (

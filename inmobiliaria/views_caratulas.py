@@ -510,7 +510,9 @@ def _ctx_liquidacion_operacion(*, reserva=None, contrato=None):
     ctx = {
         'liquidacion_operacion': None,
         'url_liquidacion_operacion': None,
+        'url_liquidacion_pendiente': None,
         'etiqueta_liquidacion_operacion': 'Liquidar operación',
+        'etiqueta_liquidacion_pendiente': None,
         'resumen_liquidacion': {'tiene_datos': False},
     }
     if reserva is not None:
@@ -547,37 +549,19 @@ def _ctx_liquidacion_operacion(*, reserva=None, contrato=None):
 
         if liq_pendiente:
             ctx['liquidacion_operacion'] = liq_pendiente
-            ctx['url_liquidacion_operacion'] = reverse(
+            ctx['url_liquidacion_pendiente'] = reverse(
                 'inmobiliaria:detalle_liquidacion', args=[liq_pendiente.id]
             )
-            ctx['etiqueta_liquidacion_operacion'] = (
-                f'Liquidación pendiente #{liq_pendiente.id}'
+            ctx['etiqueta_liquidacion_pendiente'] = (
+                f'Ver liquidación pendiente #{liq_pendiente.id}'
             )
-        elif estado_op_princ.get('liq_estado') in ('pendiente', 'bloqueada') and estado_op_princ.get(
-            'url_liquidar'
-        ):
+
+        if estado_op_princ.get('liq_estado') == 'pendiente' and estado_op_princ.get('url_liquidar'):
             ctx['url_liquidacion_operacion'] = estado_op_princ['url_liquidar']
-            if estado_op_princ['liq_estado'] == 'bloqueada':
-                ctx['etiqueta_liquidacion_operacion'] = (
-                    f'Cerrar liq. #{estado_op_princ["liquidacion_bloqueo_id"]} '
-                    f'para liquidar operación principal'
-                )
-            else:
-                ctx['etiqueta_liquidacion_operacion'] = 'Liquidar operación principal'
+            ctx['etiqueta_liquidacion_operacion'] = 'Liquidar operación principal'
         elif proxima and proxima.url_liquidar:
             ctx['url_liquidacion_operacion'] = proxima.url_liquidar
-            if proxima.liq_estado == 'bloqueada':
-                if proxima.es_anticipada_liquidable:
-                    ctx['etiqueta_liquidacion_operacion'] = (
-                        f'Cerrar liq. #{proxima.liquidacion_bloqueo_id} '
-                        f'para liquidar cuota {proxima.numero_cuota} (anticipada)'
-                    )
-                else:
-                    ctx['etiqueta_liquidacion_operacion'] = (
-                        f'Cerrar liq. #{proxima.liquidacion_bloqueo_id} '
-                        f'para liquidar cuota {proxima.numero_cuota}/{contrato.duracion_meses}'
-                    )
-            elif proxima.es_anticipada_liquidable:
+            if proxima.es_anticipada_liquidable:
                 ctx['etiqueta_liquidacion_operacion'] = (
                     f'Liquidar cuota {proxima.numero_cuota}/{contrato.duracion_meses} (anticipada)'
                 )
@@ -585,6 +569,9 @@ def _ctx_liquidacion_operacion(*, reserva=None, contrato=None):
                 ctx['etiqueta_liquidacion_operacion'] = (
                     f'Liquidar cuota {proxima.numero_cuota}/{contrato.duracion_meses}'
                 )
+        elif liq_pendiente:
+            ctx['url_liquidacion_operacion'] = ctx['url_liquidacion_pendiente']
+            ctx['etiqueta_liquidacion_operacion'] = ctx['etiqueta_liquidacion_pendiente']
         else:
             ultima = (
                 LiquidacionPropietario.objects.filter(contrato=contrato)
@@ -798,11 +785,6 @@ def _ultima_liquidacion_contrato_id(contrato):
 def _enriquecer_cuotas_liquidacion(cuotas_list, contrato, sucursal):
     mapa_liq = _mapa_liquidacion_por_cuota_contrato(contrato)
     liquidables = _cuotas_liquidables_contrato(contrato, sucursal)
-    liq_pendiente = (
-        LiquidacionPropietario.objects.filter(contrato=contrato, estado='pendiente')
-        .order_by('-id')
-        .first()
-    )
     for c in cuotas_list:
         liq = mapa_liq.get(c.id)
         if liq:
@@ -815,25 +797,15 @@ def _enriquecer_cuotas_liquidacion(cuotas_list, contrato, sucursal):
             c.es_anticipada_liquidable = False
         elif c.id in liquidables:
             c.es_anticipada_liquidable = c.estado in ('pendiente', 'vencida')
-            if liq_pendiente:
-                c.liq_estado = 'bloqueada'
-                c.liquidacion_id = None
-                c.liquidacion_estado = ''
-                c.liquidacion_url = None
-                c.liquidacion_bloqueo_id = liq_pendiente.id
-                c.url_liquidar = reverse(
-                    'inmobiliaria:detalle_liquidacion', args=[liq_pendiente.id]
-                )
-            else:
-                c.liq_estado = 'pendiente'
-                c.liquidacion_id = None
-                c.liquidacion_estado = ''
-                c.liquidacion_url = None
-                c.liquidacion_bloqueo_id = None
-                c.url_liquidar = (
-                    reverse('inmobiliaria:crear_liquidacion_contrato', args=[contrato.id])
-                    + f'?cuota={c.id}'
-                )
+            c.liq_estado = 'pendiente'
+            c.liquidacion_id = None
+            c.liquidacion_estado = ''
+            c.liquidacion_url = None
+            c.liquidacion_bloqueo_id = None
+            c.url_liquidar = (
+                reverse('inmobiliaria:crear_liquidacion_contrato', args=[contrato.id])
+                + f'?cuota={c.id}'
+            )
         else:
             c.liq_estado = 'espera'
             c.liquidacion_id = None
@@ -878,31 +850,15 @@ def _estado_liquidacion_operacion_principal_caratula(contrato, sucursal):
     if not _fila_operacion_principal_liquidacion(contrato, contrato.propiedad):
         return ctx
 
-    liq_pendiente = (
-        LiquidacionPropietario.objects.filter(contrato=contrato, estado='pendiente')
-        .order_by('-id')
-        .first()
+    ctx.update(
+        {
+            'liq_estado': 'pendiente',
+            'url_liquidar': (
+                reverse('inmobiliaria:crear_liquidacion_contrato', args=[contrato.id])
+                + '?principal=1'
+            ),
+        }
     )
-    if liq_pendiente:
-        ctx.update(
-            {
-                'liq_estado': 'bloqueada',
-                'liquidacion_bloqueo_id': liq_pendiente.id,
-                'url_liquidar': reverse(
-                    'inmobiliaria:detalle_liquidacion', args=[liq_pendiente.id]
-                ),
-            }
-        )
-    else:
-        ctx.update(
-            {
-                'liq_estado': 'pendiente',
-                'url_liquidar': (
-                    reverse('inmobiliaria:crear_liquidacion_contrato', args=[contrato.id])
-                    + '?principal=1'
-                ),
-            }
-        )
     return ctx
 
 
@@ -911,8 +867,8 @@ def _resumen_liquidacion_contrato_caratula(contrato, sucursal):
     cuotas = list(contrato.cuotas.all().order_by('numero_cuota'))
     _enriquecer_cuotas_liquidacion(cuotas, contrato, sucursal)
     liquidadas = sum(1 for c in cuotas if c.liq_estado == 'liquidada')
-    pendientes = sum(1 for c in cuotas if c.liq_estado in ('pendiente', 'bloqueada'))
-    proxima = next((c for c in cuotas if c.liq_estado in ('pendiente', 'bloqueada')), None)
+    pendientes = sum(1 for c in cuotas if c.liq_estado == 'pendiente')
+    proxima = next((c for c in cuotas if c.liq_estado == 'pendiente'), None)
     return {
         'total_cuotas': len(cuotas),
         'cuotas_liquidadas': liquidadas,
