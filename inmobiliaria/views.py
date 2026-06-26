@@ -23843,44 +23843,19 @@ def _mes_vigente_contrato(contrato, hoy=None):
 
 def _cuotas_liquidables_para_contrato(contrato, cuotas_excluidas, sucursal, ids_ya_en_lista=None):
     """
-    Cuotas incluibles en liquidación para un contrato.
-    Contratos ≥9 meses: ventana completa (cobradas + anticipadas).
-    Contratos más cortos: solo cuotas cobradas o con cobro parcial pendiente de liquidar.
+    Cuotas incluibles en liquidación para un contrato por cuotas mensuales.
+    Incluye cobradas, cobro parcial y cuotas anticipadas del plan (todas las duraciones).
     """
-    filas = _cuotas_en_ventana_liquidacion(contrato, cuotas_excluidas, sucursal, ids_ya_en_lista)
-    if filas:
-        return filas
-
-    duracion = int(contrato.duracion_meses or 0)
-    if duracion >= 9:
-        return []
-
-    ids_excl = set(cuotas_excluidas or ()) | set(ids_ya_en_lista or ())
-    out = []
-    cuotas_pagadas = list(
-        contrato.cuotas.filter(estado__in=['pagada', 'pagada_con_mora'])
-        .exclude(id__in=ids_excl)
-        .order_by('numero_cuota')
-    )
-    ids_pagadas = {c.id for c in cuotas_pagadas}
-    for cuota in cuotas_pagadas:
-        out.append((cuota, Decimal(str(cuota.monto_total)), False, False))
-    for cuota, monto in _cuotas_cobro_parcial_liquidable(contrato, cuotas_excluidas, sucursal):
-        if cuota.id in ids_pagadas or cuota.id in ids_excl:
-            continue
-        out.append((cuota, monto, True, False))
-    return out
+    return _cuotas_en_ventana_liquidacion(contrato, cuotas_excluidas, sucursal, ids_ya_en_lista)
 
 
 def _cuotas_en_ventana_liquidacion(contrato, cuotas_excluidas, sucursal, ids_ya_en_lista=None):
     """
-    Cuotas liquidables en contratos 9 / 24 meses (invierno y largo):
-    todas las del plan que aún no figuran en otra liquidación (cobradas o anticipadas).
+    Cuotas liquidables del plan: todas las que aún no figuran en otra liquidación
+    (cobradas, con cobro parcial o anticipadas pendientes de cobro).
     """
-    if not _contrato_es_alquiler_mensual_largo(contrato):
-        return []
     duracion = int(contrato.duracion_meses or 0)
-    if duracion < 9:
+    if duracion < 1:
         return []
     limite_num = duracion
     ids_excl = set(cuotas_excluidas or ()) | set(ids_ya_en_lista or ())
@@ -23898,7 +23873,10 @@ def _cuotas_en_ventana_liquidacion(contrato, cuotas_excluidas, sucursal, ids_ya_
             out.append((cuota, Decimal(str(cuota.monto_total)), False, False))
             continue
         if cuota.estado in ('pendiente', 'vencida'):
-            out.append((cuota, Decimal(str(cuota.monto_total or 0)), False, True))
+            m = Decimal(str(cuota.monto_total or 0))
+            if m <= Decimal('0.05'):
+                continue
+            out.append((cuota, m, False, True))
     return out
 
 

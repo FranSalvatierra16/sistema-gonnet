@@ -756,7 +756,7 @@ def _mapa_liquidacion_por_cuota_contrato(contrato):
 def _cuotas_liquidables_contrato(contrato, sucursal):
     """
     Cuotas que corresponden a liquidar del contrato.
-    Incluye cobradas no liquidadas; en contratos ≥9 meses también anticipadas.
+    Incluye cobradas no liquidadas y cuotas anticipadas del plan (cualquier duración).
     """
     from inmobiliaria.views import (
         _cuotas_excluidas_por_liquidaciones_contrato,
