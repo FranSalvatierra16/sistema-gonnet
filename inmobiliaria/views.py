@@ -24986,6 +24986,9 @@ def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
         if m <= Decimal('0.01'):
             continue
         det = (gasto.descripcion or 'MOVIMIENTO').strip().upper()
+        obs = (gasto.observaciones or '').strip()
+        if obs and not obs.lower().startswith('movimiento de caja #'):
+            det = f'{det} // {obs.upper()}'
         tipo_lbl = gasto.get_tipo_movimiento_display().upper()
         if gasto.tipo_movimiento == 'ingreso':
             total_ingresos += m

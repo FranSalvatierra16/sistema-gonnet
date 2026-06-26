@@ -1,7 +1,8 @@
 <div class="mb-3 position-relative">
     <label class="form-label">Concepto <span class="text-danger">*</span></label>
     <input type="text" id="mov_buscar_concepto" class="form-control" autocomplete="off"
-           placeholder="Número o nombre del concepto (catálogo de caja)…">
+           placeholder="Número o nombre del concepto (catálogo de caja)…"
+           aria-autocomplete="list" aria-controls="mov_dropdown_conceptos">
     <div id="mov_dropdown_conceptos" class="list-group shadow-sm border rounded mt-1"
          style="display:none;max-height:220px;overflow:auto;z-index:1060;position:absolute;left:0;right:0;"></div>
     <div id="mov_concepto_seleccionado" class="d-none mt-2 alert alert-success py-2 mb-0 small">
@@ -9,6 +10,7 @@
         <button type="button" class="btn-close float-end" id="mov_limpiar_concepto" aria-label="Quitar"></button>
     </div>
     <input type="hidden" name="concepto_id" id="mov_concepto_id" value="">
+    <small class="text-muted d-block mt-1">Flechas ↑↓ para elegir en la lista; Enter confirma.</small>
 </div>
 <div class="mb-3">
     <label class="form-label">Tipo</label>

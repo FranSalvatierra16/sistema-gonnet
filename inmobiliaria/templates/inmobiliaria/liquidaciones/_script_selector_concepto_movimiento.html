@@ -46,6 +46,87 @@
         }
     }
 
+    function dropdownVisible() {
+        const dd = document.getElementById('mov_dropdown_conceptos');
+        return !!(dd && dd.style.display !== 'none' && dd.querySelector('.mov-concepto-opt'));
+    }
+
+    function itemsDropdown() {
+        const dd = document.getElementById('mov_dropdown_conceptos');
+        if (!dd) return [];
+        return Array.from(dd.querySelectorAll('.mov-concepto-opt'));
+    }
+
+    function activarItemDropdown(items, idx) {
+        items.forEach(function(el, i) {
+            el.classList.toggle('active', i === idx);
+            if (i === idx && el.scrollIntoView) {
+                el.scrollIntoView({ block: 'nearest' });
+            }
+        });
+    }
+
+    function indiceActivoDropdown(items) {
+        return items.findIndex(function(el) { return el.classList.contains('active'); });
+    }
+
+    function seleccionarItemDropdown(btn) {
+        if (!btn) return;
+        seleccionarConceptoMov({
+            id: btn.getAttribute('data-id'),
+            nombre: btn.getAttribute('data-nombre'),
+        });
+    }
+
+    function manejarTecladoConcepto(e) {
+        const inp = document.getElementById('mov_buscar_concepto');
+        if (!inp || e.target !== inp) return;
+
+        if (e.key === 'Tab') {
+            ocultarDropdown();
+            return;
+        }
+
+        if (e.key === 'ArrowDown' && !dropdownVisible()) {
+            e.preventDefault();
+            fetchConceptos(inp.value.trim(), function() {
+                const items = itemsDropdown();
+                if (items.length) activarItemDropdown(items, 0);
+            });
+            return;
+        }
+
+        if (!dropdownVisible()) return;
+
+        const items = itemsDropdown();
+        if (!items.length) return;
+
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            let cur = indiceActivoDropdown(items);
+            if (e.key === 'ArrowDown') {
+                cur = cur < 0 ? 0 : Math.min(cur + 1, items.length - 1);
+            } else {
+                cur = cur < 0 ? items.length - 1 : Math.max(cur - 1, 0);
+            }
+            activarItemDropdown(items, cur);
+            return;
+        }
+
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            let sel = items.find(function(el) { return el.classList.contains('active'); });
+            if (!sel) sel = items[0];
+            seleccionarItemDropdown(sel);
+            return;
+        }
+
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            ocultarDropdown();
+        }
+    }
+
     function renderDropdown(conceptos) {
         const dd = document.getElementById('mov_dropdown_conceptos');
         if (!dd) return;
@@ -63,7 +144,7 @@
         dd.style.display = 'block';
     }
 
-    function fetchConceptos(termino) {
+    function fetchConceptos(termino, onDone) {
         const fd = new FormData();
         fd.append('termino', termino || '');
         fetch(urlBuscar, {
@@ -72,8 +153,14 @@
             headers: { 'X-CSRFToken': csrf },
         })
             .then(function(r) { return r.json(); })
-            .then(function(data) { renderDropdown(data.conceptos || []); })
-            .catch(function() { ocultarDropdown(); });
+            .then(function(data) {
+                renderDropdown(data.conceptos || []);
+                if (typeof onDone === 'function') onDone();
+            })
+            .catch(function() {
+                ocultarDropdown();
+                if (typeof onDone === 'function') onDone();
+            });
     }
 
     document.addEventListener('DOMContentLoaded', function() {
@@ -87,6 +174,7 @@
         }
         if (inp) {
             inp.addEventListener('focus', function() { fetchConceptos(inp.value.trim()); });
+            inp.addEventListener('keydown', manejarTecladoConcepto);
             inp.addEventListener('input', function() {
                 clearTimeout(debounceTimer);
                 debounceTimer = setTimeout(function() {
@@ -98,7 +186,13 @@
             dd.addEventListener('click', function(e) {
                 const btn = e.target.closest('.mov-concepto-opt');
                 if (!btn) return;
-                seleccionarConceptoMov({ id: btn.getAttribute('data-id'), nombre: btn.getAttribute('data-nombre') });
+                seleccionarItemDropdown(btn);
+            });
+            dd.addEventListener('mouseover', function(e) {
+                const btn = e.target.closest('.mov-concepto-opt');
+                if (!btn) return;
+                const items = itemsDropdown();
+                activarItemDropdown(items, items.indexOf(btn));
             });
         }
         document.addEventListener('click', function(e) {
