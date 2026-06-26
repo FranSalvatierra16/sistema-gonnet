@@ -23023,6 +23023,11 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
 
             # Contrato / cuotas: guardar IDs de cuotas imputadas (evita doble uso).
             excl_prev = _cuotas_excluidas_por_liquidaciones_contrato(propiedad)
+            from inmobiliaria.cuotas_imputacion import (
+                cuota_ids_mismo_recibo,
+                movimientos_ingreso_contrato,
+            )
+
             for o in operaciones_incluidas:
                 if not isinstance(o, dict):
                     continue
@@ -23031,7 +23036,29 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                         cq_pk = int(o['id'])
                     except (KeyError, TypeError, ValueError):
                         continue
-                    if cq_pk not in excl_prev:
+                    cq = CuotaMensual.objects.filter(
+                        pk=cq_pk,
+                        contrato__propiedad=propiedad,
+                        contrato__sucursal=request.user.sucursal,
+                    ).select_related('contrato').first()
+                    if not cq:
+                        continue
+                    ctr = cq.contrato
+                    liquidables = _cuotas_liquidables_contrato(ctr, request.user.sucursal)
+                    candidatos = {cid for cid in liquidables if cid not in excl_prev}
+                    if cq.id not in candidatos:
+                        continue
+                    movs_ctr = movimientos_ingreso_contrato(ctr)
+                    ids_grupo = cuota_ids_mismo_recibo(
+                        cq,
+                        ctr.cuotas.all(),
+                        movs_ctr,
+                        solo_ids=candidatos,
+                    )
+                    if ids_grupo:
+                        o['id'] = int(ids_grupo[0])
+                        o['cuotas_ids'] = [int(x) for x in ids_grupo]
+                    elif cq_pk not in excl_prev:
                         o['cuotas_ids'] = [cq_pk]
                     continue
                 if o.get('tipo') != 'contrato':
@@ -23054,6 +23081,20 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                 )
                 if id_cuotas:
                     o['cuotas_ids'] = [int(x) for x in id_cuotas]
+
+            # Si el usuario tildó varias cuotas del mismo recibo, dejar una sola operación.
+            ops_dedup = []
+            grupos_cuota_vistos: set[tuple] = set()
+            for o in operaciones_incluidas:
+                if not isinstance(o, dict) or o.get('tipo') != 'contrato_cuota':
+                    ops_dedup.append(o)
+                    continue
+                key = tuple(sorted(int(x) for x in (o.get('cuotas_ids') or [int(o['id'])])))
+                if key in grupos_cuota_vistos:
+                    continue
+                grupos_cuota_vistos.add(key)
+                ops_dedup.append(o)
+            operaciones_incluidas = ops_dedup
 
             # División manual en dos operaciones
             dividir_operacion = request.POST.get('dividir_operacion') == '1'
@@ -23271,13 +23312,23 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
         .values('id', 'nombre', 'apellido', 'dni')
     )
 
+    cuotas_raw = (request.GET.get('cuotas') or '').strip()
+    cuota_single = (request.GET.get('cuota') or '').strip()
+    if cuotas_raw:
+        cuotas_inicial = [x.strip() for x in cuotas_raw.split(',') if x.strip().isdigit()]
+    elif cuota_single.isdigit():
+        cuotas_inicial = [cuota_single]
+    else:
+        cuotas_inicial = []
+
     context = {
         'reserva': reserva,
         'contrato': contrato,
         'propiedades': propiedades,
         'propietarios_busqueda': propietarios_busqueda,
         'operacion_buscar_inicial': operacion_buscar_inicial,
-        'cuota_liquidacion_inicial': (request.GET.get('cuota') or '').strip(),
+        'cuota_liquidacion_inicial': cuotas_inicial[0] if len(cuotas_inicial) == 1 else '',
+        'cuotas_liquidacion_inicial': cuotas_inicial,
         'principal_liquidacion_inicial': request.GET.get('principal') == '1',
     }
 
@@ -24727,6 +24778,11 @@ def _contrato_de_liquidacion(liquidacion):
                 cuota_ids.append(int(op['id']))
             except (KeyError, TypeError, ValueError):
                 pass
+            for cid in op.get('cuotas_ids') or op.get('cuota_ids') or []:
+                try:
+                    cuota_ids.append(int(cid))
+                except (TypeError, ValueError):
+                    pass
         elif op.get('tipo') == 'contrato':
             for cid in op.get('cuotas_ids') or []:
                 try:
@@ -24754,6 +24810,11 @@ def _cuotas_resueltas_liquidacion(liquidacion):
                 cuota_ids.append(int(op['id']))
             except (KeyError, TypeError, ValueError):
                 pass
+            for cid in op.get('cuotas_ids') or op.get('cuota_ids') or []:
+                try:
+                    cuota_ids.append(int(cid))
+                except (TypeError, ValueError):
+                    pass
         elif op.get('tipo') == 'contrato':
             for cid in op.get('cuotas_ids') or []:
                 try:

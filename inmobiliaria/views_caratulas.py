@@ -782,9 +782,23 @@ def _ultima_liquidacion_contrato_id(contrato):
     return max(liq.id for liq in mapa.values())
 
 
-def _enriquecer_cuotas_liquidacion(cuotas_list, contrato, sucursal):
+def _enriquecer_cuotas_liquidacion(cuotas_list, contrato, sucursal, movimientos=None):
+    from inmobiliaria.cuotas_imputacion import (
+        cuota_ids_mismo_recibo,
+        mapa_movimientos_recibo_por_cuota_id,
+    )
+
     mapa_liq = _mapa_liquidacion_por_cuota_contrato(contrato)
     liquidables = _cuotas_liquidables_contrato(contrato, sucursal)
+    movs = list(movimientos or [])
+    if movs and not any(getattr(c, 'recibos_cobro', None) for c in cuotas_list):
+        recibos_map = mapa_movimientos_recibo_por_cuota_id(cuotas_list, movs)
+        for c in cuotas_list:
+            c.recibos_cobro = recibos_map.get(int(c.id), [])
+
+    cuotas_by_id = {int(c.id): c for c in cuotas_list}
+    grupos_liquidar: dict[tuple, int] = {}
+
     for c in cuotas_list:
         liq = mapa_liq.get(c.id)
         if liq:
@@ -795,17 +809,46 @@ def _enriquecer_cuotas_liquidacion(cuotas_list, contrato, sucursal):
             c.url_liquidar = None
             c.liquidacion_bloqueo_id = None
             c.es_anticipada_liquidable = False
+            c.mostrar_btn_liquidar = False
+            c.liq_es_grupo_recibo = False
+            c.liq_grupo_recibo_etiqueta = ''
+            c.liq_grupo_meses = ''
         elif c.id in liquidables:
             c.es_anticipada_liquidable = c.estado in ('pendiente', 'vencida')
+            grupo_ids = cuota_ids_mismo_recibo(
+                c,
+                cuotas_list,
+                movs,
+                solo_ids=liquidables,
+            )
+            if c.es_anticipada_liquidable:
+                grupo_ids = [int(c.id)]
+            c.liq_cuotas_grupo_ids = grupo_ids
+            c.liq_es_grupo_recibo = len(grupo_ids) > 1
+            if c.liq_es_grupo_recibo:
+                nums = [int(cuotas_by_id[cid].numero_cuota) for cid in grupo_ids]
+                c.liq_grupo_meses = '–'.join(str(n) for n in sorted(nums))
+                c.liq_grupo_recibo_etiqueta = f"Meses {c.liq_grupo_meses} (mismo recibo)"
+            else:
+                c.liq_grupo_meses = ''
+                c.liq_grupo_recibo_etiqueta = ''
+            grupo_key = tuple(sorted(grupo_ids))
+            if grupo_key not in grupos_liquidar:
+                grupos_liquidar[grupo_key] = min(
+                    grupo_ids,
+                    key=lambda cid: int(cuotas_by_id[cid].numero_cuota),
+                )
             c.liq_estado = 'pendiente'
             c.liquidacion_id = None
             c.liquidacion_estado = ''
             c.liquidacion_url = None
             c.liquidacion_bloqueo_id = None
+            qs_cuotas = ','.join(str(x) for x in sorted(grupo_ids))
             c.url_liquidar = (
                 reverse('inmobiliaria:crear_liquidacion_contrato', args=[contrato.id])
-                + f'?cuota={c.id}'
+                + f'?cuotas={qs_cuotas}'
             )
+            c.mostrar_btn_liquidar = int(c.id) == grupos_liquidar[grupo_key]
         else:
             c.liq_estado = 'espera'
             c.liquidacion_id = None
@@ -814,6 +857,10 @@ def _enriquecer_cuotas_liquidacion(cuotas_list, contrato, sucursal):
             c.url_liquidar = None
             c.liquidacion_bloqueo_id = None
             c.es_anticipada_liquidable = False
+            c.mostrar_btn_liquidar = False
+            c.liq_es_grupo_recibo = False
+            c.liq_grupo_recibo_etiqueta = ''
+            c.liq_grupo_meses = ''
         c.es_operacion_principal = False
 
 
@@ -868,7 +915,9 @@ def _resumen_liquidacion_contrato_caratula(contrato, sucursal):
     _enriquecer_cuotas_liquidacion(cuotas, contrato, sucursal)
     liquidadas = sum(1 for c in cuotas if c.liq_estado == 'liquidada')
     pendientes = sum(1 for c in cuotas if c.liq_estado == 'pendiente')
-    proxima = next((c for c in cuotas if c.liq_estado == 'pendiente'), None)
+    proxima = next((c for c in cuotas if getattr(c, 'mostrar_btn_liquidar', False)), None)
+    if proxima is None:
+        proxima = next((c for c in cuotas if c.liq_estado == 'pendiente'), None)
     return {
         'total_cuotas': len(cuotas),
         'cuotas_liquidadas': liquidadas,
@@ -1938,18 +1987,9 @@ def caratula_contrato(request, contrato_id):
 
     movimientos = []
     if contrato.propiedad_id:
-        movs_qs = (
-            MovimientoCaja.objects.filter(
-                propiedad_id=contrato.propiedad_id,
-                sucursal_id=contrato.sucursal_id,
-                tipo=TipoMovimientoCajaEnum.INGRESO,
-            )
-            .select_related('recibo')
-            .order_by('-fecha')
-        )
-        for mov in movs_qs[:300]:
-            if mov.concepto and re.search(rf'Contrato\s*#\s*{contrato.id}\b', mov.concepto, re.IGNORECASE):
-                movimientos.append(mov)
+        from inmobiliaria.cuotas_imputacion import movimientos_ingreso_contrato
+
+        movimientos = movimientos_ingreso_contrato(contrato)
 
     total_mov = sum(
         Decimal(str(m.monto_efectivo or 0))
@@ -1967,7 +2007,7 @@ def caratula_contrato(request, contrato_id):
         for c in cuotas_list:
             c.recibos_cobro = recibos_por_cuota.get(int(c.id), [])
 
-    _enriquecer_cuotas_liquidacion(cuotas_list, contrato, contrato.sucursal)
+    _enriquecer_cuotas_liquidacion(cuotas_list, contrato, contrato.sucursal, movimientos=movimientos)
 
     tipo_label = _tipo_label_contrato_caratula(contrato)
     carpeta_actual = _carpeta_para_operacion(request, 'contrato', contrato.id, contrato=contrato)

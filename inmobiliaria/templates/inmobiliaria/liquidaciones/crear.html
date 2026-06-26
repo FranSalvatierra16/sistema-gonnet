@@ -16,6 +16,7 @@
                     <form method="POST" id="formCrearLiquidacion" novalidate>
                         {% csrf_token %}
                         {{ propietarios_busqueda|json_script:"propietarios-busqueda-data" }}
+                        {{ cuotas_liquidacion_inicial|json_script:"cuotas-liquidacion-inicial-data" }}
                         
                         <div class="row mb-3">
                             <div class="col-md-6">
@@ -695,15 +696,25 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function tildarCuotaInicialSiCorresponde() {
-        const cuotaInicial = '{{ cuota_liquidacion_inicial|default:"" }}';
-        if (!cuotaInicial) return;
-        const cb = document.querySelector(
-            '.operacion-checkbox[data-tipo="contrato_cuota"][data-id="' + cuotaInicial + '"]'
-        );
-        if (cb && !cb.disabled) {
-            cb.checked = true;
-            cb.dispatchEvent(new Event('change', { bubbles: true }));
+        var lista = [];
+        var elCuotas = document.getElementById('cuotas-liquidacion-inicial-data');
+        if (elCuotas) {
+            try { lista = JSON.parse(elCuotas.textContent) || []; } catch (e) { lista = []; }
         }
+        if (!lista.length) {
+            const uno = '{{ cuota_liquidacion_inicial|default:"" }}';
+            if (uno) lista = [uno];
+        }
+        if (!lista.length) return;
+        lista.forEach(function(cid) {
+            const cb = document.querySelector(
+                '.operacion-checkbox[data-tipo="contrato_cuota"][data-id="' + cid + '"]'
+            );
+            if (cb && !cb.disabled) {
+                cb.checked = true;
+                cb.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        });
     }
 
     function tildarPrincipalInicialSiCorresponde() {

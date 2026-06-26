@@ -503,3 +503,85 @@ def movimientos_recibo_por_cuota(cuota, movimientos_iterable) -> list:
 
 def mapa_movimientos_recibo_por_cuota_id(cuotas, movimientos_iterable) -> dict[int, list]:
     return {int(c.id): movimientos_recibo_por_cuota(c, movimientos_iterable) for c in cuotas}
+
+
+def mapa_cuota_ids_por_movimiento(cuotas, movimientos_iterable) -> dict[int, list[int]]:
+    """movimiento_id → cuotas imputadas por ese recibo (ordenadas por número de cuota)."""
+    cuotas_by_id = {int(c.id): c for c in cuotas}
+    out: dict[int, set[int]] = {}
+
+    def _add(mid: int, cid: int) -> None:
+        out.setdefault(int(mid), set()).add(int(cid))
+
+    for mov in movimientos_iterable:
+        mid = int(mov.id)
+        for c in cuotas:
+            if movimiento_imputa_cuota(mov, c):
+                _add(mid, int(c.id))
+
+    for c in cuotas:
+        if c.movimiento_id:
+            _add(int(c.movimiento_id), int(c.id))
+
+    return {
+        mid: sorted(ids, key=lambda cid: int(cuotas_by_id[cid].numero_cuota))
+        for mid, ids in out.items()
+    }
+
+
+def movimiento_recibo_principal_cuota(cuota, movimientos_iterable=None) -> int | None:
+    """ID del movimiento de caja que cobró esta cuota (recibo principal)."""
+    recibos = movimientos_recibo_por_cuota(cuota, movimientos_iterable or [])
+    if recibos:
+        return int(recibos[0].id)
+    if cuota.movimiento_id:
+        return int(cuota.movimiento_id)
+    return None
+
+
+def cuota_ids_mismo_recibo(
+    cuota,
+    cuotas_iterable,
+    movimientos_iterable,
+    *,
+    solo_ids: set[int] | None = None,
+) -> list[int]:
+    """
+    Cuotas del mismo recibo que la cuota dada.
+    Si solo_ids está definido, limita a ese subconjunto (p. ej. liquidables).
+    """
+    mid = movimiento_recibo_principal_cuota(cuota, movimientos_iterable)
+    if mid is None:
+        cid = int(cuota.id)
+        return [cid] if solo_ids is None or cid in solo_ids else []
+
+    mapa = mapa_cuota_ids_por_movimiento(cuotas_iterable, movimientos_iterable)
+    ids = mapa.get(mid, [int(cuota.id)])
+    if solo_ids is not None:
+        ids = [i for i in ids if i in solo_ids]
+    return ids or ([int(cuota.id)] if int(cuota.id) in (solo_ids or {int(cuota.id)}) else [])
+
+
+def movimientos_ingreso_contrato(contrato, *, limite: int = 300) -> list:
+    """Ingresos de caja vinculados a este contrato (para agrupar cuotas por recibo)."""
+    import re
+
+    from inmobiliaria.models.caja import MovimientoCaja, TipoMovimientoCajaEnum
+
+    if not contrato or not getattr(contrato, 'propiedad_id', None):
+        return []
+    movimientos = []
+    movs_qs = (
+        MovimientoCaja.objects.filter(
+            propiedad_id=contrato.propiedad_id,
+            sucursal_id=contrato.sucursal_id,
+            tipo=TipoMovimientoCajaEnum.INGRESO,
+        )
+        .select_related('recibo')
+        .order_by('-fecha')
+    )
+    patron = re.compile(rf'Contrato\s*#\s*{int(contrato.id)}\b', re.IGNORECASE)
+    for mov in movs_qs[:limite]:
+        if mov.concepto and patron.search(mov.concepto):
+            movimientos.append(mov)
+    return movimientos
