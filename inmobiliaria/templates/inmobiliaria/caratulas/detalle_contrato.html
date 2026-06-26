@@ -58,7 +58,7 @@
                                 <tr>
                                     <td class="text-nowrap">{{ c.numero_cuota }}/{{ contrato.duracion_meses }}</td>
                                     <td>{{ c.fecha_vencimiento|date:"d/m/Y" }}</td>
-                                    <td>${{ c.monto_total|floatformat:2 }}</td>
+                                    <td>{{ c.monto_total|format_importe_moneda:contrato.moneda }}</td>
                                     <td>{% if c.tiene_adelanto_abonado %}Adelanto{% else %}{{ c.get_estado_display }}{% endif %}</td>
                                     <td class="text-nowrap">
                                         {% if c.liq_estado == 'liquidada' %}

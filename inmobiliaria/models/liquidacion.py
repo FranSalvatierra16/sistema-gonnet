@@ -60,6 +60,18 @@ class LiquidacionPropietario(models.Model):
         verbose_name="Movimiento de Caja"
     )
 
+    MONEDA_CHOICES = [
+        ('ARS', 'Pesos (ARS)'),
+        ('USD', 'Dólares (USD)'),
+    ]
+    moneda = models.CharField(
+        max_length=3,
+        choices=MONEDA_CHOICES,
+        default='ARS',
+        verbose_name='Moneda',
+        help_text='Moneda en la que se expresan los montos de esta liquidación.',
+    )
+
     # Montos
     monto_total_operacion = models.DecimalField(
         max_digits=12,
@@ -292,6 +304,12 @@ class GastoPropietario(models.Model):
         decimal_places=2,
         verbose_name="Monto"
     )
+    moneda = models.CharField(
+        max_length=3,
+        choices=LiquidacionPropietario.MONEDA_CHOICES,
+        default='ARS',
+        verbose_name='Moneda',
+    )
     tipo_movimiento = models.CharField(
         max_length=10,
         choices=TIPO_MOVIMIENTO_CHOICES,
@@ -433,6 +451,7 @@ def sync_gasto_saldo_negativo_liquidacion(liquidacion):
         existing.descripcion = 'Liquidación pendiente'
         existing.propietario = liquidacion.propietario
         existing.propiedad = liquidacion.propiedad
+        existing.moneda = getattr(liquidacion, 'moneda', 'ARS') or 'ARS'
         existing.tipo_movimiento = 'egreso'
         existing.fecha_gasto = fecha_g
         existing.observaciones = obs
@@ -445,6 +464,7 @@ def sync_gasto_saldo_negativo_liquidacion(liquidacion):
         propiedad=liquidacion.propiedad,
         descripcion='Liquidación pendiente',
         monto=deuda,
+        moneda=getattr(liquidacion, 'moneda', 'ARS') or 'ARS',
         tipo_movimiento='egreso',
         observaciones=obs,
         fecha_gasto=fecha_g,

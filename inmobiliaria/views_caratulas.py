@@ -406,6 +406,7 @@ def _resumen_liquidacion_caratula(*, reserva=None, contrato=None, liquidacion=No
             'liquidacion_id': liquidacion.id,
             'estado_liquidacion': liquidacion.get_estado_display(),
             'liquidacion_pendiente': liquidacion.estado == 'pendiente',
+            'moneda': getattr(liquidacion, 'moneda', 'ARS') or 'ARS',
             'monto_total': liquidacion.monto_total_operacion,
             'monto_propietario': liquidacion.monto_propietario,
             'monto_inmobiliaria': liquidacion.monto_inmobiliaria,
@@ -492,6 +493,7 @@ def _resumen_liquidacion_caratula(*, reserva=None, contrato=None, liquidacion=No
         'desde_liquidacion': False,
         'liquidacion_id': None,
         'estado_liquidacion': None,
+        'moneda': (op_match.get('moneda') or getattr(contrato, 'moneda', 'ARS') or 'ARS'),
         'monto_total': total,
         'monto_propietario': prop,
         'monto_inmobiliaria': inm,
@@ -604,6 +606,13 @@ def _ctx_liquidacion_operacion(*, reserva=None, contrato=None):
                 ctx['url_liquidacion_operacion'] = reverse(
                     'inmobiliaria:crear_liquidacion_contrato', args=[contrato.id]
                 )
+                prox = resumen_ctr.get('proxima_cuota_liquidar')
+                if prox:
+                    ctx['etiqueta_liquidacion_operacion'] = (
+                        f'Liquidar cuota {prox.numero_cuota}/{contrato.duracion_meses}'
+                    )
+                else:
+                    ctx['etiqueta_liquidacion_operacion'] = 'Nueva liquidación'
         ctx['resumen_liquidacion_contrato'] = resumen_ctr
         ctx['resumen_liquidacion'] = _resumen_liquidacion_caratula(
             contrato=contrato,
@@ -746,19 +755,19 @@ def _mapa_liquidacion_por_cuota_contrato(contrato):
 
 def _cuotas_liquidables_contrato(contrato, sucursal):
     """
-    Cuotas que corresponden a liquidar del contrato (9/24 meses).
-    Incluye cobradas no liquidadas y cuotas anticipadas pendientes de cobro.
+    Cuotas que corresponden a liquidar del contrato.
+    Incluye cobradas no liquidadas; en contratos ≥9 meses también anticipadas.
     """
     from inmobiliaria.views import (
         _cuotas_excluidas_por_liquidaciones_contrato,
-        _cuotas_en_ventana_liquidacion,
+        _cuotas_liquidables_para_contrato,
     )
 
     if not contrato or not contrato.propiedad_id:
         return set()
     cuotas_excluidas = _cuotas_excluidas_por_liquidaciones_contrato(contrato.propiedad)
     out = set()
-    for cuota, _monto, _parcial, _anticipada in _cuotas_en_ventana_liquidacion(
+    for cuota, _monto, _parcial, _anticipada in _cuotas_liquidables_para_contrato(
         contrato, cuotas_excluidas, sucursal
     ):
         out.add(cuota.id)

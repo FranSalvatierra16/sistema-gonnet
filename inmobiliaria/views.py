@@ -22976,6 +22976,38 @@ def lista_liquidaciones(request):
     return render(request, 'inmobiliaria/liquidaciones/lista.html', context)
 
 
+def _resolver_moneda_liquidacion(*, contrato_fk=None, operaciones_incluidas=None, post_moneda=None):
+    """Una sola moneda por liquidación (ARS o USD)."""
+    from inmobiliaria.liquidacion_operacion import normalizar_moneda
+
+    monedas = set()
+    if post_moneda:
+        monedas.add(normalizar_moneda(post_moneda))
+    if contrato_fk:
+        monedas.add(normalizar_moneda(getattr(contrato_fk, 'moneda', 'ARS')))
+    for o in operaciones_incluidas or []:
+        if not isinstance(o, dict):
+            continue
+        tipo = (o.get('tipo') or '').strip().lower()
+        try:
+            pk = int(o.get('id'))
+        except (KeyError, TypeError, ValueError):
+            continue
+        if tipo == 'contrato_cuota':
+            cq = CuotaMensual.objects.filter(pk=pk).select_related('contrato').first()
+            if cq and cq.contrato:
+                monedas.add(normalizar_moneda(cq.contrato.moneda))
+        elif tipo in ('contrato', 'contrato_operacion_principal'):
+            c = ContratoAlquiler.objects.filter(pk=pk).only('moneda').first()
+            if c:
+                monedas.add(normalizar_moneda(c.moneda))
+    if len(monedas) > 1:
+        raise ValueError(
+            'No podés mezclar operaciones en pesos y en dólares en la misma liquidación.'
+        )
+    return monedas.pop() if monedas else normalizar_moneda('ARS')
+
+
 @login_required
 def crear_liquidacion(request, reserva_id=None, contrato_id=None):
     """
@@ -23293,6 +23325,11 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                     reserva=reserva,
                     contrato=contrato_fk,
                     estado='pendiente',
+                    moneda=_resolver_moneda_liquidacion(
+                        contrato_fk=contrato_fk,
+                        operaciones_incluidas=operaciones_incluidas,
+                        post_moneda=request.POST.get('moneda'),
+                    ),
                     monto_total_operacion=monto_total,
                     monto_propietario=monto_propietario,
                     monto_inmobiliaria=monto_inmobiliaria,
@@ -23333,6 +23370,7 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                                     propiedad=propiedad,
                                     descripcion=desc_mov,
                                     monto=movimiento.monto_total,
+                                    moneda=liquidacion.moneda,
                                     fecha_gasto=movimiento.fecha.date() if movimiento.fecha else None,
                                     observaciones=f'Movimiento de caja #{movimiento.id}',
                                     aceptado=True,
@@ -23347,6 +23385,7 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                                     liquidacion__isnull=True,
                                     sucursal=request.user.sucursal
                                 )
+                                gasto.moneda = liquidacion.moneda
                                 gasto.liquidacion = liquidacion
                                 gasto.aceptado = True  # Automáticamente aceptado al asociarlo
                                 gasto.save()
@@ -23392,6 +23431,9 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
         'cuota_liquidacion_inicial': cuotas_inicial[0] if len(cuotas_inicial) == 1 else '',
         'cuotas_liquidacion_inicial': cuotas_inicial,
         'principal_liquidacion_inicial': request.GET.get('principal') == '1',
+        'moneda_inicial': (
+            (contrato.moneda or 'ARS') if contrato else 'ARS'
+        ),
     }
 
     if reserva:
@@ -23753,6 +23795,7 @@ def _fila_operacion_principal_liquidacion(contrato, propiedad):
         'monto_inmobiliaria': '0',
         'dias': 0,
         **comisiones,
+        'moneda': (contrato.moneda or 'ARS'),
     }
 
 
@@ -23796,6 +23839,37 @@ def _mes_vigente_contrato(contrato, hoy=None):
         if fv and fv <= hoy:
             mes = int(c.numero_cuota or mes)
     return max(1, mes)
+
+
+def _cuotas_liquidables_para_contrato(contrato, cuotas_excluidas, sucursal, ids_ya_en_lista=None):
+    """
+    Cuotas incluibles en liquidación para un contrato.
+    Contratos ≥9 meses: ventana completa (cobradas + anticipadas).
+    Contratos más cortos: solo cuotas cobradas o con cobro parcial pendiente de liquidar.
+    """
+    filas = _cuotas_en_ventana_liquidacion(contrato, cuotas_excluidas, sucursal, ids_ya_en_lista)
+    if filas:
+        return filas
+
+    duracion = int(contrato.duracion_meses or 0)
+    if duracion >= 9:
+        return []
+
+    ids_excl = set(cuotas_excluidas or ()) | set(ids_ya_en_lista or ())
+    out = []
+    cuotas_pagadas = list(
+        contrato.cuotas.filter(estado__in=['pagada', 'pagada_con_mora'])
+        .exclude(id__in=ids_excl)
+        .order_by('numero_cuota')
+    )
+    ids_pagadas = {c.id for c in cuotas_pagadas}
+    for cuota in cuotas_pagadas:
+        out.append((cuota, Decimal(str(cuota.monto_total)), False, False))
+    for cuota, monto in _cuotas_cobro_parcial_liquidable(contrato, cuotas_excluidas, sucursal):
+        if cuota.id in ids_pagadas or cuota.id in ids_excl:
+            continue
+        out.append((cuota, monto, True, False))
+    return out
 
 
 def _cuotas_en_ventana_liquidacion(contrato, cuotas_excluidas, sucursal, ids_ya_en_lista=None):
@@ -24281,17 +24355,6 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
     
     # Procesar contratos: cuotas pagadas o con cobro parcial aún no liquidados.
     for contrato in contratos_pendientes:
-        cuotas_pagadas_liq = list(
-            contrato.cuotas.filter(estado__in=['pagada', 'pagada_con_mora'])
-            .exclude(id__in=cuotas_excluidas)
-            .order_by('numero_cuota')
-        )
-        ids_pagadas = {c.id for c in cuotas_pagadas_liq}
-        cuotas_parciales_liq = [
-            (c, m)
-            for c, m in _cuotas_cobro_parcial_liquidable(contrato, cuotas_excluidas, sucursal)
-            if c.id not in ids_pagadas
-        ]
         inq = contrato.inquilino
         nombre_inq = f'{inq.apellido}, {inq.nombre}' if inq else '—'
         prop_label = ((propiedad.direccion or '').strip()[:120] or f'#{propiedad.id}')
@@ -24332,6 +24395,7 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
                 'monto_propietario': str(mp),
                 'monto_inmobiliaria': str(mi),
                 'dias': 30,
+                'moneda': (contrato.moneda or 'ARS'),
             }
             operaciones.append(fila)
 
@@ -24339,7 +24403,7 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
         if fila_op:
             operaciones.append(fila_op)
 
-        filas_cuotas = _cuotas_en_ventana_liquidacion(contrato, cuotas_excluidas, sucursal)
+        filas_cuotas = _cuotas_liquidables_para_contrato(contrato, cuotas_excluidas, sucursal)
         for cuota, monto_mes, parcial, anticipada in filas_cuotas:
             _fila_cuota_liquidable(
                 cuota,
@@ -24351,52 +24415,42 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
         if filas_cuotas or fila_op:
             continue
 
-        if not cuotas_pagadas_liq and not cuotas_parciales_liq:
-            tiene_alguna_pagada = contrato.cuotas.filter(
-                estado__in=['pagada', 'pagada_con_mora']
-            ).exists()
-            if tiene_alguna_pagada:
-                operaciones.append({
-                    'tipo': 'contrato',
-                    'tipo_display': 'Contrato',
-                    'incluible': False,
-                    'id': contrato.id,
-                    'descripcion': (
-                        f'Contrato #{contrato.id} - {nombre_inq} '
-                        f'(cuotas pagadas ya figuran en liquidaciones anteriores)'
-                    ),
-                    'fecha_inicio': contrato.fecha_inicio.strftime('%Y-%m-%d') if contrato.fecha_inicio else '',
-                    'fecha_fin': contrato.fecha_fin.strftime('%Y-%m-%d') if contrato.fecha_fin else '',
-                    'monto_total': '0',
-                    'monto_pagado': '0',
-                    'monto_propietario': '0',
-                    'monto_inmobiliaria': '0',
-                    'dias': 0,
-                })
-            else:
-                operaciones.append({
-                    'tipo': 'contrato',
-                    'tipo_display': 'Contrato',
-                    'incluible': False,
-                    'id': contrato.id,
-                    'descripcion': (
-                        f'Contrato #{contrato.id} - {nombre_inq} '
-                        f'(sin cuotas pagadas aún; no se puede incluir en la liquidación hasta registrar pagos)'
-                    ),
-                    'fecha_inicio': contrato.fecha_inicio.strftime('%Y-%m-%d') if contrato.fecha_inicio else '',
-                    'fecha_fin': contrato.fecha_fin.strftime('%Y-%m-%d') if contrato.fecha_fin else '',
-                    'monto_total': '0',
-                    'monto_pagado': '0',
-                    'monto_propietario': '0',
-                    'monto_inmobiliaria': '0',
-                    'dias': 0,
-                })
-            continue
-
-        for cuota in cuotas_pagadas_liq:
-            _fila_cuota_liquidable(cuota, Decimal(str(cuota.monto_total)), parcial=False)
-        for cuota, monto_parcial in cuotas_parciales_liq:
-            _fila_cuota_liquidable(cuota, monto_parcial, parcial=True)
+        if not contrato.cuotas.filter(estado__in=['pagada', 'pagada_con_mora']).exists():
+            operaciones.append({
+                'tipo': 'contrato',
+                'tipo_display': 'Contrato',
+                'incluible': False,
+                'id': contrato.id,
+                'descripcion': (
+                    f'Contrato #{contrato.id} - {nombre_inq} '
+                    f'(sin cuotas pagadas aún; no se puede incluir en la liquidación hasta registrar pagos)'
+                ),
+                'fecha_inicio': contrato.fecha_inicio.strftime('%Y-%m-%d') if contrato.fecha_inicio else '',
+                'fecha_fin': contrato.fecha_fin.strftime('%Y-%m-%d') if contrato.fecha_fin else '',
+                'monto_total': '0',
+                'monto_pagado': '0',
+                'monto_propietario': '0',
+                'monto_inmobiliaria': '0',
+                'dias': 0,
+            })
+        else:
+            operaciones.append({
+                'tipo': 'contrato',
+                'tipo_display': 'Contrato',
+                'incluible': False,
+                'id': contrato.id,
+                'descripcion': (
+                    f'Contrato #{contrato.id} - {nombre_inq} '
+                    f'(cuotas pagadas ya figuran en liquidaciones anteriores)'
+                ),
+                'fecha_inicio': contrato.fecha_inicio.strftime('%Y-%m-%d') if contrato.fecha_inicio else '',
+                'fecha_fin': contrato.fecha_fin.strftime('%Y-%m-%d') if contrato.fecha_fin else '',
+                'monto_total': '0',
+                'monto_pagado': '0',
+                'monto_propietario': '0',
+                'monto_inmobiliaria': '0',
+                'dias': 0,
+            })
 
     # Ingresos de caja con importe a propietario (servicios, etc.) pendientes de liquidar.
     movimientos_caja_excluidos = _movimientos_caja_excluidos_liquidacion_propiedad(propiedad)
@@ -24932,7 +24986,11 @@ def _context_liquidacion_cobranzas(liquidacion, request=None):
     propiedad = liquidacion.propiedad
     dh = _filas_debe_haber_liquidacion_cobranzas(liquidacion)
 
-    from inmobiliaria.liquidacion_operacion import info_operacion_liquidacion, titulo_tipo_liquidacion_cobranzas
+    from inmobiliaria.liquidacion_operacion import (
+        info_operacion_liquidacion,
+        moneda_liquidacion,
+        titulo_tipo_liquidacion_cobranzas,
+    )
 
     info_op = info_operacion_liquidacion(liquidacion)
 
@@ -24978,6 +25036,7 @@ def _context_liquidacion_cobranzas(liquidacion, request=None):
 
     return {
         'liquidacion': liquidacion,
+        'moneda_liquidacion': moneda_liquidacion(liquidacion),
         'info_operacion_liquidacion': info_op,
         'contrato': contrato,
         'propietario': propietario,
@@ -25337,6 +25396,7 @@ def _dict_gasto_pendiente(gasto, **extra):
         'tipo_movimiento_display': gasto.get_tipo_movimiento_display(),
         'concepto_caja_id': gasto.concepto_caja_id or '',
         'tipo': 'gasto_manual',
+        'moneda': getattr(gasto, 'moneda', 'ARS') or 'ARS',
     }
     data.update(extra)
     return data
@@ -25544,6 +25604,8 @@ def crear_gasto_pendiente(request):
 
             tipo_mov, efecto_inq, operacion = _parse_campos_movimiento_gasto(request.POST)
 
+            from inmobiliaria.liquidacion_operacion import normalizar_moneda
+
             propietario = None
             propiedad = None
             
@@ -25554,12 +25616,28 @@ def crear_gasto_pendiente(request):
                 if not propietario:
                     propietario = propiedad.propietario
 
+            moneda = normalizar_moneda(request.POST.get('moneda'))
+            if not request.POST.get('moneda') and propiedad:
+                contrato_ref = (
+                    ContratoAlquiler.objects.filter(
+                        propiedad=propiedad,
+                        estado__in=['activo', 'reservado'],
+                        sucursal=request.user.sucursal,
+                    )
+                    .order_by('-id')
+                    .only('moneda')
+                    .first()
+                )
+                if contrato_ref:
+                    moneda = normalizar_moneda(contrato_ref.moneda)
+
             gasto = GastoPropietario.objects.create(
                 propietario=propietario,
                 propiedad=propiedad,
                 descripcion=descripcion,
                 concepto_caja_id=concepto.id,
                 monto=monto,
+                moneda=moneda,
                 tipo_movimiento=tipo_mov,
                 efecto_inquilino=efecto_inq,
                 operacion_monto=operacion,

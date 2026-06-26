@@ -25,11 +25,11 @@
                         </thead>
                         <tbody>
                             <tr>
-                                <td>${{ resumen_liquidacion.monto_total|format_price }}</td>
-                                <td class="text-success fw-semibold">${{ resumen_liquidacion.monto_propietario|format_price }}</td>
-                                <td class="text-primary fw-semibold">${{ resumen_liquidacion.monto_inmobiliaria|format_price }}</td>
-                                <td>${{ resumen_liquidacion.monto_cochera|format_price }}</td>
-                                <td>${{ resumen_liquidacion.monto_fondo|format_price }}</td>
+                                <td>{{ resumen_liquidacion.monto_total|format_importe_moneda:resumen_liquidacion.moneda }}</td>
+                                <td class="text-success fw-semibold">{{ resumen_liquidacion.monto_propietario|format_importe_moneda:resumen_liquidacion.moneda }}</td>
+                                <td class="text-primary fw-semibold">{{ resumen_liquidacion.monto_inmobiliaria|format_importe_moneda:resumen_liquidacion.moneda }}</td>
+                                <td>{{ resumen_liquidacion.monto_cochera|format_importe_moneda:resumen_liquidacion.moneda }}</td>
+                                <td>{{ resumen_liquidacion.monto_fondo|format_importe_moneda:resumen_liquidacion.moneda }}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -42,7 +42,7 @@
                                 {% for f in resumen_liquidacion.filas_pago %}
                                 <tr>
                                     <td>{{ f.concepto }}</td>
-                                    <td class="text-end">${{ f.monto|format_price }}</td>
+                                    <td class="text-end">{{ f.monto|format_importe_moneda:resumen_liquidacion.moneda }}</td>
                                 </tr>
                                 {% empty %}
                                 <tr><td colspan="2" class="text-muted text-center py-2">—</td></tr>
@@ -51,7 +51,7 @@
                             <tfoot>
                                 <tr class="table-success fw-bold">
                                     <td>Subtotal al propietario</td>
-                                    <td class="text-end">${{ resumen_liquidacion.subtotal_propietario|format_price }}</td>
+                                    <td class="text-end">{{ resumen_liquidacion.subtotal_propietario|format_importe_moneda:resumen_liquidacion.moneda }}</td>
                                 </tr>
                             </tfoot>
                         </table>
@@ -63,7 +63,7 @@
                                 {% for g in resumen_liquidacion.gastos_filas %}
                                 <tr>
                                     <td>{{ g.descripcion }}</td>
-                                    <td class="text-end">${{ g.monto|format_price }}</td>
+                                    <td class="text-end">{{ g.monto|format_importe_moneda:resumen_liquidacion.moneda }}</td>
                                 </tr>
                                 {% empty %}
                                 <tr><td colspan="2" class="text-muted text-center py-2">Sin gastos descontados</td></tr>
@@ -71,7 +71,7 @@
                                 {% if resumen_liquidacion.monto_fondo > 0 %}
                                 <tr>
                                     <td>Fondo de mantenimiento</td>
-                                    <td class="text-end">${{ resumen_liquidacion.monto_fondo|format_price }}</td>
+                                    <td class="text-end">{{ resumen_liquidacion.monto_fondo|format_importe_moneda:resumen_liquidacion.moneda }}</td>
                                 </tr>
                                 {% endif %}
                             </tbody>
@@ -79,7 +79,7 @@
                             <tfoot>
                                 <tr class="table-danger fw-bold">
                                     <td>Total descontado</td>
-                                    <td class="text-end">${{ resumen_liquidacion.total_descontado|format_price }}</td>
+                                    <td class="text-end">{{ resumen_liquidacion.total_descontado|format_importe_moneda:resumen_liquidacion.moneda }}</td>
                                 </tr>
                             </tfoot>
                             {% endif %}
@@ -88,7 +88,7 @@
                 </div>
                 <div class="mt-3 pt-2 border-top d-flex flex-wrap justify-content-between align-items-center gap-2">
                     <div>
-                        <strong class="fs-6">Neto a pagar al propietario: ${{ resumen_liquidacion.monto_a_pagar|format_price }}</strong>
+                        <strong class="fs-6">Neto a pagar al propietario: {{ resumen_liquidacion.monto_a_pagar|format_importe_moneda:resumen_liquidacion.moneda }}</strong>
                         {% if not resumen_liquidacion.desde_liquidacion and url_liquidacion_operacion %}
                         <div class="small text-muted mt-1">Podés ajustar montos al <a href="{{ url_liquidacion_operacion }}">liquidar esta operación</a>.</div>
                         {% endif %}

@@ -6,7 +6,11 @@
 <div class="container-fluid mt-4">
     <div class="row">
         <div class="col-12">
-            <h1 class="mb-4">💰 Crear Nueva Liquidación</h1>
+            <h1 class="mb-4">💰 Crear Nueva Liquidación
+                <span id="badge-moneda-liquidacion" class="badge {% if moneda_inicial == 'USD' %}bg-info{% else %}bg-secondary{% endif %} ms-2 fs-6 align-middle">
+                    {% if moneda_inicial == 'USD' %}Dólares (USD){% else %}Pesos (ARS){% endif %}
+                </span>
+            </h1>
 
             <div class="card shadow">
                 <div class="card-header bg-primary text-white">
@@ -15,6 +19,7 @@
                 <div class="card-body">
                     <form method="POST" id="formCrearLiquidacion" novalidate>
                         {% csrf_token %}
+                        <input type="hidden" name="moneda" id="moneda_liquidacion" value="{{ moneda_inicial|default:'ARS' }}">
                         {{ propietarios_busqueda|json_script:"propietarios-busqueda-data" }}
                         {{ cuotas_liquidacion_inicial|json_script:"cuotas-liquidacion-inicial-data" }}
                         
@@ -184,7 +189,7 @@
                             <div class="col-md-12">
                                 <div class="alert alert-success">
                                     <strong>Monto Final a Pagar al Propietario:</strong> 
-                                    $<span id="monto-final-pagar">0.00</span>
+                                    <span id="simbolo-monto-final">{% if moneda_inicial == 'USD' %}U$S {% else %}${% endif %}</span><span id="monto-final-pagar">0.00</span>
                                     <small class="text-muted ms-2">(A favor − movimientos en contra + movimientos a favor − fondo; comisiones locador/locatario van aparte en el documento impreso)</small>
                                 </div>
                             </div>
@@ -359,6 +364,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     let cargaPorPropietarioActiva = false;
     let opcionesCargaOperacionesExtra = null;
+    window.monedaLiquidacion = '{{ moneda_inicial|default:"ARS" }}';
+    const monedaLiquidacionInput = document.getElementById('moneda_liquidacion');
+    const badgeMonedaLiquidacion = document.getElementById('badge-moneda-liquidacion');
+    const simboloMontoFinal = document.getElementById('simbolo-monto-final');
     const montoTotal = document.getElementById('monto_total');
     const montoPropietario = document.getElementById('monto_propietario');
     const montoInmobiliaria = document.getElementById('monto_inmobiliaria');
@@ -831,6 +840,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function handleOperacionCheckboxChange(cb) {
         if (!cb.classList.contains('operacion-checkbox')) return;
         if (!cb.checked) {
+            sincronizarMonedaDesdeOperaciones();
             calcularMontosSeleccionados();
             return;
         }
@@ -840,6 +850,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         const otros = Array.from(document.querySelectorAll('.operacion-checkbox:checked')).filter(function(x) { return x !== cb; });
+        const monedaOp = (cb.getAttribute('data-moneda') || 'ARS').toUpperCase();
         for (let i = 0; i < otros.length; i++) {
             const opid = (otros[i].getAttribute('data-propiedad-id') || '').trim();
             if (opid && opid !== pid) {
@@ -847,7 +858,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 cb.checked = false;
                 return;
             }
+            const m2 = (otros[i].getAttribute('data-moneda') || 'ARS').toUpperCase();
+            if (m2 !== monedaOp) {
+                alert('No podés mezclar operaciones en pesos y en dólares en la misma liquidación.');
+                cb.checked = false;
+                return;
+            }
         }
+        actualizarUiMonedaLiquidacion(monedaOp);
         document.querySelectorAll('.gasto-checkbox:checked').forEach(function(g) {
             const gpid = (g.getAttribute('data-propiedad-id') || '').trim();
             if (gpid && gpid !== pid) g.checked = false;
@@ -890,6 +908,13 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         if (gpid && propSel && gpid !== propSel) {
             alert('Ese gasto corresponde a otra propiedad que la de la liquidación.');
+            cb.checked = false;
+            return;
+        }
+        const gMoneda = (cb.getAttribute('data-moneda') || 'ARS').toUpperCase();
+        const liqMoneda = String(window.monedaLiquidacion || 'ARS').toUpperCase();
+        if (gMoneda !== liqMoneda) {
+            alert('Ese movimiento está en ' + (gMoneda === 'USD' ? 'dólares' : 'pesos') + ' y la liquidación en ' + (liqMoneda === 'USD' ? 'dólares' : 'pesos') + '.');
             cb.checked = false;
             return;
         }
@@ -968,12 +993,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 const esPrimeraCuota = op.es_primera_cuota_mensual ? '1' : '0';
                 const comLoc = op.comision_locador || '0';
                 const comLocat = op.comision_locatario || '0';
+                const opMoneda = (op.moneda || 'ARS').toUpperCase();
                 const tdSel = colProp
                     ? `<td><input type="checkbox" class="form-check-input operacion-checkbox"
                            data-tipo="${op.tipo}"
                            data-id="${op.id}"
                            data-contrato-id="${cid}"
                            data-propiedad-id="${pid}"
+                           data-moneda="${opMoneda}"
                            data-concepto-pago="${conceptoPago.replace(/"/g, '&quot;')}"
                            data-monto-total="${op.monto_total}"
                            data-monto-propietario="${op.monto_propietario || '0'}"
@@ -990,6 +1017,7 @@ document.addEventListener('DOMContentLoaded', function() {
                            data-id="${op.id}"
                            data-contrato-id="${cid}"
                            data-propiedad-id="${pid}"
+                           data-moneda="${opMoneda}"
                            data-concepto-pago="${conceptoPago.replace(/"/g, '&quot;')}"
                            data-monto-total="${op.monto_total}"
                            data-monto-propietario="${op.monto_propietario || '0'}"
@@ -1010,7 +1038,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         ${tdProp}
                         <td>${op.fecha_inicio ? new Date(op.fecha_inicio).toLocaleDateString('es-AR') : '-'}</td>
                         <td>${op.fecha_fin ? new Date(op.fecha_fin).toLocaleDateString('es-AR') : '-'}</td>
-                        <td class="text-end">$${parseFloat(op.monto_total).toLocaleString('es-AR', {minimumFractionDigits: 2})}</td>
+                        <td class="text-end">${fmtMonedaLiq(op.monto_total, opMoneda)}</td>
                     </tr>
                 `;
             });
@@ -1033,6 +1061,7 @@ document.addEventListener('DOMContentLoaded', function() {
             `;
 
             lista.innerHTML = html;
+            sincronizarMonedaDesdeOperaciones();
             mostrarGastosPendientes(data.gastos_pendientes || [], colProp);
         } else {
             container.style.display = 'block';
@@ -1308,6 +1337,7 @@ document.addEventListener('DOMContentLoaded', function() {
             tipo_movimiento: g.tipo_movimiento || 'egreso',
             propiedad_id: g.propiedad_id != null ? g.propiedad_id : propiedadId,
             propiedad_label: g.propiedad_label || etiquetaPropiedadSelectActual(),
+            moneda: g.moneda || window.monedaLiquidacion || 'ARS',
         };
     }
 
@@ -1389,12 +1419,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 const conceptoTxt = (gasto.concepto != null && String(gasto.concepto).trim() !== '') ? String(gasto.concepto).trim() : (gasto.descripcion || '—');
                 const descGastoAttr = escHtmlGasto(conceptoTxt).replace(/"/g, '&quot;');
                 const operacion = operacionDesdeTipoMovimiento(gasto);
+                const gMoneda = (gasto.moneda || window.monedaLiquidacion || 'ARS').toUpperCase();
                 const tdSel = mostrarCol
                     ? `<td><input type="checkbox" class="form-check-input gasto-checkbox"
                            name="gastos_seleccionados[]"
                            value="${gasto.id}"
                            data-gasto-id="${gasto.id}"
                            data-propiedad-id="${gpid}"
+                           data-moneda="${gMoneda}"
                            data-monto="${gasto.monto}"
                            data-operacion="${operacion}"
                            data-descripcion="${descGastoAttr}"></td>`
@@ -1403,6 +1435,7 @@ document.addEventListener('DOMContentLoaded', function() {
                            value="${gasto.id}"
                            data-gasto-id="${gasto.id}"
                            data-propiedad-id="${gpid}"
+                           data-moneda="${gMoneda}"
                            data-monto="${gasto.monto}"
                            data-operacion="${operacion}"
                            data-descripcion="${descGastoAttr}"></td>`;
@@ -1418,7 +1451,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <td>${detalleCell}</td>
                         ${tdPropG}
                         <td>${gasto.fecha_gasto ? new Date(gasto.fecha_gasto).toLocaleDateString('es-AR') : '-'}</td>
-                        <td class="text-end">${operacion === 'suma' ? '+' : '−'}$${parseFloat(gasto.monto).toLocaleString('es-AR', {minimumFractionDigits: 2})}</td>
+                        <td class="text-end">${operacion === 'suma' ? '+' : '−'}${fmtMonedaLiq(gasto.monto, gMoneda)}</td>
                         <td class="text-end">
                             <button type="button" class="btn btn-sm btn-outline-danger btn-eliminar-mov-pendiente"
                                     data-linea-id="${escHtmlGasto(String(gasto.id))}"
@@ -1444,6 +1477,7 @@ document.addEventListener('DOMContentLoaded', function() {
             `;
 
             lista.innerHTML = html;
+            sincronizarMonedaDesdeOperaciones();
         } else {
             lista.innerHTML = '';
             sinGastos.style.display = 'block';
@@ -1652,6 +1686,43 @@ document.addEventListener('DOMContentLoaded', function() {
         }).format(Number(numero) || 0);
     }
 
+    function simboloMonedaLiq(m) {
+        return String(m || window.monedaLiquidacion || 'ARS').toUpperCase() === 'USD' ? 'U$S ' : '$';
+    }
+
+    function fmtMonedaLiq(numero, moneda) {
+        return simboloMonedaLiq(moneda) + formatearNumero(numero);
+    }
+
+    function actualizarUiMonedaLiquidacion(moneda) {
+        const m = String(moneda || 'ARS').toUpperCase() === 'USD' ? 'USD' : 'ARS';
+        window.monedaLiquidacion = m;
+        if (monedaLiquidacionInput) monedaLiquidacionInput.value = m;
+        if (badgeMonedaLiquidacion) {
+            badgeMonedaLiquidacion.textContent = m === 'USD' ? 'Dólares (USD)' : 'Pesos (ARS)';
+            badgeMonedaLiquidacion.classList.toggle('bg-info', m === 'USD');
+            badgeMonedaLiquidacion.classList.toggle('bg-secondary', m !== 'USD');
+        }
+        if (simboloMontoFinal) simboloMontoFinal.textContent = simboloMonedaLiq(m);
+    }
+
+    function monedasOperacionesSeleccionadas() {
+        const monedas = new Set();
+        document.querySelectorAll('.operacion-checkbox:checked').forEach(function(cb) {
+            monedas.add(String(cb.getAttribute('data-moneda') || 'ARS').toUpperCase());
+        });
+        return monedas;
+    }
+
+    function sincronizarMonedaDesdeOperaciones() {
+        const monedas = monedasOperacionesSeleccionadas();
+        if (monedas.size === 1) {
+            actualizarUiMonedaLiquidacion(Array.from(monedas)[0]);
+        } else if (monedas.size === 0) {
+            actualizarUiMonedaLiquidacion(monedaLiquidacionInput ? monedaLiquidacionInput.value : 'ARS');
+        }
+    }
+
     // Parsear "630.000,00", "630000" o "350080.20" (un punto = decimal) a número
     function parseNumeroEsAR(val) {
         if (val == null || val === '') return 0;
@@ -1826,7 +1897,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (pagosFoot) pagosFoot.classList.add('d-none');
         } else {
             pagosBody.innerHTML = filasAFavor.map(function(f) {
-                return '<tr><td>' + f.concepto + '</td><td class="text-end">$' + formatearNumero(f.monto.toFixed(2)) + '</td></tr>';
+                return '<tr><td>' + f.concepto + '</td><td class="text-end">' + fmtMonedaLiq(f.monto.toFixed(2)) + '</td></tr>';
             }).join('');
             const elTotalPagos = document.getElementById('resumen-total-pagos');
             if (elTotalPagos) elTotalPagos.textContent = formatearNumero(totalAFavor.toFixed(2));
@@ -1870,7 +1941,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (gastosFoot) gastosFoot.classList.add('d-none');
         } else {
             gastosBody.innerHTML = filasContra.map(function(f) {
-                return '<tr><td>' + f.concepto + '</td><td class="text-end">$' + formatearNumero(f.monto.toFixed(2)) + '</td></tr>';
+                return '<tr><td>' + f.concepto + '</td><td class="text-end">' + fmtMonedaLiq(f.monto.toFixed(2)) + '</td></tr>';
             }).join('');
             const elTotalGastos = document.getElementById('resumen-total-gastos');
             if (elTotalGastos) elTotalGastos.textContent = formatearNumero(totalContra.toFixed(2));
@@ -2095,6 +2166,15 @@ document.addEventListener('DOMContentLoaded', function() {
             return false;
         }
 
+        const monedasOps = monedasOperacionesSeleccionadas();
+        if (monedasOps.size > 1) {
+            alert('No podés mezclar operaciones en pesos y en dólares en la misma liquidación.');
+            return false;
+        }
+        if (monedasOps.size === 1) {
+            actualizarUiMonedaLiquidacion(Array.from(monedasOps)[0]);
+        }
+
         const opsMarcadas = document.querySelectorAll('.operacion-checkbox:checked');
         if (opsMarcadas.length === 0) {
             alert('Tildá al menos una operación (reserva o cuota) que estés liquidando.');
@@ -2112,6 +2192,12 @@ document.addEventListener('DOMContentLoaded', function() {
             const gpid = (gastosMarcados[j].getAttribute('data-propiedad-id') || '').trim();
             if (gpid && gpid !== propIdForm) {
                 alert('Hay gastos marcados que no corresponden a la propiedad de la liquidación.');
+                return false;
+            }
+            const gMon = (gastosMarcados[j].getAttribute('data-moneda') || 'ARS').toUpperCase();
+            const liqMon = String(window.monedaLiquidacion || 'ARS').toUpperCase();
+            if (gMon !== liqMon) {
+                alert('Hay movimientos en contra con moneda distinta a la liquidación.');
                 return false;
             }
         }
@@ -2176,6 +2262,11 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('Seleccioná una propiedad o tildá al menos una operación primero.');
             return;
         }
+        const lblMonto = document.getElementById('movimiento_monto_label');
+        if (lblMonto) {
+            const m = String(window.monedaLiquidacion || 'ARS').toUpperCase();
+            lblMonto.innerHTML = 'Monto (' + (m === 'USD' ? 'USD' : 'ARS') + ') <span class="text-danger">*</span>';
+        }
         const modal = new bootstrap.Modal(document.getElementById('modalAgregarGasto'));
         modal.show();
     };
@@ -2196,6 +2287,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (propietarioId) {
                 formData.append('propietario_id', propietarioId);
             }
+            formData.append('moneda', window.monedaLiquidacion || 'ARS');
 
             fetch('{% url "inmobiliaria:crear_gasto_pendiente" %}', {
                 method: 'POST',

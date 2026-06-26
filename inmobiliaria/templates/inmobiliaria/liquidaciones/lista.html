@@ -144,7 +144,7 @@
                                         <span class="text-muted">—</span>
                                         {% endif %}
                                     </td>
-                                    <td class="text-end"><strong>${{ liquidacion.monto_a_pagar|format_price }}</strong></td>
+                                    <td class="text-end"><strong>{{ liquidacion.monto_a_pagar|format_importe_moneda:liquidacion.moneda }}</strong></td>
                                     <td class="small text-nowrap">
                                         {% if liquidacion.fecha_desde or liquidacion.fecha_hasta %}
                                             {{ liquidacion.fecha_desde|date:"d/m/Y"|default:"—" }}

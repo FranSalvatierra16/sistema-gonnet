@@ -36,7 +36,7 @@
         {% endif %}
         {% if locacion_mensual %}
         <div class="liq-cobranzas-meta">
-            <span><strong>Locación mensual:</strong> {{ locacion_mensual|format_price }}</span>
+            <span><strong>Locación mensual:</strong> {{ locacion_mensual|format_importe_moneda:moneda_liquidacion }}</span>
         </div>
         {% endif %}
         {% if datos_pago.titular or datos_pago.banco or datos_pago.cuenta_cbu %}
@@ -79,8 +79,8 @@
                     </div>
                     {% endif %}
                 </td>
-                <td class="col-importe text-end">{% if fila.debe %}{{ fila.debe|format_price }}{% endif %}</td>
-                <td class="col-importe text-end">{% if fila.haber %}{{ fila.haber|format_price }}{% endif %}</td>
+                <td class="col-importe text-end">{% if fila.debe %}{{ fila.debe|format_importe_moneda:moneda_liquidacion }}{% endif %}</td>
+                <td class="col-importe text-end">{% if fila.haber %}{{ fila.haber|format_importe_moneda:moneda_liquidacion }}{% endif %}</td>
             </tr>
             {% empty %}
             <tr>
@@ -91,15 +91,15 @@
         <tfoot>
             <tr class="liq-cobranzas-totales">
                 <td class="col-detalle"><strong>TOTALES</strong></td>
-                <td class="col-importe text-end"><strong>{{ total_debe|format_price }}</strong></td>
-                <td class="col-importe text-end"><strong>{{ total_haber|format_price }}</strong></td>
+                <td class="col-importe text-end"><strong>{{ total_debe|format_importe_moneda:moneda_liquidacion }}</strong></td>
+                <td class="col-importe text-end"><strong>{{ total_haber|format_importe_moneda:moneda_liquidacion }}</strong></td>
             </tr>
             <tr class="liq-cobranzas-saldo">
                 <td colspan="3" class="text-end">
                     {% if saldo_favor < 0 %}
-                    <strong>Saldo en SU contra: {{ saldo_favor|format_price }}</strong>
+                    <strong>Saldo en SU contra: {{ saldo_favor|format_importe_moneda:moneda_liquidacion }}</strong>
                     {% else %}
-                    <strong>Saldo a SU favor: {{ saldo_favor|format_price }}</strong>
+                    <strong>Saldo a SU favor: {{ saldo_favor|format_importe_moneda:moneda_liquidacion }}</strong>
                     {% endif %}
                 </td>
             </tr>

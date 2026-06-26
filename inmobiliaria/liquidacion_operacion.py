@@ -3,6 +3,19 @@ from django.urls import reverse
 
 from inmobiliaria.models.comision import clasificar_tipo_operacion_reserva
 
+MONEDA_ARS = 'ARS'
+MONEDA_USD = 'USD'
+
+
+def normalizar_moneda(val):
+    m = str(val or MONEDA_ARS).strip().upper()
+    return MONEDA_USD if m == MONEDA_USD else MONEDA_ARS
+
+
+def simbolo_moneda(moneda):
+    return 'U$S' if normalizar_moneda(moneda) == MONEDA_USD else '$'
+
+
 ETIQUETAS_TIPO_OPERACION = {
     'dia': 'Por día',
     'estudiante': 'Estudiante',
@@ -101,6 +114,16 @@ def contrato_desde_liquidacion(liquidacion):
         .first()
     )
     return cq.contrato if cq else None
+
+
+def moneda_liquidacion(liquidacion):
+    """Moneda efectiva de una liquidación (campo propio o contrato vinculado)."""
+    if liquidacion and getattr(liquidacion, 'moneda', None):
+        return normalizar_moneda(liquidacion.moneda)
+    contrato = contrato_desde_liquidacion(liquidacion)
+    if contrato:
+        return normalizar_moneda(getattr(contrato, 'moneda', MONEDA_ARS))
+    return MONEDA_ARS
 
 
 def reserva_desde_liquidacion(liquidacion):

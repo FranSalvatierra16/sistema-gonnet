@@ -13,7 +13,7 @@
                 <div>
                     <h1 class="mb-2">💰 Detalle de Liquidación #{{ liquidacion.id }}</h1>
                     <p class="lead mb-0 text-success fw-semibold">
-                        Monto total a pagar al propietario: ${{ liquidacion.monto_a_pagar|format_price }}
+                        Monto total a pagar al propietario: {{ liquidacion.monto_a_pagar|format_importe_moneda:liquidacion.moneda }}
                     </p>
                 </div>
                 <div class="d-flex flex-wrap gap-2">
