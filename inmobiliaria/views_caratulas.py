@@ -80,8 +80,14 @@ def _leer_carpeta_db(kind, op_id=None, reserva=None, contrato=None):
         if obj is None and op_id:
             obj = ContratoAlquiler.objects.filter(pk=op_id).only('numero_carpeta').first()
         if obj and (getattr(obj, 'numero_carpeta', None) or '').strip():
-            return _normalizar_carpeta(obj.numero_carpeta)
+            val = _normalizar_carpeta(obj.numero_carpeta)
+            return val if val != '0' else None
     return None
+
+
+def _carpeta_guardada_operacion(contrato=None, op_id=None):
+    """Nº carpeta persistido en la operación (solo BD). None si no tiene asignado."""
+    return _leer_carpeta_db('contrato', op_id, contrato=contrato)
 
 
 def _carpeta_para_operacion(request, kind, op_id, reserva=None, contrato=None, fallback=None):
@@ -1527,7 +1533,7 @@ def _build_legacy_contrato(contrato, cuotas, tipo_label, carpeta_override=None, 
         'origen_operacion': _origen_operacion_sucursal(contrato.sucursal),
         'estado_txt': contrato.get_estado_display(),
         'locacion_mensual': _formato_importe_us(contrato.precio_mensual),
-        'carpeta': _normalizar_carpeta(carpeta_override) if carpeta_override is not None else '0',
+        'carpeta': _normalizar_carpeta(carpeta_override) if carpeta_override else '—',
         'tipo_operacion_str': tipo_label,
     }
 
@@ -1760,7 +1766,7 @@ def lista_caratulas(request):
         )
 
     for c in contratos:
-        carpeta_hist = _carpeta_para_operacion(request, 'contrato', c.id, contrato=c)
+        carpeta_hist = _carpeta_guardada_operacion(contrato=c)
         tipo_c = _tipo_label_contrato_caratula(c)
         p = c.propiedad
         piso_dto = ''
@@ -1791,7 +1797,7 @@ def lista_caratulas(request):
                 'piso_dto': piso_dto,
                 'ficha': p.id if p else '—',
                 'estado': c.get_estado_display() if hasattr(c, 'get_estado_display') else c.estado,
-                'carpeta': carpeta_hist,
+                'carpeta': carpeta_hist or '—',
                 'sort': c.fecha_creacion,
                 'tiene_liquidacion': tiene_liquidacion,
                 'liquidacion_id': liquidacion_id,
@@ -2009,7 +2015,8 @@ def caratula_contrato(request, contrato_id):
     _enriquecer_cuotas_liquidacion(cuotas_list, contrato, contrato.sucursal, movimientos=movimientos)
 
     tipo_label = _tipo_label_contrato_caratula(contrato)
-    carpeta_actual = _carpeta_para_operacion(request, 'contrato', contrato.id, contrato=contrato)
+    carpeta_guardada = _carpeta_guardada_operacion(contrato=contrato)
+    carpeta_actual = carpeta_guardada if carpeta_guardada is not None else _carpeta_default_actual(request)
     from inmobiliaria.views import _liquidacion_operacion_principal_contrato
 
     liquidacion_hon = _liquidacion_operacion_principal_contrato(contrato)
@@ -2047,7 +2054,7 @@ def caratula_contrato(request, contrato_id):
         contrato,
         cuotas_list,
         tipo_label,
-        carpeta_override=carpeta_actual,
+        carpeta_override=carpeta_guardada,
         movimientos=movimientos,
         liquidacion=liquidacion_hon,
         override=override,
@@ -2178,7 +2185,7 @@ def imprimir_caratula_contrato(request, contrato_id):
         contrato,
         cuotas,
         tipo_label,
-        carpeta_override=_carpeta_para_operacion(request, 'contrato', contrato.id, contrato=contrato),
+        carpeta_override=_carpeta_guardada_operacion(contrato=contrato),
         movimientos=movs_legacy,
     )
     filas_contab = _contabilizacion_para_contrato(contrato)
