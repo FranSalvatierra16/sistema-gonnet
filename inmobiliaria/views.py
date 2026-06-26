@@ -23743,15 +23743,15 @@ def _mes_vigente_contrato(contrato, hoy=None):
 
 def _cuotas_en_ventana_liquidacion(contrato, cuotas_excluidas, sucursal, ids_ya_en_lista=None):
     """
-    Cuotas liquidables (9 / 24 meses): meses anteriores sin liquidar,
-    mes vigente y un mes siguiente (aunque el inquilino aún no haya pagado).
+    Cuotas liquidables en contratos 9 / 24 meses (invierno y largo):
+    todas las del plan que aún no figuran en otra liquidación (cobradas o anticipadas).
     """
     if not _contrato_es_alquiler_mensual_largo(contrato):
         return []
     duracion = int(contrato.duracion_meses or 0)
     if duracion < 9:
         return []
-    limite_num = min(_mes_vigente_contrato(contrato) + 1, duracion)
+    limite_num = duracion
     ids_excl = set(cuotas_excluidas or ()) | set(ids_ya_en_lista or ())
     parciales_map = {
         c.id: m for c, m in _cuotas_cobro_parcial_liquidable(contrato, cuotas_excluidas, sucursal)
@@ -24992,8 +24992,6 @@ def _context_liquidacion_cobranzas(liquidacion, request=None):
     datos_pago = {}
     if propietario:
         titular = (propietario.cuenta_titular or '').strip()
-        if not titular:
-            titular = f'{propietario.apellido or ""}, {propietario.nombre or ""}'.strip(', ').strip()
         banco = (propietario.cuenta_banco or '').strip()
         cuenta_cbu = (
             (propietario.cuenta_cbu_alias or '').strip()

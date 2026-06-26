@@ -782,9 +782,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (!delContrato.length) {
                     alert(
                         'Se cargó la propiedad del contrato/reserva #' + q + ', pero no hay cuotas o reservas '
-                        + 'pendientes de liquidar. Para contratos de 9/24 meses podés liquidar el mes siguiente '
-                        + 'por anticipado (aunque el inquilino aún no haya pagado), siempre que el mes anterior '
-                        + 'ya esté liquidado. Podés liquidar otras cuotas aunque haya liquidaciones pendientes del mismo contrato.'
+                        + 'pendientes de liquidar. En contratos de 9/24 meses podés liquidar cualquier cuota '
+                        + 'aún no incluida en otra liquidación (cobrada o por anticipado).'
                     );
                 }
                 tildarCuotaInicialSiCorresponde();
@@ -1023,7 +1022,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <i class="fas fa-info-circle me-1"></i>
                         <strong>Por día</strong> son reservas por estadía. Cada <strong>Cuota mensual</strong> pagada pendiente de liquidar es una fila distinta (mismo contrato = varias filas si cobraste varios meses).
                         La <strong>Operación principal</strong> (badge verde, cuota 1) incluye honorarios/comisiones del alta en contratos de 9 meses o más.
-                        En contratos de <strong>9 o 24 meses</strong> también aparece el <strong>mes siguiente por anticipado</strong> (badge amarillo), aunque el inquilino aún no haya pagado.
+                        En contratos de <strong>9 o 24 meses</strong> podés liquidar <strong>todas las cuotas</strong> del plan que aún no estén en otra liquidación (pagadas o anticipadas).
                         Los <strong>Pago a favor</strong> son ingresos de caja con importe imputado al propietario (servicios, etc.) que aún no liquidaste.
                         Tras liquidar, las cuotas nuevas que cobres vuelven a aparecer como filas nuevas.
                         Las filas atenuadas con casilla deshabilitada son solo referencia.

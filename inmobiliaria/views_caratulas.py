@@ -740,9 +740,8 @@ def _mapa_liquidacion_por_cuota_contrato(contrato):
 
 def _cuotas_liquidables_contrato(contrato, sucursal):
     """
-    Cuotas que corresponden a la próxima liquidación del contrato.
-    Incluye cobradas no liquidadas y la cuota siguiente por anticipado (9/24 meses).
-    No aplica el bloqueo por liquidación pendiente (solo afecta al alta en caja).
+    Cuotas que corresponden a liquidar del contrato (9/24 meses).
+    Incluye cobradas no liquidadas y cuotas anticipadas pendientes de cobro.
     """
     from inmobiliaria.views import (
         _cuotas_excluidas_por_liquidaciones_contrato,
