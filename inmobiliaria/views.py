@@ -24443,7 +24443,7 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
             'dias': 0,
         })
     
-    # Gastos pendientes: solo deudas por liquidaciones cerradas con saldo en contra del propietario.
+    # Gastos pendientes: liquidaciones en negativo + movimientos manuales cargados (Agregar Movimiento).
     gastos_saldo_negativo = GastoPropietario.objects.filter(
         liquidacion__isnull=True,
         sucursal=sucursal,
@@ -24452,15 +24452,34 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
         observaciones__contains='liquidacion_pendiente_origen:',
     ).order_by('-fecha_creacion')
 
-    gastos_pendientes_list = [
-        _dict_gasto_saldo_negativo_liquidacion(gasto) for gasto in gastos_saldo_negativo
-    ]
+    gastos_manuales = (
+        GastoPropietario.objects.filter(
+            liquidacion__isnull=True,
+            sucursal=sucursal,
+            propiedad=propiedad,
+        )
+        .exclude(observaciones__contains='liquidacion_pendiente_origen:')
+        .exclude(observaciones__icontains='Movimiento de caja #')
+        .order_by('-fecha_creacion')
+    )
+
+    gastos_pendientes_list = []
+    vistos = set()
+    for gasto in gastos_saldo_negativo:
+        gastos_pendientes_list.append(_dict_gasto_saldo_negativo_liquidacion(gasto))
+        vistos.add(gasto.id)
+    for gasto in gastos_manuales:
+        if gasto.id in vistos:
+            continue
+        obs = (gasto.observaciones or '').strip()
+        gastos_pendientes_list.append(_dict_gasto_pendiente(gasto, detalle=obs))
 
     return {
         'operaciones': operaciones,
         'gastos_pendientes': gastos_pendientes_list,
         'debug': {
-            'total_gastos_saldo_negativo': len(gastos_pendientes_list),
+            'total_gastos_saldo_negativo': gastos_saldo_negativo.count(),
+            'total_gastos_manuales': gastos_manuales.count(),
         },
     }
 
@@ -25549,18 +25568,15 @@ def crear_gasto_pendiente(request):
                 sucursal=request.user.sucursal
             )
 
+            gasto_payload = _dict_gasto_pendiente(gasto)
+            if propiedad:
+                gasto_payload['propiedad_id'] = propiedad.id
+                gasto_payload['propiedad_label'] = _etiqueta_propiedad_liquidacion(propiedad)
+
             return JsonResponse({
                 'success': True,
                 'message': 'Movimiento pendiente creado correctamente.',
-                'gasto': {
-                    'id': gasto.id,
-                    'descripcion': gasto.descripcion,
-                    'concepto_caja_id': gasto.concepto_caja_id,
-                    'monto': str(gasto.monto),
-                    'fecha_gasto': gasto.fecha_gasto.strftime('%Y-%m-%d') if gasto.fecha_gasto else '',
-                    'observaciones': gasto.observaciones,
-                    'tipo_movimiento': gasto.tipo_movimiento,
-                }
+                'gasto': gasto_payload,
             })
 
         except ValueError as e:

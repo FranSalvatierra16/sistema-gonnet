@@ -119,7 +119,7 @@
                             <div class="col-12">
                                 <div class="card border-warning">
                                     <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
-                                        <h6 class="mb-0"><i class="fas fa-exchange-alt me-2"></i>Liquidaciones en negativo a descontar</h6>
+                                        <h6 class="mb-0"><i class="fas fa-exchange-alt me-2"></i>Descuentos y movimientos en contra</h6>
                                         <button type="button" class="btn btn-sm btn-light" onclick="mostrarModalAgregarMovimiento()">
                                             <i class="fas fa-plus me-1"></i>Agregar Movimiento
                                         </button>
@@ -129,7 +129,7 @@
                                             <!-- Se llenará dinámicamente -->
                                         </div>
                                         <div id="sin-gastos" class="alert alert-info mb-0" style="display: none;">
-                                            <i class="fas fa-info-circle me-2"></i>No hay liquidaciones con saldo en contra pendientes de descontar. Otros gastos (EDEA, servicios, etc.) cargalos con <strong>Agregar Movimiento</strong>.
+                                            <i class="fas fa-info-circle me-2"></i>No hay descuentos pendientes. Cargá gastos (EDEA, comisiones, etc.) con <strong>Agregar Movimiento</strong>.
                                         </div>
                                     </div>
                                 </div>
@@ -878,7 +878,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function handleGastoCheckboxChange(cb) {
         if (!cb.classList.contains('gasto-checkbox')) return;
         if (!cb.checked) {
-            calcularMontosSeleccionados();
+            actualizarResumenLiquidacion();
             return;
         }
         const gpid = (cb.getAttribute('data-propiedad-id') || '').trim();
@@ -908,6 +908,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
         }
+        registrarGastoContraEnOrden(cb.value);
         calcularMontosSeleccionados();
     }
 
@@ -1048,7 +1049,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 });
             });
-            calcularMontosSeleccionados();
         }
         if (extraCarga && extraCarga.restaurarOperaciones && extraCarga.restaurarOperaciones.length) {
             restaurarOperacionesMarcadas(extraCarga.restaurarOperaciones);
@@ -1056,6 +1056,7 @@ document.addEventListener('DOMContentLoaded', function() {
             restaurarOperacionesMarcadas([extraCarga.restaurarOperacion]);
         }
         restaurarGastosMarcados(extraCarga);
+        finalizarRestauracionPendientes(extraCarga);
     }
 
     function capturarSeleccionPendientesParaRecarga() {
@@ -1066,8 +1067,55 @@ document.addEventListener('DOMContentLoaded', function() {
             restaurarGastosIds: Array.from(document.querySelectorAll('.gasto-checkbox:checked')).map(function(x) {
                 return String(x.value);
             }),
+            montoTotal: montoTotal.value,
+            montoPropietario: montoPropietario.value,
+            montoInmobiliaria: montoInmobiliaria.value,
+            montoFondo: montoFondoMantenimiento ? montoFondoMantenimiento.value : '',
+            montoCochera: montoCochera ? montoCochera.value : '',
+            fechaDesde: (document.querySelector('input[name="fecha_desde"]') || {}).value || '',
+            fechaHasta: (document.querySelector('input[name="fecha_hasta"]') || {}).value || '',
+            montosEditadosManualmente: montosEditadosManualmente,
+            ordenGastosContra: (window._ordenGastosContraLiq || []).slice(),
         };
     }
+
+    function restaurarEstadoFormularioLiquidacion(extraCarga) {
+        if (!extraCarga) return;
+        if (extraCarga.montosEditadosManualmente) {
+            montosEditadosManualmente = true;
+        }
+        if (extraCarga.montoTotal != null && extraCarga.montoTotal !== '') {
+            montoTotal.value = extraCarga.montoTotal;
+        }
+        if (extraCarga.montoPropietario != null && extraCarga.montoPropietario !== '') {
+            montoPropietario.value = extraCarga.montoPropietario;
+        }
+        if (extraCarga.montoInmobiliaria != null && extraCarga.montoInmobiliaria !== '') {
+            montoInmobiliaria.value = extraCarga.montoInmobiliaria;
+        }
+        if (montoFondoMantenimiento && extraCarga.montoFondo != null && extraCarga.montoFondo !== '') {
+            montoFondoMantenimiento.value = extraCarga.montoFondo;
+        }
+        if (montoCochera && extraCarga.montoCochera != null && extraCarga.montoCochera !== '') {
+            montoCochera.value = extraCarga.montoCochera;
+        }
+        const inpDesde = document.querySelector('input[name="fecha_desde"]');
+        const inpHasta = document.querySelector('input[name="fecha_hasta"]');
+        if (inpDesde && extraCarga.fechaDesde) inpDesde.value = extraCarga.fechaDesde;
+        if (inpHasta && extraCarga.fechaHasta) inpHasta.value = extraCarga.fechaHasta;
+        if (extraCarga.ordenGastosContra && extraCarga.ordenGastosContra.length) {
+            window._ordenGastosContraLiq = extraCarga.ordenGastosContra.slice();
+        }
+    }
+
+    function registrarGastoContraEnOrden(gastoId) {
+        if (gastoId == null || gastoId === '') return;
+        window._ordenGastosContraLiq = window._ordenGastosContraLiq || [];
+        const sid = String(gastoId);
+        window._ordenGastosContraLiq = window._ordenGastosContraLiq.filter(function(x) { return x !== sid; });
+        window._ordenGastosContraLiq.push(sid);
+    }
+    window.registrarGastoContraEnOrden = registrarGastoContraEnOrden;
 
     function restaurarGastosMarcados(extraCarga) {
         if (!extraCarga) return;
@@ -1080,9 +1128,25 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         if (!ids.size) return;
         document.querySelectorAll('.gasto-checkbox').forEach(function(el) {
-            if (ids.has(String(el.value))) el.checked = true;
+            if (ids.has(String(el.value))) {
+                el.checked = true;
+                registrarGastoContraEnOrden(el.value);
+            }
         });
-        calcularMontosSeleccionados();
+    }
+
+    function finalizarRestauracionPendientes(extraCarga) {
+        restaurarEstadoFormularioLiquidacion(extraCarga);
+        const hayMontosGuardados = extraCarga && (
+            extraCarga.montosEditadosManualmente
+            || (extraCarga.montoPropietario && String(extraCarga.montoPropietario).trim() !== '')
+            || (extraCarga.montoTotal && String(extraCarga.montoTotal).trim() !== '')
+        );
+        if (hayMontosGuardados) {
+            actualizarResumenLiquidacion();
+        } else {
+            calcularMontosSeleccionados();
+        }
     }
 
     // Función para cargar operaciones pendientes (una propiedad)
@@ -1220,15 +1284,84 @@ document.addEventListener('DOMContentLoaded', function() {
         return { restas: restas, sumas: sumas, netoDescuento: restas - sumas };
     }
 
+    window._gastosExtraLocal = window._gastosExtraLocal || [];
+    window._ultimosGastosServidor = window._ultimosGastosServidor || [];
+    window._ultimaColPropGastos = false;
+
+    function etiquetaPropiedadSelectActual() {
+        const sel = document.getElementById('propiedad_id');
+        if (!sel || !sel.selectedOptions || !sel.selectedOptions.length) return '';
+        return (sel.selectedOptions[0].textContent || '').trim();
+    }
+
+    function gastoDictDesdeApiRespuesta(g, propiedadId) {
+        const obs = (g.observaciones || '').trim();
+        return {
+            id: g.id,
+            descripcion: g.descripcion || '',
+            concepto: (g.concepto != null && String(g.concepto).trim() !== '')
+                ? String(g.concepto).trim()
+                : (g.descripcion || '—'),
+            detalle: obs,
+            monto: String(g.monto),
+            fecha_gasto: g.fecha_gasto || '',
+            tipo_movimiento: g.tipo_movimiento || 'egreso',
+            propiedad_id: g.propiedad_id != null ? g.propiedad_id : propiedadId,
+            propiedad_label: g.propiedad_label || etiquetaPropiedadSelectActual(),
+        };
+    }
+
+    function fusionarGastosPendientes(serverGastos) {
+        window._ultimosGastosServidor = serverGastos || [];
+        const serverIds = new Set((window._ultimosGastosServidor || []).map(function(s) {
+            return String(s.id);
+        }));
+        window._gastosExtraLocal = (window._gastosExtraLocal || []).filter(function(g) {
+            return !serverIds.has(String(g.id));
+        });
+        const merged = (window._ultimosGastosServidor || []).slice();
+        const ids = new Set(merged.map(function(x) { return String(x.id); }));
+        (window._gastosExtraLocal || []).forEach(function(g) {
+            const gid = String(g.id);
+            if (!ids.has(gid)) {
+                merged.push(g);
+                ids.add(gid);
+            }
+        });
+        return merged;
+    }
+
+    function incorporarGastoRecienCreado(gastoApi, propiedadId) {
+        if (!gastoApi || gastoApi.id == null) return;
+        window._gastosExtraLocal = window._gastosExtraLocal || [];
+        const g = gastoDictDesdeApiRespuesta(gastoApi, propiedadId);
+        if (!window._gastosExtraLocal.some(function(x) { return String(x.id) === String(g.id); })) {
+            window._gastosExtraLocal.push(g);
+        }
+        mostrarGastosPendientes(window._ultimosGastosServidor || [], window._ultimaColPropGastos);
+        marcarMontosEditadosManualmente();
+        const cb = document.querySelector('.gasto-checkbox[data-gasto-id="' + g.id + '"]');
+        if (cb) {
+            cb.checked = true;
+            handleGastoCheckboxChange(cb);
+        } else {
+            registrarGastoContraEnOrden(g.id);
+            actualizarResumenLiquidacion();
+        }
+    }
+    window.incorporarGastoRecienCreado = incorporarGastoRecienCreado;
+
     // Función para mostrar movimientos pendientes
     function mostrarGastosPendientes(gastos, colProp) {
         const container = document.getElementById('gastos-pendientes-container');
         const lista = document.getElementById('gastos-pendientes-lista');
         const sinGastos = document.getElementById('sin-gastos');
         const mostrarCol = Boolean(colProp);
+        window._ultimaColPropGastos = mostrarCol;
+        const gastosMerged = fusionarGastosPendientes(gastos);
 
         container.style.display = 'block';
-        if (gastos && gastos.length > 0) {
+        if (gastosMerged && gastosMerged.length > 0) {
             sinGastos.style.display = 'none';
 
             const thSelG = mostrarCol ? '<th width="40"></th>' : '<th width="50"><input type="checkbox" id="seleccionar-todos-gastos" class="form-check-input"></th>';
@@ -1251,7 +1384,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <tbody>
             `;
 
-            gastos.forEach(function(gasto) {
+            gastosMerged.forEach(function(gasto) {
                 const gpid = gasto.propiedad_id != null ? String(gasto.propiedad_id) : '';
                 const conceptoTxt = (gasto.concepto != null && String(gasto.concepto).trim() !== '') ? String(gasto.concepto).trim() : (gasto.descripcion || '—');
                 const descGastoAttr = escHtmlGasto(conceptoTxt).replace(/"/g, '&quot;');
@@ -1304,8 +1437,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="mt-2">
                     <small class="text-muted">
                         <i class="fas fa-info-circle me-1"></i>
-                        Seleccioná las liquidaciones en negativo a descontar del pago al propietario.
-                        Para otros gastos (EDEA, servicios, comisiones, etc.) usá <strong>Agregar Movimiento</strong>.
+                        Seleccioná los descuentos a incluir. Para cargar uno nuevo usá <strong>Agregar Movimiento</strong>; aparece abajo en el resumen en el orden en que lo agregues.
                         ${mostrarCol ? 'Solo podés incluir gastos de la misma propiedad que las operaciones elegidas.' : ''}
                     </small>
                 </div>
@@ -1701,16 +1833,30 @@ document.addEventListener('DOMContentLoaded', function() {
             if (pagosFoot) pagosFoot.classList.remove('d-none');
         }
 
-        const filasContra = [];
-        let totalContra = 0;
+        const contraMap = {};
         document.querySelectorAll('.gasto-checkbox:checked').forEach(function(cb) {
             const operacion = cb.getAttribute('data-operacion') || 'resta';
             if (operacion === 'suma') return;
             const monto = parseFloat(cb.getAttribute('data-monto')) || 0;
             const concepto = (cb.getAttribute('data-descripcion') || 'Movimiento').trim();
             if (monto <= 0.009) return;
-            filasContra.push({ concepto: concepto, monto: monto });
-            totalContra += monto;
+            contraMap[String(cb.value)] = { id: String(cb.value), concepto: concepto, monto: monto };
+        });
+        const filasContra = [];
+        let totalContra = 0;
+        const orden = window._ordenGastosContraLiq || [];
+        orden.forEach(function(gid) {
+            const item = contraMap[gid];
+            if (item) {
+                filasContra.push(item);
+                totalContra += item.monto;
+                delete contraMap[gid];
+            }
+        });
+        Object.keys(contraMap).forEach(function(gid) {
+            const item = contraMap[gid];
+            filasContra.push(item);
+            totalContra += item.monto;
         });
 
         const fondo = montoFondoMantenimiento ? parseNumeroEsAR(montoFondoMantenimiento.value) : 0;
@@ -1748,6 +1894,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     let montosEditadosManualmente = false;
+    window._ordenGastosContraLiq = window._ordenGastosContraLiq || [];
     function marcarMontosEditadosManualmente() {
         montosEditadosManualmente = true;
     }
@@ -1807,13 +1954,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.querySelector('input[name="fecha_hasta"]').value = fechaHastaMax;
             }
         } else {
-            montoTotal.value = '';
-            montoPropietario.value = '';
-            montoInmobiliaria.value = '';
             actualizarBloqueComisionesPrimeraOp();
-            const montoFinalPagar = document.getElementById('monto-final-pagar');
-            if (montoFinalPagar) {
-                montoFinalPagar.textContent = '0,00';
+            const hayGastosMarcados = document.querySelectorAll('.gasto-checkbox:checked').length > 0;
+            const propActual = parseNumeroEsAR(montoPropietario.value);
+            const totActual = parseNumeroEsAR(montoTotal.value);
+            if (!montosEditadosManualmente && !hayGastosMarcados && propActual <= 0.009 && totActual <= 0.009) {
+                montoTotal.value = '';
+                montoPropietario.value = '';
+                montoInmobiliaria.value = '';
             }
             actualizarResumenLiquidacion();
             return;
@@ -2012,6 +2160,75 @@ document.addEventListener('DOMContentLoaded', function() {
             return true;
         });
     }
+
+    function resolverPropiedadIdParaMovimiento() {
+        let propiedadId = ((document.getElementById('propiedad_id') || {}).value || '').trim();
+        if (!propiedadId) {
+            const op = document.querySelector('.operacion-checkbox:checked');
+            if (op) propiedadId = (op.getAttribute('data-propiedad-id') || '').trim();
+        }
+        return propiedadId;
+    }
+
+    window.mostrarModalAgregarMovimiento = function() {
+        const propiedadId = resolverPropiedadIdParaMovimiento();
+        if (!propiedadId) {
+            alert('Seleccioná una propiedad o tildá al menos una operación primero.');
+            return;
+        }
+        const modal = new bootstrap.Modal(document.getElementById('modalAgregarGasto'));
+        modal.show();
+    };
+    window.mostrarModalAgregarGasto = window.mostrarModalAgregarMovimiento;
+
+    const formAgregarGasto = document.getElementById('formAgregarGasto');
+    if (formAgregarGasto) {
+        formAgregarGasto.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const propiedadId = resolverPropiedadIdParaMovimiento();
+            if (!propiedadId) {
+                alert('Seleccioná una propiedad o tildá al menos una operación primero.');
+                return;
+            }
+            const formData = new FormData(this);
+            formData.append('propiedad_id', propiedadId);
+            const propietarioId = (document.getElementById('propietario_id') || {}).value;
+            if (propietarioId) {
+                formData.append('propietario_id', propietarioId);
+            }
+
+            fetch('{% url "inmobiliaria:crear_gasto_pendiente" %}', {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+            })
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    if (!data.success) {
+                        alert('Error: ' + (data.error || 'No se pudo crear el movimiento.'));
+                        return;
+                    }
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('modalAgregarGasto'));
+                    if (modal) modal.hide();
+                    formAgregarGasto.reset();
+                    if (typeof limpiarConceptoMovimientoModal === 'function') {
+                        limpiarConceptoMovimientoModal();
+                    }
+                    const gastoId = data.gasto && data.gasto.id != null ? data.gasto.id : null;
+                    if (!propiedadSelect.value && propiedadId) {
+                        fijarPropiedadEnFormulario(propiedadId);
+                    }
+                    incorporarGastoRecienCreado(data.gasto, propiedadId);
+                    if (typeof window.recargarPendientesTrasNuevoGasto === 'function') {
+                        window.recargarPendientesTrasNuevoGasto(propiedadId, gastoId);
+                    }
+                })
+                .catch(function(error) {
+                    console.error('Error:', error);
+                    alert('Error al crear el movimiento pendiente.');
+                });
+        });
+    }
 });
 </script>
 
@@ -2037,68 +2254,5 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 
 {% include 'inmobiliaria/liquidaciones/_script_selector_concepto_movimiento.html' %}
-
-<script>
-    // Manejar el envío del formulario de movimiento
-    window.mostrarModalAgregarMovimiento = function() {
-        const propiedadId = document.getElementById('propiedad_id').value;
-        if (!propiedadId) {
-            alert('Debe seleccionar una propiedad primero.');
-            return;
-        }
-        
-        const modal = new bootstrap.Modal(document.getElementById('modalAgregarGasto'));
-        modal.show();
-    };
-    window.mostrarModalAgregarGasto = window.mostrarModalAgregarMovimiento;
-
-    // Manejar el envío del formulario de gasto
-    document.getElementById('formAgregarGasto').addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        const propiedadId = document.getElementById('propiedad_id').value;
-        const formData = new FormData(this);
-        formData.append('propiedad_id', propiedadId);
-        
-        fetch('{% url "inmobiliaria:crear_gasto_pendiente" %}', {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-CSRFToken': '{{ csrf_token }}'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Cerrar modal
-                const modal = bootstrap.Modal.getInstance(document.getElementById('modalAgregarGasto'));
-                modal.hide();
-                
-                // Limpiar formulario
-                this.reset();
-                if (typeof limpiarConceptoMovimientoModal === 'function') {
-                    limpiarConceptoMovimientoModal();
-                }
-                
-                // Recargar lista y marcar el movimiento recién creado (conservando lo ya seleccionado)
-                const gastoId = data.gasto && data.gasto.id != null ? data.gasto.id : null;
-                if (typeof window.recargarPendientesTrasNuevoGasto === 'function') {
-                    window.recargarPendientesTrasNuevoGasto(propiedadId, gastoId);
-                } else {
-                    window.cargarOperacionesPendientes(propiedadId, gastoId ? { restaurarGastoId: gastoId } : null);
-                }
-                
-                // Mostrar mensaje de éxito
-                alert('Movimiento pendiente creado correctamente.');
-            } else {
-                alert('Error: ' + data.error);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Error al crear el movimiento pendiente.');
-        });
-    });
-</script>
 {% endblock %}
 
