@@ -245,7 +245,7 @@
     </div>
     {% endif %}
 
-    {% if contrato.duracion_meses != 9 %}
+    {% if trimestres_extras_ui %}
     <div class="row mb-4">
         <div class="col-12">
             <div class="card shadow-modern border-radius-modern border-warning">
@@ -358,17 +358,35 @@
                             <td>
                                 <strong>{{ cuota.numero_cuota }}/{{ contrato.duracion_meses }}</strong>
                                 {% if cuota.monto_base == 0 and cuota.estado != 'pagada' and cuota.estado != 'pagada_con_mora' %}
-                                <span class="badge bg-secondary ms-1" title="Definí el importe de este mes en el recuadro amarillo">Sin precio</span>
+                                <span class="badge bg-secondary ms-1" title="Definí el importe en la columna Cobro mensual">Sin precio</span>
                                 {% endif %}
                             </td>
                             <td>
                                 {{ cuota.fecha_vencimiento|date:"d/m/Y" }}
                             </td>
                             <td>
-                                {% if cuota.monto_base == 0 and cuota.estado != 'pagada' and cuota.estado != 'pagada_con_mora' %}
-                                <span class="text-muted"><i class="fas fa-lock me-1"></i>Sin definir</span>
-                                {% else %}
+                                {% if cuota.estado == 'pagada' or cuota.estado == 'pagada_con_mora' %}
                                 <strong class="text-dark">{{ cuota.monto_base|format_importe_moneda:contrato.moneda }}</strong>
+                                {% else %}
+                                <form method="post"
+                                      action="{% url 'inmobiliaria:actualizar_precio_cuota_mes_contrato' contrato.id %}"
+                                      class="form-precio-cuota-inline d-flex align-items-center gap-1"
+                                      onsubmit="return confirmarPrecioCuotaMes(this, {{ cuota.numero_cuota }});">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="cuota_id" value="{{ cuota.id }}">
+                                    <input type="text"
+                                           name="precio"
+                                           class="form-control form-control-sm input-monto-ar input-precio-cuota-mes text-end"
+                                           style="max-width:7.5rem; min-width:5.5rem"
+                                           value="{% if cuota.monto_base %}{{ cuota.monto_base }}{% endif %}"
+                                           placeholder="Importe"
+                                           title="Se aplica a este mes y a todos los siguientes pendientes"
+                                           inputmode="decimal"
+                                           autocomplete="off">
+                                    <button type="submit" class="btn btn-sm btn-outline-primary py-0 px-2" title="Aplicar a este mes y siguientes">
+                                        <i class="fas fa-check"></i>
+                                    </button>
+                                </form>
                                 {% endif %}
                             </td>
                             <td>
@@ -419,9 +437,7 @@
                             <td>
                                 {% if cuota.estado == 'pendiente' or cuota.estado == 'vencida' %}
                                     {% if cuota.monto_base == 0 and cuota.estado != 'pagada' and cuota.estado != 'pagada_con_mora' %}
-                                    <button type="button" class="btn btn-sm btn-secondary" disabled title="Definí primero el precio de este mes en la sección amarilla">
-                                        <i class="fas fa-lock"></i> Bloqueado
-                                    </button>
+                                    <span class="text-muted small"><i class="fas fa-info-circle"></i> Definí el precio arriba para cobrar</span>
                                     {% else %}
                                     <a href="{% url 'inmobiliaria:crear_pago_cuota_operacion' cuota.id %}" class="btn btn-sm btn-outline-success" title="Cobrar servicios u otros conceptos de este mes">
                                         <i class="fas fa-plus-circle"></i> Servicios
@@ -642,6 +658,19 @@ function pagarCuotaEspecifica(cuotaId, montoStr) {
         .catch(function () {
             alert('Error de red al procesar el pago. Intentá de nuevo.');
         });
+}
+
+function confirmarPrecioCuotaMes(form, numeroMes) {
+    var inp = form.querySelector('input[name="precio"]');
+    var val = inp && String(inp.value || '').trim();
+    if (!val) {
+        alert('Ingresá un importe para el mes.');
+        if (inp) inp.focus();
+        return false;
+    }
+    return confirm(
+        '¿Aplicar $' + val + ' al mes ' + numeroMes + ' y a todos los meses siguientes pendientes?'
+    );
 }
 
 (function inicializarMesesPrecioProgresivos() {

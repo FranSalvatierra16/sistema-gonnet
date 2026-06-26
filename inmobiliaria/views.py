@@ -15602,7 +15602,7 @@ def _format_precio_mes_ui(valor):
 def _meses_precio_ui_contrato(contrato):
     """Filas para el formulario: un campo por mes del contrato (1..duracion)."""
     n = int(contrato.duracion_meses or 0)
-    if n <= 1 or n == 9:
+    if n <= 1:
         return []
 
     raw = getattr(contrato, 'precios_bloques', None)
@@ -15994,10 +15994,6 @@ def activar_precios_trimestres_contrato(request, contrato_id):
 def actualizar_precios_bloques_contrato(request, contrato_id):
     """Guarda precio por mes (mes 1 → precio_mensual; meses 2+ → precios_bloques) y recalcula cuotas pendientes."""
     contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
-    if contrato.duracion_meses == 9:
-        messages.error(request, 'Esta herramienta no aplica a contratos de invierno (9 meses).')
-        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
-
     n = int(contrato.duracion_meses or 0)
     n_extra = max(0, n - 1)
 
@@ -16056,6 +16052,45 @@ def actualizar_precios_bloques_contrato(request, contrato_id):
     messages.success(
         request,
         f'Precios por mes guardados. Se recalcularon {actualizadas} cuota(s) no pagadas (pendientes / vencidas).',
+    )
+    return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+
+@login_required
+@require_POST
+def actualizar_precio_cuota_mes_contrato(request, contrato_id):
+    """Edita el cobro mensual desde una cuota y propaga el mismo precio a los meses siguientes."""
+    contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
+    cuota_id = (request.POST.get('cuota_id') or '').strip()
+    if not cuota_id.isdigit():
+        messages.error(request, 'Cuota inválida.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+    cuota = get_object_or_404(CuotaMensual, id=int(cuota_id), contrato=contrato)
+    if cuota.estado in ('pagada', 'pagada_con_mora'):
+        messages.error(request, 'No se puede cambiar el precio de una cuota ya cobrada.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+    precio_raw = (request.POST.get('precio') or request.POST.get('nuevo_precio_mensual') or '').strip()
+    if not precio_raw:
+        messages.error(request, 'Ingresá un importe para el mes.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+    try:
+        precio = parse_decimal_monto(precio_raw)
+    except (InvalidOperation, ValueError, TypeError):
+        messages.error(request, 'El importe no es válido.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+    try:
+        n = _aplicar_precio_mensual_desde_cuota(contrato, cuota.numero_cuota, precio)
+    except ValueError as e:
+        messages.error(request, str(e))
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+    messages.success(
+        request,
+        f'Precio del mes {cuota.numero_cuota} actualizado a ${format_monto_argentino(precio)} '
+        f'y aplicado a {n} cuota(s) pendiente(s) desde ese mes.',
     )
     return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
 
@@ -17522,8 +17557,6 @@ def _estado_inicial_cuota_por_vencimiento(fecha_vencimiento, hoy):
 
 def _monto_plan_cuota_contrato(contrato, numero_cuota):
     idx = int(numero_cuota) - 1
-    if int(contrato.duracion_meses or 0) == 9:
-        return Decimal(str(contrato.precio_mensual or 0))
     montos_plan = _montos_cuotas_por_trimestre(contrato)
     if 0 <= idx < len(montos_plan):
         return montos_plan[idx]
@@ -17812,42 +17845,57 @@ def _aplicar_tipo_cobro_mes_a_cuotas(contrato, cuotas, mes_tipo, mes_valor, tol=
                 )
 
 
+def _asegurar_precios_bloques_modo_mensual(contrato):
+    """Pasa a precios_bloques con un valor por mes (mes 2..N) conservando el plan actual."""
+    n = int(contrato.duracion_meses or 0)
+    if n <= 1 or _precios_bloques_es_modo_mensual(contrato):
+        return False
+    montos = _montos_cuotas_por_trimestre(contrato)
+    pb = []
+    for mes in range(2, n + 1):
+        m = montos[mes - 1] if mes - 1 < len(montos) else Decimal('0')
+        if m and m > 0:
+            pb.append(float(m))
+        else:
+            pb.append(None)
+    contrato.precios_bloques = pb
+    contrato.save(update_fields=['precios_bloques'])
+    return True
+
+
 def _aplicar_precio_mensual_desde_cuota(contrato, numero_cuota_desde, nuevo_precio):
     """
-    Actualiza precio_mensual (o el bloque trimestral vigente) y asigna el mismo importe
-    a la cuota desde la indicada y a todas las siguientes pendientes/vencidas.
+    Guarda el precio desde el mes indicado en el plan del contrato y aplica el mismo
+    importe a esa cuota y a todas las siguientes pendientes/vencidas.
     """
     nuevo_precio = Decimal(str(nuevo_precio))
     if nuevo_precio < 0:
         raise ValueError('El precio mensual no puede ser negativo.')
 
     n_desde = max(1, int(numero_cuota_desde))
-    update_fields = []
     dur = int(contrato.duracion_meses or 0)
+    if dur < 1:
+        raise ValueError('El contrato no tiene plan de cuotas.')
 
-    if dur == 9:
-        contrato.precio_mensual = nuevo_precio
-        update_fields.append('precio_mensual')
-    else:
-        bloque_idx = (n_desde - 1) // 3
-        raw_pb = getattr(contrato, 'precios_bloques', None)
-        if raw_pb is None:
+    _asegurar_precios_bloques_modo_mensual(contrato)
+    contrato.refresh_from_db(fields=['precio_mensual', 'precios_bloques', 'duracion_meses'])
+
+    pb = list(getattr(contrato, 'precios_bloques', None) or [])
+    while len(pb) < max(0, dur - 1):
+        pb.append(None)
+
+    update_fields = []
+    for mes in range(n_desde, dur + 1):
+        if mes == 1:
             contrato.precio_mensual = nuevo_precio
-            update_fields.append('precio_mensual')
-        elif bloque_idx == 0:
-            contrato.precio_mensual = nuevo_precio
-            update_fields.append('precio_mensual')
+            if 'precio_mensual' not in update_fields:
+                update_fields.append('precio_mensual')
         else:
-            pb = list(raw_pb or [])
-            idx_pb = bloque_idx - 1
-            while len(pb) <= idx_pb:
-                pb.append(None)
-            pb[idx_pb] = float(nuevo_precio)
-            contrato.precios_bloques = pb
-            update_fields.append('precios_bloques')
+            pb[mes - 2] = float(nuevo_precio)
 
-    if update_fields:
-        contrato.save(update_fields=update_fields)
+    contrato.precios_bloques = pb
+    update_fields.append('precios_bloques')
+    contrato.save(update_fields=list(dict.fromkeys(update_fields)))
 
     hoy = timezone.now().date()
     actualizadas = 0
@@ -17861,9 +17909,18 @@ def _aplicar_precio_mensual_desde_cuota(contrato, numero_cuota_desde, nuevo_prec
         else:
             cq.recargo_mora = Decimal('0')
         cq.descuento = Decimal('0')
+        cq.credito_aplicado = Decimal('0')
+        cq.credito_origen_numero_cuota = None
         cq.actualizar_monto_total()
         cq.save(
-            update_fields=['monto_base', 'monto_total', 'recargo_mora', 'descuento']
+            update_fields=[
+                'monto_base',
+                'monto_total',
+                'recargo_mora',
+                'descuento',
+                'credito_aplicado',
+                'credito_origen_numero_cuota',
+            ]
         )
         actualizadas += 1
     return actualizadas
