@@ -23624,6 +23624,49 @@ def _numero_cuota_frontera_liquidacion(contrato, cuotas_excluidas):
     return max(paid_nums) if paid_nums else 0
 
 
+def _mes_vigente_contrato(contrato, hoy=None):
+    """N° de cuota del período en curso (último vencimiento ya alcanzado por la fecha de hoy)."""
+    hoy = hoy or timezone.now().date()
+    if not _contrato_es_alquiler_mensual_largo(contrato):
+        return 1
+    mes = 1
+    for c in contrato.cuotas.order_by('numero_cuota'):
+        fv = c.fecha_vencimiento
+        if fv and fv <= hoy:
+            mes = int(c.numero_cuota or mes)
+    return max(1, mes)
+
+
+def _cuotas_en_ventana_liquidacion(contrato, cuotas_excluidas, sucursal, ids_ya_en_lista=None):
+    """
+    Cuotas liquidables (9 / 24 meses): meses anteriores sin liquidar,
+    mes vigente y un mes siguiente (aunque el inquilino aún no haya pagado).
+    """
+    if not _contrato_es_alquiler_mensual_largo(contrato):
+        return []
+    duracion = int(contrato.duracion_meses or 0)
+    if duracion < 9:
+        return []
+    limite_num = min(_mes_vigente_contrato(contrato) + 1, duracion)
+    ids_excl = set(cuotas_excluidas or ()) | set(ids_ya_en_lista or ())
+    parciales_map = {
+        c.id: m for c, m in _cuotas_cobro_parcial_liquidable(contrato, cuotas_excluidas, sucursal)
+    }
+    out = []
+    for cuota in contrato.cuotas.filter(numero_cuota__lte=limite_num).order_by('numero_cuota'):
+        if cuota.id in ids_excl:
+            continue
+        if cuota.id in parciales_map:
+            out.append((cuota, parciales_map[cuota.id], True, False))
+            continue
+        if cuota.estado in ('pagada', 'pagada_con_mora'):
+            out.append((cuota, Decimal(str(cuota.monto_total)), False, False))
+            continue
+        if cuota.estado in ('pendiente', 'vencida'):
+            out.append((cuota, Decimal(str(cuota.monto_total or 0)), False, True))
+    return out
+
+
 def _cuotas_anticipadas_liquidables(contrato, cuotas_excluidas, ids_ya_en_lista, adelante=None):
     """
     Cuotas mensuales aún sin cobrar, liquidables por anticipado.
@@ -24130,16 +24173,19 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
         if fila_op:
             operaciones.append(fila_op)
 
+        filas_cuotas = _cuotas_en_ventana_liquidacion(contrato, cuotas_excluidas, sucursal)
+        for cuota, monto_mes, parcial, anticipada in filas_cuotas:
+            _fila_cuota_liquidable(
+                cuota,
+                monto_mes,
+                parcial=parcial,
+                anticipada=anticipada,
+            )
+
+        if filas_cuotas or fila_op:
+            continue
+
         if not cuotas_pagadas_liq and not cuotas_parciales_liq:
-            anticipadas = _cuotas_anticipadas_liquidables(contrato, cuotas_excluidas, set())
-            for cuota_anticipada in anticipadas:
-                _fila_cuota_liquidable(
-                    cuota_anticipada,
-                    Decimal(str(cuota_anticipada.monto_total)),
-                    anticipada=True,
-                )
-            if anticipadas or fila_op:
-                continue
             tiene_alguna_pagada = contrato.cuotas.filter(
                 estado__in=['pagada', 'pagada_con_mora']
             ).exists()
@@ -24185,15 +24231,6 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
             _fila_cuota_liquidable(cuota, Decimal(str(cuota.monto_total)), parcial=False)
         for cuota, monto_parcial in cuotas_parciales_liq:
             _fila_cuota_liquidable(cuota, monto_parcial, parcial=True)
-        ids_ya_listados = ids_pagadas | {c.id for c, _ in cuotas_parciales_liq}
-        for cuota_anticipada in _cuotas_anticipadas_liquidables(
-            contrato, cuotas_excluidas, ids_ya_listados
-        ):
-            _fila_cuota_liquidable(
-                cuota_anticipada,
-                Decimal(str(cuota_anticipada.monto_total)),
-                anticipada=True,
-            )
 
     # Ingresos de caja con importe a propietario (servicios, etc.) pendientes de liquidar.
     movimientos_caja_excluidos = _movimientos_caja_excluidos_liquidacion_propiedad(propiedad)
@@ -24240,18 +24277,12 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
             'dias': 0,
         })
     
-    # Obtener gastos pendientes del propietario (sin liquidación asociada)
-    propi = getattr(propiedad, 'propietario', None)
+    # Gastos pendientes solo de esta propiedad (no de otras del mismo propietario).
     gastos_base = GastoPropietario.objects.filter(
         liquidacion__isnull=True,
         sucursal=sucursal,
     )
-    if propi:
-        gastos_pendientes = gastos_base.filter(propietario=propi).order_by('-fecha_creacion')
-        if not gastos_pendientes.exists():
-            gastos_pendientes = gastos_base.filter(propiedad=propiedad).order_by('-fecha_creacion')
-    else:
-        gastos_pendientes = gastos_base.filter(propiedad=propiedad).order_by('-fecha_creacion')
+    gastos_pendientes = gastos_base.filter(propiedad=propiedad).order_by('-fecha_creacion')
     
     # Obtener egresos de caja con a_descontar='oficina' relacionados con esta propiedad
     # que no estén asociados a ninguna liquidación procesada
@@ -24310,11 +24341,8 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
             continue
         # Verificar si ya existe un GastoPropietario para este movimiento
         # Buscamos por observaciones que contengan el ID del movimiento
-        q_gasto_mov = Q(propiedad=propiedad)
-        if getattr(propiedad, 'propietario_id', None):
-            q_gasto_mov |= Q(propietario=propiedad.propietario)
         existe_gasto = GastoPropietario.objects.filter(
-            q_gasto_mov,
+            propiedad=propiedad,
             observaciones__icontains=f'Movimiento de caja #{egreso.id}',
         ).exists()
         
@@ -24401,7 +24429,9 @@ def _filtrar_operaciones_liquidacion_por_busqueda(operaciones, *, tipo_busqueda,
             if tipo == 'reserva' and op_id == oid:
                 filtradas.append(op)
         elif tipo_busqueda == 'contrato':
-            if tipo == 'contrato_cuota':
+            if tipo == 'contrato_operacion_principal' and op_id == oid:
+                filtradas.append(op)
+            elif tipo == 'contrato_cuota':
                 try:
                     if int(op.get('contrato_id')) == oid:
                         filtradas.append(op)

@@ -759,26 +759,16 @@ def _cuotas_liquidables_contrato(contrato, sucursal):
     """
     from inmobiliaria.views import (
         _cuotas_excluidas_por_liquidaciones_contrato,
-        _cuotas_cobro_parcial_liquidable,
-        _cuotas_anticipadas_liquidables,
+        _cuotas_en_ventana_liquidacion,
     )
 
     if not contrato or not contrato.propiedad_id:
         return set()
     cuotas_excluidas = _cuotas_excluidas_por_liquidaciones_contrato(contrato.propiedad)
     out = set()
-
-    for cuota in contrato.cuotas.filter(
-        estado__in=['pagada', 'pagada_con_mora'],
-    ).exclude(id__in=cuotas_excluidas).order_by('numero_cuota'):
-        out.add(cuota.id)
-
-    for cuota, _monto in _cuotas_cobro_parcial_liquidable(contrato, cuotas_excluidas, sucursal):
-        if cuota.id not in cuotas_excluidas:
-            out.add(cuota.id)
-
-    cuota_anticipada = _cuotas_anticipadas_liquidables(contrato, cuotas_excluidas, out)
-    for cuota in cuota_anticipada:
+    for cuota, _monto, _parcial, _anticipada in _cuotas_en_ventana_liquidacion(
+        contrato, cuotas_excluidas, sucursal
+    ):
         out.add(cuota.id)
 
     return out
