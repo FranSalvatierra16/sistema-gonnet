@@ -2064,7 +2064,7 @@ def caratula_contrato(request, contrato_id):
         tipo_label,
         carpeta_override=carpeta_actual,
         movimientos=movimientos,
-        liquidacion=liquidacion,
+        liquidacion=liquidacion_hon,
         override=override,
     )
 
