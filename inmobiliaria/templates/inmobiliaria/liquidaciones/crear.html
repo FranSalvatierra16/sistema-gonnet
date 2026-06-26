@@ -694,6 +694,18 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!data || !data.success) return;
     }
 
+    function tildarCuotaInicialSiCorresponde() {
+        const cuotaInicial = '{{ cuota_liquidacion_inicial|default:"" }}';
+        if (!cuotaInicial) return;
+        const cb = document.querySelector(
+            '.operacion-checkbox[data-tipo="contrato_cuota"][data-id="' + cuotaInicial + '"]'
+        );
+        if (cb && !cb.disabled) {
+            cb.checked = true;
+            cb.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    }
+
     function buscarOperacionPorNumero() {
         const input = document.getElementById('operacion_buscar');
         const q = (input && input.value || '').trim();
@@ -752,6 +764,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         + 'ya esté liquidado. Si hay una liquidación pendiente del mismo contrato, cerrala o cancelala primero.'
                     );
                 }
+                tildarCuotaInicialSiCorresponde();
             })
             .catch(function(err) {
                 console.error(err);

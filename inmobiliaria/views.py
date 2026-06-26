@@ -22891,19 +22891,20 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
             ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal
         )
         operacion_buscar_inicial = contrato.id
-        liquidacion_existente = (
-            LiquidacionPropietario.objects.filter(contrato=contrato)
-            .exclude(estado='cancelada')
+        liquidacion_pendiente = (
+            LiquidacionPropietario.objects.filter(contrato=contrato, estado='pendiente')
             .order_by('-id')
             .first()
         )
-        if liquidacion_existente:
+        if liquidacion_pendiente:
             messages.warning(
                 request,
-                f'Ya existe una liquidación para este contrato (nº {liquidacion_existente.id}, '
-                f'{liquidacion_existente.get_estado_display()}).',
+                f'Hay una liquidación pendiente de este contrato (nº {liquidacion_pendiente.id}). '
+                f'Cerrala o cancelala antes de crear otra.',
             )
-            return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion_existente.id)
+            return redirect(
+                'inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion_pendiente.id
+            )
 
     if request.method == 'POST':
         try:
@@ -23222,6 +23223,7 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
         'propiedades': propiedades,
         'propietarios_busqueda': propietarios_busqueda,
         'operacion_buscar_inicial': operacion_buscar_inicial,
+        'cuota_liquidacion_inicial': (request.GET.get('cuota') or '').strip(),
     }
 
     if reserva:

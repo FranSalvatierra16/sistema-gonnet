@@ -437,13 +437,24 @@ def _resumen_liquidacion_caratula(*, reserva=None, contrato=None, liquidacion=No
                     break
             except (TypeError, ValueError):
                 continue
-        if contrato is not None and op.get('tipo') in ('contrato', 'contrato_cuota'):
-            try:
-                if int(op.get('id')) == contrato.id:
-                    op_match = op
-                    break
-            except (TypeError, ValueError):
-                continue
+        if contrato is not None:
+            if op.get('tipo') == 'contrato_cuota':
+                try:
+                    if (
+                        int(op.get('contrato_id') or 0) == contrato.id
+                        and op.get('incluible') is not False
+                    ):
+                        op_match = op
+                        break
+                except (TypeError, ValueError):
+                    continue
+            elif op.get('tipo') == 'contrato':
+                try:
+                    if int(op.get('id')) == contrato.id:
+                        op_match = op
+                        break
+                except (TypeError, ValueError):
+                    continue
 
     if not op_match and reserva is not None and reserva.precio_total:
         total = Decimal(str(reserva.precio_total))
@@ -525,22 +536,57 @@ def _ctx_liquidacion_operacion(*, reserva=None, contrato=None):
             sucursal=reserva.sucursal,
         )
     elif contrato is not None:
-        liq = (
-            LiquidacionPropietario.objects.filter(contrato=contrato)
-            .exclude(estado='cancelada')
+        liq_pendiente = (
+            LiquidacionPropietario.objects.filter(contrato=contrato, estado='pendiente')
             .order_by('-id')
             .first()
         )
-        if liq:
-            ctx['liquidacion_operacion'] = liq
+        resumen_ctr = _resumen_liquidacion_contrato_caratula(contrato, contrato.sucursal)
+        proxima = resumen_ctr.get('proxima_cuota_liquidar')
+
+        if liq_pendiente:
+            ctx['liquidacion_operacion'] = liq_pendiente
             ctx['url_liquidacion_operacion'] = reverse(
-                'inmobiliaria:detalle_liquidacion', args=[liq.id]
+                'inmobiliaria:detalle_liquidacion', args=[liq_pendiente.id]
             )
-            ctx['etiqueta_liquidacion_operacion'] = f'Ver liquidación #{liq.id}'
+            ctx['etiqueta_liquidacion_operacion'] = (
+                f'Liquidación pendiente #{liq_pendiente.id}'
+            )
+        elif proxima and proxima.url_liquidar:
+            ctx['url_liquidacion_operacion'] = proxima.url_liquidar
+            if proxima.es_operacion_principal:
+                ctx['etiqueta_liquidacion_operacion'] = 'Liquidar operación principal'
+            else:
+                ctx['etiqueta_liquidacion_operacion'] = (
+                    f'Liquidar cuota {proxima.numero_cuota}/{contrato.duracion_meses}'
+                )
         else:
-            ctx['url_liquidacion_operacion'] = reverse(
-                'inmobiliaria:crear_liquidacion_contrato', args=[contrato.id]
+            ultima = (
+                LiquidacionPropietario.objects.filter(contrato=contrato)
+                .exclude(estado='cancelada')
+                .order_by('-id')
+                .first()
             )
+            if ultima and resumen_ctr.get('completo'):
+                ctx['liquidacion_operacion'] = ultima
+                ctx['url_liquidacion_operacion'] = reverse(
+                    'inmobiliaria:detalle_liquidacion', args=[ultima.id]
+                )
+                ctx['etiqueta_liquidacion_operacion'] = f'Ver liquidación #{ultima.id}'
+            elif ultima:
+                ctx['liquidacion_operacion'] = ultima
+                ctx['url_liquidacion_operacion'] = reverse(
+                    'inmobiliaria:crear_liquidacion_contrato', args=[contrato.id]
+                )
+                ctx['etiqueta_liquidacion_operacion'] = (
+                    f'Ver liq. #{ultima.id} · {resumen_ctr["cuotas_liquidadas"]}/'
+                    f'{resumen_ctr["total_cuotas"]} meses liquidados'
+                )
+            else:
+                ctx['url_liquidacion_operacion'] = reverse(
+                    'inmobiliaria:crear_liquidacion_contrato', args=[contrato.id]
+                )
+        ctx['resumen_liquidacion_contrato'] = resumen_ctr
         ctx['resumen_liquidacion'] = _resumen_liquidacion_caratula(
             contrato=contrato,
             liquidacion=ctx['liquidacion_operacion'],
@@ -645,6 +691,120 @@ def _tipo_label_contrato_caratula(contrato):
     if dm >= 9:
         return f'24 meses — plan {dm} meses'
     return f'Contrato {dm} meses'
+
+
+def _mapa_liquidacion_por_cuota_contrato(contrato):
+    """cuota_id → última liquidación que la incluyó."""
+    out = {}
+    if not contrato or not contrato.propiedad_id:
+        return out
+    cuota_ids = set(contrato.cuotas.values_list('id', flat=True))
+    for liq in (
+        LiquidacionPropietario.objects.filter(propiedad_id=contrato.propiedad_id)
+        .exclude(estado='cancelada')
+        .order_by('id')
+        .only('id', 'estado', 'operaciones_incluidas')
+    ):
+        for op in liq.operaciones_incluidas or []:
+            if not isinstance(op, dict):
+                continue
+            tlo = (op.get('tipo') or '').lower()
+            ids_cuota = []
+            if tlo == 'contrato_cuota':
+                try:
+                    ids_cuota.append(int(op['id']))
+                except (TypeError, ValueError):
+                    pass
+            for raw in op.get('cuotas_ids') or op.get('cuota_ids') or []:
+                try:
+                    ids_cuota.append(int(raw))
+                except (TypeError, ValueError):
+                    pass
+            for cid in ids_cuota:
+                if cid in cuota_ids:
+                    out[cid] = liq
+    return out
+
+
+def _cuotas_pendientes_liquidar_contrato(contrato, sucursal):
+    """IDs de cuotas incluibles en crear liquidación (aún no liquidadas)."""
+    from inmobiliaria.views import _operaciones_gastos_pendientes_data
+
+    if not contrato or not contrato.propiedad_id:
+        return set()
+    data = _operaciones_gastos_pendientes_data(contrato.propiedad, sucursal)
+    out = set()
+    for op in data.get('operaciones') or []:
+        if op.get('tipo') != 'contrato_cuota' or not op.get('incluible'):
+            continue
+        try:
+            if int(op.get('contrato_id') or 0) != int(contrato.id):
+                continue
+            out.add(int(op['id']))
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
+def _contrato_al_dia_liquidacion_cobros(contrato):
+    """True si todas las cuotas ya cobradas figuran en alguna liquidación."""
+    mapa = _mapa_liquidacion_por_cuota_contrato(contrato)
+    cobradas = contrato.cuotas.filter(estado__in=['pagada', 'pagada_con_mora'])
+    if not cobradas.exists():
+        return False
+    return all(c.id in mapa for c in cobradas)
+
+
+def _ultima_liquidacion_contrato_id(contrato):
+    mapa = _mapa_liquidacion_por_cuota_contrato(contrato)
+    if not mapa:
+        return None
+    return max(liq.id for liq in mapa.values())
+
+
+def _enriquecer_cuotas_liquidacion(cuotas_list, contrato, sucursal):
+    mapa_liq = _mapa_liquidacion_por_cuota_contrato(contrato)
+    pendientes = _cuotas_pendientes_liquidar_contrato(contrato, sucursal)
+    for c in cuotas_list:
+        liq = mapa_liq.get(c.id)
+        if liq:
+            c.liq_estado = 'liquidada'
+            c.liquidacion_id = liq.id
+            c.liquidacion_estado = liq.get_estado_display()
+            c.liquidacion_url = reverse('inmobiliaria:detalle_liquidacion', args=[liq.id])
+            c.url_liquidar = None
+        elif c.id in pendientes:
+            c.liq_estado = 'pendiente'
+            c.liquidacion_id = None
+            c.liquidacion_estado = ''
+            c.liquidacion_url = None
+            c.url_liquidar = (
+                reverse('inmobiliaria:crear_liquidacion_contrato', args=[contrato.id])
+                + f'?cuota={c.id}'
+            )
+        else:
+            c.liq_estado = 'espera'
+            c.liquidacion_id = None
+            c.liquidacion_estado = ''
+            c.liquidacion_url = None
+            c.url_liquidar = None
+        c.es_operacion_principal = int(getattr(c, 'numero_cuota', 0) or 0) == 1
+
+
+def _resumen_liquidacion_contrato_caratula(contrato, sucursal):
+    """Conteo de cuotas liquidadas vs pendientes de liquidar."""
+    cuotas = list(contrato.cuotas.all().order_by('numero_cuota'))
+    _enriquecer_cuotas_liquidacion(cuotas, contrato, sucursal)
+    liquidadas = sum(1 for c in cuotas if c.liq_estado == 'liquidada')
+    pendientes = sum(1 for c in cuotas if c.liq_estado == 'pendiente')
+    proxima = next((c for c in cuotas if c.liq_estado == 'pendiente'), None)
+    return {
+        'total_cuotas': len(cuotas),
+        'cuotas_liquidadas': liquidadas,
+        'cuotas_pendientes_liquidar': pendientes,
+        'proxima_cuota_liquidar': proxima,
+        'completo': pendientes == 0 and liquidadas > 0,
+    }
 
 
 def _liquidacion_contrato(contrato):
@@ -1439,17 +1599,6 @@ def lista_caratulas(request):
             if row['reserva_id'] not in liq_por_reserva:
                 liq_por_reserva[row['reserva_id']] = row['id']
 
-    liq_por_contrato = {}
-    if contrato_ids:
-        for row in (
-            LiquidacionPropietario.objects.filter(contrato_id__in=contrato_ids)
-            .exclude(estado='cancelada')
-            .order_by('-id')
-            .values('contrato_id', 'id')
-        ):
-            if row['contrato_id'] not in liq_por_contrato:
-                liq_por_contrato[row['contrato_id']] = row['id']
-
     filas = []
 
     for r in reservas:
@@ -1500,8 +1649,8 @@ def lista_caratulas(request):
             dep = (p.departamento or '').strip() or '—'
             piso_dto = f'{pi} / {dep}'
         clinea, csub = _etiqueta_propiedad_lista(p)
-        liquidacion_id = liq_por_contrato.get(c.id)
-        tiene_liquidacion = liquidacion_id is not None
+        liquidacion_id = _ultima_liquidacion_contrato_id(c)
+        tiene_liquidacion = _contrato_al_dia_liquidacion_cobros(c)
         if liquidacion_filtro == 'pendiente' and tiene_liquidacion:
             continue
         if liquidacion_filtro == 'liquidada' and not tiene_liquidacion:
@@ -1745,6 +1894,8 @@ def caratula_contrato(request, contrato_id):
         recibos_por_cuota = mapa_movimientos_recibo_por_cuota_id(cuotas_list, movimientos)
         for c in cuotas_list:
             c.recibos_cobro = recibos_por_cuota.get(int(c.id), [])
+
+    _enriquecer_cuotas_liquidacion(cuotas_list, contrato, contrato.sucursal)
 
     tipo_label = _tipo_label_contrato_caratula(contrato)
     carpeta_actual = _carpeta_para_operacion(request, 'contrato', contrato.id, contrato=contrato)
