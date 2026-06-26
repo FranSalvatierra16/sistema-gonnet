@@ -158,6 +158,46 @@ class ContratoAlquiler(models.Model):
             pass
         return False
 
+    def categoria_tipo_operacion(self):
+        """
+        Cómo se dio de alta el contrato (módulo invierno vs 24 meses), no solo la duración del plan.
+        Un plan de 36 meses activado por AlquilerMeses sigue siendo «24 meses».
+        """
+        if self.es_contrato_invierno() or int(self.duracion_meses or 0) == 9:
+            return 'invierno'
+        if int(self.duracion_meses or 0) == 6:
+            return '6'
+        if int(self.duracion_meses or 0) >= 9:
+            return '24'
+        return 'otro'
+
+    def etiqueta_tipo_operacion_caratula(self):
+        cat = self.categoria_tipo_operacion()
+        if cat == 'invierno':
+            return 'Invierno (9 meses)'
+        if cat == '6':
+            return '6 meses'
+        if cat == '24':
+            dm = int(self.duracion_meses or 0)
+            return '24 meses' if dm == 24 else f'24 meses — plan {dm} meses'
+        dm = int(self.duracion_meses or 0)
+        return f'Contrato {dm} meses' if dm else 'Contrato'
+
+    def codigo_tipo_movimiento_caratula(self):
+        cat = self.categoria_tipo_operacion()
+        if cat == 'invierno':
+            return 'invierno'
+        if cat == '24':
+            return 'meses_24'
+        if cat == '6':
+            return 'meses_6'
+        return 'otros'
+
+    @property
+    def fecha_entrada_departamento(self):
+        """Día de ingreso / posesión del inquilino."""
+        return self.fecha_inicio
+
     @property
     def etiqueta_recibo_tipo_contrato(self):
         """Texto del encabezado del recibo según tipo de contrato."""

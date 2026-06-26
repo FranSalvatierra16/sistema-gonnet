@@ -73,6 +73,11 @@
                 {% if honorarios_ctx.pct_productor.productor %}
                 <span class="badge bg-secondary">{{ honorarios_ctx.pct_productor.productor }}</span>
                 {% endif %}
+                {% if honorarios_ctx.pct_productor.fecha_entrada_display %}
+                <span class="badge bg-light text-dark border">
+                    Acreditación: {{ honorarios_ctx.pct_productor.fecha_entrada_display }} (día de entrada)
+                </span>
+                {% endif %}
             </div>
             <div class="table-responsive">
                 <table class="table table-sm mb-0 small" id="tabla-comision-productor">

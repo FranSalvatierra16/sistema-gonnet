@@ -321,6 +321,108 @@ def asegurar_comisiones_movimiento_reserva(reserva, movimiento_caja, honorarios_
     return creadas
 
 
+def _fecha_operacion_entrada_contrato(contrato):
+    """Fecha de acreditación: día de ingreso al departamento (posesión)."""
+    from datetime import datetime, time
+
+    f = getattr(contrato, 'fecha_inicio', None)
+    if not f:
+        return timezone.now()
+    dt = datetime.combine(f, time.min)
+    if timezone.is_naive(dt):
+        return timezone.make_aware(dt, timezone.get_current_timezone())
+    return dt
+
+
+def registrar_comisiones_honorarios_contrato(contrato, honorarios_monto, movimiento_caja=None):
+    """
+    Comisiones del productor sobre honorarios de contrato (invierno / 24 meses).
+    fecha_operacion = día de entrada (fecha_inicio del contrato).
+    """
+    if (
+        not contrato
+        or not contrato.vendedor_id
+        or honorarios_monto is None
+        or honorarios_monto <= 0
+    ):
+        return []
+
+    if getattr(contrato, 'estado', None) == 'rescindido':
+        return []
+
+    vend = contrato.vendedor
+    prop = contrato.propiedad
+    creadas = []
+    fecha_op = _fecha_operacion_entrada_contrato(contrato)
+
+    tipo_fichaje = getattr(prop, 'tipo_fichaje', None) or 'primer'
+    pct_fichaje = (
+        vend.comision_segundo_fichaje
+        if tipo_fichaje == 'segundo'
+        else vend.comision_primer_fichaje
+    )
+    if pct_fichaje is not None and pct_fichaje > 0:
+        c = ComisionVendedor.crear_comision_linea_contrato(
+            vendedor=vend,
+            contrato=contrato,
+            movimiento_caja=movimiento_caja,
+            monto_base=honorarios_monto,
+            porcentaje_comision=pct_fichaje,
+            concepto=f'Contrato {contrato.id} — comisión fichaje ({tipo_fichaje}) sobre honorarios',
+            rol_comision=ROL_COMISION_FICHAJE,
+            fecha_operacion=fecha_op,
+        )
+        if c:
+            creadas.append(c)
+
+    cat = (
+        contrato.categoria_tipo_operacion()
+        if hasattr(contrato, 'categoria_tipo_operacion')
+        else '24'
+    )
+    if cat == 'invierno':
+        pct = vend.comision_invierno
+        rol = ROL_COMISION_OP_INVIERNO
+        label = 'invierno'
+    elif cat == '24':
+        pct = vend.comision_alquiler_24_meses
+        rol = ROL_COMISION_OP_24
+        label = '24 meses'
+    else:
+        return creadas
+
+    if pct is not None and pct > 0:
+        c = ComisionVendedor.crear_comision_linea_contrato(
+            vendedor=vend,
+            contrato=contrato,
+            movimiento_caja=movimiento_caja,
+            monto_base=honorarios_monto,
+            porcentaje_comision=pct,
+            concepto=f'Contrato {contrato.id} — comisión {label} (sobre honorarios)',
+            rol_comision=rol,
+            fecha_operacion=fecha_op,
+        )
+        if c:
+            creadas.append(c)
+
+    return creadas
+
+
+def asegurar_comisiones_contrato(contrato, honorarios_monto=None, movimiento_caja=None):
+    """Registra comisiones del productor para un contrato. Idempotente."""
+    if not contrato or not contrato.vendedor_id:
+        return []
+    if honorarios_monto is None:
+        honorarios_monto = Decimal('0')
+    else:
+        honorarios_monto = Decimal(str(honorarios_monto or 0))
+    if honorarios_monto <= 0:
+        return []
+    return registrar_comisiones_honorarios_contrato(
+        contrato, honorarios_monto, movimiento_caja=movimiento_caja
+    )
+
+
 class ComisionVendedorQuerySet(models.QuerySet):
     """
     Comisiones que deben sumar en totales: no anuladas y cuya reserva sigue vigente.
@@ -332,6 +434,7 @@ class ComisionVendedorQuerySet(models.QuerySet):
             self.filter(estado__in=('confirmada', 'pagada'))
             .exclude(reserva__estado='cancelada')
             .exclude(reserva__eliminada=True)
+            .exclude(contrato__estado='rescindido')
         )
 
     def ordenadas_para_listado_historial(self):
@@ -368,7 +471,17 @@ class ComisionVendedor(models.Model):
         Reserva, 
         on_delete=models.CASCADE, 
         related_name='comisiones_vendedor',
-        verbose_name="Reserva"
+        verbose_name="Reserva",
+        null=True,
+        blank=True,
+    )
+    contrato = models.ForeignKey(
+        'ContratoAlquiler',
+        on_delete=models.CASCADE,
+        related_name='comisiones_vendedor',
+        verbose_name='Contrato',
+        null=True,
+        blank=True,
     )
     movimiento_caja = models.ForeignKey(
         MovimientoCaja,
@@ -442,7 +555,18 @@ class ComisionVendedor(models.Model):
         verbose_name = "Comisión de Vendedor"
         verbose_name_plural = "Comisiones de Vendedores"
         ordering = ['-fecha_operacion']
-        unique_together = ['vendedor', 'reserva', 'movimiento_caja', 'rol_comision']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['vendedor', 'reserva', 'movimiento_caja', 'rol_comision'],
+                condition=models.Q(reserva__isnull=False),
+                name='uniq_comision_vendedor_reserva_mov_rol',
+            ),
+            models.UniqueConstraint(
+                fields=['vendedor', 'contrato', 'rol_comision'],
+                condition=models.Q(contrato__isnull=False),
+                name='uniq_comision_vendedor_contrato_rol',
+            ),
+        ]
     
     def __str__(self):
         return f"Comisión {self.id} - {self.vendedor.nombre_completo_vendedor()} - ${self.monto_comision}"
@@ -615,6 +739,48 @@ class ComisionVendedor(models.Model):
         )
 
     @classmethod
+    def crear_comision_linea_contrato(
+        cls,
+        vendedor,
+        contrato,
+        monto_base,
+        porcentaje_comision,
+        concepto,
+        rol_comision=ROL_COMISION_GENERAL,
+        movimiento_caja=None,
+        fecha_operacion=None,
+    ):
+        """Línea de comisión de contrato (sin reserva). fecha_operacion = día de entrada."""
+        if porcentaje_comision is None or porcentaje_comision <= 0:
+            return None
+        if monto_base is None or monto_base <= 0:
+            return None
+        if not contrato or getattr(contrato, 'estado', None) == 'rescindido':
+            return None
+
+        comision_existente = cls.objects.filter(
+            vendedor=vendedor,
+            contrato=contrato,
+            rol_comision=rol_comision,
+        ).first()
+        if comision_existente:
+            return comision_existente
+
+        monto_comision = (Decimal(str(monto_base)) * Decimal(str(porcentaje_comision))) / Decimal('100')
+        return cls.objects.create(
+            vendedor=vendedor,
+            contrato=contrato,
+            movimiento_caja=movimiento_caja,
+            monto_total_operacion=monto_base,
+            porcentaje_comision=porcentaje_comision,
+            monto_comision=monto_comision.quantize(Decimal('0.01')),
+            concepto_operacion=(concepto or f'Contrato {contrato.id}')[:200],
+            rol_comision=rol_comision,
+            fecha_operacion=fecha_operacion or _fecha_operacion_entrada_contrato(contrato),
+            estado='pendiente',
+        )
+
+    @classmethod
     def crear_comision(cls, vendedor, reserva, movimiento_caja, monto_total, concepto=""):
         """
         Una sola línea de comisión según tipo de reserva (sin desglose por honorarios).
@@ -704,13 +870,19 @@ def confirmar_comisiones_por_liquidacion(liquidacion):
     """
     if not liquidacion or getattr(liquidacion, 'estado', None) == 'cancelada':
         return 0
+    total = 0
     reserva_ids = _reserva_ids_desde_liquidacion(liquidacion)
-    if not reserva_ids:
-        return 0
-    return ComisionVendedor.objects.filter(
-        reserva_id__in=reserva_ids,
-        estado='pendiente',
-    ).update(estado='confirmada')
+    if reserva_ids:
+        total += ComisionVendedor.objects.filter(
+            reserva_id__in=reserva_ids,
+            estado='pendiente',
+        ).update(estado='confirmada')
+    if liquidacion.contrato_id:
+        total += ComisionVendedor.objects.filter(
+            contrato_id=liquidacion.contrato_id,
+            estado='pendiente',
+        ).update(estado='confirmada')
+    return total
 
 
 class MesComisionPagadoVendedor(models.Model):

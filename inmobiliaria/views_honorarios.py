@@ -115,6 +115,28 @@ def _filas_honorarios_desde_liquidaciones(liquidaciones):
                 'nota': 'Día de entrada',
             })
 
+        monto_com_loc = Decimal(str(liq.comision_locador or 0))
+        if monto_com_loc > Decimal('0.01'):
+            filas.append({
+                **base,
+                'tipo': 'comision_locador',
+                'tipo_display': 'Comisión locador',
+                'fecha': f_entrada,
+                'monto': monto_com_loc,
+                'nota': 'Día de entrada',
+            })
+
+        monto_com_locat = Decimal(str(liq.comision_locatario or 0))
+        if monto_com_locat > Decimal('0.01'):
+            filas.append({
+                **base,
+                'tipo': 'comision_locatario',
+                'tipo_display': 'Comisión locatario',
+                'fecha': f_entrada,
+                'monto': monto_com_locat,
+                'nota': 'Día de entrada',
+            })
+
     return filas
 
 
@@ -176,11 +198,17 @@ def honorarios_oficina(request):
 
     filas = _filtrar_filas_por_fecha(_filas_honorarios_desde_liquidaciones(qs), fecha_desde, fecha_hasta)
 
-    if tipo_filtro in ('comision', 'cochera', 'fondo'):
+    if tipo_filtro in ('comision', 'cochera', 'fondo', 'comision_locador', 'comision_locatario'):
         filas = [f for f in filas if f['tipo'] == tipo_filtro]
 
     total_general = sum((f['monto'] for f in filas), Decimal('0'))
     total_comision = sum((f['monto'] for f in filas if f['tipo'] == 'comision'), Decimal('0'))
+    total_comision_locador = sum(
+        (f['monto'] for f in filas if f['tipo'] == 'comision_locador'), Decimal('0')
+    )
+    total_comision_locatario = sum(
+        (f['monto'] for f in filas if f['tipo'] == 'comision_locatario'), Decimal('0')
+    )
     total_cochera = sum((f['monto'] for f in filas if f['tipo'] == 'cochera'), Decimal('0'))
     total_fondo = sum((f['monto'] for f in filas if f['tipo'] == 'fondo'), Decimal('0'))
 
@@ -197,6 +225,8 @@ def honorarios_oficina(request):
             'busqueda': busqueda,
             'total_general': total_general,
             'total_comision': total_comision,
+            'total_comision_locador': total_comision_locador,
+            'total_comision_locatario': total_comision_locatario,
             'total_cochera': total_cochera,
             'total_fondo': total_fondo,
         },

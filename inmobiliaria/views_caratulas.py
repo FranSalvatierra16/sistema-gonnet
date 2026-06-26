@@ -622,14 +622,29 @@ def _tipo_movimiento_codigo_reserva(prop):
 
 
 def _tipo_movimiento_codigo_contrato(contrato):
+    if hasattr(contrato, 'codigo_tipo_movimiento_caratula'):
+        return contrato.codigo_tipo_movimiento_caratula()
     dm = contrato.duracion_meses or 0
     if dm == 9:
         return 'invierno'
-    if dm == 24:
+    if dm >= 9:
         return 'meses_24'
     if dm == 6:
         return 'meses_6'
     return 'otros'
+
+
+def _tipo_label_contrato_caratula(contrato):
+    if hasattr(contrato, 'etiqueta_tipo_operacion_caratula'):
+        return contrato.etiqueta_tipo_operacion_caratula()
+    dm = int(contrato.duracion_meses or 0)
+    if dm == 9:
+        return 'Invierno (9 meses)'
+    if dm == 24:
+        return '24 meses'
+    if dm >= 9:
+        return f'24 meses — plan {dm} meses'
+    return f'Contrato {dm} meses'
 
 
 def _liquidacion_contrato(contrato):
@@ -813,22 +828,32 @@ def _pct_productor_contrato_caratula(contrato):
         else vend.comision_primer_fichaje
     )
     dm = int(contrato.duracion_meses or 0)
-    if dm == 9:
+    cat = (
+        contrato.categoria_tipo_operacion()
+        if hasattr(contrato, 'categoria_tipo_operacion')
+        else ('invierno' if dm == 9 else ('24' if dm >= 9 else 'otro'))
+    )
+    if cat == 'invierno':
         pct_tipo = vend.comision_invierno
         label_tipo = 'Invierno'
-    elif dm >= 24:
+    elif cat == '24':
         pct_tipo = vend.comision_alquiler_24_meses
         label_tipo = '24 meses' if dm == 24 else 'Largo plazo'
     else:
         pct_tipo = None
         label_tipo = ''
 
+    fecha_entrada = getattr(contrato, 'fecha_entrada_departamento', None) or contrato.fecha_inicio
+
     return {
         'tipo_fichaje': tipo_fichaje,
         'pct_fichaje': float(pct_fichaje) if pct_fichaje is not None else None,
         'pct_tipo': float(pct_tipo) if pct_tipo is not None else None,
         'label_tipo': label_tipo,
+        'categoria': cat,
         'productor': _nombre_productor_papel(vend),
+        'fecha_entrada': fecha_entrada.isoformat() if fecha_entrada else None,
+        'fecha_entrada_display': fecha_entrada.strftime('%d/%m/%Y') if fecha_entrada else '—',
     }
 
 
@@ -901,12 +926,17 @@ def _comisiones_vendedor_contrato_caratula(contrato, honorarios_monto):
             }
         )
 
-    dm = int(contrato.duracion_meses or 0)
-    if dm == 9:
+    cat = (
+        contrato.categoria_tipo_operacion()
+        if hasattr(contrato, 'categoria_tipo_operacion')
+        else ('invierno' if int(contrato.duracion_meses or 0) == 9 else '24')
+    )
+    if cat == 'invierno':
         pct = vend.comision_invierno
         label = 'COMIS. VENDEDOR (INVIERNO)'
-    elif dm >= 24:
+    elif cat == '24':
         pct = vend.comision_alquiler_24_meses
+        dm = int(contrato.duracion_meses or 0)
         label = 'COMIS. VENDEDOR (24 MESES)' if dm == 24 else 'COMIS. VENDEDOR (LARGO PLAZO)'
     else:
         return lineas
@@ -1347,9 +1377,15 @@ def lista_caratulas(request):
         'propiedad', 'inquilino', 'vendedor'
     )
     if tipo_filtro == 'invierno':
-        contratos = contratos.filter(duracion_meses=9)
+        contratos = contratos.filter(
+            Q(duracion_meses=9) | Q(precio_segundo_cuatrimestre__gt=0)
+        )
     elif tipo_filtro == '24meses':
-        contratos = contratos.filter(duracion_meses=24)
+        contratos = (
+            contratos.exclude(duracion_meses=9)
+            .exclude(precio_segundo_cuatrimestre__gt=0)
+            .filter(duracion_meses__gte=9)
+        )
     elif tipo_filtro in ('dia', 'estudiante'):
         contratos = contratos.none()
 
@@ -1456,12 +1492,7 @@ def lista_caratulas(request):
 
     for c in contratos:
         carpeta_hist = _carpeta_para_operacion(request, 'contrato', c.id, contrato=c)
-        if c.duracion_meses == 9:
-            tipo_c = 'Invierno'
-        elif c.duracion_meses == 24:
-            tipo_c = '24 meses'
-        else:
-            tipo_c = f'Contrato ({c.duracion_meses} meses)'
+        tipo_c = _tipo_label_contrato_caratula(c)
         p = c.propiedad
         piso_dto = ''
         if p:
@@ -1659,6 +1690,25 @@ def caratula_contrato(request, contrato_id):
                 overrides.pop(str(contrato_id), None)
                 request.session[CARATULA_COMISIONES_OVERRIDES_KEY] = overrides
                 request.session.modified = True
+                from inmobiliaria.models.comision import asegurar_comisiones_contrato
+
+                movs_op = sorted(
+                    [
+                        m
+                        for m in _movimientos_contrato_qs(contrato)[:50]
+                        if m.tipo == TipoMovimientoCajaEnum.INGRESO
+                        and m.concepto
+                        and re.search(
+                            rf'Contrato\s*#\s*{contrato.id}\b', m.concepto, re.IGNORECASE
+                        )
+                    ],
+                    key=lambda x: (x.fecha, x.id),
+                )
+                asegurar_comisiones_contrato(
+                    contrato,
+                    honorarios_monto=com_locat,
+                    movimiento_caja=movs_op[0] if movs_op else None,
+                )
                 messages.success(request, 'Comisiones guardadas en la liquidación.')
             else:
                 _set_comisiones_override_caratula(request, contrato_id, com_loc, com_locat)
@@ -1696,12 +1746,7 @@ def caratula_contrato(request, contrato_id):
         for c in cuotas_list:
             c.recibos_cobro = recibos_por_cuota.get(int(c.id), [])
 
-    if contrato.duracion_meses == 9:
-        tipo_label = 'Invierno (9 meses)'
-    elif contrato.duracion_meses == 24:
-        tipo_label = '24 meses'
-    else:
-        tipo_label = f'Contrato {contrato.duracion_meses} meses'
+    tipo_label = _tipo_label_contrato_caratula(contrato)
     carpeta_actual = _carpeta_para_operacion(request, 'contrato', contrato.id, contrato=contrato)
     liquidacion = _liquidacion_contrato(contrato)
     override = _comisiones_override_caratula(request, contrato.id)
@@ -1711,6 +1756,22 @@ def caratula_contrato(request, contrato_id):
         liquidacion=liquidacion,
         override=override,
     )
+
+    if honorarios_ctx.get('comision_locatario', 0) > Decimal('0.05'):
+        from inmobiliaria.models.comision import asegurar_comisiones_contrato
+
+        movs_op = sorted(movimientos, key=lambda x: (x.fecha, x.id)) if movimientos else []
+        asegurar_comisiones_contrato(
+            contrato,
+            honorarios_monto=honorarios_ctx['comision_locatario'],
+            movimiento_caja=movs_op[0] if movs_op else None,
+        )
+        honorarios_ctx = _ctx_honorarios_comisiones_caratula_contrato(
+            contrato,
+            movimientos,
+            liquidacion=liquidacion,
+            override=override,
+        )
 
     caratula_legacy = _build_legacy_contrato(
         contrato,
@@ -1836,12 +1897,7 @@ def imprimir_caratula_contrato(request, contrato_id):
         return HttpResponseForbidden()
 
     cuotas = list(contrato.cuotas.all()) if hasattr(contrato, 'cuotas') else []
-    if contrato.duracion_meses == 9:
-        tipo_label = 'Invierno (9 meses)'
-    elif contrato.duracion_meses == 24:
-        tipo_label = '24 meses'
-    else:
-        tipo_label = f'Contrato {contrato.duracion_meses} meses'
+    tipo_label = _tipo_label_contrato_caratula(contrato)
     movs_legacy = []
     for mov in _movimientos_contrato_qs(contrato)[:300]:
         if mov.tipo != TipoMovimientoCajaEnum.INGRESO:

@@ -11,7 +11,8 @@
             <h1 class="mb-2"><i class="fas fa-coins text-warning me-2"></i>Honorarios — Ganancias de oficina</h1>
             <p class="text-muted mb-4">
                 Comisión inmobiliaria ingresa al <strong>crear la liquidación</strong>.
-                Cochera y fondo de mantenimiento ingresan el <strong>día de entrada</strong> del departamento.
+                Cochera, fondo, comisión locador y comisión locatario ingresan el <strong>día de entrada</strong> del departamento.
+                La comisión del productor se acredita también el día de entrada.
             </p>
 
             <div class="d-flex flex-wrap gap-2 mb-4">
@@ -20,6 +21,12 @@
                 </div>
                 <div class="alert alert-success mb-0 py-2">
                     <strong>Comisión inmob.:</strong> ${{ total_comision|format_price }}
+                </div>
+                <div class="alert alert-success mb-0 py-2">
+                    <strong>Com. locador:</strong> ${{ total_comision_locador|format_price }}
+                </div>
+                <div class="alert alert-success mb-0 py-2">
+                    <strong>Com. locatario:</strong> ${{ total_comision_locatario|format_price }}
                 </div>
                 <div class="alert alert-info mb-0 py-2">
                     <strong>Cochera:</strong> ${{ total_cochera|format_price }}
@@ -48,6 +55,8 @@
                             <select name="tipo" class="form-select">
                                 <option value="">Todos</option>
                                 <option value="comision" {% if tipo_filtro == 'comision' %}selected{% endif %}>Comisión inmobiliaria</option>
+                                <option value="comision_locador" {% if tipo_filtro == 'comision_locador' %}selected{% endif %}>Comisión locador</option>
+                                <option value="comision_locatario" {% if tipo_filtro == 'comision_locatario' %}selected{% endif %}>Comisión locatario</option>
                                 <option value="cochera" {% if tipo_filtro == 'cochera' %}selected{% endif %}>Cochera</option>
                                 <option value="fondo" {% if tipo_filtro == 'fondo' %}selected{% endif %}>Fondo mantenimiento</option>
                             </select>
@@ -89,6 +98,8 @@
                                 <td class="text-nowrap">{{ f.fecha|date:"d/m/Y" }}</td>
                                 <td>
                                     {% if f.tipo == 'comision' %}
+                                    <span class="badge bg-success">{{ f.tipo_display }}</span>
+                                    {% elif f.tipo == 'comision_locador' or f.tipo == 'comision_locatario' %}
                                     <span class="badge bg-success">{{ f.tipo_display }}</span>
                                     {% elif f.tipo == 'cochera' %}
                                     <span class="badge bg-info text-dark">{{ f.tipo_display }}</span>

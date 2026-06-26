@@ -13,10 +13,12 @@ ETIQUETAS_TIPO_OPERACION = {
 
 
 def _categoria_contrato(contrato):
+    if hasattr(contrato, 'categoria_tipo_operacion'):
+        return contrato.categoria_tipo_operacion()
     meses = int(getattr(contrato, 'duracion_meses', None) or 0)
     if meses == 9:
         return 'invierno'
-    if meses == 24:
+    if meses >= 9:
         return '24'
     return 'otro'
 
