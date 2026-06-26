@@ -24989,18 +24989,17 @@ def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
         obs = (gasto.observaciones or '').strip()
         if obs and not obs.lower().startswith('movimiento de caja #'):
             det = f'{det} // {obs.upper()}'
-        tipo_lbl = gasto.get_tipo_movimiento_display().upper()
         if gasto.tipo_movimiento == 'ingreso':
             total_ingresos += m
             filas.append({
-                'detalle': f'{det} ({tipo_lbl})',
+                'detalle': det,
                 'debe': Decimal('0'),
                 'haber': m.quantize(Decimal('0.01')),
             })
         else:
             total_egresos += m
             filas.append({
-                'detalle': f'{det} ({tipo_lbl})',
+                'detalle': det,
                 'debe': m.quantize(Decimal('0.01')),
                 'haber': Decimal('0'),
             })
