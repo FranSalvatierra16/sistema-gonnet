@@ -138,30 +138,30 @@
                         <div class="row row-cols-1 row-cols-md-2 row-cols-xl-5 g-3 mb-3">
                             <div class="col">
                                 <label class="form-label">Monto Total de la Operación <span class="text-danger">*</span></label>
-                                <input type="text" name="monto_total" id="monto_total" class="form-control" 
+                                <input type="text" name="monto_total" id="monto_total" class="form-control input-monto-ar" 
                                        value="{% if monto_total %}{{ monto_total }}{% endif %}" required
-                                       placeholder="0,00">
+                                       inputmode="decimal" autocomplete="off" placeholder="0,00">
                                 <small class="form-text text-muted">Sugerido al tildar operaciones; podés corregirlo a mano.</small>
                             </div>
                             <div class="col">
                                 <label class="form-label">Monto para el Propietario <span class="text-danger">*</span></label>
-                                <input type="text" name="monto_propietario" id="monto_propietario" class="form-control" 
-                                       required placeholder="0,00">
+                                <input type="text" name="monto_propietario" id="monto_propietario" class="form-control input-monto-ar" 
+                                       required inputmode="decimal" autocomplete="off" placeholder="0,00">
                                 <small class="form-text text-muted">Sugerido según precios/toma o % de la propiedad; editable.</small>
                             </div>
                             <div class="col">
                                 <label class="form-label">Monto para la Inmobiliaria</label>
-                                <input type="text" name="monto_inmobiliaria" id="monto_inmobiliaria" class="form-control" placeholder="0,00">
+                                <input type="text" name="monto_inmobiliaria" id="monto_inmobiliaria" class="form-control input-monto-ar" inputmode="decimal" autocomplete="off" placeholder="0,00">
                                 <small class="form-text text-muted">Ingresalo manualmente; no se recalcula solo al editar otros montos.</small>
                             </div>
                             <div class="col">
                                 <label class="form-label">Cochera</label>
-                                <input type="text" name="monto_cochera" id="monto_cochera" class="form-control" value="0,00" placeholder="0,00" autocomplete="off">
+                                <input type="text" name="monto_cochera" id="monto_cochera" class="form-control input-monto-ar" value="0,00" inputmode="decimal" placeholder="0,00" autocomplete="off">
                                 <small class="form-text text-muted">Solo suma al monto final del propietario; no cambia la inmobiliaria.</small>
                             </div>
                             <div class="col">
                                 <label class="form-label">Fondo de mantenimiento</label>
-                                <input type="text" name="monto_fondo_mantenimiento" id="monto_fondo_mantenimiento" class="form-control" value="0,00" placeholder="0,00" autocomplete="off">
+                                <input type="text" name="monto_fondo_mantenimiento" id="monto_fondo_mantenimiento" class="form-control input-monto-ar" value="0,00" inputmode="decimal" placeholder="0,00" autocomplete="off">
                                 <small class="form-text text-muted">Importe de fondo de mantenimiento si aplica; editable.</small>
                             </div>
                         </div>
@@ -169,12 +169,12 @@
                         <div class="row row-cols-1 row-cols-md-2 g-3 mb-3 d-none" id="bloque_comisiones_primera_op">
                             <div class="col">
                                 <label class="form-label">Comisión locador</label>
-                                <input type="text" name="comision_locador" id="comision_locador" class="form-control" value="0,00" placeholder="0,00" autocomplete="off">
+                                <input type="text" name="comision_locador" id="comision_locador" class="form-control input-monto-ar" value="0,00" inputmode="decimal" placeholder="0,00" autocomplete="off">
                                 <small class="form-text text-muted">Primera cuota 9/24 meses: referencia para la liquidación impresa (honorarios/comisiones). No suma al neto ni al monto total.</small>
                             </div>
                             <div class="col">
                                 <label class="form-label">Comisión locatario</label>
-                                <input type="text" name="comision_locatario" id="comision_locatario" class="form-control" value="0,00" placeholder="0,00" autocomplete="off">
+                                <input type="text" name="comision_locatario" id="comision_locatario" class="form-control input-monto-ar" value="0,00" inputmode="decimal" placeholder="0,00" autocomplete="off">
                                 <small class="form-text text-muted">Referencia del contrato para la liquidación impresa. No suma al neto ni al monto total.</small>
                             </div>
                         </div>
@@ -261,7 +261,7 @@
                                             </div>
                                             <div class="col-md-2">
                                                 <label class="form-label">Monto Op. 1</label>
-                                                <input type="text" class="form-control" name="op1_monto" id="op1_monto" placeholder="0,00">
+                                                <input type="text" class="form-control input-monto-ar" name="op1_monto" id="op1_monto" inputmode="decimal" autocomplete="off" placeholder="0,00">
                                             </div>
                                             <div class="col-md-2">
                                                 <label class="form-label">Op. 2 desde</label>
@@ -273,7 +273,7 @@
                                             </div>
                                             <div class="col-md-2">
                                                 <label class="form-label">Monto Op. 2</label>
-                                                <input type="text" class="form-control" name="op2_monto" id="op2_monto" placeholder="0,00">
+                                                <input type="text" class="form-control input-monto-ar" name="op2_monto" id="op2_monto" inputmode="decimal" autocomplete="off" placeholder="0,00">
                                             </div>
                                         </div>
                                         <div class="mt-2">
@@ -1783,7 +1783,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (totalMonto > 0) {
             if (!montosEditadosManualmente) {
                 montoTotal.value = formatearNumero(totalMonto.toFixed(2));
-                montoPropietario.value = formatearNumero(totalMontoPropietario.toFixed(2));
+                montoPropietario.value = typeof formatMontoAR === 'function'
+                    ? formatMontoAR(totalMontoPropietario)
+                    : formatearNumero(totalMontoPropietario.toFixed(2));
                 montoInmobiliaria.value = formatearNumero(totalMontoInmobiliaria.toFixed(2));
             }
 
