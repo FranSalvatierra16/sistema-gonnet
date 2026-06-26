@@ -24036,10 +24036,8 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
     `sucursal` debe ser la sucursal del usuario (coincidente con la de la propiedad).
     """
     # Reservas ya cubiertas por liquidación (FK o operaciones_incluidas).
-    # Contratos: solo se bloquea el alta de otra liquidación *pendiente* del mismo
-    # contrato; las cuotas ya liquidadas se excluyen por ID (ver _cuotas_excluidas_*).
+    # Contratos: las cuotas ya liquidadas se excluyen por ID (ver _cuotas_excluidas_*).
     reservas_excluidas = set()
-    contratos_bloqueados_pendiente = set()
     for liq in LiquidacionPropietario.objects.filter(
         propiedad=propiedad,
     ).exclude(
@@ -24047,8 +24045,6 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
     ).only('reserva_id', 'contrato_id', 'estado', 'operaciones_incluidas'):
         if liq.reserva_id:
             reservas_excluidas.add(liq.reserva_id)
-        if liq.estado == 'pendiente' and liq.contrato_id:
-            contratos_bloqueados_pendiente.add(liq.contrato_id)
         for op in liq.operaciones_incluidas or []:
             if not isinstance(op, dict):
                 continue
@@ -24075,8 +24071,6 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
         propiedad=propiedad,
         estado__in=['activo', 'reservado'],
         sucursal=sucursal,
-    ).exclude(
-        id__in=contratos_bloqueados_pendiente
     ).prefetch_related('cuotas').select_related('inquilino')
     
     operaciones = []
