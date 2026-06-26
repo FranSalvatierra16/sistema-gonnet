@@ -1894,17 +1894,6 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('Los montos para el propietario, cochera y comisiones no pueden ser negativos.');
             return false;
         }
-        if (Math.abs((mProp + mInm + mCoch) - mTotal) >= 0.02) {
-            alert(
-                'Propietario + inmobiliaria + cochera debe coincidir con el monto total de la operación.\n'
-                + 'Total: ' + formatearNumero(mTotal.toFixed(2))
-                + ' | Propietario: ' + formatearNumero(mProp.toFixed(2))
-                + ' | Inmobiliaria: ' + formatearNumero(mInm.toFixed(2))
-                + ' | Cochera: ' + formatearNumero(mCoch.toFixed(2))
-                + '\n(Las comisiones locador/locatario van aparte y se descuentan del neto a pagar.)'
-            );
-            return false;
-        }
 
         if (dividirToggle && dividirToggle.checked) {
             const m1 = parseNumeroEsAR(op1Monto.value);

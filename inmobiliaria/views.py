@@ -22943,14 +22943,6 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
             else:
                 monto_inmobiliaria = monto_total - monto_propietario - monto_cochera
 
-            suma_partes = monto_propietario + monto_inmobiliaria + monto_cochera
-            if (suma_partes - monto_total).copy_abs() >= Decimal('0.02'):
-                raise ValueError(
-                    'La suma de propietario + inmobiliaria + cochera debe coincidir con el monto total '
-                    f'({monto_propietario} + {monto_inmobiliaria} + {monto_cochera} ≠ {monto_total}). '
-                    'Las comisiones locador/locatario son aparte y se descuentan del neto al propietario.'
-                )
-
             # Operaciones marcadas en el formulario (reserva:ID / contrato:ID)
             operaciones_incluidas = []
             for item in request.POST.getlist('operaciones_seleccionadas[]'):
