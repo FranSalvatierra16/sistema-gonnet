@@ -554,8 +554,23 @@ def _ctx_liquidacion_operacion(*, reserva=None, contrato=None):
             )
         elif proxima and proxima.url_liquidar:
             ctx['url_liquidacion_operacion'] = proxima.url_liquidar
-            if proxima.es_operacion_principal:
+            if proxima.liq_estado == 'bloqueada':
+                if proxima.es_anticipada_liquidable:
+                    ctx['etiqueta_liquidacion_operacion'] = (
+                        f'Cerrar liq. #{proxima.liquidacion_bloqueo_id} '
+                        f'para liquidar cuota {proxima.numero_cuota} (anticipada)'
+                    )
+                else:
+                    ctx['etiqueta_liquidacion_operacion'] = (
+                        f'Cerrar liq. #{proxima.liquidacion_bloqueo_id} '
+                        f'para liquidar cuota {proxima.numero_cuota}/{contrato.duracion_meses}'
+                    )
+            elif proxima.es_operacion_principal:
                 ctx['etiqueta_liquidacion_operacion'] = 'Liquidar operación principal'
+            elif proxima.es_anticipada_liquidable:
+                ctx['etiqueta_liquidacion_operacion'] = (
+                    f'Liquidar cuota {proxima.numero_cuota}/{contrato.duracion_meses} (anticipada)'
+                )
             else:
                 ctx['etiqueta_liquidacion_operacion'] = (
                     f'Liquidar cuota {proxima.numero_cuota}/{contrato.duracion_meses}'
@@ -726,24 +741,42 @@ def _mapa_liquidacion_por_cuota_contrato(contrato):
     return out
 
 
-def _cuotas_pendientes_liquidar_contrato(contrato, sucursal):
-    """IDs de cuotas incluibles en crear liquidación (aún no liquidadas)."""
-    from inmobiliaria.views import _operaciones_gastos_pendientes_data
+def _cuotas_liquidables_contrato(contrato, sucursal):
+    """
+    Cuotas que corresponden a la próxima liquidación del contrato.
+    Incluye cobradas no liquidadas y la cuota siguiente por anticipado (9/24 meses).
+    No aplica el bloqueo por liquidación pendiente (solo afecta al alta en caja).
+    """
+    from inmobiliaria.views import (
+        _cuotas_excluidas_por_liquidaciones_contrato,
+        _cuotas_cobro_parcial_liquidable,
+        _cuota_siguiente_anticipada_liquidable,
+    )
 
     if not contrato or not contrato.propiedad_id:
         return set()
-    data = _operaciones_gastos_pendientes_data(contrato.propiedad, sucursal)
+    cuotas_excluidas = _cuotas_excluidas_por_liquidaciones_contrato(contrato.propiedad)
     out = set()
-    for op in data.get('operaciones') or []:
-        if op.get('tipo') != 'contrato_cuota' or not op.get('incluible'):
-            continue
-        try:
-            if int(op.get('contrato_id') or 0) != int(contrato.id):
-                continue
-            out.add(int(op['id']))
-        except (TypeError, ValueError):
-            continue
+
+    for cuota in contrato.cuotas.filter(
+        estado__in=['pagada', 'pagada_con_mora'],
+    ).exclude(id__in=cuotas_excluidas).order_by('numero_cuota'):
+        out.add(cuota.id)
+
+    for cuota, _monto in _cuotas_cobro_parcial_liquidable(contrato, cuotas_excluidas, sucursal):
+        if cuota.id not in cuotas_excluidas:
+            out.add(cuota.id)
+
+    cuota_anticipada = _cuota_siguiente_anticipada_liquidable(contrato, cuotas_excluidas, out)
+    if cuota_anticipada:
+        out.add(cuota_anticipada.id)
+
     return out
+
+
+def _cuotas_pendientes_liquidar_contrato(contrato, sucursal):
+    """IDs de cuotas incluibles en crear liquidación (aún no liquidadas)."""
+    return _cuotas_liquidables_contrato(contrato, sucursal)
 
 
 def _contrato_al_dia_liquidacion_cobros(contrato):
@@ -764,7 +797,12 @@ def _ultima_liquidacion_contrato_id(contrato):
 
 def _enriquecer_cuotas_liquidacion(cuotas_list, contrato, sucursal):
     mapa_liq = _mapa_liquidacion_por_cuota_contrato(contrato)
-    pendientes = _cuotas_pendientes_liquidar_contrato(contrato, sucursal)
+    liquidables = _cuotas_liquidables_contrato(contrato, sucursal)
+    liq_pendiente = (
+        LiquidacionPropietario.objects.filter(contrato=contrato, estado='pendiente')
+        .order_by('-id')
+        .first()
+    )
     for c in cuotas_list:
         liq = mapa_liq.get(c.id)
         if liq:
@@ -773,21 +811,37 @@ def _enriquecer_cuotas_liquidacion(cuotas_list, contrato, sucursal):
             c.liquidacion_estado = liq.get_estado_display()
             c.liquidacion_url = reverse('inmobiliaria:detalle_liquidacion', args=[liq.id])
             c.url_liquidar = None
-        elif c.id in pendientes:
-            c.liq_estado = 'pendiente'
-            c.liquidacion_id = None
-            c.liquidacion_estado = ''
-            c.liquidacion_url = None
-            c.url_liquidar = (
-                reverse('inmobiliaria:crear_liquidacion_contrato', args=[contrato.id])
-                + f'?cuota={c.id}'
-            )
+            c.liquidacion_bloqueo_id = None
+            c.es_anticipada_liquidable = False
+        elif c.id in liquidables:
+            c.es_anticipada_liquidable = c.estado in ('pendiente', 'vencida')
+            if liq_pendiente:
+                c.liq_estado = 'bloqueada'
+                c.liquidacion_id = None
+                c.liquidacion_estado = ''
+                c.liquidacion_url = None
+                c.liquidacion_bloqueo_id = liq_pendiente.id
+                c.url_liquidar = reverse(
+                    'inmobiliaria:detalle_liquidacion', args=[liq_pendiente.id]
+                )
+            else:
+                c.liq_estado = 'pendiente'
+                c.liquidacion_id = None
+                c.liquidacion_estado = ''
+                c.liquidacion_url = None
+                c.liquidacion_bloqueo_id = None
+                c.url_liquidar = (
+                    reverse('inmobiliaria:crear_liquidacion_contrato', args=[contrato.id])
+                    + f'?cuota={c.id}'
+                )
         else:
             c.liq_estado = 'espera'
             c.liquidacion_id = None
             c.liquidacion_estado = ''
             c.liquidacion_url = None
             c.url_liquidar = None
+            c.liquidacion_bloqueo_id = None
+            c.es_anticipada_liquidable = False
         c.es_operacion_principal = int(getattr(c, 'numero_cuota', 0) or 0) == 1
 
 
@@ -796,8 +850,8 @@ def _resumen_liquidacion_contrato_caratula(contrato, sucursal):
     cuotas = list(contrato.cuotas.all().order_by('numero_cuota'))
     _enriquecer_cuotas_liquidacion(cuotas, contrato, sucursal)
     liquidadas = sum(1 for c in cuotas if c.liq_estado == 'liquidada')
-    pendientes = sum(1 for c in cuotas if c.liq_estado == 'pendiente')
-    proxima = next((c for c in cuotas if c.liq_estado == 'pendiente'), None)
+    pendientes = sum(1 for c in cuotas if c.liq_estado in ('pendiente', 'bloqueada'))
+    proxima = next((c for c in cuotas if c.liq_estado in ('pendiente', 'bloqueada')), None)
     return {
         'total_cuotas': len(cuotas),
         'cuotas_liquidadas': liquidadas,

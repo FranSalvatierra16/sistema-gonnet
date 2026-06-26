@@ -64,15 +64,25 @@
                                             Liquidada #{{ c.liquidacion_id }}
                                         </a>
                                         <span class="text-muted small">({{ c.liquidacion_estado }})</span>
+                                        {% elif c.liq_estado == 'bloqueada' %}
+                                        <a href="{{ c.url_liquidar }}" class="badge bg-info text-dark text-decoration-none" title="Hay una liquidación pendiente de cierre">
+                                            Próximo{% if c.es_anticipada_liquidable %} (anticipada){% endif %}
+                                        </a>
+                                        <span class="text-muted small d-block">Cerrar liq. #{{ c.liquidacion_bloqueo_id }} antes</span>
                                         {% elif c.liq_estado == 'pendiente' %}
                                         <a href="{{ c.url_liquidar }}" class="badge bg-warning text-dark text-decoration-none">
-                                            Pendiente de liquidar
+                                            {% if c.es_anticipada_liquidable %}Liquidar anticipada{% else %}Pendiente de liquidar{% endif %}
                                         </a>
                                         {% else %}
-                                        <span class="badge bg-light text-muted border">Sin cobro</span>
+                                        <span class="badge bg-light text-muted border">Aún no corresponde</span>
                                         {% endif %}
                                     </td>
                                     <td class="text-end text-nowrap">
+                                        {% if c.liq_estado == 'pendiente' or c.liq_estado == 'bloqueada' %}
+                                        <a href="{{ c.url_liquidar }}" class="btn btn-sm {% if c.liq_estado == 'bloqueada' %}btn-outline-info{% else %}btn-warning{% endif %} me-1" title="{% if c.liq_estado == 'bloqueada' %}Cerrá la liquidación #{{ c.liquidacion_bloqueo_id }} antes de liquidar este mes{% else %}Crear liquidación de este mes{% endif %}">
+                                            <i class="fas fa-hand-holding-usd me-1"></i>{% if c.liq_estado == 'bloqueada' %}Ver liq. pendiente{% else %}Liquidar{% endif %}
+                                        </a>
+                                        {% endif %}
                                         {% if c.estado == 'pagada' or c.estado == 'pagada_con_mora' %}
                                             {% if c.recibos_cobro %}
                                                 {% if c.recibos_cobro|length == 1 %}
