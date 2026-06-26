@@ -19,8 +19,8 @@
 </div>
 <div class="mb-3">
     <label class="form-label">Monto <span class="text-danger">*</span></label>
-    <input type="text" name="monto" class="form-control" required placeholder="0.00"
-           oninput="if(typeof formatearNumeroInput==='function')formatearNumeroInput(this)">
+    <input type="text" name="monto" id="movimiento_monto" class="form-control input-monto-ar"
+           required inputmode="decimal" autocomplete="off" placeholder="0,00">
 </div>
 <div class="mb-3">
     <label class="form-label">Fecha</label>

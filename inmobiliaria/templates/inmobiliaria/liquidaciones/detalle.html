@@ -685,6 +685,19 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     });
+
+    var modalAgregarGasto = document.getElementById('modalAgregarGasto');
+    if (modalAgregarGasto) {
+        modalAgregarGasto.addEventListener('shown.bs.modal', function() {
+            var inp = document.getElementById('movimiento_monto');
+            if (inp && typeof initMontoARInputs === 'function') {
+                initMontoARInputs(modalAgregarGasto);
+            }
+            if (inp) {
+                inp.focus();
+            }
+        });
+    }
 });
 </script>
 {% endblock %}
