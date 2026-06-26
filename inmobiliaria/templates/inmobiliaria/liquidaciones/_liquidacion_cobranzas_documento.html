@@ -32,12 +32,26 @@
                 {% if fecha_desde_ct %}desde el {{ fecha_desde_ct|date:"j/n/Y" }}{% endif %}
                 {% if fecha_hasta_ct %} hasta el {{ fecha_hasta_ct|date:"j/n/Y" }}{% endif %}
             </span>
-            {% if locacion_mensual %}
-            <span><strong>Locación mensual:</strong> {{ locacion_mensual|format_price }}</span>
-            {% endif %}
         </div>
         {% endif %}
-        {% if forma_pago %}
+        {% if locacion_mensual %}
+        <div class="liq-cobranzas-meta">
+            <span><strong>Locación mensual:</strong> {{ locacion_mensual|format_price }}</span>
+        </div>
+        {% endif %}
+        {% if datos_pago.titular or datos_pago.banco or datos_pago.cuenta_cbu %}
+        <div class="liq-cobranzas-meta liq-cobranzas-datos-pago">
+            {% if datos_pago.titular %}
+            <span><strong>Tit:</strong> {{ datos_pago.titular }}</span>
+            {% endif %}
+            {% if datos_pago.banco %}
+            <span><strong>Bco:</strong> {{ datos_pago.banco }}</span>
+            {% endif %}
+            {% if datos_pago.cuenta_cbu %}
+            <span><strong>N de cta o Cbu:</strong> {{ datos_pago.cuenta_cbu }}</span>
+            {% endif %}
+        </div>
+        {% elif forma_pago %}
         <div class="liq-cobranzas-meta">
             <span><strong>F. PAGO:</strong> {{ forma_pago }}</span>
         </div>

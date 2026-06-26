@@ -24872,25 +24872,40 @@ def _context_liquidacion_cobranzas(liquidacion, request=None):
             tipo_label = 'INVIERNO (9 MESES)'
         else:
             tipo_label = f'{contrato.duracion_meses} MESES'
-        locacion_mensual = contrato.precio_mensual
         fecha_desde_ct = contrato.fecha_inicio
         fecha_hasta_ct = contrato.fecha_fin
     else:
         tipo_label = 'COBRANZAS'
-        locacion_mensual = None
         fecha_desde_ct = liquidacion.fecha_desde
         fecha_hasta_ct = liquidacion.fecha_hasta
 
-    fpago_parts = []
+    locacion_mensual = liquidacion.monto_propietario
+
+    datos_pago = {}
     if propietario:
-        if (propietario.cuenta_banco or '').strip():
-            fpago_parts.append(propietario.cuenta_banco.strip().upper())
-        if (propietario.cuenta_cbu_alias or '').strip():
-            fpago_parts.append(f'NRO.{propietario.cuenta_cbu_alias.strip()}')
-        elif (propietario.cuenta_numero or '').strip():
-            fpago_parts.append(f'NRO.{propietario.cuenta_numero.strip()}')
-        elif (propietario.cuenta_bancaria or '').strip():
-            fpago_parts.append(propietario.cuenta_bancaria.strip().upper())
+        titular = (propietario.cuenta_titular or '').strip()
+        if not titular:
+            titular = f'{propietario.apellido or ""}, {propietario.nombre or ""}'.strip(', ').strip()
+        banco = (propietario.cuenta_banco or '').strip()
+        cuenta_cbu = (
+            (propietario.cuenta_cbu_alias or '').strip()
+            or (propietario.cuenta_numero or '').strip()
+        )
+        if not cuenta_cbu and (propietario.cuenta_bancaria or '').strip():
+            cuenta_cbu = propietario.cuenta_bancaria.strip()
+        datos_pago = {
+            'titular': titular.upper() if titular else '',
+            'banco': banco.upper() if banco else '',
+            'cuenta_cbu': cuenta_cbu.upper() if cuenta_cbu else '',
+        }
+
+    fpago_parts = []
+    if datos_pago.get('titular'):
+        fpago_parts.append(f"TIT. {datos_pago['titular']}")
+    if datos_pago.get('banco'):
+        fpago_parts.append(f"BCO. {datos_pago['banco']}")
+    if datos_pago.get('cuenta_cbu'):
+        fpago_parts.append(f"NRO.{datos_pago['cuenta_cbu']}")
 
     sucursal = liquidacion.sucursal
     volver_url = None
@@ -24915,6 +24930,7 @@ def _context_liquidacion_cobranzas(liquidacion, request=None):
         'saldo_favor': dh['saldo_favor'],
         'monto_letras': _monto_liquidacion_en_letras(dh['saldo_favor']),
         'forma_pago': ' · '.join(fpago_parts),
+        'datos_pago': datos_pago,
         'locacion_mensual': locacion_mensual,
         'fecha_desde_ct': fecha_desde_ct,
         'fecha_hasta_ct': fecha_hasta_ct,
