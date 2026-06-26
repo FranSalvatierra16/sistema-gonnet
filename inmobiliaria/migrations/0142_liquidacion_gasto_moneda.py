@@ -4,7 +4,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('inmobiliaria', '0129_categoria_vales_oficina'),
+        ('inmobiliaria', '0141_comisionvendedor_contrato'),
     ]
 
     operations = [
