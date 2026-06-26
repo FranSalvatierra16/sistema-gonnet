@@ -12274,6 +12274,58 @@ def _buscar_movimiento_caja_duplicado_reciente(
     return qs.order_by('-fecha', '-id').first()
 
 
+def _serializar_form_post_nuevo_movimiento(request):
+    """Datos del POST para re-poblar el formulario de nuevo movimiento tras un error."""
+    if request.method != 'POST':
+        return None
+    post = request.POST
+    campos = (
+        'tipo', 'tipo_comprobante', 'numero_liquidacion', 'fecha', 'fecha_desde', 'fecha_hasta',
+        'concepto_id', 'detalles', 'propiedad_id', 'productor_id', 'tipo_beneficiario_vale',
+        'beneficiario_nombre_vale', 'beneficiario_apellido_vale', 'beneficiario_dni_vale',
+        'monto_efectivo', 'monto_cheque', 'monto_tarjeta', 'monto_deposito', 'destino_deposito',
+        'dolares', 'monto_a_oficina', 'monto_a_propietario', 'monto_a_inquilino',
+        'tarjeta_numero', 'tarjeta_cupon', 'tarjeta_tipo', 'cheque_numero', 'cheque_banco',
+        'cheque_fecha_vencimiento', 'movimiento_uid', 'operacion_ref_tipo', 'operacion_ref_id',
+        'reserva_operacion_id', 'gasto_oficina_categoria_id', 'gasto_oficina_vendedor_id',
+        'gasto_oficina_descripcion', 'gasto_oficina_observaciones', 'fecha_transferencia',
+    )
+    fp = {k: (post.get(k) or '').strip() for k in campos}
+    fp['es_gasto_oficina'] = (post.get('es_gasto_oficina') or '').strip() in ('1', 'on', 'true')
+
+    concepto_id = fp.get('concepto_id') or ''
+    if concepto_id:
+        concepto_row = Concepto.objects.filter(id=concepto_id).first()
+        if concepto_row:
+            fp['concepto_nombre'] = (concepto_row.nombre or '').strip()
+
+    propiedad_id = fp.get('propiedad_id') or ''
+    if propiedad_id.isdigit():
+        from inmobiliaria.models.propiedad import Propiedad
+
+        propiedad = Propiedad.objects.filter(id=int(propiedad_id)).first()
+        if propiedad:
+            fp['propiedad_direccion'] = (propiedad.direccion or '').strip()
+            fp['propiedad_piso'] = (propiedad.piso or '').strip()
+            fp['propiedad_departamento'] = (propiedad.departamento or '').strip()
+
+    productor_id = fp.get('productor_id') or ''
+    if productor_id.isdigit():
+        vendedor = Vendedor.objects.filter(id=int(productor_id)).first()
+        if vendedor:
+            fp['productor_nombre'] = (vendedor.nombre or '').strip()
+            fp['productor_apellido'] = (vendedor.apellido or '').strip()
+
+    go_vend_id = fp.get('gasto_oficina_vendedor_id') or ''
+    if go_vend_id.isdigit():
+        vendedor_go = Vendedor.objects.filter(id=int(go_vend_id)).first()
+        if vendedor_go:
+            fp['gasto_oficina_vendedor_nombre'] = (vendedor_go.nombre or '').strip()
+            fp['gasto_oficina_vendedor_apellido'] = (vendedor_go.apellido or '').strip()
+
+    return fp
+
+
 @login_required
 def nuevo_movimiento(request, numero_caja=None):
     from inmobiliaria.models.sucursal import CuentaBancaria
@@ -12324,6 +12376,12 @@ def nuevo_movimiento(request, numero_caja=None):
         }
         if extra:
             ctx.update(extra)
+        if request.method == 'POST' and 'form_post' not in ctx:
+            form_post = _serializar_form_post_nuevo_movimiento(request)
+            if form_post:
+                ctx['form_post'] = form_post
+                if form_post.get('movimiento_uid'):
+                    ctx['movimiento_uid'] = form_post['movimiento_uid']
         return ctx
 
     if request.method == 'POST':
@@ -12353,6 +12411,9 @@ def nuevo_movimiento(request, numero_caja=None):
                 concepto_row = Concepto.objects.filter(
                     id=concepto_valor,
                 ).filter(q_conceptos_caja_visibles(request.user.sucursal)).first()
+            es_vale_concepto = bool(
+                concepto_row and concepto_row.indica_movimiento_vale_productor()
+            )
             if concepto_row:
                 base_concepto = (concepto_row.nombre or '').strip() or concepto_valor
                 concepto_guardado = f'{base_concepto} — {detalles_txt}' if detalles_txt else base_concepto
@@ -12540,6 +12601,7 @@ def nuevo_movimiento(request, numero_caja=None):
 
             if (
                 not es_gasto_oficina
+                and not es_vale_concepto
                 and tipo == TipoMovimientoCajaEnum.EGRESO
                 and (m_prop > 0 or m_of > 0)
                 and not movimiento.propiedad_id

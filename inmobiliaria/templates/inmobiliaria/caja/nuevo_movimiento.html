@@ -104,10 +104,6 @@
                             <option value="IN">Ingreso (I)</option>
                             <option value="EG">Egreso (E)</option>
                         </select>
-                        <small id="hint_vale_egreso" class="text-warning d-none mt-1 d-block">
-                            Concepto de vale: se usa <strong>Egreso (E)</strong> (plata que sale de caja al productor).
-                            Ingreso solo si el productor devuelve plata a caja.
-                        </small>
                                         </div>
                     <div class="col-md-2">
                         <label class="form-label">Tipo de Comprobante</label>
@@ -307,7 +303,7 @@
                     </div>
                     <div class="col-md-4" id="bloque_productor_nombre_vale">
                         <label class="form-label">Nombre del productor</label>
-                        <input type="text" id="productor_nombre" class="form-control" readonly>
+                        <input type="text" id="productor_nombre" class="form-control" readonly tabindex="-1">
                         <input type="hidden" name="productor_id" id="productor_id_hidden">
                     </div>
                     <div class="col-md-9 d-none" id="bloque_otro_beneficiario_vale">
@@ -387,11 +383,11 @@
                                             <input type="text" id="propiedad_buscar" class="form-control" placeholder="Nº, dirección, edificio, depto (ej. deptos G), piso o propietario…" autocomplete="off">
                                             <div id="dropdown_propiedades_main" class="caja-ac-dropdown list-group" role="listbox" aria-label="Propiedades"></div>
                                         </div>
-                                        <small class="text-muted">Obligatoria en egresos a cargo de propietario u oficina (figura en operaciones por propiedad). Búsqueda al escribir; tabla completa en «Listado».</small>
+                        <small class="text-muted">Obligatoria en egresos a cargo de propietario u oficina (salvo concepto Vale). Búsqueda al escribir; tabla completa en «Listado».</small>
                                     </div>
                                     <div class="col-md-5">
                                         <label class="form-label">Dirección</label>
-                                        <input type="text" id="propiedad_direccion" class="form-control" readonly>
+                                        <input type="text" id="propiedad_direccion" class="form-control" readonly tabindex="-1">
                                     </div>
                                     <div class="col-md-2">
                                         <button type="button" class="btn btn-outline-secondary w-100" data-bs-toggle="modal" data-bs-target="#modalBuscarPropiedad">
@@ -716,8 +712,22 @@
 
 {% block extra_js %}
 {{ categorias_gasto_oficina|json_script:"categorias-gasto-oficina-data" }}
+{% if form_post %}{{ form_post|json_script:"nuevo-movimiento-form-post" }}{% endif %}
 <script>
 $(document).ready(function() {
+    var cajaAcFocusPorClick = false;
+    $(document).on('mousedown', '.caja-ac-wrap input[type="text"]', function() {
+        cajaAcFocusPorClick = true;
+    });
+    $(document).on('keydown', function(e) {
+        if (e.key === 'Tab') cajaAcFocusPorClick = false;
+    });
+    function cajaAcAbrirEnFocus(fn) {
+        if (!cajaAcFocusPorClick) return;
+        cajaAcFocusPorClick = false;
+        if (typeof fn === 'function') fn();
+    }
+
     // Limpiar el formulario cuando se abre el modal
     $('#modalNuevoConcepto').on('show.bs.modal', function() {
         $('#nuevo_concepto_id').val('');
@@ -775,7 +785,6 @@ $(document).ready(function() {
         $('#concepto_seleccionado_texto').text(conceptoIdEtiqueta(id) + ' - ' + nom);
         $('#concepto_seleccionado').removeClass('d-none');
         $('#buscar_concepto').val('');
-        aplicarTipoSiConceptoVale(id, nom);
         aplicarTipoSiConceptoDevolucionDeposito(id, nom);
     }
 
@@ -789,15 +798,6 @@ $(document).ready(function() {
         var esOtro = $('#tb_vale_otro').is(':checked');
         $('#bloque_productor_vale, #bloque_productor_nombre_vale').toggleClass('d-none', esOtro);
         $('#bloque_otro_beneficiario_vale').toggleClass('d-none', !esOtro);
-    }
-
-    function aplicarTipoSiConceptoVale(id, nombre) {
-        if (!esConceptoVale(id, nombre)) {
-            $('#hint_vale_egreso').addClass('d-none');
-            return;
-        }
-        $('select[name="tipo"]').val('EG');
-        $('#hint_vale_egreso').removeClass('d-none');
     }
 
     $('input[name="tipo_beneficiario_vale"]').on('change', actualizarTipoBeneficiarioVale);
@@ -891,12 +891,20 @@ $(document).ready(function() {
             $dropdown.removeClass('show');
             return true;
         }
+        if (key === 'Tab') {
+            $dropdown.removeClass('show').empty();
+            return false;
+        }
         return false;
     }
 
     function bindCajaAcTeclado(inputSelector, dropdownSelector, abrirSiCerrado) {
         $(inputSelector).on('keydown', function(e) {
             var $dd = $(dropdownSelector);
+            if (e.key === 'Tab') {
+                $dd.removeClass('show').empty();
+                return;
+            }
             if (!$dd.hasClass('show') && e.key === 'ArrowDown') {
                 e.preventDefault();
                 if (typeof abrirSiCerrado === 'function') abrirSiCerrado();
@@ -1033,9 +1041,6 @@ $(document).ready(function() {
         $('#bloque_productor_gasto_oficina').toggleClass('d-none', !req && !vidCat);
         $('#hint_gasto_oficina_vale').toggleClass('d-none', !esVale);
         $('select[name="tipo"]').val('EG');
-        if (esVale) {
-            $('#hint_vale_egreso').removeClass('d-none');
-        }
         if (vidCat) {
             $('#gasto_oficina_vendedor_id').val(String(vidCat));
             var label = (op.subnombre || op.label || '').trim();
@@ -1059,9 +1064,6 @@ $(document).ready(function() {
         $('#hint_gasto_oficina_vale').toggleClass('d-none', !esVale);
         if (activo) {
             $('select[name="tipo"]').val('EG');
-            if (esVale) {
-                $('#hint_vale_egreso').removeClass('d-none');
-            }
             var op = gastoOficinaCategoriaActual;
             var req = !!(op && op.requiere_productor);
             var vidCat = op && op.vendedor_id;
@@ -1092,8 +1094,11 @@ $(document).ready(function() {
         renderDropdownCategoriasGastoOficina();
     }, 180);
 
-    $('#buscar_gasto_oficina_categoria').on('input focus', function() {
-        debouncedBuscarCategoriaGastoOficina();
+    $('#buscar_gasto_oficina_categoria').on('input', debouncedBuscarCategoriaGastoOficina);
+    $('#buscar_gasto_oficina_categoria').on('focus', function() {
+        cajaAcAbrirEnFocus(function() {
+            if ($('#es_gasto_oficina').is(':checked')) renderDropdownCategoriasGastoOficina();
+        });
     });
 
     $('#filtro_raiz_gasto_oficina').on('change', function() {
@@ -1158,8 +1163,11 @@ $(document).ready(function() {
 
     $('#buscar_productor_gasto_oficina').on('input', debouncedProductoresGastoOficina);
     $('#buscar_productor_gasto_oficina').on('focus', function() {
-        var t = $(this).val().trim();
-        if (t.length >= 1) fetchProductoresGastoOficina(t);
+        var $input = $(this);
+        cajaAcAbrirEnFocus(function() {
+            var t = $input.val().trim();
+            if (t.length >= 1) fetchProductoresGastoOficina(t);
+        });
     });
     $('#btn_buscar_productor_gasto_oficina').on('click', function() {
         fetchProductoresGastoOficina($('#buscar_productor_gasto_oficina').val().trim());
@@ -1212,7 +1220,10 @@ $(document).ready(function() {
     }, 260);
 
     $('#buscar_concepto').on('focus', function() {
-        fetchConceptos($(this).val().trim());
+        var $input = $(this);
+        cajaAcAbrirEnFocus(function() {
+            fetchConceptos($input.val().trim());
+        });
     });
     $('#buscar_concepto').on('input', debouncedConceptos);
     bindCajaAcTeclado('#buscar_concepto', '#dropdown_conceptos', function() {
@@ -1227,7 +1238,6 @@ $(document).ready(function() {
         $('#concepto_seleccionado').removeClass('d-none');
         $('#dropdown_conceptos').removeClass('show').empty();
         $('#buscar_concepto').val('');
-        aplicarTipoSiConceptoVale(id, nombre);
         aplicarTipoSiConceptoDevolucionDeposito(id, nombre);
     });
 
@@ -1235,33 +1245,6 @@ $(document).ready(function() {
     $('#btn_limpiar_concepto').click(function() {
         $('#concepto_id').val('');
         $('#concepto_seleccionado').addClass('d-none');
-        $('#hint_vale_egreso').addClass('d-none');
-    });
-
-    $('select[name="tipo"]').on('change', function() {
-        var id = $('#concepto_id').val();
-        var txt = ($('#concepto_seleccionado_texto').text() || '').trim();
-        var nombre = txt.indexOf(' - ') >= 0 ? txt.split(' - ').slice(1).join(' - ') : txt;
-        if (esConceptoVale(id, nombre) && $(this).val() === 'IN') {
-            $('#hint_vale_egreso').removeClass('d-none');
-        } else if (!esConceptoVale(id, nombre)) {
-            $('#hint_vale_egreso').addClass('d-none');
-        }
-    });
-
-    $('#formMovimiento').on('submit', function(e) {
-        var id = $('#concepto_id').val();
-        var txt = ($('#concepto_seleccionado_texto').text() || '').trim();
-        var nombre = txt.indexOf(' - ') >= 0 ? txt.split(' - ').slice(1).join(' - ') : txt;
-        if (esConceptoVale(id, nombre) && $('select[name="tipo"]').val() === 'IN') {
-            if (!confirm(
-                'Este concepto es de VALE y elegiste INGRESO (I).\n\n'
-                + 'Eso registra una DEVOLUCIÓN del productor a caja, no un vale entregado.\n\n'
-                + '¿Guardar igual como ingreso?'
-            )) {
-                e.preventDefault();
-            }
-        }
     });
 
     // Guardar nuevo concepto
@@ -1292,7 +1275,6 @@ $(document).ready(function() {
                     $('#concepto_id').val(id);
                     $('#concepto_seleccionado_texto').text(conceptoIdEtiqueta(id) + ' - ' + nombre);
                     $('#concepto_seleccionado').removeClass('d-none');
-                    aplicarTipoSiConceptoVale(id, nombre);
                     
                     // Cerrar modal y mostrar mensaje
                     var modalNuevoConcepto = bootstrap.Modal.getInstance(document.getElementById('modalNuevoConcepto'));
@@ -1710,8 +1692,11 @@ $(document).ready(function() {
 
     $('#buscar_productor_id').on('input', debouncedProductores);
     $('#buscar_productor_id').on('focus', function() {
-        var t = $(this).val().trim();
-        if (t.length >= 1) fetchVendedores(t, null);
+        var $input = $(this);
+        cajaAcAbrirEnFocus(function() {
+            var t = $input.val().trim();
+            if (t.length >= 1) fetchVendedores(t, null);
+        });
     });
     bindCajaAcTeclado('#buscar_productor_id', '#dropdown_productores', function() {
         var t = $('#buscar_productor_id').val().trim();
@@ -1853,10 +1838,7 @@ $(document).ready(function() {
         var esValeActual = esConceptoVale(sel.id, sel.nombre);
         var esDevolucionActual = esConceptoDevolucionDeposito(sel.id, sel.nombre);
 
-        if (esValeActual) {
-            $('select[name="tipo"]').val('EG');
-            $('#hint_vale_egreso').removeClass('d-none');
-        } else if (mov.tipo) {
+        if (mov.tipo) {
             var tipoNorm = normalizarTipoMov(mov.tipo);
             if (tipoNorm) $('select[name="tipo"]').val(tipoNorm);
         }
@@ -2083,6 +2065,107 @@ $(document).ready(function() {
         var $btn = $('#btn_guardar_movimiento');
         $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Guardando...');
     });
+
+    function restaurarFormPostServidor() {
+        var el = document.getElementById('nuevo-movimiento-form-post');
+        if (!el) return;
+        var fp;
+        try { fp = JSON.parse(el.textContent); } catch (e) { return; }
+        if (!fp || typeof fp !== 'object') return;
+
+        function setVal(sel, v) {
+            if (v !== undefined && v !== null && String(v) !== '') $(sel).val(v);
+        }
+
+        if (fp.movimiento_uid) $('#movimiento_uid').val(fp.movimiento_uid);
+        setVal('select[name="tipo"]', fp.tipo);
+        if (fp.tipo_comprobante) {
+            var tc = String(fp.tipo_comprobante).toLowerCase();
+            if (tc === 'rc') tc = 'recibo';
+            else if (tc === 'lq') tc = 'liquidacion';
+            else if (tc === 'gs') tc = 'gasto';
+            else if (tc === 'ot') tc = 'otro';
+            $('select[name="tipo_comprobante"]').val(tc);
+        }
+        setVal('input[name="numero_liquidacion"]', fp.numero_liquidacion);
+        setVal('#fecha_movimiento', fp.fecha);
+        setVal('input[name="fecha_desde"]', fp.fecha_desde);
+        setVal('input[name="fecha_hasta"]', fp.fecha_hasta);
+        setVal('textarea[name="detalles"]', fp.detalles);
+
+        if (fp.concepto_id) {
+            seleccionarConceptoCatalogo(fp.concepto_id, fp.concepto_nombre || '');
+        }
+        if (fp.propiedad_id) {
+            cargarPropiedad(
+                fp.propiedad_id,
+                fp.propiedad_direccion || '',
+                '',
+                fp.propiedad_piso || '',
+                fp.propiedad_departamento || ''
+            );
+        }
+        if (fp.tipo_beneficiario_vale) {
+            if (fp.tipo_beneficiario_vale === 'otro') {
+                $('#tb_vale_otro').prop('checked', true);
+            } else {
+                $('#tb_vale_vendedor').prop('checked', true);
+            }
+            actualizarTipoBeneficiarioVale();
+        }
+        setVal('#beneficiario_apellido_vale', fp.beneficiario_apellido_vale);
+        setVal('#beneficiario_nombre_vale', fp.beneficiario_nombre_vale);
+        setVal('#beneficiario_dni_vale', fp.beneficiario_dni_vale);
+        if (fp.productor_id) {
+            aplicarProductor(fp.productor_id, fp.productor_nombre || '', fp.productor_apellido || '');
+        }
+
+        setVal('input[name="monto_efectivo"]', fp.monto_efectivo);
+        setVal('input[name="monto_cheque"]', fp.monto_cheque);
+        setVal('input[name="monto_tarjeta"]', fp.monto_tarjeta);
+        setVal('input[name="monto_deposito"]', fp.monto_deposito);
+        setVal('#destino_deposito_mov', fp.destino_deposito);
+        setVal('#fecha_transferencia_mov', fp.fecha_transferencia);
+        setVal('#monto_dolares_mov', fp.dolares);
+        setVal('#monto_a_oficina', fp.monto_a_oficina);
+        setVal('#monto_a_propietario', fp.monto_a_propietario);
+        setVal('#monto_a_inquilino', fp.monto_a_inquilino);
+        setVal('input[name="tarjeta_numero"]', fp.tarjeta_numero);
+        setVal('input[name="tarjeta_cupon"]', fp.tarjeta_cupon);
+        setVal('select[name="tarjeta_tipo"]', fp.tarjeta_tipo);
+        setVal('input[name="cheque_numero"]', fp.cheque_numero);
+        setVal('input[name="cheque_banco"]', fp.cheque_banco);
+        setVal('input[name="cheque_fecha_vencimiento"]', fp.cheque_fecha_vencimiento);
+        setVal('#operacion_ref_tipo', fp.operacion_ref_tipo);
+        setVal('#operacion_ref_id', fp.operacion_ref_id);
+        setVal('#reserva_operacion_id', fp.reserva_operacion_id);
+
+        if (fp.es_gasto_oficina) {
+            $('#es_gasto_oficina').prop('checked', true);
+            actualizarModoGastoOficina();
+            setVal('#gasto_oficina_descripcion', fp.gasto_oficina_descripcion);
+            setVal('#gasto_oficina_observaciones', fp.gasto_oficina_observaciones);
+            if (fp.gasto_oficina_categoria_id) {
+                var opCat = CATEGORIAS_GASTO_OFICINA.find(function(x) {
+                    return String(x.id) === String(fp.gasto_oficina_categoria_id);
+                });
+                if (opCat) aplicarCategoriaGastoOficina(opCat);
+            }
+            if (fp.gasto_oficina_vendedor_id) {
+                aplicarProductorGastoOficina(
+                    fp.gasto_oficina_vendedor_id,
+                    fp.gasto_oficina_vendedor_nombre || '',
+                    fp.gasto_oficina_vendedor_apellido || ''
+                );
+            }
+        }
+
+        calcularTotal();
+        enviandoMovimientoCaja = false;
+        $('#btn_guardar_movimiento').prop('disabled', false).html('Guardar');
+    }
+
+    restaurarFormPostServidor();
 });
 </script>
 {% endblock %} 
