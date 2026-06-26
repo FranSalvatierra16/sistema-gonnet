@@ -12,7 +12,17 @@ from django.shortcuts import render
 from django.urls import reverse
 from django.utils import timezone
 
+from inmobiliaria.liquidacion_operacion import info_operacion_liquidacion
 from inmobiliaria.models import LiquidacionPropietario
+
+
+def _categoria_operacion_liquidacion(liq):
+    """Clave de tipo de operación: dia | invierno | estudiante | 24 | otro."""
+    return (info_operacion_liquidacion(liq).get('tipo_key') or '').strip()
+
+
+def _etiqueta_operacion_liquidacion(liq):
+    return info_operacion_liquidacion(liq).get('tipo_display') or '—'
 
 
 def _parse_fecha(s):
@@ -68,6 +78,9 @@ def _filas_honorarios_desde_liquidaciones(liquidaciones):
                 extra.append(f'Dpto {prop.departamento}')
             prop_txt = f'{prop_txt} ({", ".join(extra)})'
 
+        categoria_op = _categoria_operacion_liquidacion(liq)
+        tipo_op_display = _etiqueta_operacion_liquidacion(liq)
+
         base = {
             'liquidacion_id': liq.id,
             'liquidacion_url': reverse('inmobiliaria:detalle_liquidacion', args=[liq.id]),
@@ -78,6 +91,8 @@ def _filas_honorarios_desde_liquidaciones(liquidaciones):
                 else '—'
             ),
             'operacion': _operacion_label(liq),
+            'categoria_operacion': categoria_op,
+            'tipo_operacion_display': tipo_op_display,
             'estado_liq': liq.get_estado_display(),
         }
 
@@ -155,6 +170,21 @@ def _filtrar_filas_por_fecha(filas, fecha_desde, fecha_hasta):
     return out
 
 
+def _filtrar_filas_por_operacion(filas, operacion_filtro):
+    """Filtra por tipo de operación: 24meses | invierno | dia."""
+    if not operacion_filtro:
+        return filas
+    if operacion_filtro == '24meses':
+        keys = {'24'}
+    elif operacion_filtro == 'invierno':
+        keys = {'invierno', 'estudiante'}
+    elif operacion_filtro == 'dia':
+        keys = {'dia'}
+    else:
+        return filas
+    return [f for f in filas if f.get('categoria_operacion') in keys]
+
+
 @login_required
 def honorarios_oficina(request):
     """
@@ -166,6 +196,7 @@ def honorarios_oficina(request):
     fecha_desde_s = (request.GET.get('fecha_desde') or '').strip()
     fecha_hasta_s = (request.GET.get('fecha_hasta') or '').strip()
     tipo_filtro = (request.GET.get('tipo') or '').strip()
+    operacion_filtro = (request.GET.get('operacion') or '').strip()
     busqueda = (request.GET.get('q') or '').strip()
 
     fecha_desde = _parse_fecha(fecha_desde_s) or primer_dia_mes
@@ -197,6 +228,7 @@ def honorarios_oficina(request):
     ).distinct()
 
     filas = _filtrar_filas_por_fecha(_filas_honorarios_desde_liquidaciones(qs), fecha_desde, fecha_hasta)
+    filas = _filtrar_filas_por_operacion(filas, operacion_filtro)
 
     if tipo_filtro in ('comision', 'cochera', 'fondo', 'comision_locador', 'comision_locatario'):
         filas = [f for f in filas if f['tipo'] == tipo_filtro]
@@ -222,6 +254,7 @@ def honorarios_oficina(request):
             'fecha_desde_s': fecha_desde.strftime('%Y-%m-%d'),
             'fecha_hasta_s': fecha_hasta.strftime('%Y-%m-%d'),
             'tipo_filtro': tipo_filtro,
+            'operacion_filtro': operacion_filtro,
             'busqueda': busqueda,
             'total_general': total_general,
             'total_comision': total_comision,

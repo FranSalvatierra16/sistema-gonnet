@@ -51,7 +51,7 @@
                             <input type="date" name="fecha_hasta" class="form-control" value="{{ fecha_hasta_s }}">
                         </div>
                         <div class="col-md-2">
-                            <label class="form-label">Tipo</label>
+                            <label class="form-label">Tipo ingreso</label>
                             <select name="tipo" class="form-select">
                                 <option value="">Todos</option>
                                 <option value="comision" {% if tipo_filtro == 'comision' %}selected{% endif %}>Comisión inmobiliaria</option>
@@ -61,11 +61,20 @@
                                 <option value="fondo" {% if tipo_filtro == 'fondo' %}selected{% endif %}>Fondo mantenimiento</option>
                             </select>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-2">
+                            <label class="form-label">Tipo operación</label>
+                            <select name="operacion" class="form-select">
+                                <option value="">Todas</option>
+                                <option value="24meses" {% if operacion_filtro == '24meses' %}selected{% endif %}>24 meses</option>
+                                <option value="invierno" {% if operacion_filtro == 'invierno' %}selected{% endif %}>Invierno</option>
+                                <option value="dia" {% if operacion_filtro == 'dia' %}selected{% endif %}>Alquiler por día</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
                             <label class="form-label">Buscar</label>
                             <input type="text" name="q" class="form-control" value="{{ busqueda }}" placeholder="Propiedad, propietario, nº liquidación…">
                         </div>
-                        <div class="col-md-2">
+                        <div class="col-md-1">
                             <button type="submit" class="btn btn-primary w-100">
                                 <i class="fas fa-search me-1"></i>Buscar
                             </button>
@@ -88,6 +97,7 @@
                                 <th>Propiedad</th>
                                 <th>Propietario</th>
                                 <th>Operación</th>
+                                <th>Tipo op.</th>
                                 <th class="text-end">Monto</th>
                                 <th class="text-center">Criterio</th>
                             </tr>
@@ -114,12 +124,23 @@
                                 <td>{{ f.propiedad }}</td>
                                 <td class="small">{{ f.propietario }}</td>
                                 <td class="small">{{ f.operacion }}</td>
+                                <td class="small text-nowrap">
+                                    {% if f.categoria_operacion == '24' %}
+                                    <span class="badge bg-primary">24 meses</span>
+                                    {% elif f.categoria_operacion == 'invierno' or f.categoria_operacion == 'estudiante' %}
+                                    <span class="badge bg-info text-dark">Invierno</span>
+                                    {% elif f.categoria_operacion == 'dia' %}
+                                    <span class="badge bg-warning text-dark">Por día</span>
+                                    {% else %}
+                                    <span class="text-muted">{{ f.tipo_operacion_display|default:"—" }}</span>
+                                    {% endif %}
+                                </td>
                                 <td class="text-end fw-semibold">${{ f.monto|format_price }}</td>
                                 <td class="text-center small text-muted">{{ f.nota }}</td>
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="8" class="text-center text-muted py-5">
+                                <td colspan="9" class="text-center text-muted py-5">
                                     No hay ingresos a oficina en el período seleccionado.
                                 </td>
                             </tr>
@@ -128,7 +149,7 @@
                         {% if filas %}
                         <tfoot class="table-warning">
                             <tr>
-                                <th colspan="6" class="text-end">Total</th>
+                                <th colspan="7" class="text-end">Total</th>
                                 <th class="text-end">${{ total_general|format_price }}</th>
                                 <th></th>
                             </tr>
