@@ -23044,8 +23044,13 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                     if not cq:
                         continue
                     ctr = cq.contrato
-                    liquidables = _cuotas_liquidables_contrato(ctr, request.user.sucursal)
-                    candidatos = {cid for cid in liquidables if cid not in excl_prev}
+                    liquidables = {
+                        int(cuota.id)
+                        for cuota, _m, _p, _a in _cuotas_en_ventana_liquidacion(
+                            ctr, excl_prev, request.user.sucursal
+                        )
+                    }
+                    candidatos = liquidables
                     if cq.id not in candidatos:
                         continue
                     movs_ctr = movimientos_ingreso_contrato(ctr)
