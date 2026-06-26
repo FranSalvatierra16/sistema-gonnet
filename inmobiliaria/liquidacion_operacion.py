@@ -6,9 +6,19 @@ from inmobiliaria.models.comision import clasificar_tipo_operacion_reserva
 ETIQUETAS_TIPO_OPERACION = {
     'dia': 'Por día',
     'estudiante': 'Estudiante',
-    'invierno': 'Invierno (9 meses)',
+    'invierno': 'Invierno',
     '24': '24 meses',
+    '6': '6 meses',
     'otro': 'Otro contrato',
+}
+
+TITULO_LIQUIDACION_POR_TIPO = {
+    'dia': 'POR DÍA',
+    'estudiante': 'ESTUDIANTE',
+    'invierno': 'INVIERNO',
+    '24': '24 MESES',
+    '6': '6 MESES',
+    'otro': 'COBRANZAS',
 }
 
 
@@ -35,27 +45,98 @@ def _categoria_reserva(reserva):
     return 'dia'
 
 
+def _numero_carpeta_contrato(contrato):
+    if not contrato:
+        return None
+    raw = (getattr(contrato, 'numero_carpeta', None) or '').strip()
+    if not raw or raw == '0':
+        return None
+    return raw
+
+
+def contrato_desde_liquidacion(liquidacion):
+    """Contrato vinculado: FK directo, operación principal o cuotas en operaciones_incluidas."""
+    from inmobiliaria.models import ContratoAlquiler, CuotaMensual
+
+    if getattr(liquidacion, 'contrato_id', None) and liquidacion.contrato_id:
+        return liquidacion.contrato
+
+    cuota_ids = []
+    contrato_ids = []
+    for op in liquidacion.operaciones_incluidas or []:
+        if not isinstance(op, dict) or op.get('tipo') == 'division':
+            continue
+        tipo = (op.get('tipo') or '').strip().lower()
+        try:
+            pk = int(op['id'])
+        except (KeyError, TypeError, ValueError):
+            pk = None
+        if tipo == 'contrato_operacion_principal' and pk:
+            contrato_ids.append(pk)
+        elif tipo == 'contrato' and pk:
+            contrato_ids.append(pk)
+            for cid in op.get('cuotas_ids') or []:
+                try:
+                    cuota_ids.append(int(cid))
+                except (TypeError, ValueError):
+                    pass
+        elif tipo == 'contrato_cuota' and pk:
+            cuota_ids.append(pk)
+            for cid in op.get('cuotas_ids') or op.get('cuota_ids') or []:
+                try:
+                    cuota_ids.append(int(cid))
+                except (TypeError, ValueError):
+                    pass
+
+    if len(contrato_ids) == 1:
+        return ContratoAlquiler.objects.filter(pk=contrato_ids[0]).first()
+
+    if not cuota_ids:
+        return None
+
+    cq = (
+        CuotaMensual.objects.filter(id__in=cuota_ids)
+        .select_related('contrato')
+        .order_by('fecha_vencimiento')
+        .first()
+    )
+    return cq.contrato if cq else None
+
+
+def reserva_desde_liquidacion(liquidacion):
+    from inmobiliaria.models import Reserva
+
+    if getattr(liquidacion, 'reserva_id', None) and liquidacion.reserva_id:
+        return liquidacion.reserva
+
+    for op in liquidacion.operaciones_incluidas or []:
+        if not isinstance(op, dict) or op.get('tipo') == 'division':
+            continue
+        if (op.get('tipo') or '').strip().lower() != 'reserva':
+            continue
+        try:
+            pk = int(op['id'])
+        except (KeyError, TypeError, ValueError):
+            continue
+        r = Reserva.objects.filter(pk=pk).first()
+        if r:
+            return r
+    return None
+
+
+def titulo_tipo_liquidacion_cobranzas(info_op):
+    key = (info_op or {}).get('tipo_key') or ''
+    if key in TITULO_LIQUIDACION_POR_TIPO:
+        return TITULO_LIQUIDACION_POR_TIPO[key]
+    display = (info_op or {}).get('tipo_display') or 'COBRANZAS'
+    return str(display).upper()
+
+
 def info_operacion_liquidacion(liquidacion):
     """
     Devuelve tipo_key, tipo_display, numero_carpeta y si la operación usa carpeta (invierno / 24 meses).
     """
-    from inmobiliaria.models import ContratoAlquiler, Reserva
-
-    contrato = getattr(liquidacion, 'contrato', None)
-    reserva = getattr(liquidacion, 'reserva', None)
-
-    if contrato is not None:
-        key = _categoria_contrato(contrato)
-        carpeta = (getattr(contrato, 'numero_carpeta', None) or '').strip() or None
-        return {
-            'tipo_key': key,
-            'tipo_display': ETIQUETAS_TIPO_OPERACION.get(key, key),
-            'numero_carpeta': carpeta,
-            'muestra_carpeta': key in ('invierno', '24'),
-            'operacion_ref': f'Contrato #{contrato.id}',
-            'url_caratula': reverse('inmobiliaria:caratula_contrato', args=[contrato.id]),
-        }
-
+    reserva = reserva_desde_liquidacion(liquidacion)
     if reserva is not None:
         key = _categoria_reserva(reserva)
         return {
@@ -67,39 +148,18 @@ def info_operacion_liquidacion(liquidacion):
             'url_caratula': reverse('inmobiliaria:caratula_reserva', args=[reserva.id]),
         }
 
-    for op in liquidacion.operaciones_incluidas or []:
-        if not isinstance(op, dict):
-            continue
-        tipo = (op.get('tipo') or '').strip().lower()
-        try:
-            pk = int(op['id'])
-        except (KeyError, TypeError, ValueError):
-            continue
-        if tipo == 'contrato':
-            c = ContratoAlquiler.objects.filter(pk=pk).first()
-            if c:
-                key = _categoria_contrato(c)
-                carpeta = (c.numero_carpeta or '').strip() or None
-                return {
-                    'tipo_key': key,
-                    'tipo_display': ETIQUETAS_TIPO_OPERACION.get(key, key),
-                    'numero_carpeta': carpeta,
-                    'muestra_carpeta': key in ('invierno', '24'),
-                    'operacion_ref': f'Contrato #{c.id}',
-                    'url_caratula': reverse('inmobiliaria:caratula_contrato', args=[c.id]),
-                }
-        if tipo == 'reserva':
-            r = Reserva.objects.filter(pk=pk).first()
-            if r:
-                key = _categoria_reserva(r)
-                return {
-                    'tipo_key': key,
-                    'tipo_display': ETIQUETAS_TIPO_OPERACION.get(key, key),
-                    'numero_carpeta': None,
-                    'muestra_carpeta': False,
-                    'operacion_ref': f'Reserva #{r.id}',
-                    'url_caratula': reverse('inmobiliaria:caratula_reserva', args=[r.id]),
-                }
+    contrato = contrato_desde_liquidacion(liquidacion)
+    if contrato is not None:
+        key = _categoria_contrato(contrato)
+        carpeta = _numero_carpeta_contrato(contrato)
+        return {
+            'tipo_key': key,
+            'tipo_display': ETIQUETAS_TIPO_OPERACION.get(key, key),
+            'numero_carpeta': carpeta,
+            'muestra_carpeta': key in ('invierno', '24'),
+            'operacion_ref': f'Contrato #{contrato.id}',
+            'url_caratula': reverse('inmobiliaria:caratula_contrato', args=[contrato.id]),
+        }
 
     return {
         'tipo_key': '',

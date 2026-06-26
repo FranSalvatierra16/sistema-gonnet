@@ -24823,37 +24823,9 @@ def _periodo_detalle_alquiler_liquidacion(liquidacion):
 
 
 def _contrato_de_liquidacion(liquidacion):
-    if getattr(liquidacion, 'contrato_id', None) and liquidacion.contrato_id:
-        return liquidacion.contrato
-    cuota_ids = []
-    for op in liquidacion.operaciones_incluidas or []:
-        if not isinstance(op, dict) or op.get('tipo') == 'division':
-            continue
-        if op.get('tipo') == 'contrato_cuota':
-            try:
-                cuota_ids.append(int(op['id']))
-            except (KeyError, TypeError, ValueError):
-                pass
-            for cid in op.get('cuotas_ids') or op.get('cuota_ids') or []:
-                try:
-                    cuota_ids.append(int(cid))
-                except (TypeError, ValueError):
-                    pass
-        elif op.get('tipo') == 'contrato':
-            for cid in op.get('cuotas_ids') or []:
-                try:
-                    cuota_ids.append(int(cid))
-                except (TypeError, ValueError):
-                    pass
-    if not cuota_ids:
-        return None
-    cq = (
-        CuotaMensual.objects.filter(id__in=cuota_ids)
-        .select_related('contrato')
-        .order_by('fecha_vencimiento')
-        .first()
-    )
-    return cq.contrato if cq else None
+    from inmobiliaria.liquidacion_operacion import contrato_desde_liquidacion
+
+    return contrato_desde_liquidacion(liquidacion)
 
 
 def _cuotas_resueltas_liquidacion(liquidacion):
@@ -25032,19 +25004,18 @@ def _context_liquidacion_cobranzas(liquidacion, request=None):
     propiedad = liquidacion.propiedad
     dh = _filas_debe_haber_liquidacion_cobranzas(liquidacion)
 
+    from inmobiliaria.liquidacion_operacion import info_operacion_liquidacion, titulo_tipo_liquidacion_cobranzas
+
+    info_op = info_operacion_liquidacion(liquidacion)
+
     if contrato:
-        if contrato.duracion_meses == 24:
-            tipo_label = '24 MESES'
-        elif contrato.duracion_meses == 9:
-            tipo_label = 'INVIERNO (9 MESES)'
-        else:
-            tipo_label = f'{contrato.duracion_meses} MESES'
         fecha_desde_ct = contrato.fecha_inicio
         fecha_hasta_ct = contrato.fecha_fin
     else:
-        tipo_label = 'COBRANZAS'
         fecha_desde_ct = liquidacion.fecha_desde
         fecha_hasta_ct = liquidacion.fecha_hasta
+
+    tipo_label = titulo_tipo_liquidacion_cobranzas(info_op)
 
     locacion_mensual = liquidacion.monto_propietario
 
@@ -25076,10 +25047,6 @@ def _context_liquidacion_cobranzas(liquidacion, request=None):
     volver_url = None
     if request and liquidacion.id:
         volver_url = reverse('inmobiliaria:detalle_liquidacion', args=[liquidacion.id])
-
-    from inmobiliaria.liquidacion_operacion import info_operacion_liquidacion
-
-    info_op = info_operacion_liquidacion(liquidacion)
 
     return {
         'liquidacion': liquidacion,
