@@ -5077,11 +5077,6 @@ def terminar_reserva(request, reserva_id):
         conceptos_pago = ConceptoPago.objects.all()
         pagos_previos = Pago.objects.filter(reserva=reserva).order_by('-fecha')
         
-        # Verificar si hay pagos y actualizar el estado
-        if pagos_previos.exists():
-            reserva.estado = 'pagada'
-            reserva.save()
-        
         # Inicializar o actualizar cuota_pendiente si es necesario
         if reserva.cuota_pendiente is None or reserva.cuota_pendiente == 0:
             reserva.cuota_pendiente = reserva.precio_total
@@ -6465,6 +6460,8 @@ def procesar_movimiento_reserva(request):
                     pass  # ✅ Bloque vacío
 # print(f"   - {key}: '{value}'")
             
+            saldo_pendiente = (reserva.precio_total or Decimal('0')) - (reserva.senia or Decimal('0'))
+
             try:
                 deposito_garantia = Decimal(deposito_garantia_input) if deposito_garantia_input else Decimal('0')
                 # Importe locación: siempre el precio total guardado en la reserva (no editable en el recibo; no se toma del POST)
@@ -6614,14 +6611,17 @@ def procesar_movimiento_reserva(request):
 # print(f"✅ RECIBO CREADO: {numero_recibo}")
                 
             except (ValueError, TypeError) as e:
-                pass  # ✅ Bloque vacío
-# print(f"❌ Error al convertir valores: {e}")
-                # Si hay error en la conversión, usar valores por defecto
-                reserva.senia = Decimal('0')
-                deposito_garantia = Decimal('0')
-                
-            # Cambiar estado de la reserva
-            reserva.estado = 'pagada'
+                logger.exception(
+                    'procesar_movimiento_reserva: error al convertir montos reserva_id=%s',
+                    reserva.id,
+                )
+                saldo_pendiente = (reserva.precio_total or Decimal('0')) - (reserva.senia or Decimal('0'))
+
+            # Solo marcar pagada cuando el alquiler quedó cubierto (seña = precio total)
+            if saldo_pendiente <= 0:
+                reserva.estado = 'pagada'
+            else:
+                reserva.estado = 'confirmada_no_pagada'
             reserva.save()
 
             # Devolución de depósito (solo al finalizar: saldo pendiente en 0)

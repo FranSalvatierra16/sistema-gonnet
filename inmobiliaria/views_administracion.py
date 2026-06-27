@@ -72,6 +72,18 @@ def _nombre_persona(persona):
     return ap or nom or '—'
 
 
+def _estado_display_reserva(reserva):
+    """
+    Estado visible según cobro real del alquiler (seña vs precio total).
+    Corrige reservas marcadas «Pagada» en BD sin haber cubierto el importe.
+    """
+    precio = reserva.precio_total or 0
+    senia = reserva.senia or 0
+    if reserva.estado == 'pagada' and precio > 0 and senia < precio:
+        return 'Confirmada No Pagada'
+    return reserva.get_estado_display() if hasattr(reserva, 'get_estado_display') else reserva.estado
+
+
 @login_required
 def administracion_listado_operaciones(request):
     """
@@ -193,7 +205,7 @@ def administracion_listado_operaciones(request):
             'propiedad': (prop.direccion if prop else '—') or '—',
             'propiedad_id': prop.id if prop else None,
             'vendedor': _nombre_persona(reserva.vendedor),
-            'estado': reserva.get_estado_display() if hasattr(reserva, 'get_estado_display') else reserva.estado,
+            'estado': _estado_display_reserva(reserva),
             'url_detalle': reverse('inmobiliaria:caratula_reserva', args=[reserva.id]),
             'sort': reserva.fecha_creacion,
         })
