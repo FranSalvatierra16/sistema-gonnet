@@ -1,8 +1,6 @@
 """Tipo de operación y nº de carpeta para liquidaciones y carátulas."""
 from django.urls import reverse
 
-from inmobiliaria.models.comision import clasificar_tipo_operacion_reserva
-
 MONEDA_ARS = 'ARS'
 MONEDA_USD = 'USD'
 
@@ -47,14 +45,10 @@ def _categoria_contrato(contrato):
 
 
 def _categoria_reserva(reserva):
+    """Reservas = alquiler por día (o estudiante); invierno/24 meses solo en contratos."""
     prop = getattr(reserva, 'propiedad', None)
     if prop and getattr(prop, 'tipo_cliente', None) == 'ESTUDIANTE':
         return 'estudiante'
-    cat = clasificar_tipo_operacion_reserva(reserva)
-    if cat == 'invierno':
-        return 'invierno'
-    if cat == '24':
-        return '24'
     return 'dia'
 
 

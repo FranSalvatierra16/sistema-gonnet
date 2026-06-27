@@ -11,7 +11,6 @@ from django.urls import reverse
 from django.utils import timezone
 
 from inmobiliaria.models import ContratoAlquiler, Reserva
-from inmobiliaria.models.comision import clasificar_tipo_operacion_reserva
 
 ETIQUETAS_TIPO = {
     'dia': 'Por día',
@@ -39,10 +38,11 @@ def _parse_fecha(s):
 
 
 def _categoria_reserva(reserva):
+    """Tipo operativo de una reserva (siempre alquiler por día o estudiante; no contrato 9/24 meses)."""
     prop = reserva.propiedad
     if prop and getattr(prop, 'tipo_cliente', None) == 'ESTUDIANTE':
         return 'estudiante'
-    return clasificar_tipo_operacion_reserva(reserva)
+    return 'dia'
 
 
 def _categoria_contrato(contrato):
