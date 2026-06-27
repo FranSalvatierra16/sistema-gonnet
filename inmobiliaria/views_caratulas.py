@@ -1547,6 +1547,69 @@ def _build_legacy_contrato(contrato, cuotas, tipo_label, carpeta_override=None, 
     }
 
 
+def _tokens_busqueda_caratulas(q):
+    """Palabras para buscar persona (soporta 'Apellido, Nombre' o varias palabras)."""
+    if not (q or '').strip():
+        return []
+    tokens = []
+    for part in re.split(r'[,;]+', q):
+        for t in part.split():
+            t = t.strip()
+            if len(t) >= 2:
+                tokens.append(t)
+    if not tokens:
+        t = q.strip()
+        if t:
+            tokens = [t]
+    return tokens
+
+
+def _q_busqueda_persona_caratulas(prefix, tokens):
+    """Búsqueda por nombre/apellido; con varias palabras, cada una debe coincidir en algún campo."""
+    if not tokens:
+        return Q()
+    combined = Q()
+    for tok in tokens:
+        one = (
+            Q(**{f'{prefix}__nombre__icontains': tok})
+            | Q(**{f'{prefix}__apellido__icontains': tok})
+        )
+        combined &= one
+    return combined
+
+
+def _q_busqueda_texto_caratulas(q, tokens):
+    """Dirección, título, propietario, inquilino/cliente."""
+    q_obj = (
+        Q(propiedad__direccion__icontains=q)
+        | Q(propiedad__ubicacion__icontains=q)
+        | Q(propiedad__titulo__icontains=q)
+        | Q(propiedad__propietario__nombre__icontains=q)
+        | Q(propiedad__propietario__apellido__icontains=q)
+        | Q(propiedad__propietario__dni__icontains=q)
+        | Q(propiedad__propietario__cuit__icontains=q)
+        | Q(propiedad__propietario__email__icontains=q)
+    )
+    if tokens:
+        q_obj |= _q_busqueda_persona_caratulas('propiedad__propietario', tokens)
+    if q.isdigit():
+        try:
+            q_obj |= Q(propiedad__id=int(q))
+        except (TypeError, ValueError):
+            pass
+    return q_obj
+
+
+def _fecha_operacion_reserva(reserva):
+    fc = getattr(reserva, 'fecha_creacion', None)
+    if fc:
+        try:
+            return timezone.localtime(fc).date()
+        except Exception:
+            return fc.date() if hasattr(fc, 'date') else reserva.fecha_inicio
+    return reserva.fecha_inicio
+
+
 @login_required
 def lista_caratulas(request):
     """Tabla tipo consultorio: tipo, número, fecha, carátula, dirección, piso/depto, ficha."""
@@ -1623,19 +1686,9 @@ def lista_caratulas(request):
     omitir_filtro_fechas = periodo_completo or busqueda_por_numero
 
     if q:
-        q_res = (
-            Q(propiedad__direccion__icontains=q)
-            | Q(propiedad__ubicacion__icontains=q)
-            | Q(propiedad__titulo__icontains=q)
-            | Q(propiedad__id__icontains=q)
-            | Q(propiedad__propietario__nombre__icontains=q)
-            | Q(propiedad__propietario__apellido__icontains=q)
-            | Q(propiedad__propietario__dni__icontains=q)
-            | Q(propiedad__propietario__cuit__icontains=q)
-            | Q(propiedad__propietario__email__icontains=q)
-            | Q(cliente__nombre__icontains=q)
-            | Q(cliente__apellido__icontains=q)
-        )
+        tokens = _tokens_busqueda_caratulas(q)
+        q_res = _q_busqueda_texto_caratulas(q, tokens)
+        q_res |= _q_busqueda_persona_caratulas('cliente', tokens)
         if q.isdigit():
             try:
                 q_res |= Q(id=int(q))
@@ -1660,13 +1713,13 @@ def lista_caratulas(request):
             dr_desde, dr_hasta = dr_hasta, dr_desde
         if dr_desde and dr_hasta:
             reservas = reservas.filter(
-                fecha_inicio__lte=dr_hasta,
-                fecha_fin__gte=dr_desde,
+                fecha_creacion__date__gte=dr_desde,
+                fecha_creacion__date__lte=dr_hasta,
             )
         elif dr_desde:
-            reservas = reservas.filter(fecha_fin__gte=dr_desde)
+            reservas = reservas.filter(fecha_creacion__date__gte=dr_desde)
         elif dr_hasta:
-            reservas = reservas.filter(fecha_inicio__lte=dr_hasta)
+            reservas = reservas.filter(fecha_creacion__date__lte=dr_hasta)
 
     contratos = ContratoAlquiler.objects.filter(sucursal=sucursal).select_related(
         'propiedad', 'inquilino', 'vendedor'
@@ -1690,19 +1743,9 @@ def lista_caratulas(request):
     contratos = contratos.order_by('-fecha_creacion', '-id')
 
     if q:
-        q_ctr = (
-            Q(propiedad__direccion__icontains=q)
-            | Q(propiedad__ubicacion__icontains=q)
-            | Q(propiedad__titulo__icontains=q)
-            | Q(propiedad__id__icontains=q)
-            | Q(propiedad__propietario__nombre__icontains=q)
-            | Q(propiedad__propietario__apellido__icontains=q)
-            | Q(propiedad__propietario__dni__icontains=q)
-            | Q(propiedad__propietario__cuit__icontains=q)
-            | Q(propiedad__propietario__email__icontains=q)
-            | Q(inquilino__nombre__icontains=q)
-            | Q(inquilino__apellido__icontains=q)
-        )
+        tokens = _tokens_busqueda_caratulas(q)
+        q_ctr = _q_busqueda_texto_caratulas(q, tokens)
+        q_ctr |= _q_busqueda_persona_caratulas('inquilino', tokens)
         if q.isdigit():
             try:
                 q_ctr |= Q(id=int(q))
@@ -1712,13 +1755,13 @@ def lista_caratulas(request):
     if not omitir_filtro_fechas:
         if dr_desde and dr_hasta:
             contratos = contratos.filter(
-                fecha_inicio__lte=dr_hasta,
-                fecha_fin__gte=dr_desde,
+                fecha_operacion__gte=dr_desde,
+                fecha_operacion__lte=dr_hasta,
             )
         elif dr_desde:
-            contratos = contratos.filter(fecha_fin__gte=dr_desde)
+            contratos = contratos.filter(fecha_operacion__gte=dr_desde)
         elif dr_hasta:
-            contratos = contratos.filter(fecha_inicio__lte=dr_hasta)
+            contratos = contratos.filter(fecha_operacion__lte=dr_hasta)
 
     reserva_ids = list(reservas.values_list('id', flat=True))
     contrato_ids = list(contratos.values_list('id', flat=True))
@@ -1759,7 +1802,8 @@ def lista_caratulas(request):
                 'tipo_display': f'Reserva · {tipo}',
                 'numero': r.id,
                 'numero_display': f'OP {r.id}',
-                'fecha': r.fecha_inicio,
+                'fecha': _fecha_operacion_reserva(r),
+                'fecha_operacion': _fecha_operacion_reserva(r),
                 'caratula': _caratula_nombre_cliente(r.cliente),
                 'propiedad_linea': plinea,
                 'propiedad_sub': psub,
@@ -1768,7 +1812,6 @@ def lista_caratulas(request):
                 'ficha': p.id if p else '—',
                 'estado': r.get_estado_display() if hasattr(r, 'get_estado_display') else r.estado,
                 'carpeta': '—',
-                'sort': r.fecha_creacion or r.fecha_inicio,
                 'tiene_liquidacion': tiene_liquidacion,
                 'liquidacion_id': liquidacion_id,
             }
@@ -1799,6 +1842,7 @@ def lista_caratulas(request):
                 'numero': c.id,
                 'numero_display': f'CT {c.id}',
                 'fecha': c.fecha_operacion,
+                'fecha_operacion': c.fecha_operacion,
                 'caratula': _caratula_nombre_cliente(c.inquilino),
                 'propiedad_linea': clinea,
                 'propiedad_sub': csub,
@@ -1807,13 +1851,21 @@ def lista_caratulas(request):
                 'ficha': p.id if p else '—',
                 'estado': c.get_estado_display() if hasattr(c, 'get_estado_display') else c.estado,
                 'carpeta': carpeta_hist or '—',
-                'sort': c.fecha_creacion,
                 'tiene_liquidacion': tiene_liquidacion,
                 'liquidacion_id': liquidacion_id,
             }
         )
 
-    filas.sort(key=lambda x: x['sort'] or x['fecha'], reverse=True)
+    # Correlativo: fecha de operación y luego nº (reservas OP antes que contratos CT si mismo día).
+    filas.sort(
+        key=lambda x: (
+            x.get('fecha_operacion') or x.get('fecha'),
+            0 if x.get('kind') == 'reserva' else 1,
+            x.get('numero') or 0,
+        )
+    )
+
+    total_filas = len(filas)
 
     paginator = Paginator(filas, 40)
     page = request.GET.get('page', 1)
@@ -1838,6 +1890,7 @@ def lista_caratulas(request):
             'periodo_completo': periodo_completo,
             'busqueda_por_numero': busqueda_por_numero,
             'carpeta_default': _carpeta_default_actual(request),
+            'total_filas': total_filas,
         },
     )
 

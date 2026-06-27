@@ -81,11 +81,16 @@
                 </div>
             </form>
             <p class="small text-muted mb-0 mt-2">
-                Por defecto el rango <strong>Desde / Hasta</strong> es <strong>hoy</strong>: se listan reservas y contratos cuyo período <strong>se solapa</strong> con esas fechas (entrada/salida o inicio/fin de contrato).
-                Si buscás por <strong>N° operación</strong> (o un número en <strong>Buscar</strong>), no se aplica ese filtro.
-                Podés ampliar el rango o usar <strong>Todo</strong> para quitar el filtro de fechas.
+                El rango <strong>Desde / Hasta</strong> filtra por <strong>fecha de la operación</strong>
+                (día en que se cargó la reserva o la fecha de operación del contrato), no por fechas de entrada/salida del alquiler.
+                Por defecto muestra <strong>hoy</strong>.
+                Si buscás por <strong>N° operación</strong> (o un número solo en <strong>Buscar</strong>), no se aplica el filtro de fechas.
+                En <strong>Buscar</strong> podés usar apellido del inquilino/cliente, dirección o propietario.
                 Las filas en <span class="badge bg-success">verde</span> ya tienen liquidación al propietario.
             </p>
+            {% if total_filas is not None %}
+            <p class="small mb-0 mt-2"><strong>{{ total_filas }}</strong> operación{{ total_filas|pluralize:"es" }} con los filtros actuales.</p>
+            {% endif %}
         </div>
     </div>
 
@@ -95,7 +100,7 @@
                 <tr>
                     <th>Tipo</th>
                     <th>Nº</th>
-                    <th>Fecha</th>
+                    <th>Fecha op.</th>
                     <th>Carátula</th>
                     <th>Propiedad</th>
                     <th>Dirección</th>
