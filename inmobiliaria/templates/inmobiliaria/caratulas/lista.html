@@ -86,6 +86,7 @@
                 Por defecto muestra <strong>hoy</strong>.
                 Si buscás por <strong>N° operación</strong> (o un número solo en <strong>Buscar</strong>), no se aplica el filtro de fechas.
                 En <strong>Buscar</strong> podés usar apellido del inquilino/cliente, dirección o propietario.
+                El listado va en orden cronológico (primera operación cargada arriba, con hora).
                 Las filas en <span class="badge bg-success">verde</span> ya tienen liquidación al propietario.
             </p>
             {% if total_filas is not None %}
@@ -122,7 +123,7 @@
                         {% endif %}
                     </td>
                     <td><strong>{{ f.numero_display|default:f.numero }}</strong></td>
-                    <td>{{ f.fecha|date:"d/m/Y" }}</td>
+                    <td>{{ f.fecha|date:"d/m/Y" }}{% if f.sort_instante %} <span class="text-muted">{{ f.sort_instante|date:"H:i" }}</span>{% endif %}</td>
                     <td>{{ f.caratula }}</td>
                     <td class="small">
                         <strong>{{ f.propiedad_linea }}</strong>

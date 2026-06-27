@@ -1610,6 +1610,46 @@ def _fecha_operacion_reserva(reserva):
     return reserva.fecha_inicio
 
 
+def _instante_operacion_reserva(reserva):
+    """Momento en que se cargó la reserva (para orden cronológico)."""
+    fc = getattr(reserva, 'fecha_creacion', None)
+    if fc:
+        try:
+            return timezone.localtime(fc)
+        except Exception:
+            pass
+        if timezone.is_aware(fc):
+            return fc
+        return timezone.make_aware(fc, timezone.get_current_timezone())
+    fi = getattr(reserva, 'fecha_inicio', None)
+    if fi:
+        return timezone.make_aware(
+            datetime.combine(fi, datetime.min.time()),
+            timezone.get_current_timezone(),
+        )
+    return timezone.localtime(timezone.now())
+
+
+def _instante_operacion_contrato(contrato):
+    """Momento de alta en sistema; desempate por fecha_operacion y nº."""
+    fc = getattr(contrato, 'fecha_creacion', None)
+    if fc:
+        try:
+            return timezone.localtime(fc)
+        except Exception:
+            pass
+        if timezone.is_aware(fc):
+            return fc
+        return timezone.make_aware(fc, timezone.get_current_timezone())
+    fo = getattr(contrato, 'fecha_operacion', None)
+    if fo:
+        return timezone.make_aware(
+            datetime.combine(fo, datetime.min.time()),
+            timezone.get_current_timezone(),
+        )
+    return timezone.localtime(timezone.now())
+
+
 @login_required
 def lista_caratulas(request):
     """Tabla tipo consultorio: tipo, número, fecha, carátula, dirección, piso/depto, ficha."""
@@ -1804,6 +1844,7 @@ def lista_caratulas(request):
                 'numero_display': f'OP {r.id}',
                 'fecha': _fecha_operacion_reserva(r),
                 'fecha_operacion': _fecha_operacion_reserva(r),
+                'sort_instante': _instante_operacion_reserva(r),
                 'caratula': _caratula_nombre_cliente(r.cliente),
                 'propiedad_linea': plinea,
                 'propiedad_sub': psub,
@@ -1843,6 +1884,7 @@ def lista_caratulas(request):
                 'numero_display': f'CT {c.id}',
                 'fecha': c.fecha_operacion,
                 'fecha_operacion': c.fecha_operacion,
+                'sort_instante': _instante_operacion_contrato(c),
                 'caratula': _caratula_nombre_cliente(c.inquilino),
                 'propiedad_linea': clinea,
                 'propiedad_sub': csub,
@@ -1856,11 +1898,10 @@ def lista_caratulas(request):
             }
         )
 
-    # Correlativo: fecha de operación y luego nº (reservas OP antes que contratos CT si mismo día).
+    # Cronológico: orden en que se fueron cargando (primera operación del día arriba).
     filas.sort(
         key=lambda x: (
-            x.get('fecha_operacion') or x.get('fecha'),
-            0 if x.get('kind') == 'reserva' else 1,
+            x.get('sort_instante') or timezone.localtime(timezone.now()),
             x.get('numero') or 0,
         )
     )
