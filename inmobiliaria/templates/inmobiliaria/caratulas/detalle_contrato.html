@@ -8,7 +8,7 @@
 {% block content %}
 <div class="container py-3">
     <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-        <a href="{% url 'inmobiliaria:lista_caratulas' %}" class="small text-decoration-none">&larr; Volver al listado</a>
+        <a href="{{ volver_lista_url }}" class="small text-decoration-none">&larr; Volver al listado</a>
         <a href="{% url 'inmobiliaria:imprimir_caratula_contrato' contrato.id %}" class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener"><i class="fas fa-print me-1"></i>Imprimir carátula</a>
         {% if url_liquidacion_operacion %}
         <a href="{{ url_liquidacion_operacion }}" class="btn btn-sm {% if liquidacion_operacion %}btn-success{% else %}btn-success{% endif %}">

@@ -4,6 +4,7 @@ Consulta de carátulas: listado y detalle de operaciones (reservas por día, inv
 import re
 from datetime import datetime
 from decimal import Decimal
+from urllib.parse import urlencode
 
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
@@ -38,6 +39,83 @@ _CONCEPTO_HONORARIOS_LABELS = {
     '1000': 'Alquiler mensual',
     '29': 'Adelanto',
 }
+
+LISTA_CARATULAS_QUERY_KEYS = (
+    'q', 'operacion', 'fecha_desde', 'fecha_hasta', 'tipo', 'liquidacion', 'todo', 'page',
+)
+
+
+def _params_lista_caratulas_desde_get(get, extra=None):
+    """Parámetros GET del listado de carátulas (filtros + paginación)."""
+    params = {}
+    for key in LISTA_CARATULAS_QUERY_KEYS:
+        val = get.get(key, '')
+        if isinstance(val, str):
+            val = val.strip()
+        if val:
+            params[key] = val
+    if extra:
+        for key, val in extra.items():
+            if val not in (None, ''):
+                params[key] = val
+    return params
+
+
+def _query_string_lista_caratulas(
+    q='',
+    operacion='',
+    fecha_desde='',
+    fecha_hasta='',
+    tipo_filtro='',
+    liquidacion_filtro='',
+    periodo_completo=False,
+    page=None,
+):
+    params = {}
+    q = (q or '').strip()
+    operacion = (operacion or '').strip()
+    tipo_filtro = (tipo_filtro or '').strip()
+    liquidacion_filtro = (liquidacion_filtro or '').strip()
+    fecha_desde = (fecha_desde or '').strip()
+    fecha_hasta = (fecha_hasta or '').strip()
+    if q:
+        params['q'] = q
+    if operacion:
+        params['operacion'] = operacion
+    if tipo_filtro:
+        params['tipo'] = tipo_filtro
+    if liquidacion_filtro:
+        params['liquidacion'] = liquidacion_filtro
+    if periodo_completo:
+        params['todo'] = '1'
+    if fecha_desde:
+        params['fecha_desde'] = fecha_desde
+    if fecha_hasta:
+        params['fecha_hasta'] = fecha_hasta
+    if page:
+        params['page'] = str(page)
+    return urlencode(params)
+
+
+def _url_lista_caratulas(**kwargs):
+    qs = _query_string_lista_caratulas(**kwargs)
+    base = reverse('inmobiliaria:lista_caratulas')
+    return f'{base}?{qs}' if qs else base
+
+
+def _url_lista_caratulas_desde_request(request):
+    params = _params_lista_caratulas_desde_get(request.GET)
+    base = reverse('inmobiliaria:lista_caratulas')
+    qs = urlencode(params)
+    return f'{base}?{qs}' if qs else base
+
+
+def _redirect_caratula_con_filtros(view_name, pk, request):
+    url = reverse(view_name, args=[pk])
+    qs = urlencode(_params_lista_caratulas_desde_get(request.GET))
+    if qs:
+        url = f'{url}?{qs}'
+    return redirect(url)
 
 
 def _normalizar_carpeta(raw):
@@ -1680,6 +1758,15 @@ def lista_caratulas(request):
 
     if not sucursal:
         paginator_empty = Paginator([], 40)
+        lista_filtros_qs = _query_string_lista_caratulas(
+            q=q,
+            operacion=operacion,
+            fecha_desde=fecha_desde if not periodo_completo else '',
+            fecha_hasta=fecha_hasta if not periodo_completo else '',
+            tipo_filtro=tipo_filtro,
+            liquidacion_filtro=liquidacion_filtro,
+            periodo_completo=periodo_completo,
+        )
         return render(
             request,
             'inmobiliaria/caratulas/lista.html',
@@ -1694,6 +1781,7 @@ def lista_caratulas(request):
                 'liquidacion_filtro': liquidacion_filtro,
                 'periodo_completo': periodo_completo,
                 'carpeta_default': _carpeta_default_actual(request),
+                'lista_filtros_qs': lista_filtros_qs,
             },
         )
 
@@ -1917,6 +2005,26 @@ def lista_caratulas(request):
     except EmptyPage:
         page_obj = paginator.page(paginator.num_pages or 1)
 
+    lista_filtros_qs = _query_string_lista_caratulas(
+        q=q,
+        operacion=operacion,
+        fecha_desde=fecha_desde if not periodo_completo else '',
+        fecha_hasta=fecha_hasta if not periodo_completo else '',
+        tipo_filtro=tipo_filtro,
+        liquidacion_filtro=liquidacion_filtro,
+        periodo_completo=periodo_completo,
+    )
+    lista_ver_qs = _query_string_lista_caratulas(
+        q=q,
+        operacion=operacion,
+        fecha_desde=fecha_desde if not periodo_completo else '',
+        fecha_hasta=fecha_hasta if not periodo_completo else '',
+        tipo_filtro=tipo_filtro,
+        liquidacion_filtro=liquidacion_filtro,
+        periodo_completo=periodo_completo,
+        page=page_obj.number if page_obj.number > 1 else None,
+    )
+
     return render(
         request,
         'inmobiliaria/caratulas/lista.html',
@@ -1932,6 +2040,8 @@ def lista_caratulas(request):
             'busqueda_por_numero': busqueda_por_numero,
             'carpeta_default': _carpeta_default_actual(request),
             'total_filas': total_filas,
+            'lista_filtros_qs': lista_filtros_qs,
+            'lista_ver_qs': lista_ver_qs,
         },
     )
 
@@ -2018,6 +2128,7 @@ def caratula_reserva(request, reserva_id):
         ),
         **_ctx_liquidacion_operacion(reserva=reserva),
         **_ctx_completar_pago_reserva(reserva),
+        'volver_lista_url': _url_lista_caratulas_desde_request(request),
     }
     return render(request, 'inmobiliaria/caratulas/detalle_reserva.html', ctx)
 
@@ -2048,7 +2159,7 @@ def caratula_contrato(request, contrato_id):
         action = request.POST.get('action')
         if action == 'set_carpeta_contrato':
             _persistir_carpeta_operacion('contrato', contrato_id, request.POST.get('carpeta'))
-            return redirect('inmobiliaria:caratula_contrato', contrato_id=contrato_id)
+            return _redirect_caratula_con_filtros('inmobiliaria:caratula_contrato', contrato_id, request)
         if action == 'save_comisiones_caratula':
             from django.contrib import messages
             from inmobiliaria.decimal_utils import parse_decimal_monto
@@ -2091,7 +2202,7 @@ def caratula_contrato(request, contrato_id):
             else:
                 _set_comisiones_override_caratula(request, contrato_id, com_loc, com_locat)
                 messages.success(request, 'Comisiones guardadas para esta carátula.')
-            return redirect('inmobiliaria:caratula_contrato', contrato_id=contrato_id)
+            return _redirect_caratula_con_filtros('inmobiliaria:caratula_contrato', contrato_id, request)
 
     movimientos = []
     if contrato.propiedad_id:
@@ -2176,6 +2287,7 @@ def caratula_contrato(request, contrato_id):
         'carpeta_actual': carpeta_actual,
         'carpeta_default': _carpeta_default_actual(request),
         **_ctx_liquidacion_operacion(contrato=contrato),
+        'volver_lista_url': _url_lista_caratulas_desde_request(request),
     }
     return render(request, 'inmobiliaria/caratulas/detalle_contrato.html', ctx)
 
