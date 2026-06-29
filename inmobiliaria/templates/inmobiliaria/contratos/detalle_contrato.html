@@ -302,13 +302,9 @@
                 <i class="fas fa-list"></i> Solo cuotas
             </a>
             {% if puede_agregar_cuota %}
-            <form method="post" action="{% url 'inmobiliaria:agregar_cuota_contrato' contrato.id %}" class="d-inline"
-                  onsubmit="return confirm('Se agregará una nueva cuota al final del plan. ¿Continuar?');">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-sm btn-outline-success" title="Agrega una cuota al final y extiende duración/fecha fin">
-                    <i class="fas fa-plus"></i> Agregar cuota
-                </button>
-            </form>
+            <button type="button" class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#modalAgregarCuota" title="Agregar un mes al plan con fecha elegida">
+                <i class="fas fa-plus"></i> Agregar cuota
+            </button>
             {% endif %}
             {% if puede_eliminar_ultima_cuota %}
             <form method="post" action="{% url 'inmobiliaria:eliminar_ultima_cuota_contrato' contrato.id %}" class="d-inline"
@@ -324,13 +320,6 @@
                 {% csrf_token %}
                 <button type="submit" class="btn btn-sm btn-outline-warning" title="Si los importes quedaron mal cargados, los alinea con el precio del contrato">
                     <i class="fas fa-sync-alt"></i> Alinear montos pendientes
-                </button>
-            </form>
-            <form method="post" action="{% url 'inmobiliaria:alinear_vencimientos_cuotas_contrato' contrato.id %}" class="d-inline"
-                  onsubmit="return confirm('Se recalcularán las fechas de vencimiento de TODAS las cuotas según la fecha de inicio del contrato (un mes tras otro). ¿Continuar?');">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-sm btn-outline-info" title="Corrige saltos de mes (ej. junio → agosto sin julio)">
-                    <i class="fas fa-calendar-check"></i> Alinear vencimientos
                 </button>
             </form>
             {% if user.nivel == 5 %}
@@ -554,6 +543,67 @@
     </div>
 </div>
 
+{% if puede_agregar_cuota %}
+<div class="modal fade" id="modalAgregarCuota" tabindex="-1" aria-labelledby="modalAgregarCuotaLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="{% url 'inmobiliaria:agregar_cuota_contrato' contrato.id %}" id="formAgregarCuota">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalAgregarCuotaLabel"><i class="fas fa-plus-circle me-1"></i>Agregar mes al plan</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small text-muted mb-3">
+                        Elegí dónde insertar el mes y la fecha de vencimiento. Solo puede haber <strong>un mes por período</strong>
+                        (no dos cuotas de febrero 2026, por ejemplo).
+                    </p>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small">Ubicación</label>
+                        <div class="d-flex flex-column gap-2">
+                            <label class="form-check">
+                                <input class="form-check-input" type="radio" name="modo" value="final" checked>
+                                <span class="form-check-label">Al final del plan</span>
+                            </label>
+                            <label class="form-check">
+                                <input class="form-check-input" type="radio" name="modo" value="inicio">
+                                <span class="form-check-label">Al inicio (antes de la primera cuota)</span>
+                            </label>
+                            <label class="form-check">
+                                <input class="form-check-input" type="radio" name="modo" value="despues">
+                                <span class="form-check-label">Después de una cuota existente</span>
+                            </label>
+                            <label class="form-check">
+                                <input class="form-check-input" type="radio" name="modo" value="fecha_libre">
+                                <span class="form-check-label">En el medio (según fecha — rellena huecos)</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="mb-3 d-none" id="bloque-despues-cuota">
+                        <label for="despues_cuota_id" class="form-label small fw-bold">Después de</label>
+                        <select name="despues_cuota_id" id="despues_cuota_id" class="form-select form-select-sm">
+                            {% for c in cuotas %}
+                            <option value="{{ c.id }}">Cuota {{ c.numero_cuota }}/{{ contrato.duracion_meses }} — {{ c.fecha_vencimiento|date:"d/m/Y" }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-0">
+                        <label for="fecha_vencimiento_nueva_cuota" class="form-label small fw-bold">Fecha de vencimiento</label>
+                        <input type="date" name="fecha_vencimiento" id="fecha_vencimiento_nueva_cuota" class="form-control form-control-sm" required>
+                        <div class="form-text" id="ayuda-fecha-nueva-cuota">Por defecto: un mes después de la última cuota.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success btn-sm"><i class="fas fa-check me-1"></i>Agregar mes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{{ cuotas_agregar_list|json_script:"cuotas-agregar-data" }}
+{% endif %}
+
 <script>
 function mostrarModalRescindirContrato(direccion) {
     document.getElementById('rescindir_direccion_txt').textContent = direccion || '';
@@ -710,5 +760,117 @@ function confirmarPrecioCuotaMes(form, numeroMes) {
     });
     sincronizarMeses();
 })();
+
+{% if puede_agregar_cuota %}
+(function inicializarModalAgregarCuota() {
+    var dataEl = document.getElementById('cuotas-agregar-data');
+    var form = document.getElementById('formAgregarCuota');
+    if (!dataEl || !form) return;
+    var cuotas = JSON.parse(dataEl.textContent || '[]');
+    if (!cuotas.length) return;
+
+    var bloqueDespues = document.getElementById('bloque-despues-cuota');
+    var selectDespues = document.getElementById('despues_cuota_id');
+    var inputFecha = document.getElementById('fecha_vencimiento_nueva_cuota');
+    var ayuda = document.getElementById('ayuda-fecha-nueva-cuota');
+    var radios = form.querySelectorAll('input[name="modo"]');
+
+    function pad2(n) { return n < 10 ? '0' + n : '' + n; }
+
+    function addCalendarMonth(iso, delta) {
+        var p = iso.split('-').map(Number);
+        var y = p[0], mo = p[1], day = p[2];
+        mo += delta;
+        while (mo < 1) { mo += 12; y--; }
+        while (mo > 12) { mo -= 12; y++; }
+        var lastDay = new Date(y, mo, 0).getDate();
+        if (day > lastDay) day = lastDay;
+        return y + '-' + pad2(mo) + '-' + pad2(day);
+    }
+
+    function cuotaPorId(id) {
+        return cuotas.find(function (c) { return String(c.id) === String(id); });
+    }
+
+    function modoActual() {
+        var checked = form.querySelector('input[name="modo"]:checked');
+        return checked ? checked.value : 'final';
+    }
+
+    function sugerirFecha() {
+        var modo = modoActual();
+        var primera = cuotas[0];
+        var ultima = cuotas[cuotas.length - 1];
+        var sugerida = '';
+        var texto = '';
+
+        if (modo === 'final') {
+            sugerida = addCalendarMonth(ultima.fecha, 1);
+            texto = 'Sugerido: un mes después de la última cuota (' + ultima.fecha_display + ').';
+        } else if (modo === 'inicio') {
+            sugerida = addCalendarMonth(primera.fecha, -1);
+            texto = 'Sugerido: un mes antes de la primera cuota (' + primera.fecha_display + ').';
+        } else if (modo === 'despues') {
+            var ref = cuotaPorId(selectDespues && selectDespues.value);
+            if (ref) {
+                sugerida = addCalendarMonth(ref.fecha, 1);
+                texto = 'Sugerido: un mes después de la cuota ' + ref.numero + ' (' + ref.fecha_display + ').';
+            }
+        } else {
+            texto = 'Elegí la fecha del mes faltante; se insertará en orden cronológico entre las cuotas existentes.';
+        }
+
+        if (sugerida && inputFecha) {
+            inputFecha.value = sugerida;
+        }
+        if (ayuda) ayuda.textContent = texto;
+    }
+
+    function sincronizarModo() {
+        var modo = modoActual();
+        if (bloqueDespues) {
+            bloqueDespues.classList.toggle('d-none', modo !== 'despues');
+        }
+        if (selectDespues) {
+            selectDespues.required = modo === 'despues';
+        }
+        sugerirFecha();
+    }
+
+    radios.forEach(function (r) {
+        r.addEventListener('change', sincronizarModo);
+    });
+    if (selectDespues) {
+        selectDespues.addEventListener('change', sugerirFecha);
+    }
+
+    form.addEventListener('submit', function (e) {
+        if (!inputFecha || !inputFecha.value) {
+            e.preventDefault();
+            alert('Indicá la fecha de vencimiento del nuevo mes.');
+            return;
+        }
+        var modo = modoActual();
+        var msg = '¿Agregar un mes con vencimiento ' + inputFecha.value.split('-').reverse().join('/') + '?';
+        if (modo === 'fecha_libre') {
+            msg += ' Se ubicará en el medio según la fecha.';
+        }
+        if (!confirm(msg)) {
+            e.preventDefault();
+        }
+    });
+
+    var modalEl = document.getElementById('modalAgregarCuota');
+    if (modalEl) {
+        modalEl.addEventListener('show.bs.modal', function () {
+            var finRadio = form.querySelector('input[name="modo"][value="final"]');
+            if (finRadio) finRadio.checked = true;
+            sincronizarModo();
+        });
+    }
+
+    sincronizarModo();
+})();
+{% endif %}
 </script>
 {% endblock %} 
