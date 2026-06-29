@@ -12355,10 +12355,24 @@ def nuevo_movimiento(request, numero_caja=None):
 
     sucursal = request.user.sucursal
     cuentas_bancarias = CuentaBancaria.objects.filter(sucursal=sucursal, activa=True).order_by('nombre_banco', 'alias')
-    asegurar_categorias_base(sucursal)
-    asegurar_estructura_cierre_oficina(sucursal)
-    categorias_gasto_oficina = categorias_opciones_con_flags(sucursal)
-    categorias_gasto_oficina_grupos = categorias_opciones_grupos(sucursal)
+    categorias_gasto_oficina = []
+    categorias_gasto_oficina_grupos = []
+    try:
+        asegurar_categorias_base(sucursal)
+        asegurar_estructura_cierre_oficina(sucursal)
+        categorias_gasto_oficina = categorias_opciones_con_flags(sucursal)
+        categorias_gasto_oficina_grupos = categorias_opciones_grupos(sucursal)
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception(
+            'nuevo_movimiento: error preparando categorías de gasto de oficina (sucursal=%s)',
+            getattr(sucursal, 'pk', None),
+        )
+        messages.warning(
+            request,
+            'No se pudieron cargar las categorías de gasto de oficina. '
+            'Podés cargar el movimiento igual; si necesitás gasto de oficina, avisá a sistemas.',
+        )
     pre_gasto_oficina = (request.GET.get('gasto_oficina') or '').strip() in ('1', 'true', 'si', 'yes')
 
     def _ctx_nuevo_movimiento(extra=None):
@@ -12823,7 +12837,19 @@ def nuevo_movimiento(request, numero_caja=None):
             messages.error(request, f'Error al crear el movimiento: {str(e)}')
             return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
     
-    return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
+    try:
+        return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception(
+            'nuevo_movimiento GET render (caja=%s)',
+            getattr(caja, 'numero', numero_caja),
+        )
+        messages.error(
+            request,
+            'No se pudo abrir el formulario de nuevo movimiento. Intentá de nuevo o avisá a sistemas.',
+        )
+        return redirect('inmobiliaria:detalle_caja', numero=caja.numero)
 
 @login_required
 def cerrar_caja(request, numero_caja):

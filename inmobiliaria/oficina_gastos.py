@@ -1,6 +1,7 @@
 """Helpers compartidos para gastos de oficina (panel y movimientos de caja)."""
 from decimal import Decimal
 
+from django.db import IntegrityError
 from django.utils import timezone
 
 from inmobiliaria.models import CategoriaGastoOficina, GastoOficina, Vendedor
@@ -164,11 +165,21 @@ def _get_or_create_raiz(sucursal, nombre, orden):
         if updates:
             raiz.save(update_fields=updates)
         return raiz, False
-    return CategoriaGastoOficina.objects.create(
-        sucursal=sucursal,
-        nombre=nombre,
-        orden=orden,
-    ), True
+    try:
+        return CategoriaGastoOficina.objects.create(
+            sucursal=sucursal,
+            nombre=nombre,
+            orden=orden,
+        ), True
+    except IntegrityError:
+        existente = CategoriaGastoOficina.objects.filter(
+            sucursal=sucursal,
+            parent__isnull=True,
+            nombre__iexact=nombre,
+        ).first()
+        if existente:
+            return existente, False
+        raise
 
 
 def _get_or_create_hijo(sucursal, parent, nombre, orden, vendedor=None):
@@ -194,13 +205,22 @@ def _get_or_create_hijo(sucursal, parent, nombre, orden, vendedor=None):
         if updates:
             cat.save(update_fields=updates)
         return cat, False
-    return CategoriaGastoOficina.objects.create(
-        sucursal=sucursal,
-        parent=parent,
-        nombre=nombre,
-        orden=orden,
-        vendedor=vendedor,
-    ), True
+    try:
+        return CategoriaGastoOficina.objects.create(
+            sucursal=sucursal,
+            parent=parent,
+            nombre=nombre,
+            orden=orden,
+            vendedor=vendedor,
+        ), True
+    except IntegrityError:
+        if vendedor_id:
+            existente = qs.filter(vendedor_id=vendedor_id).first()
+        else:
+            existente = qs.filter(nombre__iexact=nombre, vendedor__isnull=True).first()
+        if existente:
+            return existente, False
+        raise
 
 
 def _sync_subcategorias_vendedores(sucursal, raiz):
