@@ -190,6 +190,9 @@
                             <th class="text-end">Transfer.</th>
                             <th>Destino transf.</th>
                             <th class="text-end">Total</th>
+                            {% if puede_eliminar_movimiento_caja or puede_editar_movimiento_caja %}
+                            <th class="text-center">Acciones</th>
+                            {% endif %}
                         </tr>
                     </thead>
                     <tbody>
@@ -212,10 +215,30 @@
                             <td class="text-end">${{ m.monto_deposito|format_price }}</td>
                             <td><small>{{ m.destino_etiqueta }}</small></td>
                             <td class="text-end"><strong>${{ m.monto_total|format_price }}</strong></td>
+                            {% if puede_eliminar_movimiento_caja or puede_editar_movimiento_caja %}
+                            <td class="text-center text-nowrap">
+                                {% if puede_editar_movimiento_caja %}
+                                <a href="{% url 'inmobiliaria:editar_movimiento_caja' m.id %}?next={{ request.get_full_path|urlencode }}"
+                                   class="btn btn-sm btn-outline-warning" title="Editar montos">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                {% endif %}
+                                {% if puede_eliminar_movimiento_caja %}
+                                <form method="post" action="{% url 'inmobiliaria:eliminar_movimiento' m.id %}" class="d-inline m-0"
+                                      onsubmit="return confirm('¿Anular este movimiento? Dejará de sumar en saldos y reportes.');">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Anular movimiento">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </td>
+                            {% endif %}
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="10" class="text-center text-muted py-4">No hay movimientos con los filtros seleccionados.</td>
+                            <td colspan="{% if puede_eliminar_movimiento_caja or puede_editar_movimiento_caja %}11{% else %}10{% endif %}" class="text-center text-muted py-4">No hay movimientos con los filtros seleccionados.</td>
                         </tr>
                         {% endfor %}
                     </tbody>

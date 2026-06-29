@@ -10633,7 +10633,11 @@ def eliminar_movimiento(request, movimiento_id):
     movimiento = get_object_or_404(MovimientoCaja, id=movimiento_id, sucursal=request.user.sucursal)
 
     def _redirect_tras_eliminar_movimiento(caja_num_fallback):
-        next_target = (request.POST.get('next') or request.GET.get('next') or '').strip()
+        next_raw = (request.POST.get('next') or request.GET.get('next') or '').strip()
+        safe_next = _validar_url_volver_recibo(next_raw, request)
+        if safe_next:
+            return redirect(safe_next)
+        next_target = next_raw
         if next_target == 'operaciones':
             return redirect('inmobiliaria:operaciones')
         cid = (request.POST.get('contrato_id') or request.GET.get('contrato_id') or '').strip()
@@ -10852,6 +10856,9 @@ def editar_movimiento_caja(request, movimiento_id):
     next_url = (request.POST.get('next') or request.GET.get('next') or '').strip()
 
     def _volver():
+        safe_next = _validar_url_volver_recibo(next_url, request)
+        if safe_next:
+            return redirect(safe_next)
         if next_url == 'todos_movimientos':
             return redirect('inmobiliaria:todos_movimientos_caja')
         if caja_numero is not None:
@@ -13906,6 +13913,7 @@ def reportes_caja(request):
             sucursal=sucursal,
             fecha__date__gte=fecha_desde,
             fecha__date__lte=fecha_hasta,
+            fecha_eliminacion__isnull=True,
         )
         .select_related('caja', 'empleado', 'propiedad')
         .order_by('-fecha', '-id')
@@ -14036,6 +14044,8 @@ def reportes_caja(request):
         'balance': (tot_in['total_mov'] - tot_eg['total_mov']),
         'transferencias_por_destino': transferencias_por_destino,
         'querystring': query_params.urlencode(),
+        'puede_eliminar_movimiento_caja': usuario_puede_eliminar_movimiento_caja(request.user),
+        'puede_editar_movimiento_caja': usuario_puede_editar_movimiento_caja(request.user),
     }
     return render(request, 'inmobiliaria/caja/reportes.html', context)
 
