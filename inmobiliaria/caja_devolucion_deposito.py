@@ -13,6 +13,8 @@ from inmobiliaria.decimal_utils import parse_decimal_monto
 from inmobiliaria.models.caja import MovimientoCaja, TipoMovimientoCajaEnum
 
 CONCEPTO_DEVOLUCION_DEPOSITO_ID = '140'
+CONCEPTOS_SENIA_OPERACION_RESERVA = frozenset({'1', '15', '50', '100', '103', '219'})
+CONCEPTO_DEPOSITO_RESERVA_ID = '10'
 
 
 def concepto_devolucion_deposito_catalogo(sucursal):
@@ -180,6 +182,102 @@ def _monto_total_movimiento(movimiento) -> Decimal:
         + Decimal(str(getattr(movimiento, 'monto_tarjeta', None) or 0))
         + Decimal(str(getattr(movimiento, 'monto_deposito', None) or 0))
     )
+
+
+def _texto_indica_pago_senia(texto: str) -> bool:
+    t = (texto or '').lower()
+    if not t:
+        return False
+    if 'devoluc' in t and ('deposit' in t or 'depósit' in t or 'garant' in t):
+        return False
+    marcadores = (
+        'seña',
+        'senia',
+        'cuenta de loc',
+        'a cuenta de loc',
+        'locación y honorarios',
+        'locacion y honorarios',
+        'alquiler a cobrar',
+    )
+    return any(m in t for m in marcadores)
+
+
+def _monto_concepto_en_movimiento(movimiento, concepto_id: str) -> Decimal:
+    total = Decimal('0')
+    cid_buscar = str(concepto_id or '').strip()
+    for item in _parse_conceptos_movimiento(movimiento):
+        cid = str(item.get('id') or item.get('codigo') or '').strip()
+        if cid == cid_buscar:
+            total += parse_decimal_monto(item.get('importe'))
+    return total
+
+
+def monto_senia_en_movimiento(movimiento, *, reserva_id: int | None = None) -> Decimal:
+    """Importe del movimiento que cuenta como seña / a cuenta de locación (no depósito)."""
+    if getattr(movimiento, 'tipo', None) != TipoMovimientoCajaEnum.INGRESO:
+        return Decimal('0')
+    if getattr(movimiento, 'fecha_eliminacion', None):
+        return Decimal('0')
+
+    conc = (getattr(movimiento, 'concepto', None) or '')
+    conc_l = conc.lower()
+    if 'devoluc' in conc_l and ('deposit' in conc_l or 'depósit' in conc_l or 'garant' in conc_l):
+        return Decimal('0')
+
+    senia = Decimal('0')
+    parsed = _parse_conceptos_movimiento(movimiento)
+    if parsed:
+        for item in parsed:
+            cid = str(item.get('id') or item.get('codigo') or '').strip()
+            if cid == CONCEPTO_DEPOSITO_RESERVA_ID:
+                continue
+            if cid in CONCEPTOS_SENIA_OPERACION_RESERVA:
+                senia += parse_decimal_monto(item.get('importe'))
+        if senia > Decimal('0'):
+            return senia
+
+    if reserva_id is not None and not _movimiento_vinculado_reserva(movimiento, reserva_id):
+        return Decimal('0')
+
+    total = _monto_total_movimiento(movimiento)
+    if total <= Decimal('0'):
+        return Decimal('0')
+
+    dep10 = _monto_concepto_en_movimiento(movimiento, CONCEPTO_DEPOSITO_RESERVA_ID)
+    if dep10 <= Decimal('0') and movimiento_tiene_concepto_10(movimiento):
+        dep10 = total
+
+    resto = total - dep10
+    if resto <= Decimal('0.01'):
+        return Decimal('0')
+
+    if _texto_indica_pago_senia(conc):
+        return resto
+    if reserva_id is not None and _movimiento_vinculado_reserva(movimiento, reserva_id):
+        return resto
+    return Decimal('0')
+
+
+def total_senia_pagada_reserva(reserva) -> Decimal:
+    rid = int(reserva.id)
+    total = Decimal('0')
+    for mov in movimientos_reserva(reserva, tipo=TipoMovimientoCajaEnum.INGRESO):
+        total += monto_senia_en_movimiento(mov, reserva_id=rid)
+    return total
+
+
+def sincronizar_senia_reserva_desde_movimientos(reserva, *, persistir: bool = True) -> Decimal:
+    """Recalcula reserva.senia desde ingresos de caja vinculados a la operación."""
+    total = total_senia_pagada_reserva(reserva)
+    precio = Decimal(str(reserva.precio_total or 0))
+    cuota = max(precio - total, Decimal('0'))
+    if persistir:
+        actual = Decimal(str(reserva.senia or 0))
+        if abs(actual - total) > Decimal('0.01'):
+            reserva.senia = total
+            reserva.cuota_pendiente = cuota
+            reserva.save(update_fields=['senia', 'cuota_pendiente'])
+    return total
 
 
 def _egreso_es_devolucion_deposito_reserva(movimiento, reserva, nombre_concepto_140: str = '') -> bool:

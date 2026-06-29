@@ -176,6 +176,26 @@
         margin-bottom: 0.3rem;
     }
 
+    .senia-badge {
+        background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+        color: white;
+        padding: 0.35rem 0.75rem;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.95rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .saldo-badge {
+        background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%);
+        color: white;
+        padding: 0.35rem 0.75rem;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.95rem;
+        margin-bottom: 0.25rem;
+    }
+
     .price-label {
         font-size: 0.75rem;
         color: #666;
@@ -489,6 +509,14 @@
                             <div class="reserva-price-info">
                                 <div class="price-badge">${{ reserva.precio_total|format_price }}</div>
                                 <small class="price-label">Precio Total</small>
+                                {% if reserva.senia_pagada %}
+                                <div class="senia-badge">${{ reserva.senia_pagada|format_price }}</div>
+                                <small class="price-label">Seña pagada</small>
+                                {% endif %}
+                                {% if reserva.saldo_pendiente %}
+                                <div class="saldo-badge">${{ reserva.saldo_pendiente|format_price }}</div>
+                                <small class="price-label">Saldo pendiente</small>
+                                {% endif %}
                             </div>
                         </div>
 
