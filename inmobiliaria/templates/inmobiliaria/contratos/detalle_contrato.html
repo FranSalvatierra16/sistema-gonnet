@@ -326,6 +326,13 @@
                     <i class="fas fa-sync-alt"></i> Alinear montos pendientes
                 </button>
             </form>
+            <form method="post" action="{% url 'inmobiliaria:alinear_vencimientos_cuotas_contrato' contrato.id %}" class="d-inline"
+                  onsubmit="return confirm('Se recalcularán las fechas de vencimiento de TODAS las cuotas según la fecha de inicio del contrato (un mes tras otro). ¿Continuar?');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-info" title="Corrige saltos de mes (ej. junio → agosto sin julio)">
+                    <i class="fas fa-calendar-check"></i> Alinear vencimientos
+                </button>
+            </form>
             {% if user.nivel == 5 %}
             <form method="post" action="{% url 'inmobiliaria:reiniciar_plan_cuotas_contrato_super_admin' contrato.id %}" class="d-inline"
                   onsubmit="return confirm('Se quitará el cobro imputado de TODAS las cuotas del plan (vuelven a pendiente o vencida). Los movimientos de caja NO se anulan. ¿Continuar?');">

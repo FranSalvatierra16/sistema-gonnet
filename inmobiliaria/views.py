@@ -15958,6 +15958,25 @@ def recalcular_cuotas_montos_desde_contrato(request, contrato_id):
 
 @login_required
 @require_POST
+def alinear_vencimientos_cuotas_contrato(request, contrato_id):
+    """Recalcula fechas de vencimiento de todas las cuotas según fecha_inicio del contrato."""
+    contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
+    if not contrato.fecha_inicio:
+        messages.error(request, 'El contrato no tiene fecha de inicio; no se pueden alinear vencimientos.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+    actualizadas = _alinear_vencimientos_cuotas_contrato(contrato)
+    if actualizadas:
+        messages.success(
+            request,
+            f'Se alinearon {actualizadas} cuota(s): cada mes queda según la fecha de inicio del contrato.',
+        )
+    else:
+        messages.info(request, 'Los vencimientos ya estaban alineados con el plan del contrato.')
+    return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+
+@login_required
+@require_POST
 def activar_precios_trimestres_contrato(request, contrato_id):
     """Contratos legacy (precios_bloques null): pasa a lista vacía y recalcula cuotas no pagadas (meses 4+ en 0)."""
     contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
@@ -17555,6 +17574,46 @@ def _estado_inicial_cuota_por_vencimiento(fecha_vencimiento, hoy):
     return 'pendiente'
 
 
+def _fecha_vencimiento_plan_cuota(contrato, numero_cuota):
+    """Vencimiento teórico de una cuota según fecha_inicio y dia_vencimiento del contrato."""
+    from calendar import monthrange
+
+    fi = _parse_fecha_contrato_post(getattr(contrato, 'fecha_inicio', None))
+    if not fi:
+        return None
+    d_dia = int(contrato.dia_vencimiento or 5)
+    idx = max(0, int(numero_cuota) - 1)
+    ref_mes = fi + relativedelta(months=idx)
+    try:
+        return ref_mes.replace(day=d_dia)
+    except ValueError:
+        ultimo_dia = monthrange(ref_mes.year, ref_mes.month)[1]
+        return ref_mes.replace(day=min(d_dia, ultimo_dia))
+
+
+def _alinear_vencimientos_cuotas_contrato(contrato):
+    """Recalcula fecha_vencimiento de todas las cuotas según el plan del contrato."""
+    hoy = timezone.now().date()
+    actualizadas = 0
+    for cuota in contrato.cuotas.order_by('numero_cuota'):
+        nueva = _fecha_vencimiento_plan_cuota(contrato, cuota.numero_cuota)
+        if not nueva:
+            continue
+        update_fields = []
+        if cuota.fecha_vencimiento != nueva:
+            cuota.fecha_vencimiento = nueva
+            update_fields.append('fecha_vencimiento')
+        if cuota.estado in ('pendiente', 'vencida'):
+            estado_nuevo = _estado_inicial_cuota_por_vencimiento(nueva, hoy)
+            if cuota.estado != estado_nuevo:
+                cuota.estado = estado_nuevo
+                update_fields.append('estado')
+        if update_fields:
+            cuota.save(update_fields=update_fields)
+            actualizadas += 1
+    return actualizadas
+
+
 def _monto_plan_cuota_contrato(contrato, numero_cuota):
     idx = int(numero_cuota) - 1
     montos_plan = _montos_cuotas_por_trimestre(contrato)
@@ -17630,25 +17689,16 @@ def _asegurar_cuotas_plan_contrato(contrato):
     if contrato.cuotas.exists():
         return 0
 
-    from calendar import monthrange
-
     n = int(contrato.duracion_meses or 0)
     if n <= 0:
         return 0
 
     hoy = timezone.now().date()
-    d_dia = int(contrato.dia_vencimiento or 5)
-    fi = _parse_fecha_contrato_post(getattr(contrato, 'fecha_inicio', None)) or hoy
     creadas = 0
 
     if n == 9:
         for i in range(9):
-            ref_mes = fi + relativedelta(months=i)
-            try:
-                fecha_vencimiento = ref_mes.replace(day=d_dia)
-            except ValueError:
-                ultimo_dia = monthrange(ref_mes.year, ref_mes.month)[1]
-                fecha_vencimiento = ref_mes.replace(day=min(d_dia, ultimo_dia))
+            fecha_vencimiento = _fecha_vencimiento_plan_cuota(contrato, i + 1)
             CuotaMensual.objects.create(
                 contrato=contrato,
                 numero_cuota=i + 1,
@@ -17663,14 +17713,10 @@ def _asegurar_cuotas_plan_contrato(contrato):
         return creadas
 
     montos_meses = _montos_cuotas_por_trimestre(contrato)
-    try:
-        fecha_vencimiento = fi.replace(day=d_dia)
-    except ValueError:
-        ultimo_dia = monthrange(fi.year, fi.month)[1]
-        fecha_vencimiento = fi.replace(day=min(d_dia, ultimo_dia))
 
     for i in range(n):
         monto_cuota = montos_meses[i] if i < len(montos_meses) else contrato.precio_mensual
+        fecha_vencimiento = _fecha_vencimiento_plan_cuota(contrato, i + 1)
         CuotaMensual.objects.create(
             contrato=contrato,
             numero_cuota=i + 1,
@@ -17682,7 +17728,6 @@ def _asegurar_cuotas_plan_contrato(contrato):
             fecha_pago=None,
         )
         creadas += 1
-        fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
 
     return creadas
 
@@ -18366,28 +18411,6 @@ def pagar_cuota(request, cuota_id):
             cuota.fecha_pago = timezone.now().date()
             cuota.movimiento = movimiento
             cuota.save()
-
-            siguiente_cuota = contrato.cuotas.filter(
-                numero_cuota=cuota.numero_cuota + 1
-            ).first()
-
-            if siguiente_cuota:
-                fecha_actual = cuota.fecha_vencimiento
-                try:
-                    if fecha_actual.month == 12:
-                        nueva_fecha = date(fecha_actual.year + 1, 1, contrato.dia_vencimiento)
-                    else:
-                        nueva_fecha = date(fecha_actual.year, fecha_actual.month + 1, contrato.dia_vencimiento)
-                    siguiente_cuota.fecha_vencimiento = nueva_fecha
-                except ValueError:
-                    if fecha_actual.month == 12:
-                        nueva_fecha = date(fecha_actual.year + 1, 1, min(contrato.dia_vencimiento, 28))
-                    else:
-                        nueva_fecha = date(
-                            fecha_actual.year, fecha_actual.month + 1, min(contrato.dia_vencimiento, 28)
-                        )
-                    siguiente_cuota.fecha_vencimiento = nueva_fecha
-                siguiente_cuota.save()
 
             _activar_contrato_si_hay_cuotas_pagadas(contrato)
 
