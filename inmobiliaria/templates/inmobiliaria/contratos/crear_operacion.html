@@ -452,7 +452,10 @@
 
                     <div class="mb-3">
                         <label for="importe" class="form-label"><strong>Importe:</strong></label>
-                        <input type="text" class="form-control" id="importe" required placeholder="ej: 30.000 o 270.000" inputmode="numeric">
+                        <input type="text" class="form-control input-monto-ar" id="importe" required
+                               placeholder="ej: 30.000 o 270.000" inputmode="decimal" autocomplete="off"
+                               oninput="formatearNumeroEnTiempoReal(this)"
+                               onblur="formatearNumeroEnTiempoReal(this, { strict: true })">
                         <small class="text-muted">Podés usar punto para miles (ej: 300.000). Con concepto 1000/29 se completa según el tipo de cobro.</small>
                     </div>
                     <div class="mb-3">
@@ -2032,6 +2035,11 @@ document.addEventListener('DOMContentLoaded', function() {
         bindMediosPagoInput(document.getElementById(id));
     });
     document.querySelectorAll('input[id^="monto_deposito_"]').forEach(bindMediosPagoInput);
+
+    var importeConceptoEl = document.getElementById('importe');
+    if (importeConceptoEl) {
+        bindMediosPagoInput(importeConceptoEl);
+    }
     
     // Event listeners para precio mensual y depósito
     const inputs = ['precio_mensual'];
