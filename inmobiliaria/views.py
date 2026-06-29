@@ -2430,6 +2430,17 @@ def propiedad_detalle(request, propiedad_id):
     if not _propiedad_accesible_por_sucursal_usuario(request, propiedad):
         messages.error(request, 'No tenés permiso para ver esta propiedad (pertenece a otra sucursal).')
         return redirect('inmobiliaria:propiedades')
+    from inmobiliaria.models.propiedad import sincronizar_exclusion_invierno_24_meses
+
+    sincronizar_exclusion_invierno_24_meses(propiedad)
+    try:
+        del propiedad.__dict__['info_meses']
+    except KeyError:
+        pass
+    try:
+        del propiedad.__dict__['info_invierno']
+    except KeyError:
+        pass
     # ✅ FILTRAR SOLO DISPONIBILIDADES MANUALES (no automáticas)
     disponibilidades = propiedad.disponibilidades.filter(es_manual=True).order_by('fecha_inicio')
     ids_superpuestos, textos_superpuestos = _disponibilidades_superpuestas(disponibilidades)
@@ -9718,6 +9729,18 @@ def editar_info_invierno(request, propiedad_id):
                     info_invierno.fecha_fin = datetime.strptime(ff, '%Y-%m-%d').date() if ff else None
 
             info_invierno.save()
+            from inmobiliaria.models.propiedad import (
+                desactivar_24_meses_si_invierno_ocupado,
+                reactivar_24_meses_si_invierno_libre,
+                sincronizar_exclusion_invierno_24_meses,
+            )
+
+            if info_invierno.disponible and info_invierno.estado in ('reservado', 'ocupado'):
+                desactivar_24_meses_si_invierno_ocupado(propiedad)
+            elif info_invierno.disponible and info_invierno.estado == 'disponible':
+                reactivar_24_meses_si_invierno_libre(propiedad)
+            else:
+                sincronizar_exclusion_invierno_24_meses(propiedad)
             # Crear segmento en historial si estado reservado/ocupado con fechas
             if info_invierno.disponible and info_invierno.estado in ('reservado', 'ocupado') and info_invierno.fecha_inicio and info_invierno.fecha_fin:
                 HistorialDisponibilidad.objects.filter(
@@ -9944,6 +9967,15 @@ def actualizar_invierno_ajax(request):
             info_invierno.fecha_fin = datetime.strptime(ff, '%Y-%m-%d').date() if ff else None
         info_invierno.observaciones = request.POST.get('observaciones', '') or ''
         info_invierno.save()
+        from inmobiliaria.models.propiedad import (
+            desactivar_24_meses_si_invierno_ocupado,
+            reactivar_24_meses_si_invierno_libre,
+        )
+
+        if info_invierno.estado in ('reservado', 'ocupado'):
+            desactivar_24_meses_si_invierno_ocupado(propiedad)
+        elif info_invierno.estado == 'disponible':
+            reactivar_24_meses_si_invierno_libre(propiedad)
         # Sincronizar Historial de Disponibilidad: si estado es reservado/ocupado con fechas, crear segmento
         if info_invierno.estado in ('reservado', 'ocupado') and info_invierno.fecha_inicio and info_invierno.fecha_fin:
             hist_estado = 'reservado' if info_invierno.estado == 'reservado' else 'alquilado'
@@ -15322,6 +15354,9 @@ def crear_contrato_alquiler(request):
                 info_invierno.disponible = True
                 info_invierno.estado = 'reservado'
                 info_invierno.save()
+                from inmobiliaria.models.propiedad import desactivar_24_meses_si_invierno_ocupado
+
+                desactivar_24_meses_si_invierno_ocupado(propiedad)
                 # Actualizar historial: truncar "Libre" que superponga con el contrato
                 try:
                     actualizar_historial_por_contrato_invierno(
@@ -15345,6 +15380,9 @@ def crear_contrato_alquiler(request):
                 if precio_mensual is not None:
                     info_meses.precio_mensual = precio_mensual
                 info_meses.save()
+                from inmobiliaria.models.propiedad import desactivar_invierno_si_largo_plazo_ocupado
+
+                desactivar_invierno_si_largo_plazo_ocupado(propiedad)
 
             _asegurar_cuotas_plan_contrato(contrato)
 
@@ -18455,6 +18493,9 @@ def procesar_operacion_contrato(request, contrato_id):
                     actualizar_historial_por_contrato_invierno(
                         contrato.propiedad, contrato.fecha_inicio, contrato.fecha_fin
                     )
+                    from inmobiliaria.models.propiedad import desactivar_24_meses_si_invierno_ocupado
+
+                    desactivar_24_meses_si_invierno_ocupado(contrato.propiedad)
                 else:
                     info_meses, _ = AlquilerMeses.objects.get_or_create(
                         propiedad=contrato.propiedad,
@@ -19073,6 +19114,9 @@ def cancelar_contrato(request, contrato_id):
             info_invierno.fecha_inicio = None
             info_invierno.fecha_fin = None
             info_invierno.save()
+            from inmobiliaria.models.propiedad import reactivar_24_meses_si_invierno_libre
+
+            reactivar_24_meses_si_invierno_libre(contrato.propiedad)
 
         # Contrato 24 meses: estudiante (carrera) -> disponible; resto -> desactivar
         elif hasattr(contrato.propiedad, 'info_meses'):

@@ -1437,6 +1437,134 @@ class AlquilerInvierno(models.Model):
         verbose_name = "Alquiler Invierno"
         verbose_name_plural = "Alquileres Invierno"
 
+
+def _contrato_alquiler_es_invierno(contrato):
+    if contrato is None:
+        return False
+    if hasattr(contrato, 'es_contrato_invierno') and contrato.es_contrato_invierno():
+        return True
+    return int(getattr(contrato, 'duracion_meses', 0) or 0) == 9
+
+
+def _contrato_alquiler_es_largo_plazo(contrato):
+    if contrato is None:
+        return False
+    if _contrato_alquiler_es_invierno(contrato):
+        return False
+    return int(getattr(contrato, 'duracion_meses', 0) or 0) >= 9
+
+
+def invierno_bloquea_alquiler_largo(propiedad):
+    """True si la ficha invierno o un contrato invierno vigente impide ofrecer 24 meses."""
+    try:
+        info = propiedad.info_invierno
+    except AlquilerInvierno.DoesNotExist:
+        info = None
+    if info and info.disponible and info.estado in ('reservado', 'ocupado'):
+        return True
+    from inmobiliaria.models.contrato import ContratoAlquiler
+
+    for contrato in ContratoAlquiler.objects.filter(
+        propiedad=propiedad,
+        estado__in=('reservado', 'activo'),
+    ):
+        if _contrato_alquiler_es_invierno(contrato):
+            return True
+    return False
+
+
+def largo_plazo_bloquea_invierno(propiedad):
+    """True si hay contrato largo vigente o ficha 24 meses reservada/ocupada."""
+    try:
+        info = propiedad.info_meses
+    except AlquilerMeses.DoesNotExist:
+        info = None
+    if info and info.disponible and info.estado in ('reservado', 'ocupado'):
+        return True
+    from inmobiliaria.models.contrato import ContratoAlquiler
+
+    for contrato in ContratoAlquiler.objects.filter(
+        propiedad=propiedad,
+        estado__in=('reservado', 'activo'),
+    ):
+        if _contrato_alquiler_es_largo_plazo(contrato):
+            return True
+    return False
+
+
+def desactivar_24_meses_si_invierno_ocupado(propiedad):
+    """Desactiva la modalidad 24 meses mientras invierno esté reservado u ocupado."""
+    if not invierno_bloquea_alquiler_largo(propiedad):
+        return False
+    try:
+        info_meses = propiedad.info_meses
+    except AlquilerMeses.DoesNotExist:
+        return False
+    if not info_meses.disponible:
+        return False
+    info_meses.disponible = False
+    info_meses.save(update_fields=['disponible'])
+    return True
+
+
+def desactivar_invierno_si_largo_plazo_ocupado(propiedad):
+    """Desactiva invierno mientras haya contrato/reserva de alquiler largo."""
+    if not largo_plazo_bloquea_invierno(propiedad):
+        return False
+    try:
+        info_inv = propiedad.info_invierno
+    except AlquilerInvierno.DoesNotExist:
+        return False
+    if not info_inv.disponible:
+        return False
+    info_inv.disponible = False
+    info_inv.save(update_fields=['disponible'])
+    return True
+
+
+def reactivar_24_meses_si_invierno_libre(propiedad):
+    """Vuelve a habilitar 24 meses cuando invierno quedó libre y no hay contrato largo."""
+    if invierno_bloquea_alquiler_largo(propiedad) or largo_plazo_bloquea_invierno(propiedad):
+        return False
+    try:
+        info_meses = propiedad.info_meses
+    except AlquilerMeses.DoesNotExist:
+        return False
+    if info_meses.disponible:
+        return False
+    update_fields = ['disponible']
+    info_meses.disponible = True
+    if info_meses.estado not in ('reservado', 'ocupado'):
+        info_meses.estado = 'disponible'
+        update_fields.append('estado')
+    info_meses.save(update_fields=update_fields)
+    return True
+
+
+def reactivar_invierno_si_largo_plazo_libre(propiedad):
+    if largo_plazo_bloquea_invierno(propiedad) or invierno_bloquea_alquiler_largo(propiedad):
+        return False
+    try:
+        info_inv = propiedad.info_invierno
+    except AlquilerInvierno.DoesNotExist:
+        return False
+    if info_inv.disponible:
+        return False
+    update_fields = ['disponible']
+    info_inv.disponible = True
+    if info_inv.estado not in ('reservado', 'ocupado'):
+        info_inv.estado = 'disponible'
+        update_fields.append('estado')
+    info_inv.save(update_fields=update_fields)
+    return True
+
+
+def sincronizar_exclusion_invierno_24_meses(propiedad):
+    """Mantiene excluyentes invierno y 24 meses según fichas y contratos vigentes."""
+    desactivar_24_meses_si_invierno_ocupado(propiedad)
+    desactivar_invierno_si_largo_plazo_ocupado(propiedad)
+
+
 @receiver(post_delete, sender=Propiedad)
 def reordenar_numeros_por_propietario(sender, instance, **kwargs):
     propiedades = Propiedad.objects.filter(propietario=instance.propietario).order_by('numero_por_propietario')
