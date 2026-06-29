@@ -1,6 +1,6 @@
 /**
- * Formato argentino: miles con punto al escribir (10.000), decimales con coma.
- * Se aplica automáticamente a inputs de montos en todo el sistema.
+ * Formato argentino en tiempo real: miles con punto al escribir (10.000), decimales con coma.
+ * Se aplica automáticamente a inputs de montos en todo el sistema (base.html).
  */
 (function (global) {
     if (global.__montoARInit) {
@@ -8,7 +8,9 @@
     }
     global.__montoARInit = true;
 
-    var MONEY_ATTR_RE = /(monto|importe|precio|honorario|comision|cochera|fondo|saldo|ajuste|tarifa|alquiler|deposito|dolares|participacion|proporcional|sellado|ganancia|arqueo)/i;
+    var MONEY_ATTR_RE = /(monto|importe|precio|honorario|comision|cochera|fondo|saldo|ajuste|tarifa|alquiler|deposito|dolares|participacion|proporcional|sellado|ganancia|arqueo|senia|locacion|expensa|venta|valor|pago|cobro|asegurado|refuerzo|precio_mes)/i;
+
+    var EXCLUDE_ATTR_RE = /(carpeta|cuit|dni|telefono|celular|codigo_postal|vendedor_id|duracion_meses|duracion|ambientes|habitaciones|banos|prefijo_recibo|ultimo_numero|numero_recibo|numero_movimiento|numero_liquidacion|numero_cheque|numero_tarjeta|page\b|operacion\b|propiedad_id|cliente_id|inquilino_id|metros_cuadrados|porcentaje|nro_cheque|id_nuevo|concepto_id|idNuevoConcepto)/i;
 
     function parseMontoAR(str) {
         if (str === null || str === undefined) return 0;
@@ -109,12 +111,27 @@
         if (
             type === 'hidden' || type === 'checkbox' || type === 'radio' || type === 'file'
             || type === 'date' || type === 'email' || type === 'password' || type === 'search'
-            || type === 'time' || type === 'datetime-local'
+            || type === 'time' || type === 'datetime-local' || type === 'month' || type === 'week'
         ) {
             return false;
         }
 
-        if (el.classList.contains('input-monto-ar') || el.classList.contains('monto') || el.classList.contains('importe-pago')) {
+        var name = el.name || '';
+        var id = el.id || '';
+        if (EXCLUDE_ATTR_RE.test(name) || EXCLUDE_ATTR_RE.test(id)) {
+            return false;
+        }
+
+        if (
+            el.classList.contains('input-monto-ar')
+            || el.classList.contains('monto')
+            || el.classList.contains('importe-pago')
+            || el.classList.contains('mes-precio-input')
+            || el.classList.contains('input-precio-cuota-mes')
+            || el.classList.contains('caratula-input-edit')
+            || el.classList.contains('monto-edit')
+            || el.classList.contains('importe-pago')
+        ) {
             return true;
         }
 
@@ -127,13 +144,32 @@
             return true;
         }
 
-        var name = el.name || '';
-        var id = el.id || '';
         if (MONEY_ATTR_RE.test(name) || MONEY_ATTR_RE.test(id)) {
             return true;
         }
 
+        if (type === 'number' && (el.step === '0.01' || el.step === 'any' || el.getAttribute('step') === '0.01')) {
+            return true;
+        }
+
         return false;
+    }
+
+    function prepararInputMonto(el) {
+        if (!esInputMonto(el)) return;
+        if (!el.classList.contains('input-monto-ar')) {
+            el.classList.add('input-monto-ar');
+        }
+        var type = (el.type || 'text').toLowerCase();
+        if (type === 'number') {
+            el.type = 'text';
+            if (!el.getAttribute('inputmode')) {
+                el.setAttribute('inputmode', 'decimal');
+            }
+            if (!el.getAttribute('autocomplete')) {
+                el.setAttribute('autocomplete', 'off');
+            }
+        }
     }
 
     function posicionCursorTrasFormato(oldVal, newVal, selStart) {
@@ -153,7 +189,8 @@
     }
 
     function aplicarFormatoTyping(el) {
-        if (!el || !esInputMonto(el)) return;
+        if (!el || !esInputMonto(el) || el.readOnly || el.disabled) return;
+        prepararInputMonto(el);
         var selStart = el.selectionStart;
         var oldVal = el.value;
         var nuevo = formatMontoARTyping(oldVal);
@@ -175,15 +212,22 @@
         }
     }
 
+    function formatearValorInicial(el) {
+        if (!el || !esInputMonto(el)) return;
+        prepararInputMonto(el);
+        if (el.readOnly || el.disabled) return;
+        var raw = String(el.value || '').trim();
+        if (!raw) return;
+        if (parseMontoAR(raw) !== 0 || raw === '0' || raw === '0,00' || raw === '0.00') {
+            el.value = formatMontoAR(raw);
+        }
+    }
+
     function initMontoARInputs(root) {
         root = root || document;
         var nodes = root.querySelectorAll ? root.querySelectorAll('input') : [];
         nodes.forEach(function (el) {
-            if (!esInputMonto(el)) return;
-            if (el.readOnly || el.disabled) return;
-            if (el.value && String(el.value).trim() !== '' && parseMontoAR(el.value) !== 0) {
-                el.value = formatMontoAR(el.value);
-            }
+            formatearValorInicial(el);
         });
     }
 
@@ -193,8 +237,17 @@
         }
     }, true);
 
+    document.addEventListener('paste', function (e) {
+        if (esInputMonto(e.target)) {
+            setTimeout(function () {
+                aplicarFormatoTyping(e.target);
+            }, 0);
+        }
+    }, true);
+
     document.addEventListener('focusin', function (e) {
         if (esInputMonto(e.target)) {
+            prepararInputMonto(e.target);
             limpiarCeroAlEnfocar(e.target);
         }
     }, true);
@@ -210,6 +263,7 @@
     global.formatMontoARTyping = formatMontoARTyping;
     global.initMontoARInputs = initMontoARInputs;
     global.aplicarFormatoMontoAR = aplicarFormatoTyping;
+    global.esInputMontoAR = esInputMonto;
 
     function boot() {
         initMontoARInputs();
@@ -218,10 +272,8 @@
                 mutations.forEach(function (m) {
                     m.addedNodes.forEach(function (node) {
                         if (!node || node.nodeType !== 1) return;
-                        if (node.tagName === 'INPUT' && esInputMonto(node)) {
-                            if (node.value && String(node.value).trim() !== '') {
-                                node.value = formatMontoAR(node.value);
-                            }
+                        if (node.tagName === 'INPUT') {
+                            formatearValorInicial(node);
                         }
                         initMontoARInputs(node);
                     });

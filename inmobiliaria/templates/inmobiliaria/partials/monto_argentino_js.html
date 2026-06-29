@@ -1,2 +1,8 @@
 {% load static %}
-<script src="{% static 'js/monto-argentino.js' %}?v=3"></script>
+<style>
+input.input-monto-ar:not([type="hidden"]) {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+</style>
+<script src="{% static 'js/monto-argentino.js' %}?v=4"></script>
