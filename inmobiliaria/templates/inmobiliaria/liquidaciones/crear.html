@@ -1216,10 +1216,17 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     window.cargarOperacionesPendientes = cargarOperacionesPendientes;
 
-    window.recargarPendientesTrasNuevoGasto = function(propiedadId, gastoId) {
-        const extraRecarga = capturarSeleccionPendientesParaRecarga();
+    window.recargarPendientesTrasNuevoGasto = function(propiedadId, gastoId, extraRecargaPre) {
+        const extraRecarga = extraRecargaPre
+            ? Object.assign({}, extraRecargaPre, {
+                restaurarGastosIds: (extraRecargaPre.restaurarGastosIds || []).slice(),
+            })
+            : capturarSeleccionPendientesParaRecarga();
         if (gastoId != null && gastoId !== '') {
-            extraRecarga.restaurarGastosIds.push(String(gastoId));
+            const sid = String(gastoId);
+            if (!extraRecarga.restaurarGastosIds.includes(sid)) {
+                extraRecarga.restaurarGastosIds.push(sid);
+            }
         }
         const propietarioId = (document.getElementById('propietario_id') || {}).value;
         if (cargaPorPropietarioActiva && propietarioId) {
@@ -1363,32 +1370,42 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function incorporarGastoRecienCreado(gastoApi, propiedadId) {
         if (!gastoApi || gastoApi.id == null) return;
+        const idsMarcados = Array.from(document.querySelectorAll('.gasto-checkbox:checked')).map(function(x) {
+            return String(x.value);
+        });
         window._gastosExtraLocal = window._gastosExtraLocal || [];
         const g = gastoDictDesdeApiRespuesta(gastoApi, propiedadId);
         if (!window._gastosExtraLocal.some(function(x) { return String(x.id) === String(g.id); })) {
             window._gastosExtraLocal.push(g);
         }
-        mostrarGastosPendientes(window._ultimosGastosServidor || [], window._ultimaColPropGastos);
+        idsMarcados.push(String(g.id));
+        const idsUnicos = Array.from(new Set(idsMarcados));
+        mostrarGastosPendientes(window._ultimosGastosServidor || [], window._ultimaColPropGastos, idsUnicos);
         marcarMontosEditadosManualmente();
-        const cb = document.querySelector('.gasto-checkbox[data-gasto-id="' + g.id + '"]');
-        if (cb) {
-            cb.checked = true;
-            handleGastoCheckboxChange(cb);
-        } else {
-            registrarGastoContraEnOrden(g.id);
+        if (montosEditadosManualmente) {
             actualizarResumenLiquidacion();
+        } else {
+            calcularMontosSeleccionados();
         }
     }
     window.incorporarGastoRecienCreado = incorporarGastoRecienCreado;
 
     // Función para mostrar movimientos pendientes
-    function mostrarGastosPendientes(gastos, colProp) {
+    function mostrarGastosPendientes(gastos, colProp, idsPreservar) {
         const container = document.getElementById('gastos-pendientes-container');
         const lista = document.getElementById('gastos-pendientes-lista');
         const sinGastos = document.getElementById('sin-gastos');
         const mostrarCol = Boolean(colProp);
         window._ultimaColPropGastos = mostrarCol;
         const gastosMerged = fusionarGastosPendientes(gastos);
+
+        const idsMarcados = new Set();
+        const fuenteIds = idsPreservar || Array.from(document.querySelectorAll('.gasto-checkbox:checked')).map(function(x) {
+            return String(x.value);
+        });
+        fuenteIds.forEach(function(id) {
+            if (id != null && id !== '') idsMarcados.add(String(id));
+        });
 
         container.style.display = 'block';
         if (gastosMerged && gastosMerged.length > 0) {
@@ -1477,6 +1494,14 @@ document.addEventListener('DOMContentLoaded', function() {
             `;
 
             lista.innerHTML = html;
+            if (idsMarcados.size) {
+                document.querySelectorAll('.gasto-checkbox').forEach(function(el) {
+                    if (idsMarcados.has(String(el.value))) {
+                        el.checked = true;
+                        registrarGastoContraEnOrden(el.value);
+                    }
+                });
+            }
             sincronizarMonedaDesdeOperaciones();
         } else {
             lista.innerHTML = '';
@@ -2307,12 +2332,16 @@ document.addEventListener('DOMContentLoaded', function() {
                         limpiarConceptoMovimientoModal();
                     }
                     const gastoId = data.gasto && data.gasto.id != null ? data.gasto.id : null;
+                    const extraRecarga = capturarSeleccionPendientesParaRecarga();
+                    if (gastoId != null && !extraRecarga.restaurarGastosIds.includes(String(gastoId))) {
+                        extraRecarga.restaurarGastosIds.push(String(gastoId));
+                    }
                     if (!propiedadSelect.value && propiedadId) {
                         fijarPropiedadEnFormulario(propiedadId);
                     }
                     incorporarGastoRecienCreado(data.gasto, propiedadId);
                     if (typeof window.recargarPendientesTrasNuevoGasto === 'function') {
-                        window.recargarPendientesTrasNuevoGasto(propiedadId, gastoId);
+                        window.recargarPendientesTrasNuevoGasto(propiedadId, gastoId, extraRecarga);
                     }
                 })
                 .catch(function(error) {
