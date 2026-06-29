@@ -3645,10 +3645,11 @@ def operaciones(request):
                 continue
             ex = extras_por_reserva[oid]
             senia_pagada = sincronizar_senia_reserva_desde_movimientos(reserva)
-            saldo_pendiente = reserva.precio_total - senia_pagada
+            saldo_pendiente = max(reserva.precio_total - senia_pagada, Decimal('0'))
             reserva.total_pagado = senia_pagada
             reserva.saldo_pendiente = saldo_pendiente
             reserva.total_senia_pagada = senia_pagada
+            reserva.tiene_pagos = senia_pagada > Decimal('0.01')
             reserva.total_deposito_pagado = reserva.deposito_garantia or 0
             reserva.deposito_estado = 'pagado' if ex['deposito_pagado'] else 'pendiente'
             mid = ex.get('mov_reciente_id')
@@ -6649,15 +6650,7 @@ def procesar_movimiento_reserva(request):
                 
                 reserva.save()
 
-                from inmobiliaria.caja_devolucion_deposito import sincronizar_senia_reserva_desde_movimientos
-                sincronizar_senia_reserva_desde_movimientos(reserva)
-                saldo_pendiente = (reserva.precio_total or Decimal('0')) - (reserva.senia or Decimal('0'))
-                
                 # ✅ ACTUALIZAR HISTORIAL: Cambiar estado de "Reservado" a "Operación" si hay seña
-# print(f"🔄 ACTUALIZANDO HISTORIAL después del pago...")
-                reserva.actualizar_historial_disponibilidad()
-# print(f"✅ HISTORIAL ACTUALIZADO - Estado debería ser 'Operación'")
-                
                 # ✅ CREAR RECIBO PARA ESTE PAGO
                 from .models.recibo import Recibo
                 # ✅ NUMERACIÓN AUTOMÁTICA DE RECIBOS POR SUCURSAL
@@ -6707,12 +6700,10 @@ def procesar_movimiento_reserva(request):
                 )
                 saldo_pendiente = (reserva.precio_total or Decimal('0')) - (reserva.senia or Decimal('0'))
 
-            # Solo marcar pagada cuando el alquiler quedó cubierto (seña = precio total)
-            if saldo_pendiente <= 0:
-                reserva.estado = 'pagada'
-            else:
-                reserva.estado = 'confirmada_no_pagada'
-            reserva.save()
+            from inmobiliaria.caja_devolucion_deposito import sincronizar_senia_reserva_desde_movimientos
+
+            sincronizar_senia_reserva_desde_movimientos(reserva)
+            saldo_pendiente = (reserva.precio_total or Decimal('0')) - (reserva.senia or Decimal('0'))
 
             # Devolución de depósito (solo al finalizar: saldo pendiente en 0)
             devolver_deposito = request.POST.get('devolver_deposito') in ('1', 'true', 'on', 'yes')

@@ -266,17 +266,46 @@ def total_senia_pagada_reserva(reserva) -> Decimal:
     return total
 
 
+def _estado_reserva_segun_senia(reserva, senia: Decimal) -> str:
+    """Con seña pagada la reserva pasa a operación (`pagada`); sin seña vuelve a reservado."""
+    estado_actual = (getattr(reserva, 'estado', None) or '').strip()
+    if estado_actual == 'cancelada':
+        return estado_actual
+    if senia > Decimal('0.01'):
+        return 'pagada'
+    if estado_actual == 'pagada':
+        return 'confirmada_no_pagada'
+    return estado_actual or 'confirmada_no_pagada'
+
+
 def sincronizar_senia_reserva_desde_movimientos(reserva, *, persistir: bool = True) -> Decimal:
-    """Recalcula reserva.senia desde ingresos de caja vinculados a la operación."""
+    """Recalcula seña, saldo y estado de la reserva desde ingresos de caja vinculados."""
     total = total_senia_pagada_reserva(reserva)
     precio = Decimal(str(reserva.precio_total or 0))
     cuota = max(precio - total, Decimal('0'))
-    if persistir:
-        actual = Decimal(str(reserva.senia or 0))
-        if abs(actual - total) > Decimal('0.01'):
-            reserva.senia = total
-            reserva.cuota_pendiente = cuota
-            reserva.save(update_fields=['senia', 'cuota_pendiente'])
+    nuevo_estado = _estado_reserva_segun_senia(reserva, total)
+
+    update_fields: list[str] = []
+    actual = Decimal(str(reserva.senia or 0))
+    if abs(actual - total) > Decimal('0.01'):
+        reserva.senia = total
+        update_fields.append('senia')
+    actual_cuota = Decimal(str(reserva.cuota_pendiente or 0))
+    if abs(actual_cuota - cuota) > Decimal('0.01'):
+        reserva.cuota_pendiente = cuota
+        update_fields.append('cuota_pendiente')
+    if nuevo_estado != (reserva.estado or ''):
+        reserva.estado = nuevo_estado
+        update_fields.append('estado')
+
+    reserva.senia = total
+    reserva.cuota_pendiente = cuota
+    reserva.estado = nuevo_estado
+
+    if persistir and update_fields:
+        reserva.save(update_fields=update_fields)
+        if any(campo in update_fields for campo in ('senia', 'estado')):
+            reserva.actualizar_historial_disponibilidad()
     return total
 
 
