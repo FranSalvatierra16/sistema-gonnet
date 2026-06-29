@@ -428,20 +428,20 @@
                         <div class="row mb-3">
                             <div class="col-md-2">
                                 <label class="form-label">Efectivo</label>
-                                <input type="text" name="monto_efectivo" class="form-control monto input-monto-ar" inputmode="numeric" autocomplete="off" value="" placeholder="0">
+                                <input type="text" name="monto_efectivo" class="form-control monto input-monto-ar" inputmode="decimal" autocomplete="off" value="" placeholder="0" oninput="formatearMontoCaja(this)" onblur="formatearMontoCajaBlur(this)">
                             </div>
                             <div class="col-md-2">
                                 <label class="form-label">Cheques</label>
-                                <input type="text" name="monto_cheque" class="form-control monto input-monto-ar" inputmode="numeric" autocomplete="off" value="" placeholder="0">
+                                <input type="text" name="monto_cheque" class="form-control monto input-monto-ar" inputmode="decimal" autocomplete="off" value="" placeholder="0" oninput="formatearMontoCaja(this)" onblur="formatearMontoCajaBlur(this)">
                             </div>
                             <div class="col-md-2">
                                 <label class="form-label">Tarjeta</label>
-                                <input type="text" name="monto_tarjeta" class="form-control monto input-monto-ar" inputmode="numeric" autocomplete="off" value="" placeholder="0">
+                                <input type="text" name="monto_tarjeta" class="form-control monto input-monto-ar" inputmode="decimal" autocomplete="off" value="" placeholder="0" oninput="formatearMontoCaja(this)" onblur="formatearMontoCajaBlur(this)">
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Transferencia</label>
                                 <div class="input-group flex-nowrap">
-                                    <input type="text" name="monto_deposito" class="form-control monto input-monto-ar" inputmode="numeric" autocomplete="off" value="" placeholder="0" aria-label="Importe transferencia">
+                                    <input type="text" name="monto_deposito" class="form-control monto input-monto-ar" inputmode="decimal" autocomplete="off" value="" placeholder="0" aria-label="Importe transferencia" oninput="formatearMontoCaja(this)" onblur="formatearMontoCajaBlur(this)">
                                     <select name="destino_deposito" id="destino_deposito_mov" class="form-select flex-grow-1" style="min-width: 11rem; max-width: 22rem;" aria-label="Cuenta destino transferencia">
                                         <option value="">— Cuenta —</option>
                                         {% for cuenta in cuentas_bancarias %}
@@ -459,7 +459,7 @@
                             </div>
                             <div class="col-md-2">
                                 <label class="form-label">USD (efectivo)</label>
-                                <input type="text" name="dolares" id="monto_dolares_mov" class="form-control input-monto-ar" inputmode="numeric" autocomplete="off" value="" placeholder="0">
+                                <input type="text" name="dolares" id="monto_dolares_mov" class="form-control input-monto-ar" inputmode="decimal" autocomplete="off" value="" placeholder="0" oninput="formatearMontoCaja(this)" onblur="formatearMontoCajaBlur(this)">
                                 <small class="text-muted">Ingreso o egreso en dólares (no suma al total ARS). Podés cargar solo USD si no hay pesos.</small>
                             </div>
                         </div>
@@ -511,17 +511,17 @@
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label" for="monto_a_oficina">A depto / oficina</label>
-                                <input type="text" name="monto_a_oficina" id="monto_a_oficina" class="form-control input-monto-corresponde input-monto-ar" inputmode="numeric" autocomplete="off" value="" placeholder="0">
+                                <input type="text" name="monto_a_oficina" id="monto_a_oficina" class="form-control input-monto-corresponde input-monto-ar" inputmode="decimal" autocomplete="off" value="" placeholder="0" oninput="formatearMontoCaja(this)" onblur="formatearMontoCajaBlur(this)">
                                 <small class="text-muted">Resto → inquilino</small>
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label" for="monto_a_propietario">A propietario</label>
-                                <input type="text" name="monto_a_propietario" id="monto_a_propietario" class="form-control input-monto-corresponde input-monto-ar" inputmode="numeric" autocomplete="off" value="" placeholder="0">
+                                <input type="text" name="monto_a_propietario" id="monto_a_propietario" class="form-control input-monto-corresponde input-monto-ar" inputmode="decimal" autocomplete="off" value="" placeholder="0" oninput="formatearMontoCaja(this)" onblur="formatearMontoCajaBlur(this)">
                                 <small class="text-muted">Resto → inquilino</small>
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label" for="monto_a_inquilino">A inquilino</label>
-                                <input type="text" name="monto_a_inquilino" id="monto_a_inquilino" class="form-control input-monto-corresponde input-monto-ar" inputmode="numeric" autocomplete="off" value="" placeholder="0">
+                                <input type="text" name="monto_a_inquilino" id="monto_a_inquilino" class="form-control input-monto-corresponde input-monto-ar" inputmode="decimal" autocomplete="off" value="" placeholder="0" oninput="formatearMontoCaja(this)" onblur="formatearMontoCajaBlur(this)">
                                 <small class="text-muted">Resto → propietario</small>
                             </div>
                             <div class="col-md-3">
@@ -713,6 +713,106 @@
 {% block extra_js %}
 {{ categorias_gasto_oficina|json_script:"categorias-gasto-oficina-data" }}
 {% if form_post %}{{ form_post|json_script:"nuevo-movimiento-form-post" }}{% endif %}
+<script>
+(function() {
+    function enteroConPuntosAR(n) {
+        var neg = n < 0;
+        var s = String(Math.abs(parseInt(n, 10) || 0));
+        var out = '';
+        for (var i = 0; i < s.length; i++) {
+            if (i > 0 && (s.length - i) % 3 === 0) out += '.';
+            out += s.charAt(i);
+        }
+        return (neg ? '-' : '') + out;
+    }
+
+    function formatearMontoAlEscribir(input) {
+        if (!input || input.readOnly || input.disabled) return;
+        if (typeof aplicarFormatoMontoAR === 'function') {
+            aplicarFormatoMontoAR(input);
+            return;
+        }
+        if (typeof formatMontoARTyping === 'function') {
+            var sel = input.selectionStart;
+            var old = input.value;
+            input.value = formatMontoARTyping(old);
+            try {
+                var digitsBefore = String(old || '').slice(0, sel).replace(/[^\d]/g, '').length;
+                var digitCount = 0;
+                for (var i = 0; i < input.value.length; i++) {
+                    if (/\d/.test(input.value.charAt(i))) {
+                        digitCount++;
+                        if (digitCount >= digitsBefore) {
+                            input.setSelectionRange(i + 1, i + 1);
+                            return;
+                        }
+                    }
+                }
+                input.setSelectionRange(input.value.length, input.value.length);
+            } catch (e) { /* ignore */ }
+            return;
+        }
+        var raw = String(input.value || '');
+        var neg = raw.trim().charAt(0) === '-';
+        var t = raw.replace(/[^\d,]/g, '');
+        if (!t) {
+            input.value = neg ? '-' : '';
+            return;
+        }
+        if (t.indexOf(',') >= 0) {
+            var parts = t.split(',');
+            var dec = parts.slice(1).join('').replace(/\D/g, '').slice(0, 2);
+            var ent = enteroConPuntosAR(parseInt((parts[0] || '0').replace(/\D/g, '') || '0', 10));
+            input.value = (neg ? '-' : '') + ent + (raw.endsWith(',') && !dec ? ',' : (dec ? ',' + dec : ''));
+        } else {
+            input.value = (neg ? '-' : '') + enteroConPuntosAR(parseInt(t.replace(/\D/g, '') || '0', 10));
+        }
+    }
+
+    function formatearMontoAlSalir(input) {
+        if (!input || input.readOnly || input.disabled) return;
+        var v = String(input.value || '').trim();
+        if (!v) return;
+        if (typeof formatMontoAR === 'function') {
+            input.value = formatMontoAR(v);
+            return;
+        }
+        formatearMontoAlEscribir(input);
+    }
+
+    function parseMontoLocal(v) {
+        if (typeof parseMontoAR === 'function') {
+            return parseMontoAR(v);
+        }
+        var n = parseFloat(String(v || '0').replace(/\./g, '').replace(',', '.'));
+        return isNaN(n) ? 0 : n;
+    }
+
+    function fmtMontoLocal(n) {
+        if (typeof formatMontoAR === 'function') {
+            return formatMontoAR(n);
+        }
+        var num = typeof n === 'number' ? n : parseMontoLocal(n);
+        var ent = Math.trunc(Math.abs(num));
+        var frac = Math.round((Math.abs(num) - ent) * 100);
+        if (frac >= 100) {
+            ent += 1;
+            frac = 0;
+        }
+        var fracStr = String(frac);
+        while (fracStr.length < 2) fracStr = '0' + fracStr;
+        var sign = num < 0 ? '-' : '';
+        return sign + enteroConPuntosAR(ent) + ',' + fracStr;
+    }
+
+    window.formatearMontoCaja = formatearMontoAlEscribir;
+    window.formatearMontoCajaBlur = formatearMontoAlSalir;
+    window._cajaParseMonto = parseMontoLocal;
+    window._cajaFmtMonto = fmtMontoLocal;
+    window._cajaFormatearMontoAlEscribir = formatearMontoAlEscribir;
+    window._cajaFormatearMontoAlSalir = formatearMontoAlSalir;
+})();
+</script>
 <script>
 $(document).ready(function() {
     var cajaAcFocusPorClick = false;
@@ -1305,19 +1405,15 @@ $(document).ready(function() {
     var ultimoCasilleroCorresponde = 'oficina';
     var correspondeEditadoManual = false;
 
-    function parseMontoLocal(v) {
-        if (typeof parseMontoAR === 'function') {
-            return parseMontoAR(v);
-        }
-        var n = parseFloat(String(v || '0').replace(/\./g, '').replace(',', '.'));
-        return isNaN(n) ? 0 : n;
-    }
+    var formatearMontoAlEscribir = window._cajaFormatearMontoAlEscribir;
+    var formatearMontoAlSalir = window._cajaFormatearMontoAlSalir;
+    var parseMontoLocal = window._cajaParseMonto;
+    var fmtMontoLocal = window._cajaFmtMonto;
 
-    function fmtMontoLocal(n) {
-        if (typeof formatMontoAR === 'function') {
-            return formatMontoAR(n);
-        }
-        return (Math.round(n * 100) / 100).toFixed(2).replace('.', ',');
+    function aplicarFormatoMontosFormulario() {
+        $('#formMovimiento .monto, #formMovimiento .input-monto-ar').each(function() {
+            formatearMontoAlSalir(this);
+        });
     }
 
     // Calcular total
@@ -1406,11 +1502,14 @@ $(document).ready(function() {
         $('#bloque_detalle_cheque').toggleClass('d-none', ch <= 0);
     }
 
-    // Total al cambiar importes (el formato 70.000 lo hace monto-argentino.js global)
-    $('#formMovimiento').on('input', '.monto', function() {
+    // Total al cambiar importes — formateo miles en cada tecla
+    $('#formMovimiento').on('input', '.monto, .input-monto-ar', function() {
+        formatearMontoAlEscribir(this);
         calcularTotal();
         actualizarVisibilidadMediosPago();
-        // No repartir en cada tecla: evita 4 → oficina 4 + inquilino 39996 al escribir 40.000
+    });
+    $('#formMovimiento').on('blur', '.monto, .input-monto-ar', function() {
+        formatearMontoAlSalir(this);
     });
     $('.monto').on('blur', function() {
         var total = calcularTotal();
@@ -1423,6 +1522,7 @@ $(document).ready(function() {
     });
     calcularTotal();
     actualizarVisibilidadMediosPago();
+    aplicarFormatoMontosFormulario();
 
     $('.input-monto-corresponde').on('focus', function() {
         $(this).data('val-focus', $(this).val());
@@ -1431,6 +1531,7 @@ $(document).ready(function() {
             : (this.id === 'monto_a_inquilino' ? 'inquilino' : 'oficina');
     });
     $('.input-monto-corresponde').on('input', function() {
+        formatearMontoAlEscribir(this);
         correspondeEditadoManual = true;
         ultimoCasilleroCorresponde = this.id === 'monto_a_propietario'
             ? 'propietario'
@@ -1438,6 +1539,7 @@ $(document).ready(function() {
         sincronizarCorresponde(ultimoCasilleroCorresponde, this.id);
     });
     $('.input-monto-corresponde').on('blur', function() {
+        formatearMontoAlSalir(this);
         var vf = parseMontoLocal($(this).data('val-focus'));
         var vn = parseMontoLocal($(this).val());
         if (Math.abs(vf - vn) <= 0.005) {
@@ -2161,6 +2263,7 @@ $(document).ready(function() {
         }
 
         calcularTotal();
+        aplicarFormatoMontosFormulario();
         enviandoMovimientoCaja = false;
         $('#btn_guardar_movimiento').prop('disabled', false).html('Guardar');
     }
