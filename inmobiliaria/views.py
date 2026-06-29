@@ -23716,6 +23716,14 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
         context['monto_total'] = reserva.precio_total
         context['fecha_desde'] = reserva.fecha_inicio
         context['fecha_hasta'] = reserva.fecha_fin
+        from inmobiliaria.decimal_utils import format_monto_argentino
+
+        context['monto_cochera_inicial'] = format_monto_argentino(reserva.liq_monto_cochera or 0)
+        context['monto_fondo_inicial'] = format_monto_argentino(reserva.liq_monto_fondo or 0)
+        if reserva.liq_monto_propietario is not None:
+            context['monto_propietario_inicial'] = format_monto_argentino(reserva.liq_monto_propietario)
+        if reserva.liq_monto_inmobiliaria is not None:
+            context['monto_inmobiliaria_inicial'] = format_monto_argentino(reserva.liq_monto_inmobiliaria)
     elif contrato:
         context['propiedad'] = contrato.propiedad
         context['fecha_desde'] = contrato.fecha_inicio
@@ -24589,7 +24597,13 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
             ):
                 monto_propietario_total = (total_reserva * pct_prop / Decimal('100')).quantize(Decimal('0.01'))
                 monto_inmobiliaria_total = (total_reserva - monto_propietario_total).quantize(Decimal('0.01'))
-            
+
+            total_reserva_eff, monto_propietario_total, monto_inmobiliaria_total, _, _ = (
+                reserva.montos_liquidacion_efectivos(
+                    total_reserva, monto_propietario_total, monto_inmobiliaria_total
+                )
+            )
+
             operaciones.append({
                 'tipo': 'reserva',
                 'tipo_display': 'Por día',

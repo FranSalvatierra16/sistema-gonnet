@@ -17,10 +17,11 @@ ETIQUETAS_TIPO = {
     'estudiante': 'Estudiante',
     'invierno': 'Invierno (9 meses)',
     '24': '24 meses',
+    '6': '6 meses',
     'otro': 'Otro contrato',
 }
 
-CONTEO_ORDEN = ('dia', 'estudiante', 'invierno', '24', 'otro')
+CONTEO_ORDEN = ('dia', 'estudiante', 'invierno', '24', '6', 'otro')
 
 
 def _puede_administracion_operaciones(user):
@@ -46,12 +47,26 @@ def _categoria_reserva(reserva):
 
 
 def _categoria_contrato(contrato):
-    meses = contrato.duracion_meses or 0
+    """
+    Misma regla que carátulas y liquidaciones: invierno/estudiante, 6 meses, o alquiler largo
+    (menú 24 meses aunque el plan sea 30, 36, etc.).
+    """
+    if hasattr(contrato, 'categoria_tipo_operacion'):
+        return contrato.categoria_tipo_operacion()
+    meses = int(contrato.duracion_meses or 0)
     if meses == 9:
         return 'invierno'
-    if meses == 24:
+    if meses == 6:
+        return '6'
+    if meses >= 9:
         return '24'
     return 'otro'
+
+
+def _etiqueta_tipo_contrato(contrato, categoria):
+    if hasattr(contrato, 'etiqueta_tipo_operacion_caratula'):
+        return contrato.etiqueta_tipo_operacion_caratula()
+    return ETIQUETAS_TIPO.get(categoria, categoria)
 
 
 def _coincide_tipo_filtro(categoria, tipo_filtro):
@@ -59,6 +74,8 @@ def _coincide_tipo_filtro(categoria, tipo_filtro):
         return True
     if tipo_filtro == '24meses':
         return categoria == '24'
+    if tipo_filtro == '6meses':
+        return categoria == '6'
     return categoria == tipo_filtro
 
 
@@ -220,7 +237,7 @@ def administracion_listado_operaciones(request):
             'kind': 'contrato',
             'pk': contrato.id,
             'numero': contrato.id,
-            'tipo': ETIQUETAS_TIPO.get(cat, cat),
+            'tipo': _etiqueta_tipo_contrato(contrato, cat),
             'tipo_key': cat,
             'fecha_registro': contrato.fecha_creacion,
             'fecha_inicio': contrato.fecha_inicio,

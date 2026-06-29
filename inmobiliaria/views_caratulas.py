@@ -514,6 +514,26 @@ def _guardar_caratula_reserva(request, reserva):
         Decimal('0'), precio_total - senia
     ).quantize(Decimal('0.01'))
     reserva.estado = estado
+
+    def _parse_liq_monto_opcional(campo):
+        raw = (request.POST.get(campo) or '').strip()
+        if not raw:
+            return None
+        val = parse_decimal_monto(raw)
+        if val < 0:
+            raise ValueError('Los montos de liquidación no pueden ser negativos.')
+        return val.quantize(Decimal('0.01'))
+
+    try:
+        if 'liq_monto_propietario' in request.POST:
+            reserva.liq_monto_propietario = _parse_liq_monto_opcional('liq_monto_propietario')
+            reserva.liq_monto_inmobiliaria = _parse_liq_monto_opcional('liq_monto_inmobiliaria')
+            reserva.liq_monto_cochera = _parse_liq_monto_opcional('liq_monto_cochera') or Decimal('0')
+            reserva.liq_monto_fondo = _parse_liq_monto_opcional('liq_monto_fondo') or Decimal('0')
+    except ValueError as exc:
+        messages.error(request, str(exc))
+        return False
+
     reserva.save()
 
     if fechas_cambiaron:
@@ -692,6 +712,11 @@ def _resumen_liquidacion_caratula(*, reserva=None, contrato=None, liquidacion=No
     if inm <= 0 and total > prop:
         inm = (total - prop).quantize(Decimal('0.01'))
 
+    coch = Decimal('0')
+    fondo = Decimal('0')
+    if reserva is not None:
+        total, prop, inm, coch, fondo = reserva.montos_liquidacion_efectivos(total, prop, inm)
+
     return {
         'tiene_datos': True,
         'desde_liquidacion': False,
@@ -701,12 +726,12 @@ def _resumen_liquidacion_caratula(*, reserva=None, contrato=None, liquidacion=No
         'monto_total': total,
         'monto_propietario': prop,
         'monto_inmobiliaria': inm,
-        'monto_cochera': Decimal('0'),
-        'monto_fondo': Decimal('0'),
+        'monto_cochera': coch,
+        'monto_fondo': fondo,
         'monto_gastos': Decimal('0'),
-        'monto_a_pagar': prop,
+        'monto_a_pagar': (prop - fondo).quantize(Decimal('0.01')),
         'subtotal_propietario': prop,
-        'total_descontado': Decimal('0'),
+        'total_descontado': fondo,
         'filas_pago': [
             {
                 'concepto': (op_match.get('descripcion') or 'Operación').strip(),
@@ -2272,6 +2297,19 @@ def caratula_reserva(request, reserva_id):
         **_ctx_completar_pago_reserva(reserva),
         'volver_lista_url': _url_lista_caratulas_desde_request(request),
     }
+    rl = ctx['resumen_liquidacion']
+    ctx['edit_montos_liquidacion'] = {
+        'monto_propietario': format_monto_argentino(rl.get('monto_propietario') or 0),
+        'monto_inmobiliaria': format_monto_argentino(rl.get('monto_inmobiliaria') or 0),
+        'monto_cochera': format_monto_argentino(rl.get('monto_cochera') or 0),
+        'monto_fondo': format_monto_argentino(rl.get('monto_fondo') or 0),
+    }
+    ctx['puede_editar_liquidacion_resumen'] = bool(
+        ctx['puede_editar_caratula']
+        and rl.get('tiene_datos')
+        and not rl.get('desde_liquidacion')
+    )
+    ctx['form_caratula_reserva_id'] = 'form-editar-caratula-reserva'
     return render(request, 'inmobiliaria/caratulas/detalle_reserva.html', ctx)
 
 

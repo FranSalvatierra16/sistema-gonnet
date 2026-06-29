@@ -146,7 +146,7 @@
                 </div>
             </div>
         </div>
-        {% include 'inmobiliaria/caratulas/_resumen_liquidacion_caratula.html' %}
+        {% include 'inmobiliaria/caratulas/_resumen_liquidacion_caratula.html' with puede_editar_liquidacion_resumen=puede_editar_liquidacion_resumen edit_montos_liquidacion=edit_montos_liquidacion form_caratula_reserva_id=form_caratula_reserva_id %}
     </div>
 </div>
 {% endblock %}

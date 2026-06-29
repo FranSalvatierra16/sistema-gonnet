@@ -5,13 +5,25 @@
         <div class="card border-secondary shadow-sm">
             <div class="card-header bg-light d-flex flex-wrap justify-content-between align-items-center gap-2 py-2">
                 <strong><i class="fas fa-file-invoice-dollar me-2"></i>Resumen de liquidación al propietario</strong>
-                {% if resumen_liquidacion.desde_liquidacion %}
-                <span class="badge bg-success">Liquidación #{{ resumen_liquidacion.liquidacion_id }} — {{ resumen_liquidacion.estado_liquidacion }}</span>
-                {% else %}
-                <span class="badge bg-warning text-dark">Sugerido (aún sin liquidación)</span>
-                {% endif %}
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    {% if resumen_liquidacion.desde_liquidacion %}
+                    <span class="badge bg-success">Liquidación #{{ resumen_liquidacion.liquidacion_id }} — {{ resumen_liquidacion.estado_liquidacion }}</span>
+                    {% else %}
+                    <span class="badge bg-warning text-dark">Sugerido (aún sin liquidación)</span>
+                    {% endif %}
+                    {% if puede_editar_liquidacion_resumen and form_caratula_reserva_id %}
+                    <button type="submit" form="{{ form_caratula_reserva_id }}" class="btn btn-sm btn-primary">
+                        <i class="fas fa-save me-1"></i>Guardar montos
+                    </button>
+                    {% endif %}
+                </div>
             </div>
             <div class="card-body">
+                {% if puede_editar_liquidacion_resumen %}
+                <p class="small text-muted mb-2">
+                    <i class="fas fa-pen me-1"></i>Podés ajustar los montos antes de liquidar. Se guardan con <strong>Guardar cambios</strong> o <strong>Guardar montos</strong> y se precargan al crear la liquidación.
+                </p>
+                {% endif %}
                 <div class="table-responsive mb-3">
                     <table class="table table-sm table-bordered mb-0 small text-center">
                         <thead class="table-light">
@@ -26,10 +38,46 @@
                         <tbody>
                             <tr>
                                 <td>{{ resumen_liquidacion.monto_total|format_importe_moneda:resumen_liquidacion.moneda }}</td>
-                                <td class="text-success fw-semibold">{{ resumen_liquidacion.monto_propietario|format_importe_moneda:resumen_liquidacion.moneda }}</td>
-                                <td class="text-primary fw-semibold">{{ resumen_liquidacion.monto_inmobiliaria|format_importe_moneda:resumen_liquidacion.moneda }}</td>
-                                <td>{{ resumen_liquidacion.monto_cochera|format_importe_moneda:resumen_liquidacion.moneda }}</td>
-                                <td>{{ resumen_liquidacion.monto_fondo|format_importe_moneda:resumen_liquidacion.moneda }}</td>
+                                <td class="text-success fw-semibold">
+                                    {% if puede_editar_liquidacion_resumen and edit_montos_liquidacion %}
+                                    <input type="text" name="liq_monto_propietario" form="{{ form_caratula_reserva_id }}"
+                                           class="form-control form-control-sm input-monto-ar text-end liq-resumen-input"
+                                           data-liq-campo="propietario" inputmode="decimal" autocomplete="off"
+                                           value="{{ edit_montos_liquidacion.monto_propietario }}">
+                                    {% else %}
+                                    {{ resumen_liquidacion.monto_propietario|format_importe_moneda:resumen_liquidacion.moneda }}
+                                    {% endif %}
+                                </td>
+                                <td class="text-primary fw-semibold">
+                                    {% if puede_editar_liquidacion_resumen and edit_montos_liquidacion %}
+                                    <input type="text" name="liq_monto_inmobiliaria" form="{{ form_caratula_reserva_id }}"
+                                           class="form-control form-control-sm input-monto-ar text-end liq-resumen-input"
+                                           data-liq-campo="inmobiliaria" inputmode="decimal" autocomplete="off"
+                                           value="{{ edit_montos_liquidacion.monto_inmobiliaria }}">
+                                    {% else %}
+                                    {{ resumen_liquidacion.monto_inmobiliaria|format_importe_moneda:resumen_liquidacion.moneda }}
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if puede_editar_liquidacion_resumen and edit_montos_liquidacion %}
+                                    <input type="text" name="liq_monto_cochera" form="{{ form_caratula_reserva_id }}"
+                                           class="form-control form-control-sm input-monto-ar text-end liq-resumen-input"
+                                           data-liq-campo="cochera" inputmode="decimal" autocomplete="off"
+                                           value="{{ edit_montos_liquidacion.monto_cochera }}">
+                                    {% else %}
+                                    {{ resumen_liquidacion.monto_cochera|format_importe_moneda:resumen_liquidacion.moneda }}
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if puede_editar_liquidacion_resumen and edit_montos_liquidacion %}
+                                    <input type="text" name="liq_monto_fondo" form="{{ form_caratula_reserva_id }}"
+                                           class="form-control form-control-sm input-monto-ar text-end liq-resumen-input"
+                                           data-liq-campo="fondo" inputmode="decimal" autocomplete="off"
+                                           value="{{ edit_montos_liquidacion.monto_fondo }}">
+                                    {% else %}
+                                    {{ resumen_liquidacion.monto_fondo|format_importe_moneda:resumen_liquidacion.moneda }}
+                                    {% endif %}
+                                </td>
                             </tr>
                         </tbody>
                     </table>
@@ -42,7 +90,7 @@
                                 {% for f in resumen_liquidacion.filas_pago %}
                                 <tr>
                                     <td>{{ f.concepto }}</td>
-                                    <td class="text-end">{{ f.monto|format_importe_moneda:resumen_liquidacion.moneda }}</td>
+                                    <td class="text-end liq-fila-pago-monto">{{ f.monto|format_importe_moneda:resumen_liquidacion.moneda }}</td>
                                 </tr>
                                 {% empty %}
                                 <tr><td colspan="2" class="text-muted text-center py-2">—</td></tr>
@@ -51,7 +99,7 @@
                             <tfoot>
                                 <tr class="table-success fw-bold">
                                     <td>Subtotal al propietario</td>
-                                    <td class="text-end">{{ resumen_liquidacion.subtotal_propietario|format_importe_moneda:resumen_liquidacion.moneda }}</td>
+                                    <td class="text-end" id="resumen-subtotal-propietario">{{ resumen_liquidacion.subtotal_propietario|format_importe_moneda:resumen_liquidacion.moneda }}</td>
                                 </tr>
                             </tfoot>
                         </table>
@@ -68,18 +116,18 @@
                                 {% empty %}
                                 <tr><td colspan="2" class="text-muted text-center py-2">Sin gastos descontados</td></tr>
                                 {% endfor %}
-                                {% if resumen_liquidacion.monto_fondo > 0 %}
-                                <tr>
+                                {% if resumen_liquidacion.monto_fondo > 0 or puede_editar_liquidacion_resumen %}
+                                <tr id="resumen-fila-fondo" class="{% if not resumen_liquidacion.monto_fondo and not puede_editar_liquidacion_resumen %}d-none{% endif %}">
                                     <td>Fondo de mantenimiento</td>
-                                    <td class="text-end">{{ resumen_liquidacion.monto_fondo|format_importe_moneda:resumen_liquidacion.moneda }}</td>
+                                    <td class="text-end" id="resumen-fondo-display">{{ resumen_liquidacion.monto_fondo|format_importe_moneda:resumen_liquidacion.moneda }}</td>
                                 </tr>
                                 {% endif %}
                             </tbody>
-                            {% if resumen_liquidacion.total_descontado > 0 %}
-                            <tfoot>
+                            {% if resumen_liquidacion.total_descontado > 0 or puede_editar_liquidacion_resumen %}
+                            <tfoot id="resumen-foot-descontado" class="{% if not resumen_liquidacion.total_descontado and not puede_editar_liquidacion_resumen %}d-none{% endif %}">
                                 <tr class="table-danger fw-bold">
                                     <td>Total descontado</td>
-                                    <td class="text-end">{{ resumen_liquidacion.total_descontado|format_importe_moneda:resumen_liquidacion.moneda }}</td>
+                                    <td class="text-end" id="resumen-total-descontado">{{ resumen_liquidacion.total_descontado|format_importe_moneda:resumen_liquidacion.moneda }}</td>
                                 </tr>
                             </tfoot>
                             {% endif %}
@@ -88,8 +136,8 @@
                 </div>
                 <div class="mt-3 pt-2 border-top d-flex flex-wrap justify-content-between align-items-center gap-2">
                     <div>
-                        <strong class="fs-6">Neto a pagar al propietario: {{ resumen_liquidacion.monto_a_pagar|format_importe_moneda:resumen_liquidacion.moneda }}</strong>
-                        {% if not resumen_liquidacion.desde_liquidacion and url_liquidacion_operacion %}
+                        <strong class="fs-6">Neto a pagar al propietario: <span id="resumen-neto-propietario">{{ resumen_liquidacion.monto_a_pagar|format_importe_moneda:resumen_liquidacion.moneda }}</span></strong>
+                        {% if not resumen_liquidacion.desde_liquidacion and url_liquidacion_operacion and not puede_editar_liquidacion_resumen %}
                         <div class="small text-muted mt-1">Podés ajustar montos al <a href="{{ url_liquidacion_operacion }}">liquidar esta operación</a>.</div>
                         {% endif %}
                     </div>
@@ -114,4 +162,55 @@
         </div>
     </div>
 </div>
+{% if puede_editar_liquidacion_resumen %}
+<script>
+(function() {
+    function parseMontoAr(val) {
+        if (typeof parseDecimalMontoJS === 'function') return parseDecimalMontoJS(val);
+        if (val == null || val === '') return 0;
+        var t = String(val).trim().replace(/\s/g, '').replace(/[^\d.,-]/g, '');
+        if (!t) return 0;
+        if (t.indexOf(',') !== -1) t = t.replace(/\./g, '').replace(',', '.');
+        else {
+            var parts = t.split('.');
+            if (parts.length > 2) t = t.replace(/\./g, '');
+        }
+        var n = parseFloat(t);
+        return isNaN(n) ? 0 : n;
+    }
+    function fmtMonto(n) {
+        if (typeof formatMontoArgentino === 'function') return formatMontoArgentino(n);
+        return Number(n || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    function fmtImporte(n) {
+        var pref = '{% if resumen_liquidacion.moneda == "USD" %}U$S {% else %}$ {% endif %}';
+        return pref + fmtMonto(n);
+    }
+    function recalcResumenLiq() {
+        var prop = parseMontoAr((document.querySelector('[name="liq_monto_propietario"]') || {}).value);
+        var fondo = parseMontoAr((document.querySelector('[name="liq_monto_fondo"]') || {}).value);
+        var neto = Math.max(0, prop - fondo);
+        var elSub = document.getElementById('resumen-subtotal-propietario');
+        var elNeto = document.getElementById('resumen-neto-propietario');
+        var elFondo = document.getElementById('resumen-fondo-display');
+        var elTotalDesc = document.getElementById('resumen-total-descontado');
+        var filaFondo = document.getElementById('resumen-fila-fondo');
+        var footDesc = document.getElementById('resumen-foot-descontado');
+        var filaPago = document.querySelector('.liq-fila-pago-monto');
+        if (elSub) elSub.textContent = fmtImporte(prop);
+        if (elNeto) elNeto.textContent = fmtImporte(neto);
+        if (filaPago) filaPago.textContent = fmtImporte(prop);
+        if (elFondo) elFondo.textContent = fmtImporte(fondo);
+        if (elTotalDesc) elTotalDesc.textContent = fmtImporte(fondo);
+        if (filaFondo) filaFondo.classList.toggle('d-none', fondo <= 0.009);
+        if (footDesc) footDesc.classList.toggle('d-none', fondo <= 0.009);
+    }
+    document.querySelectorAll('.liq-resumen-input').forEach(function(inp) {
+        inp.addEventListener('input', recalcResumenLiq);
+        inp.addEventListener('blur', recalcResumenLiq);
+    });
+    recalcResumenLiq();
+})();
+</script>
+{% endif %}
 {% endif %}

@@ -152,22 +152,24 @@
                             <div class="col">
                                 <label class="form-label">Monto para el Propietario <span class="text-danger">*</span></label>
                                 <input type="text" name="monto_propietario" id="monto_propietario" class="form-control input-monto-ar" 
-                                       required inputmode="decimal" autocomplete="off" placeholder="0,00">
+                                       required inputmode="decimal" autocomplete="off" placeholder="0,00"
+                                       {% if monto_propietario_inicial %}value="{{ monto_propietario_inicial }}"{% endif %}>
                                 <small class="form-text text-muted">Sugerido según precios/toma o % de la propiedad; editable.</small>
                             </div>
                             <div class="col">
                                 <label class="form-label">Monto para la Inmobiliaria</label>
-                                <input type="text" name="monto_inmobiliaria" id="monto_inmobiliaria" class="form-control input-monto-ar" inputmode="decimal" autocomplete="off" placeholder="0,00">
+                                <input type="text" name="monto_inmobiliaria" id="monto_inmobiliaria" class="form-control input-monto-ar" inputmode="decimal" autocomplete="off" placeholder="0,00"
+                                       {% if monto_inmobiliaria_inicial %}value="{{ monto_inmobiliaria_inicial }}"{% endif %}>
                                 <small class="form-text text-muted">Ingresalo manualmente; no se recalcula solo al editar otros montos.</small>
                             </div>
                             <div class="col">
                                 <label class="form-label">Cochera</label>
-                                <input type="text" name="monto_cochera" id="monto_cochera" class="form-control input-monto-ar" value="0,00" inputmode="decimal" placeholder="0,00" autocomplete="off">
+                                <input type="text" name="monto_cochera" id="monto_cochera" class="form-control input-monto-ar" value="{% if monto_cochera_inicial %}{{ monto_cochera_inicial }}{% else %}0,00{% endif %}" inputmode="decimal" placeholder="0,00" autocomplete="off">
                                 <small class="form-text text-muted">Solo suma al monto final del propietario; no cambia la inmobiliaria.</small>
                             </div>
                             <div class="col">
                                 <label class="form-label">Fondo de mantenimiento</label>
-                                <input type="text" name="monto_fondo_mantenimiento" id="monto_fondo_mantenimiento" class="form-control input-monto-ar" value="0,00" inputmode="decimal" placeholder="0,00" autocomplete="off">
+                                <input type="text" name="monto_fondo_mantenimiento" id="monto_fondo_mantenimiento" class="form-control input-monto-ar" value="{% if monto_fondo_inicial %}{{ monto_fondo_inicial }}{% else %}0,00{% endif %}" inputmode="decimal" placeholder="0,00" autocomplete="off">
                                 <small class="form-text text-muted">Importe de fondo de mantenimiento si aplica; editable.</small>
                             </div>
                         </div>

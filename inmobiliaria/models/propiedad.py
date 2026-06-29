@@ -9,6 +9,7 @@ from django.db.models.signals import post_delete
 from django.dispatch import receiver
 
 import datetime
+from decimal import Decimal
 from .persona import Propietario, Inquilino, Vendedor
 from .sucursal import Sucursal
 import uuid
@@ -582,6 +583,44 @@ class Reserva(models.Model):
     fecha_inicio_original = models.DateField(null=True, blank=True, verbose_name="Fecha inicio original")
     fecha_fin_original = models.DateField(null=True, blank=True, verbose_name="Fecha fin original")
     fue_editada = models.BooleanField(default=False, verbose_name="Fue editada")
+    liq_monto_propietario = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name='Monto propietario (liquidación)',
+        help_text='Override manual desde carátula antes de liquidar.',
+    )
+    liq_monto_inmobiliaria = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name='Monto inmobiliaria (liquidación)',
+        help_text='Override manual desde carátula antes de liquidar.',
+    )
+    liq_monto_cochera = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        verbose_name='Monto cochera (liquidación)',
+    )
+    liq_monto_fondo = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        verbose_name='Fondo mantenimiento (liquidación)',
+    )
+
+    def montos_liquidacion_efectivos(self, total, prop, inm):
+        """Aplica overrides guardados en carátula sobre montos calculados."""
+        coch = Decimal(str(self.liq_monto_cochera or 0))
+        fondo = Decimal(str(self.liq_monto_fondo or 0))
+        if self.liq_monto_propietario is not None:
+            prop = Decimal(str(self.liq_monto_propietario)).quantize(Decimal('0.01'))
+        if self.liq_monto_inmobiliaria is not None:
+            inm = Decimal(str(self.liq_monto_inmobiliaria)).quantize(Decimal('0.01'))
+        return total, prop, inm, coch, fondo
 
     def save(self, *args, **kwargs):
         # Asegúrate de que la sucursal esté establecida si no está definida
