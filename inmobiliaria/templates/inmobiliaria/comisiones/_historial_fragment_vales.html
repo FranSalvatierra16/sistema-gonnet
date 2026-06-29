@@ -43,6 +43,7 @@
                                     <th>Monto</th>
                                     <th>Observaciones</th>
                                     <th>Usuario</th>
+                                    {% if puede_anular_vale %}<th class="text-center">Acciones</th>{% endif %}
                                 </tr>
                             </thead>
                             <tbody>
@@ -92,6 +93,11 @@
                                             <span class="text-muted">-</span>
                                         {% endif %}
                                     </td>
+                                    {% if puede_anular_vale %}
+                                    <td class="text-center">
+                                        {% include 'inmobiliaria/vales/_btn_anular_vale.html' %}
+                                    </td>
+                                    {% endif %}
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -101,6 +107,7 @@
                                     <td></td>
                                     <td><strong>${{ total_vales|format_price }}</strong></td>
                                     <td colspan="2"><small class="text-muted">La tabla lista todos los vales; este total coincide con el resumen superior.</small></td>
+                                    {% if puede_anular_vale %}<td></td>{% endif %}
                                 </tr>
                             </tfoot>
                         </table>

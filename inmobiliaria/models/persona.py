@@ -113,6 +113,11 @@ def usuario_puede_editar_movimiento_caja(user):
     return getattr(user, 'nivel', None) == 5
 
 
+def usuario_puede_anular_vale(user):
+    """Administración (nivel 4+) o superusuario: elimina el vale y anula el movimiento de caja vinculado."""
+    return usuario_es_nivel_administracion(user)
+
+
 class Vendedor(AbstractUser):
     dni = models.CharField(max_length=8, blank=True, null=True)
     nombre = models.CharField(max_length=100)

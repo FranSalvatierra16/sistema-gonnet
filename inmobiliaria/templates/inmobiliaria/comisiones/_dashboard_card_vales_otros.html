@@ -23,6 +23,7 @@
                         <th>Otorgó</th>
                         <th class="text-end">Monto</th>
                         <th>Caja</th>
+                        {% if puede_anular_vale %}<th class="text-center">Acciones</th>{% endif %}
                     </tr>
                 </thead>
                 <tbody>
@@ -55,6 +56,11 @@
                             <span class="text-muted">—</span>
                             {% endif %}
                         </td>
+                        {% if puede_anular_vale %}
+                        <td class="text-center">
+                            {% include 'inmobiliaria/vales/_btn_anular_vale.html' %}
+                        </td>
+                        {% endif %}
                     </tr>
                     {% endfor %}
                 </tbody>

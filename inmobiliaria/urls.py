@@ -393,6 +393,7 @@ urlpatterns = [
     
     # ✅ URLs para Vales de Vendedores
     path('vendedores/<int:vendedor_id>/vales/', views.lista_vales_vendedor, name='lista_vales_vendedor'),
+    path('vales/<int:vale_id>/anular/', views.anular_vale, name='anular_vale'),
     
     # ✅ URLs para Liquidaciones de Propietarios
     path('reportes/asegurado-liquidaciones/<int:disponibilidad_id>/', views.reporte_asegurado_liquidaciones, name='reporte_asegurado_liquidaciones_detalle'),

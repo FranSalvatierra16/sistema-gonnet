@@ -274,6 +274,7 @@ from .models import ComisionVendedor, ValeVendedor, MesComisionPagadoVendedor
 from .models.persona import (
     Vendedor,
     usuario_es_nivel_administracion,
+    usuario_puede_anular_vale,
     usuario_puede_eliminar_movimiento_caja,
     usuario_puede_editar_movimiento_caja,
 )
@@ -489,6 +490,7 @@ def historial_comisiones_vendedor(request, vendedor_id):
         'cantidad_operaciones': cantidad_operaciones,
         'vendedor': vendedor,
         'porcentaje_comision': vendedor.porcentaje_comision_efectivo(),
+        'puede_anular_vale': usuario_puede_anular_vale(request.user),
     }
 
     return render(request, 'inmobiliaria/comisiones/historial_comisiones.html', context)
@@ -863,6 +865,7 @@ def dashboard_vales(request):
         'total_otros_egreso': total_otros_egreso,
         'total_otros_ingreso': total_otros_ingreso,
         'total_otros_saldo': total_otros_egreso - total_otros_ingreso,
+        'puede_anular_vale': usuario_puede_anular_vale(request.user),
     }
     return render(request, 'inmobiliaria/comisiones/dashboard_vales.html', context)
 
@@ -1181,9 +1184,86 @@ def lista_vales_vendedor(request, vendedor_id):
         'fecha_desde': fecha_desde_s,
         'fecha_hasta': fecha_hasta_s,
         'hay_filtro_fecha': bool(fecha_desde or fecha_hasta),
+        'puede_anular_vale': usuario_puede_anular_vale(request.user),
     }
 
     return render(request, 'inmobiliaria/vales/lista_vales.html', context)
+
+
+def _vale_pertenece_sucursal(vale, sucursal):
+    """True si el vale es de la sucursal (productor, quien lo cargó o movimiento de caja)."""
+    if not vale or not sucursal:
+        return False
+    sid = sucursal.pk
+    if vale.vendedor_id and getattr(vale.vendedor, 'sucursal_id', None) == sid:
+        return True
+    if vale.usuario_creador_id and getattr(vale.usuario_creador, 'sucursal_id', None) == sid:
+        return True
+    mov = vale.movimiento_caja
+    if mov and getattr(mov, 'sucursal_id', None) == sid:
+        return True
+    return False
+
+
+@login_required
+@transaction.atomic
+def anular_vale(request, vale_id):
+    """Elimina el vale y anula el movimiento de caja vinculado (solo administración)."""
+    if request.method not in ('POST',):
+        return HttpResponseNotAllowed(['POST'])
+
+    if not usuario_puede_anular_vale(request.user):
+        messages.error(request, 'Solo usuarios de administración pueden anular vales.')
+        return redirect('inmobiliaria:dashboard_vales')
+
+    sucursal = request.user.sucursal
+    if not sucursal:
+        messages.error(request, 'Tu usuario no tiene sucursal asignada.')
+        return redirect('inmobiliaria:dashboard')
+
+    vale = get_object_or_404(
+        ValeVendedor.objects.select_related(
+            'movimiento_caja',
+            'movimiento_caja__caja',
+            'vendedor',
+            'usuario_creador',
+        ),
+        pk=vale_id,
+    )
+    if not _vale_pertenece_sucursal(vale, sucursal):
+        messages.error(request, 'El vale no pertenece a tu sucursal.')
+        return redirect('inmobiliaria:dashboard_vales')
+
+    next_url = _validar_url_volver_recibo((request.POST.get('next') or '').strip(), request)
+    movimiento = vale.movimiento_caja
+    vendedor_vale_id = vale.vendedor_id
+    movimiento_anulado = False
+    if movimiento:
+        if movimiento.sucursal_id != sucursal.pk:
+            messages.error(request, 'El movimiento de caja no pertenece a tu sucursal.')
+            return redirect(next_url or 'inmobiliaria:dashboard_vales')
+        if not getattr(movimiento, 'fecha_eliminacion', None):
+            _eliminar_movimiento_y_anexos(movimiento, eliminado_por=request.user)
+            movimiento_anulado = True
+
+    vale.delete()
+
+    if movimiento_anulado:
+        messages.success(
+            request,
+            'Vale eliminado y movimiento de caja anulado. Ya no suma en saldos ni comisiones.',
+        )
+    elif movimiento and getattr(movimiento, 'fecha_eliminacion', None):
+        messages.success(request, 'Vale eliminado (el movimiento de caja ya estaba anulado).')
+    else:
+        messages.success(request, 'Vale eliminado.')
+
+    if next_url:
+        return redirect(next_url)
+    if vendedor_vale_id:
+        return redirect('inmobiliaria:lista_vales_vendedor', vendedor_id=vendedor_vale_id)
+    return redirect('inmobiliaria:dashboard_vales')
+
 
 # ✅ VISTA PARA MOVIMIENTOS HISTÓRICOS DE TODAS LAS CAJAS
 

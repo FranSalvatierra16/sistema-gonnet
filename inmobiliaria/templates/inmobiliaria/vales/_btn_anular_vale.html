@@ -1,0 +1,10 @@
+{% if puede_anular_vale %}
+<form method="post" action="{% url 'inmobiliaria:anular_vale' vale.id %}" class="d-inline m-0"
+      onsubmit="return confirm('¿Anular este vale y el movimiento de caja vinculado? El movimiento dejará de sumar en saldos y comisiones.');">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+    <button type="submit" class="btn btn-sm btn-outline-danger" title="Anular vale y movimiento de caja">
+        <i class="fas fa-trash-alt"></i>
+    </button>
+</form>
+{% endif %}
