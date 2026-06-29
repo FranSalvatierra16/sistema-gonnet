@@ -1,4 +1,5 @@
 """Helpers compartidos para gastos de oficina (panel y movimientos de caja)."""
+import unicodedata
 from decimal import Decimal
 
 from django.db import IntegrityError
@@ -83,6 +84,131 @@ SUBCATEGORIAS_LEGACY_SUELDOS = frozenset({
     'cargas sociales',
 })
 SUBCATEGORIAS_LEGACY_VALES = frozenset({'productores'})
+
+
+def _normalizar_nombre_sucursal(nombre):
+    t = (nombre or '').strip().lower()
+    t = ''.join(
+        c for c in unicodedata.normalize('NFD', t) if unicodedata.category(c) != 'Mn'
+    )
+    return t
+
+
+def get_sucursal_referencia_categorias_oficina():
+    """Sucursal maestra de categorías de gasto de oficina (Corrientes)."""
+    from inmobiliaria.models.sucursal import Sucursal
+
+    return Sucursal.objects.filter(nombre__icontains='corrientes').order_by('pk').first()
+
+
+def sucursal_espeja_categorias_oficina_desde_referencia(sucursal):
+    """True si esta sucursal debe copiar el árbol de categorías desde Corrientes (ej. Colón)."""
+    if not sucursal:
+        return False
+    ref = get_sucursal_referencia_categorias_oficina()
+    if not ref or sucursal.pk == ref.pk:
+        return False
+    return 'colon' in _normalizar_nombre_sucursal(sucursal.nombre)
+
+
+def _resolver_vendedor_espejo(sucursal_destino, vendedor_origen):
+    """Empareja productor de Corrientes con el de la sucursal destino (apellido + nombre)."""
+    if not vendedor_origen or not sucursal_destino:
+        return None
+    ap = (vendedor_origen.apellido or '').strip()
+    nom = (vendedor_origen.nombre or '').strip()
+    qs = Vendedor.objects.filter(sucursal=sucursal_destino, is_active=True)
+    if ap:
+        qs = qs.filter(apellido__iexact=ap)
+    if nom:
+        qs = qs.filter(nombre__iexact=nom)
+    return qs.first()
+
+
+def sincronizar_categorias_gasto_oficina_desde_referencia(sucursal_destino, sucursal_origen=None):
+    """
+    Copia categorías y subcategorías activas/inactivas de Corrientes a la sucursal destino.
+    Las subcategorías por vendedor se vinculan al productor homónimo en destino, si existe.
+    """
+    sucursal_origen = sucursal_origen or get_sucursal_referencia_categorias_oficina()
+    if not sucursal_origen or not sucursal_destino or sucursal_origen.pk == sucursal_destino.pk:
+        return {'creadas': 0, 'actualizadas': 0, 'omitido': True}
+
+    creadas = 0
+    actualizadas = 0
+    raices_origen = list(
+        CategoriaGastoOficina.objects.filter(sucursal=sucursal_origen, parent__isnull=True)
+        .prefetch_related('subcategorias__vendedor')
+        .order_by('orden', 'nombre')
+    )
+    nombres_raiz_espejo = set()
+
+    for raiz_o in raices_origen:
+        nombre_raiz = (raiz_o.nombre or '').strip()
+        if not nombre_raiz:
+            continue
+        nombres_raiz_espejo.add(nombre_raiz.lower())
+        raiz_d, created = _get_or_create_raiz(sucursal_destino, nombre_raiz, raiz_o.orden)
+        if created:
+            creadas += 1
+        upd_raiz = []
+        if raiz_d.activa != raiz_o.activa:
+            raiz_d.activa = raiz_o.activa
+            upd_raiz.append('activa')
+        if raiz_d.orden != raiz_o.orden:
+            raiz_d.orden = raiz_o.orden
+            upd_raiz.append('orden')
+        if upd_raiz:
+            raiz_d.save(update_fields=upd_raiz)
+            if not created:
+                actualizadas += 1
+
+        hijos_vistos = set()
+        for hijo_o in raiz_o.subcategorias.all().order_by('orden', 'nombre'):
+            vendedor_d = None
+            if hijo_o.vendedor_id:
+                vendedor_d = _resolver_vendedor_espejo(sucursal_destino, hijo_o.vendedor)
+            nombre_hijo = (hijo_o.nombre or '').strip()
+            hijo_d, created_h = _get_or_create_hijo(
+                sucursal_destino,
+                raiz_d,
+                nombre_hijo,
+                hijo_o.orden,
+                vendedor=vendedor_d,
+            )
+            hijos_vistos.add((hijo_d.vendedor_id or 0, nombre_hijo.lower()))
+            if created_h:
+                creadas += 1
+            upd_h = []
+            if hijo_d.activa != hijo_o.activa:
+                hijo_d.activa = hijo_o.activa
+                upd_h.append('activa')
+            if hijo_d.orden != hijo_o.orden:
+                hijo_d.orden = hijo_o.orden
+                upd_h.append('orden')
+            if nombre_hijo and hijo_d.nombre != nombre_hijo:
+                hijo_d.nombre = nombre_hijo
+                upd_h.append('nombre')
+            if upd_h:
+                hijo_d.save(update_fields=upd_h)
+                if not created_h:
+                    actualizadas += 1
+
+        for hijo_d in CategoriaGastoOficina.objects.filter(sucursal=sucursal_destino, parent=raiz_d):
+            key = (hijo_d.vendedor_id or 0, (hijo_d.nombre or '').strip().lower())
+            if key not in hijos_vistos and hijo_d.activa:
+                hijo_d.activa = False
+                hijo_d.save(update_fields=['activa'])
+                actualizadas += 1
+
+    for raiz_d in CategoriaGastoOficina.objects.filter(sucursal=sucursal_destino, parent__isnull=True):
+        if (raiz_d.nombre or '').strip().lower() not in nombres_raiz_espejo and raiz_d.activa:
+            raiz_d.activa = False
+            raiz_d.save(update_fields=['activa'])
+            CategoriaGastoOficina.objects.filter(sucursal=sucursal_destino, parent=raiz_d).update(activa=False)
+            actualizadas += 1
+
+    return {'creadas': creadas, 'actualizadas': actualizadas, 'omitido': False}
 
 
 def _nombres_raices_cierre():
@@ -256,7 +382,12 @@ def asegurar_estructura_cierre_oficina(sucursal):
     """
     Asegura el árbol de categorías del resumen de cierre (modelo PDF).
     Sincroniza vendedores bajo Sueldos, Vales y Comisiones vendedores.
+    Colón usa el árbol ya cargado en Corrientes.
     """
+    if sucursal_espeja_categorias_oficina_desde_referencia(sucursal):
+        sincronizar_categorias_gasto_oficina_desde_referencia(sucursal)
+        return False
+
     creadas_alguna = False
     for orden, item in enumerate(ESTRUCTURA_CIERRE_OFICINA):
         nombre_raiz, hijos = item
@@ -273,6 +404,9 @@ def asegurar_estructura_cierre_oficina(sucursal):
 
 
 def asegurar_categorias_base(sucursal):
+    if sucursal_espeja_categorias_oficina_desde_referencia(sucursal):
+        sincronizar_categorias_gasto_oficina_desde_referencia(sucursal)
+        return False
     vacia = not CategoriaGastoOficina.objects.filter(sucursal=sucursal).exists()
     asegurar_estructura_cierre_oficina(sucursal)
     return vacia
