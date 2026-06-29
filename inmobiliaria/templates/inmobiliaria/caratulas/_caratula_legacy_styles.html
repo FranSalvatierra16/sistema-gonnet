@@ -72,6 +72,26 @@
   color: #0a58ca;
   text-decoration: underline;
 }
+.caratula-input-edit {
+  display: block;
+  width: 100%;
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 4px;
+  border: 1px solid #5a8f5e;
+  border-radius: 3px;
+  background: #fff;
+  color: #111;
+}
+.caratula-select-estado {
+  display: inline-block;
+  width: auto;
+  min-width: 10rem;
+  margin-left: 4px;
+  font-weight: 600;
+  vertical-align: middle;
+}
 @media print {
   .caratula-legacy-wrap { font-size: 13px; }
   .caratula-valor-pipe { font-size: 15px !important; }
@@ -81,5 +101,9 @@
   .caratula-web-extra { display: none !important; }
   .caratula-legacy-actions { display: none !important; }
   .d-flex.flex-wrap.mb-2 { display: none !important; }
+  #form-editar-caratula-reserva .alert,
+  #form-editar-caratula-reserva button { display: none !important; }
+  .caratula-input-edit,
+  .caratula-select-estado { border: none !important; background: transparent !important; padding: 0 !important; }
 }
 </style>

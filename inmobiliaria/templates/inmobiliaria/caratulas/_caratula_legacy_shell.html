@@ -61,28 +61,52 @@
         <div class="caratula-grid">
             <div class="caratula-cell span-4">
                 <span class="k">DESDE</span>
+                {% if puede_editar_caratula %}
+                <input type="date" name="fecha_inicio" class="caratula-input-edit" value="{{ fecha_desde|date:'Y-m-d' }}" required>
+                {% else %}
                 <span class="v">{{ fecha_desde|date:"d/m/Y" }}</span>
+                {% endif %}
             </div>
             <div class="caratula-cell span-4">
                 <span class="k">HORA</span>
+                {% if puede_editar_caratula %}
+                <input type="time" name="hora_ingreso" class="caratula-input-edit" value="{% if hora_desde %}{{ hora_desde|time:'H:i' }}{% else %}10:00{% endif %}" step="1">
+                {% else %}
                 <span class="v">{% if hora_desde %}{{ hora_desde|time:"H:i:s" }}{% else %}00:00:00{% endif %}</span>
+                {% endif %}
             </div>
             <div class="caratula-cell span-4">
                 <span class="k">HASTA</span>
+                {% if puede_editar_caratula %}
+                <input type="date" name="fecha_fin" class="caratula-input-edit" value="{{ fecha_hasta|date:'Y-m-d' }}" required>
+                {% else %}
                 <span class="v">{{ fecha_hasta|date:"d/m/Y" }}</span>
+                {% endif %}
             </div>
             <div class="caratula-cell span-4">
                 <span class="k">HORA</span>
+                {% if puede_editar_caratula %}
+                <input type="time" name="hora_egreso" class="caratula-input-edit" value="{% if hora_hasta %}{{ hora_hasta|time:'H:i' }}{% else %}15:00{% endif %}" step="1">
+                {% else %}
                 <span class="v">{% if hora_hasta %}{{ hora_hasta|time:"H:i:s" }}{% else %}00:00:00{% endif %}</span>
+                {% endif %}
             </div>
 
             <div class="caratula-cell span-4">
                 <span class="k">IMPORTE LOCACION</span>
+                {% if puede_editar_caratula %}
+                <input type="text" name="precio_total" class="caratula-input-edit input-monto-ar text-end" value="{{ edit_montos.precio_total }}" inputmode="decimal" autocomplete="off" required>
+                {% else %}
                 <span class="v">{{ cl.importe_locacion }}</span>
+                {% endif %}
             </div>
             <div class="caratula-cell span-4">
                 <span class="k">SEÑA</span>
+                {% if puede_editar_caratula %}
+                <input type="text" name="senia" class="caratula-input-edit input-monto-ar text-end" value="{{ edit_montos.senia }}" inputmode="decimal" autocomplete="off" required>
+                {% else %}
                 <span class="v">{{ cl.senia }}</span>
+                {% endif %}
             </div>
             <div class="caratula-cell span-4">
                 <span class="k">REFUERZO</span>
@@ -94,7 +118,11 @@
             </div>
             <div class="caratula-cell span-4">
                 <span class="k">DEPOSITO</span>
+                {% if puede_editar_caratula %}
+                <input type="text" name="deposito_garantia" class="caratula-input-edit input-monto-ar text-end" value="{{ edit_montos.deposito }}" inputmode="decimal" autocomplete="off">
+                {% else %}
                 <span class="v">{{ cl.deposito }}</span>
+                {% endif %}
             </div>
             <div class="caratula-cell span-4">
                 <span class="k">SALDO</span>
@@ -107,7 +135,11 @@
             </div>
             <div class="caratula-cell span-4">
                 <span class="k">COMISION LOCATARIO</span>
+                {% if puede_editar_caratula %}
+                <input type="text" name="comision_locatario" class="caratula-input-edit input-monto-ar text-end" value="{{ edit_montos.comision_locatario }}" inputmode="decimal" autocomplete="off">
+                {% else %}
                 <span class="v">{{ cl.comision_locatario }}</span>
+                {% endif %}
             </div>
             {% if cl.comisiones_total and cl.comisiones_total != "0.00" %}
             <div class="caratula-cell span-4">
@@ -161,7 +193,17 @@
                 {% endif %}
                 <span><strong>TERCEROS</strong> {{ cl.terceros }}</span>
                 <span><strong>ORIGEN OPERACIÓN</strong> {{ cl.origen_operacion }}</span>
-                <span><strong>ESTADO</strong> {{ cl.estado_txt }}</span>
+                <span><strong>ESTADO</strong>
+                    {% if puede_editar_caratula %}
+                    <select name="estado" class="caratula-input-edit caratula-select-estado">
+                        {% for val, label in reserva_estado_choices %}
+                        <option value="{{ val }}" {% if reserva.estado == val %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    {% else %}
+                    {{ cl.estado_txt }}
+                    {% endif %}
+                </span>
             </div>
             <div class="caratula-legacy-mini-box" aria-label="Locación mensual y carpeta">
                 <div class="mini-row">

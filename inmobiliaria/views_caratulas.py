@@ -1,6 +1,7 @@
 """
 Consulta de carátulas: listado y detalle de operaciones (reservas por día, invierno, 24 meses).
 """
+import logging
 import re
 from datetime import datetime
 from decimal import Decimal
@@ -24,6 +25,8 @@ from inmobiliaria.models import (
     Reserva,
 )
 from inmobiliaria.models.caja import TipoMovimientoCajaEnum
+
+logger = logging.getLogger(__name__)
 
 CARATULA_CARPETA_DEFAULT_KEY = 'caratulas_carpeta_default'
 CARATULA_CARPETA_OVERRIDES_KEY = 'caratulas_carpeta_overrides'
@@ -433,6 +436,129 @@ def _contabilizacion_para_contrato(contrato):
 def _puede_ver_caratulas(user):
     nivel = getattr(user, 'nivel', None)
     return bool(getattr(user, 'is_superuser', False) or (nivel is not None and nivel >= 4))
+
+
+def _puede_editar_caratula(user):
+    """Edición de montos/estado en carátula (administración)."""
+    return _puede_ver_caratulas(user)
+
+
+def _guardar_caratula_reserva(request, reserva):
+    """Persiste montos, fechas y estado de una reserva desde la carátula."""
+    from django.contrib import messages
+    from inmobiliaria.decimal_utils import parse_decimal_monto
+
+    if not _puede_editar_caratula(request.user):
+        messages.error(request, 'No tenés permiso para editar esta carátula.')
+        return False
+
+    try:
+        fecha_inicio = datetime.strptime(
+            (request.POST.get('fecha_inicio') or '').strip(), '%Y-%m-%d'
+        ).date()
+        fecha_fin = datetime.strptime(
+            (request.POST.get('fecha_fin') or '').strip(), '%Y-%m-%d'
+        ).date()
+    except ValueError:
+        messages.error(request, 'Las fechas desde/hasta no son válidas.')
+        return False
+
+    if fecha_fin <= fecha_inicio:
+        messages.error(request, 'La fecha hasta debe ser posterior a la fecha desde.')
+        return False
+
+    def _parse_time(raw, default):
+        texto = (raw or '').strip()
+        if not texto:
+            return default
+        for fmt in ('%H:%M:%S', '%H:%M'):
+            try:
+                return datetime.strptime(texto, fmt).time()
+            except ValueError:
+                continue
+        raise ValueError('Hora inválida')
+
+    try:
+        hora_ingreso = _parse_time(request.POST.get('hora_ingreso'), reserva.hora_ingreso)
+        hora_egreso = _parse_time(request.POST.get('hora_egreso'), reserva.hora_egreso)
+        precio_total = parse_decimal_monto(request.POST.get('precio_total', '0'))
+        senia = parse_decimal_monto(request.POST.get('senia', '0'))
+        deposito = parse_decimal_monto(request.POST.get('deposito_garantia', '0'))
+        comision_locatario = parse_decimal_monto(request.POST.get('comision_locatario', '0'))
+    except ValueError as exc:
+        messages.error(request, str(exc))
+        return False
+
+    if min(precio_total, senia, deposito, comision_locatario) < 0:
+        messages.error(request, 'Los montos no pueden ser negativos.')
+        return False
+
+    estado = (request.POST.get('estado') or reserva.estado).strip()
+    estados_validos = {c[0] for c in Reserva._meta.get_field('estado').choices}
+    if estado not in estados_validos:
+        messages.error(request, 'Estado de operación inválido.')
+        return False
+
+    fechas_cambiaron = (
+        reserva.fecha_inicio != fecha_inicio or reserva.fecha_fin != fecha_fin
+    )
+
+    reserva.fecha_inicio = fecha_inicio
+    reserva.fecha_fin = fecha_fin
+    reserva.hora_ingreso = hora_ingreso
+    reserva.hora_egreso = hora_egreso
+    reserva.precio_total = precio_total.quantize(Decimal('0.01'))
+    reserva.senia = senia.quantize(Decimal('0.01'))
+    reserva.deposito_garantia = deposito.quantize(Decimal('0.01'))
+    reserva.cuota_pendiente = max(
+        Decimal('0'), precio_total - senia
+    ).quantize(Decimal('0.01'))
+    reserva.estado = estado
+    reserva.save()
+
+    if fechas_cambiaron:
+        try:
+            reserva.actualizar_historial_disponibilidad()
+        except Exception:
+            logger.exception(
+                'guardar_caratula_reserva: error al actualizar historial reserva_id=%s',
+                reserva.id,
+            )
+
+    comisiones = list(
+        ComisionVendedor.objects.filter(reserva=reserva).exclude(estado='cancelada')
+    )
+    if comisiones:
+        total_actual = sum(Decimal(str(c.monto_comision or 0)) for c in comisiones)
+        if len(comisiones) == 1:
+            c = comisiones[0]
+            c.monto_comision = comision_locatario.quantize(Decimal('0.01'))
+            if c.monto_total_operacion and Decimal(str(c.monto_total_operacion)) > 0:
+                c.porcentaje_comision = (
+                    comision_locatario / Decimal(str(c.monto_total_operacion)) * Decimal('100')
+                ).quantize(Decimal('0.01'))
+            c.save(update_fields=['monto_comision', 'porcentaje_comision'])
+        elif total_actual > 0:
+            for c in comisiones:
+                share = Decimal(str(c.monto_comision or 0)) / total_actual
+                c.monto_comision = (comision_locatario * share).quantize(Decimal('0.01'))
+                c.save(update_fields=['monto_comision'])
+        elif comision_locatario > 0:
+            c = comisiones[0]
+            c.monto_comision = comision_locatario.quantize(Decimal('0.01'))
+            c.save(update_fields=['monto_comision'])
+    elif comision_locatario > 0 and reserva.vendedor_id:
+        ComisionVendedor.objects.create(
+            vendedor=reserva.vendedor,
+            reserva=reserva,
+            monto_total_operacion=precio_total,
+            porcentaje_comision=Decimal('0'),
+            monto_comision=comision_locatario.quantize(Decimal('0.01')),
+            concepto_operacion=f'Operación {reserva.id}',
+        )
+
+    messages.success(request, 'Carátula actualizada correctamente.')
+    return True
 
 
 def _nivel_usuario_caratulas(user):
@@ -2071,6 +2197,11 @@ def caratula_reserva(request, reserva_id):
     ):
         return HttpResponseForbidden()
 
+    if request.method == 'POST' and request.POST.get('action') == 'save_caratula_reserva':
+        if _guardar_caratula_reserva(request, reserva):
+            return _redirect_caratula_con_filtros('inmobiliaria:caratula_reserva', reserva_id, request)
+        reserva.refresh_from_db()
+
     movimientos = []
     if reserva.propiedad_id:
         movs_qs = (
@@ -2109,6 +2240,9 @@ def caratula_reserva(request, reserva_id):
 
     saldo_reserva = (reserva.precio_total or Decimal('0')) - (reserva.senia or Decimal('0'))
     tipo_op = _tipo_reserva(reserva.propiedad)
+    comision_total = sum(Decimal(str(c.monto_comision or 0)) for c in comisiones)
+    from inmobiliaria.decimal_utils import format_monto_argentino
+
     ctx = {
         'reserva': reserva,
         'propiedad': reserva.propiedad,
@@ -2118,6 +2252,14 @@ def caratula_reserva(request, reserva_id):
         'comisiones': comisiones,
         'total_movimientos': total_mov,
         'saldo_reserva': saldo_reserva,
+        'puede_editar_caratula': _puede_editar_caratula(request.user),
+        'reserva_estado_choices': Reserva._meta.get_field('estado').choices,
+        'edit_montos': {
+            'precio_total': format_monto_argentino(reserva.precio_total),
+            'senia': format_monto_argentino(reserva.senia),
+            'deposito': format_monto_argentino(reserva.deposito_garantia),
+            'comision_locatario': format_monto_argentino(comision_total),
+        },
         'caratula_legacy': _build_legacy_reserva(
             reserva,
             recibos,

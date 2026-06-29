@@ -24,7 +24,26 @@
     </div>
 
     {% url 'inmobiliaria:reserva_detalle' reserva.id as url_cancel_reserva %}
+    {% if puede_editar_caratula %}
+    <form method="post" id="form-editar-caratula-reserva" class="mb-2">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="save_caratula_reserva">
+        <div class="alert alert-warning py-2 small mb-2 d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <span><i class="fas fa-pen me-1"></i>Modo edición: podés corregir fechas, montos y estado de la operación.</span>
+            <button type="submit" class="btn btn-sm btn-primary">
+                <i class="fas fa-save me-1"></i>Guardar cambios
+            </button>
+        </div>
+        {% include 'inmobiliaria/caratulas/_caratula_legacy_shell.html' with cl=caratula_legacy fecha_desde=reserva.fecha_inicio fecha_hasta=reserva.fecha_fin hora_desde=reserva.hora_ingreso hora_hasta=reserva.hora_egreso cancel_url=url_cancel_reserva puede_editar_caratula=True edit_montos=edit_montos reserva_estado_choices=reserva_estado_choices reserva=reserva %}
+        <div class="text-end mb-3">
+            <button type="submit" class="btn btn-primary btn-sm">
+                <i class="fas fa-save me-1"></i>Guardar cambios
+            </button>
+        </div>
+    </form>
+    {% else %}
     {% include 'inmobiliaria/caratulas/_caratula_legacy_shell.html' with cl=caratula_legacy fecha_desde=reserva.fecha_inicio fecha_hasta=reserva.fecha_fin hora_desde=reserva.hora_ingreso hora_hasta=reserva.hora_egreso cancel_url=url_cancel_reserva %}
+    {% endif %}
 
     <div class="caratula-web-extra">
         <h3><i class="fas fa-table me-1"></i>Detalle en sistema (recibos, comisiones, caja)</h3>
