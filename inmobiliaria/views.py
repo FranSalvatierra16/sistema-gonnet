@@ -23717,6 +23717,22 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                             'Las cuotas seleccionadas deben ser todas del mismo contrato de alquiler.'
                         )
 
+            if solo_servicios and reserva is None and contrato_fk is None:
+                ref_tipo = (request.POST.get('operacion_referencia_tipo') or '').strip().lower()
+                ref_raw = (request.POST.get('operacion_referencia_numero') or '').strip()
+                if ref_raw.isdigit():
+                    rid = int(ref_raw)
+                    operaciones_incluidas.append({
+                        'tipo': 'referencia_operacion',
+                        'id': rid,
+                        'referencia': ref_tipo,
+                        'solo_movimientos': True,
+                    })
+                    if ref_tipo == 'contrato':
+                        contrato_fk = ContratoAlquiler.objects.filter(
+                            pk=rid, propiedad=propiedad, sucursal=request.user.sucursal
+                        ).first()
+
             reserva_ids_nuevas = set()
             for o in operaciones_incluidas:
                 if not isinstance(o, dict):

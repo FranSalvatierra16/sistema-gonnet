@@ -20,6 +20,9 @@
                     <form method="POST" id="formCrearLiquidacion" novalidate>
                         {% csrf_token %}
                         <input type="hidden" name="moneda" id="moneda_liquidacion" value="{{ moneda_inicial|default:'ARS' }}">
+                        <input type="hidden" name="propietario_id" id="propietario_id" value="">
+                        <input type="hidden" name="operacion_referencia_numero" id="operacion_referencia_numero" value="">
+                        <input type="hidden" name="operacion_referencia_tipo" id="operacion_referencia_tipo" value="">
                         {{ propietarios_busqueda|json_script:"propietarios-busqueda-data" }}
                         {{ cuotas_liquidacion_inicial|json_script:"cuotas-liquidacion-inicial-data" }}
                         
@@ -33,8 +36,13 @@
                                         <i class="fas fa-search"></i> Buscar
                                     </button>
                                 </div>
-                                <small class="form-text text-muted">Carga la propiedad y las cuotas o reservas pendientes de liquidar de esa operación.</small>
+                                <small class="form-text text-muted">Carga la propiedad de esa operación. Podés liquidar <strong>solo movimientos</strong> (sin cuotas): agregá gastos con «Agregar Movimiento» y guardá.</small>
                             </div>
+                        </div>
+
+                        <div id="aviso-modo-solo-movimientos" class="alert alert-info d-none mb-3">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Liquidación solo de movimientos:</strong> cargá descuentos o gastos con «Agregar Movimiento», tildalos y guardá. No hace falta marcar cuotas ni cargar montos de operación.
                         </div>
 
                         <div class="row mb-3">
@@ -112,7 +120,7 @@
                                             <!-- Se llenará dinámicamente -->
                                         </div>
                                         <div id="sin-operaciones" class="alert alert-info mb-0" style="display: none;">
-                                            <i class="fas fa-info-circle me-2"></i>No hay pagos pendientes para esta propiedad.
+                                            <i class="fas fa-info-circle me-2"></i>No hay pagos pendientes de liquidar. Podés usar <strong>Agregar Movimiento</strong> y guardar sin tildar cuotas.
                                         </div>
                                     </div>
                                 </div>
@@ -646,6 +654,9 @@ document.addEventListener('DOMContentLoaded', function() {
         cargaPorPropietarioActiva = false;
         ocultarFiltroPropiedadPropietario();
         limpiarPropietarioBusquedaUI();
+        clearOperacionReferencia();
+        setPropietarioIdHidden('');
+        desactivarModoSoloMovimientos();
         propiedadSelect.value = '';
         propiedadBuscar.value = '';
         propietarioDisplay.value = '';
@@ -707,6 +718,50 @@ document.addEventListener('DOMContentLoaded', function() {
     function marcarOperacionesBusqueda(data) {
         // No tildar filas al buscar: el usuario elige qué cuotas/reservas liquidar.
         if (!data || !data.success) return;
+    }
+
+    function setOperacionReferencia(numero, tipo) {
+        const n = document.getElementById('operacion_referencia_numero');
+        const t = document.getElementById('operacion_referencia_tipo');
+        if (n) n.value = numero != null && numero !== '' ? String(numero) : '';
+        if (t) t.value = tipo || '';
+    }
+
+    function clearOperacionReferencia() {
+        setOperacionReferencia('', '');
+    }
+
+    function setPropietarioIdHidden(id) {
+        const el = document.getElementById('propietario_id');
+        if (el) el.value = id != null && id !== '' ? String(id) : '';
+    }
+
+    function activarModoSoloMovimientos(numOp) {
+        window.modoSoloMovimientos = true;
+        montoTotal.value = '0,00';
+        montoPropietario.value = '0,00';
+        montoInmobiliaria.value = '0,00';
+        const aviso = document.getElementById('aviso-modo-solo-movimientos');
+        if (aviso) aviso.classList.remove('d-none');
+        const sinOp = document.getElementById('sin-operaciones');
+        if (sinOp) {
+            const ref = numOp != null && numOp !== '' ? String(numOp) : '';
+            sinOp.innerHTML = '<i class="fas fa-info-circle me-2"></i>No hay pagos pendientes de liquidar'
+                + (ref ? ' en la operación #' + escHtmlGasto(ref) : '')
+                + '. Usá <strong>Agregar Movimiento</strong> y guardá sin tildar cuotas.';
+        }
+        const gastosContainer = document.getElementById('gastos-pendientes-container');
+        if (gastosContainer && gastosContainer.style.display !== 'none') {
+            window.setTimeout(function() {
+                gastosContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 200);
+        }
+    }
+
+    function desactivarModoSoloMovimientos() {
+        window.modoSoloMovimientos = false;
+        const aviso = document.getElementById('aviso-modo-solo-movimientos');
+        if (aviso) aviso.classList.add('d-none');
     }
 
     function tildarCuotaInicialSiCorresponde() {
@@ -780,9 +835,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (data.propietario_nombre) {
                     propietarioDisplay.value = data.propietario_nombre;
                 }
+                if (data.propietario_id) {
+                    setPropietarioIdHidden(data.propietario_id);
+                }
                 const cb = (data.propietario_cuenta_bancaria || '').trim();
                 cuentaPropietarioDisplay.value = cb || '';
                 cuentaPropietarioDisplay.placeholder = cb ? '' : 'Sin cuenta cargada';
+                setOperacionReferencia(data.operacion_id || q, data.tipo_busqueda || '');
                 pintarOperacionesYGastosDesdeJson(data, null);
                 marcarOperacionesBusqueda(data);
                 const incluibles = (data.operaciones || []).filter(function(o) { return o.incluible !== false; });
@@ -791,14 +850,13 @@ document.addEventListener('DOMContentLoaded', function() {
                         return o.tipo === 'reserva' && String(o.id) === String(data.operacion_id);
                     }
                     return (o.tipo === 'contrato_cuota' && String(o.contrato_id) === String(data.operacion_id))
-                        || (o.tipo === 'contrato' && String(o.id) === String(data.operacion_id));
+                        || (o.tipo === 'contrato' && String(o.id) === String(data.operacion_id))
+                        || (o.tipo === 'contrato_operacion_principal' && String(o.contrato_id) === String(data.operacion_id));
                 });
                 if (!delContrato.length) {
-                    alert(
-                        'Se cargó la propiedad del contrato/reserva #' + q + ', pero no hay cuotas o reservas '
-                        + 'pendientes de liquidar. En contratos de 9/24 meses podés liquidar cualquier cuota '
-                        + 'aún no incluida en otra liquidación (cobrada o por anticipado).'
-                    );
+                    activarModoSoloMovimientos(q);
+                } else {
+                    desactivarModoSoloMovimientos();
                 }
                 tildarCuotaInicialSiCorresponde();
                 tildarPrincipalInicialSiCorresponde();
@@ -849,6 +907,7 @@ document.addEventListener('DOMContentLoaded', function() {
             calcularMontosSeleccionados();
             return;
         }
+        desactivarModoSoloMovimientos();
         const pid = (cb.getAttribute('data-propiedad-id') || '').trim();
         if (!pid) {
             calcularMontosSeleccionados();
@@ -1645,6 +1704,7 @@ document.addEventListener('DOMContentLoaded', function() {
         opcionesCargaOperacionesExtra = null;
         ocultarFiltroPropiedadPropietario();
         limpiarPropietarioBusquedaUI();
+        setPropietarioIdHidden('');
         if (propiedadSelect.value) {
             cargarOperacionesPendientes(propiedadSelect.value);
         } else {
@@ -1684,6 +1744,9 @@ document.addEventListener('DOMContentLoaded', function() {
             propietarioBuscar.value = label ? ('#' + pid + ' — ' + label) : ('#' + pid);
             btnLimpiarPropietario.classList.remove('d-none');
             propietarioResultados.classList.add('d-none');
+            setPropietarioIdHidden(pid);
+            clearOperacionReferencia();
+            desactivarModoSoloMovimientos();
             cargarOperacionesPorPropietario(pid);
         });
     }
