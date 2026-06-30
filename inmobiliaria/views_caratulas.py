@@ -1339,17 +1339,19 @@ def _filas_honorarios_caratula_contrato(contrato, movimientos=None):
 
 def _pct_productor_contrato_caratula(contrato):
     """Porcentajes del vendedor para calcular comisión del productor sobre honorarios."""
+    from inmobiliaria.models.comision import (
+        porcentaje_fichaje_vendedor,
+        vendedor_fichaje_desde_propiedad,
+    )
+
     if not contrato or not contrato.vendedor_id:
         return {}
 
     vend = contrato.vendedor
     prop = contrato.propiedad
     tipo_fichaje = getattr(prop, 'tipo_fichaje', None) or 'primer'
-    pct_fichaje = (
-        vend.comision_segundo_fichaje
-        if tipo_fichaje == 'segundo'
-        else vend.comision_primer_fichaje
-    )
+    vend_fichaje = vendedor_fichaje_desde_propiedad(prop)
+    pct_fichaje = porcentaje_fichaje_vendedor(vend_fichaje, tipo_fichaje)
     dm = int(contrato.duracion_meses or 0)
     cat = (
         contrato.categoria_tipo_operacion()
@@ -1371,6 +1373,7 @@ def _pct_productor_contrato_caratula(contrato):
     return {
         'tipo_fichaje': tipo_fichaje,
         'pct_fichaje': float(pct_fichaje) if pct_fichaje is not None else None,
+        'fichador': _nombre_productor_papel(vend_fichaje),
         'pct_tipo': float(pct_tipo) if pct_tipo is not None else None,
         'label_tipo': label_tipo,
         'categoria': cat,
@@ -1393,8 +1396,14 @@ def _ctx_honorarios_comisiones_caratula_contrato(
         contrato, movimientos, liquidacion=liquidacion, override=override
     )
     comisiones_vendedor = _comisiones_vendedor_contrato_caratula(contrato, comision_locatario)
+    comisiones_fichaje = [cv for cv in comisiones_vendedor if cv.get('rol') == 'fichaje']
+    comisiones_productor = [cv for cv in comisiones_vendedor if cv.get('rol') != 'fichaje']
+    comision_fichaje_total = sum(
+        (Decimal(str(cv.get('monto') or 0)) for cv in comisiones_fichaje),
+        Decimal('0'),
+    ).quantize(Decimal('0.01'))
     comision_productor_total = sum(
-        (Decimal(str(cv.get('monto') or 0)) for cv in comisiones_vendedor),
+        (Decimal(str(cv.get('monto') or 0)) for cv in comisiones_productor),
         Decimal('0'),
     ).quantize(Decimal('0.01'))
 
@@ -1410,6 +1419,10 @@ def _ctx_honorarios_comisiones_caratula_contrato(
         'comisiones_total': (comision_locador + comision_locatario).quantize(Decimal('0.01')),
         'comisiones_total_fmt': format_monto_argentino(comision_locador + comision_locatario),
         'comisiones_vendedor': comisiones_vendedor,
+        'comisiones_fichaje': comisiones_fichaje,
+        'comisiones_productor': comisiones_productor,
+        'comision_fichaje_total': comision_fichaje_total,
+        'comision_fichaje_total_fmt': format_monto_argentino(comision_fichaje_total),
         'comision_productor_total': comision_productor_total,
         'comision_productor_total_fmt': format_monto_argentino(comision_productor_total),
         'pct_productor': pct,
@@ -1421,23 +1434,25 @@ def _ctx_honorarios_comisiones_caratula_contrato(
 
 def _comisiones_vendedor_contrato_caratula(contrato, honorarios_monto):
     """
-    Líneas de comisión del productor sobre honorarios (fichaje + invierno o 24 meses),
-    según los % cargados en la ficha del vendedor.
+    Líneas de comisión sobre honorarios: fichaje al vendedor que fichó la propiedad;
+    invierno / 24 meses al productor del contrato.
     """
-    if not contrato or not contrato.vendedor_id or honorarios_monto <= Decimal('0.05'):
+    from inmobiliaria.models.comision import (
+        ROL_COMISION_FICHAJE,
+        porcentaje_fichaje_vendedor,
+        vendedor_fichaje_desde_propiedad,
+    )
+
+    if not contrato or honorarios_monto <= Decimal('0.05'):
         return []
 
-    vend = contrato.vendedor
     prop = contrato.propiedad
     lineas = []
-
     tipo_fichaje = getattr(prop, 'tipo_fichaje', None) or 'primer'
-    pct_fichaje = (
-        vend.comision_segundo_fichaje
-        if tipo_fichaje == 'segundo'
-        else vend.comision_primer_fichaje
-    )
-    if pct_fichaje is not None and pct_fichaje > 0:
+
+    vend_fichaje = vendedor_fichaje_desde_propiedad(prop)
+    pct_fichaje = porcentaje_fichaje_vendedor(vend_fichaje, tipo_fichaje)
+    if vend_fichaje and pct_fichaje is not None and pct_fichaje > 0:
         monto = (honorarios_monto * Decimal(str(pct_fichaje)) / Decimal('100')).quantize(
             Decimal('0.01')
         )
@@ -1447,9 +1462,15 @@ def _comisiones_vendedor_contrato_caratula(contrato, honorarios_monto):
                 'monto': monto,
                 'monto_fmt': _formato_importe_us(monto),
                 'porcentaje': pct_fichaje,
+                'rol': ROL_COMISION_FICHAJE,
+                'vendedor_nombre': _nombre_productor_papel(vend_fichaje),
             }
         )
 
+    if not contrato.vendedor_id:
+        return lineas
+
+    vend = contrato.vendedor
     cat = (
         contrato.categoria_tipo_operacion()
         if hasattr(contrato, 'categoria_tipo_operacion')
@@ -1473,6 +1494,8 @@ def _comisiones_vendedor_contrato_caratula(contrato, honorarios_monto):
                 'monto': monto,
                 'monto_fmt': _formato_importe_us(monto),
                 'porcentaje': pct,
+                'rol': 'productor',
+                'vendedor_nombre': _nombre_productor_papel(vend),
             }
         )
     return lineas
@@ -1730,7 +1753,11 @@ def _build_legacy_contrato(contrato, cuotas, tipo_label, carpeta_override=None, 
     comisiones_vendedor = _comisiones_vendedor_contrato_caratula(contrato, comision_locatario)
     comisiones_total = (comision_locador + comision_locatario).quantize(Decimal('0.01'))
     comision_productor_total = sum(
-        (Decimal(str(cv.get('monto') or 0)) for cv in comisiones_vendedor),
+        (
+            Decimal(str(cv.get('monto') or 0))
+            for cv in comisiones_vendedor
+            if cv.get('rol') != 'fichaje'
+        ),
         Decimal('0'),
     ).quantize(Decimal('0.01'))
 

@@ -76,6 +76,43 @@
         </form>
 
         <div class="border-top p-3">
+            {% if honorarios_ctx.comisiones_fichaje %}
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                <strong class="small">Comisión de fichaje</strong>
+                {% if honorarios_ctx.pct_productor.fichador %}
+                <span class="badge bg-info">{{ honorarios_ctx.pct_productor.fichador }}</span>
+                {% endif %}
+            </div>
+            <div class="table-responsive mb-3">
+                <table class="table table-sm mb-0 small">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Concepto</th>
+                            <th class="text-end">Base (honorarios)</th>
+                            <th class="text-end">%</th>
+                            <th class="text-end">Importe</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for cv in honorarios_ctx.comisiones_fichaje %}
+                        <tr>
+                            <td>{{ cv.label }}</td>
+                            <td class="text-end">${{ honorarios_ctx.comision_locatario|floatformat:2 }}</td>
+                            <td class="text-end">{{ cv.porcentaje|floatformat:2 }}%</td>
+                            <td class="text-end fw-semibold">${{ cv.monto|floatformat:2 }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="table-light">
+                        <tr>
+                            <th colspan="3" class="text-end">Total fichaje</th>
+                            <th class="text-end text-info">${{ honorarios_ctx.comision_fichaje_total|floatformat:2 }}</th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            {% endif %}
+
             <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
                 <strong class="small">Comisión del productor</strong>
                 {% if honorarios_ctx.pct_productor.productor %}
@@ -98,7 +135,7 @@
                         </tr>
                     </thead>
                     <tbody id="filas-comision-productor">
-                        {% for cv in honorarios_ctx.comisiones_vendedor %}
+                        {% for cv in honorarios_ctx.comisiones_productor %}
                         <tr>
                             <td>{{ cv.label }}</td>
                             <td class="text-end base-honorarios">${{ honorarios_ctx.comision_locatario|floatformat:2 }}</td>

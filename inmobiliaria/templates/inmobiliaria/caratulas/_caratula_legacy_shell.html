@@ -149,7 +149,7 @@
             {% endif %}
             {% for cv in cl.comisiones_vendedor %}
             <div class="caratula-cell span-4">
-                <span class="k">{{ cv.label }}</span>
+                <span class="k">{{ cv.label }}{% if cv.vendedor_nombre %} ({{ cv.vendedor_nombre }}){% endif %}</span>
                 <span class="v">{{ cv.monto_fmt }}{% if cv.porcentaje %} <span class="text-muted small">({{ cv.porcentaje|floatformat:2 }}%)</span>{% endif %}</span>
             </div>
             {% endfor %}

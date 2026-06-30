@@ -13,6 +13,25 @@ ROL_COMISION_OP_INVIERNO = 'operacion_invierno'
 ROL_COMISION_OP_24 = 'operacion_24_meses'
 
 
+def vendedor_fichaje_desde_propiedad(prop):
+    """Vendedor que fichó la propiedad; la comisión fichaje es suya, no del productor de la operación."""
+    if not prop:
+        return None
+    fichado = getattr(prop, 'fichado_por', None)
+    if fichado is None:
+        return None
+    return fichado
+
+
+def porcentaje_fichaje_vendedor(vendedor, tipo_fichaje=None):
+    if not vendedor:
+        return None
+    tipo = (tipo_fichaje or 'primer').strip().lower()
+    if tipo == 'segundo':
+        return vendedor.comision_segundo_fichaje
+    return vendedor.comision_primer_fichaje
+
+
 def rol_comision_al_crear_linea_unica(vendedor, reserva):
     """
     Rol alineado con el % que realmente devuelve porcentaje_comision_para_reserva()
@@ -190,15 +209,13 @@ def registrar_comisiones_honorarios_movimiento_reserva(reserva, movimiento_caja,
     creadas = []
 
     tipo_fichaje = getattr(prop, 'tipo_fichaje', None) or 'primer'
-    if tipo_fichaje == 'segundo':
-        pct_fichaje = vend.comision_segundo_fichaje
-    else:
-        pct_fichaje = vend.comision_primer_fichaje
+    vend_fichaje = vendedor_fichaje_desde_propiedad(prop)
+    pct_fichaje = porcentaje_fichaje_vendedor(vend_fichaje, tipo_fichaje)
 
     hubo_regla_fichaje = pct_fichaje is not None and pct_fichaje > 0
-    if hubo_regla_fichaje:
+    if hubo_regla_fichaje and vend_fichaje:
         c = ComisionVendedor.crear_comision_linea(
-            vendedor=vend,
+            vendedor=vend_fichaje,
             reserva=reserva,
             movimiento_caja=movimiento_caja,
             monto_base=honorarios_monto,
@@ -278,12 +295,9 @@ def asegurar_comisiones_movimiento_reserva(reserva, movimiento_caja, honorarios_
 
     prop = reserva.propiedad
     tipo_fichaje = getattr(prop, 'tipo_fichaje', None) or 'primer'
-    pct_fichaje = (
-        vend.comision_segundo_fichaje
-        if tipo_fichaje == 'segundo'
-        else vend.comision_primer_fichaje
-    )
-    hubo_fichaje = pct_fichaje is not None and pct_fichaje > 0
+    vend_fichaje = vendedor_fichaje_desde_propiedad(prop)
+    pct_fichaje = porcentaje_fichaje_vendedor(vend_fichaje, tipo_fichaje)
+    hubo_fichaje = pct_fichaje is not None and pct_fichaje > 0 and vend_fichaje is not None
     tipo_op = clasificar_tipo_operacion_reserva(reserva)
 
     try:
@@ -356,14 +370,11 @@ def registrar_comisiones_honorarios_contrato(contrato, honorarios_monto, movimie
     fecha_op = _fecha_operacion_entrada_contrato(contrato)
 
     tipo_fichaje = getattr(prop, 'tipo_fichaje', None) or 'primer'
-    pct_fichaje = (
-        vend.comision_segundo_fichaje
-        if tipo_fichaje == 'segundo'
-        else vend.comision_primer_fichaje
-    )
-    if pct_fichaje is not None and pct_fichaje > 0:
+    vend_fichaje = vendedor_fichaje_desde_propiedad(prop)
+    pct_fichaje = porcentaje_fichaje_vendedor(vend_fichaje, tipo_fichaje)
+    if pct_fichaje is not None and pct_fichaje > 0 and vend_fichaje:
         c = ComisionVendedor.crear_comision_linea_contrato(
-            vendedor=vend,
+            vendedor=vend_fichaje,
             contrato=contrato,
             movimiento_caja=movimiento_caja,
             monto_base=honorarios_monto,
