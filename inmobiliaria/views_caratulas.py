@@ -2642,6 +2642,7 @@ def caratula_contrato(request, contrato_id):
         'volver_lista_url': _url_lista_caratulas_desde_request(request),
         **_ctx_confirmacion_comisiones_caratula(contrato=contrato, user=request.user),
     }
+    return render(request, 'inmobiliaria/caratulas/detalle_contrato.html', ctx)
 
 
 @login_required
