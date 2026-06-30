@@ -305,6 +305,9 @@ def historial_comisiones_vendedor(request, vendedor_id):
         Vendedor, id=vendedor_id, sucursal=request.user.sucursal
     )
     try:
+        from inmobiliaria.models.comision import acreditar_comisiones_por_fecha_vencida
+
+        acreditar_comisiones_por_fecha_vencida(sucursal=request.user.sucursal)
         comisiones = (
             ComisionVendedor.objects.filter(vendedor=vendedor)
             .visibles_en_historial()
@@ -615,6 +618,9 @@ def resumen_comisiones_mensual(request, vendedor_id, anio=None, mes=None):
         Vendedor, id=vendedor_id, sucursal=request.user.sucursal
     )
     try:
+        from inmobiliaria.models.comision import acreditar_comisiones_por_fecha_vencida
+
+        acreditar_comisiones_por_fecha_vencida(sucursal=request.user.sucursal)
         comisiones_mes = (
             ComisionVendedor.objects.filter(
                 vendedor=vendedor,
@@ -663,7 +669,13 @@ def resumen_comisiones_mensual(request, vendedor_id, anio=None, mes=None):
 
 def _build_vendedores_dashboard_data(sucursal):
     """Totales de comisiones y vales por productor activo de la sucursal."""
+    from inmobiliaria.models.comision import acreditar_comisiones_por_fecha_vencida
     from inmobiliaria.models.vale import TipoBeneficiarioVale
+    from django.db.models import Q
+    from django.utils import timezone
+
+    acreditar_comisiones_por_fecha_vencida(sucursal=sucursal)
+    hoy = timezone.localdate()
 
     vendedores = Vendedor.objects.filter(
         sucursal=sucursal,
@@ -681,6 +693,8 @@ def _build_vendedores_dashboard_data(sucursal):
         comisiones_pendientes = ComisionVendedor.objects.filter(
             vendedor=vendedor,
             estado='pendiente',
+        ).filter(
+            Q(fecha_operacion__isnull=True) | Q(fecha_operacion__date__gt=hoy)
         ).count()
         total_vales = ValeVendedor.total_saldo_para_comisiones(vendedor)
         total_vales_egreso = (
@@ -23838,6 +23852,10 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
 
                 # Recalcular monto a pagar con los gastos
                 liquidacion.calcular_monto_a_pagar()
+
+                from inmobiliaria.models.comision import confirmar_comisiones_por_liquidacion
+
+                confirmar_comisiones_por_liquidacion(liquidacion)
 
             messages.success(request, 'Liquidación creada correctamente.')
             return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion.id)

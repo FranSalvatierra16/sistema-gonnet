@@ -587,9 +587,23 @@ class ComisionVendedorQuerySet(models.QuerySet):
     """
 
     def que_suman(self):
-        """Solo comisiones acreditadas (tras liquidación) o ya pagadas al vendedor."""
+        """
+        Comisiones que cuentan en totales: confirmadas/pagadas, o pendientes cuya
+        fecha de acreditación (fecha_operacion) ya llegó (sin depender de confirmar la carátula).
+        """
+        from django.db.models import Q
+        from django.utils import timezone
+
+        hoy = timezone.localdate()
         return (
-            self.filter(estado__in=('confirmada', 'pagada'))
+            self.filter(
+                Q(estado__in=('confirmada', 'pagada'))
+                | Q(
+                    estado='pendiente',
+                    fecha_operacion__isnull=False,
+                    fecha_operacion__date__lte=hoy,
+                )
+            )
             .exclude(reserva__estado='cancelada')
             .exclude(reserva__eliminada=True)
             .exclude(contrato__estado='rescindido')
@@ -1049,6 +1063,26 @@ def _reserva_ids_desde_liquidacion(liquidacion):
                 .values_list('id', flat=True)
             )
     return ids
+
+
+def acreditar_comisiones_por_fecha_vencida(sucursal=None):
+    """
+    Marca como confirmadas las comisiones pendientes cuya fecha de acreditación ya pasó.
+    No requiere confirmar la operación en la carátula.
+    """
+    from django.utils import timezone
+
+    hoy = timezone.localdate()
+    qs = ComisionVendedor.objects.filter(
+        estado='pendiente',
+        fecha_operacion__isnull=False,
+        fecha_operacion__date__lte=hoy,
+    ).exclude(reserva__estado='cancelada').exclude(reserva__eliminada=True).exclude(
+        contrato__estado='rescindido'
+    )
+    if sucursal is not None:
+        qs = qs.filter(vendedor__sucursal=sucursal)
+    return qs.update(estado='confirmada')
 
 
 def confirmar_comisiones_por_liquidacion(liquidacion):
