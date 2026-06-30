@@ -287,6 +287,14 @@ def _operacion_en_concepto(concepto, operacion_id):
     )
 
 
+def _movimientos_operacion_reserva(reserva, limit=200):
+    movimientos = []
+    for mov in _movimientos_reserva_qs(reserva)[:limit]:
+        if _operacion_en_concepto(mov.concepto, reserva.id):
+            movimientos.append(mov)
+    return movimientos
+
+
 def _numero_recibo_desde_movimiento(m):
     if not m:
         return '—'
@@ -474,6 +482,59 @@ def _procesar_confirmar_operacion_caratula(request, reserva=None, contrato=None)
     obj.estado_confirmacion_caratula = 'confirmada'
     obj.save(update_fields=['estado_confirmacion_caratula'])
     messages.success(request, 'Operación marcada como confirmada.')
+    return True
+
+
+def _procesar_cambiar_productor_caratula(request, reserva=None, contrato=None):
+    from django.contrib import messages
+    from inmobiliaria.models.comision import cambiar_productor_contrato, cambiar_productor_reserva
+
+    if not _puede_editar_caratula(request.user):
+        messages.error(request, 'No tenés permiso para cambiar el productor.')
+        return False
+
+    raw_id = (request.POST.get('productor_id') or '').strip()
+    if not raw_id:
+        messages.error(request, 'Ingresá el ID del productor.')
+        return False
+
+    if reserva:
+        ok, err = cambiar_productor_reserva(
+            reserva,
+            raw_id,
+            movimientos_caja=_movimientos_operacion_reserva(reserva),
+        )
+    elif contrato:
+        movimientos = []
+        if contrato.propiedad_id:
+            from inmobiliaria.cuotas_imputacion import movimientos_ingreso_contrato
+
+            movimientos = movimientos_ingreso_contrato(contrato)
+        from inmobiliaria.views import _liquidacion_operacion_principal_contrato
+
+        liquidacion_hon = _liquidacion_operacion_principal_contrato(contrato)
+        override = _comisiones_override_caratula(request, contrato.id)
+        honorarios_ctx = _ctx_honorarios_comisiones_caratula_contrato(
+            contrato,
+            movimientos,
+            liquidacion=liquidacion_hon,
+            override=override,
+        )
+        movs_op = sorted(movimientos, key=lambda x: (x.fecha, x.id)) if movimientos else []
+        ok, err = cambiar_productor_contrato(
+            contrato,
+            raw_id,
+            honorarios_monto=honorarios_ctx.get('comision_locatario'),
+            movimiento_caja=movs_op[0] if movs_op else None,
+        )
+    else:
+        return False
+
+    if not ok:
+        messages.error(request, err or 'No se pudo cambiar el productor.')
+        return False
+
+    messages.success(request, 'Productor actualizado. Las comisiones del productor fueron recalculadas.')
     return True
 
 
@@ -2390,24 +2451,17 @@ def caratula_reserva(request, reserva_id):
         _procesar_confirmar_operacion_caratula(request, reserva=reserva)
         return _redirect_caratula_con_filtros('inmobiliaria:caratula_reserva', reserva_id, request)
 
+    if request.method == 'POST' and request.POST.get('action') == 'cambiar_productor_caratula':
+        if _procesar_cambiar_productor_caratula(request, reserva=reserva):
+            return _redirect_caratula_con_filtros('inmobiliaria:caratula_reserva', reserva_id, request)
+        reserva.refresh_from_db()
+
     if request.method == 'POST' and request.POST.get('action') == 'save_caratula_reserva':
         if _guardar_caratula_reserva(request, reserva):
             return _redirect_caratula_con_filtros('inmobiliaria:caratula_reserva', reserva_id, request)
         reserva.refresh_from_db()
 
-    movimientos = []
-    if reserva.propiedad_id:
-        movs_qs = (
-            MovimientoCaja.objects.filter(
-                propiedad_id=reserva.propiedad_id,
-                sucursal_id=reserva.sucursal_id,
-            )
-            .select_related('recibo')
-            .order_by('-fecha')
-        )
-        for mov in movs_qs[:200]:
-            if _operacion_en_concepto(mov.concepto, reserva.id):
-                movimientos.append(mov)
+    movimientos = _movimientos_operacion_reserva(reserva) if reserva.propiedad_id else []
 
     recibos = list(reserva.recibos.all())
     comisiones = list(reserva.comisiones_vendedor.all())
@@ -2509,6 +2563,10 @@ def caratula_contrato(request, contrato_id):
         if action == 'confirmar_operacion_caratula':
             _procesar_confirmar_operacion_caratula(request, contrato=contrato)
             return _redirect_caratula_con_filtros('inmobiliaria:caratula_contrato', contrato_id, request)
+        if action == 'cambiar_productor_caratula':
+            if _procesar_cambiar_productor_caratula(request, contrato=contrato):
+                return _redirect_caratula_con_filtros('inmobiliaria:caratula_contrato', contrato_id, request)
+            contrato.refresh_from_db()
         if action == 'set_carpeta_contrato':
             _persistir_carpeta_operacion('contrato', contrato_id, request.POST.get('carpeta'))
             return _redirect_caratula_con_filtros('inmobiliaria:caratula_contrato', contrato_id, request)
@@ -2638,6 +2696,7 @@ def caratula_contrato(request, contrato_id):
         'caratula_legacy': caratula_legacy,
         'carpeta_actual': carpeta_actual,
         'carpeta_default': _carpeta_default_actual(request),
+        'puede_editar_caratula': _puede_editar_caratula(request.user),
         **_ctx_liquidacion_operacion(contrato=contrato),
         'volver_lista_url': _url_lista_caratulas_desde_request(request),
         **_ctx_estado_operacion_caratula(contrato=contrato, user=request.user),

@@ -12,6 +12,13 @@ ROL_COMISION_OP_DIA = 'operacion_dia'
 ROL_COMISION_OP_INVIERNO = 'operacion_invierno'
 ROL_COMISION_OP_24 = 'operacion_24_meses'
 
+ROLES_COMISION_PRODUCTOR = (
+    ROL_COMISION_GENERAL,
+    ROL_COMISION_OP_DIA,
+    ROL_COMISION_OP_INVIERNO,
+    ROL_COMISION_OP_24,
+)
+
 
 def vendedor_fichaje_desde_propiedad(prop):
     """Vendedor que fichó la propiedad; la comisión fichaje es suya, no del productor de la operación."""
@@ -481,6 +488,97 @@ def asegurar_comisiones_contrato(contrato, honorarios_monto=None, movimiento_caj
     return registrar_comisiones_honorarios_contrato(
         contrato, honorarios_monto, movimiento_caja=movimiento_caja
     )
+
+
+def _eliminar_comisiones_productor_reserva(reserva):
+    ComisionVendedor.objects.filter(
+        reserva=reserva,
+        rol_comision__in=ROLES_COMISION_PRODUCTOR,
+    ).delete()
+
+
+def _eliminar_comisiones_productor_contrato(contrato):
+    ComisionVendedor.objects.filter(
+        contrato=contrato,
+        rol_comision__in=ROLES_COMISION_PRODUCTOR,
+    ).delete()
+
+
+def resincronizar_comisiones_productor_reserva(reserva, movimientos_caja):
+    """Regenera comisiones del productor (no fichaje) tras cambiar el vendedor de la operación."""
+    for mov in movimientos_caja or []:
+        honorarios = getattr(mov, 'honorarios', None)
+        asegurar_comisiones_movimiento_reserva(reserva, mov, honorarios_monto=honorarios)
+
+
+def cambiar_productor_reserva(reserva, nuevo_vendedor_id, movimientos_caja=None):
+    """
+    Asigna otro productor a la reserva y recalcula sus comisiones.
+    Las comisiones de fichaje no se modifican.
+    """
+    from inmobiliaria.models.persona import Vendedor
+
+    if not reserva:
+        return False, 'Reserva no válida.'
+
+    try:
+        vid = int(nuevo_vendedor_id)
+    except (TypeError, ValueError):
+        return False, 'Ingresá un ID de productor válido.'
+
+    vend = Vendedor.objects.filter(pk=vid).first()
+    if not vend:
+        return False, 'No se encontró un vendedor con ese ID.'
+    if reserva.sucursal_id and vend.sucursal_id != reserva.sucursal_id:
+        return False, 'El vendedor no pertenece a la misma sucursal.'
+
+    if reserva.vendedor_id == vend.id:
+        return True, None
+
+    _eliminar_comisiones_productor_reserva(reserva)
+    reserva.vendedor_id = vend.id
+    reserva.save(update_fields=['vendedor_id'])
+    resincronizar_comisiones_productor_reserva(reserva, movimientos_caja)
+    return True, None
+
+
+def cambiar_productor_contrato(
+    contrato, nuevo_vendedor_id, honorarios_monto=None, movimiento_caja=None
+):
+    """
+    Asigna otro productor al contrato y recalcula sus comisiones sobre honorarios.
+    Las comisiones de fichaje no se modifican.
+    """
+    from inmobiliaria.models.persona import Vendedor
+
+    if not contrato:
+        return False, 'Contrato no válido.'
+
+    try:
+        vid = int(nuevo_vendedor_id)
+    except (TypeError, ValueError):
+        return False, 'Ingresá un ID de productor válido.'
+
+    vend = Vendedor.objects.filter(pk=vid).first()
+    if not vend:
+        return False, 'No se encontró un vendedor con ese ID.'
+    if contrato.sucursal_id and vend.sucursal_id != contrato.sucursal_id:
+        return False, 'El vendedor no pertenece a la misma sucursal.'
+
+    if contrato.vendedor_id == vend.id:
+        return True, None
+
+    _eliminar_comisiones_productor_contrato(contrato)
+    contrato.vendedor_id = vend.id
+    contrato.save(update_fields=['vendedor_id'])
+
+    if honorarios_monto is not None and Decimal(str(honorarios_monto or 0)) > Decimal('0.05'):
+        asegurar_comisiones_contrato(
+            contrato,
+            honorarios_monto=honorarios_monto,
+            movimiento_caja=movimiento_caja,
+        )
+    return True, None
 
 
 class ComisionVendedorQuerySet(models.QuerySet):

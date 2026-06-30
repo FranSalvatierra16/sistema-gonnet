@@ -47,6 +47,9 @@
 
     <div class="caratula-web-extra">
         {% include 'inmobiliaria/caratulas/_estado_operacion_caratula.html' %}
+        {% if puede_editar_caratula %}
+        {% include 'inmobiliaria/caratulas/_cambiar_productor_caratula.html' with vendedor_actual=reserva.vendedor %}
+        {% endif %}
         <h3><i class="fas fa-table me-1"></i>Detalle en sistema (recibos, comisiones, caja)</h3>
         <div class="row g-3">
             <div class="col-lg-6">

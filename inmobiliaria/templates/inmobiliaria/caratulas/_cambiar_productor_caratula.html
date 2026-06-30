@@ -1,0 +1,79 @@
+<div class="card mb-3 border-primary">
+    <div class="card-body py-2">
+        <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
+            <div>
+                <strong class="small"><i class="fas fa-user-tie me-1"></i>Productor de la operación</strong>
+                {% if vendedor_actual %}
+                <div class="small mt-1">
+                    {{ vendedor_actual.apellido }}, {{ vendedor_actual.nombre }}
+                    <span class="text-muted">(ID {{ vendedor_actual.id }})</span>
+                </div>
+                {% else %}
+                <div class="small text-muted mt-1">Sin productor asignado</div>
+                {% endif %}
+            </div>
+        </div>
+        <form method="post" class="row g-2 align-items-end mt-2 m-0" id="form-cambiar-productor-caratula"
+              onsubmit="return confirm('¿Cambiar el productor? Se recalcularán las comisiones del productor (no las de fichaje).');">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="cambiar_productor_caratula">
+            <div class="col-auto">
+                <label for="productor-id-input" class="form-label small mb-0">ID productor</label>
+                <input type="number" name="productor_id" id="productor-id-input" class="form-control form-control-sm"
+                       min="1" step="1" required style="width: 110px;"
+                       value="{% if vendedor_actual %}{{ vendedor_actual.id }}{% endif %}">
+            </div>
+            <div class="col-auto">
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-buscar-productor-caratula">
+                    <i class="fas fa-search me-1"></i>Buscar
+                </button>
+            </div>
+            <div class="col">
+                <span id="productor-busqueda-resultado" class="small text-muted"></span>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-sm btn-primary">
+                    <i class="fas fa-exchange-alt me-1"></i>Cambiar productor
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+(function () {
+    var btn = document.getElementById('btn-buscar-productor-caratula');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+        var input = document.getElementById('productor-id-input');
+        var resultado = document.getElementById('productor-busqueda-resultado');
+        if (!input || !resultado) return;
+        var termino = (input.value || '').trim();
+        if (!termino) {
+            resultado.textContent = 'Ingresá un ID o nombre para buscar.';
+            resultado.className = 'small text-danger';
+            return;
+        }
+        var fd = new FormData();
+        fd.append('id', termino);
+        fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+        resultado.textContent = 'Buscando…';
+        resultado.className = 'small text-muted';
+        fetch('{% url "inmobiliaria:buscar_vendedor" %}', { method: 'POST', body: fd })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.success && data.vendedor) {
+                    input.value = data.vendedor.id;
+                    resultado.textContent = data.vendedor.apellido + ', ' + data.vendedor.nombre;
+                    resultado.className = 'small text-success';
+                } else {
+                    resultado.textContent = data.error || 'No se encontró el vendedor.';
+                    resultado.className = 'small text-danger';
+                }
+            })
+            .catch(function () {
+                resultado.textContent = 'Error al buscar el vendedor.';
+                resultado.className = 'small text-danger';
+            });
+    });
+})();
+</script>
