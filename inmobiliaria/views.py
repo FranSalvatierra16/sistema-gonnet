@@ -3260,7 +3260,7 @@ def operaciones(request):
 
     reservas = Reserva.objects.filter(
         sucursal=user_sucursal,
-        estado__in=['pagada', 'confirmada_no_pagada'],
+        estado__in=['pagada', 'confirmada', 'confirmada_no_pagada'],
         eliminada=False,
     ).order_by('-id')
 

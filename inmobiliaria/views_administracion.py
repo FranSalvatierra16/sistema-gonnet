@@ -90,15 +90,22 @@ def _nombre_persona(persona):
 
 
 def _estado_display_reserva(reserva):
-    """
-    Estado visible según cobro real del alquiler (seña vs precio total).
-    Corrige reservas marcadas «Pagada» en BD sin haber cubierto el importe.
-    """
-    precio = reserva.precio_total or 0
-    senia = reserva.senia or 0
-    if reserva.estado == 'pagada' and precio > 0 and senia < precio:
-        return 'Confirmada No Pagada'
-    return reserva.get_estado_display() if hasattr(reserva, 'get_estado_display') else reserva.estado
+    """Estado visible según seña real (movimientos de caja + campo reserva)."""
+    from decimal import Decimal
+
+    from inmobiliaria.caja_devolucion_deposito import (
+        _estado_reserva_segun_senia,
+        etiqueta_estado_reserva,
+        sincronizar_senia_reserva_desde_movimientos,
+        total_senia_pagada_reserva,
+    )
+
+    senia = total_senia_pagada_reserva(reserva)
+    nuevo_estado = _estado_reserva_segun_senia(reserva, senia)
+    senia_db = Decimal(str(reserva.senia or 0))
+    if nuevo_estado != (reserva.estado or '') or abs(senia_db - senia) > Decimal('0.01'):
+        senia = sincronizar_senia_reserva_desde_movimientos(reserva)
+    return etiqueta_estado_reserva(reserva, senia)
 
 
 @login_required

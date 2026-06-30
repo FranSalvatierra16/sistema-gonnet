@@ -267,15 +267,45 @@ def total_senia_pagada_reserva(reserva) -> Decimal:
 
 
 def _estado_reserva_segun_senia(reserva, senia: Decimal) -> str:
-    """Con seña pagada la reserva pasa a operación (`pagada`); sin seña vuelve a reservado."""
+    """
+    Sin cobro → reservado; seña parcial → operación (`confirmada`);
+    alquiler cubierto → `pagada`.
+    """
     estado_actual = (getattr(reserva, 'estado', None) or '').strip()
     if estado_actual == 'cancelada':
         return estado_actual
-    if senia > Decimal('0.01'):
+
+    precio = Decimal(str(getattr(reserva, 'precio_total', None) or 0))
+    if senia <= Decimal('0.01'):
+        if estado_actual in ('pagada', 'confirmada'):
+            return 'confirmada_no_pagada'
+        if estado_actual == 'en_espera':
+            return 'en_espera'
+        return estado_actual or 'confirmada_no_pagada'
+
+    if precio > Decimal('0') and senia >= precio - Decimal('0.01'):
         return 'pagada'
-    if estado_actual == 'pagada':
-        return 'confirmada_no_pagada'
-    return estado_actual or 'confirmada_no_pagada'
+    return 'confirmada'
+
+
+def etiqueta_estado_reserva(reserva, senia: Decimal | None = None) -> str:
+    """Texto visible del estado según cobro real (no el valor crudo de BD)."""
+    if senia is None:
+        senia = Decimal(str(getattr(reserva, 'senia', None) or 0))
+    else:
+        senia = Decimal(str(senia or 0))
+    estado_actual = (getattr(reserva, 'estado', None) or '').strip()
+    if estado_actual == 'cancelada':
+        return 'Cancelada'
+    if estado_actual == 'en_espera' and senia <= Decimal('0.01'):
+        return 'En Espera'
+
+    precio = Decimal(str(getattr(reserva, 'precio_total', None) or 0))
+    if senia <= Decimal('0.01'):
+        return 'Reservado'
+    if precio > Decimal('0') and senia >= precio - Decimal('0.01'):
+        return 'Pagada'
+    return 'Operación (seña pagada)'
 
 
 def sincronizar_senia_reserva_desde_movimientos(reserva, *, persistir: bool = True) -> Decimal:
