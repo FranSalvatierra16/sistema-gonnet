@@ -139,7 +139,7 @@ class Vendedor(AbstractUser):
         null=True,
         blank=True,
         verbose_name='Comisión primer fichaje (%)',
-        help_text='Porcentaje cuando la propiedad está marcada como primer fichaje',
+        help_text='Porcentaje sobre honorarios cuando la propiedad está marcada como primer fichaje (alquiler por día).',
     )
     comision_segundo_fichaje = models.DecimalField(
         max_digits=5,
@@ -147,7 +147,39 @@ class Vendedor(AbstractUser):
         null=True,
         blank=True,
         verbose_name='Comisión segundo fichaje (%)',
-        help_text='Porcentaje cuando la propiedad está marcada como segundo fichaje',
+        help_text='Porcentaje sobre honorarios cuando la propiedad está marcada como segundo fichaje (alquiler por día).',
+    )
+    comision_primer_fichaje_invierno = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name='Comisión primer fichaje invierno (%)',
+        help_text='Sobre honorarios en contratos/reservas invierno (9 meses). Si está vacío, usa el % de primer fichaje general.',
+    )
+    comision_segundo_fichaje_invierno = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name='Comisión segundo fichaje invierno (%)',
+        help_text='Sobre honorarios en invierno. Si está vacío, usa segundo fichaje general o primer fichaje invierno.',
+    )
+    comision_primer_fichaje_24_meses = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name='Comisión primer fichaje 24 meses (%)',
+        help_text='Sobre honorarios en contratos/reservas de 24 meses. Si está vacío, usa el % de primer fichaje general.',
+    )
+    comision_segundo_fichaje_24_meses = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name='Comisión segundo fichaje 24 meses (%)',
+        help_text='Sobre honorarios en 24 meses. Si está vacío, usa segundo fichaje general o primer fichaje 24 meses.',
     )
     comision_alquiler_24_meses = models.DecimalField(
         max_digits=5,
@@ -155,7 +187,7 @@ class Vendedor(AbstractUser):
         null=True,
         blank=True,
         verbose_name='Comisión alquiler largo / 24 meses (%)',
-        help_text='Aplica a reservas de alquiler largo (≈20 meses o más entre inicio y fin)',
+        help_text='Sobre honorarios en contratos/reservas de 24 meses o largo plazo (productor).',
     )
     comision_invierno = models.DecimalField(
         max_digits=5,
@@ -163,7 +195,7 @@ class Vendedor(AbstractUser):
         null=True,
         blank=True,
         verbose_name='Comisión alquiler invierno (%)',
-        help_text='Si la propiedad tiene invierno habilitado, la reserva dura menos de 20 meses y el inicio cae entre abr-oct (temporada típica sur), se usa este %',
+        help_text='Sobre honorarios en invierno / 9 meses (productor de la operación).',
     )
     comision_invierno_propiedad_oficina = models.DecimalField(
         max_digits=5,

@@ -74,13 +74,52 @@ def _fecha_operacion_comision_reserva(reserva, movimiento_caja):
     return movimiento_caja.fecha if movimiento_caja else timezone.now()
 
 
-def porcentaje_fichaje_vendedor(vendedor, tipo_fichaje=None):
+def porcentaje_fichaje_vendedor(vendedor, tipo_fichaje=None, categoria_operacion=None):
+    """
+    % de comisión fichaje sobre honorarios.
+    categoria_operacion: 'dia' | 'invierno' | '24' | None (equivale a día / genérico).
+    """
     if not vendedor:
         return None
     tipo = (tipo_fichaje or 'primer').strip().lower()
-    if tipo == 'segundo':
+    es_segundo = tipo == 'segundo'
+    cat = (categoria_operacion or 'dia').strip().lower()
+    if cat in ('invierno', '9'):
+        if es_segundo:
+            pct = getattr(vendedor, 'comision_segundo_fichaje_invierno', None)
+            if pct is not None and pct > 0:
+                return pct
+            pct = getattr(vendedor, 'comision_primer_fichaje_invierno', None)
+            if pct is not None and pct > 0:
+                return pct
+        else:
+            pct = getattr(vendedor, 'comision_primer_fichaje_invierno', None)
+            if pct is not None and pct > 0:
+                return pct
+    elif cat in ('24', 'largo'):
+        if es_segundo:
+            pct = getattr(vendedor, 'comision_segundo_fichaje_24_meses', None)
+            if pct is not None and pct > 0:
+                return pct
+            pct = getattr(vendedor, 'comision_primer_fichaje_24_meses', None)
+            if pct is not None and pct > 0:
+                return pct
+        else:
+            pct = getattr(vendedor, 'comision_primer_fichaje_24_meses', None)
+            if pct is not None and pct > 0:
+                return pct
+    if es_segundo:
         return vendedor.comision_segundo_fichaje
     return vendedor.comision_primer_fichaje
+
+
+def _etiqueta_categoria_fichaje(categoria_operacion):
+    cat = (categoria_operacion or 'dia').strip().lower()
+    if cat == 'invierno':
+        return 'invierno'
+    if cat in ('24', 'largo'):
+        return '24 meses'
+    return 'por día'
 
 
 def rol_comision_al_crear_linea_unica(vendedor, reserva):
@@ -260,23 +299,26 @@ def registrar_comisiones_honorarios_movimiento_reserva(reserva, movimiento_caja,
 
     tipo_fichaje = getattr(prop, 'tipo_fichaje', None) or 'primer'
     vend_fichaje = vendedor_fichaje_desde_propiedad(prop)
-    pct_fichaje = porcentaje_fichaje_vendedor(vend_fichaje, tipo_fichaje)
+    tipo_op = clasificar_tipo_operacion_reserva(reserva)
+    pct_fichaje = porcentaje_fichaje_vendedor(vend_fichaje, tipo_fichaje, categoria_operacion=tipo_op)
 
     hubo_regla_fichaje = pct_fichaje is not None and pct_fichaje > 0
     if hubo_regla_fichaje and vend_fichaje:
+        cat_lbl = _etiqueta_categoria_fichaje(tipo_op)
         c = ComisionVendedor.crear_comision_linea(
             vendedor=vend_fichaje,
             reserva=reserva,
             movimiento_caja=movimiento_caja,
             monto_base=honorarios_monto,
             porcentaje_comision=pct_fichaje,
-            concepto=f'Op. {reserva.id} — comisión fichaje ({tipo_fichaje}) sobre honorarios',
+            concepto=(
+                f'Op. {reserva.id} — comisión fichaje ({tipo_fichaje}, {cat_lbl}) sobre honorarios'
+            ),
             rol_comision=ROL_COMISION_FICHAJE,
         )
         if c:
             creadas.append(c)
 
-    tipo_op = clasificar_tipo_operacion_reserva(reserva)
     pct_op_dia = _pct_operacion_dia_o_fallback_despues_fichaje(vend, hubo_regla_fichaje)
     pct_op_dia_kw = pct_op_dia if pct_op_dia and pct_op_dia > 0 else None
 
@@ -348,9 +390,9 @@ def asegurar_comisiones_movimiento_reserva(reserva, movimiento_caja, honorarios_
     prop = reserva.propiedad
     tipo_fichaje = getattr(prop, 'tipo_fichaje', None) or 'primer'
     vend_fichaje = vendedor_fichaje_desde_propiedad(prop)
-    pct_fichaje = porcentaje_fichaje_vendedor(vend_fichaje, tipo_fichaje)
-    hubo_fichaje = pct_fichaje is not None and pct_fichaje > 0 and vend_fichaje is not None
     tipo_op = clasificar_tipo_operacion_reserva(reserva)
+    pct_fichaje = porcentaje_fichaje_vendedor(vend_fichaje, tipo_fichaje, categoria_operacion=tipo_op)
+    hubo_fichaje = pct_fichaje is not None and pct_fichaje > 0 and vend_fichaje is not None
 
     try:
         monto_mov_dec = Decimal(str(movimiento_caja.monto_total))
@@ -372,18 +414,11 @@ def asegurar_comisiones_movimiento_reserva(reserva, movimiento_caja, honorarios_
         _crear_linea_operacion_por_dia(vend, reserva, movimiento_caja, Decimal('0'), creadas)
         return creadas
 
-    pct_comision = vend.porcentaje_comision_para_reserva(reserva)
-    if pct_comision is not None and pct_comision > 0:
-        monto_total_reserva = reserva.precio_total or Decimal('0')
-        c = ComisionVendedor.crear_comision(
-            vendedor=vend,
-            reserva=reserva,
-            movimiento_caja=movimiento_caja,
-            monto_total=monto_total_reserva,
-            concepto=f'Operación {reserva.id} - {getattr(prop, "direccion", "")}',
+    # Invierno / 24 meses: comisiones del productor y fichaje solo sobre honorarios.
+    if honorarios_monto > 0:
+        return registrar_comisiones_honorarios_movimiento_reserva(
+            reserva, movimiento_caja, honorarios_monto
         )
-        if c:
-            creadas.append(c)
     return creadas
 
 
@@ -423,26 +458,29 @@ def registrar_comisiones_honorarios_contrato(contrato, honorarios_monto, movimie
 
     tipo_fichaje = getattr(prop, 'tipo_fichaje', None) or 'primer'
     vend_fichaje = vendedor_fichaje_desde_propiedad(prop)
-    pct_fichaje = porcentaje_fichaje_vendedor(vend_fichaje, tipo_fichaje)
+    cat = (
+        contrato.categoria_tipo_operacion()
+        if hasattr(contrato, 'categoria_tipo_operacion')
+        else '24'
+    )
+    pct_fichaje = porcentaje_fichaje_vendedor(vend_fichaje, tipo_fichaje, categoria_operacion=cat)
     if pct_fichaje is not None and pct_fichaje > 0 and vend_fichaje:
+        cat_lbl = _etiqueta_categoria_fichaje(cat)
         c = ComisionVendedor.crear_comision_linea_contrato(
             vendedor=vend_fichaje,
             contrato=contrato,
             movimiento_caja=movimiento_caja,
             monto_base=honorarios_monto,
             porcentaje_comision=pct_fichaje,
-            concepto=f'Contrato {contrato.id} — comisión fichaje ({tipo_fichaje}) sobre honorarios',
+            concepto=(
+                f'Contrato {contrato.id} — comisión fichaje ({tipo_fichaje}, {cat_lbl}) sobre honorarios'
+            ),
             rol_comision=ROL_COMISION_FICHAJE,
             fecha_operacion=fecha_op,
         )
         if c:
             creadas.append(c)
 
-    cat = (
-        contrato.categoria_tipo_operacion()
-        if hasattr(contrato, 'categoria_tipo_operacion')
-        else '24'
-    )
     if cat == 'invierno':
         pct = pct_comision_invierno_vendedor(vend, prop)
         rol = ROL_COMISION_OP_INVIERNO
@@ -778,10 +816,18 @@ class ComisionVendedor(models.Model):
         pct_fichaje = None
         if vend is not None and prop is not None:
             tipo_prop = getattr(prop, 'tipo_fichaje', None) or 'primer'
-            if tipo_prop == 'segundo':
-                pct_fichaje = vend.comision_segundo_fichaje
-            else:
-                pct_fichaje = vend.comision_primer_fichaje
+            cat_fich = 'dia'
+            if getattr(self, 'contrato_id', None) and self.contrato_id:
+                try:
+                    cat_fich = self.contrato.categoria_tipo_operacion() or '24'
+                except Exception:
+                    cat_fich = '24'
+            elif reserva:
+                try:
+                    cat_fich = clasificar_tipo_operacion_reserva(reserva)
+                except Exception:
+                    cat_fich = 'dia'
+            pct_fichaje = porcentaje_fichaje_vendedor(vend, tipo_prop, categoria_operacion=cat_fich)
         if pct_fichaje is not None and pct_linea is not None and pct_linea == pct_fichaje:
             tf = (getattr(prop, 'tipo_fichaje', None) or 'primer')
             if tf == 'segundo':

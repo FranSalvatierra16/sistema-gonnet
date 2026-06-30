@@ -43,6 +43,8 @@ class VendedorUserCreationForm(forms.ModelForm):
         fields = [
             'dni', 'username', 'nombre', 'apellido', 'email', 'comision',
             'comision_primer_fichaje', 'comision_segundo_fichaje',
+            'comision_primer_fichaje_invierno', 'comision_segundo_fichaje_invierno',
+            'comision_primer_fichaje_24_meses', 'comision_segundo_fichaje_24_meses',
             'comision_alquiler_24_meses', 'comision_invierno',
             'comision_alquiler_24_meses_propiedad_oficina', 'comision_invierno_propiedad_oficina',
             'fecha_nacimiento', 'nivel', 'sucursal',
@@ -53,6 +55,18 @@ class VendedorUserCreationForm(forms.ModelForm):
                 attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
             ),
             'comision_segundo_fichaje': forms.NumberInput(
+                attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
+            ),
+            'comision_primer_fichaje_invierno': forms.NumberInput(
+                attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
+            ),
+            'comision_segundo_fichaje_invierno': forms.NumberInput(
+                attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
+            ),
+            'comision_primer_fichaje_24_meses': forms.NumberInput(
+                attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
+            ),
+            'comision_segundo_fichaje_24_meses': forms.NumberInput(
                 attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
             ),
             'comision_alquiler_24_meses': forms.NumberInput(
@@ -96,6 +110,8 @@ class VendedorChangeForm(UserChangeForm):
         fields = [
             'username', 'dni', 'nombre', 'apellido', 'fecha_nacimiento', 'email', 'comision',
             'comision_primer_fichaje', 'comision_segundo_fichaje',
+            'comision_primer_fichaje_invierno', 'comision_segundo_fichaje_invierno',
+            'comision_primer_fichaje_24_meses', 'comision_segundo_fichaje_24_meses',
             'comision_alquiler_24_meses', 'comision_invierno',
             'comision_alquiler_24_meses_propiedad_oficina', 'comision_invierno_propiedad_oficina',
             'celular', 'nivel', 'sucursal',
@@ -108,6 +124,18 @@ class VendedorChangeForm(UserChangeForm):
                 attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
             ),
             'comision_segundo_fichaje': forms.NumberInput(
+                attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
+            ),
+            'comision_primer_fichaje_invierno': forms.NumberInput(
+                attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
+            ),
+            'comision_segundo_fichaje_invierno': forms.NumberInput(
+                attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
+            ),
+            'comision_primer_fichaje_24_meses': forms.NumberInput(
+                attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
+            ),
+            'comision_segundo_fichaje_24_meses': forms.NumberInput(
                 attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
             ),
             'comision_alquiler_24_meses': forms.NumberInput(

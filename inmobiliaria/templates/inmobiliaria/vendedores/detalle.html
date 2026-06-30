@@ -86,17 +86,29 @@
                                 <dt class="col-sm-6">Comisión por día efectiva:</dt>
                                 <dd class="col-sm-6"><strong>{{ vendedor.porcentaje_comision_efectivo|floatformat:2 }}%</strong> <span class="text-muted">(valor usado si no entra otra regla)</span></dd>
 
-                                <dt class="col-sm-6">Primer fichaje:</dt>
+                                <dt class="col-sm-6">Primer fichaje (por día):</dt>
                                 <dd class="col-sm-6">{% if vendedor.comision_primer_fichaje is not None %}{{ vendedor.comision_primer_fichaje|floatformat:2 }}%{% else %}<span class="text-muted">—</span>{% endif %}</dd>
 
-                                <dt class="col-sm-6">Segundo fichaje:</dt>
+                                <dt class="col-sm-6">Segundo fichaje (por día):</dt>
                                 <dd class="col-sm-6">{% if vendedor.comision_segundo_fichaje is not None %}{{ vendedor.comision_segundo_fichaje|floatformat:2 }}%{% else %}<span class="text-muted">—</span>{% endif %}</dd>
 
-                                <dt class="col-sm-6">Alquiler largo / 24 meses:</dt>
-                                <dd class="col-sm-6">{% if vendedor.comision_alquiler_24_meses is not None %}{{ vendedor.comision_alquiler_24_meses|floatformat:2 }}%{% else %}<span class="text-muted">—</span>{% endif %}</dd>
+                                <dt class="col-sm-6">Primer fichaje invierno:</dt>
+                                <dd class="col-sm-6">{% if vendedor.comision_primer_fichaje_invierno is not None %}{{ vendedor.comision_primer_fichaje_invierno|floatformat:2 }}%{% else %}<span class="text-muted">—</span>{% endif %}</dd>
 
-                                <dt class="col-sm-6">Invierno:</dt>
+                                <dt class="col-sm-6">Segundo fichaje invierno:</dt>
+                                <dd class="col-sm-6">{% if vendedor.comision_segundo_fichaje_invierno is not None %}{{ vendedor.comision_segundo_fichaje_invierno|floatformat:2 }}%{% else %}<span class="text-muted">—</span>{% endif %}</dd>
+
+                                <dt class="col-sm-6">Productor invierno (honorarios):</dt>
                                 <dd class="col-sm-6">{% if vendedor.comision_invierno is not None %}{{ vendedor.comision_invierno|floatformat:2 }}%{% else %}<span class="text-muted">—</span>{% endif %}</dd>
+
+                                <dt class="col-sm-6">Primer fichaje 24 meses:</dt>
+                                <dd class="col-sm-6">{% if vendedor.comision_primer_fichaje_24_meses is not None %}{{ vendedor.comision_primer_fichaje_24_meses|floatformat:2 }}%{% else %}<span class="text-muted">—</span>{% endif %}</dd>
+
+                                <dt class="col-sm-6">Segundo fichaje 24 meses:</dt>
+                                <dd class="col-sm-6">{% if vendedor.comision_segundo_fichaje_24_meses is not None %}{{ vendedor.comision_segundo_fichaje_24_meses|floatformat:2 }}%{% else %}<span class="text-muted">—</span>{% endif %}</dd>
+
+                                <dt class="col-sm-6">Productor 24 meses (honorarios):</dt>
+                                <dd class="col-sm-6">{% if vendedor.comision_alquiler_24_meses is not None %}{{ vendedor.comision_alquiler_24_meses|floatformat:2 }}%{% else %}<span class="text-muted">—</span>{% endif %}</dd>
 
                                 <dt class="col-sm-6">Invierno — prop. oficina:</dt>
                                 <dd class="col-sm-6">{% if vendedor.comision_invierno_propiedad_oficina is not None %}{{ vendedor.comision_invierno_propiedad_oficina|floatformat:2 }}%{% else %}<span class="text-muted">—</span>{% endif %}</dd>
@@ -105,7 +117,8 @@
                                 <dd class="col-sm-6">{% if vendedor.comision_alquiler_24_meses_propiedad_oficina is not None %}{{ vendedor.comision_alquiler_24_meses_propiedad_oficina|floatformat:2 }}%{% else %}<span class="text-muted">—</span>{% endif %}</dd>
                             </dl>
                             <p class="text-muted small mt-3 mb-0">
-                                El % que se aplica a cada reserva depende de la propiedad (fichaje, invierno, duración) y de estos valores; la columna «efectiva» es solo la base por día (campo o sucursal).
+                                Fichaje e invierno/24 meses del <strong>productor</strong> se calculan sobre <strong>honorarios</strong> (concepto 25).
+                                Si no cargás un % específico de fichaje invierno/24, se usa el fichaje por día.
                             </p>
                         </div>
                     </div>

@@ -188,37 +188,68 @@
                             </div>
                         </div>
                         <div class="row g-4 mt-1">
+                            <div class="col-12">
+                                <p class="text-muted small mb-2"><i class="fas fa-file-signature me-1"></i><strong>Fichaje por día</strong> — sobre honorarios en alquiler temporario.</p>
+                            </div>
                             <div class="col-lg-3 col-md-6">
                                 <label for="id_comision_primer_fichaje" class="form-label">
-                                    <i class="fas fa-file-signature me-1"></i>Comisión primer fichaje (%)
+                                    <i class="fas fa-file-signature me-1"></i>Primer fichaje — por día (%)
                                 </label>
                                 {{ form.comision_primer_fichaje }}
                                 {{ form.comision_primer_fichaje.errors }}
-                                <small class="form-text text-muted">Propiedades marcadas como primer fichaje.</small>
                             </div>
                             <div class="col-lg-3 col-md-6">
                                 <label for="id_comision_segundo_fichaje" class="form-label">
-                                    <i class="fas fa-file-contract me-1"></i>Comisión segundo fichaje (%)
+                                    <i class="fas fa-file-contract me-1"></i>Segundo fichaje — por día (%)
                                 </label>
                                 {{ form.comision_segundo_fichaje }}
                                 {{ form.comision_segundo_fichaje.errors }}
-                                <small class="form-text text-muted">Propiedades marcadas como segundo fichaje.</small>
+                            </div>
+                        </div>
+                        <div class="row g-4 mt-1">
+                            <div class="col-12">
+                                <p class="text-muted small mb-2"><i class="fas fa-snowflake me-1"></i><strong>Fichaje invierno / 9 meses</strong> — sobre honorarios (productor del fichaje).</p>
                             </div>
                             <div class="col-lg-3 col-md-6">
-                                <label for="id_comision_alquiler_24_meses" class="form-label">
-                                    <i class="fas fa-calendar-alt me-1"></i>Comisión alquiler largo / 24 meses (%)
-                                </label>
-                                {{ form.comision_alquiler_24_meses }}
-                                {{ form.comision_alquiler_24_meses.errors }}
-                                <small class="form-text text-muted">Si la reserva es de <strong>≈20 meses o más</strong> entre inicio y fin, se usa este % (si lo cargás).</small>
+                                <label for="id_comision_primer_fichaje_invierno" class="form-label">Primer fichaje invierno (%)</label>
+                                {{ form.comision_primer_fichaje_invierno }}
+                                {{ form.comision_primer_fichaje_invierno.errors }}
+                            </div>
+                            <div class="col-lg-3 col-md-6">
+                                <label for="id_comision_segundo_fichaje_invierno" class="form-label">Segundo fichaje invierno (%)</label>
+                                {{ form.comision_segundo_fichaje_invierno }}
+                                {{ form.comision_segundo_fichaje_invierno.errors }}
                             </div>
                             <div class="col-lg-3 col-md-6">
                                 <label for="id_comision_invierno" class="form-label">
-                                    <i class="fas fa-snowflake me-1"></i>Comisión invierno (%)
+                                    <i class="fas fa-snowflake me-1"></i>Comisión productor invierno (%)
                                 </label>
                                 {{ form.comision_invierno }}
                                 {{ form.comision_invierno.errors }}
-                                <small class="form-text text-muted">Propiedad con <strong>invierno habilitado</strong>, reserva &lt;20 meses, inicio abr–oct y mín. 14 días.</small>
+                                <small class="form-text text-muted">Sobre honorarios (productor de la operación).</small>
+                            </div>
+                        </div>
+                        <div class="row g-4 mt-1">
+                            <div class="col-12">
+                                <p class="text-muted small mb-2"><i class="fas fa-calendar-alt me-1"></i><strong>Fichaje 24 meses</strong> — sobre honorarios (productor del fichaje).</p>
+                            </div>
+                            <div class="col-lg-3 col-md-6">
+                                <label for="id_comision_primer_fichaje_24_meses" class="form-label">Primer fichaje 24 meses (%)</label>
+                                {{ form.comision_primer_fichaje_24_meses }}
+                                {{ form.comision_primer_fichaje_24_meses.errors }}
+                            </div>
+                            <div class="col-lg-3 col-md-6">
+                                <label for="id_comision_segundo_fichaje_24_meses" class="form-label">Segundo fichaje 24 meses (%)</label>
+                                {{ form.comision_segundo_fichaje_24_meses }}
+                                {{ form.comision_segundo_fichaje_24_meses.errors }}
+                            </div>
+                            <div class="col-lg-3 col-md-6">
+                                <label for="id_comision_alquiler_24_meses" class="form-label">
+                                    <i class="fas fa-calendar-alt me-1"></i>Comisión productor 24 meses (%)
+                                </label>
+                                {{ form.comision_alquiler_24_meses }}
+                                {{ form.comision_alquiler_24_meses.errors }}
+                                <small class="form-text text-muted">Sobre honorarios (productor de la operación).</small>
                             </div>
                         </div>
                         <div class="row g-4 mt-1">
