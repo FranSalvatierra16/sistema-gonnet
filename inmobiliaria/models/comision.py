@@ -497,6 +497,15 @@ class ComisionVendedorQuerySet(models.QuerySet):
             .exclude(contrato__estado='rescindido')
         )
 
+    def visibles_en_historial(self):
+        """Comisiones que se listan en el historial del vendedor (incluye pendientes de contrato)."""
+        return (
+            self.filter(estado__in=('pendiente', 'confirmada', 'pagada'))
+            .exclude(reserva__estado='cancelada')
+            .exclude(reserva__eliminada=True)
+            .exclude(contrato__estado='rescindido')
+        )
+
     def ordenadas_para_listado_historial(self):
         """
         Misma fecha de operación: primero línea de fichaje, luego por día / invierno / 24 / general,
@@ -682,6 +691,24 @@ class ComisionVendedor(models.Model):
         if rol == ROL_COMISION_OP_24:
             return ('por_24_meses', None)
         if rol == ROL_COMISION_GENERAL:
+            if getattr(self, 'contrato_id', None) and self.contrato_id:
+                try:
+                    cat = self.contrato.categoria_tipo_operacion()
+                except Exception:
+                    cat = None
+                if cat == 'invierno':
+                    return ('por_invierno', None)
+                if cat == '24':
+                    return ('por_24_meses', None)
+            if getattr(self, 'reserva_id', None) and self.reserva_id:
+                try:
+                    tipo = clasificar_tipo_operacion_reserva(self.reserva)
+                except Exception:
+                    tipo = 'dia'
+                if tipo == 'invierno':
+                    return ('por_invierno', None)
+                if tipo == '24':
+                    return ('por_24_meses', None)
             return ('operacion', None)
         if rol == ROL_COMISION_FICHAJE:
             kind, sub = self._clasificacion_fichaje_primer_segundo_o_dia()
@@ -701,6 +728,8 @@ class ComisionVendedor(models.Model):
         """Clave para agrupar en el template líneas del mismo movimiento de caja (fichaje + operación juntas)."""
         if self.movimiento_caja_id:
             return f'm:{self.movimiento_caja_id}'
+        if getattr(self, 'contrato_id', None):
+            return f'c:{self.contrato_id}'
         return f'r:{self.reserva_id or 0}'
 
     def texto_categoria_comision_badge(self):
@@ -943,6 +972,146 @@ def confirmar_comisiones_por_liquidacion(liquidacion):
             estado='pendiente',
         ).update(estado='confirmada')
     return total
+
+
+def comisiones_operacion_qs(reserva=None, contrato=None):
+    """Comisiones de vendedor vinculadas a una reserva o contrato (sin canceladas)."""
+    qs = ComisionVendedor.objects.exclude(estado='cancelada')
+    if reserva is not None:
+        return qs.filter(reserva=reserva)
+    if contrato is not None:
+        return qs.filter(contrato=contrato)
+    return qs.none()
+
+
+def resumen_confirmacion_comisiones_operacion(reserva=None, contrato=None):
+    """
+    Estado de confirmación de comisiones para carátula / listado.
+    Retorna dict: estado, label, badge_class, puede_confirmar, pendientes, confirmadas, total.
+    """
+    qs = comisiones_operacion_qs(reserva=reserva, contrato=contrato)
+    total = qs.count()
+    if total == 0:
+        return {
+            'estado': 'sin_comisiones',
+            'label': 'Sin comisiones',
+            'badge_class': 'bg-secondary',
+            'puede_confirmar': False,
+            'pendientes': 0,
+            'confirmadas': 0,
+            'total': 0,
+        }
+    pendientes = qs.filter(estado='pendiente').count()
+    confirmadas = qs.filter(estado__in=('confirmada', 'pagada')).count()
+    if pendientes > 0:
+        return {
+            'estado': 'pendiente',
+            'label': 'Pendiente',
+            'badge_class': 'bg-warning text-dark',
+            'puede_confirmar': True,
+            'pendientes': pendientes,
+            'confirmadas': confirmadas,
+            'total': total,
+        }
+    return {
+        'estado': 'confirmada',
+        'label': 'Confirmada',
+        'badge_class': 'bg-success',
+        'puede_confirmar': False,
+        'pendientes': 0,
+        'confirmadas': confirmadas,
+        'total': total,
+    }
+
+
+def confirmar_comisiones_operacion(reserva=None, contrato=None):
+    """Marca como confirmadas las comisiones pendientes de la operación."""
+    return comisiones_operacion_qs(reserva=reserva, contrato=contrato).filter(
+        estado='pendiente',
+    ).update(estado='confirmada')
+
+
+def mapa_estado_comisiones_lista_caratulas(reserva_ids, contrato_ids):
+    """
+    {reserva_id: resumen_dict} y {contrato_id: resumen_dict} para el listado de carátulas.
+    """
+    from django.db.models import Count, Q
+
+    vacio = resumen_confirmacion_comisiones_operacion()
+    mapa_res = {rid: dict(vacio) for rid in reserva_ids}
+    mapa_ctr = {cid: dict(vacio) for cid in contrato_ids}
+
+    if reserva_ids:
+        for row in (
+            ComisionVendedor.objects.filter(reserva_id__in=reserva_ids)
+            .exclude(estado='cancelada')
+            .values('reserva_id')
+            .annotate(
+                total=Count('id'),
+                pendientes=Count('id', filter=Q(estado='pendiente')),
+                confirmadas=Count('id', filter=Q(estado__in=('confirmada', 'pagada'))),
+            )
+        ):
+            rid = row['reserva_id']
+            if row['total'] == 0:
+                continue
+            if row['pendientes'] > 0:
+                mapa_res[rid] = {
+                    'estado': 'pendiente',
+                    'label': 'Pendiente',
+                    'badge_class': 'bg-warning text-dark',
+                    'puede_confirmar': True,
+                    'pendientes': row['pendientes'],
+                    'confirmadas': row['confirmadas'],
+                    'total': row['total'],
+                }
+            else:
+                mapa_res[rid] = {
+                    'estado': 'confirmada',
+                    'label': 'Confirmada',
+                    'badge_class': 'bg-success',
+                    'puede_confirmar': False,
+                    'pendientes': 0,
+                    'confirmadas': row['confirmadas'],
+                    'total': row['total'],
+                }
+
+    if contrato_ids:
+        for row in (
+            ComisionVendedor.objects.filter(contrato_id__in=contrato_ids)
+            .exclude(estado='cancelada')
+            .values('contrato_id')
+            .annotate(
+                total=Count('id'),
+                pendientes=Count('id', filter=Q(estado='pendiente')),
+                confirmadas=Count('id', filter=Q(estado__in=('confirmada', 'pagada'))),
+            )
+        ):
+            cid = row['contrato_id']
+            if row['total'] == 0:
+                continue
+            if row['pendientes'] > 0:
+                mapa_ctr[cid] = {
+                    'estado': 'pendiente',
+                    'label': 'Pendiente',
+                    'badge_class': 'bg-warning text-dark',
+                    'puede_confirmar': True,
+                    'pendientes': row['pendientes'],
+                    'confirmadas': row['confirmadas'],
+                    'total': row['total'],
+                }
+            else:
+                mapa_ctr[cid] = {
+                    'estado': 'confirmada',
+                    'label': 'Confirmada',
+                    'badge_class': 'bg-success',
+                    'puede_confirmar': False,
+                    'pendientes': 0,
+                    'confirmadas': row['confirmadas'],
+                    'total': row['total'],
+                }
+
+    return mapa_res, mapa_ctr
 
 
 class MesComisionPagadoVendedor(models.Model):

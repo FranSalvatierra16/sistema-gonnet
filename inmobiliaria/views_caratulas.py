@@ -443,6 +443,36 @@ def _puede_editar_caratula(user):
     return _puede_ver_caratulas(user)
 
 
+def _ctx_confirmacion_comisiones_caratula(reserva=None, contrato=None, user=None):
+    from inmobiliaria.models.comision import resumen_confirmacion_comisiones_operacion
+
+    resumen = resumen_confirmacion_comisiones_operacion(reserva=reserva, contrato=contrato)
+    puede_confirmar = bool(
+        resumen.get('puede_confirmar')
+        and user is not None
+        and _puede_editar_caratula(user)
+    )
+    return {
+        'confirmacion_comisiones': resumen,
+        'puede_confirmar_comisiones_caratula': puede_confirmar,
+    }
+
+
+def _procesar_confirmar_comisiones_caratula(request, reserva=None, contrato=None):
+    from django.contrib import messages
+    from inmobiliaria.models.comision import confirmar_comisiones_operacion
+
+    if not _puede_editar_caratula(request.user):
+        messages.error(request, 'No tenés permiso para confirmar comisiones.')
+        return False
+    n = confirmar_comisiones_operacion(reserva=reserva, contrato=contrato)
+    if n:
+        messages.success(request, f'Se confirmaron {n} comisión(es) del productor/fichaje.')
+    else:
+        messages.info(request, 'No había comisiones pendientes para confirmar.')
+    return True
+
+
 def _guardar_caratula_reserva(request, reserva):
     """Persiste montos, fechas y estado de una reserva desde la carátula."""
     from django.contrib import messages
@@ -2175,6 +2205,10 @@ def lista_caratulas(request):
     reserva_ids = list(reservas.values_list('id', flat=True))
     contrato_ids = list(contratos.values_list('id', flat=True))
 
+    from inmobiliaria.models.comision import mapa_estado_comisiones_lista_caratulas
+
+    mapa_com_res, mapa_com_ctr = mapa_estado_comisiones_lista_caratulas(reserva_ids, contrato_ids)
+
     liq_por_reserva = {}
     if reserva_ids:
         for row in (
@@ -2224,6 +2258,7 @@ def lista_caratulas(request):
                 'carpeta': '—',
                 'tiene_liquidacion': tiene_liquidacion,
                 'liquidacion_id': liquidacion_id,
+                'comisiones_estado': mapa_com_res.get(r.id, {}),
             }
         )
 
@@ -2264,10 +2299,9 @@ def lista_caratulas(request):
                 'carpeta': carpeta_hist or '—',
                 'tiene_liquidacion': tiene_liquidacion,
                 'liquidacion_id': liquidacion_id,
+                'comisiones_estado': mapa_com_ctr.get(c.id, {}),
             }
         )
-
-    # Cronológico: orden en que se fueron cargando (primera operación del día arriba).
     filas.sort(
         key=lambda x: (
             x.get('sort_instante') or timezone.localtime(timezone.now()),
@@ -2352,6 +2386,10 @@ def caratula_reserva(request, reserva_id):
     ):
         return HttpResponseForbidden()
 
+    if request.method == 'POST' and request.POST.get('action') == 'confirmar_comisiones_caratula':
+        _procesar_confirmar_comisiones_caratula(request, reserva=reserva)
+        return _redirect_caratula_con_filtros('inmobiliaria:caratula_reserva', reserva_id, request)
+
     if request.method == 'POST' and request.POST.get('action') == 'save_caratula_reserva':
         if _guardar_caratula_reserva(request, reserva):
             return _redirect_caratula_con_filtros('inmobiliaria:caratula_reserva', reserva_id, request)
@@ -2426,6 +2464,7 @@ def caratula_reserva(request, reserva_id):
         **_ctx_liquidacion_operacion(reserva=reserva),
         **_ctx_completar_pago_reserva(reserva),
         'volver_lista_url': _url_lista_caratulas_desde_request(request),
+        **_ctx_confirmacion_comisiones_caratula(reserva=reserva, user=request.user),
     }
     rl = ctx['resumen_liquidacion']
     ctx['edit_montos_liquidacion'] = {
@@ -2467,6 +2506,9 @@ def caratula_contrato(request, contrato_id):
 
     if request.method == 'POST':
         action = request.POST.get('action')
+        if action == 'confirmar_comisiones_caratula':
+            _procesar_confirmar_comisiones_caratula(request, contrato=contrato)
+            return _redirect_caratula_con_filtros('inmobiliaria:caratula_contrato', contrato_id, request)
         if action == 'set_carpeta_contrato':
             _persistir_carpeta_operacion('contrato', contrato_id, request.POST.get('carpeta'))
             return _redirect_caratula_con_filtros('inmobiliaria:caratula_contrato', contrato_id, request)
@@ -2598,8 +2640,8 @@ def caratula_contrato(request, contrato_id):
         'carpeta_default': _carpeta_default_actual(request),
         **_ctx_liquidacion_operacion(contrato=contrato),
         'volver_lista_url': _url_lista_caratulas_desde_request(request),
+        **_ctx_confirmacion_comisiones_caratula(contrato=contrato, user=request.user),
     }
-    return render(request, 'inmobiliaria/caratulas/detalle_contrato.html', ctx)
 
 
 @login_required
