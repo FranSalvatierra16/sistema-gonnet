@@ -30,7 +30,26 @@
     </div>
 
     {% url 'inmobiliaria:detalle_contrato' contrato.id as url_cancel_contrato %}
+    {% if puede_editar_caratula %}
+    <form method="post" id="form-editar-caratula-contrato" class="mb-2">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="save_caratula_contrato">
+        <div class="alert alert-warning py-2 small mb-2 d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <span><i class="fas fa-pen me-1"></i>Modo edición: podés corregir fechas, montos y estado de la operación.</span>
+            <button type="submit" class="btn btn-sm btn-primary">
+                <i class="fas fa-save me-1"></i>Guardar cambios
+            </button>
+        </div>
+        {% include 'inmobiliaria/caratulas/_caratula_legacy_shell.html' with cl=caratula_legacy fecha_desde=contrato.fecha_inicio fecha_hasta=contrato.fecha_fin cancel_url=url_cancel_contrato puede_editar_caratula=True edit_montos=edit_montos reserva_estado_choices=reserva_estado_choices reserva=contrato %}
+        <div class="text-end mb-3">
+            <button type="submit" class="btn btn-primary btn-sm">
+                <i class="fas fa-save me-1"></i>Guardar cambios
+            </button>
+        </div>
+    </form>
+    {% else %}
     {% include 'inmobiliaria/caratulas/_caratula_legacy_shell.html' with cl=caratula_legacy fecha_desde=contrato.fecha_inicio fecha_hasta=contrato.fecha_fin cancel_url=url_cancel_contrato %}
+    {% endif %}
 
     <div class="caratula-web-extra">
         {% include 'inmobiliaria/caratulas/_estado_operacion_caratula.html' %}

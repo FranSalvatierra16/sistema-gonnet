@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 CARATULA_CARPETA_DEFAULT_KEY = 'caratulas_carpeta_default'
 CARATULA_CARPETA_OVERRIDES_KEY = 'caratulas_carpeta_overrides'
 CARATULA_COMISIONES_OVERRIDES_KEY = 'caratulas_comisiones_overrides'
+CARATULA_MONTOS_CONTRATO_OVERRIDES_KEY = 'caratulas_montos_contrato_overrides'
 
 _CONCEPTO_HONORARIOS_LABELS = {
     '1': 'Alquiler (1er mes)',
@@ -840,6 +841,99 @@ def _guardar_caratula_reserva(request, reserva):
     return True
 
 
+def _guardar_caratula_contrato(request, contrato):
+    """Persiste fechas, montos y estado del contrato desde la carátula."""
+    from django.contrib import messages
+    from inmobiliaria.decimal_utils import parse_decimal_monto
+
+    if not _puede_editar_caratula(request.user):
+        messages.error(request, 'No tenés permiso para editar esta carátula.')
+        return False
+
+    try:
+        fecha_inicio = datetime.strptime(
+            (request.POST.get('fecha_inicio') or '').strip(), '%Y-%m-%d'
+        ).date()
+        fecha_fin = datetime.strptime(
+            (request.POST.get('fecha_fin') or '').strip(), '%Y-%m-%d'
+        ).date()
+    except ValueError:
+        messages.error(request, 'Las fechas desde/hasta no son válidas.')
+        return False
+
+    if fecha_fin <= fecha_inicio:
+        messages.error(request, 'La fecha hasta debe ser posterior a la fecha desde.')
+        return False
+
+    try:
+        precio_total = parse_decimal_monto(request.POST.get('precio_total', '0'))
+        senia = parse_decimal_monto(request.POST.get('senia', '0'))
+        deposito = parse_decimal_monto(request.POST.get('deposito_garantia', '0'))
+        comision_locatario = parse_decimal_monto(request.POST.get('comision_locatario', '0'))
+    except ValueError as exc:
+        messages.error(request, str(exc))
+        return False
+
+    if min(precio_total, senia, deposito, comision_locatario) < 0:
+        messages.error(request, 'Los montos no pueden ser negativos.')
+        return False
+
+    estado = (request.POST.get('estado') or contrato.estado).strip()
+    estados_validos = {c[0] for c in ContratoAlquiler._meta.get_field('estado').choices}
+    if estado not in estados_validos:
+        messages.error(request, 'Estado de operación inválido.')
+        return False
+
+    meses = int(contrato.duracion_meses or 0)
+    if meses <= 0:
+        messages.error(request, 'El contrato no tiene duración en meses válida.')
+        return False
+
+    contrato.fecha_inicio = fecha_inicio
+    contrato.fecha_fin = fecha_fin
+    contrato.deposito_garantia = deposito.quantize(Decimal('0.01'))
+    contrato.precio_mensual = (precio_total / Decimal(meses)).quantize(Decimal('0.01'))
+    contrato.estado = estado
+    contrato.save(update_fields=[
+        'fecha_inicio', 'fecha_fin', 'deposito_garantia', 'precio_mensual', 'estado',
+    ])
+
+    _set_montos_override_contrato_caratula(request, contrato.id, senia=senia)
+
+    liq = _liquidacion_contrato(contrato)
+    com_loc = parse_decimal_monto(request.POST.get('comision_locador', '0'))
+    if com_loc <= 0 and liq and liq.comision_locador:
+        com_loc = liq.comision_locador
+    if com_loc < 0:
+        com_loc = Decimal('0')
+    if liq:
+        liq.comision_locador = com_loc.quantize(Decimal('0.01'))
+        liq.comision_locatario = comision_locatario.quantize(Decimal('0.01'))
+        liq.save(update_fields=['comision_locador', 'comision_locatario'])
+        overrides = dict(request.session.get(CARATULA_COMISIONES_OVERRIDES_KEY, {}))
+        overrides.pop(str(contrato.id), None)
+        request.session[CARATULA_COMISIONES_OVERRIDES_KEY] = overrides
+        request.session.modified = True
+        from inmobiliaria.models.comision import asegurar_comisiones_contrato
+
+        movimientos = []
+        if contrato.propiedad_id:
+            from inmobiliaria.cuotas_imputacion import movimientos_ingreso_contrato
+
+            movimientos = movimientos_ingreso_contrato(contrato)
+        movs_op = sorted(movimientos, key=lambda x: (x.fecha, x.id)) if movimientos else []
+        asegurar_comisiones_contrato(
+            contrato,
+            honorarios_monto=comision_locatario,
+            movimiento_caja=movs_op[0] if movs_op else None,
+        )
+    elif comision_locatario > 0 or com_loc > 0:
+        _set_comisiones_override_caratula(request, contrato.id, com_loc, comision_locatario)
+
+    messages.success(request, 'Carátula de contrato actualizada.')
+    return True
+
+
 def _nivel_usuario_caratulas(user):
     if getattr(user, 'is_superuser', False):
         return 5
@@ -1463,6 +1557,46 @@ def _set_comisiones_override_caratula(request, contrato_id, comision_locador, co
     request.session.modified = True
 
 
+def _montos_override_contrato_caratula(request, contrato_id):
+    overrides = dict(request.session.get(CARATULA_MONTOS_CONTRATO_OVERRIDES_KEY, {}))
+    raw = overrides.get(str(contrato_id)) or {}
+    out = {}
+    for key in ('senia', 'refuerzo'):
+        if raw.get(key) is not None:
+            try:
+                out[key] = Decimal(str(raw[key])).quantize(Decimal('0.01'))
+            except (ArithmeticError, TypeError, ValueError):
+                pass
+    return out or None
+
+
+def _set_montos_override_contrato_caratula(request, contrato_id, senia=None, refuerzo=None):
+    overrides = dict(request.session.get(CARATULA_MONTOS_CONTRATO_OVERRIDES_KEY, {}))
+    data = dict(overrides.get(str(contrato_id)) or {})
+    if senia is not None:
+        data['senia'] = str(senia.quantize(Decimal('0.01')))
+    if refuerzo is not None:
+        data['refuerzo'] = str(refuerzo.quantize(Decimal('0.01')))
+    overrides[str(contrato_id)] = data
+    request.session[CARATULA_MONTOS_CONTRATO_OVERRIDES_KEY] = overrides
+    request.session.modified = True
+
+
+def _senia_inferida_contrato_caratula(movimientos):
+    """Monto de seña/reserva inicial inferido de movimientos de ingreso."""
+    for mov in movimientos or []:
+        concepto = (mov.concepto or '').lower()
+        if 'reserva' not in concepto and 'seña' not in concepto and 'sena' not in concepto:
+            continue
+        try:
+            mt = Decimal(str(mov.monto_total or 0))
+        except (ArithmeticError, TypeError, ValueError):
+            mt = Decimal('0')
+        if mt > 0:
+            return mt.quantize(Decimal('0.01'))
+    return Decimal('0')
+
+
 def _comisiones_cobradas_contrato(contrato, movimientos=None, liquidacion=None, override=None):
     """Participación (85) y honorarios (25) de la operación principal del contrato."""
     from inmobiliaria.views import (
@@ -2074,7 +2208,16 @@ def _ctx_completar_pago_reserva(reserva):
     }
 
 
-def _build_legacy_contrato(contrato, cuotas, tipo_label, carpeta_override=None, movimientos=None, liquidacion=None, override=None):
+def _build_legacy_contrato(
+    contrato,
+    cuotas,
+    tipo_label,
+    carpeta_override=None,
+    movimientos=None,
+    liquidacion=None,
+    override=None,
+    montos_override=None,
+):
     prop = contrato.propiedad
     inq = contrato.inquilino
     propi = getattr(prop, 'propietario', None) if prop else None
@@ -2143,6 +2286,12 @@ def _build_legacy_contrato(contrato, cuotas, tipo_label, carpeta_override=None, 
     ).quantize(Decimal('0.01'))
     fichador_nombre = comisiones_fichaje[0].get('vendedor_nombre', '') if comisiones_fichaje else ''
 
+    senia_val = Decimal('0')
+    if montos_override and montos_override.get('senia') is not None:
+        senia_val = montos_override['senia']
+    else:
+        senia_val = _senia_inferida_contrato_caratula(movimientos)
+
     return {
         'numero_original': '0',
         'numero_operacion': _formato_miles_ar(contrato.id),
@@ -2161,7 +2310,7 @@ def _build_legacy_contrato(contrato, cuotas, tipo_label, carpeta_override=None, 
         'garante_linea': garante_linea,
         'caratula_rotulo': _caratula_rotulo_prop_cli(prop, inq),
         'importe_locacion': _formato_importe_us(total_contrato),
-        'senia': _formato_importe_us(0),
+        'senia': _formato_importe_us(senia_val),
         'refuerzo': '0.00',
         'fecha_refuerzo': '',
         'deposito': _formato_importe_us(contrato.deposito_garantia),
@@ -2760,6 +2909,10 @@ def caratula_contrato(request, contrato_id):
         if action == 'save_fechas_comision_caratula':
             if _procesar_guardar_fechas_comision_caratula(request, contrato=contrato):
                 return _redirect_caratula_con_filtros('inmobiliaria:caratula_contrato', contrato_id, request)
+        if action == 'save_caratula_contrato':
+            if _guardar_caratula_contrato(request, contrato):
+                return _redirect_caratula_con_filtros('inmobiliaria:caratula_contrato', contrato_id, request)
+            contrato.refresh_from_db()
         if action == 'set_carpeta_contrato':
             _persistir_carpeta_operacion('contrato', contrato_id, request.POST.get('carpeta'))
             return _redirect_caratula_con_filtros('inmobiliaria:caratula_contrato', contrato_id, request)
@@ -2869,6 +3022,7 @@ def caratula_contrato(request, contrato_id):
             _estado_liquidacion_operacion_principal_caratula(contrato, contrato.sucursal)
         )
 
+    montos_override = _montos_override_contrato_caratula(request, contrato.id)
     caratula_legacy = _build_legacy_contrato(
         contrato,
         cuotas_list,
@@ -2877,6 +3031,16 @@ def caratula_contrato(request, contrato_id):
         movimientos=movimientos,
         liquidacion=liquidacion_hon,
         override=override,
+        montos_override=montos_override,
+    )
+
+    from inmobiliaria.decimal_utils import format_monto_argentino
+
+    total_contrato = (contrato.precio_mensual or Decimal('0')) * Decimal(contrato.duracion_meses or 0)
+    senia_display = (
+        montos_override.get('senia')
+        if montos_override and montos_override.get('senia') is not None
+        else _senia_inferida_contrato_caratula(movimientos)
     )
 
     ctx = {
@@ -2892,6 +3056,17 @@ def caratula_contrato(request, contrato_id):
         'carpeta_actual': carpeta_actual,
         'carpeta_default': _carpeta_default_actual(request),
         'puede_editar_caratula': _puede_editar_caratula(request.user),
+        'edit_montos': {
+            'precio_total': format_monto_argentino(total_contrato),
+            'senia': format_monto_argentino(senia_display),
+            'deposito': format_monto_argentino(contrato.deposito_garantia),
+            'comision_locatario': format_monto_argentino(
+                honorarios_ctx.get('comision_locatario') or 0
+            ),
+        },
+        'reserva': contrato,
+        'reserva_estado_choices': ContratoAlquiler._meta.get_field('estado').choices,
+        'form_caratula_contrato_id': 'form-editar-caratula-contrato',
         **_ctx_liquidacion_operacion(contrato=contrato),
         'volver_lista_url': _url_lista_caratulas_desde_request(request),
         **_ctx_estado_operacion_caratula(contrato=contrato, user=request.user),
