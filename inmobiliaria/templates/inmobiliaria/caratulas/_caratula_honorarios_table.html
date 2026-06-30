@@ -84,7 +84,7 @@
                 {% endif %}
             </div>
             <div class="table-responsive mb-3">
-                <table class="table table-sm mb-0 small">
+                <table class="table table-sm mb-0 small" id="tabla-comision-fichaje">
                     <thead class="table-light">
                         <tr>
                             <th>Concepto</th>
@@ -96,7 +96,7 @@
                     <tbody>
                         {% for cv in honorarios_ctx.comisiones_fichaje %}
                         <tr>
-                            <td>{{ cv.label }}</td>
+                            <td>{{ cv.label }}{% if cv.vendedor_nombre %} — {{ cv.vendedor_nombre }}{% endif %}</td>
                             <td class="text-end">${{ honorarios_ctx.comision_locatario|floatformat:2 }}</td>
                             <td class="text-end">{{ cv.porcentaje|floatformat:2 }}%</td>
                             <td class="text-end fw-semibold">${{ cv.monto|floatformat:2 }}</td>
@@ -106,7 +106,7 @@
                     <tfoot class="table-light">
                         <tr>
                             <th colspan="3" class="text-end">Total fichaje</th>
-                            <th class="text-end text-info">${{ honorarios_ctx.comision_fichaje_total|floatformat:2 }}</th>
+                            <th class="text-end text-info" id="total-fichaje-display">${{ honorarios_ctx.comision_fichaje_total|floatformat:2 }}</th>
                         </tr>
                     </tfoot>
                 </table>
@@ -137,7 +137,7 @@
                     <tbody id="filas-comision-productor">
                         {% for cv in honorarios_ctx.comisiones_productor %}
                         <tr>
-                            <td>{{ cv.label }}</td>
+                            <td>{{ cv.label }}{% if cv.vendedor_nombre %} — {{ cv.vendedor_nombre }}{% endif %}</td>
                             <td class="text-end base-honorarios">${{ honorarios_ctx.comision_locatario|floatformat:2 }}</td>
                             <td class="text-end">{% if cv.porcentaje %}{{ cv.porcentaje|floatformat:2 }}%{% else %}—{% endif %}</td>
                             <td class="text-end fw-semibold">${{ cv.monto|floatformat:2 }}</td>
@@ -177,6 +177,8 @@
     const totalDisplay = document.getElementById('comisiones_total_display');
     const filasBody = document.getElementById('filas-comision-productor');
     const totalProd = document.getElementById('total-productor-display');
+    const filasFichajeBody = document.querySelector('#tabla-comision-fichaje tbody');
+    const totalFichaje = document.getElementById('total-fichaje-display');
 
     function parseMontoAR(val) {
         if (!val) return 0;
@@ -206,22 +208,30 @@
         return (neg ? '-' : '') + intPart + ',' + parts[1];
     }
 
+    function recalcFichaje(base) {
+        if (!filasFichajeBody || !totalFichaje || !cfg.pct_fichaje || cfg.pct_fichaje <= 0) {
+            return;
+        }
+        const monto = base * cfg.pct_fichaje / 100;
+        const tipo = (cfg.tipo_fichaje || 'primer') === 'segundo' ? 'SEGUNDO FICHAJE' : 'PRIMER FICHAJE';
+        const fichador = cfg.fichador ? (' — ' + cfg.fichador) : '';
+        filasFichajeBody.innerHTML = '<tr><td>COMIS. VENDEDOR (' + tipo + ')' + fichador + '</td>'
+            + '<td class="text-end">$' + formatMontoAR(base) + '</td>'
+            + '<td class="text-end">' + cfg.pct_fichaje.toFixed(2).replace('.', ',') + '%</td>'
+            + '<td class="text-end fw-semibold">$' + formatMontoAR(monto) + '</td></tr>';
+        totalFichaje.textContent = '$' + formatMontoAR(monto);
+    }
+
     function recalcProductor() {
         const base = parseMontoAR(inpLocat && inpLocat.value);
         const loc = parseMontoAR(inpLoc && inpLoc.value);
         if (totalDisplay) {
             totalDisplay.textContent = formatMontoAR(loc + base);
         }
+        recalcFichaje(base);
         if (!filasBody || !totalProd) return;
 
         const lineas = [];
-        if (cfg.pct_fichaje && cfg.pct_fichaje > 0) {
-            lineas.push({
-                label: 'Comisión fichaje (' + (cfg.tipo_fichaje || 'primer') + ')',
-                pct: cfg.pct_fichaje,
-                monto: base * cfg.pct_fichaje / 100,
-            });
-        }
         if (cfg.pct_tipo && cfg.pct_tipo > 0 && cfg.label_tipo) {
             lineas.push({
                 label: 'Comisión ' + cfg.label_tipo,
