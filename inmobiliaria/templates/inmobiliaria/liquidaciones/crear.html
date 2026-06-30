@@ -136,6 +136,9 @@
                                         <div id="sin-gastos" class="alert alert-info mb-0" style="display: none;">
                                             <i class="fas fa-info-circle me-2"></i>No hay descuentos pendientes. Cargá gastos (EDEA, comisiones, etc.) con <strong>Agregar Movimiento</strong>.
                                         </div>
+                                        <p class="small text-muted mb-0 mt-2">
+                                            Podés liquidar <strong>solo servicios/gastos</strong>: elegí la propiedad, tildá los movimientos y guardá sin marcar cuotas ni cargar monto de operación.
+                                        </p>
                                     </div>
                                 </div>
                             </div>
@@ -143,16 +146,16 @@
 
                         <div class="row row-cols-1 row-cols-md-2 row-cols-xl-5 g-3 mb-3">
                             <div class="col">
-                                <label class="form-label">Monto Total de la Operación <span class="text-danger">*</span></label>
+                                <label class="form-label">Monto Total de la Operación <span class="text-danger" id="lbl-req-monto-total">*</span></label>
                                 <input type="text" name="monto_total" id="monto_total" class="form-control input-monto-ar" 
-                                       value="{% if monto_total %}{{ monto_total }}{% endif %}" required
+                                       value="{% if monto_total %}{{ monto_total }}{% endif %}"
                                        inputmode="decimal" autocomplete="off" placeholder="0,00">
-                                <small class="form-text text-muted">Sugerido al tildar operaciones; podés corregirlo a mano.</small>
+                                <small class="form-text text-muted">Sugerido al tildar operaciones; no hace falta si liquidás solo servicios/gastos.</small>
                             </div>
                             <div class="col">
-                                <label class="form-label">Monto para el Propietario <span class="text-danger">*</span></label>
+                                <label class="form-label">Monto para el Propietario <span class="text-danger" id="lbl-req-monto-prop">*</span></label>
                                 <input type="text" name="monto_propietario" id="monto_propietario" class="form-control input-monto-ar" 
-                                       required inputmode="decimal" autocomplete="off" placeholder="0,00"
+                                       inputmode="decimal" autocomplete="off" placeholder="0,00"
                                        {% if monto_propietario_inicial %}value="{{ monto_propietario_inicial }}"{% endif %}>
                                 <small class="form-text text-muted">Sugerido según precios/toma o % de la propiedad; editable.</small>
                             </div>
@@ -2149,6 +2152,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Validar y armar datos antes de enviar (no deshabilitar el botón acá)
     window.prepararFormulario = function() {
+        const gastosMarcados = document.querySelectorAll('.gasto-checkbox:checked');
+        const opsMarcadas = document.querySelectorAll('.operacion-checkbox:checked');
+        const soloServicios = gastosMarcados.length > 0 && opsMarcadas.length === 0;
+
         const mTotal = parseNumeroEsAR(montoTotal.value);
         const mProp = parseNumeroEsAR(montoPropietario.value);
         const mInm = parseNumeroEsAR(montoInmobiliaria.value);
@@ -2156,17 +2163,23 @@ document.addEventListener('DOMContentLoaded', function() {
         const mComLoc = leerComisionLocador();
         const mComLocat = leerComisionLocatario();
 
-        if (mTotal <= 0) {
-            alert('El monto total de la operación debe ser mayor a cero.');
-            montoTotal.focus();
-            return false;
+        if (!soloServicios) {
+            if (mTotal <= 0) {
+                alert('El monto total de la operación debe ser mayor a cero.');
+                montoTotal.focus();
+                return false;
+            }
+        } else {
+            montoTotal.value = '0,00';
+            montoPropietario.value = '0,00';
+            montoInmobiliaria.value = '0,00';
         }
         if (mProp < 0 || mCoch < 0 || mComLoc < 0 || mComLocat < 0) {
             alert('Los montos para el propietario, cochera y comisiones no pueden ser negativos.');
             return false;
         }
 
-        if (dividirToggle && dividirToggle.checked) {
+        if (!soloServicios && dividirToggle && dividirToggle.checked) {
             const m1 = parseNumeroEsAR(op1Monto.value);
             const m2 = parseNumeroEsAR(op2Monto.value);
             const f1d = document.getElementById('op1_fecha_desde').value;
@@ -2189,22 +2202,33 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const propIdForm = resolverPropiedadIdFormulario();
         if (!propIdForm) {
-            alert('Debés definir la propiedad de la liquidación: elegí una en el buscador de arriba o tildá una operación si cargaste por propietario.');
+            alert('Debés elegir la propiedad de la liquidación en el buscador de arriba (o tildá una operación si cargaste por propietario).');
             return false;
         }
 
-        const monedasOps = monedasOperacionesSeleccionadas();
-        if (monedasOps.size > 1) {
-            alert('No podés mezclar operaciones en pesos y en dólares en la misma liquidación.');
-            return false;
-        }
-        if (monedasOps.size === 1) {
-            actualizarUiMonedaLiquidacion(Array.from(monedasOps)[0]);
+        if (!soloServicios) {
+            const monedasOps = monedasOperacionesSeleccionadas();
+            if (monedasOps.size > 1) {
+                alert('No podés mezclar operaciones en pesos y en dólares en la misma liquidación.');
+                return false;
+            }
+            if (monedasOps.size === 1) {
+                actualizarUiMonedaLiquidacion(Array.from(monedasOps)[0]);
+            }
+        } else if (gastosMarcados.length) {
+            const monedasGastos = new Set();
+            gastosMarcados.forEach(function(g) {
+                monedasGastos.add((g.getAttribute('data-moneda') || 'ARS').toUpperCase());
+            });
+            if (monedasGastos.size > 1) {
+                alert('Los movimientos de servicios/gastos deben estar todos en la misma moneda.');
+                return false;
+            }
+            actualizarUiMonedaLiquidacion(Array.from(monedasGastos)[0]);
         }
 
-        const opsMarcadas = document.querySelectorAll('.operacion-checkbox:checked');
-        if (opsMarcadas.length === 0) {
-            alert('Tildá al menos una operación (reserva o cuota) que estés liquidando.');
+        if (opsMarcadas.length === 0 && gastosMarcados.length === 0) {
+            alert('Tildá al menos una operación (reserva o cuota) o al menos un movimiento de servicios/gastos.');
             return false;
         }
         for (let i = 0; i < opsMarcadas.length; i++) {
@@ -2214,7 +2238,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 return false;
             }
         }
-        const gastosMarcados = document.querySelectorAll('.gasto-checkbox:checked');
         for (let j = 0; j < gastosMarcados.length; j++) {
             const gpid = (gastosMarcados[j].getAttribute('data-propiedad-id') || '').trim();
             if (gpid && gpid !== propIdForm) {

@@ -23593,8 +23593,32 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                 ops_dedup.append(o)
             operaciones_incluidas = ops_dedup
 
+            gastos_seleccionados = request.POST.getlist('gastos_seleccionados[]')
+            ops_reales = [
+                o for o in operaciones_incluidas
+                if isinstance(o, dict) and (o.get('tipo') or '').lower() != 'division'
+            ]
+            solo_servicios = not ops_reales and bool(gastos_seleccionados)
+
+            if not ops_reales and not gastos_seleccionados:
+                raise ValueError(
+                    'Tildá al menos una operación (reserva o cuota) o al menos un movimiento '
+                    'de servicios / gastos pendientes.'
+                )
+
+            if solo_servicios:
+                monto_total = Decimal('0')
+                monto_propietario = Decimal('0')
+                monto_inmobiliaria = Decimal('0')
+            elif monto_total <= 0:
+                raise ValueError('El monto total de la operación debe ser mayor a cero.')
+
             # División manual en dos operaciones
             dividir_operacion = request.POST.get('dividir_operacion') == '1'
+            if solo_servicios and dividir_operacion:
+                raise ValueError(
+                    'No podés dividir en dos operaciones una liquidación que solo incluye servicios o gastos.'
+                )
             if dividir_operacion:
                 op1_fecha_desde = request.POST.get('op1_fecha_desde')
                 op1_fecha_hasta = request.POST.get('op1_fecha_hasta')
@@ -23749,7 +23773,8 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                 )
 
                 # Asociar gastos pendientes seleccionados a la liquidación
-                gastos_seleccionados = request.POST.getlist('gastos_seleccionados[]')
+                if not gastos_seleccionados:
+                    gastos_seleccionados = request.POST.getlist('gastos_seleccionados[]')
                 if gastos_seleccionados:
                     for gasto_id_str in gastos_seleccionados:
                         try:
