@@ -54,22 +54,55 @@
         <div class="row g-3">
             <div class="col-lg-6">
                 <div class="card h-100">
-                    <div class="card-header py-2 small"><strong>Comisiones vendedor</strong></div>
+                    <div class="card-header py-2 small d-flex flex-wrap justify-content-between align-items-center gap-2">
+                        <strong>Comisiones vendedor</strong>
+                        {% if puede_editar_caratula %}
+                        <span class="text-muted fw-normal">Fecha de acreditación editable para el productor</span>
+                        {% endif %}
+                    </div>
                     <div class="card-body p-0">
-                        <table class="table table-sm mb-0 small">
-                            <thead><tr><th>Tipo</th><th>Productor</th><th class="text-end">Importe</th></tr></thead>
-                            <tbody>
-                                {% for c in comisiones %}
-                                <tr>
-                                    <td class="text-nowrap">{% include "inmobiliaria/comisiones/_comisiones_badges_tipo_inline.html" with comision=c %}</td>
-                                    <td>{% if c.vendedor %}{{ c.vendedor.apellido }}, {{ c.vendedor.nombre }}{% else %}—{% endif %}</td>
-                                    <td class="text-end">${{ c.monto_comision|floatformat:2 }}</td>
-                                </tr>
-                                {% empty %}
-                                <tr><td colspan="3" class="text-muted text-center py-3">Sin comisiones</td></tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+                        <form method="post" id="form-fechas-comision-reserva">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="save_fechas_comision_caratula">
+                            <table class="table table-sm mb-0 small">
+                                <thead>
+                                    <tr>
+                                        <th>Tipo</th>
+                                        <th>Productor</th>
+                                        <th>Acreditación</th>
+                                        <th class="text-end">Importe</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for c in comisiones %}
+                                    <tr>
+                                        <td class="text-nowrap">{% include "inmobiliaria/comisiones/_comisiones_badges_tipo_inline.html" with comision=c %}</td>
+                                        <td>{% if c.vendedor %}{{ c.vendedor.apellido }}, {{ c.vendedor.nombre }}{% else %}—{% endif %}</td>
+                                        <td class="text-nowrap">
+                                            {% if c.rol_comision == 'fichaje' %}
+                                            <span class="text-muted">—</span>
+                                            {% elif puede_editar_caratula %}
+                                            <input type="date" name="fecha_comision_{{ c.id }}" class="form-control form-control-sm"
+                                                   value="{{ c.fecha_operacion|date:'Y-m-d' }}" style="min-width: 9.5rem;">
+                                            {% else %}
+                                            {{ c.fecha_operacion|date:"d/m/Y" }}
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-end">${{ c.monto_comision|floatformat:2 }}</td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr><td colspan="4" class="text-muted text-center py-3">Sin comisiones</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                            {% if puede_editar_caratula and comisiones %}
+                            <div class="p-2 border-top text-end">
+                                <button type="submit" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-calendar-day me-1"></i>Guardar fechas de acreditación
+                                </button>
+                            </div>
+                            {% endif %}
+                        </form>
                     </div>
                 </div>
             </div>

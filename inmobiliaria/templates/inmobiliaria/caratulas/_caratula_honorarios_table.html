@@ -118,12 +118,10 @@
                 {% if honorarios_ctx.pct_productor.productor %}
                 <span class="badge bg-secondary">{{ honorarios_ctx.pct_productor.productor }}</span>
                 {% endif %}
-                {% if honorarios_ctx.pct_productor.fecha_entrada_display %}
-                <span class="badge bg-light text-dark border">
-                    Acreditación: {{ honorarios_ctx.pct_productor.fecha_entrada_display }} (día de entrada)
-                </span>
-                {% endif %}
             </div>
+            <form method="post" id="form-fechas-comision-contrato">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="save_fechas_comision_caratula">
             <div class="table-responsive">
                 <table class="table table-sm mb-0 small" id="tabla-comision-productor">
                     <thead class="table-light">
@@ -131,6 +129,7 @@
                             <th>Concepto</th>
                             <th class="text-end">Base (honorarios)</th>
                             <th class="text-end">%</th>
+                            <th>Acreditación</th>
                             <th class="text-end">Importe</th>
                         </tr>
                     </thead>
@@ -140,11 +139,19 @@
                             <td>{{ cv.label }}{% if cv.vendedor_nombre %} — {{ cv.vendedor_nombre }}{% endif %}</td>
                             <td class="text-end base-honorarios">${{ honorarios_ctx.comision_locatario|floatformat:2 }}</td>
                             <td class="text-end">{% if cv.porcentaje %}{{ cv.porcentaje|floatformat:2 }}%{% else %}—{% endif %}</td>
+                            <td class="text-nowrap">
+                                {% if puede_editar_caratula and cv.comision_id %}
+                                <input type="date" name="fecha_comision_{{ cv.comision_id }}" class="form-control form-control-sm"
+                                       value="{{ cv.fecha_acreditacion_input }}" style="min-width: 9.5rem;">
+                                {% else %}
+                                {{ cv.fecha_acreditacion_fmt|default:honorarios_ctx.pct_productor.fecha_entrada_display }}
+                                {% endif %}
+                            </td>
                             <td class="text-end fw-semibold">${{ cv.monto|floatformat:2 }}</td>
                         </tr>
                         {% empty %}
                         <tr id="sin-comision-productor">
-                            <td colspan="4" class="text-muted text-center py-2">
+                            <td colspan="5" class="text-muted text-center py-2">
                                 Sin % de comisión cargado para este tipo de contrato en la ficha del productor.
                             </td>
                         </tr>
@@ -152,12 +159,20 @@
                     </tbody>
                     <tfoot class="table-light">
                         <tr>
-                            <th colspan="3" class="text-end">Total productor</th>
+                            <th colspan="4" class="text-end">Total productor</th>
                             <th class="text-end text-success" id="total-productor-display">${{ honorarios_ctx.comision_productor_total|floatformat:2 }}</th>
                         </tr>
                     </tfoot>
                 </table>
             </div>
+            {% if puede_editar_caratula and honorarios_ctx.comisiones_productor %}
+            <div class="text-end mt-2">
+                <button type="submit" class="btn btn-sm btn-outline-primary">
+                    <i class="fas fa-calendar-day me-1"></i>Guardar fechas de acreditación
+                </button>
+            </div>
+            {% endif %}
+            </form>
         </div>
     </div>
 </div>
@@ -241,17 +256,19 @@
         }
 
         if (!lineas.length) {
-            filasBody.innerHTML = '<tr><td colspan="4" class="text-muted text-center py-2">Sin % de comisión cargado para este tipo de contrato en la ficha del productor.</td></tr>';
+            filasBody.innerHTML = '<tr><td colspan="5" class="text-muted text-center py-2">Sin % de comisión cargado para este tipo de contrato en la ficha del productor.</td></tr>';
             totalProd.textContent = '$0,00';
             return;
         }
 
+        const fechaAcred = cfg.fecha_entrada_display || '—';
         let total = 0;
         filasBody.innerHTML = lineas.map(function (ln) {
             total += ln.monto;
             return '<tr><td>' + ln.label + '</td>'
                 + '<td class="text-end base-honorarios">$' + formatMontoAR(base) + '</td>'
                 + '<td class="text-end">' + ln.pct.toFixed(2).replace('.', ',') + '%</td>'
+                + '<td class="text-nowrap">' + fechaAcred + '</td>'
                 + '<td class="text-end fw-semibold">$' + formatMontoAR(ln.monto) + '</td></tr>';
         }).join('');
         totalProd.textContent = '$' + formatMontoAR(total);

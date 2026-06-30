@@ -274,7 +274,6 @@ def oficina_categorias(request):
 
     sucursal = request.user.sucursal
     asegurar_categorias_base(sucursal)
-    asegurar_estructura_cierre_oficina(sucursal)
 
     return render(
         request,

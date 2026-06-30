@@ -227,9 +227,8 @@ def _map_hijos_estaticos_cierre():
 
 
 def desactivar_categorias_legacy_oficina(sucursal):
-    """Desactiva el seed viejo y deja activa solo la estructura del resumen de cierre."""
+    """Desactiva categorías del seed viejo (raíces legacy y subcategorías obsoletas de Sueldos/Vales)."""
     raices_cierre = _nombres_raices_cierre()
-    hijos_estaticos = _map_hijos_estaticos_cierre()
     raices_vendedor = {(n or '').strip().lower() for n in RAICES_SUBCATEGORIAS_VENDEDOR}
 
     for raiz in CategoriaGastoOficina.objects.filter(sucursal=sucursal, parent__isnull=True):
@@ -263,12 +262,6 @@ def desactivar_categorias_legacy_oficina(sucursal):
                         hijo.activa = False
                         hijo.save(update_fields=['activa'])
                 continue
-
-            validos = hijos_estaticos.get(nombre_l, set())
-            if nombre_h_l not in validos and hijo.activa:
-                hijo.activa = False
-                hijo.save(update_fields=['activa'])
-
 
 def _nombre_vendedor_categoria(vendedor):
     fn = getattr(vendedor, 'nombre_completo_vendedor', None)

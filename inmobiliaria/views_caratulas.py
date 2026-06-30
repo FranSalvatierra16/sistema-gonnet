@@ -538,6 +538,97 @@ def _procesar_cambiar_productor_caratula(request, reserva=None, contrato=None):
     return True
 
 
+def _procesar_guardar_fechas_comision_caratula(request, reserva=None, contrato=None):
+    from datetime import datetime, time
+
+    from django.contrib import messages
+    from inmobiliaria.models.comision import ROL_COMISION_FICHAJE
+
+    if not _puede_editar_caratula(request.user):
+        messages.error(request, 'No tenés permiso para editar las fechas de acreditación.')
+        return False
+
+    actualizadas = 0
+    for key, raw in request.POST.items():
+        if not key.startswith('fecha_comision_'):
+            continue
+        try:
+            comision_id = int(key.replace('fecha_comision_', ''))
+        except (TypeError, ValueError):
+            continue
+        texto = (raw or '').strip()
+        if not texto:
+            continue
+        try:
+            fecha = datetime.strptime(texto, '%Y-%m-%d').date()
+        except ValueError:
+            messages.error(request, f'Fecha inválida para la comisión #{comision_id}.')
+            return False
+
+        qs = ComisionVendedor.objects.filter(pk=comision_id).exclude(estado='cancelada')
+        if reserva:
+            qs = qs.filter(reserva=reserva)
+        elif contrato:
+            qs = qs.filter(contrato=contrato)
+        else:
+            continue
+
+        comision = qs.exclude(rol_comision=ROL_COMISION_FICHAJE).first()
+        if not comision:
+            continue
+
+        dt = datetime.combine(fecha, time.min)
+        if timezone.is_naive(dt):
+            dt = timezone.make_aware(dt, timezone.get_current_timezone())
+        if comision.fecha_operacion != dt:
+            comision.fecha_operacion = dt
+            comision.save(update_fields=['fecha_operacion'])
+            actualizadas += 1
+
+    if actualizadas:
+        messages.success(
+            request,
+            f'Fechas de acreditación actualizadas ({actualizadas} comisión{"es" if actualizadas != 1 else ""}).',
+        )
+    else:
+        messages.info(request, 'No hubo cambios en las fechas de acreditación.')
+    return True
+
+
+def _enriquecer_lineas_comision_fecha_db(lineas, db_map, fecha_default=None):
+    """Agrega id y fecha de acreditación desde ComisionVendedor a líneas de preview de carátula."""
+    for ln in lineas or []:
+        if ln.get('rol') == 'fichaje':
+            continue
+        db = db_map.get(ln.get('rol'))
+        if db and db.fecha_operacion:
+            local = timezone.localtime(db.fecha_operacion)
+            ln['comision_id'] = db.id
+            ln['fecha_acreditacion_fmt'] = local.strftime('%d/%m/%Y')
+            ln['fecha_acreditacion_input'] = local.strftime('%Y-%m-%d')
+        elif fecha_default:
+            if hasattr(fecha_default, 'date'):
+                fd = fecha_default.date()
+            else:
+                fd = fecha_default
+            ln['fecha_acreditacion_fmt'] = fd.strftime('%d/%m/%Y')
+            ln['fecha_acreditacion_input'] = fd.strftime('%Y-%m-%d')
+        else:
+            ln['fecha_acreditacion_fmt'] = '—'
+            ln['fecha_acreditacion_input'] = ''
+
+
+def _mapa_comisiones_db_caratula(*, reserva=None, contrato=None):
+    qs = ComisionVendedor.objects.exclude(estado='cancelada')
+    if reserva:
+        qs = qs.filter(reserva=reserva)
+    elif contrato:
+        qs = qs.filter(contrato=contrato)
+    else:
+        return {}
+    return {c.rol_comision: c for c in qs.order_by('id')}
+
+
 def _guardar_caratula_reserva(request, reserva):
     """Persiste montos, fechas y estado de una reserva desde la carátula."""
     from django.contrib import messages
@@ -1497,6 +1588,12 @@ def _ctx_honorarios_comisiones_caratula_contrato(
     comisiones_vendedor = _comisiones_vendedor_contrato_caratula(contrato, comision_locatario)
     comisiones_fichaje = [cv for cv in comisiones_vendedor if cv.get('rol') == 'fichaje']
     comisiones_productor = [cv for cv in comisiones_vendedor if cv.get('rol') != 'fichaje']
+    fecha_def = getattr(contrato, 'fecha_entrada_departamento', None) or contrato.fecha_inicio
+    _enriquecer_lineas_comision_fecha_db(
+        comisiones_productor,
+        _mapa_comisiones_db_caratula(contrato=contrato),
+        fecha_default=fecha_def,
+    )
     comision_fichaje_total = sum(
         (Decimal(str(cv.get('monto') or 0)) for cv in comisiones_fichaje),
         Decimal('0'),
@@ -2456,6 +2553,10 @@ def caratula_reserva(request, reserva_id):
             return _redirect_caratula_con_filtros('inmobiliaria:caratula_reserva', reserva_id, request)
         reserva.refresh_from_db()
 
+    if request.method == 'POST' and request.POST.get('action') == 'save_fechas_comision_caratula':
+        if _procesar_guardar_fechas_comision_caratula(request, reserva=reserva):
+            return _redirect_caratula_con_filtros('inmobiliaria:caratula_reserva', reserva_id, request)
+
     if request.method == 'POST' and request.POST.get('action') == 'save_caratula_reserva':
         if _guardar_caratula_reserva(request, reserva):
             return _redirect_caratula_con_filtros('inmobiliaria:caratula_reserva', reserva_id, request)
@@ -2567,6 +2668,9 @@ def caratula_contrato(request, contrato_id):
             if _procesar_cambiar_productor_caratula(request, contrato=contrato):
                 return _redirect_caratula_con_filtros('inmobiliaria:caratula_contrato', contrato_id, request)
             contrato.refresh_from_db()
+        if action == 'save_fechas_comision_caratula':
+            if _procesar_guardar_fechas_comision_caratula(request, contrato=contrato):
+                return _redirect_caratula_con_filtros('inmobiliaria:caratula_contrato', contrato_id, request)
         if action == 'set_carpeta_contrato':
             _persistir_carpeta_operacion('contrato', contrato_id, request.POST.get('carpeta'))
             return _redirect_caratula_con_filtros('inmobiliaria:caratula_contrato', contrato_id, request)
