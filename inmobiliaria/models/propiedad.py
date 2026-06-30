@@ -616,6 +616,17 @@ class Reserva(models.Model):
         default=0,
         verbose_name='Fondo mantenimiento (liquidación)',
     )
+    ESTADO_CONFIRMACION_CARATULA_CHOICES = [
+        ('pendiente', 'Pendiente'),
+        ('confirmada', 'Confirmada'),
+    ]
+    estado_confirmacion_caratula = models.CharField(
+        max_length=12,
+        choices=ESTADO_CONFIRMACION_CARATULA_CHOICES,
+        default='pendiente',
+        verbose_name='Estado carátula',
+        help_text='Revisión administrativa de la carátula (independiente de comisiones y pagos).',
+    )
 
     def montos_liquidacion_efectivos(self, total, prop, inm):
         """Aplica overrides guardados en carátula sobre montos calculados."""

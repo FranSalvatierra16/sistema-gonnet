@@ -443,33 +443,37 @@ def _puede_editar_caratula(user):
     return _puede_ver_caratulas(user)
 
 
-def _ctx_confirmacion_comisiones_caratula(reserva=None, contrato=None, user=None):
-    from inmobiliaria.models.comision import resumen_confirmacion_comisiones_operacion
-
-    resumen = resumen_confirmacion_comisiones_operacion(reserva=reserva, contrato=contrato)
-    puede_confirmar = bool(
-        resumen.get('puede_confirmar')
-        and user is not None
-        and _puede_editar_caratula(user)
-    )
+def _ctx_estado_operacion_caratula(reserva=None, contrato=None, user=None):
+    """Estado administrativo pendiente/confirmada de la carátula (no comisiones)."""
+    obj = reserva or contrato
+    estado = getattr(obj, 'estado_confirmacion_caratula', None) or 'pendiente'
+    confirmada = estado == 'confirmada'
     return {
-        'confirmacion_comisiones': resumen,
-        'puede_confirmar_comisiones_caratula': puede_confirmar,
+        'estado_operacion_caratula': estado,
+        'operacion_caratula_confirmada': confirmada,
+        'operacion_caratula_label': 'Confirmada' if confirmada else 'Pendiente',
+        'operacion_caratula_badge_class': 'bg-success' if confirmada else 'bg-warning text-dark',
+        'puede_confirmar_operacion_caratula': bool(
+            not confirmada and user is not None and _puede_editar_caratula(user)
+        ),
     }
 
 
-def _procesar_confirmar_comisiones_caratula(request, reserva=None, contrato=None):
+def _procesar_confirmar_operacion_caratula(request, reserva=None, contrato=None):
     from django.contrib import messages
-    from inmobiliaria.models.comision import confirmar_comisiones_operacion
 
     if not _puede_editar_caratula(request.user):
-        messages.error(request, 'No tenés permiso para confirmar comisiones.')
+        messages.error(request, 'No tenés permiso para confirmar la operación.')
         return False
-    n = confirmar_comisiones_operacion(reserva=reserva, contrato=contrato)
-    if n:
-        messages.success(request, f'Se confirmaron {n} comisión(es) del productor/fichaje.')
-    else:
-        messages.info(request, 'No había comisiones pendientes para confirmar.')
+    obj = reserva or contrato
+    if not obj:
+        return False
+    if getattr(obj, 'estado_confirmacion_caratula', 'pendiente') == 'confirmada':
+        messages.info(request, 'La operación ya estaba confirmada.')
+        return True
+    obj.estado_confirmacion_caratula = 'confirmada'
+    obj.save(update_fields=['estado_confirmacion_caratula'])
+    messages.success(request, 'Operación marcada como confirmada.')
     return True
 
 
@@ -2205,10 +2209,6 @@ def lista_caratulas(request):
     reserva_ids = list(reservas.values_list('id', flat=True))
     contrato_ids = list(contratos.values_list('id', flat=True))
 
-    from inmobiliaria.models.comision import mapa_estado_comisiones_lista_caratulas
-
-    mapa_com_res, mapa_com_ctr = mapa_estado_comisiones_lista_caratulas(reserva_ids, contrato_ids)
-
     liq_por_reserva = {}
     if reserva_ids:
         for row in (
@@ -2258,7 +2258,7 @@ def lista_caratulas(request):
                 'carpeta': '—',
                 'tiene_liquidacion': tiene_liquidacion,
                 'liquidacion_id': liquidacion_id,
-                'comisiones_estado': mapa_com_res.get(r.id, {}),
+                'estado_operacion_caratula': getattr(r, 'estado_confirmacion_caratula', 'pendiente') or 'pendiente',
             }
         )
 
@@ -2299,7 +2299,7 @@ def lista_caratulas(request):
                 'carpeta': carpeta_hist or '—',
                 'tiene_liquidacion': tiene_liquidacion,
                 'liquidacion_id': liquidacion_id,
-                'comisiones_estado': mapa_com_ctr.get(c.id, {}),
+                'estado_operacion_caratula': getattr(c, 'estado_confirmacion_caratula', 'pendiente') or 'pendiente',
             }
         )
     filas.sort(
@@ -2386,8 +2386,8 @@ def caratula_reserva(request, reserva_id):
     ):
         return HttpResponseForbidden()
 
-    if request.method == 'POST' and request.POST.get('action') == 'confirmar_comisiones_caratula':
-        _procesar_confirmar_comisiones_caratula(request, reserva=reserva)
+    if request.method == 'POST' and request.POST.get('action') == 'confirmar_operacion_caratula':
+        _procesar_confirmar_operacion_caratula(request, reserva=reserva)
         return _redirect_caratula_con_filtros('inmobiliaria:caratula_reserva', reserva_id, request)
 
     if request.method == 'POST' and request.POST.get('action') == 'save_caratula_reserva':
@@ -2464,7 +2464,7 @@ def caratula_reserva(request, reserva_id):
         **_ctx_liquidacion_operacion(reserva=reserva),
         **_ctx_completar_pago_reserva(reserva),
         'volver_lista_url': _url_lista_caratulas_desde_request(request),
-        **_ctx_confirmacion_comisiones_caratula(reserva=reserva, user=request.user),
+        **_ctx_estado_operacion_caratula(reserva=reserva, user=request.user),
     }
     rl = ctx['resumen_liquidacion']
     ctx['edit_montos_liquidacion'] = {
@@ -2506,8 +2506,8 @@ def caratula_contrato(request, contrato_id):
 
     if request.method == 'POST':
         action = request.POST.get('action')
-        if action == 'confirmar_comisiones_caratula':
-            _procesar_confirmar_comisiones_caratula(request, contrato=contrato)
+        if action == 'confirmar_operacion_caratula':
+            _procesar_confirmar_operacion_caratula(request, contrato=contrato)
             return _redirect_caratula_con_filtros('inmobiliaria:caratula_contrato', contrato_id, request)
         if action == 'set_carpeta_contrato':
             _persistir_carpeta_operacion('contrato', contrato_id, request.POST.get('carpeta'))
@@ -2640,7 +2640,7 @@ def caratula_contrato(request, contrato_id):
         'carpeta_default': _carpeta_default_actual(request),
         **_ctx_liquidacion_operacion(contrato=contrato),
         'volver_lista_url': _url_lista_caratulas_desde_request(request),
-        **_ctx_confirmacion_comisiones_caratula(contrato=contrato, user=request.user),
+        **_ctx_estado_operacion_caratula(contrato=contrato, user=request.user),
     }
     return render(request, 'inmobiliaria/caratulas/detalle_contrato.html', ctx)
 

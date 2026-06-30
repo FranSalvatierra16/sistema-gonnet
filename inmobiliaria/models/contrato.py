@@ -91,6 +91,17 @@ class ContratoAlquiler(models.Model):
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     sucursal = models.ForeignKey('Sucursal', on_delete=models.CASCADE)
     operacion_principal = models.BooleanField(default=False, help_text='Indica si ya se realizó la operación principal (depósito + primer mes)')
+    ESTADO_CONFIRMACION_CARATULA_CHOICES = [
+        ('pendiente', 'Pendiente'),
+        ('confirmada', 'Confirmada'),
+    ]
+    estado_confirmacion_caratula = models.CharField(
+        max_length=12,
+        choices=ESTADO_CONFIRMACION_CARATULA_CHOICES,
+        default='pendiente',
+        verbose_name='Estado carátula',
+        help_text='Revisión administrativa de la carátula (independiente de comisiones y pagos).',
+    )
 
     # Garantes: inquilinos seleccionados como garantes (varios por contrato)
     garantes = models.ManyToManyField(

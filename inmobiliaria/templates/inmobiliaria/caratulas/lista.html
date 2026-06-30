@@ -88,7 +88,7 @@
                 En <strong>Buscar</strong> podés usar apellido del inquilino/cliente, dirección o propietario.
                 El listado va en orden cronológico (primera operación cargada arriba, con hora).
                 Las filas en <span class="badge bg-success">verde</span> ya tienen liquidación al propietario.
-                La columna <strong>Comisiones</strong> indica si las comisiones del productor/fichaje están <span class="badge bg-warning text-dark">Pendiente</span> o <span class="badge bg-success">Confirmada</span> (botón en cada carátula).
+                La columna <strong>Operación</strong> indica si la carátula está <span class="badge bg-warning text-dark">Pendiente</span> o <span class="badge bg-success">Confirmada</span> (botón en cada carátula).
             </p>
             {% if total_filas is not None %}
             <p class="small mb-0 mt-2"><strong>{{ total_filas }}</strong> operación{{ total_filas|pluralize:"es" }} con los filtros actuales.</p>
@@ -110,7 +110,7 @@
                     <th>Ficha</th>
                     <th>Carpeta</th>
                     <th>Estado</th>
-                    <th>Comisiones</th>
+                    <th>Operación</th>
                     <th></th>
                 </tr>
             </thead>
@@ -150,14 +150,11 @@
                         {% endif %}
                     </td>
                     <td class="small">
-                        {% with ce=f.comisiones_estado %}
-                        {% if ce.label %}
-                        <span class="badge {{ ce.badge_class|default:'bg-secondary' }}">{{ ce.label }}</span>
-                        {% if ce.total %}<br><span class="text-muted">{{ ce.total }} línea{{ ce.total|pluralize:"s" }}</span>{% endif %}
+                        {% if f.estado_operacion_caratula == 'confirmada' %}
+                        <span class="badge bg-success">Confirmada</span>
                         {% else %}
-                        <span class="badge bg-secondary">Sin comisiones</span>
+                        <span class="badge bg-warning text-dark">Pendiente</span>
                         {% endif %}
-                        {% endwith %}
                     </td>
                     <td class="text-nowrap">
                         {% if f.kind == 'reserva' %}
