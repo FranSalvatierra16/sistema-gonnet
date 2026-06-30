@@ -542,11 +542,36 @@ def _procesar_guardar_fechas_comision_caratula(request, reserva=None, contrato=N
     from datetime import datetime, time
 
     from django.contrib import messages
-    from inmobiliaria.models.comision import ROL_COMISION_FICHAJE
+    from inmobiliaria.models.comision import ROL_COMISION_FICHAJE, asegurar_comisiones_contrato
 
     if not _puede_editar_caratula(request.user):
         messages.error(request, 'No tenés permiso para editar las fechas de acreditación.')
         return False
+
+    if contrato:
+        movimientos = []
+        if contrato.propiedad_id:
+            from inmobiliaria.cuotas_imputacion import movimientos_ingreso_contrato
+
+            movimientos = movimientos_ingreso_contrato(contrato)
+        from inmobiliaria.views import _liquidacion_operacion_principal_contrato
+
+        liquidacion_hon = _liquidacion_operacion_principal_contrato(contrato)
+        override = _comisiones_override_caratula(request, contrato.id)
+        honorarios_ctx = _ctx_honorarios_comisiones_caratula_contrato(
+            contrato,
+            movimientos,
+            liquidacion=liquidacion_hon,
+            override=override,
+        )
+        honorarios = honorarios_ctx.get('comision_locatario') or Decimal('0')
+        if honorarios > Decimal('0.05'):
+            movs_op = sorted(movimientos, key=lambda x: (x.fecha, x.id)) if movimientos else []
+            asegurar_comisiones_contrato(
+                contrato,
+                honorarios_monto=honorarios,
+                movimiento_caja=movs_op[0] if movs_op else None,
+            )
 
     actualizadas = 0
     for key, raw in request.POST.items():
@@ -574,6 +599,14 @@ def _procesar_guardar_fechas_comision_caratula(request, reserva=None, contrato=N
             continue
 
         comision = qs.exclude(rol_comision=ROL_COMISION_FICHAJE).first()
+        if not comision and contrato:
+            comision = (
+                ComisionVendedor.objects.filter(contrato=contrato)
+                .exclude(estado='cancelada')
+                .exclude(rol_comision=ROL_COMISION_FICHAJE)
+                .order_by('id')
+                .first()
+            )
         if not comision:
             continue
 
@@ -584,6 +617,30 @@ def _procesar_guardar_fechas_comision_caratula(request, reserva=None, contrato=N
             comision.fecha_operacion = dt
             comision.save(update_fields=['fecha_operacion'])
             actualizadas += 1
+
+    if actualizadas == 0 and contrato:
+        raw_prod = (request.POST.get('fecha_comision_productor') or '').strip()
+        if raw_prod:
+            try:
+                fecha = datetime.strptime(raw_prod, '%Y-%m-%d').date()
+            except ValueError:
+                messages.error(request, 'Fecha inválida para la comisión del productor.')
+                return False
+            comision = (
+                ComisionVendedor.objects.filter(contrato=contrato)
+                .exclude(estado='cancelada')
+                .exclude(rol_comision=ROL_COMISION_FICHAJE)
+                .order_by('id')
+                .first()
+            )
+            if comision:
+                dt = datetime.combine(fecha, time.min)
+                if timezone.is_naive(dt):
+                    dt = timezone.make_aware(dt, timezone.get_current_timezone())
+                if comision.fecha_operacion != dt:
+                    comision.fecha_operacion = dt
+                    comision.save(update_fields=['fecha_operacion'])
+                    actualizadas += 1
 
     if actualizadas:
         messages.success(
@@ -597,15 +654,31 @@ def _procesar_guardar_fechas_comision_caratula(request, reserva=None, contrato=N
 
 def _enriquecer_lineas_comision_fecha_db(lineas, db_map, fecha_default=None):
     """Agrega id y fecha de acreditación desde ComisionVendedor a líneas de preview de carátula."""
+    from inmobiliaria.models.comision import ROL_COMISION_FICHAJE, ROLES_COMISION_PRODUCTOR
+
     for ln in lineas or []:
-        if ln.get('rol') == 'fichaje':
+        rol = ln.get('rol')
+        if rol == ROL_COMISION_FICHAJE or rol == 'fichaje':
             continue
-        db = db_map.get(ln.get('rol'))
-        if db and db.fecha_operacion:
-            local = timezone.localtime(db.fecha_operacion)
+        db = db_map.get(rol)
+        if not db:
+            for rol_prod in ROLES_COMISION_PRODUCTOR:
+                db = db_map.get(rol_prod)
+                if db:
+                    break
+        if db:
             ln['comision_id'] = db.id
-            ln['fecha_acreditacion_fmt'] = local.strftime('%d/%m/%Y')
-            ln['fecha_acreditacion_input'] = local.strftime('%Y-%m-%d')
+            if db.fecha_operacion:
+                local = timezone.localtime(db.fecha_operacion)
+                ln['fecha_acreditacion_fmt'] = local.strftime('%d/%m/%Y')
+                ln['fecha_acreditacion_input'] = local.strftime('%Y-%m-%d')
+            elif fecha_default:
+                if hasattr(fecha_default, 'date'):
+                    fd = fecha_default.date()
+                else:
+                    fd = fecha_default
+                ln['fecha_acreditacion_fmt'] = fd.strftime('%d/%m/%Y')
+                ln['fecha_acreditacion_input'] = fd.strftime('%Y-%m-%d')
         elif fecha_default:
             if hasattr(fecha_default, 'date'):
                 fd = fecha_default.date()
@@ -1574,7 +1647,7 @@ def _pct_productor_contrato_caratula(contrato):
 
 
 def _ctx_honorarios_comisiones_caratula_contrato(
-    contrato, movimientos=None, liquidacion=None, override=None
+    contrato, movimientos=None, liquidacion=None, override=None, puede_editar_fechas=False
 ):
     from inmobiliaria.decimal_utils import format_monto_argentino
     from inmobiliaria.views import _liquidacion_operacion_principal_contrato
@@ -1608,6 +1681,18 @@ def _ctx_honorarios_comisiones_caratula_contrato(
     ).quantize(Decimal('0.01'))
 
     pct = _pct_productor_contrato_caratula(contrato)
+    fecha_def = getattr(contrato, 'fecha_entrada_departamento', None) or contrato.fecha_inicio
+    pct['fecha_entrada_input'] = fecha_def.strftime('%Y-%m-%d') if fecha_def else ''
+    pct['productor_lineas'] = [
+        {
+            'comision_id': cv.get('comision_id'),
+            'fecha_input': cv.get('fecha_acreditacion_input', ''),
+            'label': cv.get('label', ''),
+            'pct': float(cv.get('porcentaje') or 0),
+        }
+        for cv in comisiones_productor
+    ]
+    pct['puede_editar_fechas'] = bool(puede_editar_fechas)
     fichador_nombre = ''
     if comisiones_fichaje:
         fichador_nombre = comisiones_fichaje[0].get('vendedor_nombre') or ''
@@ -1717,6 +1802,8 @@ def _comisiones_vendedor_contrato_caratula(contrato, honorarios_monto):
     """
     from inmobiliaria.models.comision import (
         ROL_COMISION_FICHAJE,
+        ROL_COMISION_OP_24,
+        ROL_COMISION_OP_INVIERNO,
         pct_comision_24_meses_vendedor,
         pct_comision_invierno_vendedor,
         porcentaje_fichaje_vendedor,
@@ -1761,9 +1848,11 @@ def _comisiones_vendedor_contrato_caratula(contrato, honorarios_monto):
     )
     if cat == 'invierno':
         pct = pct_comision_invierno_vendedor(vend, prop)
+        rol_productor = ROL_COMISION_OP_INVIERNO
         label = 'COMIS. VENDEDOR (INVIERNO — PROP. OFICINA)' if propiedad_es_oficina(prop) else 'COMIS. VENDEDOR (INVIERNO)'
     elif cat == '24':
         pct = pct_comision_24_meses_vendedor(vend, prop)
+        rol_productor = ROL_COMISION_OP_24
         dm = int(contrato.duracion_meses or 0)
         if propiedad_es_oficina(prop):
             label = 'COMIS. VENDEDOR (24 MESES — PROP. OFICINA)' if dm == 24 else 'COMIS. VENDEDOR (LARGO PLAZO — PROP. OFICINA)'
@@ -1780,7 +1869,7 @@ def _comisiones_vendedor_contrato_caratula(contrato, honorarios_monto):
                 'monto': monto,
                 'monto_fmt': _formato_importe_us(monto),
                 'porcentaje': pct,
-                'rol': 'productor',
+                'rol': rol_productor,
                 'vendedor_nombre': _nombre_productor_papel(vend),
                 'vendedor_id': vend.id,
             }
@@ -2754,6 +2843,7 @@ def caratula_contrato(request, contrato_id):
         movimientos,
         liquidacion=liquidacion_hon,
         override=override,
+        puede_editar_fechas=_puede_editar_caratula(request.user),
     )
     honorarios_ctx.update(
         _estado_liquidacion_operacion_principal_caratula(contrato, contrato.sucursal)
@@ -2773,6 +2863,7 @@ def caratula_contrato(request, contrato_id):
             movimientos,
             liquidacion=liquidacion_hon,
             override=override,
+            puede_editar_fechas=_puede_editar_caratula(request.user),
         )
         honorarios_ctx.update(
             _estado_liquidacion_operacion_principal_caratula(contrato, contrato.sucursal)

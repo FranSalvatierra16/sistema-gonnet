@@ -140,9 +140,12 @@
                             <td class="text-end base-honorarios">${{ honorarios_ctx.comision_locatario|floatformat:2 }}</td>
                             <td class="text-end">{% if cv.porcentaje %}{{ cv.porcentaje|floatformat:2 }}%{% else %}—{% endif %}</td>
                             <td class="text-nowrap">
-                                {% if puede_editar_caratula and cv.comision_id %}
-                                <input type="date" name="fecha_comision_{{ cv.comision_id }}" class="form-control form-control-sm"
-                                       value="{{ cv.fecha_acreditacion_input }}" style="min-width: 9.5rem;">
+                                {% if puede_editar_caratula %}
+                                <input type="date"
+                                       name="{% if cv.comision_id %}fecha_comision_{{ cv.comision_id }}{% else %}fecha_comision_productor{% endif %}"
+                                       class="form-control form-control-sm"
+                                       value="{{ cv.fecha_acreditacion_input }}"
+                                       style="min-width: 9.5rem;">
                                 {% else %}
                                 {{ cv.fecha_acreditacion_fmt|default:honorarios_ctx.pct_productor.fecha_entrada_display }}
                                 {% endif %}
@@ -246,6 +249,9 @@
         recalcFichaje(base);
         if (!filasBody || !totalProd) return;
 
+        const prevFechaInp = filasBody.querySelector('input[type=date]');
+        const fechaValGuardada = prevFechaInp ? prevFechaInp.value : '';
+
         const lineas = [];
         if (cfg.pct_tipo && cfg.pct_tipo > 0 && cfg.label_tipo) {
             lineas.push({
@@ -262,13 +268,26 @@
         }
 
         const fechaAcred = cfg.fecha_entrada_display || '—';
+        const fechaInput = cfg.fecha_entrada_input || '';
+        const lineasProd = (cfg.productor_lineas && cfg.productor_lineas.length)
+            ? cfg.productor_lineas
+            : lineas.map(function (ln) {
+                return { label: 'Comisión ' + (cfg.label_tipo || ''), pct: ln.pct, fecha_input: fechaInput, comision_id: null };
+            });
         let total = 0;
-        filasBody.innerHTML = lineas.map(function (ln) {
+        filasBody.innerHTML = lineas.map(function (ln, idx) {
             total += ln.monto;
-            return '<tr><td>' + ln.label + '</td>'
+            const meta = lineasProd[idx] || {};
+            const fechaVal = fechaValGuardada || meta.fecha_input || fechaInput;
+            const fechaCell = cfg.puede_editar_fechas
+                ? '<input type="date" class="form-control form-control-sm" style="min-width:9.5rem" name="'
+                    + (meta.comision_id ? ('fecha_comision_' + meta.comision_id) : 'fecha_comision_productor')
+                    + '" value="' + fechaVal + '">'
+                : fechaAcred;
+            return '<tr><td>' + (meta.label || ('Comisión ' + (cfg.label_tipo || ''))) + '</td>'
                 + '<td class="text-end base-honorarios">$' + formatMontoAR(base) + '</td>'
                 + '<td class="text-end">' + ln.pct.toFixed(2).replace('.', ',') + '%</td>'
-                + '<td class="text-nowrap">' + fechaAcred + '</td>'
+                + '<td class="text-nowrap">' + fechaCell + '</td>'
                 + '<td class="text-end fw-semibold">$' + formatMontoAR(ln.monto) + '</td></tr>';
         }).join('');
         totalProd.textContent = '$' + formatMontoAR(total);
