@@ -165,6 +165,22 @@ class Vendedor(AbstractUser):
         verbose_name='Comisión alquiler invierno (%)',
         help_text='Si la propiedad tiene invierno habilitado, la reserva dura menos de 20 meses y el inicio cae entre abr-oct (temporada típica sur), se usa este %',
     )
+    comision_invierno_propiedad_oficina = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name='Comisión invierno — propiedad oficina (%)',
+        help_text='Mismo criterio que invierno, pero en propiedades marcadas como «propiedad oficina».',
+    )
+    comision_alquiler_24_meses_propiedad_oficina = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name='Comisión 24 meses — propiedad oficina (%)',
+        help_text='Alquiler largo / 24 meses en propiedades marcadas como «propiedad oficina».',
+    )
     celular = models.CharField(max_length=20, blank=True)
     nivel = models.IntegerField(choices=NIVELES_VENDEDOR, default=1, help_text="Nivel del vendedor para determinar sus permisos")
     
@@ -239,18 +255,20 @@ class Vendedor(AbstractUser):
 
         # ~20 meses o más: se considera alquiler largo / 24 meses para comisión
         es_alquiler_largo = dias >= 600
-        if (
-            es_alquiler_largo
-            and self.comision_alquiler_24_meses is not None
-            and self.comision_alquiler_24_meses > 0
-        ):
-            return self.comision_alquiler_24_meses
+        if es_alquiler_largo:
+            if getattr(prop, 'es_propiedad_oficina', False):
+                pct_of = self.comision_alquiler_24_meses_propiedad_oficina
+                if pct_of is not None and pct_of > 0:
+                    return pct_of
+            if (
+                self.comision_alquiler_24_meses is not None
+                and self.comision_alquiler_24_meses > 0
+            ):
+                return self.comision_alquiler_24_meses
 
         # Invierno / temporada fría: propiedad con alquiler invierno habilitado, no largo plazo
         if (
-            self.comision_invierno is not None
-            and self.comision_invierno > 0
-            and dias < 600
+            dias < 600
             and dias >= 14
             and getattr(prop, 'habilitar_invierno', False)
         ):
@@ -258,9 +276,16 @@ class Vendedor(AbstractUser):
                 mes_ini = reserva.fecha_inicio.month
             except AttributeError:
                 mes_ini = 0
-            # Hemisferio sur: inicio típico temporada invierno (abr–oct)
             if mes_ini in (4, 5, 6, 7, 8, 9, 10):
-                return self.comision_invierno
+                if getattr(prop, 'es_propiedad_oficina', False):
+                    pct_of = self.comision_invierno_propiedad_oficina
+                    if pct_of is not None and pct_of > 0:
+                        return pct_of
+                if (
+                    self.comision_invierno is not None
+                    and self.comision_invierno > 0
+                ):
+                    return self.comision_invierno
 
         tipo = getattr(prop, 'tipo_fichaje', None) or 'primer'
         if (

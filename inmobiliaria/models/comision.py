@@ -23,6 +23,50 @@ def vendedor_fichaje_desde_propiedad(prop):
     return fichado
 
 
+def propiedad_es_oficina(prop):
+    return bool(prop and getattr(prop, 'es_propiedad_oficina', False))
+
+
+def pct_comision_invierno_vendedor(vendedor, prop):
+    """% invierno del productor; si la propiedad es de oficina, usa el % específico."""
+    if propiedad_es_oficina(prop):
+        pct_of = getattr(vendedor, 'comision_invierno_propiedad_oficina', None)
+        if pct_of is not None and pct_of > 0:
+            return pct_of
+    return vendedor.comision_invierno
+
+
+def pct_comision_24_meses_vendedor(vendedor, prop):
+    """% 24 meses del productor; si la propiedad es de oficina, usa el % específico."""
+    if propiedad_es_oficina(prop):
+        pct_of = getattr(vendedor, 'comision_alquiler_24_meses_propiedad_oficina', None)
+        if pct_of is not None and pct_of > 0:
+            return pct_of
+    return vendedor.comision_alquiler_24_meses
+
+
+def _fecha_operacion_entrada_reserva(reserva):
+    """Fecha de acreditación en reservas invierno/24: día de ingreso al departamento."""
+    from datetime import datetime, time
+
+    f = getattr(reserva, 'fecha_inicio', None)
+    if not f:
+        return timezone.now()
+    dt = datetime.combine(f, time.min)
+    if timezone.is_naive(dt):
+        return timezone.make_aware(dt, timezone.get_current_timezone())
+    return dt
+
+
+def _fecha_operacion_comision_reserva(reserva, movimiento_caja):
+    """
+    Por día: fecha del cobro (seña). Invierno / 24 meses: fecha de ingreso (fecha_inicio).
+    """
+    if reserva and clasificar_tipo_operacion_reserva(reserva) in ('invierno', '24'):
+        return _fecha_operacion_entrada_reserva(reserva)
+    return movimiento_caja.fecha if movimiento_caja else timezone.now()
+
+
 def porcentaje_fichaje_vendedor(vendedor, tipo_fichaje=None):
     if not vendedor:
         return None
@@ -52,16 +96,13 @@ def rol_comision_al_crear_linea_unica(vendedor, reserva):
         dias = 0
 
     es_alquiler_largo = dias >= 600
-    if (
-        es_alquiler_largo
-        and vendedor.comision_alquiler_24_meses is not None
-        and pct == vendedor.comision_alquiler_24_meses
-    ):
-        return ROL_COMISION_OP_24
+    if es_alquiler_largo:
+        pct_24 = pct_comision_24_meses_vendedor(vendedor, prop)
+        if pct_24 is not None and pct_24 > 0 and pct == pct_24:
+            return ROL_COMISION_OP_24
 
     if (
-        vendedor.comision_invierno is not None
-        and dias < 600
+        dias < 600
         and dias >= 14
         and getattr(prop, 'habilitar_invierno', False)
     ):
@@ -69,8 +110,10 @@ def rol_comision_al_crear_linea_unica(vendedor, reserva):
             mes_ini = reserva.fecha_inicio.month
         except AttributeError:
             mes_ini = 0
-        if mes_ini in (4, 5, 6, 7, 8, 9, 10) and pct == vendedor.comision_invierno:
-            return ROL_COMISION_OP_INVIERNO
+        if mes_ini in (4, 5, 6, 7, 8, 9, 10):
+            pct_inv = pct_comision_invierno_vendedor(vendedor, prop)
+            if pct_inv is not None and pct_inv > 0 and pct == pct_inv:
+                return ROL_COMISION_OP_INVIERNO
 
     tipo = getattr(prop, 'tipo_fichaje', None) or 'primer'
     if (
@@ -236,7 +279,8 @@ def registrar_comisiones_honorarios_movimiento_reserva(reserva, movimiento_caja,
         )
 
     elif tipo_op == 'invierno':
-        pct = vend.comision_invierno
+        pct = pct_comision_invierno_vendedor(vend, prop)
+        suf_of = ' (prop. oficina)' if propiedad_es_oficina(prop) else ''
         if pct is not None and pct > 0:
             c = ComisionVendedor.crear_comision_linea(
                 vendedor=vend,
@@ -244,7 +288,7 @@ def registrar_comisiones_honorarios_movimiento_reserva(reserva, movimiento_caja,
                 movimiento_caja=movimiento_caja,
                 monto_base=honorarios_monto,
                 porcentaje_comision=pct,
-                concepto=f'Op. {reserva.id} — comisión invierno (sobre honorarios)',
+                concepto=f'Op. {reserva.id} — comisión invierno{suf_of} (sobre honorarios)',
                 rol_comision=ROL_COMISION_OP_INVIERNO,
             )
             if c:
@@ -256,7 +300,8 @@ def registrar_comisiones_honorarios_movimiento_reserva(reserva, movimiento_caja,
             )
 
     elif tipo_op == '24':
-        pct = vend.comision_alquiler_24_meses
+        pct = pct_comision_24_meses_vendedor(vend, prop)
+        suf_of = ' (prop. oficina)' if propiedad_es_oficina(prop) else ''
         if pct is not None and pct > 0:
             c = ComisionVendedor.crear_comision_linea(
                 vendedor=vend,
@@ -264,7 +309,7 @@ def registrar_comisiones_honorarios_movimiento_reserva(reserva, movimiento_caja,
                 movimiento_caja=movimiento_caja,
                 monto_base=honorarios_monto,
                 porcentaje_comision=pct,
-                concepto=f'Op. {reserva.id} — comisión alquiler 24 meses (sobre honorarios)',
+                concepto=f'Op. {reserva.id} — comisión alquiler 24 meses{suf_of} (sobre honorarios)',
                 rol_comision=ROL_COMISION_OP_24,
             )
             if c:
@@ -392,13 +437,17 @@ def registrar_comisiones_honorarios_contrato(contrato, honorarios_monto, movimie
         else '24'
     )
     if cat == 'invierno':
-        pct = vend.comision_invierno
+        pct = pct_comision_invierno_vendedor(vend, prop)
         rol = ROL_COMISION_OP_INVIERNO
         label = 'invierno'
+        if propiedad_es_oficina(prop):
+            label = 'invierno (prop. oficina)'
     elif cat == '24':
-        pct = vend.comision_alquiler_24_meses
+        pct = pct_comision_24_meses_vendedor(vend, prop)
         rol = ROL_COMISION_OP_24
         label = '24 meses'
+        if propiedad_es_oficina(prop):
+            label = '24 meses (prop. oficina)'
     else:
         return creadas
 
@@ -745,7 +794,7 @@ class ComisionVendedor(models.Model):
             porcentaje_comision=porcentaje_comision,
             concepto_operacion=(concepto or f'Operación {reserva.id}')[:200],
             rol_comision=rol_comision,
-            fecha_operacion=movimiento_caja.fecha if movimiento_caja else timezone.now(),
+            fecha_operacion=_fecha_operacion_comision_reserva(reserva, movimiento_caja),
             estado='pendiente',
         )
 

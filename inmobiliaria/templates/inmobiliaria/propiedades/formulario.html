@@ -206,6 +206,16 @@
                         {{ form.tipo_fichaje.errors }}
                         <small class="form-text text-muted">Por defecto <strong>primer fichaje</strong>; elegí <strong>segundo fichaje</strong> si corresponde (define qué % de comisión usa el vendedor al cerrar la operación).</small>
                     </div>
+                    <div class="col-md-6 col-lg-3 d-flex align-items-end">
+                        <div class="form-check mb-2">
+                            {{ form.es_propiedad_oficina }}
+                            <label class="form-check-label" for="id_es_propiedad_oficina">
+                                <i class="fas fa-building me-1"></i>Propiedad oficina
+                            </label>
+                            <small class="form-text text-muted d-block">Propiedad de la inmobiliaria. En invierno y 24 meses aplica el % «prop. oficina» del vendedor.</small>
+                            {{ form.es_propiedad_oficina.errors }}
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

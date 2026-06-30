@@ -1339,7 +1339,12 @@ def _filas_honorarios_caratula_contrato(contrato, movimientos=None):
 
 def _pct_productor_contrato_caratula(contrato):
     """Porcentajes del vendedor para calcular comisión del productor sobre honorarios."""
-    from inmobiliaria.models.comision import porcentaje_fichaje_vendedor
+    from inmobiliaria.models.comision import (
+        pct_comision_24_meses_vendedor,
+        pct_comision_invierno_vendedor,
+        porcentaje_fichaje_vendedor,
+        propiedad_es_oficina,
+    )
 
     if not contrato or not contrato.vendedor_id:
         return {}
@@ -1356,11 +1361,13 @@ def _pct_productor_contrato_caratula(contrato):
         else ('invierno' if dm == 9 else ('24' if dm >= 9 else 'otro'))
     )
     if cat == 'invierno':
-        pct_tipo = vend.comision_invierno
-        label_tipo = 'Invierno'
+        pct_tipo = pct_comision_invierno_vendedor(vend, prop)
+        label_tipo = 'Invierno (prop. oficina)' if propiedad_es_oficina(prop) else 'Invierno'
     elif cat == '24':
-        pct_tipo = vend.comision_alquiler_24_meses
-        label_tipo = '24 meses' if dm == 24 else 'Largo plazo'
+        pct_tipo = pct_comision_24_meses_vendedor(vend, prop)
+        label_tipo = '24 meses (prop. oficina)' if propiedad_es_oficina(prop) else (
+            '24 meses' if dm == 24 else 'Largo plazo'
+        )
     else:
         pct_tipo = None
         label_tipo = ''
@@ -1518,7 +1525,10 @@ def _comisiones_vendedor_contrato_caratula(contrato, honorarios_monto):
     """
     from inmobiliaria.models.comision import (
         ROL_COMISION_FICHAJE,
+        pct_comision_24_meses_vendedor,
+        pct_comision_invierno_vendedor,
         porcentaje_fichaje_vendedor,
+        propiedad_es_oficina,
     )
 
     if not contrato or honorarios_monto <= Decimal('0.05'):
@@ -1558,12 +1568,15 @@ def _comisiones_vendedor_contrato_caratula(contrato, honorarios_monto):
         else ('invierno' if int(contrato.duracion_meses or 0) == 9 else '24')
     )
     if cat == 'invierno':
-        pct = vend.comision_invierno
-        label = 'COMIS. VENDEDOR (INVIERNO)'
+        pct = pct_comision_invierno_vendedor(vend, prop)
+        label = 'COMIS. VENDEDOR (INVIERNO — PROP. OFICINA)' if propiedad_es_oficina(prop) else 'COMIS. VENDEDOR (INVIERNO)'
     elif cat == '24':
-        pct = vend.comision_alquiler_24_meses
+        pct = pct_comision_24_meses_vendedor(vend, prop)
         dm = int(contrato.duracion_meses or 0)
-        label = 'COMIS. VENDEDOR (24 MESES)' if dm == 24 else 'COMIS. VENDEDOR (LARGO PLAZO)'
+        if propiedad_es_oficina(prop):
+            label = 'COMIS. VENDEDOR (24 MESES — PROP. OFICINA)' if dm == 24 else 'COMIS. VENDEDOR (LARGO PLAZO — PROP. OFICINA)'
+        else:
+            label = 'COMIS. VENDEDOR (24 MESES)' if dm == 24 else 'COMIS. VENDEDOR (LARGO PLAZO)'
     else:
         return lineas
 

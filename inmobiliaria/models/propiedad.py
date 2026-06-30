@@ -213,6 +213,11 @@ class Propiedad(models.Model):
     habilitar_venta = models.BooleanField(default=False, verbose_name="Habilitar para Venta")
     habilitar_23_meses = models.BooleanField(default=False, verbose_name="Habilitar para 24 Meses")
     habilitar_invierno = models.BooleanField(default=False, verbose_name="Habilitar para Invierno")
+    es_propiedad_oficina = models.BooleanField(
+        default=False,
+        verbose_name='Propiedad oficina',
+        help_text='Propiedad de la inmobiliaria. En invierno y 24 meses aplica el % «propiedad oficina» del vendedor.',
+    )
 
     # Precios para cada tipo
     precio_venta = models.DecimalField(

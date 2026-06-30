@@ -97,6 +97,12 @@
 
                                 <dt class="col-sm-6">Invierno:</dt>
                                 <dd class="col-sm-6">{% if vendedor.comision_invierno is not None %}{{ vendedor.comision_invierno|floatformat:2 }}%{% else %}<span class="text-muted">—</span>{% endif %}</dd>
+
+                                <dt class="col-sm-6">Invierno — prop. oficina:</dt>
+                                <dd class="col-sm-6">{% if vendedor.comision_invierno_propiedad_oficina is not None %}{{ vendedor.comision_invierno_propiedad_oficina|floatformat:2 }}%{% else %}<span class="text-muted">—</span>{% endif %}</dd>
+
+                                <dt class="col-sm-6">24 meses — prop. oficina:</dt>
+                                <dd class="col-sm-6">{% if vendedor.comision_alquiler_24_meses_propiedad_oficina is not None %}{{ vendedor.comision_alquiler_24_meses_propiedad_oficina|floatformat:2 }}%{% else %}<span class="text-muted">—</span>{% endif %}</dd>
                             </dl>
                             <p class="text-muted small mt-3 mb-0">
                                 El % que se aplica a cada reserva depende de la propiedad (fichaje, invierno, duración) y de estos valores; la columna «efectiva» es solo la base por día (campo o sucursal).
