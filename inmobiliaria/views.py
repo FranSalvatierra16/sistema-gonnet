@@ -13854,6 +13854,95 @@ def _filtro_qs_por_buscar_concepto(qs, texto, conceptos_catalogo):
     return qs.filter(q_full | q_tok)
 
 
+def _referencias_movimiento_en_concepto(concepto_raw):
+    """Prefijos legibles (Contrato #N, Operación #N) presentes en el texto del concepto."""
+    import re
+
+    refs = []
+    texto = (concepto_raw or '').strip()
+    m = re.search(r'Contrato\s*#\s*(\d+)', texto, re.I)
+    if m:
+        refs.append(f'Contrato #{m.group(1)}')
+    m = re.search(r'Operaci[oó]n\s*#?\s*(\d+)', texto, re.I)
+    if m:
+        refs.append(f'Operación #{m.group(1)}')
+    return refs
+
+
+def _nombres_conceptos_movimiento_reporte(movimiento, lookup_nombre_concepto):
+    """Nombres legibles de conceptos (JSON / catálogo), sin pipes ni arrays crudos."""
+    _, conceptos_data = _movimiento_json_conceptos_parsed(movimiento)
+    nombres = []
+    for it in conceptos_data:
+        if not isinstance(it, dict):
+            continue
+        n = str(it.get('nombre') or it.get('concepto') or '').strip()
+        if not n:
+            cid = str(it.get('id') or it.get('codigo') or '').strip()
+            n = (lookup_nombre_concepto or {}).get(cid, '')
+        if n and n not in nombres:
+            nombres.append(n)
+    return nombres
+
+
+def _concepto_display_reporte_caja(movimiento, lookup_nombre_concepto):
+    """Texto de concepto para reportes de caja (legible, sin JSON embebido)."""
+    import re
+
+    raw = (movimiento.concepto or '').strip()
+    if '|CONCEPTOS:' in raw:
+        raw = raw.split('|CONCEPTOS:', 1)[0].strip()
+
+    refs = _referencias_movimiento_en_concepto(raw)
+    nombres = _nombres_conceptos_movimiento_reporte(movimiento, lookup_nombre_concepto)
+    if nombres:
+        cuerpo = ' + '.join(nombres)
+        if refs:
+            pref = refs[0]
+            if pref.lower() not in cuerpo.lower():
+                return f'{pref} — {cuerpo}'[:220]
+        return cuerpo[:220]
+
+    l1 = (getattr(movimiento, 'listado_detalle_l1', None) or '').strip()
+    if l1 and l1 != '—' and '[{"' not in l1 and '{"id"' not in l1:
+        if refs and refs[0].lower() not in l1.lower():
+            return f'{refs[0]} — {l1}'[:220]
+        return l1[:220]
+
+    # Catálogo: id suelto o "nombre — detalle" del formulario de egreso
+    primer_token = raw.split(None, 1)[0] if raw else ''
+    nom_cat = (lookup_nombre_concepto or {}).get(raw) or (lookup_nombre_concepto or {}).get(primer_token)
+    if nom_cat:
+        primer_visual = _etiqueta_id_concepto_caja_visual(primer_token)
+        if raw == primer_token:
+            return f'{primer_visual} — {nom_cat}'[:220]
+        if nom_cat.lower() not in raw.lower():
+            return f'{raw} — {nom_cat}'[:220]
+        return raw[:220]
+
+    if raw.startswith('[{"') or raw.startswith('{"id"'):
+        return (refs[0] if refs else 'Cobro')[:220]
+
+    if re.search(r'Contrato\s*#\s*\d+\s*-\s*\[', raw, re.I):
+        return (refs[0] if refs else 'Cobro de contrato')[:220]
+
+    if raw == primer_token and primer_token:
+        return _etiqueta_id_concepto_caja_visual(primer_token)[:220]
+    return raw[:220] if raw else '—'
+
+
+def _propiedad_display_reporte_caja(movimiento):
+    """Dirección e ID de la propiedad vinculada al movimiento."""
+    try:
+        prop = getattr(movimiento, 'propiedad', None)
+    except Exception:
+        prop = None
+    if prop and getattr(movimiento, 'propiedad_id', None):
+        return _etiqueta_propiedad_liquidacion(prop)
+    l2 = (getattr(movimiento, 'listado_concepto_l2', None) or '').strip()
+    return l2 if l2 else '—'
+
+
 @login_required
 def reportes_caja(request):
     """
@@ -14013,23 +14102,11 @@ def reportes_caja(request):
     lookup_nombre_concepto = {c.id: c.nombre for c in conceptos_catalogo}
 
     movimientos_lista = list(qs[:2000])
+    MovimientoCaja.precargar_nombres_concepto(movimientos_lista, sucursal)
     for _m in movimientos_lista:
         _m.destino_etiqueta = etiqueta_destino(_m.destino_deposito)
-        raw = (_m.concepto or '').strip()
-        nom_cat = lookup_nombre_concepto.get(raw)
-        primer_token = raw.split(None, 1)[0] if raw else ''
-        primer_visual = _etiqueta_id_concepto_caja_visual(primer_token)
-        if not nom_cat and primer_token:
-            nom_cat = lookup_nombre_concepto.get(primer_token)
-        if nom_cat:
-            if raw == primer_token:
-                _m.concepto_display = f'{primer_visual} — {nom_cat}'
-            elif nom_cat.lower() not in raw.lower():
-                _m.concepto_display = f'{raw} — {nom_cat}'
-            else:
-                _m.concepto_display = raw
-        else:
-            _m.concepto_display = primer_visual if raw == primer_token else raw
+        _m.concepto_display = _concepto_display_reporte_caja(_m, lookup_nombre_concepto)
+        _m.propiedad_display = _propiedad_display_reporte_caja(_m)
 
     def totales_por_tipo(queryset, tipo_code):
         sub = queryset.filter(tipo=tipo_code)
@@ -16672,7 +16749,22 @@ def _movimiento_json_conceptos_parsed(movimiento):
                 if conceptos_data:
                     parsed = {'conceptos': conceptos_data}
             else:
-                conceptos_data = []
+                import re
+                m_json = re.search(
+                    r'(?:Contrato|Operaci[oó]n)\s*#?\s*\d+\s*-\s*(\[.*)$',
+                    concepto_raw,
+                    re.I | re.S,
+                )
+                if m_json:
+                    try:
+                        embebido = json.loads(m_json.group(1).rstrip('.'))
+                        if isinstance(embebido, list):
+                            conceptos_data = embebido
+                            parsed = embebido
+                    except (json.JSONDecodeError, ValueError, TypeError):
+                        pass
+                if not conceptos_data:
+                    conceptos_data = []
         except (json.JSONDecodeError, ValueError, TypeError):
             conceptos_data = []
     if not isinstance(conceptos_data, list):
