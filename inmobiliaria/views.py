@@ -14331,29 +14331,33 @@ def buscar_movimiento(request):
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Método no permitido'})
 
-    from inmobiliaria.caja_buscar_operacion import buscar_operacion_caja
+    from inmobiliaria.caja_buscar_operacion import buscar_operacion_caja, parse_numero_operacion_caja
 
     operacion_raw = (request.POST.get('operacion') or '').strip()
     sucursal = request.user.sucursal
     tipo_comprobante = (request.POST.get('tipo_comprobante') or '').strip()
+    tipo_operacion_post = (request.POST.get('tipo_operacion') or '').strip().lower()
 
     if not operacion_raw:
         return JsonResponse({'success': False, 'error': 'Ingrese un número de operación'})
 
-    if not operacion_raw.isdigit():
-        return JsonResponse({
-            'success': False,
-            'error': 'El N° de operación debe ser numérico (ej. 1782).',
-        })
+    pk, tipo_parseado, parse_err = parse_numero_operacion_caja(operacion_raw)
+    if parse_err:
+        return JsonResponse({'success': False, 'error': parse_err})
+
+    tipo_operacion = tipo_operacion_post or tipo_parseado or ''
 
     try:
         payload, err = buscar_operacion_caja(
             sucursal,
-            int(operacion_raw),
+            int(pk),
             tipo_comprobante_hint=tipo_comprobante,
+            tipo_operacion_hint=tipo_operacion,
         )
         if err:
             return JsonResponse({'success': False, 'error': err})
+        if payload and payload.get('ambiguo'):
+            return JsonResponse(payload)
         return JsonResponse(payload)
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})

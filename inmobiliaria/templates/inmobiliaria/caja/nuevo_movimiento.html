@@ -124,7 +124,7 @@
                                 <i class="fas fa-search"></i>
                             </button>
                         </div>
-                        <small class="text-muted">Reserva, contrato o liquidación — carga todos los datos.</small>
+                        <small class="text-muted">Reserva, contrato o liquidación. Si el mismo N° es por día y mensual: <strong>C300</strong> (contrato) o <strong>R300</strong> (reserva).</small>
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">N° Comprobante</label>
@@ -703,6 +703,22 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: mismo número en reserva y contrato -->
+<div class="modal fade" id="modalElegirOperacion" tabindex="-1" aria-labelledby="modalElegirOperacionLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalElegirOperacionLabel">Elegir operación</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body" id="modal_elegir_operacion_body"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
             </div>
         </div>
     </div>
@@ -2005,23 +2021,52 @@ $(document).ready(function() {
 
     $('#btn_limpiar_operacion').on('click', limpiarOperacionReserva);
 
-    // Búsqueda de operación (reserva, contrato o liquidación)
-    $('#btn_buscar_operacion').click(function() {
-        var operacion = $('#buscar_operacion_num').val();
-        if (!operacion) {
+    function mostrarElegirOperacionAmbigua(response) {
+        var lista = response.candidatos || [];
+        var html = '<p class="mb-3">' + (response.mensaje || 'Elegí la operación correcta.') + '</p><div class="list-group">';
+        lista.forEach(function(c) {
+            var fechas = '';
+            if (c.fecha_desde) {
+                fechas = c.fecha_desde.split('-').reverse().join('/');
+                if (c.fecha_hasta) {
+                    fechas += ' al ' + c.fecha_hasta.split('-').reverse().join('/');
+                }
+            }
+            html += '<button type="button" class="list-group-item list-group-item-action elegir-op-ambigua"'
+                + ' data-tipo="' + (c.tipo || '') + '" data-id="' + (c.id || '') + '">'
+                + '<strong>' + (c.tipo_label || c.tipo) + ' #' + c.id + '</strong>'
+                + (c.cliente ? ' <span class="text-muted">— ' + c.cliente + '</span>' : '')
+                + '<br><small class="text-muted">' + (c.propiedad || '—')
+                + (fechas ? ' · ' + fechas : '') + '</small>'
+                + '</button>';
+        });
+        html += '</div>';
+        $('#modal_elegir_operacion_body').html(html);
+        showBsModal('modalElegirOperacion');
+    }
+
+    function buscarOperacionCaja(numero, tipoOperacion) {
+        if (!numero) {
             alert('Ingrese un número de operación');
             return;
         }
-
+        var data = {
+            operacion: String(numero),
+            tipo_comprobante: $('select[name="tipo_comprobante"]').val(),
+            csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
+        };
+        if (tipoOperacion) {
+            data.tipo_operacion = tipoOperacion;
+        }
         $.ajax({
             url: '{% url "inmobiliaria:buscar_movimiento" %}',
-            data: {
-                operacion: operacion,
-                tipo_comprobante: $('select[name="tipo_comprobante"]').val(),
-                csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
-            },
+            data: data,
             method: 'POST',
             success: function(response) {
+                if (response.ambiguo) {
+                    mostrarElegirOperacionAmbigua(response);
+                    return;
+                }
                 if (response.success && (response.operacion || response.movimiento)) {
                     aplicarDatosOperacionReserva(response.movimiento || {}, response.operacion);
                 } else {
@@ -2033,6 +2078,19 @@ $(document).ready(function() {
                 alert('Error al buscar la operación');
             }
         });
+    }
+
+    $(document).on('click', '.elegir-op-ambigua', function() {
+        var tipo = $(this).data('tipo');
+        var id = $(this).data('id');
+        hideBsModal('modalElegirOperacion');
+        $('#buscar_operacion_num').val(String(id));
+        buscarOperacionCaja(id, tipo);
+    });
+
+    // Búsqueda de operación (reserva, contrato o liquidación)
+    $('#btn_buscar_operacion').click(function() {
+        buscarOperacionCaja($('#buscar_operacion_num').val(), '');
     });
 
     $('#buscar_operacion_num').on('keydown', function(e) {

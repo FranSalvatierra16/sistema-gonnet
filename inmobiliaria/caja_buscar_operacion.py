@@ -1,6 +1,7 @@
 """Búsqueda unificada de operaciones desde Nuevo movimiento de caja."""
 from __future__ import annotations
 
+import re
 from decimal import Decimal
 
 from inmobiliaria.caja_devolucion_deposito import (
@@ -8,6 +9,83 @@ from inmobiliaria.caja_devolucion_deposito import (
     datos_operacion_reserva_caja,
 )
 from inmobiliaria.models.caja import MovimientoCaja, TipoMovimientoCajaEnum
+
+_PREFIJO_TIPO_OPERACION = {
+    'c': 'contrato',
+    'contrato': 'contrato',
+    'contr': 'contrato',
+    'r': 'reserva',
+    'reserva': 'reserva',
+    'res': 'reserva',
+    'l': 'liquidacion',
+    'liquidacion': 'liquidacion',
+    'liq': 'liquidacion',
+}
+
+
+def _normalizar_prefijo_tipo_operacion(pref: str) -> str | None:
+    p = (pref or '').strip().lower()
+    return _PREFIJO_TIPO_OPERACION.get(p)
+
+
+def parse_numero_operacion_caja(raw: str) -> tuple[int | None, str | None, str | None]:
+    """
+    Interpreta el campo N° operación de caja.
+    Devuelve (pk, tipo_hint, error). tipo_hint: reserva | contrato | liquidacion | None.
+
+    Ejemplos: 300 | C300 | c-300 | contrato:300 | 300R | R300
+    """
+    s = (raw or '').strip()
+    if not s:
+        return None, None, 'Ingrese un número de operación'
+
+    m = re.match(
+        r'^(?P<pref>contrato|reserva|liquidacion|contr|res|liq|[crl])'
+        r'\s*[:\-\#]?\s*(?P<num>\d+)$',
+        s,
+        re.IGNORECASE,
+    )
+    if m:
+        tipo = _normalizar_prefijo_tipo_operacion(m.group('pref'))
+        if tipo:
+            return int(m.group('num')), tipo, None
+
+    m = re.match(
+        r'^(?P<num>\d+)\s*(?P<pref>contrato|reserva|liquidacion|contr|res|liq|[crl])$',
+        s,
+        re.IGNORECASE,
+    )
+    if m:
+        tipo = _normalizar_prefijo_tipo_operacion(m.group('pref'))
+        if tipo:
+            return int(m.group('num')), tipo, None
+
+    if s.isdigit():
+        return int(s), None, None
+
+    return None, None, (
+        'Formato inválido. Usá el número (ej. 300) o un prefijo: '
+        'C300 = contrato, R300 = reserva, L300 = liquidación.'
+    )
+
+
+def _resumen_candidato_operacion_caja(tipo: str, obj) -> dict:
+    if tipo == 'reserva':
+        op = _enriquecer_reserva(datos_operacion_reserva_caja(obj))
+    elif tipo == 'contrato':
+        op = datos_operacion_contrato_caja(obj)
+    else:
+        op = datos_operacion_liquidacion_caja(obj)
+    prop = op.get('propiedad') or {}
+    return {
+        'tipo': tipo,
+        'id': op.get('id'),
+        'tipo_label': op.get('tipo_label') or tipo,
+        'cliente': op.get('cliente') or op.get('propietario') or '',
+        'propiedad': prop.get('direccion') or '',
+        'fecha_desde': op.get('fecha_desde') or '',
+        'fecha_hasta': op.get('fecha_hasta') or '',
+    }
 
 
 def _cliente_reserva(reserva) -> str:
@@ -197,16 +275,26 @@ def _enriquecer_reserva(op: dict) -> dict:
     return op
 
 
-def buscar_operacion_caja(sucursal, numero: int, *, tipo_comprobante_hint: str = '') -> tuple[dict | None, str | None]:
+def buscar_operacion_caja(
+    sucursal,
+    numero: int,
+    *,
+    tipo_comprobante_hint: str = '',
+    tipo_operacion_hint: str = '',
+) -> tuple[dict | None, str | None]:
     """
     Busca reserva, contrato o liquidación por número en la sucursal.
     Devuelve (payload_json_ready, error_msg).
+
+    Si el mismo número existe como reserva y contrato, devuelve payload con
+    ``ambiguo: True`` y la lista ``candidatos`` para que el usuario elija.
+  Usá tipo_operacion_hint o prefijos C300 / R300 / L300 para forzar el tipo.
     """
     from inmobiliaria.models import ContratoAlquiler, Reserva
     from inmobiliaria.models.liquidacion import LiquidacionPropietario
 
     pk = int(numero)
-    hint = (tipo_comprobante_hint or '').strip().lower()
+    tipo_op = (tipo_operacion_hint or '').strip().lower()
     candidatos: list[tuple[str, object]] = []
 
     reserva = (
@@ -238,24 +326,36 @@ def buscar_operacion_caja(sucursal, numero: int, *, tipo_comprobante_hint: str =
     if not candidatos:
         return None, f'No se encontró operación, contrato ni liquidación #{pk} en esta sucursal.'
 
-    orden_hint = {
-        'liquidacion': ['liquidacion', 'reserva', 'contrato'],
-        'recibo': ['reserva', 'contrato', 'liquidacion'],
-        'otro': ['reserva', 'contrato', 'liquidacion'],
-    }
-    preferidos = orden_hint.get(hint, ['reserva', 'contrato', 'liquidacion'])
-    elegido = None
-    for pref in preferidos:
-        for tipo, obj in candidatos:
-            if tipo == pref:
-                elegido = (tipo, obj)
-                break
-        if elegido:
-            break
-    if not elegido:
-        elegido = candidatos[0]
+    if tipo_op in ('reserva', 'contrato', 'liquidacion'):
+        filtrados = [(t, o) for t, o in candidatos if t == tipo_op]
+        if filtrados:
+            candidatos = filtrados
+        else:
+            otros = ', '.join(t for t, _ in candidatos)
+            return None, (
+                f'No hay {tipo_op} #{pk} en esta sucursal '
+                f'(pero sí existe como: {otros}). Probá otro prefijo (C / R / L).'
+            )
 
-    tipo, obj = elegido
+    if len(candidatos) > 1:
+        labels = {
+            'reserva': 'reserva (por día)',
+            'contrato': 'contrato (mensual)',
+            'liquidacion': 'liquidación',
+        }
+        tipos_txt = ' y '.join(labels.get(t, t) for t, _ in candidatos)
+        return {
+            'success': False,
+            'ambiguo': True,
+            'numero': pk,
+            'mensaje': (
+                f'El número {pk} existe como {tipos_txt}. '
+                f'Elegí cuál usar o buscá con prefijo (C{pk} = contrato, R{pk} = reserva).'
+            ),
+            'candidatos': [_resumen_candidato_operacion_caja(t, o) for t, o in candidatos],
+        }, None
+
+    tipo, obj = candidatos[0]
     if tipo == 'reserva':
         operacion = _enriquecer_reserva(datos_operacion_reserva_caja(obj))
     elif tipo == 'contrato':
@@ -301,11 +401,14 @@ def _movimiento_desde_operacion(operacion: dict, concepto_dev: dict) -> dict:
             )},
         }
 
-    detalle = f'Operación #{oid}'
+    if tipo_op == 'contrato':
+        detalle = f'Contrato #{oid}'
+    else:
+        detalle = f'Operación #{oid}'
     if cliente:
         detalle += f' — {cliente}'
     if tipo_op == 'contrato':
-        detalle += f' — Contrato {operacion.get("duracion_meses") or ""} meses'.replace('  meses', ' meses')
+        detalle += f' — {operacion.get("duracion_meses") or ""} meses'.replace('  meses', ' meses')
     return {
         'tipo': 'EG',
         'tipo_comprobante': 'OT',
