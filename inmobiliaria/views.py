@@ -2308,6 +2308,37 @@ def inquilino_eliminar(request, inquilino_id):
     return render(request, 'inmobiliaria/inquilinos/confirmar_eliminar.html', {'inquilino': inquilino})
 
 # Propietario views
+def _propiedades_sucursales_por_propietario(propietario_ids):
+    """Desglose de propiedades por sucursal para cada propietario."""
+    if not propietario_ids:
+        return {}
+    rows = (
+        Propiedad.objects.filter(propietario_id__in=propietario_ids)
+        .values('propietario_id', 'sucursal__nombre')
+        .annotate(count=Count('id'))
+        .order_by('sucursal__nombre')
+    )
+    out = {}
+    for row in rows:
+        pid = row['propietario_id']
+        out.setdefault(pid, []).append({
+            'nombre': row['sucursal__nombre'] or 'Sin sucursal',
+            'count': row['count'],
+        })
+    return out
+
+
+def _enriquecer_propietarios_lista(propietarios_qs):
+    """Anota conteo de propiedades y desglose por sucursal."""
+    propietarios_list = list(
+        propietarios_qs.annotate(propiedades_count=Count('propiedades'))
+    )
+    sucursales_map = _propiedades_sucursales_por_propietario([p.id for p in propietarios_list])
+    for p in propietarios_list:
+        p.propiedades_por_sucursal = sucursales_map.get(p.id, [])
+    return propietarios_list
+
+
 @login_required
 def propietarios(request):
     form = PropietarioBuscarForm(request.GET or None)
@@ -2331,20 +2362,26 @@ def propietarios(request):
 
     # Detectar si la solicitud es AJAX
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        propietarios_list = _enriquecer_propietarios_lista(propietarios)
         propietarios_data = [{
             'id': p.id,
             'nombre': p.nombre,
             'apellido': p.apellido,
-            'dni': p.dni,
+            'dni': p.dni or '',
+            'email': p.email or '',
+            'celular': p.celular or '',
+            'localidad': p.localidad or '',
             'cuenta_bancaria': p.cuenta_bancaria if hasattr(p, 'cuenta_bancaria') else '',
-            'sucursal': p.sucursal.nombre  # Agregar el nombre de la sucursal si lo necesitas en la respuesta
-        } for p in propietarios]
+            'sucursal': p.sucursal.nombre,
+            'propiedades_count': p.propiedades_count,
+            'propiedades_por_sucursal': p.propiedades_por_sucursal,
+        } for p in propietarios_list]
         return JsonResponse({'propietarios': propietarios_data})
 
     # Retornar la plantilla completa si no es AJAX
     context = {
         'form': form,
-        'propietarios': propietarios,
+        'propietarios': _enriquecer_propietarios_lista(propietarios),
         'sucursal_actual': request.user.sucursal.nombre if not request.user.is_superuser else 'Todas las sucursales'
     }
     

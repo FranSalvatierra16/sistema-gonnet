@@ -133,7 +133,16 @@
                                            title="Ver propiedades"
                                            style="display: block; width: 100%; padding: 15px;">
                                             <i class="fas fa-home me-1"></i>
-                                            {{ propietario.propiedades.count|default:0 }} propiedad{{ propietario.propiedades.count|pluralize:"es" }}
+                                            {{ propietario.propiedades_count|default:0 }} propiedad{{ propietario.propiedades_count|pluralize:"es" }}
+                                            {% if propietario.propiedades_por_sucursal %}
+                                            <div class="propiedades-sucursales mt-1">
+                                                {% for s in propietario.propiedades_por_sucursal %}
+                                                <small class="text-muted d-block">
+                                                    <i class="fas fa-store me-1"></i>{{ s.nombre }}: {{ s.count }}
+                                                </small>
+                                                {% endfor %}
+                                            </div>
+                                            {% endif %}
                                         </a>
                                     </td>
                                     <td class="no-click">
@@ -210,6 +219,16 @@ $(document).ready(function() {
         });
     }
 
+    function formatPropiedadesSucursales(propietario) {
+        if (!propietario.propiedades_por_sucursal || !propietario.propiedades_por_sucursal.length) {
+            return '';
+        }
+        return propietario.propiedades_por_sucursal.map(function(s) {
+            return '<small class="text-muted d-block"><i class="fas fa-store me-1"></i>' +
+                s.nombre + ': ' + s.count + '</small>';
+        }).join('');
+    }
+
     function updateTable(propietarios) {
         var tbody = $('#propietarios-body');
         tbody.empty();
@@ -265,6 +284,8 @@ $(document).ready(function() {
                            style="display: block; width: 100%; padding: 15px;">
                             <i class="fas fa-home me-1"></i>
                             ${propietario.propiedades_count || 0} propiedad${(propietario.propiedades_count || 0) !== 1 ? 'es' : ''}
+                            ${propietario.propiedades_por_sucursal && propietario.propiedades_por_sucursal.length ?
+                                '<div class="propiedades-sucursales mt-1">' + formatPropiedadesSucursales(propietario) + '</div>' : ''}
                         </a>
                     </td>
                     <td class="no-click">
