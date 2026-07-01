@@ -2439,6 +2439,17 @@ def propietarios(request):
     
     return render(request, 'inmobiliaria/propietarios/lista.html', context)
 
+def _mensajes_sucursales_propietario(request, form):
+    omitidas = getattr(form, '_sucursales_no_desvinculadas', None) or []
+    if omitidas:
+        messages.warning(
+            request,
+            'No se quitó la ficha en '
+            + ', '.join(omitidas)
+            + ' porque tiene propiedades asociadas.',
+        )
+
+
 @login_required
 def propietario_detalle(request, propietario_id):
     propietario = get_propietario_accesible(request, propietario_id)
@@ -2446,12 +2457,14 @@ def propietario_detalle(request, propietario_id):
         form = PropietarioForm(request.POST, instance=propietario, user=request.user)
         if form.is_valid():
             form.save()
+            _mensajes_sucursales_propietario(request, form)
             messages.success(request, 'Propietario actualizado exitosamente.')
             return redirect('inmobiliaria:propietario_detalle', propietario_id=propietario.id)
     else:
         form = PropietarioForm(instance=propietario, user=request.user)
 
     propiedades_count = Propiedad.objects.filter(propietario=propietario).count()
+    from inmobiliaria.propietario_sucursales import nombres_sucursales_vinculadas
     return render(
         request,
         'inmobiliaria/propietarios/detalle.html',
@@ -2459,6 +2472,7 @@ def propietario_detalle(request, propietario_id):
             'propietario': propietario,
             'form': form,
             'propiedades_count': propiedades_count,
+            'sucursales_vinculadas': nombres_sucursales_vinculadas(propietario),
         },
     )
 
@@ -2468,6 +2482,7 @@ def propietario_nuevo(request):
         form = PropietarioForm(request.POST, user=request.user)
         if form.is_valid():
             propietario = form.save()
+            _mensajes_sucursales_propietario(request, form)
             messages.success(request, 'Propietario creado exitosamente.')
             return redirect('inmobiliaria:propietario_detalle', propietario_id=propietario.id)
     else:
@@ -2476,15 +2491,16 @@ def propietario_nuevo(request):
 
 @login_required
 def propietario_editar(request, propietario_id):
-    propietario = get_object_or_404(Propietario, pk=propietario_id)
+    propietario = get_propietario_accesible(request, propietario_id)
     if request.method == "POST":
-        form = PropietarioForm(request.POST, instance=propietario)
+        form = PropietarioForm(request.POST, instance=propietario, user=request.user)
         if form.is_valid():
             propietario = form.save()
+            _mensajes_sucursales_propietario(request, form)
             messages.success(request, 'Propietario actualizado exitosamente.')
             return redirect('inmobiliaria:propietario_detalle', propietario_id=propietario.id)
     else:
-        form = PropietarioForm(instance=propietario)
+        form = PropietarioForm(instance=propietario, user=request.user)
     return render(request, 'inmobiliaria/propietarios/formulario.html', {'form': form, 'propietario': propietario})
 
 @login_required

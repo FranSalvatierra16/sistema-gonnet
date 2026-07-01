@@ -46,6 +46,17 @@
                         </div>
                         <div class="col-md-12">
                             <div class="info-box">
+                                <strong>Sucursal{% if sucursales_vinculadas|length > 1 %}es{% endif %}:</strong>
+                                {% if sucursales_vinculadas %}
+                                {{ sucursales_vinculadas|join:", " }}
+                                <span class="text-muted small">(ficha actual: {{ propietario.sucursal.nombre }})</span>
+                                {% else %}
+                                {{ propietario.sucursal.nombre }}
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-12">
+                            <div class="info-box">
                                 <strong>Datos bancarios:</strong>
                                 {% if propietario.cuenta_banco or propietario.cuenta_titular or propietario.cuenta_cbu_alias or propietario.cuenta_numero %}
                                 <ul class="mb-0 mt-2 small">
@@ -156,6 +167,18 @@
                                     <label for="id_observaciones" class="form-label">Observaciones</label>
                                     {{ form.observaciones }}
                                 </div>
+                                {% if form.sucursales %}
+                                <div class="col-md-12">
+                                    <label class="form-label">Sucursales</label>
+                                    <div class="border rounded p-3 bg-light">
+                                        {{ form.sucursales }}
+                                    </div>
+                                    {% if form.sucursales.help_text %}
+                                    <small class="text-muted d-block mt-1">{{ form.sucursales.help_text }}</small>
+                                    {% endif %}
+                                    {{ form.sucursales.errors }}
+                                </div>
+                                {% endif %}
                             </div>
                             <div class="text-center mt-4">
                                 <button type="submit" class="btn btn-success px-4">
@@ -183,6 +206,14 @@
     border: 1px solid #e9ecef;
     border-radius: 8px;
     padding: 10px 12px;
+}
+#panelEditarPropietario ul {
+    list-style: none;
+    padding-left: 0;
+    margin-bottom: 0;
+}
+#panelEditarPropietario ul li {
+    margin-bottom: 0.35rem;
 }
 </style>
 {% endblock %}

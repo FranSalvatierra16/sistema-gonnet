@@ -203,6 +203,13 @@ class InquilinoForm(forms.ModelForm):
 
 # Formulario de Propietario
 class PropietarioForm(forms.ModelForm):
+    sucursales = forms.MultipleChoiceField(
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+        label='Sucursales',
+        help_text='Marcá en qué sucursales tiene ficha este propietario.',
+    )
+
     class Meta:
         model = Propietario
         fields = ['nombre', 'apellido', 'fecha_nacimiento', 'email', 'celular', 
@@ -229,6 +236,27 @@ class PropietarioForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop('user', None)
         super(PropietarioForm, self).__init__(*args, **kwargs)
+
+        from inmobiliaria.propietario_sucursales import (
+            get_sucursales_colon_corrientes,
+            puede_gestionar_sucursales_propietario,
+            propietario_sucursales_vinculadas,
+        )
+
+        self._gestiona_sucursales = bool(
+            self.user and puede_gestionar_sucursales_propietario(self.user)
+        )
+        if self._gestiona_sucursales:
+            sucursales_qs = get_sucursales_colon_corrientes()
+            self.fields['sucursales'].choices = [(str(s.id), s.nombre) for s in sucursales_qs]
+            if self.instance and self.instance.pk:
+                vinculadas = propietario_sucursales_vinculadas(self.instance)
+                self.fields['sucursales'].initial = [str(sid) for sid in vinculadas]
+            elif self.user and getattr(self.user, 'sucursal_id', None):
+                self.fields['sucursales'].initial = [str(self.user.sucursal_id)]
+            self.fields['sucursales'].required = True
+        else:
+            del self.fields['sucursales']
         
         # Marcar campos requeridos
         self.fields['nombre'].required = True
@@ -247,14 +275,51 @@ class PropietarioForm(forms.ModelForm):
             self.fields[field].widget.attrs.update({
                 'class': 'form-control'
             })
+        if 'sucursales' in self.fields:
+            self.fields['sucursales'].widget.attrs.pop('class', None)
+
+    def clean_sucursales(self):
+        if 'sucursales' not in self.fields:
+            return []
+        sucursales = self.cleaned_data.get('sucursales') or []
+        if not sucursales:
+            raise forms.ValidationError('Seleccioná al menos una sucursal.')
+        if self.instance and self.instance.pk and self.instance.sucursal_id:
+            if str(self.instance.sucursal_id) not in sucursales:
+                nombre = getattr(self.instance.sucursal, 'nombre', 'esta sucursal')
+                raise forms.ValidationError(
+                    f'La ficha que estás editando pertenece a {nombre}; esa sucursal debe permanecer marcada.'
+                )
+        return sucursales
 
     def save(self, commit=True):
+        from inmobiliaria.propietario_sucursales import (
+            desvincular_sucursales_no_seleccionadas,
+            sincronizar_propietario_en_sucursales,
+        )
+
         propietario = super(PropietarioForm, self).save(commit=False)
-        
+        sucursales_sel = self.cleaned_data.get('sucursales') or []
+        self._sucursales_no_desvinculadas = []
+
         if self.user:
-            propietario.sucursal = self.user.sucursal  # Asigna la sucursal del vendedor
+            if self._gestiona_sucursales and sucursales_sel:
+                sucursal_ids = {int(sid) for sid in sucursales_sel}
+                if not propietario.pk or not propietario.sucursal_id:
+                    if self.user.sucursal_id in sucursal_ids:
+                        propietario.sucursal_id = self.user.sucursal_id
+                    else:
+                        propietario.sucursal_id = sorted(sucursal_ids)[0]
+            elif not propietario.sucursal_id:
+                propietario.sucursal = self.user.sucursal
+
         if commit:
             propietario.save()
+            if self._gestiona_sucursales and sucursales_sel:
+                sincronizar_propietario_en_sucursales(propietario, sucursales_sel)
+                self._sucursales_no_desvinculadas = desvincular_sucursales_no_seleccionadas(
+                    propietario, sucursales_sel
+                )
         return propietario
 class MultipleFileInput(forms.ClearableFileInput):
     allow_multiple_selected = True

@@ -231,6 +231,26 @@
                     </div>
                 </div>
 
+                {% if form.sucursales %}
+                <div class="card shadow-modern border-radius-modern mb-4">
+                    <div class="card-header" style="background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%); color: #333;">
+                        <h4 class="mb-0">
+                            <i class="fas fa-store me-2"></i>Sucursales
+                        </h4>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted small mb-3">Indicá en qué sucursales opera este propietario. Si marcás más de una, se crea o actualiza la ficha en cada una con los mismos datos.</p>
+                        <div class="border rounded p-3 bg-light">
+                            {{ form.sucursales }}
+                        </div>
+                        {% if form.sucursales.help_text %}
+                        <small class="form-text text-muted d-block mt-2">{{ form.sucursales.help_text }}</small>
+                        {% endif %}
+                        {{ form.sucursales.errors }}
+                    </div>
+                </div>
+                {% endif %}
+
                 <!-- Botones de Acción -->
                 <div class="card shadow-modern border-radius-modern">
                     <div class="card-body text-center py-4">
