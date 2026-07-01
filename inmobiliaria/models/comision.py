@@ -619,38 +619,37 @@ def cambiar_productor_contrato(
     return True, None
 
 
+def _filtro_caratula_confirmada_comision():
+    """Comisiones visibles/acreditables solo si la carátula de la operación está confirmada."""
+    from django.db.models import Q
+
+    return (
+        Q(reserva__isnull=True, contrato__isnull=True)
+        | Q(reserva__estado_confirmacion_caratula='confirmada')
+        | Q(contrato__estado_confirmacion_caratula='confirmada')
+    )
+
+
 class ComisionVendedorQuerySet(models.QuerySet):
     """
     Comisiones que deben sumar en totales: no anuladas y cuya reserva sigue vigente.
     """
 
     def que_suman(self):
-        """
-        Comisiones que cuentan en totales: confirmadas/pagadas, o pendientes cuya
-        fecha de acreditación (fecha_operacion) ya llegó (sin depender de confirmar la carátula).
-        """
-        from django.db.models import Q
-        from django.utils import timezone
-
-        hoy = timezone.localdate()
+        """Comisiones acreditadas o pagadas (carátula confirmada al acreditar)."""
         return (
-            self.filter(
-                Q(estado__in=('confirmada', 'pagada'))
-                | Q(
-                    estado='pendiente',
-                    fecha_operacion__isnull=False,
-                    fecha_operacion__date__lte=hoy,
-                )
-            )
+            self.filter(estado__in=('confirmada', 'pagada'))
+            .filter(_filtro_caratula_confirmada_comision())
             .exclude(reserva__estado='cancelada')
             .exclude(reserva__eliminada=True)
             .exclude(contrato__estado='rescindido')
         )
 
     def visibles_en_historial(self):
-        """Comisiones que se listan en el historial del vendedor (incluye pendientes de contrato)."""
+        """Historial: solo operaciones con carátula confirmada (o sin vínculo reserva/contrato)."""
         return (
             self.filter(estado__in=('pendiente', 'confirmada', 'pagada'))
+            .filter(_filtro_caratula_confirmada_comision())
             .exclude(reserva__estado='cancelada')
             .exclude(reserva__eliminada=True)
             .exclude(contrato__estado='rescindido')
@@ -1111,10 +1110,30 @@ def _reserva_ids_desde_liquidacion(liquidacion):
     return ids
 
 
+def acreditar_comisiones_operacion_por_caratula(reserva=None, contrato=None):
+    """
+    Tras confirmar la carátula: acredita comisiones pendientes cuya fecha ya llegó.
+    """
+    from django.utils import timezone
+
+    if not reserva and not contrato:
+        return 0
+    hoy = timezone.localdate()
+    qs = ComisionVendedor.objects.filter(
+        estado='pendiente',
+        fecha_operacion__isnull=False,
+        fecha_operacion__date__lte=hoy,
+    ).exclude(estado='cancelada')
+    if reserva:
+        qs = qs.filter(reserva=reserva)
+    else:
+        qs = qs.filter(contrato=contrato)
+    return qs.update(estado='confirmada')
+
+
 def acreditar_comisiones_por_fecha_vencida(sucursal=None):
     """
-    Marca como confirmadas las comisiones pendientes cuya fecha de acreditación ya pasó.
-    No requiere confirmar la operación en la carátula.
+    Acredita comisiones pendientes con fecha vencida solo si la carátula ya está confirmada.
     """
     from django.utils import timezone
 
@@ -1123,9 +1142,9 @@ def acreditar_comisiones_por_fecha_vencida(sucursal=None):
         estado='pendiente',
         fecha_operacion__isnull=False,
         fecha_operacion__date__lte=hoy,
-    ).exclude(reserva__estado='cancelada').exclude(reserva__eliminada=True).exclude(
-        contrato__estado='rescindido'
-    )
+    ).filter(_filtro_caratula_confirmada_comision()).exclude(
+        reserva__estado='cancelada'
+    ).exclude(reserva__eliminada=True).exclude(contrato__estado='rescindido')
     if sucursal is not None:
         qs = qs.filter(vendedor__sucursal=sucursal)
     return qs.update(estado='confirmada')

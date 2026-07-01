@@ -669,7 +669,10 @@ def resumen_comisiones_mensual(request, vendedor_id, anio=None, mes=None):
 
 def _build_vendedores_dashboard_data(sucursal):
     """Totales de comisiones y vales por productor activo de la sucursal."""
-    from inmobiliaria.models.comision import acreditar_comisiones_por_fecha_vencida
+    from inmobiliaria.models.comision import (
+        acreditar_comisiones_por_fecha_vencida,
+        _filtro_caratula_confirmada_comision,
+    )
     from inmobiliaria.models.vale import TipoBeneficiarioVale
     from django.db.models import Q
     from django.utils import timezone
@@ -693,6 +696,8 @@ def _build_vendedores_dashboard_data(sucursal):
         comisiones_pendientes = ComisionVendedor.objects.filter(
             vendedor=vendedor,
             estado='pendiente',
+        ).filter(
+            _filtro_caratula_confirmada_comision()
         ).filter(
             Q(fecha_operacion__isnull=True) | Q(fecha_operacion__date__gt=hoy)
         ).count()

@@ -482,6 +482,9 @@ def _procesar_confirmar_operacion_caratula(request, reserva=None, contrato=None)
         return True
     obj.estado_confirmacion_caratula = 'confirmada'
     obj.save(update_fields=['estado_confirmacion_caratula'])
+    from inmobiliaria.models.comision import acreditar_comisiones_operacion_por_caratula
+
+    acreditar_comisiones_operacion_por_caratula(reserva=reserva, contrato=contrato)
     messages.success(request, 'Operación marcada como confirmada.')
     return True
 
