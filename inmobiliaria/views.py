@@ -24332,17 +24332,19 @@ def _honorarios_cobrados_en_movimiento_contrato(mov) -> Decimal:
     from decimal import Decimal
 
     parsed, parsed_list = _movimiento_json_conceptos_parsed(mov)
-    sub = Decimal('0')
+    max_25 = Decimal('0')
     for concepto in parsed_list:
         cid = str(concepto.get('id', concepto.get('codigo', ''))).strip()
         if cid != '25':
             continue
         try:
-            sub += parse_decimal_monto(concepto.get('importe', 0))
+            v = parse_decimal_monto(concepto.get('importe', 0))
         except Exception:
-            pass
-    if sub > Decimal('0.05'):
-        return sub.quantize(Decimal('0.01'))
+            v = Decimal('0')
+        if v > max_25:
+            max_25 = v
+    if max_25 > Decimal('0.05'):
+        return max_25.quantize(Decimal('0.01'))
 
     parsed_dict = parsed if isinstance(parsed, dict) else None
     if isinstance(parsed_dict, dict) and parsed_dict.get('honorarios') is not None:
@@ -24362,18 +24364,53 @@ def _honorarios_cobrados_en_movimiento_contrato(mov) -> Decimal:
     return Decimal('0')
 
 
-def _honorarios_cobrados_contrato(contrato) -> Decimal:
-    """Suma honorarios cobrados en todos los movimientos del contrato."""
-    from decimal import Decimal
+def _movimientos_ingreso_operacion_principal_contrato(contrato, movimientos=None):
+    """Ingresos de caja del contrato, ordenados por fecha (operación principal)."""
+    import re
 
-    total = Decimal('0')
-    for mov in MovimientoCaja.objects.filter(
-        propiedad=contrato.propiedad,
-        sucursal=contrato.sucursal,
-        concepto__icontains=f'Contrato #{contrato.id}',
-    ).order_by('id'):
-        total += _honorarios_cobrados_en_movimiento_contrato(mov)
-    return total.quantize(Decimal('0.01'))
+    movs = list(movimientos or [])
+    if not movs and contrato and contrato.propiedad_id:
+        patron = re.compile(rf'Contrato\s*#\s*{int(contrato.id)}\b', re.IGNORECASE)
+        movs = [
+            m
+            for m in MovimientoCaja.objects.filter(
+                propiedad=contrato.propiedad,
+                sucursal=contrato.sucursal,
+                tipo=TipoMovimientoCajaEnum.INGRESO,
+            ).order_by('fecha', 'id')
+            if m.concepto and patron.search(m.concepto)
+        ]
+    else:
+        movs = sorted(movs, key=lambda x: (x.fecha, x.id))
+    return movs
+
+
+def _honorarios_operacion_principal_cobrados_contrato(contrato, movimientos=None) -> Decimal:
+    """
+    Honorarios (25) de la operación principal: un solo importe por contrato.
+    Si hay varios cobros con honorarios (p. ej. seña y saldo), no se suman para no duplicar.
+    """
+    mejor = Decimal('0')
+    for mov in _movimientos_ingreso_operacion_principal_contrato(contrato, movimientos):
+        h = _honorarios_cobrados_en_movimiento_contrato(mov)
+        if h > mejor:
+            mejor = h
+    return mejor.quantize(Decimal('0.01'))
+
+
+def _participacion_operacion_principal_cobrada_contrato(contrato, movimientos=None) -> Decimal:
+    """Participación locador (85) de la operación principal (mayor importe en un solo cobro)."""
+    mejor = Decimal('0')
+    for mov in _movimientos_ingreso_operacion_principal_contrato(contrato, movimientos):
+        p = _participacion_cobrada_en_movimiento_contrato(mov)
+        if p > mejor:
+            mejor = p
+    return mejor.quantize(Decimal('0.01'))
+
+
+def _honorarios_cobrados_contrato(contrato) -> Decimal:
+    """Honorarios cobrados en la operación principal del contrato."""
+    return _honorarios_operacion_principal_cobrados_contrato(contrato)
 
 
 def _participacion_cobrada_en_movimiento_contrato(mov) -> Decimal:
@@ -24392,15 +24429,8 @@ def _participacion_cobrada_en_movimiento_contrato(mov) -> Decimal:
 
 
 def _participacion_cobrada_contrato(contrato) -> Decimal:
-    """Suma participación (85) cobrada en movimientos del contrato."""
-    total = Decimal('0')
-    for mov in MovimientoCaja.objects.filter(
-        propiedad=contrato.propiedad,
-        sucursal=contrato.sucursal,
-        concepto__icontains=f'Contrato #{contrato.id}',
-    ).order_by('id'):
-        total += _participacion_cobrada_en_movimiento_contrato(mov)
-    return total.quantize(Decimal('0.01'))
+    """Participación (85) cobrada en la operación principal del contrato."""
+    return _participacion_operacion_principal_cobrada_contrato(contrato)
 
 
 def _comisiones_sugeridas_primera_cuota_contrato(contrato) -> dict:

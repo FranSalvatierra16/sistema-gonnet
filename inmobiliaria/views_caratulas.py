@@ -1604,26 +1604,17 @@ def _comisiones_cobradas_contrato(contrato, movimientos=None, liquidacion=None, 
     """Participación (85) y honorarios (25) de la operación principal del contrato."""
     from inmobiliaria.views import (
         _comisiones_sugeridas_primera_cuota_contrato,
-        _honorarios_cobrados_en_movimiento_contrato,
-        _participacion_cobrada_en_movimiento_contrato,
+        _honorarios_operacion_principal_cobrados_contrato,
+        _participacion_operacion_principal_cobrada_contrato,
     )
 
-    locador = Decimal('0')
-    locatario = Decimal('0')
     movs = list(movimientos or [])
-    if not movs and contrato.propiedad_id:
-        movs = [
-            m
-            for m in _movimientos_contrato_qs(contrato)[:300]
-            if m.tipo == TipoMovimientoCajaEnum.INGRESO
-            and m.concepto
-            and re.search(rf'Contrato\s*#\s*{contrato.id}\b', m.concepto, re.IGNORECASE)
-        ]
-    for mov in movs:
-        locador += _participacion_cobrada_en_movimiento_contrato(mov)
-        locatario += _honorarios_cobrados_en_movimiento_contrato(mov)
-    locador = locador.quantize(Decimal('0.01'))
-    locatario = locatario.quantize(Decimal('0.01'))
+    locador = _participacion_operacion_principal_cobrada_contrato(
+        contrato, movs if movs else None
+    )
+    locatario = _honorarios_operacion_principal_cobrados_contrato(
+        contrato, movs if movs else None
+    )
 
     if liquidacion is None:
         liquidacion = _liquidacion_contrato(contrato)
@@ -1633,7 +1624,13 @@ def _comisiones_cobradas_contrato(contrato, movimientos=None, liquidacion=None, 
         if liq_loc > Decimal('0.05'):
             locador = liq_loc.quantize(Decimal('0.01'))
         if liq_locat > Decimal('0.05'):
-            locatario = liq_locat.quantize(Decimal('0.01'))
+            if (
+                locatario > Decimal('0.05')
+                and abs(liq_locat - (locatario * 2)) <= Decimal('0.02')
+            ):
+                locatario = locatario.quantize(Decimal('0.01'))
+            else:
+                locatario = liq_locat.quantize(Decimal('0.01'))
     elif override:
         if override.get('comision_locador') is not None:
             locador = Decimal(str(override['comision_locador'])).quantize(Decimal('0.01'))
