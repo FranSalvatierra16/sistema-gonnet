@@ -308,6 +308,38 @@ def etiqueta_estado_reserva(reserva, senia: Decimal | None = None) -> str:
     return 'Operación (seña pagada)'
 
 
+def reserva_tiene_senia_cobrada(reserva) -> bool:
+    """True si hay seña u otro cobro de operación registrado en caja."""
+    senia_db = Decimal(str(getattr(reserva, 'senia', None) or 0))
+    if senia_db > Decimal('0.01'):
+        return True
+    return total_senia_pagada_reserva(reserva) > Decimal('0.01')
+
+
+def reserva_ocupa_sin_ofrecer_en_busqueda(reserva) -> bool:
+    """
+    Reserva pagada o con seña: no se ofrece en búsqueda (ni disponible ni «reservada sin pagar»).
+    """
+    if getattr(reserva, 'es_alquiler_sindicato', False):
+        return False
+    if (getattr(reserva, 'estado', None) or '').strip() == 'pagada':
+        return True
+    return reserva_tiene_senia_cobrada(reserva)
+
+
+def reserva_mostrar_como_reservada_sin_pagar(reserva) -> bool:
+    """Solo reservas confirmadas/en espera sin ningún cobro de seña."""
+    if getattr(reserva, 'es_alquiler_sindicato', False):
+        return False
+    if reserva_ocupa_sin_ofrecer_en_busqueda(reserva):
+        return False
+    return (getattr(reserva, 'estado', None) or '').strip() in (
+        'confirmada_no_pagada',
+        'en_espera',
+        'confirmada',
+    )
+
+
 def sincronizar_senia_reserva_desde_movimientos(reserva, *, persistir: bool = True) -> Decimal:
     """Recalcula seña, saldo y estado de la reserva desde ingresos de caja vinculados."""
     total = total_senia_pagada_reserva(reserva)

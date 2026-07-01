@@ -2142,6 +2142,25 @@ logger = logging.getLogger(__name__)
 CONCEPTOS_SENIA_OPERACION_RESERVA = frozenset({"1", "15", "50", "100", "103", "219"})
 
 
+def _reserva_sin_pagar_para_busqueda(reservas_bloquean):
+    """
+    Devuelve la reserva a mostrar como «reservada sin pagar», o None si la propiedad
+    está ocupada (pagada / seña cobrada) o no hay reserva pendiente de seña.
+    """
+    from inmobiliaria.caja_devolucion_deposito import (
+        reserva_mostrar_como_reservada_sin_pagar,
+        reserva_ocupa_sin_ofrecer_en_busqueda,
+    )
+
+    sin_pagar = None
+    for reserva in reservas_bloquean:
+        if reserva_ocupa_sin_ofrecer_en_busqueda(reserva):
+            return None
+        if sin_pagar is None and reserva_mostrar_como_reservada_sin_pagar(reserva):
+            sin_pagar = reserva
+    return sin_pagar
+
+
 def get_inquilinos_queryset_unificado(request):
     """Lista de inquilinos unificada: en Colón y Corrientes se muestran los de ambas sucursales; en el resto solo los de la sucursal del usuario."""
     nombre_suc = (getattr(request.user.sucursal, 'nombre', None) or '').lower()
@@ -4860,10 +4879,9 @@ def buscar_propiedades_reserva(request):
 
             reservas_bloquean = reservas.filter(es_alquiler_sindicato=False)
 
-            # Verificar si existe una reserva que debe mostrarse en rojo
-            reserva_confirmada_no_pagada = reservas_bloquean.filter(
-                Q(estado='confirmada_no_pagada') | Q(estado='confirmada') | Q(estado='en_espera')
-            ).first()
+            reserva_confirmada_no_pagada = _reserva_sin_pagar_para_busqueda(reservas_bloquean)
+            if reservas_bloquean.exists() and reserva_confirmada_no_pagada is None:
+                continue
 
             # Evaluar la disponibilidad y las reservas de la propiedad
             if disponibilidades.exists() and not reservas_bloquean.filter(estado='confirmada').exists():
@@ -8239,18 +8257,26 @@ def buscar_propiedades_estudiantes(request):
                     if precio_val > filtro_precio_max:
                         continue
                 disp_prop = disponibilidades.filter(propiedad=propiedad)
-                reserva_termina_en_inicio = propiedad.reservas.filter(
+                from inmobiliaria.caja_devolucion_deposito import reserva_mostrar_como_reservada_sin_pagar
+                reserva_termina_en_inicio = None
+                for r in propiedad.reservas.filter(
                     eliminada=False,
                     fecha_fin=fecha_desde,
-                    estado__in=['confirmada', 'confirmada_no_pagada', 'en_espera']
-                ).exclude(fecha_inicio=fecha_desde).first()
-                # ¿Tiene reserva activa que solapa con el rango? (para contar como reservada)
-                reserva_activa_rango = propiedad.reservas.filter(
+                    es_alquiler_sindicato=False,
+                ).exclude(fecha_inicio=fecha_desde):
+                    if reserva_mostrar_como_reservada_sin_pagar(r):
+                        reserva_termina_en_inicio = r
+                        break
+                reserva_activa_rango = False
+                for r in propiedad.reservas.filter(
                     eliminada=False,
-                    estado__in=['confirmada', 'confirmada_no_pagada', 'en_espera'],
                     fecha_inicio__lt=fecha_hasta,
-                    fecha_fin__gt=fecha_desde
-                ).exists()
+                    fecha_fin__gt=fecha_desde,
+                    es_alquiler_sindicato=False,
+                ):
+                    if reserva_mostrar_como_reservada_sin_pagar(r):
+                        reserva_activa_rango = True
+                        break
                 propiedades_encontradas.append({
                     'propiedad': propiedad,
                     'disponibilidades': disp_prop,
@@ -15000,33 +15026,10 @@ def buscar_propiedades(request):
 
             reservas_bloquean = reservas.filter(es_alquiler_sindicato=False)
 
-            # 🎯 DEBUGGING: Ver todas las reservas encontradas
-# print(f"🏠 Propiedad {propiedad.id} - Búsqueda: {fecha_inicio} al {fecha_fin}")
-# print(f"   Reservas encontradas: {reservas.count()}")
-            for r in reservas:
-                pass  # ✅ Bloque vacío
-# print(f"   - Reserva {r.id}: {r.fecha_inicio} al {r.fecha_fin}, estado='{r.estado}'")
-            
-            # Verificar si existe una reserva confirmada no pagada, confirmada o en espera
-            reserva_confirmada_no_pagada = reservas_bloquean.filter(
-                Q(estado='confirmada_no_pagada') | Q(estado='confirmada') | Q(estado='en_espera')
-            ).first()
-# print(f"   ¿Reserva para mostrar en rojo? {bool(reserva_confirmada_no_pagada)}")
-            if reserva_confirmada_no_pagada:
-                pass  # ✅ Bloque vacío
-# print(f"     → Estado: {reserva_confirmada_no_pagada.estado}")
-# print(f"     → Fechas: {reserva_confirmada_no_pagada.fecha_inicio} al {reserva_confirmada_no_pagada.fecha_fin}")
-# print(f"     → Precio: ${reserva_confirmada_no_pagada.precio_total}")
-            else:
-                pass  # ✅ Bloque vacío
-# print(f"     → No hay reservas confirmada_no_pagada/confirmada/en_espera en estas fechas")
+            reserva_confirmada_no_pagada = _reserva_sin_pagar_para_busqueda(reservas_bloquean)
+            if reservas_bloquean.exists() and reserva_confirmada_no_pagada is None:
+                continue
 
-            # ✅ CORREGIDO: Mostrar propiedades con reservas confirmada_no_pagada en las fechas buscadas
-            if reservas.exists():
-                for r in reservas:
-                    pass  # ✅ Bloque vacío
-# print(f"   Reserva {r.id}: {r.fecha_inicio} al {r.fecha_fin}, estado='{r.estado}'")
-            
             # Evaluar la disponibilidad y las reservas de la propiedad
             # 🎯 CORREGIDO: Manejar propiedades CON O SIN disponibilidades
             
@@ -15064,16 +15067,17 @@ def buscar_propiedades(request):
                 propiedad.estado_reserva = 'disponible'
                 
                 # Verificar si hay una reserva que termina exactamente en la fecha de inicio
-                # (para mostrar en amarillo) - SOLO si está en estado confirmada o confirmada_no_pagada
-                reserva_termina_en_inicio = propiedad.reservas.filter(
+                # (para mostrar en amarillo) - solo sin seña cobrada
+                from inmobiliaria.caja_devolucion_deposito import reserva_mostrar_como_reservada_sin_pagar
+                reserva_termina_en_inicio = None
+                for r in propiedad.reservas.filter(
                     eliminada=False,
                     fecha_fin=fecha_inicio,
-                    estado__in=['confirmada', 'confirmada_no_pagada', 'en_espera'],
                     es_alquiler_sindicato=False,
-                ).exclude(
-                    # Excluir reservas que también empiezan en fecha_inicio (esas están en el rango)
-                    fecha_inicio=fecha_inicio
-                ).first()
+                ).exclude(fecha_inicio=fecha_inicio):
+                    if reserva_mostrar_como_reservada_sin_pagar(r):
+                        reserva_termina_en_inicio = r
+                        break
                 
                 if reserva_termina_en_inicio:
                     propiedad.reserva_termina_en_inicio = reserva_termina_en_inicio
