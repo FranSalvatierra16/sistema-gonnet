@@ -13924,69 +13924,144 @@ def _etiqueta_id_concepto_caja_visual(cid):
     return s
 
 
-def _filtro_qs_por_buscar_concepto(qs, texto, conceptos_catalogo):
-    """
-    Un solo criterio de búsqueda por concepto.
-    Tolera '6', '6 - EXPENSAS', '6 — Expensas' (guiones - – —).
-    Si el movimiento solo guarda el id ('6'), coincide por catálogo aunque el usuario
-    haya elegido '6 - NOMBRE' en la lista (OR con búsqueda por frase completa).
-    """
+def _resolver_criterio_buscar_concepto(texto, conceptos_catalogo):
+    """Interpreta el texto del filtro (id, «id — nombre» del datalist, o nombre)."""
     texto = (texto or '').strip()
     if not texto:
-        return qs
+        return None
 
-    lookup_id = {c.id: c for c in conceptos_catalogo}
+    lookup_id = {str(c.id).strip(): c for c in conceptos_catalogo if str(c.id or '').strip()}
 
-    def q_por_id(cid, c_obj):
-        q = (
-            Q(concepto__iexact=cid)
-            | Q(concepto__istartswith=f'{cid} -')
-            | Q(concepto__istartswith=f'{cid}-')
-            | Q(concepto__istartswith=f'{cid} ')
-            | Q(concepto__icontains=f'Concepto {cid}')
-            | Q(concepto_detalle__icontains=cid)
-        )
-        if c_obj:
-            n = (c_obj.nombre or '').strip()
-            if len(n) >= 2:
-                q |= Q(concepto__icontains=n) | Q(concepto_detalle__icontains=n)
-        return q
-
-    q_full = Q(concepto__icontains=texto) | Q(concepto_detalle__icontains=texto)
-
-    # Solo números: id de catálogo si existe; si no, substring
-    if re.match(r'^\d+$', texto):
-        if texto in lookup_id:
-            return qs.filter(q_por_id(texto, lookup_id[texto]) | q_full)
-        return qs.filter(q_full)
-
-    # "6 - algo" / "6 — algo" (típico al elegir del datalist)
     m = re.match(r'^(\d+)\s*[-–—]\s*(.+)$', texto)
     if m:
-        cid = m.group(1)
-        c_obj = lookup_id.get(cid)
-        q_id = q_por_id(cid, c_obj)
-        return qs.filter(q_id | q_full)
+        return {'ids': {m.group(1).strip()}, 'nombre': m.group(2).strip()}
 
-    # Texto libre: frase completa; si hay varias partes, también AND suave por tokens
-    partes = [p for p in re.split(r'[\s\-–—]+', texto) if p]
-    if len(partes) <= 1:
-        return qs.filter(q_full)
+    if re.match(r'^\d+$', texto):
+        return {'ids': {texto}}
 
-    q_tok = None
-    for p in partes:
-        if re.match(r'^\d+$', p) and p in lookup_id:
-            qp = q_por_id(p, lookup_id[p])
-        else:
-            qp = Q(concepto__icontains=p) | Q(concepto_detalle__icontains=p)
-        q_tok = qp if q_tok is None else (q_tok & qp)
-    return qs.filter(q_full | q_tok)
+    texto_lower = texto.lower()
+    ids_por_nombre = {
+        cid
+        for cid, c in lookup_id.items()
+        if texto_lower in (c.nombre or '').strip().lower()
+    }
+    if ids_por_nombre:
+        return {'ids': ids_por_nombre, 'nombre': texto}
+
+    for cid, c in lookup_id.items():
+        if (c.nombre or '').strip().lower() == texto_lower:
+            return {'ids': {cid}, 'nombre': texto}
+
+    return {'ids': set(), 'nombre': texto}
+
+
+def _q_movimiento_tiene_concepto_id(cid):
+    """Coincidencia estricta de un id de concepto en el movimiento (no substring 1 en 10)."""
+    cid = str(cid or '').strip()
+    if not cid:
+        return Q(pk__in=[])
+    esc = re.escape(cid)
+    return (
+        Q(concepto__iexact=cid)
+        | Q(concepto__istartswith=f'{cid} -')
+        | Q(concepto__istartswith=f'{cid}-')
+        | Q(concepto__istartswith=f'{cid} —')
+        | Q(concepto__istartswith=f'{cid} –')
+        | Q(concepto__istartswith=f'{cid} ')
+        | Q(concepto__icontains=f'|CONCEPTOS:{cid}:')
+        | Q(concepto_detalle__regex=rf'["\']id["\']\s*:\s*["\']?{esc}["\']?\s*[,}}\]]')
+        | Q(concepto_detalle__regex=rf'["\']codigo["\']\s*:\s*["\']?{esc}["\']?\s*[,}}\]]')
+        | Q(concepto__regex=rf'["\']id["\']\s*:\s*["\']?{esc}["\']?\s*[,}}\]]')
+        | Q(concepto__regex=rf'["\']codigo["\']\s*:\s*["\']?{esc}["\']?\s*[,}}\]]')
+    )
+
+
+def _ids_concepto_en_movimiento(movimiento):
+    """Ids de concepto presentes en las líneas del movimiento."""
+    ids = set()
+    cid = movimiento.concepto_catalogo_id()
+    if cid:
+        ids.add(str(cid).strip())
+    _, conceptos_data = _movimiento_json_conceptos_parsed(movimiento)
+    for it in conceptos_data:
+        if not isinstance(it, dict):
+            continue
+        for key in ('id', 'codigo'):
+            v = str(it.get(key) or '').strip()
+            if v:
+                ids.add(v)
+    raw = (movimiento.concepto or '')
+    if '|CONCEPTOS:' in raw:
+        trozo = raw.split('|CONCEPTOS:', 1)[1]
+        for item in [x for x in trozo.split('|') if x.strip()]:
+            parts = item.split(':')
+            if parts and parts[0].strip():
+                ids.add(parts[0].strip())
+    return ids
+
+
+def _movimiento_tiene_alguno_concepto_ids(movimiento, ids_buscados):
+    if not ids_buscados:
+        return False
+    return bool(_ids_concepto_en_movimiento(movimiento) & set(ids_buscados))
+
+
+def _movimiento_tiene_nombre_concepto(movimiento, nombre_buscado, conceptos_catalogo):
+    """True si alguna línea del movimiento contiene ese nombre de concepto."""
+    nombre_buscado = (nombre_buscado or '').strip().lower()
+    if len(nombre_buscado) < 2:
+        return False
+    lookup = {str(c.id): (c.nombre or '').strip().lower() for c in conceptos_catalogo}
+    for cid in _ids_concepto_en_movimiento(movimiento):
+        nom = lookup.get(cid, '')
+        if nom and nombre_buscado in nom:
+            return True
+    _, conceptos_data = _movimiento_json_conceptos_parsed(movimiento)
+    for it in conceptos_data:
+        if not isinstance(it, dict):
+            continue
+        for key in ('nombre', 'concepto', 'descripcion', 'label'):
+            v = str(it.get(key) or '').strip().lower()
+            if v and nombre_buscado in v:
+                return True
+    return False
+
+
+def _filtro_qs_por_buscar_concepto(qs, texto, conceptos_catalogo):
+    """
+    Solo movimientos que incluyen el concepto buscado en sus líneas (id o nombre del catálogo).
+    Evita falsos positivos por substring (ej. buscar «1» y traer concepto «10»).
+    """
+    criterio = _resolver_criterio_buscar_concepto(texto, conceptos_catalogo)
+    if not criterio:
+        return qs
+
+    ids_buscados = criterio.get('ids') or set()
+    if ids_buscados:
+        q = Q()
+        for cid in ids_buscados:
+            q |= _q_movimiento_tiene_concepto_id(cid)
+        qs_filtrado = qs.filter(q).distinct()
+        # Verificación en Python por si el regex/BD dejó algún falso positivo.
+        candidatos = list(qs_filtrado[:5000])
+        ids_ok = [m.id for m in candidatos if _movimiento_tiene_alguno_concepto_ids(m, ids_buscados)]
+        return qs.filter(pk__in=ids_ok)
+
+    nombre = (criterio.get('nombre') or '').strip()
+    if len(nombre) < 2:
+        return qs.none()
+    candidatos = list(
+        qs.filter(Q(concepto_detalle__icontains=nombre) | Q(concepto__icontains=nombre))[:5000]
+    )
+    ids_ok = [
+        m.id for m in candidatos
+        if _movimiento_tiene_nombre_concepto(m, nombre, conceptos_catalogo)
+    ]
+    return qs.filter(pk__in=ids_ok)
 
 
 def _referencias_movimiento_en_concepto(concepto_raw):
     """Prefijos legibles (Contrato #N, Operación #N) presentes en el texto del concepto."""
-    import re
-
     refs = []
     texto = (concepto_raw or '').strip()
     m = re.search(r'Contrato\s*#\s*(\d+)', texto, re.I)
