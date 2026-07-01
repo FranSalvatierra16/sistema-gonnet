@@ -2151,6 +2151,38 @@ def get_inquilinos_queryset_unificado(request):
         ).order_by('apellido', 'nombre')
     return Inquilino.objects.filter(sucursal=request.user.sucursal).order_by('apellido', 'nombre')
 
+
+Q_SUCURSALES_COLON_CORRIENTES = (
+    Q(sucursal__nombre__icontains='colon') | Q(sucursal__nombre__icontains='corrientes')
+)
+
+
+def usuario_en_colon_o_corrientes(user):
+    nombre_suc = (getattr(getattr(user, 'sucursal', None), 'nombre', None) or '').lower()
+    return 'colon' in nombre_suc or 'corrientes' in nombre_suc
+
+
+def get_propietarios_queryset(request, ver_todas=False):
+    """Por defecto solo la sucursal del usuario; con ver_todas, Colón y Corrientes juntas."""
+    base = Propietario.objects.select_related('sucursal')
+    if ver_todas and usuario_en_colon_o_corrientes(request.user):
+        return base.filter(Q_SUCURSALES_COLON_CORRIENTES).order_by('apellido', 'nombre')
+    return base.filter(sucursal=request.user.sucursal).order_by('apellido', 'nombre')
+
+
+def get_propietario_accesible(request, propietario_id):
+    """Propietario visible: sucursal propia o ambas sucursales Colón/Corrientes."""
+    from django.http import Http404
+
+    propietario = get_object_or_404(Propietario.objects.select_related('sucursal'), pk=propietario_id)
+    if propietario.sucursal_id == request.user.sucursal_id:
+        return propietario
+    if usuario_en_colon_o_corrientes(request.user):
+        nombre = (propietario.sucursal.nombre or '').lower()
+        if 'colon' in nombre or 'corrientes' in nombre:
+            return propietario
+    raise Http404()
+
 import traceback  # Agregada esta importación
 from django.utils import timezone
 from dateutil.relativedelta import relativedelta
@@ -2342,13 +2374,12 @@ def _enriquecer_propietarios_lista(propietarios_qs):
 @login_required
 def propietarios(request):
     form = PropietarioBuscarForm(request.GET or None)
-    
-    # Determinar qué propietarios mostrar según el nivel del usuario
-    if usuario_es_nivel_administracion(request.user):
-        propietarios = Propietario.objects.filter(sucursal=request.user.sucursal)
-    else:
-        # Filtrar por la sucursal del vendedor logueado
-        propietarios = Propietario.objects.filter(sucursal=request.user.sucursal)
+    ver_todas = request.GET.get('ver_todas') == '1'
+    puede_ver_ambas = usuario_en_colon_o_corrientes(request.user)
+    if ver_todas and not puede_ver_ambas:
+        ver_todas = False
+
+    propietarios = get_propietarios_queryset(request, ver_todas=ver_todas)
 
     if form.is_valid():
         termino = form.cleaned_data.get('termino')
@@ -2382,18 +2413,16 @@ def propietarios(request):
     context = {
         'form': form,
         'propietarios': _enriquecer_propietarios_lista(propietarios),
-        'sucursal_actual': request.user.sucursal.nombre if not request.user.is_superuser else 'Todas las sucursales'
+        'sucursal_actual': request.user.sucursal.nombre if not request.user.is_superuser else 'Todas las sucursales',
+        'ver_todas': ver_todas,
+        'puede_ver_ambas_sucursales': puede_ver_ambas,
     }
     
     return render(request, 'inmobiliaria/propietarios/lista.html', context)
 
 @login_required
 def propietario_detalle(request, propietario_id):
-    propietario = get_object_or_404(
-        Propietario,
-        pk=propietario_id,
-        sucursal=request.user.sucursal,
-    )
+    propietario = get_propietario_accesible(request, propietario_id)
     if request.method == "POST":
         form = PropietarioForm(request.POST, instance=propietario, user=request.user)
         if form.is_valid():
@@ -13494,15 +13523,33 @@ def guardar_movimiento(request):
     # ...código para mostrar el formulario...
 
 def propiedades_propietario(request, propietario_id):
-    propietario = get_object_or_404(Propietario, pk=propietario_id)
+    propietario = get_propietario_accesible(request, propietario_id)
 
-    # Obtener propiedades ordenadas por número de propiedad (no por ID/ficha)
-    propiedades = Propiedad.objects.filter(propietario=propietario).select_related('sucursal').order_by('numero_por_propietario')
+    propiedades = (
+        Propiedad.objects.filter(propietario=propietario)
+        .select_related('sucursal')
+        .order_by('sucursal__nombre', 'numero_por_propietario')
+    )
+    propiedades_por_sucursal = (
+        propiedades.values('sucursal__nombre')
+        .annotate(count=Count('id'))
+        .order_by('sucursal__nombre')
+    )
 
     return render(
         request,
         "inmobiliaria/propietarios/propiedades_propietario.html",
-        {"propietario": propietario, "propiedades": propiedades},
+        {
+            "propietario": propietario,
+            "propiedades": propiedades,
+            "propiedades_por_sucursal": [
+                {
+                    'nombre': row['sucursal__nombre'] or 'Sin sucursal',
+                    'count': row['count'],
+                }
+                for row in propiedades_por_sucursal
+            ],
+        },
     )
 
 @require_POST

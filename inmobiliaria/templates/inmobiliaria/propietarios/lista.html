@@ -50,6 +50,26 @@
         </div>
     </div>
 
+    {% if puede_ver_ambas_sucursales %}
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <span class="text-muted small">
+                    {% if ver_todas %}
+                        Mostrando propietarios de Colón y Corrientes.
+                        <a href="{% url 'inmobiliaria:propietarios' %}" class="btn btn-outline-secondary btn-sm ms-1">Ver solo mi sucursal</a>
+                    {% else %}
+                        Mostrando propietarios de {{ sucursal_actual }}.
+                        <a href="{% url 'inmobiliaria:propietarios' %}?ver_todas=1" class="btn btn-outline-primary btn-sm ms-1">
+                            <i class="fas fa-store me-1"></i>Buscar en ambas sucursales
+                        </a>
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Results Section -->
     <div class="row">
         <div class="col-12">
@@ -88,6 +108,11 @@
                                     <th scope="col">
                                         <i class="fas fa-phone me-2"></i>Celular
                                     </th>
+                                    {% if ver_todas %}
+                                    <th scope="col">
+                                        <i class="fas fa-store me-2"></i>Sucursal
+                                    </th>
+                                    {% endif %}
                                     <th scope="col">
                                         <i class="fas fa-home me-2"></i>Propiedades
                                     </th>
@@ -127,6 +152,13 @@
                                             <span class="text-muted">-</span>
                                         {% endif %}
                                     </td>
+                                    {% if ver_todas %}
+                                    <td>
+                                        <span class="badge bg-info">
+                                            <i class="fas fa-store me-1"></i>{{ propietario.sucursal.nombre }}
+                                        </span>
+                                    </td>
+                                    {% endif %}
                                     <td style="padding: 0;">
                                         <a href="{% url 'inmobiliaria:propiedades_propietario' propietario.id %}" 
                                            class="propiedades-badge propiedades-clickable" 
@@ -162,7 +194,7 @@
                                 </tr>
                                 {% empty %}
                                 <tr>
-                                    <td colspan="6" class="text-center py-5">
+                                    <td colspan="{% if ver_todas %}7{% else %}6{% endif %}" class="text-center py-5">
                                         <div class="empty-state">
                                             <i class="fas fa-user-crown text-muted mb-3" style="font-size: 3rem;"></i>
                                             <h5 class="text-muted">No se encontraron propietarios</h5>
@@ -188,6 +220,7 @@
 $(document).ready(function() {
     var typingTimer;
     var doneTypingInterval = 300;
+    var verTodas = {{ ver_todas|yesno:"true,false" }};
 
     // Búsqueda en tiempo real
     $('#id_termino').on('input', function() {
@@ -206,7 +239,8 @@ $(document).ready(function() {
         $.ajax({
             url: '{% url "inmobiliaria:propietarios" %}',
             data: {
-                'termino': searchTerm
+                'termino': searchTerm,
+                'ver_todas': verTodas ? '1' : ''
             },
             dataType: 'json',
             success: function(data) {
@@ -236,7 +270,7 @@ $(document).ready(function() {
         if (propietarios.length === 0) {
             tbody.append(`
                 <tr>
-                    <td colspan="6" class="text-center py-5">
+                    <td colspan="${verTodas ? 7 : 6}" class="text-center py-5">
                         <div class="empty-state">
                             <i class="fas fa-search text-muted mb-3" style="font-size: 3rem;"></i>
                             <h5 class="text-muted">No se encontraron resultados</h5>
@@ -277,6 +311,12 @@ $(document).ready(function() {
                             '<span class="text-muted">-</span>'
                         }
                     </td>
+                    ${verTodas ? `
+                    <td>
+                        <span class="badge bg-info">
+                            <i class="fas fa-store me-1"></i>${propietario.sucursal || 'Sin sucursal'}
+                        </span>
+                    </td>` : ''}
                     <td style="padding: 0;">
                         <a href="/propietario/${propietario.id}/propiedades/" 
                            class="propiedades-badge propiedades-clickable" 

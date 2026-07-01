@@ -5,7 +5,24 @@
 {% block title %}Propiedades de {{ propietario.nombre }}{% endblock %}
 
 {% block content %}
-<h1 class="mb-4">Propiedades de {{ propietario.apellido }}, {{ propietario.nombre }}</h1>
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+    <div>
+        <h1 class="mb-2">Propiedades de {{ propietario.apellido }}, {{ propietario.nombre }}</h1>
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <span class="badge bg-secondary fs-6">
+                <i class="fas fa-store me-1"></i>Ficha en: {{ propietario.sucursal.nombre }}
+            </span>
+            {% for s in propiedades_por_sucursal %}
+            <span class="badge bg-info fs-6">
+                <i class="fas fa-home me-1"></i>{{ s.nombre }}: {{ s.count }}
+            </span>
+            {% endfor %}
+        </div>
+    </div>
+    <a href="{% url 'inmobiliaria:propietarios' %}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left me-1"></i>Volver a propietarios
+    </a>
+</div>
 
 <!-- Tabla de propiedades -->
 <div class="table-responsive">
@@ -30,7 +47,7 @@
                 <td>{{ propiedad.id }}</td>
                 <td>
                     <span class="badge bg-info">
-                        {{ propiedad.sucursal.nombre|default:"Sin sucursal" }}
+                        <i class="fas fa-store me-1"></i>{{ propiedad.sucursal.nombre|default:"Sin sucursal" }}
                     </span>
                 </td>
                 <td>{{ propiedad.numero_por_propietario }}</td>
