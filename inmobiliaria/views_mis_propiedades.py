@@ -20,6 +20,50 @@ from inmobiliaria.neto_propietario_movimiento import (
     precios_por_propiedad_ids,
 )
 
+Q_SUCURSALES_COLON_CORRIENTES = (
+    Q(sucursal__nombre__icontains='colon') | Q(sucursal__nombre__icontains='corrientes')
+)
+
+
+def _usuario_en_colon_o_corrientes(user):
+    nombre_suc = (getattr(getattr(user, 'sucursal', None), 'nombre', None) or '').lower()
+    return 'colon' in nombre_suc or 'corrientes' in nombre_suc
+
+
+def _propietarios_busqueda_mis_propiedades(user):
+    if _usuario_en_colon_o_corrientes(user):
+        return Propietario.objects.filter(Q_SUCURSALES_COLON_CORRIENTES).select_related('sucursal')
+    return Propietario.objects.filter(sucursal=user.sucursal).select_related('sucursal')
+
+
+def _propietario_accesible_mis_propiedades(user, propietario_id):
+    if not propietario_id:
+        return None
+    qs = Propietario.objects.filter(pk=propietario_id).select_related('sucursal')
+    if _usuario_en_colon_o_corrientes(user):
+        qs = qs.filter(Q_SUCURSALES_COLON_CORRIENTES)
+    else:
+        qs = qs.filter(sucursal=user.sucursal)
+    return qs.first()
+
+
+def _propiedades_en_mi_sucursal_para_propietario(propietario_sel, sucursal):
+    """Propiedades del propietario en la sucursal del usuario (mismo DNI si la ficha es de otra sucursal)."""
+    if not propietario_sel:
+        return Propiedad.objects.none()
+    qs = Propiedad.objects.filter(sucursal=sucursal)
+    dni = (propietario_sel.dni or '').strip()
+    if dni:
+        qs = qs.filter(propietario__dni=dni)
+    elif propietario_sel.sucursal_id == sucursal.id:
+        qs = qs.filter(propietario_id=propietario_sel.id)
+    else:
+        qs = qs.filter(
+            propietario__apellido__iexact=propietario_sel.apellido,
+            propietario__nombre__iexact=propietario_sel.nombre,
+        )
+    return qs.select_related('propietario', 'sucursal').order_by('direccion', 'id')
+
 
 def _propiedades_de_propietario(propietario_id, sucursal):
     return (
@@ -158,9 +202,9 @@ def mis_propiedades(request):
     propiedades_propietario = []
     ids_en_cartera = set(cartera_qs.values_list('propiedad_id', flat=True))
     if propietario_id.isdigit():
-        propietario = Propietario.objects.filter(pk=int(propietario_id), sucursal=sucursal).first()
+        propietario = _propietario_accesible_mis_propiedades(request.user, int(propietario_id))
         if propietario:
-            for p in _propiedades_de_propietario(propietario.id, sucursal):
+            for p in _propiedades_en_mi_sucursal_para_propietario(propietario, sucursal):
                 propiedades_propietario.append({
                     'propiedad': p,
                     'ya_en_cartera': p.id in ids_en_cartera,
@@ -176,6 +220,8 @@ def mis_propiedades(request):
             'propietario': propietario,
             'propiedades_propietario': propiedades_propietario,
             'propietario_id': propietario_id,
+            'puede_buscar_ambas_sucursales': _usuario_en_colon_o_corrientes(request.user),
+            'sucursal_actual': sucursal,
         },
     )
 
@@ -188,13 +234,13 @@ def mis_propiedades_buscar_propietario(request):
         return JsonResponse({'results': []})
     from inmobiliaria.busqueda_persona import ordenar_queryset_persona_por_termino, q_busqueda_persona
     qs = ordenar_queryset_persona_por_termino(
-        Propietario.objects.filter(sucursal=request.user.sucursal).filter(q_busqueda_persona(term)),
+        _propietarios_busqueda_mis_propiedades(request.user).filter(q_busqueda_persona(term)),
         term,
     )[:15]
     results = [
         {
             'id': p.id,
-            'text': f'{p.apellido}, {p.nombre} (DNI {p.dni or "—"})',
+            'text': f'{p.apellido}, {p.nombre} (DNI {p.dni or "—"}) — {p.sucursal.nombre}',
         }
         for p in qs
     ]
@@ -219,7 +265,7 @@ def mis_propiedades_agregar(request):
 
     propietario = None
     if propietario_id.isdigit():
-        propietario = Propietario.objects.filter(pk=int(propietario_id), sucursal=sucursal).first()
+        propietario = _propietario_accesible_mis_propiedades(request.user, int(propietario_id))
 
     ids_validos = []
     for raw in propiedad_ids:
@@ -240,7 +286,7 @@ def mis_propiedades_agregar(request):
             propiedad=prop,
             defaults={
                 'porcentaje': porcentaje,
-                'propietario': propietario or prop.propietario,
+                'propietario': prop.propietario,
             },
         )
         if created:

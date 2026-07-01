@@ -158,6 +158,9 @@
             <div class="row g-3 mb-3">
                 <div class="col-md-8 position-relative">
                     <label class="form-label">Buscar propietario</label>
+                    {% if puede_buscar_ambas_sucursales %}
+                    <small class="text-muted d-block mb-1">Buscás en Colón y Corrientes; al elegir uno se listan solo sus propiedades de {{ sucursal_actual.nombre }}.</small>
+                    {% endif %}
                     <input type="text" id="buscar_propietario_mis_prop" class="form-control" placeholder="Nombre, apellido o DNI…" autocomplete="off"
                            value="{% if propietario %}{{ propietario.apellido }}, {{ propietario.nombre }}{% endif %}">
                     <input type="hidden" id="propietario_id_sel" value="{{ propietario_id }}">
@@ -169,7 +172,13 @@
             </div>
 
             {% if propietario %}
-            <p class="mb-2">Propiedades de <strong>{{ propietario.apellido }}, {{ propietario.nombre }}</strong>:</p>
+            <p class="mb-2">
+                Propiedades de <strong>{{ propietario.apellido }}, {{ propietario.nombre }}</strong>
+                {% if propietario.sucursal_id != sucursal_actual.id %}
+                <span class="badge bg-info text-dark">Ficha en {{ propietario.sucursal.nombre }}</span>
+                <span class="text-muted">— mostrando solo las de {{ sucursal_actual.nombre }}</span>
+                {% endif %}:
+            </p>
             <form method="post" action="{% url 'inmobiliaria:mis_propiedades_agregar' %}" id="formAgregarCartera">
                 {% csrf_token %}
                 <input type="hidden" name="propietario_id" value="{{ propietario.id }}">
