@@ -256,6 +256,19 @@ def _contexto_botones_recibo_contrato(request, contrato_id):
     }
 
 
+def _contexto_botones_recibo_reserva(request, reserva_id):
+    """Botón para imprimir la carátula de la operación por día."""
+    from inmobiliaria.views_caratulas import _puede_ver_caratulas
+
+    if not _puede_ver_caratulas(request.user):
+        return {'muestra_siguiente_caratula': False}
+    url_caratula = _url_imprimir_caratula_reserva(reserva_id, request)
+    return {
+        'url_siguiente': url_caratula,
+        'muestra_siguiente_caratula': True,
+    }
+
+
 def _contexto_boton_volver_recibo(request, default=None):
     url = _url_volver_recibo(request, default=default)
     es_caratula = (
@@ -5673,6 +5686,7 @@ def ver_recibo(request, reserva_id):
             'logo_base64': logo_base64,
             'sucursal': sucursal,  # Agregar sucursal al contexto
             **_contexto_boton_volver_recibo(request),
+            **_contexto_botones_recibo_reserva(request, reserva.id),
         })
         
     except Exception as e:
@@ -7527,6 +7541,7 @@ def ver_recibo_movimiento(request, movimiento_id):
                 'tiene_sellados': sellados_monto > 0,
                 'sucursal': sucursal,  # Agregar sucursal al contexto
                 **_contexto_boton_volver_recibo(request),
+                **_contexto_botones_recibo_reserva(request, reserva.id),
             })
         
         # Si no hay reserva, usar el template original
