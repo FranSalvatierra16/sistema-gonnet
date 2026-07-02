@@ -125,8 +125,11 @@ def movimiento_tiene_concepto_10(movimiento) -> bool:
 
 def _ingresos_propiedad_en_ventana_reserva(reserva):
     hoy = timezone.now().date()
-    desde = (reserva.fecha_inicio or hoy) - timedelta(days=60)
-    hasta = (reserva.fecha_fin or hoy) + timedelta(days=60)
+    fc = reserva.fecha_creacion.date() if getattr(reserva, 'fecha_creacion', None) else hoy
+    fi = reserva.fecha_inicio or hoy
+    ff = reserva.fecha_fin or hoy
+    desde = min(fc, fi) - timedelta(days=45)
+    hasta = max(fc, ff) + timedelta(days=14)
     return MovimientoCaja.objects.filter(
         sucursal=reserva.sucursal,
         propiedad=reserva.propiedad,
@@ -135,6 +138,45 @@ def _ingresos_propiedad_en_ventana_reserva(reserva):
         fecha__date__gte=desde,
         fecha__date__lte=hasta,
     ).order_by('-fecha', '-id')
+
+
+def _monto_senia_movimiento_sin_vinculo(movimiento, precio_reserva: Decimal) -> Decimal:
+    """Importe de seña en un ingreso de la propiedad aunque no diga Operación #."""
+    sub = monto_senia_en_movimiento(movimiento, reserva_id=None)
+    if sub > Decimal('0.01'):
+        return sub
+    if precio_reserva <= Decimal('0.01'):
+        return Decimal('0')
+    total_mov = _monto_total_movimiento(movimiento)
+    if total_mov <= Decimal('0.01'):
+        return Decimal('0')
+    conc = (getattr(movimiento, 'concepto', None) or '')
+    if _texto_indica_pago_senia(conc) and abs(total_mov - precio_reserva) <= Decimal('1'):
+        return total_mov
+    for cid in CONCEPTOS_SENIA_OPERACION_RESERVA:
+        csub = _monto_concepto_en_movimiento(movimiento, cid)
+        if csub > Decimal('0.01'):
+            return csub
+    return Decimal('0')
+
+
+def _total_senia_desde_ingresos_propiedad_fallback(reserva) -> Decimal:
+    """
+    Respaldo: cobros en caja de la misma propiedad cerca del alta / ingreso,
+    aunque el movimiento no tenga «Operación #ID» (p. ej. lote sindicato).
+    """
+    if not reserva.propiedad_id:
+        return Decimal('0')
+    vistos = {int(m.id) for m in movimientos_reserva(reserva, tipo=TipoMovimientoCajaEnum.INGRESO)}
+    precio = Decimal(str(reserva.precio_total or 0))
+    total = Decimal('0')
+    for mov in _ingresos_propiedad_en_ventana_reserva(reserva):
+        if int(mov.id) in vistos:
+            continue
+        sub = _monto_senia_movimiento_sin_vinculo(mov, precio)
+        if sub > Decimal('0.01'):
+            total += sub
+    return total.quantize(Decimal('0.01'))
 
 
 def monto_deposito_cobrado_reserva(reserva) -> Decimal:
@@ -274,7 +316,8 @@ def total_senia_pagada_reserva(reserva) -> Decimal:
     for mov in movimientos_reserva(reserva, tipo=TipoMovimientoCajaEnum.INGRESO):
         total_mov += monto_senia_en_movimiento(mov, reserva_id=rid)
     total_rec = _total_cobrado_desde_recibos_reserva(reserva)
-    return max(total_mov, total_rec).quantize(Decimal('0.01'))
+    total_fb = _total_senia_desde_ingresos_propiedad_fallback(reserva)
+    return max(total_mov, total_rec, total_fb).quantize(Decimal('0.01'))
 
 
 def _estado_reserva_segun_senia(reserva, senia: Decimal) -> str:
@@ -413,7 +456,8 @@ def sincronizar_senia_reserva_desde_movimientos(reserva, *, persistir: bool = Tr
     for mov in movimientos_reserva(reserva, tipo=TipoMovimientoCajaEnum.INGRESO):
         total_mov += monto_senia_en_movimiento(mov, reserva_id=rid)
     total_rec = _total_cobrado_desde_recibos_reserva(reserva)
-    total = max(total_mov, total_rec).quantize(Decimal('0.01'))
+    total_fb = _total_senia_desde_ingresos_propiedad_fallback(reserva)
+    total = max(total_mov, total_rec, total_fb).quantize(Decimal('0.01'))
 
     precio = Decimal(str(reserva.precio_total or 0))
     cuota = max(precio - total, Decimal('0'))
