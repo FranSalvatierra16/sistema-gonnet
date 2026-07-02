@@ -6,7 +6,7 @@ import re
 from datetime import timedelta
 from decimal import Decimal
 
-from django.db.models import Q
+from django.db.models import Exists, OuterRef, Q
 from django.utils import timezone
 
 from inmobiliaria.decimal_utils import parse_decimal_monto
@@ -314,6 +314,27 @@ def reserva_tiene_senia_cobrada(reserva) -> bool:
     if senia_db > Decimal('0.01'):
         return True
     return total_senia_pagada_reserva(reserva) > Decimal('0.01')
+
+
+def reserva_tuvo_operacion_en_caja(reserva) -> bool:
+    """Reserva con cobro en caja (no solo bloqueo de fechas en calendario)."""
+    return reserva_tiene_senia_cobrada(reserva)
+
+
+def queryset_reservas_con_operacion(qs):
+    """
+    Reservas que deben figurar en listados de operaciones y carátulas.
+    Excluye las que siguen en «Reservado» sin seña ni recibo.
+    """
+    from inmobiliaria.models import Recibo
+
+    tiene_recibo = Exists(Recibo.objects.filter(reserva_id=OuterRef('pk')))
+    return qs.filter(Q(senia__gt=Decimal('0.01')) | tiene_recibo).distinct()
+
+
+def queryset_contratos_con_operacion(qs):
+    """Contratos con operación iniciada (no solo estado reservado sin cobro)."""
+    return qs.exclude(Q(estado='reservado') & Q(operacion_principal=False))
 
 
 def reserva_ocupa_sin_ofrecer_en_busqueda(reserva) -> bool:

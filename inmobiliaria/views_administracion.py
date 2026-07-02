@@ -159,12 +159,17 @@ def administracion_listado_operaciones(request):
         contexto_vacio['error'] = 'Tu usuario no tiene sucursal asignada.'
         return render(request, 'inmobiliaria/administracion/listado_operaciones.html', contexto_vacio)
 
-    reservas_qs = (
+    from inmobiliaria.caja_devolucion_deposito import (
+        queryset_contratos_con_operacion,
+        queryset_reservas_con_operacion,
+    )
+
+    reservas_qs = queryset_reservas_con_operacion(
         Reserva.objects.filter(sucursal=sucursal, eliminada=False)
         .select_related('propiedad', 'propiedad__propietario', 'cliente', 'vendedor')
         .order_by('-fecha_creacion', '-id')
     )
-    contratos_qs = (
+    contratos_qs = queryset_contratos_con_operacion(
         ContratoAlquiler.objects.filter(sucursal=sucursal)
         .select_related('propiedad', 'propiedad__propietario', 'inquilino', 'vendedor')
         .order_by('-fecha_creacion', '-id')

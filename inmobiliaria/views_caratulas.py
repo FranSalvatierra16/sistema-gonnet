@@ -2606,7 +2606,12 @@ def lista_caratulas(request):
             },
         )
 
-    reservas = (
+    from inmobiliaria.caja_devolucion_deposito import (
+        queryset_contratos_con_operacion,
+        queryset_reservas_con_operacion,
+    )
+
+    reservas = queryset_reservas_con_operacion(
         Reserva.objects.filter(sucursal=sucursal, eliminada=False)
         .select_related('cliente', 'propiedad', 'propiedad__propietario', 'vendedor')
         .order_by('-fecha_creacion', '-id')
@@ -2675,8 +2680,10 @@ def lista_caratulas(request):
     elif estado_caratula_filtro == 'pendiente':
         reservas = reservas.exclude(estado_confirmacion_caratula='confirmada')
 
-    contratos = ContratoAlquiler.objects.filter(sucursal=sucursal).select_related(
-        'propiedad', 'inquilino', 'vendedor'
+    contratos = queryset_contratos_con_operacion(
+        ContratoAlquiler.objects.filter(sucursal=sucursal).select_related(
+            'propiedad', 'inquilino', 'vendedor'
+        )
     )
     if tipo_filtro == 'invierno':
         contratos = contratos.filter(
