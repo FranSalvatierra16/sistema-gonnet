@@ -102,6 +102,22 @@ class ContratoAlquiler(models.Model):
         verbose_name='Estado carátula',
         help_text='Revisión administrativa de la carátula (independiente de comisiones y pagos).',
     )
+    caratula_comision_locador = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name='Comisión locador (carátula)',
+        help_text='Override manual desde carátula cuando aún no hay liquidación al propietario.',
+    )
+    caratula_comision_locatario = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name='Comisión locatario (carátula)',
+        help_text='Override manual desde carátula cuando aún no hay liquidación al propietario.',
+    )
 
     # Garantes: inquilinos seleccionados como garantes (varios por contrato)
     garantes = models.ManyToManyField(

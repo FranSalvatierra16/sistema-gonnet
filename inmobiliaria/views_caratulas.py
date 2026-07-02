@@ -943,6 +943,7 @@ def _guardar_caratula_contrato(request, contrato):
         liq.comision_locador = com_loc.quantize(Decimal('0.01'))
         liq.comision_locatario = comision_locatario.quantize(Decimal('0.01'))
         liq.save(update_fields=['comision_locador', 'comision_locatario'])
+        _clear_comisiones_caratula_contrato(contrato)
         overrides = dict(request.session.get(CARATULA_COMISIONES_OVERRIDES_KEY, {}))
         overrides.pop(str(contrato.id), None)
         request.session[CARATULA_COMISIONES_OVERRIDES_KEY] = overrides
@@ -1567,6 +1568,21 @@ def _liquidacion_contrato(contrato):
 
 
 def _comisiones_override_caratula(request, contrato_id):
+    try:
+        contrato = ContratoAlquiler.objects.only(
+            'caratula_comision_locador', 'caratula_comision_locatario'
+        ).get(pk=contrato_id)
+    except ContratoAlquiler.DoesNotExist:
+        contrato = None
+    if contrato is not None:
+        out = {}
+        if contrato.caratula_comision_locador is not None:
+            out['comision_locador'] = contrato.caratula_comision_locador
+        if contrato.caratula_comision_locatario is not None:
+            out['comision_locatario'] = contrato.caratula_comision_locatario
+        if out:
+            return out
+
     overrides = dict(request.session.get(CARATULA_COMISIONES_OVERRIDES_KEY, {}))
     raw = overrides.get(str(contrato_id)) or {}
     out = {}
@@ -1579,7 +1595,27 @@ def _comisiones_override_caratula(request, contrato_id):
     return out or None
 
 
+def _persist_comisiones_caratula_contrato(contrato, comision_locador, comision_locatario):
+    contrato.caratula_comision_locador = comision_locador.quantize(Decimal('0.01'))
+    contrato.caratula_comision_locatario = comision_locatario.quantize(Decimal('0.01'))
+    contrato.save(update_fields=['caratula_comision_locador', 'caratula_comision_locatario'])
+
+
+def _clear_comisiones_caratula_contrato(contrato):
+    if (
+        contrato.caratula_comision_locador is None
+        and contrato.caratula_comision_locatario is None
+    ):
+        return
+    contrato.caratula_comision_locador = None
+    contrato.caratula_comision_locatario = None
+    contrato.save(update_fields=['caratula_comision_locador', 'caratula_comision_locatario'])
+
+
 def _set_comisiones_override_caratula(request, contrato_id, comision_locador, comision_locatario):
+    contrato = ContratoAlquiler.objects.filter(pk=contrato_id).first()
+    if contrato:
+        _persist_comisiones_caratula_contrato(contrato, comision_locador, comision_locatario)
     overrides = dict(request.session.get(CARATULA_COMISIONES_OVERRIDES_KEY, {}))
     overrides[str(contrato_id)] = {
         'comision_locador': str(comision_locador.quantize(Decimal('0.01'))),
@@ -1660,11 +1696,18 @@ def _comisiones_cobradas_contrato(contrato, movimientos=None, liquidacion=None, 
                 locatario = locatario.quantize(Decimal('0.01'))
             else:
                 locatario = liq_locat.quantize(Decimal('0.01'))
-    elif override:
-        if override.get('comision_locador') is not None:
-            locador = Decimal(str(override['comision_locador'])).quantize(Decimal('0.01'))
-        if override.get('comision_locatario') is not None:
-            locatario = Decimal(str(override['comision_locatario'])).quantize(Decimal('0.01'))
+    else:
+        car_loc = getattr(contrato, 'caratula_comision_locador', None)
+        car_locat = getattr(contrato, 'caratula_comision_locatario', None)
+        if car_loc is not None:
+            locador = Decimal(str(car_loc)).quantize(Decimal('0.01'))
+        if car_locat is not None:
+            locatario = Decimal(str(car_locat)).quantize(Decimal('0.01'))
+        if override:
+            if override.get('comision_locador') is not None:
+                locador = Decimal(str(override['comision_locador'])).quantize(Decimal('0.01'))
+            if override.get('comision_locatario') is not None:
+                locatario = Decimal(str(override['comision_locatario'])).quantize(Decimal('0.01'))
 
     if getattr(contrato, 'operacion_principal', False):
         sugeridas = _comisiones_sugeridas_primera_cuota_contrato(contrato)
@@ -3011,6 +3054,7 @@ def caratula_contrato(request, contrato_id):
                 liq.comision_locador = com_loc.quantize(Decimal('0.01'))
                 liq.comision_locatario = com_locat.quantize(Decimal('0.01'))
                 liq.save(update_fields=['comision_locador', 'comision_locatario'])
+                _clear_comisiones_caratula_contrato(contrato)
                 overrides = dict(request.session.get(CARATULA_COMISIONES_OVERRIDES_KEY, {}))
                 overrides.pop(str(contrato_id), None)
                 request.session[CARATULA_COMISIONES_OVERRIDES_KEY] = overrides
