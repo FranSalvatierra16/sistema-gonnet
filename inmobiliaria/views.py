@@ -12693,7 +12693,8 @@ def nuevo_movimiento(request, numero_caja=None):
             )
             if concepto_row:
                 base_concepto = (concepto_row.nombre or '').strip() or concepto_valor
-                concepto_guardado = f'{base_concepto} — {detalles_txt}' if detalles_txt else base_concepto
+                prefijo = f'{concepto_valor} — {base_concepto}'
+                concepto_guardado = f'{prefijo} — {detalles_txt}' if detalles_txt else prefijo
             elif detalles_txt:
                 concepto_guardado = detalles_txt
             else:
@@ -13967,6 +13968,25 @@ def _etiqueta_id_concepto_caja_visual(cid):
     return s
 
 
+def _mapa_nombre_concepto_catalogo(conceptos_catalogo):
+    """Nombre en minúsculas → id de concepto."""
+    out = {}
+    for c in conceptos_catalogo or []:
+        nom = (c.nombre or '').strip().lower()
+        cid = str(c.id or '').strip()
+        if nom and cid:
+            out[nom] = cid
+    return out
+
+
+def _mapa_id_nombre_concepto_catalogo(conceptos_catalogo):
+    return {
+        str(c.id or '').strip(): (c.nombre or '').strip()
+        for c in (conceptos_catalogo or [])
+        if str(c.id or '').strip()
+    }
+
+
 def _resolver_criterio_buscar_concepto(texto, conceptos_catalogo):
     """Interpreta el texto del filtro (id, «id — nombre» del datalist, o nombre)."""
     texto = (texto or '').strip()
@@ -14019,7 +14039,7 @@ def _q_movimiento_tiene_concepto_id(cid):
     )
 
 
-def _ids_concepto_en_movimiento(movimiento):
+def _ids_concepto_en_movimiento(movimiento, nombre_a_id=None):
     """Ids de concepto presentes en las líneas del movimiento."""
     ids = set()
     cid = movimiento.concepto_catalogo_id()
@@ -14040,13 +14060,35 @@ def _ids_concepto_en_movimiento(movimiento):
             parts = item.split(':')
             if parts and parts[0].strip():
                 ids.add(parts[0].strip())
+        raw = raw.split('|CONCEPTOS:', 1)[0].strip()
+    else:
+        raw = raw.strip()
+
+    if raw:
+        head = raw.split(' — ', 1)[0].strip()
+        if head.isdigit():
+            ids.add(head)
+        elif nombre_a_id:
+            hid = nombre_a_id.get(head.lower())
+            if hid:
+                ids.add(hid)
+        try:
+            nom_listado = (movimiento.nombre_concepto_catalogo or '').strip().lower()
+            if nom_listado and nombre_a_id:
+                hid = nombre_a_id.get(nom_listado)
+                if hid:
+                    ids.add(hid)
+        except Exception:
+            pass
+
     return ids
 
 
-def _movimiento_tiene_alguno_concepto_ids(movimiento, ids_buscados):
+def _movimiento_tiene_alguno_concepto_ids(movimiento, ids_buscados, conceptos_catalogo=None):
     if not ids_buscados:
         return False
-    return bool(_ids_concepto_en_movimiento(movimiento) & set(ids_buscados))
+    nombre_a_id = _mapa_nombre_concepto_catalogo(conceptos_catalogo)
+    return bool(_ids_concepto_en_movimiento(movimiento, nombre_a_id) & set(ids_buscados))
 
 
 def _movimiento_tiene_nombre_concepto(movimiento, nombre_buscado, conceptos_catalogo):
@@ -14055,7 +14097,8 @@ def _movimiento_tiene_nombre_concepto(movimiento, nombre_buscado, conceptos_cata
     if len(nombre_buscado) < 2:
         return False
     lookup = {str(c.id): (c.nombre or '').strip().lower() for c in conceptos_catalogo}
-    for cid in _ids_concepto_en_movimiento(movimiento):
+    nombre_a_id = _mapa_nombre_concepto_catalogo(conceptos_catalogo)
+    for cid in _ids_concepto_en_movimiento(movimiento, nombre_a_id):
         nom = lookup.get(cid, '')
         if nom and nombre_buscado in nom:
             return True
@@ -14081,14 +14124,21 @@ def _filtro_qs_por_buscar_concepto(qs, texto, conceptos_catalogo):
 
     ids_buscados = criterio.get('ids') or set()
     if ids_buscados:
+        id_nombre = _mapa_id_nombre_concepto_catalogo(conceptos_catalogo)
         q = Q()
         for cid in ids_buscados:
             q |= _q_movimiento_tiene_concepto_id(cid)
+            nom = id_nombre.get(str(cid), '').strip()
+            if nom:
+                q |= Q(concepto__istartswith=f'{nom} —')
+                q |= Q(concepto__iexact=nom)
         qs_filtrado = qs.filter(q).distinct()
-        # Verificación en Python por si el regex/BD dejó algún falso positivo.
         candidatos = list(qs_filtrado[:5000])
-        ids_ok = [m.id for m in candidatos if _movimiento_tiene_alguno_concepto_ids(m, ids_buscados)]
-        return qs.filter(pk__in=ids_ok)
+        ids_ok = [
+            m.id for m in candidatos
+            if _movimiento_tiene_alguno_concepto_ids(m, ids_buscados, conceptos_catalogo)
+        ]
+        return qs.filter(pk__in=ids_ok) if ids_ok else qs.none()
 
     nombre = (criterio.get('nombre') or '').strip()
     if len(nombre) < 2:
