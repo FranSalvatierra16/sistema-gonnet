@@ -459,11 +459,21 @@ def _puede_editar_caratula(user):
 def _ctx_estado_operacion_caratula(reserva=None, contrato=None, user=None):
     """Estado administrativo pendiente/confirmada de la carátula (no comisiones)."""
     obj = reserva or contrato
+    if getattr(obj, 'estado', None) == 'rescindido':
+        return {
+            'estado_operacion_caratula': 'rescindida',
+            'operacion_caratula_confirmada': False,
+            'operacion_rescindida': True,
+            'operacion_caratula_label': 'Rescindido',
+            'operacion_caratula_badge_class': 'bg-danger',
+            'puede_confirmar_operacion_caratula': False,
+        }
     estado = getattr(obj, 'estado_confirmacion_caratula', None) or 'pendiente'
     confirmada = estado == 'confirmada'
     return {
         'estado_operacion_caratula': estado,
         'operacion_caratula_confirmada': confirmada,
+        'operacion_rescindida': False,
         'operacion_caratula_label': 'Confirmada' if confirmada else 'Pendiente',
         'operacion_caratula_badge_class': 'bg-success' if confirmada else 'bg-warning text-dark',
         'puede_confirmar_operacion_caratula': bool(

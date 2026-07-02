@@ -1,9 +1,11 @@
-<div class="card mb-3 border-{% if operacion_caratula_confirmada %}success{% else %}warning{% endif %}">
+<div class="card mb-3 border-{% if operacion_rescindida %}danger{% elif operacion_caratula_confirmada %}success{% else %}warning{% endif %}">
     <div class="card-body py-2 d-flex flex-wrap align-items-center justify-content-between gap-2">
         <div>
             <strong class="small"><i class="fas fa-clipboard-check me-1"></i>Estado de la operación</strong>
             <span class="badge {{ operacion_caratula_badge_class }} ms-2">{{ operacion_caratula_label }}</span>
-            {% if operacion_caratula_confirmada %}
+            {% if operacion_rescindida %}
+            <div class="small text-muted mt-1">Contrato rescindido.</div>
+            {% elif operacion_caratula_confirmada %}
             <div class="small text-muted mt-1">La carátula fue revisada y confirmada.</div>
             {% else %}
             <div class="small text-muted mt-1">Pendiente de revisión. Cuando esté todo correcto, marcala como confirmada.</div>
