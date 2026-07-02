@@ -1323,10 +1323,8 @@ def _tipo_label_contrato_caratula(contrato):
     dm = int(contrato.duracion_meses or 0)
     if dm == 9:
         return 'Invierno (9 meses)'
-    if dm == 24:
-        return '24 meses'
     if dm >= 9:
-        return f'24 meses — plan {dm} meses'
+        return '24 meses'
     return f'Contrato {dm} meses'
 
 

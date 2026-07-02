@@ -189,8 +189,7 @@ class ContratoAlquiler(models.Model):
         if cat == '6':
             return '6 meses'
         if cat == '24':
-            dm = int(self.duracion_meses or 0)
-            return '24 meses' if dm == 24 else f'24 meses — plan {dm} meses'
+            return '24 meses'
         dm = int(self.duracion_meses or 0)
         return f'Contrato {dm} meses' if dm else 'Contrato'
 
