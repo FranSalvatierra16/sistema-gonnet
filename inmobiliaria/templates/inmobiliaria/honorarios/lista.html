@@ -14,6 +14,7 @@
                 Cochera, fondo, comisión locador y comisión locatario ingresan el <strong>día de entrada</strong> del departamento.
                 La comisión del productor se acredita también el día de entrada.
                 Solo se listan operaciones con carátula <strong>confirmada</strong>.
+                Las comisiones locador/locatario figuran aunque la liquidación al propietario siga pendiente.
             </p>
 
             <div class="d-flex flex-wrap gap-2 mb-4">
@@ -119,7 +120,11 @@
                                     {% endif %}
                                 </td>
                                 <td>
+                                    {% if f.liquidacion_id %}
                                     <a href="{{ f.liquidacion_url }}" class="text-decoration-none">#{{ f.liquidacion_id }}</a>
+                                    {% else %}
+                                    <a href="{{ f.liquidacion_url }}" class="text-decoration-none small">Carátula</a>
+                                    {% endif %}
                                     <span class="text-muted small">({{ f.estado_liq }})</span>
                                 </td>
                                 <td>{{ f.propiedad }}</td>

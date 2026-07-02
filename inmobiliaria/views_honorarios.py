@@ -13,11 +13,12 @@ from django.urls import reverse
 from django.utils import timezone
 
 from inmobiliaria.liquidacion_operacion import (
+    ETIQUETAS_TIPO_OPERACION,
     contrato_desde_liquidacion,
     info_operacion_liquidacion,
     reserva_desde_liquidacion,
 )
-from inmobiliaria.models import LiquidacionPropietario
+from inmobiliaria.models import ContratoAlquiler, LiquidacionPropietario
 
 
 def _categoria_operacion_liquidacion(liq):
@@ -79,6 +80,151 @@ def _operacion_label(liq):
     return '—'
 
 
+def _referencia_operacion_liquidacion(liq):
+    reserva = getattr(liq, 'reserva', None) or reserva_desde_liquidacion(liq)
+    if reserva is not None:
+        return 'reserva', reserva.id
+    contrato = getattr(liq, 'contrato', None) or contrato_desde_liquidacion(liq)
+    if contrato is not None:
+        return 'contrato', contrato.id
+    return None, None
+
+
+def _propiedad_txt(prop):
+    if not prop:
+        return '—'
+    prop_txt = (prop.direccion or '—') or '—'
+    if prop.piso or prop.departamento:
+        extra = []
+        if prop.piso:
+            extra.append(f'Piso {prop.piso}')
+        if prop.departamento:
+            extra.append(f'Dpto {prop.departamento}')
+        prop_txt = f'{prop_txt} ({", ".join(extra)})'
+    return prop_txt
+
+
+def _keys_comision_cubiertas(filas):
+    locador = set()
+    locatario = set()
+    for f in filas:
+        kind = f.get('operacion_kind')
+        pk = f.get('operacion_pk')
+        if not kind or not pk:
+            continue
+        key = (kind, pk)
+        if f.get('tipo') == 'comision_locador':
+            locador.add(key)
+        elif f.get('tipo') == 'comision_locatario':
+            locatario.add(key)
+    return locador, locatario
+
+
+def _categoria_contrato_honorarios(contrato):
+    if hasattr(contrato, 'categoria_tipo_operacion'):
+        return contrato.categoria_tipo_operacion()
+    meses = int(getattr(contrato, 'duracion_meses', None) or 0)
+    if meses == 9:
+        return 'invierno'
+    if meses >= 9:
+        return '24'
+    return 'otro'
+
+
+def _filas_honorarios_desde_caratulas_confirmadas(
+    sucursal,
+    fecha_desde,
+    fecha_hasta,
+    cubiertos_locador,
+    cubiertos_locatario,
+    busqueda='',
+):
+    """
+    Comisiones locador/locatario de carátulas confirmadas aún sin liquidación al propietario.
+    Usa los mismos importes que el cuadro de comisiones de la carátula.
+    """
+    from inmobiliaria.views import _liquidacion_operacion_principal_contrato
+    from inmobiliaria.views_caratulas import _comisiones_cobradas_contrato
+
+    filas = []
+    qs = ContratoAlquiler.objects.filter(
+        sucursal=sucursal,
+        estado_confirmacion_caratula='confirmada',
+    ).select_related('propiedad', 'propiedad__propietario', 'inquilino')
+
+    if fecha_desde:
+        qs = qs.filter(fecha_inicio__gte=fecha_desde)
+    if fecha_hasta:
+        qs = qs.filter(fecha_inicio__lte=fecha_hasta)
+
+    if busqueda:
+        q_bus = (
+            Q(propiedad__direccion__icontains=busqueda)
+            | Q(propiedad__propietario__nombre__icontains=busqueda)
+            | Q(propiedad__propietario__apellido__icontains=busqueda)
+        )
+        if busqueda.isdigit():
+            try:
+                q_bus |= Q(id=int(busqueda))
+            except (TypeError, ValueError):
+                pass
+        qs = qs.filter(q_bus)
+
+    for contrato in qs:
+        op_key = ('contrato', contrato.id)
+        liq_op = _liquidacion_operacion_principal_contrato(contrato)
+        com_loc, com_locat = _comisiones_cobradas_contrato(contrato, liquidacion=liq_op)
+        f_entrada = contrato.fecha_inicio
+        if not f_entrada:
+            continue
+
+        prop = contrato.propiedad
+        propietario = getattr(prop, 'propietario', None) if prop else None
+        cat = _categoria_contrato_honorarios(contrato)
+        base = {
+            'liquidacion_id': liq_op.id if liq_op else None,
+            'liquidacion_url': (
+                reverse('inmobiliaria:detalle_liquidacion', args=[liq_op.id])
+                if liq_op
+                else reverse('inmobiliaria:caratula_contrato', args=[contrato.id])
+            ),
+            'propiedad': _propiedad_txt(prop),
+            'propietario': (
+                f'{propietario.apellido}, {propietario.nombre}'
+                if propietario
+                else '—'
+            ),
+            'operacion': f'Contrato #{contrato.id}',
+            'operacion_kind': 'contrato',
+            'operacion_pk': contrato.id,
+            'categoria_operacion': cat,
+            'tipo_operacion_display': ETIQUETAS_TIPO_OPERACION.get(cat, cat),
+            'estado_liq': liq_op.get_estado_display() if liq_op else 'Sin liquidar',
+        }
+
+        if com_loc > Decimal('0.01') and op_key not in cubiertos_locador:
+            filas.append({
+                **base,
+                'tipo': 'comision_locador',
+                'tipo_display': 'Comisión locador',
+                'fecha': f_entrada,
+                'monto': com_loc.quantize(Decimal('0.01')),
+                'nota': 'Día de entrada',
+            })
+
+        if com_locat > Decimal('0.01') and op_key not in cubiertos_locatario:
+            filas.append({
+                **base,
+                'tipo': 'comision_locatario',
+                'tipo_display': 'Comisión locatario',
+                'fecha': f_entrada,
+                'monto': com_locat.quantize(Decimal('0.01')),
+                'nota': 'Día de entrada',
+            })
+
+    return filas
+
+
 def _estado_confirmacion_operacion_liquidacion(liq):
     """Estado de carátula de la reserva o contrato vinculado a la liquidación."""
     reserva = getattr(liq, 'reserva', None)
@@ -108,14 +254,8 @@ def _filas_honorarios_desde_liquidaciones(liquidaciones):
         if not _liquidacion_caratula_confirmada(liq):
             continue
         prop = liq.propiedad
-        prop_txt = (prop.direccion if prop else '—') or '—'
-        if prop and (prop.piso or prop.departamento):
-            extra = []
-            if prop.piso:
-                extra.append(f'Piso {prop.piso}')
-            if prop.departamento:
-                extra.append(f'Dpto {prop.departamento}')
-            prop_txt = f'{prop_txt} ({", ".join(extra)})'
+        prop_txt = _propiedad_txt(prop)
+        op_kind, op_pk = _referencia_operacion_liquidacion(liq)
 
         categoria_op = _categoria_operacion_liquidacion(liq)
         tipo_op_display = _etiqueta_operacion_liquidacion(liq)
@@ -130,6 +270,8 @@ def _filas_honorarios_desde_liquidaciones(liquidaciones):
                 else '—'
             ),
             'operacion': _operacion_label(liq),
+            'operacion_kind': op_kind,
+            'operacion_pk': op_pk,
             'categoria_operacion': categoria_op,
             'tipo_operacion_display': tipo_op_display,
             'estado_liq': liq.get_estado_display(),
@@ -205,7 +347,15 @@ def _filtrar_filas_por_fecha(filas, fecha_desde, fecha_hasta):
         if fecha_hasta and fd > fecha_hasta:
             continue
         out.append(f)
-    out.sort(key=lambda x: (x.get('fecha') or date.min, x.get('tipo', ''), x.get('liquidacion_id', 0)), reverse=True)
+    out.sort(
+        key=lambda x: (
+            x.get('fecha') or date.min,
+            x.get('tipo', ''),
+            x.get('liquidacion_id') or 0,
+            x.get('operacion_pk') or 0,
+        ),
+        reverse=True,
+    )
     return out
 
 
@@ -266,7 +416,17 @@ def honorarios_oficina(request):
         | Q(contrato__fecha_inicio__gte=fecha_desde, contrato__fecha_inicio__lte=fecha_hasta)
     ).distinct()
 
-    filas = _filtrar_filas_por_fecha(_filas_honorarios_desde_liquidaciones(qs), fecha_desde, fecha_hasta)
+    filas_liq = _filtrar_filas_por_fecha(_filas_honorarios_desde_liquidaciones(qs), fecha_desde, fecha_hasta)
+    cubiertos_loc, cubiertos_locat = _keys_comision_cubiertas(filas_liq)
+    filas_car = _filas_honorarios_desde_caratulas_confirmadas(
+        request.user.sucursal,
+        fecha_desde,
+        fecha_hasta,
+        cubiertos_loc,
+        cubiertos_locat,
+        busqueda=busqueda,
+    )
+    filas = _filtrar_filas_por_fecha(filas_liq + filas_car, fecha_desde, fecha_hasta)
     filas = _filtrar_filas_por_operacion(filas, operacion_filtro)
 
     if tipo_filtro in ('comision', 'cochera', 'fondo', 'comision_locador', 'comision_locatario'):
