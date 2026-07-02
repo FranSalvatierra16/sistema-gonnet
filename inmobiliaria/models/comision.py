@@ -84,6 +84,12 @@ def porcentaje_fichaje_vendedor(vendedor, tipo_fichaje=None, categoria_operacion
     tipo = (tipo_fichaje or 'primer').strip().lower()
     es_segundo = tipo == 'segundo'
     cat = (categoria_operacion or 'dia').strip().lower()
+    if cat in ('24', 'largo', 'meses_24', '24_meses'):
+        cat = '24'
+    elif cat in ('6', 'meses_6'):
+        cat = '24'
+    elif cat in ('invierno', '9'):
+        cat = 'invierno'
     if cat in ('invierno', '9'):
         if es_segundo:
             pct = getattr(vendedor, 'comision_segundo_fichaje_invierno', None)
@@ -109,8 +115,17 @@ def porcentaje_fichaje_vendedor(vendedor, tipo_fichaje=None, categoria_operacion
             if pct is not None and pct > 0:
                 return pct
     if es_segundo:
-        return vendedor.comision_segundo_fichaje
-    return vendedor.comision_primer_fichaje
+        pct = getattr(vendedor, 'comision_segundo_fichaje', None)
+        if pct is not None and pct > 0:
+            return pct
+        pct = getattr(vendedor, 'comision_primer_fichaje', None)
+        if pct is not None and pct > 0:
+            return pct
+        return None
+    pct = getattr(vendedor, 'comision_primer_fichaje', None)
+    if pct is not None and pct > 0:
+        return pct
+    return None
 
 
 def _etiqueta_categoria_fichaje(categoria_operacion):

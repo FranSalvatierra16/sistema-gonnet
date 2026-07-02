@@ -1756,7 +1756,6 @@ def _pct_productor_contrato_caratula(contrato):
     from inmobiliaria.models.comision import (
         pct_comision_24_meses_vendedor,
         pct_comision_invierno_vendedor,
-        porcentaje_fichaje_vendedor,
         propiedad_es_oficina,
     )
 
@@ -1765,15 +1764,12 @@ def _pct_productor_contrato_caratula(contrato):
 
     vend = contrato.vendedor
     prop = contrato.propiedad
-    tipo_fichaje = getattr(prop, 'tipo_fichaje', None) or 'primer'
-    vend_fichaje = _vendedor_fichaje_contrato_caratula(contrato)
+    fichaje_info = _resolver_fichaje_contrato_caratula(contrato)
+    tipo_fichaje = fichaje_info['tipo_fichaje']
+    cat = fichaje_info['cat']
+    pct_fichaje = fichaje_info['pct']
+    vend_fichaje = fichaje_info['vend']
     dm = int(contrato.duracion_meses or 0)
-    cat = (
-        contrato.categoria_tipo_operacion()
-        if hasattr(contrato, 'categoria_tipo_operacion')
-        else ('invierno' if dm == 9 else ('24' if dm >= 9 else 'otro'))
-    )
-    pct_fichaje = porcentaje_fichaje_vendedor(vend_fichaje, tipo_fichaje, categoria_operacion=cat)
     if cat == 'invierno':
         pct_tipo = pct_comision_invierno_vendedor(vend, prop)
         label_tipo = 'Invierno (prop. oficina)' if propiedad_es_oficina(prop) else 'Invierno'
@@ -1893,57 +1889,110 @@ def _label_fichaje_contrato(tipo_fichaje, categoria=None):
     tf = (tipo_fichaje or 'primer').strip().lower()
     base = 'SEGUNDO FICHAJE' if tf == 'segundo' else 'PRIMER FICHAJE'
     cat = (categoria or '').strip().lower()
-    if cat == 'invierno':
+    if cat in ('invierno', '9'):
         return f'COMIS. VENDEDOR ({base} INVERNO)'
-    if cat == '24':
+    if cat in ('24', 'largo', 'meses_24', '24_meses', '6', 'meses_6'):
         return f'COMIS. VENDEDOR ({base} 24 MESES)'
     return f'COMIS. VENDEDOR ({base})'
 
 
+def _categoria_fichaje_contrato(contrato):
+    if not contrato:
+        return 'dia'
+    if hasattr(contrato, 'categoria_tipo_operacion'):
+        cat = contrato.categoria_tipo_operacion()
+    else:
+        dm = int(contrato.duracion_meses or 0)
+        cat = 'invierno' if dm == 9 else ('24' if dm >= 9 else 'otro')
+    cat = (cat or 'dia').strip().lower()
+    if cat in ('6', 'meses_6'):
+        return '24'
+    return cat
+
+
+def _pct_fichaje_desde_db_contrato(contrato, vend_fichaje=None):
+    from inmobiliaria.models.comision import ROL_COMISION_FICHAJE
+
+    qs = (
+        ComisionVendedor.objects.filter(
+            contrato=contrato,
+            rol_comision=ROL_COMISION_FICHAJE,
+        )
+        .exclude(estado='cancelada')
+        .select_related('vendedor')
+        .order_by('-id')
+    )
+    if vend_fichaje:
+        com = qs.filter(vendedor=vend_fichaje).first()
+        if com and com.porcentaje_comision and com.porcentaje_comision > 0:
+            return com.porcentaje_comision, com.vendedor
+    com = qs.first()
+    if com and com.porcentaje_comision and com.porcentaje_comision > 0:
+        return com.porcentaje_comision, com.vendedor
+    return None, None
+
+
+def _resolver_fichaje_contrato_caratula(contrato):
+    """% fichaje, vendedor fichador y metadatos para carátula de contrato."""
+    from inmobiliaria.models.comision import porcentaje_fichaje_vendedor
+
+    prop = getattr(contrato, 'propiedad', None) if contrato else None
+    tipo_fichaje = getattr(prop, 'tipo_fichaje', None) or 'primer'
+    cat = _categoria_fichaje_contrato(contrato)
+    vend_fichaje = _vendedor_fichaje_contrato_caratula(contrato)
+
+    pct = None
+    vend = vend_fichaje
+    if vend_fichaje:
+        pct = porcentaje_fichaje_vendedor(vend_fichaje, tipo_fichaje, categoria_operacion=cat)
+
+    if pct is None or pct <= 0:
+        pct_db, vend_db = _pct_fichaje_desde_db_contrato(contrato, vend_fichaje)
+        if pct_db and pct_db > 0:
+            pct = pct_db
+            if vend_db:
+                vend = vend_db
+
+    return {
+        'pct': pct,
+        'vend': vend,
+        'tipo_fichaje': tipo_fichaje,
+        'cat': cat,
+    }
+
+
+def _linea_fichaje_contrato_caratula(contrato, base_monto):
+    from inmobiliaria.models.comision import ROL_COMISION_FICHAJE
+
+    if not contrato or base_monto <= Decimal('0.05'):
+        return None
+
+    info = _resolver_fichaje_contrato_caratula(contrato)
+    pct = info.get('pct')
+    vend = info.get('vend')
+    if not vend or pct is None or pct <= 0:
+        return None
+
+    monto = (base_monto * Decimal(str(pct)) / Decimal('100')).quantize(Decimal('0.01'))
+    return {
+        'label': _label_fichaje_contrato(info['tipo_fichaje'], info['cat']),
+        'monto': monto,
+        'monto_fmt': _formato_importe_us(monto),
+        'porcentaje': pct,
+        'rol': ROL_COMISION_FICHAJE,
+        'vendedor_nombre': _nombre_productor_papel(vend),
+        'vendedor_id': vend.id,
+    }
+
+
 def _agregar_linea_fichaje_contrato_caratula(lineas, contrato, base_monto):
-    from inmobiliaria.models.comision import ROL_COMISION_FICHAJE, porcentaje_fichaje_vendedor
+    from inmobiliaria.models.comision import ROL_COMISION_FICHAJE
 
     if any(l.get('rol') == ROL_COMISION_FICHAJE for l in lineas):
         return
-    prop = contrato.propiedad
-    tipo_fichaje = getattr(prop, 'tipo_fichaje', None) or 'primer'
-    cat = (
-        contrato.categoria_tipo_operacion()
-        if hasattr(contrato, 'categoria_tipo_operacion')
-        else ('invierno' if int(contrato.duracion_meses or 0) == 9 else '24')
-    )
-    vend_fichaje = _vendedor_fichaje_contrato_caratula(contrato)
-    if not vend_fichaje:
-        return
-    pct_fichaje = porcentaje_fichaje_vendedor(vend_fichaje, tipo_fichaje, categoria_operacion=cat)
-    if pct_fichaje is None or pct_fichaje <= 0:
-        com = (
-            ComisionVendedor.objects.filter(
-                contrato=contrato,
-                rol_comision=ROL_COMISION_FICHAJE,
-                vendedor=vend_fichaje,
-            )
-            .exclude(estado='cancelada')
-            .order_by('-id')
-            .first()
-        )
-        if com and com.porcentaje_comision:
-            pct_fichaje = com.porcentaje_comision
-        else:
-            return
-    monto = (base_monto * Decimal(str(pct_fichaje)) / Decimal('100')).quantize(Decimal('0.01'))
-    lineas.insert(
-        0,
-        {
-            'label': _label_fichaje_contrato(tipo_fichaje, cat),
-            'monto': monto,
-            'monto_fmt': _formato_importe_us(monto),
-            'porcentaje': pct_fichaje,
-            'rol': ROL_COMISION_FICHAJE,
-            'vendedor_nombre': _nombre_productor_papel(vend_fichaje),
-            'vendedor_id': vend_fichaje.id,
-        },
-    )
+    linea = _linea_fichaje_contrato_caratula(contrato, base_monto)
+    if linea:
+        lineas.insert(0, linea)
 
 
 def _comisiones_vendedor_contrato_caratula(contrato, base_monto):
@@ -1952,12 +2001,10 @@ def _comisiones_vendedor_contrato_caratula(contrato, base_monto):
     la propiedad (puede ser distinto del productor); invierno / 24 meses al productor.
     """
     from inmobiliaria.models.comision import (
-        ROL_COMISION_FICHAJE,
         ROL_COMISION_OP_24,
         ROL_COMISION_OP_INVIERNO,
         pct_comision_24_meses_vendedor,
         pct_comision_invierno_vendedor,
-        porcentaje_fichaje_vendedor,
         propiedad_es_oficina,
     )
 
@@ -1966,32 +2013,11 @@ def _comisiones_vendedor_contrato_caratula(contrato, base_monto):
 
     prop = contrato.propiedad
     lineas = []
-    tipo_fichaje = getattr(prop, 'tipo_fichaje', None) or 'primer'
-    cat = (
-        contrato.categoria_tipo_operacion()
-        if hasattr(contrato, 'categoria_tipo_operacion')
-        else ('invierno' if int(contrato.duracion_meses or 0) == 9 else '24')
-    )
+    cat = _categoria_fichaje_contrato(contrato)
 
-    vend_fichaje = _vendedor_fichaje_contrato_caratula(contrato)
-    pct_fichaje = porcentaje_fichaje_vendedor(vend_fichaje, tipo_fichaje, categoria_operacion=cat)
-    if vend_fichaje and pct_fichaje is not None and pct_fichaje > 0:
-        monto = (base_monto * Decimal(str(pct_fichaje)) / Decimal('100')).quantize(
-            Decimal('0.01')
-        )
-        lineas.append(
-            {
-                'label': _label_fichaje_contrato(tipo_fichaje, cat),
-                'monto': monto,
-                'monto_fmt': _formato_importe_us(monto),
-                'porcentaje': pct_fichaje,
-                'rol': ROL_COMISION_FICHAJE,
-                'vendedor_nombre': _nombre_productor_papel(vend_fichaje),
-                'vendedor_id': vend_fichaje.id,
-            }
-        )
-    else:
-        _agregar_linea_fichaje_contrato_caratula(lineas, contrato, base_monto)
+    linea_fichaje = _linea_fichaje_contrato_caratula(contrato, base_monto)
+    if linea_fichaje:
+        lineas.append(linea_fichaje)
 
     if not contrato.vendedor_id:
         return lineas

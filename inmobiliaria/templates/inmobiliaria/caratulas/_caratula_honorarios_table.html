@@ -76,7 +76,7 @@
         </form>
 
         <div class="border-top p-3">
-            {% if honorarios_ctx.comisiones_fichaje %}
+            {% if honorarios_ctx.comisiones_fichaje or honorarios_ctx.pct_productor.pct_fichaje %}
             <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
                 <strong class="small">Comisión de fichaje</strong>
                 {% if honorarios_ctx.pct_productor.fichador %}
@@ -100,6 +100,10 @@
                             <td class="text-end">${{ honorarios_ctx.base_comisiones|floatformat:2 }}</td>
                             <td class="text-end">{{ cv.porcentaje|floatformat:2 }}%</td>
                             <td class="text-end fw-semibold">${{ cv.monto|floatformat:2 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-muted text-center py-2">Calculando comisión de fichaje…</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -227,7 +231,14 @@
     }
 
     function recalcFichaje(base) {
-        if (!filasFichajeBody || !totalFichaje || !cfg.pct_fichaje || cfg.pct_fichaje <= 0) {
+        if (!filasFichajeBody || !totalFichaje) {
+            return;
+        }
+        if (!cfg.pct_fichaje || cfg.pct_fichaje <= 0) {
+            filasFichajeBody.innerHTML = '<tr><td colspan="4" class="text-muted text-center py-2">Sin % de fichaje cargado para el fichador en contratos de 24 meses.</td></tr>';
+            if (totalFichaje) {
+                totalFichaje.textContent = '$0,00';
+            }
             return;
         }
         const monto = base * cfg.pct_fichaje / 100;
@@ -306,5 +317,6 @@
             el.addEventListener('change', recalcProductor);
         }
     });
+    recalcProductor();
 })();
 </script>
