@@ -1,24 +1,23 @@
 """
 Corrige reservas sindicato con cobro en caja/recibo que quedaron como «Reservado».
 
-Lote Marconi 2026 (recomendado):
+Todos los lotes Marconi 2026 (junio + julio):
   python manage.py reparar_reservas_sindicato_recibo --lote-marconi --dry-run
   python manage.py reparar_reservas_sindicato_recibo --lote-marconi
 
 Por fechas manuales:
   python manage.py reparar_reservas_sindicato_recibo \\
-    --fecha-inicio 2026-07-18 --fecha-fin 2026-08-02 \\
-    --fecha-pago 2026-06-25 --marcar-sindicato
+    --fecha-inicio 2026-06-17 --fecha-fin 2026-06-18 --fecha-pago 2026-06-25
 """
 from datetime import datetime
 from decimal import Decimal
 
 from django.core.management.base import BaseCommand
+from django.db.models import Q
 
 from inmobiliaria.caja_devolucion_deposito import (
-    LOTE_SINDICATO_FECHA_EGRESO,
-    LOTE_SINDICATO_FECHA_INGRESO,
-    LOTE_SINDICATO_FECHA_PAGO,
+    LOTES_SINDICATO_MARCONI,
+    config_lote_sindicato_marconi,
     es_reserva_lote_sindicato_marconi,
     sincronizar_senia_reserva_desde_movimientos,
     total_senia_pagada_reserva,
@@ -32,60 +31,51 @@ def _parse_date(raw: str | None):
     return datetime.strptime(raw.strip(), '%Y-%m-%d').date()
 
 
-def _realinear_recibo_propiedad(reserva, fecha_pago, *, dry_run: bool) -> bool:
+def _realinear_recibo_propiedad(reserva, fechas_pago, *, dry_run: bool) -> bool:
     if Recibo.objects.filter(reserva_id=reserva.id).exists():
         return False
-    rec = (
-        Recibo.objects.filter(
-            propiedad_id=reserva.propiedad_id,
-            fecha_emision__date=fecha_pago,
+    for fecha_pago in fechas_pago:
+        rec = (
+            Recibo.objects.filter(
+                propiedad_id=reserva.propiedad_id,
+                fecha_emision__date=fecha_pago,
+            )
+            .order_by('-fecha_emision', '-id')
+            .first()
         )
-        .order_by('-fecha_emision', '-id')
-        .first()
-    )
-    if not rec:
-        return False
-    if dry_run:
+        if not rec:
+            continue
+        if dry_run:
+            return True
+        rec.reserva_id = reserva.id
+        rec.save(update_fields=['reserva_id'])
         return True
-    rec.reserva_id = reserva.id
-    rec.save(update_fields=['reserva_id'])
-    return True
+    return False
 
 
 class Command(BaseCommand):
-    help = 'Repara operaciones sindicato Marconi y sincroniza seña desde caja/recibos'
+    help = 'Repara operaciones sindicato Marconi (lotes junio y julio 2026)'
 
     def add_arguments(self, parser):
         parser.add_argument('--sucursal-id', type=int, help='Limitar a una sucursal')
         parser.add_argument(
             '--lote-marconi',
             action='store_true',
-            help='Solo lote 18/07/2026–02/08/2026 cliente Marconi (cobro 25/06/2026)',
+            help='Todos los lotes Marconi: 17–18/06 y 18/07–02/08/2026',
         )
         parser.add_argument('--fecha-inicio', type=str, help='Fecha ingreso (YYYY-MM-DD)')
         parser.add_argument('--fecha-fin', type=str, help='Fecha egreso (YYYY-MM-DD)')
         parser.add_argument('--fecha-pago', type=str, help='Fecha del recibo/cobro (YYYY-MM-DD)')
-        parser.add_argument(
-            '--marcar-sindicato',
-            action='store_true',
-            help='Incluido automáticamente con --lote-marconi',
-        )
         parser.add_argument('--dry-run', action='store_true', help='Solo mostrar cambios')
 
     def handle(self, *args, **options):
         dry_run = options['dry_run']
         sucursal_id = options.get('sucursal_id')
         lote_marconi = options['lote_marconi']
-        marcar_sindicato = options['marcar_sindicato'] or lote_marconi
 
         fecha_inicio = _parse_date(options.get('fecha_inicio'))
         fecha_fin = _parse_date(options.get('fecha_fin'))
-        fecha_pago = _parse_date(options.get('fecha_pago'))
-
-        if lote_marconi:
-            fecha_inicio = LOTE_SINDICATO_FECHA_INGRESO
-            fecha_fin = LOTE_SINDICATO_FECHA_EGRESO
-            fecha_pago = LOTE_SINDICATO_FECHA_PAGO
+        fecha_pago_manual = _parse_date(options.get('fecha_pago'))
 
         reservas_qs = Reserva.objects.filter(eliminada=False).select_related(
             'propiedad', 'sucursal', 'cliente'
@@ -93,14 +83,22 @@ class Command(BaseCommand):
         if sucursal_id:
             reservas_qs = reservas_qs.filter(sucursal_id=sucursal_id)
 
-        if fecha_inicio and fecha_fin:
-            reservas_qs = reservas_qs.filter(fecha_inicio=fecha_inicio, fecha_fin=fecha_fin)
-            if lote_marconi:
-                reservas_qs = [r for r in reservas_qs if es_reserva_lote_sindicato_marconi(r)]
-                self.stdout.write(f'Lote Marconi sindicato: {len(reservas_qs)} reserva(s)')
-            else:
-                reservas_qs = list(reservas_qs)
-                self.stdout.write(f'Lote por fechas: {len(reservas_qs)} reserva(s)')
+        if lote_marconi:
+            q_lotes = Q()
+            for lote in LOTES_SINDICATO_MARCONI:
+                q_lotes |= Q(fecha_inicio=lote.fecha_ingreso, fecha_fin=lote.fecha_egreso)
+            reservas_qs = list(reservas_qs.filter(q_lotes))
+            reservas_qs = [r for r in reservas_qs if config_lote_sindicato_marconi(r)]
+            self.stdout.write(
+                'Lotes Marconi: '
+                + ', '.join(l.etiqueta for l in LOTES_SINDICATO_MARCONI)
+                + f' → {len(reservas_qs)} reserva(s)'
+            )
+        elif fecha_inicio and fecha_fin:
+            reservas_qs = list(
+                reservas_qs.filter(fecha_inicio=fecha_inicio, fecha_fin=fecha_fin)
+            )
+            self.stdout.write(f'Lote por fechas: {len(reservas_qs)} reserva(s)')
         else:
             ids_recibo = set(
                 Recibo.objects.filter(reserva_id__in=reservas_qs.values('id'))
@@ -129,16 +127,25 @@ class Command(BaseCommand):
 
         for reserva in sorted(reservas_qs, key=lambda r: r.id):
             antes = (reserva.estado, str(reserva.senia or 0), reserva.es_alquiler_sindicato)
-            if fecha_pago and _realinear_recibo_propiedad(reserva, fecha_pago, dry_run=dry_run):
+            lote = config_lote_sindicato_marconi(reserva)
+            fechas_pago = (
+                lote.fechas_pago
+                if lote
+                else ((fecha_pago_manual,) if fecha_pago_manual else ())
+            )
+            if fechas_pago and _realinear_recibo_propiedad(
+                reserva, fechas_pago, dry_run=dry_run
+            ):
                 recibos_realineados += 1
 
             if dry_run:
                 total = total_senia_pagada_reserva(reserva)
                 forzaria = es_reserva_lote_sindicato_marconi(reserva) and total <= Decimal('0.01')
+                etiqueta_lote = lote.etiqueta if lote else '—'
                 self.stdout.write(
-                    f'  #{reserva.id} {getattr(reserva.propiedad, "direccion", "?")}: '
-                    f'estado={reserva.estado} senia={reserva.senia} '
-                    f'→ cobrado={total}'
+                    f'  #{reserva.id} [{etiqueta_lote}] '
+                    f'{getattr(reserva.propiedad, "direccion", "?")}: '
+                    f'estado={reserva.estado} senia={reserva.senia} → cobrado={total}'
                     f'{" [forzaría pagada+sindicato]" if forzaria else ""}'
                 )
                 sync_count += 1
@@ -150,8 +157,10 @@ class Command(BaseCommand):
             )
             despues = (reserva.estado, str(reserva.senia or 0), reserva.es_alquiler_sindicato)
             if despues != antes or total > Decimal('0.01'):
+                etiqueta_lote = lote.etiqueta if lote else '—'
                 self.stdout.write(
-                    f'  #{reserva.id} {getattr(reserva.propiedad, "direccion", "?")}: '
+                    f'  #{reserva.id} [{etiqueta_lote}] '
+                    f'{getattr(reserva.propiedad, "direccion", "?")}: '
                     f'{antes[0]}/{antes[1]}/sind={antes[2]} → '
                     f'{despues[0]}/{despues[1]}/sind={despues[2]} (cobrado={total})'
                 )

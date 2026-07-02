@@ -5,6 +5,7 @@ import json
 import re
 from datetime import date, timedelta
 from decimal import Decimal
+from typing import NamedTuple
 
 from django.db.models import Exists, OuterRef, Q
 from django.utils import timezone
@@ -16,10 +17,37 @@ CONCEPTO_DEVOLUCION_DEPOSITO_ID = '140'
 CONCEPTOS_SENIA_OPERACION_RESERVA = frozenset({'1', '15', '50', '100', '103', '219'})
 CONCEPTO_DEPOSITO_RESERVA_ID = '10'
 
-# Lote sindicato Marconi — julio/agosto 2026, cobro en caja 25/06/2026
-LOTE_SINDICATO_FECHA_INGRESO = date(2026, 7, 18)
-LOTE_SINDICATO_FECHA_EGRESO = date(2026, 8, 2)
-LOTE_SINDICATO_FECHA_PAGO = date(2026, 6, 25)
+
+class LoteSindicatoMarconi(NamedTuple):
+    clave: str
+    fecha_ingreso: date
+    fecha_egreso: date
+    fechas_pago: tuple[date, ...]
+    etiqueta: str
+
+
+# Lotes sindicato Marconi 2026 — cobro en efectivo (recibo 25/06 u otros días del lote)
+LOTES_SINDICATO_MARCONI: tuple[LoteSindicatoMarconi, ...] = (
+    LoteSindicatoMarconi(
+        'junio_2026',
+        date(2026, 6, 17),
+        date(2026, 6, 18),
+        (date(2026, 6, 17), date(2026, 6, 18), date(2026, 6, 25)),
+        '17/06–18/06/2026',
+    ),
+    LoteSindicatoMarconi(
+        'julio_2026',
+        date(2026, 7, 18),
+        date(2026, 8, 2),
+        (date(2026, 6, 25),),
+        '18/07–02/08/2026',
+    ),
+)
+
+# Compatibilidad con imports anteriores (lote julio)
+LOTE_SINDICATO_FECHA_INGRESO = LOTES_SINDICATO_MARCONI[1].fecha_ingreso
+LOTE_SINDICATO_FECHA_EGRESO = LOTES_SINDICATO_MARCONI[1].fecha_egreso
+LOTE_SINDICATO_FECHA_PAGO = LOTES_SINDICATO_MARCONI[1].fechas_pago[0]
 
 
 def concepto_devolucion_deposito_catalogo(sucursal):
@@ -454,21 +482,32 @@ def reserva_mostrar_como_reservada_sin_pagar(reserva) -> bool:
     )
 
 
-def es_reserva_lote_sindicato_marconi(reserva) -> bool:
-    """Operaciones sindicato Marconi del 18/07 al 02/08/2026 (excluye casos simbólicos $1)."""
-    if getattr(reserva, 'fecha_inicio', None) != LOTE_SINDICATO_FECHA_INGRESO:
-        return False
-    if getattr(reserva, 'fecha_fin', None) != LOTE_SINDICATO_FECHA_EGRESO:
-        return False
-    precio = Decimal(str(getattr(reserva, 'precio_total', None) or 0))
-    if precio <= Decimal('1.01'):
-        return False
+def _cliente_es_marconi(reserva) -> bool:
     cliente = getattr(reserva, 'cliente', None)
     if not cliente:
         return False
     ap = (getattr(cliente, 'apellido', None) or '').lower()
     nom = (getattr(cliente, 'nombre', None) or '').lower()
     return 'marconi' in ap or 'marconi' in nom
+
+
+def config_lote_sindicato_marconi(reserva) -> LoteSindicatoMarconi | None:
+    """Devuelve el lote sindicato Marconi que corresponde a la reserva, o None."""
+    precio = Decimal(str(getattr(reserva, 'precio_total', None) or 0))
+    if precio <= Decimal('1.01'):
+        return None
+    if not _cliente_es_marconi(reserva):
+        return None
+    fi = getattr(reserva, 'fecha_inicio', None)
+    ff = getattr(reserva, 'fecha_fin', None)
+    for lote in LOTES_SINDICATO_MARCONI:
+        if fi == lote.fecha_ingreso and ff == lote.fecha_egreso:
+            return lote
+    return None
+
+
+def es_reserva_lote_sindicato_marconi(reserva) -> bool:
+    return config_lote_sindicato_marconi(reserva) is not None
 
 
 def _total_senia_en_fecha_exacta(reserva, fecha_pago: date) -> Decimal:
@@ -486,6 +525,14 @@ def _total_senia_en_fecha_exacta(reserva, fecha_pago: date) -> Decimal:
     for mov in qs:
         total += _monto_senia_movimiento_sin_vinculo(mov, precio)
     return total.quantize(Decimal('0.01'))
+
+
+def _total_senia_en_fechas_pago(reserva, fechas_pago: tuple[date, ...]) -> Decimal:
+    for fecha_pago in fechas_pago:
+        total = _total_senia_en_fecha_exacta(reserva, fecha_pago)
+        if total > Decimal('0.01'):
+            return total
+    return Decimal('0')
 
 
 def forzar_pago_completo_sindicato(reserva, *, persistir: bool = True) -> Decimal:
@@ -517,10 +564,11 @@ def sincronizar_senia_reserva_desde_movimientos(reserva, *, persistir: bool = Tr
     precio = Decimal(str(reserva.precio_total or 0))
     marcar_sindicato = False
 
-    if es_reserva_lote_sindicato_marconi(reserva):
+    lote = config_lote_sindicato_marconi(reserva)
+    if lote:
         marcar_sindicato = True
         if total <= Decimal('0.01'):
-            total_fecha = _total_senia_en_fecha_exacta(reserva, LOTE_SINDICATO_FECHA_PAGO)
+            total_fecha = _total_senia_en_fechas_pago(reserva, lote.fechas_pago)
             if total_fecha > Decimal('0.01'):
                 total = total_fecha
             elif precio > Decimal('0.01'):
