@@ -353,6 +353,30 @@ def queryset_reservas_con_operacion(qs):
     ).distinct()
 
 
+def queryset_reservas_pendientes_cobro(qs):
+    """
+    Reservas para «Reservas pendientes»: en espera o reservadas sin cobro.
+    Excluye sindicato, recibos emitidos y operaciones ya señadas.
+    """
+    from inmobiliaria.models import HistorialDisponibilidad, Recibo
+
+    tiene_recibo = Exists(Recibo.objects.filter(reserva_id=OuterRef('pk')))
+    en_historial_sindicato = Exists(
+        HistorialDisponibilidad.objects.filter(
+            reserva_id=OuterRef('pk'),
+            estado='alquiler_sindicato',
+        )
+    )
+    return qs.filter(
+        estado__in=('en_espera', 'confirmada_no_pagada'),
+        es_alquiler_sindicato=False,
+    ).exclude(
+        Q(senia__gt=Decimal('0.01'))
+        | tiene_recibo
+        | en_historial_sindicato
+    ).distinct()
+
+
 def queryset_contratos_con_operacion(qs):
     """Contratos con operación iniciada (no solo estado reservado sin cobro)."""
     return qs.exclude(Q(estado='reservado') & Q(operacion_principal=False))

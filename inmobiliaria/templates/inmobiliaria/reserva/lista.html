@@ -444,8 +444,7 @@
         {% if reservas %}
             <div class="reservas-grid">
                 {% for reserva in reservas %}
-                    {% if not reserva.es_alquiler_sindicato and reserva.estado == 'en_espera' or not reserva.es_alquiler_sindicato and reserva.estado == 'confirmada_no_pagada' %}
-                    <div class="reserva-card fade-in {% if reserva.estado == 'en_espera' %}en-espera{% else %}confirmada{% endif %}" 
+                    <div class="reserva-card fade-in {% if reserva.estado == 'en_espera' %}en-espera{% else %}confirmada{% endif %}"
                          style="animation-delay: {{ forloop.counter0|floatformat:1 }}s;">
                         
                         <div class="reserva-card-content">
@@ -535,7 +534,6 @@
                             </a>
                         </div>
                     </div>
-                    {% endif %}
                 {% endfor %}
             </div>
         {% else %}

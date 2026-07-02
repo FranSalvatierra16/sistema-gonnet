@@ -3262,12 +3262,17 @@ def ver_disponibilidad(request, propiedad_id):
     return render(request, 'inmobiliaria/ver_disponibilidad.html', context)
 @login_required                                                                 
 def reservas(request):
-    # ✅ Ordenar por ID descendente como en operaciones
-    # Excluir reservas eliminadas (soft delete) y alquiler sindicato (no son pendientes de cobro)
-    reservas = Reserva.objects.filter(
-        sucursal=request.user.sucursal,
-        eliminada=False,
-        es_alquiler_sindicato=False,
+    from inmobiliaria.caja_devolucion_deposito import (
+        queryset_reservas_pendientes_cobro,
+        reserva_mostrar_como_reservada_sin_pagar,
+        sincronizar_senia_reserva_desde_movimientos,
+    )
+
+    reservas = queryset_reservas_pendientes_cobro(
+        Reserva.objects.filter(
+            sucursal=request.user.sucursal,
+            eliminada=False,
+        )
     ).select_related('cliente', 'propiedad', 'propiedad__propietario', 'vendedor').order_by('-id')
     
     # ✅ Filtro de búsqueda por ID (opcional)
@@ -3319,14 +3324,15 @@ def reservas(request):
     # Obtener lista de vendedores para el select
     vendedores = Vendedor.objects.filter(sucursal=request.user.sucursal).order_by('apellido', 'nombre')
 
-    from inmobiliaria.caja_devolucion_deposito import sincronizar_senia_reserva_desde_movimientos
-
-    reservas_list = list(reservas)
-    for reserva in reservas_list:
+    reservas_list = []
+    for reserva in reservas:
         senia_pagada = sincronizar_senia_reserva_desde_movimientos(reserva)
+        if not reserva_mostrar_como_reservada_sin_pagar(reserva):
+            continue
         reserva.senia_pagada = senia_pagada
         precio = Decimal(str(reserva.precio_total or 0))
         reserva.saldo_pendiente = max(precio - senia_pagada, Decimal('0'))
+        reservas_list.append(reserva)
 
     return render(request, 'inmobiliaria/reserva/lista.html', {
         'reservas': reservas_list,
