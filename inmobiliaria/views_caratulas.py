@@ -279,6 +279,9 @@ def _direccion_piso_depto_papel(prop):
     fid = getattr(prop, 'id', None)
     if fid:
         parts.append(f'({fid})')
+    amb = getattr(prop, 'ambientes', None)
+    if amb is not None and str(amb).strip() != '':
+        parts.append(f'{amb} AMB.')
     pi = (prop.piso or '').strip()
     dep = (prop.departamento or '').strip()
     if pi or dep:
