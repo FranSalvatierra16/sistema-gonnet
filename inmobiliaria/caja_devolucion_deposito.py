@@ -258,12 +258,23 @@ def monto_senia_en_movimiento(movimiento, *, reserva_id: int | None = None) -> D
     return Decimal('0')
 
 
+def _total_cobrado_desde_recibos_reserva(reserva) -> Decimal:
+    """Suma de importes en recibos emitidos (respaldo si el vínculo al movimiento falla)."""
+    from inmobiliaria.models import Recibo
+
+    return sum(
+        (Decimal(str(r.monto_este_pago or 0)) for r in Recibo.objects.filter(reserva_id=reserva.id)),
+        Decimal('0'),
+    ).quantize(Decimal('0.01'))
+
+
 def total_senia_pagada_reserva(reserva) -> Decimal:
     rid = int(reserva.id)
-    total = Decimal('0')
+    total_mov = Decimal('0')
     for mov in movimientos_reserva(reserva, tipo=TipoMovimientoCajaEnum.INGRESO):
-        total += monto_senia_en_movimiento(mov, reserva_id=rid)
-    return total
+        total_mov += monto_senia_en_movimiento(mov, reserva_id=rid)
+    total_rec = _total_cobrado_desde_recibos_reserva(reserva)
+    return max(total_mov, total_rec).quantize(Decimal('0.01'))
 
 
 def _estado_reserva_segun_senia(reserva, senia: Decimal) -> str:
@@ -318,7 +329,13 @@ def reserva_tiene_senia_cobrada(reserva) -> bool:
 
 def reserva_tuvo_operacion_en_caja(reserva) -> bool:
     """Reserva con cobro en caja (no solo bloqueo de fechas en calendario)."""
-    return reserva_tiene_senia_cobrada(reserva)
+    if (getattr(reserva, 'estado', None) or '').strip() == 'pagada':
+        return True
+    if Decimal(str(getattr(reserva, 'senia', None) or 0)) > Decimal('0.01'):
+        return True
+    if _total_cobrado_desde_recibos_reserva(reserva) > Decimal('0.01'):
+        return True
+    return total_senia_pagada_reserva(reserva) > Decimal('0.01')
 
 
 def queryset_reservas_con_operacion(qs):
@@ -329,7 +346,11 @@ def queryset_reservas_con_operacion(qs):
     from inmobiliaria.models import Recibo
 
     tiene_recibo = Exists(Recibo.objects.filter(reserva_id=OuterRef('pk')))
-    return qs.filter(Q(senia__gt=Decimal('0.01')) | tiene_recibo).distinct()
+    return qs.filter(
+        Q(senia__gt=Decimal('0.01'))
+        | tiene_recibo
+        | Q(estado='pagada')
+    ).distinct()
 
 
 def queryset_contratos_con_operacion(qs):
@@ -363,10 +384,32 @@ def reserva_mostrar_como_reservada_sin_pagar(reserva) -> bool:
 
 def sincronizar_senia_reserva_desde_movimientos(reserva, *, persistir: bool = True) -> Decimal:
     """Recalcula seña, saldo y estado de la reserva desde ingresos de caja vinculados."""
-    total = total_senia_pagada_reserva(reserva)
+    total_mov = Decimal('0')
+    rid = int(reserva.id)
+    for mov in movimientos_reserva(reserva, tipo=TipoMovimientoCajaEnum.INGRESO):
+        total_mov += monto_senia_en_movimiento(mov, reserva_id=rid)
+    total_rec = _total_cobrado_desde_recibos_reserva(reserva)
+    total = max(total_mov, total_rec).quantize(Decimal('0.01'))
+
     precio = Decimal(str(reserva.precio_total or 0))
     cuota = max(precio - total, Decimal('0'))
+    estado_actual = (reserva.estado or '').strip()
     nuevo_estado = _estado_reserva_segun_senia(reserva, total)
+
+    # Con recibos emitidos no degradar a «sin pagar» por un fallo al leer movimientos.
+    if total_rec > Decimal('0.01'):
+        if total < total_rec:
+            total = total_rec
+            cuota = max(precio - total, Decimal('0'))
+            nuevo_estado = _estado_reserva_segun_senia(reserva, total)
+        if estado_actual == 'pagada' and precio > Decimal('0') and total >= precio - Decimal('0.01'):
+            nuevo_estado = 'pagada'
+        elif (
+            estado_actual in ('pagada', 'confirmada')
+            and total > Decimal('0.01')
+            and nuevo_estado in ('confirmada_no_pagada', 'en_espera')
+        ):
+            nuevo_estado = _estado_reserva_segun_senia(reserva, total)
 
     update_fields: list[str] = []
     actual = Decimal(str(reserva.senia or 0))
@@ -377,7 +420,7 @@ def sincronizar_senia_reserva_desde_movimientos(reserva, *, persistir: bool = Tr
     if abs(actual_cuota - cuota) > Decimal('0.01'):
         reserva.cuota_pendiente = cuota
         update_fields.append('cuota_pendiente')
-    if nuevo_estado != (reserva.estado or ''):
+    if nuevo_estado != estado_actual:
         reserva.estado = nuevo_estado
         update_fields.append('estado')
 
