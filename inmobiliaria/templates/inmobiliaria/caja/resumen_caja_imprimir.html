@@ -101,11 +101,8 @@
                     <td class="text-center fw-bold {% if movimiento.tipo == 'IN' %}text-success{% else %}text-danger{% endif %}">{{ movimiento.tipo_letra_listado }}</td>
                     <td class="text-end font-monospace small">{{ movimiento.numero_operacion_listado }}</td>
                     <td class="font-monospace small">{{ movimiento.comprobante_listado }}</td>
-                    <td class="caja-listado-celda">
-                        <div class="caja-listado-l1">{{ movimiento.listado_concepto_l1 }}</div>
-                        {% if movimiento.listado_concepto_l2 %}<div class="caja-listado-l2">{{ movimiento.listado_concepto_l2 }}</div>{% endif %}
-                        <div class="caja-listado-l3">{{ movimiento.listado_detalle_l1 }}</div>
-                        {% if movimiento.listado_detalle_tabla_secundario != '—' %}<div class="caja-listado-l4">{{ movimiento.listado_detalle_tabla_secundario }}</div>{% endif %}
+                    <td class="caja-listado-celda caja-listado-celda-resumen">
+                        <div class="caja-listado-resumen-texto">{{ movimiento.listado_detalle_resumen_imprimir|linebreaksbr }}</div>
                     </td>
                     <td class="text-end">{% if movimiento.tipo == 'IN' %}<span class="text-success">${{ movimiento.monto_total|format_price }}</span>{% else %}—{% endif %}</td>
                     <td class="text-end">{% if movimiento.tipo == 'EG' %}<span class="text-danger">${{ movimiento.monto_total|format_price }}</span>{% else %}—{% endif %}</td>
@@ -242,26 +239,46 @@
 </div>
 
 <style>
-.table-caja-listado-imprimir .caja-listado-celda {
+.table-caja-listado-imprimir .caja-listado-celda-resumen {
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-    font-size: 0.8rem;
-    line-height: 1.2;
+    font-size: 0.85rem;
+    line-height: 1.45;
     white-space: normal;
     word-break: break-word;
-    max-width: 11rem;
+    min-width: 10rem;
+    max-width: 16rem;
+    padding: 0.5rem 0.65rem !important;
+    vertical-align: middle;
 }
-.table-caja-listado-imprimir .caja-listado-l1 { font-weight: 700; }
-.table-caja-listado-imprimir .caja-listado-l2 { font-size: 0.72rem; color: #333; }
-.table-caja-listado-imprimir .caja-listado-l3 { font-weight: 500; }
-.table-caja-listado-imprimir .caja-listado-l4 { font-size: 0.72rem; color: #333; }
+.table-caja-listado-imprimir .caja-listado-resumen-texto {
+    display: block;
+}
+.table-caja-listado-imprimir td,
+.table-caja-listado-imprimir th {
+    padding: 0.4rem 0.5rem;
+    vertical-align: middle;
+}
 
 @media print {
     .no-print, nav.navbar, footer.footer { display: none !important; }
     .caja-resumen-matriz, .caja-resumen-matriz-cuentas { page-break-inside: avoid; }
+    @page {
+        margin: 1.4cm 1.1cm;
+    }
     body { background: #fff !important; font-size: 11pt; }
     body > .container { margin-top: 0 !important; padding-top: 0 !important; max-width: 100% !important; }
-    #resumen-caja-print { padding: 0 !important; max-width: 100% !important; }
-    .table { font-size: 8pt; }
+    #resumen-caja-print { padding: 0.25rem 0.35rem !important; max-width: 100% !important; }
+    .table { font-size: 8.5pt; }
+    .table-caja-listado-imprimir td,
+    .table-caja-listado-imprimir th {
+        padding: 0.35rem 0.45rem !important;
+    }
+    .table-caja-listado-imprimir .caja-listado-celda-resumen {
+        font-size: 8pt;
+        line-height: 1.4;
+        max-width: 11rem;
+        padding: 0.4rem 0.5rem !important;
+    }
     .caja-listado-encabezado { page-break-after: avoid; }
     tr.table-danger, tr.table-danger > th, tr.table-danger > td {
         background-color: #f8d7da !important;

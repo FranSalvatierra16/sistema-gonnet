@@ -665,6 +665,79 @@ class MovimientoCaja(models.Model):
             return '—'
         return ' · '.join(parts)
 
+    def _direccion_solo_resumen(self):
+        """Dirección de la propiedad sin nº de ficha (resumen impreso)."""
+        if self.propiedad_id:
+            try:
+                prop = self.propiedad
+                dir_ = (getattr(prop, 'direccion', None) or '').strip()
+                if dir_:
+                    return dir_.upper()
+            except Exception:
+                pass
+        l2 = (self.listado_concepto_l2 or '').strip()
+        if l2 and '(' in l2:
+            return l2.split('(', 1)[0].strip()
+        return l2
+
+    def _propietario_resumen_liquidacion(self):
+        """Apellido y nombre del propietario (pago de liquidación)."""
+        if self.propiedad_id:
+            try:
+                prop = self.propiedad
+                po = getattr(prop, 'propietario', None)
+                if po:
+                    ap = (getattr(po, 'apellido', None) or '').strip()
+                    nom = (getattr(po, 'nombre', None) or '').strip()
+                    if ap and nom:
+                        return f'{ap}, {nom}'
+                    return ap or nom or ''
+            except Exception:
+                pass
+        for fuente in (
+            self.listado_detalle_l1 or '',
+            self.concepto_sin_pipe_conceptos() or '',
+        ):
+            m = re.search(
+                r'Pago\s+liquidaci[oó]n\s*#\s*\d+\s*[—\-–]\s*(.+)',
+                fuente,
+                re.I,
+            )
+            if m:
+                tail = m.group(1).split('\n')[0].strip()
+                if tail:
+                    return tail[:120]
+        return ''
+
+    @property
+    def listado_detalle_resumen_imprimir(self):
+        """
+        Detalle breve para el resumen de caja impreso (sin CBU, fechas ni texto largo).
+        """
+        cat = (self.listado_concepto_l1 or '').strip()
+        cat_u = cat.upper()
+        direccion = self._direccion_solo_resumen()
+
+        if cat_u == 'ALQUILER A COBRAR':
+            return direccion or '—'
+
+        if cat_u == 'LIQUIDACIONES':
+            prop = self._propietario_resumen_liquidacion()
+            if prop and direccion:
+                return f'{prop} — {direccion}'
+            return prop or direccion or '—'
+
+        det = (self.listado_detalle_l1 or '').strip()
+        if det in ('—', cat):
+            det = ''
+        if direccion:
+            if cat:
+                return f'{cat}\n{direccion}'
+            return direccion
+        if det and det.upper() != cat_u:
+            return f'{cat}\n{det}' if cat else det
+        return cat or det or '—'
+
     def descripcion_para_gasto_liquidacion_propietario(self):
         """
         Texto legible para liquidaciones (egreso descontable al propietario).
