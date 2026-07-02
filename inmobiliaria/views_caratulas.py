@@ -219,6 +219,34 @@ def _nombre_productor_papel(vendedor):
     return nom or '—'
 
 
+def _nombres_productores_operacion(*, reserva=None, contrato=None) -> str:
+    from inmobiliaria.models.comision import iter_productores_contrato, iter_productores_reserva
+
+    if reserva:
+        vends = iter_productores_reserva(reserva)
+    elif contrato:
+        vends = iter_productores_contrato(contrato)
+    else:
+        return '—'
+    if not vends:
+        return '—'
+    partes = []
+    for v in vends:
+        ap = (getattr(v, 'apellido', None) or '').strip()
+        nom = _nombre_productor_papel(v)
+        partes.append(f'{ap}, {nom}'.strip(', ').strip() if ap else nom)
+    return ' · '.join(partes)
+
+
+def _ctx_productores_operacion(*, reserva=None, contrato=None, puede_editar=False):
+    from inmobiliaria.models.comision import lista_productores_operacion
+
+    return {
+        'productores_operacion': lista_productores_operacion(reserva=reserva, contrato=contrato),
+        'puede_editar_productores_caratula': bool(puede_editar),
+    }
+
+
 def _propiedad_desc_corta(prop):
     if not prop:
         return '—'
@@ -503,57 +531,85 @@ def _procesar_confirmar_operacion_caratula(request, reserva=None, contrato=None)
     return True
 
 
-def _procesar_cambiar_productor_caratula(request, reserva=None, contrato=None):
+def _procesar_productores_caratula(request, reserva=None, contrato=None):
     from django.contrib import messages
-    from inmobiliaria.models.comision import cambiar_productor_contrato, cambiar_productor_reserva
+    from inmobiliaria.models.comision import (
+        agregar_productor_contrato,
+        agregar_productor_reserva,
+        quitar_productor_contrato,
+        quitar_productor_reserva,
+    )
 
     if not _puede_editar_caratula(request.user):
-        messages.error(request, 'No tenés permiso para cambiar el productor.')
+        messages.error(request, 'No tenés permiso para editar los productores.')
         return False
 
+    action = (request.POST.get('action') or '').strip()
     raw_id = (request.POST.get('productor_id') or '').strip()
-    if not raw_id:
-        messages.error(request, 'Ingresá el ID del productor.')
-        return False
 
-    if reserva:
-        ok, err = cambiar_productor_reserva(
-            reserva,
-            raw_id,
-            movimientos_caja=_movimientos_operacion_reserva(reserva),
-        )
-    elif contrato:
-        movimientos = []
-        if contrato.propiedad_id:
-            from inmobiliaria.cuotas_imputacion import movimientos_ingreso_contrato
+    if action == 'agregar_productor_caratula':
+        if not raw_id:
+            messages.error(request, 'Ingresá el ID del productor a agregar.')
+            return False
+        if reserva:
+            ok, err = agregar_productor_reserva(
+                reserva,
+                raw_id,
+                movimientos_caja=_movimientos_operacion_reserva(reserva),
+            )
+        elif contrato:
+            movimientos = []
+            if contrato.propiedad_id:
+                from inmobiliaria.cuotas_imputacion import movimientos_ingreso_contrato
 
-            movimientos = movimientos_ingreso_contrato(contrato)
-        from inmobiliaria.views import _liquidacion_operacion_principal_contrato
+                movimientos = movimientos_ingreso_contrato(contrato)
+            from inmobiliaria.views import _liquidacion_operacion_principal_contrato
 
-        liquidacion_hon = _liquidacion_operacion_principal_contrato(contrato)
-        override = _comisiones_override_caratula(request, contrato.id)
-        honorarios_ctx = _ctx_honorarios_comisiones_caratula_contrato(
-            contrato,
-            movimientos,
-            liquidacion=liquidacion_hon,
-            override=override,
-        )
-        movs_op = sorted(movimientos, key=lambda x: (x.fecha, x.id)) if movimientos else []
-        ok, err = cambiar_productor_contrato(
-            contrato,
-            raw_id,
-            honorarios_monto=honorarios_ctx.get('base_comisiones'),
-            movimiento_caja=movs_op[0] if movs_op else None,
-        )
-    else:
-        return False
+            liquidacion_hon = _liquidacion_operacion_principal_contrato(contrato)
+            override = _comisiones_override_caratula(request, contrato.id)
+            honorarios_ctx = _ctx_honorarios_comisiones_caratula_contrato(
+                contrato,
+                movimientos,
+                liquidacion=liquidacion_hon,
+                override=override,
+            )
+            movs_op = sorted(movimientos, key=lambda x: (x.fecha, x.id)) if movimientos else []
+            ok, err = agregar_productor_contrato(
+                contrato,
+                raw_id,
+                honorarios_monto=honorarios_ctx.get('base_comisiones'),
+                movimiento_caja=movs_op[0] if movs_op else None,
+            )
+        else:
+            return False
+        if not ok:
+            messages.error(request, err or 'No se pudo agregar el productor.')
+            return False
+        messages.success(request, 'Productor agregado. Se calcularon sus comisiones.')
+        return True
 
-    if not ok:
-        messages.error(request, err or 'No se pudo cambiar el productor.')
-        return False
+    if action == 'quitar_productor_caratula':
+        quitar_id = (request.POST.get('quitar_productor_id') or raw_id or '').strip()
+        if not quitar_id:
+            messages.error(request, 'Indicá qué productor quitar.')
+            return False
+        if reserva:
+            ok, err = quitar_productor_reserva(
+                reserva,
+                quitar_id,
+                movimientos_caja=_movimientos_operacion_reserva(reserva),
+            )
+        elif contrato:
+            ok, err = quitar_productor_contrato(contrato, quitar_id)
+        else:
+            return False
+        if not ok:
+            messages.error(request, err or 'No se pudo quitar el productor.')
+            return False
+        messages.success(request, 'Productor quitado de la operación.')
+        return True
 
-    messages.success(request, 'Productor actualizado. Las comisiones del productor fueron recalculadas.')
-    return True
+    return False
 
 
 def _procesar_guardar_fechas_comision_caratula(request, reserva=None, contrato=None):
@@ -678,11 +734,22 @@ def _enriquecer_lineas_comision_fecha_db(lineas, db_map, fecha_default=None):
         rol = ln.get('rol')
         if rol == ROL_COMISION_FICHAJE or rol == 'fichaje':
             continue
-        db = db_map.get(rol)
+        vid = ln.get('vendedor_id')
+        db = db_map.get((rol, vid)) if vid else None
+        if not db and vid is not None:
+            for rol_prod in ROLES_COMISION_PRODUCTOR:
+                db = db_map.get((rol_prod, vid))
+                if db:
+                    break
         if not db:
             for rol_prod in ROLES_COMISION_PRODUCTOR:
-                db = db_map.get(rol_prod)
+                db = db_map.get((rol_prod, vid))
                 if db:
+                    break
+        if not db and vid is not None:
+            for (r, v), c in db_map.items():
+                if v == vid and r in ROLES_COMISION_PRODUCTOR:
+                    db = c
                     break
         if db:
             ln['comision_id'] = db.id
@@ -737,7 +804,7 @@ def _mapa_comisiones_db_caratula(*, reserva=None, contrato=None):
         qs = qs.filter(contrato=contrato)
     else:
         return {}
-    return {c.rol_comision: c for c in qs.order_by('id')}
+    return {(c.rol_comision, c.vendedor_id): c for c in qs.order_by('id')}
 
 
 def _guardar_caratula_reserva(request, reserva):
@@ -1928,15 +1995,17 @@ def _linea_fichaje_contrato_caratula(contrato, base_monto):
 def _pct_productor_contrato_caratula(contrato):
     """Porcentajes del vendedor para calcular comisión del productor sobre honorarios."""
     from inmobiliaria.models.comision import (
+        iter_productores_contrato,
         pct_comision_24_meses_vendedor,
         pct_comision_invierno_vendedor,
         propiedad_es_oficina,
     )
 
-    if not contrato or not contrato.vendedor_id:
+    productores = iter_productores_contrato(contrato)
+    if not contrato or not productores:
         return {}
 
-    vend = contrato.vendedor
+    vend = productores[0]
     prop = contrato.propiedad
     fichaje_info = _resolver_fichaje_contrato_caratula(contrato)
     tipo_fichaje = fichaje_info['tipo_fichaje']
@@ -1956,6 +2025,24 @@ def _pct_productor_contrato_caratula(contrato):
         pct_tipo = None
         label_tipo = ''
 
+    productores_pct = []
+    for v in productores:
+        if cat == 'invierno':
+            p = pct_comision_invierno_vendedor(v, prop)
+        elif cat == '24':
+            p = pct_comision_24_meses_vendedor(v, prop)
+        else:
+            p = None
+        if p is not None and p > 0:
+            productores_pct.append(
+                {
+                    'vendedor_id': v.id,
+                    'nombre': _nombre_productor_papel(v),
+                    'pct': float(p),
+                    'label_tipo': label_tipo,
+                }
+            )
+
     fecha_entrada = getattr(contrato, 'fecha_entrada_departamento', None) or contrato.fecha_inicio
 
     return {
@@ -1965,7 +2052,8 @@ def _pct_productor_contrato_caratula(contrato):
         'pct_tipo': float(pct_tipo) if pct_tipo is not None else None,
         'label_tipo': label_tipo,
         'categoria': cat,
-        'productor': _nombre_productor_papel(vend),
+        'productor': _nombres_productores_operacion(contrato=contrato),
+        'productores_pct': productores_pct,
         'fecha_entrada': fecha_entrada.isoformat() if fecha_entrada else None,
         'fecha_entrada_display': fecha_entrada.strftime('%d/%m/%Y') if fecha_entrada else '—',
     }
@@ -2070,6 +2158,7 @@ def _comisiones_vendedor_contrato_caratula(contrato, base_monto):
     from inmobiliaria.models.comision import (
         ROL_COMISION_OP_24,
         ROL_COMISION_OP_INVIERNO,
+        iter_productores_contrato,
         pct_comision_24_meses_vendedor,
         pct_comision_invierno_vendedor,
         propiedad_es_oficina,
@@ -2086,38 +2175,41 @@ def _comisiones_vendedor_contrato_caratula(contrato, base_monto):
     if linea_fichaje:
         lineas.append(linea_fichaje)
 
-    if not contrato.vendedor_id:
+    productores = iter_productores_contrato(contrato)
+    if not productores:
         return lineas
 
-    vend = contrato.vendedor
     if cat == 'invierno':
-        pct = pct_comision_invierno_vendedor(vend, prop)
         rol_productor = ROL_COMISION_OP_INVIERNO
-        label = 'COMIS. VENDEDOR (INVIERNO — PROP. OFICINA)' if propiedad_es_oficina(prop) else 'COMIS. VENDEDOR (INVIERNO)'
+        label_base = 'COMIS. VENDEDOR (INVIERNO — PROP. OFICINA)' if propiedad_es_oficina(prop) else 'COMIS. VENDEDOR (INVIERNO)'
     elif cat == '24':
-        pct = pct_comision_24_meses_vendedor(vend, prop)
         rol_productor = ROL_COMISION_OP_24
         dm = int(contrato.duracion_meses or 0)
         if propiedad_es_oficina(prop):
-            label = 'COMIS. VENDEDOR (24 MESES — PROP. OFICINA)' if dm == 24 else 'COMIS. VENDEDOR (LARGO PLAZO — PROP. OFICINA)'
+            label_base = 'COMIS. VENDEDOR (24 MESES — PROP. OFICINA)' if dm == 24 else 'COMIS. VENDEDOR (LARGO PLAZO — PROP. OFICINA)'
         else:
-            label = 'COMIS. VENDEDOR (24 MESES)' if dm == 24 else 'COMIS. VENDEDOR (LARGO PLAZO)'
+            label_base = 'COMIS. VENDEDOR (24 MESES)' if dm == 24 else 'COMIS. VENDEDOR (LARGO PLAZO)'
     else:
         return lineas
 
-    if pct is not None and pct > 0:
-        monto = (base_monto * Decimal(str(pct)) / Decimal('100')).quantize(Decimal('0.01'))
-        lineas.append(
-            {
-                'label': label,
-                'monto': monto,
-                'monto_fmt': _formato_importe_us(monto),
-                'porcentaje': pct,
-                'rol': rol_productor,
-                'vendedor_nombre': _nombre_productor_papel(vend),
-                'vendedor_id': vend.id,
-            }
-        )
+    for vend in productores:
+        if cat == 'invierno':
+            pct = pct_comision_invierno_vendedor(vend, prop)
+        else:
+            pct = pct_comision_24_meses_vendedor(vend, prop)
+        if pct is not None and pct > 0:
+            monto = (base_monto * Decimal(str(pct)) / Decimal('100')).quantize(Decimal('0.01'))
+            lineas.append(
+                {
+                    'label': label_base,
+                    'monto': monto,
+                    'monto_fmt': _formato_importe_us(monto),
+                    'porcentaje': pct,
+                    'rol': rol_productor,
+                    'vendedor_nombre': _nombre_productor_papel(vend),
+                    'vendedor_id': vend.id,
+                }
+            )
     return lineas
 
 
@@ -2242,9 +2334,15 @@ def _build_legacy_reserva(
         raw = (getattr(prop, 'llave', None) or '').strip()
         llave_cod = raw if raw else '0'
 
-    productor = _nombre_productor_papel(vend)
+    from inmobiliaria.models.comision import iter_productores_reserva
 
-    terceros = _formato_miles_ar(vend.id) if vend else '0'
+    productores = iter_productores_reserva(reserva)
+    if productores:
+        productor = ' · '.join(_nombre_productor_papel(v) for v in productores)
+        terceros = ' · '.join(_formato_miles_ar(v.id) for v in productores)
+    else:
+        productor = '—'
+        terceros = '0'
 
     dias_estadia = 1
     if reserva.fecha_fin and reserva.fecha_inicio:
@@ -2366,8 +2464,15 @@ def _build_legacy_contrato(
         raw = (getattr(prop, 'llave', None) or '').strip()
         llave_cod = raw if raw else '0'
 
-    productor = _nombre_productor_papel(vend)
-    terceros = _formato_miles_ar(vend.id) if vend else '0'
+    from inmobiliaria.models.comision import iter_productores_contrato
+
+    productores = iter_productores_contrato(contrato)
+    if productores:
+        productor = ' · '.join(_nombre_productor_papel(v) for v in productores)
+        terceros = ' · '.join(_formato_miles_ar(v.id) for v in productores)
+    else:
+        productor = '—'
+        terceros = '0'
 
     meses_contrato = int(contrato.duracion_meses or 0)
     recibo_loc, recibo_locat, url_recibo_loc, url_recibo_locat = _recibos_legacy_par(
@@ -2926,8 +3031,11 @@ def caratula_reserva(request, reserva_id):
         _procesar_confirmar_operacion_caratula(request, reserva=reserva)
         return _redirect_caratula_con_filtros('inmobiliaria:caratula_reserva', reserva_id, request)
 
-    if request.method == 'POST' and request.POST.get('action') == 'cambiar_productor_caratula':
-        if _procesar_cambiar_productor_caratula(request, reserva=reserva):
+    if request.method == 'POST' and request.POST.get('action') in (
+        'agregar_productor_caratula',
+        'quitar_productor_caratula',
+    ):
+        if _procesar_productores_caratula(request, reserva=reserva):
             return _redirect_caratula_con_filtros('inmobiliaria:caratula_reserva', reserva_id, request)
         reserva.refresh_from_db()
 
@@ -2998,6 +3106,10 @@ def caratula_reserva(request, reserva_id):
         **_ctx_completar_pago_reserva(reserva),
         'volver_lista_url': _url_lista_caratulas_desde_request(request),
         **_ctx_estado_operacion_caratula(reserva=reserva, user=request.user),
+        **_ctx_productores_operacion(
+            reserva=reserva,
+            puede_editar=_puede_editar_caratula(request.user),
+        ),
     }
     rl = ctx['resumen_liquidacion']
     ctx['edit_montos_liquidacion'] = {
@@ -3042,8 +3154,8 @@ def caratula_contrato(request, contrato_id):
         if action == 'confirmar_operacion_caratula':
             _procesar_confirmar_operacion_caratula(request, contrato=contrato)
             return _redirect_caratula_con_filtros('inmobiliaria:caratula_contrato', contrato_id, request)
-        if action == 'cambiar_productor_caratula':
-            if _procesar_cambiar_productor_caratula(request, contrato=contrato):
+        if action in ('agregar_productor_caratula', 'quitar_productor_caratula'):
+            if _procesar_productores_caratula(request, contrato=contrato):
                 return _redirect_caratula_con_filtros('inmobiliaria:caratula_contrato', contrato_id, request)
             contrato.refresh_from_db()
         if action == 'save_fechas_comision_caratula':
@@ -3211,6 +3323,10 @@ def caratula_contrato(request, contrato_id):
         **_ctx_liquidacion_operacion(contrato=contrato),
         'volver_lista_url': _url_lista_caratulas_desde_request(request),
         **_ctx_estado_operacion_caratula(contrato=contrato, user=request.user),
+        **_ctx_productores_operacion(
+            contrato=contrato,
+            puede_editar=_puede_editar_caratula(request.user),
+        ),
     }
     return render(request, 'inmobiliaria/caratulas/detalle_contrato.html', ctx)
 
@@ -3290,7 +3406,7 @@ def imprimir_caratula_reserva(request, reserva_id):
         'direccion_ficha': _direccion_piso_depto_papel(reserva.propiedad),
         'deposito_fmt': cl['deposito'],
         'operacion_id': reserva.id,
-        'productor_nombre': _nombre_productor_papel(reserva.vendedor),
+        'productor_nombre': _nombres_productores_operacion(reserva=reserva),
     }
     return render(request, 'inmobiliaria/caratulas/imprimir_caratula_papel.html', ctx)
 
@@ -3365,6 +3481,6 @@ def imprimir_caratula_contrato(request, contrato_id):
         'direccion_ficha': _direccion_piso_depto_papel(contrato.propiedad),
         'deposito_fmt': cl['deposito'],
         'operacion_id': contrato.id,
-        'productor_nombre': _nombre_productor_papel(contrato.vendedor),
+        'productor_nombre': _nombres_productores_operacion(contrato=contrato),
     }
     return render(request, 'inmobiliaria/caratulas/imprimir_caratula_papel.html', ctx)

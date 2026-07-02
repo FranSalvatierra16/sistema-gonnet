@@ -273,7 +273,19 @@
         const fechaValGuardada = prevFechaInp ? prevFechaInp.value : '';
 
         const lineas = [];
-        if (cfg.pct_tipo && cfg.pct_tipo > 0 && cfg.label_tipo) {
+        const configs = cfg.productores_pct || [];
+        if (configs.length) {
+            configs.forEach(function (c) {
+                const pct = parseFloat(c.pct) || 0;
+                if (pct <= 0) return;
+                const nom = c.nombre ? (' — ' + c.nombre) : '';
+                lineas.push({
+                    label: 'Comisión ' + (c.label_tipo || cfg.label_tipo || '') + nom,
+                    pct: pct,
+                    monto: base * pct / 100,
+                });
+            });
+        } else if (cfg.pct_tipo && cfg.pct_tipo > 0 && cfg.label_tipo) {
             lineas.push({
                 label: 'Comisión ' + cfg.label_tipo,
                 pct: cfg.pct_tipo,

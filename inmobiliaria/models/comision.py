@@ -290,25 +290,24 @@ def _crear_linea_operacion_por_dia(
 def registrar_comisiones_honorarios_movimiento_reserva(reserva, movimiento_caja, honorarios_monto):
     """
     Cuando en el movimiento hay honorarios (concepto 25), registra:
-    - Comisión por primer/segundo fichaje del vendedor de la operación sobre el monto de honorarios.
-    - Según tipo de operación: % invierno o % 24 meses sobre honorarios, o % comisión normal sobre precio total (día).
-    Si hubo regla de fichaje y el vendedor no tiene % de comisión por día ni default de sucursal, la línea
-    «operación por día» usa el default de sucursal o 1% para no omitir la comisión por la reserva.
-    Si honorarios_monto es 0, no hace nada (el llamador usa la comisión por día única sobre la reserva).
+    - Comisión por primer/segundo fichaje del vendedor que fichó la propiedad.
+    - Por cada productor de la operación: % según tipo (día / invierno / 24 meses).
     """
     if (
         not reserva
-        or not reserva.vendedor
         or not movimiento_caja
         or honorarios_monto is None
         or honorarios_monto <= 0
     ):
         return []
 
+    productores = iter_productores_reserva(reserva)
+    if not productores:
+        return []
+
     if getattr(reserva, 'eliminada', False) or getattr(reserva, 'estado', None) == 'cancelada':
         return []
 
-    vend = reserva.vendedor
     prop = reserva.propiedad
     creadas = []
 
@@ -334,54 +333,54 @@ def registrar_comisiones_honorarios_movimiento_reserva(reserva, movimiento_caja,
         if c:
             creadas.append(c)
 
-    pct_op_dia = _pct_operacion_dia_o_fallback_despues_fichaje(vend, hubo_regla_fichaje)
-    pct_op_dia_kw = pct_op_dia if pct_op_dia and pct_op_dia > 0 else None
+    for vend in productores:
+        pct_op_dia = _pct_operacion_dia_o_fallback_despues_fichaje(vend, hubo_regla_fichaje)
+        pct_op_dia_kw = pct_op_dia if pct_op_dia and pct_op_dia > 0 else None
 
-    if tipo_op == 'dia':
-        _crear_linea_operacion_por_dia(
-            vend, reserva, movimiento_caja, honorarios_monto, creadas, pct_override=pct_op_dia_kw
-        )
-
-    elif tipo_op == 'invierno':
-        pct = pct_comision_invierno_vendedor(vend, prop)
-        suf_of = ' (prop. oficina)' if propiedad_es_oficina(prop) else ''
-        if pct is not None and pct > 0:
-            c = ComisionVendedor.crear_comision_linea(
-                vendedor=vend,
-                reserva=reserva,
-                movimiento_caja=movimiento_caja,
-                monto_base=honorarios_monto,
-                porcentaje_comision=pct,
-                concepto=f'Op. {reserva.id} — comisión invierno{suf_of} (sobre honorarios)',
-                rol_comision=ROL_COMISION_OP_INVIERNO,
-            )
-            if c:
-                creadas.append(c)
-        else:
-            # Propiedad con invierno habilitado pero sin % invierno: tratar como operación por día
+        if tipo_op == 'dia':
             _crear_linea_operacion_por_dia(
                 vend, reserva, movimiento_caja, honorarios_monto, creadas, pct_override=pct_op_dia_kw
             )
 
-    elif tipo_op == '24':
-        pct = pct_comision_24_meses_vendedor(vend, prop)
-        suf_of = ' (prop. oficina)' if propiedad_es_oficina(prop) else ''
-        if pct is not None and pct > 0:
-            c = ComisionVendedor.crear_comision_linea(
-                vendedor=vend,
-                reserva=reserva,
-                movimiento_caja=movimiento_caja,
-                monto_base=honorarios_monto,
-                porcentaje_comision=pct,
-                concepto=f'Op. {reserva.id} — comisión alquiler 24 meses{suf_of} (sobre honorarios)',
-                rol_comision=ROL_COMISION_OP_24,
-            )
-            if c:
-                creadas.append(c)
-        else:
-            _crear_linea_operacion_por_dia(
-                vend, reserva, movimiento_caja, honorarios_monto, creadas, pct_override=pct_op_dia_kw
-            )
+        elif tipo_op == 'invierno':
+            pct = pct_comision_invierno_vendedor(vend, prop)
+            suf_of = ' (prop. oficina)' if propiedad_es_oficina(prop) else ''
+            if pct is not None and pct > 0:
+                c = ComisionVendedor.crear_comision_linea(
+                    vendedor=vend,
+                    reserva=reserva,
+                    movimiento_caja=movimiento_caja,
+                    monto_base=honorarios_monto,
+                    porcentaje_comision=pct,
+                    concepto=f'Op. {reserva.id} — comisión invierno{suf_of} (sobre honorarios)',
+                    rol_comision=ROL_COMISION_OP_INVIERNO,
+                )
+                if c:
+                    creadas.append(c)
+            else:
+                _crear_linea_operacion_por_dia(
+                    vend, reserva, movimiento_caja, honorarios_monto, creadas, pct_override=pct_op_dia_kw
+                )
+
+        elif tipo_op == '24':
+            pct = pct_comision_24_meses_vendedor(vend, prop)
+            suf_of = ' (prop. oficina)' if propiedad_es_oficina(prop) else ''
+            if pct is not None and pct > 0:
+                c = ComisionVendedor.crear_comision_linea(
+                    vendedor=vend,
+                    reserva=reserva,
+                    movimiento_caja=movimiento_caja,
+                    monto_base=honorarios_monto,
+                    porcentaje_comision=pct,
+                    concepto=f'Op. {reserva.id} — comisión alquiler 24 meses{suf_of} (sobre honorarios)',
+                    rol_comision=ROL_COMISION_OP_24,
+                )
+                if c:
+                    creadas.append(c)
+            else:
+                _crear_linea_operacion_por_dia(
+                    vend, reserva, movimiento_caja, honorarios_monto, creadas, pct_override=pct_op_dia_kw
+                )
 
     return creadas
 
@@ -390,13 +389,12 @@ def asegurar_comisiones_movimiento_reserva(reserva, movimiento_caja, honorarios_
     """
     Registra comisiones faltantes para un movimiento de caja de una reserva. Idempotente.
     """
-    if not reserva or not movimiento_caja or not reserva.vendedor_id:
+    if not reserva or not movimiento_caja or not iter_productores_reserva(reserva):
         return []
 
     if getattr(reserva, 'eliminada', False) or getattr(reserva, 'estado', None) == 'cancelada':
         return []
 
-    vend = reserva.vendedor
     if honorarios_monto is None:
         honorarios_monto = Decimal(str(getattr(movimiento_caja, 'honorarios', 0) or 0))
     else:
@@ -426,7 +424,8 @@ def asegurar_comisiones_movimiento_reserva(reserva, movimiento_caja, honorarios_
 
     creadas = []
     if tipo_op == 'dia':
-        _crear_linea_operacion_por_dia(vend, reserva, movimiento_caja, Decimal('0'), creadas)
+        for vend in iter_productores_reserva(reserva):
+            _crear_linea_operacion_por_dia(vend, reserva, movimiento_caja, Decimal('0'), creadas)
         return creadas
 
     # Invierno / 24 meses: comisiones del productor y fichaje solo sobre honorarios.
@@ -458,7 +457,7 @@ def registrar_comisiones_honorarios_contrato(contrato, honorarios_monto, movimie
     """
     if (
         not contrato
-        or not contrato.vendedor_id
+        or not iter_productores_contrato(contrato)
         or honorarios_monto is None
         or honorarios_monto <= 0
     ):
@@ -467,7 +466,6 @@ def registrar_comisiones_honorarios_contrato(contrato, honorarios_monto, movimie
     if getattr(contrato, 'estado', None) == 'rescindido':
         return []
 
-    vend = contrato.vendedor
     prop = contrato.propiedad
     creadas = []
     fecha_op = _fecha_operacion_entrada_contrato(contrato)
@@ -519,22 +517,25 @@ def registrar_comisiones_honorarios_contrato(contrato, honorarios_monto, movimie
                 c.save(update_fields=updates)
             creadas.append(c)
 
-    if cat == 'invierno':
-        pct = pct_comision_invierno_vendedor(vend, prop)
-        rol = ROL_COMISION_OP_INVIERNO
-        label = 'invierno'
-        if propiedad_es_oficina(prop):
-            label = 'invierno (prop. oficina)'
-    elif cat == '24':
-        pct = pct_comision_24_meses_vendedor(vend, prop)
-        rol = ROL_COMISION_OP_24
-        label = '24 meses'
-        if propiedad_es_oficina(prop):
-            label = '24 meses (prop. oficina)'
-    else:
+    if cat not in ('invierno', '24'):
         return creadas
 
-    if pct is not None and pct > 0:
+    for vend in iter_productores_contrato(contrato):
+        if cat == 'invierno':
+            pct = pct_comision_invierno_vendedor(vend, prop)
+            rol = ROL_COMISION_OP_INVIERNO
+            label = 'invierno'
+            if propiedad_es_oficina(prop):
+                label = 'invierno (prop. oficina)'
+        else:
+            pct = pct_comision_24_meses_vendedor(vend, prop)
+            rol = ROL_COMISION_OP_24
+            label = '24 meses'
+            if propiedad_es_oficina(prop):
+                label = '24 meses (prop. oficina)'
+
+        if pct is None or pct <= 0:
+            continue
         c = ComisionVendedor.crear_comision_linea_contrato(
             vendedor=vend,
             contrato=contrato,
@@ -568,7 +569,7 @@ def registrar_comisiones_honorarios_contrato(contrato, honorarios_monto, movimie
 
 def asegurar_comisiones_contrato(contrato, honorarios_monto=None, movimiento_caja=None):
     """Registra comisiones del productor para un contrato. Idempotente."""
-    if not contrato or not contrato.vendedor_id:
+    if not contrato or not iter_productores_contrato(contrato):
         return []
     if honorarios_monto is None:
         honorarios_monto = Decimal('0')
@@ -581,95 +582,273 @@ def asegurar_comisiones_contrato(contrato, honorarios_monto=None, movimiento_caj
     )
 
 
-def _eliminar_comisiones_productor_reserva(reserva):
-    ComisionVendedor.objects.filter(
+def _eliminar_comisiones_productor_reserva(reserva, vendedor_id=None):
+    qs = ComisionVendedor.objects.filter(
         reserva=reserva,
         rol_comision__in=ROLES_COMISION_PRODUCTOR,
-    ).delete()
+    )
+    if vendedor_id is not None:
+        qs = qs.filter(vendedor_id=vendedor_id)
+    qs.delete()
 
 
-def _eliminar_comisiones_productor_contrato(contrato):
-    ComisionVendedor.objects.filter(
+def _eliminar_comisiones_productor_contrato(contrato, vendedor_id=None):
+    qs = ComisionVendedor.objects.filter(
         contrato=contrato,
         rol_comision__in=ROLES_COMISION_PRODUCTOR,
-    ).delete()
+    )
+    if vendedor_id is not None:
+        qs = qs.filter(vendedor_id=vendedor_id)
+    qs.delete()
 
 
-def resincronizar_comisiones_productor_reserva(reserva, movimientos_caja):
-    """Regenera comisiones del productor (no fichaje) tras cambiar el vendedor de la operación."""
+def _validar_vendedor_productor_operacion(vendedor_id, *, sucursal_id=None):
+    from inmobiliaria.models.persona import Vendedor
+
+    try:
+        vid = int(vendedor_id)
+    except (TypeError, ValueError):
+        return None, 'Ingresá un ID de productor válido.'
+    vend = Vendedor.objects.filter(pk=vid).first()
+    if not vend:
+        return None, 'No se encontró un vendedor con ese ID.'
+    if sucursal_id and vend.sucursal_id != sucursal_id:
+        return None, 'El vendedor no pertenece a la misma sucursal.'
+    return vend, None
+
+
+def _sincronizar_vendedor_principal_reserva(reserva):
+    """Mantiene reserva.vendedor alineado al primer productor (compatibilidad)."""
+    primero = (
+        OperacionProductor.objects.filter(reserva=reserva)
+        .order_by('orden', 'id')
+        .values_list('vendedor_id', flat=True)
+        .first()
+    )
+    if primero and reserva.vendedor_id != primero:
+        reserva.vendedor_id = primero
+        reserva.save(update_fields=['vendedor_id'])
+    elif not primero and reserva.vendedor_id:
+        reserva.vendedor_id = None
+        reserva.save(update_fields=['vendedor_id'])
+
+
+def _sincronizar_vendedor_principal_contrato(contrato):
+    primero = (
+        OperacionProductor.objects.filter(contrato=contrato)
+        .order_by('orden', 'id')
+        .values_list('vendedor_id', flat=True)
+        .first()
+    )
+    if primero and contrato.vendedor_id != primero:
+        contrato.vendedor_id = primero
+        contrato.save(update_fields=['vendedor_id'])
+    elif not primero and contrato.vendedor_id:
+        contrato.vendedor_id = None
+        contrato.save(update_fields=['vendedor_id'])
+
+
+def asegurar_filas_productores_reserva(reserva):
+    if OperacionProductor.objects.filter(reserva=reserva).exists():
+        return
+    if reserva.vendedor_id:
+        OperacionProductor.objects.create(
+            reserva=reserva,
+            vendedor_id=reserva.vendedor_id,
+            orden=0,
+        )
+
+
+def asegurar_filas_productores_contrato(contrato):
+    if OperacionProductor.objects.filter(contrato=contrato).exists():
+        return
+    if contrato.vendedor_id:
+        OperacionProductor.objects.create(
+            contrato=contrato,
+            vendedor_id=contrato.vendedor_id,
+            orden=0,
+        )
+
+
+def iter_productores_reserva(reserva):
+    if not reserva:
+        return []
+    asegurar_filas_productores_reserva(reserva)
+    qs = OperacionProductor.objects.filter(reserva=reserva).select_related('vendedor').order_by(
+        'orden', 'id'
+    )
+    if qs.exists():
+        return [op.vendedor for op in qs]
+    if reserva.vendedor_id:
+        return [reserva.vendedor]
+    return []
+
+
+def iter_productores_contrato(contrato):
+    if not contrato:
+        return []
+    asegurar_filas_productores_contrato(contrato)
+    qs = OperacionProductor.objects.filter(contrato=contrato).select_related('vendedor').order_by(
+        'orden', 'id'
+    )
+    if qs.exists():
+        return [op.vendedor for op in qs]
+    if contrato.vendedor_id:
+        return [contrato.vendedor]
+    return []
+
+
+def lista_productores_operacion(*, reserva=None, contrato=None):
+    if reserva:
+        asegurar_filas_productores_reserva(reserva)
+        return list(
+            OperacionProductor.objects.filter(reserva=reserva)
+            .select_related('vendedor')
+            .order_by('orden', 'id')
+        )
+    if contrato:
+        asegurar_filas_productores_contrato(contrato)
+        return list(
+            OperacionProductor.objects.filter(contrato=contrato)
+            .select_related('vendedor')
+            .order_by('orden', 'id')
+        )
+    return []
+
+
+def resincronizar_comisiones_productor_reserva(reserva, movimientos_caja, vendedor_id=None):
+    """Regenera comisiones de productor(es) tras cambios en la carátula."""
+    if vendedor_id is not None:
+        _eliminar_comisiones_productor_reserva(reserva, vendedor_id=vendedor_id)
+    else:
+        _eliminar_comisiones_productor_reserva(reserva)
     for mov in movimientos_caja or []:
         honorarios = getattr(mov, 'honorarios', None)
         asegurar_comisiones_movimiento_reserva(reserva, mov, honorarios_monto=honorarios)
 
 
-def cambiar_productor_reserva(reserva, nuevo_vendedor_id, movimientos_caja=None):
-    """
-    Asigna otro productor a la reserva y recalcula sus comisiones.
-    Las comisiones de fichaje no se modifican.
-    """
-    from inmobiliaria.models.persona import Vendedor
-
-    if not reserva:
-        return False, 'Reserva no válida.'
-
-    try:
-        vid = int(nuevo_vendedor_id)
-    except (TypeError, ValueError):
-        return False, 'Ingresá un ID de productor válido.'
-
-    vend = Vendedor.objects.filter(pk=vid).first()
-    if not vend:
-        return False, 'No se encontró un vendedor con ese ID.'
-    if reserva.sucursal_id and vend.sucursal_id != reserva.sucursal_id:
-        return False, 'El vendedor no pertenece a la misma sucursal.'
-
-    if reserva.vendedor_id == vend.id:
-        return True, None
-
-    _eliminar_comisiones_productor_reserva(reserva)
-    reserva.vendedor_id = vend.id
-    reserva.save(update_fields=['vendedor_id'])
-    resincronizar_comisiones_productor_reserva(reserva, movimientos_caja)
-    return True, None
-
-
-def cambiar_productor_contrato(
-    contrato, nuevo_vendedor_id, honorarios_monto=None, movimiento_caja=None
+def resincronizar_comisiones_productor_contrato(
+    contrato, honorarios_monto=None, movimiento_caja=None, vendedor_id=None
 ):
-    """
-    Asigna otro productor al contrato y recalcula sus comisiones sobre honorarios.
-    Las comisiones de fichaje no se modifican.
-    """
-    from inmobiliaria.models.persona import Vendedor
-
-    if not contrato:
-        return False, 'Contrato no válido.'
-
-    try:
-        vid = int(nuevo_vendedor_id)
-    except (TypeError, ValueError):
-        return False, 'Ingresá un ID de productor válido.'
-
-    vend = Vendedor.objects.filter(pk=vid).first()
-    if not vend:
-        return False, 'No se encontró un vendedor con ese ID.'
-    if contrato.sucursal_id and vend.sucursal_id != contrato.sucursal_id:
-        return False, 'El vendedor no pertenece a la misma sucursal.'
-
-    if contrato.vendedor_id == vend.id:
-        return True, None
-
-    _eliminar_comisiones_productor_contrato(contrato)
-    contrato.vendedor_id = vend.id
-    contrato.save(update_fields=['vendedor_id'])
-
+    if vendedor_id is not None:
+        _eliminar_comisiones_productor_contrato(contrato, vendedor_id=vendedor_id)
+    else:
+        _eliminar_comisiones_productor_contrato(contrato)
     if honorarios_monto is not None and Decimal(str(honorarios_monto or 0)) > Decimal('0.05'):
         asegurar_comisiones_contrato(
             contrato,
             honorarios_monto=honorarios_monto,
             movimiento_caja=movimiento_caja,
         )
+
+
+def agregar_productor_reserva(reserva, vendedor_id, movimientos_caja=None):
+    if not reserva:
+        return False, 'Reserva no válida.'
+    vend, err = _validar_vendedor_productor_operacion(
+        vendedor_id, sucursal_id=reserva.sucursal_id
+    )
+    if err:
+        return False, err
+    asegurar_filas_productores_reserva(reserva)
+    if OperacionProductor.objects.filter(reserva=reserva, vendedor=vend).exists():
+        return False, 'Ese productor ya está en la operación.'
+    orden = (
+        OperacionProductor.objects.filter(reserva=reserva).order_by('-orden').values_list(
+            'orden', flat=True
+        ).first()
+        or 0
+    ) + 1
+    OperacionProductor.objects.create(reserva=reserva, vendedor=vend, orden=orden)
+    _sincronizar_vendedor_principal_reserva(reserva)
+    resincronizar_comisiones_productor_reserva(reserva, movimientos_caja, vendedor_id=vend.id)
     return True, None
+
+
+def quitar_productor_reserva(reserva, vendedor_id, movimientos_caja=None):
+    if not reserva:
+        return False, 'Reserva no válida.'
+    try:
+        vid = int(vendedor_id)
+    except (TypeError, ValueError):
+        return False, 'ID de productor inválido.'
+    deleted, _ = OperacionProductor.objects.filter(reserva=reserva, vendedor_id=vid).delete()
+    if not deleted:
+        return False, 'Ese productor no está en la operación.'
+    _eliminar_comisiones_productor_reserva(reserva, vendedor_id=vid)
+    _sincronizar_vendedor_principal_reserva(reserva)
+    return True, None
+
+
+def agregar_productor_contrato(
+    contrato, vendedor_id, honorarios_monto=None, movimiento_caja=None
+):
+    if not contrato:
+        return False, 'Contrato no válido.'
+    vend, err = _validar_vendedor_productor_operacion(
+        vendedor_id, sucursal_id=contrato.sucursal_id
+    )
+    if err:
+        return False, err
+    asegurar_filas_productores_contrato(contrato)
+    if OperacionProductor.objects.filter(contrato=contrato, vendedor=vend).exists():
+        return False, 'Ese productor ya está en la operación.'
+    orden = (
+        OperacionProductor.objects.filter(contrato=contrato).order_by('-orden').values_list(
+            'orden', flat=True
+        ).first()
+        or 0
+    ) + 1
+    OperacionProductor.objects.create(contrato=contrato, vendedor=vend, orden=orden)
+    _sincronizar_vendedor_principal_contrato(contrato)
+    resincronizar_comisiones_productor_contrato(
+        contrato,
+        honorarios_monto=honorarios_monto,
+        movimiento_caja=movimiento_caja,
+        vendedor_id=vend.id,
+    )
+    return True, None
+
+
+def quitar_productor_contrato(contrato, vendedor_id):
+    if not contrato:
+        return False, 'Contrato no válido.'
+    try:
+        vid = int(vendedor_id)
+    except (TypeError, ValueError):
+        return False, 'ID de productor inválido.'
+    deleted, _ = OperacionProductor.objects.filter(contrato=contrato, vendedor_id=vid).delete()
+    if not deleted:
+        return False, 'Ese productor no está en la operación.'
+    _eliminar_comisiones_productor_contrato(contrato, vendedor_id=vid)
+    _sincronizar_vendedor_principal_contrato(contrato)
+    return True, None
+
+
+def cambiar_productor_reserva(reserva, nuevo_vendedor_id, movimientos_caja=None):
+    """Reemplaza todos los productores por uno solo (compatibilidad)."""
+    if not reserva:
+        return False, 'Reserva no válida.'
+    OperacionProductor.objects.filter(reserva=reserva).delete()
+    _eliminar_comisiones_productor_reserva(reserva)
+    reserva.vendedor_id = None
+    reserva.save(update_fields=['vendedor_id'])
+    return agregar_productor_reserva(reserva, nuevo_vendedor_id, movimientos_caja)
+
+
+def cambiar_productor_contrato(
+    contrato, nuevo_vendedor_id, honorarios_monto=None, movimiento_caja=None
+):
+    """Reemplaza todos los productores por uno solo (compatibilidad)."""
+    if not contrato:
+        return False, 'Contrato no válido.'
+    OperacionProductor.objects.filter(contrato=contrato).delete()
+    _eliminar_comisiones_productor_contrato(contrato)
+    contrato.vendedor_id = None
+    contrato.save(update_fields=['vendedor_id'])
+    return agregar_productor_contrato(
+        contrato, nuevo_vendedor_id, honorarios_monto=honorarios_monto, movimiento_caja=movimiento_caja
+    )
 
 
 def _filtro_caratula_confirmada_comision():
@@ -681,6 +860,52 @@ def _filtro_caratula_confirmada_comision():
         | Q(reserva__estado_confirmacion_caratula='confirmada')
         | Q(contrato__estado_confirmacion_caratula='confirmada')
     )
+
+
+class OperacionProductor(models.Model):
+    """Productores asignados a una operación (reserva o contrato); puede haber varios."""
+
+    reserva = models.ForeignKey(
+        Reserva,
+        on_delete=models.CASCADE,
+        related_name='productores_operacion',
+        null=True,
+        blank=True,
+    )
+    contrato = models.ForeignKey(
+        'ContratoAlquiler',
+        on_delete=models.CASCADE,
+        related_name='productores_operacion',
+        null=True,
+        blank=True,
+    )
+    vendedor = models.ForeignKey(
+        Vendedor,
+        on_delete=models.CASCADE,
+        related_name='operaciones_como_productor',
+    )
+    orden = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        verbose_name = 'Productor de operación'
+        verbose_name_plural = 'Productores de operación'
+        ordering = ['orden', 'id']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['reserva', 'vendedor'],
+                condition=models.Q(reserva__isnull=False),
+                name='uniq_operacion_productor_reserva',
+            ),
+            models.UniqueConstraint(
+                fields=['contrato', 'vendedor'],
+                condition=models.Q(contrato__isnull=False),
+                name='uniq_operacion_productor_contrato',
+            ),
+        ]
+
+    def __str__(self):
+        op = f'reserva #{self.reserva_id}' if self.reserva_id else f'contrato #{self.contrato_id}'
+        return f'Productor {self.vendedor_id} — {op}'
 
 
 class ComisionVendedorQuerySet(models.QuerySet):

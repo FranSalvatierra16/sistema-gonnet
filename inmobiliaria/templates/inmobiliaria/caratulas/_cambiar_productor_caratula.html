@@ -1,30 +1,54 @@
 <div class="card mb-3 border-primary">
     <div class="card-body py-2">
-        <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
+        <div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-2">
             <div>
-                <strong class="small"><i class="fas fa-user-tie me-1"></i>Productor de la operación</strong>
-                {% if vendedor_actual %}
-                <div class="small mt-1">
-                    {{ vendedor_actual.apellido }}, {{ vendedor_actual.nombre }}
-                    <span class="text-muted">(ID {{ vendedor_actual.id }})</span>
-                </div>
-                {% else %}
-                <div class="small text-muted mt-1">Sin productor asignado</div>
-                {% endif %}
+                <strong class="small"><i class="fas fa-users me-1"></i>Productores de la operación</strong>
+                <div class="small text-muted mt-1">Podés agregar o quitar productores. Cada uno genera sus comisiones.</div>
             </div>
         </div>
-        <form method="post" class="row g-2 align-items-end mt-2 m-0" id="form-cambiar-productor-caratula"
-              onsubmit="return confirm('¿Cambiar el productor? Se recalcularán las comisiones del productor (no las de fichaje).');">
+
+        {% if productores_operacion %}
+        <ul class="list-group list-group-flush mb-2 border rounded">
+            {% for op in productores_operacion %}
+            <li class="list-group-item py-2 d-flex flex-wrap align-items-center justify-content-between gap-2">
+                <div class="small">
+                    {% if op.vendedor %}
+                    <strong>{{ op.vendedor.apellido }}, {{ op.vendedor.nombre }}</strong>
+                    <span class="text-muted">(ID {{ op.vendedor.id }})</span>
+                    {% else %}
+                    <span class="text-muted">Productor sin datos</span>
+                    {% endif %}
+                </div>
+                {% if puede_editar_productores_caratula and op.vendedor %}
+                <form method="post" class="m-0"
+                      onsubmit="return confirm('¿Quitar a {{ op.vendedor.apellido }}, {{ op.vendedor.nombre }} de esta operación? Se eliminarán sus comisiones.');">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="quitar_productor_caratula">
+                    <input type="hidden" name="quitar_productor_id" value="{{ op.vendedor.id }}">
+                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                        <i class="fas fa-user-minus me-1"></i>Quitar
+                    </button>
+                </form>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <div class="small text-muted mb-2">Sin productores asignados.</div>
+        {% endif %}
+
+        {% if puede_editar_productores_caratula %}
+        <form method="post" class="row g-2 align-items-end m-0 border-top pt-2" id="form-agregar-productor-caratula"
+              onsubmit="return confirm('¿Agregar este productor a la operación? Se calcularán sus comisiones.');">
             {% csrf_token %}
-            <input type="hidden" name="action" value="cambiar_productor_caratula">
+            <input type="hidden" name="action" value="agregar_productor_caratula">
             <div class="col-auto">
-                <label for="productor-id-input" class="form-label small mb-0">ID productor</label>
+                <label for="productor-id-input" class="form-label small mb-0">Agregar productor (ID)</label>
                 <input type="number" name="productor_id" id="productor-id-input" class="form-control form-control-sm"
-                       min="1" step="1" required style="width: 110px;"
-                       value="{% if vendedor_actual %}{{ vendedor_actual.id }}{% endif %}">
+                       min="1" step="1" required style="width: 110px;">
             </div>
             <div class="col-auto">
-                <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-buscar-productor-caratula">
+                <button type="button" class="btn btn-sm btn-outline-secondary mt-4" id="btn-buscar-productor-caratula">
                     <i class="fas fa-search me-1"></i>Buscar
                 </button>
             </div>
@@ -32,11 +56,12 @@
                 <span id="productor-busqueda-resultado" class="small text-muted"></span>
             </div>
             <div class="col-auto">
-                <button type="submit" class="btn btn-sm btn-primary">
-                    <i class="fas fa-exchange-alt me-1"></i>Cambiar productor
+                <button type="submit" class="btn btn-sm btn-primary mt-4">
+                    <i class="fas fa-user-plus me-1"></i>Agregar
                 </button>
             </div>
         </form>
+        {% endif %}
     </div>
 </div>
 <script>
