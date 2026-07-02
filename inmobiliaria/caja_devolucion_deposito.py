@@ -51,18 +51,14 @@ LOTES_SINDICATO_MARCONI: tuple[LoteSindicatoMarconi, ...] = (
         FECHAS_PAGO_LOTE_MARCONI,
         '17/07–18/07/2026',
     ),
-    LoteSindicatoMarconi(
-        'julio_2026',
-        date(2026, 7, 18),
-        date(2026, 8, 2),
-        FECHAS_PAGO_LOTE_MARCONI,
-        '18/07–02/08/2026',
-    ),
 )
 
-# Compatibilidad con imports anteriores (lote julio largo)
-LOTE_SINDICATO_FECHA_INGRESO = date(2026, 7, 18)
-LOTE_SINDICATO_FECHA_EGRESO = date(2026, 8, 2)
+# Operaciones Marconi que NO deben tratarse como sindicato (alquiler normal).
+RANGO_EXCLUIDO_SINDICATO_MARCONI = (date(2026, 7, 18), date(2026, 8, 2))
+
+# Compatibilidad con imports anteriores (ya no es lote sindicato activo)
+LOTE_SINDICATO_FECHA_INGRESO = RANGO_EXCLUIDO_SINDICATO_MARCONI[0]
+LOTE_SINDICATO_FECHA_EGRESO = RANGO_EXCLUIDO_SINDICATO_MARCONI[1]
 LOTE_SINDICATO_FECHA_PAGO = FECHA_CARGA_LOTE_MARCONI
 
 
@@ -507,8 +503,19 @@ def _cliente_es_marconi(reserva) -> bool:
     return 'marconi' in ap or 'marconi' in nom
 
 
+def _reserva_en_rango_excluido_sindicato_marconi(reserva) -> bool:
+    fi = getattr(reserva, 'fecha_inicio', None)
+    ff = getattr(reserva, 'fecha_fin', None)
+    if not fi or not ff:
+        return False
+    ex_ini, ex_fin = RANGO_EXCLUIDO_SINDICATO_MARCONI
+    return fi == ex_ini and ff == ex_fin
+
+
 def config_lote_sindicato_marconi(reserva) -> LoteSindicatoMarconi | None:
     """Devuelve el lote sindicato Marconi que corresponde a la reserva, o None."""
+    if _reserva_en_rango_excluido_sindicato_marconi(reserva):
+        return None
     precio = Decimal(str(getattr(reserva, 'precio_total', None) or 0))
     if precio <= Decimal('1.01'):
         return None
@@ -633,6 +640,11 @@ def sincronizar_senia_reserva_desde_movimientos(reserva, *, persistir: bool = Tr
         update_fields.append('estado')
     if marcar_sindicato and not getattr(reserva, 'es_alquiler_sindicato', False):
         reserva.es_alquiler_sindicato = True
+        update_fields.append('es_alquiler_sindicato')
+    elif getattr(reserva, 'es_alquiler_sindicato', False) and _reserva_en_rango_excluido_sindicato_marconi(
+        reserva
+    ):
+        reserva.es_alquiler_sindicato = False
         update_fields.append('es_alquiler_sindicato')
 
     reserva.senia = total

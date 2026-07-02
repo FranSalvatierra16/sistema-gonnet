@@ -62,7 +62,7 @@ class Command(BaseCommand):
         parser.add_argument(
             '--lote-marconi',
             action='store_true',
-            help='Todos los lotes Marconi: 17–18/06 y 18/07–02/08/2026',
+            help='Lotes Marconi sindicato: 17–18/06 y 17–18/07/2026 (excluye 18/07–02/08)',
         )
         parser.add_argument('--fecha-inicio', type=str, help='Fecha ingreso (YYYY-MM-DD)')
         parser.add_argument('--fecha-fin', type=str, help='Fecha egreso (YYYY-MM-DD)')
