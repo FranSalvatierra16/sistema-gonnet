@@ -987,6 +987,42 @@ class ComisionVendedor(models.Model):
             return 'Comisión por 24 meses'
         return 'Comisión operación'
 
+    def titulo_operacion_listado(self):
+        """Nombre de la operación para listados: Propietario - Inquilino."""
+        propietario = None
+        inquilino = None
+        contrato = getattr(self, 'contrato', None)
+        reserva = getattr(self, 'reserva', None)
+        if contrato:
+            prop = getattr(contrato, 'propiedad', None)
+            if prop:
+                propietario = getattr(prop, 'propietario', None)
+            inquilino = getattr(contrato, 'inquilino', None)
+        elif reserva:
+            prop = getattr(reserva, 'propiedad', None)
+            if prop:
+                propietario = getattr(prop, 'propietario', None)
+            inquilino = getattr(reserva, 'cliente', None)
+            if not inquilino:
+                inquilino = getattr(reserva, 'inquilino', None)
+
+        def _nombre(persona):
+            if not persona:
+                return ''
+            if hasattr(persona, 'nombre_completo_display'):
+                return (persona.nombre_completo_display() or '').strip()
+            ap = (getattr(persona, 'apellido', None) or '').strip()
+            nom = (getattr(persona, 'nombre', None) or '').strip()
+            if ap and nom:
+                return f'{ap}, {nom}'
+            return ap or nom or ''
+
+        prop_txt = _nombre(propietario)
+        inq_txt = _nombre(inquilino)
+        if prop_txt or inq_txt:
+            return f'{prop_txt or "—"} - {inq_txt or "—"}'
+        return (self.concepto_operacion or '').strip() or '—'
+
     def save(self, *args, **kwargs):
         # Calcular automáticamente el monto de comisión si no está definido
         if not self.monto_comision and self.monto_total_operacion and self.porcentaje_comision:

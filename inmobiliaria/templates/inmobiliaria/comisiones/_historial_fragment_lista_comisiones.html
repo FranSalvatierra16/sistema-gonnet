@@ -70,7 +70,7 @@
                                             {% if grupo.list.0.movimiento_caja_id %}
                                                 Mismo pago (mov. caja #{{ grupo.list.0.movimiento_caja_id }}): fichaje y comisión de operación juntas · {{ grupo.list|length }} líneas
                                             {% elif grupo.list.0.contrato_id %}
-                                                Contrato #{{ grupo.list.0.contrato_id }}: fichaje y comisión del productor · {{ grupo.list|length }} líneas
+                                                {{ grupo.list.0.titulo_operacion_listado }} · {{ grupo.list|length }} líneas
                                             {% else %}
                                                 Mismo pago (reserva #{{ grupo.list.0.reserva.id }}): {{ grupo.list|length }} líneas
                                             {% endif %}

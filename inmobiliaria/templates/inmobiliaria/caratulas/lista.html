@@ -74,10 +74,18 @@
                         <option value="liquidada" {% if liquidacion_filtro == 'liquidada' %}selected{% endif %}>Ya liquidadas</option>
                     </select>
                 </div>
+                <div class="col-md-2">
+                    <label class="form-label small mb-0">Carátula</label>
+                    <select name="estado_caratula" class="form-select form-select-sm">
+                        <option value="" {% if not estado_caratula_filtro %}selected{% endif %}>Todas</option>
+                        <option value="pendiente" {% if estado_caratula_filtro == 'pendiente' %}selected{% endif %}>Pendientes</option>
+                        <option value="confirmada" {% if estado_caratula_filtro == 'confirmada' %}selected{% endif %}>Confirmadas</option>
+                    </select>
+                </div>
                 <div class="col-md-2 d-flex flex-wrap gap-1 align-items-end">
                     <button type="submit" class="btn btn-primary btn-sm flex-grow-1">Filtrar</button>
-                    <a class="btn btn-outline-secondary btn-sm" href="{% url 'inmobiliaria:lista_caratulas' %}?q={{ q|urlencode }}&operacion={{ operacion|urlencode }}&tipo={{ tipo_filtro|urlencode }}&liquidacion={{ liquidacion_filtro|urlencode }}" title="Fecha desde y hasta = hoy">Hoy</a>
-                    <a class="btn btn-outline-primary btn-sm" href="{% url 'inmobiliaria:lista_caratulas' %}?todo=1&q={{ q|urlencode }}&operacion={{ operacion|urlencode }}&tipo={{ tipo_filtro|urlencode }}&liquidacion={{ liquidacion_filtro|urlencode }}">Todo</a>
+                    <a class="btn btn-outline-secondary btn-sm" href="{% url 'inmobiliaria:lista_caratulas' %}?q={{ q|urlencode }}&operacion={{ operacion|urlencode }}&tipo={{ tipo_filtro|urlencode }}&liquidacion={{ liquidacion_filtro|urlencode }}&estado_caratula={{ estado_caratula_filtro|urlencode }}" title="Fecha desde y hasta = hoy">Hoy</a>
+                    <a class="btn btn-outline-primary btn-sm" href="{% url 'inmobiliaria:lista_caratulas' %}?todo=1&q={{ q|urlencode }}&operacion={{ operacion|urlencode }}&tipo={{ tipo_filtro|urlencode }}&liquidacion={{ liquidacion_filtro|urlencode }}&estado_caratula={{ estado_caratula_filtro|urlencode }}">Todo</a>
                 </div>
             </form>
             <p class="small text-muted mb-0 mt-2">

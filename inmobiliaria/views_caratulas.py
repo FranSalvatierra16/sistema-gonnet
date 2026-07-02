@@ -45,7 +45,7 @@ _CONCEPTO_HONORARIOS_LABELS = {
 }
 
 LISTA_CARATULAS_QUERY_KEYS = (
-    'q', 'operacion', 'fecha_desde', 'fecha_hasta', 'tipo', 'liquidacion', 'todo', 'page',
+    'q', 'operacion', 'fecha_desde', 'fecha_hasta', 'tipo', 'liquidacion', 'estado_caratula', 'todo', 'page',
 )
 
 
@@ -72,6 +72,7 @@ def _query_string_lista_caratulas(
     fecha_hasta='',
     tipo_filtro='',
     liquidacion_filtro='',
+    estado_caratula_filtro='',
     periodo_completo=False,
     page=None,
 ):
@@ -80,6 +81,7 @@ def _query_string_lista_caratulas(
     operacion = (operacion or '').strip()
     tipo_filtro = (tipo_filtro or '').strip()
     liquidacion_filtro = (liquidacion_filtro or '').strip()
+    estado_caratula_filtro = (estado_caratula_filtro or '').strip()
     fecha_desde = (fecha_desde or '').strip()
     fecha_hasta = (fecha_hasta or '').strip()
     if q:
@@ -90,6 +92,8 @@ def _query_string_lista_caratulas(
         params['tipo'] = tipo_filtro
     if liquidacion_filtro:
         params['liquidacion'] = liquidacion_filtro
+    if estado_caratula_filtro:
+        params['estado_caratula'] = estado_caratula_filtro
     if periodo_completo:
         params['todo'] = '1'
     if fecha_desde:
@@ -2509,6 +2513,7 @@ def lista_caratulas(request):
     operacion = request.GET.get('operacion', '').strip()
     tipo_filtro = request.GET.get('tipo', '').strip()
     liquidacion_filtro = request.GET.get('liquidacion', '').strip()
+    estado_caratula_filtro = request.GET.get('estado_caratula', '').strip()
     today = timezone.localdate().isoformat()
     raw_desde = request.GET.get('fecha_desde', '').strip()
     raw_hasta = request.GET.get('fecha_hasta', '').strip()
@@ -2532,6 +2537,7 @@ def lista_caratulas(request):
             fecha_hasta=fecha_hasta if not periodo_completo else '',
             tipo_filtro=tipo_filtro,
             liquidacion_filtro=liquidacion_filtro,
+            estado_caratula_filtro=estado_caratula_filtro,
             periodo_completo=periodo_completo,
         )
         return render(
@@ -2546,6 +2552,7 @@ def lista_caratulas(request):
                 'fecha_hasta': fecha_hasta if not periodo_completo else '',
                 'tipo_filtro': tipo_filtro,
                 'liquidacion_filtro': liquidacion_filtro,
+                'estado_caratula_filtro': estado_caratula_filtro,
                 'periodo_completo': periodo_completo,
                 'carpeta_default': _carpeta_default_actual(request),
                 'lista_filtros_qs': lista_filtros_qs,
@@ -2616,6 +2623,11 @@ def lista_caratulas(request):
         elif dr_hasta:
             reservas = reservas.filter(fecha_creacion__date__lte=dr_hasta)
 
+    if estado_caratula_filtro == 'confirmada':
+        reservas = reservas.filter(estado_confirmacion_caratula='confirmada')
+    elif estado_caratula_filtro == 'pendiente':
+        reservas = reservas.exclude(estado_confirmacion_caratula='confirmada')
+
     contratos = ContratoAlquiler.objects.filter(sucursal=sucursal).select_related(
         'propiedad', 'inquilino', 'vendedor'
     )
@@ -2657,6 +2669,11 @@ def lista_caratulas(request):
             contratos = contratos.filter(fecha_operacion__gte=dr_desde)
         elif dr_hasta:
             contratos = contratos.filter(fecha_operacion__lte=dr_hasta)
+
+    if estado_caratula_filtro == 'confirmada':
+        contratos = contratos.filter(estado_confirmacion_caratula='confirmada')
+    elif estado_caratula_filtro == 'pendiente':
+        contratos = contratos.exclude(estado_confirmacion_caratula='confirmada')
 
     reserva_ids = list(reservas.values_list('id', flat=True))
     contrato_ids = list(contratos.values_list('id', flat=True))
@@ -2779,6 +2796,7 @@ def lista_caratulas(request):
         fecha_hasta=fecha_hasta if not periodo_completo else '',
         tipo_filtro=tipo_filtro,
         liquidacion_filtro=liquidacion_filtro,
+        estado_caratula_filtro=estado_caratula_filtro,
         periodo_completo=periodo_completo,
     )
     lista_ver_qs = _query_string_lista_caratulas(
@@ -2788,6 +2806,7 @@ def lista_caratulas(request):
         fecha_hasta=fecha_hasta if not periodo_completo else '',
         tipo_filtro=tipo_filtro,
         liquidacion_filtro=liquidacion_filtro,
+        estado_caratula_filtro=estado_caratula_filtro,
         periodo_completo=periodo_completo,
         page=page_obj.number if page_obj.number > 1 else None,
     )
@@ -2803,6 +2822,7 @@ def lista_caratulas(request):
             'fecha_hasta': fecha_hasta if not periodo_completo else '',
             'tipo_filtro': tipo_filtro,
             'liquidacion_filtro': liquidacion_filtro,
+            'estado_caratula_filtro': estado_caratula_filtro,
             'periodo_completo': periodo_completo,
             'busqueda_por_numero': busqueda_por_numero,
             'carpeta_default': _carpeta_default_actual(request),
