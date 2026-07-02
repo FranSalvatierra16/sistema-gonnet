@@ -1723,15 +1723,41 @@
 
 <script>
     // Añade esto al principio de tus scripts
-    const URLS = {
-        obtenerPrecios: "{% url 'inmobiliaria:obtener_precios_propiedad' 0 %}".slice(0, -1),
-        obtenerFotos: "{% url 'inmobiliaria:obtener_fotos_propiedad' 0 %}".slice(0, -1),
-        obtenerHistorial: "{% url 'inmobiliaria:historial_disponibilidad' 0 %}".replace('/0/', '/')
+    const URL_TEMPLATES = {
+        obtenerPrecios: "{% url 'inmobiliaria:obtener_precios_propiedad' '0' %}",
+        obtenerFotos: "{% url 'inmobiliaria:obtener_fotos_propiedad' '0' %}",
+        obtenerHistorial: "{% url 'inmobiliaria:historial_disponibilidad' '0' %}"
     };
+
+    const propiedadesImagenes = {};
+
+    document.addEventListener('DOMContentLoaded', function() {
+        {% for propiedad in propiedades_disponibles %}
+        propiedadesImagenes['{{ propiedad.id }}'] = [
+            {% for imagen in propiedad.imagenes.all %}
+            {
+                url: "{{ imagen.imagen.url|escapejs }}",
+                orden: {{ imagen.orden }}
+            }{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ];
+        {% endfor %}
+    });
     
-    // Función helper para construir URL de historial
+    function buildUrlWithPropiedadId(urlTemplate, propiedadId) {
+        return urlTemplate.replace('/0/', `/${propiedadId}/`);
+    }
+
     function getHistorialUrl(propiedadId) {
-        return "{% url 'inmobiliaria:historial_disponibilidad' 0 %}".replace('/0/', `/${propiedadId}/`);
+        return buildUrlWithPropiedadId(URL_TEMPLATES.obtenerHistorial, propiedadId);
+    }
+
+    function getFotosUrl(propiedadId) {
+        return buildUrlWithPropiedadId(URL_TEMPLATES.obtenerFotos, propiedadId);
+    }
+
+    function getPreciosUrl(propiedadId) {
+        return buildUrlWithPropiedadId(URL_TEMPLATES.obtenerPrecios, propiedadId);
     }
 
     function formatPrice(value) {
@@ -1870,7 +1896,7 @@ function autenticarYReservar() {
         console.log("Actualizando tabla de precios para propiedad:", propiedadId);
         
         // Construir URL correctamente usando la URL base definida
-        const url = `${URLS.obtenerPrecios}${propiedadId}/`;
+        const url = getPreciosUrl(propiedadId);
         console.log("URL de petición:", url);
         
         // Hacer petición fetch para obtener los precios
@@ -2017,9 +2043,55 @@ function autenticarYReservar() {
         });
     }
 
+    function renderGaleriaFotos(fotos) {
+        const carouselInner = document.getElementById('carouselInner');
+        const thumbnailsContainer = document.getElementById('thumbnailsContainer');
+        const contadorFotos = document.getElementById('contadorFotos');
+
+        carouselInner.innerHTML = '';
+        thumbnailsContainer.innerHTML = '';
+        contadorFotos.textContent = '';
+
+        if (!fotos || fotos.length === 0) {
+            carouselInner.innerHTML = `
+                <div class="alert alert-info m-3">
+                    No hay fotos disponibles para esta propiedad
+                </div>
+            `;
+            return;
+        }
+
+        fotos.forEach((foto, index) => {
+            const slide = document.createElement('div');
+            slide.className = `carousel-item ${index === 0 ? 'active' : ''}`;
+            slide.innerHTML = `
+                <div class="d-flex justify-content-center align-items-center" style="height: 70vh;">
+                    <img src="${foto.url}"
+                         class="img-fluid"
+                         style="max-height: 100%; max-width: 100%; object-fit: contain;"
+                         alt="Foto ${index + 1}">
+                </div>
+            `;
+            carouselInner.appendChild(slide);
+
+            const thumbnailCol = document.createElement('div');
+            thumbnailCol.className = 'col-2 mb-2';
+            thumbnailCol.innerHTML = `
+                <img src="${foto.url}"
+                     class="img-thumbnail thumbnail-nav ${index === 0 ? 'active-thumbnail' : ''}"
+                     onclick="irAFoto(${index})"
+                     data-index="${index}"
+                     alt="Thumbnail ${index + 1}">
+            `;
+            thumbnailsContainer.appendChild(thumbnailCol);
+        });
+
+        contadorFotos.textContent = `1 / ${fotos.length}`;
+    }
+
     function abrirGaleriaFotos(propiedadId) {
         console.log("=== ABRIENDO GALERÍA DE FOTOS ===");
-        
+
         if (!propiedadId) {
             Swal.fire({
                 icon: 'warning',
@@ -2028,30 +2100,19 @@ function autenticarYReservar() {
             });
             return;
         }
-        
-        // Verificar que todos los elementos necesarios existen
+
         const carouselInner = document.getElementById('carouselInner');
         const thumbnailsContainer = document.getElementById('thumbnailsContainer');
         const contadorFotos = document.getElementById('contadorFotos');
         const tituloModal = document.getElementById('tituloModal');
-        
+
         if (!carouselInner || !thumbnailsContainer || !contadorFotos || !tituloModal) {
             console.error("Elementos del DOM faltantes");
             return;
         }
-        
-        // Actualizar título del modal
-        tituloModal.textContent = propiedadSeleccionada.direccion;
-        
-        // Limpiar contenedores
-        carouselInner.innerHTML = '';
-        thumbnailsContainer.innerHTML = '';
-        contadorFotos.textContent = '';
-        
-        // Construir la URL
-        const url = `${URLS.obtenerFotos}${propiedadId}/`;
-        
-        // Mostrar indicador de carga
+
+        tituloModal.textContent = propiedadSeleccionada ? propiedadSeleccionada.direccion : `Ficha ${propiedadId}`;
+
         carouselInner.innerHTML = `
             <div class="carousel-item active">
                 <div class="d-flex justify-content-center align-items-center" style="height: 60vh;">
@@ -2061,13 +2122,19 @@ function autenticarYReservar() {
                 </div>
             </div>
         `;
+        thumbnailsContainer.innerHTML = '';
+        contadorFotos.textContent = '';
 
-        // Mostrar el modal antes de cargar las fotos
         const modalGaleriaFotos = new bootstrap.Modal(document.getElementById('modalGaleriaFotos'));
         modalGaleriaFotos.show();
-        
-        // Realizar la petición
-        fetch(url)
+
+        const fotosPrecargadas = propiedadesImagenes[String(propiedadId)] || [];
+        if (fotosPrecargadas.length > 0) {
+            renderGaleriaFotos(fotosPrecargadas);
+            return;
+        }
+
+        fetch(getFotosUrl(propiedadId))
             .then(response => {
                 if (!response.ok) {
                     throw new Error(`Error HTTP: ${response.status}`);
@@ -2076,43 +2143,9 @@ function autenticarYReservar() {
             })
             .then(data => {
                 if (data.success && data.fotos && data.fotos.length > 0) {
-                    carouselInner.innerHTML = '';
-                    
-                    data.fotos.forEach((foto, index) => {
-                        // Slide principal
-                        const slide = document.createElement('div');
-                        slide.className = `carousel-item ${index === 0 ? 'active' : ''}`;
-                        slide.innerHTML = `
-                            <div class="d-flex justify-content-center align-items-center" style="height: 70vh;">
-                                <img src="${foto.url}" 
-                                     class="img-fluid" 
-                                     style="max-height: 100%; max-width: 100%; object-fit: contain;" 
-                                     alt="Foto ${index + 1}">
-                            </div>
-                        `;
-                        carouselInner.appendChild(slide);
-                        
-                        // Thumbnail
-                        const thumbnailCol = document.createElement('div');
-                        thumbnailCol.className = 'col-2 mb-2';
-                        thumbnailCol.innerHTML = `
-                            <img src="${foto.url}" 
-                                 class="img-thumbnail thumbnail-nav ${index === 0 ? 'active-thumbnail' : ''}" 
-                                 onclick="irAFoto(${index})"
-                                 data-index="${index}"
-                                 alt="Thumbnail ${index + 1}">
-                        `;
-                        thumbnailsContainer.appendChild(thumbnailCol);
-                    });
-                    
-                    // Actualizar contador
-                    contadorFotos.textContent = `1 / ${data.fotos.length}`;
+                    renderGaleriaFotos(data.fotos);
                 } else {
-                    carouselInner.innerHTML = `
-                        <div class="alert alert-info m-3">
-                            No hay fotos disponibles para esta propiedad
-                        </div>
-                    `;
+                    renderGaleriaFotos([]);
                 }
             })
             .catch(error => {
@@ -2484,7 +2517,7 @@ function verPrecios() {
     modalPrecios.show();
 
     // Construir URL
-    const url = `${URLS.obtenerPrecios}${propiedadSeleccionada.id}/`;
+    const url = getPreciosUrl(propiedadSeleccionada.id);
     
     // Realizar la petición
     fetch(url)

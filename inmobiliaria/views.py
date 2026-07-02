@@ -14922,9 +14922,9 @@ def buscar_propiedades(request):
             propiedades = Propiedad.objects.filter(
                 Q(sucursal__nombre__icontains='colon') | 
                 Q(sucursal__nombre__icontains='corrientes')
-            )
+            ).prefetch_related('imagenes')
         else:
-            propiedades = Propiedad.objects.filter(sucursal=sucursal_vendedor)
+            propiedades = Propiedad.objects.filter(sucursal=sucursal_vendedor).prefetch_related('imagenes')
         
         # AGREGAR FLAG: Para editar específicamente el filtro de esta función
         ES_BUSCAR_PROPIEDADES_PRINCIPAL = True
