@@ -2588,8 +2588,8 @@ def lista_caratulas(request):
                 operacion_num = None
         reservas = reservas.filter(id=operacion_num) if operacion_num is not None else reservas.none()
 
-    busqueda_por_numero = operacion_num is not None or (bool(q) and q.isdigit())
-    omitir_filtro_fechas = periodo_completo or busqueda_por_numero
+    hay_busqueda = bool(q) or bool(operacion)
+    omitir_filtro_fechas = periodo_completo or hay_busqueda
 
     if q:
         tokens = _tokens_busqueda_caratulas(q)
@@ -2828,7 +2828,7 @@ def lista_caratulas(request):
             'liquidacion_filtro': liquidacion_filtro,
             'estado_caratula_filtro': estado_caratula_filtro,
             'periodo_completo': periodo_completo,
-            'busqueda_por_numero': busqueda_por_numero,
+            'busqueda_activa': hay_busqueda,
             'carpeta_default': _carpeta_default_actual(request),
             'total_filas': total_filas,
             'lista_filtros_qs': lista_filtros_qs,
