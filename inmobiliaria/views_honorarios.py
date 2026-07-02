@@ -1,7 +1,7 @@
 """
 Honorarios / ganancias de oficina desde liquidaciones.
 - Comisión inmobiliaria: ingresa al crear la liquidación (fecha_creacion).
-- Cochera y fondo de mantenimiento: ingresan el día de entrada del depto (fecha_desde / inicio reserva o contrato).
+- Cochera, fondo y comisiones locador/locatario: día de entrada del depto (inicio reserva o contrato).
 """
 from datetime import date, datetime
 from decimal import Decimal
@@ -12,7 +12,11 @@ from django.shortcuts import render
 from django.urls import reverse
 from django.utils import timezone
 
-from inmobiliaria.liquidacion_operacion import info_operacion_liquidacion
+from inmobiliaria.liquidacion_operacion import (
+    contrato_desde_liquidacion,
+    info_operacion_liquidacion,
+    reserva_desde_liquidacion,
+)
 from inmobiliaria.models import LiquidacionPropietario
 
 
@@ -35,15 +39,19 @@ def _parse_fecha(s):
 
 
 def _fecha_entrada_liquidacion(liq):
-    """Día de entrada del depto para cochera / fondo."""
-    if liq.fecha_desde:
-        return liq.fecha_desde
-    reserva = getattr(liq, 'reserva', None)
+    """
+    Día de entrada del inquilino al depto (operación), no el inicio del período liquidado.
+    En contratos 24 meses / invierno, la liquidación puede tener fecha_desde = mes de la cuota
+    (ej. 01/07) aunque el contrato empiece antes (ej. 01/06).
+    """
+    reserva = getattr(liq, 'reserva', None) or reserva_desde_liquidacion(liq)
     if reserva and reserva.fecha_inicio:
         return reserva.fecha_inicio
-    contrato = getattr(liq, 'contrato', None)
+    contrato = getattr(liq, 'contrato', None) or contrato_desde_liquidacion(liq)
     if contrato and contrato.fecha_inicio:
         return contrato.fecha_inicio
+    if liq.fecha_desde:
+        return liq.fecha_desde
     if liq.fecha_creacion:
         fc = liq.fecha_creacion
         return timezone.localtime(fc).date() if timezone.is_aware(fc) else fc.date()
@@ -62,12 +70,43 @@ def _operacion_label(liq):
         return f'Reserva #{liq.reserva_id}'
     if liq.contrato_id:
         return f'Contrato #{liq.contrato_id}'
+    reserva = reserva_desde_liquidacion(liq)
+    if reserva:
+        return f'Reserva #{reserva.id}'
+    contrato = contrato_desde_liquidacion(liq)
+    if contrato:
+        return f'Contrato #{contrato.id}'
     return '—'
+
+
+def _estado_confirmacion_operacion_liquidacion(liq):
+    """Estado de carátula de la reserva o contrato vinculado a la liquidación."""
+    reserva = getattr(liq, 'reserva', None)
+    if reserva is not None:
+        return getattr(reserva, 'estado_confirmacion_caratula', None) or 'pendiente'
+    contrato = getattr(liq, 'contrato', None)
+    if contrato is not None:
+        return getattr(contrato, 'estado_confirmacion_caratula', None) or 'pendiente'
+    reserva = reserva_desde_liquidacion(liq)
+    if reserva is not None:
+        return getattr(reserva, 'estado_confirmacion_caratula', None) or 'pendiente'
+    contrato = contrato_desde_liquidacion(liq)
+    if contrato is not None:
+        return getattr(contrato, 'estado_confirmacion_caratula', None) or 'pendiente'
+    return None
+
+
+def _liquidacion_caratula_confirmada(liq):
+    """Solo ingresan honorarios de operaciones con carátula confirmada."""
+    estado = _estado_confirmacion_operacion_liquidacion(liq)
+    return estado == 'confirmada'
 
 
 def _filas_honorarios_desde_liquidaciones(liquidaciones):
     filas = []
     for liq in liquidaciones:
+        if not _liquidacion_caratula_confirmada(liq):
+            continue
         prop = liq.propiedad
         prop_txt = (prop.direccion if prop else '—') or '—'
         if prop and (prop.piso or prop.departamento):

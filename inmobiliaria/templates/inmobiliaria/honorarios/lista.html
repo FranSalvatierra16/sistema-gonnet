@@ -13,6 +13,7 @@
                 Comisión inmobiliaria ingresa al <strong>crear la liquidación</strong>.
                 Cochera, fondo, comisión locador y comisión locatario ingresan el <strong>día de entrada</strong> del departamento.
                 La comisión del productor se acredita también el día de entrada.
+                Solo se listan operaciones con carátula <strong>confirmada</strong>.
             </p>
 
             <div class="d-flex flex-wrap gap-2 mb-4">
@@ -141,7 +142,8 @@
                             {% empty %}
                             <tr>
                                 <td colspan="9" class="text-center text-muted py-5">
-                                    No hay ingresos a oficina en el período seleccionado.
+                                    No hay ingresos a oficina en el período seleccionado
+                                    (solo operaciones con carátula confirmada).
                                 </td>
                             </tr>
                             {% endfor %}
