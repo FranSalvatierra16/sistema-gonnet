@@ -109,9 +109,9 @@
                             <tr>
                                 <td class="text-nowrap">{{ f.fecha|date:"d/m/Y" }}</td>
                                 <td>
-                                    {% if f.tipo == 'comision' %}
+                                    {% if f.tipo == 'comisiones_locador_locatario' %}
                                     <span class="badge bg-success">{{ f.tipo_display }}</span>
-                                    {% elif f.tipo == 'comision_locador' or f.tipo == 'comision_locatario' %}
+                                    {% elif f.tipo == 'comision' %}
                                     <span class="badge bg-success">{{ f.tipo_display }}</span>
                                     {% elif f.tipo == 'cochera' %}
                                     <span class="badge bg-info text-dark">{{ f.tipo_display }}</span>
@@ -141,7 +141,15 @@
                                     <span class="text-muted">{{ f.tipo_operacion_display|default:"—" }}</span>
                                     {% endif %}
                                 </td>
-                                <td class="text-end fw-semibold">${{ f.monto|format_price }}</td>
+                                <td class="text-end">
+                                    {% if f.tipo == 'comisiones_locador_locatario' %}
+                                    <div class="small text-muted">Loc. ${{ f.monto_locador|format_price }}</div>
+                                    <div class="small text-muted">Locat. ${{ f.monto_locatario|format_price }}</div>
+                                    <div class="fw-semibold">${{ f.monto|format_price }}</div>
+                                    {% else %}
+                                    <span class="fw-semibold">${{ f.monto|format_price }}</span>
+                                    {% endif %}
+                                </td>
                                 <td class="text-center small text-muted">{{ f.nota }}</td>
                             </tr>
                             {% empty %}

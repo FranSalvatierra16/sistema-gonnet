@@ -104,20 +104,35 @@ def _propiedad_txt(prop):
     return prop_txt
 
 
-def _keys_comision_cubiertas(filas):
-    locador = set()
-    locatario = set()
+def _keys_comisiones_contrato_cubiertas(filas):
+    """Operaciones que ya aportaron fila de comisiones locador/locatario."""
+    cubiertos = set()
     for f in filas:
+        if f.get('tipo') != 'comisiones_locador_locatario':
+            continue
         kind = f.get('operacion_kind')
         pk = f.get('operacion_pk')
-        if not kind or not pk:
-            continue
-        key = (kind, pk)
-        if f.get('tipo') == 'comision_locador':
-            locador.add(key)
-        elif f.get('tipo') == 'comision_locatario':
-            locatario.add(key)
-    return locador, locatario
+        if kind and pk:
+            cubiertos.add((kind, pk))
+    return cubiertos
+
+
+def _fila_comisiones_locador_locatario(base, f_entrada, monto_locador, monto_locatario):
+    """Una sola fila con comisión locador y locatario de la misma operación."""
+    monto_loc = Decimal(str(monto_locador or 0)).quantize(Decimal('0.01'))
+    monto_locat = Decimal(str(monto_locatario or 0)).quantize(Decimal('0.01'))
+    if monto_loc <= Decimal('0.01') and monto_locat <= Decimal('0.01'):
+        return None
+    return {
+        **base,
+        'tipo': 'comisiones_locador_locatario',
+        'tipo_display': 'Comisiones locador / locatario',
+        'fecha': f_entrada,
+        'monto_locador': monto_loc,
+        'monto_locatario': monto_locat,
+        'monto': (monto_loc + monto_locat).quantize(Decimal('0.01')),
+        'nota': 'Día de entrada',
+    }
 
 
 def _categoria_contrato_honorarios(contrato):
@@ -135,8 +150,7 @@ def _filas_honorarios_desde_caratulas_confirmadas(
     sucursal,
     fecha_desde,
     fecha_hasta,
-    cubiertos_locador,
-    cubiertos_locatario,
+    cubiertos_comisiones,
     busqueda='',
 ):
     """
@@ -202,25 +216,12 @@ def _filas_honorarios_desde_caratulas_confirmadas(
             'estado_liq': liq_op.get_estado_display() if liq_op else 'Sin liquidar',
         }
 
-        if com_loc > Decimal('0.01') and op_key not in cubiertos_locador:
-            filas.append({
-                **base,
-                'tipo': 'comision_locador',
-                'tipo_display': 'Comisión locador',
-                'fecha': f_entrada,
-                'monto': com_loc.quantize(Decimal('0.01')),
-                'nota': 'Día de entrada',
-            })
+        if op_key in cubiertos_comisiones:
+            continue
 
-        if com_locat > Decimal('0.01') and op_key not in cubiertos_locatario:
-            filas.append({
-                **base,
-                'tipo': 'comision_locatario',
-                'tipo_display': 'Comisión locatario',
-                'fecha': f_entrada,
-                'monto': com_locat.quantize(Decimal('0.01')),
-                'nota': 'Día de entrada',
-            })
+        fila = _fila_comisiones_locador_locatario(base, f_entrada, com_loc, com_locat)
+        if fila:
+            filas.append(fila)
 
     return filas
 
@@ -312,26 +313,10 @@ def _filas_honorarios_desde_liquidaciones(liquidaciones):
             })
 
         monto_com_loc = Decimal(str(liq.comision_locador or 0))
-        if monto_com_loc > Decimal('0.01'):
-            filas.append({
-                **base,
-                'tipo': 'comision_locador',
-                'tipo_display': 'Comisión locador',
-                'fecha': f_entrada,
-                'monto': monto_com_loc,
-                'nota': 'Día de entrada',
-            })
-
         monto_com_locat = Decimal(str(liq.comision_locatario or 0))
-        if monto_com_locat > Decimal('0.01'):
-            filas.append({
-                **base,
-                'tipo': 'comision_locatario',
-                'tipo_display': 'Comisión locatario',
-                'fecha': f_entrada,
-                'monto': monto_com_locat,
-                'nota': 'Día de entrada',
-            })
+        fila = _fila_comisiones_locador_locatario(base, f_entrada, monto_com_loc, monto_com_locat)
+        if fila:
+            filas.append(fila)
 
     return filas
 
@@ -417,28 +402,55 @@ def honorarios_oficina(request):
     ).distinct()
 
     filas_liq = _filtrar_filas_por_fecha(_filas_honorarios_desde_liquidaciones(qs), fecha_desde, fecha_hasta)
-    cubiertos_loc, cubiertos_locat = _keys_comision_cubiertas(filas_liq)
+    cubiertos_comisiones = _keys_comisiones_contrato_cubiertas(filas_liq)
     filas_car = _filas_honorarios_desde_caratulas_confirmadas(
         request.user.sucursal,
         fecha_desde,
         fecha_hasta,
-        cubiertos_loc,
-        cubiertos_locat,
+        cubiertos_comisiones,
         busqueda=busqueda,
     )
     filas = _filtrar_filas_por_fecha(filas_liq + filas_car, fecha_desde, fecha_hasta)
     filas = _filtrar_filas_por_operacion(filas, operacion_filtro)
 
-    if tipo_filtro in ('comision', 'cochera', 'fondo', 'comision_locador', 'comision_locatario'):
+    if tipo_filtro == 'comision_locador':
+        filas = [
+            f for f in filas
+            if f.get('tipo') == 'comisiones_locador_locatario'
+            and (f.get('monto_locador') or Decimal('0')) > Decimal('0.01')
+        ]
+    elif tipo_filtro == 'comision_locatario':
+        filas = [
+            f for f in filas
+            if f.get('tipo') == 'comisiones_locador_locatario'
+            and (f.get('monto_locatario') or Decimal('0')) > Decimal('0.01')
+        ]
+    elif tipo_filtro in ('comision', 'cochera', 'fondo'):
         filas = [f for f in filas if f['tipo'] == tipo_filtro]
 
     total_general = sum((f['monto'] for f in filas), Decimal('0'))
     total_comision = sum((f['monto'] for f in filas if f['tipo'] == 'comision'), Decimal('0'))
     total_comision_locador = sum(
-        (f['monto'] for f in filas if f['tipo'] == 'comision_locador'), Decimal('0')
+        (
+            (
+                f.get('monto_locador')
+                if f.get('tipo') == 'comisiones_locador_locatario'
+                else (f['monto'] if f.get('tipo') == 'comision_locador' else Decimal('0'))
+            )
+            for f in filas
+        ),
+        Decimal('0'),
     )
     total_comision_locatario = sum(
-        (f['monto'] for f in filas if f['tipo'] == 'comision_locatario'), Decimal('0')
+        (
+            (
+                f.get('monto_locatario')
+                if f.get('tipo') == 'comisiones_locador_locatario'
+                else (f['monto'] if f.get('tipo') == 'comision_locatario' else Decimal('0'))
+            )
+            for f in filas
+        ),
+        Decimal('0'),
     )
     total_cochera = sum((f['monto'] for f in filas if f['tipo'] == 'cochera'), Decimal('0'))
     total_fondo = sum((f['monto'] for f in filas if f['tipo'] == 'fondo'), Decimal('0'))
