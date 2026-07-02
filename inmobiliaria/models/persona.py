@@ -271,6 +271,38 @@ class Vendedor(AbstractUser):
             return default
         return Decimal('0')
 
+    def porcentaje_fichaje_efectivo(self, tipo_fichaje=None, categoria_operacion=None):
+        """% fichaje según tipo de operación; si no hay % específico, usa cualquier % de fichaje cargado."""
+        from inmobiliaria.models.comision import porcentaje_fichaje_vendedor
+
+        pct = porcentaje_fichaje_vendedor(self, tipo_fichaje, categoria_operacion)
+        if pct is not None and pct > 0:
+            return pct
+        es_segundo = (tipo_fichaje or 'primer').strip().lower() == 'segundo'
+        if es_segundo:
+            orden = (
+                'comision_segundo_fichaje_24_meses',
+                'comision_segundo_fichaje_invierno',
+                'comision_segundo_fichaje',
+                'comision_primer_fichaje_24_meses',
+                'comision_primer_fichaje_invierno',
+                'comision_primer_fichaje',
+            )
+        else:
+            orden = (
+                'comision_primer_fichaje_24_meses',
+                'comision_primer_fichaje_invierno',
+                'comision_primer_fichaje',
+                'comision_segundo_fichaje_24_meses',
+                'comision_segundo_fichaje_invierno',
+                'comision_segundo_fichaje',
+            )
+        for attr in orden:
+            val = getattr(self, attr, None)
+            if val is not None and val > 0:
+                return val
+        return None
+
     def porcentaje_comision_para_reserva(self, reserva):
         """
         Elige el % según duración (24 meses / invierno) y tipo de fichaje de la propiedad.

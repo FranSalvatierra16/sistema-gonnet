@@ -76,7 +76,7 @@
         </form>
 
         <div class="border-top p-3">
-            {% if honorarios_ctx.comisiones_fichaje or honorarios_ctx.pct_productor.pct_fichaje %}
+            {% if honorarios_ctx.fichador_nombre or honorarios_ctx.comisiones_fichaje or honorarios_ctx.pct_productor.pct_fichaje %}
             <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
                 <strong class="small">Comisión de fichaje</strong>
                 {% if honorarios_ctx.pct_productor.fichador %}
@@ -235,7 +235,9 @@
             return;
         }
         if (!cfg.pct_fichaje || cfg.pct_fichaje <= 0) {
-            filasFichajeBody.innerHTML = '<tr><td colspan="4" class="text-muted text-center py-2">Sin % de fichaje cargado para el fichador en contratos de 24 meses.</td></tr>';
+            filasFichajeBody.innerHTML = '<tr><td colspan="4" class="text-muted text-center py-2">Sin % de fichaje cargado para '
+                + (cfg.fichador || 'el fichador')
+                + '. Revisá su ficha (primer/segundo fichaje 24 meses).</td></tr>';
             if (totalFichaje) {
                 totalFichaje.textContent = '$0,00';
             }

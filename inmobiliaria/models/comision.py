@@ -484,7 +484,9 @@ def registrar_comisiones_honorarios_contrato(contrato, honorarios_monto, movimie
             contrato=contrato,
             rol_comision=ROL_COMISION_FICHAJE,
         ).exclude(estado='cancelada').exclude(vendedor=vend_fichaje).delete()
-    pct_fichaje = porcentaje_fichaje_vendedor(vend_fichaje, tipo_fichaje, categoria_operacion=cat)
+    pct_fichaje = None
+    if vend_fichaje:
+        pct_fichaje = vend_fichaje.porcentaje_fichaje_efectivo(tipo_fichaje, cat)
     if pct_fichaje is not None and pct_fichaje > 0 and vend_fichaje:
         cat_lbl = _etiqueta_categoria_fichaje(cat)
         c = ComisionVendedor.crear_comision_linea_contrato(
