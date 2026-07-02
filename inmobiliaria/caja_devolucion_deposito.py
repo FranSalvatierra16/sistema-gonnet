@@ -27,27 +27,43 @@ class LoteSindicatoMarconi(NamedTuple):
 
 
 # Lotes sindicato Marconi 2026 — cobro en efectivo (recibo 25/06 u otros días del lote)
+FECHA_CARGA_LOTE_MARCONI = date(2026, 6, 25)
+FECHAS_PAGO_LOTE_MARCONI = (
+    date(2026, 6, 25),
+    date(2026, 6, 17),
+    date(2026, 6, 18),
+    date(2026, 7, 17),
+    date(2026, 7, 18),
+)
+
 LOTES_SINDICATO_MARCONI: tuple[LoteSindicatoMarconi, ...] = (
     LoteSindicatoMarconi(
         'junio_2026',
         date(2026, 6, 17),
         date(2026, 6, 18),
-        (date(2026, 6, 17), date(2026, 6, 18), date(2026, 6, 25)),
+        FECHAS_PAGO_LOTE_MARCONI,
         '17/06–18/06/2026',
+    ),
+    LoteSindicatoMarconi(
+        'julio_17_2026',
+        date(2026, 7, 17),
+        date(2026, 7, 18),
+        FECHAS_PAGO_LOTE_MARCONI,
+        '17/07–18/07/2026',
     ),
     LoteSindicatoMarconi(
         'julio_2026',
         date(2026, 7, 18),
         date(2026, 8, 2),
-        (date(2026, 6, 25),),
+        FECHAS_PAGO_LOTE_MARCONI,
         '18/07–02/08/2026',
     ),
 )
 
-# Compatibilidad con imports anteriores (lote julio)
-LOTE_SINDICATO_FECHA_INGRESO = LOTES_SINDICATO_MARCONI[1].fecha_ingreso
-LOTE_SINDICATO_FECHA_EGRESO = LOTES_SINDICATO_MARCONI[1].fecha_egreso
-LOTE_SINDICATO_FECHA_PAGO = LOTES_SINDICATO_MARCONI[1].fechas_pago[0]
+# Compatibilidad con imports anteriores (lote julio largo)
+LOTE_SINDICATO_FECHA_INGRESO = date(2026, 7, 18)
+LOTE_SINDICATO_FECHA_EGRESO = date(2026, 8, 2)
+LOTE_SINDICATO_FECHA_PAGO = FECHA_CARGA_LOTE_MARCONI
 
 
 def concepto_devolucion_deposito_catalogo(sucursal):
@@ -503,6 +519,16 @@ def config_lote_sindicato_marconi(reserva) -> LoteSindicatoMarconi | None:
     for lote in LOTES_SINDICATO_MARCONI:
         if fi == lote.fecha_ingreso and ff == lote.fecha_egreso:
             return lote
+    # Reservas Marconi cargadas el 25/06/2026 (mismo lote sindicato, otras fechas de ingreso)
+    fc = getattr(reserva, 'fecha_creacion', None)
+    if fc and fc.date() == FECHA_CARGA_LOTE_MARCONI and fi and ff:
+        return LoteSindicatoMarconi(
+            'marconi_carga_25jun2026',
+            fi,
+            ff,
+            FECHAS_PAGO_LOTE_MARCONI,
+            f'carga 25/06 ({fi.strftime("%d/%m")}–{ff.strftime("%d/%m")})',
+        )
     return None
 
 

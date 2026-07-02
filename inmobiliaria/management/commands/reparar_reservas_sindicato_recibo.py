@@ -16,6 +16,7 @@ from django.core.management.base import BaseCommand
 from django.db.models import Q
 
 from inmobiliaria.caja_devolucion_deposito import (
+    FECHA_CARGA_LOTE_MARCONI,
     LOTES_SINDICATO_MARCONI,
     config_lote_sindicato_marconi,
     es_reserva_lote_sindicato_marconi,
@@ -87,7 +88,13 @@ class Command(BaseCommand):
             q_lotes = Q()
             for lote in LOTES_SINDICATO_MARCONI:
                 q_lotes |= Q(fecha_inicio=lote.fecha_ingreso, fecha_fin=lote.fecha_egreso)
-            reservas_qs = list(reservas_qs.filter(q_lotes))
+            q_carga = Q(
+                fecha_creacion__date=FECHA_CARGA_LOTE_MARCONI,
+            ) & (
+                Q(cliente__apellido__icontains='marconi')
+                | Q(cliente__nombre__icontains='marconi')
+            )
+            reservas_qs = list(reservas_qs.filter(q_lotes | q_carga))
             reservas_qs = [r for r in reservas_qs if config_lote_sindicato_marconi(r)]
             self.stdout.write(
                 'Lotes Marconi: '
