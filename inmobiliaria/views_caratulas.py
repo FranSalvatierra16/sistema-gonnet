@@ -916,6 +916,7 @@ def _guardar_caratula_contrato(request, contrato):
         messages.error(request, 'El contrato no tiene duración en meses válida.')
         return False
 
+    fecha_inicio_anterior = contrato.fecha_inicio
     contrato.fecha_inicio = fecha_inicio
     contrato.fecha_fin = fecha_fin
     contrato.deposito_garantia = deposito.quantize(Decimal('0.01'))
@@ -924,6 +925,11 @@ def _guardar_caratula_contrato(request, contrato):
     contrato.save(update_fields=[
         'fecha_inicio', 'fecha_fin', 'deposito_garantia', 'precio_mensual', 'estado',
     ])
+
+    if fecha_inicio != fecha_inicio_anterior:
+        from inmobiliaria.views import _alinear_vencimientos_cuotas_contrato
+
+        _alinear_vencimientos_cuotas_contrato(contrato)
 
     _set_montos_override_contrato_caratula(request, contrato.id, senia=senia)
 

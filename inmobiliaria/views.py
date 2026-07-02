@@ -15979,6 +15979,9 @@ def detalle_contrato(request, contrato_id):
     if not cuotas.exists() and contrato.estado in ('activo', 'reservado'):
         _asegurar_cuotas_plan_contrato(contrato)
         cuotas = contrato.cuotas.select_related('movimiento').order_by('numero_cuota')
+    elif cuotas.exists() and _cuotas_requieren_alinear_vencimientos(contrato):
+        _alinear_vencimientos_cuotas_contrato(contrato, hoy)
+        cuotas = contrato.cuotas.select_related('movimiento').order_by('numero_cuota')
 
     from inmobiliaria.models.caja import MovimientoCaja, TipoMovimientoCajaEnum
     from inmobiliaria.cuotas_imputacion import mapa_movimientos_recibo_por_cuota_id
@@ -16585,9 +16588,11 @@ def recalcular_cuotas_montos_desde_contrato(request, contrato_id):
             cuota.credito_origen_numero_cuota = None
             cuota.actualizar_monto_total()
             actualizadas += 1
+    alineadas = _alinear_vencimientos_cuotas_contrato(contrato)
     messages.success(
         request,
-        f'Se actualizaron {actualizadas} cuota(s) pendientes según el precio de cada mes del contrato.',
+        f'Se actualizaron {actualizadas} cuota(s) pendientes según el precio de cada mes del contrato.'
+        + (f' Se corrigieron {alineadas} vencimiento(s) según la fecha de inicio.' if alineadas else ''),
     )
     return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
 
@@ -16685,9 +16690,11 @@ def actualizar_precios_bloques_contrato(request, contrato_id):
             cuota.actualizar_monto_total()
             actualizadas += 1
 
+    alineadas = _alinear_vencimientos_cuotas_contrato(contrato)
     messages.success(
         request,
-        f'Precios por mes guardados. Se recalcularon {actualizadas} cuota(s) no pagadas (pendientes / vencidas).',
+        f'Precios por mes guardados. Se recalcularon {actualizadas} cuota(s) no pagadas (pendientes / vencidas).'
+        + (f' Se corrigieron {alineadas} vencimiento(s) según la fecha de inicio.' if alineadas else ''),
     )
     return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
 
@@ -18259,6 +18266,10 @@ def _parse_fecha_contrato_post(s):
     """ISO (AAAA-MM-DD desde input type=date) o dd/mm/aaaa → date; None si inválido."""
     if s is None:
         return None
+    if isinstance(s, datetime):
+        return s.date()
+    if isinstance(s, date):
+        return s
     st = str(s).strip()
     if not st:
         return None
@@ -18272,6 +18283,87 @@ def _parse_fecha_contrato_post(s):
         return None
 
 
+def _fecha_inicio_contrato_efectiva(contrato):
+    return _parse_fecha_contrato_post(getattr(contrato, 'fecha_inicio', None))
+
+
+def _fechas_vencimiento_plan_contrato(contrato):
+    """Fechas de vencimiento del plan (índice 0 = cuota 1), según fecha_inicio y dia_vencimiento."""
+    from calendar import monthrange
+
+    n = int(contrato.duracion_meses or 0)
+    if n <= 0:
+        return []
+    fi = _fecha_inicio_contrato_efectiva(contrato)
+    if not fi:
+        return []
+    d_dia = int(contrato.dia_vencimiento or 5)
+    fechas = []
+
+    if n == 9:
+        for i in range(9):
+            ref_mes = fi + relativedelta(months=i)
+            try:
+                fechas.append(ref_mes.replace(day=d_dia))
+            except ValueError:
+                ultimo_dia = monthrange(ref_mes.year, ref_mes.month)[1]
+                fechas.append(ref_mes.replace(day=min(d_dia, ultimo_dia)))
+        return fechas
+
+    try:
+        fecha_vencimiento = fi.replace(day=d_dia)
+    except ValueError:
+        ultimo_dia = monthrange(fi.year, fi.month)[1]
+        fecha_vencimiento = fi.replace(day=min(d_dia, ultimo_dia))
+
+    for _ in range(n):
+        fechas.append(fecha_vencimiento)
+        fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
+    return fechas
+
+
+def _cuotas_requieren_alinear_vencimientos(contrato):
+    fechas = _fechas_vencimiento_plan_contrato(contrato)
+    if not fechas:
+        return False
+    by_num = {int(c.numero_cuota): c for c in contrato.cuotas.all()}
+    for i, esperada in enumerate(fechas):
+        cuota = by_num.get(i + 1)
+        if not cuota or cuota.estado in ('pagada', 'pagada_con_mora'):
+            continue
+        if cuota.fecha_vencimiento != esperada:
+            return True
+    return False
+
+
+def _alinear_vencimientos_cuotas_contrato(contrato, hoy=None):
+    """Recalcula vencimientos de cuotas no pagadas según fecha_inicio del contrato."""
+    hoy = hoy or timezone.now().date()
+    fechas = _fechas_vencimiento_plan_contrato(contrato)
+    if not fechas:
+        return 0
+    actualizadas = 0
+    for cuota in contrato.cuotas.order_by('numero_cuota'):
+        if cuota.estado in ('pagada', 'pagada_con_mora'):
+            continue
+        idx = int(cuota.numero_cuota or 0) - 1
+        if idx < 0 or idx >= len(fechas):
+            continue
+        nueva = fechas[idx]
+        cambios = []
+        if cuota.fecha_vencimiento != nueva:
+            cuota.fecha_vencimiento = nueva
+            cambios.append('fecha_vencimiento')
+        nuevo_estado = _estado_inicial_cuota_por_vencimiento(nueva, hoy)
+        if cuota.estado in ('pendiente', 'vencida') and cuota.estado != nuevo_estado:
+            cuota.estado = nuevo_estado
+            cambios.append('estado')
+        if cambios:
+            cuota.save(update_fields=cambios)
+            actualizadas += 1
+    return actualizadas
+
+
 def _asegurar_cuotas_plan_contrato(contrato):
     """
     Crea el plan de cuotas mensuales en pendiente/vencida si el contrato aún no tiene filas.
@@ -18281,46 +18373,14 @@ def _asegurar_cuotas_plan_contrato(contrato):
     if contrato.cuotas.exists():
         return 0
 
-    from calendar import monthrange
-
-    n = int(contrato.duracion_meses or 0)
-    if n <= 0:
+    fechas = _fechas_vencimiento_plan_contrato(contrato)
+    if not fechas:
         return 0
 
     hoy = timezone.now().date()
-    d_dia = int(contrato.dia_vencimiento or 5)
-    fi = _parse_fecha_contrato_post(getattr(contrato, 'fecha_inicio', None)) or hoy
-    creadas = 0
-
-    if n == 9:
-        for i in range(9):
-            ref_mes = fi + relativedelta(months=i)
-            try:
-                fecha_vencimiento = ref_mes.replace(day=d_dia)
-            except ValueError:
-                ultimo_dia = monthrange(ref_mes.year, ref_mes.month)[1]
-                fecha_vencimiento = ref_mes.replace(day=min(d_dia, ultimo_dia))
-            CuotaMensual.objects.create(
-                contrato=contrato,
-                numero_cuota=i + 1,
-                fecha_vencimiento=fecha_vencimiento,
-                monto_base=contrato.precio_mensual,
-                monto_total=contrato.precio_mensual,
-                estado=_estado_inicial_cuota_por_vencimiento(fecha_vencimiento, hoy),
-                movimiento=None,
-                fecha_pago=None,
-            )
-            creadas += 1
-        return creadas
-
     montos_meses = _montos_cuotas_por_trimestre(contrato)
-    try:
-        fecha_vencimiento = fi.replace(day=d_dia)
-    except ValueError:
-        ultimo_dia = monthrange(fi.year, fi.month)[1]
-        fecha_vencimiento = fi.replace(day=min(d_dia, ultimo_dia))
-
-    for i in range(n):
+    creadas = 0
+    for i, fecha_vencimiento in enumerate(fechas):
         monto_cuota = montos_meses[i] if i < len(montos_meses) else contrato.precio_mensual
         CuotaMensual.objects.create(
             contrato=contrato,
@@ -18333,8 +18393,6 @@ def _asegurar_cuotas_plan_contrato(contrato):
             fecha_pago=None,
         )
         creadas += 1
-        fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
-
     return creadas
 
 
