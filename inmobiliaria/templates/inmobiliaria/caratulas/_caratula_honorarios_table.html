@@ -88,7 +88,7 @@
                     <thead class="table-light">
                         <tr>
                             <th>Concepto</th>
-                            <th class="text-end">Base (honorarios)</th>
+                            <th class="text-end">Base (locador + locatario)</th>
                             <th class="text-end">%</th>
                             <th class="text-end">Importe</th>
                         </tr>
@@ -97,7 +97,7 @@
                         {% for cv in honorarios_ctx.comisiones_fichaje %}
                         <tr>
                             <td>{{ cv.label }}{% if cv.vendedor_nombre %} — {{ cv.vendedor_nombre }}{% endif %}</td>
-                            <td class="text-end">${{ honorarios_ctx.comision_locatario|floatformat:2 }}</td>
+                            <td class="text-end">${{ honorarios_ctx.base_comisiones|floatformat:2 }}</td>
                             <td class="text-end">{{ cv.porcentaje|floatformat:2 }}%</td>
                             <td class="text-end fw-semibold">${{ cv.monto|floatformat:2 }}</td>
                         </tr>
@@ -127,7 +127,7 @@
                     <thead class="table-light">
                         <tr>
                             <th>Concepto</th>
-                            <th class="text-end">Base (honorarios)</th>
+                            <th class="text-end">Base (locador + locatario)</th>
                             <th class="text-end">%</th>
                             <th>Acreditación</th>
                             <th class="text-end">Importe</th>
@@ -137,7 +137,7 @@
                         {% for cv in honorarios_ctx.comisiones_productor %}
                         <tr>
                             <td>{{ cv.label }}{% if cv.vendedor_nombre %} — {{ cv.vendedor_nombre }}{% endif %}</td>
-                            <td class="text-end base-honorarios">${{ honorarios_ctx.comision_locatario|floatformat:2 }}</td>
+                            <td class="text-end base-honorarios">${{ honorarios_ctx.base_comisiones|floatformat:2 }}</td>
                             <td class="text-end">{% if cv.porcentaje %}{{ cv.porcentaje|floatformat:2 }}%{% else %}—{% endif %}</td>
                             <td class="text-nowrap">
                                 {% if puede_editar_caratula %}
@@ -232,8 +232,14 @@
         }
         const monto = base * cfg.pct_fichaje / 100;
         const tipo = (cfg.tipo_fichaje || 'primer') === 'segundo' ? 'SEGUNDO FICHAJE' : 'PRIMER FICHAJE';
+        let catLbl = '';
+        if (cfg.categoria === 'invierno') {
+            catLbl = ' INVERNO';
+        } else if (cfg.categoria === '24') {
+            catLbl = ' 24 MESES';
+        }
         const fichador = cfg.fichador ? (' — ' + cfg.fichador) : '';
-        filasFichajeBody.innerHTML = '<tr><td>COMIS. VENDEDOR (' + tipo + ')' + fichador + '</td>'
+        filasFichajeBody.innerHTML = '<tr><td>COMIS. VENDEDOR (' + tipo + catLbl + ')' + fichador + '</td>'
             + '<td class="text-end">$' + formatMontoAR(base) + '</td>'
             + '<td class="text-end">' + cfg.pct_fichaje.toFixed(2).replace('.', ',') + '%</td>'
             + '<td class="text-end fw-semibold">$' + formatMontoAR(monto) + '</td></tr>';
@@ -241,10 +247,11 @@
     }
 
     function recalcProductor() {
-        const base = parseMontoAR(inpLocat && inpLocat.value);
+        const locat = parseMontoAR(inpLocat && inpLocat.value);
         const loc = parseMontoAR(inpLoc && inpLoc.value);
+        const base = locat + loc;
         if (totalDisplay) {
-            totalDisplay.textContent = formatMontoAR(loc + base);
+            totalDisplay.textContent = formatMontoAR(base);
         }
         recalcFichaje(base);
         if (!filasBody || !totalProd) return;

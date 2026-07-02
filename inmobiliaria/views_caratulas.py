@@ -528,7 +528,7 @@ def _procesar_cambiar_productor_caratula(request, reserva=None, contrato=None):
         ok, err = cambiar_productor_contrato(
             contrato,
             raw_id,
-            honorarios_monto=honorarios_ctx.get('comision_locatario'),
+            honorarios_monto=honorarios_ctx.get('base_comisiones'),
             movimiento_caja=movs_op[0] if movs_op else None,
         )
     else:
@@ -568,7 +568,7 @@ def _procesar_guardar_fechas_comision_caratula(request, reserva=None, contrato=N
             liquidacion=liquidacion_hon,
             override=override,
         )
-        honorarios = honorarios_ctx.get('comision_locatario') or Decimal('0')
+        honorarios = honorarios_ctx.get('base_comisiones') or Decimal('0')
         if honorarios > Decimal('0.05'):
             movs_op = sorted(movimientos, key=lambda x: (x.fecha, x.id)) if movimientos else []
             asegurar_comisiones_contrato(
@@ -693,6 +693,26 @@ def _enriquecer_lineas_comision_fecha_db(lineas, db_map, fecha_default=None):
         else:
             ln['fecha_acreditacion_fmt'] = '—'
             ln['fecha_acreditacion_input'] = ''
+
+
+def _base_monto_comisiones_caratula(comision_locador, comision_locatario):
+    """Base para % de fichaje y productor en contratos 24 meses / invierno."""
+    total = Decimal(str(comision_locador or 0)) + Decimal(str(comision_locatario or 0))
+    return total.quantize(Decimal('0.01'))
+
+
+def _normalizar_lineas_fichaje_caratula(lineas, contrato):
+    """La comisión fichaje es siempre del vendedor que fichó la propiedad."""
+    from inmobiliaria.models.comision import ROL_COMISION_FICHAJE
+
+    vend = _vendedor_fichaje_contrato_caratula(contrato)
+    if not vend:
+        return
+    nombre = _nombre_productor_papel(vend)
+    for ln in lineas or []:
+        if ln.get('rol') in (ROL_COMISION_FICHAJE, 'fichaje'):
+            ln['vendedor_nombre'] = nombre
+            ln['vendedor_id'] = vend.id
 
 
 def _mapa_comisiones_db_caratula(*, reserva=None, contrato=None):
@@ -925,9 +945,10 @@ def _guardar_caratula_contrato(request, contrato):
 
             movimientos = movimientos_ingreso_contrato(contrato)
         movs_op = sorted(movimientos, key=lambda x: (x.fecha, x.id)) if movimientos else []
+        base_comisiones = _base_monto_comisiones_caratula(com_loc, comision_locatario)
         asegurar_comisiones_contrato(
             contrato,
-            honorarios_monto=comision_locatario,
+            honorarios_monto=base_comisiones,
             movimiento_caja=movs_op[0] if movs_op else None,
         )
     elif comision_locatario > 0 or com_loc > 0:
@@ -1792,7 +1813,9 @@ def _ctx_honorarios_comisiones_caratula_contrato(
     comision_locador, comision_locatario = _comisiones_cobradas_contrato(
         contrato, movimientos, liquidacion=liquidacion, override=override
     )
-    comisiones_vendedor = _comisiones_vendedor_contrato_caratula(contrato, comision_locatario)
+    base_comisiones = _base_monto_comisiones_caratula(comision_locador, comision_locatario)
+    comisiones_vendedor = _comisiones_vendedor_contrato_caratula(contrato, base_comisiones)
+    _normalizar_lineas_fichaje_caratula(comisiones_vendedor, contrato)
     comisiones_fichaje = [cv for cv in comisiones_vendedor if cv.get('rol') == 'fichaje']
     comisiones_productor = [cv for cv in comisiones_vendedor if cv.get('rol') != 'fichaje']
     fecha_def = getattr(contrato, 'fecha_entrada_departamento', None) or contrato.fecha_inicio
@@ -1827,11 +1850,9 @@ def _ctx_honorarios_comisiones_caratula_contrato(
         for cv in comisiones_productor
     ]
     pct['puede_editar_fechas'] = bool(puede_editar_fechas)
-    fichador_nombre = ''
-    if comisiones_fichaje:
-        fichador_nombre = comisiones_fichaje[0].get('vendedor_nombre') or ''
-    elif pct.get('fichador'):
-        fichador_nombre = pct['fichador']
+    fichador_nombre = pct.get('fichador') or ''
+    if comisiones_fichaje and comisiones_fichaje[0].get('vendedor_nombre'):
+        fichador_nombre = comisiones_fichaje[0].get('vendedor_nombre')
 
     import json as _json
 
@@ -1839,6 +1860,8 @@ def _ctx_honorarios_comisiones_caratula_contrato(
         'filas_honorarios': _filas_honorarios_caratula_contrato(contrato, movimientos),
         'comision_locador': comision_locador,
         'comision_locatario': comision_locatario,
+        'base_comisiones': base_comisiones,
+        'base_comisiones_fmt': format_monto_argentino(base_comisiones),
         'comision_locador_fmt': format_monto_argentino(comision_locador),
         'comision_locatario_fmt': format_monto_argentino(comision_locatario),
         'comisiones_total': (comision_locador + comision_locatario).quantize(Decimal('0.01')),
@@ -1859,24 +1882,11 @@ def _ctx_honorarios_comisiones_caratula_contrato(
 
 
 def _vendedor_fichaje_contrato_caratula(contrato):
-    """Vendedor del fichaje: ficha de la propiedad o comisión fichaje ya registrada."""
-    from inmobiliaria.models.comision import ROL_COMISION_FICHAJE, vendedor_fichaje_desde_propiedad
+    """Vendedor que fichó la propiedad (comisión fichaje, distinta del productor)."""
+    from inmobiliaria.models.comision import vendedor_fichaje_desde_propiedad
 
     prop = getattr(contrato, 'propiedad', None) if contrato else None
-    vend = vendedor_fichaje_desde_propiedad(prop) if prop else None
-    if vend:
-        return vend
-    com = (
-        ComisionVendedor.objects.filter(
-            contrato=contrato,
-            rol_comision=ROL_COMISION_FICHAJE,
-        )
-        .exclude(estado='cancelada')
-        .select_related('vendedor')
-        .order_by('-id')
-        .first()
-    )
-    return com.vendedor if com and com.vendedor_id else None
+    return vendedor_fichaje_desde_propiedad(prop)
 
 
 def _label_fichaje_contrato(tipo_fichaje, categoria=None):
@@ -1890,7 +1900,7 @@ def _label_fichaje_contrato(tipo_fichaje, categoria=None):
     return f'COMIS. VENDEDOR ({base})'
 
 
-def _agregar_linea_fichaje_contrato_caratula(lineas, contrato, honorarios_monto):
+def _agregar_linea_fichaje_contrato_caratula(lineas, contrato, base_monto):
     from inmobiliaria.models.comision import ROL_COMISION_FICHAJE, porcentaje_fichaje_vendedor
 
     if any(l.get('rol') == ROL_COMISION_FICHAJE for l in lineas):
@@ -1903,27 +1913,25 @@ def _agregar_linea_fichaje_contrato_caratula(lineas, contrato, honorarios_monto)
         else ('invierno' if int(contrato.duracion_meses or 0) == 9 else '24')
     )
     vend_fichaje = _vendedor_fichaje_contrato_caratula(contrato)
+    if not vend_fichaje:
+        return
     pct_fichaje = porcentaje_fichaje_vendedor(vend_fichaje, tipo_fichaje, categoria_operacion=cat)
-    if not vend_fichaje or pct_fichaje is None or pct_fichaje <= 0:
+    if pct_fichaje is None or pct_fichaje <= 0:
         com = (
             ComisionVendedor.objects.filter(
                 contrato=contrato,
                 rol_comision=ROL_COMISION_FICHAJE,
+                vendedor=vend_fichaje,
             )
             .exclude(estado='cancelada')
-            .select_related('vendedor')
             .order_by('-id')
             .first()
         )
-        if not com or not com.vendedor_id:
+        if com and com.porcentaje_comision:
+            pct_fichaje = com.porcentaje_comision
+        else:
             return
-        vend_fichaje = com.vendedor
-        pct_fichaje = com.porcentaje_comision or porcentaje_fichaje_vendedor(
-            vend_fichaje, tipo_fichaje, categoria_operacion=cat
-        )
-        if pct_fichaje is None or pct_fichaje <= 0:
-            return
-    monto = (honorarios_monto * Decimal(str(pct_fichaje)) / Decimal('100')).quantize(Decimal('0.01'))
+    monto = (base_monto * Decimal(str(pct_fichaje)) / Decimal('100')).quantize(Decimal('0.01'))
     lineas.insert(
         0,
         {
@@ -1938,10 +1946,10 @@ def _agregar_linea_fichaje_contrato_caratula(lineas, contrato, honorarios_monto)
     )
 
 
-def _comisiones_vendedor_contrato_caratula(contrato, honorarios_monto):
+def _comisiones_vendedor_contrato_caratula(contrato, base_monto):
     """
-    Líneas de comisión sobre honorarios: fichaje al vendedor que fichó la propiedad
-    (puede ser distinto del productor del contrato); invierno / 24 meses al productor.
+    Líneas de comisión sobre comisión locador + locatario: fichaje al vendedor que fichó
+    la propiedad (puede ser distinto del productor); invierno / 24 meses al productor.
     """
     from inmobiliaria.models.comision import (
         ROL_COMISION_FICHAJE,
@@ -1953,7 +1961,7 @@ def _comisiones_vendedor_contrato_caratula(contrato, honorarios_monto):
         propiedad_es_oficina,
     )
 
-    if not contrato or honorarios_monto <= Decimal('0.05'):
+    if not contrato or base_monto <= Decimal('0.05'):
         return []
 
     prop = contrato.propiedad
@@ -1968,7 +1976,7 @@ def _comisiones_vendedor_contrato_caratula(contrato, honorarios_monto):
     vend_fichaje = _vendedor_fichaje_contrato_caratula(contrato)
     pct_fichaje = porcentaje_fichaje_vendedor(vend_fichaje, tipo_fichaje, categoria_operacion=cat)
     if vend_fichaje and pct_fichaje is not None and pct_fichaje > 0:
-        monto = (honorarios_monto * Decimal(str(pct_fichaje)) / Decimal('100')).quantize(
+        monto = (base_monto * Decimal(str(pct_fichaje)) / Decimal('100')).quantize(
             Decimal('0.01')
         )
         lineas.append(
@@ -1983,7 +1991,7 @@ def _comisiones_vendedor_contrato_caratula(contrato, honorarios_monto):
             }
         )
     else:
-        _agregar_linea_fichaje_contrato_caratula(lineas, contrato, honorarios_monto)
+        _agregar_linea_fichaje_contrato_caratula(lineas, contrato, base_monto)
 
     if not contrato.vendedor_id:
         return lineas
@@ -2005,7 +2013,7 @@ def _comisiones_vendedor_contrato_caratula(contrato, honorarios_monto):
         return lineas
 
     if pct is not None and pct > 0:
-        monto = (honorarios_monto * Decimal(str(pct)) / Decimal('100')).quantize(Decimal('0.01'))
+        monto = (base_monto * Decimal(str(pct)) / Decimal('100')).quantize(Decimal('0.01'))
         lineas.append(
             {
                 'label': label,
@@ -2278,9 +2286,11 @@ def _build_legacy_contrato(
     comision_locador, comision_locatario = _comisiones_cobradas_contrato(
         contrato, movimientos, liquidacion=liquidacion, override=override
     )
-    comisiones_vendedor = _comisiones_vendedor_contrato_caratula(contrato, comision_locatario)
+    base_comisiones = _base_monto_comisiones_caratula(comision_locador, comision_locatario)
+    comisiones_vendedor = _comisiones_vendedor_contrato_caratula(contrato, base_comisiones)
+    _normalizar_lineas_fichaje_caratula(comisiones_vendedor, contrato)
     comisiones_fichaje = [cv for cv in comisiones_vendedor if cv.get('rol') == 'fichaje']
-    comisiones_total = (comision_locador + comision_locatario).quantize(Decimal('0.01'))
+    comisiones_total = base_comisiones
     comision_fichaje_total = sum(
         (Decimal(str(cv.get('monto') or 0)) for cv in comisiones_fichaje),
         Decimal('0'),
@@ -2293,7 +2303,12 @@ def _build_legacy_contrato(
         ),
         Decimal('0'),
     ).quantize(Decimal('0.01'))
-    fichador_nombre = comisiones_fichaje[0].get('vendedor_nombre', '') if comisiones_fichaje else ''
+    fichador_nombre = ''
+    vend_fichaje = _vendedor_fichaje_contrato_caratula(contrato)
+    if vend_fichaje:
+        fichador_nombre = _nombre_productor_papel(vend_fichaje)
+    elif comisiones_fichaje:
+        fichador_nombre = comisiones_fichaje[0].get('vendedor_nombre', '')
 
     senia_val = Decimal('0')
     if montos_override and montos_override.get('senia') is not None:
@@ -2960,7 +2975,7 @@ def caratula_contrato(request, contrato_id):
                 )
                 asegurar_comisiones_contrato(
                     contrato,
-                    honorarios_monto=com_locat,
+                    honorarios_monto=_base_monto_comisiones_caratula(com_loc, com_locat),
                     movimiento_caja=movs_op[0] if movs_op else None,
                 )
                 messages.success(request, 'Comisiones guardadas en la liquidación.')
@@ -3011,13 +3026,13 @@ def caratula_contrato(request, contrato_id):
         _estado_liquidacion_operacion_principal_caratula(contrato, contrato.sucursal)
     )
 
-    if honorarios_ctx.get('comision_locatario', 0) > Decimal('0.05'):
+    if honorarios_ctx.get('base_comisiones', 0) > Decimal('0.05'):
         from inmobiliaria.models.comision import asegurar_comisiones_contrato
 
         movs_op = sorted(movimientos, key=lambda x: (x.fecha, x.id)) if movimientos else []
         asegurar_comisiones_contrato(
             contrato,
-            honorarios_monto=honorarios_ctx['comision_locatario'],
+            honorarios_monto=honorarios_ctx['base_comisiones'],
             movimiento_caja=movs_op[0] if movs_op else None,
         )
         honorarios_ctx = _ctx_honorarios_comisiones_caratula_contrato(

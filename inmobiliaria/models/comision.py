@@ -437,7 +437,8 @@ def _fecha_operacion_entrada_contrato(contrato):
 
 def registrar_comisiones_honorarios_contrato(contrato, honorarios_monto, movimiento_caja=None):
     """
-    Comisiones del productor sobre honorarios de contrato (invierno / 24 meses).
+    Comisiones del productor y fichaje sobre la base de comisiones del contrato
+    (comisión locador + comisión locatario en 24 meses / invierno).
     fecha_operacion = día de entrada (fecha_inicio del contrato).
     """
     if (
@@ -463,6 +464,11 @@ def registrar_comisiones_honorarios_contrato(contrato, honorarios_monto, movimie
         if hasattr(contrato, 'categoria_tipo_operacion')
         else '24'
     )
+    if vend_fichaje:
+        ComisionVendedor.objects.filter(
+            contrato=contrato,
+            rol_comision=ROL_COMISION_FICHAJE,
+        ).exclude(estado='cancelada').exclude(vendedor=vend_fichaje).delete()
     pct_fichaje = porcentaje_fichaje_vendedor(vend_fichaje, tipo_fichaje, categoria_operacion=cat)
     if pct_fichaje is not None and pct_fichaje > 0 and vend_fichaje:
         cat_lbl = _etiqueta_categoria_fichaje(cat)
@@ -479,6 +485,21 @@ def registrar_comisiones_honorarios_contrato(contrato, honorarios_monto, movimie
             fecha_operacion=fecha_op,
         )
         if c:
+            nuevo_monto = (
+                Decimal(str(honorarios_monto)) * Decimal(str(pct_fichaje)) / Decimal('100')
+            ).quantize(Decimal('0.01'))
+            updates = []
+            if c.monto_total_operacion != honorarios_monto:
+                c.monto_total_operacion = honorarios_monto
+                updates.append('monto_total_operacion')
+            if c.monto_comision != nuevo_monto:
+                c.monto_comision = nuevo_monto
+                updates.append('monto_comision')
+            if c.porcentaje_comision != pct_fichaje:
+                c.porcentaje_comision = pct_fichaje
+                updates.append('porcentaje_comision')
+            if updates:
+                c.save(update_fields=updates)
             creadas.append(c)
 
     if cat == 'invierno':
@@ -508,6 +529,21 @@ def registrar_comisiones_honorarios_contrato(contrato, honorarios_monto, movimie
             fecha_operacion=fecha_op,
         )
         if c:
+            nuevo_monto = (
+                Decimal(str(honorarios_monto)) * Decimal(str(pct)) / Decimal('100')
+            ).quantize(Decimal('0.01'))
+            updates = []
+            if c.monto_total_operacion != honorarios_monto:
+                c.monto_total_operacion = honorarios_monto
+                updates.append('monto_total_operacion')
+            if c.monto_comision != nuevo_monto:
+                c.monto_comision = nuevo_monto
+                updates.append('monto_comision')
+            if c.porcentaje_comision != pct:
+                c.porcentaje_comision = pct
+                updates.append('porcentaje_comision')
+            if updates:
+                c.save(update_fields=updates)
             creadas.append(c)
 
     return creadas
