@@ -1,5 +1,5 @@
 """
-Quita la marca de alquiler sindicato a operaciones Marconi del rango 18/07–02/08/2026.
+Repara el lote Marconi 18/07–02/08: pagadas en efectivo (recibo 25/06), sin sindicato.
 
   python manage.py desmarcar_sindicato_marconi --dry-run
   python manage.py desmarcar_sindicato_marconi
@@ -9,13 +9,13 @@ from django.core.management.base import BaseCommand
 from inmobiliaria.caja_devolucion_deposito import (
     RANGO_EXCLUIDO_SINDICATO_MARCONI,
     _cliente_es_marconi,
-    sincronizar_senia_reserva_desde_movimientos,
+    reparar_reserva_lote_pago_efectivo_marconi,
 )
 from inmobiliaria.models import Reserva
 
 
 class Command(BaseCommand):
-    help = 'Desmarca como sindicato las operaciones Marconi del 18/07 al 02/08/2026'
+    help = 'Marca pagadas (efectivo 25/06) las operaciones Marconi del 18/07 al 02/08/2026'
 
     def add_arguments(self, parser):
         parser.add_argument('--sucursal-id', type=int, help='Limitar a una sucursal')
@@ -44,34 +44,42 @@ class Command(BaseCommand):
             f'{len(reservas)} reserva(s) Marconi'
         )
 
-        cambiadas = 0
+        reparadas = 0
         propiedades: set[int] = set()
 
         for reserva in sorted(reservas, key=lambda r: r.id):
-            antes = reserva.es_alquiler_sindicato
+            antes = (reserva.estado, str(reserva.senia or 0), reserva.es_alquiler_sindicato)
             if dry_run:
                 self.stdout.write(
                     f'  #{reserva.id} {getattr(reserva.propiedad, "direccion", "?")}: '
-                    f'sindicato={antes} → False'
+                    f'{antes[0]}/seña={antes[1]}/sind={antes[2]} → pagada completa, recibo 25/06'
                 )
-                cambiadas += 1
+                reparadas += 1
                 continue
 
-            if reserva.es_alquiler_sindicato:
-                reserva.es_alquiler_sindicato = False
-                reserva.save(update_fields=['es_alquiler_sindicato'])
-            sincronizar_senia_reserva_desde_movimientos(reserva)
-            reserva.reconstruir_historial_cronologico()
-            if reserva.propiedad_id:
-                propiedades.add(reserva.propiedad_id)
-            if antes:
+            if reparar_reserva_lote_pago_efectivo_marconi(reserva):
+                reserva.refresh_from_db(fields=['estado', 'senia', 'es_alquiler_sindicato'])
+                despues = (reserva.estado, str(reserva.senia or 0), reserva.es_alquiler_sindicato)
                 self.stdout.write(
                     f'  #{reserva.id} {getattr(reserva.propiedad, "direccion", "?")}: '
-                    f'desmarcada (estado={reserva.estado}, seña={reserva.senia})'
+                    f'{antes[0]}/{antes[1]}/sind={antes[2]} → '
+                    f'{despues[0]}/{despues[1]}/sind={despues[2]}'
                 )
-                cambiadas += 1
+                if reserva.propiedad_id:
+                    propiedades.add(reserva.propiedad_id)
+                reparadas += 1
+
+        if not dry_run and propiedades:
+            for pid in propiedades:
+                primera = (
+                    Reserva.objects.filter(propiedad_id=pid, eliminada=False)
+                    .order_by('fecha_inicio')
+                    .first()
+                )
+                if primera:
+                    primera.reconstruir_historial_cronologico()
 
         prefijo = '[dry-run] ' if dry_run else ''
         self.stdout.write(
-            self.style.SUCCESS(f'{prefijo}Listo: {cambiadas} operación(es) desmarcada(s).')
+            self.style.SUCCESS(f'{prefijo}Listo: {reparadas} operación(es) reparada(s).')
         )

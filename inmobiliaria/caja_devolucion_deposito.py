@@ -53,8 +53,17 @@ LOTES_SINDICATO_MARCONI: tuple[LoteSindicatoMarconi, ...] = (
     ),
 )
 
-# Operaciones Marconi que NO deben tratarse como sindicato (alquiler normal).
+# Operaciones Marconi pagadas en efectivo el 25/06 — operación normal (NO sindicato).
 RANGO_EXCLUIDO_SINDICATO_MARCONI = (date(2026, 7, 18), date(2026, 8, 2))
+FECHAS_PAGO_LOTE_JULIO_MARCONI = (date(2026, 6, 25),)
+
+LOTE_PAGO_EFECTIVO_MARCONI_JULIO = LoteSindicatoMarconi(
+    'julio_largo_pago_efectivo',
+    date(2026, 7, 18),
+    date(2026, 8, 2),
+    FECHAS_PAGO_LOTE_JULIO_MARCONI,
+    '18/07–02/08/2026 (pago efectivo 25/06)',
+)
 
 # Compatibilidad con imports anteriores (ya no es lote sindicato activo)
 LOTE_SINDICATO_FECHA_INGRESO = RANGO_EXCLUIDO_SINDICATO_MARCONI[0]
@@ -540,6 +549,36 @@ def _reserva_en_rango_excluido_sindicato_marconi(reserva) -> bool:
     return fi == ex_ini and ff == ex_fin
 
 
+def config_lote_pago_efectivo_marconi(reserva) -> LoteSindicatoMarconi | None:
+    """
+    Lote Marconi 18/07–02/08: cobradas en efectivo el 25/06, operación normal (no sindicato).
+    """
+    precio = Decimal(str(getattr(reserva, 'precio_total', None) or 0))
+    if precio <= Decimal('1.01'):
+        return None
+    if not _cliente_es_marconi(reserva):
+        return None
+    fi = getattr(reserva, 'fecha_inicio', None)
+    ff = getattr(reserva, 'fecha_fin', None)
+    lote = LOTE_PAGO_EFECTIVO_MARCONI_JULIO
+    if fi == lote.fecha_ingreso and ff == lote.fecha_egreso:
+        return lote
+    fc = getattr(reserva, 'fecha_creacion', None)
+    if (
+        fc
+        and fc.date() == FECHA_CARGA_LOTE_MARCONI
+        and fi
+        and ff
+        and _reserva_en_rango_excluido_sindicato_marconi(reserva)
+    ):
+        return lote
+    return None
+
+
+def es_reserva_lote_pago_efectivo_marconi(reserva) -> bool:
+    return config_lote_pago_efectivo_marconi(reserva) is not None
+
+
 def config_lote_sindicato_marconi(reserva) -> LoteSindicatoMarconi | None:
     """Devuelve el lote sindicato Marconi que corresponde a la reserva, o None."""
     if _reserva_en_rango_excluido_sindicato_marconi(reserva):
@@ -596,12 +635,12 @@ def _total_senia_en_fechas_pago(reserva, fechas_pago: tuple[date, ...]) -> Decim
     return Decimal('0')
 
 
-def forzar_pago_completo_sindicato(reserva, *, persistir: bool = True) -> Decimal:
-    """Marca operación sindicato pagada al 100 % (cuando el cobro existe pero no está vinculado)."""
+def forzar_pago_completo_operacion(reserva, *, persistir: bool = True, sindicato: bool = False) -> Decimal:
+    """Marca operación pagada al 100 % (con o sin sindicato)."""
     precio = Decimal(str(reserva.precio_total or 0))
     if precio <= Decimal('0.01'):
         return Decimal('0')
-    reserva.es_alquiler_sindicato = True
+    reserva.es_alquiler_sindicato = bool(sindicato)
     reserva.senia = precio
     reserva.cuota_pendiente = Decimal('0')
     reserva.estado = 'pagada'
@@ -610,6 +649,93 @@ def forzar_pago_completo_sindicato(reserva, *, persistir: bool = True) -> Decima
         reserva.actualizar_historial_disponibilidad()
         reserva.reconstruir_historial_cronologico()
     return precio
+
+
+def forzar_pago_completo_sindicato(reserva, *, persistir: bool = True) -> Decimal:
+    """Marca operación sindicato pagada al 100 % (cuando el cobro existe pero no está vinculado)."""
+    return forzar_pago_completo_operacion(reserva, persistir=persistir, sindicato=True)
+
+
+def vincular_recibo_reserva_desde_fechas_pago(
+    reserva, fechas_pago: tuple[date, ...], *, dry_run: bool = False
+) -> bool:
+    """Asocia un recibo del cobro (p. ej. 25/06) a la reserva si aún no tiene."""
+    from inmobiliaria.models import Recibo
+
+    if Recibo.objects.filter(reserva_id=reserva.id).exists():
+        return True
+    if not reserva.propiedad_id:
+        return False
+
+    rid = int(reserva.id)
+    for fecha_pago in fechas_pago:
+        movs = MovimientoCaja.objects.filter(
+            sucursal_id=reserva.sucursal_id,
+            propiedad_id=reserva.propiedad_id,
+            tipo=TipoMovimientoCajaEnum.INGRESO,
+            fecha_eliminacion__isnull=True,
+            fecha__date=fecha_pago,
+        ).order_by('-fecha', '-id')
+        for mov in movs:
+            conc = mov.concepto or ''
+            if not (
+                _movimiento_vinculado_reserva(mov, rid)
+                or re.search(rf'Operaci[oó]n\s*#?\s*{rid}\b', conc, re.IGNORECASE)
+            ):
+                continue
+            rec = Recibo.objects.filter(movimiento_caja_id=mov.id).first()
+            if not rec:
+                continue
+            if dry_run:
+                return True
+            if rec.reserva_id != reserva.id:
+                rec.reserva_id = reserva.id
+                rec.save(update_fields=['reserva_id'])
+            return True
+
+        for rec in (
+            Recibo.objects.filter(
+                propiedad_id=reserva.propiedad_id,
+                fecha_emision__date=fecha_pago,
+            )
+            .select_related('movimiento_caja')
+            .order_by('-fecha_emision', '-id')
+        ):
+            if rec.reserva_id == reserva.id:
+                return True
+            mov = rec.movimiento_caja
+            conc = (getattr(mov, 'concepto', None) or '') if mov else ''
+            if not mov or not (
+                _movimiento_vinculado_reserva(mov, rid)
+                or re.search(rf'Operaci[oó]n\s*#?\s*{rid}\b', conc, re.IGNORECASE)
+            ):
+                continue
+            if dry_run:
+                return True
+            rec.reserva_id = reserva.id
+            rec.save(update_fields=['reserva_id'])
+            return True
+    return False
+
+
+def reparar_reserva_lote_pago_efectivo_marconi(reserva, *, dry_run: bool = False) -> bool:
+    """Marca pagada, sin sindicato, y vincula recibo del 25/06 para el lote julio Marconi."""
+    lote = config_lote_pago_efectivo_marconi(reserva)
+    if not lote:
+        return False
+    vincular_recibo_reserva_desde_fechas_pago(reserva, lote.fechas_pago, dry_run=dry_run)
+    if dry_run:
+        return True
+    if reserva.es_alquiler_sindicato:
+        reserva.es_alquiler_sindicato = False
+        reserva.save(update_fields=['es_alquiler_sindicato'])
+    sincronizar_senia_reserva_desde_movimientos(reserva)
+    reserva.refresh_from_db(fields=['estado', 'senia', 'es_alquiler_sindicato'])
+    if (reserva.estado or '').strip() != 'pagada' or Decimal(str(reserva.senia or 0)) < Decimal(
+        str(reserva.precio_total or 0)
+    ) - Decimal('0.01'):
+        forzar_pago_completo_operacion(reserva, persistir=True, sindicato=False)
+    return True
 
 
 def sincronizar_senia_reserva_desde_movimientos(reserva, *, persistir: bool = True) -> Decimal:
@@ -624,20 +750,37 @@ def sincronizar_senia_reserva_desde_movimientos(reserva, *, persistir: bool = Tr
 
     precio = Decimal(str(reserva.precio_total or 0))
     marcar_sindicato = False
+    lote_pago_efectivo = False
 
-    lote = config_lote_sindicato_marconi(reserva)
-    if lote:
+    lote_sind = config_lote_sindicato_marconi(reserva)
+    lote_pago = config_lote_pago_efectivo_marconi(reserva)
+    lote = lote_sind or lote_pago
+
+    if lote_sind:
         marcar_sindicato = True
+    elif lote_pago:
+        lote_pago_efectivo = True
+
+    if lote:
         if total <= Decimal('0.01'):
             total_fecha = _total_senia_en_fechas_pago(reserva, lote.fechas_pago)
             if total_fecha > Decimal('0.01'):
                 total = total_fecha
             elif precio > Decimal('0.01'):
-                return forzar_pago_completo_sindicato(reserva, persistir=persistir)
+                return forzar_pago_completo_operacion(
+                    reserva,
+                    persistir=persistir,
+                    sindicato=marcar_sindicato,
+                )
+        elif lote_pago_efectivo and precio > Decimal('0.01') and total < precio - Decimal('0.01'):
+            total = precio
 
     cuota = max(precio - total, Decimal('0'))
     estado_actual = (reserva.estado or '').strip()
     nuevo_estado = _estado_reserva_segun_senia(reserva, total)
+    if lote_pago_efectivo and precio > Decimal('0.01') and total >= precio - Decimal('0.01'):
+        nuevo_estado = 'pagada'
+        cuota = Decimal('0')
 
     # Con recibos emitidos no degradar a «sin pagar» por un fallo al leer movimientos.
     if total_rec > Decimal('0.01'):
@@ -669,8 +812,8 @@ def sincronizar_senia_reserva_desde_movimientos(reserva, *, persistir: bool = Tr
     if marcar_sindicato and not getattr(reserva, 'es_alquiler_sindicato', False):
         reserva.es_alquiler_sindicato = True
         update_fields.append('es_alquiler_sindicato')
-    elif getattr(reserva, 'es_alquiler_sindicato', False) and _reserva_en_rango_excluido_sindicato_marconi(
-        reserva
+    elif getattr(reserva, 'es_alquiler_sindicato', False) and (
+        _reserva_en_rango_excluido_sindicato_marconi(reserva) or lote_pago_efectivo
     ):
         reserva.es_alquiler_sindicato = False
         update_fields.append('es_alquiler_sindicato')

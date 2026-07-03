@@ -18,8 +18,11 @@ from django.db.models import Q
 from inmobiliaria.caja_devolucion_deposito import (
     FECHA_CARGA_LOTE_MARCONI,
     LOTES_SINDICATO_MARCONI,
+    RANGO_EXCLUIDO_SINDICATO_MARCONI,
+    _cliente_es_marconi,
     config_lote_sindicato_marconi,
     es_reserva_lote_sindicato_marconi,
+    reparar_reserva_lote_pago_efectivo_marconi,
     sincronizar_senia_reserva_desde_movimientos,
     total_senia_pagada_reserva,
 )
@@ -62,7 +65,12 @@ class Command(BaseCommand):
         parser.add_argument(
             '--lote-marconi',
             action='store_true',
-            help='Lotes Marconi sindicato: 17–18/06 y 17–18/07/2026 (excluye 18/07–02/08)',
+            help='Lotes Marconi sindicato: 17–18/06 y 17–18/07/2026',
+        )
+        parser.add_argument(
+            '--lote-julio-pago',
+            action='store_true',
+            help='Lote Marconi 18/07–02/08: pagadas efectivo 25/06 (sin sindicato)',
         )
         parser.add_argument('--fecha-inicio', type=str, help='Fecha ingreso (YYYY-MM-DD)')
         parser.add_argument('--fecha-fin', type=str, help='Fecha egreso (YYYY-MM-DD)')
@@ -73,6 +81,7 @@ class Command(BaseCommand):
         dry_run = options['dry_run']
         sucursal_id = options.get('sucursal_id')
         lote_marconi = options['lote_marconi']
+        lote_julio_pago = options['lote_julio_pago']
 
         fecha_inicio = _parse_date(options.get('fecha_inicio'))
         fecha_fin = _parse_date(options.get('fecha_fin'))
@@ -84,7 +93,16 @@ class Command(BaseCommand):
         if sucursal_id:
             reservas_qs = reservas_qs.filter(sucursal_id=sucursal_id)
 
-        if lote_marconi:
+        if lote_julio_pago:
+            fi, ff = RANGO_EXCLUIDO_SINDICATO_MARCONI
+            reservas_qs = list(
+                reservas_qs.filter(fecha_inicio=fi, fecha_fin=ff)
+            )
+            reservas_qs = [r for r in reservas_qs if _cliente_es_marconi(r)]
+            self.stdout.write(
+                f'Lote pago efectivo 18/07–02/08 → {len(reservas_qs)} reserva(s) Marconi'
+            )
+        elif lote_marconi:
             q_lotes = Q()
             for lote in LOTES_SINDICATO_MARCONI:
                 q_lotes |= Q(fecha_inicio=lote.fecha_ingreso, fecha_fin=lote.fecha_egreso)
@@ -133,6 +151,30 @@ class Command(BaseCommand):
         propiedades_historial: set[int] = set()
 
         for reserva in sorted(reservas_qs, key=lambda r: r.id):
+            if lote_julio_pago:
+                antes = (reserva.estado, str(reserva.senia or 0), reserva.es_alquiler_sindicato)
+                if dry_run:
+                    self.stdout.write(
+                        f'  #{reserva.id} {getattr(reserva.propiedad, "direccion", "?")}: '
+                        f'→ pagada efectivo 25/06 (sin sindicato)'
+                    )
+                    sync_count += 1
+                    continue
+                if reparar_reserva_lote_pago_efectivo_marconi(reserva):
+                    reserva.refresh_from_db(
+                        fields=['estado', 'senia', 'es_alquiler_sindicato']
+                    )
+                    despues = (reserva.estado, str(reserva.senia or 0), reserva.es_alquiler_sindicato)
+                    self.stdout.write(
+                        f'  #{reserva.id} {getattr(reserva.propiedad, "direccion", "?")}: '
+                        f'{antes[0]}/{antes[1]}/sind={antes[2]} → '
+                        f'{despues[0]}/{despues[1]}/sind={despues[2]}'
+                    )
+                    if reserva.propiedad_id:
+                        propiedades_historial.add(reserva.propiedad_id)
+                sync_count += 1
+                continue
+
             antes = (reserva.estado, str(reserva.senia or 0), reserva.es_alquiler_sindicato)
             lote = config_lote_sindicato_marconi(reserva)
             fechas_pago = (
