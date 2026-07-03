@@ -36,6 +36,30 @@ def _recibo_monto_str(valor, dec_places=2):
         return f'${valor}'
 
 
+def _texto_comodidades_recibo(propiedad_data) -> str:
+    """Cantidad de ambientes para la línea COMODIDADES del recibo impreso."""
+    amb = getattr(propiedad_data, 'ambientes', None)
+    if amb is not None and str(amb).strip() != '':
+        return f'{amb} AMB.'
+    return '—'
+
+
+def _propiedad_completa_recibo(propiedad_data) -> dict:
+    """Dict de propiedad para templates de recibo (HTML/PDF)."""
+    return {
+        'direccion': (getattr(propiedad_data, 'direccion', None) or '').strip(),
+        'id': getattr(propiedad_data, 'id', None),
+        'llave': getattr(propiedad_data, 'llave', None) or 'N/A',
+        'piso': getattr(propiedad_data, 'piso', None) or '',
+        'departamento': getattr(propiedad_data, 'departamento', None) or '',
+        'cantidad_personas': getattr(propiedad_data, 'cantidad_personas', None) or None,
+        'wifi': 'SÍ' if getattr(propiedad_data, 'wifi', False) else 'NO',
+        'cochera': 'SÍ' if getattr(propiedad_data, 'cochera', False) else 'NO',
+        'ambientes': getattr(propiedad_data, 'ambientes', None),
+        'comodidades_recibo': _texto_comodidades_recibo(propiedad_data),
+    }
+
+
 def _formas_de_pago_desde_movimiento_caja(movimiento, format_usd=None):
     """
     Texto para pie de recibo: medios del MovimientoCaja con montos (misma idea que alquiler por día).
@@ -5639,18 +5663,7 @@ def ver_recibo(request, reserva_id):
             'cuit': getattr(cliente_data, 'cuit', '') or '',  # CUIT puede no existir
         }
         
-        # Preparar datos de la propiedad con formato correcto
-        propiedad_data = reserva.propiedad
-        propiedad_completa = {
-            'direccion': propiedad_data.direccion or '',
-            'id': propiedad_data.id,
-            'llave': propiedad_data.llave or 'N/A',
-            'piso': propiedad_data.piso or '',
-            'departamento': propiedad_data.departamento or '',
-            'cantidad_personas': propiedad_data.cantidad_personas or None,
-            'wifi': 'SÍ' if propiedad_data.wifi else 'NO',
-            'cochera': 'SÍ' if propiedad_data.cochera else 'NO',
-        }
+        propiedad_completa = _propiedad_completa_recibo(reserva.propiedad)
         
         # Preparar datos de la reserva con formato de moneda
         reserva_formateada = {
@@ -5854,18 +5867,7 @@ def generar_recibo_pdf(reserva, pago_senia):
         'cuit': getattr(cliente_data, 'cuit', '') or '',  # CUIT puede no existir
     }
     
-    # Preparar datos de la propiedad con formato correcto
-    propiedad_data = reserva.propiedad
-    propiedad_completa = {
-        'direccion': propiedad_data.direccion or '',
-        'id': propiedad_data.id,
-        'llave': propiedad_data.llave or 'N/A',
-        'piso': propiedad_data.piso or '',
-        'departamento': propiedad_data.departamento or '',
-        'cantidad_personas': propiedad_data.cantidad_personas or None,
-        'wifi': 'SÍ' if propiedad_data.wifi else 'NO',
-        'cochera': 'SÍ' if propiedad_data.cochera else 'NO',
-    }
+    propiedad_completa = _propiedad_completa_recibo(reserva.propiedad)
     
     # Preparar datos de la reserva con formato de moneda
     reserva_formateada = {
@@ -7492,18 +7494,7 @@ def ver_recibo_movimiento(request, movimiento_id):
                 'cuit': getattr(cliente_data, 'cuit', '') or '',  # CUIT puede no existir
             }
             
-            # Preparar datos de la propiedad con formato correcto
-            propiedad_data = reserva.propiedad
-            propiedad_completa = {
-                'direccion': propiedad_data.direccion or '',
-                'id': propiedad_data.id,
-                'llave': propiedad_data.llave or 'N/A',
-                'piso': propiedad_data.piso or '',
-                'departamento': propiedad_data.departamento or '',
-                'cantidad_personas': propiedad_data.cantidad_personas or None,
-                'wifi': 'SÍ' if propiedad_data.wifi else 'NO',
-                'cochera': 'SÍ' if propiedad_data.cochera else 'NO',
-            }
+            propiedad_completa = _propiedad_completa_recibo(reserva.propiedad)
             
             # Preparar datos de la reserva con formato de moneda
             reserva_formateada = {
@@ -22489,19 +22480,7 @@ def ver_recibo_pdf(request, reserva_id):
             'cuit': getattr(cliente_data, 'cuit', '') or '',
         }
         
-        # Preparar datos de la propiedad con formato correcto
-        propiedad_data = reserva.propiedad
-        propiedad_completa = {
-            'direccion': propiedad_data.direccion or '',
-            'id': propiedad_data.id,
-            'llave': propiedad_data.llave or 'N/A',
-            'piso': propiedad_data.piso or '',
-            'departamento': propiedad_data.departamento or '',
-            'wifi': 'SÍ' if propiedad_data.wifi else 'NO',
-            'cochera': 'SÍ' if propiedad_data.cochera else 'NO',
-            'cantidad_personas': propiedad_data.cantidad_personas or None,
-            'ambientes': propiedad_data.ambientes or '',
-        }
+        propiedad_completa = _propiedad_completa_recibo(reserva.propiedad)
         
         # Preparar datos del vendedor/productor
         vendedor_completo = {}
@@ -22856,17 +22835,7 @@ def ver_recibo_publico(request, reserva_id, token):
             'cuit': getattr(cliente_data, 'cuit', '') or '',
         }
         
-        # Preparar datos de la propiedad con formato correcto
-        propiedad_data = reserva.propiedad
-        propiedad_completa = {
-            'direccion': propiedad_data.direccion or '',
-            'id': propiedad_data.id,
-            'llave': propiedad_data.llave or 'N/A',
-            'piso': propiedad_data.piso or '',
-            'departamento': propiedad_data.departamento or '',
-            'wifi': 'SÍ' if propiedad_data.wifi else 'NO',
-            'ambientes': propiedad_data.ambientes or '',
-        }
+        propiedad_completa = _propiedad_completa_recibo(reserva.propiedad)
         
         # Preparar datos del vendedor/productor
         vendedor_completo = {}
@@ -23199,18 +23168,7 @@ def ver_recibo_movimiento_pdf(request, movimiento_id):
             'cuit': getattr(cliente, 'cuit', '') or '',
         }
         
-        # Preparar datos de la propiedad con formato correcto
-        propiedad_completa = {
-            'direccion': propiedad.direccion or '',
-            'id': propiedad.id,
-            'llave': propiedad.llave or 'N/A',
-            'piso': propiedad.piso or '',
-            'departamento': propiedad.departamento or '',
-            'wifi': 'SÍ' if propiedad.wifi else 'NO',
-            'cochera': 'SÍ' if propiedad.cochera else 'NO',
-            'cantidad_personas': propiedad.cantidad_personas or None,
-            'ambientes': propiedad.ambientes or '',
-        }
+        propiedad_completa = _propiedad_completa_recibo(propiedad)
         
         # Preparar datos del vendedor/productor
         vendedor_completo = {}

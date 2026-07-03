@@ -176,7 +176,7 @@
                     </div>
                     <div style="display: flex; align-items: center; ">
                         <span style="min-width: 120px; font-size: 8px;">COMODIDADES:</span>
-                        <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px;">{% if propiedad.ambientes is not None %}{{ propiedad.ambientes }} AMB. {% endif %}{{ descripcion }}</div>
+                        <div style="flex-grow: 1; border-bottom: 1px dotted black; font-size: 8px;">{{ propiedad.comodidades_recibo|default:"—" }}</div>
                     </div>
     
                     <div style="display: flex; align-items: center; justify-content: space-between;">
