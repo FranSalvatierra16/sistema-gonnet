@@ -488,9 +488,10 @@ def queryset_reservas_pendientes_cobro(qs):
     from inmobiliaria.models import HistorialDisponibilidad, Recibo
 
     fi, ff = RANGO_EXCLUIDO_SINDICATO_MARCONI
-    marconi_julio = (
-        Q(fecha_fin=ff, fecha_inicio__gte=fi)
-        & (Q(cliente__apellido__icontains='marconi') | Q(cliente__nombre__icontains='marconi'))
+    lote_marconi_julio = Q(
+        fecha_fin=ff,
+        fecha_inicio__gte=fi,
+        fecha_creacion__date=FECHA_CARGA_LOTE_MARCONI,
     )
 
     tiene_recibo = Exists(Recibo.objects.filter(reserva_id=OuterRef('pk')))
@@ -509,7 +510,7 @@ def queryset_reservas_pendientes_cobro(qs):
             Q(senia__gt=Decimal('0.01'))
             | tiene_recibo
             | en_historial_sindicato
-            | marconi_julio
+            | lote_marconi_julio
             | Q(precio_total__gt=0, senia__gte=F('precio_total'))
         )
         .distinct()

@@ -3286,14 +3286,9 @@ def ver_disponibilidad(request, propiedad_id):
     return render(request, 'inmobiliaria/ver_disponibilidad.html', context)
 @login_required                                                                 
 def reservas(request):
-    from inmobiliaria.caja_devolucion_deposito import (
-        queryset_reservas_pendientes_cobro,
-        reparar_pendientes_marconi_julio_lote,
-    )
+    from inmobiliaria.caja_devolucion_deposito import queryset_reservas_pendientes_cobro
 
-    reparar_pendientes_marconi_julio_lote(request.user.sucursal)
-
-    MAX_LISTA_RESERVAS = 400
+    MAX_LISTA_RESERVAS = 300
 
     reservas = queryset_reservas_pendientes_cobro(
         Reserva.objects.filter(
@@ -3356,10 +3351,12 @@ def reservas(request):
     )
     lista_acotada = False
     if not hay_busqueda:
-        candidatas = reservas[: MAX_LISTA_RESERVAS + 1]
-        if len(candidatas) > MAX_LISTA_RESERVAS:
+        reservas = list(reservas[: MAX_LISTA_RESERVAS + 1])
+        if len(reservas) > MAX_LISTA_RESERVAS:
             lista_acotada = True
-        reservas = candidatas[:MAX_LISTA_RESERVAS]
+            reservas = reservas[:MAX_LISTA_RESERVAS]
+    else:
+        reservas = list(reservas[:MAX_LISTA_RESERVAS])
 
     reservas_list = []
     for reserva in reservas:
@@ -3431,8 +3428,8 @@ def operaciones(request):
     from inmobiliaria.caja_devolucion_deposito import senia_estimada_listado_operacion
 
     # Límites para evitar timeout (Railway / DB): sin búsqueda por ID se trabaja sobre un subconjunto reciente.
-    MAX_CANDIDATAS_RESERVA = 4000
-    MAX_CANDIDATOS_INVIERNO = 1500
+    MAX_CANDIDATAS_RESERVA = 1200
+    MAX_CANDIDATOS_INVIERNO = 400
     # Muchas consultas pequeñas empeoran el tiempo total; pocas consultas grandes saturan MySQL: equilibrio ~450 IDs por query.
     MAX_PROPIEDADES_POR_QUERY_MOV = 450
 
@@ -3531,20 +3528,45 @@ def operaciones(request):
 
     rows_by_id = {row['id']: row for row in reserva_rows}
     reserva_ids_set = set(rows_by_id.keys())
-    propiedad_ids = list({r['propiedad_id'] for r in reserva_rows if r.get('propiedad_id')})
+
+    recibo_totals = defaultdict(lambda: Decimal('0'))
+    mov_reciente_por_recibo = {}
+    for rec in (
+        Recibo.objects.filter(reserva_id__in=reserva_ids_set)
+        .order_by('reserva_id', '-fecha_emision', '-id')
+        .values('reserva_id', 'movimiento_caja_id', 'monto_este_pago')
+    ):
+        rid = rec['reserva_id']
+        recibo_totals[rid] += Decimal(str(rec['monto_este_pago'] or 0))
+        if rid not in mov_reciente_por_recibo:
+            mov_reciente_por_recibo[rid] = rec['movimiento_caja_id']
+    rids_con_recibo = set(recibo_totals.keys())
+
+    rids_con_cobro_db = set()
+    for row in reserva_rows:
+        rid = row['id']
+        if Decimal(str(row.get('senia') or 0)) > Decimal('0.01'):
+            rids_con_cobro_db.add(rid)
+        elif (row.get('estado') or '').strip() == 'pagada':
+            rids_con_cobro_db.add(rid)
+    rids_con_cobro_db |= rids_con_recibo
+
+    rows_sin_cobro_db = [r for r in reserva_rows if r['id'] not in rids_con_cobro_db]
+    propiedad_ids = list({r['propiedad_id'] for r in rows_sin_cobro_db if r.get('propiedad_id')})
 
     movimientos_por_reserva = defaultdict(list)
+    reserva_ids_mov = {r['id'] for r in rows_sin_cobro_db}
     mov_fecha_desde = None
-    if not search_id and reserva_rows:
+    if not search_id and rows_sin_cobro_db:
         fechas_creacion = [
             row['fecha_creacion'].date()
-            for row in reserva_rows
+            for row in rows_sin_cobro_db
             if row.get('fecha_creacion') and hasattr(row['fecha_creacion'], 'date')
         ]
         if fechas_creacion:
             mov_fecha_desde = min(fechas_creacion) - timedelta(days=60)
 
-    if reserva_ids_set and propiedad_ids:
+    if reserva_ids_mov and propiedad_ids:
         nprops = len(propiedad_ids)
         prop_chunks = (
             [propiedad_ids]
@@ -3577,24 +3599,11 @@ def operaciones(request):
                 match = re.search(r'Operaci[oó]n\s*#?\s*(\d+)', conc, re.IGNORECASE)
                 if match:
                     rid = int(match.group(1))
-                    if rid in reserva_ids_set:
+                    if rid in reserva_ids_mov:
                         movimientos_por_reserva[rid].append(row)
 
     for _rid, movs in movimientos_por_reserva.items():
         movs.sort(key=lambda r: (r['fecha'] is not None, r['fecha'], r['id']), reverse=True)
-
-    recibo_totals = defaultdict(lambda: Decimal('0'))
-    mov_reciente_por_recibo = {}
-    for rec in (
-        Recibo.objects.filter(reserva_id__in=reserva_ids_set)
-        .order_by('reserva_id', '-fecha_emision', '-id')
-        .values('reserva_id', 'movimiento_caja_id', 'monto_este_pago')
-    ):
-        rid = rec['reserva_id']
-        recibo_totals[rid] += Decimal(str(rec['monto_este_pago'] or 0))
-        if rid not in mov_reciente_por_recibo:
-            mov_reciente_por_recibo[rid] = rec['movimiento_caja_id']
-    rids_con_recibo = set(recibo_totals.keys())
 
     senia_por_reserva = {}
     total_operaciones = 0
