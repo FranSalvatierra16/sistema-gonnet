@@ -3286,10 +3286,9 @@ def ver_disponibilidad(request, propiedad_id):
     return render(request, 'inmobiliaria/ver_disponibilidad.html', context)
 @login_required                                                                 
 def reservas(request):
-    from inmobiliaria.caja_devolucion_deposito import (
-        queryset_reservas_pendientes_cobro,
-        reserva_mostrar_como_reservada_sin_pagar,
-    )
+    from inmobiliaria.caja_devolucion_deposito import queryset_reservas_pendientes_cobro
+
+    MAX_LISTA_RESERVAS = 400
 
     reservas = queryset_reservas_pendientes_cobro(
         Reserva.objects.filter(
@@ -3347,11 +3346,19 @@ def reservas(request):
     # Obtener lista de vendedores para el select
     vendedores = Vendedor.objects.filter(sucursal=request.user.sucursal).order_by('apellido', 'nombre')
 
+    hay_busqueda = bool(
+        search_id or fecha_desde or fecha_hasta or search_vendedor_id or search_ficha
+    )
+    lista_acotada = False
+    if not hay_busqueda:
+        candidatas = reservas[: MAX_LISTA_RESERVAS + 1]
+        if len(candidatas) > MAX_LISTA_RESERVAS:
+            lista_acotada = True
+        reservas = candidatas[:MAX_LISTA_RESERVAS]
+
     reservas_list = []
     for reserva in reservas:
         senia_pagada = Decimal(str(reserva.senia or 0))
-        if not reserva_mostrar_como_reservada_sin_pagar(reserva):
-            continue
         reserva.senia_pagada = senia_pagada
         precio = Decimal(str(reserva.precio_total or 0))
         reserva.saldo_pendiente = max(precio - senia_pagada, Decimal('0'))
@@ -3364,7 +3371,8 @@ def reservas(request):
         'fecha_hasta': fecha_hasta,
         'search_vendedor': search_vendedor_id,
         'search_ficha': search_ficha,
-        'vendedores': vendedores
+        'vendedores': vendedores,
+        'lista_acotada': lista_acotada,
     })
 
 @login_required

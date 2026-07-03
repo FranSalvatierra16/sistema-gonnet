@@ -441,6 +441,11 @@
         </div>
 
         <!-- Reservas Grid -->
+        {% if lista_acotada %}
+        <div class="alert alert-info py-2 small mb-3">
+            Se muestran las {{ reservas|length }} reservas pendientes más recientes. Usá los filtros para buscar una operación específica.
+        </div>
+        {% endif %}
         {% if reservas %}
             <div class="reservas-grid">
                 {% for reserva in reservas %}
