@@ -192,7 +192,7 @@ def rol_comision_al_crear_linea_unica(vendedor, reserva):
     ):
         return ROL_COMISION_FICHAJE
 
-    return ROL_COMISION_GENERAL
+    return ROL_COMISION_OP_DIA
 
 
 def clasificar_tipo_operacion_reserva(reserva):
@@ -1099,9 +1099,9 @@ class ComisionVendedor(models.Model):
                     cat_fich = self.contrato.categoria_tipo_operacion() or '24'
                 except Exception:
                     cat_fich = '24'
-            elif reserva:
+            elif res:
                 try:
-                    cat_fich = clasificar_tipo_operacion_reserva(reserva)
+                    cat_fich = clasificar_tipo_operacion_reserva(res)
                 except Exception:
                     cat_fich = 'dia'
             pct_fichaje = porcentaje_fichaje_vendedor(vend, tipo_prop, categoria_operacion=cat_fich)
@@ -1111,6 +1111,43 @@ class ComisionVendedor(models.Model):
                 return ('fichaje', 'segundo')
             return ('fichaje', 'primer')
         return ('por_dia', None)
+
+    def _categoria_desde_reserva_o_contrato(self):
+        """Invierno, 24 meses o por día según la reserva/contrato vinculados."""
+        if getattr(self, 'contrato_id', None) and self.contrato_id:
+            try:
+                cat = self.contrato.categoria_tipo_operacion()
+            except Exception:
+                cat = None
+            if cat == 'invierno':
+                return 'por_invierno'
+            if cat == '24':
+                return 'por_24_meses'
+        if getattr(self, 'reserva_id', None) and self.reserva_id:
+            try:
+                tipo = clasificar_tipo_operacion_reserva(self.reserva)
+            except Exception:
+                tipo = 'dia'
+            if tipo == 'invierno':
+                return 'por_invierno'
+            if tipo == '24':
+                return 'por_24_meses'
+            if tipo == 'dia':
+                return 'por_dia'
+        return None
+
+    def _categoria_desde_concepto_operacion(self):
+        """Respaldo para líneas históricas con rol «general» y concepto genérico «Operación N»."""
+        concepto_l = (self.concepto_operacion or '').lower()
+        if 'fichaje' in concepto_l:
+            return 'por_fichaje'
+        if 'por día' in concepto_l or 'por dia' in concepto_l or 'alquiler por d' in concepto_l:
+            return 'por_dia'
+        if 'invierno' in concepto_l:
+            return 'por_invierno'
+        if '24 meses' in concepto_l or 'largo plazo' in concepto_l or 'largo / 24' in concepto_l:
+            return 'por_24_meses'
+        return None
 
     def clasificacion_listado(self):
         """
@@ -1126,30 +1163,32 @@ class ComisionVendedor(models.Model):
         if rol == ROL_COMISION_OP_24:
             return ('por_24_meses', None)
         if rol == ROL_COMISION_GENERAL:
-            if getattr(self, 'contrato_id', None) and self.contrato_id:
-                try:
-                    cat = self.contrato.categoria_tipo_operacion()
-                except Exception:
-                    cat = None
-                if cat == 'invierno':
-                    return ('por_invierno', None)
-                if cat == '24':
-                    return ('por_24_meses', None)
-            if getattr(self, 'reserva_id', None) and self.reserva_id:
-                try:
-                    tipo = clasificar_tipo_operacion_reserva(self.reserva)
-                except Exception:
-                    tipo = 'dia'
-                if tipo == 'invierno':
-                    return ('por_invierno', None)
-                if tipo == '24':
-                    return ('por_24_meses', None)
+            cat = self._categoria_desde_reserva_o_contrato()
+            if not cat:
+                cat = self._categoria_desde_concepto_operacion()
+            if cat == 'por_fichaje':
+                kind, sub = self._clasificacion_fichaje_primer_segundo_o_dia()
+                if kind == 'por_dia':
+                    return ('por_dia', None)
+                return ('por_fichaje', sub)
+            if cat:
+                return (cat, None)
             return ('operacion', None)
         if rol == ROL_COMISION_FICHAJE:
             kind, sub = self._clasificacion_fichaje_primer_segundo_o_dia()
             if kind == 'por_dia':
                 return ('por_dia', None)
             return ('por_fichaje', sub)
+        cat = self._categoria_desde_reserva_o_contrato()
+        if not cat:
+            cat = self._categoria_desde_concepto_operacion()
+        if cat == 'por_fichaje':
+            kind, sub = self._clasificacion_fichaje_primer_segundo_o_dia()
+            if kind == 'por_dia':
+                return ('por_dia', None)
+            return ('por_fichaje', sub)
+        if cat:
+            return (cat, None)
         return ('operacion', None)
 
     @property
