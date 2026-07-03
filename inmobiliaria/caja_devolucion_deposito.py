@@ -483,7 +483,15 @@ def queryset_reservas_pendientes_cobro(qs):
     Reservas para «Reservas pendientes»: en espera o reservadas sin cobro.
     Excluye sindicato, recibos emitidos y operaciones ya señadas.
     """
+    from django.db.models import F
+
     from inmobiliaria.models import HistorialDisponibilidad, Recibo
+
+    fi, ff = RANGO_EXCLUIDO_SINDICATO_MARCONI
+    marconi_julio = (
+        Q(fecha_fin=ff, fecha_inicio__gte=fi)
+        & (Q(cliente__apellido__icontains='marconi') | Q(cliente__nombre__icontains='marconi'))
+    )
 
     tiene_recibo = Exists(Recibo.objects.filter(reserva_id=OuterRef('pk')))
     en_historial_sindicato = Exists(
@@ -492,14 +500,20 @@ def queryset_reservas_pendientes_cobro(qs):
             estado='alquiler_sindicato',
         )
     )
-    return qs.filter(
-        estado__in=('en_espera', 'confirmada_no_pagada'),
-        es_alquiler_sindicato=False,
-    ).exclude(
-        Q(senia__gt=Decimal('0.01'))
-        | tiene_recibo
-        | en_historial_sindicato
-    ).distinct()
+    return (
+        qs.filter(
+            estado__in=('en_espera', 'confirmada_no_pagada'),
+            es_alquiler_sindicato=False,
+        )
+        .exclude(
+            Q(senia__gt=Decimal('0.01'))
+            | tiene_recibo
+            | en_historial_sindicato
+            | marconi_julio
+            | Q(precio_total__gt=0, senia__gte=F('precio_total'))
+        )
+        .distinct()
+    )
 
 
 def queryset_contratos_con_operacion(qs):
@@ -540,6 +554,23 @@ def _cliente_es_marconi(reserva) -> bool:
     return 'marconi' in ap or 'marconi' in nom
 
 
+def _reserva_marconi_lote_julio_ago(reserva) -> bool:
+    """Marconi con egreso 02/08, ingreso desde 18/07, del lote cargado el 25/06."""
+    if not _cliente_es_marconi(reserva):
+        return False
+    fi = getattr(reserva, 'fecha_inicio', None)
+    ff = getattr(reserva, 'fecha_fin', None)
+    if not fi or not ff:
+        return False
+    ex_ini, ex_fin = RANGO_EXCLUIDO_SINDICATO_MARCONI
+    if ff != ex_fin or fi < ex_ini:
+        return False
+    fc = getattr(reserva, 'fecha_creacion', None)
+    if fc and fc.date() == FECHA_CARGA_LOTE_MARCONI:
+        return True
+    return fi == ex_ini and ff == ex_fin
+
+
 def _reserva_en_rango_excluido_sindicato_marconi(reserva) -> bool:
     fi = getattr(reserva, 'fecha_inicio', None)
     ff = getattr(reserva, 'fecha_fin', None)
@@ -556,22 +587,8 @@ def config_lote_pago_efectivo_marconi(reserva) -> LoteSindicatoMarconi | None:
     precio = Decimal(str(getattr(reserva, 'precio_total', None) or 0))
     if precio <= Decimal('1.01'):
         return None
-    if not _cliente_es_marconi(reserva):
-        return None
-    fi = getattr(reserva, 'fecha_inicio', None)
-    ff = getattr(reserva, 'fecha_fin', None)
-    lote = LOTE_PAGO_EFECTIVO_MARCONI_JULIO
-    if fi == lote.fecha_ingreso and ff == lote.fecha_egreso:
-        return lote
-    fc = getattr(reserva, 'fecha_creacion', None)
-    if (
-        fc
-        and fc.date() == FECHA_CARGA_LOTE_MARCONI
-        and fi
-        and ff
-        and _reserva_en_rango_excluido_sindicato_marconi(reserva)
-    ):
-        return lote
+    if _reserva_marconi_lote_julio_ago(reserva):
+        return LOTE_PAGO_EFECTIVO_MARCONI_JULIO
     return None
 
 
@@ -736,6 +753,31 @@ def reparar_reserva_lote_pago_efectivo_marconi(reserva, *, dry_run: bool = False
     ) - Decimal('0.01'):
         forzar_pago_completo_operacion(reserva, persistir=True, sindicato=False)
     return True
+
+
+def reparar_pendientes_marconi_julio_lote(sucursal) -> int:
+    """Corrige en BD el lote Marconi 18/07–02/08 que quedó como pendiente sin cobro."""
+    from inmobiliaria.models import Reserva
+
+    fi, ff = RANGO_EXCLUIDO_SINDICATO_MARCONI
+    candidatas = (
+        Reserva.objects.filter(
+            eliminada=False,
+            sucursal=sucursal,
+            fecha_fin=ff,
+            fecha_inicio__gte=fi,
+        )
+        .filter(Q(cliente__apellido__icontains='marconi') | Q(cliente__nombre__icontains='marconi'))
+        .exclude(estado='cancelada')
+        .select_related('cliente', 'propiedad', 'sucursal')[:200]
+    )
+    reparadas = 0
+    for reserva in candidatas:
+        if not config_lote_pago_efectivo_marconi(reserva):
+            continue
+        if reparar_reserva_lote_pago_efectivo_marconi(reserva):
+            reparadas += 1
+    return reparadas
 
 
 def sincronizar_senia_reserva_desde_movimientos(reserva, *, persistir: bool = True) -> Decimal:

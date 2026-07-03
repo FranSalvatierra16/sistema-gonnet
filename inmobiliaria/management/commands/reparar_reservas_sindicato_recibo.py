@@ -96,7 +96,7 @@ class Command(BaseCommand):
         if lote_julio_pago:
             fi, ff = RANGO_EXCLUIDO_SINDICATO_MARCONI
             reservas_qs = list(
-                reservas_qs.filter(fecha_inicio=fi, fecha_fin=ff)
+                reservas_qs.filter(fecha_fin=ff, fecha_inicio__gte=fi)
             )
             reservas_qs = [r for r in reservas_qs if _cliente_es_marconi(r)]
             self.stdout.write(

@@ -8,7 +8,7 @@ from django.core.management.base import BaseCommand
 
 from inmobiliaria.caja_devolucion_deposito import (
     RANGO_EXCLUIDO_SINDICATO_MARCONI,
-    _cliente_es_marconi,
+    config_lote_pago_efectivo_marconi,
     reparar_reserva_lote_pago_efectivo_marconi,
 )
 from inmobiliaria.models import Reserva
@@ -28,13 +28,13 @@ class Command(BaseCommand):
 
         qs = Reserva.objects.filter(
             eliminada=False,
-            fecha_inicio=fi,
             fecha_fin=ff,
+            fecha_inicio__gte=fi,
         ).select_related('propiedad', 'cliente', 'sucursal')
         if sucursal_id:
             qs = qs.filter(sucursal_id=sucursal_id)
 
-        reservas = [r for r in qs if _cliente_es_marconi(r)]
+        reservas = [r for r in qs if _cliente_es_marconi(r) and config_lote_pago_efectivo_marconi(r)]
         if not reservas:
             self.stdout.write('No se encontraron reservas Marconi en ese rango de fechas.')
             return

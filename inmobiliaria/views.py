@@ -3286,7 +3286,12 @@ def ver_disponibilidad(request, propiedad_id):
     return render(request, 'inmobiliaria/ver_disponibilidad.html', context)
 @login_required                                                                 
 def reservas(request):
-    from inmobiliaria.caja_devolucion_deposito import queryset_reservas_pendientes_cobro
+    from inmobiliaria.caja_devolucion_deposito import (
+        queryset_reservas_pendientes_cobro,
+        reparar_pendientes_marconi_julio_lote,
+    )
+
+    reparar_pendientes_marconi_julio_lote(request.user.sucursal)
 
     MAX_LISTA_RESERVAS = 400
 
