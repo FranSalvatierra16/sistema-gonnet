@@ -355,6 +355,34 @@ def _total_cobrado_desde_recibos_reserva(reserva) -> Decimal:
     ).quantize(Decimal('0.01'))
 
 
+def _total_movimientos_rows(movimientos_rows) -> Decimal:
+    total = Decimal('0')
+    for mov in movimientos_rows or []:
+        total += (
+            Decimal(str(mov.get('monto_efectivo') or 0))
+            + Decimal(str(mov.get('monto_cheque') or 0))
+            + Decimal(str(mov.get('monto_tarjeta') or 0))
+            + Decimal(str(mov.get('monto_deposito') or 0))
+        )
+    return total.quantize(Decimal('0.01'))
+
+
+def senia_estimada_listado_operacion(
+    *,
+    senia_guardada,
+    movimientos_rows=None,
+    total_recibos: Decimal | None = None,
+) -> Decimal:
+    """
+    Seña para listados (solo lectura): no escribe en BD ni reconstruye historial.
+    Usa el máximo entre valor guardado, movimientos ya cargados y recibos.
+    """
+    senia_db = Decimal(str(senia_guardada or 0))
+    total_mov = _total_movimientos_rows(movimientos_rows)
+    total_rec = Decimal(str(total_recibos or 0))
+    return max(senia_db, total_mov, total_rec).quantize(Decimal('0.01'))
+
+
 def total_senia_pagada_reserva(reserva) -> Decimal:
     rid = int(reserva.id)
     total_mov = Decimal('0')

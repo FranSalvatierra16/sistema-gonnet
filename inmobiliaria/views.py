@@ -3265,7 +3265,6 @@ def reservas(request):
     from inmobiliaria.caja_devolucion_deposito import (
         queryset_reservas_pendientes_cobro,
         reserva_mostrar_como_reservada_sin_pagar,
-        sincronizar_senia_reserva_desde_movimientos,
     )
 
     reservas = queryset_reservas_pendientes_cobro(
@@ -3326,7 +3325,7 @@ def reservas(request):
 
     reservas_list = []
     for reserva in reservas:
-        senia_pagada = sincronizar_senia_reserva_desde_movimientos(reserva)
+        senia_pagada = Decimal(str(reserva.senia or 0))
         if not reserva_mostrar_como_reservada_sin_pagar(reserva):
             continue
         reserva.senia_pagada = senia_pagada
@@ -3392,7 +3391,7 @@ def operaciones(request):
     from collections import defaultdict
     from types import SimpleNamespace
     from .models.recibo import Recibo
-    from inmobiliaria.caja_devolucion_deposito import sincronizar_senia_reserva_desde_movimientos
+    from inmobiliaria.caja_devolucion_deposito import senia_estimada_listado_operacion
 
     # Límites para evitar timeout (Railway / DB): sin búsqueda por ID se trabaja sobre un subconjunto reciente.
     MAX_CANDIDATAS_RESERVA = 4000
@@ -3498,6 +3497,16 @@ def operaciones(request):
     propiedad_ids = list({r['propiedad_id'] for r in reserva_rows if r.get('propiedad_id')})
 
     movimientos_por_reserva = defaultdict(list)
+    mov_fecha_desde = None
+    if not search_id and reserva_rows:
+        fechas_creacion = [
+            row['fecha_creacion'].date()
+            for row in reserva_rows
+            if row.get('fecha_creacion') and hasattr(row['fecha_creacion'], 'date')
+        ]
+        if fechas_creacion:
+            mov_fecha_desde = min(fechas_creacion) - timedelta(days=60)
+
     if reserva_ids_set and propiedad_ids:
         nprops = len(propiedad_ids)
         prop_chunks = (
@@ -3511,7 +3520,10 @@ def operaciones(request):
                 propiedad_id__in=pid_chunk,
                 tipo=TipoMovimientoCajaEnum.INGRESO,
                 concepto__icontains='Operación',
-            ).values(
+            )
+            if mov_fecha_desde:
+                vals_qs = vals_qs.filter(fecha__date__gte=mov_fecha_desde)
+            vals_qs = vals_qs.values(
                 'id',
                 'propiedad_id',
                 'concepto',
@@ -3534,38 +3546,20 @@ def operaciones(request):
     for _rid, movs in movimientos_por_reserva.items():
         movs.sort(key=lambda r: (r['fecha'] is not None, r['fecha'], r['id']), reverse=True)
 
-    rids_con_recibo = set(
-        Recibo.objects.filter(reserva_id__in=reserva_ids_set).values_list('reserva_id', flat=True)
-    )
+    recibo_totals = defaultdict(lambda: Decimal('0'))
     mov_reciente_por_recibo = {}
     for rec in (
         Recibo.objects.filter(reserva_id__in=reserva_ids_set)
         .order_by('reserva_id', '-fecha_emision', '-id')
-        .values('reserva_id', 'movimiento_caja_id')
+        .values('reserva_id', 'movimiento_caja_id', 'monto_este_pago')
     ):
         rid = rec['reserva_id']
+        recibo_totals[rid] += Decimal(str(rec['monto_este_pago'] or 0))
         if rid not in mov_reciente_por_recibo:
             mov_reciente_por_recibo[rid] = rec['movimiento_caja_id']
-
-    from inmobiliaria.caja_devolucion_deposito import total_senia_pagada_reserva
-
-    rids_a_sincronizar = set(movimientos_por_reserva.keys()) | rids_con_recibo
-    for row in reserva_rows:
-        rid = row['id']
-        if Decimal(str(row.get('senia') or 0)) > Decimal('0.01'):
-            rids_a_sincronizar.add(rid)
-        if (row.get('estado') or '').strip() == 'pagada':
-            rids_a_sincronizar.add(rid)
+    rids_con_recibo = set(recibo_totals.keys())
 
     senia_por_reserva = {}
-    if rids_a_sincronizar:
-        for reserva_senia in Reserva.objects.filter(id__in=rids_a_sincronizar).select_related(
-            'sucursal', 'propiedad'
-        ):
-            senia_por_reserva[reserva_senia.id] = sincronizar_senia_reserva_desde_movimientos(
-                reserva_senia
-            )
-
     total_operaciones = 0
     operaciones_pendientes = 0
     ordered_included_ids = []
@@ -3575,7 +3569,13 @@ def operaciones(request):
         rid = row['id']
         movimientos = movimientos_por_reserva.get(rid, [])
         tiene_recibo = rid in rids_con_recibo
-        senia_previa = Decimal(str(row.get('senia') or 0))
+        senia = senia_estimada_listado_operacion(
+            senia_guardada=row.get('senia'),
+            movimientos_rows=movimientos,
+            total_recibos=recibo_totals.get(rid, Decimal('0')),
+        )
+        senia_por_reserva[rid] = senia
+        senia_previa = senia
         if (
             not movimientos
             and not tiene_recibo
@@ -3585,7 +3585,6 @@ def operaciones(request):
             continue
 
         precio_total = row['precio_total'] or 0
-        senia = senia_por_reserva.get(rid, row['senia'] or 0)
         saldo_pendiente = precio_total - senia
 
         total_pagado_mov = sum(
@@ -3830,7 +3829,7 @@ def operaciones(request):
             if not reserva:
                 continue
             ex = extras_por_reserva[oid]
-            senia_pagada = sincronizar_senia_reserva_desde_movimientos(reserva)
+            senia_pagada = senia_por_reserva.get(oid, Decimal(str(reserva.senia or 0)))
             saldo_pendiente = max(reserva.precio_total - senia_pagada, Decimal('0'))
             reserva.total_pagado = senia_pagada
             reserva.saldo_pendiente = saldo_pendiente
