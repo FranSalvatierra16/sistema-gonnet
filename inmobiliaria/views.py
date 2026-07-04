@@ -2153,6 +2153,7 @@ from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm, SetP
 from django.contrib.auth import login
 from datetime import datetime, date, timedelta
 from django.db.models import Q, Prefetch, Case, When, IntegerField, Sum, Max, F, Count, DecimalField
+from django.db.models.query import prefetch_related_objects
 from django.db.models.functions import TruncMonth, Lower
 from django.core.exceptions import ValidationError
 from django.forms import modelformset_factory
@@ -15029,34 +15030,15 @@ def buscar_propiedades(request):
             propiedades = Propiedad.objects.filter(
                 Q(sucursal__nombre__icontains='colon') | 
                 Q(sucursal__nombre__icontains='corrientes')
-            ).prefetch_related('imagenes')
+            )
         else:
-            propiedades = Propiedad.objects.filter(sucursal=sucursal_vendedor).prefetch_related('imagenes')
+            propiedades = Propiedad.objects.filter(sucursal=sucursal_vendedor)
         
         # AGREGAR FLAG: Para editar específicamente el filtro de esta función
         ES_BUSCAR_PROPIEDADES_PRINCIPAL = True
         
         # 🎯 DEBUGGING: Verificar fechas de búsqueda
 # print(f"🎯 BUSCAR_PROPIEDADES_PRINCIPAL: Buscando desde {fecha_inicio} hasta {fecha_fin}")
-        
-        # 🎯 DEBUGGING: Ver qué propiedades tienen reservas en estas fechas
-        from inmobiliaria.models import Reserva
-        reservas_en_fechas = Reserva.objects.filter(
-            Q(fecha_inicio__lt=fecha_fin) & Q(fecha_fin__gt=fecha_inicio)
-        )
-# print(f"🔍 RESERVAS EN ESTAS FECHAS: {reservas_en_fechas.count()} encontradas")
-        for r in reservas_en_fechas:
-            pass  # ✅ Bloque vacío
-# print(f"   - Reserva {r.id}: Propiedad {r.propiedad.id} ({r.propiedad.ubicacion})")
-# print(f"     Fechas: {r.fecha_inicio} al {r.fecha_fin}, Estado: '{r.estado}'")
-        
-        # FLAG para identificar esta función específica para debugging posterior
-        DEBUGGING_FUNCION_PRINCIPAL = True
-
-        # Prefetch los precios para cada propiedad
-        propiedades = propiedades.prefetch_related(
-            Prefetch('precios', queryset=Precio.objects.all(), to_attr='todos_precios')
-        ).select_related('sucursal')
 
         # Aplicar filtros del formulario
         if origen:
@@ -15099,269 +15081,106 @@ def buscar_propiedades(request):
             if form.cleaned_data.get(caracteristica):
                 propiedades = propiedades.filter(**{caracteristica: True})
 
+        # Prefetch relaciones usadas en el bucle (evita N+1)
+        propiedades = propiedades.select_related('propietario', 'sucursal').prefetch_related(
+            Prefetch('precios', queryset=Precio.objects.all(), to_attr='todos_precios')
+        )
+        propiedades_lista = list(propiedades)
+        from inmobiliaria.busqueda_propiedades_reserva import (
+            buscar_reserva_termina_en_inicio_mem,
+            calcular_precio_total_reserva_fechas,
+            cargar_contexto_bulk_busqueda,
+            contrato_solapa_rango,
+            mapa_precios_propiedad,
+            periodo_cubierto_por_disponibilidades,
+            reservas_solapan_rango,
+        )
+
+        bulk = cargar_contexto_bulk_busqueda(
+            [p.id for p in propiedades_lista], fecha_inicio, fecha_fin
+        )
+        disp_por_prop = bulk['disp_por_prop']
+        reservas_por_prop = bulk['reservas_por_prop']
+        contratos_por_prop = bulk['contratos_por_prop']
+        reserva_ids_con_recibo = bulk['reserva_ids_con_recibo']
+        max_fin_anterior_por_prop = bulk['max_fin_anterior_por_prop']
+        min_inicio_posterior_por_prop = bulk['min_inicio_posterior_por_prop']
+
         # Filtrar propiedades que están disponibles en las fechas indicadas
-        for propiedad in propiedades:
-            from datetime import timedelta
-# print(f"🔍 PROCESANDO PROPIEDAD {propiedad.id}: {propiedad}")
-# print(f"   🔎 Buscando disponibilidades para {fecha_inicio} al {fecha_fin}")
-            
-            # 1️⃣ BUSCAR TODAS LAS DISPONIBILIDADES QUE SE SUPERPONEN CON EL PERÍODO
-            disponibilidades_superpuestas = Disponibilidad.objects.filter(
-                propiedad=propiedad,
-                fecha_inicio__lt=fecha_fin,   # Empieza antes de que termine la búsqueda
-                fecha_fin__gt=fecha_inicio,   # Termina después de que empiece la búsqueda
-            ).order_by('fecha_inicio')
-            
-            # 2️⃣ VERIFICAR SI LAS DISPONIBILIDADES CUBREN TODO EL RANGO (permitiendo contiguas)
-            periodo_cubierto = False
-            if disponibilidades_superpuestas.exists():
-                # Verificar si las disponibilidades contiguas cubren todo el rango
-                disponibilidades_list = list(disponibilidades_superpuestas)
-                
-                # Ordenar por fecha de inicio
-                disponibilidades_list.sort(key=lambda d: d.fecha_inicio)
-                
-                # Verificar cobertura continua
-                cobertura_inicio = disponibilidades_list[0].fecha_inicio
-                cobertura_fin = disponibilidades_list[0].fecha_fin
-                
-                for i in range(1, len(disponibilidades_list)):
-                    disp_actual = disponibilidades_list[i]
-                    # Si la disponibilidad actual empieza el mismo día o antes que termine la anterior
-                    # (permitiendo fechas contiguas como 07-11 y 11-15)
-                    if disp_actual.fecha_inicio <= cobertura_fin:
-                        # Extender la cobertura
-                        cobertura_fin = max(cobertura_fin, disp_actual.fecha_fin)
-                    else:
-                        # Hay un hueco
-                        break
-                
-                # Verificar si la cobertura completa incluye el período buscado
-                if cobertura_inicio <= fecha_inicio and cobertura_fin >= fecha_fin:
-                    periodo_cubierto = True
-# print(f"   ✅ Período CUBIERTO por disponibilidades contiguas: {cobertura_inicio} al {cobertura_fin}")
-                else:
-                    pass  # ✅ Bloque vacío
-# print(f"   ❌ Período NO cubierto. Cobertura: {cobertura_inicio} al {cobertura_fin}, necesario: {fecha_inicio} al {fecha_fin}")
-            
-            # Usar la variable disponibilidades para mantener compatibilidad con el resto del código
-            disponibilidades = disponibilidades_superpuestas if periodo_cubierto else Disponibilidad.objects.none()
-            
+        for propiedad in propiedades_lista:
+            disponibilidades_superpuestas = disp_por_prop.get(propiedad.id, [])
+            periodo_cubierto, cobertura_inicio, cobertura_fin = periodo_cubierto_por_disponibilidades(
+                disponibilidades_superpuestas, fecha_inicio, fecha_fin
+            )
+
             if periodo_cubierto:
-                # 3️⃣ CALCULAR PERÍODO LIBRE usando la cobertura de disponibilidades contiguas
-                # Usar la cobertura calculada anteriormente (cobertura_inicio y cobertura_fin)
                 fecha_disponible_desde = cobertura_inicio
                 fecha_disponible_hasta = cobertura_fin
-                
-                # 4️⃣ AJUSTAR POR RESERVAS ANTERIORES Y POSTERIORES
-                # Fechas finales de reservas que terminan antes o en la fecha de inicio
-                # Excluir reservas eliminadas
-                reservas_anteriores = propiedad.reservas.filter(
-                    fecha_fin__lte=fecha_inicio,
-                    eliminada=False
-                ).order_by('-fecha_fin').first()
-                
-                if reservas_anteriores:
-                    # 🏨 LÓGICA HOTEL: Si reserva termina el 17, el 17 ya está disponible
-                    fecha_disponible_desde = max(fecha_disponible_desde, reservas_anteriores.fecha_fin)
-                
-                # Fechas iniciales de reservas que empiezan después o en la fecha de fin
-                # Excluir reservas eliminadas
-                reservas_posteriores = propiedad.reservas.filter(
-                    fecha_inicio__gte=fecha_fin,
-                    eliminada=False
-                ).order_by('fecha_inicio').first()
-                
-                if reservas_posteriores:
-                    # 🏨 LÓGICA HOTEL: Si próxima reserva empieza el 25, hasta el 25 está disponible
-                    fecha_disponible_hasta = min(fecha_disponible_hasta, reservas_posteriores.fecha_inicio)
-                
-                # 4b. Ajustar "disponible hasta" si hay contrato de alquiler (invierno/24m) que empiece dentro del período libre
-                contrato_corta = ContratoAlquiler.objects.filter(
-                    propiedad=propiedad,
-                    estado__in=['reservado', 'activo'],
-                    fecha_inicio__lte=fecha_disponible_hasta,
-                    fecha_fin__gt=fecha_disponible_desde
-                ).order_by('fecha_inicio').first()
-                if contrato_corta:
+
+                max_fin_ant = max_fin_anterior_por_prop.get(propiedad.id)
+                if max_fin_ant:
+                    fecha_disponible_desde = max(fecha_disponible_desde, max_fin_ant)
+
+                min_inicio_post = min_inicio_posterior_por_prop.get(propiedad.id)
+                if min_inicio_post:
+                    fecha_disponible_hasta = min(fecha_disponible_hasta, min_inicio_post)
+
+                contratos_prop = contratos_por_prop.get(propiedad.id, [])
+                candidatos_contrato = [
+                    c
+                    for c in contratos_prop
+                    if c.fecha_inicio <= fecha_disponible_hasta
+                    and c.fecha_fin > fecha_disponible_desde
+                ]
+                if candidatos_contrato:
+                    contrato_corta = min(candidatos_contrato, key=lambda c: c.fecha_inicio)
                     fecha_disponible_hasta = min(fecha_disponible_hasta, contrato_corta.fecha_inicio)
-                
-                # 5️⃣ ASIGNAR FECHAS CALCULADAS
+
                 propiedad.disponibilidad_inicio = fecha_disponible_desde
                 propiedad.disponibilidad_fin = fecha_disponible_hasta
-                
-# print(f"🎯 PROP {propiedad.id}: Libre desde {fecha_disponible_desde} hasta {fecha_disponible_hasta}")
-# print(f"   📅 Asignado: disponibilidad_inicio={propiedad.disponibilidad_inicio}")
-# print(f"   📅 Asignado: disponibilidad_fin={propiedad.disponibilidad_fin}")
-# print(f"   📊 Cobertura de disponibilidades contiguas: {cobertura_inicio} al {cobertura_fin}")
-                if reservas_anteriores:
-                    pass  # ✅ Bloque vacío
-# print(f"   ⏪ Reserva anterior termina: {reservas_anteriores.fecha_fin}")
-                if reservas_posteriores:
-                    pass  # ✅ Bloque vacío
-# print(f"   ⏩ Próxima reserva empieza: {reservas_posteriores.fecha_inicio}")
             else:
-                pass  # ✅ Bloque vacío
-# print(f"❌ PROP {propiedad.id}: NO tiene disponibilidades que contengan el período {fecha_inicio} al {fecha_fin}")
-                disponibilidades = Disponibilidad.objects.none()
-                
-                # Para debugging: mostrar todas las disponibilidades de esta propiedad
-                todas_disponibilidades = Disponibilidad.objects.filter(propiedad=propiedad)
-# print(f"   📋 Disponibilidades existentes ({todas_disponibilidades.count()}):")
-                for disp in todas_disponibilidades:
-                    pass  # ✅ Bloque vacío
-# print(f"     - {disp.fecha_inicio} al {disp.fecha_fin}")
-                
-                # 🚫 SALTEAR: Esta propiedad no tiene disponibilidades para el período buscado
-# print(f"   🚫 SALTANDO PROPIEDAD {propiedad.id} - No aparecerá en resultados")
                 continue
-            
-            # ✅ CALCULAR DISPONIBILIDADES FRAGMENTADAS POR RESERVAS
 
-            # Obtener las reservas asociadas a la propiedad
-            # Excluir reservas eliminadas
-            reservas = propiedad.reservas.filter(
-                Q(fecha_inicio__lt=fecha_fin) & Q(fecha_fin__gt=fecha_inicio),
-                eliminada=False
-            )
-            
-            # Excluir si tiene contrato de alquiler (invierno o 24 meses) que se superponga con el período buscado
-            if ContratoAlquiler.objects.filter(
-                propiedad=propiedad,
-                estado__in=['reservado', 'activo'],
-                fecha_inicio__lt=fecha_fin,
-                fecha_fin__gt=fecha_inicio
-            ).exists():
-                continue  # No mostrar como disponible: está ocupada por operación
+            reservas = reservas_solapan_rango(reservas_por_prop.get(propiedad.id, []), fecha_inicio, fecha_fin)
 
-            if reservas.filter(estado='pagada', es_alquiler_sindicato=False).exists():
-                continue  # Saltar esta propiedad si ya tiene una reserva pagada
+            if contrato_solapa_rango(contratos_por_prop.get(propiedad.id, []), fecha_inicio, fecha_fin):
+                continue
 
-            reservas_bloquean = reservas.filter(es_alquiler_sindicato=False)
+            if any(r.estado == 'pagada' and not r.es_alquiler_sindicato for r in reservas):
+                continue
+
+            reservas_bloquean = [r for r in reservas if not r.es_alquiler_sindicato]
 
             reserva_confirmada_no_pagada = _reserva_sin_pagar_para_busqueda(reservas_bloquean)
-            if reservas_bloquean.exists() and reserva_confirmada_no_pagada is None:
+            if reservas_bloquean and reserva_confirmada_no_pagada is None:
                 continue
 
-            # Evaluar la disponibilidad y las reservas de la propiedad
-            # 🎯 CORREGIDO: Manejar propiedades CON O SIN disponibilidades
-            
-            # Verificar reservas conflictivas PRIMERO (solo las pagadas)
-            reservas_conflictivas = reservas_bloquean.filter(
-                Q(estado='pagada')
-            )
-            
-            if reservas_conflictivas.exists():
-                pass  # ✅ Bloque vacío
-# print(f"   ❌ Saltando por reservas conflictivas: {reservas_conflictivas.count()}")
-                continue  # Saltar si hay reservas pagadas o confirmadas en estas fechas
-            
-            # Si hay una reserva para mostrar en rojo, mostrarla SIEMPRE (es información importante)
+            if any(r.estado == 'pagada' for r in reservas_bloquean):
+                continue
+
             if reserva_confirmada_no_pagada:
-                pass  # ✅ Bloque vacío
-# print(f"   ✅ MOSTRANDO EN ROJO: Reserva {reserva_confirmada_no_pagada.id} con estado '{reserva_confirmada_no_pagada.estado}'")
                 propiedad.reserva = reserva_confirmada_no_pagada
-                propiedad.estado_reserva = 'confirmada_no_pagada'  # Siempre mostrar como confirmada_no_pagada en frontend
-                # ✅ USAR PRECIO DE LA RESERVA EXISTENTE, NO RECALCULAR
+                propiedad.estado_reserva = 'confirmada_no_pagada'
                 propiedad.precio_total_reserva = reserva_confirmada_no_pagada.precio_total
-# print(f"   💰 Precio de reserva existente: ${reserva_confirmada_no_pagada.precio_total}")
-# print(f"   🔴 Estado asignado para mostrar: {propiedad.estado_reserva}")
-                
-                # Asignar fechas de la reserva
                 propiedad.disponibilidad_inicio = reserva_confirmada_no_pagada.fecha_inicio
                 propiedad.disponibilidad_fin = reserva_confirmada_no_pagada.fecha_fin
-                
-                # Agregar a la lista y continuar sin recalcular precios
                 propiedades_disponibles.append(propiedad)
-# print(f"   ✅ Propiedad {propiedad.id} agregada a la lista con reserva en rojo")
                 continue
-            else:
-                # ✅ PROPIEDADES SIN RESERVAS - Calcular precios y agregar a lista
-                propiedad.estado_reserva = 'disponible'
-                
-                # Amarillo: reserva previa (sin operación) que termina el día de entrada
-                from inmobiliaria.caja_devolucion_deposito import (
-                    buscar_reserva_termina_en_inicio_para_amarillo,
-                )
-                reserva_termina_en_inicio = buscar_reserva_termina_en_inicio_para_amarillo(
-                    propiedad, fecha_inicio
-                )
-                if reserva_termina_en_inicio:
-                    propiedad.reserva_termina_en_inicio = reserva_termina_en_inicio
-# print(f"   ✅ DISPONIBLE: Sin reservas para mostrar en rojo")
 
-            # ✅ CÁLCULO POR NOCHES: Usar precio del día de SALIDA, EXCEPTO Año Nuevo
-            # Ejemplo: 29/12→30/12 usa precio del 29/12
-            #          30/12→31/12 usa precio del 30/12
-            #          31/12→01/01 usa precio del 01/01 (EXCEPCIÓN: Año Nuevo)
-            #          01/01→02/01 usa precio del 01/01
-                precio_total = 0
-                precio_mas_caro = 0
-# print('fecha de inicio',fecha_inicio)
-# print('fecha de fin',fecha_fin)
-                # Calcular noches de reserva
-                noches_reserva = (fecha_fin - fecha_inicio).days
+            propiedad.estado_reserva = 'disponible'
+            reserva_termina_en_inicio = buscar_reserva_termina_en_inicio_mem(
+                reservas_por_prop.get(propiedad.id, []),
+                fecha_inicio,
+                reserva_ids_con_recibo,
+            )
+            if reserva_termina_en_inicio:
+                propiedad.reserva_termina_en_inicio = reserva_termina_en_inicio
 
-# print(f"🔥 INICIANDO CÁLCULO para propiedad {propiedad.id} del {fecha_inicio} al {fecha_fin}")
-# print(f"🔥 Noches a calcular: {noches_reserva}")
-                
-                # Calcular noche por noche
-                for noche in range(noches_reserva):
-                    # Día de salida (el día actual de la noche)
-                    dia_salida = fecha_inicio + timedelta(noche)
-                    dia_llegada = fecha_inicio + timedelta(noche + 1)
-                    
-                    # ✅ EXCEPCIÓN: Año Nuevo (31/12 → 01/01) usa precio del 01/01
-                    if dia_salida.month == 12 and dia_salida.day == 31 and dia_llegada.month == 1 and dia_llegada.day == 1:
-                        dia_a_usar = dia_llegada  # Usar precio del 01/01
-                    else:
-                        dia_a_usar = dia_salida  # Usar precio del día de salida
-                    
-                    # Determinar el tipo de precio según el día a usar
-                    tipo_precio = None
-                    if dia_a_usar.month == 1:  # Enero
-                        tipo_precio = 'QUINCENA_1_ENERO' if dia_a_usar.day <= 15 else 'QUINCENA_2_ENERO'
-                    elif dia_a_usar.month == 2:  # Febrero
-                        tipo_precio = 'QUINCENA_1_FEBRERO' if dia_a_usar.day <= 15 else 'QUINCENA_2_FEBRERO'
-                    elif dia_a_usar.month == 3:  # Marzo
-                        tipo_precio = 'QUINCENA_1_MARZO' if dia_a_usar.day <= 15 else 'QUINCENA_2_MARZO'
-                    elif dia_a_usar.month == 7:  # Julio (Vacaciones de Invierno)
-                        tipo_precio = 'VACACIONES_INVIERNO'
-                    elif dia_a_usar.month == 12:  # Diciembre
-                        tipo_precio = 'QUINCENA_1_DICIEMBRE' if dia_a_usar.day <= 15 else 'QUINCENA_2_DICIEMBRE'
-                    else:
-                        tipo_precio = 'TEMPORADA_BAJA'
-
-                    # Obtener el precio por día para esta temporada
-                    try:
-                        precio_obj = Precio.objects.get(propiedad=propiedad, tipo_precio=tipo_precio)
-                        # Usar precio_por_dia directamente (ya incluye ajustes)
-                        precio_dia = precio_obj.precio_por_dia or 0
-                        
-                        # Aplicar ajuste porcentual si existe
-                        if precio_obj.ajuste_porcentaje != 0:
-                            precio_dia *= (1 - precio_obj.ajuste_porcentaje / 100)
-                        
-                        # Rastrear el día más caro
-                        if precio_dia > precio_mas_caro:
-                            precio_mas_caro = precio_dia
-                        
-                        precio_total += precio_dia
-# print(f"📅 Noche {noche+1} ({fecha_inicio + timedelta(noche)}→{dia_llegada.strftime('%d/%m')}): {tipo_precio} = ${precio_dia:,.0f} - Total: ${precio_total:,.0f}")
-                    except Precio.DoesNotExist:
-                        pass  # ✅ Bloque vacío
-# print(f"📅 Noche {noche+1}: {tipo_precio} = $0 (sin precio configurado)")
-
-                # ✅ AGREGAR DÍA DE COMISIÓN (día más caro)
-                precio_final_calculado = precio_total + precio_mas_caro
-# print(f"🔥 PRECIO FINAL: suma_noches=${precio_total}, dia_comision=${precio_mas_caro}, TOTAL=${precio_final_calculado}")
-                propiedad.precio_total_reserva = precio_final_calculado
-                
-                # ✅ Las fechas de disponibilidad ya fueron calculadas dinámicamente en el primer bucle
-                # No sobrescribir con las fechas de búsqueda
-                
-                # Agregar la propiedad disponible a la lista
-                propiedades_disponibles.append(propiedad)
+            precios_map = mapa_precios_propiedad(propiedad)
+            propiedad.precio_total_reserva = calcular_precio_total_reserva_fechas(
+                fecha_inicio, fecha_fin, precios_map
+            )
+            propiedades_disponibles.append(propiedad)
     
     # Alerta si hay propiedades sin precio
     alerta_sin_precio = len(propiedades_sin_precio) > 0
@@ -15456,6 +15275,15 @@ def buscar_propiedades(request):
 # print(f"   Propiedad {prop.id}: dias_libres_calculados = {prop.dias_libres_calculados} | Disponibilidad: {disponibilidad_info}")
         
         propiedades_disponibles.sort(key=lambda p: (p.dias_libres_calculados, p.id))
+
+        if propiedades_disponibles:
+            prefetch_related_objects(
+                propiedades_disponibles,
+                Prefetch(
+                    'imagenes',
+                    queryset=ImagenPropiedad.objects.order_by('orden'),
+                ),
+            )
         
 # print("🔧 DESPUÉS DEL ORDENAMIENTO:")
         for i, prop in enumerate(propiedades_disponibles, 1):
@@ -15516,7 +15344,7 @@ def buscar_propiedades(request):
         'fecha_inicio': fecha_inicio.strftime('%d/%m/%Y') if fecha_inicio else '',
         'fecha_fin': fecha_fin.strftime('%d/%m/%Y') if fecha_fin else '',
         'total_dias': total_dias_reserva,
-        'inquilinos': get_inquilinos_queryset_unificado(request),
+        'inquilinos': inquilinos,
         'vendedores': vendedores,
         'tipos_precio': TipoPrecio,
         'conceptos': conceptos,
