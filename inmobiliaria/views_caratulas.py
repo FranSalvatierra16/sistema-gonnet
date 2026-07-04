@@ -482,6 +482,22 @@ def _puede_ver_caratulas(user):
     return bool(getattr(user, 'is_superuser', False) or (nivel is not None and nivel >= 4))
 
 
+def _puede_imprimir_caratula(user):
+    """
+    Tras cobrar (recibo → carátula), cualquier vendedor operativo puede imprimir.
+    Consultar/editar el módulo de carátulas sigue en nivel 4+ (_puede_ver_caratulas).
+    """
+    if not user or not getattr(user, 'is_authenticated', False):
+        return False
+    if getattr(user, 'is_superuser', False):
+        return True
+    try:
+        nivel = int(getattr(user, 'nivel', 0) or 0)
+    except (TypeError, ValueError):
+        nivel = 0
+    return nivel >= 1
+
+
 def _puede_editar_caratula(user):
     """Edición de montos/estado en carátula (administración)."""
     return _puede_ver_caratulas(user)
@@ -2721,6 +2737,7 @@ def lista_caratulas(request):
                 'periodo_completo': periodo_completo,
                 'carpeta_default': _carpeta_default_actual(request),
                 'lista_filtros_qs': lista_filtros_qs,
+                'puede_imprimir_caratula': _puede_imprimir_caratula(request.user),
             },
         )
 
@@ -3001,6 +3018,7 @@ def lista_caratulas(request):
             'total_filas': total_filas,
             'lista_filtros_qs': lista_filtros_qs,
             'lista_ver_qs': lista_ver_qs,
+            'puede_imprimir_caratula': _puede_imprimir_caratula(request.user),
         },
     )
 
@@ -3090,6 +3108,7 @@ def caratula_reserva(request, reserva_id):
         'total_movimientos': total_mov,
         'saldo_reserva': saldo_reserva,
         'puede_editar_caratula': _puede_editar_caratula(request.user),
+        'puede_imprimir_caratula': _puede_imprimir_caratula(request.user),
         'reserva_estado_choices': Reserva._meta.get_field('estado').choices,
         'edit_montos': {
             'precio_total': format_monto_argentino(reserva.precio_total),
@@ -3312,6 +3331,7 @@ def caratula_contrato(request, contrato_id):
         'carpeta_actual': carpeta_actual,
         'carpeta_default': _carpeta_default_actual(request),
         'puede_editar_caratula': _puede_editar_caratula(request.user),
+        'puede_imprimir_caratula': _puede_imprimir_caratula(request.user),
         'edit_montos': {
             'precio_total': format_monto_argentino(total_contrato),
             'senia': format_monto_argentino(senia_display),
@@ -3336,7 +3356,9 @@ def caratula_contrato(request, contrato_id):
 
 @login_required
 def imprimir_caratula_reserva(request, reserva_id):
-    """Vista sólo impresión: formato papel tipo libro de alquileres (todos los vendedores)."""
+    """Vista sólo impresión: formato papel (vendedores operativos tras el recibo)."""
+    if not _puede_imprimir_caratula(request.user):
+        return HttpResponseForbidden('No tenés permiso para imprimir carátulas.')
     reserva = get_object_or_404(
         Reserva.objects.select_related(
             'cliente', 'propiedad', 'propiedad__propietario', 'vendedor', 'sucursal'
@@ -3416,6 +3438,8 @@ def imprimir_caratula_reserva(request, reserva_id):
 
 @login_required
 def imprimir_caratula_contrato(request, contrato_id):
+    if not _puede_imprimir_caratula(request.user):
+        return HttpResponseForbidden('No tenés permiso para imprimir carátulas.')
     contrato = get_object_or_404(
         ContratoAlquiler.objects.select_related(
             'propiedad', 'propiedad__propietario', 'inquilino', 'vendedor', 'sucursal'

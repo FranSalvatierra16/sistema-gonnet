@@ -9,7 +9,9 @@
 <div class="container py-3">
     <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
         <a href="{{ volver_lista_url }}" class="small text-decoration-none">&larr; Volver al listado</a>
+        {% if puede_imprimir_caratula %}
         <a href="{% url 'inmobiliaria:imprimir_caratula_reserva' reserva.id %}" class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener"><i class="fas fa-print me-1"></i>Imprimir carátula</a>
+        {% endif %}
         {% if puede_completar_pago and url_completar_pago %}
         <a href="{{ url_completar_pago }}" class="btn btn-sm btn-warning">
             <i class="fas fa-money-bill-wave me-1"></i>{{ etiqueta_completar_pago }}

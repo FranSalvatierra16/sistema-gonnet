@@ -11,6 +11,7 @@ ROL_COMISION_FICHAJE = 'fichaje'
 ROL_COMISION_OP_DIA = 'operacion_dia'
 ROL_COMISION_OP_INVIERNO = 'operacion_invierno'
 ROL_COMISION_OP_24 = 'operacion_24_meses'
+ROL_COMISION_REVERSION = 'reversion_anulacion'
 
 ROLES_COMISION_PRODUCTOR = (
     ROL_COMISION_GENERAL,
@@ -862,6 +863,56 @@ def _filtro_caratula_confirmada_comision():
     )
 
 
+def _marca_observacion_reversion_comision(comision_id):
+    return f'reversion_comision_id={comision_id}'
+
+
+def revertir_comisiones_operacion_anulada(*, reserva=None, contrato=None):
+    """
+    Al anular/cancelar una operación: cancela comisiones pendientes.
+    Si ya estaban acreditadas (confirmada/pagada), crea una línea negativa de devolución.
+    """
+    if not reserva and not contrato:
+        return 0
+
+    qs = ComisionVendedor.objects.exclude(estado='cancelada').exclude(
+        rol_comision=ROL_COMISION_REVERSION
+    )
+    if reserva is not None:
+        qs = qs.filter(reserva=reserva)
+    else:
+        qs = qs.filter(contrato=contrato)
+
+    creadas = 0
+    for comision in qs.select_related('vendedor'):
+        if comision.estado in ('confirmada', 'pagada'):
+            marca = _marca_observacion_reversion_comision(comision.pk)
+            if ComisionVendedor.objects.filter(observaciones=marca).exists():
+                ComisionVendedor.objects.filter(pk=comision.pk).update(estado='cancelada')
+                continue
+            monto = Decimal(str(comision.monto_comision or 0))
+            if monto != 0:
+                ref = (comision.concepto_operacion or '').strip() or 'comisión'
+                op_ref = f'reserva #{comision.reserva_id}' if comision.reserva_id else f'contrato #{comision.contrato_id}'
+                ComisionVendedor.objects.create(
+                    vendedor=comision.vendedor,
+                    reserva=comision.reserva,
+                    contrato=comision.contrato,
+                    movimiento_caja=None,
+                    monto_total_operacion=comision.monto_total_operacion,
+                    porcentaje_comision=comision.porcentaje_comision,
+                    monto_comision=(-monto).quantize(Decimal('0.01')),
+                    concepto_operacion=f'Devolución — anulación {op_ref} ({ref})'[:200],
+                    rol_comision=ROL_COMISION_REVERSION,
+                    fecha_operacion=timezone.now(),
+                    estado='confirmada',
+                    observaciones=marca,
+                )
+                creadas += 1
+        ComisionVendedor.objects.filter(pk=comision.pk).update(estado='cancelada')
+    return creadas
+
+
 class OperacionProductor(models.Model):
     """Productores asignados a una operación (reserva o contrato); puede haber varios."""
 
@@ -915,22 +966,30 @@ class ComisionVendedorQuerySet(models.QuerySet):
 
     def que_suman(self):
         """Comisiones acreditadas o pagadas (carátula confirmada al acreditar)."""
-        return (
-            self.filter(estado__in=('confirmada', 'pagada'))
-            .filter(_filtro_caratula_confirmada_comision())
-            .exclude(reserva__estado='cancelada')
-            .exclude(reserva__eliminada=True)
-            .exclude(contrato__estado='rescindido')
+        from django.db.models import Q
+
+        operaciones_vigentes = (
+            _filtro_caratula_confirmada_comision()
+            & ~Q(reserva__estado='cancelada')
+            & ~Q(reserva__eliminada=True)
+            & ~Q(contrato__estado='rescindido')
+        )
+        return self.filter(estado__in=('confirmada', 'pagada')).filter(
+            Q(rol_comision=ROL_COMISION_REVERSION) | operaciones_vigentes
         )
 
     def visibles_en_historial(self):
-        """Historial: solo operaciones con carátula confirmada (o sin vínculo reserva/contrato)."""
-        return (
-            self.filter(estado__in=('pendiente', 'confirmada', 'pagada'))
-            .filter(_filtro_caratula_confirmada_comision())
-            .exclude(reserva__estado='cancelada')
-            .exclude(reserva__eliminada=True)
-            .exclude(contrato__estado='rescindido')
+        """Historial: operaciones vigentes o devoluciones por anulación."""
+        from django.db.models import Q
+
+        operaciones_vigentes = (
+            _filtro_caratula_confirmada_comision()
+            & ~Q(reserva__estado='cancelada')
+            & ~Q(reserva__eliminada=True)
+            & ~Q(contrato__estado='rescindido')
+        )
+        return self.filter(estado__in=('pendiente', 'confirmada', 'pagada')).filter(
+            Q(rol_comision=ROL_COMISION_REVERSION) | operaciones_vigentes
         )
 
     def ordenadas_para_listado_historial(self):
@@ -1156,6 +1215,8 @@ class ComisionVendedor(models.Model):
         subtipo: primer | segundo | None
         """
         rol = self._rol_comision_normalizado()
+        if rol == ROL_COMISION_REVERSION:
+            return ('devolucion', None)
         if rol == ROL_COMISION_OP_DIA:
             return ('por_dia', None)
         if rol == ROL_COMISION_OP_INVIERNO:
@@ -1213,6 +1274,7 @@ class ComisionVendedor(models.Model):
             'por_fichaje': 'Por fichaje',
             'por_invierno': 'Por invierno',
             'por_24_meses': 'Por 24 meses',
+            'devolucion': 'Devolución',
             'operacion': 'Operación',
         }.get(cat, 'Operación')
 
@@ -1231,6 +1293,7 @@ class ComisionVendedor(models.Model):
             'por_fichaje': 'bg-info text-dark',
             'por_invierno': 'bg-secondary',
             'por_24_meses': 'bg-dark',
+            'devolucion': 'bg-danger',
             'operacion': 'bg-light text-dark border',
         }.get(cat, 'bg-secondary')
 
@@ -1249,6 +1312,8 @@ class ComisionVendedor(models.Model):
             return 'Comisión por invierno'
         if cat == 'por_24_meses':
             return 'Comisión por 24 meses'
+        if cat == 'devolucion':
+            return 'Devolución por anulación'
         return 'Comisión operación'
 
     def titulo_operacion_listado(self):

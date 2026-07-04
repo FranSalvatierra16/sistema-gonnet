@@ -833,9 +833,9 @@ class Reserva(models.Model):
             self.estado = 'cancelada'
             self.save()
 
-            # Anular comisiones de esta operación (no deben sumar en totales)
-            from .comision import ComisionVendedor
-            ComisionVendedor.objects.filter(reserva_id=self.pk).update(estado='cancelada')
+            # Anular comisiones de esta operación (devolución negativa si ya estaban acreditadas)
+            from .comision import revertir_comisiones_operacion_anulada
+            revertir_comisiones_operacion_anulada(reserva=self)
             
             # 2️⃣ Buscar disponibilidades adyacentes para posible fusión
             disponibilidades_adyacentes = Disponibilidad.objects.filter(

@@ -281,11 +281,7 @@ def _contexto_botones_recibo_contrato(request, contrato_id):
 
 
 def _contexto_botones_recibo_reserva(request, reserva_id):
-    """Botón para imprimir la carátula de la operación por día."""
-    from inmobiliaria.views_caratulas import _puede_ver_caratulas
-
-    if not _puede_ver_caratulas(request.user):
-        return {'muestra_siguiente_caratula': False}
+    """Botón para imprimir la carátula de la operación por día (tras el recibo)."""
     url_caratula = _url_imprimir_caratula_reserva(reserva_id, request)
     return {
         'url_siguiente': url_caratula,
@@ -19590,6 +19586,9 @@ def cancelar_contrato(request, contrato_id):
         contrato.fecha_cancelacion = timezone.now().date()
         contrato.motivo_cancelacion = motivo
         contrato.save()
+
+        from inmobiliaria.models.comision import revertir_comisiones_operacion_anulada
+        revertir_comisiones_operacion_anulada(contrato=contrato)
 
         # Alquiler de invierno (9 meses): poner la propiedad en disponible y limpiar historial
         if contrato.duracion_meses == 9 and hasattr(contrato.propiedad, 'info_invierno'):

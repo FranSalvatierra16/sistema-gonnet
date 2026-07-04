@@ -103,7 +103,11 @@
                                             <span class="text-primary">${{ comision.monto_total_operacion|format_price }}</span>
                                         </td>
                                         <td>
+                                            {% if comision.monto_comision < 0 %}
+                                            <strong class="text-danger">−${{ comision.monto_comision|abs|format_price }}</strong>
+                                            {% else %}
                                             <strong class="text-success">${{ comision.monto_comision|format_price }}</strong>
+                                            {% endif %}
                                             <br><small class="text-muted">{{ comision.porcentaje_comision }}%</small>
                                         </td>
                                         <td>
