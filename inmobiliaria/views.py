@@ -8037,18 +8037,14 @@ def buscar_propiedades_por_fechas(request):
                         fecha_fin__gt=fecha_desde
                     )
                     
-                    # Verificar si hay una reserva que termina exactamente en la fecha de inicio
-                    # IMPORTANTE: Buscar reservas que terminan el día ANTES del inicio de búsqueda
-                    # Si busco del 15 al 16, una reserva del 14 al 15 termina el 15, que es el día de inicio
-                    # SOLO si está en estado confirmada o confirmada_no_pagada (no pagadas)
-                    reserva_termina_en_inicio = propiedad.reservas.filter(
-                        eliminada=False,
-                        fecha_fin=fecha_desde,
-                        estado__in=['confirmada', 'confirmada_no_pagada', 'en_espera']
-                    ).exclude(
-                        # Excluir reservas que también empiezan en fecha_desde (esas están en el rango)
-                        fecha_inicio=fecha_desde
-                    ).first()
+                    # Amarillo: reserva (no operación) que termina el día de entrada de la búsqueda
+                    from inmobiliaria.caja_devolucion_deposito import (
+                        buscar_reserva_termina_en_inicio_para_amarillo,
+                    )
+
+                    reserva_termina_en_inicio = buscar_reserva_termina_en_inicio_para_amarillo(
+                        propiedad, fecha_desde
+                    )
                     
                     # Determinar el estado de la propiedad
                     estado_propiedad = 'disponible'
@@ -8349,16 +8345,13 @@ def buscar_propiedades_estudiantes(request):
                     if precio_val > filtro_precio_max:
                         continue
                 disp_prop = disponibilidades.filter(propiedad=propiedad)
-                from inmobiliaria.caja_devolucion_deposito import reserva_mostrar_como_reservada_sin_pagar
-                reserva_termina_en_inicio = None
-                for r in propiedad.reservas.filter(
-                    eliminada=False,
-                    fecha_fin=fecha_desde,
-                    es_alquiler_sindicato=False,
-                ).exclude(fecha_inicio=fecha_desde):
-                    if reserva_mostrar_como_reservada_sin_pagar(r):
-                        reserva_termina_en_inicio = r
-                        break
+                from inmobiliaria.caja_devolucion_deposito import (
+                    buscar_reserva_termina_en_inicio_para_amarillo,
+                    reserva_mostrar_como_reservada_sin_pagar,
+                )
+                reserva_termina_en_inicio = buscar_reserva_termina_en_inicio_para_amarillo(
+                    propiedad, fecha_desde
+                )
                 reserva_activa_rango = False
                 for r in propiedad.reservas.filter(
                     eliminada=False,
@@ -15286,19 +15279,13 @@ def buscar_propiedades(request):
                 # ✅ PROPIEDADES SIN RESERVAS - Calcular precios y agregar a lista
                 propiedad.estado_reserva = 'disponible'
                 
-                # Verificar si hay una reserva que termina exactamente en la fecha de inicio
-                # (para mostrar en amarillo) - solo sin seña cobrada
-                from inmobiliaria.caja_devolucion_deposito import reserva_mostrar_como_reservada_sin_pagar
-                reserva_termina_en_inicio = None
-                for r in propiedad.reservas.filter(
-                    eliminada=False,
-                    fecha_fin=fecha_inicio,
-                    es_alquiler_sindicato=False,
-                ).exclude(fecha_inicio=fecha_inicio):
-                    if reserva_mostrar_como_reservada_sin_pagar(r):
-                        reserva_termina_en_inicio = r
-                        break
-                
+                # Amarillo: reserva previa (sin operación) que termina el día de entrada
+                from inmobiliaria.caja_devolucion_deposito import (
+                    buscar_reserva_termina_en_inicio_para_amarillo,
+                )
+                reserva_termina_en_inicio = buscar_reserva_termina_en_inicio_para_amarillo(
+                    propiedad, fecha_inicio
+                )
                 if reserva_termina_en_inicio:
                     propiedad.reserva_termina_en_inicio = reserva_termina_en_inicio
 # print(f"   ✅ DISPONIBLE: Sin reservas para mostrar en rojo")
@@ -15372,21 +15359,6 @@ def buscar_propiedades(request):
                 
                 # ✅ Las fechas de disponibilidad ya fueron calculadas dinámicamente en el primer bucle
                 # No sobrescribir con las fechas de búsqueda
-                
-                # Verificar si hay una reserva que termina exactamente en la fecha de inicio
-                # (para mostrar en amarillo) - SOLO si está en estado confirmada o confirmada_no_pagada
-                if not hasattr(propiedad, 'reserva_termina_en_inicio'):
-                    reserva_termina_en_inicio = propiedad.reservas.filter(
-                        eliminada=False,
-                        fecha_fin=fecha_inicio,
-                        estado__in=['confirmada', 'confirmada_no_pagada', 'en_espera']
-                    ).exclude(
-                        # Excluir reservas que también empiezan en fecha_inicio (esas están en el rango)
-                        fecha_inicio=fecha_inicio
-                    ).first()
-                    
-                    if reserva_termina_en_inicio:
-                        propiedad.reserva_termina_en_inicio = reserva_termina_en_inicio
                 
                 # Agregar la propiedad disponible a la lista
                 propiedades_disponibles.append(propiedad)

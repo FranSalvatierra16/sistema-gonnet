@@ -546,6 +546,40 @@ def reserva_mostrar_como_reservada_sin_pagar(reserva) -> bool:
     )
 
 
+def reserva_para_amarillo_termina_en_inicio(reserva) -> bool:
+    """
+    Amarillo en búsqueda: entra un huésped el mismo día que sale otro, pero solo si lo anterior
+    es reserva sin operación (sin seña cobrada, recibo ni pagada). Si ya es operación, no amarillo.
+    """
+    if getattr(reserva, 'es_alquiler_sindicato', False):
+        return False
+    if reserva_ocupa_sin_ofrecer_en_busqueda(reserva):
+        return False
+    from inmobiliaria.models import Recibo
+
+    if Recibo.objects.filter(reserva_id=reserva.pk).exists():
+        return False
+    return (getattr(reserva, 'estado', None) or '').strip() in (
+        'confirmada_no_pagada',
+        'en_espera',
+        'confirmada',
+    )
+
+
+def buscar_reserva_termina_en_inicio_para_amarillo(propiedad, fecha_inicio):
+    """Reserva que cierra en fecha_inicio y debe pintar la fila en amarillo (no operación)."""
+    if not propiedad or not fecha_inicio:
+        return None
+    for reserva in propiedad.reservas.filter(
+        eliminada=False,
+        fecha_fin=fecha_inicio,
+        es_alquiler_sindicato=False,
+    ).exclude(fecha_inicio=fecha_inicio):
+        if reserva_para_amarillo_termina_en_inicio(reserva):
+            return reserva
+    return None
+
+
 def _cliente_es_marconi(reserva) -> bool:
     cliente = getattr(reserva, 'cliente', None)
     if not cliente:
