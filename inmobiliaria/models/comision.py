@@ -979,8 +979,9 @@ class ComisionVendedorQuerySet(models.QuerySet):
         )
 
     def visibles_en_historial(self):
-        """Historial: operaciones vigentes o devoluciones por anulación."""
-        from django.db.models import Q
+        """Historial: acreditaciones, devoluciones y créditos anulados (con su reversión)."""
+        from django.db.models import CharField, Exists, OuterRef, Q, Value
+        from django.db.models.functions import Cast, Concat
 
         operaciones_vigentes = (
             _filtro_caratula_confirmada_comision()
@@ -988,14 +989,27 @@ class ComisionVendedorQuerySet(models.QuerySet):
             & ~Q(reserva__eliminada=True)
             & ~Q(contrato__estado='rescindido')
         )
-        return self.filter(estado__in=('pendiente', 'confirmada', 'pagada')).filter(
-            Q(rol_comision=ROL_COMISION_REVERSION) | operaciones_vigentes
+        tuvo_devolucion = Exists(
+            self.model.objects.filter(
+                rol_comision=ROL_COMISION_REVERSION,
+                observaciones=Concat(
+                    Value('reversion_comision_id='),
+                    Cast(OuterRef('pk'), CharField()),
+                ),
+            )
+        )
+        return self.filter(
+            Q(
+                estado__in=('pendiente', 'confirmada', 'pagada'),
+            )
+            & (Q(rol_comision=ROL_COMISION_REVERSION) | operaciones_vigentes)
+            | Q(estado='cancelada') & tuvo_devolucion
         )
 
     def ordenadas_para_listado_historial(self):
         """
         Misma fecha de operación: primero línea de fichaje, luego por día / invierno / 24 / general,
-        para que en el listado queden «juntas» las comisiones del mismo pago.
+        devoluciones y créditos anulados al final del grupo.
         """
         from django.db.models import Case, IntegerField, When
 
@@ -1006,6 +1020,8 @@ class ComisionVendedorQuerySet(models.QuerySet):
                 When(rol_comision=ROL_COMISION_OP_INVIERNO, then=2),
                 When(rol_comision=ROL_COMISION_OP_24, then=3),
                 When(rol_comision=ROL_COMISION_GENERAL, then=4),
+                When(rol_comision=ROL_COMISION_REVERSION, then=90),
+                When(estado='cancelada', then=80),
                 default=9,
                 output_field=IntegerField(),
             )
@@ -1315,6 +1331,33 @@ class ComisionVendedor(models.Model):
         if cat == 'devolucion':
             return 'Devolución por anulación'
         return 'Comisión operación'
+
+    def label_estado_historial(self):
+        """Etiqueta legible en historial (acreditación, devolución o anulación)."""
+        if self._rol_comision_normalizado() == ROL_COMISION_REVERSION:
+            return 'Devolución'
+        if self.estado == 'cancelada':
+            return 'Acreditada · anulada'
+        if self.estado == 'confirmada':
+            return 'Confirmada'
+        if self.estado == 'pagada':
+            return 'Pagada'
+        if self.estado == 'pendiente':
+            return 'Pendiente'
+        return (self.estado or '—').title()
+
+    def clase_badge_estado_historial(self):
+        if self._rol_comision_normalizado() == ROL_COMISION_REVERSION:
+            return 'badge-danger'
+        if self.estado == 'cancelada':
+            return 'badge-secondary'
+        if self.estado == 'confirmada':
+            return 'badge-success'
+        if self.estado == 'pagada':
+            return 'badge-primary'
+        if self.estado == 'pendiente':
+            return 'badge-warning'
+        return 'badge-secondary'
 
     def titulo_operacion_listado(self):
         """Nombre de la operación para listados: Propietario - Inquilino."""

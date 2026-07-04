@@ -46,6 +46,9 @@
                             <li class="nav-item me-1 mb-1">
                                 <button type="button" class="nav-link rounded-pill px-3 py-2 comision-filtro-pill" data-cat="por_24_meses">24 meses</button>
                             </li>
+                            <li class="nav-item me-1 mb-1">
+                                <button type="button" class="nav-link rounded-pill px-3 py-2 comision-filtro-pill" data-cat="devolucion">Devoluciones</button>
+                            </li>
                         </ul>
                         <div class="table-responsive">
                             <table class="table table-striped table-hover cv-comisiones-tabla-comisiones">
@@ -111,15 +114,7 @@
                                             <br><small class="text-muted">{{ comision.porcentaje_comision }}%</small>
                                         </td>
                                         <td>
-                                            {% if comision.estado == 'confirmada' %}
-                                                <span class="badge badge-success">Confirmada</span>
-                                            {% elif comision.estado == 'pagada' %}
-                                                <span class="badge badge-primary">Pagada</span>
-                                            {% elif comision.estado == 'pendiente' %}
-                                                <span class="badge badge-warning">Pendiente</span>
-                                            {% else %}
-                                                <span class="badge badge-secondary">{{ comision.estado|title }}</span>
-                                            {% endif %}
+                                            <span class="badge {{ comision.clase_badge_estado_historial }}">{{ comision.label_estado_historial }}</span>
                                         </td>
                                         <td>
                                             <a href="{% url 'inmobiliaria:detalle_comision' comision.id %}"
