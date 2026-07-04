@@ -158,7 +158,9 @@
                         {% endif %}
                     </td>
                     <td class="small">
-                        {% if f.estado == 'Rescindido' %}
+                        {% if f.eliminada %}
+                        <span class="badge bg-secondary">Eliminada</span>
+                        {% elif f.estado == 'Rescindido' %}
                         <span class="badge bg-danger">Rescindido</span>
                         {% elif f.estado_operacion_caratula == 'confirmada' %}
                         <span class="badge bg-success">Confirmada</span>

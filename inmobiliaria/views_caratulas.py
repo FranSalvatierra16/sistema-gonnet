@@ -9,6 +9,7 @@ from urllib.parse import urlencode
 
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
+from django.db import transaction
 from django.db.models import Prefetch, Q
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
@@ -506,27 +507,104 @@ def _puede_editar_caratula(user):
 def _ctx_estado_operacion_caratula(reserva=None, contrato=None, user=None):
     """Estado administrativo pendiente/confirmada de la carátula (no comisiones)."""
     obj = reserva or contrato
+    if reserva and (getattr(reserva, 'eliminada', False) or getattr(reserva, 'estado', None) == 'cancelada'):
+        return {
+            'estado_operacion_caratula': 'eliminada',
+            'operacion_caratula_confirmada': False,
+            'operacion_rescindida': False,
+            'operacion_eliminada': True,
+            'operacion_caratula_label': 'Eliminada',
+            'operacion_caratula_badge_class': 'bg-secondary',
+            'puede_confirmar_operacion_caratula': False,
+            'puede_anular_operacion_caratula': False,
+        }
     if getattr(obj, 'estado', None) == 'rescindido':
         return {
             'estado_operacion_caratula': 'rescindida',
             'operacion_caratula_confirmada': False,
             'operacion_rescindida': True,
+            'operacion_eliminada': False,
             'operacion_caratula_label': 'Rescindido',
             'operacion_caratula_badge_class': 'bg-danger',
             'puede_confirmar_operacion_caratula': False,
+            'puede_anular_operacion_caratula': False,
         }
     estado = getattr(obj, 'estado_confirmacion_caratula', None) or 'pendiente'
     confirmada = estado == 'confirmada'
+    puede_anular = bool(
+        reserva is not None
+        and user is not None
+        and _puede_anular_operacion_reserva_caratula(reserva, user)
+    )
     return {
         'estado_operacion_caratula': estado,
         'operacion_caratula_confirmada': confirmada,
         'operacion_rescindida': False,
+        'operacion_eliminada': False,
         'operacion_caratula_label': 'Confirmada' if confirmada else 'Pendiente',
         'operacion_caratula_badge_class': 'bg-success' if confirmada else 'bg-warning text-dark',
         'puede_confirmar_operacion_caratula': bool(
             not confirmada and user is not None and _puede_editar_caratula(user)
         ),
+        'puede_anular_operacion_caratula': puede_anular,
     }
+
+
+def _puede_anular_operacion_reserva_caratula(reserva, user):
+    """Anular operación por día desde carátula (administración)."""
+    if not reserva or not _puede_editar_caratula(user):
+        return False
+    if getattr(reserva, 'eliminada', False) or getattr(reserva, 'estado', None) == 'cancelada':
+        return False
+    from inmobiliaria.models.comision import clasificar_tipo_operacion_reserva
+
+    if clasificar_tipo_operacion_reserva(reserva) != 'dia':
+        return False
+    if LiquidacionPropietario.objects.filter(reserva=reserva).exclude(estado='cancelada').exists():
+        return False
+    return True
+
+
+def _procesar_anular_operacion_reserva_caratula(request, reserva):
+    from django.contrib import messages
+
+    if not _puede_anular_operacion_reserva_caratula(reserva, request.user):
+        messages.error(request, 'No se puede anular esta operación.')
+        return False
+    motivo = (request.POST.get('motivo_anulacion') or '').strip()
+    if not motivo:
+        messages.error(request, 'Indicá el motivo de la anulación.')
+        return False
+    try:
+        with transaction.atomic():
+            reserva.cancelar_reserva()
+            reserva.refresh_from_db()
+            reserva.eliminada = True
+            reserva.fecha_eliminacion = timezone.now()
+            reserva.usuario_eliminacion = request.user
+            reserva.save(
+                update_fields=[
+                    'eliminada',
+                    'fecha_eliminacion',
+                    'usuario_eliminacion',
+                ]
+            )
+        logger.info(
+            'Reserva %s anulada desde carátula por usuario %s. Motivo: %s',
+            reserva.pk,
+            getattr(request.user, 'pk', None),
+            motivo,
+        )
+        messages.success(
+            request,
+            'Operación anulada. Las fechas vuelven a estar disponibles; '
+            'las comisiones acreditadas se revirtieron en el listado del productor.',
+        )
+        return True
+    except Exception as exc:
+        logger.exception('Error al anular operación %s desde carátula', reserva.pk)
+        messages.error(request, f'Error al anular la operación: {exc}')
+        return False
 
 
 def _procesar_confirmar_operacion_caratula(request, reserva=None, contrato=None):
@@ -833,6 +911,9 @@ def _guardar_caratula_reserva(request, reserva):
 
     if not _puede_editar_caratula(request.user):
         messages.error(request, 'No tenés permiso para editar esta carátula.')
+        return False
+    if getattr(reserva, 'eliminada', False) or getattr(reserva, 'estado', None) == 'cancelada':
+        messages.error(request, 'No se puede editar una operación eliminada.')
         return False
 
     try:
@@ -2747,7 +2828,7 @@ def lista_caratulas(request):
     )
 
     reservas = queryset_reservas_con_operacion(
-        Reserva.objects.filter(sucursal=sucursal, eliminada=False)
+        Reserva.objects.filter(sucursal=sucursal)
         .select_related('cliente', 'propiedad', 'propiedad__propietario', 'vendedor')
         .order_by('-fecha_creacion', '-id')
     )
@@ -2912,7 +2993,12 @@ def lista_caratulas(request):
                 'direccion': p.direccion if p else '—',
                 'piso_dto': piso_dto,
                 'ficha': p.id if p else '—',
-                'estado': r.get_estado_display() if hasattr(r, 'get_estado_display') else r.estado,
+                'estado': (
+                    'Eliminada'
+                    if r.eliminada
+                    else (r.get_estado_display() if hasattr(r, 'get_estado_display') else r.estado)
+                ),
+                'eliminada': bool(r.eliminada),
                 'carpeta': '—',
                 'tiene_liquidacion': tiene_liquidacion,
                 'liquidacion_id': liquidacion_id,
@@ -3051,6 +3137,11 @@ def caratula_reserva(request, reserva_id):
     if request.method == 'POST' and request.POST.get('action') == 'confirmar_operacion_caratula':
         _procesar_confirmar_operacion_caratula(request, reserva=reserva)
         return _redirect_caratula_con_filtros('inmobiliaria:caratula_reserva', reserva_id, request)
+
+    if request.method == 'POST' and request.POST.get('action') == 'anular_operacion_caratula':
+        if _procesar_anular_operacion_reserva_caratula(request, reserva):
+            return _redirect_caratula_con_filtros('inmobiliaria:caratula_reserva', reserva_id, request)
+        reserva.refresh_from_db()
 
     if request.method == 'POST' and request.POST.get('action') in (
         'agregar_productor_caratula',
