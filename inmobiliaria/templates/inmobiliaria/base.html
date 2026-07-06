@@ -132,8 +132,7 @@
                     {% endif %}
                     <div class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="utilidadesDropdown" role="button" 
-                           data-bs-toggle="dropdown" aria-expanded="false" 
-                           onclick="console.log('Click en botón Utilidades - Timestamp:', new Date().toISOString())">
+                           data-bs-toggle="dropdown" aria-expanded="false">
                             Utilidades
                         </a>
                         <ul class="dropdown-menu" aria-labelledby="utilidadesDropdown">
@@ -211,20 +210,16 @@
     </script>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Inicializar todos los dropdowns
-        var dropdownElementList = [].slice.call(document.querySelectorAll('.dropdown-toggle'));
-        var dropdownList = dropdownElementList.map(function(dropdownToggleEl) {
-            return new bootstrap.Dropdown(dropdownToggleEl);
-        });
-
-        // Agregar logging para debugging
-        document.querySelector('#utilidadesDropdown').addEventListener('show.bs.dropdown', function () {
-            console.log('Dropdown Utilidades abriéndose');
-        });
-
-        document.querySelector('#utilidadesDropdown').addEventListener('shown.bs.dropdown', function () {
-            console.log('Dropdown Utilidades abierto');
-        });
+        // Los dropdowns usan data-bs-toggle del HTML; no instanciar de nuevo (evita doble toggle).
+        var utilidades = document.querySelector('#utilidadesDropdown');
+        if (utilidades) {
+            utilidades.addEventListener('show.bs.dropdown', function () {
+                console.log('Dropdown Utilidades abriéndose');
+            });
+            utilidades.addEventListener('shown.bs.dropdown', function () {
+                console.log('Dropdown Utilidades abierto');
+            });
+        }
     });
     </script>
     {% endblock %}

@@ -19,6 +19,15 @@
         width: 100% !important;
         overflow-x: hidden !important;
     }
+
+    /* Navbar por encima del buscador full-width (dropdown Utilidades clickeable) */
+    .navbar {
+        position: relative !important;
+        z-index: 1100 !important;
+    }
+    .navbar .dropdown-menu {
+        z-index: 1101 !important;
+    }
     
     html {
         margin: 0 !important;
@@ -5146,13 +5155,7 @@ function guardarTodosLosPreciosYCerrar() {
 {% endblock content %}
 
 {% block extra_js %}
-<!-- Incluir jQuery -->
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-
-<!-- Incluir Bootstrap JS -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-
-<!-- Incluir SweetAlert2 -->
+<!-- SweetAlert2 (Bootstrap y jQuery ya vienen de base.html) -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
