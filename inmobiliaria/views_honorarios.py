@@ -121,7 +121,7 @@ def _fila_comisiones_locador_locatario(base, f_entrada, monto_locador, monto_loc
     """Una sola fila con comisión locador y locatario de la misma operación."""
     monto_loc = Decimal(str(monto_locador or 0)).quantize(Decimal('0.01'))
     monto_locat = Decimal(str(monto_locatario or 0)).quantize(Decimal('0.01'))
-    if monto_loc <= Decimal('0.01') and monto_locat <= Decimal('0.01'):
+    if abs(monto_loc) <= Decimal('0.01') and abs(monto_locat) <= Decimal('0.01'):
         return None
     return {
         **base,
@@ -164,7 +164,7 @@ def _filas_honorarios_desde_caratulas_confirmadas(
     qs = ContratoAlquiler.objects.filter(
         sucursal=sucursal,
         estado_confirmacion_caratula='confirmada',
-    ).select_related('propiedad', 'propiedad__propietario', 'inquilino')
+    ).exclude(estado='rescindido').select_related('propiedad', 'propiedad__propietario', 'inquilino')
 
     if fecha_desde:
         qs = qs.filter(fecha_inicio__gte=fecha_desde)
@@ -226,19 +226,151 @@ def _filas_honorarios_desde_caratulas_confirmadas(
     return filas
 
 
+def _fecha_reversion_honorarios(liq, when_dt=None):
+    """Fecha del asiento negativo por anulación."""
+    if when_dt is not None:
+        if timezone.is_aware(when_dt):
+            return timezone.localtime(when_dt).date()
+        if hasattr(when_dt, 'date'):
+            return when_dt.date()
+        return when_dt
+    if liq.fecha_procesamiento:
+        fc = liq.fecha_procesamiento
+        return timezone.localtime(fc).date() if timezone.is_aware(fc) else fc.date()
+    return _fecha_liquidacion(liq)
+
+
+def _operacion_anulada_desde_liquidacion(liq):
+    """True si la operación vinculada fue anulada o la liquidación quedó cancelada."""
+    reserva = getattr(liq, 'reserva', None) or reserva_desde_liquidacion(liq)
+    if reserva is not None:
+        if getattr(reserva, 'eliminada', False):
+            return True, getattr(reserva, 'fecha_eliminacion', None)
+        if (getattr(reserva, 'estado', None) or '').strip() == 'cancelada':
+            return True, getattr(reserva, 'fecha_eliminacion', None)
+    contrato = getattr(liq, 'contrato', None) or contrato_desde_liquidacion(liq)
+    if contrato is not None and (getattr(contrato, 'estado', None) or '').strip() == 'rescindido':
+        return True, None
+    if getattr(liq, 'estado', None) == 'cancelada':
+        return True, liq.fecha_procesamiento
+    return False, None
+
+
+def _incluir_liquidacion_honorarios_positivos(liq):
+    """Ingresos históricos: carátula confirmada vigente, liquidación cancelada u operación ya anulada."""
+    if getattr(liq, 'estado', None) == 'cancelada':
+        return True
+    anulada, _ = _operacion_anulada_desde_liquidacion(liq)
+    if anulada:
+        return True
+    return _liquidacion_caratula_confirmada(liq)
+
+
+def _filas_reversion_honorarios_liquidacion(liq, base):
+    """Asientos negativos al anular operación con carátula confirmada."""
+    anulada, when_dt = _operacion_anulada_desde_liquidacion(liq)
+    if not anulada:
+        return []
+
+    fecha_rev = _fecha_reversion_honorarios(liq, when_dt)
+    filas = []
+    nota = 'Anulación operación'
+
+    monto_inm = Decimal(str(liq.monto_inmobiliaria or 0))
+    if monto_inm > Decimal('0.01'):
+        filas.append({
+            **base,
+            'tipo': 'comision',
+            'tipo_display': 'Comisión inmobiliaria (anulación)',
+            'fecha': fecha_rev,
+            'monto': (-monto_inm).quantize(Decimal('0.01')),
+            'nota': nota,
+            'es_reversion': True,
+        })
+
+    f_entrada = _fecha_entrada_liquidacion(liq)
+    monto_coch = Decimal(str(liq.monto_cochera or 0))
+    if monto_coch > Decimal('0.01'):
+        filas.append({
+            **base,
+            'tipo': 'cochera',
+            'tipo_display': 'Cochera (anulación)',
+            'fecha': fecha_rev,
+            'monto': (-monto_coch).quantize(Decimal('0.01')),
+            'nota': nota,
+            'es_reversion': True,
+        })
+
+    monto_fondo = Decimal(str(liq.monto_fondo_mantenimiento or 0))
+    if monto_fondo > Decimal('0.01'):
+        filas.append({
+            **base,
+            'tipo': 'fondo',
+            'tipo_display': 'Fondo de mantenimiento (anulación)',
+            'fecha': fecha_rev,
+            'monto': (-monto_fondo).quantize(Decimal('0.01')),
+            'nota': nota,
+            'es_reversion': True,
+        })
+
+    monto_com_loc = Decimal(str(liq.comision_locador or 0))
+    monto_com_locat = Decimal(str(liq.comision_locatario or 0))
+    fila = _fila_comisiones_locador_locatario(
+        {
+            **base,
+            'tipo_display': 'Comisiones locador / locatario (anulación)',
+            'nota': nota,
+            'es_reversion': True,
+        },
+        fecha_rev,
+        -monto_com_loc if monto_com_loc > Decimal('0.01') else Decimal('0'),
+        -monto_com_locat if monto_com_locat > Decimal('0.01') else Decimal('0'),
+    )
+    if fila and (monto_com_loc > Decimal('0.01') or monto_com_locat > Decimal('0.01')):
+        filas.append(fila)
+
+    return filas
+
+
+def _caratula_confirmada_vigente_reserva(reserva):
+    if not reserva:
+        return False
+    if getattr(reserva, 'eliminada', False):
+        return False
+    if (getattr(reserva, 'estado', None) or '').strip() == 'cancelada':
+        return False
+    return (getattr(reserva, 'estado_confirmacion_caratula', None) or 'pendiente') == 'confirmada'
+
+
+def _caratula_confirmada_vigente_contrato(contrato):
+    if not contrato:
+        return False
+    if (getattr(contrato, 'estado', None) or '').strip() == 'rescindido':
+        return False
+    return (getattr(contrato, 'estado_confirmacion_caratula', None) or 'pendiente') == 'confirmada'
+
+
 def _estado_confirmacion_operacion_liquidacion(liq):
     """Estado de carátula de la reserva o contrato vinculado a la liquidación."""
     reserva = getattr(liq, 'reserva', None)
     if reserva is not None:
+        if not _caratula_confirmada_vigente_reserva(reserva):
+            return 'pendiente'
         return getattr(reserva, 'estado_confirmacion_caratula', None) or 'pendiente'
     contrato = getattr(liq, 'contrato', None)
     if contrato is not None:
+        if not _caratula_confirmada_vigente_contrato(contrato):
+            return 'pendiente'
         return getattr(contrato, 'estado_confirmacion_caratula', None) or 'pendiente'
     reserva = reserva_desde_liquidacion(liq)
     if reserva is not None:
+        if not _caratula_confirmada_vigente_reserva(reserva):
+            return 'pendiente'
         return getattr(reserva, 'estado_confirmacion_caratula', None) or 'pendiente'
     contrato = contrato_desde_liquidacion(liq)
     if contrato is not None:
+        if not _caratula_confirmada_vigente_contrato(contrato):
+            return 'pendiente'
         return getattr(contrato, 'estado_confirmacion_caratula', None) or 'pendiente'
     return None
 
@@ -252,8 +384,6 @@ def _liquidacion_caratula_confirmada(liq):
 def _filas_honorarios_desde_liquidaciones(liquidaciones):
     filas = []
     for liq in liquidaciones:
-        if not _liquidacion_caratula_confirmada(liq):
-            continue
         prop = liq.propiedad
         prop_txt = _propiedad_txt(prop)
         op_kind, op_pk = _referencia_operacion_liquidacion(liq)
@@ -278,45 +408,48 @@ def _filas_honorarios_desde_liquidaciones(liquidaciones):
             'estado_liq': liq.get_estado_display(),
         }
 
-        monto_inm = Decimal(str(liq.monto_inmobiliaria or 0))
-        if monto_inm > Decimal('0.01'):
-            filas.append({
-                **base,
-                'tipo': 'comision',
-                'tipo_display': 'Comisión inmobiliaria',
-                'fecha': _fecha_liquidacion(liq),
-                'monto': monto_inm,
-                'nota': 'Al liquidar',
-            })
+        if _incluir_liquidacion_honorarios_positivos(liq):
+            monto_inm = Decimal(str(liq.monto_inmobiliaria or 0))
+            if monto_inm > Decimal('0.01'):
+                filas.append({
+                    **base,
+                    'tipo': 'comision',
+                    'tipo_display': 'Comisión inmobiliaria',
+                    'fecha': _fecha_liquidacion(liq),
+                    'monto': monto_inm,
+                    'nota': 'Al liquidar',
+                })
 
-        f_entrada = _fecha_entrada_liquidacion(liq)
-        monto_coch = Decimal(str(liq.monto_cochera or 0))
-        if monto_coch > Decimal('0.01'):
-            filas.append({
-                **base,
-                'tipo': 'cochera',
-                'tipo_display': 'Cochera',
-                'fecha': f_entrada,
-                'monto': monto_coch,
-                'nota': 'Día de entrada',
-            })
+            f_entrada = _fecha_entrada_liquidacion(liq)
+            monto_coch = Decimal(str(liq.monto_cochera or 0))
+            if monto_coch > Decimal('0.01'):
+                filas.append({
+                    **base,
+                    'tipo': 'cochera',
+                    'tipo_display': 'Cochera',
+                    'fecha': f_entrada,
+                    'monto': monto_coch,
+                    'nota': 'Día de entrada',
+                })
 
-        monto_fondo = Decimal(str(liq.monto_fondo_mantenimiento or 0))
-        if monto_fondo > Decimal('0.01'):
-            filas.append({
-                **base,
-                'tipo': 'fondo',
-                'tipo_display': 'Fondo de mantenimiento',
-                'fecha': f_entrada,
-                'monto': monto_fondo,
-                'nota': 'Día de entrada',
-            })
+            monto_fondo = Decimal(str(liq.monto_fondo_mantenimiento or 0))
+            if monto_fondo > Decimal('0.01'):
+                filas.append({
+                    **base,
+                    'tipo': 'fondo',
+                    'tipo_display': 'Fondo de mantenimiento',
+                    'fecha': f_entrada,
+                    'monto': monto_fondo,
+                    'nota': 'Día de entrada',
+                })
 
-        monto_com_loc = Decimal(str(liq.comision_locador or 0))
-        monto_com_locat = Decimal(str(liq.comision_locatario or 0))
-        fila = _fila_comisiones_locador_locatario(base, f_entrada, monto_com_loc, monto_com_locat)
-        if fila:
-            filas.append(fila)
+            monto_com_loc = Decimal(str(liq.comision_locador or 0))
+            monto_com_locat = Decimal(str(liq.comision_locatario or 0))
+            fila = _fila_comisiones_locador_locatario(base, f_entrada, monto_com_loc, monto_com_locat)
+            if fila:
+                filas.append(fila)
+
+        filas.extend(_filas_reversion_honorarios_liquidacion(liq, base))
 
     return filas
 
@@ -380,7 +513,6 @@ def honorarios_oficina(request):
 
     qs = (
         LiquidacionPropietario.objects.filter(sucursal=request.user.sucursal)
-        .exclude(estado='cancelada')
         .select_related('propietario', 'propiedad', 'reserva', 'contrato')
         .order_by('-fecha_creacion')
     )
@@ -393,16 +525,46 @@ def honorarios_oficina(request):
             | Q(id__icontains=busqueda)
         )
 
-    # Traer liquidaciones que puedan aportar filas en el rango (creación o entrada)
+    # Traer liquidaciones que puedan aportar filas en el rango (ingreso o reversión por anulación)
     qs = qs.filter(
         Q(fecha_creacion__date__gte=fecha_desde, fecha_creacion__date__lte=fecha_hasta)
         | Q(fecha_desde__gte=fecha_desde, fecha_desde__lte=fecha_hasta)
         | Q(reserva__fecha_inicio__gte=fecha_desde, reserva__fecha_inicio__lte=fecha_hasta)
         | Q(contrato__fecha_inicio__gte=fecha_desde, contrato__fecha_inicio__lte=fecha_hasta)
+        | Q(
+            fecha_procesamiento__date__gte=fecha_desde,
+            fecha_procesamiento__date__lte=fecha_hasta,
+            estado='cancelada',
+        )
+        | Q(
+            reserva__fecha_eliminacion__date__gte=fecha_desde,
+            reserva__fecha_eliminacion__date__lte=fecha_hasta,
+        )
     ).distinct()
 
     filas_liq = _filtrar_filas_por_fecha(_filas_honorarios_desde_liquidaciones(qs), fecha_desde, fecha_hasta)
     cubiertos_comisiones = _keys_comisiones_contrato_cubiertas(filas_liq)
+
+    from inmobiliaria.honorarios_anulacion import (
+        filas_honorarios_reserva_anulada_legacy,
+        ids_reservas_cubiertas_por_liquidaciones,
+        queryset_reservas_anuladas_legacy,
+    )
+
+    reservas_cubiertas = ids_reservas_cubiertas_por_liquidaciones(qs)
+    filas_legacy = []
+    for reserva in queryset_reservas_anuladas_legacy(
+        request.user.sucursal, fecha_desde, fecha_hasta, busqueda=busqueda
+    ):
+        if reserva.id in reservas_cubiertas:
+            continue
+        filas_legacy.extend(
+            filas_honorarios_reserva_anulada_legacy(
+                reserva, _propiedad_txt, _fila_comisiones_locador_locatario
+            )
+        )
+    filas_legacy = _filtrar_filas_por_fecha(filas_legacy, fecha_desde, fecha_hasta)
+
     filas_car = _filas_honorarios_desde_caratulas_confirmadas(
         request.user.sucursal,
         fecha_desde,
@@ -410,20 +572,20 @@ def honorarios_oficina(request):
         cubiertos_comisiones,
         busqueda=busqueda,
     )
-    filas = _filtrar_filas_por_fecha(filas_liq + filas_car, fecha_desde, fecha_hasta)
+    filas = _filtrar_filas_por_fecha(filas_liq + filas_car + filas_legacy, fecha_desde, fecha_hasta)
     filas = _filtrar_filas_por_operacion(filas, operacion_filtro)
 
     if tipo_filtro == 'comision_locador':
         filas = [
             f for f in filas
             if f.get('tipo') == 'comisiones_locador_locatario'
-            and (f.get('monto_locador') or Decimal('0')) > Decimal('0.01')
+            and abs(f.get('monto_locador') or Decimal('0')) > Decimal('0.01')
         ]
     elif tipo_filtro == 'comision_locatario':
         filas = [
             f for f in filas
             if f.get('tipo') == 'comisiones_locador_locatario'
-            and (f.get('monto_locatario') or Decimal('0')) > Decimal('0.01')
+            and abs(f.get('monto_locatario') or Decimal('0')) > Decimal('0.01')
         ]
     elif tipo_filtro in ('comision', 'cochera', 'fondo'):
         filas = [f for f in filas if f['tipo'] == tipo_filtro]

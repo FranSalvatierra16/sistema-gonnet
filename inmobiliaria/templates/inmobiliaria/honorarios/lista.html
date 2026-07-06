@@ -14,6 +14,7 @@
                 Cochera, fondo, comisión locador y comisión locatario ingresan el <strong>día de entrada</strong> del departamento.
                 La comisión del productor se acredita también el día de entrada.
                 Solo se listan operaciones con carátula <strong>confirmada</strong>.
+                Si se anula una operación, el ingreso original se mantiene y figura una fila en <strong>rojo</strong> restando el mismo importe.
                 Las comisiones locador/locatario figuran aunque la liquidación al propietario siga pendiente.
             </p>
 
@@ -106,10 +107,12 @@
                         </thead>
                         <tbody>
                             {% for f in filas %}
-                            <tr>
+                            <tr{% if f.es_reversion %} class="table-danger"{% endif %}>
                                 <td class="text-nowrap">{{ f.fecha|date:"d/m/Y" }}</td>
                                 <td>
-                                    {% if f.tipo == 'comisiones_locador_locatario' %}
+                                    {% if f.es_reversion %}
+                                    <span class="badge bg-danger">{{ f.tipo_display }}</span>
+                                    {% elif f.tipo == 'comisiones_locador_locatario' %}
                                     <span class="badge bg-success">{{ f.tipo_display }}</span>
                                     {% elif f.tipo == 'comision' %}
                                     <span class="badge bg-success">{{ f.tipo_display }}</span>
@@ -145,9 +148,9 @@
                                     {% if f.tipo == 'comisiones_locador_locatario' %}
                                     <div class="small text-muted">Loc. ${{ f.monto_locador|format_price }}</div>
                                     <div class="small text-muted">Locat. ${{ f.monto_locatario|format_price }}</div>
-                                    <div class="fw-semibold">${{ f.monto|format_price }}</div>
+                                    <div class="fw-semibold{% if f.es_reversion %} text-danger{% endif %}">${{ f.monto|format_price }}</div>
                                     {% else %}
-                                    <span class="fw-semibold">${{ f.monto|format_price }}</span>
+                                    <span class="fw-semibold{% if f.es_reversion or f.monto < 0 %} text-danger{% endif %}">${{ f.monto|format_price }}</span>
                                     {% endif %}
                                 </td>
                                 <td class="text-center small text-muted">{{ f.nota }}</td>
