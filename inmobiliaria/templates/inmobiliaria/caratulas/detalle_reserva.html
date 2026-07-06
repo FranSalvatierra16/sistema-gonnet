@@ -64,7 +64,7 @@
                     <div class="card-header py-2 small d-flex flex-wrap justify-content-between align-items-center gap-2">
                         <strong>Comisiones vendedor</strong>
                         {% if puede_editar_caratula %}
-                        <span class="text-muted fw-normal">Fecha de acreditación editable para el productor</span>
+                        <span class="text-muted fw-normal">Fechas de acreditación y devolución editables</span>
                         {% endif %}
                     </div>
                     <div class="card-body p-0">
@@ -84,10 +84,17 @@
                                 <tbody>
                                     {% for c in comisiones %}
                                     <tr>
-                                        <td class="text-nowrap">{% include "inmobiliaria/comisiones/_comisiones_badges_tipo_inline.html" with comision=c %}</td>
+                                        <td class="text-nowrap">
+                                            {% include "inmobiliaria/comisiones/_comisiones_badges_tipo_inline.html" with comision=c %}
+                                            {% if c.estado == 'cancelada' and c.rol_comision != 'reversion_anulacion' %}
+                                            <span class="badge {{ c.clase_badge_estado_historial }}">{{ c.label_estado_historial }}</span>
+                                            {% endif %}
+                                        </td>
                                         <td>{% if c.vendedor %}{{ c.vendedor.apellido }}, {{ c.vendedor.nombre }}{% else %}—{% endif %}</td>
                                         <td class="text-nowrap">
                                             {% if c.rol_comision == 'fichaje' %}
+                                            <span class="text-muted">—</span>
+                                            {% elif c.rol_comision == 'reversion_anulacion' %}
                                             <span class="text-muted">—</span>
                                             {% elif c.id_fecha_acreditacion %}
                                             {% if puede_editar_caratula %}

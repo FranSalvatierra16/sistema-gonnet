@@ -821,7 +821,7 @@ def _enriquecer_comisiones_fechas_caratula(comisiones, comisiones_por_id=None):
             orig = por_id.get(orig_id) if orig_id else None
             c.fecha_acreditacion_caratula = orig.fecha_operacion if orig else None
             c.fecha_devolucion_caratula = c.fecha_operacion
-            c.id_fecha_acreditacion = orig_id
+            c.id_fecha_acreditacion = None
             c.id_fecha_devolucion = c.id
         else:
             c.fecha_acreditacion_caratula = c.fecha_operacion
@@ -841,9 +841,17 @@ def _comisiones_visibles_caratula_reserva(reserva):
         .order_by('id')
     )
     visibles = []
+    originales_con_reversion = set()
+    for c in todas:
+        if c._rol_comision_normalizado() == ROL_COMISION_REVERSION:
+            orig_id = _comision_original_id_desde_reversion(c)
+            if orig_id:
+                originales_con_reversion.add(orig_id)
     for c in todas:
         rol = c._rol_comision_normalizado()
         if rol == ROL_COMISION_REVERSION:
+            visibles.append(c)
+        elif c.estado == 'cancelada' and c.id in originales_con_reversion:
             visibles.append(c)
         elif c.estado != 'cancelada':
             visibles.append(c)
