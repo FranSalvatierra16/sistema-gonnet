@@ -247,6 +247,40 @@ class ContratoAlquiler(models.Model):
         self.propiedad.info_meses.estado = 'disponible'
         self.propiedad.info_meses.save()
 
+    def esta_vencido(self, hoy=None):
+        hoy = hoy or timezone.localdate()
+        return bool(self.fecha_fin and self.fecha_fin < hoy)
+
+    def finalizar_si_vencido(self, hoy=None):
+        """Pasa a finalizado cuando ya pasó la fecha de fin (no rescindido)."""
+        hoy = hoy or timezone.localdate()
+        if self.estado in ('reservado', 'activo') and self.esta_vencido(hoy):
+            self.estado = 'finalizado'
+            self.save(update_fields=['estado'])
+            return True
+        return False
+
+    @classmethod
+    def finalizar_vencidos(cls, *, propiedad=None, inquilino=None, sucursal=None, hoy=None):
+        hoy = hoy or timezone.localdate()
+        qs = cls.objects.filter(estado__in=['reservado', 'activo'], fecha_fin__lt=hoy)
+        if propiedad is not None:
+            qs = qs.filter(propiedad=propiedad)
+        if inquilino is not None:
+            qs = qs.filter(inquilino=inquilino)
+        if sucursal is not None:
+            qs = qs.filter(sucursal=sucursal)
+        return qs.update(estado='finalizado')
+
+    @classmethod
+    def queryset_vigentes(cls):
+        """Contratos que aún bloquean la misma propiedad/inquilino o la disponibilidad."""
+        hoy = timezone.localdate()
+        return cls.objects.filter(
+            estado__in=['reservado', 'activo'],
+            fecha_fin__gte=hoy,
+        )
+
 # Through: inquilino en contrato con su carrera (contrato estudiante)
 class ContratoInquilino(models.Model):
     contrato = models.ForeignKey(ContratoAlquiler, on_delete=models.CASCADE, related_name='contrato_inquilinos')

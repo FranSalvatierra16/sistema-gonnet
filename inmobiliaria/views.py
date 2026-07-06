@@ -15490,18 +15490,22 @@ def crear_contrato_alquiler(request):
             except (Propiedad.DoesNotExist, Inquilino.DoesNotExist, Vendedor.DoesNotExist) as e:
                 return JsonResponse({'error': f'Error al obtener datos: {str(e)}'}, status=400)
 
-            # Evitar duplicados: ya existe un contrato activo o reservado para esta propiedad e inquilino
-            existente = ContratoAlquiler.objects.filter(
+            # Evitar duplicados: contrato vigente (no vencido) para esta propiedad e inquilino
+            ContratoAlquiler.finalizar_vencidos(
                 propiedad=propiedad,
                 inquilino=inquilino,
-                estado__in=['reservado', 'activo'],
-                sucursal=request.user.sucursal
+                sucursal=request.user.sucursal,
+            )
+            existente = ContratoAlquiler.queryset_vigentes().filter(
+                propiedad=propiedad,
+                inquilino=inquilino,
+                sucursal=request.user.sucursal,
             ).first()
             if existente:
                 operacion_url = reverse('inmobiliaria:crear_operacion_contrato', args=[existente.id]) + '?tipo=principal'
                 return JsonResponse({
                     'success': False,
-                    'error': f'Ya existe un contrato (#{existente.id}) para esta propiedad e inquilino. Completá la operación principal de ese contrato o cancelalo antes de crear otro.',
+                    'error': f'Ya existe un contrato vigente (#{existente.id}) para esta propiedad e inquilino. Completá la operación principal de ese contrato, rescindilo o esperá a que finalice antes de crear otro.',
                     'redirect_url': operacion_url,
                 }, status=400)
 
@@ -15884,6 +15888,8 @@ def detalle_contrato(request, contrato_id):
     
     contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
     hoy = timezone.now().date()
+    if contrato.finalizar_si_vencido(hoy):
+        contrato.refresh_from_db()
     from inmobiliaria.cuotas_imputacion import sincronizar_cuotas_totalmente_cubiertas_por_credito
 
     if sincronizar_cuotas_totalmente_cubiertas_por_credito(contrato, hoy):
