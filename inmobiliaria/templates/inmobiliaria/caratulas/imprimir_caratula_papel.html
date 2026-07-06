@@ -185,7 +185,7 @@
         </div>
         <div class="fila">
             <span class="lbl">INMUEBLE</span>
-            <span class="val">{{ direccion_ficha }}</span>
+            <span class="val">{{ direccion_ficha|linebreaksbr }}</span>
         </div>
     </div>
     <div class="cliente-box">Cliente / locatario: {{ cliente_nombre }}</div>
@@ -242,7 +242,7 @@
     <div class="pie">
         <div class="dir">
             <strong>Inmueble</strong><br>
-            {{ direccion_ficha }}<br><br>
+            {{ direccion_ficha|linebreaksbr }}<br><br>
             <strong>Depósito de garantía</strong> $ {{ deposito_fmt }}<br>
             <span style="font-size:10pt;font-weight:700;">Ref. operación #{{ operacion_id }}</span>
         </div>

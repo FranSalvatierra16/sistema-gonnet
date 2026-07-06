@@ -279,18 +279,19 @@ def _etiqueta_propiedad_lista(prop):
 def _direccion_piso_depto_papel(prop):
     if not prop:
         return '—'
-    parts = [(prop.direccion or '').strip().upper()]
+    linea1 = [(prop.direccion or '').strip().upper()]
     fid = getattr(prop, 'id', None)
     if fid:
-        parts.append(f'({fid})')
-    amb = getattr(prop, 'ambientes', None)
-    if amb is not None and str(amb).strip() != '':
-        parts.append(f'{amb} AMB.')
+        linea1.append(f'({fid})')
     pi = (prop.piso or '').strip()
     dep = (prop.departamento or '').strip()
     if pi or dep:
-        parts.append(f'PISO:{pi or "—"} DPTO.:{dep or "—"}')
-    return ' '.join(parts)
+        linea1.append(f'PISO:{pi or "—"} DPTO.:{dep or "—"}')
+    texto = ' '.join(linea1)
+    amb = getattr(prop, 'ambientes', None)
+    if amb is not None and str(amb).strip() != '':
+        texto = f'{texto}\n{amb} AMB.'
+    return texto
 
 
 def _movimientos_reserva_qs(reserva):
