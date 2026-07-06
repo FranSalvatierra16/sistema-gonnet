@@ -4526,11 +4526,10 @@ def confirmar_reserva(request):
 
                 # Si es operación directa, crear el movimiento de caja
                 if es_operacion_directa:
-                    # Crear el movimiento de caja aquí
                     caja_actual = Caja.objects.filter(
                         sucursal=request.user.sucursal,
-                        fecha_cierre__isnull=True
-                    ).first()
+                        estado='abierta',
+                    ).order_by('-fecha_apertura').first()
 
                     if not caja_actual:
                         return JsonResponse({
@@ -4540,12 +4539,19 @@ def confirmar_reserva(request):
 
                     MovimientoCaja.objects.create(
                         caja=caja_actual,
+                        sucursal=request.user.sucursal,
                         tipo=TipoMovimientoCajaEnum.INGRESO,
-                        concepto='Alquiler por día',
-                        monto_efectivo=precio_total_dec,  # Ajustar según la forma de pago
-                        descripcion=f'Alquiler por día - {propiedad.direccion}',
-                        reserva=reserva
+                        concepto=f'Operación {reserva.id} - Alquiler por día - {propiedad.direccion}',
+                        propiedad=propiedad,
+                        fecha_desde=fecha_inicio,
+                        fecha_hasta=fecha_fin,
+                        monto_efectivo=precio_total_dec,
+                        monto_a_inquilino=precio_total_dec,
+                        empleado=request.user,
                     )
+                    from inmobiliaria.caja_devolucion_deposito import sincronizar_senia_reserva_desde_movimientos
+
+                    sincronizar_senia_reserva_desde_movimientos(reserva)
 
                 # Determinar el estado asignado
                 estado_asignado = 'confirmada' if es_operacion_directa else 'confirmada_no_pagada'
