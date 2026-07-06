@@ -16,7 +16,7 @@
         <div class="d-flex flex-wrap gap-2">
             {% if puede_anular_operacion_caratula %}
             <form method="post" class="m-0" id="form-anular-operacion-caratula"
-                  onsubmit="return confirm('¿Anular esta operación por día? Se liberan las fechas y se revierten las comisiones acreditadas al productor.');">
+                  onsubmit="return confirm('¿Anular esta operación por día? Se liberan las fechas, se revierten las comisiones acreditadas y, si hay liquidación al propietario, se elimina junto con su egreso de caja.');">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="anular_operacion_caratula">
                 <input type="hidden" name="motivo_anulacion" id="motivo-anulacion-caratula" value="">
