@@ -2,6 +2,8 @@
 Helpers de rendimiento para buscar_propiedades (reservas/nuevo).
 Evita N+1: precios en memoria, reservas/disponibilidades/contratos precargados.
 """
+from __future__ import annotations
+
 from collections import defaultdict
 from decimal import Decimal
 
@@ -130,10 +132,7 @@ def cargar_contexto_bulk_busqueda(propiedad_ids, fecha_inicio, fecha_fin):
         )
 
     contratos_por_prop = defaultdict(list)
-    for c in ContratoAlquiler.objects.filter(
-        propiedad_id__in=propiedad_ids,
-        estado__in=['reservado', 'activo'],
-    ):
+    for c in ContratoAlquiler.queryset_vigentes().filter(propiedad_id__in=propiedad_ids):
         contratos_por_prop[c.propiedad_id].append(c)
 
     return {
