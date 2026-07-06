@@ -832,7 +832,7 @@ def _enriquecer_comisiones_fechas_caratula(comisiones, comisiones_por_id=None):
 
 
 def _comisiones_visibles_caratula_reserva(reserva):
-    from inmobiliaria.models.comision import ROL_COMISION_FICHAJE
+    from inmobiliaria.models.comision import ROL_COMISION_FICHAJE, ROL_COMISION_REVERSION
 
     todas = list(
         ComisionVendedor.objects.filter(reserva=reserva)
