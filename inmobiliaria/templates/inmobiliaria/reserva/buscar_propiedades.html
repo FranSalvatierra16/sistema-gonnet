@@ -3062,7 +3062,7 @@ window.mostrarModalReserva = function(esOperacionDirecta = false) {
     const btnConfirmar = document.getElementById('btnConfirmarReservaModal');
     if (btnConfirmar) {
         btnConfirmar.textContent = esOperacionDirecta
-            ? 'Registrar operación y cobrar'
+            ? 'Continuar al pago'
             : 'Confirmar reserva (sin cobro)';
         btnConfirmar.style.background = esOperacionDirecta ? '#15803d' : '#2563eb';
         btnConfirmar.onmouseover = function() {

@@ -4516,7 +4516,7 @@ def confirmar_reserva(request):
                     vendedor=vendedor,
                     cliente=inquilino,
                     precio_total=precio_total_dec,
-                    estado='confirmada' if es_operacion_directa else 'confirmada_no_pagada',
+                    estado='confirmada_no_pagada',
                     sucursal=request.user.sucursal  # Asignar la sucursal del usuario
                 )
 
@@ -4524,50 +4524,23 @@ def confirmar_reserva(request):
 # print(f"✅ Reserva creada correctamente. ID: {reserva.id}")
 # print(f"📋 Las disponibilidades se mantienen fijas, solo se actualiza el historial")
 
-                # Si es operación directa, crear el movimiento de caja
+                estado_asignado = 'confirmada_no_pagada'
                 if es_operacion_directa:
-                    caja_actual = Caja.objects.filter(
-                        sucursal=request.user.sucursal,
-                        estado='abierta',
-                    ).order_by('-fecha_apertura').first()
+                    tipo_operacion = 'Operación directa'
+                    redirect_url = reverse('inmobiliaria:finalizar_reserva_nueva', args=[reserva.id])
+                    mensaje_estado = f'{tipo_operacion} creada. Continuá con el cobro.'
+                else:
+                    tipo_operacion = 'Reserva'
+                    redirect_url = reverse('inmobiliaria:reserva_exitosa', args=[reserva.id])
+                    mensaje_estado = f'{tipo_operacion} creada con estado: {estado_asignado}'
 
-                    if not caja_actual:
-                        return JsonResponse({
-                            'success': False,
-                            'error': 'No hay una caja abierta para registrar la operación'
-                        })
-
-                    MovimientoCaja.objects.create(
-                        caja=caja_actual,
-                        sucursal=request.user.sucursal,
-                        tipo=TipoMovimientoCajaEnum.INGRESO,
-                        concepto=f'Operación {reserva.id} - Alquiler por día - {propiedad.direccion}',
-                        propiedad=propiedad,
-                        fecha_desde=fecha_inicio,
-                        fecha_hasta=fecha_fin,
-                        monto_efectivo=precio_total_dec,
-                        monto_a_inquilino=precio_total_dec,
-                        empleado=request.user,
-                    )
-                    from inmobiliaria.caja_devolucion_deposito import sincronizar_senia_reserva_desde_movimientos
-
-                    sincronizar_senia_reserva_desde_movimientos(reserva)
-
-                # Determinar el estado asignado
-                estado_asignado = 'confirmada' if es_operacion_directa else 'confirmada_no_pagada'
-                tipo_operacion = 'Operación Directa' if es_operacion_directa else 'Reserva'
-                
                 return JsonResponse({
                     'success': True,
                     'reserva_id': reserva.id,
                     'estado_asignado': estado_asignado,
                     'tipo_operacion': tipo_operacion,
-                    'mensaje_estado': f'{tipo_operacion} creada con estado: {estado_asignado}',
-                    'redirect_url': (
-                        _url_recibo_reserva_siguiente_caratula(reserva.id, request)
-                        if es_operacion_directa
-                        else reverse('inmobiliaria:reserva_exitosa', args=[reserva.id])
-                    )
+                    'mensaje_estado': mensaje_estado,
+                    'redirect_url': redirect_url,
                 })
 
         except Exception as e:
