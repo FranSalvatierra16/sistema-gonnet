@@ -15073,40 +15073,9 @@ def buscar_propiedades(request):
 
         # Filtrar propiedades que están disponibles en las fechas indicadas
         for propiedad in propiedades_lista:
-            disponibilidades_superpuestas = disp_por_prop.get(propiedad.id, [])
-            periodo_cubierto, cobertura_inicio, cobertura_fin = periodo_cubierto_por_disponibilidades(
-                disponibilidades_superpuestas, fecha_inicio, fecha_fin
+            reservas = reservas_solapan_rango(
+                reservas_por_prop.get(propiedad.id, []), fecha_inicio, fecha_fin
             )
-
-            if periodo_cubierto:
-                fecha_disponible_desde = cobertura_inicio
-                fecha_disponible_hasta = cobertura_fin
-
-                max_fin_ant = max_fin_anterior_por_prop.get(propiedad.id)
-                if max_fin_ant:
-                    fecha_disponible_desde = max(fecha_disponible_desde, max_fin_ant)
-
-                min_inicio_post = min_inicio_posterior_por_prop.get(propiedad.id)
-                if min_inicio_post:
-                    fecha_disponible_hasta = min(fecha_disponible_hasta, min_inicio_post)
-
-                contratos_prop = contratos_por_prop.get(propiedad.id, [])
-                candidatos_contrato = [
-                    c
-                    for c in contratos_prop
-                    if c.fecha_inicio <= fecha_disponible_hasta
-                    and c.fecha_fin > fecha_disponible_desde
-                ]
-                if candidatos_contrato:
-                    contrato_corta = min(candidatos_contrato, key=lambda c: c.fecha_inicio)
-                    fecha_disponible_hasta = min(fecha_disponible_hasta, contrato_corta.fecha_inicio)
-
-                propiedad.disponibilidad_inicio = fecha_disponible_desde
-                propiedad.disponibilidad_fin = fecha_disponible_hasta
-            else:
-                continue
-
-            reservas = reservas_solapan_rango(reservas_por_prop.get(propiedad.id, []), fecha_inicio, fecha_fin)
 
             if contrato_solapa_rango(contratos_por_prop.get(propiedad.id, []), fecha_inicio, fecha_fin):
                 continue
@@ -15115,14 +15084,15 @@ def buscar_propiedades(request):
                 continue
 
             reservas_bloquean = [r for r in reservas if not r.es_alquiler_sindicato]
-
             reserva_confirmada_no_pagada = _reserva_sin_pagar_para_busqueda(reservas_bloquean)
+
             if reservas_bloquean and reserva_confirmada_no_pagada is None:
                 continue
 
             if any(r.estado == 'pagada' for r in reservas_bloquean):
                 continue
 
+            # Reserva pendiente de cobro: mostrar aunque no haya disponibilidad cargada en esas fechas
             if reserva_confirmada_no_pagada:
                 propiedad.reserva = reserva_confirmada_no_pagada
                 propiedad.estado_reserva = 'confirmada_no_pagada'
@@ -15131,6 +15101,39 @@ def buscar_propiedades(request):
                 propiedad.disponibilidad_fin = reserva_confirmada_no_pagada.fecha_fin
                 propiedades_disponibles.append(propiedad)
                 continue
+
+            disponibilidades_superpuestas = disp_por_prop.get(propiedad.id, [])
+            periodo_cubierto, cobertura_inicio, cobertura_fin = periodo_cubierto_por_disponibilidades(
+                disponibilidades_superpuestas, fecha_inicio, fecha_fin
+            )
+
+            if not periodo_cubierto:
+                continue
+
+            fecha_disponible_desde = cobertura_inicio
+            fecha_disponible_hasta = cobertura_fin
+
+            max_fin_ant = max_fin_anterior_por_prop.get(propiedad.id)
+            if max_fin_ant:
+                fecha_disponible_desde = max(fecha_disponible_desde, max_fin_ant)
+
+            min_inicio_post = min_inicio_posterior_por_prop.get(propiedad.id)
+            if min_inicio_post:
+                fecha_disponible_hasta = min(fecha_disponible_hasta, min_inicio_post)
+
+            contratos_prop = contratos_por_prop.get(propiedad.id, [])
+            candidatos_contrato = [
+                c
+                for c in contratos_prop
+                if c.fecha_inicio <= fecha_disponible_hasta
+                and c.fecha_fin > fecha_disponible_desde
+            ]
+            if candidatos_contrato:
+                contrato_corta = min(candidatos_contrato, key=lambda c: c.fecha_inicio)
+                fecha_disponible_hasta = min(fecha_disponible_hasta, contrato_corta.fecha_inicio)
+
+            propiedad.disponibilidad_inicio = fecha_disponible_desde
+            propiedad.disponibilidad_fin = fecha_disponible_hasta
 
             propiedad.estado_reserva = 'disponible'
             reserva_termina_en_inicio = buscar_reserva_termina_en_inicio_mem(
