@@ -21,7 +21,13 @@ from inmobiliaria.models import (
     ValeVendedor,
 )
 from inmobiliaria.models.persona import usuario_es_nivel_administracion
-from inmobiliaria.oficina_gastos import asegurar_categoria_vales, asegurar_categorias_base, asegurar_estructura_cierre_oficina
+from inmobiliaria.oficina_gastos import (
+    asegurar_categoria_vales,
+    asegurar_categorias_base,
+    asegurar_estructura_cierre_oficina,
+    reubicar_raices_personalizadas_al_final,
+    siguiente_orden_categoria,
+)
 from inmobiliaria.oficina_resumen import construir_resumen_cierre
 
 
@@ -274,6 +280,7 @@ def oficina_categorias(request):
 
     sucursal = request.user.sucursal
     asegurar_categorias_base(sucursal)
+    reubicar_raices_personalizadas_al_final(sucursal)
 
     return render(
         request,
@@ -317,6 +324,7 @@ def oficina_categoria_crear(request):
         sucursal=sucursal,
         parent=parent,
         nombre=nombre,
+        orden=siguiente_orden_categoria(sucursal, parent),
     )
     messages.success(
         request,

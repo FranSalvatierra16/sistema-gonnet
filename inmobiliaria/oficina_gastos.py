@@ -215,6 +215,52 @@ def _nombres_raices_cierre():
     return {(item[0] or '').strip().lower() for item in ESTRUCTURA_CIERRE_OFICINA}
 
 
+def siguiente_orden_categoria(sucursal, parent=None):
+    """Siguiente orden para agregar al final del listado (raíz o subcategorías del mismo padre)."""
+    from django.db.models import Max
+
+    agg = CategoriaGastoOficina.objects.filter(
+        sucursal=sucursal,
+        parent=parent,
+    ).aggregate(m=Max('orden'))
+    max_ord = agg['m']
+    return 0 if max_ord is None else max_ord + 1
+
+
+def reubicar_raices_personalizadas_al_final(sucursal):
+    """
+    Raíces creadas manualmente (fuera del árbol de cierre) quedan al final,
+    en orden de creación.
+    """
+    raices_cierre = _nombres_raices_cierre()
+    raices = list(
+        CategoriaGastoOficina.objects.filter(sucursal=sucursal, parent__isnull=True)
+    )
+    oficiales = [
+        r
+        for r in raices
+        if (r.nombre or '').strip().lower() in raices_cierre
+        or (r.nombre or '').strip().lower() in RAICES_LEGACY_OFICINA
+    ]
+    personalizadas = sorted(
+        [r for r in raices if r not in oficiales],
+        key=lambda x: x.id,
+    )
+    if not personalizadas:
+        return False
+
+    max_orden = max((r.orden for r in oficiales), default=-1)
+    next_orden = max_orden + 1
+    changed = False
+    for raiz in personalizadas:
+        if raiz.orden != next_orden:
+            raiz.orden = next_orden
+            raiz.save(update_fields=['orden'])
+            changed = True
+        next_orden += 1
+    return changed
+
+
 def _map_hijos_estaticos_cierre():
     out = {}
     for nombre_raiz, hijos in ESTRUCTURA_CIERRE_OFICINA:
