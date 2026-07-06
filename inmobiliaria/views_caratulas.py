@@ -782,11 +782,97 @@ def _procesar_productores_caratula(request, reserva=None, contrato=None):
     return False
 
 
+def _comision_original_id_desde_reversion(comision):
+    from inmobiliaria.models.comision import ROL_COMISION_REVERSION
+
+    if comision._rol_comision_normalizado() != ROL_COMISION_REVERSION:
+        return None
+    obs = (comision.observaciones or '').strip()
+    prefix = 'reversion_comision_id='
+    if not obs.startswith(prefix):
+        return None
+    try:
+        return int(obs[len(prefix) :])
+    except (TypeError, ValueError):
+        return None
+
+
+def _enriquecer_comisiones_fechas_caratula(comisiones, comisiones_por_id=None):
+    from inmobiliaria.models.comision import ROL_COMISION_REVERSION
+
+    por_id = dict(comisiones_por_id or {})
+    for c in comisiones:
+        por_id.setdefault(c.id, c)
+
+    faltantes = []
+    for c in comisiones:
+        if c._rol_comision_normalizado() != ROL_COMISION_REVERSION:
+            continue
+        orig_id = _comision_original_id_desde_reversion(c)
+        if orig_id and orig_id not in por_id:
+            faltantes.append(orig_id)
+    if faltantes:
+        for orig in ComisionVendedor.objects.filter(pk__in=faltantes).select_related('vendedor'):
+            por_id[orig.id] = orig
+
+    for c in comisiones:
+        if c._rol_comision_normalizado() == ROL_COMISION_REVERSION:
+            orig_id = _comision_original_id_desde_reversion(c)
+            orig = por_id.get(orig_id) if orig_id else None
+            c.fecha_acreditacion_caratula = orig.fecha_operacion if orig else None
+            c.fecha_devolucion_caratula = c.fecha_operacion
+            c.id_fecha_acreditacion = orig_id
+            c.id_fecha_devolucion = c.id
+        else:
+            c.fecha_acreditacion_caratula = c.fecha_operacion
+            c.fecha_devolucion_caratula = None
+            c.id_fecha_acreditacion = c.id
+            c.id_fecha_devolucion = None
+    return comisiones
+
+
+def _comisiones_visibles_caratula_reserva(reserva):
+    from inmobiliaria.models.comision import ROL_COMISION_FICHAJE
+
+    todas = list(
+        ComisionVendedor.objects.filter(reserva=reserva)
+        .exclude(rol_comision=ROL_COMISION_FICHAJE)
+        .select_related('vendedor')
+        .order_by('id')
+    )
+    visibles = []
+    for c in todas:
+        rol = c._rol_comision_normalizado()
+        if rol == ROL_COMISION_REVERSION:
+            visibles.append(c)
+        elif c.estado != 'cancelada':
+            visibles.append(c)
+
+    return _enriquecer_comisiones_fechas_caratula(visibles, {c.id: c for c in todas})
+
+
+def _actualizar_fecha_operacion_comision_caratula(comision, fecha):
+    from datetime import time
+
+    dt = datetime.combine(fecha, time.min)
+    if timezone.is_naive(dt):
+        dt = timezone.make_aware(dt, timezone.get_current_timezone())
+    if comision.fecha_operacion != dt:
+        comision.fecha_operacion = dt
+        comision.save(update_fields=['fecha_operacion'])
+        return True
+    return False
+
+
 def _procesar_guardar_fechas_comision_caratula(request, reserva=None, contrato=None):
-    from datetime import datetime, time
+    from datetime import datetime
 
     from django.contrib import messages
-    from inmobiliaria.models.comision import ROL_COMISION_FICHAJE, asegurar_comisiones_contrato
+    from inmobiliaria.models.comision import (
+        ROL_COMISION_FICHAJE,
+        ROL_COMISION_REVERSION,
+        asegurar_comisiones_contrato,
+    )
 
     if not _puede_editar_caratula(request.user):
         messages.error(request, 'No tenés permiso para editar las fechas de acreditación.')
@@ -834,7 +920,7 @@ def _procesar_guardar_fechas_comision_caratula(request, reserva=None, contrato=N
             messages.error(request, f'Fecha inválida para la comisión #{comision_id}.')
             return False
 
-        qs = ComisionVendedor.objects.filter(pk=comision_id).exclude(estado='cancelada')
+        qs = ComisionVendedor.objects.filter(pk=comision_id)
         if reserva:
             qs = qs.filter(reserva=reserva)
         elif contrato:
@@ -846,7 +932,6 @@ def _procesar_guardar_fechas_comision_caratula(request, reserva=None, contrato=N
         if not comision and contrato:
             comision = (
                 ComisionVendedor.objects.filter(contrato=contrato)
-                .exclude(estado='cancelada')
                 .exclude(rol_comision=ROL_COMISION_FICHAJE)
                 .order_by('id')
                 .first()
@@ -854,12 +939,41 @@ def _procesar_guardar_fechas_comision_caratula(request, reserva=None, contrato=N
         if not comision:
             continue
 
-        dt = datetime.combine(fecha, time.min)
-        if timezone.is_naive(dt):
-            dt = timezone.make_aware(dt, timezone.get_current_timezone())
-        if comision.fecha_operacion != dt:
-            comision.fecha_operacion = dt
-            comision.save(update_fields=['fecha_operacion'])
+        if _actualizar_fecha_operacion_comision_caratula(comision, fecha):
+            actualizadas += 1
+
+    for key, raw in request.POST.items():
+        if not key.startswith('fecha_devolucion_'):
+            continue
+        try:
+            comision_id = int(key.replace('fecha_devolucion_', ''))
+        except (TypeError, ValueError):
+            continue
+        texto = (raw or '').strip()
+        if not texto:
+            continue
+        try:
+            fecha = datetime.strptime(texto, '%Y-%m-%d').date()
+        except ValueError:
+            messages.error(request, f'Fecha inválida para la devolución #{comision_id}.')
+            return False
+
+        qs = ComisionVendedor.objects.filter(
+            pk=comision_id,
+            rol_comision=ROL_COMISION_REVERSION,
+        )
+        if reserva:
+            qs = qs.filter(reserva=reserva)
+        elif contrato:
+            qs = qs.filter(contrato=contrato)
+        else:
+            continue
+
+        comision = qs.first()
+        if not comision:
+            continue
+
+        if _actualizar_fecha_operacion_comision_caratula(comision, fecha):
             actualizadas += 1
 
     if actualizadas == 0 and contrato:
@@ -872,27 +986,20 @@ def _procesar_guardar_fechas_comision_caratula(request, reserva=None, contrato=N
                 return False
             comision = (
                 ComisionVendedor.objects.filter(contrato=contrato)
-                .exclude(estado='cancelada')
                 .exclude(rol_comision=ROL_COMISION_FICHAJE)
                 .order_by('id')
                 .first()
             )
-            if comision:
-                dt = datetime.combine(fecha, time.min)
-                if timezone.is_naive(dt):
-                    dt = timezone.make_aware(dt, timezone.get_current_timezone())
-                if comision.fecha_operacion != dt:
-                    comision.fecha_operacion = dt
-                    comision.save(update_fields=['fecha_operacion'])
-                    actualizadas += 1
+            if comision and _actualizar_fecha_operacion_comision_caratula(comision, fecha):
+                actualizadas += 1
 
     if actualizadas:
         messages.success(
             request,
-            f'Fechas de acreditación actualizadas ({actualizadas} comisión{"es" if actualizadas != 1 else ""}).',
+            f'Fechas actualizadas ({actualizadas} comisión{"es" if actualizadas != 1 else ""}).',
         )
     else:
-        messages.info(request, 'No hubo cambios en las fechas de acreditación.')
+        messages.info(request, 'No hubo cambios en las fechas.')
     return True
 
 
@@ -3242,18 +3349,14 @@ def caratula_reserva(request, reserva_id):
     movimientos = _movimientos_operacion_reserva(reserva) if reserva.propiedad_id else []
 
     recibos = list(reserva.recibos.all())
-    comisiones = list(reserva.comisiones_vendedor.all())
+    comisiones = _comisiones_visibles_caratula_reserva(reserva)
 
     if not comisiones and movimientos and reserva.vendedor_id:
         from inmobiliaria.models.comision import asegurar_comisiones_movimiento_reserva
 
         for mov in movimientos:
             asegurar_comisiones_movimiento_reserva(reserva, mov)
-        comisiones = list(
-            ComisionVendedor.objects.filter(reserva=reserva)
-            .exclude(estado='cancelada')
-            .select_related('vendedor')
-        )
+        comisiones = _comisiones_visibles_caratula_reserva(reserva)
 
     total_mov = sum(
         Decimal(str(m.monto_efectivo or 0))

@@ -77,6 +77,7 @@
                                         <th>Tipo</th>
                                         <th>Productor</th>
                                         <th>Acreditación</th>
+                                        <th>Devolución</th>
                                         <th class="text-end">Importe</th>
                                     </tr>
                                 </thead>
@@ -88,24 +89,44 @@
                                         <td class="text-nowrap">
                                             {% if c.rol_comision == 'fichaje' %}
                                             <span class="text-muted">—</span>
-                                            {% elif puede_editar_caratula %}
-                                            <input type="date" name="fecha_comision_{{ c.id }}" class="form-control form-control-sm"
-                                                   value="{{ c.fecha_operacion|date:'Y-m-d' }}" style="min-width: 9.5rem;">
+                                            {% elif c.id_fecha_acreditacion %}
+                                            {% if puede_editar_caratula %}
+                                            <input type="date" name="fecha_comision_{{ c.id_fecha_acreditacion }}" class="form-control form-control-sm"
+                                                   value="{{ c.fecha_acreditacion_caratula|date:'Y-m-d' }}" style="min-width: 9.5rem;">
+                                            {% elif c.fecha_acreditacion_caratula %}
+                                            {{ c.fecha_acreditacion_caratula|date:"d/m/Y" }}
                                             {% else %}
-                                            {{ c.fecha_operacion|date:"d/m/Y" }}
+                                            <span class="text-muted">—</span>
+                                            {% endif %}
+                                            {% else %}
+                                            <span class="text-muted">—</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-nowrap">
+                                            {% if c.id_fecha_devolucion %}
+                                            {% if puede_editar_caratula %}
+                                            <input type="date" name="fecha_devolucion_{{ c.id_fecha_devolucion }}" class="form-control form-control-sm"
+                                                   value="{{ c.fecha_devolucion_caratula|date:'Y-m-d' }}" style="min-width: 9.5rem;">
+                                            {% elif c.fecha_devolucion_caratula %}
+                                            {{ c.fecha_devolucion_caratula|date:"d/m/Y" }}
+                                            {% else %}
+                                            <span class="text-muted">—</span>
+                                            {% endif %}
+                                            {% else %}
+                                            <span class="text-muted">—</span>
                                             {% endif %}
                                         </td>
                                         <td class="text-end">${{ c.monto_comision|floatformat:2 }}</td>
                                     </tr>
                                     {% empty %}
-                                    <tr><td colspan="4" class="text-muted text-center py-3">Sin comisiones</td></tr>
+                                    <tr><td colspan="5" class="text-muted text-center py-3">Sin comisiones</td></tr>
                                     {% endfor %}
                                 </tbody>
                             </table>
                             {% if puede_editar_caratula and comisiones %}
                             <div class="p-2 border-top text-end">
                                 <button type="submit" class="btn btn-sm btn-outline-primary">
-                                    <i class="fas fa-calendar-day me-1"></i>Guardar fechas de acreditación
+                                    <i class="fas fa-calendar-day me-1"></i>Guardar fechas
                                 </button>
                             </div>
                             {% endif %}
