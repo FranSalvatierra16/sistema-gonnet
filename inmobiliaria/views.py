@@ -16307,10 +16307,6 @@ def _meses_precio_ui_contrato(contrato):
                 'valor': _format_precio_mes_ui(v),
             })
 
-    for i, row in enumerate(rows):
-        row['mes_input_habilitado'] = i == 0 or all(
-            (rows[j].get('valor') or '').strip() for j in range(i)
-        )
     return rows
 
 

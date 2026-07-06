@@ -251,7 +251,7 @@
             <div class="card shadow-modern border-radius-modern border-warning">
                 <div class="card-header bg-warning text-dark">
                     <h4 class="mb-0"><i class="fas fa-calendar-day"></i> <strong>Precio de cada mes</strong></h4>
-                    <small>Cargá el importe de <strong>cada mes</strong> del contrato ({{ contrato.get_moneda_display }}). <strong>Vacío = sin precio</strong> (cuota bloqueada) hasta que guardés. Podés completar de a uno: se habilita el mes siguiente cuando el anterior tiene importe. Solo se actualizan cuotas <strong>no pagadas</strong>.</small>
+                    <small>Cargá el importe de <strong>cada mes</strong> del contrato ({{ contrato.get_moneda_display }}), en el orden que quieras. <strong>Vacío = sin precio</strong> (cuota bloqueada) hasta que guardés. Solo se actualizan cuotas <strong>no pagadas</strong>.</small>
                 </div>
                 <div class="card-body">
                     {% if puede_activar_modo_trimestres %}
@@ -270,13 +270,14 @@
                             <div class="col-md-6 col-lg-3">
                                 <label class="form-label small mb-0">Mes {{ row.mes }}/{{ contrato.duracion_meses }} · {{ contrato.get_moneda_display }}</label>
                                 <input type="text"
-                                       class="form-control mes-precio-input{% if not row.mes_input_habilitado %} bg-light text-muted{% endif %}"
+                                       class="form-control mes-precio-input input-monto-ar"
                                        name="precio_mes_{{ row.idx }}"
                                        data-mes-idx="{{ row.idx }}"
                                        value="{{ row.valor }}"
                                        placeholder="Sin precio hasta cargar"
                                        autocomplete="off"
-                                       {% if not row.mes_input_habilitado %}readonly title="Completá el mes anterior (importe no vacío) y guardá, o escribí en orden."{% endif %}>
+                                       inputmode="decimal"
+                                       title="Importe del mes {{ row.mes }}">
                             </div>
                             {% endfor %}
                         </div>
@@ -729,37 +730,6 @@ function confirmarPrecioCuotaMes(form, numeroMes) {
         '¿Aplicar $' + val + ' al mes ' + numeroMes + ' y a todos los meses siguientes pendientes?'
     );
 }
-
-(function inicializarMesesPrecioProgresivos() {
-    var form = document.getElementById('form-precios-trimestres');
-    if (!form) return;
-    var nodes = form.querySelectorAll('.mes-precio-input');
-    if (!nodes.length) return;
-    var inputs = Array.prototype.slice.call(nodes).sort(function (a, b) {
-        return parseInt(a.getAttribute('data-mes-idx'), 10) - parseInt(b.getAttribute('data-mes-idx'), 10);
-    });
-    function tieneTexto(el) {
-        return el && String(el.value || '').trim().length > 0;
-    }
-    function sincronizarMeses() {
-        inputs.forEach(function (inp, i) {
-            var desbloquear = i === 0 || inputs.slice(0, i).every(tieneTexto);
-            inp.readOnly = !desbloquear;
-            inp.classList.toggle('bg-light', !desbloquear);
-            inp.classList.toggle('text-muted', !desbloquear);
-            if (!desbloquear) {
-                inp.setAttribute('title', 'Habilitá el mes anterior: cargá un importe en el campo previo (o guardá y recargá).');
-            } else {
-                inp.removeAttribute('title');
-            }
-        });
-    }
-    inputs.forEach(function (inp) {
-        inp.addEventListener('input', sincronizarMeses);
-        inp.addEventListener('change', sincronizarMeses);
-    });
-    sincronizarMeses();
-})();
 
 {% if puede_agregar_cuota %}
 (function inicializarModalAgregarCuota() {
