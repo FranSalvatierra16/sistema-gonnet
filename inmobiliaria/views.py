@@ -21542,6 +21542,8 @@ def recibo_contrato_24(request, contrato_id):
             deposito_estado = determinar_estado_concepto_contrato(contrato, '10')
 
         total_a_abonar = float(total_saldo_a_abonar)
+        total_obligacion_bruto = float(total_obligacion)
+        total_a_pagar_val = float(total_saldo_a_abonar)
         total_solo = total_abonado_recibo
         total_solo_float = float(total_solo)
 
@@ -21700,7 +21702,9 @@ def recibo_contrato_24(request, contrato_id):
             'recibo_muestra_pendiente_sel': recibo_muestra_pendiente_sel,
             'honorarios': format_currency(honorarios),
             'sellados': format_currency(sellados),
-            'total_a_abonar': format_currency(total_a_abonar),
+            'total_obligacion_recibo': format_currency(total_obligacion_bruto),
+            'total_a_pagar': format_currency(total_a_pagar_val),
+            'total_a_abonar': format_currency(total_a_pagar_val),
             'total_solo': format_currency(total_solo_float),
             'total_solo_usd': format_currency_usd(total_solo_usd_float),
             'muestra_total_usd': muestra_total_usd,
@@ -21717,6 +21721,7 @@ def recibo_contrato_24(request, contrato_id):
             'mes_alquiler_texto_recibo': mes_alquiler_texto_recibo,
             'formas_de_pago': formas_de_pago_recibo,
             'muestra_a_favor_recibo': muestra_a_favor_recibo,
+            'muestra_a_favor_recibo_panel': muestra_a_favor_recibo and a_favor_monto > Decimal('0.01'),
             'a_favor_recibo': format_currency(a_favor_monto),
             **_contexto_botones_recibo_contrato(request, contrato.id),
             'recibo_etiqueta_tipo_contrato': contrato.etiqueta_recibo_tipo_contrato,

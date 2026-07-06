@@ -313,7 +313,7 @@
                                 {% if muestra_a_favor_recibo %}
                                 <td style="padding: 2px 4px; text-align: center; border-right: 1px solid black; font-size: 8px;">A favor Inquilino</td>
                                 {% endif %}
-                                <td style="padding: 2px 4px; text-align: center; font-size: 8px;">Total a abonar</td>
+                                <td style="padding: 2px 4px; text-align: center; font-size: 8px;">Total a pagar</td>
                             </tr>
                             <tr style="border-bottom: 1px solid black;">
                                 <td style="padding: 5px 4px; text-align: center; border-right: 1px solid black;">{{ alquiler_mensual|default:"0.00" }}</td>
@@ -323,7 +323,7 @@
                                 {% if muestra_a_favor_recibo %}
                                 <td style="padding: 5px 4px; text-align: center; border-right: 1px solid black; font-weight: bold;">{{ a_favor_recibo }}</td>
                                 {% endif %}
-                                <td style="padding: 5px 4px; text-align: center; font-weight: bold;">{{ total_a_abonar|default:"0.00" }}</td>
+                                <td style="padding: 5px 4px; text-align: center; font-weight: bold;">{{ total_a_pagar|default:"0.00" }}</td>
                             </tr>
                         </table>
                     </div>
@@ -332,7 +332,13 @@
                 <div style="width: 48%; border: 1px solid #2d8524; padding: 5px;">
                     <div style="text-align: right; margin-bottom: 10px;">
                         <div style="border-bottom: 1px solid black; margin-bottom: 5px; text-align: center; font-size: 10px; font-weight: bold;">TOTAL A ABONAR</div>
-                        <div style="border-bottom: 1px solid black; margin-bottom: 5px; text-align: center; font-size: 10px; font-weight: bold;">{{ total_a_abonar|default:"0.00" }}</div>
+                        <div style="border-bottom: 1px solid black; margin-bottom: 5px; text-align: center; font-size: 10px; font-weight: bold;">{{ total_obligacion_recibo|default:"0.00" }}</div>
+                        <div style="border-bottom: 1px solid black; margin-bottom: 5px; text-align: center; font-size: 10px; font-weight: bold;">TOTAL A PAGAR</div>
+                        <div style="border-bottom: 1px solid black; margin-bottom: 5px; text-align: center; font-size: 10px; font-weight: bold;">{{ total_a_pagar|default:"0.00" }}</div>
+                        {% if muestra_a_favor_recibo_panel %}
+                        <div style="border-bottom: 1px solid black; margin-bottom: 5px; text-align: center; font-size: 9px; font-weight: bold;">A FAVOR DE INQUILINO</div>
+                        <div style="border-bottom: 1px solid black; margin-bottom: 5px; text-align: center; font-size: 9px; font-weight: bold;">{{ a_favor_recibo }}</div>
+                        {% endif %}
                         <div style="border-bottom: 1px solid black; margin-bottom: 5px; text-align: center; font-size: 9px;">{% if muestra_total_usd %}TOTAL ABONADO (ARS){% else %}TOTAL ABONADO{% endif %}</div>
                         <div style="border-bottom: 1px solid black; margin-bottom: 5px; text-align: center; font-size: 9px;">{{ total_solo|default:"0.00" }}</div>
                         {% if muestra_total_usd %}
