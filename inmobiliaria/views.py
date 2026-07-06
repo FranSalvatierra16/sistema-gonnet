@@ -14251,6 +14251,76 @@ def _importe_concepto_filtrado_movimiento(movimiento, criterio, conceptos_catalo
     return Decimal('0')
 
 
+def _nombre_linea_concepto_reporte(linea, id_nombre_map):
+    cid = str(linea.get('id') or linea.get('codigo') or '').strip()
+    for key in ('nombre', 'concepto', 'descripcion', 'label'):
+        v = str(linea.get(key) or '').strip()
+        if v:
+            return v
+    if cid:
+        return id_nombre_map.get(cid) or cid
+    return ''
+
+
+def _concepto_display_filtrado_reporte_caja(movimiento, criterio, conceptos_catalogo, lookup_nombre_concepto):
+    """Solo el nombre del concepto buscado, sin el resto de líneas del recibo."""
+    ids_buscados = {str(x).strip() for x in (criterio.get('ids') or set()) if str(x).strip()}
+    nombre_buscado = (criterio.get('nombre') or '').strip()
+    id_nombre_map = _mapa_id_nombre_concepto_catalogo(conceptos_catalogo)
+
+    nombres = []
+    vistos = set()
+
+    def agregar(nom):
+        n = (nom or '').strip()
+        if not n:
+            return
+        clave = n.lower()
+        if clave in vistos:
+            return
+        vistos.add(clave)
+        nombres.append(n)
+
+    _, conceptos_data = _movimiento_json_conceptos_parsed(movimiento)
+    for linea in conceptos_data:
+        if not _linea_concepto_coincide_filtro(linea, ids_buscados, nombre_buscado, id_nombre_map):
+            continue
+        agregar(_nombre_linea_concepto_reporte(linea, id_nombre_map))
+
+    raw = (movimiento.concepto or '')
+    if '|CONCEPTOS:' in raw:
+        trozo = raw.split('|CONCEPTOS:', 1)[1]
+        for item in [x for x in trozo.split('|') if x.strip()]:
+            parts = item.split(':')
+            if len(parts) < 2:
+                continue
+            linea = {
+                'id': parts[0].strip(),
+                'nombre': parts[1].strip() if len(parts) > 1 else '',
+            }
+            if not _linea_concepto_coincide_filtro(linea, ids_buscados, nombre_buscado, id_nombre_map):
+                continue
+            agregar(_nombre_linea_concepto_reporte(linea, id_nombre_map))
+
+    if nombres:
+        return ' + '.join(nombres)[:220]
+
+    for cid in sorted(ids_buscados):
+        nom = (lookup_nombre_concepto or {}).get(cid) or id_nombre_map.get(cid)
+        if not nom:
+            try:
+                nom = (lookup_nombre_concepto or {}).get(int(cid))
+            except (TypeError, ValueError):
+                nom = None
+        if nom:
+            return str(nom)[:220]
+
+    if nombre_buscado:
+        return nombre_buscado[:220]
+
+    return _concepto_display_reporte_caja(movimiento, lookup_nombre_concepto)
+
+
 def _montos_reporte_por_importe_concepto(movimiento, importe_concepto):
     """Prorratea medios de pago según la parte del movimiento que corresponde al concepto."""
     importe_concepto = Decimal(str(importe_concepto or 0)).quantize(Decimal('0.01'))
@@ -14567,7 +14637,12 @@ def reportes_caja(request):
     MovimientoCaja.precargar_nombres_concepto(movimientos_lista, sucursal)
     for _m in movimientos_lista:
         _m.destino_etiqueta = etiqueta_destino(_m.destino_deposito)
-        _m.concepto_display = _concepto_display_reporte_caja(_m, lookup_nombre_concepto)
+        if filtrando_concepto:
+            _m.concepto_display = _concepto_display_filtrado_reporte_caja(
+                _m, criterio_concepto, conceptos_catalogo, lookup_nombre_concepto
+            )
+        else:
+            _m.concepto_display = _concepto_display_reporte_caja(_m, lookup_nombre_concepto)
         _m.propiedad_display = _propiedad_display_reporte_caja(_m)
         if filtrando_concepto:
             imp_concepto = _importe_concepto_filtrado_movimiento(
