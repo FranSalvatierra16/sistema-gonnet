@@ -7,24 +7,31 @@ from datetime import timedelta
 from django.conf import settings
 from django.db import connection
 
+# Actualizar last_activity en sesión como máximo cada N segundos (menos escrituras a DB).
+SESSION_ACTIVITY_WRITE_INTERVAL_SECONDS = 300
+
+
 class CloseDBConnectionMiddleware:
     """
-    Middleware para cerrar conexiones de base de datos al final de cada request.
-    Previene el error: max_user_connections exceeded
+    Cierra la conexión DB al final del request solo cuando no hay pool (MySQL CONN_MAX_AGE=0).
+    En Railway/PostgreSQL con conn_max_age>0, reutilizar la conexión es mucho más rápido.
     """
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
+        response = None
         try:
             response = self.get_response(request)
         finally:
-            # ✅ Cerrar conexión explícitamente al final del request
-            if connection.connection is not None:
+            db = settings.DATABASES.get('default', {})
+            conn_max_age = int(db.get('CONN_MAX_AGE') or 0)
+            engine = (db.get('ENGINE') or '').lower()
+            reuse = conn_max_age > 0 and 'postgresql' in engine
+            if not reuse and connection.connection is not None:
                 connection.close()
-                # print(f"🔌 Conexión DB cerrada para request: {request.path}")  # Comentado para reducir overhead
-        
         return response
+
 
 class SucursalMiddleware:
     def __init__(self, get_response):
@@ -36,16 +43,14 @@ class SucursalMiddleware:
             return redirect('logout')
         return self.get_response(request)
 
+
 class PasswordChangeMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
         if request.user.is_authenticated:
-            # Verifica si el usuario necesita cambiar su contraseña
-            # Puedes agregar un campo en tu modelo de Usuario para marcar contraseñas temporales
             if getattr(request.user, 'password_temporal', False):
-                # Excluye la página de cambio de contraseña para evitar redirecciones infinitas
                 if not request.path == reverse('inmobiliaria:cambiar_password'):
                     messages.warning(request, 'Por favor, cambia tu contraseña temporal.')
                     return redirect('inmobiliaria:cambiar_password')
@@ -53,42 +58,44 @@ class PasswordChangeMiddleware:
         response = self.get_response(request)
         return response
 
+
 class SessionTimeoutMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
         if request.user.is_authenticated:
+            now = timezone.now()
             last_activity = request.session.get('last_activity')
             if last_activity:
-                last_activity = timezone.datetime.fromisoformat(last_activity)
-                if timezone.now() - last_activity > timedelta(seconds=settings.SESSION_COOKIE_AGE):
+                last_activity_dt = timezone.datetime.fromisoformat(last_activity)
+                if now - last_activity_dt > timedelta(seconds=settings.SESSION_COOKIE_AGE):
                     logout(request)
                     messages.warning(request, 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.')
                     return redirect('inmobiliaria:login')
-            
-            request.session['last_activity'] = timezone.now().isoformat()
+                if now - last_activity_dt > timedelta(seconds=SESSION_ACTIVITY_WRITE_INTERVAL_SECONDS):
+                    request.session['last_activity'] = now.isoformat()
+            else:
+                request.session['last_activity'] = now.isoformat()
 
         response = self.get_response(request)
         return response
 
     def process_view(self, request, view_func, view_args, view_kwargs):
-        # Lista de URLs que no requieren autenticación
         public_urls = [
             '/login/',
-            '/sucursal/',  # /sucursal/<id>/login/ — login por sucursal
-            '/recuperar-password/',  # URL correcta para recuperación de contraseña
+            '/sucursal/',
+            '/recuperar-password/',
             '/admin/login/',
             '/admin/password_reset/',
             '/password_reset/',
             '/reset/',
-            '/api/resetear-password-temp/',  # ✅ Temporal: endpoints migración
+            '/api/resetear-password-temp/',
             '/api/debug-usuarios/',
             '/api/ejecutar-migracion/',
-            '/utilidades/diagrama-db/',  # Diagrama de base de datos (acceso público)
+            '/utilidades/diagrama-db/',
         ]
-        
-        # Si la URL actual está en la lista de URLs públicas, permitir el acceso
+
         if any(request.path.startswith(url) for url in public_urls):
             return None
 

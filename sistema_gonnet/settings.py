@@ -26,11 +26,18 @@ def _get_env_list(key: str, default: str):
     return [item.strip() for item in os.environ.get(key, default).split(',') if item.strip()]
 
 
+# Producción (Railway/Heroku con DATABASE_URL): DEBUG off salvo que lo activen explícitamente.
+_ON_MANAGED_HOST = bool(
+    os.environ.get('DATABASE_URL')
+    or os.environ.get('RAILWAY_ENVIRONMENT')
+    or os.environ.get('RAILWAY_PROJECT_ID')
+)
+
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-#ry=f1tqj+=1*32^c54&0qk2)1xt02qpg-%r)ae6%-+3ip*fx^'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'True') == 'True'
+DEBUG = os.environ.get('DEBUG', 'False' if _ON_MANAGED_HOST else 'True') == 'True'
 
 # ✅ Leer ALLOWED_HOSTS de variable de entorno o usar defaults
 ALLOWED_HOSTS = _get_env_list(
@@ -46,9 +53,10 @@ CSRF_TRUSTED_ORIGINS = _get_env_list(
 
 # Configuración de sesión
 SESSION_COOKIE_AGE = 3600  # 1 hora en segundos
-SESSION_SAVE_EVERY_REQUEST = True
+# False: no reescribe la sesión en DB en cada request (el timeout usa last_activity con throttle).
+SESSION_SAVE_EVERY_REQUEST = False
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
-SESSION_COOKIE_SECURE = True  # Para HTTPS
+SESSION_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_HTTPONLY = True  # Seguridad adicional
 
 # Application definition
@@ -90,7 +98,6 @@ TEMPLATES = [
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
-                'django.template.context_processors.debug',
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
@@ -98,6 +105,11 @@ TEMPLATES = [
         },
     },
 ]
+
+if DEBUG:
+    TEMPLATES[0]['OPTIONS']['context_processors'].insert(
+        0, 'django.template.context_processors.debug'
+    )
 
 WSGI_APPLICATION = 'sistema_gonnet.wsgi.application'
 
@@ -235,9 +247,8 @@ if 'AWS_ACCESS_KEY_ID' in os.environ:
     MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/{MEDIA_LOCATION}/'
     DEFAULT_FILE_STORAGE = 'sistema_gonnet.storage_backends.MediaStorage'
 
-# Configuración para servir archivos de medios en producción
-if not DEBUG:
-    MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
+# Media local en desarrollo; en producción con S3 no aplica.
+if not DEBUG and 'AWS_ACCESS_KEY_ID' not in os.environ:
     WHITENOISE_USE_FINDERS = True
     WHITENOISE_MANIFEST_STRICT = False
     WHITENOISE_ALLOW_ALL_ORIGINS = True

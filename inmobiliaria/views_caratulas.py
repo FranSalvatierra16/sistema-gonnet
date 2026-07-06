@@ -29,6 +29,9 @@ from inmobiliaria.models.caja import TipoMovimientoCajaEnum
 
 logger = logging.getLogger(__name__)
 
+# Evita cargar miles de filas en memoria al listar carátulas sin filtro de texto.
+LISTA_CARATULAS_MAX_FILAS = 2000
+
 CARATULA_CARPETA_DEFAULT_KEY = 'caratulas_carpeta_default'
 CARATULA_CARPETA_OVERRIDES_KEY = 'caratulas_carpeta_overrides'
 CARATULA_COMISIONES_OVERRIDES_KEY = 'caratulas_comisiones_overrides'
@@ -573,25 +576,17 @@ def _eliminar_liquidaciones_reserva_anulacion(reserva, eliminado_por):
     rid = int(reserva.pk)
     candidatas = []
     vistos = set()
-    for liq in LiquidacionPropietario.objects.exclude(estado='cancelada').iterator():
-        if liq.pk in vistos:
-            continue
-        incluye = liq.reserva_id == rid
-        if not incluye:
-            for op in liq.operaciones_incluidas or []:
-                if not isinstance(op, dict):
-                    continue
-                if (op.get('tipo') or '').lower() != 'reserva':
-                    continue
-                try:
-                    if int(op.get('id')) == rid:
-                        incluye = True
-                        break
-                except (TypeError, ValueError):
-                    continue
-        if incluye:
-            candidatas.append(liq)
-            vistos.add(liq.pk)
+    directas = LiquidacionPropietario.objects.filter(reserva_id=rid).exclude(estado='cancelada')
+    for liq in directas:
+        candidatas.append(liq)
+        vistos.add(liq.pk)
+    if not candidatas:
+        for liq in LiquidacionPropietario.objects.exclude(estado='cancelada').filter(
+            operaciones_incluidas__contains=[{'tipo': 'reserva', 'id': rid}]
+        ).iterator(chunk_size=50):
+            if liq.pk not in vistos:
+                candidatas.append(liq)
+                vistos.add(liq.pk)
 
     if not candidatas:
         return []
@@ -2999,6 +2994,12 @@ def lista_caratulas(request):
         contratos = contratos.filter(estado_confirmacion_caratula='confirmada')
     elif estado_caratula_filtro == 'pendiente':
         contratos = contratos.exclude(estado_confirmacion_caratula='confirmada')
+
+    if periodo_completo and not hay_busqueda:
+        reservas = reservas[:LISTA_CARATULAS_MAX_FILAS]
+        contratos = contratos[:LISTA_CARATULAS_MAX_FILAS]
+
+    contratos = contratos.prefetch_related('cuotas')
 
     reserva_ids = list(reservas.values_list('id', flat=True))
     contrato_ids = list(contratos.values_list('id', flat=True))
