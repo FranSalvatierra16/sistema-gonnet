@@ -2946,7 +2946,6 @@ def propiedad_detalle(request, propiedad_id):
         'inquilinos': get_inquilinos_queryset_unificado(request),
         'vendedores': Vendedor.objects.filter(sucursal=request.user.sucursal).order_by('apellido', 'nombre'),
         'puede_cambiar_sucursal_propiedad': _puede_usar_cambio_sucursal_propiedad(request.user),
-        'puede_marcar_sindicato': _nivel_usuario_request(request) >= 5,
     }
     
     return render(request, 'inmobiliaria/propiedades/detalle.html', context)
@@ -9658,30 +9657,15 @@ def limpieza_brutal(request):
 @login_required
 @require_POST
 def toggle_alquiler_sindicato_reserva(request, reserva_id):
-    """
-    Marca o desmarca una operación por día como alquiler sindicato.
-    Solo nivel 5+. Aparece en el historial pero no bloquea disponibilidad.
-    """
-    if _nivel_usuario_request(request) < 5:
-        return JsonResponse({'success': False, 'error': 'Sin permiso (requiere nivel 5 o superior).'}, status=403)
-    reserva = get_object_or_404(
-        Reserva.objects.select_related('propiedad'),
-        id=reserva_id,
-        sucursal=request.user.sucursal,
-        eliminada=False,
+    """Deshabilitado: las reservas se cargan como operaciones normales."""
+    return JsonResponse(
+        {
+            'success': False,
+            'error': 'El marcado de alquiler sindicato ya no está disponible. '
+            'Las reservas se gestionan como cualquier otra operación.',
+        },
+        status=403,
     )
-    reserva.es_alquiler_sindicato = not reserva.es_alquiler_sindicato
-    reserva.save(update_fields=['es_alquiler_sindicato'])
-    from inmobiliaria.caja_devolucion_deposito import sincronizar_senia_reserva_desde_movimientos
-
-    sincronizar_senia_reserva_desde_movimientos(reserva)
-    reserva.reconstruir_historial_cronologico()
-    etiqueta = 'Alquiler sindicato' if reserva.es_alquiler_sindicato else 'Operación normal'
-    return JsonResponse({
-        'success': True,
-        'es_alquiler_sindicato': reserva.es_alquiler_sindicato,
-        'mensaje': f'Operación #{reserva.id} marcada como {etiqueta}.',
-    })
 
 
 def reconstruir_historial_propiedad(propiedad):

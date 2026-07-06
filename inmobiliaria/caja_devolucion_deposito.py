@@ -487,13 +487,6 @@ def queryset_reservas_pendientes_cobro(qs):
 
     from inmobiliaria.models import HistorialDisponibilidad, Recibo
 
-    fi, ff = RANGO_EXCLUIDO_SINDICATO_MARCONI
-    lote_marconi_julio = Q(
-        fecha_fin=ff,
-        fecha_inicio__gte=fi,
-        fecha_creacion__date=FECHA_CARGA_LOTE_MARCONI,
-    )
-
     tiene_recibo = Exists(Recibo.objects.filter(reserva_id=OuterRef('pk')))
     en_historial_sindicato = Exists(
         HistorialDisponibilidad.objects.filter(
@@ -510,7 +503,6 @@ def queryset_reservas_pendientes_cobro(qs):
             Q(senia__gt=Decimal('0.01'))
             | tiene_recibo
             | en_historial_sindicato
-            | lote_marconi_julio
             | Q(precio_total__gt=0, senia__gte=F('precio_total'))
         )
         .distinct()
@@ -826,38 +818,10 @@ def sincronizar_senia_reserva_desde_movimientos(reserva, *, persistir: bool = Tr
     total = max(total_mov, total_rec, total_fb).quantize(Decimal('0.01'))
 
     precio = Decimal(str(reserva.precio_total or 0))
-    marcar_sindicato = False
-    lote_pago_efectivo = False
-
-    lote_sind = config_lote_sindicato_marconi(reserva)
-    lote_pago = config_lote_pago_efectivo_marconi(reserva)
-    lote = lote_sind or lote_pago
-
-    if lote_sind:
-        marcar_sindicato = True
-    elif lote_pago:
-        lote_pago_efectivo = True
-
-    if lote:
-        if total <= Decimal('0.01'):
-            total_fecha = _total_senia_en_fechas_pago(reserva, lote.fechas_pago)
-            if total_fecha > Decimal('0.01'):
-                total = total_fecha
-            elif precio > Decimal('0.01'):
-                return forzar_pago_completo_operacion(
-                    reserva,
-                    persistir=persistir,
-                    sindicato=marcar_sindicato,
-                )
-        elif lote_pago_efectivo and precio > Decimal('0.01') and total < precio - Decimal('0.01'):
-            total = precio
 
     cuota = max(precio - total, Decimal('0'))
     estado_actual = (reserva.estado or '').strip()
     nuevo_estado = _estado_reserva_segun_senia(reserva, total)
-    if lote_pago_efectivo and precio > Decimal('0.01') and total >= precio - Decimal('0.01'):
-        nuevo_estado = 'pagada'
-        cuota = Decimal('0')
 
     # Con recibos emitidos no degradar a «sin pagar» por un fallo al leer movimientos.
     if total_rec > Decimal('0.01'):
@@ -886,14 +850,6 @@ def sincronizar_senia_reserva_desde_movimientos(reserva, *, persistir: bool = Tr
     if nuevo_estado != estado_actual:
         reserva.estado = nuevo_estado
         update_fields.append('estado')
-    if marcar_sindicato and not getattr(reserva, 'es_alquiler_sindicato', False):
-        reserva.es_alquiler_sindicato = True
-        update_fields.append('es_alquiler_sindicato')
-    elif getattr(reserva, 'es_alquiler_sindicato', False) and (
-        _reserva_en_rango_excluido_sindicato_marconi(reserva) or lote_pago_efectivo
-    ):
-        reserva.es_alquiler_sindicato = False
-        update_fields.append('es_alquiler_sindicato')
 
     reserva.senia = total
     reserva.cuota_pendiente = cuota
@@ -901,10 +857,8 @@ def sincronizar_senia_reserva_desde_movimientos(reserva, *, persistir: bool = Tr
 
     if persistir and update_fields:
         reserva.save(update_fields=update_fields)
-        if any(campo in update_fields for campo in ('senia', 'estado', 'es_alquiler_sindicato')):
+        if any(campo in update_fields for campo in ('senia', 'estado')):
             reserva.actualizar_historial_disponibilidad()
-        if 'es_alquiler_sindicato' in update_fields:
-            reserva.reconstruir_historial_cronologico()
     return total
 
 

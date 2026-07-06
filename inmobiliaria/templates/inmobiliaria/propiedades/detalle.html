@@ -1243,16 +1243,6 @@
                                                 title="Editar fechas de la reserva (sin cambiar precio ni info)">
                                             <i class="fas fa-edit"></i> Editar fechas
                                         </button>
-                                        {% if puede_marcar_sindicato %}
-                                        <button type="button"
-                                                class="btn btn-sm toggle-sindicato-reserva {% if historial.reserva.es_alquiler_sindicato %}btn-outline-secondary{% else %}btn-outline-info{% endif %}"
-                                                data-reserva-id="{{ historial.reserva.id }}"
-                                                data-es-sindicato="{{ historial.reserva.es_alquiler_sindicato|yesno:'1,0' }}"
-                                                title="Alquiler sindicato: figura en historial pero no bloquea fechas">
-                                            <i class="fas fa-landmark"></i>
-                                            {% if historial.reserva.es_alquiler_sindicato %}Quitar sindicato{% else %}Marcar sindicato{% endif %}
-                                        </button>
-                                        {% endif %}
                                         <form method="post"
                                               action="{% url 'inmobiliaria:reserva_eliminar' historial.reserva.id %}"
                                               class="d-inline"
@@ -3023,41 +3013,6 @@ document.addEventListener('DOMContentLoaded', function() {
             
             const modal = new bootstrap.Modal(document.getElementById('modalEditarHistorialReserva'));
             modal.show();
-        }
-        if (e.target.closest('.toggle-sindicato-reserva')) {
-            const btn = e.target.closest('.toggle-sindicato-reserva');
-            const reservaId = btn.getAttribute('data-reserva-id');
-            const esSindicato = btn.getAttribute('data-es-sindicato') === '1';
-            const accion = esSindicato ? 'quitar el marcado de alquiler sindicato' : 'marcar como alquiler sindicato';
-            Swal.fire({
-                title: esSindicato ? '¿Quitar alquiler sindicato?' : '¿Marcar alquiler sindicato?',
-                text: esSindicato
-                    ? 'La operación volverá a bloquear esas fechas en búsqueda y disponibilidad.'
-                    : 'La operación seguirá en el historial pero las fechas quedarán libres para reservar.',
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonText: 'Sí, confirmar',
-                cancelButtonText: 'Cancelar'
-            }).then((result) => {
-                if (!result.isConfirmed) return;
-                const formData = new FormData();
-                formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
-                btn.disabled = true;
-                fetch('{% url "inmobiliaria:toggle_alquiler_sindicato_reserva" 0 %}'.replace('/0/', `/${reservaId}/`), { method: 'POST', body: formData })
-                    .then(r => r.json())
-                    .then(data => {
-                        if (data.success) {
-                            Swal.fire({ icon: 'success', title: 'Listo', text: data.mensaje || 'Actualizado' }).then(() => location.reload());
-                        } else {
-                            Swal.fire({ icon: 'error', title: 'Error', text: data.error || 'No se pudo actualizar' });
-                            btn.disabled = false;
-                        }
-                    })
-                    .catch(() => {
-                        Swal.fire({ icon: 'error', title: 'Error', text: 'Error de conexión' });
-                        btn.disabled = false;
-                    });
-            });
         }
     });
     

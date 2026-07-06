@@ -1490,7 +1490,7 @@
                         style="padding: 12px 24px; background: #64748b; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all 0.2s; font-size: 15px;"
                         onmouseover="this.style.background='#475569'"
                         onmouseout="this.style.background='#64748b'">Cancelar</button>
-                <button onclick="confirmarReservaFinal()" 
+                <button id="btnConfirmarReservaModal" onclick="confirmarReservaFinal()" 
                         style="padding: 12px 28px; background: #16a34a; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 15px; transition: all 0.2s;"
                         onmouseover="this.style.background='#15803d'; this.style.transform='translateY(-1px)'"
                         onmouseout="this.style.background='#16a34a'; this.style.transform='translateY(0)'">Confirmar Reserva</button>
@@ -2481,18 +2481,25 @@ function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio
 
 }
 
-// Función para mostrar el modal de operación directa
+// Función para mostrar el modal de operación directa (misma autenticación que reservar)
 window.mostrarModalOperacion = function() {
     console.log('=== OPERACIÓN DIRECTA ===');
     console.log('Propiedad seleccionada:', propiedadSeleccionada);
-    
+
     if (!propiedadSeleccionada) {
         alert('Por favor, selecciona una propiedad primero.');
         return;
     }
 
-    // Mostrar directamente el modal de reserva para operación directa
-    window.mostrarModalReserva(true); // true = operación directa
+    window.accionPendienteReserva = 'operacion_directa';
+    document.getElementById('usuarioSeguridad').value = '';
+    document.getElementById('contrasenaSeguridad').value = '';
+    document.getElementById('errorAutenticacion').classList.add('d-none');
+    document.getElementById('modalAutenticacionSeguridadLabel').innerHTML =
+        '<i class="fas fa-shield-alt me-2"></i>🔐 Autenticación - Operación directa';
+    const modal = new bootstrap.Modal(document.getElementById('modalAutenticacionSeguridad'));
+    modal.show();
+    setTimeout(() => document.getElementById('usuarioSeguridad').focus(), 500);
 }
 
 // FUNCIÓN ELIMINADA - Se usa la función simple mostrarModalReserva más abajo para el modal personalizado
@@ -2991,9 +2998,24 @@ window.mostrarModalReserva = function(esOperacionDirecta = false) {
     document.getElementById('inquilino').value = '';
     document.getElementById('vendedor_info').style.display = 'none';
     
-    // Título
+    // Título y botón según tipo (evita confundir reserva con operación)
     const titulo = esOperacionDirecta ? '📋 Confirmar Operación Directa' : '📋 Confirmar Reserva';
     document.querySelector('#modalConfirmarReserva h3').textContent = titulo;
+    const btnConfirmar = document.getElementById('btnConfirmarReservaModal');
+    if (btnConfirmar) {
+        btnConfirmar.textContent = esOperacionDirecta
+            ? 'Registrar operación y cobrar'
+            : 'Confirmar reserva (sin cobro)';
+        btnConfirmar.style.background = esOperacionDirecta ? '#15803d' : '#2563eb';
+        btnConfirmar.onmouseover = function() {
+            this.style.background = esOperacionDirecta ? '#166534' : '#1d4ed8';
+            this.style.transform = 'translateY(-1px)';
+        };
+        btnConfirmar.onmouseout = function() {
+            this.style.background = esOperacionDirecta ? '#15803d' : '#2563eb';
+            this.style.transform = 'translateY(0)';
+        };
+    }
     
     // Función para convertir fecha de YYYY-MM-DD a DD/MM/YYYY
     function convertirFechaDisplay(fechaISO) {
@@ -5566,20 +5588,28 @@ function procesarAutenticacionSeguridad() {
             // Verificar si es una acción de reserva
             if (window.accionPendienteReserva === 'reservar') {
                 console.log('✅ Procediendo con la reserva después de autenticación');
-                
-                // Limpiar la acción pendiente
                 window.accionPendienteReserva = null;
-                
-                // Mostrar el modal de reserva después de un breve delay
                 setTimeout(() => {
                     try {
-                        window.mostrarModalReserva(false); // false = reserva normal
+                        window.mostrarModalReserva(false);
                     } catch (err) {
                         console.error('Error al abrir modal de reserva:', err);
                         alert('Autenticación exitosa, pero hubo un error al abrir la reserva. Intenta de nuevo.');
                     }
                 }, 300);
-                
+
+            } else if (window.accionPendienteReserva === 'operacion_directa') {
+                console.log('✅ Procediendo con operación directa después de autenticación');
+                window.accionPendienteReserva = null;
+                setTimeout(() => {
+                    try {
+                        window.mostrarModalReserva(true);
+                    } catch (err) {
+                        console.error('Error al abrir modal de operación:', err);
+                        alert('Autenticación exitosa, pero hubo un error al abrir la operación. Intenta de nuevo.');
+                    }
+                }, 300);
+
             } else if (urlDestino) {
                 // Redirigir a la URL destino (comportamiento original)
                 setTimeout(() => {
