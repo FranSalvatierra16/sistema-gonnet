@@ -14167,6 +14167,150 @@ def _filtro_qs_por_buscar_concepto(qs, texto, conceptos_catalogo):
     return qs.filter(pk__in=ids_ok)
 
 
+def _linea_concepto_coincide_filtro(linea, ids_buscados, nombre_buscado, id_nombre_map):
+    if not isinstance(linea, dict):
+        return False
+    cid = str(linea.get('id') or linea.get('codigo') or '').strip()
+    if ids_buscados and cid in ids_buscados:
+        return True
+    if ids_buscados and cid:
+        nom_linea = id_nombre_map.get(cid, '').strip().lower()
+        for iid in ids_buscados:
+            if nom_linea and nom_linea == id_nombre_map.get(str(iid), '').strip().lower():
+                return True
+    if nombre_buscado and len(nombre_buscado) >= 2:
+        nb = nombre_buscado.lower()
+        for key in ('nombre', 'concepto', 'descripcion', 'label'):
+            v = str(linea.get(key) or '').strip().lower()
+            if v and nb in v:
+                return True
+    return False
+
+
+def _importe_lineas_concepto_en_movimiento(movimiento, ids_buscados, nombre_buscado, id_nombre_map):
+    """Suma importes de las líneas del movimiento que coinciden con el filtro de concepto."""
+    sub = Decimal('0')
+    _, conceptos_data = _movimiento_json_conceptos_parsed(movimiento)
+    for linea in conceptos_data:
+        if not _linea_concepto_coincide_filtro(linea, ids_buscados, nombre_buscado, id_nombre_map):
+            continue
+        imp = _importe_decimal_concepto_recibo(linea.get('importe') or linea.get('monto') or 0)
+        if _concepto_es_negativo_recibo(linea.get('id'), linea.get('nombre')):
+            imp = -abs(imp)
+        sub += imp
+
+    raw = (movimiento.concepto or '')
+    if '|CONCEPTOS:' in raw:
+        trozo = raw.split('|CONCEPTOS:', 1)[1]
+        for item in [x for x in trozo.split('|') if x.strip()]:
+            parts = item.split(':')
+            if len(parts) < 3:
+                continue
+            linea = {'id': parts[0].strip(), 'nombre': parts[1].strip(), 'importe': parts[2].strip()}
+            if not _linea_concepto_coincide_filtro(linea, ids_buscados, nombre_buscado, id_nombre_map):
+                continue
+            imp = _importe_decimal_concepto_recibo(parts[2].strip())
+            if _concepto_es_negativo_recibo(parts[0], parts[1]):
+                imp = -abs(imp)
+            sub += imp
+
+    return sub.quantize(Decimal('0.01'))
+
+
+def _importe_concepto_filtrado_movimiento(movimiento, criterio, conceptos_catalogo):
+    """
+    Importe del movimiento atribuible al concepto filtrado.
+    En recibos con varios conceptos, solo suma la línea buscada (ej. Personal Flow).
+    """
+    if not criterio:
+        return None
+
+    ids_buscados = {str(x).strip() for x in (criterio.get('ids') or set()) if str(x).strip()}
+    nombre_buscado = (criterio.get('nombre') or '').strip()
+    id_nombre_map = _mapa_id_nombre_concepto_catalogo(conceptos_catalogo)
+    nombre_a_id = _mapa_nombre_concepto_catalogo(conceptos_catalogo)
+
+    sub = _importe_lineas_concepto_en_movimiento(
+        movimiento, ids_buscados, nombre_buscado, id_nombre_map
+    )
+    if sub != 0:
+        return sub
+
+    ids_mov = _ids_concepto_en_movimiento(movimiento, nombre_a_id)
+    coincide = False
+    if ids_buscados:
+        coincide = bool(ids_mov & ids_buscados)
+    elif nombre_buscado and len(nombre_buscado) >= 2:
+        coincide = _movimiento_tiene_nombre_concepto(movimiento, nombre_buscado, conceptos_catalogo)
+
+    if coincide:
+        _, conceptos_data = _movimiento_json_conceptos_parsed(movimiento)
+        if not conceptos_data and len(ids_mov) <= 1:
+            return Decimal(str(movimiento.monto_total or 0)).quantize(Decimal('0.01'))
+
+    return Decimal('0')
+
+
+def _montos_reporte_por_importe_concepto(movimiento, importe_concepto):
+    """Prorratea medios de pago según la parte del movimiento que corresponde al concepto."""
+    importe_concepto = Decimal(str(importe_concepto or 0)).quantize(Decimal('0.01'))
+    total_mov = Decimal(str(movimiento.monto_total or 0))
+    if importe_concepto <= Decimal('0') or total_mov <= Decimal('0.01'):
+        return {
+            'monto_efectivo': importe_concepto if importe_concepto > 0 else Decimal('0'),
+            'monto_cheque': Decimal('0'),
+            'monto_tarjeta': Decimal('0'),
+            'monto_deposito': Decimal('0'),
+            'total': importe_concepto,
+        }
+    ratio = importe_concepto / total_mov
+    efectivo = (Decimal(str(movimiento.monto_efectivo or 0)) * ratio).quantize(Decimal('0.01'))
+    cheque = (Decimal(str(movimiento.monto_cheque or 0)) * ratio).quantize(Decimal('0.01'))
+    tarjeta = (Decimal(str(movimiento.monto_tarjeta or 0)) * ratio).quantize(Decimal('0.01'))
+    deposito = (Decimal(str(movimiento.monto_deposito or 0)) * ratio).quantize(Decimal('0.01'))
+    diff = importe_concepto - (efectivo + cheque + tarjeta + deposito)
+    if diff:
+        efectivo = (efectivo + diff).quantize(Decimal('0.01'))
+    return {
+        'monto_efectivo': efectivo,
+        'monto_cheque': cheque,
+        'monto_tarjeta': tarjeta,
+        'monto_deposito': deposito,
+        'total': importe_concepto,
+    }
+
+
+def _totales_reporte_caja_desde_lista(movimientos, tipo_code):
+    sub = [m for m in movimientos if m.tipo == tipo_code]
+    efectivo = Decimal('0')
+    cheque = Decimal('0')
+    tarjeta = Decimal('0')
+    tarjeta_credito = Decimal('0')
+    tarjeta_debito = Decimal('0')
+    deposito = Decimal('0')
+    total_mov = Decimal('0')
+    for m in sub:
+        efectivo += Decimal(str(getattr(m, 'reporte_monto_efectivo', m.monto_efectivo) or 0))
+        cheque += Decimal(str(getattr(m, 'reporte_monto_cheque', m.monto_cheque) or 0))
+        tarjeta += Decimal(str(getattr(m, 'reporte_monto_tarjeta', m.monto_tarjeta) or 0))
+        if Decimal(str(getattr(m, 'reporte_monto_tarjeta', m.monto_tarjeta) or 0)) > 0:
+            if getattr(m, 'tarjeta_tipo', None) == 'credito':
+                tarjeta_credito += Decimal(str(getattr(m, 'reporte_monto_tarjeta', m.monto_tarjeta) or 0))
+            elif getattr(m, 'tarjeta_tipo', None) == 'debito':
+                tarjeta_debito += Decimal(str(getattr(m, 'reporte_monto_tarjeta', m.monto_tarjeta) or 0))
+        deposito += Decimal(str(getattr(m, 'reporte_monto_deposito', m.monto_deposito) or 0))
+        total_mov += Decimal(str(getattr(m, 'reporte_monto_total', m.monto_total) or 0))
+    return {
+        'efectivo': efectivo,
+        'cheque': cheque,
+        'tarjeta': tarjeta,
+        'tarjeta_credito': tarjeta_credito,
+        'tarjeta_debito': tarjeta_debito,
+        'deposito': deposito,
+        'total_mov': total_mov,
+    }
+
+
 def _referencias_movimiento_en_concepto(concepto_raw):
     """Prefijos legibles (Contrato #N, Operación #N) presentes en el texto del concepto."""
     refs = []
@@ -14392,6 +14536,13 @@ def reportes_caja(request):
     if buscar_concepto:
         qs = _filtro_qs_por_buscar_concepto(qs, buscar_concepto, conceptos_catalogo)
 
+    criterio_concepto = (
+        _resolver_criterio_buscar_concepto(buscar_concepto, conceptos_catalogo)
+        if buscar_concepto
+        else None
+    )
+    filtrando_concepto = bool(criterio_concepto)
+
     def etiqueta_destino(val):
         if not val:
             return '—'
@@ -14418,6 +14569,16 @@ def reportes_caja(request):
         _m.destino_etiqueta = etiqueta_destino(_m.destino_deposito)
         _m.concepto_display = _concepto_display_reporte_caja(_m, lookup_nombre_concepto)
         _m.propiedad_display = _propiedad_display_reporte_caja(_m)
+        if filtrando_concepto:
+            imp_concepto = _importe_concepto_filtrado_movimiento(
+                _m, criterio_concepto, conceptos_catalogo
+            )
+            montos = _montos_reporte_por_importe_concepto(_m, imp_concepto)
+            _m.reporte_monto_efectivo = montos['monto_efectivo']
+            _m.reporte_monto_cheque = montos['monto_cheque']
+            _m.reporte_monto_tarjeta = montos['monto_tarjeta']
+            _m.reporte_monto_deposito = montos['monto_deposito']
+            _m.reporte_monto_total = montos['total']
 
     def totales_por_tipo(queryset, tipo_code):
         sub = queryset.filter(tipo=tipo_code)
@@ -14436,25 +14597,49 @@ def reportes_caja(request):
             ag[k] = ag[k] or Decimal('0')
         return ag
 
-    tot_in = totales_por_tipo(qs, TipoMovimientoCajaEnum.INGRESO)
-    tot_eg = totales_por_tipo(qs, TipoMovimientoCajaEnum.EGRESO)
+    if filtrando_concepto:
+        tot_in = _totales_reporte_caja_desde_lista(movimientos_lista, TipoMovimientoCajaEnum.INGRESO)
+        tot_eg = _totales_reporte_caja_desde_lista(movimientos_lista, TipoMovimientoCajaEnum.EGRESO)
+    else:
+        tot_in = totales_por_tipo(qs, TipoMovimientoCajaEnum.INGRESO)
+        tot_eg = totales_por_tipo(qs, TipoMovimientoCajaEnum.EGRESO)
 
     transferencias_por_destino = []
-    dep_rows = (
-        qs.filter(monto_deposito__gt=0)
-        .values('destino_deposito', 'tipo')
-        .annotate(total=models.Sum('monto_deposito'))
-        .order_by('tipo', 'destino_deposito')
-    )
-    for row in dep_rows:
-        dest = row['destino_deposito'] or ''
-        transferencias_por_destino.append({
-            'destino': dest,
-            'etiqueta': etiqueta_destino(dest),
-            'tipo': row['tipo'],
-            'tipo_display': 'Ingreso' if row['tipo'] == TipoMovimientoCajaEnum.INGRESO else 'Egreso',
-            'total': row['total'] or Decimal('0'),
-        })
+    if filtrando_concepto:
+        from collections import defaultdict
+
+        dep_map = defaultdict(lambda: {'total': Decimal('0'), 'tipo': None})
+        for _m in movimientos_lista:
+            dep = _m.reporte_monto_deposito or Decimal('0')
+            if dep <= Decimal('0'):
+                continue
+            key = (_m.destino_deposito or '', _m.tipo)
+            dep_map[key]['total'] += dep
+            dep_map[key]['tipo'] = _m.tipo
+        for (dest, tipo), data in sorted(dep_map.items(), key=lambda x: (x[0][1], x[0][0])):
+            transferencias_por_destino.append({
+                'destino': dest,
+                'etiqueta': etiqueta_destino(dest),
+                'tipo': tipo,
+                'tipo_display': 'Ingreso' if tipo == TipoMovimientoCajaEnum.INGRESO else 'Egreso',
+                'total': data['total'],
+            })
+    else:
+        dep_rows = (
+            qs.filter(monto_deposito__gt=0)
+            .values('destino_deposito', 'tipo')
+            .annotate(total=models.Sum('monto_deposito'))
+            .order_by('tipo', 'destino_deposito')
+        )
+        for row in dep_rows:
+            dest = row['destino_deposito'] or ''
+            transferencias_por_destino.append({
+                'destino': dest,
+                'etiqueta': etiqueta_destino(dest),
+                'tipo': row['tipo'],
+                'tipo_display': 'Ingreso' if row['tipo'] == TipoMovimientoCajaEnum.INGRESO else 'Egreso',
+                'total': row['total'] or Decimal('0'),
+            })
 
     from django.core.paginator import Paginator
 
@@ -14471,6 +14656,7 @@ def reportes_caja(request):
         'medio': medio,
         'destino_transferencia': destino_transferencia,
         'buscar_concepto': buscar_concepto,
+        'filtrando_concepto': filtrando_concepto,
         'conceptos_catalogo': conceptos_catalogo,
         'opciones_destino': opciones_destino,
         'movimientos': page_obj,

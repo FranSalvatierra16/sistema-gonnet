@@ -76,7 +76,8 @@
                 <div class="col-12 col-lg-5 d-flex align-items-end">
                     <p class="small text-muted mb-1 mb-lg-2">
                         Un solo campo: podés tipear <strong>6</strong>, <strong>EXPENSAS</strong>, o elegir del desplegable.
-                        Solo aparecen movimientos que <strong>tengan ese concepto en sus líneas</strong> (no coincidencias parciales por texto suelto).
+                        Solo aparecen movimientos que <strong>tengan ese concepto en sus líneas</strong>.
+                        {% if filtrando_concepto %}Los totales y la columna <strong>Total</strong> muestran <strong>solo el importe de ese concepto</strong> en recibos con varios ítems.{% endif %}
                     </p>
                 </div>
             </form>
@@ -206,6 +207,19 @@
                             </td>
                             <td><small>{{ m.concepto_display|default:m.concepto|truncatechars:80 }}</small></td>
                             <td><small>{{ m.propiedad_display|default:"—" }}</small></td>
+                            {% if filtrando_concepto %}
+                            <td class="text-end">${{ m.reporte_monto_efectivo|format_price }}</td>
+                            <td class="text-end">${{ m.reporte_monto_cheque|format_price }}</td>
+                            <td class="text-end">
+                                ${{ m.reporte_monto_tarjeta|format_price }}
+                                {% if m.reporte_monto_tarjeta > 0 and m.tarjeta_tipo %}
+                                <br><small class="text-muted">{{ m.get_tarjeta_tipo_display }}</small>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">${{ m.reporte_monto_deposito|format_price }}</td>
+                            <td><small>{{ m.destino_etiqueta }}</small></td>
+                            <td class="text-end"><strong>${{ m.reporte_monto_total|format_price }}</strong></td>
+                            {% else %}
                             <td class="text-end">${{ m.monto_efectivo|format_price }}</td>
                             <td class="text-end">${{ m.monto_cheque|format_price }}</td>
                             <td class="text-end">
@@ -217,6 +231,7 @@
                             <td class="text-end">${{ m.monto_deposito|format_price }}</td>
                             <td><small>{{ m.destino_etiqueta }}</small></td>
                             <td class="text-end"><strong>${{ m.monto_total|format_price }}</strong></td>
+                            {% endif %}
                             {% if puede_eliminar_movimiento_caja or puede_editar_movimiento_caja %}
                             <td class="text-center text-nowrap">
                                 {% if puede_editar_movimiento_caja %}
