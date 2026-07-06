@@ -13,21 +13,16 @@ from django.utils import timezone
 
 from inmobiliaria.models.caja import TipoMovimientoCajaEnum
 from inmobiliaria.models.propiedad import Precio
+from inmobiliaria.precio_temporada_reserva import (
+    rango_vacaciones_invierno_sucursal,
+    tipo_precio_para_dia_reserva,
+)
 
 
-def obtener_tipo_precio_para_fecha(d: date) -> str:
+def obtener_tipo_precio_para_fecha(d, sucursal=None) -> str:
     """Misma lógica que en views (operaciones pendientes / liquidaciones)."""
-    if d.month == 1:
-        return 'QUINCENA_1_ENERO' if d.day <= 15 else 'QUINCENA_2_ENERO'
-    if d.month == 2:
-        return 'QUINCENA_1_FEBRERO' if d.day <= 15 else 'QUINCENA_2_FEBRERO'
-    if d.month == 3:
-        return 'QUINCENA_1_MARZO' if d.day <= 15 else 'QUINCENA_2_MARZO'
-    if d.month == 7:
-        return 'VACACIONES_INVIERNO'
-    if d.month == 12:
-        return 'QUINCENA_1_DICIEMBRE' if d.day <= 15 else 'QUINCENA_2_DICIEMBRE'
-    return 'TEMPORADA_BAJA'
+    rango = rango_vacaciones_invierno_sucursal(sucursal)
+    return tipo_precio_para_dia_reserva(d, rango)
 
 
 def monto_medios_movimiento_decimal(mov) -> Decimal:
@@ -87,7 +82,8 @@ def neto_propietario_movimiento(mov, liq_by_mov_id: dict, precios_por_propiedad:
     fecha_d = _fecha_movimiento(mov)
     _pk = str(mov.propiedad_id)
     precios_list = precios_por_propiedad.get(_pk) or []
-    tipo = obtener_tipo_precio_para_fecha(fecha_d)
+    sucursal = getattr(mov, 'sucursal', None)
+    tipo = obtener_tipo_precio_para_fecha(fecha_d, sucursal=sucursal)
     precio = None
     for p in precios_list:
         if p.tipo_precio == tipo:

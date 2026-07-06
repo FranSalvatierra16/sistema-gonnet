@@ -15096,6 +15096,7 @@ def buscar_propiedades(request):
             periodo_cubierto_por_disponibilidades,
             reservas_solapan_rango,
         )
+        from inmobiliaria.precio_temporada_reserva import rango_vacaciones_invierno_sucursal
 
         bulk = cargar_contexto_bulk_busqueda(
             [p.id for p in propiedades_lista], fecha_inicio, fecha_fin
@@ -15184,7 +15185,10 @@ def buscar_propiedades(request):
 
             precios_map = mapa_precios_propiedad(propiedad)
             propiedad.precio_total_reserva = calcular_precio_total_reserva_fechas(
-                fecha_inicio, fecha_fin, precios_map
+                fecha_inicio,
+                fecha_fin,
+                precios_map,
+                vacaciones_invierno=rango_vacaciones_invierno_sucursal(propiedad.sucursal),
             )
             propiedades_disponibles.append(propiedad)
     
@@ -19754,87 +19758,29 @@ El equipo de Sistema Gonnet
 # Función temporal para recalcular precios de reservas con precio 0
 def recalcular_precio_reserva(reserva):
     """
-    Recalcula el precio de una reserva usando la misma lógica que buscar_propiedades_reserva
+    Recalcula el precio de una reserva usando la misma lógica que buscar_propiedades.
     """
-# print(f"🔄 RECALCULANDO PRECIO para reserva {reserva.id}")
-    
+    from inmobiliaria.busqueda_propiedades_reserva import (
+        calcular_precio_total_reserva_fechas,
+        mapa_precios_propiedad,
+    )
+    from inmobiliaria.precio_temporada_reserva import rango_vacaciones_invierno_sucursal
+
     try:
-        fecha_inicio = reserva.fecha_inicio
-        fecha_fin = reserva.fecha_fin
         propiedad = reserva.propiedad
-        
-        # Calcular noches de reserva
-        noches_reserva = (fecha_fin - fecha_inicio).days
-# print(f"   📅 Fechas: {fecha_inicio} al {fecha_fin} ({noches_reserva} noches)")
-        
-        # ✅ CÁLCULO POR NOCHES: Usar precio del día de SALIDA, EXCEPTO Año Nuevo
-        # Ejemplo: 29/12→30/12 usa precio del 29/12
-        #          30/12→31/12 usa precio del 30/12
-        #          31/12→01/01 usa precio del 01/01 (EXCEPCIÓN: Año Nuevo)
-        #          01/01→02/01 usa precio del 01/01
-        precio_total = 0
-        precio_mas_caro = 0
-        
-        for noche in range(noches_reserva):
-            # Día de salida (el día actual de la noche)
-            dia_salida = fecha_inicio + timedelta(noche)
-            dia_llegada = fecha_inicio + timedelta(noche + 1)
-            
-            # ✅ EXCEPCIÓN: Año Nuevo (31/12 → 01/01) usa precio del 01/01
-            if dia_salida.month == 12 and dia_salida.day == 31 and dia_llegada.month == 1 and dia_llegada.day == 1:
-                dia_a_usar = dia_llegada  # Usar precio del 01/01
-            else:
-                dia_a_usar = dia_salida  # Usar precio del día de salida
-            
-            # Determinar el tipo de precio según el día a usar
-            tipo_precio = None
-            if dia_a_usar.month == 1:  # Enero
-                tipo_precio = 'QUINCENA_1_ENERO' if dia_a_usar.day <= 15 else 'QUINCENA_2_ENERO'
-            elif dia_a_usar.month == 2:  # Febrero
-                tipo_precio = 'QUINCENA_1_FEBRERO' if dia_a_usar.day <= 15 else 'QUINCENA_2_FEBRERO'
-            elif dia_a_usar.month == 3:  # Marzo
-                tipo_precio = 'QUINCENA_1_MARZO' if dia_a_usar.day <= 15 else 'QUINCENA_2_MARZO'
-            elif dia_a_usar.month == 7:  # Julio (Vacaciones de Invierno)
-                tipo_precio = 'VACACIONES_INVIERNO'
-            elif dia_a_usar.month == 12:  # Diciembre
-                tipo_precio = 'QUINCENA_1_DICIEMBRE' if dia_a_usar.day <= 15 else 'QUINCENA_2_DICIEMBRE'
-            else:
-                tipo_precio = 'TEMPORADA_BAJA'
-
-            # Obtener el precio para la propiedad y la quincena correspondiente
-            try:
-                precio = Precio.objects.get(propiedad=propiedad, tipo_precio=tipo_precio)
-                precio_dia = precio.precio_por_dia or 0
-# print(f"   ✅ Noche {noche+1} ({fecha_inicio + timedelta(noche)}→{dia_llegada}): {tipo_precio} = ${precio_dia}")
-            except Precio.DoesNotExist:
-                precio_dia = 0
-# print(f"   ❌ Noche {noche+1}: {tipo_precio} = NO EXISTE")
-
-            # Rastrear el día más caro
-            if precio_dia > precio_mas_caro:
-                precio_mas_caro = precio_dia
-
-            precio_total += precio_dia
-        
-        # ✅ AGREGAR DÍA DE COMISIÓN (día más caro)
-        precio_total = precio_total + precio_mas_caro
-        
-# print(f"   💰 PRECIO TOTAL RECALCULADO: suma_noches + dia_comision = ${precio_total:,.0f}")
-        
-        # Actualizar la reserva si el precio es diferente
-        if precio_total != reserva.precio_total:
-            reserva.precio_total = precio_total
-            reserva.save()
-# print(f"   ✅ RESERVA ACTUALIZADA con nuevo precio: ${precio_total:,.0f}")
-        else:
-            pass  # ✅ Bloque vacío
-# print(f"   ℹ️ El precio ya era correcto: ${precio_total:,.0f}")
-            
-        return precio_total
-        
-    except Exception as e:
-        pass  # ✅ Bloque vacío
-# print(f"   ❌ ERROR recalculando precio: {str(e)}")
+        precios_map = mapa_precios_propiedad(propiedad)
+        sucursal = getattr(reserva, 'sucursal', None) or getattr(propiedad, 'sucursal', None)
+        nuevo_precio = calcular_precio_total_reserva_fechas(
+            reserva.fecha_inicio,
+            reserva.fecha_fin,
+            precios_map,
+            vacaciones_invierno=rango_vacaciones_invierno_sucursal(sucursal),
+        )
+        if nuevo_precio != reserva.precio_total:
+            reserva.precio_total = nuevo_precio
+            reserva.save(update_fields=['precio_total'])
+        return float(nuevo_precio)
+    except Exception:
         return 0
 
 @login_required
@@ -20476,6 +20422,51 @@ def configurar_numeracion_recibos(request, sucursal_id):
             return redirect('inmobiliaria:sucursal_detalle', sucursal_id=sucursal.id)
     
     return redirect('inmobiliaria:sucursal_detalle', sucursal_id=sucursal_id)
+
+
+@login_required
+def configurar_vacaciones_invierno(request, sucursal_id):
+    """Configura el rango de fechas de vacaciones de invierno para precios por día."""
+    sucursal = get_object_or_404(Sucursal, id=sucursal_id)
+
+    if not usuario_es_nivel_administracion(request.user):
+        messages.error(request, 'No tienes permisos para configurar las vacaciones de invierno.')
+        return redirect('inmobiliaria:sucursal_detalle', sucursal_id=sucursal.id)
+
+    if request.method != 'POST':
+        return redirect('inmobiliaria:sucursal_detalle', sucursal_id=sucursal.id)
+
+    try:
+        usar_todo_julio = request.POST.get('usar_todo_julio') == 'on'
+        desde_str = (request.POST.get('vacaciones_invierno_desde') or '').strip()
+        hasta_str = (request.POST.get('vacaciones_invierno_hasta') or '').strip()
+
+        if usar_todo_julio or (not desde_str and not hasta_str):
+            sucursal.vacaciones_invierno_desde = None
+            sucursal.vacaciones_invierno_hasta = None
+            sucursal.save(update_fields=['vacaciones_invierno_desde', 'vacaciones_invierno_hasta'])
+            messages.success(request, 'Vacaciones de invierno: se usará todo julio para el precio especial.')
+            return redirect('inmobiliaria:sucursal_detalle', sucursal_id=sucursal.id)
+
+        if not desde_str or not hasta_str:
+            messages.error(request, 'Indicá fecha de inicio y fin, o marcá «Todo julio».')
+            return redirect('inmobiliaria:sucursal_detalle', sucursal_id=sucursal.id)
+
+        desde = datetime.strptime(desde_str, '%Y-%m-%d').date()
+        hasta = datetime.strptime(hasta_str, '%Y-%m-%d').date()
+        sucursal.vacaciones_invierno_desde = desde
+        sucursal.vacaciones_invierno_hasta = hasta
+        sucursal.save(update_fields=['vacaciones_invierno_desde', 'vacaciones_invierno_hasta'])
+        messages.success(
+            request,
+            f'Vacaciones de invierno configuradas: {desde.strftime("%d/%m")} al {hasta.strftime("%d/%m")} (cada año).',
+        )
+    except ValueError:
+        messages.error(request, 'Las fechas no tienen un formato válido.')
+    except Exception as e:
+        messages.error(request, f'Error al guardar: {e}')
+
+    return redirect('inmobiliaria:sucursal_detalle', sucursal_id=sucursal.id)
 
 
 @login_required
@@ -24901,19 +24892,16 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
     operaciones = []
     
     # Función auxiliar para determinar tipo de precio según fecha
+    from inmobiliaria.precio_temporada_reserva import (
+        rango_vacaciones_invierno_sucursal,
+        tipo_precio_para_dia_reserva,
+    )
+
     def obtener_tipo_precio(fecha):
-        if fecha.month == 1:  # Enero
-            return 'QUINCENA_1_ENERO' if fecha.day <= 15 else 'QUINCENA_2_ENERO'
-        elif fecha.month == 2:  # Febrero
-            return 'QUINCENA_1_FEBRERO' if fecha.day <= 15 else 'QUINCENA_2_FEBRERO'
-        elif fecha.month == 3:  # Marzo
-            return 'QUINCENA_1_MARZO' if fecha.day <= 15 else 'QUINCENA_2_MARZO'
-        elif fecha.month == 7:  # Julio (Vacaciones de Invierno)
-            return 'VACACIONES_INVIERNO'
-        elif fecha.month == 12:  # Diciembre
-            return 'QUINCENA_1_DICIEMBRE' if fecha.day <= 15 else 'QUINCENA_2_DICIEMBRE'
-        else:
-            return 'TEMPORADA_BAJA'
+        return tipo_precio_para_dia_reserva(
+            fecha,
+            rango_vacaciones_invierno_sucursal(sucursal),
+        )
     
     # Procesar reservas
     for reserva in reservas_pendientes:

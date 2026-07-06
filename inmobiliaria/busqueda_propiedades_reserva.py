@@ -3,24 +3,15 @@ Helpers de rendimiento para buscar_propiedades (reservas/nuevo).
 Evita N+1: precios en memoria, reservas/disponibilidades/contratos precargados.
 """
 from collections import defaultdict
-from datetime import timedelta
 from decimal import Decimal
 
 from django.db.models import Max, Min, Q
 
-
-def tipo_precio_para_dia_reserva(dia_a_usar):
-    if dia_a_usar.month == 1:
-        return 'QUINCENA_1_ENERO' if dia_a_usar.day <= 15 else 'QUINCENA_2_ENERO'
-    if dia_a_usar.month == 2:
-        return 'QUINCENA_1_FEBRERO' if dia_a_usar.day <= 15 else 'QUINCENA_2_FEBRERO'
-    if dia_a_usar.month == 3:
-        return 'QUINCENA_1_MARZO' if dia_a_usar.day <= 15 else 'QUINCENA_2_MARZO'
-    if dia_a_usar.month == 7:
-        return 'VACACIONES_INVIERNO'
-    if dia_a_usar.month == 12:
-        return 'QUINCENA_1_DICIEMBRE' if dia_a_usar.day <= 15 else 'QUINCENA_2_DICIEMBRE'
-    return 'TEMPORADA_BAJA'
+from inmobiliaria.precio_temporada_reserva import (
+    RangoVacacionesInvierno,
+    dia_a_usar_para_noche,
+    tipo_precio_para_dia_reserva,
+)
 
 
 def mapa_precios_propiedad(propiedad):
@@ -40,7 +31,12 @@ def precio_dia_desde_obj(precio_obj):
     return precio_dia
 
 
-def calcular_precio_total_reserva_fechas(fecha_inicio, fecha_fin, precios_map):
+def calcular_precio_total_reserva_fechas(
+    fecha_inicio,
+    fecha_fin,
+    precios_map,
+    vacaciones_invierno: RangoVacacionesInvierno | None = None,
+):
     """Misma regla que buscar_propiedades: noches + día de comisión (el más caro)."""
     noches = (fecha_fin - fecha_inicio).days
     if noches <= 0:
@@ -48,18 +44,8 @@ def calcular_precio_total_reserva_fechas(fecha_inicio, fecha_fin, precios_map):
     precio_total = Decimal('0')
     precio_mas_caro = Decimal('0')
     for noche in range(noches):
-        dia_salida = fecha_inicio + timedelta(noche)
-        dia_llegada = fecha_inicio + timedelta(noche + 1)
-        if (
-            dia_salida.month == 12
-            and dia_salida.day == 31
-            and dia_llegada.month == 1
-            and dia_llegada.day == 1
-        ):
-            dia_a_usar = dia_llegada
-        else:
-            dia_a_usar = dia_salida
-        tipo = tipo_precio_para_dia_reserva(dia_a_usar)
+        dia_a_usar = dia_a_usar_para_noche(fecha_inicio, noche)
+        tipo = tipo_precio_para_dia_reserva(dia_a_usar, vacaciones_invierno)
         precio_dia = precio_dia_desde_obj(precios_map.get(tipo))
         if precio_dia > precio_mas_caro:
             precio_mas_caro = precio_dia

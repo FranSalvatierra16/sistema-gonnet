@@ -95,7 +95,94 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Vacaciones de invierno (precio por día) -->
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="card-title mb-0">
+                                        <i class="fas fa-snowflake"></i> Vacaciones de invierno — alquiler por día
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <p class="text-muted mb-3">
+                                        Define en qué fechas del año se aplica el precio «Vacaciones invierno» al calcular reservas por día.
+                                        Solo importan el día y el mes (se repite cada año).
+                                    </p>
+                                    {% if sucursal.vacaciones_invierno_desde and sucursal.vacaciones_invierno_hasta %}
+                                        <div class="alert alert-info mb-0">
+                                            <strong>Rango actual:</strong>
+                                            {{ sucursal.vacaciones_invierno_desde|date:"d/m" }}
+                                            al
+                                            {{ sucursal.vacaciones_invierno_hasta|date:"d/m" }}
+                                            (cada año)
+                                        </div>
+                                    {% else %}
+                                        <div class="alert alert-secondary mb-0">
+                                            <strong>Rango actual:</strong> todo el mes de <strong>julio</strong> (predeterminado)
+                                        </div>
+                                    {% endif %}
+
+                                    {% if user.is_superuser or user.nivel >= 4 %}
+                                        <div class="text-center mt-3">
+                                            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalVacacionesInvierno">
+                                                <i class="fas fa-calendar-alt"></i> Configurar fechas
+                                            </button>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal vacaciones de invierno -->
+<div class="modal fade" id="modalVacacionesInvierno" tabindex="-1" aria-labelledby="modalVacacionesInviernoLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalVacacionesInviernoLabel">
+                    <i class="fas fa-snowflake"></i> Vacaciones de invierno — fechas
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formVacacionesInvierno" method="post" action="{% url 'inmobiliaria:configurar_vacaciones_invierno' sucursal.id %}">
+                    {% csrf_token %}
+                    <div class="form-check form-switch mb-4">
+                        <input class="form-check-input" type="checkbox" id="usar_todo_julio" name="usar_todo_julio"
+                               {% if not sucursal.vacaciones_invierno_desde %}checked{% endif %}>
+                        <label class="form-check-label" for="usar_todo_julio">
+                            Usar <strong>todo julio</strong> (comportamiento anterior)
+                        </label>
+                    </div>
+                    <div id="camposRangoVacaciones">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="vacaciones_invierno_desde" class="form-label">Desde</label>
+                                <input type="date" class="form-control" id="vacaciones_invierno_desde" name="vacaciones_invierno_desde"
+                                       value="{% if sucursal.vacaciones_invierno_desde %}{{ sucursal.vacaciones_invierno_desde|date:'Y-m-d' }}{% else %}2000-07-08{% endif %}">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="vacaciones_invierno_hasta" class="form-label">Hasta (inclusive)</label>
+                                <input type="date" class="form-control" id="vacaciones_invierno_hasta" name="vacaciones_invierno_hasta"
+                                       value="{% if sucursal.vacaciones_invierno_hasta %}{{ sucursal.vacaciones_invierno_hasta|date:'Y-m-d' }}{% else %}2000-07-19{% endif %}">
+                            </div>
+                        </div>
+                        <p class="text-muted small mb-0">El año del selector no importa; solo día y mes.</p>
+                    </div>
+                    <div class="text-end mt-4">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Guardar
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -283,6 +370,23 @@ document.getElementById('formNumeracionRecibos').addEventListener('submit', func
             return;
         }
     }
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    const chkTodoJulio = document.getElementById('usar_todo_julio');
+    const camposRango = document.getElementById('camposRangoVacaciones');
+    if (!chkTodoJulio || !camposRango) return;
+
+    function toggleCamposVacaciones() {
+        const deshabilitar = chkTodoJulio.checked;
+        camposRango.style.opacity = deshabilitar ? '0.5' : '1';
+        camposRango.querySelectorAll('input').forEach(function(inp) {
+            inp.disabled = deshabilitar;
+        });
+    }
+
+    chkTodoJulio.addEventListener('change', toggleCamposVacaciones);
+    toggleCamposVacaciones();
 });
 </script>
 

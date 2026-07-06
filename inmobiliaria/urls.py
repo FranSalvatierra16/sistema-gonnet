@@ -78,6 +78,7 @@ urlpatterns = [
     path('disponibilidad/<int:disponibilidad_id>/editar/', views.editar_disponibilidad, name='editar_disponibilidad'),
     path('propiedades/<str:propiedad_id>/corregir-superposiciones/', views.corregir_superposiciones_disponibilidades, name='corregir_superposiciones_disponibilidades'),
     path('sucursal/<int:sucursal_id>/configurar-numeracion-recibos/', views.configurar_numeracion_recibos, name='configurar_numeracion_recibos'),
+    path('sucursal/<int:sucursal_id>/configurar-vacaciones-invierno/', views.configurar_vacaciones_invierno, name='configurar_vacaciones_invierno'),
     path('propiedad/<str:propiedad_id>/historial-disponibilidad/', views.ver_historial_disponibilidad, name='historial_disponibilidad'),
     path('limpiar-historial-disponibilidad/', views.limpiar_historial_disponibilidad, name='limpiar_historial_disponibilidad'),
     path('editar-historial-disponibilidad/', views.editar_historial_disponibilidad, name='editar_historial_disponibilidad'),

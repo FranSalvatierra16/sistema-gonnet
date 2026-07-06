@@ -36,6 +36,19 @@ class Sucursal(models.Model):
         help_text="Porcentaje por defecto para operaciones de esta sucursal. Si el vendedor tiene % propio, se usa el del vendedor.",
     )
 
+    vacaciones_invierno_desde = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name='Vacaciones de invierno — desde',
+        help_text='Día y mes de inicio (el año se ignora; se repite cada año). Vacío = todo julio.',
+    )
+    vacaciones_invierno_hasta = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name='Vacaciones de invierno — hasta',
+        help_text='Día y mes de fin inclusive. Debe cargarse junto con «desde».',
+    )
+
     def __str__(self):
         return self.nombre
     
