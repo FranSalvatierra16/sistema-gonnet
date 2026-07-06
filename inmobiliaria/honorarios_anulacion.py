@@ -118,29 +118,42 @@ def _fecha_reversion_reserva(reserva):
     return timezone.localdate()
 
 
-def _inferir_fecha_liquidacion_reserva(reserva):
-    """Fecha del ingreso original (liquidación eliminada): movimiento de caja anulado o fallback."""
-    from inmobiliaria.models.caja import MovimientoCaja, TipoMovimientoCajaEnum
+def _inferir_fecha_ingreso_reserva(reserva):
+    """Fecha del cobro / acreditación (ingreso en caja), no la anulación."""
+    import re
 
-    propiedad_id = getattr(reserva, 'propiedad_id', None)
+    from inmobiliaria.models import ComisionVendedor, MovimientoCaja
+    from inmobiliaria.models.caja import TipoMovimientoCajaEnum
+    from inmobiliaria.models.comision import ROL_COMISION_FICHAJE, ROL_COMISION_REVERSION
+
     rid = int(reserva.pk)
+    propiedad_id = getattr(reserva, 'propiedad_id', None)
+    sucursal_id = getattr(reserva, 'sucursal_id', None)
     if propiedad_id:
-        movs = MovimientoCaja.all_objects.filter(
+        qs = MovimientoCaja.objects.filter(
             propiedad_id=propiedad_id,
-            tipo=TipoMovimientoCajaEnum.EGRESO,
-            fecha_eliminacion__isnull=False,
-        ).order_by('-fecha_eliminacion', '-fecha')
-        for mov in movs[:30]:
-            texto = f'{mov.concepto or ""} {mov.concepto_detalle or ""} {mov.numero_liquidacion or ""}'
-            if str(rid) in texto:
+            tipo=TipoMovimientoCajaEnum.INGRESO,
+        )
+        if sucursal_id:
+            qs = qs.filter(sucursal_id=sucursal_id)
+        for mov in qs.order_by('fecha', 'id'):
+            texto = mov.concepto or ''
+            if re.search(rf'Operaci[oó]n\s*#?\s*{rid}\b', texto, re.IGNORECASE):
                 fc = mov.fecha
                 if fc:
                     return timezone.localtime(fc).date() if timezone.is_aware(fc) else fc.date()
 
-    if getattr(reserva, 'fecha_eliminacion', None):
-        when = reserva.fecha_eliminacion
-        fc = timezone.localtime(when) if timezone.is_aware(when) else when
-        return fc.date() if hasattr(fc, 'date') else reserva.fecha_inicio
+    com = (
+        ComisionVendedor.objects.filter(reserva=reserva)
+        .exclude(rol_comision=ROL_COMISION_REVERSION)
+        .exclude(rol_comision=ROL_COMISION_FICHAJE)
+        .order_by('fecha_operacion', 'id')
+        .first()
+    )
+    if com and com.fecha_operacion:
+        fc = com.fecha_operacion
+        return timezone.localtime(fc).date() if timezone.is_aware(fc) else fc.date()
+
     return reserva.fecha_inicio
 
 
@@ -181,7 +194,7 @@ def filas_honorarios_reserva_anulada_legacy(reserva, propiedad_txt_fn, fila_comi
     }
 
     filas = []
-    fecha_liq = _inferir_fecha_liquidacion_reserva(reserva)
+    fecha_liq = _inferir_fecha_ingreso_reserva(reserva)
     fecha_rev = _fecha_reversion_reserva(reserva)
 
     inm = montos['monto_inmobiliaria']
@@ -192,7 +205,7 @@ def filas_honorarios_reserva_anulada_legacy(reserva, propiedad_txt_fn, fila_comi
             'tipo_display': 'Comisión inmobiliaria',
             'fecha': fecha_liq,
             'monto': inm,
-            'nota': 'Al liquidar',
+            'nota': 'Al cobrar / acreditar',
         })
         filas.append({
             **base,

@@ -1,8 +1,9 @@
 """
 Honorarios / ganancias de oficina desde liquidaciones.
-- Comisión inmobiliaria: ingresa al crear la liquidación (fecha_creacion).
+- Comisión inmobiliaria: fecha del cobro / acreditación (ingreso en caja o comisión confirmada).
 - Cochera, fondo y comisiones locador/locatario: día de entrada del depto (inicio reserva o contrato).
 """
+import re
 from datetime import date, datetime
 from decimal import Decimal
 
@@ -64,6 +65,97 @@ def _fecha_liquidacion(liq):
         return None
     fc = liq.fecha_creacion
     return timezone.localtime(fc).date() if timezone.is_aware(fc) else fc.date()
+
+
+def _datetime_a_fecha_local(dt):
+    if not dt:
+        return None
+    if timezone.is_aware(dt):
+        return timezone.localtime(dt).date()
+    if hasattr(dt, 'date'):
+        return dt.date()
+    return dt
+
+
+def _operacion_en_concepto_movimiento(concepto, operacion_id):
+    if not concepto:
+        return False
+    return bool(re.search(rf'Operaci[oó]n\s*#?\s*{operacion_id}\b', concepto, re.IGNORECASE))
+
+
+def _fecha_primer_ingreso_reserva(reserva):
+    from inmobiliaria.models import MovimientoCaja
+    from inmobiliaria.models.caja import TipoMovimientoCajaEnum
+
+    if not reserva or not getattr(reserva, 'propiedad_id', None):
+        return None
+    qs = MovimientoCaja.objects.filter(
+        propiedad_id=reserva.propiedad_id,
+        sucursal_id=reserva.sucursal_id,
+        tipo=TipoMovimientoCajaEnum.INGRESO,
+    ).order_by('fecha', 'id')
+    rid = int(reserva.pk)
+    for mov in qs:
+        if _operacion_en_concepto_movimiento(mov.concepto, rid):
+            return _datetime_a_fecha_local(mov.fecha)
+    return None
+
+
+def _fecha_primer_ingreso_contrato(contrato):
+    from inmobiliaria.cuotas_imputacion import movimientos_ingreso_contrato
+
+    if not contrato:
+        return None
+    movs = sorted(movimientos_ingreso_contrato(contrato), key=lambda m: (m.fecha, m.id))
+    if movs:
+        return _datetime_a_fecha_local(movs[0].fecha)
+    return None
+
+
+def _fecha_acreditacion_comision_operacion(*, reserva=None, contrato=None):
+    """Fecha en que se acreditó la comisión del productor (proxy del cobro)."""
+    from inmobiliaria.models import ComisionVendedor
+    from inmobiliaria.models.comision import ROL_COMISION_FICHAJE, ROL_COMISION_REVERSION
+
+    qs = ComisionVendedor.objects.exclude(rol_comision=ROL_COMISION_REVERSION).exclude(
+        rol_comision=ROL_COMISION_FICHAJE
+    )
+    if reserva is not None:
+        qs = qs.filter(reserva=reserva)
+    elif contrato is not None:
+        qs = qs.filter(contrato=contrato)
+    else:
+        return None
+    com = qs.order_by('fecha_operacion', 'id').first()
+    if com and com.fecha_operacion:
+        return _datetime_a_fecha_local(com.fecha_operacion)
+    return None
+
+
+def _fecha_ingreso_honorarios_comision(liq):
+    """
+    Cuándo ingresaron los honorarios de oficina (cobro / acreditación),
+    no la fecha de anulación ni la reconstrucción de liquidación cancelada.
+    """
+    reserva = getattr(liq, 'reserva', None) or reserva_desde_liquidacion(liq)
+    contrato = getattr(liq, 'contrato', None) or contrato_desde_liquidacion(liq)
+
+    if reserva is not None:
+        fd = _fecha_primer_ingreso_reserva(reserva)
+        if fd:
+            return fd
+        fd = _fecha_acreditacion_comision_operacion(reserva=reserva)
+        if fd:
+            return fd
+    elif contrato is not None:
+        fd = _fecha_primer_ingreso_contrato(contrato)
+        if fd:
+            return fd
+        fd = _fecha_acreditacion_comision_operacion(contrato=contrato)
+        if fd:
+            return fd
+
+    return _fecha_liquidacion(liq)
 
 
 def _operacion_label(liq):
@@ -229,15 +321,19 @@ def _filas_honorarios_desde_caratulas_confirmadas(
 def _fecha_reversion_honorarios(liq, when_dt=None):
     """Fecha del asiento negativo por anulación."""
     if when_dt is not None:
-        if timezone.is_aware(when_dt):
-            return timezone.localtime(when_dt).date()
-        if hasattr(when_dt, 'date'):
-            return when_dt.date()
-        return when_dt
-    if liq.fecha_procesamiento:
-        fc = liq.fecha_procesamiento
-        return timezone.localtime(fc).date() if timezone.is_aware(fc) else fc.date()
-    return _fecha_liquidacion(liq)
+        fd = _datetime_a_fecha_local(when_dt)
+        if fd:
+            return fd
+    reserva = getattr(liq, 'reserva', None) or reserva_desde_liquidacion(liq)
+    if reserva is not None and getattr(reserva, 'fecha_eliminacion', None):
+        fd = _datetime_a_fecha_local(reserva.fecha_eliminacion)
+        if fd:
+            return fd
+    if liq.fecha_procesamiento and getattr(liq, 'estado', None) == 'cancelada':
+        fd = _datetime_a_fecha_local(liq.fecha_procesamiento)
+        if fd:
+            return fd
+    return timezone.localdate()
 
 
 def _operacion_anulada_desde_liquidacion(liq):
@@ -415,9 +511,9 @@ def _filas_honorarios_desde_liquidaciones(liquidaciones):
                     **base,
                     'tipo': 'comision',
                     'tipo_display': 'Comisión inmobiliaria',
-                    'fecha': _fecha_liquidacion(liq),
+                    'fecha': _fecha_ingreso_honorarios_comision(liq),
                     'monto': monto_inm,
-                    'nota': 'Al liquidar',
+                    'nota': 'Al cobrar / acreditar',
                 })
 
             f_entrada = _fecha_entrada_liquidacion(liq)
