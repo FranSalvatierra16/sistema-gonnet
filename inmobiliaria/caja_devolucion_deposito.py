@@ -452,6 +452,34 @@ def reserva_tiene_senia_cobrada(reserva) -> bool:
     return total_senia_pagada_reserva(reserva) > Decimal('0.01')
 
 
+def reserva_tiene_cobro_vinculado_directo(reserva, reserva_ids_con_recibo=None) -> bool:
+    """
+    Cobro atribuible a esta reserva (campo seña, movimientos vinculados o recibo).
+    No usa el fallback por ingresos de la propiedad: ese respaldo puede marcar
+    cobro en otra operación y ocultar reservas que sí figuran como pendientes en el listado.
+    """
+    if (getattr(reserva, 'estado', None) or '').strip() == 'pagada':
+        return True
+    senia_db = Decimal(str(getattr(reserva, 'senia', None) or 0))
+    if senia_db > Decimal('0.01'):
+        return True
+    rid = int(reserva.pk)
+    if reserva_ids_con_recibo is not None:
+        if rid in reserva_ids_con_recibo:
+            return True
+    else:
+        from inmobiliaria.models import Recibo
+
+        if Recibo.objects.filter(reserva_id=rid).exists():
+            return True
+    for mov in movimientos_reserva(reserva, tipo=TipoMovimientoCajaEnum.INGRESO):
+        if monto_senia_en_movimiento(mov, reserva_id=rid) > Decimal('0.01'):
+            return True
+    if reserva_ids_con_recibo is None and _total_cobrado_desde_recibos_reserva(reserva) > Decimal('0.01'):
+        return True
+    return False
+
+
 def reserva_tuvo_operacion_en_caja(reserva) -> bool:
     """Reserva con cobro en caja (no solo bloqueo de fechas en calendario)."""
     if (getattr(reserva, 'estado', None) or '').strip() == 'pagada':
@@ -514,43 +542,51 @@ def queryset_contratos_con_operacion(qs):
     return qs.exclude(Q(estado='reservado') & Q(operacion_principal=False))
 
 
-def reserva_ocupa_sin_ofrecer_en_busqueda(reserva) -> bool:
+def reserva_ocupa_sin_ofrecer_en_busqueda(reserva, reserva_ids_con_recibo=None) -> bool:
     """
     Reserva pagada o con seña: no se ofrece en búsqueda (ni disponible ni «reservada sin pagar»).
     """
     if getattr(reserva, 'es_alquiler_sindicato', False):
         return False
-    if (getattr(reserva, 'estado', None) or '').strip() == 'pagada':
-        return True
-    return reserva_tiene_senia_cobrada(reserva)
+    return reserva_tiene_cobro_vinculado_directo(
+        reserva, reserva_ids_con_recibo=reserva_ids_con_recibo
+    )
 
 
-def reserva_mostrar_como_reservada_sin_pagar(reserva) -> bool:
-    """Solo reservas confirmadas/en espera sin ningún cobro de seña."""
+def reserva_mostrar_como_reservada_sin_pagar(reserva, reserva_ids_con_recibo=None) -> bool:
+    """Misma noción que «Reservas pendientes»: sin cobro vinculado a la reserva."""
     if getattr(reserva, 'es_alquiler_sindicato', False):
         return False
-    if reserva_ocupa_sin_ofrecer_en_busqueda(reserva):
+    if reserva_ocupa_sin_ofrecer_en_busqueda(
+        reserva, reserva_ids_con_recibo=reserva_ids_con_recibo
+    ):
         return False
     return (getattr(reserva, 'estado', None) or '').strip() in (
         'confirmada_no_pagada',
         'en_espera',
-        'confirmada',
     )
 
 
-def reserva_para_amarillo_termina_en_inicio(reserva) -> bool:
+def reserva_para_amarillo_termina_en_inicio(reserva, reserva_ids_con_recibo=None) -> bool:
     """
     Amarillo en búsqueda: entra un huésped el mismo día que sale otro, pero solo si lo anterior
     es reserva sin operación (sin seña cobrada, recibo ni pagada). Si ya es operación, no amarillo.
     """
     if getattr(reserva, 'es_alquiler_sindicato', False):
         return False
-    if reserva_ocupa_sin_ofrecer_en_busqueda(reserva):
+    if reserva_ocupa_sin_ofrecer_en_busqueda(
+        reserva, reserva_ids_con_recibo=reserva_ids_con_recibo
+    ):
         return False
-    from inmobiliaria.models import Recibo
+    rid = int(reserva.pk)
+    if reserva_ids_con_recibo is not None:
+        if rid in reserva_ids_con_recibo:
+            return False
+    else:
+        from inmobiliaria.models import Recibo
 
-    if Recibo.objects.filter(reserva_id=reserva.pk).exists():
-        return False
+        if Recibo.objects.filter(reserva_id=rid).exists():
+            return False
     return (getattr(reserva, 'estado', None) or '').strip() in (
         'confirmada_no_pagada',
         'en_espera',

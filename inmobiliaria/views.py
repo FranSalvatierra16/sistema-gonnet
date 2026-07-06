@@ -2188,7 +2188,7 @@ logger = logging.getLogger(__name__)
 CONCEPTOS_SENIA_OPERACION_RESERVA = frozenset({"1", "15", "50", "100", "103", "219"})
 
 
-def _reserva_sin_pagar_para_busqueda(reservas_bloquean):
+def _reserva_sin_pagar_para_busqueda(reservas_bloquean, reserva_ids_con_recibo=None):
     """
     Devuelve la reserva a mostrar como «reservada sin pagar», o None si la propiedad
     está ocupada (pagada / seña cobrada) o no hay reserva pendiente de seña.
@@ -2200,9 +2200,13 @@ def _reserva_sin_pagar_para_busqueda(reservas_bloquean):
 
     sin_pagar = None
     for reserva in reservas_bloquean:
-        if reserva_ocupa_sin_ofrecer_en_busqueda(reserva):
+        if reserva_ocupa_sin_ofrecer_en_busqueda(
+            reserva, reserva_ids_con_recibo=reserva_ids_con_recibo
+        ):
             return None
-        if sin_pagar is None and reserva_mostrar_como_reservada_sin_pagar(reserva):
+        if sin_pagar is None and reserva_mostrar_como_reservada_sin_pagar(
+            reserva, reserva_ids_con_recibo=reserva_ids_con_recibo
+        ):
             sin_pagar = reserva
     return sin_pagar
 
@@ -15051,6 +15055,38 @@ def buscar_propiedades(request):
             Prefetch('precios', queryset=Precio.objects.all(), to_attr='todos_precios')
         )
         propiedades_lista = list(propiedades)
+        from inmobiliaria.caja_devolucion_deposito import queryset_reservas_pendientes_cobro
+
+        pendientes_qs = queryset_reservas_pendientes_cobro(
+            Reserva.objects.filter(
+                eliminada=False,
+                fecha_inicio__lt=fecha_fin,
+                fecha_fin__gt=fecha_inicio,
+            )
+        )
+        if ver_todas:
+            pendientes_qs = pendientes_qs.filter(
+                Q(propiedad__sucursal__nombre__icontains='colon')
+                | Q(propiedad__sucursal__nombre__icontains='corrientes')
+            )
+        else:
+            pendientes_qs = pendientes_qs.filter(sucursal=sucursal_vendedor)
+
+        ids_en_lista = {p.id for p in propiedades_lista}
+        ids_faltantes = set(pendientes_qs.values_list('propiedad_id', flat=True)) - ids_en_lista
+        if ids_faltantes:
+            extra_qs = Propiedad.objects.filter(id__in=ids_faltantes)
+            if ambientes:
+                extra_qs = extra_qs.filter(ambientes=ambientes)
+            if origen:
+                extra_qs = extra_qs.filter(ubicacion__icontains=origen)
+            if destino:
+                extra_qs = extra_qs.filter(ubicacion__icontains=destino)
+            extra_qs = extra_qs.select_related('propietario', 'sucursal').prefetch_related(
+                Prefetch('precios', queryset=Precio.objects.all(), to_attr='todos_precios')
+            )
+            propiedades_lista.extend(list(extra_qs))
+
         from inmobiliaria.busqueda_propiedades_reserva import (
             buscar_reserva_termina_en_inicio_mem,
             calcular_precio_total_reserva_fechas,
@@ -15077,14 +15113,13 @@ def buscar_propiedades(request):
                 reservas_por_prop.get(propiedad.id, []), fecha_inicio, fecha_fin
             )
 
-            if contrato_solapa_rango(contratos_por_prop.get(propiedad.id, []), fecha_inicio, fecha_fin):
-                continue
-
             if any(r.estado == 'pagada' and not r.es_alquiler_sindicato for r in reservas):
                 continue
 
             reservas_bloquean = [r for r in reservas if not r.es_alquiler_sindicato]
-            reserva_confirmada_no_pagada = _reserva_sin_pagar_para_busqueda(reservas_bloquean)
+            reserva_confirmada_no_pagada = _reserva_sin_pagar_para_busqueda(
+                reservas_bloquean, reserva_ids_con_recibo
+            )
 
             if reservas_bloquean and reserva_confirmada_no_pagada is None:
                 continue
@@ -15092,7 +15127,7 @@ def buscar_propiedades(request):
             if any(r.estado == 'pagada' for r in reservas_bloquean):
                 continue
 
-            # Reserva pendiente de cobro: mostrar aunque no haya disponibilidad cargada en esas fechas
+            # Reserva pendiente de cobro: mostrar aunque no haya disponibilidad ni contrato en esas fechas
             if reserva_confirmada_no_pagada:
                 propiedad.reserva = reserva_confirmada_no_pagada
                 propiedad.estado_reserva = 'confirmada_no_pagada'
@@ -15100,6 +15135,9 @@ def buscar_propiedades(request):
                 propiedad.disponibilidad_inicio = reserva_confirmada_no_pagada.fecha_inicio
                 propiedad.disponibilidad_fin = reserva_confirmada_no_pagada.fecha_fin
                 propiedades_disponibles.append(propiedad)
+                continue
+
+            if contrato_solapa_rango(contratos_por_prop.get(propiedad.id, []), fecha_inicio, fecha_fin):
                 continue
 
             disponibilidades_superpuestas = disp_por_prop.get(propiedad.id, [])

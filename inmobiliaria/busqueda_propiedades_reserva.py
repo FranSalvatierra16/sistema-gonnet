@@ -178,7 +178,9 @@ def buscar_reserva_termina_en_inicio_mem(reservas, fecha_inicio, reserva_ids_con
             continue
         if reserva.pk in reserva_ids_con_recibo:
             continue
-        if reserva_para_amarillo_termina_en_inicio(reserva):
+        if reserva_para_amarillo_termina_en_inicio(
+            reserva, reserva_ids_con_recibo=reserva_ids_con_recibo
+        ):
             return reserva
     return None
 
