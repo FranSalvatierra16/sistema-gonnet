@@ -8121,10 +8121,11 @@ def format_price(value):
     except (ValueError, TypeError):
         return str(value)
 
+@login_required
 def obtener_vendedor(request, vendedor_id):
     logger.info(f"Solicitando vendedor con ID: {vendedor_id}")
     try:
-        vendedor = Vendedor.objects.get(id=vendedor_id)
+        vendedor = Vendedor.objects.get(id=vendedor_id, sucursal=request.user.sucursal)
         logger.info(f"Vendedor encontrado: {vendedor.nombre} {vendedor.apellido}")
 # print(f"Vendedor encontrado: {vendedor.nombre} {vendedor.apellido}")
         return JsonResponse({
@@ -14973,9 +14974,10 @@ def buscar_propiedades(request):
     inquilino_form = InquilinoForm(request.POST)
     propiedades_disponibles = []
     propiedades_sin_precio = []
-    vendedores = Vendedor.objects.filter(sucursal=sucursal_vendedor)
+    vendedores = Vendedor.objects.filter(sucursal=sucursal_vendedor).order_by('apellido', 'nombre')
     total_dias_reserva = 0
-    
+    vendedor_usuario_id = request.user.pk if isinstance(request.user, Vendedor) else None
+
     # FLAG: Para identificar específicamente esta función en los edits siguientes
     FUNCION_PRINCIPAL_EN_USO = True
 
@@ -15330,6 +15332,7 @@ def buscar_propiedades(request):
         'total_dias': total_dias_reserva,
         'inquilinos': inquilinos,
         'vendedores': vendedores,
+        'vendedor_usuario_id': vendedor_usuario_id,
         'tipos_precio': TipoPrecio,
         'conceptos': conceptos,
         'total_propiedades_disponibles': total_propiedades_disponibles,

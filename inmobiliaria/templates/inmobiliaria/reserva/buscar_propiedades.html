@@ -1419,22 +1419,26 @@
             <!-- Vendedor -->
             <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 24px; border-radius: 12px; margin-bottom: 24px;">
                 <h4 style="color: #334155; margin: 0 0 16px 0; font-size: 16px; font-weight: 600;">Vendedor</h4>
-                <div style="display: flex; gap: 12px; margin-bottom: 16px;">
-                    <input type="number" id="vendedor_id" placeholder="ID del vendedor" min="1" 
-                           style="flex: 1; padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; font-weight: 500; color: #1e293b; background: white; transition: all 0.2s;"
+                <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                    <input type="text" id="buscar_vendedor" placeholder="Buscar por ID, nombre o apellido..."
+                           style="flex: 1; padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; color: #1e293b; font-weight: 500; transition: all 0.2s;"
                            onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
                            onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'"
-                           oninput="buscarVendedorAutomatico()">
-                    <button onclick="buscarVendedor()" 
-                            style="padding: 12px 20px; background: #3b82f6; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all 0.2s; font-size: 14px;"
-                            onmouseover="this.style.background='#2563eb'"
-                            onmouseout="this.style.background='#3b82f6'">Buscar</button>
+                           oninput="buscarVendedoresEnTiempoReal()">
+                    <button type="button" onclick="mostrarTodosLosVendedores()"
+                            style="padding: 12px 16px; background: #3b82f6; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; font-size: 14px;">Todos</button>
                 </div>
-                <div id="vendedor_info" style="display: none; background: #f0fdf4; padding: 16px; border-radius: 8px; border: 1px solid #16a34a;">
+                <div id="estado_busqueda_vendedor" style="font-size: 13px; color: #666; margin-bottom: 8px;"></div>
+                <select id="vendedor_select" size="5"
+                        style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; display: none;"
+                        onchange="seleccionarVendedorModal()">
+                </select>
+                <input type="hidden" id="vendedor_id">
+                <div id="vendedor_info" style="display: none; background: #f0fdf4; padding: 16px; border-radius: 8px; border: 1px solid #16a34a; margin-top: 12px;">
                     <div style="display: flex; align-items: center; gap: 12px;">
                         <div style="width: 8px; height: 8px; background: #16a34a; border-radius: 50%;"></div>
                         <div>
-                            <div style="color: #15803d; font-size: 14px; font-weight: 500;">Vendedor encontrado</div>
+                            <div style="color: #15803d; font-size: 14px; font-weight: 500;">Vendedor seleccionado</div>
                             <div id="vendedor_nombre" style="color: #1e293b; font-size: 16px; font-weight: 600; margin-top: 4px;"></div>
                         </div>
                     </div>
@@ -2703,92 +2707,130 @@ window.formatearFecha = function(fecha) {
 
 // Debounce para buscar vendedor
 let busquedaVendedorTimeout = null;
+const URL_OBTENER_VENDEDOR = "{% url 'inmobiliaria:obtener_vendedor' 0 %}";
+const VENDEDOR_USUARIO_ID = {{ vendedor_usuario_id|default:'null' }};
+let vendedoresOriginales = [
+    {% for v in vendedores %}
+    {
+        id: {{ v.id }},
+        nombre: "{{ v.nombre|escapejs }}",
+        apellido: "{{ v.apellido|escapejs }}",
+        texto: "ID: {{ v.id }} - {{ v.apellido|escapejs }}, {{ v.nombre|escapejs }}"
+    }{% if not forloop.last %},{% endif %}
+    {% endfor %}
+];
 
-// Función para buscar vendedor automáticamente mientras escribes
-function buscarVendedorAutomatico() {
-    const vendedorId = document.getElementById('vendedor_id').value.trim();
-    const vendedorInfo = document.getElementById('vendedor_info');
-    
-    // Limpiar el timeout anterior
-    if (busquedaVendedorTimeout) clearTimeout(busquedaVendedorTimeout);
-    
-    // Si no hay ID, ocultar info
-    if (!vendedorId) {
-        vendedorInfo.style.display = 'none';
-        document.getElementById('modalVendedorId').value = '';
-        return;
-    }
-    
-    // Buscar después de 500ms de no escribir
-    busquedaVendedorTimeout = setTimeout(() => {
-        buscarVendedor();
-    }, 500);
+function urlObtenerVendedor(vendedorId) {
+    return URL_OBTENER_VENDEDOR.replace(/\/0\/?$/, `/${vendedorId}/`);
 }
 
-// Función principal para buscar vendedor
-function buscarVendedor() {
-    const vendedorId = document.getElementById('vendedor_id').value.trim();
-    const vendedorInfo = document.getElementById('vendedor_info');
-    
-    if (!vendedorId) {
-        alert('❌ Por favor ingresa un ID de vendedor');
+function aplicarVendedorSeleccionado(vendedor) {
+    if (!vendedor) return;
+    document.getElementById('vendedor_id').value = vendedor.id;
+    document.getElementById('modalVendedorId').value = vendedor.id;
+    document.getElementById('vendedor_nombre').textContent = vendedor.texto || `ID: ${vendedor.id} - ${vendedor.apellido}, ${vendedor.nombre}`;
+    document.getElementById('vendedor_info').style.display = 'block';
+    const estado = document.getElementById('estado_busqueda_vendedor');
+    if (estado) {
+        estado.textContent = `✅ Seleccionado: ${document.getElementById('vendedor_nombre').textContent}`;
+        estado.style.color = '#2e7d32';
+    }
+}
+
+function limpiarVendedorSeleccionado() {
+    document.getElementById('vendedor_id').value = '';
+    document.getElementById('modalVendedorId').value = '';
+    document.getElementById('vendedor_nombre').textContent = '';
+    document.getElementById('vendedor_info').style.display = 'none';
+}
+
+function renderListaVendedores(lista) {
+    const select = document.getElementById('vendedor_select');
+    const estado = document.getElementById('estado_busqueda_vendedor');
+    if (!select) return;
+    select.innerHTML = '';
+    if (!lista.length) {
+        select.style.display = 'none';
+        if (estado) {
+            estado.textContent = 'No se encontraron vendedores en tu sucursal';
+            estado.style.color = '#c62828';
+        }
+        limpiarVendedorSeleccionado();
         return;
     }
-    
-    console.log('🔍 Buscando vendedor con ID:', vendedorId);
-    
-    // Usar la URL correcta de Django
-    fetch(`{% url 'inmobiliaria:obtener_vendedor' '0' %}`.replace('0', vendedorId))
-        .then(response => response.json())
-        .then(data => {
-            console.log('📝 Respuesta COMPLETA del servidor:', JSON.stringify(data, null, 2));
-            
-            if (data.success) {
-                // Vendedor encontrado - mostrar información
-                let nombreVendedor = 'Nombre no disponible';
-                
-                // Probar diferentes formatos de respuesta
-                if (data.nombre) {
-                    nombreVendedor = data.nombre;
-                } else if (data.vendedor && data.vendedor.nombre_completo) {
-                    nombreVendedor = data.vendedor.nombre_completo;
-                } else if (data.vendedor && data.vendedor.nombre) {
-                    nombreVendedor = data.vendedor.nombre;
-                } else if (data.vendedor && data.vendedor.first_name) {
-                    nombreVendedor = data.vendedor.first_name + ' ' + (data.vendedor.last_name || '');
-                }
-                
-                console.log('🎯 Nombre extraído:', nombreVendedor);
-                
-                document.getElementById('vendedor_nombre').textContent = nombreVendedor;
-                document.getElementById('modalVendedorId').value = vendedorId;
-                vendedorInfo.style.display = 'block';
-                
-                console.log('✅ Vendedor encontrado:', nombreVendedor);
-            } else {
-                // Vendedor no encontrado
-                document.getElementById('vendedor_nombre').textContent = '';
-                document.getElementById('modalVendedorId').value = '';
-                vendedorInfo.style.display = 'none';
-                
-                console.log('❌ Vendedor no encontrado');
-                // Solo mostrar alerta si se presionó el botón buscar manualmente
-                if (event && event.type === 'click') {
-                    alert('❌ Vendedor no encontrado con ID: ' + vendedorId);
-                }
+    lista.forEach(v => {
+        const opt = new Option(v.texto, v.id);
+        select.add(opt);
+    });
+    select.style.display = 'block';
+    if (estado) {
+        estado.textContent = `${lista.length} vendedor(es) — elegí uno de la lista`;
+        estado.style.color = '#666';
+    }
+    if (lista.length === 1) {
+        select.selectedIndex = 0;
+        seleccionarVendedorModal();
+    }
+}
+
+function mostrarTodosLosVendedores() {
+    const buscarInput = document.getElementById('buscar_vendedor');
+    if (buscarInput) buscarInput.value = '';
+    renderListaVendedores(vendedoresOriginales);
+}
+
+function buscarVendedoresEnTiempoReal() {
+    const buscarInput = document.getElementById('buscar_vendedor');
+    if (!buscarInput) return;
+    const termino = buscarInput.value.toLowerCase().trim();
+    if (busquedaVendedorTimeout) clearTimeout(busquedaVendedorTimeout);
+    busquedaVendedorTimeout = setTimeout(() => {
+        if (!termino) {
+            mostrarTodosLosVendedores();
+            return;
+        }
+        const filtrados = vendedoresOriginales.filter(v =>
+            v.id.toString() === termino ||
+            v.id.toString().includes(termino) ||
+            v.nombre.toLowerCase().includes(termino) ||
+            v.apellido.toLowerCase().includes(termino) ||
+            v.texto.toLowerCase().includes(termino)
+        );
+        renderListaVendedores(filtrados);
+        const exacto = vendedoresOriginales.find(v => v.id.toString() === termino);
+        if (exacto) {
+            aplicarVendedorSeleccionado(exacto);
+        }
+    }, 250);
+}
+
+function seleccionarVendedorModal() {
+    const select = document.getElementById('vendedor_select');
+    if (!select || !select.value) return;
+    const v = vendedoresOriginales.find(x => x.id.toString() === select.value);
+    if (v) aplicarVendedorSeleccionado(v);
+}
+
+function buscarVendedorPorIdRemoto(vendedorId) {
+    return fetch(urlObtenerVendedor(vendedorId), { credentials: 'same-origin' })
+        .then(async response => {
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || !data.success) {
+                return null;
             }
+            const nombre = data.vendedor?.nombre_completo || data.nombre || 'Vendedor';
+            return { id: parseInt(vendedorId, 10), texto: `ID: ${vendedorId} - ${nombre}` };
         })
-        .catch(error => {
-            console.error('💥 Error al buscar vendedor:', error);
-            document.getElementById('vendedor_nombre').textContent = '';
-            document.getElementById('modalVendedorId').value = '';
-            vendedorInfo.style.display = 'none';
-            
-            // Solo mostrar alerta si se presionó el botón buscar manualmente
-            if (event && event.type === 'click') {
-                alert('💥 Error al buscar vendedor. Intenta de nuevo.');
-            }
-        });
+        .catch(() => null);
+}
+
+// Compatibilidad con llamadas anteriores
+function buscarVendedorAutomatico() {
+    buscarVendedoresEnTiempoReal();
+}
+
+function buscarVendedor() {
+    buscarVendedoresEnTiempoReal();
 }
 
 // Asigna el evento input solo una vez
@@ -2797,7 +2839,15 @@ function confirmarReservaFinal() {
     console.log('🎯 Confirmando reserva final...');
     
     // Validar campos requeridos
-    const vendedorId = document.getElementById('modalVendedorId')?.value;
+    let vendedorId = document.getElementById('modalVendedorId')?.value;
+    if (!vendedorId) {
+        const term = document.getElementById('buscar_vendedor')?.value.trim();
+        const local = vendedoresOriginales.find(v => v.id.toString() === term);
+        if (local) {
+            aplicarVendedorSeleccionado(local);
+            vendedorId = String(local.id);
+        }
+    }
     const inquilinoId = document.getElementById('modalInquilinoId')?.value;
     const precioTotalRaw = document.getElementById('precio_total_editable')?.value || document.getElementById('modalPrecioTotal')?.value;
     const precioTotal = window.parseDecimalMontoJS ? window.parseDecimalMontoJS(precioTotalRaw) : parseFloat(precioTotalRaw || 0);
@@ -2911,13 +2961,6 @@ function confirmarReservaFinal() {
     });
 }
 
-document.addEventListener('DOMContentLoaded', function() {
-    const vendedorInput = document.getElementById('vendedor_id');
-    if (vendedorInput) {
-        vendedorInput.addEventListener('input', buscarVendedor);
-    }
-});
-
 // FUNCIÓN SÚPER SIMPLE PARA EL MODAL SIN BOOTSTRAP
 window.mostrarModalReserva = function(esOperacionDirecta = false) {
     console.log('🚀 Abriendo modal súper simple...');
@@ -2993,10 +3036,25 @@ window.mostrarModalReserva = function(esOperacionDirecta = false) {
         precio_editable: propiedadSeleccionada.precio || 0
     });
     
-    // Limpiar campos
-    document.getElementById('vendedor_id').value = '';
+    // Limpiar campos vendedor / inquilino
+    document.getElementById('buscar_vendedor').value = '';
+    const vendedorSelect = document.getElementById('vendedor_select');
+    if (vendedorSelect) {
+        vendedorSelect.innerHTML = '';
+        vendedorSelect.style.display = 'none';
+    }
+    const estadoVendedor = document.getElementById('estado_busqueda_vendedor');
+    if (estadoVendedor) {
+        estadoVendedor.textContent = '';
+    }
+    limpiarVendedorSeleccionado();
+    if (VENDEDOR_USUARIO_ID) {
+        const vendedorActual = vendedoresOriginales.find(v => v.id === VENDEDOR_USUARIO_ID);
+        if (vendedorActual) {
+            aplicarVendedorSeleccionado(vendedorActual);
+        }
+    }
     document.getElementById('inquilino').value = '';
-    document.getElementById('vendedor_info').style.display = 'none';
     
     // Título y botón según tipo (evita confundir reserva con operación)
     const titulo = esOperacionDirecta ? '📋 Confirmar Operación Directa' : '📋 Confirmar Reserva';
@@ -3374,32 +3432,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const precioFinal = precioTotalInput.style.display === 'none' ? precioTotalDisplay.textContent : precioTotalInput.value;
         modalPrecioTotalInput.value = precioFinal;
     });
-});
-document.addEventListener('DOMContentLoaded', function() {
-    // Manejar el evento de cambio del vendedor
-    const vendedorInput = document.getElementById('vendedor_id');
-    if (vendedorInput) {
-        // Usar input en lugar de change para detectar cambios mientras se escribe
-        vendedorInput.addEventListener('input', buscarVendedor);
-
-        // Prevenir que se pegue contenido no numérico
-        vendedorInput.addEventListener('paste', function(e) {
-            let paste = (e.clipboardData || window.clipboardData).getData('text');
-            if (!/^\d*$/.test(paste)) {
-                e.preventDefault();
-            }
-        });
-
-        // Permitir solo números
-        vendedorInput.addEventListener('keypress', function(e) {
-            if (!/[\d]/.test(e.key)) {
-                e.preventDefault();
-            }
-        });
-    } else {
-        console.error('El campo de vendedor no se encontró');
-    }
-
 });
 
 function getCookie(name) {
