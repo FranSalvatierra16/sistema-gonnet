@@ -194,6 +194,77 @@ def _ingresos_propiedad_en_ventana_reserva(reserva):
     ).order_by('-fecha', '-id')
 
 
+def _reserva_id_en_movimiento(movimiento) -> int | None:
+    """ID de operación/reserva explícito en el movimiento, si existe."""
+    conc = (getattr(movimiento, 'concepto', None) or '')
+    for pattern in (
+        r'Operaci[oó]n\s*#?\s*(\d+)\b',
+        r'Reserva\s*#?\s*(\d+)\b',
+        r'Devoluci[oó]n dep[oó]sito operaci[oó]n\s*(\d+)\b',
+    ):
+        m = re.search(pattern, conc, re.IGNORECASE)
+        if m:
+            return int(m.group(1))
+    raw = (getattr(movimiento, 'concepto_detalle', None) or '')
+    if raw:
+        for key in (
+            'devolucion_deposito_operacion_id',
+            'operacion_id',
+            'reserva_id',
+        ):
+            m = re.search(rf'"{key}"\s*:\s*(\d+)', raw)
+            if m:
+                return int(m.group(1))
+    return None
+
+
+def _movimiento_atribuido_a_otra_reserva(movimiento, reserva_id: int) -> bool:
+    """True si el ingreso pertenece explícitamente a otra operación de la misma propiedad."""
+    rid = int(reserva_id)
+    mov_rid = _reserva_id_en_movimiento(movimiento)
+    if mov_rid is not None and mov_rid != rid:
+        return True
+    prop_id = getattr(movimiento, 'propiedad_id', None)
+    if not prop_id:
+        return False
+    from inmobiliaria.models import Reserva
+
+    otros_ids = Reserva.objects.filter(
+        propiedad_id=prop_id,
+        eliminada=False,
+    ).exclude(pk=rid).exclude(estado='cancelada').values_list('id', flat=True)[:500]
+    for other_id in otros_ids:
+        if _movimiento_vinculado_reserva(movimiento, int(other_id)):
+            return True
+    return False
+
+
+def _monto_pago_completo_sin_vinculo(movimiento, precio_reserva: Decimal) -> Decimal:
+    """Pago total sin «Operación #» que coincide con el precio de la reserva (no señas parciales ajenas)."""
+    if precio_reserva <= Decimal('0.01'):
+        return Decimal('0')
+    if _reserva_id_en_movimiento(movimiento) is not None:
+        return Decimal('0')
+    total_mov = _monto_total_movimiento(movimiento)
+    if total_mov <= Decimal('0.01'):
+        return Decimal('0')
+    conc = (getattr(movimiento, 'concepto', None) or '')
+    dep10 = _monto_concepto_en_movimiento(movimiento, CONCEPTO_DEPOSITO_RESERVA_ID)
+    if dep10 <= Decimal('0') and movimiento_tiene_concepto_10(movimiento):
+        dep10 = total_mov
+    resto = total_mov - dep10
+    if resto <= Decimal('0.01'):
+        return Decimal('0')
+    if abs(resto - precio_reserva) > Decimal('1'):
+        return Decimal('0')
+    if _texto_indica_pago_senia(conc):
+        return resto
+    for cid in CONCEPTOS_SENIA_OPERACION_RESERVA:
+        if _monto_concepto_en_movimiento(movimiento, cid) > Decimal('0.01'):
+            return resto
+    return Decimal('0')
+
+
 def _monto_senia_movimiento_sin_vinculo(movimiento, precio_reserva: Decimal) -> Decimal:
     """Importe de seña en un ingreso de la propiedad aunque no diga Operación #."""
     sub = monto_senia_en_movimiento(movimiento, reserva_id=None)
@@ -216,9 +287,14 @@ def _monto_senia_movimiento_sin_vinculo(movimiento, precio_reserva: Decimal) -> 
 
 def _total_senia_desde_ingresos_propiedad_fallback(reserva) -> Decimal:
     """
-    Respaldo: cobros en caja de la misma propiedad cerca del alta / ingreso,
-    aunque el movimiento no tenga «Operación #ID» (p. ej. lote sindicato).
+    Respaldo cuando el cobro no tiene «Operación #ID» (p. ej. lote Marconi).
+    No arrastra señas parciales de otras operaciones de la misma propiedad.
     """
+    rid = int(reserva.id)
+    lote = config_lote_sindicato_marconi(reserva) or config_lote_pago_efectivo_marconi(reserva)
+    if lote:
+        return _total_senia_en_fechas_pago(reserva, lote.fechas_pago)
+
     if not reserva.propiedad_id:
         return Decimal('0')
     vistos = {int(m.id) for m in movimientos_reserva(reserva, tipo=TipoMovimientoCajaEnum.INGRESO)}
@@ -227,7 +303,9 @@ def _total_senia_desde_ingresos_propiedad_fallback(reserva) -> Decimal:
     for mov in _ingresos_propiedad_en_ventana_reserva(reserva):
         if int(mov.id) in vistos:
             continue
-        sub = _monto_senia_movimiento_sin_vinculo(mov, precio)
+        if _movimiento_atribuido_a_otra_reserva(mov, rid):
+            continue
+        sub = _monto_pago_completo_sin_vinculo(mov, precio)
         if sub > Decimal('0.01'):
             total += sub
     return total.quantize(Decimal('0.01'))
