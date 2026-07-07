@@ -325,7 +325,11 @@ def oficina_categoria_crear(request):
         parent=parent,
         nombre=nombre,
         orden=siguiente_orden_categoria(sucursal, parent),
+        activa=True,
     )
+    if parent and not parent.activa:
+        parent.activa = True
+        parent.save(update_fields=['activa'])
     messages.success(
         request,
         'Subcategoría creada.' if parent else 'Categoría creada.',

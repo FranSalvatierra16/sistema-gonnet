@@ -409,12 +409,23 @@ def _sync_subcategorias_vendedores(sucursal, raiz):
     ).exclude(vendedor_id__in=vendedor_ids)
     if obsoletas.exists():
         obsoletas.update(activa=False)
-    # Subcategorías genéricas viejas (Productores, Administración…) sin vendedor vinculado.
-    CategoriaGastoOficina.objects.filter(
-        sucursal=sucursal,
-        parent=raiz,
-        vendedor__isnull=True,
-    ).update(activa=False)
+    # Solo desactivar subcategorías legacy genéricas (Productores, Administración…), no las creadas a mano.
+    nombre_raiz_l = (raiz.nombre or '').strip().lower()
+    legacy_nombres = set()
+    if nombre_raiz_l == 'sueldos':
+        legacy_nombres = SUBCATEGORIAS_LEGACY_SUELDOS
+    elif nombre_raiz_l == 'vales':
+        legacy_nombres = SUBCATEGORIAS_LEGACY_VALES
+    if legacy_nombres:
+        for hijo in CategoriaGastoOficina.objects.filter(
+            sucursal=sucursal,
+            parent=raiz,
+            vendedor__isnull=True,
+            activa=True,
+        ):
+            if (hijo.nombre or '').strip().lower() in legacy_nombres:
+                hijo.activa = False
+                hijo.save(update_fields=['activa'])
 
 
 def asegurar_estructura_cierre_oficina(sucursal):
