@@ -317,15 +317,23 @@ def senia_estimada_listado_operacion(
     senia_guardada,
     movimientos_rows=None,
     total_recibos: Decimal | None = None,
+    estado: str = '',
+    es_alquiler_sindicato: bool = False,
 ) -> Decimal:
     """
-    Seña para listados (solo lectura): solo movimientos/recibos vinculados a la operación.
-    Ignora reserva.senia guardada si no hay cobro real en caja para esa operación.
+    Seña para listados (solo lectura): movimientos/recibos vinculados, o BD si está pagada/sindicato.
+    Ignora reserva.senia guardada solo en reservas «confirmada» sin cobro real (seña fantasma).
     """
     total_mov = _total_movimientos_rows(movimientos_rows)
     total_rec = Decimal(str(total_recibos or 0))
     if total_mov > Decimal('0.01') or total_rec > Decimal('0.01'):
         return max(total_mov, total_rec).quantize(Decimal('0.01'))
+    senia_db = Decimal(str(senia_guardada or 0))
+    estado_norm = (estado or '').strip()
+    if senia_db > Decimal('0.01') and (
+        estado_norm == 'pagada' or es_alquiler_sindicato
+    ):
+        return senia_db.quantize(Decimal('0.01'))
     return Decimal('0')
 
 
@@ -444,18 +452,24 @@ def queryset_reservas_con_operacion(qs):
 
 def queryset_reservas_listado_operaciones(qs):
     """
-    Reservas para el listado de operaciones: con cobro real o pagadas.
-    Excluye seña fantasma en BD (senia>0 sin recibo y sin estado pagada).
+    Reservas para el listado de operaciones: con cobro real o pagadas / sindicato.
+    Excluye seña fantasma en BD (senia>0 sin recibo, sin pagada y sin sindicato).
     """
     from inmobiliaria.models import Recibo
 
     tiene_recibo = Exists(Recibo.objects.filter(reserva_id=OuterRef('pk')))
     return (
-        queryset_reservas_con_operacion(qs)
+        qs.filter(
+            Q(senia__gt=Decimal('0.01'))
+            | tiene_recibo
+            | Q(estado='pagada')
+            | Q(es_alquiler_sindicato=True)
+        )
         .exclude(
             Q(senia__gt=Decimal('0.01'))
             & ~tiene_recibo
             & ~Q(estado='pagada')
+            & ~Q(es_alquiler_sindicato=True)
         )
         .distinct()
     )

@@ -3511,6 +3511,7 @@ def operaciones(request):
                 'fecha_creacion',
                 'fecha_inicio',
                 'estado',
+                'es_alquiler_sindicato',
             )
         )
     else:
@@ -3525,6 +3526,7 @@ def operaciones(request):
                 'fecha_creacion',
                 'fecha_inicio',
                 'estado',
+                'es_alquiler_sindicato',
             )
         )
         if len(reserva_rows) > MAX_CANDIDATAS_RESERVA:
@@ -3560,16 +3562,9 @@ def operaciones(request):
             senia_guardada=row.get('senia'),
             movimientos_rows=[],
             total_recibos=recibo_totals.get(rid, Decimal('0')),
+            estado=row.get('estado') or '',
+            es_alquiler_sindicato=bool(row.get('es_alquiler_sindicato')),
         )
-        senia_db = Decimal(str(row.get('senia') or 0))
-        if (
-            senia <= Decimal('0.01')
-            and senia_db > Decimal('0.01')
-            and not tiene_recibo
-        ):
-            senia = Decimal('0')
-            if (row.get('estado') or '').strip() in ('confirmada', 'pagada'):
-                row['estado'] = 'confirmada_no_pagada'
         senia_por_reserva[rid] = senia
         if (
             not search_id
@@ -3692,6 +3687,8 @@ def operaciones(request):
                     senia_guardada=row.get('senia'),
                     movimientos_rows=movs,
                     total_recibos=recibo_totals.get(rid, Decimal('0')),
+                    estado=row.get('estado') or '',
+                    es_alquiler_sindicato=bool(row.get('es_alquiler_sindicato')),
                 )
             elif 'deposito_pagado' not in ex:
                 ex['deposito_pagado'] = False
