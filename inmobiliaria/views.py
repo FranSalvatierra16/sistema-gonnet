@@ -10,7 +10,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
 from decimal import Decimal, InvalidOperation
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, time
 from django.forms import inlineformset_factory
 from django.template.loader import render_to_string
 from django.contrib.auth import authenticate
@@ -2151,7 +2151,7 @@ from .catalogo_conceptos_caja import (
 from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm, VentaPropiedadForm, MovimientoCajaForm
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm, SetPasswordForm
 from django.contrib.auth import login
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, time
 from django.db.models import Q, Prefetch, Case, When, IntegerField, Sum, Max, F, Count, DecimalField
 from django.db.models.query import prefetch_related_objects
 from django.db.models.functions import TruncMonth, Lower
@@ -3581,7 +3581,8 @@ def operaciones(request):
                 concepto__icontains='Operación',
             )
             if mov_fecha_desde:
-                vals_qs = vals_qs.filter(fecha__date__gte=mov_fecha_desde)
+                desde_dt = timezone.make_aware(datetime.combine(mov_fecha_desde, time.min))
+                vals_qs = vals_qs.filter(fecha__gte=desde_dt)
             vals_qs = vals_qs.values(
                 'id',
                 'propiedad_id',
@@ -3627,14 +3628,9 @@ def operaciones(request):
             and not movimientos
             and not tiene_recibo
         ):
-            from inmobiliaria.caja_devolucion_deposito import sincronizar_senia_reserva_desde_movimientos
-
-            reserva_sync = Reserva.objects.filter(pk=rid, sucursal_id=sucursal_id).first()
-            if reserva_sync:
-                senia = sincronizar_senia_reserva_desde_movimientos(reserva_sync)
-                row['senia'] = senia
-                if senia <= Decimal('0.01') and (reserva_sync.estado or '') in ('confirmada', 'pagada'):
-                    row['estado'] = 'confirmada_no_pagada'
+            senia = Decimal('0')
+            if (row.get('estado') or '').strip() in ('confirmada', 'pagada'):
+                row['estado'] = 'confirmada_no_pagada'
         senia_por_reserva[rid] = senia
         if (
             not search_id
@@ -5305,11 +5301,9 @@ def finalizar_reserva_nueva(request, reserva_id):
         # ✅ CALCULAR SALDO PENDIENTE CONSIDERANDO SOLO LA SEÑA (NO EL DEPÓSITO)
         from inmobiliaria.caja_devolucion_deposito import (
             movimientos_reserva,
-            sincronizar_senia_reserva_desde_movimientos,
             total_senia_pagada_reserva,
         )
 
-        sincronizar_senia_reserva_desde_movimientos(reserva)
         pagos_anteriores = movimientos_reserva(reserva, tipo=TipoMovimientoCajaEnum.INGRESO)
         total_pagos_anteriores = sum(pago.monto_total for pago in pagos_anteriores)
         total_senia_anteriores = total_senia_pagada_reserva(reserva)
@@ -12043,8 +12037,6 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
     movimientos_all = list(movimientos_qs)
     movimientos_total = len(movimientos_all)
     MovimientoCaja.precargar_nombres_concepto(movimientos_all, sucursal=request.user.sucursal)
-    for mov in movimientos_all:
-        _reparar_montos_movimiento_si_corresponde(mov, sucursal=request.user.sucursal)
 
     if busqueda:
         ids_filtrados = set(
@@ -20104,11 +20096,9 @@ def finalizar_reserva_nueva(request, reserva_id):
         # ✅ CALCULAR SALDO PENDIENTE CONSIDERANDO SOLO LA SEÑA (NO EL DEPÓSITO)
         from inmobiliaria.caja_devolucion_deposito import (
             movimientos_reserva,
-            sincronizar_senia_reserva_desde_movimientos,
             total_senia_pagada_reserva,
         )
 
-        sincronizar_senia_reserva_desde_movimientos(reserva)
         pagos_anteriores = movimientos_reserva(reserva, tipo=TipoMovimientoCajaEnum.INGRESO)
         total_pagos_anteriores = sum(pago.monto_total for pago in pagos_anteriores)
         total_senia_anteriores = total_senia_pagada_reserva(reserva)

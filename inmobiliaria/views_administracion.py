@@ -90,22 +90,12 @@ def _nombre_persona(persona):
 
 
 def _estado_display_reserva(reserva):
-    """Estado visible según seña real (movimientos de caja + campo reserva)."""
+    """Estado visible en listados (solo lectura; sync al cobrar o en comando de reparación)."""
     from decimal import Decimal
 
-    from inmobiliaria.caja_devolucion_deposito import (
-        _estado_reserva_segun_senia,
-        etiqueta_estado_reserva,
-        sincronizar_senia_reserva_desde_movimientos,
-        total_senia_pagada_reserva,
-    )
+    from inmobiliaria.caja_devolucion_deposito import etiqueta_estado_reserva
 
-    senia = total_senia_pagada_reserva(reserva)
-    nuevo_estado = _estado_reserva_segun_senia(reserva, senia)
-    senia_db = Decimal(str(reserva.senia or 0))
-    if nuevo_estado != (reserva.estado or '') or abs(senia_db - senia) > Decimal('0.01'):
-        senia = sincronizar_senia_reserva_desde_movimientos(reserva)
-    return etiqueta_estado_reserva(reserva, senia)
+    return etiqueta_estado_reserva(reserva, Decimal(str(reserva.senia or 0)))
 
 
 @login_required
