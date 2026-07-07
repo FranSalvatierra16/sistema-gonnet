@@ -442,6 +442,119 @@ def queryset_reservas_con_operacion(qs):
     ).distinct()
 
 
+def queryset_reservas_listado_operaciones(qs):
+    """
+    Reservas para el listado de operaciones: con cobro real o pagadas.
+    Excluye seña fantasma en BD (senia>0 sin recibo y sin estado pagada).
+    """
+    from inmobiliaria.models import Recibo
+
+    tiene_recibo = Exists(Recibo.objects.filter(reserva_id=OuterRef('pk')))
+    return (
+        queryset_reservas_con_operacion(qs)
+        .exclude(
+            Q(senia__gt=Decimal('0.01'))
+            & ~tiene_recibo
+            & ~Q(estado='pagada')
+        )
+        .distinct()
+    )
+
+
+def deposito_pagado_en_movimientos_rows(movimientos_rows) -> bool:
+    for movimiento in movimientos_rows or []:
+        conc = movimiento.get('concepto') or ''
+        if not conc or '|CONCEPTOS:' not in conc:
+            continue
+        concepto_parts = conc.split('|CONCEPTOS:', 1)
+        if len(concepto_parts) <= 1:
+            continue
+        conceptos_data = concepto_parts[1]
+        if '|10:' in conceptos_data or ':10:' in conceptos_data:
+            return True
+        for concepto_item in [x for x in conceptos_data.split('|') if x.strip()]:
+            parts = concepto_item.split(':', 1)
+            if parts and parts[0].strip() == '10':
+                return True
+    return False
+
+
+def movimientos_ingreso_reservas_por_ids(sucursal_id, reserva_ids, propiedad_ids):
+    """Ingresos de caja vinculados a operaciones (solo IDs pedidos)."""
+    from collections import defaultdict
+
+    if not reserva_ids or not propiedad_ids:
+        return {}
+    reserva_ids_set = {int(x) for x in reserva_ids}
+    out = defaultdict(list)
+    qs = MovimientoCaja.objects.filter(
+        sucursal_id=sucursal_id,
+        propiedad_id__in=propiedad_ids,
+        tipo=TipoMovimientoCajaEnum.INGRESO,
+        concepto__icontains='Operación',
+    ).values(
+        'id',
+        'propiedad_id',
+        'concepto',
+        'fecha',
+        'monto_efectivo',
+        'monto_cheque',
+        'monto_tarjeta',
+        'monto_deposito',
+    )
+    for row in qs.iterator(chunk_size=500):
+        conc = row.get('concepto') or ''
+        if not conc:
+            continue
+        match = re.search(r'Operaci[oó]n\s*#?\s*(\d+)', conc, re.IGNORECASE)
+        if not match:
+            continue
+        rid = int(match.group(1))
+        if rid in reserva_ids_set:
+            out[rid].append(row)
+    for rid in out:
+        out[rid].sort(key=lambda r: (r['fecha'] is not None, r['fecha'], r['id']), reverse=True)
+    return dict(out)
+
+
+def movimientos_ingreso_contratos_por_ids(sucursal_id, contrato_ids, propiedad_ids):
+    """Ingresos de caja vinculados a contratos invierno (solo IDs pedidos)."""
+    from collections import defaultdict
+
+    if not contrato_ids or not propiedad_ids:
+        return {}
+    contrato_ids_set = {int(x) for x in contrato_ids}
+    out = defaultdict(list)
+    qs = MovimientoCaja.objects.filter(
+        sucursal_id=sucursal_id,
+        propiedad_id__in=propiedad_ids,
+        tipo=TipoMovimientoCajaEnum.INGRESO,
+        concepto__icontains='Contrato #',
+    ).values(
+        'id',
+        'propiedad_id',
+        'concepto',
+        'fecha',
+        'monto_efectivo',
+        'monto_cheque',
+        'monto_tarjeta',
+        'monto_deposito',
+    )
+    for row in qs.iterator(chunk_size=500):
+        conc = row.get('concepto') or ''
+        if not conc:
+            continue
+        match = re.search(r'Contrato\s*#\s*(\d+)', conc, re.IGNORECASE)
+        if not match:
+            continue
+        cid = int(match.group(1))
+        if cid in contrato_ids_set:
+            out[cid].append(row)
+    for cid in out:
+        out[cid].sort(key=lambda r: (r['fecha'] is not None, r['fecha'], r['id']), reverse=True)
+    return dict(out)
+
+
 def queryset_reservas_pendientes_cobro(qs):
     """
     Reservas para «Reservas pendientes»: en espera o reservadas sin cobro.
