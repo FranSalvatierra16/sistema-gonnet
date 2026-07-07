@@ -3620,12 +3620,27 @@ def operaciones(request):
             movimientos_rows=movimientos,
             total_recibos=recibo_totals.get(rid, Decimal('0')),
         )
-        senia_por_reserva[rid] = senia
-        senia_previa = senia
+        senia_db = Decimal(str(row.get('senia') or 0))
         if (
-            not movimientos
+            senia <= Decimal('0.01')
+            and senia_db > Decimal('0.01')
+            and not movimientos
             and not tiene_recibo
-            and senia_previa <= Decimal('0.01')
+        ):
+            from inmobiliaria.caja_devolucion_deposito import sincronizar_senia_reserva_desde_movimientos
+
+            reserva_sync = Reserva.objects.filter(pk=rid, sucursal_id=sucursal_id).first()
+            if reserva_sync:
+                senia = sincronizar_senia_reserva_desde_movimientos(reserva_sync)
+                row['senia'] = senia
+                if senia <= Decimal('0.01') and (reserva_sync.estado or '') in ('confirmada', 'pagada'):
+                    row['estado'] = 'confirmada_no_pagada'
+        senia_por_reserva[rid] = senia
+        if (
+            not search_id
+            and not movimientos
+            and not tiene_recibo
+            and senia <= Decimal('0.01')
             and (row.get('estado') or '').strip() != 'pagada'
         ):
             continue
@@ -3641,7 +3656,12 @@ def operaciones(request):
             for mov in movimientos
         )
 
-        if total_pagado_mov <= 0 and senia <= Decimal('0.01') and not tiene_recibo:
+        if (
+            not search_id
+            and total_pagado_mov <= 0
+            and senia <= Decimal('0.01')
+            and not tiene_recibo
+        ):
             continue
 
         total_operaciones += 1

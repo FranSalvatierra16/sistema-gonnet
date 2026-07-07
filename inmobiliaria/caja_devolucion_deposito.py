@@ -398,6 +398,14 @@ def monto_senia_en_movimiento(movimiento, *, reserva_id: int | None = None) -> D
     if 'devoluc' in conc_l and ('deposit' in conc_l or 'depósit' in conc_l or 'garant' in conc_l):
         return Decimal('0')
 
+    if reserva_id is not None:
+        rid = int(reserva_id)
+        mov_rid = _reserva_id_en_movimiento(movimiento)
+        if mov_rid is not None and mov_rid != rid:
+            return Decimal('0')
+        if not _movimiento_vinculado_reserva(movimiento, rid):
+            return Decimal('0')
+
     senia = Decimal('0')
     parsed = _parse_conceptos_movimiento(movimiento)
     if parsed:
@@ -409,9 +417,6 @@ def monto_senia_en_movimiento(movimiento, *, reserva_id: int | None = None) -> D
                 senia += parse_decimal_monto(item.get('importe'))
         if senia > Decimal('0'):
             return senia
-
-    if reserva_id is not None and not _movimiento_vinculado_reserva(movimiento, reserva_id):
-        return Decimal('0')
 
     total = _monto_total_movimiento(movimiento)
     if total <= Decimal('0'):
@@ -461,13 +466,14 @@ def senia_estimada_listado_operacion(
     total_recibos: Decimal | None = None,
 ) -> Decimal:
     """
-    Seña para listados (solo lectura): no escribe en BD ni reconstruye historial.
-    Usa el máximo entre valor guardado, movimientos ya cargados y recibos.
+    Seña para listados (solo lectura): solo movimientos/recibos vinculados a la operación.
+    Ignora reserva.senia guardada si no hay cobro real en caja para esa operación.
     """
-    senia_db = Decimal(str(senia_guardada or 0))
     total_mov = _total_movimientos_rows(movimientos_rows)
     total_rec = Decimal(str(total_recibos or 0))
-    return max(senia_db, total_mov, total_rec).quantize(Decimal('0.01'))
+    if total_mov > Decimal('0.01') or total_rec > Decimal('0.01'):
+        return max(total_mov, total_rec).quantize(Decimal('0.01'))
+    return Decimal('0')
 
 
 def total_senia_pagada_reserva(reserva) -> Decimal:
@@ -771,6 +777,7 @@ def es_reserva_lote_sindicato_marconi(reserva) -> bool:
 def _total_senia_en_fecha_exacta(reserva, fecha_pago: date) -> Decimal:
     if not reserva.propiedad_id:
         return Decimal('0')
+    rid = int(reserva.id)
     precio = Decimal(str(reserva.precio_total or 0))
     total = Decimal('0')
     qs = MovimientoCaja.objects.filter(
@@ -781,7 +788,15 @@ def _total_senia_en_fecha_exacta(reserva, fecha_pago: date) -> Decimal:
         fecha__date=fecha_pago,
     ).order_by('-fecha', '-id')
     for mov in qs:
-        total += _monto_senia_movimiento_sin_vinculo(mov, precio)
+        if _movimiento_atribuido_a_otra_reserva(mov, rid):
+            continue
+        sub = monto_senia_en_movimiento(mov, reserva_id=rid)
+        if sub > Decimal('0.01'):
+            total += sub
+            continue
+        sub = _monto_pago_completo_sin_vinculo(mov, precio)
+        if sub > Decimal('0.01'):
+            total += sub
     return total.quantize(Decimal('0.01'))
 
 
