@@ -4294,11 +4294,14 @@ def reserva_eliminar(request, reserva_id):
 
             from inmobiliaria.historial_inquilino import registrar_evento_historial_inquilino
 
+            detalle_hist = 'Reserva eliminada desde el listado de reservas.'
+            if 'historial-reservas-inquilino' in (next_url or '') or '/historial/' in (next_url or ''):
+                detalle_hist = 'Reserva eliminada desde el historial del inquilino (posible duplicado).'
             registrar_evento_historial_inquilino(
                 tipo='operacion_anulada',
                 reserva=reserva,
                 usuario=request.user,
-                detalle='Reserva eliminada desde el listado de reservas.',
+                detalle=detalle_hist,
                 precio_anterior=reserva.precio_total,
                 senia_anterior=reserva.senia,
             )
@@ -6059,11 +6062,16 @@ def historial_reservas_inquilino(request, inquilino_id):
     from inmobiliaria.models.historial_inquilino import HistorialInquilino
 
     inquilino = get_object_or_404(Inquilino, pk=inquilino_id)
+    # Solo reservas vigentes: al eliminar (soft delete) desaparecen de este listado.
+    # ?mostrar_anuladas=1 las incluye para auditoría.
+    mostrar_anuladas = (request.GET.get('mostrar_anuladas') or '').strip() in ('1', 'true', 'si', 'yes')
     reservas = (
         Reserva.objects.filter(cliente_id=inquilino_id)
         .select_related('propiedad', 'propiedad__propietario', 'usuario_eliminacion', 'vendedor')
-        .order_by('-fecha_inicio')
+        .order_by('-fecha_inicio', '-id')
     )
+    if not mostrar_anuladas:
+        reservas = reservas.filter(eliminada=False).exclude(estado='cancelada')
 
     eventos = (
         HistorialInquilino.objects.filter(inquilino_id=inquilino_id)
@@ -6090,6 +6098,8 @@ def historial_reservas_inquilino(request, inquilino_id):
         'reservas_con_monto': reservas_con_monto,
         'eventos': eventos,
         'estado_labels': estado_labels,
+        'mostrar_anuladas': mostrar_anuladas,
+        'puede_eliminar_reserva': True,
     })    
 def buscar_propietarios(request):
     """
