@@ -7237,16 +7237,22 @@ def ver_recibo_movimiento(request, movimiento_id):
             if not contrato_vinculado:
                 canon = _movimiento_canonico_operacion(movimiento, request.user.sucursal)
                 if canon and canon.id != movimiento.id:
-                    from urllib.parse import urlencode
+                    canon_estable = _movimiento_canonico_operacion(
+                        canon, request.user.sucursal
+                    )
+                    if canon_estable and canon_estable.id == canon.id:
+                        from urllib.parse import urlencode
 
-                    params = {}
-                    back_next = _next_para_redirect_recibo(request)
-                    if back_next:
-                        params['next'] = back_next
-                    url = reverse('inmobiliaria:ver_recibo_movimiento', args=[canon.id])
-                    if params:
-                        url += '?' + urlencode(params)
-                    return HttpResponseRedirect(url)
+                        params = {}
+                        back_next = _next_para_redirect_recibo(request)
+                        if back_next:
+                            params['next'] = back_next
+                        url = reverse(
+                            'inmobiliaria:ver_recibo_movimiento', args=[canon.id]
+                        )
+                        if params:
+                            url += '?' + urlencode(params)
+                        return HttpResponseRedirect(url)
 
         concepto_txt = (movimiento.concepto or '')
         detalle_txt = (getattr(movimiento, 'concepto_detalle', None) or '').strip()
@@ -7695,15 +7701,6 @@ def ver_recibo_movimiento(request, movimiento_id):
             total_gastos_descontados = Decimal('0')
 
         total_dolares = float(getattr(movimiento, 'monto_dolares', None) or 0)
-        url_recibo_formal = _url_recibo_para_movimiento(
-            movimiento,
-            request.user.sucursal,
-            next_url=_next_para_redirect_recibo(request),
-        )
-        if url_recibo_formal != reverse(
-            'inmobiliaria:ver_recibo_movimiento', args=[movimiento.id]
-        ):
-            return HttpResponseRedirect(url_recibo_formal)
 
         contrato_recibo = (
             _obtener_contrato_desde_movimiento(movimiento, request.user.sucursal)
@@ -17441,8 +17438,10 @@ def _buscar_recibo_para_movimiento(movimiento, sucursal=None):
 
 def _movimiento_canonico_operacion(movimiento, sucursal=None):
     """
-    Movimiento real de la operación (con recibo, montos o |CONCEPTOS:|).
+    Movimiento real de la operación (con recibo directo, montos o |CONCEPTOS:|).
     Evita recibos en blanco al abrir filas duplicadas en $0.
+    Solo usa recibo vinculado al propio movimiento y hermanos de la operación;
+    no el último recibo de la reserva (evita bucles A↔B entre movimientos hermanos).
     """
     from inmobiliaria.models.recibo import Recibo
 
@@ -17450,9 +17449,8 @@ def _movimiento_canonico_operacion(movimiento, sucursal=None):
         return movimiento
     sucursal = sucursal or getattr(movimiento, 'sucursal', None)
 
-    recibo = _buscar_recibo_para_movimiento(movimiento, sucursal=sucursal)
-    if recibo and recibo.movimiento_caja_id:
-        return recibo.movimiento_caja
+    if Recibo.objects.filter(movimiento_caja=movimiento).exists():
+        return movimiento
 
     rid = _extraer_reserva_id_movimiento(movimiento)
     if not rid or sucursal is None:
