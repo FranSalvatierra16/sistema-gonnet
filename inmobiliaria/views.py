@@ -4277,6 +4277,17 @@ def reserva_eliminar(request, reserva_id):
             reserva.fecha_eliminacion = timezone.now()
             reserva.usuario_eliminacion = request.user
             reserva.save()
+
+            from inmobiliaria.historial_inquilino import registrar_evento_historial_inquilino
+
+            registrar_evento_historial_inquilino(
+                tipo='operacion_anulada',
+                reserva=reserva,
+                usuario=request.user,
+                detalle='Reserva eliminada desde el listado de reservas.',
+                precio_anterior=reserva.precio_total,
+                senia_anterior=reserva.senia,
+            )
             
 # print(f"✅ Reserva eliminada y disponibilidades restauradas: {fecha_inicio} al {fecha_fin}")
             messages.success(request, f'Reserva eliminada exitosamente. Las fechas del {fecha_inicio.strftime("%d/%m/%Y")} al {fecha_fin.strftime("%d/%m/%Y")} vuelven a estar disponibles.')
@@ -4319,6 +4330,8 @@ def revertir_operacion_a_reserva(request, reserva_id):
 
     next_url = _sanitize_internal_next_path(request.POST.get('next'))
     precio = Decimal(str(reserva.precio_total or 0))
+    estado_anterior = reserva.estado
+    senia_anterior = reserva.senia
 
     with transaction.atomic():
         reserva.estado = 'confirmada_no_pagada'
@@ -4334,6 +4347,19 @@ def revertir_operacion_a_reserva(request, reserva_id):
             ]
         )
         reserva.actualizar_historial_disponibilidad()
+
+        from inmobiliaria.historial_inquilino import registrar_evento_historial_inquilino
+
+        registrar_evento_historial_inquilino(
+            tipo='vuelta_a_reserva',
+            reserva=reserva,
+            usuario=request.user,
+            detalle='Operación revertida a reserva pendiente; seña puesta en cero.',
+            estado_anterior=estado_anterior,
+            estado_nuevo=reserva.estado,
+            senia_anterior=senia_anterior,
+            senia_nueva=reserva.senia,
+        )
 
     aviso_recibos = ''
     if reserva.recibos.exists():
@@ -6014,19 +6040,42 @@ def historial_reservas_vendedor(request, vendedor_id):
     return render(request, 'inmobiliaria/vendedores/historial.html', {
         'reservas': reservas,
     })
+@login_required
 def historial_reservas_inquilino(request, inquilino_id):
-    reservas = Reserva.objects.filter(cliente_id=inquilino_id).select_related('propiedad', 'propiedad__propietario').order_by('-fecha_inicio')
+    from inmobiliaria.models.historial_inquilino import HistorialInquilino
 
-    # Usar el precio_total de la reserva
+    inquilino = get_object_or_404(Inquilino, pk=inquilino_id)
+    reservas = (
+        Reserva.objects.filter(cliente_id=inquilino_id)
+        .select_related('propiedad', 'propiedad__propietario', 'usuario_eliminacion', 'vendedor')
+        .order_by('-fecha_inicio')
+    )
+
+    eventos = (
+        HistorialInquilino.objects.filter(inquilino_id=inquilino_id)
+        .select_related('reserva', 'reserva__propiedad', 'usuario', 'contrato')
+        .order_by('-creado', '-id')
+    )
+
+    estado_labels = dict(Reserva._meta.get_field('estado').choices)
+    estado_labels['cancelada'] = 'Cancelada'
+
     reservas_con_monto = []
     for reserva in reservas:
+        anulada = reserva.eliminada or reserva.estado == 'cancelada'
         reservas_con_monto.append({
             'reserva': reserva,
-            'total_pagado': reserva.precio_total or 0
+            'precio_total': reserva.precio_total or 0,
+            'senia': reserva.senia or 0,
+            'anulada': anulada,
+            'estado_label': estado_labels.get(reserva.estado, reserva.estado),
         })
 
     return render(request, 'inmobiliaria/inquilinos/historial.html', {
+        'inquilino': inquilino,
         'reservas_con_monto': reservas_con_monto,
+        'eventos': eventos,
+        'estado_labels': estado_labels,
     })    
 def buscar_propietarios(request):
     """
@@ -9372,6 +9421,21 @@ def editar_historial_reserva(request):
             
             # Refrescar el objeto reserva para tener los valores actualizados
             reserva.refresh_from_db()
+
+            if old_start != fecha_inicio or old_fin != fecha_fin:
+                from inmobiliaria.historial_inquilino import registrar_evento_historial_inquilino
+
+                registrar_evento_historial_inquilino(
+                    tipo='fechas_modificadas',
+                    reserva=reserva,
+                    usuario=request.user,
+                    fecha_inicio_anterior=old_start,
+                    fecha_fin_anterior=old_fin,
+                    fecha_inicio_nueva=fecha_inicio,
+                    fecha_fin_nueva=fecha_fin,
+                    detalle='Fechas editadas desde el historial de disponibilidad.',
+                )
+
             propiedad = historial.propiedad
             def _crear_o_actualizar_periodo_libre(prop, start, fin):
                 """Crea período libre o lo fusiona con uno contiguo existente (formato hotel: libre empieza el mismo día que termina reserva)."""
@@ -20193,11 +20257,23 @@ def actualizar_precio_reserva(request, reserva_id):
                 'success': False,
                 'error': 'El precio no puede ser negativo'
             })
-        
-        # Actualizar el precio de la reserva
+
+        precio_anterior = reserva.precio_total
         reserva.precio_total = nuevo_precio
         reserva.save(update_fields=['precio_total'])
-        
+
+        from inmobiliaria.historial_inquilino import registrar_evento_historial_inquilino
+
+        if precio_anterior != nuevo_precio:
+            registrar_evento_historial_inquilino(
+                tipo='montos_modificados',
+                reserva=reserva,
+                usuario=request.user,
+                precio_anterior=precio_anterior,
+                precio_nuevo=nuevo_precio,
+                detalle='Precio actualizado desde finalizar reserva.',
+            )
+
         return JsonResponse({
             'success': True,
             'message': 'Precio actualizado correctamente',

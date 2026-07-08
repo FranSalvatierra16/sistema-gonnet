@@ -658,6 +658,16 @@ def _procesar_anular_operacion_reserva_caratula(request, reserva):
                     'usuario_eliminacion',
                 ]
             )
+        from inmobiliaria.historial_inquilino import registrar_evento_historial_inquilino
+
+        registrar_evento_historial_inquilino(
+            tipo='operacion_anulada',
+            reserva=reserva,
+            usuario=request.user,
+            detalle=f'Anulada desde carátula. Motivo: {motivo}',
+            precio_anterior=reserva.precio_total,
+            senia_anterior=reserva.senia,
+        )
         logger.info(
             'Reserva %s anulada desde carátula por usuario %s. Motivo: %s. Liquidaciones canceladas: %s',
             reserva.pk,
@@ -1156,6 +1166,12 @@ def _guardar_caratula_reserva(request, reserva):
         reserva.fecha_inicio != fecha_inicio or reserva.fecha_fin != fecha_fin
     )
 
+    precio_anterior = reserva.precio_total
+    senia_anterior = reserva.senia
+    estado_anterior = reserva.estado
+    fecha_inicio_anterior = reserva.fecha_inicio
+    fecha_fin_anterior = reserva.fecha_fin
+
     reserva.fecha_inicio = fecha_inicio
     reserva.fecha_fin = fecha_fin
     reserva.hora_ingreso = hora_ingreso
@@ -1188,6 +1204,19 @@ def _guardar_caratula_reserva(request, reserva):
         return False
 
     reserva.save()
+
+    from inmobiliaria.historial_inquilino import registrar_cambios_reserva_historial_inquilino
+
+    registrar_cambios_reserva_historial_inquilino(
+        reserva=reserva,
+        usuario=request.user,
+        precio_anterior=precio_anterior,
+        senia_anterior=senia_anterior,
+        fecha_inicio_anterior=fecha_inicio_anterior,
+        fecha_fin_anterior=fecha_fin_anterior,
+        estado_anterior=estado_anterior,
+        origen='carátula',
+    )
 
     if fechas_cambiaron:
         try:

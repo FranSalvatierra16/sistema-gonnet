@@ -9,6 +9,7 @@ from .vale import ValeVendedor
 from .liquidacion import LiquidacionPropietario, GastoPropietario
 from .cartera_usuario import CarteraPropiedadUsuario
 from .oficina import CategoriaGastoOficina, GastoOficina
+from .historial_inquilino import HistorialInquilino
 
 __all__ = [
     'Sucursal',
@@ -32,4 +33,5 @@ __all__ = [
     'CarteraPropiedadUsuario',
     'CategoriaGastoOficina',
     'GastoOficina',
+    'HistorialInquilino',
 ]

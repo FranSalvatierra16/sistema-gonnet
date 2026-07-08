@@ -2,26 +2,40 @@
 
 {% block content %}
 <div class="container my-5">
-  <h2 class="mb-4">Historial de Reservas del Inquilino</h2>
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h2 class="mb-1">Historial del inquilino</h2>
+      {% if inquilino %}
+        <p class="text-muted mb-0">{{ inquilino.apellido }}, {{ inquilino.nombre }} — DNI {{ inquilino.dni }}</p>
+      {% endif %}
+    </div>
+    <a href="{% url 'inmobiliaria:inquilinos' %}" class="btn btn-outline-secondary btn-sm">Volver al listado</a>
+  </div>
 
+  <h4 class="mb-3">Operaciones</h4>
   {% if reservas_con_monto %}
-    <div class="table-responsive">
-      <table class="table table-bordered table-hover">
-        <thead class="thead-light">
+    <div class="table-responsive mb-5">
+      <table class="table table-bordered table-hover table-sm">
+        <thead class="table-light">
           <tr>
+            <th>OP</th>
             <th>Propiedad</th>
             <th>Piso</th>
             <th>Dpto</th>
             <th>Ficha</th>
-            <th>Apellido Propietario</th>
-            <th>Fecha de Inicio</th>
-            <th>Fecha de Fin</th>
-            <th>Monto Pagado</th>
+            <th>Propietario</th>
+            <th>Desde</th>
+            <th>Hasta</th>
+            <th>Precio total</th>
+            <th>Seña</th>
+            <th>Estado</th>
+            <th>Situación</th>
           </tr>
         </thead>
         <tbody>
           {% for item in reservas_con_monto %}
-            <tr>
+            <tr class="{% if item.anulada %}table-secondary{% endif %}">
+              <td>{{ item.reserva.id }}</td>
               <td>{{ item.reserva.propiedad.direccion }}</td>
               <td>{{ item.reserva.propiedad.piso|default:"-" }}</td>
               <td>{{ item.reserva.propiedad.departamento|default:"-" }}</td>
@@ -29,15 +43,98 @@
               <td>{{ item.reserva.propiedad.propietario.apellido|default:"-" }}</td>
               <td>{{ item.reserva.fecha_inicio|date:"d/m/Y" }}</td>
               <td>{{ item.reserva.fecha_fin|date:"d/m/Y" }}</td>
-              <td>${{ item.total_pagado|floatformat:0|default:"0" }}</td>
+              <td>${{ item.precio_total|floatformat:0 }}</td>
+              <td>${{ item.senia|floatformat:0 }}</td>
+              <td>{{ item.estado_label }}</td>
+              <td>
+                {% if item.anulada %}
+                  <span class="badge bg-danger">Anulada</span>
+                  {% if item.reserva.fecha_eliminacion %}
+                    <small class="d-block text-muted">{{ item.reserva.fecha_eliminacion|date:"d/m/Y H:i" }}</small>
+                  {% endif %}
+                {% else %}
+                  <span class="badge bg-success">Activa</span>
+                {% endif %}
+                {% if item.reserva.fue_editada and item.reserva.fecha_inicio_original %}
+                  <small class="d-block text-muted mt-1" title="Fechas originales">
+                    Fechas orig.: {{ item.reserva.fecha_inicio_original|date:"d/m/Y" }} – {{ item.reserva.fecha_fin_original|date:"d/m/Y" }}
+                  </small>
+                {% endif %}
+              </td>
             </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
   {% else %}
-    <div class="alert alert-info">
-      No hay reservas realizadas por este inquilino.
+    <div class="alert alert-info mb-5">
+      No hay operaciones registradas para este inquilino.
+    </div>
+  {% endif %}
+
+  <h4 class="mb-3">Movimientos y cambios</h4>
+  {% if eventos %}
+    <div class="table-responsive">
+      <table class="table table-bordered table-hover table-sm">
+        <thead class="table-light">
+          <tr>
+            <th>Fecha</th>
+            <th>Evento</th>
+            <th>OP</th>
+            <th>Detalle</th>
+            <th>Cambios</th>
+            <th>Usuario</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for evento in eventos %}
+            <tr>
+              <td>{{ evento.creado|date:"d/m/Y H:i" }}</td>
+              <td><span class="badge {{ evento.get_tipo_badge_class }}">{{ evento.get_tipo_display }}</span></td>
+              <td>
+                {% if evento.reserva_id %}
+                  #{{ evento.reserva_id }}
+                  {% if evento.reserva.propiedad %}
+                    <small class="d-block text-muted">{{ evento.reserva.propiedad.direccion|truncatechars:30 }}</small>
+                  {% endif %}
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td>{{ evento.detalle|default:"—" }}</td>
+              <td>
+                {% if evento.precio_anterior is not None or evento.precio_nuevo is not None %}
+                  <div>Precio: ${{ evento.precio_anterior|floatformat:0|default:"—" }} → ${{ evento.precio_nuevo|floatformat:0|default:"—" }}</div>
+                {% endif %}
+                {% if evento.senia_anterior is not None or evento.senia_nueva is not None %}
+                  <div>Seña: ${{ evento.senia_anterior|floatformat:0|default:"—" }} → ${{ evento.senia_nueva|floatformat:0|default:"—" }}</div>
+                {% endif %}
+                {% if evento.fecha_inicio_anterior %}
+                  <div>Fechas: {{ evento.fecha_inicio_anterior|date:"d/m/Y" }}–{{ evento.fecha_fin_anterior|date:"d/m/Y" }}
+                    → {{ evento.fecha_inicio_nueva|date:"d/m/Y" }}–{{ evento.fecha_fin_nueva|date:"d/m/Y" }}</div>
+                {% endif %}
+                {% if evento.estado_anterior or evento.estado_nuevo %}
+                  <div>Estado: {{ evento.estado_anterior|default:"—" }} → {{ evento.estado_nuevo|default:"—" }}</div>
+                {% endif %}
+                {% if evento.precio_anterior is None and evento.senia_anterior is None and not evento.fecha_inicio_anterior and not evento.estado_anterior and not evento.estado_nuevo %}
+                  —
+                {% endif %}
+              </td>
+              <td>
+                {% if evento.usuario %}
+                  {{ evento.usuario.apellido }}{% if evento.usuario.nombre %}, {{ evento.usuario.nombre }}{% endif %}
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="alert alert-secondary">
+      Todavía no hay movimientos registrados. A partir de ahora se guardan anulaciones, cambios de precio, fechas y reversiones a reserva.
     </div>
   {% endif %}
 </div>
