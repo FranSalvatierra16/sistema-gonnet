@@ -16,7 +16,9 @@
                     <div class="alert alert-light border mb-4">
                         <div class="row">
                             <div class="col-md-6">
+                                {% if caja %}
                                 <p class="mb-1"><strong>Caja:</strong> #{{ caja.numero }} · {{ caja.sucursal.nombre }}</p>
+                                {% endif %}
                                 <p class="mb-1"><strong>Fecha:</strong> {{ movimiento.fecha|date:"d/m/Y H:i" }}</p>
                                 <p class="mb-1"><strong>Tipo:</strong> {{ movimiento.get_tipo_display }}</p>
                             </div>

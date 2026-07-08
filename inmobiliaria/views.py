@@ -11115,7 +11115,7 @@ def _sincronizar_montos_anexos_movimiento(movimiento):
 
         recibo = Recibo.objects.filter(movimiento_caja=movimiento).first()
         if recibo:
-            recibo.monto_este_pago = movimiento.monto_total
+            recibo.monto_este_pago = Decimal(str(movimiento.monto_total or 0))
             if recibo.precio_total_operacion is not None:
                 recibo.saldo_pendiente = (
                     Decimal(str(recibo.precio_total_operacion or 0))
@@ -11264,7 +11264,7 @@ def editar_movimiento_caja(request, movimiento_id):
                 messages.error(request, 'Los montos no pueden ser negativos.')
                 return render(request, 'inmobiliaria/caja/editar_movimiento_caja.html', _ctx_editar())
 
-        total_ars = movimiento.monto_total
+        total_ars = Decimal(str(movimiento.monto_total or 0))
         total_usd = Decimal(str(movimiento.monto_dolares or 0))
         tol = Decimal('0.03')
         if orig_ars > 0 and abs(total_ars - orig_ars) > tol:
