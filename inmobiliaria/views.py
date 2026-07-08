@@ -12739,9 +12739,7 @@ def _serializar_form_post_nuevo_movimiento(request):
 def nuevo_movimiento(request, numero_caja=None):
     from inmobiliaria.models.sucursal import CuentaBancaria
     from inmobiliaria.oficina_gastos import (
-        asegurar_categoria_vales,
-        asegurar_categorias_base,
-        asegurar_estructura_cierre_oficina,
+        asegurar_categorias_oficina_si_faltan,
         categoria_gasto_es_vale,
         categorias_opciones_con_flags,
         categorias_opciones_grupos,
@@ -12763,14 +12761,20 @@ def nuevo_movimiento(request, numero_caja=None):
             return redirect('inmobiliaria:lista_cajas')
 
     sucursal = request.user.sucursal
-    cuentas_bancarias = CuentaBancaria.objects.filter(sucursal=sucursal, activa=True).order_by('nombre_banco', 'alias')
+    cuentas_bancarias = list(
+        CuentaBancaria.objects.filter(sucursal=sucursal, activa=True)
+        .only('id', 'nombre_banco', 'titular', 'alias')
+        .order_by('nombre_banco', 'alias')
+    )
     categorias_gasto_oficina = []
     categorias_gasto_oficina_grupos = []
     try:
-        asegurar_categorias_base(sucursal)
-        asegurar_estructura_cierre_oficina(sucursal)
+        # No sincronizar vendedores/árbol en cada carga: solo si no hay categorías.
+        asegurar_categorias_oficina_si_faltan(sucursal)
         categorias_gasto_oficina = categorias_opciones_con_flags(sucursal)
-        categorias_gasto_oficina_grupos = categorias_opciones_grupos(sucursal)
+        categorias_gasto_oficina_grupos = categorias_opciones_grupos(
+            sucursal, opciones=categorias_gasto_oficina
+        )
     except Exception:
         import logging
         logging.getLogger(__name__).exception(
@@ -12953,7 +12957,11 @@ def nuevo_movimiento(request, numero_caja=None):
                 destino_ok = None
                 if dd_raw.startswith('cuenta_'):
                     suf = dd_raw.replace('cuenta_', '', 1)
-                    if suf.isdigit() and cuentas_bancarias.filter(id=int(suf)).exists():
+                    cuentas_ids = {
+                        int(c.id) for c in cuentas_bancarias
+                        if getattr(c, 'id', None) is not None
+                    }
+                    if suf.isdigit() and int(suf) in cuentas_ids:
                         destino_ok = dd_raw
                 if not destino_ok:
                     messages.error(
@@ -13290,7 +13298,8 @@ def nuevo_movimiento(request, numero_caja=None):
                 )
             else:
                 messages.success(request, 'Movimiento creado exitosamente')
-            return redirect('inmobiliaria:detalle_caja', numero=caja.numero)
+            # Volver al formulario (rápido) en lugar del detalle completo de caja.
+            return redirect('inmobiliaria:nuevo_movimiento')
 
         except Exception as e:
             messages.error(request, f'Error al crear el movimiento: {str(e)}')

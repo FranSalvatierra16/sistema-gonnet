@@ -558,9 +558,10 @@ def categorias_opciones_con_flags(sucursal):
     return opciones
 
 
-def categorias_opciones_grupos(sucursal):
+def categorias_opciones_grupos(sucursal, opciones=None):
     """Agrupa subcategorías por categoría raíz (para filtro + autocomplete)."""
-    opciones = categorias_opciones_con_flags(sucursal)
+    if opciones is None:
+        opciones = categorias_opciones_con_flags(sucursal)
     orden = []
     mapa = {}
     for op in opciones:
@@ -570,6 +571,18 @@ def categorias_opciones_grupos(sucursal):
             orden.append(raiz)
         mapa[raiz].append(op)
     return [{'raiz': raiz, 'opciones': mapa[raiz]} for raiz in orden]
+
+
+def asegurar_categorias_oficina_si_faltan(sucursal):
+    """
+    Solo sincroniza la estructura si la sucursal no tiene categorías todavía.
+    Evita get_or_create + sync de vendedores en cada GET de nuevo movimiento.
+    """
+    if not sucursal:
+        return False
+    if CategoriaGastoOficina.objects.filter(sucursal=sucursal).exists():
+        return False
+    return asegurar_categorias_base(sucursal)
 
 
 def vendedor_desde_categoria(categoria):
