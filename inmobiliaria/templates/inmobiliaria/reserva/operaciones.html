@@ -311,6 +311,11 @@
         color: white;
     }
 
+    .btn-volver-reserva {
+        background: linear-gradient(135deg, #fd7e14 0%, #e8590c 100%);
+        color: white;
+    }
+
     .btn-action:hover {
         transform: translateY(-2px);
         box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
@@ -931,6 +936,18 @@
                             <a href="{% url 'inmobiliaria:reserva_eliminar' op.id %}" class="btn-action btn-eliminar">
                                 <i class="fas fa-trash"></i>Eliminar
                             </a>
+                            {% endif %}
+                            {% if user.nivel == 5 or user.is_superuser %}
+                            <form method="post"
+                                  action="{% url 'inmobiliaria:revertir_operacion_a_reserva' op.id %}"
+                                  class="d-inline m-0"
+                                  onsubmit="return confirm('¿Volver la operación #{{ op.id }} a reserva pendiente?\n\nSe borrará la seña y el estado volverá a Reservado. No se eliminan movimientos de caja ni recibos.');">
+                                {% csrf_token %}
+                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                <button type="submit" class="btn-action btn-volver-reserva" title="Quitar seña y volver a reserva pendiente">
+                                    <i class="fas fa-undo"></i>Volver a reserva
+                                </button>
+                            </form>
                             {% endif %}
                             {% endif %}
                         </div>

@@ -310,6 +310,7 @@ from .models.persona import (
     usuario_puede_anular_vale,
     usuario_puede_eliminar_movimiento_caja,
     usuario_puede_editar_movimiento_caja,
+    usuario_puede_revertir_operacion_a_reserva,
 )
 
 # Importar vistas de cuentas bancarias
@@ -4295,6 +4296,58 @@ def reserva_eliminar(request, reserva_id):
         'inmobiliaria/reserva/confirmar_eliminar.html',
         {'reserva': reserva, 'next': next_get},
     )
+
+
+@login_required
+@require_POST
+def revertir_operacion_a_reserva(request, reserva_id):
+    """Super admin: operación vuelve a reserva pendiente y seña en cero (no toca caja)."""
+    if not usuario_puede_revertir_operacion_a_reserva(request.user):
+        messages.error(request, 'No tenés permisos para esta acción.')
+        return redirect('inmobiliaria:operaciones')
+
+    reserva = get_object_or_404(Reserva, pk=reserva_id, eliminada=False)
+    sucursal_user = getattr(request.user, 'sucursal', None)
+    if (
+        sucursal_user
+        and reserva.sucursal_id
+        and reserva.sucursal_id != sucursal_user.id
+        and not request.user.is_superuser
+    ):
+        messages.error(request, 'La operación no pertenece a tu sucursal.')
+        return redirect('inmobiliaria:operaciones')
+
+    next_url = _sanitize_internal_next_path(request.POST.get('next'))
+    precio = Decimal(str(reserva.precio_total or 0))
+
+    with transaction.atomic():
+        reserva.estado = 'confirmada_no_pagada'
+        reserva.senia = Decimal('0')
+        reserva.cuota_pendiente = precio
+        reserva.es_alquiler_sindicato = False
+        reserva.save(
+            update_fields=[
+                'estado',
+                'senia',
+                'cuota_pendiente',
+                'es_alquiler_sindicato',
+            ]
+        )
+        reserva.actualizar_historial_disponibilidad()
+
+    aviso_recibos = ''
+    if reserva.recibos.exists():
+        aviso_recibos = ' Hay recibos en caja vinculados; no se eliminaron.'
+
+    messages.success(
+        request,
+        f'Operación #{reserva.id} volvió a reserva pendiente (sin seña).{aviso_recibos}',
+    )
+    if next_url:
+        return redirect(next_url)
+    return redirect('inmobiliaria:operaciones')
+
+
 def parse_fecha(fecha_str):
     try:
         # Dividir la fecha en sus componentes

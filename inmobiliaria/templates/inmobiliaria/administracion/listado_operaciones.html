@@ -145,6 +145,18 @@
                         <td class="small">{{ op.estado }}</td>
                         <td>
                             <a href="{{ op.url_detalle }}" class="btn btn-outline-primary btn-sm py-0">Ver</a>
+                            {% if op.kind == 'reserva' and user.nivel == 5 or op.kind == 'reserva' and user.is_superuser %}
+                            <form method="post"
+                                  action="{% url 'inmobiliaria:revertir_operacion_a_reserva' op.pk %}"
+                                  class="d-inline m-0"
+                                  onsubmit="return confirm('¿Volver la operación #{{ op.numero }} a reserva pendiente? Se borrará la seña.');">
+                                {% csrf_token %}
+                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                <button type="submit" class="btn btn-outline-warning btn-sm py-0" title="Volver a reserva sin seña">
+                                    <i class="fas fa-undo"></i>
+                                </button>
+                            </form>
+                            {% endif %}
                         </td>
                     </tr>
                     {% empty %}

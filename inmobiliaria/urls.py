@@ -124,6 +124,11 @@ urlpatterns = [
     path('buscar-propietarios/', views.buscar_propietarios, name='buscar_propietarios'),
     path('buscar-inquilinos/', views.buscar_inquilinos, name='buscar_inquilinos'),
     path('reserva/eliminar/<int:reserva_id>/', views.reserva_eliminar, name='reserva_eliminar'),
+    path(
+        'reservas/<int:reserva_id>/volver-a-reserva/',
+        views.revertir_operacion_a_reserva,
+        name='revertir_operacion_a_reserva',
+    ),
     path('autenticacion-vendedor/', views.autenticacion_vendedor, name='autenticacion_vendedor'),
     path('autenticar-seguridad/', views.autenticar_seguridad, name='autenticar_seguridad'),
     path('obtener_precios_propiedad/', views.obtener_precios_propiedad, name='obtener_precios_propiedad'),
