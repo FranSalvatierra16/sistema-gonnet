@@ -413,6 +413,7 @@
             <button onclick="window.print()" class="btn btn-print">
                 🖨️ Imprimir Recibo
             </button>
+            {% include 'inmobiliaria/caja/_boton_editar_forma_pago.html' with extra_class='btn-print' %}
             <a href="{{ url_volver }}" class="btn btn-secondary">
                 {% if icono_boton_volver == 'fa-arrow-right' %}➡️{% else %}⬅️{% endif %}
                 {{ texto_boton_volver|default:"Volver" }}

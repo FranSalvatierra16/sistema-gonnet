@@ -1,0 +1,5 @@
+{% if puede_editar_forma_pago_recibo %}
+<a href="{{ url_editar_forma_pago_recibo }}" class="btn btn-warning{% if extra_class %} {{ extra_class }}{% endif %}" title="Corregir efectivo, transferencia, cheque o tarjeta">
+    <i class="fas fa-edit me-1"></i>Corregir forma de pago
+</a>
+{% endif %}

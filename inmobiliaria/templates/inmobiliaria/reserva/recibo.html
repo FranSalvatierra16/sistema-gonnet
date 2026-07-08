@@ -404,6 +404,8 @@
         <i class="fas fa-file-pdf me-2"></i>Descargar PDF
     </button>
 
+    {% include 'inmobiliaria/caja/_boton_editar_forma_pago.html' %}
+
     {% if muestra_siguiente_caratula and url_siguiente %}
     <a href="{{ url_siguiente }}" class="btn btn-success" target="_blank" rel="noopener">
         <i class="fas fa-file-alt me-2"></i>Imprimir carátula

@@ -385,6 +385,7 @@
         <button type="button" onclick="window.print();" class="btn btn-primary">
             <i class="fas fa-print"></i> Imprimir Recibo
         </button>
+        {% include 'inmobiliaria/caja/_boton_editar_forma_pago.html' with extra_class='ms-2' %}
         {% if muestra_siguiente_caratula and url_siguiente %}
         <a href="{{ url_siguiente }}" class="btn btn-success ms-2" target="_blank" rel="noopener">
             <i class="fas fa-file-alt"></i> Imprimir carátula

@@ -2,7 +2,7 @@
 {% load static %}
 {% load custom_filters %}
 
-{% block title %}Editar montos — Mov. #{{ movimiento.id }}{% endblock %}
+{% block title %}Editar forma de pago — Mov. #{{ movimiento.id }}{% endblock %}
 
 {% block content %}
 <div class="container-fluid mt-4">
@@ -10,7 +10,7 @@
         <div class="col-lg-8">
             <div class="card shadow-sm">
                 <div class="card-header bg-warning text-dark">
-                    <h4 class="mb-0"><i class="fas fa-edit me-2"></i>Editar montos — Movimiento #{{ movimiento.id }}</h4>
+                    <h4 class="mb-0"><i class="fas fa-edit me-2"></i>Corregir forma de pago — Movimiento #{{ movimiento.id }}</h4>
                 </div>
                 <div class="card-body">
                     <div class="alert alert-light border mb-4">
@@ -25,7 +25,10 @@
                                 {% if movimiento.propiedad %}
                                 <p class="mb-1"><strong>Propiedad:</strong> {{ movimiento.propiedad.direccion }} (#{{ movimiento.propiedad_id }})</p>
                                 {% endif %}
-                                <p class="mb-0 text-muted small">Se modifican importes y, si hay transferencia, la fecha real del depósito.</p>
+                                <p class="mb-0 text-muted small">
+                                    Mové el importe entre medios (ej. de Efectivo a Transferencia) manteniendo el mismo total.
+                                    Al guardar, la caja y el recibo impreso quedan corregidos.
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -100,8 +103,8 @@
                             {% else %}
                             <a href="{% url 'inmobiliaria:todos_movimientos_caja' %}" class="btn btn-secondary">Cancelar</a>
                             {% endif %}
-                            <button type="submit" class="btn btn-warning" onclick="return confirm('¿Guardar los nuevos montos de este movimiento?');">
-                                <i class="fas fa-save me-1"></i>Guardar montos
+                            <button type="submit" class="btn btn-warning" onclick="return confirm('¿Guardar la forma de pago corregida? El recibo mostrará los nuevos medios al reimprimir.');">
+                                <i class="fas fa-save me-1"></i>Guardar forma de pago
                             </button>
                         </div>
                     </form>

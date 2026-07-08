@@ -313,6 +313,26 @@ from .models.persona import (
     usuario_puede_revertir_operacion_a_reserva,
 )
 
+
+def _contexto_editar_forma_pago_recibo(request, movimiento):
+    """Enlace para corregir medios de pago (efectivo, transferencia, etc.) desde el recibo."""
+    from urllib.parse import urlencode
+
+    if not movimiento or not usuario_puede_editar_movimiento_caja(request.user):
+        return {'puede_editar_forma_pago_recibo': False}
+    if getattr(movimiento, 'fecha_eliminacion', None):
+        return {'puede_editar_forma_pago_recibo': False}
+    next_url = request.get_full_path()
+    params = {'next': next_url} if next_url else {}
+    url = reverse('inmobiliaria:editar_movimiento_caja', args=[movimiento.id])
+    if params:
+        url += '?' + urlencode(params)
+    return {
+        'puede_editar_forma_pago_recibo': True,
+        'url_editar_forma_pago_recibo': url,
+    }
+
+
 # Importar vistas de cuentas bancarias
 from .views_cuentas_bancarias import (
     gestionar_cuentas_bancarias,
@@ -7672,6 +7692,7 @@ def ver_recibo_movimiento(request, movimiento_id):
                 'sucursal': sucursal,  # Agregar sucursal al contexto
                 **_contexto_boton_volver_recibo(request),
                 **_contexto_botones_recibo_reserva(request, reserva.id),
+                **_contexto_editar_forma_pago_recibo(request, movimiento),
             })
         
         # Si no hay reserva, usar el template original
@@ -7733,6 +7754,7 @@ def ver_recibo_movimiento(request, movimiento_id):
             'gastos_liquidacion_recibo': gastos_liquidacion_recibo,
             'total_gastos_descontados': total_gastos_descontados,
             **_contexto_boton_volver_recibo(request),
+            **_contexto_editar_forma_pago_recibo(request, movimiento),
         }
         
         return render(request, 'inmobiliaria/caja/recibo_movimiento.html', context)
@@ -11140,7 +11162,10 @@ def _sincronizar_montos_anexos_movimiento(movimiento):
 @transaction.atomic
 def editar_movimiento_caja(request, movimiento_id):
     if not usuario_puede_editar_movimiento_caja(request.user):
-        messages.error(request, 'Solo el super administrador puede editar montos de movimientos de caja.')
+        messages.error(
+            request,
+            'Solo el super administrador puede corregir la forma de pago de un movimiento de caja.',
+        )
         return redirect('inmobiliaria:gestionar_caja')
 
     movimiento = get_object_or_404(
@@ -11235,7 +11260,8 @@ def editar_movimiento_caja(request, movimiento_id):
         _sincronizar_montos_anexos_movimiento(movimiento)
         messages.success(
             request,
-            f'Montos del movimiento #{movimiento.id} actualizados. Total ARS: '
+            f'Forma de pago del movimiento #{movimiento.id} actualizada. '
+            f'Al reimprimir el recibo se verán los cambios. Total ARS: '
             f'${format_monto_argentino(movimiento.monto_total)}.',
         )
         return _volver()
@@ -21997,6 +22023,7 @@ def recibo_contrato_24(request, contrato_id):
             'muestra_a_favor_recibo_panel': muestra_a_favor_recibo and a_favor_monto > Decimal('0.01'),
             'a_favor_recibo': format_currency(a_favor_monto),
             **_contexto_botones_recibo_contrato(request, contrato.id),
+            **_contexto_editar_forma_pago_recibo(request, primer_movimiento),
             'recibo_etiqueta_tipo_contrato': contrato.etiqueta_recibo_tipo_contrato,
             'recibo_es_contrato_invierno': contrato.es_contrato_invierno(),
         }
