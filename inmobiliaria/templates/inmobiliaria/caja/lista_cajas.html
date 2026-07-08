@@ -42,7 +42,7 @@
                             <div class="col-md-3">
                                 <div class="info-box bg-warning text-dark">
                                     <h5>Saldo Actual</h5>
-                                    <p>${{ caja_actual.get_saldo_actual|format_price }}</p>
+                                    <p>${{ saldo_actual_caja|format_price }}</p>
                                 </div>
                             </div>
                             <div class="col-md-3">
@@ -93,8 +93,8 @@
                         <label>Estado</label>
                         <select name="estado" class="form-control">
                             <option value="">Todos</option>
-                            <option value="abierta">Abierta</option>
-                            <option value="cerrada">Cerrada</option>
+                            <option value="abierta" {% if request.GET.estado == 'abierta' %}selected{% endif %}>Abierta</option>
+                            <option value="cerrada" {% if request.GET.estado == 'cerrada' %}selected{% endif %}>Cerrada</option>
                         </select>
                     </div>
                     <div class="col-md-3 d-flex align-items-end">
@@ -146,6 +146,27 @@
                 </tbody>
             </table>
         </div>
+        {% if page_obj.has_other_pages %}
+        <div class="card-footer">
+            <nav aria-label="Paginación de cajas">
+                <ul class="pagination justify-content-center mb-0">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if querystring %}&{{ querystring }}{% endif %}">&laquo;</a>
+                    </li>
+                    {% endif %}
+                    <li class="page-item active">
+                        <span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+                    </li>
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if querystring %}&{{ querystring }}{% endif %}">&raquo;</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
     </div>
 </div>
 

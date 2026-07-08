@@ -2564,13 +2564,22 @@ def propietario_eliminar(request, propietario_id):
     return render(request, 'inmobiliaria/propietarios/confirmar_eliminar.html', {'propietario': propietario})
 @login_required
 def propiedades(request):
+    from django.core.paginator import Paginator
+    from django.db.models import IntegerField
+    from django.db.models.functions import Cast
+
     form = PropiedadSearchForm(request.GET or None)
-    propiedades = Propiedad.objects.filter(sucursal=request.user.sucursal)
+    propiedades_qs = (
+        Propiedad.objects.filter(sucursal=request.user.sucursal)
+        .select_related('propietario', 'fichado_por')
+        .annotate(id_num=Cast('id', IntegerField()))
+        .order_by('id_num', 'id')
+    )
 
     if form.is_valid():
         query = form.cleaned_data.get('query')
         if query:
-            propiedades = propiedades.filter(
+            propiedades_qs = propiedades_qs.filter(
                 Q(direccion__icontains=query) |
                 Q(id__icontains=query) |
                 Q(propietario__nombre__icontains=query) |
@@ -2580,12 +2589,17 @@ def propiedades(request):
                 Q(fichado_por__username__icontains=query)
             )
 
-    propiedades_list = list(propiedades)
-    propiedades_list.sort(key=lambda p: int(p.id) if p.id.isdigit() else float('inf'))
+    paginator = Paginator(propiedades_qs, 50)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    query_params = request.GET.copy()
+    if 'page' in query_params:
+        del query_params['page']
 
     return render(request, 'inmobiliaria/propiedades/lista.html', {
         'form': form,
-        'propiedades': propiedades_list
+        'propiedades': page_obj,
+        'page_obj': page_obj,
+        'querystring': query_params.urlencode(),
     })
 
 def _active_tab_propiedad_detalle(request):
@@ -10785,22 +10799,50 @@ def ver_caja(request, caja_id):
 
 @login_required
 def lista_cajas(request):
-    # Obtener la sucursal del usuario logueado
+    from django.core.paginator import Paginator
+
     sucursal = request.user.sucursal
-    
-    # Obtener las cajas de la sucursal
-    cajas = Caja.objects.filter(sucursal=sucursal).order_by('-fecha_apertura')
-    
-    # Obtener la caja abierta actual (la más reciente por fecha de apertura)
-    caja_actual = cajas.filter(estado='abierta').order_by('-fecha_apertura').first()
+    fecha_desde = (request.GET.get('fecha_desde') or '').strip()
+    fecha_hasta = (request.GET.get('fecha_hasta') or '').strip()
+    estado = (request.GET.get('estado') or '').strip()
+
+    cajas_qs = Caja.objects.filter(sucursal=sucursal).order_by('-fecha_apertura')
+    if estado in ('abierta', 'cerrada'):
+        cajas_qs = cajas_qs.filter(estado=estado)
+    if fecha_desde:
+        try:
+            cajas_qs = cajas_qs.filter(fecha_apertura__date__gte=datetime.strptime(fecha_desde, '%Y-%m-%d').date())
+        except ValueError:
+            pass
+    if fecha_hasta:
+        try:
+            cajas_qs = cajas_qs.filter(fecha_apertura__date__lte=datetime.strptime(fecha_hasta, '%Y-%m-%d').date())
+        except ValueError:
+            pass
+
+    caja_actual = (
+        Caja.objects.filter(sucursal=sucursal, estado='abierta')
+        .order_by('-fecha_apertura')
+        .first()
+    )
     cajas_abiertas_count = Caja.objects.filter(sucursal=sucursal, estado='abierta').count()
-    
+    saldo_actual_caja = caja_actual.get_saldo_actual() if caja_actual else None
+
+    paginator = Paginator(cajas_qs, 30)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    query_params = request.GET.copy()
+    if 'page' in query_params:
+        del query_params['page']
+
     context = {
-        'cajas': cajas,
+        'cajas': page_obj,
+        'page_obj': page_obj,
         'caja_actual': caja_actual,
         'cajas_abiertas_count': cajas_abiertas_count,
+        'saldo_actual_caja': saldo_actual_caja,
+        'querystring': query_params.urlencode(),
     }
-    
+
     return render(request, 'inmobiliaria/caja/lista_cajas.html', context)
 
 @login_required
@@ -11693,13 +11735,16 @@ def _build_matriz_cuentas_bancarias(ingresos, egresos, cuentas_bancarias, saldos
     return {'columnas': columnas, 'filas': filas}
 
 
-def _calcular_saldos_caja_por_medio(caja, sucursal):
+def _calcular_saldos_caja_por_medio(caja, sucursal, ingresos=None, egresos=None):
     """Saldos teóricos por medio de pago al cierre (movimientos + saldo inicial en efectivo)."""
     from inmobiliaria.models.sucursal import CuentaBancaria
 
-    movimientos_qs = MovimientoCaja.objects.filter(caja=caja)
-    ingresos = movimientos_qs.filter(tipo=TipoMovimientoCajaEnum.INGRESO)
-    egresos = movimientos_qs.filter(tipo=TipoMovimientoCajaEnum.EGRESO)
+    if ingresos is None or egresos is None:
+        movimientos_qs = MovimientoCaja.objects.filter(caja=caja)
+        if ingresos is None:
+            ingresos = list(movimientos_qs.filter(tipo=TipoMovimientoCajaEnum.INGRESO))
+        if egresos is None:
+            egresos = list(movimientos_qs.filter(tipo=TipoMovimientoCajaEnum.EGRESO))
     saldo_ini = _saldo_inicial_efectivo_caja(caja)
 
     def _net(campo):
@@ -11719,10 +11764,8 @@ def _calcular_saldos_caja_por_medio(caja, sucursal):
     )
     cuentas = []
     total_cuentas = Decimal('0')
-    ingresos_list = list(ingresos)
-    egresos_list = list(egresos)
     for cuenta in cuentas_bancarias:
-        t_ing, t_egr = _deposito_ing_egr_cuenta(ingresos_list, egresos_list, cuenta)
+        t_ing, t_egr = _deposito_ing_egr_cuenta(ingresos, egresos, cuenta)
         teorico = t_ing - t_egr
         total_cuentas += teorico
         cuentas.append({'cuenta': cuenta, 'teorico': teorico})
@@ -12036,8 +12079,9 @@ def _aplicar_filtro_busqueda_movimientos_caja(qs, busqueda):
     return qs.filter(q_bus).distinct()
 
 
-def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id'), busqueda=''):
+def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id'), busqueda='', paginar=True):
     """Contexto compartido entre detalle de caja y resumen imprimible."""
+    from django.core.paginator import Paginator
     from inmobiliaria.models.sucursal import CuentaBancaria
 
     busqueda = (busqueda or '').strip()
@@ -12055,10 +12099,10 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
         ids_filtrados = set(
             _aplicar_filtro_busqueda_movimientos_caja(movimientos_qs, busqueda).values_list('id', flat=True)
         )
-        movimientos = [m for m in movimientos_all if m.id in ids_filtrados]
+        movimientos_filtrados_list = [m for m in movimientos_all if m.id in ids_filtrados]
     else:
-        movimientos = movimientos_all
-    movimientos_filtrados = len(movimientos)
+        movimientos_filtrados_list = movimientos_all
+    movimientos_filtrados = len(movimientos_filtrados_list)
 
     def _resumir_concepto_crudo(concepto):
         texto = (concepto or '').strip()
@@ -12073,13 +12117,30 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
             return 'Reserva'
         return 'Movimiento'
 
+    ingresos = [m for m in movimientos_all if m.tipo == TipoMovimientoCajaEnum.INGRESO]
+    egresos = [m for m in movimientos_all if m.tipo == TipoMovimientoCajaEnum.EGRESO]
+
+    page_obj = None
+    querystring = ''
+    if paginar:
+        paginator = Paginator(movimientos_filtrados_list, 80)
+        page_obj = paginator.get_page(request.GET.get('page') if request else 1)
+        movimientos = list(page_obj.object_list)
+        if request:
+            query_params = request.GET.copy()
+            if 'page' in query_params:
+                del query_params['page']
+            querystring = query_params.urlencode()
+    else:
+        movimientos = movimientos_filtrados_list
+
     next_path = request.get_full_path() if request else None
-    url_recibo_cache = {}
+    url_recibo_map = _urls_recibo_para_movimientos_batch(
+        movimientos, request.user.sucursal, next_url=next_path
+    )
     for mov in movimientos:
         mov.concepto_resumen = _resumir_concepto_crudo(getattr(mov, 'concepto', ''))
-        mov.url_recibo = _url_recibo_para_movimiento(
-            mov, request.user.sucursal, next_url=next_path, _cache=url_recibo_cache
-        )
+        mov.url_recibo = url_recibo_map.get(int(mov.id))
 
     movimientos_eliminados_qs = (
         MovimientoCaja.all_objects.filter(caja=caja, fecha_eliminacion__isnull=False)
@@ -12088,21 +12149,20 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
     )
     if busqueda:
         movimientos_eliminados = list(
-            _aplicar_filtro_busqueda_movimientos_caja(movimientos_eliminados_qs, busqueda)
+            _aplicar_filtro_busqueda_movimientos_caja(movimientos_eliminados_qs, busqueda)[:100]
         )
     else:
-        movimientos_eliminados = list(movimientos_eliminados_qs)
+        movimientos_eliminados = list(movimientos_eliminados_qs[:100])
     MovimientoCaja.precargar_nombres_concepto(movimientos_eliminados, sucursal=request.user.sucursal)
     for mov in movimientos_eliminados:
         mov.concepto_resumen = _resumir_concepto_crudo(getattr(mov, 'concepto', ''))
 
-    ingresos = [m for m in movimientos_all if m.tipo == TipoMovimientoCajaEnum.INGRESO]
-    egresos = [m for m in movimientos_all if m.tipo == TipoMovimientoCajaEnum.EGRESO]
-
-    cuentas_bancarias = CuentaBancaria.objects.filter(
-        sucursal=request.user.sucursal,
-        activa=True
-    ).order_by('nombre_banco', 'alias')
+    cuentas_bancarias = list(
+        CuentaBancaria.objects.filter(
+            sucursal=request.user.sucursal,
+            activa=True
+        ).order_by('nombre_banco', 'alias')
+    )
 
     totales_ingresos = {
         'efectivo': sum(m.monto_efectivo for m in ingresos),
@@ -12170,7 +12230,9 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
 
     from inmobiliaria.models.caja import CajaArqueoManual
 
-    saldos_teoricos = _calcular_saldos_caja_por_medio(caja, request.user.sucursal)
+    saldos_teoricos = _calcular_saldos_caja_por_medio(
+        caja, request.user.sucursal, ingresos=ingresos, egresos=egresos
+    )
     arqueo_manual = None
     arqueo_cierre = None
     if getattr(caja, 'estado', None) == 'abierta':
@@ -12257,6 +12319,8 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
         'busqueda': busqueda,
         'movimientos_total': movimientos_total,
         'movimientos_filtrados': movimientos_filtrados,
+        'page_obj': page_obj,
+        'querystring': querystring,
         'totales': totales,
         'cuentas_bancarias': cuentas_bancarias,
         'es_saldo_positivo': es_saldo_positivo,
@@ -12471,7 +12535,9 @@ def imprimir_resumen_caja(request, numero):
     Útil tras el cierre como resumen del período / día.
     """
     caja = get_object_or_404(Caja, numero=numero, sucursal=request.user.sucursal)
-    context = _build_context_detalle_caja(request, caja, movimientos_order=('fecha', 'id'))
+    context = _build_context_detalle_caja(
+        request, caja, movimientos_order=('fecha', 'id'), paginar=False
+    )
     context['es_cierre'] = caja.estado == 'cerrada'
     saldo_ini = _saldo_inicial_efectivo_caja(caja)
     context['saldo_teorico_final'] = caja.get_saldo_actual()
@@ -17582,13 +17648,81 @@ def _conceptos_lineas_recibo_desde_movimiento_simple(movimiento, sucursal):
     return lineas
 
 
+def _urls_recibo_para_movimientos_batch(movimientos, sucursal, next_url=None):
+    """
+    Resuelve URLs de recibo en lote (sin N+1 por movimiento).
+    Criterios ligeros: Contrato #N en texto, cuota.movimiento_id, Operación #N.
+    """
+    from urllib.parse import urlencode
+    from .models import ContratoAlquiler, CuotaMensual
+
+    if not movimientos:
+        return {}
+
+    mov_ids = [int(m.id) for m in movimientos]
+    contrato_ids = set()
+    op_por_mov = {}
+    for m in movimientos:
+        txt = m.concepto or ''
+        mc = re.search(r'Contrato\s*#\s*(\d+)', txt, re.I)
+        if mc:
+            contrato_ids.add(int(mc.group(1)))
+        mo = re.search(r'Operaci[oó]n\s*#?\s*(\d+)', txt, re.I)
+        if mo:
+            op_por_mov[int(m.id)] = True
+
+    contratos_map = {
+        c.id: c
+        for c in ContratoAlquiler.objects.filter(id__in=contrato_ids, sucursal=sucursal).only('id')
+    }
+    cuota_contrato_map = {}
+    for cuota in (
+        CuotaMensual.objects.filter(movimiento_id__in=mov_ids)
+        .exclude(contrato_id__isnull=True)
+        .only('movimiento_id', 'contrato_id')
+    ):
+        if cuota.movimiento_id and cuota.contrato_id:
+            cuota_contrato_map[int(cuota.movimiento_id)] = int(cuota.contrato_id)
+
+    next_params = {}
+    if next_url:
+        next_params['next'] = next_url
+
+    result = {}
+    for m in movimientos:
+        mid = int(m.id)
+        contrato_id = None
+        txt = m.concepto or ''
+        mc = re.search(r'Contrato\s*#\s*(\d+)', txt, re.I)
+        if mc:
+            cid = int(mc.group(1))
+            if cid in contratos_map:
+                contrato_id = cid
+        if contrato_id is None and mid in cuota_contrato_map:
+            contrato_id = cuota_contrato_map[mid]
+
+        if contrato_id is not None and getattr(m, 'tipo', None) == TipoMovimientoCajaEnum.INGRESO:
+            params = {'movimiento_id': mid, **next_params}
+            result[mid] = (
+                reverse('inmobiliaria:recibo_contrato_24', args=[contrato_id])
+                + '?' + urlencode(params)
+            )
+            continue
+
+        params = dict(next_params)
+        url = reverse('inmobiliaria:ver_recibo_movimiento', args=[mid])
+        if params:
+            url += '?' + urlencode(params)
+        result[mid] = url
+    return result
+
+
 def _url_recibo_para_movimiento(movimiento, sucursal, next_url=None, _cache=None):
     """
     URL del comprobante imprimible en formato Gonnet (recibo de contrato o de reserva por día).
     Evita abrir el resumen «RECIBO DE CAJA» cuando corresponde el recibo formal.
     """
     from urllib.parse import urlencode
-    import re
 
     cache_key = None
     if _cache is not None and movimiento is not None:

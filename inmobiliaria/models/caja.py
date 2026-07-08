@@ -54,21 +54,46 @@ class Caja(models.Model):
     observaciones_cierre = models.TextField(blank=True)
     
     def get_saldo_actual(self):
-        saldo = Decimal(str(self.saldo_inicial))
+        """Saldo = inicial + ingresos − egresos (una sola query agregada)."""
+        from django.db.models import Sum, Case, When, F, Value, DecimalField
+        from django.db.models.functions import Coalesce
+
+        dec = DecimalField(max_digits=14, decimal_places=2)
+        zero = Value(Decimal('0'), output_field=dec)
         movimientos = MovimientoCaja.objects.filter(caja=self)
-        
-        for movimiento in movimientos:
-            total_movimiento = (
-                movimiento.monto_efectivo +
-                movimiento.monto_cheque +
-                movimiento.monto_tarjeta +
-                movimiento.monto_deposito
-            )
-            if movimiento.tipo == TipoMovimientoCajaEnum.INGRESO:
-                saldo += total_movimiento
-            else:
-                saldo -= total_movimiento
-        return saldo
+        totales = movimientos.aggregate(
+            ingresos=Coalesce(
+                Sum(
+                    Case(
+                        When(
+                            tipo=TipoMovimientoCajaEnum.INGRESO,
+                            then=F('monto_efectivo') + F('monto_cheque') + F('monto_tarjeta') + F('monto_deposito'),
+                        ),
+                        default=zero,
+                        output_field=dec,
+                    )
+                ),
+                zero,
+            ),
+            egresos=Coalesce(
+                Sum(
+                    Case(
+                        When(
+                            tipo=TipoMovimientoCajaEnum.EGRESO,
+                            then=F('monto_efectivo') + F('monto_cheque') + F('monto_tarjeta') + F('monto_deposito'),
+                        ),
+                        default=zero,
+                        output_field=dec,
+                    )
+                ),
+                zero,
+            ),
+        )
+        return (
+            Decimal(str(self.saldo_inicial or 0))
+            + Decimal(str(totales['ingresos'] or 0))
+            - Decimal(str(totales['egresos'] or 0))
+        )
 
     def __str__(self):
         return f"Caja #{self.numero} - {self.sucursal}"
