@@ -421,28 +421,39 @@
 
                 <!-- Importes -->
                 <div class="card mb-3">
-                    <div class="card-header">
+                    <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
                         <h5 class="mb-0">Importes</h5>
+                        <div class="d-flex align-items-center gap-2">
+                            <label class="form-label mb-0 small text-muted" for="moneda_movimiento">Moneda</label>
+                            <select id="moneda_movimiento" name="moneda_movimiento" class="form-select form-select-sm" style="width: auto; min-width: 11rem;">
+                                <option value="ARS" selected>Pesos (ARS)</option>
+                                <option value="USD">Dólares (USD)</option>
+                                <option value="MIXTO">ARS + USD</option>
+                            </select>
+                        </div>
                     </div>
                     <div class="card-body">
-                        <div class="row mb-3">
-                            <div class="col-md-2">
-                                <label class="form-label">Efectivo</label>
+                        <div id="aviso_solo_usd" class="alert alert-info py-2 d-none">
+                            Ingreso/egreso en <strong>dólares efectivo</strong>. No suma al total en pesos; se registra aparte en la columna USD de caja.
+                        </div>
+                        <div class="row mb-3" id="bloque_montos_ars">
+                            <div class="col-md-3">
+                                <label class="form-label">Efectivo (ARS)</label>
                                 <input type="text" name="monto_efectivo" class="form-control monto input-monto-ar" inputmode="decimal" autocomplete="off" value="" placeholder="0" oninput="formatearMontoCaja(this)" onblur="formatearMontoCajaBlur(this)">
                             </div>
-                            <div class="col-md-2">
+                            <div class="col-md-3">
                                 <label class="form-label">Cheques</label>
                                 <input type="text" name="monto_cheque" class="form-control monto input-monto-ar" inputmode="decimal" autocomplete="off" value="" placeholder="0" oninput="formatearMontoCaja(this)" onblur="formatearMontoCajaBlur(this)">
                             </div>
-                            <div class="col-md-2">
+                            <div class="col-md-3">
                                 <label class="form-label">Tarjeta</label>
                                 <input type="text" name="monto_tarjeta" class="form-control monto input-monto-ar" inputmode="decimal" autocomplete="off" value="" placeholder="0" oninput="formatearMontoCaja(this)" onblur="formatearMontoCajaBlur(this)">
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <label class="form-label">Transferencia</label>
                                 <div class="input-group flex-nowrap">
                                     <input type="text" name="monto_deposito" class="form-control monto input-monto-ar" inputmode="decimal" autocomplete="off" value="" placeholder="0" aria-label="Importe transferencia" oninput="formatearMontoCaja(this)" onblur="formatearMontoCajaBlur(this)">
-                                    <select name="destino_deposito" id="destino_deposito_mov" class="form-select flex-grow-1" style="min-width: 11rem; max-width: 22rem;" aria-label="Cuenta destino transferencia">
+                                    <select name="destino_deposito" id="destino_deposito_mov" class="form-select flex-grow-1" style="min-width: 10rem; max-width: 18rem;" aria-label="Cuenta destino transferencia">
                                         <option value="">— Cuenta —</option>
                                         {% for cuenta in cuentas_bancarias %}
                                         <option value="cuenta_{{ cuenta.id }}">{{ cuenta.nombre_banco }} — {{ cuenta.titular }} — {{ cuenta.alias }}</option>
@@ -457,10 +468,21 @@
                                 <small class="text-muted d-block">Por defecto hoy; usada en el reporte bancario.</small>
                                 <small class="text-muted">Solo cuentas dadas de alta para <strong>{{ request.user.sucursal.nombre }}</strong>. <a href="{% url 'inmobiliaria:gestionar_cuentas_bancarias' %}">Gestionar cuentas bancarias</a></small>
                             </div>
-                            <div class="col-md-2">
-                                <label class="form-label">USD (efectivo)</label>
-                                <input type="text" name="dolares" id="monto_dolares_mov" class="form-control input-monto-ar" inputmode="decimal" autocomplete="off" value="" placeholder="0" oninput="formatearMontoCaja(this)" onblur="formatearMontoCajaBlur(this)">
-                                <small class="text-muted">Ingreso o egreso en dólares (no suma al total ARS). Podés cargar solo USD si no hay pesos.</small>
+                        </div>
+                        <div class="row mb-3" id="bloque_montos_usd">
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold text-primary" for="monto_dolares_mov">💵 USD (efectivo)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">U$S</span>
+                                    <input type="text" name="monto_dolares" id="monto_dolares_mov" class="form-control input-monto-ar" inputmode="decimal" autocomplete="off" value="" placeholder="0" oninput="formatearMontoCaja(this)" onblur="formatearMontoCajaBlur(this)">
+                                </div>
+                                <small class="text-muted">Para un ingreso solo en dólares, elegí <strong>Dólares (USD)</strong> arriba y cargá el monto acá.</small>
+                            </div>
+                            <div class="col-md-4 d-flex align-items-end">
+                                <div class="w-100">
+                                    <label class="form-label">Total USD</label>
+                                    <input type="text" id="total_usd" class="form-control fw-bold bg-light" readonly value="0,00">
+                                </div>
                             </div>
                         </div>
                         <div id="bloque_detalle_tarjeta" class="row mb-3 d-none border rounded p-3 bg-light">
@@ -1435,12 +1457,48 @@ $(document).ready(function() {
     // Calcular total
     function calcularTotal() {
         var total = 0;
-        $('.monto').each(function() {
+        $('#bloque_montos_ars .monto').each(function() {
             total += parseMontoLocal($(this).val());
         });
         $('#total').val(fmtMontoLocal(total));
         return total;
     }
+
+    function calcularTotalUsd() {
+        var usd = parseMontoLocal($('#monto_dolares_mov').val());
+        $('#total_usd').val(fmtMontoLocal(usd));
+        return usd;
+    }
+
+    function monedaActual() {
+        return ($('#moneda_movimiento').val() || 'ARS').toUpperCase();
+    }
+
+    function actualizarVisibilidadMoneda() {
+        var m = monedaActual();
+        var soloUsd = m === 'USD';
+        var soloArs = m === 'ARS';
+        $('#bloque_montos_ars').toggleClass('d-none', soloUsd);
+        $('#aviso_solo_usd').toggleClass('d-none', !soloUsd);
+        $('#bloque_montos_usd').toggleClass('d-none', soloArs);
+        if (soloUsd) {
+            $('#bloque_montos_ars .monto').val('');
+            $('#destino_deposito_mov').val('');
+            $('#bloque_detalle_tarjeta, #bloque_detalle_cheque').addClass('d-none');
+            // Sin ARS: el reparto en pesos no aplica; dejar en cero
+            $('#monto_a_oficina, #monto_a_propietario, #monto_a_inquilino').val(fmtMontoLocal(0));
+            $('#total').val(fmtMontoLocal(0));
+        }
+        if (soloArs) {
+            $('#monto_dolares_mov').val('');
+            $('#total_usd').val(fmtMontoLocal(0));
+        }
+        calcularTotal();
+        calcularTotalUsd();
+        actualizarVisibilidadMediosPago();
+    }
+
+    $('#moneda_movimiento').on('change', actualizarVisibilidadMoneda);
 
     function sincronizarCorresponde(origen, campoActivoId) {
         if (origen) {
@@ -1522,10 +1580,12 @@ $(document).ready(function() {
     $('#formMovimiento').on('input', '.monto, .input-monto-ar', function() {
         formatearMontoAlEscribir(this);
         calcularTotal();
+        calcularTotalUsd();
         actualizarVisibilidadMediosPago();
     });
     $('#formMovimiento').on('blur', '.monto, .input-monto-ar', function() {
         formatearMontoAlSalir(this);
+        calcularTotalUsd();
     });
     $('.monto').on('blur', function() {
         var total = calcularTotal();
@@ -1537,6 +1597,8 @@ $(document).ready(function() {
         sincronizarCorresponde(ultimoCasilleroCorresponde);
     });
     calcularTotal();
+    calcularTotalUsd();
+    actualizarVisibilidadMoneda();
     actualizarVisibilidadMediosPago();
     aplicarFormatoMontosFormulario();
 
@@ -2174,6 +2236,28 @@ $(document).ready(function() {
     // Evitar doble envío del formulario (doble clic o reenvío del navegador)
     var enviandoMovimientoCaja = false;
     $('#formMovimiento').on('submit', function(e) {
+        var totalArs = calcularTotal();
+        var totalUsd = calcularTotalUsd();
+        var moneda = monedaActual();
+        if (moneda === 'USD') {
+            // Forzar solo USD: limpiar ARS por si quedó algo
+            $('#bloque_montos_ars .monto').val('');
+            totalArs = 0;
+            $('#monto_a_oficina, #monto_a_propietario, #monto_a_inquilino').val(fmtMontoLocal(0));
+        }
+        if (totalArs <= 0 && totalUsd <= 0) {
+            e.preventDefault();
+            alert(moneda === 'USD'
+                ? 'Ingresá el monto en USD.'
+                : 'El importe total en pesos o el monto en dólares (USD) debe ser mayor a cero.');
+            return false;
+        }
+        if (moneda === 'USD' && totalUsd <= 0) {
+            e.preventDefault();
+            alert('Elegiste Dólares (USD): cargá el monto en el campo USD.');
+            $('#monto_dolares_mov').focus();
+            return false;
+        }
         if ($('#es_gasto_oficina').is(':checked')) {
             if (!$('#gasto_oficina_categoria_id').val()) {
                 e.preventDefault();
@@ -2198,8 +2282,10 @@ $(document).ready(function() {
             $('#monto_a_oficina').val(fmtMontoLocal(totalGo));
             $('#monto_a_propietario').val(fmtMontoLocal(0));
             $('#monto_a_inquilino').val(fmtMontoLocal(0));
-        } else {
+        } else if (totalArs > 0) {
             sincronizarCorresponde();
+        } else {
+            $('#monto_a_oficina, #monto_a_propietario, #monto_a_inquilino').val(fmtMontoLocal(0));
         }
         if (esConceptoDevolucionDeposito($('#concepto_id').val(), $('#concepto_seleccionado_texto').text())) {
             if (!$('#operacion_ref_id').val() && !$('#reserva_operacion_id').val()) {
@@ -2286,7 +2372,19 @@ $(document).ready(function() {
         setVal('input[name="monto_deposito"]', fp.monto_deposito);
         setVal('#destino_deposito_mov', fp.destino_deposito);
         setVal('#fecha_transferencia_mov', fp.fecha_transferencia);
-        setVal('#monto_dolares_mov', fp.dolares);
+        setVal('#monto_dolares_mov', fp.monto_dolares || fp.dolares);
+        var monedaRest = (fp.moneda_movimiento || '').toUpperCase();
+        if (!monedaRest) {
+            var usdVal = parseMontoLocal(fp.monto_dolares || fp.dolares || '');
+            var arsVal = parseMontoLocal(fp.monto_efectivo || '')
+                + parseMontoLocal(fp.monto_cheque || '')
+                + parseMontoLocal(fp.monto_tarjeta || '')
+                + parseMontoLocal(fp.monto_deposito || '');
+            if (usdVal > 0 && arsVal <= 0) monedaRest = 'USD';
+            else if (usdVal > 0 && arsVal > 0) monedaRest = 'MIXTO';
+            else monedaRest = 'ARS';
+        }
+        $('#moneda_movimiento').val(monedaRest);
         setVal('#monto_a_oficina', fp.monto_a_oficina);
         setVal('#monto_a_propietario', fp.monto_a_propietario);
         setVal('#monto_a_inquilino', fp.monto_a_inquilino);
@@ -2321,6 +2419,8 @@ $(document).ready(function() {
         }
 
         calcularTotal();
+        calcularTotalUsd();
+        actualizarVisibilidadMoneda();
         aplicarFormatoMontosFormulario();
         enviandoMovimientoCaja = false;
         $('#btn_guardar_movimiento').prop('disabled', false).html('Guardar');

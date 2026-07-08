@@ -12653,13 +12653,19 @@ def _serializar_form_post_nuevo_movimiento(request):
         'concepto_id', 'detalles', 'propiedad_id', 'productor_id', 'tipo_beneficiario_vale',
         'beneficiario_nombre_vale', 'beneficiario_apellido_vale', 'beneficiario_dni_vale',
         'monto_efectivo', 'monto_cheque', 'monto_tarjeta', 'monto_deposito', 'destino_deposito',
-        'dolares', 'monto_a_oficina', 'monto_a_propietario', 'monto_a_inquilino',
+        'dolares', 'monto_dolares', 'moneda_movimiento',
+        'monto_a_oficina', 'monto_a_propietario', 'monto_a_inquilino',
         'tarjeta_numero', 'tarjeta_cupon', 'tarjeta_tipo', 'cheque_numero', 'cheque_banco',
         'cheque_fecha_vencimiento', 'movimiento_uid', 'operacion_ref_tipo', 'operacion_ref_id',
         'reserva_operacion_id', 'gasto_oficina_categoria_id', 'gasto_oficina_vendedor_id',
         'gasto_oficina_descripcion', 'gasto_oficina_observaciones', 'fecha_transferencia',
     )
     fp = {k: (post.get(k) or '').strip() for k in campos}
+    # Compatibilidad: el campo visible usa monto_dolares; legacy usaba dolares.
+    if not fp.get('dolares') and fp.get('monto_dolares'):
+        fp['dolares'] = fp['monto_dolares']
+    if not fp.get('monto_dolares') and fp.get('dolares'):
+        fp['monto_dolares'] = fp['dolares']
     fp['es_gasto_oficina'] = (post.get('es_gasto_oficina') or '').strip() in ('1', 'on', 'true')
 
     concepto_id = fp.get('concepto_id') or ''
@@ -12896,6 +12902,18 @@ def nuevo_movimiento(request, numero_caja=None):
                 messages.error(request, 'Error en los montos ingresados')
                 return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
 
+            moneda_mov = (request.POST.get('moneda_movimiento') or 'ARS').strip().upper()
+            if moneda_mov not in ('ARS', 'USD', 'MIXTO'):
+                moneda_mov = 'ARS'
+            if moneda_mov == 'USD':
+                # Solo dólares: no mezclar con pesos
+                movimiento.monto_efectivo = Decimal('0')
+                movimiento.monto_cheque = Decimal('0')
+                movimiento.monto_tarjeta = Decimal('0')
+                movimiento.monto_deposito = Decimal('0')
+                movimiento.destino_deposito = None
+                movimiento.fecha_transferencia = None
+
             dd_raw = (request.POST.get('destino_deposito') or '').strip()
             if movimiento.monto_deposito and float(movimiento.monto_deposito) > 0:
                 destino_ok = None
@@ -12950,10 +12968,17 @@ def nuevo_movimiento(request, numero_caja=None):
             m_dp = Decimal(str(movimiento.monto_deposito or 0))
             total_mov = m_ef + m_ch + m_ta + m_dp
             try:
-                m_dol = parse_decimal_monto(request.POST.get('dolares', '0') or '0')
+                raw_usd = (
+                    request.POST.get('monto_dolares')
+                    or request.POST.get('dolares')
+                    or '0'
+                )
+                m_dol = parse_decimal_monto(raw_usd or '0')
             except Exception:
                 m_dol = Decimal('0')
             if m_dol < 0:
+                m_dol = Decimal('0')
+            if moneda_mov == 'ARS':
                 m_dol = Decimal('0')
             movimiento.monto_dolares = m_dol
             if total_mov <= 0 and m_dol <= 0:
@@ -12961,6 +12986,9 @@ def nuevo_movimiento(request, numero_caja=None):
                     request,
                     'El importe total en pesos o el monto en dólares (USD) debe ser mayor a cero.',
                 )
+                return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
+            if moneda_mov == 'USD' and m_dol <= 0:
+                messages.error(request, 'Elegiste Dólares (USD): el monto en USD debe ser mayor a cero.')
                 return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
 
             if es_gasto_oficina:
