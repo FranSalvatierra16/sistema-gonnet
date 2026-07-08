@@ -210,6 +210,14 @@ def url_recibo_movimiento(context, movimiento):
     """Enlace al recibo imprimible (contrato 24m, reserva por día o caja)."""
     if not movimiento:
         return '#'
+    # Preferir URL precargada en lote (listados) para evitar N+1.
+    precargada = getattr(movimiento, 'url_recibo', None)
+    if precargada:
+        return precargada
+    cache_map = context.get('url_recibo_map') or {}
+    mid = getattr(movimiento, 'id', None)
+    if mid is not None and mid in cache_map:
+        return cache_map[mid]
     request = context.get('request')
     sucursal = getattr(movimiento, 'sucursal', None)
     if sucursal is None and request and getattr(request, 'user', None):

@@ -3449,8 +3449,8 @@ def operaciones(request):
     )
 
     # Límites para evitar timeout (Railway / DB): sin búsqueda por ID se trabaja sobre un subconjunto reciente.
-    MAX_CANDIDATAS_RESERVA = 600
-    MAX_CANDIDATOS_INVIERNO = 150
+    MAX_CANDIDATAS_RESERVA = 250
+    MAX_CANDIDATOS_INVIERNO = 80
 
     user_sucursal = getattr(request.user, 'sucursal', None)
     sucursal_id = getattr(request.user, 'sucursal_id', None)
@@ -3829,6 +3829,24 @@ def operaciones(request):
                 inv.movimiento_reciente = mov_map.get(mid_inv) if mid_inv else None
                 operaciones_pagina.append(inv)
 
+    # URLs de recibo en lote (evita N+1 por botón Recibo en el template).
+    movs_para_url = []
+    for op in operaciones_pagina:
+        mr = getattr(op, 'movimiento_reciente', None)
+        if mr is not None:
+            movs_para_url.append(mr)
+        for recibo in getattr(op, 'todos_recibos', None) or []:
+            mc = getattr(recibo, 'movimiento_caja', None)
+            if mc is not None:
+                movs_para_url.append(mc)
+    url_recibo_map = _urls_recibo_para_movimientos_batch(
+        movs_para_url, user_sucursal, next_url=request.get_full_path()
+    )
+    for mov in movs_para_url:
+        mid = getattr(mov, 'id', None)
+        if mid is not None:
+            mov.url_recibo = url_recibo_map.get(int(mid))
+
     return render(
         request,
         'inmobiliaria/reserva/operaciones.html',
@@ -3854,6 +3872,7 @@ def operaciones(request):
             'previous_page': page - 1,
             'next_page': page + 1,
             'lista_reservas_acotada': lista_reservas_acotada,
+            'url_recibo_map': url_recibo_map,
         },
     )
 
@@ -7202,11 +7221,20 @@ def ver_recibo_movimiento(request, movimiento_id):
 # print("="*50)
     try:
         # Obtener el movimiento de caja principal
-        movimiento = get_object_or_404(MovimientoCaja, id=movimiento_id, sucursal=request.user.sucursal)
+        movimiento = get_object_or_404(
+            MovimientoCaja.objects.select_related(
+                'caja', 'propiedad', 'propiedad__propietario', 'empleado', 'sucursal'
+            ),
+            id=movimiento_id,
+            sucursal=request.user.sucursal,
+        )
 
+        contrato_vinculado = None
+        es_movimiento_contrato = False
         if movimiento.tipo == TipoMovimientoCajaEnum.INGRESO:
-            contrato_tmp = _obtener_contrato_desde_movimiento(movimiento, request.user.sucursal)
-            if not contrato_tmp:
+            contrato_vinculado = _obtener_contrato_desde_movimiento(movimiento, request.user.sucursal)
+            es_movimiento_contrato = contrato_vinculado is not None
+            if not contrato_vinculado:
                 canon = _movimiento_canonico_operacion(movimiento, request.user.sucursal)
                 if canon and canon.id != movimiento.id:
                     from urllib.parse import urlencode
@@ -7219,16 +7247,9 @@ def ver_recibo_movimiento(request, movimiento_id):
                     if params:
                         url += '?' + urlencode(params)
                     return HttpResponseRedirect(url)
-        
-        # Obtener la reserva relacionada desde el concepto del movimiento.
-        # IMPORTANTE: en cobros de contrato/cuotas no mezclar con reserva por propiedad.
+
         concepto_txt = (movimiento.concepto or '')
         detalle_txt = (getattr(movimiento, 'concepto_detalle', None) or '').strip()
-        contrato_vinculado = None
-        es_movimiento_contrato = False
-        if movimiento.tipo == TipoMovimientoCajaEnum.INGRESO:
-            contrato_vinculado = _obtener_contrato_desde_movimiento(movimiento, request.user.sucursal)
-            es_movimiento_contrato = contrato_vinculado is not None
 
         # Para cobros de contrato/cuota, usar el mismo formato Gonnet que los otros recibos.
         if es_movimiento_contrato and contrato_vinculado:
@@ -11258,14 +11279,18 @@ def caja(request):
         return redirect('inmobiliaria:gestionar_caja')
     
     # Obtener todos los movimientos de la caja
-    movimientos_qs = MovimientoCaja.objects.filter(caja=caja).order_by('-fecha')
+    movimientos_qs = (
+        MovimientoCaja.objects.filter(caja=caja)
+        .select_related('propiedad', 'empleado')
+        .order_by('-fecha')
+    )
     movimientos = list(movimientos_qs)
     next_path = request.get_full_path()
-    url_recibo_cache = {}
+    url_recibo_map = _urls_recibo_para_movimientos_batch(
+        movimientos, sucursal, next_url=next_path
+    )
     for mov in movimientos:
-        mov.url_recibo = _url_recibo_para_movimiento(
-            mov, sucursal, next_url=next_path, _cache=url_recibo_cache
-        )
+        mov.url_recibo = url_recibo_map.get(int(mov.id))
     
     # Calcular totales
     totales = {
