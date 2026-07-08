@@ -9,14 +9,7 @@
         <p class="text-muted mb-0">{{ inquilino.apellido }}, {{ inquilino.nombre }} — DNI {{ inquilino.dni }}</p>
       {% endif %}
     </div>
-    <div class="d-flex gap-2 align-items-center">
-      {% if mostrar_anuladas %}
-        <a href="{% url 'inmobiliaria:historial_reservas_inquilino' inquilino.id %}" class="btn btn-outline-secondary btn-sm">Ocultar anuladas</a>
-      {% else %}
-        <a href="?mostrar_anuladas=1" class="btn btn-outline-secondary btn-sm">Ver anuladas</a>
-      {% endif %}
-      <a href="{% url 'inmobiliaria:inquilinos' %}" class="btn btn-outline-secondary btn-sm">Volver al listado</a>
-    </div>
+    <a href="{% url 'inmobiliaria:inquilinos' %}" class="btn btn-outline-secondary btn-sm">Volver al listado</a>
   </div>
 
   {% if messages %}
@@ -25,7 +18,10 @@
     {% endfor %}
   {% endif %}
 
-  <h4 class="mb-3">Operaciones{% if not mostrar_anuladas %} <small class="text-muted fw-normal">(sin anuladas)</small>{% endif %}</h4>
+  <h4 class="mb-3">Operaciones</h4>
+  <p class="text-muted small mb-3">
+    Incluye activas y anuladas, ordenadas por fecha. Si eliminás una desde acá (p. ej. un duplicado), deja de mostrarse en este listado.
+  </p>
   {% if reservas_con_monto %}
     <div class="table-responsive mb-5">
       <table class="table table-bordered table-hover table-sm">
@@ -76,20 +72,16 @@
                 {% endif %}
               </td>
               <td class="text-center text-nowrap">
-                {% if not item.anulada %}
-                  <form method="post"
-                        action="{% url 'inmobiliaria:reserva_eliminar' item.reserva.id %}"
-                        class="d-inline"
-                        onsubmit="return confirm('¿Eliminar la operación #{{ item.reserva.id }}?\n\nSe anula y desaparece de este listado. Las fechas vuelven a quedar libres.\nUsalo para borrar el duplicado (dejá la OP correcta).');">
-                    {% csrf_token %}
-                    <input type="hidden" name="next" value="{% url 'inmobiliaria:historial_reservas_inquilino' inquilino.id %}">
-                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar (duplicado / anular)">
-                      <i class="fas fa-trash-alt"></i> Eliminar
-                    </button>
-                  </form>
-                {% else %}
-                  <span class="text-muted">—</span>
-                {% endif %}
+                <form method="post"
+                      action="{% url 'inmobiliaria:reserva_eliminar' item.reserva.id %}"
+                      class="d-inline"
+                      onsubmit="return confirm('{% if item.anulada %}¿Quitar la operación #{{ item.reserva.id }} del historial?\n\nDejará de figurar acá (queda anotada como anulada en el sistema).{% else %}¿Eliminar la operación #{{ item.reserva.id }}?\n\nSe anula y desaparece de este listado. Las fechas vuelven a quedar libres.\nÚsalo para borrar el duplicado (dejá la OP correcta).{% endif %}');">
+                  {% csrf_token %}
+                  <input type="hidden" name="next" value="{% url 'inmobiliaria:historial_reservas_inquilino' inquilino.id %}">
+                  <button type="submit" class="btn btn-sm btn-outline-danger" title="{% if item.anulada %}Quitar del historial{% else %}Eliminar (duplicado / anular){% endif %}">
+                    <i class="fas fa-trash-alt"></i> {% if item.anulada %}Quitar{% else %}Eliminar{% endif %}
+                  </button>
+                </form>
               </td>
             </tr>
           {% endfor %}
@@ -98,11 +90,7 @@
     </div>
   {% else %}
     <div class="alert alert-info mb-5">
-      {% if mostrar_anuladas %}
-        No hay operaciones registradas para este inquilino.
-      {% else %}
-        No hay operaciones activas. <a href="?mostrar_anuladas=1">Ver anuladas</a>
-      {% endif %}
+      No hay operaciones para mostrar en el historial de este inquilino.
     </div>
   {% endif %}
 

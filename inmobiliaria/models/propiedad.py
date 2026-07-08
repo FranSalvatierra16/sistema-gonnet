@@ -584,6 +584,11 @@ class Reserva(models.Model):
     eliminada = models.BooleanField(default=False)
     fecha_eliminacion = models.DateTimeField(null=True, blank=True)
     usuario_eliminacion = models.ForeignKey('Vendedor', on_delete=models.SET_NULL, null=True, blank=True, related_name='reservas_eliminadas')
+    ocultar_en_historial_inquilino = models.BooleanField(
+        default=False,
+        verbose_name='Ocultar en historial del inquilino',
+        help_text='Si está marcada, no aparece en el historial del inquilino (p. ej. duplicados borrados a propósito).',
+    )
     # Campos para tracking de ediciones de fechas
     fecha_inicio_original = models.DateField(null=True, blank=True, verbose_name="Fecha inicio original")
     fecha_fin_original = models.DateField(null=True, blank=True, verbose_name="Fecha fin original")

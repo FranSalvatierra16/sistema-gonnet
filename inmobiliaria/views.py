@@ -4272,46 +4272,75 @@ def reserva_eliminar(request, reserva_id):
 
     if request.method == "POST":
         next_url = _sanitize_internal_next_path(request.POST.get('next'))
+        desde_historial_inquilino = (
+            'historial-reservas-inquilino' in (next_url or '')
+            or '/inquilinos/' in (next_url or '') and '/historial/' in (next_url or '')
+        )
         try:
-            # ✅ NUEVO: Cancelar la reserva primero para restaurar disponibilidades
-# print(f"🗑️ ELIMINANDO RESERVA {reserva_id}: {reserva.fecha_inicio} al {reserva.fecha_fin}")
-# print(f"   Propiedad: {reserva.propiedad.id} - {reserva.propiedad.direccion}")
-            
             # Guardar datos para el mensaje
             fecha_inicio = reserva.fecha_inicio
             fecha_fin = reserva.fecha_fin
-            propiedad_direccion = reserva.propiedad.direccion
-            
-            # 1️⃣ Cancelar la reserva (esto restaura las disponibilidades y reconstruye historial)
-            reserva.cancelar_reserva()
-            
-            # 2️⃣ Soft delete: marcar como eliminada en lugar de eliminar físicamente
-            from django.utils import timezone
-            reserva.eliminada = True
-            reserva.fecha_eliminacion = timezone.now()
-            reserva.usuario_eliminacion = request.user
-            reserva.save()
 
-            from inmobiliaria.historial_inquilino import registrar_evento_historial_inquilino
+            ya_anulada = reserva.eliminada or reserva.estado == 'cancelada'
 
-            detalle_hist = 'Reserva eliminada desde el listado de reservas.'
-            if 'historial-reservas-inquilino' in (next_url or '') or '/historial/' in (next_url or ''):
-                detalle_hist = 'Reserva eliminada desde el historial del inquilino (posible duplicado).'
-            registrar_evento_historial_inquilino(
-                tipo='operacion_anulada',
-                reserva=reserva,
-                usuario=request.user,
-                detalle=detalle_hist,
-                precio_anterior=reserva.precio_total,
-                senia_anterior=reserva.senia,
-            )
-            
-# print(f"✅ Reserva eliminada y disponibilidades restauradas: {fecha_inicio} al {fecha_fin}")
-            messages.success(request, f'Reserva eliminada exitosamente. Las fechas del {fecha_inicio.strftime("%d/%m/%Y")} al {fecha_fin.strftime("%d/%m/%Y")} vuelven a estar disponibles.')
-            
+            if not ya_anulada:
+                # 1️⃣ Cancelar la reserva (esto restaura las disponibilidades y reconstruye historial)
+                reserva.cancelar_reserva()
+
+                # 2️⃣ Soft delete: marcar como eliminada en lugar de eliminar físicamente
+                reserva.eliminada = True
+                reserva.fecha_eliminacion = timezone.now()
+                reserva.usuario_eliminacion = request.user
+                update_fields = ['eliminada', 'fecha_eliminacion', 'usuario_eliminacion']
+                if desde_historial_inquilino:
+                    reserva.ocultar_en_historial_inquilino = True
+                    update_fields.append('ocultar_en_historial_inquilino')
+                reserva.save(update_fields=update_fields)
+
+                from inmobiliaria.historial_inquilino import registrar_evento_historial_inquilino
+
+                detalle_hist = (
+                    'Reserva eliminada desde el historial del inquilino (posible duplicado).'
+                    if desde_historial_inquilino
+                    else 'Reserva eliminada desde el listado de reservas.'
+                )
+                registrar_evento_historial_inquilino(
+                    tipo='operacion_anulada',
+                    reserva=reserva,
+                    usuario=request.user,
+                    detalle=detalle_hist,
+                    precio_anterior=reserva.precio_total,
+                    senia_anterior=reserva.senia,
+                )
+                messages.success(
+                    request,
+                    f'Reserva eliminada exitosamente. Las fechas del {fecha_inicio.strftime("%d/%m/%Y")} '
+                    f'al {fecha_fin.strftime("%d/%m/%Y")} vuelven a estar disponibles.',
+                )
+            else:
+                # Ya estaba anulada: desde el historial solo se oculta (no vuelve a salir).
+                if desde_historial_inquilino:
+                    reserva.ocultar_en_historial_inquilino = True
+                    if not reserva.fecha_eliminacion:
+                        reserva.fecha_eliminacion = timezone.now()
+                        reserva.usuario_eliminacion = request.user
+                        reserva.save(
+                            update_fields=[
+                                'ocultar_en_historial_inquilino',
+                                'fecha_eliminacion',
+                                'usuario_eliminacion',
+                            ]
+                        )
+                    else:
+                        reserva.save(update_fields=['ocultar_en_historial_inquilino'])
+                    messages.success(
+                        request,
+                        f'Operación #{reserva.id} quitada del historial del inquilino.',
+                    )
+                else:
+                    messages.info(request, f'La reserva #{reserva.id} ya estaba anulada.')
+
         except Exception as e:
-            pass  # ✅ Bloque vacío
-# print(f"❌ Error al eliminar reserva: {e}")
             messages.error(request, f'Error al eliminar la reserva: {str(e)}')
 
         if next_url:
@@ -6062,16 +6091,12 @@ def historial_reservas_inquilino(request, inquilino_id):
     from inmobiliaria.models.historial_inquilino import HistorialInquilino
 
     inquilino = get_object_or_404(Inquilino, pk=inquilino_id)
-    # Solo reservas vigentes: al eliminar (soft delete) desaparecen de este listado.
-    # ?mostrar_anuladas=1 las incluye para auditoría.
-    mostrar_anuladas = (request.GET.get('mostrar_anuladas') or '').strip() in ('1', 'true', 'si', 'yes')
+    # Activas + anuladas mezcladas por fecha. Las marcadas "ocultar" (eliminadas desde acá) no salen.
     reservas = (
-        Reserva.objects.filter(cliente_id=inquilino_id)
+        Reserva.objects.filter(cliente_id=inquilino_id, ocultar_en_historial_inquilino=False)
         .select_related('propiedad', 'propiedad__propietario', 'usuario_eliminacion', 'vendedor')
         .order_by('-fecha_inicio', '-id')
     )
-    if not mostrar_anuladas:
-        reservas = reservas.filter(eliminada=False).exclude(estado='cancelada')
 
     eventos = (
         HistorialInquilino.objects.filter(inquilino_id=inquilino_id)
@@ -6098,7 +6123,6 @@ def historial_reservas_inquilino(request, inquilino_id):
         'reservas_con_monto': reservas_con_monto,
         'eventos': eventos,
         'estado_labels': estado_labels,
-        'mostrar_anuladas': mostrar_anuladas,
         'puede_eliminar_reserva': True,
     })    
 def buscar_propietarios(request):
