@@ -121,6 +121,33 @@ def _formas_de_pago_desde_movimiento_caja(movimiento, format_usd=None):
     return ', '.join(formas_con_montos)
 
 
+def _formas_pago_dict_desde_movimiento_caja(movimiento):
+    """Dict con medios de pago del movimiento (para persistir en Recibo / concepto_detalle)."""
+    if not movimiento:
+        return {
+            'efectivo': 0.0,
+            'cheque': 0.0,
+            'tarjeta': 0.0,
+            'deposito': 0.0,
+            'destino_deposito': None,
+        }
+
+    def _f(v):
+        try:
+            return float(Decimal(str(v or 0)))
+        except Exception:
+            return 0.0
+
+    dest = (getattr(movimiento, 'destino_deposito', None) or '').strip() or None
+    return {
+        'efectivo': _f(movimiento.monto_efectivo),
+        'cheque': _f(movimiento.monto_cheque),
+        'tarjeta': _f(movimiento.monto_tarjeta),
+        'deposito': _f(movimiento.monto_deposito),
+        'destino_deposito': dest,
+    }
+
+
 def _validar_url_volver_recibo(url, request):
     """Path+query interno seguro para volver desde un recibo, o None."""
     from urllib.parse import urlparse
@@ -7254,25 +7281,6 @@ def ver_recibo_movimiento(request, movimiento_id):
         if movimiento.tipo == TipoMovimientoCajaEnum.INGRESO:
             contrato_vinculado = _obtener_contrato_desde_movimiento(movimiento, request.user.sucursal)
             es_movimiento_contrato = contrato_vinculado is not None
-            if not contrato_vinculado:
-                canon = _movimiento_canonico_operacion(movimiento, request.user.sucursal)
-                if canon and canon.id != movimiento.id:
-                    canon_estable = _movimiento_canonico_operacion(
-                        canon, request.user.sucursal
-                    )
-                    if canon_estable and canon_estable.id == canon.id:
-                        from urllib.parse import urlencode
-
-                        params = {}
-                        back_next = _next_para_redirect_recibo(request)
-                        if back_next:
-                            params['next'] = back_next
-                        url = reverse(
-                            'inmobiliaria:ver_recibo_movimiento', args=[canon.id]
-                        )
-                        if params:
-                            url += '?' + urlencode(params)
-                        return HttpResponseRedirect(url)
 
         concepto_txt = (movimiento.concepto or '')
         detalle_txt = (getattr(movimiento, 'concepto_detalle', None) or '').strip()
@@ -7501,57 +7509,10 @@ def ver_recibo_movimiento(request, movimiento_id):
                     }]
                     total_pagado = monto_fb
 
-            formas_de_pago = []
-
-            # Obtener formas de pago del movimiento con montos detallados
-            formas_con_montos = []
-            if (movimiento.monto_efectivo or 0) > 0:
-                formas_con_montos.append(f'Efectivo {_recibo_monto_str(movimiento.monto_efectivo)}')
-                formas_de_pago.append('Efectivo')
-            if (movimiento.monto_tarjeta or 0) > 0:
-                formas_con_montos.append(f'Tarjeta {_recibo_monto_str(movimiento.monto_tarjeta)}')
-                formas_de_pago.append('Tarjeta')
-            if (movimiento.monto_cheque or 0) > 0:
-                formas_con_montos.append(f'Cheque {_recibo_monto_str(movimiento.monto_cheque)}')
-                formas_de_pago.append('Cheque')
-            if (movimiento.monto_deposito or 0) > 0:
-                if movimiento.destino_deposito == 'galicia':
-                    formas_con_montos.append(f'Transferencia Galicia {_recibo_monto_str(movimiento.monto_deposito)}')
-                    formas_de_pago.append('Galicia')
-                elif movimiento.destino_deposito == 'mp':
-                    formas_con_montos.append(f'Transferencia Mercado Pago {_recibo_monto_str(movimiento.monto_deposito)}')
-                    formas_de_pago.append('Mercado Pago')
-                else:
-                    formas_con_montos.append(f'Transferencia {_recibo_monto_str(movimiento.monto_deposito)}')
-                    formas_de_pago.append('Transferencia')
-
-            if not formas_con_montos and recibo_obj:
-                det = recibo_obj.conceptos_detalle or {}
-                formas = det.get('formas_pago') if isinstance(det, dict) else None
-                if isinstance(formas, dict):
-                    if float(formas.get('efectivo') or 0) > 0:
-                        formas_con_montos.append(
-                            f'Efectivo {_recibo_monto_str(formas.get("efectivo"))}'
-                        )
-                        formas_de_pago.append('Efectivo')
-                    if float(formas.get('tarjeta') or 0) > 0:
-                        formas_con_montos.append(
-                            f'Tarjeta {_recibo_monto_str(formas.get("tarjeta"))}'
-                        )
-                        formas_de_pago.append('Tarjeta')
-                    if float(formas.get('cheque') or 0) > 0:
-                        formas_con_montos.append(
-                            f'Cheque {_recibo_monto_str(formas.get("cheque"))}'
-                        )
-                        formas_de_pago.append('Cheque')
-                    if float(formas.get('deposito') or 0) > 0:
-                        formas_con_montos.append(
-                            f'Transferencia {_recibo_monto_str(formas.get("deposito"))}'
-                        )
-                        formas_de_pago.append('Transferencia')
-            
-            # Siempre usar formas con montos para mostrar el desglose completo
-            formas_de_pago_mostrar = formas_con_montos if formas_con_montos else formas_de_pago
+            formas_de_pago_txt = _formas_de_pago_desde_movimiento_caja(movimiento)
+            if not formas_de_pago_txt:
+                formas_de_pago_txt = 'EFECTIVO'
+            formas_de_pago_mostrar = formas_de_pago_txt
             
             # Función para convertir número a palabras
             def numero_a_palabras(numero):
@@ -7675,7 +7636,7 @@ def ver_recibo_movimiento(request, movimiento_id):
                 'pagos': pagos,
                 'total_pagado': _recibo_monto_str(total_pagado),
                 'monto_en_palabras': numero_a_palabras(int(total_pagado)),
-                'formas_de_pago': ', '.join(formas_de_pago_mostrar) if formas_de_pago_mostrar else 'EFECTIVO',
+                'formas_de_pago': formas_de_pago_mostrar,
                 'logo_base64': logo_base64,
                 # ✅ DATOS CORREGIDOS PARA MOSTRAR EN RECIBO
                 'precio_total_operacion': _recibo_monto_str(precio_total_mostrar),
@@ -11135,11 +11096,19 @@ def _montos_form_edicion_movimiento(movimiento, sucursal=None):
 
 
 def _sincronizar_montos_anexos_movimiento(movimiento):
-    """Actualiza vales y recibo vinculados cuando cambian los montos del movimiento."""
+    """Actualiza vales, recibo vinculado y JSON de formas de pago cuando cambian los montos."""
     from inmobiliaria.models.vale import ValeVendedor
 
     nuevo_total = ValeVendedor.monto_total_movimiento(movimiento)
     ValeVendedor.objects.filter(movimiento_caja=movimiento).update(monto=nuevo_total)
+
+    formas_dict = _formas_pago_dict_desde_movimiento_caja(movimiento)
+    formas_recibo = {
+        'efectivo': formas_dict['efectivo'],
+        'cheque': formas_dict['cheque'],
+        'tarjeta': formas_dict['tarjeta'],
+        'deposito': formas_dict['deposito'],
+    }
 
     try:
         from inmobiliaria.models.recibo import Recibo
@@ -11153,9 +11122,34 @@ def _sincronizar_montos_anexos_movimiento(movimiento):
                     - Decimal(str(recibo.total_pagado_antes or 0))
                     - Decimal(str(recibo.monto_este_pago or 0))
                 )
-            recibo.save(update_fields=['monto_este_pago', 'saldo_pendiente'])
+            det = recibo.conceptos_detalle
+            if not isinstance(det, dict):
+                det = {}
+            else:
+                det = dict(det)
+            det['formas_pago'] = formas_recibo
+            recibo.conceptos_detalle = det
+            recibo.save(
+                update_fields=['monto_este_pago', 'saldo_pendiente', 'conceptos_detalle']
+            )
     except Exception:
         pass
+
+    cd_raw = (getattr(movimiento, 'concepto_detalle', None) or '').strip()
+    if cd_raw.startswith('{'):
+        try:
+            import json
+
+            data = json.loads(cd_raw)
+            if isinstance(data, dict):
+                data = dict(data)
+                data['formas_pago'] = formas_recibo
+                if formas_dict.get('destino_deposito'):
+                    data['destino_deposito'] = formas_dict['destino_deposito']
+                movimiento.concepto_detalle = json.dumps(data, ensure_ascii=False)
+                movimiento.save(update_fields=['concepto_detalle'])
+        except Exception:
+            pass
 
 
 @login_required
@@ -11257,6 +11251,7 @@ def editar_movimiento_caja(request, movimiento_id):
             'monto_efectivo', 'monto_cheque', 'monto_tarjeta',
             'monto_deposito', 'monto_dolares', 'destino_deposito', 'fecha_transferencia',
         ])
+        movimiento.refresh_from_db()
         _sincronizar_montos_anexos_movimiento(movimiento)
         messages.success(
             request,
@@ -21966,6 +21961,8 @@ def recibo_contrato_24(request, contrato_id):
                 domicilio=contrato.garante_domicilio or ''
             )]
 
+        if primer_movimiento:
+            primer_movimiento.refresh_from_db()
         formas_de_pago_recibo = _formas_de_pago_desde_movimiento_caja(primer_movimiento, format_currency_usd)
         if not formas_de_pago_recibo:
             formas_de_pago_recibo = 'EFECTIVO'

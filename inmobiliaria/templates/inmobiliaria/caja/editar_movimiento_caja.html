@@ -26,7 +26,7 @@
                                 <p class="mb-1"><strong>Propiedad:</strong> {{ movimiento.propiedad.direccion }} (#{{ movimiento.propiedad_id }})</p>
                                 {% endif %}
                                 <p class="mb-0 text-muted small">
-                                    Mové el importe entre medios (ej. de Efectivo a Transferencia) manteniendo el mismo total.
+                                    Pasá el importe de un medio a otro (ej. Efectivo → Transferencia) y dejá el medio anterior en <strong>$0</strong>.
                                     Al guardar, la caja y el recibo impreso quedan corregidos.
                                 </p>
                             </div>
@@ -129,6 +129,18 @@
         el.addEventListener('input', recalc);
         el.addEventListener('blur', recalc);
     });
+    var dep = document.getElementById('monto_deposito_edit');
+    var eff = document.querySelector('[name="monto_efectivo"]');
+    if (dep && eff) {
+        dep.addEventListener('blur', function() {
+            var d = parseMontoAR(dep.value);
+            var e = parseMontoAR(eff.value);
+            if (d > 0 && e > 0 && Math.abs(d - e) < 0.02) {
+                eff.value = formatMontoAR(0);
+                recalc();
+            }
+        });
+    }
     recalc();
 })();
 </script>
