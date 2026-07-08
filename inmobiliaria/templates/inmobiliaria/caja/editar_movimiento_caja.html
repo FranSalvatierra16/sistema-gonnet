@@ -25,45 +25,55 @@
                                 {% if movimiento.propiedad %}
                                 <p class="mb-1"><strong>Propiedad:</strong> {{ movimiento.propiedad.direccion }} (#{{ movimiento.propiedad_id }})</p>
                                 {% endif %}
-                                <p class="mb-0 text-muted small">
-                                    Pasá el importe de un medio a otro (ej. Efectivo → Transferencia) y dejá el medio anterior en <strong>$0</strong>.
-                                    Al guardar, la caja y el recibo impreso quedan corregidos.
-                                </p>
                             </div>
                         </div>
                     </div>
 
+                    <div class="alert alert-warning mb-4">
+                        <strong>Total del recibo (no se puede cambiar):</strong>
+                        {% if total_fijo_ars > 0 %}
+                        <span class="fs-5 ms-1">${{ total_fijo_ars|format_price }}</span>
+                        {% endif %}
+                        {% if total_fijo_usd > 0 %}
+                        <span class="fs-5 ms-2">U$S {{ total_fijo_usd|format_price }}</span>
+                        {% endif %}
+                        <p class="mb-0 mt-2 small">
+                            Solo redistribuí ese importe entre medios (ej. pasá todo de Efectivo a Transferencia).
+                            La suma de los medios en pesos debe dar exactamente el total indicado.
+                        </p>
+                    </div>
+
                     {% if montos_precargados %}
                     <div class="alert alert-info">
-                        Este movimiento estaba en <strong>$0</strong> en caja. Se precargaron los importes desde el recibo o conceptos vinculados; revisá y guardá.
+                        Este movimiento estaba en <strong>$0</strong> en caja. Se precargaron los importes desde el recibo; revisá y guardá.
                     </div>
                     {% endif %}
 
-                    <form method="post">
+                    <form method="post" id="form_editar_forma_pago">
                         {% csrf_token %}
                         {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
 
                         <div class="row g-3 mb-3">
                             <div class="col-md-4">
                                 <label class="form-label">Efectivo ARS</label>
-                                <input type="text" name="monto_efectivo" class="form-control monto-edit input-monto-ar" inputmode="decimal" autocomplete="off"
-                                       value="{{ montos_form.monto_efectivo|format_price }}" required>
+                                <input type="text" name="monto_efectivo" class="form-control monto-edit medio-ars input-monto-ar" inputmode="decimal" autocomplete="off"
+                                       value="{{ montos_form.monto_efectivo|format_price }}">
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Cheques</label>
-                                <input type="text" name="monto_cheque" class="form-control monto-edit input-monto-ar" inputmode="decimal" autocomplete="off"
+                                <input type="text" name="monto_cheque" class="form-control monto-edit medio-ars input-monto-ar" inputmode="decimal" autocomplete="off"
                                        value="{{ montos_form.monto_cheque|format_price }}">
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Tarjeta</label>
-                                <input type="text" name="monto_tarjeta" class="form-control monto-edit input-monto-ar" inputmode="decimal" autocomplete="off"
+                                <input type="text" name="monto_tarjeta" class="form-control monto-edit medio-ars input-monto-ar" inputmode="decimal" autocomplete="off"
                                        value="{{ montos_form.monto_tarjeta|format_price }}">
                             </div>
                         </div>
                         <div class="row g-3 mb-3">
                             <div class="col-md-6">
                                 <label class="form-label">Transferencia</label>
-                                <input type="text" name="monto_deposito" id="monto_deposito_edit" class="form-control monto-edit input-monto-ar" inputmode="decimal" autocomplete="off"
+                                <input type="text" name="monto_deposito" id="monto_deposito_edit" class="form-control monto-edit medio-ars input-monto-ar" inputmode="decimal" autocomplete="off"
                                        value="{{ montos_form.monto_deposito|format_price }}">
                             </div>
                             <div class="col-md-6">
@@ -92,10 +102,13 @@
                                        value="{{ montos_form.monto_dolares|format_price }}">
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label">Total ARS</label>
-                                <input type="text" id="total_ars_edit" class="form-control fw-bold bg-light" readonly value="0,00">
+                                <label class="form-label">Suma medios ARS</label>
+                                <input type="text" id="suma_ars_edit" class="form-control fw-bold bg-light" readonly value="0,00">
+                                <small id="suma_ars_hint" class="text-muted">Debe ser ${{ total_fijo_ars|format_price }}</small>
                             </div>
                         </div>
+
+                        <div id="error_suma_ars" class="alert alert-danger d-none mb-3" role="alert"></div>
 
                         <div class="d-flex justify-content-between flex-wrap gap-2">
                             {% if caja %}
@@ -103,7 +116,7 @@
                             {% else %}
                             <a href="{% url 'inmobiliaria:todos_movimientos_caja' %}" class="btn btn-secondary">Cancelar</a>
                             {% endif %}
-                            <button type="submit" class="btn btn-warning" onclick="return confirm('¿Guardar la forma de pago corregida? El recibo mostrará los nuevos medios al reimprimir.');">
+                            <button type="submit" class="btn btn-warning" id="btn_guardar_forma_pago">
                                 <i class="fas fa-save me-1"></i>Guardar forma de pago
                             </button>
                         </div>
@@ -116,31 +129,89 @@
 <script src="{% static 'js/monto-argentino.js' %}"></script>
 <script>
 (function() {
-    function recalc() {
+    var TOTAL_ARS = {{ total_fijo_ars|default:0 }};
+    var TOTAL_USD = {{ total_fijo_usd|default:0 }};
+    var TOL = 0.03;
+
+    function sumaArs() {
         var t = 0;
-        ['monto_efectivo', 'monto_cheque', 'monto_tarjeta', 'monto_deposito'].forEach(function(name) {
-            var el = document.querySelector('[name="' + name + '"]');
-            if (el) t += parseMontoAR(el.value);
+        document.querySelectorAll('.medio-ars').forEach(function(el) {
+            t += parseMontoAR(el.value);
         });
-        var out = document.getElementById('total_ars_edit');
-        if (out) out.value = formatMontoAR(t);
+        return t;
     }
-    document.querySelectorAll('.monto-edit').forEach(function(el) {
-        el.addEventListener('input', recalc);
-        el.addEventListener('blur', recalc);
-    });
-    var dep = document.getElementById('monto_deposito_edit');
-    var eff = document.querySelector('[name="monto_efectivo"]');
-    if (dep && eff) {
-        dep.addEventListener('blur', function() {
-            var d = parseMontoAR(dep.value);
-            var e = parseMontoAR(eff.value);
-            if (d > 0 && e > 0 && Math.abs(d - e) < 0.02) {
-                eff.value = formatMontoAR(0);
-                recalc();
+
+    function sumaUsd() {
+        var el = document.querySelector('[name="monto_dolares"]');
+        return el ? parseMontoAR(el.value) : 0;
+    }
+
+    function recalc() {
+        var s = sumaArs();
+        var out = document.getElementById('suma_ars_edit');
+        var err = document.getElementById('error_suma_ars');
+        var btn = document.getElementById('btn_guardar_forma_pago');
+        if (out) out.value = formatMontoAR(s);
+        var okArs = TOTAL_ARS <= 0 || Math.abs(s - TOTAL_ARS) <= TOL;
+        var okUsd = TOTAL_USD <= 0 || Math.abs(sumaUsd() - TOTAL_USD) <= TOL;
+        if (out) {
+            out.classList.toggle('border-danger', !okArs);
+            out.classList.toggle('text-danger', !okArs);
+            out.classList.toggle('border-success', okArs && TOTAL_ARS > 0);
+        }
+        if (err) {
+            if (!okArs && TOTAL_ARS > 0) {
+                err.textContent = 'La suma en pesos es $' + formatMontoAR(s) + ' pero el recibo es por $' + formatMontoAR(TOTAL_ARS) + '. Ajustá los medios.';
+                err.classList.remove('d-none');
+            } else if (!okUsd && TOTAL_USD > 0) {
+                err.textContent = 'El monto en USD no coincide con el del recibo (U$S ' + formatMontoAR(TOTAL_USD) + ').';
+                err.classList.remove('d-none');
+            } else {
+                err.classList.add('d-none');
             }
-        });
+        }
+        if (btn) btn.disabled = !(okArs && okUsd);
     }
+
+    function ajustarExceso(el) {
+        if (!el || TOTAL_ARS <= 0) return;
+        var s = sumaArs();
+        if (s <= TOTAL_ARS + TOL) return;
+        var propio = parseMontoAR(el.value);
+        var otros = s - propio;
+        var maxPropio = Math.max(0, TOTAL_ARS - otros);
+        el.value = formatMontoAR(maxPropio);
+        recalc();
+    }
+
+    document.querySelectorAll('.medio-ars').forEach(function(el) {
+        el.addEventListener('input', recalc);
+        el.addEventListener('blur', function() {
+            ajustarExceso(el);
+            recalc();
+        });
+    });
+    var usdEl = document.querySelector('[name="monto_dolares"]');
+    if (usdEl) {
+        usdEl.addEventListener('input', recalc);
+        usdEl.addEventListener('blur', recalc);
+    }
+
+    document.getElementById('form_editar_forma_pago').addEventListener('submit', function(e) {
+        recalc();
+        if (TOTAL_ARS > 0 && Math.abs(sumaArs() - TOTAL_ARS) > TOL) {
+            e.preventDefault();
+            alert('La suma en pesos debe ser exactamente $' + formatMontoAR(TOTAL_ARS) + '.');
+            return false;
+        }
+        if (TOTAL_USD > 0 && Math.abs(sumaUsd() - TOTAL_USD) > TOL) {
+            e.preventDefault();
+            alert('El monto en USD debe ser U$S ' + formatMontoAR(TOTAL_USD) + '.');
+            return false;
+        }
+        return confirm('¿Guardar la forma de pago corregida? El total del recibo sigue siendo $' + formatMontoAR(TOTAL_ARS) + '.');
+    });
+
     recalc();
 })();
 </script>

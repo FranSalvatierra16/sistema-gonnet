@@ -11152,6 +11152,24 @@ def _sincronizar_montos_anexos_movimiento(movimiento):
             pass
 
 
+def _totales_fijos_edicion_forma_pago(movimiento, sucursal=None):
+    """Total ARS/USD del comprobante: no puede cambiar al corregir solo la forma de pago."""
+    ars = Decimal(str(movimiento.monto_total or 0))
+    usd = Decimal(str(movimiento.monto_dolares or 0))
+    if ars > 0 or usd > 0:
+        return ars, usd
+    sugeridos = _montos_sugeridos_movimiento_caja(movimiento, sucursal=sucursal)
+    if sugeridos:
+        ars = (
+            Decimal(str(sugeridos.get('monto_efectivo') or 0))
+            + Decimal(str(sugeridos.get('monto_cheque') or 0))
+            + Decimal(str(sugeridos.get('monto_tarjeta') or 0))
+            + Decimal(str(sugeridos.get('monto_deposito') or 0))
+        )
+        usd = Decimal(str(sugeridos.get('monto_dolares') or 0))
+    return ars, usd
+
+
 @login_required
 @transaction.atomic
 def editar_movimiento_caja(request, movimiento_id):
@@ -11183,6 +11201,35 @@ def editar_movimiento_caja(request, movimiento_id):
 
     caja_numero = movimiento.caja.numero if movimiento.caja_id else None
     next_url = (request.POST.get('next') or request.GET.get('next') or '').strip()
+    total_fijo_ars, total_fijo_usd = _totales_fijos_edicion_forma_pago(
+        movimiento, sucursal=request.user.sucursal
+    )
+
+    def _ctx_editar(extra=None):
+        MovimientoCaja.precargar_nombres_concepto([movimiento], sucursal=request.user.sucursal)
+        montos_form, montos_precargados = _montos_form_edicion_movimiento(
+            movimiento, sucursal=request.user.sucursal
+        )
+        dest_raw = (montos_form.get('destino_deposito') or movimiento.destino_deposito or '').strip()
+        destino_cuenta_id = None
+        if dest_raw.startswith('cuenta_'):
+            suf = dest_raw.replace('cuenta_', '', 1)
+            if suf.isdigit():
+                destino_cuenta_id = int(suf)
+        ctx = {
+            'movimiento': movimiento,
+            'montos_form': montos_form,
+            'montos_precargados': montos_precargados,
+            'caja': movimiento.caja,
+            'cuentas_bancarias': cuentas_bancarias,
+            'next': next_url,
+            'destino_cuenta_id': destino_cuenta_id,
+            'total_fijo_ars': total_fijo_ars,
+            'total_fijo_usd': total_fijo_usd,
+        }
+        if extra:
+            ctx.update(extra)
+        return ctx
 
     def _volver():
         safe_next = _validar_url_volver_recibo(next_url, request)
@@ -11195,6 +11242,10 @@ def editar_movimiento_caja(request, movimiento_id):
         return redirect('inmobiliaria:todos_movimientos_caja')
 
     if request.method == 'POST':
+        orig_ars, orig_usd = _totales_fijos_edicion_forma_pago(
+            MovimientoCaja.objects.get(pk=movimiento.pk),
+            sucursal=request.user.sucursal,
+        )
         try:
             movimiento.monto_efectivo = parse_decimal_monto(request.POST.get('monto_efectivo', '0') or '0')
             movimiento.monto_cheque = parse_decimal_monto(request.POST.get('monto_cheque', '0') or '0')
@@ -11203,7 +11254,7 @@ def editar_movimiento_caja(request, movimiento_id):
             movimiento.monto_dolares = parse_decimal_monto(request.POST.get('monto_dolares', '0') or '0')
         except (ValueError, TypeError, InvalidOperation):
             messages.error(request, 'Error en los montos ingresados.')
-            return _volver()
+            return render(request, 'inmobiliaria/caja/editar_movimiento_caja.html', _ctx_editar())
 
         for campo in (
             'monto_efectivo', 'monto_cheque', 'monto_tarjeta',
@@ -11211,12 +11262,28 @@ def editar_movimiento_caja(request, movimiento_id):
         ):
             if getattr(movimiento, campo) < 0:
                 messages.error(request, 'Los montos no pueden ser negativos.')
-                return _volver()
+                return render(request, 'inmobiliaria/caja/editar_movimiento_caja.html', _ctx_editar())
 
         total_ars = movimiento.monto_total
-        if total_ars <= 0 and (movimiento.monto_dolares or 0) <= 0:
+        total_usd = Decimal(str(movimiento.monto_dolares or 0))
+        tol = Decimal('0.03')
+        if orig_ars > 0 and abs(total_ars - orig_ars) > tol:
+            messages.error(
+                request,
+                f'El total en pesos debe ser ${format_monto_argentino(orig_ars)}. '
+                f'Solo podés cambiar la forma de pago (efectivo, transferencia, etc.), no el importe del recibo.',
+            )
+            return render(request, 'inmobiliaria/caja/editar_movimiento_caja.html', _ctx_editar())
+        if orig_usd > 0 and abs(total_usd - orig_usd) > tol:
+            messages.error(
+                request,
+                f'El total en USD debe ser U$S {format_monto_argentino(orig_usd)}. '
+                f'Solo podés redistribuir el importe, no cambiarlo.',
+            )
+            return render(request, 'inmobiliaria/caja/editar_movimiento_caja.html', _ctx_editar())
+        if total_ars <= 0 and total_usd <= 0:
             messages.error(request, 'El total en pesos o el monto en USD debe ser mayor a cero.')
-            return _volver()
+            return render(request, 'inmobiliaria/caja/editar_movimiento_caja.html', _ctx_editar())
 
         dd_raw = (request.POST.get('destino_deposito') or '').strip()
         if movimiento.monto_deposito and float(movimiento.monto_deposito) > 0:
@@ -11229,7 +11296,7 @@ def editar_movimiento_caja(request, movimiento_id):
                 destino_ok = dd_raw
             if not destino_ok:
                 messages.error(request, 'Con transferencia tenés que elegir una cuenta destino válida.')
-                return _volver()
+                return render(request, 'inmobiliaria/caja/editar_movimiento_caja.html', _ctx_editar())
             movimiento.destino_deposito = destino_ok
             ft_raw = (request.POST.get('fecha_transferencia') or '').strip()
             if not ft_raw:
@@ -11237,12 +11304,12 @@ def editar_movimiento_caja(request, movimiento_id):
                     request,
                     'Con transferencia tenés que indicar la fecha en que se hizo el depósito.',
                 )
-                return _volver()
+                return render(request, 'inmobiliaria/caja/editar_movimiento_caja.html', _ctx_editar())
             try:
                 movimiento.fecha_transferencia = datetime.strptime(ft_raw, '%Y-%m-%d').date()
             except ValueError:
                 messages.error(request, 'Fecha de transferencia/depósito inválida.')
-                return _volver()
+                return render(request, 'inmobiliaria/caja/editar_movimiento_caja.html', _ctx_editar())
         else:
             movimiento.destino_deposito = None
             movimiento.fecha_transferencia = None
@@ -11261,28 +11328,10 @@ def editar_movimiento_caja(request, movimiento_id):
         )
         return _volver()
 
-    MovimientoCaja.precargar_nombres_concepto([movimiento], sucursal=request.user.sucursal)
-    montos_form, montos_precargados = _montos_form_edicion_movimiento(
-        movimiento, sucursal=request.user.sucursal
-    )
-    dest_raw = (montos_form.get('destino_deposito') or movimiento.destino_deposito or '').strip()
-    destino_cuenta_id = None
-    if dest_raw.startswith('cuenta_'):
-        suf = dest_raw.replace('cuenta_', '', 1)
-        if suf.isdigit():
-            destino_cuenta_id = int(suf)
     return render(
         request,
         'inmobiliaria/caja/editar_movimiento_caja.html',
-        {
-            'movimiento': movimiento,
-            'montos_form': montos_form,
-            'montos_precargados': montos_precargados,
-            'caja': movimiento.caja,
-            'cuentas_bancarias': cuentas_bancarias,
-            'next': next_url,
-            'destino_cuenta_id': destino_cuenta_id,
-        },
+        _ctx_editar(),
     )
 
 
