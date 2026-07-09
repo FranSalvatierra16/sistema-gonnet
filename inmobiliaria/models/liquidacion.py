@@ -395,6 +395,32 @@ def marcador_gasto_liquidacion_pendiente(liquidacion_id):
     return f'liquidacion_pendiente_origen:{int(liquidacion_id)}'
 
 
+def asegurar_gastos_saldo_negativo_propiedad(propiedad, sucursal=None):
+    """
+    Genera/actualiza gastos pendientes por liquidaciones con saldo negativo de la propiedad.
+    Se invoca al listar pendientes para crear liquidación (no hace falta abrir cada detalle).
+    """
+    if not propiedad:
+        return
+
+    qs = (
+        LiquidacionPropietario.objects.filter(propiedad=propiedad)
+        .exclude(estado='cancelada')
+        .prefetch_related('gastos')
+    )
+    if sucursal is not None:
+        qs = qs.filter(sucursal=sucursal)
+
+    for liq in qs:
+        monto_prev = liq.monto_a_pagar
+        gastos_prev = liq.monto_gastos
+        liq._recalcular_monto_a_pagar_fields()
+        if monto_prev != liq.monto_a_pagar or gastos_prev != liq.monto_gastos:
+            liq.save(update_fields=['monto_gastos', 'monto_a_pagar'])
+        if (liq.monto_a_pagar or Decimal('0')) < Decimal('0'):
+            sync_gasto_saldo_negativo_liquidacion(liq)
+
+
 def sync_gasto_saldo_negativo_liquidacion(liquidacion):
     """
     Liquidación con saldo negativo (propietario debe a la inmobiliaria):

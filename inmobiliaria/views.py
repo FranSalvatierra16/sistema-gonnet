@@ -25469,6 +25469,10 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
     Lista operaciones y gastos pendientes de liquidación para una propiedad (dict serializable a JSON).
     `sucursal` debe ser la sucursal del usuario (coincidente con la de la propiedad).
     """
+    from inmobiliaria.models.liquidacion import asegurar_gastos_saldo_negativo_propiedad
+
+    asegurar_gastos_saldo_negativo_propiedad(propiedad, sucursal=sucursal)
+
     # Reservas ya cubiertas por liquidación (FK o operaciones_incluidas).
     # Contratos: las cuotas ya liquidadas se excluyen por ID (ver _cuotas_excluidas_*).
     reservas_excluidas = set()
@@ -25791,9 +25795,11 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
     gastos_saldo_negativo = GastoPropietario.objects.filter(
         liquidacion__isnull=True,
         sucursal=sucursal,
-        propiedad=propiedad,
         tipo_movimiento='egreso',
         observaciones__contains='liquidacion_pendiente_origen:',
+    ).filter(
+        Q(propiedad=propiedad)
+        | Q(propiedad__isnull=True, propietario=propiedad.propietario_id)
     ).order_by('-fecha_creacion')
 
     gastos_manuales = (
@@ -26687,6 +26693,7 @@ def _dict_gasto_pendiente(gasto, **extra):
         'concepto_caja_id': gasto.concepto_caja_id or '',
         'tipo': 'gasto_manual',
         'moneda': getattr(gasto, 'moneda', 'ARS') or 'ARS',
+        'propiedad_id': gasto.propiedad_id,
     }
     data.update(extra)
     return data
