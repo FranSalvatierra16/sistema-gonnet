@@ -26,6 +26,14 @@
                 </div>
             </div>
 
+            {% if liquidacion.estado == 'pendiente' and liquidacion.monto_a_pagar < 0 %}
+            <div class="alert alert-info border-info mb-4" role="alert">
+                <strong>Saldo en contra del propietario ({{ liquidacion.monto_a_pagar|format_importe_moneda:liquidacion.moneda }}).</strong>
+                Este importe ya figura como descuento pendiente para la próxima liquidación de esta propiedad,
+                aunque esta liquidación siga en estado Pendiente.
+            </div>
+            {% endif %}
+
             <!-- Información Principal -->
             <div class="row mb-4">
                 <div class="col-12">
@@ -301,8 +309,8 @@
                         </div>
                         <div class="card-body">
                             <p class="small text-muted mb-3">
-                                Solo aparecen <strong>liquidaciones cerradas con saldo en contra del propietario</strong>
-                                (deuda a descontar en esta liquidación).
+                                Aparecen <strong>liquidaciones con saldo en contra del propietario</strong>
+                                (deuda a descontar en esta liquidación), incluso si la liquidación origen sigue pendiente.
                                 Otros gastos se cargan con <strong>Agregar Movimiento</strong>.
                                 Al pulsar <strong>Incluir en esta liquidación</strong> se descuentan del monto a pagar.
                             </p>

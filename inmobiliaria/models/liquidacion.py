@@ -224,9 +224,10 @@ class LiquidacionPropietario(models.Model):
         """Recalcula el monto a pagar según movimientos aceptados y fondo de mantenimiento."""
         self._recalcular_monto_a_pagar_fields()
         self.save(update_fields=['monto_gastos', 'monto_a_pagar'])
+        self.sync_gasto_saldo_negativo_pendiente()
 
     def sync_gasto_saldo_negativo_pendiente(self):
-        """Si el saldo es negativo y la liquidación está cerrada, genera gasto pendiente para la próxima."""
+        """Si el saldo es negativo, genera gasto pendiente para descontar en la próxima liquidación."""
         return sync_gasto_saldo_negativo_liquidacion(self)
 
     def __str__(self):
@@ -403,7 +404,7 @@ def sync_gasto_saldo_negativo_liquidacion(liquidacion):
         return None
 
     marker = marcador_gasto_liquidacion_pendiente(liquidacion.id)
-    estados_cobranza = ('cerrada', 'pagada', 'oficina', 'procesada')
+    estados_con_deuda_descontable = ('pendiente', 'cerrada', 'pagada', 'oficina', 'procesada')
 
     pendientes_qs = GastoPropietario.objects.filter(
         liquidacion__isnull=True,
@@ -415,7 +416,7 @@ def sync_gasto_saldo_negativo_liquidacion(liquidacion):
         liquidacion__isnull=False,
     ).exists()
 
-    if liquidacion.estado == 'cancelada' or liquidacion.estado not in estados_cobranza:
+    if liquidacion.estado == 'cancelada' or liquidacion.estado not in estados_con_deuda_descontable:
         pendientes_qs.delete()
         return None
 
