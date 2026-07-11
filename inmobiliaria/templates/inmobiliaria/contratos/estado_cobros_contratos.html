@@ -27,6 +27,34 @@
     }
     .kpi-estado-cobro:hover { transform: translateY(-2px); color: inherit; }
     .kpi-estado-cobro.active-filter { outline: 3px solid rgba(0,0,0,0.25); outline-offset: 2px; }
+    .fila-contrato-cobro { cursor: pointer; }
+    .fila-contrato-cobro .btn-toggle-cuotas {
+        border: none;
+        background: transparent;
+        padding: 0.15rem 0.35rem;
+        color: #0d6efd;
+        line-height: 1;
+    }
+    .fila-contrato-cobro .btn-toggle-cuotas .chevron {
+        display: inline-block;
+        transition: transform 0.15s ease;
+    }
+    .fila-contrato-cobro.expanded .btn-toggle-cuotas .chevron {
+        transform: rotate(90deg);
+    }
+    .fila-detalle-cuotas td {
+        background: #f8f9fa;
+        padding: 0.75rem 1rem !important;
+    }
+    .tabla-cuotas-impagas {
+        font-size: 0.8rem;
+        margin-bottom: 0;
+        background: #fff;
+    }
+    .tabla-cuotas-impagas th {
+        font-weight: 600;
+        white-space: nowrap;
+    }
 </style>
 {% endblock %}
 
@@ -214,6 +242,7 @@
                 <table class="table table-hover align-middle">
                     <thead class="table-dark">
                         <tr>
+                            <th style="width:2.5rem;"></th>
                             <th>#</th>
                             <th>Propiedad</th>
                             <th>Inquilino</th>
@@ -229,7 +258,17 @@
                     </thead>
                     <tbody>
                         {% for contrato in contratos %}
-                        <tr class="{% if contrato.estado_cobro == 'debe_atrasados' %}table-danger{% elif contrato.estado_cobro == 'debe_mes_actual' %}table-warning{% elif contrato.estado_cobro == 'completo' %}table-success{% endif %}">
+                        <tr class="fila-contrato-cobro {% if contrato.estado_cobro == 'debe_atrasados' %}table-danger{% elif contrato.estado_cobro == 'debe_mes_actual' %}table-warning{% elif contrato.estado_cobro == 'completo' %}table-success{% endif %}"
+                            data-contrato-id="{{ contrato.id }}"
+                            role="button"
+                            tabindex="0"
+                            aria-expanded="false"
+                            title="Clic para ver las cuotas que debe">
+                            <td class="text-center">
+                                <button type="button" class="btn-toggle-cuotas" aria-label="Ver cuotas">
+                                    <i class="fas fa-chevron-right chevron"></i>
+                                </button>
+                            </td>
                             <td><strong class="text-primary">#{{ contrato.id }}</strong></td>
                             <td>
                                 <strong>{{ contrato.propiedad.direccion }}</strong>
@@ -286,6 +325,9 @@
                             </td>
                             <td>
                                 <small>{{ contrato.estado_cobro_detalle }}</small>
+                                {% if contrato.cuotas_impagas %}
+                                <br><span class="badge bg-secondary">{{ contrato.cuotas_impagas|length }} cuota{{ contrato.cuotas_impagas|length|pluralize:"s" }}</span>
+                                {% endif %}
                             </td>
                             <td class="text-nowrap">
                                 {% if contrato.deposito_estado == 'pagado' %}
@@ -313,7 +355,7 @@
                                 <span class="badge bg-secondary">N/A</span>
                                 {% endif %}
                             </td>
-                            <td>
+                            <td class="celda-acciones">
                                 <div class="d-flex flex-column gap-1" style="min-width: 7.5rem;">
                                     <a href="{% url 'inmobiliaria:detalle_contrato' contrato.id %}"
                                        class="btn btn-sm btn-outline-primary text-nowrap">
@@ -331,6 +373,64 @@
                                 </div>
                             </td>
                         </tr>
+                        <tr class="fila-detalle-cuotas d-none" id="detalle-cuotas-{{ contrato.id }}">
+                            <td colspan="12">
+                                {% if contrato.cuotas_impagas %}
+                                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                                    <strong><i class="fas fa-list me-1"></i> Cuotas pendientes / vencidas ({{ contrato.cuotas_impagas|length }})</strong>
+                                    <small class="text-muted">Solo las que aún debe</small>
+                                </div>
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-bordered tabla-cuotas-impagas">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Cuota</th>
+                                                <th>Vencimiento</th>
+                                                <th>Estado</th>
+                                                <th class="text-end">Monto</th>
+                                                <th class="text-end">Saldo</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for cuota in contrato.cuotas_impagas %}
+                                            <tr class="{% if cuota.estado == 'vencida' or cuota.fecha_vencimiento < hoy %}table-danger{% elif cuota.fecha_vencimiento.month == hoy.month and cuota.fecha_vencimiento.year == hoy.year %}table-warning{% endif %}">
+                                                <td><strong>{{ cuota.numero_cuota }}/{{ contrato.duracion_meses }}</strong></td>
+                                                <td class="text-nowrap">{{ cuota.fecha_vencimiento|date:"d/m/Y" }}</td>
+                                                <td>
+                                                    {% if cuota.estado == 'vencida' or cuota.fecha_vencimiento < hoy %}
+                                                    <span class="badge bg-danger">Vencida</span>
+                                                    {% else %}
+                                                    <span class="badge bg-warning text-dark">Pendiente</span>
+                                                    {% endif %}
+                                                    {% if cuota.tiene_adelanto_abonado %}
+                                                    <br><span class="badge bg-info text-dark mt-1">Con adelanto</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td class="text-end text-nowrap">{{ cuota.monto_total|format_importe_moneda:contrato.moneda }}</td>
+                                                <td class="text-end text-nowrap fw-semibold">{{ cuota.saldo_para_cobro|format_importe_moneda:contrato.moneda }}</td>
+                                                <td class="text-end text-nowrap">
+                                                    {% if contrato.estado == 'activo' or contrato.estado == 'reservado' %}
+                                                    <a href="{% url 'inmobiliaria:crear_pago_cuota_operacion' cuota.id %}"
+                                                       class="btn btn-sm btn-success">
+                                                        <i class="fas fa-cash-register"></i> Cobrar
+                                                    </a>
+                                                    {% endif %}
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {% else %}
+                                <div class="text-muted py-2">
+                                    <i class="fas fa-check-circle text-success me-1"></i>
+                                    No hay cuotas pendientes: todas están pagadas
+                                    {% if contrato.estado_cobro == 'en_fecha' %}(las futuras no vencieron aún){% endif %}.
+                                </div>
+                                {% endif %}
+                            </td>
+                        </tr>
                         {% endfor %}
                     </tbody>
                 </table>
@@ -346,4 +446,44 @@
         </div>
     </div>
 </div>
+<script>
+(function() {
+    function toggleFila(row) {
+        if (!row) return;
+        var id = row.getAttribute('data-contrato-id');
+        var detalle = document.getElementById('detalle-cuotas-' + id);
+        if (!detalle) return;
+        var abierto = !detalle.classList.contains('d-none');
+        if (abierto) {
+            detalle.classList.add('d-none');
+            row.classList.remove('expanded');
+            row.setAttribute('aria-expanded', 'false');
+        } else {
+            detalle.classList.remove('d-none');
+            row.classList.add('expanded');
+            row.setAttribute('aria-expanded', 'true');
+        }
+    }
+
+    document.querySelectorAll('.fila-contrato-cobro').forEach(function(row) {
+        row.addEventListener('click', function(e) {
+            if (e.target.closest('a, button, .celda-acciones, input, select, label')) return;
+            toggleFila(row);
+        });
+        row.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                toggleFila(row);
+            }
+        });
+        var btn = row.querySelector('.btn-toggle-cuotas');
+        if (btn) {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                toggleFila(row);
+            });
+        }
+    });
+})();
+</script>
 {% endblock %}

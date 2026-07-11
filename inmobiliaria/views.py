@@ -16389,6 +16389,23 @@ def estado_cobros_contratos(request):
             contrato.proxima_cuota.estado = 'vencida'
             contrato.proxima_cuota.save(update_fields=['estado'])
 
+        # Cuotas que debe (impagas con vencimiento hasta el mes actual inclusive)
+        try:
+            cuotas_todas = list(contrato.cuotas.all())
+        except Exception:
+            cuotas_todas = []
+        cuotas_todas.sort(key=lambda c: (c.fecha_vencimiento or hoy, c.numero_cuota or 0))
+        anio_mes = (hoy.year, hoy.month)
+        contrato.cuotas_impagas = []
+        for c in cuotas_todas:
+            if (c.estado or '') not in ('pendiente', 'vencida'):
+                continue
+            fv = c.fecha_vencimiento
+            if not fv:
+                continue
+            if (fv.year, fv.month) <= anio_mes:
+                contrato.cuotas_impagas.append(c)
+
         contrato.deposito_estado = determinar_estado_concepto_contrato(contrato, '10')
         contrato.honorarios_estado = determinar_estado_concepto_contrato(contrato, '25')
         deposito_ref = getattr(contrato, 'deposito_garantia', None) or Decimal('0')
