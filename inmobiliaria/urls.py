@@ -284,6 +284,7 @@ urlpatterns = [
     # Contratos
     path('contratos/crear/', views.crear_contrato_alquiler, name='crear_contrato_alquiler'),
     path('contratos/', views.lista_contratos, name='lista_contratos'),
+    path('contratos/estado-cobros/', views.estado_cobros_contratos, name='estado_cobros_contratos'),
     path('contratos/rescindir-duplicados/', views.rescindir_contratos_duplicados, name='rescindir_contratos_duplicados'),
     path('contratos/actualizar-historiales-invierno/', views.actualizar_historiales_invierno, name='actualizar_historiales_invierno'),
     path('contratos/<int:contrato_id>/', views.detalle_contrato, name='detalle_contrato'),

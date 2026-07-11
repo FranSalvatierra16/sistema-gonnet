@@ -1,0 +1,349 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block page_container_class %}container-fluid px-3 px-lg-4{% endblock %}
+
+{% block title %}Estado de cobros — Contratos{% endblock %}
+
+{% block extra_css %}
+<style>
+    .tabla-estado-cobros-wrapper { overflow-x: auto; max-width: 100%; }
+    .tabla-estado-cobros-wrapper .table {
+        font-size: 0.85rem;
+        margin-bottom: 0;
+    }
+    .tabla-estado-cobros-wrapper .table th,
+    .tabla-estado-cobros-wrapper .table td {
+        padding: 0.45rem 0.4rem;
+        vertical-align: middle;
+    }
+    .kpi-estado-cobro {
+        text-decoration: none;
+        color: inherit;
+        display: block;
+        height: 100%;
+        transition: transform 0.12s ease, box-shadow 0.12s ease;
+    }
+    .kpi-estado-cobro:hover { transform: translateY(-2px); color: inherit; }
+    .kpi-estado-cobro.active-filter { outline: 3px solid rgba(0,0,0,0.25); outline-offset: 2px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fade-in-up">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+        <h1 class="text-gradient mb-0">
+            <i class="fas fa-clipboard-list"></i> <strong>Estado de cobros</strong>
+        </h1>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{% url 'inmobiliaria:lista_contratos' %}" class="btn btn-outline-primary">
+                <i class="fas fa-file-contract"></i> Lista de contratos
+            </a>
+            <a href="{% url 'inmobiliaria:dashboard' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Volver
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow-modern border-radius-modern mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end" id="form_estado_cobros">
+                <div class="col-md-3">
+                    <label class="form-label"><i class="fas fa-search"></i> Buscar</label>
+                    <input type="text" name="q" class="form-control"
+                           placeholder="Nº contrato, inquilino, dirección o propietario..."
+                           value="{{ q }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label"><i class="fas fa-filter"></i> Clasificación</label>
+                    <select name="estado_cobro" class="form-select" onchange="this.form.submit()">
+                        <option value="">Todas</option>
+                        <option value="completo" {% if estado_cobro == 'completo' %}selected{% endif %}>Completo</option>
+                        <option value="en_fecha" {% if estado_cobro == 'en_fecha' %}selected{% endif %}>En fecha</option>
+                        <option value="debe_mes_actual" {% if estado_cobro == 'debe_mes_actual' %}selected{% endif %}>Debe mes actual</option>
+                        <option value="debe_atrasados" {% if estado_cobro == 'debe_atrasados' %}selected{% endif %}>Debe atrasados</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Depósito</label>
+                    <select name="deposito" class="form-select" onchange="this.form.submit()">
+                        <option value="">Todos</option>
+                        <option value="pagado" {% if filtro_deposito == 'pagado' %}selected{% endif %}>Pagado</option>
+                        <option value="pendiente" {% if filtro_deposito == 'pendiente' %}selected{% endif %}>Pendiente</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Honorarios</label>
+                    <select name="honorarios" class="form-select" onchange="this.form.submit()">
+                        <option value="">Todos</option>
+                        <option value="pagado" {% if filtro_honorarios == 'pagado' %}selected{% endif %}>Pagado</option>
+                        <option value="pendiente" {% if filtro_honorarios == 'pendiente' %}selected{% endif %}>Pendiente</option>
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <div class="form-check mb-0">
+                        <input class="form-check-input" type="checkbox" name="mostrar_finalizados" id="mostrar_finalizados" value="1"
+                               {% if mostrar_finalizados %}checked{% endif %} onchange="this.form.submit()">
+                        <label class="form-check-label" for="mostrar_finalizados">Incluir finalizados</label>
+                    </div>
+                </div>
+                <div class="col-md-1">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-6 col-md-3">
+            <a class="kpi-estado-cobro {% if estado_cobro == 'completo' %}active-filter{% endif %}"
+               href="?estado_cobro=completo{% if q %}&q={{ q|urlencode }}{% endif %}{% if filtro_deposito %}&deposito={{ filtro_deposito }}{% endif %}{% if filtro_honorarios %}&honorarios={{ filtro_honorarios }}{% endif %}{% if mostrar_finalizados %}&mostrar_finalizados=1{% endif %}">
+                <div class="card bg-success text-white shadow-modern h-100">
+                    <div class="card-body text-center py-3">
+                        <h3 class="mb-1">{{ conteos.completo }}</h3>
+                        <p class="mb-0 small">Completo</p>
+                        <small class="opacity-75">Todas las cuotas pagadas</small>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-6 col-md-3">
+            <a class="kpi-estado-cobro {% if estado_cobro == 'en_fecha' %}active-filter{% endif %}"
+               href="?estado_cobro=en_fecha{% if q %}&q={{ q|urlencode }}{% endif %}{% if filtro_deposito %}&deposito={{ filtro_deposito }}{% endif %}{% if filtro_honorarios %}&honorarios={{ filtro_honorarios }}{% endif %}{% if mostrar_finalizados %}&mostrar_finalizados=1{% endif %}">
+                <div class="card bg-primary text-white shadow-modern h-100">
+                    <div class="card-body text-center py-3">
+                        <h3 class="mb-1">{{ conteos.en_fecha }}</h3>
+                        <p class="mb-0 small">En fecha</p>
+                        <small class="opacity-75">Pagado hasta el mes actual</small>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-6 col-md-3">
+            <a class="kpi-estado-cobro {% if estado_cobro == 'debe_mes_actual' %}active-filter{% endif %}"
+               href="?estado_cobro=debe_mes_actual{% if q %}&q={{ q|urlencode }}{% endif %}{% if filtro_deposito %}&deposito={{ filtro_deposito }}{% endif %}{% if filtro_honorarios %}&honorarios={{ filtro_honorarios }}{% endif %}{% if mostrar_finalizados %}&mostrar_finalizados=1{% endif %}">
+                <div class="card bg-warning text-dark shadow-modern h-100">
+                    <div class="card-body text-center py-3">
+                        <h3 class="mb-1">{{ conteos.debe_mes_actual }}</h3>
+                        <p class="mb-0 small">Debe mes actual</p>
+                        <small class="opacity-75">Sin atraso de meses anteriores</small>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-6 col-md-3">
+            <a class="kpi-estado-cobro {% if estado_cobro == 'debe_atrasados' %}active-filter{% endif %}"
+               href="?estado_cobro=debe_atrasados{% if q %}&q={{ q|urlencode }}{% endif %}{% if filtro_deposito %}&deposito={{ filtro_deposito }}{% endif %}{% if filtro_honorarios %}&honorarios={{ filtro_honorarios }}{% endif %}{% if mostrar_finalizados %}&mostrar_finalizados=1{% endif %}">
+                <div class="card bg-danger text-white shadow-modern h-100">
+                    <div class="card-body text-center py-3">
+                        <h3 class="mb-1">{{ conteos.debe_atrasados }}</h3>
+                        <p class="mb-0 small">Debe atrasados</p>
+                        <small class="opacity-75">Cuotas de meses anteriores</small>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-2 mb-4">
+        <div class="col-6 col-md-3">
+            <a class="kpi-estado-cobro {% if filtro_deposito == 'pendiente' %}active-filter{% endif %}"
+               href="?deposito=pendiente{% if estado_cobro %}&estado_cobro={{ estado_cobro }}{% endif %}{% if q %}&q={{ q|urlencode }}{% endif %}{% if filtro_honorarios %}&honorarios={{ filtro_honorarios }}{% endif %}{% if mostrar_finalizados %}&mostrar_finalizados=1{% endif %}">
+                <div class="card border-danger shadow-sm h-100">
+                    <div class="card-body text-center py-2">
+                        <strong class="text-danger">{{ conteos.deposito_pendiente }}</strong>
+                        <div class="small">Depósito pendiente</div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-6 col-md-3">
+            <a class="kpi-estado-cobro {% if filtro_deposito == 'pagado' %}active-filter{% endif %}"
+               href="?deposito=pagado{% if estado_cobro %}&estado_cobro={{ estado_cobro }}{% endif %}{% if q %}&q={{ q|urlencode }}{% endif %}{% if filtro_honorarios %}&honorarios={{ filtro_honorarios }}{% endif %}{% if mostrar_finalizados %}&mostrar_finalizados=1{% endif %}">
+                <div class="card border-success shadow-sm h-100">
+                    <div class="card-body text-center py-2">
+                        <strong class="text-success">{{ conteos.deposito_pagado }}</strong>
+                        <div class="small">Depósito pagado</div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-6 col-md-3">
+            <a class="kpi-estado-cobro {% if filtro_honorarios == 'pendiente' %}active-filter{% endif %}"
+               href="?honorarios=pendiente{% if estado_cobro %}&estado_cobro={{ estado_cobro }}{% endif %}{% if q %}&q={{ q|urlencode }}{% endif %}{% if filtro_deposito %}&deposito={{ filtro_deposito }}{% endif %}{% if mostrar_finalizados %}&mostrar_finalizados=1{% endif %}">
+                <div class="card border-danger shadow-sm h-100">
+                    <div class="card-body text-center py-2">
+                        <strong class="text-danger">{{ conteos.honorarios_pendiente }}</strong>
+                        <div class="small">Honorarios pendientes</div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-6 col-md-3">
+            <a class="kpi-estado-cobro {% if filtro_honorarios == 'pagado' %}active-filter{% endif %}"
+               href="?honorarios=pagado{% if estado_cobro %}&estado_cobro={{ estado_cobro }}{% endif %}{% if q %}&q={{ q|urlencode }}{% endif %}{% if filtro_deposito %}&deposito={{ filtro_deposito }}{% endif %}{% if mostrar_finalizados %}&mostrar_finalizados=1{% endif %}">
+                <div class="card border-success shadow-sm h-100">
+                    <div class="card-body text-center py-2">
+                        <strong class="text-success">{{ conteos.honorarios_pagado }}</strong>
+                        <div class="small">Honorarios pagados</div>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <p class="text-muted mb-0 small">
+            Mostrando <strong>{{ contratos|length }}</strong> de <strong>{{ total_contratos }}</strong> contratos
+            {% if estado_cobro or filtro_deposito or filtro_honorarios %}· filtro activo
+            · <a href="?{% if q %}q={{ q|urlencode }}&{% endif %}{% if mostrar_finalizados %}mostrar_finalizados=1{% endif %}">Quitar filtros</a>
+            {% endif %}
+        </p>
+    </div>
+
+    <div class="card shadow-modern border-radius-modern">
+        <div class="card-header bg-gradient-primary text-white">
+            <h4 class="mb-0"><i class="fas fa-table"></i> <strong>Tabla de contratos</strong></h4>
+        </div>
+        <div class="card-body">
+            {% if contratos %}
+            <div class="tabla-estado-cobros-wrapper table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>#</th>
+                            <th>Propiedad</th>
+                            <th>Inquilino</th>
+                            <th>Propietario</th>
+                            <th>Mensual</th>
+                            <th>Inicio / Fin</th>
+                            <th>Clasificación</th>
+                            <th>Detalle cobro</th>
+                            <th>Depósito</th>
+                            <th>Honorarios</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for contrato in contratos %}
+                        <tr class="{% if contrato.estado_cobro == 'debe_atrasados' %}table-danger{% elif contrato.estado_cobro == 'debe_mes_actual' %}table-warning{% elif contrato.estado_cobro == 'completo' %}table-success{% endif %}">
+                            <td><strong class="text-primary">#{{ contrato.id }}</strong></td>
+                            <td>
+                                <strong>{{ contrato.propiedad.direccion }}</strong>
+                                {% if contrato.propiedad.piso or contrato.propiedad.departamento %}
+                                <br><small class="text-muted">
+                                    {% if contrato.propiedad.piso %}Piso {{ contrato.propiedad.piso }}{% endif %}
+                                    {% if contrato.propiedad.piso and contrato.propiedad.departamento %} · {% endif %}
+                                    {% if contrato.propiedad.departamento %}Dpto {{ contrato.propiedad.departamento }}{% endif %}
+                                </small>
+                                {% endif %}
+                                <br><small class="text-muted">Ficha #{{ contrato.propiedad_id }}</small>
+                            </td>
+                            <td>
+                                {% if contrato.inquilino %}
+                                {{ contrato.inquilino.apellido }}, {{ contrato.inquilino.nombre }}
+                                {% else %}
+                                <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if contrato.propiedad.propietario %}
+                                {{ contrato.propiedad.propietario.apellido }}, {{ contrato.propiedad.propietario.nombre }}
+                                {% else %}
+                                <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <strong>{{ contrato.precio_mensual|format_importe_moneda:contrato.moneda }}</strong>
+                                <br><span class="badge bg-info">{{ contrato.duracion_meses }} meses</span>
+                            </td>
+                            <td class="text-nowrap small">
+                                {{ contrato.fecha_inicio|date:"d/m/Y" }}
+                                <br>{{ contrato.fecha_fin|date:"d/m/Y" }}
+                            </td>
+                            <td>
+                                {% if contrato.estado_cobro == 'completo' %}
+                                <span class="badge bg-success">Completo</span>
+                                {% elif contrato.estado_cobro == 'en_fecha' %}
+                                <span class="badge bg-primary">En fecha</span>
+                                {% elif contrato.estado_cobro == 'debe_mes_actual' %}
+                                <span class="badge bg-warning text-dark">Debe mes actual</span>
+                                {% elif contrato.estado_cobro == 'debe_atrasados' %}
+                                <span class="badge bg-danger">Debe atrasados</span>
+                                {% else %}
+                                <span class="badge bg-secondary">{{ contrato.estado_cobro_label|default:"Sin cuotas" }}</span>
+                                {% endif %}
+                                {% if contrato.estado == 'reservado' %}
+                                <br><span class="badge bg-light text-dark border mt-1">Reservado</span>
+                                {% elif contrato.estado == 'finalizado' %}
+                                <br><span class="badge bg-secondary mt-1">Finalizado</span>
+                                {% elif contrato.estado == 'rescindido' %}
+                                <br><span class="badge bg-dark mt-1">Rescindido</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <small>{{ contrato.estado_cobro_detalle }}</small>
+                            </td>
+                            <td class="text-nowrap">
+                                {% if contrato.deposito_estado == 'pagado' %}
+                                <span class="badge bg-success">Pagado</span>
+                                {% if contrato.deposito_monto %}
+                                <br><small class="text-muted">{{ contrato.deposito_monto|format_importe_moneda:contrato.moneda }}</small>
+                                {% endif %}
+                                {% elif contrato.deposito_monto and contrato.deposito_monto > 0 %}
+                                <span class="badge bg-danger">Pendiente</span>
+                                <br><small class="text-muted">{{ contrato.deposito_monto|format_importe_moneda:contrato.moneda }}</small>
+                                {% else %}
+                                <span class="badge bg-secondary">N/A</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-nowrap">
+                                {% if contrato.honorarios_estado == 'pagado' %}
+                                <span class="badge bg-success">Pagado</span>
+                                {% if contrato.honorarios_monto %}
+                                <br><small class="text-muted">{{ contrato.honorarios_monto|format_importe_moneda:contrato.moneda }}</small>
+                                {% endif %}
+                                {% elif contrato.honorarios_monto and contrato.honorarios_monto > 0 %}
+                                <span class="badge bg-danger">Pendiente</span>
+                                <br><small class="text-muted">{{ contrato.honorarios_monto|format_importe_moneda:contrato.moneda }}</small>
+                                {% else %}
+                                <span class="badge bg-secondary">N/A</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="d-flex flex-column gap-1" style="min-width: 7.5rem;">
+                                    <a href="{% url 'inmobiliaria:detalle_contrato' contrato.id %}"
+                                       class="btn btn-sm btn-outline-primary text-nowrap">
+                                        <i class="fas fa-eye"></i> Ver
+                                    </a>
+                                    {% if contrato.proxima_cuota %}
+                                        {% if contrato.estado == 'activo' or contrato.estado == 'reservado' %}
+                                    <a href="{% url 'inmobiliaria:crear_pago_cuota_operacion' contrato.proxima_cuota.id %}"
+                                       class="btn btn-sm btn-success text-nowrap"
+                                       title="Cobrar cuota {{ contrato.proxima_cuota.numero_cuota }} (vence {{ contrato.proxima_cuota.fecha_vencimiento|date:'d/m/Y' }})">
+                                        <i class="fas fa-calendar-check"></i> Pagar mes
+                                    </a>
+                                        {% endif %}
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-clipboard-check fa-3x text-muted mb-3"></i>
+                <h4 class="text-muted">No hay contratos con este filtro</h4>
+                <p class="text-muted">Probá quitar el filtro o ampliar la búsqueda.</p>
+                <a href="{% url 'inmobiliaria:estado_cobros_contratos' %}" class="btn btn-outline-primary">Ver todos</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -380,3 +380,122 @@ class CuotaMensual(models.Model):
             return False
         cred = Decimal(str(self.credito_aplicado or 0))
         return cred > tol
+
+
+ESTADOS_COBRO_CONTRATO = (
+    ('completo', 'Completo'),
+    ('en_fecha', 'En fecha'),
+    ('debe_mes_actual', 'Debe mes actual'),
+    ('debe_atrasados', 'Debe atrasados'),
+)
+
+_ESTADOS_CUOTA_IMPAGA = frozenset({'pendiente', 'vencida'})
+
+
+def clasificar_estado_cobro_contrato(contrato, hoy=None):
+    """
+    Clasifica el estado de cobro de un contrato (mutuamente excluyente).
+
+    Retorna dict con:
+      - clave: completo | en_fecha | debe_mes_actual | debe_atrasados | sin_cuotas
+      - label, detalle, cuotas_atrasadas, cuota_mes_actual, proxima_impaga
+    """
+    if hoy is None:
+        hoy = timezone.localdate()
+    anio_mes = (hoy.year, hoy.month)
+
+    try:
+        cuotas = list(contrato.cuotas.all())
+    except Exception:
+        cuotas = []
+
+    if not cuotas:
+        return {
+            'clave': 'sin_cuotas',
+            'label': 'Sin plan de cuotas',
+            'detalle': 'Sin plan de cuotas',
+            'cuotas_atrasadas': 0,
+            'cuota_mes_actual': None,
+            'proxima_impaga': None,
+        }
+
+    cuotas.sort(key=lambda c: (c.fecha_vencimiento or hoy, c.numero_cuota or 0))
+
+    def _es_impaga(c):
+        return (c.estado or '') in _ESTADOS_CUOTA_IMPAGA
+
+    def _ym(c):
+        fv = c.fecha_vencimiento
+        if not fv:
+            return None
+        return (fv.year, fv.month)
+
+    impagas = [c for c in cuotas if _es_impaga(c)]
+    proxima_impaga = impagas[0] if impagas else None
+
+    if not impagas:
+        return {
+            'clave': 'completo',
+            'label': 'Completo',
+            'detalle': 'Todas las cuotas pagadas',
+            'cuotas_atrasadas': 0,
+            'cuota_mes_actual': None,
+            'proxima_impaga': None,
+        }
+
+    atrasadas = []
+    del_mes = []
+    for c in impagas:
+        ym = _ym(c)
+        if ym is None:
+            continue
+        if ym < anio_mes:
+            atrasadas.append(c)
+        elif ym == anio_mes:
+            del_mes.append(c)
+
+    cuota_mes_actual = del_mes[0] if del_mes else None
+
+    if atrasadas:
+        n = len(atrasadas)
+        prox = atrasadas[0]
+        detalle = (
+            f'Debe {n} mes{"es" if n != 1 else ""} atrasado{"s" if n != 1 else ""}'
+            f' · próxima {prox.fecha_vencimiento.strftime("%d/%m/%Y")}'
+        )
+        return {
+            'clave': 'debe_atrasados',
+            'label': 'Debe atrasados',
+            'detalle': detalle,
+            'cuotas_atrasadas': n,
+            'cuota_mes_actual': cuota_mes_actual,
+            'proxima_impaga': proxima_impaga,
+        }
+
+    if del_mes:
+        c = del_mes[0]
+        detalle = (
+            f'Debe cuota {c.numero_cuota}/{contrato.duracion_meses or "?"} '
+            f'del mes · vence {c.fecha_vencimiento.strftime("%d/%m/%Y")}'
+        )
+        return {
+            'clave': 'debe_mes_actual',
+            'label': 'Debe mes actual',
+            'detalle': detalle,
+            'cuotas_atrasadas': 0,
+            'cuota_mes_actual': c,
+            'proxima_impaga': proxima_impaga,
+        }
+
+    # Impagas solo futuras → al día hasta mes actual
+    detalle = 'Pagado hasta el mes actual'
+    if proxima_impaga and proxima_impaga.fecha_vencimiento:
+        detalle += f' · próxima {proxima_impaga.fecha_vencimiento.strftime("%d/%m/%Y")}'
+    return {
+        'clave': 'en_fecha',
+        'label': 'En fecha',
+        'detalle': detalle,
+        'cuotas_atrasadas': 0,
+        'cuota_mes_actual': None,
+        'proxima_impaga': proxima_impaga,
+    }

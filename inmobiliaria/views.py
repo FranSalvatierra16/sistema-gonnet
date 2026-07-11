@@ -16330,6 +16330,144 @@ def lista_contratos(request):
 
 
 @login_required
+def estado_cobros_contratos(request):
+    """
+    Tablero organizador: contratos clasificados por estado de cobro
+    (completo / en_fecha / debe_mes_actual / debe_atrasados).
+    """
+    from .models.contrato import clasificar_estado_cobro_contrato
+
+    mostrar_finalizados = request.GET.get('mostrar_finalizados') == '1'
+    estado_cobro = (request.GET.get('estado_cobro') or '').strip()
+    busqueda = (request.GET.get('q') or '').strip()
+    hoy = timezone.localdate()
+
+    contratos_qs = (
+        ContratoAlquiler.objects.filter(sucursal=request.user.sucursal)
+        .select_related('propiedad', 'propiedad__propietario', 'inquilino', 'vendedor')
+        .prefetch_related('cuotas')
+        .order_by('-fecha_creacion')
+    )
+    if not mostrar_finalizados:
+        contratos_qs = contratos_qs.filter(estado__in=['activo', 'reservado'])
+
+    if busqueda:
+        q_buscar = (
+            Q(inquilino__nombre__icontains=busqueda)
+            | Q(inquilino__apellido__icontains=busqueda)
+            | Q(propiedad__direccion__icontains=busqueda)
+            | Q(propiedad__propietario__nombre__icontains=busqueda)
+            | Q(propiedad__propietario__apellido__icontains=busqueda)
+        )
+        raw_id = busqueda.lstrip('#').strip()
+        if raw_id.isdigit():
+            try:
+                q_buscar |= Q(pk=int(raw_id))
+            except (ValueError, OverflowError):
+                pass
+        contratos_qs = contratos_qs.filter(q_buscar)
+
+    contratos_list = list(contratos_qs)
+    for contrato in contratos_list:
+        n_creadas = _asegurar_cuotas_plan_contrato(contrato)
+        if n_creadas and getattr(contrato, '_prefetched_objects_cache', None):
+            contrato._prefetched_objects_cache.pop('cuotas', None)
+        _activar_contrato_si_hay_cuotas_pagadas(contrato)
+
+        info = clasificar_estado_cobro_contrato(contrato, hoy=hoy)
+        contrato.estado_cobro = info['clave']
+        contrato.estado_cobro_label = info['label']
+        contrato.estado_cobro_detalle = info['detalle']
+        contrato.proxima_cuota = info.get('proxima_impaga')
+        # Marcar vencidas lazy (como en lista_contratos)
+        if (
+            contrato.proxima_cuota
+            and contrato.proxima_cuota.estado == 'pendiente'
+            and contrato.proxima_cuota.fecha_vencimiento
+            and contrato.proxima_cuota.fecha_vencimiento < hoy
+        ):
+            contrato.proxima_cuota.estado = 'vencida'
+            contrato.proxima_cuota.save(update_fields=['estado'])
+
+        contrato.deposito_estado = determinar_estado_concepto_contrato(contrato, '10')
+        contrato.honorarios_estado = determinar_estado_concepto_contrato(contrato, '25')
+        deposito_ref = getattr(contrato, 'deposito_garantia', None) or Decimal('0')
+        contrato.deposito_monto = deposito_ref
+        mov_h = obtener_valor_concepto_contrato(contrato, 'honorarios')
+        if mov_h <= 0:
+            try:
+                mov_h = _sum_importe_concepto_en_movimientos_contrato(contrato, '25')
+            except Exception:
+                mov_h = Decimal('0')
+        if contrato.honorarios_estado == 'pagado':
+            contrato.honorarios_monto = mov_h
+        else:
+            ref_h = getattr(contrato, 'honorarios_referencia', None) or Decimal('0')
+            contrato.honorarios_monto = mov_h if mov_h > 0 else ref_h
+
+    filtro_deposito = (request.GET.get('deposito') or '').strip()
+    filtro_honorarios = (request.GET.get('honorarios') or '').strip()
+
+    conteos = {
+        'completo': 0,
+        'en_fecha': 0,
+        'debe_mes_actual': 0,
+        'debe_atrasados': 0,
+        'sin_cuotas': 0,
+        'deposito_pagado': 0,
+        'deposito_pendiente': 0,
+        'honorarios_pagado': 0,
+        'honorarios_pendiente': 0,
+    }
+    for c in contratos_list:
+        clave = getattr(c, 'estado_cobro', None) or 'sin_cuotas'
+        if clave in conteos:
+            conteos[clave] += 1
+        if getattr(c, 'deposito_estado', None) == 'pagado':
+            conteos['deposito_pagado'] += 1
+        else:
+            conteos['deposito_pendiente'] += 1
+        if getattr(c, 'honorarios_estado', None) == 'pagado':
+            conteos['honorarios_pagado'] += 1
+        else:
+            conteos['honorarios_pendiente'] += 1
+
+    claves_filtro = {'completo', 'en_fecha', 'debe_mes_actual', 'debe_atrasados'}
+    contratos_filtrados = contratos_list
+    if estado_cobro in claves_filtro:
+        contratos_filtrados = [c for c in contratos_filtrados if c.estado_cobro == estado_cobro]
+    else:
+        estado_cobro = ''
+    if filtro_deposito in ('pagado', 'pendiente'):
+        if filtro_deposito == 'pagado':
+            contratos_filtrados = [c for c in contratos_filtrados if c.deposito_estado == 'pagado']
+        else:
+            contratos_filtrados = [c for c in contratos_filtrados if c.deposito_estado != 'pagado']
+    else:
+        filtro_deposito = ''
+    if filtro_honorarios in ('pagado', 'pendiente'):
+        if filtro_honorarios == 'pagado':
+            contratos_filtrados = [c for c in contratos_filtrados if c.honorarios_estado == 'pagado']
+        else:
+            contratos_filtrados = [c for c in contratos_filtrados if c.honorarios_estado != 'pagado']
+    else:
+        filtro_honorarios = ''
+
+    context = {
+        'contratos': contratos_filtrados,
+        'total_contratos': len(contratos_list),
+        'conteos': conteos,
+        'estado_cobro': estado_cobro,
+        'filtro_deposito': filtro_deposito,
+        'filtro_honorarios': filtro_honorarios,
+        'mostrar_finalizados': mostrar_finalizados,
+        'q': busqueda,
+        'hoy': hoy,
+    }
+    return render(request, 'inmobiliaria/contratos/estado_cobros_contratos.html', context)
+
+
+@login_required
 def rescindir_contratos_duplicados(request):
     """Rescinde contratos duplicados (misma propiedad + inquilino) para la sucursal del usuario."""
     from django.db.models import Count
