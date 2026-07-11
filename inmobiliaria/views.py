@@ -16329,6 +16329,135 @@ def lista_contratos(request):
     return render(request, 'inmobiliaria/contratos/lista_contratos.html', context)
 
 
+def _bulk_deposito_honorarios_contratos(contratos, sucursal):
+    """
+    Una sola consulta de movimientos para marcar depósito (10) y honorarios (25)
+    de muchos contratos. Evita N+1 en el tablero de estado de cobros.
+    Retorna {contrato_id: {'deposito': 'pagado'|'pendiente', 'honorarios': ..., 'honorarios_monto': Decimal}}.
+    """
+    import json
+    import re
+
+    out = {}
+    for c in contratos:
+        out[c.id] = {
+            'deposito': 'pendiente',
+            'honorarios': 'pendiente',
+            'honorarios_monto': Decimal('0'),
+        }
+    if not contratos:
+        return out
+
+    propiedad_ids = {c.propiedad_id for c in contratos if c.propiedad_id}
+    if not propiedad_ids:
+        return out
+
+    movs = (
+        MovimientoCaja.objects.filter(
+            sucursal=sucursal,
+            propiedad_id__in=propiedad_ids,
+            concepto__icontains='Contrato #',
+        )
+        .only('id', 'propiedad_id', 'concepto', 'concepto_detalle', 'honorarios', 'sellados')
+        .order_by('id')
+    )
+
+    re_cid = re.compile(r'Contrato\s*#\s*(\d+)', re.I)
+    movs_por_contrato = {cid: [] for cid in out}
+    for mov in movs:
+        m = re_cid.search(mov.concepto or '')
+        if not m:
+            continue
+        try:
+            cid = int(m.group(1))
+        except (TypeError, ValueError):
+            continue
+        if cid in movs_por_contrato:
+            movs_por_contrato[cid].append(mov)
+
+    def _concepto_pagado_en_mov(movimiento, concepto_id):
+        concepto_id = str(concepto_id)
+        try:
+            json_str = getattr(movimiento, 'concepto_detalle', None)
+            parsed = None
+            if json_str and str(json_str).strip():
+                parsed = json.loads(json_str)
+                if isinstance(parsed, dict) and 'conceptos' in parsed:
+                    conceptos_data = parsed.get('conceptos', []) or []
+                elif isinstance(parsed, list):
+                    conceptos_data = parsed
+                else:
+                    conceptos_data = []
+            else:
+                try:
+                    conceptos_data = (
+                        json.loads(movimiento.concepto)
+                        if (movimiento.concepto or '').strip().startswith('[')
+                        else []
+                    )
+                except (json.JSONDecodeError, ValueError, TypeError):
+                    conceptos_data = []
+
+            detalle_dict_con_lista = isinstance(parsed, dict) and 'conceptos' in parsed
+            lineas = len(conceptos_data) > 0
+            json_con_lineas = lineas and (detalle_dict_con_lista or isinstance(parsed, list))
+
+            for concepto in conceptos_data:
+                if not isinstance(concepto, dict):
+                    continue
+                cid_act = str(concepto.get('id', concepto.get('codigo', '')))
+                if cid_act != concepto_id:
+                    continue
+                try:
+                    if parse_decimal_monto(concepto.get('importe', 0)) > 0:
+                        return True, parse_decimal_monto(concepto.get('importe', 0))
+                except Exception:
+                    pass
+
+            if concepto_id == '25' and not json_con_lineas:
+                if isinstance(parsed, dict) and parsed.get('honorarios') is not None:
+                    try:
+                        v = parse_decimal_monto(parsed.get('honorarios'))
+                        if v > 0:
+                            return True, v
+                    except Exception:
+                        pass
+                try:
+                    v = parse_decimal_monto(getattr(movimiento, 'honorarios', 0) or 0)
+                    if v > 0:
+                        return True, v
+                except Exception:
+                    pass
+
+            concepto_texto = (movimiento.concepto or '').lower()
+            if concepto_id == '25' and ('honorario' in concepto_texto or 'concepto 25' in concepto_texto):
+                return True, Decimal('0')
+            if concepto_id == '10' and ('deposito' in concepto_texto or 'depósito' in concepto_texto or 'concepto 10' in concepto_texto):
+                return True, Decimal('0')
+        except Exception:
+            concepto_texto = (movimiento.concepto or '').lower()
+            if concepto_id == '25' and ('honorario' in concepto_texto or 'concepto 25' in concepto_texto):
+                return True, Decimal('0')
+            if concepto_id == '10' and ('deposito' in concepto_texto or 'depósito' in concepto_texto or 'concepto 10' in concepto_texto):
+                return True, Decimal('0')
+        return False, Decimal('0')
+
+    for cid, lista_mov in movs_por_contrato.items():
+        monto_h = Decimal('0')
+        for mov in lista_mov:
+            ok10, _ = _concepto_pagado_en_mov(mov, '10')
+            if ok10:
+                out[cid]['deposito'] = 'pagado'
+            ok25, m25 = _concepto_pagado_en_mov(mov, '25')
+            if ok25:
+                out[cid]['honorarios'] = 'pagado'
+                if m25 > monto_h:
+                    monto_h = m25
+        out[cid]['honorarios_monto'] = monto_h
+
+    return out
+
+
 @login_required
 def estado_cobros_contratos(request):
     """
@@ -16340,11 +16469,15 @@ def estado_cobros_contratos(request):
     mostrar_finalizados = request.GET.get('mostrar_finalizados') == '1'
     estado_cobro = (request.GET.get('estado_cobro') or '').strip()
     busqueda = (request.GET.get('q') or '').strip()
+    filtro_deposito = (request.GET.get('deposito') or '').strip()
+    filtro_honorarios = (request.GET.get('honorarios') or '').strip()
     hoy = timezone.localdate()
+    anio_mes = (hoy.year, hoy.month)
+    sucursal = request.user.sucursal
 
     contratos_qs = (
-        ContratoAlquiler.objects.filter(sucursal=request.user.sucursal)
-        .select_related('propiedad', 'propiedad__propietario', 'inquilino', 'vendedor')
+        ContratoAlquiler.objects.filter(sucursal=sucursal)
+        .select_related('propiedad', 'propiedad__propietario', 'inquilino')
         .prefetch_related('cuotas')
         .order_by('-fecha_creacion')
     )
@@ -16368,34 +16501,38 @@ def estado_cobros_contratos(request):
         contratos_qs = contratos_qs.filter(q_buscar)
 
     contratos_list = list(contratos_qs)
+
+    # Solo crear plan si no hay cuotas (raro); no activar ni guardar vencidas en cada carga.
     for contrato in contratos_list:
-        n_creadas = _asegurar_cuotas_plan_contrato(contrato)
-        if n_creadas and getattr(contrato, '_prefetched_objects_cache', None):
-            contrato._prefetched_objects_cache.pop('cuotas', None)
-        _activar_contrato_si_hay_cuotas_pagadas(contrato)
+        cuotas_pref = list(contrato.cuotas.all())
+        if not cuotas_pref:
+            n_creadas = _asegurar_cuotas_plan_contrato(contrato)
+            if n_creadas and getattr(contrato, '_prefetched_objects_cache', None):
+                contrato._prefetched_objects_cache.pop('cuotas', None)
+
+    conceptos_bulk = _bulk_deposito_honorarios_contratos(contratos_list, sucursal)
+
+    # Batch: marcar vencidas en memoria + un update masivo
+    ids_marcar_vencidas = []
+    for contrato in contratos_list:
+        cuotas_todas = list(contrato.cuotas.all())
+        cuotas_todas.sort(key=lambda c: (c.fecha_vencimiento or hoy, c.numero_cuota or 0))
+
+        for c in cuotas_todas:
+            if (
+                c.estado == 'pendiente'
+                and c.fecha_vencimiento
+                and c.fecha_vencimiento < hoy
+            ):
+                c.estado = 'vencida'
+                ids_marcar_vencidas.append(c.id)
 
         info = clasificar_estado_cobro_contrato(contrato, hoy=hoy)
         contrato.estado_cobro = info['clave']
         contrato.estado_cobro_label = info['label']
         contrato.estado_cobro_detalle = info['detalle']
         contrato.proxima_cuota = info.get('proxima_impaga')
-        # Marcar vencidas lazy (como en lista_contratos)
-        if (
-            contrato.proxima_cuota
-            and contrato.proxima_cuota.estado == 'pendiente'
-            and contrato.proxima_cuota.fecha_vencimiento
-            and contrato.proxima_cuota.fecha_vencimiento < hoy
-        ):
-            contrato.proxima_cuota.estado = 'vencida'
-            contrato.proxima_cuota.save(update_fields=['estado'])
 
-        # Cuotas que debe (impagas con vencimiento hasta el mes actual inclusive)
-        try:
-            cuotas_todas = list(contrato.cuotas.all())
-        except Exception:
-            cuotas_todas = []
-        cuotas_todas.sort(key=lambda c: (c.fecha_vencimiento or hoy, c.numero_cuota or 0))
-        anio_mes = (hoy.year, hoy.month)
         contrato.cuotas_impagas = []
         for c in cuotas_todas:
             if (c.estado or '') not in ('pendiente', 'vencida'):
@@ -16406,24 +16543,21 @@ def estado_cobros_contratos(request):
             if (fv.year, fv.month) <= anio_mes:
                 contrato.cuotas_impagas.append(c)
 
-        contrato.deposito_estado = determinar_estado_concepto_contrato(contrato, '10')
-        contrato.honorarios_estado = determinar_estado_concepto_contrato(contrato, '25')
-        deposito_ref = getattr(contrato, 'deposito_garantia', None) or Decimal('0')
-        contrato.deposito_monto = deposito_ref
-        mov_h = obtener_valor_concepto_contrato(contrato, 'honorarios')
-        if mov_h <= 0:
-            try:
-                mov_h = _sum_importe_concepto_en_movimientos_contrato(contrato, '25')
-            except Exception:
-                mov_h = Decimal('0')
-        if contrato.honorarios_estado == 'pagado':
+        info_conc = conceptos_bulk.get(contrato.id) or {}
+        contrato.deposito_estado = info_conc.get('deposito') or 'pendiente'
+        contrato.honorarios_estado = info_conc.get('honorarios') or 'pendiente'
+        contrato.deposito_monto = getattr(contrato, 'deposito_garantia', None) or Decimal('0')
+        mov_h = info_conc.get('honorarios_monto') or Decimal('0')
+        if contrato.honorarios_estado == 'pagado' and mov_h > 0:
             contrato.honorarios_monto = mov_h
         else:
             ref_h = getattr(contrato, 'honorarios_referencia', None) or Decimal('0')
             contrato.honorarios_monto = mov_h if mov_h > 0 else ref_h
 
-    filtro_deposito = (request.GET.get('deposito') or '').strip()
-    filtro_honorarios = (request.GET.get('honorarios') or '').strip()
+    if ids_marcar_vencidas:
+        CuotaMensual.objects.filter(id__in=ids_marcar_vencidas, estado='pendiente').update(
+            estado='vencida'
+        )
 
     conteos = {
         'completo': 0,
