@@ -507,22 +507,48 @@
                             </div>
                         </div>
                         <div id="bloque_detalle_cheque" class="row mb-3 d-none border rounded p-3 bg-light">
+                            <div class="col-12 d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="text-muted mb-0">Datos de los cheques</h6>
+                                <button type="button" class="btn btn-sm btn-outline-primary" id="btn_agregar_cheque">
+                                    <i class="fas fa-plus me-1"></i>Agregar cheque
+                                </button>
+                            </div>
                             <div class="col-12">
-                                <h6 class="text-muted mb-2">Datos del cheque <small>(opcional)</small></h6>
+                                <small class="text-muted d-block mb-2">
+                                    Podés cargar varios cheques (ej. 4 de $125.000 = $500.000). La suma actualiza el total de Cheques.
+                                </small>
                             </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Nº de cheque</label>
-                                <input type="text" name="cheque_numero" class="form-control" maxlength="32" autocomplete="off">
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Banco</label>
-                                <input type="text" name="cheque_banco" class="form-control" maxlength="100" autocomplete="off">
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Vencimiento</label>
-                                <input type="date" name="cheque_fecha_vencimiento" class="form-control">
+                            <div class="col-12" id="lista_cheques_movimiento"></div>
+                            <div class="col-12 mt-1">
+                                <span class="small text-muted">Suma cheques: </span>
+                                <strong id="suma_cheques_label">$0,00</strong>
                             </div>
                         </div>
+                        <template id="tpl_fila_cheque">
+                            <div class="row g-2 align-items-end mb-2 fila-cheque border-bottom pb-2">
+                                <div class="col-md-2">
+                                    <label class="form-label small mb-0">Monto</label>
+                                    <input type="text" name="cheque_item_monto" class="form-control form-control-sm input-monto-ar cheque-monto" inputmode="decimal" autocomplete="off" placeholder="0">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small mb-0">Nº de cheque</label>
+                                    <input type="text" name="cheque_item_numero" class="form-control form-control-sm" maxlength="32" autocomplete="off">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small mb-0">Banco</label>
+                                    <input type="text" name="cheque_item_banco" class="form-control form-control-sm" maxlength="100" autocomplete="off">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small mb-0">Vencimiento</label>
+                                    <input type="date" name="cheque_item_fecha" class="form-control form-control-sm">
+                                </div>
+                                <div class="col-md-1">
+                                    <button type="button" class="btn btn-sm btn-outline-danger w-100 btn-quitar-cheque" title="Quitar">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </template>
                         <div class="row mb-3 mt-2" id="bloque_imputacion_mov">
                             <div class="col-12">
                                 <hr>
@@ -1569,21 +1595,91 @@ $(document).ready(function() {
         if (campoActivoId !== 'monto_a_inquilino') $inq.val(fmtMontoLocal(inq));
     }
 
+    function agregarFilaCheque(datos) {
+        var tpl = document.getElementById('tpl_fila_cheque');
+        if (!tpl) return;
+        $('#lista_cheques_movimiento').append(tpl.innerHTML);
+        var $fila = $('#lista_cheques_movimiento .fila-cheque').last();
+        if (datos) {
+            if (datos.monto) $fila.find('[name="cheque_item_monto"]').val(datos.monto);
+            if (datos.numero) $fila.find('[name="cheque_item_numero"]').val(datos.numero);
+            if (datos.banco) $fila.find('[name="cheque_item_banco"]').val(datos.banco);
+            if (datos.fecha) $fila.find('[name="cheque_item_fecha"]').val(datos.fecha);
+        }
+        var $monto = $fila.find('.cheque-monto');
+        if ($monto.length && $monto.val()) formatearMontoAlSalir($monto[0]);
+        actualizarSumaCheques();
+    }
+
+    function actualizarSumaCheques() {
+        var suma = 0;
+        $('#lista_cheques_movimiento .cheque-monto').each(function() {
+            suma += parseMontoLocal($(this).val());
+        });
+        $('#suma_cheques_label').text('$' + fmtMontoLocal(suma));
+        if (suma > 0) {
+            $('input[name="monto_cheque"]').val(fmtMontoLocal(suma));
+            calcularTotal();
+        }
+        return suma;
+    }
+
+    function asegurarFilasCheque() {
+        if ($('#lista_cheques_movimiento .fila-cheque').length === 0) {
+            var ch = parseMontoLocal($('input[name="monto_cheque"]').val());
+            agregarFilaCheque(ch > 0 ? { monto: fmtMontoLocal(ch) } : null);
+        }
+    }
+
     function actualizarVisibilidadMediosPago() {
         var tj = parseMontoLocal($('input[name="monto_tarjeta"]').val());
         var ch = parseMontoLocal($('input[name="monto_cheque"]').val());
         $('#bloque_detalle_tarjeta').toggleClass('d-none', tj <= 0);
-        $('#bloque_detalle_cheque').toggleClass('d-none', ch <= 0);
+        var mostrarCheque = ch > 0 || $('#lista_cheques_movimiento .fila-cheque').length > 0;
+        // Mostrar bloque si hay monto en cheques
+        if (ch > 0) {
+            $('#bloque_detalle_cheque').removeClass('d-none');
+            asegurarFilasCheque();
+        } else if ($('#lista_cheques_movimiento .cheque-monto').filter(function() {
+            return parseMontoLocal($(this).val()) > 0;
+        }).length === 0) {
+            $('#bloque_detalle_cheque').addClass('d-none');
+        }
     }
+
+    $('#btn_agregar_cheque').on('click', function() {
+        agregarFilaCheque(null);
+    });
+    $('#lista_cheques_movimiento').on('click', '.btn-quitar-cheque', function() {
+        var $filas = $('#lista_cheques_movimiento .fila-cheque');
+        if ($filas.length <= 1) {
+            $(this).closest('.fila-cheque').find('input').val('');
+        } else {
+            $(this).closest('.fila-cheque').remove();
+        }
+        actualizarSumaCheques();
+        actualizarVisibilidadMediosPago();
+    });
+    $('#lista_cheques_movimiento').on('input', '.cheque-monto', function() {
+        formatearMontoAlEscribir(this);
+        actualizarSumaCheques();
+        sincronizarCorresponde(ultimoCasilleroCorresponde);
+    });
+    $('#lista_cheques_movimiento').on('blur', '.cheque-monto', function() {
+        formatearMontoAlSalir(this);
+        actualizarSumaCheques();
+    });
 
     // Total al cambiar importes — formateo miles en cada tecla
     $('#formMovimiento').on('input', '.monto, .input-monto-ar', function() {
+        if ($(this).hasClass('cheque-monto')) return;
         formatearMontoAlEscribir(this);
         calcularTotal();
         calcularTotalUsd();
         actualizarVisibilidadMediosPago();
     });
     $('#formMovimiento').on('blur', '.monto, .input-monto-ar', function() {
+        if ($(this).hasClass('cheque-monto')) return;
         formatearMontoAlSalir(this);
         calcularTotalUsd();
     });
@@ -2391,9 +2487,29 @@ $(document).ready(function() {
         setVal('input[name="tarjeta_numero"]', fp.tarjeta_numero);
         setVal('input[name="tarjeta_cupon"]', fp.tarjeta_cupon);
         setVal('select[name="tarjeta_tipo"]', fp.tarjeta_tipo);
-        setVal('input[name="cheque_numero"]', fp.cheque_numero);
-        setVal('input[name="cheque_banco"]', fp.cheque_banco);
-        setVal('input[name="cheque_fecha_vencimiento"]', fp.cheque_fecha_vencimiento);
+        $('#lista_cheques_movimiento').empty();
+        if (fp.cheques && fp.cheques.length) {
+            fp.cheques.forEach(function(c) {
+                agregarFilaCheque({
+                    monto: c.monto,
+                    numero: c.numero,
+                    banco: c.banco,
+                    fecha: c.fecha || c.fecha_vencimiento
+                });
+            });
+            $('#bloque_detalle_cheque').removeClass('d-none');
+            actualizarSumaCheques();
+        } else if (fp.cheque_numero || fp.cheque_banco || fp.cheque_fecha_vencimiento || parseMontoLocal(fp.monto_cheque || '') > 0) {
+            agregarFilaCheque({
+                monto: fp.monto_cheque,
+                numero: fp.cheque_numero,
+                banco: fp.cheque_banco,
+                fecha: fp.cheque_fecha_vencimiento
+            });
+            if (parseMontoLocal(fp.monto_cheque || '') > 0) {
+                $('#bloque_detalle_cheque').removeClass('d-none');
+            }
+        }
         setVal('#operacion_ref_tipo', fp.operacion_ref_tipo);
         setVal('#operacion_ref_id', fp.operacion_ref_id);
         setVal('#reserva_operacion_id', fp.reserva_operacion_id);

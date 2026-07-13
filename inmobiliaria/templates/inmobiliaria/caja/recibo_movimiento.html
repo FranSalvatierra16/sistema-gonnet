@@ -288,13 +288,25 @@
                 <span><strong>📄 Cheque:</strong></span>
                 <span>${{ total_cheque|format_price }}</span>
             </div>
-            {% if movimiento.cheque_numero or movimiento.cheque_banco or movimiento.cheque_fecha_vencimiento %}
+            {% with cheques=movimiento.cheques.all %}
+            {% if cheques %}
+                {% for c in cheques %}
+                <div class="small text-muted mb-1" style="padding-left: 8px;">
+                    Cheque {{ forloop.counter }}:
+                    {% if c.monto %}${{ c.monto|format_price }}{% endif %}
+                    {% if c.numero %} · Nº {{ c.numero }}{% endif %}
+                    {% if c.banco %} · {{ c.banco }}{% endif %}
+                    {% if c.fecha_vencimiento %} · Vto. {{ c.fecha_vencimiento|date:"d/m/Y" }}{% endif %}
+                </div>
+                {% endfor %}
+            {% elif movimiento.cheque_numero or movimiento.cheque_banco or movimiento.cheque_fecha_vencimiento %}
             <div class="small text-muted mb-2" style="padding-left: 8px;">
                 {% if movimiento.cheque_numero %}Nº {{ movimiento.cheque_numero }}{% endif %}
                 {% if movimiento.cheque_banco %}{% if movimiento.cheque_numero %} · {% endif %}{{ movimiento.cheque_banco }}{% endif %}
                 {% if movimiento.cheque_fecha_vencimiento %}{% if movimiento.cheque_numero or movimiento.cheque_banco %} · {% endif %}Vto. {{ movimiento.cheque_fecha_vencimiento|date:"d/m/Y" }}{% endif %}
             </div>
             {% endif %}
+            {% endwith %}
             {% endif %}
             
             {% if total_tarjeta > 0 %}

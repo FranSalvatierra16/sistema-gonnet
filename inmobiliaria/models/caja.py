@@ -798,6 +798,31 @@ class MovimientoCaja(models.Model):
         default_manager_name = 'objects'
         base_manager_name = 'all_objects'
 
+
+class ChequeMovimientoCaja(models.Model):
+    """Detalle de uno o más cheques asociados a un MovimientoCaja."""
+    movimiento = models.ForeignKey(
+        MovimientoCaja,
+        on_delete=models.CASCADE,
+        related_name='cheques',
+    )
+    monto = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    numero = models.CharField(max_length=32, blank=True)
+    banco = models.CharField(max_length=100, blank=True)
+    fecha_vencimiento = models.DateField(null=True, blank=True)
+    orden = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        db_table = 'inmobiliaria_chequemovimientocaja'
+        ordering = ['orden', 'id']
+        verbose_name = 'Cheque de movimiento'
+        verbose_name_plural = 'Cheques de movimiento'
+
+    def __str__(self):
+        num = self.numero or 's/n'
+        return f'Cheque {num} ${self.monto} (mov #{self.movimiento_id})'
+
+
 class Concepto(models.Model):
     id = models.CharField(max_length=20, primary_key=True)  # ID personalizado
     nombre = models.CharField(max_length=100)
