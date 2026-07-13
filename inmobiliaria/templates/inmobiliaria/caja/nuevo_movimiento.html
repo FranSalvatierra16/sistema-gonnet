@@ -478,10 +478,19 @@
                                 </div>
                                 <small class="text-muted">Para un ingreso solo en dólares, elegí <strong>Dólares (USD)</strong> arriba y cargá el monto acá.</small>
                             </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold text-primary" for="cotizacion_dolar_mov">Cotización del día</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="text" name="cotizacion_dolar" id="cotizacion_dolar_mov" class="form-control input-monto-ar" inputmode="decimal" autocomplete="off" value="" placeholder="Ej. 1450" oninput="formatearMontoCaja(this)" onblur="formatearMontoCajaBlur(this)">
+                                </div>
+                                <small class="text-muted">Pesos por 1 dólar (opcional, queda registrado en el movimiento).</small>
+                            </div>
                             <div class="col-md-4 d-flex align-items-end">
                                 <div class="w-100">
                                     <label class="form-label">Total USD</label>
                                     <input type="text" id="total_usd" class="form-control fw-bold bg-light" readonly value="0,00">
+                                    <small class="text-muted d-none" id="equiv_ars_usd_label"></small>
                                 </div>
                             </div>
                         </div>
@@ -1493,6 +1502,13 @@ $(document).ready(function() {
     function calcularTotalUsd() {
         var usd = parseMontoLocal($('#monto_dolares_mov').val());
         $('#total_usd').val(fmtMontoLocal(usd));
+        var cotiz = parseMontoLocal($('#cotizacion_dolar_mov').val());
+        var $eq = $('#equiv_ars_usd_label');
+        if (usd > 0 && cotiz > 0) {
+            $eq.removeClass('d-none').text('≈ $' + fmtMontoLocal(usd * cotiz) + ' ARS');
+        } else {
+            $eq.addClass('d-none').text('');
+        }
         return usd;
     }
 
@@ -1517,7 +1533,9 @@ $(document).ready(function() {
         }
         if (soloArs) {
             $('#monto_dolares_mov').val('');
+            $('#cotizacion_dolar_mov').val('');
             $('#total_usd').val(fmtMontoLocal(0));
+            $('#equiv_ars_usd_label').addClass('d-none').text('');
         }
         calcularTotal();
         calcularTotalUsd();
@@ -1525,6 +1543,9 @@ $(document).ready(function() {
     }
 
     $('#moneda_movimiento').on('change', actualizarVisibilidadMoneda);
+    $('#cotizacion_dolar_mov').on('input blur', function() {
+        calcularTotalUsd();
+    });
 
     function sincronizarCorresponde(origen, campoActivoId) {
         if (origen) {
@@ -2469,6 +2490,7 @@ $(document).ready(function() {
         setVal('#destino_deposito_mov', fp.destino_deposito);
         setVal('#fecha_transferencia_mov', fp.fecha_transferencia);
         setVal('#monto_dolares_mov', fp.monto_dolares || fp.dolares);
+        setVal('#cotizacion_dolar_mov', fp.cotizacion_dolar);
         var monedaRest = (fp.moneda_movimiento || '').toUpperCase();
         if (!monedaRest) {
             var usdVal = parseMontoLocal(fp.monto_dolares || fp.dolares || '');

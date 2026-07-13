@@ -342,6 +342,11 @@
                 <span><strong>💵 USD (efectivo):</strong></span>
                 <span><strong>U$S {{ total_dolares|format_price }}</strong></span>
             </div>
+            {% if movimiento.cotizacion_dolar %}
+            <div class="small text-muted mb-2" style="padding-left: 8px;">
+                Cotización del día: ${{ movimiento.cotizacion_dolar|format_price }}
+            </div>
+            {% endif %}
             {% endif %}
             
             <div class="pago-item">

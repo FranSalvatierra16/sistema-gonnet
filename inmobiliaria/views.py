@@ -10,7 +10,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
 from decimal import Decimal, InvalidOperation
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, time
 from django.forms import inlineformset_factory
 from django.template.loader import render_to_string
 from django.contrib.auth import authenticate
@@ -34,6 +34,30 @@ def _recibo_monto_str(valor, dec_places=2):
         return f'${format_monto_argentino(valor, dec_places)}'
     except Exception:
         return f'${valor}'
+
+
+def _texto_comodidades_recibo(propiedad_data) -> str:
+    """Cantidad de ambientes para la línea COMODIDADES del recibo impreso."""
+    amb = getattr(propiedad_data, 'ambientes', None)
+    if amb is not None and str(amb).strip() != '':
+        return f'{amb} AMB.'
+    return '—'
+
+
+def _propiedad_completa_recibo(propiedad_data) -> dict:
+    """Dict de propiedad para templates de recibo (HTML/PDF)."""
+    return {
+        'direccion': (getattr(propiedad_data, 'direccion', None) or '').strip(),
+        'id': getattr(propiedad_data, 'id', None),
+        'llave': getattr(propiedad_data, 'llave', None) or 'N/A',
+        'piso': getattr(propiedad_data, 'piso', None) or '',
+        'departamento': getattr(propiedad_data, 'departamento', None) or '',
+        'cantidad_personas': getattr(propiedad_data, 'cantidad_personas', None) or None,
+        'wifi': 'SÍ' if getattr(propiedad_data, 'wifi', False) else 'NO',
+        'cochera': 'SÍ' if getattr(propiedad_data, 'cochera', False) else 'NO',
+        'ambientes': getattr(propiedad_data, 'ambientes', None),
+        'comodidades_recibo': _texto_comodidades_recibo(propiedad_data),
+    }
 
 
 def _formas_de_pago_desde_movimiento_caja(movimiento, format_usd=None):
@@ -97,6 +121,33 @@ def _formas_de_pago_desde_movimiento_caja(movimiento, format_usd=None):
     return ', '.join(formas_con_montos)
 
 
+def _formas_pago_dict_desde_movimiento_caja(movimiento):
+    """Dict con medios de pago del movimiento (para persistir en Recibo / concepto_detalle)."""
+    if not movimiento:
+        return {
+            'efectivo': 0.0,
+            'cheque': 0.0,
+            'tarjeta': 0.0,
+            'deposito': 0.0,
+            'destino_deposito': None,
+        }
+
+    def _f(v):
+        try:
+            return float(Decimal(str(v or 0)))
+        except Exception:
+            return 0.0
+
+    dest = (getattr(movimiento, 'destino_deposito', None) or '').strip() or None
+    return {
+        'efectivo': _f(movimiento.monto_efectivo),
+        'cheque': _f(movimiento.monto_cheque),
+        'tarjeta': _f(movimiento.monto_tarjeta),
+        'deposito': _f(movimiento.monto_deposito),
+        'destino_deposito': dest,
+    }
+
+
 def _validar_url_volver_recibo(url, request):
     """Path+query interno seguro para volver desde un recibo, o None."""
     from urllib.parse import urlparse
@@ -131,23 +182,183 @@ def _next_para_redirect_recibo(request):
     return _validar_url_volver_recibo(referer, request)
 
 
+def _nivel_usuario_request(request):
+    user = getattr(request, 'user', None)
+    if not user or not getattr(user, 'is_authenticated', False):
+        return 0
+    if getattr(user, 'is_superuser', False):
+        return 5
+    try:
+        return int(getattr(user, 'nivel', 0) or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _url_caja_actual_usuario(request):
+    """Detalle de la caja abierta de la sucursal, o None si no hay ninguna."""
+    sucursal = getattr(request.user, 'sucursal', None)
+    if not sucursal:
+        return None
+    from inmobiliaria.models.caja import Caja
+
+    caja_actual = (
+        Caja.objects.filter(sucursal=sucursal, estado='abierta')
+        .order_by('-fecha_apertura')
+        .first()
+    )
+    if not caja_actual:
+        return None
+    return reverse('inmobiliaria:detalle_caja', args=[caja_actual.numero])
+
+
+def _default_url_volver_recibo(request):
+    """Destino por defecto al salir de un recibo: caja actual (nivel ≥3) o menú principal."""
+    if _nivel_usuario_request(request) >= 3:
+        url_caja = _url_caja_actual_usuario(request)
+        if url_caja:
+            return url_caja
+        return reverse('inmobiliaria:dashboard_caja')
+    return reverse('inmobiliaria:dashboard')
+
+
 def _url_volver_recibo(request, default=None):
-    """URL del botón Volver: ?next=, Referer del mismo sitio, o default."""
-    back = _next_para_redirect_recibo(request)
-    if back:
-        return back
+    """URL del botón Volver/Continuar en pantallas de recibo."""
+    explicit = (request.GET.get('next') or '').strip()
+    validated = _validar_url_volver_recibo(explicit, request)
+    if validated:
+        return validated
     if default is not None:
         return default
+    return _default_url_volver_recibo(request)
+
+
+def _url_con_query_param(url, param_name, param_value, request):
+    from urllib.parse import urlencode
+
+    if param_name == 'next':
+        validated = _validar_url_volver_recibo(param_value, request)
+    else:
+        validated = (param_value or '').strip() or None
+    if not validated:
+        return url
+    sep = '&' if '?' in url else '?'
+    return f'{url}{sep}{urlencode({param_name: validated})}'
+
+
+def _url_volver_desde_imprimir_caratula(request, *, reserva_id=None, contrato_id=None):
+    """Destino del botón Volver en carátula imprimible según nivel del usuario."""
+    if _nivel_usuario_request(request) >= 4:
+        if reserva_id:
+            return reverse('inmobiliaria:caratula_reserva', args=[reserva_id])
+        if contrato_id:
+            return reverse('inmobiliaria:caratula_contrato', args=[contrato_id])
     return reverse('inmobiliaria:dashboard')
+
+
+def _url_imprimir_caratula_reserva(reserva_id, request=None):
+    """Carátula imprimible; con request encadena volver según nivel (carátula completa o menú)."""
+    url = reverse('inmobiliaria:imprimir_caratula_reserva', args=[reserva_id])
+    if request is not None:
+        url = _url_con_query_param(
+            url,
+            'next',
+            _url_volver_desde_imprimir_caratula(request, reserva_id=reserva_id),
+            request,
+        )
+    return url
+
+
+def _url_recibo_reserva_siguiente_caratula(reserva_id, request):
+    """Recibo de operación por día con siguiente paso = carátula."""
+    url = reverse('inmobiliaria:ver_recibo', args=[reserva_id])
+    return _url_con_query_param(
+        url, 'next', _url_imprimir_caratula_reserva(reserva_id, request), request
+    )
+
+
+def _url_recibo_movimiento_siguiente_caratula(movimiento, sucursal, reserva_id, request):
+    """Recibo del movimiento con siguiente paso = carátula (operación finalizada)."""
+    caratula = _url_imprimir_caratula_reserva(reserva_id, request)
+    return _url_recibo_para_movimiento(movimiento, sucursal, next_url=caratula)
+
+
+def _url_imprimir_caratula_contrato(contrato_id, request=None):
+    """Carátula imprimible de contrato; con request encadena volver según nivel."""
+    url = reverse('inmobiliaria:imprimir_caratula_contrato', args=[contrato_id])
+    if request is not None:
+        url = _url_con_query_param(
+            url,
+            'next',
+            _url_volver_desde_imprimir_caratula(request, contrato_id=contrato_id),
+            request,
+        )
+    return url
+
+
+def _contexto_botones_recibo_contrato(request, contrato_id):
+    """Volver al detalle/caja y Siguiente hacia carátula imprimible."""
+    explicit = (request.GET.get('next') or '').strip()
+    validated = _validar_url_volver_recibo(explicit, request)
+    url_volver = validated or reverse('inmobiliaria:detalle_contrato', args=[contrato_id])
+    return {
+        'url_volver': url_volver,
+        'url_siguiente': _url_imprimir_caratula_contrato(contrato_id, request),
+        'muestra_siguiente_caratula': True,
+    }
+
+
+def _contexto_botones_recibo_reserva(request, reserva_id):
+    """Botón para imprimir la carátula de la operación por día (tras el recibo)."""
+    url_caratula = _url_imprimir_caratula_reserva(reserva_id, request)
+    return {
+        'url_siguiente': url_caratula,
+        'muestra_siguiente_caratula': True,
+    }
+
+
+def _contexto_boton_volver_recibo(request, default=None):
+    url = _url_volver_recibo(request, default=default)
+    es_caratula = (
+        '/caratulas/reserva/' in (url or '') and '/imprimir/' in (url or '')
+    ) or (
+        '/caratulas/contrato/' in (url or '') and '/imprimir/' in (url or '')
+    )
+    return {
+        'url_volver': url,
+        'texto_boton_volver': 'Siguiente' if es_caratula else 'Volver',
+        'icono_boton_volver': 'fa-arrow-right' if es_caratula else 'fa-arrow-left',
+    }
 
 # Modelos usados por vistas definidas antes del import masivo de .models (línea ~871)
 from .models import ComisionVendedor, ValeVendedor, MesComisionPagadoVendedor
 from .models.persona import (
     Vendedor,
     usuario_es_nivel_administracion,
+    usuario_puede_anular_vale,
     usuario_puede_eliminar_movimiento_caja,
     usuario_puede_editar_movimiento_caja,
+    usuario_puede_revertir_operacion_a_reserva,
 )
+
+
+def _contexto_editar_forma_pago_recibo(request, movimiento):
+    """Enlace para corregir medios de pago (efectivo, transferencia, etc.) desde el recibo."""
+    from urllib.parse import urlencode
+
+    if not movimiento or not usuario_puede_editar_movimiento_caja(request.user):
+        return {'puede_editar_forma_pago_recibo': False}
+    if getattr(movimiento, 'fecha_eliminacion', None):
+        return {'puede_editar_forma_pago_recibo': False}
+    next_url = request.get_full_path()
+    params = {'next': next_url} if next_url else {}
+    url = reverse('inmobiliaria:editar_movimiento_caja', args=[movimiento.id])
+    if params:
+        url += '?' + urlencode(params)
+    return {
+        'puede_editar_forma_pago_recibo': True,
+        'url_editar_forma_pago_recibo': url,
+    }
+
 
 # Importar vistas de cuentas bancarias
 from .views_cuentas_bancarias import (
@@ -175,10 +386,19 @@ def historial_comisiones_vendedor(request, vendedor_id):
         Vendedor, id=vendedor_id, sucursal=request.user.sucursal
     )
     try:
+        from inmobiliaria.models.comision import acreditar_comisiones_por_fecha_vencida
+
+        acreditar_comisiones_por_fecha_vencida(sucursal=request.user.sucursal)
         comisiones = (
             ComisionVendedor.objects.filter(vendedor=vendedor)
-            .que_suman()
-            .select_related('vendedor', 'reserva__propiedad')
+            .visibles_en_historial()
+            .select_related(
+                'vendedor',
+                'reserva__propiedad__propietario',
+                'reserva__cliente',
+                'contrato__propiedad__propietario',
+                'contrato__inquilino',
+            )
             .ordenadas_para_listado_historial()
         )
         vales = ValeVendedor.objects.filter(vendedor=vendedor).order_by('-fecha')
@@ -360,6 +580,7 @@ def historial_comisiones_vendedor(request, vendedor_id):
         'cantidad_operaciones': cantidad_operaciones,
         'vendedor': vendedor,
         'porcentaje_comision': vendedor.porcentaje_comision_efectivo(),
+        'puede_anular_vale': usuario_puede_anular_vale(request.user),
     }
 
     return render(request, 'inmobiliaria/comisiones/historial_comisiones.html', context)
@@ -484,14 +705,23 @@ def resumen_comisiones_mensual(request, vendedor_id, anio=None, mes=None):
         Vendedor, id=vendedor_id, sucursal=request.user.sucursal
     )
     try:
+        from inmobiliaria.models.comision import acreditar_comisiones_por_fecha_vencida
+
+        acreditar_comisiones_por_fecha_vencida(sucursal=request.user.sucursal)
         comisiones_mes = (
             ComisionVendedor.objects.filter(
                 vendedor=vendedor,
                 fecha_operacion__year=anio,
                 fecha_operacion__month=mes,
             )
-            .que_suman()
-            .select_related('vendedor', 'reserva__propiedad')
+            .visibles_en_historial()
+            .select_related(
+                'vendedor',
+                'reserva__propiedad__propietario',
+                'reserva__cliente',
+                'contrato__propiedad__propietario',
+                'contrato__inquilino',
+            )
             .ordenadas_para_listado_historial()
         )
         total_mes = comisiones_mes.aggregate(
@@ -530,19 +760,22 @@ def resumen_comisiones_mensual(request, vendedor_id, anio=None, mes=None):
 
     return render(request, 'inmobiliaria/comisiones/resumen_mensual.html', context)
 
-@login_required
-def dashboard_comisiones(request):
-    """
-    Panel de comisiones por vendedor.
-    Solo accesible para administradores (nivel 4).
-    """
-    if not usuario_es_nivel_administracion(request.user):
-        messages.error(request, 'No tienes permisos para acceder a esta sección.')
-        return redirect('inmobiliaria:dashboard')
+def _build_vendedores_dashboard_data(sucursal):
+    """Totales de comisiones y vales por productor activo de la sucursal."""
+    from inmobiliaria.models.comision import (
+        acreditar_comisiones_por_fecha_vencida,
+        _filtro_caratula_confirmada_comision,
+    )
+    from inmobiliaria.models.vale import TipoBeneficiarioVale
+    from django.db.models import Q
+    from django.utils import timezone
+
+    acreditar_comisiones_por_fecha_vencida(sucursal=sucursal)
+    hoy = timezone.localdate()
 
     vendedores = Vendedor.objects.filter(
-        sucursal=request.user.sucursal,
-        is_active=True
+        sucursal=sucursal,
+        is_active=True,
     ).order_by('apellido', 'nombre')
 
     vendedores_data = []
@@ -553,12 +786,14 @@ def dashboard_comisiones(request):
             .aggregate(total=models.Sum('monto_comision'))['total']
             or Decimal('0')
         )
-
         comisiones_pendientes = ComisionVendedor.objects.filter(
             vendedor=vendedor,
-            estado='pendiente'
+            estado='pendiente',
+        ).filter(
+            _filtro_caratula_confirmada_comision()
+        ).filter(
+            Q(fecha_operacion__isnull=True) | Q(fecha_operacion__date__gt=hoy)
         ).count()
-
         total_vales = ValeVendedor.total_saldo_para_comisiones(vendedor)
         total_vales_egreso = (
             ValeVendedor.objects.filter(vendedor=vendedor, tipo_vale='EG')
@@ -570,7 +805,20 @@ def dashboard_comisiones(request):
             .aggregate(t=models.Sum('monto'))['t']
             or Decimal('0')
         )
-
+        otorgados_qs = ValeVendedor.objects.filter(usuario_creador=vendedor)
+        total_otorgados_egreso = (
+            otorgados_qs.filter(tipo_vale='EG').aggregate(t=models.Sum('monto'))['t']
+            or Decimal('0')
+        )
+        total_otorgados_ingreso = (
+            otorgados_qs.filter(tipo_vale='IN').aggregate(t=models.Sum('monto'))['t']
+            or Decimal('0')
+        )
+        cant_otorgados = otorgados_qs.count()
+        cant_otorgados_a_otros = otorgados_qs.exclude(
+            tipo_beneficiario=TipoBeneficiarioVale.VENDEDOR,
+            vendedor=vendedor,
+        ).count()
         vendedores_data.append({
             'vendedor': vendedor,
             'total_comisiones': total_comisiones,
@@ -578,28 +826,52 @@ def dashboard_comisiones(request):
             'total_vales': total_vales,
             'total_vales_egreso': total_vales_egreso,
             'total_vales_ingreso': total_vales_ingreso,
+            'total_otorgados_egreso': total_otorgados_egreso,
+            'total_otorgados_ingreso': total_otorgados_ingreso,
+            'cant_otorgados': cant_otorgados,
+            'cant_otorgados_a_otros': cant_otorgados_a_otros,
             'neto': total_comisiones - total_vales,
         })
 
     vendedores_data.sort(key=lambda x: x['comisiones_pendientes'], reverse=True)
+    return vendedores, vendedores_data
+
+
+def _vales_sucursal_qs(sucursal):
+    return ValeVendedor.objects.filter(
+        models.Q(vendedor__sucursal=sucursal)
+        | models.Q(usuario_creador__sucursal=sucursal)
+        | models.Q(movimiento_caja__sucursal=sucursal)
+    ).distinct()
+
+
+@login_required
+def dashboard_comisiones(request):
+    """
+    Panel de comisiones por vendedor.
+    Solo accesible para administradores (nivel 4).
+    """
+    if not usuario_es_nivel_administracion(request.user):
+        messages.error(request, 'No tienes permisos para acceder a esta sección.')
+        return redirect('inmobiliaria:dashboard')
+
+    if (request.GET.get('tab') or '').strip().lower() == 'vales':
+        return redirect('inmobiliaria:dashboard_vales')
+
+    sucursal = request.user.sucursal
+    if not sucursal:
+        messages.error(request, 'Tu usuario no tiene sucursal asignada.')
+        return redirect('inmobiliaria:dashboard')
+
+    vendedores, vendedores_data = _build_vendedores_dashboard_data(sucursal)
 
     total_comisiones_sucursal = sum(
         (d['total_comisiones'] for d in vendedores_data), start=Decimal('0')
-    )
-    total_vales_egreso_sucursal = sum(
-        (d['total_vales_egreso'] for d in vendedores_data), start=Decimal('0')
-    )
-    total_vales_ingreso_sucursal = sum(
-        (d['total_vales_ingreso'] for d in vendedores_data), start=Decimal('0')
-    )
-    total_saldo_vales_sucursal = sum(
-        (d['total_vales'] for d in vendedores_data), start=Decimal('0')
     )
     total_neto_sucursal = sum((d['neto'] for d in vendedores_data), start=Decimal('0'))
     total_ops_comisiones = ComisionVendedor.objects.filter(
         vendedor__in=vendedores
     ).que_suman().count()
-    total_mov_vales = ValeVendedor.objects.filter(vendedor__in=vendedores).count()
 
     ahora = timezone.now()
     ay, am = ahora.year, ahora.month
@@ -613,21 +885,6 @@ def dashboard_comisiones(request):
         .aggregate(t=models.Sum('monto_comision'))['t']
         or Decimal('0')
     )
-    vales_mes_q = ValeVendedor.objects.filter(
-        vendedor__in=vendedores,
-        fecha__year=ay,
-        fecha__month=am,
-    )
-    eg_mes = (
-        vales_mes_q.filter(tipo_vale='EG').aggregate(t=models.Sum('monto'))['t']
-        or Decimal('0')
-    )
-    in_mes = (
-        vales_mes_q.filter(tipo_vale='IN').aggregate(t=models.Sum('monto'))['t']
-        or Decimal('0')
-    )
-    saldo_vales_mes = eg_mes - in_mes
-    neto_mes_sucursal = comisiones_mes_sucursal - saldo_vales_mes
     cant_ops_mes = ComisionVendedor.objects.filter(
         vendedor__in=vendedores,
         fecha_operacion__year=ay,
@@ -636,21 +893,94 @@ def dashboard_comisiones(request):
 
     context = {
         'vendedores_data': vendedores_data,
-        'sucursal_actual': request.user.sucursal,
-        'porcentaje_sucursal': getattr(
-            request.user.sucursal, 'porcentaje_comision_default', None
-        ),
+        'porcentaje_sucursal': getattr(sucursal, 'porcentaje_comision_default', None),
         'total_comisiones_sucursal': total_comisiones_sucursal,
+        'total_neto_sucursal': total_neto_sucursal,
+        'total_ops_comisiones': total_ops_comisiones,
+        'comisiones_mes_sucursal': comisiones_mes_sucursal,
+        'cant_ops_mes': cant_ops_mes,
+    }
+    return render(request, 'inmobiliaria/comisiones/dashboard_comisiones.html', context)
+
+
+@login_required
+def dashboard_vales(request):
+    """Panel de vales de la sucursal (productores y otras personas)."""
+    if not usuario_es_nivel_administracion(request.user):
+        messages.error(request, 'No tienes permisos para acceder a esta sección.')
+        return redirect('inmobiliaria:dashboard')
+
+    sucursal = request.user.sucursal
+    if not sucursal:
+        messages.error(request, 'Tu usuario no tiene sucursal asignada.')
+        return redirect('inmobiliaria:dashboard')
+
+    from inmobiliaria.models.vale import TipoBeneficiarioVale
+
+    vendedores, vendedores_data = _build_vendedores_dashboard_data(sucursal)
+
+    vales_sucursal_qs = _vales_sucursal_qs(sucursal)
+    total_mov_vales = vales_sucursal_qs.count()
+    total_vales_egreso_sucursal = (
+        vales_sucursal_qs.filter(tipo_vale='EG').aggregate(t=models.Sum('monto'))['t']
+        or Decimal('0')
+    )
+    total_vales_ingreso_sucursal = (
+        vales_sucursal_qs.filter(tipo_vale='IN').aggregate(t=models.Sum('monto'))['t']
+        or Decimal('0')
+    )
+    total_saldo_vales_sucursal = total_vales_egreso_sucursal - total_vales_ingreso_sucursal
+
+    vales_otras_personas_qs = (
+        ValeVendedor.objects.filter(
+            tipo_beneficiario=TipoBeneficiarioVale.OTRO,
+        )
+        .filter(
+            models.Q(movimiento_caja__sucursal=sucursal)
+            | models.Q(usuario_creador__sucursal=sucursal)
+        )
+        .select_related('movimiento_caja', 'movimiento_caja__caja', 'usuario_creador')
+        .distinct()
+        .order_by('-fecha')
+    )
+    try:
+        total_otros_egreso = (
+            vales_otras_personas_qs.filter(tipo_vale='EG').aggregate(t=models.Sum('monto'))['t']
+            or Decimal('0')
+        )
+        total_otros_ingreso = (
+            vales_otras_personas_qs.filter(tipo_vale='IN').aggregate(t=models.Sum('monto'))['t']
+            or Decimal('0')
+        )
+        cant_vales_otros = vales_otras_personas_qs.count()
+        vales_otras_personas = list(vales_otras_personas_qs[:200])
+    except (ProgrammingError, OperationalError):
+        logger.exception('dashboard_vales: consulta vales otras personas (¿migración 0126?)')
+        total_otros_egreso = Decimal('0')
+        total_otros_ingreso = Decimal('0')
+        cant_vales_otros = 0
+        vales_otras_personas = []
+        messages.warning(
+            request,
+            'No se pudo cargar el listado de vales a otras personas. '
+            'Verificá que las migraciones estén aplicadas.',
+        )
+
+    context = {
+        'vendedores_data': vendedores_data,
         'total_vales_egreso_sucursal': total_vales_egreso_sucursal,
         'total_vales_ingreso_sucursal': total_vales_ingreso_sucursal,
         'total_saldo_vales_sucursal': total_saldo_vales_sucursal,
-        'total_neto_sucursal': total_neto_sucursal,
-        'total_ops_comisiones': total_ops_comisiones,
         'total_mov_vales': total_mov_vales,
-        'neto_mes_sucursal': neto_mes_sucursal,
-        'cant_ops_mes': cant_ops_mes,
+        'vales_otras_personas': vales_otras_personas,
+        'cant_vales_otros': cant_vales_otros,
+        'total_otros_egreso': total_otros_egreso,
+        'total_otros_ingreso': total_otros_ingreso,
+        'total_otros_saldo': total_otros_egreso - total_otros_ingreso,
+        'puede_anular_vale': usuario_puede_anular_vale(request.user),
     }
-    return render(request, 'inmobiliaria/comisiones/dashboard.html', context)
+    return render(request, 'inmobiliaria/comisiones/dashboard_vales.html', context)
+
 
 # ✅ VISTAS PARA VALES DE VENDEDORES
 
@@ -927,11 +1257,22 @@ def lista_vales_vendedor(request, vendedor_id):
     vendedor = get_object_or_404(
         Vendedor, id=vendedor_id, sucursal=request.user.sucursal
     )
-    vales = (
-        ValeVendedor.objects.filter(vendedor=vendedor)
-        .select_related('movimiento_caja', 'movimiento_caja__caja', 'usuario_creador')
-        .order_by('-fecha')
-    )
+    vista = (request.GET.get('vista') or 'recibidos').strip().lower()
+    if vista not in ('recibidos', 'otorgados'):
+        vista = 'recibidos'
+
+    if vista == 'otorgados':
+        vales = (
+            ValeVendedor.objects.filter(usuario_creador=vendedor)
+            .select_related('movimiento_caja', 'movimiento_caja__caja', 'vendedor', 'usuario_creador')
+            .order_by('-fecha')
+        )
+    else:
+        vales = (
+            ValeVendedor.objects.filter(vendedor=vendedor)
+            .select_related('movimiento_caja', 'movimiento_caja__caja', 'usuario_creador')
+            .order_by('-fecha')
+        )
     if fecha_desde:
         vales = vales.filter(fecha__date__gte=fecha_desde)
     if fecha_hasta:
@@ -948,15 +1289,93 @@ def lista_vales_vendedor(request, vendedor_id):
     context = {
         'vendedor': vendedor,
         'vales': vales,
+        'vista': vista,
         'total_vales': total_vales_saldo,
         'total_vales_egreso': total_vales_egreso,
         'total_vales_ingreso': total_vales_ingreso,
         'fecha_desde': fecha_desde_s,
         'fecha_hasta': fecha_hasta_s,
         'hay_filtro_fecha': bool(fecha_desde or fecha_hasta),
+        'puede_anular_vale': usuario_puede_anular_vale(request.user),
     }
 
     return render(request, 'inmobiliaria/vales/lista_vales.html', context)
+
+
+def _vale_pertenece_sucursal(vale, sucursal):
+    """True si el vale es de la sucursal (productor, quien lo cargó o movimiento de caja)."""
+    if not vale or not sucursal:
+        return False
+    sid = sucursal.pk
+    if vale.vendedor_id and getattr(vale.vendedor, 'sucursal_id', None) == sid:
+        return True
+    if vale.usuario_creador_id and getattr(vale.usuario_creador, 'sucursal_id', None) == sid:
+        return True
+    mov = vale.movimiento_caja
+    if mov and getattr(mov, 'sucursal_id', None) == sid:
+        return True
+    return False
+
+
+@login_required
+@transaction.atomic
+def anular_vale(request, vale_id):
+    """Elimina el vale y anula el movimiento de caja vinculado (solo administración)."""
+    if request.method not in ('POST',):
+        return HttpResponseNotAllowed(['POST'])
+
+    if not usuario_puede_anular_vale(request.user):
+        messages.error(request, 'Solo usuarios de administración pueden anular vales.')
+        return redirect('inmobiliaria:dashboard_vales')
+
+    sucursal = request.user.sucursal
+    if not sucursal:
+        messages.error(request, 'Tu usuario no tiene sucursal asignada.')
+        return redirect('inmobiliaria:dashboard')
+
+    vale = get_object_or_404(
+        ValeVendedor.objects.select_related(
+            'movimiento_caja',
+            'movimiento_caja__caja',
+            'vendedor',
+            'usuario_creador',
+        ),
+        pk=vale_id,
+    )
+    if not _vale_pertenece_sucursal(vale, sucursal):
+        messages.error(request, 'El vale no pertenece a tu sucursal.')
+        return redirect('inmobiliaria:dashboard_vales')
+
+    next_url = _validar_url_volver_recibo((request.POST.get('next') or '').strip(), request)
+    movimiento = vale.movimiento_caja
+    vendedor_vale_id = vale.vendedor_id
+    movimiento_anulado = False
+    if movimiento:
+        if movimiento.sucursal_id != sucursal.pk:
+            messages.error(request, 'El movimiento de caja no pertenece a tu sucursal.')
+            return redirect(next_url or 'inmobiliaria:dashboard_vales')
+        if not getattr(movimiento, 'fecha_eliminacion', None):
+            _eliminar_movimiento_y_anexos(movimiento, eliminado_por=request.user)
+            movimiento_anulado = True
+
+    vale.delete()
+
+    if movimiento_anulado:
+        messages.success(
+            request,
+            'Vale eliminado y movimiento de caja anulado. Ya no suma en saldos ni comisiones.',
+        )
+    elif movimiento and getattr(movimiento, 'fecha_eliminacion', None):
+        messages.success(request, 'Vale eliminado (el movimiento de caja ya estaba anulado).')
+    else:
+        messages.success(request, 'Vale eliminado.')
+
+    if next_url:
+        return redirect(next_url)
+    if vendedor_vale_id:
+        return redirect('inmobiliaria:lista_vales_vendedor', vendedor_id=vendedor_vale_id)
+    return redirect('inmobiliaria:dashboard_vales')
+
 
 # ✅ VISTA PARA MOVIMIENTOS HISTÓRICOS DE TODAS LAS CAJAS
 
@@ -1435,6 +1854,7 @@ def administracion_propiedades_operaciones(request):
     propiedad_id = (request.GET.get('propiedad_id') or '').strip()
     fecha_desde_s = (request.GET.get('fecha_desde') or '').strip()
     fecha_hasta_s = (request.GET.get('fecha_hasta') or '').strip()
+    concepto_gasto = (request.GET.get('concepto_gasto') or '').strip()
     fecha_desde = _parse_fecha(fecha_desde_s)
     fecha_hasta = _parse_fecha(fecha_hasta_s)
     if fecha_desde and fecha_hasta and fecha_hasta < fecha_desde:
@@ -1458,6 +1878,7 @@ def administracion_propiedades_operaciones(request):
         'propiedad_id': propiedad_id,
         'fecha_desde': fecha_desde_s,
         'fecha_hasta': fecha_hasta_s,
+        'concepto_gasto': concepto_gasto,
         'propiedad': None,
         'coincidencias': [],
         'reservas': [],
@@ -1465,6 +1886,7 @@ def administracion_propiedades_operaciones(request):
         'cuotas': [],
         'gastos': [],
         'gastos_items': [],
+        'ingresos_items': [],
         'liquidaciones': [],
         'pagos': [],
         'movimientos': [],
@@ -1484,12 +1906,12 @@ def administracion_propiedades_operaciones(request):
         propiedad = None
         coincidencias = []
 
-        if propiedad_id.isdigit():
-            propiedad = propiedades_qs.filter(id=int(propiedad_id)).first()
+        if propiedad_id:
+            propiedad = propiedades_qs.filter(id=propiedad_id).first()
         elif termino:
-            if termino.isdigit():
-                propiedad = propiedades_qs.filter(id=int(termino)).first()
-            if not propiedad:
+            if termino.isascii() and termino.isdigit():
+                propiedad = propiedades_qs.filter(id=termino).first()
+            else:
                 coincidencias = list(propiedades_qs.filter(
                     Q(direccion__icontains=termino) |
                     Q(ubicacion__icontains=termino) |
@@ -1557,6 +1979,25 @@ def administracion_propiedades_operaciones(request):
         pagos = list(pagos_qs.order_by('-fecha', '-id')[:250])
         movimientos = list(movimientos_qs.order_by('-fecha', '-id')[:250])
         egresos_gasto = list(egresos_gasto_qs.order_by('-fecha', '-id')[:500])
+        ingresos_qs = movimientos_qs.filter(tipo=TipoMovimientoCajaEnum.INGRESO)
+        ingresos_mov = list(ingresos_qs.order_by('-fecha', '-id')[:500])
+
+        next_path = request.get_full_path()
+        mov_por_id = {m.id: m for m in movimientos + egresos_gasto + ingresos_mov}
+
+        def _url_recibo_admin(mov_id):
+            if not mov_id:
+                return None
+            mov = mov_por_id.get(mov_id)
+            if not mov:
+                mov = MovimientoCaja.objects.filter(
+                    pk=mov_id, sucursal=request.user.sucursal
+                ).first()
+            if not mov:
+                return None
+            return _url_recibo_para_movimiento(
+                mov, request.user.sucursal, next_url=next_path
+            )
 
         conceptos_map = {}
         try:
@@ -1629,13 +2070,15 @@ def administracion_propiedades_operaciones(request):
 
         gastos_items = []
         for g in gastos:
+            mov_num = getattr(getattr(g, 'liquidacion', None), 'movimiento_caja_id', None)
             gastos_items.append({
                 'fecha': g.fecha_creacion,
-                'movimiento_num': getattr(getattr(g, 'liquidacion', None), 'movimiento_caja_id', None),
+                'movimiento_num': mov_num,
                 'concepto': str(getattr(g, 'descripcion', '') or '-'),
                 'detalle': str(getattr(g, 'observaciones', '') or '').strip(),
                 'monto': g.monto or Decimal('0'),
                 'cargo': 'Propietario',
+                'url_recibo': _url_recibo_admin(mov_num),
             })
         for m in egresos_gasto:
             if m.id in movimientos_ya_en_gastos:
@@ -1659,6 +2102,27 @@ def administracion_propiedades_operaciones(request):
                 'detalle': ' · '.join(detalle_parts),
                 'monto': Decimal(str(getattr(m, 'monto_total', 0) or 0)),
                 'cargo': cargo or 'Egreso caja',
+                'url_recibo': _url_recibo_admin(m.id),
+            })
+
+        ingresos_items = []
+        for m in ingresos_mov:
+            detalle_parts = []
+            if getattr(m, 'a_descontar', None):
+                try:
+                    detalle_parts.append(m.get_a_descontar_display())
+                except Exception:
+                    detalle_parts.append(str(m.a_descontar))
+            det = _detalle_mov(m)
+            if det:
+                detalle_parts.append(det)
+            ingresos_items.append({
+                'fecha': m.fecha,
+                'movimiento_num': m.id,
+                'concepto': _nombre_concepto_mov(m),
+                'detalle': ' · '.join(detalle_parts) or '—',
+                'monto': Decimal(str(getattr(m, 'monto_total', 0) or 0)),
+                'url_recibo': _url_recibo_admin(m.id),
             })
         def _fecha_sort_key(item):
             f = item.get('fecha')
@@ -1676,6 +2140,14 @@ def administracion_propiedades_operaciones(request):
 
         gastos_items.sort(key=_fecha_sort_key, reverse=True)
 
+        if concepto_gasto:
+            term_concepto = concepto_gasto.casefold()
+            gastos_items = [
+                item for item in gastos_items
+                if term_concepto in (str(item.get('concepto') or '').casefold())
+                or term_concepto in (str(item.get('detalle') or '').casefold())
+            ]
+
         ag_pagos = pagos_qs.aggregate(t=Sum('monto'))
         ag_mov = movimientos_qs.aggregate(
             i=Sum(F('monto_efectivo') + F('monto_cheque') + F('monto_tarjeta') + F('monto_deposito'), filter=Q(tipo=TipoMovimientoCajaEnum.INGRESO)),
@@ -1691,6 +2163,7 @@ def administracion_propiedades_operaciones(request):
             'cuotas': cuotas,
             'gastos': gastos,
             'gastos_items': gastos_items,
+            'ingresos_items': ingresos_items,
             'liquidaciones': liquidaciones,
             'pagos': pagos,
             'movimientos': movimientos,
@@ -1726,8 +2199,9 @@ from .catalogo_conceptos_caja import (
 from .forms import  VendedorUserCreationForm, VendedorChangeForm, InquilinoForm, PropietarioForm, PropiedadForm, ReservaForm,BuscarPropiedadesForm, DisponibilidadForm,PrecioForm, PrecioFormSet, PropietarioBuscarForm, InquilinoBuscarForm, SucursalForm, LoginForm, PropiedadSearchForm, VentaPropiedadForm, MovimientoCajaForm
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm, SetPasswordForm
 from django.contrib.auth import login
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, time
 from django.db.models import Q, Prefetch, Case, When, IntegerField, Sum, Max, F, Count, DecimalField
+from django.db.models.query import prefetch_related_objects
 from django.db.models.functions import TruncMonth, Lower
 from django.core.exceptions import ValidationError
 from django.forms import modelformset_factory
@@ -1762,6 +2236,29 @@ logger = logging.getLogger(__name__)
 CONCEPTOS_SENIA_OPERACION_RESERVA = frozenset({"1", "15", "50", "100", "103", "219"})
 
 
+def _reserva_sin_pagar_para_busqueda(reservas_bloquean, reserva_ids_con_recibo=None):
+    """
+    Devuelve la reserva a mostrar como «reservada sin pagar», o None si la propiedad
+    está ocupada (pagada / seña cobrada) o no hay reserva pendiente de seña.
+    """
+    from inmobiliaria.caja_devolucion_deposito import (
+        reserva_mostrar_como_reservada_sin_pagar,
+        reserva_ocupa_sin_ofrecer_en_busqueda,
+    )
+
+    sin_pagar = None
+    for reserva in reservas_bloquean:
+        if reserva_ocupa_sin_ofrecer_en_busqueda(
+            reserva, reserva_ids_con_recibo=reserva_ids_con_recibo
+        ):
+            return None
+        if sin_pagar is None and reserva_mostrar_como_reservada_sin_pagar(
+            reserva, reserva_ids_con_recibo=reserva_ids_con_recibo
+        ):
+            sin_pagar = reserva
+    return sin_pagar
+
+
 def get_inquilinos_queryset_unificado(request):
     """Lista de inquilinos unificada: en Colón y Corrientes se muestran los de ambas sucursales; en el resto solo los de la sucursal del usuario."""
     nombre_suc = (getattr(request.user.sucursal, 'nombre', None) or '').lower()
@@ -1770,6 +2267,38 @@ def get_inquilinos_queryset_unificado(request):
             Q(sucursal__nombre__icontains='colon') | Q(sucursal__nombre__icontains='corrientes')
         ).order_by('apellido', 'nombre')
     return Inquilino.objects.filter(sucursal=request.user.sucursal).order_by('apellido', 'nombre')
+
+
+Q_SUCURSALES_COLON_CORRIENTES = (
+    Q(sucursal__nombre__icontains='colon') | Q(sucursal__nombre__icontains='corrientes')
+)
+
+
+def usuario_en_colon_o_corrientes(user):
+    nombre_suc = (getattr(getattr(user, 'sucursal', None), 'nombre', None) or '').lower()
+    return 'colon' in nombre_suc or 'corrientes' in nombre_suc
+
+
+def get_propietarios_queryset(request, ver_todas=False):
+    """Por defecto solo la sucursal del usuario; con ver_todas, Colón y Corrientes juntas."""
+    base = Propietario.objects.select_related('sucursal')
+    if ver_todas and usuario_en_colon_o_corrientes(request.user):
+        return base.filter(Q_SUCURSALES_COLON_CORRIENTES).order_by('apellido', 'nombre')
+    return base.filter(sucursal=request.user.sucursal).order_by('apellido', 'nombre')
+
+
+def get_propietario_accesible(request, propietario_id):
+    """Propietario visible: sucursal propia o ambas sucursales Colón/Corrientes."""
+    from django.http import Http404
+
+    propietario = get_object_or_404(Propietario.objects.select_related('sucursal'), pk=propietario_id)
+    if propietario.sucursal_id == request.user.sucursal_id:
+        return propietario
+    if usuario_en_colon_o_corrientes(request.user):
+        nombre = (propietario.sucursal.nombre or '').lower()
+        if 'colon' in nombre or 'corrientes' in nombre:
+            return propietario
+    raise Http404()
 
 import traceback  # Agregada esta importación
 from django.utils import timezone
@@ -1928,77 +2457,112 @@ def inquilino_eliminar(request, inquilino_id):
     return render(request, 'inmobiliaria/inquilinos/confirmar_eliminar.html', {'inquilino': inquilino})
 
 # Propietario views
+def _propiedades_sucursales_por_propietario(propietario_ids):
+    """Desglose de propiedades por sucursal para cada propietario."""
+    if not propietario_ids:
+        return {}
+    rows = (
+        Propiedad.objects.filter(propietario_id__in=propietario_ids)
+        .values('propietario_id', 'sucursal__nombre')
+        .annotate(count=Count('id'))
+        .order_by('sucursal__nombre')
+    )
+    out = {}
+    for row in rows:
+        pid = row['propietario_id']
+        out.setdefault(pid, []).append({
+            'nombre': row['sucursal__nombre'] or 'Sin sucursal',
+            'count': row['count'],
+        })
+    return out
+
+
+def _enriquecer_propietarios_lista(propietarios_qs):
+    """Anota conteo de propiedades y desglose por sucursal."""
+    propietarios_list = list(
+        propietarios_qs.annotate(propiedades_count=Count('propiedades'))
+    )
+    sucursales_map = _propiedades_sucursales_por_propietario([p.id for p in propietarios_list])
+    for p in propietarios_list:
+        p.propiedades_por_sucursal = sucursales_map.get(p.id, [])
+    return propietarios_list
+
+
 @login_required
 def propietarios(request):
     form = PropietarioBuscarForm(request.GET or None)
-    
-    # Determinar qué propietarios mostrar según el nivel del usuario
-    if usuario_es_nivel_administracion(request.user):
-        propietarios = Propietario.objects.filter(sucursal=request.user.sucursal)
-    else:
-        # Filtrar por la sucursal del vendedor logueado
-        propietarios = Propietario.objects.filter(sucursal=request.user.sucursal)
+    ver_todas = request.GET.get('ver_todas') == '1'
+    puede_ver_ambas = usuario_en_colon_o_corrientes(request.user)
+    if ver_todas and not puede_ver_ambas:
+        ver_todas = False
+
+    propietarios = get_propietarios_queryset(request, ver_todas=ver_todas)
 
     if form.is_valid():
         termino = form.cleaned_data.get('termino')
         if termino:
+            from inmobiliaria.busqueda_persona import q_busqueda_persona, ordenar_queryset_persona_por_termino
             termino = termino.strip()
-            # 1) Coincidir término completo en nombre, apellido, DNI o ID (apellidos con espacio ej. "de Marcos")
-            query = (
-                Q(nombre__icontains=termino) |
-                Q(apellido__icontains=termino) |
-                Q(dni__icontains=termino) |
-                Q(id__icontains=termino)
+            propietarios = ordenar_queryset_persona_por_termino(
+                propietarios.filter(q_busqueda_persona(termino)),
+                termino,
             )
-            # 2) Si hay varias palabras, también coincidir si TODAS aparecen en nombre o apellido
-            palabras = [p.strip() for p in termino.split() if p.strip()]
-            if len(palabras) > 1:
-                query_palabras = Q()
-                for palabra in palabras:
-                    query_palabras &= (Q(nombre__icontains=palabra) | Q(apellido__icontains=palabra))
-                query = query | query_palabras
-            elif len(palabras) == 1:
-                query |= Q(nombre__icontains=palabras[0]) | Q(apellido__icontains=palabras[0])
-            propietarios = propietarios.filter(query)
 
     # Detectar si la solicitud es AJAX
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        propietarios_list = _enriquecer_propietarios_lista(propietarios)
         propietarios_data = [{
             'id': p.id,
             'nombre': p.nombre,
             'apellido': p.apellido,
-            'dni': p.dni,
+            'dni': p.dni or '',
+            'email': p.email or '',
+            'celular': p.celular or '',
+            'localidad': p.localidad or '',
             'cuenta_bancaria': p.cuenta_bancaria if hasattr(p, 'cuenta_bancaria') else '',
-            'sucursal': p.sucursal.nombre  # Agregar el nombre de la sucursal si lo necesitas en la respuesta
-        } for p in propietarios]
+            'sucursal': p.sucursal.nombre,
+            'propiedades_count': p.propiedades_count,
+            'propiedades_por_sucursal': p.propiedades_por_sucursal,
+        } for p in propietarios_list]
         return JsonResponse({'propietarios': propietarios_data})
 
     # Retornar la plantilla completa si no es AJAX
     context = {
         'form': form,
-        'propietarios': propietarios,
-        'sucursal_actual': request.user.sucursal.nombre if not request.user.is_superuser else 'Todas las sucursales'
+        'propietarios': _enriquecer_propietarios_lista(propietarios),
+        'sucursal_actual': request.user.sucursal.nombre if not request.user.is_superuser else 'Todas las sucursales',
+        'ver_todas': ver_todas,
+        'puede_ver_ambas_sucursales': puede_ver_ambas,
     }
     
     return render(request, 'inmobiliaria/propietarios/lista.html', context)
 
+def _mensajes_sucursales_propietario(request, form):
+    omitidas = getattr(form, '_sucursales_no_desvinculadas', None) or []
+    if omitidas:
+        messages.warning(
+            request,
+            'No se quitó la ficha en '
+            + ', '.join(omitidas)
+            + ' porque tiene propiedades asociadas.',
+        )
+
+
 @login_required
 def propietario_detalle(request, propietario_id):
-    propietario = get_object_or_404(
-        Propietario,
-        pk=propietario_id,
-        sucursal=request.user.sucursal,
-    )
+    propietario = get_propietario_accesible(request, propietario_id)
     if request.method == "POST":
         form = PropietarioForm(request.POST, instance=propietario, user=request.user)
         if form.is_valid():
             form.save()
+            _mensajes_sucursales_propietario(request, form)
             messages.success(request, 'Propietario actualizado exitosamente.')
             return redirect('inmobiliaria:propietario_detalle', propietario_id=propietario.id)
     else:
         form = PropietarioForm(instance=propietario, user=request.user)
 
     propiedades_count = Propiedad.objects.filter(propietario=propietario).count()
+    from inmobiliaria.propietario_sucursales import nombres_sucursales_vinculadas
     return render(
         request,
         'inmobiliaria/propietarios/detalle.html',
@@ -2006,6 +2570,7 @@ def propietario_detalle(request, propietario_id):
             'propietario': propietario,
             'form': form,
             'propiedades_count': propiedades_count,
+            'sucursales_vinculadas': nombres_sucursales_vinculadas(propietario),
         },
     )
 
@@ -2015,6 +2580,7 @@ def propietario_nuevo(request):
         form = PropietarioForm(request.POST, user=request.user)
         if form.is_valid():
             propietario = form.save()
+            _mensajes_sucursales_propietario(request, form)
             messages.success(request, 'Propietario creado exitosamente.')
             return redirect('inmobiliaria:propietario_detalle', propietario_id=propietario.id)
     else:
@@ -2023,15 +2589,16 @@ def propietario_nuevo(request):
 
 @login_required
 def propietario_editar(request, propietario_id):
-    propietario = get_object_or_404(Propietario, pk=propietario_id)
+    propietario = get_propietario_accesible(request, propietario_id)
     if request.method == "POST":
-        form = PropietarioForm(request.POST, instance=propietario)
+        form = PropietarioForm(request.POST, instance=propietario, user=request.user)
         if form.is_valid():
             propietario = form.save()
+            _mensajes_sucursales_propietario(request, form)
             messages.success(request, 'Propietario actualizado exitosamente.')
             return redirect('inmobiliaria:propietario_detalle', propietario_id=propietario.id)
     else:
-        form = PropietarioForm(instance=propietario)
+        form = PropietarioForm(instance=propietario, user=request.user)
     return render(request, 'inmobiliaria/propietarios/formulario.html', {'form': form, 'propietario': propietario})
 
 @login_required
@@ -2044,13 +2611,22 @@ def propietario_eliminar(request, propietario_id):
     return render(request, 'inmobiliaria/propietarios/confirmar_eliminar.html', {'propietario': propietario})
 @login_required
 def propiedades(request):
+    from django.core.paginator import Paginator
+    from django.db.models import IntegerField
+    from django.db.models.functions import Cast
+
     form = PropiedadSearchForm(request.GET or None)
-    propiedades = Propiedad.objects.filter(sucursal=request.user.sucursal)
+    propiedades_qs = (
+        Propiedad.objects.filter(sucursal=request.user.sucursal)
+        .select_related('propietario', 'fichado_por')
+        .annotate(id_num=Cast('id', IntegerField()))
+        .order_by('id_num', 'id')
+    )
 
     if form.is_valid():
         query = form.cleaned_data.get('query')
         if query:
-            propiedades = propiedades.filter(
+            propiedades_qs = propiedades_qs.filter(
                 Q(direccion__icontains=query) |
                 Q(id__icontains=query) |
                 Q(propietario__nombre__icontains=query) |
@@ -2060,12 +2636,17 @@ def propiedades(request):
                 Q(fichado_por__username__icontains=query)
             )
 
-    propiedades_list = list(propiedades)
-    propiedades_list.sort(key=lambda p: int(p.id) if p.id.isdigit() else float('inf'))
+    paginator = Paginator(propiedades_qs, 50)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    query_params = request.GET.copy()
+    if 'page' in query_params:
+        del query_params['page']
 
     return render(request, 'inmobiliaria/propiedades/lista.html', {
         'form': form,
-        'propiedades': propiedades_list
+        'propiedades': page_obj,
+        'page_obj': page_obj,
+        'querystring': query_params.urlencode(),
     })
 
 def _active_tab_propiedad_detalle(request):
@@ -2081,6 +2662,17 @@ def propiedad_detalle(request, propiedad_id):
     if not _propiedad_accesible_por_sucursal_usuario(request, propiedad):
         messages.error(request, 'No tenés permiso para ver esta propiedad (pertenece a otra sucursal).')
         return redirect('inmobiliaria:propiedades')
+    from inmobiliaria.models.propiedad import sincronizar_exclusion_invierno_24_meses
+
+    sincronizar_exclusion_invierno_24_meses(propiedad)
+    try:
+        del propiedad.__dict__['info_meses']
+    except KeyError:
+        pass
+    try:
+        del propiedad.__dict__['info_invierno']
+    except KeyError:
+        pass
     # ✅ FILTRAR SOLO DISPONIBILIDADES MANUALES (no automáticas)
     disponibilidades = propiedad.disponibilidades.filter(es_manual=True).order_by('fecha_inicio')
     ids_superpuestos, textos_superpuestos = _disponibilidades_superpuestas(disponibilidades)
@@ -2089,7 +2681,7 @@ def propiedad_detalle(request, propiedad_id):
     # Obtener el historial de disponibilidad (sin duplicados: mismo rango+estado+reserva solo una vez)
     historiales_qs = HistorialDisponibilidad.objects.filter(
         propiedad=propiedad
-    ).order_by('fecha_inicio', 'fecha_fin')
+    ).select_related('reserva', 'reserva__cliente').order_by('fecha_inicio', 'fecha_fin')
     seen = set()
     historiales = []
     for h in historiales_qs:
@@ -2756,9 +3348,16 @@ def ver_disponibilidad(request, propiedad_id):
     return render(request, 'inmobiliaria/ver_disponibilidad.html', context)
 @login_required                                                                 
 def reservas(request):
-    # ✅ Ordenar por ID descendente como en operaciones
-    # Excluir reservas eliminadas (soft delete)
-    reservas = Reserva.objects.filter(sucursal=request.user.sucursal, eliminada=False).select_related('cliente', 'propiedad', 'propiedad__propietario', 'vendedor').order_by('-id')
+    from inmobiliaria.caja_devolucion_deposito import queryset_reservas_pendientes_cobro
+
+    MAX_LISTA_RESERVAS = 300
+
+    reservas = queryset_reservas_pendientes_cobro(
+        Reserva.objects.filter(
+            sucursal=request.user.sucursal,
+            eliminada=False,
+        )
+    ).select_related('cliente', 'propiedad', 'propiedad__propietario', 'vendedor').order_by('-id')
     
     # ✅ Filtro de búsqueda por ID (opcional)
     search_id = request.GET.get('search_id', '').strip()
@@ -2808,15 +3407,36 @@ def reservas(request):
     
     # Obtener lista de vendedores para el select
     vendedores = Vendedor.objects.filter(sucursal=request.user.sucursal).order_by('apellido', 'nombre')
-    
+
+    hay_busqueda = bool(
+        search_id or fecha_desde or fecha_hasta or search_vendedor_id or search_ficha
+    )
+    lista_acotada = False
+    if not hay_busqueda:
+        reservas = list(reservas[: MAX_LISTA_RESERVAS + 1])
+        if len(reservas) > MAX_LISTA_RESERVAS:
+            lista_acotada = True
+            reservas = reservas[:MAX_LISTA_RESERVAS]
+    else:
+        reservas = list(reservas[:MAX_LISTA_RESERVAS])
+
+    reservas_list = []
+    for reserva in reservas:
+        senia_pagada = Decimal(str(reserva.senia or 0))
+        reserva.senia_pagada = senia_pagada
+        precio = Decimal(str(reserva.precio_total or 0))
+        reserva.saldo_pendiente = max(precio - senia_pagada, Decimal('0'))
+        reservas_list.append(reserva)
+
     return render(request, 'inmobiliaria/reserva/lista.html', {
-        'reservas': reservas,
+        'reservas': reservas_list,
         'search_id': search_id,
         'fecha_desde': fecha_desde,
         'fecha_hasta': fecha_hasta,
         'search_vendedor': search_vendedor_id,
         'search_ficha': search_ficha,
-        'vendedores': vendedores
+        'vendedores': vendedores,
+        'lista_acotada': lista_acotada,
     })
 
 @login_required
@@ -2867,12 +3487,17 @@ def operaciones(request):
     from collections import defaultdict
     from types import SimpleNamespace
     from .models.recibo import Recibo
+    from inmobiliaria.caja_devolucion_deposito import (
+        deposito_pagado_en_movimientos_rows,
+        movimientos_ingreso_contratos_por_ids,
+        movimientos_ingreso_reservas_por_ids,
+        queryset_reservas_listado_operaciones,
+        senia_estimada_listado_operacion,
+    )
 
     # Límites para evitar timeout (Railway / DB): sin búsqueda por ID se trabaja sobre un subconjunto reciente.
-    MAX_CANDIDATAS_RESERVA = 4000
-    MAX_CANDIDATOS_INVIERNO = 1500
-    # Muchas consultas pequeñas empeoran el tiempo total; pocas consultas grandes saturan MySQL: equilibrio ~450 IDs por query.
-    MAX_PROPIEDADES_POR_QUERY_MOV = 450
+    MAX_CANDIDATAS_RESERVA = 250
+    MAX_CANDIDATOS_INVIERNO = 80
 
     user_sucursal = getattr(request.user, 'sucursal', None)
     sucursal_id = getattr(request.user, 'sucursal_id', None)
@@ -2889,7 +3514,6 @@ def operaciones(request):
 
     reservas = Reserva.objects.filter(
         sucursal=user_sucursal,
-        estado__in=['pagada', 'confirmada_no_pagada'],
         eliminada=False,
     ).order_by('-id')
 
@@ -2899,6 +3523,8 @@ def operaciones(request):
             reservas = reservas.filter(id=int(search_id))
         except ValueError:
             reservas = reservas.filter(id__icontains=search_id)
+    else:
+        reservas = queryset_reservas_listado_operaciones(reservas)
 
     fecha_desde = request.GET.get('fecha_desde', '').strip()
     fecha_hasta = request.GET.get('fecha_hasta', '').strip()
@@ -2947,6 +3573,7 @@ def operaciones(request):
                 'fecha_creacion',
                 'fecha_inicio',
                 'estado',
+                'es_alquiler_sindicato',
             )
         )
     else:
@@ -2961,6 +3588,7 @@ def operaciones(request):
                 'fecha_creacion',
                 'fecha_inicio',
                 'estado',
+                'es_alquiler_sindicato',
             )
         )
         if len(reserva_rows) > MAX_CANDIDATAS_RESERVA:
@@ -2969,45 +3597,21 @@ def operaciones(request):
 
     rows_by_id = {row['id']: row for row in reserva_rows}
     reserva_ids_set = set(rows_by_id.keys())
-    propiedad_ids = list({r['propiedad_id'] for r in reserva_rows if r.get('propiedad_id')})
 
-    movimientos_por_reserva = defaultdict(list)
-    if reserva_ids_set and propiedad_ids:
-        nprops = len(propiedad_ids)
-        prop_chunks = (
-            [propiedad_ids]
-            if nprops <= MAX_PROPIEDADES_POR_QUERY_MOV
-            else list(_chunks(propiedad_ids, MAX_PROPIEDADES_POR_QUERY_MOV))
-        )
-        for pid_chunk in prop_chunks:
-            vals_qs = MovimientoCaja.objects.filter(
-                sucursal_id=sucursal_id,
-                propiedad_id__in=pid_chunk,
-                tipo=TipoMovimientoCajaEnum.INGRESO,
-                concepto__icontains='Operación',
-            ).values(
-                'id',
-                'propiedad_id',
-                'concepto',
-                'fecha',
-                'monto_efectivo',
-                'monto_cheque',
-                'monto_tarjeta',
-                'monto_deposito',
-            )
-            for row in vals_qs.iterator(chunk_size=1500):
-                conc = row.get('concepto') or ''
-                if not conc:
-                    continue
-                match = re.search(r'Operaci[oó]n\s*#?\s*(\d+)', conc, re.IGNORECASE)
-                if match:
-                    rid = int(match.group(1))
-                    if rid in reserva_ids_set:
-                        movimientos_por_reserva[rid].append(row)
+    recibo_totals = defaultdict(lambda: Decimal('0'))
+    mov_reciente_por_recibo = {}
+    for rec in (
+        Recibo.objects.filter(reserva_id__in=reserva_ids_set)
+        .order_by('reserva_id', '-fecha_emision', '-id')
+        .values('reserva_id', 'movimiento_caja_id', 'monto_este_pago')
+    ):
+        rid = rec['reserva_id']
+        recibo_totals[rid] += Decimal(str(rec['monto_este_pago'] or 0))
+        if rid not in mov_reciente_por_recibo:
+            mov_reciente_por_recibo[rid] = rec['movimiento_caja_id']
+    rids_con_recibo = set(recibo_totals.keys())
 
-    for _rid, movs in movimientos_por_reserva.items():
-        movs.sort(key=lambda r: (r['fecha'] is not None, r['fecha'], r['id']), reverse=True)
-
+    senia_por_reserva = {}
     total_operaciones = 0
     operaciones_pendientes = 0
     ordered_included_ids = []
@@ -3015,61 +3619,37 @@ def operaciones(request):
 
     for row in reserva_rows:
         rid = row['id']
-        movimientos = movimientos_por_reserva.get(rid, [])
-        if not movimientos:
+        tiene_recibo = rid in rids_con_recibo
+        senia = senia_estimada_listado_operacion(
+            senia_guardada=row.get('senia'),
+            movimientos_rows=[],
+            total_recibos=recibo_totals.get(rid, Decimal('0')),
+            estado=row.get('estado') or '',
+            es_alquiler_sindicato=bool(row.get('es_alquiler_sindicato')),
+        )
+        senia_por_reserva[rid] = senia
+        if (
+            not search_id
+            and not tiene_recibo
+            and senia <= Decimal('0.01')
+            and (row.get('estado') or '').strip() != 'pagada'
+        ):
             continue
 
         precio_total = row['precio_total'] or 0
-        senia = row['senia'] or 0
         saldo_pendiente = precio_total - senia
-
-        total_pagado_mov = sum(
-            float(mov['monto_efectivo'] or 0)
-            + float(mov['monto_cheque'] or 0)
-            + float(mov['monto_tarjeta'] or 0)
-            + float(mov['monto_deposito'] or 0)
-            for mov in movimientos
-        )
-
-        if total_pagado_mov <= 0:
-            continue
 
         total_operaciones += 1
         if saldo_pendiente > 0:
             operaciones_pendientes += 1
-
-        deposito_pagado = False
-        for movimiento in movimientos:
-            conc = movimiento.get('concepto') or ''
-            if conc and '|CONCEPTOS:' in conc:
-                concepto_parts = conc.split('|CONCEPTOS:', 1)
-                if len(concepto_parts) > 1:
-                    conceptos_data = concepto_parts[1]
-                    concepto_10_encontrado = False
-                    if '|10:' in conceptos_data or ':10:' in conceptos_data:
-                        concepto_10_encontrado = True
-                    else:
-                        conceptos_items = [item for item in conceptos_data.split('|') if item.strip()]
-                        for concepto_item in conceptos_items:
-                            parts = concepto_item.split(':', 1)
-                            if len(parts) > 0 and parts[0].strip() == '10':
-                                concepto_10_encontrado = True
-                                break
-
-                    if concepto_10_encontrado:
-                        deposito_pagado = True
-                        break
 
         if solo_pendientes and saldo_pendiente == 0:
             continue
 
         ordered_included_ids.append(rid)
         extras_por_reserva[rid] = {
-            'deposito_pagado': deposito_pagado,
-            'mov_reciente_id': movimientos[0]['id'] if movimientos else None,
+            'mov_reciente_id': mov_reciente_por_recibo.get(rid),
         }
-
-    movimientos_por_reserva.clear()
 
     merge_items = []
     for rid in ordered_included_ids:
@@ -3117,98 +3697,19 @@ def operaciones(request):
             contratos_invierno_qs = contratos_invierno_qs.filter(propiedad__numero_por_propietario__icontains=search_ficha)
 
     invierno_ids_ordered = list(contratos_invierno_qs.values_list('id', flat=True)[:MAX_CANDIDATOS_INVIERNO])
-    contratos_by_id = {
-        c.id: c
-        for c in ContratoAlquiler.objects.filter(id__in=invierno_ids_ordered).select_related(
-            'propiedad', 'vendedor'
+    invierno_meta = {
+        row['id']: row
+        for row in contratos_invierno_qs.filter(id__in=invierno_ids_ordered).values(
+            'id', 'fecha_operacion', 'fecha_inicio', 'deposito_garantia', 'precio_mensual', 'estado', 'propiedad_id'
         )
     }
-    contratos_inv_ordered = [contratos_by_id[i] for i in invierno_ids_ordered if i in contratos_by_id]
-
-    prop_ids_invierno = list({c.propiedad_id for c in contratos_inv_ordered if c.propiedad_id})
-    movimientos_por_contrato = defaultdict(list)
-    contrato_ids_set = set(invierno_ids_ordered)
-    if contrato_ids_set and prop_ids_invierno:
-        ninv = len(prop_ids_invierno)
-        inv_chunks = (
-            [prop_ids_invierno]
-            if ninv <= MAX_PROPIEDADES_POR_QUERY_MOV
-            else list(_chunks(prop_ids_invierno, MAX_PROPIEDADES_POR_QUERY_MOV))
-        )
-        for pid_chunk in inv_chunks:
-            vals_inv = MovimientoCaja.objects.filter(
-                propiedad_id__in=pid_chunk,
-                sucursal_id=sucursal_id,
-                tipo=TipoMovimientoCajaEnum.INGRESO,
-                concepto__icontains='Contrato #',
-            ).values(
-                'id',
-                'propiedad_id',
-                'concepto',
-                'fecha',
-                'monto_efectivo',
-                'monto_cheque',
-                'monto_tarjeta',
-                'monto_deposito',
-            )
-            for row in vals_inv.iterator(chunk_size=1500):
-                conc = row.get('concepto') or ''
-                if not conc:
-                    continue
-                match = re.search(r'Contrato\s*#\s*(\d+)', conc, re.IGNORECASE)
-                if match:
-                    cid = int(match.group(1))
-                    if cid in contrato_ids_set:
-                        movimientos_por_contrato[cid].append(row)
-    for _cid, movs in movimientos_por_contrato.items():
-        movs.sort(key=lambda r: (r['fecha'] is not None, r['fecha'], r['id']), reverse=True)
-
-    invierno_by_id = {}
-    for contrato in contratos_inv_ordered:
-        movimientos = movimientos_por_contrato.get(contrato.id, [])
-        total_pagado = (
-            sum(
-                float(mov['monto_efectivo'] or 0)
-                + float(mov['monto_cheque'] or 0)
-                + float(mov['monto_tarjeta'] or 0)
-                + float(mov['monto_deposito'] or 0)
-                for mov in movimientos
-            )
-            if movimientos
-            else 0
-        )
-        precio_total = (contrato.deposito_garantia or Decimal('0')) + (
-            contrato.precio_mensual or Decimal('0')
-        ) * 9
-        saldo_pendiente = precio_total - Decimal(str(total_pagado))
-        if solo_pendientes and saldo_pendiente <= 0:
+    for cid in invierno_ids_ordered:
+        meta = invierno_meta.get(cid)
+        if not meta:
             continue
         total_operaciones += 1
-        if saldo_pendiente > 0:
-            operaciones_pendientes += 1
-        deposito_ok = contrato.deposito_garantia and total_pagado >= float(contrato.deposito_garantia or 0)
-        mov_rec_id_inv = movimientos[0]['id'] if movimientos else None
-        ns = SimpleNamespace(
-            es_invierno=True,
-            contrato=contrato,
-            id=contrato.id,
-            propiedad=contrato.propiedad,
-            fecha_inicio=contrato.fecha_inicio,
-            fecha_fin=contrato.fecha_fin,
-            fecha_operacion_dia=contrato.fecha_operacion,
-            precio_total=precio_total,
-            total_pagado=Decimal(str(total_pagado)),
-            saldo_pendiente=saldo_pendiente,
-            estado=contrato.estado,
-            deposito_estado='pagado' if deposito_ok else 'pendiente',
-            total_deposito_pagado=contrato.deposito_garantia or Decimal('0'),
-            movimiento_reciente=None,
-            _mov_reciente_id=mov_rec_id_inv,
-            todos_recibos=None,
-        )
-        invierno_by_id[contrato.id] = ns
-        f_sort = contrato.fecha_operacion or contrato.fecha_inicio
-        merge_items.append(('invierno', contrato.id, f_sort))
+        f_sort = meta.get('fecha_operacion') or meta.get('fecha_inicio')
+        merge_items.append(('invierno', cid, f_sort))
 
     merge_items.sort(
         key=lambda x: x[2] if x[2] is not None else date.min,
@@ -3227,17 +3728,100 @@ def operaciones(request):
     page_slice = merge_items[offset : offset + page_size]
 
     page_rids = [oid for kind, oid, _ in page_slice if kind == 'reserva']
+    page_cids = [oid for kind, oid, _ in page_slice if kind == 'invierno']
+
+    if page_rids:
+        page_prop_ids = list({
+            rows_by_id[rid]['propiedad_id']
+            for rid in page_rids
+            if rid in rows_by_id and rows_by_id[rid].get('propiedad_id')
+        })
+        movs_page = movimientos_ingreso_reservas_por_ids(sucursal_id, page_rids, page_prop_ids)
+        for rid in page_rids:
+            movs = movs_page.get(rid, [])
+            ex = extras_por_reserva.setdefault(rid, {})
+            if movs and not ex.get('mov_reciente_id'):
+                ex['mov_reciente_id'] = movs[0]['id']
+            ex['deposito_pagado'] = deposito_pagado_en_movimientos_rows(movs)
+            row = rows_by_id.get(rid, {})
+            if movs:
+                senia_por_reserva[rid] = senia_estimada_listado_operacion(
+                    senia_guardada=row.get('senia'),
+                    movimientos_rows=movs,
+                    total_recibos=recibo_totals.get(rid, Decimal('0')),
+                    estado=row.get('estado') or '',
+                    es_alquiler_sindicato=bool(row.get('es_alquiler_sindicato')),
+                )
+            elif 'deposito_pagado' not in ex:
+                ex['deposito_pagado'] = False
+
+    invierno_by_id = {}
+    if page_cids:
+        contratos_page = {
+            c.id: c
+            for c in ContratoAlquiler.objects.filter(id__in=page_cids).select_related(
+                'propiedad', 'vendedor'
+            )
+        }
+        prop_ids_inv = list({c.propiedad_id for c in contratos_page.values() if c.propiedad_id})
+        movs_inv = movimientos_ingreso_contratos_por_ids(sucursal_id, page_cids, prop_ids_inv)
+        for cid in page_cids:
+            contrato = contratos_page.get(cid)
+            if not contrato:
+                continue
+            movimientos = movs_inv.get(cid, [])
+            total_pagado = (
+                sum(
+                    float(mov['monto_efectivo'] or 0)
+                    + float(mov['monto_cheque'] or 0)
+                    + float(mov['monto_tarjeta'] or 0)
+                    + float(mov['monto_deposito'] or 0)
+                    for mov in movimientos
+                )
+                if movimientos
+                else 0
+            )
+            precio_total = (contrato.deposito_garantia or Decimal('0')) + (
+                contrato.precio_mensual or Decimal('0')
+            ) * 9
+            saldo_pendiente = precio_total - Decimal(str(total_pagado))
+            if solo_pendientes and saldo_pendiente <= 0:
+                continue
+            if saldo_pendiente > 0:
+                operaciones_pendientes += 1
+            deposito_ok = contrato.deposito_garantia and total_pagado >= float(
+                contrato.deposito_garantia or 0
+            )
+            mov_rec_id_inv = movimientos[0]['id'] if movimientos else None
+            invierno_by_id[cid] = SimpleNamespace(
+                es_invierno=True,
+                contrato=contrato,
+                id=contrato.id,
+                propiedad=contrato.propiedad,
+                fecha_inicio=contrato.fecha_inicio,
+                fecha_fin=contrato.fecha_fin,
+                fecha_operacion_dia=contrato.fecha_operacion,
+                precio_total=precio_total,
+                total_pagado=Decimal(str(total_pagado)),
+                saldo_pendiente=saldo_pendiente,
+                estado=contrato.estado,
+                deposito_estado='pagado' if deposito_ok else 'pendiente',
+                total_deposito_pagado=contrato.deposito_garantia or Decimal('0'),
+                movimiento_reciente=None,
+                _mov_reciente_id=mov_rec_id_inv,
+                todos_recibos=None,
+            )
+
     mov_ids_page = []
     for rid in page_rids:
         mid = extras_por_reserva.get(rid, {}).get('mov_reciente_id')
         if mid:
             mov_ids_page.append(mid)
-    for kind, oid, _ in page_slice:
-        if kind == 'invierno':
-            inv = invierno_by_id.get(oid)
-            mid_inv = getattr(inv, '_mov_reciente_id', None) if inv else None
-            if mid_inv:
-                mov_ids_page.append(mid_inv)
+    for cid in page_cids:
+        inv = invierno_by_id.get(cid)
+        mid_inv = getattr(inv, '_mov_reciente_id', None) if inv else None
+        if mid_inv:
+            mov_ids_page.append(mid_inv)
 
     mov_map = {
         m.id: m
@@ -3263,13 +3847,15 @@ def operaciones(request):
             reserva = prefetched_reservas.get(oid)
             if not reserva:
                 continue
-            ex = extras_por_reserva[oid]
-            saldo_pendiente = reserva.precio_total - (reserva.senia or 0)
-            reserva.total_pagado = reserva.senia or 0
+            ex = extras_por_reserva.get(oid, {})
+            senia_pagada = senia_por_reserva.get(oid, Decimal(str(reserva.senia or 0)))
+            saldo_pendiente = max(reserva.precio_total - senia_pagada, Decimal('0'))
+            reserva.total_pagado = senia_pagada
             reserva.saldo_pendiente = saldo_pendiente
-            reserva.total_senia_pagada = reserva.senia or 0
+            reserva.total_senia_pagada = senia_pagada
+            reserva.tiene_pagos = senia_pagada > Decimal('0.01')
             reserva.total_deposito_pagado = reserva.deposito_garantia or 0
-            reserva.deposito_estado = 'pagado' if ex['deposito_pagado'] else 'pendiente'
+            reserva.deposito_estado = 'pagado' if ex.get('deposito_pagado') else 'pendiente'
             mid = ex.get('mov_reciente_id')
             reserva.movimiento_reciente = mov_map.get(mid) if mid else None
             reserva.todos_recibos = list(reserva.recibos.all())
@@ -3289,6 +3875,24 @@ def operaciones(request):
                 mid_inv = getattr(inv, '_mov_reciente_id', None)
                 inv.movimiento_reciente = mov_map.get(mid_inv) if mid_inv else None
                 operaciones_pagina.append(inv)
+
+    # URLs de recibo en lote (evita N+1 por botón Recibo en el template).
+    movs_para_url = []
+    for op in operaciones_pagina:
+        mr = getattr(op, 'movimiento_reciente', None)
+        if mr is not None:
+            movs_para_url.append(mr)
+        for recibo in getattr(op, 'todos_recibos', None) or []:
+            mc = getattr(recibo, 'movimiento_caja', None)
+            if mc is not None:
+                movs_para_url.append(mc)
+    url_recibo_map = _urls_recibo_para_movimientos_batch(
+        movs_para_url, user_sucursal, next_url=request.get_full_path()
+    )
+    for mov in movs_para_url:
+        mid = getattr(mov, 'id', None)
+        if mid is not None:
+            mov.url_recibo = url_recibo_map.get(int(mid))
 
     return render(
         request,
@@ -3315,6 +3919,7 @@ def operaciones(request):
             'previous_page': page - 1,
             'next_page': page + 1,
             'lista_reservas_acotada': lista_reservas_acotada,
+            'url_recibo_map': url_recibo_map,
         },
     )
 
@@ -3733,32 +4338,75 @@ def reserva_eliminar(request, reserva_id):
 
     if request.method == "POST":
         next_url = _sanitize_internal_next_path(request.POST.get('next'))
+        desde_historial_inquilino = (
+            'historial-reservas-inquilino' in (next_url or '')
+            or '/inquilinos/' in (next_url or '') and '/historial/' in (next_url or '')
+        )
         try:
-            # ✅ NUEVO: Cancelar la reserva primero para restaurar disponibilidades
-# print(f"🗑️ ELIMINANDO RESERVA {reserva_id}: {reserva.fecha_inicio} al {reserva.fecha_fin}")
-# print(f"   Propiedad: {reserva.propiedad.id} - {reserva.propiedad.direccion}")
-            
             # Guardar datos para el mensaje
             fecha_inicio = reserva.fecha_inicio
             fecha_fin = reserva.fecha_fin
-            propiedad_direccion = reserva.propiedad.direccion
-            
-            # 1️⃣ Cancelar la reserva (esto restaura las disponibilidades y reconstruye historial)
-            reserva.cancelar_reserva()
-            
-            # 2️⃣ Soft delete: marcar como eliminada en lugar de eliminar físicamente
-            from django.utils import timezone
-            reserva.eliminada = True
-            reserva.fecha_eliminacion = timezone.now()
-            reserva.usuario_eliminacion = request.user
-            reserva.save()
-            
-# print(f"✅ Reserva eliminada y disponibilidades restauradas: {fecha_inicio} al {fecha_fin}")
-            messages.success(request, f'Reserva eliminada exitosamente. Las fechas del {fecha_inicio.strftime("%d/%m/%Y")} al {fecha_fin.strftime("%d/%m/%Y")} vuelven a estar disponibles.')
-            
+
+            ya_anulada = reserva.eliminada or reserva.estado == 'cancelada'
+
+            if not ya_anulada:
+                # 1️⃣ Cancelar la reserva (esto restaura las disponibilidades y reconstruye historial)
+                reserva.cancelar_reserva()
+
+                # 2️⃣ Soft delete: marcar como eliminada en lugar de eliminar físicamente
+                reserva.eliminada = True
+                reserva.fecha_eliminacion = timezone.now()
+                reserva.usuario_eliminacion = request.user
+                update_fields = ['eliminada', 'fecha_eliminacion', 'usuario_eliminacion']
+                if desde_historial_inquilino:
+                    reserva.ocultar_en_historial_inquilino = True
+                    update_fields.append('ocultar_en_historial_inquilino')
+                reserva.save(update_fields=update_fields)
+
+                from inmobiliaria.historial_inquilino import registrar_evento_historial_inquilino
+
+                detalle_hist = (
+                    'Reserva eliminada desde el historial del inquilino (posible duplicado).'
+                    if desde_historial_inquilino
+                    else 'Reserva eliminada desde el listado de reservas.'
+                )
+                registrar_evento_historial_inquilino(
+                    tipo='operacion_anulada',
+                    reserva=reserva,
+                    usuario=request.user,
+                    detalle=detalle_hist,
+                    precio_anterior=reserva.precio_total,
+                    senia_anterior=reserva.senia,
+                )
+                messages.success(
+                    request,
+                    f'Reserva eliminada exitosamente. Las fechas del {fecha_inicio.strftime("%d/%m/%Y")} '
+                    f'al {fecha_fin.strftime("%d/%m/%Y")} vuelven a estar disponibles.',
+                )
+            else:
+                # Ya estaba anulada: desde el historial solo se oculta (no vuelve a salir).
+                if desde_historial_inquilino:
+                    reserva.ocultar_en_historial_inquilino = True
+                    if not reserva.fecha_eliminacion:
+                        reserva.fecha_eliminacion = timezone.now()
+                        reserva.usuario_eliminacion = request.user
+                        reserva.save(
+                            update_fields=[
+                                'ocultar_en_historial_inquilino',
+                                'fecha_eliminacion',
+                                'usuario_eliminacion',
+                            ]
+                        )
+                    else:
+                        reserva.save(update_fields=['ocultar_en_historial_inquilino'])
+                    messages.success(
+                        request,
+                        f'Operación #{reserva.id} quitada del historial del inquilino.',
+                    )
+                else:
+                    messages.info(request, f'La reserva #{reserva.id} ya estaba anulada.')
+
         except Exception as e:
-            pass  # ✅ Bloque vacío
-# print(f"❌ Error al eliminar reserva: {e}")
             messages.error(request, f'Error al eliminar la reserva: {str(e)}')
 
         if next_url:
@@ -3771,6 +4419,73 @@ def reserva_eliminar(request, reserva_id):
         'inmobiliaria/reserva/confirmar_eliminar.html',
         {'reserva': reserva, 'next': next_get},
     )
+
+
+@login_required
+@require_POST
+def revertir_operacion_a_reserva(request, reserva_id):
+    """Super admin: operación vuelve a reserva pendiente y seña en cero (no toca caja)."""
+    if not usuario_puede_revertir_operacion_a_reserva(request.user):
+        messages.error(request, 'No tenés permisos para esta acción.')
+        return redirect('inmobiliaria:operaciones')
+
+    reserva = get_object_or_404(Reserva, pk=reserva_id, eliminada=False)
+    sucursal_user = getattr(request.user, 'sucursal', None)
+    if (
+        sucursal_user
+        and reserva.sucursal_id
+        and reserva.sucursal_id != sucursal_user.id
+        and not request.user.is_superuser
+    ):
+        messages.error(request, 'La operación no pertenece a tu sucursal.')
+        return redirect('inmobiliaria:operaciones')
+
+    next_url = _sanitize_internal_next_path(request.POST.get('next'))
+    precio = Decimal(str(reserva.precio_total or 0))
+    estado_anterior = reserva.estado
+    senia_anterior = reserva.senia
+
+    with transaction.atomic():
+        reserva.estado = 'confirmada_no_pagada'
+        reserva.senia = Decimal('0')
+        reserva.cuota_pendiente = precio
+        reserva.es_alquiler_sindicato = False
+        reserva.save(
+            update_fields=[
+                'estado',
+                'senia',
+                'cuota_pendiente',
+                'es_alquiler_sindicato',
+            ]
+        )
+        reserva.actualizar_historial_disponibilidad()
+
+        from inmobiliaria.historial_inquilino import registrar_evento_historial_inquilino
+
+        registrar_evento_historial_inquilino(
+            tipo='vuelta_a_reserva',
+            reserva=reserva,
+            usuario=request.user,
+            detalle='Operación revertida a reserva pendiente; seña puesta en cero.',
+            estado_anterior=estado_anterior,
+            estado_nuevo=reserva.estado,
+            senia_anterior=senia_anterior,
+            senia_nueva=reserva.senia,
+        )
+
+    aviso_recibos = ''
+    if reserva.recibos.exists():
+        aviso_recibos = ' Hay recibos en caja vinculados; no se eliminaron.'
+
+    messages.success(
+        request,
+        f'Operación #{reserva.id} volvió a reserva pendiente (sin seña).{aviso_recibos}',
+    )
+    if next_url:
+        return redirect(next_url)
+    return redirect('inmobiliaria:operaciones')
+
+
 def parse_fecha(fecha_str):
     try:
         # Dividir la fecha en sus componentes
@@ -3876,7 +4591,8 @@ def confirmar_reserva(request):
                     propiedad=propiedad,
                     fecha_inicio__lt=fecha_fin,
                     fecha_fin__gt=fecha_inicio,
-                    estado__in=['confirmada', 'confirmada_no_pagada']
+                    estado__in=['confirmada', 'confirmada_no_pagada'],
+                    es_alquiler_sindicato=False,
                 )
 
                 if reservas_existentes.exists():
@@ -3906,7 +4622,7 @@ def confirmar_reserva(request):
                     vendedor=vendedor,
                     cliente=inquilino,
                     precio_total=precio_total_dec,
-                    estado='confirmada' if es_operacion_directa else 'confirmada_no_pagada',
+                    estado='confirmada_no_pagada',
                     sucursal=request.user.sucursal  # Asignar la sucursal del usuario
                 )
 
@@ -3914,40 +4630,23 @@ def confirmar_reserva(request):
 # print(f"✅ Reserva creada correctamente. ID: {reserva.id}")
 # print(f"📋 Las disponibilidades se mantienen fijas, solo se actualiza el historial")
 
-                # Si es operación directa, crear el movimiento de caja
+                estado_asignado = 'confirmada_no_pagada'
                 if es_operacion_directa:
-                    # Crear el movimiento de caja aquí
-                    caja_actual = Caja.objects.filter(
-                        sucursal=request.user.sucursal,
-                        fecha_cierre__isnull=True
-                    ).first()
+                    tipo_operacion = 'Operación directa'
+                    redirect_url = reverse('inmobiliaria:finalizar_reserva_nueva', args=[reserva.id])
+                    mensaje_estado = f'{tipo_operacion} creada. Continuá con el cobro.'
+                else:
+                    tipo_operacion = 'Reserva'
+                    redirect_url = reverse('inmobiliaria:reserva_exitosa', args=[reserva.id])
+                    mensaje_estado = f'{tipo_operacion} creada con estado: {estado_asignado}'
 
-                    if not caja_actual:
-                        return JsonResponse({
-                            'success': False,
-                            'error': 'No hay una caja abierta para registrar la operación'
-                        })
-
-                    MovimientoCaja.objects.create(
-                        caja=caja_actual,
-                        tipo=TipoMovimientoCajaEnum.INGRESO,
-                        concepto='Alquiler por día',
-                        monto_efectivo=precio_total_dec,  # Ajustar según la forma de pago
-                        descripcion=f'Alquiler por día - {propiedad.direccion}',
-                        reserva=reserva
-                    )
-
-                # Determinar el estado asignado
-                estado_asignado = 'confirmada' if es_operacion_directa else 'confirmada_no_pagada'
-                tipo_operacion = 'Operación Directa' if es_operacion_directa else 'Reserva'
-                
                 return JsonResponse({
                     'success': True,
                     'reserva_id': reserva.id,
                     'estado_asignado': estado_asignado,
                     'tipo_operacion': tipo_operacion,
-                    'mensaje_estado': f'{tipo_operacion} creada con estado: {estado_asignado}',
-                    'redirect_url': reverse('inmobiliaria:ver_recibo', args=[reserva.id]) if es_operacion_directa else reverse('inmobiliaria:reserva_exitosa', args=[reserva.id])
+                    'mensaje_estado': mensaje_estado,
+                    'redirect_url': redirect_url,
                 })
 
         except Exception as e:
@@ -4083,7 +4782,8 @@ def calcular_disponibilidad_real(propiedad, disponibilidades, reservas, fecha_in
         Q(estado='confirmada') | Q(estado='pagada') | Q(estado='confirmada_no_pagada'),
         fecha_inicio__lt=fecha_fin,
         fecha_fin__gt=fecha_inicio,
-        eliminada=False
+        eliminada=False,
+        es_alquiler_sindicato=False,
     )
     
     # Si no hay reservas, usar el rango completo de disponibilidad
@@ -4382,14 +5082,17 @@ def buscar_propiedades_reserva(request):
             ).exists():
                 continue  # No mostrar como disponible: está ocupada por operación
 
-            if reservas.filter(estado='pagada').exists():
+            if reservas.filter(estado='pagada', es_alquiler_sindicato=False).exists():
                 continue  # Saltar esta propiedad si ya tiene una reserva pagada
 
-            # Verificar si existe una reserva que debe mostrarse en rojo
-            reserva_confirmada_no_pagada = reservas.filter(Q(estado='confirmada_no_pagada') | Q(estado='confirmada') | Q(estado='en_espera')).first()
+            reservas_bloquean = reservas.filter(es_alquiler_sindicato=False)
+
+            reserva_confirmada_no_pagada = _reserva_sin_pagar_para_busqueda(reservas_bloquean)
+            if reservas_bloquean.exists() and reserva_confirmada_no_pagada is None:
+                continue
 
             # Evaluar la disponibilidad y las reservas de la propiedad
-            if disponibilidades.exists() and not reservas.filter(estado='confirmada').exists():
+            if disponibilidades.exists() and not reservas_bloquean.filter(estado='confirmada').exists():
                 if reserva_confirmada_no_pagada:
                     propiedad.reserva = reserva_confirmada_no_pagada
                     propiedad.estado_reserva = 'confirmada_no_pagada'  # Siempre mostrar como confirmada_no_pagada en frontend
@@ -4682,41 +5385,14 @@ def finalizar_reserva_nueva(request, reserva_id):
         ).order_by('nombre_banco', 'alias')
         
         # ✅ CALCULAR SALDO PENDIENTE CONSIDERANDO SOLO LA SEÑA (NO EL DEPÓSITO)
-        # Buscar todos los movimientos de caja pagados para esta reserva
-        pagos_anteriores = MovimientoCaja.objects.filter(
-            propiedad=reserva.propiedad,
-            tipo=TipoMovimientoCajaEnum.INGRESO,
-            concepto__icontains=f"Operaci\u00f3n {reserva.id}"
+        from inmobiliaria.caja_devolucion_deposito import (
+            movimientos_reserva,
+            total_senia_pagada_reserva,
         )
-        
-        # ✅ DETECTAR SI ES "COMPLETAR PAGO" O "FINALIZAR RESERVA"
-        # Si ya hay pagos anteriores, es "Completar Pago", sino es "Finalizar Reserva"
+
+        pagos_anteriores = movimientos_reserva(reserva, tipo=TipoMovimientoCajaEnum.INGRESO)
         total_pagos_anteriores = sum(pago.monto_total for pago in pagos_anteriores)
-        
-        # ✅ CALCULAR SOLO LA SEÑA DE PAGOS ANTERIORES (concepto ID: 1)
-        total_senia_anteriores = Decimal('0')
-        for pago in pagos_anteriores:
-            if pago.concepto and "|CONCEPTOS:" in pago.concepto:
-                # Parsear conceptos del formato |CONCEPTOS:id:nombre:importe|
-                concepto_parts = pago.concepto.split("|CONCEPTOS:", 1)
-                if len(concepto_parts) > 1:
-                    conceptos_data = concepto_parts[1]
-                    conceptos_items = [item for item in conceptos_data.split("|") if item.strip()]
-                    
-                    for concepto_item in conceptos_items:
-                        parts = concepto_item.split(":")
-                        if len(parts) >= 3:
-                            concepto_id = parts[0].strip()
-                            concepto_importe = parts[2].strip()
-                            
-                            # ✅ CONCEPTOS QUE CUENTAN COMO SEÑA / saldo a ocupar: ver CONCEPTOS_SENIA_OPERACION_RESERVA
-                            if concepto_id in CONCEPTOS_SENIA_OPERACION_RESERVA:
-                                try:
-                                    importe_num = Decimal(concepto_importe.replace(',', ''))
-                                    total_senia_anteriores += importe_num
-# print(f"💰 SEÑA ANTERIOR DETECTADA: Concepto {concepto_id} - ${importe_num}")
-                                except:
-                                    pass
+        total_senia_anteriores = total_senia_pagada_reserva(reserva)
         
 # print(f"📊 CÁLCULO PAGOS ANTERIORES:")
 # print(f"   - Total pagos anteriores: ${total_pagos_anteriores}")
@@ -4796,11 +5472,6 @@ def terminar_reserva(request, reserva_id):
         reserva = get_object_or_404(Reserva, id=reserva_id)
         conceptos_pago = ConceptoPago.objects.all()
         pagos_previos = Pago.objects.filter(reserva=reserva).order_by('-fecha')
-        
-        # Verificar si hay pagos y actualizar el estado
-        if pagos_previos.exists():
-            reserva.estado = 'pagada'
-            reserva.save()
         
         # Inicializar o actualizar cuota_pendiente si es necesario
         if reserva.cuota_pendiente is None or reserva.cuota_pendiente == 0:
@@ -4924,10 +5595,15 @@ def terminar_reserva(request, reserva_id):
                     
                     reserva.save()
                     
+                    redirect_recibo = reverse('inmobiliaria:ver_recibo', args=[reserva.id])
+                    if reserva.cuota_pendiente <= 0:
+                        redirect_recibo = _url_recibo_reserva_siguiente_caratula(
+                            reserva.id, request
+                        )
                     return JsonResponse({
                         'success': True,
                         'message': 'Pago registrado exitosamente',
-                        'redirect_url': reverse('inmobiliaria:ver_recibo', args=[reserva.id]),
+                        'redirect_url': redirect_recibo,
                         'detalles': {
                             'total_pagado': float(total_pagado),
                             'saldo_pendiente': float(reserva.cuota_pendiente),
@@ -5088,18 +5764,7 @@ def ver_recibo(request, reserva_id):
             'cuit': getattr(cliente_data, 'cuit', '') or '',  # CUIT puede no existir
         }
         
-        # Preparar datos de la propiedad con formato correcto
-        propiedad_data = reserva.propiedad
-        propiedad_completa = {
-            'direccion': propiedad_data.direccion or '',
-            'id': propiedad_data.id,
-            'llave': propiedad_data.llave or 'N/A',
-            'piso': propiedad_data.piso or '',
-            'departamento': propiedad_data.departamento or '',
-            'cantidad_personas': propiedad_data.cantidad_personas or None,
-            'wifi': 'SÍ' if propiedad_data.wifi else 'NO',
-            'cochera': 'SÍ' if propiedad_data.cochera else 'NO',
-        }
+        propiedad_completa = _propiedad_completa_recibo(reserva.propiedad)
         
         # Preparar datos de la reserva con formato de moneda
         reserva_formateada = {
@@ -5186,10 +5851,8 @@ def ver_recibo(request, reserva_id):
             'tiene_sellados': sellados_monto > 0,
             'logo_base64': logo_base64,
             'sucursal': sucursal,  # Agregar sucursal al contexto
-            'url_volver': _url_volver_recibo(
-                request,
-                default=reverse('inmobiliaria:operaciones'),
-            ),
+            **_contexto_boton_volver_recibo(request),
+            **_contexto_botones_recibo_reserva(request, reserva.id),
         })
         
     except Exception as e:
@@ -5305,18 +5968,7 @@ def generar_recibo_pdf(reserva, pago_senia):
         'cuit': getattr(cliente_data, 'cuit', '') or '',  # CUIT puede no existir
     }
     
-    # Preparar datos de la propiedad con formato correcto
-    propiedad_data = reserva.propiedad
-    propiedad_completa = {
-        'direccion': propiedad_data.direccion or '',
-        'id': propiedad_data.id,
-        'llave': propiedad_data.llave or 'N/A',
-        'piso': propiedad_data.piso or '',
-        'departamento': propiedad_data.departamento or '',
-        'cantidad_personas': propiedad_data.cantidad_personas or None,
-        'wifi': 'SÍ' if propiedad_data.wifi else 'NO',
-        'cochera': 'SÍ' if propiedad_data.cochera else 'NO',
-    }
+    propiedad_completa = _propiedad_completa_recibo(reserva.propiedad)
     
     # Preparar datos de la reserva con formato de moneda
     reserva_formateada = {
@@ -5500,19 +6152,44 @@ def historial_reservas_vendedor(request, vendedor_id):
     return render(request, 'inmobiliaria/vendedores/historial.html', {
         'reservas': reservas,
     })
+@login_required
 def historial_reservas_inquilino(request, inquilino_id):
-    reservas = Reserva.objects.filter(cliente_id=inquilino_id).select_related('propiedad', 'propiedad__propietario').order_by('-fecha_inicio')
+    from inmobiliaria.models.historial_inquilino import HistorialInquilino
 
-    # Usar el precio_total de la reserva
+    inquilino = get_object_or_404(Inquilino, pk=inquilino_id)
+    # Activas + anuladas mezcladas por fecha. Las marcadas "ocultar" (eliminadas desde acá) no salen.
+    reservas = (
+        Reserva.objects.filter(cliente_id=inquilino_id, ocultar_en_historial_inquilino=False)
+        .select_related('propiedad', 'propiedad__propietario', 'usuario_eliminacion', 'vendedor')
+        .order_by('-fecha_inicio', '-id')
+    )
+
+    eventos = (
+        HistorialInquilino.objects.filter(inquilino_id=inquilino_id)
+        .select_related('reserva', 'reserva__propiedad', 'usuario', 'contrato')
+        .order_by('-creado', '-id')
+    )
+
+    estado_labels = dict(Reserva._meta.get_field('estado').choices)
+    estado_labels['cancelada'] = 'Cancelada'
+
     reservas_con_monto = []
     for reserva in reservas:
+        anulada = reserva.eliminada or reserva.estado == 'cancelada'
         reservas_con_monto.append({
             'reserva': reserva,
-            'total_pagado': reserva.precio_total or 0
+            'precio_total': reserva.precio_total or 0,
+            'senia': reserva.senia or 0,
+            'anulada': anulada,
+            'estado_label': estado_labels.get(reserva.estado, reserva.estado),
         })
 
     return render(request, 'inmobiliaria/inquilinos/historial.html', {
+        'inquilino': inquilino,
         'reservas_con_monto': reservas_con_monto,
+        'eventos': eventos,
+        'estado_labels': estado_labels,
+        'puede_eliminar_reserva': True,
     })    
 def buscar_propietarios(request):
     """
@@ -5534,24 +6211,12 @@ def buscar_propietarios(request):
         qs = qs.filter(sucursal=request.user.sucursal)
 
     if term:
-        # Término completo (apellidos con espacio, ej. "de Marcos") y por palabras
+        from inmobiliaria.busqueda_persona import q_busqueda_persona, ordenar_queryset_persona_por_termino
         term = term.strip()
-        q = (
-            Q(nombre__icontains=term) |
-            Q(apellido__icontains=term) |
-            Q(dni__icontains=term) |
-            Q(id__icontains=term)
-        )
-        palabras = [p.strip() for p in term.split() if p.strip()]
-        if len(palabras) > 1:
-            q_palabras = Q()
-            for p in palabras:
-                q_palabras &= (Q(nombre__icontains=p) | Q(apellido__icontains=p))
-            q = q | q_palabras
-        qs = qs.filter(q)
+        qs = ordenar_queryset_persona_por_termino(qs.filter(q_busqueda_persona(term)), term)
 
     total = qs.count()
-    propietarios = qs.order_by("apellido", "nombre")[offset: offset + page_size]
+    propietarios = qs[offset: offset + page_size]
 
     results = [
         {
@@ -6121,6 +6786,13 @@ def procesar_movimiento_reserva(request):
                     concepto_actualizado = f"Operaci\u00f3n {reserva.id} - Galicia: ${monto_deposito_galicia}, MP: ${monto_deposito_mp}"
                     movimiento_principal.concepto = concepto_actualizado
                     movimiento_principal.save()
+
+            if monto_deposito and monto_deposito > 0:
+                try:
+                    movimiento_principal.fecha_transferencia = _fecha_transferencia_desde_post(request)
+                except ValueError:
+                    return JsonResponse({'success': False, 'error': 'Fecha de transferencia inválida.'})
+                movimiento_principal.save(update_fields=['fecha_transferencia'])
             
             total_movimiento_creado = (monto_efectivo or 0) + (monto_cheque or 0) + (monto_tarjeta or 0) + (monto_deposito or 0)
 # print(f"✅ MOVIMIENTO ÚNICO CREADO - ID: {movimiento_principal.id}, Total: ${total_movimiento_creado}")
@@ -6188,6 +6860,8 @@ def procesar_movimiento_reserva(request):
                     pass  # ✅ Bloque vacío
 # print(f"   - {key}: '{value}'")
             
+            saldo_pendiente = (reserva.precio_total or Decimal('0')) - (reserva.senia or Decimal('0'))
+
             try:
                 deposito_garantia = Decimal(deposito_garantia_input) if deposito_garantia_input else Decimal('0')
                 # Importe locación: siempre el precio total guardado en la reserva (no editable en el recibo; no se toma del POST)
@@ -6288,12 +6962,8 @@ def procesar_movimiento_reserva(request):
 # print(f"   - Saldo Pendiente: ${saldo_pendiente}")
                 
                 reserva.save()
-                
+
                 # ✅ ACTUALIZAR HISTORIAL: Cambiar estado de "Reservado" a "Operación" si hay seña
-# print(f"🔄 ACTUALIZANDO HISTORIAL después del pago...")
-                reserva.actualizar_historial_disponibilidad()
-# print(f"✅ HISTORIAL ACTUALIZADO - Estado debería ser 'Operación'")
-                
                 # ✅ CREAR RECIBO PARA ESTE PAGO
                 from .models.recibo import Recibo
                 # ✅ NUMERACIÓN AUTOMÁTICA DE RECIBOS POR SUCURSAL
@@ -6337,15 +7007,16 @@ def procesar_movimiento_reserva(request):
 # print(f"✅ RECIBO CREADO: {numero_recibo}")
                 
             except (ValueError, TypeError) as e:
-                pass  # ✅ Bloque vacío
-# print(f"❌ Error al convertir valores: {e}")
-                # Si hay error en la conversión, usar valores por defecto
-                reserva.senia = Decimal('0')
-                deposito_garantia = Decimal('0')
-                
-            # Cambiar estado de la reserva
-            reserva.estado = 'pagada'
-            reserva.save()
+                logger.exception(
+                    'procesar_movimiento_reserva: error al convertir montos reserva_id=%s',
+                    reserva.id,
+                )
+                saldo_pendiente = (reserva.precio_total or Decimal('0')) - (reserva.senia or Decimal('0'))
+
+            from inmobiliaria.caja_devolucion_deposito import sincronizar_senia_reserva_desde_movimientos
+
+            sincronizar_senia_reserva_desde_movimientos(reserva)
+            saldo_pendiente = (reserva.precio_total or Decimal('0')) - (reserva.senia or Decimal('0'))
 
             # Devolución de depósito (solo al finalizar: saldo pendiente en 0)
             devolver_deposito = request.POST.get('devolver_deposito') in ('1', 'true', 'on', 'yes')
@@ -6400,10 +7071,18 @@ def procesar_movimiento_reserva(request):
             
 # print(f"=== MOVIMIENTO CREADO EXITOSAMENTE - ID: {movimiento.id} ===")
             
+            if saldo_pendiente <= 0:
+                redirect_url = _url_recibo_movimiento_siguiente_caratula(
+                    movimiento, request.user.sucursal, reserva.id, request
+                )
+            else:
+                redirect_url = _url_recibo_para_movimiento(
+                    movimiento, request.user.sucursal
+                )
             return JsonResponse({
                 'success': True,
                 'movimiento_id': movimiento.id,
-                'redirect_url': reverse('inmobiliaria:ver_recibo_movimiento', args=[movimiento.id])
+                'redirect_url': redirect_url,
             })
             
         except Exception as e:
@@ -6590,36 +7269,21 @@ def ver_recibo_movimiento(request, movimiento_id):
     try:
         # Obtener el movimiento de caja principal
         movimiento = get_object_or_404(
-            MovimientoCaja.objects.prefetch_related('cheques'),
+            MovimientoCaja.objects.select_related(
+                'caja', 'propiedad', 'propiedad__propietario', 'empleado', 'sucursal'
+            ).prefetch_related('cheques'),
             id=movimiento_id,
             sucursal=request.user.sucursal,
         )
 
-        if movimiento.tipo == TipoMovimientoCajaEnum.INGRESO:
-            contrato_tmp = _obtener_contrato_desde_movimiento(movimiento, request.user.sucursal)
-            if not contrato_tmp:
-                canon = _movimiento_canonico_operacion(movimiento, request.user.sucursal)
-                if canon and canon.id != movimiento.id:
-                    from urllib.parse import urlencode
-
-                    params = {}
-                    back_next = _next_para_redirect_recibo(request)
-                    if back_next:
-                        params['next'] = back_next
-                    url = reverse('inmobiliaria:ver_recibo_movimiento', args=[canon.id])
-                    if params:
-                        url += '?' + urlencode(params)
-                    return HttpResponseRedirect(url)
-        
-        # Obtener la reserva relacionada desde el concepto del movimiento.
-        # IMPORTANTE: en cobros de contrato/cuotas no mezclar con reserva por propiedad.
-        concepto_txt = (movimiento.concepto or '')
-        detalle_txt = (getattr(movimiento, 'concepto_detalle', None) or '').strip()
         contrato_vinculado = None
         es_movimiento_contrato = False
         if movimiento.tipo == TipoMovimientoCajaEnum.INGRESO:
             contrato_vinculado = _obtener_contrato_desde_movimiento(movimiento, request.user.sucursal)
             es_movimiento_contrato = contrato_vinculado is not None
+
+        concepto_txt = (movimiento.concepto or '')
+        detalle_txt = (getattr(movimiento, 'concepto_detalle', None) or '').strip()
 
         # Para cobros de contrato/cuota, usar el mismo formato Gonnet que los otros recibos.
         if es_movimiento_contrato and contrato_vinculado:
@@ -6845,57 +7509,10 @@ def ver_recibo_movimiento(request, movimiento_id):
                     }]
                     total_pagado = monto_fb
 
-            formas_de_pago = []
-
-            # Obtener formas de pago del movimiento con montos detallados
-            formas_con_montos = []
-            if (movimiento.monto_efectivo or 0) > 0:
-                formas_con_montos.append(f'Efectivo {_recibo_monto_str(movimiento.monto_efectivo)}')
-                formas_de_pago.append('Efectivo')
-            if (movimiento.monto_tarjeta or 0) > 0:
-                formas_con_montos.append(f'Tarjeta {_recibo_monto_str(movimiento.monto_tarjeta)}')
-                formas_de_pago.append('Tarjeta')
-            if (movimiento.monto_cheque or 0) > 0:
-                formas_con_montos.append(f'Cheque {_recibo_monto_str(movimiento.monto_cheque)}')
-                formas_de_pago.append('Cheque')
-            if (movimiento.monto_deposito or 0) > 0:
-                if movimiento.destino_deposito == 'galicia':
-                    formas_con_montos.append(f'Transferencia Galicia {_recibo_monto_str(movimiento.monto_deposito)}')
-                    formas_de_pago.append('Galicia')
-                elif movimiento.destino_deposito == 'mp':
-                    formas_con_montos.append(f'Transferencia Mercado Pago {_recibo_monto_str(movimiento.monto_deposito)}')
-                    formas_de_pago.append('Mercado Pago')
-                else:
-                    formas_con_montos.append(f'Transferencia {_recibo_monto_str(movimiento.monto_deposito)}')
-                    formas_de_pago.append('Transferencia')
-
-            if not formas_con_montos and recibo_obj:
-                det = recibo_obj.conceptos_detalle or {}
-                formas = det.get('formas_pago') if isinstance(det, dict) else None
-                if isinstance(formas, dict):
-                    if float(formas.get('efectivo') or 0) > 0:
-                        formas_con_montos.append(
-                            f'Efectivo {_recibo_monto_str(formas.get("efectivo"))}'
-                        )
-                        formas_de_pago.append('Efectivo')
-                    if float(formas.get('tarjeta') or 0) > 0:
-                        formas_con_montos.append(
-                            f'Tarjeta {_recibo_monto_str(formas.get("tarjeta"))}'
-                        )
-                        formas_de_pago.append('Tarjeta')
-                    if float(formas.get('cheque') or 0) > 0:
-                        formas_con_montos.append(
-                            f'Cheque {_recibo_monto_str(formas.get("cheque"))}'
-                        )
-                        formas_de_pago.append('Cheque')
-                    if float(formas.get('deposito') or 0) > 0:
-                        formas_con_montos.append(
-                            f'Transferencia {_recibo_monto_str(formas.get("deposito"))}'
-                        )
-                        formas_de_pago.append('Transferencia')
-            
-            # Siempre usar formas con montos para mostrar el desglose completo
-            formas_de_pago_mostrar = formas_con_montos if formas_con_montos else formas_de_pago
+            formas_de_pago_txt = _formas_de_pago_desde_movimiento_caja(movimiento)
+            if not formas_de_pago_txt:
+                formas_de_pago_txt = 'EFECTIVO'
+            formas_de_pago_mostrar = formas_de_pago_txt
             
             # Función para convertir número a palabras
             def numero_a_palabras(numero):
@@ -6945,18 +7562,7 @@ def ver_recibo_movimiento(request, movimiento_id):
                 'cuit': getattr(cliente_data, 'cuit', '') or '',  # CUIT puede no existir
             }
             
-            # Preparar datos de la propiedad con formato correcto
-            propiedad_data = reserva.propiedad
-            propiedad_completa = {
-                'direccion': propiedad_data.direccion or '',
-                'id': propiedad_data.id,
-                'llave': propiedad_data.llave or 'N/A',
-                'piso': propiedad_data.piso or '',
-                'departamento': propiedad_data.departamento or '',
-                'cantidad_personas': propiedad_data.cantidad_personas or None,
-                'wifi': 'SÍ' if propiedad_data.wifi else 'NO',
-                'cochera': 'SÍ' if propiedad_data.cochera else 'NO',
-            }
+            propiedad_completa = _propiedad_completa_recibo(reserva.propiedad)
             
             # Preparar datos de la reserva con formato de moneda
             reserva_formateada = {
@@ -7030,7 +7636,7 @@ def ver_recibo_movimiento(request, movimiento_id):
                 'pagos': pagos,
                 'total_pagado': _recibo_monto_str(total_pagado),
                 'monto_en_palabras': numero_a_palabras(int(total_pagado)),
-                'formas_de_pago': ', '.join(formas_de_pago_mostrar) if formas_de_pago_mostrar else 'EFECTIVO',
+                'formas_de_pago': formas_de_pago_mostrar,
                 'logo_base64': logo_base64,
                 # ✅ DATOS CORREGIDOS PARA MOSTRAR EN RECIBO
                 'precio_total_operacion': _recibo_monto_str(precio_total_mostrar),
@@ -7045,10 +7651,9 @@ def ver_recibo_movimiento(request, movimiento_id):
                 'tiene_honorarios': honorarios_monto > 0,
                 'tiene_sellados': sellados_monto > 0,
                 'sucursal': sucursal,  # Agregar sucursal al contexto
-                'url_volver': _url_volver_recibo(
-                    request,
-                    default=reverse('inmobiliaria:operaciones'),
-                ),
+                **_contexto_boton_volver_recibo(request),
+                **_contexto_botones_recibo_reserva(request, reserva.id),
+                **_contexto_editar_forma_pago_recibo(request, movimiento),
             })
         
         # Si no hay reserva, usar el template original
@@ -7078,15 +7683,6 @@ def ver_recibo_movimiento(request, movimiento_id):
             total_gastos_descontados = Decimal('0')
 
         total_dolares = float(getattr(movimiento, 'monto_dolares', None) or 0)
-        url_recibo_formal = _url_recibo_para_movimiento(
-            movimiento,
-            request.user.sucursal,
-            next_url=_next_para_redirect_recibo(request),
-        )
-        if url_recibo_formal != reverse(
-            'inmobiliaria:ver_recibo_movimiento', args=[movimiento.id]
-        ):
-            return HttpResponseRedirect(url_recibo_formal)
 
         contrato_recibo = (
             _obtener_contrato_desde_movimiento(movimiento, request.user.sucursal)
@@ -7118,14 +7714,8 @@ def ver_recibo_movimiento(request, movimiento_id):
             'liquidacion_relacionada': liquidacion_relacionada,
             'gastos_liquidacion_recibo': gastos_liquidacion_recibo,
             'total_gastos_descontados': total_gastos_descontados,
-            'url_volver': _url_volver_recibo(
-                request,
-                default=(
-                    reverse('inmobiliaria:detalle_contrato', args=[contrato_recibo.id])
-                    if contrato_recibo
-                    else reverse('inmobiliaria:lista_cajas')
-                ),
-            ),
+            **_contexto_boton_volver_recibo(request),
+            **_contexto_editar_forma_pago_recibo(request, movimiento),
         }
         
         return render(request, 'inmobiliaria/caja/recibo_movimiento.html', context)
@@ -7490,18 +8080,14 @@ def buscar_propiedades_por_fechas(request):
                         fecha_fin__gt=fecha_desde
                     )
                     
-                    # Verificar si hay una reserva que termina exactamente en la fecha de inicio
-                    # IMPORTANTE: Buscar reservas que terminan el día ANTES del inicio de búsqueda
-                    # Si busco del 15 al 16, una reserva del 14 al 15 termina el 15, que es el día de inicio
-                    # SOLO si está en estado confirmada o confirmada_no_pagada (no pagadas)
-                    reserva_termina_en_inicio = propiedad.reservas.filter(
-                        eliminada=False,
-                        fecha_fin=fecha_desde,
-                        estado__in=['confirmada', 'confirmada_no_pagada', 'en_espera']
-                    ).exclude(
-                        # Excluir reservas que también empiezan en fecha_desde (esas están en el rango)
-                        fecha_inicio=fecha_desde
-                    ).first()
+                    # Amarillo: reserva (no operación) que termina el día de entrada de la búsqueda
+                    from inmobiliaria.caja_devolucion_deposito import (
+                        buscar_reserva_termina_en_inicio_para_amarillo,
+                    )
+
+                    reserva_termina_en_inicio = buscar_reserva_termina_en_inicio_para_amarillo(
+                        propiedad, fecha_desde
+                    )
                     
                     # Determinar el estado de la propiedad
                     estado_propiedad = 'disponible'
@@ -7578,10 +8164,11 @@ def format_price(value):
     except (ValueError, TypeError):
         return str(value)
 
+@login_required
 def obtener_vendedor(request, vendedor_id):
     logger.info(f"Solicitando vendedor con ID: {vendedor_id}")
     try:
-        vendedor = Vendedor.objects.get(id=vendedor_id)
+        vendedor = Vendedor.objects.get(id=vendedor_id, sucursal=request.user.sucursal)
         logger.info(f"Vendedor encontrado: {vendedor.nombre} {vendedor.apellido}")
 # print(f"Vendedor encontrado: {vendedor.nombre} {vendedor.apellido}")
         return JsonResponse({
@@ -7802,18 +8389,23 @@ def buscar_propiedades_estudiantes(request):
                     if precio_val > filtro_precio_max:
                         continue
                 disp_prop = disponibilidades.filter(propiedad=propiedad)
-                reserva_termina_en_inicio = propiedad.reservas.filter(
+                from inmobiliaria.caja_devolucion_deposito import (
+                    buscar_reserva_termina_en_inicio_para_amarillo,
+                    reserva_mostrar_como_reservada_sin_pagar,
+                )
+                reserva_termina_en_inicio = buscar_reserva_termina_en_inicio_para_amarillo(
+                    propiedad, fecha_desde
+                )
+                reserva_activa_rango = False
+                for r in propiedad.reservas.filter(
                     eliminada=False,
-                    fecha_fin=fecha_desde,
-                    estado__in=['confirmada', 'confirmada_no_pagada', 'en_espera']
-                ).exclude(fecha_inicio=fecha_desde).first()
-                # ¿Tiene reserva activa que solapa con el rango? (para contar como reservada)
-                reserva_activa_rango = propiedad.reservas.filter(
-                    eliminada=False,
-                    estado__in=['confirmada', 'confirmada_no_pagada', 'en_espera'],
                     fecha_inicio__lt=fecha_hasta,
-                    fecha_fin__gt=fecha_desde
-                ).exists()
+                    fecha_fin__gt=fecha_desde,
+                    es_alquiler_sindicato=False,
+                ):
+                    if reserva_mostrar_como_reservada_sin_pagar(r):
+                        reserva_activa_rango = True
+                        break
                 propiedades_encontradas.append({
                     'propiedad': propiedad,
                     'disponibilidades': disp_prop,
@@ -8843,7 +9435,7 @@ def editar_historial_reserva(request):
         historial = get_object_or_404(HistorialDisponibilidad, id=historial_id)
         if historial.propiedad.sucursal != request.user.sucursal:
             return JsonResponse({'success': False, 'error': 'No tienes permisos para editar este historial'})
-        if not historial.reserva_id or historial.estado not in ('reservado', 'alquilado'):
+        if not historial.reserva_id or historial.estado not in ('reservado', 'alquilado', 'alquiler_sindicato'):
             return JsonResponse({'success': False, 'error': 'Este historial no corresponde a una reserva editable'})
         fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
         fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date()
@@ -8870,7 +9462,7 @@ def editar_historial_reserva(request):
             # Esto evita duplicados porque actualizamos los existentes en lugar de crear nuevos
             HistorialDisponibilidad.objects.filter(
                 reserva=reserva,
-                estado__in=('reservado', 'alquilado')
+                estado__in=('reservado', 'alquilado', 'alquiler_sindicato')
             ).update(
                 fecha_inicio=fecha_inicio,
                 fecha_fin=fecha_fin
@@ -8878,6 +9470,21 @@ def editar_historial_reserva(request):
             
             # Refrescar el objeto reserva para tener los valores actualizados
             reserva.refresh_from_db()
+
+            if old_start != fecha_inicio or old_fin != fecha_fin:
+                from inmobiliaria.historial_inquilino import registrar_evento_historial_inquilino
+
+                registrar_evento_historial_inquilino(
+                    tipo='fechas_modificadas',
+                    reserva=reserva,
+                    usuario=request.user,
+                    fecha_inicio_anterior=old_start,
+                    fecha_fin_anterior=old_fin,
+                    fecha_inicio_nueva=fecha_inicio,
+                    fecha_fin_nueva=fecha_fin,
+                    detalle='Fechas editadas desde el historial de disponibilidad.',
+                )
+
             propiedad = historial.propiedad
             def _crear_o_actualizar_periodo_libre(prop, start, fin):
                 """Crea período libre o lo fusiona con uno contiguo existente (formato hotel: libre empieza el mismo día que termina reserva)."""
@@ -9104,6 +9711,21 @@ def limpieza_brutal(request):
             })
     
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
+
+
+@login_required
+@require_POST
+def toggle_alquiler_sindicato_reserva(request, reserva_id):
+    """Deshabilitado: las reservas se cargan como operaciones normales."""
+    return JsonResponse(
+        {
+            'success': False,
+            'error': 'El marcado de alquiler sindicato ya no está disponible. '
+            'Las reservas se gestionan como cualquier otra operación.',
+        },
+        status=403,
+    )
+
 
 def reconstruir_historial_propiedad(propiedad):
     """
@@ -9340,6 +9962,18 @@ def editar_info_invierno(request, propiedad_id):
                     info_invierno.fecha_fin = datetime.strptime(ff, '%Y-%m-%d').date() if ff else None
 
             info_invierno.save()
+            from inmobiliaria.models.propiedad import (
+                desactivar_24_meses_si_invierno_ocupado,
+                reactivar_24_meses_si_invierno_libre,
+                sincronizar_exclusion_invierno_24_meses,
+            )
+
+            if info_invierno.disponible and info_invierno.estado in ('reservado', 'ocupado'):
+                desactivar_24_meses_si_invierno_ocupado(propiedad)
+            elif info_invierno.disponible and info_invierno.estado == 'disponible':
+                reactivar_24_meses_si_invierno_libre(propiedad)
+            else:
+                sincronizar_exclusion_invierno_24_meses(propiedad)
             # Crear segmento en historial si estado reservado/ocupado con fechas
             if info_invierno.disponible and info_invierno.estado in ('reservado', 'ocupado') and info_invierno.fecha_inicio and info_invierno.fecha_fin:
                 HistorialDisponibilidad.objects.filter(
@@ -9566,6 +10200,15 @@ def actualizar_invierno_ajax(request):
             info_invierno.fecha_fin = datetime.strptime(ff, '%Y-%m-%d').date() if ff else None
         info_invierno.observaciones = request.POST.get('observaciones', '') or ''
         info_invierno.save()
+        from inmobiliaria.models.propiedad import (
+            desactivar_24_meses_si_invierno_ocupado,
+            reactivar_24_meses_si_invierno_libre,
+        )
+
+        if info_invierno.estado in ('reservado', 'ocupado'):
+            desactivar_24_meses_si_invierno_ocupado(propiedad)
+        elif info_invierno.estado == 'disponible':
+            reactivar_24_meses_si_invierno_libre(propiedad)
         # Sincronizar Historial de Disponibilidad: si estado es reservado/ocupado con fechas, crear segmento
         if info_invierno.estado in ('reservado', 'ocupado') and info_invierno.fecha_inicio and info_invierno.fecha_fin:
             hist_estado = 'reservado' if info_invierno.estado == 'reservado' else 'alquilado'
@@ -9643,118 +10286,123 @@ def desactivar_propiedad_invierno(request, propiedad_id):
 
 @login_required
 def ventas(request):
+    from django.db.models import F
+
     # Filtrar propiedades que tienen info de venta y están disponibles o reservadas
     propiedades_venta = Propiedad.objects.filter(
         info_venta__en_venta=True,
-        info_venta__estado__in=['disponible', 'reservado']
+        info_venta__estado__in=['disponible', 'reservado'],
     ).select_related('info_venta', 'sucursal').prefetch_related('imagenes')
 
-    # Debug: Imprimir información sobre las propiedades y sus imágenes
-# print("\n=== DEBUG IMÁGENES DE PROPIEDADES ===")
-# print(f"MEDIA_ROOT: {settings.MEDIA_ROOT}")
-# print(f"MEDIA_URL: {settings.MEDIA_URL}")
-# print(f"DEBUG: {settings.DEBUG}")
-# print(f"AWS_ACCESS_KEY_ID presente: {'AWS_ACCESS_KEY_ID' in os.environ}")
-# print(f"AWS_STORAGE_BUCKET_NAME presente: {'AWS_STORAGE_BUCKET_NAME' in os.environ}")
-    
-    for propiedad in propiedades_venta:
-        pass  # ✅ Bloque vacío
-# print(f"\nPropiedad ID: {propiedad.id}")
-# print(f"Dirección: {propiedad.direccion}")
-        imagenes = propiedad.imagenes.all()
-# print(f"Número de imágenes: {imagenes.count()}")
-        for img in imagenes:
-            pass  # ✅ Bloque vacío
-# print(f"- Imagen ID: {img.id}")
-# print(f"  URL: {img.imagen.url if img.imagen else 'No hay URL'}")
-# print(f"  Nombre archivo: {img.imagen.name if img.imagen else 'No hay archivo'}")
-            if img.imagen:
-                ruta_completa = os.path.join(settings.MEDIA_ROOT, img.imagen.name)
-# print(f"  ¿Archivo existe localmente?: {os.path.exists(ruta_completa)}")
-# print("=== FIN DEBUG ===\n")
-
-    # Calcular los contadores
+    # Contadores sobre el universo base (antes de filtros de búsqueda)
     total_propiedades = propiedades_venta.count()
     propiedades_disponibles = propiedades_venta.filter(info_venta__estado='disponible').count()
     propiedades_reservadas = propiedades_venta.filter(info_venta__estado='reservado').count()
 
-    # Aplicar filtros de búsqueda si existen
-    busqueda = request.GET.get('busqueda', '')
+    # Búsqueda por dirección o ficha
+    busqueda = (request.GET.get('busqueda') or '').strip()
     if busqueda:
-        propiedades_venta = propiedades_venta.filter(
-            Q(direccion__icontains=busqueda) |
-            Q(id__icontains=busqueda)
-        )
-
-    estado = request.GET.get('estado', '')
-    if estado:
-        propiedades_venta = propiedades_venta.filter(info_venta__estado=estado)
-
-    # Filtro por ambientes
-    ambientes = request.GET.get('ambientes', '')
-    if ambientes:
-        if ambientes == '5':  # 5+ ambientes
-            propiedades_venta = propiedades_venta.filter(ambientes__gte=5)
+        q_buscar = Q(direccion__icontains=busqueda)
+        raw_id = busqueda.lstrip('#').strip()
+        if raw_id.isdigit():
+            try:
+                q_buscar |= Q(pk=int(raw_id))
+            except (ValueError, OverflowError):
+                pass
         else:
-            propiedades_venta = propiedades_venta.filter(ambientes=int(ambientes))
+            q_buscar |= Q(id__icontains=busqueda)
+        propiedades_venta = propiedades_venta.filter(q_buscar)
+
+    # Ambientes
+    ambientes = (request.GET.get('ambientes') or '').strip()
+    if ambientes:
+        try:
+            if ambientes == '5':
+                propiedades_venta = propiedades_venta.filter(ambientes__gte=5)
+            else:
+                propiedades_venta = propiedades_venta.filter(ambientes=int(ambientes))
+        except (TypeError, ValueError):
+            ambientes = ''
+
+    # Vista: a la calle / lateral / interno (contrafrente)
+    vista = (request.GET.get('vista') or '').strip()
+    if vista == 'interno':
+        vista = 'contrafrente'
+    if vista in ('a_la_calle', 'lateral', 'contrafrente'):
+        propiedades_venta = propiedades_venta.filter(vista=vista)
+    else:
+        vista = ''
+
+    # Rango de precio (barra principal)
+    precio_min = (request.GET.get('precio_min') or '').strip()
+    if precio_min:
+        try:
+            propiedades_venta = propiedades_venta.filter(
+                info_venta__precio_venta__gte=float(precio_min.replace(',', '.'))
+            )
+        except (TypeError, ValueError):
+            precio_min = ''
+
+    precio_max = (request.GET.get('precio_max') or '').strip()
+    if precio_max:
+        try:
+            propiedades_venta = propiedades_venta.filter(
+                info_venta__precio_venta__lte=float(precio_max.replace(',', '.'))
+            )
+        except (TypeError, ValueError):
+            precio_max = ''
 
     # Filtros avanzados
-    tipo_inmueble = request.GET.get('tipo_inmueble', '')
+    tipo_inmueble = (request.GET.get('tipo_inmueble') or '').strip()
     if tipo_inmueble:
         propiedades_venta = propiedades_venta.filter(tipo_inmueble=tipo_inmueble)
 
-    vista = request.GET.get('vista', '')
-    if vista:
-        propiedades_venta = propiedades_venta.filter(vista=vista)
-
-    valoracion = request.GET.get('valoracion', '')
+    valoracion = (request.GET.get('valoracion') or '').strip()
     if valoracion:
-        propiedades_venta = propiedades_venta.filter(valoracion=int(valoracion))
+        try:
+            propiedades_venta = propiedades_venta.filter(valoracion=int(valoracion))
+        except (TypeError, ValueError):
+            valoracion = ''
 
-    # Filtros de precio
-    precio_min = request.GET.get('precio_min', '')
-    if precio_min:
-        propiedades_venta = propiedades_venta.filter(info_venta__precio_venta__gte=float(precio_min))
-
-    precio_max = request.GET.get('precio_max', '')
-    if precio_max:
-        propiedades_venta = propiedades_venta.filter(info_venta__precio_venta__lte=float(precio_max))
-
-    # Filtros de características (checkboxes)
     caracteristicas_filtros = [
-        'amoblado', 'cochera', 'wifi', 'piscina', 'patio', 'parrilla', 
-        'terraza', 'balcon', 'vista_al_Mar', 'a_estrenar', 'seguridad', 'apto_credito'
+        'amoblado', 'cochera', 'wifi', 'piscina', 'patio', 'parrilla',
+        'terraza', 'balcon', 'vista_al_Mar', 'a_estrenar', 'seguridad', 'apto_credito',
     ]
-    
     for caracteristica in caracteristicas_filtros:
         if request.GET.get(caracteristica):
-            # Filtrar propiedades que tienen esta característica marcada como True
-            filter_kwargs = {caracteristica: True}
-            propiedades_venta = propiedades_venta.filter(**filter_kwargs)
+            propiedades_venta = propiedades_venta.filter(**{caracteristica: True})
+
+    # Siempre de más barato a más caro
+    from decimal import Decimal
+    from django.db.models import Value
+    from django.db.models.functions import Coalesce
+
+    propiedades_venta = propiedades_venta.annotate(
+        precio_ord=Coalesce(F('info_venta__precio_venta'), Value(Decimal('999999999')))
+    ).order_by('precio_ord', 'direccion')
+
+    # Valor de vista para el select (interno si era contrafrente)
+    vista_filtro_ui = 'interno' if vista == 'contrafrente' else vista
 
     context = {
         'propiedades': propiedades_venta,
         'busqueda': busqueda,
-        'estado_filtro': estado,
         'ambientes_filtro': ambientes,
-        'estados': VentaPropiedad.ESTADO_CHOICES,
+        'vista_filtro': vista_filtro_ui,
         'telefono_empresa': '5492235916229',
         'total_propiedades': total_propiedades,
         'propiedades_disponibles': propiedades_disponibles,
         'propiedades_reservadas': propiedades_reservadas,
-        # Filtros avanzados para mantener en el contexto
         'tipo_inmueble_filtro': tipo_inmueble,
-        'vista_filtro': vista,
         'valoracion_filtro': valoracion,
         'precio_min_filtro': precio_min,
         'precio_max_filtro': precio_max,
-        # Características seleccionadas
         'caracteristicas_seleccionadas': {
-            caracteristica: request.GET.get(caracteristica, False) 
+            caracteristica: bool(request.GET.get(caracteristica))
             for caracteristica in caracteristicas_filtros
-        }
+        },
     }
-    
+
     return render(request, 'inmobiliaria/propiedades/ventas.html', context)
 
 @login_required
@@ -10191,22 +10839,50 @@ def ver_caja(request, caja_id):
 
 @login_required
 def lista_cajas(request):
-    # Obtener la sucursal del usuario logueado
+    from django.core.paginator import Paginator
+
     sucursal = request.user.sucursal
-    
-    # Obtener las cajas de la sucursal
-    cajas = Caja.objects.filter(sucursal=sucursal).order_by('-fecha_apertura')
-    
-    # Obtener la caja abierta actual (la más reciente por fecha de apertura)
-    caja_actual = cajas.filter(estado='abierta').order_by('-fecha_apertura').first()
+    fecha_desde = (request.GET.get('fecha_desde') or '').strip()
+    fecha_hasta = (request.GET.get('fecha_hasta') or '').strip()
+    estado = (request.GET.get('estado') or '').strip()
+
+    cajas_qs = Caja.objects.filter(sucursal=sucursal).order_by('-fecha_apertura')
+    if estado in ('abierta', 'cerrada'):
+        cajas_qs = cajas_qs.filter(estado=estado)
+    if fecha_desde:
+        try:
+            cajas_qs = cajas_qs.filter(fecha_apertura__date__gte=datetime.strptime(fecha_desde, '%Y-%m-%d').date())
+        except ValueError:
+            pass
+    if fecha_hasta:
+        try:
+            cajas_qs = cajas_qs.filter(fecha_apertura__date__lte=datetime.strptime(fecha_hasta, '%Y-%m-%d').date())
+        except ValueError:
+            pass
+
+    caja_actual = (
+        Caja.objects.filter(sucursal=sucursal, estado='abierta')
+        .order_by('-fecha_apertura')
+        .first()
+    )
     cajas_abiertas_count = Caja.objects.filter(sucursal=sucursal, estado='abierta').count()
-    
+    saldo_actual_caja = caja_actual.get_saldo_actual() if caja_actual else None
+
+    paginator = Paginator(cajas_qs, 30)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    query_params = request.GET.copy()
+    if 'page' in query_params:
+        del query_params['page']
+
     context = {
-        'cajas': cajas,
+        'cajas': page_obj,
+        'page_obj': page_obj,
         'caja_actual': caja_actual,
         'cajas_abiertas_count': cajas_abiertas_count,
+        'saldo_actual_caja': saldo_actual_caja,
+        'querystring': query_params.urlencode(),
     }
-    
+
     return render(request, 'inmobiliaria/caja/lista_cajas.html', context)
 
 @login_required
@@ -10255,7 +10931,11 @@ def eliminar_movimiento(request, movimiento_id):
     movimiento = get_object_or_404(MovimientoCaja, id=movimiento_id, sucursal=request.user.sucursal)
 
     def _redirect_tras_eliminar_movimiento(caja_num_fallback):
-        next_target = (request.POST.get('next') or request.GET.get('next') or '').strip()
+        next_raw = (request.POST.get('next') or request.GET.get('next') or '').strip()
+        safe_next = _validar_url_volver_recibo(next_raw, request)
+        if safe_next:
+            return redirect(safe_next)
+        next_target = next_raw
         if next_target == 'operaciones':
             return redirect('inmobiliaria:operaciones')
         cid = (request.POST.get('contrato_id') or request.GET.get('contrato_id') or '').strip()
@@ -10421,34 +11101,88 @@ def _montos_form_edicion_movimiento(movimiento, sucursal=None):
 
 
 def _sincronizar_montos_anexos_movimiento(movimiento):
-    """Actualiza vales y recibo vinculados cuando cambian los montos del movimiento."""
+    """Actualiza vales, recibo vinculado y JSON de formas de pago cuando cambian los montos."""
     from inmobiliaria.models.vale import ValeVendedor
 
     nuevo_total = ValeVendedor.monto_total_movimiento(movimiento)
     ValeVendedor.objects.filter(movimiento_caja=movimiento).update(monto=nuevo_total)
+
+    formas_dict = _formas_pago_dict_desde_movimiento_caja(movimiento)
+    formas_recibo = {
+        'efectivo': formas_dict['efectivo'],
+        'cheque': formas_dict['cheque'],
+        'tarjeta': formas_dict['tarjeta'],
+        'deposito': formas_dict['deposito'],
+    }
 
     try:
         from inmobiliaria.models.recibo import Recibo
 
         recibo = Recibo.objects.filter(movimiento_caja=movimiento).first()
         if recibo:
-            recibo.monto_este_pago = movimiento.monto_total
+            recibo.monto_este_pago = Decimal(str(movimiento.monto_total or 0))
             if recibo.precio_total_operacion is not None:
                 recibo.saldo_pendiente = (
                     Decimal(str(recibo.precio_total_operacion or 0))
                     - Decimal(str(recibo.total_pagado_antes or 0))
                     - Decimal(str(recibo.monto_este_pago or 0))
                 )
-            recibo.save(update_fields=['monto_este_pago', 'saldo_pendiente'])
+            det = recibo.conceptos_detalle
+            if not isinstance(det, dict):
+                det = {}
+            else:
+                det = dict(det)
+            det['formas_pago'] = formas_recibo
+            recibo.conceptos_detalle = det
+            recibo.save(
+                update_fields=['monto_este_pago', 'saldo_pendiente', 'conceptos_detalle']
+            )
     except Exception:
         pass
+
+    cd_raw = (getattr(movimiento, 'concepto_detalle', None) or '').strip()
+    if cd_raw.startswith('{'):
+        try:
+            import json
+
+            data = json.loads(cd_raw)
+            if isinstance(data, dict):
+                data = dict(data)
+                data['formas_pago'] = formas_recibo
+                if formas_dict.get('destino_deposito'):
+                    data['destino_deposito'] = formas_dict['destino_deposito']
+                movimiento.concepto_detalle = json.dumps(data, ensure_ascii=False)
+                movimiento.save(update_fields=['concepto_detalle'])
+        except Exception:
+            pass
+
+
+def _totales_fijos_edicion_forma_pago(movimiento, sucursal=None):
+    """Total ARS/USD del comprobante: no puede cambiar al corregir solo la forma de pago."""
+    ars = Decimal(str(movimiento.monto_total or 0))
+    usd = Decimal(str(movimiento.monto_dolares or 0))
+    if ars > 0 or usd > 0:
+        return ars, usd
+    sugeridos = _montos_sugeridos_movimiento_caja(movimiento, sucursal=sucursal)
+    if sugeridos:
+        ars = (
+            Decimal(str(sugeridos.get('monto_efectivo') or 0))
+            + Decimal(str(sugeridos.get('monto_cheque') or 0))
+            + Decimal(str(sugeridos.get('monto_tarjeta') or 0))
+            + Decimal(str(sugeridos.get('monto_deposito') or 0))
+        )
+        usd = Decimal(str(sugeridos.get('monto_dolares') or 0))
+    return ars, usd
 
 
 @login_required
 @transaction.atomic
 def editar_movimiento_caja(request, movimiento_id):
     if not usuario_puede_editar_movimiento_caja(request.user):
-        messages.error(request, 'Solo el super administrador puede editar montos de movimientos de caja.')
+        messages.error(
+            request,
+            'Solo el super administrador puede corregir la forma de pago de un movimiento de caja.',
+        )
         return redirect('inmobiliaria:gestionar_caja')
 
     movimiento = get_object_or_404(
@@ -10472,8 +11206,40 @@ def editar_movimiento_caja(request, movimiento_id):
 
     caja_numero = movimiento.caja.numero if movimiento.caja_id else None
     next_url = (request.POST.get('next') or request.GET.get('next') or '').strip()
+    total_fijo_ars, total_fijo_usd = _totales_fijos_edicion_forma_pago(
+        movimiento, sucursal=request.user.sucursal
+    )
+
+    def _ctx_editar(extra=None):
+        MovimientoCaja.precargar_nombres_concepto([movimiento], sucursal=request.user.sucursal)
+        montos_form, montos_precargados = _montos_form_edicion_movimiento(
+            movimiento, sucursal=request.user.sucursal
+        )
+        dest_raw = (montos_form.get('destino_deposito') or movimiento.destino_deposito or '').strip()
+        destino_cuenta_id = None
+        if dest_raw.startswith('cuenta_'):
+            suf = dest_raw.replace('cuenta_', '', 1)
+            if suf.isdigit():
+                destino_cuenta_id = int(suf)
+        ctx = {
+            'movimiento': movimiento,
+            'montos_form': montos_form,
+            'montos_precargados': montos_precargados,
+            'caja': movimiento.caja,
+            'cuentas_bancarias': cuentas_bancarias,
+            'next': next_url,
+            'destino_cuenta_id': destino_cuenta_id,
+            'total_fijo_ars': total_fijo_ars,
+            'total_fijo_usd': total_fijo_usd,
+        }
+        if extra:
+            ctx.update(extra)
+        return ctx
 
     def _volver():
+        safe_next = _validar_url_volver_recibo(next_url, request)
+        if safe_next:
+            return redirect(safe_next)
         if next_url == 'todos_movimientos':
             return redirect('inmobiliaria:todos_movimientos_caja')
         if caja_numero is not None:
@@ -10481,6 +11247,10 @@ def editar_movimiento_caja(request, movimiento_id):
         return redirect('inmobiliaria:todos_movimientos_caja')
 
     if request.method == 'POST':
+        orig_ars, orig_usd = _totales_fijos_edicion_forma_pago(
+            MovimientoCaja.objects.get(pk=movimiento.pk),
+            sucursal=request.user.sucursal,
+        )
         try:
             movimiento.monto_efectivo = parse_decimal_monto(request.POST.get('monto_efectivo', '0') or '0')
             movimiento.monto_cheque = parse_decimal_monto(request.POST.get('monto_cheque', '0') or '0')
@@ -10489,7 +11259,7 @@ def editar_movimiento_caja(request, movimiento_id):
             movimiento.monto_dolares = parse_decimal_monto(request.POST.get('monto_dolares', '0') or '0')
         except (ValueError, TypeError, InvalidOperation):
             messages.error(request, 'Error en los montos ingresados.')
-            return _volver()
+            return render(request, 'inmobiliaria/caja/editar_movimiento_caja.html', _ctx_editar())
 
         for campo in (
             'monto_efectivo', 'monto_cheque', 'monto_tarjeta',
@@ -10497,12 +11267,28 @@ def editar_movimiento_caja(request, movimiento_id):
         ):
             if getattr(movimiento, campo) < 0:
                 messages.error(request, 'Los montos no pueden ser negativos.')
-                return _volver()
+                return render(request, 'inmobiliaria/caja/editar_movimiento_caja.html', _ctx_editar())
 
-        total_ars = movimiento.monto_total
-        if total_ars <= 0 and (movimiento.monto_dolares or 0) <= 0:
+        total_ars = Decimal(str(movimiento.monto_total or 0))
+        total_usd = Decimal(str(movimiento.monto_dolares or 0))
+        tol = Decimal('0.03')
+        if orig_ars > 0 and abs(total_ars - orig_ars) > tol:
+            messages.error(
+                request,
+                f'El total en pesos debe ser ${format_monto_argentino(orig_ars)}. '
+                f'Solo podés cambiar la forma de pago (efectivo, transferencia, etc.), no el importe del recibo.',
+            )
+            return render(request, 'inmobiliaria/caja/editar_movimiento_caja.html', _ctx_editar())
+        if orig_usd > 0 and abs(total_usd - orig_usd) > tol:
+            messages.error(
+                request,
+                f'El total en USD debe ser U$S {format_monto_argentino(orig_usd)}. '
+                f'Solo podés redistribuir el importe, no cambiarlo.',
+            )
+            return render(request, 'inmobiliaria/caja/editar_movimiento_caja.html', _ctx_editar())
+        if total_ars <= 0 and total_usd <= 0:
             messages.error(request, 'El total en pesos o el monto en USD debe ser mayor a cero.')
-            return _volver()
+            return render(request, 'inmobiliaria/caja/editar_movimiento_caja.html', _ctx_editar())
 
         dd_raw = (request.POST.get('destino_deposito') or '').strip()
         if movimiento.monto_deposito and float(movimiento.monto_deposito) > 0:
@@ -10515,45 +11301,42 @@ def editar_movimiento_caja(request, movimiento_id):
                 destino_ok = dd_raw
             if not destino_ok:
                 messages.error(request, 'Con transferencia tenés que elegir una cuenta destino válida.')
-                return _volver()
+                return render(request, 'inmobiliaria/caja/editar_movimiento_caja.html', _ctx_editar())
             movimiento.destino_deposito = destino_ok
+            ft_raw = (request.POST.get('fecha_transferencia') or '').strip()
+            if not ft_raw:
+                messages.error(
+                    request,
+                    'Con transferencia tenés que indicar la fecha en que se hizo el depósito.',
+                )
+                return render(request, 'inmobiliaria/caja/editar_movimiento_caja.html', _ctx_editar())
+            try:
+                movimiento.fecha_transferencia = datetime.strptime(ft_raw, '%Y-%m-%d').date()
+            except ValueError:
+                messages.error(request, 'Fecha de transferencia/depósito inválida.')
+                return render(request, 'inmobiliaria/caja/editar_movimiento_caja.html', _ctx_editar())
         else:
             movimiento.destino_deposito = None
+            movimiento.fecha_transferencia = None
 
         movimiento.save(update_fields=[
             'monto_efectivo', 'monto_cheque', 'monto_tarjeta',
-            'monto_deposito', 'monto_dolares', 'destino_deposito',
+            'monto_deposito', 'monto_dolares', 'destino_deposito', 'fecha_transferencia',
         ])
+        movimiento.refresh_from_db()
         _sincronizar_montos_anexos_movimiento(movimiento)
         messages.success(
             request,
-            f'Montos del movimiento #{movimiento.id} actualizados. Total ARS: '
+            f'Forma de pago del movimiento #{movimiento.id} actualizada. '
+            f'Al reimprimir el recibo se verán los cambios. Total ARS: '
             f'${format_monto_argentino(movimiento.monto_total)}.',
         )
         return _volver()
 
-    MovimientoCaja.precargar_nombres_concepto([movimiento], sucursal=request.user.sucursal)
-    montos_form, montos_precargados = _montos_form_edicion_movimiento(
-        movimiento, sucursal=request.user.sucursal
-    )
-    dest_raw = (montos_form.get('destino_deposito') or movimiento.destino_deposito or '').strip()
-    destino_cuenta_id = None
-    if dest_raw.startswith('cuenta_'):
-        suf = dest_raw.replace('cuenta_', '', 1)
-        if suf.isdigit():
-            destino_cuenta_id = int(suf)
     return render(
         request,
         'inmobiliaria/caja/editar_movimiento_caja.html',
-        {
-            'movimiento': movimiento,
-            'montos_form': montos_form,
-            'montos_precargados': montos_precargados,
-            'caja': movimiento.caja,
-            'cuentas_bancarias': cuentas_bancarias,
-            'next': next_url,
-            'destino_cuenta_id': destino_cuenta_id,
-        },
+        _ctx_editar(),
     )
 
 
@@ -10568,14 +11351,18 @@ def caja(request):
         return redirect('inmobiliaria:gestionar_caja')
     
     # Obtener todos los movimientos de la caja
-    movimientos = list(
-        MovimientoCaja.objects.filter(caja=caja).order_by('-fecha')
+    movimientos_qs = (
+        MovimientoCaja.objects.filter(caja=caja)
+        .select_related('propiedad', 'empleado')
+        .order_by('-fecha')
     )
+    movimientos = list(movimientos_qs)
     next_path = request.get_full_path()
+    url_recibo_map = _urls_recibo_para_movimientos_batch(
+        movimientos, sucursal, next_url=next_path
+    )
     for mov in movimientos:
-        mov.url_recibo = _url_recibo_para_movimiento(
-            mov, sucursal, next_url=next_path
-        )
+        mov.url_recibo = url_recibo_map.get(int(mov.id))
     
     # Calcular totales
     totales = {
@@ -10586,8 +11373,8 @@ def caja(request):
     }
     
     # Calcular saldos (tipo en BD: IN / EG, ver TipoMovimientoCajaEnum)
-    ingresos = movimientos.filter(tipo=TipoMovimientoCajaEnum.INGRESO)
-    egresos = movimientos.filter(tipo=TipoMovimientoCajaEnum.EGRESO)
+    ingresos = [m for m in movimientos if m.tipo == TipoMovimientoCajaEnum.INGRESO]
+    egresos = [m for m in movimientos if m.tipo == TipoMovimientoCajaEnum.EGRESO]
 
     def _suma_medios(m):
         return (
@@ -10618,6 +11405,34 @@ def caja(request):
     }
     
     return render(request, 'inmobiliaria/caja/caja.html', context)
+
+
+def _fecha_movimiento_desde_post(request):
+    """Fecha/hora del comprobante (editable en nuevo movimiento; default ahora)."""
+    raw = (request.POST.get('fecha') or '').strip()
+    if not raw:
+        return timezone.now()
+    tz = timezone.get_current_timezone()
+    for fmt in ('%Y-%m-%dT%H:%M', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d'):
+        try:
+            dt = datetime.strptime(raw, fmt)
+            if timezone.is_naive(dt):
+                return timezone.make_aware(dt, tz)
+            return dt
+        except ValueError:
+            continue
+    raise ValueError('fecha_movimiento')
+
+
+def _fecha_transferencia_desde_post(request):
+    """Fecha real de transferencia/depósito (editable; default hoy)."""
+    raw = (request.POST.get('fecha_transferencia') or '').strip()
+    if raw:
+        try:
+            return datetime.strptime(raw, '%Y-%m-%d').date()
+        except ValueError:
+            raise ValueError('fecha_transferencia')
+    return timezone.localdate()
 
 
 def _saldo_inicial_efectivo_caja(caja):
@@ -10693,7 +11508,142 @@ def _deposito_total_desde_arqueo_dict(data):
     total = Decimal('0')
     for val in (data.get('cuentas_json') or {}).values():
         total += Decimal(str(val or 0))
+    total += Decimal(str(data.get('deposito_galicia') or 0))
+    total += Decimal(str(data.get('deposito_mp') or 0))
     return total
+
+
+def _dict_arqueo_desde_registro(arqueo):
+    """Dict unificado de saldos por medio (arqueo manual o de cierre)."""
+    cuentas_json = arqueo.cuentas_json or {}
+    if isinstance(cuentas_json, dict):
+        cuentas_json = {str(k): str(v) for k, v in cuentas_json.items()}
+    else:
+        cuentas_json = {}
+    return {
+        'efectivo': Decimal(str(getattr(arqueo, 'efectivo', None) or 0)),
+        'cheque': Decimal(str(getattr(arqueo, 'cheque', None) or 0)),
+        'tarjeta': Decimal(str(getattr(arqueo, 'tarjeta', None) or 0)),
+        'dolares': Decimal(str(getattr(arqueo, 'dolares', None) or 0)),
+        'cuentas_json': cuentas_json,
+        'deposito_galicia': Decimal(str(getattr(arqueo, 'deposito_galicia', None) or 0)),
+        'deposito_mp': Decimal(str(getattr(arqueo, 'deposito_mp', None) or 0)),
+    }
+
+
+def _saldos_actuales_desde_arqueo_y_movimientos(
+    caja, arqueo_manual, ingresos, egresos, cuentas_bancarias=None,
+):
+    """
+    Saldo actual por medio = anterior (anteriores_json) + ingresos − egresos del día.
+    Cuentas bancarias: saldo en apertura (cuentas_json) + movimientos del día por cuenta.
+    """
+    ingresos_por, egresos_por = _ingresos_egresos_por_medio_matriz(ingresos, egresos)
+    saldo_ini = _saldo_inicial_efectivo_caja(caja)
+    anterior_por = _anteriores_matriz_desde_arqueo(
+        arqueo_manual, ingresos_por, egresos_por, saldo_ini,
+    )
+
+    if cuentas_bancarias is None:
+        from inmobiliaria.models.sucursal import CuentaBancaria
+
+        cuentas_bancarias = list(
+            CuentaBancaria.objects.filter(sucursal=caja.sucursal, activa=True).order_by(
+                'nombre_banco', 'alias'
+            )
+        )
+
+    cuentas_json = {}
+    dep_saldo = Decimal('0')
+    for cuenta in cuentas_bancarias:
+        base = arqueo_manual.monto_cuenta(cuenta.id)
+        ing_c, egr_c = _deposito_ing_egr_cuenta(ingresos, egresos, cuenta)
+        saldo_c = (base + ing_c - egr_c).quantize(Decimal('0.01'))
+        cuentas_json[str(cuenta.id)] = str(saldo_c)
+        dep_saldo += saldo_c
+
+    dep_apertura = sum(arqueo_manual.monto_cuenta(c.id) for c in cuentas_bancarias)
+    if dep_apertura > 0 and anterior_por.get('deposito', Decimal('0')) == 0:
+        anterior_por['deposito'] = dep_apertura
+
+    saldo_por = _saldos_matriz_desde_anteriores(anterior_por, ingresos_por, egresos_por)
+    saldo_por['deposito'] = dep_saldo
+
+    ing_usd = sum(Decimal(str(getattr(m, 'monto_dolares', None) or 0)) for m in ingresos)
+    egr_usd = sum(Decimal(str(getattr(m, 'monto_dolares', None) or 0)) for m in egresos)
+    saldo_usd = _anterior_usd_desde_arqueo(arqueo_manual, ing_usd, egr_usd) + ing_usd - egr_usd
+
+    return {
+        'efectivo': saldo_por['efectivo'],
+        'cheque': saldo_por['cheque'],
+        'tarjeta': saldo_por['tarjeta'],
+        'dolares': saldo_usd,
+        'cuentas_json': cuentas_json,
+    }
+
+
+def _apertura_saldos_desde_cierre(
+    arqueo_manual,
+    saldos_teoricos,
+    *,
+    caja=None,
+    ingresos=None,
+    egresos=None,
+    cuentas_bancarias=None,
+):
+    """Saldos que abren la próxima caja: saldo actual del día (anterior + movimientos)."""
+    if (
+        arqueo_manual
+        and arqueo_manual.anteriores_json
+        and caja is not None
+        and ingresos is not None
+        and egresos is not None
+    ):
+        return _saldos_actuales_desde_arqueo_y_movimientos(
+            caja, arqueo_manual, ingresos, egresos, cuentas_bancarias,
+        )
+    if arqueo_manual:
+        return _dict_arqueo_desde_registro(arqueo_manual)
+    return _saldos_teoricos_a_dict_arqueo(saldos_teoricos)
+
+
+def _deposito_ing_egr_cuenta(ingresos, egresos, cuenta):
+    """Ingresos/egresos por cuenta, incl. destinos legacy galicia/mp."""
+    dest = f'cuenta_{cuenta.id}'
+    ing = sum(
+        Decimal(str(m.monto_deposito or 0))
+        for m in ingresos
+        if getattr(m, 'destino_deposito', None) == dest
+    )
+    egr = sum(
+        Decimal(str(m.monto_deposito or 0))
+        for m in egresos
+        if getattr(m, 'destino_deposito', None) == dest
+    )
+    texto = f'{(cuenta.nombre_banco or "").lower()} {(cuenta.alias or "").lower()}'
+    if 'galicia' in texto:
+        ing += sum(
+            Decimal(str(m.monto_deposito or 0))
+            for m in ingresos
+            if getattr(m, 'destino_deposito', None) == 'galicia'
+        )
+        egr += sum(
+            Decimal(str(m.monto_deposito or 0))
+            for m in egresos
+            if getattr(m, 'destino_deposito', None) == 'galicia'
+        )
+    if 'mercado' in texto or ' mp' in f' {texto}' or texto.strip().endswith(' mp'):
+        ing += sum(
+            Decimal(str(m.monto_deposito or 0))
+            for m in ingresos
+            if getattr(m, 'destino_deposito', None) == 'mp'
+        )
+        egr += sum(
+            Decimal(str(m.monto_deposito or 0))
+            for m in egresos
+            if getattr(m, 'destino_deposito', None) == 'mp'
+        )
+    return ing, egr
 
 
 def _anteriores_matriz_desde_arqueo(arqueo_manual, ingresos_por, egresos_por, saldo_ini):
@@ -10716,6 +11666,11 @@ def _anteriores_matriz_desde_arqueo(arqueo_manual, ingresos_por, egresos_por, sa
                 anterior[k] = saldo_ini
             else:
                 anterior[k] = derivado[k]
+        dep_cuentas = sum(
+            Decimal(str(v or 0)) for v in (arqueo_manual.cuentas_json or {}).values()
+        )
+        if dep_cuentas > 0 and anterior.get('deposito', Decimal('0')) == 0:
+            anterior['deposito'] = dep_cuentas
         return anterior
     return derivado
 
@@ -10884,17 +11839,7 @@ def _build_matriz_cuentas_bancarias(ingresos, egresos, cuentas_bancarias, saldos
 
     for cuenta in cuentas_bancarias:
         cid = cuenta.id
-        dest = f'cuenta_{cid}'
-        ing = sum(
-            Decimal(str(m.monto_deposito or 0))
-            for m in ingresos
-            if getattr(m, 'destino_deposito', None) == dest
-        )
-        egr = sum(
-            Decimal(str(m.monto_deposito or 0))
-            for m in egresos
-            if getattr(m, 'destino_deposito', None) == dest
-        )
+        ing, egr = _deposito_ing_egr_cuenta(ingresos, egresos, cuenta)
         saldo = Decimal(str(saldos_por_cuenta.get(cid, 0) or 0))
         anterior = saldo - ing + egr
         etiqueta = cuenta.nombre_banco
@@ -10921,13 +11866,16 @@ def _build_matriz_cuentas_bancarias(ingresos, egresos, cuentas_bancarias, saldos
     return {'columnas': columnas, 'filas': filas}
 
 
-def _calcular_saldos_caja_por_medio(caja, sucursal):
+def _calcular_saldos_caja_por_medio(caja, sucursal, ingresos=None, egresos=None):
     """Saldos teóricos por medio de pago al cierre (movimientos + saldo inicial en efectivo)."""
     from inmobiliaria.models.sucursal import CuentaBancaria
 
-    movimientos_qs = MovimientoCaja.objects.filter(caja=caja)
-    ingresos = movimientos_qs.filter(tipo=TipoMovimientoCajaEnum.INGRESO)
-    egresos = movimientos_qs.filter(tipo=TipoMovimientoCajaEnum.EGRESO)
+    if ingresos is None or egresos is None:
+        movimientos_qs = MovimientoCaja.objects.filter(caja=caja)
+        if ingresos is None:
+            ingresos = list(movimientos_qs.filter(tipo=TipoMovimientoCajaEnum.INGRESO))
+        if egresos is None:
+            egresos = list(movimientos_qs.filter(tipo=TipoMovimientoCajaEnum.EGRESO))
     saldo_ini = _saldo_inicial_efectivo_caja(caja)
 
     def _net(campo):
@@ -10948,9 +11896,7 @@ def _calcular_saldos_caja_por_medio(caja, sucursal):
     cuentas = []
     total_cuentas = Decimal('0')
     for cuenta in cuentas_bancarias:
-        dest = f'cuenta_{cuenta.id}'
-        t_ing = sum(Decimal(str(m.monto_deposito or 0)) for m in ingresos.filter(destino_deposito=dest))
-        t_egr = sum(Decimal(str(m.monto_deposito or 0)) for m in egresos.filter(destino_deposito=dest))
+        t_ing, t_egr = _deposito_ing_egr_cuenta(ingresos, egresos, cuenta)
         teorico = t_ing - t_egr
         total_cuentas += teorico
         cuentas.append({'cuenta': cuenta, 'teorico': teorico})
@@ -10967,6 +11913,45 @@ def _calcular_saldos_caja_por_medio(caja, sucursal):
         'total_ars': total_ars,
         'saldo_inicial_efectivo': saldo_ini,
     }
+
+
+def _context_bloque_saldos_desde_arqueo_dict(
+    arqueo_dict,
+    cuentas_bancarias,
+    *,
+    titulo='Saldos en caja al cierre (conteo físico)',
+    nota_proxima_caja=None,
+):
+    """Bloque de saldos por medio a partir del arqueo contado (cierre o apertura)."""
+    cuentas_items = []
+    for cuenta in cuentas_bancarias:
+        cuentas_items.append({
+            'cuenta': cuenta,
+            'teorico': arqueo_dict['cuentas_json'].get(str(cuenta.id), 0),
+        })
+    deposito_total = _deposito_total_desde_arqueo_dict(arqueo_dict)
+    total_ars = _total_ars_desde_arqueo_dict(arqueo_dict)
+    return _context_bloque_saldos_por_medio(
+        {
+            'efectivo': arqueo_dict['efectivo'],
+            'cheque': arqueo_dict['cheque'],
+            'tarjeta': arqueo_dict['tarjeta'],
+            'dolares': arqueo_dict['dolares'],
+            'deposito_total': deposito_total,
+            'total_ars': total_ars,
+        },
+        titulo=titulo,
+        nota_proxima_caja=nota_proxima_caja,
+        cuentas_items=cuentas_items,
+    )
+
+
+def _aplicar_arqueo_dict_a_totales_impresion(totales, arqueo_dict, cuentas_bancarias):
+    """Reemplaza saldo actual/total por los montos contados del arqueo de cierre."""
+    totales['saldo_actual'] = _saldo_actual_desde_arqueo_dict(arqueo_dict, cuentas_bancarias)
+    totales['saldo_total'] = _total_ars_desde_arqueo_dict(arqueo_dict)
+    totales['es_arqueo_manual'] = True
+    return totales
 
 
 def _context_bloque_saldos_por_medio(
@@ -11122,6 +12107,30 @@ def _crear_arqueo_manual_desde_dict(caja, data, usuario):
     )
 
 
+def _crear_arqueo_cierre_desde_dict(caja, data, usuario):
+    """Guarda el conteo físico al cerrar la caja (siempre, con o sin formulario de arqueo)."""
+    from inmobiliaria.models.caja import CajaArqueoCierre
+
+    cuentas_json = data.get('cuentas_json') or {}
+    if isinstance(cuentas_json, dict):
+        cuentas_json = {str(k): str(v) for k, v in cuentas_json.items()}
+    else:
+        cuentas_json = {}
+
+    CajaArqueoCierre.objects.filter(caja=caja).delete()
+    return CajaArqueoCierre.objects.create(
+        caja=caja,
+        efectivo=Decimal(str(data.get('efectivo') or 0)),
+        cheque=Decimal(str(data.get('cheque') or 0)),
+        tarjeta=Decimal(str(data.get('tarjeta') or 0)),
+        dolares=Decimal(str(data.get('dolares') or 0)),
+        deposito_galicia=Decimal('0'),
+        deposito_mp=Decimal('0'),
+        cuentas_json=cuentas_json,
+        registrado_por=usuario,
+    )
+
+
 def _saldo_actual_desde_arqueo_dict(arqueo_data, cuentas_bancarias):
     """Arma el bloque saldo_actual a partir de un arqueo (manual o de cierre)."""
     deposito = Decimal('0')
@@ -11146,46 +12155,24 @@ def _saldo_actual_desde_arqueo_dict(arqueo_data, cuentas_bancarias):
     }
 
 
-def _aplicar_arqueo_manual_a_totales(totales, arqueo_manual, cuentas_bancarias, caja=None):
+def _aplicar_arqueo_manual_a_totales(
+    totales, arqueo_manual, cuentas_bancarias, caja=None, ingresos=None, egresos=None,
+):
     if not arqueo_manual:
         return totales
 
-    saldo_ini = _saldo_inicial_efectivo_caja(caja) if caja else Decimal('0')
-    ingresos_por = {
-        'efectivo': Decimal(str(totales['ingresos']['efectivo'])) - saldo_ini,
-        'cheque': Decimal(str(totales['ingresos']['cheque'])),
-        'tarjeta': Decimal(str(totales['ingresos']['tarjeta'])),
-        'deposito': Decimal(str(totales['ingresos']['deposito'])),
-    }
-    egresos_por = {
-        'efectivo': Decimal(str(totales['egresos']['efectivo'])),
-        'cheque': Decimal(str(totales['egresos']['cheque'])),
-        'tarjeta': Decimal(str(totales['egresos']['tarjeta'])),
-        'deposito': Decimal(str(totales['egresos']['deposito'])),
-    }
-    ing_usd = Decimal(str(totales['ingresos'].get('dolares') or 0))
-    egr_usd = Decimal(str(totales['egresos'].get('dolares') or 0))
-
-    if arqueo_manual.anteriores_json:
-        anterior_por = _anteriores_matriz_desde_arqueo(
-            arqueo_manual, ingresos_por, egresos_por, saldo_ini
-        )
-        saldo_por = _saldos_matriz_desde_anteriores(anterior_por, ingresos_por, egresos_por)
-        saldo_usd = _anterior_usd_desde_arqueo(arqueo_manual, ing_usd, egr_usd) + ing_usd - egr_usd
-        cuentas_json = _redistribuir_cuentas_json_por_total(
-            saldo_por['deposito'],
-            arqueo_manual.cuentas_json or {},
+    if arqueo_manual.anteriores_json and caja is not None and ingresos is not None and egresos is not None:
+        data = _saldos_actuales_desde_arqueo_y_movimientos(
+            caja,
+            arqueo_manual,
+            ingresos,
+            egresos,
             list(cuentas_bancarias),
         )
-        data = {
-            'efectivo': saldo_por['efectivo'],
-            'cheque': saldo_por['cheque'],
-            'tarjeta': saldo_por['tarjeta'],
-            'dolares': saldo_usd,
-            'cuentas_json': cuentas_json,
-        }
         totales['saldo_actual'] = _saldo_actual_desde_arqueo_dict(data, cuentas_bancarias)
         totales['saldo_total'] = _total_ars_desde_arqueo_dict(data)
+        totales['es_arqueo_manual'] = True
+        return totales
 
     totales['es_arqueo_manual'] = True
     return totales
@@ -11223,8 +12210,9 @@ def _aplicar_filtro_busqueda_movimientos_caja(qs, busqueda):
     return qs.filter(q_bus).distinct()
 
 
-def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id'), busqueda=''):
+def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id'), busqueda='', paginar=True):
     """Contexto compartido entre detalle de caja y resumen imprimible."""
+    from django.core.paginator import Paginator
     from inmobiliaria.models.sucursal import CuentaBancaria
 
     busqueda = (busqueda or '').strip()
@@ -11238,17 +12226,15 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
     movimientos_all = list(movimientos_qs)
     movimientos_total = len(movimientos_all)
     MovimientoCaja.precargar_nombres_concepto(movimientos_all, sucursal=request.user.sucursal)
-    for mov in movimientos_all:
-        _reparar_montos_movimiento_si_corresponde(mov, sucursal=request.user.sucursal)
 
     if busqueda:
         ids_filtrados = set(
             _aplicar_filtro_busqueda_movimientos_caja(movimientos_qs, busqueda).values_list('id', flat=True)
         )
-        movimientos = [m for m in movimientos_all if m.id in ids_filtrados]
+        movimientos_filtrados_list = [m for m in movimientos_all if m.id in ids_filtrados]
     else:
-        movimientos = movimientos_all
-    movimientos_filtrados = len(movimientos)
+        movimientos_filtrados_list = movimientos_all
+    movimientos_filtrados = len(movimientos_filtrados_list)
 
     def _resumir_concepto_crudo(concepto):
         texto = (concepto or '').strip()
@@ -11263,12 +12249,30 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
             return 'Reserva'
         return 'Movimiento'
 
+    ingresos = [m for m in movimientos_all if m.tipo == TipoMovimientoCajaEnum.INGRESO]
+    egresos = [m for m in movimientos_all if m.tipo == TipoMovimientoCajaEnum.EGRESO]
+
+    page_obj = None
+    querystring = ''
+    if paginar:
+        paginator = Paginator(movimientos_filtrados_list, 80)
+        page_obj = paginator.get_page(request.GET.get('page') if request else 1)
+        movimientos = list(page_obj.object_list)
+        if request:
+            query_params = request.GET.copy()
+            if 'page' in query_params:
+                del query_params['page']
+            querystring = query_params.urlencode()
+    else:
+        movimientos = movimientos_filtrados_list
+
     next_path = request.get_full_path() if request else None
+    url_recibo_map = _urls_recibo_para_movimientos_batch(
+        movimientos, request.user.sucursal, next_url=next_path
+    )
     for mov in movimientos:
         mov.concepto_resumen = _resumir_concepto_crudo(getattr(mov, 'concepto', ''))
-        mov.url_recibo = _url_recibo_para_movimiento(
-            mov, request.user.sucursal, next_url=next_path
-        )
+        mov.url_recibo = url_recibo_map.get(int(mov.id))
 
     movimientos_eliminados_qs = (
         MovimientoCaja.all_objects.filter(caja=caja, fecha_eliminacion__isnull=False)
@@ -11278,21 +12282,20 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
     )
     if busqueda:
         movimientos_eliminados = list(
-            _aplicar_filtro_busqueda_movimientos_caja(movimientos_eliminados_qs, busqueda)
+            _aplicar_filtro_busqueda_movimientos_caja(movimientos_eliminados_qs, busqueda)[:100]
         )
     else:
-        movimientos_eliminados = list(movimientos_eliminados_qs)
+        movimientos_eliminados = list(movimientos_eliminados_qs[:100])
     MovimientoCaja.precargar_nombres_concepto(movimientos_eliminados, sucursal=request.user.sucursal)
     for mov in movimientos_eliminados:
         mov.concepto_resumen = _resumir_concepto_crudo(getattr(mov, 'concepto', ''))
 
-    ingresos = [m for m in movimientos_all if m.tipo == TipoMovimientoCajaEnum.INGRESO]
-    egresos = [m for m in movimientos_all if m.tipo == TipoMovimientoCajaEnum.EGRESO]
-
-    cuentas_bancarias = CuentaBancaria.objects.filter(
-        sucursal=request.user.sucursal,
-        activa=True
-    ).order_by('nombre_banco', 'alias')
+    cuentas_bancarias = list(
+        CuentaBancaria.objects.filter(
+            sucursal=request.user.sucursal,
+            activa=True
+        ).order_by('nombre_banco', 'alias')
+    )
 
     totales_ingresos = {
         'efectivo': sum(m.monto_efectivo for m in ingresos),
@@ -11303,14 +12306,12 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
     }
     totales_ingresos['cuentas_bancarias'] = {}
     for cuenta in cuentas_bancarias:
-        total_cuenta = sum(
-            m.monto_deposito for m in ingresos if m.destino_deposito == f'cuenta_{cuenta.id}'
-        )
+        ing_c, _ = _deposito_ing_egr_cuenta(ingresos, egresos, cuenta)
         totales_ingresos['cuentas_bancarias'][cuenta.id] = {
             'nombre': cuenta.nombre_banco,
             'titular': cuenta.titular,
             'alias': cuenta.alias,
-            'total': total_cuenta
+            'total': ing_c,
         }
     totales_ingresos['dolares'] = sum((m.monto_dolares or 0) for m in ingresos)
 
@@ -11323,14 +12324,12 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
     }
     totales_egresos['cuentas_bancarias'] = {}
     for cuenta in cuentas_bancarias:
-        total_cuenta = sum(
-            m.monto_deposito for m in egresos if m.destino_deposito == f'cuenta_{cuenta.id}'
-        )
+        _, egr_c = _deposito_ing_egr_cuenta(ingresos, egresos, cuenta)
         totales_egresos['cuentas_bancarias'][cuenta.id] = {
             'nombre': cuenta.nombre_banco,
             'titular': cuenta.titular,
             'alias': cuenta.alias,
-            'total': total_cuenta
+            'total': egr_c,
         }
     totales_egresos['dolares'] = sum((m.monto_dolares or 0) for m in egresos)
 
@@ -11364,14 +12363,32 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
 
     from inmobiliaria.models.caja import CajaArqueoManual
 
-    saldos_teoricos = _calcular_saldos_caja_por_medio(caja, request.user.sucursal)
+    saldos_teoricos = _calcular_saldos_caja_por_medio(
+        caja, request.user.sucursal, ingresos=ingresos, egresos=egresos
+    )
     arqueo_manual = None
+    arqueo_cierre = None
     if getattr(caja, 'estado', None) == 'abierta':
         arqueo_manual = CajaArqueoManual.objects.filter(caja=caja).first()
+    elif getattr(caja, 'estado', None) == 'cerrada':
+        from inmobiliaria.models.caja import CajaArqueoCierre
+        arqueo_cierre = CajaArqueoCierre.objects.filter(caja=caja).first()
     if arqueo_manual:
         totales = _aplicar_arqueo_manual_a_totales(
-            totales, arqueo_manual, cuentas_bancarias, caja=caja
+            totales,
+            arqueo_manual,
+            cuentas_bancarias,
+            caja=caja,
+            ingresos=ingresos,
+            egresos=egresos,
         )
+        saldo_total = totales['saldo_total']
+        es_saldo_positivo = saldo_total >= 0
+    elif arqueo_cierre:
+        arqueo_data = _dict_arqueo_desde_registro(arqueo_cierre)
+        totales['saldo_actual'] = _saldo_actual_desde_arqueo_dict(arqueo_data, cuentas_bancarias)
+        totales['saldo_total'] = _total_ars_desde_arqueo_dict(arqueo_data)
+        totales['es_arqueo_manual'] = True
         saldo_total = totales['saldo_total']
         es_saldo_positivo = saldo_total >= 0
 
@@ -11435,6 +12452,8 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
         'busqueda': busqueda,
         'movimientos_total': movimientos_total,
         'movimientos_filtrados': movimientos_filtrados,
+        'page_obj': page_obj,
+        'querystring': querystring,
         'totales': totales,
         'cuentas_bancarias': cuentas_bancarias,
         'es_saldo_positivo': es_saldo_positivo,
@@ -11442,6 +12461,7 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
         'puede_editar_movimiento_caja': usuario_puede_editar_movimiento_caja(request.user),
         'puede_editar_arqueo_caja': puede_editar_arqueo,
         'arqueo_manual': arqueo_manual,
+        'arqueo_cierre': arqueo_cierre,
         'saldos_teoricos': saldos_teoricos,
         'saldos_arqueo_form': saldos_arqueo_form,
         'cuentas_arqueo': cuentas_arqueo,
@@ -11648,7 +12668,9 @@ def imprimir_resumen_caja(request, numero):
     Útil tras el cierre como resumen del período / día.
     """
     caja = get_object_or_404(Caja, numero=numero, sucursal=request.user.sucursal)
-    context = _build_context_detalle_caja(request, caja, movimientos_order=('fecha', 'id'))
+    context = _build_context_detalle_caja(
+        request, caja, movimientos_order=('fecha', 'id'), paginar=False
+    )
     context['es_cierre'] = caja.estado == 'cerrada'
     saldo_ini = _saldo_inicial_efectivo_caja(caja)
     context['saldo_teorico_final'] = caja.get_saldo_actual()
@@ -11657,14 +12679,29 @@ def imprimir_resumen_caja(request, numero):
     from inmobiliaria.models.caja import CajaArqueoCierre
     arqueo = CajaArqueoCierre.objects.filter(caja=caja).first()
     if arqueo:
+        arqueo_dict = _dict_arqueo_desde_registro(arqueo)
         for item in context['saldos_teoricos_cierre']['cuentas']:
             item['contado'] = arqueo.monto_cuenta(item['cuenta'].id)
+        context['bloque_saldos_cierre'] = _context_bloque_saldos_desde_arqueo_dict(
+            arqueo_dict,
+            context['cuentas_bancarias'],
+            titulo='Saldos en caja al cierre (conteo físico)',
+        )
+        context['totales'] = _aplicar_arqueo_dict_a_totales_impresion(
+            context['totales'],
+            arqueo_dict,
+            context['cuentas_bancarias'],
+        )
+        context['neto_movimientos_ars'] = (
+            context['totales']['saldo_total'] - _saldo_inicial_efectivo_caja(caja)
+        )
+    else:
+        context['bloque_saldos_cierre'] = _context_bloque_saldos_por_medio(
+            context['saldos_teoricos_cierre'],
+            titulo='Saldos en caja al cierre',
+            cuentas_items=context['saldos_teoricos_cierre']['cuentas'],
+        )
     context['arqueo_cierre'] = arqueo
-    context['bloque_saldos_cierre'] = _context_bloque_saldos_por_medio(
-        context['saldos_teoricos_cierre'],
-        titulo='Saldos en caja al cierre',
-        cuentas_items=context['saldos_teoricos_cierre']['cuentas'],
-    )
     return render(request, 'inmobiliaria/caja/resumen_caja_imprimir.html', context)
 
 _MOVIMIENTO_UID_SESSION_KEY = 'caja_movimiento_uids_procesados'
@@ -11739,6 +12776,65 @@ def _buscar_movimiento_caja_duplicado_reciente(
     return qs.order_by('-fecha', '-id').first()
 
 
+def _serializar_form_post_nuevo_movimiento(request):
+    """Datos del POST para re-poblar el formulario de nuevo movimiento tras un error."""
+    if request.method != 'POST':
+        return None
+    post = request.POST
+    campos = (
+        'tipo', 'tipo_comprobante', 'numero_liquidacion', 'fecha', 'fecha_desde', 'fecha_hasta',
+        'concepto_id', 'detalles', 'propiedad_id', 'productor_id', 'tipo_beneficiario_vale',
+        'beneficiario_nombre_vale', 'beneficiario_apellido_vale', 'beneficiario_dni_vale',
+        'monto_efectivo', 'monto_cheque', 'monto_tarjeta', 'monto_deposito', 'destino_deposito',
+        'dolares', 'monto_dolares', 'moneda_movimiento', 'cotizacion_dolar',
+        'monto_a_oficina', 'monto_a_propietario', 'monto_a_inquilino',
+        'tarjeta_numero', 'tarjeta_cupon', 'tarjeta_tipo', 'cheque_numero', 'cheque_banco',
+        'cheque_fecha_vencimiento', 'movimiento_uid', 'operacion_ref_tipo', 'operacion_ref_id',
+        'reserva_operacion_id', 'gasto_oficina_categoria_id', 'gasto_oficina_vendedor_id',
+        'gasto_oficina_descripcion', 'gasto_oficina_observaciones', 'fecha_transferencia',
+    )
+    fp = {k: (post.get(k) or '').strip() for k in campos}
+    # Compatibilidad: el campo visible usa monto_dolares; legacy usaba dolares.
+    if not fp.get('dolares') and fp.get('monto_dolares'):
+        fp['dolares'] = fp['monto_dolares']
+    if not fp.get('monto_dolares') and fp.get('dolares'):
+        fp['monto_dolares'] = fp['dolares']
+    fp['es_gasto_oficina'] = (post.get('es_gasto_oficina') or '').strip() in ('1', 'on', 'true')
+
+    concepto_id = fp.get('concepto_id') or ''
+    if concepto_id:
+        concepto_row = Concepto.objects.filter(id=concepto_id).first()
+        if concepto_row:
+            fp['concepto_nombre'] = (concepto_row.nombre or '').strip()
+
+    propiedad_id = fp.get('propiedad_id') or ''
+    if propiedad_id.isdigit():
+        from inmobiliaria.models.propiedad import Propiedad
+
+        propiedad = Propiedad.objects.filter(id=int(propiedad_id)).first()
+        if propiedad:
+            fp['propiedad_direccion'] = (propiedad.direccion or '').strip()
+            fp['propiedad_piso'] = (propiedad.piso or '').strip()
+            fp['propiedad_departamento'] = (propiedad.departamento or '').strip()
+
+    productor_id = fp.get('productor_id') or ''
+    if productor_id.isdigit():
+        vendedor = Vendedor.objects.filter(id=int(productor_id)).first()
+        if vendedor:
+            fp['productor_nombre'] = (vendedor.nombre or '').strip()
+            fp['productor_apellido'] = (vendedor.apellido or '').strip()
+
+    go_vend_id = fp.get('gasto_oficina_vendedor_id') or ''
+    if go_vend_id.isdigit():
+        vendedor_go = Vendedor.objects.filter(id=int(go_vend_id)).first()
+        if vendedor_go:
+            fp['gasto_oficina_vendedor_nombre'] = (vendedor_go.nombre or '').strip()
+            fp['gasto_oficina_vendedor_apellido'] = (vendedor_go.apellido or '').strip()
+
+    return fp
+
+
+
 def _parse_cheques_movimiento_post(request):
     """
     Lee cheques múltiples del POST (cheque_item_monto[], numero, banco, fecha).
@@ -11785,7 +12881,7 @@ def _parse_cheques_movimiento_post(request):
 
 
 def _guardar_cheques_movimiento(movimiento, cheques_detalle):
-    """Persiste los cheques del movimiento y sincroniza campos planos legacy."""
+    """Persiste los cheques del movimiento."""
     from inmobiliaria.models import ChequeMovimientoCaja
 
     movimiento.cheques.all().delete()
@@ -11808,6 +12904,14 @@ def _guardar_cheques_movimiento(movimiento, cheques_detalle):
 @login_required
 def nuevo_movimiento(request, numero_caja=None):
     from inmobiliaria.models.sucursal import CuentaBancaria
+    from inmobiliaria.oficina_gastos import (
+        asegurar_categorias_oficina_si_faltan,
+        categoria_gasto_es_vale,
+        categorias_opciones_con_flags,
+        categorias_opciones_grupos,
+        registrar_gasto_oficina_desde_movimiento,
+        validar_gasto_oficina_post,
+    )
 
     if numero_caja:
         caja = get_object_or_404(Caja, numero=numero_caja, sucursal=request.user.sucursal, estado='abierta')
@@ -11823,21 +12927,59 @@ def nuevo_movimiento(request, numero_caja=None):
             return redirect('inmobiliaria:lista_cajas')
 
     sucursal = request.user.sucursal
-    cuentas_bancarias = CuentaBancaria.objects.filter(sucursal=sucursal, activa=True).order_by('nombre_banco', 'alias')
+    cuentas_bancarias = list(
+        CuentaBancaria.objects.filter(sucursal=sucursal, activa=True)
+        .only('id', 'nombre_banco', 'titular', 'alias')
+        .order_by('nombre_banco', 'alias')
+    )
+    categorias_gasto_oficina = []
+    categorias_gasto_oficina_grupos = []
+    try:
+        # No sincronizar vendedores/árbol en cada carga: solo si no hay categorías.
+        asegurar_categorias_oficina_si_faltan(sucursal)
+        categorias_gasto_oficina = categorias_opciones_con_flags(sucursal)
+        categorias_gasto_oficina_grupos = categorias_opciones_grupos(
+            sucursal, opciones=categorias_gasto_oficina
+        )
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception(
+            'nuevo_movimiento: error preparando categorías de gasto de oficina (sucursal=%s)',
+            getattr(sucursal, 'pk', None),
+        )
+        messages.warning(
+            request,
+            'No se pudieron cargar las categorías de gasto de oficina. '
+            'Podés cargar el movimiento igual; si necesitás gasto de oficina, avisá a sistemas.',
+        )
+    pre_gasto_oficina = (request.GET.get('gasto_oficina') or '').strip() in ('1', 'true', 'si', 'yes')
 
     def _ctx_nuevo_movimiento(extra=None):
+        from inmobiliaria.caja_devolucion_deposito import concepto_devolucion_deposito_catalogo
+
         ctx = {
             'caja': caja,
             'fecha_actual': timezone.now(),
             'cuentas_bancarias': cuentas_bancarias,
             'movimiento_uid': uuid.uuid4().hex,
+            'categorias_gasto_oficina': categorias_gasto_oficina,
+            'categorias_gasto_oficina_grupos': categorias_gasto_oficina_grupos,
+            'pre_gasto_oficina': pre_gasto_oficina,
+            'concepto_devolucion_deposito': concepto_devolucion_deposito_catalogo(sucursal),
         }
         if extra:
             ctx.update(extra)
+        if request.method == 'POST' and 'form_post' not in ctx:
+            form_post = _serializar_form_post_nuevo_movimiento(request)
+            if form_post:
+                ctx['form_post'] = form_post
+                if form_post.get('movimiento_uid'):
+                    ctx['movimiento_uid'] = form_post['movimiento_uid']
         return ctx
 
     if request.method == 'POST':
         try:
+            es_gasto_oficina = (request.POST.get('es_gasto_oficina') or '').strip() in ('1', 'on', 'true')
             movimiento_uid = (request.POST.get('movimiento_uid') or '').strip()
             # Procesar fechas
             fecha_desde = None
@@ -11862,9 +13004,13 @@ def nuevo_movimiento(request, numero_caja=None):
                 concepto_row = Concepto.objects.filter(
                     id=concepto_valor,
                 ).filter(q_conceptos_caja_visibles(request.user.sucursal)).first()
+            es_vale_concepto = bool(
+                concepto_row and concepto_row.indica_movimiento_vale_productor()
+            )
             if concepto_row:
                 base_concepto = (concepto_row.nombre or '').strip() or concepto_valor
-                concepto_guardado = f'{base_concepto} — {detalles_txt}' if detalles_txt else base_concepto
+                prefijo = f'{concepto_valor} — {base_concepto}'
+                concepto_guardado = f'{prefijo} — {detalles_txt}' if detalles_txt else prefijo
             elif detalles_txt:
                 concepto_guardado = detalles_txt
             else:
@@ -11872,6 +13018,22 @@ def nuevo_movimiento(request, numero_caja=None):
             if len(concepto_guardado) > 200:
                 concepto_guardado = concepto_guardado[:197] + '...'
             
+            gasto_oficina_categoria = None
+            gasto_oficina_vendedor = None
+            gasto_oficina_descripcion = ''
+            gasto_oficina_observaciones = ''
+            if es_gasto_oficina:
+                gasto_oficina_descripcion = (request.POST.get('gasto_oficina_descripcion') or '').strip()
+                gasto_oficina_observaciones = (request.POST.get('gasto_oficina_observaciones') or '').strip()
+                cat_id = (request.POST.get('gasto_oficina_categoria_id') or '').strip()
+                vend_id = (request.POST.get('gasto_oficina_vendedor_id') or '').strip()
+                gasto_oficina_categoria, gasto_oficina_vendedor, err_gasto = validar_gasto_oficina_post(
+                    sucursal, cat_id, gasto_oficina_descripcion, vend_id
+                )
+                if err_gasto:
+                    messages.error(request, err_gasto)
+                    return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
+
             # Obtener y validar tipo (debe ser 'IN' o 'EG')
             tipo_raw = (request.POST.get('tipo', 'IN') or '').strip()
             tipo_raw_upper = tipo_raw.upper()
@@ -11888,7 +13050,10 @@ def nuevo_movimiento(request, numero_caja=None):
                 tipo = 'EG'
             else:
                 tipo = 'IN'  # Default seguro
-            
+
+            if es_gasto_oficina and not categoria_gasto_es_vale(gasto_oficina_categoria):
+                tipo = TipoMovimientoCajaEnum.EGRESO
+
             # Obtener y validar tipo_comprobante (debe ser código de 2 caracteres)
             tipo_comprobante_raw = request.POST.get('tipo_comprobante', 'RC')
             # Mapear valores comunes a códigos de 2 caracteres
@@ -11899,7 +13064,19 @@ def nuevo_movimiento(request, numero_caja=None):
                 'OT': 'OT', 'Otro': 'OT'
             }
             tipo_comprobante = tipo_comprobante_map.get(tipo_comprobante_raw, tipo_comprobante_raw[:2] if len(tipo_comprobante_raw) > 2 else tipo_comprobante_raw)
+            if es_gasto_oficina:
+                tipo_comprobante = 'GS'
+
+            if es_gasto_oficina and gasto_oficina_categoria:
+                concepto_guardado = (
+                    f'Gasto oficina — {gasto_oficina_categoria.nombre_ruta()} — {gasto_oficina_descripcion}'
+                )
+                if len(concepto_guardado) > 200:
+                    concepto_guardado = concepto_guardado[:197] + '...'
             
+            propiedad_id_raw = (request.POST.get('propiedad_id') or '').strip()
+            propiedad_id_mov = int(propiedad_id_raw) if propiedad_id_raw.isdigit() else None
+
             # Crear el movimiento con valores iniciales
             movimiento = MovimientoCaja(
                 caja=caja,
@@ -11907,7 +13084,7 @@ def nuevo_movimiento(request, numero_caja=None):
                 tipo_comprobante=tipo_comprobante,
                 numero_liquidacion=request.POST.get('numero_liquidacion', ''),
                 concepto=concepto_guardado,
-                propiedad_id=request.POST.get('propiedad_id') if request.POST.get('propiedad_id') else None,
+                propiedad_id=propiedad_id_mov,
                 fecha_desde=fecha_desde,
                 fecha_hasta=fecha_hasta,
                 monto_efectivo=0,
@@ -11929,12 +13106,28 @@ def nuevo_movimiento(request, numero_caja=None):
                 messages.error(request, 'Error en los montos ingresados')
                 return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
 
+            moneda_mov = (request.POST.get('moneda_movimiento') or 'ARS').strip().upper()
+            if moneda_mov not in ('ARS', 'USD', 'MIXTO'):
+                moneda_mov = 'ARS'
+            if moneda_mov == 'USD':
+                # Solo dólares: no mezclar con pesos
+                movimiento.monto_efectivo = Decimal('0')
+                movimiento.monto_cheque = Decimal('0')
+                movimiento.monto_tarjeta = Decimal('0')
+                movimiento.monto_deposito = Decimal('0')
+                movimiento.destino_deposito = None
+                movimiento.fecha_transferencia = None
+
             dd_raw = (request.POST.get('destino_deposito') or '').strip()
             if movimiento.monto_deposito and float(movimiento.monto_deposito) > 0:
                 destino_ok = None
                 if dd_raw.startswith('cuenta_'):
                     suf = dd_raw.replace('cuenta_', '', 1)
-                    if suf.isdigit() and cuentas_bancarias.filter(id=int(suf)).exists():
+                    cuentas_ids = {
+                        int(c.id) for c in cuentas_bancarias
+                        if getattr(c, 'id', None) is not None
+                    }
+                    if suf.isdigit() and int(suf) in cuentas_ids:
                         destino_ok = dd_raw
                 if not destino_ok:
                     messages.error(
@@ -11947,6 +13140,21 @@ def nuevo_movimiento(request, numero_caja=None):
             else:
                 movimiento.destino_deposito = None
 
+            try:
+                movimiento.fecha = _fecha_movimiento_desde_post(request)
+            except ValueError:
+                messages.error(request, 'La fecha del movimiento no es válida.')
+                return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
+
+            if movimiento.monto_deposito and float(movimiento.monto_deposito) > 0:
+                try:
+                    movimiento.fecha_transferencia = _fecha_transferencia_desde_post(request)
+                except ValueError:
+                    messages.error(request, 'Fecha de transferencia/depósito inválida.')
+                    return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
+            else:
+                movimiento.fecha_transferencia = None
+
             movimiento.tarjeta_numero = (request.POST.get('tarjeta_numero') or '')[:32]
             movimiento.tarjeta_cupon = (request.POST.get('tarjeta_cupon') or '')[:64]
             tt = (request.POST.get('tarjeta_tipo') or '').strip().lower()
@@ -11957,13 +13165,11 @@ def nuevo_movimiento(request, numero_caja=None):
                 suma_cheques = sum((c['monto'] for c in cheques_detalle), Decimal('0'))
                 if suma_cheques > 0:
                     movimiento.monto_cheque = suma_cheques
-                # Compatibilidad: primer cheque en campos planos del movimiento
                 primero = cheques_detalle[0]
                 movimiento.cheque_numero = (primero.get('numero') or '')[:32]
                 movimiento.cheque_banco = (primero.get('banco') or '')[:100]
                 movimiento.cheque_fecha_vencimiento = primero.get('fecha_vencimiento')
             else:
-                # Fallback legacy: un solo cheque desde campos planos
                 movimiento.cheque_numero = (request.POST.get('cheque_numero') or '')[:32]
                 movimiento.cheque_banco = (request.POST.get('cheque_banco') or '')[:100]
                 fv = (request.POST.get('cheque_fecha_vencimiento') or '').strip()
@@ -11988,27 +13194,56 @@ def nuevo_movimiento(request, numero_caja=None):
             m_dp = Decimal(str(movimiento.monto_deposito or 0))
             total_mov = m_ef + m_ch + m_ta + m_dp
             try:
-                m_dol = parse_decimal_monto(request.POST.get('dolares', '0') or '0')
+                raw_usd = (
+                    request.POST.get('monto_dolares')
+                    or request.POST.get('dolares')
+                    or '0'
+                )
+                m_dol = parse_decimal_monto(raw_usd or '0')
             except Exception:
                 m_dol = Decimal('0')
             if m_dol < 0:
                 m_dol = Decimal('0')
+            if moneda_mov == 'ARS':
+                m_dol = Decimal('0')
             movimiento.monto_dolares = m_dol
+
+            # Cotización del día (ARS por USD) cuando hay monto en dólares
+            cotiz = None
+            if m_dol > 0:
+                try:
+                    cotiz_raw = (request.POST.get('cotizacion_dolar') or '').strip()
+                    if cotiz_raw:
+                        cotiz = parse_decimal_monto(cotiz_raw)
+                        if cotiz <= 0:
+                            cotiz = None
+                except (ValueError, TypeError, InvalidOperation):
+                    cotiz = None
+            movimiento.cotizacion_dolar = cotiz
+
             if total_mov <= 0 and m_dol <= 0:
                 messages.error(
                     request,
                     'El importe total en pesos o el monto en dólares (USD) debe ser mayor a cero.',
                 )
                 return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
-
-            try:
-                m_of, m_prop, m_inq = _parse_imputacion_corresponde_post(request, total_mov)
-            except ValueError:
-                messages.error(
-                    request,
-                    'El reparto entre oficina, propietario e inquilino debe sumar el total del movimiento.',
-                )
+            if moneda_mov == 'USD' and m_dol <= 0:
+                messages.error(request, 'Elegiste Dólares (USD): el monto en USD debe ser mayor a cero.')
                 return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
+
+            if es_gasto_oficina:
+                m_of = total_mov
+                m_prop = Decimal('0')
+                m_inq = Decimal('0')
+            else:
+                try:
+                    m_of, m_prop, m_inq = _parse_imputacion_corresponde_post(request, total_mov)
+                except ValueError:
+                    messages.error(
+                        request,
+                        'El reparto entre oficina, propietario e inquilino debe sumar el total del movimiento.',
+                    )
+                    return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
 
             movimiento.monto_a_oficina = m_of
             movimiento.monto_a_propietario = m_prop
@@ -12017,7 +13252,9 @@ def nuevo_movimiento(request, numero_caja=None):
             movimiento.a_descontar = a_descontar_raw
 
             if (
-                tipo == TipoMovimientoCajaEnum.EGRESO
+                not es_gasto_oficina
+                and not es_vale_concepto
+                and tipo == TipoMovimientoCajaEnum.EGRESO
                 and (m_prop > 0 or m_of > 0)
                 and not movimiento.propiedad_id
             ):
@@ -12027,6 +13264,62 @@ def nuevo_movimiento(request, numero_caja=None):
                     '(así figura en operaciones por propiedad y en liquidaciones).',
                 )
                 return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
+
+            from inmobiliaria.caja_devolucion_deposito import (
+                concepto_guardado_devolucion_deposito,
+                es_concepto_devolucion_deposito,
+                payload_concepto_detalle_devolucion,
+                validar_devolucion_deposito_caja,
+            )
+
+            es_devolucion_deposito = es_concepto_devolucion_deposito(
+                concepto_row, concepto_id=concepto_valor
+            )
+            if es_devolucion_deposito:
+                ref_tipo = (
+                    (request.POST.get('operacion_ref_tipo') or '').strip().lower()
+                    or 'reserva'
+                )
+                ref_id_raw = (
+                    (request.POST.get('operacion_ref_id') or '').strip()
+                    or (request.POST.get('reserva_operacion_id') or '').strip()
+                )
+                if not ref_id_raw.isdigit():
+                    messages.error(
+                        request,
+                        'Para devolver el depósito buscá la operación con el botón de lupa (N° Operación).',
+                    )
+                    return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
+                ref_id = int(ref_id_raw)
+                entidad_dev = None
+                if ref_tipo == 'contrato':
+                    entidad_dev = ContratoAlquiler.objects.filter(
+                        id=ref_id, sucursal=sucursal
+                    ).select_related('propiedad').first()
+                else:
+                    ref_tipo = 'reserva'
+                    entidad_dev = Reserva.objects.filter(
+                        id=ref_id, sucursal=sucursal, eliminada=False
+                    ).select_related('propiedad').first()
+                err_dev = validar_devolucion_deposito_caja(
+                    entidad_dev, total_mov, tipo=ref_tipo
+                )
+                if err_dev:
+                    messages.error(request, err_dev)
+                    return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
+                if not movimiento.propiedad_id and entidad_dev:
+                    movimiento.propiedad_id = entidad_dev.propiedad_id
+                concepto_guardado = concepto_guardado_devolucion_deposito(
+                    entidad_dev, detalles_txt, tipo=ref_tipo
+                )
+                movimiento.concepto = concepto_guardado
+                movimiento.concepto_detalle = payload_concepto_detalle_devolucion(
+                    ref_id, tipo=ref_tipo
+                )
+                tipo = TipoMovimientoCajaEnum.EGRESO
+                movimiento.tipo = tipo
+                if not movimiento.a_descontar:
+                    movimiento.a_descontar = 'oficina'
 
             productor_id_raw = (request.POST.get('productor_id') or '').strip()
             concepto_ref = concepto_valor
@@ -12124,7 +13417,53 @@ def nuevo_movimiento(request, numero_caja=None):
                 movimiento.save()
                 _guardar_cheques_movimiento(movimiento, cheques_detalle)
                 _marcar_movimiento_uid_usado(request, movimiento_uid)
-                if quiere_vale and (vendedor_vale or tipo_beneficiario_vale == TipoBeneficiarioVale.OTRO):
+                if movimiento.tipo == TipoMovimientoCajaEnum.INGRESO:
+                    from inmobiliaria.caja_devolucion_deposito import sincronizar_senia_reserva_desde_movimientos
+
+                    ref_id_raw = (
+                        (request.POST.get('operacion_ref_id') or '').strip()
+                        or (request.POST.get('reserva_operacion_id') or '').strip()
+                    )
+                    ref_tipo = (request.POST.get('operacion_ref_tipo') or 'reserva').strip().lower()
+                    if ref_id_raw.isdigit() and ref_tipo in ('', 'reserva'):
+                        reserva_sync = Reserva.objects.filter(
+                            id=int(ref_id_raw),
+                            sucursal=sucursal,
+                            eliminada=False,
+                        ).first()
+                        if reserva_sync:
+                            sincronizar_senia_reserva_desde_movimientos(reserva_sync)
+                    else:
+                        conc_sync = (movimiento.concepto or '')
+                        match_op = re.search(r'Operaci[oó]n\s*#?\s*(\d+)', conc_sync, re.IGNORECASE)
+                        if match_op:
+                            reserva_sync = Reserva.objects.filter(
+                                id=int(match_op.group(1)),
+                                sucursal=sucursal,
+                                eliminada=False,
+                            ).first()
+                            if reserva_sync:
+                                sincronizar_senia_reserva_desde_movimientos(reserva_sync)
+                if es_gasto_oficina and gasto_oficina_categoria:
+                    registrar_gasto_oficina_desde_movimiento(
+                        movimiento,
+                        gasto_oficina_categoria,
+                        gasto_oficina_descripcion,
+                        observaciones=gasto_oficina_observaciones,
+                        vendedor=gasto_oficina_vendedor,
+                        usuario=request.user,
+                    )
+                    if (
+                        categoria_gasto_es_vale(gasto_oficina_categoria)
+                        and gasto_oficina_vendedor
+                    ):
+                        ValeVendedor.crear_desde_movimiento(
+                            movimiento,
+                            vendedor=gasto_oficina_vendedor,
+                            usuario_creador=request.user,
+                            observaciones=gasto_oficina_observaciones,
+                        )
+                elif quiere_vale and (vendedor_vale or tipo_beneficiario_vale == TipoBeneficiarioVale.OTRO):
                     ValeVendedor.crear_desde_movimiento(
                         movimiento,
                         vendedor=vendedor_vale,
@@ -12135,21 +13474,49 @@ def nuevo_movimiento(request, numero_caja=None):
                         beneficiario_dni=beneficiario_dni_vale,
                     )
 
-            if quiere_vale and (vendedor_vale or tipo_beneficiario_vale == TipoBeneficiarioVale.OTRO):
+            if es_gasto_oficina:
+                if categoria_gasto_es_vale(gasto_oficina_categoria):
+                    etiqueta_vale = (
+                        'Egreso (vale entregado)'
+                        if tipo == TipoMovimientoCajaEnum.EGRESO
+                        else 'Ingreso (devolución de vale)'
+                    )
+                    messages.success(
+                        request,
+                        f'Movimiento de {etiqueta_vale}, vale y gasto de oficina registrados.',
+                    )
+                else:
+                    messages.success(
+                        request,
+                        'Egreso de caja y gasto de oficina registrados.',
+                    )
+            elif quiere_vale and (vendedor_vale or tipo_beneficiario_vale == TipoBeneficiarioVale.OTRO):
                 messages.success(
                     request,
                     'Movimiento creado y vale registrado en el historial.',
                 )
             else:
                 messages.success(request, 'Movimiento creado exitosamente')
-            return redirect('inmobiliaria:detalle_caja', numero=caja.numero)
+            # Volver al formulario (rápido) en lugar del detalle completo de caja.
+            return redirect('inmobiliaria:nuevo_movimiento')
 
         except Exception as e:
             messages.error(request, f'Error al crear el movimiento: {str(e)}')
             return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
     
-    return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
-
+    try:
+        return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception(
+            'nuevo_movimiento GET render (caja=%s)',
+            getattr(caja, 'numero', numero_caja),
+        )
+        messages.error(
+            request,
+            'No se pudo abrir el formulario de nuevo movimiento. Intentá de nuevo o avisá a sistemas.',
+        )
+        return redirect('inmobiliaria:detalle_caja', numero=caja.numero)
 
 @login_required
 def cerrar_caja(request, numero_caja):
@@ -12158,10 +13525,24 @@ def cerrar_caja(request, numero_caja):
     caja = get_object_or_404(Caja, numero=numero_caja, sucursal=request.user.sucursal, estado='abierta')
     sucursal = request.user.sucursal
     saldos_teoricos = _calcular_saldos_caja_por_medio(caja, sucursal)
-    saldo_teorico = saldos_teoricos['total_ars']
-    puede_arqueo = _usuario_puede_arqueo_cierre_caja(request.user)
     arqueo_manual = CajaArqueoManual.objects.filter(caja=caja).first()
-    saldos_prefill = arqueo_manual.como_dict_arqueo() if arqueo_manual else saldos_teoricos
+    from inmobiliaria.models.caja import MovimientoCaja, TipoMovimientoCajaEnum
+
+    movimientos_cierre_qs = MovimientoCaja.objects.filter(caja=caja)
+    ingresos_cierre = list(movimientos_cierre_qs.filter(tipo=TipoMovimientoCajaEnum.INGRESO))
+    egresos_cierre = list(movimientos_cierre_qs.filter(tipo=TipoMovimientoCajaEnum.EGRESO))
+    cuentas_cierre = [item['cuenta'] for item in saldos_teoricos['cuentas']]
+    saldos_cierre = _apertura_saldos_desde_cierre(
+        arqueo_manual,
+        saldos_teoricos,
+        caja=caja,
+        ingresos=ingresos_cierre,
+        egresos=egresos_cierre,
+        cuentas_bancarias=cuentas_cierre,
+    )
+    saldo_teorico = _total_ars_desde_arqueo_dict(saldos_cierre)
+    puede_arqueo = _usuario_puede_arqueo_cierre_caja(request.user)
+    saldos_prefill = saldos_cierre
     cuentas_arqueo = [
         {
             'cuenta': item['cuenta'],
@@ -12186,8 +13567,15 @@ def cerrar_caja(request, numero_caja):
                     saldo_inicial_siguiente = arqueo_data['efectivo']
                     apertura_saldos = arqueo_data
                 else:
-                    saldo_final = saldo_teorico
-                    apertura_saldos = _saldos_teoricos_a_dict_arqueo(saldos_teoricos)
+                    apertura_saldos = _apertura_saldos_desde_cierre(
+                        arqueo_manual,
+                        saldos_teoricos,
+                        caja=caja,
+                        ingresos=ingresos_cierre,
+                        egresos=egresos_cierre,
+                        cuentas_bancarias=cuentas_cierre,
+                    )
+                    saldo_final = _total_ars_desde_arqueo_dict(apertura_saldos)
                     saldo_inicial_siguiente = apertura_saldos['efectivo']
                     arqueo_data = None
 
@@ -12198,18 +13586,7 @@ def cerrar_caja(request, numero_caja):
                 caja.observaciones_cierre = observaciones
                 caja.save()
 
-                if puede_arqueo and arqueo_data is not None:
-                    CajaArqueoCierre.objects.create(
-                        caja=caja,
-                        efectivo=arqueo_data['efectivo'],
-                        cheque=arqueo_data['cheque'],
-                        tarjeta=arqueo_data['tarjeta'],
-                        dolares=arqueo_data['dolares'],
-                        deposito_galicia=Decimal('0'),
-                        deposito_mp=Decimal('0'),
-                        cuentas_json=arqueo_data['cuentas_json'],
-                        registrado_por=request.user,
-                    )
+                _crear_arqueo_cierre_desde_dict(caja, apertura_saldos, request.user)
 
                 CajaArqueoManual.objects.filter(caja=caja).delete()
 
@@ -12260,16 +13637,37 @@ def cerrar_caja(request, numero_caja):
             'puede_arqueo': puede_arqueo,
             'arqueo_manual': arqueo_manual,
             'bloque_saldos_cierre': _context_bloque_saldos_por_medio(
-                saldos_teoricos,
-                titulo='Dinero en caja al cierre (según movimientos)',
+                {
+                    'efectivo': saldos_cierre['efectivo'],
+                    'cheque': saldos_cierre['cheque'],
+                    'tarjeta': saldos_cierre['tarjeta'],
+                    'dolares': saldos_cierre['dolares'],
+                    'deposito_total': _deposito_total_desde_arqueo_dict(saldos_cierre),
+                    'total_ars': saldo_teorico,
+                },
+                titulo=(
+                    'Dinero en caja al cierre (arqueo registrado)'
+                    if arqueo_manual
+                    else 'Dinero en caja al cierre (según movimientos)'
+                ),
                 nota_proxima_caja=(
                     f'La próxima caja abrirá con el efectivo en pesos que indiques abajo '
-                    f'(teórico hoy: ${format_monto_argentino(saldos_teoricos["efectivo"])}).'
+                    f'(hoy: ${format_monto_argentino(saldos_cierre["efectivo"])}).'
                     if puede_arqueo
-                    else f'La próxima caja abrirá con saldo inicial '
-                    f'${format_monto_argentino(saldo_teorico)} (total teórico calculado).'
+                    else f'La próxima caja abrirá con los mismos saldos por medio '
+                    f'(total ARS ${format_monto_argentino(saldo_teorico)}).'
                 ),
-                cuentas_items=saldos_teoricos['cuentas'],
+                cuentas_items=[
+                    {
+                        'cuenta': item['cuenta'],
+                        'teorico': (
+                            arqueo_manual.monto_cuenta(item['cuenta'].id)
+                            if arqueo_manual
+                            else item['teorico']
+                        ),
+                    }
+                    for item in saldos_teoricos['cuentas']
+                ],
             ),
         },
     )
@@ -12571,15 +13969,33 @@ def guardar_movimiento(request):
     # ...código para mostrar el formulario...
 
 def propiedades_propietario(request, propietario_id):
-    propietario = get_object_or_404(Propietario, pk=propietario_id)
+    propietario = get_propietario_accesible(request, propietario_id)
 
-    # Obtener propiedades ordenadas por número de propiedad (no por ID/ficha)
-    propiedades = Propiedad.objects.filter(propietario=propietario).select_related('sucursal').order_by('numero_por_propietario')
+    propiedades = (
+        Propiedad.objects.filter(propietario=propietario)
+        .select_related('sucursal')
+        .order_by('sucursal__nombre', 'numero_por_propietario')
+    )
+    propiedades_por_sucursal = (
+        propiedades.values('sucursal__nombre')
+        .annotate(count=Count('id'))
+        .order_by('sucursal__nombre')
+    )
 
     return render(
         request,
         "inmobiliaria/propietarios/propiedades_propietario.html",
-        {"propietario": propietario, "propiedades": propiedades},
+        {
+            "propietario": propietario,
+            "propiedades": propiedades,
+            "propiedades_por_sucursal": [
+                {
+                    'nombre': row['sucursal__nombre'] or 'Sin sucursal',
+                    'count': row['count'],
+                }
+                for row in propiedades_por_sucursal
+            ],
+        },
     )
 
 @require_POST
@@ -12928,63 +14344,490 @@ def _etiqueta_id_concepto_caja_visual(cid):
     return s
 
 
-def _filtro_qs_por_buscar_concepto(qs, texto, conceptos_catalogo):
-    """
-    Un solo criterio de búsqueda por concepto.
-    Tolera '6', '6 - EXPENSAS', '6 — Expensas' (guiones - – —).
-    Si el movimiento solo guarda el id ('6'), coincide por catálogo aunque el usuario
-    haya elegido '6 - NOMBRE' en la lista (OR con búsqueda por frase completa).
-    """
+def _mapa_nombre_concepto_catalogo(conceptos_catalogo):
+    """Nombre en minúsculas → id de concepto."""
+    out = {}
+    for c in conceptos_catalogo or []:
+        nom = (c.nombre or '').strip().lower()
+        cid = str(c.id or '').strip()
+        if nom and cid:
+            out[nom] = cid
+    return out
+
+
+def _mapa_id_nombre_concepto_catalogo(conceptos_catalogo):
+    return {
+        str(c.id or '').strip(): (c.nombre or '').strip()
+        for c in (conceptos_catalogo or [])
+        if str(c.id or '').strip()
+    }
+
+
+def _resolver_criterio_buscar_concepto(texto, conceptos_catalogo):
+    """Interpreta el texto del filtro (id, «id — nombre» del datalist, o nombre)."""
     texto = (texto or '').strip()
     if not texto:
-        return qs
+        return None
 
-    lookup_id = {c.id: c for c in conceptos_catalogo}
+    lookup_id = {str(c.id).strip(): c for c in conceptos_catalogo if str(c.id or '').strip()}
 
-    def q_por_id(cid, c_obj):
-        q = (
-            Q(concepto__iexact=cid)
-            | Q(concepto__istartswith=f'{cid} -')
-            | Q(concepto__istartswith=f'{cid}-')
-            | Q(concepto__istartswith=f'{cid} ')
-            | Q(concepto__icontains=f'Concepto {cid}')
-            | Q(concepto_detalle__icontains=cid)
-        )
-        if c_obj:
-            n = (c_obj.nombre or '').strip()
-            if len(n) >= 2:
-                q |= Q(concepto__icontains=n) | Q(concepto_detalle__icontains=n)
-        return q
-
-    q_full = Q(concepto__icontains=texto) | Q(concepto_detalle__icontains=texto)
-
-    # Solo números: id de catálogo si existe; si no, substring
-    if re.match(r'^\d+$', texto):
-        if texto in lookup_id:
-            return qs.filter(q_por_id(texto, lookup_id[texto]) | q_full)
-        return qs.filter(q_full)
-
-    # "6 - algo" / "6 — algo" (típico al elegir del datalist)
     m = re.match(r'^(\d+)\s*[-–—]\s*(.+)$', texto)
     if m:
-        cid = m.group(1)
-        c_obj = lookup_id.get(cid)
-        q_id = q_por_id(cid, c_obj)
-        return qs.filter(q_id | q_full)
+        return {'ids': {m.group(1).strip()}, 'nombre': m.group(2).strip()}
 
-    # Texto libre: frase completa; si hay varias partes, también AND suave por tokens
-    partes = [p for p in re.split(r'[\s\-–—]+', texto) if p]
-    if len(partes) <= 1:
-        return qs.filter(q_full)
+    if re.match(r'^\d+$', texto):
+        return {'ids': {texto}}
 
-    q_tok = None
-    for p in partes:
-        if re.match(r'^\d+$', p) and p in lookup_id:
-            qp = q_por_id(p, lookup_id[p])
-        else:
-            qp = Q(concepto__icontains=p) | Q(concepto_detalle__icontains=p)
-        q_tok = qp if q_tok is None else (q_tok & qp)
-    return qs.filter(q_full | q_tok)
+    texto_lower = texto.lower()
+    ids_por_nombre = {
+        cid
+        for cid, c in lookup_id.items()
+        if texto_lower in (c.nombre or '').strip().lower()
+    }
+    if ids_por_nombre:
+        return {'ids': ids_por_nombre, 'nombre': texto}
+
+    for cid, c in lookup_id.items():
+        if (c.nombre or '').strip().lower() == texto_lower:
+            return {'ids': {cid}, 'nombre': texto}
+
+    return {'ids': set(), 'nombre': texto}
+
+
+def _q_movimiento_tiene_concepto_id(cid):
+    """Coincidencia estricta de un id de concepto en el movimiento (no substring 1 en 10)."""
+    cid = str(cid or '').strip()
+    if not cid:
+        return Q(pk__in=[])
+    esc = re.escape(cid)
+    return (
+        Q(concepto__iexact=cid)
+        | Q(concepto__istartswith=f'{cid} -')
+        | Q(concepto__istartswith=f'{cid}-')
+        | Q(concepto__istartswith=f'{cid} —')
+        | Q(concepto__istartswith=f'{cid} –')
+        | Q(concepto__istartswith=f'{cid} ')
+        | Q(concepto__icontains=f'|CONCEPTOS:{cid}:')
+        | Q(concepto_detalle__regex=rf'["\']id["\']\s*:\s*["\']?{esc}["\']?\s*[,}}\]]')
+        | Q(concepto_detalle__regex=rf'["\']codigo["\']\s*:\s*["\']?{esc}["\']?\s*[,}}\]]')
+        | Q(concepto__regex=rf'["\']id["\']\s*:\s*["\']?{esc}["\']?\s*[,}}\]]')
+        | Q(concepto__regex=rf'["\']codigo["\']\s*:\s*["\']?{esc}["\']?\s*[,}}\]]')
+    )
+
+
+def _ids_concepto_en_movimiento(movimiento, nombre_a_id=None):
+    """Ids de concepto presentes en las líneas del movimiento."""
+    ids = set()
+    cid = movimiento.concepto_catalogo_id()
+    if cid:
+        ids.add(str(cid).strip())
+    _, conceptos_data = _movimiento_json_conceptos_parsed(movimiento)
+    for it in conceptos_data:
+        if not isinstance(it, dict):
+            continue
+        for key in ('id', 'codigo'):
+            v = str(it.get(key) or '').strip()
+            if v:
+                ids.add(v)
+    raw = (movimiento.concepto or '')
+    if '|CONCEPTOS:' in raw:
+        trozo = raw.split('|CONCEPTOS:', 1)[1]
+        for item in [x for x in trozo.split('|') if x.strip()]:
+            parts = item.split(':')
+            if parts and parts[0].strip():
+                ids.add(parts[0].strip())
+        raw = raw.split('|CONCEPTOS:', 1)[0].strip()
+    else:
+        raw = raw.strip()
+
+    if raw:
+        head = raw.split(' — ', 1)[0].strip()
+        if head.isdigit():
+            ids.add(head)
+        elif nombre_a_id:
+            hid = nombre_a_id.get(head.lower())
+            if hid:
+                ids.add(hid)
+        try:
+            nom_listado = (movimiento.nombre_concepto_catalogo or '').strip().lower()
+            if nom_listado and nombre_a_id:
+                hid = nombre_a_id.get(nom_listado)
+                if hid:
+                    ids.add(hid)
+        except Exception:
+            pass
+
+    return ids
+
+
+def _movimiento_tiene_alguno_concepto_ids(movimiento, ids_buscados, conceptos_catalogo=None):
+    if not ids_buscados:
+        return False
+    nombre_a_id = _mapa_nombre_concepto_catalogo(conceptos_catalogo)
+    return bool(_ids_concepto_en_movimiento(movimiento, nombre_a_id) & set(ids_buscados))
+
+
+def _movimiento_tiene_nombre_concepto(movimiento, nombre_buscado, conceptos_catalogo):
+    """True si alguna línea del movimiento contiene ese nombre de concepto."""
+    nombre_buscado = (nombre_buscado or '').strip().lower()
+    if len(nombre_buscado) < 2:
+        return False
+    lookup = {str(c.id): (c.nombre or '').strip().lower() for c in conceptos_catalogo}
+    nombre_a_id = _mapa_nombre_concepto_catalogo(conceptos_catalogo)
+    for cid in _ids_concepto_en_movimiento(movimiento, nombre_a_id):
+        nom = lookup.get(cid, '')
+        if nom and nombre_buscado in nom:
+            return True
+    _, conceptos_data = _movimiento_json_conceptos_parsed(movimiento)
+    for it in conceptos_data:
+        if not isinstance(it, dict):
+            continue
+        for key in ('nombre', 'concepto', 'descripcion', 'label'):
+            v = str(it.get(key) or '').strip().lower()
+            if v and nombre_buscado in v:
+                return True
+    return False
+
+
+def _filtro_qs_por_buscar_concepto(qs, texto, conceptos_catalogo):
+    """
+    Solo movimientos que incluyen el concepto buscado en sus líneas (id o nombre del catálogo).
+    Evita falsos positivos por substring (ej. buscar «1» y traer concepto «10»).
+    """
+    criterio = _resolver_criterio_buscar_concepto(texto, conceptos_catalogo)
+    if not criterio:
+        return qs
+
+    ids_buscados = criterio.get('ids') or set()
+    if ids_buscados:
+        id_nombre = _mapa_id_nombre_concepto_catalogo(conceptos_catalogo)
+        q = Q()
+        for cid in ids_buscados:
+            q |= _q_movimiento_tiene_concepto_id(cid)
+            nom = id_nombre.get(str(cid), '').strip()
+            if nom:
+                q |= Q(concepto__istartswith=f'{nom} —')
+                q |= Q(concepto__iexact=nom)
+        qs_filtrado = qs.filter(q).distinct()
+        candidatos = list(qs_filtrado[:5000])
+        ids_ok = [
+            m.id for m in candidatos
+            if _movimiento_tiene_alguno_concepto_ids(m, ids_buscados, conceptos_catalogo)
+        ]
+        return qs.filter(pk__in=ids_ok) if ids_ok else qs.none()
+
+    nombre = (criterio.get('nombre') or '').strip()
+    if len(nombre) < 2:
+        return qs.none()
+    candidatos = list(
+        qs.filter(Q(concepto_detalle__icontains=nombre) | Q(concepto__icontains=nombre))[:5000]
+    )
+    ids_ok = [
+        m.id for m in candidatos
+        if _movimiento_tiene_nombre_concepto(m, nombre, conceptos_catalogo)
+    ]
+    return qs.filter(pk__in=ids_ok)
+
+
+def _linea_concepto_coincide_filtro(linea, ids_buscados, nombre_buscado, id_nombre_map):
+    if not isinstance(linea, dict):
+        return False
+    cid = str(linea.get('id') or linea.get('codigo') or '').strip()
+    if ids_buscados and cid in ids_buscados:
+        return True
+    if ids_buscados and cid:
+        nom_linea = id_nombre_map.get(cid, '').strip().lower()
+        for iid in ids_buscados:
+            if nom_linea and nom_linea == id_nombre_map.get(str(iid), '').strip().lower():
+                return True
+    if nombre_buscado and len(nombre_buscado) >= 2:
+        nb = nombre_buscado.lower()
+        for key in ('nombre', 'concepto', 'descripcion', 'label'):
+            v = str(linea.get(key) or '').strip().lower()
+            if v and nb in v:
+                return True
+    return False
+
+
+def _importe_lineas_concepto_en_movimiento(movimiento, ids_buscados, nombre_buscado, id_nombre_map):
+    """Suma importes de las líneas del movimiento que coinciden con el filtro de concepto."""
+    sub = Decimal('0')
+    _, conceptos_data = _movimiento_json_conceptos_parsed(movimiento)
+    for linea in conceptos_data:
+        if not _linea_concepto_coincide_filtro(linea, ids_buscados, nombre_buscado, id_nombre_map):
+            continue
+        imp = _importe_decimal_concepto_recibo(linea.get('importe') or linea.get('monto') or 0)
+        if _concepto_es_negativo_recibo(linea.get('id'), linea.get('nombre')):
+            imp = -abs(imp)
+        sub += imp
+
+    raw = (movimiento.concepto or '')
+    if '|CONCEPTOS:' in raw:
+        trozo = raw.split('|CONCEPTOS:', 1)[1]
+        for item in [x for x in trozo.split('|') if x.strip()]:
+            parts = item.split(':')
+            if len(parts) < 3:
+                continue
+            linea = {'id': parts[0].strip(), 'nombre': parts[1].strip(), 'importe': parts[2].strip()}
+            if not _linea_concepto_coincide_filtro(linea, ids_buscados, nombre_buscado, id_nombre_map):
+                continue
+            imp = _importe_decimal_concepto_recibo(parts[2].strip())
+            if _concepto_es_negativo_recibo(parts[0], parts[1]):
+                imp = -abs(imp)
+            sub += imp
+
+    return sub.quantize(Decimal('0.01'))
+
+
+def _importe_concepto_filtrado_movimiento(movimiento, criterio, conceptos_catalogo):
+    """
+    Importe del movimiento atribuible al concepto filtrado.
+    En recibos con varios conceptos, solo suma la línea buscada (ej. Personal Flow).
+    """
+    if not criterio:
+        return None
+
+    ids_buscados = {str(x).strip() for x in (criterio.get('ids') or set()) if str(x).strip()}
+    nombre_buscado = (criterio.get('nombre') or '').strip()
+    id_nombre_map = _mapa_id_nombre_concepto_catalogo(conceptos_catalogo)
+    nombre_a_id = _mapa_nombre_concepto_catalogo(conceptos_catalogo)
+
+    sub = _importe_lineas_concepto_en_movimiento(
+        movimiento, ids_buscados, nombre_buscado, id_nombre_map
+    )
+    if sub != 0:
+        return sub
+
+    ids_mov = _ids_concepto_en_movimiento(movimiento, nombre_a_id)
+    coincide = False
+    if ids_buscados:
+        coincide = bool(ids_mov & ids_buscados)
+    elif nombre_buscado and len(nombre_buscado) >= 2:
+        coincide = _movimiento_tiene_nombre_concepto(movimiento, nombre_buscado, conceptos_catalogo)
+
+    if coincide:
+        _, conceptos_data = _movimiento_json_conceptos_parsed(movimiento)
+        if not conceptos_data and len(ids_mov) <= 1:
+            return Decimal(str(movimiento.monto_total or 0)).quantize(Decimal('0.01'))
+
+    return Decimal('0')
+
+
+def _nombre_linea_concepto_reporte(linea, id_nombre_map):
+    cid = str(linea.get('id') or linea.get('codigo') or '').strip()
+    for key in ('nombre', 'concepto', 'descripcion', 'label'):
+        v = str(linea.get(key) or '').strip()
+        if v:
+            return v
+    if cid:
+        return id_nombre_map.get(cid) or cid
+    return ''
+
+
+def _concepto_display_filtrado_reporte_caja(movimiento, criterio, conceptos_catalogo, lookup_nombre_concepto):
+    """Solo el nombre del concepto buscado, sin el resto de líneas del recibo."""
+    ids_buscados = {str(x).strip() for x in (criterio.get('ids') or set()) if str(x).strip()}
+    nombre_buscado = (criterio.get('nombre') or '').strip()
+    id_nombre_map = _mapa_id_nombre_concepto_catalogo(conceptos_catalogo)
+
+    nombres = []
+    vistos = set()
+
+    def agregar(nom):
+        n = (nom or '').strip()
+        if not n:
+            return
+        clave = n.lower()
+        if clave in vistos:
+            return
+        vistos.add(clave)
+        nombres.append(n)
+
+    _, conceptos_data = _movimiento_json_conceptos_parsed(movimiento)
+    for linea in conceptos_data:
+        if not _linea_concepto_coincide_filtro(linea, ids_buscados, nombre_buscado, id_nombre_map):
+            continue
+        agregar(_nombre_linea_concepto_reporte(linea, id_nombre_map))
+
+    raw = (movimiento.concepto or '')
+    if '|CONCEPTOS:' in raw:
+        trozo = raw.split('|CONCEPTOS:', 1)[1]
+        for item in [x for x in trozo.split('|') if x.strip()]:
+            parts = item.split(':')
+            if len(parts) < 2:
+                continue
+            linea = {
+                'id': parts[0].strip(),
+                'nombre': parts[1].strip() if len(parts) > 1 else '',
+            }
+            if not _linea_concepto_coincide_filtro(linea, ids_buscados, nombre_buscado, id_nombre_map):
+                continue
+            agregar(_nombre_linea_concepto_reporte(linea, id_nombre_map))
+
+    if nombres:
+        return ' + '.join(nombres)[:220]
+
+    for cid in sorted(ids_buscados):
+        nom = (lookup_nombre_concepto or {}).get(cid) or id_nombre_map.get(cid)
+        if not nom:
+            try:
+                nom = (lookup_nombre_concepto or {}).get(int(cid))
+            except (TypeError, ValueError):
+                nom = None
+        if nom:
+            return str(nom)[:220]
+
+    if nombre_buscado:
+        return nombre_buscado[:220]
+
+    return _concepto_display_reporte_caja(movimiento, lookup_nombre_concepto)
+
+
+def _montos_reporte_por_importe_concepto(movimiento, importe_concepto):
+    """Prorratea medios de pago según la parte del movimiento que corresponde al concepto."""
+    importe_concepto = Decimal(str(importe_concepto or 0)).quantize(Decimal('0.01'))
+    total_mov = Decimal(str(movimiento.monto_total or 0))
+    if importe_concepto <= Decimal('0') or total_mov <= Decimal('0.01'):
+        return {
+            'monto_efectivo': importe_concepto if importe_concepto > 0 else Decimal('0'),
+            'monto_cheque': Decimal('0'),
+            'monto_tarjeta': Decimal('0'),
+            'monto_deposito': Decimal('0'),
+            'total': importe_concepto,
+        }
+    ratio = importe_concepto / total_mov
+    efectivo = (Decimal(str(movimiento.monto_efectivo or 0)) * ratio).quantize(Decimal('0.01'))
+    cheque = (Decimal(str(movimiento.monto_cheque or 0)) * ratio).quantize(Decimal('0.01'))
+    tarjeta = (Decimal(str(movimiento.monto_tarjeta or 0)) * ratio).quantize(Decimal('0.01'))
+    deposito = (Decimal(str(movimiento.monto_deposito or 0)) * ratio).quantize(Decimal('0.01'))
+    diff = importe_concepto - (efectivo + cheque + tarjeta + deposito)
+    if diff:
+        efectivo = (efectivo + diff).quantize(Decimal('0.01'))
+    return {
+        'monto_efectivo': efectivo,
+        'monto_cheque': cheque,
+        'monto_tarjeta': tarjeta,
+        'monto_deposito': deposito,
+        'total': importe_concepto,
+    }
+
+
+def _totales_reporte_caja_desde_lista(movimientos, tipo_code):
+    sub = [m for m in movimientos if m.tipo == tipo_code]
+    efectivo = Decimal('0')
+    cheque = Decimal('0')
+    tarjeta = Decimal('0')
+    tarjeta_credito = Decimal('0')
+    tarjeta_debito = Decimal('0')
+    deposito = Decimal('0')
+    total_mov = Decimal('0')
+    for m in sub:
+        efectivo += Decimal(str(getattr(m, 'reporte_monto_efectivo', m.monto_efectivo) or 0))
+        cheque += Decimal(str(getattr(m, 'reporte_monto_cheque', m.monto_cheque) or 0))
+        tarjeta += Decimal(str(getattr(m, 'reporte_monto_tarjeta', m.monto_tarjeta) or 0))
+        if Decimal(str(getattr(m, 'reporte_monto_tarjeta', m.monto_tarjeta) or 0)) > 0:
+            if getattr(m, 'tarjeta_tipo', None) == 'credito':
+                tarjeta_credito += Decimal(str(getattr(m, 'reporte_monto_tarjeta', m.monto_tarjeta) or 0))
+            elif getattr(m, 'tarjeta_tipo', None) == 'debito':
+                tarjeta_debito += Decimal(str(getattr(m, 'reporte_monto_tarjeta', m.monto_tarjeta) or 0))
+        deposito += Decimal(str(getattr(m, 'reporte_monto_deposito', m.monto_deposito) or 0))
+        total_mov += Decimal(str(getattr(m, 'reporte_monto_total', m.monto_total) or 0))
+    return {
+        'efectivo': efectivo,
+        'cheque': cheque,
+        'tarjeta': tarjeta,
+        'tarjeta_credito': tarjeta_credito,
+        'tarjeta_debito': tarjeta_debito,
+        'deposito': deposito,
+        'total_mov': total_mov,
+    }
+
+
+def _referencias_movimiento_en_concepto(concepto_raw):
+    """Prefijos legibles (Contrato #N, Operación #N) presentes en el texto del concepto."""
+    refs = []
+    texto = (concepto_raw or '').strip()
+    m = re.search(r'Contrato\s*#\s*(\d+)', texto, re.I)
+    if m:
+        refs.append(f'Contrato #{m.group(1)}')
+    m = re.search(r'Operaci[oó]n\s*#?\s*(\d+)', texto, re.I)
+    if m:
+        refs.append(f'Operación #{m.group(1)}')
+    return refs
+
+
+def _nombres_conceptos_movimiento_reporte(movimiento, lookup_nombre_concepto):
+    """Nombres legibles de conceptos (JSON / catálogo), sin pipes ni arrays crudos."""
+    _, conceptos_data = _movimiento_json_conceptos_parsed(movimiento)
+    nombres = []
+    for it in conceptos_data:
+        if not isinstance(it, dict):
+            continue
+        n = str(it.get('nombre') or it.get('concepto') or '').strip()
+        if not n:
+            cid = str(it.get('id') or it.get('codigo') or '').strip()
+            n = (lookup_nombre_concepto or {}).get(cid, '')
+        if n and n not in nombres:
+            nombres.append(n)
+    return nombres
+
+
+def _concepto_display_reporte_caja(movimiento, lookup_nombre_concepto):
+    """Texto de concepto para reportes de caja (legible, sin JSON embebido)."""
+    import re
+
+    raw = (movimiento.concepto or '').strip()
+    if '|CONCEPTOS:' in raw:
+        raw = raw.split('|CONCEPTOS:', 1)[0].strip()
+
+    refs = _referencias_movimiento_en_concepto(raw)
+    nombres = _nombres_conceptos_movimiento_reporte(movimiento, lookup_nombre_concepto)
+    if nombres:
+        cuerpo = ' + '.join(nombres)
+        if refs:
+            pref = refs[0]
+            if pref.lower() not in cuerpo.lower():
+                return f'{pref} — {cuerpo}'[:220]
+        return cuerpo[:220]
+
+    l1 = (getattr(movimiento, 'listado_detalle_l1', None) or '').strip()
+    if l1 and l1 != '—' and '[{"' not in l1 and '{"id"' not in l1:
+        if refs and refs[0].lower() not in l1.lower():
+            return f'{refs[0]} — {l1}'[:220]
+        return l1[:220]
+
+    # Catálogo: id suelto o "nombre — detalle" del formulario de egreso
+    primer_token = raw.split(None, 1)[0] if raw else ''
+    nom_cat = (lookup_nombre_concepto or {}).get(raw) or (lookup_nombre_concepto or {}).get(primer_token)
+    if nom_cat:
+        primer_visual = _etiqueta_id_concepto_caja_visual(primer_token)
+        if raw == primer_token:
+            return f'{primer_visual} — {nom_cat}'[:220]
+        if nom_cat.lower() not in raw.lower():
+            return f'{raw} — {nom_cat}'[:220]
+        return raw[:220]
+
+    if raw.startswith('[{"') or raw.startswith('{"id"'):
+        return (refs[0] if refs else 'Cobro')[:220]
+
+    if re.search(r'Contrato\s*#\s*\d+\s*-\s*\[', raw, re.I):
+        return (refs[0] if refs else 'Cobro de contrato')[:220]
+
+    if raw == primer_token and primer_token:
+        return _etiqueta_id_concepto_caja_visual(primer_token)[:220]
+    return raw[:220] if raw else '—'
+
+
+def _propiedad_display_reporte_caja(movimiento):
+    """Dirección e ID de la propiedad vinculada al movimiento."""
+    try:
+        prop = getattr(movimiento, 'propiedad', None)
+    except Exception:
+        prop = None
+    if prop and getattr(movimiento, 'propiedad_id', None):
+        return _etiqueta_propiedad_liquidacion(prop)
+    l2 = (getattr(movimiento, 'listado_concepto_l2', None) or '').strip()
+    return l2 if l2 else '—'
 
 
 @login_required
@@ -13095,6 +14938,7 @@ def reportes_caja(request):
             sucursal=sucursal,
             fecha__date__gte=fecha_desde,
             fecha__date__lte=fecha_hasta,
+            fecha_eliminacion__isnull=True,
         )
         .select_related('caja', 'empleado', 'propiedad')
         .order_by('-fecha', '-id')
@@ -13124,6 +14968,13 @@ def reportes_caja(request):
     if buscar_concepto:
         qs = _filtro_qs_por_buscar_concepto(qs, buscar_concepto, conceptos_catalogo)
 
+    criterio_concepto = (
+        _resolver_criterio_buscar_concepto(buscar_concepto, conceptos_catalogo)
+        if buscar_concepto
+        else None
+    )
+    filtrando_concepto = bool(criterio_concepto)
+
     def etiqueta_destino(val):
         if not val:
             return '—'
@@ -13145,23 +14996,26 @@ def reportes_caja(request):
     lookup_nombre_concepto = {c.id: c.nombre for c in conceptos_catalogo}
 
     movimientos_lista = list(qs[:2000])
+    MovimientoCaja.precargar_nombres_concepto(movimientos_lista, sucursal)
     for _m in movimientos_lista:
         _m.destino_etiqueta = etiqueta_destino(_m.destino_deposito)
-        raw = (_m.concepto or '').strip()
-        nom_cat = lookup_nombre_concepto.get(raw)
-        primer_token = raw.split(None, 1)[0] if raw else ''
-        primer_visual = _etiqueta_id_concepto_caja_visual(primer_token)
-        if not nom_cat and primer_token:
-            nom_cat = lookup_nombre_concepto.get(primer_token)
-        if nom_cat:
-            if raw == primer_token:
-                _m.concepto_display = f'{primer_visual} — {nom_cat}'
-            elif nom_cat.lower() not in raw.lower():
-                _m.concepto_display = f'{raw} — {nom_cat}'
-            else:
-                _m.concepto_display = raw
+        if filtrando_concepto:
+            _m.concepto_display = _concepto_display_filtrado_reporte_caja(
+                _m, criterio_concepto, conceptos_catalogo, lookup_nombre_concepto
+            )
         else:
-            _m.concepto_display = primer_visual if raw == primer_token else raw
+            _m.concepto_display = _concepto_display_reporte_caja(_m, lookup_nombre_concepto)
+        _m.propiedad_display = _propiedad_display_reporte_caja(_m)
+        if filtrando_concepto:
+            imp_concepto = _importe_concepto_filtrado_movimiento(
+                _m, criterio_concepto, conceptos_catalogo
+            )
+            montos = _montos_reporte_por_importe_concepto(_m, imp_concepto)
+            _m.reporte_monto_efectivo = montos['monto_efectivo']
+            _m.reporte_monto_cheque = montos['monto_cheque']
+            _m.reporte_monto_tarjeta = montos['monto_tarjeta']
+            _m.reporte_monto_deposito = montos['monto_deposito']
+            _m.reporte_monto_total = montos['total']
 
     def totales_por_tipo(queryset, tipo_code):
         sub = queryset.filter(tipo=tipo_code)
@@ -13180,25 +15034,49 @@ def reportes_caja(request):
             ag[k] = ag[k] or Decimal('0')
         return ag
 
-    tot_in = totales_por_tipo(qs, TipoMovimientoCajaEnum.INGRESO)
-    tot_eg = totales_por_tipo(qs, TipoMovimientoCajaEnum.EGRESO)
+    if filtrando_concepto:
+        tot_in = _totales_reporte_caja_desde_lista(movimientos_lista, TipoMovimientoCajaEnum.INGRESO)
+        tot_eg = _totales_reporte_caja_desde_lista(movimientos_lista, TipoMovimientoCajaEnum.EGRESO)
+    else:
+        tot_in = totales_por_tipo(qs, TipoMovimientoCajaEnum.INGRESO)
+        tot_eg = totales_por_tipo(qs, TipoMovimientoCajaEnum.EGRESO)
 
     transferencias_por_destino = []
-    dep_rows = (
-        qs.filter(monto_deposito__gt=0)
-        .values('destino_deposito', 'tipo')
-        .annotate(total=models.Sum('monto_deposito'))
-        .order_by('tipo', 'destino_deposito')
-    )
-    for row in dep_rows:
-        dest = row['destino_deposito'] or ''
-        transferencias_por_destino.append({
-            'destino': dest,
-            'etiqueta': etiqueta_destino(dest),
-            'tipo': row['tipo'],
-            'tipo_display': 'Ingreso' if row['tipo'] == TipoMovimientoCajaEnum.INGRESO else 'Egreso',
-            'total': row['total'] or Decimal('0'),
-        })
+    if filtrando_concepto:
+        from collections import defaultdict
+
+        dep_map = defaultdict(lambda: {'total': Decimal('0'), 'tipo': None})
+        for _m in movimientos_lista:
+            dep = _m.reporte_monto_deposito or Decimal('0')
+            if dep <= Decimal('0'):
+                continue
+            key = (_m.destino_deposito or '', _m.tipo)
+            dep_map[key]['total'] += dep
+            dep_map[key]['tipo'] = _m.tipo
+        for (dest, tipo), data in sorted(dep_map.items(), key=lambda x: (x[0][1], x[0][0])):
+            transferencias_por_destino.append({
+                'destino': dest,
+                'etiqueta': etiqueta_destino(dest),
+                'tipo': tipo,
+                'tipo_display': 'Ingreso' if tipo == TipoMovimientoCajaEnum.INGRESO else 'Egreso',
+                'total': data['total'],
+            })
+    else:
+        dep_rows = (
+            qs.filter(monto_deposito__gt=0)
+            .values('destino_deposito', 'tipo')
+            .annotate(total=models.Sum('monto_deposito'))
+            .order_by('tipo', 'destino_deposito')
+        )
+        for row in dep_rows:
+            dest = row['destino_deposito'] or ''
+            transferencias_por_destino.append({
+                'destino': dest,
+                'etiqueta': etiqueta_destino(dest),
+                'tipo': row['tipo'],
+                'tipo_display': 'Ingreso' if row['tipo'] == TipoMovimientoCajaEnum.INGRESO else 'Egreso',
+                'total': row['total'] or Decimal('0'),
+            })
 
     from django.core.paginator import Paginator
 
@@ -13215,6 +15093,7 @@ def reportes_caja(request):
         'medio': medio,
         'destino_transferencia': destino_transferencia,
         'buscar_concepto': buscar_concepto,
+        'filtrando_concepto': filtrando_concepto,
         'conceptos_catalogo': conceptos_catalogo,
         'opciones_destino': opciones_destino,
         'movimientos': page_obj,
@@ -13225,6 +15104,8 @@ def reportes_caja(request):
         'balance': (tot_in['total_mov'] - tot_eg['total_mov']),
         'transferencias_por_destino': transferencias_por_destino,
         'querystring': query_params.urlencode(),
+        'puede_eliminar_movimiento_caja': usuario_puede_eliminar_movimiento_caja(request.user),
+        'puede_editar_movimiento_caja': usuario_puede_editar_movimiento_caja(request.user),
     }
     return render(request, 'inmobiliaria/caja/reportes.html', context)
 
@@ -13369,52 +15250,37 @@ def buscar_propiedad(request):
 def buscar_movimiento(request):
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Método no permitido'})
-    
-    operacion = request.POST.get('operacion')
+
+    from inmobiliaria.caja_buscar_operacion import buscar_operacion_caja, parse_numero_operacion_caja
+
+    operacion_raw = (request.POST.get('operacion') or '').strip()
     sucursal = request.user.sucursal
-    
+    tipo_comprobante = (request.POST.get('tipo_comprobante') or '').strip()
+    tipo_operacion_post = (request.POST.get('tipo_operacion') or '').strip().lower()
+
+    if not operacion_raw:
+        return JsonResponse({'success': False, 'error': 'Ingrese un número de operación'})
+
+    pk, tipo_parseado, parse_err = parse_numero_operacion_caja(operacion_raw)
+    if parse_err:
+        return JsonResponse({'success': False, 'error': parse_err})
+
+    tipo_operacion = tipo_operacion_post or tipo_parseado or ''
+
     try:
-        movimiento = MovimientoCaja.objects.select_related(
-            'productor',
-            'propiedad',
-            'concepto'
-        ).get(operacion=operacion, caja__sucursal=sucursal)
-        
-        return JsonResponse({
-            'success': True,
-            'movimiento': {
-                'tipo': movimiento.tipo,
-                'tipo_comprobante': movimiento.tipo_comprobante,
-                'numero_liquidacion': movimiento.numero_liquidacion,
-                'detalles': movimiento.detalles,
-                'productor': {
-                    'id': movimiento.productor.id,
-                    'nombre': movimiento.productor.nombre,
-                    'apellido': movimiento.productor.apellido
-                } if movimiento.productor else None,
-                'propiedad': {
-                    'id': movimiento.propiedad.id,
-                    'direccion': movimiento.propiedad.direccion,
-                    'ubicacion': getattr(movimiento.propiedad, 'ubicacion', None) or '',
-                    'piso': (movimiento.propiedad.piso or '').strip(),
-                    'departamento': (movimiento.propiedad.departamento or '').strip(),
-                } if movimiento.propiedad else None,
-                'concepto': {
-                    'id': movimiento.concepto.id,
-                    'nombre': movimiento.concepto.nombre
-                } if movimiento.concepto else None
-            }
-        })
-    except MovimientoCaja.DoesNotExist:
-        return JsonResponse({
-            'success': False,
-            'error': 'No se encontró el movimiento'
-        })
+        payload, err = buscar_operacion_caja(
+            sucursal,
+            int(pk),
+            tipo_comprobante_hint=tipo_comprobante,
+            tipo_operacion_hint=tipo_operacion,
+        )
+        if err:
+            return JsonResponse({'success': False, 'error': err})
+        if payload and payload.get('ambiguo'):
+            return JsonResponse(payload)
+        return JsonResponse(payload)
     except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'error': str(e)
-        })
+        return JsonResponse({'success': False, 'error': str(e)})
 
 
 @login_required
@@ -13661,27 +15527,18 @@ def buscar_propiedades_caja(request):
         return JsonResponse({'success': True, 'propiedades': []})
     
     try:
-        q = (
-            Q(direccion__icontains=termino) |
-            Q(ubicacion__icontains=termino) |
-            Q(piso__icontains=termino) |
-            Q(departamento__icontains=termino) |
-            Q(propietario__nombre__icontains=termino) |
-            Q(propietario__apellido__icontains=termino) |
-            Q(propietario__dni__icontains=termino) |
-            Q(propietario__cuit__icontains=termino) |
-            Q(propietario__email__icontains=termino)
+        from inmobiliaria.busqueda_propiedad import (
+            limite_busqueda_propiedad,
+            ordenar_propiedades,
+            q_busqueda_propiedad,
         )
-        try:
-            pid = int(termino)
-            q = q | Q(id=pid)
-        except (ValueError, TypeError):
-            pass
-        propiedades = (
+
+        q = q_busqueda_propiedad(termino)
+        limite = limite_busqueda_propiedad(termino)
+        propiedades = ordenar_propiedades(
             Propiedad.objects.filter(sucursal=sucursal)
             .filter(q)
-            .select_related('propietario')
-            .order_by('direccion')[:40]
+            .select_related('propietario')[:limite]
         )
 
         def _propietario_txt(p):
@@ -13696,6 +15553,7 @@ def buscar_propiedades_caja(request):
                 'id': p.id,
                 'direccion': p.direccion,
                 'ubicacion': p.ubicacion or '',
+                'titulo': (p.titulo or '').strip(),
                 'piso': (p.piso or '').strip(),
                 'departamento': (p.departamento or '').strip(),
                 'propietario': _propietario_txt(p),
@@ -13722,9 +15580,10 @@ def buscar_propiedades(request):
     inquilino_form = InquilinoForm(request.POST)
     propiedades_disponibles = []
     propiedades_sin_precio = []
-    vendedores = Vendedor.objects.filter(sucursal=sucursal_vendedor)
+    vendedores = Vendedor.objects.filter(sucursal=sucursal_vendedor).order_by('apellido', 'nombre')
     total_dias_reserva = 0
-    
+    vendedor_usuario_id = request.user.pk if isinstance(request.user, Vendedor) else None
+
     # FLAG: Para identificar específicamente esta función en los edits siguientes
     FUNCION_PRINCIPAL_EN_USO = True
 
@@ -13772,25 +15631,6 @@ def buscar_propiedades(request):
         
         # 🎯 DEBUGGING: Verificar fechas de búsqueda
 # print(f"🎯 BUSCAR_PROPIEDADES_PRINCIPAL: Buscando desde {fecha_inicio} hasta {fecha_fin}")
-        
-        # 🎯 DEBUGGING: Ver qué propiedades tienen reservas en estas fechas
-        from inmobiliaria.models import Reserva
-        reservas_en_fechas = Reserva.objects.filter(
-            Q(fecha_inicio__lt=fecha_fin) & Q(fecha_fin__gt=fecha_inicio)
-        )
-# print(f"🔍 RESERVAS EN ESTAS FECHAS: {reservas_en_fechas.count()} encontradas")
-        for r in reservas_en_fechas:
-            pass  # ✅ Bloque vacío
-# print(f"   - Reserva {r.id}: Propiedad {r.propiedad.id} ({r.propiedad.ubicacion})")
-# print(f"     Fechas: {r.fecha_inicio} al {r.fecha_fin}, Estado: '{r.estado}'")
-        
-        # FLAG para identificar esta función específica para debugging posterior
-        DEBUGGING_FUNCION_PRINCIPAL = True
-
-        # Prefetch los precios para cada propiedad
-        propiedades = propiedades.prefetch_related(
-            Prefetch('precios', queryset=Precio.objects.all(), to_attr='todos_precios')
-        ).select_related('sucursal')
 
         # Aplicar filtros del formulario
         if origen:
@@ -13833,307 +15673,147 @@ def buscar_propiedades(request):
             if form.cleaned_data.get(caracteristica):
                 propiedades = propiedades.filter(**{caracteristica: True})
 
-        # Filtrar propiedades que están disponibles en las fechas indicadas
-        for propiedad in propiedades:
-            from datetime import timedelta
-# print(f"🔍 PROCESANDO PROPIEDAD {propiedad.id}: {propiedad}")
-# print(f"   🔎 Buscando disponibilidades para {fecha_inicio} al {fecha_fin}")
-            
-            # 1️⃣ BUSCAR TODAS LAS DISPONIBILIDADES QUE SE SUPERPONEN CON EL PERÍODO
-            disponibilidades_superpuestas = Disponibilidad.objects.filter(
-                propiedad=propiedad,
-                fecha_inicio__lt=fecha_fin,   # Empieza antes de que termine la búsqueda
-                fecha_fin__gt=fecha_inicio,   # Termina después de que empiece la búsqueda
-            ).order_by('fecha_inicio')
-            
-            # 2️⃣ VERIFICAR SI LAS DISPONIBILIDADES CUBREN TODO EL RANGO (permitiendo contiguas)
-            periodo_cubierto = False
-            if disponibilidades_superpuestas.exists():
-                # Verificar si las disponibilidades contiguas cubren todo el rango
-                disponibilidades_list = list(disponibilidades_superpuestas)
-                
-                # Ordenar por fecha de inicio
-                disponibilidades_list.sort(key=lambda d: d.fecha_inicio)
-                
-                # Verificar cobertura continua
-                cobertura_inicio = disponibilidades_list[0].fecha_inicio
-                cobertura_fin = disponibilidades_list[0].fecha_fin
-                
-                for i in range(1, len(disponibilidades_list)):
-                    disp_actual = disponibilidades_list[i]
-                    # Si la disponibilidad actual empieza el mismo día o antes que termine la anterior
-                    # (permitiendo fechas contiguas como 07-11 y 11-15)
-                    if disp_actual.fecha_inicio <= cobertura_fin:
-                        # Extender la cobertura
-                        cobertura_fin = max(cobertura_fin, disp_actual.fecha_fin)
-                    else:
-                        # Hay un hueco
-                        break
-                
-                # Verificar si la cobertura completa incluye el período buscado
-                if cobertura_inicio <= fecha_inicio and cobertura_fin >= fecha_fin:
-                    periodo_cubierto = True
-# print(f"   ✅ Período CUBIERTO por disponibilidades contiguas: {cobertura_inicio} al {cobertura_fin}")
-                else:
-                    pass  # ✅ Bloque vacío
-# print(f"   ❌ Período NO cubierto. Cobertura: {cobertura_inicio} al {cobertura_fin}, necesario: {fecha_inicio} al {fecha_fin}")
-            
-            # Usar la variable disponibilidades para mantener compatibilidad con el resto del código
-            disponibilidades = disponibilidades_superpuestas if periodo_cubierto else Disponibilidad.objects.none()
-            
-            if periodo_cubierto:
-                # 3️⃣ CALCULAR PERÍODO LIBRE usando la cobertura de disponibilidades contiguas
-                # Usar la cobertura calculada anteriormente (cobertura_inicio y cobertura_fin)
-                fecha_disponible_desde = cobertura_inicio
-                fecha_disponible_hasta = cobertura_fin
-                
-                # 4️⃣ AJUSTAR POR RESERVAS ANTERIORES Y POSTERIORES
-                # Fechas finales de reservas que terminan antes o en la fecha de inicio
-                # Excluir reservas eliminadas
-                reservas_anteriores = propiedad.reservas.filter(
-                    fecha_fin__lte=fecha_inicio,
-                    eliminada=False
-                ).order_by('-fecha_fin').first()
-                
-                if reservas_anteriores:
-                    # 🏨 LÓGICA HOTEL: Si reserva termina el 17, el 17 ya está disponible
-                    fecha_disponible_desde = max(fecha_disponible_desde, reservas_anteriores.fecha_fin)
-                
-                # Fechas iniciales de reservas que empiezan después o en la fecha de fin
-                # Excluir reservas eliminadas
-                reservas_posteriores = propiedad.reservas.filter(
-                    fecha_inicio__gte=fecha_fin,
-                    eliminada=False
-                ).order_by('fecha_inicio').first()
-                
-                if reservas_posteriores:
-                    # 🏨 LÓGICA HOTEL: Si próxima reserva empieza el 25, hasta el 25 está disponible
-                    fecha_disponible_hasta = min(fecha_disponible_hasta, reservas_posteriores.fecha_inicio)
-                
-                # 4b. Ajustar "disponible hasta" si hay contrato de alquiler (invierno/24m) que empiece dentro del período libre
-                contrato_corta = ContratoAlquiler.objects.filter(
-                    propiedad=propiedad,
-                    estado__in=['reservado', 'activo'],
-                    fecha_inicio__lte=fecha_disponible_hasta,
-                    fecha_fin__gt=fecha_disponible_desde
-                ).order_by('fecha_inicio').first()
-                if contrato_corta:
-                    fecha_disponible_hasta = min(fecha_disponible_hasta, contrato_corta.fecha_inicio)
-                
-                # 5️⃣ ASIGNAR FECHAS CALCULADAS
-                propiedad.disponibilidad_inicio = fecha_disponible_desde
-                propiedad.disponibilidad_fin = fecha_disponible_hasta
-                
-# print(f"🎯 PROP {propiedad.id}: Libre desde {fecha_disponible_desde} hasta {fecha_disponible_hasta}")
-# print(f"   📅 Asignado: disponibilidad_inicio={propiedad.disponibilidad_inicio}")
-# print(f"   📅 Asignado: disponibilidad_fin={propiedad.disponibilidad_fin}")
-# print(f"   📊 Cobertura de disponibilidades contiguas: {cobertura_inicio} al {cobertura_fin}")
-                if reservas_anteriores:
-                    pass  # ✅ Bloque vacío
-# print(f"   ⏪ Reserva anterior termina: {reservas_anteriores.fecha_fin}")
-                if reservas_posteriores:
-                    pass  # ✅ Bloque vacío
-# print(f"   ⏩ Próxima reserva empieza: {reservas_posteriores.fecha_inicio}")
-            else:
-                pass  # ✅ Bloque vacío
-# print(f"❌ PROP {propiedad.id}: NO tiene disponibilidades que contengan el período {fecha_inicio} al {fecha_fin}")
-                disponibilidades = Disponibilidad.objects.none()
-                
-                # Para debugging: mostrar todas las disponibilidades de esta propiedad
-                todas_disponibilidades = Disponibilidad.objects.filter(propiedad=propiedad)
-# print(f"   📋 Disponibilidades existentes ({todas_disponibilidades.count()}):")
-                for disp in todas_disponibilidades:
-                    pass  # ✅ Bloque vacío
-# print(f"     - {disp.fecha_inicio} al {disp.fecha_fin}")
-                
-                # 🚫 SALTEAR: Esta propiedad no tiene disponibilidades para el período buscado
-# print(f"   🚫 SALTANDO PROPIEDAD {propiedad.id} - No aparecerá en resultados")
-                continue
-            
-            # ✅ CALCULAR DISPONIBILIDADES FRAGMENTADAS POR RESERVAS
+        # Prefetch relaciones usadas en el bucle (evita N+1)
+        propiedades = propiedades.select_related('propietario', 'sucursal').prefetch_related(
+            Prefetch('precios', queryset=Precio.objects.all(), to_attr='todos_precios')
+        )
+        propiedades_lista = list(propiedades)
+        from inmobiliaria.caja_devolucion_deposito import queryset_reservas_pendientes_cobro
 
-            # Obtener las reservas asociadas a la propiedad
-            # Excluir reservas eliminadas
-            reservas = propiedad.reservas.filter(
-                Q(fecha_inicio__lt=fecha_fin) & Q(fecha_fin__gt=fecha_inicio),
-                eliminada=False
-            )
-            
-            # Excluir si tiene contrato de alquiler (invierno o 24 meses) que se superponga con el período buscado
-            if ContratoAlquiler.objects.filter(
-                propiedad=propiedad,
-                estado__in=['reservado', 'activo'],
+        pendientes_qs = queryset_reservas_pendientes_cobro(
+            Reserva.objects.filter(
+                eliminada=False,
                 fecha_inicio__lt=fecha_fin,
-                fecha_fin__gt=fecha_inicio
-            ).exists():
-                continue  # No mostrar como disponible: está ocupada por operación
-
-            if reservas.filter(estado='pagada').exists():
-                continue  # Saltar esta propiedad si ya tiene una reserva pagada
-
-            # 🎯 DEBUGGING: Ver todas las reservas encontradas
-# print(f"🏠 Propiedad {propiedad.id} - Búsqueda: {fecha_inicio} al {fecha_fin}")
-# print(f"   Reservas encontradas: {reservas.count()}")
-            for r in reservas:
-                pass  # ✅ Bloque vacío
-# print(f"   - Reserva {r.id}: {r.fecha_inicio} al {r.fecha_fin}, estado='{r.estado}'")
-            
-            # Verificar si existe una reserva confirmada no pagada, confirmada o en espera
-            reserva_confirmada_no_pagada = reservas.filter(Q(estado='confirmada_no_pagada') | Q(estado='confirmada') | Q(estado='en_espera')).first()
-# print(f"   ¿Reserva para mostrar en rojo? {bool(reserva_confirmada_no_pagada)}")
-            if reserva_confirmada_no_pagada:
-                pass  # ✅ Bloque vacío
-# print(f"     → Estado: {reserva_confirmada_no_pagada.estado}")
-# print(f"     → Fechas: {reserva_confirmada_no_pagada.fecha_inicio} al {reserva_confirmada_no_pagada.fecha_fin}")
-# print(f"     → Precio: ${reserva_confirmada_no_pagada.precio_total}")
-            else:
-                pass  # ✅ Bloque vacío
-# print(f"     → No hay reservas confirmada_no_pagada/confirmada/en_espera en estas fechas")
-
-            # ✅ CORREGIDO: Mostrar propiedades con reservas confirmada_no_pagada en las fechas buscadas
-            if reservas.exists():
-                for r in reservas:
-                    pass  # ✅ Bloque vacío
-# print(f"   Reserva {r.id}: {r.fecha_inicio} al {r.fecha_fin}, estado='{r.estado}'")
-            
-            # Evaluar la disponibilidad y las reservas de la propiedad
-            # 🎯 CORREGIDO: Manejar propiedades CON O SIN disponibilidades
-            
-            # Verificar reservas conflictivas PRIMERO (solo las pagadas)
-            reservas_conflictivas = reservas.filter(
-                Q(estado='pagada')
+                fecha_fin__gt=fecha_inicio,
             )
-            
-            if reservas_conflictivas.exists():
-                pass  # ✅ Bloque vacío
-# print(f"   ❌ Saltando por reservas conflictivas: {reservas_conflictivas.count()}")
-                continue  # Saltar si hay reservas pagadas o confirmadas en estas fechas
-            
-            # Si hay una reserva para mostrar en rojo, mostrarla SIEMPRE (es información importante)
+        )
+        if ver_todas:
+            pendientes_qs = pendientes_qs.filter(
+                Q(propiedad__sucursal__nombre__icontains='colon')
+                | Q(propiedad__sucursal__nombre__icontains='corrientes')
+            )
+        else:
+            pendientes_qs = pendientes_qs.filter(sucursal=sucursal_vendedor)
+
+        ids_en_lista = {p.id for p in propiedades_lista}
+        ids_faltantes = set(pendientes_qs.values_list('propiedad_id', flat=True)) - ids_en_lista
+        if ids_faltantes:
+            extra_qs = Propiedad.objects.filter(id__in=ids_faltantes)
+            if ambientes:
+                extra_qs = extra_qs.filter(ambientes=ambientes)
+            if origen:
+                extra_qs = extra_qs.filter(ubicacion__icontains=origen)
+            if destino:
+                extra_qs = extra_qs.filter(ubicacion__icontains=destino)
+            extra_qs = extra_qs.select_related('propietario', 'sucursal').prefetch_related(
+                Prefetch('precios', queryset=Precio.objects.all(), to_attr='todos_precios')
+            )
+            propiedades_lista.extend(list(extra_qs))
+
+        from inmobiliaria.busqueda_propiedades_reserva import (
+            buscar_reserva_termina_en_inicio_mem,
+            calcular_precio_total_reserva_fechas,
+            cargar_contexto_bulk_busqueda,
+            contrato_solapa_rango,
+            mapa_precios_propiedad,
+            periodo_cubierto_por_disponibilidades,
+            reservas_solapan_rango,
+        )
+        from inmobiliaria.precio_temporada_reserva import rango_vacaciones_invierno_sucursal
+
+        bulk = cargar_contexto_bulk_busqueda(
+            [p.id for p in propiedades_lista], fecha_inicio, fecha_fin
+        )
+        disp_por_prop = bulk['disp_por_prop']
+        reservas_por_prop = bulk['reservas_por_prop']
+        contratos_por_prop = bulk['contratos_por_prop']
+        reserva_ids_con_recibo = bulk['reserva_ids_con_recibo']
+        max_fin_anterior_por_prop = bulk['max_fin_anterior_por_prop']
+        min_inicio_posterior_por_prop = bulk['min_inicio_posterior_por_prop']
+
+        # Filtrar propiedades que están disponibles en las fechas indicadas
+        for propiedad in propiedades_lista:
+            reservas = reservas_solapan_rango(
+                reservas_por_prop.get(propiedad.id, []), fecha_inicio, fecha_fin
+            )
+
+            if any(r.estado == 'pagada' and not r.es_alquiler_sindicato for r in reservas):
+                continue
+
+            reservas_bloquean = [r for r in reservas if not r.es_alquiler_sindicato]
+            reserva_confirmada_no_pagada = _reserva_sin_pagar_para_busqueda(
+                reservas_bloquean, reserva_ids_con_recibo
+            )
+
+            if reservas_bloquean and reserva_confirmada_no_pagada is None:
+                continue
+
+            if any(r.estado == 'pagada' for r in reservas_bloquean):
+                continue
+
+            # Reserva pendiente de cobro: mostrar aunque no haya disponibilidad ni contrato en esas fechas
             if reserva_confirmada_no_pagada:
-                pass  # ✅ Bloque vacío
-# print(f"   ✅ MOSTRANDO EN ROJO: Reserva {reserva_confirmada_no_pagada.id} con estado '{reserva_confirmada_no_pagada.estado}'")
                 propiedad.reserva = reserva_confirmada_no_pagada
-                propiedad.estado_reserva = 'confirmada_no_pagada'  # Siempre mostrar como confirmada_no_pagada en frontend
-                # ✅ USAR PRECIO DE LA RESERVA EXISTENTE, NO RECALCULAR
+                propiedad.estado_reserva = 'confirmada_no_pagada'
                 propiedad.precio_total_reserva = reserva_confirmada_no_pagada.precio_total
-# print(f"   💰 Precio de reserva existente: ${reserva_confirmada_no_pagada.precio_total}")
-# print(f"   🔴 Estado asignado para mostrar: {propiedad.estado_reserva}")
-                
-                # Asignar fechas de la reserva
                 propiedad.disponibilidad_inicio = reserva_confirmada_no_pagada.fecha_inicio
                 propiedad.disponibilidad_fin = reserva_confirmada_no_pagada.fecha_fin
-                
-                # Agregar a la lista y continuar sin recalcular precios
                 propiedades_disponibles.append(propiedad)
-# print(f"   ✅ Propiedad {propiedad.id} agregada a la lista con reserva en rojo")
                 continue
-            else:
-                # ✅ PROPIEDADES SIN RESERVAS - Calcular precios y agregar a lista
-                propiedad.estado_reserva = 'disponible'
-                
-                # Verificar si hay una reserva que termina exactamente en la fecha de inicio
-                # (para mostrar en amarillo) - SOLO si está en estado confirmada o confirmada_no_pagada
-                reserva_termina_en_inicio = propiedad.reservas.filter(
-                    eliminada=False,
-                    fecha_fin=fecha_inicio,
-                    estado__in=['confirmada', 'confirmada_no_pagada', 'en_espera']
-                ).exclude(
-                    # Excluir reservas que también empiezan en fecha_inicio (esas están en el rango)
-                    fecha_inicio=fecha_inicio
-                ).first()
-                
-                if reserva_termina_en_inicio:
-                    propiedad.reserva_termina_en_inicio = reserva_termina_en_inicio
-# print(f"   ✅ DISPONIBLE: Sin reservas para mostrar en rojo")
 
-            # ✅ CÁLCULO POR NOCHES: Usar precio del día de SALIDA, EXCEPTO Año Nuevo
-            # Ejemplo: 29/12→30/12 usa precio del 29/12
-            #          30/12→31/12 usa precio del 30/12
-            #          31/12→01/01 usa precio del 01/01 (EXCEPCIÓN: Año Nuevo)
-            #          01/01→02/01 usa precio del 01/01
-                precio_total = 0
-                precio_mas_caro = 0
-# print('fecha de inicio',fecha_inicio)
-# print('fecha de fin',fecha_fin)
-                # Calcular noches de reserva
-                noches_reserva = (fecha_fin - fecha_inicio).days
+            if contrato_solapa_rango(contratos_por_prop.get(propiedad.id, []), fecha_inicio, fecha_fin):
+                continue
 
-# print(f"🔥 INICIANDO CÁLCULO para propiedad {propiedad.id} del {fecha_inicio} al {fecha_fin}")
-# print(f"🔥 Noches a calcular: {noches_reserva}")
-                
-                # Calcular noche por noche
-                for noche in range(noches_reserva):
-                    # Día de salida (el día actual de la noche)
-                    dia_salida = fecha_inicio + timedelta(noche)
-                    dia_llegada = fecha_inicio + timedelta(noche + 1)
-                    
-                    # ✅ EXCEPCIÓN: Año Nuevo (31/12 → 01/01) usa precio del 01/01
-                    if dia_salida.month == 12 and dia_salida.day == 31 and dia_llegada.month == 1 and dia_llegada.day == 1:
-                        dia_a_usar = dia_llegada  # Usar precio del 01/01
-                    else:
-                        dia_a_usar = dia_salida  # Usar precio del día de salida
-                    
-                    # Determinar el tipo de precio según el día a usar
-                    tipo_precio = None
-                    if dia_a_usar.month == 1:  # Enero
-                        tipo_precio = 'QUINCENA_1_ENERO' if dia_a_usar.day <= 15 else 'QUINCENA_2_ENERO'
-                    elif dia_a_usar.month == 2:  # Febrero
-                        tipo_precio = 'QUINCENA_1_FEBRERO' if dia_a_usar.day <= 15 else 'QUINCENA_2_FEBRERO'
-                    elif dia_a_usar.month == 3:  # Marzo
-                        tipo_precio = 'QUINCENA_1_MARZO' if dia_a_usar.day <= 15 else 'QUINCENA_2_MARZO'
-                    elif dia_a_usar.month == 7:  # Julio (Vacaciones de Invierno)
-                        tipo_precio = 'VACACIONES_INVIERNO'
-                    elif dia_a_usar.month == 12:  # Diciembre
-                        tipo_precio = 'QUINCENA_1_DICIEMBRE' if dia_a_usar.day <= 15 else 'QUINCENA_2_DICIEMBRE'
-                    else:
-                        tipo_precio = 'TEMPORADA_BAJA'
+            disponibilidades_superpuestas = disp_por_prop.get(propiedad.id, [])
+            periodo_cubierto, cobertura_inicio, cobertura_fin = periodo_cubierto_por_disponibilidades(
+                disponibilidades_superpuestas, fecha_inicio, fecha_fin
+            )
 
-                    # Obtener el precio por día para esta temporada
-                    try:
-                        precio_obj = Precio.objects.get(propiedad=propiedad, tipo_precio=tipo_precio)
-                        # Usar precio_por_dia directamente (ya incluye ajustes)
-                        precio_dia = precio_obj.precio_por_dia or 0
-                        
-                        # Aplicar ajuste porcentual si existe
-                        if precio_obj.ajuste_porcentaje != 0:
-                            precio_dia *= (1 - precio_obj.ajuste_porcentaje / 100)
-                        
-                        # Rastrear el día más caro
-                        if precio_dia > precio_mas_caro:
-                            precio_mas_caro = precio_dia
-                        
-                        precio_total += precio_dia
-# print(f"📅 Noche {noche+1} ({fecha_inicio + timedelta(noche)}→{dia_llegada.strftime('%d/%m')}): {tipo_precio} = ${precio_dia:,.0f} - Total: ${precio_total:,.0f}")
-                    except Precio.DoesNotExist:
-                        pass  # ✅ Bloque vacío
-# print(f"📅 Noche {noche+1}: {tipo_precio} = $0 (sin precio configurado)")
+            if not periodo_cubierto:
+                continue
 
-                # ✅ AGREGAR DÍA DE COMISIÓN (día más caro)
-                precio_final_calculado = precio_total + precio_mas_caro
-# print(f"🔥 PRECIO FINAL: suma_noches=${precio_total}, dia_comision=${precio_mas_caro}, TOTAL=${precio_final_calculado}")
-                propiedad.precio_total_reserva = precio_final_calculado
-                
-                # ✅ Las fechas de disponibilidad ya fueron calculadas dinámicamente en el primer bucle
-                # No sobrescribir con las fechas de búsqueda
-                
-                # Verificar si hay una reserva que termina exactamente en la fecha de inicio
-                # (para mostrar en amarillo) - SOLO si está en estado confirmada o confirmada_no_pagada
-                if not hasattr(propiedad, 'reserva_termina_en_inicio'):
-                    reserva_termina_en_inicio = propiedad.reservas.filter(
-                        eliminada=False,
-                        fecha_fin=fecha_inicio,
-                        estado__in=['confirmada', 'confirmada_no_pagada', 'en_espera']
-                    ).exclude(
-                        # Excluir reservas que también empiezan en fecha_inicio (esas están en el rango)
-                        fecha_inicio=fecha_inicio
-                    ).first()
-                    
-                    if reserva_termina_en_inicio:
-                        propiedad.reserva_termina_en_inicio = reserva_termina_en_inicio
-                
-                # Agregar la propiedad disponible a la lista
-                propiedades_disponibles.append(propiedad)
+            fecha_disponible_desde = cobertura_inicio
+            fecha_disponible_hasta = cobertura_fin
+
+            max_fin_ant = max_fin_anterior_por_prop.get(propiedad.id)
+            if max_fin_ant:
+                fecha_disponible_desde = max(fecha_disponible_desde, max_fin_ant)
+
+            min_inicio_post = min_inicio_posterior_por_prop.get(propiedad.id)
+            if min_inicio_post:
+                fecha_disponible_hasta = min(fecha_disponible_hasta, min_inicio_post)
+
+            contratos_prop = contratos_por_prop.get(propiedad.id, [])
+            candidatos_contrato = [
+                c
+                for c in contratos_prop
+                if c.fecha_inicio <= fecha_disponible_hasta
+                and c.fecha_fin > fecha_disponible_desde
+            ]
+            if candidatos_contrato:
+                contrato_corta = min(candidatos_contrato, key=lambda c: c.fecha_inicio)
+                fecha_disponible_hasta = min(fecha_disponible_hasta, contrato_corta.fecha_inicio)
+
+            propiedad.disponibilidad_inicio = fecha_disponible_desde
+            propiedad.disponibilidad_fin = fecha_disponible_hasta
+
+            propiedad.estado_reserva = 'disponible'
+            reserva_termina_en_inicio = buscar_reserva_termina_en_inicio_mem(
+                reservas_por_prop.get(propiedad.id, []),
+                fecha_inicio,
+                reserva_ids_con_recibo,
+            )
+            if reserva_termina_en_inicio:
+                propiedad.reserva_termina_en_inicio = reserva_termina_en_inicio
+
+            precios_map = mapa_precios_propiedad(propiedad)
+            propiedad.precio_total_reserva = calcular_precio_total_reserva_fechas(
+                fecha_inicio,
+                fecha_fin,
+                precios_map,
+                vacaciones_invierno=rango_vacaciones_invierno_sucursal(propiedad.sucursal),
+            )
+            propiedades_disponibles.append(propiedad)
     
     # Alerta si hay propiedades sin precio
     alerta_sin_precio = len(propiedades_sin_precio) > 0
@@ -14228,6 +15908,15 @@ def buscar_propiedades(request):
 # print(f"   Propiedad {prop.id}: dias_libres_calculados = {prop.dias_libres_calculados} | Disponibilidad: {disponibilidad_info}")
         
         propiedades_disponibles.sort(key=lambda p: (p.dias_libres_calculados, p.id))
+
+        if propiedades_disponibles:
+            prefetch_related_objects(
+                propiedades_disponibles,
+                Prefetch(
+                    'imagenes',
+                    queryset=ImagenPropiedad.objects.order_by('orden'),
+                ),
+            )
         
 # print("🔧 DESPUÉS DEL ORDENAMIENTO:")
         for i, prop in enumerate(propiedades_disponibles, 1):
@@ -14288,8 +15977,9 @@ def buscar_propiedades(request):
         'fecha_inicio': fecha_inicio.strftime('%d/%m/%Y') if fecha_inicio else '',
         'fecha_fin': fecha_fin.strftime('%d/%m/%Y') if fecha_fin else '',
         'total_dias': total_dias_reserva,
-        'inquilinos': get_inquilinos_queryset_unificado(request),
+        'inquilinos': inquilinos,
         'vendedores': vendedores,
+        'vendedor_usuario_id': vendedor_usuario_id,
         'tipos_precio': TipoPrecio,
         'conceptos': conceptos,
         'total_propiedades_disponibles': total_propiedades_disponibles,
@@ -14423,18 +16113,22 @@ def crear_contrato_alquiler(request):
             except (Propiedad.DoesNotExist, Inquilino.DoesNotExist, Vendedor.DoesNotExist) as e:
                 return JsonResponse({'error': f'Error al obtener datos: {str(e)}'}, status=400)
 
-            # Evitar duplicados: ya existe un contrato activo o reservado para esta propiedad e inquilino
-            existente = ContratoAlquiler.objects.filter(
+            # Evitar duplicados: contrato vigente (no vencido) para esta propiedad e inquilino
+            ContratoAlquiler.finalizar_vencidos(
                 propiedad=propiedad,
                 inquilino=inquilino,
-                estado__in=['reservado', 'activo'],
-                sucursal=request.user.sucursal
+                sucursal=request.user.sucursal,
+            )
+            existente = ContratoAlquiler.queryset_vigentes().filter(
+                propiedad=propiedad,
+                inquilino=inquilino,
+                sucursal=request.user.sucursal,
             ).first()
             if existente:
                 operacion_url = reverse('inmobiliaria:crear_operacion_contrato', args=[existente.id]) + '?tipo=principal'
                 return JsonResponse({
                     'success': False,
-                    'error': f'Ya existe un contrato (#{existente.id}) para esta propiedad e inquilino. Completá la operación principal de ese contrato o cancelalo antes de crear otro.',
+                    'error': f'Ya existe un contrato vigente (#{existente.id}) para esta propiedad e inquilino. Completá la operación principal de ese contrato, rescindilo o esperá a que finalice antes de crear otro.',
                     'redirect_url': operacion_url,
                 }, status=400)
 
@@ -14523,6 +16217,9 @@ def crear_contrato_alquiler(request):
                 info_invierno.disponible = True
                 info_invierno.estado = 'reservado'
                 info_invierno.save()
+                from inmobiliaria.models.propiedad import desactivar_24_meses_si_invierno_ocupado
+
+                desactivar_24_meses_si_invierno_ocupado(propiedad)
                 # Actualizar historial: truncar "Libre" que superponga con el contrato
                 try:
                     actualizar_historial_por_contrato_invierno(
@@ -14546,6 +16243,9 @@ def crear_contrato_alquiler(request):
                 if precio_mensual is not None:
                     info_meses.precio_mensual = precio_mensual
                 info_meses.save()
+                from inmobiliaria.models.propiedad import desactivar_invierno_si_largo_plazo_ocupado
+
+                desactivar_invierno_si_largo_plazo_ocupado(propiedad)
 
             _asegurar_cuotas_plan_contrato(contrato)
 
@@ -14736,6 +16436,422 @@ def lista_contratos(request):
     return render(request, 'inmobiliaria/contratos/lista_contratos.html', context)
 
 
+def _primer_dia_mes(d):
+    return date(d.year, d.month, 1)
+
+
+def _primer_dia_mes_siguiente(d):
+    if d.month == 12:
+        return date(d.year + 1, 1, 1)
+    return date(d.year, d.month + 1, 1)
+
+
+def _bulk_clasificacion_cobro_contratos(contrato_ids, hoy=None):
+    """
+    Clasifica contratos con 1-2 queries agregadas (sin prefetch de todas las cuotas).
+    Retorna {contrato_id: {clave, label, detalle, n_impagas_hasta_mes, proxima_cuota_id, ...}}.
+    """
+    from .models.contrato import CuotaMensual
+
+    hoy = hoy or timezone.localdate()
+    ini_mes = _primer_dia_mes(hoy)
+    ini_prox = _primer_dia_mes_siguiente(hoy)
+    labels = {
+        'completo': 'Completo',
+        'en_fecha': 'En fecha',
+        'debe_mes_actual': 'Debe mes actual',
+        'debe_atrasados': 'Debe atrasados',
+        'sin_cuotas': 'Sin plan de cuotas',
+    }
+    out = {
+        cid: {
+            'clave': 'sin_cuotas',
+            'label': labels['sin_cuotas'],
+            'detalle': 'Sin plan de cuotas',
+            'n_impagas_hasta_mes': 0,
+            'proxima_cuota_id': None,
+            'proxima_numero': None,
+            'proxima_vencimiento': None,
+            'duracion': None,
+        }
+        for cid in contrato_ids
+    }
+    if not contrato_ids:
+        return out
+
+    # Totales e impagas por mes (una query)
+    stats = (
+        CuotaMensual.objects.filter(contrato_id__in=contrato_ids)
+        .values('contrato_id')
+        .annotate(
+            total=Count('id'),
+            n_impagas=Count(
+                'id',
+                filter=Q(estado__in=['pendiente', 'vencida']),
+            ),
+            n_atrasadas=Count(
+                'id',
+                filter=Q(
+                    estado__in=['pendiente', 'vencida'],
+                    fecha_vencimiento__lt=ini_mes,
+                ),
+            ),
+            n_mes=Count(
+                'id',
+                filter=Q(
+                    estado__in=['pendiente', 'vencida'],
+                    fecha_vencimiento__gte=ini_mes,
+                    fecha_vencimiento__lt=ini_prox,
+                ),
+            ),
+            n_hasta_mes=Count(
+                'id',
+                filter=Q(
+                    estado__in=['pendiente', 'vencida'],
+                    fecha_vencimiento__lt=ini_prox,
+                ),
+            ),
+        )
+    )
+    for row in stats:
+        cid = row['contrato_id']
+        if cid not in out:
+            continue
+        total = row['total'] or 0
+        n_imp = row['n_impagas'] or 0
+        n_atr = row['n_atrasadas'] or 0
+        n_mes = row['n_mes'] or 0
+        n_hasta = row['n_hasta_mes'] or 0
+        if total <= 0:
+            continue
+        if n_imp <= 0:
+            clave = 'completo'
+            detalle = 'Todas las cuotas pagadas'
+        elif n_atr > 0:
+            clave = 'debe_atrasados'
+            detalle = f'Debe {n_atr} mes{"es" if n_atr != 1 else ""} atrasado{"s" if n_atr != 1 else ""}'
+        elif n_mes > 0:
+            clave = 'debe_mes_actual'
+            detalle = 'Debe la cuota del mes actual'
+        else:
+            clave = 'en_fecha'
+            detalle = 'Pagado hasta el mes actual'
+        out[cid].update({
+            'clave': clave,
+            'label': labels[clave],
+            'detalle': detalle,
+            'n_impagas_hasta_mes': n_hasta,
+        })
+
+    # Primera cuota impaga por contrato (para link Pagar mes + detalle)
+    primeras = (
+        CuotaMensual.objects.filter(
+            contrato_id__in=contrato_ids,
+            estado__in=['pendiente', 'vencida'],
+        )
+        .order_by('contrato_id', 'fecha_vencimiento', 'numero_cuota')
+        .values_list(
+            'contrato_id', 'id', 'numero_cuota', 'fecha_vencimiento', 'contrato__duracion_meses'
+        )
+    )
+    vistos = set()
+    for cid, qid, num, fv, dur in primeras:
+        if cid in vistos or cid not in out:
+            continue
+        vistos.add(cid)
+        out[cid]['proxima_cuota_id'] = qid
+        out[cid]['proxima_numero'] = num
+        out[cid]['proxima_vencimiento'] = fv
+        out[cid]['duracion'] = dur
+        info = out[cid]
+        if info['clave'] == 'debe_atrasados' and fv:
+            info['detalle'] = f"{info['detalle']} · próxima {fv.strftime('%d/%m/%Y')}"
+        elif info['clave'] == 'debe_mes_actual' and fv:
+            info['detalle'] = (
+                f'Debe cuota {num}/{dur or "?"} del mes · vence {fv.strftime("%d/%m/%Y")}'
+            )
+        elif info['clave'] == 'en_fecha' and fv:
+            info['detalle'] = f'Pagado hasta el mes actual · próxima {fv.strftime("%d/%m/%Y")}'
+
+    return out
+
+
+def _bulk_deposito_honorarios_contratos_rapido(contratos, sucursal):
+    """
+    Versión liviana: no parsea JSON completo de todo el historial.
+    Detecta pago por campos honorarios y coincidencias de texto en concepto/detalle.
+    """
+    import re
+
+    out = {
+        c.id: {
+            'deposito': 'pendiente',
+            'honorarios': 'pendiente',
+            'honorarios_monto': Decimal('0'),
+        }
+        for c in contratos
+    }
+    if not contratos:
+        return out
+
+    propiedad_ids = {c.propiedad_id for c in contratos if c.propiedad_id}
+    if not propiedad_ids:
+        return out
+
+    # Solo filas que puedan indicar depósito/honorarios (mucho menos payload)
+    movs = (
+        MovimientoCaja.objects.filter(
+            sucursal=sucursal,
+            propiedad_id__in=propiedad_ids,
+            concepto__icontains='Contrato #',
+        )
+        .filter(
+            Q(honorarios__gt=0)
+            | Q(concepto__icontains='honorario')
+            | Q(concepto__icontains='deposito')
+            | Q(concepto__icontains='depósito')
+            | Q(concepto__icontains='concepto 10')
+            | Q(concepto__icontains='concepto 25')
+            | Q(concepto_detalle__icontains='"id": "10"')
+            | Q(concepto_detalle__icontains='"id":"10"')
+            | Q(concepto_detalle__icontains='"id": 10')
+            | Q(concepto_detalle__icontains='"id":10')
+            | Q(concepto_detalle__icontains='"id": "25"')
+            | Q(concepto_detalle__icontains='"id":"25"')
+            | Q(concepto_detalle__icontains='"id": 25')
+            | Q(concepto_detalle__icontains='"id":25')
+        )
+        .values_list('concepto', 'concepto_detalle', 'honorarios')
+    )
+
+    re_cid = re.compile(r'Contrato\s*#\s*(\d+)', re.I)
+    for concepto, detalle, honorarios in movs:
+        m = re_cid.search(concepto or '')
+        if not m:
+            continue
+        try:
+            cid = int(m.group(1))
+        except (TypeError, ValueError):
+            continue
+        if cid not in out:
+            continue
+        conc_l = (concepto or '').lower()
+        det = detalle or ''
+        det_l = det.lower()
+        if (
+            '"id": "10"' in det or '"id":"10"' in det or '"id": 10' in det or '"id":10' in det
+            or 'concepto 10' in conc_l
+            or 'deposito' in conc_l or 'depósito' in conc_l
+            or 'deposito' in det_l or 'depósito' in det_l
+        ):
+            out[cid]['deposito'] = 'pagado'
+        try:
+            hon = Decimal(str(honorarios or 0))
+        except Exception:
+            hon = Decimal('0')
+        if (
+            hon > 0
+            or '"id": "25"' in det or '"id":"25"' in det or '"id": 25' in det or '"id":25' in det
+            or 'concepto 25' in conc_l
+            or 'honorario' in conc_l
+            or 'honorario' in det_l
+        ):
+            out[cid]['honorarios'] = 'pagado'
+            if hon > out[cid]['honorarios_monto']:
+                out[cid]['honorarios_monto'] = hon
+
+    return out
+
+
+@login_required
+def estado_cobros_contratos(request):
+    """
+    Tablero organizador: contratos clasificados por estado de cobro
+    (completo / en_fecha / debe_mes_actual / debe_atrasados).
+    Optimizado: agregaciones SQL + cuotas bajo demanda (AJAX).
+    """
+    from types import SimpleNamespace
+
+    mostrar_finalizados = request.GET.get('mostrar_finalizados') == '1'
+    estado_cobro = (request.GET.get('estado_cobro') or '').strip()
+    busqueda = (request.GET.get('q') or '').strip()
+    filtro_deposito = (request.GET.get('deposito') or '').strip()
+    filtro_honorarios = (request.GET.get('honorarios') or '').strip()
+    hoy = timezone.localdate()
+    sucursal = request.user.sucursal
+
+    contratos_qs = (
+        ContratoAlquiler.objects.filter(sucursal=sucursal)
+        .select_related('propiedad', 'propiedad__propietario', 'inquilino')
+        .order_by('-fecha_creacion')
+    )
+    if not mostrar_finalizados:
+        contratos_qs = contratos_qs.filter(estado__in=['activo', 'reservado'])
+
+    if busqueda:
+        q_buscar = (
+            Q(inquilino__nombre__icontains=busqueda)
+            | Q(inquilino__apellido__icontains=busqueda)
+            | Q(propiedad__direccion__icontains=busqueda)
+            | Q(propiedad__propietario__nombre__icontains=busqueda)
+            | Q(propiedad__propietario__apellido__icontains=busqueda)
+        )
+        raw_id = busqueda.lstrip('#').strip()
+        if raw_id.isdigit():
+            try:
+                q_buscar |= Q(pk=int(raw_id))
+            except (ValueError, OverflowError):
+                pass
+        contratos_qs = contratos_qs.filter(q_buscar)
+
+    contratos_list = list(contratos_qs)
+    contrato_ids = [c.id for c in contratos_list]
+
+    clasif = _bulk_clasificacion_cobro_contratos(contrato_ids, hoy=hoy)
+    conceptos_bulk = _bulk_deposito_honorarios_contratos_rapido(contratos_list, sucursal)
+
+    for contrato in contratos_list:
+        info = clasif.get(contrato.id) or {}
+        contrato.estado_cobro = info.get('clave') or 'sin_cuotas'
+        contrato.estado_cobro_label = info.get('label') or 'Sin plan'
+        contrato.estado_cobro_detalle = info.get('detalle') or ''
+        contrato.n_cuotas_impagas = info.get('n_impagas_hasta_mes') or 0
+        prox_id = info.get('proxima_cuota_id')
+        if prox_id:
+            contrato.proxima_cuota = SimpleNamespace(
+                id=prox_id,
+                numero_cuota=info.get('proxima_numero'),
+                fecha_vencimiento=info.get('proxima_vencimiento'),
+            )
+        else:
+            contrato.proxima_cuota = None
+
+        info_conc = conceptos_bulk.get(contrato.id) or {}
+        contrato.deposito_estado = info_conc.get('deposito') or 'pendiente'
+        contrato.honorarios_estado = info_conc.get('honorarios') or 'pendiente'
+        contrato.deposito_monto = getattr(contrato, 'deposito_garantia', None) or Decimal('0')
+        mov_h = info_conc.get('honorarios_monto') or Decimal('0')
+        if contrato.honorarios_estado == 'pagado' and mov_h > 0:
+            contrato.honorarios_monto = mov_h
+        else:
+            ref_h = getattr(contrato, 'honorarios_referencia', None) or Decimal('0')
+            contrato.honorarios_monto = mov_h if mov_h > 0 else ref_h
+
+    conteos = {
+        'completo': 0,
+        'en_fecha': 0,
+        'debe_mes_actual': 0,
+        'debe_atrasados': 0,
+        'sin_cuotas': 0,
+        'deposito_pagado': 0,
+        'deposito_pendiente': 0,
+        'honorarios_pagado': 0,
+        'honorarios_pendiente': 0,
+    }
+    for c in contratos_list:
+        clave = getattr(c, 'estado_cobro', None) or 'sin_cuotas'
+        if clave in conteos:
+            conteos[clave] += 1
+        if getattr(c, 'deposito_estado', None) == 'pagado':
+            conteos['deposito_pagado'] += 1
+        else:
+            conteos['deposito_pendiente'] += 1
+        if getattr(c, 'honorarios_estado', None) == 'pagado':
+            conteos['honorarios_pagado'] += 1
+        else:
+            conteos['honorarios_pendiente'] += 1
+
+    claves_filtro = {'completo', 'en_fecha', 'debe_mes_actual', 'debe_atrasados'}
+    contratos_filtrados = contratos_list
+    if estado_cobro in claves_filtro:
+        contratos_filtrados = [c for c in contratos_filtrados if c.estado_cobro == estado_cobro]
+    else:
+        estado_cobro = ''
+    if filtro_deposito in ('pagado', 'pendiente'):
+        if filtro_deposito == 'pagado':
+            contratos_filtrados = [c for c in contratos_filtrados if c.deposito_estado == 'pagado']
+        else:
+            contratos_filtrados = [c for c in contratos_filtrados if c.deposito_estado != 'pagado']
+    else:
+        filtro_deposito = ''
+    if filtro_honorarios in ('pagado', 'pendiente'):
+        if filtro_honorarios == 'pagado':
+            contratos_filtrados = [c for c in contratos_filtrados if c.honorarios_estado == 'pagado']
+        else:
+            contratos_filtrados = [c for c in contratos_filtrados if c.honorarios_estado != 'pagado']
+    else:
+        filtro_honorarios = ''
+
+    context = {
+        'contratos': contratos_filtrados,
+        'total_contratos': len(contratos_list),
+        'conteos': conteos,
+        'estado_cobro': estado_cobro,
+        'filtro_deposito': filtro_deposito,
+        'filtro_honorarios': filtro_honorarios,
+        'mostrar_finalizados': mostrar_finalizados,
+        'q': busqueda,
+        'hoy': hoy,
+    }
+    return render(request, 'inmobiliaria/contratos/estado_cobros_contratos.html', context)
+
+
+@login_required
+def estado_cobros_cuotas_impagas(request, contrato_id):
+    """AJAX: cuotas pendientes/vencidas hasta el mes actual de un contrato."""
+    from .models.contrato import CuotaMensual
+
+    contrato = get_object_or_404(
+        ContratoAlquiler.objects.only('id', 'estado', 'moneda', 'duracion_meses', 'sucursal_id'),
+        id=contrato_id,
+        sucursal=request.user.sucursal,
+    )
+    hoy = timezone.localdate()
+    ini_prox = _primer_dia_mes_siguiente(hoy)
+    cuotas = list(
+        CuotaMensual.objects.filter(
+            contrato=contrato,
+            estado__in=['pendiente', 'vencida'],
+            fecha_vencimiento__lt=ini_prox,
+        )
+        .order_by('fecha_vencimiento', 'numero_cuota')
+        .only(
+            'id', 'numero_cuota', 'fecha_vencimiento', 'estado',
+            'monto_total', 'credito_aplicado', 'monto_base',
+        )
+    )
+    puede_cobrar = contrato.estado in ('activo', 'reservado')
+    moneda = contrato.moneda or 'ARS'
+    rows = []
+    for c in cuotas:
+        fv = c.fecha_vencimiento
+        vencida = (c.estado == 'vencida') or (fv and fv < hoy)
+        try:
+            saldo = c.saldo_para_cobro()
+        except Exception:
+            saldo = c.monto_total or 0
+        rows.append({
+            'id': c.id,
+            'numero': c.numero_cuota,
+            'duracion': contrato.duracion_meses,
+            'vencimiento': fv.strftime('%d/%m/%Y') if fv else '',
+            'estado': 'vencida' if vencida else 'pendiente',
+            'monto': str(c.monto_total or 0),
+            'saldo': str(saldo),
+            'adelanto': bool(getattr(c, 'tiene_adelanto_abonado', lambda: False)()),
+            'url_cobrar': (
+                reverse('inmobiliaria:crear_pago_cuota_operacion', args=[c.id])
+                if puede_cobrar else ''
+            ),
+        })
+    return JsonResponse({
+        'success': True,
+        'contrato_id': contrato.id,
+        'moneda': moneda,
+        'cuotas': rows,
+    })
+
+
 @login_required
 def rescindir_contratos_duplicados(request):
     """Rescinde contratos duplicados (misma propiedad + inquilino) para la sucursal del usuario."""
@@ -14810,9 +16926,19 @@ def detalle_contrato(request, contrato_id):
     from .models import ContratoAlquiler
     
     contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
+    hoy = timezone.now().date()
+    if contrato.finalizar_si_vencido(hoy):
+        contrato.refresh_from_db()
+    from inmobiliaria.cuotas_imputacion import sincronizar_cuotas_totalmente_cubiertas_por_credito
+
+    if sincronizar_cuotas_totalmente_cubiertas_por_credito(contrato, hoy):
+        contrato.refresh_from_db()
     cuotas = contrato.cuotas.select_related('movimiento').order_by('numero_cuota')
     if not cuotas.exists() and contrato.estado in ('activo', 'reservado'):
         _asegurar_cuotas_plan_contrato(contrato)
+        cuotas = contrato.cuotas.select_related('movimiento').order_by('numero_cuota')
+    elif cuotas.exists() and _cuotas_requieren_alinear_vencimientos(contrato):
+        _alinear_vencimientos_cuotas_contrato(contrato, hoy)
         cuotas = contrato.cuotas.select_related('movimiento').order_by('numero_cuota')
 
     from inmobiliaria.models.caja import MovimientoCaja, TipoMovimientoCajaEnum
@@ -14838,7 +16964,6 @@ def detalle_contrato(request, contrato_id):
     cuotas = cuotas_list
 
     # Estadísticas
-    hoy = timezone.now().date()
     cuotas_pagadas = sum(1 for c in cuotas_list if c.estado == 'pagada')
     cuotas_vencidas = sum(
         1 for c in cuotas_list if c.estado == 'pendiente' and c.fecha_vencimiento < hoy
@@ -14883,6 +17008,15 @@ def detalle_contrato(request, contrato_id):
         'puede_agregar_cuota': puede_agregar_cuota,
         'puede_eliminar_ultima_cuota': puede_eliminar_ultima_cuota,
         'ultima_cuota': ultima_cuota,
+        'cuotas_agregar_list': [
+            {
+                'id': c.id,
+                'numero': c.numero_cuota,
+                'fecha': c.fecha_vencimiento.isoformat(),
+                'fecha_display': c.fecha_vencimiento.strftime('%d/%m/%Y'),
+            }
+            for c in cuotas_list
+        ],
     }
     
     return render(request, 'inmobiliaria/contratos/detalle_contrato.html', context)
@@ -14915,7 +17049,7 @@ def _format_precio_mes_ui(valor):
 def _meses_precio_ui_contrato(contrato):
     """Filas para el formulario: un campo por mes del contrato (1..duracion)."""
     n = int(contrato.duracion_meses or 0)
-    if n <= 1 or n == 9:
+    if n <= 1:
         return []
 
     raw = getattr(contrato, 'precios_bloques', None)
@@ -14951,10 +17085,6 @@ def _meses_precio_ui_contrato(contrato):
                 'valor': _format_precio_mes_ui(v),
             })
 
-    for i, row in enumerate(rows):
-        row['mes_input_habilitado'] = i == 0 or all(
-            (rows[j].get('valor') or '').strip() for j in range(i)
-        )
     return rows
 
 
@@ -14963,6 +17093,95 @@ def _fecha_fin_desde_inicio_y_duracion(fecha_inicio, duracion_meses):
     if not fecha_inicio or not duracion_meses or duracion_meses < 1:
         return fecha_inicio
     return fecha_inicio + relativedelta(months=duracion_meses) - timedelta(days=1)
+
+
+def _mes_anio_cuota(fecha):
+    return (fecha.year, fecha.month)
+
+
+def _label_mes_anio_es(fecha):
+    meses = (
+        'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+        'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+    )
+    return f'{meses[fecha.month - 1]} de {fecha.year}'
+
+
+def _contrato_ya_tiene_mes_cuota(contrato, fecha, excluir_cuota_id=None):
+    ym = _mes_anio_cuota(fecha)
+    qs = contrato.cuotas.all()
+    if excluir_cuota_id:
+        qs = qs.exclude(pk=excluir_cuota_id)
+    return any(_mes_anio_cuota(c.fecha_vencimiento) == ym for c in qs)
+
+
+def _reacomodar_plan_cuotas_tras_insertar(contrato, insert_at_numero):
+    """Incrementa en +1 el número de cuota de las filas en o después de insert_at_numero."""
+    K = int(insert_at_numero)
+    later = list(
+        CuotaMensual.objects.filter(contrato=contrato, numero_cuota__gte=K)
+        .order_by('-numero_cuota')
+        .values_list('id', 'numero_cuota')
+    )
+    if not later:
+        return
+    TEMP = 1_000_000 + int(contrato.id) * 1_000
+    for cid, num in later:
+        CuotaMensual.objects.filter(pk=cid).update(numero_cuota=int(num) + TEMP)
+    for cid, num in reversed(later):
+        CuotaMensual.objects.filter(pk=cid).update(numero_cuota=int(num) + 1)
+    CuotaMensual.objects.filter(
+        contrato=contrato,
+        credito_origen_numero_cuota__gte=K,
+    ).update(credito_origen_numero_cuota=F('credito_origen_numero_cuota') + 1)
+
+
+def _posicion_insercion_por_fecha(contrato, fecha_venc):
+    """Primera posición (numero_cuota) donde la nueva fecha queda antes del vencimiento existente."""
+    cuotas = list(contrato.cuotas.order_by('fecha_vencimiento', 'numero_cuota'))
+    if not cuotas:
+        return 1
+    for c in cuotas:
+        if fecha_venc < c.fecha_vencimiento:
+            return int(c.numero_cuota)
+    return int(cuotas[-1].numero_cuota) + 1
+
+
+def _monto_cuota_nueva_en_posicion(contrato, posicion, ref_cuota=None):
+    if ref_cuota is not None and ref_cuota.monto_base is not None:
+        try:
+            m = Decimal(str(ref_cuota.monto_base))
+            if m > 0:
+                return m
+        except (InvalidOperation, ValueError, TypeError):
+            pass
+    if contrato.duracion_meses != 9:
+        n_nueva = int(contrato.duracion_meses or 0) + 1
+        duracion_temp = contrato.duracion_meses
+        contrato.duracion_meses = n_nueva
+        montos = _montos_cuotas_por_trimestre(contrato)
+        contrato.duracion_meses = duracion_temp
+        idx = int(posicion) - 1
+        if 0 <= idx < len(montos):
+            return Decimal(str(montos[idx]))
+    return Decimal(str(contrato.precio_mensual or 0))
+
+
+def _precios_bloques_tras_agregar_cuota(contrato, posicion_insert, n_total):
+    if contrato.duracion_meses == 9 or not isinstance(contrato.precios_bloques, list):
+        return None
+    pb = list(contrato.precios_bloques)
+    if _precios_bloques_es_modo_mensual(contrato):
+        idx = max(0, int(posicion_insert) - 1)
+        insert_val = pb[idx - 1] if idx > 0 and (idx - 1) < len(pb) else (pb[idx] if idx < len(pb) else None)
+        while len(pb) < idx:
+            pb.append(None)
+        pb.insert(idx, insert_val)
+        return pb[: max(0, n_total - 1)]
+    objetivo = max(0, n_total - 1)
+    while len(pb) < objetivo:
+        pb.append(None)
+    return pb[:objetivo]
 
 
 def _reacomodar_plan_cuotas_tras_eliminar(contrato, numero_cuota_eliminada, cuota_pk):
@@ -14999,53 +17218,114 @@ def _reacomodar_plan_cuotas_tras_eliminar(contrato, numero_cuota_eliminada, cuot
 
 @login_required
 @require_POST
+@transaction.atomic
 def agregar_cuota_contrato(request, contrato_id):
     contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
     if contrato.estado not in ('activo', 'reservado'):
         messages.error(request, 'Solo podés agregar cuotas en contratos activos o reservados.')
         return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
 
-    ultima = contrato.cuotas.order_by('-numero_cuota').first()
-    if not ultima:
+    cuotas_ordenadas = list(contrato.cuotas.order_by('numero_cuota'))
+    if not cuotas_ordenadas:
         messages.error(request, 'No hay cuotas para usar como referencia.')
         return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
 
-    nuevo_numero = int(ultima.numero_cuota) + 1
-    nueva_fecha_venc = ultima.fecha_vencimiento + relativedelta(months=1)
+    primera = cuotas_ordenadas[0]
+    ultima = cuotas_ordenadas[-1]
+    modo = (request.POST.get('modo') or 'final').strip()
+    raw_fecha = (request.POST.get('fecha_vencimiento') or '').strip()
 
-    if contrato.duracion_meses != 9:
-        duracion_temp = contrato.duracion_meses
-        contrato.duracion_meses = nuevo_numero
-        montos = _montos_cuotas_por_trimestre(contrato)
-        contrato.duracion_meses = duracion_temp
-        monto_nuevo = montos[nuevo_numero - 1] if (nuevo_numero - 1) < len(montos) else Decimal(str(contrato.precio_mensual or 0))
+    def _parse_fecha_post(s):
+        try:
+            return datetime.strptime(s, '%Y-%m-%d').date()
+        except ValueError:
+            return None
+
+    ref_cuota = None
+    insert_at = None
+    fecha_venc = None
+
+    if modo == 'final':
+        insert_at = int(ultima.numero_cuota) + 1
+        fecha_venc = _parse_fecha_post(raw_fecha) or (
+            ultima.fecha_vencimiento + relativedelta(months=1)
+        )
+    elif modo == 'inicio':
+        insert_at = 1
+        fecha_venc = _parse_fecha_post(raw_fecha) or (
+            primera.fecha_vencimiento - relativedelta(months=1)
+        )
+    elif modo == 'despues':
+        raw_id = (request.POST.get('despues_cuota_id') or '').strip()
+        ref_cuota = next((c for c in cuotas_ordenadas if str(c.id) == raw_id), None)
+        if not ref_cuota:
+            messages.error(request, 'Seleccioná después de qué cuota agregar el mes.')
+            return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+        insert_at = int(ref_cuota.numero_cuota) + 1
+        fecha_venc = _parse_fecha_post(raw_fecha) or (
+            ref_cuota.fecha_vencimiento + relativedelta(months=1)
+        )
+    elif modo == 'fecha_libre':
+        fecha_venc = _parse_fecha_post(raw_fecha)
+        if not fecha_venc:
+            messages.error(request, 'Indicá la fecha de vencimiento del nuevo mes.')
+            return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+        insert_at = _posicion_insercion_por_fecha(contrato, fecha_venc)
+        vecina = next(
+            (c for c in cuotas_ordenadas if int(c.numero_cuota) == insert_at - 1),
+            None,
+        )
+        if vecina:
+            ref_cuota = vecina
     else:
-        monto_nuevo = Decimal(str(contrato.precio_mensual or 0))
+        messages.error(request, 'Modo de inserción inválido.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+    if not fecha_venc:
+        messages.error(request, 'Fecha de vencimiento inválida.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+    if _contrato_ya_tiene_mes_cuota(contrato, fecha_venc):
+        messages.error(
+            request,
+            f'Ya existe una cuota para {_label_mes_anio_es(fecha_venc)}. '
+            'Solo puede haber un mes por período (no dos veces febrero, etc.).',
+        )
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+    if insert_at <= int(ultima.numero_cuota):
+        _reacomodar_plan_cuotas_tras_insertar(contrato, insert_at)
+
+    monto_nuevo = _monto_cuota_nueva_en_posicion(contrato, insert_at, ref_cuota=ref_cuota or ultima)
+    hoy = timezone.localdate()
+    estado_cuota = 'vencida' if fecha_venc < hoy else 'pendiente'
 
     CuotaMensual.objects.create(
         contrato=contrato,
-        numero_cuota=nuevo_numero,
-        fecha_vencimiento=nueva_fecha_venc,
+        numero_cuota=insert_at,
+        fecha_vencimiento=fecha_venc,
         monto_base=monto_nuevo,
         monto_total=monto_nuevo,
-        estado='pendiente',
+        estado=estado_cuota,
         movimiento=None,
         fecha_pago=None,
     )
 
-    contrato.duracion_meses = nuevo_numero
-    contrato.fecha_fin = _fecha_fin_desde_inicio_y_duracion(contrato.fecha_inicio, nuevo_numero)
+    nuevo_total = len(cuotas_ordenadas) + 1
+    contrato.duracion_meses = nuevo_total
+    contrato.fecha_fin = _fecha_fin_desde_inicio_y_duracion(contrato.fecha_inicio, nuevo_total)
     update_fields = ['duracion_meses', 'fecha_fin']
-    if contrato.duracion_meses != 9 and isinstance(contrato.precios_bloques, list):
-        pb = list(contrato.precios_bloques)
-        objetivo = max(0, nuevo_numero - 1)
-        while len(pb) < objetivo:
-            pb.append(None)
-        contrato.precios_bloques = pb[:objetivo]
+    pb = _precios_bloques_tras_agregar_cuota(contrato, insert_at, nuevo_total)
+    if pb is not None:
+        contrato.precios_bloques = pb
         update_fields.append('precios_bloques')
     contrato.save(update_fields=update_fields)
 
-    messages.success(request, f'Se agregó la cuota {nuevo_numero}/{contrato.duracion_meses}.')
+    messages.success(
+        request,
+        f'Se agregó la cuota {insert_at}/{contrato.duracion_meses} '
+        f'con vencimiento {fecha_venc.strftime("%d/%m/%Y")}.',
+    )
     return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
 
 
@@ -15262,9 +17542,11 @@ def recalcular_cuotas_montos_desde_contrato(request, contrato_id):
             cuota.credito_origen_numero_cuota = None
             cuota.actualizar_monto_total()
             actualizadas += 1
+    alineadas = _alinear_vencimientos_cuotas_contrato(contrato)
     messages.success(
         request,
-        f'Se actualizaron {actualizadas} cuota(s) pendientes según el precio de cada mes del contrato.',
+        f'Se actualizaron {actualizadas} cuota(s) pendientes según el precio de cada mes del contrato.'
+        + (f' Se corrigieron {alineadas} vencimiento(s) según la fecha de inicio.' if alineadas else ''),
     )
     return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
 
@@ -15307,10 +17589,6 @@ def activar_precios_trimestres_contrato(request, contrato_id):
 def actualizar_precios_bloques_contrato(request, contrato_id):
     """Guarda precio por mes (mes 1 → precio_mensual; meses 2+ → precios_bloques) y recalcula cuotas pendientes."""
     contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
-    if contrato.duracion_meses == 9:
-        messages.error(request, 'Esta herramienta no aplica a contratos de invierno (9 meses).')
-        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
-
     n = int(contrato.duracion_meses or 0)
     n_extra = max(0, n - 1)
 
@@ -15366,9 +17644,50 @@ def actualizar_precios_bloques_contrato(request, contrato_id):
             cuota.actualizar_monto_total()
             actualizadas += 1
 
+    alineadas = _alinear_vencimientos_cuotas_contrato(contrato)
     messages.success(
         request,
-        f'Precios por mes guardados. Se recalcularon {actualizadas} cuota(s) no pagadas (pendientes / vencidas).',
+        f'Precios por mes guardados. Se recalcularon {actualizadas} cuota(s) no pagadas (pendientes / vencidas).'
+        + (f' Se corrigieron {alineadas} vencimiento(s) según la fecha de inicio.' if alineadas else ''),
+    )
+    return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+
+@login_required
+@require_POST
+def actualizar_precio_cuota_mes_contrato(request, contrato_id):
+    """Edita el cobro mensual desde una cuota y propaga el mismo precio a los meses siguientes."""
+    contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
+    cuota_id = (request.POST.get('cuota_id') or '').strip()
+    if not cuota_id.isdigit():
+        messages.error(request, 'Cuota inválida.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+    cuota = get_object_or_404(CuotaMensual, id=int(cuota_id), contrato=contrato)
+    if cuota.estado in ('pagada', 'pagada_con_mora'):
+        messages.error(request, 'No se puede cambiar el precio de una cuota ya cobrada.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+    precio_raw = (request.POST.get('precio') or request.POST.get('nuevo_precio_mensual') or '').strip()
+    if not precio_raw:
+        messages.error(request, 'Ingresá un importe para el mes.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+    try:
+        precio = parse_decimal_monto(precio_raw)
+    except (InvalidOperation, ValueError, TypeError):
+        messages.error(request, 'El importe no es válido.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+    try:
+        n = _aplicar_precio_mensual_desde_cuota(contrato, cuota.numero_cuota, precio)
+    except ValueError as e:
+        messages.error(request, str(e))
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+    messages.success(
+        request,
+        f'Precio del mes {cuota.numero_cuota} actualizado a ${format_monto_argentino(precio)} '
+        f'y aplicado a {n} cuota(s) pendiente(s) desde ese mes.',
     )
     return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
 
@@ -15454,6 +17773,7 @@ def crear_operacion_contrato(request, contrato_id):
         'honorarios_ui': hon_ui,
         'sellados_ui': sel_ui,
         'complemento_operacion_principal': tipo_operacion == 'principal' and contrato.operacion_principal,
+        'cuentas_bancarias': _cuentas_bancarias_activas_sucursal(request.user.sucursal),
     }
     return render(request, 'inmobiliaria/contratos/crear_operacion.html', context)
 
@@ -15512,6 +17832,7 @@ def completar_cargos_iniciales_contrato(request, contrato_id):
         'modo_cargos_iniciales': True,
         'honorarios_pendiente': hon_pend,
         'sellados_pendiente': sel_pend,
+        'cuentas_bancarias': _cuentas_bancarias_activas_sucursal(request.user.sucursal),
     }
     return render(request, 'inmobiliaria/contratos/crear_operacion.html', context)
 
@@ -15618,7 +17939,22 @@ def _movimiento_json_conceptos_parsed(movimiento):
                 if conceptos_data:
                     parsed = {'conceptos': conceptos_data}
             else:
-                conceptos_data = []
+                import re
+                m_json = re.search(
+                    r'(?:Contrato|Operaci[oó]n)\s*#?\s*\d+\s*-\s*(\[.*)$',
+                    concepto_raw,
+                    re.I | re.S,
+                )
+                if m_json:
+                    try:
+                        embebido = json.loads(m_json.group(1).rstrip('.'))
+                        if isinstance(embebido, list):
+                            conceptos_data = embebido
+                            parsed = embebido
+                    except (json.JSONDecodeError, ValueError, TypeError):
+                        pass
+                if not conceptos_data:
+                    conceptos_data = []
         except (json.JSONDecodeError, ValueError, TypeError):
             conceptos_data = []
     if not isinstance(conceptos_data, list):
@@ -15695,8 +18031,10 @@ def _buscar_recibo_para_movimiento(movimiento, sucursal=None):
 
 def _movimiento_canonico_operacion(movimiento, sucursal=None):
     """
-    Movimiento real de la operación (con recibo, montos o |CONCEPTOS:|).
+    Movimiento real de la operación (con recibo directo, montos o |CONCEPTOS:|).
     Evita recibos en blanco al abrir filas duplicadas en $0.
+    Solo usa recibo vinculado al propio movimiento y hermanos de la operación;
+    no el último recibo de la reserva (evita bucles A↔B entre movimientos hermanos).
     """
     from inmobiliaria.models.recibo import Recibo
 
@@ -15704,9 +18042,8 @@ def _movimiento_canonico_operacion(movimiento, sucursal=None):
         return movimiento
     sucursal = sucursal or getattr(movimiento, 'sucursal', None)
 
-    recibo = _buscar_recibo_para_movimiento(movimiento, sucursal=sucursal)
-    if recibo and recibo.movimiento_caja_id:
-        return recibo.movimiento_caja
+    if Recibo.objects.filter(movimiento_caja=movimiento).exists():
+        return movimiento
 
     rid = _extraer_reserva_id_movimiento(movimiento)
     if not rid or sucursal is None:
@@ -15998,13 +18335,87 @@ def _conceptos_lineas_recibo_desde_movimiento_simple(movimiento, sucursal):
     return lineas
 
 
-def _url_recibo_para_movimiento(movimiento, sucursal, next_url=None):
+def _urls_recibo_para_movimientos_batch(movimientos, sucursal, next_url=None):
+    """
+    Resuelve URLs de recibo en lote (sin N+1 por movimiento).
+    Criterios ligeros: Contrato #N en texto, cuota.movimiento_id, Operación #N.
+    """
+    from urllib.parse import urlencode
+    from .models import ContratoAlquiler, CuotaMensual
+
+    if not movimientos:
+        return {}
+
+    mov_ids = [int(m.id) for m in movimientos]
+    contrato_ids = set()
+    op_por_mov = {}
+    for m in movimientos:
+        txt = m.concepto or ''
+        mc = re.search(r'Contrato\s*#\s*(\d+)', txt, re.I)
+        if mc:
+            contrato_ids.add(int(mc.group(1)))
+        mo = re.search(r'Operaci[oó]n\s*#?\s*(\d+)', txt, re.I)
+        if mo:
+            op_por_mov[int(m.id)] = True
+
+    contratos_map = {
+        c.id: c
+        for c in ContratoAlquiler.objects.filter(id__in=contrato_ids, sucursal=sucursal).only('id')
+    }
+    cuota_contrato_map = {}
+    for cuota in (
+        CuotaMensual.objects.filter(movimiento_id__in=mov_ids)
+        .exclude(contrato_id__isnull=True)
+        .only('movimiento_id', 'contrato_id')
+    ):
+        if cuota.movimiento_id and cuota.contrato_id:
+            cuota_contrato_map[int(cuota.movimiento_id)] = int(cuota.contrato_id)
+
+    next_params = {}
+    if next_url:
+        next_params['next'] = next_url
+
+    result = {}
+    for m in movimientos:
+        mid = int(m.id)
+        contrato_id = None
+        txt = m.concepto or ''
+        mc = re.search(r'Contrato\s*#\s*(\d+)', txt, re.I)
+        if mc:
+            cid = int(mc.group(1))
+            if cid in contratos_map:
+                contrato_id = cid
+        if contrato_id is None and mid in cuota_contrato_map:
+            contrato_id = cuota_contrato_map[mid]
+
+        if contrato_id is not None and getattr(m, 'tipo', None) == TipoMovimientoCajaEnum.INGRESO:
+            params = {'movimiento_id': mid, **next_params}
+            result[mid] = (
+                reverse('inmobiliaria:recibo_contrato_24', args=[contrato_id])
+                + '?' + urlencode(params)
+            )
+            continue
+
+        params = dict(next_params)
+        url = reverse('inmobiliaria:ver_recibo_movimiento', args=[mid])
+        if params:
+            url += '?' + urlencode(params)
+        result[mid] = url
+    return result
+
+
+def _url_recibo_para_movimiento(movimiento, sucursal, next_url=None, _cache=None):
     """
     URL del comprobante imprimible en formato Gonnet (recibo de contrato o de reserva por día).
     Evita abrir el resumen «RECIBO DE CAJA» cuando corresponde el recibo formal.
     """
     from urllib.parse import urlencode
-    import re
+
+    cache_key = None
+    if _cache is not None and movimiento is not None:
+        cache_key = (int(movimiento.id), next_url or '')
+        if cache_key in _cache:
+            return _cache[cache_key]
 
     if getattr(movimiento, 'tipo', None) == TipoMovimientoCajaEnum.INGRESO:
         contrato = _obtener_contrato_desde_movimiento(movimiento, sucursal)
@@ -16012,10 +18423,13 @@ def _url_recibo_para_movimiento(movimiento, sucursal, next_url=None):
             params = {'movimiento_id': movimiento.id}
             if next_url:
                 params['next'] = next_url
-            return (
+            url = (
                 reverse('inmobiliaria:recibo_contrato_24', args=[contrato.id])
                 + '?' + urlencode(params)
             )
+            if _cache is not None and cache_key is not None:
+                _cache[cache_key] = url
+            return url
 
     concepto_txt = (movimiento.concepto or '')
     if re.search(r'Operaci[oó]n\s*#?\s*(\d+)', concepto_txt, re.I):
@@ -16027,6 +18441,8 @@ def _url_recibo_para_movimiento(movimiento, sucursal, next_url=None):
         url = reverse('inmobiliaria:ver_recibo_movimiento', args=[mid])
         if params:
             url += '?' + urlencode(params)
+        if _cache is not None and cache_key is not None:
+            _cache[cache_key] = url
         return url
 
     params = {}
@@ -16035,6 +18451,8 @@ def _url_recibo_para_movimiento(movimiento, sucursal, next_url=None):
     url = reverse('inmobiliaria:ver_recibo_movimiento', args=[movimiento.id])
     if params:
         url += '?' + urlencode(params)
+    if _cache is not None and cache_key is not None:
+        _cache[cache_key] = url
     return url
 
 
@@ -16219,8 +18637,13 @@ def _sum_importe_concepto_en_movimientos_contrato(contrato, codigo_buscado):
                 pass
         if codigo_buscado == '25' and sub == 0 and getattr(mov, 'honorarios', None):
             try:
-                if float(mov.honorarios or 0) > 0 and not json_con_lineas:
-                    sub = parse_decimal_monto(mov.honorarios)
+                if float(mov.honorarios or 0) > 0:
+                    tiene_linea_25 = any(
+                        str(c.get('id', c.get('codigo', ''))).strip() == '25'
+                        for c in parsed_list
+                    )
+                    if not tiene_linea_25:
+                        sub = parse_decimal_monto(mov.honorarios)
             except Exception:
                 pass
         total += sub
@@ -16303,7 +18726,12 @@ def obtener_valor_concepto_contrato(contrato, campo):
                     except Exception:
                         pass
                 if not ok:
-                    val_campo = Decimal('0')
+                    tiene_linea_25 = any(
+                        str(c.get('id', c.get('codigo', ''))).strip() == '25'
+                        for c in conceptos_data
+                    )
+                    if tiene_linea_25:
+                        val_campo = Decimal('0')
             elif campo == 'sellados' and json_con_lineas:
                 ok = False
                 for c in conceptos_data:
@@ -16381,6 +18809,16 @@ def importes_honorarios_sellados_ui_contrato(contrato):
     else:
         out_s = mov_s if mov_s > 0 else ref_s
     return out_h, out_s
+
+
+def _cuentas_bancarias_activas_sucursal(sucursal):
+    from inmobiliaria.models.sucursal import CuentaBancaria
+
+    if not sucursal:
+        return CuentaBancaria.objects.none()
+    return CuentaBancaria.objects.filter(sucursal=sucursal, activa=True).order_by(
+        'nombre_banco', 'alias'
+    )
 
 
 def _total_medios_pago_operacion_request(request):
@@ -16720,6 +19158,13 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato, pago_cuota_co
             elif monto_deposito_mp > 0:
                 movimiento.destino_deposito = 'mp'
                 movimiento.monto_deposito = monto_deposito_mp
+        if movimiento.monto_deposito and float(movimiento.monto_deposito) > 0:
+            try:
+                movimiento.fecha_transferencia = _fecha_transferencia_desde_post(request)
+            except ValueError:
+                return None, 0, 'Fecha de transferencia inválida.'
+        else:
+            movimiento.fecha_transferencia = None
         movimiento.save()
         _asignar_numero_recibo_a_movimiento(movimiento, sucursal=request.user.sucursal)
 
@@ -16806,8 +19251,6 @@ def _estado_inicial_cuota_por_vencimiento(fecha_vencimiento, hoy):
 
 def _monto_plan_cuota_contrato(contrato, numero_cuota):
     idx = int(numero_cuota) - 1
-    if int(contrato.duracion_meses or 0) == 9:
-        return Decimal(str(contrato.precio_mensual or 0))
     montos_plan = _montos_cuotas_por_trimestre(contrato)
     if 0 <= idx < len(montos_plan):
         return montos_plan[idx]
@@ -16859,6 +19302,10 @@ def _parse_fecha_contrato_post(s):
     """ISO (AAAA-MM-DD desde input type=date) o dd/mm/aaaa → date; None si inválido."""
     if s is None:
         return None
+    if isinstance(s, datetime):
+        return s.date()
+    if isinstance(s, date):
+        return s
     st = str(s).strip()
     if not st:
         return None
@@ -16872,6 +19319,87 @@ def _parse_fecha_contrato_post(s):
         return None
 
 
+def _fecha_inicio_contrato_efectiva(contrato):
+    return _parse_fecha_contrato_post(getattr(contrato, 'fecha_inicio', None))
+
+
+def _fechas_vencimiento_plan_contrato(contrato):
+    """Fechas de vencimiento del plan (índice 0 = cuota 1), según fecha_inicio y dia_vencimiento."""
+    from calendar import monthrange
+
+    n = int(contrato.duracion_meses or 0)
+    if n <= 0:
+        return []
+    fi = _fecha_inicio_contrato_efectiva(contrato)
+    if not fi:
+        return []
+    d_dia = int(contrato.dia_vencimiento or 5)
+    fechas = []
+
+    if n == 9:
+        for i in range(9):
+            ref_mes = fi + relativedelta(months=i)
+            try:
+                fechas.append(ref_mes.replace(day=d_dia))
+            except ValueError:
+                ultimo_dia = monthrange(ref_mes.year, ref_mes.month)[1]
+                fechas.append(ref_mes.replace(day=min(d_dia, ultimo_dia)))
+        return fechas
+
+    try:
+        fecha_vencimiento = fi.replace(day=d_dia)
+    except ValueError:
+        ultimo_dia = monthrange(fi.year, fi.month)[1]
+        fecha_vencimiento = fi.replace(day=min(d_dia, ultimo_dia))
+
+    for _ in range(n):
+        fechas.append(fecha_vencimiento)
+        fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
+    return fechas
+
+
+def _cuotas_requieren_alinear_vencimientos(contrato):
+    fechas = _fechas_vencimiento_plan_contrato(contrato)
+    if not fechas:
+        return False
+    by_num = {int(c.numero_cuota): c for c in contrato.cuotas.all()}
+    for i, esperada in enumerate(fechas):
+        cuota = by_num.get(i + 1)
+        if not cuota or cuota.estado in ('pagada', 'pagada_con_mora'):
+            continue
+        if cuota.fecha_vencimiento != esperada:
+            return True
+    return False
+
+
+def _alinear_vencimientos_cuotas_contrato(contrato, hoy=None):
+    """Recalcula vencimientos de cuotas no pagadas según fecha_inicio del contrato."""
+    hoy = hoy or timezone.now().date()
+    fechas = _fechas_vencimiento_plan_contrato(contrato)
+    if not fechas:
+        return 0
+    actualizadas = 0
+    for cuota in contrato.cuotas.order_by('numero_cuota'):
+        if cuota.estado in ('pagada', 'pagada_con_mora'):
+            continue
+        idx = int(cuota.numero_cuota or 0) - 1
+        if idx < 0 or idx >= len(fechas):
+            continue
+        nueva = fechas[idx]
+        cambios = []
+        if cuota.fecha_vencimiento != nueva:
+            cuota.fecha_vencimiento = nueva
+            cambios.append('fecha_vencimiento')
+        nuevo_estado = _estado_inicial_cuota_por_vencimiento(nueva, hoy)
+        if cuota.estado in ('pendiente', 'vencida') and cuota.estado != nuevo_estado:
+            cuota.estado = nuevo_estado
+            cambios.append('estado')
+        if cambios:
+            cuota.save(update_fields=cambios)
+            actualizadas += 1
+    return actualizadas
+
+
 def _asegurar_cuotas_plan_contrato(contrato):
     """
     Crea el plan de cuotas mensuales en pendiente/vencida si el contrato aún no tiene filas.
@@ -16881,46 +19409,14 @@ def _asegurar_cuotas_plan_contrato(contrato):
     if contrato.cuotas.exists():
         return 0
 
-    from calendar import monthrange
-
-    n = int(contrato.duracion_meses or 0)
-    if n <= 0:
+    fechas = _fechas_vencimiento_plan_contrato(contrato)
+    if not fechas:
         return 0
 
     hoy = timezone.now().date()
-    d_dia = int(contrato.dia_vencimiento or 5)
-    fi = _parse_fecha_contrato_post(getattr(contrato, 'fecha_inicio', None)) or hoy
-    creadas = 0
-
-    if n == 9:
-        for i in range(9):
-            ref_mes = fi + relativedelta(months=i)
-            try:
-                fecha_vencimiento = ref_mes.replace(day=d_dia)
-            except ValueError:
-                ultimo_dia = monthrange(ref_mes.year, ref_mes.month)[1]
-                fecha_vencimiento = ref_mes.replace(day=min(d_dia, ultimo_dia))
-            CuotaMensual.objects.create(
-                contrato=contrato,
-                numero_cuota=i + 1,
-                fecha_vencimiento=fecha_vencimiento,
-                monto_base=contrato.precio_mensual,
-                monto_total=contrato.precio_mensual,
-                estado=_estado_inicial_cuota_por_vencimiento(fecha_vencimiento, hoy),
-                movimiento=None,
-                fecha_pago=None,
-            )
-            creadas += 1
-        return creadas
-
     montos_meses = _montos_cuotas_por_trimestre(contrato)
-    try:
-        fecha_vencimiento = fi.replace(day=d_dia)
-    except ValueError:
-        ultimo_dia = monthrange(fi.year, fi.month)[1]
-        fecha_vencimiento = fi.replace(day=min(d_dia, ultimo_dia))
-
-    for i in range(n):
+    creadas = 0
+    for i, fecha_vencimiento in enumerate(fechas):
         monto_cuota = montos_meses[i] if i < len(montos_meses) else contrato.precio_mensual
         CuotaMensual.objects.create(
             contrato=contrato,
@@ -16933,8 +19429,6 @@ def _asegurar_cuotas_plan_contrato(contrato):
             fecha_pago=None,
         )
         creadas += 1
-        fecha_vencimiento = fecha_vencimiento + relativedelta(months=1)
-
     return creadas
 
 
@@ -17096,42 +19590,57 @@ def _aplicar_tipo_cobro_mes_a_cuotas(contrato, cuotas, mes_tipo, mes_valor, tol=
                 )
 
 
+def _asegurar_precios_bloques_modo_mensual(contrato):
+    """Pasa a precios_bloques con un valor por mes (mes 2..N) conservando el plan actual."""
+    n = int(contrato.duracion_meses or 0)
+    if n <= 1 or _precios_bloques_es_modo_mensual(contrato):
+        return False
+    montos = _montos_cuotas_por_trimestre(contrato)
+    pb = []
+    for mes in range(2, n + 1):
+        m = montos[mes - 1] if mes - 1 < len(montos) else Decimal('0')
+        if m and m > 0:
+            pb.append(float(m))
+        else:
+            pb.append(None)
+    contrato.precios_bloques = pb
+    contrato.save(update_fields=['precios_bloques'])
+    return True
+
+
 def _aplicar_precio_mensual_desde_cuota(contrato, numero_cuota_desde, nuevo_precio):
     """
-    Actualiza precio_mensual (o el bloque trimestral vigente) y asigna el mismo importe
-    a la cuota desde la indicada y a todas las siguientes pendientes/vencidas.
+    Guarda el precio desde el mes indicado en el plan del contrato y aplica el mismo
+    importe a esa cuota y a todas las siguientes pendientes/vencidas.
     """
     nuevo_precio = Decimal(str(nuevo_precio))
     if nuevo_precio < 0:
         raise ValueError('El precio mensual no puede ser negativo.')
 
     n_desde = max(1, int(numero_cuota_desde))
-    update_fields = []
     dur = int(contrato.duracion_meses or 0)
+    if dur < 1:
+        raise ValueError('El contrato no tiene plan de cuotas.')
 
-    if dur == 9:
-        contrato.precio_mensual = nuevo_precio
-        update_fields.append('precio_mensual')
-    else:
-        bloque_idx = (n_desde - 1) // 3
-        raw_pb = getattr(contrato, 'precios_bloques', None)
-        if raw_pb is None:
+    _asegurar_precios_bloques_modo_mensual(contrato)
+    contrato.refresh_from_db(fields=['precio_mensual', 'precios_bloques', 'duracion_meses'])
+
+    pb = list(getattr(contrato, 'precios_bloques', None) or [])
+    while len(pb) < max(0, dur - 1):
+        pb.append(None)
+
+    update_fields = []
+    for mes in range(n_desde, dur + 1):
+        if mes == 1:
             contrato.precio_mensual = nuevo_precio
-            update_fields.append('precio_mensual')
-        elif bloque_idx == 0:
-            contrato.precio_mensual = nuevo_precio
-            update_fields.append('precio_mensual')
+            if 'precio_mensual' not in update_fields:
+                update_fields.append('precio_mensual')
         else:
-            pb = list(raw_pb or [])
-            idx_pb = bloque_idx - 1
-            while len(pb) <= idx_pb:
-                pb.append(None)
-            pb[idx_pb] = float(nuevo_precio)
-            contrato.precios_bloques = pb
-            update_fields.append('precios_bloques')
+            pb[mes - 2] = float(nuevo_precio)
 
-    if update_fields:
-        contrato.save(update_fields=update_fields)
+    contrato.precios_bloques = pb
+    update_fields.append('precios_bloques')
+    contrato.save(update_fields=list(dict.fromkeys(update_fields)))
 
     hoy = timezone.now().date()
     actualizadas = 0
@@ -17145,9 +19654,18 @@ def _aplicar_precio_mensual_desde_cuota(contrato, numero_cuota_desde, nuevo_prec
         else:
             cq.recargo_mora = Decimal('0')
         cq.descuento = Decimal('0')
+        cq.credito_aplicado = Decimal('0')
+        cq.credito_origen_numero_cuota = None
         cq.actualizar_monto_total()
         cq.save(
-            update_fields=['monto_base', 'monto_total', 'recargo_mora', 'descuento']
+            update_fields=[
+                'monto_base',
+                'monto_total',
+                'recargo_mora',
+                'descuento',
+                'credito_aplicado',
+                'credito_origen_numero_cuota',
+            ]
         )
         actualizadas += 1
     return actualizadas
@@ -17407,6 +19925,9 @@ def procesar_operacion_contrato(request, contrato_id):
                     actualizar_historial_por_contrato_invierno(
                         contrato.propiedad, contrato.fecha_inicio, contrato.fecha_fin
                     )
+                    from inmobiliaria.models.propiedad import desactivar_24_meses_si_invierno_ocupado
+
+                    desactivar_24_meses_si_invierno_ocupado(contrato.propiedad)
                 else:
                     info_meses, _ = AlquilerMeses.objects.get_or_create(
                         propiedad=contrato.propiedad,
@@ -17458,6 +19979,13 @@ def procesar_operacion_contrato(request, contrato_id):
                             if resultado == 'pagada':
                                 ultima_cuota_pagada_num = int(cuota.numero_cuota)
                                 cuotas_pagadas_ids.append(cuota.numero_cuota)
+                        from inmobiliaria.cuotas_imputacion import (
+                            sincronizar_cuotas_totalmente_cubiertas_por_credito,
+                        )
+
+                        sincronizar_cuotas_totalmente_cubiertas_por_credito(
+                            contrato, hoy_pago, movimiento_fallback=movimiento
+                        )
                 except ValueError as e:
                     return JsonResponse({'error': str(e)}, status=400)
             else:
@@ -17491,10 +20019,13 @@ def procesar_operacion_contrato(request, contrato_id):
 def ver_cuotas_contrato(request, contrato_id):
     """Vista para ver todas las cuotas de un contrato"""
     contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
+    hoy = timezone.now().date()
+    from inmobiliaria.cuotas_imputacion import sincronizar_cuotas_totalmente_cubiertas_por_credito
+
+    sincronizar_cuotas_totalmente_cubiertas_por_credito(contrato, hoy)
     cuotas = contrato.cuotas.all().order_by('numero_cuota')
     
     # Marcar cuotas vencidas
-    hoy = timezone.now().date()
     for cuota in cuotas:
         if cuota.estado == 'pendiente' and cuota.fecha_vencimiento < hoy:
             cuota.estado = 'vencida'
@@ -17747,6 +20278,7 @@ def crear_pago_cuota_operacion(request, cuota_id):
         'config_operacion': config_operacion,
         'honorarios_ui': hon_ui,
         'sellados_ui': sel_ui,
+        'cuentas_bancarias': _cuentas_bancarias_activas_sucursal(request.user.sucursal),
     }
     return render(request, 'inmobiliaria/contratos/crear_operacion.html', context)
 
@@ -17912,6 +20444,14 @@ def procesar_pago_cuota_operacion(request, cuota_id):
                     except ValueError as e:
                         return JsonResponse({'error': str(e)}, status=400)
 
+                from inmobiliaria.cuotas_imputacion import (
+                    sincronizar_cuotas_totalmente_cubiertas_por_credito,
+                )
+
+                sincronizar_cuotas_totalmente_cubiertas_por_credito(
+                    contrato, hoy_pago, movimiento_fallback=movimiento
+                )
+
                 if mes_tipo == 'mensual':
                     nuevo_precio = _parse_nuevo_precio_mensual_post(request)
                     if nuevo_precio is not None:
@@ -17981,6 +20521,9 @@ def cancelar_contrato(request, contrato_id):
         contrato.motivo_cancelacion = motivo
         contrato.save()
 
+        from inmobiliaria.models.comision import revertir_comisiones_operacion_anulada
+        revertir_comisiones_operacion_anulada(contrato=contrato)
+
         # Alquiler de invierno (9 meses): poner la propiedad en disponible y limpiar historial
         if contrato.duracion_meses == 9 and hasattr(contrato.propiedad, 'info_invierno'):
             info_invierno = contrato.propiedad.info_invierno
@@ -18006,6 +20549,9 @@ def cancelar_contrato(request, contrato_id):
             info_invierno.fecha_inicio = None
             info_invierno.fecha_fin = None
             info_invierno.save()
+            from inmobiliaria.models.propiedad import reactivar_24_meses_si_invierno_libre
+
+            reactivar_24_meses_si_invierno_libre(contrato.propiedad)
 
         # Contrato 24 meses: estudiante (carrera) -> disponible; resto -> desactivar
         elif hasattr(contrato.propiedad, 'info_meses'):
@@ -18335,87 +20881,29 @@ El equipo de Sistema Gonnet
 # Función temporal para recalcular precios de reservas con precio 0
 def recalcular_precio_reserva(reserva):
     """
-    Recalcula el precio de una reserva usando la misma lógica que buscar_propiedades_reserva
+    Recalcula el precio de una reserva usando la misma lógica que buscar_propiedades.
     """
-# print(f"🔄 RECALCULANDO PRECIO para reserva {reserva.id}")
-    
+    from inmobiliaria.busqueda_propiedades_reserva import (
+        calcular_precio_total_reserva_fechas,
+        mapa_precios_propiedad,
+    )
+    from inmobiliaria.precio_temporada_reserva import rango_vacaciones_invierno_sucursal
+
     try:
-        fecha_inicio = reserva.fecha_inicio
-        fecha_fin = reserva.fecha_fin
         propiedad = reserva.propiedad
-        
-        # Calcular noches de reserva
-        noches_reserva = (fecha_fin - fecha_inicio).days
-# print(f"   📅 Fechas: {fecha_inicio} al {fecha_fin} ({noches_reserva} noches)")
-        
-        # ✅ CÁLCULO POR NOCHES: Usar precio del día de SALIDA, EXCEPTO Año Nuevo
-        # Ejemplo: 29/12→30/12 usa precio del 29/12
-        #          30/12→31/12 usa precio del 30/12
-        #          31/12→01/01 usa precio del 01/01 (EXCEPCIÓN: Año Nuevo)
-        #          01/01→02/01 usa precio del 01/01
-        precio_total = 0
-        precio_mas_caro = 0
-        
-        for noche in range(noches_reserva):
-            # Día de salida (el día actual de la noche)
-            dia_salida = fecha_inicio + timedelta(noche)
-            dia_llegada = fecha_inicio + timedelta(noche + 1)
-            
-            # ✅ EXCEPCIÓN: Año Nuevo (31/12 → 01/01) usa precio del 01/01
-            if dia_salida.month == 12 and dia_salida.day == 31 and dia_llegada.month == 1 and dia_llegada.day == 1:
-                dia_a_usar = dia_llegada  # Usar precio del 01/01
-            else:
-                dia_a_usar = dia_salida  # Usar precio del día de salida
-            
-            # Determinar el tipo de precio según el día a usar
-            tipo_precio = None
-            if dia_a_usar.month == 1:  # Enero
-                tipo_precio = 'QUINCENA_1_ENERO' if dia_a_usar.day <= 15 else 'QUINCENA_2_ENERO'
-            elif dia_a_usar.month == 2:  # Febrero
-                tipo_precio = 'QUINCENA_1_FEBRERO' if dia_a_usar.day <= 15 else 'QUINCENA_2_FEBRERO'
-            elif dia_a_usar.month == 3:  # Marzo
-                tipo_precio = 'QUINCENA_1_MARZO' if dia_a_usar.day <= 15 else 'QUINCENA_2_MARZO'
-            elif dia_a_usar.month == 7:  # Julio (Vacaciones de Invierno)
-                tipo_precio = 'VACACIONES_INVIERNO'
-            elif dia_a_usar.month == 12:  # Diciembre
-                tipo_precio = 'QUINCENA_1_DICIEMBRE' if dia_a_usar.day <= 15 else 'QUINCENA_2_DICIEMBRE'
-            else:
-                tipo_precio = 'TEMPORADA_BAJA'
-
-            # Obtener el precio para la propiedad y la quincena correspondiente
-            try:
-                precio = Precio.objects.get(propiedad=propiedad, tipo_precio=tipo_precio)
-                precio_dia = precio.precio_por_dia or 0
-# print(f"   ✅ Noche {noche+1} ({fecha_inicio + timedelta(noche)}→{dia_llegada}): {tipo_precio} = ${precio_dia}")
-            except Precio.DoesNotExist:
-                precio_dia = 0
-# print(f"   ❌ Noche {noche+1}: {tipo_precio} = NO EXISTE")
-
-            # Rastrear el día más caro
-            if precio_dia > precio_mas_caro:
-                precio_mas_caro = precio_dia
-
-            precio_total += precio_dia
-        
-        # ✅ AGREGAR DÍA DE COMISIÓN (día más caro)
-        precio_total = precio_total + precio_mas_caro
-        
-# print(f"   💰 PRECIO TOTAL RECALCULADO: suma_noches + dia_comision = ${precio_total:,.0f}")
-        
-        # Actualizar la reserva si el precio es diferente
-        if precio_total != reserva.precio_total:
-            reserva.precio_total = precio_total
-            reserva.save()
-# print(f"   ✅ RESERVA ACTUALIZADA con nuevo precio: ${precio_total:,.0f}")
-        else:
-            pass  # ✅ Bloque vacío
-# print(f"   ℹ️ El precio ya era correcto: ${precio_total:,.0f}")
-            
-        return precio_total
-        
-    except Exception as e:
-        pass  # ✅ Bloque vacío
-# print(f"   ❌ ERROR recalculando precio: {str(e)}")
+        precios_map = mapa_precios_propiedad(propiedad)
+        sucursal = getattr(reserva, 'sucursal', None) or getattr(propiedad, 'sucursal', None)
+        nuevo_precio = calcular_precio_total_reserva_fechas(
+            reserva.fecha_inicio,
+            reserva.fecha_fin,
+            precios_map,
+            vacaciones_invierno=rango_vacaciones_invierno_sucursal(sucursal),
+        )
+        if nuevo_precio != reserva.precio_total:
+            reserva.precio_total = nuevo_precio
+            reserva.save(update_fields=['precio_total'])
+        return float(nuevo_precio)
+    except Exception:
         return 0
 
 @login_required
@@ -18454,41 +20942,14 @@ def finalizar_reserva_nueva(request, reserva_id):
         ).order_by('nombre_banco', 'alias')
         
         # ✅ CALCULAR SALDO PENDIENTE CONSIDERANDO SOLO LA SEÑA (NO EL DEPÓSITO)
-        # Buscar todos los movimientos de caja pagados para esta reserva
-        pagos_anteriores = MovimientoCaja.objects.filter(
-            propiedad=reserva.propiedad,
-            tipo=TipoMovimientoCajaEnum.INGRESO,
-            concepto__icontains=f"Operaci\u00f3n {reserva.id}"
+        from inmobiliaria.caja_devolucion_deposito import (
+            movimientos_reserva,
+            total_senia_pagada_reserva,
         )
-        
-        # ✅ DETECTAR SI ES "COMPLETAR PAGO" O "FINALIZAR RESERVA"
-        # Si ya hay pagos anteriores, es "Completar Pago", sino es "Finalizar Reserva"
+
+        pagos_anteriores = movimientos_reserva(reserva, tipo=TipoMovimientoCajaEnum.INGRESO)
         total_pagos_anteriores = sum(pago.monto_total for pago in pagos_anteriores)
-        
-        # ✅ CALCULAR SOLO LA SEÑA DE PAGOS ANTERIORES (concepto ID: 1)
-        total_senia_anteriores = Decimal('0')
-        for pago in pagos_anteriores:
-            if pago.concepto and "|CONCEPTOS:" in pago.concepto:
-                # Parsear conceptos del formato |CONCEPTOS:id:nombre:importe|
-                concepto_parts = pago.concepto.split("|CONCEPTOS:", 1)
-                if len(concepto_parts) > 1:
-                    conceptos_data = concepto_parts[1]
-                    conceptos_items = [item for item in conceptos_data.split("|") if item.strip()]
-                    
-                    for concepto_item in conceptos_items:
-                        parts = concepto_item.split(":")
-                        if len(parts) >= 3:
-                            concepto_id = parts[0].strip()
-                            concepto_importe = parts[2].strip()
-                            
-                            # ✅ CONCEPTOS QUE CUENTAN COMO SEÑA / saldo a ocupar: ver CONCEPTOS_SENIA_OPERACION_RESERVA
-                            if concepto_id in CONCEPTOS_SENIA_OPERACION_RESERVA:
-                                try:
-                                    importe_num = Decimal(concepto_importe.replace(',', ''))
-                                    total_senia_anteriores += importe_num
-# print(f"💰 SEÑA ANTERIOR DETECTADA: Concepto {concepto_id} - ${importe_num}")
-                                except:
-                                    pass
+        total_senia_anteriores = total_senia_pagada_reserva(reserva)
         
 # print(f"📊 CÁLCULO PAGOS ANTERIORES:")
 # print(f"   - Total pagos anteriores: ${total_pagos_anteriores}")
@@ -18617,11 +21078,23 @@ def actualizar_precio_reserva(request, reserva_id):
                 'success': False,
                 'error': 'El precio no puede ser negativo'
             })
-        
-        # Actualizar el precio de la reserva
+
+        precio_anterior = reserva.precio_total
         reserva.precio_total = nuevo_precio
         reserva.save(update_fields=['precio_total'])
-        
+
+        from inmobiliaria.historial_inquilino import registrar_evento_historial_inquilino
+
+        if precio_anterior != nuevo_precio:
+            registrar_evento_historial_inquilino(
+                tipo='montos_modificados',
+                reserva=reserva,
+                usuario=request.user,
+                precio_anterior=precio_anterior,
+                precio_nuevo=nuevo_precio,
+                detalle='Precio actualizado desde finalizar reserva.',
+            )
+
         return JsonResponse({
             'success': True,
             'message': 'Precio actualizado correctamente',
@@ -19082,6 +21555,51 @@ def configurar_numeracion_recibos(request, sucursal_id):
             return redirect('inmobiliaria:sucursal_detalle', sucursal_id=sucursal.id)
     
     return redirect('inmobiliaria:sucursal_detalle', sucursal_id=sucursal_id)
+
+
+@login_required
+def configurar_vacaciones_invierno(request, sucursal_id):
+    """Configura el rango de fechas de vacaciones de invierno para precios por día."""
+    sucursal = get_object_or_404(Sucursal, id=sucursal_id)
+
+    if not usuario_es_nivel_administracion(request.user):
+        messages.error(request, 'No tienes permisos para configurar las vacaciones de invierno.')
+        return redirect('inmobiliaria:sucursal_detalle', sucursal_id=sucursal.id)
+
+    if request.method != 'POST':
+        return redirect('inmobiliaria:sucursal_detalle', sucursal_id=sucursal.id)
+
+    try:
+        usar_todo_julio = request.POST.get('usar_todo_julio') == 'on'
+        desde_str = (request.POST.get('vacaciones_invierno_desde') or '').strip()
+        hasta_str = (request.POST.get('vacaciones_invierno_hasta') or '').strip()
+
+        if usar_todo_julio or (not desde_str and not hasta_str):
+            sucursal.vacaciones_invierno_desde = None
+            sucursal.vacaciones_invierno_hasta = None
+            sucursal.save(update_fields=['vacaciones_invierno_desde', 'vacaciones_invierno_hasta'])
+            messages.success(request, 'Vacaciones de invierno: se usará todo julio para el precio especial.')
+            return redirect('inmobiliaria:sucursal_detalle', sucursal_id=sucursal.id)
+
+        if not desde_str or not hasta_str:
+            messages.error(request, 'Indicá fecha de inicio y fin, o marcá «Todo julio».')
+            return redirect('inmobiliaria:sucursal_detalle', sucursal_id=sucursal.id)
+
+        desde = datetime.strptime(desde_str, '%Y-%m-%d').date()
+        hasta = datetime.strptime(hasta_str, '%Y-%m-%d').date()
+        sucursal.vacaciones_invierno_desde = desde
+        sucursal.vacaciones_invierno_hasta = hasta
+        sucursal.save(update_fields=['vacaciones_invierno_desde', 'vacaciones_invierno_hasta'])
+        messages.success(
+            request,
+            f'Vacaciones de invierno configuradas: {desde.strftime("%d/%m")} al {hasta.strftime("%d/%m")} (cada año).',
+        )
+    except ValueError:
+        messages.error(request, 'Las fechas no tienen un formato válido.')
+    except Exception as e:
+        messages.error(request, f'Error al guardar: {e}')
+
+    return redirect('inmobiliaria:sucursal_detalle', sucursal_id=sucursal.id)
 
 
 @login_required
@@ -19667,6 +22185,58 @@ def recibo_contrato_24(request, contrato_id):
             if imp < 0:
                 creditos_lineas_negativas -= imp
 
+        # Crédito "a favor" (códigos 36 y 135 en negativo): se muestra en positivo y resta del total a abonar.
+        _CODIGOS_A_FAVOR_RECIBO = frozenset({'36', '135'})
+        a_favor_recibo = Decimal('0')
+        for c in conceptos_contrato:
+            if _moneda_linea_recibo(c) == 'USD':
+                continue
+            cod = str(c.get('codigo') or '').strip()
+            if cod not in _CODIGOS_A_FAVOR_RECIBO:
+                continue
+            imp = _importe_concepto_recibo(c)
+            if imp < 0:
+                a_favor_recibo -= imp
+
+        a_favor_monto = max(a_favor_recibo, creditos_lineas_negativas)
+
+        def _deposito_cuadro_resumen_contrato():
+            """Depósito nuevo del contrato (positivo); no mezclar créditos de contrato vencido."""
+            dep = _dec_contrato_recibo(contrato.deposito_garantia)
+            if dep > 0:
+                return dep
+            dep_pos = Decimal('0')
+            for c in conceptos_contrato:
+                if _moneda_linea_recibo(c) == 'USD':
+                    continue
+                if str(c.get('codigo') or '').strip() != '10':
+                    continue
+                imp = _importe_concepto_recibo(c)
+                if imp > 0:
+                    dep_pos += imp
+            return dep_pos
+
+        def _total_cobrado_movimientos_contrato(hasta_movimiento=None):
+            from django.db.models import Q
+
+            qs = MovimientoCaja.objects.filter(
+                propiedad=contrato.propiedad,
+                sucursal=contrato.sucursal,
+                concepto__icontains=f'Contrato #{contrato.id}',
+            )
+            if hasta_movimiento is not None:
+                mf = hasta_movimiento.fecha
+                qs = qs.filter(Q(fecha__lt=mf) | Q(fecha=mf, id__lte=hasta_movimiento.id))
+            total = Decimal('0')
+            for mov in qs:
+                total += (
+                    _dec_contrato_recibo(mov.monto_efectivo)
+                    + _dec_contrato_recibo(mov.monto_cheque)
+                    + _dec_contrato_recibo(mov.monto_tarjeta)
+                    + _dec_contrato_recibo(mov.monto_deposito)
+                )
+            return total
+
         total_pagado_mov = Decimal('0')
         total_pagado_usd_mov = Decimal('0')
         if primer_movimiento:
@@ -19702,7 +22272,7 @@ def recibo_contrato_24(request, contrato_id):
             if pago_cuota_mensual_recibo:
                 # Recibo de cuota: totales = lo cobrado en líneas / caja (sin cuadro de obligación total del alta).
                 alquiler_mensual = _sum_codigos_recibo(('1', '15'))
-                deposito_garantia = _sum_codigos_recibo(('10',))
+                deposito_garantia = _deposito_cuadro_resumen_contrato()
                 honorarios = hon_line
                 if honorarios == 0 and honorarios_importe_json is not None and honorarios_importe_json > 0:
                     honorarios = honorarios_importe_json
@@ -19714,37 +22284,47 @@ def recibo_contrato_24(request, contrato_id):
                     sellados = Decimal('0')
                 total_obligacion = monto_cobro_lineas
                 total_abonado_recibo = total_pagado_mov if total_pagado_mov > 0 else monto_cobro_lineas
-                total_saldo_a_abonar = total_obligacion - creditos_lineas_negativas
+                total_saldo_a_abonar = total_obligacion - a_favor_monto
                 if total_saldo_a_abonar < 0:
                     total_saldo_a_abonar = Decimal('0')
                 neto_a_posesion = total_saldo_a_abonar - total_abonado_recibo
                 if neto_a_posesion < 0:
                     neto_a_posesion = Decimal('0')
             else:
-                # Cuadro resumen = obligación según contrato y referencias (no atribuir todo el cobro a honorarios si la línea es otra).
+                # Alta / posesión: cuadro con obligación total del contrato (no solo lo de este cobro).
                 alquiler_mensual = (
                     mes_alquiler_importe_recibo
                     if mes_alquiler_importe_recibo is not None
                     else _dec_contrato_recibo(contrato.precio_mensual)
                 )
-                deposito_garantia = _dec_contrato_recibo(contrato.deposito_garantia)
-                if hon_line > 0:
+                deposito_garantia = _deposito_cuadro_resumen_contrato()
+                hon_ref = _dec_contrato_recibo(contrato.honorarios_referencia)
+                sel_ref = _dec_contrato_recibo(contrato.sellados_referencia)
+                if hon_ref > 0:
+                    honorarios = hon_ref
+                elif hon_line > 0:
                     honorarios = hon_line
                 elif honorarios_importe_json is not None and honorarios_importe_json > 0:
                     honorarios = honorarios_importe_json
                 else:
-                    honorarios = _dec_contrato_recibo(contrato.honorarios_referencia)
-                if sel_line > 0:
+                    honorarios = Decimal('0')
+                if sel_ref > 0:
+                    sellados = sel_ref
+                elif sel_line > 0:
                     sellados = sel_line
                 elif sellados_importe_json is not None and sellados_importe_json > 0:
                     sellados = sellados_importe_json
                 else:
-                    sellados = _dec_contrato_recibo(contrato.sellados_referencia)
+                    sellados = Decimal('0')
                 total_obligacion = (
                     alquiler_mensual + deposito_garantia + honorarios + sellados
                 )
-                total_abonado_recibo = total_pagado_mov if total_pagado_mov > 0 else monto_cobro_lineas
-                total_saldo_a_abonar = total_obligacion - creditos_lineas_negativas
+                total_abonado_recibo = _total_cobrado_movimientos_contrato(primer_movimiento)
+                if total_abonado_recibo <= 0:
+                    total_abonado_recibo = (
+                        total_pagado_mov if total_pagado_mov > 0 else monto_cobro_lineas
+                    )
+                total_saldo_a_abonar = total_obligacion - a_favor_monto
                 if total_saldo_a_abonar < 0:
                     total_saldo_a_abonar = Decimal('0')
                 neto_a_posesion = total_saldo_a_abonar - total_abonado_recibo
@@ -19774,7 +22354,7 @@ def recibo_contrato_24(request, contrato_id):
                             alquiler_mensual = Decimal(str(contrato.propiedad.info_meses.precio_mensual))
                 except Exception:
                     pass
-            deposito_garantia = _dec_contrato_recibo(contrato.deposito_garantia)
+            deposito_garantia = _deposito_cuadro_resumen_contrato()
             honorarios = _dec_contrato_recibo(contrato.honorarios_referencia)
             if sellados_importe_json is not None and sellados_importe_json > 0:
                 sellados = sellados_importe_json
@@ -19794,7 +22374,7 @@ def recibo_contrato_24(request, contrato_id):
                         break
             total_obligacion = alquiler_mensual + deposito_garantia + honorarios + sellados
             total_abonado_recibo = monto_cobro_lineas
-            total_saldo_a_abonar = total_obligacion - creditos_lineas_negativas
+            total_saldo_a_abonar = total_obligacion - a_favor_monto
             if total_saldo_a_abonar < 0:
                 total_saldo_a_abonar = Decimal('0')
             neto_a_posesion = total_saldo_a_abonar - total_abonado_recibo
@@ -19828,6 +22408,8 @@ def recibo_contrato_24(request, contrato_id):
             deposito_estado = determinar_estado_concepto_contrato(contrato, '10')
 
         total_a_abonar = float(total_saldo_a_abonar)
+        total_obligacion_bruto = float(total_obligacion)
+        total_a_pagar_val = float(total_saldo_a_abonar)
         total_solo = total_abonado_recibo
         total_solo_float = float(total_solo)
 
@@ -19856,6 +22438,8 @@ def recibo_contrato_24(request, contrato_id):
             and sel_ref_visual > 0
             and (sel_line + tol_pendiente) < sel_ref_visual
         )
+
+        muestra_a_favor_recibo = not pago_cuota_mensual_recibo
 
         subtotal = total_a_abonar
         total_contrato = total_a_abonar
@@ -19949,6 +22533,8 @@ def recibo_contrato_24(request, contrato_id):
                 domicilio=contrato.garante_domicilio or ''
             )]
 
+        if primer_movimiento:
+            primer_movimiento.refresh_from_db()
         formas_de_pago_recibo = _formas_de_pago_desde_movimiento_caja(primer_movimiento, format_currency_usd)
         if not formas_de_pago_recibo:
             formas_de_pago_recibo = 'EFECTIVO'
@@ -19984,7 +22570,9 @@ def recibo_contrato_24(request, contrato_id):
             'recibo_muestra_pendiente_sel': recibo_muestra_pendiente_sel,
             'honorarios': format_currency(honorarios),
             'sellados': format_currency(sellados),
-            'total_a_abonar': format_currency(total_a_abonar),
+            'total_a_pagar': format_currency(total_obligacion_bruto),
+            'total_a_abonar': format_currency(total_a_pagar_val),
+            'total_obligacion_recibo': format_currency(total_obligacion_bruto),
             'total_solo': format_currency(total_solo_float),
             'total_solo_usd': format_currency_usd(total_solo_usd_float),
             'muestra_total_usd': muestra_total_usd,
@@ -20000,10 +22588,11 @@ def recibo_contrato_24(request, contrato_id):
             'mes_alquiler_es_proporcional': es_proporcional_recibo,
             'mes_alquiler_texto_recibo': mes_alquiler_texto_recibo,
             'formas_de_pago': formas_de_pago_recibo,
-            'url_volver': _url_volver_recibo(
-                request,
-                default=reverse('inmobiliaria:detalle_contrato', args=[contrato.id]),
-            ),
+            'muestra_a_favor_recibo': muestra_a_favor_recibo,
+            'muestra_a_favor_recibo_panel': muestra_a_favor_recibo and a_favor_monto > Decimal('0.01'),
+            'a_favor_recibo': format_currency(a_favor_monto),
+            **_contexto_botones_recibo_contrato(request, contrato.id),
+            **_contexto_editar_forma_pago_recibo(request, primer_movimiento),
             'recibo_etiqueta_tipo_contrato': contrato.etiqueta_recibo_tipo_contrato,
             'recibo_es_contrato_invierno': contrato.es_contrato_invierno(),
         }
@@ -20167,7 +22756,7 @@ def ver_contrato_estudiante(request, contrato_id):
 
     # Locador (propietario)
     if propi:
-        locador_nombre = f"{getattr(propi, 'nombre', '') or ''} {getattr(propi, 'apellido', '') or ''}".strip() or '—'
+        locador_nombre = formato_apellido_nombre(propi) or '—'
         locador_dni = (getattr(propi, 'dni', None) or '').strip() or '—'
         locador_domicilio = (getattr(propi, 'domicilio', None) or '—')[:120]
         locador_ciudad = (getattr(propi, 'localidad', None) or '—')[:80]
@@ -20851,19 +23440,7 @@ def ver_recibo_pdf(request, reserva_id):
             'cuit': getattr(cliente_data, 'cuit', '') or '',
         }
         
-        # Preparar datos de la propiedad con formato correcto
-        propiedad_data = reserva.propiedad
-        propiedad_completa = {
-            'direccion': propiedad_data.direccion or '',
-            'id': propiedad_data.id,
-            'llave': propiedad_data.llave or 'N/A',
-            'piso': propiedad_data.piso or '',
-            'departamento': propiedad_data.departamento or '',
-            'wifi': 'SÍ' if propiedad_data.wifi else 'NO',
-            'cochera': 'SÍ' if propiedad_data.cochera else 'NO',
-            'cantidad_personas': propiedad_data.cantidad_personas or None,
-            'ambientes': propiedad_data.ambientes or '',
-        }
+        propiedad_completa = _propiedad_completa_recibo(reserva.propiedad)
         
         # Preparar datos del vendedor/productor
         vendedor_completo = {}
@@ -21218,17 +23795,7 @@ def ver_recibo_publico(request, reserva_id, token):
             'cuit': getattr(cliente_data, 'cuit', '') or '',
         }
         
-        # Preparar datos de la propiedad con formato correcto
-        propiedad_data = reserva.propiedad
-        propiedad_completa = {
-            'direccion': propiedad_data.direccion or '',
-            'id': propiedad_data.id,
-            'llave': propiedad_data.llave or 'N/A',
-            'piso': propiedad_data.piso or '',
-            'departamento': propiedad_data.departamento or '',
-            'wifi': 'SÍ' if propiedad_data.wifi else 'NO',
-            'ambientes': propiedad_data.ambientes or '',
-        }
+        propiedad_completa = _propiedad_completa_recibo(reserva.propiedad)
         
         # Preparar datos del vendedor/productor
         vendedor_completo = {}
@@ -21561,18 +24128,7 @@ def ver_recibo_movimiento_pdf(request, movimiento_id):
             'cuit': getattr(cliente, 'cuit', '') or '',
         }
         
-        # Preparar datos de la propiedad con formato correcto
-        propiedad_completa = {
-            'direccion': propiedad.direccion or '',
-            'id': propiedad.id,
-            'llave': propiedad.llave or 'N/A',
-            'piso': propiedad.piso or '',
-            'departamento': propiedad.departamento or '',
-            'wifi': 'SÍ' if propiedad.wifi else 'NO',
-            'cochera': 'SÍ' if propiedad.cochera else 'NO',
-            'cantidad_personas': propiedad.cantidad_personas or None,
-            'ambientes': propiedad.ambientes or '',
-        }
+        propiedad_completa = _propiedad_completa_recibo(propiedad)
         
         # Preparar datos del vendedor/productor
         vendedor_completo = {}
@@ -22105,6 +24661,7 @@ def lista_liquidaciones(request):
     estado_filtro = request.GET.get('estado', '')
     propietario_id = request.GET.get('propietario', '')
     busqueda = request.GET.get('busqueda', '')
+    tipo_filtro = request.GET.get('tipo', '').strip()
 
     if estado_filtro:
         liquidaciones = liquidaciones.filter(estado=estado_filtro)
@@ -22120,32 +24677,84 @@ def lista_liquidaciones(request):
             Q(id__icontains=busqueda)
         )
 
-    # Calcular totales
-    total_pendiente = liquidaciones.filter(estado='pendiente').aggregate(
-        total=Sum('monto_a_pagar')
-    )['total'] or Decimal('0')
+    from inmobiliaria.liquidacion_operacion import info_operacion_liquidacion
 
-    total_procesado = liquidaciones.filter(
-        estado__in=['cerrada', 'pagada', 'oficina', 'procesada']
-    ).aggregate(
-        total=Sum('monto_a_pagar')
-    )['total'] or Decimal('0')
+    liquidaciones_list = list(liquidaciones)
+    for liq in liquidaciones_list:
+        info = info_operacion_liquidacion(liq)
+        liq.tipo_operacion_display = info['tipo_display']
+        liq.tipo_operacion_key = info['tipo_key']
+        liq.numero_carpeta_display = info['numero_carpeta'] if info['muestra_carpeta'] else None
+        liq.muestra_carpeta = info['muestra_carpeta']
+
+    if tipo_filtro:
+        if tipo_filtro == '24meses':
+            tipo_filtro_key = '24'
+        else:
+            tipo_filtro_key = tipo_filtro
+        liquidaciones_list = [l for l in liquidaciones_list if l.tipo_operacion_key == tipo_filtro_key]
+
+    total_pendiente = sum(
+        (l.monto_a_pagar for l in liquidaciones_list if l.estado == 'pendiente'),
+        Decimal('0'),
+    )
+    total_procesado = sum(
+        (
+            l.monto_a_pagar
+            for l in liquidaciones_list
+            if l.estado in ('cerrada', 'pagada', 'oficina', 'procesada')
+        ),
+        Decimal('0'),
+    )
 
     propietarios = Propietario.objects.filter(
         sucursal=request.user.sucursal
     ).order_by('apellido', 'nombre')
 
     context = {
-        'liquidaciones': liquidaciones,
+        'liquidaciones': liquidaciones_list,
         'estado_filtro': estado_filtro,
         'propietario_id': propietario_id,
         'busqueda': busqueda,
+        'tipo_filtro': tipo_filtro,
         'propietarios': propietarios,
         'total_pendiente': total_pendiente,
         'total_procesado': total_procesado,
     }
 
     return render(request, 'inmobiliaria/liquidaciones/lista.html', context)
+
+
+def _resolver_moneda_liquidacion(*, contrato_fk=None, operaciones_incluidas=None, post_moneda=None):
+    """Una sola moneda por liquidación (ARS o USD)."""
+    from inmobiliaria.liquidacion_operacion import normalizar_moneda
+
+    monedas = set()
+    if post_moneda:
+        monedas.add(normalizar_moneda(post_moneda))
+    if contrato_fk:
+        monedas.add(normalizar_moneda(getattr(contrato_fk, 'moneda', 'ARS')))
+    for o in operaciones_incluidas or []:
+        if not isinstance(o, dict):
+            continue
+        tipo = (o.get('tipo') or '').strip().lower()
+        try:
+            pk = int(o.get('id'))
+        except (KeyError, TypeError, ValueError):
+            continue
+        if tipo == 'contrato_cuota':
+            cq = CuotaMensual.objects.filter(pk=pk).select_related('contrato').first()
+            if cq and cq.contrato:
+                monedas.add(normalizar_moneda(cq.contrato.moneda))
+        elif tipo in ('contrato', 'contrato_operacion_principal'):
+            c = ContratoAlquiler.objects.filter(pk=pk).only('moneda').first()
+            if c:
+                monedas.add(normalizar_moneda(c.moneda))
+    if len(monedas) > 1:
+        raise ValueError(
+            'No podés mezclar operaciones en pesos y en dólares en la misma liquidación.'
+        )
+    return monedas.pop() if monedas else normalizar_moneda('ARS')
 
 
 @login_required
@@ -22182,19 +24791,6 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
             ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal
         )
         operacion_buscar_inicial = contrato.id
-        liquidacion_existente = (
-            LiquidacionPropietario.objects.filter(contrato=contrato)
-            .exclude(estado='cancelada')
-            .order_by('-id')
-            .first()
-        )
-        if liquidacion_existente:
-            messages.warning(
-                request,
-                f'Ya existe una liquidación para este contrato (nº {liquidacion_existente.id}, '
-                f'{liquidacion_existente.get_estado_display()}).',
-            )
-            return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion_existente.id)
 
     if request.method == 'POST':
         try:
@@ -22210,6 +24806,12 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
             monto_fondo_mantenimiento = parse_decimal_es(request.POST.get('monto_fondo_mantenimiento', '0'))
             if monto_fondo_mantenimiento < 0:
                 monto_fondo_mantenimiento = Decimal('0')
+            comision_locador = parse_decimal_es(request.POST.get('comision_locador', '0'))
+            comision_locatario = parse_decimal_es(request.POST.get('comision_locatario', '0'))
+            if comision_locador < 0:
+                comision_locador = Decimal('0')
+            if comision_locatario < 0:
+                comision_locatario = Decimal('0')
             fecha_desde = request.POST.get('fecha_desde')
             fecha_hasta = request.POST.get('fecha_hasta')
             observaciones = request.POST.get('observaciones', '')
@@ -22227,13 +24829,6 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
             else:
                 monto_inmobiliaria = monto_total - monto_propietario - monto_cochera
 
-            suma_partes = monto_propietario + monto_inmobiliaria + monto_cochera
-            if (suma_partes - monto_total).copy_abs() >= Decimal('0.02'):
-                raise ValueError(
-                    'La suma de propietario + inmobiliaria + cochera debe coincidir con el monto total '
-                    f'({monto_propietario} + {monto_inmobiliaria} + {monto_cochera} ≠ {monto_total}).'
-                )
-
             # Operaciones marcadas en el formulario (reserva:ID / contrato:ID)
             operaciones_incluidas = []
             for item in request.POST.getlist('operaciones_seleccionadas[]'):
@@ -22246,11 +24841,31 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                     pk = int(sid.strip())
                 except ValueError:
                     continue
-                if tipo in ('reserva', 'contrato', 'contrato_cuota'):
+                if tipo in ('reserva', 'contrato', 'contrato_cuota', 'contrato_operacion_principal', 'movimiento_caja'):
                     operaciones_incluidas.append({'tipo': tipo, 'id': pk})
+
+            for o in operaciones_incluidas:
+                if (o.get('tipo') or '').lower() != 'contrato_cuota':
+                    continue
+                try:
+                    cq_pk = int(o['id'])
+                except (KeyError, TypeError, ValueError):
+                    continue
+                cq = CuotaMensual.objects.filter(
+                    pk=cq_pk,
+                    contrato__propiedad=propiedad,
+                    contrato__sucursal=request.user.sucursal,
+                ).first()
+                if cq and cq.estado in ('pendiente', 'vencida'):
+                    o['anticipada'] = True
 
             # Contrato / cuotas: guardar IDs de cuotas imputadas (evita doble uso).
             excl_prev = _cuotas_excluidas_por_liquidaciones_contrato(propiedad)
+            from inmobiliaria.cuotas_imputacion import (
+                cuota_ids_mismo_recibo,
+                movimientos_ingreso_contrato,
+            )
+
             for o in operaciones_incluidas:
                 if not isinstance(o, dict):
                     continue
@@ -22259,7 +24874,34 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                         cq_pk = int(o['id'])
                     except (KeyError, TypeError, ValueError):
                         continue
-                    if cq_pk not in excl_prev:
+                    cq = CuotaMensual.objects.filter(
+                        pk=cq_pk,
+                        contrato__propiedad=propiedad,
+                        contrato__sucursal=request.user.sucursal,
+                    ).select_related('contrato').first()
+                    if not cq:
+                        continue
+                    ctr = cq.contrato
+                    liquidables = {
+                        int(cuota.id)
+                        for cuota, _m, _p, _a in _cuotas_en_ventana_liquidacion(
+                            ctr, excl_prev, request.user.sucursal
+                        )
+                    }
+                    candidatos = liquidables
+                    if cq.id not in candidatos:
+                        continue
+                    movs_ctr = movimientos_ingreso_contrato(ctr)
+                    ids_grupo = cuota_ids_mismo_recibo(
+                        cq,
+                        ctr.cuotas.all(),
+                        movs_ctr,
+                        solo_ids=candidatos,
+                    )
+                    if ids_grupo:
+                        o['id'] = int(ids_grupo[0])
+                        o['cuotas_ids'] = [int(x) for x in ids_grupo]
+                    elif cq_pk not in excl_prev:
                         o['cuotas_ids'] = [cq_pk]
                     continue
                 if o.get('tipo') != 'contrato':
@@ -22283,8 +24925,46 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                 if id_cuotas:
                     o['cuotas_ids'] = [int(x) for x in id_cuotas]
 
+            # Si el usuario tildó varias cuotas del mismo recibo, dejar una sola operación.
+            ops_dedup = []
+            grupos_cuota_vistos: set[tuple] = set()
+            for o in operaciones_incluidas:
+                if not isinstance(o, dict) or o.get('tipo') != 'contrato_cuota':
+                    ops_dedup.append(o)
+                    continue
+                key = tuple(sorted(int(x) for x in (o.get('cuotas_ids') or [int(o['id'])])))
+                if key in grupos_cuota_vistos:
+                    continue
+                grupos_cuota_vistos.add(key)
+                ops_dedup.append(o)
+            operaciones_incluidas = ops_dedup
+
+            gastos_seleccionados = request.POST.getlist('gastos_seleccionados[]')
+            ops_reales = [
+                o for o in operaciones_incluidas
+                if isinstance(o, dict) and (o.get('tipo') or '').lower() != 'division'
+            ]
+            solo_servicios = not ops_reales and bool(gastos_seleccionados)
+
+            if not ops_reales and not gastos_seleccionados:
+                raise ValueError(
+                    'Tildá al menos una operación (reserva o cuota) o al menos un movimiento '
+                    'de servicios / gastos pendientes.'
+                )
+
+            if solo_servicios:
+                monto_total = Decimal('0')
+                monto_propietario = Decimal('0')
+                monto_inmobiliaria = Decimal('0')
+            elif monto_total <= 0:
+                raise ValueError('El monto total de la operación debe ser mayor a cero.')
+
             # División manual en dos operaciones
             dividir_operacion = request.POST.get('dividir_operacion') == '1'
+            if solo_servicios and dividir_operacion:
+                raise ValueError(
+                    'No podés dividir en dos operaciones una liquidación que solo incluye servicios o gastos.'
+                )
             if dividir_operacion:
                 op1_fecha_desde = request.POST.get('op1_fecha_desde')
                 op1_fecha_hasta = request.POST.get('op1_fecha_hasta')
@@ -22342,10 +25022,24 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
             if reserva is None:
                 ids_ct = [o['id'] for o in operaciones_incluidas if o.get('tipo') == 'contrato']
                 ids_cuota = [o['id'] for o in operaciones_incluidas if o.get('tipo') == 'contrato_cuota']
-                if ids_ct and ids_cuota:
+                ids_op_princ = [
+                    o['id'] for o in operaciones_incluidas if o.get('tipo') == 'contrato_operacion_principal'
+                ]
+                if ids_ct and (ids_cuota or ids_op_princ):
                     raise ValueError(
-                        'No podés combinar el formato antiguo «contrato» con cuotas sueltas en la misma liquidación.'
+                        'No podés combinar el formato antiguo «contrato» con cuotas u operación principal '
+                        'en la misma liquidación.'
                     )
+                if ids_op_princ and len(ids_op_princ) > 1:
+                    raise ValueError('Solo podés incluir una operación principal por liquidación.')
+                if len(ids_op_princ) == 1:
+                    contrato_fk = ContratoAlquiler.objects.filter(
+                        id=ids_op_princ[0], propiedad=propiedad, sucursal=request.user.sucursal
+                    ).first()
+                    if contrato_fk and _operacion_principal_liquidada_contrato(contrato_fk):
+                        raise ValueError(
+                            'La operación principal de este contrato ya tiene una liquidación registrada.'
+                        )
                 if len(ids_ct) == 1:
                     contrato_fk = ContratoAlquiler.objects.filter(
                         id=ids_ct[0], propiedad=propiedad, sucursal=request.user.sucursal
@@ -22368,6 +25062,22 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                         raise ValueError(
                             'Las cuotas seleccionadas deben ser todas del mismo contrato de alquiler.'
                         )
+
+            if solo_servicios and reserva is None and contrato_fk is None:
+                ref_tipo = (request.POST.get('operacion_referencia_tipo') or '').strip().lower()
+                ref_raw = (request.POST.get('operacion_referencia_numero') or '').strip()
+                if ref_raw.isdigit():
+                    rid = int(ref_raw)
+                    operaciones_incluidas.append({
+                        'tipo': 'referencia_operacion',
+                        'id': rid,
+                        'referencia': ref_tipo,
+                        'solo_movimientos': True,
+                    })
+                    if ref_tipo == 'contrato':
+                        contrato_fk = ContratoAlquiler.objects.filter(
+                            pk=rid, propiedad=propiedad, sucursal=request.user.sucursal
+                        ).first()
 
             reserva_ids_nuevas = set()
             for o in operaciones_incluidas:
@@ -22404,11 +25114,18 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                     reserva=reserva,
                     contrato=contrato_fk,
                     estado='pendiente',
+                    moneda=_resolver_moneda_liquidacion(
+                        contrato_fk=contrato_fk,
+                        operaciones_incluidas=operaciones_incluidas,
+                        post_moneda=request.POST.get('moneda'),
+                    ),
                     monto_total_operacion=monto_total,
                     monto_propietario=monto_propietario,
                     monto_inmobiliaria=monto_inmobiliaria,
                     monto_cochera=monto_cochera,
                     monto_fondo_mantenimiento=monto_fondo_mantenimiento,
+                    comision_locador=comision_locador,
+                    comision_locatario=comision_locatario,
                     fecha_desde=datetime.strptime(fecha_desde, '%Y-%m-%d').date() if fecha_desde else None,
                     fecha_hasta=datetime.strptime(fecha_hasta, '%Y-%m-%d').date() if fecha_hasta else None,
                     observaciones=observaciones,
@@ -22418,7 +25135,8 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                 )
 
                 # Asociar gastos pendientes seleccionados a la liquidación
-                gastos_seleccionados = request.POST.getlist('gastos_seleccionados[]')
+                if not gastos_seleccionados:
+                    gastos_seleccionados = request.POST.getlist('gastos_seleccionados[]')
                 if gastos_seleccionados:
                     for gasto_id_str in gastos_seleccionados:
                         try:
@@ -22442,6 +25160,7 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                                     propiedad=propiedad,
                                     descripcion=desc_mov,
                                     monto=movimiento.monto_total,
+                                    moneda=liquidacion.moneda,
                                     fecha_gasto=movimiento.fecha.date() if movimiento.fecha else None,
                                     observaciones=f'Movimiento de caja #{movimiento.id}',
                                     aceptado=True,
@@ -22456,6 +25175,7 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                                     liquidacion__isnull=True,
                                     sucursal=request.user.sucursal
                                 )
+                                gasto.moneda = liquidacion.moneda
                                 gasto.liquidacion = liquidacion
                                 gasto.aceptado = True  # Automáticamente aceptado al asociarlo
                                 gasto.save()
@@ -22464,6 +25184,10 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
 
                 # Recalcular monto a pagar con los gastos
                 liquidacion.calcular_monto_a_pagar()
+
+                from inmobiliaria.models.comision import confirmar_comisiones_por_liquidacion
+
+                confirmar_comisiones_por_liquidacion(liquidacion)
 
             messages.success(request, 'Liquidación creada correctamente.')
             return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion.id)
@@ -22483,12 +25207,27 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
         .values('id', 'nombre', 'apellido', 'dni')
     )
 
+    cuotas_raw = (request.GET.get('cuotas') or '').strip()
+    cuota_single = (request.GET.get('cuota') or '').strip()
+    if cuotas_raw:
+        cuotas_inicial = [x.strip() for x in cuotas_raw.split(',') if x.strip().isdigit()]
+    elif cuota_single.isdigit():
+        cuotas_inicial = [cuota_single]
+    else:
+        cuotas_inicial = []
+
     context = {
         'reserva': reserva,
         'contrato': contrato,
         'propiedades': propiedades,
         'propietarios_busqueda': propietarios_busqueda,
         'operacion_buscar_inicial': operacion_buscar_inicial,
+        'cuota_liquidacion_inicial': cuotas_inicial[0] if len(cuotas_inicial) == 1 else '',
+        'cuotas_liquidacion_inicial': cuotas_inicial,
+        'principal_liquidacion_inicial': request.GET.get('principal') == '1',
+        'moneda_inicial': (
+            (contrato.moneda or 'ARS') if contrato else 'ARS'
+        ),
     }
 
     if reserva:
@@ -22496,6 +25235,14 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
         context['monto_total'] = reserva.precio_total
         context['fecha_desde'] = reserva.fecha_inicio
         context['fecha_hasta'] = reserva.fecha_fin
+        from inmobiliaria.decimal_utils import format_monto_argentino
+
+        context['monto_cochera_inicial'] = format_monto_argentino(reserva.liq_monto_cochera or 0)
+        context['monto_fondo_inicial'] = format_monto_argentino(reserva.liq_monto_fondo or 0)
+        if reserva.liq_monto_propietario is not None:
+            context['monto_propietario_inicial'] = format_monto_argentino(reserva.liq_monto_propietario)
+        if reserva.liq_monto_inmobiliaria is not None:
+            context['monto_inmobiliaria_inicial'] = format_monto_argentino(reserva.liq_monto_inmobiliaria)
     elif contrato:
         context['propiedad'] = contrato.propiedad
         context['fecha_desde'] = contrato.fecha_inicio
@@ -22511,8 +25258,8 @@ def _cuotas_excluidas_por_liquidaciones_contrato(propiedad):
     - Si en operaciones_incluidas hay `cuotas_ids` / `cuota_ids`, se usan tal cual.
     - Liquidaciones finalizadas sin ese detalle (legacy): cuotas pagadas con
       fecha_pago <= fecha de cierre de la liquidación (procesamiento o creación).
-    - Liquidaciones en estado pendiente no aplican heurística por fecha (solo
-      bloquean el contrato entero vía `contratos_bloqueados_pendiente`).
+    - Liquidaciones en estado pendiente: solo excluyen las cuotas que figuran
+      explícitamente en operaciones_incluidas (no bloquean el resto del contrato).
     """
     cuotas_excluidas = set()
     qs = (
@@ -22673,37 +25420,346 @@ def _cuotas_cobro_parcial_liquidable(contrato, cuotas_excluidas, sucursal):
     return out
 
 
-def _monto_propietario_inmobiliaria_cuota_mensual(propiedad, monto_cuota):
+def _honorarios_cobrados_en_movimiento_contrato(mov) -> Decimal:
     """
-    Reparto propietario / inmobiliaria para el monto de una sola cuota mensual cobrada
-    (misma lógica que el bloque agregado por contrato: Precio toma / fallback 70-30).
+    Honorarios (concepto 25) de un movimiento de contrato.
+    En operación principal 24 meses suelen ir en mov.honorarios aunque haya otras líneas JSON (alquiler 1000).
+    """
+    from decimal import Decimal
+
+    parsed, parsed_list = _movimiento_json_conceptos_parsed(mov)
+    max_25 = Decimal('0')
+    for concepto in parsed_list:
+        cid = str(concepto.get('id', concepto.get('codigo', ''))).strip()
+        if cid != '25':
+            continue
+        try:
+            v = parse_decimal_monto(concepto.get('importe', 0))
+        except Exception:
+            v = Decimal('0')
+        if v > max_25:
+            max_25 = v
+    if max_25 > Decimal('0.05'):
+        return max_25.quantize(Decimal('0.01'))
+
+    parsed_dict = parsed if isinstance(parsed, dict) else None
+    if isinstance(parsed_dict, dict) and parsed_dict.get('honorarios') is not None:
+        try:
+            v = parse_decimal_monto(parsed_dict.get('honorarios'))
+            if v > Decimal('0.05'):
+                return v.quantize(Decimal('0.01'))
+        except Exception:
+            pass
+
+    try:
+        h = Decimal(str(getattr(mov, 'honorarios', None) or 0))
+    except Exception:
+        h = Decimal('0')
+    if h > Decimal('0.05'):
+        return h.quantize(Decimal('0.01'))
+    return Decimal('0')
+
+
+def _movimientos_ingreso_operacion_principal_contrato(contrato, movimientos=None):
+    """Ingresos de caja del contrato, ordenados por fecha (operación principal)."""
+    import re
+
+    movs = list(movimientos or [])
+    if not movs and contrato and contrato.propiedad_id:
+        patron = re.compile(rf'Contrato\s*#\s*{int(contrato.id)}\b', re.IGNORECASE)
+        movs = [
+            m
+            for m in MovimientoCaja.objects.filter(
+                propiedad=contrato.propiedad,
+                sucursal=contrato.sucursal,
+                tipo=TipoMovimientoCajaEnum.INGRESO,
+            ).order_by('fecha', 'id')
+            if m.concepto and patron.search(m.concepto)
+        ]
+    else:
+        movs = sorted(movs, key=lambda x: (x.fecha, x.id))
+    return movs
+
+
+def _honorarios_operacion_principal_cobrados_contrato(contrato, movimientos=None) -> Decimal:
+    """
+    Honorarios (25) de la operación principal: un solo importe por contrato.
+    Si hay varios cobros con honorarios (p. ej. seña y saldo), no se suman para no duplicar.
+    """
+    mejor = Decimal('0')
+    for mov in _movimientos_ingreso_operacion_principal_contrato(contrato, movimientos):
+        h = _honorarios_cobrados_en_movimiento_contrato(mov)
+        if h > mejor:
+            mejor = h
+    return mejor.quantize(Decimal('0.01'))
+
+
+def _participacion_operacion_principal_cobrada_contrato(contrato, movimientos=None) -> Decimal:
+    """Participación locador (85) de la operación principal (mayor importe en un solo cobro)."""
+    mejor = Decimal('0')
+    for mov in _movimientos_ingreso_operacion_principal_contrato(contrato, movimientos):
+        p = _participacion_cobrada_en_movimiento_contrato(mov)
+        if p > mejor:
+            mejor = p
+    return mejor.quantize(Decimal('0.01'))
+
+
+def _honorarios_cobrados_contrato(contrato) -> Decimal:
+    """Honorarios cobrados en la operación principal del contrato."""
+    return _honorarios_operacion_principal_cobrados_contrato(contrato)
+
+
+def _participacion_cobrada_en_movimiento_contrato(mov) -> Decimal:
+    """Participación locador (concepto 85) en un movimiento de contrato."""
+    parsed, parsed_list = _movimiento_json_conceptos_parsed(mov)
+    sub = Decimal('0')
+    for concepto in parsed_list:
+        cid = str(concepto.get('id', concepto.get('codigo', ''))).strip()
+        if cid != '85':
+            continue
+        try:
+            sub += parse_decimal_monto(concepto.get('importe', 0))
+        except Exception:
+            pass
+    return sub.quantize(Decimal('0.01')) if sub > Decimal('0.05') else Decimal('0')
+
+
+def _participacion_cobrada_contrato(contrato) -> Decimal:
+    """Participación (85) cobrada en la operación principal del contrato."""
+    return _participacion_operacion_principal_cobrada_contrato(contrato)
+
+
+def _comisiones_sugeridas_primera_cuota_contrato(contrato) -> dict:
+    """
+    Comisiones de la primera operación (cuota 1) en contratos de alquiler mensual (≥ 9 meses).
+    Locador: participación cobrada (85) o, si no hay, un mes de alquiler (precio_mensual).
+    Locatario: honorarios cobrados (25) o referencia del contrato.
+    """
+    locatario = _honorarios_cobrados_contrato(contrato)
+    if locatario <= Decimal('0.05'):
+        locatario = Decimal(str(contrato.honorarios_referencia or 0))
+    locador = _participacion_cobrada_contrato(contrato)
+    if locador <= Decimal('0.05'):
+        locador = Decimal(str(contrato.precio_mensual or 0))
+    return {
+        'comision_locador': str(locador.quantize(Decimal('0.01'))),
+        'comision_locatario': str(locatario.quantize(Decimal('0.01'))),
+    }
+
+
+CUOTAS_LIQUIDACION_ANTICIPADA_ADELANTE = 2
+
+
+def _liquidacion_operacion_principal_contrato(contrato):
+    """Liquidación no cancelada con honorarios / operación principal del contrato."""
+    if not contrato or not contrato.propiedad_id:
+        return None
+    cuota1_ids = set(contrato.cuotas.filter(numero_cuota=1).values_list('id', flat=True))
+    for liq in (
+        LiquidacionPropietario.objects.filter(propiedad_id=contrato.propiedad_id)
+        .exclude(estado='cancelada')
+        .order_by('-id')
+    ):
+        for op in liq.operaciones_incluidas or []:
+            if not isinstance(op, dict):
+                continue
+            t = (op.get('tipo') or '').lower()
+            if t == 'contrato_operacion_principal':
+                try:
+                    if int(op.get('id')) == contrato.id:
+                        return liq
+                except (TypeError, ValueError):
+                    pass
+            if t == 'contrato_cuota' and op.get('es_primera_cuota_mensual'):
+                try:
+                    if int(op.get('id')) in cuota1_ids:
+                        return liq
+                except (TypeError, ValueError):
+                    pass
+    return None
+
+
+def _operacion_principal_liquidada_contrato(contrato) -> bool:
+    return _liquidacion_operacion_principal_contrato(contrato) is not None
+
+
+def _fila_operacion_principal_liquidacion(contrato, propiedad):
+    """Operación de honorarios/comisiones (cobro inicial), separada de las cuotas mensuales."""
+    if not _contrato_es_alquiler_mensual_largo(contrato):
+        return None
+    if not getattr(contrato, 'operacion_principal', False):
+        return None
+    if _operacion_principal_liquidada_contrato(contrato):
+        return None
+
+    inq = contrato.inquilino
+    nombre_inq = f'{inq.apellido}, {inq.nombre}' if inq else '—'
+    prop_label = ((propiedad.direccion or '').strip()[:120] or f'#{propiedad.id}')
+    comisiones = _comisiones_sugeridas_primera_cuota_contrato(contrato)
+    participacion = Decimal(str(comisiones.get('comision_locador') or 0))
+    honorarios = Decimal(str(comisiones.get('comision_locatario') or 0))
+    monto_total = (participacion + honorarios).quantize(Decimal('0.01'))
+    fi = contrato.fecha_inicio
+    fi_s = fi.strftime('%Y-%m-%d') if fi else ''
+
+    return {
+        'tipo': 'contrato_operacion_principal',
+        'tipo_display': 'Operación principal',
+        'concepto_pago': _concepto_pago_liquidacion_operacion(
+            'contrato_operacion_principal', contrato, es_primera_cuota=True
+        ),
+        'incluible': True,
+        'anticipada': False,
+        'es_primera_cuota_mensual': False,
+        'es_operacion_principal_honorarios': True,
+        'id': contrato.id,
+        'contrato_id': contrato.id,
+        'propiedad_id': propiedad.id,
+        'propiedad_label': prop_label,
+        'descripcion': (
+            f'Contrato #{contrato.id} — Operación principal (honorarios y comisiones) — {nombre_inq}'
+        ),
+        'fecha_inicio': fi_s,
+        'fecha_fin': fi_s,
+        'monto_total': str(monto_total),
+        'monto_pagado': str(monto_total),
+        'monto_propietario': str(participacion.quantize(Decimal('0.01'))),
+        'monto_inmobiliaria': '0',
+        'dias': 0,
+        **comisiones,
+        'moneda': (contrato.moneda or 'ARS'),
+    }
+
+
+def _contrato_es_alquiler_mensual_largo(contrato) -> bool:
+    """Contratos por cuotas mensuales (invierno 9, largo 24 u otra duración ≥ 9 meses)."""
+    return int(getattr(contrato, 'duracion_meses', 0) or 0) >= 9
+
+
+def _es_primera_cuota_contrato_mensual(contrato, cuota) -> bool:
+    return (
+        int(getattr(cuota, 'numero_cuota', 0) or 0) == 1
+        and _contrato_es_alquiler_mensual_largo(contrato)
+    )
+
+
+def _numero_cuota_frontera_liquidacion(contrato, cuotas_excluidas):
+    """Mayor N° de cuota ya liquidada; si ninguna, mayor cuota pagada."""
+    liq_nums = list(
+        CuotaMensual.objects.filter(
+            contrato=contrato,
+            id__in=cuotas_excluidas,
+        ).values_list('numero_cuota', flat=True)
+    )
+    if liq_nums:
+        return max(liq_nums)
+    paid_nums = list(
+        contrato.cuotas.filter(estado__in=['pagada', 'pagada_con_mora'])
+        .values_list('numero_cuota', flat=True)
+    )
+    return max(paid_nums) if paid_nums else 0
+
+
+def _mes_vigente_contrato(contrato, hoy=None):
+    """N° de cuota del período en curso (último vencimiento ya alcanzado por la fecha de hoy)."""
+    hoy = hoy or timezone.now().date()
+    if not _contrato_es_alquiler_mensual_largo(contrato):
+        return 1
+    mes = 1
+    for c in contrato.cuotas.order_by('numero_cuota'):
+        fv = c.fecha_vencimiento
+        if fv and fv <= hoy:
+            mes = int(c.numero_cuota or mes)
+    return max(1, mes)
+
+
+def _cuotas_liquidables_para_contrato(contrato, cuotas_excluidas, sucursal, ids_ya_en_lista=None):
+    """
+    Cuotas incluibles en liquidación para un contrato por cuotas mensuales.
+    Incluye cobradas, cobro parcial y cuotas anticipadas del plan (todas las duraciones).
+    """
+    return _cuotas_en_ventana_liquidacion(contrato, cuotas_excluidas, sucursal, ids_ya_en_lista)
+
+
+def _cuotas_en_ventana_liquidacion(contrato, cuotas_excluidas, sucursal, ids_ya_en_lista=None):
+    """
+    Cuotas liquidables del plan: todas las que aún no figuran en otra liquidación
+    (cobradas, con cobro parcial o anticipadas pendientes de cobro).
+    """
+    duracion = int(contrato.duracion_meses or 0)
+    if duracion < 1:
+        return []
+    limite_num = duracion
+    ids_excl = set(cuotas_excluidas or ()) | set(ids_ya_en_lista or ())
+    parciales_map = {
+        c.id: m for c, m in _cuotas_cobro_parcial_liquidable(contrato, cuotas_excluidas, sucursal)
+    }
+    out = []
+    for cuota in contrato.cuotas.filter(numero_cuota__lte=limite_num).order_by('numero_cuota'):
+        if cuota.id in ids_excl:
+            continue
+        if cuota.id in parciales_map:
+            out.append((cuota, parciales_map[cuota.id], True, False))
+            continue
+        if cuota.estado in ('pagada', 'pagada_con_mora'):
+            out.append((cuota, Decimal(str(cuota.monto_total)), False, False))
+            continue
+        if cuota.estado in ('pendiente', 'vencida'):
+            m = Decimal(str(cuota.monto_total or 0))
+            if m <= Decimal('0.05'):
+                continue
+            out.append((cuota, m, False, True))
+    return out
+
+
+def _cuotas_anticipadas_liquidables(contrato, cuotas_excluidas, ids_ya_en_lista, adelante=None):
+    """
+    Cuotas mensuales aún sin cobrar, liquidables por anticipado.
+    Por defecto incluye hasta dos meses siguientes a la frontera liquidada.
+    """
+    if adelante is None:
+        adelante = CUOTAS_LIQUIDACION_ANTICIPADA_ADELANTE
+    duracion = int(contrato.duracion_meses or 0)
+    if duracion < 9 or adelante < 1:
+        return []
+
+    frontera = _numero_cuota_frontera_liquidacion(contrato, cuotas_excluidas)
+    ids_excl = set(cuotas_excluidas or ()) | set(ids_ya_en_lista or ())
+    out = []
+    for offset in range(1, int(adelante) + 1):
+        next_num = frontera + offset
+        if next_num > duracion:
+            break
+        cuota = (
+            contrato.cuotas.filter(
+                numero_cuota=next_num,
+                estado__in=['pendiente', 'vencida'],
+            )
+            .exclude(id__in=ids_excl)
+            .first()
+        )
+        if not cuota:
+            continue
+        out.append(cuota)
+        ids_excl.add(cuota.id)
+    return out
+
+
+def _cuota_siguiente_anticipada_liquidable(contrato, cuotas_excluidas, ids_ya_en_lista):
+    """Primera cuota anticipada liquidable (compatibilidad)."""
+    cuotas = _cuotas_anticipadas_liquidables(contrato, cuotas_excluidas, ids_ya_en_lista, adelante=1)
+    return cuotas[0] if cuotas else None
+
+
+def _monto_propietario_inmobiliaria_cuota_mensual(propiedad, monto_cuota, contrato=None):
+    """
+    Reparto para cuotas de contrato (mensual, invierno, 24 meses, etc.):
+    100% propietario por defecto (editable al liquidar).
+    Solo las reservas por día usan precio toma o 70/30.
     """
     total_cuotas = Decimal(str(monto_cuota))
-    precio_mensual = total_cuotas
-    monto_propietario = Decimal('0')
-    monto_inmobiliaria = Decimal('0')
-    try:
-        precio_ref = Precio.objects.filter(propiedad=propiedad).first()
-        if precio_ref and precio_ref.precio_toma:
-            precio_toma = Decimal(str(precio_ref.precio_toma))
-            precio_por_dia = Decimal(str(precio_ref.precio_por_dia or 100))
-            if precio_por_dia > 0:
-                precio_mensual_toma = (precio_toma / precio_por_dia) * precio_mensual
-                monto_propietario = precio_mensual_toma
-                monto_inmobiliaria = total_cuotas - monto_propietario
-            else:
-                monto_propietario = total_cuotas * Decimal('0.70')
-                monto_inmobiliaria = total_cuotas * Decimal('0.30')
-        else:
-            monto_propietario = total_cuotas * Decimal('0.70')
-            monto_inmobiliaria = total_cuotas * Decimal('0.30')
-    except Exception:
-        monto_propietario = total_cuotas * Decimal('0.70')
-        monto_inmobiliaria = total_cuotas * Decimal('0.30')
-    return (
-        monto_propietario.quantize(Decimal('0.01')),
-        monto_inmobiliaria.quantize(Decimal('0.01')),
-    )
+    mp = total_cuotas.quantize(Decimal('0.01'))
+    return mp, Decimal('0')
 
 
 def _nombre_cliente_reserva_liquidacion(reserva):
@@ -22717,8 +25773,10 @@ def _nombre_cliente_reserva_liquidacion(reserva):
     return ap or nom or '—'
 
 
-def _concepto_pago_liquidacion_operacion(tipo, contrato=None):
+def _concepto_pago_liquidacion_operacion(tipo, contrato=None, *, es_primera_cuota=False):
     """Etiqueta legible del concepto a pagar al propietario según tipo de operación."""
+    if es_primera_cuota:
+        return 'Operación principal'
     if tipo == 'reserva':
         return 'Alquiler por día'
     duracion = int(getattr(contrato, 'duracion_meses', 0) or 0) if contrato else 0
@@ -22731,25 +25789,13 @@ def _concepto_pago_liquidacion_operacion(tipo, contrato=None):
     return 'Alquiler'
 
 
-def _egreso_no_es_gasto_descontable_liquidacion(movimiento) -> bool:
-    """
-    True si un movimiento de caja NO debe ofrecerse como «gasto pendiente» en liquidación.
-    Excluye cobros/recibos de alquiler (ingresos o egresos mal cargados) y operaciones de contrato.
-    Solo deben listarse egresos reales descontables al propietario (comprobante GS, gastos de oficina, etc.).
-    """
-    from inmobiliaria.models.caja import TipoMovimientoCajaEnum
+def _movimiento_patron_cobro_alquiler_base(movimiento) -> bool:
+    """Patrones de recibo / contrato / reserva (sin códigos numéricos de concepto)."""
     from inmobiliaria.views_cuentas_bancarias import _concepto_detalle_es_contrato
     from inmobiliaria.cuotas_imputacion import (
-        CODIGOS_IMPUTACION_ALQUILER_CUOTA,
-        _normalizar_codigo_concepto_caja,
         movimiento_tiene_lineas_imputables_cuota,
-        payload_conceptos_desde_movimiento_detalle,
         payload_raiz_desde_movimiento_detalle,
     )
-
-    tipo_mov = (getattr(movimiento, 'tipo', None) or '').strip().upper()
-    if tipo_mov == TipoMovimientoCajaEnum.INGRESO:
-        return True
 
     concepto = (getattr(movimiento, 'concepto', None) or '').strip()
     lc = concepto.lower()
@@ -22790,9 +25836,18 @@ def _egreso_no_es_gasto_descontable_liquidacion(movimiento) -> bool:
     if movimiento_tiene_lineas_imputables_cuota(movimiento):
         return True
 
-    if tc == 'GS':
-        return False
+    return False
 
+
+def _movimiento_patron_cobro_conceptos_numerados(movimiento) -> bool:
+    """Conceptos de caja típicos de alquiler / cuota (códigos 10, 17, 1000, etc.)."""
+    from inmobiliaria.cuotas_imputacion import (
+        CODIGOS_IMPUTACION_ALQUILER_CUOTA,
+        _normalizar_codigo_concepto_caja,
+        payload_conceptos_desde_movimiento_detalle,
+    )
+
+    concepto = (getattr(movimiento, 'concepto', None) or '').strip()
     conceptos_cobro = set(CODIGOS_IMPUTACION_ALQUILER_CUOTA) | {'10', '17'}
     for fragmento in (
         concepto,
@@ -22821,16 +25876,129 @@ def _egreso_no_es_gasto_descontable_liquidacion(movimiento) -> bool:
     return False
 
 
+def _movimiento_es_cobro_alquiler_reserva_o_cuota(movimiento) -> bool:
+    """Cobro de alquiler/reserva/cuota por patrones de texto o conceptos numerados."""
+    if _movimiento_patron_cobro_alquiler_base(movimiento):
+        return True
+    return _movimiento_patron_cobro_conceptos_numerados(movimiento)
+
+
+def _egreso_no_es_gasto_descontable_liquidacion(movimiento) -> bool:
+    """
+    True si un movimiento de caja NO debe ofrecerse como «gasto pendiente» en liquidación.
+    Excluye cobros/recibos de alquiler (ingresos o egresos mal cargados) y operaciones de contrato.
+    Solo deben listarse egresos reales descontables al propietario (comprobante GS, gastos de oficina, etc.).
+    """
+    from inmobiliaria.models.caja import TipoMovimientoCajaEnum
+
+    tipo_mov = (getattr(movimiento, 'tipo', None) or '').strip().upper()
+    if tipo_mov == TipoMovimientoCajaEnum.INGRESO:
+        return True
+    if _movimiento_patron_cobro_alquiler_base(movimiento):
+        return True
+    tc = (getattr(movimiento, 'tipo_comprobante', None) or '').strip().upper()
+    if tc == 'RE':
+        tc = 'RC'
+    if tc == 'GS':
+        return False
+    if tc == 'LQ':
+        return True
+    texto = (getattr(movimiento, 'concepto', None) or '').lower()
+    if 'liquidación propietario' in texto or 'liquidacion propietario' in texto:
+        return True
+    try:
+        det = (movimiento.listado_detalle_l1 or '').lower()
+        if 'pago liquidacion' in det or 'pago liquidación' in det:
+            return True
+    except Exception:
+        pass
+    if _movimiento_patron_cobro_conceptos_numerados(movimiento):
+        return True
+    return False
+
+
+def _movimientos_caja_excluidos_liquidacion_propiedad(propiedad):
+    """IDs de movimientos de caja ya incluidos en liquidaciones no canceladas."""
+    excluidos = set()
+    for liq in LiquidacionPropietario.objects.filter(
+        propiedad=propiedad,
+    ).exclude(estado='cancelada').only('operaciones_incluidas'):
+        for op in liq.operaciones_incluidas or []:
+            if not isinstance(op, dict):
+                continue
+            if (op.get('tipo') or '').lower() != 'movimiento_caja':
+                continue
+            try:
+                excluidos.add(int(op['id']))
+            except (TypeError, ValueError):
+                pass
+    return excluidos
+
+
+def _monto_pago_a_favor_propietario_movimiento(movimiento) -> Decimal:
+    """Importe del movimiento que corresponde pagar al propietario en una liquidación."""
+    from inmobiliaria.neto_propietario_movimiento import monto_medios_movimiento_decimal
+
+    m_prop = Decimal(str(getattr(movimiento, 'monto_a_propietario', None) or 0))
+    if m_prop > 0:
+        return m_prop.quantize(Decimal('0.01'))
+    if (getattr(movimiento, 'a_descontar', None) or '').strip().lower() == 'propietario':
+        total = monto_medios_movimiento_decimal(movimiento)
+        if total > 0:
+            return total.quantize(Decimal('0.01'))
+    return Decimal('0')
+
+
+def _movimiento_pago_a_favor_propietario_liquidable(movimiento) -> bool:
+    """
+    Ingresos de caja con parte a propietario (servicios, etc.) que aún no se liquidaron.
+    Excluye cobros de alquiler/reserva/cuota ya cubiertos por filas de operación.
+    """
+    from inmobiliaria.models.caja import TipoMovimientoCajaEnum
+
+    if (getattr(movimiento, 'tipo', None) or '').strip().upper() != TipoMovimientoCajaEnum.INGRESO:
+        return False
+    if _movimiento_es_cobro_alquiler_reserva_o_cuota(movimiento):
+        return False
+    return _monto_pago_a_favor_propietario_movimiento(movimiento) > 0
+
+
+def _descripcion_movimiento_pago_liquidacion(movimiento) -> str:
+    try:
+        c1 = (movimiento.listado_concepto_l1 or '').strip()
+    except Exception:
+        c1 = ''
+    try:
+        d1 = (movimiento.listado_detalle_l1 or '').strip()
+    except Exception:
+        d1 = ''
+    partes = [f'Mov. caja #{movimiento.id}']
+    if d1 and d1 != '—':
+        partes.append(d1[:160])
+    elif c1 and c1 != '—':
+        partes.append(c1[:160])
+    else:
+        conc = (getattr(movimiento, 'concepto', None) or '').strip()
+        if conc:
+            partes.append(conc.split('|')[0][:160])
+    imput = movimiento.etiqueta_imputacion_corresponde()
+    if imput:
+        partes.append(imput)
+    return ' — '.join(partes)
+
+
 def _operaciones_gastos_pendientes_data(propiedad, sucursal):
     """
     Lista operaciones y gastos pendientes de liquidación para una propiedad (dict serializable a JSON).
     `sucursal` debe ser la sucursal del usuario (coincidente con la de la propiedad).
     """
+    from inmobiliaria.models.liquidacion import asegurar_gastos_saldo_negativo_propiedad
+
+    asegurar_gastos_saldo_negativo_propiedad(propiedad, sucursal=sucursal)
+
     # Reservas ya cubiertas por liquidación (FK o operaciones_incluidas).
-    # Contratos: solo se bloquea el alta de otra liquidación *pendiente* del mismo
-    # contrato; las cuotas ya liquidadas se excluyen por ID (ver _cuotas_excluidas_*).
+    # Contratos: las cuotas ya liquidadas se excluyen por ID (ver _cuotas_excluidas_*).
     reservas_excluidas = set()
-    contratos_bloqueados_pendiente = set()
     for liq in LiquidacionPropietario.objects.filter(
         propiedad=propiedad,
     ).exclude(
@@ -22838,8 +26006,6 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
     ).only('reserva_id', 'contrato_id', 'estado', 'operaciones_incluidas'):
         if liq.reserva_id:
             reservas_excluidas.add(liq.reserva_id)
-        if liq.estado == 'pendiente' and liq.contrato_id:
-            contratos_bloqueados_pendiente.add(liq.contrato_id)
         for op in liq.operaciones_incluidas or []:
             if not isinstance(op, dict):
                 continue
@@ -22866,26 +26032,21 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
         propiedad=propiedad,
         estado__in=['activo', 'reservado'],
         sucursal=sucursal,
-    ).exclude(
-        id__in=contratos_bloqueados_pendiente
     ).prefetch_related('cuotas').select_related('inquilino')
     
     operaciones = []
     
     # Función auxiliar para determinar tipo de precio según fecha
+    from inmobiliaria.precio_temporada_reserva import (
+        rango_vacaciones_invierno_sucursal,
+        tipo_precio_para_dia_reserva,
+    )
+
     def obtener_tipo_precio(fecha):
-        if fecha.month == 1:  # Enero
-            return 'QUINCENA_1_ENERO' if fecha.day <= 15 else 'QUINCENA_2_ENERO'
-        elif fecha.month == 2:  # Febrero
-            return 'QUINCENA_1_FEBRERO' if fecha.day <= 15 else 'QUINCENA_2_FEBRERO'
-        elif fecha.month == 3:  # Marzo
-            return 'QUINCENA_1_MARZO' if fecha.day <= 15 else 'QUINCENA_2_MARZO'
-        elif fecha.month == 7:  # Julio (Vacaciones de Invierno)
-            return 'VACACIONES_INVIERNO'
-        elif fecha.month == 12:  # Diciembre
-            return 'QUINCENA_1_DICIEMBRE' if fecha.day <= 15 else 'QUINCENA_2_DICIEMBRE'
-        else:
-            return 'TEMPORADA_BAJA'
+        return tipo_precio_para_dia_reserva(
+            fecha,
+            rango_vacaciones_invierno_sucursal(sucursal),
+        )
     
     # Procesar reservas
     for reserva in reservas_pendientes:
@@ -22986,7 +26147,13 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
             ):
                 monto_propietario_total = (total_reserva * pct_prop / Decimal('100')).quantize(Decimal('0.01'))
                 monto_inmobiliaria_total = (total_reserva - monto_propietario_total).quantize(Decimal('0.01'))
-            
+
+            total_reserva_eff, monto_propietario_total, monto_inmobiliaria_total, _, _ = (
+                reserva.montos_liquidacion_efectivos(
+                    total_reserva, monto_propietario_total, monto_inmobiliaria_total
+                )
+            )
+
             operaciones.append({
                 'tipo': 'reserva',
                 'tipo_display': 'Por día',
@@ -23005,73 +26172,32 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
     
     # Procesar contratos: cuotas pagadas o con cobro parcial aún no liquidados.
     for contrato in contratos_pendientes:
-        cuotas_pagadas_liq = list(
-            contrato.cuotas.filter(estado__in=['pagada', 'pagada_con_mora'])
-            .exclude(id__in=cuotas_excluidas)
-            .order_by('numero_cuota')
-        )
-        ids_pagadas = {c.id for c in cuotas_pagadas_liq}
-        cuotas_parciales_liq = [
-            (c, m)
-            for c, m in _cuotas_cobro_parcial_liquidable(contrato, cuotas_excluidas, sucursal)
-            if c.id not in ids_pagadas
-        ]
         inq = contrato.inquilino
         nombre_inq = f'{inq.apellido}, {inq.nombre}' if inq else '—'
-        if not cuotas_pagadas_liq and not cuotas_parciales_liq:
-            tiene_alguna_pagada = contrato.cuotas.filter(
-                estado__in=['pagada', 'pagada_con_mora']
-            ).exists()
-            if tiene_alguna_pagada:
-                operaciones.append({
-                    'tipo': 'contrato',
-                    'tipo_display': 'Contrato',
-                    'incluible': False,
-                    'id': contrato.id,
-                    'descripcion': (
-                        f'Contrato #{contrato.id} - {nombre_inq} '
-                        f'(cuotas pagadas ya figuran en liquidaciones anteriores)'
-                    ),
-                    'fecha_inicio': contrato.fecha_inicio.strftime('%Y-%m-%d') if contrato.fecha_inicio else '',
-                    'fecha_fin': contrato.fecha_fin.strftime('%Y-%m-%d') if contrato.fecha_fin else '',
-                    'monto_total': '0',
-                    'monto_pagado': '0',
-                    'monto_propietario': '0',
-                    'monto_inmobiliaria': '0',
-                    'dias': 0,
-                })
-            else:
-                operaciones.append({
-                    'tipo': 'contrato',
-                    'tipo_display': 'Contrato',
-                    'incluible': False,
-                    'id': contrato.id,
-                    'descripcion': (
-                        f'Contrato #{contrato.id} - {nombre_inq} '
-                        f'(sin cuotas pagadas aún; no se puede incluir en la liquidación hasta registrar pagos)'
-                    ),
-                    'fecha_inicio': contrato.fecha_inicio.strftime('%Y-%m-%d') if contrato.fecha_inicio else '',
-                    'fecha_fin': contrato.fecha_fin.strftime('%Y-%m-%d') if contrato.fecha_fin else '',
-                    'monto_total': '0',
-                    'monto_pagado': '0',
-                    'monto_propietario': '0',
-                    'monto_inmobiliaria': '0',
-                    'dias': 0,
-                })
-            continue
-
         prop_label = ((propiedad.direccion or '').strip()[:120] or f'#{propiedad.id}')
 
-        def _fila_cuota_liquidable(cuota, monto_mes, *, parcial=False):
-            mp, mi = _monto_propietario_inmobiliaria_cuota_mensual(propiedad, monto_mes)
+        def _fila_cuota_liquidable(cuota, monto_mes, *, parcial=False, anticipada=False):
+            mp, mi = _monto_propietario_inmobiliaria_cuota_mensual(propiedad, monto_mes, contrato=contrato)
             fv = cuota.fecha_vencimiento
             fv_s = fv.strftime('%Y-%m-%d') if fv else ''
-            suf = ' (cobro parcial registrado)' if parcial else ''
-            operaciones.append({
+            if parcial:
+                suf = ' (cobro parcial registrado)'
+            elif anticipada:
+                suf = ' (liquidación anticipada — cobro aún no registrado)'
+            else:
+                suf = ''
+            es_primera = False
+            comisiones = {}
+            tipo_fila = 'Cuota mensual'
+            fila = {
                 'tipo': 'contrato_cuota',
-                'tipo_display': 'Cuota mensual',
-                'concepto_pago': _concepto_pago_liquidacion_operacion('contrato_cuota', contrato),
+                'tipo_display': tipo_fila,
+                'concepto_pago': _concepto_pago_liquidacion_operacion(
+                    'contrato_cuota', contrato, es_primera_cuota=False
+                ),
                 'incluible': True,
+                'anticipada': anticipada,
+                'es_primera_cuota_mensual': False,
                 'id': cuota.id,
                 'contrato_id': contrato.id,
                 'propiedad_id': propiedad.id,
@@ -23082,150 +26208,151 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
                 'fecha_inicio': fv_s,
                 'fecha_fin': fv_s,
                 'monto_total': str(monto_mes),
-                'monto_pagado': str(monto_mes),
+                'monto_pagado': '0' if anticipada else str(monto_mes),
                 'monto_propietario': str(mp),
                 'monto_inmobiliaria': str(mi),
                 'dias': 30,
+                'moneda': (contrato.moneda or 'ARS'),
+            }
+            operaciones.append(fila)
+
+        fila_op = _fila_operacion_principal_liquidacion(contrato, propiedad)
+        if fila_op:
+            operaciones.append(fila_op)
+
+        filas_cuotas = _cuotas_liquidables_para_contrato(contrato, cuotas_excluidas, sucursal)
+        for cuota, monto_mes, parcial, anticipada in filas_cuotas:
+            _fila_cuota_liquidable(
+                cuota,
+                monto_mes,
+                parcial=parcial,
+                anticipada=anticipada,
+            )
+
+        if filas_cuotas or fila_op:
+            continue
+
+        if not contrato.cuotas.filter(estado__in=['pagada', 'pagada_con_mora']).exists():
+            operaciones.append({
+                'tipo': 'contrato',
+                'tipo_display': 'Contrato',
+                'incluible': False,
+                'id': contrato.id,
+                'descripcion': (
+                    f'Contrato #{contrato.id} - {nombre_inq} '
+                    f'(sin cuotas pagadas aún; no se puede incluir en la liquidación hasta registrar pagos)'
+                ),
+                'fecha_inicio': contrato.fecha_inicio.strftime('%Y-%m-%d') if contrato.fecha_inicio else '',
+                'fecha_fin': contrato.fecha_fin.strftime('%Y-%m-%d') if contrato.fecha_fin else '',
+                'monto_total': '0',
+                'monto_pagado': '0',
+                'monto_propietario': '0',
+                'monto_inmobiliaria': '0',
+                'dias': 0,
+            })
+        else:
+            operaciones.append({
+                'tipo': 'contrato',
+                'tipo_display': 'Contrato',
+                'incluible': False,
+                'id': contrato.id,
+                'descripcion': (
+                    f'Contrato #{contrato.id} - {nombre_inq} '
+                    f'(cuotas pagadas ya figuran en liquidaciones anteriores)'
+                ),
+                'fecha_inicio': contrato.fecha_inicio.strftime('%Y-%m-%d') if contrato.fecha_inicio else '',
+                'fecha_fin': contrato.fecha_fin.strftime('%Y-%m-%d') if contrato.fecha_fin else '',
+                'monto_total': '0',
+                'monto_pagado': '0',
+                'monto_propietario': '0',
+                'monto_inmobiliaria': '0',
+                'dias': 0,
             })
 
-        for cuota in cuotas_pagadas_liq:
-            _fila_cuota_liquidable(cuota, Decimal(str(cuota.monto_total)), parcial=False)
-        for cuota, monto_parcial in cuotas_parciales_liq:
-            _fila_cuota_liquidable(cuota, monto_parcial, parcial=True)
-    
-    # Obtener gastos pendientes del propietario (sin liquidación asociada)
-    propi = getattr(propiedad, 'propietario', None)
-    gastos_base = GastoPropietario.objects.filter(
-        liquidacion__isnull=True,
-        sucursal=sucursal,
-    )
-    if propi:
-        gastos_pendientes = gastos_base.filter(propietario=propi).order_by('-fecha_creacion')
-        if not gastos_pendientes.exists():
-            gastos_pendientes = gastos_base.filter(propiedad=propiedad).order_by('-fecha_creacion')
-    else:
-        gastos_pendientes = gastos_base.filter(propiedad=propiedad).order_by('-fecha_creacion')
-    
-    # Obtener egresos de caja con a_descontar='oficina' relacionados con esta propiedad
-    # que no estén asociados a ninguna liquidación procesada
-    liquidaciones_procesadas = LiquidacionPropietario.objects.filter(
+    # Ingresos de caja con importe a propietario (servicios, etc.) pendientes de liquidar.
+    movimientos_caja_excluidos = _movimientos_caja_excluidos_liquidacion_propiedad(propiedad)
+    ingresos_pago_prop = MovimientoCaja.objects.filter(
         propiedad=propiedad,
-        estado__in=['cerrada', 'pagada', 'oficina', 'procesada']
-    ).values_list('id', flat=True)
-    
-    # Obtener descripciones de gastos que ya están en liquidaciones procesadas
-    # para evitar duplicar egresos que ya fueron convertidos en gastos
-    gastos_procesados = GastoPropietario.objects.filter(
-        liquidacion_id__in=liquidaciones_procesadas,
-        propiedad=propiedad
-    ).values_list('observaciones', flat=True)
-    
-    # Buscar movimientos de caja (egresos) relacionados con la propiedad.
-    # Incluir:
-    # - propietario (descuento directo),
-    # - oficina (muchos registros históricos se cargaron así),
-    # - vacíos/NULL (legacy).
-    egresos_propiedad = MovimientoCaja.objects.filter(
-        propiedad=propiedad,
-        tipo=TipoMovimientoCajaEnum.EGRESO,
         sucursal=sucursal,
-    ).filter(
-        Q(a_descontar='propietario') |
-        Q(a_descontar='oficina') |
-        Q(a_descontar__isnull=True) |
-        Q(a_descontar='')
+        tipo=TipoMovimientoCajaEnum.INGRESO,
     ).exclude(
-        # Evitar reciclar pagos al propietario como "gasto pendiente"
-        concepto__icontains='Liquidación Propietario'
+        id__in=movimientos_caja_excluidos,
     ).order_by('-fecha')
-    
-    gastos_pendientes_list = []
-    
-    # Agregar gastos de GastoPropietario
-    for gasto in gastos_pendientes:
-        obs = (gasto.observaciones or '').strip()
-        gastos_pendientes_list.append({
-            'id': gasto.id,
-            'descripcion': gasto.descripcion,
-            'concepto': gasto.descripcion or '—',
-            'detalle': obs,
-            'monto': str(gasto.monto),
-            'fecha_gasto': gasto.fecha_gasto.strftime('%Y-%m-%d') if gasto.fecha_gasto else '',
-            'fecha_gasto_display': gasto.fecha_gasto.strftime('%d/%m/%Y') if gasto.fecha_gasto else '—',
-            'observaciones': gasto.observaciones,
-            'tipo': 'gasto_manual'
+    for mov in ingresos_pago_prop:
+        if not _movimiento_pago_a_favor_propietario_liquidable(mov):
+            continue
+        m_prop = _monto_pago_a_favor_propietario_movimiento(mov)
+        if m_prop <= 0:
+            continue
+        fecha_mov = mov.fecha
+        if fecha_mov:
+            try:
+                if timezone.is_aware(fecha_mov):
+                    fecha_mov = timezone.localtime(fecha_mov)
+                fecha_iso = fecha_mov.date().strftime('%Y-%m-%d')
+            except Exception:
+                fecha_iso = ''
+        else:
+            fecha_iso = ''
+        try:
+            concepto_l1 = (mov.listado_concepto_l1 or '').strip()
+        except Exception:
+            concepto_l1 = ''
+        operaciones.append({
+            'tipo': 'movimiento_caja',
+            'tipo_display': 'Pago a favor',
+            'concepto_pago': concepto_l1 or 'Pago a favor del propietario',
+            'incluible': True,
+            'id': mov.id,
+            'descripcion': _descripcion_movimiento_pago_liquidacion(mov),
+            'fecha_inicio': fecha_iso,
+            'fecha_fin': fecha_iso,
+            'monto_total': str(m_prop),
+            'monto_pagado': str(m_prop),
+            'monto_propietario': str(m_prop),
+            'monto_inmobiliaria': '0',
+            'dias': 0,
         })
     
-    # Agregar egresos de caja como gastos pendientes
-    # Incluir todos los egresos relacionados con la propiedad
-    # IDs de movimientos ya usados en liquidaciones (compatibilidad amplia)
-    movimientos_ya_liquidados = set(
-        LiquidacionPropietario.objects.filter(
+    # Gastos pendientes: liquidaciones en negativo + movimientos manuales cargados (Agregar Movimiento).
+    gastos_saldo_negativo = GastoPropietario.objects.filter(
+        liquidacion__isnull=True,
+        sucursal=sucursal,
+        tipo_movimiento='egreso',
+        observaciones__contains='liquidacion_pendiente_origen:',
+    ).filter(
+        Q(propiedad=propiedad)
+        | Q(propiedad__isnull=True, propietario=propiedad.propietario_id)
+    ).order_by('-fecha_creacion')
+
+    gastos_manuales = (
+        GastoPropietario.objects.filter(
+            liquidacion__isnull=True,
+            sucursal=sucursal,
             propiedad=propiedad,
-            movimiento_caja__isnull=False
-        ).values_list('movimiento_caja_id', flat=True)
+        )
+        .exclude(observaciones__contains='liquidacion_pendiente_origen:')
+        .exclude(observaciones__icontains='Movimiento de caja #')
+        .order_by('-fecha_creacion')
     )
 
-    for egreso in egresos_propiedad:
-        if egreso.id in movimientos_ya_liquidados:
+    gastos_pendientes_list = []
+    vistos = set()
+    for gasto in gastos_saldo_negativo:
+        gastos_pendientes_list.append(_dict_gasto_saldo_negativo_liquidacion(gasto))
+        vistos.add(gasto.id)
+    for gasto in gastos_manuales:
+        if gasto.id in vistos:
             continue
-        if _egreso_no_es_gasto_descontable_liquidacion(egreso):
-            continue
-        # Verificar si ya existe un GastoPropietario para este movimiento
-        # Buscamos por observaciones que contengan el ID del movimiento
-        q_gasto_mov = Q(propiedad=propiedad)
-        if getattr(propiedad, 'propietario_id', None):
-            q_gasto_mov |= Q(propietario=propiedad.propietario)
-        existe_gasto = GastoPropietario.objects.filter(
-            q_gasto_mov,
-            observaciones__icontains=f'Movimiento de caja #{egreso.id}',
-        ).exists()
-        
-        # Solo agregar si no existe un gasto para este movimiento
-        # Incluir todos los egresos, independientemente del valor de a_descontar
-        if not existe_gasto:
-            descripcion = egreso.descripcion_para_gasto_liquidacion_propietario()[:200]
-            try:
-                c1 = (getattr(egreso, 'listado_concepto_l1', None) or '').strip()
-            except Exception:
-                c1 = ''
-            try:
-                c2 = (getattr(egreso, 'listado_concepto_l2', None) or '').strip()
-            except Exception:
-                c2 = ''
-            concepto_mov = ' · '.join(x for x in (c1, c2) if x) or '—'
-            try:
-                d1 = (getattr(egreso, 'listado_detalle_l1', None) or '').strip()
-            except Exception:
-                d1 = ''
-            try:
-                d2 = (getattr(egreso, 'listado_detalle_l2', None) or '').strip()
-            except Exception:
-                d2 = ''
-            detalle_mov = ' · '.join(x for x in (d1, d2) if x and x != '—') or ''
+        obs = (gasto.observaciones or '').strip()
+        gastos_pendientes_list.append(_dict_gasto_pendiente(gasto, detalle=obs))
 
-            gastos_pendientes_list.append({
-                'id': f'movimiento_{egreso.id}',  # Prefijo para identificar que es un movimiento
-                'descripcion': descripcion,
-                'concepto': concepto_mov,
-                'detalle': detalle_mov,
-                'monto': str(egreso.monto_total),
-                'fecha_gasto': egreso.fecha.strftime('%Y-%m-%d') if egreso.fecha else '',
-                'fecha_gasto_display': egreso.fecha.strftime('%d/%m/%Y') if egreso.fecha else '—',
-                'observaciones': f'Movimiento de caja #{egreso.id}',
-                'tipo': 'egreso_caja',
-                'movimiento_id': egreso.id
-            })
-    
-    # Debug: contar egresos encontrados
-    total_egresos = egresos_propiedad.count()
-    
     return {
         'operaciones': operaciones,
         'gastos_pendientes': gastos_pendientes_list,
         'debug': {
-            'total_egresos_encontrados': total_egresos,
-            'total_gastos_agregados': len(gastos_pendientes_list),
+            'total_gastos_saldo_negativo': gastos_saldo_negativo.count(),
+            'total_gastos_manuales': gastos_manuales.count(),
         },
     }
 
@@ -23258,7 +26385,9 @@ def _filtrar_operaciones_liquidacion_por_busqueda(operaciones, *, tipo_busqueda,
             if tipo == 'reserva' and op_id == oid:
                 filtradas.append(op)
         elif tipo_busqueda == 'contrato':
-            if tipo == 'contrato_cuota':
+            if tipo == 'contrato_operacion_principal' and op_id == oid:
+                filtradas.append(op)
+            elif tipo == 'contrato_cuota':
                 try:
                     if int(op.get('contrato_id')) == oid:
                         filtradas.append(op)
@@ -23393,11 +26522,13 @@ def obtener_operaciones_pendientes_propietario(request, propietario_id):
         seen_gasto_key = set()
         total_egresos = 0
         errores_propiedades = []
-        props = list(
+        from inmobiliaria.busqueda_propiedad import ordenar_propiedades
+
+        props = ordenar_propiedades(
             Propiedad.objects.filter(
                 propietario=propietario,
                 sucursal=request.user.sucursal,
-            ).order_by('direccion')
+            ).select_related('propietario')
         )
         for propiedad in props:
             try:
@@ -23466,33 +26597,36 @@ def _periodo_mes_anio_liquidacion(fecha):
         return ''
 
 
-def _contrato_de_liquidacion(liquidacion):
-    if getattr(liquidacion, 'contrato_id', None) and liquidacion.contrato_id:
-        return liquidacion.contrato
-    cuota_ids = []
-    for op in liquidacion.operaciones_incluidas or []:
-        if not isinstance(op, dict) or op.get('tipo') == 'division':
-            continue
-        if op.get('tipo') == 'contrato_cuota':
-            try:
-                cuota_ids.append(int(op['id']))
-            except (KeyError, TypeError, ValueError):
-                pass
-        elif op.get('tipo') == 'contrato':
-            for cid in op.get('cuotas_ids') or []:
-                try:
-                    cuota_ids.append(int(cid))
-                except (TypeError, ValueError):
-                    pass
-    if not cuota_ids:
-        return None
-    cq = (
-        CuotaMensual.objects.filter(id__in=cuota_ids)
-        .select_related('contrato')
-        .order_by('fecha_vencimiento')
-        .first()
+def _periodo_detalle_alquiler_liquidacion(liquidacion):
+    """
+    Por día (reserva): «DEL 5 AL 11 DE JUNIO DE 2026».
+    Contrato mensual: «JUNIO DE 2026».
+    """
+    fecha_desde, fecha_hasta = _fechas_alquiler_liquidacion(liquidacion)
+    es_por_dia = bool(getattr(liquidacion, 'reserva_id', None))
+    if fecha_desde and fecha_hasta and es_por_dia:
+        try:
+            if (
+                fecha_desde.month == fecha_hasta.month
+                and fecha_desde.year == fecha_hasta.year
+            ):
+                mes = _MESES_LIQUIDACION_ES[fecha_desde.month - 1]
+                return f'DEL {fecha_desde.day} AL {fecha_hasta.day} DE {mes} DE {fecha_desde.year}'
+            return (
+                f'DEL {fecha_desde.strftime("%d/%m/%Y")} '
+                f'AL {fecha_hasta.strftime("%d/%m/%Y")}'
+            )
+        except (IndexError, AttributeError):
+            pass
+    return _periodo_mes_anio_liquidacion(liquidacion.fecha_desde) or _periodo_mes_anio_liquidacion(
+        liquidacion.fecha_hasta
     )
-    return cq.contrato if cq else None
+
+
+def _contrato_de_liquidacion(liquidacion):
+    from inmobiliaria.liquidacion_operacion import contrato_desde_liquidacion
+
+    return contrato_desde_liquidacion(liquidacion)
 
 
 def _cuotas_resueltas_liquidacion(liquidacion):
@@ -23505,6 +26639,11 @@ def _cuotas_resueltas_liquidacion(liquidacion):
                 cuota_ids.append(int(op['id']))
             except (KeyError, TypeError, ValueError):
                 pass
+            for cid in op.get('cuotas_ids') or op.get('cuota_ids') or []:
+                try:
+                    cuota_ids.append(int(cid))
+                except (TypeError, ValueError):
+                    pass
         elif op.get('tipo') == 'contrato':
             for cid in op.get('cuotas_ids') or []:
                 try:
@@ -23523,34 +26662,88 @@ def _cuotas_resueltas_liquidacion(liquidacion):
     )
 
 
+def _fechas_alquiler_liquidacion(liquidacion):
+    """Fechas de entrada/salida para la fila de alquiler (liquidación o reserva vinculada)."""
+    fecha_desde = liquidacion.fecha_desde
+    fecha_hasta = liquidacion.fecha_hasta
+    reserva = getattr(liquidacion, 'reserva', None)
+    if reserva:
+        if not fecha_desde and reserva.fecha_inicio:
+            fecha_desde = reserva.fecha_inicio
+        if not fecha_hasta and reserva.fecha_fin:
+            fecha_hasta = reserva.fecha_fin
+    return fecha_desde, fecha_hasta
+
+
+def _dias_alquiler_liquidacion(liquidacion):
+    fecha_desde, fecha_hasta = _fechas_alquiler_liquidacion(liquidacion)
+    if fecha_desde and fecha_hasta:
+        dias = (fecha_hasta - fecha_desde).days
+        return dias if dias > 0 else 1
+    return None
+
+
+def _precio_dia_alquiler_liquidacion(liquidacion, monto_propietario=None):
+    """Precio por día del alquiler a pagar al propietario."""
+    monto = Decimal(str(
+        monto_propietario if monto_propietario is not None else (liquidacion.monto_propietario or 0)
+    ))
+    if monto <= Decimal('0.01'):
+        return None
+    dias = _dias_alquiler_liquidacion(liquidacion)
+    if not dias:
+        return None
+    return (monto / Decimal(str(dias))).quantize(Decimal('0.01'))
+
+
 def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
     """
     Detalle de liquidación de cobranzas para el propietario.
-    Haber = lo que le corresponde al propietario; Debe = gastos y fondo descontados.
-    La comisión de la inmobiliaria no se muestra en esta tabla.
+    Haber = a favor (alquiler, ingresos); Debe = en contra (gastos, fondo).
+    Comisión locador/locatario se listan como referencia pero no entran en totales ni saldo.
     """
     filas = []
     monto_prop = Decimal(str(liquidacion.monto_propietario or 0))
-    cochera = Decimal(str(liquidacion.monto_cochera or 0))
-    periodo = _periodo_mes_anio_liquidacion(liquidacion.fecha_desde) or _periodo_mes_anio_liquidacion(
-        liquidacion.fecha_hasta
-    )
+    periodo = _periodo_detalle_alquiler_liquidacion(liquidacion)
+    fecha_entrada, fecha_salida = _fechas_alquiler_liquidacion(liquidacion)
+    precio_dia = _precio_dia_alquiler_liquidacion(liquidacion, monto_prop)
+    dias_alquiler = _dias_alquiler_liquidacion(liquidacion)
 
     if monto_prop > Decimal('0.01'):
         filas.append({
             'detalle': f'ALQUILER A PAGAR // {periodo}' if periodo else 'ALQUILER A PAGAR',
-            'haber': monto_prop.quantize(Decimal('0.01')),
             'debe': Decimal('0'),
+            'haber': monto_prop.quantize(Decimal('0.01')),
+            'es_alquiler': True,
+            'fecha_entrada': fecha_entrada,
+            'fecha_salida': fecha_salida,
+            'precio_dia': precio_dia,
+            'dias': dias_alquiler,
         })
-    if cochera > Decimal('0.01'):
-        filas.append({'detalle': 'COCHERA', 'haber': cochera.quantize(Decimal('0.01')), 'debe': Decimal('0')})
 
     fondo = Decimal(str(liquidacion.monto_fondo_mantenimiento or 0))
     if fondo > Decimal('0.01'):
         filas.append({
             'detalle': 'FONDO DE MANTENIMIENTO',
-            'haber': Decimal('0'),
             'debe': fondo.quantize(Decimal('0.01')),
+            'haber': Decimal('0'),
+        })
+
+    com_loc = Decimal(str(getattr(liquidacion, 'comision_locador', None) or 0))
+    if com_loc > Decimal('0.01'):
+        filas.append({
+            'detalle': 'COMISIÓN LOCADOR',
+            'debe': com_loc.quantize(Decimal('0.01')),
+            'haber': Decimal('0'),
+            'excluir_totales': True,
+        })
+    com_locat = Decimal(str(getattr(liquidacion, 'comision_locatario', None) or 0))
+    if com_locat > Decimal('0.01'):
+        filas.append({
+            'detalle': 'COMISIÓN LOCATARIO',
+            'debe': com_locat.quantize(Decimal('0.01')),
+            'haber': Decimal('0'),
+            'excluir_totales': True,
         })
 
     gastos_qs = liquidacion.gastos.filter(aceptado=True).order_by('fecha_gasto', 'id')
@@ -23559,39 +26752,51 @@ def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
             [g for g in liquidacion.gastos.all() if g.aceptado],
             key=lambda g: (g.fecha_gasto or timezone.now().date(), g.id),
         )
+    total_ingresos = Decimal('0')
+    total_egresos = Decimal('0')
     for gasto in gastos_qs:
         m = Decimal(str(gasto.monto or 0))
-        if m > Decimal('0.01'):
+        if m <= Decimal('0.01'):
+            continue
+        det = (gasto.descripcion or 'MOVIMIENTO').strip().upper()
+        obs = (gasto.observaciones or '').strip()
+        if obs and not obs.lower().startswith('movimiento de caja #'):
+            det = f'{det} // {obs.upper()}'
+        if gasto.tipo_movimiento == 'ingreso':
+            total_ingresos += m
             filas.append({
-                'detalle': (gasto.descripcion or 'GASTO').strip().upper(),
-                'haber': Decimal('0'),
+                'detalle': det,
+                'debe': Decimal('0'),
+                'haber': m.quantize(Decimal('0.01')),
+            })
+        else:
+            total_egresos += m
+            filas.append({
+                'detalle': det,
                 'debe': m.quantize(Decimal('0.01')),
+                'haber': Decimal('0'),
             })
 
-    total_haber = monto_prop + cochera
-    total_debe = fondo + sum(
-        (Decimal(str(g.monto or 0)) for g in gastos_qs),
-        Decimal('0'),
-    )
-    saldo_favor = Decimal(str(liquidacion.monto_a_pagar or 0))
-    if saldo_favor <= Decimal('0'):
-        saldo_favor = (total_haber - total_debe).quantize(Decimal('0.01'))
-        if saldo_favor < 0:
-            saldo_favor = Decimal('0')
+    total_haber = monto_prop + total_ingresos
+    total_debe = fondo + total_egresos
+    saldo_favor = (total_haber - total_debe).quantize(Decimal('0.01'))
     return {
         'filas': filas,
-        'total_haber': total_haber.quantize(Decimal('0.01')),
         'total_debe': total_debe.quantize(Decimal('0.01')),
-        'saldo_favor': saldo_favor if saldo_favor > 0 else Decimal('0'),
+        'total_haber': total_haber.quantize(Decimal('0.01')),
+        'saldo_favor': saldo_favor,
     }
 
 
 def _monto_liquidacion_en_letras(monto):
     monto = Decimal(str(monto or 0)).quantize(Decimal('0.01'))
-    entero = int(monto)
-    centavos = int((monto - Decimal(entero)) * 100)
+    neg = monto < 0
+    monto_abs = abs(monto)
+    entero = int(monto_abs)
+    centavos = int((monto_abs - Decimal(entero)) * 100)
     texto = _numero_a_letras_es(entero).upper()
-    return f'{texto} con {centavos:02d}/100'
+    prefijo = 'MENOS ' if neg else ''
+    return f'{prefijo}{texto} con {centavos:02d}/100'
 
 
 def _context_liquidacion_cobranzas(liquidacion, request=None):
@@ -23600,32 +26805,48 @@ def _context_liquidacion_cobranzas(liquidacion, request=None):
     propiedad = liquidacion.propiedad
     dh = _filas_debe_haber_liquidacion_cobranzas(liquidacion)
 
+    from inmobiliaria.liquidacion_operacion import (
+        info_operacion_liquidacion,
+        moneda_liquidacion,
+        titulo_tipo_liquidacion_cobranzas,
+    )
+
+    info_op = info_operacion_liquidacion(liquidacion)
+
     if contrato:
-        if contrato.duracion_meses == 24:
-            tipo_label = '24 MESES'
-        elif contrato.duracion_meses == 9:
-            tipo_label = 'INVIERNO (9 MESES)'
-        else:
-            tipo_label = f'{contrato.duracion_meses} MESES'
-        locacion_mensual = contrato.precio_mensual
         fecha_desde_ct = contrato.fecha_inicio
         fecha_hasta_ct = contrato.fecha_fin
     else:
-        tipo_label = 'COBRANZAS'
-        locacion_mensual = None
         fecha_desde_ct = liquidacion.fecha_desde
         fecha_hasta_ct = liquidacion.fecha_hasta
 
-    fpago_parts = []
+    tipo_label = titulo_tipo_liquidacion_cobranzas(info_op)
+
+    locacion_mensual = liquidacion.monto_propietario
+
+    datos_pago = {}
     if propietario:
-        if (propietario.cuenta_banco or '').strip():
-            fpago_parts.append(propietario.cuenta_banco.strip().upper())
-        if (propietario.cuenta_cbu_alias or '').strip():
-            fpago_parts.append(f'NRO.{propietario.cuenta_cbu_alias.strip()}')
-        elif (propietario.cuenta_numero or '').strip():
-            fpago_parts.append(f'NRO.{propietario.cuenta_numero.strip()}')
-        elif (propietario.cuenta_bancaria or '').strip():
-            fpago_parts.append(propietario.cuenta_bancaria.strip().upper())
+        titular = (propietario.cuenta_titular or '').strip()
+        banco = (propietario.cuenta_banco or '').strip()
+        cuenta_cbu = (
+            (propietario.cuenta_cbu_alias or '').strip()
+            or (propietario.cuenta_numero or '').strip()
+        )
+        if not cuenta_cbu and (propietario.cuenta_bancaria or '').strip():
+            cuenta_cbu = propietario.cuenta_bancaria.strip()
+        datos_pago = {
+            'titular': titular.upper() if titular else '',
+            'banco': banco.upper() if banco else '',
+            'cuenta_cbu': cuenta_cbu.upper() if cuenta_cbu else '',
+        }
+
+    fpago_parts = []
+    if datos_pago.get('titular'):
+        fpago_parts.append(f"TIT. {datos_pago['titular']}")
+    if datos_pago.get('banco'):
+        fpago_parts.append(f"BCO. {datos_pago['banco']}")
+    if datos_pago.get('cuenta_cbu'):
+        fpago_parts.append(f"NRO.{datos_pago['cuenta_cbu']}")
 
     sucursal = liquidacion.sucursal
     volver_url = None
@@ -23634,6 +26855,8 @@ def _context_liquidacion_cobranzas(liquidacion, request=None):
 
     return {
         'liquidacion': liquidacion,
+        'moneda_liquidacion': moneda_liquidacion(liquidacion),
+        'info_operacion_liquidacion': info_op,
         'contrato': contrato,
         'propietario': propietario,
         'propiedad': propiedad,
@@ -23645,6 +26868,7 @@ def _context_liquidacion_cobranzas(liquidacion, request=None):
         'saldo_favor': dh['saldo_favor'],
         'monto_letras': _monto_liquidacion_en_letras(dh['saldo_favor']),
         'forma_pago': ' · '.join(fpago_parts),
+        'datos_pago': datos_pago,
         'locacion_mensual': locacion_mensual,
         'fecha_desde_ct': fecha_desde_ct,
         'fecha_hasta_ct': fecha_hasta_ct,
@@ -23688,6 +26912,14 @@ def _operaciones_incluidas_tabla(liquidacion):
                 etiqueta = f'Contrato #{cq.contrato_id} — cuota {cq.numero_cuota}'
                 url_name = 'inmobiliaria:detalle_contrato'
                 url_args = [cq.contrato_id]
+        elif tipo == 'movimiento_caja' and oid:
+            mov = MovimientoCaja.objects.filter(
+                id=oid, propiedad_id=liquidacion.propiedad_id
+            ).first()
+            if mov:
+                etiqueta = _descripcion_movimiento_pago_liquidacion(mov)
+            else:
+                etiqueta = f'Mov. caja #{oid}'
         if not etiqueta:
             etiqueta = f'{tipo or "operación"} #{oid}' if oid else str(op)
         if tipo == 'reserva':
@@ -23696,6 +26928,8 @@ def _operaciones_incluidas_tabla(liquidacion):
             tipo_display = 'Contrato'
         elif tipo == 'contrato_cuota':
             tipo_display = 'Cuota mensual'
+        elif tipo == 'movimiento_caja':
+            tipo_display = 'Pago a favor'
         else:
             tipo_display = (tipo or '—').title()
         filas.append({
@@ -23832,6 +27066,8 @@ def detalle_liquidacion(request, liquidacion_id):
         id=liquidacion_id,
         sucursal=request.user.sucursal
     )
+    liquidacion.calcular_monto_a_pagar()
+    liquidacion.sync_gasto_saldo_negativo_pendiente()
 
     division_operaciones = []
     for op in (liquidacion.operaciones_incluidas or []):
@@ -23847,13 +27083,19 @@ def detalle_liquidacion(request, liquidacion_id):
         except Exception:
             gastos_pendientes_disponibles = []
 
+    from inmobiliaria.liquidacion_operacion import info_operacion_liquidacion
+
+    info_op = info_operacion_liquidacion(liquidacion)
+
     context = {
         'liquidacion': liquidacion,
+        'info_operacion_liquidacion': info_op,
         'gastos': liquidacion.gastos.all().order_by('-fecha_creacion'),
         'division_operaciones': division_operaciones,
         'operaciones_tabla': _operaciones_incluidas_tabla(liquidacion),
         'puede_eliminar_liquidacion': usuario_es_nivel_administracion(request.user),
         'gastos_pendientes_disponibles': gastos_pendientes_disponibles,
+        'liq_editable': liquidacion.estado == 'pendiente',
         **_context_liquidacion_cobranzas(liquidacion, request),
     }
 
@@ -23870,6 +27112,7 @@ def imprimir_liquidacion_cobranzas(request, liquidacion_id):
         id=liquidacion_id,
         sucursal=request.user.sucursal,
     )
+    liquidacion.calcular_monto_a_pagar()
     if liquidacion.estado == 'cancelada':
         messages.error(request, 'No se puede imprimir una liquidación cancelada.')
         return redirect('inmobiliaria:lista_liquidaciones')
@@ -23900,6 +27143,8 @@ def eliminar_liquidacion(request, liquidacion_id):
         sucursal=request.user.sucursal,
     )
 
+    from inmobiliaria.models.liquidacion import eliminar_gastos_pendientes_liquidacion_origen
+
     mov = liquidacion.movimiento_caja
     liquidacion.movimiento_caja = None
     liquidacion.save(update_fields=['movimiento_caja'])
@@ -23907,9 +27152,74 @@ def eliminar_liquidacion(request, liquidacion_id):
         _eliminar_movimiento_y_anexos(mov, eliminado_por=request.user)
 
     lid = liquidacion.id
+    eliminar_gastos_pendientes_liquidacion_origen(lid, sucursal=request.user.sucursal)
     liquidacion.delete()
     messages.success(request, f'Liquidación #{lid} eliminada. Las operaciones vuelven a aparecer como pendientes de liquidar si correspondía.')
     return redirect('inmobiliaria:lista_liquidaciones')
+
+
+def _parse_campos_movimiento_gasto(post):
+    tipo = (post.get('tipo_movimiento') or 'egreso').strip().lower()
+    if tipo not in ('egreso', 'ingreso'):
+        tipo = 'egreso'
+    if tipo == 'ingreso':
+        return tipo, 'favor', 'suma'
+    return tipo, 'contra', 'resta'
+
+
+def _concepto_gasto_desde_post(post, sucursal):
+    cid = (post.get('concepto_id') or '').strip()
+    if not cid:
+        return None, None, 'Debe seleccionar un concepto del catálogo de caja.'
+    concepto = Concepto.objects.filter(
+        id=cid,
+    ).filter(q_conceptos_caja_visibles(sucursal)).first()
+    if not concepto:
+        return None, None, 'El concepto seleccionado no es válido.'
+    descripcion = f'{concepto.id} - {concepto.nombre}'
+    return concepto, descripcion, None
+
+
+def _dict_gasto_saldo_negativo_liquidacion(gasto):
+    """Gasto generado por sync_gasto_saldo_negativo_liquidacion (deuda del propietario)."""
+    obs = (gasto.observaciones or '').strip()
+    liq_id = None
+    m = re.search(r'liquidacion_pendiente_origen:(\d+)', obs)
+    if m:
+        liq_id = m.group(1)
+    concepto = 'Liquidación en negativo'
+    if liq_id:
+        concepto = f'Liquidación #{liq_id} — saldo en contra'
+    detalle = obs.split('\n', 1)[-1].strip() if obs else ''
+    data = _dict_gasto_pendiente(
+        gasto,
+        concepto=concepto,
+        detalle=detalle or gasto.descripcion,
+        tipo='saldo_negativo_liquidacion',
+        liquidacion_origen_id=liq_id,
+    )
+    return data
+
+
+def _dict_gasto_pendiente(gasto, **extra):
+    data = {
+        'id': gasto.id,
+        'descripcion': gasto.descripcion,
+        'concepto': gasto.descripcion or '—',
+        'detalle': (gasto.observaciones or '').strip(),
+        'monto': str(gasto.monto),
+        'fecha_gasto': gasto.fecha_gasto.strftime('%Y-%m-%d') if gasto.fecha_gasto else '',
+        'fecha_gasto_display': gasto.fecha_gasto.strftime('%d/%m/%Y') if gasto.fecha_gasto else '—',
+        'observaciones': gasto.observaciones,
+        'tipo_movimiento': gasto.tipo_movimiento,
+        'tipo_movimiento_display': gasto.get_tipo_movimiento_display(),
+        'concepto_caja_id': gasto.concepto_caja_id or '',
+        'tipo': 'gasto_manual',
+        'moneda': getattr(gasto, 'moneda', 'ARS') or 'ARS',
+        'propiedad_id': gasto.propiedad_id,
+    }
+    data.update(extra)
+    return data
 
 
 @login_required
@@ -23925,23 +27235,29 @@ def agregar_gasto(request, liquidacion_id):
     )
 
     try:
-        descripcion = request.POST.get('descripcion', '').strip()
+        concepto, descripcion, err_con = _concepto_gasto_desde_post(request.POST, request.user.sucursal)
+        if err_con:
+            return JsonResponse({'success': False, 'error': err_con})
+
         fecha_gasto = request.POST.get('fecha_gasto', '')
         observaciones = request.POST.get('observaciones', '').strip()
-
-        if not descripcion:
-            return JsonResponse({'success': False, 'error': 'La descripción es obligatoria.'})
 
         monto = parse_decimal_monto(request.POST.get('monto', '0'))
         if monto <= 0:
             return JsonResponse({'success': False, 'error': 'El monto debe ser mayor a cero.'})
+
+        tipo_mov, efecto_inq, operacion = _parse_campos_movimiento_gasto(request.POST)
 
         gasto = GastoPropietario.objects.create(
             liquidacion=liquidacion,
             propietario=liquidacion.propietario,
             propiedad=liquidacion.propiedad,
             descripcion=descripcion,
+            concepto_caja_id=concepto.id,
             monto=monto,
+            tipo_movimiento=tipo_mov,
+            efecto_inquilino=efecto_inq,
+            operacion_monto=operacion,
             fecha_gasto=datetime.strptime(fecha_gasto, '%Y-%m-%d').date() if fecha_gasto else None,
             observaciones=observaciones,
             aceptado=True,
@@ -23953,7 +27269,7 @@ def agregar_gasto(request, liquidacion_id):
 
         return JsonResponse({
             'success': True,
-            'message': 'Gasto agregado correctamente.',
+            'message': 'Movimiento agregado correctamente.',
             'gasto_id': gasto.id,
             'monto_a_pagar': str(liquidacion.monto_a_pagar)
         })
@@ -23962,6 +27278,101 @@ def agregar_gasto(request, liquidacion_id):
         return JsonResponse({'success': False, 'error': f'Error en el formato de datos: {str(e)}'})
     except Exception as e:
         return JsonResponse({'success': False, 'error': f'Error al agregar el gasto: {str(e)}'})
+
+
+def _eliminar_linea_gasto_pendiente(propiedad, propietario, linea_id, sucursal):
+    """
+    Quita un movimiento de la lista de pendientes:
+    - gasto manual (GastoPropietario sin liquidación): se elimina.
+    - egreso de caja (movimiento_N): se marca como inquilino para no volver a ofrecerlo.
+    """
+    linea_id = (linea_id or '').strip()
+    if not linea_id:
+        return False, 'No se indicó el movimiento a eliminar.'
+    if not propiedad:
+        return False, 'No se indicó la propiedad.'
+
+    try:
+        if linea_id.startswith('movimiento_'):
+            movimiento_id = int(linea_id.split('_', 1)[1])
+            movimiento = MovimientoCaja.objects.get(
+                id=movimiento_id,
+                propiedad=propiedad,
+                sucursal=sucursal,
+                tipo=TipoMovimientoCajaEnum.EGRESO,
+            )
+            q_gasto_mov = Q(propiedad=propiedad)
+            if propietario:
+                q_gasto_mov |= Q(propietario=propietario)
+            existe = GastoPropietario.objects.filter(
+                q_gasto_mov,
+                observaciones__icontains=f'Movimiento de caja #{movimiento.id}',
+            ).exists()
+            if existe:
+                return False, 'Ese egreso ya está vinculado como movimiento en el sistema.'
+            movimiento.a_descontar = 'inquilino'
+            movimiento.save(update_fields=['a_descontar'])
+            return True, None
+
+        gasto_id = int(linea_id)
+        gasto = GastoPropietario.objects.get(
+            id=gasto_id,
+            liquidacion__isnull=True,
+            sucursal=sucursal,
+        )
+        if propietario and gasto.propietario_id and gasto.propietario_id != propietario.id:
+            return False, 'Ese movimiento pertenece a otro propietario.'
+        if gasto.propiedad_id and gasto.propiedad_id != propiedad.id:
+            return False, 'Ese movimiento pertenece a otra propiedad.'
+        gasto.delete()
+        return True, None
+    except (GastoPropietario.DoesNotExist, MovimientoCaja.DoesNotExist, ValueError):
+        return False, 'No se encontró el movimiento pendiente indicado.'
+    except Exception as exc:
+        return False, str(exc)
+
+
+@login_required
+@require_POST
+def eliminar_gasto_pendiente_liquidacion(request, liquidacion_id):
+    """Elimina un gasto manual pendiente o quita un egreso de caja de la lista de pendientes."""
+    liquidacion = get_object_or_404(
+        LiquidacionPropietario,
+        id=liquidacion_id,
+        sucursal=request.user.sucursal,
+        estado='pendiente',
+    )
+    linea_id = (request.POST.get('linea_id') or '').strip()
+    ok, err = _eliminar_linea_gasto_pendiente(
+        liquidacion.propiedad,
+        liquidacion.propietario,
+        linea_id,
+        request.user.sucursal,
+    )
+    if ok:
+        return JsonResponse({'success': True, 'message': 'Movimiento eliminado correctamente.'})
+    return JsonResponse({'success': False, 'error': err or 'No se pudo eliminar el movimiento.'})
+
+
+@login_required
+@require_POST
+def eliminar_gasto_pendiente(request):
+    """Elimina un movimiento pendiente al crear liquidación (sin liquidación creada aún)."""
+    propiedad_id = request.POST.get('propiedad_id')
+    linea_id = (request.POST.get('linea_id') or '').strip()
+    if not propiedad_id:
+        return JsonResponse({'success': False, 'error': 'Debe indicar la propiedad.'})
+    propiedad = get_object_or_404(Propiedad, id=propiedad_id, sucursal=request.user.sucursal)
+    propietario = getattr(propiedad, 'propietario', None)
+    ok, err = _eliminar_linea_gasto_pendiente(
+        propiedad,
+        propietario,
+        linea_id,
+        request.user.sucursal,
+    )
+    if ok:
+        return JsonResponse({'success': True, 'message': 'Movimiento eliminado correctamente.'})
+    return JsonResponse({'success': False, 'error': err or 'No se pudo eliminar el movimiento.'})
 
 
 @login_required
@@ -23995,14 +27406,14 @@ def crear_gasto_pendiente(request):
     """
     if request.method == 'POST':
         try:
+            concepto, descripcion, err_con = _concepto_gasto_desde_post(request.POST, request.user.sucursal)
+            if err_con:
+                return JsonResponse({'success': False, 'error': err_con})
+
             propietario_id = request.POST.get('propietario_id')
             propiedad_id = request.POST.get('propiedad_id')
-            descripcion = request.POST.get('descripcion', '').strip()
             fecha_gasto = request.POST.get('fecha_gasto', '')
             observaciones = request.POST.get('observaciones', '').strip()
-
-            if not descripcion:
-                return JsonResponse({'success': False, 'error': 'La descripción es obligatoria.'})
 
             if not propietario_id and not propiedad_id:
                 return JsonResponse({'success': False, 'error': 'Debe seleccionar un propietario o una propiedad.'})
@@ -24010,6 +27421,10 @@ def crear_gasto_pendiente(request):
             monto = parse_decimal_monto(request.POST.get('monto', '0'))
             if monto <= 0:
                 return JsonResponse({'success': False, 'error': 'El monto debe ser mayor a cero.'})
+
+            tipo_mov, efecto_inq, operacion = _parse_campos_movimiento_gasto(request.POST)
+
+            from inmobiliaria.liquidacion_operacion import normalizar_moneda
 
             propietario = None
             propiedad = None
@@ -24021,26 +27436,45 @@ def crear_gasto_pendiente(request):
                 if not propietario:
                     propietario = propiedad.propietario
 
+            moneda = normalizar_moneda(request.POST.get('moneda'))
+            if not request.POST.get('moneda') and propiedad:
+                contrato_ref = (
+                    ContratoAlquiler.objects.filter(
+                        propiedad=propiedad,
+                        estado__in=['activo', 'reservado'],
+                        sucursal=request.user.sucursal,
+                    )
+                    .order_by('-id')
+                    .only('moneda')
+                    .first()
+                )
+                if contrato_ref:
+                    moneda = normalizar_moneda(contrato_ref.moneda)
+
             gasto = GastoPropietario.objects.create(
                 propietario=propietario,
                 propiedad=propiedad,
                 descripcion=descripcion,
+                concepto_caja_id=concepto.id,
                 monto=monto,
+                moneda=moneda,
+                tipo_movimiento=tipo_mov,
+                efecto_inquilino=efecto_inq,
+                operacion_monto=operacion,
                 fecha_gasto=datetime.strptime(fecha_gasto, '%Y-%m-%d').date() if fecha_gasto else None,
                 observaciones=observaciones,
                 sucursal=request.user.sucursal
             )
 
+            gasto_payload = _dict_gasto_pendiente(gasto)
+            if propiedad:
+                gasto_payload['propiedad_id'] = propiedad.id
+                gasto_payload['propiedad_label'] = _etiqueta_propiedad_liquidacion(propiedad)
+
             return JsonResponse({
                 'success': True,
-                'message': 'Gasto pendiente creado correctamente.',
-                'gasto': {
-                    'id': gasto.id,
-                    'descripcion': gasto.descripcion,
-                    'monto': str(gasto.monto),
-                    'fecha_gasto': gasto.fecha_gasto.strftime('%Y-%m-%d') if gasto.fecha_gasto else '',
-                    'observaciones': gasto.observaciones,
-                }
+                'message': 'Movimiento pendiente creado correctamente.',
+                'gasto': gasto_payload,
             })
 
         except ValueError as e:
@@ -24082,6 +27516,50 @@ def aceptar_rechazar_gasto(request, gasto_id):
 
     except Exception as e:
         return JsonResponse({'success': False, 'error': f'Error al procesar el gasto: {str(e)}'})
+
+
+@login_required
+@require_POST
+@transaction.atomic
+def eliminar_alquiler_liquidacion(request, liquidacion_id):
+    """
+    Quita el alquiler a pagar de una liquidación pendiente (monto_propietario = 0) y recalcula el neto.
+    """
+    liquidacion = get_object_or_404(
+        LiquidacionPropietario,
+        id=liquidacion_id,
+        sucursal=request.user.sucursal,
+    )
+    if liquidacion.estado != 'pendiente':
+        return JsonResponse(
+            {
+                'success': False,
+                'error': 'Solo se puede quitar el alquiler mientras la liquidación está pendiente.',
+            },
+            status=400,
+        )
+    monto_prop = Decimal(str(liquidacion.monto_propietario or 0))
+    if monto_prop <= Decimal('0.01'):
+        return JsonResponse(
+            {'success': False, 'error': 'No hay alquiler cargado en esta liquidación.'},
+            status=400,
+        )
+
+    try:
+        liquidacion.monto_propietario = Decimal('0')
+        liquidacion.calcular_monto_a_pagar()
+        return JsonResponse(
+            {
+                'success': True,
+                'message': 'Alquiler eliminado de la liquidación.',
+                'monto_a_pagar': str(liquidacion.monto_a_pagar),
+            }
+        )
+    except Exception as e:
+        return JsonResponse(
+            {'success': False, 'error': f'Error al quitar el alquiler: {str(e)}'},
+            status=500,
+        )
 
 
 @login_required
@@ -24142,11 +27620,20 @@ def confirmar_liquidacion(request, liquidacion_id):
         estado='pendiente'
     )
 
+    liquidacion.calcular_monto_a_pagar()
     liquidacion.estado = 'cerrada'
     liquidacion.fecha_procesamiento = timezone.now()
-    liquidacion.save(update_fields=['estado', 'fecha_procesamiento'])
+    liquidacion.save(update_fields=['estado', 'fecha_procesamiento', 'monto_gastos', 'monto_a_pagar'])
+    liquidacion.sync_gasto_saldo_negativo_pendiente()
 
-    messages.success(request, 'Liquidación confirmada y cerrada. Ahora podés volver y pagarla cuando quieras.')
+    if (liquidacion.monto_a_pagar or 0) < 0:
+        messages.success(
+            request,
+            'Liquidación confirmada y cerrada. Quedó saldo en contra del propietario; '
+            'se generó un movimiento «Liquidación pendiente» para descontar en la próxima liquidación.',
+        )
+    else:
+        messages.success(request, 'Liquidación confirmada y cerrada. Ahora podés volver y pagarla cuando quieras.')
     return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion.id)
 
 
@@ -24164,11 +27651,20 @@ def marcar_liquidacion_oficina(request, liquidacion_id):
         estado__in=['pendiente', 'cerrada']
     )
 
+    liquidacion.calcular_monto_a_pagar()
     liquidacion.estado = 'oficina'
     liquidacion.fecha_procesamiento = timezone.now()
-    liquidacion.save(update_fields=['estado', 'fecha_procesamiento'])
+    liquidacion.save(update_fields=['estado', 'fecha_procesamiento', 'monto_gastos', 'monto_a_pagar'])
+    liquidacion.sync_gasto_saldo_negativo_pendiente()
 
-    messages.success(request, 'Liquidación marcada como Oficina.')
+    if (liquidacion.monto_a_pagar or 0) < 0:
+        messages.success(
+            request,
+            'Liquidación marcada como Oficina. Quedó saldo en contra del propietario; '
+            'se generó un movimiento «Liquidación pendiente» para la próxima liquidación.',
+        )
+    else:
+        messages.success(request, 'Liquidación marcada como Oficina.')
     return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion.id)
 
 

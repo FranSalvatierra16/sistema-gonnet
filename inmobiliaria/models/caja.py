@@ -288,6 +288,13 @@ class MovimientoCaja(models.Model):
     cheque_numero = models.CharField(max_length=32, blank=True)
     cheque_banco = models.CharField(max_length=100, blank=True)
     cheque_fecha_vencimiento = models.DateField(null=True, blank=True)
+    cotizacion_dolar = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Cotización ARS por USD del día al cargar el movimiento en dólares.',
+    )
     fecha_transferencia = models.DateField(
         null=True,
         blank=True,

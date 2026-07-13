@@ -677,7 +677,11 @@
                 {% endif %}
                 <p><strong>Transferencia:</strong> ${{ movimiento.monto_deposito|format_price }}</p>
                 {% if movimiento.monto_dolares and movimiento.monto_dolares > 0 %}
-                <p><strong>Dólares (USD):</strong> U$S {{ movimiento.monto_dolares|format_price }}</p>
+                <p><strong>Dólares (USD):</strong> U$S {{ movimiento.monto_dolares|format_price }}
+                    {% if movimiento.cotizacion_dolar %}
+                    <span class="text-muted small">(cotiz. ${{ movimiento.cotizacion_dolar|format_price }})</span>
+                    {% endif %}
+                </p>
                 {% endif %}
                 <p><strong>Total ARS:</strong> ${{ movimiento.monto_total|format_price }}</p>
                 <p><strong>Corresponde a:</strong> {{ movimiento.get_a_descontar_display|default:"—" }}</p>
@@ -756,7 +760,11 @@
                 {% endif %}
                 <p><strong>Transferencia:</strong> ${{ movimiento.monto_deposito|format_price }}</p>
                 {% if movimiento.monto_dolares and movimiento.monto_dolares > 0 %}
-                <p><strong>Dólares (USD):</strong> U$S {{ movimiento.monto_dolares|format_price }}</p>
+                <p><strong>Dólares (USD):</strong> U$S {{ movimiento.monto_dolares|format_price }}
+                    {% if movimiento.cotizacion_dolar %}
+                    <span class="text-muted small">(cotiz. ${{ movimiento.cotizacion_dolar|format_price }})</span>
+                    {% endif %}
+                </p>
                 {% endif %}
                 <p><strong>Total ARS:</strong> ${{ movimiento.monto_total|format_price }}</p>
                 <p><strong>Corresponde a:</strong> {{ movimiento.get_a_descontar_display|default:"—" }}</p>
