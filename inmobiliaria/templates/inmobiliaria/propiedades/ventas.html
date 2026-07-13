@@ -53,63 +53,71 @@
 
     <!-- Buscador -->
     <div class="search-container mb-4">
-        <div class="card">
-            <div class="card-header">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-dark text-white py-2">
                 <h5 class="mb-0"><i class="bi bi-search"></i> BUSCADOR DE PROPIEDADES</h5>
             </div>
-            <div class="card-body">
-                <form method="get" class="row g-3">
-                    <div class="col-md-3">
-                        <label>Estado de la Propiedad</label>
-                        <select class="form-select" name="estado">
-                            <option value="">Todos los estados</option>
-                            {% for estado in estados %}
-                            <option value="{{ estado.0 }}" {% if estado.0 == estado_filtro %}selected{% endif %}>
-                                {{ estado.1 }}
-                            </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <label>Ambientes</label>
-                        <div class="input-group">
-                            <span class="input-group-text">
-                                <i class="fas fa-door-open"></i>
-                            </span>
+            <div class="card-body py-3">
+                <form method="get" id="formBusquedaVentas" class="ventas-search-bar">
+                    {% if tipo_inmueble_filtro %}<input type="hidden" name="tipo_inmueble" value="{{ tipo_inmueble_filtro }}">{% endif %}
+                    {% if valoracion_filtro %}<input type="hidden" name="valoracion" value="{{ valoracion_filtro }}">{% endif %}
+                    {% for car, on in caracteristicas_seleccionadas.items %}
+                        {% if on %}<input type="hidden" name="{{ car }}" value="on">{% endif %}
+                    {% endfor %}
+                    <div class="row g-2 align-items-end">
+                        <div class="col-6 col-md-2">
+                            <label class="form-label small mb-1">Ambientes</label>
                             <select class="form-select" name="ambientes">
-                                <option value="">Todos los ambientes</option>
-                                <option value="1" {% if ambientes_filtro == '1' %}selected{% endif %}>1 ambiente</option>
-                                <option value="2" {% if ambientes_filtro == '2' %}selected{% endif %}>2 ambientes</option>
-                                <option value="3" {% if ambientes_filtro == '3' %}selected{% endif %}>3 ambientes</option>
-                                <option value="4" {% if ambientes_filtro == '4' %}selected{% endif %}>4 ambientes</option>
-                                <option value="5" {% if ambientes_filtro == '5' %}selected{% endif %}>5+ ambientes</option>
+                                <option value="">Amb.</option>
+                                <option value="1" {% if ambientes_filtro == '1' %}selected{% endif %}>1</option>
+                                <option value="2" {% if ambientes_filtro == '2' %}selected{% endif %}>2</option>
+                                <option value="3" {% if ambientes_filtro == '3' %}selected{% endif %}>3</option>
+                                <option value="4" {% if ambientes_filtro == '4' %}selected{% endif %}>4</option>
+                                <option value="5" {% if ambientes_filtro == '5' %}selected{% endif %}>5+</option>
                             </select>
                         </div>
-                    </div>
-                    <div class="col-md-4">
-                        <label>Búsqueda</label>
-                        <input type="text" class="form-control" name="busqueda" 
-                               value="{{ busqueda }}" 
-                               placeholder="Buscar por dirección o número de ficha">
-                    </div>
-                    <div class="col-md-2 d-flex align-items-end">
-                        <button type="submit" class="btn btn-primary w-100">
-                            <i class="bi bi-search"></i> Buscar
-                        </button>
-                    </div>
-                    
-                    <!-- Botón de filtros avanzados -->
-                    <div class="col-12 mt-3">
-                        <div class="d-flex gap-2">
-                            <button type="button" class="btn btn-outline-secondary" onclick="abrirModalFiltrosVentas()">
-                                <i class="fas fa-filter me-1"></i>
-                                Filtros Avanzados
+                        <div class="col-6 col-md-2">
+                            <label class="form-label small mb-1">Vista</label>
+                            <select class="form-select" name="vista">
+                                <option value="">Todas</option>
+                                <option value="a_la_calle" {% if vista_filtro == 'a_la_calle' %}selected{% endif %}>A la calle</option>
+                                <option value="lateral" {% if vista_filtro == 'lateral' %}selected{% endif %}>Lateral</option>
+                                <option value="interno" {% if vista_filtro == 'interno' %}selected{% endif %}>Interno</option>
+                            </select>
+                        </div>
+                        <div class="col-6 col-md-2">
+                            <label class="form-label small mb-1">Precio desde</label>
+                            <input type="text" class="form-control" name="precio_min"
+                                   value="{{ precio_min_filtro }}"
+                                   placeholder="Desde" inputmode="decimal" autocomplete="off">
+                        </div>
+                        <div class="col-6 col-md-2">
+                            <label class="form-label small mb-1">Precio hasta</label>
+                            <input type="text" class="form-control" name="precio_max"
+                                   value="{{ precio_max_filtro }}"
+                                   placeholder="Hasta" inputmode="decimal" autocomplete="off">
+                        </div>
+                        <div class="col-12 col-md-2">
+                            <label class="form-label small mb-1">Código / dirección</label>
+                            <input type="text" class="form-control" name="busqueda"
+                                   value="{{ busqueda }}"
+                                   placeholder="Código o dirección">
+                        </div>
+                        <div class="col-12 col-md-2 d-flex gap-1">
+                            <button type="button" class="btn btn-outline-secondary" title="Filtros avanzados"
+                                    onclick="abrirModalFiltrosVentas()">
+                                <i class="fas fa-ellipsis-h"></i>
                             </button>
-                            <button type="button" class="btn btn-outline-info" onclick="limpiarFiltrosVentas()">
-                                <i class="fas fa-eraser me-1"></i>
-                                Limpiar Filtros
+                            <button type="submit" class="btn btn-success flex-grow-1">
+                                <i class="bi bi-search"></i> Buscar
                             </button>
                         </div>
+                    </div>
+                    <div class="mt-2">
+                        <button type="button" class="btn btn-sm btn-link text-decoration-none px-0" onclick="limpiarFiltrosVentas()">
+                            <i class="fas fa-eraser me-1"></i>Limpiar filtros
+                        </button>
+                        <span class="text-muted small ms-2">Orden: más barato → más caro</span>
                     </div>
                 </form>
             </div>
@@ -486,21 +494,6 @@
                         </div>
                         <div class="col-md-6">
                             <div class="filter-group">
-                                <label for="filtro_vista_ventas"><i class="fas fa-eye me-1"></i>Vista de la Propiedad</label>
-                                <select class="form-select" name="vista" id="filtro_vista_ventas">
-                                    <option value="">Cualquier vista</option>
-                                    <option value="mar">Vista al Mar</option>
-                                    <option value="ciudad">Vista a la Ciudad</option>
-                                    <option value="parque">Vista al Parque</option>
-                                    <option value="interna">Vista Interna</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="filter-group">
                                 <label for="filtro_valoracion_ventas"><i class="fas fa-star me-1"></i>Valoración</label>
                                 <select class="form-select" name="valoracion" id="filtro_valoracion_ventas">
                                     <option value="">Cualquier valoración</option>
@@ -510,19 +503,6 @@
                                     <option value="4">⭐⭐⭐⭐ 4 estrellas</option>
                                     <option value="5">⭐⭐⭐⭐⭐ 5 estrellas</option>
                                 </select>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="filter-group">
-                                <label for="filtro_precio_min_ventas"><i class="fas fa-dollar-sign me-1"></i>Rango de Precios</label>
-                                <div class="row">
-                                    <div class="col-6">
-                                        <input type="number" class="form-control" name="precio_min" id="filtro_precio_min_ventas" placeholder="Precio mínimo">
-                                    </div>
-                                    <div class="col-6">
-                                        <input type="number" class="form-control" name="precio_max" id="filtro_precio_max_ventas" placeholder="Precio máximo">
-                                    </div>
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -660,8 +640,7 @@ function aplicarFiltrosAvanzadosVentas() {
     console.log('Aplicando filtros avanzados de ventas...');
     
     try {
-        // Obtener el formulario principal y el modal
-        const formPrincipal = document.querySelector('form[method="get"]');
+        const formPrincipal = document.getElementById('formBusquedaVentas');
         const formModal = document.getElementById('formFiltrosAvanzadosVentas');
         
         if (!formPrincipal || !formModal) {
@@ -669,30 +648,24 @@ function aplicarFiltrosAvanzadosVentas() {
             return;
         }
         
-        // Limpiar inputs ocultos previos
+        // Quitar filtros avanzados previos (ocultos) sin tocar la barra
         formPrincipal.querySelectorAll('input[type="hidden"]').forEach(input => {
-            if (!['csrfmiddlewaretoken'].includes(input.name)) {
+            if (['tipo_inmueble', 'valoracion', 'amoblado', 'cochera', 'wifi', 'piscina', 'patio', 'parrilla', 'terraza', 'balcon', 'vista_al_Mar', 'a_estrenar', 'seguridad', 'apto_credito'].includes(input.name)) {
                 input.remove();
             }
         });
         
-        // Copiar campos básicos del modal al formulario principal
-        const campos = ['tipo_inmueble', 'vista', 'valoracion', 'precio_min', 'precio_max'];
+        // Copiar campos del modal al formulario principal (precio y vista están en la barra)
+        const campos = ['tipo_inmueble', 'valoracion'];
         
         campos.forEach(campo => {
             const campoModal = formModal.querySelector(`[name="${campo}"]`);
-            let campoPrincipal = formPrincipal.querySelector(`[name="${campo}"]`);
-            
             if (campoModal && campoModal.value) {
-                if (!campoPrincipal) {
-                    // Crear input oculto si no existe
-                    campoPrincipal = document.createElement('input');
-                    campoPrincipal.type = 'hidden';
-                    campoPrincipal.name = campo;
-                    formPrincipal.appendChild(campoPrincipal);
-                }
-                campoPrincipal.value = campoModal.value;
-                console.log(`Copiando ${campo}: ${campoModal.value}`);
+                const hidden = document.createElement('input');
+                hidden.type = 'hidden';
+                hidden.name = campo;
+                hidden.value = campoModal.value;
+                formPrincipal.appendChild(hidden);
             }
         });
         
@@ -740,20 +713,19 @@ function resetearFiltrosVentas() {
             return;
         }
         
-        // Limpiar campos básicos en el modal
-        const campos = ['tipo_inmueble', 'vista', 'valoracion', 'precio_min', 'precio_max'];
+        // Limpiar campos del modal
+        const campos = ['tipo_inmueble', 'valoracion'];
         campos.forEach(campo => {
             const campoModal = formModal.querySelector(`[name="${campo}"]`);
             if (campoModal) {
                 if (campoModal.tagName === 'SELECT') {
-                    campoModal.selectedIndex = 0; // Resetear a la primera opción
+                    campoModal.selectedIndex = 0;
                 } else {
-                    campoModal.value = ''; // Limpiar inputs
+                    campoModal.value = '';
                 }
             }
         });
         
-        // Limpiar todas las características (checkboxes)
         const caracteristicas = ['amoblado', 'cochera', 'wifi', 'piscina', 'patio', 'parrilla', 'terraza', 'balcon', 'vista_al_Mar', 'a_estrenar', 'seguridad', 'apto_credito'];
         caracteristicas.forEach(caracteristica => {
             const checkbox = formModal.querySelector(`[name="${caracteristica}"]`);
@@ -762,25 +734,20 @@ function resetearFiltrosVentas() {
             }
         });
         
-        // Cerrar modal
         const modalElement = document.getElementById('modalFiltrosAvanzadosVentas');
         const modal = bootstrap.Modal.getInstance(modalElement);
         if (modal) {
             modal.hide();
         }
         
-        // Recargar la página para aplicar el reseteo
+        // Mantener filtros de la barra principal
         setTimeout(() => {
-            // Mantener solo los parámetros básicos (estado, busqueda, ambientes)
             const urlParams = new URLSearchParams(window.location.search);
             const baseUrl = window.location.pathname;
             const parametrosBasicos = new URLSearchParams();
-            
-            // Conservar solo filtros básicos
-            if (urlParams.get('estado')) parametrosBasicos.set('estado', urlParams.get('estado'));
-            if (urlParams.get('busqueda')) parametrosBasicos.set('busqueda', urlParams.get('busqueda'));
-            if (urlParams.get('ambientes')) parametrosBasicos.set('ambientes', urlParams.get('ambientes'));
-            
+            ['busqueda', 'ambientes', 'vista', 'precio_min', 'precio_max'].forEach(key => {
+                if (urlParams.get(key)) parametrosBasicos.set(key, urlParams.get(key));
+            });
             const nuevaUrl = parametrosBasicos.toString() ? `${baseUrl}?${parametrosBasicos.toString()}` : baseUrl;
             window.location.href = nuevaUrl;
         }, 300);
@@ -809,38 +776,16 @@ function cargarValoresEnModal() {
     // Cargar valores de filtros básicos desde la URL
     const urlParams = new URLSearchParams(window.location.search);
     
-    // Tipo de inmueble
     const tipoInmueble = urlParams.get('tipo_inmueble') || '{{ tipo_inmueble_filtro }}';
     if (tipoInmueble) {
         const selectTipo = document.getElementById('filtro_tipo_inmueble_ventas');
         if (selectTipo) selectTipo.value = tipoInmueble;
     }
     
-    // Vista
-    const vista = urlParams.get('vista') || '{{ vista_filtro }}';
-    if (vista) {
-        const selectVista = document.getElementById('filtro_vista_ventas');
-        if (selectVista) selectVista.value = vista;
-    }
-    
-    // Valoración
     const valoracion = urlParams.get('valoracion') || '{{ valoracion_filtro }}';
     if (valoracion) {
         const selectValoracion = document.getElementById('filtro_valoracion_ventas');
         if (selectValoracion) selectValoracion.value = valoracion;
-    }
-    
-    // Precios
-    const precioMin = urlParams.get('precio_min') || '{{ precio_min_filtro }}';
-    if (precioMin) {
-        const inputPrecioMin = document.getElementById('filtro_precio_min_ventas');
-        if (inputPrecioMin) inputPrecioMin.value = precioMin;
-    }
-    
-    const precioMax = urlParams.get('precio_max') || '{{ precio_max_filtro }}';
-    if (precioMax) {
-        const inputPrecioMax = document.getElementById('filtro_precio_max_ventas');
-        if (inputPrecioMax) inputPrecioMax.value = precioMax;
     }
     
     // Características (checkboxes)

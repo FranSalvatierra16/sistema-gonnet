@@ -10286,118 +10286,123 @@ def desactivar_propiedad_invierno(request, propiedad_id):
 
 @login_required
 def ventas(request):
+    from django.db.models import F
+
     # Filtrar propiedades que tienen info de venta y están disponibles o reservadas
     propiedades_venta = Propiedad.objects.filter(
         info_venta__en_venta=True,
-        info_venta__estado__in=['disponible', 'reservado']
+        info_venta__estado__in=['disponible', 'reservado'],
     ).select_related('info_venta', 'sucursal').prefetch_related('imagenes')
 
-    # Debug: Imprimir información sobre las propiedades y sus imágenes
-# print("\n=== DEBUG IMÁGENES DE PROPIEDADES ===")
-# print(f"MEDIA_ROOT: {settings.MEDIA_ROOT}")
-# print(f"MEDIA_URL: {settings.MEDIA_URL}")
-# print(f"DEBUG: {settings.DEBUG}")
-# print(f"AWS_ACCESS_KEY_ID presente: {'AWS_ACCESS_KEY_ID' in os.environ}")
-# print(f"AWS_STORAGE_BUCKET_NAME presente: {'AWS_STORAGE_BUCKET_NAME' in os.environ}")
-    
-    for propiedad in propiedades_venta:
-        pass  # ✅ Bloque vacío
-# print(f"\nPropiedad ID: {propiedad.id}")
-# print(f"Dirección: {propiedad.direccion}")
-        imagenes = propiedad.imagenes.all()
-# print(f"Número de imágenes: {imagenes.count()}")
-        for img in imagenes:
-            pass  # ✅ Bloque vacío
-# print(f"- Imagen ID: {img.id}")
-# print(f"  URL: {img.imagen.url if img.imagen else 'No hay URL'}")
-# print(f"  Nombre archivo: {img.imagen.name if img.imagen else 'No hay archivo'}")
-            if img.imagen:
-                ruta_completa = os.path.join(settings.MEDIA_ROOT, img.imagen.name)
-# print(f"  ¿Archivo existe localmente?: {os.path.exists(ruta_completa)}")
-# print("=== FIN DEBUG ===\n")
-
-    # Calcular los contadores
+    # Contadores sobre el universo base (antes de filtros de búsqueda)
     total_propiedades = propiedades_venta.count()
     propiedades_disponibles = propiedades_venta.filter(info_venta__estado='disponible').count()
     propiedades_reservadas = propiedades_venta.filter(info_venta__estado='reservado').count()
 
-    # Aplicar filtros de búsqueda si existen
-    busqueda = request.GET.get('busqueda', '')
+    # Búsqueda por dirección o ficha
+    busqueda = (request.GET.get('busqueda') or '').strip()
     if busqueda:
-        propiedades_venta = propiedades_venta.filter(
-            Q(direccion__icontains=busqueda) |
-            Q(id__icontains=busqueda)
-        )
-
-    estado = request.GET.get('estado', '')
-    if estado:
-        propiedades_venta = propiedades_venta.filter(info_venta__estado=estado)
-
-    # Filtro por ambientes
-    ambientes = request.GET.get('ambientes', '')
-    if ambientes:
-        if ambientes == '5':  # 5+ ambientes
-            propiedades_venta = propiedades_venta.filter(ambientes__gte=5)
+        q_buscar = Q(direccion__icontains=busqueda)
+        raw_id = busqueda.lstrip('#').strip()
+        if raw_id.isdigit():
+            try:
+                q_buscar |= Q(pk=int(raw_id))
+            except (ValueError, OverflowError):
+                pass
         else:
-            propiedades_venta = propiedades_venta.filter(ambientes=int(ambientes))
+            q_buscar |= Q(id__icontains=busqueda)
+        propiedades_venta = propiedades_venta.filter(q_buscar)
+
+    # Ambientes
+    ambientes = (request.GET.get('ambientes') or '').strip()
+    if ambientes:
+        try:
+            if ambientes == '5':
+                propiedades_venta = propiedades_venta.filter(ambientes__gte=5)
+            else:
+                propiedades_venta = propiedades_venta.filter(ambientes=int(ambientes))
+        except (TypeError, ValueError):
+            ambientes = ''
+
+    # Vista: a la calle / lateral / interno (contrafrente)
+    vista = (request.GET.get('vista') or '').strip()
+    if vista == 'interno':
+        vista = 'contrafrente'
+    if vista in ('a_la_calle', 'lateral', 'contrafrente'):
+        propiedades_venta = propiedades_venta.filter(vista=vista)
+    else:
+        vista = ''
+
+    # Rango de precio (barra principal)
+    precio_min = (request.GET.get('precio_min') or '').strip()
+    if precio_min:
+        try:
+            propiedades_venta = propiedades_venta.filter(
+                info_venta__precio_venta__gte=float(precio_min.replace(',', '.'))
+            )
+        except (TypeError, ValueError):
+            precio_min = ''
+
+    precio_max = (request.GET.get('precio_max') or '').strip()
+    if precio_max:
+        try:
+            propiedades_venta = propiedades_venta.filter(
+                info_venta__precio_venta__lte=float(precio_max.replace(',', '.'))
+            )
+        except (TypeError, ValueError):
+            precio_max = ''
 
     # Filtros avanzados
-    tipo_inmueble = request.GET.get('tipo_inmueble', '')
+    tipo_inmueble = (request.GET.get('tipo_inmueble') or '').strip()
     if tipo_inmueble:
         propiedades_venta = propiedades_venta.filter(tipo_inmueble=tipo_inmueble)
 
-    vista = request.GET.get('vista', '')
-    if vista:
-        propiedades_venta = propiedades_venta.filter(vista=vista)
-
-    valoracion = request.GET.get('valoracion', '')
+    valoracion = (request.GET.get('valoracion') or '').strip()
     if valoracion:
-        propiedades_venta = propiedades_venta.filter(valoracion=int(valoracion))
+        try:
+            propiedades_venta = propiedades_venta.filter(valoracion=int(valoracion))
+        except (TypeError, ValueError):
+            valoracion = ''
 
-    # Filtros de precio
-    precio_min = request.GET.get('precio_min', '')
-    if precio_min:
-        propiedades_venta = propiedades_venta.filter(info_venta__precio_venta__gte=float(precio_min))
-
-    precio_max = request.GET.get('precio_max', '')
-    if precio_max:
-        propiedades_venta = propiedades_venta.filter(info_venta__precio_venta__lte=float(precio_max))
-
-    # Filtros de características (checkboxes)
     caracteristicas_filtros = [
-        'amoblado', 'cochera', 'wifi', 'piscina', 'patio', 'parrilla', 
-        'terraza', 'balcon', 'vista_al_Mar', 'a_estrenar', 'seguridad', 'apto_credito'
+        'amoblado', 'cochera', 'wifi', 'piscina', 'patio', 'parrilla',
+        'terraza', 'balcon', 'vista_al_Mar', 'a_estrenar', 'seguridad', 'apto_credito',
     ]
-    
     for caracteristica in caracteristicas_filtros:
         if request.GET.get(caracteristica):
-            # Filtrar propiedades que tienen esta característica marcada como True
-            filter_kwargs = {caracteristica: True}
-            propiedades_venta = propiedades_venta.filter(**filter_kwargs)
+            propiedades_venta = propiedades_venta.filter(**{caracteristica: True})
+
+    # Siempre de más barato a más caro
+    from decimal import Decimal
+    from django.db.models import Value
+    from django.db.models.functions import Coalesce
+
+    propiedades_venta = propiedades_venta.annotate(
+        precio_ord=Coalesce(F('info_venta__precio_venta'), Value(Decimal('999999999')))
+    ).order_by('precio_ord', 'direccion')
+
+    # Valor de vista para el select (interno si era contrafrente)
+    vista_filtro_ui = 'interno' if vista == 'contrafrente' else vista
 
     context = {
         'propiedades': propiedades_venta,
         'busqueda': busqueda,
-        'estado_filtro': estado,
         'ambientes_filtro': ambientes,
-        'estados': VentaPropiedad.ESTADO_CHOICES,
+        'vista_filtro': vista_filtro_ui,
         'telefono_empresa': '5492235916229',
         'total_propiedades': total_propiedades,
         'propiedades_disponibles': propiedades_disponibles,
         'propiedades_reservadas': propiedades_reservadas,
-        # Filtros avanzados para mantener en el contexto
         'tipo_inmueble_filtro': tipo_inmueble,
-        'vista_filtro': vista,
         'valoracion_filtro': valoracion,
         'precio_min_filtro': precio_min,
         'precio_max_filtro': precio_max,
-        # Características seleccionadas
         'caracteristicas_seleccionadas': {
-            caracteristica: request.GET.get(caracteristica, False) 
+            caracteristica: bool(request.GET.get(caracteristica))
             for caracteristica in caracteristicas_filtros
-        }
+        },
     }
-    
+
     return render(request, 'inmobiliaria/propiedades/ventas.html', context)
 
 @login_required
