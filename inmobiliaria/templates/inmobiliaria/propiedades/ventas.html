@@ -218,6 +218,14 @@
                     {% if propiedad.info_venta.metros_cuadrados %}
                         <span><i class="bi bi-rulers"></i> {{ propiedad.info_venta.metros_cuadrados }}m²</span>
                     {% endif %}
+                    {% if propiedad.vista %}
+                        <span><i class="bi bi-eye"></i>
+                            {% if propiedad.vista == 'contrafrente' %}Interno
+                            {% elif propiedad.vista == 'a_la_calle' %}A la calle
+                            {% elif propiedad.vista == 'lateral' %}Lateral
+                            {% else %}{{ propiedad.get_vista_display }}{% endif %}
+                        </span>
+                    {% endif %}
                     {% if propiedad.cochera %}
                         <span><i class="bi bi-car-front"></i> Cochera</span>
                     {% endif %}
