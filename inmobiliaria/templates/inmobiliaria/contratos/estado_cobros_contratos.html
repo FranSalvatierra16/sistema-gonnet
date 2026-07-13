@@ -325,8 +325,8 @@
                             </td>
                             <td>
                                 <small>{{ contrato.estado_cobro_detalle }}</small>
-                                {% if contrato.cuotas_impagas %}
-                                <br><span class="badge bg-secondary">{{ contrato.cuotas_impagas|length }} cuota{{ contrato.cuotas_impagas|length|pluralize:"s" }}</span>
+                                {% if contrato.n_cuotas_impagas %}
+                                <br><span class="badge bg-secondary">{{ contrato.n_cuotas_impagas }} cuota{{ contrato.n_cuotas_impagas|pluralize:"s" }}</span>
                                 {% endif %}
                             </td>
                             <td class="text-nowrap">
@@ -375,60 +375,11 @@
                         </tr>
                         <tr class="fila-detalle-cuotas d-none" id="detalle-cuotas-{{ contrato.id }}">
                             <td colspan="12">
-                                {% if contrato.cuotas_impagas %}
-                                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
-                                    <strong><i class="fas fa-list me-1"></i> Cuotas pendientes / vencidas ({{ contrato.cuotas_impagas|length }})</strong>
-                                    <small class="text-muted">Solo las que aún debe</small>
+                                <div class="detalle-cuotas-body" data-loaded="0">
+                                    <div class="text-muted py-2">
+                                        <i class="fas fa-spinner fa-spin me-1"></i> Cargando cuotas…
+                                    </div>
                                 </div>
-                                <div class="table-responsive">
-                                    <table class="table table-sm table-bordered tabla-cuotas-impagas">
-                                        <thead class="table-light">
-                                            <tr>
-                                                <th>Cuota</th>
-                                                <th>Vencimiento</th>
-                                                <th>Estado</th>
-                                                <th class="text-end">Monto</th>
-                                                <th class="text-end">Saldo</th>
-                                                <th></th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {% for cuota in contrato.cuotas_impagas %}
-                                            <tr class="{% if cuota.estado == 'vencida' or cuota.fecha_vencimiento < hoy %}table-danger{% elif cuota.fecha_vencimiento.month == hoy.month and cuota.fecha_vencimiento.year == hoy.year %}table-warning{% endif %}">
-                                                <td><strong>{{ cuota.numero_cuota }}/{{ contrato.duracion_meses }}</strong></td>
-                                                <td class="text-nowrap">{{ cuota.fecha_vencimiento|date:"d/m/Y" }}</td>
-                                                <td>
-                                                    {% if cuota.estado == 'vencida' or cuota.fecha_vencimiento < hoy %}
-                                                    <span class="badge bg-danger">Vencida</span>
-                                                    {% else %}
-                                                    <span class="badge bg-warning text-dark">Pendiente</span>
-                                                    {% endif %}
-                                                    {% if cuota.tiene_adelanto_abonado %}
-                                                    <br><span class="badge bg-info text-dark mt-1">Con adelanto</span>
-                                                    {% endif %}
-                                                </td>
-                                                <td class="text-end text-nowrap">{{ cuota.monto_total|format_importe_moneda:contrato.moneda }}</td>
-                                                <td class="text-end text-nowrap fw-semibold">{{ cuota.saldo_para_cobro|format_importe_moneda:contrato.moneda }}</td>
-                                                <td class="text-end text-nowrap">
-                                                    {% if contrato.estado == 'activo' or contrato.estado == 'reservado' %}
-                                                    <a href="{% url 'inmobiliaria:crear_pago_cuota_operacion' cuota.id %}"
-                                                       class="btn btn-sm btn-success">
-                                                        <i class="fas fa-cash-register"></i> Cobrar
-                                                    </a>
-                                                    {% endif %}
-                                                </td>
-                                            </tr>
-                                            {% endfor %}
-                                        </tbody>
-                                    </table>
-                                </div>
-                                {% else %}
-                                <div class="text-muted py-2">
-                                    <i class="fas fa-check-circle text-success me-1"></i>
-                                    No hay cuotas pendientes: todas están pagadas
-                                    {% if contrato.estado_cobro == 'en_fecha' %}(las futuras no vencieron aún){% endif %}.
-                                </div>
-                                {% endif %}
                             </td>
                         </tr>
                         {% endfor %}
@@ -448,6 +399,72 @@
 </div>
 <script>
 (function() {
+    var URL_CUOTAS = "{% url 'inmobiliaria:estado_cobros_cuotas_impagas' 999999999 %}";
+
+    function fmtMonto(val, moneda) {
+        var n = Number(val);
+        if (isNaN(n)) n = 0;
+        var s = n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return (moneda === 'USD' ? 'U$S ' : '$') + s;
+    }
+
+    function renderCuotas(body, data) {
+        var cuotas = data.cuotas || [];
+        var moneda = data.moneda || 'ARS';
+        if (!cuotas.length) {
+            body.innerHTML = '<div class="text-muted py-2"><i class="fas fa-check-circle text-success me-1"></i>No hay cuotas pendientes hasta el mes actual.</div>';
+            return;
+        }
+        var html = '<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">' +
+            '<strong><i class="fas fa-list me-1"></i> Cuotas pendientes / vencidas (' + cuotas.length + ')</strong>' +
+            '<small class="text-muted">Solo las que aún debe</small></div>' +
+            '<div class="table-responsive"><table class="table table-sm table-bordered tabla-cuotas-impagas">' +
+            '<thead class="table-light"><tr>' +
+            '<th>Cuota</th><th>Vencimiento</th><th>Estado</th>' +
+            '<th class="text-end">Monto</th><th class="text-end">Saldo</th><th></th>' +
+            '</tr></thead><tbody>';
+        cuotas.forEach(function(c) {
+            var rowClass = c.estado === 'vencida' ? 'table-danger' : 'table-warning';
+            var badge = c.estado === 'vencida'
+                ? '<span class="badge bg-danger">Vencida</span>'
+                : '<span class="badge bg-warning text-dark">Pendiente</span>';
+            if (c.adelanto) badge += '<br><span class="badge bg-info text-dark mt-1">Con adelanto</span>';
+            var btn = c.url_cobrar
+                ? '<a href="' + c.url_cobrar + '" class="btn btn-sm btn-success"><i class="fas fa-cash-register"></i> Cobrar</a>'
+                : '';
+            html += '<tr class="' + rowClass + '">' +
+                '<td><strong>' + c.numero + '/' + (c.duracion || '?') + '</strong></td>' +
+                '<td class="text-nowrap">' + (c.vencimiento || '—') + '</td>' +
+                '<td>' + badge + '</td>' +
+                '<td class="text-end text-nowrap">' + fmtMonto(c.monto, moneda) + '</td>' +
+                '<td class="text-end text-nowrap fw-semibold">' + fmtMonto(c.saldo, moneda) + '</td>' +
+                '<td class="text-end text-nowrap">' + btn + '</td></tr>';
+        });
+        html += '</tbody></table></div>';
+        body.innerHTML = html;
+    }
+
+    function cargarCuotas(contratoId, body) {
+        if (body.getAttribute('data-loaded') === '1') return;
+        body.innerHTML = '<div class="text-muted py-2"><i class="fas fa-spinner fa-spin me-1"></i> Cargando cuotas…</div>';
+        fetch(URL_CUOTAS.replace('999999999', String(contratoId)), {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'same-origin'
+        })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (!data.success) {
+                    body.innerHTML = '<div class="text-danger py-2">No se pudieron cargar las cuotas.</div>';
+                    return;
+                }
+                body.setAttribute('data-loaded', '1');
+                renderCuotas(body, data);
+            })
+            .catch(function() {
+                body.innerHTML = '<div class="text-danger py-2">Error al cargar las cuotas.</div>';
+            });
+    }
+
     function toggleFila(row) {
         if (!row) return;
         var id = row.getAttribute('data-contrato-id');
@@ -462,6 +479,8 @@
             detalle.classList.remove('d-none');
             row.classList.add('expanded');
             row.setAttribute('aria-expanded', 'true');
+            var body = detalle.querySelector('.detalle-cuotas-body');
+            if (body) cargarCuotas(id, body);
         }
     }
 
