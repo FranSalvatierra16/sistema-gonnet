@@ -523,19 +523,37 @@ class MovimientoCaja(models.Model):
             return 'OTROS'
         return self._tipo_comprobante_display_upper() or 'MOVIMIENTO'
 
+    @staticmethod
+    def _texto_piso_depto_propiedad(prop):
+        """« — Piso X, Dpto Y» si la propiedad tiene esos datos."""
+        if not prop:
+            return ''
+        piso = (getattr(prop, 'piso', None) or '').strip()
+        depto = (getattr(prop, 'departamento', None) or '').strip()
+        bits = []
+        if piso:
+            bits.append(f'Piso {piso}')
+        if depto:
+            bits.append(f'Dpto {depto}')
+        if not bits:
+            return ''
+        return ' — ' + ', '.join(bits)
+
     @property
     def listado_concepto_l2(self):
-        """Segunda línea: dirección / referencia de propiedad."""
+        """Segunda línea: dirección / piso / depto / referencia de propiedad."""
         if not self.propiedad_id:
             return ''
         try:
             prop = self.propiedad
             dir_ = (getattr(prop, 'direccion', None) or '').strip()
         except Exception:
+            prop = None
             dir_ = ''
         if not dir_:
             return ''
-        return f'{dir_.upper()} ({self.propiedad_id})'
+        unidad = self._texto_piso_depto_propiedad(prop)
+        return f'{dir_.upper()}{unidad.upper() if unidad else ""} ({self.propiedad_id})'
 
     def _primer_texto_detalle_desde_json(self):
         raw = (self.concepto_detalle or '').strip()
@@ -698,18 +716,19 @@ class MovimientoCaja(models.Model):
         return ' · '.join(parts)
 
     def _direccion_solo_resumen(self):
-        """Dirección de la propiedad sin nº de ficha (resumen impreso)."""
+        """Dirección de la propiedad (con piso/depto) sin nº de ficha (resumen impreso)."""
         if self.propiedad_id:
             try:
                 prop = self.propiedad
                 dir_ = (getattr(prop, 'direccion', None) or '').strip()
                 if dir_:
-                    return dir_.upper()
+                    unidad = self._texto_piso_depto_propiedad(prop)
+                    return f'{dir_.upper()}{unidad.upper() if unidad else ""}'
             except Exception:
                 pass
         l2 = (self.listado_concepto_l2 or '').strip()
         if l2 and '(' in l2:
-            return l2.split('(', 1)[0].strip()
+            return l2.rsplit('(', 1)[0].strip()
         return l2
 
     def _propietario_resumen_liquidacion(self):
