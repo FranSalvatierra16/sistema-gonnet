@@ -15395,100 +15395,150 @@ def buscar_movimientos(request):
 def buscar_vendedor(request):
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Método no permitido'})
-    
-    termino = request.POST.get('id', '').strip()
-    sucursal = request.user.sucursal
-    
+
+    termino = (
+        request.POST.get('id')
+        or request.POST.get('termino')
+        or request.POST.get('q')
+        or ''
+    ).strip()
+    sucursal = getattr(request.user, 'sucursal', None)
+
     if not termino:
         return JsonResponse({
             'success': False,
-            'error': 'Ingrese un término de búsqueda'
+            'error': 'Ingrese un ID, nombre o apellido',
         })
-    
+
     try:
-        # Buscar por ID exacto primero
+        base_qs = Vendedor.objects.all()
+        if sucursal is not None:
+            qs_sucursal = base_qs.filter(sucursal=sucursal)
+        else:
+            qs_sucursal = base_qs.none()
+
+        # ID exacto en la sucursal del usuario
         try:
-            vendedor = Vendedor.objects.get(id=int(termino), sucursal=sucursal)
-            return JsonResponse({
-                'success': True,
-                'vendedor': {
-                    'id': vendedor.id,
-                    'nombre': vendedor.nombre,
-                    'apellido': vendedor.apellido
-                }
-            })
-        except (ValueError, Vendedor.DoesNotExist):
-            # Si no es un número o no se encuentra por ID, buscar por nombre/apellido
-            vendedores = Vendedor.objects.filter(
-                sucursal=sucursal
-            ).filter(
-                Q(nombre__icontains=termino) |
-                Q(apellido__icontains=termino)
-            ).order_by('apellido', 'nombre')[:1]
-            
-            if vendedores.exists():
-                vendedor = vendedores.first()
+            vid = int(termino)
+        except (ValueError, TypeError):
+            vid = None
+
+        if vid is not None:
+            vendedor = qs_sucursal.filter(id=vid).first()
+            if vendedor:
                 return JsonResponse({
                     'success': True,
                     'vendedor': {
                         'id': vendedor.id,
                         'nombre': vendedor.nombre,
-                        'apellido': vendedor.apellido
-                    }
+                        'apellido': vendedor.apellido,
+                    },
                 })
-            else:
+            # Existe en otra sucursal: mensaje claro
+            otro = base_qs.filter(id=vid).select_related('sucursal').first()
+            if otro:
+                suc_nombre = getattr(getattr(otro, 'sucursal', None), 'nombre', None) or 'otra sucursal'
                 return JsonResponse({
                     'success': False,
-                    'error': 'No se encontró el vendedor'
+                    'error': (
+                        f'El vendedor ID {vid} ({otro.apellido}, {otro.nombre}) '
+                        f'pertenece a «{suc_nombre}», no a tu sucursal.'
+                    ),
                 })
+            return JsonResponse({
+                'success': False,
+                'error': f'No hay vendedor con ID {vid}',
+            })
+
+        # Búsqueda por nombre / apellido en la sucursal
+        vendedores = qs_sucursal.filter(
+            Q(nombre__icontains=termino) | Q(apellido__icontains=termino)
+        ).order_by('apellido', 'nombre')[:10]
+
+        if not vendedores.exists():
+            return JsonResponse({
+                'success': False,
+                'error': 'No se encontró el vendedor en tu sucursal',
+            })
+
+        if vendedores.count() == 1:
+            vendedor = vendedores.first()
+            return JsonResponse({
+                'success': True,
+                'vendedor': {
+                    'id': vendedor.id,
+                    'nombre': vendedor.nombre,
+                    'apellido': vendedor.apellido,
+                },
+            })
+
+        return JsonResponse({
+            'success': True,
+            'vendedores': [
+                {
+                    'id': v.id,
+                    'nombre': v.nombre,
+                    'apellido': v.apellido,
+                }
+                for v in vendedores
+            ],
+            'error': 'Hay varios resultados; elegí uno de la lista.',
+        })
     except Exception as e:
         return JsonResponse({
             'success': False,
-            'error': str(e)
+            'error': str(e),
         })
+
 
 @login_required
 def buscar_vendedores(request):
     # Aceptar tanto GET como POST para mayor flexibilidad
     if request.method == 'GET':
-        termino = (request.GET.get('nombre') or '').strip()
+        termino = (request.GET.get('nombre') or request.GET.get('termino') or request.GET.get('q') or '').strip()
     elif request.method == 'POST':
-        termino = (request.POST.get('termino') or '').strip()
+        termino = (
+            request.POST.get('termino')
+            or request.POST.get('nombre')
+            or request.POST.get('q')
+            or ''
+        ).strip()
     else:
         return JsonResponse({'success': False, 'error': 'Método no permitido'})
-    
-    sucursal = request.user.sucursal
-    
-    if not termino:
+
+    sucursal = getattr(request.user, 'sucursal', None)
+    if not sucursal:
         return JsonResponse({'success': True, 'vendedores': []})
-    
+
     try:
-        q_text = (
-            Q(nombre__icontains=termino) |
-            Q(apellido__icontains=termino)
-        )
-        try:
-            vid = int(termino)
-            q_text = q_text | Q(id=vid)
-        except (ValueError, TypeError):
-            pass
-        vendedores = Vendedor.objects.filter(sucursal=sucursal).filter(q_text).order_by(
-            'apellido', 'nombre'
-        )[:30]
-        
+        qs = Vendedor.objects.filter(sucursal=sucursal)
+        if termino:
+            q_text = (
+                Q(nombre__icontains=termino) |
+                Q(apellido__icontains=termino)
+            )
+            try:
+                vid = int(termino)
+                q_text = q_text | Q(id=vid)
+            except (ValueError, TypeError):
+                pass
+            qs = qs.filter(q_text)
+        vendedores = qs.order_by('apellido', 'nombre')[:30]
+
         return JsonResponse({
             'success': True,
             'vendedores': [{
                 'id': v.id,
                 'nombre': v.nombre,
-                'apellido': v.apellido
-            } for v in vendedores]
+                'apellido': v.apellido,
+            } for v in vendedores],
         })
     except Exception as e:
         return JsonResponse({
             'success': False,
-            'error': str(e)
+            'error': str(e),
         })
+
 
 @login_required
 def obtener_caja_actual(request):
@@ -15514,6 +15564,7 @@ def obtener_caja_actual(request):
             'success': False,
             'error': str(e)
         })
+
 
 @login_required
 def buscar_propiedades_caja(request):

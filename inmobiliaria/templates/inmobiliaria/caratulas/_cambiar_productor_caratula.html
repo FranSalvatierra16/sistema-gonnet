@@ -42,10 +42,13 @@
               onsubmit="return confirm('¿Agregar este productor a la operación? Se calcularán sus comisiones.');">
             {% csrf_token %}
             <input type="hidden" name="action" value="agregar_productor_caratula">
-            <div class="col-auto">
-                <label for="productor-id-input" class="form-label small mb-0">Agregar productor (ID)</label>
-                <input type="number" name="productor_id" id="productor-id-input" class="form-control form-control-sm"
-                       min="1" step="1" required style="width: 110px;">
+            <input type="hidden" name="productor_id" id="productor-id-hidden" value="">
+            <div class="col-md-5 col-lg-4">
+                <label for="productor-busqueda-input" class="form-label small mb-0">Agregar productor</label>
+                <input type="text" id="productor-busqueda-input" class="form-control form-control-sm"
+                       placeholder="ID, nombre o apellido…" autocomplete="off">
+                <div id="productor-sugerencias" class="list-group shadow-sm mt-1 d-none"
+                     style="max-height: 220px; overflow-y: auto; position: absolute; z-index: 20; min-width: 260px;"></div>
             </div>
             <div class="col-auto">
                 <button type="button" class="btn btn-sm btn-outline-secondary mt-4" id="btn-buscar-productor-caratula">
@@ -56,7 +59,7 @@
                 <span id="productor-busqueda-resultado" class="small text-muted"></span>
             </div>
             <div class="col-auto">
-                <button type="submit" class="btn btn-sm btn-primary mt-4">
+                <button type="submit" class="btn btn-sm btn-primary mt-4" id="btn-agregar-productor-caratula" disabled>
                     <i class="fas fa-user-plus me-1"></i>Agregar
                 </button>
             </div>
@@ -66,39 +69,166 @@
 </div>
 <script>
 (function () {
-    var btn = document.getElementById('btn-buscar-productor-caratula');
-    if (!btn) return;
-    btn.addEventListener('click', function () {
-        var input = document.getElementById('productor-id-input');
-        var resultado = document.getElementById('productor-busqueda-resultado');
-        if (!input || !resultado) return;
-        var termino = (input.value || '').trim();
-        if (!termino) {
-            resultado.textContent = 'Ingresá un ID o nombre para buscar.';
+    var input = document.getElementById('productor-busqueda-input');
+    var hiddenId = document.getElementById('productor-id-hidden');
+    var resultado = document.getElementById('productor-busqueda-resultado');
+    var sugerencias = document.getElementById('productor-sugerencias');
+    var btnBuscar = document.getElementById('btn-buscar-productor-caratula');
+    var btnAgregar = document.getElementById('btn-agregar-productor-caratula');
+    var form = document.getElementById('form-agregar-productor-caratula');
+    if (!input || !hiddenId || !resultado || !btnBuscar || !form) return;
+
+    var urlLista = '{% url "inmobiliaria:buscar_vendedores" %}';
+    var urlUno = '{% url "inmobiliaria:buscar_vendedor" %}';
+    var csrf = (form.querySelector('[name=csrfmiddlewaretoken]') || {}).value || '{{ csrf_token }}';
+    var debounceTimer = null;
+
+    function setSeleccionado(v) {
+        if (!v) {
+            hiddenId.value = '';
+            if (btnAgregar) btnAgregar.disabled = true;
+            return;
+        }
+        hiddenId.value = String(v.id);
+        input.value = (v.apellido || '') + ', ' + (v.nombre || '') + ' (ID ' + v.id + ')';
+        resultado.textContent = 'Listo para agregar: ' + (v.apellido || '') + ', ' + (v.nombre || '');
+        resultado.className = 'small text-success';
+        if (btnAgregar) btnAgregar.disabled = false;
+        if (sugerencias) {
+            sugerencias.classList.add('d-none');
+            sugerencias.innerHTML = '';
+        }
+    }
+
+    function pintarLista(items) {
+        if (!sugerencias) return;
+        sugerencias.innerHTML = '';
+        if (!items || !items.length) {
+            sugerencias.classList.add('d-none');
+            return;
+        }
+        items.forEach(function (v) {
+            var a = document.createElement('button');
+            a.type = 'button';
+            a.className = 'list-group-item list-group-item-action py-1 px-2 small';
+            a.textContent = (v.apellido || '') + ', ' + (v.nombre || '') + ' (ID ' + v.id + ')';
+            a.addEventListener('click', function () { setSeleccionado(v); });
+            sugerencias.appendChild(a);
+        });
+        sugerencias.classList.remove('d-none');
+    }
+
+    function buscarLista(termino) {
+        var q = (termino || '').trim();
+        var url = urlLista + (q ? ('?termino=' + encodeURIComponent(q)) : '');
+        resultado.textContent = 'Buscando…';
+        resultado.className = 'small text-muted';
+        fetch(url, { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                var items = (data && data.vendedores) || [];
+                if (!items.length) {
+                    resultado.textContent = data.error || 'No se encontraron vendedores en tu sucursal.';
+                    resultado.className = 'small text-danger';
+                    pintarLista([]);
+                    hiddenId.value = '';
+                    if (btnAgregar) btnAgregar.disabled = true;
+                    return;
+                }
+                if (items.length === 1 && q) {
+                    setSeleccionado(items[0]);
+                    return;
+                }
+                resultado.textContent = items.length + ' resultado(s). Elegí uno de la lista.';
+                resultado.className = 'small text-muted';
+                pintarLista(items);
+                hiddenId.value = '';
+                if (btnAgregar) btnAgregar.disabled = true;
+            })
+            .catch(function () {
+                resultado.textContent = 'Error al buscar vendedores.';
+                resultado.className = 'small text-danger';
+            });
+    }
+
+    function buscarExacto(termino) {
+        var q = (termino || '').trim();
+        if (!q) {
+            resultado.textContent = 'Ingresá un ID, nombre o apellido.';
             resultado.className = 'small text-danger';
             return;
         }
         var fd = new FormData();
-        fd.append('id', termino);
-        fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+        fd.append('termino', q);
+        fd.append('id', q);
+        fd.append('csrfmiddlewaretoken', csrf);
         resultado.textContent = 'Buscando…';
         resultado.className = 'small text-muted';
-        fetch('{% url "inmobiliaria:buscar_vendedor" %}', { method: 'POST', body: fd })
+        fetch(urlUno, { method: 'POST', body: fd, credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 if (data.success && data.vendedor) {
-                    input.value = data.vendedor.id;
-                    resultado.textContent = data.vendedor.apellido + ', ' + data.vendedor.nombre;
-                    resultado.className = 'small text-success';
-                } else {
-                    resultado.textContent = data.error || 'No se encontró el vendedor.';
-                    resultado.className = 'small text-danger';
+                    setSeleccionado(data.vendedor);
+                    return;
                 }
+                if (data.success && data.vendedores && data.vendedores.length) {
+                    resultado.textContent = data.error || 'Varios resultados: elegí uno.';
+                    resultado.className = 'small text-muted';
+                    pintarLista(data.vendedores);
+                    hiddenId.value = '';
+                    if (btnAgregar) btnAgregar.disabled = true;
+                    return;
+                }
+                resultado.textContent = data.error || 'No se encontró el vendedor.';
+                resultado.className = 'small text-danger';
+                pintarLista([]);
+                hiddenId.value = '';
+                if (btnAgregar) btnAgregar.disabled = true;
             })
             .catch(function () {
                 resultado.textContent = 'Error al buscar el vendedor.';
                 resultado.className = 'small text-danger';
             });
+    }
+
+    btnBuscar.addEventListener('click', function () {
+        buscarExacto(input.value);
+    });
+
+    input.addEventListener('input', function () {
+        hiddenId.value = '';
+        if (btnAgregar) btnAgregar.disabled = true;
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(function () {
+            var q = (input.value || '').trim();
+            if (q.length < 1) {
+                pintarLista([]);
+                resultado.textContent = '';
+                return;
+            }
+            buscarLista(q);
+        }, 250);
+    });
+
+    input.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter') {
+            ev.preventDefault();
+            buscarExacto(input.value);
+        }
+    });
+
+    document.addEventListener('click', function (ev) {
+        if (!sugerencias || sugerencias.classList.contains('d-none')) return;
+        if (sugerencias.contains(ev.target) || input.contains(ev.target)) return;
+        sugerencias.classList.add('d-none');
+    });
+
+    form.addEventListener('submit', function (ev) {
+        if (!hiddenId.value) {
+            ev.preventDefault();
+            resultado.textContent = 'Elegí un vendedor de la lista antes de agregar.';
+            resultado.className = 'small text-danger';
+        }
     });
 })();
 </script>
