@@ -641,12 +641,11 @@ def _sincronizar_vendedor_principal_contrato(contrato):
         .values_list('vendedor_id', flat=True)
         .first()
     )
-    if primero and contrato.vendedor_id != primero:
-        contrato.vendedor_id = primero
-        contrato.save(update_fields=['vendedor_id'])
-    elif not primero and contrato.vendedor_id:
-        contrato.vendedor_id = None
-        contrato.save(update_fields=['vendedor_id'])
+    nuevo = primero or None
+    if contrato.vendedor_id == nuevo:
+        return
+    contrato.vendedor_id = nuevo
+    contrato.save(update_fields=['vendedor_id'])
 
 
 def asegurar_filas_productores_reserva(reserva):
@@ -812,17 +811,31 @@ def agregar_productor_contrato(
 
 
 def quitar_productor_contrato(contrato, vendedor_id):
+    from django.db import IntegrityError, transaction
+
     if not contrato:
         return False, 'Contrato no válido.'
     try:
         vid = int(vendedor_id)
     except (TypeError, ValueError):
         return False, 'ID de productor inválido.'
-    deleted, _ = OperacionProductor.objects.filter(contrato=contrato, vendedor_id=vid).delete()
-    if not deleted:
-        return False, 'Ese productor no está en la operación.'
-    _eliminar_comisiones_productor_contrato(contrato, vendedor_id=vid)
-    _sincronizar_vendedor_principal_contrato(contrato)
+    try:
+        with transaction.atomic():
+            deleted, _ = OperacionProductor.objects.filter(
+                contrato=contrato, vendedor_id=vid
+            ).delete()
+            if not deleted:
+                return False, 'Ese productor no está en la operación.'
+            _eliminar_comisiones_productor_contrato(contrato, vendedor_id=vid)
+            _sincronizar_vendedor_principal_contrato(contrato)
+    except IntegrityError:
+        return (
+            False,
+            'No se pudo quitar el productor (el contrato no acepta quedar sin productor). '
+            'Agregá primero otro productor o avisá a sistemas.',
+        )
+    except Exception as exc:
+        return False, f'No se pudo quitar el productor: {exc}'
     return True, None
 
 

@@ -14,7 +14,13 @@ class TipoOperacion(models.TextChoices):
 class ContratoAlquiler(models.Model):
     propiedad = models.ForeignKey('Propiedad', on_delete=models.CASCADE, related_name='contratos')
     inquilino = models.ForeignKey('Inquilino', on_delete=models.CASCADE, related_name='contratos', help_text='Inquilino principal (el primero si hay varios)')
-    vendedor = models.ForeignKey('Vendedor', on_delete=models.CASCADE, related_name='contratos')
+    vendedor = models.ForeignKey(
+        'Vendedor',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='contratos',
+    )
     # Varios inquilinos por contrato (el primero coincide con inquilino); carrera por inquilino vía through
     inquilinos = models.ManyToManyField(
         'Inquilino',
