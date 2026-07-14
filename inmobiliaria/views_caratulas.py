@@ -1393,6 +1393,11 @@ def _resumen_liquidacion_caratula(*, reserva=None, contrato=None, liquidacion=No
     Cuadro estilo «crear liquidación»: total operación, propietario (depto), oficina, cochera, gastos, neto.
     Si hay liquidación guardada usa esos montos; si no, sugiere según la operación pendiente.
     """
+    # Contratos sin liquidación: no correr el pipeline pesado de gastos pendientes
+    # (N+1 de movimientos por reserva/cuota). El resumen de cuotas ya cubre el estado.
+    if contrato is not None and liquidacion is None and reserva is None:
+        return {'tiene_datos': False}
+
     if liquidacion:
         gastos_qs = liquidacion.gastos.filter(aceptado=True).order_by('fecha_gasto', 'id')
         gastos_filas = [
@@ -1525,7 +1530,14 @@ def _resumen_liquidacion_caratula(*, reserva=None, contrato=None, liquidacion=No
     }
 
 
-def _ctx_liquidacion_operacion(*, reserva=None, contrato=None):
+def _ctx_liquidacion_operacion(
+    *,
+    reserva=None,
+    contrato=None,
+    cuotas_enriquecidas=None,
+    movimientos=None,
+    estado_op_princ=None,
+):
     """Enlace a crear o ver liquidación del propietario para esta operación."""
     ctx = {
         'liquidacion_operacion': None,
@@ -1563,9 +1575,17 @@ def _ctx_liquidacion_operacion(*, reserva=None, contrato=None):
             .order_by('-id')
             .first()
         )
-        resumen_ctr = _resumen_liquidacion_contrato_caratula(contrato, contrato.sucursal)
+        resumen_ctr = _resumen_liquidacion_contrato_caratula(
+            contrato,
+            contrato.sucursal,
+            cuotas_list=cuotas_enriquecidas,
+            movimientos=movimientos,
+        )
         proxima = resumen_ctr.get('proxima_cuota_liquidar')
-        estado_op_princ = _estado_liquidacion_operacion_principal_caratula(contrato, contrato.sucursal)
+        if estado_op_princ is None:
+            estado_op_princ = _estado_liquidacion_operacion_principal_caratula(
+                contrato, contrato.sucursal
+            )
 
         if liq_pendiente:
             ctx['liquidacion_operacion'] = liq_pendiente
@@ -1730,18 +1750,47 @@ def _tipo_label_contrato_caratula(contrato):
     return f'Contrato {dm} meses'
 
 
+def _liquidaciones_propiedad_contrato(contrato):
+    """Liquidaciones de la propiedad (cache en el contrato para reutilizar en la misma request)."""
+    if not contrato or not contrato.propiedad_id:
+        return []
+    cached = getattr(contrato, '_cache_liqs_propiedad', None)
+    if cached is not None:
+        return cached
+    liqs = list(
+        LiquidacionPropietario.objects.filter(propiedad_id=contrato.propiedad_id)
+        .exclude(estado='cancelada')
+        .order_by('id')
+        .only(
+            'id',
+            'estado',
+            'operaciones_incluidas',
+            'propiedad_id',
+            'contrato_id',
+            'reserva_id',
+            'fecha_creacion',
+            'fecha_procesamiento',
+            'comision_locador',
+            'comision_locatario',
+        )
+    )
+    contrato._cache_liqs_propiedad = liqs
+    return liqs
+
+
 def _mapa_liquidacion_por_cuota_contrato(contrato):
     """cuota_id → última liquidación que la incluyó."""
     out = {}
     if not contrato or not contrato.propiedad_id:
         return out
-    cuota_ids = set(contrato.cuotas.values_list('id', flat=True))
-    for liq in (
-        LiquidacionPropietario.objects.filter(propiedad_id=contrato.propiedad_id)
-        .exclude(estado='cancelada')
-        .order_by('id')
-        .only('id', 'estado', 'operaciones_incluidas')
-    ):
+    cached = getattr(contrato, '_cache_mapa_liq_cuota', None)
+    if cached is not None:
+        return cached
+    if 'cuotas' in getattr(contrato, '_prefetched_objects_cache', {}):
+        cuota_ids = {int(c.id) for c in contrato.cuotas.all()}
+    else:
+        cuota_ids = set(contrato.cuotas.values_list('id', flat=True))
+    for liq in _liquidaciones_propiedad_contrato(contrato):
         for op in liq.operaciones_incluidas or []:
             if not isinstance(op, dict):
                 continue
@@ -1750,7 +1799,7 @@ def _mapa_liquidacion_por_cuota_contrato(contrato):
             if tlo == 'contrato_cuota':
                 try:
                     ids_cuota.append(int(op['id']))
-                except (TypeError, ValueError):
+                except (TypeError, ValueError, KeyError):
                     pass
             for raw in op.get('cuotas_ids') or op.get('cuota_ids') or []:
                 try:
@@ -1760,10 +1809,11 @@ def _mapa_liquidacion_por_cuota_contrato(contrato):
             for cid in ids_cuota:
                 if cid in cuota_ids:
                     out[cid] = liq
+    contrato._cache_mapa_liq_cuota = out
     return out
 
 
-def _cuotas_liquidables_contrato(contrato, sucursal):
+def _cuotas_liquidables_contrato(contrato, sucursal, movimientos=None):
     """
     Cuotas que corresponden a liquidar del contrato.
     Incluye cobradas no liquidadas y cuotas anticipadas del plan (cualquier duración).
@@ -1775,13 +1825,17 @@ def _cuotas_liquidables_contrato(contrato, sucursal):
 
     if not contrato or not contrato.propiedad_id:
         return set()
+    cache_key = '_cache_cuotas_liquidables_ids'
+    if movimientos is not None and getattr(contrato, cache_key, None) is not None:
+        return getattr(contrato, cache_key)
     cuotas_excluidas = _cuotas_excluidas_por_liquidaciones_contrato(contrato.propiedad)
     out = set()
     for cuota, _monto, _parcial, _anticipada in _cuotas_liquidables_para_contrato(
-        contrato, cuotas_excluidas, sucursal
+        contrato, cuotas_excluidas, sucursal, movimientos=movimientos
     ):
         out.add(cuota.id)
-
+    if movimientos is not None:
+        setattr(contrato, cache_key, out)
     return out
 
 
@@ -1809,11 +1863,12 @@ def _ultima_liquidacion_contrato_id(contrato):
 def _enriquecer_cuotas_liquidacion(cuotas_list, contrato, sucursal, movimientos=None):
     from inmobiliaria.cuotas_imputacion import (
         cuota_ids_mismo_recibo,
+        mapa_cuota_ids_por_movimiento,
         mapa_movimientos_recibo_por_cuota_id,
     )
 
     mapa_liq = _mapa_liquidacion_por_cuota_contrato(contrato)
-    liquidables = _cuotas_liquidables_contrato(contrato, sucursal)
+    liquidables = _cuotas_liquidables_contrato(contrato, sucursal, movimientos=movimientos)
     movs = list(movimientos or [])
     if movs and not any(getattr(c, 'recibos_cobro', None) for c in cuotas_list):
         recibos_map = mapa_movimientos_recibo_por_cuota_id(cuotas_list, movs)
@@ -1822,6 +1877,8 @@ def _enriquecer_cuotas_liquidacion(cuotas_list, contrato, sucursal, movimientos=
 
     cuotas_by_id = {int(c.id): c for c in cuotas_list}
     grupos_liquidar: dict[tuple, int] = {}
+    # Un solo mapa de recibo→cuotas (antes se reconstruía por cada cuota liquidable)
+    mapa_mov = mapa_cuota_ids_por_movimiento(cuotas_list, movs) if movs else {}
 
     for c in cuotas_list:
         liq = mapa_liq.get(c.id)
@@ -1844,6 +1901,7 @@ def _enriquecer_cuotas_liquidacion(cuotas_list, contrato, sucursal, movimientos=
                 cuotas_list,
                 movs,
                 solo_ids=liquidables,
+                mapa_mov=mapa_mov,
             )
             if c.es_anticipada_liquidable:
                 grupo_ids = [int(c.id)]
@@ -1933,15 +1991,20 @@ def _estado_liquidacion_operacion_principal_caratula(contrato, sucursal):
     return ctx
 
 
-def _resumen_liquidacion_contrato_caratula(contrato, sucursal):
+def _resumen_liquidacion_contrato_caratula(contrato, sucursal, cuotas_list=None, movimientos=None):
     """Conteo de cuotas liquidadas vs pendientes de liquidar."""
-    cuotas = list(contrato.cuotas.all().order_by('numero_cuota'))
-    _enriquecer_cuotas_liquidacion(cuotas, contrato, sucursal)
-    liquidadas = sum(1 for c in cuotas if c.liq_estado == 'liquidada')
-    pendientes = sum(1 for c in cuotas if c.liq_estado == 'pendiente')
+    if cuotas_list is not None and cuotas_list and hasattr(cuotas_list[0], 'liq_estado'):
+        cuotas = list(cuotas_list)
+    else:
+        cuotas = list(cuotas_list) if cuotas_list is not None else list(
+            contrato.cuotas.all().order_by('numero_cuota')
+        )
+        _enriquecer_cuotas_liquidacion(cuotas, contrato, sucursal, movimientos=movimientos)
+    liquidadas = sum(1 for c in cuotas if getattr(c, 'liq_estado', None) == 'liquidada')
+    pendientes = sum(1 for c in cuotas if getattr(c, 'liq_estado', None) == 'pendiente')
     proxima = next((c for c in cuotas if getattr(c, 'mostrar_btn_liquidar', False)), None)
     if proxima is None:
-        proxima = next((c for c in cuotas if c.liq_estado == 'pendiente'), None)
+        proxima = next((c for c in cuotas if getattr(c, 'liq_estado', None) == 'pendiente'), None)
     return {
         'total_cuotas': len(cuotas),
         'cuotas_liquidadas': liquidadas,
@@ -3584,29 +3647,10 @@ def caratula_contrato(request, contrato_id):
         override=override,
         puede_editar_fechas=_puede_editar_caratula(request.user),
     )
-    honorarios_ctx.update(
-        _estado_liquidacion_operacion_principal_caratula(contrato, contrato.sucursal)
-    )
+    estado_op_princ = _estado_liquidacion_operacion_principal_caratula(contrato, contrato.sucursal)
+    honorarios_ctx.update(estado_op_princ)
 
-    if honorarios_ctx.get('base_comisiones', 0) > Decimal('0.05'):
-        from inmobiliaria.models.comision import asegurar_comisiones_contrato
-
-        movs_op = sorted(movimientos, key=lambda x: (x.fecha, x.id)) if movimientos else []
-        asegurar_comisiones_contrato(
-            contrato,
-            honorarios_monto=honorarios_ctx['base_comisiones'],
-            movimiento_caja=movs_op[0] if movs_op else None,
-        )
-        honorarios_ctx = _ctx_honorarios_comisiones_caratula_contrato(
-            contrato,
-            movimientos,
-            liquidacion=liquidacion_hon,
-            override=override,
-            puede_editar_fechas=_puede_editar_caratula(request.user),
-        )
-        honorarios_ctx.update(
-            _estado_liquidacion_operacion_principal_caratula(contrato, contrato.sucursal)
-        )
+    # No escribir comisiones en GET: se aseguran al guardar / agregar productor.
 
     montos_override = _montos_override_contrato_caratula(request, contrato.id)
     caratula_legacy = _build_legacy_contrato(
@@ -3654,7 +3698,12 @@ def caratula_contrato(request, contrato_id):
         'reserva': contrato,
         'reserva_estado_choices': ContratoAlquiler._meta.get_field('estado').choices,
         'form_caratula_contrato_id': 'form-editar-caratula-contrato',
-        **_ctx_liquidacion_operacion(contrato=contrato),
+        **_ctx_liquidacion_operacion(
+            contrato=contrato,
+            cuotas_enriquecidas=cuotas_list,
+            movimientos=movimientos,
+            estado_op_princ=estado_op_princ,
+        ),
         'volver_lista_url': _url_lista_caratulas_desde_request(request),
         **_ctx_estado_operacion_caratula(contrato=contrato, user=request.user),
         **_ctx_productores_operacion(

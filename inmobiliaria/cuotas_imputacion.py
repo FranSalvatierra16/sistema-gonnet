@@ -450,14 +450,20 @@ def imputar_cuotas_mensuales_desde_movimiento_1000(
 
 def payload_raiz_desde_movimiento_detalle(movimiento) -> dict:
     """Objeto JSON raíz de concepto_detalle (p. ej. pago_cuota_mensual + cuota_id)."""
+    cached = getattr(movimiento, '_cache_payload_raiz_detalle', None)
+    if cached is not None:
+        return cached
     raw = (getattr(movimiento, 'concepto_detalle', None) or '').strip().lstrip('\ufeff')
     if not raw or not raw.startswith('{'):
+        movimiento._cache_payload_raiz_detalle = {}
         return {}
     try:
         data = json.loads(raw)
-        return data if isinstance(data, dict) else {}
+        out = data if isinstance(data, dict) else {}
     except (json.JSONDecodeError, TypeError, ValueError):
-        return {}
+        out = {}
+    movimiento._cache_payload_raiz_detalle = out
+    return out
 
 
 def movimiento_imputa_cuota(movimiento, cuota, *, operacion_principal: bool = False) -> bool:
@@ -470,7 +476,12 @@ def movimiento_imputa_cuota(movimiento, cuota, *, operacion_principal: bool = Fa
     if payload.get('pago_cuota_mensual') and int(payload.get('cuota_id') or 0) == cuota_id:
         return True
 
-    for it in lineas_imputables_desde_movimiento(movimiento, operacion_principal=operacion_principal):
+    cache_key = '_cache_lineas_imputables_op' if operacion_principal else '_cache_lineas_imputables'
+    lineas = getattr(movimiento, cache_key, None)
+    if lineas is None:
+        lineas = lineas_imputables_desde_movimiento(movimiento, operacion_principal=operacion_principal)
+        setattr(movimiento, cache_key, lineas)
+    for it in lineas:
         raw_qid = str(it.get('cuota_objetivo_id') or '').strip()
         if raw_qid.isdigit() and int(raw_qid) == cuota_id:
             return True
@@ -502,12 +513,38 @@ def movimientos_recibo_por_cuota(cuota, movimientos_iterable) -> list:
 
 
 def mapa_movimientos_recibo_por_cuota_id(cuotas, movimientos_iterable) -> dict[int, list]:
-    return {int(c.id): movimientos_recibo_por_cuota(c, movimientos_iterable) for c in cuotas}
+    """cuota_id → movimientos/recibos que la imputan (una sola pasada)."""
+    cuotas_list = list(cuotas)
+    movs = list(movimientos_iterable)
+    out: dict[int, list] = {int(c.id): [] for c in cuotas_list}
+    vistos: dict[int, set[int]] = {int(c.id): set() for c in cuotas_list}
+
+    for mov in movs:
+        mid = int(mov.id)
+        for c in cuotas_list:
+            cid = int(c.id)
+            if mid in vistos[cid]:
+                continue
+            if movimiento_imputa_cuota(mov, c):
+                vistos[cid].add(mid)
+                out[cid].append(mov)
+
+    for c in cuotas_list:
+        cid = int(c.id)
+        if c.movimiento_id and int(c.movimiento_id) not in vistos[cid]:
+            mov_final = getattr(c, 'movimiento', None)
+            if mov_final is not None:
+                out[cid].append(mov_final)
+
+    for cid, lista in out.items():
+        lista.sort(key=lambda m: (m.fecha, m.id))
+    return out
 
 
 def mapa_cuota_ids_por_movimiento(cuotas, movimientos_iterable) -> dict[int, list[int]]:
     """movimiento_id → cuotas imputadas por ese recibo (ordenadas por número de cuota)."""
-    cuotas_by_id = {int(c.id): c for c in cuotas}
+    cuotas_list = list(cuotas)
+    cuotas_by_id = {int(c.id): c for c in cuotas_list}
     out: dict[int, set[int]] = {}
 
     def _add(mid: int, cid: int) -> None:
@@ -515,11 +552,11 @@ def mapa_cuota_ids_por_movimiento(cuotas, movimientos_iterable) -> dict[int, lis
 
     for mov in movimientos_iterable:
         mid = int(mov.id)
-        for c in cuotas:
+        for c in cuotas_list:
             if movimiento_imputa_cuota(mov, c):
                 _add(mid, int(c.id))
 
-    for c in cuotas:
+    for c in cuotas_list:
         if c.movimiento_id:
             _add(int(c.movimiento_id), int(c.id))
 
@@ -531,6 +568,9 @@ def mapa_cuota_ids_por_movimiento(cuotas, movimientos_iterable) -> dict[int, lis
 
 def movimiento_recibo_principal_cuota(cuota, movimientos_iterable=None) -> int | None:
     """ID del movimiento de caja que cobró esta cuota (recibo principal)."""
+    recibos_attr = getattr(cuota, 'recibos_cobro', None)
+    if recibos_attr:
+        return int(recibos_attr[0].id)
     recibos = movimientos_recibo_por_cuota(cuota, movimientos_iterable or [])
     if recibos:
         return int(recibos[0].id)
@@ -545,17 +585,21 @@ def cuota_ids_mismo_recibo(
     movimientos_iterable,
     *,
     solo_ids: set[int] | None = None,
+    mapa_mov: dict | None = None,
 ) -> list[int]:
     """
     Cuotas del mismo recibo que la cuota dada.
     Si solo_ids está definido, limita a ese subconjunto (p. ej. liquidables).
+    mapa_mov: cache opcional de mapa_cuota_ids_por_movimiento (evita rebuild O(n²)).
     """
     mid = movimiento_recibo_principal_cuota(cuota, movimientos_iterable)
     if mid is None:
         cid = int(cuota.id)
         return [cid] if solo_ids is None or cid in solo_ids else []
 
-    mapa = mapa_cuota_ids_por_movimiento(cuotas_iterable, movimientos_iterable)
+    mapa = mapa_mov if mapa_mov is not None else mapa_cuota_ids_por_movimiento(
+        cuotas_iterable, movimientos_iterable
+    )
     ids = mapa.get(mid, [int(cuota.id)])
     if solo_ids is not None:
         ids = [i for i in ids if i in solo_ids]
@@ -564,24 +608,20 @@ def cuota_ids_mismo_recibo(
 
 def movimientos_ingreso_contrato(contrato, *, limite: int = 300) -> list:
     """Ingresos de caja vinculados a este contrato (para agrupar cuotas por recibo)."""
-    import re
-
     from inmobiliaria.models.caja import MovimientoCaja, TipoMovimientoCajaEnum
 
     if not contrato or not getattr(contrato, 'propiedad_id', None):
         return []
-    movimientos = []
-    movs_qs = (
+    cid = int(contrato.id)
+    # Filtrar en SQL (evita traer 300 ingresos ajenos y recorrerlos en Python)
+    return list(
         MovimientoCaja.objects.filter(
             propiedad_id=contrato.propiedad_id,
             sucursal_id=contrato.sucursal_id,
             tipo=TipoMovimientoCajaEnum.INGRESO,
+            fecha_eliminacion__isnull=True,
+            concepto__icontains=f'Contrato #{cid}',
         )
         .select_related('recibo')
-        .order_by('-fecha')
+        .order_by('-fecha')[:limite]
     )
-    patron = re.compile(rf'Contrato\s*#\s*{int(contrato.id)}\b', re.IGNORECASE)
-    for mov in movs_qs[:limite]:
-        if mov.concepto and patron.search(mov.concepto):
-            movimientos.append(mov)
-    return movimientos

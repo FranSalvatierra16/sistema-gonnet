@@ -25312,6 +25312,10 @@ def _cuotas_excluidas_por_liquidaciones_contrato(propiedad):
     - Liquidaciones en estado pendiente: solo excluyen las cuotas que figuran
       explícitamente en operaciones_incluidas (no bloquean el resto del contrato).
     """
+    cached = getattr(propiedad, '_cache_cuotas_excluidas_liq', None) if propiedad else None
+    if cached is not None:
+        return cached
+
     cuotas_excluidas = set()
     qs = (
         LiquidacionPropietario.objects.filter(propiedad=propiedad)
@@ -25394,6 +25398,8 @@ def _cuotas_excluidas_por_liquidaciones_contrato(propiedad):
                 fecha_pago__lte=ref_fecha,
             ).values_list('id', flat=True):
                 cuotas_excluidas.add(cq_id)
+    if propiedad is not None:
+        propiedad._cache_cuotas_excluidas_liq = cuotas_excluidas
     return cuotas_excluidas
 
 
@@ -25422,20 +25428,29 @@ def _reserva_ids_ya_liquidadas_propiedad(propiedad):
     return usados
 
 
-def _importe_cobrado_cuota_en_movimientos_caja(contrato, cuota, sucursal):
-    """Suma importes de conceptos 1000/29 imputados a esta cuota en ingresos de caja."""
+def _mapa_importe_cobrado_cuotas_en_movimientos_caja(contrato, cuota_ids, sucursal, movimientos=None):
+    """Una sola pasada de movimientos → importe cobrado por cuota (evita N+1)."""
     from inmobiliaria.cuotas_imputacion import (
         lineas_imputables_desde_movimiento,
         payload_raiz_desde_movimiento_detalle,
     )
 
-    total = Decimal('0')
-    movs = MovimientoCaja.objects.filter(
-        propiedad=contrato.propiedad,
-        sucursal=sucursal,
-        tipo=TipoMovimientoCajaEnum.INGRESO,
-        fecha_eliminacion__isnull=True,
-    ).filter(concepto__icontains=f'Contrato #{contrato.id}')
+    ids = {int(x) for x in (cuota_ids or ())}
+    totals = {cid: Decimal('0') for cid in ids}
+    if not ids:
+        return totals
+
+    if movimientos is None:
+        movs = MovimientoCaja.objects.filter(
+            propiedad=contrato.propiedad,
+            sucursal=sucursal,
+            tipo=TipoMovimientoCajaEnum.INGRESO,
+            fecha_eliminacion__isnull=True,
+            concepto__icontains=f'Contrato #{contrato.id}',
+        )
+    else:
+        movs = movimientos
+
     for mov in movs:
         payload = payload_raiz_desde_movimiento_detalle(mov)
         payload_cuota_id = int(payload.get('cuota_id') or 0) if payload.get('pago_cuota_mensual') else 0
@@ -25443,25 +25458,60 @@ def _importe_cobrado_cuota_en_movimientos_caja(contrato, cuota, sucursal):
             raw_q = str(line.get('cuota_objetivo_id') or '').strip()
             if not raw_q.isdigit() and payload_cuota_id:
                 raw_q = str(payload_cuota_id)
-            if not raw_q.isdigit() or int(raw_q) != int(cuota.id):
+            if not raw_q.isdigit():
+                continue
+            cid = int(raw_q)
+            if cid not in totals:
                 continue
             imp = parse_decimal_monto(line.get('importe'))
             if imp > 0:
-                total += imp
-    return total
+                totals[cid] += imp
+    return totals
 
 
-def _cuotas_cobro_parcial_liquidable(contrato, cuotas_excluidas, sucursal):
+def _importe_cobrado_cuota_en_movimientos_caja(contrato, cuota, sucursal, movimientos=None):
+    """Suma importes de conceptos 1000/29 imputados a esta cuota en ingresos de caja."""
+    mapa = _mapa_importe_cobrado_cuotas_en_movimientos_caja(
+        contrato, [cuota.id], sucursal, movimientos=movimientos
+    )
+    return mapa.get(int(cuota.id), Decimal('0'))
+
+
+def _cuotas_cobro_parcial_liquidable(contrato, cuotas_excluidas, sucursal, movimientos=None):
     """
     Cuotas aún pendientes/vencidas con cobro registrado (adelanto en plan o solo en caja)
     que aún no entraron en una liquidación.
     """
     out = []
-    for cuota in contrato.cuotas.filter(estado__in=['pendiente', 'vencida']).order_by('numero_cuota'):
-        if cuota.id in cuotas_excluidas:
-            continue
+    if 'cuotas' in getattr(contrato, '_prefetched_objects_cache', {}):
+        pendientes = [
+            c for c in contrato.cuotas.all()
+            if c.estado in ('pendiente', 'vencida')
+        ]
+        pendientes.sort(key=lambda c: int(c.numero_cuota or 0))
+    else:
+        pendientes = list(
+            contrato.cuotas.filter(estado__in=['pendiente', 'vencida']).order_by('numero_cuota')
+        )
+    candidatas = [c for c in pendientes if c.id not in (cuotas_excluidas or ())]
+    if not candidatas:
+        return out
+
+    need_caja_ids = []
+    for cuota in candidatas:
         cred = Decimal(str(cuota.credito_aplicado or 0))
-        cobrado_caja = _importe_cobrado_cuota_en_movimientos_caja(contrato, cuota, sucursal)
+        if cred <= Decimal('0.05'):
+            need_caja_ids.append(int(cuota.id))
+
+    mapa_caja = {}
+    if need_caja_ids:
+        mapa_caja = _mapa_importe_cobrado_cuotas_en_movimientos_caja(
+            contrato, need_caja_ids, sucursal, movimientos=movimientos
+        )
+
+    for cuota in candidatas:
+        cred = Decimal(str(cuota.credito_aplicado or 0))
+        cobrado_caja = mapa_caja.get(int(cuota.id), Decimal('0'))
         monto = cred if cred > Decimal('0.05') else cobrado_caja
         if monto <= Decimal('0.05'):
             continue
@@ -25605,12 +25655,28 @@ def _liquidacion_operacion_principal_contrato(contrato):
     """Liquidación no cancelada con honorarios / operación principal del contrato."""
     if not contrato or not contrato.propiedad_id:
         return None
-    cuota1_ids = set(contrato.cuotas.filter(numero_cuota=1).values_list('id', flat=True))
-    for liq in (
-        LiquidacionPropietario.objects.filter(propiedad_id=contrato.propiedad_id)
-        .exclude(estado='cancelada')
-        .order_by('-id')
-    ):
+    cached = getattr(contrato, '_cache_liq_operacion_principal', None)
+    if cached is not None or getattr(contrato, '_cache_liq_operacion_principal_checked', False):
+        return cached
+
+    cuota1_ids = set(
+        c.id for c in contrato.cuotas.all() if int(getattr(c, 'numero_cuota', 0) or 0) == 1
+    )
+    if not cuota1_ids and 'cuotas' not in getattr(contrato, '_prefetched_objects_cache', {}):
+        cuota1_ids = set(contrato.cuotas.filter(numero_cuota=1).values_list('id', flat=True))
+
+    liqs = getattr(contrato, '_cache_liqs_propiedad', None)
+    if liqs is None:
+        liqs = list(
+            LiquidacionPropietario.objects.filter(propiedad_id=contrato.propiedad_id)
+            .exclude(estado='cancelada')
+            .order_by('id')
+            .only('id', 'estado', 'operaciones_incluidas', 'propiedad_id')
+        )
+        contrato._cache_liqs_propiedad = liqs
+
+    found = None
+    for liq in reversed(liqs):
         for op in liq.operaciones_incluidas or []:
             if not isinstance(op, dict):
                 continue
@@ -25618,16 +25684,23 @@ def _liquidacion_operacion_principal_contrato(contrato):
             if t == 'contrato_operacion_principal':
                 try:
                     if int(op.get('id')) == contrato.id:
-                        return liq
+                        found = liq
+                        break
                 except (TypeError, ValueError):
                     pass
             if t == 'contrato_cuota' and op.get('es_primera_cuota_mensual'):
                 try:
                     if int(op.get('id')) in cuota1_ids:
-                        return liq
+                        found = liq
+                        break
                 except (TypeError, ValueError):
                     pass
-    return None
+        if found is not None:
+            break
+
+    contrato._cache_liq_operacion_principal = found
+    contrato._cache_liq_operacion_principal_checked = True
+    return found
 
 
 def _operacion_principal_liquidada_contrato(contrato) -> bool:
@@ -25724,15 +25797,17 @@ def _mes_vigente_contrato(contrato, hoy=None):
     return max(1, mes)
 
 
-def _cuotas_liquidables_para_contrato(contrato, cuotas_excluidas, sucursal, ids_ya_en_lista=None):
+def _cuotas_liquidables_para_contrato(contrato, cuotas_excluidas, sucursal, ids_ya_en_lista=None, movimientos=None):
     """
     Cuotas incluibles en liquidación para un contrato por cuotas mensuales.
     Incluye cobradas, cobro parcial y cuotas anticipadas del plan (todas las duraciones).
     """
-    return _cuotas_en_ventana_liquidacion(contrato, cuotas_excluidas, sucursal, ids_ya_en_lista)
+    return _cuotas_en_ventana_liquidacion(
+        contrato, cuotas_excluidas, sucursal, ids_ya_en_lista, movimientos=movimientos
+    )
 
 
-def _cuotas_en_ventana_liquidacion(contrato, cuotas_excluidas, sucursal, ids_ya_en_lista=None):
+def _cuotas_en_ventana_liquidacion(contrato, cuotas_excluidas, sucursal, ids_ya_en_lista=None, movimientos=None):
     """
     Cuotas liquidables del plan: todas las que aún no figuran en otra liquidación
     (cobradas, con cobro parcial o anticipadas pendientes de cobro).
@@ -25743,10 +25818,20 @@ def _cuotas_en_ventana_liquidacion(contrato, cuotas_excluidas, sucursal, ids_ya_
     limite_num = duracion
     ids_excl = set(cuotas_excluidas or ()) | set(ids_ya_en_lista or ())
     parciales_map = {
-        c.id: m for c, m in _cuotas_cobro_parcial_liquidable(contrato, cuotas_excluidas, sucursal)
+        c.id: m
+        for c, m in _cuotas_cobro_parcial_liquidable(
+            contrato, cuotas_excluidas, sucursal, movimientos=movimientos
+        )
     }
     out = []
-    for cuota in contrato.cuotas.filter(numero_cuota__lte=limite_num).order_by('numero_cuota'):
+    if 'cuotas' in getattr(contrato, '_prefetched_objects_cache', {}):
+        cuotas_iter = sorted(
+            (c for c in contrato.cuotas.all() if int(c.numero_cuota or 0) <= limite_num),
+            key=lambda c: int(c.numero_cuota or 0),
+        )
+    else:
+        cuotas_iter = contrato.cuotas.filter(numero_cuota__lte=limite_num).order_by('numero_cuota')
+    for cuota in cuotas_iter:
         if cuota.id in ids_excl:
             continue
         if cuota.id in parciales_map:
