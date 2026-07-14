@@ -2764,6 +2764,8 @@ def _build_legacy_reserva(
         'comision_locador': _formato_importe_us(0),
         'comision_locatario': _formato_importe_us(comision_total),
         'comisiones_total': _formato_importe_us(comision_total),
+        'moneda': getattr(reserva, 'moneda', None) or 'ARS',
+        'simbolo_moneda': 'U$S' if (getattr(reserva, 'moneda', None) or 'ARS') == 'USD' else '$',
         'comisiones_vendedor': [],
         'comision_productor_total': _formato_importe_us(0),
         'recibo_locador': recibo_loc,

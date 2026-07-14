@@ -784,7 +784,7 @@
                         <div style="display: flex; flex-direction: column; align-items: end; text-align: right; min-width: 250px;">
                             <div style="margin-bottom: 0.5rem;">
                                 <div style="font-size: 1.2rem; font-weight: bold; color: #2c3e50;">
-                                    💰 ${{ op.precio_total|format_price }}
+                                    💰 {{ op.precio_total|format_importe_moneda:op.moneda }}
                                 </div>
                                 <small class="text-muted">Precio Total</small>
                             </div>

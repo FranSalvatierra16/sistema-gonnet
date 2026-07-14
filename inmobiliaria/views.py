@@ -4557,6 +4557,8 @@ def confirmar_reserva(request):
                 inquilino_id = request.POST.get('inquilino_id')
                 precio = request.POST.get('precio_total', '0')
                 es_operacion_directa = request.POST.get('es_operacion_directa') == '1'
+                moneda_raw = (request.POST.get('moneda') or 'ARS').strip().upper()
+                moneda = 'USD' if moneda_raw == 'USD' else 'ARS'
 
                 # Convertir fechas
                 try:
@@ -4622,6 +4624,7 @@ def confirmar_reserva(request):
                     vendedor=vendedor,
                     cliente=inquilino,
                     precio_total=precio_total_dec,
+                    moneda=moneda,
                     estado='confirmada_no_pagada',
                     sucursal=request.user.sucursal  # Asignar la sucursal del usuario
                 )
@@ -6522,7 +6525,14 @@ def procesar_movimiento_reserva(request):
                 tipo=TipoMovimientoCajaEnum.INGRESO,
                 concepto__icontains=f"Operaci\u00f3n {reserva.id}"
             )
-            total_pagos_anteriores = sum(pago.monto_total for pago in pagos_anteriores)
+            total_pagos_anteriores = sum(
+                (pago.monto_efectivo or 0)
+                + (pago.monto_cheque or 0)
+                + (pago.monto_tarjeta or 0)
+                + (pago.monto_deposito or 0)
+                + (getattr(pago, 'monto_dolares', None) or 0)
+                for pago in pagos_anteriores
+            )
             es_completar_pago = total_pagos_anteriores > 0
             
 # print(f"🔍 DETECTANDO TIPO DE OPERACIÓN:")
@@ -6564,8 +6574,25 @@ def procesar_movimiento_reserva(request):
                 monto_efectivo = obtener_decimal('monto_efectivo', 'Importe efectivo')
                 monto_cheque = obtener_decimal('monto_cheque', 'Importe cheque')
                 monto_tarjeta = obtener_decimal('monto_tarjeta', 'Importe tarjeta')
+                monto_dolares = obtener_decimal('monto_dolares', 'Importe USD')
             except ValueError as exc:
                 return JsonResponse({'success': False, 'error': str(exc)})
+
+            moneda_raw = (request.POST.get('moneda') or getattr(reserva, 'moneda', None) or 'ARS').strip().upper()
+            moneda_op = 'USD' if moneda_raw == 'USD' else 'ARS'
+            if moneda_op != (getattr(reserva, 'moneda', None) or 'ARS'):
+                reserva.moneda = moneda_op
+                reserva.save(update_fields=['moneda'])
+
+            cotizacion_dolar = None
+            cotiz_raw = (request.POST.get('cotizacion_dolar') or '').strip()
+            if cotiz_raw:
+                try:
+                    cotizacion_dolar = obtener_decimal('cotizacion_dolar', 'Cotización dólar')
+                    if cotizacion_dolar <= 0:
+                        cotizacion_dolar = None
+                except ValueError as exc:
+                    return JsonResponse({'success': False, 'error': str(exc)})
             
             # ✅ Obtener cuentas bancarias dinámicamente
             from inmobiliaria.models.sucursal import CuentaBancaria
@@ -6605,6 +6632,12 @@ def procesar_movimiento_reserva(request):
             
             # Usar el total dinámico o el legacy como fallback
             monto_deposito = monto_deposito_total if monto_deposito_total > 0 else monto_deposito_legacy
+
+            if moneda_op == 'USD':
+                monto_efectivo = Decimal('0')
+                monto_cheque = Decimal('0')
+                monto_tarjeta = Decimal('0')
+                monto_deposito = Decimal('0')
             
 # print(f"=== VALORES RAW RECIBIDOS ===")
 # print(f"monto_efectivo RAW: '{request.POST.get('monto_efectivo', '0')}'")
@@ -6616,7 +6649,13 @@ def procesar_movimiento_reserva(request):
 # print(f"=== VALORES CONVERTIDOS A DECIMAL ===")
 # print(f"Montos recibidos - Efectivo: {monto_efectivo}, Cheque: {monto_cheque}, Tarjeta: {monto_tarjeta}")
 # print(f"Transferencias dinámicas: ${monto_deposito_total}, Legacy: ${monto_deposito_legacy}, Total final: ${monto_deposito}")
-            total_movimientos = (monto_efectivo or 0) + (monto_cheque or 0) + (monto_tarjeta or 0) + (monto_deposito or 0)
+            total_movimientos = (
+                (monto_efectivo or 0)
+                + (monto_cheque or 0)
+                + (monto_tarjeta or 0)
+                + (monto_deposito or 0)
+                + (monto_dolares or 0)
+            )
 # print(f"TOTAL A CREAR EN MOVIMIENTOS: {total_movimientos}")
             
             # Datos adicionales
@@ -6731,9 +6770,24 @@ def procesar_movimiento_reserva(request):
                     concepto_detallado = concepto_detallado[:197] + "..."
             
 # print(f"📝 CONCEPTO FINAL: {concepto_detallado}")
+
+            if moneda_op == 'USD':
+                if total_conceptos > 0 and monto_dolares <= 0:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Operación en USD: cargá el importe en el campo USD (efectivo).',
+                    })
+                if total_conceptos > 0 and abs(monto_dolares - total_conceptos) > Decimal('0.05'):
+                    return JsonResponse({
+                        'success': False,
+                        'error': (
+                            f'En USD, el importe dólares (U$S {monto_dolares}) debe coincidir '
+                            f'con el total de conceptos (U$S {total_conceptos}).'
+                        ),
+                    })
             
             # Crear movimiento principal con concepto detallado
-            movimiento_principal = MovimientoCaja.objects.create(
+            create_kwargs = dict(
                 caja=caja_actual,
                 sucursal=request.user.sucursal,
                 tipo=TipoMovimientoCajaEnum.INGRESO,
@@ -6745,9 +6799,13 @@ def procesar_movimiento_reserva(request):
                 monto_cheque=monto_cheque,
                 monto_tarjeta=monto_tarjeta,
                 monto_deposito=monto_deposito,
+                monto_dolares=monto_dolares,
                 numero_liquidacion=numero_recibo,
-                empleado=request.user
+                empleado=request.user,
             )
+            if cotizacion_dolar is not None:
+                create_kwargs['cotizacion_dolar'] = cotizacion_dolar
+            movimiento_principal = MovimientoCaja.objects.create(**create_kwargs)
             
             # Crear movimientos separados para transferencias si existen
             movimientos_creados = [movimiento_principal]
@@ -6794,7 +6852,13 @@ def procesar_movimiento_reserva(request):
                     return JsonResponse({'success': False, 'error': 'Fecha de transferencia inválida.'})
                 movimiento_principal.save(update_fields=['fecha_transferencia'])
             
-            total_movimiento_creado = (monto_efectivo or 0) + (monto_cheque or 0) + (monto_tarjeta or 0) + (monto_deposito or 0)
+            total_movimiento_creado = (
+                (monto_efectivo or 0)
+                + (monto_cheque or 0)
+                + (monto_tarjeta or 0)
+                + (monto_deposito or 0)
+                + (monto_dolares or 0)
+            )
 # print(f"✅ MOVIMIENTO ÚNICO CREADO - ID: {movimiento_principal.id}, Total: ${total_movimiento_creado}")
 
             # Honorarios (concepto 25) en este pago — base para comisiones desglosadas
@@ -6846,7 +6910,11 @@ def procesar_movimiento_reserva(request):
             )
             
             total_pagado_anteriormente = sum(
-                (mov.monto_efectivo or 0) + (mov.monto_cheque or 0) + (mov.monto_tarjeta or 0) + (mov.monto_deposito or 0)
+                (mov.monto_efectivo or 0)
+                + (mov.monto_cheque or 0)
+                + (mov.monto_tarjeta or 0)
+                + (mov.monto_deposito or 0)
+                + (getattr(mov, 'monto_dolares', None) or 0)
                 for mov in pagos_anteriores
             )
             
@@ -6886,7 +6954,13 @@ def procesar_movimiento_reserva(request):
 # print(f"   Los conceptos pueden incluir extras como gastos bancarios")
 # print(f"   Validación principal: formas de pago = total conceptos")
                 
-                monto_total_pagado = (monto_efectivo or 0) + (monto_cheque or 0) + (monto_tarjeta or 0) + (monto_deposito or 0)
+                monto_total_pagado = (
+                    (monto_efectivo or 0)
+                    + (monto_cheque or 0)
+                    + (monto_tarjeta or 0)
+                    + (monto_deposito or 0)
+                    + (monto_dolares or 0)
+                )
                 
 # print(f"✅ VALORES DIRECTOS DEL FORMULARIO:")
 # print(f"   - Depósito nuevo a agregar: ${deposito_garantia}")
@@ -6995,11 +7069,14 @@ def procesar_movimiento_reserva(request):
                     conceptos_detalle={
                         'conceptos': conceptos_completos,
                         'fecha_pago': timezone.now().strftime('%Y-%m-%d'),
+                        'moneda': moneda_op,
                         'formas_pago': {
                             'efectivo': float(monto_efectivo),
                             'cheque': float(monto_cheque),
                             'tarjeta': float(monto_tarjeta),
-                            'deposito': float(monto_deposito)
+                            'deposito': float(monto_deposito),
+                            'dolares': float(monto_dolares),
+                            'cotizacion_dolar': float(cotizacion_dolar) if cotizacion_dolar is not None else None,
                         }
                     }
                 )
@@ -20999,7 +21076,14 @@ def finalizar_reserva_nueva(request, reserva_id):
         )
 
         pagos_anteriores = movimientos_reserva(reserva, tipo=TipoMovimientoCajaEnum.INGRESO)
-        total_pagos_anteriores = sum(pago.monto_total for pago in pagos_anteriores)
+        total_pagos_anteriores = sum(
+            (pago.monto_efectivo or 0)
+            + (pago.monto_cheque or 0)
+            + (pago.monto_tarjeta or 0)
+            + (pago.monto_deposito or 0)
+            + (getattr(pago, 'monto_dolares', None) or 0)
+            for pago in pagos_anteriores
+        )
         total_senia_anteriores = total_senia_pagada_reserva(reserva)
         
 # print(f"📊 CÁLCULO PAGOS ANTERIORES:")
@@ -21089,6 +21173,8 @@ def finalizar_reserva_nueva(request, reserva_id):
             'deposito_estado': deposito_estado,  # ✅ Estado del depósito (pagado/pendiente)
             'fecha_desde': reserva.fecha_inicio.strftime('%d/%m/%Y'),
             'fecha_hasta': reserva.fecha_fin.strftime('%d/%m/%Y'),
+            'moneda_operacion': getattr(reserva, 'moneda', None) or 'ARS',
+            'simbolo_moneda': 'U$S' if (getattr(reserva, 'moneda', None) or 'ARS') == 'USD' else '$',
         }
         
         return render(request, 'inmobiliaria/reserva/finalizar_reserva_nueva.html', context)

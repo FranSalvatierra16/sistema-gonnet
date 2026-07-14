@@ -203,11 +203,13 @@ def deposito_estado_reserva(reserva) -> str:
 
 
 def _monto_total_movimiento(movimiento) -> Decimal:
+    """Total del movimiento: ARS + USD (efectivo dólar). Misma unidad que conceptos si la operación es USD."""
     return (
         Decimal(str(getattr(movimiento, 'monto_efectivo', None) or 0))
         + Decimal(str(getattr(movimiento, 'monto_cheque', None) or 0))
         + Decimal(str(getattr(movimiento, 'monto_tarjeta', None) or 0))
         + Decimal(str(getattr(movimiento, 'monto_deposito', None) or 0))
+        + Decimal(str(getattr(movimiento, 'monto_dolares', None) or 0))
     )
 
 
@@ -308,6 +310,7 @@ def _total_movimientos_rows(movimientos_rows) -> Decimal:
             + Decimal(str(mov.get('monto_cheque') or 0))
             + Decimal(str(mov.get('monto_tarjeta') or 0))
             + Decimal(str(mov.get('monto_deposito') or 0))
+            + Decimal(str(mov.get('monto_dolares') or 0))
         )
     return total.quantize(Decimal('0.01'))
 
@@ -515,6 +518,7 @@ def movimientos_ingreso_reservas_por_ids(sucursal_id, reserva_ids, propiedad_ids
         'monto_cheque',
         'monto_tarjeta',
         'monto_deposito',
+        'monto_dolares',
     )
     for row in qs.iterator(chunk_size=500):
         conc = row.get('concepto') or ''

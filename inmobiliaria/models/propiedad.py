@@ -564,6 +564,17 @@ class Reserva(models.Model):
     fecha_creacion = models.DateTimeField(default=now)
     vendedor = models.ForeignKey(Vendedor, on_delete=models.SET_NULL, null=True, related_name='reservas_vendedor')
     cliente = models.ForeignKey(Inquilino, on_delete=models.SET_NULL, null=True, related_name='reservas_cliente')
+    MONEDA_OPERACION_CHOICES = [
+        ('ARS', 'Pesos (ARS)'),
+        ('USD', 'Dólares (USD)'),
+    ]
+    moneda = models.CharField(
+        max_length=3,
+        choices=MONEDA_OPERACION_CHOICES,
+        default='ARS',
+        verbose_name='Moneda de la operación',
+        help_text='Moneda del precio, seña, depósito y cobros de la reserva (alquiler por día).',
+    )
     precio_total = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     senia = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     cuota_pendiente = models.DecimalField(max_digits=10, decimal_places=2, default=0)

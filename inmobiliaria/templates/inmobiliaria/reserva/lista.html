@@ -511,7 +511,7 @@
 
                             <!-- Información de Precio -->
                             <div class="reserva-price-info">
-                                <div class="price-badge">${{ reserva.precio_total|format_price }}</div>
+                                <div class="price-badge">{{ reserva.precio_total|format_importe_moneda:reserva.moneda }}</div>
                                 <small class="price-label">Precio Total</small>
                                 {% if reserva.senia_pagada %}
                                 <div class="senia-badge">${{ reserva.senia_pagada|format_price }}</div>

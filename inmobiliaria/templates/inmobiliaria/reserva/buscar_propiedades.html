@@ -1416,13 +1416,26 @@
             <!-- Precio Total -->
             <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 24px; border-radius: 12px; margin-bottom: 24px;">
                 <h4 style="color: #334155; margin: 0 0 16px 0; font-size: 16px; font-weight: 600;">Precio Total</h4>
-                <div style="position: relative;">
-                    <span style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); font-size: 18px; font-weight: 500; color: #64748b; z-index: 1;">$</span>
-                    <input type="text" id="precio_total_editable" inputmode="numeric" autocomplete="off"
-                           style="width: 100%; padding: 16px 16px 16px 40px; font-size: 18px; font-weight: 600; border: 1px solid #d1d5db; border-radius: 8px; background: white; transition: all 0.2s; color: #1e293b;"
-                           onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
-                           onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'; if(window.formatearPrecio){this.value=window.formatearPrecio(window.parseDecimalMontoJS(this.value));}">
+                <div style="display: flex; gap: 12px; align-items: stretch; margin-bottom: 12px;">
+                    <div style="min-width: 9rem;">
+                        <label for="moneda_operacion_modal" style="display:block; font-size: 13px; color: #64748b; margin-bottom: 6px;">Moneda</label>
+                        <select id="moneda_operacion_modal"
+                                style="width: 100%; padding: 12px 14px; font-size: 15px; font-weight: 600; border: 1px solid #d1d5db; border-radius: 8px; background: white; color: #1e293b;"
+                                onchange="actualizarSimboloMonedaModal()">
+                            <option value="ARS" selected>Pesos (ARS)</option>
+                            <option value="USD">Dólares (USD)</option>
+                        </select>
+                    </div>
+                    <div style="flex: 1; position: relative;">
+                        <label style="display:block; font-size: 13px; color: #64748b; margin-bottom: 6px;">Importe</label>
+                        <span id="simbolo_precio_modal" style="position: absolute; left: 16px; top: calc(50% + 10px); transform: translateY(-50%); font-size: 18px; font-weight: 500; color: #64748b; z-index: 1;">$</span>
+                        <input type="text" id="precio_total_editable" inputmode="numeric" autocomplete="off"
+                               style="width: 100%; padding: 16px 16px 16px 48px; font-size: 18px; font-weight: 600; border: 1px solid #d1d5db; border-radius: 8px; background: white; transition: all 0.2s; color: #1e293b;"
+                               onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
+                               onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'; if(window.formatearPrecio){this.value=window.formatearPrecio(window.parseDecimalMontoJS(this.value));}">
+                    </div>
                 </div>
+                <small style="color: #64748b; font-size: 13px;">Si elegís USD, la seña y el cobro se hacen en dólares.</small>
             </div>
 
             <!-- Vendedor -->
@@ -2660,6 +2673,13 @@ window.parseDecimalMontoJS = function(val) {
     return isNaN(n) ? 0 : n;
 };
 
+window.actualizarSimboloMonedaModal = function() {
+    const sel = document.getElementById('moneda_operacion_modal');
+    const sym = document.getElementById('simbolo_precio_modal');
+    if (!sym) return;
+    sym.textContent = (sel && sel.value === 'USD') ? 'U$S' : '$';
+};
+
 window.formatearPrecio = function(precio) {
     if (!precio && precio !== 0) return '0';
     
@@ -2930,6 +2950,8 @@ function confirmarReservaFinal() {
     formData.append('vendedor_id', vendedorId);
     formData.append('inquilino_id', inquilinoId);
     formData.append('es_operacion_directa', esOperacionDirecta ? '1' : '0');
+    const monedaSel = document.getElementById('moneda_operacion_modal');
+    formData.append('moneda', (monedaSel && monedaSel.value === 'USD') ? 'USD' : 'ARS');
     formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
     
     // Enviar al servidor

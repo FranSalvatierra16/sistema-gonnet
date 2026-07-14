@@ -34,7 +34,10 @@ function parseDecimalMontoJS(val) {
 
 // Seña ya pagada (número literal JS: sin separadores de miles ni coma decimal de Django)
 const SENIA_PAGADA = {% localize off %}{{ total_senia_pagada|default_if_none:0 }}{% endlocalize %};
-console.log('🔧 SENIA_PAGADA inicializada:', SENIA_PAGADA);
+const MONEDA_OP_INICIAL = '{{ moneda_operacion|default:"ARS" }}';
+let monedaOperacion = (MONEDA_OP_INICIAL || 'ARS').toUpperCase();
+function simboloMoneda() { return monedaOperacion === 'USD' ? 'U$S ' : '$'; }
+console.log('🔧 SENIA_PAGADA inicializada:', SENIA_PAGADA, 'moneda:', monedaOperacion);
 
 // ✅ VARIABLES GLOBALES PARA CONCEPTOS
 let conceptosAgregados = [];
@@ -125,17 +128,17 @@ function calcularSaldoOcupar() {
         
         const resumenPendiente = document.getElementById('resumen-pendiente');
         if (resumenPendiente) {
-            resumenPendiente.textContent = '$' + fmt(quedaPorPagar);
+            resumenPendiente.textContent = simboloMoneda() + fmt(quedaPorPagar);
         }
         
         const resumenPrecioTotal = document.getElementById('resumen-precio-total');
         if (resumenPrecioTotal) {
-            resumenPrecioTotal.textContent = '$' + fmt(importeLocacion);
+            resumenPrecioTotal.textContent = simboloMoneda() + fmt(importeLocacion);
         }
         
         const resumenSenia = document.getElementById('resumen-senia-pagada');
         if (resumenSenia) {
-            resumenSenia.textContent = '$' + fmt(totalSeniaAcumulada);
+            resumenSenia.textContent = simboloMoneda() + fmt(totalSeniaAcumulada);
         }
         
     } catch (error) {
@@ -208,11 +211,13 @@ function calcularTotalPagos() {
         const efectivoElement = document.getElementById('monto_efectivo');
         const chequeElement = document.getElementById('monto_cheque');
         const tarjetaElement = document.getElementById('monto_tarjeta');
+        const dolaresElement = document.getElementById('monto_dolares');
         
         console.log('🔍 ELEMENTOS ENCONTRADOS:');
         console.log('   monto_efectivo:', efectivoElement ? 'SÍ' : 'NO', efectivoElement?.value);
         console.log('   monto_cheque:', chequeElement ? 'SÍ' : 'NO', chequeElement?.value);
         console.log('   monto_tarjeta:', tarjetaElement ? 'SÍ' : 'NO', tarjetaElement?.value);
+        console.log('   monto_dolares:', dolaresElement ? 'SÍ' : 'NO', dolaresElement?.value);
         
         // Contar campos dinámicos de cuentas bancarias
         const camposCuentasBancarias = document.querySelectorAll('.cuenta-bancaria-dinamica');
@@ -223,26 +228,27 @@ function calcularTotalPagos() {
             return parseDecimalMontoJS(elemento.value);
         }
         
-        const efectivo = parsearValor(efectivoElement);
-        const cheque = parsearValor(chequeElement);
-        const tarjeta = parsearValor(tarjetaElement);
-        
-        // ✅ Calcular dinámicamente todos los campos de cuentas bancarias
-        let totalCuentasBancarias = 0;
-        camposCuentasBancarias.forEach(campo => {
-            const valor = parsearValor(campo);
-            totalCuentasBancarias += valor;
-            console.log(`   ${campo.id}:`, valor);
-        });
-        
-        const totalPagos = efectivo + cheque + tarjeta + totalCuentasBancarias;
-        
-        console.log('💰 CÁLCULO TOTAL PAGOS:');
-        console.log('   Efectivo:', efectivo);
-        console.log('   Cheque:', cheque);
-        console.log('   Tarjeta:', tarjeta);
-        console.log('   Total Cuentas Bancarias:', totalCuentasBancarias);
-        console.log('   TOTAL PAGOS:', totalPagos);
+        let totalPagos;
+        if (monedaOperacion === 'USD') {
+            totalPagos = parsearValor(dolaresElement);
+        } else {
+            const efectivo = parsearValor(efectivoElement);
+            const cheque = parsearValor(chequeElement);
+            const tarjeta = parsearValor(tarjetaElement);
+            let totalCuentasBancarias = 0;
+            camposCuentasBancarias.forEach(campo => {
+                const valor = parsearValor(campo);
+                totalCuentasBancarias += valor;
+                console.log(`   ${campo.id}:`, valor);
+            });
+            totalPagos = efectivo + cheque + tarjeta + totalCuentasBancarias;
+            console.log('💰 CÁLCULO TOTAL PAGOS ARS:');
+            console.log('   Efectivo:', efectivo);
+            console.log('   Cheque:', cheque);
+            console.log('   Tarjeta:', tarjeta);
+            console.log('   Total Cuentas Bancarias:', totalCuentasBancarias);
+        }
+        console.log('   TOTAL PAGOS:', totalPagos, monedaOperacion);
         
         // Actualizar display del total de pagos
         const totalPagosElement = document.getElementById('totalPagos');
@@ -261,12 +267,12 @@ function calcularTotalPagos() {
         }
         
         // Calcular diferencia
-        const diferencia = totalPagos - totalRecibo;
+        const diferencia = Math.round((totalPagos - totalRecibo) * 100) / 100;
         
         // Actualizar diferencia
         const diferenciaElement = document.getElementById('diferenciaPagos');
         if (diferenciaElement) {
-            if (diferencia === 0) {
+            if (Math.abs(diferencia) < 0.02) {
                 diferenciaElement.style.color = 'green';
                 diferenciaElement.textContent = '0 ✅';
             } else if (diferencia > 0) {
@@ -284,11 +290,26 @@ function calcularTotalPagos() {
         console.log('   Diferencia:', diferencia);
         
         // Habilitar/deshabilitar botón
-        habilitarBotonProcesar(diferencia === 0 && totalRecibo > 0);
+        habilitarBotonProcesar(Math.abs(diferencia) < 0.02 && totalRecibo > 0);
         
     } catch (error) {
         console.error('❌ Error en calcularTotalPagos:', error);
     }
+}
+
+function actualizarVisibilidadMonedaPago() {
+    const sel = document.getElementById('moneda_operacion');
+    if (sel) monedaOperacion = (sel.value || 'ARS').toUpperCase();
+    const bloqueArs = document.getElementById('bloque_pagos_ars');
+    const bloqueUsd = document.getElementById('bloque_pagos_usd');
+    if (bloqueArs) bloqueArs.classList.toggle('d-none', monedaOperacion === 'USD');
+    if (bloqueUsd) bloqueUsd.classList.toggle('d-none', monedaOperacion !== 'USD');
+    const badge = document.getElementById('badge-moneda-pago');
+    if (badge) badge.textContent = monedaOperacion === 'USD' ? 'USD' : 'ARS';
+    document.querySelectorAll('.label-simbolo-moneda').forEach(el => {
+        el.textContent = monedaOperacion === 'USD' ? 'U$S' : '$';
+    });
+    if (typeof actualizarPagos === 'function') actualizarPagos();
 }
 
 // Función para habilitar/deshabilitar botón procesar
@@ -351,7 +372,8 @@ function procesarMovimiento() {
     // ✅ DESFORMATEAR VALORES NUMÉRICOS antes de enviar
     const camposNumericos = [
         'monto_efectivo', 'monto_cheque', 'monto_tarjeta', 'saldo_ocupar',
-        'monto_deposito_galicia', 'monto_deposito_mp'
+        'monto_deposito_galicia', 'monto_deposito_mp',
+        'monto_dolares', 'cotizacion_dolar',
     ];
     
     // También incluir cuentas bancarias dinámicas
@@ -1007,6 +1029,9 @@ function limpiarInfoVendedor() {
 
 // Event listeners
 document.addEventListener('DOMContentLoaded', function() {
+    if (typeof actualizarVisibilidadMonedaPago === 'function') {
+        actualizarVisibilidadMonedaPago();
+    }
     if (typeof calcularSaldoOcupar === 'function') {
         calcularSaldoOcupar();
     }
@@ -1221,8 +1246,17 @@ window.habilitarBotonProcesar = habilitarBotonProcesar;
                         
                         <!-- Sección de Fechas y Pagos -->
                         <div class="row mb-3">
-                            <div class="col-md-12">
+                            <div class="col-md-8">
                                 <h5>💰 Información de Pagos</h5>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label mb-0" for="moneda_operacion"><strong>Moneda de la operación</strong></label>
+                                <select class="form-select form-select-sm" id="moneda_operacion" name="moneda"
+                                        onchange="actualizarVisibilidadMonedaPago()">
+                                    <option value="ARS" {% if moneda_operacion != 'USD' %}selected{% endif %}>Pesos (ARS)</option>
+                                    <option value="USD" {% if moneda_operacion == 'USD' %}selected{% endif %}>Dólares (USD)</option>
+                                </select>
+                                <small class="text-muted">Precio, seña, depósito y conceptos en esta moneda.</small>
                             </div>
                         </div>
                         
@@ -1250,9 +1284,12 @@ window.habilitarBotonProcesar = habilitarBotonProcesar;
                             
                             <div class="col-md-2">
                                 <label class="form-label"><strong>Importe Locación:</strong></label>
-                                <input type="text" class="form-control form-control-sm" name="importe_locacion" id="importe_locacion"
-                                       value="{{ reserva.precio_total|floatformat:0 }}" readonly
-                                       style="background-color: #f8f9fa;">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text label-simbolo-moneda">{{ simbolo_moneda|default:"$" }}</span>
+                                    <input type="text" class="form-control" name="importe_locacion" id="importe_locacion"
+                                           value="{{ reserva.precio_total|floatformat:0 }}" readonly
+                                           style="background-color: #f8f9fa;">
+                                </div>
                                 <small class="text-muted">Precio total de la operación (solo lectura). Para cambiarlo, editá la reserva desde la ficha.</small>
                             </div>
                             
@@ -1267,12 +1304,12 @@ window.habilitarBotonProcesar = habilitarBotonProcesar;
                                 <div class="mt-2 p-2" style="background-color: #e7f3ff; border-radius: 5px; border-left: 4px solid #007bff;" id="resumen-precios">
                                     <small class="text-primary">
                                         <strong>📊 RESUMEN:</strong><br>
-                                        💰 Precio Total: <span id="resumen-precio-total">${{ reserva.precio_total|format_price }}</span><br>
-                                        ✅ Seña Pagada: <span id="resumen-senia-pagada">${{ total_senia_pagada|format_price }}</span><br>
+                                        💰 Precio Total: <span id="resumen-precio-total">{{ reserva.precio_total|format_importe_moneda:moneda_operacion }}</span><br>
+                                        ✅ Seña Pagada: <span id="resumen-senia-pagada">{{ total_senia_pagada|format_importe_moneda:moneda_operacion }}</span><br>
                                         {% if total_deposito_pagado > 0 %}
-                                        🛡️ Depósito Pagado: <span id="resumen-deposito">${{ total_deposito_pagado|format_price }}</span><br>
+                                        🛡️ Depósito Pagado: <span id="resumen-deposito">{{ total_deposito_pagado|format_importe_moneda:moneda_operacion }}</span><br>
                                         {% endif %}
-                                        ⏳ Pendiente: <span id="resumen-pendiente">${{ saldo_a_ocupar|format_price }}</span>
+                                        ⏳ Pendiente: <span id="resumen-pendiente">{{ saldo_a_ocupar|format_importe_moneda:moneda_operacion }}</span>
                                     </small>
                                 </div>
                             </div>
@@ -1382,6 +1419,36 @@ window.habilitarBotonProcesar = habilitarBotonProcesar;
                         
                         <!-- Formas de Pago en formato similar a la imagen -->
                         <div class="row mb-3" style="background-color: #fff3cd; padding: 15px; border-radius: 5px; border: 2px solid #ffc107;">
+                            <div class="col-12 mb-2">
+                                <strong>Formas de pago</strong>
+                                <span class="badge bg-secondary ms-1" id="badge-moneda-pago">{% if moneda_operacion == 'USD' %}USD{% else %}ARS{% endif %}</span>
+                            </div>
+
+                            <!-- Bloque USD -->
+                            <div id="bloque_pagos_usd" class="col-12 {% if moneda_operacion != 'USD' %}d-none{% endif %}">
+                                <div class="row mb-2">
+                                    <div class="col-md-4">
+                                        <label for="monto_dolares" class="form-label">💵 <strong>IMPORTE USD (efectivo):</strong></label>
+                                        <div class="input-group">
+                                            <span class="input-group-text">U$S</span>
+                                            <input type="text" class="form-control importe-pago" id="monto_dolares" name="monto_dolares"
+                                                   placeholder="0" onchange="actualizarPagos()" oninput="actualizarPagos()">
+                                        </div>
+                                        <small class="text-muted">Cubrí el total de conceptos con dólares. Los importes de conceptos también van en USD.</small>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label for="cotizacion_dolar" class="form-label"><strong>Cotización del día (opcional):</strong></label>
+                                        <div class="input-group">
+                                            <span class="input-group-text">$</span>
+                                            <input type="text" class="form-control" id="cotizacion_dolar" name="cotizacion_dolar"
+                                                   placeholder="Ej. 1450">
+                                        </div>
+                                        <small class="text-muted">Pesos por 1 dólar; queda registrado en el movimiento.</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div id="bloque_pagos_ars" class="{% if moneda_operacion == 'USD' %}d-none{% endif %}">
                             <!-- Fila 1: Banco y Cheques -->
                             <div class="col-md-6">
                                 <div class="row mb-2">
@@ -1483,6 +1550,7 @@ window.habilitarBotonProcesar = habilitarBotonProcesar;
                                 
                                 <!-- Campo oculto para el total de depósitos -->
                                 <input type="hidden" name="monto_deposito" id="monto_deposito_total" value="0.00">
+                            </div>
                             </div>
                         </div>
                         
