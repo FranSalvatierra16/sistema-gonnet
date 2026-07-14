@@ -468,14 +468,13 @@ def sync_gasto_saldo_negativo_liquidacion(liquidacion):
 
     obs = (
         f'{marker}\n'
-        f'Saldo en contra del propietario — liquidación #{liquidacion.id} '
-        f'({liquidacion.get_estado_display()}).'
+        f'Saldo en contra del propietario'
     )
 
     existing = pendientes_qs.first()
     if existing:
         existing.monto = deuda
-        existing.descripcion = 'Liquidación pendiente'
+        existing.descripcion = f'Liquidación Nº {liquidacion.id} — saldo en contra propietario'
         existing.propietario = liquidacion.propietario
         existing.propiedad = liquidacion.propiedad
         existing.moneda = getattr(liquidacion, 'moneda', 'ARS') or 'ARS'
@@ -489,7 +488,7 @@ def sync_gasto_saldo_negativo_liquidacion(liquidacion):
         liquidacion=None,
         propietario=liquidacion.propietario,
         propiedad=liquidacion.propiedad,
-        descripcion='Liquidación pendiente',
+        descripcion=f'Liquidación Nº {liquidacion.id} — saldo en contra propietario',
         monto=deuda,
         moneda=getattr(liquidacion, 'moneda', 'ARS') or 'ARS',
         tipo_movimiento='egreso',

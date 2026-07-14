@@ -26696,6 +26696,53 @@ def _precio_dia_alquiler_liquidacion(liquidacion, monto_propietario=None):
     return (monto / Decimal(str(dias))).quantize(Decimal('0.01'))
 
 
+def _detalle_impreso_gasto_liquidacion(gasto):
+    """
+    Texto de DETALLE en liquidación de cobranzas.
+    Para arrastre de liquidación pendiente: solo Nº y tipo de saldo (sin marcadores técnicos).
+    """
+    obs = (gasto.observaciones or '').strip()
+    desc = (gasto.descripcion or '').strip()
+    m = re.search(r'liquidacion_pendiente_origen:(\d+)', obs, re.I)
+    es_pendiente = bool(m) or (
+        desc and 'liquidaci' in desc.lower() and 'pendiente' in desc.lower()
+    )
+    if es_pendiente:
+        liq_id = m.group(1) if m else None
+        if not liq_id:
+            m2 = re.search(r'liquidaci[oó]n\s*#\s*(\d+)', obs, re.I)
+            if m2:
+                liq_id = m2.group(1)
+        if (gasto.tipo_movimiento or '').strip().lower() == 'ingreso':
+            saldo_txt = 'SALDO A FAVOR PROPIETARIO'
+        else:
+            # Si el texto histórico menciona a favor, respetarlo
+            obs_l = obs.lower()
+            if 'a favor' in obs_l and 'en contra' not in obs_l:
+                saldo_txt = 'SALDO A FAVOR PROPIETARIO'
+            else:
+                saldo_txt = 'SALDO EN CONTRA PROPIETARIO'
+        if liq_id:
+            return f'LIQUIDACIÓN Nº {liq_id} — {saldo_txt}'
+        return f'LIQUIDACIÓN PENDIENTE — {saldo_txt}'
+
+    det = (desc or 'MOVIMIENTO').upper()
+    if obs and not obs.lower().startswith('movimiento de caja #'):
+        # No imprimir marcadores internos tipo liquidacion_pendiente_origen:
+        lineas = []
+        for linea in obs.splitlines():
+            l = linea.strip()
+            if not l:
+                continue
+            if re.match(r'liquidacion_pendiente_origen:\d+', l, re.I):
+                continue
+            lineas.append(l)
+        obs_limpia = ' '.join(lineas).strip()
+        if obs_limpia:
+            det = f'{det} // {obs_limpia.upper()}'
+    return det
+
+
 def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
     """
     Detalle de liquidación de cobranzas para el propietario.
@@ -26758,10 +26805,7 @@ def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
         m = Decimal(str(gasto.monto or 0))
         if m <= Decimal('0.01'):
             continue
-        det = (gasto.descripcion or 'MOVIMIENTO').strip().upper()
-        obs = (gasto.observaciones or '').strip()
-        if obs and not obs.lower().startswith('movimiento de caja #'):
-            det = f'{det} // {obs.upper()}'
+        det = _detalle_impreso_gasto_liquidacion(gasto)
         if gasto.tipo_movimiento == 'ingreso':
             total_ingresos += m
             filas.append({
@@ -27187,14 +27231,16 @@ def _dict_gasto_saldo_negativo_liquidacion(gasto):
     m = re.search(r'liquidacion_pendiente_origen:(\d+)', obs)
     if m:
         liq_id = m.group(1)
-    concepto = 'Liquidación en negativo'
     if liq_id:
-        concepto = f'Liquidación #{liq_id} — saldo en contra'
-    detalle = obs.split('\n', 1)[-1].strip() if obs else ''
+        concepto = f'Liquidación Nº {liq_id} — saldo en contra propietario'
+        detalle = ''
+    else:
+        concepto = 'Liquidación pendiente — saldo en contra propietario'
+        detalle = ''
     data = _dict_gasto_pendiente(
         gasto,
         concepto=concepto,
-        detalle=detalle or gasto.descripcion,
+        detalle=detalle,
         tipo='saldo_negativo_liquidacion',
         liquidacion_origen_id=liq_id,
     )
