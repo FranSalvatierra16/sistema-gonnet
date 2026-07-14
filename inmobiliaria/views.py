@@ -28,12 +28,15 @@ from .templatetags.custom_filters import formato_apellido_nombre
 logger = logging.getLogger(__name__)
 
 
-def _recibo_monto_str(valor, dec_places=2):
-    """Montos en recibo HTML/PDF: $ + formato argentino (miles con punto, decimales con coma)."""
+def _recibo_monto_str(valor, dec_places=2, moneda='ARS'):
+    """Montos en recibo HTML/PDF: $ o U$S + formato argentino."""
     try:
-        return f'${format_monto_argentino(valor, dec_places)}'
+        formatted = format_monto_argentino(valor, dec_places)
     except Exception:
-        return f'${valor}'
+        formatted = str(valor)
+    if str(moneda or 'ARS').strip().upper() == 'USD':
+        return f'U$S {formatted}'
+    return f'${formatted}'
 
 
 def _texto_comodidades_recibo(propiedad_data) -> str:
@@ -5696,10 +5699,14 @@ def ver_recibo(request, reserva_id):
         recibo_r = Recibo.objects.filter(reserva=reserva).order_by('-fecha_emision').first()
         if not recibo_r and ultimo_mov:
             recibo_r = _buscar_recibo_para_movimiento(ultimo_mov, sucursal=request.user.sucursal)
+        moneda_res = (getattr(reserva, 'moneda', None) or 'ARS').strip().upper()
+        if moneda_res != 'USD':
+            moneda_res = 'ARS'
         pagos, total_pagado = _lineas_pagos_recibo_desde_movimiento(
             ultimo_mov,
             recibo_obj=recibo_r,
             sucursal=request.user.sucursal,
+            moneda=moneda_res,
         )
         fecha_str, hora_str = _fecha_hora_recibo_operacion(ultimo_mov, recibo_r)
         if not pagos and reserva.senia:
@@ -5711,7 +5718,7 @@ def ver_recibo(request, reserva_id):
                     'fecha': fecha_str,
                     'codigo': (recibo_r.numero_recibo if recibo_r else f'R{reserva.id:06d}'),
                     'concepto': 'Seña / Alquiler temporario',
-                    'monto': _recibo_monto_str(monto_fb),
+                    'monto': _recibo_monto_str(monto_fb, moneda=moneda_res),
                     'es_negativo': False,
                 }]
                 total_pagado = monto_fb
@@ -5720,26 +5727,36 @@ def ver_recibo(request, reserva_id):
         movimiento_ref = ultimo_mov if ultimo_mov else locals().get('movimiento')
         # Si no hay formas de pago desde pagos, intentar obtener del movimiento de la operación
         if not formas_de_pago and movimiento_ref:
+            formas_de_pago_mostrar_txt = _formas_de_pago_desde_movimiento_caja(movimiento_ref)
+            formas_de_pago_mostrar = (
+                [formas_de_pago_mostrar_txt] if formas_de_pago_mostrar_txt else []
+            )
             formas_con_montos = []
             if (movimiento_ref.monto_efectivo or 0) > 0:
-                formas_con_montos.append(f'Efectivo {_recibo_monto_str(movimiento_ref.monto_efectivo)}')
+                formas_con_montos.append(f'Efectivo {_recibo_monto_str(movimiento_ref.monto_efectivo, moneda=moneda_res)}')
                 formas_de_pago.append('Efectivo')
             if (movimiento_ref.monto_tarjeta or 0) > 0:
-                formas_con_montos.append(f'Tarjeta {_recibo_monto_str(movimiento_ref.monto_tarjeta)}')
+                formas_con_montos.append(f'Tarjeta {_recibo_monto_str(movimiento_ref.monto_tarjeta, moneda=moneda_res)}')
                 formas_de_pago.append('Tarjeta')
             if (movimiento_ref.monto_cheque or 0) > 0:
-                formas_con_montos.append(f'Cheque {_recibo_monto_str(movimiento_ref.monto_cheque)}')
+                formas_con_montos.append(f'Cheque {_recibo_monto_str(movimiento_ref.monto_cheque, moneda=moneda_res)}')
                 formas_de_pago.append('Cheque')
             if (movimiento_ref.monto_deposito or 0) > 0:
                 if movimiento_ref.destino_deposito == 'galicia':
-                    formas_con_montos.append(f'Transferencia Galicia {_recibo_monto_str(movimiento_ref.monto_deposito)}')
+                    formas_con_montos.append(f'Transferencia Galicia {_recibo_monto_str(movimiento_ref.monto_deposito, moneda=moneda_res)}')
                     formas_de_pago.append('Galicia')
                 elif movimiento_ref.destino_deposito == 'mp':
-                    formas_con_montos.append(f'Transferencia Mercado Pago {_recibo_monto_str(movimiento_ref.monto_deposito)}')
+                    formas_con_montos.append(f'Transferencia Mercado Pago {_recibo_monto_str(movimiento_ref.monto_deposito, moneda=moneda_res)}')
                     formas_de_pago.append('Mercado Pago')
                 else:
-                    formas_con_montos.append(f'Transferencia {_recibo_monto_str(movimiento_ref.monto_deposito)}')
+                    formas_con_montos.append(f'Transferencia {_recibo_monto_str(movimiento_ref.monto_deposito, moneda=moneda_res)}')
                     formas_de_pago.append('Transferencia')
+            musd = getattr(movimiento_ref, 'monto_dolares', None) or 0
+            if Decimal(str(musd)) > 0:
+                formas_con_montos.append(
+                    f'USD (efectivo) {_recibo_monto_str(musd, moneda="USD")}'
+                )
+                formas_de_pago.append('USD')
             
             # Siempre usar formas con montos para mostrar el desglose completo
             formas_de_pago_mostrar = formas_con_montos if formas_con_montos else formas_de_pago
@@ -5749,11 +5766,13 @@ def ver_recibo(request, reserva_id):
         def numero_a_palabras(numero):
             try:
                 n = int(numero)
+                prefijo = 'DÓLARES' if moneda_res == 'USD' else 'PESOS'
                 if n == 0:
-                    return "PESOS CERO CON 00/100"
-                return f"PESOS {format_monto_argentino(n, 0)} CON 00/100"
+                    return f"{prefijo} CERO CON 00/100"
+                return f"{prefijo} {format_monto_argentino(n, 0)} CON 00/100"
             except Exception:
-                return "PESOS CERO CON 00/100"
+                prefijo = 'DÓLARES' if moneda_res == 'USD' else 'PESOS'
+                return f"{prefijo} CERO CON 00/100"
         
         # Preparar datos del cliente con campos adicionales
         cliente_data = reserva.cliente
@@ -5772,11 +5791,12 @@ def ver_recibo(request, reserva_id):
         # Preparar datos de la reserva con formato de moneda
         reserva_formateada = {
             'id': reserva.id,
-            'precio_total': _recibo_monto_str(reserva.precio_total),
-            'senia': _recibo_monto_str(reserva.senia),
-            'cuota_pendiente': _recibo_monto_str(reserva.cuota_pendiente),
-            'deposito_garantia': _recibo_monto_str(reserva.deposito_garantia),
+            'precio_total': _recibo_monto_str(reserva.precio_total, moneda=moneda_res),
+            'senia': _recibo_monto_str(reserva.senia, moneda=moneda_res),
+            'cuota_pendiente': _recibo_monto_str(reserva.cuota_pendiente, moneda=moneda_res),
+            'deposito_garantia': _recibo_monto_str(reserva.deposito_garantia, moneda=moneda_res),
             'propiedad': propiedad_completa,
+            'moneda': moneda_res,
         }
         
         # ✅ CALCULAR VALORES CORRECTOS PARA EL RECIBO
@@ -5838,20 +5858,21 @@ def ver_recibo(request, reserva_id):
             'fecha_fin': reserva.fecha_fin.strftime('%d/%m/%Y'),
             'descripcion': 'Alquiler temporario por días',
             'pagos': pagos,
-            'total_pagado': _recibo_monto_str(total_pagado),
+            'total_pagado': _recibo_monto_str(total_pagado, moneda=moneda_res),
             'monto_en_palabras': numero_a_palabras(int(total_pagado)),
-            'formas_de_pago': ', '.join(formas_de_pago_mostrar) if formas_de_pago_mostrar else 'EFECTIVO',
+            'formas_de_pago': ', '.join(formas_de_pago_mostrar) if formas_de_pago_mostrar else ('USD (efectivo)' if moneda_res == 'USD' else 'EFECTIVO'),
             # ✅ AGREGAR VARIABLES QUE NECESITA EL TEMPLATE
-            'precio_total_operacion': _recibo_monto_str(precio_total),
-            'monto_este_pago': _recibo_monto_str(senia_pagada),
-            'saldo_pendiente': _recibo_monto_str(saldo_restante),
-            'deposito_garantia': _recibo_monto_str(deposito_pagado),
+            'precio_total_operacion': _recibo_monto_str(precio_total, moneda=moneda_res),
+            'monto_este_pago': _recibo_monto_str(senia_pagada, moneda=moneda_res),
+            'saldo_pendiente': _recibo_monto_str(saldo_restante, moneda=moneda_res),
+            'deposito_garantia': _recibo_monto_str(deposito_pagado, moneda=moneda_res),
             'deposito_estado': deposito_estado,  # Estado del depósito
             # ✅ AGREGAR HONORARIOS Y SELLADOS
-            'honorarios': _recibo_monto_str(honorarios_monto),
-            'sellados': _recibo_monto_str(sellados_monto),
+            'honorarios': _recibo_monto_str(honorarios_monto, moneda=moneda_res),
+            'sellados': _recibo_monto_str(sellados_monto, moneda=moneda_res),
             'tiene_honorarios': honorarios_monto > 0,
             'tiene_sellados': sellados_monto > 0,
+            'moneda_operacion': moneda_res,
             'logo_base64': logo_base64,
             'sucursal': sucursal,  # Agregar sucursal al contexto
             **_contexto_boton_volver_recibo(request),
@@ -7430,7 +7451,13 @@ def ver_recibo_movimiento(request, movimiento_id):
             # Si no hay destino específico, asumir que es todo en uno
             total_deposito_galicia = movimiento.monto_deposito
         
-        total_movimiento = total_efectivo + total_cheque + total_tarjeta + total_deposito
+        total_movimiento = (
+            Decimal(str(total_efectivo or 0))
+            + Decimal(str(total_cheque or 0))
+            + Decimal(str(total_tarjeta or 0))
+            + Decimal(str(total_deposito or 0))
+            + Decimal(str(getattr(movimiento, 'monto_dolares', None) or 0))
+        )
 
         def _concepto_legible_movimiento(mov):
             """Devuelve un concepto amigable para impresión, evitando JSON crudo."""
@@ -7558,10 +7585,14 @@ def ver_recibo_movimiento(request, movimiento_id):
         
         # Si encontramos una reserva, usar el nuevo diseño de recibo
         if reserva:
+            moneda_res = (getattr(reserva, 'moneda', None) or 'ARS').strip().upper()
+            if moneda_res != 'USD':
+                moneda_res = 'ARS'
             pagos, total_pagado = _lineas_pagos_recibo_desde_movimiento(
                 movimiento,
                 recibo_obj=recibo_obj,
                 sucursal=request.user.sucursal,
+                moneda=moneda_res,
             )
             fecha_recibo, hora_recibo = _fecha_hora_recibo_operacion(movimiento, recibo_obj)
 
@@ -7569,6 +7600,8 @@ def ver_recibo_movimiento(request, movimiento_id):
                 monto_fb = Decimal('0')
                 if recibo_obj and recibo_obj.monto_este_pago is not None:
                     monto_fb = Decimal(str(recibo_obj.monto_este_pago))
+                elif getattr(movimiento, 'monto_dolares', None) and Decimal(str(movimiento.monto_dolares or 0)) > 0:
+                    monto_fb = Decimal(str(movimiento.monto_dolares or 0))
                 elif reserva.senia:
                     monto_fb = Decimal(str(reserva.senia or 0))
                 if monto_fb > 0:
@@ -7581,51 +7614,52 @@ def ver_recibo_movimiento(request, movimiento_id):
                         'fecha': fecha_recibo,
                         'codigo': codigo_linea,
                         'concepto': 'Seña / Alquiler temporario',
-                        'monto': _recibo_monto_str(monto_fb),
+                        'monto': _recibo_monto_str(monto_fb, moneda=moneda_res),
                         'es_negativo': False,
                     }]
                     total_pagado = monto_fb
 
             formas_de_pago_txt = _formas_de_pago_desde_movimiento_caja(movimiento)
             if not formas_de_pago_txt:
-                formas_de_pago_txt = 'EFECTIVO'
+                formas_de_pago_txt = 'USD (efectivo)' if moneda_res == 'USD' else 'EFECTIVO'
             formas_de_pago_mostrar = formas_de_pago_txt
             
             # Función para convertir número a palabras
             def numero_a_palabras(numero):
                 # Convertir número a palabras en español (versión simplificada)
+                prefijo = 'DÓLARES' if moneda_res == 'USD' else 'PESOS'
                 unidades = ['', 'uno', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve']
                 decenas = ['', '', 'veinte', 'treinta', 'cuarenta', 'cincuenta', 'sesenta', 'setenta', 'ochenta', 'noventa']
                 centenas = ['', 'ciento', 'doscientos', 'trescientos', 'cuatrocientos', 'quinientos', 'seiscientos', 'setecientos', 'ochocientos', 'novecientos']
                 
                 numero = int(numero)
                 if numero == 0:
-                    return "PESOS CERO CON 00/100"
+                    return f"{prefijo} CERO CON 00/100"
                 elif numero == 100:
-                    return "PESOS CIEN CON 00/100"
+                    return f"{prefijo} CIEN CON 00/100"
                 elif numero < 10:
-                    return f"PESOS {unidades[numero].upper()} CON 00/100"
+                    return f"{prefijo} {unidades[numero].upper()} CON 00/100"
                 elif numero < 100:
                     if numero < 20:
                         especiales = ['diez', 'once', 'doce', 'trece', 'catorce', 'quince', 'dieciséis', 'diecisiete', 'dieciocho', 'diecinueve']
-                        return f"PESOS {especiales[numero-10].upper()} CON 00/100"
+                        return f"{prefijo} {especiales[numero-10].upper()} CON 00/100"
                     else:
                         dec = numero // 10
                         uni = numero % 10
                         if uni == 0:
-                            return f"PESOS {decenas[dec].upper()} CON 00/100"
+                            return f"{prefijo} {decenas[dec].upper()} CON 00/100"
                         else:
-                            return f"PESOS {decenas[dec].upper()} Y {unidades[uni].upper()} CON 00/100"
+                            return f"{prefijo} {decenas[dec].upper()} Y {unidades[uni].upper()} CON 00/100"
                 elif numero < 1000:
                     cent = numero // 100
                     resto = numero % 100
                     if resto == 0:
-                        return f"PESOS {centenas[cent].upper()} CON 00/100"
+                        return f"{prefijo} {centenas[cent].upper()} CON 00/100"
                     else:
-                        palabras_resto = numero_a_palabras(resto).replace("PESOS ", "").replace(" CON 00/100", "")
-                        return f"PESOS {centenas[cent].upper()} {palabras_resto} CON 00/100"
+                        palabras_resto = numero_a_palabras(resto).replace(f"{prefijo} ", "").replace(" CON 00/100", "")
+                        return f"{prefijo} {centenas[cent].upper()} {palabras_resto} CON 00/100"
                 else:
-                    return f"PESOS {format_monto_argentino(numero, 0)} CON 00/100"
+                    return f"{prefijo} {format_monto_argentino(numero, 0)} CON 00/100"
             
             # Preparar datos del cliente con campos adicionales
             cliente_data = reserva.cliente
@@ -7644,11 +7678,12 @@ def ver_recibo_movimiento(request, movimiento_id):
             # Preparar datos de la reserva con formato de moneda
             reserva_formateada = {
                 'id': reserva.id,
-                'precio_total': _recibo_monto_str(reserva.precio_total),
-                'senia': _recibo_monto_str(reserva.senia),
-                'cuota_pendiente': _recibo_monto_str(reserva.cuota_pendiente),
-                'deposito_garantia': _recibo_monto_str(reserva.deposito_garantia),
+                'precio_total': _recibo_monto_str(reserva.precio_total, moneda=moneda_res),
+                'senia': _recibo_monto_str(reserva.senia, moneda=moneda_res),
+                'cuota_pendiente': _recibo_monto_str(reserva.cuota_pendiente, moneda=moneda_res),
+                'deposito_garantia': _recibo_monto_str(reserva.deposito_garantia, moneda=moneda_res),
                 'propiedad': propiedad_completa,
+                'moneda': moneda_res,
             }
             
             # DEBUG: Confirmar template y datos en ver_recibo_movimiento
@@ -7711,22 +7746,23 @@ def ver_recibo_movimiento(request, movimiento_id):
                 'fecha_fin': reserva.fecha_fin.strftime('%d/%m/%Y'),
                 'descripcion': 'Alquiler temporario por días',
                 'pagos': pagos,
-                'total_pagado': _recibo_monto_str(total_pagado),
+                'total_pagado': _recibo_monto_str(total_pagado, moneda=moneda_res),
                 'monto_en_palabras': numero_a_palabras(int(total_pagado)),
                 'formas_de_pago': formas_de_pago_mostrar,
                 'logo_base64': logo_base64,
                 # ✅ DATOS CORREGIDOS PARA MOSTRAR EN RECIBO
-                'precio_total_operacion': _recibo_monto_str(precio_total_mostrar),
-                'saldo_pendiente': _recibo_monto_str(saldo_pendiente_mostrar),
-                'monto_este_pago': _recibo_monto_str(monto_este_pago_mostrar),
-                'deposito_garantia': _recibo_monto_str(reserva.deposito_garantia),
+                'precio_total_operacion': _recibo_monto_str(precio_total_mostrar, moneda=moneda_res),
+                'saldo_pendiente': _recibo_monto_str(saldo_pendiente_mostrar, moneda=moneda_res),
+                'monto_este_pago': _recibo_monto_str(monto_este_pago_mostrar, moneda=moneda_res),
+                'deposito_garantia': _recibo_monto_str(reserva.deposito_garantia, moneda=moneda_res),
                 # ✅ ESTADO DEL DEPÓSITO: Verificar si fue pagado en CUALQUIER movimiento de la reserva
                 'deposito_estado': determinar_estado_deposito_completo(reserva),
                 # ✅ AGREGAR HONORARIOS Y SELLADOS
-                'honorarios': _recibo_monto_str(honorarios_monto),
-                'sellados': _recibo_monto_str(sellados_monto),
+                'honorarios': _recibo_monto_str(honorarios_monto, moneda=moneda_res),
+                'sellados': _recibo_monto_str(sellados_monto, moneda=moneda_res),
                 'tiene_honorarios': honorarios_monto > 0,
                 'tiene_sellados': sellados_monto > 0,
+                'moneda_operacion': moneda_res,
                 'sucursal': sucursal,  # Agregar sucursal al contexto
                 **_contexto_boton_volver_recibo(request),
                 **_contexto_botones_recibo_reserva(request, reserva.id),
@@ -18197,13 +18233,14 @@ def _movimiento_canonico_operacion(movimiento, sucursal=None):
     return movimiento
 
 
-def _lineas_pagos_recibo_desde_movimiento(movimiento, recibo_obj=None, sucursal=None):
+def _lineas_pagos_recibo_desde_movimiento(movimiento, recibo_obj=None, sucursal=None, moneda='ARS'):
     """
     Arma filas del recibo (conceptos + importes) desde Recibo.conceptos_detalle,
     movimiento.concepto_detalle, |CONCEPTOS:| o monto del movimiento/recibo.
     """
     pagos = []
     total = Decimal('0')
+    moneda = 'USD' if str(moneda or 'ARS').strip().upper() == 'USD' else 'ARS'
     sucursal = sucursal or (getattr(movimiento, 'sucursal', None) if movimiento else None)
 
     if recibo_obj is None and movimiento:
@@ -18250,7 +18287,7 @@ def _lineas_pagos_recibo_desde_movimiento(movimiento, recibo_obj=None, sucursal=
                 'fecha': fecha_mov,
                 'codigo': str(cid or codigo_mov),
                 'concepto': nombre_show or 'Concepto',
-                'monto': _recibo_monto_str(abs(imp)) if imp != 0 else '',
+                'monto': _recibo_monto_str(abs(imp), moneda=moneda) if imp != 0 else '',
                 'es_negativo': es_neg,
             }
         )
@@ -18285,10 +18322,15 @@ def _lineas_pagos_recibo_desde_movimiento(movimiento, recibo_obj=None, sucursal=
         monto_fb = Decimal('0')
         if recibo_obj and recibo_obj.monto_este_pago is not None:
             monto_fb = Decimal(str(recibo_obj.monto_este_pago))
-        elif mov_conceptos and mov_conceptos.monto_total is not None:
-            monto_fb = Decimal(str(mov_conceptos.monto_total))
-        elif movimiento and movimiento.monto_total is not None:
-            monto_fb = Decimal(str(movimiento.monto_total))
+        else:
+            ref_fb = mov_conceptos or movimiento
+            if ref_fb is not None:
+                ars = Decimal(str(ref_fb.monto_total or 0))
+                usd = Decimal(str(getattr(ref_fb, 'monto_dolares', None) or 0))
+                if moneda == 'USD' or (ars <= 0 and usd > 0):
+                    monto_fb = usd
+                else:
+                    monto_fb = ars
         if monto_fb > 0:
             concepto_nombre = 'Pago de operación'
             ref = mov_conceptos or movimiento
@@ -18306,10 +18348,15 @@ def _lineas_pagos_recibo_desde_movimiento(movimiento, recibo_obj=None, sucursal=
     if total == 0:
         if recibo_obj and recibo_obj.monto_este_pago is not None:
             total = Decimal(str(recibo_obj.monto_este_pago))
-        elif mov_conceptos and mov_conceptos.monto_total is not None:
-            total = Decimal(str(mov_conceptos.monto_total))
-        elif movimiento and movimiento.monto_total is not None:
-            total = Decimal(str(movimiento.monto_total))
+        else:
+            ref_fb = mov_conceptos or movimiento
+            if ref_fb is not None:
+                ars = Decimal(str(ref_fb.monto_total or 0))
+                usd = Decimal(str(getattr(ref_fb, 'monto_dolares', None) or 0))
+                if moneda == 'USD' or (ars <= 0 and usd > 0):
+                    total = usd
+                else:
+                    total = ars
 
     return pagos, total
 
@@ -18335,6 +18382,11 @@ def _obtener_contrato_desde_movimiento(movimiento, sucursal):
 
     concepto_txt = (movimiento.concepto or '')
     detalle_txt = (getattr(movimiento, 'concepto_detalle', None) or '').strip()
+
+    # Operación por día («Operación N») no es cobro de contrato, aunque la
+    # propiedad tenga un contrato activo (evita recibo 24m con montos ajenos).
+    if re.search(r'Operaci[oó]n\s*#?\s*\d+', concepto_txt, re.I):
+        return None
 
     m = re.search(r'Contrato\s*#\s*(\d+)', concepto_txt)
     if m:
@@ -18375,7 +18427,6 @@ def _obtener_contrato_desde_movimiento(movimiento, sucursal):
             isinstance(it, dict) and it.get('cuota_objetivo_id')
             for it in conceptos_list
         )
-        or (conceptos_list and movimiento.propiedad_id)
         or concepto_txt.strip().isdigit()
     )
     if es_cobro_contrato and movimiento.propiedad_id:
