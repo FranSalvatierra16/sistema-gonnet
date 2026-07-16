@@ -317,6 +317,16 @@
                         </div>
 
                         <div class="mb-3">
+                            <label class="form-label">Cotización del día <span class="text-muted">(opcional)</span></label>
+                            <div class="input-group" style="max-width: 18rem;">
+                                <span class="input-group-text">$</span>
+                                <input type="text" name="cotizacion_dolar" id="cotizacion_dolar_liq" class="form-control input-monto-ar"
+                                       inputmode="decimal" autocomplete="off" value="" placeholder="Ej. 1450">
+                            </div>
+                            <small class="form-text text-muted">Pesos por 1 dólar. Se puede cargar aunque la liquidación esté en pesos o en dólares.</small>
+                        </div>
+
+                        <div class="mb-3">
                             <label class="form-label">Observaciones</label>
                             <textarea name="observaciones" class="form-control" rows="3" 
                                       placeholder="Observaciones adicionales..."></textarea>

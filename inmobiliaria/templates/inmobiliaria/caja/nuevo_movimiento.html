@@ -470,7 +470,7 @@
                             </div>
                         </div>
                         <div class="row mb-3" id="bloque_montos_usd">
-                            <div class="col-md-4">
+                            <div class="col-md-6">
                                 <label class="form-label fw-semibold text-primary" for="monto_dolares_mov">💵 USD (efectivo)</label>
                                 <div class="input-group">
                                     <span class="input-group-text">U$S</span>
@@ -478,20 +478,22 @@
                                 </div>
                                 <small class="text-muted">Para un ingreso solo en dólares, elegí <strong>Dólares (USD)</strong> arriba y cargá el monto acá.</small>
                             </div>
-                            <div class="col-md-4">
-                                <label class="form-label fw-semibold text-primary" for="cotizacion_dolar_mov">Cotización del día</label>
-                                <div class="input-group">
-                                    <span class="input-group-text">$</span>
-                                    <input type="text" name="cotizacion_dolar" id="cotizacion_dolar_mov" class="form-control input-monto-ar" inputmode="decimal" autocomplete="off" value="" placeholder="Ej. 1450" oninput="formatearMontoCaja(this)" onblur="formatearMontoCajaBlur(this)">
-                                </div>
-                                <small class="text-muted">Pesos por 1 dólar (opcional, queda registrado en el movimiento).</small>
-                            </div>
-                            <div class="col-md-4 d-flex align-items-end">
+                            <div class="col-md-6 d-flex align-items-end">
                                 <div class="w-100">
                                     <label class="form-label">Total USD</label>
                                     <input type="text" id="total_usd" class="form-control fw-bold bg-light" readonly value="0,00">
                                     <small class="text-muted d-none" id="equiv_ars_usd_label"></small>
                                 </div>
+                            </div>
+                        </div>
+                        <div class="row mb-3" id="bloque_cotizacion_dolar">
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold" for="cotizacion_dolar_mov">Cotización del día <span class="text-muted fw-normal">(opcional)</span></label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="text" name="cotizacion_dolar" id="cotizacion_dolar_mov" class="form-control input-monto-ar" inputmode="decimal" autocomplete="off" value="" placeholder="Ej. 1450" oninput="formatearMontoCaja(this)" onblur="formatearMontoCajaBlur(this)">
+                                </div>
+                                <small class="text-muted">Pesos por 1 dólar. Se puede cargar en pesos o en dólares.</small>
                             </div>
                         </div>
                         <div id="bloque_detalle_tarjeta" class="row mb-3 d-none border rounded p-3 bg-light">
@@ -1562,7 +1564,6 @@ $(document).ready(function() {
         }
         if (soloArs) {
             $('#monto_dolares_mov').val('');
-            $('#cotizacion_dolar_mov').val('');
             $('#total_usd').val(fmtMontoLocal(0));
             $('#equiv_ars_usd_label').addClass('d-none').text('');
         }

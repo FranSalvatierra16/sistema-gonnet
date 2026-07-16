@@ -71,6 +71,14 @@ class LiquidacionPropietario(models.Model):
         verbose_name='Moneda',
         help_text='Moneda en la que se expresan los montos de esta liquidación.',
     )
+    cotizacion_dolar = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name='Cotización del dólar',
+        help_text='Cotización ARS por USD del día al crear la liquidación (opcional).',
+    )
 
     # Montos
     monto_total_operacion = models.DecimalField(

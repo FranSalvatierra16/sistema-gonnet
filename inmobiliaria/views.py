@@ -13348,17 +13348,16 @@ def nuevo_movimiento(request, numero_caja=None):
                 m_dol = Decimal('0')
             movimiento.monto_dolares = m_dol
 
-            # Cotización del día (ARS por USD) cuando hay monto en dólares
+            # Cotización del día (ARS por USD), opcional en ARS o USD
             cotiz = None
-            if m_dol > 0:
-                try:
-                    cotiz_raw = (request.POST.get('cotizacion_dolar') or '').strip()
-                    if cotiz_raw:
-                        cotiz = parse_decimal_monto(cotiz_raw)
-                        if cotiz <= 0:
-                            cotiz = None
-                except (ValueError, TypeError, InvalidOperation):
-                    cotiz = None
+            try:
+                cotiz_raw = (request.POST.get('cotizacion_dolar') or '').strip()
+                if cotiz_raw:
+                    cotiz = parse_decimal_monto(cotiz_raw)
+                    if cotiz <= 0:
+                        cotiz = None
+            except (ValueError, TypeError, InvalidOperation):
+                cotiz = None
             movimiento.cotizacion_dolar = cotiz
 
             if total_mov <= 0 and m_dol <= 0:
@@ -25035,6 +25034,16 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
             fecha_hasta = request.POST.get('fecha_hasta')
             observaciones = request.POST.get('observaciones', '')
 
+            cotizacion_dolar = None
+            cotiz_raw = (request.POST.get('cotizacion_dolar') or '').strip()
+            if cotiz_raw:
+                try:
+                    cotizacion_dolar = parse_decimal_es(cotiz_raw)
+                    if cotizacion_dolar <= 0:
+                        cotizacion_dolar = None
+                except (ValueError, TypeError, InvalidOperation):
+                    cotizacion_dolar = None
+
             if not propiedad_id:
                 messages.error(request, 'Debe seleccionar una propiedad.')
                 return redirect('inmobiliaria:lista_liquidaciones')
@@ -25338,6 +25347,7 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                         operaciones_incluidas=operaciones_incluidas,
                         post_moneda=request.POST.get('moneda'),
                     ),
+                    cotizacion_dolar=cotizacion_dolar,
                     monto_total_operacion=monto_total,
                     monto_propietario=monto_propietario,
                     monto_inmobiliaria=monto_inmobiliaria,
@@ -28055,6 +28065,18 @@ def procesar_liquidacion(request, liquidacion_id):
             messages.error(request, f'El total del pago (${total_pago}) no coincide con el monto a pagar (${liquidacion.monto_a_pagar}).')
             return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion_id)
 
+        cotizacion_dolar = None
+        cotiz_raw = (request.POST.get('cotizacion_dolar') or '').strip()
+        if cotiz_raw:
+            try:
+                cotizacion_dolar = parse_decimal_monto(cotiz_raw)
+                if cotizacion_dolar <= 0:
+                    cotizacion_dolar = None
+            except (ValueError, TypeError, InvalidOperation):
+                cotizacion_dolar = None
+        if cotizacion_dolar is None:
+            cotizacion_dolar = liquidacion.cotizacion_dolar
+
         # Crear movimiento de caja (egreso)
         movimiento = MovimientoCaja.objects.create(
             fecha=timezone.now(),
@@ -28068,6 +28090,7 @@ def procesar_liquidacion(request, liquidacion_id):
             monto_cheque=monto_cheque,
             monto_tarjeta=monto_tarjeta,
             monto_deposito=monto_deposito,
+            cotizacion_dolar=cotizacion_dolar,
             a_descontar='propietario',
             sucursal=request.user.sucursal,
             empleado=request.user,
@@ -28076,6 +28099,8 @@ def procesar_liquidacion(request, liquidacion_id):
 
         # Actualizar liquidación
         liquidacion.movimiento_caja = movimiento
+        if cotizacion_dolar is not None and liquidacion.cotizacion_dolar != cotizacion_dolar:
+            liquidacion.cotizacion_dolar = cotizacion_dolar
         liquidacion.estado = 'pagada'
         liquidacion.fecha_procesamiento = timezone.now()
         liquidacion.save()

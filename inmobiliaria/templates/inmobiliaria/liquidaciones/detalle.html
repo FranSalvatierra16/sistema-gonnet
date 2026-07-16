@@ -115,6 +115,22 @@
                                     </td>
                                 </tr>
                                 <tr>
+                                    <th>Moneda:</th>
+                                    <td>
+                                        {% if liquidacion.moneda == 'USD' %}
+                                        <span class="badge bg-info">Dólares (USD)</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">Pesos (ARS)</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% if liquidacion.cotizacion_dolar %}
+                                <tr>
+                                    <th>Cotización del día:</th>
+                                    <td>${{ liquidacion.cotizacion_dolar|floatformat:2 }} <span class="text-muted small">(ARS por USD)</span></td>
+                                </tr>
+                                {% endif %}
+                                <tr>
                                     <th>Fecha de Creación:</th>
                                     <td>{{ liquidacion.fecha_creacion|date:"d/m/Y H:i" }}</td>
                                 </tr>
@@ -425,6 +441,19 @@
                                         <label class="form-label">Depósito</label>
                                         <input type="text" name="monto_deposito" id="monto_deposito" class="form-control input-monto-ar monto" 
                                                inputmode="numeric" autocomplete="off" value="" placeholder="0">
+                                    </div>
+                                </div>
+                                <div class="row mb-3">
+                                    <div class="col-md-4">
+                                        <label class="form-label">Cotización del día <span class="text-muted">(opcional)</span></label>
+                                        <div class="input-group">
+                                            <span class="input-group-text">$</span>
+                                            <input type="text" name="cotizacion_dolar" id="cotizacion_dolar_pago" class="form-control input-monto-ar"
+                                                   inputmode="decimal" autocomplete="off"
+                                                   value="{% if liquidacion.cotizacion_dolar %}{{ liquidacion.cotizacion_dolar }}{% endif %}"
+                                                   placeholder="Ej. 1450">
+                                        </div>
+                                        <small class="text-muted">Pesos por 1 dólar. Si ya se cargó al crear la liquidación, aparece precargada.</small>
                                     </div>
                                 </div>
                                 <div class="row mb-3">

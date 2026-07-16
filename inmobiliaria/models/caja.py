@@ -293,7 +293,7 @@ class MovimientoCaja(models.Model):
         decimal_places=2,
         null=True,
         blank=True,
-        help_text='Cotización ARS por USD del día al cargar el movimiento en dólares.',
+        help_text='Cotización ARS por USD del día al cargar el movimiento (opcional, ARS o USD).',
     )
     fecha_transferencia = models.DateField(
         null=True,
