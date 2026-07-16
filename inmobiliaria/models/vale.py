@@ -120,12 +120,13 @@ class ValeVendedor(models.Model):
 
     @staticmethod
     def monto_total_movimiento(movimiento):
-        """Suma de medios de pago del movimiento (Decimal, coherente con caja)."""
+        """Suma de medios de pago del movimiento (ARS + USD efectivo)."""
         return (
             Decimal(str(movimiento.monto_efectivo or 0))
             + Decimal(str(movimiento.monto_cheque or 0))
             + Decimal(str(movimiento.monto_tarjeta or 0))
             + Decimal(str(movimiento.monto_deposito or 0))
+            + Decimal(str(getattr(movimiento, 'monto_dolares', None) or 0))
         )
 
     @classmethod

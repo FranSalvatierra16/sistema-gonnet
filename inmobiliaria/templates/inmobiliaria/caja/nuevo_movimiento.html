@@ -582,8 +582,12 @@
                                 <small class="text-muted">Resto → propietario</small>
                             </div>
                             <div class="col-md-3">
-                                <label class="form-label">TOTAL</label>
-                                <input type="text" id="total" class="form-control fw-bold bg-light" readonly value="0,00">
+                                <label class="form-label" id="label_total_movimiento">TOTAL</label>
+                                <div class="input-group">
+                                    <span class="input-group-text" id="prefijo_total_movimiento">$</span>
+                                    <input type="text" id="total" class="form-control fw-bold bg-light" readonly value="0,00">
+                                </div>
+                                <small class="text-muted d-none" id="hint_total_usd">Total en dólares (USD efectivo).</small>
                             </div>
                         </div>
                             </div>
@@ -1489,13 +1493,12 @@ $(document).ready(function() {
         });
     }
 
-    // Calcular total
+    // Calcular total ARS (medios en pesos)
     function calcularTotal() {
         var total = 0;
         $('#bloque_montos_ars .monto').each(function() {
             total += parseMontoLocal($(this).val());
         });
-        $('#total').val(fmtMontoLocal(total));
         return total;
     }
 
@@ -1510,6 +1513,33 @@ $(document).ready(function() {
             $eq.addClass('d-none').text('');
         }
         return usd;
+    }
+
+    /** Actualiza el TOTAL de abajo según moneda (ARS, USD o MIXTO). */
+    function actualizarTotalVisible() {
+        var m = monedaActual();
+        var ars = calcularTotal();
+        var usd = calcularTotalUsd();
+        var $pref = $('#prefijo_total_movimiento');
+        var $hint = $('#hint_total_usd');
+        var $label = $('#label_total_movimiento');
+        if (m === 'USD') {
+            $pref.text('U$S');
+            $label.text('TOTAL USD');
+            $hint.removeClass('d-none');
+            $('#total').val(fmtMontoLocal(usd));
+        } else if (m === 'MIXTO') {
+            $pref.text('$');
+            $label.text('TOTAL ARS');
+            $hint.addClass('d-none');
+            $('#total').val(fmtMontoLocal(ars));
+        } else {
+            $pref.text('$');
+            $label.text('TOTAL');
+            $hint.addClass('d-none');
+            $('#total').val(fmtMontoLocal(ars));
+        }
+        return { ars: ars, usd: usd };
     }
 
     function monedaActual() {
@@ -1529,7 +1559,6 @@ $(document).ready(function() {
             $('#bloque_detalle_tarjeta, #bloque_detalle_cheque').addClass('d-none');
             // Sin ARS: el reparto en pesos no aplica; dejar en cero
             $('#monto_a_oficina, #monto_a_propietario, #monto_a_inquilino').val(fmtMontoLocal(0));
-            $('#total').val(fmtMontoLocal(0));
         }
         if (soloArs) {
             $('#monto_dolares_mov').val('');
@@ -1537,14 +1566,16 @@ $(document).ready(function() {
             $('#total_usd').val(fmtMontoLocal(0));
             $('#equiv_ars_usd_label').addClass('d-none').text('');
         }
-        calcularTotal();
-        calcularTotalUsd();
+        actualizarTotalVisible();
         actualizarVisibilidadMediosPago();
     }
 
     $('#moneda_movimiento').on('change', actualizarVisibilidadMoneda);
     $('#cotizacion_dolar_mov').on('input blur', function() {
-        calcularTotalUsd();
+        actualizarTotalVisible();
+    });
+    $('#monto_dolares_mov').on('input blur', function() {
+        actualizarTotalVisible();
     });
 
     function sincronizarCorresponde(origen, campoActivoId) {
@@ -1640,7 +1671,7 @@ $(document).ready(function() {
         $('#suma_cheques_label').text('$' + fmtMontoLocal(suma));
         if (suma > 0) {
             $('input[name="monto_cheque"]').val(fmtMontoLocal(suma));
-            calcularTotal();
+            actualizarTotalVisible();
         }
         return suma;
     }
@@ -1695,14 +1726,13 @@ $(document).ready(function() {
     $('#formMovimiento').on('input', '.monto, .input-monto-ar', function() {
         if ($(this).hasClass('cheque-monto')) return;
         formatearMontoAlEscribir(this);
-        calcularTotal();
-        calcularTotalUsd();
+        actualizarTotalVisible();
         actualizarVisibilidadMediosPago();
     });
     $('#formMovimiento').on('blur', '.monto, .input-monto-ar', function() {
         if ($(this).hasClass('cheque-monto')) return;
         formatearMontoAlSalir(this);
-        calcularTotalUsd();
+        actualizarTotalVisible();
     });
     $('.monto').on('blur', function() {
         var total = calcularTotal();
@@ -1713,8 +1743,7 @@ $(document).ready(function() {
         }
         sincronizarCorresponde(ultimoCasilleroCorresponde);
     });
-    calcularTotal();
-    calcularTotalUsd();
+    actualizarTotalVisible();
     actualizarVisibilidadMoneda();
     actualizarVisibilidadMediosPago();
     aplicarFormatoMontosFormulario();
@@ -2176,6 +2205,7 @@ $(document).ready(function() {
             $('#monto_a_oficina, #monto_a_inquilino').val(fmtMontoLocal(0));
             $('#monto_a_propietario').val(fmtMontoLocal(montoSug));
             calcularTotal();
+            actualizarTotalVisible();
             return;
         }
 
@@ -2195,6 +2225,7 @@ $(document).ready(function() {
             $('#monto_a_propietario, #monto_a_inquilino').val(fmtMontoLocal(0));
             $('#monto_a_oficina').val(fmtMontoLocal(montoSug));
             calcularTotal();
+            actualizarTotalVisible();
         }
     }
 
@@ -2395,7 +2426,7 @@ $(document).ready(function() {
                 );
                 return false;
             }
-            var totalGo = calcularTotal();
+            var totalGo = moneda === 'USD' ? totalUsd : calcularTotal();
             $('#monto_a_oficina').val(fmtMontoLocal(totalGo));
             $('#monto_a_propietario').val(fmtMontoLocal(0));
             $('#monto_a_inquilino').val(fmtMontoLocal(0));
@@ -2556,8 +2587,7 @@ $(document).ready(function() {
             }
         }
 
-        calcularTotal();
-        calcularTotalUsd();
+        actualizarTotalVisible();
         actualizarVisibilidadMoneda();
         aplicarFormatoMontosFormulario();
         enviandoMovimientoCaja = false;

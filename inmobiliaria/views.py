@@ -13345,12 +13345,16 @@ def nuevo_movimiento(request, numero_caja=None):
                 return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
 
             if es_gasto_oficina:
-                m_of = total_mov
+                # En USD el total ARS es 0: imputar el monto dólares a oficina
+                m_of = total_mov if total_mov > 0 else m_dol
                 m_prop = Decimal('0')
                 m_inq = Decimal('0')
             else:
                 try:
-                    m_of, m_prop, m_inq = _parse_imputacion_corresponde_post(request, total_mov)
+                    # Solo reparte ARS; si el movimiento es solo USD, deja 0/0/0
+                    m_of, m_prop, m_inq = _parse_imputacion_corresponde_post(
+                        request, total_mov if total_mov > 0 else Decimal('0')
+                    )
                 except ValueError:
                     messages.error(
                         request,
