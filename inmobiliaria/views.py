@@ -425,7 +425,7 @@ def historial_comisiones_vendedor(request, vendedor_id):
             'No se pudo cargar comisiones/vales. Verificá que las migraciones estén aplicadas en el servidor '
             f'(detalle técnico: {exc.__class__.__name__}).',
         )
-        return redirect('inmobiliaria:vendedores')
+        return redirect('inmobiliaria:dashboard')
     
     # Calcular neto histórico (comisiones − entregas en vale + devoluciones ingreso a caja)
     total_neto = total_comisiones - total_vales
@@ -2340,13 +2340,27 @@ def dashboard(request):
         'vendedor': vendedor,
     }
     return render(request, 'inmobiliaria/dashboard.html', context)
+def _requiere_superuser(request):
+    """Redirige al dashboard si el usuario no es super administrador."""
+    if not getattr(request.user, 'is_superuser', False):
+        messages.error(request, 'Solo un super administrador puede acceder a esta sección.')
+        return redirect('inmobiliaria:dashboard')
+    return None
+
+
 @login_required
 def vendedores(request):
+    denegado = _requiere_superuser(request)
+    if denegado:
+        return denegado
     vendedores = Vendedor.objects.filter(sucursal=request.user.sucursal)
     return render(request, 'inmobiliaria/vendedores/lista.html', {'vendedores': vendedores})
 
 @login_required
 def vendedor_detalle(request, vendedor_id):
+    denegado = _requiere_superuser(request)
+    if denegado:
+        return denegado
     vendedor = get_object_or_404(
         Vendedor.objects.select_related('sucursal'),
         pk=vendedor_id,
@@ -2354,6 +2368,9 @@ def vendedor_detalle(request, vendedor_id):
     return render(request, 'inmobiliaria/vendedores/detalle.html', {'vendedor': vendedor})
 @login_required
 def vendedor_nuevo(request):
+    denegado = _requiere_superuser(request)
+    if denegado:
+        return denegado
     if request.method == "POST":
         form = VendedorUserCreationForm(request.POST)
         if form.is_valid():
@@ -2366,6 +2383,9 @@ def vendedor_nuevo(request):
 
 @login_required
 def vendedor_editar(request, vendedor_id):
+    denegado = _requiere_superuser(request)
+    if denegado:
+        return denegado
     vendedor = get_object_or_404(Vendedor, pk=vendedor_id)
     if request.method == "POST":
         form = VendedorChangeForm(request.POST, instance=vendedor)
@@ -2378,6 +2398,9 @@ def vendedor_editar(request, vendedor_id):
     return render(request, 'inmobiliaria/vendedores/formulario.html', {'form': form, 'vendedor': vendedor})
 @login_required
 def vendedor_eliminar(request, vendedor_id):
+    denegado = _requiere_superuser(request)
+    if denegado:
+        return denegado
     vendedor = get_object_or_404(Vendedor, pk=vendedor_id)
     if request.method == "POST":
         vendedor.delete()
@@ -6170,7 +6193,11 @@ def gestionar_precios(request, propiedad_id):
         'historiales': historiales
     })
 
+@login_required
 def historial_reservas_vendedor(request, vendedor_id):
+    denegado = _requiere_superuser(request)
+    if denegado:
+        return denegado
     reservas = Reserva.objects.filter(vendedor_id=vendedor_id)
 
     return render(request, 'inmobiliaria/vendedores/historial.html', {
