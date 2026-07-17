@@ -1938,7 +1938,11 @@ def administracion_propiedades_operaciones(request):
         propi = getattr(propiedad, 'propietario', None)
         gastos_qs = GastoPropietario.objects.filter(sucursal=request.user.sucursal)
         if propi:
-            gastos_qs = gastos_qs.filter(Q(propiedad=propiedad) | Q(propietario=propi))
+            # Solo gastos de esta propiedad + gastos del propietario sin propiedad asignada.
+            # No mezclar gastos de otras propiedades del mismo dueño.
+            gastos_qs = gastos_qs.filter(
+                Q(propiedad=propiedad) | Q(propiedad__isnull=True, propietario=propi)
+            )
         else:
             gastos_qs = gastos_qs.filter(propiedad=propiedad)
         gastos_qs = gastos_qs.select_related('liquidacion')
@@ -2074,11 +2078,19 @@ def administracion_propiedades_operaciones(request):
         gastos_items = []
         for g in gastos:
             mov_num = getattr(getattr(g, 'liquidacion', None), 'movimiento_caja_id', None)
+            detalle = str(getattr(g, 'observaciones', '') or '').strip()
+            if getattr(g, 'liquidacion_id', None):
+                origen = f'Liquidación #{g.liquidacion_id}'
+            elif getattr(g, 'propiedad_id', None):
+                origen = 'Gasto pendiente de la propiedad'
+            else:
+                origen = 'Gasto del propietario (sin propiedad asignada)'
+            detalle = f'{detalle} · {origen}' if detalle else origen
             gastos_items.append({
                 'fecha': g.fecha_creacion,
                 'movimiento_num': mov_num,
                 'concepto': str(getattr(g, 'descripcion', '') or '-'),
-                'detalle': str(getattr(g, 'observaciones', '') or '').strip(),
+                'detalle': detalle,
                 'monto': g.monto or Decimal('0'),
                 'cargo': 'Propietario',
                 'url_recibo': _url_recibo_admin(mov_num),
