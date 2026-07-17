@@ -7179,13 +7179,14 @@ def procesar_movimiento_reserva(request):
                 if ya_devuelto:
                     return JsonResponse({'success': False, 'error': 'El depósito de esta operación ya fue devuelto anteriormente.'})
 
+                # Los depósitos en garantía se devuelven por transferencia
                 MovimientoCaja.objects.create(
                     caja=caja_actual,
                     sucursal=request.user.sucursal,
                     tipo=TipoMovimientoCajaEnum.EGRESO,
                     concepto=f'Devolución depósito operación {reserva.id} - {reserva.propiedad.direccion}',
                     propiedad=reserva.propiedad,
-                    monto_efectivo=monto_devolucion,
+                    monto_deposito=monto_devolucion,
                     empleado=request.user,
                     a_descontar='oficina'
                 )

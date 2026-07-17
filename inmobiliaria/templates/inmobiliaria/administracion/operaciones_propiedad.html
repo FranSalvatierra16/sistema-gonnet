@@ -58,7 +58,8 @@
         <div class="list-group list-group-flush">
             {% for p in coincidencias %}
             <a class="list-group-item list-group-item-action" href="{% url 'inmobiliaria:administracion_propiedades_operaciones' %}?propiedad_id={{ p.id }}">
-                <strong>#{{ p.id }}</strong> - {{ p.direccion }}{% if p.ubicacion %} ({{ p.ubicacion }}){% endif %}
+                <strong>#{{ p.id }}</strong> - {{ p.direccion }}{% if p.piso %} — Piso {{ p.piso }}{% endif %}{% if p.departamento %}{% if p.piso %}, {% else %} — {% endif %}Dpto {{ p.departamento }}{% endif %}{% if p.ubicacion %} ({{ p.ubicacion }}){% endif %}
+                {% if p.propietario %}<span class="small text-muted d-block">{{ p.propietario }}</span>{% endif %}
             </a>
             {% endfor %}
         </div>
@@ -72,7 +73,7 @@
     {% if propiedad %}
     <div class="card mb-4">
         <div class="card-body">
-            <h5 class="mb-2">Propiedad #{{ propiedad.id }} - {{ propiedad.direccion }}</h5>
+            <h5 class="mb-2">Propiedad #{{ propiedad.id }} - {{ propiedad.direccion }}{% if propiedad.piso %} — Piso {{ propiedad.piso }}{% endif %}{% if propiedad.departamento %}{% if propiedad.piso %}, {% else %} — {% endif %}Dpto {{ propiedad.departamento }}{% endif %}</h5>
             <div class="row">
                 <div class="col-md-4"><strong>Ubicación:</strong> {{ propiedad.ubicacion|default:"-" }}</div>
                 <div class="col-md-4"><strong>Sucursal:</strong> {{ propiedad.sucursal.nombre }}</div>

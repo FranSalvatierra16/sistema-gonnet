@@ -2219,8 +2219,9 @@ $(document).ready(function() {
             seleccionarConceptoCatalogo(cDev.id, cDev.nombre || CONCEPTO_DEVOLUCION_DEPOSITO.nombre);
         }
         if (op.puede_devolver && montoSug > 0) {
-            $('input[name="monto_efectivo"]').val(fmtMontoLocal(montoSug));
-            $('input[name="monto_cheque"], input[name="monto_tarjeta"], input[name="monto_deposito"]').val('');
+            // Los depósitos en garantía se devuelven por transferencia por defecto (editable).
+            $('input[name="monto_deposito"]').val(fmtMontoLocal(montoSug));
+            $('input[name="monto_efectivo"], input[name="monto_cheque"], input[name="monto_tarjeta"]').val('');
             correspondeEditadoManual = false;
             ultimoCasilleroCorresponde = 'oficina';
             $('#monto_a_propietario, #monto_a_inquilino').val(fmtMontoLocal(0));
