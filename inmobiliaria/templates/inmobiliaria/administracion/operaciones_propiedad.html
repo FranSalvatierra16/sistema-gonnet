@@ -83,11 +83,11 @@
     </div>
 
     <div class="row mb-4">
-        <div class="col-md-4 col-12 mb-2"><div class="alert alert-success border mb-0">Ingresos: <strong>${{ total_ingresos|format_price }}</strong></div></div>
-        <div class="col-md-4 col-12 mb-2"><div class="alert alert-danger border mb-0">Egresos: <strong>${{ total_egresos|format_price }}</strong></div></div>
-        <div class="col-md-4 col-12 mb-2"><div class="alert alert-primary border mb-0">Balance: <strong>${{ balance|format_price }}</strong></div></div>
+        <div class="col-md-4 col-12 mb-2"><div class="alert alert-success border mb-0">Ingresos: <strong>${{ total_ingresos|format_price }}</strong>{% if total_ingresos_usd %} <span class="d-block small">+ <strong>U$S {{ total_ingresos_usd|format_price }}</strong></span>{% endif %}</div></div>
+        <div class="col-md-4 col-12 mb-2"><div class="alert alert-danger border mb-0">Egresos: <strong>${{ total_egresos|format_price }}</strong>{% if total_egresos_usd %} <span class="d-block small">+ <strong>U$S {{ total_egresos_usd|format_price }}</strong></span>{% endif %}</div></div>
+        <div class="col-md-4 col-12 mb-2"><div class="alert alert-primary border mb-0">Balance: <strong>${{ balance|format_price }}</strong>{% if total_ingresos_usd or total_egresos_usd %} <span class="d-block small">+ <strong>U$S {{ balance_usd|format_price }}</strong></span>{% endif %}</div></div>
         <div class="col-md-6 col-12 mb-2"><div class="alert alert-info border mb-0">Pagos cobrados (reservas): <strong>${{ total_pagos|format_price }}</strong></div></div>
-        <div class="col-md-6 col-12 mb-2"><div class="alert alert-warning border mb-0">Gastos registrados: <strong>${{ total_gastos|format_price }}</strong></div></div>
+        <div class="col-md-6 col-12 mb-2"><div class="alert alert-warning border mb-0">Gastos registrados: <strong>${{ total_gastos|format_price }}</strong>{% if total_gastos_usd %} <span class="d-block small">+ <strong>U$S {{ total_gastos_usd|format_price }}</strong></span>{% endif %}</div></div>
     </div>
 
     <div class="row mb-4">
@@ -186,7 +186,13 @@
                                 <td>{% if g.movimiento_num %}#{{ g.movimiento_num }}{% else %}-{% endif %}</td>
                                 <td>{{ g.concepto|default:"-" }}</td>
                                 <td>{{ g.detalle|default:"-" }}</td>
-                                <td class="text-end">${{ g.monto|format_price }}</td>
+                                <td class="text-end">
+                                    {% if g.monto_usd %}
+                                        {% if g.monto %}${{ g.monto|format_price }} + {% endif %}<strong>U$S {{ g.monto_usd|format_price }}</strong>
+                                    {% else %}
+                                        ${{ g.monto|format_price }}
+                                    {% endif %}
+                                </td>
                                 <td class="text-center">
                                     {% if g.url_recibo %}
                                     <a href="{{ g.url_recibo }}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" title="Ver recibo">
@@ -223,7 +229,13 @@
                                 <td>#{{ i.movimiento_num }}</td>
                                 <td>{{ i.concepto|default:"-" }}</td>
                                 <td>{{ i.detalle|default:"-" }}</td>
-                                <td class="text-end">${{ i.monto|format_price }}</td>
+                                <td class="text-end">
+                                    {% if i.monto_usd %}
+                                        {% if i.monto %}${{ i.monto|format_price }} + {% endif %}<strong>U$S {{ i.monto_usd|format_price }}</strong>
+                                    {% else %}
+                                        ${{ i.monto|format_price }}
+                                    {% endif %}
+                                </td>
                                 <td class="text-center">
                                     {% if i.url_recibo %}
                                     <a href="{{ i.url_recibo }}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" title="Ver recibo">
@@ -258,7 +270,7 @@
                                 <td>{{ l.get_estado_display }}</td>
                                 <td>{% if l.reserva_id %}#{{ l.reserva_id }}{% else %}-{% endif %}</td>
                                 <td>{% if l.contrato_id %}#{{ l.contrato_id }}{% else %}-{% endif %}</td>
-                                <td class="text-end">${{ l.monto_a_pagar|format_price }}</td>
+                                <td class="text-end">{% if l.moneda == 'USD' %}<strong>U$S {{ l.monto_a_pagar|format_price }}</strong>{% else %}${{ l.monto_a_pagar|format_price }}{% endif %}</td>
                             </tr>
                             {% empty %}<tr><td colspan="5" class="text-center text-muted">Sin liquidaciones</td></tr>{% endfor %}
                         </tbody>

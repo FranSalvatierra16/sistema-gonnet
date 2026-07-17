@@ -1898,6 +1898,10 @@ def administracion_propiedades_operaciones(request):
         'balance': Decimal('0'),
         'total_pagos': Decimal('0'),
         'total_gastos': Decimal('0'),
+        'total_ingresos_usd': Decimal('0'),
+        'total_egresos_usd': Decimal('0'),
+        'balance_usd': Decimal('0'),
+        'total_gastos_usd': Decimal('0'),
     }
 
     try:
@@ -2086,12 +2090,15 @@ def administracion_propiedades_operaciones(request):
             else:
                 origen = 'Gasto del propietario (sin propiedad asignada)'
             detalle = f'{detalle} · {origen}' if detalle else origen
+            es_usd = (getattr(g, 'moneda', None) or 'ARS').upper() == 'USD'
+            monto_g = g.monto or Decimal('0')
             gastos_items.append({
                 'fecha': g.fecha_creacion,
                 'movimiento_num': mov_num,
                 'concepto': str(getattr(g, 'descripcion', '') or '-'),
                 'detalle': detalle,
-                'monto': g.monto or Decimal('0'),
+                'monto': Decimal('0') if es_usd else monto_g,
+                'monto_usd': monto_g if es_usd else Decimal('0'),
                 'cargo': 'Propietario',
                 'url_recibo': _url_recibo_admin(mov_num),
             })
@@ -2116,6 +2123,7 @@ def administracion_propiedades_operaciones(request):
                 'concepto': _nombre_concepto_mov(m),
                 'detalle': ' · '.join(detalle_parts),
                 'monto': Decimal(str(getattr(m, 'monto_total', 0) or 0)),
+                'monto_usd': Decimal(str(getattr(m, 'monto_dolares', 0) or 0)),
                 'cargo': cargo or 'Egreso caja',
                 'url_recibo': _url_recibo_admin(m.id),
             })
@@ -2137,6 +2145,7 @@ def administracion_propiedades_operaciones(request):
                 'concepto': _nombre_concepto_mov(m),
                 'detalle': ' · '.join(detalle_parts) or '—',
                 'monto': Decimal(str(getattr(m, 'monto_total', 0) or 0)),
+                'monto_usd': Decimal(str(getattr(m, 'monto_dolares', 0) or 0)),
                 'url_recibo': _url_recibo_admin(m.id),
             })
         def _fecha_sort_key(item):
@@ -2167,10 +2176,17 @@ def administracion_propiedades_operaciones(request):
         ag_mov = movimientos_qs.aggregate(
             i=Sum(F('monto_efectivo') + F('monto_cheque') + F('monto_tarjeta') + F('monto_deposito'), filter=Q(tipo=TipoMovimientoCajaEnum.INGRESO)),
             e=Sum(F('monto_efectivo') + F('monto_cheque') + F('monto_tarjeta') + F('monto_deposito'), filter=Q(tipo=TipoMovimientoCajaEnum.EGRESO)),
+            i_usd=Sum('monto_dolares', filter=Q(tipo=TipoMovimientoCajaEnum.INGRESO)),
+            e_usd=Sum('monto_dolares', filter=Q(tipo=TipoMovimientoCajaEnum.EGRESO)),
         )
         total_ingresos = ag_mov.get('i') or Decimal('0')
         total_egresos = ag_mov.get('e') or Decimal('0')
+        total_ingresos_usd = ag_mov.get('i_usd') or Decimal('0')
+        total_egresos_usd = ag_mov.get('e_usd') or Decimal('0')
         total_gastos = sum((item['monto'] for item in gastos_items), Decimal('0'))
+        total_gastos_usd = sum(
+            (item.get('monto_usd') or Decimal('0') for item in gastos_items), Decimal('0')
+        )
 
         contexto_base.update({
             'reservas': reservas,
@@ -2185,8 +2201,12 @@ def administracion_propiedades_operaciones(request):
             'total_ingresos': total_ingresos,
             'total_egresos': total_egresos,
             'balance': total_ingresos - total_egresos,
+            'total_ingresos_usd': total_ingresos_usd,
+            'total_egresos_usd': total_egresos_usd,
+            'balance_usd': total_ingresos_usd - total_egresos_usd,
             'total_pagos': ag_pagos.get('t') or Decimal('0'),
             'total_gastos': total_gastos,
+            'total_gastos_usd': total_gastos_usd,
         })
         return _safe_render(contexto_base)
     except Exception:
@@ -28090,6 +28110,15 @@ def procesar_liquidacion(request, liquidacion_id):
         if cotizacion_dolar is None:
             cotizacion_dolar = liquidacion.cotizacion_dolar
 
+        # Liquidación en USD: el egreso sale de la caja en dólares, no en pesos
+        es_usd = (liquidacion.moneda or 'ARS').upper() == 'USD'
+        monto_dolares = total_pago if es_usd else Decimal('0')
+        if es_usd:
+            monto_efectivo = Decimal('0')
+            monto_cheque = Decimal('0')
+            monto_tarjeta = Decimal('0')
+            monto_deposito = Decimal('0')
+
         # Crear movimiento de caja (egreso)
         movimiento = MovimientoCaja.objects.create(
             fecha=timezone.now(),
@@ -28103,6 +28132,7 @@ def procesar_liquidacion(request, liquidacion_id):
             monto_cheque=monto_cheque,
             monto_tarjeta=monto_tarjeta,
             monto_deposito=monto_deposito,
+            monto_dolares=monto_dolares,
             cotizacion_dolar=cotizacion_dolar,
             a_descontar='propietario',
             sucursal=request.user.sucursal,
@@ -28118,7 +28148,8 @@ def procesar_liquidacion(request, liquidacion_id):
         liquidacion.fecha_procesamiento = timezone.now()
         liquidacion.save()
 
-        messages.success(request, f'Liquidación procesada correctamente. Se descontó ${liquidacion.monto_a_pagar} de la caja.')
+        simbolo = 'U$S ' if es_usd else '$'
+        messages.success(request, f'Liquidación procesada correctamente. Se descontó {simbolo}{liquidacion.monto_a_pagar} de la caja.')
         return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion.id)
 
     except Exception as e:
