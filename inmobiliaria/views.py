@@ -13250,6 +13250,21 @@ def nuevo_movimiento(request, numero_caja=None):
             propiedad_id_raw = (request.POST.get('propiedad_id') or '').strip()
             propiedad_id_mov = int(propiedad_id_raw) if propiedad_id_raw.isdigit() else None
 
+            # Un egreso siempre tiene que quedar asignado a una propiedad,
+            # salvo gasto de oficina o vale a productor (no corresponden a una propiedad).
+            if (
+                tipo == 'EG'
+                and propiedad_id_mov is None
+                and not es_gasto_oficina
+                and not es_vale_concepto
+            ):
+                messages.error(
+                    request,
+                    'Para cargar un egreso tenés que asignarle una propiedad. '
+                    'Si es un gasto de la oficina, marcá "Gasto de oficina".',
+                )
+                return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
+
             # Crear el movimiento con valores iniciales
             movimiento = MovimientoCaja(
                 caja=caja,

@@ -2437,6 +2437,18 @@ $(document).ready(function() {
         } else {
             $('#monto_a_oficina, #monto_a_propietario, #monto_a_inquilino').val(fmtMontoLocal(0));
         }
+        // Egreso: propiedad obligatoria (salvo gasto de oficina o vale a productor)
+        if ($('select[name="tipo"]').val() === 'EG'
+            && !$('#propiedad_id').val()
+            && !$('#es_gasto_oficina').is(':checked')
+            && !esConceptoVale($('#concepto_id').val(), $('#concepto_seleccionado_texto').text())) {
+            e.preventDefault();
+            alert('Para cargar un egreso tenés que asignarle una propiedad. Si es un gasto de la oficina, marcá "Gasto de oficina".');
+            $('#propiedad_buscar').focus();
+            enviandoMovimientoCaja = false;
+            $('#btn_guardar_movimiento').prop('disabled', false).html('<i class="fas fa-save"></i> Guardar movimiento');
+            return false;
+        }
         if (esConceptoDevolucionDeposito($('#concepto_id').val(), $('#concepto_seleccionado_texto').text())) {
             if (!$('#operacion_ref_id').val() && !$('#reserva_operacion_id').val()) {
                 e.preventDefault();
