@@ -2443,8 +2443,14 @@ $(document).ready(function() {
             && !$('#es_gasto_oficina').is(':checked')
             && !esConceptoVale($('#concepto_id').val(), $('#concepto_seleccionado_texto').text())) {
             e.preventDefault();
+            var $prop = $('#propiedad_buscar');
+            var elProp = $prop.get(0);
+            if (elProp && elProp.scrollIntoView) {
+                elProp.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            $prop.addClass('is-invalid').focus();
+            setTimeout(function() { $prop.removeClass('is-invalid'); }, 4000);
             alert('Para cargar un egreso tenés que asignarle una propiedad. Si es un gasto de la oficina, marcá "Gasto de oficina".');
-            $('#propiedad_buscar').focus();
             enviandoMovimientoCaja = false;
             $('#btn_guardar_movimiento').prop('disabled', false).html('<i class="fas fa-save"></i> Guardar movimiento');
             return false;
@@ -2606,6 +2612,14 @@ $(document).ready(function() {
         aplicarFormatoMontosFormulario();
         enviandoMovimientoCaja = false;
         $('#btn_guardar_movimiento').prop('disabled', false).html('Guardar');
+
+        // Se volvió del servidor tras un rechazo: mostrar el mensaje de error arriba.
+        var $alertaError = $('.alert-danger, .alert-error').first();
+        if ($alertaError.length && $alertaError.get(0).scrollIntoView) {
+            $alertaError.get(0).scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
     }
 
     restaurarFormPostServidor();
