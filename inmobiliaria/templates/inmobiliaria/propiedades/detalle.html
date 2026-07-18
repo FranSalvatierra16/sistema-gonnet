@@ -178,6 +178,107 @@
                                         </div>
                                     </div>
 
+                                    <!-- Propietario -->
+                                    <div class="card shadow-modern mb-4">
+                                        <div class="card-header">
+                                            <h5 class="mb-0">
+                                                <i class="fas fa-user-tie me-2"></i>Propietario
+                                            </h5>
+                                        </div>
+                                        <div class="card-body">
+                                            {% if propiedad.propietario %}
+                                            {% with prop=propiedad.propietario %}
+                                            <div class="row g-3">
+                                                <div class="col-md-12 mb-3">
+                                                    <div class="info-card">
+                                                        <div class="info-icon">
+                                                            <i class="fas fa-user"></i>
+                                                        </div>
+                                                        <div class="info-content">
+                                                            <label class="info-label">Nombre</label>
+                                                            <div class="info-value">
+                                                                <a href="{% url 'inmobiliaria:propietario_detalle' prop.id %}">
+                                                                    {{ prop.nombre_completo_propietario|default:"Sin nombre" }}
+                                                                </a>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6 mb-3">
+                                                    <div class="info-card">
+                                                        <div class="info-icon">
+                                                            <i class="fas fa-id-card"></i>
+                                                        </div>
+                                                        <div class="info-content">
+                                                            <label class="info-label">DNI / CUIT</label>
+                                                            <div class="info-value">{{ prop.dni|default:prop.cuit|default:"No especificado" }}</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6 mb-3">
+                                                    <div class="info-card">
+                                                        <div class="info-icon">
+                                                            <i class="fas fa-phone"></i>
+                                                        </div>
+                                                        <div class="info-content">
+                                                            <label class="info-label">Celular</label>
+                                                            <div class="info-value">
+                                                                {% if prop.celular %}
+                                                                <a href="https://wa.me/{{ prop.celular }}" target="_blank" rel="noopener">{{ prop.celular }}</a>
+                                                                {% else %}No especificado{% endif %}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-12 mb-3">
+                                                    <div class="info-card">
+                                                        <div class="info-icon">
+                                                            <i class="fas fa-envelope"></i>
+                                                        </div>
+                                                        <div class="info-content">
+                                                            <label class="info-label">Email</label>
+                                                            <div class="info-value">
+                                                                {% if prop.email %}
+                                                                <a href="mailto:{{ prop.email }}">{{ prop.email }}</a>
+                                                                {% else %}No especificado{% endif %}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-12 mb-3">
+                                                    <div class="info-card">
+                                                        <div class="info-icon">
+                                                            <i class="fas fa-map-marker-alt"></i>
+                                                        </div>
+                                                        <div class="info-content">
+                                                            <label class="info-label">Domicilio</label>
+                                                            <div class="info-value">
+                                                                {{ prop.domicilio|default:"No especificado" }}{% if prop.localidad %}, {{ prop.localidad }}{% endif %}{% if prop.provincia %} ({{ prop.provincia }}){% endif %}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                {% if prop.cuenta_bancaria %}
+                                                <div class="col-md-12 mb-3">
+                                                    <div class="info-card">
+                                                        <div class="info-icon">
+                                                            <i class="fas fa-university"></i>
+                                                        </div>
+                                                        <div class="info-content">
+                                                            <label class="info-label">Datos bancarios</label>
+                                                            <div class="info-value">{{ prop.cuenta_bancaria }}</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                            {% endwith %}
+                                            {% else %}
+                                            <p class="text-muted mb-0">Esta propiedad no tiene un propietario asignado.</p>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+
                                     <!-- Características -->
                                     <div class="info-section mb-4">
                                         <h4 class="section-title">
