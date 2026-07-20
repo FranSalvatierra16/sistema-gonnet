@@ -216,11 +216,14 @@ def _nombre_propietario_papel(propi):
 
 
 def _nombre_productor_papel(vendedor):
-    """Solo nombre del productor (sin apellido, legajo ni ID)."""
+    """Apellido y nombre del vendedor/productor/fichador para carátula."""
     if not vendedor:
         return '—'
+    ap = (getattr(vendedor, 'apellido', None) or '').strip().upper()
     nom = (getattr(vendedor, 'nombre', None) or '').strip().upper()
-    return nom or '—'
+    if ap and nom:
+        return f'{ap}, {nom}'
+    return ap or nom or '—'
 
 
 def _nombres_productores_operacion(*, reserva=None, contrato=None) -> str:
@@ -234,12 +237,39 @@ def _nombres_productores_operacion(*, reserva=None, contrato=None) -> str:
         return '—'
     if not vends:
         return '—'
-    partes = []
-    for v in vends:
-        ap = (getattr(v, 'apellido', None) or '').strip()
-        nom = _nombre_productor_papel(v)
-        partes.append(f'{ap}, {nom}'.strip(', ').strip() if ap else nom)
-    return ' · '.join(partes)
+    return ' · '.join(_nombre_productor_papel(v) for v in vends)
+
+
+def _fichador_nombre_caratula(prop, comisiones=None) -> str:
+    """Nombre del fichador de la propiedad (todas las operaciones)."""
+    from inmobiliaria.models.comision import ROL_COMISION_FICHAJE, vendedor_fichaje_desde_propiedad
+
+    if comisiones:
+        for c in comisiones:
+            rol = (getattr(c, 'rol_comision', None) or '').strip()
+            if rol in (ROL_COMISION_FICHAJE, 'fichaje'):
+                vend = getattr(c, 'vendedor', None)
+                if vend:
+                    return _nombre_productor_papel(vend)
+                nombre = (getattr(c, 'vendedor_nombre', None) or '').strip()
+                if nombre:
+                    return nombre.upper()
+            # dicts de líneas de carátula
+            if isinstance(c, dict) and c.get('rol') in (ROL_COMISION_FICHAJE, 'fichaje'):
+                nombre = (c.get('vendedor_nombre') or '').strip()
+                if nombre:
+                    return nombre.upper()
+                if c.get('vendedor_id'):
+                    from inmobiliaria.models.persona import Vendedor
+
+                    vend = Vendedor.objects.filter(pk=c['vendedor_id']).first()
+                    if vend:
+                        return _nombre_productor_papel(vend)
+
+    vend = vendedor_fichaje_desde_propiedad(prop)
+    if vend:
+        return _nombre_productor_papel(vend)
+    return '—'
 
 
 def _ctx_productores_operacion(*, reserva=None, contrato=None, puede_editar=False):
@@ -2501,6 +2531,10 @@ def _ctx_honorarios_comisiones_caratula_contrato(
         vend_fichaje = _vendedor_fichaje_contrato_caratula(contrato)
         if vend_fichaje:
             fichador_nombre = _nombre_productor_papel(vend_fichaje)
+    if not (fichador_nombre or '').strip():
+        fichador_nombre = _fichador_nombre_caratula(
+            getattr(contrato, 'propiedad', None), comisiones_fichaje
+        )
     if pct.get('pct_fichaje') is None and comisiones_fichaje:
         pct['pct_fichaje'] = float(comisiones_fichaje[0].get('porcentaje') or 0)
 
@@ -2725,6 +2759,8 @@ def _build_legacy_reserva(
         productor = '—'
         terceros = '0'
 
+    fichador_nombre = _fichador_nombre_caratula(prop, comisiones)
+
     dias_estadia = 1
     if reserva.fecha_fin and reserva.fecha_inicio:
         dias_estadia = max(1, (reserva.fecha_fin - reserva.fecha_inicio).days)
@@ -2768,6 +2804,8 @@ def _build_legacy_reserva(
         'simbolo_moneda': 'U$S' if (getattr(reserva, 'moneda', None) or 'ARS') == 'USD' else '$',
         'comisiones_vendedor': [],
         'comision_productor_total': _formato_importe_us(0),
+        'comision_fichaje_total': _formato_importe_us(0),
+        'fichador_nombre': fichador_nombre,
         'recibo_locador': recibo_loc,
         'recibo_locatario': recibo_locat,
         'url_recibo_locador': url_recibo_loc,
@@ -2890,6 +2928,8 @@ def _build_legacy_contrato(
         fichador_nombre = _nombre_productor_papel(vend_fichaje)
     elif comisiones_fichaje:
         fichador_nombre = comisiones_fichaje[0].get('vendedor_nombre', '')
+    if not (fichador_nombre or '').strip():
+        fichador_nombre = _fichador_nombre_caratula(prop, comisiones_fichaje)
 
     senia_val = Decimal('0')
     if montos_override and montos_override.get('senia') is not None:
@@ -3404,7 +3444,7 @@ def caratula_reserva(request, reserva_id):
         return HttpResponseForbidden()
     reserva = get_object_or_404(
         Reserva.objects.select_related(
-            'cliente', 'propiedad', 'propiedad__propietario', 'vendedor', 'sucursal'
+            'cliente', 'propiedad', 'propiedad__propietario', 'propiedad__fichado_por', 'vendedor', 'sucursal'
         )
         .prefetch_related(
             Prefetch(
@@ -3723,7 +3763,7 @@ def imprimir_caratula_reserva(request, reserva_id):
         return HttpResponseForbidden('No tenés permiso para imprimir carátulas.')
     reserva = get_object_or_404(
         Reserva.objects.select_related(
-            'cliente', 'propiedad', 'propiedad__propietario', 'vendedor', 'sucursal'
+            'cliente', 'propiedad', 'propiedad__propietario', 'propiedad__fichado_por', 'vendedor', 'sucursal'
         ).prefetch_related(
             Prefetch('recibos', queryset=Recibo.objects.order_by('fecha_emision')),
             Prefetch(
@@ -3794,6 +3834,9 @@ def imprimir_caratula_reserva(request, reserva_id):
         'deposito_fmt': cl['deposito'],
         'operacion_id': reserva.id,
         'productor_nombre': _nombres_productores_operacion(reserva=reserva),
+        'fichador_nombre': cl.get('fichador_nombre') or _fichador_nombre_caratula(
+            reserva.propiedad, comisiones
+        ),
     }
     return render(request, 'inmobiliaria/caratulas/imprimir_caratula_papel.html', ctx)
 
@@ -3804,7 +3847,7 @@ def imprimir_caratula_contrato(request, contrato_id):
         return HttpResponseForbidden('No tenés permiso para imprimir carátulas.')
     contrato = get_object_or_404(
         ContratoAlquiler.objects.select_related(
-            'propiedad', 'propiedad__propietario', 'inquilino', 'vendedor', 'sucursal'
+            'propiedad', 'propiedad__propietario', 'propiedad__fichado_por', 'inquilino', 'vendedor', 'sucursal'
         ).prefetch_related(
             Prefetch('cuotas', queryset=CuotaMensual.objects.order_by('fecha_vencimiento')),
             'garantes',
@@ -3871,5 +3914,6 @@ def imprimir_caratula_contrato(request, contrato_id):
         'deposito_fmt': cl['deposito'],
         'operacion_id': contrato.id,
         'productor_nombre': _nombres_productores_operacion(contrato=contrato),
+        'fichador_nombre': cl.get('fichador_nombre') or _fichador_nombre_caratula(contrato.propiedad),
     }
     return render(request, 'inmobiliaria/caratulas/imprimir_caratula_papel.html', ctx)

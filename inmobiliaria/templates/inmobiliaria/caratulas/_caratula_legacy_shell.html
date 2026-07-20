@@ -187,10 +187,8 @@
 
         <div class="caratula-green-footer">
             <div class="caratula-green-footer-left">
-                <span><strong>PRODUCTOR</strong> {{ cl.productor }}</span>
-                {% if cl.fichador_nombre %}
-                <span><strong>FICHADOR</strong> {{ cl.fichador_nombre }}</span>
-                {% endif %}
+                <span><strong>PRODUCTOR</strong> {{ cl.productor|default:"—" }}</span>
+                <span><strong>FICHADOR</strong> {{ cl.fichador_nombre|default:"—" }}</span>
                 {% if cl.comision_fichaje_total and cl.comision_fichaje_total != "0.00" %}
                 <span><strong>COMIS. FICHAJE</strong> {{ cl.comision_fichaje_total }}</span>
                 {% endif %}

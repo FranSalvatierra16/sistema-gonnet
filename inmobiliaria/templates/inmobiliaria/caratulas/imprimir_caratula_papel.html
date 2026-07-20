@@ -175,7 +175,8 @@
         <div><strong>Nº OPERACIÓN</strong><span class="meta-valor meta-valor-numero">{{ numero_display }}</span></div>
         <div><strong>LLAVE</strong><span class="meta-valor">{{ llave }}</span></div>
         <div><strong>FECHA</strong><span class="meta-valor">{{ fecha_documento|date:"d/m/Y" }}</span></div>
-        <div><strong>PRODUCTOR</strong><span class="meta-valor">{{ productor_nombre }}</span></div>
+        <div><strong>PRODUCTOR</strong><span class="meta-valor">{{ productor_nombre|default:"—" }}</span></div>
+        <div><strong>FICHADOR</strong><span class="meta-valor">{{ fichador_nombre|default:"—" }}</span></div>
     </div>
 
     <div class="ficha-destacada">
