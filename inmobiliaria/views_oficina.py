@@ -188,7 +188,8 @@ def oficina_gastos(request):
         fecha_desde_s, fecha_hasta_s = dr_desde.isoformat(), dr_hasta.isoformat()
 
     qs = GastoOficina.objects.filter(sucursal=sucursal).select_related(
-        'categoria', 'categoria__parent', 'usuario_creacion', 'vendedor', 'movimiento_caja'
+        'categoria', 'categoria__parent', 'usuario_creacion', 'vendedor',
+        'movimiento_caja', 'gasto_relacionado',
     )
     if dr_desde:
         qs = qs.filter(fecha__gte=dr_desde)
@@ -262,18 +263,32 @@ def oficina_gasto_eliminar(request, gasto_id):
         return HttpResponseForbidden()
 
     gasto = get_object_or_404(
-        GastoOficina.objects.select_related('movimiento_caja'),
+        GastoOficina.objects.select_related('movimiento_caja', 'gasto_relacionado'),
         id=gasto_id,
         sucursal=request.user.sucursal,
     )
-    if gasto.movimiento_caja_id:
+    # Si el par (u este) tiene movimiento de caja, hay que anular desde caja.
+    mov_id = gasto.movimiento_caja_id
+    if not mov_id and gasto.gasto_relacionado_id:
+        mov_id = gasto.gasto_relacionado.movimiento_caja_id
+    if not mov_id:
+        pareja = GastoOficina.objects.filter(gasto_relacionado_id=gasto.id).first()
+        if pareja and pareja.movimiento_caja_id:
+            mov_id = pareja.movimiento_caja_id
+    if mov_id:
         messages.error(
             request,
-            f'Este gasto está vinculado al movimiento de caja #{gasto.movimiento_caja_id}. '
-            'Eliminá o anulá el movimiento desde la caja.',
+            f'Este gasto está vinculado al movimiento de caja #{mov_id}. '
+            'Eliminá o anulá el movimiento desde la caja (se borra el reparto en ambas sucursales).',
         )
         return redirect('inmobiliaria:oficina_gastos')
-    gasto.delete()
+    ids = {gasto.id}
+    if gasto.gasto_relacionado_id:
+        ids.add(gasto.gasto_relacionado_id)
+    ids.update(
+        GastoOficina.objects.filter(gasto_relacionado_id=gasto.id).values_list('id', flat=True)
+    )
+    GastoOficina.objects.filter(id__in=ids).delete()
     messages.success(request, 'Gasto eliminado.')
     return redirect('inmobiliaria:oficina_gastos')
 

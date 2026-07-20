@@ -91,6 +91,31 @@ class GastoOficina(models.Model):
         verbose_name='Productor / vendedor',
         help_text='Obligatorio para sueldos a productores.',
     )
+    porcentaje = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name='% imputado a esta sucursal',
+        help_text='Porcentaje del total en el reparto Colón / Corrientes.',
+    )
+    monto_total = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name='Monto total del movimiento',
+        help_text='Monto completo antes de repartir entre sucursales.',
+    )
+    gasto_relacionado = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='gastos_reparto_pareja',
+        verbose_name='Gasto en la otra sucursal',
+        help_text='Par del reparto Colón ↔ Corrientes.',
+    )
     usuario_creacion = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

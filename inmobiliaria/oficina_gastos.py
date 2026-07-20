@@ -1,6 +1,6 @@
 """Helpers compartidos para gastos de oficina (panel y movimientos de caja)."""
 import unicodedata
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
 
 from django.db import IntegrityError
 from django.db.models import ProtectedError
@@ -138,6 +138,92 @@ def sucursales_espejo_categorias_oficina(sucursal):
         elif _es_sucursal_colon(sucursal) and _es_sucursal_corrientes(s):
             pares.append(s)
     return pares
+
+
+def par_sucursales_reparto_gasto_oficina(sucursal):
+    """
+    Si la sucursal es Colón o Corrientes, retorna
+    {'colon': Sucursal, 'corrientes': Sucursal, 'local_key': 'colon'|'corrientes'}.
+    Si no aplica, None.
+    """
+    if not sucursal:
+        return None
+    from inmobiliaria.models.sucursal import Sucursal
+
+    if _es_sucursal_colon(sucursal):
+        otra = Sucursal.objects.filter(nombre__icontains='corrientes').order_by('pk').first()
+        if not otra:
+            return None
+        return {'colon': sucursal, 'corrientes': otra, 'local_key': 'colon'}
+    if _es_sucursal_corrientes(sucursal):
+        otra = Sucursal.objects.filter(nombre__icontains='colon').order_by('pk').first()
+        if not otra:
+            return None
+        return {'colon': otra, 'corrientes': sucursal, 'local_key': 'corrientes'}
+    return None
+
+
+def defaults_porcentajes_reparto_gasto_oficina(sucursal):
+    """Sucursal logueada 100%, la otra 0%."""
+    par = par_sucursales_reparto_gasto_oficina(sucursal)
+    if not par:
+        return None
+    if par['local_key'] == 'colon':
+        return {'colon': Decimal('100'), 'corrientes': Decimal('0')}
+    return {'colon': Decimal('0'), 'corrientes': Decimal('100')}
+
+
+def parse_porcentaje_reparto(raw):
+    """Parsea un % desde POST. Retorna Decimal o None si vacío/inválido."""
+    s = (raw or '').strip().replace(',', '.')
+    if not s:
+        return None
+    try:
+        return Decimal(s)
+    except (InvalidOperation, TypeError, ValueError):
+        return None
+
+
+def validar_porcentajes_reparto_gasto_oficina(pct_colon_raw, pct_corrientes_raw, sucursal):
+    """
+    Valida el reparto Colón/Corrientes.
+    Retorna (pct_colon, pct_corrientes, error_msg).
+    Si la sucursal no es del par, retorna (None, None, None) sin error.
+    """
+    par = par_sucursales_reparto_gasto_oficina(sucursal)
+    if not par:
+        return None, None, None
+
+    defaults = defaults_porcentajes_reparto_gasto_oficina(sucursal)
+    pct_colon = parse_porcentaje_reparto(pct_colon_raw)
+    pct_corrientes = parse_porcentaje_reparto(pct_corrientes_raw)
+    if pct_colon is None:
+        pct_colon = defaults['colon']
+    if pct_corrientes is None:
+        pct_corrientes = defaults['corrientes']
+
+    if pct_colon < 0 or pct_corrientes < 0:
+        return None, None, 'Los porcentajes de reparto no pueden ser negativos.'
+    if pct_colon > 100 or pct_corrientes > 100:
+        return None, None, 'Los porcentajes de reparto no pueden superar 100.'
+
+    suma = pct_colon + pct_corrientes
+    if abs(suma - Decimal('100')) > Decimal('0.05'):
+        return None, None, 'Los porcentajes Colón + Corrientes tienen que sumar 100%.'
+
+    # Ajuste fino para que sumen exactamente 100
+    pct_colon = pct_colon.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    pct_corrientes = (Decimal('100') - pct_colon).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    return pct_colon, pct_corrientes, None
+
+
+def _monto_por_porcentaje(total, porcentaje, es_resto=False, total_ya_asignado=None):
+    """Calcula el monto de una parte. Si es_resto, usa total - ya_asignado para cuadrar."""
+    total = Decimal(str(total or 0))
+    if es_resto and total_ya_asignado is not None:
+        return (total - Decimal(str(total_ya_asignado))).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    pct = Decimal(str(porcentaje or 0))
+    return (total * pct / Decimal('100')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
 
 def _encontrar_categoria_espejo(cat, sucursal_destino, nombre_buscar=None):
@@ -798,6 +884,14 @@ def vendedor_desde_categoria(categoria):
     return None
 
 
+def _fmt_pct_reparto(pct):
+    """Formato legible de porcentaje (80 o 80.5)."""
+    if pct is None:
+        return ''
+    s = f'{Decimal(str(pct)):.2f}'.rstrip('0').rstrip('.')
+    return s
+
+
 def registrar_gasto_oficina_desde_movimiento(
     movimiento,
     categoria,
@@ -805,7 +899,14 @@ def registrar_gasto_oficina_desde_movimiento(
     observaciones='',
     vendedor=None,
     usuario=None,
+    porcentaje_colon=None,
+    porcentaje_corrientes=None,
 ):
+    """
+    Crea el GastoOficina del movimiento. Si hay reparto Colón/Corrientes,
+    crea también el gasto en la otra sucursal con su % (sin movimiento de caja allí).
+    El egreso de caja queda 100% en la sucursal donde se cargó.
+    """
     total = (
         Decimal(str(movimiento.monto_efectivo or 0))
         + Decimal(str(movimiento.monto_cheque or 0))
@@ -823,17 +924,119 @@ def registrar_gasto_oficina_desde_movimiento(
     if not vendedor:
         vendedor = vendedor_desde_categoria(categoria)
 
-    return GastoOficina.objects.create(
-        sucursal=movimiento.sucursal,
+    descripcion = (descripcion or categoria.nombre_ruta())[:255]
+    observaciones = observaciones or ''
+    sucursal_local = movimiento.sucursal
+    par = par_sucursales_reparto_gasto_oficina(sucursal_local)
+
+    # Sin par o sin porcentajes: comportamiento histórico (100% local).
+    if not par or porcentaje_colon is None or porcentaje_corrientes is None:
+        return GastoOficina.objects.create(
+            sucursal=sucursal_local,
+            categoria=categoria,
+            fecha=fecha,
+            monto=total,
+            descripcion=descripcion,
+            observaciones=observaciones,
+            movimiento_caja=movimiento,
+            vendedor=vendedor,
+            usuario_creacion=usuario,
+            porcentaje=Decimal('100') if par else None,
+            monto_total=total if par else None,
+        )
+
+    pct_colon = Decimal(str(porcentaje_colon))
+    pct_corrientes = Decimal(str(porcentaje_corrientes))
+    local_key = par['local_key']
+    pct_local = pct_colon if local_key == 'colon' else pct_corrientes
+    pct_otra = pct_corrientes if local_key == 'colon' else pct_colon
+    sucursal_otra = par['corrientes'] if local_key == 'colon' else par['colon']
+
+    monto_local = _monto_por_porcentaje(total, pct_local)
+    monto_otra = _monto_por_porcentaje(total, pct_otra, es_resto=True, total_ya_asignado=monto_local)
+
+    nota_reparto = (
+        f'Reparto: Colón {_fmt_pct_reparto(pct_colon)}% / '
+        f'Corrientes {_fmt_pct_reparto(pct_corrientes)}%'
+        f' (total ${abs(total):.2f}).'
+    )
+    obs_local = f'{observaciones}\n{nota_reparto}'.strip() if observaciones else nota_reparto
+
+    gasto_local = GastoOficina.objects.create(
+        sucursal=sucursal_local,
         categoria=categoria,
         fecha=fecha,
-        monto=total,
-        descripcion=(descripcion or categoria.nombre_ruta())[:255],
-        observaciones=observaciones or '',
+        monto=monto_local,
+        descripcion=descripcion,
+        observaciones=obs_local,
         movimiento_caja=movimiento,
         vendedor=vendedor,
         usuario_creacion=usuario,
+        porcentaje=pct_local,
+        monto_total=total,
     )
+
+    if abs(monto_otra) < Decimal('0.005'):
+        return gasto_local
+
+    cat_otra = _encontrar_categoria_espejo(categoria, sucursal_otra)
+    if not cat_otra:
+        # Sin categoría espejo no se puede imputar a la otra sucursal.
+        gasto_local.observaciones = (
+            f'{obs_local}\n'
+            f'AVISO: no se pudo crear el gasto en {sucursal_otra.nombre} '
+            f'(falta categoría espejo).'
+        ).strip()
+        gasto_local.save(update_fields=['observaciones', 'fecha_modificacion'])
+        return gasto_local
+
+    vendedor_otra = None
+    if vendedor:
+        vendedor_otra = _resolver_vendedor_espejo(sucursal_otra, vendedor)
+
+    obs_otra = (
+        f'{observaciones}\n{nota_reparto}\n'
+        f'Origen: movimiento de caja #{movimiento.id} en {sucursal_local.nombre}.'
+    ).strip()
+
+    gasto_otra = GastoOficina.objects.create(
+        sucursal=sucursal_otra,
+        categoria=cat_otra,
+        fecha=fecha,
+        monto=monto_otra,
+        descripcion=descripcion,
+        observaciones=obs_otra,
+        movimiento_caja=None,
+        vendedor=vendedor_otra,
+        usuario_creacion=usuario,
+        porcentaje=pct_otra,
+        monto_total=total,
+        gasto_relacionado=gasto_local,
+    )
+    gasto_local.gasto_relacionado = gasto_otra
+    gasto_local.save(update_fields=['gasto_relacionado', 'fecha_modificacion'])
+    return gasto_local
+
+
+def eliminar_gastos_oficina_de_movimiento(movimiento):
+    """Borra gastos de oficina del movimiento y su par en la otra sucursal."""
+    if not movimiento:
+        return
+    gastos = list(
+        GastoOficina.objects.filter(movimiento_caja=movimiento).select_related('gasto_relacionado')
+    )
+    ids_borrar = set()
+    for g in gastos:
+        ids_borrar.add(g.id)
+        if g.gasto_relacionado_id:
+            ids_borrar.add(g.gasto_relacionado_id)
+        # También pares que apuntan a este gasto
+        for pareja_id in GastoOficina.objects.filter(
+            gasto_relacionado_id=g.id
+        ).values_list('id', flat=True):
+            ids_borrar.add(pareja_id)
+    if ids_borrar:
+        GastoOficina.objects.filter(id__in=ids_borrar).delete()
 
 
 def validar_gasto_oficina_post(sucursal, categoria_id, descripcion, vendedor_id_raw):

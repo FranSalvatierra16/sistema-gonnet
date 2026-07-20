@@ -252,6 +252,44 @@
                                             e <strong>Ingreso (I)</strong> si devuelve dinero a caja. El vale queda en el historial de comisiones.
                                         </div>
                                     </div>
+                                    {% if reparto_gasto_oficina %}
+                                    <div class="col-md-12" id="bloque_reparto_gasto_oficina">
+                                        <label class="form-label fw-semibold mb-1">Reparto entre sucursales</label>
+                                        <p class="small text-muted mb-2">
+                                            La caja donde estás logueado paga el 100%. El gasto de oficina se imputa según estos %.
+                                            Por defecto: tu sucursal 100% y la otra 0% (editable).
+                                        </p>
+                                        <div class="row g-2 align-items-end">
+                                            <div class="col-sm-4 col-md-3">
+                                                <label class="form-label small mb-0" for="gasto_oficina_pct_colon">
+                                                    {{ reparto_gasto_oficina.colon.nombre }} (%)
+                                                </label>
+                                                <div class="input-group input-group-sm">
+                                                    <input type="number" step="0.01" min="0" max="100"
+                                                           name="gasto_oficina_pct_colon" id="gasto_oficina_pct_colon"
+                                                           class="form-control"
+                                                           value="{% if form_post.gasto_oficina_pct_colon %}{{ form_post.gasto_oficina_pct_colon }}{% else %}{{ reparto_gasto_oficina_defaults.colon }}{% endif %}">
+                                                    <span class="input-group-text">%</span>
+                                                </div>
+                                            </div>
+                                            <div class="col-sm-4 col-md-3">
+                                                <label class="form-label small mb-0" for="gasto_oficina_pct_corrientes">
+                                                    {{ reparto_gasto_oficina.corrientes.nombre }} (%)
+                                                </label>
+                                                <div class="input-group input-group-sm">
+                                                    <input type="number" step="0.01" min="0" max="100"
+                                                           name="gasto_oficina_pct_corrientes" id="gasto_oficina_pct_corrientes"
+                                                           class="form-control"
+                                                           value="{% if form_post.gasto_oficina_pct_corrientes %}{{ form_post.gasto_oficina_pct_corrientes }}{% else %}{{ reparto_gasto_oficina_defaults.corrientes }}{% endif %}">
+                                                    <span class="input-group-text">%</span>
+                                                </div>
+                                            </div>
+                                            <div class="col-sm-4 col-md-3">
+                                                <span class="small" id="reparto_gasto_oficina_suma_hint">Suma: 100%</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endif %}
                                     <div class="col-md-12">
                                         <label class="form-label">Observaciones (opcional)</label>
                                         <textarea name="gasto_oficina_observaciones" id="gasto_oficina_observaciones" class="form-control" rows="2"></textarea>
@@ -1299,6 +1337,58 @@ $(document).ready(function() {
     });
 
     actualizarModoGastoOficina();
+
+    {% if reparto_gasto_oficina %}
+    (function() {
+        var syncing = false;
+        function parsePct($el) {
+            var v = parseFloat(String($el.val() || '').replace(',', '.'));
+            return isNaN(v) ? null : v;
+        }
+        function fmtPct(n) {
+            if (n == null || isNaN(n)) return '';
+            return (Math.round(n * 100) / 100).toString();
+        }
+        function actualizarSumaHint() {
+            var a = parsePct($('#gasto_oficina_pct_colon'));
+            var b = parsePct($('#gasto_oficina_pct_corrientes'));
+            var $hint = $('#reparto_gasto_oficina_suma_hint');
+            if (a == null || b == null) {
+                $hint.text('Completá ambos %').removeClass('text-success text-danger');
+                return;
+            }
+            var suma = Math.round((a + b) * 100) / 100;
+            if (Math.abs(suma - 100) <= 0.05) {
+                $hint.text('Suma: 100%').removeClass('text-danger').addClass('text-success');
+            } else {
+                $hint.text('Suma: ' + suma + '% (debe ser 100)').removeClass('text-success').addClass('text-danger');
+            }
+        }
+        $('#gasto_oficina_pct_colon').on('input change', function() {
+            if (syncing) return;
+            var a = parsePct($(this));
+            if (a == null) { actualizarSumaHint(); return; }
+            a = Math.max(0, Math.min(100, a));
+            syncing = true;
+            $(this).val(fmtPct(a));
+            $('#gasto_oficina_pct_corrientes').val(fmtPct(Math.round((100 - a) * 100) / 100));
+            syncing = false;
+            actualizarSumaHint();
+        });
+        $('#gasto_oficina_pct_corrientes').on('input change', function() {
+            if (syncing) return;
+            var b = parsePct($(this));
+            if (b == null) { actualizarSumaHint(); return; }
+            b = Math.max(0, Math.min(100, b));
+            syncing = true;
+            $(this).val(fmtPct(b));
+            $('#gasto_oficina_pct_colon').val(fmtPct(Math.round((100 - b) * 100) / 100));
+            syncing = false;
+            actualizarSumaHint();
+        });
+        actualizarSumaHint();
+    })();
+    {% endif %}
 
     function renderProductoresGastoOficinaDropdown(list) {
         var $dd = $('#dropdown_productores_gasto_oficina');

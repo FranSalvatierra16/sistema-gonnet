@@ -91,9 +91,14 @@
                         <td class="small">{{ g.categoria.nombre_ruta }}</td>
                         <td>
                             {{ g.descripcion }}
-                            {% if g.observaciones %}<br><span class="text-muted small">{{ g.observaciones }}</span>{% endif %}
+                            {% if g.porcentaje is not None %}
+                            <br><span class="badge bg-secondary">{{ g.porcentaje }}% del total{% if g.monto_total %} (${{ g.monto_total|abs|format_price }}){% endif %}</span>
+                            {% endif %}
+                            {% if g.observaciones %}<br><span class="text-muted small">{{ g.observaciones|truncatechars:120 }}</span>{% endif %}
                             {% if g.movimiento_caja_id %}
                             <br><span class="text-muted small">Mov. caja #{{ g.movimiento_caja_id }}</span>
+                            {% elif g.gasto_relacionado_id and g.gasto_relacionado.movimiento_caja_id %}
+                            <br><span class="text-muted small">Origen mov. caja #{{ g.gasto_relacionado.movimiento_caja_id }} (otra sucursal)</span>
                             {% endif %}
                         </td>
                         <td class="small">
@@ -115,10 +120,12 @@
                         </td>
                         <td class="text-end">
                             {% if not g.movimiento_caja_id %}
+                            {% if not g.gasto_relacionado or not g.gasto_relacionado.movimiento_caja_id %}
                             <form method="post" action="{% url 'inmobiliaria:oficina_gasto_eliminar' g.id %}" class="d-inline" onsubmit="return confirm('¿Eliminar este gasto?');">
                                 {% csrf_token %}
                                 <button type="submit" class="btn btn-outline-danger btn-sm py-0">×</button>
                             </form>
+                            {% endif %}
                             {% endif %}
                         </td>
                     </tr>

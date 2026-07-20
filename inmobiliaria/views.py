@@ -13008,6 +13008,7 @@ def _serializar_form_post_nuevo_movimiento(request):
         'cheque_fecha_vencimiento', 'movimiento_uid', 'operacion_ref_tipo', 'operacion_ref_id',
         'reserva_operacion_id', 'gasto_oficina_categoria_id', 'gasto_oficina_vendedor_id',
         'gasto_oficina_descripcion', 'gasto_oficina_observaciones', 'fecha_transferencia',
+        'gasto_oficina_pct_colon', 'gasto_oficina_pct_corrientes',
     )
     fp = {k: (post.get(k) or '').strip() for k in campos}
     # Compatibilidad: el campo visible usa monto_dolares; legacy usaba dolares.
@@ -13125,8 +13126,11 @@ def nuevo_movimiento(request, numero_caja=None):
         categoria_gasto_es_vale,
         categorias_opciones_con_flags,
         categorias_opciones_grupos,
+        defaults_porcentajes_reparto_gasto_oficina,
+        par_sucursales_reparto_gasto_oficina,
         registrar_gasto_oficina_desde_movimiento,
         validar_gasto_oficina_post,
+        validar_porcentajes_reparto_gasto_oficina,
     )
 
     if numero_caja:
@@ -13169,6 +13173,8 @@ def nuevo_movimiento(request, numero_caja=None):
             'Podés cargar el movimiento igual; si necesitás gasto de oficina, avisá a sistemas.',
         )
     pre_gasto_oficina = (request.GET.get('gasto_oficina') or '').strip() in ('1', 'true', 'si', 'yes')
+    par_reparto = par_sucursales_reparto_gasto_oficina(sucursal)
+    defaults_reparto = defaults_porcentajes_reparto_gasto_oficina(sucursal) if par_reparto else None
 
     def _ctx_nuevo_movimiento(extra=None):
         from inmobiliaria.caja_devolucion_deposito import concepto_devolucion_deposito_catalogo
@@ -13182,6 +13188,8 @@ def nuevo_movimiento(request, numero_caja=None):
             'categorias_gasto_oficina_grupos': categorias_gasto_oficina_grupos,
             'pre_gasto_oficina': pre_gasto_oficina,
             'concepto_devolucion_deposito': concepto_devolucion_deposito_catalogo(sucursal),
+            'reparto_gasto_oficina': par_reparto,
+            'reparto_gasto_oficina_defaults': defaults_reparto,
         }
         if extra:
             ctx.update(extra)
@@ -13238,6 +13246,8 @@ def nuevo_movimiento(request, numero_caja=None):
             gasto_oficina_vendedor = None
             gasto_oficina_descripcion = ''
             gasto_oficina_observaciones = ''
+            gasto_oficina_pct_colon = None
+            gasto_oficina_pct_corrientes = None
             if es_gasto_oficina:
                 gasto_oficina_descripcion = (request.POST.get('gasto_oficina_descripcion') or '').strip()
                 gasto_oficina_observaciones = (request.POST.get('gasto_oficina_observaciones') or '').strip()
@@ -13248,6 +13258,18 @@ def nuevo_movimiento(request, numero_caja=None):
                 )
                 if err_gasto:
                     messages.error(request, err_gasto)
+                    return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
+                (
+                    gasto_oficina_pct_colon,
+                    gasto_oficina_pct_corrientes,
+                    err_pct,
+                ) = validar_porcentajes_reparto_gasto_oficina(
+                    request.POST.get('gasto_oficina_pct_colon'),
+                    request.POST.get('gasto_oficina_pct_corrientes'),
+                    sucursal,
+                )
+                if err_pct:
+                    messages.error(request, err_pct)
                     return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
 
             # Obtener y validar tipo (debe ser 'IN' o 'EG')
@@ -13686,6 +13708,8 @@ def nuevo_movimiento(request, numero_caja=None):
                         observaciones=gasto_oficina_observaciones,
                         vendedor=gasto_oficina_vendedor,
                         usuario=request.user,
+                        porcentaje_colon=gasto_oficina_pct_colon,
+                        porcentaje_corrientes=gasto_oficina_pct_corrientes,
                     )
                     if (
                         categoria_gasto_es_vale(gasto_oficina_categoria)
@@ -13718,6 +13742,18 @@ def nuevo_movimiento(request, numero_caja=None):
                     messages.success(
                         request,
                         f'Movimiento de {etiqueta_vale}, vale y gasto de oficina registrados.',
+                    )
+                elif (
+                    gasto_oficina_pct_colon is not None
+                    and gasto_oficina_pct_corrientes is not None
+                    and gasto_oficina_pct_colon > 0
+                    and gasto_oficina_pct_corrientes > 0
+                ):
+                    messages.success(
+                        request,
+                        f'Egreso de caja y gasto de oficina registrados '
+                        f'(reparto Colón {gasto_oficina_pct_colon}% / '
+                        f'Corrientes {gasto_oficina_pct_corrientes}%).',
                     )
                 else:
                     messages.success(
@@ -27488,6 +27524,13 @@ def _eliminar_movimiento_y_anexos(movimiento, eliminado_por=None):
             revertir_credito_propagado_por_cuota_annulada(co, nk)
 
     ValeVendedor.objects.filter(movimiento_caja=movimiento).update(movimiento_caja=None)
+
+    try:
+        from inmobiliaria.oficina_gastos import eliminar_gastos_oficina_de_movimiento
+
+        eliminar_gastos_oficina_de_movimiento(movimiento)
+    except Exception:
+        pass
 
     try:
         from .models.recibo import Recibo
