@@ -11535,17 +11535,34 @@ def editar_movimiento_caja(request, movimiento_id):
             movimiento.destino_deposito = None
             movimiento.fecha_transferencia = None
 
+        try:
+            m_of, m_prop, m_inq = _parse_imputacion_corresponde_post(
+                request, total_ars if total_ars > 0 else Decimal('0')
+            )
+        except ValueError:
+            messages.error(
+                request,
+                'El reparto entre oficina, propietario e inquilino debe sumar el total del movimiento.',
+            )
+            return render(request, 'inmobiliaria/caja/editar_movimiento_caja.html', _ctx_editar())
+
+        movimiento.monto_a_oficina = m_of
+        movimiento.monto_a_propietario = m_prop
+        movimiento.monto_a_inquilino = m_inq
+        movimiento.a_descontar = _derivar_a_descontar_desde_imputacion(m_of, m_prop, m_inq)
+
         movimiento.save(update_fields=[
             'monto_efectivo', 'monto_cheque', 'monto_tarjeta',
             'monto_deposito', 'monto_dolares', 'destino_deposito', 'fecha_transferencia',
+            'monto_a_oficina', 'monto_a_propietario', 'monto_a_inquilino', 'a_descontar',
         ])
         movimiento.refresh_from_db()
         _sincronizar_montos_anexos_movimiento(movimiento)
         messages.success(
             request,
-            f'Forma de pago del movimiento #{movimiento.id} actualizada. '
-            f'Al reimprimir el recibo se verán los cambios. Total ARS: '
-            f'${format_monto_argentino(movimiento.monto_total)}.',
+            f'Forma de pago y cargo del movimiento #{movimiento.id} actualizados. '
+            f'Corresponde a: {movimiento.get_a_descontar_display() or "—"}. '
+            f'Total ARS: ${format_monto_argentino(movimiento.monto_total)}.',
         )
         return _volver()
 

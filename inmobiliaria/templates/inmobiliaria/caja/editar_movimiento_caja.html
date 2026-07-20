@@ -110,6 +110,49 @@
                             </div>
                         </div>
 
+                        <div class="border rounded p-3 mb-3 bg-light">
+                            <label class="form-label fw-semibold mb-1">A quién se descuenta / corresponde</label>
+                            <p class="small text-muted mb-3 mb-md-2">
+                                Podés cambiar a cargo de quién queda el movimiento (propietario, oficina o inquilino).
+                                El reparto debe sumar el total del recibo.
+                            </p>
+                            <div class="mb-3">
+                                <div class="btn-group btn-group-sm" role="group" aria-label="Descontar a">
+                                    <input type="radio" class="btn-check" name="a_descontar_rapido" id="desc_propietario" value="propietario"
+                                           {% if movimiento.a_descontar == 'propietario' %}checked{% endif %}>
+                                    <label class="btn btn-outline-secondary" for="desc_propietario">Propietario</label>
+                                    <input type="radio" class="btn-check" name="a_descontar_rapido" id="desc_oficina" value="oficina"
+                                           {% if movimiento.a_descontar == 'oficina' or not movimiento.a_descontar %}checked{% endif %}>
+                                    <label class="btn btn-outline-secondary" for="desc_oficina">Oficina</label>
+                                    <input type="radio" class="btn-check" name="a_descontar_rapido" id="desc_inquilino" value="inquilino"
+                                           {% if movimiento.a_descontar == 'inquilino' %}checked{% endif %}>
+                                    <label class="btn btn-outline-secondary" for="desc_inquilino">Inquilino</label>
+                                </div>
+                                <small class="text-muted d-block mt-1">Al elegir uno, se imputa el 100% ahí (podés repartir abajo si hace falta).</small>
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label class="form-label" for="monto_a_oficina_edit">A depto / oficina</label>
+                                    <input type="text" name="monto_a_oficina" id="monto_a_oficina_edit"
+                                           class="form-control input-monto-ar imputacion-edit" inputmode="decimal" autocomplete="off"
+                                           value="{{ movimiento.monto_a_oficina|format_price }}">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label" for="monto_a_propietario_edit">A propietario</label>
+                                    <input type="text" name="monto_a_propietario" id="monto_a_propietario_edit"
+                                           class="form-control input-monto-ar imputacion-edit" inputmode="decimal" autocomplete="off"
+                                           value="{{ movimiento.monto_a_propietario|format_price }}">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label" for="monto_a_inquilino_edit">A inquilino</label>
+                                    <input type="text" name="monto_a_inquilino" id="monto_a_inquilino_edit"
+                                           class="form-control input-monto-ar imputacion-edit" inputmode="decimal" autocomplete="off"
+                                           value="{{ movimiento.monto_a_inquilino|format_price }}">
+                                </div>
+                            </div>
+                            <small id="imputacion_suma_hint" class="text-muted d-block mt-2"></small>
+                        </div>
+
                         <div id="error_suma_ars" class="alert alert-danger d-none mb-3" role="alert"></div>
 
                         <div class="d-flex justify-content-between flex-wrap gap-2">
@@ -148,6 +191,50 @@
         return el ? parseMontoAR(el.value) : 0;
     }
 
+    function sumaImputacion() {
+        var of = parseMontoAR((document.getElementById('monto_a_oficina_edit') || {}).value);
+        var pr = parseMontoAR((document.getElementById('monto_a_propietario_edit') || {}).value);
+        var iq = parseMontoAR((document.getElementById('monto_a_inquilino_edit') || {}).value);
+        return of + pr + iq;
+    }
+
+    function totalParaImputacion() {
+        var s = sumaArs();
+        if (TOTAL_ARS > 0) return TOTAL_ARS;
+        return s > 0 ? s : TOTAL_ARS;
+    }
+
+    function aplicarDescuentoRapido(quien) {
+        var total = totalParaImputacion();
+        var of = document.getElementById('monto_a_oficina_edit');
+        var pr = document.getElementById('monto_a_propietario_edit');
+        var iq = document.getElementById('monto_a_inquilino_edit');
+        if (!of || !pr || !iq) return;
+        of.value = formatMontoAR(quien === 'oficina' ? total : 0);
+        pr.value = formatMontoAR(quien === 'propietario' ? total : 0);
+        iq.value = formatMontoAR(quien === 'inquilino' ? total : 0);
+        actualizarHintImputacion();
+    }
+
+    function actualizarHintImputacion() {
+        var hint = document.getElementById('imputacion_suma_hint');
+        if (!hint) return;
+        var total = totalParaImputacion();
+        var s = sumaImputacion();
+        if (total <= 0) {
+            hint.textContent = '';
+            hint.className = 'text-muted d-block mt-2';
+            return;
+        }
+        if (Math.abs(s - total) <= TOL) {
+            hint.textContent = 'Reparto OK: $' + formatMontoAR(s);
+            hint.className = 'text-success d-block mt-2';
+        } else {
+            hint.textContent = 'Suma imputación $' + formatMontoAR(s) + ' (debe ser $' + formatMontoAR(total) + ')';
+            hint.className = 'text-danger d-block mt-2';
+        }
+    }
+
     function recalc() {
         var s = sumaArs();
         var out = document.getElementById('suma_ars_edit');
@@ -156,6 +243,8 @@
         if (out) out.value = formatMontoAR(s);
         var okArs = TOTAL_ARS <= 0 || Math.abs(s - TOTAL_ARS) <= TOL;
         var okUsd = TOTAL_USD <= 0 || Math.abs(sumaUsd() - TOTAL_USD) <= TOL;
+        var totalImp = totalParaImputacion();
+        var okImp = totalImp <= 0 || Math.abs(sumaImputacion() - totalImp) <= TOL;
         if (out) {
             out.classList.toggle('border-danger', !okArs);
             out.classList.toggle('text-danger', !okArs);
@@ -168,11 +257,15 @@
             } else if (!okUsd && TOTAL_USD > 0) {
                 err.textContent = 'El monto en USD no coincide con el del recibo (U$S ' + formatMontoAR(TOTAL_USD) + ').';
                 err.classList.remove('d-none');
+            } else if (!okImp && totalImp > 0) {
+                err.textContent = 'El reparto oficina/propietario/inquilino debe sumar $' + formatMontoAR(totalImp) + '.';
+                err.classList.remove('d-none');
             } else {
                 err.classList.add('d-none');
             }
         }
-        if (btn) btn.disabled = !(okArs && okUsd);
+        if (btn) btn.disabled = !(okArs && okUsd && okImp);
+        actualizarHintImputacion();
     }
 
     function ajustarExceso(el) {
@@ -199,6 +292,17 @@
         usdEl.addEventListener('blur', recalc);
     }
 
+    document.querySelectorAll('input[name="a_descontar_rapido"]').forEach(function(r) {
+        r.addEventListener('change', function() {
+            if (r.checked) aplicarDescuentoRapido(r.value);
+            recalc();
+        });
+    });
+    document.querySelectorAll('.imputacion-edit').forEach(function(el) {
+        el.addEventListener('input', actualizarHintImputacion);
+        el.addEventListener('blur', recalc);
+    });
+
     document.getElementById('form_editar_forma_pago').addEventListener('submit', function(e) {
         recalc();
         if (TOTAL_ARS > 0 && Math.abs(sumaArs() - TOTAL_ARS) > TOL) {
@@ -211,8 +315,20 @@
             alert('El monto en USD debe ser U$S ' + formatMontoAR(TOTAL_USD) + '.');
             return false;
         }
-        return confirm('¿Guardar la forma de pago corregida? El total del recibo sigue siendo $' + formatMontoAR(TOTAL_ARS) + '.');
+        var totalImp = totalParaImputacion();
+        if (totalImp > 0 && Math.abs(sumaImputacion() - totalImp) > TOL) {
+            e.preventDefault();
+            alert('El reparto oficina/propietario/inquilino debe sumar $' + formatMontoAR(totalImp) + '.');
+            return false;
+        }
+        return confirm('¿Guardar la forma de pago y a quién se descuenta? El total del recibo sigue siendo $' + formatMontoAR(TOTAL_ARS) + '.');
     });
+
+    // Si no hay reparto cargado, aplicar el radio seleccionado
+    if (totalParaImputacion() > 0 && sumaImputacion() <= TOL) {
+        var checked = document.querySelector('input[name="a_descontar_rapido"]:checked');
+        if (checked) aplicarDescuentoRapido(checked.value);
+    }
 
     recalc();
 })();
