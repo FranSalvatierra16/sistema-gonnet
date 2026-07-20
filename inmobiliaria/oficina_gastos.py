@@ -3,6 +3,7 @@ import unicodedata
 from decimal import Decimal
 
 from django.db import IntegrityError
+from django.db.models import ProtectedError
 from django.utils import timezone
 
 from inmobiliaria.models import CategoriaGastoOficina, GastoOficina, Vendedor
@@ -109,6 +110,212 @@ def sucursal_espeja_categorias_oficina_desde_referencia(sucursal):
     if not ref or sucursal.pk == ref.pk:
         return False
     return 'colon' in _normalizar_nombre_sucursal(sucursal.nombre)
+
+
+def _es_sucursal_corrientes(sucursal):
+    return bool(sucursal and 'corrientes' in _normalizar_nombre_sucursal(sucursal.nombre))
+
+
+def _es_sucursal_colon(sucursal):
+    return bool(sucursal and 'colon' in _normalizar_nombre_sucursal(sucursal.nombre))
+
+
+def sucursales_espejo_categorias_oficina(sucursal):
+    """
+    Sucursales que deben compartir el mismo árbol de categorías (Corrientes ↔ Colón).
+    """
+    if not sucursal:
+        return []
+    from inmobiliaria.models.sucursal import Sucursal
+
+    if not (_es_sucursal_corrientes(sucursal) or _es_sucursal_colon(sucursal)):
+        return []
+
+    pares = []
+    for s in Sucursal.objects.exclude(pk=sucursal.pk).order_by('pk'):
+        if _es_sucursal_corrientes(sucursal) and _es_sucursal_colon(s):
+            pares.append(s)
+        elif _es_sucursal_colon(sucursal) and _es_sucursal_corrientes(s):
+            pares.append(s)
+    return pares
+
+
+def _encontrar_categoria_espejo(cat, sucursal_destino, nombre_buscar=None):
+    """Misma categoría en otra sucursal (por nombre de raíz / hijo)."""
+    if not cat or not sucursal_destino:
+        return None
+    nombre = (nombre_buscar if nombre_buscar is not None else cat.nombre or '').strip()
+    if not nombre:
+        return None
+
+    if cat.parent_id:
+        parent_nombre = (cat.parent.nombre or '').strip()
+        parent_d = CategoriaGastoOficina.objects.filter(
+            sucursal=sucursal_destino,
+            parent__isnull=True,
+            nombre__iexact=parent_nombre,
+        ).first()
+        if not parent_d:
+            return None
+        if cat.vendedor_id:
+            vend_d = _resolver_vendedor_espejo(sucursal_destino, cat.vendedor)
+            if not vend_d:
+                return None
+            return CategoriaGastoOficina.objects.filter(
+                sucursal=sucursal_destino,
+                parent=parent_d,
+                vendedor=vend_d,
+            ).first()
+        return CategoriaGastoOficina.objects.filter(
+            sucursal=sucursal_destino,
+            parent=parent_d,
+            nombre__iexact=nombre,
+            vendedor__isnull=True,
+        ).first()
+
+    return CategoriaGastoOficina.objects.filter(
+        sucursal=sucursal_destino,
+        parent__isnull=True,
+        nombre__iexact=nombre,
+    ).first()
+
+
+def _asegurar_parent_espejo(cat, sucursal_destino):
+    """Crea la raíz espejo si hace falta (para subcategorías nuevas)."""
+    if not cat.parent_id:
+        return None
+    parent = cat.parent
+    parent_d, _ = _get_or_create_raiz(
+        sucursal_destino,
+        (parent.nombre or '').strip(),
+        parent.orden,
+    )
+    if parent_d.activa != parent.activa:
+        parent_d.activa = parent.activa
+        parent_d.save(update_fields=['activa'])
+    return parent_d
+
+
+def propagar_categoria_oficina_a_espejos(
+    cat,
+    *,
+    accion='upsert',
+    nombre_anterior=None,
+    cascade_hijos=False,
+):
+    """
+    Replica alta / renombre / activación / baja de una categoría en Colón ↔ Corrientes.
+    Las subcategorías ligadas a vendedor se omiten (se sincronizan por productor).
+    """
+    if not cat or getattr(cat, 'vendedor_id', None):
+        return 0
+
+    espejos = sucursales_espejo_categorias_oficina(cat.sucursal)
+    if not espejos:
+        return 0
+
+    afectados = 0
+    for destino in espejos:
+        if accion == 'upsert':
+            if cat.parent_id:
+                parent_d = _asegurar_parent_espejo(cat, destino)
+                if not parent_d:
+                    continue
+                hijo_d, created = _get_or_create_hijo(
+                    destino,
+                    parent_d,
+                    (cat.nombre or '').strip(),
+                    cat.orden,
+                )
+                upd = []
+                if hijo_d.activa != cat.activa:
+                    hijo_d.activa = cat.activa
+                    upd.append('activa')
+                if hijo_d.orden != cat.orden:
+                    hijo_d.orden = cat.orden
+                    upd.append('orden')
+                if upd:
+                    hijo_d.save(update_fields=upd)
+                if created or upd:
+                    afectados += 1
+            else:
+                raiz_d, created = _get_or_create_raiz(
+                    destino,
+                    (cat.nombre or '').strip(),
+                    cat.orden,
+                )
+                upd = []
+                if raiz_d.activa != cat.activa:
+                    raiz_d.activa = cat.activa
+                    upd.append('activa')
+                if raiz_d.orden != cat.orden:
+                    raiz_d.orden = cat.orden
+                    upd.append('orden')
+                if upd:
+                    raiz_d.save(update_fields=upd)
+                if created or upd:
+                    afectados += 1
+
+        elif accion == 'rename':
+            espejo = _encontrar_categoria_espejo(
+                cat, destino, nombre_buscar=nombre_anterior or cat.nombre
+            )
+            if not espejo:
+                # Si no existía, crearla con el nombre nuevo.
+                propagar_categoria_oficina_a_espejos(cat, accion='upsert')
+                afectados += 1
+                continue
+            nuevo = (cat.nombre or '').strip()
+            if nuevo and espejo.nombre != nuevo:
+                espejo.nombre = nuevo
+                espejo.save(update_fields=['nombre'])
+                afectados += 1
+
+        elif accion == 'toggle':
+            espejo = _encontrar_categoria_espejo(cat, destino)
+            if not espejo:
+                propagar_categoria_oficina_a_espejos(cat, accion='upsert')
+                afectados += 1
+                continue
+            if espejo.activa != cat.activa:
+                espejo.activa = cat.activa
+                espejo.save(update_fields=['activa'])
+                afectados += 1
+            if cascade_hijos and espejo.parent_id is None:
+                CategoriaGastoOficina.objects.filter(
+                    sucursal=destino, parent=espejo
+                ).update(activa=cat.activa)
+
+        elif accion == 'delete':
+            espejo = _encontrar_categoria_espejo(
+                cat, destino, nombre_buscar=nombre_anterior or cat.nombre
+            )
+            if not espejo:
+                continue
+            num_gastos = espejo.gastos.count()
+            if espejo.parent_id is None:
+                num_gastos += GastoOficina.objects.filter(categoria__parent=espejo).count()
+            if num_gastos:
+                # No borrar si hay gastos: desactivar para no romper historial.
+                if espejo.activa:
+                    espejo.activa = False
+                    espejo.save(update_fields=['activa'])
+                    if espejo.parent_id is None:
+                        CategoriaGastoOficina.objects.filter(
+                            sucursal=destino, parent=espejo
+                        ).update(activa=False)
+                    afectados += 1
+                continue
+            try:
+                espejo.delete()
+                afectados += 1
+            except ProtectedError:
+                if espejo.activa:
+                    espejo.activa = False
+                    espejo.save(update_fields=['activa'])
+                    afectados += 1
+
+    return afectados
 
 
 def _resolver_vendedor_espejo(sucursal_destino, vendedor_origen):

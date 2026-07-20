@@ -25,6 +25,7 @@ from inmobiliaria.oficina_gastos import (
     asegurar_categoria_vales,
     asegurar_categorias_base,
     asegurar_estructura_cierre_oficina,
+    propagar_categoria_oficina_a_espejos,
     reubicar_raices_personalizadas_al_final,
     siguiente_orden_categoria,
 )
@@ -327,7 +328,7 @@ def oficina_categoria_crear(request):
         messages.error(request, 'Ya existe una categoría con ese nombre.')
         return redirect('inmobiliaria:oficina_categorias')
 
-    CategoriaGastoOficina.objects.create(
+    cat = CategoriaGastoOficina.objects.create(
         sucursal=sucursal,
         parent=parent,
         nombre=nombre,
@@ -337,6 +338,8 @@ def oficina_categoria_crear(request):
     if parent and not parent.activa:
         parent.activa = True
         parent.save(update_fields=['activa'])
+        propagar_categoria_oficina_a_espejos(parent, accion='toggle', cascade_hijos=False)
+    propagar_categoria_oficina_a_espejos(cat, accion='upsert')
     messages.success(
         request,
         'Subcategoría creada.' if parent else 'Categoría creada.',
@@ -350,10 +353,15 @@ def oficina_categoria_toggle(request, categoria_id):
     if not _puede_oficina(request.user):
         return HttpResponseForbidden()
 
-    cat = get_object_or_404(CategoriaGastoOficina, id=categoria_id, sucursal=request.user.sucursal)
+    cat = get_object_or_404(
+        CategoriaGastoOficina.objects.select_related('parent'),
+        id=categoria_id,
+        sucursal=request.user.sucursal,
+    )
     cat.activa = not cat.activa
     cat.save(update_fields=['activa'])
-    if cat.parent_id is None and not (request.POST.get('solo_esta') == '1'):
+    cascade = cat.parent_id is None and not (request.POST.get('solo_esta') == '1')
+    if cascade:
         CategoriaGastoOficina.objects.filter(sucursal=cat.sucursal, parent=cat).update(
             activa=cat.activa
         )
@@ -367,6 +375,7 @@ def oficina_categoria_toggle(request, categoria_id):
             request,
             f'{"Activada" if cat.activa else "Desactivada"}: {cat.nombre_ruta()}.',
         )
+    propagar_categoria_oficina_a_espejos(cat, accion='toggle', cascade_hijos=cascade)
     return redirect('inmobiliaria:oficina_categorias')
 
 
@@ -376,7 +385,11 @@ def oficina_categoria_editar(request, categoria_id):
     if not _puede_oficina(request.user):
         return HttpResponseForbidden()
 
-    cat = get_object_or_404(CategoriaGastoOficina, id=categoria_id, sucursal=request.user.sucursal)
+    cat = get_object_or_404(
+        CategoriaGastoOficina.objects.select_related('parent'),
+        id=categoria_id,
+        sucursal=request.user.sucursal,
+    )
     if _categoria_bloqueada_por_vendedor(cat):
         messages.error(
             request,
@@ -398,8 +411,12 @@ def oficina_categoria_editar(request, categoria_id):
         messages.error(request, 'Ya existe otra categoría con ese nombre.')
         return redirect('inmobiliaria:oficina_categorias')
 
+    nombre_anterior = cat.nombre
     cat.nombre = nombre
     cat.save(update_fields=['nombre'])
+    propagar_categoria_oficina_a_espejos(
+        cat, accion='rename', nombre_anterior=nombre_anterior
+    )
     messages.success(request, f'Nombre actualizado: {cat.nombre_ruta()}.')
     return redirect('inmobiliaria:oficina_categorias')
 
@@ -434,6 +451,8 @@ def oficina_categoria_eliminar(request, categoria_id):
         )
         return redirect('inmobiliaria:oficina_categorias')
 
+    # Propagar antes de borrar el local (necesita nombre/parent).
+    propagar_categoria_oficina_a_espejos(cat, accion='delete')
     try:
         cat.delete()
     except ProtectedError:
