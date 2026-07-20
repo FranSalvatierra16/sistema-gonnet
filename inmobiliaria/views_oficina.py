@@ -140,14 +140,11 @@ def oficina_dashboard(request):
         vendedor__sucursal=sucursal,
     ).count()
     propiedades_cartera = CarteraPropiedadUsuario.objects.filter(
+        usuario=request.user,
         propiedad__sucursal=sucursal,
-    ).values('propiedad').distinct().count()
-
-    from inmobiliaria.models import Propiedad
-
-    propiedades_oficina_count = Propiedad.objects.filter(
-        sucursal=sucursal, es_propiedad_oficina=True
     ).count()
+
+    propiedades_oficina_count = propiedades_cartera
 
     return render(
         request,
@@ -507,11 +504,25 @@ def oficina_resumen_cierre(request):
     )
 
 
-def _qs_propiedades_oficina(sucursal):
+def _qs_propiedades_oficina(sucursal, usuario=None):
+    """
+    Propiedades del libro de oficina = misma cartera personal (Mis propiedades).
+    """
     from inmobiliaria.models import Propiedad
 
+    if not usuario:
+        return Propiedad.objects.none()
+
+    ids = (
+        CarteraPropiedadUsuario.objects.filter(
+            usuario=usuario,
+            propiedad__sucursal=sucursal,
+        )
+        .values_list('propiedad_id', flat=True)
+        .distinct()
+    )
     return (
-        Propiedad.objects.filter(sucursal=sucursal, es_propiedad_oficina=True)
+        Propiedad.objects.filter(id__in=ids, sucursal=sucursal)
         .select_related('propietario')
         .order_by('direccion', 'piso', 'departamento', 'id')
     )
@@ -578,12 +589,12 @@ def _fila_libro_desde_movimiento(mov):
 
 @login_required
 def oficina_propiedades_lista(request):
-    """Listado de departamentos marcados como propiedad oficina."""
+    """Listado de departamentos de oficina = misma cartera personal (Mis propiedades)."""
     if not _puede_oficina(request.user):
         return HttpResponseForbidden()
 
     sucursal = request.user.sucursal
-    propiedades = list(_qs_propiedades_oficina(sucursal))
+    propiedades = list(_qs_propiedades_oficina(sucursal, request.user))
     return render(
         request,
         'inmobiliaria/oficina/propiedades_lista.html',
@@ -596,18 +607,25 @@ def oficina_propiedades_lista(request):
 
 @login_required
 def oficina_propiedad_libro(request, propiedad_id):
-    """Libro automático (estilo planilla) de movimientos de caja de un depto oficina."""
+    """Libro automático (estilo planilla) de movimientos de caja de un depto de la cartera."""
     if not _puede_oficina(request.user):
         return HttpResponseForbidden()
 
     from inmobiliaria.models import MovimientoCaja, Propiedad
 
     sucursal = request.user.sucursal
+    en_cartera = CarteraPropiedadUsuario.objects.filter(
+        usuario=request.user,
+        propiedad_id=propiedad_id,
+        propiedad__sucursal=sucursal,
+    ).exists()
+    if not en_cartera:
+        return HttpResponseForbidden()
+
     propiedad = get_object_or_404(
         Propiedad.objects.select_related('propietario'),
         pk=propiedad_id,
         sucursal=sucursal,
-        es_propiedad_oficina=True,
     )
 
     fecha_desde_s = (request.GET.get('fecha_desde') or '').strip()
@@ -642,7 +660,7 @@ def oficina_propiedad_libro(request, propiedad_id):
     totales['balance_ars'] = totales['alquileres_ars'] - totales['gastos_ars']
     totales['balance_usd'] = totales['ingreso_usd'] - totales['gastos_usd']
 
-    otras = list(_qs_propiedades_oficina(sucursal))
+    otras = list(_qs_propiedades_oficina(sucursal, request.user))
 
     return render(
         request,
