@@ -16334,9 +16334,26 @@ def crear_contrato_alquiler(request):
             carrera = (request.POST.get('carrera') or '').strip()
             garante_ids = [x for x in request.POST.getlist('garante_ids') if x.strip().isdigit()]
 
-            # Validar datos
-            if not all([propiedad_id, inquilino_id, vendedor_id, fecha_operacion, fecha_inicio, fecha_fin]):
-                return JsonResponse({'error': 'Todos los campos son requeridos'}, status=400)
+            # Validar datos requeridos (indicar qué falta)
+            faltantes = []
+            if not propiedad_id:
+                faltantes.append('propiedad')
+            if not inquilino_id:
+                faltantes.append('inquilino')
+            if not (vendedor_id or '').strip():
+                faltantes.append('vendedor / productor')
+            if not fecha_operacion:
+                faltantes.append('fecha de operación')
+            if not fecha_inicio:
+                faltantes.append('fecha de inicio')
+            if not fecha_fin:
+                faltantes.append('fecha de fin')
+            if faltantes:
+                if len(faltantes) == 1:
+                    msg = f'Falta completar el casillero: {faltantes[0]}.'
+                else:
+                    msg = 'Faltan completar estos casilleros: ' + ', '.join(faltantes) + '.'
+                return JsonResponse({'error': msg}, status=400)
 
             fecha_operacion_d = _parse_fecha_contrato_post(fecha_operacion)
             fecha_inicio_d = _parse_fecha_contrato_post(fecha_inicio)

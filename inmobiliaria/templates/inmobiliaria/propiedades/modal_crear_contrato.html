@@ -1022,6 +1022,26 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('Debe agregar al menos un inquilino al contrato.');
             return;
         }
+        const faltantes = [];
+        if (!(document.getElementById('modalVendedorId') || {}).value) {
+            faltantes.push('vendedor / productor (buscá el ID y hacé clic en Buscar)');
+        }
+        const fechaOp = document.querySelector('#formContrato [name="fecha_operacion"]');
+        if (fechaOp && !fechaOp.value) {
+            faltantes.push('fecha de operación');
+        }
+        if (!(document.getElementById('modal_contrato_fecha_inicio') || {}).value) {
+            faltantes.push('fecha de inicio');
+        }
+        if (!(document.getElementById('modal_contrato_fecha_fin') || {}).value) {
+            faltantes.push('fecha de fin');
+        }
+        if (faltantes.length) {
+            alert(faltantes.length === 1
+                ? 'Falta completar el casillero: ' + faltantes[0] + '.'
+                : 'Faltan completar estos casilleros:\n• ' + faltantes.join('\n• '));
+            return;
+        }
         sincronizarPreciosBloquesJson();
         const formData = new FormData(this);
         fetch(`{% url 'inmobiliaria:crear_contrato_alquiler' %}`, {

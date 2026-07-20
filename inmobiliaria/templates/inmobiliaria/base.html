@@ -105,6 +105,8 @@
                 <div class="navbar-nav me-auto">
                     <a class="nav-link" href="{% url 'inmobiliaria:dashboard' %}">Inicio</a>
                     <a class="nav-link" href="{% url 'inmobiliaria:buscar_propiedades' %}">Reservas</a>
+                    <a class="nav-link" href="{% url 'inmobiliaria:reservas' %}">Lista Reservas</a>
+                    <a class="nav-link" href="{% url 'inmobiliaria:operaciones' %}">Operaciones</a>
                     {% if user.nivel >= 2 %}
                     <div class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="adminNavDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -113,7 +115,6 @@
                         <ul class="dropdown-menu" aria-labelledby="adminNavDropdown">
                             {% if user.nivel >= 4 %}
                             <li><a class="dropdown-item" href="{% url 'inmobiliaria:lista_caratulas' %}"><i class="fas fa-folder-open me-2"></i>Carátulas</a></li>
-                            <li><a class="dropdown-item" href="{% url 'inmobiliaria:operaciones' %}"><i class="fas fa-receipt me-2"></i>Operaciones y recibos</a></li>
                             <li><a class="dropdown-item" href="{% url 'inmobiliaria:administracion_listado_operaciones' %}"><i class="fas fa-list-alt me-2"></i>Resumen de operaciones</a></li>
                             <li><a class="dropdown-item" href="{% url 'inmobiliaria:dashboard_comisiones' %}"><i class="fas fa-percent me-2"></i>Comisiones</a></li>
                             <li><a class="dropdown-item" href="{% url 'inmobiliaria:dashboard_vales' %}"><i class="fas fa-money-bill-wave me-2"></i>Vales</a></li>
@@ -146,6 +147,7 @@
                             <li><a class="dropdown-item" href="{% url 'inmobiliaria:mis_propiedades' %}"><i class="fas fa-folder-open"></i> Mis propiedades</a></li>
                             <li><a class="dropdown-item" href="{% url 'inmobiliaria:buscar_propiedades_por_fechas' %}">Buscar Propiedades por Fechas</a></li>
                             <li><a class="dropdown-item" href="{% url 'inmobiliaria:reservas' %}">Lista Reservas</a></li>
+                            <li><a class="dropdown-item" href="{% url 'inmobiliaria:operaciones' %}"><i class="fas fa-receipt me-2"></i>Operaciones y recibos</a></li>
                             {% if user.nivel >= 4 %}
                                 <li><a class="dropdown-item" href="{% url 'inmobiliaria:reporte_asegurado_liquidaciones' %}"><i class="fas fa-chart-line"></i> Asegurado vs liquidaciones</a></li>
                             {% endif %}

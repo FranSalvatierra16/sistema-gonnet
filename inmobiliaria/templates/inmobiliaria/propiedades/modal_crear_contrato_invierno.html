@@ -740,6 +740,28 @@ document.getElementById('formContratoInvierno')?.addEventListener('submit', func
         alert('Debe agregar al menos un inquilino al contrato.');
         return;
     }
+    const faltantes = [];
+    if (!(document.getElementById('modalVendedorIdInvierno') || {}).value) {
+        faltantes.push('vendedor / productor (buscá el ID y hacé clic en Buscar)');
+    }
+    const fechaOp = this.querySelector('[name="fecha_operacion"]');
+    if (fechaOp && !fechaOp.value) {
+        faltantes.push('fecha de operación');
+    }
+    const fechaIni = this.querySelector('[name="fecha_inicio"]');
+    if (fechaIni && !fechaIni.value) {
+        faltantes.push('fecha de inicio');
+    }
+    const fechaFin = this.querySelector('[name="fecha_fin"]');
+    if (fechaFin && !fechaFin.value) {
+        faltantes.push('fecha de fin');
+    }
+    if (faltantes.length) {
+        alert(faltantes.length === 1
+            ? 'Falta completar el casillero: ' + faltantes[0] + '.'
+            : 'Faltan completar estos casilleros:\n• ' + faltantes.join('\n• '));
+        return;
+    }
     const formData = new FormData(this);
     formData.append('duracion_meses', '9'); // Siempre 9 meses para invierno
     
