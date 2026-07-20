@@ -1044,6 +1044,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         sincronizarPreciosBloquesJson();
         const formData = new FormData(this);
+        const btnCrear = this.querySelector('button[type="submit"]');
+        if (btnCrear) {
+            if (btnCrear.dataset.enviando === '1') return;
+            btnCrear.dataset.enviando = '1';
+            btnCrear.disabled = true;
+        }
         fetch(`{% url 'inmobiliaria:crear_contrato_alquiler' %}`, {
             method: 'POST',
             body: formData,
@@ -1051,22 +1057,31 @@ document.addEventListener('DOMContentLoaded', function() {
                 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
             }
         })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
+        .then(response => response.json().then(data => ({ ok: response.ok, data })))
+        .then(({ ok, data }) => {
+            if (data && data.success) {
                 window.location.href = data.redirect_url;
-            } else {
-                alert(`❌ ${data.error || 'Error al crear contrato.'}`);
-                if (data.redirect_url) {
-                    if (confirm('¿Querés ir a la operación del contrato existente?')) {
-                        window.location.href = data.redirect_url;
-                    }
+                return;
+            }
+            alert('❌ ' + ((data && data.error) || 'Error al crear contrato. El contrato no se creó.'));
+            if (data && data.redirect_url) {
+                if (confirm('¿Querés ir a la operación del contrato existente?')) {
+                    window.location.href = data.redirect_url;
+                    return;
                 }
+            }
+            if (btnCrear) {
+                btnCrear.dataset.enviando = '0';
+                btnCrear.disabled = false;
             }
         })
         .catch(error => {
             console.error('❌ Error al crear contrato:', error);
-            alert(`Error al crear contrato: ${error.message}`);
+            alert('❌ Error al crear contrato: ' + (error.message || error) + '. El contrato no se creó.');
+            if (btnCrear) {
+                btnCrear.dataset.enviando = '0';
+                btnCrear.disabled = false;
+            }
         });
     });
 

@@ -16296,13 +16296,25 @@ def crear_contrato_alquiler(request):
                 return JsonResponse({'error': 'La duración debe ser un número entero de meses.'}, status=400)
             if duracion_meses <= 0:
                 return JsonResponse({'error': 'La duración debe ser mayor a 0 meses.'}, status=400)
-            precio_mensual = parse_decimal_monto(request.POST.get('precio_mensual'))
+            try:
+                precio_mensual = parse_decimal_monto(request.POST.get('precio_mensual'))
+            except (ValueError, TypeError, InvalidOperation) as e:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'El precio mensual no es válido: {e}',
+                }, status=400)
             moneda = (request.POST.get('moneda') or 'ARS').strip().upper()
             if moneda not in ('ARS', 'USD'):
                 moneda = 'ARS'
             _raw_2do = (request.POST.get('precio_segundo_cuatrimestre') or '').strip()
-            precio_segundo_cuatrimestre = parse_decimal_monto(_raw_2do) if _raw_2do else None
-            deposito_garantia = parse_decimal_monto(request.POST.get('deposito_garantia'))
+            try:
+                precio_segundo_cuatrimestre = parse_decimal_monto(_raw_2do) if _raw_2do else None
+                deposito_garantia = parse_decimal_monto(request.POST.get('deposito_garantia'))
+            except (ValueError, TypeError, InvalidOperation) as e:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Hay un monto inválido (depósito o 2do cuatrimestre): {e}',
+                }, status=400)
 
             def _decimal_desde_input_plata(s):
                 if not s or not str(s).strip():
@@ -16418,98 +16430,108 @@ def crear_contrato_alquiler(request):
                             'error': msg
                         }, status=400)
 
-            # Crear el contrato
-            create_kw = dict(
-                propiedad=propiedad,
-                inquilino=inquilino,
-                vendedor=vendedor,
-                sucursal=request.user.sucursal,
-                fecha_operacion=fecha_operacion,
-                fecha_inicio=fecha_inicio,
-                fecha_fin=fecha_fin,
-                duracion_meses=duracion_meses,
-                moneda=moneda,
-                precio_mensual=precio_mensual,
-                deposito_garantia=deposito_garantia,
-                honorarios_referencia=honorarios_referencia,
-                sellados_referencia=sellados_referencia,
-                precios_bloques=precios_bloques,
-                estado='reservado',  # Iniciar en estado reservado
-            )
-            if duracion_meses == 9 and precio_segundo_cuatrimestre is not None:
-                create_kw['precio_segundo_cuatrimestre'] = precio_segundo_cuatrimestre
-            contrato = ContratoAlquiler.objects.create(
-                **create_kw,
-                garante_nombre=garante_nombre,
-                garante_apellido=garante_apellido,
-                garante_dni=garante_dni,
-                garante_celular=garante_celular,
-                garante_email=garante_email,
-                garante_domicilio=garante_domicilio,
-                carrera=carrera,
-            )
-            # Asignar garantes (inquilinos seleccionados)
-            if garante_ids:
-                garantes_ok = get_inquilinos_queryset_unificado(request).filter(
-                    id__in=garante_ids
-                ).values_list('id', flat=True)
-                contrato.garantes.set(garantes_ok)
-            # Asignar inquilinos con carrera por cada uno (through ContratoInquilino), respetando orden
-            inquilinos_validos = set(get_inquilinos_queryset_unificado(request).filter(
-                id__in=inquilino_ids
-            ).values_list('id', flat=True))
-            for i, inq_id in enumerate(inquilino_ids):
-                if int(inq_id) not in inquilinos_validos:
-                    continue
-                carrera_i = (request.POST.get(f'carrera_inq_{i}') or request.POST.get(f'carrera_{i}') or (request.POST.get('carrera') if i == 0 else '') or '').strip()
-                ContratoInquilino.objects.create(
-                    contrato=contrato,
-                    inquilino_id=int(inq_id),
-                    carrera=carrera_i
+            try:
+                if precio_mensual is None or precio_mensual < 0:
+                    return JsonResponse(
+                        {'success': False, 'error': 'El precio mensual no es válido.'},
+                        status=400,
+                    )
+            except (TypeError, InvalidOperation):
+                return JsonResponse(
+                    {'success': False, 'error': 'El precio mensual no es válido.'},
+                    status=400,
                 )
 
-            # Marcar la propiedad como reservada según tipo de contrato
-            # No usar hasattr() con reverse OneToOne: si no hay fila relacionada, hasattr puede
-            # devolver False sin error y el contrato quedaría creado con la ficha aún "disponible".
-            if duracion_meses == 9:
-                info_invierno, _ = AlquilerInvierno.objects.get_or_create(
+            # Todo o nada: si falla cuotas/historial/etc., no queda el contrato a medias.
+            with transaction.atomic():
+                create_kw = dict(
                     propiedad=propiedad,
-                    defaults={'disponible': True, 'estado': 'disponible'},
+                    inquilino=inquilino,
+                    vendedor=vendedor,
+                    sucursal=request.user.sucursal,
+                    fecha_operacion=fecha_operacion,
+                    fecha_inicio=fecha_inicio,
+                    fecha_fin=fecha_fin,
+                    duracion_meses=duracion_meses,
+                    moneda=moneda,
+                    precio_mensual=precio_mensual,
+                    deposito_garantia=deposito_garantia,
+                    honorarios_referencia=honorarios_referencia,
+                    sellados_referencia=sellados_referencia,
+                    precios_bloques=precios_bloques,
+                    estado='reservado',  # Iniciar en estado reservado
                 )
-                info_invierno.disponible = True
-                info_invierno.estado = 'reservado'
-                info_invierno.save()
-                from inmobiliaria.models.propiedad import desactivar_24_meses_si_invierno_ocupado
+                if duracion_meses == 9 and precio_segundo_cuatrimestre is not None:
+                    create_kw['precio_segundo_cuatrimestre'] = precio_segundo_cuatrimestre
+                contrato = ContratoAlquiler.objects.create(
+                    **create_kw,
+                    garante_nombre=garante_nombre,
+                    garante_apellido=garante_apellido,
+                    garante_dni=garante_dni,
+                    garante_celular=garante_celular,
+                    garante_email=garante_email,
+                    garante_domicilio=garante_domicilio,
+                    carrera=carrera,
+                )
+                # Asignar garantes (inquilinos seleccionados)
+                if garante_ids:
+                    garantes_ok = get_inquilinos_queryset_unificado(request).filter(
+                        id__in=garante_ids
+                    ).values_list('id', flat=True)
+                    contrato.garantes.set(garantes_ok)
+                # Asignar inquilinos con carrera por cada uno (through ContratoInquilino), respetando orden
+                inquilinos_validos = set(get_inquilinos_queryset_unificado(request).filter(
+                    id__in=inquilino_ids
+                ).values_list('id', flat=True))
+                for i, inq_id in enumerate(inquilino_ids):
+                    if int(inq_id) not in inquilinos_validos:
+                        continue
+                    carrera_i = (request.POST.get(f'carrera_inq_{i}') or request.POST.get(f'carrera_{i}') or (request.POST.get('carrera') if i == 0 else '') or '').strip()
+                    ContratoInquilino.objects.create(
+                        contrato=contrato,
+                        inquilino_id=int(inq_id),
+                        carrera=carrera_i
+                    )
 
-                desactivar_24_meses_si_invierno_ocupado(propiedad)
-                # Actualizar historial: truncar "Libre" que superponga con el contrato
-                try:
+                # Marcar la propiedad como reservada según tipo de contrato
+                # No usar hasattr() con reverse OneToOne: si no hay fila relacionada, hasattr puede
+                # devolver False sin error y el contrato quedaría creado con la ficha aún "disponible".
+                if duracion_meses == 9:
+                    info_invierno, _ = AlquilerInvierno.objects.get_or_create(
+                        propiedad=propiedad,
+                        defaults={'disponible': True, 'estado': 'disponible'},
+                    )
+                    info_invierno.disponible = True
+                    info_invierno.estado = 'reservado'
+                    info_invierno.save()
+                    from inmobiliaria.models.propiedad import desactivar_24_meses_si_invierno_ocupado
+
+                    desactivar_24_meses_si_invierno_ocupado(propiedad)
+                    # Actualizar historial: truncar "Libre" que superponga con el contrato
                     actualizar_historial_por_contrato_invierno(
                         propiedad, contrato.fecha_inicio, contrato.fecha_fin
                     )
-                except (ValueError, TypeError, AttributeError):
-                    pass
-            else:
-                info_meses, _ = AlquilerMeses.objects.get_or_create(
-                    propiedad=propiedad,
-                    defaults={
-                        'disponible': True,
-                        'estado': 'disponible',
-                        'precio_mensual': precio_mensual,
-                    },
-                )
-                info_meses.disponible = True
-                info_meses.estado = 'reservado'
-                info_meses.fecha_inicio = contrato.fecha_inicio
-                info_meses.fecha_fin = contrato.fecha_fin
-                if precio_mensual is not None:
-                    info_meses.precio_mensual = precio_mensual
-                info_meses.save()
-                from inmobiliaria.models.propiedad import desactivar_invierno_si_largo_plazo_ocupado
+                else:
+                    info_meses, _ = AlquilerMeses.objects.get_or_create(
+                        propiedad=propiedad,
+                        defaults={
+                            'disponible': True,
+                            'estado': 'disponible',
+                            'precio_mensual': precio_mensual,
+                        },
+                    )
+                    info_meses.disponible = True
+                    info_meses.estado = 'reservado'
+                    info_meses.fecha_inicio = contrato.fecha_inicio
+                    info_meses.fecha_fin = contrato.fecha_fin
+                    if precio_mensual is not None:
+                        info_meses.precio_mensual = precio_mensual
+                    info_meses.save()
+                    from inmobiliaria.models.propiedad import desactivar_invierno_si_largo_plazo_ocupado
 
-                desactivar_invierno_si_largo_plazo_ocupado(propiedad)
+                    desactivar_invierno_si_largo_plazo_ocupado(propiedad)
 
-            _asegurar_cuotas_plan_contrato(contrato)
+                _asegurar_cuotas_plan_contrato(contrato)
 
             messages.success(request, 'Contrato creado. Completá la operación principal (depósito + primer mes).')
             # Redirigir a operación principal para unificar creación de contrato con el pago (estudiantes, 24 meses, invierno)
@@ -16520,8 +16542,27 @@ def crear_contrato_alquiler(request):
                 'contrato_id': contrato.id,
             })
 
+        except IntegrityError as e:
+            logger.exception('crear_contrato_alquiler: IntegrityError')
+            return JsonResponse({
+                'success': False,
+                'error': (
+                    'No se pudo crear el contrato porque hay un conflicto de datos '
+                    f'(¿contrato duplicado o dato inválido?). Detalle: {e}'
+                ),
+            }, status=400)
+        except (ValueError, TypeError, InvalidOperation) as e:
+            logger.exception('crear_contrato_alquiler: error de validación')
+            return JsonResponse({
+                'success': False,
+                'error': f'No se creó el contrato. Revisá los datos: {e}',
+            }, status=400)
         except Exception as e:
-            return JsonResponse({'error': f'Error al crear el contrato: {str(e)}'}, status=400)
+            logger.exception('crear_contrato_alquiler: error al crear contrato')
+            return JsonResponse({
+                'success': False,
+                'error': f'No se creó el contrato. Error: {e}',
+            }, status=400)
 
     return render(request, 'inmobiliaria/contratos/crear.html')
 

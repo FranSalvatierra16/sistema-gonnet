@@ -764,6 +764,12 @@ document.getElementById('formContratoInvierno')?.addEventListener('submit', func
     }
     const formData = new FormData(this);
     formData.append('duracion_meses', '9'); // Siempre 9 meses para invierno
+    const btnCrear = this.querySelector('button[type="submit"]');
+    if (btnCrear) {
+        if (btnCrear.dataset.enviando === '1') return;
+        btnCrear.dataset.enviando = '1';
+        btnCrear.disabled = true;
+    }
     
     fetch('{% url "inmobiliaria:crear_contrato_alquiler" %}', {
         method: 'POST',
@@ -783,16 +789,25 @@ document.getElementById('formContratoInvierno')?.addEventListener('submit', func
         var data = result.data;
         if (data && data.success) {
             window.location.href = data.redirect_url;
-        } else {
-            alert('❌ ' + (data && data.error ? data.error : 'Error al crear el contrato'));
-            if (data && data.redirect_url && confirm('¿Querés ir a la operación del contrato existente?')) {
-                window.location.href = data.redirect_url;
-            }
+            return;
+        }
+        alert('❌ ' + (data && data.error ? data.error : 'Error al crear el contrato. El contrato no se creó.'));
+        if (data && data.redirect_url && confirm('¿Querés ir a la operación del contrato existente?')) {
+            window.location.href = data.redirect_url;
+            return;
+        }
+        if (btnCrear) {
+            btnCrear.dataset.enviando = '0';
+            btnCrear.disabled = false;
         }
     })
     .catch(function(error) {
         console.error('Error:', error);
-        alert('❌ Error al crear el contrato. Revisá la conexión e intentá de nuevo.');
+        alert('❌ Error al crear el contrato. El contrato no se creó. Revisá la conexión e intentá de nuevo.');
+        if (btnCrear) {
+            btnCrear.dataset.enviando = '0';
+            btnCrear.disabled = false;
+        }
     });
 });
 </script>
