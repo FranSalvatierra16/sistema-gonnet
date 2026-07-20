@@ -3404,8 +3404,24 @@ def ver_disponibilidad(request, propiedad_id):
     }
 
     return render(request, 'inmobiliaria/ver_disponibilidad.html', context)
-@login_required                                                                 
+@login_required
 def reservas(request):
+    try:
+        return _reservas_impl(request)
+    except Exception:
+        logging.getLogger(__name__).exception(
+            'Error en lista de reservas (user=%s sucursal=%s)',
+            getattr(request.user, 'id', None),
+            getattr(request.user, 'sucursal_id', None),
+        )
+        messages.error(
+            request,
+            'No se pudo cargar la lista de reservas. Probá de nuevo o filtrá por ID/fecha.',
+        )
+        return redirect('inmobiliaria:dashboard')
+
+
+def _reservas_impl(request):
     from inmobiliaria.caja_devolucion_deposito import queryset_reservas_pendientes_cobro
 
     MAX_LISTA_RESERVAS = 300
@@ -3542,6 +3558,22 @@ def reservas_eliminadas(request):
 
 @login_required
 def operaciones(request):
+    try:
+        return _operaciones_impl(request)
+    except Exception:
+        logging.getLogger(__name__).exception(
+            'Error en listado de operaciones (user=%s sucursal=%s)',
+            getattr(request.user, 'id', None),
+            getattr(request.user, 'sucursal_id', None),
+        )
+        messages.error(
+            request,
+            'No se pudo cargar el listado de operaciones. Probá de nuevo o filtrá por ID/fecha.',
+        )
+        return redirect('inmobiliaria:dashboard')
+
+
+def _operaciones_impl(request):
     from collections import defaultdict
     from types import SimpleNamespace
     from .models.recibo import Recibo
@@ -3694,14 +3726,14 @@ def operaciones(request):
         ):
             continue
 
-        precio_total = row['precio_total'] or 0
+        precio_total = Decimal(str(row['precio_total'] or 0))
         saldo_pendiente = precio_total - senia
 
         total_operaciones += 1
         if saldo_pendiente > 0:
             operaciones_pendientes += 1
 
-        if solo_pendientes and saldo_pendiente == 0:
+        if solo_pendientes and saldo_pendiente <= 0:
             continue
 
         ordered_included_ids.append(rid)
@@ -3907,12 +3939,13 @@ def operaciones(request):
                 continue
             ex = extras_por_reserva.get(oid, {})
             senia_pagada = senia_por_reserva.get(oid, Decimal(str(reserva.senia or 0)))
-            saldo_pendiente = max(reserva.precio_total - senia_pagada, Decimal('0'))
+            precio_total = Decimal(str(reserva.precio_total or 0))
+            saldo_pendiente = max(precio_total - senia_pagada, Decimal('0'))
             reserva.total_pagado = senia_pagada
             reserva.saldo_pendiente = saldo_pendiente
             reserva.total_senia_pagada = senia_pagada
             reserva.tiene_pagos = senia_pagada > Decimal('0.01')
-            reserva.total_deposito_pagado = reserva.deposito_garantia or 0
+            reserva.total_deposito_pagado = reserva.deposito_garantia or Decimal('0')
             reserva.deposito_estado = 'pagado' if ex.get('deposito_pagado') else 'pendiente'
             mid = ex.get('mov_reciente_id')
             reserva.movimiento_reciente = mov_map.get(mid) if mid else None

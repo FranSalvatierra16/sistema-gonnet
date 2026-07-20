@@ -65,6 +65,29 @@
             </div>
         </div>
 
+        {% if user.nivel >= 3 %}
+        <div class="col-md-4 mb-4">
+            <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:reservas' %}'">
+                <div class="card-icon">
+                    <i class="fas fa-calendar-check"></i>
+                </div>
+                <h3>Lista Reservas</h3>
+                <p>Reservas pendientes y completar pagos</p>
+                <span class="badge bg-warning text-dark">Pagos</span>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:operaciones' %}'">
+                <div class="card-icon">
+                    <i class="fas fa-receipt"></i>
+                </div>
+                <h3>Operaciones y recibos</h3>
+                <p>Listado de operaciones y acceso a recibos</p>
+                <span class="badge bg-primary">Recibos</span>
+            </div>
+        </div>
+        {% endif %}
+
         <!-- Sucursales -->
         {% if user.nivel >= 2 %}
         <div class="col-md-4 mb-4">

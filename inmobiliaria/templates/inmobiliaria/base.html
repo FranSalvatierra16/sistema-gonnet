@@ -108,6 +108,10 @@
                     {% if user.nivel < 2 %}
                     <a class="nav-link" href="{% url 'inmobiliaria:lista_contratos' %}">Contratos</a>
                     {% endif %}
+                    {% if user.nivel >= 3 %}
+                    <a class="nav-link" href="{% url 'inmobiliaria:reservas' %}">Lista Reservas</a>
+                    <a class="nav-link" href="{% url 'inmobiliaria:operaciones' %}">Operaciones</a>
+                    {% endif %}
                     {% if user.nivel >= 2 %}
                     <div class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="adminNavDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -147,7 +151,7 @@
                             <li><a class="dropdown-item" href="{% url 'inmobiliaria:propiedades' %}">Propiedades</a></li>
                             <li><a class="dropdown-item" href="{% url 'inmobiliaria:mis_propiedades' %}"><i class="fas fa-folder-open"></i> Mis propiedades</a></li>
                             <li><a class="dropdown-item" href="{% url 'inmobiliaria:buscar_propiedades_por_fechas' %}">Buscar Propiedades por Fechas</a></li>
-                            {% if user.nivel >= 2 %}
+                            {% if user.nivel >= 3 %}
                             <li><a class="dropdown-item" href="{% url 'inmobiliaria:reservas' %}">Lista Reservas</a></li>
                             <li><a class="dropdown-item" href="{% url 'inmobiliaria:operaciones' %}"><i class="fas fa-receipt me-2"></i>Operaciones y recibos</a></li>
                             {% endif %}
