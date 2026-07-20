@@ -65,28 +65,6 @@
             </div>
         </div>
 
-        <!-- Listas para completar pagos (todos los productores) -->
-        <div class="col-md-4 mb-4">
-            <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:reservas' %}'">
-                <div class="card-icon">
-                    <i class="fas fa-calendar-check"></i>
-                </div>
-                <h3>Lista Reservas</h3>
-                <p>Reservas pendientes y completar pagos</p>
-                <span class="badge bg-warning text-dark">Pagos</span>
-            </div>
-        </div>
-        <div class="col-md-4 mb-4">
-            <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:operaciones' %}'">
-                <div class="card-icon">
-                    <i class="fas fa-receipt"></i>
-                </div>
-                <h3>Operaciones y recibos</h3>
-                <p>Listado de operaciones y completar pagos</p>
-                <span class="badge bg-primary">Pagos</span>
-            </div>
-        </div>
-
         <!-- Sucursales -->
         {% if user.nivel >= 2 %}
         <div class="col-md-4 mb-4">
@@ -147,6 +125,16 @@
             </div>
         </div>
         <div class="col-md-4 mb-4">
+            <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:operaciones' %}'">
+                <div class="card-icon">
+                    <i class="fas fa-receipt"></i>
+                </div>
+                <h3>Operaciones y recibos</h3>
+                <p>Listado de operaciones y acceso a recibos por reserva</p>
+                <span class="badge bg-primary">Recibos</span>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
             <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:dashboard_comisiones' %}'">
                 <div class="card-icon">
                     <i class="fas fa-percent"></i>
@@ -178,7 +166,9 @@
         </div>
     </div>
     {% endif %}
+    {% endif %}
 
+    {# Contratos: también nivel 1 (cobrar seña / operación principal 24 meses) #}
     <div class="row justify-content-center">
         <div class="col-12 col-lg-10 mb-2">
             <p class="small text-uppercase text-muted fw-semibold mb-2">Operativa diaria</p>
@@ -189,10 +179,11 @@
                     <i class="fas fa-file-contract"></i>
                 </div>
                 <h3>Contratos de alquiler</h3>
-                <p>Contratos 24 meses, cuotas y cobros</p>
+                <p>Contratos 24 meses, seña, depósito y cobros</p>
                 <span class="badge bg-info">24 meses</span>
             </div>
         </div>
+        {% if user.nivel >= 2 %}
         <div class="col-md-4 mb-4">
             <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:dashboard_caja' %}'">
                 <div class="card-icon">
@@ -203,6 +194,7 @@
                 <span class="badge bg-dark">Caja</span>
             </div>
         </div>
+        {% endif %}
     </div>
 
     {% if user.is_superuser or user.nivel >= 4 %}
@@ -261,7 +253,6 @@
             </div>
         </div>
     </div>
-    {% endif %}
     {% endif %}
 </div>
 

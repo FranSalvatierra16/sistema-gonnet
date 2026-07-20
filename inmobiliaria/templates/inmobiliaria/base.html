@@ -106,9 +106,7 @@
                     <a class="nav-link" href="{% url 'inmobiliaria:dashboard' %}">Inicio</a>
                     <a class="nav-link" href="{% url 'inmobiliaria:buscar_propiedades' %}">Reservas</a>
                     {% if user.nivel < 2 %}
-                    {# Acceso directo para productores (sin menú Administración) #}
-                    <a class="nav-link" href="{% url 'inmobiliaria:reservas' %}">Lista Reservas</a>
-                    <a class="nav-link" href="{% url 'inmobiliaria:operaciones' %}">Operaciones</a>
+                    <a class="nav-link" href="{% url 'inmobiliaria:lista_contratos' %}">Contratos</a>
                     {% endif %}
                     {% if user.nivel >= 2 %}
                     <div class="nav-item dropdown">
@@ -149,8 +147,10 @@
                             <li><a class="dropdown-item" href="{% url 'inmobiliaria:propiedades' %}">Propiedades</a></li>
                             <li><a class="dropdown-item" href="{% url 'inmobiliaria:mis_propiedades' %}"><i class="fas fa-folder-open"></i> Mis propiedades</a></li>
                             <li><a class="dropdown-item" href="{% url 'inmobiliaria:buscar_propiedades_por_fechas' %}">Buscar Propiedades por Fechas</a></li>
+                            {% if user.nivel >= 2 %}
                             <li><a class="dropdown-item" href="{% url 'inmobiliaria:reservas' %}">Lista Reservas</a></li>
                             <li><a class="dropdown-item" href="{% url 'inmobiliaria:operaciones' %}"><i class="fas fa-receipt me-2"></i>Operaciones y recibos</a></li>
+                            {% endif %}
                             {% if user.nivel >= 4 %}
                                 <li><a class="dropdown-item" href="{% url 'inmobiliaria:reporte_asegurado_liquidaciones' %}"><i class="fas fa-chart-line"></i> Asegurado vs liquidaciones</a></li>
                             {% endif %}

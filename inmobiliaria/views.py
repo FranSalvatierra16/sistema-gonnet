@@ -10678,6 +10678,23 @@ def alquileres_24_meses(request):
     nivel = getattr(request.user, 'nivel', 0)
     puede_editar_meses = request.user.is_superuser or nivel >= 3
 
+    # Contratos 24 meses (no invierno) pendientes de operación / seña
+    qs_contratos_pago = ContratoAlquiler.objects.filter(
+        estado='reservado',
+    ).exclude(duracion_meses=9).select_related('propiedad', 'inquilino', 'vendedor')
+    if ver_todas:
+        qs_contratos_pago = qs_contratos_pago.filter(q_sucursales_colon_corrientes)
+    else:
+        sucursal_usuario = getattr(request.user, 'sucursal', None)
+        if sucursal_usuario:
+            qs_contratos_pago = qs_contratos_pago.filter(sucursal=sucursal_usuario)
+        else:
+            qs_contratos_pago = qs_contratos_pago.filter(q_sucursales_colon_corrientes)
+    contratos_pago_pendiente = list(qs_contratos_pago.order_by('-id')[:40])
+    contrato_pago_por_propiedad = {
+        c.propiedad_id: c for c in contratos_pago_pendiente if c.propiedad_id
+    }
+
     context = {
         'propiedades': propiedades_meses,
         'busqueda': busqueda,
@@ -10691,6 +10708,8 @@ def alquileres_24_meses(request):
         'ver_todas': ver_todas,
         'total_disponibles_meses': total_disponibles_meses,
         'total_reservados_meses': total_reservados_meses,
+        'contratos_pago_pendiente': contratos_pago_pendiente,
+        'contrato_pago_por_propiedad': contrato_pago_por_propiedad,
     }
 
     return render(request, 'inmobiliaria/propiedades/alquileres_24_meses.html', context)

@@ -87,6 +87,7 @@
             </div>
         </div>
         <div class="col-md-6 mb-2">
+            <a href="?estado=reservado{% if ver_todas %}&ver_todas=1{% endif %}{% if busqueda %}&busqueda={{ busqueda|urlencode }}{% endif %}" class="text-decoration-none">
             <div class="card shadow-sm border-radius-modern" style="border-left: 4px solid #f44336;">
                 <div class="card-body py-3 px-3">
                     <div class="d-flex justify-content-between align-items-center">
@@ -94,14 +95,56 @@
                             <h6 class="card-title text-danger mb-0">
                                 <i class="fas fa-calendar-times me-1"></i>Reservados
                             </h6>
-                            <small class="text-muted">Confirmadas sin pagar</small>
+                            <small class="text-muted">Confirmadas sin pagar — clic para ver</small>
                         </div>
                         <h4 class="fw-bold text-danger mb-0">{{ total_reservados_meses|default:0 }}</h4>
                     </div>
                 </div>
             </div>
+            </a>
         </div>
     </div>
+
+    {% if contratos_pago_pendiente %}
+    <div class="card shadow-modern border-radius-modern mb-4 border-warning">
+        <div class="card-header bg-warning text-dark">
+            <h5 class="mb-0">
+                <i class="fas fa-cash-register me-2"></i>
+                Pendientes de seña / operación ({{ contratos_pago_pendiente|length }})
+            </h5>
+            <small>Contratos reservados: cobrá la seña o la operación principal acá.</small>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Contrato</th>
+                            <th>Propiedad</th>
+                            <th>Inquilino</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in contratos_pago_pendiente %}
+                        <tr>
+                            <td>#{{ c.id }}</td>
+                            <td>{{ c.propiedad.direccion }}</td>
+                            <td>{{ c.inquilino|apellido_nombre }}</td>
+                            <td class="text-end">
+                                <a href="{% url 'inmobiliaria:crear_operacion_contrato' c.id %}?tipo=principal"
+                                   class="btn btn-sm btn-warning">
+                                    <i class="fas fa-money-bill-wave"></i> Cobrar seña / pago
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Grid de Propiedades -->
     <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 row-cols-xl-4 g-4">
@@ -193,10 +236,19 @@
 
                     <!-- Botones de Acción -->
                     <div class="d-grid gap-2">
-                        <button type="button" class="btn btn-primary" 
+                        {% with cpend=contrato_pago_por_propiedad|get_item:propiedad.id %}
+                        {% if cpend %}
+                        <a href="{% url 'inmobiliaria:crear_operacion_contrato' cpend.id %}?tipo=principal"
+                           class="btn btn-warning">
+                            <i class="fas fa-money-bill-wave"></i> Cobrar seña / pago
+                        </a>
+                        {% else %}
+                        <button type="button" class="btn btn-primary"
                                 onclick="mostrarModalContrato({{ propiedad.id }}, '{{ propiedad.direccion|escapejs }}', '{{ propiedad.sucursal.nombre|escapejs }}', {{ propiedad.info_meses.precio_mensual|default:0 }}, {{ propiedad.info_meses.precio_expensas|default:0 }})">
                             <i class="fas fa-file-contract"></i> Crear Contrato
                         </button>
+                        {% endif %}
+                        {% endwith %}
                         {% if puede_editar_meses %}
                         <button type="button" class="btn btn-warning btn-editar-meses"
                                 data-propiedad-id="{{ propiedad.id }}"
