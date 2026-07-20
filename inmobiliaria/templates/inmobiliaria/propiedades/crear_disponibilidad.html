@@ -43,6 +43,9 @@
             <form method="post">
                 {% csrf_token %}
                 {% bootstrap_form form %}
+                <p class="text-muted small mb-3">
+                    Podés elegir cualquier fecha (también meses anteriores) para cargar operaciones por día atrasadas.
+                </p>
 
                 <div class="form-group">
                     <button type="submit" class="btn btn-primary">Guardar</button>
@@ -56,17 +59,15 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Configurar fecha mínima como hoy
-    var today = new Date().toISOString().split('T')[0];
-    document.querySelector('input[name="fecha_inicio"]').min = today;
-    document.querySelector('input[name="fecha_fin"]').min = today;
-    
-    // Validar que fecha fin sea posterior a fecha inicio
+    // Sin fecha mínima: se pueden cargar disponibilidades de meses anteriores
+    // (operaciones por día históricas / atrasadas).
+
+    // Validar que fecha fin sea posterior o igual a fecha inicio
     document.querySelector('form').addEventListener('submit', function(e) {
         var fechaInicio = document.querySelector('input[name="fecha_inicio"]').value;
         var fechaFin = document.querySelector('input[name="fecha_fin"]').value;
         
-        if (fechaFin < fechaInicio) {
+        if (fechaFin && fechaInicio && fechaFin < fechaInicio) {
             e.preventDefault();
             alert('La fecha de fin debe ser posterior a la fecha de inicio');
         }
