@@ -271,6 +271,16 @@ urlpatterns = [
     path('oficina/categorias/<int:categoria_id>/editar/', views_oficina.oficina_categoria_editar, name='oficina_categoria_editar'),
     path('oficina/categorias/<int:categoria_id>/eliminar/', views_oficina.oficina_categoria_eliminar, name='oficina_categoria_eliminar'),
     path('oficina/resumen-cierre/', views_oficina.oficina_resumen_cierre, name='oficina_resumen_cierre'),
+    path(
+        'oficina/propiedades/',
+        views_oficina.oficina_propiedades_lista,
+        name='oficina_propiedades_lista',
+    ),
+    path(
+        'oficina/propiedades/<int:propiedad_id>/libro/',
+        views_oficina.oficina_propiedad_libro,
+        name='oficina_propiedad_libro',
+    ),
     path('caja/obtener-actual/', views.obtener_caja_actual, name='obtener_caja_actual'),
     
     # ============================

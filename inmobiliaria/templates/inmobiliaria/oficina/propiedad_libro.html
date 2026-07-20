@@ -1,0 +1,118 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load custom_filters %}
+
+{% block title %}Libro — {{ propiedad.direccion }}{% endblock %}
+
+{% block page_container_class %}container-fluid{% endblock %}
+
+{% block content %}
+<div class="mt-3 mb-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+        <div>
+            <h1 class="h4 mb-1">
+                GASTOS — {{ propiedad.direccion }}{% if propiedad.piso %} – {{ propiedad.piso }}°{% endif %}{% if propiedad.departamento %} {{ propiedad.departamento }}{% endif %}
+            </h1>
+            <p class="text-muted mb-0 small">
+                Ficha #{{ propiedad.id }}
+                {% if propiedad.propietario %} · Propietario: {{ propiedad.propietario }}{% endif %}
+                · Movimientos automáticos desde caja
+            </p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{% url 'inmobiliaria:oficina_propiedades_lista' %}" class="btn btn-outline-secondary btn-sm">Todos los deptos</a>
+            <a href="{% url 'inmobiliaria:oficina_dashboard' %}" class="btn btn-outline-secondary btn-sm">Panel oficina</a>
+            <a href="{% url 'inmobiliaria:propiedad_detalle' propiedad.id %}" class="btn btn-outline-primary btn-sm">Ficha propiedad</a>
+        </div>
+    </div>
+
+    {% if otras_propiedades|length > 1 %}
+    <div class="mb-3 overflow-auto">
+        <ul class="nav nav-tabs flex-nowrap" style="white-space: nowrap;">
+            {% for p in otras_propiedades %}
+            <li class="nav-item">
+                <a class="nav-link {% if p.id == propiedad.id %}active{% endif %}"
+                   href="{% url 'inmobiliaria:oficina_propiedad_libro' p.id %}{% if fecha_desde or fecha_hasta %}?{% if fecha_desde %}fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_desde and fecha_hasta %}&{% endif %}{% if fecha_hasta %}fecha_hasta={{ fecha_hasta }}{% endif %}{% endif %}">
+                    {{ p.direccion }}{% if p.piso %} {{ p.piso }}{% endif %}{% if p.departamento %}{{ p.departamento }}{% endif %}
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <form method="get" class="row g-2 align-items-end mb-3">
+        <div class="col-auto">
+            <label class="form-label small mb-0" for="fecha_desde">Desde</label>
+            <input type="date" class="form-control form-control-sm" id="fecha_desde" name="fecha_desde" value="{{ fecha_desde }}">
+        </div>
+        <div class="col-auto">
+            <label class="form-label small mb-0" for="fecha_hasta">Hasta</label>
+            <input type="date" class="form-control form-control-sm" id="fecha_hasta" name="fecha_hasta" value="{{ fecha_hasta }}">
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-sm btn-primary">Filtrar</button>
+            <a href="{% url 'inmobiliaria:oficina_propiedad_libro' propiedad.id %}" class="btn btn-sm btn-outline-secondary">Limpiar</a>
+        </div>
+    </form>
+
+    <div class="row g-2 mb-3">
+        <div class="col-md-3"><div class="alert alert-danger border mb-0 py-2">Gastos ARS: <strong>${{ totales.gastos_ars|format_price }}</strong></div></div>
+        <div class="col-md-3"><div class="alert alert-success border mb-0 py-2">Alquileres ARS: <strong>${{ totales.alquileres_ars|format_price }}</strong></div></div>
+        <div class="col-md-3"><div class="alert alert-primary border mb-0 py-2">Balance ARS: <strong>${{ totales.balance_ars|format_price }}</strong></div></div>
+        <div class="col-md-3"><div class="alert alert-info border mb-0 py-2">Balance USD: <strong>U$S {{ totales.balance_usd|format_price }}</strong></div></div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-sm table-striped table-bordered mb-0 libro-oficina-table">
+                <thead class="table-light">
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Descripción</th>
+                        <th class="text-end">Gastos</th>
+                        <th class="text-end">Alquileres</th>
+                        <th class="text-end">Gastos en dólar</th>
+                        <th class="text-end">Ingreso dólar</th>
+                        <th class="text-end">Tipo cbio</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for f in filas %}
+                    <tr>
+                        <td class="text-nowrap">{{ f.fecha|date:"d/m/Y" }}</td>
+                        <td>{{ f.descripcion }}</td>
+                        <td class="text-end text-danger">{% if f.gastos_ars %}{{ f.gastos_ars|format_price }}{% endif %}</td>
+                        <td class="text-end text-success">{% if f.alquileres_ars %}{{ f.alquileres_ars|format_price }}{% endif %}</td>
+                        <td class="text-end">{% if f.gastos_usd %}{{ f.gastos_usd|format_price }}{% endif %}</td>
+                        <td class="text-end">{% if f.ingreso_usd %}{{ f.ingreso_usd|format_price }}{% endif %}</td>
+                        <td class="text-end">{% if f.tipo_cambio %}{{ f.tipo_cambio|format_price }}{% endif %}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-4">
+                            No hay movimientos de caja para este departamento{% if fecha_desde or fecha_hasta %} en el período{% endif %}.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                {% if filas %}
+                <tfoot class="table-light fw-semibold">
+                    <tr>
+                        <td colspan="2" class="text-end">Totales</td>
+                        <td class="text-end text-danger">{{ totales.gastos_ars|format_price }}</td>
+                        <td class="text-end text-success">{{ totales.alquileres_ars|format_price }}</td>
+                        <td class="text-end">{{ totales.gastos_usd|format_price }}</td>
+                        <td class="text-end">{{ totales.ingreso_usd|format_price }}</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+                {% endif %}
+            </table>
+        </div>
+    </div>
+</div>
+<style>
+.libro-oficina-table th, .libro-oficina-table td { font-size: 0.875rem; vertical-align: middle; }
+.libro-oficina-table thead th { white-space: nowrap; }
+</style>
+{% endblock %}

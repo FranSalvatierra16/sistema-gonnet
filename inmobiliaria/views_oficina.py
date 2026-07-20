@@ -142,6 +142,12 @@ def oficina_dashboard(request):
         propiedad__sucursal=sucursal,
     ).values('propiedad').distinct().count()
 
+    from inmobiliaria.models import Propiedad
+
+    propiedades_oficina_count = Propiedad.objects.filter(
+        sucursal=sucursal, es_propiedad_oficina=True
+    ).count()
+
     return render(
         request,
         'inmobiliaria/oficina/dashboard.html',
@@ -152,6 +158,7 @@ def oficina_dashboard(request):
             'comisiones_pendientes': comisiones_pendientes,
             'vales_count': vales_abiertos,
             'propiedades_cartera': propiedades_cartera,
+            'propiedades_oficina_count': propiedades_oficina_count,
             'mes_label': mes_ini.strftime('%B %Y'),
         },
     )
@@ -477,5 +484,156 @@ def oficina_resumen_cierre(request):
             'meses_opts': meses_opts,
             'anio_sel': anio,
             'mes_sel': mes,
+        },
+    )
+
+
+def _qs_propiedades_oficina(sucursal):
+    from inmobiliaria.models import Propiedad
+
+    return (
+        Propiedad.objects.filter(sucursal=sucursal, es_propiedad_oficina=True)
+        .select_related('propietario')
+        .order_by('direccion', 'piso', 'departamento', 'id')
+    )
+
+
+def _descripcion_movimiento_libro(mov):
+    """Texto legible para la columna Descripción del libro."""
+    try:
+        txt = (mov.concepto_sin_pipe_conceptos() or '').strip()
+    except Exception:
+        txt = (getattr(mov, 'concepto', None) or '').strip()
+        if '|CONCEPTOS:' in txt:
+            txt = txt.split('|CONCEPTOS:', 1)[0].strip()
+    return txt or f'Movimiento #{mov.id}'
+
+
+def _fila_libro_desde_movimiento(mov):
+    """
+    Mapea un MovimientoCaja a las columnas del libro:
+    gastos_ars, alquileres_ars, gastos_usd, ingreso_usd, tipo_cambio.
+    """
+    from inmobiliaria.models.caja import TipoMovimientoCajaEnum
+
+    ars = Decimal(str(getattr(mov, 'monto_total', 0) or 0))
+    usd = Decimal(str(getattr(mov, 'monto_dolares', 0) or 0))
+    cotiz = getattr(mov, 'cotizacion_dolar', None)
+    if cotiz is not None:
+        cotiz = Decimal(str(cotiz))
+        if cotiz <= 0:
+            cotiz = None
+
+    es_egreso = (getattr(mov, 'tipo', None) or '').strip().upper() == TipoMovimientoCajaEnum.EGRESO
+
+    gastos_ars = Decimal('0')
+    alquileres_ars = Decimal('0')
+    gastos_usd = Decimal('0')
+    ingreso_usd = Decimal('0')
+
+    if es_egreso:
+        gastos_ars = ars
+        if usd > 0:
+            gastos_usd = usd
+        elif ars > 0 and cotiz:
+            gastos_usd = (ars / cotiz).quantize(Decimal('0.01'))
+    else:
+        alquileres_ars = ars
+        if usd > 0:
+            ingreso_usd = usd
+        elif ars > 0 and cotiz:
+            ingreso_usd = (ars / cotiz).quantize(Decimal('0.01'))
+
+    return {
+        'fecha': mov.fecha,
+        'descripcion': _descripcion_movimiento_libro(mov),
+        'gastos_ars': gastos_ars,
+        'alquileres_ars': alquileres_ars,
+        'gastos_usd': gastos_usd,
+        'ingreso_usd': ingreso_usd,
+        'tipo_cambio': cotiz,
+        'movimiento_id': mov.id,
+        'tipo': 'EG' if es_egreso else 'IN',
+    }
+
+
+@login_required
+def oficina_propiedades_lista(request):
+    """Listado de departamentos marcados como propiedad oficina."""
+    if not _puede_oficina(request.user):
+        return HttpResponseForbidden()
+
+    sucursal = request.user.sucursal
+    propiedades = list(_qs_propiedades_oficina(sucursal))
+    return render(
+        request,
+        'inmobiliaria/oficina/propiedades_lista.html',
+        {
+            'propiedades': propiedades,
+            'total': len(propiedades),
+        },
+    )
+
+
+@login_required
+def oficina_propiedad_libro(request, propiedad_id):
+    """Libro automático (estilo planilla) de movimientos de caja de un depto oficina."""
+    if not _puede_oficina(request.user):
+        return HttpResponseForbidden()
+
+    from inmobiliaria.models import MovimientoCaja, Propiedad
+
+    sucursal = request.user.sucursal
+    propiedad = get_object_or_404(
+        Propiedad.objects.select_related('propietario'),
+        pk=propiedad_id,
+        sucursal=sucursal,
+        es_propiedad_oficina=True,
+    )
+
+    fecha_desde_s = (request.GET.get('fecha_desde') or '').strip()
+    fecha_hasta_s = (request.GET.get('fecha_hasta') or '').strip()
+    dr_desde = _parse_fecha(fecha_desde_s)
+    dr_hasta = _parse_fecha(fecha_hasta_s)
+    if dr_desde and dr_hasta and dr_hasta < dr_desde:
+        dr_desde, dr_hasta = dr_hasta, dr_desde
+        fecha_desde_s, fecha_hasta_s = dr_desde.isoformat(), dr_hasta.isoformat()
+
+    mov_qs = (
+        MovimientoCaja.objects.filter(
+            sucursal=sucursal,
+            propiedad=propiedad,
+            fecha_eliminacion__isnull=True,
+        )
+        .order_by('fecha', 'id')
+    )
+    if dr_desde:
+        mov_qs = mov_qs.filter(fecha__date__gte=dr_desde)
+    if dr_hasta:
+        mov_qs = mov_qs.filter(fecha__date__lte=dr_hasta)
+
+    filas = [_fila_libro_desde_movimiento(m) for m in mov_qs[:2000]]
+
+    totales = {
+        'gastos_ars': sum((f['gastos_ars'] for f in filas), Decimal('0')),
+        'alquileres_ars': sum((f['alquileres_ars'] for f in filas), Decimal('0')),
+        'gastos_usd': sum((f['gastos_usd'] for f in filas), Decimal('0')),
+        'ingreso_usd': sum((f['ingreso_usd'] for f in filas), Decimal('0')),
+    }
+    totales['balance_ars'] = totales['alquileres_ars'] - totales['gastos_ars']
+    totales['balance_usd'] = totales['ingreso_usd'] - totales['gastos_usd']
+
+    otras = list(_qs_propiedades_oficina(sucursal))
+
+    return render(
+        request,
+        'inmobiliaria/oficina/propiedad_libro.html',
+        {
+            'propiedad': propiedad,
+            'filas': filas,
+            'totales': totales,
+            'otras_propiedades': otras,
+            'fecha_desde': fecha_desde_s,
+            'fecha_hasta': fecha_hasta_s,
         },
     )
