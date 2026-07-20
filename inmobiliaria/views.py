@@ -3406,22 +3406,6 @@ def ver_disponibilidad(request, propiedad_id):
     return render(request, 'inmobiliaria/ver_disponibilidad.html', context)
 @login_required
 def reservas(request):
-    try:
-        return _reservas_impl(request)
-    except Exception:
-        logging.getLogger(__name__).exception(
-            'Error en lista de reservas (user=%s sucursal=%s)',
-            getattr(request.user, 'id', None),
-            getattr(request.user, 'sucursal_id', None),
-        )
-        messages.error(
-            request,
-            'No se pudo cargar la lista de reservas. Probá de nuevo o filtrá por ID/fecha.',
-        )
-        return redirect('inmobiliaria:dashboard')
-
-
-def _reservas_impl(request):
     from inmobiliaria.caja_devolucion_deposito import queryset_reservas_pendientes_cobro
 
     MAX_LISTA_RESERVAS = 300
@@ -3558,19 +3542,7 @@ def reservas_eliminadas(request):
 
 @login_required
 def operaciones(request):
-    try:
-        return _operaciones_impl(request)
-    except Exception:
-        logging.getLogger(__name__).exception(
-            'Error en listado de operaciones (user=%s sucursal=%s)',
-            getattr(request.user, 'id', None),
-            getattr(request.user, 'sucursal_id', None),
-        )
-        messages.error(
-            request,
-            'No se pudo cargar el listado de operaciones. Probá de nuevo o filtrá por ID/fecha.',
-        )
-        return redirect('inmobiliaria:dashboard')
+    return _operaciones_impl(request)
 
 
 def _operaciones_impl(request):
@@ -3751,6 +3723,12 @@ def _operaciones_impl(request):
             fecha_op = row['fecha_inicio']
         if fecha_op is None:
             fecha_op = row.get('fecha_inicio')
+        # MySQL a veces devuelve datetime en columnas date: unificar a date para el sort
+        if hasattr(fecha_op, 'date') and callable(fecha_op.date):
+            try:
+                fecha_op = fecha_op.date()
+            except (AttributeError, TypeError, ValueError):
+                pass
         merge_items.append(('reserva', rid, fecha_op))
 
     contratos_invierno_qs = ContratoAlquiler.objects.filter(
@@ -3793,16 +3771,27 @@ def _operaciones_impl(request):
             'id', 'fecha_operacion', 'fecha_inicio', 'deposito_garantia', 'precio_mensual', 'estado', 'propiedad_id'
         )
     }
+
+    def _as_date(val):
+        if val is None:
+            return None
+        if hasattr(val, 'date') and callable(val.date):
+            try:
+                return val.date()
+            except (AttributeError, TypeError, ValueError):
+                pass
+        return val
+
     for cid in invierno_ids_ordered:
         meta = invierno_meta.get(cid)
         if not meta:
             continue
         total_operaciones += 1
-        f_sort = meta.get('fecha_operacion') or meta.get('fecha_inicio')
+        f_sort = _as_date(meta.get('fecha_operacion') or meta.get('fecha_inicio'))
         merge_items.append(('invierno', cid, f_sort))
 
     merge_items.sort(
-        key=lambda x: x[2] if x[2] is not None else date.min,
+        key=lambda x: _as_date(x[2]) or date.min,
         reverse=True,
     )
 
@@ -3895,11 +3884,13 @@ def _operaciones_impl(request):
                 total_pagado=Decimal(str(total_pagado)),
                 saldo_pendiente=saldo_pendiente,
                 estado=contrato.estado,
+                moneda=getattr(contrato, 'moneda', None) or 'ARS',
                 deposito_estado='pagado' if deposito_ok else 'pendiente',
                 total_deposito_pagado=contrato.deposito_garantia or Decimal('0'),
                 movimiento_reciente=None,
                 _mov_reciente_id=mov_rec_id_inv,
                 todos_recibos=None,
+                tiene_pagos=Decimal(str(total_pagado)) > Decimal('0.01'),
             )
 
     mov_ids_page = []
