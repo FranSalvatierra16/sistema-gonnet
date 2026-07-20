@@ -1429,10 +1429,10 @@
                     <div style="flex: 1; position: relative;">
                         <label style="display:block; font-size: 13px; color: #64748b; margin-bottom: 6px;">Importe</label>
                         <span id="simbolo_precio_modal" style="position: absolute; left: 16px; top: calc(50% + 10px); transform: translateY(-50%); font-size: 18px; font-weight: 500; color: #64748b; z-index: 1;">$</span>
-                        <input type="text" id="precio_total_editable" inputmode="numeric" autocomplete="off"
+                        <input type="text" id="precio_total_editable" class="input-monto-ar" inputmode="decimal" autocomplete="off"
                                style="width: 100%; padding: 16px 16px 16px 48px; font-size: 18px; font-weight: 600; border: 1px solid #d1d5db; border-radius: 8px; background: white; transition: all 0.2s; color: #1e293b;"
                                onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
-                               onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'; if(window.formatearPrecio){this.value=window.formatearPrecio(window.parseDecimalMontoJS(this.value));}">
+                               onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none';">
                     </div>
                 </div>
                 <small style="color: #64748b; font-size: 13px;">Si elegís USD, la seña y el cobro se hacen en dólares.</small>
@@ -2681,24 +2681,19 @@ window.actualizarSimboloMonedaModal = function() {
 };
 
 window.formatearPrecio = function(precio) {
-    if (!precio && precio !== 0) return '0';
-    
-    let numero;
-    if (typeof precio === 'string') {
-        // Limpiar completamente el string: remover puntos, comas, espacios y caracteres no numéricos excepto el signo menos
-        numero = parseFloat(precio.replace(/[^\d.-]/g, ''));
-    } else {
-        numero = precio;
+    if (precio === null || precio === undefined || precio === '') return '0';
+    const numero = (typeof precio === 'number')
+        ? precio
+        : (window.parseDecimalMontoJS ? window.parseDecimalMontoJS(precio) : parseFloat(precio));
+    if (!Number.isFinite(numero)) return '0';
+    if (window.formatMontoAR) {
+        const tieneDecimales = Math.abs(numero - Math.round(numero)) > 0.0000001;
+        return window.formatMontoAR(numero, tieneDecimales ? 2 : 0);
     }
-    
-    // Si no es un número válido, retornar 0
-    if (isNaN(numero)) return '0';
-    
-    // Formatear con punto como separador de miles
     return numero.toLocaleString('es-AR', {
         minimumFractionDigits: 0,
-        maximumFractionDigits: 0
-    }).replace(/,/g, '.');
+        maximumFractionDigits: 2,
+    });
 };
 
 // Función para formatear fechas disponible globalmente
@@ -5181,15 +5176,21 @@ function guardarTodosLosPreciosYCerrar() {
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
-// ✅ FUNCIÓN GLOBAL PARA FORMATEAR PRECIOS CON PUNTOS (sin decimales)
+// Formato AR con miles (.) y decimales (,) — p. ej. 90.000,45
 window.formatearPrecio = function(valor) {
-    if (!valor || valor === 0) return '0';
-    
-    // Convertir a número entero (sin decimales)
-    const numero = Math.round(parseFloat(valor));
-    
-    // Agregar puntos cada 3 dígitos
-    return numero.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    if (valor === null || valor === undefined || valor === '') return '0';
+    const numero = (typeof valor === 'number')
+        ? valor
+        : (window.parseDecimalMontoJS ? window.parseDecimalMontoJS(valor) : parseFloat(valor));
+    if (!Number.isFinite(numero)) return '0';
+    if (window.formatMontoAR) {
+        const tieneDecimales = Math.abs(numero - Math.round(numero)) > 0.0000001;
+        return window.formatMontoAR(numero, tieneDecimales ? 2 : 0);
+    }
+    return numero.toLocaleString('es-AR', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2,
+    });
 };
 
 // Función para obtener datos adicionales de la propiedad
