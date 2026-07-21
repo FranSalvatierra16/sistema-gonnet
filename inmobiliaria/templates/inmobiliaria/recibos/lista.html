@@ -73,7 +73,9 @@
                     <button type="submit" class="btn btn-primary btn-sm w-100">Buscar</button>
                 </div>
             </form>
-            {% if modo != 'fecha' and not q %}
+            {% if modo == 'fecha' %}
+            <p class="small text-muted mb-0 mt-2">Se listan <strong>todos</strong> los ingresos con número de recibo del período (no solo el primero de cada operación).</p>
+            {% elif modo != 'fecha' and not q %}
             <p class="small text-muted mb-0 mt-2">Ingresá un criterio y tocá Buscar.</p>
             {% endif %}
         </div>
