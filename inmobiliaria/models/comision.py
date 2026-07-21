@@ -257,19 +257,11 @@ def _crear_linea_operacion_por_dia(
     """
     Comisión de operación «por día»: % comisión por día sobre la parte de la reserva
     que le corresponde al productor (participación).
+    Fórmula: precio_total × (participación/100) × (% comisión por día/100).
     Solo una línea por reserva (no se duplica en pagos parciales).
     """
     pct = pct_override if pct_override is not None else pct_comision_normal_alquiler_dia(vendedor)
     if pct is None or pct <= 0:
-        return
-    existente = ComisionVendedor.objects.filter(
-        vendedor=vendedor,
-        reserva=reserva,
-        rol_comision=ROL_COMISION_OP_DIA,
-    ).exclude(estado='cancelada').first()
-    if existente:
-        if creadas is not None and existente not in creadas:
-            creadas.append(existente)
         return
     base = reserva.precio_total or Decimal('0')
     if base <= 0:
@@ -277,13 +269,38 @@ def _crear_linea_operacion_por_dia(
     base = base_comision_con_participacion(base, participacion_pct)
     if base <= 0:
         return
+    nuevo_monto = (base * Decimal(str(pct)) / Decimal('100')).quantize(Decimal('0.01'))
+    existente = ComisionVendedor.objects.filter(
+        vendedor=vendedor,
+        reserva=reserva,
+        rol_comision=ROL_COMISION_OP_DIA,
+    ).exclude(estado='cancelada').first()
+    if existente:
+        updates = []
+        if existente.monto_total_operacion != base:
+            existente.monto_total_operacion = base
+            updates.append('monto_total_operacion')
+        if existente.monto_comision != nuevo_monto:
+            existente.monto_comision = nuevo_monto
+            updates.append('monto_comision')
+        if existente.porcentaje_comision != pct:
+            existente.porcentaje_comision = pct
+            updates.append('porcentaje_comision')
+        if updates:
+            existente.save(update_fields=updates)
+        if creadas is not None and existente not in creadas:
+            creadas.append(existente)
+        return
     c = ComisionVendedor.crear_comision_linea(
         vendedor=vendedor,
         reserva=reserva,
         movimiento_caja=movimiento_caja,
         monto_base=base,
         porcentaje_comision=pct,
-        concepto=f'Op. {reserva.id} — comisión alquiler por día (sobre total reserva)',
+        concepto=(
+            f'Op. {reserva.id} — comisión alquiler por día '
+            f'(part. {participacion_pct if participacion_pct is not None else 100}% del total)'
+        ),
         rol_comision=ROL_COMISION_OP_DIA,
     )
     if c:
@@ -442,8 +459,16 @@ def asegurar_comisiones_movimiento_reserva(reserva, movimiento_caja, honorarios_
 
     creadas = []
     if tipo_op == 'dia':
+        part_map = mapa_participacion_productores(reserva=reserva)
         for vend in iter_productores_reserva(reserva):
-            _crear_linea_operacion_por_dia(vend, reserva, movimiento_caja, Decimal('0'), creadas)
+            _crear_linea_operacion_por_dia(
+                vend,
+                reserva,
+                movimiento_caja,
+                Decimal('0'),
+                creadas,
+                participacion_pct=part_map.get(vend.id, Decimal('100')),
+            )
         return creadas
 
     # Invierno / 24 meses: comisiones del productor y fichaje solo sobre honorarios.

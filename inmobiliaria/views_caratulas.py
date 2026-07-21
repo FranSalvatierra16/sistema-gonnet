@@ -3555,6 +3555,7 @@ def caratula_reserva(request, reserva_id):
     if request.method == 'POST' and request.POST.get('action') in (
         'agregar_productor_caratula',
         'quitar_productor_caratula',
+        'guardar_participaciones_caratula',
     ):
         if _procesar_productores_caratula(request, reserva=reserva):
             return _redirect_caratula_con_filtros('inmobiliaria:caratula_reserva', reserva_id, request)
@@ -3570,16 +3571,22 @@ def caratula_reserva(request, reserva_id):
         reserva.refresh_from_db()
 
     movimientos = _movimientos_operacion_reserva(reserva) if reserva.propiedad_id else []
-
     recibos = list(reserva.recibos.all())
     comisiones = _comisiones_visibles_caratula_reserva(reserva)
 
-    if not comisiones and movimientos and reserva.vendedor_id:
+    # Actualizar montos (p. ej. con % de participación) si hay movimientos de la operación.
+    if movimientos and (comisiones or reserva.vendedor_id):
         from inmobiliaria.models.comision import asegurar_comisiones_movimiento_reserva
 
         for mov in movimientos:
             asegurar_comisiones_movimiento_reserva(reserva, mov)
         comisiones = _comisiones_visibles_caratula_reserva(reserva)
+
+    from inmobiliaria.models.comision import mapa_participacion_productores
+
+    part_map = mapa_participacion_productores(reserva=reserva)
+    for c in comisiones:
+        c.participacion_operacion_caratula = part_map.get(getattr(c, 'vendedor_id', None))
 
     total_mov = sum(
         Decimal(str(m.monto_efectivo or 0))
@@ -3672,7 +3679,11 @@ def caratula_contrato(request, contrato_id):
         if action == 'confirmar_operacion_caratula':
             _procesar_confirmar_operacion_caratula(request, contrato=contrato)
             return _redirect_caratula_con_filtros('inmobiliaria:caratula_contrato', contrato_id, request)
-        if action in ('agregar_productor_caratula', 'quitar_productor_caratula'):
+        if action in (
+            'agregar_productor_caratula',
+            'quitar_productor_caratula',
+            'guardar_participaciones_caratula',
+        ):
             if _procesar_productores_caratula(request, contrato=contrato):
                 return _redirect_caratula_con_filtros('inmobiliaria:caratula_contrato', contrato_id, request)
             contrato.refresh_from_db()
