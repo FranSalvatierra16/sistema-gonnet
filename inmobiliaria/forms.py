@@ -530,7 +530,7 @@ class PropiedadForm(forms.ModelForm):
                 'step': '0.01',
                 'min': '0',
                 'max': '100',
-                'placeholder': '85.00'
+                'placeholder': '70.00'
             }),
             'tipo_fichaje': forms.Select(attrs={'class': 'form-control'}),
             # 'precio_venta': forms.NumberInput(attrs={'step': 0.01, 'placeholder': 'Precio de venta'}),

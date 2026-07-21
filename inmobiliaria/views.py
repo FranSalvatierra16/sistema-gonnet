@@ -26637,19 +26637,7 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
     ).prefetch_related('cuotas').select_related('inquilino')
     
     operaciones = []
-    
-    # Función auxiliar para determinar tipo de precio según fecha
-    from inmobiliaria.precio_temporada_reserva import (
-        rango_vacaciones_invierno_sucursal,
-        tipo_precio_para_dia_reserva,
-    )
 
-    def obtener_tipo_precio(fecha):
-        return tipo_precio_para_dia_reserva(
-            fecha,
-            rango_vacaciones_invierno_sucursal(sucursal),
-        )
-    
     # Procesar reservas
     for reserva in reservas_pendientes:
         # Verificar si tiene movimientos de caja (pagos)
@@ -26674,81 +26662,18 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
         
         # Incluir la reserva si tiene pagos o está marcada como pagada
         if total_pagado > 0 or reserva.estado == 'pagada':
-            # Calcular días de la reserva (mínimo 1 para no dejar el bucle vacío ni dividir por 0)
+            from inmobiliaria.neto_propietario_movimiento import reparto_liquidacion_reserva_por_dia
+
             if reserva.fecha_inicio and reserva.fecha_fin:
                 dias_reserva = (reserva.fecha_fin - reserva.fecha_inicio).days
             else:
                 dias_reserva = 1
             if dias_reserva <= 0:
                 dias_reserva = 1
-            
-            # Calcular montos según precio_toma y precio_por_dia
-            monto_propietario_total = Decimal('0')
-            monto_inmobiliaria_total = Decimal('0')
-            hay_precio_toma = False
-            
-            # Calcular día por día
-            for i in range(dias_reserva):
-                if not reserva.fecha_inicio:
-                    break
-                fecha_actual = reserva.fecha_inicio + timedelta(days=i)
-                tipo_precio = obtener_tipo_precio(fecha_actual)
-                
-                try:
-                    precio = Precio.objects.get(propiedad=propiedad, tipo_precio=tipo_precio)
-                    precio_toma = Decimal(str(precio.precio_toma or 0))
-                    precio_por_dia = Decimal(str(precio.precio_por_dia or 0))
-                    
-                    # Si no hay precio_toma, usar precio_dia_toma como fallback
-                    if precio_toma == 0 and precio.precio_dia_toma:
-                        precio_toma = Decimal(str(precio.precio_dia_toma))
-                    if precio_toma > 0:
-                        hay_precio_toma = True
-                    
-                    # Calcular ganancia por día
-                    ganancia_dia = precio_por_dia - precio_toma
-                    
-                    monto_propietario_total += precio_toma
-                    monto_inmobiliaria_total += ganancia_dia
-                except Precio.DoesNotExist:
-                    # Si no existe precio, usar el precio_total de la reserva dividido por días
-                    precio_promedio = Decimal(str(reserva.precio_total)) / Decimal(str(dias_reserva))
-                    # Fallback sin precio de toma: 70% propietario / 30% inmobiliaria
-                    monto_propietario_total += precio_promedio * Decimal('0.70')
-                    monto_inmobiliaria_total += precio_promedio * Decimal('0.30')
 
-            # Si no hay ningún precio de toma configurado, forzar % de propiedad.
-            total_reserva = Decimal(str(reserva.precio_total))
-            if not hay_precio_toma:
-                monto_propietario_total = (total_reserva * Decimal('0.70')).quantize(Decimal('0.01'))
-                monto_inmobiliaria_total = (total_reserva - monto_propietario_total).quantize(Decimal('0.01'))
-
-            # Regla principal para reservas por día:
-            # - si existe toma, respetar el total de toma para propietario
-            # - la inmobiliaria es la diferencia contra el total de la reserva
-            # Esto evita deformar el reparto cuando precio_total de la reserva no coincide exacto
-            # con la suma teórica de precio_por_dia x días.
-            if hay_precio_toma and monto_propietario_total > 0:
-                monto_propietario_total = monto_propietario_total.quantize(Decimal('0.01'))
-                monto_inmobiliaria_total = (total_reserva - monto_propietario_total).quantize(Decimal('0.01'))
-
-            # Fallback por porcentaje solo si la cuenta quedó inválida (p.ej. inmobiliaria negativa)
-            # o no hubo valores válidos para calcular por toma.
-            suma_split = monto_propietario_total + monto_inmobiliaria_total
-            pct_prop = propiedad.porcentaje_propietario
-            if pct_prop is None or pct_prop <= 0:
-                pct_prop = Decimal('70')
-            else:
-                pct_prop = Decimal(str(pct_prop))
-            tolerancia = Decimal('2.00')
-            if (
-                monto_propietario_total <= 0
-                or suma_split <= 0
-                or monto_inmobiliaria_total < 0
-                or abs(suma_split - total_reserva) > tolerancia
-            ):
-                monto_propietario_total = (total_reserva * pct_prop / Decimal('100')).quantize(Decimal('0.01'))
-                monto_inmobiliaria_total = (total_reserva - monto_propietario_total).quantize(Decimal('0.01'))
+            total_reserva, monto_propietario_total, monto_inmobiliaria_total, _hay_toma = (
+                reparto_liquidacion_reserva_por_dia(reserva)
+            )
 
             total_reserva_eff, monto_propietario_total, monto_inmobiliaria_total, _, _ = (
                 reserva.montos_liquidacion_efectivos(

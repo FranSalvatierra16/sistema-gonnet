@@ -1558,16 +1558,39 @@ def _resumen_liquidacion_caratula(*, reserva=None, contrato=None, liquidacion=No
     if not propiedad:
         return {'tiene_datos': False}
 
+    # Reservas por día: siempre calcular toma×días / 70-30 (no depender del listado de pendientes).
+    if reserva is not None and reserva.precio_total:
+        from inmobiliaria.neto_propietario_movimiento import reparto_liquidacion_reserva_por_dia
+
+        total, prop, inm, _hay_toma = reparto_liquidacion_reserva_por_dia(reserva)
+        total, prop, inm, coch, fondo = reserva.montos_liquidacion_efectivos(total, prop, inm)
+        return {
+            'tiene_datos': True,
+            'desde_liquidacion': False,
+            'liquidacion_id': None,
+            'estado_liquidacion': None,
+            'moneda': (getattr(reserva, 'moneda', None) or 'ARS'),
+            'monto_total': total,
+            'monto_propietario': prop,
+            'monto_inmobiliaria': inm,
+            'monto_cochera': coch,
+            'monto_fondo': fondo,
+            'monto_gastos': Decimal('0'),
+            'monto_a_pagar': (prop - fondo).quantize(Decimal('0.01')),
+            'subtotal_propietario': prop,
+            'total_descontado': fondo,
+            'filas_pago': [
+                {
+                    'concepto': f'Reserva #{reserva.id}',
+                    'monto': prop,
+                }
+            ],
+            'gastos_filas': [],
+        }
+
     data = _operaciones_gastos_pendientes_data(propiedad, sucursal)
     op_match = None
     for op in data.get('operaciones') or []:
-        if reserva is not None and op.get('tipo') == 'reserva':
-            try:
-                if int(op.get('id')) == reserva.id:
-                    op_match = op
-                    break
-            except (TypeError, ValueError):
-                continue
         if contrato is not None:
             if op.get('tipo') == 'contrato_cuota':
                 try:
@@ -1587,22 +1610,6 @@ def _resumen_liquidacion_caratula(*, reserva=None, contrato=None, liquidacion=No
                 except (TypeError, ValueError):
                     continue
 
-    if not op_match and reserva is not None and reserva.precio_total:
-        total = Decimal(str(reserva.precio_total))
-        pct = getattr(propiedad, 'porcentaje_propietario', None)
-        if pct is None or pct <= 0:
-            pct = Decimal('70')
-        else:
-            pct = Decimal(str(pct))
-        prop = (total * pct / Decimal('100')).quantize(Decimal('0.01'))
-        inm = (total - prop).quantize(Decimal('0.01'))
-        op_match = {
-            'descripcion': f'Reserva #{reserva.id}',
-            'monto_total': str(total),
-            'monto_propietario': str(prop),
-            'monto_inmobiliaria': str(inm),
-        }
-
     if not op_match:
         return {'tiene_datos': False}
 
@@ -1614,8 +1621,6 @@ def _resumen_liquidacion_caratula(*, reserva=None, contrato=None, liquidacion=No
 
     coch = Decimal('0')
     fondo = Decimal('0')
-    if reserva is not None:
-        total, prop, inm, coch, fondo = reserva.montos_liquidacion_efectivos(total, prop, inm)
 
     return {
         'tiene_datos': True,

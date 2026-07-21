@@ -1,13 +1,13 @@
 """
 Neto al propietario por movimiento de caja (ingreso), alineado con liquidaciones:
 - Si hay LiquidacionPropietario vinculada (no cancelada), se usa su monto_a_pagar.
-- Si no: reparto como en operaciones pendientes — precio_toma / precio_por_dia sobre el
-  monto del movimiento, o porcentaje_propietario de la propiedad (si no hay toma válida, 70%).
+- Si no: reparto como en operaciones pendientes — precio_toma (o precio_dia_toma) /
+  precio_por_dia sobre el monto del movimiento; sin toma válida, 70% propietario / 30% oficina.
 """
 from __future__ import annotations
 
-from datetime import date, datetime
-from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
+from datetime import date, datetime, timedelta
+from decimal import Decimal, ROUND_HALF_UP
 
 from django.utils import timezone
 
@@ -17,6 +17,8 @@ from inmobiliaria.precio_temporada_reserva import (
     rango_vacaciones_invierno_sucursal,
     tipo_precio_para_dia_reserva,
 )
+
+PCT_PROPIETARIO_SIN_TOMA = Decimal('70')
 
 
 def obtener_tipo_precio_para_fecha(d, sucursal=None) -> str:
@@ -36,6 +38,69 @@ def monto_medios_movimiento_decimal(mov) -> Decimal:
 
 def _q(v: Decimal) -> Decimal:
     return v.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+
+def _precio_toma_de_registro(precio) -> Decimal:
+    """precio_toma; si está vacío, precio_dia_toma."""
+    if not precio:
+        return Decimal('0')
+    pt = Decimal(str(precio.precio_toma or 0))
+    if pt <= 0 and getattr(precio, 'precio_dia_toma', None):
+        pt = Decimal(str(precio.precio_dia_toma or 0))
+    return pt if pt > 0 else Decimal('0')
+
+
+def reparto_liquidacion_reserva_por_dia(reserva):
+    """
+    Reparto sugerido para alquiler por día:
+
+    - Propietario = suma de (precio_toma o precio_dia_toma) de cada día de la reserva.
+    - Inmobiliaria = precio_total − propietario.
+    - Si ningún día tiene toma: 70% propietario / 30% inmobiliaria.
+
+    No usa ``propiedad.porcentaje_propietario`` (p. ej. el 85% por defecto de ficha).
+    Retorna (total, monto_propietario, monto_inmobiliaria, hay_toma).
+    """
+    total = _q(Decimal(str(getattr(reserva, 'precio_total', None) or 0)))
+    if total <= 0:
+        return total, Decimal('0'), Decimal('0'), False
+
+    propiedad = getattr(reserva, 'propiedad', None)
+    fecha_inicio = getattr(reserva, 'fecha_inicio', None)
+    fecha_fin = getattr(reserva, 'fecha_fin', None)
+    if not propiedad or not fecha_inicio or not fecha_fin:
+        prop = _q(total * PCT_PROPIETARIO_SIN_TOMA / Decimal('100'))
+        return total, prop, _q(total - prop), False
+
+    dias = (fecha_fin - fecha_inicio).days
+    if dias <= 0:
+        dias = 1
+
+    sucursal = getattr(reserva, 'sucursal', None) or getattr(propiedad, 'sucursal', None)
+    rango = rango_vacaciones_invierno_sucursal(sucursal)
+    precios = {
+        p.tipo_precio: p
+        for p in Precio.objects.filter(propiedad=propiedad)
+    }
+
+    monto_propietario = Decimal('0')
+    hay_toma = False
+    for i in range(dias):
+        fecha_actual = fecha_inicio + timedelta(days=i)
+        tipo = tipo_precio_para_dia_reserva(fecha_actual, rango)
+        toma = _precio_toma_de_registro(precios.get(tipo))
+        if toma > 0:
+            hay_toma = True
+            monto_propietario += toma
+
+    if hay_toma and monto_propietario > 0:
+        prop = _q(monto_propietario)
+        if prop > total:
+            prop = total
+        return total, prop, _q(total - prop), True
+
+    prop = _q(total * PCT_PROPIETARIO_SIN_TOMA / Decimal('100'))
+    return total, prop, _q(total - prop), False
 
 
 def _fecha_movimiento(mov) -> date:
@@ -107,16 +172,8 @@ def neto_propietario_movimiento(mov, liq_by_mov_id: dict, precios_por_propiedad:
                     share = Decimal('1')
                 return _q(m_total * share)
 
-    pct = getattr(prop, 'porcentaje_propietario', None)
-    pct_dec = Decimal('70')
-    if pct is not None:
-        try:
-            pnum = Decimal(str(pct))
-            if pnum > 0:
-                pct_dec = pnum
-        except (InvalidOperation, TypeError, ValueError):
-            pct_dec = Decimal('70')
-    return _q(m_total * pct_dec / Decimal('100'))
+    # Sin toma: siempre 70/30 (no usar porcentaje_propietario de la ficha).
+    return _q(m_total * PCT_PROPIETARIO_SIN_TOMA / Decimal('100'))
 
 
 def precios_por_propiedad_ids(propiedad_ids) -> dict:

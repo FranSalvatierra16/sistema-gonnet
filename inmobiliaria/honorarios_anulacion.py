@@ -46,19 +46,12 @@ def reserva_esta_anulada(reserva):
 
 def montos_honorarios_desde_reserva(reserva):
     """Montos de honorarios inferidos desde la reserva (carátula / liquidación eliminada)."""
-    total = Decimal(str(reserva.precio_total or 0))
+    from inmobiliaria.neto_propietario_movimiento import reparto_liquidacion_reserva_por_dia
+
+    total, prop, inm, _hay_toma = reparto_liquidacion_reserva_por_dia(reserva)
     if total <= Decimal('0.01'):
         return None
 
-    propiedad = getattr(reserva, 'propiedad', None)
-    pct = getattr(propiedad, 'porcentaje_propietario', None) if propiedad else None
-    if pct is None or pct <= 0:
-        pct = Decimal('70')
-    else:
-        pct = Decimal(str(pct))
-
-    prop = (total * pct / Decimal('100')).quantize(Decimal('0.01'))
-    inm = (total - prop).quantize(Decimal('0.01'))
     total, prop, inm, coch, fondo = reserva.montos_liquidacion_efectivos(total, prop, inm)
 
     return {
