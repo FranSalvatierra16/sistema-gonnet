@@ -4688,7 +4688,15 @@ def confirmar_reserva(request):
                 propiedad_id = request.POST.get('propiedad_id')
                 fecha_inicio_str = request.POST.get('fecha_inicio')
                 fecha_fin_str = request.POST.get('fecha_fin')
-                vendedor_id = request.POST.get('vendedor_id')
+                vendedor_ids = [
+                    x.strip()
+                    for x in request.POST.getlist('vendedor_ids')
+                    if (x or '').strip().isdigit()
+                ]
+                if not vendedor_ids:
+                    vendedor_id_single = (request.POST.get('vendedor_id') or '').strip()
+                    if vendedor_id_single.isdigit():
+                        vendedor_ids = [vendedor_id_single]
                 inquilino_id = request.POST.get('inquilino_id')
                 precio = request.POST.get('precio_total', '0')
                 es_operacion_directa = request.POST.get('es_operacion_directa') == '1'
@@ -4705,17 +4713,22 @@ def confirmar_reserva(request):
                         'error': f'Error en el formato de las fechas: {str(e)}'
                     })
 
+                if not vendedor_ids:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Debés indicar al menos un vendedor / productor.',
+                    })
+
                 # Obtener los objetos necesarios
                 try:
                     propiedad = Propiedad.objects.get(id=propiedad_id)
-                    vendedor = Vendedor.objects.get(id=vendedor_id)
+                    vendedor = Vendedor.objects.get(id=vendedor_ids[0])
                     inquilino = Inquilino.objects.get(id=inquilino_id)
                 except (Propiedad.DoesNotExist, Vendedor.DoesNotExist, Inquilino.DoesNotExist) as e:
                     return JsonResponse({
                         'success': False,
                         'error': f'Error al obtener los datos: {str(e)}'
                     })
-
                 # Verificar disponibilidad usando el método del modelo
                 if not propiedad.esta_disponible_en_fecha(fecha_inicio, fecha_fin):
                     return JsonResponse({
@@ -4763,6 +4776,12 @@ def confirmar_reserva(request):
                     estado='confirmada_no_pagada',
                     sucursal=request.user.sucursal  # Asignar la sucursal del usuario
                 )
+
+                from inmobiliaria.models.comision import set_productores_operacion
+
+                ok_prod, err_prod = set_productores_operacion(vendedor_ids, reserva=reserva)
+                if not ok_prod:
+                    raise ValueError(err_prod or 'No se pudieron asignar los productores.')
 
                 # ✅ MANTENER DISPONIBILIDADES FIJAS - Solo actualizar historial
 # print(f"✅ Reserva creada correctamente. ID: {reserva.id}")
@@ -16431,7 +16450,16 @@ def crear_contrato_alquiler(request):
             if not inquilino_ids:
                 return JsonResponse({'error': 'Debe agregar al menos un inquilino al contrato.'}, status=400)
             inquilino_id = inquilino_ids[0]  # principal para FK
-            vendedor_id = request.POST.get('vendedor_id')
+            vendedor_ids = [
+                x.strip()
+                for x in request.POST.getlist('vendedor_ids')
+                if (x or '').strip().isdigit()
+            ]
+            if not vendedor_ids:
+                vendedor_id_single = (request.POST.get('vendedor_id') or '').strip()
+                if vendedor_id_single.isdigit():
+                    vendedor_ids = [vendedor_id_single]
+            vendedor_id = vendedor_ids[0] if vendedor_ids else ''
             fecha_operacion = request.POST.get('fecha_operacion')
             fecha_inicio = request.POST.get('fecha_inicio')
             fecha_fin = request.POST.get('fecha_fin')
@@ -16498,7 +16526,7 @@ def crear_contrato_alquiler(request):
                 faltantes.append('propiedad')
             if not inquilino_id:
                 faltantes.append('inquilino')
-            if not (vendedor_id or '').strip():
+            if not vendedor_ids:
                 faltantes.append('vendedor / productor')
             if not fecha_operacion:
                 faltantes.append('fecha de operación')
@@ -16619,6 +16647,11 @@ def crear_contrato_alquiler(request):
                     garante_domicilio=garante_domicilio,
                     carrera=carrera,
                 )
+                from inmobiliaria.models.comision import set_productores_operacion
+
+                ok_prod, err_prod = set_productores_operacion(vendedor_ids, contrato=contrato)
+                if not ok_prod:
+                    raise ValueError(err_prod or 'No se pudieron asignar los productores.')
                 # Asignar garantes (inquilinos seleccionados)
                 if garante_ids:
                     garantes_ok = get_inquilinos_queryset_unificado(request).filter(

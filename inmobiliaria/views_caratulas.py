@@ -745,10 +745,13 @@ def _procesar_confirmar_operacion_caratula(request, reserva=None, contrato=None)
 def _procesar_productores_caratula(request, reserva=None, contrato=None):
     from django.contrib import messages
     from inmobiliaria.models.comision import (
+        actualizar_participaciones_operacion,
         agregar_productor_contrato,
         agregar_productor_reserva,
         quitar_productor_contrato,
         quitar_productor_reserva,
+        resincronizar_comisiones_productor_contrato,
+        resincronizar_comisiones_productor_reserva,
     )
 
     if not _puede_editar_caratula(request.user):
@@ -757,6 +760,56 @@ def _procesar_productores_caratula(request, reserva=None, contrato=None):
 
     action = (request.POST.get('action') or '').strip()
     raw_id = (request.POST.get('productor_id') or '').strip()
+
+    if action == 'guardar_participaciones_caratula':
+        participaciones = {}
+        for key, val in request.POST.items():
+            if not key.startswith('participacion_'):
+                continue
+            vid = key[len('participacion_') :].strip()
+            if not vid:
+                continue
+            participaciones[vid] = val
+        if not participaciones:
+            messages.error(request, 'No se recibieron porcentajes de participación.')
+            return False
+        ok, err = actualizar_participaciones_operacion(
+            participaciones, reserva=reserva, contrato=contrato
+        )
+        if not ok:
+            messages.error(request, err or 'No se pudieron guardar las participaciones.')
+            return False
+        if reserva:
+            resincronizar_comisiones_productor_reserva(
+                reserva, _movimientos_operacion_reserva(reserva)
+            )
+        elif contrato:
+            movimientos = []
+            if contrato.propiedad_id:
+                from inmobiliaria.cuotas_imputacion import movimientos_ingreso_contrato
+
+                movimientos = movimientos_ingreso_contrato(contrato)
+            from inmobiliaria.views import _liquidacion_operacion_principal_contrato
+
+            liquidacion_hon = _liquidacion_operacion_principal_contrato(contrato)
+            override = _comisiones_override_caratula(request, contrato.id)
+            honorarios_ctx = _ctx_honorarios_comisiones_caratula_contrato(
+                contrato,
+                movimientos,
+                liquidacion=liquidacion_hon,
+                override=override,
+            )
+            movs_op = sorted(movimientos, key=lambda x: (x.fecha, x.id)) if movimientos else []
+            resincronizar_comisiones_productor_contrato(
+                contrato,
+                honorarios_monto=honorarios_ctx.get('base_comisiones'),
+                movimiento_caja=movs_op[0] if movs_op else None,
+            )
+        messages.success(
+            request,
+            'Participaciones actualizadas. Se recalcularon las comisiones de los productores.',
+        )
+        return True
 
     if action == 'agregar_productor_caratula':
         if not raw_id:
@@ -2569,11 +2622,14 @@ def _comisiones_vendedor_contrato_caratula(contrato, base_monto):
     """
     Líneas de comisión sobre comisión locador + locatario: fichaje al vendedor que fichó
     la propiedad (puede ser distinto del productor); invierno / 24 meses al productor.
+    Con varios productores, cada uno cobra sobre su % de participación de la base.
     """
     from inmobiliaria.models.comision import (
         ROL_COMISION_OP_24,
         ROL_COMISION_OP_INVIERNO,
+        base_comision_con_participacion,
         iter_productores_contrato,
+        mapa_participacion_productores,
         pct_comision_24_meses_vendedor,
         pct_comision_invierno_vendedor,
         propiedad_es_oficina,
@@ -2607,19 +2663,27 @@ def _comisiones_vendedor_contrato_caratula(contrato, base_monto):
     else:
         return lineas
 
+    part_map = mapa_participacion_productores(contrato=contrato)
     for vend in productores:
         if cat == 'invierno':
             pct = pct_comision_invierno_vendedor(vend, prop)
         else:
             pct = pct_comision_24_meses_vendedor(vend, prop)
         if pct is not None and pct > 0:
-            monto = (base_monto * Decimal(str(pct)) / Decimal('100')).quantize(Decimal('0.01'))
+            part = part_map.get(vend.id, Decimal('100'))
+            base_parte = base_comision_con_participacion(base_monto, part)
+            monto = (base_parte * Decimal(str(pct)) / Decimal('100')).quantize(Decimal('0.01'))
+            n = len(productores)
+            label = label_base
+            if n > 1:
+                label = f'{label_base} ({part}% op.)'
             lineas.append(
                 {
-                    'label': label_base,
+                    'label': label,
                     'monto': monto,
                     'monto_fmt': _formato_importe_us(monto),
                     'porcentaje': pct,
+                    'participacion': part,
                     'rol': rol_productor,
                     'vendedor_nombre': _nombre_productor_papel(vend),
                     'vendedor_id': vend.id,

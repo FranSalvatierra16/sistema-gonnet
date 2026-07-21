@@ -251,11 +251,12 @@ def _pct_operacion_dia_o_fallback_despues_fichaje(vendedor, hubo_regla_fichaje):
 
 
 def _crear_linea_operacion_por_dia(
-    vendedor, reserva, movimiento_caja, honorarios_monto, creadas, pct_override=None
+    vendedor, reserva, movimiento_caja, honorarios_monto, creadas, pct_override=None,
+    participacion_pct=None,
 ):
     """
-    Comisión de operación «por día»: % comisión por día (campo comisión / default sucursal) sobre el total
-    de la reserva; si no hay precio_total cargado, usa el monto de honorarios de este pago.
+    Comisión de operación «por día»: % comisión por día sobre la parte de la reserva
+    que le corresponde al productor (participación).
     Solo una línea por reserva (no se duplica en pagos parciales).
     """
     pct = pct_override if pct_override is not None else pct_comision_normal_alquiler_dia(vendedor)
@@ -273,6 +274,7 @@ def _crear_linea_operacion_por_dia(
     base = reserva.precio_total or Decimal('0')
     if base <= 0:
         base = honorarios_monto or Decimal('0')
+    base = base_comision_con_participacion(base, participacion_pct)
     if base <= 0:
         return
     c = ComisionVendedor.crear_comision_linea(
@@ -311,6 +313,7 @@ def registrar_comisiones_honorarios_movimiento_reserva(reserva, movimiento_caja,
 
     prop = reserva.propiedad
     creadas = []
+    part_map = mapa_participacion_productores(reserva=reserva)
 
     tipo_fichaje = getattr(prop, 'tipo_fichaje', None) or 'primer'
     vend_fichaje = vendedor_fichaje_desde_propiedad(prop)
@@ -335,52 +338,66 @@ def registrar_comisiones_honorarios_movimiento_reserva(reserva, movimiento_caja,
             creadas.append(c)
 
     for vend in productores:
+        part = part_map.get(vend.id, Decimal('100'))
+        base_parte = base_comision_con_participacion(honorarios_monto, part)
         pct_op_dia = _pct_operacion_dia_o_fallback_despues_fichaje(vend, hubo_regla_fichaje)
         pct_op_dia_kw = pct_op_dia if pct_op_dia and pct_op_dia > 0 else None
 
         if tipo_op == 'dia':
             _crear_linea_operacion_por_dia(
-                vend, reserva, movimiento_caja, honorarios_monto, creadas, pct_override=pct_op_dia_kw
+                vend, reserva, movimiento_caja, honorarios_monto, creadas,
+                pct_override=pct_op_dia_kw,
+                participacion_pct=part,
             )
 
         elif tipo_op == 'invierno':
             pct = pct_comision_invierno_vendedor(vend, prop)
             suf_of = ' (prop. oficina)' if propiedad_es_oficina(prop) else ''
-            if pct is not None and pct > 0:
+            if pct is not None and pct > 0 and base_parte > 0:
                 c = ComisionVendedor.crear_comision_linea(
                     vendedor=vend,
                     reserva=reserva,
                     movimiento_caja=movimiento_caja,
-                    monto_base=honorarios_monto,
+                    monto_base=base_parte,
                     porcentaje_comision=pct,
-                    concepto=f'Op. {reserva.id} — comisión invierno{suf_of} (sobre honorarios)',
+                    concepto=(
+                        f'Op. {reserva.id} — comisión invierno{suf_of} '
+                        f'(sobre honorarios, part. {part}%)'
+                    ),
                     rol_comision=ROL_COMISION_OP_INVIERNO,
                 )
                 if c:
                     creadas.append(c)
             else:
                 _crear_linea_operacion_por_dia(
-                    vend, reserva, movimiento_caja, honorarios_monto, creadas, pct_override=pct_op_dia_kw
+                    vend, reserva, movimiento_caja, honorarios_monto, creadas,
+                    pct_override=pct_op_dia_kw,
+                    participacion_pct=part,
                 )
 
         elif tipo_op == '24':
             pct = pct_comision_24_meses_vendedor(vend, prop)
             suf_of = ' (prop. oficina)' if propiedad_es_oficina(prop) else ''
-            if pct is not None and pct > 0:
+            if pct is not None and pct > 0 and base_parte > 0:
                 c = ComisionVendedor.crear_comision_linea(
                     vendedor=vend,
                     reserva=reserva,
                     movimiento_caja=movimiento_caja,
-                    monto_base=honorarios_monto,
+                    monto_base=base_parte,
                     porcentaje_comision=pct,
-                    concepto=f'Op. {reserva.id} — comisión alquiler 24 meses{suf_of} (sobre honorarios)',
+                    concepto=(
+                        f'Op. {reserva.id} — comisión alquiler 24 meses{suf_of} '
+                        f'(sobre honorarios, part. {part}%)'
+                    ),
                     rol_comision=ROL_COMISION_OP_24,
                 )
                 if c:
                     creadas.append(c)
             else:
                 _crear_linea_operacion_por_dia(
-                    vend, reserva, movimiento_caja, honorarios_monto, creadas, pct_override=pct_op_dia_kw
+                    vend, reserva, movimiento_caja, honorarios_monto, creadas,
+                    pct_override=pct_op_dia_kw,
+                    participacion_pct=part,
                 )
 
     return creadas
@@ -521,6 +538,7 @@ def registrar_comisiones_honorarios_contrato(contrato, honorarios_monto, movimie
     if cat not in ('invierno', '24'):
         return creadas
 
+    part_map = mapa_participacion_productores(contrato=contrato)
     for vend in iter_productores_contrato(contrato):
         if cat == 'invierno':
             pct = pct_comision_invierno_vendedor(vend, prop)
@@ -537,23 +555,30 @@ def registrar_comisiones_honorarios_contrato(contrato, honorarios_monto, movimie
 
         if pct is None or pct <= 0:
             continue
+        part = part_map.get(vend.id, Decimal('100'))
+        base_parte = base_comision_con_participacion(honorarios_monto, part)
+        if base_parte <= 0:
+            continue
         c = ComisionVendedor.crear_comision_linea_contrato(
             vendedor=vend,
             contrato=contrato,
             movimiento_caja=movimiento_caja,
-            monto_base=honorarios_monto,
+            monto_base=base_parte,
             porcentaje_comision=pct,
-            concepto=f'Contrato {contrato.id} — comisión {label} (sobre honorarios)',
+            concepto=(
+                f'Contrato {contrato.id} — comisión {label} '
+                f'(sobre honorarios, part. {part}%)'
+            ),
             rol_comision=rol,
             fecha_operacion=fecha_op,
         )
         if c:
             nuevo_monto = (
-                Decimal(str(honorarios_monto)) * Decimal(str(pct)) / Decimal('100')
+                Decimal(str(base_parte)) * Decimal(str(pct)) / Decimal('100')
             ).quantize(Decimal('0.01'))
             updates = []
-            if c.monto_total_operacion != honorarios_monto:
-                c.monto_total_operacion = honorarios_monto
+            if c.monto_total_operacion != base_parte:
+                c.monto_total_operacion = base_parte
                 updates.append('monto_total_operacion')
             if c.monto_comision != nuevo_monto:
                 c.monto_comision = nuevo_monto
@@ -656,6 +681,7 @@ def asegurar_filas_productores_reserva(reserva):
             reserva=reserva,
             vendedor_id=reserva.vendedor_id,
             orden=0,
+            porcentaje_participacion=Decimal('100'),
         )
 
 
@@ -667,7 +693,155 @@ def asegurar_filas_productores_contrato(contrato):
             contrato=contrato,
             vendedor_id=contrato.vendedor_id,
             orden=0,
+            porcentaje_participacion=Decimal('100'),
         )
+
+
+def _qs_productores_operacion(*, reserva=None, contrato=None):
+    if reserva:
+        return OperacionProductor.objects.filter(reserva=reserva).order_by('orden', 'id')
+    if contrato:
+        return OperacionProductor.objects.filter(contrato=contrato).order_by('orden', 'id')
+    return OperacionProductor.objects.none()
+
+
+def redistribuir_participaciones_iguales(*, reserva=None, contrato=None):
+    """Parte la operación en partes iguales entre los productores (resto al último)."""
+    from decimal import ROUND_DOWN
+
+    ops = list(_qs_productores_operacion(reserva=reserva, contrato=contrato))
+    n = len(ops)
+    if n == 0:
+        return
+    if n == 1:
+        if ops[0].porcentaje_participacion != Decimal('100'):
+            ops[0].porcentaje_participacion = Decimal('100')
+            ops[0].save(update_fields=['porcentaje_participacion'])
+        return
+    cada = (Decimal('100') / Decimal(n)).quantize(Decimal('0.01'), rounding=ROUND_DOWN)
+    assigned = Decimal('0')
+    for i, op in enumerate(ops):
+        pct = (Decimal('100') - assigned) if i == n - 1 else cada
+        if op.porcentaje_participacion != pct:
+            op.porcentaje_participacion = pct
+            op.save(update_fields=['porcentaje_participacion'])
+        assigned += pct
+
+
+def mapa_participacion_productores(*, reserva=None, contrato=None):
+    """vendedor_id → Decimal % participación (default 100 si falta fila)."""
+    asegurar = asegurar_filas_productores_reserva if reserva else asegurar_filas_productores_contrato
+    obj = reserva or contrato
+    if obj:
+        asegurar(obj)
+    out = {}
+    for op in _qs_productores_operacion(reserva=reserva, contrato=contrato).select_related('vendedor'):
+        out[op.vendedor_id] = Decimal(str(op.porcentaje_participacion or 0))
+    return out
+
+
+def base_comision_con_participacion(base_monto, participacion_pct):
+    """Parte de la base que corresponde al productor según su % de participación."""
+    base = Decimal(str(base_monto or 0))
+    pct = Decimal(str(participacion_pct if participacion_pct is not None else 100))
+    if base <= 0 or pct <= 0:
+        return Decimal('0')
+    return (base * pct / Decimal('100')).quantize(Decimal('0.01'))
+
+
+def set_productores_operacion(ids_vendedores, *, reserva=None, contrato=None, redistribuir=True):
+    """
+    Reemplaza los productores de la operación por la lista de IDs (orden = índice).
+    El primero queda como vendedor principal. Por defecto reparte % en partes iguales.
+    """
+    ids = []
+    for raw in ids_vendedores or []:
+        try:
+            vid = int(raw)
+        except (TypeError, ValueError):
+            continue
+        if vid and vid not in ids:
+            ids.append(vid)
+    if not ids:
+        return False, 'Indicá al menos un productor.'
+
+    sucursal_id = None
+    if reserva:
+        sucursal_id = reserva.sucursal_id
+        OperacionProductor.objects.filter(reserva=reserva).delete()
+        for i, vid in enumerate(ids):
+            vend, err = _validar_vendedor_productor_operacion(vid, sucursal_id=sucursal_id)
+            if err:
+                return False, err
+            OperacionProductor.objects.create(
+                reserva=reserva,
+                vendedor=vend,
+                orden=i,
+                porcentaje_participacion=Decimal('100'),
+            )
+        _sincronizar_vendedor_principal_reserva(reserva)
+        if redistribuir:
+            redistribuir_participaciones_iguales(reserva=reserva)
+        return True, None
+
+    if contrato:
+        sucursal_id = contrato.sucursal_id
+        OperacionProductor.objects.filter(contrato=contrato).delete()
+        for i, vid in enumerate(ids):
+            vend, err = _validar_vendedor_productor_operacion(vid, sucursal_id=sucursal_id)
+            if err:
+                return False, err
+            OperacionProductor.objects.create(
+                contrato=contrato,
+                vendedor=vend,
+                orden=i,
+                porcentaje_participacion=Decimal('100'),
+            )
+        _sincronizar_vendedor_principal_contrato(contrato)
+        if redistribuir:
+            redistribuir_participaciones_iguales(contrato=contrato)
+        return True, None
+
+    return False, 'Operación no válida.'
+
+
+def actualizar_participaciones_operacion(participaciones, *, reserva=None, contrato=None):
+    """
+    participaciones: dict {vendedor_id: pct} o lista de (vendedor_id, pct).
+    Deben sumar 100 (±0.05).
+    """
+    if isinstance(participaciones, dict):
+        items = list(participaciones.items())
+    else:
+        items = list(participaciones or [])
+    if not items:
+        return False, 'No hay participaciones para guardar.'
+
+    parsed = []
+    total = Decimal('0')
+    for vid_raw, pct_raw in items:
+        try:
+            vid = int(vid_raw)
+            pct = Decimal(str(pct_raw).replace(',', '.'))
+        except (TypeError, ValueError, ArithmeticError):
+            return False, 'Porcentaje o ID de productor inválido.'
+        if pct < 0 or pct > 100:
+            return False, 'Los porcentajes deben estar entre 0 y 100.'
+        parsed.append((vid, pct))
+        total += pct
+
+    if abs(total - Decimal('100')) > Decimal('0.05'):
+        return False, f'Los porcentajes deben sumar 100% (ahora suman {total}%).'
+
+    qs = _qs_productores_operacion(reserva=reserva, contrato=contrato)
+    ids_ops = set(qs.values_list('vendedor_id', flat=True))
+    ids_in = {vid for vid, _ in parsed}
+    if ids_in != ids_ops:
+        return False, 'Los productores no coinciden con los de la operación.'
+
+    for vid, pct in parsed:
+        qs.filter(vendedor_id=vid).update(porcentaje_participacion=pct.quantize(Decimal('0.01')))
+    return True, None
 
 
 def iter_productores_reserva(reserva):
@@ -759,9 +933,15 @@ def agregar_productor_reserva(reserva, vendedor_id, movimientos_caja=None):
         ).first()
         or 0
     ) + 1
-    OperacionProductor.objects.create(reserva=reserva, vendedor=vend, orden=orden)
+    OperacionProductor.objects.create(
+        reserva=reserva,
+        vendedor=vend,
+        orden=orden,
+        porcentaje_participacion=Decimal('0'),
+    )
+    redistribuir_participaciones_iguales(reserva=reserva)
     _sincronizar_vendedor_principal_reserva(reserva)
-    resincronizar_comisiones_productor_reserva(reserva, movimientos_caja, vendedor_id=vend.id)
+    resincronizar_comisiones_productor_reserva(reserva, movimientos_caja)
     return True, None
 
 
@@ -776,7 +956,9 @@ def quitar_productor_reserva(reserva, vendedor_id, movimientos_caja=None):
     if not deleted:
         return False, 'Ese productor no está en la operación.'
     _eliminar_comisiones_productor_reserva(reserva, vendedor_id=vid)
+    redistribuir_participaciones_iguales(reserva=reserva)
     _sincronizar_vendedor_principal_reserva(reserva)
+    resincronizar_comisiones_productor_reserva(reserva, movimientos_caja)
     return True, None
 
 
@@ -799,18 +981,23 @@ def agregar_productor_contrato(
         ).first()
         or 0
     ) + 1
-    OperacionProductor.objects.create(contrato=contrato, vendedor=vend, orden=orden)
+    OperacionProductor.objects.create(
+        contrato=contrato,
+        vendedor=vend,
+        orden=orden,
+        porcentaje_participacion=Decimal('0'),
+    )
+    redistribuir_participaciones_iguales(contrato=contrato)
     _sincronizar_vendedor_principal_contrato(contrato)
     resincronizar_comisiones_productor_contrato(
         contrato,
         honorarios_monto=honorarios_monto,
         movimiento_caja=movimiento_caja,
-        vendedor_id=vend.id,
     )
     return True, None
 
 
-def quitar_productor_contrato(contrato, vendedor_id):
+def quitar_productor_contrato(contrato, vendedor_id, honorarios_monto=None, movimiento_caja=None):
     from django.db import IntegrityError, transaction
 
     if not contrato:
@@ -827,6 +1014,7 @@ def quitar_productor_contrato(contrato, vendedor_id):
             if not deleted:
                 return False, 'Ese productor no está en la operación.'
             _eliminar_comisiones_productor_contrato(contrato, vendedor_id=vid)
+            redistribuir_participaciones_iguales(contrato=contrato)
             _sincronizar_vendedor_principal_contrato(contrato)
     except IntegrityError:
         return (
@@ -836,6 +1024,12 @@ def quitar_productor_contrato(contrato, vendedor_id):
         )
     except Exception as exc:
         return False, f'No se pudo quitar el productor: {exc}'
+    if honorarios_monto is not None:
+        resincronizar_comisiones_productor_contrato(
+            contrato,
+            honorarios_monto=honorarios_monto,
+            movimiento_caja=movimiento_caja,
+        )
     return True, None
 
 
@@ -949,6 +1143,16 @@ class OperacionProductor(models.Model):
         related_name='operaciones_como_productor',
     )
     orden = models.PositiveSmallIntegerField(default=0)
+    porcentaje_participacion = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('100'),
+        verbose_name='% participación en la operación',
+        help_text=(
+            'Porcentaje de la operación que corresponde a este productor '
+            '(ej. 50 si hay dos a partes iguales). Sobre esa parte se aplica su % de comisión.'
+        ),
+    )
 
     class Meta:
         verbose_name = 'Productor de operación'

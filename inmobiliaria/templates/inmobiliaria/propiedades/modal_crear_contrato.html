@@ -157,25 +157,31 @@
                             </div>
                         </div>
 
-                        <!-- Vendedor -->
+                        <!-- Vendedores / Productores -->
                         <div class="col-md-6">
                             <div class="card">
                                 <div class="card-header bg-secondary text-white">
-                                    <h5 class="mb-0">🏢 Vendedor</h5>
+                                    <h5 class="mb-0">🏢 Vendedores / Productores</h5>
                                 </div>
                                 <div class="card-body">
+                                    <p class="small text-muted mb-2">Podés agregar más de uno. Por defecto se reparte en partes iguales (editable en carátula).</p>
                                     <div class="d-flex gap-2 mb-3">
                                         <input type="number" id="vendedor_id" placeholder="Ingresa ID del vendedor" min="1"
                                                class="form-control" oninput="buscarVendedorAutomatico()">
                                         <button type="button" onclick="buscarVendedor(event)" class="btn btn-primary">🔍 Buscar</button>
+                                        <button type="button" onclick="agregarVendedor24()" class="btn btn-success">➕ Agregar</button>
                                     </div>
                                     <input type="hidden" id="modalVendedorId" name="vendedor_id">
-                                    <div id="vendedor_info" style="display: none;" class="alert alert-success">
+                                    <div id="vendedor_ids_container_24"></div>
+                                    <div id="lista_vendedores_24" class="border rounded p-2 bg-light mb-2" style="min-height: 60px;">
+                                        <span class="text-muted small">Ninguno. Buscá por ID y pulsá Agregar.</span>
+                                    </div>
+                                    <div id="vendedor_info" style="display: none;" class="alert alert-success py-2 mb-0">
                                         <div class="d-flex align-items-center gap-2">
-                                            <span style="font-size: 24px;">✅</span>
+                                            <span>✅</span>
                                             <div>
-                                                <strong>Vendedor encontrado:</strong>
-                                                <div id="vendedor_nombre" class="fw-bold" style="color: #000; font-size: 18px;"></div>
+                                                <strong class="small">Encontrado:</strong>
+                                                <div id="vendedor_nombre" class="fw-bold" style="color: #000;"></div>
                                             </div>
                                         </div>
                                     </div>
@@ -872,6 +878,66 @@ function guardarNuevoInquilino() {
 }
 
 // Función para buscar vendedor automáticamente
+let vendedoresSeleccionados24 = [];
+let vendedorPendiente24 = null;
+
+function sincronizarVendedoresHidden24() {
+    const container = document.getElementById('vendedor_ids_container_24');
+    const principal = document.getElementById('modalVendedorId');
+    if (container) {
+        container.innerHTML = '';
+        vendedoresSeleccionados24.forEach(function (v) {
+            const inp = document.createElement('input');
+            inp.type = 'hidden';
+            inp.name = 'vendedor_ids';
+            inp.value = String(v.id);
+            container.appendChild(inp);
+        });
+    }
+    if (principal) {
+        principal.value = vendedoresSeleccionados24.length ? String(vendedoresSeleccionados24[0].id) : '';
+    }
+}
+
+function renderListaVendedores24() {
+    const lista = document.getElementById('lista_vendedores_24');
+    if (!lista) return;
+    if (!vendedoresSeleccionados24.length) {
+        lista.innerHTML = '<span class="text-muted small">Ninguno. Buscá por ID y pulsá Agregar.</span>';
+        sincronizarVendedoresHidden24();
+        return;
+    }
+    lista.innerHTML = vendedoresSeleccionados24.map(function (v, idx) {
+        return '<div class="d-flex justify-content-between align-items-center gap-2 mb-1">'
+            + '<span class="small fw-semibold">' + (v.nombre || ('ID ' + v.id)) + (idx === 0 ? ' <span class="text-success">(principal)</span>' : '') + '</span>'
+            + '<button type="button" class="btn btn-sm btn-outline-danger" onclick="quitarVendedor24(' + v.id + ')">Quitar</button>'
+            + '</div>';
+    }).join('');
+    sincronizarVendedoresHidden24();
+}
+
+function agregarVendedor24() {
+    if (!vendedorPendiente24 || !vendedorPendiente24.id) {
+        alert('Buscá un vendedor válido antes de agregar.');
+        return;
+    }
+    const id = parseInt(vendedorPendiente24.id, 10);
+    if (vendedoresSeleccionados24.some(function (v) { return parseInt(v.id, 10) === id; })) {
+        alert('Ese productor ya está en la lista.');
+        return;
+    }
+    vendedoresSeleccionados24.push({ id: id, nombre: vendedorPendiente24.nombre });
+    renderListaVendedores24();
+}
+
+function quitarVendedor24(id) {
+    const vid = parseInt(id, 10);
+    vendedoresSeleccionados24 = vendedoresSeleccionados24.filter(function (v) {
+        return parseInt(v.id, 10) !== vid;
+    });
+    renderListaVendedores24();
+}
+
 function buscarVendedorAutomatico() {
     const vendedorId = document.getElementById('vendedor_id').value.trim();
     const vendedorInfo = document.getElementById('vendedor_info');
@@ -882,7 +948,7 @@ function buscarVendedorAutomatico() {
     // Si no hay ID, ocultar info
     if (!vendedorId) {
         vendedorInfo.style.display = 'none';
-        document.getElementById('modalVendedorId').value = '';
+        vendedorPendiente24 = null;
         return;
     }
     
@@ -930,15 +996,13 @@ function buscarVendedor(event) {
                 // Mostrar información del vendedor
                 document.getElementById('vendedor_nombre').textContent = nombreVendedor;
                 vendedorInfo.style.display = 'block';
-                
-                // Guardar el ID del vendedor en el campo oculto
-                document.getElementById('modalVendedorId').value = vendedorId;
+                vendedorPendiente24 = { id: vendedorId, nombre: nombreVendedor };
                 
                 console.log('✅ Vendedor mostrado correctamente');
             } else {
                 // Vendedor no encontrado
                 document.getElementById('vendedor_nombre').textContent = '';
-                document.getElementById('modalVendedorId').value = '';
+                vendedorPendiente24 = null;
                 vendedorInfo.style.display = 'none';
                 
                 console.log('❌ Vendedor no encontrado');
@@ -951,7 +1015,7 @@ function buscarVendedor(event) {
         .catch(error => {
             console.error('💥 Error al buscar vendedor:', error);
             document.getElementById('vendedor_nombre').textContent = '';
-            document.getElementById('modalVendedorId').value = '';
+            vendedorPendiente24 = null;
             vendedorInfo.style.display = 'none';
             
             // Solo mostrar alerta si se presionó el botón buscar manualmente
@@ -1022,9 +1086,10 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('Debe agregar al menos un inquilino al contrato.');
             return;
         }
+        sincronizarVendedoresHidden24();
         const faltantes = [];
-        if (!(document.getElementById('modalVendedorId') || {}).value) {
-            faltantes.push('vendedor / productor (buscá el ID y hacé clic en Buscar)');
+        if (!vendedoresSeleccionados24.length) {
+            faltantes.push('vendedor / productor (buscá el ID y pulsá Agregar)');
         }
         const fechaOp = document.querySelector('#formContrato [name="fecha_operacion"]');
         if (fechaOp && !fechaOp.value) {

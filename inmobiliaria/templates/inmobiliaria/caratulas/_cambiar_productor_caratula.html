@@ -3,11 +3,56 @@
         <div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-2">
             <div>
                 <strong class="small"><i class="fas fa-users me-1"></i>Productores de la operación</strong>
-                <div class="small text-muted mt-1">Podés agregar o quitar productores. Cada uno genera sus comisiones.</div>
+                <div class="small text-muted mt-1">
+                    Podés agregar o quitar productores. Con más de uno, la operación se reparte
+                    (por defecto partes iguales, ej. 50/50). Sobre esa parte se aplica el % de comisión de cada productor.
+                </div>
             </div>
         </div>
 
         {% if productores_operacion %}
+        {% if puede_editar_productores_caratula and productores_operacion|length > 1 %}
+        <form method="post" class="mb-2" id="form-participaciones-caratula"
+              onsubmit="return confirmarParticipacionesCaratula(this);">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="guardar_participaciones_caratula">
+            <ul class="list-group list-group-flush mb-2 border rounded">
+                {% for op in productores_operacion %}
+                <li class="list-group-item py-2 d-flex flex-wrap align-items-center justify-content-between gap-2">
+                    <div class="small flex-grow-1">
+                        {% if op.vendedor %}
+                        <strong>{{ op.vendedor.apellido }}, {{ op.vendedor.nombre }}</strong>
+                        <span class="text-muted">(ID {{ op.vendedor.id }})</span>
+                        {% else %}
+                        <span class="text-muted">Productor sin datos</span>
+                        {% endif %}
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        {% if op.vendedor %}
+                        <label class="small text-muted mb-0" for="participacion_{{ op.vendedor.id }}">% op.</label>
+                        <input type="number" step="0.01" min="0" max="100"
+                               class="form-control form-control-sm participacion-input"
+                               style="width: 5.5rem;"
+                               name="participacion_{{ op.vendedor.id }}"
+                               id="participacion_{{ op.vendedor.id }}"
+                               value="{{ op.porcentaje_participacion }}">
+                        <button type="button" class="btn btn-sm btn-outline-danger"
+                                onclick="return quitarProductorCaratula(this, {{ op.vendedor.id }}, '{{ op.vendedor.apellido|escapejs }}, {{ op.vendedor.nombre|escapejs }}');">
+                            <i class="fas fa-user-minus me-1"></i>Quitar
+                        </button>
+                        {% endif %}
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <span class="small text-muted" id="suma-participaciones-hint"></span>
+                <button type="submit" class="btn btn-sm btn-primary ms-auto">
+                    <i class="fas fa-percentage me-1"></i>Guardar % y recalcular comisiones
+                </button>
+            </div>
+        </form>
+        {% else %}
         <ul class="list-group list-group-flush mb-2 border rounded">
             {% for op in productores_operacion %}
             <li class="list-group-item py-2 d-flex flex-wrap align-items-center justify-content-between gap-2">
@@ -15,6 +60,9 @@
                     {% if op.vendedor %}
                     <strong>{{ op.vendedor.apellido }}, {{ op.vendedor.nombre }}</strong>
                     <span class="text-muted">(ID {{ op.vendedor.id }})</span>
+                    {% if productores_operacion|length > 1 %}
+                    <span class="badge bg-light text-dark border ms-1">{{ op.porcentaje_participacion }}% op.</span>
+                    {% endif %}
                     {% else %}
                     <span class="text-muted">Productor sin datos</span>
                     {% endif %}
@@ -33,13 +81,14 @@
             </li>
             {% endfor %}
         </ul>
+        {% endif %}
         {% else %}
         <div class="small text-muted mb-2">Sin productores asignados.</div>
         {% endif %}
 
         {% if puede_editar_productores_caratula %}
         <form method="post" class="row g-2 align-items-end m-0 border-top pt-2" id="form-agregar-productor-caratula"
-              onsubmit="return confirm('¿Agregar este productor a la operación? Se calcularán sus comisiones.');">
+              onsubmit="return confirm('¿Agregar este productor a la operación? Se calcularán sus comisiones y se redistribuirá el % en partes iguales.');">
             {% csrf_token %}
             <input type="hidden" name="action" value="agregar_productor_caratula">
             <input type="hidden" name="productor_id" id="productor-id-hidden" value="">
@@ -69,6 +118,69 @@
 </div>
 <script>
 (function () {
+    function actualizarSumaParticipaciones() {
+        var hint = document.getElementById('suma-participaciones-hint');
+        var inputs = document.querySelectorAll('.participacion-input');
+        if (!hint || !inputs.length) return;
+        var suma = 0;
+        inputs.forEach(function (inp) {
+            var n = parseFloat(String(inp.value || '').replace(',', '.'));
+            if (!isNaN(n)) suma += n;
+        });
+        hint.textContent = 'Suma: ' + suma.toFixed(2) + '% (debe ser 100%)';
+        hint.className = 'small ' + (Math.abs(suma - 100) <= 0.05 ? 'text-success' : 'text-danger');
+    }
+
+    window.confirmarParticipacionesCaratula = function (form) {
+        var inputs = form.querySelectorAll('.participacion-input');
+        var suma = 0;
+        inputs.forEach(function (inp) {
+            var n = parseFloat(String(inp.value || '').replace(',', '.'));
+            if (!isNaN(n)) suma += n;
+        });
+        if (Math.abs(suma - 100) > 0.05) {
+            alert('Los porcentajes deben sumar 100% (ahora suman ' + suma.toFixed(2) + '%).');
+            return false;
+        }
+        return confirm('¿Guardar estos % de participación y recalcular las comisiones?');
+    };
+
+    window.quitarProductorCaratula = function (btn, vid, nombre) {
+        if (!confirm('¿Quitar a ' + nombre + ' de esta operación? Se eliminarán sus comisiones y se redistribuirá el %.')) {
+            return false;
+        }
+        var form = document.createElement('form');
+        form.method = 'post';
+        form.className = 'd-none';
+        var csrf = document.querySelector('#form-participaciones-caratula [name=csrfmiddlewaretoken]')
+            || document.querySelector('#form-agregar-productor-caratula [name=csrfmiddlewaretoken]');
+        if (csrf) {
+            var c = document.createElement('input');
+            c.type = 'hidden';
+            c.name = 'csrfmiddlewaretoken';
+            c.value = csrf.value;
+            form.appendChild(c);
+        }
+        var a = document.createElement('input');
+        a.type = 'hidden';
+        a.name = 'action';
+        a.value = 'quitar_productor_caratula';
+        form.appendChild(a);
+        var q = document.createElement('input');
+        q.type = 'hidden';
+        q.name = 'quitar_productor_id';
+        q.value = String(vid);
+        form.appendChild(q);
+        document.body.appendChild(form);
+        form.submit();
+        return false;
+    };
+
+    document.querySelectorAll('.participacion-input').forEach(function (inp) {
+        inp.addEventListener('input', actualizarSumaParticipaciones);
+    });
+    actualizarSumaParticipaciones();
+
     var input = document.getElementById('productor-busqueda-input');
     var hiddenId = document.getElementById('productor-id-hidden');
     var resultado = document.getElementById('productor-busqueda-resultado');
