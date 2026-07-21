@@ -109,6 +109,9 @@
         {% if volver_url %}
         <a href="{{ volver_url }}">&larr; Volver al detalle</a>
         {% endif %}
+        {% if info_operacion_liquidacion.url_caratula %}
+        <a href="{{ info_operacion_liquidacion.url_caratula }}">Ver carátula</a>
+        {% endif %}
         <button type="button" onclick="window.print()">Imprimir</button>
     </div>
 

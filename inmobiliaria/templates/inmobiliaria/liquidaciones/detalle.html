@@ -17,6 +17,11 @@
                     </p>
                 </div>
                 <div class="d-flex flex-wrap gap-2">
+                    {% if info_operacion_liquidacion.url_caratula %}
+                    <a href="{{ info_operacion_liquidacion.url_caratula }}" class="btn btn-outline-success">
+                        <i class="fas fa-file-alt me-2"></i>Ver carátula
+                    </a>
+                    {% endif %}
                     <a href="{% url 'inmobiliaria:imprimir_liquidacion_cobranzas' liquidacion.id %}" class="btn btn-outline-primary" target="_blank" rel="noopener">
                         <i class="fas fa-print me-2"></i>Imprimir liquidación de cobranzas
                     </a>
