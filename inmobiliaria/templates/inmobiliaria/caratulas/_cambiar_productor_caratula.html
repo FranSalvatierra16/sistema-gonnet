@@ -1,3 +1,4 @@
+{% load l10n %}
 <div class="card mb-3 border-primary">
     <div class="card-body py-2">
         <div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-2">
@@ -35,7 +36,7 @@
                                style="width: 5.5rem;"
                                name="participacion_{{ op.vendedor.id }}"
                                id="participacion_{{ op.vendedor.id }}"
-                               value="{{ op.porcentaje_participacion }}">
+                               value="{{ op.porcentaje_participacion|unlocalize }}">
                         <button type="button" class="btn btn-sm btn-outline-danger"
                                 onclick="return quitarProductorCaratula(this, {{ op.vendedor.id }}, '{{ op.vendedor.apellido|escapejs }}, {{ op.vendedor.nombre|escapejs }}');">
                             <i class="fas fa-user-minus me-1"></i>Quitar
@@ -61,7 +62,7 @@
                     <strong>{{ op.vendedor.apellido }}, {{ op.vendedor.nombre }}</strong>
                     <span class="text-muted">(ID {{ op.vendedor.id }})</span>
                     {% if productores_operacion|length > 1 %}
-                    <span class="badge bg-light text-dark border ms-1">{{ op.porcentaje_participacion }}% op.</span>
+                    <span class="badge bg-light text-dark border ms-1">{{ op.porcentaje_participacion|unlocalize }}% op.</span>
                     {% endif %}
                     {% else %}
                     <span class="text-muted">Productor sin datos</span>

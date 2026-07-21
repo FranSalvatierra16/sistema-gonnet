@@ -273,10 +273,26 @@ def _fichador_nombre_caratula(prop, comisiones=None) -> str:
 
 
 def _ctx_productores_operacion(*, reserva=None, contrato=None, puede_editar=False):
-    from inmobiliaria.models.comision import lista_productores_operacion
+    from decimal import Decimal
+
+    from inmobiliaria.models.comision import (
+        lista_productores_operacion,
+        redistribuir_participaciones_iguales,
+    )
+
+    ops = lista_productores_operacion(reserva=reserva, contrato=contrato)
+    if len(ops) > 1:
+        total = sum(
+            (Decimal(str(op.porcentaje_participacion or 0)) for op in ops),
+            Decimal('0'),
+        )
+        # Si nunca se repartió (0/0) o quedó inconsistente, forzar partes iguales.
+        if abs(total - Decimal('100')) > Decimal('0.05'):
+            redistribuir_participaciones_iguales(reserva=reserva, contrato=contrato)
+            ops = lista_productores_operacion(reserva=reserva, contrato=contrato)
 
     return {
-        'productores_operacion': lista_productores_operacion(reserva=reserva, contrato=contrato),
+        'productores_operacion': ops,
         'puede_editar_productores_caratula': bool(puede_editar),
     }
 
