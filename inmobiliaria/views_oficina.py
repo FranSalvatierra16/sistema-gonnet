@@ -1,4 +1,5 @@
 """Módulo Oficina: gastos, categorías y acceso a honorarios, vales, comisiones y cartera."""
+import logging
 from collections import defaultdict
 from datetime import datetime
 from decimal import Decimal
@@ -10,6 +11,8 @@ from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
+
+logger = logging.getLogger(__name__)
 
 from inmobiliaria.models import (
     Caja,
@@ -23,7 +26,6 @@ from inmobiliaria.models import (
 from inmobiliaria.models.persona import usuario_es_nivel_administracion
 from inmobiliaria.oficina_gastos import (
     asegurar_categoria_vales,
-    asegurar_categorias_base,
     asegurar_estructura_cierre_oficina,
     propagar_categoria_oficina_a_espejos,
     reubicar_raices_personalizadas_al_final,
@@ -94,14 +96,29 @@ def _totales_gastos_por_raiz(qs_gastos):
     return dict(totales)
 
 
+def _sync_categorias_oficina_seguro(sucursal):
+    """Sincroniza categorías una sola vez; no tumba la pantalla si falla."""
+    if not sucursal:
+        return
+    try:
+        asegurar_estructura_cierre_oficina(sucursal)
+    except Exception:
+        logger.exception(
+            'oficina: falló sync de categorías (sucursal_id=%s)',
+            getattr(sucursal, 'pk', None),
+        )
+
+
 @login_required
 def oficina_dashboard(request):
     if not _puede_oficina(request.user):
         return HttpResponseForbidden()
 
     sucursal = request.user.sucursal
-    asegurar_categorias_base(sucursal)
-    asegurar_estructura_cierre_oficina(sucursal)
+    if not sucursal:
+        return HttpResponseForbidden('Tu usuario no tiene sucursal asignada.')
+
+    _sync_categorias_oficina_seguro(sucursal)
 
     today = timezone.localdate()
     mes_ini = today.replace(day=1)
@@ -168,8 +185,9 @@ def oficina_gastos(request):
         return HttpResponseForbidden()
 
     sucursal = request.user.sucursal
-    asegurar_categorias_base(sucursal)
-    asegurar_estructura_cierre_oficina(sucursal)
+    if not sucursal:
+        return HttpResponseForbidden('Tu usuario no tiene sucursal asignada.')
+    _sync_categorias_oficina_seguro(sucursal)
 
     fecha_desde_s = (request.GET.get('fecha_desde') or '').strip()
     fecha_hasta_s = (request.GET.get('fecha_hasta') or '').strip()
@@ -299,8 +317,16 @@ def oficina_categorias(request):
         return HttpResponseForbidden()
 
     sucursal = request.user.sucursal
-    asegurar_categorias_base(sucursal)
-    reubicar_raices_personalizadas_al_final(sucursal)
+    if not sucursal:
+        return HttpResponseForbidden('Tu usuario no tiene sucursal asignada.')
+    _sync_categorias_oficina_seguro(sucursal)
+    try:
+        reubicar_raices_personalizadas_al_final(sucursal)
+    except Exception:
+        logger.exception(
+            'oficina_categorias: falló reubicar raíces (sucursal_id=%s)',
+            getattr(sucursal, 'pk', None),
+        )
 
     return render(
         request,
@@ -484,7 +510,9 @@ def oficina_resumen_cierre(request):
         return HttpResponseForbidden()
 
     sucursal = request.user.sucursal
-    asegurar_estructura_cierre_oficina(sucursal)
+    if not sucursal:
+        return HttpResponseForbidden('Tu usuario no tiene sucursal asignada.')
+    _sync_categorias_oficina_seguro(sucursal)
 
     today = timezone.localdate()
     anio_s = (request.GET.get('anio') or '').strip()

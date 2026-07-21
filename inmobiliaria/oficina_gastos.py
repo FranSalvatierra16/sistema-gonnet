@@ -602,11 +602,29 @@ def desactivar_categorias_legacy_oficina(sucursal):
                         hijo.save(update_fields=['activa'])
                 continue
 
-def _nombre_vendedor_categoria(vendedor):
+def _nombre_vendedor_categoria(vendedor, nombres_usados=None):
+    """
+    Nombre visible de la subcategoría por vendedor.
+    Si hay homónimos en la misma raíz, agrega #id para respetar el unique
+    (sucursal, parent, nombre) y no tirar IntegrityError al sincronizar.
+    """
     fn = getattr(vendedor, 'nombre_completo_vendedor', None)
     if callable(fn):
-        return (fn() or str(vendedor)).strip()[:120]
-    return str(vendedor).strip()[:120]
+        base = (fn() or '').strip()
+    else:
+        base = str(vendedor).strip()
+    if not base:
+        base = f'Vendedor #{getattr(vendedor, "id", "")}'.strip()
+    nombre = base[:120]
+    if nombres_usados is None:
+        return nombre
+    key = nombre.casefold()
+    if key in nombres_usados:
+        sufijo = f' #{getattr(vendedor, "id", "")}'
+        nombre = (base[: max(0, 120 - len(sufijo))] + sufijo)[:120]
+        key = nombre.casefold()
+    nombres_usados.add(key)
+    return nombre
 
 
 def _get_or_create_raiz(sucursal, nombre, orden):
@@ -651,9 +669,16 @@ def _get_or_create_hijo(sucursal, parent, nombre, orden, vendedor=None):
         cat = qs.filter(nombre__iexact=nombre, vendedor__isnull=True).first()
     if cat:
         updates = []
+        nombre_final = nombre
         if cat.nombre != nombre:
-            cat.nombre = nombre
-            updates.append('nombre')
+            # Si el nombre ya lo usa otra subcategoría, uniquificar con #id.
+            conflicto = qs.filter(nombre__iexact=nombre).exclude(pk=cat.pk).exists()
+            if conflicto and vendedor_id:
+                sufijo = f' #{vendedor_id}'
+                nombre_final = (nombre[: max(0, 120 - len(sufijo))] + sufijo)[:120]
+            if cat.nombre != nombre_final:
+                cat.nombre = nombre_final
+                updates.append('nombre')
         if cat.orden != orden:
             cat.orden = orden
             updates.append('orden')
@@ -661,7 +686,18 @@ def _get_or_create_hijo(sucursal, parent, nombre, orden, vendedor=None):
             cat.vendedor_id = vendedor_id
             updates.append('vendedor')
         if updates:
-            cat.save(update_fields=updates)
+            try:
+                cat.save(update_fields=updates)
+            except IntegrityError:
+                if vendedor_id and 'nombre' in updates:
+                    sufijo = f' #{vendedor_id}'
+                    cat.nombre = (nombre[: max(0, 120 - len(sufijo))] + sufijo)[:120]
+                    try:
+                        cat.save(update_fields=updates)
+                    except IntegrityError:
+                        pass
+                else:
+                    pass
         return cat, False
     try:
         return CategoriaGastoOficina.objects.create(
@@ -674,8 +710,31 @@ def _get_or_create_hijo(sucursal, parent, nombre, orden, vendedor=None):
     except IntegrityError:
         if vendedor_id:
             existente = qs.filter(vendedor_id=vendedor_id).first()
-        else:
-            existente = qs.filter(nombre__iexact=nombre, vendedor__isnull=True).first()
+            if existente:
+                return existente, False
+            # Nombre tomado por otra fila: reintentar con #id.
+            sufijo = f' #{vendedor_id}'
+            nombre_alt = (nombre[: max(0, 120 - len(sufijo))] + sufijo)[:120]
+            try:
+                return CategoriaGastoOficina.objects.create(
+                    sucursal=sucursal,
+                    parent=parent,
+                    nombre=nombre_alt,
+                    orden=orden,
+                    vendedor=vendedor,
+                ), True
+            except IntegrityError:
+                existente = qs.filter(vendedor_id=vendedor_id).first()
+                if existente:
+                    return existente, False
+                existente = qs.filter(nombre__iexact=nombre_alt).first()
+                if existente:
+                    return existente, False
+                raise
+        existente = qs.filter(nombre__iexact=nombre, vendedor__isnull=True).first()
+        if existente:
+            return existente, False
+        existente = qs.filter(nombre__iexact=nombre).first()
         if existente:
             return existente, False
         raise
@@ -683,14 +742,15 @@ def _get_or_create_hijo(sucursal, parent, nombre, orden, vendedor=None):
 
 def _sync_subcategorias_vendedores(sucursal, raiz):
     vendedores = list(
-        Vendedor.objects.filter(sucursal=sucursal, is_active=True).order_by('apellido', 'nombre')
+        Vendedor.objects.filter(sucursal=sucursal, is_active=True).order_by('apellido', 'nombre', 'id')
     )
     vendedor_ids = {v.id for v in vendedores}
+    nombres_usados = set()
     for i, vendedor in enumerate(vendedores):
         _get_or_create_hijo(
             sucursal,
             raiz,
-            _nombre_vendedor_categoria(vendedor),
+            _nombre_vendedor_categoria(vendedor, nombres_usados),
             i,
             vendedor=vendedor,
         )
@@ -727,6 +787,9 @@ def asegurar_estructura_cierre_oficina(sucursal):
     Sincroniza vendedores bajo Sueldos, Vales y Comisiones vendedores.
     Colón usa el árbol ya cargado en Corrientes.
     """
+    if not sucursal:
+        return False
+
     if sucursal_espeja_categorias_oficina_desde_referencia(sucursal):
         sincronizar_categorias_gasto_oficina_desde_referencia(sucursal)
         return False
