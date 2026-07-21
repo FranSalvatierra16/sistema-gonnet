@@ -42,7 +42,17 @@
             <form method="get" class="row g-2 align-items-end">
                 <div class="col-md-3">
                     <label class="form-label small mb-0">Buscar</label>
-                    <input type="text" name="q" class="form-control form-control-sm" placeholder="Cliente, dirección, título, ubicación o propietario…" value="{{ q }}">
+                    <div class="position-relative" id="buscadorCaratulasWrap">
+                        <input type="text" name="q" id="q_caratulas" class="form-control form-control-sm"
+                               placeholder="Cliente, nombre propiedad, dirección…"
+                               value="{{ q }}" autocomplete="off">
+                        <input type="hidden" name="propiedad_id" id="propiedad_id_caratulas"
+                               value="{{ propiedad_id|default:'' }}">
+                        <div id="sugerencias_propiedades_caratulas"
+                             class="list-group position-absolute w-100 shadow-sm d-none"
+                             style="z-index: 1050; max-height: 260px; overflow-y: auto; top: 100%;"></div>
+                    </div>
+                    <small class="text-muted">Al escribir aparecen nombres de propiedades</small>
                 </div>
                 <div class="col-md-2">
                     <label class="form-label small mb-0">N° operación</label>
@@ -93,7 +103,8 @@
                 (día en que se cargó la reserva o la fecha de operación del contrato), no por fechas de entrada/salida del alquiler.
                 Por defecto muestra <strong>hoy</strong>.
                 Si completás <strong>Buscar</strong> o <strong>N° operación</strong>, no se aplica el filtro de fechas.
-                En <strong>Buscar</strong> podés usar apellido del inquilino/cliente, dirección o propietario.
+                En <strong>Buscar</strong> podés usar apellido del inquilino/cliente, <strong>nombre de la propiedad</strong>, dirección o propietario.
+                Mientras escribís aparecen sugerencias con los nombres de las propiedades.
                 El listado va en orden cronológico (primera operación cargada arriba, con hora).
                 Las filas en <span class="badge bg-success">verde</span> ya tienen liquidación al propietario.
                 La columna <strong>Operación</strong> indica si la carátula está <span class="badge bg-warning text-dark">Pendiente</span> o <span class="badge bg-success">Confirmada</span> (botón en cada carátula).
@@ -203,4 +214,121 @@
     </nav>
     {% endif %}
 </div>
+<script>
+(function () {
+    var input = document.getElementById('q_caratulas');
+    var hiddenId = document.getElementById('propiedad_id_caratulas');
+    var lista = document.getElementById('sugerencias_propiedades_caratulas');
+    var wrap = document.getElementById('buscadorCaratulasWrap');
+    if (!input || !hiddenId || !lista || !wrap) return;
+
+    var debounceTimer = null;
+
+    function getCookie(name) {
+        var value = '; ' + document.cookie;
+        var parts = value.split('; ' + name + '=');
+        if (parts.length === 2) return parts.pop().split(';').shift();
+        return '';
+    }
+
+    function escHtml(s) {
+        if (s == null || s === '') return '';
+        var d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+    }
+
+    function labelPropiedad(p) {
+        var titulo = (p.titulo || '').trim();
+        var dir = (p.direccion || '').trim();
+        var pi = (p.piso || '').trim();
+        var dep = (p.departamento || '').trim();
+        var unidad = [pi ? 'Piso ' + pi : '', dep ? 'Dpto ' + dep : ''].filter(Boolean).join(', ');
+        var main = titulo || dir || ('Ficha #' + p.id);
+        if (titulo && dir) main = titulo + ' — ' + dir;
+        if (unidad) main += ' (' + unidad + ')';
+        return main;
+    }
+
+    function render(items) {
+        if (!items.length) {
+            lista.innerHTML = '<div class="list-group-item list-group-item-sm text-muted py-2">Sin propiedades</div>';
+            lista.classList.remove('d-none');
+            return;
+        }
+        lista.innerHTML = items.map(function (p) {
+            var lbl = labelPropiedad(p);
+            var titulo = (p.titulo || '').trim();
+            var qFill = titulo || (p.direccion || '').trim() || String(p.id);
+            return '<button type="button" class="list-group-item list-group-item-action py-2 item-prop-caratula"'
+                + ' data-id="' + p.id + '"'
+                + ' data-q="' + escHtml(qFill) + '"'
+                + ' data-text="' + escHtml(lbl) + '">'
+                + '<strong>#' + p.id + '</strong> '
+                + (titulo
+                    ? '<span class="fw-semibold">' + escHtml(titulo) + '</span>'
+                      + ((p.direccion || '').trim() ? '<span class="small text-muted d-block">' + escHtml(p.direccion) + '</span>' : '')
+                    : escHtml(lbl))
+                + '</button>';
+        }).join('');
+        lista.classList.remove('d-none');
+    }
+
+    function buscar() {
+        var termino = (input.value || '').trim();
+        var minLen = /^\d+$/.test(termino) ? 1 : 2;
+        if (termino.length < minLen) {
+            lista.classList.add('d-none');
+            lista.innerHTML = '';
+            return;
+        }
+        fetch("{% url 'inmobiliaria:buscar_propiedades_caja' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                'X-CSRFToken': getCookie('csrftoken'),
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: new URLSearchParams({ termino: termino }).toString()
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (!data.success) {
+                lista.classList.add('d-none');
+                return;
+            }
+            render(data.propiedades || []);
+        })
+        .catch(function () {
+            lista.classList.add('d-none');
+        });
+    }
+
+    input.addEventListener('input', function () {
+        hiddenId.value = '';
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(buscar, 180);
+    });
+
+    input.addEventListener('focus', function () {
+        var t = (input.value || '').trim();
+        if (t.length >= 2 || /^\d+$/.test(t)) buscar();
+    });
+
+    lista.addEventListener('click', function (e) {
+        var btn = e.target.closest('.item-prop-caratula');
+        if (!btn) return;
+        e.preventDefault();
+        hiddenId.value = btn.getAttribute('data-id') || '';
+        input.value = btn.getAttribute('data-q') || btn.getAttribute('data-text') || '';
+        lista.classList.add('d-none');
+        var form = input.closest('form');
+        if (form) form.submit();
+    });
+
+    document.addEventListener('click', function (e) {
+        if (!wrap.contains(e.target)) lista.classList.add('d-none');
+    });
+})();
+</script>
 {% endblock %}

@@ -49,7 +49,16 @@ _CONCEPTO_HONORARIOS_LABELS = {
 }
 
 LISTA_CARATULAS_QUERY_KEYS = (
-    'q', 'operacion', 'fecha_desde', 'fecha_hasta', 'tipo', 'liquidacion', 'estado_caratula', 'todo', 'page',
+    'q',
+    'propiedad_id',
+    'operacion',
+    'fecha_desde',
+    'fecha_hasta',
+    'tipo',
+    'liquidacion',
+    'estado_caratula',
+    'todo',
+    'page',
 )
 
 
@@ -79,6 +88,7 @@ def _query_string_lista_caratulas(
     estado_caratula_filtro='',
     periodo_completo=False,
     page=None,
+    propiedad_id='',
 ):
     params = {}
     q = (q or '').strip()
@@ -88,8 +98,11 @@ def _query_string_lista_caratulas(
     estado_caratula_filtro = (estado_caratula_filtro or '').strip()
     fecha_desde = (fecha_desde or '').strip()
     fecha_hasta = (fecha_hasta or '').strip()
+    propiedad_id = (propiedad_id or '').strip()
     if q:
         params['q'] = q
+    if propiedad_id.isdigit():
+        params['propiedad_id'] = propiedad_id
     if operacion:
         params['operacion'] = operacion
     if tipo_filtro:
@@ -3177,6 +3190,7 @@ def lista_caratulas(request):
         return redirect(redirect_to)
     sucursal = getattr(request.user, 'sucursal', None)
     q = request.GET.get('q', '').strip()
+    propiedad_id = (request.GET.get('propiedad_id') or '').strip()
     operacion = request.GET.get('operacion', '').strip()
     tipo_filtro = request.GET.get('tipo', '').strip()
     liquidacion_filtro = request.GET.get('liquidacion', '').strip()
@@ -3257,10 +3271,12 @@ def lista_caratulas(request):
                 operacion_num = None
         reservas = reservas.filter(id=operacion_num) if operacion_num is not None else reservas.none()
 
-    hay_busqueda = bool(q) or bool(operacion)
+    hay_busqueda = bool(q) or bool(operacion) or bool(propiedad_id)
     omitir_filtro_fechas = periodo_completo or hay_busqueda
 
-    if q:
+    if propiedad_id.isdigit():
+        reservas = reservas.filter(propiedad_id=int(propiedad_id))
+    elif q:
         tokens = _tokens_busqueda_caratulas(q)
         q_res = _q_busqueda_texto_caratulas(q, tokens)
         q_res |= _q_busqueda_persona_caratulas('cliente', tokens)
@@ -3324,7 +3340,9 @@ def lista_caratulas(request):
 
     contratos = contratos.order_by('-fecha_creacion', '-id')
 
-    if q:
+    if propiedad_id.isdigit():
+        contratos = contratos.filter(propiedad_id=int(propiedad_id))
+    elif q:
         tokens = _tokens_busqueda_caratulas(q)
         q_ctr = _q_busqueda_texto_caratulas(q, tokens)
         q_ctr |= _q_busqueda_persona_caratulas('inquilino', tokens)
@@ -3484,6 +3502,7 @@ def lista_caratulas(request):
         liquidacion_filtro=liquidacion_filtro,
         estado_caratula_filtro=estado_caratula_filtro,
         periodo_completo=periodo_completo,
+        propiedad_id=propiedad_id,
     )
     lista_ver_qs = _query_string_lista_caratulas(
         q=q,
@@ -3495,6 +3514,7 @@ def lista_caratulas(request):
         estado_caratula_filtro=estado_caratula_filtro,
         periodo_completo=periodo_completo,
         page=page_obj.number if page_obj.number > 1 else None,
+        propiedad_id=propiedad_id,
     )
 
     return render(
@@ -3503,6 +3523,7 @@ def lista_caratulas(request):
         {
             'filas': page_obj,
             'q': q,
+            'propiedad_id': propiedad_id if propiedad_id.isdigit() else '',
             'operacion': operacion,
             'fecha_desde': fecha_desde if not periodo_completo else '',
             'fecha_hasta': fecha_hasta if not periodo_completo else '',
