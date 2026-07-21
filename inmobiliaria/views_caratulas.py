@@ -2858,7 +2858,8 @@ def _build_legacy_reserva(
     return {
         'numero_original': '0',
         'numero_operacion': _formato_miles_ar(reserva.id),
-        'fecha_registro': reserva.fecha_creacion,
+        'fecha_registro': _instante_operacion_reserva(reserva),
+        'fecha_registro_con_hora': True,
         'tipo_mov': _tipo_movimiento_codigo_reserva(prop),
         'ficha_prop': _formato_ficha_legacy(prop.id) if prop else '—',
         'dir_prop': (prop.direccion or '—').upper() if prop else '—',
@@ -3020,8 +3021,9 @@ def _build_legacy_contrato(
     return {
         'numero_original': '0',
         'numero_operacion': _formato_miles_ar(contrato.id),
-        # Fecha de cabecera como en legado (día de operación), no alta en sistema
-        'fecha_registro': contrato.fecha_operacion,
+        # Misma fecha de operación que el listado (con hora de alta si existe).
+        'fecha_registro': _instante_operacion_contrato(contrato),
+        'fecha_registro_con_hora': bool(getattr(contrato, 'fecha_creacion', None)),
         'tipo_mov': _tipo_movimiento_codigo_contrato(contrato),
         'ficha_prop': _formato_ficha_legacy(prop.id) if prop else '—',
         'dir_prop': (prop.direccion or '—').upper() if prop else '—',
@@ -3891,12 +3893,8 @@ def imprimir_caratula_reserva(request, reserva_id):
     if suc:
         ciudad_ref = (getattr(suc, 'localidad', None) or getattr(suc, 'nombre', None) or ciudad_ref).strip().upper()
 
-    fdoc = reserva.fecha_inicio
-    if reserva.fecha_creacion:
-        try:
-            fdoc = timezone.localdate(reserva.fecha_creacion)
-        except Exception:
-            fdoc = reserva.fecha_creacion.date() if hasattr(reserva.fecha_creacion, 'date') else reserva.fecha_inicio
+    fdoc = _instante_operacion_reserva(reserva)
+    fdoc_con_hora = bool(getattr(reserva, 'fecha_creacion', None))
 
     volver_url, volver_label = _volver_imprimir_caratula(request, reserva_id=reserva_id)
 
@@ -3908,6 +3906,7 @@ def imprimir_caratula_reserva(request, reserva_id):
         'numero_display': f"Nº OP {_formato_miles_ar(reserva.id)}",
         'llave': cl['codigo_llave'],
         'fecha_documento': fdoc,
+        'fecha_documento_con_hora': fdoc_con_hora,
         'tipo_operacion': tipo_op,
         'propiedad_desc': _propiedad_desc_corta(reserva.propiedad),
         'ciudad_ref': ciudad_ref,
@@ -3971,12 +3970,8 @@ def imprimir_caratula_contrato(request, contrato_id):
     if suc:
         ciudad_ref = (getattr(suc, 'localidad', None) or getattr(suc, 'nombre', None) or ciudad_ref).strip().upper()
 
-    fdoc = contrato.fecha_operacion or contrato.fecha_inicio
-    if fdoc is None and getattr(contrato, 'fecha_creacion', None):
-        try:
-            fdoc = timezone.localdate(contrato.fecha_creacion)
-        except Exception:
-            fdoc = contrato.fecha_creacion.date() if hasattr(contrato.fecha_creacion, 'date') else timezone.localdate()
+    fdoc = _instante_operacion_contrato(contrato)
+    fdoc_con_hora = bool(getattr(contrato, 'fecha_creacion', None))
 
     volver_url, volver_label = _volver_imprimir_caratula(request, contrato_id=contrato_id)
 
@@ -3988,6 +3983,7 @@ def imprimir_caratula_contrato(request, contrato_id):
         'numero_display': f"Nº CT {_formato_miles_ar(contrato.id)}",
         'llave': cl['codigo_llave'],
         'fecha_documento': fdoc,
+        'fecha_documento_con_hora': fdoc_con_hora,
         'tipo_operacion': tipo_label,
         'propiedad_desc': _propiedad_desc_corta(contrato.propiedad),
         'ciudad_ref': ciudad_ref,

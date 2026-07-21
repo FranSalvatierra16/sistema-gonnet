@@ -174,7 +174,14 @@
     <div class="meta-grid">
         <div><strong>Nº OPERACIÓN</strong><span class="meta-valor meta-valor-numero">{{ numero_display }}</span></div>
         <div><strong>LLAVE</strong><span class="meta-valor">{{ llave }}</span></div>
-        <div><strong>FECHA</strong><span class="meta-valor">{{ fecha_documento|date:"d/m/Y" }}</span></div>
+        <div>
+            <strong>FECHA OP.</strong>
+            <span class="meta-valor">
+                {% if fecha_documento %}
+                {{ fecha_documento|date:"d/m/Y" }}{% if fecha_documento_con_hora %} {{ fecha_documento|date:"H:i" }}{% endif %}
+                {% else %}—{% endif %}
+            </span>
+        </div>
         <div><strong>PRODUCTOR</strong><span class="meta-valor">{{ productor_nombre|default:"—" }}</span></div>
         <div><strong>FICHADOR</strong><span class="meta-valor">{{ fichador_nombre|default:"—" }}</span></div>
     </div>

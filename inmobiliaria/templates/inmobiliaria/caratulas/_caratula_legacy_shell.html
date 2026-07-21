@@ -18,8 +18,22 @@
         </div>
         <div class="caratula-legacy-meta">
             <div><strong>NUMERO ORIGINAL</strong> <span class="caratula-meta-valor">{{ cl.numero_original }}</span></div>
-            <div class="caratula-meta-numero"><strong>NUMERO</strong> <span class="caratula-numero-op">{{ cl.numero_operacion }}</span></div>
-            <div><strong>FECHA</strong> <span class="caratula-meta-valor">{{ cl.fecha_registro|date:"d/m/Y" }}</span></div>
+            <div class="caratula-meta-numero">
+                <strong>NUMERO</strong> <span class="caratula-numero-op">{{ cl.numero_operacion }}</span>
+                {% if cl.fecha_registro %}
+                <div class="caratula-fecha-op-bajo-numero">
+                    {{ cl.fecha_registro|date:"d/m/Y" }}{% if cl.fecha_registro_con_hora %} {{ cl.fecha_registro|date:"H:i" }}{% endif %}
+                </div>
+                {% endif %}
+            </div>
+            <div>
+                <strong>FECHA OP.</strong>
+                <span class="caratula-meta-valor">
+                    {% if cl.fecha_registro %}
+                    {{ cl.fecha_registro|date:"d/m/Y" }}{% if cl.fecha_registro_con_hora %} {{ cl.fecha_registro|date:"H:i" }}{% endif %}
+                    {% else %}—{% endif %}
+                </span>
+            </div>
         </div>
     </div>
 
