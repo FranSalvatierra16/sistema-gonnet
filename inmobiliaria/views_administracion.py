@@ -89,6 +89,22 @@ def _nombre_persona(persona):
     return ap or nom or '—'
 
 
+def _etiqueta_propiedad(prop):
+    if not prop:
+        return '—'
+    dir_ = (getattr(prop, 'direccion', None) or '').strip() or '—'
+    piso = (getattr(prop, 'piso', None) or '').strip()
+    depto = (getattr(prop, 'departamento', None) or '').strip()
+    partes = []
+    if piso:
+        partes.append(f'Piso {piso}')
+    if depto:
+        partes.append(f'Dpto {depto}')
+    if partes:
+        return f'{dir_} — {" · ".join(partes)}'
+    return dir_
+
+
 def _estado_display_reserva(reserva):
     """Estado visible en listados (solo lectura; sync al cobrar o en comando de reparación)."""
     from decimal import Decimal
@@ -221,7 +237,7 @@ def administracion_listado_operaciones(request):
             'fecha_inicio': reserva.fecha_inicio,
             'fecha_fin': reserva.fecha_fin,
             'cliente': _nombre_persona(reserva.cliente),
-            'propiedad': (prop.direccion if prop else '—') or '—',
+            'propiedad': _etiqueta_propiedad(prop),
             'propiedad_id': prop.id if prop else None,
             'vendedor': _nombre_persona(reserva.vendedor),
             'estado': _estado_display_reserva(reserva),
@@ -245,7 +261,7 @@ def administracion_listado_operaciones(request):
             'fecha_inicio': contrato.fecha_inicio,
             'fecha_fin': contrato.fecha_fin,
             'cliente': _nombre_persona(contrato.inquilino),
-            'propiedad': (prop.direccion if prop else '—') or '—',
+            'propiedad': _etiqueta_propiedad(prop),
             'propiedad_id': prop.id if prop else None,
             'vendedor': _nombre_persona(contrato.vendedor),
             'estado': contrato.get_estado_display() if hasattr(contrato, 'get_estado_display') else contrato.estado,
