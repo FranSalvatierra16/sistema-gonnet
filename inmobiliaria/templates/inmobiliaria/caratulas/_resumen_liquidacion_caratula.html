@@ -105,28 +105,6 @@
                         </table>
                     </div>
                     <div class="col-md-6">
-                        <h6 class="text-primary mb-2 small">Ingresos a la oficina (cochera / fondo)</h6>
-                        <table class="table table-sm table-bordered mb-2 small">
-                            <tbody>
-                                <tr id="resumen-fila-cochera" class="{% if not resumen_liquidacion.monto_cochera and not puede_editar_liquidacion_resumen %}d-none{% endif %}">
-                                    <td>Cochera</td>
-                                    <td class="text-end" id="resumen-cochera-display">{{ resumen_liquidacion.monto_cochera|format_importe_moneda:resumen_liquidacion.moneda }}</td>
-                                </tr>
-                                <tr id="resumen-fila-fondo" class="{% if not resumen_liquidacion.monto_fondo and not puede_editar_liquidacion_resumen %}d-none{% endif %}">
-                                    <td>Fondo de mantenimiento</td>
-                                    <td class="text-end" id="resumen-fondo-display">{{ resumen_liquidacion.monto_fondo|format_importe_moneda:resumen_liquidacion.moneda }}</td>
-                                </tr>
-                                {% if not resumen_liquidacion.monto_cochera and not resumen_liquidacion.monto_fondo and not puede_editar_liquidacion_resumen %}
-                                <tr><td colspan="2" class="text-muted text-center py-2">Sin cochera ni fondo</td></tr>
-                                {% endif %}
-                            </tbody>
-                            <tfoot id="resumen-foot-oficina" class="{% if not resumen_liquidacion.ingresos_oficina and not puede_editar_liquidacion_resumen %}d-none{% endif %}">
-                                <tr class="table-primary fw-bold">
-                                    <td>Total ingresos oficina (además de comisión)</td>
-                                    <td class="text-end" id="resumen-ingresos-oficina">{{ resumen_liquidacion.ingresos_oficina|default:0|format_importe_moneda:resumen_liquidacion.moneda }}</td>
-                                </tr>
-                            </tfoot>
-                        </table>
                         <h6 class="text-danger mb-2 small">Gastos descontados al propietario</h6>
                         <table class="table table-sm table-bordered mb-0 small">
                             <tbody>
@@ -204,28 +182,13 @@
     }
     function recalcResumenLiq() {
         var prop = parseMontoAr((document.querySelector('[name="liq_monto_propietario"]') || {}).value);
-        var cochera = parseMontoAr((document.querySelector('[name="liq_monto_cochera"]') || {}).value);
-        var fondo = parseMontoAr((document.querySelector('[name="liq_monto_fondo"]') || {}).value);
-        var ingresosOficina = cochera + fondo;
         var neto = prop;
         var elSub = document.getElementById('resumen-subtotal-propietario');
         var elNeto = document.getElementById('resumen-neto-propietario');
-        var elCochera = document.getElementById('resumen-cochera-display');
-        var elFondo = document.getElementById('resumen-fondo-display');
-        var elIngOf = document.getElementById('resumen-ingresos-oficina');
-        var filaCochera = document.getElementById('resumen-fila-cochera');
-        var filaFondo = document.getElementById('resumen-fila-fondo');
-        var footOf = document.getElementById('resumen-foot-oficina');
         var filaPago = document.querySelector('.liq-fila-pago-monto');
         if (elSub) elSub.textContent = fmtImporte(prop);
         if (elNeto) elNeto.textContent = fmtImporte(neto);
         if (filaPago) filaPago.textContent = fmtImporte(prop);
-        if (elCochera) elCochera.textContent = fmtImporte(cochera);
-        if (elFondo) elFondo.textContent = fmtImporte(fondo);
-        if (elIngOf) elIngOf.textContent = fmtImporte(ingresosOficina);
-        if (filaCochera) filaCochera.classList.toggle('d-none', cochera <= 0.009);
-        if (filaFondo) filaFondo.classList.toggle('d-none', fondo <= 0.009);
-        if (footOf) footOf.classList.toggle('d-none', ingresosOficina <= 0.009);
     }
     document.querySelectorAll('.liq-resumen-input').forEach(function(inp) {
         inp.addEventListener('input', recalcResumenLiq);
