@@ -99,7 +99,7 @@ class VendedorUserCreationForm(forms.ModelForm):
         if 'nivel' in self.fields and not self.puede_editar_nivel:
             self.fields['nivel'].disabled = True
             self.fields['nivel'].help_text = (
-                'Solo un super administrador puede asignar o cambiar el nivel.'
+                'Solo un super administrador (nivel 5) puede asignar o cambiar el nivel.'
             )
             self.fields['nivel'].required = False
 
@@ -178,7 +178,7 @@ class VendedorChangeForm(UserChangeForm):
         if 'nivel' in self.fields and not self.puede_editar_nivel:
             self.fields['nivel'].disabled = True
             self.fields['nivel'].help_text = (
-                'Solo un super administrador puede cambiar el nivel.'
+                'Solo un super administrador (nivel 5) puede cambiar el nivel.'
             )
             # Disabled fields are omitted from cleaned_data; keep current value.
             self.fields['nivel'].required = False

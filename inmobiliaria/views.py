@@ -340,6 +340,7 @@ from .models.persona import (
     usuario_puede_anular_vale,
     usuario_puede_eliminar_movimiento_caja,
     usuario_puede_editar_movimiento_caja,
+    usuario_puede_editar_nivel_vendedor,
     usuario_puede_revertir_operacion_a_reserva,
 )
 
@@ -2402,7 +2403,7 @@ def vendedores(request):
         'inmobiliaria/vendedores/lista.html',
         {
             'vendedores': vendedores,
-            'puede_editar_nivel_vendedor': getattr(request.user, 'is_superuser', False),
+            'puede_editar_nivel_vendedor': usuario_puede_editar_nivel_vendedor(request.user),
         },
     )
 
@@ -2412,7 +2413,7 @@ def vendedor_detalle(request, vendedor_id):
     if denegado:
         return denegado
     qs = Vendedor.objects.select_related('sucursal')
-    if not getattr(request.user, 'is_superuser', False):
+    if not getattr(request.user, 'is_superuser', False) and getattr(request.user, 'nivel', None) != 5:
         qs = qs.filter(sucursal=request.user.sucursal)
     vendedor = get_object_or_404(qs, pk=vendedor_id)
     return render(
@@ -2420,7 +2421,7 @@ def vendedor_detalle(request, vendedor_id):
         'inmobiliaria/vendedores/detalle.html',
         {
             'vendedor': vendedor,
-            'puede_editar_nivel_vendedor': getattr(request.user, 'is_superuser', False),
+            'puede_editar_nivel_vendedor': usuario_puede_editar_nivel_vendedor(request.user),
         },
     )
 @login_required
@@ -2428,7 +2429,7 @@ def vendedor_nuevo(request):
     denegado = _requiere_ver_vendedores(request)
     if denegado:
         return denegado
-    puede_nivel = getattr(request.user, 'is_superuser', False)
+    puede_nivel = usuario_puede_editar_nivel_vendedor(request.user)
     if request.method == "POST":
         form = VendedorUserCreationForm(request.POST, puede_editar_nivel=puede_nivel)
         if form.is_valid():
@@ -2452,10 +2453,10 @@ def vendedor_editar(request, vendedor_id):
     if denegado:
         return denegado
     qs = Vendedor.objects.all()
-    if not getattr(request.user, 'is_superuser', False):
+    if not getattr(request.user, 'is_superuser', False) and getattr(request.user, 'nivel', None) != 5:
         qs = qs.filter(sucursal=request.user.sucursal)
     vendedor = get_object_or_404(qs, pk=vendedor_id)
-    puede_nivel = getattr(request.user, 'is_superuser', False)
+    puede_nivel = usuario_puede_editar_nivel_vendedor(request.user)
     if request.method == "POST":
         form = VendedorChangeForm(
             request.POST,
@@ -2483,7 +2484,7 @@ def vendedor_eliminar(request, vendedor_id):
     if denegado:
         return denegado
     qs = Vendedor.objects.all()
-    if not getattr(request.user, 'is_superuser', False):
+    if not getattr(request.user, 'is_superuser', False) and getattr(request.user, 'nivel', None) != 5:
         qs = qs.filter(sucursal=request.user.sucursal)
     vendedor = get_object_or_404(qs, pk=vendedor_id)
     if request.method == "POST":
