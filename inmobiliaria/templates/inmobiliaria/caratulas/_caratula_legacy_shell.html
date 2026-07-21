@@ -147,14 +147,9 @@
                 <span class="k">COMISION LOCADOR</span>
                 <span class="v">{{ cl.comision_locador }}</span>
             </div>
-            <div class="caratula-cell span-4">
-                <span class="k">COMISION LOCATARIO</span>
-                {% if puede_editar_caratula %}
-                <input type="text" name="comision_locatario" class="caratula-input-edit input-monto-ar text-end" value="{{ edit_montos.comision_locatario }}" inputmode="decimal" autocomplete="off">
-                {% else %}
-                <span class="v">{{ cl.comision_locatario }}</span>
-                {% endif %}
-            </div>
+            {% if puede_editar_caratula %}
+            <input type="hidden" name="comision_locatario" value="{{ edit_montos.comision_locatario }}">
+            {% endif %}
             {% if cl.comisiones_total and cl.comisiones_total != "0.00" %}
             <div class="caratula-cell span-4">
                 <span class="k">TOTAL COMISIONES</span>
