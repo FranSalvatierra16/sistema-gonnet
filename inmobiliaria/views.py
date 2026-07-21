@@ -13837,10 +13837,7 @@ def nuevo_movimiento(request, numero_caja=None):
                 )
             else:
                 messages.success(request, 'Movimiento creado exitosamente')
-            # Llevar a la caja después de crear el movimiento.
-            caja_num = getattr(movimiento.caja, 'numero', None) or getattr(caja, 'numero', None)
-            if caja_num:
-                return redirect('inmobiliaria:detalle_caja', numero=caja_num)
+            # Volver al formulario vacío para cargar otro movimiento.
             return redirect('inmobiliaria:nuevo_movimiento')
 
         except Exception as e:
