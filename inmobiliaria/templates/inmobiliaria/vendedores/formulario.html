@@ -160,6 +160,10 @@
                                     <small class="form-text text-muted">
                                         <i class="fas fa-info-circle me-1"></i>{{ form.nivel.help_text }}
                                     </small>
+                                {% elif not puede_editar_nivel_vendedor %}
+                                    <small class="form-text text-muted">
+                                        <i class="fas fa-lock me-1"></i>Solo un super administrador puede cambiar el nivel.
+                                    </small>
                                 {% endif %}
                             </div>
                             <div class="col-md-4">

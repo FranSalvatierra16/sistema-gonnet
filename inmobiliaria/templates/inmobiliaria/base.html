@@ -139,7 +139,7 @@
                             Utilidades
                         </a>
                         <ul class="dropdown-menu" aria-labelledby="utilidadesDropdown">
-                            {% if user.is_superuser %}
+                            {% if user.is_superuser or user.nivel >= 5 %}
                                 <li><a class="dropdown-item" href="{% url 'inmobiliaria:vendedores' %}">Vendedores</a></li>
                             {% endif %}
                             <li><a class="dropdown-item" href="{% url 'inmobiliaria:inquilinos' %}">Inquilinos</a></li>

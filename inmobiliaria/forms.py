@@ -92,16 +92,33 @@ class VendedorUserCreationForm(forms.ModelForm):
             raise forms.ValidationError("Las contraseñas no coinciden")
         return password2
 
+    def __init__(self, *args, **kwargs):
+        self.puede_editar_nivel = kwargs.pop('puede_editar_nivel', False)
+        super().__init__(*args, **kwargs)
+        self.fields['sucursal'].required = True
+        if 'nivel' in self.fields and not self.puede_editar_nivel:
+            self.fields['nivel'].disabled = True
+            self.fields['nivel'].help_text = (
+                'Solo un super administrador puede asignar o cambiar el nivel.'
+            )
+            self.fields['nivel'].required = False
+
+    def clean_nivel(self):
+        if not self.puede_editar_nivel:
+            # Alta: nivel por defecto del modelo; no aceptar POST manipulado.
+            return self.fields['nivel'].initial or getattr(
+                self.Meta.model._meta.get_field('nivel'), 'default', 1
+            ) or 1
+        return self.cleaned_data.get('nivel')
+
     def save(self, commit=True):
         vendedor = super().save(commit=False)
         vendedor.set_password(self.cleaned_data["password1"])  # Establecer la contraseña
+        if not self.puede_editar_nivel:
+            vendedor.nivel = getattr(self.Meta.model._meta.get_field('nivel'), 'default', 1) or 1
         if commit:
             vendedor.save()
         return vendedor
-    
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields['sucursal'].required = True
 
 # Formulario de cambio de Vendedor
 class VendedorChangeForm(UserChangeForm):
@@ -153,10 +170,37 @@ class VendedorChangeForm(UserChangeForm):
         }
 
     def __init__(self, *args, **kwargs):
+        self.puede_editar_nivel = kwargs.pop('puede_editar_nivel', False)
         super().__init__(*args, **kwargs)
         if 'sucursal' in self.fields:
             self.fields['sucursal'].queryset = Sucursal.objects.all().order_by('nombre')
             self.fields['sucursal'].required = True
+        if 'nivel' in self.fields and not self.puede_editar_nivel:
+            self.fields['nivel'].disabled = True
+            self.fields['nivel'].help_text = (
+                'Solo un super administrador puede cambiar el nivel.'
+            )
+            # Disabled fields are omitted from cleaned_data; keep current value.
+            self.fields['nivel'].required = False
+
+    def clean_nivel(self):
+        if not self.puede_editar_nivel:
+            if self.instance and self.instance.pk:
+                return self.instance.nivel
+            return 1
+        return self.cleaned_data.get('nivel')
+
+    def save(self, commit=True):
+        nivel_previo = None
+        if self.instance and self.instance.pk and not self.puede_editar_nivel:
+            nivel_previo = self.instance.nivel
+        vendedor = super().save(commit=False)
+        if nivel_previo is not None:
+            vendedor.nivel = nivel_previo
+        if commit:
+            vendedor.save()
+            self.save_m2m()
+        return vendedor
 
 # Formulario de Inquilino
 class InquilinoForm(forms.ModelForm):

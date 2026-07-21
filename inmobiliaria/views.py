@@ -2380,60 +2380,112 @@ def _requiere_superuser(request):
     return None
 
 
+def _requiere_ver_vendedores(request):
+    """Lista/detalle de vendedores: nivel 5+ o superusuario Django."""
+    user = request.user
+    if getattr(user, 'is_superuser', False):
+        return None
+    if getattr(user, 'nivel', None) is not None and user.nivel >= 5:
+        return None
+    messages.error(request, 'No tenés permiso para ver la lista de vendedores.')
+    return redirect('inmobiliaria:dashboard')
+
+
 @login_required
 def vendedores(request):
-    denegado = _requiere_superuser(request)
+    denegado = _requiere_ver_vendedores(request)
     if denegado:
         return denegado
     vendedores = Vendedor.objects.filter(sucursal=request.user.sucursal)
-    return render(request, 'inmobiliaria/vendedores/lista.html', {'vendedores': vendedores})
+    return render(
+        request,
+        'inmobiliaria/vendedores/lista.html',
+        {
+            'vendedores': vendedores,
+            'puede_editar_nivel_vendedor': getattr(request.user, 'is_superuser', False),
+        },
+    )
 
 @login_required
 def vendedor_detalle(request, vendedor_id):
-    denegado = _requiere_superuser(request)
+    denegado = _requiere_ver_vendedores(request)
     if denegado:
         return denegado
-    vendedor = get_object_or_404(
-        Vendedor.objects.select_related('sucursal'),
-        pk=vendedor_id,
+    qs = Vendedor.objects.select_related('sucursal')
+    if not getattr(request.user, 'is_superuser', False):
+        qs = qs.filter(sucursal=request.user.sucursal)
+    vendedor = get_object_or_404(qs, pk=vendedor_id)
+    return render(
+        request,
+        'inmobiliaria/vendedores/detalle.html',
+        {
+            'vendedor': vendedor,
+            'puede_editar_nivel_vendedor': getattr(request.user, 'is_superuser', False),
+        },
     )
-    return render(request, 'inmobiliaria/vendedores/detalle.html', {'vendedor': vendedor})
 @login_required
 def vendedor_nuevo(request):
-    denegado = _requiere_superuser(request)
+    denegado = _requiere_ver_vendedores(request)
     if denegado:
         return denegado
+    puede_nivel = getattr(request.user, 'is_superuser', False)
     if request.method == "POST":
-        form = VendedorUserCreationForm(request.POST)
+        form = VendedorUserCreationForm(request.POST, puede_editar_nivel=puede_nivel)
         if form.is_valid():
             vendedor = form.save()
             messages.success(request, 'Vendedor creado exitosamente.')
             return redirect('inmobiliaria:vendedor_detalle', vendedor_id=vendedor.id)
     else:
-        form = VendedorUserCreationForm()
-    return render(request, 'inmobiliaria/vendedores/formulario.html', {'form': form})
+        form = VendedorUserCreationForm(puede_editar_nivel=puede_nivel)
+    return render(
+        request,
+        'inmobiliaria/vendedores/formulario.html',
+        {
+            'form': form,
+            'puede_editar_nivel_vendedor': puede_nivel,
+        },
+    )
 
 @login_required
 def vendedor_editar(request, vendedor_id):
-    denegado = _requiere_superuser(request)
+    denegado = _requiere_ver_vendedores(request)
     if denegado:
         return denegado
-    vendedor = get_object_or_404(Vendedor, pk=vendedor_id)
+    qs = Vendedor.objects.all()
+    if not getattr(request.user, 'is_superuser', False):
+        qs = qs.filter(sucursal=request.user.sucursal)
+    vendedor = get_object_or_404(qs, pk=vendedor_id)
+    puede_nivel = getattr(request.user, 'is_superuser', False)
     if request.method == "POST":
-        form = VendedorChangeForm(request.POST, instance=vendedor)
+        form = VendedorChangeForm(
+            request.POST,
+            instance=vendedor,
+            puede_editar_nivel=puede_nivel,
+        )
         if form.is_valid():
             vendedor = form.save()
             messages.success(request, 'Vendedor actualizado exitosamente.')
             return redirect('inmobiliaria:vendedor_detalle', vendedor_id=vendedor.id)
     else:
-        form = VendedorChangeForm(instance=vendedor)
-    return render(request, 'inmobiliaria/vendedores/formulario.html', {'form': form, 'vendedor': vendedor})
+        form = VendedorChangeForm(instance=vendedor, puede_editar_nivel=puede_nivel)
+    return render(
+        request,
+        'inmobiliaria/vendedores/formulario.html',
+        {
+            'form': form,
+            'vendedor': vendedor,
+            'puede_editar_nivel_vendedor': puede_nivel,
+        },
+    )
 @login_required
 def vendedor_eliminar(request, vendedor_id):
-    denegado = _requiere_superuser(request)
+    denegado = _requiere_ver_vendedores(request)
     if denegado:
         return denegado
-    vendedor = get_object_or_404(Vendedor, pk=vendedor_id)
+    qs = Vendedor.objects.all()
+    if not getattr(request.user, 'is_superuser', False):
+        qs = qs.filter(sucursal=request.user.sucursal)
+    vendedor = get_object_or_404(qs, pk=vendedor_id)
     if request.method == "POST":
         vendedor.delete()
         messages.success(request, 'Vendedor eliminado exitosamente.')
