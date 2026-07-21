@@ -1184,7 +1184,7 @@
                             data-direccion="{{ propiedad.direccion|escapejs }}"
                             data-propietario="{{ propiedad.propietario.nombre|escapejs }}"
                             data-disponibilidad="{{ propiedad.disponibilidad }}"
-                            data-precio-total="{{ propiedad.precio_total_reserva|floatformat:0 }}"
+                            data-precio-total="{{ propiedad.precio_total_reserva }}"
                             data-reserva-id="{{ propiedad.reserva.id|default:'' }}"
                             data-estado-reserva="{{ propiedad.estado_reserva }}"
                             data-precio-dia="{{ propiedad.precio_por_dia }}"
@@ -1213,7 +1213,7 @@
                             data-direccion="{{ propiedad.direccion|escapejs }}"
                             data-propietario="{{ propiedad.propietario.nombre|escapejs }}"
                             data-disponibilidad="{{ propiedad.disponibilidad }}"
-                            data-precio-total="{{ propiedad.precio_total_reserva|floatformat:0 }}"
+                            data-precio-total="{{ propiedad.precio_total_reserva }}"
                             data-reserva-id="{{ propiedad.reserva.id|default:'' }}"
                             data-estado-reserva="{{ propiedad.estado_reserva }}"
                             data-precio-dia="{{ propiedad.precio_por_dia }}"
@@ -1242,7 +1242,7 @@
                             data-direccion="{{ propiedad.direccion|escapejs }}"
                             data-propietario="{{ propiedad.propietario.nombre|escapejs }}"
                             data-disponibilidad="{{ propiedad.disponibilidad }}"
-                            data-precio-total="{{ propiedad.precio_total_reserva|floatformat:0 }}"
+                            data-precio-total="{{ propiedad.precio_total_reserva }}"
                             data-reserva-id="{{ propiedad.reserva.id|default:'' }}"
                             data-estado-reserva="{{ propiedad.estado_reserva }}"
                             data-precio-dia="{{ propiedad.precio_por_dia }}"
@@ -2298,31 +2298,30 @@ function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio
         id, direccion, propietario, disponibilidad, precio, reserva_id, estadoReserva, precio_por_dia, total_dias, ambientes, estado, descripcion, caracteristicas
     });
     
-    // Corregir el precio removiendo el cero extra de forma más robusta
+    // Precio con decimales (formato AR o número). Nunca usar parseInt: pierde ,67 etc.
     let precioCorregido = 0;
     console.log('🔍 Precio original recibido:', precio, 'Tipo:', typeof precio);
     
     try {
         if (precio === null || precio === undefined || precio === '') {
             precioCorregido = 0;
-        } else if (typeof precio === 'string') {
-            // Manejar formato "770000,0" - remover coma y decimales
-            let precioLimpio = precio.replace(',0', '').replace(/[\.\s]/g, '');
-            precioCorregido = parseInt(precioLimpio) || 0;
-            console.log('🧹 Precio limpio (string):', precioLimpio, '→', precioCorregido);
-        } else if (typeof precio === 'number') {
+        } else if (typeof precio === 'number' && Number.isFinite(precio)) {
             precioCorregido = precio;
-            console.log('🔢 Precio directo (number):', precioCorregido);
+        } else if (window.parseDecimalMontoJS) {
+            precioCorregido = window.parseDecimalMontoJS(precio);
+        } else if (window.parseMontoAR) {
+            precioCorregido = window.parseMontoAR(precio);
         } else {
-            // Intentar convertir a string y luego procesar
-            let precioStr = String(precio).replace(',0', '').replace(/[\.\s]/g, '');
-            precioCorregido = parseInt(precioStr) || 0;
-            console.log('🔄 Precio convertido:', precioStr, '→', precioCorregido);
+            const t = String(precio).trim().replace(/\s/g, '');
+            if (t.indexOf(',') >= 0) {
+                precioCorregido = parseFloat(t.replace(/\./g, '').replace(',', '.')) || 0;
+            } else {
+                precioCorregido = parseFloat(t) || 0;
+            }
         }
-        
-        // ✅ NO DIVIDIR: El precio ya viene correcto desde el backend
-        // precioCorregido = precioCorregido / 10;  // ❌ Esta línea causaba precios incorrectos
-        console.log('✅ Precio procesado (sin división):', precioCorregido);
+        // Redondeo a 2 decimales para evitar basura de float
+        precioCorregido = Math.round((Number(precioCorregido) || 0) * 100) / 100;
+        console.log('✅ Precio procesado (con decimales):', precioCorregido);
         
     } catch (error) {
         console.error('❌ Error procesando precio:', error);
@@ -2941,7 +2940,7 @@ function confirmarReservaFinal() {
     formData.append('propiedad_id', propiedadId);
     formData.append('fecha_inicio', fechaInicioConvertida);
     formData.append('fecha_fin', fechaFinConvertida);
-    formData.append('precio_total', precioTotal);
+    formData.append('precio_total', precioTotalRaw);
     formData.append('vendedor_id', vendedorId);
     formData.append('inquilino_id', inquilinoId);
     formData.append('es_operacion_directa', esOperacionDirecta ? '1' : '0');

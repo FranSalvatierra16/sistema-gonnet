@@ -1287,7 +1287,7 @@ window.habilitarBotonProcesar = habilitarBotonProcesar;
                                 <div class="input-group input-group-sm">
                                     <span class="input-group-text label-simbolo-moneda">{{ simbolo_moneda|default:"$" }}</span>
                                     <input type="text" class="form-control" name="importe_locacion" id="importe_locacion"
-                                           value="{{ reserva.precio_total|floatformat:0 }}" readonly
+                                           value="{{ reserva.precio_total|format_price }}" readonly
                                            style="background-color: #f8f9fa;">
                                 </div>
                                 <small class="text-muted">Precio total de la operación (solo lectura). Para cambiarlo, editá la reserva desde la ficha.</small>
