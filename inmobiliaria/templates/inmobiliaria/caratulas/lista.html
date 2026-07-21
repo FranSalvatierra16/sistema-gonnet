@@ -52,7 +52,7 @@
                              class="list-group position-absolute w-100 shadow-sm d-none"
                              style="z-index: 1050; max-height: 260px; overflow-y: auto; top: 100%;"></div>
                     </div>
-                    <small class="text-muted">Al escribir aparecen nombres de propiedades</small>
+                    <small class="text-muted">Sugerencias de clientes e inmuebles</small>
                 </div>
                 <div class="col-md-2">
                     <label class="form-label small mb-0">N° operación</label>
@@ -223,6 +223,8 @@
     if (!input || !hiddenId || !lista || !wrap) return;
 
     var debounceTimer = null;
+    var urlPropiedades = "{% url 'inmobiliaria:buscar_propiedades_caja' %}";
+    var urlClientes = "{% url 'inmobiliaria:buscar_clientes' %}";
 
     function getCookie(name) {
         var value = '; ' + document.cookie;
@@ -254,28 +256,65 @@
         return main;
     }
 
-    function render(items) {
-        if (!items.length) {
-            lista.innerHTML = '<div class="list-group-item list-group-item-sm text-muted py-2">Sin propiedades</div>';
-            lista.classList.remove('d-none');
-            return;
+    function parseClienteText(text) {
+        var t = (text || '').trim();
+        var dni = '';
+        var mDni = t.match(/\(DNI:\s*([^)]+)\)/i);
+        if (mDni) dni = (mDni[1] || '').trim();
+        var sinDni = t.replace(/\s*\(DNI:[^)]*\)\s*$/i, '').trim();
+        var partes = sinDni.split(',');
+        var apellido = (partes[0] || '').trim();
+        var nombre = (partes.slice(1).join(',') || '').trim();
+        var qFill = apellido;
+        if (nombre) qFill = apellido + ', ' + nombre;
+        else if (dni) qFill = dni;
+        return { apellido: apellido, nombre: nombre, dni: dni, q: qFill, label: t };
+    }
+
+    function render(propiedades, clientes) {
+        var html = '';
+        if (clientes && clientes.length) {
+            html += '<div class="list-group-item py-1 small text-muted bg-light">Clientes / inquilinos</div>';
+            html += clientes.map(function (c) {
+                var info = parseClienteText(c.text || '');
+                return '<button type="button" class="list-group-item list-group-item-action py-2 item-sug-caratula"'
+                    + ' data-tipo="cliente"'
+                    + ' data-q="' + escHtml(info.q) + '"'
+                    + ' data-text="' + escHtml(info.label) + '">'
+                    + '<div><span class="badge bg-secondary me-1">Cliente</span>'
+                    + '<span class="fw-semibold">' + escHtml(info.apellido || info.label)
+                    + (info.nombre ? ', ' + escHtml(info.nombre) : '')
+                    + '</span></div>'
+                    + (info.dni ? '<div class="small text-muted">DNI ' + escHtml(info.dni) + '</div>' : '')
+                    + '</button>';
+            }).join('');
         }
-        lista.innerHTML = items.map(function (p) {
-            var dir = (p.direccion || '').trim();
-            var titulo = (p.titulo || '').trim();
-            var unidad = unidadPropiedad(p);
-            var lineaDir = dir || ('Ficha #' + p.id);
-            if (unidad) lineaDir += ' — ' + unidad;
-            var lbl = labelPropiedad(p);
-            var qFill = dir || titulo || String(p.id);
-            return '<button type="button" class="list-group-item list-group-item-action py-2 item-prop-caratula"'
-                + ' data-id="' + p.id + '"'
-                + ' data-q="' + escHtml(qFill) + '"'
-                + ' data-text="' + escHtml(lbl) + '">'
-                + '<div><strong>#' + p.id + '</strong> <span class="fw-semibold">' + escHtml(lineaDir) + '</span></div>'
-                + (titulo ? '<div class="small text-muted">' + escHtml(titulo) + '</div>' : '')
-                + '</button>';
-        }).join('');
+        if (propiedades && propiedades.length) {
+            html += '<div class="list-group-item py-1 small text-muted bg-light">Propiedades</div>';
+            html += propiedades.map(function (p) {
+                var dir = (p.direccion || '').trim();
+                var titulo = (p.titulo || '').trim();
+                var unidad = unidadPropiedad(p);
+                var lineaDir = dir || ('Ficha #' + p.id);
+                if (unidad) lineaDir += ' — ' + unidad;
+                var lbl = labelPropiedad(p);
+                var qFill = dir || titulo || String(p.id);
+                return '<button type="button" class="list-group-item list-group-item-action py-2 item-sug-caratula"'
+                    + ' data-tipo="propiedad"'
+                    + ' data-id="' + p.id + '"'
+                    + ' data-q="' + escHtml(qFill) + '"'
+                    + ' data-text="' + escHtml(lbl) + '">'
+                    + '<div><span class="badge bg-info text-dark me-1">Propiedad</span>'
+                    + '<strong>#' + p.id + '</strong> <span class="fw-semibold">' + escHtml(lineaDir) + '</span></div>'
+                    + (titulo ? '<div class="small text-muted">' + escHtml(titulo) + '</div>' : '')
+                    + '</button>';
+            }).join('');
+        }
+        if (!html) {
+            lista.innerHTML = '<div class="list-group-item list-group-item-sm text-muted py-2">Sin coincidencias</div>';
+        } else {
+            lista.innerHTML = html;
+        }
         lista.classList.remove('d-none');
     }
 
@@ -287,7 +326,8 @@
             lista.innerHTML = '';
             return;
         }
-        fetch("{% url 'inmobiliaria:buscar_propiedades_caja' %}", {
+
+        var fetchProp = fetch(urlPropiedades, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
@@ -295,17 +335,19 @@
                 'X-Requested-With': 'XMLHttpRequest'
             },
             body: new URLSearchParams({ termino: termino }).toString()
-        })
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-            if (!data.success) {
-                lista.classList.add('d-none');
-                return;
-            }
-            render(data.propiedades || []);
-        })
-        .catch(function () {
-            lista.classList.add('d-none');
+        }).then(function (r) { return r.json(); }).catch(function () { return { success: false }; });
+
+        var fetchCli = fetch(urlClientes + '?term=' + encodeURIComponent(termino), {
+            credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        }).then(function (r) { return r.json(); }).catch(function () { return { results: [] }; });
+
+        Promise.all([fetchProp, fetchCli]).then(function (pair) {
+            var dataProp = pair[0] || {};
+            var dataCli = pair[1] || {};
+            var props = (dataProp.success && dataProp.propiedades) ? dataProp.propiedades : [];
+            var clientes = dataCli.results || [];
+            render(props, clientes);
         });
     }
 
@@ -321,10 +363,15 @@
     });
 
     lista.addEventListener('click', function (e) {
-        var btn = e.target.closest('.item-prop-caratula');
+        var btn = e.target.closest('.item-sug-caratula');
         if (!btn) return;
         e.preventDefault();
-        hiddenId.value = btn.getAttribute('data-id') || '';
+        var tipo = btn.getAttribute('data-tipo') || '';
+        if (tipo === 'propiedad') {
+            hiddenId.value = btn.getAttribute('data-id') || '';
+        } else {
+            hiddenId.value = '';
+        }
         input.value = btn.getAttribute('data-q') || btn.getAttribute('data-text') || '';
         lista.classList.add('d-none');
         var form = input.closest('form');
