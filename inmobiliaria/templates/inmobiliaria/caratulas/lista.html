@@ -238,15 +238,19 @@
         return d.innerHTML;
     }
 
-    function labelPropiedad(p) {
-        var titulo = (p.titulo || '').trim();
-        var dir = (p.direccion || '').trim();
+    function unidadPropiedad(p) {
         var pi = (p.piso || '').trim();
         var dep = (p.departamento || '').trim();
-        var unidad = [pi ? 'Piso ' + pi : '', dep ? 'Dpto ' + dep : ''].filter(Boolean).join(', ');
-        var main = titulo || dir || ('Ficha #' + p.id);
-        if (titulo && dir) main = titulo + ' — ' + dir;
+        return [pi ? 'Piso ' + pi : '', dep ? 'Dpto ' + dep : ''].filter(Boolean).join(' · ');
+    }
+
+    function labelPropiedad(p) {
+        var dir = (p.direccion || '').trim();
+        var titulo = (p.titulo || '').trim();
+        var unidad = unidadPropiedad(p);
+        var main = dir || titulo || ('Ficha #' + p.id);
         if (unidad) main += ' (' + unidad + ')';
+        if (dir && titulo) main += ' — ' + titulo;
         return main;
     }
 
@@ -257,18 +261,19 @@
             return;
         }
         lista.innerHTML = items.map(function (p) {
-            var lbl = labelPropiedad(p);
+            var dir = (p.direccion || '').trim();
             var titulo = (p.titulo || '').trim();
-            var qFill = titulo || (p.direccion || '').trim() || String(p.id);
+            var unidad = unidadPropiedad(p);
+            var lineaDir = dir || ('Ficha #' + p.id);
+            if (unidad) lineaDir += ' — ' + unidad;
+            var lbl = labelPropiedad(p);
+            var qFill = dir || titulo || String(p.id);
             return '<button type="button" class="list-group-item list-group-item-action py-2 item-prop-caratula"'
                 + ' data-id="' + p.id + '"'
                 + ' data-q="' + escHtml(qFill) + '"'
                 + ' data-text="' + escHtml(lbl) + '">'
-                + '<strong>#' + p.id + '</strong> '
-                + (titulo
-                    ? '<span class="fw-semibold">' + escHtml(titulo) + '</span>'
-                      + ((p.direccion || '').trim() ? '<span class="small text-muted d-block">' + escHtml(p.direccion) + '</span>' : '')
-                    : escHtml(lbl))
+                + '<div><strong>#' + p.id + '</strong> <span class="fw-semibold">' + escHtml(lineaDir) + '</span></div>'
+                + (titulo ? '<div class="small text-muted">' + escHtml(titulo) + '</div>' : '')
                 + '</button>';
         }).join('');
         lista.classList.remove('d-none');
