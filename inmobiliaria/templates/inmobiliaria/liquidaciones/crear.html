@@ -176,12 +176,12 @@
                             <div class="col">
                                 <label class="form-label">Cochera</label>
                                 <input type="text" name="monto_cochera" id="monto_cochera" class="form-control input-monto-ar" value="{% if monto_cochera_inicial %}{{ monto_cochera_inicial }}{% else %}0,00{% endif %}" inputmode="decimal" placeholder="0,00" autocomplete="off">
-                                <small class="form-text text-muted">Solo suma al monto final del propietario; no cambia la inmobiliaria.</small>
+                                <small class="form-text text-muted">Ingreso de oficina; no se descuenta del propietario.</small>
                             </div>
                             <div class="col">
                                 <label class="form-label">Fondo de mantenimiento</label>
                                 <input type="text" name="monto_fondo_mantenimiento" id="monto_fondo_mantenimiento" class="form-control input-monto-ar" value="{% if monto_fondo_inicial %}{{ monto_fondo_inicial }}{% else %}0,00{% endif %}" inputmode="decimal" placeholder="0,00" autocomplete="off">
-                                <small class="form-text text-muted">Importe de fondo de mantenimiento si aplica; editable.</small>
+                                <small class="form-text text-muted">Ingreso de oficina; no se descuenta del propietario.</small>
                             </div>
                         </div>
 
@@ -203,7 +203,7 @@
                                 <div class="alert alert-success">
                                     <strong>Monto Final a Pagar al Propietario:</strong> 
                                     <span id="simbolo-monto-final">{% if moneda_inicial == 'USD' %}U$S {% else %}${% endif %}</span><span id="monto-final-pagar">0.00</span>
-                                    <small class="text-muted ms-2">(A favor − movimientos en contra + movimientos a favor − fondo; comisiones locador/locatario van aparte en el documento impreso)</small>
+                                    <small class="text-muted ms-2">(A favor − movimientos en contra + movimientos a favor; cochera y fondo son ingreso de oficina)</small>
                                 </div>
                             </div>
                         </div>
@@ -2033,11 +2033,7 @@ document.addEventListener('DOMContentLoaded', function() {
             totalContra += item.monto;
         });
 
-        const fondo = montoFondoMantenimiento ? parseNumeroEsAR(montoFondoMantenimiento.value) : 0;
-        if (fondo > 0.009) {
-            filasContra.push({ concepto: 'Fondo de mantenimiento', monto: fondo });
-            totalContra += fondo;
-        }
+        // Fondo y cochera son ingreso de oficina: no se listan como descuento al propietario.
 
         if (!filasContra.length) {
             gastosBody.innerHTML = '<tr><td colspan="2" class="text-center text-muted py-3">Sin movimientos en contra.</td></tr>';

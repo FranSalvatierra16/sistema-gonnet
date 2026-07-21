@@ -222,8 +222,14 @@
             {% endif %}
             {% if liquidacion_relacionada.monto_fondo_mantenimiento > 0 %}
             <div class="info-row">
-                <span class="info-label">Fondo mantenimiento:</span>
-                <span class="info-value text-danger">-${{ liquidacion_relacionada.monto_fondo_mantenimiento|format_price }}</span>
+                <span class="info-label">Fondo mantenimiento (oficina):</span>
+                <span class="info-value text-primary">${{ liquidacion_relacionada.monto_fondo_mantenimiento|format_price }}</span>
+            </div>
+            {% endif %}
+            {% if liquidacion_relacionada.monto_cochera > 0 %}
+            <div class="info-row">
+                <span class="info-label">Cochera (oficina):</span>
+                <span class="info-value text-primary">${{ liquidacion_relacionada.monto_cochera|format_price }}</span>
             </div>
             {% endif %}
             <div class="info-row">

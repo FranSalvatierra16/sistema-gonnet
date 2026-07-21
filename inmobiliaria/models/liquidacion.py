@@ -104,14 +104,14 @@ class LiquidacionPropietario(models.Model):
         decimal_places=2,
         default=Decimal('0'),
         verbose_name="Monto cochera",
-        help_text="Importe de cochera en la liquidación (opcional)",
+        help_text="Ingreso de oficina (cochera); no se descuenta del propietario.",
     )
     monto_fondo_mantenimiento = models.DecimalField(
         max_digits=12,
         decimal_places=2,
         default=Decimal('0'),
         verbose_name="Fondo de mantenimiento",
-        help_text="Importe de fondo de mantenimiento en la liquidación (opcional)",
+        help_text="Ingreso de oficina (fondo de mantenimiento); no se descuenta del propietario.",
     )
     comision_locador = models.DecimalField(
         max_digits=12,
@@ -138,7 +138,7 @@ class LiquidacionPropietario(models.Model):
         max_digits=12,
         decimal_places=2,
         verbose_name="Monto a Pagar",
-        help_text="Monto final a pagar al propietario (monto_propietario − gastos − fondo de mantenimiento; la cochera no se incluye)"
+        help_text="Monto final a pagar al propietario (monto_propietario − gastos). Cochera y fondo son ingreso de oficina.",
     )
 
     # Estado y fechas
@@ -197,9 +197,8 @@ class LiquidacionPropietario(models.Model):
     )
 
     def _recalcular_monto_a_pagar_fields(self):
-        """Neto al propietario: alquiler + ingresos − egresos − fondo (cochera y comisiones aparte)."""
+        """Neto al propietario: depto ± movimientos. Cochera y fondo son ingreso de oficina."""
         prop = self.monto_propietario if self.monto_propietario is not None else Decimal('0')
-        fondo = self.monto_fondo_mantenimiento if self.monto_fondo_mantenimiento is not None else Decimal('0')
         ingresos = Decimal('0')
         egresos = Decimal('0')
         if self.pk:
@@ -211,14 +210,14 @@ class LiquidacionPropietario(models.Model):
                     egresos += m
         else:
             egresos = self.monto_gastos if self.monto_gastos is not None else Decimal('0')
-        neto = prop - egresos - fondo + ingresos
+        neto = prop - egresos + ingresos
         self.monto_gastos = egresos
         self.monto_a_pagar = neto.quantize(Decimal('0.01'))
 
     def save(self, *args, **kwargs):
         self._recalcular_monto_a_pagar_fields()
 
-        # Calcular monto de inmobiliaria solo si no fue informado (cochera no participa del reparto inmobiliaria)
+        # Calcular monto de inmobiliaria solo si no fue informado (cochera/fondo no restan del propietario)
         if (
             self.monto_total_operacion
             and self.monto_propietario is not None
@@ -229,7 +228,7 @@ class LiquidacionPropietario(models.Model):
         super().save(*args, **kwargs)
 
     def calcular_monto_a_pagar(self):
-        """Recalcula el monto a pagar según movimientos aceptados y fondo de mantenimiento."""
+        """Recalcula el monto a pagar según movimientos aceptados (sin descontar fondo/cochera)."""
         self._recalcular_monto_a_pagar_fields()
         self.save(update_fields=['monto_gastos', 'monto_a_pagar'])
         self.sync_gasto_saldo_negativo_pendiente()

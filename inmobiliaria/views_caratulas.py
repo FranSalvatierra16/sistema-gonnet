@@ -1523,7 +1523,8 @@ def _resumen_liquidacion_caratula(*, reserva=None, contrato=None, liquidacion=No
             filas_pago.append({'concepto': 'Monto al propietario (depto)', 'monto': monto_prop})
         monto_fondo = Decimal(str(liquidacion.monto_fondo_mantenimiento or 0))
         monto_gastos = Decimal(str(liquidacion.monto_gastos or 0))
-        monto_a_pagar = monto_prop - monto_gastos - monto_fondo
+        # Cochera y fondo son ingreso de oficina: no se descuentan del propietario.
+        monto_a_pagar = (monto_prop - monto_gastos).quantize(Decimal('0.01'))
         return {
             'tiene_datos': True,
             'desde_liquidacion': True,
@@ -1539,7 +1540,8 @@ def _resumen_liquidacion_caratula(*, reserva=None, contrato=None, liquidacion=No
             'monto_gastos': monto_gastos,
             'monto_a_pagar': monto_a_pagar,
             'subtotal_propietario': monto_prop,
-            'total_descontado': monto_gastos + monto_fondo,
+            'total_descontado': monto_gastos,
+            'ingresos_oficina': (monto_coch + monto_fondo).quantize(Decimal('0.01')),
             'filas_pago': filas_pago,
             'gastos_filas': gastos_filas,
         }
@@ -1576,9 +1578,10 @@ def _resumen_liquidacion_caratula(*, reserva=None, contrato=None, liquidacion=No
             'monto_cochera': coch,
             'monto_fondo': fondo,
             'monto_gastos': Decimal('0'),
-            'monto_a_pagar': (prop - fondo).quantize(Decimal('0.01')),
+            'monto_a_pagar': prop.quantize(Decimal('0.01')),
             'subtotal_propietario': prop,
-            'total_descontado': fondo,
+            'total_descontado': Decimal('0'),
+            'ingresos_oficina': (coch + fondo).quantize(Decimal('0.01')),
             'filas_pago': [
                 {
                     'concepto': f'Reserva #{reserva.id}',
@@ -1634,9 +1637,10 @@ def _resumen_liquidacion_caratula(*, reserva=None, contrato=None, liquidacion=No
         'monto_cochera': coch,
         'monto_fondo': fondo,
         'monto_gastos': Decimal('0'),
-        'monto_a_pagar': (prop - fondo).quantize(Decimal('0.01')),
+        'monto_a_pagar': prop.quantize(Decimal('0.01')),
         'subtotal_propietario': prop,
-        'total_descontado': fondo,
+        'total_descontado': Decimal('0'),
+        'ingresos_oficina': (coch + fondo).quantize(Decimal('0.01')),
         'filas_pago': [
             {
                 'concepto': (op_match.get('descripcion') or 'Operación').strip(),
