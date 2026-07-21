@@ -1,0 +1,155 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load custom_filters %}
+
+{% block title %}Consulta de recibos{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <div>
+            <h1 class="h3 mb-0"><i class="fas fa-receipt text-primary me-2"></i>Consulta de recibos</h1>
+            <p class="text-muted mb-0 small">Buscá y reimprimí recibos de la sucursal (como en el sistema anterior).</p>
+        </div>
+        <a href="{% url 'inmobiliaria:dashboard' %}" class="btn btn-outline-secondary btn-sm">Volver al inicio</a>
+    </div>
+
+    <ul class="nav nav-tabs mb-3">
+        <li class="nav-item">
+            <a class="nav-link {% if modo == 'fecha' %}active{% endif %}"
+               href="?modo=fecha&fecha_desde={{ fecha_desde|urlencode }}&fecha_hasta={{ fecha_hasta|urlencode }}">Recibos por fecha</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if modo == 'numero' %}active{% endif %}"
+               href="?modo=numero">Recibos por número</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if modo == 'propiedad' %}active{% endif %}"
+               href="?modo=propiedad">Recibo por propiedad</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if modo == 'movimiento' %}active{% endif %}"
+               href="?modo=movimiento">Recibos por movimiento</a>
+        </li>
+    </ul>
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-body py-3">
+            <form method="get" class="row g-2 align-items-end">
+                <input type="hidden" name="modo" value="{{ modo }}">
+                {% if modo == 'fecha' %}
+                <div class="col-md-3">
+                    <label class="form-label small mb-0">Desde</label>
+                    <input type="date" name="fecha_desde" class="form-control form-control-sm" value="{{ fecha_desde }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small mb-0">Hasta</label>
+                    <input type="date" name="fecha_hasta" class="form-control form-control-sm" value="{{ fecha_hasta }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small mb-0">Buscar (opcional)</label>
+                    <input type="text" name="q" class="form-control form-control-sm"
+                           placeholder="Número, cliente o dirección…" value="{{ q }}">
+                </div>
+                {% elif modo == 'numero' %}
+                <div class="col-md-6">
+                    <label class="form-label small mb-0">Número de recibo</label>
+                    <input type="text" name="q" class="form-control form-control-sm"
+                           placeholder="Ej: 001-32 o 007-15" value="{{ q }}" autofocus>
+                </div>
+                {% elif modo == 'propiedad' %}
+                <div class="col-md-6">
+                    <label class="form-label small mb-0">Propiedad</label>
+                    <input type="text" name="q" class="form-control form-control-sm"
+                           placeholder="Dirección, título o ID de ficha…" value="{{ q }}" autofocus>
+                </div>
+                {% else %}
+                <div class="col-md-6">
+                    <label class="form-label small mb-0">N° movimiento de caja</label>
+                    <input type="text" name="q" class="form-control form-control-sm"
+                           placeholder="Ej: 13491" value="{{ q }}" inputmode="numeric" autofocus>
+                </div>
+                {% endif %}
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary btn-sm w-100">Buscar</button>
+                </div>
+            </form>
+            {% if modo != 'fecha' and not q %}
+            <p class="small text-muted mb-0 mt-2">Ingresá un criterio y tocá Buscar.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header d-flex justify-content-between align-items-center py-2">
+            <strong>{{ total }} recibo{{ total|pluralize }}</strong>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Movimiento</th>
+                        <th>Número</th>
+                        <th>Cliente</th>
+                        <th>Nombre</th>
+                        <th>Propiedad</th>
+                        <th class="text-end">Importe</th>
+                        <th class="text-end">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for f in filas %}
+                    <tr>
+                        <td class="text-nowrap">{{ f.fecha|date:"d/m/Y H:i" }}</td>
+                        <td>{% if f.movimiento_id %}{{ f.movimiento_id }}{% else %}—{% endif %}</td>
+                        <td><code>{{ f.numero }}</code></td>
+                        <td>{% if f.cliente_id %}{{ f.cliente_id }}{% else %}—{% endif %}</td>
+                        <td>{{ f.cliente_nombre }}</td>
+                        <td class="small">
+                            {{ f.propiedad }}
+                            {% if f.propiedad_id %}<span class="text-muted">(#{{ f.propiedad_id }})</span>{% endif %}
+                        </td>
+                        <td class="text-end text-nowrap">${{ f.monto|format_price }}</td>
+                        <td class="text-end text-nowrap">
+                            {% if f.url_ver %}
+                            <a href="{{ f.url_ver }}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" title="Reimpresión">
+                                <i class="fas fa-print"></i>
+                            </a>
+                            {% endif %}
+                            {% if f.url_caratula %}
+                            <a href="{{ f.url_caratula }}" class="btn btn-sm btn-outline-success" title="Carátula">
+                                <i class="fas fa-folder-open"></i>
+                            </a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center text-muted py-4">
+                            {% if modo == 'fecha' %}No hay recibos en ese período.
+                            {% else %}Sin resultados. Probá otro criterio.
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if page_obj.paginator.num_pages > 1 %}
+        <div class="card-footer d-flex justify-content-between align-items-center">
+            <span class="small text-muted">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+            <div class="btn-group btn-group-sm">
+                {% if page_obj.has_previous %}
+                <a class="btn btn-outline-secondary"
+                   href="?modo={{ modo }}&q={{ q|urlencode }}&fecha_desde={{ fecha_desde|urlencode }}&fecha_hasta={{ fecha_hasta|urlencode }}&page={{ page_obj.previous_page_number }}">Anterior</a>
+                {% endif %}
+                {% if page_obj.has_next %}
+                <a class="btn btn-outline-secondary"
+                   href="?modo={{ modo }}&q={{ q|urlencode }}&fecha_desde={{ fecha_desde|urlencode }}&fecha_hasta={{ fecha_hasta|urlencode }}&page={{ page_obj.next_page_number }}">Siguiente</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

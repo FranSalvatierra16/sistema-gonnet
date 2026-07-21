@@ -116,6 +116,7 @@
                         <ul class="dropdown-menu" aria-labelledby="adminNavDropdown">
                             {% if user.nivel >= 4 %}
                             <li><a class="dropdown-item" href="{% url 'inmobiliaria:lista_caratulas' %}"><i class="fas fa-folder-open me-2"></i>Carátulas</a></li>
+                            <li><a class="dropdown-item" href="{% url 'inmobiliaria:lista_recibos' %}"><i class="fas fa-receipt me-2"></i>Consulta de recibos</a></li>
                             <li><a class="dropdown-item" href="{% url 'inmobiliaria:administracion_listado_operaciones' %}"><i class="fas fa-list-alt me-2"></i>Resumen de operaciones</a></li>
                             <li><a class="dropdown-item" href="{% url 'inmobiliaria:dashboard_comisiones' %}"><i class="fas fa-percent me-2"></i>Comisiones</a></li>
                             <li><a class="dropdown-item" href="{% url 'inmobiliaria:dashboard_vales' %}"><i class="fas fa-money-bill-wave me-2"></i>Vales</a></li>

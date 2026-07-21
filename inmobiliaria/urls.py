@@ -10,6 +10,7 @@ from . import views_mis_propiedades
 from . import views_honorarios
 from . import views_administracion
 from . import views_oficina
+from . import views_recibos
 
 app_name = 'inmobiliaria'
 
@@ -106,6 +107,7 @@ urlpatterns = [
     path('reservas/eliminadas/', views.reservas_eliminadas, name='reservas_eliminadas'),
     path('operaciones/', views.operaciones, name='operaciones'),
     path('caratulas/', views_caratulas.lista_caratulas, name='lista_caratulas'),
+    path('recibos/', views_recibos.lista_recibos, name='lista_recibos'),
     path('caratulas/reserva/<int:reserva_id>/imprimir/', views_caratulas.imprimir_caratula_reserva, name='imprimir_caratula_reserva'),
     path('caratulas/contrato/<int:contrato_id>/imprimir/', views_caratulas.imprimir_caratula_contrato, name='imprimir_caratula_contrato'),
     path('caratulas/reserva/<int:reserva_id>/', views_caratulas.caratula_reserva, name='caratula_reserva'),
