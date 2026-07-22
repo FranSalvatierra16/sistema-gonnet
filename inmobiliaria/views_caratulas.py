@@ -1049,11 +1049,10 @@ def _enriquecer_comisiones_fechas_caratula(comisiones, comisiones_por_id=None):
 
 
 def _comisiones_visibles_caratula_reserva(reserva):
-    from inmobiliaria.models.comision import ROL_COMISION_FICHAJE, ROL_COMISION_REVERSION
+    from inmobiliaria.models.comision import ROL_COMISION_REVERSION
 
     todas = list(
         ComisionVendedor.objects.filter(reserva=reserva)
-        .exclude(rol_comision=ROL_COMISION_FICHAJE)
         .select_related('vendedor')
         .order_by('id')
     )
@@ -2996,6 +2995,15 @@ def _build_legacy_reserva(
     )
 
     comision_total = sum(Decimal(str(c.monto_comision or 0)) for c in comisiones)
+    from inmobiliaria.models.comision import ROL_COMISION_FICHAJE
+
+    comision_fichaje_total = sum(
+        Decimal(str(c.monto_comision or 0))
+        for c in comisiones
+        if getattr(c, 'rol_comision', None) == ROL_COMISION_FICHAJE
+        or (hasattr(c, '_rol_comision_normalizado') and c._rol_comision_normalizado() == ROL_COMISION_FICHAJE)
+    )
+    comision_productor_total = comision_total - comision_fichaje_total
 
     pi_disp, dep_disp = _prop_piso_depto_campos(prop)
     piso_dto = '—'
@@ -3064,8 +3072,8 @@ def _build_legacy_reserva(
         'moneda': getattr(reserva, 'moneda', None) or 'ARS',
         'simbolo_moneda': 'U$S' if (getattr(reserva, 'moneda', None) or 'ARS') == 'USD' else '$',
         'comisiones_vendedor': [],
-        'comision_productor_total': _formato_importe_us(0),
-        'comision_fichaje_total': _formato_importe_us(0),
+        'comision_productor_total': _formato_importe_us(comision_productor_total),
+        'comision_fichaje_total': _formato_importe_us(comision_fichaje_total),
         'fichador_nombre': fichador_nombre,
         'recibo_locador': recibo_loc,
         'recibo_locatario': recibo_locat,

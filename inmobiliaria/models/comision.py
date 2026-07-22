@@ -335,7 +335,9 @@ def registrar_comisiones_honorarios_movimiento_reserva(reserva, movimiento_caja,
     tipo_fichaje = getattr(prop, 'tipo_fichaje', None) or 'primer'
     vend_fichaje = vendedor_fichaje_desde_propiedad(prop)
     tipo_op = clasificar_tipo_operacion_reserva(reserva)
-    pct_fichaje = porcentaje_fichaje_vendedor(vend_fichaje, tipo_fichaje, categoria_operacion=tipo_op)
+    pct_fichaje = None
+    if vend_fichaje:
+        pct_fichaje = vend_fichaje.porcentaje_fichaje_efectivo(tipo_fichaje, tipo_op)
 
     hubo_regla_fichaje = pct_fichaje is not None and pct_fichaje > 0
     if hubo_regla_fichaje and vend_fichaje:
@@ -439,7 +441,9 @@ def asegurar_comisiones_movimiento_reserva(reserva, movimiento_caja, honorarios_
     tipo_fichaje = getattr(prop, 'tipo_fichaje', None) or 'primer'
     vend_fichaje = vendedor_fichaje_desde_propiedad(prop)
     tipo_op = clasificar_tipo_operacion_reserva(reserva)
-    pct_fichaje = porcentaje_fichaje_vendedor(vend_fichaje, tipo_fichaje, categoria_operacion=tipo_op)
+    pct_fichaje = None
+    if vend_fichaje:
+        pct_fichaje = vend_fichaje.porcentaje_fichaje_efectivo(tipo_fichaje, tipo_op)
     hubo_fichaje = pct_fichaje is not None and pct_fichaje > 0 and vend_fichaje is not None
 
     try:
