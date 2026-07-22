@@ -1145,6 +1145,39 @@ def revertir_comisiones_operacion_anulada(*, reserva=None, contrato=None):
     return creadas
 
 
+def restaurar_comisiones_operacion_recuperada(*, reserva=None, contrato=None):
+    """
+    Revierte el efecto de ``revertir_comisiones_operacion_anulada`` al recuperar la operación.
+    Cancela las líneas de devolución y reactiva las comisiones originales.
+    """
+    if not reserva and not contrato:
+        return 0
+
+    qs_rev = ComisionVendedor.objects.filter(rol_comision=ROL_COMISION_REVERSION)
+    if reserva is not None:
+        qs_rev = qs_rev.filter(reserva=reserva)
+    else:
+        qs_rev = qs_rev.filter(contrato=contrato)
+
+    restauradas = 0
+    for rev in qs_rev:
+        obs = (rev.observaciones or '').strip()
+        orig_id = None
+        if obs.startswith('reversion_comision_id='):
+            try:
+                orig_id = int(obs.split('=', 1)[1].strip())
+            except (TypeError, ValueError):
+                orig_id = None
+        if rev.estado != 'cancelada':
+            ComisionVendedor.objects.filter(pk=rev.pk).update(estado='cancelada')
+        if orig_id:
+            updated = ComisionVendedor.objects.filter(pk=orig_id, estado='cancelada').update(
+                estado='confirmada'
+            )
+            restauradas += int(updated or 0)
+    return restauradas
+
+
 class OperacionProductor(models.Model):
     """Productores asignados a una operación (reserva o contrato); puede haber varios."""
 

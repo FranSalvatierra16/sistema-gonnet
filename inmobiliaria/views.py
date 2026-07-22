@@ -3603,6 +3603,44 @@ def reservas_eliminadas(request):
         'fecha_hasta': fecha_hasta
     })
 
+
+@login_required
+def reserva_recuperar(request, reserva_id):
+    """Recupera una reserva eliminada/anulada como si no se hubiera borrado."""
+    if request.user.nivel < 2:
+        messages.error(request, 'No tienes permisos para recuperar reservas.')
+        return redirect('inmobiliaria:dashboard')
+
+    reserva = get_object_or_404(Reserva, pk=reserva_id, sucursal=request.user.sucursal)
+    if not (reserva.eliminada or reserva.estado == 'cancelada'):
+        messages.info(request, f'La operación #{reserva.id} ya estaba activa.')
+        return redirect('inmobiliaria:caratula_reserva', reserva_id=reserva.id)
+
+    if request.method != 'POST':
+        return redirect('inmobiliaria:reservas_eliminadas')
+
+    try:
+        reserva.recuperar_reserva()
+        from inmobiliaria.historial_inquilino import registrar_evento_historial_inquilino
+
+        registrar_evento_historial_inquilino(
+            tipo='operacion_recuperada',
+            reserva=reserva,
+            usuario=request.user,
+            detalle='Operación recuperada (se revirtió la eliminación/anulación).',
+            precio_anterior=reserva.precio_total,
+            senia_anterior=reserva.senia,
+        )
+        messages.success(
+            request,
+            f'Operación #{reserva.id} recuperada. Volvió a quedar activa como antes de eliminarla.',
+        )
+        return redirect('inmobiliaria:caratula_reserva', reserva_id=reserva.id)
+    except Exception as e:
+        messages.error(request, f'Error al recuperar la operación: {e}')
+        return redirect('inmobiliaria:reservas_eliminadas')
+
+
 @login_required
 def operaciones(request):
     return _operaciones_impl(request)

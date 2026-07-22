@@ -105,6 +105,7 @@ urlpatterns = [
     # Reserva URLs
     path('reservas/', views.reservas, name='reservas'),
     path('reservas/eliminadas/', views.reservas_eliminadas, name='reservas_eliminadas'),
+    path('reserva/recuperar/<int:reserva_id>/', views.reserva_recuperar, name='reserva_recuperar'),
     path('operaciones/', views.operaciones, name='operaciones'),
     path('caratulas/', views_caratulas.lista_caratulas, name='lista_caratulas'),
     path('recibos/', views_recibos.lista_recibos, name='lista_recibos'),

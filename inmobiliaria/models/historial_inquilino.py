@@ -8,6 +8,7 @@ class HistorialInquilino(models.Model):
     TIPO_CHOICES = [
         ('reserva_creada', 'Reserva creada'),
         ('operacion_anulada', 'Operación anulada'),
+        ('operacion_recuperada', 'Operación recuperada'),
         ('vuelta_a_reserva', 'Vuelta a reserva pendiente'),
         ('montos_modificados', 'Montos modificados'),
         ('fechas_modificadas', 'Fechas modificadas'),
@@ -70,6 +71,7 @@ class HistorialInquilino(models.Model):
         return {
             'reserva_creada': 'bg-primary',
             'operacion_anulada': 'bg-danger',
+            'operacion_recuperada': 'bg-success',
             'vuelta_a_reserva': 'bg-warning text-dark',
             'montos_modificados': 'bg-info text-dark',
             'fechas_modificadas': 'bg-secondary',

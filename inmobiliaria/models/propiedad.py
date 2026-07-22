@@ -891,6 +891,54 @@ class Reserva(models.Model):
             
             # print(f"✅ Reserva {self.id} cancelada y disponibilidades restauradas")
 
+    def _estado_activo_segun_pagos(self):
+        """Estado operativo al recuperar una reserva anulada."""
+        total = Decimal(str(self.precio_total or 0))
+        senia = Decimal(str(self.senia or 0))
+        pendiente = Decimal(str(self.cuota_pendiente or 0))
+        if total > 0 and (pendiente <= Decimal('0.05') or senia + Decimal('0.05') >= total):
+            return 'pagada'
+        if senia > 0:
+            return 'confirmada'
+        return 'confirmada_no_pagada'
+
+    def recuperar_reserva(self):
+        """
+        Revierte soft-delete / anulación: la operación vuelve a figurar activa
+        (como si no se hubiera eliminado), reacomoda historial y comisiones.
+        """
+        from .comision import restaurar_comisiones_operacion_recuperada
+        from inmobiliaria.models.liquidacion import LiquidacionPropietario
+
+        with transaction.atomic():
+            self.eliminada = False
+            self.fecha_eliminacion = None
+            self.usuario_eliminacion = None
+            self.ocultar_en_historial_inquilino = False
+            self.estado = self._estado_activo_segun_pagos()
+            self.save(
+                update_fields=[
+                    'eliminada',
+                    'fecha_eliminacion',
+                    'usuario_eliminacion',
+                    'ocultar_en_historial_inquilino',
+                    'estado',
+                ]
+            )
+
+            # Liquidaciones canceladas por la anulación de esta reserva → pendientes de nuevo.
+            marca = f'[Anulación operación reserva #{self.pk}'
+            for liq in LiquidacionPropietario.objects.filter(
+                estado='cancelada',
+                observaciones__icontains=marca,
+            ):
+                liq.estado = 'pendiente'
+                liq.fecha_procesamiento = None
+                liq.save(update_fields=['estado', 'fecha_procesamiento'])
+
+            restaurar_comisiones_operacion_recuperada(reserva=self)
+            self.reconstruir_historial_cronologico()
+
     def __str__(self):
         return f"Reserva {self.id} - {self.propiedad}"
 
