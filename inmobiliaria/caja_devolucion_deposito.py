@@ -748,11 +748,8 @@ def _egreso_es_devolucion_deposito_reserva(movimiento, reserva, nombre_concepto_
         return True
     if re.search(rf'Operaci[oó]n\s*#?\s*{rid}\b', conc, re.IGNORECASE) and 'devoluc' in conc_l:
         return True
-    if nom140 and nom140 in conc_l:
-        dep = Decimal(str(reserva.deposito_garantia or 0))
-        monto = _monto_total_movimiento(movimiento)
-        if dep > Decimal('0') and monto > Decimal('0') and abs(monto - dep) <= Decimal('0.06'):
-            return True
+    # No usar solo monto≈depósito: en la misma propiedad hay otras ops con el mismo importe
+    # y marcaba «ya devuelto» sin egreso de esta operación.
     return False
 
 

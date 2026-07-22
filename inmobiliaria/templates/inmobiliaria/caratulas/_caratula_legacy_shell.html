@@ -137,6 +137,9 @@
                 {% else %}
                 <span class="v">{{ cl.deposito }}</span>
                 {% endif %}
+                {% if deposito_ya_devuelto %}
+                <span class="badge bg-danger mt-1">Depósito ya devuelto</span>
+                {% endif %}
             </div>
             <div class="caratula-cell span-4">
                 <span class="k">SALDO</span>

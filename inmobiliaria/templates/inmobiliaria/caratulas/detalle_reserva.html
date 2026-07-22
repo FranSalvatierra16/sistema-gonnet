@@ -203,15 +203,18 @@
                             <thead><tr><th>Fecha</th><th>Recibo</th><th>Concepto</th><th class="text-end">Total</th><th></th></tr></thead>
                             <tbody>
                                 {% for m in movimientos %}
-                                <tr>
+                                <tr{% if m.tipo == 'EG' %} class="table-warning"{% endif %}>
                                     <td>{{ m.fecha|date:"d/m/Y H:i" }}</td>
                                     <td>
                                         <a href="{% url_recibo_movimiento m %}" class="text-decoration-none" target="_blank" rel="noopener" title="Ver recibo">
                                             <code>{{ m|numero_recibo_movimiento }}</code>
                                         </a>
                                     </td>
-                                    <td class="text-break">{{ m.concepto|truncatechars:80 }}</td>
-                                    <td class="text-end">${{ m.monto_total|floatformat:2 }}</td>
+                                    <td class="text-break">
+                                        {% if m.tipo == 'EG' %}<span class="badge bg-danger me-1">Egreso</span>{% endif %}
+                                        {{ m.concepto|truncatechars:80 }}
+                                    </td>
+                                    <td class="text-end">{% if m.tipo == 'EG' %}-{% endif %}${{ m.monto_total|floatformat:2 }}</td>
                                     <td class="text-end">
                                         <a href="{% url_recibo_movimiento m %}" class="btn btn-outline-primary btn-sm py-0" target="_blank" rel="noopener" title="Ver recibo">
                                             <i class="fas fa-eye"></i>

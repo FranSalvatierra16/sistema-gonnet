@@ -387,12 +387,93 @@ def _operacion_en_concepto(concepto, operacion_id):
     )
 
 
+def _movimientos_devolucion_deposito_reserva(reserva, limit=30):
+    """Egresos de devolución de depósito de esta operación (aunque falte propiedad)."""
+    from inmobiliaria.caja_devolucion_deposito import (
+        _egreso_es_devolucion_deposito_reserva,
+        concepto_devolucion_deposito_catalogo,
+    )
+
+    rid = int(reserva.id)
+    qs = (
+        MovimientoCaja.objects.filter(
+            sucursal_id=reserva.sucursal_id,
+            tipo=TipoMovimientoCajaEnum.EGRESO,
+            fecha_eliminacion__isnull=True,
+        )
+        .select_related('recibo')
+        .order_by('fecha', 'id')
+    )
+    patrones = (
+        f'Devolución depósito operación {rid}',
+        f'Devolucion deposito operacion {rid}',
+        f'"devolucion_deposito_operacion_id": {rid}',
+        f'"devolucion_deposito_operacion_id":{rid}',
+    )
+    q = Q()
+    for p in patrones:
+        q |= Q(concepto__icontains=p) | Q(concepto_detalle__icontains=p)
+    explicitos = list(qs.filter(q)[:limit])
+    if explicitos:
+        return explicitos
+    if not reserva.propiedad_id:
+        return []
+    nombre_140 = concepto_devolucion_deposito_catalogo(reserva.sucursal).get('nombre') or ''
+    out = []
+    for mov in qs.filter(propiedad_id=reserva.propiedad_id).order_by('-fecha', '-id')[:100]:
+        if _egreso_es_devolucion_deposito_reserva(mov, reserva, nombre_140):
+            out.append(mov)
+            if len(out) >= limit:
+                break
+    return list(reversed(out))
+
+
 def _movimientos_operacion_reserva(reserva, limit=200):
+    """Ingresos/egresos vinculados a la operación, incluida la devolución de depósito."""
+    from inmobiliaria.caja_devolucion_deposito import _movimiento_vinculado_reserva
+
+    rid = int(reserva.id)
+    vistos = set()
     movimientos = []
-    for mov in _movimientos_reserva_qs(reserva)[:limit]:
-        if _operacion_en_concepto(mov.concepto, reserva.id):
-            movimientos.append(mov)
-    return movimientos
+
+    def _agregar(mov):
+        mid = int(mov.id)
+        if mid in vistos:
+            return
+        vistos.add(mid)
+        movimientos.append(mov)
+
+    # Filtrar en SQL por referencia a la operación (evita cortar por [:limit] de toda la propiedad).
+    if reserva.propiedad_id:
+        qs = _movimientos_reserva_qs(reserva)
+        q_ref = (
+            Q(concepto__icontains=f'Operación {rid}')
+            | Q(concepto__icontains=f'Operacion {rid}')
+            | Q(concepto__icontains=f'Operación #{rid}')
+            | Q(concepto__icontains=f'Operacion #{rid}')
+            | Q(concepto__icontains=f'Reserva {rid}')
+            | Q(concepto__icontains=f'Reserva #{rid}')
+            | Q(concepto__icontains=f'Devolución depósito operación {rid}')
+            | Q(concepto__icontains=f'Devolucion deposito operacion {rid}')
+            | Q(concepto_detalle__icontains=f'"devolucion_deposito_operacion_id": {rid}')
+            | Q(concepto_detalle__icontains=f'"devolucion_deposito_operacion_id":{rid}')
+            | Q(concepto_detalle__icontains=f'"reserva_id": {rid}')
+            | Q(concepto_detalle__icontains=f'"reserva_id":{rid}')
+            | Q(concepto_detalle__icontains=f'"operacion_id": {rid}')
+            | Q(concepto_detalle__icontains=f'"operacion_id":{rid}')
+        )
+        for mov in qs.filter(q_ref).order_by('fecha', 'id')[:limit]:
+            if (
+                _operacion_en_concepto(mov.concepto, rid)
+                or _movimiento_vinculado_reserva(mov, rid)
+            ):
+                _agregar(mov)
+
+    for mov in _movimientos_devolucion_deposito_reserva(reserva):
+        _agregar(mov)
+
+    movimientos.sort(key=lambda m: (m.fecha or timezone.now(), m.id or 0))
+    return movimientos[:limit]
 
 
 def _numero_recibo_desde_movimiento(m):
@@ -3602,7 +3683,7 @@ def caratula_reserva(request, reserva_id):
             return _redirect_caratula_con_filtros('inmobiliaria:caratula_reserva', reserva_id, request)
         reserva.refresh_from_db()
 
-    movimientos = _movimientos_operacion_reserva(reserva) if reserva.propiedad_id else []
+    movimientos = _movimientos_operacion_reserva(reserva)
     recibos = list(reserva.recibos.all())
     comisiones = _comisiones_visibles_caratula_reserva(reserva)
 
@@ -3611,22 +3692,30 @@ def caratula_reserva(request, reserva_id):
         from inmobiliaria.models.comision import asegurar_comisiones_movimiento_reserva
 
         for mov in movimientos:
+            if (getattr(mov, 'tipo', None) or '').strip().upper() == TipoMovimientoCajaEnum.EGRESO:
+                continue
             asegurar_comisiones_movimiento_reserva(reserva, mov)
         comisiones = _comisiones_visibles_caratula_reserva(reserva)
 
     from inmobiliaria.models.comision import mapa_participacion_productores
+    from inmobiliaria.caja_devolucion_deposito import ya_devolvio_deposito_reserva
 
     part_map = mapa_participacion_productores(reserva=reserva)
     for c in comisiones:
         c.participacion_operacion_caratula = part_map.get(getattr(c, 'vendedor_id', None))
 
+    # El total de la carátula es lo cobrado (ingresos); la devolución de depósito es egreso aparte.
     total_mov = sum(
-        Decimal(str(m.monto_efectivo or 0))
-        + Decimal(str(m.monto_cheque or 0))
-        + Decimal(str(m.monto_tarjeta or 0))
-        + Decimal(str(m.monto_deposito or 0))
+        (
+            Decimal(str(m.monto_efectivo or 0))
+            + Decimal(str(m.monto_cheque or 0))
+            + Decimal(str(m.monto_tarjeta or 0))
+            + Decimal(str(m.monto_deposito or 0))
+        )
         for m in movimientos
+        if (getattr(m, 'tipo', None) or '').strip().upper() != TipoMovimientoCajaEnum.EGRESO
     )
+    deposito_ya_devuelto = ya_devolvio_deposito_reserva(reserva)
 
     saldo_reserva = (reserva.precio_total or Decimal('0')) - (reserva.senia or Decimal('0'))
     tipo_op = _tipo_reserva(reserva.propiedad)
@@ -3641,6 +3730,7 @@ def caratula_reserva(request, reserva_id):
         'recibos': recibos,
         'comisiones': comisiones,
         'total_movimientos': total_mov,
+        'deposito_ya_devuelto': deposito_ya_devuelto,
         'saldo_reserva': saldo_reserva,
         'puede_editar_caratula': _puede_editar_caratula(request.user),
         'puede_imprimir_caratula': _puede_imprimir_caratula(request.user),
