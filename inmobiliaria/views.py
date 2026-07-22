@@ -3557,16 +3557,26 @@ def reservas_eliminadas(request):
         messages.error(request, 'No tienes permisos para acceder a esta sección.')
         return redirect('inmobiliaria:dashboard')
     
-    # Obtener solo reservas eliminadas (soft delete)
+    # Obtener reservas eliminadas o canceladas (soft delete / anulación)
     reservas = Reserva.objects.filter(
         sucursal=request.user.sucursal,
-        eliminada=True
-    ).select_related('propiedad', 'cliente', 'vendedor', 'usuario_eliminacion').order_by('-fecha_eliminacion')
+    ).filter(
+        Q(eliminada=True) | Q(estado='cancelada')
+    ).select_related(
+        'propiedad', 'propiedad__propietario', 'cliente', 'vendedor', 'usuario_eliminacion'
+    ).order_by('-fecha_eliminacion', '-id')
     
-    # Filtro de búsqueda por ID (opcional)
+    # Filtro de búsqueda por ID (acepta "1932", "OP 1932", "1.932")
     search_id = request.GET.get('search_id', '').strip()
     if search_id:
-        reservas = reservas.filter(id__icontains=search_id)
+        solo_num = re.sub(r'[^0-9]', '', search_id)
+        if solo_num:
+            try:
+                reservas = reservas.filter(id=int(solo_num.lstrip('0') or '0'))
+            except (TypeError, ValueError):
+                reservas = reservas.none()
+        else:
+            reservas = reservas.none()
     
     # Filtro por fecha de eliminación
     fecha_desde = request.GET.get('fecha_desde', '').strip()

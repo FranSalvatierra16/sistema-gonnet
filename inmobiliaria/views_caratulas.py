@@ -652,6 +652,13 @@ def _ctx_estado_operacion_caratula(reserva=None, contrato=None, user=None):
     """Estado administrativo pendiente/confirmada de la carátula (no comisiones)."""
     obj = reserva or contrato
     if reserva and (getattr(reserva, 'eliminada', False) or getattr(reserva, 'estado', None) == 'cancelada'):
+        quien = getattr(reserva, 'usuario_eliminacion', None)
+        if quien is not None:
+            ap = (getattr(quien, 'apellido', None) or '').strip()
+            no = (getattr(quien, 'nombre', None) or '').strip()
+            quien_txt = ', '.join(p for p in (ap, no) if p) or str(quien)
+        else:
+            quien_txt = ''
         return {
             'estado_operacion_caratula': 'eliminada',
             'operacion_caratula_confirmada': False,
@@ -661,6 +668,8 @@ def _ctx_estado_operacion_caratula(reserva=None, contrato=None, user=None):
             'operacion_caratula_badge_class': 'bg-secondary',
             'puede_confirmar_operacion_caratula': False,
             'puede_anular_operacion_caratula': False,
+            'operacion_eliminacion_fecha': getattr(reserva, 'fecha_eliminacion', None),
+            'operacion_eliminacion_usuario': quien_txt,
         }
     if getattr(obj, 'estado', None) == 'rescindido':
         return {
@@ -672,6 +681,8 @@ def _ctx_estado_operacion_caratula(reserva=None, contrato=None, user=None):
             'operacion_caratula_badge_class': 'bg-danger',
             'puede_confirmar_operacion_caratula': False,
             'puede_anular_operacion_caratula': False,
+            'operacion_eliminacion_fecha': None,
+            'operacion_eliminacion_usuario': '',
         }
     estado = getattr(obj, 'estado_confirmacion_caratula', None) or 'pendiente'
     confirmada = estado == 'confirmada'
@@ -691,6 +702,8 @@ def _ctx_estado_operacion_caratula(reserva=None, contrato=None, user=None):
             not confirmada and user is not None and _puede_editar_caratula(user)
         ),
         'puede_anular_operacion_caratula': puede_anular,
+        'operacion_eliminacion_fecha': None,
+        'operacion_eliminacion_usuario': '',
     }
 
 
@@ -3685,7 +3698,13 @@ def caratula_reserva(request, reserva_id):
         return HttpResponseForbidden()
     reserva = get_object_or_404(
         Reserva.objects.select_related(
-            'cliente', 'propiedad', 'propiedad__propietario', 'propiedad__fichado_por', 'vendedor', 'sucursal'
+            'cliente',
+            'propiedad',
+            'propiedad__propietario',
+            'propiedad__fichado_por',
+            'vendedor',
+            'sucursal',
+            'usuario_eliminacion',
         )
         .prefetch_related(
             Prefetch(

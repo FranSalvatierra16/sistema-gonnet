@@ -5,6 +5,19 @@
             <span class="badge {{ operacion_caratula_badge_class }} ms-2">{{ operacion_caratula_label }}</span>
             {% if operacion_eliminada %}
             <div class="small text-muted mt-1">Operación anulada. Las fechas quedaron disponibles; las comisiones acreditadas se revirtieron.</div>
+            {% if operacion_eliminacion_fecha or operacion_eliminacion_usuario %}
+            <div class="small mt-1">
+                <strong>Anulada</strong>
+                {% if operacion_eliminacion_fecha %}
+                el {{ operacion_eliminacion_fecha|date:"d/m/Y H:i" }}
+                {% endif %}
+                {% if operacion_eliminacion_usuario %}
+                por <strong>{{ operacion_eliminacion_usuario }}</strong>
+                {% else %}
+                <span class="text-muted">(usuario no registrado)</span>
+                {% endif %}
+            </div>
+            {% endif %}
             {% elif operacion_rescindida %}
             <div class="small text-muted mt-1">Contrato rescindido.</div>
             {% elif operacion_caratula_confirmada %}
