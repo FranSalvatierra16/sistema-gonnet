@@ -306,6 +306,7 @@ def reporte_movimientos_cuenta_bancaria(request, cuenta_id):
     """
     cuenta = get_object_or_404(CuentaBancaria, id=cuenta_id, sucursal=request.user.sucursal)
     destino = f'cuenta_{cuenta.id}'
+    modo_imprimir = request.GET.get('imprimir') == '1'
 
     movimientos_qs = (
         MovimientoCaja.objects.filter(
@@ -352,13 +353,23 @@ def reporte_movimientos_cuenta_bancaria(request, cuenta_id):
     )
     saldo_transferencias = total_ingresos - total_egresos
 
-    paginator = Paginator(movimientos_qs, 50)
-    page = paginator.get_page(request.GET.get('page'))
-    for mov in page.object_list:
-        mov.reporte_bc_extra = _reporte_cuenta_bancaria_movimiento_extras(mov)
+    # Saldo acumulado cronológico (más antiguo → más nuevo) sobre el período filtrado.
+    cronologicos = list(
+        movimientos_qs.order_by('fecha_banco', 'fecha', 'id')
+    )
+    saldo_run = Decimal('0')
+    saldos_por_id = {}
+    for mov in cronologicos:
+        monto = Decimal(str(mov.monto_deposito or 0))
+        if (mov.tipo or '').strip().upper() == TipoMovimientoCajaEnum.INGRESO:
+            saldo_run += monto
+        else:
+            saldo_run -= monto
+        saldos_por_id[mov.id] = saldo_run.quantize(Decimal('0.01'))
 
     query_params = request.GET.copy()
     query_params.pop('page', None)
+    query_params.pop('imprimir', None)
     if periodo_completo:
         query_params['todo'] = '1'
         query_params.pop('fecha_desde', None)
@@ -369,6 +380,38 @@ def reporte_movimientos_cuenta_bancaria(request, cuenta_id):
             query_params['fecha_desde'] = fecha_desde
         if fecha_hasta:
             query_params['fecha_hasta'] = fecha_hasta
+
+    query_imprimir = query_params.copy()
+    query_imprimir['imprimir'] = '1'
+
+    if modo_imprimir:
+        # Impresión: todos los del período, orden cronológico.
+        for mov in cronologicos:
+            mov.reporte_bc_extra = _reporte_cuenta_bancaria_movimiento_extras(mov)
+            mov.saldo_acumulado = saldos_por_id.get(mov.id, Decimal('0'))
+        return render(
+            request,
+            'inmobiliaria/caja/reporte_cuenta_bancaria_imprimir.html',
+            {
+                'cuenta': cuenta,
+                'sucursal': request.user.sucursal,
+                'movimientos': cronologicos,
+                'total_ingresos': total_ingresos,
+                'total_egresos': total_egresos,
+                'saldo_transferencias': saldo_transferencias,
+                'cantidad_movimientos': len(cronologicos),
+                'fecha_desde': fecha_desde if not periodo_completo else '',
+                'fecha_hasta': fecha_hasta if not periodo_completo else '',
+                'periodo_completo': periodo_completo,
+                'querystring': query_params.urlencode(),
+            },
+        )
+
+    paginator = Paginator(movimientos_qs, 50)
+    page = paginator.get_page(request.GET.get('page'))
+    for mov in page.object_list:
+        mov.reporte_bc_extra = _reporte_cuenta_bancaria_movimiento_extras(mov)
+        mov.saldo_acumulado = saldos_por_id.get(mov.id, Decimal('0'))
 
     return render(
         request,
@@ -384,6 +427,7 @@ def reporte_movimientos_cuenta_bancaria(request, cuenta_id):
             'fecha_desde': fecha_desde if not periodo_completo else '',
             'fecha_hasta': fecha_hasta if not periodo_completo else '',
             'querystring': query_params.urlencode(),
+            'querystring_imprimir': query_imprimir.urlencode(),
             'periodo_completo': periodo_completo,
         },
     )

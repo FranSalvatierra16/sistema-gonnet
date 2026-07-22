@@ -28,7 +28,11 @@
                 {% if cuenta.numero_cuenta %}· Cuenta: {{ cuenta.numero_cuenta }}{% endif %}
             </p>
         </div>
-        <div>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{% url 'inmobiliaria:reporte_movimientos_cuenta_bancaria' cuenta.id %}?{{ querystring_imprimir }}"
+               class="btn btn-outline-primary" target="_blank" rel="noopener" title="Abrir versión imprimible del período">
+                <i class="fas fa-print"></i> Imprimir
+            </a>
             <a href="{% url 'inmobiliaria:gestionar_cuentas_bancarias' %}" class="btn btn-outline-secondary">
                 <i class="fas fa-arrow-left"></i> Volver a cuentas
             </a>
@@ -122,7 +126,7 @@
                             <th>Detalle de la operación</th>
                             <th class="text-end">Ingresos</th>
                             <th class="text-end">Egresos</th>
-                            <th class="text-end">Total mov.</th>
+                            <th class="text-end">Saldo acum.</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -197,13 +201,25 @@
                                 {% if m.tipo == 'IN' %}${{ m.monto_deposito|format_price }}{% else %}—{% endif %}
                             </td>
                             <td class="text-end text-danger fw-semibold">
-                                {% if m.tipo == 'EG' %}${{ m.monto_deposito|format_price }}{% else %}—{% endif %}
+                                {% if m.tipo == 'EG' %}-${{ m.monto_deposito|format_price }}{% else %}—{% endif %}
                             </td>
-                            <td class="text-end text-muted small">${{ m.monto_total|format_price }}</td>
+                            <td class="text-end fw-semibold {% if m.saldo_acumulado >= 0 %}text-primary{% else %}text-warning{% endif %}">
+                                ${{ m.saldo_acumulado|format_price }}
+                            </td>
                         </tr>
                         {% endwith %}
                         {% endfor %}
                     </tbody>
+                    <tfoot class="table-light">
+                        <tr>
+                            <th colspan="4" class="text-end">Totales del período</th>
+                            <th class="text-end text-success">${{ total_ingresos|format_price }}</th>
+                            <th class="text-end text-danger">-${{ total_egresos|format_price }}</th>
+                            <th class="text-end {% if saldo_transferencias >= 0 %}text-success{% else %}text-warning{% endif %}">
+                                ${{ saldo_transferencias|format_price }}
+                            </th>
+                        </tr>
+                    </tfoot>
                 </table>
             </div>
             {% if movimientos.has_other_pages %}
