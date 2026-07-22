@@ -134,6 +134,13 @@ class CuentaBancaria(models.Model):
         help_text="Tipo de cuenta"
     )
     activa = models.BooleanField(default=True, help_text="Si la cuenta está activa para usar")
+    saldo_inicial = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal('0'),
+        verbose_name='Saldo inicial',
+        help_text='Saldo de partida para reportes: el acumulado arranca desde este monto.',
+    )
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     
     class Meta:

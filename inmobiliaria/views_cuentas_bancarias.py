@@ -9,10 +9,20 @@ from django.db.models import F, Sum
 from django.db.models.functions import Coalesce, TruncDate
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 
+from inmobiliaria.decimal_utils import parse_decimal_monto
 from inmobiliaria.models.caja import MovimientoCaja, TipoMovimientoCajaEnum
 from inmobiliaria.models.sucursal import CuentaBancaria
+
+
+def _parse_saldo_inicial_post(request) -> Decimal:
+    raw = (request.POST.get('saldo_inicial') or '0').strip()
+    try:
+        return parse_decimal_monto(raw).quantize(Decimal('0.01'))
+    except Exception:
+        return Decimal('0')
 
 
 def _etiqueta_inquilino_movimiento(m: MovimientoCaja) -> str:
@@ -201,7 +211,8 @@ def crear_cuenta_bancaria(request):
                 alias=alias,
                 numero_cuenta=numero_cuenta,
                 tipo_cuenta=request.POST.get('tipo_cuenta', 'banco'),
-                activa=request.POST.get('activa') == 'on'
+                activa=request.POST.get('activa') == 'on',
+                saldo_inicial=_parse_saldo_inicial_post(request),
             )
             
             messages.success(request, f'Cuenta bancaria "{cuenta.nombre_banco}" creada exitosamente.')
@@ -242,6 +253,7 @@ def editar_cuenta_bancaria(request, cuenta_id):
             cuenta.numero_cuenta = numero_cuenta
             cuenta.tipo_cuenta = request.POST.get('tipo_cuenta', 'banco')
             cuenta.activa = request.POST.get('activa') == 'on'
+            cuenta.saldo_inicial = _parse_saldo_inicial_post(request)
             cuenta.save()
             
             messages.success(request, f'Cuenta bancaria "{cuenta.nombre_banco}" actualizada exitosamente.')
@@ -303,12 +315,23 @@ def reporte_movimientos_cuenta_bancaria(request, cuenta_id):
     """
     Listado tipo reporte: ingresos y egresos con transferencia/deposito a esta cuenta bancaria
     (destino_deposito = cuenta_<id>, monto_deposito > 0), filtrable por rango de fechas.
+    El saldo acumulado parte del saldo_inicial de la cuenta (+ movimientos previos al filtro).
     """
     cuenta = get_object_or_404(CuentaBancaria, id=cuenta_id, sucursal=request.user.sucursal)
     destino = f'cuenta_{cuenta.id}'
+
+    # Guardar saldo inicial desde el reporte y volver al mismo filtro.
+    if request.method == 'POST' and request.POST.get('accion') == 'guardar_saldo_inicial':
+        cuenta.saldo_inicial = _parse_saldo_inicial_post(request)
+        cuenta.save(update_fields=['saldo_inicial'])
+        messages.success(request, 'Saldo inicial actualizado.')
+        qs = (request.POST.get('querystring') or request.GET.urlencode() or '').strip()
+        base = reverse('inmobiliaria:reporte_movimientos_cuenta_bancaria', args=[cuenta.id])
+        return redirect(f'{base}?{qs}' if qs else base)
+
     modo_imprimir = request.GET.get('imprimir') == '1'
 
-    movimientos_qs = (
+    base_qs = (
         MovimientoCaja.objects.filter(
             sucursal=request.user.sucursal,
             destino_deposito=destino,
@@ -316,7 +339,6 @@ def reporte_movimientos_cuenta_bancaria(request, cuenta_id):
         )
         .select_related('caja', 'empleado', 'propiedad')
         .annotate(fecha_banco=Coalesce(F('fecha_transferencia'), TruncDate('fecha')))
-        .order_by('-fecha_banco', '-fecha', '-id')
     )
 
     today = timezone.localdate().isoformat()
@@ -333,6 +355,7 @@ def reporte_movimientos_cuenta_bancaria(request, cuenta_id):
         fecha_desde = raw_desde
         fecha_hasta = raw_hasta
 
+    movimientos_qs = base_qs.order_by('-fecha_banco', '-fecha', '-id')
     if not periodo_completo:
         if fecha_desde:
             movimientos_qs = movimientos_qs.filter(fecha_banco__gte=fecha_desde)
@@ -351,13 +374,29 @@ def reporte_movimientos_cuenta_bancaria(request, cuenta_id):
         )['t']
         or Decimal('0')
     )
-    saldo_transferencias = total_ingresos - total_egresos
+    saldo_periodo = total_ingresos - total_egresos
+
+    # Base del acumulado: saldo inicial + neto de movimientos anteriores al "desde".
+    saldo_base = Decimal(str(cuenta.saldo_inicial or 0)).quantize(Decimal('0.01'))
+    if not periodo_completo and fecha_desde:
+        previos = base_qs.filter(fecha_banco__lt=fecha_desde)
+        prev_in = (
+            previos.filter(tipo=TipoMovimientoCajaEnum.INGRESO).aggregate(
+                t=Sum('monto_deposito')
+            )['t']
+            or Decimal('0')
+        )
+        prev_eg = (
+            previos.filter(tipo=TipoMovimientoCajaEnum.EGRESO).aggregate(
+                t=Sum('monto_deposito')
+            )['t']
+            or Decimal('0')
+        )
+        saldo_base = (saldo_base + prev_in - prev_eg).quantize(Decimal('0.01'))
 
     # Saldo acumulado cronológico (más antiguo → más nuevo) sobre el período filtrado.
-    cronologicos = list(
-        movimientos_qs.order_by('fecha_banco', 'fecha', 'id')
-    )
-    saldo_run = Decimal('0')
+    cronologicos = list(movimientos_qs.order_by('fecha_banco', 'fecha', 'id'))
+    saldo_run = saldo_base
     saldos_por_id = {}
     for mov in cronologicos:
         monto = Decimal(str(mov.monto_deposito or 0))
@@ -366,6 +405,8 @@ def reporte_movimientos_cuenta_bancaria(request, cuenta_id):
         else:
             saldo_run -= monto
         saldos_por_id[mov.id] = saldo_run.quantize(Decimal('0.01'))
+
+    saldo_final = (saldo_base + saldo_periodo).quantize(Decimal('0.01'))
 
     query_params = request.GET.copy()
     query_params.pop('page', None)
@@ -384,11 +425,18 @@ def reporte_movimientos_cuenta_bancaria(request, cuenta_id):
     query_imprimir = query_params.copy()
     query_imprimir['imprimir'] = '1'
 
+    context_extra = {
+        'saldo_inicial_cuenta': Decimal(str(cuenta.saldo_inicial or 0)).quantize(Decimal('0.01')),
+        'saldo_base_periodo': saldo_base,
+        'saldo_periodo': saldo_periodo,
+        'saldo_final': saldo_final,
+        'saldo_transferencias': saldo_final,
+    }
+
     if modo_imprimir:
-        # Impresión: todos los del período, orden cronológico.
         for mov in cronologicos:
             mov.reporte_bc_extra = _reporte_cuenta_bancaria_movimiento_extras(mov)
-            mov.saldo_acumulado = saldos_por_id.get(mov.id, Decimal('0'))
+            mov.saldo_acumulado = saldos_por_id.get(mov.id, saldo_base)
         return render(
             request,
             'inmobiliaria/caja/reporte_cuenta_bancaria_imprimir.html',
@@ -398,12 +446,12 @@ def reporte_movimientos_cuenta_bancaria(request, cuenta_id):
                 'movimientos': cronologicos,
                 'total_ingresos': total_ingresos,
                 'total_egresos': total_egresos,
-                'saldo_transferencias': saldo_transferencias,
                 'cantidad_movimientos': len(cronologicos),
                 'fecha_desde': fecha_desde if not periodo_completo else '',
                 'fecha_hasta': fecha_hasta if not periodo_completo else '',
                 'periodo_completo': periodo_completo,
                 'querystring': query_params.urlencode(),
+                **context_extra,
             },
         )
 
@@ -411,7 +459,7 @@ def reporte_movimientos_cuenta_bancaria(request, cuenta_id):
     page = paginator.get_page(request.GET.get('page'))
     for mov in page.object_list:
         mov.reporte_bc_extra = _reporte_cuenta_bancaria_movimiento_extras(mov)
-        mov.saldo_acumulado = saldos_por_id.get(mov.id, Decimal('0'))
+        mov.saldo_acumulado = saldos_por_id.get(mov.id, saldo_base)
 
     return render(
         request,
@@ -422,12 +470,12 @@ def reporte_movimientos_cuenta_bancaria(request, cuenta_id):
             'movimientos': page,
             'total_ingresos': total_ingresos,
             'total_egresos': total_egresos,
-            'saldo_transferencias': saldo_transferencias,
             'cantidad_movimientos': movimientos_qs.count(),
             'fecha_desde': fecha_desde if not periodo_completo else '',
             'fecha_hasta': fecha_hasta if not periodo_completo else '',
             'querystring': query_params.urlencode(),
             'querystring_imprimir': query_imprimir.urlencode(),
             'periodo_completo': periodo_completo,
+            **context_extra,
         },
     )

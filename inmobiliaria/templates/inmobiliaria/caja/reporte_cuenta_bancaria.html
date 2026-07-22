@@ -80,8 +80,48 @@
         </div>
     </div>
 
+    <div class="card shadow-sm mb-4">
+        <div class="card-body py-3">
+            <form method="post" class="row g-2 align-items-end">
+                {% csrf_token %}
+                <input type="hidden" name="accion" value="guardar_saldo_inicial">
+                <input type="hidden" name="querystring" value="{{ querystring }}">
+                <div class="col-md-4 col-lg-3">
+                    <label class="form-label mb-1" for="saldo_inicial">
+                        <i class="fas fa-balance-scale me-1"></i>Saldo inicial de la cuenta
+                    </label>
+                    <input type="text" class="form-control" id="saldo_inicial" name="saldo_inicial"
+                           value="{{ saldo_inicial_cuenta }}" inputmode="decimal" autocomplete="off">
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-outline-primary">
+                        <i class="fas fa-save"></i> Guardar
+                    </button>
+                </div>
+                <div class="col-md-6">
+                    <p class="small text-muted mb-0">
+                        El <strong>saldo acum.</strong> arranca desde este monto
+                        {% if not periodo_completo and fecha_desde %}
+                        (más los movimientos anteriores a la fecha “Desde”)
+                        {% endif %}
+                        y luego suma ingresos / resta egresos del período.
+                    </p>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="row g-3 mb-4">
-        <div class="col-md-4">
+        <div class="col-md-3">
+            <div class="card border-secondary h-100">
+                <div class="card-body">
+                    <div class="text-secondary small text-uppercase fw-semibold">Saldo al inicio del período</div>
+                    <div class="h4 mb-0">${{ saldo_base_periodo|format_price }}</div>
+                    <div class="small text-muted">Inicial{% if not periodo_completo and fecha_desde %} + previos{% endif %}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
             <div class="card border-success h-100">
                 <div class="card-body">
                     <div class="text-success small text-uppercase fw-semibold">Ingresos (transferencia)</div>
@@ -89,7 +129,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
             <div class="card border-danger h-100">
                 <div class="card-body">
                     <div class="text-danger small text-uppercase fw-semibold">Egresos (transferencia)</div>
@@ -97,14 +137,14 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
             <div class="card border-primary h-100">
                 <div class="card-body">
-                    <div class="text-primary small text-uppercase fw-semibold">Saldo (ingresos − egresos)</div>
-                    <div class="h4 mb-0 {% if saldo_transferencias >= 0 %}text-success{% else %}text-warning{% endif %}">
-                        ${{ saldo_transferencias|format_price }}
+                    <div class="text-primary small text-uppercase fw-semibold">Saldo final</div>
+                    <div class="h4 mb-0 {% if saldo_final >= 0 %}text-success{% else %}text-warning{% endif %}">
+                        ${{ saldo_final|format_price }}
                     </div>
-                    <div class="small text-muted">{{ cantidad_movimientos }} movimiento(s) en el período</div>
+                    <div class="small text-muted">{{ cantidad_movimientos }} movimiento(s) · neto período ${{ saldo_periodo|format_price }}</div>
                 </div>
             </div>
         </div>
