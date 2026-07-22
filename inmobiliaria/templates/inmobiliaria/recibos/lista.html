@@ -20,7 +20,7 @@
         </li>
         <li class="nav-item">
             <a class="nav-link {% if modo == 'numero' %}active{% endif %}"
-               href="?modo=numero">Recibos por número</a>
+               href="?modo=numero&fecha_desde={{ fecha_desde|urlencode }}&fecha_hasta={{ fecha_hasta|urlencode }}">Recibos por número</a>
         </li>
         <li class="nav-item">
             <a class="nav-link {% if modo == 'propiedad' %}active{% endif %}"
@@ -28,7 +28,7 @@
         </li>
         <li class="nav-item">
             <a class="nav-link {% if modo == 'movimiento' %}active{% endif %}"
-               href="?modo=movimiento">Recibos por movimiento</a>
+               href="?modo=movimiento&fecha_desde={{ fecha_desde|urlencode }}&fecha_hasta={{ fecha_hasta|urlencode }}">Recibos por movimiento</a>
         </li>
     </ul>
 
@@ -36,7 +36,7 @@
         <div class="card-body py-3">
             <form method="get" class="row g-2 align-items-end">
                 <input type="hidden" name="modo" value="{{ modo }}">
-                {% if modo == 'fecha' %}
+                {% if modo == 'fecha' or modo == 'numero' or modo == 'movimiento' %}
                 <div class="col-md-3">
                     <label class="form-label small mb-0">Desde</label>
                     <input type="date" name="fecha_desde" class="form-control form-control-sm" value="{{ fecha_desde }}">
@@ -50,23 +50,11 @@
                     <input type="text" name="q" class="form-control form-control-sm"
                            placeholder="Número, cliente o dirección…" value="{{ q }}">
                 </div>
-                {% elif modo == 'numero' %}
-                <div class="col-md-6">
-                    <label class="form-label small mb-0">Número de recibo</label>
-                    <input type="text" name="q" class="form-control form-control-sm"
-                           placeholder="Ej: 001-32 o 007-15" value="{{ q }}" autofocus>
-                </div>
                 {% elif modo == 'propiedad' %}
                 <div class="col-md-6">
                     <label class="form-label small mb-0">Propiedad</label>
                     <input type="text" name="q" class="form-control form-control-sm"
                            placeholder="Dirección, título o ID de ficha…" value="{{ q }}" autofocus>
-                </div>
-                {% else %}
-                <div class="col-md-6">
-                    <label class="form-label small mb-0">N° movimiento de caja</label>
-                    <input type="text" name="q" class="form-control form-control-sm"
-                           placeholder="Ej: 13491" value="{{ q }}" inputmode="numeric" autofocus>
                 </div>
                 {% endif %}
                 <div class="col-md-2">
@@ -74,9 +62,13 @@
                 </div>
             </form>
             {% if modo == 'fecha' %}
-            <p class="small text-muted mb-0 mt-2">Se listan <strong>todos</strong> los ingresos con número de recibo del período (no solo el primero de cada operación).</p>
-            {% elif modo != 'fecha' and not q %}
-            <p class="small text-muted mb-0 mt-2">Ingresá un criterio y tocá Buscar.</p>
+            <p class="small text-muted mb-0 mt-2">Ordenados por <strong>fecha</strong> (más recientes primero).</p>
+            {% elif modo == 'numero' %}
+            <p class="small text-muted mb-0 mt-2">Ordenados por <strong>número de recibo</strong> (del más grande al más chico).</p>
+            {% elif modo == 'movimiento' %}
+            <p class="small text-muted mb-0 mt-2">Ordenados por <strong>n° de movimiento</strong> (del más grande al más chico).</p>
+            {% elif modo == 'propiedad' and not q %}
+            <p class="small text-muted mb-0 mt-2">Ingresá una propiedad y tocá Buscar.</p>
             {% endif %}
         </div>
     </div>
@@ -128,7 +120,7 @@
                     {% empty %}
                     <tr>
                         <td colspan="8" class="text-center text-muted py-4">
-                            {% if modo == 'fecha' %}No hay recibos en ese período.
+                            {% if modo == 'fecha' or modo == 'numero' or modo == 'movimiento' %}No hay recibos en ese período.
                             {% else %}Sin resultados. Probá otro criterio.
                             {% endif %}
                         </td>

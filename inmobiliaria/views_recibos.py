@@ -122,7 +122,8 @@ def lista_recibos(request):
     raw_hasta = (request.GET.get('fecha_hasta') or '').strip()
 
     today = timezone.localdate()
-    if modo == 'fecha' and not raw_desde and not raw_hasta and not q:
+    modos_con_periodo = ('fecha', 'numero', 'movimiento')
+    if modo in modos_con_periodo and not raw_desde and not raw_hasta and not q:
         raw_desde = today.replace(day=1).isoformat()
         raw_hasta = today.isoformat()
 
@@ -140,26 +141,30 @@ def lista_recibos(request):
         )
         .exclude(Q(numero_liquidacion='') | Q(numero_liquidacion__isnull=True))
         .select_related('propiedad', 'propiedad__propietario', 'empleado')
-        .order_by('-fecha', '-id')
     )
 
-    if modo == 'fecha':
+    def _aplicar_filtros_periodo(queryset):
         if fecha_desde:
-            qs = qs.filter(fecha__date__gte=fecha_desde)
+            queryset = queryset.filter(fecha__date__gte=fecha_desde)
         if fecha_hasta:
-            qs = qs.filter(fecha__date__lte=fecha_hasta)
+            queryset = queryset.filter(fecha__date__lte=fecha_hasta)
         if q:
-            qs = qs.filter(
+            queryset = queryset.filter(
                 Q(numero_liquidacion__icontains=q)
                 | Q(concepto__icontains=q)
                 | Q(propiedad__direccion__icontains=q)
                 | Q(propiedad__titulo__icontains=q)
             )
-    elif modo == 'numero':
-        if q:
-            qs = qs.filter(numero_liquidacion__icontains=q)
+        return queryset
+
+    if modo in modos_con_periodo:
+        qs = _aplicar_filtros_periodo(qs)
+        if modo == 'numero':
+            qs = qs.order_by('-numero_liquidacion', '-id')
+        elif modo == 'movimiento':
+            qs = qs.order_by('-id')
         else:
-            qs = qs.none()
+            qs = qs.order_by('-fecha', '-id')
     elif modo == 'propiedad':
         if q:
             q_prop = (
@@ -169,14 +174,11 @@ def lista_recibos(request):
             )
             if q.isdigit():
                 q_prop |= Q(propiedad_id=int(q))
-            qs = qs.filter(q_prop)
+            qs = qs.filter(q_prop).order_by('-fecha', '-id')
         else:
             qs = qs.none()
-    elif modo == 'movimiento':
-        if q.isdigit():
-            qs = qs.filter(id=int(q))
-        else:
-            qs = qs.none()
+    else:
+        qs = qs.order_by('-fecha', '-id')
 
     paginator = Paginator(qs, 50)
     page_num = request.GET.get('page', 1)
