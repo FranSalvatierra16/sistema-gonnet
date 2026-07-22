@@ -25910,7 +25910,8 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
             if reserva.liq_monto_propietario is not None:
                 context['monto_propietario_inicial'] = format_monto_argentino(reserva.liq_monto_propietario)
             if reserva.liq_monto_inmobiliaria is not None:
-                context['monto_inmobiliaria_inicial'] = format_monto_argentino(reserva.liq_monto_inmobiliaria)    elif contrato:
+                context['monto_inmobiliaria_inicial'] = format_monto_argentino(reserva.liq_monto_inmobiliaria)
+    elif contrato:
         context['propiedad'] = contrato.propiedad
         context['fecha_desde'] = contrato.fecha_inicio
         context['fecha_hasta'] = contrato.fecha_fin
