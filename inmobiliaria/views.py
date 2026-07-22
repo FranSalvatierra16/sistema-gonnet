@@ -25614,6 +25614,10 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                 primera_con_monto['creada_en_esta_liquidacion'] = True
                 monto_propietario = monto_esta
 
+                from inmobiliaria.liquidacion_operacion import encadenar_fechas_partes_division
+
+                encadenar_fechas_partes_division(partes)
+
                 operaciones_incluidas.append({
                     'tipo': 'division',
                     'monto_propietario_total': str(
@@ -25883,11 +25887,15 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
     if reserva:
         context['propiedad'] = reserva.propiedad
         context['monto_total'] = reserva.precio_total
-        context['fecha_desde'] = reserva.fecha_inicio
-        context['fecha_hasta'] = reserva.fecha_fin
         from inmobiliaria.decimal_utils import format_monto_argentino
-        from inmobiliaria.liquidacion_operacion import saldo_liquidacion_reserva
+        from inmobiliaria.liquidacion_operacion import (
+            fechas_periodo_pendiente_reserva,
+            saldo_liquidacion_reserva,
+        )
 
+        fd_pend, fh_pend = fechas_periodo_pendiente_reserva(reserva)
+        context['fecha_desde'] = fd_pend or reserva.fecha_inicio
+        context['fecha_hasta'] = fh_pend or reserva.fecha_fin
         context['monto_cochera_inicial'] = format_monto_argentino(reserva.liq_monto_cochera or 0)
         context['monto_fondo_inicial'] = format_monto_argentino(reserva.liq_monto_fondo or 0)
         saldo_liq = saldo_liquidacion_reserva(reserva)
@@ -25902,8 +25910,7 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
             if reserva.liq_monto_propietario is not None:
                 context['monto_propietario_inicial'] = format_monto_argentino(reserva.liq_monto_propietario)
             if reserva.liq_monto_inmobiliaria is not None:
-                context['monto_inmobiliaria_inicial'] = format_monto_argentino(reserva.liq_monto_inmobiliaria)
-    elif contrato:
+                context['monto_inmobiliaria_inicial'] = format_monto_argentino(reserva.liq_monto_inmobiliaria)    elif contrato:
         context['propiedad'] = contrato.propiedad
         context['fecha_desde'] = contrato.fecha_inicio
         context['fecha_hasta'] = contrato.fecha_fin
@@ -27828,7 +27835,13 @@ def detalle_liquidacion(request, liquidacion_id):
     division_meta = {}
     for op in (liquidacion.operaciones_incluidas or []):
         if isinstance(op, dict) and op.get('tipo') == 'division':
-            division_operaciones = op.get('operaciones') or []
+            from inmobiliaria.liquidacion_operacion import encadenar_fechas_partes_division
+
+            raw_partes = op.get('operaciones') or []
+            # Copia para mostrar fechas encadenadas (parte pendiente arranca donde terminó la anterior)
+            division_operaciones = encadenar_fechas_partes_division(
+                [dict(p) if isinstance(p, dict) else p for p in raw_partes]
+            )
             division_meta = {
                 'monto_propietario_total': op.get('monto_propietario_total'),
                 'parte_creada': op.get('parte_creada'),

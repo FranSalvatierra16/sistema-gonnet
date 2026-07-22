@@ -1881,6 +1881,19 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         const montoInp = wrap.querySelector('.div-parte-monto');
         montoInp.addEventListener('input', actualizarResumenDivision);
+        const hastaInp = wrap.querySelector('.div-parte-hasta');
+        if (hastaInp) {
+            hastaInp.addEventListener('change', function() {
+                const filas = Array.from(divisionPartesLista.querySelectorAll('.division-parte-fila'));
+                const idx = filas.indexOf(wrap);
+                if (idx < 0 || idx >= filas.length - 1) return;
+                const sig = filas[idx + 1];
+                const montoSig = parseNumeroEsAR((sig.querySelector('.div-parte-monto') || {}).value || '0');
+                if (montoSig > 0) return;
+                const desdeSig = sig.querySelector('.div-parte-desde');
+                if (desdeSig) desdeSig.value = hastaInp.value || desdeSig.value;
+            });
+        }
         renumerarPartesDivision();
         actualizarResumenDivision();
     }
@@ -1925,16 +1938,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (divisionPartesLista && !divisionPartesLista.querySelector('.division-parte-fila')) {
                     const fd = document.querySelector('input[name="fecha_desde"]');
                     const fh = document.querySelector('input[name="fecha_hasta"]');
+                    const desde = fd ? fd.value : '';
+                    const hasta = fh ? fh.value : '';
                     const prop = parseNumeroEsAR(montoPropietario.value);
-                    // Parte 1 = esta liquidación (monto completo por defecto); parte 2 vacía = pendiente.
+                    // Parte 1 = esta liquidación; parte 2 pendiente arranca en el "hasta" de la 1.
                     agregarParteDivision({
-                        desde: fd ? fd.value : '',
-                        hasta: fh ? fh.value : '',
+                        desde: desde,
+                        hasta: hasta,
                         monto: prop > 0 ? formatearNumero(prop.toFixed(2)) : ''
                     });
                     agregarParteDivision({
-                        desde: fd ? fd.value : '',
-                        hasta: fh ? fh.value : '',
+                        desde: hasta || desde,
+                        hasta: hasta,
                         monto: ''
                     });
                 }
@@ -1946,16 +1961,22 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         if (btnAgregarParteDivision) {
             btnAgregarParteDivision.addEventListener('click', function() {
+                const filas = divisionPartesLista
+                    ? Array.from(divisionPartesLista.querySelectorAll('.division-parte-fila'))
+                    : [];
+                const ultima = filas.length ? filas[filas.length - 1] : null;
+                const hastaUlt = ultima
+                    ? ((ultima.querySelector('.div-parte-hasta') || {}).value || '')
+                    : '';
                 const fd = document.querySelector('input[name="fecha_desde"]');
                 const fh = document.querySelector('input[name="fecha_hasta"]');
                 agregarParteDivision({
-                    desde: fd ? fd.value : '',
+                    desde: hastaUlt || (fd ? fd.value : ''),
                     hasta: fh ? fh.value : '',
                     monto: ''
                 });
             });
-        }
-        if (montoPropietario) {
+        }        if (montoPropietario) {
             montoPropietario.addEventListener('input', actualizarResumenDivision);
         }
     }

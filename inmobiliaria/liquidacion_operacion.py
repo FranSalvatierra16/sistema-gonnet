@@ -223,6 +223,93 @@ def saldo_liquidacion_reserva(reserva, liquidaciones=None) -> dict:
     }
 
 
+def _parse_fecha_parte_liq(valor):
+    if not valor:
+        return None
+    if hasattr(valor, 'year') and hasattr(valor, 'month') and hasattr(valor, 'day'):
+        return valor
+    try:
+        from datetime import datetime
+
+        return datetime.strptime(str(valor)[:10], '%Y-%m-%d').date()
+    except (TypeError, ValueError):
+        return None
+
+
+def _fecha_hasta_parte_creada_liquidacion(liq):
+    """Fecha hasta de la parte liquidada en esta liquidación (división o campos de la liq.)."""
+    for op in liq.operaciones_incluidas or []:
+        if not isinstance(op, dict) or (op.get('tipo') or '').lower() != 'division':
+            continue
+        partes = op.get('operaciones') or []
+        parte_n = op.get('parte_creada')
+        elegida = None
+        for p in partes:
+            if isinstance(p, dict) and p.get('creada_en_esta_liquidacion'):
+                elegida = p
+                break
+        if elegida is None and parte_n is not None:
+            try:
+                n = int(parte_n)
+            except (TypeError, ValueError):
+                n = None
+            if n is not None:
+                for p in partes:
+                    if isinstance(p, dict) and int(p.get('numero') or 0) == n:
+                        elegida = p
+                        break
+        if elegida:
+            return _parse_fecha_parte_liq(elegida.get('fecha_hasta'))
+    return getattr(liq, 'fecha_hasta', None)
+
+
+def fechas_periodo_pendiente_reserva(reserva):
+    """
+    Rango de fechas que queda por liquidar.
+    Si ya hubo partes, el "desde" es el "hasta" de la última parte liquidada
+    (ej. liquidó 18→25 → pendiente 25→fin).
+    """
+    inicio = getattr(reserva, 'fecha_inicio', None)
+    fin = getattr(reserva, 'fecha_fin', None)
+    saldo = saldo_liquidacion_reserva(reserva)
+    if not saldo['tiene_liquidaciones'] or saldo['completa']:
+        return inicio, fin
+
+    max_hasta = None
+    for liq in saldo['liquidaciones']:
+        fh = _fecha_hasta_parte_creada_liquidacion(liq)
+        if fh and (max_hasta is None or fh > max_hasta):
+            max_hasta = fh
+
+    desde = max_hasta if max_hasta else inicio
+    hasta = fin
+    if desde and hasta and desde > hasta:
+        desde = hasta
+    return desde, hasta
+
+
+def encadenar_fechas_partes_division(partes):
+    """
+    Las partes pendientes (monto 0) arrancan en el "hasta" de la parte anterior.
+    Mutates and returns the list of dicts.
+    """
+    if not partes:
+        return partes
+    for i in range(len(partes) - 1):
+        actual = partes[i]
+        siguiente = partes[i + 1]
+        if not isinstance(actual, dict) or not isinstance(siguiente, dict):
+            continue
+        try:
+            monto_sig = Decimal(str(siguiente.get('monto') or '0').replace(',', '.'))
+        except Exception:
+            monto_sig = Decimal('0')
+        pendiente = bool(siguiente.get('pendiente')) or monto_sig <= 0
+        if pendiente and actual.get('fecha_hasta'):
+            siguiente['fecha_desde'] = actual['fecha_hasta']
+    return partes
+
+
 def reserva_ids_completamente_liquidadas(propiedad) -> set:
     """
     IDs de reserva cuya parte al propietario ya está cubierta al 100%
