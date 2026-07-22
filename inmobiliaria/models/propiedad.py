@@ -328,10 +328,8 @@ class Propiedad(models.Model):
         
         # 2️⃣ Verificar si las disponibilidades cubren TODO el rango (permitiendo contiguas)
         periodo_cubierto = False
-        if disponibilidades_superpuestas.exists():
-            # Verificar si las disponibilidades contiguas cubren todo el rango
-            disponibilidades_list = list(disponibilidades_superpuestas)
-            
+        disponibilidades_list = list(disponibilidades_superpuestas)
+        if disponibilidades_list:
             # Ordenar por fecha de inicio
             disponibilidades_list.sort(key=lambda d: d.fecha_inicio)
             
@@ -355,6 +353,20 @@ class Propiedad(models.Model):
                 periodo_cubierto = True
 
         # 3️⃣ Verificar si hay reservas que se superpongan (sin alquiler sindicato)
+        # Si hay disponibilidad forzada que cubre el rango, se puede alquilar igual.
+        forzadas = [d for d in disponibilidades_list if getattr(d, 'forzar_disponible', False)]
+        if forzadas:
+            forzadas_ord = sorted(forzadas, key=lambda d: d.fecha_inicio)
+            cob_f_ini = forzadas_ord[0].fecha_inicio
+            cob_f_fin = forzadas_ord[0].fecha_fin
+            for disp in forzadas_ord[1:]:
+                if disp.fecha_inicio <= cob_f_fin:
+                    cob_f_fin = max(cob_f_fin, disp.fecha_fin)
+                else:
+                    break
+            if cob_f_ini <= fecha_inicio and cob_f_fin >= fecha_fin:
+                return True
+
         reservas_superpuestas = self.reservas_que_ocupan_disponibilidad().filter(
             fecha_inicio__lt=fecha_fin,
             fecha_fin__gt=fecha_inicio,
@@ -362,7 +374,7 @@ class Propiedad(models.Model):
 
         # La propiedad está disponible si:
         # 1. El período está cubierto por disponibilidades (contiguas o no)
-        # 2. Y no hay reservas que se superpongan
+        # 2. Y no hay reservas que se superpongan (salvo cobertura forzada arriba)
         return periodo_cubierto and not reservas_superpuestas
     
     def obtener_historial_cronologico(self):
@@ -920,6 +932,14 @@ class Disponibilidad(models.Model):
         default='ARS',
         verbose_name='Moneda'
     )
+    forzar_disponible = models.BooleanField(
+        default=False,
+        verbose_name='Forzar disponible',
+        help_text=(
+            'Disponibilidad superpuesta forzada: la propiedad aparece para alquiler por día '
+            'en estas fechas aunque ya haya otra disponibilidad o una reserva.'
+        ),
+    )
 
     def save(self, *args, **kwargs):
         from datetime import timedelta
@@ -962,6 +982,18 @@ class Disponibilidad(models.Model):
             actual = None
             
             for disp in disponibilidades:
+                if getattr(disp, 'forzar_disponible', False):
+                    # No fusionar disponibilidades forzadas (quedan como slot aparte).
+                    if actual:
+                        disponibilidades_fusionadas.append(actual)
+                        actual = None
+                    disponibilidades_fusionadas.append({
+                        'fecha_inicio': disp.fecha_inicio,
+                        'fecha_fin': disp.fecha_fin,
+                        'objetos': [disp],
+                        'forzar': True,
+                    })
+                    continue
                 if actual is None:
                     actual = {
                         'fecha_inicio': disp.fecha_inicio,

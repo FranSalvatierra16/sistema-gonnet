@@ -4736,20 +4736,34 @@ def confirmar_reserva(request):
                         'error': 'La propiedad no está disponible para las fechas seleccionadas.'
                     })
 
-                # Verificar que no haya reservas en el período
-                reservas_existentes = Reserva.objects.filter(
-                    propiedad=propiedad,
-                    fecha_inicio__lt=fecha_fin,
-                    fecha_fin__gt=fecha_inicio,
-                    estado__in=['confirmada', 'confirmada_no_pagada'],
-                    es_alquiler_sindicato=False,
+                # Verificar que no haya reservas en el período (salvo disponibilidad forzada)
+                from inmobiliaria.busqueda_propiedades_reserva import (
+                    periodo_cubierto_por_disponibilidad_forzada,
                 )
-
-                if reservas_existentes.exists():
-                    return JsonResponse({
-                        'success': False,
-                        'error': 'El período seleccionado ya tiene una reserva'
-                    })
+                disps_rango = list(
+                    Disponibilidad.objects.filter(
+                        propiedad=propiedad,
+                        fecha_inicio__lt=fecha_fin,
+                        fecha_fin__gt=fecha_inicio,
+                    )
+                )
+                forzada_cubre, _, _ = periodo_cubierto_por_disponibilidad_forzada(
+                    disps_rango, fecha_inicio, fecha_fin
+                )
+                if not forzada_cubre:
+                    reservas_existentes = Reserva.objects.filter(
+                        propiedad=propiedad,
+                        fecha_inicio__lt=fecha_fin,
+                        fecha_fin__gt=fecha_inicio,
+                        estado__in=['confirmada', 'confirmada_no_pagada', 'pagada'],
+                        eliminada=False,
+                        es_alquiler_sindicato=False,
+                    )
+                    if reservas_existentes.exists():
+                        return JsonResponse({
+                            'success': False,
+                            'error': 'El período seleccionado ya tiene una reserva'
+                        })
 
                 try:
                     precio_total_dec = parsear_monto_desde_ui(precio)
@@ -5438,6 +5452,7 @@ def crear_disponibilidad(request, propiedad_id):
         form = DisponibilidadForm(propiedad=propiedad, data=request.POST)
         if form.is_valid():
             try:
+                forzar = bool(form.cleaned_data.get('forzar_superposicion'))
                 # Crear una nueva instancia de Disponibilidad
                 nueva_disponibilidad = Disponibilidad(
                     propiedad=propiedad,
@@ -5446,32 +5461,37 @@ def crear_disponibilidad(request, propiedad_id):
                     es_manual=True,  # Marcada explícitamente como manual
                     asegurado=form.cleaned_data.get('asegurado', False),
                     monto_asegurado=form.cleaned_data.get('monto_asegurado'),
-                    moneda_asegurado=form.cleaned_data.get('moneda_asegurado')
+                    moneda_asegurado=form.cleaned_data.get('moneda_asegurado'),
+                    forzar_disponible=forzar,
                 )
                 
-                # ✅ MEJORADO: Verificar superposición REAL (permitir fechas contiguas)
-                todas_disponibilidades = Disponibilidad.objects.filter(
-                    propiedad=propiedad
-                )
-                
-                # Verificar VERDADERA superposición (excluir fechas contiguas)
+                # Verificar superposición REAL (permitir fechas contiguas), salvo forzar
                 solapamiento_real = False
-                for disp in todas_disponibilidades:
-                    # Superposición REAL: comparten MÁS de un día
-                    # Si solo se tocan en UN día (contiguas como 10-15 y 15-20), es válido
-                    if disp.fecha_fin > nueva_disponibilidad.fecha_inicio and disp.fecha_inicio < nueva_disponibilidad.fecha_fin:
-                        solapamiento_real = True
-                        break
+                if not forzar:
+                    todas_disponibilidades = Disponibilidad.objects.filter(
+                        propiedad=propiedad
+                    )
+                    for disp in todas_disponibilidades:
+                        if disp.fecha_fin > nueva_disponibilidad.fecha_inicio and disp.fecha_inicio < nueva_disponibilidad.fecha_fin:
+                            solapamiento_real = True
+                            break
                 
                 if solapamiento_real:
-                    messages.error(request, 'Ya existe una disponibilidad que se superpone con estas fechas')
+                    messages.error(
+                        request,
+                        'Ya existe una disponibilidad que se superpone con estas fechas. '
+                        'Marcá «Forzar disponibilidad superpuesta» para cargarla igual.',
+                    )
                 else:
                     nueva_disponibilidad.save()
-                    
-                    # ✅ Las disponibilidades manuales no crean historial automáticamente
-                    # El historial se gestiona por separado
-                    
-                    messages.success(request, 'Disponibilidad creada exitosamente')
+                    if forzar:
+                        messages.success(
+                            request,
+                            'Disponibilidad forzada creada: la propiedad saldrá para alquilar '
+                            'por día en esas fechas aunque haya otra disponibilidad o reserva.',
+                        )
+                    else:
+                        messages.success(request, 'Disponibilidad creada exitosamente')
                     return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
                     
             except Exception as e:
@@ -5479,13 +5499,20 @@ def crear_disponibilidad(request, propiedad_id):
     else:
         form = DisponibilidadForm(propiedad=propiedad)
     
-    # Obtener disponibilidades existentes
+    # Obtener disponibilidades existentes y reservas activas que solapan
     disponibilidades = Disponibilidad.objects.filter(propiedad=propiedad).order_by('fecha_inicio')
+    from inmobiliaria.models.propiedad import ESTADOS_RESERVA_OCUPAN_DISPONIBILIDAD
+    reservas_activas = propiedad.reservas.filter(
+        eliminada=False,
+        estado__in=ESTADOS_RESERVA_OCUPAN_DISPONIBILIDAD,
+        es_alquiler_sindicato=False,
+    ).order_by('fecha_inicio')[:30]
     
     return render(request, 'inmobiliaria/propiedades/crear_disponibilidad.html', {
         'form': form,
         'propiedad': propiedad,
-        'disponibilidades': disponibilidades
+        'disponibilidades': disponibilidades,
+        'reservas_activas': reservas_activas,
     })
 
 def reserva_exitosa(request, reserva_id):
@@ -16127,6 +16154,7 @@ def buscar_propiedades(request):
             contrato_solapa_rango,
             mapa_precios_propiedad,
             periodo_cubierto_por_disponibilidades,
+            periodo_cubierto_por_disponibilidad_forzada,
             reservas_solapan_rango,
         )
         from inmobiliaria.precio_temporada_reserva import rango_vacaciones_invierno_sucursal
@@ -16146,6 +16174,26 @@ def buscar_propiedades(request):
             reservas = reservas_solapan_rango(
                 reservas_por_prop.get(propiedad.id, []), fecha_inicio, fecha_fin
             )
+            disponibilidades_superpuestas = disp_por_prop.get(propiedad.id, [])
+
+            # Disponibilidad forzada: aparece para alquilar por día aunque haya reserva.
+            periodo_forzado, cob_f_ini, cob_f_fin = periodo_cubierto_por_disponibilidad_forzada(
+                disponibilidades_superpuestas, fecha_inicio, fecha_fin
+            )
+            if periodo_forzado:
+                propiedad.disponibilidad_inicio = cob_f_ini
+                propiedad.disponibilidad_fin = cob_f_fin
+                propiedad.estado_reserva = 'disponible'
+                propiedad.disponibilidad_forzada = True
+                precios_map = mapa_precios_propiedad(propiedad)
+                propiedad.precio_total_reserva = calcular_precio_total_reserva_fechas(
+                    fecha_inicio,
+                    fecha_fin,
+                    precios_map,
+                    vacaciones_invierno=rango_vacaciones_invierno_sucursal(propiedad.sucursal),
+                )
+                propiedades_disponibles.append(propiedad)
+                continue
 
             if any(r.estado == 'pagada' and not r.es_alquiler_sindicato for r in reservas):
                 continue
@@ -16174,7 +16222,6 @@ def buscar_propiedades(request):
             if contrato_solapa_rango(contratos_por_prop.get(propiedad.id, []), fecha_inicio, fecha_fin):
                 continue
 
-            disponibilidades_superpuestas = disp_por_prop.get(propiedad.id, [])
             periodo_cubierto, cobertura_inicio, cobertura_fin = periodo_cubierto_por_disponibilidades(
                 disponibilidades_superpuestas, fecha_inicio, fecha_fin
             )
@@ -21924,11 +21971,13 @@ def editar_disponibilidad(request, disponibilidad_id):
 
 def _disponibilidades_superpuestas(disponibilidades):
     """Devuelve (lista de ids a eliminar, lista de textos para mostrar).
-    Eliminamos las que están totalmente contenidas en otra."""
+    Eliminamos las que están totalmente contenidas en otra (no toca forzadas)."""
     lista = list(disponibilidades.order_by('fecha_inicio', 'fecha_fin'))
     ids_a_eliminar = []
     textos = []
     for i, d in enumerate(lista):
+        if getattr(d, 'forzar_disponible', False):
+            continue
         for j, otra in enumerate(lista):
             if i == j:
                 continue

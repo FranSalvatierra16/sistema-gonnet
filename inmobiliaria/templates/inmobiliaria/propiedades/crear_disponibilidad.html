@@ -18,18 +18,20 @@
     </div>
     {% endif %}
 
-    <!-- Mostrar disponibilidades existentes -->
-    {% if propiedad.disponibilidad_set.exists %}
+    {% if disponibilidades %}
     <div class="card mb-4">
-        <div class="card-header">
-            Disponibilidades Existentes
-        </div>
+        <div class="card-header">Disponibilidades existentes</div>
         <div class="card-body">
             <ul class="list-group">
-                {% for disponibilidad in propiedad.disponibilidad_set.all %}
-                <li class="list-group-item">
-                    Del {{ disponibilidad.fecha_inicio|date:"d/m/Y" }} 
-                    al {{ disponibilidad.fecha_fin|date:"d/m/Y" }}
+                {% for disponibilidad in disponibilidades %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <span>
+                        Del {{ disponibilidad.fecha_inicio|date:"d/m/Y" }}
+                        al {{ disponibilidad.fecha_fin|date:"d/m/Y" }}
+                    </span>
+                    {% if disponibilidad.forzar_disponible %}
+                    <span class="badge bg-warning text-dark">Forzada</span>
+                    {% endif %}
                 </li>
                 {% endfor %}
             </ul>
@@ -37,19 +39,47 @@
     </div>
     {% endif %}
 
-    <!-- Formulario -->
+    {% if reservas_activas %}
+    <div class="card mb-4 border-warning">
+        <div class="card-header bg-warning">Reservas activas (ocupan fechas)</div>
+        <div class="card-body">
+            <ul class="list-group mb-0">
+                {% for r in reservas_activas %}
+                <li class="list-group-item">
+                    #{{ r.id }} — {{ r.get_estado_display }} —
+                    {{ r.fecha_inicio|date:"d/m/Y" }} → {{ r.fecha_fin|date:"d/m/Y" }}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    {% endif %}
+
     <div class="card">
         <div class="card-body">
-            <form method="post">
+            <form method="post" id="form-crear-disponibilidad">
                 {% csrf_token %}
-                {% bootstrap_form form %}
+                {% bootstrap_form form exclude="forzar_superposicion" %}
                 <p class="text-muted small mb-3">
                     Podés elegir cualquier fecha (también meses anteriores) para cargar operaciones por día atrasadas.
                 </p>
 
-                <div class="form-group">
-                    <button type="submit" class="btn btn-primary">Guardar</button>
-                    <a href="{% url 'inmobiliaria:propiedad_detalle' propiedad.id %}" 
+                <div class="alert alert-warning border-warning">
+                    <div class="form-check form-switch mb-2">
+                        {{ form.forzar_superposicion }}
+                        <label class="form-check-label fw-semibold" for="id_forzar_superposicion">
+                            {{ form.forzar_superposicion.label }}
+                        </label>
+                    </div>
+                    <p class="small mb-2">{{ form.forzar_superposicion.help_text }}</p>
+                    <button type="submit" name="accion" value="forzar" class="btn btn-warning" id="btn-forzar-disponibilidad">
+                        <i class="fas fa-layer-group me-1"></i>Guardar disponibilidad superpuesta
+                    </button>
+                </div>
+
+                <div class="form-group d-flex gap-2 flex-wrap">
+                    <button type="submit" class="btn btn-primary" id="btn-guardar-normal">Guardar</button>
+                    <a href="{% url 'inmobiliaria:propiedad_detalle' propiedad.id %}"
                        class="btn btn-secondary">Cancelar</a>
                 </div>
             </form>
@@ -59,14 +89,20 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Sin fecha mínima: se pueden cargar disponibilidades de meses anteriores
-    // (operaciones por día históricas / atrasadas).
+    var form = document.getElementById('form-crear-disponibilidad');
+    var chkForzar = document.getElementById('id_forzar_superposicion');
+    var btnForzar = document.getElementById('btn-forzar-disponibilidad');
 
-    // Validar que fecha fin sea posterior o igual a fecha inicio
-    document.querySelector('form').addEventListener('submit', function(e) {
+    if (btnForzar && chkForzar) {
+        btnForzar.addEventListener('click', function() {
+            chkForzar.checked = true;
+        });
+    }
+
+    form.addEventListener('submit', function(e) {
         var fechaInicio = document.querySelector('input[name="fecha_inicio"]').value;
         var fechaFin = document.querySelector('input[name="fecha_fin"]').value;
-        
+
         if (fechaFin && fechaInicio && fechaFin < fechaInicio) {
             e.preventDefault();
             alert('La fecha de fin debe ser posterior a la fecha de inicio');

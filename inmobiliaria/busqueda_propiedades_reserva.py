@@ -71,6 +71,12 @@ def periodo_cubierto_por_disponibilidades(disponibilidades_list, fecha_inicio, f
     return cubierto, cobertura_inicio, cobertura_fin
 
 
+def periodo_cubierto_por_disponibilidad_forzada(disponibilidades_list, fecha_inicio, fecha_fin):
+    """True si hay disponibilidades con forzar_disponible que cubren el rango."""
+    forzadas = [d for d in (disponibilidades_list or []) if getattr(d, 'forzar_disponible', False)]
+    return periodo_cubierto_por_disponibilidades(forzadas, fecha_inicio, fecha_fin)
+
+
 def cargar_contexto_bulk_busqueda(propiedad_ids, fecha_inicio, fecha_fin):
     """Precarga disponibilidades, reservas, contratos y recibos para un lote de propiedades."""
     from inmobiliaria.models import ContratoAlquiler, Disponibilidad, Recibo, Reserva
