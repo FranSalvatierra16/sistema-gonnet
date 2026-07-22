@@ -1401,10 +1401,26 @@ def _guardar_caratula_reserva(request, reserva):
 
     try:
         if 'liq_monto_propietario' in request.POST:
-            reserva.liq_monto_propietario = _parse_liq_monto_opcional('liq_monto_propietario')
-            reserva.liq_monto_inmobiliaria = _parse_liq_monto_opcional('liq_monto_inmobiliaria')
-            reserva.liq_monto_cochera = _parse_liq_monto_opcional('liq_monto_cochera') or Decimal('0')
-            reserva.liq_monto_fondo = _parse_liq_monto_opcional('liq_monto_fondo') or Decimal('0')
+            prop_liq = _parse_liq_monto_opcional('liq_monto_propietario')
+            inm_liq = _parse_liq_monto_opcional('liq_monto_inmobiliaria')
+            coch_liq = _parse_liq_monto_opcional('liq_monto_cochera') or Decimal('0')
+            fondo_liq = _parse_liq_monto_opcional('liq_monto_fondo') or Decimal('0')
+            suma_liq = (
+                (prop_liq or Decimal('0'))
+                + (inm_liq or Decimal('0'))
+                + coch_liq
+                + fondo_liq
+            ).quantize(Decimal('0.01'))
+            total_op = precio_total.quantize(Decimal('0.01'))
+            if abs(suma_liq - total_op) > Decimal('0.05'):
+                raise ValueError(
+                    f'La suma de propietario + inmobiliaria + cochera + fondo '
+                    f'(${suma_liq}) debe ser igual al total de la operación (${total_op}).'
+                )
+            reserva.liq_monto_propietario = prop_liq
+            reserva.liq_monto_inmobiliaria = inm_liq
+            reserva.liq_monto_cochera = coch_liq
+            reserva.liq_monto_fondo = fondo_liq
     except ValueError as exc:
         messages.error(request, str(exc))
         return False

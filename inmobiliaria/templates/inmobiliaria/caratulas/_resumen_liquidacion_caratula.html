@@ -50,9 +50,12 @@
                 {% if puede_editar_liquidacion_resumen %}
                 <p class="small text-muted mb-2">
                     <i class="fas fa-pen me-1"></i>Podés ajustar los montos antes de liquidar. Se guardan con <strong>Guardar cambios</strong> o <strong>Guardar montos</strong> y se precargan al crear la liquidación.
+                    La suma de los cuatro importes debe ser igual al <strong>total de la operación</strong>.
                 </p>
+                <div id="liq-resumen-suma-alerta" class="alert alert-warning py-2 small mb-2 d-none" role="alert"></div>
                 {% endif %}
-                <div class="table-responsive mb-3">
+                <div class="table-responsive mb-3" id="liq-resumen-montos"
+                     data-monto-total="{{ resumen_liquidacion.monto_total }}">
                     <table class="table table-sm table-bordered mb-0 small text-center">
                         <thead class="table-light">
                             <tr>
@@ -208,6 +211,41 @@
         var pref = '{% if resumen_liquidacion.moneda == "USD" %}U$S {% else %}$ {% endif %}';
         return pref + fmtMonto(n);
     }
+    function montoTotalOperacion() {
+        var box = document.getElementById('liq-resumen-montos');
+        var raw = box ? box.getAttribute('data-monto-total') : '';
+        var n = parseMontoAr(raw);
+        if (n > 0) return n;
+        var precio = document.querySelector('[name="precio_total"]');
+        return parseMontoAr(precio ? precio.value : 0);
+    }
+    function sumaPartesLiq() {
+        return parseMontoAr((document.querySelector('[name="liq_monto_propietario"]') || {}).value)
+            + parseMontoAr((document.querySelector('[name="liq_monto_inmobiliaria"]') || {}).value)
+            + parseMontoAr((document.querySelector('[name="liq_monto_cochera"]') || {}).value)
+            + parseMontoAr((document.querySelector('[name="liq_monto_fondo"]') || {}).value);
+    }
+    function montosCierran() {
+        return Math.abs(sumaPartesLiq() - montoTotalOperacion()) <= 0.05;
+    }
+    function actualizarAlertaSuma() {
+        var alerta = document.getElementById('liq-resumen-suma-alerta');
+        if (!alerta) return montosCierran();
+        var total = montoTotalOperacion();
+        var suma = sumaPartesLiq();
+        var diff = Math.round((suma - total) * 100) / 100;
+        if (Math.abs(diff) <= 0.05) {
+            alerta.classList.add('d-none');
+            alerta.textContent = '';
+            return true;
+        }
+        alerta.classList.remove('d-none');
+        alerta.className = 'alert alert-danger py-2 small mb-2';
+        alerta.textContent = 'La suma de los 4 importes (' + fmtImporte(suma)
+            + ') debe ser igual al total de la operación (' + fmtImporte(total)
+            + '). Diferencia: ' + fmtImporte(diff) + '.';
+        return false;
+    }
     function recalcResumenLiq() {
         var prop = parseMontoAr((document.querySelector('[name="liq_monto_propietario"]') || {}).value);
         var neto = prop;
@@ -217,11 +255,30 @@
         if (elSub) elSub.textContent = fmtImporte(prop);
         if (elNeto) elNeto.textContent = fmtImporte(neto);
         if (filaPago) filaPago.textContent = fmtImporte(prop);
+        actualizarAlertaSuma();
     }
     document.querySelectorAll('.liq-resumen-input').forEach(function(inp) {
         inp.addEventListener('input', recalcResumenLiq);
         inp.addEventListener('blur', recalcResumenLiq);
     });
+    var formId = '{{ form_caratula_reserva_id|escapejs }}';
+    var form = formId ? document.getElementById(formId) : null;
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            if (!actualizarAlertaSuma()) {
+                e.preventDefault();
+                e.stopPropagation();
+                var alerta = document.getElementById('liq-resumen-suma-alerta');
+                if (alerta) alerta.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                alert('No se puede guardar: propietario + inmobiliaria + cochera + fondo debe sumar el total de la operación.');
+            }
+        });
+    }
+    var precioInp = document.querySelector('[name="precio_total"]');
+    if (precioInp) {
+        precioInp.addEventListener('input', recalcResumenLiq);
+        precioInp.addEventListener('blur', recalcResumenLiq);
+    }
     recalcResumenLiq();
 })();
 </script>
