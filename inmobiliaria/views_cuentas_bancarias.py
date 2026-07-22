@@ -315,7 +315,7 @@ def reporte_movimientos_cuenta_bancaria(request, cuenta_id):
     """
     Listado tipo reporte: ingresos y egresos con transferencia/deposito a esta cuenta bancaria
     (destino_deposito = cuenta_<id>, monto_deposito > 0), filtrable por rango de fechas.
-    El saldo acumulado parte del saldo_inicial de la cuenta (+ movimientos previos al filtro).
+    El saldo acumulado parte solo del saldo_inicial cargado en la cuenta.
     """
     cuenta = get_object_or_404(CuentaBancaria, id=cuenta_id, sucursal=request.user.sucursal)
     destino = f'cuenta_{cuenta.id}'
@@ -331,7 +331,7 @@ def reporte_movimientos_cuenta_bancaria(request, cuenta_id):
 
     modo_imprimir = request.GET.get('imprimir') == '1'
 
-    base_qs = (
+    movimientos_qs = (
         MovimientoCaja.objects.filter(
             sucursal=request.user.sucursal,
             destino_deposito=destino,
@@ -339,6 +339,7 @@ def reporte_movimientos_cuenta_bancaria(request, cuenta_id):
         )
         .select_related('caja', 'empleado', 'propiedad')
         .annotate(fecha_banco=Coalesce(F('fecha_transferencia'), TruncDate('fecha')))
+        .order_by('-fecha_banco', '-fecha', '-id')
     )
 
     today = timezone.localdate().isoformat()
@@ -355,7 +356,6 @@ def reporte_movimientos_cuenta_bancaria(request, cuenta_id):
         fecha_desde = raw_desde
         fecha_hasta = raw_hasta
 
-    movimientos_qs = base_qs.order_by('-fecha_banco', '-fecha', '-id')
     if not periodo_completo:
         if fecha_desde:
             movimientos_qs = movimientos_qs.filter(fecha_banco__gte=fecha_desde)
@@ -376,25 +376,9 @@ def reporte_movimientos_cuenta_bancaria(request, cuenta_id):
     )
     saldo_periodo = total_ingresos - total_egresos
 
-    # Base del acumulado: saldo inicial + neto de movimientos anteriores al "desde".
+    # El acumulado arranca únicamente desde el saldo que cargaste en la cuenta.
     saldo_base = Decimal(str(cuenta.saldo_inicial or 0)).quantize(Decimal('0.01'))
-    if not periodo_completo and fecha_desde:
-        previos = base_qs.filter(fecha_banco__lt=fecha_desde)
-        prev_in = (
-            previos.filter(tipo=TipoMovimientoCajaEnum.INGRESO).aggregate(
-                t=Sum('monto_deposito')
-            )['t']
-            or Decimal('0')
-        )
-        prev_eg = (
-            previos.filter(tipo=TipoMovimientoCajaEnum.EGRESO).aggregate(
-                t=Sum('monto_deposito')
-            )['t']
-            or Decimal('0')
-        )
-        saldo_base = (saldo_base + prev_in - prev_eg).quantize(Decimal('0.01'))
 
-    # Saldo acumulado cronológico (más antiguo → más nuevo) sobre el período filtrado.
     cronologicos = list(movimientos_qs.order_by('fecha_banco', 'fecha', 'id'))
     saldo_run = saldo_base
     saldos_por_id = {}
@@ -426,7 +410,7 @@ def reporte_movimientos_cuenta_bancaria(request, cuenta_id):
     query_imprimir['imprimir'] = '1'
 
     context_extra = {
-        'saldo_inicial_cuenta': Decimal(str(cuenta.saldo_inicial or 0)).quantize(Decimal('0.01')),
+        'saldo_inicial_cuenta': saldo_base,
         'saldo_base_periodo': saldo_base,
         'saldo_periodo': saldo_periodo,
         'saldo_final': saldo_final,

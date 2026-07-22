@@ -100,11 +100,8 @@
                 </div>
                 <div class="col-md-6">
                     <p class="small text-muted mb-0">
-                        El <strong>saldo acum.</strong> arranca desde este monto
-                        {% if not periodo_completo and fecha_desde %}
-                        (más los movimientos anteriores a la fecha “Desde”)
-                        {% endif %}
-                        y luego suma ingresos / resta egresos del período.
+                        El <strong>saldo acum.</strong> empieza en este monto y, en orden de fecha,
+                        suma ingresos y resta egresos del período filtrado.
                     </p>
                 </div>
             </form>
@@ -115,9 +112,8 @@
         <div class="col-md-3">
             <div class="card border-secondary h-100">
                 <div class="card-body">
-                    <div class="text-secondary small text-uppercase fw-semibold">Saldo al inicio del período</div>
-                    <div class="h4 mb-0">${{ saldo_base_periodo|format_price }}</div>
-                    <div class="small text-muted">Inicial{% if not periodo_completo and fecha_desde %} + previos{% endif %}</div>
+                    <div class="text-secondary small text-uppercase fw-semibold">Saldo inicial</div>
+                    <div class="h4 mb-0">${{ saldo_inicial_cuenta|format_price }}</div>
                 </div>
             </div>
         </div>
@@ -144,7 +140,7 @@
                     <div class="h4 mb-0 {% if saldo_final >= 0 %}text-success{% else %}text-warning{% endif %}">
                         ${{ saldo_final|format_price }}
                     </div>
-                    <div class="small text-muted">{{ cantidad_movimientos }} movimiento(s) · neto período ${{ saldo_periodo|format_price }}</div>
+                    <div class="small text-muted">{{ cantidad_movimientos }} movimiento(s) · neto ${{ saldo_periodo|format_price }}</div>
                 </div>
             </div>
         </div>
