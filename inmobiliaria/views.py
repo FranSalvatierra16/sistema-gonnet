@@ -25613,10 +25613,9 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                     'operaciones': partes,
                 })
 
-                if not fecha_desde:
-                    fecha_desde = min(p['fecha_desde'] for p in partes)
-                if not fecha_hasta:
-                    fecha_hasta = max(p['fecha_hasta'] for p in partes)
+                # Impresión / período: solo el rango de la parte que se liquida ahora.
+                fecha_desde = primera_con_monto['fecha_desde']
+                fecha_hasta = primera_con_monto['fecha_hasta']
 
             # Compatibilidad: si solo hay una reserva en el POST y no venimos por URL, asignar FK reserva
             if reserva is None:
@@ -27312,10 +27311,63 @@ def _cuotas_resueltas_liquidacion(liquidacion):
     )
 
 
+def _parse_fecha_parte_division(valor):
+    """Convierte fecha de parte (str YYYY-MM-DD o date) a date."""
+    if not valor:
+        return None
+    if hasattr(valor, 'year') and hasattr(valor, 'month') and hasattr(valor, 'day'):
+        return valor
+    try:
+        return datetime.strptime(str(valor)[:10], '%Y-%m-%d').date()
+    except (TypeError, ValueError):
+        return None
+
+
+def _fechas_parte_division_liquidacion(liquidacion):
+    """
+    Si la liquidación tiene bloque de división, fechas de la parte creada ahora.
+    """
+    for op in liquidacion.operaciones_incluidas or []:
+        if not isinstance(op, dict) or (op.get('tipo') or '').lower() != 'division':
+            continue
+        partes = op.get('operaciones') or []
+        parte_n = op.get('parte_creada')
+        elegida = None
+        for p in partes:
+            if isinstance(p, dict) and p.get('creada_en_esta_liquidacion'):
+                elegida = p
+                break
+        if elegida is None and parte_n is not None:
+            try:
+                n = int(parte_n)
+            except (TypeError, ValueError):
+                n = None
+            if n is not None:
+                for p in partes:
+                    if isinstance(p, dict) and int(p.get('numero') or 0) == n:
+                        elegida = p
+                        break
+        if elegida is None:
+            for p in partes:
+                if isinstance(p, dict) and not p.get('pendiente'):
+                    elegida = p
+                    break
+        if not elegida:
+            return None, None
+        return (
+            _parse_fecha_parte_division(elegida.get('fecha_desde')),
+            _parse_fecha_parte_division(elegida.get('fecha_hasta')),
+        )
+    return None, None
+
+
 def _fechas_alquiler_liquidacion(liquidacion):
-    """Fechas de entrada/salida para la fila de alquiler (liquidación o reserva vinculada)."""
-    fecha_desde = liquidacion.fecha_desde
-    fecha_hasta = liquidacion.fecha_hasta
+    """Fechas de entrada/salida para la fila de alquiler (parte dividida, liquidación o reserva)."""
+    fecha_desde, fecha_hasta = _fechas_parte_division_liquidacion(liquidacion)
+    if not fecha_desde:
+        fecha_desde = liquidacion.fecha_desde
+    if not fecha_hasta:
+        fecha_hasta = liquidacion.fecha_hasta
     reserva = getattr(liquidacion, 'reserva', None)
     if reserva:
         if not fecha_desde and reserva.fecha_inicio:
@@ -27504,8 +27556,7 @@ def _context_liquidacion_cobranzas(liquidacion, request=None):
         fecha_desde_ct = contrato.fecha_inicio
         fecha_hasta_ct = contrato.fecha_fin
     else:
-        fecha_desde_ct = liquidacion.fecha_desde
-        fecha_hasta_ct = liquidacion.fecha_hasta
+        fecha_desde_ct, fecha_hasta_ct = _fechas_alquiler_liquidacion(liquidacion)
 
     tipo_label = titulo_tipo_liquidacion_cobranzas(info_op)
 
