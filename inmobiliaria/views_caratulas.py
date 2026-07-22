@@ -3776,17 +3776,13 @@ def caratula_reserva(request, reserva_id):
 
     movimientos = _movimientos_operacion_reserva(reserva)
     recibos = list(reserva.recibos.all())
+
+    # Generar/actualizar comisiones aunque no haya movimientos vinculados en caja
+    # (p. ej. operación marcada pagada sin cobro con "Operación {id}" en el concepto).
+    from inmobiliaria.models.comision import asegurar_comisiones_reserva
+
+    asegurar_comisiones_reserva(reserva, movimientos_caja=movimientos)
     comisiones = _comisiones_visibles_caratula_reserva(reserva)
-
-    # Actualizar montos (p. ej. con % de participación) si hay movimientos de la operación.
-    if movimientos and (comisiones or reserva.vendedor_id):
-        from inmobiliaria.models.comision import asegurar_comisiones_movimiento_reserva
-
-        for mov in movimientos:
-            if (getattr(mov, 'tipo', None) or '').strip().upper() == TipoMovimientoCajaEnum.EGRESO:
-                continue
-            asegurar_comisiones_movimiento_reserva(reserva, mov)
-        comisiones = _comisiones_visibles_caratula_reserva(reserva)
 
     from inmobiliaria.models.comision import mapa_participacion_productores
     from inmobiliaria.caja_devolucion_deposito import ya_devolvio_deposito_reserva

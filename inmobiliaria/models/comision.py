@@ -309,13 +309,15 @@ def _crear_linea_operacion_por_dia(
 
 def registrar_comisiones_honorarios_movimiento_reserva(reserva, movimiento_caja, honorarios_monto):
     """
-    Cuando en el movimiento hay honorarios (concepto 25), registra:
+    Registra sobre una base monetaria (honorarios del movimiento o precio de la reserva):
     - Comisión por primer/segundo fichaje del vendedor que fichó la propiedad.
     - Por cada productor de la operación: % según tipo (día / invierno / 24 meses).
+
+    ``movimiento_caja`` puede ser None (p. ej. operación marcada pagada sin cobro
+    vinculado en caja); en ese caso las líneas quedan sin movimiento asociado.
     """
     if (
         not reserva
-        or not movimiento_caja
         or honorarios_monto is None
         or honorarios_monto <= 0
     ):
@@ -422,6 +424,25 @@ def registrar_comisiones_honorarios_movimiento_reserva(reserva, movimiento_caja,
     return creadas
 
 
+def _monto_total_movimiento_caja(movimiento_caja):
+    if not movimiento_caja:
+        return Decimal('0')
+    if hasattr(movimiento_caja, 'monto_total'):
+        try:
+            return Decimal(str(movimiento_caja.monto_total or 0))
+        except (TypeError, ValueError, ArithmeticError):
+            pass
+    try:
+        return (
+            Decimal(str(getattr(movimiento_caja, 'monto_efectivo', 0) or 0))
+            + Decimal(str(getattr(movimiento_caja, 'monto_cheque', 0) or 0))
+            + Decimal(str(getattr(movimiento_caja, 'monto_tarjeta', 0) or 0))
+            + Decimal(str(getattr(movimiento_caja, 'monto_deposito', 0) or 0))
+        )
+    except (TypeError, ValueError, ArithmeticError):
+        return Decimal('0')
+
+
 def asegurar_comisiones_movimiento_reserva(reserva, movimiento_caja, honorarios_monto=None):
     """
     Registra comisiones faltantes para un movimiento de caja de una reserva. Idempotente.
@@ -446,10 +467,7 @@ def asegurar_comisiones_movimiento_reserva(reserva, movimiento_caja, honorarios_
         pct_fichaje = vend_fichaje.porcentaje_fichaje_efectivo(tipo_fichaje, tipo_op)
     hubo_fichaje = pct_fichaje is not None and pct_fichaje > 0 and vend_fichaje is not None
 
-    try:
-        monto_mov_dec = Decimal(str(movimiento_caja.monto_total))
-    except (TypeError, ValueError, ArithmeticError):
-        monto_mov_dec = Decimal('0')
+    monto_mov_dec = _monto_total_movimiento_caja(movimiento_caja)
 
     if honorarios_monto > 0:
         return registrar_comisiones_honorarios_movimiento_reserva(
@@ -481,6 +499,61 @@ def asegurar_comisiones_movimiento_reserva(reserva, movimiento_caja, honorarios_
             reserva, movimiento_caja, honorarios_monto
         )
     return creadas
+
+
+def asegurar_comisiones_reserva(reserva, movimientos_caja=None, honorarios_monto=None):
+    """
+    Asegura comisiones de una reserva. Idempotente.
+
+    Si hay movimientos de ingreso, usa cada uno (como al abrir la carátula con cobros).
+    Si no hay movimientos (pago marcado sin caja vinculada), genera productor/fichaje
+    sobre el precio_total en alquileres por día.
+    """
+    if not reserva or not iter_productores_reserva(reserva):
+        return []
+
+    if getattr(reserva, 'eliminada', False) or getattr(reserva, 'estado', None) == 'cancelada':
+        return []
+
+    movs = []
+    for mov in movimientos_caja or []:
+        tipo = (getattr(mov, 'tipo', None) or '').strip().upper()
+        if tipo in ('EG', 'EGRESO', 'E'):
+            continue
+        movs.append(mov)
+
+    if movs:
+        creadas = []
+        vistos = set()
+        for mov in movs:
+            for c in asegurar_comisiones_movimiento_reserva(
+                reserva, mov, honorarios_monto=honorarios_monto
+            ):
+                if c.id not in vistos:
+                    vistos.add(c.id)
+                    creadas.append(c)
+        return creadas
+
+    try:
+        if honorarios_monto is not None:
+            base = Decimal(str(honorarios_monto or 0))
+        else:
+            base = Decimal(str(reserva.precio_total or 0))
+    except (TypeError, ValueError, ArithmeticError):
+        base = Decimal('0')
+
+    if base <= 0:
+        return []
+
+    tipo_op = clasificar_tipo_operacion_reserva(reserva)
+    if tipo_op == 'dia':
+        # Misma base que un cobro sin honorarios cargados: total de la operación.
+        return registrar_comisiones_honorarios_movimiento_reserva(reserva, None, base)
+
+    # Invierno / 24 meses: sin honorarios explícitos no inventamos base.
+    if honorarios_monto is not None and base > 0:
+        return registrar_comisiones_honorarios_movimiento_reserva(reserva, None, base)
+    return []
 
 
 def _fecha_operacion_entrada_contrato(contrato):
@@ -925,9 +998,7 @@ def resincronizar_comisiones_productor_reserva(reserva, movimientos_caja, vended
         _eliminar_comisiones_productor_reserva(reserva, vendedor_id=vendedor_id)
     else:
         _eliminar_comisiones_productor_reserva(reserva)
-    for mov in movimientos_caja or []:
-        honorarios = getattr(mov, 'honorarios', None)
-        asegurar_comisiones_movimiento_reserva(reserva, mov, honorarios_monto=honorarios)
+    asegurar_comisiones_reserva(reserva, movimientos_caja=movimientos_caja)
 
 
 def resincronizar_comisiones_productor_contrato(
@@ -1702,14 +1773,36 @@ class ComisionVendedor(models.Model):
         if getattr(reserva, 'eliminada', False) or getattr(reserva, 'estado', None) == 'cancelada':
             return None
 
+        # Una línea activa por vendedor + reserva + rol (el movimiento es metadata).
         comision_existente = cls.objects.filter(
             vendedor=vendedor,
             reserva=reserva,
-            movimiento_caja=movimiento_caja,
             rol_comision=rol_comision,
-        ).first()
+        ).exclude(estado='cancelada').first()
 
         if comision_existente:
+            updates = []
+            if movimiento_caja and not comision_existente.movimiento_caja_id:
+                comision_existente.movimiento_caja = movimiento_caja
+                updates.append('movimiento_caja')
+            if monto_base and comision_existente.monto_total_operacion != monto_base:
+                comision_existente.monto_total_operacion = monto_base
+                updates.append('monto_total_operacion')
+                nuevo = (Decimal(str(monto_base)) * Decimal(str(porcentaje_comision))) / Decimal('100')
+                comision_existente.monto_comision = nuevo.quantize(Decimal('0.01'))
+                updates.append('monto_comision')
+            if porcentaje_comision and comision_existente.porcentaje_comision != porcentaje_comision:
+                comision_existente.porcentaje_comision = porcentaje_comision
+                updates.append('porcentaje_comision')
+                if 'monto_comision' not in updates and comision_existente.monto_total_operacion:
+                    nuevo = (
+                        Decimal(str(comision_existente.monto_total_operacion))
+                        * Decimal(str(porcentaje_comision))
+                    ) / Decimal('100')
+                    comision_existente.monto_comision = nuevo.quantize(Decimal('0.01'))
+                    updates.append('monto_comision')
+            if updates:
+                comision_existente.save(update_fields=updates)
             return comision_existente
 
         return cls.objects.create(
