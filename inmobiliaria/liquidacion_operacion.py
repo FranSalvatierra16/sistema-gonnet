@@ -1,8 +1,11 @@
 """Tipo de operación y nº de carpeta para liquidaciones y carátulas."""
+from decimal import Decimal
+
 from django.urls import reverse
 
 MONEDA_ARS = 'ARS'
 MONEDA_USD = 'USD'
+_TOLERANCIA_LIQ = Decimal('0.05')
 
 
 def normalizar_moneda(val):
@@ -139,6 +142,122 @@ def reserva_desde_liquidacion(liquidacion):
         if r:
             return r
     return None
+
+
+def liquidaciones_activas_reserva(reserva):
+    """Liquidaciones no canceladas de una reserva (FK o operaciones_incluidas)."""
+    from inmobiliaria.models import LiquidacionPropietario
+
+    if not reserva:
+        return []
+    rid = int(reserva.pk)
+    candidatas = list(
+        LiquidacionPropietario.objects.filter(reserva_id=rid)
+        .exclude(estado='cancelada')
+        .order_by('id')
+    )
+    vistos = {liq.pk for liq in candidatas}
+    qs_extra = (
+        LiquidacionPropietario.objects.filter(propiedad_id=reserva.propiedad_id)
+        .exclude(estado='cancelada')
+        .exclude(pk__in=vistos)
+        .only('id', 'operaciones_incluidas', 'monto_propietario', 'monto_a_pagar', 'estado', 'fecha_creacion')
+        .order_by('id')
+    )
+    for liq in qs_extra:
+        for op in liq.operaciones_incluidas or []:
+            if not isinstance(op, dict):
+                continue
+            if (op.get('tipo') or '').lower() != 'reserva':
+                continue
+            try:
+                if int(op.get('id')) == rid:
+                    candidatas.append(liq)
+                    break
+            except (TypeError, ValueError):
+                continue
+    candidatas.sort(key=lambda x: (x.id or 0))
+    return candidatas
+
+
+def monto_propietario_corresponde_reserva(reserva) -> Decimal:
+    """Monto total que corresponde al propietario por la operación (con overrides de carátula)."""
+    from inmobiliaria.neto_propietario_movimiento import reparto_liquidacion_reserva_por_dia
+
+    if not reserva or not reserva.precio_total:
+        return Decimal('0.00')
+    total, prop, inm, _hay_toma = reparto_liquidacion_reserva_por_dia(reserva)
+    _t, prop, _i, _c, _f = reserva.montos_liquidacion_efectivos(total, prop, inm)
+    return Decimal(str(prop or 0)).quantize(Decimal('0.01'))
+
+
+def monto_propietario_ya_liquidado_reserva(reserva, liquidaciones=None) -> Decimal:
+    """Suma de monto_propietario de liquidaciones activas de la reserva."""
+    liqs = liquidaciones if liquidaciones is not None else liquidaciones_activas_reserva(reserva)
+    total = Decimal('0')
+    for liq in liqs:
+        total += Decimal(str(getattr(liq, 'monto_propietario', None) or 0))
+    return total.quantize(Decimal('0.01'))
+
+
+def saldo_liquidacion_reserva(reserva, liquidaciones=None) -> dict:
+    """
+    Estado de liquidación parcial de una reserva.
+    corresponde = total al propietario; liquidado = suma de liquidaciones; pendiente = resto.
+    """
+    liqs = liquidaciones if liquidaciones is not None else liquidaciones_activas_reserva(reserva)
+    corresponde = monto_propietario_corresponde_reserva(reserva)
+    liquidado = monto_propietario_ya_liquidado_reserva(reserva, liqs)
+    pendiente = (corresponde - liquidado).quantize(Decimal('0.01'))
+    if pendiente < 0:
+        pendiente = Decimal('0.00')
+    completa = corresponde > 0 and pendiente <= _TOLERANCIA_LIQ
+    return {
+        'corresponde': corresponde,
+        'liquidado': liquidado,
+        'pendiente': pendiente,
+        'completa': completa,
+        'tiene_liquidaciones': bool(liqs),
+        'liquidaciones': liqs,
+        'cantidad': len(liqs),
+    }
+
+
+def reserva_ids_completamente_liquidadas(propiedad) -> set:
+    """
+    IDs de reserva cuya parte al propietario ya está cubierta al 100%
+    (una o más liquidaciones no canceladas). Las parciales NO entran.
+    """
+    from inmobiliaria.models import LiquidacionPropietario, Reserva
+
+    if not propiedad:
+        return set()
+    candidatos = set()
+    for liq in (
+        LiquidacionPropietario.objects.filter(propiedad=propiedad)
+        .exclude(estado='cancelada')
+        .only('reserva_id', 'operaciones_incluidas')
+    ):
+        if liq.reserva_id:
+            candidatos.add(int(liq.reserva_id))
+        for op in liq.operaciones_incluidas or []:
+            if not isinstance(op, dict):
+                continue
+            if (op.get('tipo') or '').lower() != 'reserva':
+                continue
+            try:
+                candidatos.add(int(op['id']))
+            except (KeyError, TypeError, ValueError):
+                pass
+    if not candidatos:
+        return set()
+    completas = set()
+    for reserva in Reserva.objects.filter(id__in=candidatos, propiedad=propiedad).select_related(
+        'propiedad'
+    ):
+        if saldo_liquidacion_reserva(reserva)['completa']:
+            completas.add(int(reserva.id))
+    return completas
 
 
 def titulo_tipo_liquidacion_cobranzas(info_op):

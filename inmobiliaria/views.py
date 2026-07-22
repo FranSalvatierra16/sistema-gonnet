@@ -25276,21 +25276,26 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
         reserva = get_object_or_404(Reserva, id=reserva_id, sucursal=request.user.sucursal)
         operacion_buscar_inicial = reserva.id
 
-        # Verificar si ya existe una liquidación para esta reserva
-        liquidacion_existente = (
-            LiquidacionPropietario.objects.filter(reserva=reserva)
-            .exclude(estado='cancelada')
-            .order_by('-id')
-            .first()
-        )
+        # Verificar si ya está liquidada por completo (permite parciales)
+        from inmobiliaria.liquidacion_operacion import saldo_liquidacion_reserva
 
-        if liquidacion_existente:
-            messages.warning(
+        saldo_liq = saldo_liquidacion_reserva(reserva)
+        if saldo_liq['completa']:
+            ultima = saldo_liq['liquidaciones'][-1] if saldo_liq['liquidaciones'] else None
+            if ultima:
+                messages.warning(
+                    request,
+                    f'La operación #{reserva.id} ya está liquidada por completo '
+                    f'(última liquidación nº {ultima.id}).',
+                )
+                return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=ultima.id)
+        elif saldo_liq['tiene_liquidaciones']:
+            messages.info(
                 request,
-                f'Ya existe una liquidación para esta reserva (nº {liquidacion_existente.id}, '
-                f'{liquidacion_existente.get_estado_display()}).',
+                f'Ya hay {saldo_liq["cantidad"]} liquidación(es) parcial(es) por '
+                f'${saldo_liq["liquidado"]:,.2f}. Pendiente al propietario: '
+                f'${saldo_liq["pendiente"]:,.2f}.',
             )
-            return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion_existente.id)
 
     if contrato_id:
         contrato = get_object_or_404(
@@ -25475,57 +25480,94 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
             elif monto_total <= 0:
                 raise ValueError('El monto total de la operación debe ser mayor a cero.')
 
-            # División manual en dos operaciones
+            # División manual en N partes (esta liquidación = 1ª parte con monto > 0)
             dividir_operacion = request.POST.get('dividir_operacion') == '1'
             if solo_servicios and dividir_operacion:
                 raise ValueError(
-                    'No podés dividir en dos operaciones una liquidación que solo incluye servicios o gastos.'
+                    'No podés dividir una liquidación que solo incluye servicios o gastos.'
                 )
             if dividir_operacion:
-                op1_fecha_desde = request.POST.get('op1_fecha_desde')
-                op1_fecha_hasta = request.POST.get('op1_fecha_hasta')
-                op2_fecha_desde = request.POST.get('op2_fecha_desde')
-                op2_fecha_hasta = request.POST.get('op2_fecha_hasta')
-                op1_monto = parse_decimal_es(request.POST.get('op1_monto', '0'))
-                op2_monto = parse_decimal_es(request.POST.get('op2_monto', '0'))
+                desdes = request.POST.getlist('div_parte_desde')
+                hastas = request.POST.getlist('div_parte_hasta')
+                montos_raw = request.POST.getlist('div_parte_monto')
+                # Compatibilidad con el formulario viejo (solo 2 ops fijas)
+                if not desdes and request.POST.get('op1_fecha_desde'):
+                    desdes = [
+                        request.POST.get('op1_fecha_desde') or '',
+                        request.POST.get('op2_fecha_desde') or '',
+                    ]
+                    hastas = [
+                        request.POST.get('op1_fecha_hasta') or '',
+                        request.POST.get('op2_fecha_hasta') or '',
+                    ]
+                    montos_raw = [
+                        request.POST.get('op1_monto') or '0',
+                        request.POST.get('op2_monto') or '0',
+                    ]
+                n = max(len(desdes), len(hastas), len(montos_raw))
+                if n < 1:
+                    raise ValueError('Si dividís el pago, agregá al menos una parte.')
 
-                if not all([op1_fecha_desde, op1_fecha_hasta, op2_fecha_desde, op2_fecha_hasta]):
-                    raise ValueError('Si dividís la liquidación, debés completar las fechas de ambas operaciones.')
-                if op1_monto <= 0 or op2_monto <= 0:
-                    raise ValueError('Los montos de ambas operaciones deben ser mayores a cero.')
-                if (op1_monto + op2_monto).quantize(Decimal('0.01')) != monto_total.quantize(Decimal('0.01')):
-                    raise ValueError('La suma de Operación 1 y Operación 2 debe ser igual al Monto Total de la operación.')
+                monto_propietario_base = monto_propietario
+                partes = []
+                suma_con_monto = Decimal('0')
+                primera_con_monto = None
+                for i in range(n):
+                    fd = (desdes[i] if i < len(desdes) else '') or ''
+                    fh = (hastas[i] if i < len(hastas) else '') or ''
+                    monto_p = parse_decimal_es(montos_raw[i] if i < len(montos_raw) else '0')
+                    if monto_p < 0:
+                        raise ValueError(f'El monto de la Parte {i + 1} no puede ser negativo.')
+                    if not fd or not fh:
+                        raise ValueError(f'Completá las fechas de la Parte {i + 1}.')
+                    f_desde = datetime.strptime(fd, '%Y-%m-%d').date()
+                    f_hasta = datetime.strptime(fh, '%Y-%m-%d').date()
+                    if f_desde > f_hasta:
+                        raise ValueError(
+                            f'En la Parte {i + 1}, la fecha desde no puede ser mayor a la fecha hasta.'
+                        )
+                    parte = {
+                        'numero': i + 1,
+                        'fecha_desde': fd,
+                        'fecha_hasta': fh,
+                        'monto': str(monto_p.quantize(Decimal('0.01'))),
+                        'pendiente': monto_p <= 0,
+                    }
+                    partes.append(parte)
+                    if monto_p > 0:
+                        suma_con_monto += monto_p
+                        if primera_con_monto is None:
+                            primera_con_monto = parte
 
-                f1_desde = datetime.strptime(op1_fecha_desde, '%Y-%m-%d').date()
-                f1_hasta = datetime.strptime(op1_fecha_hasta, '%Y-%m-%d').date()
-                f2_desde = datetime.strptime(op2_fecha_desde, '%Y-%m-%d').date()
-                f2_hasta = datetime.strptime(op2_fecha_hasta, '%Y-%m-%d').date()
-                if f1_desde > f1_hasta or f2_desde > f2_hasta:
-                    raise ValueError('En cada operación, la fecha desde no puede ser mayor a la fecha hasta.')
+                if primera_con_monto is None:
+                    raise ValueError(
+                        'Completá el monto de al menos una parte. '
+                        'La primera con monto es la que se crea ahora; el resto queda pendiente.'
+                    )
+                if suma_con_monto > monto_propietario_base + Decimal('0.05'):
+                    raise ValueError(
+                        'La suma de las partes con monto no puede superar el monto al propietario.'
+                    )
+
+                # Esta liquidación solo liquida la 1ª parte con monto.
+                monto_esta = parse_decimal_es(primera_con_monto['monto'])
+                primera_con_monto['pendiente'] = False
+                primera_con_monto['creada_en_esta_liquidacion'] = True
+                monto_propietario = monto_esta
 
                 operaciones_incluidas.append({
                     'tipo': 'division',
-                    'operaciones': [
-                        {
-                            'numero': 1,
-                            'fecha_desde': op1_fecha_desde,
-                            'fecha_hasta': op1_fecha_hasta,
-                            'monto': str(op1_monto)
-                        },
-                        {
-                            'numero': 2,
-                            'fecha_desde': op2_fecha_desde,
-                            'fecha_hasta': op2_fecha_hasta,
-                            'monto': str(op2_monto)
-                        },
-                    ]
+                    'monto_propietario_total': str(
+                        monto_propietario_base.quantize(Decimal('0.01'))
+                    ),
+                    'parte_creada': int(primera_con_monto['numero']),
+                    'operaciones': partes,
                 })
 
-                # Completar rango general si no fue cargado manualmente
                 if not fecha_desde:
-                    fecha_desde = min(op1_fecha_desde, op2_fecha_desde)
+                    fecha_desde = min(p['fecha_desde'] for p in partes)
                 if not fecha_hasta:
-                    fecha_hasta = max(op1_fecha_hasta, op2_fecha_hasta)
+                    fecha_hasta = max(p['fecha_hasta'] for p in partes)
 
             # Compatibilidad: si solo hay una reserva en el POST y no venimos por URL, asignar FK reserva
             if reserva is None:
@@ -25615,14 +25657,36 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                     pk=propiedad.pk, sucursal=request.user.sucursal
                 )
                 if reserva_ids_nuevas:
-                    ya_usadas = _reserva_ids_ya_liquidadas_propiedad(propiedad)
-                    conflicto = reserva_ids_nuevas & ya_usadas
+                    from inmobiliaria.liquidacion_operacion import reserva_ids_completamente_liquidadas
+
+                    ya_completas = reserva_ids_completamente_liquidadas(propiedad)
+                    conflicto = reserva_ids_nuevas & ya_completas
                     if conflicto:
                         lista = ', '.join(str(x) for x in sorted(conflicto))
                         raise ValueError(
-                            f'La(s) reserva(s) / operación(es) {lista} ya tiene(n) una liquidación '
-                            f'registrada (no cancelada). No se puede duplicar.'
+                            f'La(s) reserva(s) / operación(es) {lista} ya está(n) liquidada(s) '
+                            f'por completo. No se puede duplicar el total; usá una liquidación '
+                            f'parcial solo si queda saldo pendiente.'
                         )
+                    # Tope: no superar el pendiente de cada reserva incluida
+                    from inmobiliaria.liquidacion_operacion import saldo_liquidacion_reserva
+                    from inmobiliaria.models import Reserva as ReservaModel
+
+                    for rid in reserva_ids_nuevas:
+                        r_chk = ReservaModel.objects.filter(
+                            pk=rid, propiedad=propiedad
+                        ).first()
+                        if not r_chk:
+                            continue
+                        sal = saldo_liquidacion_reserva(r_chk)
+                        if sal['tiene_liquidaciones'] and len(reserva_ids_nuevas) == 1:
+                            # Una sola reserva (típico desde carátula): el monto al propietario
+                            # de esta liquidación no puede superar el pendiente.
+                            if monto_propietario > sal['pendiente'] + Decimal('0.05'):
+                                raise ValueError(
+                                    f'El monto al propietario (${monto_propietario}) supera el '
+                                    f'pendiente de la operación #{rid} (${sal["pendiente"]}).'
+                                )
 
                 liquidacion = LiquidacionPropietario.objects.create(
                     propietario=propiedad.propietario,
@@ -25706,7 +25770,18 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
 
                 confirmar_comisiones_por_liquidacion(liquidacion)
 
-            messages.success(request, 'Liquidación creada correctamente.')
+            msg_ok = 'Liquidación creada correctamente.'
+            if reserva is not None:
+                from inmobiliaria.liquidacion_operacion import saldo_liquidacion_reserva
+
+                sal = saldo_liquidacion_reserva(reserva)
+                if not sal['completa'] and sal['pendiente'] > 0:
+                    msg_ok = (
+                        f'Liquidación #{liquidacion.id} creada'
+                        f'{" (dividida)" if dividir_operacion else " (parcial)"}. '
+                        f'Pendiente al propietario: ${sal["pendiente"]:,.2f}.'
+                    )
+            messages.success(request, msg_ok)
             return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion.id)
 
         except Exception as e:
@@ -25753,13 +25828,23 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
         context['fecha_desde'] = reserva.fecha_inicio
         context['fecha_hasta'] = reserva.fecha_fin
         from inmobiliaria.decimal_utils import format_monto_argentino
+        from inmobiliaria.liquidacion_operacion import saldo_liquidacion_reserva
 
         context['monto_cochera_inicial'] = format_monto_argentino(reserva.liq_monto_cochera or 0)
         context['monto_fondo_inicial'] = format_monto_argentino(reserva.liq_monto_fondo or 0)
-        if reserva.liq_monto_propietario is not None:
-            context['monto_propietario_inicial'] = format_monto_argentino(reserva.liq_monto_propietario)
-        if reserva.liq_monto_inmobiliaria is not None:
-            context['monto_inmobiliaria_inicial'] = format_monto_argentino(reserva.liq_monto_inmobiliaria)
+        saldo_liq = saldo_liquidacion_reserva(reserva)
+        context['saldo_liquidacion_parcial'] = saldo_liq
+        if saldo_liq['tiene_liquidaciones'] and not saldo_liq['completa']:
+            # Prefill con el pendiente (liquidación parcial siguiente)
+            context['monto_propietario_inicial'] = format_monto_argentino(saldo_liq['pendiente'])
+            context['monto_inmobiliaria_inicial'] = format_monto_argentino(Decimal('0'))
+            context['monto_cochera_inicial'] = format_monto_argentino(Decimal('0'))
+            context['monto_fondo_inicial'] = format_monto_argentino(Decimal('0'))
+        else:
+            if reserva.liq_monto_propietario is not None:
+                context['monto_propietario_inicial'] = format_monto_argentino(reserva.liq_monto_propietario)
+            if reserva.liq_monto_inmobiliaria is not None:
+                context['monto_inmobiliaria_inicial'] = format_monto_argentino(reserva.liq_monto_inmobiliaria)
     elif contrato:
         context['propiedad'] = contrato.propiedad
         context['fecha_desde'] = contrato.fecha_inicio
@@ -25871,27 +25956,12 @@ def _cuotas_excluidas_por_liquidaciones_contrato(propiedad):
 
 def _reserva_ids_ya_liquidadas_propiedad(propiedad):
     """
-    IDs de reserva que ya están en una liquidación de esta propiedad no cancelada
-    (FK reserva o tipo «reserva» en operaciones_incluidas).
+    IDs de reserva cuya parte al propietario ya está liquidada por completo
+    (una o varias liquidaciones no canceladas). Las parciales no se incluyen.
     """
-    usados = set()
-    for liq in (
-        LiquidacionPropietario.objects.filter(propiedad=propiedad)
-        .exclude(estado='cancelada')
-        .only('reserva_id', 'operaciones_incluidas')
-    ):
-        if liq.reserva_id:
-            usados.add(int(liq.reserva_id))
-        for op in liq.operaciones_incluidas or []:
-            if not isinstance(op, dict):
-                continue
-            if (op.get('tipo') or '').lower() != 'reserva':
-                continue
-            try:
-                usados.add(int(op['id']))
-            except (KeyError, TypeError, ValueError):
-                pass
-    return usados
+    from inmobiliaria.liquidacion_operacion import reserva_ids_completamente_liquidadas
+
+    return reserva_ids_completamente_liquidadas(propiedad)
 
 
 def _mapa_importe_cobrado_cuotas_en_movimientos_caja(contrato, cuota_ids, sucursal, movimientos=None):
@@ -26598,26 +26668,13 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
 
     asegurar_gastos_saldo_negativo_propiedad(propiedad, sucursal=sucursal)
 
-    # Reservas ya cubiertas por liquidación (FK o operaciones_incluidas).
-    # Contratos: las cuotas ya liquidadas se excluyen por ID (ver _cuotas_excluidas_*).
-    reservas_excluidas = set()
-    for liq in LiquidacionPropietario.objects.filter(
-        propiedad=propiedad,
-    ).exclude(
-        estado='cancelada'
-    ).only('reserva_id', 'contrato_id', 'estado', 'operaciones_incluidas'):
-        if liq.reserva_id:
-            reservas_excluidas.add(liq.reserva_id)
-        for op in liq.operaciones_incluidas or []:
-            if not isinstance(op, dict):
-                continue
-            t = (op.get('tipo') or '').lower()
-            try:
-                oid = int(op.get('id'))
-            except (TypeError, ValueError):
-                continue
-            if t == 'reserva':
-                reservas_excluidas.add(oid)
+    # Reservas ya liquidadas por completo (las parciales siguen apareciendo con el saldo).
+    from inmobiliaria.liquidacion_operacion import (
+        reserva_ids_completamente_liquidadas,
+        saldo_liquidacion_reserva,
+    )
+
+    reservas_excluidas = reserva_ids_completamente_liquidadas(propiedad)
 
     cuotas_excluidas = _cuotas_excluidas_por_liquidaciones_contrato(propiedad)
 
@@ -26681,19 +26738,36 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
                 )
             )
 
+            saldo_liq = saldo_liquidacion_reserva(reserva)
+            # Si ya hay liquidaciones parciales, ofrecer solo el pendiente al propietario.
+            monto_prop_ofrecer = saldo_liq['pendiente'] if saldo_liq['tiene_liquidaciones'] else monto_propietario_total
+            monto_inm_ofrecer = (
+                Decimal('0') if saldo_liq['tiene_liquidaciones'] else monto_inmobiliaria_total
+            )
+            desc = f'Reserva #{reserva.id} - {_nombre_cliente_reserva_liquidacion(reserva)}'
+            if saldo_liq['tiene_liquidaciones'] and not saldo_liq['completa']:
+                desc += (
+                    f' (parcial: liquidado ${saldo_liq["liquidado"]}, '
+                    f'pendiente ${saldo_liq["pendiente"]})'
+                )
+
             operaciones.append({
                 'tipo': 'reserva',
                 'tipo_display': 'Por día',
                 'concepto_pago': _concepto_pago_liquidacion_operacion('reserva'),
                 'incluible': True,
                 'id': reserva.id,
-                'descripcion': f'Reserva #{reserva.id} - {_nombre_cliente_reserva_liquidacion(reserva)}',
+                'descripcion': desc,
                 'fecha_inicio': reserva.fecha_inicio.strftime('%Y-%m-%d') if reserva.fecha_inicio else '',
                 'fecha_fin': reserva.fecha_fin.strftime('%Y-%m-%d') if reserva.fecha_fin else '',
                 'monto_total': str(reserva.precio_total),
                 'monto_pagado': str(total_pagado if total_pagado > 0 else reserva.precio_total),
-                'monto_propietario': str(monto_propietario_total),
-                'monto_inmobiliaria': str(monto_inmobiliaria_total),
+                'monto_propietario': str(monto_prop_ofrecer),
+                'monto_propietario_total': str(monto_propietario_total),
+                'monto_propietario_liquidado': str(saldo_liq['liquidado']),
+                'monto_propietario_pendiente': str(saldo_liq['pendiente']),
+                'liquidacion_parcial': bool(saldo_liq['tiene_liquidaciones'] and not saldo_liq['completa']),
+                'monto_inmobiliaria': str(monto_inm_ofrecer),
                 'dias': dias_reserva,
             })
     
@@ -27273,7 +27347,8 @@ def _detalle_impreso_gasto_liquidacion(gasto):
 def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
     """
     Detalle de liquidación de cobranzas para el propietario.
-    Haber = a favor (alquiler, ingresos); Debe = en contra (gastos, fondo).
+    Haber = a favor (alquiler, ingresos); Debe = en contra (gastos del propietario).
+    Fondo de mantenimiento y cochera son ingreso de oficina: no se descuentan ni figuran en Debe/Haber.
     Comisión locador/locatario se listan como referencia pero no entran en totales ni saldo.
     """
     filas = []
@@ -27293,14 +27368,6 @@ def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
             'fecha_salida': fecha_salida,
             'precio_dia': precio_dia,
             'dias': dias_alquiler,
-        })
-
-    fondo = Decimal(str(liquidacion.monto_fondo_mantenimiento or 0))
-    if fondo > Decimal('0.01'):
-        filas.append({
-            'detalle': 'FONDO DE MANTENIMIENTO',
-            'debe': fondo.quantize(Decimal('0.01')),
-            'haber': Decimal('0'),
         })
 
     com_loc = Decimal(str(getattr(liquidacion, 'comision_locador', None) or 0))
@@ -27349,7 +27416,7 @@ def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
             })
 
     total_haber = monto_prop + total_ingresos
-    total_debe = fondo + total_egresos
+    total_debe = total_egresos
     saldo_favor = (total_haber - total_debe).quantize(Decimal('0.01'))
     return {
         'filas': filas,
@@ -27648,10 +27715,26 @@ def detalle_liquidacion(request, liquidacion_id):
     liquidacion.sync_gasto_saldo_negativo_pendiente()
 
     division_operaciones = []
+    division_meta = {}
     for op in (liquidacion.operaciones_incluidas or []):
         if isinstance(op, dict) and op.get('tipo') == 'division':
             division_operaciones = op.get('operaciones') or []
+            division_meta = {
+                'monto_propietario_total': op.get('monto_propietario_total'),
+                'parte_creada': op.get('parte_creada'),
+            }
             break
+
+    saldo_parcial_reserva = None
+    url_siguiente_parcial = None
+    if liquidacion.reserva_id and liquidacion.estado != 'cancelada':
+        from inmobiliaria.liquidacion_operacion import saldo_liquidacion_reserva
+
+        saldo_parcial_reserva = saldo_liquidacion_reserva(liquidacion.reserva)
+        if not saldo_parcial_reserva['completa'] and saldo_parcial_reserva['pendiente'] > 0:
+            url_siguiente_parcial = reverse(
+                'inmobiliaria:crear_liquidacion_reserva', args=[liquidacion.reserva_id]
+            )
 
     gastos_pendientes_disponibles = []
     if liquidacion.estado == 'pendiente':
@@ -27670,6 +27753,9 @@ def detalle_liquidacion(request, liquidacion_id):
         'info_operacion_liquidacion': info_op,
         'gastos': liquidacion.gastos.all().order_by('-fecha_creacion'),
         'division_operaciones': division_operaciones,
+        'division_meta': division_meta,
+        'saldo_parcial_reserva': saldo_parcial_reserva,
+        'url_siguiente_parcial': url_siguiente_parcial,
         'operaciones_tabla': _operaciones_incluidas_tabla(liquidacion),
         'puede_eliminar_liquidacion': usuario_es_nivel_administracion(request.user),
         'gastos_pendientes_disponibles': gastos_pendientes_disponibles,

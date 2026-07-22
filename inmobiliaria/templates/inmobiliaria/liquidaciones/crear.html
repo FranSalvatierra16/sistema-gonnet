@@ -260,8 +260,8 @@
                         <div class="row mb-3">
                             <div class="col-12">
                                 <div class="card border-primary">
-                                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                                        <strong><i class="fas fa-code-branch me-2"></i>Dividir operación en dos liquidaciones</strong>
+                                    <div class="card-header bg-light d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                        <strong><i class="fas fa-code-branch me-2"></i>Dividir pago al propietario</strong>
                                         <div class="form-check form-switch m-0">
                                             <input class="form-check-input" type="checkbox" id="dividir_operacion_toggle">
                                             <label class="form-check-label" for="dividir_operacion_toggle">Activar</label>
@@ -269,34 +269,16 @@
                                         <input type="hidden" name="dividir_operacion" id="dividir_operacion" value="0">
                                     </div>
                                     <div class="card-body" id="bloque_division_operaciones" style="display:none;">
-                                        <div class="row g-2">
-                                            <div class="col-md-2">
-                                                <label class="form-label">Op. 1 desde</label>
-                                                <input type="date" class="form-control" name="op1_fecha_desde" id="op1_fecha_desde">
-                                            </div>
-                                            <div class="col-md-2">
-                                                <label class="form-label">Op. 1 hasta</label>
-                                                <input type="date" class="form-control" name="op1_fecha_hasta" id="op1_fecha_hasta">
-                                            </div>
-                                            <div class="col-md-2">
-                                                <label class="form-label">Monto Op. 1</label>
-                                                <input type="text" class="form-control input-monto-ar" name="op1_monto" id="op1_monto" inputmode="decimal" autocomplete="off" placeholder="0,00">
-                                            </div>
-                                            <div class="col-md-2">
-                                                <label class="form-label">Op. 2 desde</label>
-                                                <input type="date" class="form-control" name="op2_fecha_desde" id="op2_fecha_desde">
-                                            </div>
-                                            <div class="col-md-2">
-                                                <label class="form-label">Op. 2 hasta</label>
-                                                <input type="date" class="form-control" name="op2_fecha_hasta" id="op2_fecha_hasta">
-                                            </div>
-                                            <div class="col-md-2">
-                                                <label class="form-label">Monto Op. 2</label>
-                                                <input type="text" class="form-control input-monto-ar" name="op2_monto" id="op2_monto" inputmode="decimal" autocomplete="off" placeholder="0,00">
-                                            </div>
-                                        </div>
-                                        <div class="mt-2">
-                                            <small id="division_resumen" class="text-muted">La suma de ambas operaciones debe ser igual al monto total.</small>
+                                        <p class="small text-muted mb-2">
+                                            Agregá todas las partes que quieras. Completá el monto de la <strong>primera parte</strong> que vas a liquidar ahora;
+                                            las demás pueden quedar en 0 y siguen pendientes. No hace falta cubrir el total de una sola vez.
+                                        </p>
+                                        <div id="division_partes_lista" class="d-flex flex-column gap-2"></div>
+                                        <div class="mt-2 d-flex flex-wrap align-items-center gap-2">
+                                            <button type="button" class="btn btn-sm btn-outline-primary" id="btn_agregar_parte_division">
+                                                <i class="fas fa-plus me-1"></i>Agregar parte
+                                            </button>
+                                            <small id="division_resumen" class="text-muted">Suma de partes ≤ monto al propietario. Esta liquidación usa la 1ª parte con monto.</small>
                                         </div>
                                     </div>
                                 </div>
@@ -402,9 +384,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const dividirToggle = document.getElementById('dividir_operacion_toggle');
     const dividirHidden = document.getElementById('dividir_operacion');
     const bloqueDivision = document.getElementById('bloque_division_operaciones');
-    const op1Monto = document.getElementById('op1_monto');
-    const op2Monto = document.getElementById('op2_monto');
+    const divisionPartesLista = document.getElementById('division_partes_lista');
+    const btnAgregarParteDivision = document.getElementById('btn_agregar_parte_division');
     const resumenDivision = document.getElementById('division_resumen');
+    let divisionParteSeq = 0;
 
     function limpiarPropietarioBusquedaUI() {
         if (propietarioBuscar) propietarioBuscar.value = '';
@@ -1848,14 +1831,88 @@ document.addEventListener('DOMContentLoaded', function() {
         return isNaN(n) ? 0 : n;
     }
 
+    function renumerarPartesDivision() {
+        if (!divisionPartesLista) return;
+        const filas = divisionPartesLista.querySelectorAll('.division-parte-fila');
+        filas.forEach(function(fila, idx) {
+            const n = idx + 1;
+            const label = fila.querySelector('.division-parte-label');
+            if (label) label.textContent = 'Parte ' + n;
+            const badge = fila.querySelector('.division-parte-badge');
+            if (badge) {
+                badge.textContent = n === 1 ? 'Esta liquidación' : 'Pendiente / después';
+                badge.className = 'badge division-parte-badge ' + (n === 1 ? 'bg-success' : 'bg-secondary');
+            }
+        });
+        const btnsQuitar = divisionPartesLista.querySelectorAll('.btn-quitar-parte-division');
+        btnsQuitar.forEach(function(btn) {
+            btn.disabled = filas.length <= 1;
+        });
+    }
+
+    function agregarParteDivision(prefill) {
+        if (!divisionPartesLista) return;
+        divisionParteSeq += 1;
+        const id = divisionParteSeq;
+        const p = prefill || {};
+        const wrap = document.createElement('div');
+        wrap.className = 'division-parte-fila border rounded p-2 bg-white';
+        wrap.dataset.parteId = String(id);
+        wrap.innerHTML =
+            '<div class="d-flex justify-content-between align-items-center mb-1">' +
+                '<div><strong class="division-parte-label">Parte</strong> ' +
+                '<span class="badge division-parte-badge bg-secondary ms-1"></span></div>' +
+                '<button type="button" class="btn btn-sm btn-outline-danger btn-quitar-parte-division" title="Quitar parte">&times;</button>' +
+            '</div>' +
+            '<div class="row g-2">' +
+                '<div class="col-md-3"><label class="form-label small mb-0">Desde</label>' +
+                '<input type="date" class="form-control form-control-sm div-parte-desde" name="div_parte_desde" value="' + (p.desde || '') + '"></div>' +
+                '<div class="col-md-3"><label class="form-label small mb-0">Hasta</label>' +
+                '<input type="date" class="form-control form-control-sm div-parte-hasta" name="div_parte_hasta" value="' + (p.hasta || '') + '"></div>' +
+                '<div class="col-md-4"><label class="form-label small mb-0">Monto al propietario</label>' +
+                '<input type="text" class="form-control form-control-sm input-monto-ar div-parte-monto" name="div_parte_monto" inputmode="decimal" autocomplete="off" placeholder="0,00" value="' + (p.monto || '') + '"></div>' +
+            '</div>';
+        divisionPartesLista.appendChild(wrap);
+        wrap.querySelector('.btn-quitar-parte-division').addEventListener('click', function() {
+            if (divisionPartesLista.querySelectorAll('.division-parte-fila').length <= 1) return;
+            wrap.remove();
+            renumerarPartesDivision();
+            actualizarResumenDivision();
+        });
+        const montoInp = wrap.querySelector('.div-parte-monto');
+        montoInp.addEventListener('input', actualizarResumenDivision);
+        renumerarPartesDivision();
+        actualizarResumenDivision();
+    }
+
+    function leerPartesDivision() {
+        const filas = divisionPartesLista
+            ? Array.from(divisionPartesLista.querySelectorAll('.division-parte-fila'))
+            : [];
+        return filas.map(function(fila, idx) {
+            return {
+                numero: idx + 1,
+                desde: (fila.querySelector('.div-parte-desde') || {}).value || '',
+                hasta: (fila.querySelector('.div-parte-hasta') || {}).value || '',
+                monto: parseNumeroEsAR((fila.querySelector('.div-parte-monto') || {}).value || '0')
+            };
+        });
+    }
+
     function actualizarResumenDivision() {
-        if (!dividirToggle || !dividirToggle.checked) return;
-        const total = parseNumeroEsAR(montoTotal.value);
-        const m1 = parseNumeroEsAR(op1Monto.value);
-        const m2 = parseNumeroEsAR(op2Monto.value);
-        const suma = m1 + m2;
-        const ok = Math.abs(suma - total) < 0.01;
-        resumenDivision.textContent = `Op.1 + Op.2 = ${formatearNumero(suma.toFixed(2))} | Total = ${formatearNumero(total.toFixed(2))}`;
+        if (!dividirToggle || !dividirToggle.checked || !resumenDivision) return;
+        const tope = parseNumeroEsAR(montoPropietario.value);
+        const partes = leerPartesDivision();
+        const suma = partes.reduce(function(acc, p) { return acc + (p.monto > 0 ? p.monto : 0); }, 0);
+        const primera = partes.find(function(p) { return p.monto > 0; });
+        const esta = primera ? primera.monto : 0;
+        const pendientePlan = Math.max(0, tope - suma);
+        const ok = suma <= tope + 0.009 && esta > 0;
+        resumenDivision.textContent =
+            'Esta liq.: ' + formatearNumero(esta.toFixed(2)) +
+            ' | Partes con monto: ' + formatearNumero(suma.toFixed(2)) +
+            ' | Al propietario: ' + formatearNumero(tope.toFixed(2)) +
+            ' | Sin asignar: ' + formatearNumero(pendientePlan.toFixed(2));
         resumenDivision.className = ok ? 'text-success' : 'text-danger';
     }
 
@@ -1865,23 +1922,42 @@ document.addEventListener('DOMContentLoaded', function() {
             dividirHidden.value = activo ? '1' : '0';
             bloqueDivision.style.display = activo ? 'block' : 'none';
             if (activo) {
-                // Autocompletar mitad y mitad si estaban vacíos
-                const total = parseNumeroEsAR(montoTotal.value);
-                if (total > 0 && parseNumeroEsAR(op1Monto.value) === 0 && parseNumeroEsAR(op2Monto.value) === 0) {
-                    const mitad = Math.floor((total / 2) * 100) / 100;
-                    const resto = Number((total - mitad).toFixed(2));
-                    op1Monto.value = formatearNumero(mitad.toFixed(2));
-                    op2Monto.value = formatearNumero(resto.toFixed(2));
+                if (divisionPartesLista && !divisionPartesLista.querySelector('.division-parte-fila')) {
+                    const fd = document.querySelector('input[name="fecha_desde"]');
+                    const fh = document.querySelector('input[name="fecha_hasta"]');
+                    const prop = parseNumeroEsAR(montoPropietario.value);
+                    // Parte 1 = esta liquidación (monto completo por defecto); parte 2 vacía = pendiente.
+                    agregarParteDivision({
+                        desde: fd ? fd.value : '',
+                        hasta: fh ? fh.value : '',
+                        monto: prop > 0 ? formatearNumero(prop.toFixed(2)) : ''
+                    });
+                    agregarParteDivision({
+                        desde: fd ? fd.value : '',
+                        hasta: fh ? fh.value : '',
+                        monto: ''
+                    });
                 }
                 actualizarResumenDivision();
-            } else {
-                resumenDivision.textContent = 'La suma de ambas operaciones debe ser igual al monto total.';
+            } else if (resumenDivision) {
+                resumenDivision.textContent = 'Suma de partes ≤ monto al propietario. Esta liquidación usa la 1ª parte con monto.';
                 resumenDivision.className = 'text-muted';
             }
         });
-        [montoTotal, op1Monto, op2Monto].forEach(function(el) {
-            el.addEventListener('input', actualizarResumenDivision);
-        });
+        if (btnAgregarParteDivision) {
+            btnAgregarParteDivision.addEventListener('click', function() {
+                const fd = document.querySelector('input[name="fecha_desde"]');
+                const fh = document.querySelector('input[name="fecha_hasta"]');
+                agregarParteDivision({
+                    desde: fd ? fd.value : '',
+                    hasta: fh ? fh.value : '',
+                    monto: ''
+                });
+            });
+        }
+        if (montoPropietario) {
+            montoPropietario.addEventListener('input', actualizarResumenDivision);
+        }
     }
 
     function leerComisionLocador() {
@@ -2249,22 +2325,30 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         if (!soloServicios && dividirToggle && dividirToggle.checked) {
-            const m1 = parseNumeroEsAR(op1Monto.value);
-            const m2 = parseNumeroEsAR(op2Monto.value);
-            const f1d = document.getElementById('op1_fecha_desde').value;
-            const f1h = document.getElementById('op1_fecha_hasta').value;
-            const f2d = document.getElementById('op2_fecha_desde').value;
-            const f2h = document.getElementById('op2_fecha_hasta').value;
-            if (!f1d || !f1h || !f2d || !f2h) {
-                alert('Si dividís la liquidación, completá las fechas de ambas operaciones.');
+            const partes = leerPartesDivision();
+            if (!partes.length) {
+                alert('Agregá al menos una parte en la división.');
                 return false;
             }
-            if (m1 <= 0 || m2 <= 0) {
-                alert('Los montos de Operación 1 y Operación 2 deben ser mayores a cero.');
+            const primera = partes.find(function(p) { return p.monto > 0; });
+            if (!primera) {
+                alert('Completá el monto de al menos una parte (la primera con monto es esta liquidación).');
                 return false;
             }
-            if (Math.abs((m1 + m2) - mTotal) >= 0.01) {
-                alert('La suma de Operación 1 y Operación 2 debe ser igual al Monto Total.');
+            for (let i = 0; i < partes.length; i++) {
+                const p = partes[i];
+                if (!p.desde || !p.hasta) {
+                    alert('Completá las fechas de la Parte ' + p.numero + '.');
+                    return false;
+                }
+                if (p.desde > p.hasta) {
+                    alert('En la Parte ' + p.numero + ', la fecha desde no puede ser mayor a hasta.');
+                    return false;
+                }
+            }
+            const suma = partes.reduce(function(acc, p) { return acc + (p.monto > 0 ? p.monto : 0); }, 0);
+            if (suma > mProp + 0.009) {
+                alert('La suma de las partes con monto no puede superar el monto al propietario.');
                 return false;
             }
         }

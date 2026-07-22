@@ -39,6 +39,59 @@
             </div>
             {% endif %}
 
+            {% if division_operaciones or saldo_parcial_reserva %}
+            <div class="alert {% if saldo_parcial_reserva and not saldo_parcial_reserva.completa %}alert-warning{% else %}alert-secondary{% endif %} mb-4" role="alert">
+                <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+                    <div>
+                        <strong><i class="fas fa-code-branch me-1"></i>Pago al propietario dividido</strong>
+                        {% if saldo_parcial_reserva %}
+                        <div class="small mt-1">
+                            Corresponde: {{ saldo_parcial_reserva.corresponde|format_importe_moneda:liquidacion.moneda }}
+                            · Liquidado: {{ saldo_parcial_reserva.liquidado|format_importe_moneda:liquidacion.moneda }}
+                            · <strong>Pendiente: {{ saldo_parcial_reserva.pendiente|format_importe_moneda:liquidacion.moneda }}</strong>
+                            {% if saldo_parcial_reserva.cantidad > 1 %}
+                            · {{ saldo_parcial_reserva.cantidad }} liquidaciones
+                            {% endif %}
+                        </div>
+                        {% elif division_meta.monto_propietario_total %}
+                        <div class="small mt-1">Total planificado al propietario: ${{ division_meta.monto_propietario_total }}</div>
+                        {% endif %}
+                    </div>
+                    {% if url_siguiente_parcial %}
+                    <a href="{{ url_siguiente_parcial }}" class="btn btn-sm btn-warning">
+                        <i class="fas fa-plus me-1"></i>Liquidar parte pendiente
+                    </a>
+                    {% endif %}
+                </div>
+                {% if division_operaciones %}
+                <div class="table-responsive mt-2">
+                    <table class="table table-sm table-bordered mb-0 bg-white">
+                        <thead><tr><th>Parte</th><th>Desde</th><th>Hasta</th><th class="text-end">Monto</th><th>Estado</th></tr></thead>
+                        <tbody>
+                            {% for p in division_operaciones %}
+                            <tr>
+                                <td>#{{ p.numero }}</td>
+                                <td>{{ p.fecha_desde }}</td>
+                                <td>{{ p.fecha_hasta }}</td>
+                                <td class="text-end">${{ p.monto }}</td>
+                                <td>
+                                    {% if p.creada_en_esta_liquidacion %}
+                                    <span class="badge bg-success">Esta liquidación</span>
+                                    {% elif p.pendiente or p.monto == "0" or p.monto == "0.00" or p.monto == "0,00" %}
+                                    <span class="badge bg-secondary">Pendiente</span>
+                                    {% else %}
+                                    <span class="badge bg-info text-dark">Planificada</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
             <!-- Información Principal -->
             <div class="row mb-4">
                 <div class="col-12">

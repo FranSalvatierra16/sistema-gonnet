@@ -6,7 +6,13 @@
             <div class="card-header bg-light d-flex flex-wrap justify-content-between align-items-center gap-2 py-2">
                 <strong><i class="fas fa-file-invoice-dollar me-2"></i>Resumen de liquidación al propietario</strong>
                 <div class="d-flex flex-wrap align-items-center gap-2">
-                    {% if resumen_liquidacion.desde_liquidacion %}
+                    {% if resumen_liquidacion.liquidacion_completa %}
+                    <span class="badge bg-success">Liquidada por completo</span>
+                    {% elif resumen_liquidacion.tiene_liquidaciones %}
+                    <span class="badge bg-warning text-dark">
+                        Parcial — pendiente {{ resumen_liquidacion.monto_propietario_pendiente|format_importe_moneda:resumen_liquidacion.moneda }}
+                    </span>
+                    {% elif resumen_liquidacion.desde_liquidacion %}
                     <span class="badge bg-success">Liquidación #{{ resumen_liquidacion.liquidacion_id }} — {{ resumen_liquidacion.estado_liquidacion }}</span>
                     {% else %}
                     <span class="badge bg-warning text-dark">Sugerido (aún sin liquidación)</span>
@@ -19,6 +25,28 @@
                 </div>
             </div>
             <div class="card-body">
+                {% if resumen_liquidacion.liquidaciones_parciales %}
+                <div class="mb-3">
+                    <div class="small text-muted mb-1">Liquidaciones de esta operación</div>
+                    <ul class="list-unstyled mb-0 small">
+                        {% for liq in resumen_liquidacion.liquidaciones_parciales %}
+                        <li class="mb-1">
+                            <a href="{{ liq.url }}">#{{ liq.id }}</a>
+                            — {{ liq.estado }}
+                            — prop. {{ liq.monto_propietario|format_importe_moneda:resumen_liquidacion.moneda }}
+                            — neto {{ liq.monto_a_pagar|format_importe_moneda:resumen_liquidacion.moneda }}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    <div class="small mt-1">
+                        Liquidado {{ resumen_liquidacion.monto_propietario_liquidado|format_importe_moneda:resumen_liquidacion.moneda }}
+                        / {{ resumen_liquidacion.monto_propietario|format_importe_moneda:resumen_liquidacion.moneda }}
+                        {% if not resumen_liquidacion.liquidacion_completa %}
+                        · <strong class="text-warning">Falta {{ resumen_liquidacion.monto_propietario_pendiente|format_importe_moneda:resumen_liquidacion.moneda }}</strong>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
                 {% if puede_editar_liquidacion_resumen %}
                 <p class="small text-muted mb-2">
                     <i class="fas fa-pen me-1"></i>Podés ajustar los montos antes de liquidar. Se guardan con <strong>Guardar cambios</strong> o <strong>Guardar montos</strong> y se precargan al crear la liquidación.

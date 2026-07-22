@@ -1750,27 +1750,75 @@ def _ctx_liquidacion_operacion(
         'resumen_liquidacion': {'tiene_datos': False},
     }
     if reserva is not None:
-        liq = (
-            LiquidacionPropietario.objects.filter(reserva=reserva)
-            .exclude(estado='cancelada')
-            .order_by('-id')
-            .first()
-        )
-        if liq:
-            ctx['liquidacion_operacion'] = liq
+        from inmobiliaria.liquidacion_operacion import saldo_liquidacion_reserva
+
+        saldo = saldo_liquidacion_reserva(reserva)
+        liqs = saldo['liquidaciones']
+        ultima = liqs[-1] if liqs else None
+        if ultima:
+            ctx['liquidacion_operacion'] = ultima
             ctx['url_liquidacion_operacion'] = reverse(
-                'inmobiliaria:detalle_liquidacion', args=[liq.id]
+                'inmobiliaria:detalle_liquidacion', args=[ultima.id]
             )
-            ctx['etiqueta_liquidacion_operacion'] = f'Ver liquidación #{liq.id}'
+            if saldo['completa']:
+                ctx['etiqueta_liquidacion_operacion'] = f'Ver liquidación #{ultima.id}'
+            else:
+                ctx['url_liquidacion_operacion'] = reverse(
+                    'inmobiliaria:crear_liquidacion_reserva', args=[reserva.id]
+                )
+                ctx['etiqueta_liquidacion_operacion'] = 'Liquidar parte pendiente'
+                ctx['url_liquidacion_pendiente'] = reverse(
+                    'inmobiliaria:detalle_liquidacion', args=[ultima.id]
+                )
+                ctx['etiqueta_liquidacion_pendiente'] = f'Ver última liq. #{ultima.id}'
         else:
             ctx['url_liquidacion_operacion'] = reverse(
                 'inmobiliaria:crear_liquidacion_reserva', args=[reserva.id]
             )
-        ctx['resumen_liquidacion'] = _resumen_liquidacion_caratula(
+        resumen = _resumen_liquidacion_caratula(
             reserva=reserva,
-            liquidacion=ctx['liquidacion_operacion'],
+            liquidacion=None if not saldo['completa'] else ultima,
             sucursal=reserva.sucursal,
         )
+        # Siempre enriquecer con estado de liquidaciones parciales
+        if resumen.get('tiene_datos'):
+            resumen['liquidaciones_parciales'] = [
+                {
+                    'id': liq.id,
+                    'estado': liq.get_estado_display(),
+                    'monto_propietario': liq.monto_propietario,
+                    'monto_a_pagar': liq.monto_a_pagar,
+                    'url': reverse('inmobiliaria:detalle_liquidacion', args=[liq.id]),
+                }
+                for liq in liqs
+            ]
+            resumen['monto_propietario_liquidado'] = saldo['liquidado']
+            resumen['monto_propietario_pendiente'] = saldo['pendiente']
+            resumen['liquidacion_completa'] = saldo['completa']
+            resumen['tiene_liquidaciones'] = saldo['tiene_liquidaciones']
+            if saldo['tiene_liquidaciones'] and not saldo['completa']:
+                resumen['desde_liquidacion'] = True
+                resumen['liquidacion_id'] = ultima.id if ultima else None
+                resumen['estado_liquidacion'] = (
+                    f'Parcial — pendiente {saldo["pendiente"]}'
+                )
+                resumen['liquidacion_pendiente'] = True
+                # Mostrar montos de la operación (no solo de la última parcial)
+                from inmobiliaria.neto_propietario_movimiento import reparto_liquidacion_reserva_por_dia
+
+                total, prop, inm, _ = reparto_liquidacion_reserva_por_dia(reserva)
+                total, prop, inm, coch, fondo = reserva.montos_liquidacion_efectivos(total, prop, inm)
+                resumen['monto_total'] = total
+                resumen['monto_propietario'] = prop
+                resumen['monto_inmobiliaria'] = inm
+                resumen['monto_cochera'] = coch
+                resumen['monto_fondo'] = fondo
+                resumen['monto_a_pagar'] = saldo['pendiente']
+                resumen['subtotal_propietario'] = prop
+                resumen['filas_pago'] = [
+                    {'concepto': f'Reserva #{reserva.id} (pendiente)', 'monto': saldo['pendiente']}
+                ]
+        ctx['resumen_liquidacion'] = resumen
     elif contrato is not None:
         liq_pendiente = (
             LiquidacionPropietario.objects.filter(contrato=contrato, estado='pendiente')
