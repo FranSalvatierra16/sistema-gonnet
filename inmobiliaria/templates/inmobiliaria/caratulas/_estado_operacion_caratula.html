@@ -29,13 +29,13 @@
         <div class="d-flex flex-wrap gap-2">
             {% if puede_anular_operacion_caratula %}
             <form method="post" class="m-0" id="form-anular-operacion-caratula"
-                  onsubmit="return confirm('¿Anular esta operación por día? Se liberan las fechas, se revierten las comisiones acreditadas y, si hay liquidación al propietario, se elimina junto con su egreso de caja.');">
+                  onsubmit="return confirm('¿Eliminar esta operación? Se liberan las fechas, se revierten las comisiones acreditadas y, si hay liquidación al propietario, se cancela junto con su egreso de caja.');">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="anular_operacion_caratula">
                 <input type="hidden" name="motivo_anulacion" id="motivo-anulacion-caratula" value="">
                 <button type="button" class="btn btn-sm btn-outline-danger"
-                        onclick="(function(){var m=prompt('Motivo de la anulación:');if(!m||!m.trim()){alert('Debés indicar un motivo.');return;}document.getElementById('motivo-anulacion-caratula').value=m.trim();document.getElementById('form-anular-operacion-caratula').submit();})();">
-                    <i class="fas fa-ban me-1"></i>Anular operación
+                        onclick="(function(){var m=prompt('Motivo de la eliminación:');if(!m||!m.trim()){alert('Debés indicar un motivo.');return;}document.getElementById('motivo-anulacion-caratula').value=m.trim();document.getElementById('form-anular-operacion-caratula').requestSubmit();})();">
+                    <i class="fas fa-trash-alt me-1"></i>Eliminar operación
                 </button>
             </form>
             {% endif %}

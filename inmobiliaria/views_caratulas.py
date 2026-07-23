@@ -708,14 +708,10 @@ def _ctx_estado_operacion_caratula(reserva=None, contrato=None, user=None):
 
 
 def _puede_anular_operacion_reserva_caratula(reserva, user):
-    """Anular operación por día desde carátula (administración)."""
+    """Eliminar/anular operación (reserva) desde carátula (administración)."""
     if not reserva or not _puede_editar_caratula(user):
         return False
     if getattr(reserva, 'eliminada', False) or getattr(reserva, 'estado', None) == 'cancelada':
-        return False
-    from inmobiliaria.models.comision import clasificar_tipo_operacion_reserva
-
-    if clasificar_tipo_operacion_reserva(reserva) != 'dia':
         return False
     return True
 
@@ -786,11 +782,11 @@ def _procesar_anular_operacion_reserva_caratula(request, reserva):
     from django.contrib import messages
 
     if not _puede_anular_operacion_reserva_caratula(reserva, request.user):
-        messages.error(request, 'No se puede anular esta operación.')
+        messages.error(request, 'No se puede eliminar esta operación.')
         return False
     motivo = (request.POST.get('motivo_anulacion') or '').strip()
     if not motivo:
-        messages.error(request, 'Indicá el motivo de la anulación.')
+        messages.error(request, 'Indicá el motivo de la eliminación.')
         return False
     try:
         with transaction.atomic():
@@ -829,7 +825,7 @@ def _procesar_anular_operacion_reserva_caratula(request, reserva):
             liquidaciones_anuladas,
         )
         msg = (
-            'Operación anulada. Las fechas vuelven a estar disponibles; '
+            'Operación eliminada. Las fechas vuelven a estar disponibles; '
             'las comisiones acreditadas se revirtieron en el listado del productor '
             'y en honorarios de oficina figura el descuento correspondiente.'
         )
@@ -3789,7 +3785,7 @@ def caratula_reserva(request, reserva_id):
 
     if request.method == 'POST' and request.POST.get('action') == 'anular_operacion_caratula':
         if _procesar_anular_operacion_reserva_caratula(request, reserva):
-            return _redirect_caratula_con_filtros('inmobiliaria:caratula_reserva', reserva_id, request)
+            return redirect(_url_lista_caratulas_desde_request(request))
         reserva.refresh_from_db()
 
     if request.method == 'POST' and request.POST.get('action') in (

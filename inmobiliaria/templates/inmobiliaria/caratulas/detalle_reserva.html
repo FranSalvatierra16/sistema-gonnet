@@ -23,6 +23,18 @@
             <i class="fas fa-hand-holding-usd me-1"></i>{{ etiqueta_liquidacion_operacion }}
         </a>
         {% endif %}
+        {% if puede_anular_operacion_caratula %}
+        <form method="post" class="m-0 ms-auto" id="form-eliminar-operacion-top"
+              onsubmit="return confirm('¿Eliminar esta operación? Se liberan las fechas, se revierten las comisiones acreditadas y, si hay liquidación al propietario, se cancela junto con su egreso de caja.');">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="anular_operacion_caratula">
+            <input type="hidden" name="motivo_anulacion" id="motivo-eliminacion-caratula-top" value="">
+            <button type="button" class="btn btn-sm btn-outline-danger"
+                    onclick="(function(){var m=prompt('Motivo de la eliminación:');if(!m||!m.trim()){alert('Debés indicar un motivo.');return;}document.getElementById('motivo-eliminacion-caratula-top').value=m.trim();document.getElementById('form-eliminar-operacion-top').requestSubmit();})();">
+                <i class="fas fa-trash-alt me-1"></i>Eliminar operación
+            </button>
+        </form>
+        {% endif %}
     </div>
 
     {% url 'inmobiliaria:reserva_detalle' reserva.id as url_cancel_reserva %}
