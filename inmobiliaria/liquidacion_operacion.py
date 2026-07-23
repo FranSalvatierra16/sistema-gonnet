@@ -161,7 +161,17 @@ def liquidaciones_activas_reserva(reserva):
         LiquidacionPropietario.objects.filter(propiedad_id=reserva.propiedad_id)
         .exclude(estado='cancelada')
         .exclude(pk__in=vistos)
-        .only('id', 'operaciones_incluidas', 'monto_propietario', 'monto_a_pagar', 'estado', 'fecha_creacion')
+        .only(
+            'id',
+            'operaciones_incluidas',
+            'monto_propietario',
+            'monto_inmobiliaria',
+            'monto_cochera',
+            'monto_fondo_mantenimiento',
+            'monto_a_pagar',
+            'estado',
+            'fecha_creacion',
+        )
         .order_by('id')
     )
     for liq in qs_extra:
