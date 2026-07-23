@@ -196,13 +196,49 @@ def _montos_asignados_en_liquidaciones(liquidaciones):
     )
 
 
+def _reparto_asignado_en_liquidaciones(reserva, liquidaciones):
+    """
+    Armado de cuadrados a partir de lo cargado en liquidaciones.
+
+    Retorna (total, prop, inm, coch, fondo) o None si no hay montos útiles.
+
+    - Si la suma cierra el total de la operación → esos valores.
+    - Si ya asignaron oficina/cochera/fondo y el propietario va parcial,
+      propietario del cuadro = total − oficina (lo que le corresponde en el reparto).
+    - Si solo hay monto al propietario (sin oficina), se muestran esos montos
+      tal cual (el saldo pendiente sigue calculándose aparte).
+    """
+    if not liquidaciones:
+        return None
+    total_op = Decimal(str(getattr(reserva, 'precio_total', None) or 0)).quantize(Decimal('0.01'))
+    prop_a, inm_a, coch_a, fondo_a = _montos_asignados_en_liquidaciones(liquidaciones)
+    if prop_a <= 0 and inm_a <= 0 and coch_a <= 0 and fondo_a <= 0:
+        return None
+
+    oficina = (inm_a + coch_a + fondo_a).quantize(Decimal('0.01'))
+    suma = (prop_a + oficina).quantize(Decimal('0.01'))
+
+    if total_op <= 0:
+        return Decimal('0.00'), prop_a, inm_a, coch_a, fondo_a
+
+    if abs(suma - total_op) <= _TOLERANCIA_LIQ:
+        return total_op, prop_a, inm_a, coch_a, fondo_a
+
+    if oficina > 0 and oficina < total_op:
+        prop_full = (total_op - oficina).quantize(Decimal('0.01'))
+        return total_op, prop_full, inm_a, coch_a, fondo_a
+
+    return total_op, prop_a, inm_a, coch_a, fondo_a
+
+
 def monto_propietario_corresponde_reserva(reserva) -> Decimal:
     """
     Monto total al propietario por la operación.
 
-    1) Si hay liquidaciones cuyo reparto (prop+inm+cochera+fondo) cierra el total
-       de la operación, el propietario asignado es la suma de ``monto_propietario``.
-    2) Si no, overrides de carátula + precio por día (toma) / paquete.
+    Prioridad:
+    1) Liquidaciones que cierran el total, o con oficina ya asignada
+       (propietario = total − oficina).
+    2) Overrides de carátula + precio por día (toma) / paquete.
     """
     from inmobiliaria.neto_propietario_movimiento import reparto_liquidacion_reserva_por_dia
 
@@ -213,8 +249,12 @@ def monto_propietario_corresponde_reserva(reserva) -> Decimal:
     liqs = liquidaciones_activas_reserva(reserva)
     if liqs and total_op > 0:
         prop_a, inm_a, coch_a, fondo_a = _montos_asignados_en_liquidaciones(liqs)
-        if abs((prop_a + inm_a + coch_a + fondo_a) - total_op) <= _TOLERANCIA_LIQ:
+        oficina = (inm_a + coch_a + fondo_a).quantize(Decimal('0.01'))
+        suma = (prop_a + oficina).quantize(Decimal('0.01'))
+        if abs(suma - total_op) <= _TOLERANCIA_LIQ:
             return prop_a
+        if oficina > 0 and oficina < total_op:
+            return (total_op - oficina).quantize(Decimal('0.01'))
 
     total, prop, inm, _hay_toma = reparto_liquidacion_reserva_por_dia(reserva)
     _t, prop, _i, _c, _f = reserva.montos_liquidacion_efectivos(total, prop, inm)
@@ -225,8 +265,8 @@ def montos_reparto_reserva_para_caratula(reserva):
     """
     Cuadrados de la carátula: total / propietario / inmobiliaria / cochera / fondo.
 
-    Si ya hay liquidaciones que cierran el total de la operación, usa esos montos
-    (lo asignado al liquidar). Si no, toma por día + overrides de carátula.
+    Si ya liquidaron, usa los montos de esas liquidaciones (lo que cargaron al
+    dividir propietario / oficina / cochera / fondo). Si no, toma + overrides.
     """
     from inmobiliaria.neto_propietario_movimiento import reparto_liquidacion_reserva_por_dia
 
@@ -234,12 +274,11 @@ def montos_reparto_reserva_para_caratula(reserva):
         z = Decimal('0.00')
         return z, z, z, z, z
 
-    total_op = Decimal(str(reserva.precio_total or 0)).quantize(Decimal('0.01'))
     liqs = liquidaciones_activas_reserva(reserva)
-    if liqs and total_op > 0:
-        prop_a, inm_a, coch_a, fondo_a = _montos_asignados_en_liquidaciones(liqs)
-        if abs((prop_a + inm_a + coch_a + fondo_a) - total_op) <= _TOLERANCIA_LIQ:
-            return total_op, prop_a, inm_a, coch_a, fondo_a
+    if liqs:
+        desde_liq = _reparto_asignado_en_liquidaciones(reserva, liqs)
+        if desde_liq is not None:
+            return desde_liq
 
     total, prop, inm, _hay = reparto_liquidacion_reserva_por_dia(reserva)
     return reserva.montos_liquidacion_efectivos(total, prop, inm)
