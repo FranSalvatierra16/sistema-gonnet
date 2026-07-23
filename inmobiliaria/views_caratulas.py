@@ -1805,7 +1805,7 @@ def _ctx_liquidacion_operacion(
             )
         resumen = _resumen_liquidacion_caratula(
             reserva=reserva,
-            liquidacion=None if not saldo['completa'] else ultima,
+            liquidacion=ultima,
             sucursal=reserva.sucursal,
         )
         # Siempre enriquecer con estado de liquidaciones parciales
@@ -1822,6 +1822,7 @@ def _ctx_liquidacion_operacion(
             ]
             resumen['monto_propietario_liquidado'] = saldo['liquidado']
             resumen['monto_propietario_pendiente'] = saldo['pendiente']
+            resumen['monto_propietario_corresponde'] = saldo['corresponde']
             resumen['liquidacion_completa'] = saldo['completa']
             resumen['tiene_liquidaciones'] = saldo['tiene_liquidaciones']
             if saldo['tiene_liquidaciones'] and not saldo['completa']:
@@ -1831,21 +1832,58 @@ def _ctx_liquidacion_operacion(
                     f'Parcial — pendiente {saldo["pendiente"]}'
                 )
                 resumen['liquidacion_pendiente'] = True
-                # Mostrar montos de la operación (no solo de la última parcial)
-                from inmobiliaria.neto_propietario_movimiento import reparto_liquidacion_reserva_por_dia
-
-                total, prop, inm, _ = reparto_liquidacion_reserva_por_dia(reserva)
-                total, prop, inm, coch, fondo = reserva.montos_liquidacion_efectivos(total, prop, inm)
-                resumen['monto_total'] = total
-                resumen['monto_propietario'] = prop
-                resumen['monto_inmobiliaria'] = inm
-                resumen['monto_cochera'] = coch
-                resumen['monto_fondo'] = fondo
-                resumen['monto_a_pagar'] = saldo['pendiente']
-                resumen['subtotal_propietario'] = prop
-                resumen['filas_pago'] = [
-                    {'concepto': f'Reserva #{reserva.id} (pendiente)', 'monto': saldo['pendiente']}
+                # Montos de la tabla = lo cargado en la(s) liquidación(es), no el sugerido.
+                if liqs:
+                    resumen['monto_propietario'] = sum(
+                        (Decimal(str(liq.monto_propietario or 0)) for liq in liqs),
+                        Decimal('0'),
+                    ).quantize(Decimal('0.01'))
+                    resumen['monto_inmobiliaria'] = sum(
+                        (Decimal(str(liq.monto_inmobiliaria or 0)) for liq in liqs),
+                        Decimal('0'),
+                    ).quantize(Decimal('0.01'))
+                    resumen['monto_cochera'] = sum(
+                        (Decimal(str(liq.monto_cochera or 0)) for liq in liqs),
+                        Decimal('0'),
+                    ).quantize(Decimal('0.01'))
+                    resumen['monto_fondo'] = sum(
+                        (Decimal(str(liq.monto_fondo_mantenimiento or 0)) for liq in liqs),
+                        Decimal('0'),
+                    ).quantize(Decimal('0.01'))
+                    ingresos_oficina = (
+                        resumen['monto_cochera'] + resumen['monto_fondo']
+                    ).quantize(Decimal('0.01'))
+                    resumen['ingresos_oficina'] = ingresos_oficina
+                filas_pago = [
+                    {
+                        'concepto': f'Liquidación #{liq.id}',
+                        'monto': Decimal(str(liq.monto_propietario or 0)),
+                    }
+                    for liq in liqs
+                    if Decimal(str(liq.monto_propietario or 0)) > 0
                 ]
+                if saldo['pendiente'] > 0:
+                    filas_pago.append(
+                        {
+                            'concepto': f'Reserva #{reserva.id} (pendiente)',
+                            'monto': saldo['pendiente'],
+                        }
+                    )
+                resumen['filas_pago'] = filas_pago
+                resumen['subtotal_propietario'] = saldo['corresponde']
+                resumen['monto_a_pagar'] = saldo['pendiente']
+            elif saldo['completa'] and liqs:
+                # Denominador del progreso = total al propietario de la operación.
+                resumen['monto_propietario_corresponde'] = saldo['corresponde'] or resumen.get(
+                    'monto_propietario'
+                )
+        elif not resumen.get('tiene_datos'):
+            # Sin liquidación usable: sugerido por operación.
+            resumen = _resumen_liquidacion_caratula(
+                reserva=reserva,
+                liquidacion=None,
+                sucursal=reserva.sucursal,
+            )
         ctx['resumen_liquidacion'] = resumen
     elif contrato is not None:
         liq_pendiente = (

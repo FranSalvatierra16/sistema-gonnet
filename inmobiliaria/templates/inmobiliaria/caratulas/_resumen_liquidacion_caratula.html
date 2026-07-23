@@ -40,7 +40,7 @@
                     </ul>
                     <div class="small mt-1">
                         Liquidado {{ resumen_liquidacion.monto_propietario_liquidado|format_importe_moneda:resumen_liquidacion.moneda }}
-                        / {{ resumen_liquidacion.monto_propietario|format_importe_moneda:resumen_liquidacion.moneda }}
+                        / {% if resumen_liquidacion.monto_propietario_corresponde != None %}{{ resumen_liquidacion.monto_propietario_corresponde|format_importe_moneda:resumen_liquidacion.moneda }}{% else %}{{ resumen_liquidacion.monto_propietario|format_importe_moneda:resumen_liquidacion.moneda }}{% endif %}
                         {% if not resumen_liquidacion.liquidacion_completa %}
                         · <strong class="text-warning">Falta {{ resumen_liquidacion.monto_propietario_pendiente|format_importe_moneda:resumen_liquidacion.moneda }}</strong>
                         {% endif %}
