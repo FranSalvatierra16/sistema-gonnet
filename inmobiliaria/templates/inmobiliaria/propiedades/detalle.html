@@ -751,20 +751,18 @@
                                                 <p class="mb-0">{{ propiedad.info_meses.observaciones }}</p>
                                             </div>
                                         {% endif %}
-                                                <div class="text-center mt-4">
-                                                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalMeses">
-                                                        <i class="fas fa-edit"></i> Editar información
-                                                    </button>
-                                                    {% if propiedad.info_meses.estado == 'disponible' %}
-                                                        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalReservaMeses">
-                                                            <i class="fas fa-calendar-plus"></i> Hacer reserva
-                                                        </button>
-                                                    {% endif %}
-                                                    <button type="button" class="btn btn-warning" onclick="desactivarPropiedad24Meses({{ propiedad.id }})">
-                                                        <i class="fas fa-power-off"></i> Desactivar 24 Meses
-                                                    </button>
-                                                </div>
-                                            </div>
+                                        <div class="text-center mt-4">
+                                            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalMeses">
+                                                <i class="fas fa-edit"></i> Editar información
+                                            </button>
+                                            {% if propiedad.info_meses.estado == 'disponible' %}
+                                                <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalReservaMeses">
+                                                    <i class="fas fa-calendar-plus"></i> Hacer reserva
+                                                </button>
+                                            {% endif %}
+                                            <button type="button" class="btn btn-warning" onclick="desactivarPropiedad24Meses({{ propiedad.id }})">
+                                                <i class="fas fa-power-off"></i> Desactivar 24 Meses
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
