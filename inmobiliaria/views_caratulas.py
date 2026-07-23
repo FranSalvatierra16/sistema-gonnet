@@ -3788,6 +3788,23 @@ def caratula_reserva(request, reserva_id):
             return redirect(_url_lista_caratulas_desde_request(request))
         reserva.refresh_from_db()
 
+    # Si ya liquidaron y la carátula sigue pendiente, confirmarla (casos viejos / sin volver a liquidar).
+    if (
+        request.method == 'GET'
+        and (getattr(reserva, 'estado_confirmacion_caratula', None) or 'pendiente') != 'confirmada'
+        and not getattr(reserva, 'eliminada', False)
+        and getattr(reserva, 'estado', None) != 'cancelada'
+    ):
+        from inmobiliaria.liquidacion_operacion import (
+            confirmar_caratula_por_liquidacion,
+            liquidaciones_activas_reserva,
+        )
+
+        liqs = liquidaciones_activas_reserva(reserva)
+        if liqs:
+            if confirmar_caratula_por_liquidacion(liqs[-1]):
+                reserva.refresh_from_db()
+
     if request.method == 'POST' and request.POST.get('action') in (
         'agregar_productor_caratula',
         'quitar_productor_caratula',

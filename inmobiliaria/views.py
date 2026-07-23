@@ -25867,10 +25867,14 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                 liquidacion.calcular_monto_a_pagar()
 
                 from inmobiliaria.models.comision import confirmar_comisiones_por_liquidacion
+                from inmobiliaria.liquidacion_operacion import confirmar_caratula_por_liquidacion
 
                 confirmar_comisiones_por_liquidacion(liquidacion)
+                caratulas_confirmadas = confirmar_caratula_por_liquidacion(liquidacion)
 
             msg_ok = 'Liquidación creada correctamente.'
+            if 'caratulas_confirmadas' not in locals():
+                caratulas_confirmadas = []
             if reserva is not None:
                 from inmobiliaria.liquidacion_operacion import saldo_liquidacion_reserva
 
@@ -25881,6 +25885,8 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                         f'{" (dividida)" if dividir_operacion else " (parcial)"}. '
                         f'Pendiente al propietario: ${sal["pendiente"]:,.2f}.'
                     )
+            if caratulas_confirmadas:
+                msg_ok += ' La carátula quedó confirmada automáticamente.'
             messages.success(request, msg_ok)
             return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion.id)
 
@@ -28454,14 +28460,22 @@ def confirmar_liquidacion(request, liquidacion_id):
     liquidacion.save(update_fields=['estado', 'fecha_procesamiento', 'monto_gastos', 'monto_a_pagar'])
     liquidacion.sync_gasto_saldo_negativo_pendiente()
 
+    from inmobiliaria.models.comision import confirmar_comisiones_por_liquidacion
+    from inmobiliaria.liquidacion_operacion import confirmar_caratula_por_liquidacion
+
+    confirmar_comisiones_por_liquidacion(liquidacion)
+    caratulas_ok = confirmar_caratula_por_liquidacion(liquidacion)
+
     if (liquidacion.monto_a_pagar or 0) < 0:
-        messages.success(
-            request,
+        msg = (
             'Liquidación confirmada y cerrada. Quedó saldo en contra del propietario; '
-            'se generó un movimiento «Liquidación pendiente» para descontar en la próxima liquidación.',
+            'se generó un movimiento «Liquidación pendiente» para descontar en la próxima liquidación.'
         )
     else:
-        messages.success(request, 'Liquidación confirmada y cerrada. Ahora podés volver y pagarla cuando quieras.')
+        msg = 'Liquidación confirmada y cerrada. Ahora podés volver y pagarla cuando quieras.'
+    if caratulas_ok:
+        msg += ' La carátula quedó confirmada automáticamente.'
+    messages.success(request, msg)
     return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion.id)
 
 
@@ -28485,14 +28499,22 @@ def marcar_liquidacion_oficina(request, liquidacion_id):
     liquidacion.save(update_fields=['estado', 'fecha_procesamiento', 'monto_gastos', 'monto_a_pagar'])
     liquidacion.sync_gasto_saldo_negativo_pendiente()
 
+    from inmobiliaria.models.comision import confirmar_comisiones_por_liquidacion
+    from inmobiliaria.liquidacion_operacion import confirmar_caratula_por_liquidacion
+
+    confirmar_comisiones_por_liquidacion(liquidacion)
+    caratulas_ok = confirmar_caratula_por_liquidacion(liquidacion)
+
     if (liquidacion.monto_a_pagar or 0) < 0:
-        messages.success(
-            request,
+        msg = (
             'Liquidación marcada como Oficina. Quedó saldo en contra del propietario; '
-            'se generó un movimiento «Liquidación pendiente» para la próxima liquidación.',
+            'se generó un movimiento «Liquidación pendiente» para la próxima liquidación.'
         )
     else:
-        messages.success(request, 'Liquidación marcada como Oficina.')
+        msg = 'Liquidación marcada como Oficina.'
+    if caratulas_ok:
+        msg += ' La carátula quedó confirmada automáticamente.'
+    messages.success(request, msg)
     return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion.id)
 
 

@@ -450,6 +450,53 @@ def reserva_ids_completamente_liquidadas(propiedad) -> set:
     return completas
 
 
+def confirmar_caratula_por_liquidacion(liquidacion) -> list:
+    """
+    Al liquidar al propietario: marca la/s carátula/s como confirmada y acredita
+    comisiones con fecha vencida. Evita volver a la carátula solo para confirmar.
+    """
+    if not liquidacion or getattr(liquidacion, 'estado', None) == 'cancelada':
+        return []
+
+    from inmobiliaria.models import Reserva
+    from inmobiliaria.models.comision import (
+        _reserva_ids_desde_liquidacion,
+        acreditar_comisiones_operacion_por_caratula,
+    )
+
+    confirmadas = []
+
+    for rid in _reserva_ids_desde_liquidacion(liquidacion):
+        reserva = Reserva.objects.filter(pk=rid).first()
+        if not reserva:
+            continue
+        if getattr(reserva, 'eliminada', False) or getattr(reserva, 'estado', None) == 'cancelada':
+            continue
+        if (getattr(reserva, 'estado_confirmacion_caratula', None) or 'pendiente') == 'confirmada':
+            acreditar_comisiones_operacion_por_caratula(reserva=reserva)
+            continue
+        reserva.estado_confirmacion_caratula = 'confirmada'
+        reserva.save(update_fields=['estado_confirmacion_caratula'])
+        acreditar_comisiones_operacion_por_caratula(reserva=reserva)
+        confirmadas.append(f'reserva #{rid}')
+
+    contrato = None
+    if getattr(liquidacion, 'contrato_id', None):
+        contrato = liquidacion.contrato
+    if contrato is None:
+        contrato = contrato_desde_liquidacion(liquidacion)
+    if contrato is not None and getattr(contrato, 'estado', None) != 'rescindido':
+        if (getattr(contrato, 'estado_confirmacion_caratula', None) or 'pendiente') != 'confirmada':
+            contrato.estado_confirmacion_caratula = 'confirmada'
+            contrato.save(update_fields=['estado_confirmacion_caratula'])
+            acreditar_comisiones_operacion_por_caratula(contrato=contrato)
+            confirmadas.append(f'contrato #{contrato.pk}')
+        else:
+            acreditar_comisiones_operacion_por_caratula(contrato=contrato)
+
+    return confirmadas
+
+
 def titulo_tipo_liquidacion_cobranzas(info_op):
     key = (info_op or {}).get('tipo_key') or ''
     if key in TITULO_LIQUIDACION_POR_TIPO:
