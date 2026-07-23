@@ -1,8 +1,8 @@
 """
 Neto al propietario por movimiento de caja (ingreso), alineado con liquidaciones:
 - Si hay LiquidacionPropietario vinculada (no cancelada), se usa su monto_a_pagar.
-- Si no: reparto como en operaciones pendientes — precio_toma (o precio_dia_toma) /
-  precio_por_dia sobre el monto del movimiento; sin toma válida, 70% propietario / 30% oficina.
+- Si no: reparto como en operaciones pendientes — precio_dia_toma por día
+  (o precio_toma del período una sola vez) / sin toma, 70% propietario / 30% oficina.
 """
 from __future__ import annotations
 
@@ -41,22 +41,36 @@ def _q(v: Decimal) -> Decimal:
 
 
 def _precio_toma_de_registro(precio) -> Decimal:
-    """precio_toma; si está vacío, precio_dia_toma."""
+    """
+    Monto de toma del registro de precio.
+    Preferir precio_dia_toma (diario). precio_toma es el paquete del período
+    (quincena / vacaciones) y no debe usarse como si fuera por día.
+    """
     if not precio:
         return Decimal('0')
-    pt = Decimal(str(precio.precio_toma or 0))
-    if pt <= 0 and getattr(precio, 'precio_dia_toma', None):
-        pt = Decimal(str(precio.precio_dia_toma or 0))
-    return pt if pt > 0 else Decimal('0')
+    pdt = Decimal(str(getattr(precio, 'precio_dia_toma', None) or 0))
+    if pdt > 0:
+        return pdt
+    return Decimal('0')
+
+
+def _precio_toma_paquete_de_registro(precio) -> Decimal:
+    """Precio por toma del período completo (no diario)."""
+    if not precio:
+        return Decimal('0')
+    return Decimal(str(getattr(precio, 'precio_toma', None) or 0))
 
 
 def reparto_liquidacion_reserva_por_dia(reserva):
     """
     Reparto sugerido para alquiler por día:
 
-    - Propietario = suma de (precio_toma o precio_dia_toma) de cada día de la reserva.
+    - Propietario = suma de ``precio_dia_toma`` de cada día de la reserva.
+      Si un tipo de temporada solo tiene ``precio_toma`` (paquete: quincena,
+      vacaciones, etc.) y no tiene diario, ese paquete se suma **una sola vez**
+      por tipo en la reserva (no por cada día).
     - Inmobiliaria = precio_total − propietario.
-    - Si ningún día tiene toma: 70% propietario / 30% inmobiliaria.
+    - Si no hay toma: 70% propietario / 30% inmobiliaria.
 
     No usa ``propiedad.porcentaje_propietario`` (p. ej. el 85% por defecto de ficha).
     Retorna (total, monto_propietario, monto_inmobiliaria, hay_toma).
@@ -85,13 +99,22 @@ def reparto_liquidacion_reserva_por_dia(reserva):
 
     monto_propietario = Decimal('0')
     hay_toma = False
+    paquetes_ya_sumados = set()
     for i in range(dias):
         fecha_actual = fecha_inicio + timedelta(days=i)
         tipo = tipo_precio_para_dia_reserva(fecha_actual, rango)
-        toma = _precio_toma_de_registro(precios.get(tipo))
-        if toma > 0:
+        reg = precios.get(tipo)
+        dia_toma = _precio_toma_de_registro(reg)
+        if dia_toma > 0:
             hay_toma = True
-            monto_propietario += toma
+            monto_propietario += dia_toma
+            continue
+        # Sin diario: el precio_toma es del período → una sola vez por tipo.
+        paquete = _precio_toma_paquete_de_registro(reg)
+        if paquete > 0 and tipo not in paquetes_ya_sumados:
+            paquetes_ya_sumados.add(tipo)
+            hay_toma = True
+            monto_propietario += paquete
 
     if hay_toma and monto_propietario > 0:
         prop = _q(monto_propietario)

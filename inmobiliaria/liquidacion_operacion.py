@@ -180,18 +180,41 @@ def liquidaciones_activas_reserva(reserva):
     return candidatas
 
 
+def _montos_asignados_en_liquidaciones(liquidaciones):
+    """Suma de prop/inm/cochera/fondo cargados en liquidaciones activas."""
+    prop = inm = coch = fondo = Decimal('0')
+    for liq in liquidaciones or []:
+        prop += Decimal(str(getattr(liq, 'monto_propietario', None) or 0))
+        inm += Decimal(str(getattr(liq, 'monto_inmobiliaria', None) or 0))
+        coch += Decimal(str(getattr(liq, 'monto_cochera', None) or 0))
+        fondo += Decimal(str(getattr(liq, 'monto_fondo_mantenimiento', None) or 0))
+    return (
+        prop.quantize(Decimal('0.01')),
+        inm.quantize(Decimal('0.01')),
+        coch.quantize(Decimal('0.01')),
+        fondo.quantize(Decimal('0.01')),
+    )
+
+
 def monto_propietario_corresponde_reserva(reserva) -> Decimal:
     """
     Monto total al propietario por la operación.
 
-    Cálculo: suma de precio_toma (o precio_dia_toma) por cada día de la reserva
-    vía ``reparto_liquidacion_reserva_por_dia``. Si en carátula cargaron overrides
-    (``liq_monto_propietario`` / etc.), se usan esos.
+    1) Si hay liquidaciones cuyo reparto (prop+inm+cochera+fondo) cierra el total
+       de la operación, el propietario asignado es la suma de ``monto_propietario``.
+    2) Si no, overrides de carátula + precio por día (toma) / paquete.
     """
     from inmobiliaria.neto_propietario_movimiento import reparto_liquidacion_reserva_por_dia
 
     if not reserva or not reserva.precio_total:
         return Decimal('0.00')
+
+    total_op = Decimal(str(reserva.precio_total or 0)).quantize(Decimal('0.01'))
+    liqs = liquidaciones_activas_reserva(reserva)
+    if liqs and total_op > 0:
+        prop_a, inm_a, coch_a, fondo_a = _montos_asignados_en_liquidaciones(liqs)
+        if abs((prop_a + inm_a + coch_a + fondo_a) - total_op) <= _TOLERANCIA_LIQ:
+            return prop_a
 
     total, prop, inm, _hay_toma = reparto_liquidacion_reserva_por_dia(reserva)
     _t, prop, _i, _c, _f = reserva.montos_liquidacion_efectivos(total, prop, inm)
@@ -201,13 +224,23 @@ def monto_propietario_corresponde_reserva(reserva) -> Decimal:
 def montos_reparto_reserva_para_caratula(reserva):
     """
     Cuadrados de la carátula: total / propietario / inmobiliaria / cochera / fondo.
-    Misma base que la liquidación (toma por día + overrides de carátula).
+
+    Si ya hay liquidaciones que cierran el total de la operación, usa esos montos
+    (lo asignado al liquidar). Si no, toma por día + overrides de carátula.
     """
     from inmobiliaria.neto_propietario_movimiento import reparto_liquidacion_reserva_por_dia
 
     if not reserva or not reserva.precio_total:
         z = Decimal('0.00')
         return z, z, z, z, z
+
+    total_op = Decimal(str(reserva.precio_total or 0)).quantize(Decimal('0.01'))
+    liqs = liquidaciones_activas_reserva(reserva)
+    if liqs and total_op > 0:
+        prop_a, inm_a, coch_a, fondo_a = _montos_asignados_en_liquidaciones(liqs)
+        if abs((prop_a + inm_a + coch_a + fondo_a) - total_op) <= _TOLERANCIA_LIQ:
+            return total_op, prop_a, inm_a, coch_a, fondo_a
+
     total, prop, inm, _hay = reparto_liquidacion_reserva_por_dia(reserva)
     return reserva.montos_liquidacion_efectivos(total, prop, inm)
 
