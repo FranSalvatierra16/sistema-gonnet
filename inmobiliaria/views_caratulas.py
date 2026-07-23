@@ -1832,12 +1832,11 @@ def _ctx_liquidacion_operacion(
                     f'Parcial — pendiente {saldo["pendiente"]}'
                 )
                 resumen['liquidacion_pendiente'] = True
-                # Montos de la tabla = lo cargado en la(s) liquidación(es), no el sugerido.
+                # Cuadrados = reparto de toda la reserva (debe sumar el total).
+                # Propietario = total que le corresponde (liquidado + pendiente).
+                # Oficina = lo cargado en las liquidaciones (en la 1ª suele ir el total de oficina).
                 if liqs:
-                    resumen['monto_propietario'] = sum(
-                        (Decimal(str(liq.monto_propietario or 0)) for liq in liqs),
-                        Decimal('0'),
-                    ).quantize(Decimal('0.01'))
+                    resumen['monto_propietario'] = saldo['corresponde']
                     resumen['monto_inmobiliaria'] = sum(
                         (Decimal(str(liq.monto_inmobiliaria or 0)) for liq in liqs),
                         Decimal('0'),
@@ -1850,10 +1849,28 @@ def _ctx_liquidacion_operacion(
                         (Decimal(str(liq.monto_fondo_mantenimiento or 0)) for liq in liqs),
                         Decimal('0'),
                     ).quantize(Decimal('0.01'))
-                    ingresos_oficina = (
+                    # Si prop + oficina no cierra el total, completar inmobiliaria con el resto
+                    # (la división parcial a veces deja solo prop. pendiente).
+                    total_op = Decimal(str(resumen.get('monto_total') or reserva.precio_total or 0))
+                    suma_cuadros = (
+                        resumen['monto_propietario']
+                        + resumen['monto_inmobiliaria']
+                        + resumen['monto_cochera']
+                        + resumen['monto_fondo']
+                    ).quantize(Decimal('0.01'))
+                    if total_op > 0 and abs(suma_cuadros - total_op) > Decimal('0.05'):
+                        resto = (
+                            total_op
+                            - resumen['monto_propietario']
+                            - resumen['monto_cochera']
+                            - resumen['monto_fondo']
+                        ).quantize(Decimal('0.01'))
+                        if resto >= 0:
+                            resumen['monto_inmobiliaria'] = resto
+                    resumen['ingresos_oficina'] = (
                         resumen['monto_cochera'] + resumen['monto_fondo']
                     ).quantize(Decimal('0.01'))
-                    resumen['ingresos_oficina'] = ingresos_oficina
+                    resumen['monto_total'] = total_op
                 filas_pago = [
                     {
                         'concepto': f'Liquidación #{liq.id}',
@@ -1877,6 +1894,25 @@ def _ctx_liquidacion_operacion(
                 resumen['monto_propietario_corresponde'] = saldo['corresponde'] or resumen.get(
                     'monto_propietario'
                 )
+                # Cuadrados con la suma de lo liquidado (operación completa).
+                resumen['monto_propietario'] = sum(
+                    (Decimal(str(liq.monto_propietario or 0)) for liq in liqs),
+                    Decimal('0'),
+                ).quantize(Decimal('0.01'))
+                resumen['monto_inmobiliaria'] = sum(
+                    (Decimal(str(liq.monto_inmobiliaria or 0)) for liq in liqs),
+                    Decimal('0'),
+                ).quantize(Decimal('0.01'))
+                resumen['monto_cochera'] = sum(
+                    (Decimal(str(liq.monto_cochera or 0)) for liq in liqs),
+                    Decimal('0'),
+                ).quantize(Decimal('0.01'))
+                resumen['monto_fondo'] = sum(
+                    (Decimal(str(liq.monto_fondo_mantenimiento or 0)) for liq in liqs),
+                    Decimal('0'),
+                ).quantize(Decimal('0.01'))
+                if reserva.precio_total:
+                    resumen['monto_total'] = Decimal(str(reserva.precio_total))
         elif not resumen.get('tiene_datos'):
             # Sin liquidación usable: sugerido por operación.
             resumen = _resumen_liquidacion_caratula(

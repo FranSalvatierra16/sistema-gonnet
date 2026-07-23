@@ -77,6 +77,13 @@
                                            value="{{ edit_montos_liquidacion.monto_propietario }}">
                                     {% else %}
                                     {{ resumen_liquidacion.monto_propietario|format_importe_moneda:resumen_liquidacion.moneda }}
+                                    {% if resumen_liquidacion.tiene_liquidaciones and not resumen_liquidacion.liquidacion_completa %}
+                                    <div class="small fw-normal mt-1">
+                                        <span class="text-success">Liq. {{ resumen_liquidacion.monto_propietario_liquidado|format_importe_moneda:resumen_liquidacion.moneda }}</span>
+                                        <span class="text-muted">·</span>
+                                        <span class="text-warning">Pend. {{ resumen_liquidacion.monto_propietario_pendiente|format_importe_moneda:resumen_liquidacion.moneda }}</span>
+                                    </div>
+                                    {% endif %}
                                     {% endif %}
                                 </td>
                                 <td class="text-primary fw-semibold">
