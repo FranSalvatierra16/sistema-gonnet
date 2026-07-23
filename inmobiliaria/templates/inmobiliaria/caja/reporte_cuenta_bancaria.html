@@ -82,29 +82,22 @@
 
     <div class="card shadow-sm mb-4">
         <div class="card-body py-3">
-            <form method="post" class="row g-2 align-items-end">
-                {% csrf_token %}
-                <input type="hidden" name="accion" value="guardar_saldo_inicial">
-                <input type="hidden" name="querystring" value="{{ querystring }}">
+            <div class="row g-2 align-items-end">
                 <div class="col-md-4 col-lg-3">
                     <label class="form-label mb-1" for="saldo_inicial">
-                        <i class="fas fa-balance-scale me-1"></i>Saldo inicial de la cuenta
+                        <i class="fas fa-balance-scale me-1"></i>Saldo inicial (al {{ fecha_saldo_inicial|date:"d/m/Y" }})
                     </label>
                     <input type="text" class="form-control" id="saldo_inicial" name="saldo_inicial"
-                           value="{{ saldo_inicial_cuenta }}" inputmode="decimal" autocomplete="off">
+                           value="{{ saldo_inicial_cuenta }}" readonly disabled
+                           inputmode="decimal" autocomplete="off">
                 </div>
-                <div class="col-auto">
-                    <button type="submit" class="btn btn-outline-primary">
-                        <i class="fas fa-save"></i> Guardar
-                    </button>
-                </div>
-                <div class="col-md-6">
+                <div class="col-md-8">
                     <p class="small text-muted mb-0">
-                        El <strong>saldo acum.</strong> empieza en este monto y, en orden de fecha,
-                        suma ingresos y resta egresos del período filtrado.
+                        Corte fijo del <strong>{{ fecha_saldo_inicial|date:"d/m/Y" }}</strong> en todas las cuentas.
+                        El monto no se edita más: el <strong>saldo acum.</strong> lo toma como apertura desde esa fecha.
                     </p>
                 </div>
-            </form>
+            </div>
         </div>
     </div>
 
@@ -112,7 +105,7 @@
         <div class="col-md-3">
             <div class="card border-secondary h-100">
                 <div class="card-body">
-                    <div class="text-secondary small text-uppercase fw-semibold">Saldo inicial</div>
+                    <div class="text-secondary small text-uppercase fw-semibold">Saldo inicial ({{ fecha_saldo_inicial|date:"d/m/Y" }})</div>
                     <div class="h4 mb-0">${{ saldo_inicial_cuenta|format_price }}</div>
                 </div>
             </div>
@@ -151,7 +144,7 @@
             <h2 class="h5 mb-0"><i class="fas fa-list me-2"></i>Detalle</h2>
         </div>
         <div class="card-body p-0">
-            {% if movimientos %}
+            {% if movimientos or mostrar_fila_saldo_inicial %}
             <div class="table-responsive">
                 <table class="table table-hover table-sm mb-0 align-middle">
                     <thead class="table-light">
@@ -245,6 +238,19 @@
                         </tr>
                         {% endwith %}
                         {% endfor %}
+                        {% if mostrar_fila_saldo_inicial and not movimientos.has_next %}
+                        <tr class="table-secondary">
+                            <td class="text-nowrap small"><strong>{{ fecha_saldo_inicial|date:"d/m/Y" }}</strong></td>
+                            <td><span class="text-muted">—</span></td>
+                            <td><span class="badge bg-secondary">Saldo inicial</span></td>
+                            <td class="small">Saldo inicial de la cuenta (corte {{ fecha_saldo_inicial|date:"d/m/Y" }})</td>
+                            <td class="text-end text-success fw-semibold">${{ saldo_inicial_cuenta|format_price }}</td>
+                            <td class="text-end">—</td>
+                            <td class="text-end fw-semibold {% if saldo_acumulado_inicial >= 0 %}text-primary{% else %}text-warning{% endif %}">
+                                ${{ saldo_acumulado_inicial|format_price }}
+                            </td>
+                        </tr>
+                        {% endif %}
                     </tbody>
                     <tfoot class="table-light">
                         <tr>

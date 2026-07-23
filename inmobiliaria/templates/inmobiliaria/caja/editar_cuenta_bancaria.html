@@ -73,11 +73,12 @@
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label for="saldo_inicial" class="form-label">
-                                    <i class="fas fa-balance-scale"></i> Saldo inicial
+                                    <i class="fas fa-balance-scale"></i> Saldo inicial (al {{ fecha_saldo_inicial|date:"d/m/Y" }})
                                 </label>
                                 <input type="text" class="form-control" id="saldo_inicial" name="saldo_inicial"
-                                       value="{{ cuenta.saldo_inicial }}" inputmode="decimal" autocomplete="off">
-                                <div class="form-text">Base para el saldo acumulado en el reporte de movimientos</div>
+                                       value="{{ cuenta.saldo_inicial }}" readonly disabled
+                                       inputmode="decimal" autocomplete="off">
+                                <div class="form-text">Corte fijo del {{ fecha_saldo_inicial|date:"d/m/Y" }}. El monto ya no se puede editar.</div>
                             </div>
                         </div>
 
