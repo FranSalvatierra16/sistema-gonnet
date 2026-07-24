@@ -21,14 +21,38 @@ ROLES_COMISION_PRODUCTOR = (
 )
 
 
-def vendedor_fichaje_desde_propiedad(prop):
-    """Vendedor que fichó la propiedad; la comisión fichaje es suya, no del productor de la operación."""
+def vendedor_fichaje_desde_propiedad(prop, sucursal=None):
+    """
+    Vendedor que fichó la propiedad; la comisión fichaje es suya, no del productor.
+
+    Si se indica ``sucursal`` (de la reserva/contrato), solo aplica si el fichador
+    pertenece a esa misma sucursal: no se comisiona fichaje cross-sucursal
+    (ej. productor de Colón en una operación de Corrientes).
+    """
     if not prop:
         return None
     fichado = getattr(prop, 'fichado_por', None)
     if fichado is None:
         return None
+    if sucursal is not None:
+        sid = getattr(sucursal, 'id', None)
+        if sid is None and not hasattr(sucursal, 'id'):
+            try:
+                sid = int(sucursal)
+            except (TypeError, ValueError):
+                sid = None
+        if sid is not None and getattr(fichado, 'sucursal_id', None) not in (None, sid):
+            return None
     return fichado
+
+
+def q_comision_operacion_de_sucursal(sucursal):
+    """Comisiones cuya reserva/contrato pertenece a la sucursal."""
+    from django.db.models import Q
+
+    if not sucursal:
+        return Q(pk__in=[])
+    return Q(reserva__sucursal=sucursal) | Q(contrato__sucursal=sucursal)
 
 
 def propiedad_es_oficina(prop):
@@ -263,7 +287,11 @@ def _sincronizar_comisiones_fichaje_reserva(reserva):
         return
     prop = getattr(reserva, 'propiedad', None)
     tipo_fichaje = getattr(prop, 'tipo_fichaje', None) or 'primer' if prop else 'primer'
-    vend_fichaje = vendedor_fichaje_desde_propiedad(prop) if prop else None
+    vend_fichaje = (
+        vendedor_fichaje_desde_propiedad(prop, sucursal=getattr(reserva, 'sucursal', None))
+        if prop
+        else None
+    )
     tipo_op = clasificar_tipo_operacion_reserva(reserva)
     pct_fichaje = None
     if vend_fichaje:
@@ -377,7 +405,9 @@ def registrar_comisiones_honorarios_movimiento_reserva(reserva, movimiento_caja,
     part_map = mapa_participacion_productores(reserva=reserva)
 
     tipo_fichaje = getattr(prop, 'tipo_fichaje', None) or 'primer'
-    vend_fichaje = vendedor_fichaje_desde_propiedad(prop)
+    vend_fichaje = vendedor_fichaje_desde_propiedad(
+        prop, sucursal=getattr(reserva, 'sucursal', None)
+    )
     tipo_op = clasificar_tipo_operacion_reserva(reserva)
     pct_fichaje = None
     if vend_fichaje:
@@ -502,7 +532,9 @@ def asegurar_comisiones_movimiento_reserva(reserva, movimiento_caja, honorarios_
 
     prop = reserva.propiedad
     tipo_fichaje = getattr(prop, 'tipo_fichaje', None) or 'primer'
-    vend_fichaje = vendedor_fichaje_desde_propiedad(prop)
+    vend_fichaje = vendedor_fichaje_desde_propiedad(
+        prop, sucursal=getattr(reserva, 'sucursal', None)
+    )
     tipo_op = clasificar_tipo_operacion_reserva(reserva)
     pct_fichaje = None
     if vend_fichaje:
@@ -635,7 +667,9 @@ def registrar_comisiones_honorarios_contrato(contrato, honorarios_monto, movimie
     fecha_op = _fecha_operacion_entrada_contrato(contrato)
 
     tipo_fichaje = getattr(prop, 'tipo_fichaje', None) or 'primer'
-    vend_fichaje = vendedor_fichaje_desde_propiedad(prop)
+    vend_fichaje = vendedor_fichaje_desde_propiedad(
+        prop, sucursal=getattr(contrato, 'sucursal', None)
+    )
     cat = (
         contrato.categoria_tipo_operacion()
         if hasattr(contrato, 'categoria_tipo_operacion')

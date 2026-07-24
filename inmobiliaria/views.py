@@ -390,11 +390,15 @@ def historial_comisiones_vendedor(request, vendedor_id):
         Vendedor, id=vendedor_id, sucursal=request.user.sucursal
     )
     try:
-        from inmobiliaria.models.comision import acreditar_comisiones_por_fecha_vencida
+        from inmobiliaria.models.comision import (
+            acreditar_comisiones_por_fecha_vencida,
+            q_comision_operacion_de_sucursal,
+        )
 
         acreditar_comisiones_por_fecha_vencida(sucursal=request.user.sucursal)
         comisiones = (
             ComisionVendedor.objects.filter(vendedor=vendedor)
+            .filter(q_comision_operacion_de_sucursal(vendedor.sucursal))
             .visibles_en_historial()
             .select_related(
                 'vendedor',
@@ -709,7 +713,10 @@ def resumen_comisiones_mensual(request, vendedor_id, anio=None, mes=None):
         Vendedor, id=vendedor_id, sucursal=request.user.sucursal
     )
     try:
-        from inmobiliaria.models.comision import acreditar_comisiones_por_fecha_vencida
+        from inmobiliaria.models.comision import (
+            acreditar_comisiones_por_fecha_vencida,
+            q_comision_operacion_de_sucursal,
+        )
 
         acreditar_comisiones_por_fecha_vencida(sucursal=request.user.sucursal)
         comisiones_mes = (
@@ -718,6 +725,7 @@ def resumen_comisiones_mensual(request, vendedor_id, anio=None, mes=None):
                 fecha_operacion__year=anio,
                 fecha_operacion__month=mes,
             )
+            .filter(q_comision_operacion_de_sucursal(vendedor.sucursal))
             .visibles_en_historial()
             .select_related(
                 'vendedor',
@@ -769,6 +777,7 @@ def _build_vendedores_dashboard_data(sucursal):
     from inmobiliaria.models.comision import (
         acreditar_comisiones_por_fecha_vencida,
         _filtro_caratula_confirmada_comision,
+        q_comision_operacion_de_sucursal,
     )
     from inmobiliaria.models.vale import TipoBeneficiarioVale
     from django.db.models import Q
@@ -786,6 +795,7 @@ def _build_vendedores_dashboard_data(sucursal):
     for vendedor in vendedores:
         total_comisiones = (
             ComisionVendedor.objects.filter(vendedor=vendedor)
+            .filter(q_comision_operacion_de_sucursal(sucursal))
             .que_suman()
             .aggregate(total=models.Sum('monto_comision'))['total']
             or Decimal('0')
@@ -793,6 +803,8 @@ def _build_vendedores_dashboard_data(sucursal):
         comisiones_pendientes = ComisionVendedor.objects.filter(
             vendedor=vendedor,
             estado='pendiente',
+        ).filter(
+            q_comision_operacion_de_sucursal(sucursal)
         ).filter(
             _filtro_caratula_confirmada_comision()
         ).filter(
@@ -867,6 +879,8 @@ def dashboard_comisiones(request):
         messages.error(request, 'Tu usuario no tiene sucursal asignada.')
         return redirect('inmobiliaria:dashboard')
 
+    from inmobiliaria.models.comision import q_comision_operacion_de_sucursal
+
     vendedores, vendedores_data = _build_vendedores_dashboard_data(sucursal)
 
     total_comisiones_sucursal = sum(
@@ -875,7 +889,7 @@ def dashboard_comisiones(request):
     total_neto_sucursal = sum((d['neto'] for d in vendedores_data), start=Decimal('0'))
     total_ops_comisiones = ComisionVendedor.objects.filter(
         vendedor__in=vendedores
-    ).que_suman().count()
+    ).filter(q_comision_operacion_de_sucursal(sucursal)).que_suman().count()
 
     ahora = timezone.now()
     ay, am = ahora.year, ahora.month
@@ -885,6 +899,7 @@ def dashboard_comisiones(request):
             fecha_operacion__year=ay,
             fecha_operacion__month=am,
         )
+        .filter(q_comision_operacion_de_sucursal(sucursal))
         .que_suman()
         .aggregate(t=models.Sum('monto_comision'))['t']
         or Decimal('0')
@@ -893,7 +908,7 @@ def dashboard_comisiones(request):
         vendedor__in=vendedores,
         fecha_operacion__year=ay,
         fecha_operacion__month=am,
-    ).que_suman().count()
+    ).filter(q_comision_operacion_de_sucursal(sucursal)).que_suman().count()
 
     context = {
         'vendedores_data': vendedores_data,
