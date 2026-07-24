@@ -14864,8 +14864,64 @@ def _q_movimiento_tiene_concepto_id(cid):
     )
 
 
+def _movimiento_es_devolucion_deposito_caja(movimiento) -> bool:
+    """
+    Egresos de DDG: se guardan como «Devolución depósito operación/contrato…»
+    con JSON de vínculo, sin el id 140 en el texto.
+    """
+    from inmobiliaria.caja_devolucion_deposito import (
+        CONCEPTO_DEVOLUCION_DEPOSITO_ID,
+        es_concepto_devolucion_deposito,
+    )
+
+    detalle = getattr(movimiento, 'concepto_detalle', None) or ''
+    if 'devolucion_deposito_operacion_id' in detalle or 'devolucion_deposito_contrato_id' in detalle:
+        return True
+    conc = getattr(movimiento, 'concepto', None) or ''
+    if es_concepto_devolucion_deposito(nombre=conc):
+        return True
+    try:
+        cid = movimiento.concepto_catalogo_id()
+    except Exception:
+        cid = None
+    return str(cid or '').strip() == CONCEPTO_DEVOLUCION_DEPOSITO_ID
+
+
+def _criterio_busca_devolucion_deposito(ids_buscados, id_nombre_map=None, nombre_buscado='') -> bool:
+    """True si el filtro de concepto apunta a devolución de depósito (140 / DDG)."""
+    from inmobiliaria.caja_devolucion_deposito import (
+        CONCEPTO_DEVOLUCION_DEPOSITO_ID,
+        es_concepto_devolucion_deposito,
+    )
+
+    ids_buscados = {str(x).strip() for x in (ids_buscados or set()) if str(x).strip()}
+    if CONCEPTO_DEVOLUCION_DEPOSITO_ID in ids_buscados:
+        return True
+    id_nombre_map = id_nombre_map or {}
+    for cid in ids_buscados:
+        if es_concepto_devolucion_deposito(concepto_id=cid, nombre=id_nombre_map.get(cid, '')):
+            return True
+    if nombre_buscado and es_concepto_devolucion_deposito(nombre=nombre_buscado):
+        return True
+    return False
+
+
+def _q_movimientos_devolucion_deposito_caja():
+    """Filtro ORM para egresos DDG guardados sin id de catálogo en el texto."""
+    return (
+        Q(concepto_detalle__icontains='devolucion_deposito_operacion_id')
+        | Q(concepto_detalle__icontains='devolucion_deposito_contrato_id')
+        | Q(concepto__icontains='Devolución depósito')
+        | Q(concepto__icontains='Devolucion deposito')
+        | Q(concepto__icontains='devolución de depósito')
+        | Q(concepto__icontains='devolucion de deposito')
+    )
+
+
 def _ids_concepto_en_movimiento(movimiento, nombre_a_id=None):
     """Ids de concepto presentes en las líneas del movimiento."""
+    from inmobiliaria.caja_devolucion_deposito import CONCEPTO_DEVOLUCION_DEPOSITO_ID
+
     ids = set()
     cid = movimiento.concepto_catalogo_id()
     if cid:
@@ -14906,6 +14962,9 @@ def _ids_concepto_en_movimiento(movimiento, nombre_a_id=None):
         except Exception:
             pass
 
+    if _movimiento_es_devolucion_deposito_caja(movimiento):
+        ids.add(CONCEPTO_DEVOLUCION_DEPOSITO_ID)
+
     return ids
 
 
@@ -14918,9 +14977,15 @@ def _movimiento_tiene_alguno_concepto_ids(movimiento, ids_buscados, conceptos_ca
 
 def _movimiento_tiene_nombre_concepto(movimiento, nombre_buscado, conceptos_catalogo):
     """True si alguna línea del movimiento contiene ese nombre de concepto."""
+    from inmobiliaria.caja_devolucion_deposito import es_concepto_devolucion_deposito
+
     nombre_buscado = (nombre_buscado or '').strip().lower()
     if len(nombre_buscado) < 2:
         return False
+    if es_concepto_devolucion_deposito(nombre=nombre_buscado) and _movimiento_es_devolucion_deposito_caja(
+        movimiento
+    ):
+        return True
     lookup = {str(c.id): (c.nombre or '').strip().lower() for c in conceptos_catalogo}
     nombre_a_id = _mapa_nombre_concepto_catalogo(conceptos_catalogo)
     for cid in _ids_concepto_en_movimiento(movimiento, nombre_a_id):
@@ -14957,6 +15022,8 @@ def _filtro_qs_por_buscar_concepto(qs, texto, conceptos_catalogo):
             if nom:
                 q |= Q(concepto__istartswith=f'{nom} —')
                 q |= Q(concepto__iexact=nom)
+        if _criterio_busca_devolucion_deposito(ids_buscados, id_nombre, criterio.get('nombre') or ''):
+            q |= _q_movimientos_devolucion_deposito_caja()
         qs_filtrado = qs.filter(q).distinct()
         candidatos = list(qs_filtrado[:5000])
         ids_ok = [
@@ -14968,14 +15035,15 @@ def _filtro_qs_por_buscar_concepto(qs, texto, conceptos_catalogo):
     nombre = (criterio.get('nombre') or '').strip()
     if len(nombre) < 2:
         return qs.none()
-    candidatos = list(
-        qs.filter(Q(concepto_detalle__icontains=nombre) | Q(concepto__icontains=nombre))[:5000]
-    )
+    q_nombre = Q(concepto_detalle__icontains=nombre) | Q(concepto__icontains=nombre)
+    if _criterio_busca_devolucion_deposito(set(), {}, nombre):
+        q_nombre |= _q_movimientos_devolucion_deposito_caja()
+    candidatos = list(qs.filter(q_nombre)[:5000])
     ids_ok = [
         m.id for m in candidatos
         if _movimiento_tiene_nombre_concepto(m, nombre, conceptos_catalogo)
     ]
-    return qs.filter(pk__in=ids_ok)
+    return qs.filter(pk__in=ids_ok) if ids_ok else qs.none()
 
 
 def _linea_concepto_coincide_filtro(linea, ids_buscados, nombre_buscado, id_nombre_map):
@@ -15054,7 +15122,19 @@ def _importe_concepto_filtrado_movimiento(movimiento, criterio, conceptos_catalo
     elif nombre_buscado and len(nombre_buscado) >= 2:
         coincide = _movimiento_tiene_nombre_concepto(movimiento, nombre_buscado, conceptos_catalogo)
 
+    if (
+        not coincide
+        and _criterio_busca_devolucion_deposito(ids_buscados, id_nombre_map, nombre_buscado)
+        and _movimiento_es_devolucion_deposito_caja(movimiento)
+    ):
+        coincide = True
+
     if coincide:
+        # DDG: el importe está en los medios del movimiento, no en líneas JSON de concepto.
+        if _movimiento_es_devolucion_deposito_caja(movimiento) and _criterio_busca_devolucion_deposito(
+            ids_buscados, id_nombre_map, nombre_buscado
+        ):
+            return Decimal(str(movimiento.monto_total or 0)).quantize(Decimal('0.01'))
         _, conceptos_data = _movimiento_json_conceptos_parsed(movimiento)
         if not conceptos_data and len(ids_mov) <= 1:
             return Decimal(str(movimiento.monto_total or 0)).quantize(Decimal('0.01'))

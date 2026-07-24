@@ -895,6 +895,9 @@ def concepto_guardado_devolucion_deposito(entidad, detalles: str = '', *, tipo: 
 
 def payload_concepto_detalle_devolucion(ref_id: int, *, tipo: str = 'reserva') -> str:
     tipo = (tipo or 'reserva').strip().lower()
+    data = {'id': CONCEPTO_DEVOLUCION_DEPOSITO_ID}
     if tipo == 'contrato':
-        return json.dumps({'devolucion_deposito_contrato_id': int(ref_id)}, ensure_ascii=False)
-    return json.dumps({'devolucion_deposito_operacion_id': int(ref_id)}, ensure_ascii=False)
+        data['devolucion_deposito_contrato_id'] = int(ref_id)
+    else:
+        data['devolucion_deposito_operacion_id'] = int(ref_id)
+    return json.dumps(data, ensure_ascii=False)
