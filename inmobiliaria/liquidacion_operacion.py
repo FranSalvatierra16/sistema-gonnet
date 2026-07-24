@@ -246,14 +246,18 @@ def monto_propietario_corresponde_reserva(reserva) -> Decimal:
     Monto total al propietario por la operación.
 
     Prioridad:
-    1) Liquidaciones que cierran el total, o con oficina ya asignada
+    1) Override de carátula (``liq_monto_propietario``).
+    2) Liquidaciones que cierran el total, o con oficina ya asignada
        (propietario = total − oficina).
-    2) Overrides de carátula + precio por día (toma) / paquete.
+    3) Overrides parciales + precio por día (toma) / paquete.
     """
     from inmobiliaria.neto_propietario_movimiento import reparto_liquidacion_reserva_por_dia
 
     if not reserva or not reserva.precio_total:
         return Decimal('0.00')
+
+    if getattr(reserva, 'liq_monto_propietario', None) is not None:
+        return Decimal(str(reserva.liq_monto_propietario)).quantize(Decimal('0.01'))
 
     total_op = Decimal(str(reserva.precio_total or 0)).quantize(Decimal('0.01'))
     liqs = liquidaciones_activas_reserva(reserva)
@@ -275,14 +279,31 @@ def montos_reparto_reserva_para_caratula(reserva):
     """
     Cuadrados de la carátula: total / propietario / inmobiliaria / cochera / fondo.
 
-    Si ya liquidaron, usa los montos de esas liquidaciones (lo que cargaron al
-    dividir propietario / oficina / cochera / fondo). Si no, toma + overrides.
+    Prioridad:
+    1) Overrides guardados en la carátula (``liq_monto_*``), p. ej. corrección
+       de super admin — solo afectan la vista de carátula.
+    2) Montos de liquidaciones (si ya liquidaron).
+    3) Toma por día + overrides parciales.
     """
     from inmobiliaria.neto_propietario_movimiento import reparto_liquidacion_reserva_por_dia
 
     if not reserva or not reserva.precio_total:
         z = Decimal('0.00')
         return z, z, z, z, z
+
+    total_op = Decimal(str(reserva.precio_total or 0)).quantize(Decimal('0.01'))
+    if getattr(reserva, 'liq_monto_propietario', None) is not None:
+        prop = Decimal(str(reserva.liq_monto_propietario)).quantize(Decimal('0.01'))
+        inm = Decimal(str(getattr(reserva, 'liq_monto_inmobiliaria', None) or 0)).quantize(
+            Decimal('0.01')
+        )
+        coch = Decimal(str(getattr(reserva, 'liq_monto_cochera', None) or 0)).quantize(
+            Decimal('0.01')
+        )
+        fondo = Decimal(str(getattr(reserva, 'liq_monto_fondo', None) or 0)).quantize(
+            Decimal('0.01')
+        )
+        return total_op, prop, inm, coch, fondo
 
     liqs = liquidaciones_activas_reserva(reserva)
     if liqs:

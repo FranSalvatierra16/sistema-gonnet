@@ -49,7 +49,12 @@
                 {% endif %}
                 {% if puede_editar_liquidacion_resumen %}
                 <p class="small text-muted mb-2">
-                    <i class="fas fa-pen me-1"></i>Podés ajustar los montos antes de liquidar. Se guardan con <strong>Guardar cambios</strong> o <strong>Guardar montos</strong> y se precargan al crear la liquidación.
+                    <i class="fas fa-pen me-1"></i>
+                    {% if edicion_montos_solo_caratula %}
+                    Super admin: podés corregir estos montos. Se guardan solo en la carátula (no modifican las liquidaciones ya cargadas).
+                    {% else %}
+                    Podés ajustar los montos antes de liquidar. Se guardan con <strong>Guardar cambios</strong> o <strong>Guardar montos</strong> y se precargan al crear la liquidación.
+                    {% endif %}
                     La suma de los cuatro importes debe ser igual al <strong>total de la operación</strong>.
                 </p>
                 <div id="liq-resumen-suma-alerta" class="alert alert-warning py-2 small mb-2 d-none" role="alert"></div>
