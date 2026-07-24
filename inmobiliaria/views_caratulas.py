@@ -3061,17 +3061,8 @@ def _build_legacy_reserva(
 
     fichador_nombre = _fichador_nombre_caratula(prop, comisiones)
 
-    dias_estadia = 1
-    if reserva.fecha_fin and reserva.fecha_inicio:
-        dias_estadia = max(1, (reserva.fecha_fin - reserva.fecha_inicio).days)
-    loc_mensual = Decimal('0')
-    if reserva.precio_total:
-        try:
-            loc_mensual = (Decimal(str(reserva.precio_total)) / Decimal(dias_estadia)).quantize(
-                Decimal('0.01')
-            )
-        except (ArithmeticError, ValueError, TypeError):
-            loc_mensual = Decimal('0')
+    # Locación mensual es solo para contratos (invierno / 24 meses).
+    # En reservas por día no aplica: antes se mostraba precio÷días y confundía.
 
     tr = _turista_legado(cli)
 
@@ -3115,7 +3106,8 @@ def _build_legacy_reserva(
         'terceros': terceros,
         'origen_operacion': _origen_operacion_sucursal(reserva.sucursal),
         'estado_txt': reserva.get_estado_display(),
-        'locacion_mensual': _formato_importe_us(loc_mensual),
+        'locacion_mensual': '—',
+        'muestra_locacion_mensual': False,
         'carpeta': '—',
         'tipo_operacion_str': tipo_operacion_str,
     }
@@ -3278,6 +3270,7 @@ def _build_legacy_contrato(
         'origen_operacion': _origen_operacion_sucursal(contrato.sucursal),
         'estado_txt': contrato.get_estado_display(),
         'locacion_mensual': _formato_importe_us(contrato.precio_mensual),
+        'muestra_locacion_mensual': True,
         'carpeta': _normalizar_carpeta(carpeta_override) if carpeta_override else '—',
         'tipo_operacion_str': tipo_label,
     }

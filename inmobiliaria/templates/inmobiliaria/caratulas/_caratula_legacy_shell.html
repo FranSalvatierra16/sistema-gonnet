@@ -222,10 +222,12 @@
                 </span>
             </div>
             <div class="caratula-legacy-mini-box" aria-label="Locación mensual y carpeta">
+                {% if cl.muestra_locacion_mensual %}
                 <div class="mini-row">
                     <span class="k">LOCACIÓN MENSUAL</span>
                     <span class="v">{{ cl.locacion_mensual }}</span>
                 </div>
+                {% endif %}
                 <div class="mini-row">
                     <span class="k">CARPETA</span>
                     <span class="v">{{ cl.carpeta }}</span>
