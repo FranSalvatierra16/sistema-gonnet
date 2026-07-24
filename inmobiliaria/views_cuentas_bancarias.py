@@ -42,9 +42,8 @@ def _parse_fecha_filtro(valor):
 
 def _saldo_inicial_en_periodo(fecha_desde, fecha_hasta, periodo_completo=False):
     """
-    El saldo inicial (fecha fija 05/06) solo aplica si esa fecha cae dentro del período.
-    Si filtrás un rango posterior (ej. julio), no se arrastra el saldo inicial:
-    solo cuenta cuando el período incluye el 05/06 (o es todo el historial).
+    El saldo inicial (fecha fija 05/06) se muestra como fila propia solo si esa fecha
+    cae dentro del período (o es todo el historial).
     """
     if periodo_completo:
         return True
@@ -64,15 +63,52 @@ def _mostrar_fila_saldo_inicial(fecha_desde, fecha_hasta, periodo_completo=False
     return _saldo_inicial_en_periodo(fecha_desde, fecha_hasta, periodo_completo)
 
 
-def _saldo_base_periodo(saldo_inicial, fecha_desde, fecha_hasta, periodo_completo=False):
+def _qs_movimientos_cuenta(sucursal, destino):
+    return (
+        MovimientoCaja.objects.filter(
+            sucursal=sucursal,
+            destino_deposito=destino,
+            monto_deposito__gt=0,
+        ).annotate(fecha_banco=Coalesce(F('fecha_transferencia'), TruncDate('fecha')))
+    )
+
+
+def _neto_movimientos_cuenta(qs) -> Decimal:
+    total_ing = (
+        qs.filter(tipo=TipoMovimientoCajaEnum.INGRESO).aggregate(t=Sum('monto_deposito'))['t']
+        or Decimal('0')
+    )
+    total_egr = (
+        qs.filter(tipo=TipoMovimientoCajaEnum.EGRESO).aggregate(t=Sum('monto_deposito'))['t']
+        or Decimal('0')
+    )
+    return (Decimal(str(total_ing)) - Decimal(str(total_egr))).quantize(Decimal('0.01'))
+
+
+def _saldo_apertura_periodo(
+    cuenta, sucursal, destino, fecha_desde, fecha_hasta, periodo_completo=False
+) -> Decimal:
     """
-    Base del acumulado al inicio del listado filtrado.
-    - Si el 05/06 está dentro del período: arranca en 0 y la fila de saldo inicial lo suma.
-    - Si el período no incluye el 05/06: arranca en 0 (el saldo inicial no se arrastra).
+    Saldo al inicio del rango filtrado (como el «TRANSPORTE» del extracto bancario).
+
+    - Todo el historial / período que incluye el 05/06: arranca en 0; la fila de
+      saldo inicial suma el corte.
+    - Período que empieza después del 05/06: SI + movimientos desde el corte
+      hasta el día anterior a ``fecha_desde``.
     """
-    if _mostrar_fila_saldo_inicial(fecha_desde, fecha_hasta, periodo_completo):
+    saldo_si = Decimal(str(cuenta.saldo_inicial or 0)).quantize(Decimal('0.01'))
+    if periodo_completo:
         return Decimal('0.00')
-    return Decimal('0.00')
+    fd = _parse_fecha_filtro(fecha_desde)
+    if fd is None:
+        return Decimal('0.00')
+    if fd <= FECHA_SALDO_INICIAL_CUENTA:
+        return Decimal('0.00')
+    qs_prev = _qs_movimientos_cuenta(sucursal, destino).filter(
+        fecha_banco__gte=FECHA_SALDO_INICIAL_CUENTA,
+        fecha_banco__lt=fd,
+    )
+    return (saldo_si + _neto_movimientos_cuenta(qs_prev)).quantize(Decimal('0.01'))
 
 
 def _etiqueta_inquilino_movimiento(m: MovimientoCaja) -> str:
@@ -425,8 +461,20 @@ def reporte_movimientos_cuenta_bancaria(request, cuenta_id):
         and saldo_inicial != 0
         and _mostrar_fila_saldo_inicial(fecha_desde, fecha_hasta, periodo_completo)
     )
-    saldo_base = _saldo_base_periodo(
-        saldo_inicial, fecha_desde, fecha_hasta, periodo_completo
+    saldo_base = _saldo_apertura_periodo(
+        cuenta,
+        request.user.sucursal,
+        destino,
+        fecha_desde,
+        fecha_hasta,
+        periodo_completo,
+    )
+    fd_filtro = _parse_fecha_filtro(fecha_desde)
+    mostrar_fila_transporte = (
+        not periodo_completo
+        and not mostrar_fila_si
+        and fd_filtro is not None
+        and fd_filtro > FECHA_SALDO_INICIAL_CUENTA
     )
 
     cronologicos = list(movimientos_qs.order_by('fecha_banco', 'fecha', 'id'))
@@ -444,12 +492,11 @@ def reporte_movimientos_cuenta_bancaria(request, cuenta_id):
             saldo_run -= monto
         saldos_por_id[mov.id] = saldo_run.quantize(Decimal('0.01'))
 
-    # En el resumen: el saldo inicial del corte solo si el 05/06 cae en el período.
-    saldo_inicial_resumen = saldo_inicial if aplica_si else Decimal('0.00')
-    if mostrar_fila_si:
-        saldo_final = (saldo_inicial_resumen + saldo_periodo).quantize(Decimal('0.01'))
-    else:
-        saldo_final = (saldo_base + saldo_periodo).quantize(Decimal('0.01'))
+    # Resumen: saldo inicial del corte solo si el 05/06 está en el rango.
+    saldo_inicial_resumen = saldo_inicial if mostrar_fila_si else Decimal('0.00')
+    saldo_final = saldo_run.quantize(Decimal('0.01')) if (
+        cronologicos or mostrar_fila_si
+    ) else saldo_base
 
     query_params = request.GET.copy()
     query_params.pop('page', None)
@@ -472,13 +519,15 @@ def reporte_movimientos_cuenta_bancaria(request, cuenta_id):
         'saldo_inicial_cuenta': saldo_inicial,
         'saldo_inicial_resumen': saldo_inicial_resumen,
         'saldo_base_periodo': saldo_base,
+        'saldo_transporte': saldo_base,
         'saldo_periodo': saldo_periodo,
         'saldo_final': saldo_final,
         'saldo_transferencias': saldo_final,
         'fecha_saldo_inicial': FECHA_SALDO_INICIAL_CUENTA,
         'mostrar_fila_saldo_inicial': mostrar_fila_si,
+        'mostrar_fila_transporte': mostrar_fila_transporte,
         'saldo_acumulado_inicial': saldo_despues_fila_inicial,
-        'saldo_inicial_aplica_periodo': aplica_si,
+        'saldo_inicial_aplica_periodo': mostrar_fila_si,
     }
 
     if modo_imprimir:

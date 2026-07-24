@@ -46,7 +46,11 @@
     </div>
 
     <div class="row g-2 mb-3 small">
+        {% if mostrar_fila_transporte %}
+        <div class="col-md-3"><strong>Saldo anterior (transporte):</strong> ${{ saldo_transporte|format_price }}</div>
+        {% else %}
         <div class="col-md-3"><strong>Saldo inicial ({{ fecha_saldo_inicial|date:"d/m/Y" }}):</strong> ${{ saldo_inicial_resumen|format_price }}</div>
+        {% endif %}
         <div class="col-md-3"><strong>Ingresos:</strong> ${{ total_ingresos|format_price }}</div>
         <div class="col-md-3"><strong>Egresos:</strong> ${{ total_egresos|format_price }}</div>
         <div class="col-md-3"><strong>Saldo final:</strong> ${{ saldo_final|format_price }}</div>
@@ -64,6 +68,16 @@
             </tr>
         </thead>
         <tbody>
+            {% if mostrar_fila_transporte %}
+            <tr class="table-secondary">
+                <td class="text-nowrap">{{ fecha_desde }}</td>
+                <td>Transporte</td>
+                <td class="small">Saldo anterior al período</td>
+                <td class="text-end">—</td>
+                <td class="text-end">—</td>
+                <td class="text-end">${{ saldo_transporte|format_price }}</td>
+            </tr>
+            {% endif %}
             {% if mostrar_fila_saldo_inicial %}
             <tr class="table-secondary">
                 <td class="text-nowrap">{{ fecha_saldo_inicial|date:"d/m/Y" }}</td>
@@ -93,7 +107,7 @@
             </tr>
             {% endwith %}
             {% empty %}
-            {% if not mostrar_fila_saldo_inicial %}
+            {% if not mostrar_fila_saldo_inicial and not mostrar_fila_transporte %}
             <tr><td colspan="6" class="text-center text-muted">Sin movimientos en el período</td></tr>
             {% endif %}
             {% endfor %}

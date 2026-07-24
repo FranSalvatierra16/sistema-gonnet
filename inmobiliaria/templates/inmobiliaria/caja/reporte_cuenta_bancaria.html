@@ -94,8 +94,8 @@
                 <div class="col-md-8">
                     <p class="small text-muted mb-0">
                         Corte fijo del <strong>{{ fecha_saldo_inicial|date:"d/m/Y" }}</strong> en todas las cuentas.
-                        El monto no se edita más. En el listado solo se suma si el rango de fechas
-                        <strong>incluye</strong> ese día (si filtrás un mes posterior, el acumulado arranca en cero con los movimientos del período).
+                        Si filtrás un rango posterior, el <strong>saldo acum.</strong> arranca desde el saldo real
+                        al día anterior (transporte = saldo inicial + movimientos previos), como en el extracto bancario, y va acumulando cada movimiento.
                     </p>
                 </div>
             </div>
@@ -106,10 +106,16 @@
         <div class="col-md-3">
             <div class="card border-secondary h-100">
                 <div class="card-body">
+                    {% if mostrar_fila_transporte %}
+                    <div class="text-secondary small text-uppercase fw-semibold">Saldo anterior (transporte)</div>
+                    <div class="h4 mb-0 {% if saldo_transporte >= 0 %}{% else %}text-warning{% endif %}">${{ saldo_transporte|format_price }}</div>
+                    <div class="small text-muted mt-1">Al {{ fecha_desde }} (incluye corte {{ fecha_saldo_inicial|date:"d/m/Y" }} + mov. previos).</div>
+                    {% else %}
                     <div class="text-secondary small text-uppercase fw-semibold">Saldo inicial ({{ fecha_saldo_inicial|date:"d/m/Y" }})</div>
                     <div class="h4 mb-0">${{ saldo_inicial_resumen|format_price }}</div>
                     {% if not saldo_inicial_aplica_periodo %}
-                    <div class="small text-muted mt-1">No aplica en este rango (queda fuera del filtro).</div>
+                    <div class="small text-muted mt-1">No aplica como fila en este rango.</div>
+                    {% endif %}
                     {% endif %}
                 </div>
             </div>
@@ -148,7 +154,7 @@
             <h2 class="h5 mb-0"><i class="fas fa-list me-2"></i>Detalle</h2>
         </div>
         <div class="card-body p-0">
-            {% if movimientos or mostrar_fila_saldo_inicial %}
+            {% if movimientos or mostrar_fila_saldo_inicial or mostrar_fila_transporte %}
             <div class="table-responsive">
                 <table class="table table-hover table-sm mb-0 align-middle">
                     <thead class="table-light">
@@ -242,6 +248,19 @@
                         </tr>
                         {% endwith %}
                         {% endfor %}
+                        {% if mostrar_fila_transporte and not movimientos.has_next %}
+                        <tr class="table-secondary">
+                            <td class="text-nowrap small"><strong>{{ fecha_desde }}</strong></td>
+                            <td><span class="text-muted">—</span></td>
+                            <td><span class="badge bg-dark">Transporte</span></td>
+                            <td class="small">Saldo anterior al período (como en extracto bancario)</td>
+                            <td class="text-end">—</td>
+                            <td class="text-end">—</td>
+                            <td class="text-end fw-semibold {% if saldo_transporte >= 0 %}text-primary{% else %}text-warning{% endif %}">
+                                ${{ saldo_transporte|format_price }}
+                            </td>
+                        </tr>
+                        {% endif %}
                         {% if mostrar_fila_saldo_inicial and not movimientos.has_next %}
                         <tr class="table-secondary">
                             <td class="text-nowrap small"><strong>{{ fecha_saldo_inicial|date:"d/m/Y" }}</strong></td>
