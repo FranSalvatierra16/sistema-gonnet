@@ -441,15 +441,33 @@
             {% if liquidacion.estado == 'pendiente' %}
             <div class="row mb-3">
                 <div class="col-12">
-                    <div class="d-flex gap-2">
-                        <form method="POST" action="{% url 'inmobiliaria:confirmar_liquidacion' liquidacion.id %}">
+                    <div class="d-flex gap-3 flex-wrap align-items-start">
+                        <form method="POST" action="{% url 'inmobiliaria:confirmar_liquidacion' liquidacion.id %}" class="border rounded p-3 bg-light">
                             {% csrf_token %}
+                            {% if caratulas_pendientes_confirmacion %}
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" name="confirmar_caratula" value="1" id="confirmar_caratula_cerrar">
+                                <label class="form-check-label" for="confirmar_caratula_cerrar">
+                                    También confirmar carátula
+                                    <span class="text-muted small">({{ caratulas_pendientes_confirmacion|join:", " }})</span>
+                                </label>
+                            </div>
+                            {% endif %}
                             <button type="submit" class="btn btn-primary">
                                 <i class="fas fa-lock me-2"></i>Confirmar y Cerrar Liquidación
                             </button>
                         </form>
-                        <form method="POST" action="{% url 'inmobiliaria:marcar_liquidacion_oficina' liquidacion.id %}">
+                        <form method="POST" action="{% url 'inmobiliaria:marcar_liquidacion_oficina' liquidacion.id %}" class="border rounded p-3 bg-light">
                             {% csrf_token %}
+                            {% if caratulas_pendientes_confirmacion %}
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" name="confirmar_caratula" value="1" id="confirmar_caratula_oficina">
+                                <label class="form-check-label" for="confirmar_caratula_oficina">
+                                    También confirmar carátula
+                                    <span class="text-muted small">({{ caratulas_pendientes_confirmacion|join:", " }})</span>
+                                </label>
+                            </div>
+                            {% endif %}
                             <button type="submit" class="btn btn-secondary">
                                 <i class="fas fa-building me-2"></i>Marcar como Oficina
                             </button>
@@ -470,6 +488,15 @@
                         <div class="card-body">
                             <form method="POST" action="{% url 'inmobiliaria:marcar_liquidacion_oficina' liquidacion.id %}" class="mb-3">
                                 {% csrf_token %}
+                                {% if caratulas_pendientes_confirmacion %}
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" name="confirmar_caratula" value="1" id="confirmar_caratula_oficina_cerrada">
+                                    <label class="form-check-label" for="confirmar_caratula_oficina_cerrada">
+                                        También confirmar carátula
+                                        <span class="text-muted small">({{ caratulas_pendientes_confirmacion|join:", " }})</span>
+                                    </label>
+                                </div>
+                                {% endif %}
                                 <button type="submit" class="btn btn-outline-secondary btn-sm">
                                     <i class="fas fa-building me-2"></i>Pasar esta liquidación a Oficina
                                 </button>

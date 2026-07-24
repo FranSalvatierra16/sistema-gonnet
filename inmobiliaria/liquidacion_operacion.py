@@ -473,8 +473,8 @@ def reserva_ids_completamente_liquidadas(propiedad) -> set:
 
 def confirmar_caratula_por_liquidacion(liquidacion) -> list:
     """
-    Al liquidar al propietario: marca la/s carátula/s como confirmada y acredita
-    comisiones con fecha vencida. Evita volver a la carátula solo para confirmar.
+    Marca la/s carátula/s vinculadas a la liquidación como confirmada y acredita
+    comisiones con fecha vencida. Solo se llama si el usuario lo pide explícitamente.
     """
     if not liquidacion or getattr(liquidacion, 'estado', None) == 'cancelada':
         return []
@@ -516,6 +516,39 @@ def confirmar_caratula_por_liquidacion(liquidacion) -> list:
             acreditar_comisiones_operacion_por_caratula(contrato=contrato)
 
     return confirmadas
+
+
+def caratulas_pendientes_liquidacion(liquidacion) -> list:
+    """
+    Etiquetas de operaciones vinculadas cuya carátula sigue pendiente
+    (para ofrecer checkbox al confirmar liquidación).
+    """
+    if not liquidacion or getattr(liquidacion, 'estado', None) == 'cancelada':
+        return []
+
+    from inmobiliaria.models import Reserva
+    from inmobiliaria.models.comision import _reserva_ids_desde_liquidacion
+
+    pendientes = []
+    for rid in _reserva_ids_desde_liquidacion(liquidacion):
+        reserva = Reserva.objects.filter(pk=rid).first()
+        if not reserva:
+            continue
+        if getattr(reserva, 'eliminada', False) or getattr(reserva, 'estado', None) == 'cancelada':
+            continue
+        if (getattr(reserva, 'estado_confirmacion_caratula', None) or 'pendiente') != 'confirmada':
+            pendientes.append(f'reserva #{rid}')
+
+    contrato = None
+    if getattr(liquidacion, 'contrato_id', None):
+        contrato = liquidacion.contrato
+    if contrato is None:
+        contrato = contrato_desde_liquidacion(liquidacion)
+    if contrato is not None and getattr(contrato, 'estado', None) != 'rescindido':
+        if (getattr(contrato, 'estado_confirmacion_caratula', None) or 'pendiente') != 'confirmada':
+            pendientes.append(f'contrato #{contrato.pk}')
+
+    return pendientes
 
 
 def titulo_tipo_liquidacion_cobranzas(info_op):

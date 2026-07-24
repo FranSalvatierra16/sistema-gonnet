@@ -25882,14 +25882,10 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                 liquidacion.calcular_monto_a_pagar()
 
                 from inmobiliaria.models.comision import confirmar_comisiones_por_liquidacion
-                from inmobiliaria.liquidacion_operacion import confirmar_caratula_por_liquidacion
 
                 confirmar_comisiones_por_liquidacion(liquidacion)
-                caratulas_confirmadas = confirmar_caratula_por_liquidacion(liquidacion)
 
             msg_ok = 'Liquidación creada correctamente.'
-            if 'caratulas_confirmadas' not in locals():
-                caratulas_confirmadas = []
             if reserva is not None:
                 from inmobiliaria.liquidacion_operacion import saldo_liquidacion_reserva
 
@@ -25900,8 +25896,6 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                         f'{" (dividida)" if dividir_operacion else " (parcial)"}. '
                         f'Pendiente al propietario: ${sal["pendiente"]:,.2f}.'
                     )
-            if caratulas_confirmadas:
-                msg_ok += ' La carátula quedó confirmada automáticamente.'
             messages.success(request, msg_ok)
             return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion.id)
 
@@ -27927,9 +27921,13 @@ def detalle_liquidacion(request, liquidacion_id):
         except Exception:
             gastos_pendientes_disponibles = []
 
-    from inmobiliaria.liquidacion_operacion import info_operacion_liquidacion
+    from inmobiliaria.liquidacion_operacion import (
+        caratulas_pendientes_liquidacion,
+        info_operacion_liquidacion,
+    )
 
     info_op = info_operacion_liquidacion(liquidacion)
+    caratulas_pendientes = caratulas_pendientes_liquidacion(liquidacion)
 
     context = {
         'liquidacion': liquidacion,
@@ -27943,6 +27941,7 @@ def detalle_liquidacion(request, liquidacion_id):
         'puede_eliminar_liquidacion': usuario_es_nivel_administracion(request.user),
         'gastos_pendientes_disponibles': gastos_pendientes_disponibles,
         'liq_editable': liquidacion.estado == 'pendiente',
+        'caratulas_pendientes_confirmacion': caratulas_pendientes,
         **_context_liquidacion_cobranzas(liquidacion, request),
     }
 
@@ -28479,7 +28478,9 @@ def confirmar_liquidacion(request, liquidacion_id):
     from inmobiliaria.liquidacion_operacion import confirmar_caratula_por_liquidacion
 
     confirmar_comisiones_por_liquidacion(liquidacion)
-    caratulas_ok = confirmar_caratula_por_liquidacion(liquidacion)
+    caratulas_ok = []
+    if request.POST.get('confirmar_caratula') in ('1', 'on', 'true', 'True'):
+        caratulas_ok = confirmar_caratula_por_liquidacion(liquidacion)
 
     if (liquidacion.monto_a_pagar or 0) < 0:
         msg = (
@@ -28489,7 +28490,7 @@ def confirmar_liquidacion(request, liquidacion_id):
     else:
         msg = 'Liquidación confirmada y cerrada. Ahora podés volver y pagarla cuando quieras.'
     if caratulas_ok:
-        msg += ' La carátula quedó confirmada automáticamente.'
+        msg += ' También se confirmó la carátula.'
     messages.success(request, msg)
     return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion.id)
 
@@ -28518,7 +28519,9 @@ def marcar_liquidacion_oficina(request, liquidacion_id):
     from inmobiliaria.liquidacion_operacion import confirmar_caratula_por_liquidacion
 
     confirmar_comisiones_por_liquidacion(liquidacion)
-    caratulas_ok = confirmar_caratula_por_liquidacion(liquidacion)
+    caratulas_ok = []
+    if request.POST.get('confirmar_caratula') in ('1', 'on', 'true', 'True'):
+        caratulas_ok = confirmar_caratula_por_liquidacion(liquidacion)
 
     if (liquidacion.monto_a_pagar or 0) < 0:
         msg = (
@@ -28528,7 +28531,7 @@ def marcar_liquidacion_oficina(request, liquidacion_id):
     else:
         msg = 'Liquidación marcada como Oficina.'
     if caratulas_ok:
-        msg += ' La carátula quedó confirmada automáticamente.'
+        msg += ' También se confirmó la carátula.'
     messages.success(request, msg)
     return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion.id)
 

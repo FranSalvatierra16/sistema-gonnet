@@ -1,7 +1,7 @@
 <div class="card mb-3 border-{% if operacion_eliminada %}secondary{% elif operacion_rescindida %}danger{% elif operacion_caratula_confirmada %}success{% else %}warning{% endif %}">
     <div class="card-body py-2 d-flex flex-wrap align-items-center justify-content-between gap-2">
         <div>
-            <strong class="small"><i class="fas fa-clipboard-check me-1"></i>Estado de la operación</strong>
+            <strong class="small"><i class="fas fa-clipboard-check me-1"></i>Estado de la carátula</strong>
             <span class="badge {{ operacion_caratula_badge_class }} ms-2">{{ operacion_caratula_label }}</span>
             {% if operacion_eliminada %}
             <div class="small text-muted mt-1">Operación anulada. Las fechas quedaron disponibles; las comisiones acreditadas se revirtieron.</div>
@@ -21,9 +21,9 @@
             {% elif operacion_rescindida %}
             <div class="small text-muted mt-1">Contrato rescindido.</div>
             {% elif operacion_caratula_confirmada %}
-            <div class="small text-muted mt-1">La carátula fue revisada y confirmada.</div>
+            <div class="small text-muted mt-1">Carátula confirmada. Podés desconfirmarla si hace falta corregir algo.</div>
             {% else %}
-            <div class="small text-muted mt-1">Pendiente de revisión. Se confirma sola al crear la liquidación (también podés confirmarla acá).</div>
+            <div class="small text-muted mt-1">Pendiente de revisión. Confirmala acá o al confirmar la liquidación (opcional).</div>
             {% endif %}
         </div>
         <div class="d-flex flex-wrap gap-2">
@@ -40,11 +40,20 @@
             </form>
             {% endif %}
             {% if puede_confirmar_operacion_caratula %}
-            <form method="post" class="m-0" onsubmit="return confirm('¿Marcar esta operación como confirmada?');">
+            <form method="post" class="m-0" onsubmit="return confirm('¿Confirmar esta carátula?');">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="confirmar_operacion_caratula">
                 <button type="submit" class="btn btn-sm btn-success">
-                    <i class="fas fa-check-circle me-1"></i>Confirmar operación
+                    <i class="fas fa-check-circle me-1"></i>Confirmar carátula
+                </button>
+            </form>
+            {% endif %}
+            {% if puede_desconfirmar_operacion_caratula %}
+            <form method="post" class="m-0" onsubmit="return confirm('¿Desconfirmar esta carátula? Volverá a pendiente.');">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="desconfirmar_operacion_caratula">
+                <button type="submit" class="btn btn-sm btn-outline-warning">
+                    <i class="fas fa-undo me-1"></i>Desconfirmar carátula
                 </button>
             </form>
             {% endif %}

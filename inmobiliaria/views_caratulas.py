@@ -676,6 +676,7 @@ def _ctx_estado_operacion_caratula(reserva=None, contrato=None, user=None):
             'operacion_caratula_label': 'Eliminada',
             'operacion_caratula_badge_class': 'bg-secondary',
             'puede_confirmar_operacion_caratula': False,
+            'puede_desconfirmar_operacion_caratula': False,
             'puede_anular_operacion_caratula': False,
             'operacion_eliminacion_fecha': getattr(reserva, 'fecha_eliminacion', None),
             'operacion_eliminacion_usuario': quien_txt,
@@ -689,6 +690,7 @@ def _ctx_estado_operacion_caratula(reserva=None, contrato=None, user=None):
             'operacion_caratula_label': 'Rescindido',
             'operacion_caratula_badge_class': 'bg-danger',
             'puede_confirmar_operacion_caratula': False,
+            'puede_desconfirmar_operacion_caratula': False,
             'puede_anular_operacion_caratula': False,
             'operacion_eliminacion_fecha': None,
             'operacion_eliminacion_usuario': '',
@@ -709,6 +711,9 @@ def _ctx_estado_operacion_caratula(reserva=None, contrato=None, user=None):
         'operacion_caratula_badge_class': 'bg-success' if confirmada else 'bg-warning text-dark',
         'puede_confirmar_operacion_caratula': bool(
             not confirmada and user is not None and _puede_editar_caratula(user)
+        ),
+        'puede_desconfirmar_operacion_caratula': bool(
+            confirmada and user is not None and _puede_editar_caratula(user)
         ),
         'puede_anular_operacion_caratula': puede_anular,
         'operacion_eliminacion_fecha': None,
@@ -866,7 +871,25 @@ def _procesar_confirmar_operacion_caratula(request, reserva=None, contrato=None)
     from inmobiliaria.models.comision import acreditar_comisiones_operacion_por_caratula
 
     acreditar_comisiones_operacion_por_caratula(reserva=reserva, contrato=contrato)
-    messages.success(request, 'Operación marcada como confirmada.')
+    messages.success(request, 'Carátula marcada como confirmada.')
+    return True
+
+
+def _procesar_desconfirmar_operacion_caratula(request, reserva=None, contrato=None):
+    from django.contrib import messages
+
+    if not _puede_editar_caratula(request.user):
+        messages.error(request, 'No tenés permiso para desconfirmar la carátula.')
+        return False
+    obj = reserva or contrato
+    if not obj:
+        return False
+    if (getattr(obj, 'estado_confirmacion_caratula', None) or 'pendiente') != 'confirmada':
+        messages.info(request, 'La carátula ya estaba pendiente.')
+        return True
+    obj.estado_confirmacion_caratula = 'pendiente'
+    obj.save(update_fields=['estado_confirmacion_caratula'])
+    messages.success(request, 'Carátula desconfirmada (vuelve a pendiente).')
     return True
 
 
@@ -3796,27 +3819,14 @@ def caratula_reserva(request, reserva_id):
         _procesar_confirmar_operacion_caratula(request, reserva=reserva)
         return _redirect_caratula_con_filtros('inmobiliaria:caratula_reserva', reserva_id, request)
 
+    if request.method == 'POST' and request.POST.get('action') == 'desconfirmar_operacion_caratula':
+        _procesar_desconfirmar_operacion_caratula(request, reserva=reserva)
+        return _redirect_caratula_con_filtros('inmobiliaria:caratula_reserva', reserva_id, request)
+
     if request.method == 'POST' and request.POST.get('action') == 'anular_operacion_caratula':
         if _procesar_anular_operacion_reserva_caratula(request, reserva):
             return redirect(_url_lista_caratulas_desde_request(request))
         reserva.refresh_from_db()
-
-    # Si ya liquidaron y la carátula sigue pendiente, confirmarla (casos viejos / sin volver a liquidar).
-    if (
-        request.method == 'GET'
-        and (getattr(reserva, 'estado_confirmacion_caratula', None) or 'pendiente') != 'confirmada'
-        and not getattr(reserva, 'eliminada', False)
-        and getattr(reserva, 'estado', None) != 'cancelada'
-    ):
-        from inmobiliaria.liquidacion_operacion import (
-            confirmar_caratula_por_liquidacion,
-            liquidaciones_activas_reserva,
-        )
-
-        liqs = liquidaciones_activas_reserva(reserva)
-        if liqs:
-            if confirmar_caratula_por_liquidacion(liqs[-1]):
-                reserva.refresh_from_db()
 
     if request.method == 'POST' and request.POST.get('action') in (
         'agregar_productor_caratula',
@@ -3953,6 +3963,9 @@ def caratula_contrato(request, contrato_id):
         action = request.POST.get('action')
         if action == 'confirmar_operacion_caratula':
             _procesar_confirmar_operacion_caratula(request, contrato=contrato)
+            return _redirect_caratula_con_filtros('inmobiliaria:caratula_contrato', contrato_id, request)
+        if action == 'desconfirmar_operacion_caratula':
+            _procesar_desconfirmar_operacion_caratula(request, contrato=contrato)
             return _redirect_caratula_con_filtros('inmobiliaria:caratula_contrato', contrato_id, request)
         if action in (
             'agregar_productor_caratula',
