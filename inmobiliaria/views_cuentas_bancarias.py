@@ -42,48 +42,37 @@ def _parse_fecha_filtro(valor):
 
 def _saldo_inicial_en_periodo(fecha_desde, fecha_hasta, periodo_completo=False):
     """
-    El saldo inicial (fecha fija 05/06) aplica si el período lo alcanza o lo supera.
-    Si el período termina antes del 05/06, no se usa.
+    El saldo inicial (fecha fija 05/06) solo aplica si esa fecha cae dentro del período.
+    Si filtrás un rango posterior (ej. julio), no se arrastra el saldo inicial:
+    solo cuenta cuando el período incluye el 05/06 (o es todo el historial).
     """
     if periodo_completo:
         return True
     fd = _parse_fecha_filtro(fecha_desde)
     fh = _parse_fecha_filtro(fecha_hasta)
-    if fh is not None and fh < FECHA_SALDO_INICIAL_CUENTA:
-        return False
-    if fd is not None and fh is None and fd > FECHA_SALDO_INICIAL_CUENTA:
-        return True
+    if fd is not None and fh is not None:
+        return fd <= FECHA_SALDO_INICIAL_CUENTA <= fh
+    if fd is not None:
+        return fd <= FECHA_SALDO_INICIAL_CUENTA
+    if fh is not None:
+        return fh >= FECHA_SALDO_INICIAL_CUENTA
     return True
 
 
 def _mostrar_fila_saldo_inicial(fecha_desde, fecha_hasta, periodo_completo=False):
     """Mostrar la fila 'Saldo inicial' con fecha 05/06 cuando cae dentro del filtro."""
-    if not _saldo_inicial_en_periodo(fecha_desde, fecha_hasta, periodo_completo):
-        return False
-    if periodo_completo:
-        return True
-    fd = _parse_fecha_filtro(fecha_desde)
-    fh = _parse_fecha_filtro(fecha_hasta)
-    if fd is not None and fd > FECHA_SALDO_INICIAL_CUENTA:
-        return False
-    if fh is not None and fh < FECHA_SALDO_INICIAL_CUENTA:
-        return False
-    return True
+    return _saldo_inicial_en_periodo(fecha_desde, fecha_hasta, periodo_completo)
 
 
 def _saldo_base_periodo(saldo_inicial, fecha_desde, fecha_hasta, periodo_completo=False):
     """
     Base del acumulado al inicio del listado filtrado.
     - Si el 05/06 está dentro del período: arranca en 0 y la fila de saldo inicial lo suma.
-    - Si el período empieza después del 05/06: el saldo inicial ya es apertura arrastrada.
-    - Si el período termina antes del 05/06: 0.
+    - Si el período no incluye el 05/06: arranca en 0 (el saldo inicial no se arrastra).
     """
-    saldo = Decimal(str(saldo_inicial or 0)).quantize(Decimal('0.01'))
-    if not _saldo_inicial_en_periodo(fecha_desde, fecha_hasta, periodo_completo):
-        return Decimal('0.00')
     if _mostrar_fila_saldo_inicial(fecha_desde, fecha_hasta, periodo_completo):
         return Decimal('0.00')
-    return saldo
+    return Decimal('0.00')
 
 
 def _etiqueta_inquilino_movimiento(m: MovimientoCaja) -> str:
@@ -455,10 +444,10 @@ def reporte_movimientos_cuenta_bancaria(request, cuenta_id):
             saldo_run -= monto
         saldos_por_id[mov.id] = saldo_run.quantize(Decimal('0.01'))
 
-    # En el resumen: el saldo inicial del corte solo si aplica al período.
-    saldo_inicial_mostrar = saldo_inicial if aplica_si else Decimal('0.00')
+    # En el resumen: el saldo inicial del corte solo si el 05/06 cae en el período.
+    saldo_inicial_resumen = saldo_inicial if aplica_si else Decimal('0.00')
     if mostrar_fila_si:
-        saldo_final = (saldo_inicial_mostrar + saldo_periodo).quantize(Decimal('0.01'))
+        saldo_final = (saldo_inicial_resumen + saldo_periodo).quantize(Decimal('0.01'))
     else:
         saldo_final = (saldo_base + saldo_periodo).quantize(Decimal('0.01'))
 
@@ -480,7 +469,8 @@ def reporte_movimientos_cuenta_bancaria(request, cuenta_id):
     query_imprimir['imprimir'] = '1'
 
     context_extra = {
-        'saldo_inicial_cuenta': saldo_inicial_mostrar,
+        'saldo_inicial_cuenta': saldo_inicial,
+        'saldo_inicial_resumen': saldo_inicial_resumen,
         'saldo_base_periodo': saldo_base,
         'saldo_periodo': saldo_periodo,
         'saldo_final': saldo_final,
@@ -488,6 +478,7 @@ def reporte_movimientos_cuenta_bancaria(request, cuenta_id):
         'fecha_saldo_inicial': FECHA_SALDO_INICIAL_CUENTA,
         'mostrar_fila_saldo_inicial': mostrar_fila_si,
         'saldo_acumulado_inicial': saldo_despues_fila_inicial,
+        'saldo_inicial_aplica_periodo': aplica_si,
     }
 
     if modo_imprimir:

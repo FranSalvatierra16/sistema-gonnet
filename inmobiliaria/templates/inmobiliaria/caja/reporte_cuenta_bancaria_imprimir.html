@@ -46,7 +46,7 @@
     </div>
 
     <div class="row g-2 mb-3 small">
-        <div class="col-md-3"><strong>Saldo inicial ({{ fecha_saldo_inicial|date:"d/m/Y" }}):</strong> ${{ saldo_inicial_cuenta|format_price }}</div>
+        <div class="col-md-3"><strong>Saldo inicial ({{ fecha_saldo_inicial|date:"d/m/Y" }}):</strong> ${{ saldo_inicial_resumen|format_price }}</div>
         <div class="col-md-3"><strong>Ingresos:</strong> ${{ total_ingresos|format_price }}</div>
         <div class="col-md-3"><strong>Egresos:</strong> ${{ total_egresos|format_price }}</div>
         <div class="col-md-3"><strong>Saldo final:</strong> ${{ saldo_final|format_price }}</div>
@@ -69,7 +69,7 @@
                 <td class="text-nowrap">{{ fecha_saldo_inicial|date:"d/m/Y" }}</td>
                 <td>Saldo inicial</td>
                 <td class="small">Saldo inicial de la cuenta (corte {{ fecha_saldo_inicial|date:"d/m/Y" }})</td>
-                <td class="text-end">${{ saldo_inicial_cuenta|format_price }}</td>
+                <td class="text-end">${{ saldo_inicial_resumen|format_price }}</td>
                 <td class="text-end">—</td>
                 <td class="text-end">${{ saldo_acumulado_inicial|format_price }}</td>
             </tr>

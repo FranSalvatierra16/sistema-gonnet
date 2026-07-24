@@ -94,7 +94,8 @@
                 <div class="col-md-8">
                     <p class="small text-muted mb-0">
                         Corte fijo del <strong>{{ fecha_saldo_inicial|date:"d/m/Y" }}</strong> en todas las cuentas.
-                        El monto no se edita más: el <strong>saldo acum.</strong> lo toma como apertura desde esa fecha.
+                        El monto no se edita más. En el listado solo se suma si el rango de fechas
+                        <strong>incluye</strong> ese día (si filtrás un mes posterior, el acumulado arranca en cero con los movimientos del período).
                     </p>
                 </div>
             </div>
@@ -106,7 +107,10 @@
             <div class="card border-secondary h-100">
                 <div class="card-body">
                     <div class="text-secondary small text-uppercase fw-semibold">Saldo inicial ({{ fecha_saldo_inicial|date:"d/m/Y" }})</div>
-                    <div class="h4 mb-0">${{ saldo_inicial_cuenta|format_price }}</div>
+                    <div class="h4 mb-0">${{ saldo_inicial_resumen|format_price }}</div>
+                    {% if not saldo_inicial_aplica_periodo %}
+                    <div class="small text-muted mt-1">No aplica en este rango (queda fuera del filtro).</div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -244,7 +248,7 @@
                             <td><span class="text-muted">—</span></td>
                             <td><span class="badge bg-secondary">Saldo inicial</span></td>
                             <td class="small">Saldo inicial de la cuenta (corte {{ fecha_saldo_inicial|date:"d/m/Y" }})</td>
-                            <td class="text-end text-success fw-semibold">${{ saldo_inicial_cuenta|format_price }}</td>
+                            <td class="text-end text-success fw-semibold">${{ saldo_inicial_resumen|format_price }}</td>
                             <td class="text-end">—</td>
                             <td class="text-end fw-semibold {% if saldo_acumulado_inicial >= 0 %}text-primary{% else %}text-warning{% endif %}">
                                 ${{ saldo_acumulado_inicial|format_price }}
