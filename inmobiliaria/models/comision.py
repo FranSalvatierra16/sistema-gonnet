@@ -232,22 +232,54 @@ def pct_comision_normal_alquiler_dia(vendedor):
     return Decimal('0')
 
 
-def _pct_operacion_dia_o_fallback_despues_fichaje(vendedor, hubo_regla_fichaje):
+def _pct_operacion_dia_o_fallback_despues_fichaje(vendedor, hubo_regla_fichaje=False):
     """
-    % para la línea «operación por día» sobre el total de la reserva (desacoplado del % fichaje).
+    % para la línea «operación por día» sobre el total de la reserva.
 
-    Si ya corre comisión por fichaje sobre honorarios y el vendedor no tiene % de comisión por día cargado,
-    se usa el default de sucursal o 1% para no perder la comisión por la reserva en sí.
+    Solo usa el % del productor o el default de sucursal. Si no hay ninguno,
+    no comisiona (no se inventa 1%).
     """
     pct = pct_comision_normal_alquiler_dia(vendedor)
     if pct is not None and pct > 0:
         return pct
-    if hubo_regla_fichaje:
-        d = getattr(vendedor.sucursal, 'porcentaje_comision_default', None)
-        if d is not None and d > 0:
-            return d
-        return Decimal('1')
     return Decimal('0')
+
+
+def _cancelar_o_borrar_comisiones_qs(qs):
+    """Pendientes se borran; acreditadas/pagadas se cancelan (historial)."""
+    for c in list(qs):
+        if getattr(c, 'estado', None) == 'pendiente':
+            c.delete()
+        else:
+            ComisionVendedor.objects.filter(pk=c.pk).update(estado='cancelada')
+
+
+def _sincronizar_comisiones_fichaje_reserva(reserva):
+    """
+    Alinea líneas de fichaje al fichador actual de la propiedad.
+    Si cambió el fichador o ya no tiene %, quita las comisiones viejas.
+    """
+    if not reserva:
+        return
+    prop = getattr(reserva, 'propiedad', None)
+    tipo_fichaje = getattr(prop, 'tipo_fichaje', None) or 'primer' if prop else 'primer'
+    vend_fichaje = vendedor_fichaje_desde_propiedad(prop) if prop else None
+    tipo_op = clasificar_tipo_operacion_reserva(reserva)
+    pct_fichaje = None
+    if vend_fichaje:
+        pct_fichaje = vend_fichaje.porcentaje_fichaje_efectivo(tipo_fichaje, tipo_op)
+
+    qs = ComisionVendedor.objects.filter(
+        reserva=reserva,
+        rol_comision=ROL_COMISION_FICHAJE,
+    ).exclude(estado='cancelada')
+
+    activo = bool(vend_fichaje and pct_fichaje is not None and pct_fichaje > 0)
+    if not activo:
+        _cancelar_o_borrar_comisiones_qs(qs)
+        return
+
+    _cancelar_o_borrar_comisiones_qs(qs.exclude(vendedor_id=vend_fichaje.id))
 
 
 def _crear_linea_operacion_por_dia(
@@ -262,6 +294,14 @@ def _crear_linea_operacion_por_dia(
     """
     pct = pct_override if pct_override is not None else pct_comision_normal_alquiler_dia(vendedor)
     if pct is None or pct <= 0:
+        # Sin %: no debe quedar línea inventada (p. ej. fallback 1% viejo o productor Oficina).
+        _cancelar_o_borrar_comisiones_qs(
+            ComisionVendedor.objects.filter(
+                vendedor=vendedor,
+                reserva=reserva,
+                rol_comision=ROL_COMISION_OP_DIA,
+            ).exclude(estado='cancelada')
+        )
         return
     base = reserva.precio_total or Decimal('0')
     if base <= 0:
@@ -329,6 +369,8 @@ def registrar_comisiones_honorarios_movimiento_reserva(reserva, movimiento_caja,
 
     if getattr(reserva, 'eliminada', False) or getattr(reserva, 'estado', None) == 'cancelada':
         return []
+
+    _sincronizar_comisiones_fichaje_reserva(reserva)
 
     prop = reserva.propiedad
     creadas = []
@@ -515,6 +557,8 @@ def asegurar_comisiones_reserva(reserva, movimientos_caja=None, honorarios_monto
     if getattr(reserva, 'eliminada', False) or getattr(reserva, 'estado', None) == 'cancelada':
         return []
 
+    _sincronizar_comisiones_fichaje_reserva(reserva)
+
     movs = []
     for mov in movimientos_caja or []:
         tipo = (getattr(mov, 'tipo', None) or '').strip().upper()
@@ -602,9 +646,19 @@ def registrar_comisiones_honorarios_contrato(contrato, honorarios_monto, movimie
             contrato=contrato,
             rol_comision=ROL_COMISION_FICHAJE,
         ).exclude(estado='cancelada').exclude(vendedor=vend_fichaje).delete()
+    else:
+        ComisionVendedor.objects.filter(
+            contrato=contrato,
+            rol_comision=ROL_COMISION_FICHAJE,
+        ).exclude(estado='cancelada').delete()
     pct_fichaje = None
     if vend_fichaje:
         pct_fichaje = vend_fichaje.porcentaje_fichaje_efectivo(tipo_fichaje, cat)
+    if not (pct_fichaje is not None and pct_fichaje > 0 and vend_fichaje):
+        ComisionVendedor.objects.filter(
+            contrato=contrato,
+            rol_comision=ROL_COMISION_FICHAJE,
+        ).exclude(estado='cancelada').delete()
     if pct_fichaje is not None and pct_fichaje > 0 and vend_fichaje:
         cat_lbl = _etiqueta_categoria_fichaje(cat)
         c = ComisionVendedor.crear_comision_linea_contrato(
