@@ -28457,6 +28457,44 @@ def eliminar_gasto_liquidacion(request, gasto_id):
 @login_required
 @transaction.atomic
 @require_POST
+def confirmar_caratula_desde_liquidacion(request, liquidacion_id):
+    """
+    Confirma la carátula de la/s operación/es vinculadas a esta liquidación,
+    sin cerrar ni cambiar el estado de la liquidación.
+    """
+    liquidacion = get_object_or_404(
+        LiquidacionPropietario,
+        id=liquidacion_id,
+        sucursal=request.user.sucursal,
+    )
+    if liquidacion.estado == 'cancelada':
+        messages.error(request, 'No se puede confirmar carátula de una liquidación cancelada.')
+        return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion.id)
+
+    from inmobiliaria.liquidacion_operacion import (
+        caratulas_pendientes_liquidacion,
+        confirmar_caratula_por_liquidacion,
+    )
+
+    pendientes = caratulas_pendientes_liquidacion(liquidacion)
+    if not pendientes:
+        messages.info(request, 'La carátula ya estaba confirmada (o no hay operación vinculada).')
+        return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion.id)
+
+    confirmadas = confirmar_caratula_por_liquidacion(liquidacion)
+    if confirmadas:
+        messages.success(
+            request,
+            f'Carátula confirmada ({", ".join(confirmadas)}).',
+        )
+    else:
+        messages.info(request, 'No se pudo confirmar la carátula.')
+    return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion.id)
+
+
+@login_required
+@transaction.atomic
+@require_POST
 def confirmar_liquidacion(request, liquidacion_id):
     """
     Confirma la liquidación y la deja cerrada para pago posterior.
@@ -28475,12 +28513,8 @@ def confirmar_liquidacion(request, liquidacion_id):
     liquidacion.sync_gasto_saldo_negativo_pendiente()
 
     from inmobiliaria.models.comision import confirmar_comisiones_por_liquidacion
-    from inmobiliaria.liquidacion_operacion import confirmar_caratula_por_liquidacion
 
     confirmar_comisiones_por_liquidacion(liquidacion)
-    caratulas_ok = []
-    if request.POST.get('confirmar_caratula') in ('1', 'on', 'true', 'True'):
-        caratulas_ok = confirmar_caratula_por_liquidacion(liquidacion)
 
     if (liquidacion.monto_a_pagar or 0) < 0:
         msg = (
@@ -28489,8 +28523,6 @@ def confirmar_liquidacion(request, liquidacion_id):
         )
     else:
         msg = 'Liquidación confirmada y cerrada. Ahora podés volver y pagarla cuando quieras.'
-    if caratulas_ok:
-        msg += ' También se confirmó la carátula.'
     messages.success(request, msg)
     return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion.id)
 
@@ -28516,12 +28548,8 @@ def marcar_liquidacion_oficina(request, liquidacion_id):
     liquidacion.sync_gasto_saldo_negativo_pendiente()
 
     from inmobiliaria.models.comision import confirmar_comisiones_por_liquidacion
-    from inmobiliaria.liquidacion_operacion import confirmar_caratula_por_liquidacion
 
     confirmar_comisiones_por_liquidacion(liquidacion)
-    caratulas_ok = []
-    if request.POST.get('confirmar_caratula') in ('1', 'on', 'true', 'True'):
-        caratulas_ok = confirmar_caratula_por_liquidacion(liquidacion)
 
     if (liquidacion.monto_a_pagar or 0) < 0:
         msg = (
@@ -28530,8 +28558,6 @@ def marcar_liquidacion_oficina(request, liquidacion_id):
         )
     else:
         msg = 'Liquidación marcada como Oficina.'
-    if caratulas_ok:
-        msg += ' También se confirmó la carátula.'
     messages.success(request, msg)
     return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion.id)
 

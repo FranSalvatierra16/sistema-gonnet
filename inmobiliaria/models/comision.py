@@ -2008,6 +2008,17 @@ def _reserva_ids_desde_liquidacion(liquidacion):
     for op in liquidacion.operaciones_incluidas or []:
         if not isinstance(op, dict):
             continue
+        if op.get('tipo') == 'division':
+            for parte in op.get('operaciones') or []:
+                if not isinstance(parte, dict):
+                    continue
+                if (parte.get('tipo') or '').strip().lower() != 'reserva' or not parte.get('id'):
+                    continue
+                try:
+                    ids.add(int(parte['id']))
+                except (TypeError, ValueError):
+                    pass
+            continue
         if op.get('tipo') == 'reserva' and op.get('id'):
             try:
                 ids.add(int(op['id']))

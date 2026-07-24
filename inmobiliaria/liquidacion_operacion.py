@@ -520,8 +520,7 @@ def confirmar_caratula_por_liquidacion(liquidacion) -> list:
 
 def caratulas_pendientes_liquidacion(liquidacion) -> list:
     """
-    Etiquetas de operaciones vinculadas cuya carátula sigue pendiente
-    (para ofrecer checkbox al confirmar liquidación).
+    Etiquetas de operaciones vinculadas cuya carátula sigue pendiente.
     """
     if not liquidacion or getattr(liquidacion, 'estado', None) == 'cancelada':
         return []
@@ -530,14 +529,36 @@ def caratulas_pendientes_liquidacion(liquidacion) -> list:
     from inmobiliaria.models.comision import _reserva_ids_desde_liquidacion
 
     pendientes = []
-    for rid in _reserva_ids_desde_liquidacion(liquidacion):
-        reserva = Reserva.objects.filter(pk=rid).first()
-        if not reserva:
-            continue
+    vistos = set()
+
+    def _add_reserva(reserva):
+        if not reserva or reserva.pk in vistos:
+            return
+        vistos.add(reserva.pk)
         if getattr(reserva, 'eliminada', False) or getattr(reserva, 'estado', None) == 'cancelada':
-            continue
+            return
         if (getattr(reserva, 'estado_confirmacion_caratula', None) or 'pendiente') != 'confirmada':
-            pendientes.append(f'reserva #{rid}')
+            pendientes.append(f'reserva #{reserva.pk}')
+
+    for rid in _reserva_ids_desde_liquidacion(liquidacion):
+        _add_reserva(Reserva.objects.filter(pk=rid).first())
+
+    # Fallback: misma lógica que el encabezado de liquidación (por día / divisiones).
+    _add_reserva(reserva_desde_liquidacion(liquidacion))
+
+    for op in liquidacion.operaciones_incluidas or []:
+        if not isinstance(op, dict):
+            continue
+        if op.get('tipo') == 'division':
+            for parte in op.get('operaciones') or []:
+                if not isinstance(parte, dict):
+                    continue
+                if (parte.get('tipo') or '').strip().lower() != 'reserva':
+                    continue
+                try:
+                    _add_reserva(Reserva.objects.filter(pk=int(parte['id'])).first())
+                except (KeyError, TypeError, ValueError):
+                    pass
 
     contrato = None
     if getattr(liquidacion, 'contrato_id', None):
