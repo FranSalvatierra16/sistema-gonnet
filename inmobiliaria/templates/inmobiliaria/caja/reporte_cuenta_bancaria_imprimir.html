@@ -70,7 +70,7 @@
         <tbody>
             {% if mostrar_fila_transporte %}
             <tr class="table-secondary">
-                <td class="text-nowrap">{{ fecha_desde }}</td>
+                <td class="text-nowrap">{% if fecha_desde_obj %}{{ fecha_desde_obj|date:"d/m/Y" }}{% else %}{{ fecha_desde }}{% endif %}</td>
                 <td>Transporte</td>
                 <td class="small">Saldo anterior al período</td>
                 <td class="text-end">—</td>

@@ -109,7 +109,7 @@
                     {% if mostrar_fila_transporte %}
                     <div class="text-secondary small text-uppercase fw-semibold">Saldo anterior (transporte)</div>
                     <div class="h4 mb-0 {% if saldo_transporte >= 0 %}{% else %}text-warning{% endif %}">${{ saldo_transporte|format_price }}</div>
-                    <div class="small text-muted mt-1">Al {{ fecha_desde }} (incluye corte {{ fecha_saldo_inicial|date:"d/m/Y" }} + mov. previos).</div>
+                    <div class="small text-muted mt-1">Al {% if fecha_desde_obj %}{{ fecha_desde_obj|date:"d/m/Y" }}{% else %}{{ fecha_desde }}{% endif %} (incluye corte {{ fecha_saldo_inicial|date:"d/m/Y" }} + mov. previos).</div>
                     {% else %}
                     <div class="text-secondary small text-uppercase fw-semibold">Saldo inicial ({{ fecha_saldo_inicial|date:"d/m/Y" }})</div>
                     <div class="h4 mb-0">${{ saldo_inicial_resumen|format_price }}</div>
@@ -169,6 +169,32 @@
                         </tr>
                     </thead>
                     <tbody>
+                        {% if mostrar_fila_transporte and not movimientos.has_previous %}
+                        <tr class="table-secondary">
+                            <td class="text-nowrap small"><strong>{% if fecha_desde_obj %}{{ fecha_desde_obj|date:"d/m/Y" }}{% else %}{{ fecha_desde }}{% endif %}</strong></td>
+                            <td><span class="text-muted">—</span></td>
+                            <td><span class="badge bg-dark">Transporte</span></td>
+                            <td class="small">Saldo anterior al período — de acá se acumula hacia abajo</td>
+                            <td class="text-end">—</td>
+                            <td class="text-end">—</td>
+                            <td class="text-end fw-semibold {% if saldo_transporte >= 0 %}text-primary{% else %}text-warning{% endif %}">
+                                ${{ saldo_transporte|format_price }}
+                            </td>
+                        </tr>
+                        {% endif %}
+                        {% if mostrar_fila_saldo_inicial and not movimientos.has_previous %}
+                        <tr class="table-secondary">
+                            <td class="text-nowrap small"><strong>{{ fecha_saldo_inicial|date:"d/m/Y" }}</strong></td>
+                            <td><span class="text-muted">—</span></td>
+                            <td><span class="badge bg-secondary">Saldo inicial</span></td>
+                            <td class="small">Saldo inicial de la cuenta (corte {{ fecha_saldo_inicial|date:"d/m/Y" }}) — de acá se acumula hacia abajo</td>
+                            <td class="text-end text-success fw-semibold">${{ saldo_inicial_resumen|format_price }}</td>
+                            <td class="text-end">—</td>
+                            <td class="text-end fw-semibold {% if saldo_acumulado_inicial >= 0 %}text-primary{% else %}text-warning{% endif %}">
+                                ${{ saldo_acumulado_inicial|format_price }}
+                            </td>
+                        </tr>
+                        {% endif %}
                         {% for m in movimientos %}
                         {% with x=m.reporte_bc_extra %}
                         <tr>
@@ -248,32 +274,6 @@
                         </tr>
                         {% endwith %}
                         {% endfor %}
-                        {% if mostrar_fila_transporte and not movimientos.has_next %}
-                        <tr class="table-secondary">
-                            <td class="text-nowrap small"><strong>{{ fecha_desde }}</strong></td>
-                            <td><span class="text-muted">—</span></td>
-                            <td><span class="badge bg-dark">Transporte</span></td>
-                            <td class="small">Saldo anterior al período (como en extracto bancario)</td>
-                            <td class="text-end">—</td>
-                            <td class="text-end">—</td>
-                            <td class="text-end fw-semibold {% if saldo_transporte >= 0 %}text-primary{% else %}text-warning{% endif %}">
-                                ${{ saldo_transporte|format_price }}
-                            </td>
-                        </tr>
-                        {% endif %}
-                        {% if mostrar_fila_saldo_inicial and not movimientos.has_next %}
-                        <tr class="table-secondary">
-                            <td class="text-nowrap small"><strong>{{ fecha_saldo_inicial|date:"d/m/Y" }}</strong></td>
-                            <td><span class="text-muted">—</span></td>
-                            <td><span class="badge bg-secondary">Saldo inicial</span></td>
-                            <td class="small">Saldo inicial de la cuenta (corte {{ fecha_saldo_inicial|date:"d/m/Y" }})</td>
-                            <td class="text-end text-success fw-semibold">${{ saldo_inicial_resumen|format_price }}</td>
-                            <td class="text-end">—</td>
-                            <td class="text-end fw-semibold {% if saldo_acumulado_inicial >= 0 %}text-primary{% else %}text-warning{% endif %}">
-                                ${{ saldo_acumulado_inicial|format_price }}
-                            </td>
-                        </tr>
-                        {% endif %}
                     </tbody>
                     <tfoot class="table-light">
                         <tr>

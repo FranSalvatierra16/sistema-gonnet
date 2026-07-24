@@ -417,7 +417,8 @@ def reporte_movimientos_cuenta_bancaria(request, cuenta_id):
         )
         .select_related('caja', 'empleado', 'propiedad')
         .annotate(fecha_banco=Coalesce(F('fecha_transferencia'), TruncDate('fecha')))
-        .order_by('-fecha_banco', '-fecha', '-id')
+        # Orden tipo extracto: de más viejo a más nuevo, el saldo acum. se lee hacia abajo.
+        .order_by('fecha_banco', 'fecha', 'id')
     )
 
     today = timezone.localdate().isoformat()
@@ -470,6 +471,7 @@ def reporte_movimientos_cuenta_bancaria(request, cuenta_id):
         periodo_completo,
     )
     fd_filtro = _parse_fecha_filtro(fecha_desde)
+    fh_filtro = _parse_fecha_filtro(fecha_hasta)
     mostrar_fila_transporte = (
         not periodo_completo
         and not mostrar_fila_si
@@ -546,6 +548,8 @@ def reporte_movimientos_cuenta_bancaria(request, cuenta_id):
                 'cantidad_movimientos': len(cronologicos),
                 'fecha_desde': fecha_desde if not periodo_completo else '',
                 'fecha_hasta': fecha_hasta if not periodo_completo else '',
+                'fecha_desde_obj': fd_filtro if not periodo_completo else None,
+                'fecha_hasta_obj': fh_filtro if not periodo_completo else None,
                 'periodo_completo': periodo_completo,
                 'querystring': query_params.urlencode(),
                 **context_extra,
@@ -570,6 +574,8 @@ def reporte_movimientos_cuenta_bancaria(request, cuenta_id):
             'cantidad_movimientos': movimientos_qs.count(),
             'fecha_desde': fecha_desde if not periodo_completo else '',
             'fecha_hasta': fecha_hasta if not periodo_completo else '',
+            'fecha_desde_obj': fd_filtro if not periodo_completo else None,
+            'fecha_hasta_obj': fh_filtro if not periodo_completo else None,
             'querystring': query_params.urlencode(),
             'querystring_imprimir': query_imprimir.urlencode(),
             'periodo_completo': periodo_completo,
