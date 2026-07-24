@@ -3178,6 +3178,7 @@ def _build_legacy_contrato(
         raw = (getattr(prop, 'llave', None) or '').strip()
         llave_cod = raw if raw else '0'
 
+    from inmobiliaria.decimal_utils import format_monto_argentino
     from inmobiliaria.models.comision import iter_productores_contrato
 
     productores = iter_productores_contrato(contrato)
@@ -3269,7 +3270,7 @@ def _build_legacy_contrato(
         'terceros': terceros,
         'origen_operacion': _origen_operacion_sucursal(contrato.sucursal),
         'estado_txt': contrato.get_estado_display(),
-        'locacion_mensual': _formato_importe_us(contrato.precio_mensual),
+        'locacion_mensual': format_monto_argentino(contrato.precio_mensual),
         'muestra_locacion_mensual': True,
         'carpeta': _normalizar_carpeta(carpeta_override) if carpeta_override else '—',
         'tipo_operacion_str': tipo_label,
