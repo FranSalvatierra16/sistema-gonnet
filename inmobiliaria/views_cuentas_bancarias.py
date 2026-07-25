@@ -17,8 +17,8 @@ from inmobiliaria.decimal_utils import parse_decimal_monto
 from inmobiliaria.models.caja import MovimientoCaja, TipoMovimientoCajaEnum
 from inmobiliaria.models.sucursal import CuentaBancaria
 
-# Corte único para todas las cuentas: el saldo inicial cuenta como del 05/06/2026.
-FECHA_SALDO_INICIAL_CUENTA = date(2026, 6, 5)
+# Corte único para todas las cuentas: el saldo inicial cuenta como del 08/06/2026.
+FECHA_SALDO_INICIAL_CUENTA = date(2026, 6, 8)
 
 
 def _parse_saldo_inicial_post(request) -> Decimal:
@@ -42,7 +42,7 @@ def _parse_fecha_filtro(valor):
 
 def _saldo_inicial_en_periodo(fecha_desde, fecha_hasta, periodo_completo=False):
     """
-    El saldo inicial (fecha fija 05/06) se muestra como fila propia solo si esa fecha
+    El saldo inicial (fecha fija 08/06) se muestra como fila propia solo si esa fecha
     cae dentro del período (o es todo el historial).
     """
     if periodo_completo:
@@ -59,7 +59,7 @@ def _saldo_inicial_en_periodo(fecha_desde, fecha_hasta, periodo_completo=False):
 
 
 def _mostrar_fila_saldo_inicial(fecha_desde, fecha_hasta, periodo_completo=False):
-    """Mostrar la fila 'Saldo inicial' con fecha 05/06 cuando cae dentro del filtro."""
+    """Mostrar la fila 'Saldo inicial' con fecha 08/06 cuando cae dentro del filtro."""
     return _saldo_inicial_en_periodo(fecha_desde, fecha_hasta, periodo_completo)
 
 
@@ -91,9 +91,9 @@ def _saldo_apertura_periodo(
     """
     Saldo al inicio del rango filtrado (como el «TRANSPORTE» del extracto bancario).
 
-    - Todo el historial / período que incluye el 05/06: arranca en 0; la fila de
+    - Todo el historial / período que incluye el 08/06: arranca en 0; la fila de
       saldo inicial suma el corte.
-    - Período que empieza después del 05/06: SI + movimientos desde el corte
+    - Período que empieza después del 08/06: SI + movimientos desde el corte
       hasta el día anterior a ``fecha_desde``.
     """
     saldo_si = Decimal(str(cuenta.saldo_inicial or 0)).quantize(Decimal('0.01'))
@@ -339,7 +339,7 @@ def editar_cuenta_bancaria(request, cuenta_id):
             cuenta.numero_cuenta = numero_cuenta
             cuenta.tipo_cuenta = request.POST.get('tipo_cuenta', 'banco')
             cuenta.activa = request.POST.get('activa') == 'on'
-            # saldo_inicial: corte fijo 05/06 — no se edita más desde acá
+            # saldo_inicial: corte fijo 08/06 — no se edita más desde acá
             cuenta.save()
             
             messages.success(request, f'Cuenta bancaria "{cuenta.nombre_banco}" actualizada exitosamente.')
@@ -402,7 +402,7 @@ def reporte_movimientos_cuenta_bancaria(request, cuenta_id):
     """
     Listado tipo reporte: ingresos y egresos con transferencia/deposito a esta cuenta bancaria
     (destino_deposito = cuenta_<id>, monto_deposito > 0), filtrable por rango de fechas.
-    El saldo inicial cuenta como del 05/06/2026 (corte fijo) y no se edita desde el reporte.
+    El saldo inicial cuenta como del 08/06/2026 (corte fijo) y no se edita desde el reporte.
     """
     cuenta = get_object_or_404(CuentaBancaria, id=cuenta_id, sucursal=request.user.sucursal)
     destino = f'cuenta_{cuenta.id}'
@@ -494,7 +494,7 @@ def reporte_movimientos_cuenta_bancaria(request, cuenta_id):
             saldo_run -= monto
         saldos_por_id[mov.id] = saldo_run.quantize(Decimal('0.01'))
 
-    # Resumen: saldo inicial del corte solo si el 05/06 está en el rango.
+    # Resumen: saldo inicial del corte solo si el 08/06 está en el rango.
     saldo_inicial_resumen = saldo_inicial if mostrar_fila_si else Decimal('0.00')
     saldo_final = saldo_run.quantize(Decimal('0.01')) if (
         cronologicos or mostrar_fila_si

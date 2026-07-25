@@ -139,7 +139,7 @@ class CuentaBancaria(models.Model):
         decimal_places=2,
         default=Decimal('0'),
         verbose_name='Saldo inicial',
-        help_text='Saldo de corte al 05/06/2026 para reportes (no editable después de cargarlo).',
+        help_text='Saldo de corte al 08/06/2026 para reportes (no editable después de cargarlo).',
     )
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     
