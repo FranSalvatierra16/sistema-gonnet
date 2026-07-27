@@ -56,10 +56,11 @@
                     Podés ajustar los montos antes de liquidar. Se guardan con <strong>Guardar cambios</strong> o <strong>Guardar montos</strong> y se precargan al crear la liquidación.
                     {% endif %}
                     La suma de los cuatro importes debe ser igual al <strong>total de la operación</strong>.
+                    La <strong>cochera inquilino</strong> es aparte y se suma a la cochera de oficina al liquidar.
                 </p>
                 <div id="liq-resumen-suma-alerta" class="alert alert-warning py-2 small mb-2 d-none" role="alert"></div>
                 {% endif %}
-                <div class="table-responsive mb-3" id="liq-resumen-montos"
+                <div class="table-responsive mb-2" id="liq-resumen-montos"
                      data-monto-total="{{ resumen_liquidacion.monto_total }}">
                     <table class="table table-sm table-bordered mb-0 small text-center">
                         <thead class="table-light">
@@ -124,6 +125,24 @@
                             </tr>
                         </tbody>
                     </table>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-4 col-lg-3">
+                        <label class="form-label small mb-1" for="liq_monto_cochera_inquilino">Cochera inquilino</label>
+                        {% if puede_editar_liquidacion_resumen and edit_montos_liquidacion %}
+                        <input type="text" name="liq_monto_cochera_inquilino" id="liq_monto_cochera_inquilino"
+                               form="{{ form_caratula_reserva_id }}"
+                               class="form-control form-control-sm input-monto-ar text-end liq-resumen-input-extra"
+                               inputmode="decimal" autocomplete="off" placeholder="0,00"
+                               value="{{ edit_montos_liquidacion.monto_cochera_inquilino }}">
+                        <div class="form-text">No entra en el reparto de arriba. Se suma a tu cochera (oficina).</div>
+                        {% else %}
+                        <div class="fw-semibold">
+                            {{ resumen_liquidacion.monto_cochera_inquilino|default:0|format_importe_moneda:resumen_liquidacion.moneda }}
+                        </div>
+                        {% endif %}
+                        <div class="small text-muted mt-1" id="liq-resumen-cochera-total-oficina"></div>
+                    </div>
                 </div>
                 <div class="row g-3">
                     <div class="col-md-6">
@@ -237,6 +256,19 @@
             + parseMontoAr((document.querySelector('[name="liq_monto_cochera"]') || {}).value)
             + parseMontoAr((document.querySelector('[name="liq_monto_fondo"]') || {}).value);
     }
+    function actualizarTotalCocheraOficina() {
+        var el = document.getElementById('liq-resumen-cochera-total-oficina');
+        if (!el) return;
+        var coch = parseMontoAr((document.querySelector('[name="liq_monto_cochera"]') || {}).value);
+        var cochInq = parseMontoAr((document.querySelector('[name="liq_monto_cochera_inquilino"]') || {}).value);
+        var total = coch + cochInq;
+        if (cochInq > 0.009) {
+            el.textContent = 'Total cochera oficina: ' + fmtImporte(total)
+                + ' (reparto ' + fmtImporte(coch) + ' + inquilino ' + fmtImporte(cochInq) + ')';
+        } else {
+            el.textContent = '';
+        }
+    }
     function montosCierran() {
         return Math.abs(sumaPartesLiq() - montoTotalOperacion()) <= 0.05;
     }
@@ -267,11 +299,16 @@
         if (elSub) elSub.textContent = fmtImporte(prop);
         if (elNeto) elNeto.textContent = fmtImporte(neto);
         if (filaPago) filaPago.textContent = fmtImporte(prop);
+        actualizarTotalCocheraOficina();
         actualizarAlertaSuma();
     }
     document.querySelectorAll('.liq-resumen-input').forEach(function(inp) {
         inp.addEventListener('input', recalcResumenLiq);
         inp.addEventListener('blur', recalcResumenLiq);
+    });
+    document.querySelectorAll('.liq-resumen-input-extra').forEach(function(inp) {
+        inp.addEventListener('input', actualizarTotalCocheraOficina);
+        inp.addEventListener('blur', actualizarTotalCocheraOficina);
     });
     var formId = '{{ form_caratula_reserva_id|escapejs }}';
     var form = formId ? document.getElementById(formId) : null;
@@ -282,7 +319,7 @@
                 e.stopPropagation();
                 var alerta = document.getElementById('liq-resumen-suma-alerta');
                 if (alerta) alerta.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                alert('No se puede guardar: propietario + inmobiliaria + cochera + fondo debe sumar el total de la operación.');
+                alert('No se puede guardar: propietario + inmobiliaria + cochera + fondo debe sumar el total de la operación. La cochera inquilino no entra en esa suma.');
             }
         });
     }

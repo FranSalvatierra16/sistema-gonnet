@@ -1456,6 +1456,7 @@ def _guardar_caratula_reserva(request, reserva):
             inm_liq = _parse_liq_monto_opcional('liq_monto_inmobiliaria')
             coch_liq = _parse_liq_monto_opcional('liq_monto_cochera') or Decimal('0')
             fondo_liq = _parse_liq_monto_opcional('liq_monto_fondo') or Decimal('0')
+            coch_inq_liq = _parse_liq_monto_opcional('liq_monto_cochera_inquilino') or Decimal('0')
             suma_liq = (
                 (prop_liq or Decimal('0'))
                 + (inm_liq or Decimal('0'))
@@ -1472,6 +1473,7 @@ def _guardar_caratula_reserva(request, reserva):
             reserva.liq_monto_inmobiliaria = inm_liq
             reserva.liq_monto_cochera = coch_liq
             reserva.liq_monto_fondo = fondo_liq
+            reserva.liq_monto_cochera_inquilino = coch_inq_liq
     except ValueError as exc:
         messages.error(request, str(exc))
         return False
@@ -1697,6 +1699,7 @@ def _resumen_liquidacion_caratula(*, reserva=None, contrato=None, liquidacion=No
             'monto_propietario': liquidacion.monto_propietario,
             'monto_inmobiliaria': liquidacion.monto_inmobiliaria,
             'monto_cochera': monto_coch,
+            'monto_cochera_inquilino': Decimal('0'),
             'monto_fondo': monto_fondo,
             'monto_gastos': monto_gastos,
             'monto_a_pagar': monto_a_pagar,
@@ -1727,6 +1730,9 @@ def _resumen_liquidacion_caratula(*, reserva=None, contrato=None, liquidacion=No
 
         total, prop, inm, _hay_toma = reparto_liquidacion_reserva_por_dia(reserva)
         total, prop, inm, coch, fondo = reserva.montos_liquidacion_efectivos(total, prop, inm)
+        coch_inq = Decimal(str(getattr(reserva, 'liq_monto_cochera_inquilino', None) or 0)).quantize(
+            Decimal('0.01')
+        )
         return {
             'tiene_datos': True,
             'desde_liquidacion': False,
@@ -1737,12 +1743,13 @@ def _resumen_liquidacion_caratula(*, reserva=None, contrato=None, liquidacion=No
             'monto_propietario': prop,
             'monto_inmobiliaria': inm,
             'monto_cochera': coch,
+            'monto_cochera_inquilino': coch_inq,
             'monto_fondo': fondo,
             'monto_gastos': Decimal('0'),
             'monto_a_pagar': prop.quantize(Decimal('0.01')),
             'subtotal_propietario': prop,
             'total_descontado': Decimal('0'),
-            'ingresos_oficina': (coch + fondo).quantize(Decimal('0.01')),
+            'ingresos_oficina': (coch + fondo + coch_inq).quantize(Decimal('0.01')),
             'filas_pago': [
                 {
                     'concepto': f'Reserva #{reserva.id}',
@@ -1796,6 +1803,7 @@ def _resumen_liquidacion_caratula(*, reserva=None, contrato=None, liquidacion=No
         'monto_propietario': prop,
         'monto_inmobiliaria': inm,
         'monto_cochera': coch,
+        'monto_cochera_inquilino': Decimal('0'),
         'monto_fondo': fondo,
         'monto_gastos': Decimal('0'),
         'monto_a_pagar': prop.quantize(Decimal('0.01')),
@@ -1883,12 +1891,16 @@ def _ctx_liquidacion_operacion(
                 from inmobiliaria.liquidacion_operacion import montos_reparto_reserva_para_caratula
 
                 total, prop, inm, coch, fondo = montos_reparto_reserva_para_caratula(reserva)
+                coch_inq = Decimal(str(getattr(reserva, 'liq_monto_cochera_inquilino', None) or 0)).quantize(
+                    Decimal('0.01')
+                )
                 resumen['monto_total'] = total
                 resumen['monto_propietario'] = prop
                 resumen['monto_inmobiliaria'] = inm
                 resumen['monto_cochera'] = coch
+                resumen['monto_cochera_inquilino'] = coch_inq
                 resumen['monto_fondo'] = fondo
-                resumen['ingresos_oficina'] = (coch + fondo).quantize(Decimal('0.01'))
+                resumen['ingresos_oficina'] = (coch + fondo + coch_inq).quantize(Decimal('0.01'))
                 resumen['monto_propietario_corresponde'] = saldo['corresponde']
                 resumen['subtotal_propietario'] = saldo['corresponde']
 
@@ -3974,6 +3986,11 @@ def caratula_reserva(request, reserva_id):
         'monto_propietario': format_monto_argentino(rl.get('monto_propietario') or 0),
         'monto_inmobiliaria': format_monto_argentino(rl.get('monto_inmobiliaria') or 0),
         'monto_cochera': format_monto_argentino(rl.get('monto_cochera') or 0),
+        'monto_cochera_inquilino': format_monto_argentino(
+            getattr(reserva, 'liq_monto_cochera_inquilino', None)
+            if getattr(reserva, 'liq_monto_cochera_inquilino', None) is not None
+            else (rl.get('monto_cochera_inquilino') or 0)
+        ),
         'monto_fondo': format_monto_argentino(rl.get('monto_fondo') or 0),
     }
     es_super = _es_super_admin(request.user)

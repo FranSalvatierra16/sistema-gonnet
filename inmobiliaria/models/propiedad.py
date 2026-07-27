@@ -638,6 +638,13 @@ class Reserva(models.Model):
         default=0,
         verbose_name='Monto cochera (liquidación)',
     )
+    liq_monto_cochera_inquilino = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        verbose_name='Cochera inquilino (liquidación)',
+        help_text='Monto extra de cochera (no entra en el reparto del total). Se suma a cochera de oficina al liquidar.',
+    )
     liq_monto_fondo = models.DecimalField(
         max_digits=12,
         decimal_places=2,
