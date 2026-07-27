@@ -40,13 +40,7 @@ def q_busqueda_persona(termino, *, incluir_id=True, prefix=''):
             | Q(**{f'{campo("apellido")}__icontains': p})
         )
     elif len(partes) >= 2:
-        q_todas = Q()
-        for parte in partes:
-            q_todas &= (
-                Q(**{f'{campo("nombre")}__icontains': parte})
-                | Q(**{f'{campo("apellido")}__icontains': parte})
-            )
-        q |= q_todas
+        # Coincidencia apellido + nombre (y al revés).
         q |= (
             Q(**{f'{campo("apellido")}__icontains': partes[0]})
             & Q(**{f'{campo("nombre")}__icontains': partes[1]})
@@ -56,6 +50,25 @@ def q_busqueda_persona(termino, *, incluir_id=True, prefix=''):
                 Q(**{f'{campo("apellido")}__icontains': partes[1]})
                 & Q(**{f'{campo("nombre")}__icontains': partes[0]})
             )
+        # "todas las partes en algún campo" solo con tokens ≥ 3 chars
+        # (evita falsos positivos tipo "DI lo" → Capelo / Claudia).
+        if all(len(p) >= 3 for p in partes):
+            q_todas = Q()
+            for parte in partes:
+                q_todas &= (
+                    Q(**{f'{campo("nombre")}__icontains': parte})
+                    | Q(**{f'{campo("apellido")}__icontains': parte})
+                )
+            q |= q_todas
+        else:
+            # Tokens cortos: todas las partes deben aparecer en el mismo campo
+            # (ej. nombre "Di Lorenzo" con "DI lo").
+            q_nombre = Q()
+            q_apellido = Q()
+            for parte in partes:
+                q_nombre &= Q(**{f'{campo("nombre")}__icontains': parte})
+                q_apellido &= Q(**{f'{campo("apellido")}__icontains': parte})
+            q |= q_nombre | q_apellido
 
     return q
 

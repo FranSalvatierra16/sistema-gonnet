@@ -48,21 +48,28 @@ def _propietario_accesible_mis_propiedades(user, propietario_id):
 
 
 def _propiedades_en_mi_sucursal_para_propietario(propietario_sel, sucursal):
-    """Propiedades del propietario en la sucursal del usuario (mismo DNI si la ficha es de otra sucursal)."""
+    """Propiedades del propietario en la sucursal del usuario (mismo DNI / ficha si es otra sucursal)."""
     if not propietario_sel:
         return Propiedad.objects.none()
+
     qs = Propiedad.objects.filter(sucursal=sucursal)
+    q = Q()
+    if propietario_sel.sucursal_id == sucursal.id:
+        q |= Q(propietario_id=propietario_sel.id)
+
     dni = (propietario_sel.dni or '').strip()
     if dni:
-        qs = qs.filter(propietario__dni=dni)
-    elif propietario_sel.sucursal_id == sucursal.id:
-        qs = qs.filter(propietario_id=propietario_sel.id)
-    else:
-        qs = qs.filter(
-            propietario__apellido__iexact=propietario_sel.apellido,
-            propietario__nombre__iexact=propietario_sel.nombre,
+        q |= Q(propietario__dni=dni)
+    # Cruce entre sucursales o ficha sin DNI: misma persona por nombre.
+    if propietario_sel.sucursal_id != sucursal.id or not dni:
+        q |= Q(
+            propietario__apellido__iexact=(propietario_sel.apellido or '').strip(),
+            propietario__nombre__iexact=(propietario_sel.nombre or '').strip(),
         )
-    return qs.select_related('propietario', 'sucursal').order_by('direccion', 'id')
+
+    if not q:
+        return Propiedad.objects.none()
+    return qs.filter(q).select_related('propietario', 'sucursal').distinct().order_by('direccion', 'id')
 
 
 def _propiedades_de_propietario(propietario_id, sucursal):
