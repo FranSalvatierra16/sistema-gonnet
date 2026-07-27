@@ -25942,7 +25942,9 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                                     sucursal=request.user.sucursal
                                 )
                                 # Solo permitir egresos descontables al propietario
-                                if movimiento.a_descontar not in ('propietario', 'oficina', None, ''):
+                                if movimiento.a_descontar not in ('propietario', 'oficina', None, '') and not (
+                                    Decimal(str(getattr(movimiento, 'monto_a_propietario', None) or 0)) > 0
+                                ):
                                     continue
                                 ya = GastoPropietario.objects.filter(
                                     liquidacion=liquidacion,
@@ -25952,12 +25954,15 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                                     continue
                                 # Crear un GastoPropietario desde el movimiento de caja
                                 desc_mov = movimiento.descripcion_para_gasto_liquidacion_propietario()[:200]
+                                monto_gasto = _monto_descuento_propietario_egreso_caja(movimiento)
+                                if monto_gasto <= 0:
+                                    continue
                                 GastoPropietario.objects.create(
                                     liquidacion=liquidacion,
                                     propietario=propiedad.propietario,
                                     propiedad=propiedad,
                                     descripcion=desc_mov,
-                                    monto=movimiento.monto_total,
+                                    monto=monto_gasto,
                                     moneda=liquidacion.moneda,
                                     fecha_gasto=movimiento.fecha.date() if movimiento.fecha else None,
                                     observaciones=f'Movimiento de caja #{movimiento.id}',
@@ -26813,6 +26818,155 @@ def _egreso_no_es_gasto_descontable_liquidacion(movimiento) -> bool:
     return False
 
 
+def _monto_descuento_propietario_egreso_caja(movimiento) -> Decimal:
+    """Importe a descontar al propietario desde un egreso de caja."""
+    from inmobiliaria.neto_propietario_movimiento import monto_medios_movimiento_decimal
+
+    m_prop = Decimal(str(getattr(movimiento, 'monto_a_propietario', None) or 0))
+    if m_prop > 0:
+        return m_prop.quantize(Decimal('0.01'))
+    a = (getattr(movimiento, 'a_descontar', None) or '').strip().lower()
+    if a in ('propietario', 'oficina', ''):
+        total = monto_medios_movimiento_decimal(movimiento)
+        if total > 0:
+            return total.quantize(Decimal('0.01'))
+        try:
+            return Decimal(str(movimiento.monto_total or 0)).quantize(Decimal('0.01'))
+        except Exception:
+            return Decimal('0')
+    return Decimal('0')
+
+
+def _egreso_caja_debe_listarse_en_liquidacion(movimiento) -> bool:
+    """Egresos de caja que figuran como descuento pendiente al liquidar."""
+    if _egreso_no_es_gasto_descontable_liquidacion(movimiento):
+        return False
+    a = (getattr(movimiento, 'a_descontar', None) or '').strip().lower()
+    if a == 'inquilino':
+        return False
+    m_prop = Decimal(str(getattr(movimiento, 'monto_a_propietario', None) or 0))
+    if m_prop > 0:
+        return True
+    # Propietario explícito, o legacy (oficina / vacío) cargado sobre la propiedad.
+    return a in ('propietario', 'oficina', '')
+
+
+def _dict_gasto_desde_egreso_caja(egreso, *, propiedad=None):
+    """Serializa un egreso de caja como fila de gasto pendiente (id movimiento_N)."""
+    descripcion = egreso.descripcion_para_gasto_liquidacion_propietario()[:200]
+    try:
+        c1 = (getattr(egreso, 'listado_concepto_l1', None) or '').strip()
+    except Exception:
+        c1 = ''
+    try:
+        c2 = (getattr(egreso, 'listado_concepto_l2', None) or '').strip()
+    except Exception:
+        c2 = ''
+    concepto_mov = ' · '.join(x for x in (c1, c2) if x) or '—'
+    try:
+        d1 = (getattr(egreso, 'listado_detalle_l1', None) or '').strip()
+    except Exception:
+        d1 = ''
+    try:
+        d2 = (getattr(egreso, 'listado_detalle_l2', None) or '').strip()
+    except Exception:
+        d2 = ''
+    detalle_mov = ' · '.join(x for x in (d1, d2) if x and x != '—') or ''
+    monto = _monto_descuento_propietario_egreso_caja(egreso)
+    fecha = egreso.fecha
+    if fecha:
+        try:
+            if timezone.is_aware(fecha):
+                fecha = timezone.localtime(fecha)
+            fecha_iso = fecha.date().strftime('%Y-%m-%d')
+            fecha_disp = fecha.date().strftime('%d/%m/%Y')
+        except Exception:
+            fecha_iso = ''
+            fecha_disp = '—'
+    else:
+        fecha_iso = ''
+        fecha_disp = '—'
+    prop_id = getattr(egreso, 'propiedad_id', None)
+    if prop_id is None and propiedad is not None:
+        prop_id = getattr(propiedad, 'id', None)
+    return {
+        'id': f'movimiento_{egreso.id}',
+        'descripcion': descripcion,
+        'concepto': concepto_mov,
+        'detalle': detalle_mov,
+        'monto': str(monto),
+        'fecha_gasto': fecha_iso,
+        'fecha_gasto_display': fecha_disp,
+        'observaciones': f'Movimiento de caja #{egreso.id}',
+        'tipo_movimiento': 'egreso',
+        'tipo_movimiento_display': 'Egreso',
+        'efecto_inquilino': 'contra',
+        'efecto_inquilino_display': 'En contra del inquilino',
+        'operacion_monto': 'resta',
+        'operacion_monto_display': 'Resta',
+        'tipo': 'egreso_caja',
+        'movimiento_id': egreso.id,
+        'moneda': 'ARS',
+        'propiedad_id': prop_id,
+    }
+
+
+def _egresos_caja_pendientes_para_liquidacion(propiedad, sucursal):
+    """Egresos de caja de la propiedad aún no vinculados a una liquidación."""
+    if not propiedad or not sucursal:
+        return []
+
+    egresos = (
+        MovimientoCaja.objects.filter(
+            propiedad=propiedad,
+            tipo=TipoMovimientoCajaEnum.EGRESO,
+            sucursal=sucursal,
+        )
+        .filter(
+            Q(a_descontar='propietario')
+            | Q(a_descontar='oficina')
+            | Q(a_descontar__isnull=True)
+            | Q(a_descontar='')
+            | Q(monto_a_propietario__gt=0)
+        )
+        .exclude(concepto__icontains='Liquidación Propietario')
+        .order_by('-fecha')
+    )
+
+    movimientos_ya_liquidados = set(
+        LiquidacionPropietario.objects.filter(
+            propiedad=propiedad,
+            movimiento_caja__isnull=False,
+        )
+        .exclude(estado='cancelada')
+        .values_list('movimiento_caja_id', flat=True)
+    )
+
+    # IDs ya convertidos en GastoPropietario (en cualquier liquidación o pendientes).
+    ya_como_gasto = set()
+    for obs in GastoPropietario.objects.filter(
+        Q(propiedad=propiedad) | Q(propietario_id=propiedad.propietario_id),
+        observaciones__icontains='Movimiento de caja #',
+    ).values_list('observaciones', flat=True):
+        m = re.search(r'Movimiento de caja #(\d+)', obs or '')
+        if m:
+            try:
+                ya_como_gasto.add(int(m.group(1)))
+            except (TypeError, ValueError):
+                pass
+
+    out = []
+    for egreso in egresos:
+        if egreso.id in movimientos_ya_liquidados or egreso.id in ya_como_gasto:
+            continue
+        if not _egreso_caja_debe_listarse_en_liquidacion(egreso):
+            continue
+        if _monto_descuento_propietario_egreso_caja(egreso) <= 0:
+            continue
+        out.append(_dict_gasto_desde_egreso_caja(egreso, propiedad=propiedad))
+    return out
+
+
 def _movimientos_caja_excluidos_liquidacion_propiedad(propiedad):
     """IDs de movimientos de caja ya incluidos en liquidaciones no canceladas."""
     excluidos = set()
@@ -27180,7 +27334,7 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
             'dias': 0,
         })
     
-    # Gastos pendientes: liquidaciones en negativo + movimientos manuales cargados (Agregar Movimiento).
+    # Gastos pendientes: liquidaciones en negativo + movimientos manuales + egresos de caja.
     gastos_saldo_negativo = GastoPropietario.objects.filter(
         liquidacion__isnull=True,
         sucursal=sucursal,
@@ -27213,12 +27367,16 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
         obs = (gasto.observaciones or '').strip()
         gastos_pendientes_list.append(_dict_gasto_pendiente(gasto, detalle=obs))
 
+    egresos_caja = _egresos_caja_pendientes_para_liquidacion(propiedad, sucursal)
+    gastos_pendientes_list.extend(egresos_caja)
+
     return {
         'operaciones': operaciones,
         'gastos_pendientes': gastos_pendientes_list,
         'debug': {
             'total_gastos_saldo_negativo': gastos_saldo_negativo.count(),
             'total_gastos_manuales': gastos_manuales.count(),
+            'total_egresos_caja': len(egresos_caja),
         },
     }
 
@@ -27974,7 +28132,9 @@ def _vincular_linea_gasto_pendiente_a_liquidacion(liquidacion, linea_id, sucursa
                 tipo=TipoMovimientoCajaEnum.EGRESO,
                 sucursal=sucursal,
             )
-            if movimiento.a_descontar not in ('propietario', 'oficina', None, ''):
+            if movimiento.a_descontar not in ('propietario', 'oficina', None, '') and not (
+                Decimal(str(getattr(movimiento, 'monto_a_propietario', None) or 0)) > 0
+            ):
                 return False, 'Ese movimiento no está marcado como descontable al propietario/oficina.'
             existe = GastoPropietario.objects.filter(
                 Q(propiedad=propiedad) | Q(propietario=propietario),
@@ -27983,12 +28143,15 @@ def _vincular_linea_gasto_pendiente_a_liquidacion(liquidacion, linea_id, sucursa
             if existe:
                 return False, 'Ese egreso de caja ya está cargado como gasto en el sistema.'
             desc_mov = movimiento.descripcion_para_gasto_liquidacion_propietario()[:200]
+            monto_gasto = _monto_descuento_propietario_egreso_caja(movimiento)
+            if monto_gasto <= 0:
+                return False, 'Ese egreso no tiene importe a descontar al propietario.'
             GastoPropietario.objects.create(
                 liquidacion=liquidacion,
                 propietario=propietario,
                 propiedad=propiedad,
                 descripcion=desc_mov,
-                monto=movimiento.monto_total,
+                monto=monto_gasto,
                 fecha_gasto=movimiento.fecha.date() if movimiento.fecha else None,
                 observaciones=f'Movimiento de caja #{movimiento.id}',
                 aceptado=True,
