@@ -464,6 +464,13 @@
                                 <i class="fas fa-building me-2"></i>Marcar como Oficina
                             </button>
                         </form>
+                        <form method="POST" action="{% url 'inmobiliaria:marcar_liquidacion_pagada' liquidacion.id %}" class="m-0"
+                              onsubmit="return confirm('¿Marcar esta liquidación como Pagada y cerrarla?');">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-check-circle me-2"></i>Marcar Pagado
+                            </button>
+                        </form>
                         {% endif %}
                     </div>
                     {% if caratulas_pendientes_confirmacion %}
@@ -485,10 +492,17 @@
                             <h5 class="mb-0">Pagar Liquidación Cerrada</h5>
                         </div>
                         <div class="card-body">
-                            <form method="POST" action="{% url 'inmobiliaria:marcar_liquidacion_oficina' liquidacion.id %}" class="mb-3">
+                            <form method="POST" action="{% url 'inmobiliaria:marcar_liquidacion_oficina' liquidacion.id %}" class="mb-3 d-inline-block me-2">
                                 {% csrf_token %}
                                 <button type="submit" class="btn btn-outline-secondary btn-sm">
                                     <i class="fas fa-building me-2"></i>Pasar esta liquidación a Oficina
+                                </button>
+                            </form>
+                            <form method="POST" action="{% url 'inmobiliaria:marcar_liquidacion_pagada' liquidacion.id %}" class="mb-3 d-inline-block"
+                                  onsubmit="return confirm('¿Marcar esta liquidación como Pagada y cerrarla?');">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-outline-success btn-sm">
+                                    <i class="fas fa-check-circle me-2"></i>Marcar Pagado
                                 </button>
                             </form>
                             <form method="POST" action="{% url 'inmobiliaria:procesar_liquidacion' liquidacion.id %}">

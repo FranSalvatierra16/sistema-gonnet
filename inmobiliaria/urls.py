@@ -459,6 +459,7 @@ urlpatterns = [
         name='confirmar_caratula_desde_liquidacion',
     ),
     path('liquidaciones/<int:liquidacion_id>/marcar-oficina/', views.marcar_liquidacion_oficina, name='marcar_liquidacion_oficina'),
+    path('liquidaciones/<int:liquidacion_id>/marcar-pagada/', views.marcar_liquidacion_pagada, name='marcar_liquidacion_pagada'),
     path('liquidaciones/<int:liquidacion_id>/procesar/', views.procesar_liquidacion, name='procesar_liquidacion'),
     path('liquidaciones/buscar-operacion/', views.buscar_operacion_liquidacion, name='buscar_operacion_liquidacion'),
     path('liquidaciones/propiedad/<str:propiedad_id>/operaciones-pendientes/', views.obtener_operaciones_pendientes, name='obtener_operaciones_pendientes'),

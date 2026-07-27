@@ -29153,6 +29153,42 @@ def marcar_liquidacion_oficina(request, liquidacion_id):
 @login_required
 @transaction.atomic
 @require_POST
+def marcar_liquidacion_pagada(request, liquidacion_id):
+    """
+    Marca la liquidación como pagada y la cierra (sin egreso de caja).
+    Mismo criterio administrativo que «Marcar como Oficina».
+    """
+    liquidacion = get_object_or_404(
+        LiquidacionPropietario,
+        id=liquidacion_id,
+        sucursal=request.user.sucursal,
+        estado__in=['pendiente', 'cerrada']
+    )
+
+    liquidacion.calcular_monto_a_pagar()
+    liquidacion.estado = 'pagada'
+    liquidacion.fecha_procesamiento = timezone.now()
+    liquidacion.save(update_fields=['estado', 'fecha_procesamiento', 'monto_gastos', 'monto_a_pagar'])
+    liquidacion.sync_gasto_saldo_negativo_pendiente()
+
+    from inmobiliaria.models.comision import confirmar_comisiones_por_liquidacion
+
+    confirmar_comisiones_por_liquidacion(liquidacion)
+
+    if (liquidacion.monto_a_pagar or 0) < 0:
+        msg = (
+            'Liquidación marcada como Pagada y cerrada. Quedó saldo en contra del propietario; '
+            'se generó un movimiento «Liquidación pendiente» para la próxima liquidación.'
+        )
+    else:
+        msg = 'Liquidación marcada como Pagada y cerrada.'
+    messages.success(request, msg)
+    return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion.id)
+
+
+@login_required
+@transaction.atomic
+@require_POST
 def procesar_liquidacion(request, liquidacion_id):
     """
     Vista para procesar una liquidación (descontar de caja)
