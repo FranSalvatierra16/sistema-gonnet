@@ -617,3 +617,141 @@ def info_operacion_liquidacion(liquidacion):
         'operacion_ref': '—',
         'url_caratula': None,
     }
+
+
+def enriquecer_info_operacion_liquidaciones(liquidaciones):
+    """
+    Asigna tipo_operacion_* / carpeta a cada liquidación con pocas queries (batch).
+    Evita N+1 de reserva_desde_liquidacion / contrato_desde_liquidacion en listados.
+    """
+    from inmobiliaria.models import ContratoAlquiler, CuotaMensual, Reserva
+
+    liquidaciones = list(liquidaciones)
+    if not liquidaciones:
+        return liquidaciones
+
+    reserva_ids = set()
+    contrato_ids = set()
+    cuota_ids = set()
+
+    for liq in liquidaciones:
+        if getattr(liq, 'reserva_id', None):
+            reserva_ids.add(int(liq.reserva_id))
+        if getattr(liq, 'contrato_id', None):
+            contrato_ids.add(int(liq.contrato_id))
+        for op in liq.operaciones_incluidas or []:
+            if not isinstance(op, dict) or op.get('tipo') == 'division':
+                continue
+            tipo = (op.get('tipo') or '').strip().lower()
+            try:
+                pk = int(op['id'])
+            except (KeyError, TypeError, ValueError):
+                continue
+            if tipo == 'reserva':
+                reserva_ids.add(pk)
+            elif tipo in ('contrato', 'contrato_operacion_principal'):
+                contrato_ids.add(pk)
+            elif tipo == 'contrato_cuota':
+                cuota_ids.add(pk)
+            for raw in op.get('cuotas_ids') or op.get('cuota_ids') or []:
+                try:
+                    cuota_ids.add(int(raw))
+                except (TypeError, ValueError):
+                    pass
+
+    reservas_map = {
+        r.id: r
+        for r in Reserva.objects.filter(id__in=reserva_ids).select_related('propiedad')
+    } if reserva_ids else {}
+
+    contratos_map = {
+        c.id: c
+        for c in ContratoAlquiler.objects.filter(id__in=contrato_ids).only(
+            'id', 'duracion_meses', 'numero_carpeta', 'precio_segundo_cuatrimestre'
+        )
+    } if contrato_ids else {}
+
+    cuota_a_contrato = {}
+    if cuota_ids:
+        for cq in CuotaMensual.objects.filter(id__in=cuota_ids).select_related('contrato'):
+            if not cq.contrato_id or not cq.contrato:
+                continue
+            cuota_a_contrato[cq.id] = cq.contrato
+            if cq.contrato_id not in contratos_map:
+                contratos_map[cq.contrato_id] = cq.contrato
+
+    for liq in liquidaciones:
+        reserva = None
+        if getattr(liq, 'reserva_id', None):
+            reserva = reservas_map.get(int(liq.reserva_id))
+        if reserva is None:
+            for op in liq.operaciones_incluidas or []:
+                if not isinstance(op, dict) or (op.get('tipo') or '').strip().lower() != 'reserva':
+                    continue
+                try:
+                    reserva = reservas_map.get(int(op['id']))
+                except (KeyError, TypeError, ValueError):
+                    continue
+                if reserva:
+                    break
+
+        if reserva is not None:
+            key = _categoria_reserva(reserva)
+            info = {
+                'tipo_key': key,
+                'tipo_display': ETIQUETAS_TIPO_OPERACION.get(key, key),
+                'numero_carpeta': None,
+                'muestra_carpeta': False,
+            }
+        else:
+            contrato = None
+            if getattr(liq, 'contrato_id', None):
+                contrato = contratos_map.get(int(liq.contrato_id))
+            if contrato is None:
+                for op in liq.operaciones_incluidas or []:
+                    if not isinstance(op, dict) or op.get('tipo') == 'division':
+                        continue
+                    tipo = (op.get('tipo') or '').strip().lower()
+                    try:
+                        pk = int(op['id'])
+                    except (KeyError, TypeError, ValueError):
+                        continue
+                    if tipo in ('contrato', 'contrato_operacion_principal'):
+                        contrato = contratos_map.get(pk)
+                    elif tipo == 'contrato_cuota':
+                        contrato = cuota_a_contrato.get(pk)
+                    if contrato:
+                        break
+                    for raw in op.get('cuotas_ids') or op.get('cuota_ids') or []:
+                        try:
+                            contrato = cuota_a_contrato.get(int(raw))
+                        except (TypeError, ValueError):
+                            continue
+                        if contrato:
+                            break
+                    if contrato:
+                        break
+
+            if contrato is not None:
+                key = _categoria_contrato(contrato)
+                carpeta = _numero_carpeta_contrato(contrato)
+                info = {
+                    'tipo_key': key,
+                    'tipo_display': ETIQUETAS_TIPO_OPERACION.get(key, key),
+                    'numero_carpeta': carpeta,
+                    'muestra_carpeta': key in ('invierno', '24'),
+                }
+            else:
+                info = {
+                    'tipo_key': '',
+                    'tipo_display': '—',
+                    'numero_carpeta': None,
+                    'muestra_carpeta': False,
+                }
+
+        liq.tipo_operacion_display = info['tipo_display']
+        liq.tipo_operacion_key = info['tipo_key']
+        liq.numero_carpeta_display = info['numero_carpeta'] if info['muestra_carpeta'] else None
+        liq.muestra_carpeta = info['muestra_carpeta']
+
+    return liquidaciones

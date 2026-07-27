@@ -202,7 +202,12 @@ class LiquidacionPropietario(models.Model):
         ingresos = Decimal('0')
         egresos = Decimal('0')
         if self.pk:
-            for g in self.gastos.filter(aceptado=True):
+            # Preferir prefetch en memoria para no disparar N+1.
+            if 'gastos' in getattr(self, '_prefetched_objects_cache', {}):
+                gastos_iter = [g for g in self.gastos.all() if g.aceptado]
+            else:
+                gastos_iter = self.gastos.filter(aceptado=True)
+            for g in gastos_iter:
                 m = g.monto if g.monto is not None else Decimal('0')
                 if g.tipo_movimiento == 'ingreso':
                     ingresos += m

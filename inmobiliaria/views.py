@@ -25349,11 +25349,20 @@ def lista_liquidaciones(request):
     """
     Vista para listar todas las liquidaciones de propietarios
     """
+    from django.core.paginator import Paginator
+    from django.db.models import Sum
+    from inmobiliaria.liquidacion_operacion import enriquecer_info_operacion_liquidaciones
+
     liquidaciones = LiquidacionPropietario.objects.filter(
         sucursal=request.user.sucursal
     ).select_related(
-        'propietario', 'propiedad', 'reserva', 'contrato', 'movimiento_caja'
-    ).prefetch_related('gastos').order_by('-fecha_creacion')
+        'propietario',
+        'propiedad',
+        'reserva',
+        'reserva__propiedad',
+        'contrato',
+        'movimiento_caja',
+    ).order_by('-fecha_creacion')
 
     # Filtros
     estado_filtro = request.GET.get('estado', '')
@@ -25375,42 +25384,44 @@ def lista_liquidaciones(request):
             Q(id__icontains=busqueda)
         )
 
-    from inmobiliaria.liquidacion_operacion import info_operacion_liquidacion
-
-    liquidaciones_list = list(liquidaciones)
-    for liq in liquidaciones_list:
-        info = info_operacion_liquidacion(liq)
-        liq.tipo_operacion_display = info['tipo_display']
-        liq.tipo_operacion_key = info['tipo_key']
-        liq.numero_carpeta_display = info['numero_carpeta'] if info['muestra_carpeta'] else None
-        liq.muestra_carpeta = info['muestra_carpeta']
-
-    if tipo_filtro:
-        if tipo_filtro == '24meses':
-            tipo_filtro_key = '24'
-        else:
-            tipo_filtro_key = tipo_filtro
-        liquidaciones_list = [l for l in liquidaciones_list if l.tipo_operacion_key == tipo_filtro_key]
-
-    total_pendiente = sum(
-        (l.monto_a_pagar for l in liquidaciones_list if l.estado == 'pendiente'),
-        Decimal('0'),
+    # Totales sobre el filtro (sin materializar todas las filas).
+    base_totales = liquidaciones
+    total_pendiente = (
+        base_totales.filter(estado='pendiente').aggregate(t=Sum('monto_a_pagar'))['t']
+        or Decimal('0')
     )
-    total_procesado = sum(
-        (
-            l.monto_a_pagar
-            for l in liquidaciones_list
-            if l.estado in ('cerrada', 'pagada', 'oficina', 'procesada')
-        ),
-        Decimal('0'),
+    total_procesado = (
+        base_totales.filter(estado__in=('cerrada', 'pagada', 'oficina', 'procesada')).aggregate(
+            t=Sum('monto_a_pagar')
+        )['t']
+        or Decimal('0')
     )
+
+    tipo_filtro_key = '24' if tipo_filtro == '24meses' else tipo_filtro
+
+    if tipo_filtro_key:
+        # Tipo se resuelve en Python; acotar candidatos recientes para no escanear todo el historial.
+        candidatos = list(liquidaciones[:800])
+        enriquecer_info_operacion_liquidaciones(candidatos)
+        liquidaciones_list = [l for l in candidatos if l.tipo_operacion_key == tipo_filtro_key]
+        paginator = Paginator(liquidaciones_list, 50)
+        page_obj = paginator.get_page(request.GET.get('page'))
+        liquidaciones_page = list(page_obj.object_list)
+    else:
+        paginator = Paginator(liquidaciones, 50)
+        page_obj = paginator.get_page(request.GET.get('page'))
+        liquidaciones_page = list(page_obj.object_list)
+        enriquecer_info_operacion_liquidaciones(liquidaciones_page)
+
+    query_params = request.GET.copy()
+    query_params.pop('page', None)
 
     propietarios = Propietario.objects.filter(
         sucursal=request.user.sucursal
     ).order_by('apellido', 'nombre')
 
     context = {
-        'liquidaciones': liquidaciones_list,
+        'liquidaciones': page_obj,
         'estado_filtro': estado_filtro,
         'propietario_id': propietario_id,
         'busqueda': busqueda,
@@ -25418,6 +25429,7 @@ def lista_liquidaciones(request):
         'propietarios': propietarios,
         'total_pendiente': total_pendiente,
         'total_procesado': total_procesado,
+        'lista_filtros_qs': query_params.urlencode(),
     }
 
     return render(request, 'inmobiliaria/liquidaciones/lista.html', context)
@@ -26858,6 +26870,47 @@ def _descripcion_movimiento_pago_liquidacion(movimiento) -> str:
     return ' — '.join(partes)
 
 
+def _gastos_pendientes_livianos_liquidacion(propiedad, sucursal):
+    """
+    Solo gastos pendientes ya cargados (sin escanear reservas/movimientos de la propiedad).
+    Suficiente para el detalle de liquidación; el armado completo sigue en crear liquidación / AJAX.
+    """
+    if not propiedad or not sucursal:
+        return []
+    gastos_saldo_negativo = GastoPropietario.objects.filter(
+        liquidacion__isnull=True,
+        sucursal=sucursal,
+        tipo_movimiento='egreso',
+        observaciones__contains='liquidacion_pendiente_origen:',
+    ).filter(
+        Q(propiedad=propiedad)
+        | Q(propiedad__isnull=True, propietario=propiedad.propietario_id)
+    ).order_by('-fecha_creacion')
+
+    gastos_manuales = (
+        GastoPropietario.objects.filter(
+            liquidacion__isnull=True,
+            sucursal=sucursal,
+            propiedad=propiedad,
+        )
+        .exclude(observaciones__contains='liquidacion_pendiente_origen:')
+        .exclude(observaciones__icontains='Movimiento de caja #')
+        .order_by('-fecha_creacion')
+    )
+
+    out = []
+    vistos = set()
+    for gasto in gastos_saldo_negativo:
+        out.append(_dict_gasto_saldo_negativo_liquidacion(gasto))
+        vistos.add(gasto.id)
+    for gasto in gastos_manuales:
+        if gasto.id in vistos:
+            continue
+        obs = (gasto.observaciones or '').strip()
+        out.append(_dict_gasto_pendiente(gasto, detalle=obs))
+    return out
+
+
 def _operaciones_gastos_pendientes_data(propiedad, sucursal):
     """
     Lista operaciones y gastos pendientes de liquidación para una propiedad (dict serializable a JSON).
@@ -27957,13 +28010,14 @@ def detalle_liquidacion(request, liquidacion_id):
     """
     liquidacion = get_object_or_404(
         LiquidacionPropietario.objects.select_related(
-            'propietario', 'propiedad', 'reserva', 'contrato', 'movimiento_caja', 'movimiento_caja__caja'
+            'propietario', 'propiedad', 'reserva', 'reserva__propiedad',
+            'contrato', 'movimiento_caja', 'movimiento_caja__caja'
         ).prefetch_related('gastos'),
         id=liquidacion_id,
         sucursal=request.user.sucursal
     )
-    liquidacion.calcular_monto_a_pagar()
-    liquidacion.sync_gasto_saldo_negativo_pendiente()
+    # Solo lectura en GET: recalcular en memoria sin grabar ni sincronizar gastos.
+    liquidacion._recalcular_monto_a_pagar_fields()
 
     division_operaciones = []
     division_meta = {}
@@ -27993,11 +28047,13 @@ def detalle_liquidacion(request, liquidacion_id):
                 'inmobiliaria:crear_liquidacion_reserva', args=[liquidacion.reserva_id]
             )
 
+    # Gastos pendientes livianos (sin escanear todas las reservas/movimientos de la propiedad).
     gastos_pendientes_disponibles = []
-    if liquidacion.estado == 'pendiente':
+    if liquidacion.estado == 'pendiente' and liquidacion.propiedad_id:
         try:
-            data_gp = _operaciones_gastos_pendientes_data(liquidacion.propiedad, liquidacion.sucursal)
-            gastos_pendientes_disponibles = list(data_gp.get('gastos_pendientes') or [])
+            gastos_pendientes_disponibles = _gastos_pendientes_livianos_liquidacion(
+                liquidacion.propiedad, liquidacion.sucursal
+            )
         except Exception:
             gastos_pendientes_disponibles = []
 
