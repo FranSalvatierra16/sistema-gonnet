@@ -203,7 +203,7 @@
     {% endif %}
     {% endif %}
 
-    {# Contratos: también nivel 1 (cobrar seña / operación principal 24 meses) #}
+    {% if user.nivel >= 2 %}
     <div class="row justify-content-center">
         <div class="col-12 col-lg-10 mb-2">
             <p class="small text-uppercase text-muted fw-semibold mb-2">Operativa diaria</p>
@@ -218,7 +218,6 @@
                 <span class="badge bg-info">24 meses</span>
             </div>
         </div>
-        {% if user.nivel >= 2 %}
         <div class="col-md-4 mb-4">
             <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:dashboard_caja' %}'">
                 <div class="card-icon">
@@ -229,8 +228,8 @@
                 <span class="badge bg-dark">Caja</span>
             </div>
         </div>
-        {% endif %}
     </div>
+    {% endif %}
 
     {% if user.is_superuser or user.nivel >= 4 %}
     <div class="row justify-content-center">
