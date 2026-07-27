@@ -2500,10 +2500,17 @@ document.addEventListener('DOMContentLoaded', function() {
     if (formAgregarGasto) {
         formAgregarGasto.addEventListener('submit', function(e) {
             e.preventDefault();
+            const btn = formAgregarGasto.querySelector('button[type="submit"]');
+            if (btn && btn.disabled) return;
             const propiedadId = resolverPropiedadIdParaMovimiento();
             if (!propiedadId) {
                 alert('Seleccioná una propiedad o tildá al menos una operación primero.');
                 return;
+            }
+            if (btn) {
+                btn.disabled = true;
+                btn.dataset.originalHtml = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Guardando...';
             }
             const formData = new FormData(this);
             formData.append('propiedad_id', propiedadId);
@@ -2520,6 +2527,10 @@ document.addEventListener('DOMContentLoaded', function() {
             })
                 .then(function(response) { return response.json(); })
                 .then(function(data) {
+                    if (btn) {
+                        btn.disabled = false;
+                        if (btn.dataset.originalHtml) btn.innerHTML = btn.dataset.originalHtml;
+                    }
                     if (!data.success) {
                         alert('Error: ' + (data.error || 'No se pudo crear el movimiento.'));
                         return;
@@ -2545,6 +2556,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 })
                 .catch(function(error) {
                     console.error('Error:', error);
+                    if (btn) {
+                        btn.disabled = false;
+                        if (btn.dataset.originalHtml) btn.innerHTML = btn.dataset.originalHtml;
+                    }
                     alert('Error al crear el movimiento pendiente.');
                 });
         });

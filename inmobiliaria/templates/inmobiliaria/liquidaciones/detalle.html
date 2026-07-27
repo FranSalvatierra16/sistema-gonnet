@@ -659,7 +659,17 @@ document.addEventListener('DOMContentLoaded', function() {
     // Agregar gasto
     document.getElementById('formAgregarGasto').addEventListener('submit', function(e) {
         e.preventDefault();
-        const formData = new FormData(this);
+        const form = this;
+        const btn = form.querySelector('button[type="submit"]');
+        if (btn && btn.disabled) {
+            return;
+        }
+        if (btn) {
+            btn.disabled = true;
+            btn.dataset.originalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Guardando...';
+        }
+        const formData = new FormData(form);
         
         fetch('{% url "inmobiliaria:agregar_gasto" liquidacion.id %}', {
             method: 'POST',
@@ -673,10 +683,18 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.success) {
                 location.reload();
             } else {
+                if (btn) {
+                    btn.disabled = false;
+                    if (btn.dataset.originalHtml) btn.innerHTML = btn.dataset.originalHtml;
+                }
                 alert('Error: ' + data.error);
             }
         })
         .catch(error => {
+            if (btn) {
+                btn.disabled = false;
+                if (btn.dataset.originalHtml) btn.innerHTML = btn.dataset.originalHtml;
+            }
             alert('Error al agregar el gasto');
         });
     });

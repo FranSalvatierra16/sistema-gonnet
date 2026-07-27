@@ -25925,6 +25925,10 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                 # Asociar gastos pendientes seleccionados a la liquidación
                 if not gastos_seleccionados:
                     gastos_seleccionados = request.POST.getlist('gastos_seleccionados[]')
+                # Deduplicar selección (mismo id tildado dos veces por el form / JS).
+                gastos_seleccionados = list(dict.fromkeys(
+                    (str(x).strip() for x in (gastos_seleccionados or []) if str(x).strip())
+                ))
                 if gastos_seleccionados:
                     for gasto_id_str in gastos_seleccionados:
                         try:
@@ -25939,6 +25943,12 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                                 )
                                 # Solo permitir egresos descontables al propietario
                                 if movimiento.a_descontar not in ('propietario', 'oficina', None, ''):
+                                    continue
+                                ya = GastoPropietario.objects.filter(
+                                    liquidacion=liquidacion,
+                                    observaciones__icontains=f'Movimiento de caja #{movimiento.id}',
+                                ).exists()
+                                if ya:
                                     continue
                                 # Crear un GastoPropietario desde el movimiento de caja
                                 desc_mov = movimiento.descripcion_para_gasto_liquidacion_propietario()[:200]
@@ -28232,6 +28242,34 @@ def agregar_gasto(request, liquidacion_id):
 
         tipo_mov, efecto_inq, operacion = _parse_campos_movimiento_gasto(request.POST)
 
+        fecha_gasto_date = (
+            datetime.strptime(fecha_gasto, '%Y-%m-%d').date() if fecha_gasto else None
+        )
+
+        # Evitar doble alta por doble clic / reenvío (mismo concepto, monto y tipo en ~2 min).
+        desde = timezone.now() - timedelta(seconds=120)
+        dup = GastoPropietario.objects.filter(
+            liquidacion=liquidacion,
+            descripcion=descripcion,
+            monto=monto,
+            tipo_movimiento=tipo_mov,
+            fecha_creacion__gte=desde,
+        )
+        if concepto and concepto.id:
+            dup = dup.filter(concepto_caja_id=concepto.id)
+        if fecha_gasto_date:
+            dup = dup.filter(fecha_gasto=fecha_gasto_date)
+        dup = dup.order_by('-id').first()
+        if dup:
+            liquidacion.calcular_monto_a_pagar()
+            return JsonResponse({
+                'success': True,
+                'message': 'Movimiento ya estaba cargado (se evitó duplicar).',
+                'gasto_id': dup.id,
+                'monto_a_pagar': str(liquidacion.monto_a_pagar),
+                'duplicado': True,
+            })
+
         gasto = GastoPropietario.objects.create(
             liquidacion=liquidacion,
             propietario=liquidacion.propietario,
@@ -28242,7 +28280,7 @@ def agregar_gasto(request, liquidacion_id):
             tipo_movimiento=tipo_mov,
             efecto_inquilino=efecto_inq,
             operacion_monto=operacion,
-            fecha_gasto=datetime.strptime(fecha_gasto, '%Y-%m-%d').date() if fecha_gasto else None,
+            fecha_gasto=fecha_gasto_date,
             observaciones=observaciones,
             aceptado=True,
             sucursal=liquidacion.sucursal,
@@ -28435,6 +28473,39 @@ def crear_gasto_pendiente(request):
                 if contrato_ref:
                     moneda = normalizar_moneda(contrato_ref.moneda)
 
+            fecha_gasto_date = (
+                datetime.strptime(fecha_gasto, '%Y-%m-%d').date() if fecha_gasto else None
+            )
+
+            # Evitar doble alta por doble clic (mismo pendiente reciente sin liquidación).
+            desde = timezone.now() - timedelta(seconds=120)
+            dup_q = GastoPropietario.objects.filter(
+                liquidacion__isnull=True,
+                sucursal=request.user.sucursal,
+                descripcion=descripcion,
+                monto=monto,
+                tipo_movimiento=tipo_mov,
+                fecha_creacion__gte=desde,
+            )
+            if propietario:
+                dup_q = dup_q.filter(propietario=propietario)
+            if propiedad:
+                dup_q = dup_q.filter(propiedad=propiedad)
+            if concepto and concepto.id:
+                dup_q = dup_q.filter(concepto_caja_id=concepto.id)
+            dup = dup_q.order_by('-id').first()
+            if dup:
+                gasto_payload = _dict_gasto_pendiente(dup)
+                if propiedad:
+                    gasto_payload['propiedad_id'] = propiedad.id
+                    gasto_payload['propiedad_label'] = _etiqueta_propiedad_liquidacion(propiedad)
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Movimiento ya estaba cargado (se evitó duplicar).',
+                    'gasto': gasto_payload,
+                    'duplicado': True,
+                })
+
             gasto = GastoPropietario.objects.create(
                 propietario=propietario,
                 propiedad=propiedad,
@@ -28445,7 +28516,7 @@ def crear_gasto_pendiente(request):
                 tipo_movimiento=tipo_mov,
                 efecto_inquilino=efecto_inq,
                 operacion_monto=operacion,
-                fecha_gasto=datetime.strptime(fecha_gasto, '%Y-%m-%d').date() if fecha_gasto else None,
+                fecha_gasto=fecha_gasto_date,
                 observaciones=observaciones,
                 sucursal=request.user.sucursal
             )
