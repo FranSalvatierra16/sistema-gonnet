@@ -135,7 +135,7 @@
                                class="form-control form-control-sm input-monto-ar text-end liq-resumen-input-extra"
                                inputmode="decimal" autocomplete="off" placeholder="0,00"
                                value="{{ edit_montos_liquidacion.monto_cochera_inquilino }}">
-                        <div class="form-text">No entra en el reparto de arriba. Se suma a tu cochera (oficina).</div>
+                        <div class="form-text">No entra en el reparto de arriba. Se suma a tu cochera de oficina (Honorarios → Cochera y al liquidar).</div>
                         {% else %}
                         <div class="fw-semibold">
                             {{ resumen_liquidacion.monto_cochera_inquilino|default:0|format_importe_moneda:resumen_liquidacion.moneda }}

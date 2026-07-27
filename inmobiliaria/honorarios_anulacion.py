@@ -53,6 +53,10 @@ def montos_honorarios_desde_reserva(reserva):
         return None
 
     total, prop, inm, coch, fondo = reserva.montos_liquidacion_efectivos(total, prop, inm)
+    coch = (
+        Decimal(str(coch or 0))
+        + Decimal(str(getattr(reserva, 'liq_monto_cochera_inquilino', None) or 0))
+    ).quantize(Decimal('0.01'))
 
     return {
         'monto_inmobiliaria': inm,

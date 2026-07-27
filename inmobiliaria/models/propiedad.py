@@ -673,6 +673,16 @@ class Reserva(models.Model):
             inm = Decimal(str(self.liq_monto_inmobiliaria)).quantize(Decimal('0.01'))
         return total, prop, inm, coch, fondo
 
+    def cochera_oficina_total_liquidacion(self):
+        """
+        Cochera de oficina efectiva: reparto (liq_monto_cochera) + cochera inquilino extra.
+        La extra no entra en el reparto del total de la operación.
+        """
+        return (
+            Decimal(str(self.liq_monto_cochera or 0))
+            + Decimal(str(getattr(self, 'liq_monto_cochera_inquilino', None) or 0))
+        ).quantize(Decimal('0.01'))
+
     def save(self, *args, **kwargs):
         # Asegúrate de que la sucursal esté establecida si no está definida
         if not self.sucursal and self.propiedad:

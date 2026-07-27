@@ -26057,8 +26057,12 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
         context['fecha_desde'] = fd_pend or reserva.fecha_inicio
         context['fecha_hasta'] = fh_pend or reserva.fecha_fin
         context['monto_cochera_inicial'] = format_monto_argentino(
-            Decimal(str(reserva.liq_monto_cochera or 0))
-            + Decimal(str(getattr(reserva, 'liq_monto_cochera_inquilino', None) or 0))
+            reserva.cochera_oficina_total_liquidacion()
+            if hasattr(reserva, 'cochera_oficina_total_liquidacion')
+            else (
+                Decimal(str(reserva.liq_monto_cochera or 0))
+                + Decimal(str(getattr(reserva, 'liq_monto_cochera_inquilino', None) or 0))
+            )
         )
         context['monto_fondo_inicial'] = format_monto_argentino(reserva.liq_monto_fondo or 0)
         saldo_liq = saldo_liquidacion_reserva(reserva)

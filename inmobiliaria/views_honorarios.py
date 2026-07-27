@@ -318,6 +318,102 @@ def _filas_honorarios_desde_caratulas_confirmadas(
     return filas
 
 
+def _filas_honorarios_cochera_fondo_desde_reservas(
+    sucursal,
+    fecha_desde,
+    fecha_hasta,
+    busqueda='',
+):
+    """
+    Cochera (oficina + inquilino) y fondo desde carátulas confirmadas aún sin liquidar.
+    Así el monto cargado en carátula ya figura en Honorarios → Cochera.
+    """
+    from inmobiliaria.liquidacion_operacion import liquidaciones_activas_reserva
+    from inmobiliaria.models import Reserva
+
+    filas = []
+    qs = (
+        Reserva.objects.filter(
+            sucursal=sucursal,
+            eliminada=False,
+            estado_confirmacion_caratula='confirmada',
+        )
+        .exclude(estado='cancelada')
+        .select_related('propiedad', 'propiedad__propietario')
+    )
+    if fecha_desde:
+        qs = qs.filter(fecha_inicio__gte=fecha_desde)
+    if fecha_hasta:
+        qs = qs.filter(fecha_inicio__lte=fecha_hasta)
+    if busqueda:
+        q_bus = (
+            Q(propiedad__direccion__icontains=busqueda)
+            | Q(propiedad__propietario__nombre__icontains=busqueda)
+            | Q(propiedad__propietario__apellido__icontains=busqueda)
+        )
+        if busqueda.isdigit():
+            try:
+                q_bus |= Q(id=int(busqueda))
+            except (TypeError, ValueError):
+                pass
+        qs = qs.filter(q_bus)
+
+    for reserva in qs.iterator(chunk_size=100):
+        if liquidaciones_activas_reserva(reserva):
+            continue
+        f_entrada = reserva.fecha_inicio
+        if not f_entrada:
+            continue
+        try:
+            coch = reserva.cochera_oficina_total_liquidacion()
+        except Exception:
+            coch = (
+                Decimal(str(reserva.liq_monto_cochera or 0))
+                + Decimal(str(getattr(reserva, 'liq_monto_cochera_inquilino', None) or 0))
+            ).quantize(Decimal('0.01'))
+        fondo = Decimal(str(reserva.liq_monto_fondo or 0)).quantize(Decimal('0.01'))
+        if coch <= Decimal('0.01') and fondo <= Decimal('0.01'):
+            continue
+
+        prop = reserva.propiedad
+        propietario = getattr(prop, 'propietario', None) if prop else None
+        base = {
+            'liquidacion_id': None,
+            'liquidacion_url': reverse('inmobiliaria:caratula_reserva', args=[reserva.id]),
+            'propiedad': _propiedad_txt(prop),
+            'propietario': (
+                f'{propietario.apellido}, {propietario.nombre}'
+                if propietario
+                else '—'
+            ),
+            'operacion': f'Reserva #{reserva.id}',
+            'operacion_kind': 'reserva',
+            'operacion_pk': reserva.id,
+            'categoria_operacion': 'dia',
+            'tipo_operacion_display': ETIQUETAS_TIPO_OPERACION.get('dia', 'Por día'),
+            'estado_liq': 'Sin liquidar',
+        }
+        if coch > Decimal('0.01'):
+            filas.append({
+                **base,
+                'tipo': 'cochera',
+                'tipo_display': 'Cochera',
+                'fecha': f_entrada,
+                'monto': coch,
+                'nota': 'Carátula (sin liquidar)',
+            })
+        if fondo > Decimal('0.01'):
+            filas.append({
+                **base,
+                'tipo': 'fondo',
+                'tipo_display': 'Fondo de mantenimiento',
+                'fecha': f_entrada,
+                'monto': fondo,
+                'nota': 'Carátula (sin liquidar)',
+            })
+    return filas
+
+
 def _fecha_reversion_honorarios(liq, when_dt=None):
     """Fecha del asiento negativo por anulación."""
     if when_dt is not None:
@@ -668,7 +764,17 @@ def honorarios_oficina(request):
         cubiertos_comisiones,
         busqueda=busqueda,
     )
-    filas = _filtrar_filas_por_fecha(filas_liq + filas_car + filas_legacy, fecha_desde, fecha_hasta)
+    filas_car_cochera = _filas_honorarios_cochera_fondo_desde_reservas(
+        request.user.sucursal,
+        fecha_desde,
+        fecha_hasta,
+        busqueda=busqueda,
+    )
+    filas = _filtrar_filas_por_fecha(
+        filas_liq + filas_car + filas_car_cochera + filas_legacy,
+        fecha_desde,
+        fecha_hasta,
+    )
     filas = _filtrar_filas_por_operacion(filas, operacion_filtro)
 
     if tipo_filtro == 'comision_locador':
