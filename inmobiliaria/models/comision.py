@@ -278,10 +278,35 @@ def _cancelar_o_borrar_comisiones_qs(qs):
             ComisionVendedor.objects.filter(pk=c.pk).update(estado='cancelada')
 
 
+def _monto_base_fichaje_reserva(reserva, honorarios_hint=None):
+    """
+    Base única de comisión por fichaje en la reserva.
+    Prioriza honorarios de oficina guardados en carátula; si no, el hint del cobro.
+    """
+    if not reserva:
+        return Decimal('0')
+    inm = getattr(reserva, 'liq_monto_inmobiliaria', None)
+    if inm is not None:
+        try:
+            val = Decimal(str(inm))
+            if val > 0:
+                return val.quantize(Decimal('0.01'))
+        except (TypeError, ValueError, ArithmeticError):
+            pass
+    if honorarios_hint is not None:
+        try:
+            val = Decimal(str(honorarios_hint))
+            if val > 0:
+                return val.quantize(Decimal('0.01'))
+        except (TypeError, ValueError, ArithmeticError):
+            pass
+    return Decimal('0')
+
+
 def _sincronizar_comisiones_fichaje_reserva(reserva):
     """
     Alinea líneas de fichaje al fichador actual de la propiedad.
-    Si cambió el fichador o ya no tiene %, quita las comisiones viejas.
+    Deja una sola línea activa por reserva (no una por cada cobro de caja).
     """
     if not reserva:
         return
@@ -308,6 +333,90 @@ def _sincronizar_comisiones_fichaje_reserva(reserva):
         return
 
     _cancelar_o_borrar_comisiones_qs(qs.exclude(vendedor_id=vend_fichaje.id))
+
+    # Una sola línea de fichaje por operación (evitar duplicados por cobros parciales).
+    qs_ok = list(
+        ComisionVendedor.objects.filter(
+            reserva=reserva,
+            vendedor_id=vend_fichaje.id,
+            rol_comision=ROL_COMISION_FICHAJE,
+        ).exclude(estado='cancelada').order_by('id')
+    )
+    if len(qs_ok) <= 1:
+        return
+
+    keep = qs_ok[0]
+    extras = qs_ok[1:]
+    base = _monto_base_fichaje_reserva(reserva)
+    if base <= 0:
+        # Conservar la base más chica razonable (suele ser honorarios, no el cobro entero).
+        bases = [
+            Decimal(str(c.monto_total_operacion or 0))
+            for c in qs_ok
+            if Decimal(str(c.monto_total_operacion or 0)) > 0
+        ]
+        base = min(bases) if bases else Decimal(str(keep.monto_total_operacion or 0))
+    nuevo_monto = (base * Decimal(str(pct_fichaje)) / Decimal('100')).quantize(Decimal('0.01'))
+    updates = []
+    if keep.monto_total_operacion != base:
+        keep.monto_total_operacion = base
+        updates.append('monto_total_operacion')
+    if keep.monto_comision != nuevo_monto:
+        keep.monto_comision = nuevo_monto
+        updates.append('monto_comision')
+    if keep.porcentaje_comision != pct_fichaje:
+        keep.porcentaje_comision = pct_fichaje
+        updates.append('porcentaje_comision')
+    if updates:
+        keep.save(update_fields=updates)
+    _cancelar_o_borrar_comisiones_qs(
+        ComisionVendedor.objects.filter(pk__in=[c.pk for c in extras])
+    )
+
+
+def _crear_o_actualizar_linea_fichaje_reserva(
+    reserva, movimiento_caja, honorarios_monto, creadas=None,
+):
+    """
+    Garantiza una única comisión de fichaje por reserva (upsert + limpia duplicados).
+    """
+    if not reserva:
+        return None
+    _sincronizar_comisiones_fichaje_reserva(reserva)
+
+    prop = getattr(reserva, 'propiedad', None)
+    tipo_fichaje = getattr(prop, 'tipo_fichaje', None) or 'primer' if prop else 'primer'
+    vend_fichaje = vendedor_fichaje_desde_propiedad(
+        prop, sucursal=getattr(reserva, 'sucursal', None)
+    )
+    if not vend_fichaje:
+        return None
+    tipo_op = clasificar_tipo_operacion_reserva(reserva)
+    pct_fichaje = vend_fichaje.porcentaje_fichaje_efectivo(tipo_fichaje, tipo_op)
+    if pct_fichaje is None or pct_fichaje <= 0:
+        return None
+
+    base = _monto_base_fichaje_reserva(reserva, honorarios_monto)
+    if base <= 0:
+        return None
+
+    cat_lbl = _etiqueta_categoria_fichaje(tipo_op)
+    c = ComisionVendedor.crear_comision_linea(
+        vendedor=vend_fichaje,
+        reserva=reserva,
+        movimiento_caja=movimiento_caja,
+        monto_base=base,
+        porcentaje_comision=pct_fichaje,
+        concepto=(
+            f'Op. {reserva.id} — comisión fichaje ({tipo_fichaje}, {cat_lbl}) sobre honorarios'
+        ),
+        rol_comision=ROL_COMISION_FICHAJE,
+    )
+    if c and creadas is not None and c not in creadas:
+        creadas.append(c)
+    # Por si quedaron duplicados legacy con distinto movimiento_caja.
+    _sincronizar_comisiones_fichaje_reserva(reserva)
+    return c
 
 
 def _crear_linea_operacion_por_dia(
@@ -415,20 +524,9 @@ def registrar_comisiones_honorarios_movimiento_reserva(reserva, movimiento_caja,
 
     hubo_regla_fichaje = pct_fichaje is not None and pct_fichaje > 0
     if hubo_regla_fichaje and vend_fichaje:
-        cat_lbl = _etiqueta_categoria_fichaje(tipo_op)
-        c = ComisionVendedor.crear_comision_linea(
-            vendedor=vend_fichaje,
-            reserva=reserva,
-            movimiento_caja=movimiento_caja,
-            monto_base=honorarios_monto,
-            porcentaje_comision=pct_fichaje,
-            concepto=(
-                f'Op. {reserva.id} — comisión fichaje ({tipo_fichaje}, {cat_lbl}) sobre honorarios'
-            ),
-            rol_comision=ROL_COMISION_FICHAJE,
+        _crear_o_actualizar_linea_fichaje_reserva(
+            reserva, movimiento_caja, honorarios_monto, creadas=creadas,
         )
-        if c:
-            creadas.append(c)
 
     for vend in productores:
         part = part_map.get(vend.id, Decimal('100'))
@@ -541,20 +639,23 @@ def asegurar_comisiones_movimiento_reserva(reserva, movimiento_caja, honorarios_
         pct_fichaje = vend_fichaje.porcentaje_fichaje_efectivo(tipo_fichaje, tipo_op)
     hubo_fichaje = pct_fichaje is not None and pct_fichaje > 0 and vend_fichaje is not None
 
-    monto_mov_dec = _monto_total_movimiento_caja(movimiento_caja)
-
     if honorarios_monto > 0:
         return registrar_comisiones_honorarios_movimiento_reserva(
             reserva, movimiento_caja, honorarios_monto
         )
 
-    if hubo_fichaje and tipo_op == 'dia' and monto_mov_dec > 0:
-        return registrar_comisiones_honorarios_movimiento_reserva(
-            reserva, movimiento_caja, monto_mov_dec
-        )
-
     creadas = []
+    # Sin honorarios desglosados: fichaje una sola vez (base carátula / no el cobro entero)
+    # y comisión por día sobre el total de la operación.
     if tipo_op == 'dia':
+        if hubo_fichaje:
+            base_fichaje = _monto_base_fichaje_reserva(reserva, None)
+            if base_fichaje > 0:
+                _crear_o_actualizar_linea_fichaje_reserva(
+                    reserva, movimiento_caja, base_fichaje, creadas=creadas,
+                )
+            else:
+                _sincronizar_comisiones_fichaje_reserva(reserva)
         part_map = mapa_participacion_productores(reserva=reserva)
         for vend in iter_productores_reserva(reserva):
             _crear_linea_operacion_por_dia(
@@ -572,6 +673,7 @@ def asegurar_comisiones_movimiento_reserva(reserva, movimiento_caja, honorarios_
         return registrar_comisiones_honorarios_movimiento_reserva(
             reserva, movimiento_caja, honorarios_monto
         )
+    _sincronizar_comisiones_fichaje_reserva(reserva)
     return creadas
 
 
