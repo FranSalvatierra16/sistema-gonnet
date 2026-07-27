@@ -318,7 +318,7 @@
                     <table class="table table-sm table-striped mb-0">
                         <thead>
                             <tr>
-                                <th>Fecha</th><th>Estado</th><th>Reserva</th><th>Contrato</th><th class="text-end">Neto propietario</th>
+                                <th>Fecha</th><th>Estado</th><th>Reserva</th><th>Contrato</th><th class="text-end">Neto propietario</th><th class="text-center">Recibo</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -329,8 +329,20 @@
                                 <td>{% if l.reserva_id %}#{{ l.reserva_id }}{% else %}-{% endif %}</td>
                                 <td>{% if l.contrato_id %}#{{ l.contrato_id }}{% else %}-{% endif %}</td>
                                 <td class="text-end">{% if l.moneda == 'USD' %}<strong>U$S {{ l.monto_a_pagar|format_price }}</strong>{% else %}${{ l.monto_a_pagar|format_price }}{% endif %}</td>
+                                <td class="text-center text-nowrap">
+                                    <a href="{% url 'inmobiliaria:imprimir_liquidacion_cobranzas' l.id %}"
+                                       class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener"
+                                       title="Recibo / liquidación de cobranzas">
+                                        <i class="fas fa-receipt"></i>
+                                    </a>
+                                    <a href="{% url 'inmobiliaria:detalle_liquidacion' l.id %}"
+                                       class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener"
+                                       title="Ver detalle">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                </td>
                             </tr>
-                            {% empty %}<tr><td colspan="5" class="text-center text-muted">Sin liquidaciones</td></tr>{% endfor %}
+                            {% empty %}<tr><td colspan="6" class="text-center text-muted">Sin liquidaciones</td></tr>{% endfor %}
                         </tbody>
                     </table>
                 </div>
