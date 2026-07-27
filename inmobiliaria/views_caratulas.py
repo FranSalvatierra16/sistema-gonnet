@@ -3,7 +3,7 @@ Consulta de carátulas: listado y detalle de operaciones (reservas por día, inv
 """
 import logging
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from urllib.parse import urlencode
 
@@ -28,6 +28,20 @@ from inmobiliaria.models import (
 from inmobiliaria.models.caja import TipoMovimientoCajaEnum
 
 logger = logging.getLogger(__name__)
+
+
+def _aware_day_start(d):
+    """Inicio del día (aware) para filtrar DateTimeField sin usar __date (usa índice)."""
+    naive = datetime.combine(d, datetime.min.time())
+    if timezone.is_naive(naive):
+        return timezone.make_aware(naive)
+    return naive
+
+
+def _aware_day_end_exclusive(d):
+    """Inicio del día siguiente (aware), límite exclusivo del filtro."""
+    return _aware_day_start(d + timedelta(days=1))
+
 
 # Evita cargar miles de filas en memoria al listar carátulas sin filtro de texto.
 LISTA_CARATULAS_MAX_FILAS = 2000
@@ -2199,8 +2213,16 @@ def _cuotas_pendientes_liquidar_contrato(contrato, sucursal):
 def _contrato_al_dia_liquidacion_cobros(contrato):
     """True si todas las cuotas ya cobradas figuran en alguna liquidación."""
     mapa = _mapa_liquidacion_por_cuota_contrato(contrato)
-    cobradas = contrato.cuotas.filter(estado__in=['pagada', 'pagada_con_mora'])
-    if not cobradas.exists():
+    # Usar prefetch en memoria (evitar .filter() que dispara N+1).
+    if 'cuotas' in getattr(contrato, '_prefetched_objects_cache', {}):
+        cobradas = [
+            c
+            for c in contrato.cuotas.all()
+            if (c.estado or '') in ('pagada', 'pagada_con_mora')
+        ]
+    else:
+        cobradas = list(contrato.cuotas.filter(estado__in=['pagada', 'pagada_con_mora']))
+    if not cobradas:
         return False
     return all(c.id in mapa for c in cobradas)
 
@@ -3547,13 +3569,13 @@ def lista_caratulas(request):
             dr_desde, dr_hasta = dr_hasta, dr_desde
         if dr_desde and dr_hasta:
             reservas = reservas.filter(
-                fecha_creacion__date__gte=dr_desde,
-                fecha_creacion__date__lte=dr_hasta,
+                fecha_creacion__gte=_aware_day_start(dr_desde),
+                fecha_creacion__lt=_aware_day_end_exclusive(dr_hasta),
             )
         elif dr_desde:
-            reservas = reservas.filter(fecha_creacion__date__gte=dr_desde)
+            reservas = reservas.filter(fecha_creacion__gte=_aware_day_start(dr_desde))
         elif dr_hasta:
-            reservas = reservas.filter(fecha_creacion__date__lte=dr_hasta)
+            reservas = reservas.filter(fecha_creacion__lt=_aware_day_end_exclusive(dr_hasta))
 
     if estado_caratula_filtro == 'confirmada':
         reservas = reservas.filter(estado_confirmacion_caratula='confirmada')
@@ -3617,8 +3639,11 @@ def lista_caratulas(request):
 
     contratos = contratos.prefetch_related('cuotas')
 
-    reserva_ids = list(reservas.values_list('id', flat=True))
-    contrato_ids = list(contratos.values_list('id', flat=True))
+    # Materializar una sola vez (evita re-evaluar queryset en loops).
+    reservas_list = list(reservas)
+    contratos_list = list(contratos)
+
+    reserva_ids = [r.id for r in reservas_list]
 
     liq_por_reserva = {}
     if reserva_ids:
@@ -3631,9 +3656,34 @@ def lista_caratulas(request):
             if row['reserva_id'] not in liq_por_reserva:
                 liq_por_reserva[row['reserva_id']] = row['id']
 
+    # Batch de liquidaciones por propiedad (evita 1 query por contrato).
+    prop_ids_contratos = {c.propiedad_id for c in contratos_list if c.propiedad_id}
+    liqs_por_propiedad = {pid: [] for pid in prop_ids_contratos}
+    if prop_ids_contratos:
+        for liq in (
+            LiquidacionPropietario.objects.filter(propiedad_id__in=prop_ids_contratos)
+            .exclude(estado='cancelada')
+            .order_by('id')
+            .only(
+                'id',
+                'estado',
+                'operaciones_incluidas',
+                'propiedad_id',
+                'contrato_id',
+                'reserva_id',
+                'fecha_creacion',
+                'fecha_procesamiento',
+                'comision_locador',
+                'comision_locatario',
+            )
+        ):
+            liqs_por_propiedad.setdefault(liq.propiedad_id, []).append(liq)
+    for c in contratos_list:
+        c._cache_liqs_propiedad = liqs_por_propiedad.get(c.propiedad_id, [])
+
     filas = []
 
-    for r in reservas:
+    for r in reservas_list:
         tipo = _tipo_reserva(r.propiedad)
         p = r.propiedad
         piso_dto = ''
@@ -3679,7 +3729,7 @@ def lista_caratulas(request):
             }
         )
 
-    for c in contratos:
+    for c in contratos_list:
         carpeta_hist = _carpeta_guardada_operacion(contrato=c)
         tipo_c = _tipo_label_contrato_caratula(c)
         p = c.propiedad
