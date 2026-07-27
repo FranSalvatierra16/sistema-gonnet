@@ -1905,9 +1905,10 @@ def administracion_propiedades_operaciones(request):
         'cuotas': [],
         'gastos': [],
         'gastos_items': [],
+        'pagos_liquidacion_items': [],
         'ingresos_items': [],
         'liquidaciones': [],
-        'pagos': [],
+        'puede_eliminar_movimiento_caja': False,        'pagos': [],
         'movimientos': [],
         'total_ingresos': Decimal('0'),
         'total_egresos': Decimal('0'),
@@ -2095,32 +2096,33 @@ def administracion_propiedades_operaciones(request):
                 except (TypeError, ValueError):
                     pass
 
-        gastos_items = []
-        for g in gastos:
-            mov_num = getattr(getattr(g, 'liquidacion', None), 'movimiento_caja_id', None)
-            detalle = str(getattr(g, 'observaciones', '') or '').strip()
-            if getattr(g, 'liquidacion_id', None):
-                origen = f'Liquidación #{g.liquidacion_id}'
-            elif getattr(g, 'propiedad_id', None):
-                origen = 'Gasto pendiente de la propiedad'
-            else:
-                origen = 'Gasto del propietario (sin propiedad asignada)'
-            detalle = f'{detalle} · {origen}' if detalle else origen
-            es_usd = (getattr(g, 'moneda', None) or 'ARS').upper() == 'USD'
-            monto_g = g.monto or Decimal('0')
-            gastos_items.append({
-                'fecha': g.fecha_creacion,
-                'movimiento_num': mov_num,
-                'concepto': str(getattr(g, 'descripcion', '') or '-'),
-                'detalle': detalle,
-                'monto': Decimal('0') if es_usd else monto_g,
-                'monto_usd': monto_g if es_usd else Decimal('0'),
-                'cargo': 'Propietario',
-                'url_recibo': _url_recibo_admin(mov_num),
-            })
-        for m in egresos_gasto:
-            if m.id in movimientos_ya_en_gastos:
-                continue
+        puede_eliminar_mov = usuario_puede_eliminar_movimiento_caja(request.user)
+        url_admin_ops = request.get_full_path()
+        from urllib.parse import quote
+
+        def _es_concepto_pago_liquidacion(nombre_concepto, movimiento=None):
+            nc = (nombre_concepto or '').casefold()
+            if 'pago liquidacion' in nc or 'pago liquidación' in nc:
+                return True
+            if 'liquidación propietario' in nc or 'liquidacion propietario' in nc:
+                return True
+            if movimiento is None:
+                return False
+            tc = (getattr(movimiento, 'tipo_comprobante', None) or '').strip().upper()
+            if tc == 'LQ':
+                return True
+            texto = (getattr(movimiento, 'concepto', None) or '').lower()
+            if 'liquidación propietario' in texto or 'liquidacion propietario' in texto:
+                return True
+            try:
+                det = (movimiento.listado_detalle_l1 or '').lower()
+                if 'pago liquidacion' in det or 'pago liquidación' in det:
+                    return True
+            except Exception:
+                pass
+            return False
+
+        def _item_egreso_admin(m, *, concepto_nombre=None):
             cargo = ''
             if getattr(m, 'a_descontar', None):
                 try:
@@ -2133,16 +2135,66 @@ def administracion_propiedades_operaciones(request):
             det = _detalle_mov(m)
             if det:
                 detalle_parts.append(det)
-            gastos_items.append({
+            concepto = concepto_nombre if concepto_nombre is not None else _nombre_concepto_mov(m)
+            return {
                 'fecha': m.fecha,
                 'movimiento_num': m.id,
-                'concepto': _nombre_concepto_mov(m),
-                'detalle': ' · '.join(detalle_parts),
+                'concepto': concepto,
+                'detalle': ' · '.join(detalle_parts) or '—',
                 'monto': Decimal(str(getattr(m, 'monto_total', 0) or 0)),
                 'monto_usd': Decimal(str(getattr(m, 'monto_dolares', 0) or 0)),
                 'cargo': cargo or 'Egreso caja',
                 'url_recibo': _url_recibo_admin(m.id),
-            })
+                'puede_eliminar': bool(puede_eliminar_mov),
+                'url_eliminar': (
+                    reverse('inmobiliaria:eliminar_movimiento', args=[m.id])
+                    + '?next=' + quote(url_admin_ops, safe='')
+                ) if puede_eliminar_mov else '',
+            }
+
+        gastos_items = []
+        pagos_liquidacion_items = []
+        for g in gastos:
+            mov_num = getattr(getattr(g, 'liquidacion', None), 'movimiento_caja_id', None)
+            detalle = str(getattr(g, 'observaciones', '') or '').strip()
+            if getattr(g, 'liquidacion_id', None):
+                origen = f'Liquidación #{g.liquidacion_id}'
+            elif getattr(g, 'propiedad_id', None):
+                origen = 'Gasto pendiente de la propiedad'
+            else:
+                origen = 'Gasto del propietario (sin propiedad asignada)'
+            detalle = f'{detalle} · {origen}' if detalle else origen
+            es_usd = (getattr(g, 'moneda', None) or 'ARS').upper() == 'USD'
+            monto_g = g.monto or Decimal('0')
+            concepto_g = str(getattr(g, 'descripcion', '') or '-')
+            item = {
+                'fecha': g.fecha_creacion,
+                'movimiento_num': mov_num,
+                'concepto': concepto_g,
+                'detalle': detalle,
+                'monto': Decimal('0') if es_usd else monto_g,
+                'monto_usd': monto_g if es_usd else Decimal('0'),
+                'cargo': 'Propietario',
+                'url_recibo': _url_recibo_admin(mov_num),
+                'puede_eliminar': bool(puede_eliminar_mov and mov_num),
+                'url_eliminar': (
+                    reverse('inmobiliaria:eliminar_movimiento', args=[mov_num])
+                    + '?next=' + quote(url_admin_ops, safe='')
+                ) if (puede_eliminar_mov and mov_num) else '',
+            }
+            if _es_concepto_pago_liquidacion(concepto_g):
+                pagos_liquidacion_items.append(item)
+            else:
+                gastos_items.append(item)
+        for m in egresos_gasto:
+            if m.id in movimientos_ya_en_gastos:
+                continue
+            nombre_c = _nombre_concepto_mov(m)
+            item = _item_egreso_admin(m, concepto_nombre=nombre_c)
+            if _es_concepto_pago_liquidacion(nombre_c, m):
+                pagos_liquidacion_items.append(item)
+            else:
+                gastos_items.append(item)
 
         ingresos_items = []
         for m in ingresos_mov:
@@ -2163,6 +2215,11 @@ def administracion_propiedades_operaciones(request):
                 'monto': Decimal(str(getattr(m, 'monto_total', 0) or 0)),
                 'monto_usd': Decimal(str(getattr(m, 'monto_dolares', 0) or 0)),
                 'url_recibo': _url_recibo_admin(m.id),
+                'puede_eliminar': bool(puede_eliminar_mov),
+                'url_eliminar': (
+                    reverse('inmobiliaria:eliminar_movimiento', args=[m.id])
+                    + '?next=' + quote(url_admin_ops, safe='')
+                ) if puede_eliminar_mov else '',
             })
         def _fecha_sort_key(item):
             f = item.get('fecha')
@@ -2179,11 +2236,17 @@ def administracion_propiedades_operaciones(request):
             return 0
 
         gastos_items.sort(key=_fecha_sort_key, reverse=True)
+        pagos_liquidacion_items.sort(key=_fecha_sort_key, reverse=True)
 
         if concepto_gasto:
             term_concepto = concepto_gasto.casefold()
             gastos_items = [
                 item for item in gastos_items
+                if term_concepto in (str(item.get('concepto') or '').casefold())
+                or term_concepto in (str(item.get('detalle') or '').casefold())
+            ]
+            pagos_liquidacion_items = [
+                item for item in pagos_liquidacion_items
                 if term_concepto in (str(item.get('concepto') or '').casefold())
                 or term_concepto in (str(item.get('detalle') or '').casefold())
             ]
@@ -2210,9 +2273,10 @@ def administracion_propiedades_operaciones(request):
             'cuotas': cuotas,
             'gastos': gastos,
             'gastos_items': gastos_items,
+            'pagos_liquidacion_items': pagos_liquidacion_items,
             'ingresos_items': ingresos_items,
             'liquidaciones': liquidaciones,
-            'pagos': pagos,
+            'puede_eliminar_movimiento_caja': puede_eliminar_mov,            'pagos': pagos,
             'movimientos': movimientos,
             'total_ingresos': total_ingresos,
             'total_egresos': total_egresos,

@@ -193,12 +193,22 @@
                                         ${{ g.monto|format_price }}
                                     {% endif %}
                                 </td>
-                                <td class="text-center">
+                                <td class="text-center text-nowrap">
                                     {% if g.url_recibo %}
                                     <a href="{{ g.url_recibo }}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" title="Ver recibo">
                                         <i class="fas fa-receipt"></i>
                                     </a>
-                                    {% else %}—{% endif %}
+                                    {% endif %}
+                                    {% if g.puede_eliminar and g.url_eliminar %}
+                                    <form method="post" action="{{ g.url_eliminar }}" class="d-inline m-0"
+                                          onsubmit="return confirm('¿Eliminar / anular este gasto de caja? Dejará de sumar en saldos y reportes.');">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar gasto">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                    </form>
+                                    {% elif not g.url_recibo %}—{% endif %}
                                 </td>
                             </tr>
                             {% empty %}
@@ -254,6 +264,54 @@
         </div>
 
         <div class="tab-pane fade" id="pane-liquidaciones" role="tabpanel">
+            <div class="card mb-4">
+                <div class="card-header"><strong>Pagos de liquidación (caja)</strong></div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped mb-0">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th><th>Nro. mov.</th><th>Concepto</th><th>Detalle</th><th class="text-end">Monto</th><th class="text-center">Recibo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for g in pagos_liquidacion_items %}
+                            <tr>
+                                <td>{{ g.fecha|date:"d/m/Y H:i" }}</td>
+                                <td>{% if g.movimiento_num %}#{{ g.movimiento_num }}{% else %}-{% endif %}</td>
+                                <td>{{ g.concepto|default:"-" }}</td>
+                                <td>{{ g.detalle|default:"-" }}</td>
+                                <td class="text-end">
+                                    {% if g.monto_usd %}
+                                        {% if g.monto %}${{ g.monto|format_price }} + {% endif %}<strong>U$S {{ g.monto_usd|format_price }}</strong>
+                                    {% else %}
+                                        ${{ g.monto|format_price }}
+                                    {% endif %}
+                                </td>
+                                <td class="text-center text-nowrap">
+                                    {% if g.url_recibo %}
+                                    <a href="{{ g.url_recibo }}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" title="Ver recibo">
+                                        <i class="fas fa-receipt"></i>
+                                    </a>
+                                    {% endif %}
+                                    {% if g.puede_eliminar and g.url_eliminar %}
+                                    <form method="post" action="{{ g.url_eliminar }}" class="d-inline m-0"
+                                          onsubmit="return confirm('¿Anular este pago de liquidación en caja?');">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                    </form>
+                                    {% elif not g.url_recibo %}—{% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="6" class="text-center text-muted">Sin pagos de liquidación en caja</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
             <div class="card mb-4">
                 <div class="card-header"><strong>Liquidaciones</strong></div>
                 <div class="table-responsive">
