@@ -26841,18 +26841,49 @@ def _monto_descuento_propietario_egreso_caja(movimiento) -> Decimal:
     return Decimal('0')
 
 
+def _egreso_es_pago_liquidacion_propietario(movimiento) -> bool:
+    """True si el egreso es el pago de una liquidación (no un gasto a descontar)."""
+    tc = (getattr(movimiento, 'tipo_comprobante', None) or '').strip().upper()
+    if tc == 'LQ':
+        return True
+    texto = (getattr(movimiento, 'concepto', None) or '').lower()
+    if 'liquidación propietario' in texto or 'liquidacion propietario' in texto:
+        return True
+    try:
+        det = (movimiento.listado_detalle_l1 or '').lower()
+        if 'pago liquidacion' in det or 'pago liquidación' in det:
+            return True
+    except Exception:
+        pass
+    return False
+
+
 def _egreso_caja_debe_listarse_en_liquidacion(movimiento) -> bool:
     """Egresos de caja que figuran como descuento pendiente al liquidar."""
-    if _egreso_no_es_gasto_descontable_liquidacion(movimiento):
+    from inmobiliaria.models.caja import TipoMovimientoCajaEnum
+
+    tipo_mov = (getattr(movimiento, 'tipo', None) or '').strip().upper()
+    if tipo_mov != TipoMovimientoCajaEnum.EGRESO:
         return False
+
     a = (getattr(movimiento, 'a_descontar', None) or '').strip().lower()
     if a == 'inquilino':
         return False
+
+    # Pago de liquidación al propietario: nunca como descuento.
+    if _egreso_es_pago_liquidacion_propietario(movimiento):
+        return False
+
     m_prop = Decimal(str(getattr(movimiento, 'monto_a_propietario', None) or 0))
-    if m_prop > 0:
+    # Cargo explícito al propietario: listar aunque el comprobante sea RECIBO (default de caja).
+    # Antes se excluían todos los RC con propiedad por parecer cobro de alquiler.
+    if m_prop > 0 or a == 'propietario':
         return True
-    # Propietario explícito, o legacy (oficina / vacío) cargado sobre la propiedad.
-    return a in ('propietario', 'oficina', '')
+
+    # Legacy oficina / vacío: mantener filtro anti-cobros de alquiler.
+    if _egreso_no_es_gasto_descontable_liquidacion(movimiento):
+        return False
+    return a in ('oficina', '')
 
 
 def _dict_gasto_desde_egreso_caja(egreso, *, propiedad=None):
