@@ -1620,14 +1620,31 @@ document.addEventListener('DOMContentLoaded', function() {
                 .then(function(r) { return r.json(); })
                 .then(function(data) {
                     if (data.success) {
-                        const propId = document.getElementById('propiedad_id').value;
-                        if (propId) {
-                            cargarOperacionesPendientes(propId);
+                        // Quitar solo el movimiento de la tabla; no recargar cuotas/mes.
+                        const sid = String(lineaId);
+                        window._gastosExtraLocal = (window._gastosExtraLocal || []).filter(function(g) {
+                            return String(g.id) !== sid;
+                        });
+                        window._ultimosGastosServidor = (window._ultimosGastosServidor || []).filter(function(g) {
+                            return String(g.id) !== sid;
+                        });
+                        if (window._ordenGastosContraLiq) {
+                            window._ordenGastosContraLiq = window._ordenGastosContraLiq.filter(function(x) {
+                                return String(x) !== sid;
+                            });
+                        }
+                        const idsMarcados = Array.from(document.querySelectorAll('.gasto-checkbox:checked'))
+                            .map(function(x) { return String(x.value); })
+                            .filter(function(id) { return id !== sid; });
+                        mostrarGastosPendientes(
+                            window._ultimosGastosServidor || [],
+                            window._ultimaColPropGastos,
+                            idsMarcados
+                        );
+                        if (montosEditadosManualmente) {
+                            actualizarResumenLiquidacion();
                         } else {
-                            const propietarioId = (document.getElementById('propietario_id') || {}).value;
-                            if (propietarioId) {
-                                cargarOperacionesPorPropietario(propietarioId);
-                            }
+                            calcularMontosSeleccionados();
                         }
                     } else {
                         alert(data.error || 'No se pudo eliminar el movimiento.');
@@ -2541,18 +2558,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (typeof limpiarConceptoMovimientoModal === 'function') {
                         limpiarConceptoMovimientoModal();
                     }
-                    const gastoId = data.gasto && data.gasto.id != null ? data.gasto.id : null;
-                    const extraRecarga = capturarSeleccionPendientesParaRecarga();
-                    if (gastoId != null && !extraRecarga.restaurarGastosIds.includes(String(gastoId))) {
-                        extraRecarga.restaurarGastosIds.push(String(gastoId));
-                    }
+                    // Solo incorporar el gasto en la tabla de abajo: no recargar
+                    // operaciones pendientes (eso borraba la cuota/mes ya elegido).
                     if (!propiedadSelect.value && propiedadId) {
                         fijarPropiedadEnFormulario(propiedadId);
                     }
                     incorporarGastoRecienCreado(data.gasto, propiedadId);
-                    if (typeof window.recargarPendientesTrasNuevoGasto === 'function') {
-                        window.recargarPendientesTrasNuevoGasto(propiedadId, gastoId, extraRecarga);
-                    }
                 })
                 .catch(function(error) {
                     console.error('Error:', error);
