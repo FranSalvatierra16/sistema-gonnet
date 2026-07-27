@@ -11618,185 +11618,35 @@ def _totales_fijos_edicion_forma_pago(movimiento, sucursal=None):
 
 
 @login_required
-@transaction.atomic
 def editar_movimiento_caja(request, movimiento_id):
+    """Redirige al formulario completo de movimiento con todo precargado para editar."""
+    from urllib.parse import urlencode
+
     if not usuario_puede_editar_movimiento_caja(request.user):
         messages.error(
             request,
-            'Solo el super administrador puede corregir la forma de pago de un movimiento de caja.',
+            'Solo el super administrador puede editar un movimiento de caja.',
         )
         return redirect('inmobiliaria:gestionar_caja')
 
     movimiento = get_object_or_404(
-        MovimientoCaja.objects.select_related('caja', 'propiedad', 'empleado'),
+        MovimientoCaja.objects.select_related('caja'),
         id=movimiento_id,
         sucursal=request.user.sucursal,
     )
     if getattr(movimiento, 'fecha_eliminacion', None):
-        messages.error(request, 'No se pueden editar montos de un movimiento anulado.')
+        messages.error(request, 'No se puede editar un movimiento anulado.')
         caja_num = movimiento.caja.numero if movimiento.caja_id else None
         if caja_num:
             return redirect('inmobiliaria:detalle_caja', numero=caja_num)
         return redirect('inmobiliaria:todos_movimientos_caja')
 
-    from inmobiliaria.models.sucursal import CuentaBancaria
-
-    cuentas_bancarias = CuentaBancaria.objects.filter(
-        sucursal=request.user.sucursal,
-        activa=True,
-    ).order_by('nombre_banco', 'alias')
-
-    caja_numero = movimiento.caja.numero if movimiento.caja_id else None
-    next_url = (request.POST.get('next') or request.GET.get('next') or '').strip()
-    total_fijo_ars, total_fijo_usd = _totales_fijos_edicion_forma_pago(
-        movimiento, sucursal=request.user.sucursal
-    )
-
-    def _ctx_editar(extra=None):
-        MovimientoCaja.precargar_nombres_concepto([movimiento], sucursal=request.user.sucursal)
-        montos_form, montos_precargados = _montos_form_edicion_movimiento(
-            movimiento, sucursal=request.user.sucursal
-        )
-        dest_raw = (montos_form.get('destino_deposito') or movimiento.destino_deposito or '').strip()
-        destino_cuenta_id = None
-        if dest_raw.startswith('cuenta_'):
-            suf = dest_raw.replace('cuenta_', '', 1)
-            if suf.isdigit():
-                destino_cuenta_id = int(suf)
-        ctx = {
-            'movimiento': movimiento,
-            'montos_form': montos_form,
-            'montos_precargados': montos_precargados,
-            'caja': movimiento.caja,
-            'cuentas_bancarias': cuentas_bancarias,
-            'next': next_url,
-            'destino_cuenta_id': destino_cuenta_id,
-            'total_fijo_ars': total_fijo_ars,
-            'total_fijo_usd': total_fijo_usd,
-        }
-        if extra:
-            ctx.update(extra)
-        return ctx
-
-    def _volver():
-        safe_next = _validar_url_volver_recibo(next_url, request)
-        if safe_next:
-            return redirect(safe_next)
-        if next_url == 'todos_movimientos':
-            return redirect('inmobiliaria:todos_movimientos_caja')
-        if caja_numero is not None:
-            return redirect('inmobiliaria:detalle_caja', numero=caja_numero)
-        return redirect('inmobiliaria:todos_movimientos_caja')
-
-    if request.method == 'POST':
-        orig_ars, orig_usd = _totales_fijos_edicion_forma_pago(
-            MovimientoCaja.objects.get(pk=movimiento.pk),
-            sucursal=request.user.sucursal,
-        )
-        try:
-            movimiento.monto_efectivo = parse_decimal_monto(request.POST.get('monto_efectivo', '0') or '0')
-            movimiento.monto_cheque = parse_decimal_monto(request.POST.get('monto_cheque', '0') or '0')
-            movimiento.monto_tarjeta = parse_decimal_monto(request.POST.get('monto_tarjeta', '0') or '0')
-            movimiento.monto_deposito = parse_decimal_monto(request.POST.get('monto_deposito', '0') or '0')
-            movimiento.monto_dolares = parse_decimal_monto(request.POST.get('monto_dolares', '0') or '0')
-        except (ValueError, TypeError, InvalidOperation):
-            messages.error(request, 'Error en los montos ingresados.')
-            return render(request, 'inmobiliaria/caja/editar_movimiento_caja.html', _ctx_editar())
-
-        for campo in (
-            'monto_efectivo', 'monto_cheque', 'monto_tarjeta',
-            'monto_deposito', 'monto_dolares',
-        ):
-            if getattr(movimiento, campo) < 0:
-                messages.error(request, 'Los montos no pueden ser negativos.')
-                return render(request, 'inmobiliaria/caja/editar_movimiento_caja.html', _ctx_editar())
-
-        total_ars = Decimal(str(movimiento.monto_total or 0))
-        total_usd = Decimal(str(movimiento.monto_dolares or 0))
-        tol = Decimal('0.03')
-        if orig_ars > 0 and abs(total_ars - orig_ars) > tol:
-            messages.error(
-                request,
-                f'El total en pesos debe ser ${format_monto_argentino(orig_ars)}. '
-                f'Solo podés cambiar la forma de pago (efectivo, transferencia, etc.), no el importe del recibo.',
-            )
-            return render(request, 'inmobiliaria/caja/editar_movimiento_caja.html', _ctx_editar())
-        if orig_usd > 0 and abs(total_usd - orig_usd) > tol:
-            messages.error(
-                request,
-                f'El total en USD debe ser U$S {format_monto_argentino(orig_usd)}. '
-                f'Solo podés redistribuir el importe, no cambiarlo.',
-            )
-            return render(request, 'inmobiliaria/caja/editar_movimiento_caja.html', _ctx_editar())
-        if total_ars <= 0 and total_usd <= 0:
-            messages.error(request, 'El total en pesos o el monto en USD debe ser mayor a cero.')
-            return render(request, 'inmobiliaria/caja/editar_movimiento_caja.html', _ctx_editar())
-
-        dd_raw = (request.POST.get('destino_deposito') or '').strip()
-        if movimiento.monto_deposito and float(movimiento.monto_deposito) > 0:
-            destino_ok = None
-            if dd_raw.startswith('cuenta_'):
-                suf = dd_raw.replace('cuenta_', '', 1)
-                if suf.isdigit() and cuentas_bancarias.filter(id=int(suf)).exists():
-                    destino_ok = dd_raw
-            elif dd_raw in ('galicia', 'mp', 'mixto'):
-                destino_ok = dd_raw
-            if not destino_ok:
-                messages.error(request, 'Con transferencia tenés que elegir una cuenta destino válida.')
-                return render(request, 'inmobiliaria/caja/editar_movimiento_caja.html', _ctx_editar())
-            movimiento.destino_deposito = destino_ok
-            ft_raw = (request.POST.get('fecha_transferencia') or '').strip()
-            if not ft_raw:
-                messages.error(
-                    request,
-                    'Con transferencia tenés que indicar la fecha en que se hizo el depósito.',
-                )
-                return render(request, 'inmobiliaria/caja/editar_movimiento_caja.html', _ctx_editar())
-            try:
-                movimiento.fecha_transferencia = datetime.strptime(ft_raw, '%Y-%m-%d').date()
-            except ValueError:
-                messages.error(request, 'Fecha de transferencia/depósito inválida.')
-                return render(request, 'inmobiliaria/caja/editar_movimiento_caja.html', _ctx_editar())
-        else:
-            movimiento.destino_deposito = None
-            movimiento.fecha_transferencia = None
-
-        try:
-            m_of, m_prop, m_inq = _parse_imputacion_corresponde_post(
-                request, total_ars if total_ars > 0 else Decimal('0')
-            )
-        except ValueError:
-            messages.error(
-                request,
-                'El reparto entre oficina, propietario e inquilino debe sumar el total del movimiento.',
-            )
-            return render(request, 'inmobiliaria/caja/editar_movimiento_caja.html', _ctx_editar())
-
-        movimiento.monto_a_oficina = m_of
-        movimiento.monto_a_propietario = m_prop
-        movimiento.monto_a_inquilino = m_inq
-        movimiento.a_descontar = _derivar_a_descontar_desde_imputacion(m_of, m_prop, m_inq)
-
-        movimiento.save(update_fields=[
-            'monto_efectivo', 'monto_cheque', 'monto_tarjeta',
-            'monto_deposito', 'monto_dolares', 'destino_deposito', 'fecha_transferencia',
-            'monto_a_oficina', 'monto_a_propietario', 'monto_a_inquilino', 'a_descontar',
-        ])
-        movimiento.refresh_from_db()
-        _sincronizar_montos_anexos_movimiento(movimiento)
-        messages.success(
-            request,
-            f'Forma de pago y cargo del movimiento #{movimiento.id} actualizados. '
-            f'Corresponde a: {movimiento.get_a_descontar_display() or "—"}. '
-            f'Total ARS: ${format_monto_argentino(movimiento.monto_total)}.',
-        )
-        return _volver()
-
-    return render(
-        request,
-        'inmobiliaria/caja/editar_movimiento_caja.html',
-        _ctx_editar(),
-    )
+    params = {'edit_id': str(movimiento.id)}
+    next_url = (request.GET.get('next') or request.POST.get('next') or '').strip()
+    if next_url:
+        params['next'] = next_url
+    url = reverse('inmobiliaria:nuevo_movimiento')
+    return redirect(f'{url}?{urlencode(params)}')
 
 
 @login_required
@@ -13235,6 +13085,194 @@ def _buscar_movimiento_caja_duplicado_reciente(
     return qs.order_by('-fecha', '-id').first()
 
 
+def _form_post_desde_movimiento(movimiento):
+    """Arma el mismo dict que _serializar_form_post para precargar el form de edición."""
+    from inmobiliaria.models import GastoOficina
+    from inmobiliaria.models.vale import ValeVendedor
+    from inmobiliaria.oficina_gastos import par_sucursales_reparto_gasto_oficina
+
+    def _m(val):
+        return format_monto_argentino(val or 0)
+
+    fecha_str = ''
+    if movimiento.fecha:
+        fecha_str = timezone.localtime(movimiento.fecha).strftime('%Y-%m-%dT%H:%M')
+
+    concepto_id = movimiento.concepto_catalogo_id() or ''
+    concepto_nombre = (movimiento.nombre_concepto_catalogo or '').strip()
+    detalles = ''
+    raw_concepto = (movimiento.concepto_sin_pipe_conceptos() or '').strip()
+    if concepto_id and ' — ' in raw_concepto:
+        parts = raw_concepto.split(' — ')
+        if len(parts) >= 3:
+            detalles = ' — '.join(parts[2:]).strip()
+
+    m_ef = Decimal(str(movimiento.monto_efectivo or 0))
+    m_ch = Decimal(str(movimiento.monto_cheque or 0))
+    m_ta = Decimal(str(movimiento.monto_tarjeta or 0))
+    m_dp = Decimal(str(movimiento.monto_deposito or 0))
+    m_dol = Decimal(str(movimiento.monto_dolares or 0))
+    total_ars = m_ef + m_ch + m_ta + m_dp
+    if m_dol > 0 and total_ars <= 0:
+        moneda = 'USD'
+    elif m_dol > 0 and total_ars > 0:
+        moneda = 'MIXTO'
+    else:
+        moneda = 'ARS'
+
+    fp = {
+        'tipo': (movimiento.tipo or 'IN').strip().upper()[:2] or 'IN',
+        'tipo_comprobante': (movimiento.tipo_comprobante or 'RC').strip().upper()[:2] or 'RC',
+        'numero_liquidacion': (movimiento.numero_liquidacion or '').strip(),
+        'fecha': fecha_str,
+        'fecha_desde': movimiento.fecha_desde.strftime('%Y-%m-%d') if movimiento.fecha_desde else '',
+        'fecha_hasta': movimiento.fecha_hasta.strftime('%Y-%m-%d') if movimiento.fecha_hasta else '',
+        'concepto_id': str(concepto_id) if concepto_id else '',
+        'concepto_nombre': concepto_nombre,
+        'detalles': detalles,
+        'propiedad_id': str(movimiento.propiedad_id) if movimiento.propiedad_id else '',
+        'productor_id': '',
+        'tipo_beneficiario_vale': '',
+        'beneficiario_nombre_vale': '',
+        'beneficiario_apellido_vale': '',
+        'beneficiario_dni_vale': '',
+        'monto_efectivo': _m(m_ef),
+        'monto_cheque': _m(m_ch),
+        'monto_tarjeta': _m(m_ta),
+        'monto_deposito': _m(m_dp),
+        'destino_deposito': (movimiento.destino_deposito or '').strip(),
+        'dolares': _m(m_dol),
+        'monto_dolares': _m(m_dol),
+        'moneda_movimiento': moneda,
+        'cotizacion_dolar': _m(movimiento.cotizacion_dolar) if movimiento.cotizacion_dolar else '',
+        'monto_a_oficina': _m(movimiento.monto_a_oficina),
+        'monto_a_propietario': _m(movimiento.monto_a_propietario),
+        'monto_a_inquilino': _m(movimiento.monto_a_inquilino),
+        'tarjeta_numero': (movimiento.tarjeta_numero or '').strip(),
+        'tarjeta_cupon': (movimiento.tarjeta_cupon or '').strip(),
+        'tarjeta_tipo': (movimiento.tarjeta_tipo or '').strip(),
+        'cheque_numero': (movimiento.cheque_numero or '').strip(),
+        'cheque_banco': (movimiento.cheque_banco or '').strip(),
+        'cheque_fecha_vencimiento': (
+            movimiento.cheque_fecha_vencimiento.strftime('%Y-%m-%d')
+            if movimiento.cheque_fecha_vencimiento else ''
+        ),
+        'movimiento_uid': '',
+        'operacion_ref_tipo': '',
+        'operacion_ref_id': '',
+        'reserva_operacion_id': '',
+        'gasto_oficina_categoria_id': '',
+        'gasto_oficina_vendedor_id': '',
+        'gasto_oficina_descripcion': '',
+        'gasto_oficina_observaciones': '',
+        'fecha_transferencia': (
+            movimiento.fecha_transferencia.strftime('%Y-%m-%d')
+            if movimiento.fecha_transferencia else ''
+        ),
+        'gasto_oficina_pct_colon': '',
+        'gasto_oficina_pct_corrientes': '',
+        'es_gasto_oficina': False,
+        'edit_id': str(movimiento.id),
+    }
+
+    prop = getattr(movimiento, 'propiedad', None)
+    if prop:
+        fp['propiedad_direccion'] = (prop.direccion or '').strip()
+        fp['propiedad_piso'] = (prop.piso or '').strip()
+        fp['propiedad_departamento'] = (prop.departamento or '').strip()
+
+    cheques = []
+    try:
+        for c in movimiento.cheques.all().order_by('orden', 'id'):
+            cheques.append({
+                'monto': _m(c.monto),
+                'numero': (c.numero or '').strip(),
+                'banco': (c.banco or '').strip(),
+                'fecha': c.fecha_vencimiento.strftime('%Y-%m-%d') if c.fecha_vencimiento else '',
+            })
+    except Exception:
+        pass
+    if cheques:
+        fp['cheques'] = cheques
+
+    vale = (
+        ValeVendedor.objects.filter(movimiento_caja=movimiento)
+        .select_related('vendedor')
+        .first()
+    )
+    if vale:
+        fp['tipo_beneficiario_vale'] = (vale.tipo_beneficiario or '').strip()
+        fp['beneficiario_nombre_vale'] = (vale.beneficiario_nombre or '').strip()
+        fp['beneficiario_apellido_vale'] = (vale.beneficiario_apellido or '').strip()
+        fp['beneficiario_dni_vale'] = (vale.beneficiario_dni or '').strip()
+        if vale.vendedor_id:
+            fp['productor_id'] = str(vale.vendedor_id)
+            fp['productor_nombre'] = (vale.vendedor.nombre or '').strip()
+            fp['productor_apellido'] = (vale.vendedor.apellido or '').strip()
+
+    try:
+        gasto = (
+            GastoOficina.objects.filter(movimiento_caja=movimiento)
+            .select_related('categoria', 'vendedor', 'gasto_relacionado')
+            .first()
+        )
+    except Exception:
+        gasto = None
+    if gasto:
+        fp['es_gasto_oficina'] = True
+        fp['gasto_oficina_categoria_id'] = str(gasto.categoria_id)
+        fp['gasto_oficina_descripcion'] = (gasto.descripcion or '').strip()
+        fp['gasto_oficina_observaciones'] = (gasto.observaciones or '').strip()
+        if gasto.vendedor_id:
+            fp['gasto_oficina_vendedor_id'] = str(gasto.vendedor_id)
+            fp['gasto_oficina_vendedor_nombre'] = (gasto.vendedor.nombre or '').strip()
+            fp['gasto_oficina_vendedor_apellido'] = (gasto.vendedor.apellido or '').strip()
+        par = par_sucursales_reparto_gasto_oficina(movimiento.sucursal)
+        if par and gasto.porcentaje is not None:
+            pct_local = Decimal(str(gasto.porcentaje))
+            pct_otra = (
+                Decimal(str(gasto.gasto_relacionado.porcentaje))
+                if gasto.gasto_relacionado_id and gasto.gasto_relacionado.porcentaje is not None
+                else (Decimal('100') - pct_local)
+            )
+            if par.get('local_key') == 'colon':
+                fp['gasto_oficina_pct_colon'] = str(pct_local)
+                fp['gasto_oficina_pct_corrientes'] = str(pct_otra)
+            else:
+                fp['gasto_oficina_pct_corrientes'] = str(pct_local)
+                fp['gasto_oficina_pct_colon'] = str(pct_otra)
+
+    # Referencia a operación / devolución depósito
+    cd_raw = (getattr(movimiento, 'concepto_detalle', None) or '').strip()
+    if cd_raw.startswith('{'):
+        try:
+            import json
+            data = json.loads(cd_raw)
+            if isinstance(data, dict):
+                for key, tipo in (
+                    ('devolucion_deposito_reserva_id', 'reserva'),
+                    ('devolucion_deposito_contrato_id', 'contrato'),
+                    ('reserva_id', 'reserva'),
+                    ('contrato_id', 'contrato'),
+                ):
+                    if data.get(key):
+                        fp['operacion_ref_tipo'] = tipo
+                        fp['operacion_ref_id'] = str(data[key])
+                        if tipo == 'reserva':
+                            fp['reserva_operacion_id'] = str(data[key])
+                        break
+        except Exception:
+            pass
+    if not fp['operacion_ref_id']:
+        match_op = re.search(r'Operaci[oó]n\s*#?\s*(\d+)', raw_concepto, re.IGNORECASE)
+        if match_op:
+            fp['operacion_ref_tipo'] = 'reserva'
+            fp['operacion_ref_id'] = match_op.group(1)
+            fp['reserva_operacion_id'] = match_op.group(1)
+
+    return fp
+
+
 def _serializar_form_post_nuevo_movimiento(request):
     """Datos del POST para re-poblar el formulario de nuevo movimiento tras un error."""
     if request.method != 'POST':
@@ -13251,7 +13289,7 @@ def _serializar_form_post_nuevo_movimiento(request):
         'cheque_fecha_vencimiento', 'movimiento_uid', 'operacion_ref_tipo', 'operacion_ref_id',
         'reserva_operacion_id', 'gasto_oficina_categoria_id', 'gasto_oficina_vendedor_id',
         'gasto_oficina_descripcion', 'gasto_oficina_observaciones', 'fecha_transferencia',
-        'gasto_oficina_pct_colon', 'gasto_oficina_pct_corrientes',
+        'gasto_oficina_pct_colon', 'gasto_oficina_pct_corrientes', 'edit_id',
     )
     fp = {k: (post.get(k) or '').strip() for k in campos}
     # Compatibilidad: el campo visible usa monto_dolares; legacy usaba dolares.
@@ -13370,13 +13408,42 @@ def nuevo_movimiento(request, numero_caja=None):
         categorias_opciones_con_flags,
         categorias_opciones_grupos,
         defaults_porcentajes_reparto_gasto_oficina,
+        eliminar_gastos_oficina_de_movimiento,
         par_sucursales_reparto_gasto_oficina,
         registrar_gasto_oficina_desde_movimiento,
         validar_gasto_oficina_post,
         validar_porcentajes_reparto_gasto_oficina,
     )
 
-    if numero_caja:
+    movimiento_edicion = None
+    edit_id_raw = (request.POST.get('edit_id') or request.GET.get('edit_id') or '').strip()
+    next_url_edicion = (request.POST.get('next') or request.GET.get('next') or '').strip()
+    if edit_id_raw.isdigit():
+        if not usuario_puede_editar_movimiento_caja(request.user):
+            messages.error(
+                request,
+                'Solo el super administrador puede editar un movimiento de caja.',
+            )
+            return redirect('inmobiliaria:gestionar_caja')
+        movimiento_edicion = get_object_or_404(
+            MovimientoCaja.objects.select_related('caja', 'propiedad', 'empleado'),
+            id=int(edit_id_raw),
+            sucursal=request.user.sucursal,
+        )
+        if getattr(movimiento_edicion, 'fecha_eliminacion', None):
+            messages.error(request, 'No se puede editar un movimiento anulado.')
+            caja_num = movimiento_edicion.caja.numero if movimiento_edicion.caja_id else None
+            if caja_num:
+                return redirect('inmobiliaria:detalle_caja', numero=caja_num)
+            return redirect('inmobiliaria:todos_movimientos_caja')
+        MovimientoCaja.precargar_nombres_concepto(
+            [movimiento_edicion], sucursal=request.user.sucursal
+        )
+        caja = movimiento_edicion.caja
+        if not caja:
+            messages.error(request, 'El movimiento no tiene caja asociada.')
+            return redirect('inmobiliaria:todos_movimientos_caja')
+    elif numero_caja:
         caja = get_object_or_404(Caja, numero=numero_caja, sucursal=request.user.sucursal, estado='abierta')
     else:
         # Varias cajas abiertas (datos legacy) rompen .get(); alineado con gestionar_caja / detalle.
@@ -13433,6 +13500,11 @@ def nuevo_movimiento(request, numero_caja=None):
             'concepto_devolucion_deposito': concepto_devolucion_deposito_catalogo(sucursal),
             'reparto_gasto_oficina': par_reparto,
             'reparto_gasto_oficina_defaults': defaults_reparto,
+            'editando_movimiento': bool(movimiento_edicion),
+            'edit_id': movimiento_edicion.id if movimiento_edicion else None,
+            'next': _validar_url_volver_recibo(next_url_edicion, request) or (
+                next_url_edicion if next_url_edicion == 'todos_movimientos' else ''
+            ),
         }
         if extra:
             ctx.update(extra)
@@ -13442,6 +13514,8 @@ def nuevo_movimiento(request, numero_caja=None):
                 ctx['form_post'] = form_post
                 if form_post.get('movimiento_uid'):
                     ctx['movimiento_uid'] = form_post['movimiento_uid']
+        elif movimiento_edicion and 'form_post' not in ctx:
+            ctx['form_post'] = _form_post_desde_movimiento(movimiento_edicion)
         return ctx
 
     if request.method == 'POST':
@@ -13539,10 +13613,11 @@ def nuevo_movimiento(request, numero_caja=None):
             tipo_comprobante_raw = request.POST.get('tipo_comprobante', 'RC')
             # Mapear valores comunes a códigos de 2 caracteres
             tipo_comprobante_map = {
-                'RC': 'RC', 'Recibo': 'RC',
+                'RC': 'RC', 'Recibo': 'RC', 'recibo': 'RC', 're': 'RC',
                 'LQ': 'LQ', 'Liquidación': 'LQ', 'liquidacion': 'LQ', 'liquidación': 'LQ',
-                'GS': 'GS', 'Gasto': 'GS',
-                'OT': 'OT', 'Otro': 'OT'
+                'GS': 'GS', 'Gasto': 'GS', 'gasto': 'GS', 'gs': 'GS',
+                'OT': 'OT', 'Otro': 'OT', 'otro': 'OT',
+                'factura': 'OT', 'nota_credito': 'OT', 'nota_debito': 'OT',
             }
             tipo_comprobante = tipo_comprobante_map.get(tipo_comprobante_raw, tipo_comprobante_raw[:2] if len(tipo_comprobante_raw) > 2 else tipo_comprobante_raw)
             if es_gasto_oficina:
@@ -13573,24 +13648,39 @@ def nuevo_movimiento(request, numero_caja=None):
                 )
                 return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
 
-            # Crear el movimiento con valores iniciales
-            movimiento = MovimientoCaja(
-                caja=caja,
-                tipo=tipo,
-                tipo_comprobante=tipo_comprobante,
-                numero_liquidacion=request.POST.get('numero_liquidacion', ''),
-                concepto=concepto_guardado,
-                propiedad_id=propiedad_id_mov,
-                fecha_desde=fecha_desde,
-                fecha_hasta=fecha_hasta,
-                monto_efectivo=0,
-                monto_cheque=0,
-                monto_tarjeta=0,
-                monto_deposito=0,
-                destino_deposito=None,
-                sucursal=request.user.sucursal,
-                empleado=request.user
-            )
+            # Crear o actualizar el movimiento
+            if movimiento_edicion:
+                movimiento = movimiento_edicion
+                movimiento.tipo = tipo
+                movimiento.tipo_comprobante = tipo_comprobante
+                movimiento.numero_liquidacion = request.POST.get('numero_liquidacion', '')
+                movimiento.concepto = concepto_guardado
+                movimiento.propiedad_id = propiedad_id_mov
+                movimiento.fecha_desde = fecha_desde
+                movimiento.fecha_hasta = fecha_hasta
+                movimiento.monto_efectivo = 0
+                movimiento.monto_cheque = 0
+                movimiento.monto_tarjeta = 0
+                movimiento.monto_deposito = 0
+                movimiento.destino_deposito = None
+            else:
+                movimiento = MovimientoCaja(
+                    caja=caja,
+                    tipo=tipo,
+                    tipo_comprobante=tipo_comprobante,
+                    numero_liquidacion=request.POST.get('numero_liquidacion', ''),
+                    concepto=concepto_guardado,
+                    propiedad_id=propiedad_id_mov,
+                    fecha_desde=fecha_desde,
+                    fecha_hasta=fecha_hasta,
+                    monto_efectivo=0,
+                    monto_cheque=0,
+                    monto_tarjeta=0,
+                    monto_deposito=0,
+                    destino_deposito=None,
+                    sucursal=request.user.sucursal,
+                    empleado=request.user
+                )
 
             # Procesar los montos
             try:
@@ -13868,8 +13958,30 @@ def nuevo_movimiento(request, numero_caja=None):
                 # Bloqueo de caja: dos POST simultáneos no pueden pasar el control de duplicado a la vez.
                 Caja.objects.select_for_update().get(pk=caja.pk)
 
-                if _movimiento_uid_ya_usado(request, movimiento_uid):
-                    duplicado_uid = _buscar_movimiento_caja_duplicado_reciente(
+                if not movimiento_edicion:
+                    if _movimiento_uid_ya_usado(request, movimiento_uid):
+                        duplicado_uid = _buscar_movimiento_caja_duplicado_reciente(
+                            caja,
+                            tipo,
+                            movimiento.propiedad_id,
+                            movimiento.concepto,
+                            m_ef,
+                            m_ch,
+                            m_ta,
+                            m_dp,
+                            m_dol,
+                            tipo_comprobante=tipo_comprobante,
+                            a_descontar=a_descontar_raw,
+                            empleado_id=empleado_id,
+                        )
+                        ref = f' #{duplicado_uid.id}' if duplicado_uid else ''
+                        messages.warning(
+                            request,
+                            f'Este movimiento ya fue guardado (envío duplicado). No se creó otro registro{ref}.',
+                        )
+                        return redirect('inmobiliaria:detalle_caja', numero=caja.numero)
+
+                    duplicado = _buscar_movimiento_caja_duplicado_reciente(
                         caja,
                         tipo,
                         movimiento.propiedad_id,
@@ -13883,39 +13995,19 @@ def nuevo_movimiento(request, numero_caja=None):
                         a_descontar=a_descontar_raw,
                         empleado_id=empleado_id,
                     )
-                    ref = f' #{duplicado_uid.id}' if duplicado_uid else ''
-                    messages.warning(
-                        request,
-                        f'Este movimiento ya fue guardado (envío duplicado). No se creó otro registro{ref}.',
-                    )
-                    return redirect('inmobiliaria:detalle_caja', numero=caja.numero)
-
-                duplicado = _buscar_movimiento_caja_duplicado_reciente(
-                    caja,
-                    tipo,
-                    movimiento.propiedad_id,
-                    movimiento.concepto,
-                    m_ef,
-                    m_ch,
-                    m_ta,
-                    m_dp,
-                    m_dol,
-                    tipo_comprobante=tipo_comprobante,
-                    a_descontar=a_descontar_raw,
-                    empleado_id=empleado_id,
-                )
-                if duplicado:
-                    _marcar_movimiento_uid_usado(request, movimiento_uid)
-                    messages.warning(
-                        request,
-                        f'Este movimiento ya fue registrado hace un momento '
-                        f'(movimiento #{duplicado.id}). No se creó un duplicado.',
-                    )
-                    return redirect('inmobiliaria:detalle_caja', numero=caja.numero)
+                    if duplicado:
+                        _marcar_movimiento_uid_usado(request, movimiento_uid)
+                        messages.warning(
+                            request,
+                            f'Este movimiento ya fue registrado hace un momento '
+                            f'(movimiento #{duplicado.id}). No se creó un duplicado.',
+                        )
+                        return redirect('inmobiliaria:detalle_caja', numero=caja.numero)
 
                 movimiento.save()
                 _guardar_cheques_movimiento(movimiento, cheques_detalle)
-                _marcar_movimiento_uid_usado(request, movimiento_uid)
+                if not movimiento_edicion:
+                    _marcar_movimiento_uid_usado(request, movimiento_uid)
                 if movimiento.tipo == TipoMovimientoCajaEnum.INGRESO:
                     from inmobiliaria.caja_devolucion_deposito import sincronizar_senia_reserva_desde_movimientos
 
@@ -13943,6 +14035,10 @@ def nuevo_movimiento(request, numero_caja=None):
                             ).first()
                             if reserva_sync:
                                 sincronizar_senia_reserva_desde_movimientos(reserva_sync)
+
+                if movimiento_edicion:
+                    eliminar_gastos_oficina_de_movimiento(movimiento)
+
                 if es_gasto_oficina and gasto_oficina_categoria:
                     registrar_gasto_oficina_desde_movimiento(
                         movimiento,
@@ -13957,6 +14053,7 @@ def nuevo_movimiento(request, numero_caja=None):
                     if (
                         categoria_gasto_es_vale(gasto_oficina_categoria)
                         and gasto_oficina_vendedor
+                        and not ValeVendedor.objects.filter(movimiento_caja=movimiento).exists()
                     ):
                         ValeVendedor.crear_desde_movimiento(
                             movimiento,
@@ -13965,15 +14062,31 @@ def nuevo_movimiento(request, numero_caja=None):
                             observaciones=gasto_oficina_observaciones,
                         )
                 elif quiere_vale and (vendedor_vale or tipo_beneficiario_vale == TipoBeneficiarioVale.OTRO):
-                    ValeVendedor.crear_desde_movimiento(
-                        movimiento,
-                        vendedor=vendedor_vale,
-                        usuario_creador=request.user,
-                        tipo_beneficiario=tipo_beneficiario_vale,
-                        beneficiario_nombre=beneficiario_nombre_vale,
-                        beneficiario_apellido=beneficiario_apellido_vale,
-                        beneficiario_dni=beneficiario_dni_vale,
-                    )
+                    if not ValeVendedor.objects.filter(movimiento_caja=movimiento).exists():
+                        ValeVendedor.crear_desde_movimiento(
+                            movimiento,
+                            vendedor=vendedor_vale,
+                            usuario_creador=request.user,
+                            tipo_beneficiario=tipo_beneficiario_vale,
+                            beneficiario_nombre=beneficiario_nombre_vale,
+                            beneficiario_apellido=beneficiario_apellido_vale,
+                            beneficiario_dni=beneficiario_dni_vale,
+                        )
+
+                if movimiento_edicion:
+                    _sincronizar_montos_anexos_movimiento(movimiento)
+
+            if movimiento_edicion:
+                messages.success(
+                    request,
+                    f'Movimiento #{movimiento.id} actualizado correctamente.',
+                )
+                safe_next = _validar_url_volver_recibo(next_url_edicion, request)
+                if safe_next:
+                    return redirect(safe_next)
+                if next_url_edicion == 'todos_movimientos':
+                    return redirect('inmobiliaria:todos_movimientos_caja')
+                return redirect('inmobiliaria:detalle_caja', numero=caja.numero)
 
             if es_gasto_oficina:
                 if categoria_gasto_es_vale(gasto_oficina_categoria):
@@ -14014,7 +14127,8 @@ def nuevo_movimiento(request, numero_caja=None):
             return redirect('inmobiliaria:nuevo_movimiento')
 
         except Exception as e:
-            messages.error(request, f'Error al crear el movimiento: {str(e)}')
+            accion = 'actualizar' if movimiento_edicion else 'crear'
+            messages.error(request, f'Error al {accion} el movimiento: {str(e)}')
             return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
     
     try:

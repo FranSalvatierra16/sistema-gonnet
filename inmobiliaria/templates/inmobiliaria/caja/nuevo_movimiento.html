@@ -89,7 +89,7 @@
 <div class="container-fluid mt-3">
     <div class="card">
         <div class="card-header">
-            <h3>Nuevo Movimiento de Caja</h3>
+            <h3>{% if editando_movimiento %}Editar Movimiento #{{ edit_id }}{% else %}Nuevo Movimiento de Caja{% endif %}</h3>
             <h5>Caja N°: {{ caja.numero }}</h5>
         </div>
         <div class="card-body">
@@ -637,12 +637,20 @@
                 <input type="hidden" name="sucursal" value="{{ request.user.sucursal.id }}">
                 <input type="hidden" name="empleado" value="{{ request.user.id }}">
                 <input type="hidden" name="movimiento_uid" id="movimiento_uid" value="{{ movimiento_uid }}">
+                {% if edit_id %}<input type="hidden" name="edit_id" value="{{ edit_id }}">{% endif %}
+                {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
 
                 <!-- Botones -->
                                 <div class="row">
                     <div class="col">
-                        <button type="submit" class="btn btn-primary" id="btn_guardar_movimiento">Guardar</button>
+                        <button type="submit" class="btn btn-primary" id="btn_guardar_movimiento">{% if editando_movimiento %}Guardar cambios{% else %}Guardar{% endif %}</button>
+                        {% if next == 'todos_movimientos' %}
+                        <a href="{% url 'inmobiliaria:todos_movimientos_caja' %}" class="btn btn-secondary">Cancelar</a>
+                        {% elif next %}
+                        <a href="{{ next }}" class="btn btn-secondary">Cancelar</a>
+                        {% else %}
                         <a href="{% url 'inmobiliaria:detalle_caja' caja.numero %}" class="btn btn-secondary">Cancelar</a>
+                        {% endif %}
                                             </div>
                                         </div>
             </form>
@@ -2701,7 +2709,8 @@ $(document).ready(function() {
         actualizarVisibilidadMoneda();
         aplicarFormatoMontosFormulario();
         enviandoMovimientoCaja = false;
-        $('#btn_guardar_movimiento').prop('disabled', false).html('Guardar');
+        var txtBtn = {% if editando_movimiento %}'<i class="fas fa-save"></i> Guardar cambios'{% else %}'Guardar'{% endif %};
+        $('#btn_guardar_movimiento').prop('disabled', false).html(txtBtn);
 
         // Se volvió del servidor tras un rechazo: mostrar el mensaje de error arriba.
         var $alertaError = $('.alert-danger, .alert-error').first();
