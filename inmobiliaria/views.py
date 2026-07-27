@@ -4190,7 +4190,7 @@ def _operaciones_impl(request):
 def listado_entradas(request):
     """
     Listado de entradas por fecha exacta (inicio de alquiler).
-    Incluye reservas temporales y contratos (invierno/24 meses).
+    Incluye reservas confirmadas/pagadas y contratos activos/finalizados.
     """
     if not usuario_es_nivel_administracion(request.user):
         messages.error(request, 'No tenés permisos para acceder a esta sección.')
@@ -4217,7 +4217,8 @@ def listado_entradas(request):
     reservas = Reserva.objects.filter(
         sucursal=request.user.sucursal,
         eliminada=False,
-        estado__in=['confirmada', 'confirmada_no_pagada', 'pagada'],
+        # Solo operaciones confirmadas / pagadas (no «Reservado» sin confirmar).
+        estado__in=['confirmada', 'pagada'],
         fecha_inicio=fecha_obj,
     ).select_related('cliente', 'propiedad__propietario', 'vendedor').order_by('fecha_inicio', 'id')
 
@@ -4268,7 +4269,7 @@ def listado_entradas(request):
     contratos = ContratoAlquiler.objects.filter(
         sucursal=request.user.sucursal,
         fecha_inicio=fecha_obj,
-    ).exclude(estado='rescindido').select_related(
+    ).exclude(estado__in=['rescindido', 'reservado']).select_related(
         'inquilino', 'propiedad__propietario', 'vendedor'
     ).order_by('fecha_inicio', 'id')
 
@@ -4406,7 +4407,7 @@ def listado_entradas(request):
 def listado_salidas(request):
     """
     Listado de salidas por fecha exacta (fin de alquiler).
-    Incluye reservas temporales y contratos (invierno/24 meses).
+    Incluye reservas confirmadas/pagadas y contratos activos/finalizados.
     """
     if not usuario_es_nivel_administracion(request.user):
         messages.error(request, 'No tenés permisos para acceder a esta sección.')
@@ -4430,7 +4431,8 @@ def listado_salidas(request):
     reservas = Reserva.objects.filter(
         sucursal=request.user.sucursal,
         eliminada=False,
-        estado__in=['confirmada', 'confirmada_no_pagada', 'pagada'],
+        # Solo operaciones confirmadas / pagadas (no «Reservado» sin confirmar).
+        estado__in=['confirmada', 'pagada'],
         fecha_fin=fecha_obj,
     ).select_related('cliente', 'propiedad__propietario', 'vendedor').order_by('fecha_fin', 'id')
 
@@ -4473,7 +4475,7 @@ def listado_salidas(request):
     contratos = ContratoAlquiler.objects.filter(
         sucursal=request.user.sucursal,
         fecha_fin=fecha_obj,
-    ).exclude(estado='rescindido').select_related(
+    ).exclude(estado__in=['rescindido', 'reservado']).select_related(
         'inquilino', 'propiedad__propietario', 'vendedor'
     ).order_by('fecha_fin', 'id')
 
