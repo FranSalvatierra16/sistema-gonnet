@@ -123,7 +123,7 @@
                     <th>Nº</th>
                     <th>Fecha op.</th>
                     <th>Carátula</th>
-                    <th>Propiedad</th>
+                    <th>Propietario</th>
                     <th>Dirección</th>
                     <th>Piso / Dto</th>
                     <th>Ficha</th>
@@ -147,8 +147,7 @@
                     <td>{{ f.fecha|date:"d/m/Y" }}{% if f.sort_instante %} <span class="text-muted">{{ f.sort_instante|date:"H:i" }}</span>{% endif %}</td>
                     <td>{{ f.caratula }}</td>
                     <td class="small">
-                        <strong>{{ f.propiedad_linea }}</strong>
-                        {% if f.propiedad_sub %}<br><span class="text-muted">{{ f.propiedad_sub|truncatechars:56 }}</span>{% endif %}
+                        <strong>{{ f.propietario_nombre }}</strong>
                     </td>
                     <td class="small">{{ f.direccion|truncatechars:48 }}</td>
                     <td class="small text-muted">{{ f.piso_dto }}</td>

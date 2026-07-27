@@ -3562,7 +3562,7 @@ def lista_caratulas(request):
 
     contratos = queryset_contratos_con_operacion(
         ContratoAlquiler.objects.filter(sucursal=sucursal).select_related(
-            'propiedad', 'inquilino', 'vendedor'
+            'propiedad', 'propiedad__propietario', 'inquilino', 'vendedor'
         )
     )
     if tipo_filtro == 'invierno':
@@ -3660,6 +3660,7 @@ def lista_caratulas(request):
                 'fecha_operacion': _fecha_operacion_reserva(r),
                 'sort_instante': _instante_operacion_reserva(r),
                 'caratula': _caratula_nombre_cliente(r.cliente),
+                'propietario_nombre': _nombre_propietario_papel(getattr(p, 'propietario', None) if p else None),
                 'propiedad_linea': plinea,
                 'propiedad_sub': psub,
                 'direccion': p.direccion if p else '—',
@@ -3706,6 +3707,7 @@ def lista_caratulas(request):
                 'fecha_operacion': c.fecha_operacion,
                 'sort_instante': _instante_operacion_contrato(c),
                 'caratula': _caratula_nombre_cliente(c.inquilino),
+                'propietario_nombre': _nombre_propietario_papel(getattr(p, 'propietario', None) if p else None),
                 'propiedad_linea': clinea,
                 'propiedad_sub': csub,
                 'direccion': p.direccion if p else '—',
