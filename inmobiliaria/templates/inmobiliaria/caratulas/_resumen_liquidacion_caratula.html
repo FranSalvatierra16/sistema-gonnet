@@ -56,7 +56,8 @@
                     Podés ajustar los montos antes de liquidar. Se guardan con <strong>Guardar cambios</strong> o <strong>Guardar montos</strong> y se precargan al crear la liquidación.
                     {% endif %}
                     La suma de los cuatro importes debe ser igual al <strong>total de la operación</strong>.
-                    La <strong>cochera inquilino</strong> es aparte y se suma a la cochera de oficina al liquidar.
+                    La <strong>cochera inquilino</strong> es aparte y se suma a la cochera de oficina
+                    (Honorarios → Cochera, con fecha = día de entrada del depto).
                 </p>
                 <div id="liq-resumen-suma-alerta" class="alert alert-warning py-2 small mb-2 d-none" role="alert"></div>
                 {% endif %}
@@ -135,7 +136,7 @@
                                class="form-control form-control-sm input-monto-ar text-end liq-resumen-input-extra"
                                inputmode="decimal" autocomplete="off" placeholder="0,00"
                                value="{{ edit_montos_liquidacion.monto_cochera_inquilino }}">
-                        <div class="form-text">No entra en el reparto de arriba. Se suma a tu cochera de oficina (Honorarios → Cochera y al liquidar).</div>
+                        <div class="form-text">No entra en el reparto de arriba. Se suma a tu cochera de oficina (Honorarios → Cochera, día de entrada, y al liquidar).</div>
                         {% else %}
                         <div class="fw-semibold">
                             {{ resumen_liquidacion.monto_cochera_inquilino|default:0|format_importe_moneda:resumen_liquidacion.moneda }}
