@@ -1609,7 +1609,8 @@ def _guardar_caratula_contrato(request, contrato):
         com_loc = liq.comision_locador
     if com_loc < 0:
         com_loc = Decimal('0')
-    if liq:
+    # Solo tocar liquidación pendiente: no reescribir una ya cerrada/pagada.
+    if liq and (liq.estado or '') == 'pendiente':
         liq.comision_locador = com_loc.quantize(Decimal('0.01'))
         liq.comision_locatario = comision_locatario.quantize(Decimal('0.01'))
         liq.save(update_fields=['comision_locador', 'comision_locatario'])
@@ -1631,6 +1632,14 @@ def _guardar_caratula_contrato(request, contrato):
             contrato,
             honorarios_monto=base_comisiones,
             movimiento_caja=movs_op[0] if movs_op else None,
+        )
+    elif liq and (liq.estado or '') != 'pendiente':
+        # Hay liquidación cerrada: no pisar montos ni regenerar comisiones pagadas.
+        _set_comisiones_override_caratula(request, contrato.id, com_loc, comision_locatario)
+        messages.info(
+            request,
+            'La liquidación ya no está pendiente: se guardaron fechas/montos de la carátula '
+            'sin recalcular comisiones ni modificar la liquidación cerrada.',
         )
     elif comision_locatario > 0 or com_loc > 0:
         _set_comisiones_override_caratula(request, contrato.id, com_loc, comision_locatario)

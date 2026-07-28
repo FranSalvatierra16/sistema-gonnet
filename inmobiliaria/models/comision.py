@@ -777,16 +777,15 @@ def registrar_comisiones_honorarios_contrato(contrato, honorarios_monto, movimie
         if hasattr(contrato, 'categoria_tipo_operacion')
         else '24'
     )
+    qs_fichaje = ComisionVendedor.objects.filter(
+        contrato=contrato,
+        rol_comision=ROL_COMISION_FICHAJE,
+        estado='pendiente',
+    )
     if vend_fichaje:
-        ComisionVendedor.objects.filter(
-            contrato=contrato,
-            rol_comision=ROL_COMISION_FICHAJE,
-        ).exclude(estado='cancelada').exclude(vendedor=vend_fichaje).delete()
+        qs_fichaje.exclude(vendedor=vend_fichaje).delete()
     else:
-        ComisionVendedor.objects.filter(
-            contrato=contrato,
-            rol_comision=ROL_COMISION_FICHAJE,
-        ).exclude(estado='cancelada').delete()
+        qs_fichaje.delete()
     pct_fichaje = None
     if vend_fichaje:
         pct_fichaje = vend_fichaje.porcentaje_fichaje_efectivo(tipo_fichaje, cat)
@@ -794,7 +793,8 @@ def registrar_comisiones_honorarios_contrato(contrato, honorarios_monto, movimie
         ComisionVendedor.objects.filter(
             contrato=contrato,
             rol_comision=ROL_COMISION_FICHAJE,
-        ).exclude(estado='cancelada').delete()
+            estado='pendiente',
+        ).delete()
     if pct_fichaje is not None and pct_fichaje > 0 and vend_fichaje:
         cat_lbl = _etiqueta_categoria_fichaje(cat)
         c = ComisionVendedor.crear_comision_linea_contrato(
@@ -809,7 +809,7 @@ def registrar_comisiones_honorarios_contrato(contrato, honorarios_monto, movimie
             rol_comision=ROL_COMISION_FICHAJE,
             fecha_operacion=fecha_op,
         )
-        if c:
+        if c and not _comision_acreditada(c):
             nuevo_monto = (
                 Decimal(str(honorarios_monto)) * Decimal(str(pct_fichaje)) / Decimal('100')
             ).quantize(Decimal('0.01'))
@@ -825,6 +825,8 @@ def registrar_comisiones_honorarios_contrato(contrato, honorarios_monto, movimie
                 updates.append('porcentaje_comision')
             if updates:
                 c.save(update_fields=updates)
+            creadas.append(c)
+        elif c:
             creadas.append(c)
 
     if cat not in ('invierno', '24'):
@@ -864,7 +866,7 @@ def registrar_comisiones_honorarios_contrato(contrato, honorarios_monto, movimie
             rol_comision=rol,
             fecha_operacion=fecha_op,
         )
-        if c:
+        if c and not _comision_acreditada(c):
             nuevo_monto = (
                 Decimal(str(base_parte)) * Decimal(str(pct)) / Decimal('100')
             ).quantize(Decimal('0.01'))
@@ -880,6 +882,8 @@ def registrar_comisiones_honorarios_contrato(contrato, honorarios_monto, movimie
                 updates.append('porcentaje_comision')
             if updates:
                 c.save(update_fields=updates)
+            creadas.append(c)
+        elif c:
             creadas.append(c)
 
     return creadas
@@ -900,10 +904,17 @@ def asegurar_comisiones_contrato(contrato, honorarios_monto=None, movimiento_caj
     )
 
 
+def _comision_acreditada(comision):
+    """Confirmada o pagada: no se borra ni se recalcula el monto."""
+    return getattr(comision, 'estado', None) in ('confirmada', 'pagada')
+
+
 def _eliminar_comisiones_productor_reserva(reserva, vendedor_id=None):
+    """Solo quita pendientes. Las acreditadas/pagadas se conservan."""
     qs = ComisionVendedor.objects.filter(
         reserva=reserva,
         rol_comision__in=ROLES_COMISION_PRODUCTOR,
+        estado='pendiente',
     )
     if vendedor_id is not None:
         qs = qs.filter(vendedor_id=vendedor_id)
@@ -911,9 +922,11 @@ def _eliminar_comisiones_productor_reserva(reserva, vendedor_id=None):
 
 
 def _eliminar_comisiones_productor_contrato(contrato, vendedor_id=None):
+    """Solo quita pendientes. Las acreditadas/pagadas se conservan."""
     qs = ComisionVendedor.objects.filter(
         contrato=contrato,
         rol_comision__in=ROLES_COMISION_PRODUCTOR,
+        estado='pendiente',
     )
     if vendedor_id is not None:
         qs = qs.filter(vendedor_id=vendedor_id)
