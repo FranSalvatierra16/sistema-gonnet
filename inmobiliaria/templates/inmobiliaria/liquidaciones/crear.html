@@ -2450,6 +2450,12 @@ document.addEventListener('DOMContentLoaded', function() {
             form.querySelectorAll('input.dynamic-operacion-seleccionada').forEach(function(el) {
                 el.remove();
             });
+            form.querySelectorAll('input.dynamic-gasto-seleccionado').forEach(function(el) {
+                el.remove();
+            });
+            const jsonGastoPrev = form.querySelector('input[name="gastos_seleccionados_json"]');
+            if (jsonGastoPrev) jsonGastoPrev.remove();
+
             opsMarcadas.forEach(function(cb) {
                 const tipo = cb.getAttribute('data-tipo');
                 const id = cb.getAttribute('data-id');
@@ -2461,6 +2467,25 @@ document.addEventListener('DOMContentLoaded', function() {
                 inp.value = tipo + ':' + id;
                 form.appendChild(inp);
             });
+
+            // Respaldo explícito de gastos (incluye movimiento_N de caja).
+            const idsGastos = [];
+            gastosMarcados.forEach(function(cb) {
+                const gid = String(cb.value || '').trim();
+                if (!gid) return;
+                idsGastos.push(gid);
+                const inpG = document.createElement('input');
+                inpG.type = 'hidden';
+                inpG.name = 'gastos_seleccionados[]';
+                inpG.className = 'dynamic-gasto-seleccionado';
+                inpG.value = gid;
+                form.appendChild(inpG);
+            });
+            const inpJson = document.createElement('input');
+            inpJson.type = 'hidden';
+            inpJson.name = 'gastos_seleccionados_json';
+            inpJson.value = JSON.stringify(idsGastos);
+            form.appendChild(inpJson);
         }
         return true;
     };
