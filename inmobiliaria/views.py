@@ -28214,7 +28214,8 @@ def _nombre_concepto_gasto_para_impresion(gasto):
 
 def _detalle_impreso_gasto_liquidacion(gasto):
     """
-    Texto de DETALLE en liquidación de cobranzas: solo el nombre del concepto.
+    Texto de DETALLE en liquidación de cobranzas: nombre del concepto + detalle libre.
+    Ej.: «CAMUZZI // PERIODO 3/26 CTA 2»
     """
     obs = (gasto.observaciones or '').strip()
     desc = (gasto.descripcion or '').strip()
@@ -28275,6 +28276,13 @@ def _detalle_impreso_gasto_liquidacion(gasto):
                 det = m_id.group(1).strip() if m_id else nombre_mov
 
     det = (det or 'MOVIMIENTO').strip().upper()
+    # Incluir el detalle libre (periodo, cuota, etc.) como en pantalla
+    obs_limpia = _observaciones_visibles_gasto(gasto)
+    if obs_limpia:
+        obs_u = obs_limpia.strip().upper()
+        # Evitar repetir el mismo texto si ya quedó en el concepto
+        if obs_u and obs_u != det and not det.endswith(f' // {obs_u}'):
+            det = f'{det} // {obs_u}'
     return det
 
 
