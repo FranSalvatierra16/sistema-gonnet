@@ -322,8 +322,8 @@
                                         <tr>
                                             <td>
                                                 {{ gasto.descripcion }}
-                                                {% if gasto.observaciones %}
-                                                <br><small class="text-muted">{{ gasto.observaciones }}</small>
+                                                {% if gasto.detalle_visible %}
+                                                <br><small class="text-muted">{{ gasto.detalle_visible }}</small>
                                                 {% endif %}
                                             </td>
                                             <td>

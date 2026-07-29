@@ -602,8 +602,20 @@ class MovimientoCaja(models.Model):
         """Texto libre del movimiento (detalle del formulario o segunda línea del concepto)."""
         raw = self.concepto_sin_pipe_conceptos().strip()
         if ' — ' in raw:
+            parts = raw.split(' — ')
+            # Formato caja: «id — nombre — detalle…»
+            if len(parts) >= 3:
+                tail = ' — '.join(parts[2:]).strip()
+                if tail:
+                    return tail[:200]
             tail = raw.split(' — ', 1)[1].strip()
             if tail:
+                # Si no hay 3 partes, no repetir el nombre de catálogo como “detalle”.
+                nombre = (self.nombre_concepto_catalogo or '').strip()
+                if nombre and tail.casefold() == nombre.casefold():
+                    return ''
+                if nombre and tail.casefold().startswith(nombre.casefold() + ' — '):
+                    return tail[len(nombre) + 3:].strip()[:200]
                 return tail[:200]
         if '\n' in raw:
             tail = raw.split('\n', 1)[1].strip()
@@ -789,34 +801,29 @@ class MovimientoCaja(models.Model):
             return f'{cat}\n{det}' if cat else det
         return cat or det or '—'
 
+    def detalle_libre_para_liquidacion_propietario(self):
+        """Texto libre cargado en el movimiento (lo que el usuario detalla al cargar el egreso)."""
+        return (self.listado_detalle_observacion or '').strip()
+
     def descripcion_para_gasto_liquidacion_propietario(self):
         """
-        Texto legible para liquidaciones (egreso descontable al propietario).
-        Usa el mismo criterio que el listado de caja (detalle / categoría) en lugar de solo «Egreso #id».
+        Concepto legible para liquidaciones (egreso descontable al propietario).
+        Solo el nombre del concepto; el detalle libre va en observaciones / impresión.
         """
-        bits = []
         l1 = (self.listado_detalle_l1 or '').strip()
         if l1 and l1 != '—':
-            bits.append(l1)
-        l2 = (self.listado_detalle_l2 or '').strip()
-        if l2 and l2 != '—':
-            bits.append(l2)
-        if not bits:
-            base = self.concepto_sin_pipe_conceptos().strip()
-            if base:
-                bits.append(self._texto_concepto_sin_abrev_re(base))
-        if not bits:
-            sec = (self.listado_detalle_tabla_secundario or '').strip()
-            if sec and sec != '—':
-                bits.append(sec)
-        if not bits:
-            try:
-                tipo_c = (self.get_tipo_comprobante_display() or '').strip() or (self.tipo_comprobante or '')
-            except Exception:
-                tipo_c = self.tipo_comprobante or ''
-            suf = f' · {tipo_c}' if tipo_c else ''
-            return f'Egreso de caja #{self.id}{suf} · ${self.monto_total}'
-        return ' · '.join(bits)
+            return l1[:200]
+        base = self.concepto_sin_pipe_conceptos().strip()
+        if base:
+            primera = self._texto_concepto_sin_abrev_re(base.split('\n', 1)[0].strip())
+            if primera:
+                return primera[:200]
+        try:
+            tipo_c = (self.get_tipo_comprobante_display() or '').strip() or (self.tipo_comprobante or '')
+        except Exception:
+            tipo_c = self.tipo_comprobante or ''
+        suf = f' · {tipo_c}' if tipo_c else ''
+        return f'Egreso de caja #{self.id}{suf}'
 
     class Meta:
         db_table = 'inmobiliaria_movimientocaja'

@@ -26145,7 +26145,7 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                                     monto=monto_gasto,
                                     moneda=liquidacion.moneda,
                                     fecha_gasto=movimiento.fecha.date() if movimiento.fecha else None,
-                                    observaciones=f'Movimiento de caja #{movimiento.id}',
+                                    observaciones=_observaciones_gasto_desde_movimiento_caja(movimiento),
                                     aceptado=True,
                                     sucursal=request.user.sucursal
                                 )
@@ -27066,6 +27066,24 @@ def _egreso_caja_debe_listarse_en_liquidacion(movimiento) -> bool:
     return a in ('oficina', '')
 
 
+def _observaciones_gasto_desde_movimiento_caja(movimiento):
+    """Guarda el detalle libre del egreso + marcador de vínculo a caja."""
+    marker = f'Movimiento de caja #{movimiento.id}'
+    detalle = ''
+    try:
+        detalle = (movimiento.detalle_libre_para_liquidacion_propietario() or '').strip()
+    except Exception:
+        detalle = ''
+    if not detalle:
+        try:
+            detalle = (movimiento.listado_detalle_observacion or '').strip()
+        except Exception:
+            detalle = ''
+    if detalle:
+        return f'{detalle}\n{marker}'
+    return marker
+
+
 def _dict_gasto_desde_egreso_caja(egreso, *, propiedad=None):
     """Serializa un egreso de caja como fila de gasto pendiente (id movimiento_N)."""
     descripcion = egreso.descripcion_para_gasto_liquidacion_propietario()[:200]
@@ -27077,16 +27095,16 @@ def _dict_gasto_desde_egreso_caja(egreso, *, propiedad=None):
         c2 = (getattr(egreso, 'listado_concepto_l2', None) or '').strip()
     except Exception:
         c2 = ''
-    concepto_mov = ' · '.join(x for x in (c1, c2) if x) or '—'
+    concepto_mov = ' · '.join(x for x in (c1, c2) if x) or descripcion or '—'
     try:
-        d1 = (getattr(egreso, 'listado_detalle_l1', None) or '').strip()
+        detalle_mov = (egreso.detalle_libre_para_liquidacion_propietario() or '').strip()
     except Exception:
-        d1 = ''
-    try:
-        d2 = (getattr(egreso, 'listado_detalle_l2', None) or '').strip()
-    except Exception:
-        d2 = ''
-    detalle_mov = ' · '.join(x for x in (d1, d2) if x and x != '—') or ''
+        detalle_mov = ''
+    if not detalle_mov:
+        try:
+            detalle_mov = (egreso.listado_detalle_observacion or '').strip()
+        except Exception:
+            detalle_mov = ''
     monto = _monto_descuento_propietario_egreso_caja(egreso)
     fecha = egreso.fecha
     if fecha:
@@ -27112,7 +27130,7 @@ def _dict_gasto_desde_egreso_caja(egreso, *, propiedad=None):
         'monto': str(monto),
         'fecha_gasto': fecha_iso,
         'fecha_gasto_display': fecha_disp,
-        'observaciones': f'Movimiento de caja #{egreso.id}',
+        'observaciones': _observaciones_gasto_desde_movimiento_caja(egreso),
         'tipo_movimiento': 'egreso',
         'tipo_movimiento_display': 'Egreso',
         'efecto_inquilino': 'contra',
@@ -27988,10 +28006,40 @@ def _precio_dia_alquiler_liquidacion(liquidacion, monto_propietario=None):
     return (monto / Decimal(str(dias))).quantize(Decimal('0.01'))
 
 
+def _observaciones_visibles_gasto(gasto):
+    """Observaciones para pantalla, sin marcadores técnicos internos."""
+    obs = (gasto.observaciones or '').strip()
+    lineas = []
+    mov_id = None
+    for linea in obs.splitlines():
+        l = linea.strip()
+        if not l:
+            continue
+        if re.match(r'liquidacion_pendiente_origen:\d+', l, re.I):
+            continue
+        m_mov = re.match(r'movimiento de caja #(\d+)\s*$', l, re.I)
+        if m_mov:
+            mov_id = int(m_mov.group(1))
+            continue
+        lineas.append(l)
+    texto = ' '.join(lineas).strip()
+    if texto:
+        return texto
+    if mov_id:
+        mov = MovimientoCaja.objects.filter(pk=mov_id).first()
+        if mov:
+            try:
+                return (mov.detalle_libre_para_liquidacion_propietario() or '').strip()
+            except Exception:
+                return (getattr(mov, 'listado_detalle_observacion', None) or '').strip()
+    return ''
+
+
 def _detalle_impreso_gasto_liquidacion(gasto):
     """
     Texto de DETALLE en liquidación de cobranzas.
-    Para arrastre de liquidación pendiente: solo Nº y tipo de saldo (sin marcadores técnicos).
+    Concepto + detalle/observaciones cargados (sin marcadores técnicos).
+    Para egresos de caja ya liquidificados, recupera el texto libre del movimiento.
     """
     obs = (gasto.observaciones or '').strip()
     desc = (gasto.descripcion or '').strip()
@@ -28018,20 +28066,51 @@ def _detalle_impreso_gasto_liquidacion(gasto):
             return f'LIQUIDACIÓN Nº {liq_id} — {saldo_txt}'
         return f'LIQUIDACIÓN PENDIENTE — {saldo_txt}'
 
-    det = (desc or 'MOVIMIENTO').upper()
-    if obs and not obs.lower().startswith('movimiento de caja #'):
-        # No imprimir marcadores internos tipo liquidacion_pendiente_origen:
-        lineas = []
-        for linea in obs.splitlines():
-            l = linea.strip()
-            if not l:
-                continue
-            if re.match(r'liquidacion_pendiente_origen:\d+', l, re.I):
-                continue
-            lineas.append(l)
-        obs_limpia = ' '.join(lineas).strip()
-        if obs_limpia:
-            det = f'{det} // {obs_limpia.upper()}'
+    # Concepto: quitar sufijos legados tipo « · PROP $40.000,00»
+    det = (desc or 'MOVIMIENTO').strip()
+    det = re.sub(
+        r'\s*·\s*(?:PROP|OF|INQ)\s*\$[\d.\s]+(?:,\d{2})?',
+        '',
+        det,
+        flags=re.I,
+    ).strip()
+    det = det or 'MOVIMIENTO'
+
+    lineas = []
+    mov_id = None
+    for linea in obs.splitlines():
+        l = linea.strip()
+        if not l:
+            continue
+        if re.match(r'liquidacion_pendiente_origen:\d+', l, re.I):
+            continue
+        m_mov = re.match(r'movimiento de caja #(\d+)\s*$', l, re.I)
+        if m_mov:
+            mov_id = int(m_mov.group(1))
+            continue
+        lineas.append(l)
+    obs_limpia = ' '.join(lineas).strip()
+
+    # Liquidaciones viejas: solo tenían el marcador; recuperar detalle del egreso de caja.
+    if not obs_limpia and mov_id:
+        try:
+            mov = MovimientoCaja.objects.filter(pk=mov_id).first()
+        except Exception:
+            mov = None
+        if mov:
+            try:
+                obs_limpia = (mov.detalle_libre_para_liquidacion_propietario() or '').strip()
+            except Exception:
+                obs_limpia = (getattr(mov, 'listado_detalle_observacion', None) or '').strip()
+            if not det or det.upper().startswith('EGRESO DE CAJA'):
+                try:
+                    det = (mov.descripcion_para_gasto_liquidacion_propietario() or det).strip()
+                except Exception:
+                    pass
+
+    det = det.upper()
+    if obs_limpia:
+        det = f'{det} // {obs_limpia.upper()}'
     return det
 
 
@@ -28368,7 +28447,7 @@ def _vincular_linea_gasto_pendiente_a_liquidacion(liquidacion, linea_id, sucursa
                 descripcion=desc_mov,
                 monto=monto_gasto,
                 fecha_gasto=movimiento.fecha.date() if movimiento.fecha else None,
-                observaciones=f'Movimiento de caja #{movimiento.id}',
+                observaciones=_observaciones_gasto_desde_movimiento_caja(movimiento),
                 aceptado=True,
                 sucursal=sucursal,
             )
@@ -28456,10 +28535,14 @@ def detalle_liquidacion(request, liquidacion_id):
     info_op = info_operacion_liquidacion(liquidacion)
     caratulas_pendientes = caratulas_pendientes_liquidacion(liquidacion)
 
+    gastos_list = list(liquidacion.gastos.all().order_by('-fecha_creacion'))
+    for g in gastos_list:
+        g.detalle_visible = _observaciones_visibles_gasto(g)
+
     context = {
         'liquidacion': liquidacion,
         'info_operacion_liquidacion': info_op,
-        'gastos': liquidacion.gastos.all().order_by('-fecha_creacion'),
+        'gastos': gastos_list,
         'division_operaciones': division_operaciones,
         'division_meta': division_meta,
         'saldo_parcial_reserva': saldo_parcial_reserva,
