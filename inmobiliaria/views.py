@@ -17260,7 +17260,7 @@ def lista_contratos(request):
         else:
             contrato.proxima_cuota = None
         # Flag para el template (evita contrato.cuotas.all → N+1)
-        contrato._tiene_cuotas = contrato.id in ids_con_cuotas
+        contrato.tiene_cuotas = contrato.id in ids_con_cuotas
 
         info_conc = conceptos_bulk.get(contrato.id) or {}
         contrato.deposito_estado = info_conc.get('deposito') or 'pendiente'
