@@ -28170,11 +28170,36 @@ def _observaciones_visibles_gasto(gasto):
     return ''
 
 
+def _nombre_concepto_gasto_para_impresion(gasto):
+    """Solo el nombre del concepto (sin ID ni observaciones)."""
+    cid = (getattr(gasto, 'concepto_caja_id', None) or '').strip()
+    if cid:
+        try:
+            from inmobiliaria.models.caja import Concepto
+
+            c = Concepto.objects.filter(pk=cid).only('nombre').first()
+            if c and (c.nombre or '').strip():
+                return (c.nombre or '').strip()
+        except Exception:
+            pass
+
+    desc = (gasto.descripcion or '').strip()
+    desc = re.sub(
+        r'\s*·\s*(?:PROP|OF|INQ)\s*\$[\d.\s]+(?:,\d{2})?',
+        '',
+        desc,
+        flags=re.I,
+    ).strip()
+    # Formato legado «2 - CAMUZZI» → CAMUZZI
+    m = re.match(r'^\d+\s*[-–—]\s*(.+)$', desc)
+    if m:
+        return m.group(1).strip()
+    return desc
+
+
 def _detalle_impreso_gasto_liquidacion(gasto):
     """
-    Texto de DETALLE en liquidación de cobranzas.
-    Concepto + detalle/observaciones cargados (sin marcadores técnicos).
-    Para egresos de caja ya liquidificados, recupera el texto libre del movimiento.
+    Texto de DETALLE en liquidación de cobranzas: solo el nombre del concepto.
     """
     obs = (gasto.observaciones or '').strip()
     desc = (gasto.descripcion or '').strip()
@@ -28201,51 +28226,40 @@ def _detalle_impreso_gasto_liquidacion(gasto):
             return f'LIQUIDACIÓN Nº {liq_id} — {saldo_txt}'
         return f'LIQUIDACIÓN PENDIENTE — {saldo_txt}'
 
-    # Concepto: quitar sufijos legados tipo « · PROP $40.000,00»
-    det = (desc or 'MOVIMIENTO').strip()
-    det = re.sub(
-        r'\s*·\s*(?:PROP|OF|INQ)\s*\$[\d.\s]+(?:,\d{2})?',
-        '',
-        det,
-        flags=re.I,
-    ).strip()
-    det = det or 'MOVIMIENTO'
+    det = _nombre_concepto_gasto_para_impresion(gasto)
 
-    lineas = []
+    # Egresos de caja viejos: descripción genérica → nombre real del movimiento
     mov_id = None
     for linea in obs.splitlines():
-        l = linea.strip()
-        if not l:
-            continue
-        if re.match(r'liquidacion_pendiente_origen:\d+', l, re.I):
-            continue
-        m_mov = re.match(r'movimiento de caja #(\d+)\s*$', l, re.I)
+        m_mov = re.match(r'movimiento de caja #(\d+)\s*$', linea.strip(), re.I)
         if m_mov:
             mov_id = int(m_mov.group(1))
-            continue
-        lineas.append(l)
-    obs_limpia = ' '.join(lineas).strip()
-
-    # Liquidaciones viejas: solo tenían el marcador; recuperar detalle del egreso de caja.
-    if not obs_limpia and mov_id:
+            break
+    det_u = (det or '').strip().upper()
+    if mov_id and (
+        not det_u
+        or det_u.startswith('EGRESO DE CAJA')
+        or det_u in ('OTROS', 'MOVIMIENTO', 'RECIBO', 'GASTOS')
+    ):
         try:
             mov = MovimientoCaja.objects.filter(pk=mov_id).first()
         except Exception:
             mov = None
         if mov:
             try:
-                obs_limpia = (mov.detalle_libre_para_liquidacion_propietario() or '').strip()
+                nombre_mov = (mov.nombre_concepto_catalogo or '').strip()
             except Exception:
-                obs_limpia = (getattr(mov, 'listado_detalle_observacion', None) or '').strip()
-            if not det or det.upper().startswith('EGRESO DE CAJA'):
+                nombre_mov = ''
+            if not nombre_mov:
                 try:
-                    det = (mov.descripcion_para_gasto_liquidacion_propietario() or det).strip()
+                    nombre_mov = (mov.descripcion_para_gasto_liquidacion_propietario() or '').strip()
                 except Exception:
-                    pass
+                    nombre_mov = ''
+            if nombre_mov:
+                m_id = re.match(r'^\d+\s*[-–—]\s*(.+)$', nombre_mov)
+                det = m_id.group(1).strip() if m_id else nombre_mov
 
-    det = det.upper()
-    if obs_limpia:
-        det = f'{det} // {obs_limpia.upper()}'
+    det = (det or 'MOVIMIENTO').strip().upper()
     return det
 
 
@@ -28752,7 +28766,7 @@ def _concepto_gasto_desde_post(post, sucursal):
     ).filter(q_conceptos_caja_visibles(sucursal)).first()
     if not concepto:
         return None, None, 'El concepto seleccionado no es válido.'
-    descripcion = f'{concepto.id} - {concepto.nombre}'
+    descripcion = (concepto.nombre or '').strip() or str(concepto.id)
     return concepto, descripcion, None
 
 
@@ -28780,10 +28794,11 @@ def _dict_gasto_saldo_negativo_liquidacion(gasto):
 
 
 def _dict_gasto_pendiente(gasto, **extra):
+    nombre = _nombre_concepto_gasto_para_impresion(gasto) or (gasto.descripcion or '—')
     data = {
         'id': gasto.id,
         'descripcion': gasto.descripcion,
-        'concepto': gasto.descripcion or '—',
+        'concepto': nombre,
         'detalle': (gasto.observaciones or '').strip(),
         'monto': str(gasto.monto),
         'fecha_gasto': gasto.fecha_gasto.strftime('%Y-%m-%d') if gasto.fecha_gasto else '',
