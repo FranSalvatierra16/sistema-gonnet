@@ -224,7 +224,7 @@
                                                 Vence: {{ contrato.proxima_cuota.fecha_vencimiento|date:"d/m/Y" }}
                                             </small>
                                         </div>
-                                    {% elif contrato.cuotas.all %}
+                                    {% elif contrato._tiene_cuotas %}
                                         <span class="badge bg-success">Todas las cuotas pagadas</span>
                                     {% else %}
                                         <span class="badge bg-secondary">Sin plan de cuotas</span>

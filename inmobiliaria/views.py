@@ -17128,24 +17128,25 @@ def _activar_contrato_si_hay_cuotas_pagadas(contrato):
 
 @login_required
 def lista_contratos(request):
-    """Vista para listar todos los contratos de alquiler"""
+    """Vista para listar todos los contratos de alquiler (lectura liviana, sin N+1)."""
+    from types import SimpleNamespace
+
     from .models import ContratoAlquiler, CuotaMensual
-    from django.db.models import Q, Count, Case, When, IntegerField
     from datetime import datetime
-    
+
     # Query base: por defecto solo activos y reservados; con mostrar_eliminados=1 se incluyen finalizados y rescindidos
     mostrar_eliminados = request.GET.get('mostrar_eliminados') == '1'
     contratos = ContratoAlquiler.objects.filter(
         sucursal=request.user.sucursal
-    ).select_related('propiedad', 'propiedad__propietario', 'inquilino', 'vendedor').prefetch_related('cuotas')
+    ).select_related('propiedad', 'propiedad__propietario', 'inquilino', 'vendedor')
     if not mostrar_eliminados:
         contratos = contratos.filter(estado__in=['activo', 'reservado'])
-    
+
     # Aplicar filtros
     estado_cuota = request.GET.get('estado_cuota')
     mes_vencimiento = request.GET.get('mes_vencimiento')
     busqueda = request.GET.get('q')
-    
+
     # Determinar el mes de filtro (actual o seleccionado)
     mes_filtro = None
     if mes_vencimiento:
@@ -17155,20 +17156,20 @@ def lista_contratos(request):
             mes_filtro = timezone.now()
     else:
         mes_filtro = timezone.now()
-    
+
     # Crear fechas de inicio y fin del mes
     inicio_mes = datetime(mes_filtro.year, mes_filtro.month, 1, tzinfo=timezone.get_current_timezone())
     if mes_filtro.month == 12:
         fin_mes = datetime(mes_filtro.year + 1, 1, 1, tzinfo=timezone.get_current_timezone())
     else:
         fin_mes = datetime(mes_filtro.year, mes_filtro.month + 1, 1, tzinfo=timezone.get_current_timezone())
-    
+
     # Filtros de cuotas
     filtro_mes = Q(
         cuotas__fecha_vencimiento__gte=inicio_mes,
         cuotas__fecha_vencimiento__lt=fin_mes
     )
-    
+
     if estado_cuota:
         # Si es pendiente, filtrar por mes actual
         if estado_cuota == 'pendiente':
@@ -17179,10 +17180,10 @@ def lista_contratos(request):
             ).distinct()
         else:
             contratos = contratos.filter(cuotas__estado=estado_cuota).distinct()
-    
+
     if mes_vencimiento:
         contratos = contratos.filter(filtro_mes).distinct()
-    
+
     if busqueda:
         busqueda = busqueda.strip()
         q_buscar = (
@@ -17199,20 +17200,20 @@ def lista_contratos(request):
             except (ValueError, OverflowError):
                 pass
         contratos = contratos.filter(q_buscar)
-    
+
     # Ordenar por fecha de creación
     contratos = contratos.order_by('-fecha_creacion')
-    
-    # Obtener estadísticas
+
+    # Obtener estadísticas (antes de materializar la lista)
     total_contratos = contratos.count()
-    
+
     # Contratos al día (cuotas pagadas en el mes actual/filtrado)
     contratos_al_dia = contratos.filter(
         cuotas__estado='pagada',
         cuotas__fecha_vencimiento__gte=inicio_mes,
         cuotas__fecha_vencimiento__lt=fin_mes
     ).distinct().count()
-    
+
     # Cuotas pendientes del mes actual/filtrado
     cuotas_pendientes = CuotaMensual.objects.filter(
         contrato__sucursal=request.user.sucursal,
@@ -17220,7 +17221,7 @@ def lista_contratos(request):
         fecha_vencimiento__gte=inicio_mes,
         fecha_vencimiento__lt=fin_mes
     ).count()
-    
+
     # Cuotas vencidas (del mes actual/filtrado que están vencidas)
     cuotas_vencidas = CuotaMensual.objects.filter(
         contrato__sucursal=request.user.sucursal,
@@ -17228,55 +17229,60 @@ def lista_contratos(request):
         fecha_vencimiento__gte=inicio_mes,
         fecha_vencimiento__lt=fin_mes
     ).count()
-    
-    # Obtener la próxima cuota para cada contrato
-    for contrato in contratos:
-        # Contratos sin filas de cuota (carga vieja o error intermedio): generar plan al vuelo
-        n_cuotas_creadas = _asegurar_cuotas_plan_contrato(contrato)
-        if n_cuotas_creadas and getattr(contrato, '_prefetched_objects_cache', None):
-            contrato._prefetched_objects_cache.pop('cuotas', None)
-        _activar_contrato_si_hay_cuotas_pagadas(contrato)
-        # Obtener la próxima cuota pendiente o vencida
-        contrato.proxima_cuota = contrato.cuotas.filter(
-            estado__in=['pendiente', 'vencida']
-        ).order_by('fecha_vencimiento').first()
-        
-        # Marcar cuotas vencidas
-        if contrato.proxima_cuota and contrato.proxima_cuota.fecha_vencimiento < timezone.now().date():
-            contrato.proxima_cuota.estado = 'vencida'
-            contrato.proxima_cuota.save()
-        
-        # Determinar estado de depósito, honorarios y sellados
-        contrato.deposito_estado = determinar_estado_concepto_contrato(contrato, '10')  # Concepto 10 = depósito
-        contrato.honorarios_estado = determinar_estado_concepto_contrato(contrato, '25')  # Concepto 25 = honorarios  
-        contrato.sellados_estado = determinar_estado_concepto_contrato(contrato, '26')  # Concepto 26 = sellados
-        
-        # Honorarios/sellados: si ya hay movimiento, usarlo; si no está pagado y hay referencia del alta, mostrarla
-        mov_h = obtener_valor_concepto_contrato(contrato, 'honorarios')
-        if mov_h <= 0:
-            try:
-                mov_h = _sum_importe_concepto_en_movimientos_contrato(contrato, '25')
-            except Exception:
-                pass
-        if contrato.honorarios_estado == 'pagado':
+
+    contratos_list = list(contratos[:500])
+    contrato_ids = [c.id for c in contratos_list]
+    hoy = timezone.localdate()
+    clasif = _bulk_clasificacion_cobro_contratos(contrato_ids, hoy=hoy)
+    conceptos_bulk = _bulk_deposito_honorarios_contratos_rapido(
+        contratos_list, request.user.sucursal
+    )
+
+    # Contratos con al menos una cuota (para “Todas las cuotas pagadas”)
+    ids_con_cuotas = set(
+        CuotaMensual.objects.filter(contrato_id__in=contrato_ids)
+        .values_list('contrato_id', flat=True)
+        .distinct()
+    )
+
+    for contrato in contratos_list:
+        info = clasif.get(contrato.id) or {}
+        prox_id = info.get('proxima_cuota_id')
+        fv = info.get('proxima_vencimiento')
+        if prox_id:
+            estado_prox = 'vencida' if fv and fv < hoy else 'pendiente'
+            contrato.proxima_cuota = SimpleNamespace(
+                id=prox_id,
+                numero_cuota=info.get('proxima_numero'),
+                fecha_vencimiento=fv,
+                estado=estado_prox,
+            )
+        else:
+            contrato.proxima_cuota = None
+        # Flag para el template (evita contrato.cuotas.all → N+1)
+        contrato._tiene_cuotas = contrato.id in ids_con_cuotas
+
+        info_conc = conceptos_bulk.get(contrato.id) or {}
+        contrato.deposito_estado = info_conc.get('deposito') or 'pendiente'
+        contrato.honorarios_estado = info_conc.get('honorarios') or 'pendiente'
+        contrato.sellados_estado = info_conc.get('sellados') or 'pendiente'
+
+        mov_h = info_conc.get('honorarios_monto') or Decimal('0')
+        if contrato.honorarios_estado == 'pagado' and mov_h > 0:
             contrato.honorarios = mov_h
         else:
             ref_h = getattr(contrato, 'honorarios_referencia', None) or Decimal('0')
             contrato.honorarios = mov_h if mov_h > 0 else ref_h
-        mov_s = obtener_valor_concepto_contrato(contrato, 'sellados')
-        if mov_s <= 0:
-            try:
-                mov_s = _sum_importe_concepto_en_movimientos_contrato(contrato, '26')
-            except Exception:
-                pass
-        if contrato.sellados_estado == 'pagado':
+
+        mov_s = info_conc.get('sellados_monto') or Decimal('0')
+        if contrato.sellados_estado == 'pagado' and mov_s > 0:
             contrato.sellados = mov_s
         else:
             ref_s = getattr(contrato, 'sellados_referencia', None) or Decimal('0')
             contrato.sellados = mov_s if mov_s > 0 else ref_s
-    
+
     context = {
-        'contratos': contratos,
+        'contratos': contratos_list,
         'total_contratos': total_contratos,
         'contratos_al_dia': contratos_al_dia,
         'cuotas_pendientes': cuotas_pendientes,
@@ -17284,7 +17290,7 @@ def lista_contratos(request):
         'mes_actual': mes_filtro.strftime('%B %Y'),
         'mostrar_eliminados': mostrar_eliminados,
     }
-    
+
     return render(request, 'inmobiliaria/contratos/lista_contratos.html', context)
 
 
@@ -17431,7 +17437,7 @@ def _bulk_clasificacion_cobro_contratos(contrato_ids, hoy=None):
 def _bulk_deposito_honorarios_contratos_rapido(contratos, sucursal):
     """
     Versión liviana: no parsea JSON completo de todo el historial.
-    Detecta pago por campos honorarios y coincidencias de texto en concepto/detalle.
+    Detecta pago por campos honorarios/sellados y coincidencias de texto en concepto/detalle.
     """
     import re
 
@@ -17439,7 +17445,9 @@ def _bulk_deposito_honorarios_contratos_rapido(contratos, sucursal):
         c.id: {
             'deposito': 'pendiente',
             'honorarios': 'pendiente',
+            'sellados': 'pendiente',
             'honorarios_monto': Decimal('0'),
+            'sellados_monto': Decimal('0'),
         }
         for c in contratos
     }
@@ -17450,7 +17458,7 @@ def _bulk_deposito_honorarios_contratos_rapido(contratos, sucursal):
     if not propiedad_ids:
         return out
 
-    # Solo filas que puedan indicar depósito/honorarios (mucho menos payload)
+    # Solo filas que puedan indicar depósito/honorarios/sellados (mucho menos payload)
     movs = (
         MovimientoCaja.objects.filter(
             sucursal=sucursal,
@@ -17459,11 +17467,14 @@ def _bulk_deposito_honorarios_contratos_rapido(contratos, sucursal):
         )
         .filter(
             Q(honorarios__gt=0)
+            | Q(sellados__gt=0)
             | Q(concepto__icontains='honorario')
+            | Q(concepto__icontains='sellado')
             | Q(concepto__icontains='deposito')
             | Q(concepto__icontains='depósito')
             | Q(concepto__icontains='concepto 10')
             | Q(concepto__icontains='concepto 25')
+            | Q(concepto__icontains='concepto 26')
             | Q(concepto_detalle__icontains='"id": "10"')
             | Q(concepto_detalle__icontains='"id":"10"')
             | Q(concepto_detalle__icontains='"id": 10')
@@ -17472,12 +17483,16 @@ def _bulk_deposito_honorarios_contratos_rapido(contratos, sucursal):
             | Q(concepto_detalle__icontains='"id":"25"')
             | Q(concepto_detalle__icontains='"id": 25')
             | Q(concepto_detalle__icontains='"id":25')
+            | Q(concepto_detalle__icontains='"id": "26"')
+            | Q(concepto_detalle__icontains='"id":"26"')
+            | Q(concepto_detalle__icontains='"id": 26')
+            | Q(concepto_detalle__icontains='"id":26')
         )
-        .values_list('concepto', 'concepto_detalle', 'honorarios')
+        .values_list('concepto', 'concepto_detalle', 'honorarios', 'sellados')
     )
 
     re_cid = re.compile(r'Contrato\s*#\s*(\d+)', re.I)
-    for concepto, detalle, honorarios in movs:
+    for concepto, detalle, honorarios, sellados in movs:
         m = re_cid.search(concepto or '')
         if not m:
             continue
@@ -17511,6 +17526,20 @@ def _bulk_deposito_honorarios_contratos_rapido(contratos, sucursal):
             out[cid]['honorarios'] = 'pagado'
             if hon > out[cid]['honorarios_monto']:
                 out[cid]['honorarios_monto'] = hon
+        try:
+            sel = Decimal(str(sellados or 0))
+        except Exception:
+            sel = Decimal('0')
+        if (
+            sel > 0
+            or '"id": "26"' in det or '"id":"26"' in det or '"id": 26' in det or '"id":26' in det
+            or 'concepto 26' in conc_l
+            or 'sellado' in conc_l
+            or 'sellado' in det_l
+        ):
+            out[cid]['sellados'] = 'pagado'
+            if sel > out[cid]['sellados_monto']:
+                out[cid]['sellados_monto'] = sel
 
     return out
 
