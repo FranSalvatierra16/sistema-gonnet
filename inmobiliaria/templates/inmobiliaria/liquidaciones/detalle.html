@@ -381,15 +381,21 @@
             <div class="row mb-4">
                 <div class="col-12">
                     <div class="card shadow border-warning">
-                        <div class="card-header bg-warning text-dark">
+                        <div class="card-header bg-warning text-dark d-flex flex-wrap justify-content-between align-items-center gap-2">
                             <h5 class="mb-0"><i class="fas fa-clock me-2"></i>Movimientos pendientes por incluir</h5>
+                            {% if egresos_caja_pendientes_count %}
+                            <button type="button" class="btn btn-sm btn-dark" id="btnIncluirTodosEgresosCaja">
+                                <i class="fas fa-plus-circle me-1"></i>Incluir todos los egresos de caja ({{ egresos_caja_pendientes_count }})
+                            </button>
+                            {% endif %}
                         </div>
                         <div class="card-body">
                             <p class="small text-muted mb-3">
-                                Aparecen <strong>liquidaciones con saldo en contra del propietario</strong>
-                                (deuda a descontar en esta liquidación), incluso si la liquidación origen sigue pendiente.
-                                Otros gastos se cargan con <strong>Agregar Movimiento</strong>.
-                                Al pulsar <strong>Incluir en esta liquidación</strong> se descuentan del monto a pagar.
+                                Acá aparecen <strong>egresos de caja</strong> (OTROS, RECIBO, etc.) todavía no descontados,
+                                gastos manuales pendientes y saldos en contra de otras liquidaciones.
+                                Si al crear la liquidación no entraron los de caja, usá
+                                <strong>Incluir todos los egresos de caja</strong> o cada botón
+                                <strong>Incluir en esta liquidación</strong>.
                             </p>
                             <div class="table-responsive">
                                 <table class="table table-sm table-hover mb-0">
@@ -777,6 +783,37 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     });
+
+    const btnTodosCaja = document.getElementById('btnIncluirTodosEgresosCaja');
+    if (btnTodosCaja) {
+        btnTodosCaja.addEventListener('click', function() {
+            if (!confirm('¿Incluir TODOS los egresos de caja pendientes en esta liquidación?')) {
+                return;
+            }
+            btnTodosCaja.disabled = true;
+            const formData = new FormData();
+            formData.append('csrfmiddlewaretoken', getCsrfToken());
+            fetch('{% url "inmobiliaria:vincular_todos_egresos_caja_pendientes_liquidacion" liquidacion.id %}', {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-CSRFToken': getCsrfToken() }
+            })
+            .then(function(response) { return response.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    alert(data.message || 'Listo.');
+                    location.reload();
+                } else {
+                    alert(data.error || 'No se pudieron incorporar los egresos.');
+                    btnTodosCaja.disabled = false;
+                }
+            })
+            .catch(function() {
+                alert('Error al incorporar los egresos de caja.');
+                btnTodosCaja.disabled = false;
+            });
+        });
+    }
 
     document.querySelectorAll('.btn-eliminar-gasto-pendiente').forEach(function(btn) {
         btn.addEventListener('click', function() {

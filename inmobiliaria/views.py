@@ -27402,8 +27402,8 @@ def _descripcion_movimiento_pago_liquidacion(movimiento) -> str:
 
 def _gastos_pendientes_livianos_liquidacion(propiedad, sucursal):
     """
-    Solo gastos pendientes ya cargados (sin escanear reservas/movimientos de la propiedad).
-    Suficiente para el detalle de liquidación; el armado completo sigue en crear liquidación / AJAX.
+    Gastos pendientes para el detalle de liquidación:
+    saldo en contra, manuales y egresos de caja aún no vinculados.
     """
     if not propiedad or not sucursal:
         return []
@@ -27438,6 +27438,11 @@ def _gastos_pendientes_livianos_liquidacion(propiedad, sucursal):
             continue
         obs = (gasto.observaciones or '').strip()
         out.append(_dict_gasto_pendiente(gasto, detalle=obs))
+
+    # Egresos de caja (OTROS/RECIBO/etc.) que fallaron al crear la liquidación
+    # o todavía no se vincularon: deben poder incluirse desde el detalle.
+    for eg in _egresos_caja_pendientes_para_liquidacion(propiedad, sucursal):
+        out.append(eg)
     return out
 
 
@@ -28637,6 +28642,10 @@ def detalle_liquidacion(request, liquidacion_id):
         except Exception:
             gastos_pendientes_disponibles = []
 
+    egresos_caja_pendientes_count = sum(
+        1 for r in gastos_pendientes_disponibles if (r.get('tipo') or '') == 'egreso_caja'
+    )
+
     from inmobiliaria.liquidacion_operacion import (
         caratulas_pendientes_liquidacion,
         info_operacion_liquidacion,
@@ -28660,6 +28669,7 @@ def detalle_liquidacion(request, liquidacion_id):
         'operaciones_tabla': _operaciones_incluidas_tabla(liquidacion),
         'puede_eliminar_liquidacion': usuario_es_nivel_administracion(request.user),
         'gastos_pendientes_disponibles': gastos_pendientes_disponibles,
+        'egresos_caja_pendientes_count': egresos_caja_pendientes_count,
         'liq_editable': liquidacion.estado == 'pendiente',
         'caratulas_pendientes_confirmacion': caratulas_pendientes,
         **_context_liquidacion_cobranzas(liquidacion, request),
@@ -28993,6 +29003,49 @@ def vincular_gasto_pendiente_liquidacion(request, liquidacion_id):
             }
         )
     return JsonResponse({'success': False, 'error': err or 'No se pudo vincular el gasto.'})
+
+
+@login_required
+@require_POST
+def vincular_todos_egresos_caja_pendientes_liquidacion(request, liquidacion_id):
+    """
+    Incorpora de una a la liquidación todos los egresos de caja pendientes de la propiedad.
+    Útil cuando al crear fallaron los de caja y solo quedaron los manuales.
+    """
+    liquidacion = get_object_or_404(
+        LiquidacionPropietario.objects.select_related('propiedad', 'propietario'),
+        id=liquidacion_id,
+        sucursal=request.user.sucursal,
+        estado='pendiente',
+    )
+    propiedad = liquidacion.propiedad
+    if not propiedad:
+        return JsonResponse({'success': False, 'error': 'La liquidación no tiene propiedad.'})
+
+    pendientes = _egresos_caja_pendientes_para_liquidacion(propiedad, request.user.sucursal)
+    if not pendientes:
+        return JsonResponse({
+            'success': True,
+            'message': 'No hay egresos de caja pendientes para incluir.',
+            'asociados': 0,
+            'monto_a_pagar': str(liquidacion.monto_a_pagar),
+        })
+
+    ids = [p['id'] for p in pendientes if p.get('id')]
+    n_ok, errores = _asociar_gastos_seleccionados_a_liquidacion(
+        liquidacion, ids, propiedad=propiedad
+    )
+    liquidacion.calcular_monto_a_pagar()
+    msg = f'Se incorporaron {n_ok} egreso(s) de caja a la liquidación.'
+    if errores:
+        msg += ' Algunos no entraron: ' + ' | '.join(errores[:5])
+    return JsonResponse({
+        'success': True,
+        'message': msg,
+        'asociados': n_ok,
+        'errores': errores[:10],
+        'monto_a_pagar': str(liquidacion.monto_a_pagar),
+    })
 
 
 @login_required

@@ -451,6 +451,11 @@ urlpatterns = [
         name='vincular_gasto_pendiente_liquidacion',
     ),
     path(
+        'liquidaciones/<int:liquidacion_id>/vincular-egresos-caja-pendientes/',
+        views.vincular_todos_egresos_caja_pendientes_liquidacion,
+        name='vincular_todos_egresos_caja_pendientes_liquidacion',
+    ),
+    path(
         'liquidaciones/<int:liquidacion_id>/eliminar-gasto-pendiente/',
         views.eliminar_gasto_pendiente_liquidacion,
         name='eliminar_gasto_pendiente_liquidacion',
