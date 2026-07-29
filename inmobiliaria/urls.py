@@ -280,9 +280,14 @@ urlpatterns = [
         name='oficina_propiedades_lista',
     ),
     path(
-        'oficina/propiedades/<int:propiedad_id>/libro/',
+        'oficina/propiedades/<str:propiedad_id>/libro/',
         views_oficina.oficina_propiedad_libro,
         name='oficina_propiedad_libro',
+    ),
+    path(
+        'oficina/propiedades/<str:propiedad_id>/libro/cotizacion/',
+        views_oficina.oficina_propiedad_libro_actualizar_cotizacion,
+        name='oficina_propiedad_libro_cotizacion',
     ),
     path('caja/obtener-actual/', views.obtener_caja_actual, name='obtener_caja_actual'),
     

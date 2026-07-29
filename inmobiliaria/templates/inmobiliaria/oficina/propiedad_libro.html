@@ -6,6 +6,7 @@
 {% block page_container_class %}container-fluid{% endblock %}
 
 {% block content %}
+{% csrf_token %}
 <div class="mt-3 mb-4">
     <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
         <div>
@@ -62,9 +63,13 @@
         <div class="col-md-3"><div class="alert alert-info border mb-0 py-2">Balance USD: <strong>U$S {{ totales.balance_usd|format_price }}</strong></div></div>
     </div>
 
+    <p class="small text-muted mb-2">
+        Si un movimiento no tiene tipo de cambio (cargado antes de esa opción), completá <strong>Tipo cbio</strong> al costado y guardá: se calcula el dólar automáticamente.
+    </p>
+
     <div class="card shadow-sm">
         <div class="table-responsive">
-            <table class="table table-sm table-striped table-bordered mb-0 libro-oficina-table">
+            <table class="table table-sm table-striped table-bordered mb-0 libro-oficina-table" id="libro-oficina-tabla">
                 <thead class="table-light">
                     <tr>
                         <th>Fecha</th>
@@ -73,19 +78,35 @@
                         <th class="text-end">Alquileres</th>
                         <th class="text-end">Gastos en dólar</th>
                         <th class="text-end">Ingreso dólar</th>
-                        <th class="text-end">Tipo cbio</th>
+                        <th class="text-end" style="min-width:9.5rem">Tipo cbio</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for f in filas %}
-                    <tr>
+                    <tr data-movimiento-id="{{ f.movimiento_id }}" data-tipo="{{ f.tipo }}">
                         <td class="text-nowrap">{{ f.fecha|date:"d/m/Y" }}</td>
                         <td>{{ f.descripcion }}</td>
                         <td class="text-end text-danger">{% if f.gastos_ars %}{{ f.gastos_ars|format_price }}{% endif %}</td>
                         <td class="text-end text-success">{% if f.alquileres_ars %}{{ f.alquileres_ars|format_price }}{% endif %}</td>
-                        <td class="text-end">{% if f.gastos_usd %}{{ f.gastos_usd|format_price }}{% endif %}</td>
-                        <td class="text-end">{% if f.ingreso_usd %}{{ f.ingreso_usd|format_price }}{% endif %}</td>
-                        <td class="text-end">{% if f.tipo_cambio %}{{ f.tipo_cambio|format_price }}{% endif %}</td>
+                        <td class="text-end celda-gastos-usd">{% if f.gastos_usd %}{{ f.gastos_usd|format_price }}{% endif %}</td>
+                        <td class="text-end celda-ingreso-usd">{% if f.ingreso_usd %}{{ f.ingreso_usd|format_price }}{% endif %}</td>
+                        <td class="text-end">
+                            <div class="input-group input-group-sm justify-content-end flex-nowrap">
+                                <input type="text"
+                                       class="form-control form-control-sm text-end input-cotizacion-libro"
+                                       inputmode="decimal"
+                                       autocomplete="off"
+                                       placeholder="Ej. 1515"
+                                       value="{% if f.tipo_cambio %}{{ f.tipo_cambio|format_price }}{% endif %}"
+                                       aria-label="Tipo de cambio USD"
+                                       style="max-width:6.5rem">
+                                <button type="button"
+                                        class="btn btn-outline-primary btn-guardar-cotizacion"
+                                        title="Guardar tipo de cambio">
+                                    <i class="fas fa-save"></i>
+                                </button>
+                            </div>
+                        </td>
                     </tr>
                     {% empty %}
                     <tr>
@@ -101,8 +122,8 @@
                         <td colspan="2" class="text-end">Totales</td>
                         <td class="text-end text-danger">{{ totales.gastos_ars|format_price }}</td>
                         <td class="text-end text-success">{{ totales.alquileres_ars|format_price }}</td>
-                        <td class="text-end">{{ totales.gastos_usd|format_price }}</td>
-                        <td class="text-end">{{ totales.ingreso_usd|format_price }}</td>
+                        <td class="text-end" id="total-gastos-usd">{{ totales.gastos_usd|format_price }}</td>
+                        <td class="text-end" id="total-ingreso-usd">{{ totales.ingreso_usd|format_price }}</td>
                         <td></td>
                     </tr>
                 </tfoot>
@@ -114,5 +135,85 @@
 <style>
 .libro-oficina-table th, .libro-oficina-table td { font-size: 0.875rem; vertical-align: middle; }
 .libro-oficina-table thead th { white-space: nowrap; }
+.libro-oficina-table .input-cotizacion-libro { font-variant-numeric: tabular-nums; }
 </style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    var urlCotiz = '{% url "inmobiliaria:oficina_propiedad_libro_cotizacion" propiedad.id %}';
+
+    function csrfToken() {
+        var inp = document.querySelector('input[name=csrfmiddlewaretoken]');
+        if (inp && inp.value) return inp.value;
+        var meta = document.querySelector('meta[name="csrf-token"]');
+        if (meta && meta.content) return meta.content;
+        var m = document.cookie.match(/(?:^|; )csrftoken=([^;]*)/);
+        return m ? decodeURIComponent(m[1]) : '';
+    }
+
+    function guardarFila(tr) {
+        if (!tr) return;
+        var mid = tr.getAttribute('data-movimiento-id');
+        var input = tr.querySelector('.input-cotizacion-libro');
+        var btn = tr.querySelector('.btn-guardar-cotizacion');
+        if (!mid || !input) return;
+        var cotiz = (input.value || '').trim();
+        if (!cotiz) {
+            alert('Ingresá el tipo de cambio (ARS por 1 USD).');
+            input.focus();
+            return;
+        }
+        if (btn) btn.disabled = true;
+        var body = new URLSearchParams();
+        body.set('movimiento_id', mid);
+        body.set('cotizacion_dolar', cotiz);
+        fetch(urlCotiz, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                'X-CSRFToken': csrfToken(),
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: body.toString(),
+            credentials: 'same-origin'
+        }).then(function(r) { return r.json().then(function(d) { return { okHttp: r.ok, d: d }; }); })
+          .then(function(res) {
+            if (!res.okHttp || !res.d || !res.d.ok) {
+                alert((res.d && res.d.error) || 'No se pudo guardar la cotización.');
+                return;
+            }
+            var gUsd = tr.querySelector('.celda-gastos-usd');
+            var iUsd = tr.querySelector('.celda-ingreso-usd');
+            if (gUsd) gUsd.textContent = res.d.gastos_usd || '';
+            if (iUsd) iUsd.textContent = res.d.ingreso_usd || '';
+            if (res.d.tipo_cambio) input.value = res.d.tipo_cambio;
+            input.classList.add('is-valid');
+            setTimeout(function() { input.classList.remove('is-valid'); }, 1200);
+          })
+          .catch(function() {
+            alert('Error de red al guardar la cotización.');
+          })
+          .finally(function() {
+            if (btn) btn.disabled = false;
+          });
+    }
+
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.btn-guardar-cotizacion');
+        if (!btn) return;
+        e.preventDefault();
+        guardarFila(btn.closest('tr'));
+    });
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key !== 'Enter') return;
+        var inp = e.target.closest('.input-cotizacion-libro');
+        if (!inp) return;
+        e.preventDefault();
+        guardarFila(inp.closest('tr'));
+    });
+})();
+</script>
 {% endblock %}

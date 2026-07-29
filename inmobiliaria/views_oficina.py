@@ -7,7 +7,7 @@ from decimal import Decimal
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, ProtectedError, Sum
-from django.http import HttpResponseForbidden
+from django.http import HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -717,3 +717,103 @@ def oficina_propiedad_libro(request, propiedad_id):
             'fecha_hasta': fecha_hasta_s,
         },
     )
+
+
+@login_required
+@require_POST
+def oficina_propiedad_libro_actualizar_cotizacion(request, propiedad_id):
+    """
+    Completa cotización USD (y monto en dólares si faltaba) en un movimiento del libro.
+    Para gastos viejos cargados antes de existir la opción de tipo de cambio.
+    """
+    if not _puede_oficina(request.user):
+        return JsonResponse({'ok': False, 'error': 'Sin permiso.'}, status=403)
+
+    from inmobiliaria.decimal_utils import parse_decimal_monto
+    from inmobiliaria.models import MovimientoCaja, Propiedad
+    from inmobiliaria.models.caja import TipoMovimientoCajaEnum
+
+    sucursal = request.user.sucursal
+    en_cartera = CarteraPropiedadUsuario.objects.filter(
+        usuario=request.user,
+        propiedad_id=propiedad_id,
+        propiedad__sucursal=sucursal,
+    ).exists()
+    if not en_cartera:
+        return JsonResponse({'ok': False, 'error': 'Sin permiso sobre esa propiedad.'}, status=403)
+
+    propiedad = get_object_or_404(Propiedad, pk=propiedad_id, sucursal=sucursal)
+
+    mov_id = (request.POST.get('movimiento_id') or '').strip()
+    if not mov_id.isdigit():
+        return JsonResponse({'ok': False, 'error': 'Movimiento inválido.'}, status=400)
+
+    movimiento = MovimientoCaja.objects.filter(
+        pk=int(mov_id),
+        propiedad=propiedad,
+        sucursal=sucursal,
+        fecha_eliminacion__isnull=True,
+    ).first()
+    if not movimiento:
+        return JsonResponse({'ok': False, 'error': 'Movimiento no encontrado.'}, status=404)
+
+    cotiz_raw = (request.POST.get('cotizacion_dolar') or '').strip()
+    usd_raw = (request.POST.get('monto_dolares') or '').strip()
+
+    try:
+        cotiz = parse_decimal_monto(cotiz_raw) if cotiz_raw else None
+    except Exception:
+        return JsonResponse({'ok': False, 'error': 'Cotización inválida.'}, status=400)
+    try:
+        usd_in = parse_decimal_monto(usd_raw) if usd_raw else None
+    except Exception:
+        return JsonResponse({'ok': False, 'error': 'Monto USD inválido.'}, status=400)
+
+    if cotiz is not None and cotiz <= 0:
+        cotiz = None
+    if usd_in is not None and usd_in <= 0:
+        usd_in = None
+
+    ars = Decimal(str(getattr(movimiento, 'monto_total', 0) or 0))
+    usd_actual = Decimal(str(getattr(movimiento, 'monto_dolares', 0) or 0))
+
+    # Si mandan solo TC y hay ARS sin USD → calcular dólares.
+    # Si mandan solo USD y hay ARS sin TC → calcular cotización.
+    if cotiz and ars > 0 and (usd_in is None) and usd_actual <= 0:
+        usd_in = (ars / cotiz).quantize(Decimal('0.01'))
+    if usd_in and ars > 0 and cotiz is None and not getattr(movimiento, 'cotizacion_dolar', None):
+        cotiz = (ars / usd_in).quantize(Decimal('0.01'))
+
+    if cotiz is None and usd_in is None:
+        return JsonResponse(
+            {'ok': False, 'error': 'Indicá tipo de cambio y/o monto en dólares.'},
+            status=400,
+        )
+
+    updates = []
+    if cotiz is not None:
+        movimiento.cotizacion_dolar = cotiz.quantize(Decimal('0.01'))
+        updates.append('cotizacion_dolar')
+    if usd_in is not None:
+        movimiento.monto_dolares = usd_in.quantize(Decimal('0.01'))
+        updates.append('monto_dolares')
+    if updates:
+        movimiento.save(update_fields=updates)
+
+    fila = _fila_libro_desde_movimiento(movimiento)
+    from inmobiliaria.decimal_utils import format_monto_argentino
+
+    def _fmt(v):
+        if not v:
+            return ''
+        return format_monto_argentino(v)
+
+    return JsonResponse({
+        'ok': True,
+        'movimiento_id': movimiento.id,
+        'gastos_usd': _fmt(fila['gastos_usd']),
+        'ingreso_usd': _fmt(fila['ingreso_usd']),
+        'tipo_cambio': _fmt(fila['tipo_cambio']),
+        'tipo': fila['tipo'],
+        'message': 'Cotización guardada.',
+    })

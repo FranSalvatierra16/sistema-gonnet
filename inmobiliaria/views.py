@@ -27130,6 +27130,7 @@ def _crear_gasto_desde_egreso_caja(liquidacion, movimiento, propiedad=None):
         descripcion=desc_mov,
         monto=monto_gasto,
         moneda=liquidacion.moneda,
+        cotizacion_dolar=getattr(movimiento, 'cotizacion_dolar', None) or None,
         tipo_movimiento='egreso',
         fecha_gasto=movimiento.fecha.date() if movimiento.fecha else None,
         observaciones=_observaciones_gasto_desde_movimiento_caja(movimiento),
