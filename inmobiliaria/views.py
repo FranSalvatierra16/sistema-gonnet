@@ -26105,16 +26105,23 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                 # Asociar gastos pendientes seleccionados a la liquidación
                 gastos_seleccionados = _leer_gastos_seleccionados_post(request.POST)
                 if gastos_seleccionados:
-                    _n_ok, errores_gastos = _asociar_gastos_seleccionados_a_liquidacion(
+                    n_ok, errores_gastos = _asociar_gastos_seleccionados_a_liquidacion(
                         liquidacion, gastos_seleccionados, propiedad=propiedad
                     )
+                    n_pedidos = len(gastos_seleccionados)
                     if errores_gastos:
-                        # No aborta la liquidación: avisa qué egresos/gastos no entraron.
                         messages.warning(
                             request,
-                            'Algunos descuentos no se asociaron: '
+                            f'Se asociaron {n_ok} de {n_pedidos} descuentos. '
+                            'No entraron: '
                             + ' | '.join(errores_gastos[:8])
                             + ('…' if len(errores_gastos) > 8 else ''),
+                        )
+                    elif n_ok < n_pedidos:
+                        messages.warning(
+                            request,
+                            f'Solo se asociaron {n_ok} de {n_pedidos} descuentos tildados. '
+                            'Revisá la liquidación.',
                         )
 
                 # Recalcular monto a pagar con los gastos
@@ -27130,7 +27137,6 @@ def _crear_gasto_desde_egreso_caja(liquidacion, movimiento, propiedad=None):
         descripcion=desc_mov,
         monto=monto_gasto,
         moneda=liquidacion.moneda,
-        cotizacion_dolar=getattr(movimiento, 'cotizacion_dolar', None) or None,
         tipo_movimiento='egreso',
         fecha_gasto=movimiento.fecha.date() if movimiento.fecha else None,
         observaciones=_observaciones_gasto_desde_movimiento_caja(movimiento),
