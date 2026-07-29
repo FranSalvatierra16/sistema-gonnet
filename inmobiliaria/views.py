@@ -27217,15 +27217,25 @@ def _asociar_gastos_seleccionados_a_liquidacion(liquidacion, gastos_ids, propied
 def _dict_gasto_desde_egreso_caja(egreso, *, propiedad=None):
     """Serializa un egreso de caja como fila de gasto pendiente (id movimiento_N)."""
     descripcion = egreso.descripcion_para_gasto_liquidacion_propietario()[:200]
+    # Nombre del concepto del movimiento (no categoría de comprobante: RECIBO/OTROS/…).
     try:
-        c1 = (getattr(egreso, 'listado_concepto_l1', None) or '').strip()
+        nombre = (egreso.nombre_concepto_catalogo or '').strip()
     except Exception:
-        c1 = ''
-    try:
-        c2 = (getattr(egreso, 'listado_concepto_l2', None) or '').strip()
-    except Exception:
-        c2 = ''
-    concepto_mov = ' · '.join(x for x in (c1, c2) if x) or descripcion or '—'
+        nombre = ''
+    if not nombre:
+        try:
+            nombre = (egreso.listado_detalle_l1 or '').strip()
+        except Exception:
+            nombre = ''
+    if not nombre or nombre == '—':
+        nombre = (descripcion or '').strip()
+    # Si quedó categoría genérica, preferir descripción real
+    if nombre.upper() in ('RECIBO', 'OTROS', 'GASTOS', 'LIQUIDACIONES', 'MOVIMIENTO', 'VALE PERSONAL', 'D.D.G.'):
+        if descripcion and descripcion.upper() not in (
+            'RECIBO', 'OTROS', 'GASTOS', 'LIQUIDACIONES', 'MOVIMIENTO',
+        ):
+            nombre = descripcion
+    concepto_mov = nombre or '—'
     try:
         detalle_mov = (egreso.detalle_libre_para_liquidacion_propietario() or '').strip()
     except Exception:
@@ -27319,7 +27329,12 @@ def _egresos_caja_pendientes_para_liquidacion(propiedad, sucursal):
                 pass
 
     out = []
-    for egreso in egresos:
+    egresos_list = list(egresos[:200])
+    try:
+        MovimientoCaja.precargar_nombres_concepto(egresos_list, sucursal)
+    except Exception:
+        pass
+    for egreso in egresos_list:
         if egreso.id in movimientos_ya_liquidados or egreso.id in ya_como_gasto:
             continue
         if not _egreso_caja_debe_listarse_en_liquidacion(egreso):
