@@ -773,37 +773,11 @@ def _liquidaciones_vinculadas_reserva(reserva):
 
 def _anular_liquidaciones_reserva_anulacion(reserva, eliminado_por):
     """
-    Cancela liquidaciones vinculadas a la reserva (FK directo o en operaciones_incluidas).
-    Anula el egreso de caja asociado. La liquidación se conserva para el historial de honorarios.
+    Ya no se tocan liquidaciones ni egresos de caja al anular una operación.
+    La caja se ajusta manualmente con contrasiento si corresponde.
+    Se conserva la firma por compatibilidad; siempre retorna lista vacía.
     """
-    from inmobiliaria.models.liquidacion import eliminar_gastos_pendientes_liquidacion_origen
-
-    candidatas = _liquidaciones_vinculadas_reserva(reserva)
-    if not candidatas:
-        return []
-
-    from inmobiliaria.views import _eliminar_movimiento_y_anexos
-
-    anuladas = []
-    sucursal = getattr(reserva, 'sucursal', None)
-    ahora = timezone.now()
-    nota_anul = f'\n[Anulación operación reserva #{reserva.pk} — {ahora:%d/%m/%Y %H:%M}]'
-    for liquidacion in candidatas:
-        mov = liquidacion.movimiento_caja
-        liquidacion.movimiento_caja = None
-        liquidacion.estado = 'cancelada'
-        liquidacion.fecha_procesamiento = ahora
-        obs = (liquidacion.observaciones or '').strip()
-        liquidacion.observaciones = (obs + nota_anul).strip()
-        liquidacion.save(
-            update_fields=['movimiento_caja', 'estado', 'fecha_procesamiento', 'observaciones']
-        )
-        if mov:
-            _eliminar_movimiento_y_anexos(mov, eliminado_por=eliminado_por)
-        lid = liquidacion.id
-        eliminar_gastos_pendientes_liquidacion_origen(lid, sucursal=sucursal)
-        anuladas.append(lid)
-    return anuladas
+    return []
 
 
 def _procesar_anular_operacion_reserva_caratula(request, reserva):
@@ -818,9 +792,7 @@ def _procesar_anular_operacion_reserva_caratula(request, reserva):
         return False
     try:
         with transaction.atomic():
-            liquidaciones_anuladas = _anular_liquidaciones_reserva_anulacion(
-                reserva, eliminado_por=request.user
-            )
+            # No se modifica la caja ni se cancelan liquidaciones automáticamente.
             reserva.cancelar_reserva()
             reserva.refresh_from_db()
             reserva.eliminada = True
@@ -846,21 +818,19 @@ def _procesar_anular_operacion_reserva_caratula(request, reserva):
             senia_anterior=reserva.senia,
         )
         logger.info(
-            'Reserva %s anulada desde carátula por usuario %s. Motivo: %s. Liquidaciones canceladas: %s',
+            'Reserva %s anulada desde carátula por usuario %s. Motivo: %s. '
+            'Caja y liquidaciones intactas (contrasiento manual si corresponde).',
             reserva.pk,
             getattr(request.user, 'pk', None),
             motivo,
-            liquidaciones_anuladas,
         )
-        msg = (
-            'Operación eliminada. Las fechas vuelven a estar disponibles; '
-            'las comisiones acreditadas se revirtieron en el listado del productor '
-            'y en honorarios de oficina figura el descuento correspondiente.'
+        messages.success(
+            request,
+            'Operación eliminada. Las fechas vuelven a estar disponibles. '
+            'La caja no se modificó (si hace falta, hacé un contrasiento). '
+            'Las comisiones ya acreditadas siguen en el mes original; '
+            'el descuento queda registrado el día de la anulación.',
         )
-        if liquidaciones_anuladas:
-            nums = ', '.join(f'#{lid}' for lid in liquidaciones_anuladas)
-            msg += f' Se cancelaron las liquidaciones vinculadas: {nums}.'
-        messages.success(request, msg)
         return True
     except Exception as exc:
         logger.exception('Error al anular operación %s desde carátula', reserva.pk)

@@ -1379,8 +1379,12 @@ def _marca_observacion_reversion_comision(comision_id):
 
 def revertir_comisiones_operacion_anulada(*, reserva=None, contrato=None):
     """
-    Al anular/cancelar una operación: cancela comisiones pendientes.
-    Si ya estaban acreditadas (confirmada/pagada), crea una línea negativa de devolución.
+    Al anular/cancelar una operación:
+    - Pendientes: se cancelan (nunca se acreditaron).
+    - Confirmadas/pagadas: se dejan como están (siguen sumando en el mes original)
+      y se crea una línea negativa de devolución con fecha = día de la anulación,
+      para que el descuento impacte en el mes en que se anula (no en el mes del cobro).
+    No toca movimientos de caja.
     """
     if not reserva and not contrato:
         return 0
@@ -1394,16 +1398,22 @@ def revertir_comisiones_operacion_anulada(*, reserva=None, contrato=None):
         qs = qs.filter(contrato=contrato)
 
     creadas = 0
+    ahora = timezone.now()
     for comision in qs.select_related('vendedor'):
         if comision.estado in ('confirmada', 'pagada'):
             marca = _marca_observacion_reversion_comision(comision.pk)
-            if ComisionVendedor.objects.filter(observaciones=marca).exists():
-                ComisionVendedor.objects.filter(pk=comision.pk).update(estado='cancelada')
+            if ComisionVendedor.objects.filter(observaciones=marca).exclude(
+                estado='cancelada'
+            ).exists():
                 continue
             monto = Decimal(str(comision.monto_comision or 0))
             if monto != 0:
                 ref = (comision.concepto_operacion or '').strip() or 'comisión'
-                op_ref = f'reserva #{comision.reserva_id}' if comision.reserva_id else f'contrato #{comision.contrato_id}'
+                op_ref = (
+                    f'reserva #{comision.reserva_id}'
+                    if comision.reserva_id
+                    else f'contrato #{comision.contrato_id}'
+                )
                 ComisionVendedor.objects.create(
                     vendedor=comision.vendedor,
                     reserva=comision.reserva,
@@ -1414,19 +1424,24 @@ def revertir_comisiones_operacion_anulada(*, reserva=None, contrato=None):
                     monto_comision=(-monto).quantize(Decimal('0.01')),
                     concepto_operacion=f'Devolución — anulación {op_ref} ({ref})'[:200],
                     rol_comision=ROL_COMISION_REVERSION,
-                    fecha_operacion=timezone.now(),
+                    fecha_operacion=ahora,
                     estado='confirmada',
                     observaciones=marca,
                 )
                 creadas += 1
-        ComisionVendedor.objects.filter(pk=comision.pk).update(estado='cancelada')
+            # La comisión original se mantiene (confirmada/pagada) para no alterar el mes
+            # en que se acreditó; el descuento va en la línea de devolución de hoy.
+        else:
+            # Pendientes u otros estados no acreditados: cancelar.
+            ComisionVendedor.objects.filter(pk=comision.pk).update(estado='cancelada')
     return creadas
 
 
 def restaurar_comisiones_operacion_recuperada(*, reserva=None, contrato=None):
     """
     Revierte el efecto de ``revertir_comisiones_operacion_anulada`` al recuperar la operación.
-    Cancela las líneas de devolución y reactiva las comisiones originales.
+    Cancela las líneas de devolución. Reactiva comisiones que se habían cancelado por
+    estar pendientes al anular (las confirmadas/pagadas nunca se cancelaron).
     """
     if not reserva and not contrato:
         return 0
@@ -1449,8 +1464,9 @@ def restaurar_comisiones_operacion_recuperada(*, reserva=None, contrato=None):
         if rev.estado != 'cancelada':
             ComisionVendedor.objects.filter(pk=rev.pk).update(estado='cancelada')
         if orig_id:
+            # Solo reactivar si quedó cancelada (era pendiente al anular).
             updated = ComisionVendedor.objects.filter(pk=orig_id, estado='cancelada').update(
-                estado='confirmada'
+                estado='pendiente'
             )
             restauradas += int(updated or 0)
     return restauradas
@@ -1518,7 +1534,12 @@ class ComisionVendedorQuerySet(models.QuerySet):
     """
 
     def que_suman(self):
-        """Comisiones acreditadas o pagadas (carátula confirmada al acreditar)."""
+        """
+        Comisiones acreditadas o pagadas (y devoluciones por anulación).
+        Las confirmadas/pagadas siguen sumando aunque la reserva se haya anulado después,
+        para no alterar el mes en que se acreditaron; el descuento va en la línea de
+        reversión fechada el día de la anulación.
+        """
         from django.db.models import Q
 
         operaciones_vigentes = (
@@ -1527,12 +1548,24 @@ class ComisionVendedorQuerySet(models.QuerySet):
             & ~Q(reserva__eliminada=True)
             & ~Q(contrato__estado='rescindido')
         )
+        # Históricas: operación ya anulada pero la comisión quedó acreditada/pagada.
+        historicas_acreditadas = (
+            Q(estado__in=('confirmada', 'pagada'))
+            & ~Q(rol_comision=ROL_COMISION_REVERSION)
+            & (
+                Q(reserva__estado='cancelada')
+                | Q(reserva__eliminada=True)
+                | Q(contrato__estado='rescindido')
+            )
+        )
         return self.filter(estado__in=('confirmada', 'pagada')).filter(
-            Q(rol_comision=ROL_COMISION_REVERSION) | operaciones_vigentes
+            Q(rol_comision=ROL_COMISION_REVERSION)
+            | operaciones_vigentes
+            | historicas_acreditadas
         )
 
     def visibles_en_historial(self):
-        """Historial: acreditaciones, devoluciones y créditos anulados (con su reversión)."""
+        """Historial: acreditaciones, devoluciones y créditos históricos tras anulación."""
         from django.db.models import CharField, Exists, OuterRef, Q, Value
         from django.db.models.functions import Cast, Concat
 
@@ -1541,6 +1574,15 @@ class ComisionVendedorQuerySet(models.QuerySet):
             & ~Q(reserva__estado='cancelada')
             & ~Q(reserva__eliminada=True)
             & ~Q(contrato__estado='rescindido')
+        )
+        historicas_acreditadas = (
+            Q(estado__in=('confirmada', 'pagada'))
+            & ~Q(rol_comision=ROL_COMISION_REVERSION)
+            & (
+                Q(reserva__estado='cancelada')
+                | Q(reserva__eliminada=True)
+                | Q(contrato__estado='rescindido')
+            )
         )
         tuvo_devolucion = Exists(
             self.model.objects.filter(
@@ -1555,7 +1597,11 @@ class ComisionVendedorQuerySet(models.QuerySet):
             Q(
                 estado__in=('pendiente', 'confirmada', 'pagada'),
             )
-            & (Q(rol_comision=ROL_COMISION_REVERSION) | operaciones_vigentes)
+            & (
+                Q(rol_comision=ROL_COMISION_REVERSION)
+                | operaciones_vigentes
+                | historicas_acreditadas
+            )
             | Q(estado='cancelada') & tuvo_devolucion
         )
 
