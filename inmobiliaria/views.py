@@ -2491,9 +2491,7 @@ def vendedor_detalle(request, vendedor_id):
     denegado = _requiere_ver_vendedores(request)
     if denegado:
         return denegado
-    qs = Vendedor.objects.select_related('sucursal')
-    if not getattr(request.user, 'is_superuser', False) and getattr(request.user, 'nivel', None) != 5:
-        qs = qs.filter(sucursal=request.user.sucursal)
+    qs = Vendedor.objects.select_related('sucursal').filter(sucursal=request.user.sucursal)
     vendedor = get_object_or_404(qs, pk=vendedor_id)
     return render(
         request,
@@ -2510,13 +2508,15 @@ def vendedor_nuevo(request):
         return denegado
     puede_nivel = usuario_puede_editar_nivel_vendedor(request.user)
     if request.method == "POST":
-        form = VendedorUserCreationForm(request.POST, puede_editar_nivel=puede_nivel)
+        form = VendedorUserCreationForm(
+            request.POST, puede_editar_nivel=puede_nivel, user=request.user
+        )
         if form.is_valid():
             vendedor = form.save()
             messages.success(request, 'Vendedor creado exitosamente.')
             return redirect('inmobiliaria:vendedor_detalle', vendedor_id=vendedor.id)
     else:
-        form = VendedorUserCreationForm(puede_editar_nivel=puede_nivel)
+        form = VendedorUserCreationForm(puede_editar_nivel=puede_nivel, user=request.user)
     return render(
         request,
         'inmobiliaria/vendedores/formulario.html',
@@ -2531,9 +2531,7 @@ def vendedor_editar(request, vendedor_id):
     denegado = _requiere_ver_vendedores(request)
     if denegado:
         return denegado
-    qs = Vendedor.objects.all()
-    if not getattr(request.user, 'is_superuser', False) and getattr(request.user, 'nivel', None) != 5:
-        qs = qs.filter(sucursal=request.user.sucursal)
+    qs = Vendedor.objects.filter(sucursal=request.user.sucursal)
     vendedor = get_object_or_404(qs, pk=vendedor_id)
     puede_nivel = usuario_puede_editar_nivel_vendedor(request.user)
     if request.method == "POST":
@@ -2541,13 +2539,16 @@ def vendedor_editar(request, vendedor_id):
             request.POST,
             instance=vendedor,
             puede_editar_nivel=puede_nivel,
+            user=request.user,
         )
         if form.is_valid():
             vendedor = form.save()
             messages.success(request, 'Vendedor actualizado exitosamente.')
             return redirect('inmobiliaria:vendedor_detalle', vendedor_id=vendedor.id)
     else:
-        form = VendedorChangeForm(instance=vendedor, puede_editar_nivel=puede_nivel)
+        form = VendedorChangeForm(
+            instance=vendedor, puede_editar_nivel=puede_nivel, user=request.user
+        )
     return render(
         request,
         'inmobiliaria/vendedores/formulario.html',
@@ -2562,9 +2563,7 @@ def vendedor_eliminar(request, vendedor_id):
     denegado = _requiere_ver_vendedores(request)
     if denegado:
         return denegado
-    qs = Vendedor.objects.all()
-    if not getattr(request.user, 'is_superuser', False) and getattr(request.user, 'nivel', None) != 5:
-        qs = qs.filter(sucursal=request.user.sucursal)
+    qs = Vendedor.objects.filter(sucursal=request.user.sucursal)
     vendedor = get_object_or_404(qs, pk=vendedor_id)
     if request.method == "POST":
         vendedor.delete()
@@ -4848,15 +4847,21 @@ def confirmar_reserva(request):
                         'error': 'Debés indicar al menos un vendedor / productor.',
                     })
 
-                # Obtener los objetos necesarios
+                # Obtener los objetos necesarios (vendedor solo de la sucursal del usuario)
                 try:
                     propiedad = Propiedad.objects.get(id=propiedad_id)
-                    vendedor = Vendedor.objects.get(id=vendedor_ids[0])
+                    vendedor = Vendedor.objects.get(
+                        id=vendedor_ids[0], sucursal=request.user.sucursal
+                    )
                     inquilino = Inquilino.objects.get(id=inquilino_id)
                 except (Propiedad.DoesNotExist, Vendedor.DoesNotExist, Inquilino.DoesNotExist) as e:
                     return JsonResponse({
                         'success': False,
-                        'error': f'Error al obtener los datos: {str(e)}'
+                        'error': (
+                            'El vendedor/productor no pertenece a tu sucursal.'
+                            if isinstance(e, Vendedor.DoesNotExist)
+                            else f'Error al obtener los datos: {str(e)}'
+                        )
                     })
                 # Verificar disponibilidad usando el método del modelo
                 if not propiedad.esta_disponible_en_fecha(fecha_inicio, fecha_fin):
@@ -7207,7 +7212,9 @@ def procesar_movimiento_reserva(request):
             productor_id = request.POST.get('productor_id')
             if productor_id and productor_id.strip():
                 try:
-                    nuevo_vendedor = Vendedor.objects.get(id=int(productor_id))
+                    nuevo_vendedor = Vendedor.objects.get(
+                        id=int(productor_id), sucursal=request.user.sucursal
+                    )
                     if reserva.vendedor_id != nuevo_vendedor.id:
                         reserva.vendedor = nuevo_vendedor
                         reserva.save(update_fields=['vendedor'])
@@ -13319,17 +13326,35 @@ def _serializar_form_post_nuevo_movimiento(request):
 
     productor_id = fp.get('productor_id') or ''
     if productor_id.isdigit():
-        vendedor = Vendedor.objects.filter(id=int(productor_id)).first()
+        suc = getattr(request.user, 'sucursal', None)
+        vendedor = (
+            Vendedor.objects.filter(id=int(productor_id), sucursal=suc).first()
+            if suc
+            else None
+        )
         if vendedor:
             fp['productor_nombre'] = (vendedor.nombre or '').strip()
             fp['productor_apellido'] = (vendedor.apellido or '').strip()
+        else:
+            fp['productor_id'] = ''
+            fp['productor_nombre'] = ''
+            fp['productor_apellido'] = ''
 
     go_vend_id = fp.get('gasto_oficina_vendedor_id') or ''
     if go_vend_id.isdigit():
-        vendedor_go = Vendedor.objects.filter(id=int(go_vend_id)).first()
+        suc = getattr(request.user, 'sucursal', None)
+        vendedor_go = (
+            Vendedor.objects.filter(id=int(go_vend_id), sucursal=suc).first()
+            if suc
+            else None
+        )
         if vendedor_go:
             fp['gasto_oficina_vendedor_nombre'] = (vendedor_go.nombre or '').strip()
             fp['gasto_oficina_vendedor_apellido'] = (vendedor_go.apellido or '').strip()
+        else:
+            fp['gasto_oficina_vendedor_id'] = ''
+            fp['gasto_oficina_vendedor_nombre'] = ''
+            fp['gasto_oficina_vendedor_apellido'] = ''
 
     return fp
 
@@ -14494,45 +14519,37 @@ def crear_cuenta(request):
 
 @login_required
 def buscar_productores(request):
-    """Vista para buscar vendedores/productores"""
-    term = request.GET.get('term', '')
-    
-    # IMPORTANTE: Depuración para verificar la consulta
-# print(f"Buscando vendedores con término: '{term}'")
-    
+    """Vista para buscar vendedores/productores de la sucursal del usuario."""
+    term = (request.GET.get('term') or '').strip()
+    sucursal = getattr(request.user, 'sucursal', None)
+    if not sucursal:
+        return JsonResponse({'success': True, 'resultados': []})
+
     try:
-        # Buscar TODOS los vendedores sin filtros de sucursal
-        if not term or len(term) < 2:
-            vendedores = Vendedor.objects.all()[:15]
-        else:
-            vendedores = Vendedor.objects.filter(
-                Q(nombre__icontains=term) | 
-                Q(id__icontains=term)
-            )[:15]
-        
-        # Imprimir resultados para depuración
-# print(f"Encontrados {vendedores.count()} vendedores")
-        for v in vendedores:
-            pass  # ✅ Bloque vacío
-# print(f"Vendedor: ID={v.id}, Nombre={v.nombre}")
-        
-        # Formatear resultados
+        qs = Vendedor.objects.filter(sucursal=sucursal, is_active=True)
+        if term and len(term) >= 1:
+            q_text = Q(nombre__icontains=term) | Q(apellido__icontains=term)
+            try:
+                q_text = q_text | Q(id=int(term))
+            except (ValueError, TypeError):
+                pass
+            qs = qs.filter(q_text)
+        vendedores = qs.order_by('apellido', 'nombre')[:30]
+
         resultados = []
         for v in vendedores:
             resultados.append({
                 'id': v.id,
-                'nombre': v.nombre,
-                'telefono': getattr(v, 'telefono', '')
+                'nombre': f'{v.apellido}, {v.nombre}'.strip(', '),
+                'telefono': getattr(v, 'telefono', '') or getattr(v, 'celular', '') or '',
             })
-        
+
         return JsonResponse({
             'success': True,
             'resultados': resultados
         })
-    
+
     except Exception as e:
-        pass  # ✅ Bloque vacío
-# print(f"Error en buscar_productores: {str(e)}")
         return JsonResponse({
             'success': False,
             'message': str(e)
@@ -16120,7 +16137,7 @@ def buscar_vendedor(request):
         })
 
     try:
-        base_qs = Vendedor.objects.all()
+        base_qs = Vendedor.objects.filter(is_active=True)
         if sucursal is not None:
             qs_sucursal = base_qs.filter(sucursal=sucursal)
         else:
@@ -16220,7 +16237,7 @@ def buscar_vendedores(request):
         return JsonResponse({'success': True, 'vendedores': []})
 
     try:
-        qs = Vendedor.objects.filter(sucursal=sucursal)
+        qs = Vendedor.objects.filter(sucursal=sucursal, is_active=True)
         if termino:
             q_text = (
                 Q(nombre__icontains=termino) |
@@ -16923,12 +16940,17 @@ def crear_contrato_alquiler(request):
                 )
             fecha_operacion, fecha_inicio, fecha_fin = fecha_operacion_d, fecha_inicio_d, fecha_fin_d
 
-            # Obtener objetos
+            # Obtener objetos (vendedor solo de la sucursal del usuario)
             try:
                 propiedad = Propiedad.objects.get(id=propiedad_id)
                 inquilino = Inquilino.objects.get(id=inquilino_id)
-                vendedor = Vendedor.objects.get(id=vendedor_id)
-            except (Propiedad.DoesNotExist, Inquilino.DoesNotExist, Vendedor.DoesNotExist) as e:
+                vendedor = Vendedor.objects.get(id=vendedor_id, sucursal=request.user.sucursal)
+            except Vendedor.DoesNotExist:
+                return JsonResponse(
+                    {'error': 'El vendedor/productor no pertenece a tu sucursal.'},
+                    status=400,
+                )
+            except (Propiedad.DoesNotExist, Inquilino.DoesNotExist) as e:
                 return JsonResponse({'error': f'Error al obtener datos: {str(e)}'}, status=400)
 
             # Evitar duplicados: contrato vigente (no vencido) para esta propiedad e inquilino

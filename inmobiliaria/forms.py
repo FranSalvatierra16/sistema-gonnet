@@ -94,8 +94,17 @@ class VendedorUserCreationForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         self.puede_editar_nivel = kwargs.pop('puede_editar_nivel', False)
+        self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
         self.fields['sucursal'].required = True
+        # Solo la sucursal del usuario logueado (Colón / Corrientes no se mezclan).
+        if self.user and getattr(self.user, 'sucursal_id', None):
+            self.fields['sucursal'].queryset = Sucursal.objects.filter(pk=self.user.sucursal_id)
+            self.fields['sucursal'].initial = self.user.sucursal
+            self.fields['sucursal'].disabled = True
+            self.fields['sucursal'].help_text = (
+                'El vendedor queda en la misma sucursal desde la que lo estás creando.'
+            )
         if 'nivel' in self.fields and not self.puede_editar_nivel:
             self.fields['nivel'].disabled = True
             self.fields['nivel'].help_text = (
@@ -111,11 +120,18 @@ class VendedorUserCreationForm(forms.ModelForm):
             ) or 1
         return self.cleaned_data.get('nivel')
 
+    def clean_sucursal(self):
+        if self.user and getattr(self.user, 'sucursal_id', None):
+            return self.user.sucursal
+        return self.cleaned_data.get('sucursal')
+
     def save(self, commit=True):
         vendedor = super().save(commit=False)
         vendedor.set_password(self.cleaned_data["password1"])  # Establecer la contraseña
         if not self.puede_editar_nivel:
             vendedor.nivel = getattr(self.Meta.model._meta.get_field('nivel'), 'default', 1) or 1
+        if self.user and getattr(self.user, 'sucursal_id', None):
+            vendedor.sucursal = self.user.sucursal
         if commit:
             vendedor.save()
         return vendedor
@@ -171,9 +187,19 @@ class VendedorChangeForm(UserChangeForm):
 
     def __init__(self, *args, **kwargs):
         self.puede_editar_nivel = kwargs.pop('puede_editar_nivel', False)
+        self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
         if 'sucursal' in self.fields:
-            self.fields['sucursal'].queryset = Sucursal.objects.all().order_by('nombre')
+            # No permitir cambiar de Colón a Corrientes (ni al revés).
+            if self.user and getattr(self.user, 'sucursal_id', None):
+                self.fields['sucursal'].queryset = Sucursal.objects.filter(pk=self.user.sucursal_id)
+                self.fields['sucursal'].initial = self.user.sucursal
+                self.fields['sucursal'].disabled = True
+                self.fields['sucursal'].help_text = (
+                    'La sucursal del vendedor no se puede cambiar desde acá.'
+                )
+            else:
+                self.fields['sucursal'].queryset = Sucursal.objects.all().order_by('nombre')
             self.fields['sucursal'].required = True
         if 'nivel' in self.fields and not self.puede_editar_nivel:
             self.fields['nivel'].disabled = True
@@ -190,13 +216,27 @@ class VendedorChangeForm(UserChangeForm):
             return 1
         return self.cleaned_data.get('nivel')
 
+    def clean_sucursal(self):
+        if self.instance and self.instance.pk and self.instance.sucursal_id:
+            return self.instance.sucursal
+        if self.user and getattr(self.user, 'sucursal_id', None):
+            return self.user.sucursal
+        return self.cleaned_data.get('sucursal')
+
     def save(self, commit=True):
         nivel_previo = None
         if self.instance and self.instance.pk and not self.puede_editar_nivel:
             nivel_previo = self.instance.nivel
+        sucursal_previa = None
+        if self.instance and self.instance.pk:
+            sucursal_previa = self.instance.sucursal
         vendedor = super().save(commit=False)
         if nivel_previo is not None:
             vendedor.nivel = nivel_previo
+        if sucursal_previa is not None:
+            vendedor.sucursal = sucursal_previa
+        elif self.user and getattr(self.user, 'sucursal_id', None):
+            vendedor.sucursal = self.user.sucursal
         if commit:
             vendedor.save()
             self.save_m2m()
@@ -455,10 +495,10 @@ class PropiedadForm(forms.ModelForm):
     )
     
     fichado_por = forms.ModelChoiceField(
-        queryset=Vendedor.objects.all(),
+        queryset=Vendedor.objects.none(),
         required=False,
         label='Vendedor que tomó la propiedad',
-        help_text='Vendedor que cargó o tomó el fichaje de esta propiedad',
+        help_text='Vendedor que cargó o tomó el fichaje de esta propiedad (solo de tu sucursal)',
         widget=forms.Select(attrs={
             'class': 'form-control select2',
             'data-placeholder': 'Buscar por ID o nombre del vendedor...'
@@ -549,6 +589,24 @@ class PropiedadForm(forms.ModelForm):
                 'La ficha no se puede cambiar aquí. Para renombrarla, usar el comando de administración '
                 '«renombrar_id_propiedad» (o soporte).'
             )
+
+        # Solo vendedores de la sucursal del usuario (Colón / Corrientes no se mezclan).
+        if 'fichado_por' in self.fields:
+            qs_vend = Vendedor.objects.none()
+            if self.user and getattr(self.user, 'sucursal_id', None):
+                qs_vend = Vendedor.objects.filter(
+                    sucursal=self.user.sucursal, is_active=True
+                ).order_by('apellido', 'nombre')
+            # Mantener el fichador actual aunque esté inactivo, si es de la misma sucursal.
+            if self.instance.pk and self.instance.fichado_por_id:
+                actual = self.instance.fichado_por
+                if (
+                    actual
+                    and self.user
+                    and actual.sucursal_id == getattr(self.user, 'sucursal_id', None)
+                ):
+                    qs_vend = (qs_vend | Vendedor.objects.filter(pk=actual.pk)).distinct()
+            self.fields['fichado_por'].queryset = qs_vend
 
         # Para propiedades existentes, mostrar el vendedor actual seleccionado
         if self.instance.pk and self.instance.fichado_por:

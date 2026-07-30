@@ -3505,43 +3505,37 @@ def crear_cuenta(request):
 
 @login_required
 def buscar_productores(request):
-    """Vista para buscar vendedores/productores"""
-    term = request.GET.get('term', '')
-    
-    # IMPORTANTE: Depuración para verificar la consulta
-    print(f"Buscando vendedores con término: '{term}'")
-    
+    """Vista para buscar vendedores/productores de la sucursal del usuario."""
+    term = (request.GET.get('term') or '').strip()
+    sucursal = getattr(request.user, 'sucursal', None)
+    if not sucursal:
+        return JsonResponse({'success': True, 'resultados': []})
+
     try:
-        # Buscar TODOS los vendedores sin filtros de sucursal
-        if not term or len(term) < 2:
-            vendedores = Vendedor.objects.all()[:15]
-        else:
-            vendedores = Vendedor.objects.filter(
-                Q(nombre__icontains=term) | 
-                Q(id__icontains=term)
-            )[:15]
-        
-        # Imprimir resultados para depuración
-        print(f"Encontrados {vendedores.count()} vendedores")
-        for v in vendedores:
-            print(f"Vendedor: ID={v.id}, Nombre={v.nombre}")
-        
-        # Formatear resultados
+        qs = Vendedor.objects.filter(sucursal=sucursal, is_active=True)
+        if term and len(term) >= 1:
+            q_text = Q(nombre__icontains=term) | Q(apellido__icontains=term)
+            try:
+                q_text = q_text | Q(id=int(term))
+            except (ValueError, TypeError):
+                pass
+            qs = qs.filter(q_text)
+        vendedores = qs.order_by('apellido', 'nombre')[:30]
+
         resultados = []
         for v in vendedores:
             resultados.append({
                 'id': v.id,
-                'nombre': v.nombre,
-                'telefono': getattr(v, 'telefono', '')
+                'nombre': f'{v.apellido}, {v.nombre}'.strip(', '),
+                'telefono': getattr(v, 'telefono', '') or getattr(v, 'celular', '') or '',
             })
-        
+
         return JsonResponse({
             'success': True,
             'resultados': resultados
         })
-    
+
     except Exception as e:
-        print(f"Error en buscar_productores: {str(e)}")
         return JsonResponse({
             'success': False,
             'message': str(e)
