@@ -9,7 +9,8 @@
         <div>
             <h1 class="h3 mb-1"><i class="fas fa-building me-2 text-primary"></i>Departamentos de oficina</h1>
             <p class="text-muted mb-0 small">
-                Mismas propiedades que <a href="{% url 'inmobiliaria:mis_propiedades' %}">Mis propiedades</a>.
+                Mismas propiedades que <a href="{% url 'inmobiliaria:mis_propiedades' %}">Mis propiedades</a>
+                (cartera compartida de la sucursal).
                 Abrí el libro para ver gastos y alquileres desde caja.
             </p>
         </div>
@@ -38,7 +39,7 @@
             </a>
             {% empty %}
             <div class="list-group-item text-muted text-center py-5">
-                No hay propiedades en tu cartera.
+                No hay propiedades en la cartera de la sucursal.
                 <br><small>Agregalas desde <a href="{% url 'inmobiliaria:mis_propiedades' %}">Mis propiedades</a>.</small>
             </div>
             {% endfor %}

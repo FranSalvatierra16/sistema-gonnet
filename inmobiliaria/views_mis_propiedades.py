@@ -1,4 +1,4 @@
-"""Vistas del módulo Mis propiedades (cartera por usuario)."""
+"""Vistas del módulo Mis propiedades (cartera compartida por sucursal)."""
 from decimal import Decimal
 
 from django.contrib import messages
@@ -9,6 +9,11 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
 
+from inmobiliaria.cartera_sucursal import (
+    qs_cartera_sucursal,
+    sincronizar_cartera_compartida_sucursal,
+    usuario_titular_cartera,
+)
 from inmobiliaria.decimal_utils import format_monto_argentino, parse_decimal_monto
 from inmobiliaria.models.caja import MovimientoCaja, TipoMovimientoCajaEnum
 from inmobiliaria.models.cartera_usuario import CarteraPropiedadUsuario
@@ -180,8 +185,9 @@ def _enriquecer_cartera_items(items, sucursal):
 @login_required
 def mis_propiedades(request):
     sucursal = request.user.sucursal
+    titular = sincronizar_cartera_compartida_sucursal(sucursal)
     cartera_qs = (
-        CarteraPropiedadUsuario.objects.filter(usuario=request.user, propiedad__sucursal=sucursal)
+        qs_cartera_sucursal(sucursal, sincronizar=False)
         .select_related('propiedad', 'propiedad__propietario', 'propietario')
         .order_by('-fecha_alta')
     )
@@ -194,11 +200,11 @@ def mis_propiedades(request):
 
     detalle_cartera_id = request.GET.get('ver')
     detalle = None
-    if detalle_cartera_id:
+    if detalle_cartera_id and titular:
         item = get_object_or_404(
             CarteraPropiedadUsuario,
             pk=detalle_cartera_id,
-            usuario=request.user,
+            usuario=titular,
             propiedad__sucursal=sucursal,
         )
         resumen = _resumen_movimientos_propiedad(item.propiedad_id, sucursal, item.porcentaje)
@@ -229,6 +235,8 @@ def mis_propiedades(request):
             'propietario_id': propietario_id,
             'puede_buscar_ambas_sucursales': _usuario_en_colon_o_corrientes(request.user),
             'sucursal_actual': sucursal,
+            'cartera_compartida': True,
+            'cartera_titular': titular,
         },
     )
 
@@ -258,6 +266,11 @@ def mis_propiedades_buscar_propietario(request):
 @require_POST
 def mis_propiedades_agregar(request):
     sucursal = request.user.sucursal
+    titular = sincronizar_cartera_compartida_sucursal(sucursal)
+    if not titular:
+        messages.error(request, 'No se pudo determinar el titular de la cartera de la sucursal.')
+        return redirect('inmobiliaria:mis_propiedades')
+
     propiedad_ids = request.POST.getlist('propiedad_ids')
     propietario_id = (request.POST.get('propietario_id') or '').strip()
     try:
@@ -289,7 +302,7 @@ def mis_propiedades_agregar(request):
     actualizadas = 0
     for prop in propiedades:
         obj, created = CarteraPropiedadUsuario.objects.update_or_create(
-            usuario=request.user,
+            usuario=titular,
             propiedad=prop,
             defaults={
                 'porcentaje': porcentaje,
@@ -304,7 +317,8 @@ def mis_propiedades_agregar(request):
     if agregadas:
         messages.success(
             request,
-            f'Se agregaron {agregadas} propiedad(es) a tu cartera con {format_monto_argentino(porcentaje, 2)}% de participación.',
+            f'Se agregaron {agregadas} propiedad(es) a la cartera de la sucursal '
+            f'con {format_monto_argentino(porcentaje, 2)}% de participación.',
         )
     if actualizadas:
         messages.info(request, f'Se actualizó el porcentaje de {actualizadas} propiedad(es) ya existentes.')
@@ -318,26 +332,30 @@ def mis_propiedades_agregar(request):
 @login_required
 @require_POST
 def mis_propiedades_quitar(request, pk):
+    sucursal = request.user.sucursal
+    titular = usuario_titular_cartera(sucursal)
     item = get_object_or_404(
         CarteraPropiedadUsuario,
         pk=pk,
-        usuario=request.user,
-        propiedad__sucursal=request.user.sucursal,
+        usuario=titular,
+        propiedad__sucursal=sucursal,
     )
     prop_id = item.propiedad_id
     item.delete()
-    messages.success(request, f'Propiedad #{prop_id} quitada de tu cartera.')
+    messages.success(request, f'Propiedad #{prop_id} quitada de la cartera de la sucursal.')
     return redirect('inmobiliaria:mis_propiedades')
 
 
 @login_required
 @require_POST
 def mis_propiedades_editar_porcentaje(request, pk):
+    sucursal = request.user.sucursal
+    titular = usuario_titular_cartera(sucursal)
     item = get_object_or_404(
         CarteraPropiedadUsuario,
         pk=pk,
-        usuario=request.user,
-        propiedad__sucursal=request.user.sucursal,
+        usuario=titular,
+        propiedad__sucursal=sucursal,
     )
     try:
         porcentaje = parse_decimal_monto(request.POST.get('porcentaje', '') or '0')

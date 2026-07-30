@@ -14,6 +14,11 @@ from django.views.decorators.http import require_POST
 
 logger = logging.getLogger(__name__)
 
+from inmobiliaria.cartera_sucursal import (
+    qs_cartera_sucursal,
+    sincronizar_cartera_compartida_sucursal,
+    usuario_titular_cartera,
+)
 from inmobiliaria.models import (
     Caja,
     CarteraPropiedadUsuario,
@@ -156,10 +161,7 @@ def oficina_dashboard(request):
     vales_abiertos = ValeVendedor.objects.filter(
         vendedor__sucursal=sucursal,
     ).count()
-    propiedades_cartera = CarteraPropiedadUsuario.objects.filter(
-        usuario=request.user,
-        propiedad__sucursal=sucursal,
-    ).count()
+    propiedades_cartera = qs_cartera_sucursal(sucursal).count()
 
     propiedades_oficina_count = propiedades_cartera
 
@@ -549,18 +551,16 @@ def oficina_resumen_cierre(request):
 
 def _qs_propiedades_oficina(sucursal, usuario=None):
     """
-    Propiedades del libro de oficina = misma cartera personal (Mis propiedades).
+    Propiedades del libro de oficina = cartera compartida de la sucursal
+    (Mis propiedades). El parámetro usuario se ignora (compatibilidad).
     """
     from inmobiliaria.models import Propiedad
 
-    if not usuario:
+    if not sucursal:
         return Propiedad.objects.none()
 
     ids = (
-        CarteraPropiedadUsuario.objects.filter(
-            usuario=usuario,
-            propiedad__sucursal=sucursal,
-        )
+        qs_cartera_sucursal(sucursal)
         .values_list('propiedad_id', flat=True)
         .distinct()
     )
@@ -632,12 +632,12 @@ def _fila_libro_desde_movimiento(mov):
 
 @login_required
 def oficina_propiedades_lista(request):
-    """Listado de departamentos de oficina = misma cartera personal (Mis propiedades)."""
+    """Listado de departamentos de oficina = cartera compartida de la sucursal."""
     if not _puede_oficina(request.user):
         return HttpResponseForbidden()
 
     sucursal = request.user.sucursal
-    propiedades = list(_qs_propiedades_oficina(sucursal, request.user))
+    propiedades = list(_qs_propiedades_oficina(sucursal))
     return render(
         request,
         'inmobiliaria/oficina/propiedades_lista.html',
@@ -657,11 +657,15 @@ def oficina_propiedad_libro(request, propiedad_id):
     from inmobiliaria.models import MovimientoCaja, Propiedad
 
     sucursal = request.user.sucursal
-    en_cartera = CarteraPropiedadUsuario.objects.filter(
-        usuario=request.user,
-        propiedad_id=propiedad_id,
-        propiedad__sucursal=sucursal,
-    ).exists()
+    titular = sincronizar_cartera_compartida_sucursal(sucursal)
+    en_cartera = bool(
+        titular
+        and CarteraPropiedadUsuario.objects.filter(
+            usuario=titular,
+            propiedad_id=propiedad_id,
+            propiedad__sucursal=sucursal,
+        ).exists()
+    )
     if not en_cartera:
         return HttpResponseForbidden()
 
@@ -734,11 +738,15 @@ def oficina_propiedad_libro_actualizar_cotizacion(request, propiedad_id):
     from inmobiliaria.models.caja import TipoMovimientoCajaEnum
 
     sucursal = request.user.sucursal
-    en_cartera = CarteraPropiedadUsuario.objects.filter(
-        usuario=request.user,
-        propiedad_id=propiedad_id,
-        propiedad__sucursal=sucursal,
-    ).exists()
+    titular = usuario_titular_cartera(sucursal)
+    en_cartera = bool(
+        titular
+        and CarteraPropiedadUsuario.objects.filter(
+            usuario=titular,
+            propiedad_id=propiedad_id,
+            propiedad__sucursal=sucursal,
+        ).exists()
+    )
     if not en_cartera:
         return JsonResponse({'ok': False, 'error': 'Sin permiso sobre esa propiedad.'}, status=403)
 

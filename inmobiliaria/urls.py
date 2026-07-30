@@ -481,7 +481,7 @@ urlpatterns = [
     path('liquidaciones/gasto-pendiente/crear/', views.crear_gasto_pendiente, name='crear_gasto_pendiente'),
     path('liquidaciones/gasto-pendiente/eliminar/', views.eliminar_gasto_pendiente, name='eliminar_gasto_pendiente'),
 
-    # Mis propiedades (cartera por usuario)
+    # Mis propiedades (cartera compartida por sucursal)
     path('mis-propiedades/', views_mis_propiedades.mis_propiedades, name='mis_propiedades'),
     path('mis-propiedades/buscar-propietario/', views_mis_propiedades.mis_propiedades_buscar_propietario, name='mis_propiedades_buscar_propietario'),
     path('mis-propiedades/agregar/', views_mis_propiedades.mis_propiedades_agregar, name='mis_propiedades_agregar'),
