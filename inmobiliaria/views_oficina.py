@@ -25,6 +25,7 @@ from inmobiliaria.models import (
     CategoriaGastoOficina,
     ComisionVendedor,
     GastoOficina,
+    InicioCajaLibroPropiedad,
     LiquidacionPropietario,
     ValeVendedor,
 )
@@ -1027,6 +1028,62 @@ def _fila_libro_desde_movimiento(mov):
     }
 
 
+def _obtener_inicio_caja_libro(propiedad):
+    """get_or_create del inicio de caja (fecha default 07/06/2026)."""
+    from datetime import date
+
+    inicio, _ = InicioCajaLibroPropiedad.objects.get_or_create(
+        propiedad=propiedad,
+        defaults={
+            'fecha': date(2026, 6, 7),
+            'monto_ars': Decimal('0'),
+            'monto_usd': Decimal('0'),
+        },
+    )
+    return inicio
+
+
+def _fila_inicio_caja_libro(inicio):
+    """Fila del libro para el saldo de inicio de caja (positivo → Alquileres / Ingreso USD)."""
+    from datetime import datetime as dt
+    from datetime import time as time_cls
+
+    f_date = inicio.fecha
+    f_dt = dt.combine(f_date, time_cls.min)
+    if timezone.is_naive(f_dt):
+        try:
+            f_dt = timezone.make_aware(f_dt)
+        except Exception:
+            pass
+    ars = Decimal(str(inicio.monto_ars or 0))
+    usd = Decimal(str(inicio.monto_usd or 0))
+    gastos_ars = Decimal('0')
+    alquileres_ars = Decimal('0')
+    gastos_usd = Decimal('0')
+    ingreso_usd = Decimal('0')
+    if ars >= 0:
+        alquileres_ars = ars
+    else:
+        gastos_ars = abs(ars)
+    if usd >= 0:
+        ingreso_usd = usd
+    else:
+        gastos_usd = abs(usd)
+    return {
+        'fecha': f_dt,
+        'descripcion': 'Inicio de caja',
+        'gastos_ars': gastos_ars,
+        'alquileres_ars': alquileres_ars,
+        'gastos_usd': gastos_usd,
+        'ingreso_usd': ingreso_usd,
+        'tipo_cambio': None,
+        'movimiento_id': None,
+        'tipo': 'INICIO',
+        'sin_caja': False,
+        'es_inicio_caja': True,
+    }
+
+
 @login_required
 def oficina_propiedades_lista(request):
     """Listado de departamentos de oficina = cartera compartida de la sucursal."""
@@ -1080,6 +1137,8 @@ def oficina_propiedad_libro(request, propiedad_id):
         dr_desde, dr_hasta = dr_hasta, dr_desde
         fecha_desde_s, fecha_hasta_s = dr_desde.isoformat(), dr_hasta.isoformat()
 
+    inicio = _obtener_inicio_caja_libro(propiedad)
+
     movimientos, reserva_ids, contrato_ids = _qs_movimientos_libro_propiedad(
         sucursal, propiedad, dr_desde=dr_desde, dr_hasta=dr_hasta
     )
@@ -1107,9 +1166,13 @@ def oficina_propiedad_libro(request, propiedad_id):
     filas.sort(
         key=lambda f: (
             f.get('fecha') or timezone.now(),
+            0 if f.get('es_inicio_caja') else 1,
             f.get('movimiento_id') or 0,
         )
     )
+
+    # Inicio de caja siempre al tope del libro (uno por depto, editable).
+    filas.insert(0, _fila_inicio_caja_libro(inicio))
 
     totales = {
         'gastos_ars': sum((f['gastos_ars'] for f in filas), Decimal('0')),
@@ -1132,7 +1195,64 @@ def oficina_propiedad_libro(request, propiedad_id):
             'otras_propiedades': otras,
             'fecha_desde': fecha_desde_s,
             'fecha_hasta': fecha_hasta_s,
+            'inicio_caja': inicio,
         },
+    )
+
+
+@login_required
+@require_POST
+def oficina_propiedad_libro_inicio_caja(request, propiedad_id):
+    """Guarda el inicio de caja (fecha + montos) de un departamento."""
+    if not _puede_oficina(request.user):
+        return JsonResponse({'ok': False, 'error': 'Sin permiso.'}, status=403)
+
+    from inmobiliaria.decimal_utils import format_monto_argentino, parse_decimal_monto
+    from inmobiliaria.models import Propiedad
+
+    sucursal = request.user.sucursal
+    titular = usuario_titular_cartera(sucursal)
+    en_cartera = bool(
+        titular
+        and CarteraPropiedadUsuario.objects.filter(
+            usuario=titular,
+            propiedad_id=propiedad_id,
+            propiedad__sucursal=sucursal,
+        ).exists()
+    )
+    if not en_cartera:
+        return JsonResponse({'ok': False, 'error': 'Sin permiso sobre esa propiedad.'}, status=403)
+
+    propiedad = get_object_or_404(Propiedad, pk=propiedad_id, sucursal=sucursal)
+    inicio = _obtener_inicio_caja_libro(propiedad)
+
+    fecha_s = (request.POST.get('fecha') or '').strip()
+    fecha = _parse_fecha(fecha_s)
+    if not fecha:
+        return JsonResponse({'ok': False, 'error': 'Fecha inválida.'}, status=400)
+
+    try:
+        monto_ars = parse_decimal_monto(request.POST.get('monto_ars', '0'))
+        monto_usd = parse_decimal_monto(request.POST.get('monto_usd', '0'))
+    except Exception:
+        return JsonResponse({'ok': False, 'error': 'Monto inválido.'}, status=400)
+
+    inicio.fecha = fecha
+    inicio.monto_ars = monto_ars.quantize(Decimal('0.01'))
+    inicio.monto_usd = monto_usd.quantize(Decimal('0.01'))
+    inicio.actualizado_por = request.user
+    inicio.save()
+
+    return JsonResponse(
+        {
+            'ok': True,
+            'fecha': inicio.fecha.isoformat(),
+            'fecha_display': inicio.fecha.strftime('%d/%m/%Y'),
+            'monto_ars': str(inicio.monto_ars),
+            'monto_ars_fmt': format_monto_argentino(inicio.monto_ars),
+            'monto_usd': str(inicio.monto_usd),
+            'monto_usd_fmt': format_monto_argentino(inicio.monto_usd),
+        }
     )
 
 

@@ -56,6 +56,45 @@
         </div>
     </form>
 
+    <div class="card border-primary mb-3">
+        <div class="card-body py-2">
+            <form id="form-inicio-caja" class="row g-2 align-items-end">
+                <div class="col-12 col-md-auto">
+                    <div class="fw-semibold small text-primary mb-1">
+                        <i class="fas fa-cash-register me-1"></i>Inicio de caja
+                        <span class="text-muted fw-normal">(propio de este depto)</span>
+                    </div>
+                </div>
+                <div class="col-6 col-md-auto">
+                    <label class="form-label small mb-0" for="inicio_caja_fecha">Fecha</label>
+                    <input type="date" class="form-control form-control-sm" id="inicio_caja_fecha" name="fecha"
+                           value="{{ inicio_caja.fecha|date:'Y-m-d' }}" required>
+                </div>
+                <div class="col-6 col-md-auto">
+                    <label class="form-label small mb-0" for="inicio_caja_ars">Monto ARS</label>
+                    <input type="text" class="form-control form-control-sm text-end" id="inicio_caja_ars" name="monto_ars"
+                           inputmode="decimal" autocomplete="off"
+                           value="{% if inicio_caja.monto_ars %}{{ inicio_caja.monto_ars|format_price }}{% else %}0{% endif %}"
+                           style="min-width:8rem">
+                </div>
+                <div class="col-6 col-md-auto">
+                    <label class="form-label small mb-0" for="inicio_caja_usd">Monto USD</label>
+                    <input type="text" class="form-control form-control-sm text-end" id="inicio_caja_usd" name="monto_usd"
+                           inputmode="decimal" autocomplete="off"
+                           value="{% if inicio_caja.monto_usd %}{{ inicio_caja.monto_usd|format_price }}{% else %}0{% endif %}"
+                           style="min-width:7rem">
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-sm btn-primary" id="btn-guardar-inicio-caja">
+                        <i class="fas fa-save me-1"></i>Guardar
+                    </button>
+                    <span class="small text-success ms-1 d-none" id="inicio-caja-ok">Guardado</span>
+                    <span class="small text-danger ms-1 d-none" id="inicio-caja-err"></span>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="row g-2 mb-3">
         <div class="col-md-3"><div class="alert alert-danger border mb-0 py-2">Gastos ARS: <strong>${{ totales.gastos_ars|format_price }}</strong></div></div>
         <div class="col-md-3"><div class="alert alert-success border mb-0 py-2">Alquileres ARS: <strong>${{ totales.alquileres_ars|format_price }}</strong></div></div>
@@ -64,7 +103,8 @@
     </div>
 
     <p class="small text-muted mb-2">
-        Si un movimiento no tiene tipo de cambio (cargado antes de esa opción), completá <strong>Tipo cbio</strong> al costado y guardá: se calcula el dólar automáticamente.
+        El <strong>inicio de caja</strong> es distinto por departamento y suma al balance.
+        Si un movimiento no tiene tipo de cambio, completá <strong>Tipo cbio</strong> y guardá.
     </p>
 
     <div class="card shadow-sm">
@@ -83,10 +123,13 @@
                 </thead>
                 <tbody>
                     {% for f in filas %}
-                    <tr {% if f.movimiento_id %}data-movimiento-id="{{ f.movimiento_id }}"{% endif %} data-tipo="{{ f.tipo }}">
+                    <tr {% if f.movimiento_id %}data-movimiento-id="{{ f.movimiento_id }}"{% endif %}
+                        data-tipo="{{ f.tipo }}"
+                        {% if f.es_inicio_caja %}class="table-primary"{% endif %}>
                         <td class="text-nowrap">{{ f.fecha|date:"d/m/Y" }}</td>
                         <td>
-                            {{ f.descripcion }}
+                            {% if f.es_inicio_caja %}<strong>{{ f.descripcion }}</strong>
+                            {% else %}{{ f.descripcion }}{% endif %}
                             {% if f.sin_caja %}<span class="badge bg-light text-muted border ms-1" title="Tomado de la operación/contrato">op.</span>{% endif %}
                         </td>
                         <td class="text-end text-danger">{% if f.gastos_ars %}{{ f.gastos_ars|format_price }}{% endif %}</td>
@@ -94,7 +137,9 @@
                         <td class="text-end celda-gastos-usd">{% if f.gastos_usd %}{{ f.gastos_usd|format_price }}{% endif %}</td>
                         <td class="text-end celda-ingreso-usd">{% if f.ingreso_usd %}{{ f.ingreso_usd|format_price }}{% endif %}</td>
                         <td class="text-end">
-                            {% if f.movimiento_id %}
+                            {% if f.es_inicio_caja %}
+                            <span class="text-muted small">editable arriba</span>
+                            {% elif f.movimiento_id %}
                             <div class="input-group input-group-sm justify-content-end flex-nowrap">
                                 <input type="text"
                                        class="form-control form-control-sm text-end input-cotizacion-libro"
@@ -123,8 +168,7 @@
                             No hay gastos, alquileres ni operaciones para este departamento{% if fecha_desde or fecha_hasta %} en el período{% endif %}.
                         </td>
                     </tr>
-                    {% endfor %}
-                </tbody>
+                    {% endfor %}                </tbody>
                 {% if filas %}
                 <tfoot class="table-light fw-semibold">
                     <tr>
@@ -152,6 +196,7 @@
 <script>
 (function() {
     var urlCotiz = '{% url "inmobiliaria:oficina_propiedad_libro_cotizacion" propiedad.id %}';
+    var urlInicio = '{% url "inmobiliaria:oficina_propiedad_libro_inicio_caja" propiedad.id %}';
 
     function csrfToken() {
         var inp = document.querySelector('input[name=csrfmiddlewaretoken]');
@@ -160,6 +205,60 @@
         if (meta && meta.content) return meta.content;
         var m = document.cookie.match(/(?:^|; )csrftoken=([^;]*)/);
         return m ? decodeURIComponent(m[1]) : '';
+    }
+
+    var formInicio = document.getElementById('form-inicio-caja');
+    if (formInicio) {
+        formInicio.addEventListener('submit', function(e) {
+            e.preventDefault();
+            var btn = document.getElementById('btn-guardar-inicio-caja');
+            var okEl = document.getElementById('inicio-caja-ok');
+            var errEl = document.getElementById('inicio-caja-err');
+            if (okEl) okEl.classList.add('d-none');
+            if (errEl) {
+                errEl.classList.add('d-none');
+                errEl.textContent = '';
+            }
+            if (btn) btn.disabled = true;
+            var body = new URLSearchParams();
+            body.set('fecha', (document.getElementById('inicio_caja_fecha') || {}).value || '');
+            body.set('monto_ars', (document.getElementById('inicio_caja_ars') || {}).value || '0');
+            body.set('monto_usd', (document.getElementById('inicio_caja_usd') || {}).value || '0');
+            fetch(urlInicio, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                    'X-CSRFToken': csrfToken(),
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: body.toString(),
+                credentials: 'same-origin'
+            }).then(function(r) { return r.json().then(function(d) { return { okHttp: r.ok, d: d }; }); })
+              .then(function(res) {
+                if (!res.okHttp || !res.d || !res.d.ok) {
+                    if (errEl) {
+                        errEl.textContent = (res.d && res.d.error) || 'No se pudo guardar.';
+                        errEl.classList.remove('d-none');
+                    } else {
+                        alert((res.d && res.d.error) || 'No se pudo guardar el inicio de caja.');
+                    }
+                    return;
+                }
+                if (okEl) okEl.classList.remove('d-none');
+                window.location.reload();
+              })
+              .catch(function() {
+                if (errEl) {
+                    errEl.textContent = 'Error de red.';
+                    errEl.classList.remove('d-none');
+                } else {
+                    alert('Error de red al guardar el inicio de caja.');
+                }
+              })
+              .finally(function() {
+                if (btn) btn.disabled = false;
+              });
+        });
     }
 
     function guardarFila(tr) {

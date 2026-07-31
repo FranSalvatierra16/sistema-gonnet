@@ -140,3 +140,54 @@ class GastoOficina(models.Model):
         while cat and cat.parent_id:
             cat = cat.parent
         return cat
+
+
+def _fecha_inicio_caja_default():
+    from datetime import date
+
+    return date(2026, 6, 7)
+
+
+class InicioCajaLibroPropiedad(models.Model):
+    """
+    Saldo de inicio de caja del libro por departamento (uno distinto por propiedad).
+    Fecha por defecto 07/06/2026; editable.
+    """
+
+    propiedad = models.OneToOneField(
+        'Propiedad',
+        on_delete=models.CASCADE,
+        related_name='inicio_caja_libro',
+    )
+    fecha = models.DateField(
+        default=_fecha_inicio_caja_default,
+        verbose_name='Fecha inicio de caja',
+        help_text='Por defecto 07/06/2026.',
+    )
+    monto_ars = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal('0'),
+        verbose_name='Inicio de caja ARS',
+    )
+    monto_usd = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal('0'),
+        verbose_name='Inicio de caja USD',
+    )
+    actualizado_en = models.DateTimeField(auto_now=True)
+    actualizado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='inicios_caja_libro_actualizados',
+    )
+
+    class Meta:
+        verbose_name = 'Inicio de caja libro propiedad'
+        verbose_name_plural = 'Inicios de caja libro propiedad'
+
+    def __str__(self):
+        return f'Inicio caja #{self.propiedad_id} — ${self.monto_ars}'
