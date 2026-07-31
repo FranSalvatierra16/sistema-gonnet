@@ -38,11 +38,6 @@
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link{% if active_tab == 'imagenes' %} active{% endif %}" id="imagenes-tab" data-bs-toggle="tab" data-bs-target="#imagenes" type="button" role="tab" aria-controls="imagenes" aria-selected="{% if active_tab == 'imagenes' %}true{% else %}false{% endif %}">
-                            <i class="fas fa-images"></i> Imágenes
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
                         <button class="nav-link{% if active_tab == 'propietario' %} active{% endif %}" id="propietario-tab" data-bs-toggle="tab" data-bs-target="#propietario" type="button" role="tab" aria-controls="propietario" aria-selected="{% if active_tab == 'propietario' %}true{% else %}false{% endif %}">
                             <i class="fas fa-user-tie"></i> Propietario
                         </button>
@@ -953,80 +948,6 @@
                                     {% endif %}
                                 </div>
                             {% endif %}
-                        </div>
-                    </div>
-
-                    <!-- Pestaña de Gestión de Imágenes -->
-                    <div class="tab-pane fade{% if active_tab == 'imagenes' %} show active{% endif %}" id="imagenes" role="tabpanel">
-                        <div class="container mt-4">
-                            <div class="row">
-                                <div class="col-12">
-                                    <div class="card">
-                                        <div class="card-header bg-primary text-white">
-                                            <h4 class="mb-0"><i class="fas fa-images me-2"></i>Gestión de Imágenes</h4>
-                                            <small>Arrastra las imágenes para reordenarlas</small>
-                                        </div>
-                                        <div class="card-body">
-                                            {% if propiedad.imagenes.all %}
-                                                <div id="sortable-images" class="row">
-                                                    {% for imagen in propiedad.imagenes.all %}
-                                                    <div class="col-md-3 col-sm-4 col-6 mb-4 sortable-item" data-id="{{ imagen.id }}" data-orden="{{ imagen.orden }}">
-                                                        <div class="image-container position-relative">
-                                                            <img src="{{ imagen.imagen.url }}" 
-                                                                 class="img-fluid rounded shadow-sm sortable-image" 
-                                                                 alt="Imagen {{ forloop.counter }}"
-                                                                 style="height: 200px; width: 100%; object-fit: cover; cursor: grab;"
-                                                                 onerror="this.onerror=null; this.src='{% static 'images/logo.png' %}';">
-                                                            
-                                                            <!-- Overlay con controles -->
-                                                            <div class="image-overlay">
-                                                                <div class="overlay-content">
-                                                                    <button type="button" class="btn btn-danger btn-sm delete-image" 
-                                                                            data-id="{{ imagen.id }}" title="Eliminar imagen">
-                                                                        <i class="fas fa-trash"></i>
-                                                                    </button>
-                                                                    <button type="button" class="btn btn-info btn-sm view-image" 
-                                                                            onclick="openGallery({{ forloop.counter0 }})" title="Ver imagen">
-                                                                        <i class="fas fa-eye"></i>
-                                                                    </button>
-                                                                </div>
-                                                                <div class="order-badge">
-                                                                    <span class="badge bg-secondary">{{ imagen.orden }}</span>
-                                                                </div>
-                                                            </div>
-                                                            
-                                                            <!-- Indicador de arrastrar -->
-                                                            <div class="drag-handle">
-                                                                <i class="fas fa-grip-vertical"></i>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    {% endfor %}
-                                                </div>
-                                                
-                                                <!-- Botones de acción -->
-                                                <div class="mt-4 text-center">
-                                                    <button type="button" id="save-order" class="btn btn-success me-2" disabled>
-                                                        <i class="fas fa-save"></i> Guardar Orden
-                                                    </button>
-                                                    <button type="button" id="reset-order" class="btn btn-secondary">
-                                                        <i class="fas fa-undo"></i> Resetear
-                                                    </button>
-                                                </div>
-                                            {% else %}
-                                                <div class="text-center py-5">
-                                                    <i class="fas fa-images fa-3x text-muted mb-3"></i>
-                                                    <h5 class="text-muted">No hay imágenes</h5>
-                                                    <p class="text-muted">Edita la propiedad para agregar imágenes</p>
-                                                    <a href="{% url 'inmobiliaria:propiedad_editar' propiedad_id=propiedad.id %}" class="btn btn-primary">
-                                                        <i class="fas fa-plus"></i> Agregar Imágenes
-                                                    </a>
-                                                </div>
-                                            {% endif %}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
                         </div>
                     </div>
 

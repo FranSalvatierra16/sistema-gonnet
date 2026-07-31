@@ -2839,8 +2839,8 @@ def propiedades(request):
     })
 
 def _active_tab_propiedad_detalle(request):
-    """Pestaña inicial en ficha propiedad: ?tab=info|venta|meses|invierno|imagenes|propietario (default info)."""
-    allowed = frozenset({'info', 'venta', 'meses', 'invierno', 'imagenes', 'propietario'})
+    """Pestaña inicial en ficha propiedad: ?tab=info|venta|meses|invierno|propietario (default info)."""
+    allowed = frozenset({'info', 'venta', 'meses', 'invierno', 'propietario'})
     t = (request.GET.get('tab') or 'info').strip().lower()
     return t if t in allowed else 'info'
 
