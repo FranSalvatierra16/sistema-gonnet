@@ -1147,15 +1147,17 @@ def _obtener_inicio_caja_libro(propiedad):
         propiedad=propiedad,
         defaults={
             'fecha': date(2026, 6, 7),
-            'monto_ars': Decimal('0'),
-            'monto_usd': Decimal('0'),
+            'gastos_ars': Decimal('0'),
+            'alquileres_ars': Decimal('0'),
+            'gastos_usd': Decimal('0'),
+            'ingreso_usd': Decimal('0'),
         },
     )
     return inicio
 
 
 def _fila_inicio_caja_libro(inicio):
-    """Fila del libro para el saldo de inicio de caja (positivo → Alquileres / Ingreso USD)."""
+    """Fila del libro «Inicio de caja» — solo usa los montos de ese registro."""
     from datetime import datetime as dt
     from datetime import time as time_cls
 
@@ -1166,28 +1168,19 @@ def _fila_inicio_caja_libro(inicio):
             f_dt = timezone.make_aware(f_dt)
         except Exception:
             pass
-    ars = Decimal(str(inicio.monto_ars or 0))
-    usd = Decimal(str(inicio.monto_usd or 0))
-    gastos_ars = Decimal('0')
-    alquileres_ars = Decimal('0')
-    gastos_usd = Decimal('0')
-    ingreso_usd = Decimal('0')
-    if ars >= 0:
-        alquileres_ars = ars
-    else:
-        gastos_ars = abs(ars)
-    if usd >= 0:
-        ingreso_usd = usd
-    else:
-        gastos_usd = abs(usd)
+    cotiz = getattr(inicio, 'tipo_cambio', None)
+    if cotiz is not None:
+        cotiz = Decimal(str(cotiz))
+        if cotiz <= 0:
+            cotiz = None
     return {
         'fecha': f_dt,
         'descripcion': 'Inicio de caja',
-        'gastos_ars': gastos_ars,
-        'alquileres_ars': alquileres_ars,
-        'gastos_usd': gastos_usd,
-        'ingreso_usd': ingreso_usd,
-        'tipo_cambio': None,
+        'gastos_ars': Decimal(str(inicio.gastos_ars or 0)),
+        'alquileres_ars': Decimal(str(inicio.alquileres_ars or 0)),
+        'gastos_usd': Decimal(str(inicio.gastos_usd or 0)),
+        'ingreso_usd': Decimal(str(inicio.ingreso_usd or 0)),
+        'tipo_cambio': cotiz,
         'movimiento_id': None,
         'tipo': 'INICIO',
         'sin_caja': False,
@@ -1437,23 +1430,14 @@ def oficina_propiedad_libro(request, propiedad_id):
 @login_required
 @require_POST
 def oficina_propiedad_libro_inicio_caja(request, propiedad_id):
-    """Guarda el inicio de caja (fecha + montos) de un departamento."""
+    """Guarda el inicio de caja (solo la fila Inicio de caja de ese depto)."""
     if not _puede_oficina(request.user):
         return JsonResponse({'ok': False, 'error': 'Sin permiso.'}, status=403)
 
     from inmobiliaria.decimal_utils import format_monto_argentino, parse_decimal_monto
     from inmobiliaria.models import Propiedad
 
-    sucursal = request.user.sucursal
-    titular = usuario_titular_cartera(sucursal)
-    en_cartera = bool(
-        titular
-        and CarteraPropiedadUsuario.objects.filter(
-            usuario=titular,
-            propiedad_id=propiedad_id,
-            propiedad__sucursal=sucursal,
-        ).exists()
-    )
+    sucursal, en_cartera = _propiedad_en_cartera_oficina(request.user, propiedad_id)
     if not en_cartera:
         return JsonResponse({'ok': False, 'error': 'Sin permiso sobre esa propiedad.'}, status=403)
 
@@ -1466,14 +1450,47 @@ def oficina_propiedad_libro_inicio_caja(request, propiedad_id):
         return JsonResponse({'ok': False, 'error': 'Fecha inválida.'}, status=400)
 
     try:
-        monto_ars = parse_decimal_monto(request.POST.get('monto_ars', '0'))
-        monto_usd = parse_decimal_monto(request.POST.get('monto_usd', '0'))
+        gastos_ars = parse_decimal_monto(request.POST.get('gastos_ars', '0'))
+        alquileres_ars = parse_decimal_monto(request.POST.get('alquileres_ars', '0'))
+        gastos_usd = parse_decimal_monto(request.POST.get('gastos_usd', '0'))
+        ingreso_usd = parse_decimal_monto(request.POST.get('ingreso_usd', '0'))
+        cotiz_raw = (request.POST.get('tipo_cambio') or '').strip()
+        tipo_cambio = parse_decimal_monto(cotiz_raw) if cotiz_raw else None
     except Exception:
         return JsonResponse({'ok': False, 'error': 'Monto inválido.'}, status=400)
 
+    if tipo_cambio is not None and tipo_cambio <= 0:
+        tipo_cambio = None
+
+    # Compatibilidad: si mandan los campos viejos monto_ars / monto_usd
+    if (
+        not any(
+            abs(x) > 0
+            for x in (gastos_ars, alquileres_ars, gastos_usd, ingreso_usd)
+        )
+        and (request.POST.get('monto_ars') or request.POST.get('monto_usd'))
+    ):
+        try:
+            monto_ars = parse_decimal_monto(request.POST.get('monto_ars', '0'))
+            monto_usd = parse_decimal_monto(request.POST.get('monto_usd', '0'))
+        except Exception:
+            monto_ars = Decimal('0')
+            monto_usd = Decimal('0')
+        if monto_ars >= 0:
+            alquileres_ars = monto_ars
+        else:
+            gastos_ars = abs(monto_ars)
+        if monto_usd >= 0:
+            ingreso_usd = monto_usd
+        else:
+            gastos_usd = abs(monto_usd)
+
     inicio.fecha = fecha
-    inicio.monto_ars = monto_ars.quantize(Decimal('0.01'))
-    inicio.monto_usd = monto_usd.quantize(Decimal('0.01'))
+    inicio.gastos_ars = gastos_ars.quantize(Decimal('0.01'))
+    inicio.alquileres_ars = alquileres_ars.quantize(Decimal('0.01'))
+    inicio.gastos_usd = gastos_usd.quantize(Decimal('0.01'))
+    inicio.ingreso_usd = ingreso_usd.quantize(Decimal('0.01'))
+    inicio.tipo_cambio = tipo_cambio.quantize(Decimal('0.01')) if tipo_cambio else None
     inicio.actualizado_por = request.user
     inicio.save()
 
@@ -1482,10 +1499,14 @@ def oficina_propiedad_libro_inicio_caja(request, propiedad_id):
             'ok': True,
             'fecha': inicio.fecha.isoformat(),
             'fecha_display': inicio.fecha.strftime('%d/%m/%Y'),
-            'monto_ars': str(inicio.monto_ars),
-            'monto_ars_fmt': format_monto_argentino(inicio.monto_ars),
-            'monto_usd': str(inicio.monto_usd),
-            'monto_usd_fmt': format_monto_argentino(inicio.monto_usd),
+            'gastos_ars': str(inicio.gastos_ars),
+            'alquileres_ars': str(inicio.alquileres_ars),
+            'gastos_usd': str(inicio.gastos_usd),
+            'ingreso_usd': str(inicio.ingreso_usd),
+            'gastos_ars_fmt': format_monto_argentino(inicio.gastos_ars),
+            'alquileres_ars_fmt': format_monto_argentino(inicio.alquileres_ars),
+            'gastos_usd_fmt': format_monto_argentino(inicio.gastos_usd),
+            'ingreso_usd_fmt': format_monto_argentino(inicio.ingreso_usd),
         }
     )
 

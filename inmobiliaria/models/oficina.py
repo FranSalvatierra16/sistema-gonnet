@@ -151,7 +151,7 @@ def _fecha_inicio_caja_default():
 class InicioCajaLibroPropiedad(models.Model):
     """
     Saldo de inicio de caja del libro por departamento (uno distinto por propiedad).
-    Fecha por defecto 07/06/2026; editable.
+    Solo afecta la fila «Inicio de caja». Fecha por defecto 07/06/2026.
     """
 
     propiedad = models.OneToOneField(
@@ -164,17 +164,28 @@ class InicioCajaLibroPropiedad(models.Model):
         verbose_name='Fecha inicio de caja',
         help_text='Por defecto 07/06/2026.',
     )
-    monto_ars = models.DecimalField(
-        max_digits=14,
-        decimal_places=2,
-        default=Decimal('0'),
-        verbose_name='Inicio de caja ARS',
+    gastos_ars = models.DecimalField(
+        max_digits=14, decimal_places=2, default=Decimal('0'),
+        verbose_name='Gastos ARS (inicio)',
     )
-    monto_usd = models.DecimalField(
+    alquileres_ars = models.DecimalField(
+        max_digits=14, decimal_places=2, default=Decimal('0'),
+        verbose_name='Alquileres ARS (inicio)',
+    )
+    gastos_usd = models.DecimalField(
+        max_digits=14, decimal_places=2, default=Decimal('0'),
+        verbose_name='Gastos USD (inicio)',
+    )
+    ingreso_usd = models.DecimalField(
+        max_digits=14, decimal_places=2, default=Decimal('0'),
+        verbose_name='Ingreso USD (inicio)',
+    )
+    tipo_cambio = models.DecimalField(
         max_digits=14,
         decimal_places=2,
-        default=Decimal('0'),
-        verbose_name='Inicio de caja USD',
+        null=True,
+        blank=True,
+        verbose_name='Tipo de cambio (inicio)',
     )
     actualizado_en = models.DateTimeField(auto_now=True)
     actualizado_por = models.ForeignKey(
@@ -190,7 +201,7 @@ class InicioCajaLibroPropiedad(models.Model):
         verbose_name_plural = 'Inicios de caja libro propiedad'
 
     def __str__(self):
-        return f'Inicio caja #{self.propiedad_id} — ${self.monto_ars}'
+        return f'Inicio caja #{self.propiedad_id} — alquileres ${self.alquileres_ars}'
 
 
 class FilaManualLibroPropiedad(models.Model):

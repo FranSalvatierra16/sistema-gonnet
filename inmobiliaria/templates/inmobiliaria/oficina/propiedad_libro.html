@@ -59,10 +59,10 @@
     <div class="card border-primary mb-3">
         <div class="card-body py-2">
             <form id="form-inicio-caja" class="row g-2 align-items-end">
-                <div class="col-12 col-md-auto">
+                <div class="col-12">
                     <div class="fw-semibold small text-primary mb-1">
                         <i class="fas fa-cash-register me-1"></i>Inicio de caja
-                        <span class="text-muted fw-normal">(propio de este depto)</span>
+                        <span class="text-muted fw-normal">— solo la primera fila del libro de este depto</span>
                     </div>
                 </div>
                 <div class="col-6 col-md-auto">
@@ -71,22 +71,43 @@
                            value="{{ inicio_caja.fecha|date:'Y-m-d' }}" required>
                 </div>
                 <div class="col-6 col-md-auto">
-                    <label class="form-label small mb-0" for="inicio_caja_ars">Monto ARS</label>
-                    <input type="text" class="form-control form-control-sm text-end" id="inicio_caja_ars" name="monto_ars"
+                    <label class="form-label small mb-0" for="inicio_caja_gastos_ars">Gastos ARS</label>
+                    <input type="text" class="form-control form-control-sm text-end" id="inicio_caja_gastos_ars" name="gastos_ars"
                            inputmode="decimal" autocomplete="off"
-                           value="{% if inicio_caja.monto_ars %}{{ inicio_caja.monto_ars|format_price }}{% else %}0{% endif %}"
-                           style="min-width:8rem">
+                           value="{% if inicio_caja.gastos_ars %}{{ inicio_caja.gastos_ars|format_price }}{% else %}0{% endif %}"
+                           style="min-width:7rem">
                 </div>
                 <div class="col-6 col-md-auto">
-                    <label class="form-label small mb-0" for="inicio_caja_usd">Monto USD</label>
-                    <input type="text" class="form-control form-control-sm text-end" id="inicio_caja_usd" name="monto_usd"
+                    <label class="form-label small mb-0" for="inicio_caja_alquileres_ars">Alquileres ARS</label>
+                    <input type="text" class="form-control form-control-sm text-end" id="inicio_caja_alquileres_ars" name="alquileres_ars"
                            inputmode="decimal" autocomplete="off"
-                           value="{% if inicio_caja.monto_usd %}{{ inicio_caja.monto_usd|format_price }}{% else %}0{% endif %}"
+                           value="{% if inicio_caja.alquileres_ars %}{{ inicio_caja.alquileres_ars|format_price }}{% else %}0{% endif %}"
                            style="min-width:7rem">
+                </div>
+                <div class="col-6 col-md-auto">
+                    <label class="form-label small mb-0" for="inicio_caja_gastos_usd">Gastos USD</label>
+                    <input type="text" class="form-control form-control-sm text-end" id="inicio_caja_gastos_usd" name="gastos_usd"
+                           inputmode="decimal" autocomplete="off"
+                           value="{% if inicio_caja.gastos_usd %}{{ inicio_caja.gastos_usd|format_price }}{% else %}0{% endif %}"
+                           style="min-width:6.5rem">
+                </div>
+                <div class="col-6 col-md-auto">
+                    <label class="form-label small mb-0" for="inicio_caja_ingreso_usd">Ingreso USD</label>
+                    <input type="text" class="form-control form-control-sm text-end" id="inicio_caja_ingreso_usd" name="ingreso_usd"
+                           inputmode="decimal" autocomplete="off"
+                           value="{% if inicio_caja.ingreso_usd %}{{ inicio_caja.ingreso_usd|format_price }}{% else %}0{% endif %}"
+                           style="min-width:6.5rem">
+                </div>
+                <div class="col-6 col-md-auto">
+                    <label class="form-label small mb-0" for="inicio_caja_tipo_cambio">Tipo cbio</label>
+                    <input type="text" class="form-control form-control-sm text-end" id="inicio_caja_tipo_cambio" name="tipo_cambio"
+                           inputmode="decimal" autocomplete="off" placeholder="opc."
+                           value="{% if inicio_caja.tipo_cambio %}{{ inicio_caja.tipo_cambio|format_price }}{% endif %}"
+                           style="min-width:5.5rem">
                 </div>
                 <div class="col-auto">
                     <button type="submit" class="btn btn-sm btn-primary" id="btn-guardar-inicio-caja">
-                        <i class="fas fa-save me-1"></i>Guardar
+                        <i class="fas fa-save me-1"></i>Guardar inicio
                     </button>
                     <span class="small text-success ms-1 d-none" id="inicio-caja-ok">Guardado</span>
                     <span class="small text-danger ms-1 d-none" id="inicio-caja-err"></span>
@@ -101,7 +122,7 @@
                 <div class="col-12">
                     <div class="fw-semibold small text-success mb-1">
                         <i class="fas fa-pen me-1"></i>Anotar fila
-                        <span class="text-muted fw-normal">— cargá gastos, alquileres, USD</span>
+                        <span class="text-muted fw-normal">— filas nuevas del libro (no es el inicio de caja)</span>
                     </div>
                 </div>
                 <div class="col-6 col-md-auto">
@@ -156,8 +177,9 @@
     </div>
 
     <p class="small text-muted mb-2">
-        Podés <strong>anotar</strong> filas con las 4 columnas (gastos, alquileres, gastos USD, ingreso USD).
-        Las filas manuales se editan o borran en la tabla. El inicio de caja es distinto por depto.
+        <strong>Inicio de caja</strong> (arriba, azul) solo modifica la primera fila.
+        <strong>Anotar fila</strong> (verde) agrega otras filas del libro.
+        En operaciones podés cargar el tipo de cambio para el ingreso en dólares.
     </p>
 
     <div class="card shadow-sm">
@@ -234,7 +256,7 @@
                         <td class="text-end celda-ingreso-usd">{% if f.ingreso_usd %}{{ f.ingreso_usd|format_price }}{% endif %}</td>
                         <td class="text-end">
                             {% if f.es_inicio_caja %}
-                            <span class="text-muted small">editable arriba</span>
+                            <span class="text-muted small">{% if f.tipo_cambio %}{{ f.tipo_cambio|format_price }}{% else %}editable arriba{% endif %}</span>
                             {% elif f.movimiento_id or f.es_operacion_libro %}
                             <div class="input-group input-group-sm justify-content-end flex-nowrap">
                                 <input type="text"
@@ -334,8 +356,11 @@
             if (btn) btn.disabled = true;
             var body = new URLSearchParams();
             body.set('fecha', (document.getElementById('inicio_caja_fecha') || {}).value || '');
-            body.set('monto_ars', (document.getElementById('inicio_caja_ars') || {}).value || '0');
-            body.set('monto_usd', (document.getElementById('inicio_caja_usd') || {}).value || '0');
+            body.set('gastos_ars', (document.getElementById('inicio_caja_gastos_ars') || {}).value || '0');
+            body.set('alquileres_ars', (document.getElementById('inicio_caja_alquileres_ars') || {}).value || '0');
+            body.set('gastos_usd', (document.getElementById('inicio_caja_gastos_usd') || {}).value || '0');
+            body.set('ingreso_usd', (document.getElementById('inicio_caja_ingreso_usd') || {}).value || '0');
+            body.set('tipo_cambio', (document.getElementById('inicio_caja_tipo_cambio') || {}).value || '');
             postForm(urlInicio, body)
               .then(function(res) {
                 if (!res.okHttp || !res.d || !res.d.ok) {
