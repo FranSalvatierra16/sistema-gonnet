@@ -1383,18 +1383,11 @@ def oficina_propiedad_libro(request, propiedad_id):
         )
     )
 
-    manuales_qs = FilaManualLibroPropiedad.objects.filter(propiedad=propiedad)
-    if dr_desde:
-        manuales_qs = manuales_qs.filter(fecha__gte=dr_desde)
-    if dr_hasta:
-        manuales_qs = manuales_qs.filter(fecha__lte=dr_hasta)
-    filas.extend(_fila_desde_manual(fm) for fm in manuales_qs.order_by('fecha', 'id'))
-
     filas.sort(
         key=lambda f: (
             f.get('fecha') or timezone.now(),
             0 if f.get('es_inicio_caja') else 1,
-            f.get('movimiento_id') or f.get('fila_manual_id') or 0,
+            f.get('movimiento_id') or 0,
         )
     )
 
