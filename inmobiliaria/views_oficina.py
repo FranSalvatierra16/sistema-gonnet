@@ -571,15 +571,128 @@ def _qs_propiedades_oficina(sucursal, usuario=None):
     )
 
 
+def _parse_items_concepto_json(raw):
+    """Extrae lista de conceptos desde JSON (array o {conceptos: [...]})."""
+    import json
+
+    if not isinstance(raw, str):
+        return []
+    s = raw.strip()
+    if not s:
+        return []
+    try:
+        data = json.loads(s)
+    except Exception:
+        return []
+    if isinstance(data, list):
+        return [x for x in data if isinstance(x, dict)]
+    if isinstance(data, dict):
+        arr = data.get('conceptos')
+        if isinstance(arr, list):
+            return [x for x in arr if isinstance(x, dict)]
+    return []
+
+
+def _formatear_items_concepto_libro(items):
+    """Armar texto legible: Nombre — observaciones (omite 'sin observaciones')."""
+    partes = []
+    for it in items:
+        nombre = str(it.get('nombre') or it.get('concepto') or it.get('descripcion') or '').strip()
+        obs = str(it.get('observaciones') or '').strip()
+        if obs.lower() in ('', 'sin observaciones', 'sin observaciones.'):
+            obs = ''
+        if nombre and obs:
+            partes.append(f'{nombre} — {obs}')
+        elif nombre:
+            partes.append(nombre)
+        elif obs:
+            partes.append(obs)
+    return '; '.join(partes)
+
+
 def _descripcion_movimiento_libro(mov):
     """Texto legible para la columna Descripción del libro."""
+    import re
+
+    prefijo_contrato = ''
+    items = []
+
+    # 1) Preferir concepto_detalle (JSON completo de cobros de contrato).
+    detalle_raw = (getattr(mov, 'concepto_detalle', None) or '').strip()
+    if detalle_raw:
+        items = _parse_items_concepto_json(detalle_raw)
+
     try:
         txt = (mov.concepto_sin_pipe_conceptos() or '').strip()
     except Exception:
         txt = (getattr(mov, 'concepto', None) or '').strip()
         if '|CONCEPTOS:' in txt:
             txt = txt.split('|CONCEPTOS:', 1)[0].strip()
-    return txt or f'Movimiento #{mov.id}'
+
+    if not txt and not items:
+        return f'Movimiento #{mov.id}'
+
+    # Prefijo "Contrato #N" / "Operación N" si está en el texto.
+    m_pref = re.match(
+        r'^\s*((?:Contrato|Operaci[oó]n)\s*#?\s*\d+)\s*[-–—:]\s*(.*)$',
+        txt or '',
+        re.I | re.S,
+    )
+    resto = txt or ''
+    if m_pref:
+        prefijo_contrato = m_pref.group(1).strip()
+        # Normalizar "Contrato #212"
+        prefijo_contrato = re.sub(
+            r'(?i)^(contrato)\s*#?\s*(\d+)$',
+            r'Contrato #\2',
+            prefijo_contrato,
+        )
+        prefijo_contrato = re.sub(
+            r'(?i)^(operaci[oó]n)\s*#?\s*(\d+)$',
+            r'Operación \2',
+            prefijo_contrato,
+        )
+        resto = (m_pref.group(2) or '').strip()
+
+    # 2) Si el resto (o el texto entero) es JSON con conceptos, parsearlo.
+    if not items:
+        candidatos = []
+        if resto:
+            candidatos.append(resto)
+        if txt and txt not in candidatos:
+            candidatos.append(txt)
+        # A veces el JSON está truncado con "..." — intentar hasta el último ] o }.
+        for cand in candidatos:
+            parsed = _parse_items_concepto_json(cand)
+            if parsed:
+                items = parsed
+                break
+            for end_ch, open_ch in ((']', '['), ('}', '{')):
+                if open_ch in cand and end_ch in cand:
+                    try_s = cand[: cand.rfind(end_ch) + 1]
+                    parsed = _parse_items_concepto_json(try_s)
+                    if parsed:
+                        items = parsed
+                        break
+            if items:
+                break
+
+    if items:
+        cuerpo = _formatear_items_concepto_libro(items)
+        if prefijo_contrato and cuerpo:
+            return f'{prefijo_contrato} — {cuerpo}'
+        if prefijo_contrato:
+            return prefijo_contrato
+        if cuerpo:
+            return cuerpo
+
+    # 3) Sin JSON: si el "resto" sigue siendo basura tipo [{...}], limpiar.
+    if resto.lstrip().startswith(('[', '{')):
+        return prefijo_contrato or f'Movimiento #{mov.id}'
+
+    if prefijo_contrato and resto:
+        return f'{prefijo_contrato} — {resto}'
+    return txt or prefijo_contrato or f'Movimiento #{mov.id}'
 
 
 def _fila_libro_desde_movimiento(mov):
