@@ -24,6 +24,7 @@ from inmobiliaria.models import (
     CarteraPropiedadUsuario,
     CategoriaGastoOficina,
     ComisionVendedor,
+    CostosCompraLibroPropiedad,
     CotizacionLibroOperacion,
     FilaManualLibroPropiedad,
     GastoOficina,
@@ -1156,6 +1157,19 @@ def _obtener_inicio_caja_libro(propiedad):
     return inicio
 
 
+def _obtener_costos_compra_libro(propiedad):
+    """get_or_create de costos de compra (valor depto, escritura, honorarios)."""
+    costos, _ = CostosCompraLibroPropiedad.objects.get_or_create(
+        propiedad=propiedad,
+        defaults={
+            'valor_depto_comprado': Decimal('0'),
+            'gastos_escritura': Decimal('0'),
+            'honorarios_pagados': Decimal('0'),
+        },
+    )
+    return costos
+
+
 def _fila_inicio_caja_libro(inicio):
     """Fila del libro «Inicio de caja» — solo usa los montos de ese registro."""
     from datetime import datetime as dt
@@ -1318,6 +1332,7 @@ def oficina_propiedad_libro(request, propiedad_id):
         fecha_desde_s, fecha_hasta_s = dr_desde.isoformat(), dr_hasta.isoformat()
 
     inicio = _obtener_inicio_caja_libro(propiedad)
+    costos = _obtener_costos_compra_libro(propiedad)
 
     movimientos, reserva_ids, contrato_ids = _qs_movimientos_libro_propiedad(
         sucursal, propiedad, dr_desde=dr_desde, dr_hasta=dr_hasta
@@ -1403,6 +1418,23 @@ def oficina_propiedad_libro(request, propiedad_id):
     totales['balance_ars'] = totales['alquileres_ars'] - totales['gastos_ars']
     totales['balance_usd'] = totales['ingreso_usd'] - totales['gastos_usd']
 
+    suma_usd_libro = totales['gastos_usd'] + totales['ingreso_usd']
+    subtotal_costos = (
+        costos.valor_depto_comprado
+        + costos.gastos_escritura
+        + costos.honorarios_pagados
+    )
+    resumen = {
+        'valor_depto_comprado': costos.valor_depto_comprado,
+        'gastos_escritura': costos.gastos_escritura,
+        'honorarios_pagados': costos.honorarios_pagados,
+        'subtotal_costos': subtotal_costos,
+        'gastos_usd': totales['gastos_usd'],
+        'ingreso_usd': totales['ingreso_usd'],
+        'suma_usd_libro': suma_usd_libro,
+        'total': subtotal_costos + suma_usd_libro,
+    }
+
     otras = list(_qs_propiedades_oficina(sucursal, request.user))
 
     return render(
@@ -1412,6 +1444,8 @@ def oficina_propiedad_libro(request, propiedad_id):
             'propiedad': propiedad,
             'filas': filas,
             'totales': totales,
+            'resumen': resumen,
+            'costos_compra': costos,
             'otras_propiedades': otras,
             'fecha_desde': fecha_desde_s,
             'fecha_hasta': fecha_hasta_s,
@@ -1436,6 +1470,7 @@ def oficina_propiedad_libro_inicio_caja(request, propiedad_id):
 
     propiedad = get_object_or_404(Propiedad, pk=propiedad_id, sucursal=sucursal)
     inicio = _obtener_inicio_caja_libro(propiedad)
+
 
     fecha_s = (request.POST.get('fecha') or '').strip()
     fecha = _parse_fecha(fecha_s)
@@ -1500,6 +1535,46 @@ def oficina_propiedad_libro_inicio_caja(request, propiedad_id):
             'alquileres_ars_fmt': format_monto_argentino(inicio.alquileres_ars),
             'gastos_usd_fmt': format_monto_argentino(inicio.gastos_usd),
             'ingreso_usd_fmt': format_monto_argentino(inicio.ingreso_usd),
+        }
+    )
+
+
+@login_required
+@require_POST
+def oficina_propiedad_libro_costos_compra(request, propiedad_id):
+    """Guarda valor depto comprado, escritura y honorarios de este depto."""
+    if not _puede_oficina(request.user):
+        return JsonResponse({'ok': False, 'error': 'Sin permiso.'}, status=403)
+
+    from inmobiliaria.decimal_utils import format_monto_argentino, parse_decimal_monto
+    from inmobiliaria.models import Propiedad
+
+    sucursal, en_cartera = _propiedad_en_cartera_oficina(request.user, propiedad_id)
+    if not en_cartera:
+        return JsonResponse({'ok': False, 'error': 'Sin permiso sobre esa propiedad.'}, status=403)
+
+    propiedad = get_object_or_404(Propiedad, pk=propiedad_id, sucursal=sucursal)
+    costos = _obtener_costos_compra_libro(propiedad)
+
+    try:
+        valor = parse_decimal_monto(request.POST.get('valor_depto_comprado', '0'))
+        escritura = parse_decimal_monto(request.POST.get('gastos_escritura', '0'))
+        honorarios = parse_decimal_monto(request.POST.get('honorarios_pagados', '0'))
+    except Exception:
+        return JsonResponse({'ok': False, 'error': 'Monto inválido.'}, status=400)
+
+    costos.valor_depto_comprado = valor.quantize(Decimal('0.01'))
+    costos.gastos_escritura = escritura.quantize(Decimal('0.01'))
+    costos.honorarios_pagados = honorarios.quantize(Decimal('0.01'))
+    costos.actualizado_por = request.user
+    costos.save()
+
+    return JsonResponse(
+        {
+            'ok': True,
+            'valor_depto_comprado': format_monto_argentino(costos.valor_depto_comprado),
+            'gastos_escritura': format_monto_argentino(costos.gastos_escritura),
+            'honorarios_pagados': format_monto_argentino(costos.honorarios_pagados),
         }
     )
 

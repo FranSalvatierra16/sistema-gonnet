@@ -75,6 +75,47 @@
         </div>
     </form>
 
+    <div class="card border-secondary mb-3">
+        <div class="card-body py-2">
+            <form id="form-costos-compra" class="row g-2 align-items-end">
+                <div class="col-12">
+                    <div class="fw-semibold small mb-1">
+                        <i class="fas fa-building me-1"></i>Costos de compra
+                        <span class="text-muted fw-normal">— valores de este departamento (USD)</span>
+                    </div>
+                </div>
+                <div class="col-6 col-md-auto">
+                    <label class="form-label small mb-0" for="costos_valor_depto">Valor depto comprado</label>
+                    <input type="text" class="form-control form-control-sm text-end" id="costos_valor_depto" name="valor_depto_comprado"
+                           inputmode="decimal" autocomplete="off"
+                           value="{% if costos_compra.valor_depto_comprado %}{{ costos_compra.valor_depto_comprado|format_price }}{% else %}0{% endif %}"
+                           style="min-width:8.5rem">
+                </div>
+                <div class="col-6 col-md-auto">
+                    <label class="form-label small mb-0" for="costos_escritura">Gastos de escritura</label>
+                    <input type="text" class="form-control form-control-sm text-end" id="costos_escritura" name="gastos_escritura"
+                           inputmode="decimal" autocomplete="off"
+                           value="{% if costos_compra.gastos_escritura %}{{ costos_compra.gastos_escritura|format_price }}{% else %}0{% endif %}"
+                           style="min-width:8.5rem">
+                </div>
+                <div class="col-6 col-md-auto">
+                    <label class="form-label small mb-0" for="costos_honorarios">Honorarios pagados</label>
+                    <input type="text" class="form-control form-control-sm text-end" id="costos_honorarios" name="honorarios_pagados"
+                           inputmode="decimal" autocomplete="off"
+                           value="{% if costos_compra.honorarios_pagados %}{{ costos_compra.honorarios_pagados|format_price }}{% else %}0{% endif %}"
+                           style="min-width:8.5rem">
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-sm btn-secondary" id="btn-guardar-costos-compra">
+                        <i class="fas fa-save me-1"></i>Guardar
+                    </button>
+                    <span class="small text-success ms-1 d-none" id="costos-ok">Guardado</span>
+                    <span class="small text-danger ms-1 d-none" id="costos-err"></span>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="card border-primary mb-3">
         <div class="card-body py-2">
             <form id="form-inicio-caja" class="row g-2 align-items-end">
@@ -224,6 +265,55 @@
                 </tfoot>
                 {% endif %}
             </table>
+        </div>
+    </div>
+
+    <div class="card border-dark mt-3 mb-2">
+        <div class="card-header py-2 fw-semibold">
+            <i class="fas fa-calculator me-1"></i>Resumen total (USD)
+        </div>
+        <div class="card-body py-2">
+            <div class="table-responsive">
+                <table class="table table-sm mb-0 align-middle">
+                    <tbody>
+                        <tr>
+                            <td>Valor depto comprado</td>
+                            <td class="text-end">U$S {{ resumen.valor_depto_comprado|format_price }}</td>
+                        </tr>
+                        <tr>
+                            <td>Gastos de escritura</td>
+                            <td class="text-end">U$S {{ resumen.gastos_escritura|format_price }}</td>
+                        </tr>
+                        <tr>
+                            <td>Honorarios pagados</td>
+                            <td class="text-end">U$S {{ resumen.honorarios_pagados|format_price }}</td>
+                        </tr>
+                        <tr class="table-light">
+                            <td class="fw-semibold">Subtotal costos de compra</td>
+                            <td class="text-end fw-semibold">U$S {{ resumen.subtotal_costos|format_price }}</td>
+                        </tr>
+                        <tr>
+                            <td>Gastos USD (libro)</td>
+                            <td class="text-end text-danger">U$S {{ resumen.gastos_usd|format_price }}</td>
+                        </tr>
+                        <tr>
+                            <td>Ingresos USD (libro)</td>
+                            <td class="text-end text-success">U$S {{ resumen.ingreso_usd|format_price }}</td>
+                        </tr>
+                        <tr class="table-light">
+                            <td class="fw-semibold">Suma gastos + ingresos USD</td>
+                            <td class="text-end fw-semibold">U$S {{ resumen.suma_usd_libro|format_price }}</td>
+                        </tr>
+                        <tr class="table-dark">
+                            <td class="fw-bold">TOTAL</td>
+                            <td class="text-end fw-bold">U$S {{ resumen.total|format_price }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="small text-muted mb-0 mt-2">
+                Total = depto comprado + escritura + honorarios + (gastos USD + ingresos USD del libro).
+            </p>
         </div>
     </div>
 </div>
@@ -381,6 +471,7 @@
 
     var urlCotiz = '{% url "inmobiliaria:oficina_propiedad_libro_cotizacion" propiedad.id %}';
     var urlInicio = '{% url "inmobiliaria:oficina_propiedad_libro_inicio_caja" propiedad.id %}';
+    var urlCostos = '{% url "inmobiliaria:oficina_propiedad_libro_costos_compra" propiedad.id %}';
 
     function csrfToken() {
         var inp = document.querySelector('input[name=csrfmiddlewaretoken]');
@@ -402,6 +493,38 @@
             body: body.toString(),
             credentials: 'same-origin'
         }).then(function(r) { return r.json().then(function(d) { return { okHttp: r.ok, d: d }; }); });
+    }
+
+    var formCostos = document.getElementById('form-costos-compra');
+    if (formCostos) {
+        formCostos.addEventListener('submit', function(e) {
+            e.preventDefault();
+            var btn = document.getElementById('btn-guardar-costos-compra');
+            var okEl = document.getElementById('costos-ok');
+            var errEl = document.getElementById('costos-err');
+            if (okEl) okEl.classList.add('d-none');
+            if (errEl) { errEl.classList.add('d-none'); errEl.textContent = ''; }
+            if (btn) btn.disabled = true;
+            var body = new URLSearchParams();
+            body.set('valor_depto_comprado', (document.getElementById('costos_valor_depto') || {}).value || '0');
+            body.set('gastos_escritura', (document.getElementById('costos_escritura') || {}).value || '0');
+            body.set('honorarios_pagados', (document.getElementById('costos_honorarios') || {}).value || '0');
+            postForm(urlCostos, body)
+              .then(function(res) {
+                if (!res.okHttp || !res.d || !res.d.ok) {
+                    if (errEl) {
+                        errEl.textContent = (res.d && res.d.error) || 'No se pudo guardar.';
+                        errEl.classList.remove('d-none');
+                    }
+                    return;
+                }
+                window.location.reload();
+              })
+              .catch(function() {
+                if (errEl) { errEl.textContent = 'Error de red.'; errEl.classList.remove('d-none'); }
+              })
+              .finally(function() { if (btn) btn.disabled = false; });
+        });
     }
 
     var formInicio = document.getElementById('form-inicio-caja');

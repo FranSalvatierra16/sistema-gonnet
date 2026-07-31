@@ -286,3 +286,49 @@ class CotizacionLibroOperacion(models.Model):
 
     def __str__(self):
         return f'Op {self.reserva_id} — TC {self.cotizacion_dolar}'
+
+
+class CostosCompraLibroPropiedad(models.Model):
+    """
+    Costos de compra del departamento (uno por propiedad), editables en el libro.
+    Se usan en el resumen final junto con gastos/ingresos USD del libro.
+    """
+
+    propiedad = models.OneToOneField(
+        'Propiedad',
+        on_delete=models.CASCADE,
+        related_name='costos_compra_libro',
+    )
+    valor_depto_comprado = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal('0'),
+        verbose_name='Valor depto comprado (USD)',
+    )
+    gastos_escritura = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal('0'),
+        verbose_name='Gastos de escritura (USD)',
+    )
+    honorarios_pagados = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal('0'),
+        verbose_name='Honorarios pagados (USD)',
+    )
+    actualizado_en = models.DateTimeField(auto_now=True)
+    actualizado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='costos_compra_libro_actualizados',
+    )
+
+    class Meta:
+        verbose_name = 'Costos de compra libro propiedad'
+        verbose_name_plural = 'Costos de compra libro propiedad'
+
+    def __str__(self):
+        return f'Costos compra #{self.propiedad_id} — U$S {self.valor_depto_comprado}'

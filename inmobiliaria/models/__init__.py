@@ -16,6 +16,7 @@ from .liquidacion import LiquidacionPropietario, GastoPropietario
 from .cartera_usuario import CarteraPropiedadUsuario
 from .oficina import (
     CategoriaGastoOficina,
+    CostosCompraLibroPropiedad,
     CotizacionLibroOperacion,
     FilaManualLibroPropiedad,
     GastoOficina,
@@ -50,5 +51,6 @@ __all__ = [
     'InicioCajaLibroPropiedad',
     'FilaManualLibroPropiedad',
     'CotizacionLibroOperacion',
+    'CostosCompraLibroPropiedad',
     'HistorialInquilino',
 ]
