@@ -3528,7 +3528,8 @@ def lista_caratulas(request):
         reservas = reservas.filter(id=operacion_num) if operacion_num is not None else reservas.none()
 
     hay_busqueda = bool(q) or bool(operacion) or bool(propiedad_id)
-    omitir_filtro_fechas = periodo_completo or hay_busqueda
+    # Las fechas siempre se aplican (salvo "Todo"). Buscar + rango se combinan.
+    omitir_filtro_fechas = periodo_completo
 
     if propiedad_id.isdigit():
         reservas = reservas.filter(propiedad_id=int(propiedad_id))

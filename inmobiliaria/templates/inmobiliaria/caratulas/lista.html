@@ -35,10 +35,6 @@
                 Listado <strong>sin filtro de fechas</strong>.
                 <a href="{% url 'inmobiliaria:lista_caratulas' %}" class="alert-link">Solo operaciones de hoy</a>
             </div>
-            {% elif busqueda_activa %}
-            <div class="alert alert-info py-2 small mb-3">
-                Hay un criterio de <strong>búsqueda</strong> activo: no se aplica el filtro de fechas para poder encontrar la operación aunque no sea de hoy.
-            </div>
             {% endif %}
             <form method="get" class="row g-2 align-items-end">
                 <div class="col-md-3">
@@ -103,7 +99,8 @@
                 El rango <strong>Desde / Hasta</strong> filtra por <strong>fecha de la operación</strong>
                 (día en que se cargó la reserva o la fecha de operación del contrato), no por fechas de entrada/salida del alquiler.
                 Por defecto muestra <strong>hoy</strong>.
-                Si completás <strong>Buscar</strong> o <strong>N° operación</strong>, no se aplica el filtro de fechas.
+                <strong>Buscar</strong> / <strong>N° operación</strong> se combinan con el rango de fechas.
+                Para ver todas las operaciones de un cliente sin límite de fechas, usá <strong>Todo</strong>.
                 En <strong>Buscar</strong> podés usar apellido del inquilino/cliente, <strong>nombre de la propiedad</strong>, dirección o propietario.
                 Mientras escribís aparecen sugerencias con los nombres de las propiedades.
                 El listado va en orden cronológico (primera operación cargada arriba, con hora).
