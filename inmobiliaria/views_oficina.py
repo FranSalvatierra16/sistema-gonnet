@@ -24,6 +24,7 @@ from inmobiliaria.models import (
     CarteraPropiedadUsuario,
     CategoriaGastoOficina,
     ComisionVendedor,
+    CotizacionLibroOperacion,
     FilaManualLibroPropiedad,
     GastoOficina,
     InicioCajaLibroPropiedad,
@@ -210,6 +211,7 @@ def _filas_operaciones_faltantes_libro(
     dr_desde=None,
     dr_hasta=None,
     liq_por_reserva=None,
+    cotiz_por_reserva=None,
 ):
     """
     Operaciones (reservas con cobro) de la propiedad que no aparecen en caja:
@@ -224,6 +226,7 @@ def _filas_operaciones_faltantes_libro(
         return []
 
     liq_por_reserva = liq_por_reserva or {}
+    cotiz_por_reserva = cotiz_por_reserva or {}
 
     cubiertas = set()
     for mov in movimientos:
@@ -258,6 +261,11 @@ def _filas_operaciones_faltantes_libro(
         if cliente:
             desc = f'{desc} — {cliente}'
         moneda = (getattr(r, 'moneda', None) or 'ARS').strip().upper()
+        cotiz = cotiz_por_reserva.get(r.id)
+        if cotiz is not None:
+            cotiz = Decimal(str(cotiz))
+            if cotiz <= 0:
+                cotiz = None
         fila = {
             'fecha': fecha,
             'descripcion': desc,
@@ -265,18 +273,24 @@ def _filas_operaciones_faltantes_libro(
             'alquileres_ars': Decimal('0'),
             'gastos_usd': Decimal('0'),
             'ingreso_usd': Decimal('0'),
-            'tipo_cambio': None,
+            'tipo_cambio': cotiz,
             'movimiento_id': None,
             'tipo': 'IN',
             'sin_caja': True,
             'es_inicio_caja': False,
             'es_manual': False,
             'fila_manual_id': None,
+            'es_operacion_libro': True,
+            'reserva_id': r.id,
         }
         if moneda == 'USD':
             fila['ingreso_usd'] = monto
+            if cotiz:
+                fila['alquileres_ars'] = (monto * cotiz).quantize(Decimal('0.01'))
         else:
             fila['alquileres_ars'] = monto
+            if cotiz:
+                fila['ingreso_usd'] = (monto / cotiz).quantize(Decimal('0.01'))
         filas.append(fila)
     return filas
 
@@ -1039,7 +1053,7 @@ def _descripcion_movimiento_libro(mov):
     return txt or prefijo_contrato or f'Movimiento #{mov.id}'
 
 
-def _fila_libro_desde_movimiento(mov, monto_prop_por_reserva=None):
+def _fila_libro_desde_movimiento(mov, monto_prop_por_reserva=None, cotiz_por_reserva=None):
     """
     Mapea un MovimientoCaja a las columnas del libro.
     En ingresos de Operación N usa el monto al propietario (carátula/liquidación),
@@ -1058,6 +1072,8 @@ def _fila_libro_desde_movimiento(mov, monto_prop_por_reserva=None):
             cotiz = None
 
     es_egreso = (getattr(mov, 'tipo', None) or '').strip().upper() == TipoMovimientoCajaEnum.EGRESO
+    reserva_id = None
+    es_operacion_libro = False
 
     # Ingreso de operación por día → solo lo del propietario (depto).
     if not es_egreso and monto_prop_por_reserva:
@@ -1065,10 +1081,10 @@ def _fila_libro_desde_movimiento(mov, monto_prop_por_reserva=None):
         m_op = re.search(r'Operaci[oó]n\s*#?\s*(\d+)\b', conc, re.IGNORECASE)
         if m_op:
             rid = int(m_op.group(1))
+            reserva_id = rid
+            es_operacion_libro = True
             prop_share = monto_prop_por_reserva.get(rid)
             if prop_share is not None and prop_share >= 0:
-                # Si el movimiento es el cobro total (o casi), usar el monto propietario.
-                # Si es un cobro parcial, prorratear.
                 total_op = monto_prop_por_reserva.get(f'_total_{rid}')
                 if total_op and total_op > 0 and ars > 0 and abs(ars - total_op) > Decimal('0.05'):
                     ars = (prop_share * ars / total_op).quantize(Decimal('0.01'))
@@ -1077,8 +1093,14 @@ def _fila_libro_desde_movimiento(mov, monto_prop_por_reserva=None):
                 if usd > 0 and total_op and total_op > 0 and abs(usd - total_op) > Decimal('0.05'):
                     usd = (prop_share * usd / total_op).quantize(Decimal('0.01'))
                 elif usd > 0:
-                    # Movimiento en USD: si es cobro completo, usar prop_share
                     usd = prop_share
+            # Cotización guardada en el libro para esta operación (si el mov no tiene)
+            if cotiz is None and cotiz_por_reserva:
+                c_libro = cotiz_por_reserva.get(rid)
+                if c_libro is not None:
+                    c_libro = Decimal(str(c_libro))
+                    if c_libro > 0:
+                        cotiz = c_libro
 
     gastos_ars = Decimal('0')
     alquileres_ars = Decimal('0')
@@ -1112,6 +1134,8 @@ def _fila_libro_desde_movimiento(mov, monto_prop_por_reserva=None):
         'es_inicio_caja': False,
         'es_manual': False,
         'fila_manual_id': None,
+        'es_operacion_libro': es_operacion_libro,
+        'reserva_id': reserva_id,
     }
 
 
@@ -1307,6 +1331,13 @@ def oficina_propiedad_libro(request, propiedad_id):
     )
 
     liq_por_reserva = _liquidaciones_por_reserva(reserva_ids)
+    cotiz_por_reserva = {}
+    if reserva_ids:
+        for row in CotizacionLibroOperacion.objects.filter(reserva_id__in=reserva_ids).values(
+            'reserva_id', 'cotizacion_dolar'
+        ):
+            cotiz_por_reserva[row['reserva_id']] = row['cotizacion_dolar']
+
     monto_prop_por_reserva = {}
     if reserva_ids:
         from inmobiliaria.models import Reserva
@@ -1329,7 +1360,11 @@ def oficina_propiedad_libro(request, propiedad_id):
             monto_prop_por_reserva[f'_total_{r.id}'] = Decimal(str(r.precio_total or 0))
 
     filas = [
-        _fila_libro_desde_movimiento(m, monto_prop_por_reserva=monto_prop_por_reserva)
+        _fila_libro_desde_movimiento(
+            m,
+            monto_prop_por_reserva=monto_prop_por_reserva,
+            cotiz_por_reserva=cotiz_por_reserva,
+        )
         for m in movimientos
     ]
     filas.extend(
@@ -1341,6 +1376,7 @@ def oficina_propiedad_libro(request, propiedad_id):
             dr_desde=dr_desde,
             dr_hasta=dr_hasta,
             liq_por_reserva=liq_por_reserva,
+            cotiz_por_reserva=cotiz_por_reserva,
         )
     )
     filas.extend(
@@ -1541,34 +1577,83 @@ def oficina_propiedad_libro_fila_manual_eliminar(request, propiedad_id):
 @require_POST
 def oficina_propiedad_libro_actualizar_cotizacion(request, propiedad_id):
     """
-    Completa cotización USD (y monto en dólares si faltaba) en un movimiento del libro.
-    Para gastos viejos cargados antes de existir la opción de tipo de cambio.
+    Completa cotización USD en un movimiento de caja o en una operación del libro
+    (fila «op.» sin movimiento): calcula Ingreso/Gastos en dólar.
     """
     if not _puede_oficina(request.user):
         return JsonResponse({'ok': False, 'error': 'Sin permiso.'}, status=403)
 
-    from inmobiliaria.decimal_utils import parse_decimal_monto
-    from inmobiliaria.models import MovimientoCaja, Propiedad
-    from inmobiliaria.models.caja import TipoMovimientoCajaEnum
+    from inmobiliaria.decimal_utils import format_monto_argentino, parse_decimal_monto
+    from inmobiliaria.models import MovimientoCaja, Propiedad, Reserva
 
-    sucursal = request.user.sucursal
-    titular = usuario_titular_cartera(sucursal)
-    en_cartera = bool(
-        titular
-        and CarteraPropiedadUsuario.objects.filter(
-            usuario=titular,
-            propiedad_id=propiedad_id,
-            propiedad__sucursal=sucursal,
-        ).exists()
-    )
+    sucursal, en_cartera = _propiedad_en_cartera_oficina(request.user, propiedad_id)
     if not en_cartera:
         return JsonResponse({'ok': False, 'error': 'Sin permiso sobre esa propiedad.'}, status=403)
 
     propiedad = get_object_or_404(Propiedad, pk=propiedad_id, sucursal=sucursal)
 
+    cotiz_raw = (request.POST.get('cotizacion_dolar') or '').strip()
+    try:
+        cotiz = parse_decimal_monto(cotiz_raw) if cotiz_raw else None
+    except Exception:
+        return JsonResponse({'ok': False, 'error': 'Cotización inválida.'}, status=400)
+    if cotiz is None or cotiz <= 0:
+        return JsonResponse({'ok': False, 'error': 'Indicá un tipo de cambio válido.'}, status=400)
+    cotiz = cotiz.quantize(Decimal('0.01'))
+
+    def _fmt(v):
+        if not v:
+            return ''
+        return format_monto_argentino(v)
+
+    # --- Operación del libro (sin movimiento de caja) ---
+    reserva_id = (request.POST.get('reserva_id') or '').strip()
+    if reserva_id.isdigit():
+        reserva = Reserva.objects.filter(
+            pk=int(reserva_id),
+            propiedad=propiedad,
+            sucursal=sucursal,
+            eliminada=False,
+        ).first()
+        if not reserva:
+            return JsonResponse({'ok': False, 'error': 'Operación no encontrada.'}, status=404)
+
+        CotizacionLibroOperacion.objects.update_or_create(
+            reserva=reserva,
+            defaults={
+                'cotizacion_dolar': cotiz,
+                'actualizado_por': request.user,
+            },
+        )
+
+        liq = _liquidaciones_por_reserva([reserva.id]).get(reserva.id)
+        monto_prop = _monto_propietario_reserva_libro(reserva, liq)
+        moneda = (getattr(reserva, 'moneda', None) or 'ARS').strip().upper()
+        gastos_usd = Decimal('0')
+        ingreso_usd = Decimal('0')
+        alquileres_ars = Decimal('0')
+        if moneda == 'USD':
+            ingreso_usd = monto_prop
+            alquileres_ars = (monto_prop * cotiz).quantize(Decimal('0.01'))
+        else:
+            alquileres_ars = monto_prop
+            ingreso_usd = (monto_prop / cotiz).quantize(Decimal('0.01'))
+
+        return JsonResponse({
+            'ok': True,
+            'reserva_id': reserva.id,
+            'gastos_usd': _fmt(gastos_usd),
+            'ingreso_usd': _fmt(ingreso_usd),
+            'alquileres_ars': _fmt(alquileres_ars),
+            'tipo_cambio': _fmt(cotiz),
+            'tipo': 'IN',
+            'message': 'Cotización de la operación guardada.',
+        })
+
+    # --- Movimiento de caja ---
     mov_id = (request.POST.get('movimiento_id') or '').strip()
     if not mov_id.isdigit():
-        return JsonResponse({'ok': False, 'error': 'Movimiento inválido.'}, status=400)
+        return JsonResponse({'ok': False, 'error': 'Movimiento u operación inválidos.'}, status=400)
 
     movimiento = MovimientoCaja.objects.filter(
         pk=int(mov_id),
@@ -1577,59 +1662,53 @@ def oficina_propiedad_libro_actualizar_cotizacion(request, propiedad_id):
         fecha_eliminacion__isnull=True,
     ).first()
     if not movimiento:
-        return JsonResponse({'ok': False, 'error': 'Movimiento no encontrado.'}, status=404)
+        # Puede ser un ingreso de operación vinculado por concepto sin FK propiedad correcta:
+        # igual permitir si el concepto menciona una reserva de esta propiedad.
+        movimiento = MovimientoCaja.objects.filter(
+            pk=int(mov_id),
+            sucursal=sucursal,
+            fecha_eliminacion__isnull=True,
+        ).first()
+        if not movimiento:
+            return JsonResponse({'ok': False, 'error': 'Movimiento no encontrado.'}, status=404)
 
-    cotiz_raw = (request.POST.get('cotizacion_dolar') or '').strip()
     usd_raw = (request.POST.get('monto_dolares') or '').strip()
-
-    try:
-        cotiz = parse_decimal_monto(cotiz_raw) if cotiz_raw else None
-    except Exception:
-        return JsonResponse({'ok': False, 'error': 'Cotización inválida.'}, status=400)
     try:
         usd_in = parse_decimal_monto(usd_raw) if usd_raw else None
     except Exception:
         return JsonResponse({'ok': False, 'error': 'Monto USD inválido.'}, status=400)
-
-    if cotiz is not None and cotiz <= 0:
-        cotiz = None
     if usd_in is not None and usd_in <= 0:
         usd_in = None
 
     ars = Decimal(str(getattr(movimiento, 'monto_total', 0) or 0))
     usd_actual = Decimal(str(getattr(movimiento, 'monto_dolares', 0) or 0))
 
-    # Si mandan solo TC y hay ARS sin USD → calcular dólares.
-    # Si mandan solo USD y hay ARS sin TC → calcular cotización.
     if cotiz and ars > 0 and (usd_in is None) and usd_actual <= 0:
         usd_in = (ars / cotiz).quantize(Decimal('0.01'))
-    if usd_in and ars > 0 and cotiz is None and not getattr(movimiento, 'cotizacion_dolar', None):
-        cotiz = (ars / usd_in).quantize(Decimal('0.01'))
 
-    if cotiz is None and usd_in is None:
-        return JsonResponse(
-            {'ok': False, 'error': 'Indicá tipo de cambio y/o monto en dólares.'},
-            status=400,
-        )
-
-    updates = []
-    if cotiz is not None:
-        movimiento.cotizacion_dolar = cotiz.quantize(Decimal('0.01'))
-        updates.append('cotizacion_dolar')
+    updates = ['cotizacion_dolar']
+    movimiento.cotizacion_dolar = cotiz
     if usd_in is not None:
         movimiento.monto_dolares = usd_in.quantize(Decimal('0.01'))
         updates.append('monto_dolares')
-    if updates:
-        movimiento.save(update_fields=updates)
+    movimiento.save(update_fields=updates)
+
+    # Si es operación, también guardar cotización de libro (para el monto propietario).
+    import re
+    conc = movimiento.concepto or ''
+    m_op = re.search(r'Operaci[oó]n\s*#?\s*(\d+)\b', conc, re.IGNORECASE)
+    if m_op:
+        rid = int(m_op.group(1))
+        if Reserva.objects.filter(pk=rid, propiedad=propiedad).exists():
+            CotizacionLibroOperacion.objects.update_or_create(
+                reserva_id=rid,
+                defaults={
+                    'cotizacion_dolar': cotiz,
+                    'actualizado_por': request.user,
+                },
+            )
 
     fila = _fila_libro_desde_movimiento(movimiento)
-    from inmobiliaria.decimal_utils import format_monto_argentino
-
-    def _fmt(v):
-        if not v:
-            return ''
-        return format_monto_argentino(v)
-
     return JsonResponse({
         'ok': True,
         'movimiento_id': movimiento.id,

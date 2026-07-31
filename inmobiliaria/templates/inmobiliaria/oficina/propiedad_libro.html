@@ -219,6 +219,7 @@
                     </tr>
                     {% else %}
                     <tr {% if f.movimiento_id %}data-movimiento-id="{{ f.movimiento_id }}"{% endif %}
+                        {% if f.reserva_id %}data-reserva-id="{{ f.reserva_id }}"{% endif %}
                         data-tipo="{{ f.tipo }}"
                         {% if f.es_inicio_caja %}class="table-primary"{% endif %}>
                         <td class="text-nowrap">{{ f.fecha|date:"d/m/Y" }}</td>
@@ -228,13 +229,13 @@
                             {% if f.sin_caja %}<span class="badge bg-light text-muted border ms-1" title="Tomado de la operación/contrato">op.</span>{% endif %}
                         </td>
                         <td class="text-end text-danger">{% if f.gastos_ars %}{{ f.gastos_ars|format_price }}{% endif %}</td>
-                        <td class="text-end text-success">{% if f.alquileres_ars %}{{ f.alquileres_ars|format_price }}{% endif %}</td>
+                        <td class="text-end text-success celda-alquileres-ars">{% if f.alquileres_ars %}{{ f.alquileres_ars|format_price }}{% endif %}</td>
                         <td class="text-end celda-gastos-usd">{% if f.gastos_usd %}{{ f.gastos_usd|format_price }}{% endif %}</td>
                         <td class="text-end celda-ingreso-usd">{% if f.ingreso_usd %}{{ f.ingreso_usd|format_price }}{% endif %}</td>
                         <td class="text-end">
                             {% if f.es_inicio_caja %}
                             <span class="text-muted small">editable arriba</span>
-                            {% elif f.movimiento_id %}
+                            {% elif f.movimiento_id or f.es_operacion_libro %}
                             <div class="input-group input-group-sm justify-content-end flex-nowrap">
                                 <input type="text"
                                        class="form-control form-control-sm text-end input-cotizacion-libro"
@@ -462,9 +463,10 @@
     function guardarFila(tr) {
         if (!tr) return;
         var mid = tr.getAttribute('data-movimiento-id');
+        var rid = tr.getAttribute('data-reserva-id');
         var input = tr.querySelector('.input-cotizacion-libro');
         var btn = tr.querySelector('.btn-guardar-cotizacion');
-        if (!mid || !input) return;
+        if ((!mid && !rid) || !input) return;
         var cotiz = (input.value || '').trim();
         if (!cotiz) {
             alert('Ingresá el tipo de cambio (ARS por 1 USD).');
@@ -473,7 +475,8 @@
         }
         if (btn) btn.disabled = true;
         var body = new URLSearchParams();
-        body.set('movimiento_id', mid);
+        if (mid) body.set('movimiento_id', mid);
+        if (rid) body.set('reserva_id', rid);
         body.set('cotizacion_dolar', cotiz);
         postForm(urlCotiz, body)
           .then(function(res) {
@@ -483,11 +486,15 @@
             }
             var gUsd = tr.querySelector('.celda-gastos-usd');
             var iUsd = tr.querySelector('.celda-ingreso-usd');
+            var aArs = tr.querySelector('.celda-alquileres-ars');
             if (gUsd) gUsd.textContent = res.d.gastos_usd || '';
             if (iUsd) iUsd.textContent = res.d.ingreso_usd || '';
+            if (aArs && res.d.alquileres_ars) aArs.textContent = res.d.alquileres_ars;
             if (res.d.tipo_cambio) input.value = res.d.tipo_cambio;
             input.classList.add('is-valid');
             setTimeout(function() { input.classList.remove('is-valid'); }, 1200);
+            // Recargar para actualizar totales del balance
+            window.location.reload();
           })
           .catch(function() { alert('Error de red al guardar la cotización.'); })
           .finally(function() { if (btn) btn.disabled = false; });

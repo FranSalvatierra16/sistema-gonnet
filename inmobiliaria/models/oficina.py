@@ -242,3 +242,36 @@ class FilaManualLibroPropiedad(models.Model):
 
     def __str__(self):
         return f'{self.fecha} — {self.descripcion or "sin desc."} (#{self.propiedad_id})'
+
+
+class CotizacionLibroOperacion(models.Model):
+    """
+    Tipo de cambio del libro para una operación (reserva) sin movimiento de caja,
+    o override para calcular Ingreso USD desde el monto al propietario.
+    """
+
+    reserva = models.OneToOneField(
+        'Reserva',
+        on_delete=models.CASCADE,
+        related_name='cotizacion_libro',
+    )
+    cotizacion_dolar = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        verbose_name='Tipo de cambio (ARS por USD)',
+    )
+    actualizado_en = models.DateTimeField(auto_now=True)
+    actualizado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='cotizaciones_libro_operacion',
+    )
+
+    class Meta:
+        verbose_name = 'Cotización libro operación'
+        verbose_name_plural = 'Cotizaciones libro operación'
+
+    def __str__(self):
+        return f'Op {self.reserva_id} — TC {self.cotizacion_dolar}'
