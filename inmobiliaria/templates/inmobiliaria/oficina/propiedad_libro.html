@@ -43,13 +43,13 @@
         <div class="overflow-auto libro-tabs-scroll" id="libro-tabs-scroll">
             <ul class="nav nav-tabs flex-nowrap mb-0" style="white-space: nowrap;" id="libro-tabs-props">
                 {% for p in otras_propiedades %}
-                <li class="nav-item"
+                <li class="nav-item{% if p.id == propiedad.id %} libro-tab-item-activa{% endif %}"
+                    {% if p.id == propiedad.id %}id="libro-tab-activa"{% endif %}
                     data-id="{{ p.id }}"
                     data-label="{{ p.direccion }}{% if p.piso %} {{ p.piso }}{% endif %}{% if p.departamento %}{{ p.departamento }}{% endif %}"
                     data-propietario="{% if p.propietario %}{{ p.propietario }}{% endif %}"
                     data-href="{% url 'inmobiliaria:oficina_propiedad_libro' p.id %}{% if fecha_desde or fecha_hasta %}?{% if fecha_desde %}fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_desde and fecha_hasta %}&{% endif %}{% if fecha_hasta %}fecha_hasta={{ fecha_hasta }}{% endif %}{% endif %}">
                     <a class="nav-link {% if p.id == propiedad.id %}active{% endif %}"
-                       {% if p.id == propiedad.id %}id="libro-tab-activa"{% endif %}
                        href="{% url 'inmobiliaria:oficina_propiedad_libro' p.id %}{% if fecha_desde or fecha_hasta %}?{% if fecha_desde %}fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_desde and fecha_hasta %}&{% endif %}{% if fecha_hasta %}fecha_hasta={{ fecha_hasta }}{% endif %}{% endif %}">
                         {{ p.direccion }}{% if p.piso %} {{ p.piso }}{% endif %}{% if p.departamento %}{{ p.departamento }}{% endif %}
                     </a>
@@ -247,16 +247,26 @@
         var scroll = document.getElementById('libro-tabs-scroll');
         var activa = document.getElementById('libro-tab-activa');
         if (!scroll || !activa) return;
-        var scrollRect = scroll.getBoundingClientRect();
-        var actRect = activa.getBoundingClientRect();
-        scroll.scrollLeft += (actRect.left + actRect.width / 2) - (scrollRect.left + scrollRect.width / 2);
+        try {
+            activa.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'auto' });
+        } catch (err) {
+            var scrollRect = scroll.getBoundingClientRect();
+            var actRect = activa.getBoundingClientRect();
+            scroll.scrollLeft += (actRect.left + actRect.width / 2) - (scrollRect.left + scrollRect.width / 2);
+        }
+    }
+    function programarCentrar() {
+        requestAnimationFrame(function() {
+            centrarTabActiva();
+            setTimeout(centrarTabActiva, 50);
+        });
     }
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', centrarTabActiva);
+        document.addEventListener('DOMContentLoaded', programarCentrar);
     } else {
-        centrarTabActiva();
+        programarCentrar();
     }
-    window.addEventListener('load', centrarTabActiva);
+    window.addEventListener('load', programarCentrar);
 
     // Buscador: dirección, propietario, ficha
     var inputBuscar = document.getElementById('buscar-depto-libro');
