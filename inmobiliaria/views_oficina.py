@@ -152,6 +152,55 @@ def _nombre_cliente_corto(persona):
     return ap or nom or ''
 
 
+def _monto_propietario_reserva_libro(reserva, liquidacion=None):
+    """
+    Monto que va al propietario (depto) para el libro:
+    liquidación > override de carátula > reparto por día.
+    """
+    if liquidacion is not None and getattr(liquidacion, 'estado', '') != 'cancelada':
+        mp = Decimal(str(getattr(liquidacion, 'monto_propietario', None) or 0))
+        if mp > 0:
+            return mp.quantize(Decimal('0.01'))
+        ma = Decimal(str(getattr(liquidacion, 'monto_a_pagar', None) or 0))
+        if ma > 0:
+            return ma.quantize(Decimal('0.01'))
+
+    if getattr(reserva, 'liq_monto_propietario', None) is not None:
+        return Decimal(str(reserva.liq_monto_propietario)).quantize(Decimal('0.01'))
+
+    from inmobiliaria.neto_propietario_movimiento import reparto_liquidacion_reserva_por_dia
+
+    total, prop, inm, _hay = reparto_liquidacion_reserva_por_dia(reserva)
+    _t, prop, _i, _c, _f = reserva.montos_liquidacion_efectivos(total, prop, inm)
+    return Decimal(str(prop or 0)).quantize(Decimal('0.01'))
+
+
+def _liquidaciones_por_reserva(reserva_ids):
+    """reserva_id -> LiquidacionPropietario más reciente no cancelada."""
+    from inmobiliaria.models import LiquidacionPropietario
+
+    if not reserva_ids:
+        return {}
+    out = {}
+    for liq in (
+        LiquidacionPropietario.objects.filter(reserva_id__in=reserva_ids)
+        .exclude(estado='cancelada')
+        .order_by('-id')
+        .only(
+            'id',
+            'reserva_id',
+            'estado',
+            'monto_propietario',
+            'monto_a_pagar',
+            'movimiento_caja_id',
+        )
+    ):
+        rid = liq.reserva_id
+        if rid and rid not in out:
+            out[rid] = liq
+    return out
+
+
 def _filas_operaciones_faltantes_libro(
     propiedad,
     sucursal,
@@ -159,10 +208,11 @@ def _filas_operaciones_faltantes_libro(
     movimientos,
     dr_desde=None,
     dr_hasta=None,
+    liq_por_reserva=None,
 ):
     """
     Operaciones (reservas con cobro) de la propiedad que no aparecen en caja:
-    se agregan como filas de alquiler para que el libro coincida con la planilla.
+    se agregan como filas de alquiler con el monto al propietario (no el total).
     """
     import re
 
@@ -171,6 +221,8 @@ def _filas_operaciones_faltantes_libro(
 
     if not reserva_ids:
         return []
+
+    liq_por_reserva = liq_por_reserva or {}
 
     cubiertas = set()
     for mov in movimientos:
@@ -197,7 +249,7 @@ def _filas_operaciones_faltantes_libro(
             continue
         if dr_hasta and f_date > dr_hasta:
             continue
-        monto = Decimal(str(r.precio_total or 0))
+        monto = _monto_propietario_reserva_libro(r, liq_por_reserva.get(r.id))
         if monto <= 0:
             continue
         cliente = _nombre_cliente_corto(r.cliente)
@@ -979,11 +1031,14 @@ def _descripcion_movimiento_libro(mov):
     return txt or prefijo_contrato or f'Movimiento #{mov.id}'
 
 
-def _fila_libro_desde_movimiento(mov):
+def _fila_libro_desde_movimiento(mov, monto_prop_por_reserva=None):
     """
-    Mapea un MovimientoCaja a las columnas del libro:
-    gastos_ars, alquileres_ars, gastos_usd, ingreso_usd, tipo_cambio.
+    Mapea un MovimientoCaja a las columnas del libro.
+    En ingresos de Operación N usa el monto al propietario (carátula/liquidación),
+    no el total cobrado al locatario.
     """
+    import re
+
     from inmobiliaria.models.caja import TipoMovimientoCajaEnum
 
     ars = Decimal(str(getattr(mov, 'monto_total', 0) or 0))
@@ -995,6 +1050,27 @@ def _fila_libro_desde_movimiento(mov):
             cotiz = None
 
     es_egreso = (getattr(mov, 'tipo', None) or '').strip().upper() == TipoMovimientoCajaEnum.EGRESO
+
+    # Ingreso de operación por día → solo lo del propietario (depto).
+    if not es_egreso and monto_prop_por_reserva:
+        conc = getattr(mov, 'concepto', None) or ''
+        m_op = re.search(r'Operaci[oó]n\s*#?\s*(\d+)\b', conc, re.IGNORECASE)
+        if m_op:
+            rid = int(m_op.group(1))
+            prop_share = monto_prop_por_reserva.get(rid)
+            if prop_share is not None and prop_share >= 0:
+                # Si el movimiento es el cobro total (o casi), usar el monto propietario.
+                # Si es un cobro parcial, prorratear.
+                total_op = monto_prop_por_reserva.get(f'_total_{rid}')
+                if total_op and total_op > 0 and ars > 0 and abs(ars - total_op) > Decimal('0.05'):
+                    ars = (prop_share * ars / total_op).quantize(Decimal('0.01'))
+                else:
+                    ars = prop_share
+                if usd > 0 and total_op and total_op > 0 and abs(usd - total_op) > Decimal('0.05'):
+                    usd = (prop_share * usd / total_op).quantize(Decimal('0.01'))
+                elif usd > 0:
+                    # Movimiento en USD: si es cobro completo, usar prop_share
+                    usd = prop_share
 
     gastos_ars = Decimal('0')
     alquileres_ars = Decimal('0')
@@ -1142,7 +1218,33 @@ def oficina_propiedad_libro(request, propiedad_id):
     movimientos, reserva_ids, contrato_ids = _qs_movimientos_libro_propiedad(
         sucursal, propiedad, dr_desde=dr_desde, dr_hasta=dr_hasta
     )
-    filas = [_fila_libro_desde_movimiento(m) for m in movimientos]
+
+    liq_por_reserva = _liquidaciones_por_reserva(reserva_ids)
+    monto_prop_por_reserva = {}
+    if reserva_ids:
+        from inmobiliaria.models import Reserva
+
+        for r in Reserva.objects.filter(id__in=reserva_ids).only(
+            'id',
+            'precio_total',
+            'moneda',
+            'liq_monto_propietario',
+            'liq_monto_inmobiliaria',
+            'liq_monto_cochera',
+            'liq_monto_fondo',
+            'propiedad_id',
+            'fecha_inicio',
+            'fecha_fin',
+            'sucursal_id',
+        ):
+            mp = _monto_propietario_reserva_libro(r, liq_por_reserva.get(r.id))
+            monto_prop_por_reserva[r.id] = mp
+            monto_prop_por_reserva[f'_total_{r.id}'] = Decimal(str(r.precio_total or 0))
+
+    filas = [
+        _fila_libro_desde_movimiento(m, monto_prop_por_reserva=monto_prop_por_reserva)
+        for m in movimientos
+    ]
     filas.extend(
         _filas_operaciones_faltantes_libro(
             propiedad,
@@ -1151,6 +1253,7 @@ def oficina_propiedad_libro(request, propiedad_id):
             movimientos,
             dr_desde=dr_desde,
             dr_hasta=dr_hasta,
+            liq_por_reserva=liq_por_reserva,
         )
     )
     filas.extend(
