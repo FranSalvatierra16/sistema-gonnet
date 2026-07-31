@@ -1418,7 +1418,7 @@ def oficina_propiedad_libro(request, propiedad_id):
     totales['balance_ars'] = totales['alquileres_ars'] - totales['gastos_ars']
     totales['balance_usd'] = totales['ingreso_usd'] - totales['gastos_usd']
 
-    suma_usd_libro = totales['gastos_usd'] + totales['ingreso_usd']
+    balance_usd_libro = totales['gastos_usd'] - totales['ingreso_usd']
     subtotal_costos = (
         costos.valor_depto_comprado
         + costos.gastos_escritura
@@ -1431,8 +1431,8 @@ def oficina_propiedad_libro(request, propiedad_id):
         'subtotal_costos': subtotal_costos,
         'gastos_usd': totales['gastos_usd'],
         'ingreso_usd': totales['ingreso_usd'],
-        'suma_usd_libro': suma_usd_libro,
-        'total': subtotal_costos + suma_usd_libro,
+        'suma_usd_libro': balance_usd_libro,
+        'total': subtotal_costos + balance_usd_libro,
     }
 
     otras = list(_qs_propiedades_oficina(sucursal, request.user))
