@@ -16,7 +16,7 @@
             <p class="text-muted mb-0 small">
                 Ficha #{{ propiedad.id }}
                 {% if propiedad.propietario %} · Propietario: {{ propiedad.propietario }}{% endif %}
-                · Gastos de caja + alquileres/operaciones del departamento
+                · Gastos de caja + alquileres/operaciones + anotaciones manuales
             </p>
         </div>
         <div class="d-flex flex-wrap gap-2">
@@ -95,6 +95,59 @@
         </div>
     </div>
 
+    <div class="card border-success mb-3">
+        <div class="card-body py-2">
+            <form id="form-fila-manual" class="row g-2 align-items-end">
+                <div class="col-12">
+                    <div class="fw-semibold small text-success mb-1">
+                        <i class="fas fa-pen me-1"></i>Anotar fila
+                        <span class="text-muted fw-normal">— cargá gastos, alquileres, USD</span>
+                    </div>
+                </div>
+                <div class="col-6 col-md-auto">
+                    <label class="form-label small mb-0" for="manual_fecha">Fecha</label>
+                    <input type="date" class="form-control form-control-sm" id="manual_fecha" name="fecha" required>
+                </div>
+                <div class="col-12 col-md-3">
+                    <label class="form-label small mb-0" for="manual_descripcion">Descripción</label>
+                    <input type="text" class="form-control form-control-sm" id="manual_descripcion" name="descripcion"
+                           placeholder="Ej. ajuste, alquiler, gasto…" maxlength="255">
+                </div>
+                <div class="col-6 col-md-auto">
+                    <label class="form-label small mb-0" for="manual_gastos_ars">Gastos ARS</label>
+                    <input type="text" class="form-control form-control-sm text-end" id="manual_gastos_ars" name="gastos_ars"
+                           inputmode="decimal" autocomplete="off" value="0" style="min-width:7rem">
+                </div>
+                <div class="col-6 col-md-auto">
+                    <label class="form-label small mb-0" for="manual_alquileres_ars">Alquileres ARS</label>
+                    <input type="text" class="form-control form-control-sm text-end" id="manual_alquileres_ars" name="alquileres_ars"
+                           inputmode="decimal" autocomplete="off" value="0" style="min-width:7rem">
+                </div>
+                <div class="col-6 col-md-auto">
+                    <label class="form-label small mb-0" for="manual_gastos_usd">Gastos USD</label>
+                    <input type="text" class="form-control form-control-sm text-end" id="manual_gastos_usd" name="gastos_usd"
+                           inputmode="decimal" autocomplete="off" value="0" style="min-width:6.5rem">
+                </div>
+                <div class="col-6 col-md-auto">
+                    <label class="form-label small mb-0" for="manual_ingreso_usd">Ingreso USD</label>
+                    <input type="text" class="form-control form-control-sm text-end" id="manual_ingreso_usd" name="ingreso_usd"
+                           inputmode="decimal" autocomplete="off" value="0" style="min-width:6.5rem">
+                </div>
+                <div class="col-6 col-md-auto">
+                    <label class="form-label small mb-0" for="manual_tipo_cambio">Tipo cbio</label>
+                    <input type="text" class="form-control form-control-sm text-end" id="manual_tipo_cambio" name="tipo_cambio"
+                           inputmode="decimal" autocomplete="off" placeholder="opc." style="min-width:5.5rem">
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-sm btn-success" id="btn-guardar-fila-manual">
+                        <i class="fas fa-plus me-1"></i>Agregar
+                    </button>
+                    <span class="small text-danger ms-1 d-none" id="manual-err"></span>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="row g-2 mb-3">
         <div class="col-md-3"><div class="alert alert-danger border mb-0 py-2">Gastos ARS: <strong>${{ totales.gastos_ars|format_price }}</strong></div></div>
         <div class="col-md-3"><div class="alert alert-success border mb-0 py-2">Alquileres ARS: <strong>${{ totales.alquileres_ars|format_price }}</strong></div></div>
@@ -103,8 +156,8 @@
     </div>
 
     <p class="small text-muted mb-2">
-        El <strong>inicio de caja</strong> es distinto por departamento y suma al balance.
-        Si un movimiento no tiene tipo de cambio, completá <strong>Tipo cbio</strong> y guardá.
+        Podés <strong>anotar</strong> filas con las 4 columnas (gastos, alquileres, gastos USD, ingreso USD).
+        Las filas manuales se editan o borran en la tabla. El inicio de caja es distinto por depto.
     </p>
 
     <div class="card shadow-sm">
@@ -119,10 +172,52 @@
                         <th class="text-end">Gastos en dólar</th>
                         <th class="text-end">Ingreso dólar</th>
                         <th class="text-end" style="min-width:9.5rem">Tipo cbio</th>
+                        <th style="width:5.5rem"></th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for f in filas %}
+                    {% if f.es_manual %}
+                    <tr class="table-success" data-fila-manual-id="{{ f.fila_manual_id }}" data-tipo="MANUAL">
+                        <td>
+                            <input type="date" class="form-control form-control-sm input-manual-fecha"
+                                   value="{{ f.fecha|date:'Y-m-d' }}">
+                        </td>
+                        <td>
+                            <input type="text" class="form-control form-control-sm input-manual-desc"
+                                   value="{{ f.descripcion }}" maxlength="255">
+                        </td>
+                        <td>
+                            <input type="text" class="form-control form-control-sm text-end text-danger input-manual-gastos-ars"
+                                   inputmode="decimal" value="{% if f.gastos_ars %}{{ f.gastos_ars|format_price }}{% else %}0{% endif %}">
+                        </td>
+                        <td>
+                            <input type="text" class="form-control form-control-sm text-end text-success input-manual-alquileres-ars"
+                                   inputmode="decimal" value="{% if f.alquileres_ars %}{{ f.alquileres_ars|format_price }}{% else %}0{% endif %}">
+                        </td>
+                        <td>
+                            <input type="text" class="form-control form-control-sm text-end input-manual-gastos-usd"
+                                   inputmode="decimal" value="{% if f.gastos_usd %}{{ f.gastos_usd|format_price }}{% else %}0{% endif %}">
+                        </td>
+                        <td>
+                            <input type="text" class="form-control form-control-sm text-end input-manual-ingreso-usd"
+                                   inputmode="decimal" value="{% if f.ingreso_usd %}{{ f.ingreso_usd|format_price }}{% else %}0{% endif %}">
+                        </td>
+                        <td>
+                            <input type="text" class="form-control form-control-sm text-end input-manual-tc"
+                                   inputmode="decimal" placeholder="opc."
+                                   value="{% if f.tipo_cambio %}{{ f.tipo_cambio|format_price }}{% endif %}">
+                        </td>
+                        <td class="text-nowrap">
+                            <button type="button" class="btn btn-sm btn-outline-primary btn-guardar-manual" title="Guardar">
+                                <i class="fas fa-save"></i>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-danger btn-borrar-manual" title="Eliminar">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% else %}
                     <tr {% if f.movimiento_id %}data-movimiento-id="{{ f.movimiento_id }}"{% endif %}
                         data-tipo="{{ f.tipo }}"
                         {% if f.es_inicio_caja %}class="table-primary"{% endif %}>
@@ -161,14 +256,17 @@
                             <span class="text-muted">—</span>
                             {% endif %}
                         </td>
+                        <td></td>
                     </tr>
+                    {% endif %}
                     {% empty %}
                     <tr>
-                        <td colspan="7" class="text-center text-muted py-4">
+                        <td colspan="8" class="text-center text-muted py-4">
                             No hay gastos, alquileres ni operaciones para este departamento{% if fecha_desde or fecha_hasta %} en el período{% endif %}.
                         </td>
                     </tr>
-                    {% endfor %}                </tbody>
+                    {% endfor %}
+                </tbody>
                 {% if filas %}
                 <tfoot class="table-light fw-semibold">
                     <tr>
@@ -177,7 +275,7 @@
                         <td class="text-end text-success">{{ totales.alquileres_ars|format_price }}</td>
                         <td class="text-end" id="total-gastos-usd">{{ totales.gastos_usd|format_price }}</td>
                         <td class="text-end" id="total-ingreso-usd">{{ totales.ingreso_usd|format_price }}</td>
-                        <td></td>
+                        <td colspan="2"></td>
                     </tr>
                 </tfoot>
                 {% endif %}
@@ -188,7 +286,8 @@
 <style>
 .libro-oficina-table th, .libro-oficina-table td { font-size: 0.875rem; vertical-align: middle; }
 .libro-oficina-table thead th { white-space: nowrap; }
-.libro-oficina-table .input-cotizacion-libro { font-variant-numeric: tabular-nums; }
+.libro-oficina-table .input-cotizacion-libro,
+.libro-oficina-table input[type="text"] { font-variant-numeric: tabular-nums; }
 </style>
 {% endblock %}
 
@@ -197,6 +296,8 @@
 (function() {
     var urlCotiz = '{% url "inmobiliaria:oficina_propiedad_libro_cotizacion" propiedad.id %}';
     var urlInicio = '{% url "inmobiliaria:oficina_propiedad_libro_inicio_caja" propiedad.id %}';
+    var urlManual = '{% url "inmobiliaria:oficina_propiedad_libro_fila_manual" propiedad.id %}';
+    var urlManualDel = '{% url "inmobiliaria:oficina_propiedad_libro_fila_manual_eliminar" propiedad.id %}';
 
     function csrfToken() {
         var inp = document.querySelector('input[name=csrfmiddlewaretoken]');
@@ -207,6 +308,19 @@
         return m ? decodeURIComponent(m[1]) : '';
     }
 
+    function postForm(url, body) {
+        return fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                'X-CSRFToken': csrfToken(),
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: body.toString(),
+            credentials: 'same-origin'
+        }).then(function(r) { return r.json().then(function(d) { return { okHttp: r.ok, d: d }; }); });
+    }
+
     var formInicio = document.getElementById('form-inicio-caja');
     if (formInicio) {
         formInicio.addEventListener('submit', function(e) {
@@ -215,51 +329,135 @@
             var okEl = document.getElementById('inicio-caja-ok');
             var errEl = document.getElementById('inicio-caja-err');
             if (okEl) okEl.classList.add('d-none');
-            if (errEl) {
-                errEl.classList.add('d-none');
-                errEl.textContent = '';
-            }
+            if (errEl) { errEl.classList.add('d-none'); errEl.textContent = ''; }
             if (btn) btn.disabled = true;
             var body = new URLSearchParams();
             body.set('fecha', (document.getElementById('inicio_caja_fecha') || {}).value || '');
             body.set('monto_ars', (document.getElementById('inicio_caja_ars') || {}).value || '0');
             body.set('monto_usd', (document.getElementById('inicio_caja_usd') || {}).value || '0');
-            fetch(urlInicio, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-                    'X-CSRFToken': csrfToken(),
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                body: body.toString(),
-                credentials: 'same-origin'
-            }).then(function(r) { return r.json().then(function(d) { return { okHttp: r.ok, d: d }; }); })
+            postForm(urlInicio, body)
               .then(function(res) {
                 if (!res.okHttp || !res.d || !res.d.ok) {
                     if (errEl) {
                         errEl.textContent = (res.d && res.d.error) || 'No se pudo guardar.';
                         errEl.classList.remove('d-none');
-                    } else {
-                        alert((res.d && res.d.error) || 'No se pudo guardar el inicio de caja.');
                     }
                     return;
                 }
-                if (okEl) okEl.classList.remove('d-none');
                 window.location.reload();
               })
               .catch(function() {
-                if (errEl) {
-                    errEl.textContent = 'Error de red.';
-                    errEl.classList.remove('d-none');
-                } else {
-                    alert('Error de red al guardar el inicio de caja.');
-                }
+                if (errEl) { errEl.textContent = 'Error de red.'; errEl.classList.remove('d-none'); }
               })
-              .finally(function() {
-                if (btn) btn.disabled = false;
-              });
+              .finally(function() { if (btn) btn.disabled = false; });
         });
     }
+
+    var formManual = document.getElementById('form-fila-manual');
+    if (formManual) {
+        var hoy = new Date();
+        var yyyy = hoy.getFullYear();
+        var mm = String(hoy.getMonth() + 1).padStart(2, '0');
+        var dd = String(hoy.getDate()).padStart(2, '0');
+        var fechaInput = document.getElementById('manual_fecha');
+        if (fechaInput && !fechaInput.value) fechaInput.value = yyyy + '-' + mm + '-' + dd;
+
+        formManual.addEventListener('submit', function(e) {
+            e.preventDefault();
+            var btn = document.getElementById('btn-guardar-fila-manual');
+            var errEl = document.getElementById('manual-err');
+            if (errEl) { errEl.classList.add('d-none'); errEl.textContent = ''; }
+            if (btn) btn.disabled = true;
+            var body = new URLSearchParams();
+            body.set('fecha', (document.getElementById('manual_fecha') || {}).value || '');
+            body.set('descripcion', (document.getElementById('manual_descripcion') || {}).value || '');
+            body.set('gastos_ars', (document.getElementById('manual_gastos_ars') || {}).value || '0');
+            body.set('alquileres_ars', (document.getElementById('manual_alquileres_ars') || {}).value || '0');
+            body.set('gastos_usd', (document.getElementById('manual_gastos_usd') || {}).value || '0');
+            body.set('ingreso_usd', (document.getElementById('manual_ingreso_usd') || {}).value || '0');
+            body.set('tipo_cambio', (document.getElementById('manual_tipo_cambio') || {}).value || '');
+            postForm(urlManual, body)
+              .then(function(res) {
+                if (!res.okHttp || !res.d || !res.d.ok) {
+                    if (errEl) {
+                        errEl.textContent = (res.d && res.d.error) || 'No se pudo guardar.';
+                        errEl.classList.remove('d-none');
+                    }
+                    return;
+                }
+                window.location.reload();
+              })
+              .catch(function() {
+                if (errEl) { errEl.textContent = 'Error de red.'; errEl.classList.remove('d-none'); }
+              })
+              .finally(function() { if (btn) btn.disabled = false; });
+        });
+    }
+
+    function guardarFilaManual(tr) {
+        if (!tr) return;
+        var fid = tr.getAttribute('data-fila-manual-id');
+        if (!fid) return;
+        var btn = tr.querySelector('.btn-guardar-manual');
+        if (btn) btn.disabled = true;
+        var body = new URLSearchParams();
+        body.set('fila_id', fid);
+        body.set('fecha', (tr.querySelector('.input-manual-fecha') || {}).value || '');
+        body.set('descripcion', (tr.querySelector('.input-manual-desc') || {}).value || '');
+        body.set('gastos_ars', (tr.querySelector('.input-manual-gastos-ars') || {}).value || '0');
+        body.set('alquileres_ars', (tr.querySelector('.input-manual-alquileres-ars') || {}).value || '0');
+        body.set('gastos_usd', (tr.querySelector('.input-manual-gastos-usd') || {}).value || '0');
+        body.set('ingreso_usd', (tr.querySelector('.input-manual-ingreso-usd') || {}).value || '0');
+        body.set('tipo_cambio', (tr.querySelector('.input-manual-tc') || {}).value || '');
+        postForm(urlManual, body)
+          .then(function(res) {
+            if (!res.okHttp || !res.d || !res.d.ok) {
+                alert((res.d && res.d.error) || 'No se pudo guardar la fila.');
+                return;
+            }
+            window.location.reload();
+          })
+          .catch(function() { alert('Error de red al guardar.'); })
+          .finally(function() { if (btn) btn.disabled = false; });
+    }
+
+    function borrarFilaManual(tr) {
+        if (!tr) return;
+        var fid = tr.getAttribute('data-fila-manual-id');
+        if (!fid) return;
+        if (!confirm('¿Eliminar esta anotación?')) return;
+        var body = new URLSearchParams();
+        body.set('fila_id', fid);
+        postForm(urlManualDel, body)
+          .then(function(res) {
+            if (!res.okHttp || !res.d || !res.d.ok) {
+                alert((res.d && res.d.error) || 'No se pudo eliminar.');
+                return;
+            }
+            window.location.reload();
+          })
+          .catch(function() { alert('Error de red al eliminar.'); });
+    }
+
+    document.addEventListener('click', function(e) {
+        var btnSave = e.target.closest('.btn-guardar-manual');
+        if (btnSave) {
+            e.preventDefault();
+            guardarFilaManual(btnSave.closest('tr'));
+            return;
+        }
+        var btnDel = e.target.closest('.btn-borrar-manual');
+        if (btnDel) {
+            e.preventDefault();
+            borrarFilaManual(btnDel.closest('tr'));
+            return;
+        }
+        var btnCot = e.target.closest('.btn-guardar-cotizacion');
+        if (btnCot) {
+            e.preventDefault();
+            guardarFila(btnCot.closest('tr'));
+        }
+    });
 
     function guardarFila(tr) {
         if (!tr) return;
@@ -277,16 +475,7 @@
         var body = new URLSearchParams();
         body.set('movimiento_id', mid);
         body.set('cotizacion_dolar', cotiz);
-        fetch(urlCotiz, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-                'X-CSRFToken': csrfToken(),
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            body: body.toString(),
-            credentials: 'same-origin'
-        }).then(function(r) { return r.json().then(function(d) { return { okHttp: r.ok, d: d }; }); })
+        postForm(urlCotiz, body)
           .then(function(res) {
             if (!res.okHttp || !res.d || !res.d.ok) {
                 alert((res.d && res.d.error) || 'No se pudo guardar la cotización.');
@@ -300,27 +489,22 @@
             input.classList.add('is-valid');
             setTimeout(function() { input.classList.remove('is-valid'); }, 1200);
           })
-          .catch(function() {
-            alert('Error de red al guardar la cotización.');
-          })
-          .finally(function() {
-            if (btn) btn.disabled = false;
-          });
+          .catch(function() { alert('Error de red al guardar la cotización.'); })
+          .finally(function() { if (btn) btn.disabled = false; });
     }
-
-    document.addEventListener('click', function(e) {
-        var btn = e.target.closest('.btn-guardar-cotizacion');
-        if (!btn) return;
-        e.preventDefault();
-        guardarFila(btn.closest('tr'));
-    });
 
     document.addEventListener('keydown', function(e) {
         if (e.key !== 'Enter') return;
-        var inp = e.target.closest('.input-cotizacion-libro');
-        if (!inp) return;
-        e.preventDefault();
-        guardarFila(inp.closest('tr'));
+        var inpCot = e.target.closest('.input-cotizacion-libro');
+        if (inpCot) {
+            e.preventDefault();
+            guardarFila(inpCot.closest('tr'));
+            return;
+        }
+        if (e.target.closest('tr[data-fila-manual-id]') && e.target.matches('input')) {
+            e.preventDefault();
+            guardarFilaManual(e.target.closest('tr'));
+        }
     });
 })();
 </script>

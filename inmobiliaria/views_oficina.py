@@ -24,6 +24,7 @@ from inmobiliaria.models import (
     CarteraPropiedadUsuario,
     CategoriaGastoOficina,
     ComisionVendedor,
+    FilaManualLibroPropiedad,
     GastoOficina,
     InicioCajaLibroPropiedad,
     LiquidacionPropietario,
@@ -268,6 +269,9 @@ def _filas_operaciones_faltantes_libro(
             'movimiento_id': None,
             'tipo': 'IN',
             'sin_caja': True,
+            'es_inicio_caja': False,
+            'es_manual': False,
+            'fila_manual_id': None,
         }
         if moneda == 'USD':
             fila['ingreso_usd'] = monto
@@ -376,6 +380,9 @@ def _filas_contratos_faltantes_libro(
                 'movimiento_id': None,
                 'tipo': 'IN',
                 'sin_caja': True,
+                'es_inicio_caja': False,
+                'es_manual': False,
+                'fila_manual_id': None,
             }
             if moneda == 'USD':
                 fila['ingreso_usd'] = monto
@@ -383,6 +390,7 @@ def _filas_contratos_faltantes_libro(
                 fila['alquileres_ars'] = monto
             filas.append(fila)
     return filas
+
 
 def _puede_oficina(user):
     return usuario_es_nivel_administracion(user)
@@ -1101,6 +1109,9 @@ def _fila_libro_desde_movimiento(mov, monto_prop_por_reserva=None):
         'movimiento_id': mov.id,
         'tipo': 'EG' if es_egreso else 'IN',
         'sin_caja': False,
+        'es_inicio_caja': False,
+        'es_manual': False,
+        'fila_manual_id': None,
     }
 
 
@@ -1157,6 +1168,82 @@ def _fila_inicio_caja_libro(inicio):
         'tipo': 'INICIO',
         'sin_caja': False,
         'es_inicio_caja': True,
+        'es_manual': False,
+        'fila_manual_id': None,
+    }
+
+
+def _fila_desde_manual(fila):
+    """Fila del libro desde una anotación manual editable."""
+    from datetime import datetime as dt
+    from datetime import time as time_cls
+
+    f_date = fila.fecha
+    f_dt = dt.combine(f_date, time_cls.min)
+    if timezone.is_naive(f_dt):
+        try:
+            f_dt = timezone.make_aware(f_dt)
+        except Exception:
+            pass
+    cotiz = getattr(fila, 'tipo_cambio', None)
+    if cotiz is not None:
+        cotiz = Decimal(str(cotiz))
+        if cotiz <= 0:
+            cotiz = None
+    return {
+        'fecha': f_dt,
+        'descripcion': (fila.descripcion or '').strip() or 'Anotación manual',
+        'gastos_ars': Decimal(str(fila.gastos_ars or 0)),
+        'alquileres_ars': Decimal(str(fila.alquileres_ars or 0)),
+        'gastos_usd': Decimal(str(fila.gastos_usd or 0)),
+        'ingreso_usd': Decimal(str(fila.ingreso_usd or 0)),
+        'tipo_cambio': cotiz,
+        'movimiento_id': None,
+        'tipo': 'MANUAL',
+        'sin_caja': False,
+        'es_inicio_caja': False,
+        'es_manual': True,
+        'fila_manual_id': fila.id,
+    }
+
+
+def _propiedad_en_cartera_oficina(user, propiedad_id):
+    sucursal = getattr(user, 'sucursal', None)
+    if not sucursal:
+        return None, False
+    titular = usuario_titular_cartera(sucursal)
+    en_cartera = bool(
+        titular
+        and CarteraPropiedadUsuario.objects.filter(
+            usuario=titular,
+            propiedad_id=propiedad_id,
+            propiedad__sucursal=sucursal,
+        ).exists()
+    )
+    return sucursal, en_cartera
+
+
+def _parse_montos_fila_manual(request):
+    from inmobiliaria.decimal_utils import parse_decimal_monto
+
+    fecha = _parse_fecha((request.POST.get('fecha') or '').strip())
+    descripcion = (request.POST.get('descripcion') or '').strip()[:255]
+    gastos_ars = parse_decimal_monto(request.POST.get('gastos_ars', '0'))
+    alquileres_ars = parse_decimal_monto(request.POST.get('alquileres_ars', '0'))
+    gastos_usd = parse_decimal_monto(request.POST.get('gastos_usd', '0'))
+    ingreso_usd = parse_decimal_monto(request.POST.get('ingreso_usd', '0'))
+    cotiz_raw = (request.POST.get('tipo_cambio') or '').strip()
+    tipo_cambio = parse_decimal_monto(cotiz_raw) if cotiz_raw else None
+    if tipo_cambio is not None and tipo_cambio <= 0:
+        tipo_cambio = None
+    return {
+        'fecha': fecha,
+        'descripcion': descripcion,
+        'gastos_ars': gastos_ars.quantize(Decimal('0.01')),
+        'alquileres_ars': alquileres_ars.quantize(Decimal('0.01')),
+        'gastos_usd': gastos_usd.quantize(Decimal('0.01')),
+        'ingreso_usd': ingreso_usd.quantize(Decimal('0.01')),
+        'tipo_cambio': tipo_cambio.quantize(Decimal('0.01')) if tipo_cambio else None,
     }
 
 
@@ -1266,11 +1353,19 @@ def oficina_propiedad_libro(request, propiedad_id):
             dr_hasta=dr_hasta,
         )
     )
+
+    manuales_qs = FilaManualLibroPropiedad.objects.filter(propiedad=propiedad)
+    if dr_desde:
+        manuales_qs = manuales_qs.filter(fecha__gte=dr_desde)
+    if dr_hasta:
+        manuales_qs = manuales_qs.filter(fecha__lte=dr_hasta)
+    filas.extend(_fila_desde_manual(fm) for fm in manuales_qs.order_by('fecha', 'id'))
+
     filas.sort(
         key=lambda f: (
             f.get('fecha') or timezone.now(),
             0 if f.get('es_inicio_caja') else 1,
-            f.get('movimiento_id') or 0,
+            f.get('movimiento_id') or f.get('fila_manual_id') or 0,
         )
     )
 
@@ -1357,6 +1452,89 @@ def oficina_propiedad_libro_inicio_caja(request, propiedad_id):
             'monto_usd_fmt': format_monto_argentino(inicio.monto_usd),
         }
     )
+
+
+@login_required
+@require_POST
+def oficina_propiedad_libro_fila_manual(request, propiedad_id):
+    """Crea o actualiza una anotación manual (las 4 columnas del libro)."""
+    if not _puede_oficina(request.user):
+        return JsonResponse({'ok': False, 'error': 'Sin permiso.'}, status=403)
+
+    from inmobiliaria.models import Propiedad
+
+    sucursal, en_cartera = _propiedad_en_cartera_oficina(request.user, propiedad_id)
+    if not en_cartera:
+        return JsonResponse({'ok': False, 'error': 'Sin permiso sobre esa propiedad.'}, status=403)
+
+    propiedad = get_object_or_404(Propiedad, pk=propiedad_id, sucursal=sucursal)
+
+    try:
+        datos = _parse_montos_fila_manual(request)
+    except Exception:
+        return JsonResponse({'ok': False, 'error': 'Datos inválidos.'}, status=400)
+
+    if not datos['fecha']:
+        return JsonResponse({'ok': False, 'error': 'Fecha inválida.'}, status=400)
+
+    if (
+        datos['gastos_ars'] == 0
+        and datos['alquileres_ars'] == 0
+        and datos['gastos_usd'] == 0
+        and datos['ingreso_usd'] == 0
+    ):
+        return JsonResponse(
+            {'ok': False, 'error': 'Cargá al menos un monto en alguna columna.'},
+            status=400,
+        )
+
+    fila_id = (request.POST.get('fila_id') or '').strip()
+    if fila_id:
+        if not fila_id.isdigit():
+            return JsonResponse({'ok': False, 'error': 'Fila inválida.'}, status=400)
+        fila = get_object_or_404(
+            FilaManualLibroPropiedad,
+            pk=int(fila_id),
+            propiedad=propiedad,
+        )
+        for k, v in datos.items():
+            setattr(fila, k, v)
+        fila.save()
+    else:
+        fila = FilaManualLibroPropiedad.objects.create(
+            propiedad=propiedad,
+            creado_por=request.user,
+            **datos,
+        )
+
+    return JsonResponse({'ok': True, 'fila_id': fila.id})
+
+
+@login_required
+@require_POST
+def oficina_propiedad_libro_fila_manual_eliminar(request, propiedad_id):
+    """Elimina una anotación manual del libro."""
+    if not _puede_oficina(request.user):
+        return JsonResponse({'ok': False, 'error': 'Sin permiso.'}, status=403)
+
+    from inmobiliaria.models import Propiedad
+
+    sucursal, en_cartera = _propiedad_en_cartera_oficina(request.user, propiedad_id)
+    if not en_cartera:
+        return JsonResponse({'ok': False, 'error': 'Sin permiso sobre esa propiedad.'}, status=403)
+
+    propiedad = get_object_or_404(Propiedad, pk=propiedad_id, sucursal=sucursal)
+    fila_id = (request.POST.get('fila_id') or '').strip()
+    if not fila_id.isdigit():
+        return JsonResponse({'ok': False, 'error': 'Fila inválida.'}, status=400)
+
+    deleted, _ = FilaManualLibroPropiedad.objects.filter(
+        pk=int(fila_id),
+        propiedad=propiedad,
+    ).delete()
+    if not deleted:
+        return JsonResponse({'ok': False, 'error': 'No se encontró la fila.'}, status=404)
+    return JsonResponse({'ok': True})
 
 
 @login_required

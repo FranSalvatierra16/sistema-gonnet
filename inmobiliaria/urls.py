@@ -290,6 +290,16 @@ urlpatterns = [
         name='oficina_propiedad_libro_inicio_caja',
     ),
     path(
+        'oficina/propiedades/<str:propiedad_id>/libro/fila-manual/',
+        views_oficina.oficina_propiedad_libro_fila_manual,
+        name='oficina_propiedad_libro_fila_manual',
+    ),
+    path(
+        'oficina/propiedades/<str:propiedad_id>/libro/fila-manual/eliminar/',
+        views_oficina.oficina_propiedad_libro_fila_manual_eliminar,
+        name='oficina_propiedad_libro_fila_manual_eliminar',
+    ),
+    path(
         'oficina/propiedades/<str:propiedad_id>/libro/cotizacion/',
         views_oficina.oficina_propiedad_libro_actualizar_cotizacion,
         name='oficina_propiedad_libro_cotizacion',

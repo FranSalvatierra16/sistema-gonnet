@@ -191,3 +191,54 @@ class InicioCajaLibroPropiedad(models.Model):
 
     def __str__(self):
         return f'Inicio caja #{self.propiedad_id} — ${self.monto_ars}'
+
+
+class FilaManualLibroPropiedad(models.Model):
+    """
+    Anotación manual en el libro de un departamento.
+    Permite cargar gastos/alquileres en ARS y USD aparte de caja.
+    """
+
+    propiedad = models.ForeignKey(
+        'Propiedad',
+        on_delete=models.CASCADE,
+        related_name='filas_manuales_libro',
+    )
+    fecha = models.DateField()
+    descripcion = models.CharField(max_length=255, blank=True, default='')
+    gastos_ars = models.DecimalField(
+        max_digits=14, decimal_places=2, default=Decimal('0')
+    )
+    alquileres_ars = models.DecimalField(
+        max_digits=14, decimal_places=2, default=Decimal('0')
+    )
+    gastos_usd = models.DecimalField(
+        max_digits=14, decimal_places=2, default=Decimal('0')
+    )
+    ingreso_usd = models.DecimalField(
+        max_digits=14, decimal_places=2, default=Decimal('0')
+    )
+    tipo_cambio = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name='Tipo de cambio',
+    )
+    creado_en = models.DateTimeField(auto_now_add=True)
+    actualizado_en = models.DateTimeField(auto_now=True)
+    creado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='filas_manuales_libro_creadas',
+    )
+
+    class Meta:
+        verbose_name = 'Fila manual libro propiedad'
+        verbose_name_plural = 'Filas manuales libro propiedad'
+        ordering = ['fecha', 'id']
+
+    def __str__(self):
+        return f'{self.fecha} — {self.descripcion or "sin desc."} (#{self.propiedad_id})'
