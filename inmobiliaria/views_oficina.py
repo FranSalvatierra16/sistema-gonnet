@@ -48,6 +48,289 @@ def _parse_fecha(s):
         return None
 
 
+def _ids_operaciones_contratos_propiedad(propiedad, sucursal):
+    """IDs de reservas (operaciones) y contratos de la propiedad."""
+    from inmobiliaria.models import ContratoAlquiler, Reserva
+
+    reserva_ids = list(
+        Reserva.objects.filter(
+            propiedad=propiedad,
+            sucursal=sucursal,
+            eliminada=False,
+        ).values_list('id', flat=True)[:800]
+    )
+    contrato_ids = list(
+        ContratoAlquiler.objects.filter(
+            propiedad=propiedad,
+            sucursal=sucursal,
+        ).values_list('id', flat=True)[:400]
+    )
+    return [int(x) for x in reserva_ids], [int(x) for x in contrato_ids]
+
+
+def _movimiento_refiere_operacion_o_contrato(concepto, reserva_ids, contrato_ids):
+    """True si el texto del concepto menciona Operación N o Contrato #N de esta propiedad."""
+    import re
+
+    txt = concepto or ''
+    if not txt:
+        return False
+    res_set = reserva_ids if isinstance(reserva_ids, (set, frozenset)) else set(reserva_ids or [])
+    ctr_set = contrato_ids if isinstance(contrato_ids, (set, frozenset)) else set(contrato_ids or [])
+    if res_set:
+        for m in re.finditer(r'Operaci[oó]n\s*#?\s*(\d+)\b', txt, re.IGNORECASE):
+            if int(m.group(1)) in res_set:
+                return True
+    if ctr_set:
+        for m in re.finditer(r'Contrato\s*#\s*(\d+)\b', txt, re.IGNORECASE):
+            if int(m.group(1)) in ctr_set:
+                return True
+    return False
+
+
+def _qs_movimientos_libro_propiedad(sucursal, propiedad, dr_desde=None, dr_hasta=None):
+    """
+    Movimientos del libro: los de la propiedad en caja + ingresos/egresos
+    de operaciones y contratos de ese depto (aunque falte el FK propiedad).
+    """
+    from django.db.models import Q
+
+    from inmobiliaria.models import MovimientoCaja
+
+    reserva_ids, contrato_ids = _ids_operaciones_contratos_propiedad(propiedad, sucursal)
+    reserva_set = set(reserva_ids)
+    contrato_set = set(contrato_ids)
+
+    base = MovimientoCaja.objects.filter(
+        sucursal=sucursal,
+        fecha_eliminacion__isnull=True,
+    )
+    if dr_desde:
+        base = base.filter(fecha__date__gte=dr_desde)
+    if dr_hasta:
+        base = base.filter(fecha__date__lte=dr_hasta)
+
+    # 1) Directos por FK propiedad
+    por_prop = list(base.filter(propiedad=propiedad).order_by('fecha', 'id')[:2000])
+    seen = {m.id for m in por_prop}
+
+    # 2) Candidatos por texto (una query amplia) y filtro exacto en Python
+    extras = []
+    if reserva_set or contrato_set:
+        q_ref = Q()
+        if reserva_set:
+            q_ref |= Q(concepto__icontains='Operación') | Q(concepto__icontains='Operacion')
+        if contrato_set:
+            q_ref |= Q(concepto__icontains='Contrato #') | Q(concepto__icontains='Contrato#')
+        candidatos = (
+            base.filter(q_ref)
+            .exclude(id__in=seen)
+            .order_by('fecha', 'id')[:3000]
+        )
+        for mov in candidatos:
+            if _movimiento_refiere_operacion_o_contrato(
+                getattr(mov, 'concepto', None) or '',
+                reserva_ids,
+                contrato_ids,
+            ):
+                extras.append(mov)
+                seen.add(mov.id)
+
+    todos = por_prop + extras
+    todos.sort(key=lambda m: (m.fecha or timezone.now(), m.id or 0))
+    return todos, reserva_ids, contrato_ids
+
+
+def _nombre_cliente_corto(persona):
+    if not persona:
+        return ''
+    ap = (getattr(persona, 'apellido', None) or '').strip()
+    nom = (getattr(persona, 'nombre', None) or '').strip()
+    if ap and nom:
+        return f'{ap}, {nom}'
+    return ap or nom or ''
+
+
+def _filas_operaciones_faltantes_libro(
+    propiedad,
+    sucursal,
+    reserva_ids,
+    movimientos,
+    dr_desde=None,
+    dr_hasta=None,
+):
+    """
+    Operaciones (reservas con cobro) de la propiedad que no aparecen en caja:
+    se agregan como filas de alquiler para que el libro coincida con la planilla.
+    """
+    import re
+
+    from inmobiliaria.caja_devolucion_deposito import queryset_reservas_con_operacion
+    from inmobiliaria.models import Reserva
+
+    if not reserva_ids:
+        return []
+
+    cubiertas = set()
+    for mov in movimientos:
+        txt = getattr(mov, 'concepto', None) or ''
+        for rid in reserva_ids:
+            if re.search(rf'Operaci[oó]n\s*#?\s*{rid}\b', txt, re.IGNORECASE):
+                cubiertas.add(rid)
+
+    qs = queryset_reservas_con_operacion(
+        Reserva.objects.filter(
+            id__in=reserva_ids,
+            propiedad=propiedad,
+            sucursal=sucursal,
+            eliminada=False,
+        ).select_related('cliente')
+    )
+    filas = []
+    for r in qs:
+        if r.id in cubiertas:
+            continue
+        fecha = getattr(r, 'fecha_creacion', None) or timezone.now()
+        f_date = fecha.date() if hasattr(fecha, 'date') else fecha
+        if dr_desde and f_date < dr_desde:
+            continue
+        if dr_hasta and f_date > dr_hasta:
+            continue
+        monto = Decimal(str(r.precio_total or 0))
+        if monto <= 0:
+            continue
+        cliente = _nombre_cliente_corto(r.cliente)
+        desc = f'Operación {r.id}'
+        if cliente:
+            desc = f'{desc} — {cliente}'
+        moneda = (getattr(r, 'moneda', None) or 'ARS').strip().upper()
+        fila = {
+            'fecha': fecha,
+            'descripcion': desc,
+            'gastos_ars': Decimal('0'),
+            'alquileres_ars': Decimal('0'),
+            'gastos_usd': Decimal('0'),
+            'ingreso_usd': Decimal('0'),
+            'tipo_cambio': None,
+            'movimiento_id': None,
+            'tipo': 'IN',
+            'sin_caja': True,
+        }
+        if moneda == 'USD':
+            fila['ingreso_usd'] = monto
+        else:
+            fila['alquileres_ars'] = monto
+        filas.append(fila)
+    return filas
+
+
+def _filas_contratos_faltantes_libro(
+    propiedad,
+    sucursal,
+    contrato_ids,
+    movimientos,
+    dr_desde=None,
+    dr_hasta=None,
+):
+    """
+    Cobros de contrato (cuotas pagadas) sin movimiento visible en el libro:
+    se listan como alquileres a partir de las cuotas.
+    """
+    import re
+    from datetime import date as date_cls
+    from datetime import time as time_cls
+
+    from inmobiliaria.models import ContratoAlquiler
+
+    if not contrato_ids:
+        return []
+
+    cubiertos = set()
+    for mov in movimientos:
+        txt = getattr(mov, 'concepto', None) or ''
+        for cid in contrato_ids:
+            if re.search(rf'Contrato\s*#\s*{cid}\b', txt, re.IGNORECASE):
+                cubiertos.add(cid)
+
+    faltan = [cid for cid in contrato_ids if cid not in cubiertos]
+    if not faltan:
+        return []
+
+    contratos = (
+        ContratoAlquiler.objects.filter(
+            id__in=faltan,
+            propiedad=propiedad,
+            sucursal=sucursal,
+        )
+        .select_related('inquilino')
+        .prefetch_related('cuotas')
+    )
+    filas = []
+    for c in contratos:
+        cliente = _nombre_cliente_corto(c.inquilino)
+        moneda = (getattr(c, 'moneda', None) or 'ARS').strip().upper()
+        for cuota in c.cuotas.all():
+            estado = (getattr(cuota, 'estado', None) or '').lower()
+            if estado not in ('pagada', 'pagada_con_mora'):
+                continue
+            fecha_raw = (
+                getattr(cuota, 'fecha_pago', None)
+                or getattr(cuota, 'fecha_vencimiento', None)
+                or getattr(c, 'fecha_operacion', None)
+            )
+            if fecha_raw is None:
+                continue
+            if isinstance(fecha_raw, datetime):
+                f_date = fecha_raw.date()
+                f_dt = fecha_raw
+            elif isinstance(fecha_raw, date_cls):
+                f_date = fecha_raw
+                f_dt = datetime.combine(f_date, time_cls.min)
+                if timezone.is_naive(f_dt):
+                    try:
+                        f_dt = timezone.make_aware(f_dt)
+                    except Exception:
+                        pass
+            else:
+                continue
+            if dr_desde and f_date < dr_desde:
+                continue
+            if dr_hasta and f_date > dr_hasta:
+                continue
+            monto = Decimal(
+                str(
+                    getattr(cuota, 'monto_total', None)
+                    or getattr(cuota, 'monto', None)
+                    or 0
+                )
+            )
+            if monto <= 0:
+                continue
+            nro = getattr(cuota, 'numero_cuota', None) or ''
+            desc = f'Contrato #{c.id}'
+            if nro:
+                desc = f'{desc} — Cuota {nro}'
+            if cliente:
+                desc = f'{desc} — {cliente}'
+            fila = {
+                'fecha': f_dt,
+                'descripcion': desc,
+                'gastos_ars': Decimal('0'),
+                'alquileres_ars': Decimal('0'),
+                'gastos_usd': Decimal('0'),
+                'ingreso_usd': Decimal('0'),
+                'tipo_cambio': None,
+                'movimiento_id': None,
+                'tipo': 'IN',
+                'sin_caja': True,
+            }
+            if moneda == 'USD':
+                fila['ingreso_usd'] = monto
+            else:
+                fila['alquileres_ars'] = monto
+            filas.append(fila)
+    return filas
+
 def _puede_oficina(user):
     return usuario_es_nivel_administracion(user)
 
@@ -740,6 +1023,7 @@ def _fila_libro_desde_movimiento(mov):
         'tipo_cambio': cotiz,
         'movimiento_id': mov.id,
         'tipo': 'EG' if es_egreso else 'IN',
+        'sin_caja': False,
     }
 
 
@@ -767,7 +1051,7 @@ def oficina_propiedad_libro(request, propiedad_id):
     if not _puede_oficina(request.user):
         return HttpResponseForbidden()
 
-    from inmobiliaria.models import MovimientoCaja, Propiedad
+    from inmobiliaria.models import Propiedad
 
     sucursal = request.user.sucursal
     titular = sincronizar_cartera_compartida_sucursal(sucursal)
@@ -796,20 +1080,36 @@ def oficina_propiedad_libro(request, propiedad_id):
         dr_desde, dr_hasta = dr_hasta, dr_desde
         fecha_desde_s, fecha_hasta_s = dr_desde.isoformat(), dr_hasta.isoformat()
 
-    mov_qs = (
-        MovimientoCaja.objects.filter(
-            sucursal=sucursal,
-            propiedad=propiedad,
-            fecha_eliminacion__isnull=True,
-        )
-        .order_by('fecha', 'id')
+    movimientos, reserva_ids, contrato_ids = _qs_movimientos_libro_propiedad(
+        sucursal, propiedad, dr_desde=dr_desde, dr_hasta=dr_hasta
     )
-    if dr_desde:
-        mov_qs = mov_qs.filter(fecha__date__gte=dr_desde)
-    if dr_hasta:
-        mov_qs = mov_qs.filter(fecha__date__lte=dr_hasta)
-
-    filas = [_fila_libro_desde_movimiento(m) for m in mov_qs[:2000]]
+    filas = [_fila_libro_desde_movimiento(m) for m in movimientos]
+    filas.extend(
+        _filas_operaciones_faltantes_libro(
+            propiedad,
+            sucursal,
+            reserva_ids,
+            movimientos,
+            dr_desde=dr_desde,
+            dr_hasta=dr_hasta,
+        )
+    )
+    filas.extend(
+        _filas_contratos_faltantes_libro(
+            propiedad,
+            sucursal,
+            contrato_ids,
+            movimientos,
+            dr_desde=dr_desde,
+            dr_hasta=dr_hasta,
+        )
+    )
+    filas.sort(
+        key=lambda f: (
+            f.get('fecha') or timezone.now(),
+            f.get('movimiento_id') or 0,
+        )
+    )
 
     totales = {
         'gastos_ars': sum((f['gastos_ars'] for f in filas), Decimal('0')),
