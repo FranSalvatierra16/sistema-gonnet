@@ -307,48 +307,49 @@
 
                 {% if propiedad.pk and propiedad.imagenes.all %}
                 <div class="border-top pt-4">
-                    <h5 class="mb-3">
-                        <i class="fas fa-photo-video me-1"></i>
-                        Imágenes Actuales
-                    </h5>
-                    <div class="row g-3" id="imagenes-container">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                        <h5 class="mb-0">
+                            <i class="fas fa-photo-video me-1"></i>
+                            Imágenes Actuales
+                        </h5>
+                        <small class="text-muted">Arrastrá las imágenes para reordenarlas</small>
+                    </div>
+                    <div id="sortable-images" class="row">
                         {% for imagen in propiedad.imagenes.all %}
-                        <div class="col-6 col-md-4 col-lg-3" data-imagen-id="{{ imagen.id }}">
-                            <div class="card image-card position-relative">
+                        <div class="col-md-3 col-sm-4 col-6 mb-4 sortable-item" data-id="{{ imagen.id }}" data-orden="{{ imagen.orden }}">
+                            <div class="image-container position-relative">
+                                <img src="{{ imagen.imagen.url }}"
+                                     class="img-fluid rounded shadow-sm sortable-image"
+                                     alt="Imagen {{ forloop.counter }}"
+                                     style="height: 200px; width: 100%; object-fit: cover; cursor: grab;">
+
                                 <div class="image-overlay">
-                                    <div class="image-controls text-center">
-                                        <div class="mb-2">
-                                            <i class="fas fa-hand-paper fa-2x text-white mb-2"></i>
-                                            <p class="mb-1 text-white fw-bold">Arrastra desde el ícono verde</p>
-                                            <small class="text-white-50">para reordenar</small>
-                                        </div>
+                                    <div class="overlay-content">
+                                        <button type="button" class="btn btn-danger btn-sm delete-image"
+                                                data-id="{{ imagen.id }}" title="Eliminar imagen">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                    <div class="order-badge">
+                                        <span class="badge bg-secondary">{{ imagen.orden }}</span>
                                     </div>
                                 </div>
-                                <div class="drag-handle">
-                                    <i class="fas fa-grip-vertical"></i>
-                                </div>
-                                <img src="{{ imagen.imagen.url }}" class="card-img-top" alt="Imagen de propiedad" 
-                                     style="height: 200px; object-fit: cover;">
-                                
-                                <!-- Botón eliminar más visible -->
-                                <button type="button" 
-                                        class="btn btn-danger btn-sm eliminar-imagen position-absolute"
-                                        data-imagen-id="{{ imagen.id }}"
-                                        title="Click para eliminar imagen"
-                                        style="top: 8px; right: 50px; z-index: 10;"
-                                        onmouseover="console.log('🗑️ Hover en botón eliminar ID: {{ imagen.id }}')">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                                
-                                <div class="card-body p-2 d-flex justify-content-center align-items-center">
-                                    <small class="text-muted">
-                                        <i class="fas fa-sort-numeric-up me-1"></i>
-                                        Orden: <span class="orden-texto">{{ imagen.orden }}</span>
-                                    </small>
+
+                                <div class="drag-handle" title="Arrastrar">
+                                    <i class="fas fa-arrows-alt"></i>
                                 </div>
                             </div>
                         </div>
                         {% endfor %}
+                    </div>
+
+                    <div class="mt-3 text-center">
+                        <button type="button" id="save-order" class="btn btn-success me-2" disabled>
+                            <i class="fas fa-save"></i> Guardar Orden
+                        </button>
+                        <button type="button" id="reset-order" class="btn btn-secondary">
+                            <i class="fas fa-undo"></i> Resetear
+                        </button>
                     </div>
                 </div>
                 {% elif propiedad.pk %}
@@ -643,260 +644,108 @@
         padding: 14px 16px !important;
     }
     
-    /* Estilos para drag & drop de imágenes */
-    .image-card {
-        transition: all 0.3s ease;
-        cursor: pointer;
-        overflow: hidden;
+    /* Estilos para gestión de imágenes con drag & drop (igual que ficha → Imágenes) */
+    .sortable-item {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .sortable-item.dragging {
+        transform: rotate(5deg) scale(1.05);
+        z-index: 1000;
+        opacity: 0.8;
+    }
+
+    .sortable-item.drag-over {
+        transform: scale(0.95);
+        border: 2px dashed #007bff;
+        border-radius: 8px;
+    }
+
+    .image-container {
         position: relative;
+        overflow: hidden;
+        border-radius: 8px;
+        transition: all 0.3s ease;
     }
-    
-    .image-card:hover {
-        transform: translateY(-8px);
-        box-shadow: 0 15px 35px rgba(0,0,0,0.2) !important;
+
+    .image-container:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
     }
-    
-    .image-card:hover .image-overlay {
-        opacity: 1;
-        visibility: visible;
-    }
-    
+
     .image-overlay {
         position: absolute;
         top: 0;
         left: 0;
         right: 0;
         bottom: 0;
-        background: rgba(0,0,0,0.8);
+        background: rgba(0,0,0,0.6);
         opacity: 0;
-        visibility: hidden;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        transition: opacity 0.3s ease;
         display: flex;
-        align-items: center;
-        justify-content: center;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 10px;
         z-index: 2;
-        backdrop-filter: blur(2px);
-        border-radius: 8px;
     }
-    
-    .image-controls {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 10px;
-        padding: 15px;
-    }
-    
-    .image-controls .btn {
-        border: none !important;
-        font-weight: 600;
-        text-shadow: 0 1px 2px rgba(0,0,0,0.3);
-        transition: all 0.2s ease;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-    }
-    
-    .image-controls .btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    }
-    
-    .image-controls .btn-light:hover {
-        background: #fff !important;
-        color: #333 !important;
-    }
-    
-    .eliminar-imagen {
-        background: linear-gradient(135deg, #dc3545, #c82333) !important;
-        border: 2px solid white !important;
-        color: white !important;
-        font-weight: 600;
-        text-shadow: 0 1px 2px rgba(0,0,0,0.3);
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 15px rgba(220, 53, 69, 0.4);
-        width: 36px !important;
-        height: 36px !important;
-        border-radius: 50% !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        opacity: 0;
-        transform: scale(0.8);
-    }
-    
-    .image-card:hover .eliminar-imagen {
+
+    .image-container:hover .image-overlay {
         opacity: 1;
-        transform: scale(1);
     }
-    
-    .eliminar-imagen:hover {
-        background: linear-gradient(135deg, #c82333, #a71e2a) !important;
-        transform: scale(1.1) !important;
-        box-shadow: 0 6px 20px rgba(220, 53, 69, 0.6) !important;
-        border-color: #fff !important;
+
+    .overlay-content {
+        display: flex;
+        gap: 8px;
+        justify-content: center;
+        align-items: flex-start;
     }
-    
-    .eliminar-imagen:active {
-        transform: scale(0.95) !important;
+
+    .order-badge {
+        align-self: flex-end;
+        text-align: right;
     }
-    
-    .image-controls .btn {
-        border-radius: 50% !important;
-        width: 40px !important;
-        height: 40px !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        backdrop-filter: blur(10px) !important;
-        transition: all 0.2s ease !important;
-    }
-    
-    .image-controls .btn:hover {
-        transform: scale(1.1) !important;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.3) !important;
-    }
-    
+
     .drag-handle {
         position: absolute;
-        top: 8px;
-        left: 8px;
-        background: linear-gradient(135deg, #4caf50, #45a049);
-        color: white;
-        border-radius: 8px;
-        padding: 8px;
+        top: 5px;
+        right: 5px;
+        background: rgba(255,255,255,0.9);
+        border-radius: 4px;
+        padding: 5px 7px;
         cursor: grab;
-        z-index: 3;
-        transition: all 0.3s ease;
-        font-size: 14px;
         opacity: 0;
-        transform: scale(0.8);
-        box-shadow: 0 3px 12px rgba(76, 175, 80, 0.4);
-        width: 32px;
-        height: 32px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        transition: opacity 0.3s ease;
+        color: #666;
+        z-index: 3;
     }
-    
-    .image-card:hover .drag-handle {
+
+    .image-container:hover .drag-handle {
         opacity: 1;
-        transform: scale(1);
     }
-    
-    .drag-handle:hover {
-        background: linear-gradient(135deg, #66bb6a, #5cb85c);
-        color: white;
-        transform: scale(1.1);
-        box-shadow: 0 8px 25px rgba(76, 175, 80, 0.6);
-        cursor: grab;
-    }
-    
+
     .drag-handle:active {
-        cursor: grabbing !important;
-        transform: scale(1.05);
-        background: linear-gradient(135deg, #5cb85c, #4cae4c);
+        cursor: grabbing;
     }
-    
-    
-    .sortable-placeholder {
-        border: 3px dashed #4caf50 !important;
-        background: linear-gradient(45deg, rgba(76,175,80,0.1), rgba(76,175,80,0.2)) !important;
-        border-radius: 15px !important;
-        margin-bottom: 1rem !important;
-        animation: pulse 1.5s infinite !important;
+
+    .sortable-image {
+        user-select: none;
+        -webkit-user-drag: none;
     }
-    
-    @keyframes pulse {
-        0%, 100% { 
-            opacity: 0.6; 
-            transform: scale(0.98);
-            border-color: #4caf50;
-        }
-        50% { 
-            opacity: 1; 
-            transform: scale(1);
-            border-color: #66bb6a;
-        }
+
+    #sortable-images.dragging .sortable-item:not(.dragging) {
+        opacity: 0.6;
     }
-    
-    .drag-dimmed {
-        opacity: 0.4 !important;
-        transition: opacity 0.3s ease !important;
-    }
-    
-    .drag-placeholder {
-        display: flex !important;
-        flex-direction: column !important;
-        align-items: center !important;
-        justify-content: center !important;
-        height: 200px !important;
-        color: #4caf50 !important;
-        animation: bounce 2s infinite !important;
-    }
-    
-    @keyframes bounce {
-        0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
-        40% { transform: translateY(-10px); }
-        60% { transform: translateY(-5px); }
-    }
-    
-    .ui-sortable-helper {
-        transform: rotate(3deg) scale(1.1) !important;
-        box-shadow: 0 20px 50px rgba(0,0,0,0.4) !important;
-        z-index: 1000 !important;
-        cursor: grabbing !important;
-        border: 2px solid #4caf50 !important;
-        border-radius: 15px !important;
-    }
-    
-    .ui-sortable-helper .image-overlay {
-        opacity: 0 !important;
-    }
-    
-    .orden-texto {
-        font-weight: bold !important;
-        color: #4caf50 !important;
-        font-size: 1.1em !important;
-    }
-    
-    /* Efectos de movimiento */
-    .moving-animation {
-        animation: moveSlide 0.5s ease-in-out !important;
-    }
-    
-    @keyframes moveSlide {
-        0% { transform: scale(1); }
-        50% { transform: scale(1.05) rotateY(10deg); }
-        100% { transform: scale(1); }
-    }
-    
-    /* Responsive para móviles */
-    @media (max-width: 768px) {
-        .image-controls {
-            grid-template-columns: 1fr;
-            gap: 6px;
-        }
-        
-        .image-controls .btn {
-            width: 35px !important;
-            height: 35px !important;
-        }
-        
-        .drag-handle {
-            font-size: 12px;
-            padding: 3px 6px;
-        }
-    }
+
 </style>
 {% endblock %}
 
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-<script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 $(document).ready(function() {
     console.log('📸 Página de formulario cargada');
-    console.log('📸 Botones eliminar encontrados:', $('.eliminar-imagen').length);
-    
+
     // Función para mostrar notificaciones toast mejoradas (definida al inicio para disponibilidad global)
     window.showToast = function(message, type = 'success') {
         const bgClass = type === 'success' ? 'bg-success' : 'bg-danger';
@@ -925,11 +774,6 @@ $(document).ready(function() {
             toast.remove();
         });
     };
-    
-    // Test inicial de botones eliminar
-    $('.eliminar-imagen').each(function(index) {
-        console.log(`📸 Botón ${index + 1}: ID=${$(this).data('imagen-id')}, Visible=${$(this).is(':visible')}`);
-    });
     
     // Inicialización de Select2 para propietario
     $('.select2-propietario').select2({
@@ -963,203 +807,207 @@ $(document).ready(function() {
     });
 
     {% if propiedad.pk %}
-    const URL_REORDENAR = "{% url 'inmobiliaria:reordenar_imagenes' propiedad.id %}";
-    const CSRF = "{{ csrf_token }}";
+    // Drag & drop nativo — mismo comportamiento que ficha → Imágenes
     let isDragging = false;
+    let draggedElement = null;
+    let originalOrder = [];
+    const CSRF = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '{{ csrf_token }}';
+    const URL_ORDEN = "{% url 'inmobiliaria:actualizar_orden_imagenes' %}";
+    const URL_ELIMINAR_BASE = "{% url 'inmobiliaria:imagen_eliminar' 999999999 %}";
 
-    // Función para actualizar órdenes visualmente
-    function actualizarOrdenes() {
-        const nuevaLista = [];
-        $('#imagenes-container .col-6, #imagenes-container .col-md-4, #imagenes-container .col-lg-3').each(function(idx) {
-            const id = $(this).data('imagen-id');
-            if (id) {
-                nuevaLista.push({
-                    id: id,
-                    orden: idx + 1
-                });
-                $(this).find('.orden-texto').text(idx + 1);
-            }
-        });
-        return nuevaLista;
-    }
-
-    // Función para enviar orden al servidor
-    function enviarOrdenAlServidor(mostrarToast = true) {
-        const nuevaLista = actualizarOrdenes();
-        
-        console.log('🔄 Enviando orden al servidor:', nuevaLista);
-        console.log('🔗 URL:', URL_REORDENAR);
-        console.log('🔐 CSRF:', CSRF);
-        
-        $.post({
-            url: URL_REORDENAR,
-            data: { 
-                'csrfmiddlewaretoken': CSRF,
-                'ordenes': JSON.stringify(nuevaLista) 
-            },
-            success: function(response) {
-                console.log('✅ Respuesta del servidor:', response);
-                if (response.success && mostrarToast) {
-                    showToast('Orden actualizado correctamente', 'success');
-                }
-            },
-            error: function(xhr, status, error) {
-                console.error('❌ Error al reordenar:', { xhr, status, error });
-                console.error('❌ Respuesta:', xhr.responseText);
-                showToast('Error al actualizar el orden: ' + error, 'error');
-            }
+    function saveOriginalOrder() {
+        originalOrder = [];
+        document.querySelectorAll('#sortable-images .sortable-item').forEach((item) => {
+            originalOrder.push({
+                id: item.dataset.id,
+                orden: parseInt(item.dataset.orden, 10) || 0,
+                element: item
+            });
         });
     }
 
-    // Los botones de movimiento fueron removidos - solo drag & drop ahora 🎯
+    function updateOrderBadges() {
+        document.querySelectorAll('#sortable-images .sortable-item').forEach((item, index) => {
+            const badge = item.querySelector('.order-badge .badge');
+            if (badge) badge.textContent = index + 1;
+            item.dataset.orden = String(index + 1);
+        });
+    }
 
-    // Funcionalidad para eliminar imágenes (MEJORADA)
-    $(document).on('click', '.eliminar-imagen', function(e) {
+    function handleDragStart(e) {
+        isDragging = true;
+        draggedElement = this;
+        this.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', this.dataset.id || '');
+        document.getElementById('sortable-images')?.classList.add('dragging');
+    }
+
+    function handleDragOver(e) {
         e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        return false;
+    }
+
+    function handleDragEnter(e) {
+        if (this !== draggedElement) this.classList.add('drag-over');
+    }
+
+    function handleDragLeave(e) {
+        this.classList.remove('drag-over');
+    }
+
+    function handleDrop(e) {
         e.stopPropagation();
-        
-        console.log('🗑️ Click en botón eliminar detectado');
-        console.log('🗑️ isDragging:', isDragging);
-        
-        if (isDragging) {
-            console.log('🗑️ Cancelando eliminación porque se está arrastrando');
-            return;
+        e.preventDefault();
+        if (this !== draggedElement && draggedElement) {
+            const parent = draggedElement.parentNode;
+            const draggedNext = draggedElement.nextSibling;
+            const droppedNext = this.nextSibling;
+            parent.insertBefore(this, draggedNext);
+            parent.insertBefore(draggedElement, droppedNext);
+            updateOrderBadges();
+            const saveBtn = document.getElementById('save-order');
+            if (saveBtn) saveBtn.disabled = false;
         }
-        
-        const $btn = $(this);
-        const idImg = $btn.data('imagen-id');
-        
-        console.log('🗑️ Intentando eliminar imagen ID:', idImg);
-        console.log('🗑️ Botón:', $btn[0]);
-        
-        // Función para confirmar eliminación
-        function confirmarEliminacion() {
-            console.log('🗑️ Usuario confirmó eliminación');
-            
-            $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i>');
-            
-            const deleteUrl = "{% url 'inmobiliaria:imagen_eliminar' 0 %}".replace('0', idImg);
-            console.log('🔗 URL de eliminación:', deleteUrl);
-            
+        this.classList.remove('drag-over');
+        return false;
+    }
+
+    function handleDragEnd() {
+        isDragging = false;
+        this.classList.remove('dragging');
+        document.querySelectorAll('#sortable-images .sortable-item').forEach((item) => {
+            item.classList.remove('drag-over');
+        });
+        document.getElementById('sortable-images')?.classList.remove('dragging');
+        draggedElement = null;
+    }
+
+    function setupDragAndDrop() {
+        const container = document.getElementById('sortable-images');
+        if (!container) return;
+        container.querySelectorAll('.sortable-item').forEach((item) => {
+            item.draggable = true;
+            item.addEventListener('dragstart', handleDragStart);
+            item.addEventListener('dragover', handleDragOver);
+            item.addEventListener('dragenter', handleDragEnter);
+            item.addEventListener('dragleave', handleDragLeave);
+            item.addEventListener('drop', handleDrop);
+            item.addEventListener('dragend', handleDragEnd);
+        });
+    }
+
+    function saveImageOrder() {
+        const images = [];
+        document.querySelectorAll('#sortable-images .sortable-item').forEach((item, index) => {
+            images.push({ id: parseInt(item.dataset.id, 10), orden: index + 1 });
+        });
+        Swal.fire({
+            title: 'Guardando orden...',
+            text: 'Por favor espere',
+            allowOutsideClick: false,
+            didOpen: () => { Swal.showLoading(); }
+        });
+        fetch(URL_ORDEN, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': CSRF
+            },
+            body: JSON.stringify({ imagenes: images })
+        })
+        .then((r) => r.json())
+        .then((data) => {
+            if (!data.success) throw new Error(data.error || 'Error desconocido');
+            saveOriginalOrder();
+            const saveBtn = document.getElementById('save-order');
+            if (saveBtn) saveBtn.disabled = true;
+            Swal.fire({
+                icon: 'success',
+                title: '¡Orden guardado!',
+                text: 'Las imágenes se han reordenado correctamente',
+                timer: 2000,
+                showConfirmButton: false
+            });
+        })
+        .catch((err) => {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'No se pudo guardar el orden: ' + err.message
+            });
+        });
+    }
+
+    function resetImageOrder() {
+        const container = document.getElementById('sortable-images');
+        if (!container) return;
+        originalOrder.slice().sort((a, b) => a.orden - b.orden).forEach((item) => {
+            container.appendChild(item.element);
+        });
+        updateOrderBadges();
+        const saveBtn = document.getElementById('save-order');
+        if (saveBtn) saveBtn.disabled = true;
+        Swal.fire({
+            icon: 'info',
+            title: 'Orden restaurado',
+            text: 'Se ha restaurado el orden original',
+            timer: 1500,
+            showConfirmButton: false
+        });
+    }
+
+    function deleteImage(imageId) {
+        Swal.fire({
+            title: '¿Eliminar imagen?',
+            text: 'Esta acción no se puede deshacer',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Sí, eliminar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (!result.isConfirmed) return;
+            const url = URL_ELIMINAR_BASE.replace('999999999', String(imageId));
             $.post({
-                url: deleteUrl,
-                data: {
-                    'csrfmiddlewaretoken': CSRF
-                },
+                url: url,
+                data: { csrfmiddlewaretoken: CSRF },
                 success: function(response) {
-                    console.log('✅ Respuesta de eliminación:', response);
-                    if (response.success) {
-                        $btn.closest('.col-6, .col-md-4, .col-lg-3').fadeOut(300, function() {
+                    if (!response.success) {
+                        showToast('Error: ' + (response.error || 'Error desconocido'), 'error');
+                        return;
+                    }
+                    const item = document.querySelector('#sortable-images .sortable-item[data-id="' + imageId + '"]');
+                    if (item) {
+                        $(item).fadeOut(300, function() {
                             $(this).remove();
-                            enviarOrdenAlServidor(false); // No mostrar toast al eliminar
+                            updateOrderBadges();
+                            saveOriginalOrder();
                             showToast('Imagen eliminada correctamente', 'success');
                         });
-                    } else {
-                        console.error('❌ Error del servidor:', response.error);
-                        showToast('Error: ' + (response.error || 'Error desconocido'), 'error');
-                        $btn.prop('disabled', false).html('<i class="fas fa-trash"></i>');
                     }
                 },
                 error: function(xhr, status, error) {
-                    console.error('❌ Error de conexión:', { xhr, status, error });
-                    console.error('❌ Respuesta:', xhr.responseText);
                     showToast('Error de conexión: ' + error, 'error');
-                    $btn.prop('disabled', false).html('<i class="fas fa-trash"></i>');
                 }
             });
-        }
-        
-        // Usar SweetAlert2 si está disponible, sino confirm nativo
-        if (typeof Swal !== 'undefined') {
-            Swal.fire({
-                title: '¿Eliminar imagen?',
-                text: 'Esta acción no se puede deshacer',
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#d33',
-                cancelButtonColor: '#6c757d',
-                confirmButtonText: 'Sí, eliminar',
-                cancelButtonText: 'Cancelar'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    confirmarEliminacion();
-                } else {
-                    console.log('🗑️ Usuario canceló eliminación');
-                }
-            });
-        } else {
-            // Fallback a confirm nativo
-            if (confirm('¿Eliminar la imagen definitivamente?\n\nEsta acción no se puede deshacer.')) {
-                confirmarEliminacion();
-            } else {
-                console.log('🗑️ Usuario canceló eliminación');
-            }
-        }
+        });
+    }
+
+    setupDragAndDrop();
+    saveOriginalOrder();
+    updateOrderBadges();
+
+    document.getElementById('save-order')?.addEventListener('click', saveImageOrder);
+    document.getElementById('reset-order')?.addEventListener('click', resetImageOrder);
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('.delete-image');
+        if (!btn || isDragging) return;
+        e.preventDefault();
+        deleteImage(btn.dataset.id);
     });
-
-    // Hacer las imágenes arrastrables con jQuery UI Sortable (SOLO DRAG & DROP)
-    $('#imagenes-container').sortable({
-        items: '.col-6, .col-md-4, .col-lg-3',
-        handle: '.drag-handle',
-        cancel: '.eliminar-imagen',
-        placeholder: 'sortable-placeholder',
-        forcePlaceholderSize: true,
-        tolerance: 'intersect',
-        cursor: 'grabbing',
-        helper: 'clone',
-        opacity: 0.8,
-        revert: 200,
-        scroll: true,
-        scrollSensitivity: 15,
-        scrollSpeed: 15,
-        distance: 10,
-        delay: 100,
-        containment: '#imagenes-container',
-        start: function(e, ui) {
-            isDragging = true;
-            console.log('🎯 Iniciando drag & drop');
-            
-            // Configurar placeholder
-            ui.placeholder.height(ui.item.height());
-            ui.placeholder.html(`
-                <div class="drag-placeholder text-center py-4">
-                    <i class="fas fa-hand-paper fa-3x text-success mb-3" style="animation: pulse 1s infinite;"></i>
-                    <h5 class="text-success mb-2"><strong>Suelta aquí</strong></h5>
-                    <small class="text-muted">para cambiar la posición</small>
-                </div>
-            `);
-            
-            // Estilos durante drag
-            ui.helper.css({
-                'z-index': 9999,
-                'transform': 'rotate(5deg) scale(1.05)',
-                'box-shadow': '0 20px 40px rgba(0,0,0,0.3)'
-            });
-            
-            $('body').css('cursor', 'grabbing');
-            
-            // Ocultar overlays durante drag
-            ui.item.find('.image-overlay').css('opacity', '0');
-            $('.image-card').not(ui.item).addClass('drag-dimmed');
-        },
-        stop: function(e, ui) {
-            console.log('🏁 Finalizando drag & drop');
-            setTimeout(() => {
-                isDragging = false;
-                $('body').css('cursor', '');
-                ui.item.find('.image-overlay').css('opacity', '');
-                $('.image-card').removeClass('drag-dimmed');
-            }, 100);
-        },
-        update: function(e, ui) {
-            console.log('📝 Orden actualizado por drag & drop');
-            enviarOrdenAlServidor(true);
-        }
-    });
-
-
-    // Actualizar orden inicial
-    actualizarOrdenes();
     {% endif %}
 
     // Función para guardar nuevo propietario
