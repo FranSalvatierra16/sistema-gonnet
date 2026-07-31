@@ -3707,6 +3707,8 @@ def lista_caratulas(request):
                 'direccion': p.direccion if p else '—',
                 'piso_dto': piso_dto,
                 'ficha': p.id if p else '—',
+                'importe_locacion': r.precio_total or Decimal('0'),
+                'moneda': getattr(r, 'moneda', None) or 'ARS',
                 'estado': (
                     'Eliminada'
                     if r.eliminada
@@ -3736,6 +3738,7 @@ def lista_caratulas(request):
             continue
         if liquidacion_filtro == 'liquidada' and not tiene_liquidacion:
             continue
+        total_contrato = (c.precio_mensual or Decimal('0')) * Decimal(c.duracion_meses or 0)
         filas.append(
             {
                 'kind': 'contrato',
@@ -3754,6 +3757,8 @@ def lista_caratulas(request):
                 'direccion': p.direccion if p else '—',
                 'piso_dto': piso_dto,
                 'ficha': p.id if p else '—',
+                'importe_locacion': total_contrato,
+                'moneda': getattr(c, 'moneda', None) or 'ARS',
                 'estado': c.get_estado_display() if hasattr(c, 'get_estado_display') else c.estado,
                 'carpeta': carpeta_hist or '—',
                 'tiene_liquidacion': tiene_liquidacion,

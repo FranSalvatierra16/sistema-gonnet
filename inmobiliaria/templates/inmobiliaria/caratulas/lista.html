@@ -1,4 +1,5 @@
 {% extends 'inmobiliaria/base.html' %}
+{% load custom_filters %}
 {% block title %}Carátulas{% endblock %}
 {% block content %}
 <div class="container-fluid py-4">
@@ -128,6 +129,7 @@
                     <th>Piso / Dto</th>
                     <th>Ficha</th>
                     <th>Carpeta</th>
+                    <th class="text-end">Importe</th>
                     <th>Estado</th>
                     <th>Operación</th>
                     <th></th>
@@ -159,6 +161,7 @@
                         <span class="text-muted">{{ f.carpeta|default:"—" }}</span>
                         {% endif %}
                     </td>
+                    <td class="text-end text-nowrap small fw-semibold">{{ f.importe_locacion|format_importe_moneda:f.moneda }}</td>
                     <td class="small">
                         {{ f.estado }}
                         {% if f.tiene_liquidacion %}
@@ -193,7 +196,7 @@
                     </td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="12" class="text-center text-muted py-4">No hay operaciones con los filtros actuales.</td></tr>
+                <tr><td colspan="13" class="text-center text-muted py-4">No hay operaciones con los filtros actuales.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
