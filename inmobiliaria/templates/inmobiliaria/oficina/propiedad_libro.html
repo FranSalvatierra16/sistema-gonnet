@@ -27,17 +27,36 @@
     </div>
 
     {% if otras_propiedades|length > 1 %}
-    <div class="mb-3 overflow-auto">
-        <ul class="nav nav-tabs flex-nowrap" style="white-space: nowrap;">
-            {% for p in otras_propiedades %}
-            <li class="nav-item">
-                <a class="nav-link {% if p.id == propiedad.id %}active{% endif %}"
-                   href="{% url 'inmobiliaria:oficina_propiedad_libro' p.id %}{% if fecha_desde or fecha_hasta %}?{% if fecha_desde %}fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_desde and fecha_hasta %}&{% endif %}{% if fecha_hasta %}fecha_hasta={{ fecha_hasta }}{% endif %}{% endif %}">
-                    {{ p.direccion }}{% if p.piso %} {{ p.piso }}{% endif %}{% if p.departamento %}{{ p.departamento }}{% endif %}
-                </a>
-            </li>
-            {% endfor %}
-        </ul>
+    <div class="mb-3" id="libro-nav-propiedades">
+        <div class="position-relative mb-2" style="max-width:28rem">
+            <label class="form-label small mb-0 text-muted" for="buscar-depto-libro">Ir a departamento</label>
+            <div class="input-group input-group-sm">
+                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                <input type="search" class="form-control" id="buscar-depto-libro"
+                       placeholder="Dirección, propietario, ficha…"
+                       autocomplete="off" aria-autocomplete="list" aria-controls="buscar-depto-resultados">
+            </div>
+            <div id="buscar-depto-resultados"
+                 class="list-group position-absolute shadow-sm border rounded mt-1 d-none"
+                 style="z-index:1050; max-height:16rem; overflow-y:auto; left:0; right:0;"></div>
+        </div>
+        <div class="overflow-auto libro-tabs-scroll" id="libro-tabs-scroll">
+            <ul class="nav nav-tabs flex-nowrap mb-0" style="white-space: nowrap;" id="libro-tabs-props">
+                {% for p in otras_propiedades %}
+                <li class="nav-item"
+                    data-id="{{ p.id }}"
+                    data-label="{{ p.direccion }}{% if p.piso %} {{ p.piso }}{% endif %}{% if p.departamento %}{{ p.departamento }}{% endif %}"
+                    data-propietario="{% if p.propietario %}{{ p.propietario }}{% endif %}"
+                    data-href="{% url 'inmobiliaria:oficina_propiedad_libro' p.id %}{% if fecha_desde or fecha_hasta %}?{% if fecha_desde %}fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_desde and fecha_hasta %}&{% endif %}{% if fecha_hasta %}fecha_hasta={{ fecha_hasta }}{% endif %}{% endif %}">
+                    <a class="nav-link {% if p.id == propiedad.id %}active{% endif %}"
+                       {% if p.id == propiedad.id %}id="libro-tab-activa"{% endif %}
+                       href="{% url 'inmobiliaria:oficina_propiedad_libro' p.id %}{% if fecha_desde or fecha_hasta %}?{% if fecha_desde %}fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_desde and fecha_hasta %}&{% endif %}{% if fecha_hasta %}fecha_hasta={{ fecha_hasta }}{% endif %}{% endif %}">
+                        {{ p.direccion }}{% if p.piso %} {{ p.piso }}{% endif %}{% if p.departamento %}{{ p.departamento }}{% endif %}
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
     </div>
     {% endif %}
 
@@ -213,12 +232,143 @@
 .libro-oficina-table thead th { white-space: nowrap; }
 .libro-oficina-table .input-cotizacion-libro,
 .libro-oficina-table input[type="text"] { font-variant-numeric: tabular-nums; }
+.libro-tabs-scroll { scrollbar-width: thin; }
+#buscar-depto-resultados .list-group-item { cursor: pointer; }
+#buscar-depto-resultados .list-group-item.active-result,
+#buscar-depto-resultados .list-group-item:hover { background-color: #e7f1ff; }
 </style>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 (function() {
+    // Centrar la pestaña activa en el menú horizontal
+    function centrarTabActiva() {
+        var scroll = document.getElementById('libro-tabs-scroll');
+        var activa = document.getElementById('libro-tab-activa');
+        if (!scroll || !activa) return;
+        var scrollRect = scroll.getBoundingClientRect();
+        var actRect = activa.getBoundingClientRect();
+        scroll.scrollLeft += (actRect.left + actRect.width / 2) - (scrollRect.left + scrollRect.width / 2);
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', centrarTabActiva);
+    } else {
+        centrarTabActiva();
+    }
+    window.addEventListener('load', centrarTabActiva);
+
+    // Buscador: dirección, propietario, ficha
+    var inputBuscar = document.getElementById('buscar-depto-libro');
+    var boxResultados = document.getElementById('buscar-depto-resultados');
+    var items = Array.prototype.slice.call(document.querySelectorAll('#libro-tabs-props > .nav-item'));
+    var highlightIdx = -1;
+
+    function norm(s) {
+        return (s || '').toString().toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    }
+
+    function catalogo() {
+        return items.map(function(li) {
+            var id = li.getAttribute('data-id') || '';
+            var label = li.getAttribute('data-label') || '';
+            var prop = li.getAttribute('data-propietario') || '';
+            var href = li.getAttribute('data-href') || (li.querySelector('a') || {}).href || '';
+            return {
+                id: id,
+                label: label,
+                propietario: prop,
+                href: href,
+                haystack: norm(id + ' ' + label + ' ' + prop)
+            };
+        });
+    }
+
+    function ocultarResultados() {
+        if (!boxResultados) return;
+        boxResultados.classList.add('d-none');
+        boxResultados.innerHTML = '';
+        highlightIdx = -1;
+    }
+
+    function irA(href) {
+        if (href) window.location.href = href;
+    }
+
+    function renderResultados(q) {
+        if (!boxResultados) return;
+        var query = norm(q).trim();
+        if (!query) {
+            ocultarResultados();
+            return;
+        }
+        var tokens = query.split(/\s+/).filter(Boolean);
+        var matches = catalogo().filter(function(p) {
+            return tokens.every(function(t) { return p.haystack.indexOf(t) !== -1; });
+        }).slice(0, 12);
+
+        if (!matches.length) {
+            boxResultados.innerHTML = '<div class="list-group-item text-muted small">Sin coincidencias</div>';
+            boxResultados.classList.remove('d-none');
+            highlightIdx = -1;
+            return;
+        }
+
+        boxResultados.innerHTML = matches.map(function(p, i) {
+            var sub = p.propietario
+                ? '<span class="small text-muted d-block">#' + p.id + ' · ' + p.propietario.replace(/</g, '&lt;') + '</span>'
+                : '<span class="small text-muted d-block">#' + p.id + '</span>';
+            return '<button type="button" class="list-group-item list-group-item-action text-start' +
+                (i === 0 ? ' active-result' : '') + '" data-href="' + p.href.replace(/"/g, '&quot;') + '" data-idx="' + i + '">' +
+                '<strong>' + (p.label || '').replace(/</g, '&lt;') + '</strong>' + sub + '</button>';
+        }).join('');
+        boxResultados.classList.remove('d-none');
+        highlightIdx = 0;
+    }
+
+    function setHighlight(idx) {
+        if (!boxResultados) return;
+        var btns = boxResultados.querySelectorAll('[data-href]');
+        if (!btns.length) return;
+        highlightIdx = (idx + btns.length) % btns.length;
+        btns.forEach(function(b, i) {
+            b.classList.toggle('active-result', i === highlightIdx);
+        });
+        btns[highlightIdx].scrollIntoView({ block: 'nearest' });
+    }
+
+    if (inputBuscar && boxResultados) {
+        inputBuscar.addEventListener('input', function() {
+            renderResultados(inputBuscar.value);
+        });
+        inputBuscar.addEventListener('keydown', function(e) {
+            var btns = boxResultados.querySelectorAll('[data-href]');
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (boxResultados.classList.contains('d-none')) renderResultados(inputBuscar.value);
+                setHighlight(highlightIdx + 1);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                setHighlight(highlightIdx - 1);
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (!btns.length) renderResultados(inputBuscar.value);
+                btns = boxResultados.querySelectorAll('[data-href]');
+                if (btns[highlightIdx]) irA(btns[highlightIdx].getAttribute('data-href'));
+            } else if (e.key === 'Escape') {
+                ocultarResultados();
+            }
+        });
+        boxResultados.addEventListener('click', function(e) {
+            var btn = e.target.closest('[data-href]');
+            if (btn) irA(btn.getAttribute('data-href'));
+        });
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('#libro-nav-propiedades')) ocultarResultados();
+        });
+    }
+
     var urlCotiz = '{% url "inmobiliaria:oficina_propiedad_libro_cotizacion" propiedad.id %}';
     var urlInicio = '{% url "inmobiliaria:oficina_propiedad_libro_inicio_caja" propiedad.id %}';
 
