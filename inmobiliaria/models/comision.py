@@ -28,6 +28,10 @@ def vendedor_fichaje_desde_propiedad(prop, sucursal=None):
     Si se indica ``sucursal`` (de la reserva/contrato), solo aplica si el fichador
     pertenece a esa misma sucursal: no se comisiona fichaje cross-sucursal
     (ej. productor de Colón en una operación de Corrientes).
+
+    Si el fichador cargado es de otra sucursal pero existe un homónimo
+    (mismo apellido/nombre) en la sucursal de la operación, se usa ese
+    (caso típico: misma persona duplicada por sucursal, p. ej. Ponti #22 vs #7).
     """
     if not prop:
         return None
@@ -42,6 +46,19 @@ def vendedor_fichaje_desde_propiedad(prop, sucursal=None):
             except (TypeError, ValueError):
                 sid = None
         if sid is not None and getattr(fichado, 'sucursal_id', None) not in (None, sid):
+            from inmobiliaria.models.persona import Vendedor
+
+            apellido = (getattr(fichado, 'apellido', None) or '').strip()
+            nombre = (getattr(fichado, 'nombre', None) or '').strip()
+            if apellido or nombre:
+                alt = (
+                    Vendedor.objects.filter(sucursal_id=sid)
+                    .filter(apellido__iexact=apellido, nombre__iexact=nombre)
+                    .order_by('id')
+                    .first()
+                )
+                if alt:
+                    return alt
             return None
     return fichado
 
