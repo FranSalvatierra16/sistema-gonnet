@@ -47,6 +47,15 @@
                                     <th>Email:</th>
                                     <td>{{ sucursal.email|default:"No especificado" }}</td>
                                 </tr>
+                                <tr>
+                                    <th>Comisión mínima / op.:</th>
+                                    <td>
+                                        ${{ sucursal.comision_minima_operacion|default:"10000.00"|floatformat:2 }}
+                                        <div class="small text-muted">
+                                            Piso total de comisión productor (se reparte por % de participación).
+                                        </div>
+                                    </td>
+                                </tr>
                             </table>
                         </div>
                     </div>

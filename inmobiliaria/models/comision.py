@@ -482,6 +482,7 @@ def _crear_linea_operacion_por_dia(
     Comisión de operación «por día»: % comisión por día sobre la parte de la reserva
     que le corresponde al productor (participación).
     Fórmula: precio_total × (participación/100) × (% comisión por día/100).
+    Aplica piso de comisión mínima por operación (repartido por participación).
     Solo una línea por reserva (no se duplica en pagos parciales).
     """
     pct = pct_override if pct_override is not None else pct_comision_normal_alquiler_dia(vendedor)
@@ -502,12 +503,21 @@ def _crear_linea_operacion_por_dia(
     if base <= 0:
         return
     nuevo_monto = (base * Decimal(str(pct)) / Decimal('100')).quantize(Decimal('0.01'))
+    nuevo_monto = monto_comision_productor_con_minimo(
+        nuevo_monto,
+        participacion_pct,
+        sucursal=getattr(reserva, 'sucursal', None),
+    )
     existente = ComisionVendedor.objects.filter(
         vendedor=vendedor,
         reserva=reserva,
         rol_comision=ROL_COMISION_OP_DIA,
     ).exclude(estado='cancelada').first()
     if existente:
+        if _comision_acreditada(existente):
+            if creadas is not None and existente not in creadas:
+                creadas.append(existente)
+            return
         updates = []
         if existente.monto_total_operacion != base:
             existente.monto_total_operacion = base
@@ -536,6 +546,9 @@ def _crear_linea_operacion_por_dia(
         rol_comision=ROL_COMISION_OP_DIA,
     )
     if c:
+        if c.monto_comision != nuevo_monto and not _comision_acreditada(c):
+            c.monto_comision = nuevo_monto
+            c.save(update_fields=['monto_comision'])
         creadas.append(c)
 
 
@@ -613,6 +626,9 @@ def registrar_comisiones_honorarios_movimiento_reserva(reserva, movimiento_caja,
                     rol_comision=ROL_COMISION_OP_INVIERNO,
                 )
                 if c:
+                    _aplicar_piso_comision_productor(
+                        c, part, getattr(reserva, 'sucursal', None)
+                    )
                     creadas.append(c)
             else:
                 _crear_linea_operacion_por_dia(
@@ -638,6 +654,9 @@ def registrar_comisiones_honorarios_movimiento_reserva(reserva, movimiento_caja,
                     rol_comision=ROL_COMISION_OP_24,
                 )
                 if c:
+                    _aplicar_piso_comision_productor(
+                        c, part, getattr(reserva, 'sucursal', None)
+                    )
                     creadas.append(c)
             else:
                 _crear_linea_operacion_por_dia(
@@ -925,6 +944,9 @@ def registrar_comisiones_honorarios_contrato(contrato, honorarios_monto, movimie
             nuevo_monto = (
                 Decimal(str(base_parte)) * Decimal(str(pct)) / Decimal('100')
             ).quantize(Decimal('0.01'))
+            nuevo_monto = monto_comision_productor_con_minimo(
+                nuevo_monto, part, sucursal=getattr(contrato, 'sucursal', None)
+            )
             updates = []
             if c.monto_total_operacion != base_parte:
                 c.monto_total_operacion = base_parte
@@ -1107,6 +1129,76 @@ def base_comision_con_participacion(base_monto, participacion_pct):
     if base <= 0 or pct <= 0:
         return Decimal('0')
     return (base * pct / Decimal('100')).quantize(Decimal('0.01'))
+
+
+COMISION_MINIMA_OPERACION_DEFAULT = Decimal('10000.00')
+
+
+def comision_minima_operacion_de_sucursal(sucursal) -> Decimal:
+    """Mínimo total de comisión productor por operación (configurable en sucursal)."""
+    if sucursal is None:
+        return COMISION_MINIMA_OPERACION_DEFAULT
+    val = getattr(sucursal, 'comision_minima_operacion', None)
+    if val is None:
+        return COMISION_MINIMA_OPERACION_DEFAULT
+    try:
+        return Decimal(str(val))
+    except (TypeError, ValueError, ArithmeticError):
+        return COMISION_MINIMA_OPERACION_DEFAULT
+
+
+def monto_comision_productor_con_minimo(
+    monto_calculado, participacion_pct, sucursal=None, minimo=None,
+):
+    """
+    Aplica piso de comisión por operación según participación.
+
+    El mínimo es del total de la operación (default $10.000). Con 50/50 cada uno
+    tiene piso de $5.000. Si el % da más, se paga lo del %.
+    ``minimo=0`` desactiva el piso.
+    """
+    try:
+        monto = Decimal(str(monto_calculado or 0)).quantize(Decimal('0.01'))
+    except (TypeError, ValueError, ArithmeticError):
+        monto = Decimal('0.00')
+
+    if minimo is None:
+        minimo = comision_minima_operacion_de_sucursal(sucursal)
+    else:
+        try:
+            minimo = Decimal(str(minimo))
+        except (TypeError, ValueError, ArithmeticError):
+            minimo = COMISION_MINIMA_OPERACION_DEFAULT
+
+    if minimo <= 0:
+        return monto
+
+    try:
+        part = Decimal(str(participacion_pct if participacion_pct is not None else 100))
+    except (TypeError, ValueError, ArithmeticError):
+        part = Decimal('100')
+    if part <= 0:
+        return monto
+
+    piso = (minimo * part / Decimal('100')).quantize(Decimal('0.01'))
+    return monto if monto >= piso else piso
+
+
+def _aplicar_piso_comision_productor(comision, participacion_pct, sucursal):
+    """Ajusta monto_comision al piso si la línea es de productor y no está acreditada."""
+    if not comision or _comision_acreditada(comision):
+        return comision
+    rol = (getattr(comision, 'rol_comision', None) or '').strip()
+    if rol == ROL_COMISION_FICHAJE:
+        return comision
+    calc = Decimal(str(comision.monto_comision or 0))
+    nuevo = monto_comision_productor_con_minimo(
+        calc, participacion_pct, sucursal=sucursal
+    )
+    if nuevo != calc:
+        comision.monto_comision = nuevo
+        comision.save(update_fields=['monto_comision'])
+    return comision
 
 
 def set_productores_operacion(ids_vendedores, *, reserva=None, contrato=None, redistribuir=True):

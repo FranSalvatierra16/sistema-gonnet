@@ -1031,7 +1031,13 @@ class InquilinoBuscarForm(forms.Form):
 class SucursalForm(forms.ModelForm):
     class Meta:
         model = Sucursal
-        fields = ['nombre', 'direccion', 'telefono', 'email']
+        fields = [
+            'nombre',
+            'direccion',
+            'telefono',
+            'email',
+            'comision_minima_operacion',
+        ]
         widgets = {
             'nombre': forms.TextInput(attrs={
                 'class': 'form-control',
@@ -1049,12 +1055,26 @@ class SucursalForm(forms.ModelForm):
                 'class': 'form-control',
                 'placeholder': 'Email'
             }),
+            'comision_minima_operacion': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'step': '0.01',
+                'min': '0',
+                'placeholder': '10000.00',
+            }),
         }
         labels = {
             'nombre': 'Nombre de la Sucursal',
             'direccion': 'Dirección',
             'telefono': 'Teléfono',
             'email': 'Email',
+            'comision_minima_operacion': 'Comisión mínima por operación ($)',
+        }
+        help_texts = {
+            'comision_minima_operacion': (
+                'Mínimo total de comisión del productor por operación. '
+                'Con varios productores se reparte según su % (ej. $10.000 al 50/50 → $5.000 c/u). '
+                'Poné 0 para desactivar el mínimo.'
+            ),
         }
 
 class LoginForm(forms.Form):

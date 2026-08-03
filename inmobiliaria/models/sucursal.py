@@ -36,6 +36,20 @@ class Sucursal(models.Model):
         help_text="Porcentaje por defecto para operaciones de esta sucursal. Si el vendedor tiene % propio, se usa el del vendedor.",
     )
 
+    # Piso de comisión del productor por operación (se reparte según % de participación).
+    # Ej.: $10.000 y 50/50 → $5.000 c/u. Si el % da más, se paga lo del %.
+    comision_minima_operacion = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('10000.00'),
+        verbose_name='Comisión mínima por operación',
+        help_text=(
+            'Importe mínimo total de comisión de productor por operación. '
+            'Si hay varios productores, se reparte según su % de participación '
+            '(p. ej. $10.000 al 50/50 → $5.000 c/u). 0 = sin mínimo.'
+        ),
+    )
+
     vacaciones_invierno_desde = models.DateField(
         null=True,
         blank=True,
