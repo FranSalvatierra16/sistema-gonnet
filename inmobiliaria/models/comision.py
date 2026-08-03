@@ -280,16 +280,27 @@ def _cancelar_o_borrar_comisiones_qs(qs):
 
 def _monto_base_fichaje_reserva(reserva, honorarios_hint=None):
     """
-    Base de comisión por fichaje en la reserva (sobre honorarios de oficina).
+    Base de comisión por fichaje en la reserva.
 
-    Orden:
-    1) Override guardado en carátula (liq_monto_inmobiliaria)
-    2) Honorarios desglosados del cobro (hint), si no es el total de la operación
-    3) Reparto sugerido por día (toma / 70-30 → parte inmobiliaria)
+    - Alquiler por día: importe de locación (precio_total), p. ej. $700.000.
+    - Invierno / 24 meses: honorarios de oficina
+      (liq_monto_inmobiliaria → honorarios del cobro → reparto inmobiliaria).
     """
     if not reserva:
         return Decimal('0')
 
+    try:
+        precio = Decimal(str(getattr(reserva, 'precio_total', None) or 0))
+    except (TypeError, ValueError, ArithmeticError):
+        precio = Decimal('0')
+
+    tipo_op = clasificar_tipo_operacion_reserva(reserva)
+    if tipo_op == 'dia':
+        if precio > 0:
+            return precio.quantize(Decimal('0.01'))
+        return Decimal('0')
+
+    # Invierno / 24 meses: sobre honorarios de oficina.
     inm = getattr(reserva, 'liq_monto_inmobiliaria', None)
     if inm is not None:
         try:
@@ -299,11 +310,6 @@ def _monto_base_fichaje_reserva(reserva, honorarios_hint=None):
         except (TypeError, ValueError, ArithmeticError):
             pass
 
-    try:
-        precio = Decimal(str(getattr(reserva, 'precio_total', None) or 0))
-    except (TypeError, ValueError, ArithmeticError):
-        precio = Decimal('0')
-
     hint = Decimal('0')
     if honorarios_hint is not None:
         try:
@@ -311,7 +317,6 @@ def _monto_base_fichaje_reserva(reserva, honorarios_hint=None):
         except (TypeError, ValueError, ArithmeticError):
             hint = Decimal('0')
 
-    # Honorarios reales de caja (desglose), no el precio total de la operación.
     if hint > 0 and (precio <= 0 or hint != precio):
         return hint.quantize(Decimal('0.01'))
 
@@ -328,7 +333,6 @@ def _monto_base_fichaje_reserva(reserva, honorarios_hint=None):
     except Exception:
         pass
 
-    # Último recurso: 30% del total (mismo criterio sin toma).
     if precio > 0:
         return (precio * Decimal('0.30')).quantize(Decimal('0.01'))
     return Decimal('0')
@@ -434,6 +438,7 @@ def _crear_o_actualizar_linea_fichaje_reserva(
         return None
 
     cat_lbl = _etiqueta_categoria_fichaje(tipo_op)
+    base_lbl = 'locación' if tipo_op == 'dia' else 'honorarios'
     c = ComisionVendedor.crear_comision_linea(
         vendedor=vend_fichaje,
         reserva=reserva,
@@ -441,7 +446,7 @@ def _crear_o_actualizar_linea_fichaje_reserva(
         monto_base=base,
         porcentaje_comision=pct_fichaje,
         concepto=(
-            f'Op. {reserva.id} — comisión fichaje ({tipo_fichaje}, {cat_lbl}) sobre honorarios'
+            f'Op. {reserva.id} — comisión fichaje ({tipo_fichaje}, {cat_lbl}) sobre {base_lbl}'
         ),
         rol_comision=ROL_COMISION_FICHAJE,
     )
