@@ -280,11 +280,16 @@ def _cancelar_o_borrar_comisiones_qs(qs):
 
 def _monto_base_fichaje_reserva(reserva, honorarios_hint=None):
     """
-    Base única de comisión por fichaje en la reserva.
-    Prioriza honorarios de oficina guardados en carátula; si no, el hint del cobro.
+    Base de comisión por fichaje en la reserva (sobre honorarios de oficina).
+
+    Orden:
+    1) Override guardado en carátula (liq_monto_inmobiliaria)
+    2) Honorarios desglosados del cobro (hint), si no es el total de la operación
+    3) Reparto sugerido por día (toma / 70-30 → parte inmobiliaria)
     """
     if not reserva:
         return Decimal('0')
+
     inm = getattr(reserva, 'liq_monto_inmobiliaria', None)
     if inm is not None:
         try:
@@ -293,13 +298,39 @@ def _monto_base_fichaje_reserva(reserva, honorarios_hint=None):
                 return val.quantize(Decimal('0.01'))
         except (TypeError, ValueError, ArithmeticError):
             pass
+
+    try:
+        precio = Decimal(str(getattr(reserva, 'precio_total', None) or 0))
+    except (TypeError, ValueError, ArithmeticError):
+        precio = Decimal('0')
+
+    hint = Decimal('0')
     if honorarios_hint is not None:
         try:
-            val = Decimal(str(honorarios_hint))
-            if val > 0:
-                return val.quantize(Decimal('0.01'))
+            hint = Decimal(str(honorarios_hint or 0))
         except (TypeError, ValueError, ArithmeticError):
-            pass
+            hint = Decimal('0')
+
+    # Honorarios reales de caja (desglose), no el precio total de la operación.
+    if hint > 0 and (precio <= 0 or hint != precio):
+        return hint.quantize(Decimal('0.01'))
+
+    try:
+        from inmobiliaria.neto_propietario_movimiento import reparto_liquidacion_reserva_por_dia
+
+        total, prop, inm_calc, _hay = reparto_liquidacion_reserva_por_dia(reserva)
+        total, prop, inm_calc, _coch, _fondo = reserva.montos_liquidacion_efectivos(
+            total, prop, inm_calc
+        )
+        inm_calc = Decimal(str(inm_calc or 0))
+        if inm_calc > 0:
+            return inm_calc.quantize(Decimal('0.01'))
+    except Exception:
+        pass
+
+    # Último recurso: 30% del total (mismo criterio sin toma).
+    if precio > 0:
+        return (precio * Decimal('0.30')).quantize(Decimal('0.01'))
     return Decimal('0')
 
 
@@ -342,7 +373,7 @@ def _sincronizar_comisiones_fichaje_reserva(reserva):
             rol_comision=ROL_COMISION_FICHAJE,
         ).exclude(estado='cancelada').order_by('id')
     )
-    if len(qs_ok) <= 1:
+    if not qs_ok:
         return
 
     keep = qs_ok[0]
@@ -356,22 +387,24 @@ def _sincronizar_comisiones_fichaje_reserva(reserva):
             if Decimal(str(c.monto_total_operacion or 0)) > 0
         ]
         base = min(bases) if bases else Decimal(str(keep.monto_total_operacion or 0))
-    nuevo_monto = (base * Decimal(str(pct_fichaje)) / Decimal('100')).quantize(Decimal('0.01'))
-    updates = []
-    if keep.monto_total_operacion != base:
-        keep.monto_total_operacion = base
-        updates.append('monto_total_operacion')
-    if keep.monto_comision != nuevo_monto:
-        keep.monto_comision = nuevo_monto
-        updates.append('monto_comision')
-    if keep.porcentaje_comision != pct_fichaje:
-        keep.porcentaje_comision = pct_fichaje
-        updates.append('porcentaje_comision')
-    if updates:
-        keep.save(update_fields=updates)
-    _cancelar_o_borrar_comisiones_qs(
-        ComisionVendedor.objects.filter(pk__in=[c.pk for c in extras])
-    )
+    if base > 0:
+        nuevo_monto = (base * Decimal(str(pct_fichaje)) / Decimal('100')).quantize(Decimal('0.01'))
+        updates = []
+        if keep.monto_total_operacion != base:
+            keep.monto_total_operacion = base
+            updates.append('monto_total_operacion')
+        if keep.monto_comision != nuevo_monto:
+            keep.monto_comision = nuevo_monto
+            updates.append('monto_comision')
+        if keep.porcentaje_comision != pct_fichaje:
+            keep.porcentaje_comision = pct_fichaje
+            updates.append('porcentaje_comision')
+        if updates:
+            keep.save(update_fields=updates)
+    if extras:
+        _cancelar_o_borrar_comisiones_qs(
+            ComisionVendedor.objects.filter(pk__in=[c.pk for c in extras])
+        )
 
 
 def _crear_o_actualizar_linea_fichaje_reserva(
@@ -652,7 +685,7 @@ def asegurar_comisiones_movimiento_reserva(reserva, movimiento_caja, honorarios_
             base_fichaje = _monto_base_fichaje_reserva(reserva, None)
             if base_fichaje > 0:
                 _crear_o_actualizar_linea_fichaje_reserva(
-                    reserva, movimiento_caja, base_fichaje, creadas=creadas,
+                    reserva, movimiento_caja, None, creadas=creadas,
                 )
             else:
                 _sincronizar_comisiones_fichaje_reserva(reserva)
