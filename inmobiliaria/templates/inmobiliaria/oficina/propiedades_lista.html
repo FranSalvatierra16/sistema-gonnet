@@ -21,8 +21,18 @@
     </div>
 
     <div class="card shadow-sm">
-        <div class="card-header d-flex justify-content-between align-items-center">
+        <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
             <strong>{{ total }} departamento{{ total|pluralize }}</strong>
+            <div class="btn-group btn-group-sm" role="group" aria-label="Ordenar listado">
+                <a href="?orden=direccion"
+                   class="btn {% if orden != 'piso' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                    Por dirección
+                </a>
+                <a href="?orden=piso"
+                   class="btn {% if orden == 'piso' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                    Por piso / dpto
+                </a>
+            </div>
         </div>
         <div class="list-group list-group-flush">
             {% for p in propiedades %}

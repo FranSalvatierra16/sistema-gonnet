@@ -1,5 +1,6 @@
 """Módulo Oficina: gastos, categorías y acceso a honorarios, vales, comisiones y cartera."""
 import logging
+import re
 from collections import defaultdict
 from datetime import datetime
 from decimal import Decimal
@@ -908,6 +909,57 @@ def oficina_resumen_cierre(request):
     )
 
 
+def _clave_orden_piso(piso):
+    """Orden natural de piso: PB → 0, luego 1, 2, 10… (no alfabético '10' antes de '2')."""
+    s = (piso or '').strip().upper().replace('.', '')
+    if not s:
+        return (2, 9999, '')
+    if s in ('PB', 'PLANTA BAJA', 'PBAJA', '0', 'PBJA'):
+        return (0, 0, s)
+    m = re.match(r'^(\d+)', s)
+    if m:
+        return (1, int(m.group(1)), s)
+    return (1, 9998, s)
+
+
+def _clave_orden_depto(departamento):
+    """Orden natural de departamento: números luego letras."""
+    s = (departamento or '').strip().upper()
+    if not s:
+        return (2, 9999, '')
+    m = re.match(r'^(\d+)', s)
+    if m:
+        return (0, int(m.group(1)), s)
+    return (1, 0, s)
+
+
+def _ordenar_propiedades_oficina(propiedades, orden='direccion'):
+    """
+    orden='direccion' → calle, piso, dpto
+    orden='piso' → piso, dpto, calle
+    """
+    items = list(propiedades)
+    if orden == 'piso':
+        items.sort(
+            key=lambda p: (
+                _clave_orden_piso(getattr(p, 'piso', None)),
+                _clave_orden_depto(getattr(p, 'departamento', None)),
+                (getattr(p, 'direccion', None) or '').strip().lower(),
+                p.id,
+            )
+        )
+    else:
+        items.sort(
+            key=lambda p: (
+                (getattr(p, 'direccion', None) or '').strip().lower(),
+                _clave_orden_piso(getattr(p, 'piso', None)),
+                _clave_orden_depto(getattr(p, 'departamento', None)),
+                p.id,
+            )
+        )
+    return items
+
+
 def _qs_propiedades_oficina(sucursal, usuario=None):
     """
     Propiedades del libro de oficina = cartera compartida de la sucursal
@@ -1285,13 +1337,20 @@ def oficina_propiedades_lista(request):
         return HttpResponseForbidden()
 
     sucursal = request.user.sucursal
-    propiedades = list(_qs_propiedades_oficina(sucursal))
+    orden = (request.GET.get('orden') or 'direccion').strip().lower()
+    if orden not in ('direccion', 'piso'):
+        orden = 'direccion'
+    propiedades = _ordenar_propiedades_oficina(
+        _qs_propiedades_oficina(sucursal),
+        orden=orden,
+    )
     return render(
         request,
         'inmobiliaria/oficina/propiedades_lista.html',
         {
             'propiedades': propiedades,
             'total': len(propiedades),
+            'orden': orden,
         },
     )
 
@@ -1435,7 +1494,10 @@ def oficina_propiedad_libro(request, propiedad_id):
         'total': subtotal_costos + balance_usd_libro,
     }
 
-    otras = list(_qs_propiedades_oficina(sucursal, request.user))
+    otras = _ordenar_propiedades_oficina(
+        _qs_propiedades_oficina(sucursal, request.user),
+        orden='direccion',
+    )
 
     return render(
         request,
