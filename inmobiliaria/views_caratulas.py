@@ -3528,8 +3528,9 @@ def lista_caratulas(request):
         reservas = reservas.filter(id=operacion_num) if operacion_num is not None else reservas.none()
 
     hay_busqueda = bool(q) or bool(operacion) or bool(propiedad_id)
-    # Las fechas siempre se aplican (salvo "Todo"). Buscar + rango se combinan.
-    omitir_filtro_fechas = periodo_completo
+    # Con dirección / N° op / ficha elegida: no limitar por fechas (si no, “hoy” deja todo vacío).
+    # Sin búsqueda: por defecto hoy, salvo botón Todo.
+    omitir_filtro_fechas = periodo_completo or hay_busqueda
 
     if propiedad_id.isdigit():
         reservas = reservas.filter(propiedad_id=int(propiedad_id))
@@ -3785,11 +3786,12 @@ def lista_caratulas(request):
     except EmptyPage:
         page_obj = paginator.page(paginator.num_pages or 1)
 
+    mostrar_fechas = not omitir_filtro_fechas
     lista_filtros_qs = _query_string_lista_caratulas(
         q=q,
         operacion=operacion,
-        fecha_desde=fecha_desde if not periodo_completo else '',
-        fecha_hasta=fecha_hasta if not periodo_completo else '',
+        fecha_desde=fecha_desde if mostrar_fechas else '',
+        fecha_hasta=fecha_hasta if mostrar_fechas else '',
         tipo_filtro=tipo_filtro,
         liquidacion_filtro=liquidacion_filtro,
         estado_caratula_filtro=estado_caratula_filtro,
@@ -3799,8 +3801,8 @@ def lista_caratulas(request):
     lista_ver_qs = _query_string_lista_caratulas(
         q=q,
         operacion=operacion,
-        fecha_desde=fecha_desde if not periodo_completo else '',
-        fecha_hasta=fecha_hasta if not periodo_completo else '',
+        fecha_desde=fecha_desde if mostrar_fechas else '',
+        fecha_hasta=fecha_hasta if mostrar_fechas else '',
         tipo_filtro=tipo_filtro,
         liquidacion_filtro=liquidacion_filtro,
         estado_caratula_filtro=estado_caratula_filtro,
@@ -3817,13 +3819,14 @@ def lista_caratulas(request):
             'q': q,
             'propiedad_id': propiedad_id if propiedad_id.isdigit() else '',
             'operacion': operacion,
-            'fecha_desde': fecha_desde if not periodo_completo else '',
-            'fecha_hasta': fecha_hasta if not periodo_completo else '',
+            'fecha_desde': fecha_desde if mostrar_fechas else '',
+            'fecha_hasta': fecha_hasta if mostrar_fechas else '',
             'tipo_filtro': tipo_filtro,
             'liquidacion_filtro': liquidacion_filtro,
             'estado_caratula_filtro': estado_caratula_filtro,
             'periodo_completo': periodo_completo,
             'busqueda_activa': hay_busqueda,
+            'omitir_filtro_fechas': omitir_filtro_fechas,
             'carpeta_default': _carpeta_default_actual(request),
             'total_filas': total_filas,
             'lista_filtros_qs': lista_filtros_qs,
