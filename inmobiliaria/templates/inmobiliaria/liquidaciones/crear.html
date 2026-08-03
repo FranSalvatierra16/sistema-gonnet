@@ -370,6 +370,18 @@ document.addEventListener('DOMContentLoaded', function() {
     let cargaPorPropietarioActiva = false;
     let opcionesCargaOperacionesExtra = null;
     window.monedaLiquidacion = '{{ moneda_inicial|default:"ARS" }}';
+
+    /** Fecha YYYY-MM-DD (o ISO) → d/m/Y local, sin desfasar por UTC. */
+    function formatearFechaLocalISO(iso) {
+        if (!iso) return '-';
+        const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (m) {
+            return `${parseInt(m[3], 10)}/${parseInt(m[2], 10)}/${m[1]}`;
+        }
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return '-';
+        return d.toLocaleDateString('es-AR');
+    }
     const monedaLiquidacionInput = document.getElementById('moneda_liquidacion');
     const badgeMonedaLiquidacion = document.getElementById('badge-moneda-liquidacion');
     const simboloMontoFinal = document.getElementById('simbolo-monto-final');
@@ -1093,8 +1105,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         <td><span class="badge ${badgeClass}">${tipoEtiqueta}</span></td>
                         <td>${op.descripcion}</td>
                         ${tdProp}
-                        <td>${op.fecha_inicio ? new Date(op.fecha_inicio).toLocaleDateString('es-AR') : '-'}</td>
-                        <td>${op.fecha_fin ? new Date(op.fecha_fin).toLocaleDateString('es-AR') : '-'}</td>
+                        <td>${formatearFechaLocalISO(op.fecha_inicio)}</td>
+                        <td>${formatearFechaLocalISO(op.fecha_fin)}</td>
                         <td class="text-end">${fmtMonedaLiq(op.monto_total, opMoneda)}</td>
                     </tr>
                 `;
@@ -1524,7 +1536,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <td class="small">${badgesMovimientoHtml(gasto)}</td>
                         <td>${detalleCell}</td>
                         ${tdPropG}
-                        <td>${gasto.fecha_gasto ? new Date(gasto.fecha_gasto).toLocaleDateString('es-AR') : '-'}</td>
+                        <td>${formatearFechaLocalISO(gasto.fecha_gasto)}</td>
                         <td class="text-end">${operacion === 'suma' ? '+' : '−'}${fmtMonedaLiq(gasto.monto, gMoneda)}</td>
                         <td class="text-end">
                             <button type="button" class="btn btn-sm btn-outline-danger btn-eliminar-mov-pendiente"
