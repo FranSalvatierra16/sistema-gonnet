@@ -62,13 +62,19 @@ class Sucursal(models.Model):
         """
         Genera el próximo número de recibo automáticamente.
         Formato: PPP-NN (ej: 007-01, 007-978).
+        Usa UPDATE atómico para evitar números duplicados con instancias en caché.
         """
+        from django.db.models import F
+
         if not self.usar_numeracion_automatica or self.prefijo_recibo is None:
             return None
 
-        self.ultimo_numero_recibo += 1
-        self.save(update_fields=['ultimo_numero_recibo'])
-
+        updated = Sucursal.objects.filter(pk=self.pk).update(
+            ultimo_numero_recibo=F('ultimo_numero_recibo') + 1
+        )
+        if not updated:
+            return None
+        self.refresh_from_db(fields=['ultimo_numero_recibo'])
         return f'{self._prefijo_recibo_formateado()}-{self.ultimo_numero_recibo:02d}'
 
     def obtener_proximo_numero_recibo(self):

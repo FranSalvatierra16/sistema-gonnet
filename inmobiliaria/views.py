@@ -7419,6 +7419,10 @@ def procesar_movimiento_reserva(request):
                         }
                     }
                 )
+                # Mantener el N° visible en el listado de caja (comprobante).
+                if numero_recibo and (getattr(movimiento, 'numero_liquidacion', None) or '').strip() != numero_recibo:
+                    movimiento.numero_liquidacion = str(numero_recibo)[:50]
+                    movimiento.save(update_fields=['numero_liquidacion'])
                 
 # print(f"✅ RECIBO CREADO: {numero_recibo}")
                 
@@ -12506,6 +12510,7 @@ def _aplicar_filtro_busqueda_movimientos_caja(qs, busqueda):
         Q(concepto__icontains=busqueda)
         | Q(concepto_detalle__icontains=busqueda)
         | Q(numero_liquidacion__icontains=busqueda)
+        | Q(recibo__numero_recibo__icontains=busqueda)
         | Q(empleado__nombre__icontains=busqueda)
         | Q(empleado__apellido__icontains=busqueda)
         | Q(empleado__dni__icontains=busqueda)
@@ -12537,7 +12542,7 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
 
     movimientos_qs = (
         MovimientoCaja.objects.filter(caja=caja)
-        .select_related('propiedad', 'propiedad__propietario', 'empleado')
+        .select_related('propiedad', 'propiedad__propietario', 'empleado', 'recibo')
         .prefetch_related('cheques')
         .order_by(*movimientos_order)
     )
@@ -14032,6 +14037,11 @@ def nuevo_movimiento(request, numero_caja=None):
                         return redirect('inmobiliaria:detalle_caja', numero=caja.numero)
 
                 movimiento.save()
+                from inmobiliaria.models.caja import _es_comprobante_placeholder
+                if _es_comprobante_placeholder(getattr(movimiento, 'numero_liquidacion', None)):
+                    _asignar_numero_recibo_a_movimiento(
+                        movimiento, sucursal=request.user.sucursal
+                    )
                 _guardar_cheques_movimiento(movimiento, cheques_detalle)
                 if not movimiento_edicion:
                     _marcar_movimiento_uid_usado(request, movimiento_uid)
@@ -19774,11 +19784,24 @@ def _total_medios_pago_operacion_request(request):
 def _asignar_numero_recibo_a_movimiento(movimiento, sucursal=None):
     """
     Asigna numero_liquidacion al movimiento (contador de sucursal o fallback M-000123).
-    No sobrescribe si ya tiene número.
+    No sobrescribe si ya tiene número real (ignora placeholders tipo 0000-00000000).
+    Si ya existe Recibo vinculado, sincroniza ese número.
     """
+    from inmobiliaria.models.caja import _es_comprobante_placeholder
+
     actual = (getattr(movimiento, 'numero_liquidacion', None) or '').strip()
-    if actual:
+    if actual and not _es_comprobante_placeholder(actual):
         return actual
+
+    try:
+        rec = getattr(movimiento, 'recibo', None)
+        rn = (getattr(rec, 'numero_recibo', None) or '').strip() if rec is not None else ''
+        if rn:
+            movimiento.numero_liquidacion = rn[:50]
+            movimiento.save(update_fields=['numero_liquidacion'])
+            return movimiento.numero_liquidacion
+    except Exception:
+        pass
 
     sucursal = sucursal or getattr(movimiento, 'sucursal', None)
     numero = None
@@ -19795,11 +19818,20 @@ def _asignar_numero_recibo_a_movimiento(movimiento, sucursal=None):
 
 def _numero_recibo_mostrar_movimiento(movimiento, sucursal=None, asignar_si_falta=False):
     """Número para imprimir en recibo; opcionalmente asigna contador si aún no existe."""
+    from inmobiliaria.models.caja import _es_comprobante_placeholder
+
     if not movimiento:
         return ''
     actual = (getattr(movimiento, 'numero_liquidacion', None) or '').strip()
-    if actual:
+    if actual and not _es_comprobante_placeholder(actual):
         return actual
+    try:
+        rec = getattr(movimiento, 'recibo', None)
+        rn = (getattr(rec, 'numero_recibo', None) or '').strip() if rec is not None else ''
+        if rn:
+            return rn
+    except Exception:
+        pass
     if asignar_si_falta:
         return _asignar_numero_recibo_a_movimiento(movimiento, sucursal=sucursal)
     return f'M-{int(movimiento.id):06d}'

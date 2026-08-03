@@ -10,6 +10,18 @@ from decimal import Decimal
 
 # Palabra "vale" / "vales" en nombre de concepto (caja) para registrar ValeVendedor automático.
 _CONCEPTO_VALE_NOMBRE_RE = re.compile(r"\bvales?\b", re.IGNORECASE)
+_COMPROBANTE_PLACEHOLDER_RE = re.compile(r'^0+-0+$')
+
+
+def _es_comprobante_placeholder(valor) -> bool:
+    """True si el N° de comprobante está vacío o es el placeholder del formulario (0000-00000000)."""
+    n = (valor or '').strip()
+    if not n:
+        return True
+    if n in ('0', '0000-00000000', '0000-0000000'):
+        return True
+    return bool(_COMPROBANTE_PLACEHOLDER_RE.match(n))
+
 
 class TipoMovimientoCajaEnum(models.TextChoices):
     INGRESO = 'IN', 'Ingreso'
@@ -694,10 +706,18 @@ class MovimientoCaja(models.Model):
 
     @property
     def comprobante_listado(self):
-        """Número de comprobante/recibo; formato por defecto si está vacío."""
+        """Número de comprobante/recibo; prioriza numero_liquidacion y luego Recibo vinculado."""
         n = (self.numero_liquidacion or '').strip()
-        if n:
+        if n and not _es_comprobante_placeholder(n):
             return n
+        try:
+            # related_name='recibo' (OneToOne); puede no existir.
+            rec = getattr(self, 'recibo', None)
+            rn = (getattr(rec, 'numero_recibo', None) or '').strip() if rec is not None else ''
+            if rn:
+                return rn
+        except Exception:
+            pass
         return '0000-00000000'
 
     @property
