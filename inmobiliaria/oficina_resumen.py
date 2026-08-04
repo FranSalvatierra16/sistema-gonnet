@@ -62,6 +62,7 @@ def _honorarios_por_etiqueta(sucursal, fecha_desde, fecha_hasta):
         Q(fecha_creacion__date__gte=fecha_desde, fecha_creacion__date__lte=fecha_hasta)
         | Q(fecha_desde__gte=fecha_desde, fecha_desde__lte=fecha_hasta)
         | Q(reserva__fecha_inicio__gte=fecha_desde, reserva__fecha_inicio__lte=fecha_hasta)
+        | Q(reserva__fecha_creacion__date__gte=fecha_desde, reserva__fecha_creacion__date__lte=fecha_hasta)
         | Q(contrato__fecha_inicio__gte=fecha_desde, contrato__fecha_inicio__lte=fecha_hasta)
     ).distinct()
     filas = _filtrar_filas_por_fecha(

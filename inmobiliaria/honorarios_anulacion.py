@@ -138,7 +138,10 @@ def _fecha_reversion_reserva(reserva):
 
 
 def _inferir_fecha_ingreso_reserva(reserva):
-    """Fecha de la operación (inicio de la reserva)."""
+    """Fecha de la operación (alta / Fecha op.), no el día de entrada."""
+    fc = getattr(reserva, 'fecha_creacion', None)
+    if fc:
+        return timezone.localtime(fc).date() if timezone.is_aware(fc) else fc.date()
     return getattr(reserva, 'fecha_inicio', None)
 
 
@@ -260,11 +263,20 @@ def queryset_reservas_anuladas_legacy(sucursal, fecha_desde, fecha_hasta, busque
             q_fecha = (
                 Q(fecha_eliminacion__date__gte=fd, fecha_eliminacion__date__lte=fh)
                 | Q(fecha_inicio__gte=fd, fecha_inicio__lte=fh)
+                | Q(fecha_creacion__date__gte=fd, fecha_creacion__date__lte=fh)
             )
         elif fd:
-            q_fecha = Q(fecha_eliminacion__date__gte=fd) | Q(fecha_inicio__gte=fd)
+            q_fecha = (
+                Q(fecha_eliminacion__date__gte=fd)
+                | Q(fecha_inicio__gte=fd)
+                | Q(fecha_creacion__date__gte=fd)
+            )
         elif fh:
-            q_fecha = Q(fecha_eliminacion__date__lte=fh) | Q(fecha_inicio__lte=fh)
+            q_fecha = (
+                Q(fecha_eliminacion__date__lte=fh)
+                | Q(fecha_inicio__lte=fh)
+                | Q(fecha_creacion__date__lte=fh)
+            )
         qs = qs.filter(q_fecha)
 
     if busqueda:

@@ -1,7 +1,8 @@
 """
 Honorarios / ganancias de oficina desde liquidaciones.
-- Comisión inmobiliaria, cochera, fondo y comisiones locador/locatario:
-  se imputan por la fecha de la operación (inicio reserva/contrato).
+- Comisión inmobiliaria (reservas por día): Fecha op. (alta de la reserva).
+- Cochera, fondo y comisiones locador/locatario: día de entrada al depto.
+- Contratos: fecha de inicio del contrato.
 """
 import re
 from datetime import date, datetime
@@ -42,9 +43,8 @@ def _parse_fecha(s):
 
 def _fecha_entrada_liquidacion(liq):
     """
-    Día de entrada del inquilino al depto (operación), no el inicio del período liquidado.
-    En contratos 24 meses / invierno, la liquidación puede tener fecha_desde = mes de la cuota
-    (ej. 01/07) aunque el contrato empiece antes (ej. 01/06).
+    Día de entrada del inquilino al depto (inicio estadía / contrato).
+    Usado para cochera, fondo y comisiones locador/locatario.
     """
     reserva = getattr(liq, 'reserva', None) or reserva_desde_liquidacion(liq)
     if reserva and reserva.fecha_inicio:
@@ -58,6 +58,19 @@ def _fecha_entrada_liquidacion(liq):
         fc = liq.fecha_creacion
         return timezone.localtime(fc).date() if timezone.is_aware(fc) else fc.date()
     return None
+
+
+def _fecha_operacion_reserva_honorarios(reserva):
+    """
+    Fecha de la operación en carátulas («Fecha op.»): alta de la reserva.
+    No confundir con el día de entrada (fecha_inicio).
+    """
+    if not reserva:
+        return None
+    fc = getattr(reserva, 'fecha_creacion', None)
+    if fc:
+        return _datetime_a_fecha_local(fc)
+    return getattr(reserva, 'fecha_inicio', None)
 
 
 def _fecha_liquidacion(liq):
@@ -134,9 +147,12 @@ def _fecha_acreditacion_comision_operacion(*, reserva=None, contrato=None):
 
 def _fecha_ingreso_honorarios_comision(liq):
     """
-    Fecha de la operación (inicio reserva/contrato), no el día en que se
-    cobró, liquidó o acreditó la comisión del productor.
+    Comisión inmobiliaria: Fecha op. de la reserva (alta), no el día de entrada.
+    Contratos: día de inicio del contrato.
     """
+    reserva = getattr(liq, 'reserva', None) or reserva_desde_liquidacion(liq)
+    if reserva is not None:
+        return _fecha_operacion_reserva_honorarios(reserva)
     return _fecha_entrada_liquidacion(liq)
 
 
@@ -734,6 +750,7 @@ def honorarios_oficina(request):
         Q(fecha_creacion__date__gte=fecha_desde, fecha_creacion__date__lte=fecha_hasta)
         | Q(fecha_desde__gte=fecha_desde, fecha_desde__lte=fecha_hasta)
         | Q(reserva__fecha_inicio__gte=fecha_desde, reserva__fecha_inicio__lte=fecha_hasta)
+        | Q(reserva__fecha_creacion__date__gte=fecha_desde, reserva__fecha_creacion__date__lte=fecha_hasta)
         | Q(contrato__fecha_inicio__gte=fecha_desde, contrato__fecha_inicio__lte=fecha_hasta)
         | Q(
             fecha_procesamiento__date__gte=fecha_desde,
