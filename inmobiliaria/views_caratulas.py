@@ -1164,7 +1164,8 @@ def _procesar_guardar_fechas_comision_caratula(request, reserva=None, contrato=N
         else:
             continue
 
-        comision = qs.exclude(rol_comision=ROL_COMISION_FICHAJE).first()
+        # Incluye fichaje: misma fecha de acreditación editable que productor.
+        comision = qs.first()
         if not comision and contrato:
             comision = (
                 ComisionVendedor.objects.filter(contrato=contrato)
@@ -1245,25 +1246,26 @@ def _enriquecer_lineas_comision_fecha_db(lineas, db_map, fecha_default=None):
 
     for ln in lineas or []:
         rol = ln.get('rol')
-        if rol == ROL_COMISION_FICHAJE or rol == 'fichaje':
-            continue
+        es_fichaje = rol in (ROL_COMISION_FICHAJE, 'fichaje')
         vid = ln.get('vendedor_id')
         db = db_map.get((rol, vid)) if vid else None
-        if not db and vid is not None:
+        if not db and vid is not None and not es_fichaje:
             for rol_prod in ROLES_COMISION_PRODUCTOR:
                 db = db_map.get((rol_prod, vid))
                 if db:
                     break
-        if not db:
+        if not db and not es_fichaje:
             for rol_prod in ROLES_COMISION_PRODUCTOR:
                 db = db_map.get((rol_prod, vid))
                 if db:
                     break
-        if not db and vid is not None:
+        if not db and vid is not None and not es_fichaje:
             for (r, v), c in db_map.items():
                 if v == vid and r in ROLES_COMISION_PRODUCTOR:
                     db = c
                     break
+        if not db and es_fichaje and vid is not None:
+            db = db_map.get((ROL_COMISION_FICHAJE, vid)) or db_map.get(('fichaje', vid))
         if db:
             ln['comision_id'] = db.id
             if db.fecha_operacion:

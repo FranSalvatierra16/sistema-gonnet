@@ -113,9 +113,7 @@
                                             {% else %}—{% endif %}
                                         </td>
                                         <td class="text-nowrap">
-                                            {% if c.rol_comision == 'fichaje' %}
-                                            <span class="text-muted">—</span>
-                                            {% elif c.rol_comision == 'reversion_anulacion' %}
+                                            {% if c.rol_comision == 'reversion_anulacion' %}
                                             <span class="text-muted">—</span>
                                             {% elif c.id_fecha_acreditacion %}
                                             {% if puede_editar_caratula %}
