@@ -2254,6 +2254,7 @@ class ComisionVendedor(models.Model):
     ):
         """
         Crea una línea de comisión con base y % explícitos (p. ej. honorarios + rol fichaje).
+        No recalcula monto de líneas ya confirmadas/pagadas (evita pisar el mínimo aplicado).
         """
         if porcentaje_comision is None or porcentaje_comision <= 0:
             return None
@@ -2275,32 +2276,48 @@ class ComisionVendedor(models.Model):
             if movimiento_caja and not comision_existente.movimiento_caja_id:
                 comision_existente.movimiento_caja = movimiento_caja
                 updates.append('movimiento_caja')
-            if monto_base and comision_existente.monto_total_operacion != monto_base:
+            # Confirmadas/pagadas: no tocar montos ni % (el piso $10.000 ya puede estar aplicado).
+            if _comision_acreditada(comision_existente):
+                if updates:
+                    comision_existente.save(update_fields=updates)
+                return comision_existente
+
+            nuevo = (Decimal(str(monto_base)) * Decimal(str(porcentaje_comision))) / Decimal('100')
+            nuevo = nuevo.quantize(Decimal('0.01'))
+            if rol_comision in ROLES_COMISION_PRODUCTOR:
+                nuevo = monto_comision_productor_con_minimo(
+                    nuevo,
+                    Decimal('100'),
+                    sucursal=getattr(reserva, 'sucursal', None),
+                )
+            if comision_existente.monto_total_operacion != monto_base:
                 comision_existente.monto_total_operacion = monto_base
                 updates.append('monto_total_operacion')
-                nuevo = (Decimal(str(monto_base)) * Decimal(str(porcentaje_comision))) / Decimal('100')
-                comision_existente.monto_comision = nuevo.quantize(Decimal('0.01'))
+            if comision_existente.monto_comision != nuevo:
+                comision_existente.monto_comision = nuevo
                 updates.append('monto_comision')
-            if porcentaje_comision and comision_existente.porcentaje_comision != porcentaje_comision:
+            if comision_existente.porcentaje_comision != porcentaje_comision:
                 comision_existente.porcentaje_comision = porcentaje_comision
                 updates.append('porcentaje_comision')
-                if 'monto_comision' not in updates and comision_existente.monto_total_operacion:
-                    nuevo = (
-                        Decimal(str(comision_existente.monto_total_operacion))
-                        * Decimal(str(porcentaje_comision))
-                    ) / Decimal('100')
-                    comision_existente.monto_comision = nuevo.quantize(Decimal('0.01'))
-                    updates.append('monto_comision')
             if updates:
                 comision_existente.save(update_fields=updates)
             return comision_existente
 
+        monto_comision = (Decimal(str(monto_base)) * Decimal(str(porcentaje_comision))) / Decimal('100')
+        monto_comision = monto_comision.quantize(Decimal('0.01'))
+        if rol_comision in ROLES_COMISION_PRODUCTOR:
+            monto_comision = monto_comision_productor_con_minimo(
+                monto_comision,
+                Decimal('100'),
+                sucursal=getattr(reserva, 'sucursal', None),
+            )
         return cls.objects.create(
             vendedor=vendedor,
             reserva=reserva,
             movimiento_caja=movimiento_caja,
             monto_total_operacion=monto_base,
             porcentaje_comision=porcentaje_comision,
+            monto_comision=monto_comision,
             concepto_operacion=(concepto or f'Operación {reserva.id}')[:200],
             rol_comision=rol_comision,
             fecha_operacion=_fecha_operacion_comision_reserva(reserva, movimiento_caja),
@@ -2336,13 +2353,20 @@ class ComisionVendedor(models.Model):
             return comision_existente
 
         monto_comision = (Decimal(str(monto_base)) * Decimal(str(porcentaje_comision))) / Decimal('100')
+        monto_comision = monto_comision.quantize(Decimal('0.01'))
+        if rol_comision in ROLES_COMISION_PRODUCTOR:
+            monto_comision = monto_comision_productor_con_minimo(
+                monto_comision,
+                Decimal('100'),
+                sucursal=getattr(contrato, 'sucursal', None),
+            )
         return cls.objects.create(
             vendedor=vendedor,
             contrato=contrato,
             movimiento_caja=movimiento_caja,
             monto_total_operacion=monto_base,
             porcentaje_comision=porcentaje_comision,
-            monto_comision=monto_comision.quantize(Decimal('0.01')),
+            monto_comision=monto_comision,
             concepto_operacion=(concepto or f'Contrato {contrato.id}')[:200],
             rol_comision=rol_comision,
             fecha_operacion=fecha_operacion or _fecha_operacion_entrada_contrato(contrato),
