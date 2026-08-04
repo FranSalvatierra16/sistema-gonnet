@@ -1067,13 +1067,13 @@ class SucursalForm(forms.ModelForm):
             'direccion': 'Dirección',
             'telefono': 'Teléfono',
             'email': 'Email',
-            'comision_minima_operacion': 'Comisión mínima por operación ($)',
+            'comision_minima_operacion': 'Comisión mínima por productor ($)',
         }
         help_texts = {
             'comision_minima_operacion': (
-                'Mínimo total de comisión del productor por operación. '
-                'Con varios productores se reparte según su % (ej. $10.000 al 50/50 → $5.000 c/u). '
-                'Poné 0 para desactivar el mínimo.'
+                'Mínimo de comisión por productor (por línea). '
+                'No se reparte entre productores. Poné 0 para desactivar el mínimo. '
+                'No aplica a fichaje.'
             ),
         }
 

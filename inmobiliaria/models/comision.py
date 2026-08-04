@@ -1137,11 +1137,14 @@ def monto_comision_productor_con_minimo(
     monto_calculado, participacion_pct, sucursal=None, minimo=None,
 ):
     """
-    Aplica piso de comisión por operación según participación.
+    Aplica piso de comisión de productor por línea.
 
-    El mínimo es del total de la operación (default $10.000). Con 50/50 cada uno
-    tiene piso de $5.000. Si el % da más, se paga lo del %.
+    El mínimo (default $10.000) es por productor / línea de comisión por día
+    (u otro rol de productor). Si el % da más, se paga lo del %.
     ``minimo=0`` desactiva el piso.
+
+    ``participacion_pct`` se conserva en la firma por compatibilidad; el piso
+    ya no se prorratea (antes 50/50 → $5.000 c/u).
     """
     try:
         monto = Decimal(str(monto_calculado or 0)).quantize(Decimal('0.01'))
@@ -1159,24 +1162,25 @@ def monto_comision_productor_con_minimo(
     if minimo <= 0:
         return monto
 
-    try:
-        part = Decimal(str(participacion_pct if participacion_pct is not None else 100))
-    except (TypeError, ValueError, ArithmeticError):
-        part = Decimal('100')
-    if part <= 0:
-        return monto
-
-    piso = (minimo * part / Decimal('100')).quantize(Decimal('0.01'))
+    piso = minimo.quantize(Decimal('0.01'))
     return monto if monto >= piso else piso
 
 
-def _aplicar_piso_comision_productor(comision, participacion_pct, sucursal):
-    """Ajusta monto_comision al piso si la línea es de productor y no está acreditada."""
-    if not comision or _comision_acreditada(comision):
-        return comision
+def _aplicar_piso_comision_productor(comision, participacion_pct, sucursal, *, forzar=False):
+    """Ajusta monto_comision al piso si la línea es de productor.
+
+    Por defecto no toca confirmadas/pagadas. Con ``forzar=True`` también
+    actualiza confirmadas (p. ej. backfill del mínimo $10.000).
+    """
+    if not comision:
+        return comision, False
+    if not forzar and _comision_acreditada(comision):
+        return comision, False
+    if forzar and getattr(comision, 'estado', None) == 'pagada':
+        return comision, False
     rol = (getattr(comision, 'rol_comision', None) or '').strip()
     if rol == ROL_COMISION_FICHAJE:
-        return comision
+        return comision, False
     calc = Decimal(str(comision.monto_comision or 0))
     nuevo = monto_comision_productor_con_minimo(
         calc, participacion_pct, sucursal=sucursal
@@ -1184,7 +1188,108 @@ def _aplicar_piso_comision_productor(comision, participacion_pct, sucursal):
     if nuevo != calc:
         comision.monto_comision = nuevo
         comision.save(update_fields=['monto_comision'])
-    return comision
+        return comision, True
+    return comision, False
+
+
+def aplicar_piso_comisiones_productor_existentes(
+    *,
+    solo_por_dia=True,
+    incluir_confirmadas=True,
+    solo_confirmadas=False,
+    sucursal_id=None,
+    vendedor_id=None,
+    monto_desde=None,
+    dry_run=False,
+):
+    """
+    Backfill: sube al piso las comisiones de productor por debajo del mínimo.
+
+    - No toca fichaje ni pagadas.
+    - Por defecto solo ``operacion_dia``.
+    - ``solo_confirmadas=True``: no toca pendientes.
+    - ``monto_desde``: ignora montos menores o iguales (evita basura tipo $0,04).
+    """
+    roles = (ROL_COMISION_OP_DIA,) if solo_por_dia else ROLES_COMISION_PRODUCTOR
+    if solo_confirmadas:
+        estados = ['confirmada']
+    else:
+        estados = ['pendiente']
+        if incluir_confirmadas:
+            estados.append('confirmada')
+
+    qs = (
+        ComisionVendedor.objects.filter(
+            rol_comision__in=roles,
+            estado__in=estados,
+        )
+        .select_related('reserva', 'reserva__sucursal', 'contrato', 'contrato__sucursal', 'vendedor')
+        .order_by('id')
+    )
+    if sucursal_id:
+        qs = qs.filter(
+            models.Q(reserva__sucursal_id=sucursal_id)
+            | models.Q(contrato__sucursal_id=sucursal_id)
+            | models.Q(vendedor__sucursal_id=sucursal_id, reserva__isnull=True, contrato__isnull=True)
+        )
+    if vendedor_id:
+        qs = qs.filter(vendedor_id=vendedor_id)
+    if monto_desde is not None:
+        qs = qs.filter(monto_comision__gt=monto_desde)
+
+    cambios = []
+    cache_part = {}
+    for c in qs.iterator(chunk_size=200):
+        key = None
+        sucursal = None
+        if c.reserva_id:
+            key = ('r', c.reserva_id)
+            sucursal = getattr(c.reserva, 'sucursal', None) or getattr(
+                getattr(c, 'vendedor', None), 'sucursal', None
+            )
+        elif c.contrato_id:
+            key = ('c', c.contrato_id)
+            sucursal = getattr(c.contrato, 'sucursal', None) or getattr(
+                getattr(c, 'vendedor', None), 'sucursal', None
+            )
+        else:
+            sucursal = getattr(getattr(c, 'vendedor', None), 'sucursal', None)
+
+        if key not in cache_part:
+            if key and key[0] == 'r':
+                cache_part[key] = mapa_participacion_productores(reserva=c.reserva)
+            elif key and key[0] == 'c':
+                cache_part[key] = mapa_participacion_productores(contrato=c.contrato)
+            else:
+                cache_part[key] = {}
+
+        part = cache_part[key].get(c.vendedor_id, Decimal('100'))
+        minimo = comision_minima_operacion_de_sucursal(sucursal)
+        if minimo <= 0:
+            continue
+        calc = Decimal(str(c.monto_comision or 0))
+        nuevo = monto_comision_productor_con_minimo(
+            calc, part, sucursal=sucursal, minimo=minimo
+        )
+        if nuevo <= calc:
+            continue
+        cambios.append({
+            'id': c.id,
+            'vendedor_id': c.vendedor_id,
+            'reserva_id': c.reserva_id,
+            'contrato_id': c.contrato_id,
+            'estado': c.estado,
+            'rol': c.rol_comision,
+            'participacion': part,
+            'antes': calc,
+            'despues': nuevo,
+            'minimo_op': minimo,
+        })
+        if not dry_run:
+            c.monto_comision = nuevo
+            c.save(update_fields=['monto_comision'])
+
+    return cambios
 
 
 def set_productores_operacion(ids_vendedores, *, reserva=None, contrato=None, redistribuir=True):

@@ -86,8 +86,8 @@
                                            id="{{ form.comision_minima_operacion.id_for_label }}"
                                            value="{{ form.comision_minima_operacion.value|default:'10000.00' }}">
                                     <div class="form-text">
-                                        Mínimo total de comisión del productor. Con 50/50 se reparte ($5.000 c/u).
-                                        0 = sin mínimo.
+                                        Mínimo por productor (cada línea). No se reparte entre productores.
+                                        0 = sin mínimo. No aplica a fichaje.
                                     </div>
                                     {% if form.comision_minima_operacion.errors %}
                                         <div class="text-danger">{{ form.comision_minima_operacion.errors }}</div>

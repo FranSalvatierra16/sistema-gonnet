@@ -27,7 +27,7 @@
         <div class="card-body py-2 px-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
             <div class="small mb-0">
                 <i class="fas fa-arrow-down me-1 text-muted"></i>
-                <strong>Mínimo comisión productor</strong> (por operación, no incluye fichaje):
+                <strong>Mínimo comisión productor</strong> (por línea, no incluye fichaje):
                 {% if not puede_editar_comision_minima %}
                 <span class="ms-1">${{ comision_minima_operacion|floatformat:2 }}</span>
                 {% if comision_minima_operacion == 0 %}
@@ -35,7 +35,7 @@
                 {% endif %}
                 {% endif %}
                 <div class="text-muted" style="font-size: 0.8rem;">
-                    Se reparte según % de participación (ej. $10.000 al 50/50 → $5.000 c/u). Si el % da más, se paga el %.
+                    Cada productor tiene piso de este importe. Si el % da más, se paga el %.
                 </div>
             </div>
             {% if puede_editar_comision_minima %}
