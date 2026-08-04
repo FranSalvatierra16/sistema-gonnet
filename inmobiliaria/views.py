@@ -18711,18 +18711,8 @@ def crear_operacion_contrato(request, contrato_id):
 
     # Honorarios/sellados pueden cubrirse en recibos aparte o dentro de la operación principal; no forzar otro paso previo.
 
-    # Verificar si hay una caja abierta
-    try:
-        caja = Caja.objects.get(sucursal=request.user.sucursal, estado='abierta')
-    except Caja.DoesNotExist:
-        # Si no hay caja abierta, crear una nueva
-        caja = Caja.objects.create(
-            sucursal=request.user.sucursal,
-            usuario_apertura=request.user,
-            saldo_inicial=0,
-            estado='abierta',
-            fecha_apertura=timezone.now()
-        )
+    caja, creada = _caja_abierta_o_crear(request)
+    if creada:
         messages.success(request, 'Se ha abierto una nueva caja automáticamente.')
 
     conceptos_qs = Concepto.objects.filter(
@@ -18788,16 +18778,8 @@ def completar_cargos_iniciales_contrato(request, contrato_id):
         url = reverse('inmobiliaria:crear_operacion_contrato', args=[contrato.id]) + '?tipo=principal'
         return HttpResponseRedirect(url)
 
-    try:
-        caja = Caja.objects.get(sucursal=request.user.sucursal, estado='abierta')
-    except Caja.DoesNotExist:
-        caja = Caja.objects.create(
-            sucursal=request.user.sucursal,
-            usuario_apertura=request.user,
-            saldo_inicial=0,
-            estado='abierta',
-            fecha_apertura=timezone.now(),
-        )
+    caja, creada = _caja_abierta_o_crear(request)
+    if creada:
         messages.success(request, 'Se ha abierto una nueva caja automáticamente.')
 
     conceptos_qs = Concepto.objects.filter(q_conceptos_caja_visibles(request.user.sucursal)).order_by('nombre')
@@ -18885,11 +18867,27 @@ def procesar_cargos_iniciales_contrato(request, contrato_id):
 
 
 def obtener_caja_abierta(request):
-    """Obtiene la caja abierta para la sucursal del usuario"""
-    try:
-        return Caja.objects.get(sucursal=request.user.sucursal, estado='abierta')
-    except Caja.DoesNotExist:
-        return None
+    """Obtiene la caja abierta para la sucursal del usuario (la más reciente si hay varias)."""
+    return (
+        Caja.objects.filter(sucursal=request.user.sucursal, estado='abierta')
+        .order_by('-fecha_apertura')
+        .first()
+    )
+
+
+def _caja_abierta_o_crear(request):
+    """Caja abierta de la sucursal; si no hay, abre una. Tolera duplicados."""
+    caja = obtener_caja_abierta(request)
+    if caja:
+        return caja, False
+    caja = Caja.objects.create(
+        sucursal=request.user.sucursal,
+        usuario_apertura=request.user,
+        saldo_inicial=0,
+        estado='abierta',
+        fecha_apertura=timezone.now(),
+    )
+    return caja, True
 
 
 def _movimiento_json_conceptos_parsed(movimiento):
