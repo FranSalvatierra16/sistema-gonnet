@@ -340,6 +340,7 @@ from .models.persona import (
     usuario_puede_anular_vale,
     usuario_puede_eliminar_movimiento_caja,
     usuario_puede_editar_movimiento_caja,
+    usuario_puede_editar_comision_minima,
     usuario_puede_editar_nivel_vendedor,
     usuario_puede_revertir_operacion_a_reserva,
 )
@@ -866,6 +867,7 @@ def dashboard_comisiones(request):
     """
     Panel de comisiones por vendedor.
     Solo accesible para administradores (nivel 4).
+    Super admin (nivel 5) puede editar el mínimo de comisión por operación.
     """
     if not usuario_es_nivel_administracion(request.user):
         messages.error(request, 'No tienes permisos para acceder a esta sección.')
@@ -879,7 +881,40 @@ def dashboard_comisiones(request):
         messages.error(request, 'Tu usuario no tiene sucursal asignada.')
         return redirect('inmobiliaria:dashboard')
 
-    from inmobiliaria.models.comision import q_comision_operacion_de_sucursal
+    puede_editar_minimo = usuario_puede_editar_comision_minima(request.user)
+
+    if request.method == 'POST' and request.POST.get('action') == 'guardar_comision_minima':
+        if not puede_editar_minimo:
+            messages.error(request, 'Solo el super administrador puede editar el mínimo de comisión.')
+            return redirect('inmobiliaria:dashboard_comisiones')
+        raw = (request.POST.get('comision_minima_operacion') or '').strip()
+        try:
+            nuevo = parse_decimal_monto(raw)
+        except (InvalidOperation, TypeError, ValueError):
+            messages.error(request, 'Importe inválido para el mínimo de comisión.')
+            return redirect('inmobiliaria:dashboard_comisiones')
+        if nuevo < 0:
+            messages.error(request, 'El mínimo de comisión no puede ser negativo.')
+            return redirect('inmobiliaria:dashboard_comisiones')
+        sucursal.comision_minima_operacion = nuevo.quantize(Decimal('0.01'))
+        sucursal.save(update_fields=['comision_minima_operacion'])
+        if nuevo == 0:
+            messages.success(
+                request,
+                'Mínimo de comisión desactivado (0). Las nuevas operaciones usarán solo el %.',
+            )
+        else:
+            messages.success(
+                request,
+                f'Mínimo de comisión por operación actualizado a ${nuevo.quantize(Decimal("0.01"))}.',
+            )
+        return redirect('inmobiliaria:dashboard_comisiones')
+
+    from inmobiliaria.models.comision import (
+        COMISION_MINIMA_OPERACION_DEFAULT,
+        comision_minima_operacion_de_sucursal,
+        q_comision_operacion_de_sucursal,
+    )
 
     vendedores, vendedores_data = _build_vendedores_dashboard_data(sucursal)
 
@@ -910,9 +945,15 @@ def dashboard_comisiones(request):
         fecha_operacion__month=am,
     ).filter(q_comision_operacion_de_sucursal(sucursal)).que_suman().count()
 
+    minimo_actual = comision_minima_operacion_de_sucursal(sucursal)
+
     context = {
         'vendedores_data': vendedores_data,
         'porcentaje_sucursal': getattr(sucursal, 'porcentaje_comision_default', None),
+        'comision_minima_operacion': minimo_actual,
+        'comision_minima_operacion_input': f'{minimo_actual.quantize(Decimal("0.01")):.2f}',
+        'comision_minima_default': COMISION_MINIMA_OPERACION_DEFAULT,
+        'puede_editar_comision_minima': puede_editar_minimo,
         'total_comisiones_sucursal': total_comisiones_sucursal,
         'total_neto_sucursal': total_neto_sucursal,
         'total_ops_comisiones': total_ops_comisiones,

@@ -118,6 +118,11 @@ def usuario_puede_editar_nivel_vendedor(user):
     return usuario_puede_editar_movimiento_caja(user)
 
 
+def usuario_puede_editar_comision_minima(user):
+    """Super administrador (nivel 5) o superusuario Django: edita el piso de comisión por operación."""
+    return usuario_puede_editar_movimiento_caja(user)
+
+
 def usuario_puede_revertir_operacion_a_reserva(user):
     """Super administrador (nivel 5) o superusuario Django: devuelve operación a reserva sin seña."""
     return usuario_puede_editar_movimiento_caja(user)
