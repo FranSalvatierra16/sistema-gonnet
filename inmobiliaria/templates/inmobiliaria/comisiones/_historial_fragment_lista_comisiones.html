@@ -12,7 +12,7 @@
                 </div>
                 <div class="card-body">
                     {% if comisiones %}
-                        <div class="row g-2 align-items-end mb-3 pb-3 border-bottom cv-comisiones-fecha-bar">
+                        <div class="row g-2 align-items-end mb-3 pb-3 border-bottom cv-comisiones-fecha-bar no-print-controls">
                             <div class="col-12 col-sm-auto">
                                 <label class="form-label small text-muted mb-0">Desde</label>
                                 <input type="date" class="form-control form-control-sm hist-com-fecha-desde" autocomplete="off" aria-label="Fecha operación desde">
@@ -24,13 +24,26 @@
                             <div class="col-12 col-sm-auto">
                                 <button type="button" class="btn btn-sm btn-outline-secondary hist-com-fecha-limpiar">Limpiar fechas</button>
                             </div>
+                            <div class="col-12 col-sm-auto">
+                                <button type="button" class="btn btn-sm btn-success hist-com-imprimir" title="Imprime solo las comisiones visibles con el filtro de fechas">
+                                    <i class="fas fa-print me-1"></i>Imprimir detalle
+                                </button>
+                            </div>
                             <div class="col-12 col-md text-md-end mt-2 mt-md-0">
                                 <span class="small text-muted">Total comisiones (filtro activo):</span>
                                 <strong class="text-success hist-com-total-filtrado ms-1">$0,00</strong>
                                 <span class="small text-muted hist-com-count-filtrado ms-2"></span>
                             </div>
                         </div>
-                        <ul class="nav nav-pills flex-wrap mb-3 cv-comisiones-tipo-filtro" role="toolbar" aria-label="Filtrar comisiones por tipo">
+                        <div class="d-none hist-com-print-meta mb-2">
+                            <strong>Comisiones — {{ vendedor.nombre_completo_vendedor }}</strong>
+                            <span class="hist-com-print-rango text-muted ms-2"></span>
+                            <div class="small">
+                                Total: <strong class="hist-com-print-total"></strong>
+                                <span class="hist-com-print-count text-muted ms-1"></span>
+                            </div>
+                        </div>
+                        <ul class="nav nav-pills flex-wrap mb-3 cv-comisiones-tipo-filtro no-print-controls" role="toolbar" aria-label="Filtrar comisiones por tipo">
                             <li class="nav-item me-1 mb-1">
                                 <button type="button" class="nav-link active rounded-pill px-3 py-2 comision-filtro-pill" data-cat="todos">Todos</button>
                             </li>
@@ -60,7 +73,7 @@
                                         <th>Monto Operación</th>
                                         <th>Comisión</th>
                                         <th>Estado</th>
-                                        <th>Acciones</th>
+                                        <th class="no-print">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -116,7 +129,7 @@
                                         <td>
                                             <span class="badge {{ comision.clase_badge_estado_historial }}">{{ comision.label_estado_historial }}</span>
                                         </td>
-                                        <td>
+                                        <td class="no-print">
                                             <a href="{% url 'inmobiliaria:detalle_comision' comision.id %}"
                                                class="btn btn-sm btn-outline-primary">
                                                 <i class="fas fa-eye"></i>

@@ -223,6 +223,59 @@
 .comision-fila-oculta {
     display: none !important;
 }
+
+@media print {
+    .no-print,
+    .no-print-controls,
+    .navbar,
+    .sidebar,
+    nav.cv-comisiones-vales-nav,
+    .page-header .btn,
+    footer {
+        display: none !important;
+    }
+    body.printing-comisiones .cv-col-vales,
+    body.printing-comisiones .info-box,
+    body.printing-comisiones .tab-pane:not(.show) {
+        display: none !important;
+    }
+    body.printing-comisiones .cv-col-comisiones > .row.mb-4,
+    body.printing-comisiones .cv-col-comisiones > h5,
+    body.printing-comisiones #hist-pane-comisiones > .row.mb-4,
+    body.printing-comisiones #hist-pane-comisiones > .row.g-3 {
+        display: none !important;
+    }
+    /* Solo la tarjeta de listado marcada para imprimir */
+    body.printing-comisiones .card:not(.cv-comisiones-print-target) {
+        display: none !important;
+    }
+    body.printing-comisiones .hist-com-print-meta {
+        display: block !important;
+    }
+    body {
+        background: #fff !important;
+        color: #000 !important;
+        font-size: 10pt;
+    }
+    .card,
+    .card-body,
+    .card-header {
+        box-shadow: none !important;
+        border: none !important;
+    }
+    .table {
+        font-size: 9pt;
+    }
+    a {
+        color: #000 !important;
+        text-decoration: none !important;
+    }
+    .badge {
+        border: 1px solid #666;
+        color: #000 !important;
+        background: transparent !important;
+    }
+}
 </style>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
@@ -242,6 +295,13 @@ document.addEventListener('DOMContentLoaded', function () {
     function formatMoneyArHist(n) {
         var x = Number(n) || 0;
         return '$' + x.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function formatFechaAr(iso) {
+        if (!iso) return '';
+        var p = String(iso).split('-');
+        if (p.length !== 3) return iso;
+        return p[2] + '/' + p[1] + '/' + p[0];
     }
 
     function leerFechasComisionFiltro() {
@@ -286,30 +346,38 @@ document.addEventListener('DOMContentLoaded', function () {
         return true;
     }
 
-    function actualizarTotalesComisionFiltradas() {
+    function totalesDesdeTabla(table) {
         var total = 0;
         var n = 0;
-        var table = document.querySelector('table.cv-comisiones-tabla-comisiones');
-        if (table) {
-            table.querySelectorAll('tr.comision-fila-filtro').forEach(function (tr) {
-                if (tr.classList.contains('comision-fila-oculta')) {
-                    return;
-                }
-                var raw = tr.getAttribute('data-monto-comision');
-                var m = raw != null && raw !== '' ? parseFloat(String(raw).replace(',', '.')) : 0;
-                if (!isNaN(m)) {
-                    total += m;
-                    n += 1;
-                }
-            });
+        if (!table) {
+            return { total: 0, n: 0 };
         }
-        document.querySelectorAll('.hist-com-total-filtrado').forEach(function (el) {
-            el.textContent = formatMoneyArHist(total);
+        table.querySelectorAll('tr.comision-fila-filtro').forEach(function (tr) {
+            if (tr.classList.contains('comision-fila-oculta')) {
+                return;
+            }
+            var raw = tr.getAttribute('data-monto-comision');
+            var m = raw != null && raw !== '' ? parseFloat(String(raw).replace(',', '.')) : 0;
+            if (!isNaN(m)) {
+                total += m;
+                n += 1;
+            }
         });
-        var txt = n ? '(' + n + ' línea' + (n === 1 ? '' : 's') + ')' : '(sin líneas visibles)';
+        return { total: total, n: n };
+    }
+
+    function actualizarTotalesComisionFiltradas() {
+        var table = document.querySelector('.tab-pane.active table.cv-comisiones-tabla-comisiones')
+            || document.querySelector('table.cv-comisiones-tabla-comisiones');
+        var tot = totalesDesdeTabla(table);
+        document.querySelectorAll('.hist-com-total-filtrado').forEach(function (el) {
+            el.textContent = formatMoneyArHist(tot.total);
+        });
+        var txt = tot.n ? '(' + tot.n + ' línea' + (tot.n === 1 ? '' : 's') + ')' : '(sin líneas visibles)';
         document.querySelectorAll('.hist-com-count-filtrado').forEach(function (el) {
             el.textContent = txt;
         });
+        return tot;
     }
 
     function aplicarFiltroComisiones(cat) {
@@ -345,6 +413,41 @@ document.addEventListener('DOMContentLoaded', function () {
         actualizarTotalesComisionFiltradas();
     }
 
+    function prepararImpresionComisiones(btn) {
+        var card = btn.closest('.card');
+        document.querySelectorAll('.cv-comisiones-print-target').forEach(function (el) {
+            el.classList.remove('cv-comisiones-print-target');
+        });
+        if (card) {
+            card.classList.add('cv-comisiones-print-target');
+        }
+        var f = leerFechasComisionFiltro();
+        var rango = '';
+        if (f.desde || f.hasta) {
+            rango = 'Período: ' + (formatFechaAr(f.desde) || '…') + ' — ' + (formatFechaAr(f.hasta) || '…');
+        } else {
+            rango = 'Período: todas las fechas';
+        }
+        var table = card ? card.querySelector('table.cv-comisiones-tabla-comisiones') : null;
+        var tot = totalesDesdeTabla(table);
+        if (card) {
+            var meta = card.querySelector('.hist-com-print-meta');
+            if (meta) {
+                var elRango = meta.querySelector('.hist-com-print-rango');
+                var elTot = meta.querySelector('.hist-com-print-total');
+                var elCount = meta.querySelector('.hist-com-print-count');
+                if (elRango) elRango.textContent = rango;
+                if (elTot) elTot.textContent = formatMoneyArHist(tot.total);
+                if (elCount) {
+                    elCount.textContent = tot.n
+                        ? '(' + tot.n + ' línea' + (tot.n === 1 ? '' : 's') + ')'
+                        : '(sin líneas)';
+                }
+            }
+        }
+        document.body.classList.add('printing-comisiones');
+    }
+
     document.addEventListener('click', function (e) {
         var pill = e.target.closest('.comision-filtro-pill');
         if (pill) {
@@ -357,7 +460,21 @@ document.addEventListener('DOMContentLoaded', function () {
             document.querySelectorAll('.hist-com-fecha-desde').forEach(function (el) { el.value = ''; });
             document.querySelectorAll('.hist-com-fecha-hasta').forEach(function (el) { el.value = ''; });
             aplicarFiltroComisiones(categoriaComisionActiva);
+            return;
         }
+        var imprimir = e.target.closest('.hist-com-imprimir');
+        if (imprimir) {
+            e.preventDefault();
+            prepararImpresionComisiones(imprimir);
+            window.print();
+        }
+    });
+
+    window.addEventListener('afterprint', function () {
+        document.body.classList.remove('printing-comisiones');
+        document.querySelectorAll('.cv-comisiones-print-target').forEach(function (el) {
+            el.classList.remove('cv-comisiones-print-target');
+        });
     });
 
     document.addEventListener('change', function (e) {
