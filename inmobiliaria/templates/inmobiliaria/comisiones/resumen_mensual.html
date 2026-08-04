@@ -18,7 +18,10 @@
                         <p class="page-subtitle">{{ vendedor.nombre_completo_vendedor }} - {{ vendedor.sucursal.nombre }}</p>
                     </div>
                     <div>
-                        <a href="{% url 'inmobiliaria:historial_comisiones_vendedor' vendedor.id %}" class="btn btn-outline-secondary">
+                        <button type="button" onclick="window.print();" class="btn btn-success me-2 no-print">
+                            <i class="fas fa-print me-1"></i>Imprimir detalle
+                        </button>
+                        <a href="{% url 'inmobiliaria:historial_comisiones_vendedor' vendedor.id %}" class="btn btn-outline-secondary no-print">
                             <i class="fas fa-arrow-left"></i> Volver al Historial
                         </a>
                     </div>
@@ -87,7 +90,7 @@
                                         <th>% Comisión</th>
                                         <th>Comisión Ganada</th>
                                         <th>Estado</th>
-                                        <th>Acciones</th>
+                                        <th class="no-print">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -122,6 +125,9 @@
                                                 <br><small class="text-muted">
                                                     {{ comision.reserva.fecha_inicio|date:"d/m/Y" }} - {{ comision.reserva.fecha_fin|date:"d/m/Y" }}
                                                 </small>
+                                            {% elif comision.contrato and comision.contrato.propiedad %}
+                                                {{ comision.contrato.propiedad.direccion }}
+                                                <br><small class="text-muted">Contrato #{{ comision.contrato.id }}</small>
                                             {% else %}
                                                 <span class="text-muted">N/A</span>
                                             {% endif %}
@@ -146,7 +152,7 @@
                                                 <span class="badge badge-secondary">{{ comision.estado|title }}</span>
                                             {% endif %}
                                         </td>
-                                        <td>
+                                        <td class="no-print">
                                             <a href="{% url 'inmobiliaria:detalle_comision' comision.id %}" 
                                                class="btn btn-sm btn-outline-primary">
                                                 <i class="fas fa-eye"></i>
@@ -160,7 +166,8 @@
                                     <tr class="table-info">
                                         <td colspan="5" class="text-end"><strong>TOTAL DEL MES:</strong></td>
                                         <td><strong class="text-success">${{ total_mes|format_price }}</strong></td>
-                                        <td colspan="2"></td>
+                                        <td></td>
+                                        <td class="no-print"></td>
                                     </tr>
                                 </tfoot>
                             </table>
@@ -226,6 +233,56 @@
 .table-info {
     background-color: #d1ecf1 !important;
     font-weight: bold;
+}
+
+@media print {
+    .no-print,
+    .navbar,
+    .sidebar,
+    nav,
+    footer,
+    .btn,
+    .page-header .btn {
+        display: none !important;
+    }
+    body {
+        background: #fff !important;
+        color: #000 !important;
+        font-size: 11pt;
+    }
+    .container-fluid,
+    .card,
+    .card-body,
+    .card-header {
+        box-shadow: none !important;
+        border: none !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+    .info-box {
+        box-shadow: none !important;
+        border: 1px solid #ccc !important;
+        color: #000 !important;
+        background: #f8f9fa !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    .table {
+        font-size: 10pt;
+    }
+    .badge {
+        border: 1px solid #666;
+        color: #000 !important;
+        background: transparent !important;
+    }
+    a {
+        color: #000 !important;
+        text-decoration: none !important;
+    }
+    .page-header {
+        border-bottom: 1px solid #000;
+        margin-bottom: 16px;
+    }
 }
 </style>
 {% endblock %}

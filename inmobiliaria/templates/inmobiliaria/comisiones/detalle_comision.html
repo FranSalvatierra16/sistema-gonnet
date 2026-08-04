@@ -18,7 +18,10 @@
                         <p class="page-subtitle">Comisión #{{ comision.id }} - {{ comision.fecha_operacion|date:"d/m/Y H:i" }}</p>
                     </div>
                     <div>
-                        <a href="{% url 'inmobiliaria:historial_comisiones' %}" class="btn btn-outline-secondary">
+                        <button type="button" onclick="window.print();" class="btn btn-success me-2 no-print">
+                            <i class="fas fa-print me-1"></i>Imprimir detalle
+                        </button>
+                        <a href="{% url 'inmobiliaria:historial_comisiones_vendedor' comision.vendedor.id %}" class="btn btn-outline-secondary no-print">
                             <i class="fas fa-arrow-left"></i> Volver al Historial
                         </a>
                     </div>
@@ -216,6 +219,37 @@
 .page-subtitle {
     color: #6c757d;
     margin: 0;
+}
+
+@media print {
+    .no-print,
+    .navbar,
+    .sidebar,
+    nav,
+    footer,
+    .btn {
+        display: none !important;
+    }
+    body {
+        background: #fff !important;
+        color: #000 !important;
+    }
+    .card,
+    .info-box {
+        box-shadow: none !important;
+        border: 1px solid #ccc !important;
+        break-inside: avoid;
+    }
+    .info-box {
+        color: #000 !important;
+        background: #f8f9fa !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    a {
+        color: #000 !important;
+        text-decoration: none !important;
+    }
 }
 </style>
 {% endblock %}
