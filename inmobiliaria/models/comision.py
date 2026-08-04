@@ -95,7 +95,7 @@ def pct_comision_24_meses_vendedor(vendedor, prop):
 
 
 def _fecha_operacion_entrada_reserva(reserva):
-    """Fecha de acreditación en reservas invierno/24: día de ingreso al departamento."""
+    """Día de ingreso al departamento (inicio de la estadía)."""
     from datetime import datetime, time
 
     f = getattr(reserva, 'fecha_inicio', None)
@@ -107,12 +107,25 @@ def _fecha_operacion_entrada_reserva(reserva):
     return dt
 
 
+def _fecha_operacion_alta_reserva(reserva):
+    """
+    Fecha de la operación = cuando se cargó la reserva («Fecha op.» en carátulas).
+    """
+    fc = getattr(reserva, 'fecha_creacion', None)
+    if fc:
+        if timezone.is_naive(fc):
+            return timezone.make_aware(fc, timezone.get_current_timezone())
+        return fc
+    return _fecha_operacion_entrada_reserva(reserva)
+
+
 def _fecha_operacion_comision_reserva(reserva, movimiento_caja):
     """
-    Por día: fecha del cobro (seña). Invierno / 24 meses: fecha de ingreso (fecha_inicio).
+    Por día: fecha de la operación (alta / Fecha op.), no el día de entrada ni el cobro.
+    Se acredita al confirmar la carátula; el listado usa esta fecha.
     """
-    if reserva and clasificar_tipo_operacion_reserva(reserva) in ('invierno', '24'):
-        return _fecha_operacion_entrada_reserva(reserva)
+    if reserva:
+        return _fecha_operacion_alta_reserva(reserva)
     return movimiento_caja.fecha if movimiento_caja else timezone.now()
 
 
@@ -501,10 +514,26 @@ def _crear_linea_operacion_por_dia(
     ).exclude(estado='cancelada').first()
     if existente:
         if _comision_acreditada(existente):
+            updates_acred = []
+            fecha_op = _fecha_operacion_comision_reserva(reserva, movimiento_caja)
+            fo = existente.fecha_operacion
+            if fo is None or timezone.localtime(fo).date() != timezone.localtime(fecha_op).date():
+                existente.fecha_operacion = fecha_op
+                updates_acred.append('fecha_operacion')
+            if movimiento_caja and not existente.movimiento_caja_id:
+                existente.movimiento_caja = movimiento_caja
+                updates_acred.append('movimiento_caja')
+            if updates_acred:
+                existente.save(update_fields=updates_acred)
             if creadas is not None and existente not in creadas:
                 creadas.append(existente)
             return
         updates = []
+        fecha_op = _fecha_operacion_comision_reserva(reserva, movimiento_caja)
+        fo = existente.fecha_operacion
+        if fo is None or timezone.localtime(fo).date() != timezone.localtime(fecha_op).date():
+            existente.fecha_operacion = fecha_op
+            updates.append('fecha_operacion')
         if existente.monto_total_operacion != base:
             existente.monto_total_operacion = base
             updates.append('monto_total_operacion')
@@ -2276,6 +2305,19 @@ class ComisionVendedor(models.Model):
             if movimiento_caja and not comision_existente.movimiento_caja_id:
                 comision_existente.movimiento_caja = movimiento_caja
                 updates.append('movimiento_caja')
+            fecha_op = _fecha_operacion_comision_reserva(reserva, movimiento_caja)
+            if comision_existente.fecha_operacion != fecha_op:
+                # Mantener fecha = día de la operación aunque ya esté acreditada.
+                fo = comision_existente.fecha_operacion
+                misma_fecha = (
+                    fo
+                    and timezone.localtime(fo).date() == timezone.localtime(fecha_op).date()
+                    if timezone.is_aware(fo) and timezone.is_aware(fecha_op)
+                    else fo == fecha_op
+                )
+                if not misma_fecha:
+                    comision_existente.fecha_operacion = fecha_op
+                    updates.append('fecha_operacion')
             # Confirmadas/pagadas: no tocar montos ni % (el piso $10.000 ya puede estar aplicado).
             if _comision_acreditada(comision_existente):
                 if updates:
@@ -2470,18 +2512,12 @@ def _reserva_ids_desde_liquidacion(liquidacion):
 
 def acreditar_comisiones_operacion_por_caratula(reserva=None, contrato=None):
     """
-    Tras confirmar la carátula: acredita comisiones pendientes cuya fecha ya llegó.
+    Tras confirmar la carátula: acredita comisiones pendientes de esa operación.
+    La fecha_operacion sigue siendo el día de la operación; no se exige que ya haya pasado.
     """
-    from django.utils import timezone
-
     if not reserva and not contrato:
         return 0
-    hoy = timezone.localdate()
-    qs = ComisionVendedor.objects.filter(
-        estado='pendiente',
-        fecha_operacion__isnull=False,
-        fecha_operacion__date__lte=hoy,
-    ).exclude(estado='cancelada')
+    qs = ComisionVendedor.objects.filter(estado='pendiente').exclude(estado='cancelada')
     if reserva:
         qs = qs.filter(reserva=reserva)
     else:
