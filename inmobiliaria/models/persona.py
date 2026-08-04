@@ -315,51 +315,22 @@ class Vendedor(AbstractUser):
 
     def porcentaje_comision_para_reserva(self, reserva):
         """
-        Elige el % según duración (24 meses / invierno) y tipo de fichaje de la propiedad.
-        Reserva debe tener propiedad cargada (select_related recomendado en la vista).
+        % de comisión del productor para una reserva (alquiler por día).
+
+        Las reservas no usan % invierno/24 (eso es de contratos). Se usa el %
+        normal del vendedor / default de sucursal, o el de fichaje solo si
+        aplica en la ficha y no hay % de operación por día (legado).
         """
         if not reserva or not getattr(reserva, 'propiedad_id', None):
             return self.porcentaje_comision_efectivo()
 
         prop = reserva.propiedad
-        try:
-            dias = (reserva.fecha_fin - reserva.fecha_inicio).days
-        except (TypeError, AttributeError):
-            dias = 0
-
-        # ~20 meses o más: se considera alquiler largo / 24 meses para comisión
-        es_alquiler_largo = dias >= 600
-        if es_alquiler_largo:
-            if getattr(prop, 'es_propiedad_oficina', False):
-                pct_of = self.comision_alquiler_24_meses_propiedad_oficina
-                if pct_of is not None and pct_of > 0:
-                    return pct_of
-            if (
-                self.comision_alquiler_24_meses is not None
-                and self.comision_alquiler_24_meses > 0
-            ):
-                return self.comision_alquiler_24_meses
-
-        # Invierno / temporada fría: propiedad con alquiler invierno habilitado, no largo plazo
-        if (
-            dias < 600
-            and dias >= 14
-            and getattr(prop, 'habilitar_invierno', False)
-        ):
-            try:
-                mes_ini = reserva.fecha_inicio.month
-            except AttributeError:
-                mes_ini = 0
-            if mes_ini in (4, 5, 6, 7, 8, 9, 10):
-                if getattr(prop, 'es_propiedad_oficina', False):
-                    pct_of = self.comision_invierno_propiedad_oficina
-                    if pct_of is not None and pct_of > 0:
-                        return pct_of
-                if (
-                    self.comision_invierno is not None
-                    and self.comision_invierno > 0
-                ):
-                    return self.comision_invierno
+        # Comisión por día (campo principal del productor).
+        if self.comision is not None and self.comision > 0:
+            return self.comision
+        default = getattr(self.sucursal, 'porcentaje_comision_default', None)
+        if default is not None and default > 0:
+            return default
 
         tipo = getattr(prop, 'tipo_fichaje', None) or 'primer'
         if (

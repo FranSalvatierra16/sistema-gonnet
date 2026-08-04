@@ -239,27 +239,13 @@ def rol_comision_al_crear_linea_unica(vendedor, reserva):
 
 def clasificar_tipo_operacion_reserva(reserva):
     """
-    Clasifica la reserva para reglas de comisión: alquiler largo (24), invierno o por día.
-    Criterios alineados con porcentaje_comision_para_reserva / invierno en Vendedor.
+    Clasifica la reserva para reglas de comisión.
+
+    Las reservas (módulo alquiler por día) usan siempre comisión «por día»
+    y fichaje sobre el importe de locación. Invierno / 24 meses corresponden
+    a contratos, no a estadías cargadas como reserva — aunque la propiedad
+    tenga «habilitar invierno» y la estadía dure ≥ 14 días.
     """
-    prop = reserva.propiedad
-    try:
-        dias = (reserva.fecha_fin - reserva.fecha_inicio).days
-    except (TypeError, AttributeError):
-        dias = 0
-    if dias >= 600:
-        return '24'
-    if (
-        dias < 600
-        and dias >= 14
-        and getattr(prop, 'habilitar_invierno', False)
-    ):
-        try:
-            mes_ini = reserva.fecha_inicio.month
-        except AttributeError:
-            mes_ini = 0
-        if mes_ini in (4, 5, 6, 7, 8, 9, 10):
-            return 'invierno'
     return 'dia'
 
 
