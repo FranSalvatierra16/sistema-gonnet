@@ -1035,7 +1035,9 @@ document.addEventListener('DOMContentLoaded', function() {
             `;
 
             data.operaciones.forEach(function(op) {
-                const badgeClass = op.tipo === 'reserva'
+                const badgeClass = op.incluible === false
+                    ? 'bg-light text-dark border'
+                    : (op.tipo === 'reserva'
                     ? 'bg-info text-dark'
                     : (op.tipo === 'contrato_operacion_principal' || op.es_operacion_principal_honorarios
                         ? 'bg-success'
@@ -1043,7 +1045,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             ? (op.anticipada ? 'bg-warning text-dark' : 'bg-primary')
                             : (op.tipo === 'movimiento_caja'
                                 ? 'bg-secondary'
-                                : 'bg-success')));
+                                : 'bg-success'))));
                 const tipoEtiqueta = op.tipo_display || (
                     (op.tipo === 'contrato_operacion_principal' || op.es_operacion_principal_honorarios)
                         ? 'Operación principal'
@@ -1118,7 +1120,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="mt-2">
                     <small class="text-muted">
                         <i class="fas fa-info-circle me-1"></i>
-                        <strong>Por día</strong> son reservas por estadía. Cada <strong>Cuota mensual</strong> pagada pendiente de liquidar es una fila distinta (mismo contrato = varias filas si cobraste varios meses).
+                        <strong>Por día</strong> son reservas por estadía. Si ya liquidaste una parte, el pendiente
+                        arranca en la fecha <strong>hasta</strong> de la liquidación anterior (ej. 18→25 → siguiente desde 25).
+                        Las filas <strong>«Por día (liquidada)»</strong> son solo referencia (casilla deshabilitada).
+                        Cada <strong>Cuota mensual</strong> pagada pendiente de liquidar es una fila distinta (mismo contrato = varias filas si cobraste varios meses).
                         La <strong>Operación principal</strong> (badge verde, cuota 1) incluye honorarios/comisiones del alta en contratos de 9 meses o más.
                         En contratos de <strong>9 o 24 meses</strong> podés liquidar <strong>todas las cuotas</strong> del plan que aún no estén en otra liquidación (pagadas o anticipadas).
                         Los <strong>Pago a favor</strong> son ingresos de caja con importe imputado al propietario (servicios, etc.) que aún no liquidaste.
@@ -1130,6 +1135,12 @@ document.addEventListener('DOMContentLoaded', function() {
             `;
 
             lista.innerHTML = html;
+            if (data.mensaje) {
+                lista.insertAdjacentHTML(
+                    'afterbegin',
+                    '<div class="alert alert-warning py-2 small mb-2">' + escHtmlGasto(data.mensaje) + '</div>'
+                );
+            }
             sincronizarMonedaDesdeOperaciones();
             mostrarGastosPendientes(data.gastos_pendientes || [], colProp);
         } else {

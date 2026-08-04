@@ -27554,9 +27554,12 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
     asegurar_gastos_saldo_negativo_propiedad(propiedad, sucursal=sucursal)
 
     # Reservas ya liquidadas por completo (las parciales siguen apareciendo con el saldo).
+    # Las completas se omiten del listado general; si se busca por N° se muestran solo lectura.
     from inmobiliaria.liquidacion_operacion import (
         reserva_ids_completamente_liquidadas,
         saldo_liquidacion_reserva,
+        fechas_periodo_pendiente_reserva,
+        _fecha_hasta_parte_creada_liquidacion,
     )
 
     reservas_excluidas = reserva_ids_completamente_liquidadas(propiedad)
@@ -27624,11 +27627,49 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
             )
 
             saldo_liq = saldo_liquidacion_reserva(reserva)
+
+            # Filas de referencia: tramos ya liquidados (no editables / no tildables).
+            if saldo_liq['tiene_liquidaciones']:
+                for liq in saldo_liq['liquidaciones']:
+                    fd_liq = getattr(liq, 'fecha_desde', None)
+                    fh_liq = _fecha_hasta_parte_creada_liquidacion(liq) or getattr(
+                        liq, 'fecha_hasta', None
+                    )
+                    monto_liq = Decimal(str(getattr(liq, 'monto_propietario', None) or 0))
+                    operaciones.append({
+                        'tipo': 'reserva',
+                        'tipo_display': 'Por día (liquidada)',
+                        'concepto_pago': _concepto_pago_liquidacion_operacion('reserva'),
+                        'incluible': False,
+                        'id': reserva.id,
+                        'liquidacion_id': liq.id,
+                        'descripcion': (
+                            f'Reserva #{reserva.id} - {_nombre_cliente_reserva_liquidacion(reserva)} '
+                            f'— ya liquidada (liq. #{liq.id})'
+                        ),
+                        'fecha_inicio': fd_liq.strftime('%Y-%m-%d') if fd_liq else '',
+                        'fecha_fin': fh_liq.strftime('%Y-%m-%d') if fh_liq else '',
+                        'monto_total': str(monto_liq),
+                        'monto_pagado': str(monto_liq),
+                        'monto_propietario': '0',
+                        'monto_propietario_total': str(monto_propietario_total),
+                        'monto_propietario_liquidado': str(monto_liq),
+                        'monto_propietario_pendiente': '0',
+                        'liquidacion_parcial': False,
+                        'monto_inmobiliaria': '0',
+                        'dias': dias_reserva,
+                    })
+
+            # Si ya está completa, solo las filas de referencia (no tildable).
+            if saldo_liq['completa']:
+                continue
+
             # Si ya hay liquidaciones parciales, ofrecer solo el pendiente al propietario.
             monto_prop_ofrecer = saldo_liq['pendiente'] if saldo_liq['tiene_liquidaciones'] else monto_propietario_total
             monto_inm_ofrecer = (
                 Decimal('0') if saldo_liq['tiene_liquidaciones'] else monto_inmobiliaria_total
             )
+            fd_pend, fh_pend = fechas_periodo_pendiente_reserva(reserva)
             desc = f'Reserva #{reserva.id} - {_nombre_cliente_reserva_liquidacion(reserva)}'
             if saldo_liq['tiene_liquidaciones'] and not saldo_liq['completa']:
                 desc += (
@@ -27643,8 +27684,8 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
                 'incluible': True,
                 'id': reserva.id,
                 'descripcion': desc,
-                'fecha_inicio': reserva.fecha_inicio.strftime('%Y-%m-%d') if reserva.fecha_inicio else '',
-                'fecha_fin': reserva.fecha_fin.strftime('%Y-%m-%d') if reserva.fecha_fin else '',
+                'fecha_inicio': fd_pend.strftime('%Y-%m-%d') if fd_pend else '',
+                'fecha_fin': fh_pend.strftime('%Y-%m-%d') if fh_pend else '',
                 'monto_total': str(reserva.precio_total),
                 'monto_pagado': str(total_pagado if total_pagado > 0 else reserva.precio_total),
                 'monto_propietario': str(monto_prop_ofrecer),
@@ -27950,6 +27991,52 @@ def buscar_operacion_liquidacion(request):
             operacion_id=pk,
         )
         lbl = _etiqueta_propiedad_liquidacion(prop)
+
+        # Si ya está 100% liquidada no entra en pendientes: devolver solo lectura.
+        if not (data.get('operaciones') or []):
+            from inmobiliaria.liquidacion_operacion import (
+                saldo_liquidacion_reserva,
+                _fecha_hasta_parte_creada_liquidacion,
+            )
+
+            saldo_liq = saldo_liquidacion_reserva(reserva)
+            if saldo_liq['tiene_liquidaciones']:
+                refs = []
+                for liq in saldo_liq['liquidaciones']:
+                    fd_liq = getattr(liq, 'fecha_desde', None)
+                    fh_liq = _fecha_hasta_parte_creada_liquidacion(liq) or getattr(
+                        liq, 'fecha_hasta', None
+                    )
+                    monto_liq = Decimal(str(getattr(liq, 'monto_propietario', None) or 0))
+                    refs.append({
+                        'tipo': 'reserva',
+                        'tipo_display': 'Por día (liquidada)',
+                        'concepto_pago': _concepto_pago_liquidacion_operacion('reserva'),
+                        'incluible': False,
+                        'id': reserva.id,
+                        'liquidacion_id': liq.id,
+                        'descripcion': (
+                            f'Reserva #{reserva.id} - {_nombre_cliente_reserva_liquidacion(reserva)} '
+                            f'— ya liquidada (liq. #{liq.id})'
+                        ),
+                        'fecha_inicio': fd_liq.strftime('%Y-%m-%d') if fd_liq else '',
+                        'fecha_fin': fh_liq.strftime('%Y-%m-%d') if fh_liq else '',
+                        'monto_total': str(monto_liq),
+                        'monto_pagado': str(monto_liq),
+                        'monto_propietario': '0',
+                        'monto_inmobiliaria': '0',
+                        'propiedad_id': prop.id,
+                        'propiedad_label': lbl,
+                    })
+                data['operaciones'] = refs
+                data['ya_liquidada'] = bool(saldo_liq['completa'])
+                data['mensaje'] = (
+                    f'La operación #{reserva.id} ya está liquidada por completo. '
+                    'Las filas aparecen solo como referencia (no se pueden tildar).'
+                    if saldo_liq['completa']
+                    else ''
+                )
+
         for op in data.get('operaciones') or []:
             op['propiedad_id'] = prop.id
             op['propiedad_label'] = lbl
