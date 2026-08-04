@@ -1205,12 +1205,15 @@ def aplicar_piso_comisiones_productor_existentes(
     """
     Backfill: sube al piso las comisiones de productor por debajo del mínimo.
 
-    - No toca fichaje ni pagadas.
-    - Por defecto solo ``operacion_dia``.
+    - No toca fichaje ni pagadas ni invierno/24 (salvo ``solo_por_dia=False``).
+    - Por defecto roles ``operacion_dia`` y ``general`` (histórico = por día).
     - ``solo_confirmadas=True``: no toca pendientes.
     - ``monto_desde``: ignora montos menores o iguales (evita basura tipo $0,04).
     """
-    roles = (ROL_COMISION_OP_DIA,) if solo_por_dia else ROLES_COMISION_PRODUCTOR
+    if solo_por_dia:
+        roles = (ROL_COMISION_OP_DIA, ROL_COMISION_GENERAL)
+    else:
+        roles = ROLES_COMISION_PRODUCTOR
     if solo_confirmadas:
         estados = ['confirmada']
     else:
