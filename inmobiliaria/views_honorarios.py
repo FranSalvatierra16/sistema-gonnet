@@ -1,7 +1,7 @@
 """
 Honorarios / ganancias de oficina desde liquidaciones.
-- Comisión inmobiliaria: fecha del cobro / acreditación (ingreso en caja o comisión confirmada).
-- Cochera, fondo y comisiones locador/locatario: día de entrada del depto (inicio reserva o contrato).
+- Comisión inmobiliaria, cochera, fondo y comisiones locador/locatario:
+  se imputan por la fecha de la operación (inicio reserva/contrato).
 """
 import re
 from datetime import date, datetime
@@ -134,28 +134,10 @@ def _fecha_acreditacion_comision_operacion(*, reserva=None, contrato=None):
 
 def _fecha_ingreso_honorarios_comision(liq):
     """
-    Cuándo ingresaron los honorarios de oficina (cobro / acreditación),
-    no la fecha de anulación ni la reconstrucción de liquidación cancelada.
+    Fecha de la operación (inicio reserva/contrato), no el día en que se
+    cobró, liquidó o acreditó la comisión del productor.
     """
-    reserva = getattr(liq, 'reserva', None) or reserva_desde_liquidacion(liq)
-    contrato = getattr(liq, 'contrato', None) or contrato_desde_liquidacion(liq)
-
-    if reserva is not None:
-        fd = _fecha_primer_ingreso_reserva(reserva)
-        if fd:
-            return fd
-        fd = _fecha_acreditacion_comision_operacion(reserva=reserva)
-        if fd:
-            return fd
-    elif contrato is not None:
-        fd = _fecha_primer_ingreso_contrato(contrato)
-        if fd:
-            return fd
-        fd = _fecha_acreditacion_comision_operacion(contrato=contrato)
-        if fd:
-            return fd
-
-    return _fecha_liquidacion(liq)
+    return _fecha_entrada_liquidacion(liq)
 
 
 def _operacion_label(liq):
@@ -639,7 +621,7 @@ def _filas_honorarios_desde_liquidaciones(liquidaciones):
                     'tipo_display': 'Comisión inmobiliaria',
                     'fecha': _fecha_ingreso_honorarios_comision(liq),
                     'monto': monto_inm,
-                    'nota': 'Al cobrar / acreditar',
+                    'nota': 'Día de la operación',
                 })
 
             f_entrada = _fecha_entrada_liquidacion(liq)

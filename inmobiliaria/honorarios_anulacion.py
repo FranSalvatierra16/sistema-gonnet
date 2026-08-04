@@ -67,29 +67,51 @@ def montos_honorarios_desde_reserva(reserva):
     }
 
 
+def _reserva_tuvo_ingreso_honorarios_real(reserva):
+    """
+    True solo si la operación llegó a generar (o a confirmar) honorarios de oficina.
+    No alcanza con anular una reserva con montos inferidos de la carátula.
+    """
+    if (getattr(reserva, 'estado_confirmacion_caratula', None) or '').strip() == 'confirmada':
+        return True
+    if getattr(reserva, 'liq_monto_inmobiliaria', None) is not None:
+        return True
+    if getattr(reserva, 'liq_monto_propietario', None) is not None:
+        return True
+
+    from inmobiliaria.models import ComisionVendedor
+    from inmobiliaria.models.comision import ROL_COMISION_FICHAJE
+
+    return (
+        ComisionVendedor.objects.filter(reserva_id=reserva.pk)
+        .exclude(rol_comision=ROL_COMISION_FICHAJE)
+        .exists()
+    )
+
+
 def reserva_anulada_requiere_reversion_legacy(reserva):
     """
-    Reserva anulada sin liquidación en BD que debió haber generado honorarios.
-    Evita reversión en reservas eliminadas sin liquidar nunca.
+    Reserva anulada sin liquidación en BD que sí había generado honorarios
+    (carátula confirmada / montos de liquidación / comisión acreditada).
+    No lista anulaciones de operaciones que nunca se confirmaron ni se pasaron.
     """
     if not reserva_esta_anulada(reserva):
         return False
     if liquidaciones_reserva_cualquier_estado(reserva):
         return False
+    if not _reserva_tuvo_ingreso_honorarios_real(reserva):
+        return False
 
     montos = montos_honorarios_desde_reserva(reserva)
     if not montos:
         return False
-    if montos['monto_inmobiliaria'] <= Decimal('0.01') and montos['monto_cochera'] <= Decimal('0.01') and montos['monto_fondo'] <= Decimal('0.01'):
+    if (
+        montos['monto_inmobiliaria'] <= Decimal('0.01')
+        and montos['monto_cochera'] <= Decimal('0.01')
+        and montos['monto_fondo'] <= Decimal('0.01')
+    ):
         return False
-
-    if reserva.liq_monto_inmobiliaria is not None or reserva.liq_monto_propietario is not None:
-        return True
-    if getattr(reserva, 'usuario_eliminacion_id', None):
-        return True
-    if getattr(reserva, 'fecha_eliminacion', None):
-        return True
-    return False
+    return True
 
 
 def ids_reservas_cubiertas_por_liquidaciones(liquidaciones):
@@ -116,42 +138,8 @@ def _fecha_reversion_reserva(reserva):
 
 
 def _inferir_fecha_ingreso_reserva(reserva):
-    """Fecha del cobro / acreditación (ingreso en caja), no la anulación."""
-    import re
-
-    from inmobiliaria.models import ComisionVendedor, MovimientoCaja
-    from inmobiliaria.models.caja import TipoMovimientoCajaEnum
-    from inmobiliaria.models.comision import ROL_COMISION_FICHAJE, ROL_COMISION_REVERSION
-
-    rid = int(reserva.pk)
-    propiedad_id = getattr(reserva, 'propiedad_id', None)
-    sucursal_id = getattr(reserva, 'sucursal_id', None)
-    if propiedad_id:
-        qs = MovimientoCaja.objects.filter(
-            propiedad_id=propiedad_id,
-            tipo=TipoMovimientoCajaEnum.INGRESO,
-        )
-        if sucursal_id:
-            qs = qs.filter(sucursal_id=sucursal_id)
-        for mov in qs.order_by('fecha', 'id'):
-            texto = mov.concepto or ''
-            if re.search(rf'Operaci[oó]n\s*#?\s*{rid}\b', texto, re.IGNORECASE):
-                fc = mov.fecha
-                if fc:
-                    return timezone.localtime(fc).date() if timezone.is_aware(fc) else fc.date()
-
-    com = (
-        ComisionVendedor.objects.filter(reserva=reserva)
-        .exclude(rol_comision=ROL_COMISION_REVERSION)
-        .exclude(rol_comision=ROL_COMISION_FICHAJE)
-        .order_by('fecha_operacion', 'id')
-        .first()
-    )
-    if com and com.fecha_operacion:
-        fc = com.fecha_operacion
-        return timezone.localtime(fc).date() if timezone.is_aware(fc) else fc.date()
-
-    return reserva.fecha_inicio
+    """Fecha de la operación (inicio de la reserva)."""
+    return getattr(reserva, 'fecha_inicio', None)
 
 
 def filas_honorarios_reserva_anulada_legacy(reserva, propiedad_txt_fn, fila_comisiones_fn):
@@ -202,7 +190,7 @@ def filas_honorarios_reserva_anulada_legacy(reserva, propiedad_txt_fn, fila_comi
             'tipo_display': 'Comisión inmobiliaria',
             'fecha': fecha_liq,
             'monto': inm,
-            'nota': 'Al cobrar / acreditar',
+            'nota': 'Día de la operación',
         })
         filas.append({
             **base,
