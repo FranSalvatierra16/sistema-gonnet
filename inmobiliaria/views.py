@@ -2013,12 +2013,14 @@ def administracion_propiedades_operaciones(request):
         )
         pagos_qs = Pago.objects.filter(reserva__propiedad=propiedad, reserva__eliminada=False).select_related('reserva', 'concepto')
         movimientos_qs = MovimientoCaja.objects.filter(sucursal=request.user.sucursal, propiedad=propiedad).select_related('empleado')
+        # Todos los egresos de caja vinculados a la propiedad (propietario, oficina o inquilino).
+        # Antes se excluían los de inquilino y no aparecían en la pestaña Gastos aunque
+        # el movimiento tuviera la propiedad correcta (ej. expensas reasignadas).
         egresos_gasto_qs = MovimientoCaja.objects.filter(
             sucursal=request.user.sucursal,
             propiedad=propiedad,
             tipo=TipoMovimientoCajaEnum.EGRESO,
-        ).exclude(
-            a_descontar='inquilino',
+            fecha_eliminacion__isnull=True,
         ).select_related('empleado')
 
         if fecha_desde:
