@@ -1102,8 +1102,25 @@ def _descripcion_movimiento_libro(mov):
         return prefijo_contrato or f'Movimiento #{mov.id}'
 
     if prefijo_contrato and resto:
-        return f'{prefijo_contrato} — {resto}'
-    return txt or prefijo_contrato or f'Movimiento #{mov.id}'
+        desc = f'{prefijo_contrato} — {resto}'
+    else:
+        desc = txt or prefijo_contrato or f'Movimiento #{mov.id}'
+
+    # Si el texto no menciona la dirección del depto, agregarla (evita confusión
+    # cuando el detalle habla de cochera/otro ref. pero el FK ya apunta al depto correcto).
+    prop = getattr(mov, 'propiedad', None)
+    if prop is not None:
+        dir_ = (getattr(prop, 'direccion', None) or '').strip()
+        if dir_:
+            unidad = ''
+            piso = (getattr(prop, 'piso', None) or '').strip()
+            depto = (getattr(prop, 'departamento', None) or '').strip()
+            if piso or depto:
+                unidad = f" {piso}/{depto}".strip() if piso and depto else f" {piso or depto}"
+            marca = f'{dir_}{unidad}'.strip()
+            if marca and marca.casefold() not in desc.casefold():
+                desc = f'{desc} — {marca}'
+    return desc
 
 
 def _fila_libro_desde_movimiento(mov, monto_prop_por_reserva=None, cotiz_por_reserva=None):
