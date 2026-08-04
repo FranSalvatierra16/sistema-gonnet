@@ -128,8 +128,11 @@
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">N° Comprobante</label>
-                        <input type="text" name="numero_liquidacion" class="form-control" pattern="[0-9]{4}-[0-9]{8}" placeholder="0000-00000000">
-                        <small class="form-text text-muted">Formato: 0000-00000000</small>
+                        <input type="text" name="numero_liquidacion" class="form-control"
+                               pattern="[0-9]{1,6}-[0-9]{1,12}"
+                               title="Ej.: 007-392 o 0000-00000000"
+                               placeholder="007-01">
+                        <small class="form-text text-muted">Formato: prefijo-número (ej. 007-392). Vacío = se asigna al guardar si aplica.</small>
                                 </div>
                     <div class="col-md-3">
                         <label class="form-label">Fecha</label>
