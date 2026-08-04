@@ -1946,6 +1946,8 @@ def administracion_propiedades_operaciones(request):
         'cuotas': [],
         'gastos': [],
         'gastos_items': [],
+        'gastos_propietario_items': [],
+        'gastos_inquilino_items': [],
         'pagos_liquidacion_items': [],
         'ingresos_items': [],
         'liquidaciones': [],
@@ -1956,6 +1958,8 @@ def administracion_propiedades_operaciones(request):
         'balance': Decimal('0'),
         'total_pagos': Decimal('0'),
         'total_gastos': Decimal('0'),
+        'total_gastos_propietario': Decimal('0'),
+        'total_gastos_inquilino': Decimal('0'),
         'total_ingresos_usd': Decimal('0'),
         'total_egresos_usd': Decimal('0'),
         'balance_usd': Decimal('0'),
@@ -2013,14 +2017,20 @@ def administracion_propiedades_operaciones(request):
         )
         pagos_qs = Pago.objects.filter(reserva__propiedad=propiedad, reserva__eliminada=False).select_related('reserva', 'concepto')
         movimientos_qs = MovimientoCaja.objects.filter(sucursal=request.user.sucursal, propiedad=propiedad).select_related('empleado')
-        # Todos los egresos de caja vinculados a la propiedad (propietario, oficina o inquilino).
-        # Antes se excluían los de inquilino y no aparecían en la pestaña Gastos aunque
-        # el movimiento tuviera la propiedad correcta (ej. expensas reasignadas).
+        # Egresos de la propiedad: propietario e inquilino (sin gastos de oficina).
         egresos_gasto_qs = MovimientoCaja.objects.filter(
             sucursal=request.user.sucursal,
             propiedad=propiedad,
             tipo=TipoMovimientoCajaEnum.EGRESO,
             fecha_eliminacion__isnull=True,
+        ).exclude(
+            a_descontar='oficina',
+        ).exclude(
+            tipo_comprobante__iexact='GS',
+        ).exclude(
+            Q(concepto__istartswith='Gasto oficina')
+            | Q(concepto__icontains='Gasto oficina —')
+            | Q(concepto__icontains='Gasto oficina -')
         ).select_related('empleado')
 
         if fecha_desde:
@@ -2165,16 +2175,19 @@ def administracion_propiedades_operaciones(request):
                 pass
             return False
 
-        def _item_egreso_admin(m, *, concepto_nombre=None):
-            cargo = ''
-            if getattr(m, 'a_descontar', None):
-                try:
-                    cargo = m.get_a_descontar_display()
-                except Exception:
-                    cargo = str(m.a_descontar)
+        def _item_egreso_admin(m, *, concepto_nombre=None, cargo_key=None):
+            cargo_raw = (getattr(m, 'a_descontar', None) or '').strip().lower()
+            if cargo_key is None:
+                if cargo_raw == 'inquilino':
+                    cargo_key = 'inquilino'
+                else:
+                    # propietario, vacío u otro → gastos propietario de la propiedad
+                    cargo_key = 'propietario'
+            if cargo_key == 'inquilino':
+                cargo = 'Inquilino'
+            else:
+                cargo = 'Propietario'
             detalle_parts = []
-            if cargo:
-                detalle_parts.append(cargo)
             det = _detalle_mov(m)
             if det:
                 detalle_parts.append(det)
@@ -2186,7 +2199,8 @@ def administracion_propiedades_operaciones(request):
                 'detalle': ' · '.join(detalle_parts) or '—',
                 'monto': Decimal(str(getattr(m, 'monto_total', 0) or 0)),
                 'monto_usd': Decimal(str(getattr(m, 'monto_dolares', 0) or 0)),
-                'cargo': cargo or 'Egreso caja',
+                'cargo': cargo,
+                'cargo_key': cargo_key,
                 'url_recibo': _url_recibo_admin(m.id),
                 'puede_eliminar': bool(puede_eliminar_mov),
                 'url_eliminar': (
@@ -2218,6 +2232,7 @@ def administracion_propiedades_operaciones(request):
                 'monto': Decimal('0') if es_usd else monto_g,
                 'monto_usd': monto_g if es_usd else Decimal('0'),
                 'cargo': 'Propietario',
+                'cargo_key': 'propietario',
                 'url_recibo': _url_recibo_admin(mov_num),
                 'puede_eliminar': bool(puede_eliminar_mov and mov_num),
                 'url_eliminar': (
@@ -2231,6 +2246,13 @@ def administracion_propiedades_operaciones(request):
                 gastos_items.append(item)
         for m in egresos_gasto:
             if m.id in movimientos_ya_en_gastos:
+                continue
+            # Doble filtro por si quedó marcado mal pero es gasto de oficina
+            conc_l = (getattr(m, 'concepto', None) or '').casefold()
+            tc = (getattr(m, 'tipo_comprobante', None) or '').strip().upper()
+            if (getattr(m, 'a_descontar', None) or '').strip().lower() == 'oficina':
+                continue
+            if tc == 'GS' or conc_l.startswith('gasto oficina'):
                 continue
             nombre_c = _nombre_concepto_mov(m)
             item = _item_egreso_admin(m, concepto_nombre=nombre_c)
@@ -2294,6 +2316,13 @@ def administracion_propiedades_operaciones(request):
                 or term_concepto in (str(item.get('detalle') or '').casefold())
             ]
 
+        gastos_propietario_items = [
+            item for item in gastos_items if item.get('cargo_key') != 'inquilino'
+        ]
+        gastos_inquilino_items = [
+            item for item in gastos_items if item.get('cargo_key') == 'inquilino'
+        ]
+
         ag_pagos = pagos_qs.aggregate(t=Sum('monto'))
         ag_mov = movimientos_qs.aggregate(
             i=Sum(F('monto_efectivo') + F('monto_cheque') + F('monto_tarjeta') + F('monto_deposito'), filter=Q(tipo=TipoMovimientoCajaEnum.INGRESO)),
@@ -2309,6 +2338,12 @@ def administracion_propiedades_operaciones(request):
         total_gastos_usd = sum(
             (item.get('monto_usd') or Decimal('0') for item in gastos_items), Decimal('0')
         )
+        total_gastos_propietario = sum(
+            (item['monto'] for item in gastos_propietario_items), Decimal('0')
+        )
+        total_gastos_inquilino = sum(
+            (item['monto'] for item in gastos_inquilino_items), Decimal('0')
+        )
 
         contexto_base.update({
             'reservas': reservas,
@@ -2316,6 +2351,8 @@ def administracion_propiedades_operaciones(request):
             'cuotas': cuotas,
             'gastos': gastos,
             'gastos_items': gastos_items,
+            'gastos_propietario_items': gastos_propietario_items,
+            'gastos_inquilino_items': gastos_inquilino_items,
             'pagos_liquidacion_items': pagos_liquidacion_items,
             'ingresos_items': ingresos_items,
             'liquidaciones': liquidaciones,
@@ -2330,6 +2367,8 @@ def administracion_propiedades_operaciones(request):
             'total_pagos': ag_pagos.get('t') or Decimal('0'),
             'total_gastos': total_gastos,
             'total_gastos_usd': total_gastos_usd,
+            'total_gastos_propietario': total_gastos_propietario,
+            'total_gastos_inquilino': total_gastos_inquilino,
         })
         return _safe_render(contexto_base)
     except Exception:

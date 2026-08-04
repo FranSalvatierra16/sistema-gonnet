@@ -87,7 +87,7 @@
         <div class="col-md-4 col-12 mb-2"><div class="alert alert-danger border mb-0">Egresos: <strong>${{ total_egresos|format_price }}</strong>{% if total_egresos_usd %} <span class="d-block small">+ <strong>U$S {{ total_egresos_usd|format_price }}</strong></span>{% endif %}</div></div>
         <div class="col-md-4 col-12 mb-2"><div class="alert alert-primary border mb-0">Balance: <strong>${{ balance|format_price }}</strong>{% if total_ingresos_usd or total_egresos_usd %} <span class="d-block small">+ <strong>U$S {{ balance_usd|format_price }}</strong></span>{% endif %}</div></div>
         <div class="col-md-6 col-12 mb-2"><div class="alert alert-info border mb-0">Pagos cobrados (reservas): <strong>${{ total_pagos|format_price }}</strong></div></div>
-        <div class="col-md-6 col-12 mb-2"><div class="alert alert-warning border mb-0">Gastos registrados: <strong>${{ total_gastos|format_price }}</strong>{% if total_gastos_usd %} <span class="d-block small">+ <strong>U$S {{ total_gastos_usd|format_price }}</strong></span>{% endif %}</div></div>
+        <div class="col-md-6 col-12 mb-2"><div class="alert alert-warning border mb-0">Gastos (prop. + inq.): <strong>${{ total_gastos|format_price }}</strong>{% if total_gastos_usd %} <span class="d-block small">+ <strong>U$S {{ total_gastos_usd|format_price }}</strong></span>{% endif %}<span class="d-block small text-muted">Propietario ${{ total_gastos_propietario|format_price }} · Inquilino ${{ total_gastos_inquilino|format_price }}</span></div></div>
     </div>
 
     <div class="row mb-4">
@@ -167,10 +167,8 @@
         <div class="tab-pane fade" id="pane-gastos" role="tabpanel">
             <div class="card mb-4">
                 <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
-                    <strong>Gastos</strong>
-                    {% if concepto_gasto %}
-                    <span class="badge bg-secondary">Filtro: «{{ concepto_gasto }}» — {{ gastos_items|length }} resultado{{ gastos_items|length|pluralize }}</span>
-                    {% endif %}
+                    <strong>Gastos propietario</strong>
+                    <span class="badge bg-primary">{{ gastos_propietario_items|length }} · ${{ total_gastos_propietario|format_price }}</span>
                 </div>
                 <div class="table-responsive">
                     <table class="table table-sm table-striped mb-0">
@@ -180,7 +178,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% for g in gastos_items %}
+                            {% for g in gastos_propietario_items %}
                             <tr>
                                 <td>{{ g.fecha|date:"d/m/Y H:i" }}</td>
                                 <td>{% if g.movimiento_num %}#{{ g.movimiento_num }}{% else %}-{% endif %}</td>
@@ -212,14 +210,67 @@
                                 </td>
                             </tr>
                             {% empty %}
-                            <tr><td colspan="6" class="text-center text-muted">
-                                {% if concepto_gasto %}Sin gastos para «{{ concepto_gasto }}»{% else %}Sin gastos{% endif %}
-                            </td></tr>
+                            <tr><td colspan="6" class="text-center text-muted">Sin gastos de propietario</td></tr>
                             {% endfor %}
                         </tbody>
                     </table>
                 </div>
             </div>
+
+            <div class="card mb-4">
+                <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <strong>Gastos inquilino</strong>
+                    <span class="badge bg-secondary">{{ gastos_inquilino_items|length }} · ${{ total_gastos_inquilino|format_price }}</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped mb-0">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th><th>Nro. mov.</th><th>Concepto</th><th>Detalle</th><th class="text-end">Monto</th><th class="text-center">Recibo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for g in gastos_inquilino_items %}
+                            <tr>
+                                <td>{{ g.fecha|date:"d/m/Y H:i" }}</td>
+                                <td>{% if g.movimiento_num %}#{{ g.movimiento_num }}{% else %}-{% endif %}</td>
+                                <td>{{ g.concepto|default:"-" }}</td>
+                                <td>{{ g.detalle|default:"-" }}</td>
+                                <td class="text-end">
+                                    {% if g.monto_usd %}
+                                        {% if g.monto %}${{ g.monto|format_price }} + {% endif %}<strong>U$S {{ g.monto_usd|format_price }}</strong>
+                                    {% else %}
+                                        ${{ g.monto|format_price }}
+                                    {% endif %}
+                                </td>
+                                <td class="text-center text-nowrap">
+                                    {% if g.url_recibo %}
+                                    <a href="{{ g.url_recibo }}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" title="Ver recibo">
+                                        <i class="fas fa-receipt"></i>
+                                    </a>
+                                    {% endif %}
+                                    {% if g.puede_eliminar and g.url_eliminar %}
+                                    <form method="post" action="{{ g.url_eliminar }}" class="d-inline m-0"
+                                          onsubmit="return confirm('¿Eliminar / anular este gasto de caja? Dejará de sumar en saldos y reportes.');">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar gasto">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                    </form>
+                                    {% elif not g.url_recibo %}—{% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="6" class="text-center text-muted">Sin gastos de inquilino</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% if concepto_gasto %}
+            <p class="small text-muted">Filtro concepto: «{{ concepto_gasto }}»</p>
+            {% endif %}
         </div>
 
         <div class="tab-pane fade" id="pane-ingresos" role="tabpanel">
