@@ -15,7 +15,10 @@
                             <i class="fas fa-calendar-alt text-success"></i>
                             Comisiones de {{ nombre_mes }} {{ año }}
                         </h1>
-                        <p class="page-subtitle">{{ vendedor.nombre_completo_vendedor }} - {{ vendedor.sucursal.nombre }}</p>
+                        <p class="page-subtitle">
+                            Productor: <strong>{{ vendedor.nombre_completo_vendedor }}</strong>
+                            — {{ vendedor.sucursal.nombre }}
+                        </p>
                     </div>
                     <div>
                         <button type="button" onclick="window.print();" class="btn btn-success me-2 no-print">
@@ -72,9 +75,12 @@
         <div class="col-12">
             <div class="card">
                 <div class="card-header">
-                    <h3 class="card-title">
+                    <h3 class="card-title mb-0">
                         <i class="fas fa-list"></i>
                         Detalle de Operaciones
+                        <span class="d-block small fw-normal text-muted mt-1">
+                            Productor: <strong class="text-dark">{{ vendedor.nombre_completo_vendedor }}</strong>
+                        </span>
                     </h3>
                 </div>
                 <div class="card-body">

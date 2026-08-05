@@ -5,9 +5,15 @@
         <div class="col-12">
             <div class="card">
                 <div class="card-header">
-                    <h3 class="card-title">
+                    <h3 class="card-title mb-0">
                         <i class="fas fa-list"></i>
                         Todas las Comisiones
+                        {% if vendedor %}
+                        <span class="d-block small fw-normal text-muted mt-1">
+                            Productor: <strong class="text-dark">{{ vendedor.nombre_completo_vendedor }}</strong>
+                            {% if vendedor.sucursal %} · {{ vendedor.sucursal.nombre }}{% endif %}
+                        </span>
+                        {% endif %}
                     </h3>
                 </div>
                 <div class="card-body">
@@ -35,10 +41,14 @@
                                 <span class="small text-muted hist-com-count-filtrado ms-2"></span>
                             </div>
                         </div>
-                        <div class="d-none hist-com-print-meta mb-2">
-                            <strong>Comisiones — {{ vendedor.nombre_completo_vendedor }}</strong>
-                            <span class="hist-com-print-rango text-muted ms-2"></span>
-                            <div class="small">
+                        <div class="hist-com-print-meta print-only mb-3 pb-2 border-bottom">
+                            <div class="fs-5 fw-bold">Comisiones del productor</div>
+                            <div class="fs-4">{{ vendedor.nombre_completo_vendedor }}</div>
+                            {% if vendedor.sucursal %}
+                            <div class="text-muted">{{ vendedor.sucursal.nombre }}</div>
+                            {% endif %}
+                            <div class="hist-com-print-rango text-muted mt-1"></div>
+                            <div class="mt-1">
                                 Total: <strong class="hist-com-print-total"></strong>
                                 <span class="hist-com-print-count text-muted ms-1"></span>
                             </div>

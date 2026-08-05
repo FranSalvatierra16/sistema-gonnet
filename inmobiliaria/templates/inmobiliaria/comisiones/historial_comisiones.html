@@ -224,6 +224,10 @@
     display: none !important;
 }
 
+.print-only {
+    display: none !important;
+}
+
 @media print {
     .no-print,
     .no-print-controls,
@@ -236,7 +240,8 @@
     }
     body.printing-comisiones .cv-col-vales,
     body.printing-comisiones .info-box,
-    body.printing-comisiones .tab-pane:not(.show) {
+    body.printing-comisiones .tab-pane:not(.show),
+    body.printing-comisiones .page-header {
         display: none !important;
     }
     body.printing-comisiones .cv-col-comisiones > .row.mb-4,
@@ -249,6 +254,7 @@
     body.printing-comisiones .card:not(.cv-comisiones-print-target) {
         display: none !important;
     }
+    body.printing-comisiones .print-only,
     body.printing-comisiones .hist-com-print-meta {
         display: block !important;
     }
