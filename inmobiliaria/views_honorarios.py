@@ -497,6 +497,9 @@ def _filas_reversion_honorarios_liquidacion(liq, base):
     nota = 'Anulación operación'
 
     monto_inm = Decimal(str(liq.monto_inmobiliaria or 0))
+    res = getattr(liq, 'reserva', None)
+    if res is not None and getattr(res, 'liq_monto_inmobiliaria', None) is not None:
+        monto_inm = Decimal(str(res.liq_monto_inmobiliaria)).quantize(Decimal('0.01'))
     if monto_inm > Decimal('0.01'):
         filas.append({
             **base,
@@ -510,6 +513,11 @@ def _filas_reversion_honorarios_liquidacion(liq, base):
 
     f_entrada = _fecha_entrada_liquidacion(liq)
     monto_coch = Decimal(str(liq.monto_cochera or 0))
+    if res is not None and getattr(res, 'liq_monto_cochera', None) is not None:
+        monto_coch = (
+            Decimal(str(res.liq_monto_cochera or 0))
+            + Decimal(str(getattr(res, 'liq_monto_cochera_inquilino', None) or 0))
+        ).quantize(Decimal('0.01'))
     if monto_coch > Decimal('0.01'):
         filas.append({
             **base,
@@ -522,6 +530,8 @@ def _filas_reversion_honorarios_liquidacion(liq, base):
         })
 
     monto_fondo = Decimal(str(liq.monto_fondo_mantenimiento or 0))
+    if res is not None and getattr(res, 'liq_monto_fondo', None) is not None:
+        monto_fondo = Decimal(str(res.liq_monto_fondo or 0)).quantize(Decimal('0.01'))
     if monto_fondo > Decimal('0.01'):
         filas.append({
             **base,
@@ -630,6 +640,10 @@ def _filas_honorarios_desde_liquidaciones(liquidaciones):
 
         if _incluir_liquidacion_honorarios_positivos(liq):
             monto_inm = Decimal(str(liq.monto_inmobiliaria or 0))
+            # Preferir override de carátula si existe (corrige liquidaciones desfasadas).
+            res = getattr(liq, 'reserva', None)
+            if res is not None and getattr(res, 'liq_monto_inmobiliaria', None) is not None:
+                monto_inm = Decimal(str(res.liq_monto_inmobiliaria)).quantize(Decimal('0.01'))
             if monto_inm > Decimal('0.01'):
                 filas.append({
                     **base,
@@ -642,6 +656,10 @@ def _filas_honorarios_desde_liquidaciones(liquidaciones):
 
             f_entrada = _fecha_entrada_liquidacion(liq)
             monto_coch = Decimal(str(liq.monto_cochera or 0))
+            if res is not None and getattr(res, 'liq_monto_cochera', None) is not None:
+                monto_coch = Decimal(str(res.liq_monto_cochera or 0)).quantize(Decimal('0.01'))
+                coch_inq = Decimal(str(getattr(res, 'liq_monto_cochera_inquilino', None) or 0))
+                monto_coch = (monto_coch + coch_inq).quantize(Decimal('0.01'))
             if monto_coch > Decimal('0.01'):
                 filas.append({
                     **base,
@@ -653,6 +671,8 @@ def _filas_honorarios_desde_liquidaciones(liquidaciones):
                 })
 
             monto_fondo = Decimal(str(liq.monto_fondo_mantenimiento or 0))
+            if res is not None and getattr(res, 'liq_monto_fondo', None) is not None:
+                monto_fondo = Decimal(str(res.liq_monto_fondo or 0)).quantize(Decimal('0.01'))
             if monto_fondo > Decimal('0.01'):
                 filas.append({
                     **base,

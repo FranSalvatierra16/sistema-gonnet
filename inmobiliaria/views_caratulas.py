@@ -1322,6 +1322,42 @@ def _mapa_comisiones_db_caratula(*, reserva=None, contrato=None):
     return {(c.rol_comision, c.vendedor_id): c for c in qs.order_by('id')}
 
 
+def _sincronizar_montos_caratula_a_liquidaciones_reserva(
+    reserva,
+    *,
+    monto_propietario,
+    monto_inmobiliaria,
+    monto_cochera,
+    monto_fondo,
+    monto_total,
+):
+    """
+    Actualiza liquidaciones activas de la reserva con los montos del resumen de carátula.
+    Así Honorarios (que lee monto_inmobiliaria de la liquidación) queda alineado.
+    """
+    from inmobiliaria.liquidacion_operacion import liquidaciones_activas_reserva
+
+    campos = [
+        'monto_total_operacion',
+        'monto_propietario',
+        'monto_inmobiliaria',
+        'monto_cochera',
+        'monto_fondo_mantenimiento',
+    ]
+    for liq in liquidaciones_activas_reserva(reserva):
+        if (getattr(liq, 'estado', None) or '') == 'cancelada':
+            continue
+        liq.monto_total_operacion = monto_total
+        if monto_propietario is not None:
+            liq.monto_propietario = monto_propietario
+        if monto_inmobiliaria is not None:
+            liq.monto_inmobiliaria = monto_inmobiliaria
+        liq.monto_cochera = monto_cochera or Decimal('0')
+        liq.monto_fondo_mantenimiento = monto_fondo or Decimal('0')
+        liq._recalcular_monto_a_pagar_fields()
+        liq.save(update_fields=campos + ['monto_gastos', 'monto_a_pagar'])
+
+
 def _guardar_caratula_reserva(request, reserva):
     """Persiste montos, fechas y estado de una reserva desde la carátula."""
     from django.contrib import messages
@@ -1446,6 +1482,18 @@ def _guardar_caratula_reserva(request, reserva):
             reserva.liq_monto_cochera = coch_liq
             reserva.liq_monto_fondo = fondo_liq
             reserva.liq_monto_cochera_inquilino = coch_inq_liq
+
+            # Si ya hay liquidación, sincronizar montos de oficina/propietario
+            # (Honorarios lee LiquidacionPropietario.monto_inmobiliaria).
+            if tiene_liqs:
+                _sincronizar_montos_caratula_a_liquidaciones_reserva(
+                    reserva,
+                    monto_propietario=prop_liq,
+                    monto_inmobiliaria=inm_liq,
+                    monto_cochera=coch_liq,
+                    monto_fondo=fondo_liq,
+                    monto_total=total_op,
+                )
     except ValueError as exc:
         messages.error(request, str(exc))
         return False
