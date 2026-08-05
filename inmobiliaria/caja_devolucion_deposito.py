@@ -13,7 +13,7 @@ from inmobiliaria.decimal_utils import parse_decimal_monto
 from inmobiliaria.models.caja import MovimientoCaja, TipoMovimientoCajaEnum
 
 CONCEPTO_DEVOLUCION_DEPOSITO_ID = '140'
-CONCEPTOS_SENIA_OPERACION_RESERVA = frozenset({'1', '15', '50', '100', '103', '219'})
+CONCEPTOS_SENIA_OPERACION_RESERVA = frozenset({'1', '15', '48', '50', '52', '100', '103', '219', '270'})
 CONCEPTO_DEPOSITO_RESERVA_ID = '10'
 
 

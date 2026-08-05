@@ -2430,7 +2430,7 @@ logger = logging.getLogger(__name__)
 
 # IDs de concepto en |CONCEPTOS:…| que cuentan como seña / «saldo a ocupar» al finalizar o completar pago de operación.
 # 50 = refuerzo de seña, 100 = saldo locación (además de 1 alquiler, 15, 103, 219).
-CONCEPTOS_SENIA_OPERACION_RESERVA = frozenset({"1", "15", "50", "100", "103", "219"})
+CONCEPTOS_SENIA_OPERACION_RESERVA = frozenset({"1", "15", "48", "50", "52", "100", "103", "219", "270"})
 
 
 def _reserva_sin_pagar_para_busqueda(reservas_bloquean, reserva_ids_con_recibo=None):
@@ -8120,11 +8120,25 @@ def ver_recibo_movimiento(request, movimiento_id):
                 precio_total_mostrar = recibo_obj.precio_total_operacion
                 saldo_pendiente_mostrar = recibo_obj.saldo_pendiente
                 monto_este_pago_mostrar = recibo_obj.monto_este_pago
-                
-# print(f"🧾 DEBUG RECIBO - USANDO DATOS DEL RECIBO:")
-# print(f"   - precio_total_operacion: ${precio_total_mostrar}")
-# print(f"   - monto_este_pago: ${monto_este_pago_mostrar}")
-# print(f"   - saldo_pendiente: ${saldo_pendiente_mostrar}")
+                # Recibos viejos con concepto 48/etc. pudieron guardarse con seña en 0
+                # aunque el movimiento tenga el cobro: recalcular para mostrar.
+                if Decimal(str(monto_este_pago_mostrar or 0)) <= Decimal('0.01'):
+                    from inmobiliaria.caja_devolucion_deposito import monto_senia_en_movimiento
+
+                    senia_mov = monto_senia_en_movimiento(
+                        movimiento,
+                        reserva_id=reserva.id if reserva else None,
+                    )
+                    if senia_mov <= Decimal('0.01') and total_movimiento > Decimal('0.01'):
+                        senia_mov = total_movimiento
+                    if senia_mov > Decimal('0.01'):
+                        monto_este_pago_mostrar = senia_mov
+                        precio_ref = Decimal(str(precio_total_mostrar or reserva.precio_total or 0))
+                        pagado_antes = Decimal(str(recibo_obj.total_pagado_antes or 0))
+                        saldo_pendiente_mostrar = max(
+                            precio_ref - pagado_antes - senia_mov,
+                            Decimal('0'),
+                        )
             else:
                 numero_recibo_mostrar = f'R{reserva.id:06d}'
                 precio_total_mostrar = reserva.precio_total
