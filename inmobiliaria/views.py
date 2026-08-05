@@ -462,11 +462,13 @@ def historial_comisiones_vendedor(request, vendedor_id):
     total_vales_egreso_pendiente = Decimal('0')
     total_vales_ingreso_pendiente = Decimal('0')
     vales_resumen_count = 0
+    from inmobiliaria.models.vale import mapa_mes_imputacion_vales
+
+    mes_imputacion_vale = mapa_mes_imputacion_vales(vales)
     for vale in vales:
-        vf = vale.fecha
-        if not vf:
+        mk = mes_imputacion_vale.get(vale.pk)
+        if not mk:
             continue
-        mk = vf.strftime('%Y-%m')
         if mk in meses_pagados_keys:
             continue
         vales_resumen_count += 1
@@ -498,15 +500,20 @@ def historial_comisiones_vendedor(request, vendedor_id):
         comisiones_por_mes[mes_key]['total_comisiones'] += comision.monto_comision
         comisiones_por_mes[mes_key]['cantidad'] += 1
     
-    # Agregar vales por mes (egreso suma al “descuento”, ingreso lo resta)
+    # Agregar vales por mes imputado (pago sueldo MES mueve egresos del período al mes del sueldo)
     for vale in vales:
-        vf = vale.fecha
-        if not vf:
+        mes_key = mes_imputacion_vale.get(vale.pk)
+        if not mes_key:
             continue
-        mes_key = vf.strftime('%Y-%m')
         if mes_key not in comisiones_por_mes:
+            try:
+                anio_l, mes_l = mes_key.split('-', 1)
+                label_dt = datetime(int(anio_l), int(mes_l), 1)
+                mes_label = label_dt.strftime('%B %Y')
+            except (TypeError, ValueError):
+                mes_label = mes_key
             comisiones_por_mes[mes_key] = {
-                'mes': vf.strftime('%B %Y'),
+                'mes': mes_label,
                 'total_comisiones': Decimal('0'),
                 'total_vales': Decimal('0'),
                 'cantidad': 0

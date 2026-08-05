@@ -1,9 +1,128 @@
+import re
+from datetime import date
+from decimal import Decimal
+
 from django.db import models
 from django.db.models import Sum
 from django.utils import timezone
-from decimal import Decimal
+
 from .persona import Vendedor
 from .caja import MovimientoCaja, TipoMovimientoCajaEnum
+
+_MESES_ES_A_NUM = {
+    'enero': 1,
+    'febrero': 2,
+    'marzo': 3,
+    'abril': 4,
+    'mayo': 5,
+    'junio': 6,
+    'julio': 7,
+    'agosto': 8,
+    'septiembre': 9,
+    'setiembre': 9,
+    'octubre': 10,
+    'noviembre': 11,
+    'diciembre': 12,
+}
+
+# Ej: "INGRESO VALE P/ PAGO SUELDO JUNIO DE 2026"
+_RE_PAGO_SUELDO_MES = re.compile(
+    r'pago\s+sueldo\s+'
+    r'(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)'
+    r'(?:\s+de)?\s+(\d{4})',
+    re.IGNORECASE,
+)
+
+
+def parse_mes_pago_sueldo_desde_texto(texto):
+    """Devuelve 'YYYY-MM' si el texto menciona pago de sueldo de un mes, o None."""
+    if not texto:
+        return None
+    m = _RE_PAGO_SUELDO_MES.search(str(texto))
+    if not m:
+        return None
+    mes = _MESES_ES_A_NUM.get(m.group(1).lower())
+    if not mes:
+        return None
+    try:
+        anio = int(m.group(2))
+    except (TypeError, ValueError):
+        return None
+    return f'{anio:04d}-{mes:02d}'
+
+
+def _fecha_solo_dia(valor):
+    if valor is None:
+        return None
+    if isinstance(valor, date) and not hasattr(valor, 'hour'):
+        return valor
+    try:
+        return timezone.localtime(valor).date() if timezone.is_aware(valor) else valor.date()
+    except Exception:
+        try:
+            return valor.date()
+        except Exception:
+            return None
+
+
+def mapa_mes_imputacion_vales(vales):
+    """
+    Mes YYYY-MM al que imputar cada vale en el resumen vs comisiones.
+
+    Un ingreso de «pago sueldo MES AÑO» y los egresos desde el 1° de ese mes
+    hasta la fecha del ingreso se imputan a ese mes de sueldo (no al mes
+    calendario del movimiento). Así el descuento del recibo no deja el vale
+    viejo restando en el mes del pago.
+    """
+    vales_list = list(vales)
+    imputacion = {}
+    claimed = set()
+
+    ingresos_sueldo = []
+    for vale in vales_list:
+        if (getattr(vale, 'tipo_vale', None) or TipoMovimientoCajaEnum.EGRESO) != TipoMovimientoCajaEnum.INGRESO:
+            continue
+        texto = f'{vale.concepto or ""} {vale.observaciones or ""}'
+        mes_sueldo = parse_mes_pago_sueldo_desde_texto(texto)
+        if mes_sueldo and vale.fecha:
+            ingresos_sueldo.append((vale, mes_sueldo))
+
+    ingresos_sueldo.sort(key=lambda item: item[0].fecha or timezone.now())
+
+    for ingreso, mes_sueldo in ingresos_sueldo:
+        try:
+            anio_i, mes_i = mes_sueldo.split('-', 1)
+            inicio = date(int(anio_i), int(mes_i), 1)
+        except (TypeError, ValueError):
+            continue
+        fin = _fecha_solo_dia(ingreso.fecha)
+        if not fin:
+            continue
+
+        imputacion[ingreso.pk] = mes_sueldo
+        claimed.add(ingreso.pk)
+
+        for vale in vales_list:
+            if vale.pk in claimed:
+                continue
+            if (getattr(vale, 'tipo_vale', None) or TipoMovimientoCajaEnum.EGRESO) != TipoMovimientoCajaEnum.EGRESO:
+                continue
+            vd = _fecha_solo_dia(vale.fecha)
+            if vd is None:
+                continue
+            if inicio <= vd <= fin:
+                imputacion[vale.pk] = mes_sueldo
+                claimed.add(vale.pk)
+
+    for vale in vales_list:
+        if vale.pk in imputacion:
+            continue
+        vd = _fecha_solo_dia(vale.fecha)
+        if vd is None:
+            continue
+        imputacion[vale.pk] = vd.strftime('%Y-%m')
+
+    return imputacion
 
 
 class TipoBeneficiarioVale(models.TextChoices):
@@ -260,3 +379,7 @@ class ValeVendedor(models.Model):
             or Decimal('0')
         )
         return eg - ing
+
+    def mes_key_calendario(self):
+        vd = _fecha_solo_dia(self.fecha)
+        return vd.strftime('%Y-%m') if vd else None
