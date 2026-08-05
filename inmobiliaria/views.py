@@ -773,7 +773,59 @@ def resumen_comisiones_mensual(request, vendedor_id, anio=None, mes=None):
 
     return render(request, 'inmobiliaria/comisiones/resumen_mensual.html', context)
 
-def _build_vendedores_dashboard_data(sucursal):
+def _parse_fecha_filtro_dashboard(valor):
+    if not valor:
+        return None
+    try:
+        return datetime.strptime(str(valor)[:10], '%Y-%m-%d').date()
+    except (TypeError, ValueError):
+        return None
+
+
+def _rango_fechas_dashboard_request(request, default_mes_actual=True):
+    """
+    Lee fecha_desde / fecha_hasta / periodo del GET.
+    Por defecto (sin params): mes calendario actual, para no mostrar todo el acumulado.
+    periodo=todo → sin filtro de fechas (acumulado histórico).
+    """
+    from calendar import monthrange
+
+    periodo = (request.GET.get('periodo') or '').strip().lower()
+    raw_desde = (request.GET.get('fecha_desde') or '').strip()
+    raw_hasta = (request.GET.get('fecha_hasta') or '').strip()
+
+    if periodo in ('todo', 'all', 'acumulado'):
+        return None, None, True, '', ''
+
+    fd = _parse_fecha_filtro_dashboard(raw_desde)
+    fh = _parse_fecha_filtro_dashboard(raw_hasta)
+
+    sin_params = (
+        'fecha_desde' not in request.GET
+        and 'fecha_hasta' not in request.GET
+        and 'periodo' not in request.GET
+    )
+    if default_mes_actual and sin_params:
+        hoy = timezone.localdate()
+        fd = hoy.replace(day=1)
+        fh = hoy.replace(day=monthrange(hoy.year, hoy.month)[1])
+
+    fd_s = fd.isoformat() if fd else raw_desde
+    fh_s = fh.isoformat() if fh else raw_hasta
+    periodo_completo = fd is None and fh is None
+    return fd, fh, periodo_completo, fd_s, fh_s
+
+
+def _filtrar_qs_por_fecha_date(qs, field_name, fecha_desde=None, fecha_hasta=None):
+    """Aplica rango sobre un DateTimeField/DateField vía __date."""
+    if fecha_desde:
+        qs = qs.filter(**{f'{field_name}__date__gte': fecha_desde})
+    if fecha_hasta:
+        qs = qs.filter(**{f'{field_name}__date__lte': fecha_hasta})
+    return qs
+
+
+def _build_vendedores_dashboard_data(sucursal, fecha_desde=None, fecha_hasta=None):
     """Totales de comisiones y vales por productor activo de la sucursal."""
     from inmobiliaria.models.comision import (
         acreditar_comisiones_por_fecha_vencida,
@@ -782,7 +834,6 @@ def _build_vendedores_dashboard_data(sucursal):
     )
     from inmobiliaria.models.vale import TipoBeneficiarioVale
     from django.db.models import Q
-    from django.utils import timezone
 
     acreditar_comisiones_por_fecha_vencida(sucursal=sucursal)
     hoy = timezone.localdate()
@@ -794,11 +845,16 @@ def _build_vendedores_dashboard_data(sucursal):
 
     vendedores_data = []
     for vendedor in vendedores:
-        total_comisiones = (
+        comisiones_qs = (
             ComisionVendedor.objects.filter(vendedor=vendedor)
             .filter(q_comision_operacion_de_sucursal(sucursal))
             .que_suman()
-            .aggregate(total=models.Sum('monto_comision'))['total']
+        )
+        comisiones_qs = _filtrar_qs_por_fecha_date(
+            comisiones_qs, 'fecha_operacion', fecha_desde, fecha_hasta
+        )
+        total_comisiones = (
+            comisiones_qs.aggregate(total=models.Sum('monto_comision'))['total']
             or Decimal('0')
         )
         comisiones_pendientes = ComisionVendedor.objects.filter(
@@ -811,18 +867,23 @@ def _build_vendedores_dashboard_data(sucursal):
         ).filter(
             Q(fecha_operacion__isnull=True) | Q(fecha_operacion__date__gt=hoy)
         ).count()
-        total_vales = ValeVendedor.total_saldo_para_comisiones(vendedor)
+        vales_base = ValeVendedor.objects.filter(vendedor=vendedor)
+        vales_base = _filtrar_qs_por_fecha_date(
+            vales_base, 'fecha', fecha_desde, fecha_hasta
+        )
         total_vales_egreso = (
-            ValeVendedor.objects.filter(vendedor=vendedor, tipo_vale='EG')
-            .aggregate(t=models.Sum('monto'))['t']
+            vales_base.filter(tipo_vale='EG').aggregate(t=models.Sum('monto'))['t']
             or Decimal('0')
         )
         total_vales_ingreso = (
-            ValeVendedor.objects.filter(vendedor=vendedor, tipo_vale='IN')
-            .aggregate(t=models.Sum('monto'))['t']
+            vales_base.filter(tipo_vale='IN').aggregate(t=models.Sum('monto'))['t']
             or Decimal('0')
         )
+        total_vales = total_vales_egreso - total_vales_ingreso
         otorgados_qs = ValeVendedor.objects.filter(usuario_creador=vendedor)
+        otorgados_qs = _filtrar_qs_por_fecha_date(
+            otorgados_qs, 'fecha', fecha_desde, fecha_hasta
+        )
         total_otorgados_egreso = (
             otorgados_qs.filter(tipo_vale='EG').aggregate(t=models.Sum('monto'))['t']
             or Decimal('0')
@@ -854,12 +915,13 @@ def _build_vendedores_dashboard_data(sucursal):
     return vendedores, vendedores_data
 
 
-def _vales_sucursal_qs(sucursal):
-    return ValeVendedor.objects.filter(
+def _vales_sucursal_qs(sucursal, fecha_desde=None, fecha_hasta=None):
+    qs = ValeVendedor.objects.filter(
         models.Q(vendedor__sucursal=sucursal)
         | models.Q(usuario_creador__sucursal=sucursal)
         | models.Q(movimiento_caja__sucursal=sucursal)
     ).distinct()
+    return _filtrar_qs_por_fecha_date(qs, 'fecha', fecha_desde, fecha_hasta)
 
 
 @login_required
@@ -916,15 +978,26 @@ def dashboard_comisiones(request):
         q_comision_operacion_de_sucursal,
     )
 
-    vendedores, vendedores_data = _build_vendedores_dashboard_data(sucursal)
+    fecha_desde, fecha_hasta, periodo_completo, fecha_desde_s, fecha_hasta_s = (
+        _rango_fechas_dashboard_request(request)
+    )
+    vendedores, vendedores_data = _build_vendedores_dashboard_data(
+        sucursal, fecha_desde=fecha_desde, fecha_hasta=fecha_hasta
+    )
 
     total_comisiones_sucursal = sum(
         (d['total_comisiones'] for d in vendedores_data), start=Decimal('0')
     )
     total_neto_sucursal = sum((d['neto'] for d in vendedores_data), start=Decimal('0'))
-    total_ops_comisiones = ComisionVendedor.objects.filter(
-        vendedor__in=vendedores
-    ).filter(q_comision_operacion_de_sucursal(sucursal)).que_suman().count()
+    ops_qs = (
+        ComisionVendedor.objects.filter(vendedor__in=vendedores)
+        .filter(q_comision_operacion_de_sucursal(sucursal))
+        .que_suman()
+    )
+    ops_qs = _filtrar_qs_por_fecha_date(
+        ops_qs, 'fecha_operacion', fecha_desde, fecha_hasta
+    )
+    total_ops_comisiones = ops_qs.count()
 
     ahora = timezone.now()
     ay, am = ahora.year, ahora.month
@@ -959,6 +1032,9 @@ def dashboard_comisiones(request):
         'total_ops_comisiones': total_ops_comisiones,
         'comisiones_mes_sucursal': comisiones_mes_sucursal,
         'cant_ops_mes': cant_ops_mes,
+        'fecha_desde': fecha_desde_s,
+        'fecha_hasta': fecha_hasta_s,
+        'periodo_completo': periodo_completo,
     }
     return render(request, 'inmobiliaria/comisiones/dashboard_comisiones.html', context)
 
@@ -977,9 +1053,16 @@ def dashboard_vales(request):
 
     from inmobiliaria.models.vale import TipoBeneficiarioVale
 
-    vendedores, vendedores_data = _build_vendedores_dashboard_data(sucursal)
+    fecha_desde, fecha_hasta, periodo_completo, fecha_desde_s, fecha_hasta_s = (
+        _rango_fechas_dashboard_request(request)
+    )
+    vendedores, vendedores_data = _build_vendedores_dashboard_data(
+        sucursal, fecha_desde=fecha_desde, fecha_hasta=fecha_hasta
+    )
 
-    vales_sucursal_qs = _vales_sucursal_qs(sucursal)
+    vales_sucursal_qs = _vales_sucursal_qs(
+        sucursal, fecha_desde=fecha_desde, fecha_hasta=fecha_hasta
+    )
     total_mov_vales = vales_sucursal_qs.count()
     total_vales_egreso_sucursal = (
         vales_sucursal_qs.filter(tipo_vale='EG').aggregate(t=models.Sum('monto'))['t']
@@ -1002,6 +1085,9 @@ def dashboard_vales(request):
         .select_related('movimiento_caja', 'movimiento_caja__caja', 'usuario_creador')
         .distinct()
         .order_by('-fecha')
+    )
+    vales_otras_personas_qs = _filtrar_qs_por_fecha_date(
+        vales_otras_personas_qs, 'fecha', fecha_desde, fecha_hasta
     )
     try:
         total_otros_egreso = (
@@ -1038,6 +1124,9 @@ def dashboard_vales(request):
         'total_otros_ingreso': total_otros_ingreso,
         'total_otros_saldo': total_otros_egreso - total_otros_ingreso,
         'puede_anular_vale': usuario_puede_anular_vale(request.user),
+        'fecha_desde': fecha_desde_s,
+        'fecha_hasta': fecha_hasta_s,
+        'periodo_completo': periodo_completo,
     }
     return render(request, 'inmobiliaria/comisiones/dashboard_vales.html', context)
 
