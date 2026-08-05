@@ -1100,7 +1100,7 @@ def _actualizar_fecha_operacion_comision_caratula(comision, fecha):
     return False
 
 
-def _procesar_guardar_fechas_comision_caratula(request, reserva=None, contrato=None):
+def _procesar_guardar_fechas_comision_caratula(request, reserva=None, contrato=None, *, silenciar_sin_cambios=False):
     from datetime import datetime
 
     from django.contrib import messages
@@ -1235,7 +1235,7 @@ def _procesar_guardar_fechas_comision_caratula(request, reserva=None, contrato=N
             request,
             f'Fechas actualizadas ({actualizadas} comisión{"es" if actualizadas != 1 else ""}).',
         )
-    else:
+    elif not silenciar_sin_cambios:
         messages.info(request, 'No hubo cambios en las fechas.')
     return True
 
@@ -1504,6 +1504,16 @@ def _guardar_caratula_reserva(request, reserva):
             porcentaje_comision=Decimal('0'),
             monto_comision=comision_locatario.quantize(Decimal('0.01')),
             concepto_operacion=f'Operación {reserva.id}',
+        )
+
+    # Guardar montos / Guardar cambios también persisten fechas de acreditación
+    # si vinieron en el mismo POST (inputs con form=form-editar-caratula-reserva).
+    if any(
+        k.startswith('fecha_comision_') or k.startswith('fecha_devolucion_')
+        for k in request.POST
+    ):
+        _procesar_guardar_fechas_comision_caratula(
+            request, reserva=reserva, silenciar_sin_cambios=True
         )
 
     messages.success(request, 'Carátula actualizada correctamente.')

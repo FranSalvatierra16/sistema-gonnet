@@ -515,10 +515,11 @@ def _crear_linea_operacion_por_dia(
     if existente:
         if _comision_acreditada(existente):
             updates_acred = []
-            fecha_op = _fecha_operacion_comision_reserva(reserva, movimiento_caja)
-            fo = existente.fecha_operacion
-            if fo is None or timezone.localtime(fo).date() != timezone.localtime(fecha_op).date():
-                existente.fecha_operacion = fecha_op
+            # No pisar fecha_operacion si ya tiene valor (editable en carátula).
+            if existente.fecha_operacion is None:
+                existente.fecha_operacion = _fecha_operacion_comision_reserva(
+                    reserva, movimiento_caja
+                )
                 updates_acred.append('fecha_operacion')
             if movimiento_caja and not existente.movimiento_caja_id:
                 existente.movimiento_caja = movimiento_caja
@@ -529,10 +530,11 @@ def _crear_linea_operacion_por_dia(
                 creadas.append(existente)
             return
         updates = []
-        fecha_op = _fecha_operacion_comision_reserva(reserva, movimiento_caja)
-        fo = existente.fecha_operacion
-        if fo is None or timezone.localtime(fo).date() != timezone.localtime(fecha_op).date():
-            existente.fecha_operacion = fecha_op
+        # No pisar fecha_operacion si ya tiene valor (editable en carátula).
+        if existente.fecha_operacion is None:
+            existente.fecha_operacion = _fecha_operacion_comision_reserva(
+                reserva, movimiento_caja
+            )
             updates.append('fecha_operacion')
         if existente.monto_total_operacion != base:
             existente.monto_total_operacion = base
@@ -2305,19 +2307,12 @@ class ComisionVendedor(models.Model):
             if movimiento_caja and not comision_existente.movimiento_caja_id:
                 comision_existente.movimiento_caja = movimiento_caja
                 updates.append('movimiento_caja')
-            fecha_op = _fecha_operacion_comision_reserva(reserva, movimiento_caja)
-            if comision_existente.fecha_operacion != fecha_op:
-                # Mantener fecha = día de la operación aunque ya esté acreditada.
-                fo = comision_existente.fecha_operacion
-                misma_fecha = (
-                    fo
-                    and timezone.localtime(fo).date() == timezone.localtime(fecha_op).date()
-                    if timezone.is_aware(fo) and timezone.is_aware(fecha_op)
-                    else fo == fecha_op
+            # No pisar fecha_operacion si ya tiene valor (editable en carátula).
+            if comision_existente.fecha_operacion is None:
+                comision_existente.fecha_operacion = _fecha_operacion_comision_reserva(
+                    reserva, movimiento_caja
                 )
-                if not misma_fecha:
-                    comision_existente.fecha_operacion = fecha_op
-                    updates.append('fecha_operacion')
+                updates.append('fecha_operacion')
             # Confirmadas/pagadas: no tocar montos ni % (el piso $10.000 ya puede estar aplicado).
             if _comision_acreditada(comision_existente):
                 if updates:
