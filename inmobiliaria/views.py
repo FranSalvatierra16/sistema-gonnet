@@ -28875,7 +28875,6 @@ def _vincular_linea_gasto_pendiente_a_liquidacion(liquidacion, linea_id, sucursa
         return False, str(exc)
 
 
-@login_required
 def _liquidacion_permite_editar_movimientos(liquidacion) -> bool:
     """
     Se pueden agregar / incluir / quitar movimientos del propietario
@@ -28886,6 +28885,7 @@ def _liquidacion_permite_editar_movimientos(liquidacion) -> bool:
     return (getattr(liquidacion, 'estado', None) or '') in ('pendiente', 'cerrada')
 
 
+@login_required
 def detalle_liquidacion(request, liquidacion_id):
     """
     Vista para ver el detalle de una liquidación y gestionar gastos
