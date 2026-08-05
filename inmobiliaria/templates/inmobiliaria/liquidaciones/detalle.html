@@ -297,7 +297,7 @@
                     <div class="card shadow">
                         <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
                             <h5 class="mb-0">Movimientos del propietario</h5>
-                            {% if liquidacion.estado == 'pendiente' %}
+                            {% if liq_editable %}
                             <button type="button" class="btn btn-sm btn-light" data-bs-toggle="modal" data-bs-target="#modalAgregarGasto">
                                 <i class="fas fa-plus me-2"></i>Agregar Movimiento
                             </button>
@@ -342,7 +342,7 @@
                                                 {% endif %}
                                             </td>
                                             <td>
-                                                {% if liquidacion.estado == 'pendiente' %}
+                                                {% if liq_editable %}
                                                 <div class="d-flex flex-wrap gap-1">
                                                     {% if not gasto.aceptado %}
                                                     <button type="button" class="btn btn-sm btn-success aceptar-gasto" data-gasto-id="{{ gasto.id }}">
@@ -367,8 +367,10 @@
                             <div class="alert alert-info">
                                 <i class="fas fa-info-circle me-2"></i>
                                 No hay movimientos registrados para esta liquidación.
-                                {% if liquidacion.estado == 'pendiente' and gastos_pendientes_disponibles %}
-                                <span class="d-block mt-2">Podés incluir movimientos pendientes de caja o manuales desde la sección <strong>Movimientos pendientes por incluir</strong> más abajo, o cargar uno nuevo con <strong>Agregar Movimiento</strong>.</span>
+                                {% if liq_editable and gastos_pendientes_disponibles %}
+                                <span class="d-block mt-2">Hay gastos del departamento pendientes más abajo: usá <strong>Incluir en esta liquidación</strong>, o cargá uno nuevo con <strong>Agregar Movimiento</strong>.</span>
+                                {% elif liq_editable %}
+                                <span class="d-block mt-2">Si hay un gasto del departamento en caja (EDEA, servicios, etc.), va a aparecer abajo para incluirlo. También podés cargar uno nuevo con <strong>Agregar Movimiento</strong>.</span>
                                 {% endif %}
                             </div>
                             {% endif %}
@@ -377,12 +379,12 @@
                 </div>
             </div>
 
-            {% if liquidacion.estado == 'pendiente' and gastos_pendientes_disponibles %}
+            {% if liq_editable and gastos_pendientes_disponibles %}
             <div class="row mb-4">
                 <div class="col-12">
                     <div class="card shadow border-warning">
                         <div class="card-header bg-warning text-dark d-flex flex-wrap justify-content-between align-items-center gap-2">
-                            <h5 class="mb-0"><i class="fas fa-clock me-2"></i>Movimientos pendientes por incluir</h5>
+                            <h5 class="mb-0"><i class="fas fa-clock me-2"></i>Gastos del departamento por incluir</h5>
                             {% if egresos_caja_pendientes_count %}
                             <button type="button" class="btn btn-sm btn-dark" id="btnIncluirTodosEgresosCaja">
                                 <i class="fas fa-plus-circle me-1"></i>Incluir todos los egresos de caja ({{ egresos_caja_pendientes_count }})

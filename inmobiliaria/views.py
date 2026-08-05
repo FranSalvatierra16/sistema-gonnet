@@ -28876,6 +28876,16 @@ def _vincular_linea_gasto_pendiente_a_liquidacion(liquidacion, linea_id, sucursa
 
 
 @login_required
+def _liquidacion_permite_editar_movimientos(liquidacion) -> bool:
+    """
+    Se pueden agregar / incluir / quitar movimientos del propietario
+    mientras la liquidación no esté pagada ni cancelada (pendiente o cerrada).
+    Así un gasto del departamento puede incorporarse incluso después de cerrar,
+    antes de pagar.
+    """
+    return (getattr(liquidacion, 'estado', None) or '') in ('pendiente', 'cerrada')
+
+
 def detalle_liquidacion(request, liquidacion_id):
     """
     Vista para ver el detalle de una liquidación y gestionar gastos
@@ -28919,9 +28929,11 @@ def detalle_liquidacion(request, liquidacion_id):
                 'inmobiliaria:crear_liquidacion_reserva', args=[liquidacion.reserva_id]
             )
 
-    # Gastos pendientes livianos (sin escanear todas las reservas/movimientos de la propiedad).
+    liq_editable = _liquidacion_permite_editar_movimientos(liquidacion)
+
+    # Gastos del departamento aún no incluidos (caja / manuales / saldo en contra).
     gastos_pendientes_disponibles = []
-    if liquidacion.estado == 'pendiente' and liquidacion.propiedad_id:
+    if liq_editable and liquidacion.propiedad_id:
         try:
             gastos_pendientes_disponibles = _gastos_pendientes_livianos_liquidacion(
                 liquidacion.propiedad, liquidacion.sucursal
@@ -28957,7 +28969,7 @@ def detalle_liquidacion(request, liquidacion_id):
         'puede_eliminar_liquidacion': usuario_es_nivel_administracion(request.user),
         'gastos_pendientes_disponibles': gastos_pendientes_disponibles,
         'egresos_caja_pendientes_count': egresos_caja_pendientes_count,
-        'liq_editable': liquidacion.estado == 'pendiente',
+        'liq_editable': liq_editable,
         'caratulas_pendientes_confirmacion': caratulas_pendientes,
         **_context_liquidacion_cobranzas(liquidacion, request),
     }
@@ -29099,6 +29111,11 @@ def agregar_gasto(request, liquidacion_id):
         id=liquidacion_id,
         sucursal=request.user.sucursal
     )
+    if not _liquidacion_permite_editar_movimientos(liquidacion):
+        return JsonResponse({
+            'success': False,
+            'error': 'Solo se pueden agregar movimientos mientras la liquidación está pendiente o cerrada (antes de pagar).',
+        })
 
     try:
         concepto, descripcion, err_con = _concepto_gasto_desde_post(request.POST, request.user.sucursal)
@@ -29234,8 +29251,12 @@ def eliminar_gasto_pendiente_liquidacion(request, liquidacion_id):
         LiquidacionPropietario,
         id=liquidacion_id,
         sucursal=request.user.sucursal,
-        estado='pendiente',
     )
+    if not _liquidacion_permite_editar_movimientos(liquidacion):
+        return JsonResponse({
+            'success': False,
+            'error': 'Solo se pueden gestionar pendientes mientras la liquidación está pendiente o cerrada.',
+        })
     linea_id = (request.POST.get('linea_id') or '').strip()
     ok, err = _eliminar_linea_gasto_pendiente(
         liquidacion.propiedad,
@@ -29272,13 +29293,17 @@ def eliminar_gasto_pendiente(request):
 @login_required
 @require_POST
 def vincular_gasto_pendiente_liquidacion(request, liquidacion_id):
-    """Asocia a una liquidación pendiente un gasto manual pendiente o un egreso de caja aún no liquidado."""
+    """Asocia a una liquidación un gasto manual pendiente o un egreso de caja aún no liquidado."""
     liquidacion = get_object_or_404(
         LiquidacionPropietario,
         id=liquidacion_id,
         sucursal=request.user.sucursal,
-        estado='pendiente',
     )
+    if not _liquidacion_permite_editar_movimientos(liquidacion):
+        return JsonResponse({
+            'success': False,
+            'error': 'Solo se pueden incluir gastos mientras la liquidación está pendiente o cerrada (antes de pagar).',
+        })
     linea_id = (request.POST.get('linea_id') or '').strip()
     ok, err = _vincular_linea_gasto_pendiente_a_liquidacion(liquidacion, linea_id, request.user.sucursal)
     if ok:
@@ -29304,8 +29329,12 @@ def vincular_todos_egresos_caja_pendientes_liquidacion(request, liquidacion_id):
         LiquidacionPropietario.objects.select_related('propiedad', 'propietario'),
         id=liquidacion_id,
         sucursal=request.user.sucursal,
-        estado='pendiente',
     )
+    if not _liquidacion_permite_editar_movimientos(liquidacion):
+        return JsonResponse({
+            'success': False,
+            'error': 'Solo se pueden incluir egresos mientras la liquidación está pendiente o cerrada (antes de pagar).',
+        })
     propiedad = liquidacion.propiedad
     if not propiedad:
         return JsonResponse({'success': False, 'error': 'La liquidación no tiene propiedad.'})
@@ -29537,7 +29566,7 @@ def eliminar_alquiler_liquidacion(request, liquidacion_id):
 @transaction.atomic
 def eliminar_gasto_liquidacion(request, gasto_id):
     """
-    Elimina un gasto asociado a una liquidación en estado pendiente y recalcula el monto a pagar.
+    Elimina un gasto asociado a una liquidación pendiente/cerrada y recalcula el monto a pagar.
     """
     gasto = get_object_or_404(
         GastoPropietario.objects.select_related('liquidacion'),
@@ -29550,11 +29579,11 @@ def eliminar_gasto_liquidacion(request, gasto_id):
             {'success': False, 'error': 'Este gasto no está asociado a una liquidación.'},
             status=400,
         )
-    if liquidacion.estado != 'pendiente':
+    if not _liquidacion_permite_editar_movimientos(liquidacion):
         return JsonResponse(
             {
                 'success': False,
-                'error': 'Solo se pueden eliminar gastos mientras la liquidación está pendiente.',
+                'error': 'Solo se pueden eliminar gastos mientras la liquidación está pendiente o cerrada (antes de pagar).',
             },
             status=400,
         )
