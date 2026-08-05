@@ -286,12 +286,23 @@ def _pct_operacion_dia_o_fallback_despues_fichaje(vendedor, hubo_regla_fichaje=F
 
 
 def _cancelar_o_borrar_comisiones_qs(qs):
-    """Pendientes se borran; acreditadas/pagadas se cancelan (historial)."""
+    """Pendientes se borran; acreditadas/pagadas se cancelan (historial).
+
+    No cancela líneas que ya tienen devolución por anulación: esas deben seguir
+    como confirmada/pagada para que el mes del cobro no pierda el crédito
+    (el descuento vive en la línea de reversión).
+    """
     for c in list(qs):
         if getattr(c, 'estado', None) == 'pendiente':
             c.delete()
-        else:
-            ComisionVendedor.objects.filter(pk=c.pk).update(estado='cancelada')
+            continue
+        marca = _marca_observacion_reversion_comision(c.pk)
+        if ComisionVendedor.objects.filter(
+            rol_comision=ROL_COMISION_REVERSION,
+            observaciones=marca,
+        ).exclude(estado='cancelada').exists():
+            continue
+        ComisionVendedor.objects.filter(pk=c.pk).update(estado='cancelada')
 
 
 def _monto_base_fichaje_reserva(reserva, honorarios_hint=None):
@@ -1811,8 +1822,14 @@ class ComisionVendedorQuerySet(models.QuerySet):
         Las confirmadas/pagadas siguen sumando aunque la reserva se haya anulado después,
         para no alterar el mes en que se acreditaron; el descuento va en la línea de
         reversión fechada el día de la anulación.
+
+        También suman las líneas en estado cancelada que tienen devolución asociada:
+        a veces un recálculo marca cancelada la original aunque ya exista la reversión;
+        si no las contáramos, el mes del descuento quedaría con el negativo huérfano
+        (p. ej. +38.000 reales − 36.000 de una anulación = 2.000 en lugar de 38.000).
         """
-        from django.db.models import Q
+        from django.db.models import CharField, Exists, OuterRef, Q, Value
+        from django.db.models.functions import Cast, Concat
 
         operaciones_vigentes = (
             _filtro_caratula_confirmada_comision()
@@ -1830,11 +1847,27 @@ class ComisionVendedorQuerySet(models.QuerySet):
                 | Q(contrato__estado='rescindido')
             )
         )
-        return self.filter(estado__in=('confirmada', 'pagada')).filter(
+        tuvo_devolucion = Exists(
+            self.model.objects.filter(
+                rol_comision=ROL_COMISION_REVERSION,
+                observaciones=Concat(
+                    Value('reversion_comision_id='),
+                    Cast(OuterRef('pk'), CharField()),
+                ),
+            )
+        )
+        creditadas = Q(estado__in=('confirmada', 'pagada')) & (
             Q(rol_comision=ROL_COMISION_REVERSION)
             | operaciones_vigentes
             | historicas_acreditadas
         )
+        # Original cancelada con su línea de devolución: sigue contando el crédito del mes.
+        originales_con_devolucion = (
+            Q(estado='cancelada')
+            & ~Q(rol_comision=ROL_COMISION_REVERSION)
+            & tuvo_devolucion
+        )
+        return self.filter(creditadas | originales_con_devolucion)
 
     def visibles_en_historial(self):
         """Historial: acreditaciones, devoluciones y créditos históricos tras anulación."""
