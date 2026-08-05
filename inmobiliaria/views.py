@@ -27108,17 +27108,8 @@ def _egreso_no_es_gasto_descontable_liquidacion(movimiento) -> bool:
         tc = 'RC'
     if tc == 'GS':
         return False
-    if tc == 'LQ':
+    if _egreso_es_pago_liquidacion_propietario(movimiento):
         return True
-    texto = (getattr(movimiento, 'concepto', None) or '').lower()
-    if 'liquidación propietario' in texto or 'liquidacion propietario' in texto:
-        return True
-    try:
-        det = (movimiento.listado_detalle_l1 or '').lower()
-        if 'pago liquidacion' in det or 'pago liquidación' in det:
-            return True
-    except Exception:
-        pass
     if _movimiento_patron_cobro_conceptos_numerados(movimiento):
         return True
     return False
@@ -27144,19 +27135,30 @@ def _monto_descuento_propietario_egreso_caja(movimiento) -> Decimal:
 
 
 def _egreso_es_pago_liquidacion_propietario(movimiento) -> bool:
-    """True si el egreso es el pago de una liquidación (no un gasto a descontar)."""
+    """
+    True si el egreso es el pago de una liquidación (no un gasto a descontar).
+
+    Solo los pagos reales del sistema:
+    - comprobante LQ
+    - concepto generado al pagar («Liquidación Propietario …»)
+    - movimiento ya vinculado como pago de una LiquidacionPropietario
+
+    No excluir egresos de caja cuyo concepto de catálogo diga «Pago Liquidacion»
+    (p. ej. RC a descontar del propietario): esos son gastos del departamento.
+    """
     tc = (getattr(movimiento, 'tipo_comprobante', None) or '').strip().upper()
     if tc == 'LQ':
         return True
     texto = (getattr(movimiento, 'concepto', None) or '').lower()
     if 'liquidación propietario' in texto or 'liquidacion propietario' in texto:
         return True
-    try:
-        det = (movimiento.listado_detalle_l1 or '').lower()
-        if 'pago liquidacion' in det or 'pago liquidación' in det:
-            return True
-    except Exception:
-        pass
+    mid = getattr(movimiento, 'id', None)
+    if mid:
+        try:
+            if LiquidacionPropietario.objects.filter(movimiento_caja_id=mid).exists():
+                return True
+        except Exception:
+            pass
     return False
 
 
