@@ -23,51 +23,6 @@
         </div>
     </div>
 
-    <div class="card mb-3 border shadow-sm">
-        <div class="card-body py-2 px-3">
-            <form method="get" class="row g-2 align-items-end">
-                <div class="col-auto">
-                    <label class="form-label small mb-0" for="fecha_desde">Desde</label>
-                    <input type="date" class="form-control form-control-sm" id="fecha_desde"
-                           name="fecha_desde" value="{{ fecha_desde }}">
-                </div>
-                <div class="col-auto">
-                    <label class="form-label small mb-0" for="fecha_hasta">Hasta</label>
-                    <input type="date" class="form-control form-control-sm" id="fecha_hasta"
-                           name="fecha_hasta" value="{{ fecha_hasta }}">
-                </div>
-                <div class="col-auto">
-                    <button type="submit" class="btn btn-sm btn-primary">
-                        <i class="fas fa-filter me-1"></i>Filtrar
-                    </button>
-                </div>
-                <div class="col-auto">
-                    {% if periodo_completo %}
-                    <a href="{% url 'inmobiliaria:dashboard_vales' %}" class="btn btn-sm btn-outline-secondary">
-                        Mes actual
-                    </a>
-                    {% else %}
-                    <a href="{% url 'inmobiliaria:dashboard_vales' %}?periodo=todo" class="btn btn-sm btn-outline-secondary">
-                        Ver acumulado
-                    </a>
-                    {% endif %}
-                </div>
-                <div class="col-auto ms-md-auto">
-                    <span class="small text-muted">
-                        {% if periodo_completo %}
-                        Mostrando <strong>todo el historial</strong>
-                        {% else %}
-                        Período:
-                        {% if fecha_desde %}{{ fecha_desde }}{% else %}…{% endif %}
-                        →
-                        {% if fecha_hasta %}{{ fecha_hasta }}{% else %}…{% endif %}
-                        {% endif %}
-                    </span>
-                </div>
-            </form>
-        </div>
-    </div>
-
     {% include "inmobiliaria/comisiones/_dashboard_resumen_vales.html" %}
     {% include "inmobiliaria/comisiones/_dashboard_card_vales.html" %}
     <div class="mt-4">

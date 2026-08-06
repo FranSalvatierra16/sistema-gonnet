@@ -1060,16 +1060,10 @@ def dashboard_vales(request):
 
     from inmobiliaria.models.vale import TipoBeneficiarioVale
 
-    fecha_desde, fecha_hasta, periodo_completo, fecha_desde_s, fecha_hasta_s = (
-        _rango_fechas_dashboard_request(request)
-    )
-    vendedores, vendedores_data = _build_vendedores_dashboard_data(
-        sucursal, fecha_desde=fecha_desde, fecha_hasta=fecha_hasta
-    )
+    # Vales: siempre acumulado histórico (sin filtro de fechas).
+    vendedores, vendedores_data = _build_vendedores_dashboard_data(sucursal)
 
-    vales_sucursal_qs = _vales_sucursal_qs(
-        sucursal, fecha_desde=fecha_desde, fecha_hasta=fecha_hasta
-    )
+    vales_sucursal_qs = _vales_sucursal_qs(sucursal)
     total_mov_vales = vales_sucursal_qs.count()
     total_vales_egreso_sucursal = (
         vales_sucursal_qs.filter(tipo_vale='EG').aggregate(t=models.Sum('monto'))['t']
@@ -1092,9 +1086,6 @@ def dashboard_vales(request):
         .select_related('movimiento_caja', 'movimiento_caja__caja', 'usuario_creador')
         .distinct()
         .order_by('-fecha')
-    )
-    vales_otras_personas_qs = _filtrar_qs_por_fecha_date(
-        vales_otras_personas_qs, 'fecha', fecha_desde, fecha_hasta
     )
     try:
         total_otros_egreso = (
@@ -1131,9 +1122,7 @@ def dashboard_vales(request):
         'total_otros_ingreso': total_otros_ingreso,
         'total_otros_saldo': total_otros_egreso - total_otros_ingreso,
         'puede_anular_vale': usuario_puede_anular_vale(request.user),
-        'fecha_desde': fecha_desde_s,
-        'fecha_hasta': fecha_hasta_s,
-        'periodo_completo': periodo_completo,
+        'periodo_completo': True,
     }
     return render(request, 'inmobiliaria/comisiones/dashboard_vales.html', context)
 

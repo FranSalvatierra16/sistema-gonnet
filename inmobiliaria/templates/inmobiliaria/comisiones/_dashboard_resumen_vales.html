@@ -28,9 +28,7 @@
                 <i class="fas fa-balance-scale"></i>
             </div>
             <div class="info-box-content">
-                <span class="info-box-text d-block text-muted">
-                    {% if periodo_completo %}Saldo acumulado (EG − IN){% else %}Saldo del período (EG − IN){% endif %}
-                </span>
+                <span class="info-box-text d-block text-muted">Saldo acumulado (EG − IN)</span>
                 <span class="info-box-number">${{ total_saldo_vales_sucursal|format_price }}</span>
                 <small class="text-muted">{{ total_mov_vales }} movimientos</small>
             </div>
