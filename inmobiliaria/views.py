@@ -1097,13 +1097,13 @@ def dashboard_vales(request):
             or Decimal('0')
         )
         cant_vales_otros = vales_otras_personas_qs.count()
-        vales_otras_personas = list(vales_otras_personas_qs[:200])
+        personas_otras_data = _agrupar_vales_otras_personas(vales_otras_personas_qs)
     except (ProgrammingError, OperationalError):
         logger.exception('dashboard_vales: consulta vales otras personas (¿migración 0126?)')
         total_otros_egreso = Decimal('0')
         total_otros_ingreso = Decimal('0')
         cant_vales_otros = 0
-        vales_otras_personas = []
+        personas_otras_data = []
         messages.warning(
             request,
             'No se pudo cargar el listado de vales a otras personas. '
@@ -1116,7 +1116,7 @@ def dashboard_vales(request):
         'total_vales_ingreso_sucursal': total_vales_ingreso_sucursal,
         'total_saldo_vales_sucursal': total_saldo_vales_sucursal,
         'total_mov_vales': total_mov_vales,
-        'vales_otras_personas': vales_otras_personas,
+        'personas_otras_data': personas_otras_data,
         'cant_vales_otros': cant_vales_otros,
         'total_otros_egreso': total_otros_egreso,
         'total_otros_ingreso': total_otros_ingreso,
@@ -1125,6 +1125,156 @@ def dashboard_vales(request):
         'periodo_completo': True,
     }
     return render(request, 'inmobiliaria/comisiones/dashboard_vales.html', context)
+
+
+def _clave_beneficiario_otro(vale):
+    """Clave normalizada para agrupar vales de la misma persona (no productor)."""
+    return (
+        (getattr(vale, 'beneficiario_apellido', None) or '').strip().casefold(),
+        (getattr(vale, 'beneficiario_nombre', None) or '').strip().casefold(),
+        (getattr(vale, 'beneficiario_dni', None) or '').strip().casefold(),
+    )
+
+
+def _agrupar_vales_otras_personas(vales_qs):
+    """Resumen por persona (como el listado de productores)."""
+    grupos = {}
+    for vale in vales_qs.iterator(chunk_size=500):
+        clave = _clave_beneficiario_otro(vale)
+        if clave not in grupos:
+            grupos[clave] = {
+                'apellido': (vale.beneficiario_apellido or '').strip(),
+                'nombre': (vale.beneficiario_nombre or '').strip(),
+                'dni': (vale.beneficiario_dni or '').strip(),
+                'label': vale.nombre_beneficiario(),
+                'total_egreso': Decimal('0'),
+                'total_ingreso': Decimal('0'),
+                'cant': 0,
+            }
+        g = grupos[clave]
+        g['cant'] += 1
+        if (vale.tipo_vale or 'EG') == 'EG':
+            g['total_egreso'] += Decimal(str(vale.monto or 0))
+        else:
+            g['total_ingreso'] += Decimal(str(vale.monto or 0))
+    data = []
+    for g in grupos.values():
+        g['saldo'] = g['total_egreso'] - g['total_ingreso']
+        data.append(g)
+    data.sort(key=lambda x: ((x['apellido'] or x['nombre'] or '').casefold(), x['nombre'].casefold()))
+    return data
+
+
+@login_required
+def lista_vales_otra_persona(request):
+    """Historial individual de vales de una persona que no es productor."""
+    if not usuario_es_nivel_administracion(request.user):
+        messages.error(request, 'No tienes permisos para acceder a esta sección.')
+        return redirect('inmobiliaria:dashboard')
+
+    sucursal = request.user.sucursal
+    if not sucursal:
+        messages.error(request, 'Tu usuario no tiene sucursal asignada.')
+        return redirect('inmobiliaria:dashboard')
+
+    from inmobiliaria.models.vale import TipoBeneficiarioVale
+    from urllib.parse import urlencode
+    from django.db.models.functions import Lower, Trim, Coalesce
+    from django.db.models import Value, CharField
+
+    apellido = (request.GET.get('apellido') or '').strip()
+    nombre = (request.GET.get('nombre') or '').strip()
+    dni = (request.GET.get('dni') or '').strip()
+    if not apellido and not nombre and not dni:
+        messages.error(request, 'Indicá la persona (nombre, apellido o DNI).')
+        return redirect('inmobiliaria:dashboard_vales')
+
+    def _parse_fecha(s):
+        if not s:
+            return None
+        try:
+            return datetime.strptime(s, '%Y-%m-%d').date()
+        except Exception:
+            return None
+
+    fecha_desde_s = (request.GET.get('fecha_desde') or '').strip()
+    fecha_hasta_s = (request.GET.get('fecha_hasta') or '').strip()
+    fecha_desde = _parse_fecha(fecha_desde_s)
+    fecha_hasta = _parse_fecha(fecha_hasta_s)
+    if fecha_desde and fecha_hasta and fecha_hasta < fecha_desde:
+        fecha_desde, fecha_hasta = fecha_hasta, fecha_desde
+        fecha_desde_s, fecha_hasta_s = fecha_desde.strftime('%Y-%m-%d'), fecha_hasta.strftime('%Y-%m-%d')
+
+    vacio = Value('', output_field=CharField())
+    qs = (
+        ValeVendedor.objects.filter(tipo_beneficiario=TipoBeneficiarioVale.OTRO)
+        .filter(
+            models.Q(movimiento_caja__sucursal=sucursal)
+            | models.Q(usuario_creador__sucursal=sucursal)
+        )
+        .annotate(
+            _ap=Lower(Trim(Coalesce('beneficiario_apellido', vacio))),
+            _nom=Lower(Trim(Coalesce('beneficiario_nombre', vacio))),
+            _dni=Lower(Trim(Coalesce('beneficiario_dni', vacio))),
+        )
+        .filter(
+            _ap=apellido.casefold(),
+            _nom=nombre.casefold(),
+            _dni=dni.casefold(),
+        )
+        .select_related('movimiento_caja', 'movimiento_caja__caja', 'usuario_creador')
+        .distinct()
+        .order_by('-fecha')
+    )
+
+    if fecha_desde:
+        qs = qs.filter(fecha__date__gte=fecha_desde)
+    if fecha_hasta:
+        qs = qs.filter(fecha__date__lte=fecha_hasta)
+
+    total_vales_egreso = (
+        qs.filter(tipo_vale='EG').aggregate(total=models.Sum('monto'))['total'] or Decimal('0')
+    )
+    total_vales_ingreso = (
+        qs.filter(tipo_vale='IN').aggregate(total=models.Sum('monto'))['total'] or Decimal('0')
+    )
+    total_vales_saldo = total_vales_egreso - total_vales_ingreso
+
+    # Label from first match or constructed
+    primer = qs.first()
+    if primer:
+        label = primer.nombre_beneficiario()
+        apellido = (primer.beneficiario_apellido or '').strip() or apellido
+        nombre = (primer.beneficiario_nombre or '').strip() or nombre
+        dni = (primer.beneficiario_dni or '').strip() or dni
+    else:
+        partes = []
+        if apellido and nombre:
+            partes.append(f'{apellido}, {nombre}')
+        else:
+            partes.append(apellido or nombre or 'Sin nombre')
+        if dni:
+            partes.append(f'(DNI {dni})')
+        label = ' '.join(partes)
+
+    query_persona = urlencode({'apellido': apellido, 'nombre': nombre, 'dni': dni})
+
+    context = {
+        'beneficiario_label': label,
+        'beneficiario_apellido': apellido,
+        'beneficiario_nombre': nombre,
+        'beneficiario_dni': dni,
+        'query_persona': query_persona,
+        'vales': qs,
+        'total_vales': total_vales_saldo,
+        'total_vales_egreso': total_vales_egreso,
+        'total_vales_ingreso': total_vales_ingreso,
+        'fecha_desde': fecha_desde_s,
+        'fecha_hasta': fecha_hasta_s,
+        'hay_filtro_fecha': bool(fecha_desde or fecha_hasta),
+        'puede_anular_vale': usuario_puede_anular_vale(request.user),
+    }
+    return render(request, 'inmobiliaria/vales/lista_vales_otra_persona.html', context)
 
 
 # ✅ VISTAS PARA VALES DE VENDEDORES

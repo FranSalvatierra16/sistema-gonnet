@@ -432,6 +432,7 @@ urlpatterns = [
     path('comisiones/', views.dashboard_comisiones, name='dashboard_comisiones'),
     path('vales/crear/', views.crear_vale, name='crear_vale'),
     path('vales/', views.dashboard_vales, name='dashboard_vales'),
+    path('vales/persona/', views.lista_vales_otra_persona, name='lista_vales_otra_persona'),
     path('vendedores/<int:vendedor_id>/comisiones/', views.historial_comisiones_vendedor, name='historial_comisiones_vendedor'),
     path(
         'vendedores/<int:vendedor_id>/comisiones/mes-pagado/',
