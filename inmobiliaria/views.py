@@ -13477,6 +13477,84 @@ def _marcar_movimiento_uid_usado(request, uid):
     request.session.modified = True
 
 
+def _mismo_beneficiario_vale_para_duplicado(
+    movimiento,
+    *,
+    vale_vendedor_id=None,
+    persona_oficina_id=None,
+    beneficiario_apellido='',
+    beneficiario_nombre='',
+    gasto_oficina_vendedor_id=None,
+):
+    """
+    True si el movimiento existente corresponde al mismo beneficiario de vale
+    que se está intentando cargar. Si no hay datos de beneficiario en el POST,
+    no discrimina (comportamiento previo anti-doble-clic).
+    """
+    clave_vend = None
+    if vale_vendedor_id not in (None, ''):
+        try:
+            clave_vend = int(vale_vendedor_id)
+        except (TypeError, ValueError):
+            clave_vend = None
+    clave_po = None
+    if persona_oficina_id not in (None, ''):
+        try:
+            clave_po = int(persona_oficina_id)
+        except (TypeError, ValueError):
+            clave_po = None
+    clave_go = None
+    if gasto_oficina_vendedor_id not in (None, ''):
+        try:
+            clave_go = int(gasto_oficina_vendedor_id)
+        except (TypeError, ValueError):
+            clave_go = None
+    ap = (beneficiario_apellido or '').strip().casefold()
+    nom = (beneficiario_nombre or '').strip().casefold()
+    tiene_clave = bool(clave_vend or clave_po or clave_go or ap or nom)
+    if not tiene_clave:
+        return True
+
+    from inmobiliaria.models.vale import ValeVendedor
+    from inmobiliaria.models import GastoOficina
+
+    vale = (
+        ValeVendedor.objects.filter(movimiento_caja_id=movimiento.id)
+        .only(
+            'vendedor_id',
+            'persona_oficina_id',
+            'beneficiario_apellido',
+            'beneficiario_nombre',
+        )
+        .first()
+    )
+    if vale:
+        if clave_vend is not None and vale.vendedor_id == clave_vend:
+            return True
+        if clave_po is not None and vale.persona_oficina_id == clave_po:
+            return True
+        if (ap or nom) and clave_po is None and clave_vend is None:
+            if (
+                (vale.beneficiario_apellido or '').strip().casefold() == ap
+                and (vale.beneficiario_nombre or '').strip().casefold() == nom
+            ):
+                return True
+        return False
+
+    if clave_go is not None:
+        gasto = (
+            GastoOficina.objects.filter(movimiento_caja_id=movimiento.id)
+            .only('vendedor_id')
+            .first()
+        )
+        if gasto and gasto.vendedor_id == clave_go:
+            return True
+        return False
+
+    # Se está cargando un vale y el movimiento candidato no tiene vale → no es el mismo.
+    return False
+
+
 def _buscar_movimiento_caja_duplicado_reciente(
     caja,
     tipo,
@@ -13492,8 +13570,17 @@ def _buscar_movimiento_caja_duplicado_reciente(
     a_descontar=None,
     empleado_id=None,
     ventana_seg=300,
+    vale_vendedor_id=None,
+    persona_oficina_id=None,
+    beneficiario_apellido='',
+    beneficiario_nombre='',
+    gasto_oficina_vendedor_id=None,
 ):
-    """Evita doble alta si el formulario se envió dos veces (doble clic o reenvío del navegador)."""
+    """Evita doble alta si el formulario se envió dos veces (doble clic o reenvío del navegador).
+
+    Si el movimiento es un vale, también exige el mismo beneficiario: dos vales del
+    mismo importe/concepto pero para personas distintas no se consideran duplicado.
+    """
     desde = timezone.now() - timedelta(seconds=ventana_seg)
     q = Decimal('0.01')
     m_ef = Decimal(m_ef).quantize(q)
@@ -13525,7 +13612,31 @@ def _buscar_movimiento_caja_duplicado_reciente(
     concepto_norm = (concepto or '').strip()
     if concepto_norm:
         qs = qs.filter(concepto=concepto_norm)
-    return qs.order_by('-fecha', '-id').first()
+
+    tiene_clave_vale = any(
+        [
+            vale_vendedor_id not in (None, ''),
+            persona_oficina_id not in (None, ''),
+            gasto_oficina_vendedor_id not in (None, ''),
+            (beneficiario_apellido or '').strip(),
+            (beneficiario_nombre or '').strip(),
+        ]
+    )
+    candidatos = qs.order_by('-fecha', '-id')
+    if not tiene_clave_vale:
+        return candidatos.first()
+
+    for mov in candidatos[:25]:
+        if _mismo_beneficiario_vale_para_duplicado(
+            mov,
+            vale_vendedor_id=vale_vendedor_id,
+            persona_oficina_id=persona_oficina_id,
+            beneficiario_apellido=beneficiario_apellido,
+            beneficiario_nombre=beneficiario_nombre,
+            gasto_oficina_vendedor_id=gasto_oficina_vendedor_id,
+        ):
+            return mov
+    return None
 
 
 def _form_post_desde_movimiento(movimiento):
@@ -14430,6 +14541,18 @@ def nuevo_movimiento(request, numero_caja=None):
                     )
 
             empleado_id = getattr(request.user, 'pk', None)
+            gasto_oficina_vendedor_id = (
+                getattr(gasto_oficina_vendedor, 'id', None) if gasto_oficina_vendedor else None
+            )
+            kwargs_dup_vale = {
+                'vale_vendedor_id': getattr(vendedor_vale, 'id', None) if vendedor_vale else None,
+                'persona_oficina_id': (
+                    getattr(persona_oficina_vale, 'id', None) if persona_oficina_vale else None
+                ),
+                'beneficiario_apellido': beneficiario_apellido_vale,
+                'beneficiario_nombre': beneficiario_nombre_vale,
+                'gasto_oficina_vendedor_id': gasto_oficina_vendedor_id,
+            }
 
             with transaction.atomic():
                 # Bloqueo de caja: dos POST simultáneos no pueden pasar el control de duplicado a la vez.
@@ -14450,6 +14573,7 @@ def nuevo_movimiento(request, numero_caja=None):
                             tipo_comprobante=tipo_comprobante,
                             a_descontar=a_descontar_raw,
                             empleado_id=empleado_id,
+                            **kwargs_dup_vale,
                         )
                         ref = f' #{duplicado_uid.id}' if duplicado_uid else ''
                         messages.warning(
@@ -14471,6 +14595,7 @@ def nuevo_movimiento(request, numero_caja=None):
                         tipo_comprobante=tipo_comprobante,
                         a_descontar=a_descontar_raw,
                         empleado_id=empleado_id,
+                        **kwargs_dup_vale,
                     )
                     if duplicado:
                         _marcar_movimiento_uid_usado(request, movimiento_uid)
