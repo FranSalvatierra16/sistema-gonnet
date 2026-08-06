@@ -854,10 +854,11 @@ def registrar_comisiones_honorarios_contrato(contrato, honorarios_monto, movimie
     Comisiones del productor y fichaje sobre la base de comisiones del contrato
     (comisión locador + comisión locatario en 24 meses / invierno).
     fecha_operacion = día de entrada (fecha_inicio del contrato).
+
+    El fichaje se registra aunque no haya productores asignados (es del fichador).
     """
     if (
         not contrato
-        or not iter_productores_contrato(contrato)
         or honorarios_monto is None
         or honorarios_monto <= 0
     ):
@@ -934,6 +935,9 @@ def registrar_comisiones_honorarios_contrato(contrato, honorarios_monto, movimie
     if cat not in ('invierno', '24'):
         return creadas
 
+    if not iter_productores_contrato(contrato):
+        return creadas
+
     part_map = mapa_participacion_productores(contrato=contrato)
     for vend in iter_productores_contrato(contrato):
         if cat == 'invierno':
@@ -995,8 +999,8 @@ def registrar_comisiones_honorarios_contrato(contrato, honorarios_monto, movimie
 
 
 def asegurar_comisiones_contrato(contrato, honorarios_monto=None, movimiento_caja=None):
-    """Registra comisiones del productor para un contrato. Idempotente."""
-    if not contrato or not iter_productores_contrato(contrato):
+    """Registra comisiones de fichaje/productor para un contrato. Idempotente."""
+    if not contrato:
         return []
     if honorarios_monto is None:
         honorarios_monto = Decimal('0')
@@ -1705,13 +1709,24 @@ def cambiar_productor_contrato(
 
 
 def _filtro_caratula_confirmada_comision():
-    """Comisiones visibles/acreditables solo si la carátula de la operación está confirmada."""
+    """Comisiones pendientes acreditables solo si la carátula de la operación está confirmada."""
     from django.db.models import Q
 
     return (
         Q(reserva__isnull=True, contrato__isnull=True)
         | Q(reserva__estado_confirmacion_caratula='confirmada')
         | Q(contrato__estado_confirmacion_caratula='confirmada')
+    )
+
+
+def _filtro_operacion_vigente_comision():
+    """Operación no anulada/rescindida (sin exigir carátula confirmada)."""
+    from django.db.models import Q
+
+    return (
+        ~Q(reserva__estado='cancelada')
+        & ~Q(reserva__eliminada=True)
+        & ~Q(contrato__estado='rescindido')
     )
 
 
@@ -1886,16 +1901,14 @@ class ComisionVendedorQuerySet(models.QuerySet):
         a veces un recálculo marca cancelada la original aunque ya exista la reversión;
         si no las contáramos, el mes del descuento quedaría con el negativo huérfano
         (p. ej. +38.000 reales − 36.000 de una anulación = 2.000 en lugar de 38.000).
+
+        No se exige carátula confirmada: si ya están acreditadas (confirmada/pagada),
+        deben aparecer aunque la carátula haya quedado o vuelto a pendiente.
         """
         from django.db.models import CharField, Exists, OuterRef, Q, Value
         from django.db.models.functions import Cast, Concat
 
-        operaciones_vigentes = (
-            _filtro_caratula_confirmada_comision()
-            & ~Q(reserva__estado='cancelada')
-            & ~Q(reserva__eliminada=True)
-            & ~Q(contrato__estado='rescindido')
-        )
+        operaciones_vigentes = _filtro_operacion_vigente_comision()
         # Históricas: operación ya anulada pero la comisión quedó acreditada/pagada.
         historicas_acreditadas = (
             Q(estado__in=('confirmada', 'pagada'))
@@ -1929,15 +1942,15 @@ class ComisionVendedorQuerySet(models.QuerySet):
         return self.filter(creditadas | originales_con_devolucion)
 
     def visibles_en_historial(self):
-        """Historial: acreditaciones, devoluciones y créditos históricos tras anulación."""
+        """Historial: acreditaciones, devoluciones, créditos históricos y pendientes de carátula confirmada."""
         from django.db.models import CharField, Exists, OuterRef, Q, Value
         from django.db.models.functions import Cast, Concat
 
-        operaciones_vigentes = (
-            _filtro_caratula_confirmada_comision()
-            & ~Q(reserva__estado='cancelada')
-            & ~Q(reserva__eliminada=True)
-            & ~Q(contrato__estado='rescindido')
+        operaciones_vigentes = _filtro_operacion_vigente_comision()
+        pendientes_visibles = (
+            Q(estado='pendiente')
+            & _filtro_caratula_confirmada_comision()
+            & operaciones_vigentes
         )
         historicas_acreditadas = (
             Q(estado__in=('confirmada', 'pagada'))
@@ -1957,16 +1970,15 @@ class ComisionVendedorQuerySet(models.QuerySet):
                 ),
             )
         )
+        acreditadas_visibles = Q(estado__in=('confirmada', 'pagada')) & (
+            Q(rol_comision=ROL_COMISION_REVERSION)
+            | operaciones_vigentes
+            | historicas_acreditadas
+        )
         return self.filter(
-            Q(
-                estado__in=('pendiente', 'confirmada', 'pagada'),
-            )
-            & (
-                Q(rol_comision=ROL_COMISION_REVERSION)
-                | operaciones_vigentes
-                | historicas_acreditadas
-            )
-            | Q(estado='cancelada') & tuvo_devolucion
+            pendientes_visibles
+            | acreditadas_visibles
+            | (Q(estado='cancelada') & tuvo_devolucion)
         )
 
     def ordenadas_para_listado_historial(self):
@@ -2634,17 +2646,32 @@ def acreditar_comisiones_por_fecha_vencida(sucursal=None):
 def confirmar_comisiones_por_liquidacion(liquidacion):
     """
     Acredita comisiones de vendedor (pendiente → confirmada) al crear liquidación al propietario.
+    También marca la carátula como confirmada para que las comisiones aparezcan en el listado.
     """
     if not liquidacion or getattr(liquidacion, 'estado', None) == 'cancelada':
         return 0
     total = 0
     reserva_ids = _reserva_ids_desde_liquidacion(liquidacion)
     if reserva_ids:
+        from inmobiliaria.models.propiedad import Reserva
+
+        Reserva.objects.filter(
+            pk__in=reserva_ids,
+        ).exclude(estado_confirmacion_caratula='confirmada').update(
+            estado_confirmacion_caratula='confirmada'
+        )
         total += ComisionVendedor.objects.filter(
             reserva_id__in=reserva_ids,
             estado='pendiente',
         ).update(estado='confirmada')
     if liquidacion.contrato_id:
+        from inmobiliaria.models.contrato import ContratoAlquiler
+
+        ContratoAlquiler.objects.filter(
+            pk=liquidacion.contrato_id,
+        ).exclude(estado_confirmacion_caratula='confirmada').update(
+            estado_confirmacion_caratula='confirmada'
+        )
         total += ComisionVendedor.objects.filter(
             contrato_id=liquidacion.contrato_id,
             estado='pendiente',

@@ -2690,7 +2690,9 @@ def _vendedor_fichaje_contrato_caratula(contrato):
     from inmobiliaria.models.comision import vendedor_fichaje_desde_propiedad
 
     prop = getattr(contrato, 'propiedad', None) if contrato else None
-    return vendedor_fichaje_desde_propiedad(prop)
+    return vendedor_fichaje_desde_propiedad(
+        prop, sucursal=getattr(contrato, 'sucursal', None) if contrato else None
+    )
 
 
 def _label_fichaje_contrato(tipo_fichaje, categoria=None):
@@ -2888,9 +2890,15 @@ def _ctx_honorarios_comisiones_caratula_contrato(
             comisiones_fichaje = [linea_fichaje]
     comisiones_productor = [cv for cv in comisiones_vendedor if cv.get('rol') != 'fichaje']
     fecha_def = getattr(contrato, 'fecha_entrada_departamento', None) or contrato.fecha_inicio
+    db_map = _mapa_comisiones_db_caratula(contrato=contrato)
+    _enriquecer_lineas_comision_fecha_db(
+        comisiones_fichaje,
+        db_map,
+        fecha_default=fecha_def,
+    )
     _enriquecer_lineas_comision_fecha_db(
         comisiones_productor,
-        _mapa_comisiones_db_caratula(contrato=contrato),
+        db_map,
         fecha_default=fecha_def,
     )
     comision_fichaje_total = sum(
