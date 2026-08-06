@@ -1019,27 +1019,25 @@ def _comision_acreditada(comision):
 
 
 def _eliminar_comisiones_productor_reserva(reserva, vendedor_id=None):
-    """Solo quita pendientes. Las acreditadas/pagadas se conservan."""
+    """Quita comisiones de productor (no fichaje). Pendientes se borran; acreditadas se cancelan."""
     qs = ComisionVendedor.objects.filter(
         reserva=reserva,
         rol_comision__in=ROLES_COMISION_PRODUCTOR,
-        estado='pendiente',
-    )
+    ).exclude(estado='cancelada')
     if vendedor_id is not None:
         qs = qs.filter(vendedor_id=vendedor_id)
-    qs.delete()
+    _cancelar_o_borrar_comisiones_qs(qs)
 
 
 def _eliminar_comisiones_productor_contrato(contrato, vendedor_id=None):
-    """Solo quita pendientes. Las acreditadas/pagadas se conservan."""
+    """Quita comisiones de productor (no fichaje). Pendientes se borran; acreditadas se cancelan."""
     qs = ComisionVendedor.objects.filter(
         contrato=contrato,
         rol_comision__in=ROLES_COMISION_PRODUCTOR,
-        estado='pendiente',
-    )
+    ).exclude(estado='cancelada')
     if vendedor_id is not None:
         qs = qs.filter(vendedor_id=vendedor_id)
-    qs.delete()
+    _cancelar_o_borrar_comisiones_qs(qs)
 
 
 def _validar_vendedor_productor_operacion(vendedor_id, *, sucursal_id=None):

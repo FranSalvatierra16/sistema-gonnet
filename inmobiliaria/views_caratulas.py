@@ -999,13 +999,18 @@ def _procesar_productores_caratula(request, reserva=None, contrato=None):
                 movimientos_caja=_movimientos_operacion_reserva(reserva),
             )
         elif contrato:
+            # Pasar base de honorarios no es necesario al quitar: se cancelan
+            # las comisiones de productor (el fichaje no se toca).
             ok, err = quitar_productor_contrato(contrato, quitar_id)
         else:
             return False
         if not ok:
             messages.error(request, err or 'No se pudo quitar el productor.')
             return False
-        messages.success(request, 'Productor quitado de la operación.')
+        messages.success(
+            request,
+            'Productor quitado. Se eliminó su comisión de productor; la de fichaje se mantiene.',
+        )
         return True
 
     return False
