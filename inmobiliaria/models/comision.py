@@ -1093,6 +1093,8 @@ def asegurar_filas_productores_reserva(reserva):
             orden=0,
             porcentaje_participacion=Decimal('100'),
         )
+        return
+    _recuperar_productores_desde_comisiones(reserva=reserva)
 
 
 def asegurar_filas_productores_contrato(contrato):
@@ -1105,6 +1107,63 @@ def asegurar_filas_productores_contrato(contrato):
             orden=0,
             porcentaje_participacion=Decimal('100'),
         )
+        return
+    _recuperar_productores_desde_comisiones(contrato=contrato)
+
+
+def _recuperar_productores_desde_comisiones(*, reserva=None, contrato=None):
+    """
+    Si la operación quedó sin productores pero hay comisiones de productor
+    (confirmadas/pendientes), vuelve a armar las filas OperacionProductor.
+    Evita carátulas con «Sin productores» / comisión $0 cuando la comisión ya existe.
+    """
+    if reserva:
+        qs = ComisionVendedor.objects.filter(reserva=reserva)
+        sync = _sincronizar_vendedor_principal_reserva
+        crear = lambda vid, orden: OperacionProductor.objects.create(
+            reserva=reserva,
+            vendedor_id=vid,
+            orden=orden,
+            porcentaje_participacion=Decimal('0'),
+        )
+        kwargs_redist = {'reserva': reserva}
+    elif contrato:
+        qs = ComisionVendedor.objects.filter(contrato=contrato)
+        sync = _sincronizar_vendedor_principal_contrato
+        crear = lambda vid, orden: OperacionProductor.objects.create(
+            contrato=contrato,
+            vendedor_id=vid,
+            orden=orden,
+            porcentaje_participacion=Decimal('0'),
+        )
+        kwargs_redist = {'contrato': contrato}
+    else:
+        return
+
+    vids = list(
+        qs.filter(rol_comision__in=ROLES_COMISION_PRODUCTOR)
+        .exclude(estado='cancelada')
+        .exclude(vendedor_id__isnull=True)
+        .order_by('id')
+        .values_list('vendedor_id', flat=True)
+        .distinct()
+    )
+    if not vids:
+        return
+    # Mantener orden de aparición
+    vistos = set()
+    ordenados = []
+    for vid in vids:
+        if vid not in vistos:
+            vistos.add(vid)
+            ordenados.append(vid)
+    for i, vid in enumerate(ordenados):
+        crear(vid, i)
+    redistribuir_participaciones_iguales(**kwargs_redist)
+    if reserva:
+        sync(reserva)
+    else:
+        sync(contrato)
 
 
 def _qs_productores_operacion(*, reserva=None, contrato=None):

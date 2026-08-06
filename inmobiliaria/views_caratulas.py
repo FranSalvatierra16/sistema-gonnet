@@ -2990,6 +2990,8 @@ def _comisiones_vendedor_contrato_caratula(contrato, base_monto):
 
     productores = iter_productores_contrato(contrato)
     if not productores:
+        # Sin productor asignado: si igual hay comisión de productor en BD, mostrarla
+        lineas.extend(_lineas_comision_productor_desde_db_contrato(contrato, base_monto))
         return lineas
 
     if cat == 'invierno':
@@ -3031,6 +3033,42 @@ def _comisiones_vendedor_contrato_caratula(contrato, base_monto):
                     'vendedor_id': vend.id,
                 }
             )
+    if not any(ln.get('rol') != 'fichaje' for ln in lineas):
+        lineas.extend(_lineas_comision_productor_desde_db_contrato(contrato, base_monto))
+    return lineas
+
+
+def _lineas_comision_productor_desde_db_contrato(contrato, base_monto):
+    """Líneas de productor desde ComisionVendedor cuando no se pueden recalcular."""
+    from inmobiliaria.models.comision import ROLES_COMISION_PRODUCTOR
+
+    qs = (
+        ComisionVendedor.objects.filter(
+            contrato=contrato,
+            rol_comision__in=ROLES_COMISION_PRODUCTOR,
+        )
+        .exclude(estado='cancelada')
+        .select_related('vendedor')
+        .order_by('id')
+    )
+    lineas = []
+    for c in qs:
+        monto = Decimal(str(c.monto_comision or 0))
+        if monto <= 0 and c.estado not in ('confirmada', 'pagada'):
+            continue
+        lineas.append(
+            {
+                'label': (c.concepto_operacion or 'COMIS. VENDEDOR').strip() or 'COMIS. VENDEDOR',
+                'monto': monto,
+                'monto_fmt': _formato_importe_us(monto),
+                'porcentaje': c.porcentaje_comision,
+                'participacion': Decimal('100'),
+                'rol': c.rol_comision,
+                'vendedor_nombre': _nombre_productor_papel(c.vendedor) if c.vendedor_id else '',
+                'vendedor_id': c.vendedor_id,
+                'comision_id': c.id,
+            }
+        )
     return lineas
 
 
