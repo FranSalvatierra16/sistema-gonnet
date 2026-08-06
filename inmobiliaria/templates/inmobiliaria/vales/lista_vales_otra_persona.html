@@ -30,10 +30,13 @@
     <div class="card mb-3">
         <div class="card-body">
             <form method="get" class="row g-2 align-items-end">
+                {% if persona_id %}
+                <input type="hidden" name="persona_id" value="{{ persona_id }}">
+                {% else %}
                 <input type="hidden" name="apellido" value="{{ beneficiario_apellido }}">
                 <input type="hidden" name="nombre" value="{{ beneficiario_nombre }}">
                 <input type="hidden" name="dni" value="{{ beneficiario_dni }}">
-                <div class="col-md-3">
+                {% endif %}                <div class="col-md-3">
                     <label for="fecha_desde" class="form-label">Desde</label>
                     <input type="date" id="fecha_desde" name="fecha_desde" class="form-control" value="{{ fecha_desde|default:'' }}">
                 </div>

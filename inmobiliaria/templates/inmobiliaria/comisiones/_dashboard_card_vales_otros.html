@@ -6,6 +6,7 @@
             <small class="d-block opacity-75 mt-1">Cada persona con su propio historial (no descuentan comisiones de productores)</small>
         </div>
         <div class="text-end small">
+            <a href="{% url 'inmobiliaria:oficina_personas' %}" class="btn btn-sm btn-light me-2">Personas</a>
             <span class="text-white-50">Saldo total:</span>
             <strong>${{ total_otros_saldo|format_price }}</strong>
             <span class="text-white-50 ms-2">({{ personas_otras_data|length }} persona{{ personas_otras_data|length|pluralize:"s" }} · {{ cant_vales_otros }} vale{{ cant_vales_otros|pluralize:"s" }})</span>
@@ -37,10 +38,17 @@
                         <td class="text-end">${{ p.saldo|format_price }}</td>
                         <td class="text-center"><span class="badge bg-secondary">{{ p.cant }}</span></td>
                         <td class="text-center text-nowrap">
+                            {% if p.persona_id %}
+                            <a href="{% url 'inmobiliaria:lista_vales_otra_persona' %}?persona_id={{ p.persona_id }}"
+                               class="btn btn-sm btn-outline-primary">
+                                Ver historial
+                            </a>
+                            {% else %}
                             <a href="{% url 'inmobiliaria:lista_vales_otra_persona' %}?apellido={{ p.apellido|urlencode }}&nombre={{ p.nombre|urlencode }}&dni={{ p.dni|urlencode }}"
                                class="btn btn-sm btn-outline-primary">
                                 Ver historial
                             </a>
+                            {% endif %}
                         </td>
                     </tr>
                     {% endfor %}
@@ -52,6 +60,7 @@
             <i class="fas fa-user-friends fa-2x mb-2 opacity-50"></i>
             <p class="mb-2">No hay vales registrados a otras personas en esta sucursal.</p>
             <a href="{% url 'inmobiliaria:crear_vale' %}" class="btn btn-sm btn-outline-secondary">Crear vale a otra persona</a>
+            <a href="{% url 'inmobiliaria:oficina_personas' %}" class="btn btn-sm btn-outline-primary ms-1">Administrar personas</a>
         </div>
         {% endif %}
     </div>

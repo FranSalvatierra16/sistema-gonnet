@@ -332,3 +332,42 @@ class CostosCompraLibroPropiedad(models.Model):
 
     def __str__(self):
         return f'Costos compra #{self.propiedad_id} — U$S {self.valor_depto_comprado}'
+
+
+class PersonaOficina(models.Model):
+    """
+    Personas (no productores) a las que se les cargan vales desde caja/oficina.
+    Quedan guardadas por sucursal para no reescribir el nombre cada vez.
+    """
+
+    sucursal = models.ForeignKey(
+        'Sucursal',
+        on_delete=models.CASCADE,
+        related_name='personas_oficina',
+    )
+    apellido = models.CharField(max_length=100, blank=True)
+    nombre = models.CharField(max_length=100, blank=True)
+    dni = models.CharField(max_length=20, blank=True)
+    activa = models.BooleanField(default=True)
+    notas = models.CharField(max_length=255, blank=True)
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Persona de oficina (vales)'
+        verbose_name_plural = 'Personas de oficina (vales)'
+        ordering = ['apellido', 'nombre', 'id']
+
+    def __str__(self):
+        return self.nombre_completo()
+
+    def nombre_completo(self):
+        ap = (self.apellido or '').strip()
+        nom = (self.nombre or '').strip()
+        if ap and nom:
+            texto = f'{ap}, {nom}'
+        else:
+            texto = ap or nom or 'Sin nombre'
+        dni = (self.dni or '').strip()
+        if dni:
+            texto = f'{texto} (DNI {dni})'
+        return texto

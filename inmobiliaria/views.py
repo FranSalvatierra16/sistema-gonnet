@@ -1083,7 +1083,12 @@ def dashboard_vales(request):
             models.Q(movimiento_caja__sucursal=sucursal)
             | models.Q(usuario_creador__sucursal=sucursal)
         )
-        .select_related('movimiento_caja', 'movimiento_caja__caja', 'usuario_creador')
+        .select_related(
+            'movimiento_caja',
+            'movimiento_caja__caja',
+            'usuario_creador',
+            'persona_oficina',
+        )
         .distinct()
         .order_by('-fecha')
     )
@@ -1129,7 +1134,11 @@ def dashboard_vales(request):
 
 def _clave_beneficiario_otro(vale):
     """Clave normalizada para agrupar vales de la misma persona (no productor)."""
+    persona_id = getattr(vale, 'persona_oficina_id', None)
+    if persona_id:
+        return ('persona', persona_id)
     return (
+        'texto',
         (getattr(vale, 'beneficiario_apellido', None) or '').strip().casefold(),
         (getattr(vale, 'beneficiario_nombre', None) or '').strip().casefold(),
         (getattr(vale, 'beneficiario_dni', None) or '').strip().casefold(),
@@ -1142,10 +1151,24 @@ def _agrupar_vales_otras_personas(vales_qs):
     for vale in vales_qs.iterator(chunk_size=500):
         clave = _clave_beneficiario_otro(vale)
         if clave not in grupos:
+            persona = getattr(vale, 'persona_oficina', None)
             grupos[clave] = {
-                'apellido': (vale.beneficiario_apellido or '').strip(),
-                'nombre': (vale.beneficiario_nombre or '').strip(),
-                'dni': (vale.beneficiario_dni or '').strip(),
+                'persona_id': getattr(vale, 'persona_oficina_id', None),
+                'apellido': (
+                    (persona.apellido if persona else None)
+                    or vale.beneficiario_apellido
+                    or ''
+                ).strip(),
+                'nombre': (
+                    (persona.nombre if persona else None)
+                    or vale.beneficiario_nombre
+                    or ''
+                ).strip(),
+                'dni': (
+                    (persona.dni if persona else None)
+                    or vale.beneficiario_dni
+                    or ''
+                ).strip(),
                 'label': vale.nombre_beneficiario(),
                 'total_egreso': Decimal('0'),
                 'total_ingreso': Decimal('0'),
@@ -1165,6 +1188,42 @@ def _agrupar_vales_otras_personas(vales_qs):
     return data
 
 
+def _resolver_persona_oficina_desde_post(request, sucursal, *, id_key='persona_oficina_id',
+                                         apellido_key='beneficiario_apellido',
+                                         nombre_key='beneficiario_nombre',
+                                         dni_key='beneficiario_dni'):
+    """
+    Resuelve o crea PersonaOficina para un vale a «otra persona».
+    - id numérico: usa la existente
+    - '__nueva__' o vacío + nombre/apellido: crea una nueva
+    """
+    from inmobiliaria.models import PersonaOficina
+
+    raw_id = (request.POST.get(id_key) or '').strip()
+    apellido = (request.POST.get(apellido_key) or '').strip()
+    nombre = (request.POST.get(nombre_key) or '').strip()
+    dni = (request.POST.get(dni_key) or '').strip()
+
+    if raw_id.isdigit():
+        persona = PersonaOficina.objects.filter(
+            id=int(raw_id), sucursal=sucursal, activa=True
+        ).first()
+        if not persona:
+            raise ValueError('La persona elegida no existe o está inactiva.')
+        return persona
+
+    if not apellido and not nombre:
+        raise ValueError('Elegí una persona guardada o cargá nombre/apellido.')
+
+    return PersonaOficina.objects.create(
+        sucursal=sucursal,
+        apellido=apellido,
+        nombre=nombre,
+        dni=dni,
+        activa=True,
+    )
+
+
 @login_required
 def lista_vales_otra_persona(request):
     """Historial individual de vales de una persona que no es productor."""
@@ -1178,14 +1237,24 @@ def lista_vales_otra_persona(request):
         return redirect('inmobiliaria:dashboard')
 
     from inmobiliaria.models.vale import TipoBeneficiarioVale
+    from inmobiliaria.models import PersonaOficina
     from urllib.parse import urlencode
     from django.db.models.functions import Lower, Trim, Coalesce
     from django.db.models import Value, CharField
 
+    persona_id_raw = (request.GET.get('persona_id') or '').strip()
     apellido = (request.GET.get('apellido') or '').strip()
     nombre = (request.GET.get('nombre') or '').strip()
     dni = (request.GET.get('dni') or '').strip()
-    if not apellido and not nombre and not dni:
+    persona = None
+    if persona_id_raw.isdigit():
+        persona = PersonaOficina.objects.filter(
+            id=int(persona_id_raw), sucursal=sucursal
+        ).first()
+        if not persona:
+            messages.error(request, 'No se encontró esa persona en la sucursal.')
+            return redirect('inmobiliaria:dashboard_vales')
+    elif not apellido and not nombre and not dni:
         messages.error(request, 'Indicá la persona (nombre, apellido o DNI).')
         return redirect('inmobiliaria:dashboard_vales')
 
@@ -1205,27 +1274,56 @@ def lista_vales_otra_persona(request):
         fecha_desde, fecha_hasta = fecha_hasta, fecha_desde
         fecha_desde_s, fecha_hasta_s = fecha_desde.strftime('%Y-%m-%d'), fecha_hasta.strftime('%Y-%m-%d')
 
-    vacio = Value('', output_field=CharField())
     qs = (
         ValeVendedor.objects.filter(tipo_beneficiario=TipoBeneficiarioVale.OTRO)
         .filter(
             models.Q(movimiento_caja__sucursal=sucursal)
             | models.Q(usuario_creador__sucursal=sucursal)
         )
-        .annotate(
+        .select_related(
+            'movimiento_caja',
+            'movimiento_caja__caja',
+            'usuario_creador',
+            'persona_oficina',
+        )
+        .distinct()
+        .order_by('-fecha')
+    )
+
+    if persona:
+        qs = qs.filter(persona_oficina=persona)
+        apellido = (persona.apellido or '').strip()
+        nombre = (persona.nombre or '').strip()
+        dni = (persona.dni or '').strip()
+        label = persona.nombre_completo()
+        query_persona = urlencode({'persona_id': persona.id})
+    else:
+        vacio = Value('', output_field=CharField())
+        qs = qs.annotate(
             _ap=Lower(Trim(Coalesce('beneficiario_apellido', vacio))),
             _nom=Lower(Trim(Coalesce('beneficiario_nombre', vacio))),
             _dni=Lower(Trim(Coalesce('beneficiario_dni', vacio))),
-        )
-        .filter(
+        ).filter(
             _ap=apellido.casefold(),
             _nom=nombre.casefold(),
             _dni=dni.casefold(),
         )
-        .select_related('movimiento_caja', 'movimiento_caja__caja', 'usuario_creador')
-        .distinct()
-        .order_by('-fecha')
-    )
+        primer = qs.first()
+        if primer:
+            label = primer.nombre_beneficiario()
+            apellido = (primer.beneficiario_apellido or '').strip() or apellido
+            nombre = (primer.beneficiario_nombre or '').strip() or nombre
+            dni = (primer.beneficiario_dni or '').strip() or dni
+        else:
+            partes = []
+            if apellido and nombre:
+                partes.append(f'{apellido}, {nombre}')
+            else:
+                partes.append(apellido or nombre or 'Sin nombre')
+            if dni:
+                partes.append(f'(DNI {dni})')
+            label = ' '.join(partes)
+        query_persona = urlencode({'apellido': apellido, 'nombre': nombre, 'dni': dni})
 
     if fecha_desde:
         qs = qs.filter(fecha__date__gte=fecha_desde)
@@ -1240,30 +1338,13 @@ def lista_vales_otra_persona(request):
     )
     total_vales_saldo = total_vales_egreso - total_vales_ingreso
 
-    # Label from first match or constructed
-    primer = qs.first()
-    if primer:
-        label = primer.nombre_beneficiario()
-        apellido = (primer.beneficiario_apellido or '').strip() or apellido
-        nombre = (primer.beneficiario_nombre or '').strip() or nombre
-        dni = (primer.beneficiario_dni or '').strip() or dni
-    else:
-        partes = []
-        if apellido and nombre:
-            partes.append(f'{apellido}, {nombre}')
-        else:
-            partes.append(apellido or nombre or 'Sin nombre')
-        if dni:
-            partes.append(f'(DNI {dni})')
-        label = ' '.join(partes)
-
-    query_persona = urlencode({'apellido': apellido, 'nombre': nombre, 'dni': dni})
-
     context = {
         'beneficiario_label': label,
         'beneficiario_apellido': apellido,
         'beneficiario_nombre': nombre,
         'beneficiario_dni': dni,
+        'persona_oficina': persona,
+        'persona_id': persona.id if persona else None,
         'query_persona': query_persona,
         'vales': qs,
         'total_vales': total_vales_saldo,
@@ -1286,6 +1367,7 @@ def crear_vale(request):
     El vale se descuenta del efectivo de caja.
     """
     from inmobiliaria.models.vale import TipoBeneficiarioVale
+    from inmobiliaria.models import PersonaOficina
 
     if request.method == 'POST':
         try:
@@ -1303,6 +1385,7 @@ def crear_vale(request):
                 return redirect('inmobiliaria:crear_vale')
 
             vendedor = None
+            persona_oficina = None
             if tipo_beneficiario == TipoBeneficiarioVale.VENDEDOR:
                 if not vendedor_id:
                     messages.error(request, 'Seleccioná un vendedor.')
@@ -1311,8 +1394,12 @@ def crear_vale(request):
                     Vendedor, id=vendedor_id, sucursal=request.user.sucursal
                 )
             else:
-                if not beneficiario_nombre and not beneficiario_apellido:
-                    messages.error(request, 'Indicá nombre o apellido de la persona.')
+                try:
+                    persona_oficina = _resolver_persona_oficina_desde_post(
+                        request, request.user.sucursal
+                    )
+                except ValueError as exc:
+                    messages.error(request, str(exc))
                     return redirect('inmobiliaria:crear_vale')
                 tipo_beneficiario = TipoBeneficiarioVale.OTRO
 
@@ -1335,6 +1422,7 @@ def crear_vale(request):
                 beneficiario_nombre=beneficiario_nombre,
                 beneficiario_apellido=beneficiario_apellido,
                 beneficiario_dni=beneficiario_dni,
+                persona_oficina=persona_oficina,
             )
 
             messages.success(
@@ -1348,7 +1436,17 @@ def crear_vale(request):
             return redirect('inmobiliaria:crear_vale')
 
     vendedores = Vendedor.objects.filter(sucursal=request.user.sucursal).order_by('nombre', 'apellido')
-    return render(request, 'inmobiliaria/vales/crear_vale.html', {'vendedores': vendedores})
+    personas_oficina = PersonaOficina.objects.filter(
+        sucursal=request.user.sucursal, activa=True
+    ).order_by('apellido', 'nombre', 'id')
+    return render(
+        request,
+        'inmobiliaria/vales/crear_vale.html',
+        {
+            'vendedores': vendedores,
+            'personas_oficina': personas_oficina,
+        },
+    )
 
 # ============================================================================
 # LIQUIDACIONES - SISTEMA DE LIQUIDACIÓN DE PROPIETARIOS
@@ -13542,7 +13640,7 @@ def _form_post_desde_movimiento(movimiento):
 
     vale = (
         ValeVendedor.objects.filter(movimiento_caja=movimiento)
-        .select_related('vendedor')
+        .select_related('vendedor', 'persona_oficina')
         .first()
     )
     if vale:
@@ -13550,6 +13648,8 @@ def _form_post_desde_movimiento(movimiento):
         fp['beneficiario_nombre_vale'] = (vale.beneficiario_nombre or '').strip()
         fp['beneficiario_apellido_vale'] = (vale.beneficiario_apellido or '').strip()
         fp['beneficiario_dni_vale'] = (vale.beneficiario_dni or '').strip()
+        if vale.persona_oficina_id:
+            fp['persona_oficina_id'] = str(vale.persona_oficina_id)
         if vale.vendedor_id:
             fp['productor_id'] = str(vale.vendedor_id)
             fp['productor_nombre'] = (vale.vendedor.nombre or '').strip()
@@ -13626,6 +13726,7 @@ def _serializar_form_post_nuevo_movimiento(request):
     campos = (
         'tipo', 'tipo_comprobante', 'numero_liquidacion', 'fecha', 'fecha_desde', 'fecha_hasta',
         'concepto_id', 'detalles', 'propiedad_id', 'productor_id', 'tipo_beneficiario_vale',
+        'persona_oficina_id',
         'beneficiario_nombre_vale', 'beneficiario_apellido_vale', 'beneficiario_dni_vale',
         'monto_efectivo', 'monto_cheque', 'monto_tarjeta', 'monto_deposito', 'destino_deposito',
         'dolares', 'monto_dolares', 'moneda_movimiento', 'cotizacion_dolar',
@@ -13848,6 +13949,11 @@ def nuevo_movimiento(request, numero_caja=None):
     pre_gasto_oficina = (request.GET.get('gasto_oficina') or '').strip() in ('1', 'true', 'si', 'yes')
     par_reparto = par_sucursales_reparto_gasto_oficina(sucursal)
     defaults_reparto = defaults_porcentajes_reparto_gasto_oficina(sucursal) if par_reparto else None
+    from inmobiliaria.models import PersonaOficina
+    personas_oficina = list(
+        PersonaOficina.objects.filter(sucursal=sucursal, activa=True)
+        .order_by('apellido', 'nombre', 'id')
+    )
 
     def _ctx_nuevo_movimiento(extra=None):
         from inmobiliaria.caja_devolucion_deposito import concepto_devolucion_deposito_catalogo
@@ -13865,6 +13971,7 @@ def nuevo_movimiento(request, numero_caja=None):
             'reparto_gasto_oficina_defaults': defaults_reparto,
             'editando_movimiento': bool(movimiento_edicion),
             'edit_id': movimiento_edicion.id if movimiento_edicion else None,
+            'personas_oficina': personas_oficina,
             'next': _validar_url_volver_recibo(next_url_edicion, request) or (
                 next_url_edicion if next_url_edicion == 'todos_movimientos' else ''
             ),
@@ -14285,20 +14392,27 @@ def nuevo_movimiento(request, numero_caja=None):
             beneficiario_nombre_vale = ''
             beneficiario_apellido_vale = ''
             beneficiario_dni_vale = ''
+            persona_oficina_vale = None
             if quiere_vale:
                 tipo_beneficiario_vale = (
                     request.POST.get('tipo_beneficiario_vale') or TipoBeneficiarioVale.VENDEDOR
                 ).strip()
                 if tipo_beneficiario_vale == TipoBeneficiarioVale.OTRO:
-                    beneficiario_nombre_vale = (request.POST.get('beneficiario_nombre_vale') or '').strip()
-                    beneficiario_apellido_vale = (request.POST.get('beneficiario_apellido_vale') or '').strip()
-                    beneficiario_dni_vale = (request.POST.get('beneficiario_dni_vale') or '').strip()
-                    if not beneficiario_nombre_vale and not beneficiario_apellido_vale:
-                        messages.error(
+                    try:
+                        persona_oficina_vale = _resolver_persona_oficina_desde_post(
                             request,
-                            'Este concepto es de vale: indicá nombre o apellido de la persona.',
+                            request.user.sucursal,
+                            id_key='persona_oficina_id',
+                            apellido_key='beneficiario_apellido_vale',
+                            nombre_key='beneficiario_nombre_vale',
+                            dni_key='beneficiario_dni_vale',
                         )
+                    except ValueError as exc:
+                        messages.error(request, str(exc))
                         return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
+                    beneficiario_nombre_vale = (persona_oficina_vale.nombre or '').strip()
+                    beneficiario_apellido_vale = (persona_oficina_vale.apellido or '').strip()
+                    beneficiario_dni_vale = (persona_oficina_vale.dni or '').strip()
                 else:
                     if not productor_id_raw:
                         messages.error(
@@ -14439,6 +14553,7 @@ def nuevo_movimiento(request, numero_caja=None):
                             beneficiario_nombre=beneficiario_nombre_vale,
                             beneficiario_apellido=beneficiario_apellido_vale,
                             beneficiario_dni=beneficiario_dni_vale,
+                            persona_oficina=persona_oficina_vale,
                         )
 
                 if movimiento_edicion:

@@ -70,7 +70,23 @@
                         </div>
 
                         <div id="bloque_otro_vale" class="mb-4 d-none">
-                            <div class="row g-3">
+                            <div class="mb-3">
+                                <label for="persona_oficina_id" class="form-label">Persona guardada *</label>
+                                <select class="form-control" id="persona_oficina_id" name="persona_oficina_id">
+                                    <option value="">— Elegí una persona —</option>
+                                    {% for p in personas_oficina %}
+                                    <option value="{{ p.id }}">{{ p.nombre_completo }}</option>
+                                    {% empty %}
+                                    {% endfor %}
+                                    <option value="__nueva__">+ Agregar persona nueva…</option>
+                                </select>
+                                <small class="form-text text-muted">
+                                    Las personas se guardan en
+                                    <a href="{% url 'inmobiliaria:oficina_personas' %}" target="_blank">Oficina → Personas</a>
+                                    para no volver a tipearlas.
+                                </small>
+                            </div>
+                            <div id="bloque_nueva_persona" class="row g-3 d-none">
                                 <div class="col-md-6">
                                     <label for="beneficiario_apellido" class="form-label">Apellido *</label>
                                     <input type="text" class="form-control" id="beneficiario_apellido" name="beneficiario_apellido" maxlength="100">
@@ -84,7 +100,7 @@
                                     <input type="text" class="form-control" id="beneficiario_dni" name="beneficiario_dni" maxlength="20">
                                 </div>
                             </div>
-                            <small class="form-text text-muted">
+                            <small class="form-text text-muted d-block mt-2">
                                 Persona que no es vendedor: solo afecta caja, no comisiones.
                             </small>
                         </div>
@@ -149,14 +165,28 @@ document.addEventListener('DOMContentLoaded', function() {
     var $bloqueV = $('#bloque_vendedor_vale');
     var $bloqueO = $('#bloque_otro_vale');
     var $selV = $('#vendedor_id');
+    var $selP = $('#persona_oficina_id');
+    var $bloqueNueva = $('#bloque_nueva_persona');
 
     function actualizarTipo() {
         var esOtro = $('#tb_otro').is(':checked');
         $bloqueV.toggleClass('d-none', esOtro);
         $bloqueO.toggleClass('d-none', !esOtro);
         $selV.prop('required', !esOtro);
+        actualizarNuevaPersona();
+    }
+    function actualizarNuevaPersona() {
+        var esOtro = $('#tb_otro').is(':checked');
+        var esNueva = esOtro && ($selP.val() === '__nueva__' || !$selP.val());
+        // Si no hay personas, forzar alta
+        if (esOtro && $selP.find('option[value!=""][value!="__nueva__"]').length === 0) {
+            $selP.val('__nueva__');
+            esNueva = true;
+        }
+        $bloqueNueva.toggleClass('d-none', !(esOtro && $selP.val() === '__nueva__'));
     }
     $('input[name="tipo_beneficiario"]').on('change', actualizarTipo);
+    $selP.on('change', actualizarNuevaPersona);
     actualizarTipo();
 
     $('#formCrearVale').on('submit', function(e) {
@@ -167,22 +197,33 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('Ingresá un monto válido mayor a 0.');
             return false;
         }
+        var destino = '';
         if (esOtro) {
-            var ape = $('#beneficiario_apellido').val().trim();
-            var nom = $('#beneficiario_nombre').val().trim();
-            if (!ape && !nom) {
+            var pid = $selP.val();
+            if (!pid) {
                 e.preventDefault();
-                alert('Indicá apellido o nombre de la persona.');
+                alert('Elegí una persona guardada o «Agregar persona nueva».');
                 return false;
+            }
+            if (pid === '__nueva__') {
+                var ape = $('#beneficiario_apellido').val().trim();
+                var nom = $('#beneficiario_nombre').val().trim();
+                if (!ape && !nom) {
+                    e.preventDefault();
+                    alert('Indicá apellido o nombre de la persona.');
+                    return false;
+                }
+                destino = (ape + ', ' + nom).replace(/^,\s*|,\s*$/g, '');
+            } else {
+                destino = $selP.find('option:selected').text();
             }
         } else if (!$selV.val()) {
             e.preventDefault();
             alert('Seleccioná un vendedor.');
             return false;
+        } else {
+            destino = $selV.find('option:selected').text();
         }
-        var destino = esOtro
-            ? (ape + ', ' + nom).replace(/^,\s*|,\s*$/g, '')
-            : $selV.find('option:selected').text();
         if (!confirm('¿Confirmar vale?\n\nBeneficiario: ' + destino + '\nMonto: $' + $('#monto').val())) {
             e.preventDefault();
             return false;

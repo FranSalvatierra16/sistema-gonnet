@@ -1,0 +1,180 @@
+{% extends 'inmobiliaria/base.html' %}
+
+{% block title %}Personas — Oficina{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <div>
+            <h2 class="mb-1"><i class="fas fa-user-friends me-2"></i>Personas (vales)</h2>
+            <p class="text-muted small mb-0">
+                Beneficiarios de vales que no son productores. Quedan guardados para elegirlos al crear un vale.
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'inmobiliaria:dashboard_vales' %}" class="btn btn-outline-warning btn-sm">Vales</a>
+            <a href="{% url 'inmobiliaria:oficina_dashboard' %}" class="btn btn-outline-secondary btn-sm">Panel oficina</a>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light"><strong>Agregar persona</strong></div>
+                <div class="card-body">
+                    <form method="post" action="{% url 'inmobiliaria:oficina_persona_crear' %}">
+                        {% csrf_token %}
+                        <div class="mb-2">
+                            <label class="form-label small">Apellido</label>
+                            <input type="text" name="apellido" class="form-control form-control-sm" maxlength="100" placeholder="Ej. Ponce / Cacho / Rubén">
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small">Nombre</label>
+                            <input type="text" name="nombre" class="form-control form-control-sm" maxlength="100" placeholder="Ej. Sergio">
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small">DNI (opcional)</label>
+                            <input type="text" name="dni" class="form-control form-control-sm" maxlength="20">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small">Notas (opcional)</label>
+                            <input type="text" name="notas" class="form-control form-control-sm" maxlength="255">
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-sm w-100">
+                            <i class="fas fa-plus me-1"></i>Guardar persona
+                        </button>
+                    </form>
+                </div>
+            </div>
+            <div class="alert alert-light border small mt-3 mb-0">
+                Tip: para dos personas que van juntas (ej. Cacho y Rubén), cargalas como un solo registro
+                con apellido <em>Cacho / Rubén</em>.
+            </div>
+        </div>
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <strong>Personas de la sucursal</strong>
+                    <span class="badge bg-secondary">{{ personas|length }}</span>
+                </div>
+                {% if personas %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0 align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Persona</th>
+                                <th class="text-center">Vales</th>
+                                <th class="text-center">Estado</th>
+                                <th class="text-end">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in personas %}
+                            <tr class="{% if not p.activa %}table-secondary{% endif %}">
+                                <td>
+                                    <strong>{{ p.nombre_completo }}</strong>
+                                    {% if p.notas %}
+                                    <br><small class="text-muted">{{ p.notas }}</small>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-light text-dark border">{{ p.num_vales }}</span>
+                                </td>
+                                <td class="text-center">
+                                    {% if p.activa %}
+                                    <span class="badge bg-success">Activa</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">Inactiva</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end text-nowrap">
+                                    <button type="button" class="btn btn-outline-primary btn-sm btn-editar-persona"
+                                            data-url="{% url 'inmobiliaria:oficina_persona_editar' p.id %}"
+                                            data-apellido="{{ p.apellido }}"
+                                            data-nombre="{{ p.nombre }}"
+                                            data-dni="{{ p.dni }}"
+                                            data-notas="{{ p.notas }}"
+                                            title="Editar">
+                                        <i class="fas fa-pen"></i>
+                                    </button>
+                                    <form method="post" action="{% url 'inmobiliaria:oficina_persona_toggle' p.id %}" class="d-inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-outline-secondary btn-sm" title="Activar/desactivar">
+                                            {% if p.activa %}<i class="fas fa-eye-slash"></i>{% else %}<i class="fas fa-eye"></i>{% endif %}
+                                        </button>
+                                    </form>
+                                    {% if p.num_vales %}
+                                    <a href="{% url 'inmobiliaria:lista_vales_otra_persona' %}?persona_id={{ p.id }}"
+                                       class="btn btn-outline-warning btn-sm" title="Ver historial de vales">
+                                        <i class="fas fa-money-bill-wave"></i>
+                                    </a>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="p-4 text-center text-muted">
+                    Todavía no hay personas cargadas. Agregá la primera a la izquierda.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal editar -->
+<div class="modal fade" id="modalEditarPersona" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="post" id="formEditarPersona" class="modal-content">
+            {% csrf_token %}
+            <div class="modal-header">
+                <h5 class="modal-title">Editar persona</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-2">
+                    <label class="form-label small">Apellido</label>
+                    <input type="text" name="apellido" id="edit_apellido" class="form-control" maxlength="100">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small">Nombre</label>
+                    <input type="text" name="nombre" id="edit_nombre" class="form-control" maxlength="100">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small">DNI</label>
+                    <input type="text" name="dni" id="edit_dni" class="form-control" maxlength="20">
+                </div>
+                <div class="mb-0">
+                    <label class="form-label small">Notas</label>
+                    <input type="text" name="notas" id="edit_notas" class="form-control" maxlength="255">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Guardar cambios</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var modalEl = document.getElementById('modalEditarPersona');
+    var form = document.getElementById('formEditarPersona');
+    var modal = modalEl && window.bootstrap ? new bootstrap.Modal(modalEl) : null;
+    document.querySelectorAll('.btn-editar-persona').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            form.action = btn.getAttribute('data-url');
+            document.getElementById('edit_apellido').value = btn.getAttribute('data-apellido') || '';
+            document.getElementById('edit_nombre').value = btn.getAttribute('data-nombre') || '';
+            document.getElementById('edit_dni').value = btn.getAttribute('data-dni') || '';
+            document.getElementById('edit_notas').value = btn.getAttribute('data-notas') || '';
+            if (modal) modal.show();
+        });
+    });
+});
+</script>
+{% endblock %}

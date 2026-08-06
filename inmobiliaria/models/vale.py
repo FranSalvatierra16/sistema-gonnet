@@ -165,6 +165,15 @@ class ValeVendedor(models.Model):
         blank=True,
         verbose_name='DNI beneficiario',
     )
+    persona_oficina = models.ForeignKey(
+        'PersonaOficina',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='vales',
+        verbose_name='Persona de oficina',
+        help_text='Beneficiario guardado en Oficina (otras personas).',
+    )
 
     movimiento_caja = models.ForeignKey(
         MovimientoCaja,
@@ -223,6 +232,8 @@ class ValeVendedor(models.Model):
     def nombre_beneficiario(self):
         if self.vendedor_id:
             return self.vendedor.nombre_completo_vendedor()
+        if self.persona_oficina_id:
+            return self.persona_oficina.nombre_completo()
         apellido = (self.beneficiario_apellido or '').strip()
         nombre = (self.beneficiario_nombre or '').strip()
         if apellido and nombre:
@@ -250,15 +261,33 @@ class ValeVendedor(models.Model):
 
     @classmethod
     def _validar_beneficiario(cls, *, tipo_beneficiario, vendedor=None,
-                              beneficiario_nombre='', beneficiario_apellido=''):
+                              beneficiario_nombre='', beneficiario_apellido='',
+                              persona_oficina=None):
         if tipo_beneficiario == TipoBeneficiarioVale.VENDEDOR:
             if not vendedor:
                 raise ValueError('Debe indicar un vendedor.')
+            return
+        if persona_oficina is not None:
             return
         nom = (beneficiario_nombre or '').strip()
         ape = (beneficiario_apellido or '').strip()
         if not nom and not ape:
             raise ValueError('Indicá nombre o apellido del beneficiario.')
+
+    @classmethod
+    def _datos_desde_persona_oficina(cls, persona_oficina, beneficiario_nombre='',
+                                     beneficiario_apellido='', beneficiario_dni=''):
+        if not persona_oficina:
+            return (
+                (beneficiario_nombre or '').strip(),
+                (beneficiario_apellido or '').strip(),
+                (beneficiario_dni or '').strip(),
+            )
+        return (
+            (persona_oficina.nombre or '').strip() or (beneficiario_nombre or '').strip(),
+            (persona_oficina.apellido or '').strip() or (beneficiario_apellido or '').strip(),
+            (persona_oficina.dni or '').strip() or (beneficiario_dni or '').strip(),
+        )
 
     @classmethod
     def crear_desde_movimiento(
@@ -271,6 +300,7 @@ class ValeVendedor(models.Model):
         beneficiario_nombre='',
         beneficiario_apellido='',
         beneficiario_dni='',
+        persona_oficina=None,
     ):
         """Registra un vale ligado a un movimiento de caja ya guardado."""
         cls._validar_beneficiario(
@@ -278,6 +308,10 @@ class ValeVendedor(models.Model):
             vendedor=vendedor,
             beneficiario_nombre=beneficiario_nombre,
             beneficiario_apellido=beneficiario_apellido,
+            persona_oficina=persona_oficina,
+        )
+        nom, ape, dni = cls._datos_desde_persona_oficina(
+            persona_oficina, beneficiario_nombre, beneficiario_apellido, beneficiario_dni
         )
         monto = cls.monto_total_movimiento(movimiento)
         if monto <= 0:
@@ -291,9 +325,10 @@ class ValeVendedor(models.Model):
         return cls.objects.create(
             tipo_beneficiario=tipo_beneficiario,
             vendedor=vendedor,
-            beneficiario_nombre=(beneficiario_nombre or '').strip(),
-            beneficiario_apellido=(beneficiario_apellido or '').strip(),
-            beneficiario_dni=(beneficiario_dni or '').strip(),
+            beneficiario_nombre=nom,
+            beneficiario_apellido=ape,
+            beneficiario_dni=dni,
+            persona_oficina=persona_oficina,
             movimiento_caja=movimiento,
             monto=monto,
             tipo_vale=tipo,
@@ -316,6 +351,7 @@ class ValeVendedor(models.Model):
         beneficiario_nombre='',
         beneficiario_apellido='',
         beneficiario_dni='',
+        persona_oficina=None,
     ):
         """Crea un vale de egreso y su movimiento de caja asociado (efectivo)."""
         cls._validar_beneficiario(
@@ -323,14 +359,19 @@ class ValeVendedor(models.Model):
             vendedor=vendedor,
             beneficiario_nombre=beneficiario_nombre,
             beneficiario_apellido=beneficiario_apellido,
+            persona_oficina=persona_oficina,
+        )
+        nom, ape, dni = cls._datos_desde_persona_oficina(
+            persona_oficina, beneficiario_nombre, beneficiario_apellido, beneficiario_dni
         )
         sucursal = vendedor.sucursal if vendedor else caja.sucursal
         vale_tmp = cls(
             tipo_beneficiario=tipo_beneficiario,
             vendedor=vendedor,
-            beneficiario_nombre=(beneficiario_nombre or '').strip(),
-            beneficiario_apellido=(beneficiario_apellido or '').strip(),
-            beneficiario_dni=(beneficiario_dni or '').strip(),
+            beneficiario_nombre=nom,
+            beneficiario_apellido=ape,
+            beneficiario_dni=dni,
+            persona_oficina=persona_oficina,
         )
         label = vale_tmp.nombre_beneficiario()
         movimiento = MovimientoCaja.objects.create(
@@ -344,9 +385,10 @@ class ValeVendedor(models.Model):
         return cls.objects.create(
             tipo_beneficiario=tipo_beneficiario,
             vendedor=vendedor,
-            beneficiario_nombre=(beneficiario_nombre or '').strip(),
-            beneficiario_apellido=(beneficiario_apellido or '').strip(),
-            beneficiario_dni=(beneficiario_dni or '').strip(),
+            beneficiario_nombre=nom,
+            beneficiario_apellido=ape,
+            beneficiario_dni=dni,
+            persona_oficina=persona_oficina,
             movimiento_caja=movimiento,
             monto=monto,
             tipo_vale=TipoMovimientoCajaEnum.EGRESO,

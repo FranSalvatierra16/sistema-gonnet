@@ -348,7 +348,21 @@
                         <input type="hidden" name="productor_id" id="productor_id_hidden">
                     </div>
                     <div class="col-md-9 d-none" id="bloque_otro_beneficiario_vale">
-                        <div class="row g-2">
+                        <div class="mb-2">
+                            <label class="form-label">Persona guardada</label>
+                            <select class="form-select" name="persona_oficina_id" id="persona_oficina_id_vale">
+                                <option value="">— Elegí una persona —</option>
+                                {% for p in personas_oficina %}
+                                <option value="{{ p.id }}">{{ p.nombre_completo }}</option>
+                                {% endfor %}
+                                <option value="__nueva__">+ Agregar persona nueva…</option>
+                            </select>
+                            <small class="text-muted">
+                                Se administran en
+                                <a href="{% url 'inmobiliaria:oficina_personas' %}" target="_blank">Oficina → Personas</a>.
+                            </small>
+                        </div>
+                        <div class="row g-2 d-none" id="bloque_nueva_persona_vale">
                             <div class="col-md-4">
                                 <label class="form-label">Apellido</label>
                                 <input type="text" class="form-control" name="beneficiario_apellido_vale" id="beneficiario_apellido_vale" maxlength="100">
@@ -1026,9 +1040,20 @@ $(document).ready(function() {
         var esOtro = $('#tb_vale_otro').is(':checked');
         $('#bloque_productor_vale, #bloque_productor_nombre_vale').toggleClass('d-none', esOtro);
         $('#bloque_otro_beneficiario_vale').toggleClass('d-none', !esOtro);
+        actualizarNuevaPersonaVale();
+    }
+    function actualizarNuevaPersonaVale() {
+        var esOtro = $('#tb_vale_otro').is(':checked');
+        var val = $('#persona_oficina_id_vale').val();
+        if (esOtro && $('#persona_oficina_id_vale option[value!=""][value!="__nueva__"]').length === 0) {
+            $('#persona_oficina_id_vale').val('__nueva__');
+            val = '__nueva__';
+        }
+        $('#bloque_nueva_persona_vale').toggleClass('d-none', !(esOtro && val === '__nueva__'));
     }
 
     $('input[name="tipo_beneficiario_vale"]').on('change', actualizarTipoBeneficiarioVale);
+    $('#persona_oficina_id_vale').on('change', actualizarNuevaPersonaVale);
     actualizarTipoBeneficiarioVale();
 
     function escapeHtml(s) {
@@ -2631,6 +2656,13 @@ $(document).ready(function() {
         setVal('#beneficiario_apellido_vale', fp.beneficiario_apellido_vale);
         setVal('#beneficiario_nombre_vale', fp.beneficiario_nombre_vale);
         setVal('#beneficiario_dni_vale', fp.beneficiario_dni_vale);
+        if (fp.persona_oficina_id) {
+            $('#persona_oficina_id_vale').val(fp.persona_oficina_id);
+            actualizarNuevaPersonaVale();
+        } else if (fp.tipo_beneficiario_vale === 'otro') {
+            $('#persona_oficina_id_vale').val('__nueva__');
+            actualizarNuevaPersonaVale();
+        }
         if (fp.productor_id) {
             aplicarProductor(fp.productor_id, fp.productor_nombre || '', fp.productor_apellido || '');
         }

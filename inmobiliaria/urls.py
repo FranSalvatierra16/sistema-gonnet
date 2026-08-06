@@ -273,6 +273,10 @@ urlpatterns = [
     path('oficina/categorias/<int:categoria_id>/toggle/', views_oficina.oficina_categoria_toggle, name='oficina_categoria_toggle'),
     path('oficina/categorias/<int:categoria_id>/editar/', views_oficina.oficina_categoria_editar, name='oficina_categoria_editar'),
     path('oficina/categorias/<int:categoria_id>/eliminar/', views_oficina.oficina_categoria_eliminar, name='oficina_categoria_eliminar'),
+    path('oficina/personas/', views_oficina.oficina_personas, name='oficina_personas'),
+    path('oficina/personas/nueva/', views_oficina.oficina_persona_crear, name='oficina_persona_crear'),
+    path('oficina/personas/<int:persona_id>/editar/', views_oficina.oficina_persona_editar, name='oficina_persona_editar'),
+    path('oficina/personas/<int:persona_id>/toggle/', views_oficina.oficina_persona_toggle, name='oficina_persona_toggle'),
     path('oficina/resumen-cierre/', views_oficina.oficina_resumen_cierre, name='oficina_resumen_cierre'),
     path(
         'oficina/propiedades/',

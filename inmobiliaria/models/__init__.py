@@ -21,6 +21,7 @@ from .oficina import (
     FilaManualLibroPropiedad,
     GastoOficina,
     InicioCajaLibroPropiedad,
+    PersonaOficina,
 )
 from .historial_inquilino import HistorialInquilino
 

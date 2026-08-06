@@ -31,6 +31,7 @@ from inmobiliaria.models import (
     GastoOficina,
     InicioCajaLibroPropiedad,
     LiquidacionPropietario,
+    PersonaOficina,
     ValeVendedor,
 )
 from inmobiliaria.models.persona import usuario_es_nivel_administracion
@@ -1886,3 +1887,108 @@ def oficina_propiedad_libro_actualizar_cotizacion(request, propiedad_id):
         'tipo': fila['tipo'],
         'message': 'Cotización guardada.',
     })
+
+
+# ---------------------------------------------------------------------------
+# Personas de oficina (beneficiarios de vales que no son productores)
+# ---------------------------------------------------------------------------
+
+@login_required
+def oficina_personas(request):
+    if not _puede_oficina(request.user):
+        return HttpResponseForbidden()
+
+    sucursal = request.user.sucursal
+    if not sucursal:
+        return HttpResponseForbidden('Tu usuario no tiene sucursal asignada.')
+
+    personas = (
+        PersonaOficina.objects.filter(sucursal=sucursal)
+        .annotate(num_vales=Count('vales'))
+        .order_by('-activa', 'apellido', 'nombre', 'id')
+    )
+    return render(
+        request,
+        'inmobiliaria/oficina/personas.html',
+        {'personas': personas},
+    )
+
+
+@login_required
+@require_POST
+def oficina_persona_crear(request):
+    if not _puede_oficina(request.user):
+        return HttpResponseForbidden()
+
+    sucursal = request.user.sucursal
+    if not sucursal:
+        return HttpResponseForbidden('Tu usuario no tiene sucursal asignada.')
+
+    apellido = (request.POST.get('apellido') or '').strip()
+    nombre = (request.POST.get('nombre') or '').strip()
+    dni = (request.POST.get('dni') or '').strip()
+    notas = (request.POST.get('notas') or '').strip()
+
+    if not apellido and not nombre:
+        messages.error(request, 'Indicá apellido o nombre.')
+        return redirect('inmobiliaria:oficina_personas')
+
+    persona = PersonaOficina.objects.create(
+        sucursal=sucursal,
+        apellido=apellido,
+        nombre=nombre,
+        dni=dni,
+        notas=notas,
+        activa=True,
+    )
+    messages.success(request, f'Persona guardada: {persona.nombre_completo()}.')
+    return redirect('inmobiliaria:oficina_personas')
+
+
+@login_required
+@require_POST
+def oficina_persona_editar(request, persona_id):
+    if not _puede_oficina(request.user):
+        return HttpResponseForbidden()
+
+    sucursal = request.user.sucursal
+    persona = get_object_or_404(PersonaOficina, id=persona_id, sucursal=sucursal)
+
+    apellido = (request.POST.get('apellido') or '').strip()
+    nombre = (request.POST.get('nombre') or '').strip()
+    dni = (request.POST.get('dni') or '').strip()
+    notas = (request.POST.get('notas') or '').strip()
+
+    if not apellido and not nombre:
+        messages.error(request, 'Indicá apellido o nombre.')
+        return redirect('inmobiliaria:oficina_personas')
+
+    persona.apellido = apellido
+    persona.nombre = nombre
+    persona.dni = dni
+    persona.notas = notas
+    persona.save(update_fields=['apellido', 'nombre', 'dni', 'notas'])
+
+    # Mantener nombres legibles en vales ya vinculados
+    ValeVendedor.objects.filter(persona_oficina=persona).update(
+        beneficiario_apellido=apellido,
+        beneficiario_nombre=nombre,
+        beneficiario_dni=dni,
+    )
+    messages.success(request, f'Persona actualizada: {persona.nombre_completo()}.')
+    return redirect('inmobiliaria:oficina_personas')
+
+
+@login_required
+@require_POST
+def oficina_persona_toggle(request, persona_id):
+    if not _puede_oficina(request.user):
+        return HttpResponseForbidden()
+
+    sucursal = request.user.sucursal
+    persona = get_object_or_404(PersonaOficina, id=persona_id, sucursal=sucursal)
+    persona.activa = not persona.activa
+    persona.save(update_fields=['activa'])
+    estado = 'activada' if persona.activa else 'desactivada'
+    messages.success(request, f'Persona {estado}: {persona.nombre_completo()}.')
+    return redirect('inmobiliaria:oficina_personas')
