@@ -165,8 +165,17 @@ def _reserva_id_en_movimiento(movimiento) -> int | None:
 
 
 def monto_deposito_cobrado_reserva(reserva) -> Decimal:
+    """
+    Suma concepto 10 (depósito) cobrado en caja para esta reserva.
+
+    Primero solo movimientos vinculados a la operación. Si no hay, usa un
+    fallback por propiedad/fechas, pero **nunca** toma ingresos que ya
+    declaran otra operación (evita atribuir el depósito de un huésped
+    anterior, p. ej. op. 1805 → $100.000 en la op. 1963).
+    """
     total = Decimal('0')
     vistos: set[int] = set()
+    rid = int(reserva.id)
     for mov in movimientos_reserva(reserva, tipo=TipoMovimientoCajaEnum.INGRESO):
         vistos.add(int(mov.id))
         for item in _parse_conceptos_movimiento(mov):
@@ -176,9 +185,12 @@ def monto_deposito_cobrado_reserva(reserva) -> Decimal:
             total += parse_decimal_monto(item.get('importe'))
     if total > Decimal('0'):
         return total
-    # Fallback: ingresos con concepto 10 en la propiedad cerca de las fechas de la reserva
+    # Fallback: ingresos con concepto 10 en la propiedad cerca de las fechas
     for mov in _ingresos_propiedad_en_ventana_reserva(reserva):
         if int(mov.id) in vistos:
+            continue
+        otro_rid = _reserva_id_en_movimiento(mov)
+        if otro_rid is not None and otro_rid != rid:
             continue
         sub = Decimal('0')
         for item in _parse_conceptos_movimiento(mov):
@@ -191,14 +203,36 @@ def monto_deposito_cobrado_reserva(reserva) -> Decimal:
     return total
 
 
+def monto_devolucion_sugerido_reserva(reserva) -> Decimal:
+    """
+    Monto a devolver: lo cobrado en caja para esta op., o el de la carátula.
+
+    Si hay cobro en caja distinto al depósito de la carátula, se prioriza el
+    de la carátula cuando es > 0 (es el valor operativo cargado en la op.).
+    """
+    deposito = Decimal(str(reserva.deposito_garantia or 0))
+    cobrado = monto_deposito_cobrado_reserva(reserva)
+    if deposito > Decimal('0'):
+        return deposito
+    if cobrado > Decimal('0'):
+        return cobrado
+    return Decimal('0')
+
+
 def deposito_estado_reserva(reserva) -> str:
-    if not reserva or not Decimal(str(reserva.deposito_garantia or 0)):
+    deposito = Decimal(str(getattr(reserva, 'deposito_garantia', None) or 0))
+    if not reserva or deposito <= 0:
         return 'no_aplica'
     if monto_deposito_cobrado_reserva(reserva) > Decimal('0.05'):
         return 'pagado'
     for mov in movimientos_reserva(reserva, tipo=TipoMovimientoCajaEnum.INGRESO):
         if movimiento_tiene_concepto_10(mov):
             return 'pagado'
+    # Carátula con depósito y operación cobrada: se puede devolver aunque
+    # el ingreso no tenga el concepto 10 desglosado en caja.
+    estado = (getattr(reserva, 'estado', None) or '').strip().lower()
+    if estado in ('pagada', 'confirmada'):
+        return 'pagado'
     return 'pendiente'
 
 
@@ -777,13 +811,6 @@ def ya_devolvio_deposito_reserva(reserva) -> bool:
         if _egreso_es_devolucion_deposito_reserva(mov, reserva, nombre_140):
             return True
     return False
-
-
-def monto_devolucion_sugerido_reserva(reserva) -> Decimal:
-    cobrado = monto_deposito_cobrado_reserva(reserva)
-    if cobrado > Decimal('0'):
-        return cobrado
-    return Decimal(str(reserva.deposito_garantia or 0))
 
 
 def datos_operacion_reserva_caja(reserva) -> dict:
