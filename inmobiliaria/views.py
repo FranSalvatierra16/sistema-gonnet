@@ -2625,29 +2625,60 @@ def administracion_propiedades_operaciones(request):
         for m in egresos_gasto:
             if m.id in movimientos_ya_en_gastos:
                 continue
-            # Doble filtro por si quedó marcado mal pero es gasto de oficina
             conc_l = (getattr(m, 'concepto', None) or '').casefold()
             tc = (getattr(m, 'tipo_comprobante', None) or '').strip().upper()
             if (getattr(m, 'a_descontar', None) or '').strip().lower() == 'oficina':
                 continue
             if tc == 'GS' or conc_l.startswith('gasto oficina'):
                 continue
+
             cargo_raw = (getattr(m, 'a_descontar', None) or '').strip().lower()
-            # Propietario: solo pendientes (los ya liquidados ya estan en movimientos_ya_liquidados).
-            # Inquilino: solo los aún no cobrados en un recibo de cuota.
-            if cargo_raw != 'inquilino' and m.id in movimientos_ya_liquidados:
-                continue
-            if cargo_raw == 'inquilino':
-                detalle_m = (getattr(m, 'concepto_detalle', None) or '')
-                concepto_m = (getattr(m, 'concepto', None) or '')
-                if MARKER_COBRADO_INQUILINO in detalle_m or MARKER_COBRADO_INQUILINO in concepto_m:
-                    continue
+            detalle_m = (getattr(m, 'concepto_detalle', None) or '')
+            concepto_m = (getattr(m, 'concepto', None) or '')
+            cobrado_inq = (
+                'cobrado_inquilino_movimiento:' in detalle_m
+                or 'cobrado_inquilino_movimiento:' in concepto_m
+            )
+            m_inq = Decimal(str(getattr(m, 'monto_a_inquilino', None) or 0))
+            m_prop = Decimal(str(getattr(m, 'monto_a_propietario', None) or 0))
+            total_m = Decimal(str(getattr(m, 'monto_total', 0) or 0))
             nombre_c = _nombre_concepto_mov(m)
-            item = _item_egreso_admin(m, concepto_nombre=nombre_c)
             if _es_concepto_pago_liquidacion(nombre_c, m):
-                pagos_liquidacion_items.append(item)
-            else:
-                gastos_items.append(item)
+                pagos_liquidacion_items.append(_item_egreso_admin(m, concepto_nombre=nombre_c))
+                continue
+
+            # Pendiente inquilino (hasta cobrarlo en una cuota).
+            if not cobrado_inq and (cargo_raw == 'inquilino' or m_inq > 0):
+                monto_inq = m_inq if m_inq > 0 else total_m
+                if monto_inq > 0:
+                    item_inq = _item_egreso_admin(
+                        m, concepto_nombre=nombre_c, cargo_key='inquilino'
+                    )
+                    item_inq['monto'] = monto_inq.quantize(Decimal('0.01'))
+                    item_inq['monto_usd'] = Decimal('0')
+                    if m_inq > 0 and total_m > m_inq:
+                        item_inq['detalle'] = (
+                            f"{item_inq.get('detalle') or '—'} · Parte a inquilino"
+                        ).strip(' ·')
+                    gastos_items.append(item_inq)
+
+            # Pendiente propietario (hasta incluirlo en liquidación).
+            if cargo_raw == 'inquilino' and m_prop <= 0 and (m_inq <= 0 or total_m <= m_inq):
+                continue
+            if m.id in movimientos_ya_liquidados:
+                continue
+            item_prop = _item_egreso_admin(
+                m, concepto_nombre=nombre_c, cargo_key='propietario'
+            )
+            if m_prop > 0:
+                item_prop['monto'] = m_prop.quantize(Decimal('0.01'))
+                item_prop['monto_usd'] = Decimal('0')
+            elif m_inq > 0 and total_m > m_inq:
+                item_prop['monto'] = (total_m - m_inq).quantize(Decimal('0.01'))
+                item_prop['monto_usd'] = Decimal('0')
+            elif cargo_raw == 'inquilino':
+                continue
+            gastos_items.append(item_prop)
 
         ingresos_items = []
         for m in ingresos_mov:
