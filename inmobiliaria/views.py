@@ -2638,8 +2638,9 @@ def administracion_propiedades_operaciones(request):
             if cargo_raw != 'inquilino' and m.id in movimientos_ya_liquidados:
                 continue
             if cargo_raw == 'inquilino':
-                obs_m = (getattr(m, 'observaciones', None) or '')
-                if MARKER_COBRADO_INQUILINO in obs_m:
+                detalle_m = (getattr(m, 'concepto_detalle', None) or '')
+                concepto_m = (getattr(m, 'concepto', None) or '')
+                if MARKER_COBRADO_INQUILINO in detalle_m or MARKER_COBRADO_INQUILINO in concepto_m:
                     continue
             nombre_c = _nombre_concepto_mov(m)
             item = _item_egreso_admin(m, concepto_nombre=nombre_c)
@@ -21938,10 +21939,17 @@ def crear_pago_cuota_operacion(request, cuota_id):
         'cuotas_pendientes': cuotas_pendientes_cfg,
         'cuotas_selector': cuotas_selector_cfg,
         'moneda_cuotas': getattr(contrato, 'moneda', 'ARS') or 'ARS',
-        'gastos_pendientes_inquilino': _egresos_caja_pendientes_inquilino(
-            contrato.propiedad, request.user.sucursal
-        ),
+        'gastos_pendientes_inquilino': [],
     }
+    try:
+        config_operacion['gastos_pendientes_inquilino'] = _egresos_caja_pendientes_inquilino(
+            contrato.propiedad, request.user.sucursal
+        )
+    except Exception:
+        logger.exception(
+            'crear_pago_cuota_operacion: gastos pendientes inquilino (cuota_id=%s)',
+            cuota.id,
+        )
 
     context = {
         'contrato': contrato,
@@ -28186,19 +28194,25 @@ def _egresos_caja_pendientes_inquilino(propiedad, sucursal):
     if not propiedad or not sucursal:
         return []
 
-    egresos = (
-        MovimientoCaja.objects.filter(
-            propiedad=propiedad,
-            sucursal=sucursal,
-            tipo=TipoMovimientoCajaEnum.EGRESO,
-            a_descontar='inquilino',
-            fecha_eliminacion__isnull=True,
+    try:
+        egresos = (
+            MovimientoCaja.objects.filter(
+                propiedad=propiedad,
+                sucursal=sucursal,
+                tipo=TipoMovimientoCajaEnum.EGRESO,
+                a_descontar='inquilino',
+                fecha_eliminacion__isnull=True,
+            )
+            .exclude(concepto_detalle__icontains=MARKER_COBRADO_INQUILINO)
+            .exclude(concepto__icontains=MARKER_COBRADO_INQUILINO)
+            .exclude(concepto__icontains='Liquidación Propietario')
+            .order_by('-fecha', '-id')
         )
-        .exclude(observaciones__icontains=MARKER_COBRADO_INQUILINO)
-        .exclude(concepto__icontains='Liquidación Propietario')
-        .order_by('-fecha', '-id')
-    )
-    egresos_list = list(egresos[:200])
+        egresos_list = list(egresos[:200])
+    except Exception:
+        logger.exception('_egresos_caja_pendientes_inquilino: fallo query')
+        return []
+
     try:
         MovimientoCaja.precargar_nombres_concepto(egresos_list, sucursal)
     except Exception:
@@ -28206,61 +28220,68 @@ def _egresos_caja_pendientes_inquilino(propiedad, sucursal):
 
     out = []
     for egreso in egresos_list:
-        monto = Decimal(str(getattr(egreso, 'monto_total', 0) or 0))
-        if monto <= 0:
-            m_dol = Decimal(str(getattr(egreso, 'monto_dolares', 0) or 0))
-            if m_dol <= 0:
-                continue
         try:
-            cid = (egreso.concepto_catalogo_id() or '').strip()
-        except Exception:
-            cid = ''
-        try:
-            nombre = (egreso.nombre_concepto_catalogo or '').strip()
-        except Exception:
-            nombre = ''
-        if not nombre or nombre == '—':
+            monto = Decimal(str(getattr(egreso, 'monto_total', 0) or 0))
+            if monto <= 0:
+                m_dol = Decimal(str(getattr(egreso, 'monto_dolares', 0) or 0))
+                if m_dol <= 0:
+                    continue
             try:
-                nombre = (egreso.descripcion_para_gasto_liquidacion_propietario() or '').strip()
+                cid = (egreso.concepto_catalogo_id() or '').strip()
+            except Exception:
+                cid = ''
+            try:
+                nombre = (egreso.nombre_concepto_catalogo or '').strip()
             except Exception:
                 nombre = ''
-        if not nombre:
-            nombre = (egreso.concepto or f'Egreso caja #{egreso.id}')[:120]
-        try:
-            detalle = (egreso.detalle_libre_para_liquidacion_propietario() or '').strip()
-        except Exception:
-            detalle = ''
-        if not detalle:
+            if not nombre or nombre == '—':
+                try:
+                    nombre = (egreso.descripcion_para_gasto_liquidacion_propietario() or '').strip()
+                except Exception:
+                    nombre = ''
+            if not nombre:
+                nombre = (egreso.concepto or f'Egreso caja #{egreso.id}')[:120]
             try:
-                detalle = (egreso.listado_detalle_observacion or '').strip()
+                detalle = (egreso.detalle_libre_para_liquidacion_propietario() or '').strip()
             except Exception:
                 detalle = ''
-        fecha = egreso.fecha
-        fecha_disp = '—'
-        if fecha:
-            try:
-                if timezone.is_aware(fecha):
-                    fecha = timezone.localtime(fecha)
-                fecha_disp = fecha.strftime('%d/%m/%Y')
-            except Exception:
-                fecha_disp = '—'
-        moneda = 'USD' if (
-            Decimal(str(getattr(egreso, 'monto_dolares', 0) or 0)) > 0
-            and Decimal(str(getattr(egreso, 'monto_total', 0) or 0)) <= 0
-        ) else 'ARS'
-        if moneda == 'USD':
-            monto = Decimal(str(getattr(egreso, 'monto_dolares', 0) or 0))
-        else:
-            monto = Decimal(str(getattr(egreso, 'monto_total', 0) or 0))
-        out.append({
-            'movimiento_id': egreso.id,
-            'concepto_id': cid,
-            'nombre': nombre[:120],
-            'detalle': detalle[:400],
-            'monto': float(monto.quantize(Decimal('0.01'))),
-            'moneda': moneda,
-            'fecha_display': fecha_disp,
-        })
+            if not detalle:
+                try:
+                    detalle = (egreso.listado_detalle_observacion or '').strip()
+                except Exception:
+                    detalle = ''
+            fecha = egreso.fecha
+            fecha_disp = '—'
+            if fecha:
+                try:
+                    if timezone.is_aware(fecha):
+                        fecha = timezone.localtime(fecha)
+                    fecha_disp = fecha.strftime('%d/%m/%Y')
+                except Exception:
+                    fecha_disp = '—'
+            moneda = 'USD' if (
+                Decimal(str(getattr(egreso, 'monto_dolares', 0) or 0)) > 0
+                and Decimal(str(getattr(egreso, 'monto_total', 0) or 0)) <= 0
+            ) else 'ARS'
+            if moneda == 'USD':
+                monto = Decimal(str(getattr(egreso, 'monto_dolares', 0) or 0))
+            else:
+                monto = Decimal(str(getattr(egreso, 'monto_total', 0) or 0))
+            out.append({
+                'movimiento_id': egreso.id,
+                'concepto_id': cid,
+                'nombre': nombre[:120],
+                'detalle': detalle[:400],
+                'monto': float(monto.quantize(Decimal('0.01'))),
+                'moneda': moneda,
+                'fecha_display': fecha_disp,
+            })
+        except Exception:
+            logger.exception(
+                '_egresos_caja_pendientes_inquilino: egreso_id=%s',
+                getattr(egreso, 'id', None),
+            )
+            continue
     return out
 
 
@@ -28285,11 +28306,13 @@ def _marcar_egresos_inquilino_cobrados(egreso_ids, movimiento_ingreso, sucursal)
         a_descontar='inquilino',
         fecha_eliminacion__isnull=True,
     ):
-        obs = (egreso.observaciones or '').strip()
-        if MARKER_COBRADO_INQUILINO in obs:
+        detalle = (egreso.concepto_detalle or '').strip()
+        concepto = (egreso.concepto or '').strip()
+        if MARKER_COBRADO_INQUILINO in detalle or MARKER_COBRADO_INQUILINO in concepto:
             continue
-        egreso.observaciones = f'{obs}\n{marker}'.strip() if obs else marker
-        egreso.save(update_fields=['observaciones'])
+        # concepto_detalle es TextField: sirve para marcar sin romper el concepto visible.
+        egreso.concepto_detalle = f'{detalle}\n{marker}'.strip() if detalle else marker
+        egreso.save(update_fields=['concepto_detalle'])
         actualizados += 1
     return actualizados
 
