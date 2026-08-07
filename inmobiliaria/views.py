@@ -5259,9 +5259,9 @@ def confirmar_reserva(request):
                         'error': 'Debés indicar al menos un vendedor / productor.',
                     })
 
-                # Obtener los objetos necesarios (vendedor solo de la sucursal del usuario)
+                # Lock de propiedad: evita dos reservas iguales por doble click / doble POST.
                 try:
-                    propiedad = Propiedad.objects.get(id=propiedad_id)
+                    propiedad = Propiedad.objects.select_for_update().get(id=propiedad_id)
                     vendedor = Vendedor.objects.get(
                         id=vendedor_ids[0], sucursal=request.user.sucursal
                     )
@@ -5282,34 +5282,23 @@ def confirmar_reserva(request):
                         'error': 'La propiedad no está disponible para las fechas seleccionadas.'
                     })
 
-                # Verificar que no haya reservas en el período (salvo disponibilidad forzada)
-                from inmobiliaria.busqueda_propiedades_reserva import (
-                    periodo_cubierto_por_disponibilidad_forzada,
+                # Siempre rechazar solape con otra reserva activa (también con disponibilidad forzada).
+                # "Forzar disponible" solo saltea el calendario de disponibilidades, no permite duplicar.
+                from inmobiliaria.models.propiedad import ESTADOS_RESERVA_OCUPAN_DISPONIBILIDAD
+
+                reservas_existentes = Reserva.objects.filter(
+                    propiedad=propiedad,
+                    fecha_inicio__lt=fecha_fin,
+                    fecha_fin__gt=fecha_inicio,
+                    estado__in=ESTADOS_RESERVA_OCUPAN_DISPONIBILIDAD,
+                    eliminada=False,
+                    es_alquiler_sindicato=False,
                 )
-                disps_rango = list(
-                    Disponibilidad.objects.filter(
-                        propiedad=propiedad,
-                        fecha_inicio__lt=fecha_fin,
-                        fecha_fin__gt=fecha_inicio,
-                    )
-                )
-                forzada_cubre, _, _ = periodo_cubierto_por_disponibilidad_forzada(
-                    disps_rango, fecha_inicio, fecha_fin
-                )
-                if not forzada_cubre:
-                    reservas_existentes = Reserva.objects.filter(
-                        propiedad=propiedad,
-                        fecha_inicio__lt=fecha_fin,
-                        fecha_fin__gt=fecha_inicio,
-                        estado__in=['confirmada', 'confirmada_no_pagada', 'pagada'],
-                        eliminada=False,
-                        es_alquiler_sindicato=False,
-                    )
-                    if reservas_existentes.exists():
-                        return JsonResponse({
-                            'success': False,
-                            'error': 'El período seleccionado ya tiene una reserva'
-                        })
+                if reservas_existentes.exists():
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'El período seleccionado ya tiene una reserva'
+                    })
 
                 try:
                     precio_total_dec = parsear_monto_desde_ui(precio)

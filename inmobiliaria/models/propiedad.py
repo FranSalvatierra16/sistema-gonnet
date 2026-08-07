@@ -717,20 +717,23 @@ class Reserva(models.Model):
 
         is_new = self._state.adding
 
-        # 🚨 TEMPORALMENTE DESHABILITADO - PERMITIR TODAS LAS RESERVAS
-        # Verificar disponibilidad antes de guardar
-        if is_new:
-            # TEMPORALMENTE: Siempre permitir reservas para no bloquear el sistema
-            disponible = True
-            
-            # TODO: Investigar problema de validación después
-            # if not self.propiedad.disponibilidades.exists():
-            #     disponible = True
-            # else:
-            #     disponible = self.propiedad.esta_disponible_en_fecha(self.fecha_inicio, self.fecha_fin)
-            #     
-            # if not disponible:
-            #     raise ValidationError('La propiedad no está disponible para las fechas seleccionadas.')
+        # Evitar reservas duplicadas (misma propiedad + fechas solapadas).
+        if is_new and self.propiedad_id and self.fecha_inicio and self.fecha_fin:
+            if not getattr(self, 'es_alquiler_sindicato', False):
+                qs = Reserva.objects.filter(
+                    propiedad_id=self.propiedad_id,
+                    fecha_inicio__lt=self.fecha_fin,
+                    fecha_fin__gt=self.fecha_inicio,
+                    estado__in=ESTADOS_RESERVA_OCUPAN_DISPONIBILIDAD,
+                    eliminada=False,
+                    es_alquiler_sindicato=False,
+                )
+                if self.pk:
+                    qs = qs.exclude(pk=self.pk)
+                if qs.exists():
+                    raise ValidationError(
+                        'Ya existe una reserva activa para esta propiedad en esas fechas.'
+                    )
 
         super().save(*args, **kwargs)
 
