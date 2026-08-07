@@ -188,6 +188,17 @@
                         </div>
                         {{ form.propietario.errors }}
                     </div>
+                    <div class="col-md-6">
+                        <label for="id_propietario_desde" class="form-label">
+                            <i class="fas fa-calendar-day me-1"></i>Titular desde
+                        </label>
+                        {{ form.propietario_desde }}
+                        {{ form.propietario_desde.errors }}
+                        <small class="form-text text-muted">
+                            Si cambiás de propietario, se completa solo. Sirve para no listar en liquidaciones
+                            los gastos anteriores al titular actual.
+                        </small>
+                    </div>
                     <div class="col-md-6 col-lg-5">
                         <label for="id_fichado_por" class="form-label">
                             <i class="fas fa-user-tag me-1"></i>Vendedor que tomó la propiedad

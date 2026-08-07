@@ -2335,13 +2335,10 @@ def administracion_propiedades_operaciones(request):
         contratos_qs = ContratoAlquiler.objects.filter(propiedad=propiedad).select_related('inquilino', 'vendedor')
         cuotas_qs = CuotaMensual.objects.filter(contrato__propiedad=propiedad).select_related('contrato')
         propi = getattr(propiedad, 'propietario', None)
+        from inmobiliaria.models.liquidacion import q_gastos_del_propietario_actual
         gastos_qs = GastoPropietario.objects.filter(sucursal=request.user.sucursal)
         if propi:
-            # Solo gastos de esta propiedad + gastos del propietario sin propiedad asignada.
-            # No mezclar gastos de otras propiedades del mismo dueño.
-            gastos_qs = gastos_qs.filter(
-                Q(propiedad=propiedad) | Q(propiedad__isnull=True, propietario=propi)
-            )
+            gastos_qs = gastos_qs.filter(q_gastos_del_propietario_actual(propiedad))
         else:
             gastos_qs = gastos_qs.filter(propiedad=propiedad)
         gastos_qs = gastos_qs.select_related('liquidacion')
@@ -27959,6 +27956,10 @@ def _egresos_caja_pendientes_para_liquidacion(propiedad, sucursal):
         .exclude(concepto__icontains='Liquidación Propietario')
         .order_by('-fecha')
     )
+    # Si la propiedad cambió de titular, no ofrecer egresos anteriores al cambio.
+    propietario_desde = getattr(propiedad, 'propietario_desde', None)
+    if propietario_desde:
+        egresos = egresos.filter(fecha__date__gte=propietario_desde)
 
     movimientos_ya_liquidados = set(
         LiquidacionPropietario.objects.filter(
@@ -28076,22 +28077,23 @@ def _gastos_pendientes_livianos_liquidacion(propiedad, sucursal):
     """
     if not propiedad or not sucursal:
         return []
+    from inmobiliaria.models.liquidacion import q_gastos_del_propietario_actual
+
+    q_titular = q_gastos_del_propietario_actual(propiedad)
     gastos_saldo_negativo = GastoPropietario.objects.filter(
         liquidacion__isnull=True,
         sucursal=sucursal,
         tipo_movimiento='egreso',
         observaciones__contains='liquidacion_pendiente_origen:',
-    ).filter(
-        Q(propiedad=propiedad)
-        | Q(propiedad__isnull=True, propietario=propiedad.propietario_id)
-    ).order_by('-fecha_creacion')
+    ).filter(q_titular).order_by('-fecha_creacion')
 
     gastos_manuales = (
         GastoPropietario.objects.filter(
             liquidacion__isnull=True,
             sucursal=sucursal,
-            propiedad=propiedad,
         )
+        .filter(q_titular)
+        .filter(propiedad=propiedad)
         .exclude(observaciones__contains='liquidacion_pendiente_origen:')
         .exclude(observaciones__icontains='Movimiento de caja #')
         .order_by('-fecha_creacion')
@@ -28413,22 +28415,23 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
         })
     
     # Gastos pendientes: liquidaciones en negativo + movimientos manuales + egresos de caja.
+    from inmobiliaria.models.liquidacion import q_gastos_del_propietario_actual
+
+    q_titular = q_gastos_del_propietario_actual(propiedad)
     gastos_saldo_negativo = GastoPropietario.objects.filter(
         liquidacion__isnull=True,
         sucursal=sucursal,
         tipo_movimiento='egreso',
         observaciones__contains='liquidacion_pendiente_origen:',
-    ).filter(
-        Q(propiedad=propiedad)
-        | Q(propiedad__isnull=True, propietario=propiedad.propietario_id)
-    ).order_by('-fecha_creacion')
+    ).filter(q_titular).order_by('-fecha_creacion')
 
     gastos_manuales = (
         GastoPropietario.objects.filter(
             liquidacion__isnull=True,
             sucursal=sucursal,
-            propiedad=propiedad,
         )
+        .filter(q_titular)
+        .filter(propiedad=propiedad)
         .exclude(observaciones__contains='liquidacion_pendiente_origen:')
         .exclude(observaciones__icontains='Movimiento de caja #')
         .order_by('-fecha_creacion')

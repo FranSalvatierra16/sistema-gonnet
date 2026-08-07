@@ -522,3 +522,124 @@ def eliminar_gastos_pendientes_liquidacion_origen(liquidacion_id, sucursal=None)
         qs = qs.filter(sucursal=sucursal)
     qs.delete()
 
+
+def q_gastos_del_propietario_actual(propiedad):
+    """
+    Gastos que corresponden al titular actual de la propiedad.
+    - Con propietario asignado: solo los del titular vigente.
+    - Sin propietario (legacy): solo si no hay «titular desde», o la fecha del gasto
+      es posterior a ese corte.
+    """
+    from django.db.models import Q
+
+    if not propiedad:
+        return Q(pk__in=[])
+    pid = getattr(propiedad, 'propietario_id', None)
+    desde = getattr(propiedad, 'propietario_desde', None)
+
+    q_titular = Q(propiedad=propiedad, propietario_id=pid) if pid else Q(pk__in=[])
+    if pid:
+        q_titular |= Q(propiedad__isnull=True, propietario_id=pid)
+
+    if desde:
+        q_legacy = Q(propiedad=propiedad, propietario__isnull=True) & (
+            Q(fecha_gasto__isnull=True) | Q(fecha_gasto__gte=desde)
+        )
+    else:
+        q_legacy = Q(propiedad=propiedad, propietario__isnull=True)
+
+    return q_titular | q_legacy
+
+
+def sellar_gastos_al_cambiar_propietario(propiedad, propietario_anterior_id):
+    """
+    Al cambiar el titular de una propiedad:
+    - Los gastos pendientes quedan asociados al propietario anterior (no al nuevo).
+    - Los egresos de caja aún no vinculados se archivan como gasto del titular anterior,
+      para que no reaparezcan en la liquidación del nuevo.
+    """
+    from django.db.models import Q
+    from inmobiliaria.models.caja import MovimientoCaja, TipoMovimientoCajaEnum
+    import re
+
+    if not propiedad or not propietario_anterior_id:
+        return 0
+
+    actualizados = GastoPropietario.objects.filter(
+        propiedad=propiedad,
+        liquidacion__isnull=True,
+    ).filter(
+        Q(propietario_id__isnull=True) | Q(propietario_id=propietario_anterior_id)
+    ).exclude(
+        propietario_id=getattr(propiedad, 'propietario_id', None)
+    ).update(propietario_id=propietario_anterior_id)
+
+    # Egresos de caja pendientes → archivar para el titular anterior
+    ya_vinculados = set()
+    for obs in GastoPropietario.objects.filter(
+        propiedad=propiedad,
+        observaciones__icontains='Movimiento de caja #',
+    ).values_list('observaciones', flat=True):
+        m = re.search(r'Movimiento de caja #(\d+)', obs or '')
+        if m:
+            try:
+                ya_vinculados.add(int(m.group(1)))
+            except (TypeError, ValueError):
+                pass
+
+    egresos = (
+        MovimientoCaja.objects.filter(
+            propiedad=propiedad,
+            tipo=TipoMovimientoCajaEnum.EGRESO,
+            fecha_eliminacion__isnull=True,
+        )
+        .filter(
+            Q(a_descontar='propietario')
+            | Q(a_descontar='oficina')
+            | Q(a_descontar__isnull=True)
+            | Q(a_descontar='')
+            | Q(monto_a_propietario__gt=0)
+        )
+        .exclude(concepto__icontains='Liquidación Propietario')
+        .order_by('id')
+    )
+    archivados = 0
+    for egreso in egresos[:500]:
+        if egreso.id in ya_vinculados:
+            continue
+        monto = Decimal(str(getattr(egreso, 'monto_a_propietario', None) or 0))
+        if monto <= 0:
+            monto = (
+                Decimal(str(egreso.monto_efectivo or 0))
+                + Decimal(str(egreso.monto_cheque or 0))
+                + Decimal(str(egreso.monto_tarjeta or 0))
+                + Decimal(str(egreso.monto_deposito or 0))
+            )
+        if monto <= 0:
+            continue
+        fecha_g = None
+        if egreso.fecha:
+            try:
+                fecha_g = timezone.localtime(egreso.fecha).date()
+            except Exception:
+                fecha_g = egreso.fecha.date() if hasattr(egreso.fecha, 'date') else None
+        desc = (egreso.concepto or f'Egreso caja #{egreso.id}')[:200]
+        GastoPropietario.objects.create(
+            liquidacion=None,
+            propietario_id=propietario_anterior_id,
+            propiedad=propiedad,
+            descripcion=desc.split('|')[0].strip()[:200] or f'Egreso #{egreso.id}',
+            monto=monto.quantize(Decimal('0.01')),
+            tipo_movimiento='egreso',
+            fecha_gasto=fecha_g,
+            observaciones=(
+                f'Movimiento de caja #{egreso.id}\n'
+                f'archivado_cambio_propietario={propietario_anterior_id}'
+            ),
+            aceptado=False,
+            sucursal_id=getattr(propiedad, 'sucursal_id', None) or getattr(egreso, 'sucursal_id', None),
+        )
+        archivados += 1
+
+    return actualizados + archivados
+

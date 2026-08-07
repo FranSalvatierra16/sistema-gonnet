@@ -3,6 +3,7 @@ from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db.models import Q, Max
+from django.utils import timezone
 from django.utils.timezone import now
 from django.conf import settings
 from django.db.models.signals import post_delete
@@ -156,6 +157,15 @@ class Propiedad(models.Model):
     cuenta_bancaria = models.CharField(max_length=100, blank=True, help_text="Número de cuenta bancaria para depósitos")
     propietario = models.ForeignKey(Propietario, on_delete=models.CASCADE, related_name='propiedades')  
     sucursal = models.ForeignKey(Sucursal, on_delete=models.CASCADE, related_name='propiedades')# Cambiado a obligatorio
+    propietario_desde = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name='Titular desde',
+        help_text=(
+            'Fecha desde la cual el propietario actual es titular. '
+            'En liquidaciones no se listan gastos ni egresos de caja anteriores a esta fecha.'
+        ),
+    )
     porcentaje_propietario = models.DecimalField(
         max_digits=5,
         decimal_places=2,
@@ -450,12 +460,14 @@ class Propiedad(models.Model):
     def save(self, *args, **kwargs):
         # Detectar si se cambió el propietario
         propietario_cambio = False
+        propietario_anterior_id = None
         if self.pk and self.propietario:
             try:
                 # Obtener la instancia actual de la base de datos
                 instancia_anterior = Propiedad.objects.get(pk=self.pk)
                 if instancia_anterior.propietario_id != self.propietario_id:
                     propietario_cambio = True
+                    propietario_anterior_id = instancia_anterior.propietario_id
             except Propiedad.DoesNotExist:
                 pass  # Es una nueva propiedad
         
@@ -501,7 +513,22 @@ class Propiedad(models.Model):
                     
                     self.numero_por_propietario = siguiente_numero
 
+        if propietario_cambio:
+            # A partir de hoy, la liquidación del nuevo titular no ve gastos viejos.
+            self.propietario_desde = timezone.localdate()
+
         super().save(*args, **kwargs)
+        if propietario_cambio and propietario_anterior_id:
+            try:
+                from inmobiliaria.models.liquidacion import sellar_gastos_al_cambiar_propietario
+
+                sellar_gastos_al_cambiar_propietario(self, propietario_anterior_id)
+            except Exception:
+                import logging
+                logging.getLogger(__name__).exception(
+                    'No se pudieron sellar gastos al cambiar propietario de propiedad %s',
+                    self.pk,
+                )
         if self._state.adding:
             self.crear_precios_iniciales()
 
