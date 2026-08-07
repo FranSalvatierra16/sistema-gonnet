@@ -27817,12 +27817,14 @@ def _egreso_no_es_gasto_descontable_liquidacion(movimiento) -> bool:
 
 
 def _monto_descuento_propietario_egreso_caja(movimiento) -> Decimal:
-    """Importe a descontar al propietario desde un egreso de caja."""
+    """Importe a descontar al propietario / depto desde un egreso de caja."""
     from inmobiliaria.neto_propietario_movimiento import monto_medios_movimiento_decimal
 
     m_prop = Decimal(str(getattr(movimiento, 'monto_a_propietario', None) or 0))
-    if m_prop > 0:
-        return m_prop.quantize(Decimal('0.01'))
+    m_of = Decimal(str(getattr(movimiento, 'monto_a_oficina', None) or 0))
+    # Reparto explícito: propietario + depto/oficina entran en la liquidación de la propiedad.
+    if m_prop > 0 or m_of > 0:
+        return (m_prop + m_of).quantize(Decimal('0.01'))
     a = (getattr(movimiento, 'a_descontar', None) or '').strip().lower()
     if a in ('propietario', 'oficina', ''):
         total = monto_medios_movimiento_decimal(movimiento)
@@ -27872,23 +27874,26 @@ def _egreso_caja_debe_listarse_en_liquidacion(movimiento) -> bool:
         return False
 
     a = (getattr(movimiento, 'a_descontar', None) or '').strip().lower()
-    if a == 'inquilino':
-        return False
 
     # Pago de liquidación al propietario: nunca como descuento.
     if _egreso_es_pago_liquidacion_propietario(movimiento):
         return False
 
     m_prop = Decimal(str(getattr(movimiento, 'monto_a_propietario', None) or 0))
-    # Cargo explícito al propietario: listar aunque el comprobante sea RECIBO (default de caja).
-    # Antes se excluían todos los RC con propiedad por parecer cobro de alquiler.
-    if m_prop > 0 or a == 'propietario':
+    m_of = Decimal(str(getattr(movimiento, 'monto_a_oficina', None) or 0))
+    # Cargo a propietario o a depto/oficina: listar aunque el comprobante sea RECIBO
+    # (default de caja). Sin esto, los deptos marcados «propiedad oficina» no veían
+    # gastos en liquidación (el importe va por defecto a «A depto / oficina»).
+    if m_prop > 0 or m_of > 0 or a in ('propietario', 'oficina'):
         return True
 
-    # Legacy oficina / vacío: mantener filtro anti-cobros de alquiler.
+    if a == 'inquilino':
+        return False
+
+    # Legacy vacío: mantener filtro anti-cobros de alquiler.
     if _egreso_no_es_gasto_descontable_liquidacion(movimiento):
         return False
-    return a in ('oficina', '')
+    return a == ''
 
 
 def _observaciones_gasto_desde_movimiento_caja(movimiento):
