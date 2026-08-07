@@ -1142,12 +1142,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 );
             }
             sincronizarMonedaDesdeOperaciones();
-            mostrarGastosPendientes(data.gastos_pendientes || [], colProp);
+            mostrarGastosPendientes(data.gastos_pendientes || [], colProp, null, {
+                es_propiedad_oficina: data.es_propiedad_oficina,
+            });
         } else {
             container.style.display = 'block';
             lista.innerHTML = '';
             sinOperaciones.style.display = 'block';
-            mostrarGastosPendientes(data.gastos_pendientes || [], colProp);
+            mostrarGastosPendientes(data.gastos_pendientes || [], colProp, null, {
+                es_propiedad_oficina: data.es_propiedad_oficina,
+            });
         }
         function restaurarOperacionesMarcadas(lista) {
             (lista || []).forEach(function(r) {
@@ -1449,6 +1453,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function incorporarGastoRecienCreado(gastoApi, propiedadId) {
+        if (window._ultimaPropiedadOficinaLiq) {
+            return;
+        }
         if (!gastoApi || gastoApi.id == null) return;
         const idsMarcados = Array.from(document.querySelectorAll('.gasto-checkbox:checked')).map(function(x) {
             return String(x.value);
@@ -1460,7 +1467,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         idsMarcados.push(String(g.id));
         const idsUnicos = Array.from(new Set(idsMarcados));
-        mostrarGastosPendientes(window._ultimosGastosServidor || [], window._ultimaColPropGastos, idsUnicos);
+        mostrarGastosPendientes(window._ultimosGastosServidor || [], window._ultimaColPropGastos, idsUnicos, {
+            es_propiedad_oficina: window._ultimaPropiedadOficinaLiq,
+        });
         marcarMontosEditadosManualmente();
         if (montosEditadosManualmente) {
             actualizarResumenLiquidacion();
@@ -1471,12 +1480,23 @@ document.addEventListener('DOMContentLoaded', function() {
     window.incorporarGastoRecienCreado = incorporarGastoRecienCreado;
 
     // Función para mostrar movimientos pendientes
-    function mostrarGastosPendientes(gastos, colProp, idsPreservar) {
+    function mostrarGastosPendientes(gastos, colProp, idsPreservar, opts) {
         const container = document.getElementById('gastos-pendientes-container');
         const lista = document.getElementById('gastos-pendientes-lista');
         const sinGastos = document.getElementById('sin-gastos');
         const mostrarCol = Boolean(colProp);
+        opts = opts || {};
         window._ultimaColPropGastos = mostrarCol;
+        window._ultimaPropiedadOficinaLiq = Boolean(opts.es_propiedad_oficina);
+        // Depto oficina: los gastos van al libro de Oficina, no a liquidación.
+        if (window._ultimaPropiedadOficinaLiq) {
+            window._ultimosGastosServidor = [];
+            window._gastosExtraLocal = [];
+            container.style.display = 'none';
+            if (lista) lista.innerHTML = '';
+            if (sinGastos) sinGastos.style.display = 'none';
+            return;
+        }
         const gastosMerged = fusionarGastosPendientes(gastos);
 
         const idsMarcados = new Set();
@@ -1662,7 +1682,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         mostrarGastosPendientes(
                             window._ultimosGastosServidor || [],
                             window._ultimaColPropGastos,
-                            idsMarcados
+                            idsMarcados,
+                            { es_propiedad_oficina: window._ultimaPropiedadOficinaLiq }
                         );
                         if (montosEditadosManualmente) {
                             actualizarResumenLiquidacion();
