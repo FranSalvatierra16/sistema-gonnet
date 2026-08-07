@@ -87,7 +87,7 @@
         <div class="col-md-4 col-12 mb-2"><div class="alert alert-danger border mb-0">Egresos: <strong>${{ total_egresos|format_price }}</strong>{% if total_egresos_usd %} <span class="d-block small">+ <strong>U$S {{ total_egresos_usd|format_price }}</strong></span>{% endif %}</div></div>
         <div class="col-md-4 col-12 mb-2"><div class="alert alert-primary border mb-0">Balance: <strong>${{ balance|format_price }}</strong>{% if total_ingresos_usd or total_egresos_usd %} <span class="d-block small">+ <strong>U$S {{ balance_usd|format_price }}</strong></span>{% endif %}</div></div>
         <div class="col-md-6 col-12 mb-2"><div class="alert alert-info border mb-0">Pagos cobrados (reservas): <strong>${{ total_pagos|format_price }}</strong></div></div>
-        <div class="col-md-6 col-12 mb-2"><div class="alert alert-warning border mb-0">Gastos (prop. + inq.): <strong>${{ total_gastos|format_price }}</strong>{% if total_gastos_usd %} <span class="d-block small">+ <strong>U$S {{ total_gastos_usd|format_price }}</strong></span>{% endif %}<span class="d-block small text-muted">Propietario ${{ total_gastos_propietario|format_price }} · Inquilino ${{ total_gastos_inquilino|format_price }}</span></div></div>
+        <div class="col-md-6 col-12 mb-2"><div class="alert alert-warning border mb-0">Gastos pendientes (prop. + inq.): <strong>${{ total_gastos|format_price }}</strong>{% if total_gastos_usd %} <span class="d-block small">+ <strong>U$S {{ total_gastos_usd|format_price }}</strong></span>{% endif %}<span class="d-block small text-muted">Propietario ${{ total_gastos_propietario|format_price }} · Inquilino ${{ total_gastos_inquilino|format_price }}</span></div></div>
     </div>
 
     <div class="row mb-4">
@@ -167,8 +167,11 @@
         <div class="tab-pane fade" id="pane-gastos" role="tabpanel">
             <div class="card mb-4">
                 <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
-                    <strong>Gastos propietario</strong>
+                    <strong>Gastos pendientes del propietario</strong>
                     <span class="badge bg-primary">{{ gastos_propietario_items|length }} · ${{ total_gastos_propietario|format_price }}</span>
+                </div>
+                <div class="card-body py-2 border-bottom small text-muted">
+                    Solo se listan gastos aún no incluidos en una liquidación (igual que al liquidar).
                 </div>
                 <div class="table-responsive">
                     <table class="table table-sm table-striped mb-0">

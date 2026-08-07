@@ -2343,7 +2343,9 @@ def administracion_propiedades_operaciones(request):
             gastos_qs = gastos_qs.filter(q_gastos_del_propietario_actual(propiedad))
         else:
             gastos_qs = gastos_qs.filter(propiedad=propiedad)
-        gastos_qs = gastos_qs.select_related('liquidacion')
+        # Solo pendientes: los ya cobrados en una liquidación no se listan acá
+        # (igual que en el detalle de liquidaciones).
+        gastos_qs = gastos_qs.filter(liquidacion__isnull=True).select_related('liquidacion')
         liquidaciones_qs = LiquidacionPropietario.objects.filter(propiedad=propiedad).exclude(estado='cancelada').select_related(
             'reserva', 'contrato', 'movimiento_caja'
         )
@@ -2364,6 +2366,27 @@ def administracion_propiedades_operaciones(request):
             | Q(concepto__icontains='Gasto oficina —')
             | Q(concepto__icontains='Gasto oficina -')
         ).select_related('empleado')
+
+        # Movimientos ya descontados en alguna liquidación (aunque el GastoPropietario
+        # no entre en el filtro de fechas de esta pantalla).
+        q_marcadores_liq = GastoPropietario.objects.filter(
+            sucursal=request.user.sucursal,
+            liquidacion__isnull=False,
+            observaciones__icontains='Movimiento de caja #',
+        )
+        if propi:
+            q_marcadores_liq = q_marcadores_liq.filter(q_gastos_del_propietario_actual(propiedad))
+        else:
+            q_marcadores_liq = q_marcadores_liq.filter(propiedad=propiedad)
+        movimientos_ya_liquidados = set()
+        for obs in q_marcadores_liq.values_list('observaciones', flat=True):
+            mref = re.search(r'Movimiento de caja #(\d+)', obs or '')
+            if mref:
+                try:
+                    movimientos_ya_liquidados.add(int(mref.group(1)))
+                except (TypeError, ValueError):
+                    pass
+        movimientos_ya_liquidados |= _movimientos_caja_excluidos_liquidacion_propiedad(propiedad)
 
         if fecha_desde:
             reservas_qs = reservas_qs.filter(fecha_fin__gte=fecha_desde)
@@ -2480,6 +2503,7 @@ def administracion_propiedades_operaciones(request):
                     movimientos_ya_en_gastos.add(int(mref.group(1)))
                 except (TypeError, ValueError):
                     pass
+        movimientos_ya_en_gastos |= movimientos_ya_liquidados
 
         puede_eliminar_mov = usuario_puede_eliminar_movimiento_caja(request.user)
         puede_editar_mov = usuario_puede_editar_movimiento_caja(request.user)
@@ -2555,15 +2579,24 @@ def administracion_propiedades_operaciones(request):
         gastos_items = []
         pagos_liquidacion_items = []
         for g in gastos:
-            mov_num = getattr(getattr(g, 'liquidacion', None), 'movimiento_caja_id', None)
-            detalle = str(getattr(g, 'observaciones', '') or '').strip()
-            if getattr(g, 'liquidacion_id', None):
-                origen = f'Liquidación #{g.liquidacion_id}'
-            elif getattr(g, 'propiedad_id', None):
+            # Pendientes: no hay liquidación; el mov. de caja (si hay) está en observaciones.
+            mov_num = None
+            obs_g = getattr(g, 'observaciones', None) or ''
+            mref = re.search(r'Movimiento de caja #(\d+)', obs_g)
+            if mref:
+                try:
+                    mov_num = int(mref.group(1))
+                except (TypeError, ValueError):
+                    mov_num = None
+            detalle = str(obs_g).strip()
+            if getattr(g, 'propiedad_id', None):
                 origen = 'Gasto pendiente de la propiedad'
             else:
                 origen = 'Gasto del propietario (sin propiedad asignada)'
-            detalle = f'{detalle} · {origen}' if detalle else origen
+            # No mostrar el marcador técnico en el detalle
+            detalle_limpio = re.sub(r'\s*Movimiento de caja #\d+\s*', ' ', detalle).strip()
+            detalle_limpio = re.sub(r'\n+', ' · ', detalle_limpio).strip(' ·')
+            detalle = f'{detalle_limpio} · {origen}' if detalle_limpio else origen
             es_usd = (getattr(g, 'moneda', None) or 'ARS').upper() == 'USD'
             monto_g = g.monto or Decimal('0')
             concepto_g = str(getattr(g, 'descripcion', '') or '-')
@@ -2598,6 +2631,11 @@ def administracion_propiedades_operaciones(request):
             if (getattr(m, 'a_descontar', None) or '').strip().lower() == 'oficina':
                 continue
             if tc == 'GS' or conc_l.startswith('gasto oficina'):
+                continue
+            cargo_raw = (getattr(m, 'a_descontar', None) or '').strip().lower()
+            # Propietario: solo pendientes (los ya liquidados ya están en movimientos_ya_liquidados).
+            # Inquilino: se listan igual (no pasan por liquidación al propietario).
+            if cargo_raw != 'inquilino' and m.id in movimientos_ya_liquidados:
                 continue
             nombre_c = _nombre_concepto_mov(m)
             item = _item_egreso_admin(m, concepto_nombre=nombre_c)
