@@ -347,19 +347,24 @@ def _filas_honorarios_desde_caratulas_confirmadas(
     return filas
 
 
-def _filas_honorarios_cochera_fondo_desde_reservas(
+def _filas_honorarios_oficina_desde_caratulas_reserva(
     sucursal,
     fecha_desde,
     fecha_hasta,
     busqueda='',
 ):
     """
-    Cochera y fondo desde montos de carátula menos lo ya cargado en liquidaciones.
+    Comisión inmobiliaria + cochera + fondo de TODA reserva con carátula confirmada.
 
-    Los montos «solo en carátula» (sin sync a liquidaciones) salen por acá.
-    No se asume que el camino de liquidaciones los va a mostrar.
+    Usa los mismos montos que el cuadro de la carátula
+    (``montos_reparto_reserva_para_caratula`` + cochera inquilino).
+    Una fila por tipo e importe; no depende de que ``liq_monto_*`` esté seteado.
     """
-    from inmobiliaria.liquidacion_operacion import liquidaciones_activas_reserva
+    from inmobiliaria.liquidacion_operacion import (
+        liquidaciones_activas_reserva,
+        montos_reparto_reserva_para_caratula,
+        _categoria_reserva,
+    )
     from inmobiliaria.models import Reserva
     from inmobiliaria.models.comision import fecha_acreditacion_compartida_operacion
 
@@ -371,25 +376,33 @@ def _filas_honorarios_cochera_fondo_desde_reservas(
             estado_confirmacion_caratula='confirmada',
         )
         .exclude(estado='cancelada')
-        .select_related('propiedad', 'propiedad__propietario')
+        .select_related('propiedad', 'propiedad__propietario', 'cliente')
     )
-    # Entrada en el período O acreditación de comisiones en el período
     rango = Q()
     if fecha_desde and fecha_hasta:
         rango = (
             Q(fecha_inicio__gte=fecha_desde, fecha_inicio__lte=fecha_hasta)
+            | Q(fecha_creacion__date__gte=fecha_desde, fecha_creacion__date__lte=fecha_hasta)
             | Q(
                 comisiones_vendedor__fecha_operacion__date__gte=fecha_desde,
                 comisiones_vendedor__fecha_operacion__date__lte=fecha_hasta,
             )
+            | Q(
+                liquidaciones__fecha_creacion__date__gte=fecha_desde,
+                liquidaciones__fecha_creacion__date__lte=fecha_hasta,
+            )
         )
     elif fecha_desde:
-        rango = Q(fecha_inicio__gte=fecha_desde) | Q(
-            comisiones_vendedor__fecha_operacion__date__gte=fecha_desde
+        rango = (
+            Q(fecha_inicio__gte=fecha_desde)
+            | Q(fecha_creacion__date__gte=fecha_desde)
+            | Q(comisiones_vendedor__fecha_operacion__date__gte=fecha_desde)
         )
     elif fecha_hasta:
-        rango = Q(fecha_inicio__lte=fecha_hasta) | Q(
-            comisiones_vendedor__fecha_operacion__date__lte=fecha_hasta
+        rango = (
+            Q(fecha_inicio__lte=fecha_hasta)
+            | Q(fecha_creacion__date__lte=fecha_hasta)
+            | Q(comisiones_vendedor__fecha_operacion__date__lte=fecha_hasta)
         )
     if rango:
         qs = qs.filter(rango).distinct()
@@ -398,6 +411,8 @@ def _filas_honorarios_cochera_fondo_desde_reservas(
             Q(propiedad__direccion__icontains=busqueda)
             | Q(propiedad__propietario__nombre__icontains=busqueda)
             | Q(propiedad__propietario__apellido__icontains=busqueda)
+            | Q(cliente__nombre__icontains=busqueda)
+            | Q(cliente__apellido__icontains=busqueda)
         )
         if busqueda.isdigit():
             try:
@@ -406,68 +421,68 @@ def _filas_honorarios_cochera_fondo_desde_reservas(
                 pass
         qs = qs.filter(q_bus)
 
-    for reserva in qs.iterator(chunk_size=100):
+    for reserva in qs.iterator(chunk_size=80):
         f_entrada = reserva.fecha_inicio
         if not f_entrada:
             continue
-        try:
-            coch_total = reserva.cochera_oficina_total_liquidacion()
-        except Exception:
-            coch_total = (
-                Decimal(str(reserva.liq_monto_cochera or 0))
-                + Decimal(str(getattr(reserva, 'liq_monto_cochera_inquilino', None) or 0))
-            ).quantize(Decimal('0.01'))
-        fondo_total = Decimal(str(reserva.liq_monto_fondo or 0)).quantize(Decimal('0.01'))
-        if coch_total <= Decimal('0.01') and fondo_total <= Decimal('0.01'):
-            continue
 
-        liqs = liquidaciones_activas_reserva(reserva)
-        # Si la carátula define el monto, ese es el valor a listar (una vez).
-        # Si no, no hay nada que completar acá (salen desde las liquidaciones).
-        if getattr(reserva, 'liq_monto_cochera', None) is not None or (
-            Decimal(str(getattr(reserva, 'liq_monto_cochera_inquilino', None) or 0))
-            > Decimal('0.01')
-        ):
-            coch = coch_total
-        else:
-            coch = Decimal('0.00')
-        if getattr(reserva, 'liq_monto_fondo', None) is not None:
-            fondo = fondo_total
-        else:
-            fondo = Decimal('0.00')
-        if coch <= Decimal('0.01') and fondo <= Decimal('0.01'):
+        _total, _prop, inm, coch, fondo = montos_reparto_reserva_para_caratula(reserva)
+        inm = Decimal(str(inm or 0)).quantize(Decimal('0.01'))
+        coch = Decimal(str(coch or 0)).quantize(Decimal('0.01'))
+        fondo = Decimal(str(fondo or 0)).quantize(Decimal('0.01'))
+        coch_inq = Decimal(
+            str(getattr(reserva, 'liq_monto_cochera_inquilino', None) or 0)
+        ).quantize(Decimal('0.01'))
+        coch_total = (coch + coch_inq).quantize(Decimal('0.01'))
+
+        if inm <= Decimal('0.01') and coch_total <= Decimal('0.01') and fondo <= Decimal('0.01'):
             continue
 
         f_acred = fecha_acreditacion_compartida_operacion(reserva=reserva)
-        f_ingreso = (
-            f_acred
-            or _fecha_operacion_reserva_honorarios(reserva)
-            or f_entrada
+        f_op = _fecha_operacion_reserva_honorarios(reserva)
+        f_ingreso = f_acred or f_op or f_entrada
+
+        # Incluir si acreditación, entrada o alta de la reserva caen en el período.
+        f_alta = None
+        if getattr(reserva, 'fecha_creacion', None):
+            f_alta = _datetime_a_fecha_local(reserva.fecha_creacion)
+        fechas_candidatas = [f for f in (f_ingreso, f_entrada, f_alta) if f]
+        en_periodo = any(
+            (not fecha_desde or fd >= fecha_desde)
+            and (not fecha_hasta or fd <= fecha_hasta)
+            for fd in fechas_candidatas
         )
-        ingreso_en_periodo = (
+        if not en_periodo:
+            continue
+
+        if (
             (not fecha_desde or f_ingreso >= fecha_desde)
             and (not fecha_hasta or f_ingreso <= fecha_hasta)
-        )
-        if ingreso_en_periodo:
+        ):
             fecha_fila = f_ingreso
-            nota = (
-                'Carátula (sin liquidar)'
-                if not liqs
-                else 'Carátula (montos de oficina)'
-            )
+            nota = 'Carátula confirmada'
         else:
-            if fecha_desde and f_entrada < fecha_desde:
-                continue
-            if fecha_hasta and f_entrada > fecha_hasta:
-                continue
-            fecha_fila = f_entrada
-            nota = 'Carátula (fecha de entrada)'
+            fecha_fila = f_entrada if (
+                (not fecha_desde or f_entrada >= fecha_desde)
+                and (not fecha_hasta or f_entrada <= fecha_hasta)
+            ) else (f_alta or f_entrada)
+            nota = 'Carátula confirmada (fecha de entrada/alta)'
 
+        liqs = liquidaciones_activas_reserva(reserva)
+        try:
+            cat = (_categoria_reserva(reserva) or 'dia').strip() or 'dia'
+        except Exception:
+            cat = 'dia'
         prop = reserva.propiedad
         propietario = getattr(prop, 'propietario', None) if prop else None
+        ultima = liqs[-1] if liqs else None
         base = {
-            'liquidacion_id': None,
-            'liquidacion_url': reverse('inmobiliaria:caratula_reserva', args=[reserva.id]),
+            'liquidacion_id': ultima.id if ultima else None,
+            'liquidacion_url': (
+                reverse('inmobiliaria:detalle_liquidacion', args=[ultima.id])
+                if ultima
+                else reverse('inmobiliaria:caratula_reserva', args=[reserva.id])
+            ),
             'propiedad': _propiedad_txt(prop),
             'propietario': (
                 f'{propietario.apellido}, {propietario.nombre}'
@@ -477,17 +492,28 @@ def _filas_honorarios_cochera_fondo_desde_reservas(
             'operacion': f'Reserva #{reserva.id}',
             'operacion_kind': 'reserva',
             'operacion_pk': reserva.id,
-            'categoria_operacion': 'dia',
-            'tipo_operacion_display': ETIQUETAS_TIPO_OPERACION.get('dia', 'Por día'),
-            'estado_liq': 'Sin liquidar' if not liqs else 'Parcial / carátula',
+            'categoria_operacion': cat,
+            'tipo_operacion_display': ETIQUETAS_TIPO_OPERACION.get(cat, cat),
+            'estado_liq': (
+                ultima.get_estado_display() if ultima else 'Sin liquidar'
+            ),
         }
-        if coch > Decimal('0.01'):
+        if inm > Decimal('0.01'):
+            filas.append({
+                **base,
+                'tipo': 'comision',
+                'tipo_display': 'Comisión inmobiliaria',
+                'fecha': fecha_fila,
+                'monto': inm,
+                'nota': nota,
+            })
+        if coch_total > Decimal('0.01'):
             filas.append({
                 **base,
                 'tipo': 'cochera',
                 'tipo_display': 'Cochera',
                 'fecha': fecha_fila,
-                'monto': coch,
+                'monto': coch_total,
                 'nota': nota,
             })
         if fondo > Decimal('0.01'):
@@ -500,6 +526,18 @@ def _filas_honorarios_cochera_fondo_desde_reservas(
                 'nota': nota,
             })
     return filas
+
+
+def _filas_honorarios_cochera_fondo_desde_reservas(
+    sucursal,
+    fecha_desde,
+    fecha_hasta,
+    busqueda='',
+):
+    """Compat: delega al listado unificado de oficina desde carátulas."""
+    return _filas_honorarios_oficina_desde_caratulas_reserva(
+        sucursal, fecha_desde, fecha_hasta, busqueda=busqueda
+    )
 
 
 def _fecha_reversion_honorarios(liq, when_dt=None):
@@ -731,16 +769,23 @@ def _filas_honorarios_desde_liquidaciones(liquidaciones):
             f_acred = _fecha_ingreso_honorarios_oficina(liq)
             f_entrada = _fecha_entrada_liquidacion(liq)
 
+            # Reserva con carátula confirmada: comisión/cochera/fondo los lista
+            # _filas_honorarios_oficina_desde_caratulas_reserva (mismos montos que la carátula).
+            oficina_desde_caratula = bool(
+                res is not None and _caratula_confirmada_vigente_reserva(res)
+            )
+
             # --- Comisión inmobiliaria ---
             monto_inm = Decimal(str(liq.monto_inmobiliaria or 0))
             key_inm = (op_kind, op_pk, 'comision')
-            if res is not None and getattr(res, 'liq_monto_inmobiliaria', None) is not None:
+            if oficina_desde_caratula:
+                monto_inm = Decimal('0')
+            elif res is not None and getattr(res, 'liq_monto_inmobiliaria', None) is not None:
                 if key_inm in override_oficina_emitido:
                     monto_inm = Decimal('0')
                 else:
                     monto_inm = Decimal(str(res.liq_monto_inmobiliaria)).quantize(Decimal('0.01'))
             elif key_inm in override_oficina_emitido:
-                # Otra liq de la misma op ya contó el total de carátula.
                 monto_inm = Decimal('0')
             if monto_inm > Decimal('0.01'):
                 filas.append({
@@ -754,13 +799,9 @@ def _filas_honorarios_desde_liquidaciones(liquidaciones):
                 if res is not None and getattr(res, 'liq_monto_inmobiliaria', None) is not None:
                     override_oficina_emitido.add(key_inm)
 
-            # --- Cochera: si la carátula define el monto, lo lista el camino de carátula.
+            # --- Cochera ---
             monto_coch = Decimal(str(liq.monto_cochera or 0))
-            if res is not None and (
-                getattr(res, 'liq_monto_cochera', None) is not None
-                or Decimal(str(getattr(res, 'liq_monto_cochera_inquilino', None) or 0))
-                > Decimal('0.01')
-            ):
+            if oficina_desde_caratula:
                 monto_coch = Decimal('0')
             if monto_coch > Decimal('0.01'):
                 filas.append({
@@ -772,9 +813,9 @@ def _filas_honorarios_desde_liquidaciones(liquidaciones):
                     'nota': 'Fecha de acreditación',
                 })
 
-            # --- Fondo: igual, prioridad a montos de carátula.
+            # --- Fondo ---
             monto_fondo = Decimal(str(liq.monto_fondo_mantenimiento or 0))
-            if res is not None and getattr(res, 'liq_monto_fondo', None) is not None:
+            if oficina_desde_caratula:
                 monto_fondo = Decimal('0')
             if monto_fondo > Decimal('0.01'):
                 filas.append({
@@ -976,7 +1017,7 @@ def _contexto_honorarios_oficina(request, *, solo_oficina=False):
         cubiertos_comisiones,
         busqueda=busqueda,
     )
-    filas_car_cochera = _filas_honorarios_cochera_fondo_desde_reservas(
+    filas_car_cochera = _filas_honorarios_oficina_desde_caratulas_reserva(
         request.user.sucursal,
         fecha_desde,
         fecha_hasta,
