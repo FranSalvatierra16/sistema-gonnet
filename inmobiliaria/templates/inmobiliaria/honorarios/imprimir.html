@@ -1,0 +1,110 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load custom_filters %}
+
+{% block page_container_class %}container-fluid{% endblock %}
+{% block title %}Imprimir — Honorarios oficina / fondo / cochera{% endblock %}
+
+{% block content %}
+<div class="py-3" id="honorarios-print">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 no-print">
+        <div>
+            <h1 class="h4 mb-0"><i class="fas fa-print text-primary"></i> Honorarios de oficina, fondo y cochera</h1>
+            <p class="text-muted small mb-0">Usá Imprimir para PDF o papel. Respeta el período y filtros del listado.</p>
+        </div>
+        <div class="btn-group">
+            <button type="button" class="btn btn-primary" onclick="window.print()">
+                <i class="fas fa-print"></i> Imprimir
+            </button>
+            <a href="{% url 'inmobiliaria:honorarios_oficina' %}{% if querystring %}?{{ querystring }}{% endif %}"
+               class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Volver al listado
+            </a>
+        </div>
+    </div>
+
+    <div class="border-bottom pb-2 mb-3">
+        <h2 class="h5 mb-1">Ganancias de oficina</h2>
+        <p class="small mb-0">
+            {% if sucursal %}<strong>Sucursal:</strong> {{ sucursal.nombre }} · {% endif %}
+            <strong>Período:</strong> {{ fecha_desde|date:"d/m/Y" }} → {{ fecha_hasta|date:"d/m/Y" }}
+            {% if operacion_filtro %}
+            · <strong>Tipo op.:</strong>
+            {% if operacion_filtro == '24meses' %}24 meses
+            {% elif operacion_filtro == 'invierno' %}Invierno
+            {% elif operacion_filtro == 'dia' %}Por día
+            {% else %}{{ operacion_filtro }}{% endif %}
+            {% endif %}
+            {% if tipo_filtro %}
+            · <strong>Tipo ingreso:</strong> {{ tipo_filtro }}
+            {% elif solo_oficina %}
+            · <strong>Incluye:</strong> comisión inmobiliaria, cochera y fondo
+            {% endif %}
+            {% if busqueda %}· <strong>Búsqueda:</strong> {{ busqueda }}{% endif %}
+        </p>
+    </div>
+
+    <div class="row g-2 mb-3 small">
+        <div class="col-md-3"><strong>Total:</strong> ${{ total_general|format_price }}</div>
+        <div class="col-md-3"><strong>Comisión inmob.:</strong> ${{ total_comision|format_price }}</div>
+        <div class="col-md-3"><strong>Cochera:</strong> ${{ total_cochera|format_price }}</div>
+        <div class="col-md-3"><strong>Fondo mant.:</strong> ${{ total_fondo|format_price }}</div>
+    </div>
+
+    <table class="table table-sm table-bordered align-middle">
+        <thead>
+            <tr>
+                <th>Fecha</th>
+                <th>Tipo</th>
+                <th>Propiedad</th>
+                <th>Propietario</th>
+                <th>Operación</th>
+                <th>Tipo op.</th>
+                <th class="text-end">Monto</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for f in filas %}
+            <tr{% if f.es_reversion or f.monto < 0 %} class="table-danger"{% endif %}>
+                <td class="text-nowrap">{{ f.fecha|date:"d/m/Y" }}</td>
+                <td>{{ f.tipo_display }}</td>
+                <td>{{ f.propiedad }}</td>
+                <td class="small">{{ f.propietario }}</td>
+                <td class="small">{{ f.operacion }}</td>
+                <td class="small text-nowrap">
+                    {% if f.categoria_operacion == '24' %}24 meses
+                    {% elif f.categoria_operacion == 'invierno' or f.categoria_operacion == 'estudiante' %}Invierno
+                    {% elif f.categoria_operacion == 'dia' %}Por día
+                    {% else %}{{ f.tipo_operacion_display|default:"—" }}{% endif %}
+                </td>
+                <td class="text-end{% if f.es_reversion or f.monto < 0 %} text-danger{% endif %}">
+                    ${{ f.monto|format_price }}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" class="text-center text-muted py-4">
+                    No hay honorarios / fondo / cochera en el período seleccionado.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        {% if filas %}
+        <tfoot>
+            <tr>
+                <th colspan="6" class="text-end">Total</th>
+                <th class="text-end">${{ total_general|format_price }}</th>
+            </tr>
+        </tfoot>
+        {% endif %}
+    </table>
+</div>
+
+<style>
+@media print {
+    .no-print, .navbar, .sidebar, footer, .breadcrumb, .dropdown-menu { display: none !important; }
+    body { background: #fff !important; }
+    #honorarios-print { padding: 0 !important; }
+    table { font-size: 11px; }
+}
+</style>
+{% endblock %}

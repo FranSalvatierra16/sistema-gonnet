@@ -18,7 +18,7 @@
                 Las comisiones locador/locatario figuran aunque la liquidación al propietario siga pendiente.
             </p>
 
-            <div class="d-flex flex-wrap gap-2 mb-4">
+            <div class="d-flex flex-wrap gap-2 mb-4 align-items-center">
                 <div class="alert alert-primary mb-0 py-2">
                     <strong>Total período:</strong> ${{ total_general|format_price }}
                 </div>
@@ -37,6 +37,11 @@
                 <div class="alert alert-secondary mb-0 py-2">
                     <strong>Fondo mant.:</strong> ${{ total_fondo|format_price }}
                 </div>
+                <a href="{% url 'inmobiliaria:honorarios_oficina_imprimir' %}?fecha_desde={{ fecha_desde_s }}&fecha_hasta={{ fecha_hasta_s }}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if operacion_filtro %}&operacion={{ operacion_filtro }}{% endif %}{% if busqueda %}&q={{ busqueda|urlencode }}{% endif %}"
+                   class="btn btn-outline-dark ms-auto" target="_blank" rel="noopener"
+                   title="Imprimir comisión inmobiliaria, fondo y cochera del período">
+                    <i class="fas fa-print me-1"></i>Imprimir (honorarios / fondo / cochera)
+                </a>
             </div>
 
             <div class="card shadow mb-4">

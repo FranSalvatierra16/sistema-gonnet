@@ -732,10 +732,11 @@ def _filtrar_filas_por_operacion(filas, operacion_filtro):
     return [f for f in filas if f.get('categoria_operacion') in keys]
 
 
-@login_required
-def honorarios_oficina(request):
+def _contexto_honorarios_oficina(request, *, solo_oficina=False):
     """
-    Listado de ganancias que ingresan a la oficina, filtrable por fecha.
+    Arma el contexto del listado de honorarios.
+    Si solo_oficina=True, limita a comisión inmobiliaria + cochera + fondo
+    (salvo que el usuario ya haya elegido un tipo concreto en GET).
     """
     hoy = timezone.localdate()
     primer_dia_mes = hoy.replace(day=1)
@@ -840,6 +841,9 @@ def honorarios_oficina(request):
         ]
     elif tipo_filtro in ('comision', 'cochera', 'fondo'):
         filas = [f for f in filas if f['tipo'] == tipo_filtro]
+    elif solo_oficina:
+        # Impresión: honorario de oficina + cochera + fondo (sin locador/locatario).
+        filas = [f for f in filas if f.get('tipo') in ('comision', 'cochera', 'fondo')]
 
     total_general = sum((f['monto'] for f in filas), Decimal('0'))
     total_comision = sum((f['monto'] for f in filas if f['tipo'] == 'comision'), Decimal('0'))
@@ -868,23 +872,48 @@ def honorarios_oficina(request):
     total_cochera = sum((f['monto'] for f in filas if f['tipo'] == 'cochera'), Decimal('0'))
     total_fondo = sum((f['monto'] for f in filas if f['tipo'] == 'fondo'), Decimal('0'))
 
+    querystring = request.GET.urlencode()
+
+    return {
+        'filas': filas,
+        'fecha_desde': fecha_desde,
+        'fecha_hasta': fecha_hasta,
+        'fecha_desde_s': fecha_desde.strftime('%Y-%m-%d'),
+        'fecha_hasta_s': fecha_hasta.strftime('%Y-%m-%d'),
+        'tipo_filtro': tipo_filtro,
+        'operacion_filtro': operacion_filtro,
+        'busqueda': busqueda,
+        'total_general': total_general,
+        'total_comision': total_comision,
+        'total_comision_locador': total_comision_locador,
+        'total_comision_locatario': total_comision_locatario,
+        'total_cochera': total_cochera,
+        'total_fondo': total_fondo,
+        'querystring': querystring,
+        'sucursal': getattr(request.user, 'sucursal', None),
+        'solo_oficina': solo_oficina and not tipo_filtro,
+    }
+
+
+@login_required
+def honorarios_oficina(request):
+    """
+    Listado de ganancias que ingresan a la oficina, filtrable por fecha.
+    """
     return render(
         request,
         'inmobiliaria/honorarios/lista.html',
-        {
-            'filas': filas,
-            'fecha_desde': fecha_desde,
-            'fecha_hasta': fecha_hasta,
-            'fecha_desde_s': fecha_desde.strftime('%Y-%m-%d'),
-            'fecha_hasta_s': fecha_hasta.strftime('%Y-%m-%d'),
-            'tipo_filtro': tipo_filtro,
-            'operacion_filtro': operacion_filtro,
-            'busqueda': busqueda,
-            'total_general': total_general,
-            'total_comision': total_comision,
-            'total_comision_locador': total_comision_locador,
-            'total_comision_locatario': total_comision_locatario,
-            'total_cochera': total_cochera,
-            'total_fondo': total_fondo,
-        },
+        _contexto_honorarios_oficina(request),
+    )
+
+
+@login_required
+def honorarios_oficina_imprimir(request):
+    """
+    Versión para imprimir: honorario de oficina, fondo y cochera del período filtrado.
+    """
+    return render(
+        request,
+        'inmobiliaria/honorarios/imprimir.html',
+        _contexto_honorarios_oficina(request, solo_oficina=True),
     )

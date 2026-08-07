@@ -454,6 +454,11 @@ urlpatterns = [
     path('reportes/asegurado-liquidaciones/<int:disponibilidad_id>/', views.reporte_asegurado_liquidaciones, name='reporte_asegurado_liquidaciones_detalle'),
     path('reportes/asegurado-liquidaciones/', views.reporte_asegurado_liquidaciones, name='reporte_asegurado_liquidaciones'),
     path('honorarios-oficina/', views_honorarios.honorarios_oficina, name='honorarios_oficina'),
+    path(
+        'honorarios-oficina/imprimir/',
+        views_honorarios.honorarios_oficina_imprimir,
+        name='honorarios_oficina_imprimir',
+    ),
     path('liquidaciones/', views.lista_liquidaciones, name='lista_liquidaciones'),
     path('liquidaciones/crear/', views.crear_liquidacion, name='crear_liquidacion'),
     path('liquidaciones/crear/<int:reserva_id>/', views.crear_liquidacion, name='crear_liquidacion_reserva'),
