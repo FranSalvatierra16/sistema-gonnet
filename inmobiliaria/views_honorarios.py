@@ -683,6 +683,10 @@ def _liquidacion_caratula_confirmada(liq):
 
 def _filas_honorarios_desde_liquidaciones(liquidaciones):
     filas = []
+    # Si la carátula define el monto de oficina, emitirlo una sola vez por operación.
+    # Si no, cada liquidación aporta su propio importe (liquidaciones parciales).
+    override_oficina_emitido = set()  # (op_kind, op_pk, tipo)
+
     for liq in liquidaciones:
         prop = liq.propiedad
         prop_txt = _propiedad_txt(prop)
@@ -709,12 +713,21 @@ def _filas_honorarios_desde_liquidaciones(liquidaciones):
         }
 
         if _incluir_liquidacion_honorarios_positivos(liq):
-            monto_inm = Decimal(str(liq.monto_inmobiliaria or 0))
-            # Preferir override de carátula si existe (corrige liquidaciones desfasadas).
             res = getattr(liq, 'reserva', None)
-            if res is not None and getattr(res, 'liq_monto_inmobiliaria', None) is not None:
-                monto_inm = Decimal(str(res.liq_monto_inmobiliaria)).quantize(Decimal('0.01'))
             f_acred = _fecha_ingreso_honorarios_oficina(liq)
+            f_entrada = _fecha_entrada_liquidacion(liq)
+
+            # --- Comisión inmobiliaria ---
+            monto_inm = Decimal(str(liq.monto_inmobiliaria or 0))
+            key_inm = (op_kind, op_pk, 'comision')
+            if res is not None and getattr(res, 'liq_monto_inmobiliaria', None) is not None:
+                if key_inm in override_oficina_emitido:
+                    monto_inm = Decimal('0')
+                else:
+                    monto_inm = Decimal(str(res.liq_monto_inmobiliaria)).quantize(Decimal('0.01'))
+            elif key_inm in override_oficina_emitido:
+                # Otra liq de la misma op ya contó el total de carátula.
+                monto_inm = Decimal('0')
             if monto_inm > Decimal('0.01'):
                 filas.append({
                     **base,
@@ -724,21 +737,35 @@ def _filas_honorarios_desde_liquidaciones(liquidaciones):
                     'monto': monto_inm,
                     'nota': 'Fecha de acreditación',
                 })
+                if res is not None and getattr(res, 'liq_monto_inmobiliaria', None) is not None:
+                    override_oficina_emitido.add(key_inm)
 
-            f_entrada = _fecha_entrada_liquidacion(liq)
+            # --- Cochera ---
             monto_coch = Decimal(str(liq.monto_cochera or 0))
+            key_coch = (op_kind, op_pk, 'cochera')
+            uso_override_coch = False
             if res is not None:
                 inq_c = Decimal(
                     str(getattr(res, 'liq_monto_cochera_inquilino', None) or 0)
                 ).quantize(Decimal('0.01'))
                 if getattr(res, 'liq_monto_cochera', None) is not None:
-                    # Misma cifra que en carátula: reparto + cochera inquilino.
-                    monto_coch = (
-                        Decimal(str(res.liq_monto_cochera or 0)) + inq_c
-                    ).quantize(Decimal('0.01'))
+                    uso_override_coch = True
+                    if key_coch in override_oficina_emitido:
+                        monto_coch = Decimal('0')
+                    else:
+                        monto_coch = (
+                            Decimal(str(res.liq_monto_cochera or 0)) + inq_c
+                        ).quantize(Decimal('0.01'))
                 elif inq_c > Decimal('0.01') and monto_coch <= Decimal('0.01'):
-                    # La liq no guardó cochera; el ingreso de oficina es el inquilino.
-                    monto_coch = inq_c
+                    uso_override_coch = True
+                    if key_coch in override_oficina_emitido:
+                        monto_coch = Decimal('0')
+                    else:
+                        monto_coch = inq_c
+                elif key_coch in override_oficina_emitido:
+                    monto_coch = Decimal('0')
+            elif key_coch in override_oficina_emitido:
+                monto_coch = Decimal('0')
             if monto_coch > Decimal('0.01'):
                 filas.append({
                     **base,
@@ -748,10 +775,19 @@ def _filas_honorarios_desde_liquidaciones(liquidaciones):
                     'monto': monto_coch,
                     'nota': 'Fecha de acreditación',
                 })
+                if uso_override_coch:
+                    override_oficina_emitido.add(key_coch)
 
+            # --- Fondo mantenimiento ---
             monto_fondo = Decimal(str(liq.monto_fondo_mantenimiento or 0))
+            key_fondo = (op_kind, op_pk, 'fondo')
             if res is not None and getattr(res, 'liq_monto_fondo', None) is not None:
-                monto_fondo = Decimal(str(res.liq_monto_fondo or 0)).quantize(Decimal('0.01'))
+                if key_fondo in override_oficina_emitido:
+                    monto_fondo = Decimal('0')
+                else:
+                    monto_fondo = Decimal(str(res.liq_monto_fondo or 0)).quantize(Decimal('0.01'))
+            elif key_fondo in override_oficina_emitido:
+                monto_fondo = Decimal('0')
             if monto_fondo > Decimal('0.01'):
                 filas.append({
                     **base,
@@ -761,6 +797,8 @@ def _filas_honorarios_desde_liquidaciones(liquidaciones):
                     'monto': monto_fondo,
                     'nota': 'Fecha de acreditación',
                 })
+                if res is not None and getattr(res, 'liq_monto_fondo', None) is not None:
+                    override_oficina_emitido.add(key_fondo)
 
             monto_com_loc = Decimal(str(liq.comision_locador or 0))
             monto_com_locat = Decimal(str(liq.comision_locatario or 0))
