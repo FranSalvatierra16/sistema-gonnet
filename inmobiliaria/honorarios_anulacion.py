@@ -69,39 +69,16 @@ def montos_honorarios_desde_reserva(reserva):
 
 def _reserva_tuvo_ingreso_honorarios_real(reserva):
     """
-    True solo si la operación llegó a generar (o a confirmar) honorarios de oficina.
-    No alcanza con anular una reserva con montos inferidos de la carátula.
+    True solo si la carátula llegó a confirmarse.
+    Sin confirmación no hay honorarios de oficina (ni anulación en el listado).
     """
-    if (getattr(reserva, 'estado_confirmacion_caratula', None) or '').strip() == 'confirmada':
-        return True
-    if getattr(reserva, 'liq_monto_inmobiliaria', None) is not None:
-        return True
-    if getattr(reserva, 'liq_monto_propietario', None) is not None:
-        return True
-    # Cochera / fondo sellados en carátula también cuentan como ingreso de oficina.
-    if Decimal(str(getattr(reserva, 'liq_monto_cochera', None) or 0)) > Decimal('0.01'):
-        return True
-    if Decimal(str(getattr(reserva, 'liq_monto_cochera_inquilino', None) or 0)) > Decimal('0.01'):
-        return True
-    if Decimal(str(getattr(reserva, 'liq_monto_fondo', None) or 0)) > Decimal('0.01'):
-        return True
-
-    from inmobiliaria.models import ComisionVendedor
-    from inmobiliaria.models.comision import ROL_COMISION_FICHAJE
-
-    # Incluye comisiones ya canceladas por la anulación: el ingreso existió.
-    return (
-        ComisionVendedor.objects.filter(reserva_id=reserva.pk)
-        .exclude(rol_comision=ROL_COMISION_FICHAJE)
-        .exists()
-    )
+    return (getattr(reserva, 'estado_confirmacion_caratula', None) or '').strip() == 'confirmada'
 
 
 def reserva_anulada_requiere_reversion_legacy(reserva):
     """
     Reserva anulada sin liquidación en BD que sí había generado honorarios
-    (carátula confirmada / montos de liquidación / comisión acreditada).
-    No lista anulaciones de operaciones que nunca se confirmaron ni se pasaron.
+    (carátula confirmada). No lista anulaciones de operaciones nunca confirmadas.
     """
     if not reserva_esta_anulada(reserva):
         return False

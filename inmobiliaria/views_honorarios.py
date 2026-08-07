@@ -336,6 +336,7 @@ def _filas_honorarios_cochera_fondo_desde_reservas(
         Reserva.objects.filter(
             sucursal=sucursal,
             eliminada=False,
+            estado_confirmacion_caratula='confirmada',
         )
         .exclude(estado='cancelada')
         .select_related('propiedad', 'propiedad__propietario')
@@ -477,19 +478,20 @@ def _operacion_anulada_desde_liquidacion(liq):
 
 
 def _incluir_liquidacion_honorarios_positivos(liq):
-    """Ingresos históricos: carátula confirmada vigente, liquidación cancelada u operación ya anulada."""
-    if getattr(liq, 'estado', None) == 'cancelada':
-        return True
-    anulada, _ = _operacion_anulada_desde_liquidacion(liq)
-    if anulada:
-        return True
-    return _liquidacion_caratula_confirmada(liq)
+    """
+    Ingreso en el listado solo si la carátula estuvo confirmada.
+    (Si después se anuló, se mantiene el flag confirmada y aparece + la fila roja.)
+    """
+    return _liquidacion_tuvo_caratula_confirmada(liq)
 
 
 def _filas_reversion_honorarios_liquidacion(liq, base):
     """Asientos negativos al anular operación con carátula confirmada."""
     anulada, when_dt = _operacion_anulada_desde_liquidacion(liq)
     if not anulada:
+        return []
+    # Sin confirmación previa no hubo ingreso de oficina → no hay anulación que listar.
+    if not _liquidacion_tuvo_caratula_confirmada(liq):
         return []
 
     fecha_rev = _fecha_reversion_honorarios(liq, when_dt)
@@ -578,6 +580,29 @@ def _caratula_confirmada_vigente_contrato(contrato):
     if (getattr(contrato, 'estado', None) or '').strip() == 'rescindido':
         return False
     return (getattr(contrato, 'estado_confirmacion_caratula', None) or 'pendiente') == 'confirmada'
+
+
+def _operacion_tuvo_caratula_confirmada(reserva=None, contrato=None):
+    """
+    True si la carátula llegó a confirmarse (aunque después se anule/elimine).
+    Sin confirmación no hay honorarios de oficina ni fila de anulación.
+    """
+    if reserva is not None:
+        return (getattr(reserva, 'estado_confirmacion_caratula', None) or '').strip() == 'confirmada'
+    if contrato is not None:
+        return (getattr(contrato, 'estado_confirmacion_caratula', None) or '').strip() == 'confirmada'
+    return False
+
+
+def _liquidacion_tuvo_caratula_confirmada(liq):
+    """Misma regla sobre la reserva/contrato de la liquidación."""
+    reserva = getattr(liq, 'reserva', None) or reserva_desde_liquidacion(liq)
+    if reserva is not None:
+        return _operacion_tuvo_caratula_confirmada(reserva=reserva)
+    contrato = getattr(liq, 'contrato', None) or contrato_desde_liquidacion(liq)
+    if contrato is not None:
+        return _operacion_tuvo_caratula_confirmada(contrato=contrato)
+    return False
 
 
 def _estado_confirmacion_operacion_liquidacion(liq):
