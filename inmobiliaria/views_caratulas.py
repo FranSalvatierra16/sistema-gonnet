@@ -796,13 +796,14 @@ def _procesar_anular_operacion_reserva_caratula(request, reserva):
             reserva.cancelar_reserva()
             reserva.refresh_from_db()
             reserva.eliminada = True
-            reserva.estado_confirmacion_caratula = 'pendiente'
+            # Conservar «confirmada» si ya lo estaba: hace falta para el historial
+            # de honorarios (ingreso + fila roja de anulación). Las listas de
+            # carátulas vigentes ya excluyen eliminadas/canceladas.
             reserva.fecha_eliminacion = timezone.now()
             reserva.usuario_eliminacion = request.user
             reserva.save(
                 update_fields=[
                     'eliminada',
-                    'estado_confirmacion_caratula',
                     'fecha_eliminacion',
                     'usuario_eliminacion',
                 ]

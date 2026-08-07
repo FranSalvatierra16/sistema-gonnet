@@ -732,6 +732,62 @@ def _filtrar_filas_por_operacion(filas, operacion_filtro):
     return [f for f in filas if f.get('categoria_operacion') in keys]
 
 
+def _q_busqueda_honorarios_liquidacion(busqueda):
+    """Filtro de búsqueda: dirección, persona, nº liquidación / reserva / contrato / propiedad."""
+    q_bus = (
+        Q(propiedad__direccion__icontains=busqueda)
+        | Q(propietario__nombre__icontains=busqueda)
+        | Q(propietario__apellido__icontains=busqueda)
+        | Q(id__icontains=busqueda)
+    )
+    if busqueda.isdigit():
+        try:
+            n = int(busqueda)
+        except (TypeError, ValueError):
+            n = None
+        if n is not None:
+            q_bus |= (
+                Q(id=n)
+                | Q(reserva_id=n)
+                | Q(contrato_id=n)
+                | Q(propiedad_id=n)
+            )
+    return q_bus
+
+
+def _filtrar_filas_por_busqueda(filas, busqueda):
+    """Respaldo: filtrar filas ya armadas por texto / nº de operación o liquidación."""
+    if not busqueda:
+        return filas
+    b = busqueda.strip().casefold()
+    if not b:
+        return filas
+    out = []
+    for f in filas:
+        partes = [
+            str(f.get('propiedad') or ''),
+            str(f.get('propietario') or ''),
+            str(f.get('operacion') or ''),
+            str(f.get('liquidacion_id') or ''),
+            str(f.get('operacion_pk') or ''),
+            str(f.get('tipo_display') or ''),
+        ]
+        if b in ' '.join(partes).casefold():
+            out.append(f)
+            continue
+        if busqueda.isdigit():
+            try:
+                n = int(busqueda)
+            except (TypeError, ValueError):
+                n = None
+            if n is not None and (
+                f.get('liquidacion_id') == n
+                or f.get('operacion_pk') == n
+            ):
+                out.append(f)
+    return out
+
+
 def _contexto_honorarios_oficina(request, *, solo_oficina=False):
     """
     Arma el contexto del listado de honorarios.
@@ -759,12 +815,7 @@ def _contexto_honorarios_oficina(request, *, solo_oficina=False):
     )
 
     if busqueda:
-        qs = qs.filter(
-            Q(propiedad__direccion__icontains=busqueda)
-            | Q(propietario__nombre__icontains=busqueda)
-            | Q(propietario__apellido__icontains=busqueda)
-            | Q(id__icontains=busqueda)
-        )
+        qs = qs.filter(_q_busqueda_honorarios_liquidacion(busqueda))
 
     # Traer liquidaciones que puedan aportar filas en el rango (ingreso o reversión por anulación)
     qs = qs.filter(
@@ -826,6 +877,7 @@ def _contexto_honorarios_oficina(request, *, solo_oficina=False):
         fecha_hasta,
     )
     filas = _filtrar_filas_por_operacion(filas, operacion_filtro)
+    filas = _filtrar_filas_por_busqueda(filas, busqueda)
 
     if tipo_filtro == 'comision_locador':
         filas = [

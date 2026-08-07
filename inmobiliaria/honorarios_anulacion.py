@@ -78,10 +78,18 @@ def _reserva_tuvo_ingreso_honorarios_real(reserva):
         return True
     if getattr(reserva, 'liq_monto_propietario', None) is not None:
         return True
+    # Cochera / fondo sellados en carátula también cuentan como ingreso de oficina.
+    if Decimal(str(getattr(reserva, 'liq_monto_cochera', None) or 0)) > Decimal('0.01'):
+        return True
+    if Decimal(str(getattr(reserva, 'liq_monto_cochera_inquilino', None) or 0)) > Decimal('0.01'):
+        return True
+    if Decimal(str(getattr(reserva, 'liq_monto_fondo', None) or 0)) > Decimal('0.01'):
+        return True
 
     from inmobiliaria.models import ComisionVendedor
     from inmobiliaria.models.comision import ROL_COMISION_FICHAJE
 
+    # Incluye comisiones ya canceladas por la anulación: el ingreso existió.
     return (
         ComisionVendedor.objects.filter(reserva_id=reserva.pk)
         .exclude(rol_comision=ROL_COMISION_FICHAJE)
