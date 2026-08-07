@@ -12,9 +12,20 @@
     {% endif %}
 
     {% if cajas_abiertas_count > 1 %}
-    <div class="alert alert-warning">
-        Hay {{ cajas_abiertas_count }} cajas marcadas como abiertas para esta sucursal (dato inconsistente).
-        Revisá en el admin de Django (modelo Caja) o ejecutá el reset de caja para la sucursal.
+    <div class="alert alert-warning d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <div>
+            Hay {{ cajas_abiertas_count }} cajas marcadas como abiertas para esta sucursal (dato inconsistente).
+            Suele pasar por un doble click al cerrar: se abren dos a la vez y una queda huérfana.
+            La caja en uso es la <strong>#{{ caja_actual.numero }}</strong>; las demás se pueden cerrar sin abrir otra.
+        </div>
+        <form method="post" action="{% url 'inmobiliaria:regularizar_cajas_abiertas' %}" class="mb-0"
+              onsubmit="return confirm('¿Cerrar las cajas abiertas de más y dejar solo la #{{ caja_actual.numero }}?');">
+            {% csrf_token %}
+            <input type="hidden" name="conservar_numero" value="{{ caja_actual.numero }}">
+            <button type="submit" class="btn btn-warning btn-sm text-dark">
+                <i class="fas fa-wrench me-1"></i>Regularizar (cerrar las de más)
+            </button>
+        </form>
     </div>
     {% endif %}
 

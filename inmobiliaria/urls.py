@@ -192,6 +192,11 @@ urlpatterns = [
     path('cajas/<int:numero>/arqueo/', views.guardar_arqueo_caja, name='guardar_arqueo_caja'),
     path('cajas/<int:numero>/anterior-matriz/', views.guardar_anterior_matriz_caja, name='guardar_anterior_matriz_caja'),
     path('cajas/', views.lista_cajas, name='lista_cajas'),
+    path(
+        'cajas/regularizar-abiertas/',
+        views.regularizar_cajas_abiertas,
+        name='regularizar_cajas_abiertas',
+    ),
     path('cajas/abrir/', views.abrir_caja, name='abrir_caja'),
     path('cajas/<int:numero>/', views.detalle_caja, name='detalle_caja'),
     path('cajas/<int:numero_caja>/movimiento/', views.nuevo_movimiento, name='nuevo_movimiento'),

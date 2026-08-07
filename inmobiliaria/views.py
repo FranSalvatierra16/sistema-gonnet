@@ -11681,28 +11681,114 @@ def iniciar_compra(request, propiedad_id):
 @login_required
 def abrir_caja(request):
     sucursal = request.user.sucursal
-    
-    # Verificar si ya hay una caja abierta
-    if Caja.objects.filter(sucursal=sucursal, estado='abierta').exists():
-        messages.error(request, "Ya hay una caja abierta para esta sucursal")
-        return redirect('inmobiliaria:gestionar_caja')
-    
+
     try:
-        # numero es PK autoincremental global: no asignar a mano (evita colisión con otras sucursales).
-        caja = Caja.objects.create(
-            sucursal=sucursal,
-            estado='abierta',
-            usuario_apertura=request.user,
-            saldo_inicial=0,
-        )
-        
+        with transaction.atomic():
+            # Evita dos aperturas concurrentes (doble click / dos usuarios).
+            abiertas = list(
+                Caja.objects.select_for_update()
+                .filter(sucursal=sucursal, estado='abierta')
+                .order_by('fecha_apertura', 'numero')
+            )
+            if abiertas:
+                messages.error(
+                    request,
+                    f'Ya hay una caja abierta para esta sucursal (#{abiertas[-1].numero}).',
+                )
+                return redirect('inmobiliaria:gestionar_caja')
+
+            # numero es PK autoincremental global: no asignar a mano (evita colisión con otras sucursales).
+            caja = Caja.objects.create(
+                sucursal=sucursal,
+                estado='abierta',
+                usuario_apertura=request.user,
+                saldo_inicial=0,
+            )
+
         messages.success(request, f'Caja #{caja.numero} abierta exitosamente')
         return redirect('inmobiliaria:gestionar_caja')
-        
+
     except Exception as e:
         messages.error(request, f'Error al abrir la caja: {str(e)}')
         return redirect('inmobiliaria:gestionar_caja')
 
+
+def _cerrar_cajas_huerfanas_sucursal(sucursal, usuario, *, conservar_numero=None):
+    """
+    Si hay más de una caja abierta, deja solo la más reciente (o `conservar_numero`)
+    y cierra las demás sin abrir una nueva.
+    Devuelve lista de números cerrados.
+    """
+    cerradas = []
+    with transaction.atomic():
+        abiertas = list(
+            Caja.objects.select_for_update()
+            .filter(sucursal=sucursal, estado='abierta')
+            .order_by('fecha_apertura', 'numero')
+        )
+        if len(abiertas) <= 1:
+            return cerradas
+
+        if conservar_numero is not None:
+            conservar = next((c for c in abiertas if c.numero == conservar_numero), None)
+        else:
+            conservar = None
+        if conservar is None:
+            conservar = abiertas[-1]
+
+        ahora = timezone.now()
+        for caja in abiertas:
+            if caja.numero == conservar.numero:
+                continue
+            caja.fecha_cierre = ahora
+            caja.estado = 'cerrada'
+            caja.saldo_final = caja.get_saldo_actual()
+            caja.usuario_cierre = usuario
+            obs = (caja.observaciones_cierre or '').strip()
+            nota = (
+                f'[Cierre automático: había más de una caja abierta; '
+                f'se conservó abierta la #{conservar.numero}]'
+            )
+            caja.observaciones_cierre = f'{obs}\n{nota}'.strip() if obs else nota
+            caja.save(
+                update_fields=[
+                    'fecha_cierre',
+                    'estado',
+                    'saldo_final',
+                    'usuario_cierre',
+                    'observaciones_cierre',
+                ]
+            )
+            cerradas.append(caja.numero)
+    return cerradas
+
+
+@login_required
+def regularizar_cajas_abiertas(request):
+    """Cierra cajas abiertas de más (deja la actual / más reciente) sin abrir otra."""
+    if request.method != 'POST':
+        return redirect('inmobiliaria:lista_cajas')
+    sucursal = request.user.sucursal
+    conservar = None
+    raw = (request.POST.get('conservar_numero') or '').strip()
+    if raw.isdigit():
+        conservar = int(raw)
+    try:
+        cerradas = _cerrar_cajas_huerfanas_sucursal(
+            sucursal, request.user, conservar_numero=conservar
+        )
+        if cerradas:
+            messages.success(
+                request,
+                'Se cerraron las cajas abiertas de más: '
+                + ', '.join(f'#{n}' for n in cerradas)
+                + '. Quedó una sola caja abierta (la más reciente o la indicada).',
+            )
+        else:
+            messages.info(request, 'No había cajas abiertas duplicadas para regularizar.')
+    except Exception as e:
+        messages.error(request, f'No se pudo regularizar: {e}')
+    return redirect('inmobiliaria:lista_cajas')
 @login_required
 def ver_caja(request, caja_id):
     try:
@@ -14793,6 +14879,24 @@ def cerrar_caja(request, numero_caja):
 
         try:
             with transaction.atomic():
+                # Bloqueo: evita doble click / dos cierres concurrentes que abran 2 cajas.
+                caja = (
+                    Caja.objects.select_for_update()
+                    .filter(pk=caja.pk, sucursal=sucursal, estado='abierta')
+                    .first()
+                )
+                if caja is None:
+                    messages.error(
+                        request,
+                        'Esa caja ya no está abierta (quizá se cerró en paralelo). Revisá el listado.',
+                    )
+                    return redirect('inmobiliaria:lista_cajas')
+
+                # Si quedaron abiertas viejas (dato inconsistente), cerrarlas sin abrir otra.
+                _cerrar_cajas_huerfanas_sucursal(
+                    sucursal, request.user, conservar_numero=caja.numero
+                )
+
                 if puede_arqueo:
                     arqueo_data = _parse_arqueo_cierre_post(request, [c['cuenta'] for c in cuentas_arqueo])
                     saldo_final = _total_ars_desde_arqueo_dict(arqueo_data)
@@ -14821,6 +14925,14 @@ def cerrar_caja(request, numero_caja):
                 _crear_arqueo_cierre_desde_dict(caja, apertura_saldos, request.user)
 
                 CajaArqueoManual.objects.filter(caja=caja).delete()
+
+                if Caja.objects.filter(sucursal=sucursal, estado='abierta').exists():
+                    messages.warning(
+                        request,
+                        f'Caja #{caja.numero} cerrada. Había otra caja abierta inconsistente; '
+                        f'no se abrió una nueva para no duplicar. Usá «Regularizar» en el listado si hace falta.',
+                    )
+                    return redirect('inmobiliaria:imprimir_resumen_caja', numero=caja.numero)
 
                 nueva_caja = Caja.objects.create(
                     sucursal=sucursal,
