@@ -416,6 +416,17 @@ def _filas_honorarios_cochera_fondo_desde_reservas(
             ),
             Decimal('0'),
         ).quantize(Decimal('0.01'))
+        # Si ya hay liquidación, el listado desde liquidaciones muestra el total de
+        # oficina (reparto + cochera inquilino) aunque liq.monto_cochera sea 0.
+        # Contarlo acá evita la fila duplicada «Carátula pendiente».
+        if liqs:
+            if getattr(reserva, 'liq_monto_cochera', None) is not None or (
+                Decimal(str(getattr(reserva, 'liq_monto_cochera_inquilino', None) or 0))
+                > Decimal('0.01')
+            ):
+                coch_ya = max(coch_ya, coch_total)
+            if getattr(reserva, 'liq_monto_fondo', None) is not None:
+                fondo_ya = max(fondo_ya, fondo_total)
         coch = (coch_total - coch_ya).quantize(Decimal('0.01'))
         fondo = (fondo_total - fondo_ya).quantize(Decimal('0.01'))
         if coch < 0:
@@ -716,10 +727,18 @@ def _filas_honorarios_desde_liquidaciones(liquidaciones):
 
             f_entrada = _fecha_entrada_liquidacion(liq)
             monto_coch = Decimal(str(liq.monto_cochera or 0))
-            if res is not None and getattr(res, 'liq_monto_cochera', None) is not None:
-                monto_coch = Decimal(str(res.liq_monto_cochera or 0)).quantize(Decimal('0.01'))
-                coch_inq = Decimal(str(getattr(res, 'liq_monto_cochera_inquilino', None) or 0))
-                monto_coch = (monto_coch + coch_inq).quantize(Decimal('0.01'))
+            if res is not None:
+                inq_c = Decimal(
+                    str(getattr(res, 'liq_monto_cochera_inquilino', None) or 0)
+                ).quantize(Decimal('0.01'))
+                if getattr(res, 'liq_monto_cochera', None) is not None:
+                    # Misma cifra que en carátula: reparto + cochera inquilino.
+                    monto_coch = (
+                        Decimal(str(res.liq_monto_cochera or 0)) + inq_c
+                    ).quantize(Decimal('0.01'))
+                elif inq_c > Decimal('0.01') and monto_coch <= Decimal('0.01'):
+                    # La liq no guardó cochera; el ingreso de oficina es el inquilino.
+                    monto_coch = inq_c
             if monto_coch > Decimal('0.01'):
                 filas.append({
                     **base,
