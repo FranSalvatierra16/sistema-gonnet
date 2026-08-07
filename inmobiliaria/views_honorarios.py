@@ -416,10 +416,22 @@ def _filas_honorarios_cochera_fondo_desde_reservas(
             ),
             Decimal('0'),
         ).quantize(Decimal('0.01'))
-        # Si ya hay liquidación, el listado desde liquidaciones muestra el total de
-        # oficina (reparto + cochera inquilino) aunque liq.monto_cochera sea 0.
-        # Contarlo acá evita la fila duplicada «Carátula pendiente».
-        if liqs:
+        from inmobiliaria.models.comision import fecha_acreditacion_compartida_operacion
+
+        f_acred = fecha_acreditacion_compartida_operacion(reserva=reserva)
+        f_ingreso_oficina = (
+            f_acred
+            or _fecha_operacion_reserva_honorarios(reserva)
+            or f_entrada
+        )
+        # Solo dar por cubierto si el camino de liquidaciones realmente lista
+        # cochera/fondo en ESTE período (misma fecha de acreditación/ingreso).
+        liq_cubre_en_periodo = bool(liqs) and bool(f_ingreso_oficina) and (
+            (not fecha_desde or f_ingreso_oficina >= fecha_desde)
+            and (not fecha_hasta or f_ingreso_oficina <= fecha_hasta)
+        )
+
+        if liq_cubre_en_periodo:
             if getattr(reserva, 'liq_monto_cochera', None) is not None or (
                 Decimal(str(getattr(reserva, 'liq_monto_cochera_inquilino', None) or 0))
                 > Decimal('0.01')
@@ -427,8 +439,35 @@ def _filas_honorarios_cochera_fondo_desde_reservas(
                 coch_ya = max(coch_ya, coch_total)
             if getattr(reserva, 'liq_monto_fondo', None) is not None:
                 fondo_ya = max(fondo_ya, fondo_total)
-        coch = (coch_total - coch_ya).quantize(Decimal('0.01'))
-        fondo = (fondo_total - fondo_ya).quantize(Decimal('0.01'))
+            coch = (coch_total - coch_ya).quantize(Decimal('0.01'))
+            fondo = (fondo_total - fondo_ya).quantize(Decimal('0.01'))
+            fecha_fila = f_ingreso_oficina
+            nota = (
+                'Carátula (sin liquidar)'
+                if not liqs
+                else 'Carátula (pendiente de liquidar en cochera/fondo)'
+            )
+        else:
+            # La acreditación no cae en el filtro: mostrar por fecha de entrada
+            # el fondo/cochera efectivo (carátula o lo cargado en liquidaciones).
+            if getattr(reserva, 'liq_monto_cochera', None) is not None or (
+                Decimal(str(getattr(reserva, 'liq_monto_cochera_inquilino', None) or 0))
+                > Decimal('0.01')
+            ):
+                coch = max(coch_total, coch_ya)
+            else:
+                coch = coch_ya if coch_ya > Decimal('0.01') else coch_total
+            if getattr(reserva, 'liq_monto_fondo', None) is not None:
+                fondo = max(fondo_total, fondo_ya)
+            else:
+                fondo = fondo_ya if fondo_ya > Decimal('0.01') else fondo_total
+            fecha_fila = f_entrada
+            nota = (
+                'Carátula (fecha de entrada)'
+                if liqs
+                else 'Carátula (sin liquidar)'
+            )
+
         if coch < 0:
             coch = Decimal('0.00')
         if fondo < 0:
@@ -441,11 +480,6 @@ def _filas_honorarios_cochera_fondo_desde_reservas(
         caratula_ok = (
             getattr(reserva, 'estado_confirmacion_caratula', None) or 'pendiente'
         ) == 'confirmada'
-        nota = (
-            'Carátula (sin liquidar)'
-            if not liqs
-            else 'Carátula (pendiente de liquidar en cochera/fondo)'
-        )
         if not caratula_ok:
             nota = f'{nota} — carátula pendiente de confirmar'
         base = {
@@ -464,26 +498,23 @@ def _filas_honorarios_cochera_fondo_desde_reservas(
             'tipo_operacion_display': ETIQUETAS_TIPO_OPERACION.get('dia', 'Por día'),
             'estado_liq': 'Sin liquidar' if not liqs else 'Parcial / carátula',
         }
-        from inmobiliaria.models.comision import fecha_acreditacion_compartida_operacion
-
-        f_acred = fecha_acreditacion_compartida_operacion(reserva=reserva) or f_entrada
         if coch > Decimal('0.01'):
             filas.append({
                 **base,
                 'tipo': 'cochera',
                 'tipo_display': 'Cochera',
-                'fecha': f_acred,
+                'fecha': fecha_fila,
                 'monto': coch,
-                'nota': nota if f_acred == f_entrada else 'Fecha de acreditación',
+                'nota': nota,
             })
         if fondo > Decimal('0.01'):
             filas.append({
                 **base,
                 'tipo': 'fondo',
                 'tipo_display': 'Fondo de mantenimiento',
-                'fecha': f_acred,
+                'fecha': fecha_fila,
                 'monto': fondo,
-                'nota': nota if f_acred == f_entrada else 'Fecha de acreditación',
+                'nota': nota,
             })
     return filas
 
@@ -713,7 +744,7 @@ def _filas_honorarios_desde_liquidaciones(liquidaciones):
         }
 
         if _incluir_liquidacion_honorarios_positivos(liq):
-            res = getattr(liq, 'reserva', None)
+            res = getattr(liq, 'reserva', None) or reserva_desde_liquidacion(liq)
             f_acred = _fecha_ingreso_honorarios_oficina(liq)
             f_entrada = _fecha_entrada_liquidacion(liq)
 
