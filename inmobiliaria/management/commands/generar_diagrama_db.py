@@ -441,10 +441,15 @@ class Command(BaseCommand):
             padding: 20px;
         }}
 
-        .grafico-wrap .mermaid {{
+        .grafico-wrap .mermaid-render {{
             display: flex;
             justify-content: center;
             min-width: max-content;
+            padding: 10px;
+        }}
+
+        .grafico-wrap .mermaid-render svg {{
+            max-width: none;
         }}
 
         @media print {{
@@ -490,14 +495,13 @@ class Command(BaseCommand):
 
         <div class="grafico-panel" id="graficoPanel">
             <div class="grafico-ayuda">
-                <strong>Gráfico de relaciones (ER):</strong>
+                <strong>Gráfico de relaciones:</strong>
                 cada caja es una tabla; las flechas son Foreign Key / OneToOne / ManyToMany.
                 Podés hacer zoom con el navegador (Ctrl/Cmd + rueda) y desplazarte con el scroll.
             </div>
             <div class="grafico-wrap">
-                <pre class="mermaid">
-{self.generar_mermaid_erd(modelos_info)}
-                </pre>
+                <div id="mermaid-render" class="mermaid-render">Cargando gráfico…</div>
+                <script type="text/plain" id="mermaid-source">{self.generar_mermaid_erd(modelos_info)}</script>
             </div>
         </div>
         
@@ -514,11 +518,31 @@ class Command(BaseCommand):
     
     <script>
         mermaid.initialize({
-            startOnLoad: true,
+            startOnLoad: false,
             theme: 'default',
             securityLevel: 'loose',
-            er: { useMaxWidth: false, layoutDirection: 'TB' }
+            flowchart: { useMaxWidth: false, htmlLabels: true, curve: 'basis' }
         });
+
+        let graficoListo = false;
+        async function renderGrafico() {
+            if (graficoListo) return;
+            const srcEl = document.getElementById('mermaid-source');
+            const target = document.getElementById('mermaid-render');
+            if (!srcEl || !target) return;
+            const definition = (srcEl.textContent || '').trim();
+            try {
+                const { svg } = await mermaid.render('erd-svg', definition);
+                target.innerHTML = svg;
+                graficoListo = true;
+            } catch (err) {
+                console.error(err);
+                target.innerHTML = '<div style="padding:24px;color:#b00020;font-family:monospace;white-space:pre-wrap;">'
+                    + 'No se pudo dibujar el gráfico.\\n'
+                    + String(err && err.message ? err.message : err)
+                    + '</div>';
+            }
+        }
 
         function mostrarVista(vista) {
             const lista = document.getElementById('content');
@@ -532,6 +556,7 @@ class Command(BaseCommand):
                 btnLista.classList.remove('active');
                 btnGrafico.classList.add('active');
                 search.style.display = 'none';
+                renderGrafico();
             } else {
                 lista.style.display = 'block';
                 grafico.classList.remove('visible');
@@ -590,61 +615,62 @@ class Command(BaseCommand):
         return html
 
     def generar_mermaid_erd(self, modelos_info):
-        """Genera un diagrama ER en sintaxis Mermaid a partir de las relaciones."""
-        nombres = {info['nombre'] for info in modelos_info}
-        lineas = ['erDiagram']
+        """
+        Diagrama de relaciones en flowchart (más robusto que erDiagram en Mermaid 10).
+        """
+        def _id(name):
+            safe = ''.join(c if c.isalnum() or c == '_' else '_' for c in (name or 'X'))
+            if not safe or safe[0].isdigit():
+                safe = 'T_' + safe
+            return safe
+
+        def _label(text):
+            t = (text or '').replace('\\', '/').replace('"', "'").replace('\n', ' ').strip()
+            return t or 'rel'
+
+        nombres = {_id(info['nombre']): info['nombre'] for info in modelos_info}
+        lineas = [
+            'flowchart TB',
+            '    classDef tabla fill:#667eea,stroke:#4c5fd5,color:#fff,stroke-width:1px',
+        ]
+        for nid, label in sorted(nombres.items(), key=lambda x: x[1]):
+            lineas.append(f'    {nid}["{_label(label)}"]:::tabla')
+
+        def _ensure_nodo(dest_raw):
+            dest = _id(dest_raw)
+            if dest not in nombres:
+                nombres[dest] = dest_raw or dest
+                lineas.append(f'    {dest}["{_label(dest_raw or dest)}"]')
+            return dest
+
         vistos = set()
-
-        def _safe(name):
-            return ''.join(c if c.isalnum() or c == '_' else '_' for c in name)
-
         for info in modelos_info:
-            origen = _safe(info['nombre'])
+            origen = _id(info['nombre'])
             for fk in info.get('fk') or []:
-                dest = fk.get('relacionado') or ''
-                if dest not in nombres:
-                    continue
-                clave = (origen, _safe(dest), fk['campo'], 'fk')
+                dest = _ensure_nodo(fk.get('relacionado') or '')
+                campo = _label(fk.get('campo'))
+                clave = (origen, dest, campo, 'fk')
                 if clave in vistos:
                     continue
                 vistos.add(clave)
-                campo = _safe(fk['campo'])
-                lineas.append(f'    {origen} }}o--|| {_safe(dest)} : {campo}')
+                lineas.append(f'    {origen} -->|{campo}| {dest}')
             for o2o in info.get('o2o') or []:
-                dest = o2o.get('relacionado') or ''
-                if dest not in nombres:
-                    continue
-                clave = (origen, _safe(dest), o2o['campo'], 'o2o')
+                dest = _ensure_nodo(o2o.get('relacionado') or '')
+                campo = _label(o2o.get('campo'))
+                clave = (origen, dest, campo, 'o2o')
                 if clave in vistos:
                     continue
                 vistos.add(clave)
-                campo = _safe(o2o['campo'])
-                lineas.append(f'    {origen} ||--|| {_safe(dest)} : {campo}')
+                lineas.append(f'    {origen} -->|o2o {campo}| {dest}')
             for m2m in info.get('m2m') or []:
-                dest = m2m.get('relacionado') or ''
-                if dest not in nombres:
-                    continue
-                a, b = sorted([origen, _safe(dest)])
-                clave = (a, b, m2m['campo'], 'm2m')
+                dest = _ensure_nodo(m2m.get('relacionado') or '')
+                campo = _label(m2m.get('campo'))
+                a, b = sorted([origen, dest])
+                clave = (a, b, campo, 'm2m')
                 if clave in vistos:
                     continue
                 vistos.add(clave)
-                campo = _safe(m2m['campo'])
-                lineas.append(f'    {origen} }}o--o{{ {_safe(dest)} : {campo}')
-
-        # Entidades sin relaciones visibles (para que no falten nodos sueltos útiles)
-        relacionados = set()
-        for linea in lineas[1:]:
-            partes = linea.strip().split()
-            if len(partes) >= 3:
-                relacionados.add(partes[0])
-                relacionados.add(partes[2])
-        for info in modelos_info:
-            nombre = _safe(info['nombre'])
-            if nombre not in relacionados:
-                lineas.append(f'    {nombre} {{')
-                lineas.append('        string id PK')
-                lineas.append('    }')
+                lineas.append(f'    {origen} -.->|m2m {campo}| {dest}')
 
         return '\n'.join(lineas)
 
