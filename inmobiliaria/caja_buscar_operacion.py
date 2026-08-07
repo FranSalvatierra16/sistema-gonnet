@@ -382,8 +382,6 @@ def _movimiento_desde_operacion(operacion: dict, concepto_dev: dict) -> dict:
         detalle = f'Pago liquidación #{oid} — {cliente}'
         if operacion.get('estado'):
             detalle += f' ({operacion["estado"]})'
-        if operacion.get('cuenta_bancaria'):
-            detalle += f'\nCuenta propietario: {operacion["cuenta_bancaria"]}'
         return {
             'tipo': 'EG',
             'tipo_comprobante': 'LQ',

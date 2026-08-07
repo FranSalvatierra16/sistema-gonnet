@@ -609,39 +609,66 @@ class MovimientoCaja(models.Model):
             return t[:117] + '...'
         return t
 
+    @staticmethod
+    def _texto_sin_datos_cuenta(texto):
+        """Quita líneas de CBU/banco/titular del detalle visible en listados."""
+        if not texto:
+            return ''
+        keep = []
+        for line in str(texto).splitlines():
+            low = line.strip().casefold()
+            if not low:
+                continue
+            if low.startswith('cuenta propietario'):
+                continue
+            if 'cbu' in low or 'cbu/alias' in low:
+                continue
+            if low.startswith('banco:') or low.startswith('titular:'):
+                continue
+            keep.append(line.strip())
+        return '\n'.join(keep)
+
     @property
     def listado_detalle_observacion(self):
         """Texto libre del movimiento (detalle del formulario o segunda línea del concepto)."""
         raw = self.concepto_sin_pipe_conceptos().strip()
+        obs = ''
         if ' — ' in raw:
             parts = raw.split(' — ')
             # Formato caja: «id — nombre — detalle…»
             if len(parts) >= 3:
                 tail = ' — '.join(parts[2:]).strip()
                 if tail:
-                    return tail[:200]
-            tail = raw.split(' — ', 1)[1].strip()
-            if tail:
-                # Si no hay 3 partes, no repetir el nombre de catálogo como “detalle”.
-                nombre = (self.nombre_concepto_catalogo or '').strip()
-                if nombre and tail.casefold() == nombre.casefold():
-                    return ''
-                if nombre and tail.casefold().startswith(nombre.casefold() + ' — '):
-                    return tail[len(nombre) + 3:].strip()[:200]
-                return tail[:200]
-        if '\n' in raw:
+                    obs = tail[:200]
+            if not obs:
+                tail = raw.split(' — ', 1)[1].strip()
+                if tail:
+                    # Si no hay 3 partes, no repetir el nombre de catálogo como “detalle”.
+                    nombre = (self.nombre_concepto_catalogo or '').strip()
+                    if nombre and tail.casefold() == nombre.casefold():
+                        obs = ''
+                    elif nombre and tail.casefold().startswith(nombre.casefold() + ' — '):
+                        obs = tail[len(nombre) + 3:].strip()[:200]
+                    else:
+                        obs = tail[:200]
+        elif '\n' in raw:
             tail = raw.split('\n', 1)[1].strip()
             if tail:
-                return tail[:200]
-        return ''
+                obs = tail[:200]
+        return self._texto_sin_datos_cuenta(obs)
 
     @property
     def listado_detalle_l2(self):
         """Segunda línea: comprobante, período, a quién corresponde."""
+        # Liquidaciones: solo el propietario (dirección ya va en concepto).
+        if (self.listado_concepto_l1 or '').strip().upper() == 'LIQUIDACIONES':
+            return self._propietario_resumen_liquidacion() or '—'
         parts = []
         base = self._texto_concepto_sin_abrev_re(self.concepto_sin_pipe_conceptos())
         if '\n' in base:
-            second = self._texto_concepto_sin_abrev_re(base.split('\n', 1)[1].strip())
+            second = self._texto_sin_datos_cuenta(
+                self._texto_concepto_sin_abrev_re(base.split('\n', 1)[1].strip())
+            )
             if second:
                 parts.append(second[:140])
         if self.numero_liquidacion:
@@ -723,14 +750,30 @@ class MovimientoCaja(models.Model):
     @property
     def listado_detalle_tabla_secundario(self):
         """Línea secundaria de detalle sin repetir el nº de comprobante (ya va en columna propia)."""
+        # Liquidaciones: solo el propietario (sin CBU, fechas ni «PROPIETARIO»).
+        if (self.listado_concepto_l1 or '').strip().upper() == 'LIQUIDACIONES':
+            return self._propietario_resumen_liquidacion() or '—'
         parts = []
         obs = (self.listado_detalle_observacion or '').strip()
         if obs:
-            parts.append(obs)
+            if obs.casefold().startswith('pago liquidaci'):
+                m = re.search(
+                    r'Pago\s+liquidaci[oó]n\s*#?\s*\d*\s*[—\-–]\s*([^(\n·]+)',
+                    obs,
+                    re.I,
+                )
+                if m:
+                    nombre = m.group(1).strip().rstrip('—-– ').strip()
+                    if nombre:
+                        parts.append(nombre[:120])
+            else:
+                parts.append(obs)
         base = self._texto_concepto_sin_abrev_re(self.concepto_sin_pipe_conceptos())
         if '\n' in base:
-            second = self._texto_concepto_sin_abrev_re(base.split('\n', 1)[1].strip())
-            if second and second not in parts:
+            second = self._texto_sin_datos_cuenta(
+                self._texto_concepto_sin_abrev_re(base.split('\n', 1)[1].strip())
+            )
+            if second and second not in parts and not second.casefold().startswith('pago liquidaci'):
                 parts.append(second[:140])
         if self.fecha_desde and self.fecha_hasta:
             parts.append(
@@ -778,16 +821,20 @@ class MovimientoCaja(models.Model):
             except Exception:
                 pass
         for fuente in (
-            self.listado_detalle_l1 or '',
             self.concepto_sin_pipe_conceptos() or '',
+            self.listado_detalle_l1 or '',
         ):
             m = re.search(
-                r'Pago\s+liquidaci[oó]n\s*#\s*\d+\s*[—\-–]\s*(.+)',
+                r'Pago\s+liquidaci[oó]n\s*#?\s*\d*\s*[—\-–]\s*(.+)',
                 fuente,
                 re.I,
             )
             if m:
                 tail = m.group(1).split('\n')[0].strip()
+                tail = re.split(r'\s*[·|]\s*', tail, 1)[0].strip()
+                tail = re.sub(r'\s*\([^)]*\)\s*$', '', tail).strip()
+                if 'cuenta' in tail.casefold():
+                    tail = re.split(r'\s*cuenta\s+', tail, maxsplit=1, flags=re.I)[0].strip()
                 if tail:
                     return tail[:120]
         return ''
