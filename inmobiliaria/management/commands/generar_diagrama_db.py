@@ -403,7 +403,56 @@ class Command(BaseCommand):
             font-size: 1.5em;
             margin-bottom: 10px;
         }}
+
+        .view-toggle {{
+            display: flex;
+            gap: 8px;
+        }}
+
+        .view-toggle button.active {{
+            background: #28a745;
+        }}
+
+        .grafico-panel {{
+            display: none;
+            padding: 20px 30px 40px;
+        }}
+
+        .grafico-panel.visible {{
+            display: block;
+        }}
+
+        .grafico-ayuda {{
+            background: #e7f3ff;
+            border-left: 4px solid #17a2b8;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            color: #495057;
+            font-size: 0.95em;
+        }}
+
+        .grafico-wrap {{
+            background: #fafbfc;
+            border: 2px solid #dee2e6;
+            border-radius: 12px;
+            overflow: auto;
+            max-height: 80vh;
+            padding: 20px;
+        }}
+
+        .grafico-wrap .mermaid {{
+            display: flex;
+            justify-content: center;
+            min-width: max-content;
+        }}
+
+        @media print {{
+            .grafico-panel.visible {{ display: block; }}
+            .controls, .view-toggle {{ display: none !important; }}
+        }}
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -418,6 +467,10 @@ class Command(BaseCommand):
         </div>
         
         <div class="controls">
+            <div class="view-toggle">
+                <button type="button" id="btnVistaLista" class="active" onclick="mostrarVista('lista')">📋 Listado</button>
+                <button type="button" id="btnVistaGrafico" onclick="mostrarVista('grafico')">🕸️ Gráfico</button>
+            </div>
             <input type="text" id="searchInput" placeholder="🔍 Buscar tabla, campo o relación...">
             <button onclick="expandAll()">Expandir Todo</button>
             <button onclick="collapseAll()">Colapsar Todo</button>
@@ -434,6 +487,19 @@ class Command(BaseCommand):
                 <span class="stat-value">{len(apps_to_check)}</span>
             </div>
         </div>
+
+        <div class="grafico-panel" id="graficoPanel">
+            <div class="grafico-ayuda">
+                <strong>Gráfico de relaciones (ER):</strong>
+                cada caja es una tabla; las flechas son Foreign Key / OneToOne / ManyToMany.
+                Podés hacer zoom con el navegador (Ctrl/Cmd + rueda) y desplazarte con el scroll.
+            </div>
+            <div class="grafico-wrap">
+                <pre class="mermaid">
+{self.generar_mermaid_erd(modelos_info)}
+                </pre>
+            </div>
+        </div>
         
         <div class="content" id="content">
 """
@@ -447,6 +513,34 @@ class Command(BaseCommand):
     </div>
     
     <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            securityLevel: 'loose',
+            er: { useMaxWidth: false, layoutDirection: 'TB' }
+        });
+
+        function mostrarVista(vista) {
+            const lista = document.getElementById('content');
+            const grafico = document.getElementById('graficoPanel');
+            const btnLista = document.getElementById('btnVistaLista');
+            const btnGrafico = document.getElementById('btnVistaGrafico');
+            const search = document.getElementById('searchInput');
+            if (vista === 'grafico') {
+                lista.style.display = 'none';
+                grafico.classList.add('visible');
+                btnLista.classList.remove('active');
+                btnGrafico.classList.add('active');
+                search.style.display = 'none';
+            } else {
+                lista.style.display = 'block';
+                grafico.classList.remove('visible');
+                btnLista.classList.add('active');
+                btnGrafico.classList.remove('active');
+                search.style.display = '';
+            }
+        }
+
         // Búsqueda
         document.getElementById('searchInput').addEventListener('input', function(e) {
             const searchTerm = e.target.value.toLowerCase();
@@ -494,6 +588,65 @@ class Command(BaseCommand):
 """
         
         return html
+
+    def generar_mermaid_erd(self, modelos_info):
+        """Genera un diagrama ER en sintaxis Mermaid a partir de las relaciones."""
+        nombres = {info['nombre'] for info in modelos_info}
+        lineas = ['erDiagram']
+        vistos = set()
+
+        def _safe(name):
+            return ''.join(c if c.isalnum() or c == '_' else '_' for c in name)
+
+        for info in modelos_info:
+            origen = _safe(info['nombre'])
+            for fk in info.get('fk') or []:
+                dest = fk.get('relacionado') or ''
+                if dest not in nombres:
+                    continue
+                clave = (origen, _safe(dest), fk['campo'], 'fk')
+                if clave in vistos:
+                    continue
+                vistos.add(clave)
+                campo = _safe(fk['campo'])
+                lineas.append(f'    {origen} }}o--|| {_safe(dest)} : {campo}')
+            for o2o in info.get('o2o') or []:
+                dest = o2o.get('relacionado') or ''
+                if dest not in nombres:
+                    continue
+                clave = (origen, _safe(dest), o2o['campo'], 'o2o')
+                if clave in vistos:
+                    continue
+                vistos.add(clave)
+                campo = _safe(o2o['campo'])
+                lineas.append(f'    {origen} ||--|| {_safe(dest)} : {campo}')
+            for m2m in info.get('m2m') or []:
+                dest = m2m.get('relacionado') or ''
+                if dest not in nombres:
+                    continue
+                a, b = sorted([origen, _safe(dest)])
+                clave = (a, b, m2m['campo'], 'm2m')
+                if clave in vistos:
+                    continue
+                vistos.add(clave)
+                campo = _safe(m2m['campo'])
+                lineas.append(f'    {origen} }}o--o{{ {_safe(dest)} : {campo}')
+
+        # Entidades sin relaciones visibles (para que no falten nodos sueltos útiles)
+        relacionados = set()
+        for linea in lineas[1:]:
+            partes = linea.strip().split()
+            if len(partes) >= 3:
+                relacionados.add(partes[0])
+                relacionados.add(partes[2])
+        for info in modelos_info:
+            nombre = _safe(info['nombre'])
+            if nombre not in relacionados:
+                lineas.append(f'    {nombre} {{')
+                lineas.append('        string id PK')
+                lineas.append('    }')
+
+        return '\n'.join(lineas)
 
     def obtener_info_modelo(self, model):
         """Obtiene toda la información de un modelo"""

@@ -6983,23 +6983,20 @@ def buscar_propietarios(request):
     )
 
 def ver_diagrama_db(request):
-    """Vista para mostrar el diagrama de la base de datos (acceso público)"""
+    """Vista para mostrar el diagrama de la base de datos (listado + gráfico ER)."""
     from django.http import HttpResponse
-    import os
-    from django.conf import settings
-    
-    # Ruta del archivo HTML
-    diagrama_path = os.path.join(settings.BASE_DIR, 'diagrama_db.html')
-    
+    from django.apps import apps
+    from inmobiliaria.management.commands.generar_diagrama_db import Command as GenerarDiagramaCommand
+
     try:
-        with open(diagrama_path, 'r', encoding='utf-8') as f:
-            html_content = f.read()
+        app_label = (request.GET.get('app') or 'inmobiliaria').strip()
+        try:
+            apps_to_check = [apps.get_app_config(app_label)]
+        except LookupError:
+            apps_to_check = [apps.get_app_config('inmobiliaria')]
+        cmd = GenerarDiagramaCommand()
+        html_content = cmd.generar_html(apps_to_check)
         return HttpResponse(html_content, content_type='text/html; charset=utf-8')
-    except FileNotFoundError:
-        return HttpResponse(
-            '<h1>Diagrama no encontrado</h1><p>Por favor, ejecuta primero: <code>python3 manage.py generar_diagrama_db</code></p>',
-            status=404
-        )
     except Exception as e:
         return HttpResponse(f'<h1>Error</h1><p>{str(e)}</p>', status=500)
 
