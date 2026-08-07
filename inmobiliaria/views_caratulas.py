@@ -657,13 +657,10 @@ def _puede_imprimir_caratula(user):
     return nivel >= 1
 
 
-def _es_super_admin(user):
-    """Super administrador (nivel 5) o superusuario Django."""
-    if not user or not getattr(user, 'is_authenticated', False):
-        return False
-    if getattr(user, 'is_superuser', False):
-        return True
-    return getattr(user, 'nivel', None) == 5
+def _puede_corregir_montos_liquidacion(user):
+    """Administrador (nivel 4+) o superusuario: corregir montos del resumen con liquidación ya cargada."""
+    from inmobiliaria.models.persona import usuario_es_nivel_administracion
+    return usuario_es_nivel_administracion(user)
 
 
 def _puede_editar_caratula(user):
@@ -1448,10 +1445,10 @@ def _guardar_caratula_reserva(request, reserva):
             from inmobiliaria.liquidacion_operacion import liquidaciones_activas_reserva
 
             tiene_liqs = bool(liquidaciones_activas_reserva(reserva))
-            if tiene_liqs and not _es_super_admin(request.user):
+            if tiene_liqs and not _puede_corregir_montos_liquidacion(request.user):
                 messages.error(
                     request,
-                    'Solo el super administrador puede corregir los montos del resumen '
+                    'Solo un administrador puede corregir los montos del resumen '
                     'cuando la operación ya tiene liquidación.',
                 )
                 return False
@@ -4098,14 +4095,14 @@ def caratula_reserva(request, reserva_id):
         ),
         'monto_fondo': format_monto_argentino(rl.get('monto_fondo') or 0),
     }
-    es_super = _es_super_admin(request.user)
+    es_admin = _puede_corregir_montos_liquidacion(request.user)
     ctx['puede_editar_liquidacion_resumen'] = bool(
         ctx['puede_editar_caratula']
         and rl.get('tiene_datos')
-        and (not rl.get('desde_liquidacion') or es_super)
+        and (not rl.get('desde_liquidacion') or es_admin)
     )
     ctx['edicion_montos_solo_caratula'] = bool(
-        es_super and rl.get('desde_liquidacion') and ctx['puede_editar_liquidacion_resumen']
+        es_admin and rl.get('desde_liquidacion') and ctx['puede_editar_liquidacion_resumen']
     )
     ctx['form_caratula_reserva_id'] = 'form-editar-caratula-reserva'
     return render(request, 'inmobiliaria/caratulas/detalle_reserva.html', ctx)
