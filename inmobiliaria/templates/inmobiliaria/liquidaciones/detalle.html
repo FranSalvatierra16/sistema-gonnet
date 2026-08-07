@@ -538,11 +538,12 @@
                                                inputmode="numeric" autocomplete="off" value="" placeholder="0">
                                     </div>
                                     <div class="col-md-3">
-                                        <label class="form-label">Depósito</label>
+                                        <label class="form-label">Depósito / transferencia</label>
                                         <input type="text" name="monto_deposito" id="monto_deposito" class="form-control input-monto-ar monto" 
                                                inputmode="numeric" autocomplete="off" value="" placeholder="0">
                                     </div>
                                 </div>
+                                {% include 'inmobiliaria/liquidaciones/_medios_pago_detalle_caja.html' %}
                                 <div class="row mb-3">
                                     <div class="col-md-4">
                                         <label class="form-label">Cotización del día <span class="text-muted">(opcional)</span></label>
@@ -662,6 +663,18 @@ document.addEventListener('DOMContentLoaded', function() {
         return Number(n).toFixed(2);
     }
 
+    function toggleDetallesMedios() {
+        const ch = parseMontoCampo((document.getElementById('monto_cheque') || {}).value);
+        const tj = parseMontoCampo((document.getElementById('monto_tarjeta') || {}).value);
+        const dp = parseMontoCampo((document.getElementById('monto_deposito') || {}).value);
+        const bCh = document.getElementById('bloque_detalle_cheque');
+        const bTj = document.getElementById('bloque_detalle_tarjeta');
+        const bDp = document.getElementById('bloque_detalle_deposito');
+        if (bCh) bCh.classList.toggle('d-none', ch <= 0);
+        if (bTj) bTj.classList.toggle('d-none', tj <= 0);
+        if (bDp) bDp.classList.toggle('d-none', dp <= 0);
+    }
+
     function calcularTotal() {
         if (!totalIngresado) return;
         let total = 0;
@@ -671,6 +684,7 @@ document.addEventListener('DOMContentLoaded', function() {
             total += parseMontoCampo(input.value);
         });
         totalIngresado.textContent = fmtMontoCampo(total);
+        toggleDetallesMedios();
     }
     
     montos.forEach(id => {

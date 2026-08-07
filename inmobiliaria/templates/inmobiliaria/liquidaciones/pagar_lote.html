@@ -115,13 +115,17 @@
                                {% if not caja_abierta %}disabled{% endif %}>
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label">Depósito</label>
+                        <label class="form-label">Depósito / transferencia</label>
                         <input type="text" name="monto_deposito" id="monto_deposito"
                                class="form-control input-monto-ar monto-lote"
                                inputmode="numeric" autocomplete="off" value="" placeholder="0"
                                {% if not caja_abierta %}disabled{% endif %}>
                     </div>
                 </div>
+
+                {% with disabled_attr=caja_abierta|yesno:",disabled" %}
+                {% include 'inmobiliaria/liquidaciones/_medios_pago_detalle_caja.html' %}
+                {% endwith %}
 
                 <div class="row mb-3">
                     <div class="col-md-4">
@@ -166,6 +170,17 @@
     function formatMonto(n) {
         return n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
+    function toggleDetalles() {
+        var ch = parseMonto((document.getElementById('monto_cheque') || {}).value);
+        var tj = parseMonto((document.getElementById('monto_tarjeta') || {}).value);
+        var dp = parseMonto((document.getElementById('monto_deposito') || {}).value);
+        var bCh = document.getElementById('bloque_detalle_cheque');
+        var bTj = document.getElementById('bloque_detalle_tarjeta');
+        var bDp = document.getElementById('bloque_detalle_deposito');
+        if (bCh) bCh.classList.toggle('d-none', ch <= 0);
+        if (bTj) bTj.classList.toggle('d-none', tj <= 0);
+        if (bDp) bDp.classList.toggle('d-none', dp <= 0);
+    }
     function recalc() {
         var total = 0;
         document.querySelectorAll('.monto-lote').forEach(function (el) {
@@ -173,6 +188,7 @@
         });
         var out = document.getElementById('total-ingresado-lote');
         if (out) out.textContent = formatMonto(total);
+        toggleDetalles();
     }
     document.querySelectorAll('.monto-lote').forEach(function (el) {
         el.addEventListener('input', recalc);

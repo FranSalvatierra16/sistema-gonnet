@@ -359,6 +359,9 @@ def _filas_honorarios_oficina_desde_caratulas_reserva(
     Usa los mismos montos que el cuadro de la carátula
     (``montos_reparto_reserva_para_caratula`` + cochera inquilino).
     Una fila por tipo e importe; no depende de que ``liq_monto_*`` esté seteado.
+
+    Fecha del ingreso: acreditación de comisión (si está) → Fecha op. (alta) →
+    entrada. No se incluye por fecha de entrada cuando la operación es de otro mes.
     """
     from inmobiliaria.liquidacion_operacion import (
         liquidaciones_activas_reserva,
@@ -378,31 +381,28 @@ def _filas_honorarios_oficina_desde_caratulas_reserva(
         .exclude(estado='cancelada')
         .select_related('propiedad', 'propiedad__propietario', 'cliente')
     )
+    # Prefiltro por fechas de operación / acreditación (no por día de entrada).
     rango = Q()
     if fecha_desde and fecha_hasta:
         rango = (
-            Q(fecha_inicio__gte=fecha_desde, fecha_inicio__lte=fecha_hasta)
-            | Q(fecha_creacion__date__gte=fecha_desde, fecha_creacion__date__lte=fecha_hasta)
+            Q(fecha_creacion__date__gte=fecha_desde, fecha_creacion__date__lte=fecha_hasta)
             | Q(
                 comisiones_vendedor__fecha_operacion__date__gte=fecha_desde,
                 comisiones_vendedor__fecha_operacion__date__lte=fecha_hasta,
             )
-            | Q(
-                liquidaciones__fecha_creacion__date__gte=fecha_desde,
-                liquidaciones__fecha_creacion__date__lte=fecha_hasta,
-            )
+            | Q(fecha_inicio__gte=fecha_desde, fecha_inicio__lte=fecha_hasta)
         )
     elif fecha_desde:
         rango = (
-            Q(fecha_inicio__gte=fecha_desde)
-            | Q(fecha_creacion__date__gte=fecha_desde)
+            Q(fecha_creacion__date__gte=fecha_desde)
             | Q(comisiones_vendedor__fecha_operacion__date__gte=fecha_desde)
+            | Q(fecha_inicio__gte=fecha_desde)
         )
     elif fecha_hasta:
         rango = (
-            Q(fecha_inicio__lte=fecha_hasta)
-            | Q(fecha_creacion__date__lte=fecha_hasta)
+            Q(fecha_creacion__date__lte=fecha_hasta)
             | Q(comisiones_vendedor__fecha_operacion__date__lte=fecha_hasta)
+            | Q(fecha_inicio__lte=fecha_hasta)
         )
     if rango:
         qs = qs.filter(rango).distinct()
@@ -423,7 +423,15 @@ def _filas_honorarios_oficina_desde_caratulas_reserva(
 
     for reserva in qs.iterator(chunk_size=80):
         f_entrada = reserva.fecha_inicio
-        if not f_entrada:
+        f_acred = fecha_acreditacion_compartida_operacion(reserva=reserva)
+        f_op = _fecha_operacion_reserva_honorarios(reserva)
+        # Una sola fecha de negocio: no “traer” operaciones de otro mes por la entrada.
+        fecha_fila = f_acred or f_op or f_entrada
+        if not fecha_fila:
+            continue
+        if fecha_desde and fecha_fila < fecha_desde:
+            continue
+        if fecha_hasta and fecha_fila > fecha_hasta:
             continue
 
         _total, _prop, inm, coch, fondo = montos_reparto_reserva_para_caratula(reserva)
@@ -438,35 +446,12 @@ def _filas_honorarios_oficina_desde_caratulas_reserva(
         if inm <= Decimal('0.01') and coch_total <= Decimal('0.01') and fondo <= Decimal('0.01'):
             continue
 
-        f_acred = fecha_acreditacion_compartida_operacion(reserva=reserva)
-        f_op = _fecha_operacion_reserva_honorarios(reserva)
-        f_ingreso = f_acred or f_op or f_entrada
-
-        # Incluir si acreditación, entrada o alta de la reserva caen en el período.
-        f_alta = None
-        if getattr(reserva, 'fecha_creacion', None):
-            f_alta = _datetime_a_fecha_local(reserva.fecha_creacion)
-        fechas_candidatas = [f for f in (f_ingreso, f_entrada, f_alta) if f]
-        en_periodo = any(
-            (not fecha_desde or fd >= fecha_desde)
-            and (not fecha_hasta or fd <= fecha_hasta)
-            for fd in fechas_candidatas
-        )
-        if not en_periodo:
-            continue
-
-        if (
-            (not fecha_desde or f_ingreso >= fecha_desde)
-            and (not fecha_hasta or f_ingreso <= fecha_hasta)
-        ):
-            fecha_fila = f_ingreso
-            nota = 'Carátula confirmada'
+        if f_acred:
+            nota = 'Carátula confirmada (fecha acreditación)'
+        elif f_op:
+            nota = 'Carátula confirmada (fecha operación)'
         else:
-            fecha_fila = f_entrada if (
-                (not fecha_desde or f_entrada >= fecha_desde)
-                and (not fecha_hasta or f_entrada <= fecha_hasta)
-            ) else (f_alta or f_entrada)
-            nota = 'Carátula confirmada (fecha de entrada/alta)'
+            nota = 'Carátula confirmada'
 
         liqs = liquidaciones_activas_reserva(reserva)
         try:

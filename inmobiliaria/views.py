@@ -29549,6 +29549,15 @@ def detalle_liquidacion(request, liquidacion_id):
     for g in gastos_list:
         g.detalle_visible = _observaciones_visibles_gasto(g)
 
+    from inmobiliaria.models.sucursal import CuentaBancaria
+
+    cuentas_bancarias = list(
+        CuentaBancaria.objects.filter(
+            sucursal=request.user.sucursal,
+            activa=True,
+        ).order_by('nombre_banco', 'alias')
+    )
+
     context = {
         'liquidacion': liquidacion,
         'info_operacion_liquidacion': info_op,
@@ -29563,6 +29572,7 @@ def detalle_liquidacion(request, liquidacion_id):
         'egresos_caja_pendientes_count': egresos_caja_pendientes_count,
         'liq_editable': liq_editable,
         'caratulas_pendientes_confirmacion': caratulas_pendientes,
+        'cuentas_bancarias': cuentas_bancarias,
         **_context_liquidacion_cobranzas(liquidacion, request),
     }
 
@@ -30341,12 +30351,76 @@ def marcar_liquidacion_pagada(request, liquidacion_id):
     return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion.id)
 
 
+def _destino_deposito_liquidacion_desde_post(request, monto_deposito):
+    """Valida y devuelve destino_deposito si hay transferencia; None si no aplica."""
+    if not monto_deposito or Decimal(str(monto_deposito)) <= 0:
+        return None
+    from inmobiliaria.models.sucursal import CuentaBancaria
+
+    dd_raw = (request.POST.get('destino_deposito') or '').strip()
+    if dd_raw.startswith('cuenta_'):
+        suf = dd_raw.replace('cuenta_', '', 1)
+        if suf.isdigit() and CuentaBancaria.objects.filter(
+            pk=int(suf),
+            sucursal=request.user.sucursal,
+            activa=True,
+        ).exists():
+            return dd_raw
+    raise ValueError(
+        'Con importe en depósito/transferencia tenés que elegir una cuenta de la sucursal. '
+        'Configurá cuentas en Caja → Cuentas bancarias si no aparece ninguna.'
+    )
+
+
 def _medios_pago_liquidacion_desde_post(request):
-    """Lee montos de medios de pago y cotización opcional del POST."""
+    """Lee montos, detalle de medios (como en caja) y cotización opcional del POST."""
     monto_efectivo = parse_decimal_monto(request.POST.get('monto_efectivo', '0'))
     monto_cheque = parse_decimal_monto(request.POST.get('monto_cheque', '0'))
     monto_tarjeta = parse_decimal_monto(request.POST.get('monto_tarjeta', '0'))
     monto_deposito = parse_decimal_monto(request.POST.get('monto_deposito', '0'))
+
+    tarjeta_numero = (request.POST.get('tarjeta_numero') or '')[:32]
+    tarjeta_cupon = (request.POST.get('tarjeta_cupon') or '')[:64]
+    tt = (request.POST.get('tarjeta_tipo') or '').strip().lower()
+    tarjeta_tipo = tt if tt in ('credito', 'debito') else ''
+
+    cheques_detalle = _parse_cheques_movimiento_post(request)
+    cheque_numero = ''
+    cheque_banco = ''
+    cheque_fecha_vencimiento = None
+    if cheques_detalle:
+        suma_cheques = sum((c['monto'] for c in cheques_detalle), Decimal('0'))
+        if suma_cheques > 0:
+            monto_cheque = suma_cheques
+        primero = cheques_detalle[0]
+        cheque_numero = (primero.get('numero') or '')[:32]
+        cheque_banco = (primero.get('banco') or '')[:100]
+        cheque_fecha_vencimiento = primero.get('fecha_vencimiento')
+    else:
+        cheque_numero = (request.POST.get('cheque_numero') or '')[:32]
+        cheque_banco = (request.POST.get('cheque_banco') or '')[:100]
+        fv = (request.POST.get('cheque_fecha_vencimiento') or '').strip()
+        if fv:
+            try:
+                cheque_fecha_vencimiento = datetime.strptime(fv, '%Y-%m-%d').date()
+            except ValueError:
+                cheque_fecha_vencimiento = None
+        if monto_cheque and monto_cheque > 0:
+            cheques_detalle = [{
+                'monto': Decimal(str(monto_cheque)),
+                'numero': cheque_numero,
+                'banco': cheque_banco,
+                'fecha_vencimiento': cheque_fecha_vencimiento,
+            }]
+
+    destino_deposito = _destino_deposito_liquidacion_desde_post(request, monto_deposito)
+    fecha_transferencia = None
+    if monto_deposito and monto_deposito > 0:
+        try:
+            fecha_transferencia = _fecha_transferencia_desde_post(request)
+        except ValueError:
+            raise ValueError('Fecha de transferencia/depósito inválida.')
+
     total_pago = (
         monto_efectivo + monto_cheque + monto_tarjeta + monto_deposito
     ).quantize(Decimal('0.01'))
@@ -30368,6 +30442,15 @@ def _medios_pago_liquidacion_desde_post(request):
         'monto_deposito': monto_deposito,
         'total_pago': total_pago,
         'cotizacion_dolar': cotizacion_dolar,
+        'tarjeta_numero': tarjeta_numero,
+        'tarjeta_cupon': tarjeta_cupon,
+        'tarjeta_tipo': tarjeta_tipo,
+        'cheque_numero': cheque_numero,
+        'cheque_banco': cheque_banco,
+        'cheque_fecha_vencimiento': cheque_fecha_vencimiento,
+        'cheques_detalle': cheques_detalle,
+        'destino_deposito': destino_deposito,
+        'fecha_transferencia': fecha_transferencia,
     }
 
 
@@ -30458,8 +30541,23 @@ def _pagar_liquidaciones_en_caja(request, liquidaciones):
     monto_tarjeta = medios['monto_tarjeta']
     monto_deposito = medios['monto_deposito']
     monto_dolares = total_a_pagar if es_usd else Decimal('0')
+    destino_deposito = medios.get('destino_deposito')
+    fecha_transferencia = medios.get('fecha_transferencia')
+    tarjeta_numero = medios.get('tarjeta_numero') or ''
+    tarjeta_cupon = medios.get('tarjeta_cupon') or ''
+    tarjeta_tipo = medios.get('tarjeta_tipo') or ''
+    cheque_numero = medios.get('cheque_numero') or ''
+    cheque_banco = medios.get('cheque_banco') or ''
+    cheque_fecha_vencimiento = medios.get('cheque_fecha_vencimiento')
+    cheques_detalle = medios.get('cheques_detalle') or []
     if es_usd:
         monto_efectivo = monto_cheque = monto_tarjeta = monto_deposito = Decimal('0')
+        destino_deposito = None
+        fecha_transferencia = None
+        tarjeta_numero = tarjeta_cupon = tarjeta_tipo = ''
+        cheque_numero = cheque_banco = ''
+        cheque_fecha_vencimiento = None
+        cheques_detalle = []
 
     propietario = liquidaciones[0].propietario
     ids_txt = ', '.join(f'#{liq.id}' for liq in liquidaciones)
@@ -30493,11 +30591,21 @@ def _pagar_liquidaciones_en_caja(request, liquidaciones):
         monto_deposito=monto_deposito,
         monto_dolares=monto_dolares,
         cotizacion_dolar=cotizacion_dolar,
+        destino_deposito=destino_deposito,
+        fecha_transferencia=fecha_transferencia,
+        tarjeta_numero=tarjeta_numero,
+        tarjeta_cupon=tarjeta_cupon,
+        tarjeta_tipo=tarjeta_tipo,
+        cheque_numero=cheque_numero,
+        cheque_banco=cheque_banco,
+        cheque_fecha_vencimiento=cheque_fecha_vencimiento,
         a_descontar='propietario',
         sucursal=request.user.sucursal,
         empleado=request.user,
         caja=caja,
     )
+    if cheques_detalle and monto_cheque > 0:
+        _guardar_cheques_movimiento(movimiento, cheques_detalle)
 
     ahora = timezone.now()
     for liq in liquidaciones:
@@ -30627,6 +30735,15 @@ def pagar_lote_liquidaciones(request):
         estado='abierta',
     ).exists()
 
+    from inmobiliaria.models.sucursal import CuentaBancaria
+
+    cuentas_bancarias = list(
+        CuentaBancaria.objects.filter(
+            sucursal=request.user.sucursal,
+            activa=True,
+        ).order_by('nombre_banco', 'alias')
+    )
+
     return render(
         request,
         'inmobiliaria/liquidaciones/pagar_lote.html',
@@ -30637,6 +30754,7 @@ def pagar_lote_liquidaciones(request):
             'moneda': moneda,
             'ids': ids,
             'caja_abierta': caja_abierta,
+            'cuentas_bancarias': cuentas_bancarias,
             'cotizacion_sugerida': next(
                 (liq.cotizacion_dolar for liq in liquidaciones if liq.cotizacion_dolar),
                 None,

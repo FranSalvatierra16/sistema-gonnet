@@ -1,0 +1,72 @@
+{# Detalle de medios como en caja. Requiere: cuentas_bancarias. Opcional: disabled_attr #}
+<div id="bloque_detalle_tarjeta" class="row mb-3 d-none border rounded p-3 bg-light">
+    <div class="col-12">
+        <h6 class="text-muted mb-2">Datos de tarjeta <small>(opcional)</small></h6>
+    </div>
+    <div class="col-md-4">
+        <label class="form-label">Nº / referencia</label>
+        <input type="text" name="tarjeta_numero" class="form-control" maxlength="32"
+               autocomplete="off" placeholder="Ej. últimos 4 dígitos"
+               {{ disabled_attr }}>
+    </div>
+    <div class="col-md-4">
+        <label class="form-label">Cupón</label>
+        <input type="text" name="tarjeta_cupon" class="form-control" maxlength="64"
+               autocomplete="off" {{ disabled_attr }}>
+    </div>
+    <div class="col-md-4">
+        <label class="form-label">Tipo</label>
+        <select name="tarjeta_tipo" class="form-select" {{ disabled_attr }}>
+            <option value="">—</option>
+            <option value="credito">Crédito</option>
+            <option value="debito">Débito</option>
+        </select>
+    </div>
+</div>
+
+<div id="bloque_detalle_cheque" class="row mb-3 d-none border rounded p-3 bg-light">
+    <div class="col-12">
+        <h6 class="text-muted mb-2">Datos del cheque</h6>
+    </div>
+    <div class="col-md-4">
+        <label class="form-label">Nº de cheque</label>
+        <input type="text" name="cheque_numero" class="form-control" maxlength="32"
+               autocomplete="off" {{ disabled_attr }}>
+    </div>
+    <div class="col-md-4">
+        <label class="form-label">Banco</label>
+        <input type="text" name="cheque_banco" class="form-control" maxlength="100"
+               autocomplete="off" {{ disabled_attr }}>
+    </div>
+    <div class="col-md-4">
+        <label class="form-label">Fecha / vencimiento</label>
+        <input type="date" name="cheque_fecha_vencimiento" class="form-control"
+               {{ disabled_attr }}>
+    </div>
+</div>
+
+<div id="bloque_detalle_deposito" class="row mb-3 d-none border rounded p-3 bg-light">
+    <div class="col-12">
+        <h6 class="text-muted mb-2">Datos de transferencia / depósito</h6>
+    </div>
+    <div class="col-md-7">
+        <label class="form-label" for="destino_deposito_liq">Cuenta destino</label>
+        <select name="destino_deposito" id="destino_deposito_liq" class="form-select" {{ disabled_attr }}>
+            <option value="">— Elegí cuenta —</option>
+            {% for cuenta in cuentas_bancarias %}
+            <option value="cuenta_{{ cuenta.id }}">{{ cuenta.nombre_banco }} — {{ cuenta.titular }} — {{ cuenta.alias }}</option>
+            {% empty %}
+            <option value="" disabled>Sin cuentas en esta sucursal</option>
+            {% endfor %}
+        </select>
+        <small class="text-muted">Solo cuentas de la sucursal.
+            <a href="{% url 'inmobiliaria:gestionar_cuentas_bancarias' %}">Gestionar cuentas</a>
+        </small>
+    </div>
+    <div class="col-md-5">
+        <label class="form-label" for="fecha_transferencia_liq">Fecha de transferencia</label>
+        <input type="date" name="fecha_transferencia" id="fecha_transferencia_liq"
+               class="form-control" value="{% now 'Y-m-d' %}" {{ disabled_attr }}>
+        <small class="text-muted">Por defecto hoy; usada en el reporte bancario.</small>
+    </div>
+</div>
