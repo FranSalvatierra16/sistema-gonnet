@@ -26709,7 +26709,7 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
             operaciones_incluidas = ops_dedup
 
             gastos_seleccionados = _leer_gastos_seleccionados_post(request.POST)
-            if getattr(propiedad, 'es_propiedad_oficina', False):
+            if _propiedad_sin_gastos_en_liquidacion(propiedad, request.user.sucursal):
                 gastos_seleccionados = []
             ops_reales = [
                 o for o in operaciones_incluidas
@@ -26969,9 +26969,11 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                 )
 
                 # Asociar gastos pendientes seleccionados a la liquidación
-                # (deptos oficina no descuentan gastos acá: van al libro de Oficina).
+                # (deptos oficina / cartera no descuentan gastos acá: van al libro de Oficina).
                 gastos_seleccionados = _leer_gastos_seleccionados_post(request.POST)
-                if gastos_seleccionados and not getattr(propiedad, 'es_propiedad_oficina', False):
+                if gastos_seleccionados and not _propiedad_sin_gastos_en_liquidacion(
+                    propiedad, request.user.sucursal
+                ):
                     n_ok, errores_gastos = _asociar_gastos_seleccionados_a_liquidacion(
                         liquidacion, gastos_seleccionados, propiedad=propiedad
                     )
@@ -28153,12 +28155,38 @@ def _dict_gasto_desde_egreso_caja(egreso, *, propiedad=None):
     }
 
 
+def _propiedad_sin_gastos_en_liquidacion(propiedad, sucursal=None) -> bool:
+    """
+    True si la propiedad es depto de oficina: no se listan ni asocian gastos
+    en liquidación (van al libro de Oficina / Mis propiedades).
+
+    Criterio:
+    - tilde «Propiedad oficina» en la ficha, o
+    - está en la cartera compartida de la sucursal (deptos de Oficina).
+    """
+    if not propiedad:
+        return False
+    if getattr(propiedad, 'es_propiedad_oficina', False):
+        return True
+    suc = sucursal or getattr(propiedad, 'sucursal', None)
+    if not suc:
+        return False
+    try:
+        from inmobiliaria.cartera_sucursal import qs_cartera_sucursal
+
+        return qs_cartera_sucursal(suc, sincronizar=False).filter(
+            propiedad_id=propiedad.id
+        ).exists()
+    except Exception:
+        return False
+
+
 def _egresos_caja_pendientes_para_liquidacion(propiedad, sucursal):
     """Egresos de caja de la propiedad aún no vinculados a una liquidación."""
     if not propiedad or not sucursal:
         return []
-    # Depto oficina: los gastos van al libro de Oficina, no a liquidación de propietario.
-    if getattr(propiedad, 'es_propiedad_oficina', False):
+    # Depto oficina / cartera: los gastos van al libro de Oficina, no a liquidación.
+    if _propiedad_sin_gastos_en_liquidacion(propiedad, sucursal):
         return []
 
     egresos = (
@@ -28453,8 +28481,8 @@ def _gastos_pendientes_livianos_liquidacion(propiedad, sucursal):
     """
     if not propiedad or not sucursal:
         return []
-    # Depto oficina: no se descuentan gastos en liquidación (van al libro de Oficina).
-    if getattr(propiedad, 'es_propiedad_oficina', False):
+    # Depto oficina / cartera: no se descuentan gastos en liquidación (van al libro de Oficina).
+    if _propiedad_sin_gastos_en_liquidacion(propiedad, sucursal):
         return []
     from inmobiliaria.models.liquidacion import q_gastos_del_propietario_actual
 
@@ -28794,8 +28822,8 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
         })
     
     # Gastos pendientes: liquidaciones en negativo + movimientos manuales + egresos de caja.
-    # Depto oficina: no listar gastos (se gestionan en el libro de Oficina).
-    if getattr(propiedad, 'es_propiedad_oficina', False):
+    # Depto oficina / cartera: no listar gastos (se gestionan en el libro de Oficina).
+    if _propiedad_sin_gastos_en_liquidacion(propiedad, sucursal):
         return {
             'operaciones': operaciones,
             'gastos_pendientes': [],
@@ -28847,7 +28875,7 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
     return {
         'operaciones': operaciones,
         'gastos_pendientes': gastos_pendientes_list,
-        'es_propiedad_oficina': bool(getattr(propiedad, 'es_propiedad_oficina', False)),
+        'es_propiedad_oficina': _propiedad_sin_gastos_en_liquidacion(propiedad, sucursal),
         'debug': {
             'total_gastos_saldo_negativo': gastos_saldo_negativo.count(),
             'total_gastos_manuales': gastos_manuales.count(),
