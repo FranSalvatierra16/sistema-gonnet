@@ -2284,7 +2284,9 @@ def administracion_propiedades_operaciones(request):
         'pagos_liquidacion_items': [],
         'ingresos_items': [],
         'liquidaciones': [],
-        'puede_eliminar_movimiento_caja': False,        'pagos': [],
+        'puede_eliminar_movimiento_caja': False,
+        'puede_editar_movimiento_caja': False,
+        'pagos': [],
         'movimientos': [],
         'total_ingresos': Decimal('0'),
         'total_egresos': Decimal('0'),
@@ -2480,8 +2482,17 @@ def administracion_propiedades_operaciones(request):
                     pass
 
         puede_eliminar_mov = usuario_puede_eliminar_movimiento_caja(request.user)
+        puede_editar_mov = usuario_puede_editar_movimiento_caja(request.user)
         url_admin_ops = request.get_full_path()
         from urllib.parse import quote
+
+        def _url_editar_mov_admin(mov_id):
+            if not puede_editar_mov or not mov_id:
+                return ''
+            return (
+                reverse('inmobiliaria:editar_movimiento_caja', args=[int(mov_id)])
+                + '?next=' + quote(url_admin_ops, safe='')
+            )
 
         def _es_concepto_pago_liquidacion(nombre_concepto, movimiento=None):
             nc = (nombre_concepto or '').casefold()
@@ -2537,6 +2548,8 @@ def administracion_propiedades_operaciones(request):
                     reverse('inmobiliaria:eliminar_movimiento', args=[m.id])
                     + '?next=' + quote(url_admin_ops, safe='')
                 ) if puede_eliminar_mov else '',
+                'puede_editar': bool(puede_editar_mov),
+                'url_editar': _url_editar_mov_admin(m.id),
             }
 
         gastos_items = []
@@ -2569,6 +2582,8 @@ def administracion_propiedades_operaciones(request):
                     reverse('inmobiliaria:eliminar_movimiento', args=[mov_num])
                     + '?next=' + quote(url_admin_ops, safe='')
                 ) if (puede_eliminar_mov and mov_num) else '',
+                'puede_editar': bool(puede_editar_mov and mov_num),
+                'url_editar': _url_editar_mov_admin(mov_num),
             }
             if _es_concepto_pago_liquidacion(concepto_g):
                 pagos_liquidacion_items.append(item)
@@ -2615,6 +2630,8 @@ def administracion_propiedades_operaciones(request):
                     reverse('inmobiliaria:eliminar_movimiento', args=[m.id])
                     + '?next=' + quote(url_admin_ops, safe='')
                 ) if puede_eliminar_mov else '',
+                'puede_editar': bool(puede_editar_mov),
+                'url_editar': _url_editar_mov_admin(m.id),
             })
         def _fecha_sort_key(item):
             f = item.get('fecha')
@@ -2686,7 +2703,9 @@ def administracion_propiedades_operaciones(request):
             'pagos_liquidacion_items': pagos_liquidacion_items,
             'ingresos_items': ingresos_items,
             'liquidaciones': liquidaciones,
-            'puede_eliminar_movimiento_caja': puede_eliminar_mov,            'pagos': pagos,
+            'puede_eliminar_movimiento_caja': puede_eliminar_mov,
+            'puede_editar_movimiento_caja': puede_editar_mov,
+            'pagos': pagos,
             'movimientos': movimientos,
             'total_ingresos': total_ingresos,
             'total_egresos': total_egresos,

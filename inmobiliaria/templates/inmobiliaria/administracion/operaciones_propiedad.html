@@ -174,7 +174,7 @@
                     <table class="table table-sm table-striped mb-0">
                         <thead>
                             <tr>
-                                <th>Fecha</th><th>Nro. mov.</th><th>Concepto</th><th>Detalle</th><th class="text-end">Monto</th><th class="text-center">Recibo</th>
+                                <th>Fecha</th><th>Nro. mov.</th><th>Concepto</th><th>Detalle</th><th class="text-end">Monto</th><th class="text-center">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -197,6 +197,11 @@
                                         <i class="fas fa-receipt"></i>
                                     </a>
                                     {% endif %}
+                                    {% if g.puede_editar and g.url_editar %}
+                                    <a href="{{ g.url_editar }}" class="btn btn-sm btn-outline-warning" title="Editar movimiento">
+                                        <i class="fas fa-pen"></i>
+                                    </a>
+                                    {% endif %}
                                     {% if g.puede_eliminar and g.url_eliminar %}
                                     <form method="post" action="{{ g.url_eliminar }}" class="d-inline m-0"
                                           onsubmit="return confirm('¿Eliminar / anular este gasto de caja? Dejará de sumar en saldos y reportes.');">
@@ -206,7 +211,7 @@
                                             <i class="fas fa-trash-alt"></i>
                                         </button>
                                     </form>
-                                    {% elif not g.url_recibo %}—{% endif %}
+                                    {% elif not g.url_recibo and not g.url_editar %}—{% endif %}
                                 </td>
                             </tr>
                             {% empty %}
@@ -226,7 +231,7 @@
                     <table class="table table-sm table-striped mb-0">
                         <thead>
                             <tr>
-                                <th>Fecha</th><th>Nro. mov.</th><th>Concepto</th><th>Detalle</th><th class="text-end">Monto</th><th class="text-center">Recibo</th>
+                                <th>Fecha</th><th>Nro. mov.</th><th>Concepto</th><th>Detalle</th><th class="text-end">Monto</th><th class="text-center">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -249,6 +254,11 @@
                                         <i class="fas fa-receipt"></i>
                                     </a>
                                     {% endif %}
+                                    {% if g.puede_editar and g.url_editar %}
+                                    <a href="{{ g.url_editar }}" class="btn btn-sm btn-outline-warning" title="Editar movimiento">
+                                        <i class="fas fa-pen"></i>
+                                    </a>
+                                    {% endif %}
                                     {% if g.puede_eliminar and g.url_eliminar %}
                                     <form method="post" action="{{ g.url_eliminar }}" class="d-inline m-0"
                                           onsubmit="return confirm('¿Eliminar / anular este gasto de caja? Dejará de sumar en saldos y reportes.');">
@@ -258,7 +268,7 @@
                                             <i class="fas fa-trash-alt"></i>
                                         </button>
                                     </form>
-                                    {% elif not g.url_recibo %}—{% endif %}
+                                    {% elif not g.url_recibo and not g.url_editar %}—{% endif %}
                                 </td>
                             </tr>
                             {% empty %}
@@ -280,7 +290,7 @@
                     <table class="table table-sm table-striped mb-0">
                         <thead>
                             <tr>
-                                <th>Fecha</th><th>Nro. mov.</th><th>Concepto</th><th>Detalle</th><th class="text-end">Monto</th><th class="text-center">Recibo</th>
+                                <th>Fecha</th><th>Nro. mov.</th><th>Concepto</th><th>Detalle</th><th class="text-end">Monto</th><th class="text-center">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -297,12 +307,27 @@
                                         ${{ i.monto|format_price }}
                                     {% endif %}
                                 </td>
-                                <td class="text-center">
+                                <td class="text-center text-nowrap">
                                     {% if i.url_recibo %}
                                     <a href="{{ i.url_recibo }}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" title="Ver recibo">
                                         <i class="fas fa-receipt"></i>
                                     </a>
-                                    {% else %}—{% endif %}
+                                    {% endif %}
+                                    {% if i.puede_editar and i.url_editar %}
+                                    <a href="{{ i.url_editar }}" class="btn btn-sm btn-outline-warning" title="Editar movimiento">
+                                        <i class="fas fa-pen"></i>
+                                    </a>
+                                    {% endif %}
+                                    {% if i.puede_eliminar and i.url_eliminar %}
+                                    <form method="post" action="{{ i.url_eliminar }}" class="d-inline m-0"
+                                          onsubmit="return confirm('¿Eliminar / anular este ingreso de caja?');">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                    </form>
+                                    {% elif not i.url_recibo and not i.url_editar %}—{% endif %}
                                 </td>
                             </tr>
                             {% empty %}
@@ -321,7 +346,7 @@
                     <table class="table table-sm table-striped mb-0">
                         <thead>
                             <tr>
-                                <th>Fecha</th><th>Nro. mov.</th><th>Concepto</th><th>Detalle</th><th class="text-end">Monto</th><th class="text-center">Recibo</th>
+                                <th>Fecha</th><th>Nro. mov.</th><th>Concepto</th><th>Detalle</th><th class="text-end">Monto</th><th class="text-center">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -344,6 +369,11 @@
                                         <i class="fas fa-receipt"></i>
                                     </a>
                                     {% endif %}
+                                    {% if g.puede_editar and g.url_editar %}
+                                    <a href="{{ g.url_editar }}" class="btn btn-sm btn-outline-warning" title="Editar movimiento">
+                                        <i class="fas fa-pen"></i>
+                                    </a>
+                                    {% endif %}
                                     {% if g.puede_eliminar and g.url_eliminar %}
                                     <form method="post" action="{{ g.url_eliminar }}" class="d-inline m-0"
                                           onsubmit="return confirm('¿Anular este pago de liquidación en caja?');">
@@ -353,7 +383,7 @@
                                             <i class="fas fa-trash-alt"></i>
                                         </button>
                                     </form>
-                                    {% elif not g.url_recibo %}—{% endif %}
+                                    {% elif not g.url_recibo and not g.url_editar %}—{% endif %}
                                 </td>
                             </tr>
                             {% empty %}
