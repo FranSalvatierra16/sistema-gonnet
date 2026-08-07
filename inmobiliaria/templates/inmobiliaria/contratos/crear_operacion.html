@@ -202,6 +202,33 @@
                             Sumá las líneas que quieras registrar en este recibo (por ejemplo solo reserva). Para honorarios y sellados podés usar <strong>25</strong> y <strong>26</strong> si cobrás algo acá; si no, los cargás cuando hagas la <strong>operación principal</strong>.
                         </p>
                         {% endif %}
+                        {% if modo_pago_cuota_especifica %}
+                        <div id="bloqueGastosPendientesInquilino" class="card border-warning mb-3 d-none">
+                            <div class="card-header bg-warning-subtle py-2">
+                                <strong>Gastos pendientes del inquilino</strong>
+                                <span class="badge bg-secondary ms-1" id="badgeGastosInqCount">0</span>
+                            </div>
+                            <div class="card-body py-2">
+                                <p class="small text-muted mb-2">
+                                    Egresos de caja a cargo del inquilino. Si los dejás tildados, se suman al recibo de esta cuota.
+                                </p>
+                                <div class="table-responsive">
+                                    <table class="table table-sm mb-0" id="tablaGastosPendientesInquilino">
+                                        <thead>
+                                            <tr>
+                                                <th style="width:2.5rem;"></th>
+                                                <th>Fecha</th>
+                                                <th>Concepto</th>
+                                                <th>Detalle</th>
+                                                <th class="text-end">Monto</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
                         <!-- Tabla de Conceptos -->
                         <div class="table-responsive">
                             <table class="table table-sm table-bordered" id="tablaConceptos">
@@ -602,6 +629,10 @@
     window.cuotaCobroNominal = config.cuota_monto_nominal != null ? Number(config.cuota_monto_nominal) : 0;
     window.cuotaCobroSaldo = config.cuota_saldo_cobro != null ? Number(config.cuota_saldo_cobro) : 0;
     window.cuotaCobroCredito = config.cuota_credito_aplicado != null ? Number(config.cuota_credito_aplicado) : 0;
+    window.monedaCuotasContrato = (config.moneda_cuotas || 'ARS').toUpperCase() === 'USD' ? 'USD' : 'ARS';
+    window.gastosPendientesInquilino = Array.isArray(config.gastos_pendientes_inquilino)
+        ? config.gastos_pendientes_inquilino
+        : [];
 })();
 var tipoOperacion = window.tipoOperacion;
 var contratoId = window.contratoId;
@@ -626,6 +657,78 @@ function etiquetaCuotaDesdeCfg(cuotaId) {
 
 function prefijoMonedaCuotaContrato() {
     return window.monedaCuotasContrato === 'USD' ? 'U$S ' : '$';
+}
+
+function renderGastosPendientesInquilino() {
+    var bloque = document.getElementById('bloqueGastosPendientesInquilino');
+    var tbody = document.querySelector('#tablaGastosPendientesInquilino tbody');
+    var badge = document.getElementById('badgeGastosInqCount');
+    if (!bloque || !tbody) return;
+    var gastos = Array.isArray(window.gastosPendientesInquilino) ? window.gastosPendientesInquilino : [];
+    tbody.innerHTML = '';
+    if (!gastos.length) {
+        bloque.classList.add('d-none');
+        if (badge) badge.textContent = '0';
+        return;
+    }
+    bloque.classList.remove('d-none');
+    if (badge) badge.textContent = String(gastos.length);
+    gastos.forEach(function(g) {
+        var mid = Number(g.movimiento_id || 0);
+        var monto = Number(g.monto || 0);
+        var mon = ((g.moneda || 'ARS') === 'USD') ? 'USD' : 'ARS';
+        var tr = document.createElement('tr');
+        tr.innerHTML =
+            '<td><input type="checkbox" class="form-check-input chk-gasto-inq" value="' + mid + '" data-mid="' + mid + '" checked></td>' +
+            '<td>' + escapeHtmlAttr(g.fecha_display || '—') + '</td>' +
+            '<td>' + escapeHtmlAttr(g.nombre || '—') + '</td>' +
+            '<td class="small">' + escapeHtmlAttr(g.detalle || '—') + '</td>' +
+            '<td class="text-end">' + (mon === 'USD' ? 'U$S ' : '$') + formatoMontoReciboAR(monto) + '</td>';
+        tbody.appendChild(tr);
+    });
+    tbody.querySelectorAll('.chk-gasto-inq').forEach(function(chk) {
+        chk.addEventListener('change', sincronizarConceptosDesdeGastosInquilino);
+    });
+}
+
+function sincronizarConceptosDesdeGastosInquilino() {
+    var gastos = Array.isArray(window.gastosPendientesInquilino) ? window.gastosPendientesInquilino : [];
+    var porId = {};
+    gastos.forEach(function(g) { porId[Number(g.movimiento_id)] = g; });
+
+    var seleccionados = new Set();
+    document.querySelectorAll('.chk-gasto-inq:checked').forEach(function(chk) {
+        seleccionados.add(Number(chk.value));
+    });
+
+    conceptosAgregados = conceptosAgregados.filter(function(c) {
+        if (!c.egresoCajaId) return true;
+        return seleccionados.has(Number(c.egresoCajaId));
+    });
+
+    seleccionados.forEach(function(mid) {
+        var ya = conceptosAgregados.some(function(c) { return Number(c.egresoCajaId) === mid; });
+        if (ya) return;
+        var g = porId[mid];
+        if (!g) return;
+        contadorConceptos += 1;
+        var obs = 'Egreso caja #' + mid + ' (gasto pendiente inquilino)';
+        if (g.detalle) obs = String(g.detalle).trim() + ' · ' + obs;
+        conceptosAgregados.push({
+            id: contadorConceptos,
+            conceptoId: String(g.concepto_id || ''),
+            nombre: String(g.nombre || ('Egreso #' + mid)),
+            moneda: ((g.moneda || 'ARS') === 'USD') ? 'USD' : 'ARS',
+            observaciones: obs,
+            importe: Number(g.monto || 0),
+            fecha: new Date().toLocaleDateString('es-AR'),
+            egresoCajaId: mid,
+            cuotaObjetivoId: '',
+            cuotaObjetivoLabel: '',
+        });
+    });
+    actualizarTablaConceptos();
+    calcularTotales();
 }
 
 /** Conceptos de catálogo que imputan a una cuota y exigen elegir cuota objetivo (misma lógica que 1000). */
@@ -1062,7 +1165,12 @@ function actualizarTablaConceptos() {
 // Función para eliminar concepto
 function eliminarConcepto(conceptoId) {
     if (confirm('¿Estás seguro de que deseas eliminar este concepto?')) {
+        var eliminado = conceptosAgregados.find(function(c) { return c.id === conceptoId; });
         conceptosAgregados = conceptosAgregados.filter(c => c.id !== conceptoId);
+        if (eliminado && eliminado.egresoCajaId) {
+            var chk = document.querySelector('.chk-gasto-inq[value="' + eliminado.egresoCajaId + '"]');
+            if (chk) chk.checked = false;
+        }
         actualizarTablaConceptos();
         calcularTotales();
     }
@@ -1432,7 +1540,7 @@ function procesarOperacion() {
 
     const conceptosParaEnviar = filas.map(function(c) {
         const obs = String(c.observaciones || '').trim() || 'Sin observaciones';
-        return {
+        const row = {
             id: String(c.conceptoId || ''),
             nombre: String(c.nombre || ''),
             importe: importeConceptoANumero(c.importe),
@@ -1441,8 +1549,15 @@ function procesarOperacion() {
             fecha: String(c.fecha || ''),
             cuota_objetivo_id: String(c.cuotaObjetivoId || '').trim() || null
         };
+        if (c.egresoCajaId) {
+            row.egreso_caja_id = Number(c.egresoCajaId);
+        }
+        return row;
     });
     formData.append('conceptos_json', JSON.stringify(conceptosParaEnviar));
+    document.querySelectorAll('.chk-gasto-inq:checked').forEach(function(chk) {
+        formData.append('gastos_inquilino_ids', chk.value);
+    });
     filas.forEach(function(concepto, index) {
         const obs = String(concepto.observaciones || '').trim() || 'Sin observaciones';
         formData.append('concepto_' + index + '_id', String(concepto.conceptoId || ''));
@@ -2190,6 +2305,11 @@ document.addEventListener('DOMContentLoaded', function() {
             fecha: new Date().toLocaleDateString('es-AR')
         });
         actualizarTablaConceptos();
+    }
+
+    if (window.modoPagoCuotaEspecifica) {
+        renderGastosPendientesInquilino();
+        sincronizarConceptosDesdeGastosInquilino();
     }
 
     if (!window.modoCargosIniciales && document.getElementById('bloqueTipoCobroMes')) {
