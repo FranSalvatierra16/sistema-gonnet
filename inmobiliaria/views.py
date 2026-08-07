@@ -28546,11 +28546,19 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
 
     cuotas_excluidas = _cuotas_excluidas_por_liquidaciones_contrato(propiedad)
 
-    reservas_pendientes = Reserva.objects.filter(
-        propiedad=propiedad,
-        estado__in=['pagada', 'confirmada_no_pagada', 'confirmada'],
-        eliminada=False,
-        sucursal=sucursal,
+    from inmobiliaria.caja_devolucion_deposito import (
+        queryset_reservas_con_operacion,
+        reserva_tuvo_operacion_en_caja,
+    )
+
+    # Solo operaciones (con cobro/seña/recibo). Las reservas «Reservado» sin cobro no liquidan.
+    reservas_pendientes = queryset_reservas_con_operacion(
+        Reserva.objects.filter(
+            propiedad=propiedad,
+            estado__in=['pagada', 'confirmada_no_pagada', 'confirmada'],
+            eliminada=False,
+            sucursal=sucursal,
+        )
     ).exclude(
         id__in=reservas_excluidas
     ).select_related('cliente').order_by('-fecha_inicio')
@@ -28563,16 +28571,21 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
     
     operaciones = []
 
-    # Procesar reservas
+    # Procesar reservas que ya son operación
     for reserva in reservas_pendientes:
-        # Verificar si tiene movimientos de caja (pagos)
+        if not reserva_tuvo_operacion_en_caja(reserva):
+            continue
+        # Pagos vinculados a esta operación (no por fechas sueltas: eso mezcla otras reservas).
         movimientos = MovimientoCaja.objects.filter(
             propiedad=propiedad,
-            tipo=TipoMovimientoCajaEnum.INGRESO
+            tipo=TipoMovimientoCajaEnum.INGRESO,
         ).filter(
-            Q(concepto__icontains=f"Operación {reserva.id}") |
-            Q(concepto__icontains=f"Reserva {reserva.id}") |
-            (Q(fecha_desde=reserva.fecha_inicio) & Q(fecha_hasta=reserva.fecha_fin))
+            Q(concepto__icontains=f'Operación {reserva.id}')
+            | Q(concepto__icontains=f'Operacion {reserva.id}')
+            | Q(concepto__icontains=f'Reserva {reserva.id}')
+            | Q(concepto__icontains=f'Reserva #{reserva.id}')
+            | Q(concepto__icontains=f'Operación #{reserva.id}')
+            | Q(concepto__icontains=f'Operacion #{reserva.id}')
         )
         
         total_pagado = sum(
@@ -28581,11 +28594,17 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
             for mov in movimientos
         )
         
-        # Si no hay movimientos pero la reserva está pagada, usar el precio_total como monto
-        if total_pagado == 0 and reserva.estado == 'pagada':
-            total_pagado = float(reserva.precio_total)
+        # Si no hay movimientos pero la reserva está pagada / tiene seña, usar precio o seña.
+        if total_pagado == 0:
+            if reserva.estado == 'pagada':
+                total_pagado = float(reserva.precio_total or 0)
+            else:
+                try:
+                    total_pagado = float(Decimal(str(getattr(reserva, 'senia', None) or 0)))
+                except Exception:
+                    total_pagado = 0
         
-        # Incluir la reserva si tiene pagos o está marcada como pagada
+        # Incluir solo si hay cobro real o está pagada
         if total_pagado > 0 or reserva.estado == 'pagada':
             from inmobiliaria.neto_propietario_movimiento import reparto_liquidacion_reserva_por_dia
 
@@ -28979,6 +28998,21 @@ def buscar_operacion_liquidacion(request):
         .first()
     )
     if reserva:
+        from inmobiliaria.caja_devolucion_deposito import reserva_tuvo_operacion_en_caja
+
+        # Reserva sin cobro (solo bloqueo de fechas): no es liquidable.
+        if not reserva_tuvo_operacion_en_caja(reserva):
+            return JsonResponse(
+                {
+                    'success': False,
+                    'message': (
+                        f'El #{pk} es una reserva sin operación cobrada. '
+                        'Solo se liquidan operaciones (con seña/pago en caja). '
+                        'Finalizá o cobrá la reserva primero.'
+                    ),
+                }
+            )
+
         prop = reserva.propiedad
         data = _operaciones_gastos_pendientes_data(prop, sucursal)
         data['operaciones'] = _filtrar_operaciones_liquidacion_por_busqueda(
