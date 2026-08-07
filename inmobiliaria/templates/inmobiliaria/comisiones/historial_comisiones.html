@@ -393,7 +393,15 @@ document.addEventListener('DOMContentLoaded', function () {
         document.querySelectorAll('table.cv-comisiones-tabla-comisiones').forEach(function (table) {
             table.querySelectorAll('tr.comision-fila-filtro').forEach(function (tr) {
                 var d = (tr.getAttribute('data-categoria') || '').trim();
-                var okCat = categoriaComisionActiva === 'todos' || d === categoriaComisionActiva;
+                var esDev = (tr.getAttribute('data-es-devolucion') || '') === '1';
+                var okCat;
+                if (categoriaComisionActiva === 'todos') {
+                    okCat = true;
+                } else if (categoriaComisionActiva === 'devolucion') {
+                    okCat = esDev;
+                } else {
+                    okCat = d === categoriaComisionActiva;
+                }
                 var okFecha = filaPasaFechaComision(tr);
                 tr.classList.toggle('comision-fila-oculta', !(okCat && okFecha));
             });

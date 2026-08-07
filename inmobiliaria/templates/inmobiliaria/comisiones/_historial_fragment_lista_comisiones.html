@@ -102,6 +102,7 @@
                                     {% endif %}
                                     {% for comision in grupo.list %}
                                     <tr class="comision-fila-filtro" data-grupo-idx="{{ forloop.parentloop.counter0 }}" data-categoria="{{ comision.categoria_comision_filtro }}"
+                                        data-es-devolucion="{% if comision.es_devolucion_anulacion %}1{% else %}0{% endif %}"
                                         data-fecha-operacion="{% if comision.fecha_operacion %}{{ comision.fecha_operacion|date:'Y-m-d' }}{% endif %}"
                                         data-monto-comision="{% localize off %}{{ comision.monto_comision|default_if_none:0 }}{% endlocalize %}">
                                         <td>

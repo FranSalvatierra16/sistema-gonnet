@@ -2282,15 +2282,47 @@ class ComisionVendedor(models.Model):
             return 'por_24_meses'
         return None
 
+    def _categoria_filtro_de_reversion(self):
+        """
+        Tipo de operación de la comisión original (día / invierno / 24).
+        Las devoluciones se filtran en esa misma pestaña, no en un bucket aparte.
+        """
+        obs = (self.observaciones or '').strip()
+        if obs.startswith('reversion_comision_id='):
+            try:
+                oid = int(obs.split('=', 1)[1].strip())
+            except (TypeError, ValueError):
+                oid = None
+            if oid:
+                orig = (
+                    type(self).objects.filter(pk=oid)
+                    .exclude(rol_comision=ROL_COMISION_REVERSION)
+                    .first()
+                )
+                if orig is not None:
+                    cat, _ = orig.clasificacion_listado()
+                    if cat and cat != 'devolucion':
+                        return cat
+
+        cat = self._categoria_desde_concepto_operacion()
+        if cat == 'fichaje':
+            cat_op = self._categoria_operacion_desde_texto_fichaje()
+            return cat_op or self._categoria_desde_reserva_o_contrato() or 'por_dia'
+        if cat:
+            return cat
+        cat = self._categoria_desde_reserva_o_contrato()
+        return cat or 'operacion'
+
     def clasificacion_listado(self):
         """
         Retorna (categoria, subtipo) para badges y agrupación.
-        categoria (filtro): por_dia | por_invierno | por_24_meses | devolucion | operacion
+        categoria (filtro): por_dia | por_invierno | por_24_meses | operacion
+        (las devoluciones usan la categoría del tipo de operación original)
         subtipo: primer | segundo | None  (si es línea de fichaje, va en la categoría del tipo de op.)
         """
         rol = self._rol_comision_normalizado()
         if rol == ROL_COMISION_REVERSION:
-            return ('devolucion', None)
+            return (self._categoria_filtro_de_reversion(), None)
         if rol == ROL_COMISION_OP_DIA:
             return ('por_dia', None)
         if rol == ROL_COMISION_OP_INVIERNO:
@@ -2327,8 +2359,12 @@ class ComisionVendedor(models.Model):
         return ('operacion', None)
 
     @property
+    def es_devolucion_anulacion(self):
+        return self._rol_comision_normalizado() == ROL_COMISION_REVERSION
+
+    @property
     def categoria_comision_filtro(self):
-        """Clave para filtrar en listados: por_dia | por_invierno | por_24_meses | devolucion | operacion."""
+        """Clave para filtrar en listados: por_dia | por_invierno | por_24_meses | operacion."""
         cat, _ = self.clasificacion_listado()
         return cat
 
@@ -2342,6 +2378,9 @@ class ComisionVendedor(models.Model):
         return f'r:{self.reserva_id or 0}'
 
     def texto_categoria_comision_badge(self):
+        # Devoluciones: badge rojo «Devolución»; el filtro usa el tipo (día/invierno/24).
+        if self.es_devolucion_anulacion:
+            return 'Devolución'
         cat, sub = self.clasificacion_listado()
         # Línea de fichaje: badge «Por fichaje»; el filtro usa cat (día / 24 / invierno).
         if sub in ('primer', 'segundo'):
@@ -2350,7 +2389,6 @@ class ComisionVendedor(models.Model):
             'por_dia': 'Por día',
             'por_invierno': 'Por invierno',
             'por_24_meses': 'Por 24 meses',
-            'devolucion': 'Devolución',
             'operacion': 'Operación',
         }.get(cat, 'Operación')
 
@@ -2363,6 +2401,8 @@ class ComisionVendedor(models.Model):
         return ''
 
     def clase_badge_categoria_comision(self):
+        if self.es_devolucion_anulacion:
+            return 'bg-danger'
         cat, sub = self.clasificacion_listado()
         if sub in ('primer', 'segundo'):
             return 'bg-info text-dark'
@@ -2370,7 +2410,6 @@ class ComisionVendedor(models.Model):
             'por_dia': 'bg-primary',
             'por_invierno': 'bg-secondary',
             'por_24_meses': 'bg-dark',
-            'devolucion': 'bg-danger',
             'operacion': 'bg-light text-dark border',
         }.get(cat, 'bg-secondary')
 
@@ -2378,6 +2417,16 @@ class ComisionVendedor(models.Model):
         """
         Texto legible para listados y detalle (sinónimo de las categorías por día, fichaje, invierno, 24 meses).
         """
+        if self.es_devolucion_anulacion:
+            cat, _ = self.clasificacion_listado()
+            suf = {
+                'por_dia': 'por día',
+                'por_invierno': 'invierno',
+                'por_24_meses': '24 meses',
+            }.get(cat)
+            if suf:
+                return f'Devolución — comisión {suf}'
+            return 'Devolución por anulación'
         cat, sub = self.clasificacion_listado()
         if sub in ('primer', 'segundo'):
             base = 'segundo fichaje' if sub == 'segundo' else 'primer fichaje'
@@ -2392,8 +2441,6 @@ class ComisionVendedor(models.Model):
             return 'Comisión por invierno'
         if cat == 'por_24_meses':
             return 'Comisión por 24 meses'
-        if cat == 'devolucion':
-            return 'Devolución por anulación'
         return 'Comisión operación'
 
     def label_estado_historial(self):
