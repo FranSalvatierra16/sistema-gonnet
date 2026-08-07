@@ -28187,9 +28187,31 @@ def _egresos_caja_pendientes_para_liquidacion(propiedad, sucursal):
 MARKER_COBRADO_INQUILINO = 'cobrado_inquilino_movimiento:'
 
 
+def _monto_cargo_inquilino_egreso_caja(egreso) -> Decimal:
+    """
+    Importe a cobrar al inquilino de un egreso:
+    - monto_a_inquilino si está cargado (reparto mixto),
+    - si no, el total cuando a_descontar='inquilino'.
+    """
+    m_inq = Decimal(str(getattr(egreso, 'monto_a_inquilino', None) or 0))
+    if m_inq > 0:
+        return m_inq.quantize(Decimal('0.01'))
+    a = (getattr(egreso, 'a_descontar', None) or '').strip().lower()
+    if a != 'inquilino':
+        return Decimal('0')
+    total = Decimal(str(getattr(egreso, 'monto_total', 0) or 0))
+    if total > 0:
+        return total.quantize(Decimal('0.01'))
+    return Decimal(str(getattr(egreso, 'monto_dolares', 0) or 0)).quantize(Decimal('0.01'))
+
+
 def _egresos_caja_pendientes_inquilino(propiedad, sucursal):
     """
     Egresos de caja a cargo del inquilino aún no cobrados en un recibo de cuota.
+
+    Incluye:
+    - a_descontar = inquilino (todo el egreso),
+    - o monto_a_inquilino > 0 (parte del egreso, ej. EDEA 5550 de un total mayor).
     """
     if not propiedad or not sucursal:
         return []
@@ -28200,8 +28222,11 @@ def _egresos_caja_pendientes_inquilino(propiedad, sucursal):
                 propiedad=propiedad,
                 sucursal=sucursal,
                 tipo=TipoMovimientoCajaEnum.EGRESO,
-                a_descontar='inquilino',
                 fecha_eliminacion__isnull=True,
+            )
+            .filter(
+                Q(a_descontar='inquilino')
+                | Q(monto_a_inquilino__gt=0)
             )
             .exclude(concepto_detalle__icontains=MARKER_COBRADO_INQUILINO)
             .exclude(concepto__icontains=MARKER_COBRADO_INQUILINO)
@@ -28221,11 +28246,9 @@ def _egresos_caja_pendientes_inquilino(propiedad, sucursal):
     out = []
     for egreso in egresos_list:
         try:
-            monto = Decimal(str(getattr(egreso, 'monto_total', 0) or 0))
+            monto = _monto_cargo_inquilino_egreso_caja(egreso)
             if monto <= 0:
-                m_dol = Decimal(str(getattr(egreso, 'monto_dolares', 0) or 0))
-                if m_dol <= 0:
-                    continue
+                continue
             try:
                 cid = (egreso.concepto_catalogo_id() or '').strip()
             except Exception:
@@ -28250,6 +28273,11 @@ def _egresos_caja_pendientes_inquilino(propiedad, sucursal):
                     detalle = (egreso.listado_detalle_observacion or '').strip()
                 except Exception:
                     detalle = ''
+            m_inq = Decimal(str(getattr(egreso, 'monto_a_inquilino', None) or 0))
+            total_ars = Decimal(str(getattr(egreso, 'monto_total', 0) or 0))
+            if m_inq > 0 and total_ars > m_inq:
+                nota_parte = f'Parte a inquilino (${monto}) de egreso #{egreso.id}'
+                detalle = f'{detalle} · {nota_parte}'.strip(' ·') if detalle else nota_parte
             fecha = egreso.fecha
             fecha_disp = '—'
             if fecha:
@@ -28259,14 +28287,8 @@ def _egresos_caja_pendientes_inquilino(propiedad, sucursal):
                     fecha_disp = fecha.strftime('%d/%m/%Y')
                 except Exception:
                     fecha_disp = '—'
-            moneda = 'USD' if (
-                Decimal(str(getattr(egreso, 'monto_dolares', 0) or 0)) > 0
-                and Decimal(str(getattr(egreso, 'monto_total', 0) or 0)) <= 0
-            ) else 'ARS'
-            if moneda == 'USD':
-                monto = Decimal(str(getattr(egreso, 'monto_dolares', 0) or 0))
-            else:
-                monto = Decimal(str(getattr(egreso, 'monto_total', 0) or 0))
+            # La parte a inquilino en el formulario de caja es siempre ARS.
+            moneda = 'ARS'
             out.append({
                 'movimiento_id': egreso.id,
                 'concepto_id': cid,
@@ -28286,7 +28308,7 @@ def _egresos_caja_pendientes_inquilino(propiedad, sucursal):
 
 
 def _marcar_egresos_inquilino_cobrados(egreso_ids, movimiento_ingreso, sucursal):
-    """Marca egresos a_descontar=inquilino como cobrados en el recibo de cuota."""
+    """Marca egresos (o su parte a inquilino) como cobrados en el recibo de cuota."""
     if not egreso_ids or not movimiento_ingreso:
         return 0
     ids = []
@@ -28303,14 +28325,14 @@ def _marcar_egresos_inquilino_cobrados(egreso_ids, movimiento_ingreso, sucursal)
         id__in=ids,
         sucursal=sucursal,
         tipo=TipoMovimientoCajaEnum.EGRESO,
-        a_descontar='inquilino',
         fecha_eliminacion__isnull=True,
+    ).filter(
+        Q(a_descontar='inquilino') | Q(monto_a_inquilino__gt=0)
     ):
         detalle = (egreso.concepto_detalle or '').strip()
         concepto = (egreso.concepto or '').strip()
         if MARKER_COBRADO_INQUILINO in detalle or MARKER_COBRADO_INQUILINO in concepto:
             continue
-        # concepto_detalle es TextField: sirve para marcar sin romper el concepto visible.
         egreso.concepto_detalle = f'{detalle}\n{marker}'.strip() if detalle else marker
         egreso.save(update_fields=['concepto_detalle'])
         actualizados += 1
