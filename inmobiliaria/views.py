@@ -30341,6 +30341,176 @@ def marcar_liquidacion_pagada(request, liquidacion_id):
     return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion.id)
 
 
+def _medios_pago_liquidacion_desde_post(request):
+    """Lee montos de medios de pago y cotización opcional del POST."""
+    monto_efectivo = parse_decimal_monto(request.POST.get('monto_efectivo', '0'))
+    monto_cheque = parse_decimal_monto(request.POST.get('monto_cheque', '0'))
+    monto_tarjeta = parse_decimal_monto(request.POST.get('monto_tarjeta', '0'))
+    monto_deposito = parse_decimal_monto(request.POST.get('monto_deposito', '0'))
+    total_pago = (
+        monto_efectivo + monto_cheque + monto_tarjeta + monto_deposito
+    ).quantize(Decimal('0.01'))
+
+    cotizacion_dolar = None
+    cotiz_raw = (request.POST.get('cotizacion_dolar') or '').strip()
+    if cotiz_raw:
+        try:
+            cotizacion_dolar = parse_decimal_monto(cotiz_raw)
+            if cotizacion_dolar <= 0:
+                cotizacion_dolar = None
+        except (ValueError, TypeError, InvalidOperation):
+            cotizacion_dolar = None
+
+    return {
+        'monto_efectivo': monto_efectivo,
+        'monto_cheque': monto_cheque,
+        'monto_tarjeta': monto_tarjeta,
+        'monto_deposito': monto_deposito,
+        'total_pago': total_pago,
+        'cotizacion_dolar': cotizacion_dolar,
+    }
+
+
+def _cerrar_liquidacion_para_pago(liquidacion):
+    """Si está pendiente, la cierra (mismo efecto que confirmar_liquidacion)."""
+    if liquidacion.estado != 'pendiente':
+        return
+    liquidacion.calcular_monto_a_pagar()
+    liquidacion.estado = 'cerrada'
+    liquidacion.fecha_procesamiento = timezone.now()
+    liquidacion.save(update_fields=['estado', 'fecha_procesamiento', 'monto_gastos', 'monto_a_pagar'])
+    liquidacion.sync_gasto_saldo_negativo_pendiente()
+    from inmobiliaria.models.comision import confirmar_comisiones_por_liquidacion
+
+    confirmar_comisiones_por_liquidacion(liquidacion)
+
+
+def _pagar_liquidaciones_en_caja(request, liquidaciones):
+    """
+    Paga una o más liquidaciones con un solo egreso de caja.
+
+    Requiere mismo propietario, misma moneda y estados pendiente/cerrada.
+    Las pendientes se cierran antes de pagar.
+    Devuelve el MovimientoCaja creado. Lanza ValueError con mensaje de usuario.
+    """
+    liquidaciones = list(liquidaciones)
+    if not liquidaciones:
+        raise ValueError('No hay liquidaciones para pagar.')
+
+    caja = Caja.objects.filter(
+        sucursal=request.user.sucursal,
+        estado='abierta',
+    ).first()
+    if not caja:
+        raise ValueError('No hay una caja abierta. Debe abrir una caja primero.')
+
+    prop_ids = {liq.propietario_id for liq in liquidaciones}
+    if len(prop_ids) != 1 or None in prop_ids:
+        raise ValueError('Todas las liquidaciones deben ser del mismo propietario.')
+
+    monedas = {(liq.moneda or 'ARS').upper() for liq in liquidaciones}
+    if len(monedas) != 1:
+        raise ValueError('Todas las liquidaciones deben tener la misma moneda.')
+
+    for liq in liquidaciones:
+        if liq.sucursal_id != request.user.sucursal_id:
+            raise ValueError(f'La liquidación #{liq.id} no pertenece a tu sucursal.')
+        if liq.estado not in ('pendiente', 'cerrada'):
+            raise ValueError(
+                f'La liquidación #{liq.id} está en estado «{liq.get_estado_display()}» '
+                f'y no se puede pagar en lote.'
+            )
+        if liq.movimiento_caja_id:
+            raise ValueError(f'La liquidación #{liq.id} ya tiene un movimiento de caja.')
+
+    for liq in liquidaciones:
+        _cerrar_liquidacion_para_pago(liq)
+        liq.refresh_from_db()
+
+    total_a_pagar = sum(
+        (Decimal(str(liq.monto_a_pagar or 0)) for liq in liquidaciones),
+        Decimal('0'),
+    ).quantize(Decimal('0.01'))
+    if total_a_pagar <= Decimal('0.01'):
+        raise ValueError(
+            'El total a pagar del lote debe ser mayor a cero '
+            '(revisá liquidaciones con saldo en contra).'
+        )
+
+    medios = _medios_pago_liquidacion_desde_post(request)
+    if medios['total_pago'] != total_a_pagar:
+        raise ValueError(
+            f'El total del pago (${medios["total_pago"]}) no coincide con el monto a pagar '
+            f'(${total_a_pagar}).'
+        )
+
+    cotizacion_dolar = medios['cotizacion_dolar']
+    if cotizacion_dolar is None:
+        for liq in liquidaciones:
+            if liq.cotizacion_dolar:
+                cotizacion_dolar = liq.cotizacion_dolar
+                break
+
+    moneda = next(iter(monedas))
+    es_usd = moneda == 'USD'
+    monto_efectivo = medios['monto_efectivo']
+    monto_cheque = medios['monto_cheque']
+    monto_tarjeta = medios['monto_tarjeta']
+    monto_deposito = medios['monto_deposito']
+    monto_dolares = total_a_pagar if es_usd else Decimal('0')
+    if es_usd:
+        monto_efectivo = monto_cheque = monto_tarjeta = monto_deposito = Decimal('0')
+
+    propietario = liquidaciones[0].propietario
+    ids_txt = ', '.join(f'#{liq.id}' for liq in liquidaciones)
+    if len(liquidaciones) == 1:
+        liq0 = liquidaciones[0]
+        concepto = (
+            f'Liquidación Propietario - {propietario} - {liq0.propiedad.direccion}'
+        )
+        propiedad = liq0.propiedad
+        fecha_desde = liq0.fecha_desde
+        fecha_hasta = liq0.fecha_hasta
+    else:
+        concepto = f'Liquidación Propietario - {propietario} - lote {ids_txt}'
+        propiedad = liquidaciones[0].propiedad
+        fechas_desde = [liq.fecha_desde for liq in liquidaciones if liq.fecha_desde]
+        fechas_hasta = [liq.fecha_hasta for liq in liquidaciones if liq.fecha_hasta]
+        fecha_desde = min(fechas_desde) if fechas_desde else None
+        fecha_hasta = max(fechas_hasta) if fechas_hasta else None
+
+    movimiento = MovimientoCaja.objects.create(
+        fecha=timezone.now(),
+        tipo=TipoMovimientoCajaEnum.EGRESO,
+        tipo_comprobante='RC',
+        concepto=concepto,
+        propiedad=propiedad,
+        fecha_desde=fecha_desde,
+        fecha_hasta=fecha_hasta,
+        monto_efectivo=monto_efectivo,
+        monto_cheque=monto_cheque,
+        monto_tarjeta=monto_tarjeta,
+        monto_deposito=monto_deposito,
+        monto_dolares=monto_dolares,
+        cotizacion_dolar=cotizacion_dolar,
+        a_descontar='propietario',
+        sucursal=request.user.sucursal,
+        empleado=request.user,
+        caja=caja,
+    )
+
+    ahora = timezone.now()
+    for liq in liquidaciones:
+        liq.movimiento_caja = movimiento
+        if cotizacion_dolar is not None and liq.cotizacion_dolar != cotizacion_dolar:
+            liq.cotizacion_dolar = cotizacion_dolar
+        liq.estado = 'pagada'
+        liq.fecha_procesamiento = ahora
+        liq.save()
+
+    return movimiento, total_a_pagar, es_usd
+
+
 @login_required
 @transaction.atomic
 @require_POST
@@ -30356,82 +30526,120 @@ def procesar_liquidacion(request, liquidacion_id):
     )
 
     try:
-        # Obtener caja abierta
-        caja = Caja.objects.filter(
-            sucursal=request.user.sucursal,
-            estado='abierta'
-        ).first()
-
-        if not caja:
-            messages.error(request, 'No hay una caja abierta. Debe abrir una caja primero.')
-            return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion_id)
-
-        # Obtener método de pago
-        monto_efectivo = parse_decimal_monto(request.POST.get('monto_efectivo', '0'))
-        monto_cheque = parse_decimal_monto(request.POST.get('monto_cheque', '0'))
-        monto_tarjeta = parse_decimal_monto(request.POST.get('monto_tarjeta', '0'))
-        monto_deposito = parse_decimal_monto(request.POST.get('monto_deposito', '0'))
-
-        total_pago = monto_efectivo + monto_cheque + monto_tarjeta + monto_deposito
-
-        if total_pago != liquidacion.monto_a_pagar:
-            messages.error(request, f'El total del pago (${total_pago}) no coincide con el monto a pagar (${liquidacion.monto_a_pagar}).')
-            return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion_id)
-
-        cotizacion_dolar = None
-        cotiz_raw = (request.POST.get('cotizacion_dolar') or '').strip()
-        if cotiz_raw:
-            try:
-                cotizacion_dolar = parse_decimal_monto(cotiz_raw)
-                if cotizacion_dolar <= 0:
-                    cotizacion_dolar = None
-            except (ValueError, TypeError, InvalidOperation):
-                cotizacion_dolar = None
-        if cotizacion_dolar is None:
-            cotizacion_dolar = liquidacion.cotizacion_dolar
-
-        # Liquidación en USD: el egreso sale de la caja en dólares, no en pesos
-        es_usd = (liquidacion.moneda or 'ARS').upper() == 'USD'
-        monto_dolares = total_pago if es_usd else Decimal('0')
-        if es_usd:
-            monto_efectivo = Decimal('0')
-            monto_cheque = Decimal('0')
-            monto_tarjeta = Decimal('0')
-            monto_deposito = Decimal('0')
-
-        # Crear movimiento de caja (egreso)
-        movimiento = MovimientoCaja.objects.create(
-            fecha=timezone.now(),
-            tipo=TipoMovimientoCajaEnum.EGRESO,
-            tipo_comprobante='RC',  # Recibo
-            concepto=f'Liquidación Propietario - {liquidacion.propietario} - {liquidacion.propiedad.direccion}',
-            propiedad=liquidacion.propiedad,
-            fecha_desde=liquidacion.fecha_desde,
-            fecha_hasta=liquidacion.fecha_hasta,
-            monto_efectivo=monto_efectivo,
-            monto_cheque=monto_cheque,
-            monto_tarjeta=monto_tarjeta,
-            monto_deposito=monto_deposito,
-            monto_dolares=monto_dolares,
-            cotizacion_dolar=cotizacion_dolar,
-            a_descontar='propietario',
-            sucursal=request.user.sucursal,
-            empleado=request.user,
-            caja=caja
-        )
-
-        # Actualizar liquidación
-        liquidacion.movimiento_caja = movimiento
-        if cotizacion_dolar is not None and liquidacion.cotizacion_dolar != cotizacion_dolar:
-            liquidacion.cotizacion_dolar = cotizacion_dolar
-        liquidacion.estado = 'pagada'
-        liquidacion.fecha_procesamiento = timezone.now()
-        liquidacion.save()
-
+        _, total, es_usd = _pagar_liquidaciones_en_caja(request, [liquidacion])
         simbolo = 'U$S ' if es_usd else '$'
-        messages.success(request, f'Liquidación procesada correctamente. Se descontó {simbolo}{liquidacion.monto_a_pagar} de la caja.')
+        messages.success(
+            request,
+            f'Liquidación procesada correctamente. Se descontó {simbolo}{total} de la caja.',
+        )
         return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion.id)
-
+    except ValueError as e:
+        messages.error(request, str(e))
+        return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion_id)
     except Exception as e:
         messages.error(request, f'Error al procesar la liquidación: {str(e)}')
         return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion_id)
+
+
+@login_required
+@require_http_methods(['GET', 'POST'])
+def pagar_lote_liquidaciones(request):
+    """
+    Paga varias liquidaciones (pendiente/cerrada) del mismo propietario en un egreso.
+    GET: ids=1&ids=2 — resumen + form de medios.
+    POST: confirma el pago.
+    """
+    raw_ids = request.POST.getlist('ids') if request.method == 'POST' else request.GET.getlist('ids')
+    if not raw_ids and request.method == 'GET':
+        # También aceptar ids=1,2,3
+        raw_joined = (request.GET.get('ids') or '').strip()
+        if raw_joined and ',' in raw_joined:
+            raw_ids = [x.strip() for x in raw_joined.split(',') if x.strip()]
+
+    ids = []
+    for x in raw_ids:
+        try:
+            ids.append(int(x))
+        except (TypeError, ValueError):
+            continue
+    ids = sorted(set(ids))
+
+    if not ids:
+        messages.error(request, 'Seleccioná al menos una liquidación para pagar.')
+        return redirect('inmobiliaria:lista_liquidaciones')
+
+    liquidaciones = list(
+        LiquidacionPropietario.objects.filter(
+            id__in=ids,
+            sucursal=request.user.sucursal,
+            estado__in=['pendiente', 'cerrada'],
+        )
+        .select_related('propietario', 'propiedad')
+        .order_by('id')
+    )
+    if len(liquidaciones) != len(ids):
+        messages.error(
+            request,
+            'Algunas liquidaciones no existen, ya están pagadas o no pertenecen a tu sucursal.',
+        )
+        return redirect('inmobiliaria:lista_liquidaciones')
+
+    prop_ids = {liq.propietario_id for liq in liquidaciones}
+    monedas = {(liq.moneda or 'ARS').upper() for liq in liquidaciones}
+    if len(prop_ids) != 1:
+        messages.error(request, 'Solo podés juntar liquidaciones del mismo propietario.')
+        return redirect('inmobiliaria:lista_liquidaciones')
+    if len(monedas) != 1:
+        messages.error(request, 'Solo podés juntar liquidaciones de la misma moneda.')
+        return redirect('inmobiliaria:lista_liquidaciones')
+
+    total_a_pagar = sum(
+        (Decimal(str(liq.monto_a_pagar or 0)) for liq in liquidaciones),
+        Decimal('0'),
+    ).quantize(Decimal('0.01'))
+    moneda = next(iter(monedas))
+    propietario = liquidaciones[0].propietario
+
+    if request.method == 'POST':
+        try:
+            with transaction.atomic():
+                liqs_locked = list(
+                    LiquidacionPropietario.objects.select_for_update()
+                    .filter(id__in=ids, sucursal=request.user.sucursal)
+                    .select_related('propietario', 'propiedad')
+                    .order_by('id')
+                )
+                _, total, es_usd = _pagar_liquidaciones_en_caja(request, liqs_locked)
+            simbolo = 'U$S ' if es_usd else '$'
+            messages.success(
+                request,
+                f'Se pagaron {len(liqs_locked)} liquidaciones juntas. '
+                f'Se descontó {simbolo}{total} de la caja.',
+            )
+            return redirect('inmobiliaria:lista_liquidaciones')
+        except ValueError as e:
+            messages.error(request, str(e))
+        except Exception as e:
+            messages.error(request, f'Error al pagar el lote: {str(e)}')
+
+    caja_abierta = Caja.objects.filter(
+        sucursal=request.user.sucursal,
+        estado='abierta',
+    ).exists()
+
+    return render(
+        request,
+        'inmobiliaria/liquidaciones/pagar_lote.html',
+        {
+            'liquidaciones': liquidaciones,
+            'propietario': propietario,
+            'total_a_pagar': total_a_pagar,
+            'moneda': moneda,
+            'ids': ids,
+            'caja_abierta': caja_abierta,
+            'cotizacion_sugerida': next(
+                (liq.cotizacion_dolar for liq in liquidaciones if liq.cotizacion_dolar),
+                None,
+            ),
+        },
+    )

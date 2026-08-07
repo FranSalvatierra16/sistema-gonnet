@@ -87,15 +87,20 @@
 
             <!-- Tabla de liquidaciones -->
             <div class="card shadow">
-                <div class="card-header bg-primary text-white">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <h5 class="mb-0">Lista de Liquidaciones</h5>
+                    <span class="small">Podés seleccionar varias del mismo propietario para pagarlas juntas</span>
                 </div>
                 <div class="card-body">
                     {% if liquidaciones %}
+                    <form method="GET" action="{% url 'inmobiliaria:pagar_lote_liquidaciones' %}" id="form-lote-liquidaciones">
                     <div class="table-responsive">
-                        <table class="table table-hover">
+                        <table class="table table-hover" id="tabla-liquidaciones">
                             <thead>
                                 <tr>
+                                    <th style="width:2.5rem;">
+                                        <span class="visually-hidden">Seleccionar</span>
+                                    </th>
                                     <th>ID</th>
                                     <th>Tipo</th>
                                     <th>Carpeta</th>
@@ -112,6 +117,22 @@
                             <tbody>
                                 {% for liquidacion in liquidaciones %}
                                 <tr>
+                                    <td>
+                                        {% if liquidacion.estado == 'pendiente' or liquidacion.estado == 'cerrada' %}
+                                        {% if liquidacion.monto_a_pagar > 0 %}
+                                        <input type="checkbox" class="form-check-input liq-lote-check"
+                                               name="ids" value="{{ liquidacion.id }}"
+                                               data-propietario-id="{{ liquidacion.propietario_id }}"
+                                               data-propietario-nombre="{{ liquidacion.propietario.apellido }}, {{ liquidacion.propietario.nombre }}"
+                                               data-moneda="{{ liquidacion.moneda|default:'ARS' }}"
+                                               data-monto="{{ liquidacion.monto_a_pagar }}">
+                                        {% else %}
+                                        <span class="text-muted" title="Sin monto positivo para pagar">—</span>
+                                        {% endif %}
+                                        {% else %}
+                                        <span class="text-muted">—</span>
+                                        {% endif %}
+                                    </td>
                                     <td>{{ liquidacion.id }}</td>
                                     <td>
                                         <span class="badge bg-secondary">{{ liquidacion.tipo_operacion_display|default:"—" }}</span>
@@ -181,6 +202,21 @@
                             </tbody>
                         </table>
                     </div>
+
+                    <div id="barra-lote-liquidaciones" class="border-top pt-3 mt-2 d-none sticky-bottom bg-white py-3">
+                        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                            <div>
+                                <strong><span id="lote-count">0</span></strong> seleccionada(s)
+                                · <span id="lote-propietario" class="text-muted">—</span>
+                                · Total: <strong id="lote-total">$0,00</strong>
+                                <div id="lote-error" class="text-danger small mt-1 d-none"></div>
+                            </div>
+                            <button type="submit" class="btn btn-success" id="btn-pagar-lote" disabled>
+                                <i class="fas fa-money-check-alt me-2"></i>Pagar seleccionadas
+                            </button>
+                        </div>
+                    </div>
+                    </form>
                     {% else %}
                     <div class="alert alert-info">
                         <i class="fas fa-info-circle me-2"></i>
@@ -211,5 +247,91 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    var form = document.getElementById('form-lote-liquidaciones');
+    if (!form) return;
+    var barra = document.getElementById('barra-lote-liquidaciones');
+    var countEl = document.getElementById('lote-count');
+    var propEl = document.getElementById('lote-propietario');
+    var totalEl = document.getElementById('lote-total');
+    var errEl = document.getElementById('lote-error');
+    var btn = document.getElementById('btn-pagar-lote');
+
+    function parseMonto(raw) {
+        if (window.parseDecimalMontoJS) {
+            try { return window.parseDecimalMontoJS(String(raw)); } catch (e) {}
+        }
+        var s = String(raw || '0').replace(/\s/g, '');
+        if (s.indexOf(',') !== -1) s = s.replace(/\./g, '').replace(',', '.');
+        var n = parseFloat(s);
+        return isNaN(n) ? 0 : n;
+    }
+    function fmt(n) {
+        return '$' + n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function update() {
+        var checks = Array.prototype.slice.call(form.querySelectorAll('.liq-lote-check:checked'));
+        var error = '';
+        var propId = null;
+        var propNombre = '';
+        var moneda = null;
+        var total = 0;
+
+        checks.forEach(function (cb) {
+            var pid = cb.getAttribute('data-propietario-id');
+            var mon = (cb.getAttribute('data-moneda') || 'ARS').toUpperCase();
+            if (propId === null) {
+                propId = pid;
+                propNombre = cb.getAttribute('data-propietario-nombre') || '';
+                moneda = mon;
+            } else {
+                if (pid !== propId) error = 'Solo podés juntar liquidaciones del mismo propietario.';
+                if (mon !== moneda) error = 'Solo podés juntar liquidaciones de la misma moneda.';
+            }
+            total += parseMonto(cb.getAttribute('data-monto'));
+        });
+
+        if (checks.length === 0) {
+            barra.classList.add('d-none');
+            btn.disabled = true;
+            return;
+        }
+        barra.classList.remove('d-none');
+        countEl.textContent = String(checks.length);
+        propEl.textContent = propNombre || '—';
+        totalEl.textContent = fmt(total);
+        if (error) {
+            errEl.textContent = error;
+            errEl.classList.remove('d-none');
+            btn.disabled = true;
+        } else {
+            errEl.classList.add('d-none');
+            btn.disabled = false;
+        }
+    }
+
+    form.addEventListener('change', function (e) {
+        if (e.target && e.target.classList.contains('liq-lote-check')) update();
+    });
+    form.addEventListener('submit', function (e) {
+        update();
+        if (btn.disabled) {
+            e.preventDefault();
+            return false;
+        }
+        var n = form.querySelectorAll('.liq-lote-check:checked').length;
+        if (n < 1) {
+            e.preventDefault();
+            return false;
+        }
+    });
+    update();
+})();
+</script>
 {% endblock %}
 

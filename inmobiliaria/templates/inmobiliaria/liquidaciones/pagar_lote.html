@@ -1,0 +1,184 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load custom_filters %}
+
+{% block page_container_class %}container-fluid{% endblock %}
+{% block title %}Pagar liquidaciones juntas{% endblock %}
+
+{% block content %}
+<div class="mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <h1 class="mb-0">Pagar liquidaciones juntas</h1>
+        <a href="{% url 'inmobiliaria:lista_liquidaciones' %}" class="btn btn-outline-secondary btn-sm">
+            ← Volver al listado
+        </a>
+    </div>
+
+    <div class="alert alert-info">
+        Propietario: <strong>{{ propietario.apellido }}, {{ propietario.nombre }}</strong>
+        · Moneda: <strong>{{ moneda }}</strong>
+        · {{ liquidaciones|length }} liquidación{{ liquidaciones|length|pluralize:"es" }}
+    </div>
+
+    {% if not caja_abierta %}
+    <div class="alert alert-danger">
+        No hay caja abierta. Abrí una caja antes de pagar.
+    </div>
+    {% endif %}
+
+    <div class="card shadow mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Liquidaciones del lote</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Estado</th>
+                            <th>Propiedad</th>
+                            <th class="text-end">Monto a pagar</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for liq in liquidaciones %}
+                        <tr>
+                            <td>#{{ liq.id }}</td>
+                            <td>
+                                {% if liq.estado == 'pendiente' %}
+                                <span class="badge bg-warning text-dark">Pendiente</span>
+                                <small class="text-muted">(se cerrará al pagar)</small>
+                                {% else %}
+                                <span class="badge bg-primary">Cerrada</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ liq.propiedad.direccion }}</td>
+                            <td class="text-end">{{ liq.monto_a_pagar|format_importe_moneda:liq.moneda }}</td>
+                            <td class="text-end">
+                                <a href="{% url 'inmobiliaria:detalle_liquidacion' liq.id %}" class="btn btn-sm btn-outline-info">Ver</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr class="table-light">
+                            <th colspan="3" class="text-end">Total a pagar</th>
+                            <th class="text-end" id="monto-a-pagar-lote"
+                                data-monto="{{ total_a_pagar }}">
+                                {{ total_a_pagar|format_importe_moneda:moneda }}
+                            </th>
+                            <th></th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0">Medios de pago (un solo egreso de caja)</h5>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{% url 'inmobiliaria:pagar_lote_liquidaciones' %}" id="form-pagar-lote">
+                {% csrf_token %}
+                {% for id in ids %}
+                <input type="hidden" name="ids" value="{{ id }}">
+                {% endfor %}
+
+                <div class="alert alert-warning">
+                    <strong>Monto a pagar:</strong>
+                    <span id="monto-a-pagar-txt">{{ total_a_pagar|format_importe_moneda:moneda }}</span>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-3">
+                        <label class="form-label">Efectivo</label>
+                        <input type="text" name="monto_efectivo" id="monto_efectivo"
+                               class="form-control input-monto-ar monto-lote"
+                               inputmode="numeric" autocomplete="off" value="" placeholder="0"
+                               {% if not caja_abierta %}disabled{% endif %}>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Cheque</label>
+                        <input type="text" name="monto_cheque" id="monto_cheque"
+                               class="form-control input-monto-ar monto-lote"
+                               inputmode="numeric" autocomplete="off" value="" placeholder="0"
+                               {% if not caja_abierta %}disabled{% endif %}>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Tarjeta</label>
+                        <input type="text" name="monto_tarjeta" id="monto_tarjeta"
+                               class="form-control input-monto-ar monto-lote"
+                               inputmode="numeric" autocomplete="off" value="" placeholder="0"
+                               {% if not caja_abierta %}disabled{% endif %}>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Depósito</label>
+                        <input type="text" name="monto_deposito" id="monto_deposito"
+                               class="form-control input-monto-ar monto-lote"
+                               inputmode="numeric" autocomplete="off" value="" placeholder="0"
+                               {% if not caja_abierta %}disabled{% endif %}>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Cotización del día <span class="text-muted">(opcional)</span></label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            <input type="text" name="cotizacion_dolar" class="form-control input-monto-ar"
+                                   inputmode="decimal" autocomplete="off"
+                                   value="{% if cotizacion_sugerida %}{{ cotizacion_sugerida }}{% endif %}"
+                                   placeholder="Ej. 1450"
+                                   {% if not caja_abierta %}disabled{% endif %}>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alert alert-info">
+                    <strong>Total ingresado:</strong> $<span id="total-ingresado-lote">0.00</span>
+                </div>
+
+                <button type="submit" class="btn btn-success btn-lg"
+                        {% if not caja_abierta %}disabled{% endif %}
+                        onclick="return confirm('¿Pagar {{ liquidaciones|length }} liquidaciones juntas y descontar de caja?');">
+                    <i class="fas fa-check-circle me-2"></i>Pagar lote y descontar de caja
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    function parseMonto(raw) {
+        if (window.parseDecimalMontoJS) {
+            try { return window.parseDecimalMontoJS(raw || '0'); } catch (e) {}
+        }
+        var s = String(raw || '0').replace(/\./g, '').replace(',', '.').replace(/[^\d.-]/g, '');
+        var n = parseFloat(s);
+        return isNaN(n) ? 0 : n;
+    }
+    function formatMonto(n) {
+        return n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    function recalc() {
+        var total = 0;
+        document.querySelectorAll('.monto-lote').forEach(function (el) {
+            total += parseMonto(el.value);
+        });
+        var out = document.getElementById('total-ingresado-lote');
+        if (out) out.textContent = formatMonto(total);
+    }
+    document.querySelectorAll('.monto-lote').forEach(function (el) {
+        el.addEventListener('input', recalc);
+        el.addEventListener('change', recalc);
+    });
+    recalc();
+})();
+</script>
+{% endblock %}
