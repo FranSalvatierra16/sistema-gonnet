@@ -3882,7 +3882,8 @@ def lista_caratulas(request):
         key=lambda x: (
             x.get('sort_instante') or timezone.localtime(timezone.now()),
             x.get('numero') or 0,
-        )
+        ),
+        reverse=True,
     )
 
     total_filas = len(filas)
