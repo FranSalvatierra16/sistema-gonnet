@@ -63,6 +63,9 @@
                     <strong>Árbol de categorías</strong>
                     <span class="badge bg-secondary">{{ arbol|length }} categorías</span>
                 </div>
+                <div class="card-body py-2 border-bottom small text-muted">
+                    Usá las flechas ↑ ↓ para cambiar el orden de categorías y subcategorías.
+                </div>
                 <ul class="list-group list-group-flush">
                     {% for item in arbol %}
                     <li class="list-group-item {% if not item.categoria.activa %}bg-light{% endif %}">
@@ -81,6 +84,20 @@
                                 {% endif %}
                             </div>
                             <div class="btn-group btn-group-sm">
+                                <form method="post" action="{% url 'inmobiliaria:oficina_categoria_mover' item.categoria.id %}" class="d-inline">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="direccion" value="up">
+                                    <button type="submit" class="btn btn-outline-dark" title="Subir" {% if forloop.first %}disabled{% endif %}>
+                                        <i class="fas fa-arrow-up"></i>
+                                    </button>
+                                </form>
+                                <form method="post" action="{% url 'inmobiliaria:oficina_categoria_mover' item.categoria.id %}" class="d-inline">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="direccion" value="down">
+                                    <button type="submit" class="btn btn-outline-dark" title="Bajar" {% if forloop.last %}disabled{% endif %}>
+                                        <i class="fas fa-arrow-down"></i>
+                                    </button>
+                                </form>
                                 <button type="button" class="btn btn-outline-primary btn-editar-cat"
                                         data-id="{{ item.categoria.id }}"
                                         data-nombre="{{ item.categoria.nombre }}"
@@ -132,6 +149,20 @@
                                         {% endif %}
                                     </div>
                                     <div class="btn-group btn-group-sm">
+                                        <form method="post" action="{% url 'inmobiliaria:oficina_categoria_mover' hijo.id %}" class="d-inline">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="direccion" value="up">
+                                            <button type="submit" class="btn btn-outline-dark" title="Subir" {% if forloop.first %}disabled{% endif %}>
+                                                <i class="fas fa-arrow-up"></i>
+                                            </button>
+                                        </form>
+                                        <form method="post" action="{% url 'inmobiliaria:oficina_categoria_mover' hijo.id %}" class="d-inline">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="direccion" value="down">
+                                            <button type="submit" class="btn btn-outline-dark" title="Bajar" {% if forloop.last %}disabled{% endif %}>
+                                                <i class="fas fa-arrow-down"></i>
+                                            </button>
+                                        </form>
                                         {% if not hijo.vendedor_id %}
                                         <button type="button" class="btn btn-outline-primary btn-editar-cat"
                                                 data-id="{{ hijo.id }}"

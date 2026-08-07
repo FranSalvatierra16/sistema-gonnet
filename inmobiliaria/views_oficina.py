@@ -39,7 +39,6 @@ from inmobiliaria.oficina_gastos import (
     asegurar_categoria_vales,
     asegurar_estructura_cierre_oficina,
     propagar_categoria_oficina_a_espejos,
-    reubicar_raices_personalizadas_al_final,
     siguiente_orden_categoria,
 )
 from inmobiliaria.oficina_resumen import construir_resumen_cierre
@@ -683,13 +682,6 @@ def oficina_categorias(request):
     if not sucursal:
         return HttpResponseForbidden('Tu usuario no tiene sucursal asignada.')
     _sync_categorias_oficina_seguro(sucursal)
-    try:
-        reubicar_raices_personalizadas_al_final(sucursal)
-    except Exception:
-        logger.exception(
-            'oficina_categorias: falló reubicar raíces (sucursal_id=%s)',
-            getattr(sucursal, 'pk', None),
-        )
 
     return render(
         request,
@@ -698,6 +690,48 @@ def oficina_categorias(request):
             'arbol': _arbol_categorias_admin(sucursal),
         },
     )
+
+
+@login_required
+@require_POST
+def oficina_categoria_mover(request, categoria_id):
+    """Sube o baja una categoría (raíz o subcategoría) respecto a sus hermanas."""
+    if not _puede_oficina(request.user):
+        return HttpResponseForbidden()
+
+    direccion = (request.POST.get('direccion') or '').strip().lower()
+    if direccion not in ('up', 'down'):
+        messages.error(request, 'Dirección de movimiento inválida.')
+        return redirect('inmobiliaria:oficina_categorias')
+
+    cat = get_object_or_404(
+        CategoriaGastoOficina,
+        id=categoria_id,
+        sucursal=request.user.sucursal,
+    )
+    hermanos = list(
+        CategoriaGastoOficina.objects.filter(
+            sucursal=cat.sucursal,
+            parent=cat.parent,
+        ).order_by('orden', 'nombre', 'id')
+    )
+    idx = next((i for i, c in enumerate(hermanos) if c.id == cat.id), None)
+    if idx is None:
+        return redirect('inmobiliaria:oficina_categorias')
+
+    swap_idx = idx - 1 if direccion == 'up' else idx + 1
+    if swap_idx < 0 or swap_idx >= len(hermanos):
+        return redirect('inmobiliaria:oficina_categorias')
+
+    hermanos[idx], hermanos[swap_idx] = hermanos[swap_idx], hermanos[idx]
+    for i, hermana in enumerate(hermanos):
+        if hermana.orden != i:
+            hermana.orden = i
+            hermana.save(update_fields=['orden'])
+            if not hermana.vendedor_id:
+                propagar_categoria_oficina_a_espejos(hermana, accion='upsert')
+
+    return redirect('inmobiliaria:oficina_categorias')
 
 
 @login_required

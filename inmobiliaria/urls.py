@@ -277,6 +277,7 @@ urlpatterns = [
     path('oficina/categorias/nueva/', views_oficina.oficina_categoria_crear, name='oficina_categoria_crear'),
     path('oficina/categorias/<int:categoria_id>/toggle/', views_oficina.oficina_categoria_toggle, name='oficina_categoria_toggle'),
     path('oficina/categorias/<int:categoria_id>/editar/', views_oficina.oficina_categoria_editar, name='oficina_categoria_editar'),
+    path('oficina/categorias/<int:categoria_id>/mover/', views_oficina.oficina_categoria_mover, name='oficina_categoria_mover'),
     path('oficina/categorias/<int:categoria_id>/eliminar/', views_oficina.oficina_categoria_eliminar, name='oficina_categoria_eliminar'),
     path('oficina/personas/', views_oficina.oficina_personas, name='oficina_personas'),
     path('oficina/personas/nueva/', views_oficina.oficina_persona_crear, name='oficina_persona_crear'),

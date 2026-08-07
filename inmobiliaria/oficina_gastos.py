@@ -634,12 +634,7 @@ def _get_or_create_raiz(sucursal, nombre, orden):
         nombre__iexact=nombre,
     ).first()
     if raiz:
-        updates = []
-        if raiz.orden != orden:
-            raiz.orden = orden
-            updates.append('orden')
-        if updates:
-            raiz.save(update_fields=updates)
+        # No pisar ``orden``: el usuario puede reordenar categorías a mano.
         return raiz, False
     try:
         return CategoriaGastoOficina.objects.create(
@@ -679,7 +674,9 @@ def _get_or_create_hijo(sucursal, parent, nombre, orden, vendedor=None):
             if cat.nombre != nombre_final:
                 cat.nombre = nombre_final
                 updates.append('nombre')
-        if cat.orden != orden:
+        # Solo sincronizar orden automático en filas de vendedor (listado alfabético).
+        # Las demás respetan el orden manual del usuario.
+        if vendedor_id and cat.orden != orden:
             cat.orden = orden
             updates.append('orden')
         if vendedor_id and cat.vendedor_id != vendedor_id:
