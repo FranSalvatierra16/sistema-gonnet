@@ -2184,11 +2184,36 @@ class ComisionVendedor(models.Model):
                 return 'por_dia'
         return None
 
+    def _categoria_operacion_desde_texto_fichaje(self):
+        """
+        Tipo de operación (día / invierno / 24) inferido del texto del concepto de fichaje.
+        Ej.: «comisión fichaje (primer, por día)» / «(primer, 24 meses)».
+        """
+        concepto_l = (self.concepto_operacion or '').lower()
+        if 'invierno' in concepto_l:
+            return 'por_invierno'
+        if '24 meses' in concepto_l or '24 mes' in concepto_l or 'largo / 24' in concepto_l:
+            return 'por_24_meses'
+        if 'por día' in concepto_l or 'por dia' in concepto_l or 'alquiler por d' in concepto_l:
+            return 'por_dia'
+        return None
+
+    def _categoria_filtro_fichaje(self, sub_fichaje):
+        """
+        Los fichajes se agrupan en la tabla del tipo de operación (día / invierno / 24),
+        no en un filtro aparte. sub_fichaje: primer|segundo|None.
+        """
+        cat_op = self._categoria_desde_reserva_o_contrato()
+        if not cat_op:
+            cat_op = self._categoria_operacion_desde_texto_fichaje()
+        return (cat_op or 'por_dia', sub_fichaje)
+
     def _categoria_desde_concepto_operacion(self):
         """Respaldo para líneas históricas con rol «general» y concepto genérico «Operación N»."""
         concepto_l = (self.concepto_operacion or '').lower()
+        # Fichaje: se resuelve después a día/invierno/24 (no hay categoría filtro «por_fichaje»).
         if 'fichaje' in concepto_l:
-            return 'por_fichaje'
+            return 'fichaje'
         if 'por día' in concepto_l or 'por dia' in concepto_l or 'alquiler por d' in concepto_l:
             return 'por_dia'
         if 'invierno' in concepto_l:
@@ -2200,8 +2225,8 @@ class ComisionVendedor(models.Model):
     def clasificacion_listado(self):
         """
         Retorna (categoria, subtipo) para badges y agrupación.
-        categoria: por_dia | por_fichaje | por_invierno | por_24_meses | operacion
-        subtipo: primer | segundo | None
+        categoria (filtro): por_dia | por_invierno | por_24_meses | devolucion | operacion
+        subtipo: primer | segundo | None  (si es línea de fichaje, va en la categoría del tipo de op.)
         """
         rol = self._rol_comision_normalizado()
         if rol == ROL_COMISION_REVERSION:
@@ -2212,38 +2237,38 @@ class ComisionVendedor(models.Model):
             return ('por_invierno', None)
         if rol == ROL_COMISION_OP_24:
             return ('por_24_meses', None)
-        if rol == ROL_COMISION_GENERAL:
-            cat = self._categoria_desde_reserva_o_contrato()
-            if not cat:
-                cat = self._categoria_desde_concepto_operacion()
-            if cat == 'por_fichaje':
-                kind, sub = self._clasificacion_fichaje_primer_segundo_o_dia()
-                if kind == 'por_dia':
-                    return ('por_dia', None)
-                return ('por_fichaje', sub)
-            if cat:
-                return (cat, None)
-            return ('operacion', None)
         if rol == ROL_COMISION_FICHAJE:
             kind, sub = self._clasificacion_fichaje_primer_segundo_o_dia()
             if kind == 'por_dia':
                 return ('por_dia', None)
-            return ('por_fichaje', sub)
+            return self._categoria_filtro_fichaje(sub if kind == 'fichaje' else None)
+        if rol == ROL_COMISION_GENERAL:
+            cat = self._categoria_desde_reserva_o_contrato()
+            if not cat:
+                cat = self._categoria_desde_concepto_operacion()
+            if cat == 'fichaje':
+                kind, sub = self._clasificacion_fichaje_primer_segundo_o_dia()
+                if kind == 'por_dia':
+                    return ('por_dia', None)
+                return self._categoria_filtro_fichaje(sub if kind == 'fichaje' else None)
+            if cat:
+                return (cat, None)
+            return ('operacion', None)
         cat = self._categoria_desde_reserva_o_contrato()
         if not cat:
             cat = self._categoria_desde_concepto_operacion()
-        if cat == 'por_fichaje':
+        if cat == 'fichaje':
             kind, sub = self._clasificacion_fichaje_primer_segundo_o_dia()
             if kind == 'por_dia':
                 return ('por_dia', None)
-            return ('por_fichaje', sub)
+            return self._categoria_filtro_fichaje(sub if kind == 'fichaje' else None)
         if cat:
             return (cat, None)
         return ('operacion', None)
 
     @property
     def categoria_comision_filtro(self):
-        """Clave para filtrar en listados: por_dia | por_fichaje | por_invierno | por_24_meses | operacion."""
+        """Clave para filtrar en listados: por_dia | por_invierno | por_24_meses | devolucion | operacion."""
         cat, _ = self.clasificacion_listado()
         return cat
 
@@ -2257,10 +2282,12 @@ class ComisionVendedor(models.Model):
         return f'r:{self.reserva_id or 0}'
 
     def texto_categoria_comision_badge(self):
-        cat, _ = self.clasificacion_listado()
+        cat, sub = self.clasificacion_listado()
+        # Línea de fichaje: badge «Por fichaje»; el filtro usa cat (día / 24 / invierno).
+        if sub in ('primer', 'segundo'):
+            return 'Por fichaje'
         return {
             'por_dia': 'Por día',
-            'por_fichaje': 'Por fichaje',
             'por_invierno': 'Por invierno',
             'por_24_meses': 'Por 24 meses',
             'devolucion': 'Devolución',
@@ -2276,10 +2303,11 @@ class ComisionVendedor(models.Model):
         return ''
 
     def clase_badge_categoria_comision(self):
-        cat, _ = self.clasificacion_listado()
+        cat, sub = self.clasificacion_listado()
+        if sub in ('primer', 'segundo'):
+            return 'bg-info text-dark'
         return {
             'por_dia': 'bg-primary',
-            'por_fichaje': 'bg-info text-dark',
             'por_invierno': 'bg-secondary',
             'por_24_meses': 'bg-dark',
             'devolucion': 'bg-danger',
@@ -2291,12 +2319,15 @@ class ComisionVendedor(models.Model):
         Texto legible para listados y detalle (sinónimo de las categorías por día, fichaje, invierno, 24 meses).
         """
         cat, sub = self.clasificacion_listado()
+        if sub in ('primer', 'segundo'):
+            base = 'segundo fichaje' if sub == 'segundo' else 'primer fichaje'
+            if cat == 'por_invierno':
+                return f'Comisión por {base} (invierno)'
+            if cat == 'por_24_meses':
+                return f'Comisión por {base} (24 meses)'
+            return f'Comisión por {base} (por día)'
         if cat == 'por_dia':
             return 'Comisión por día'
-        if cat == 'por_fichaje':
-            if sub == 'segundo':
-                return 'Comisión por segundo fichaje'
-            return 'Comisión por primer fichaje'
         if cat == 'por_invierno':
             return 'Comisión por invierno'
         if cat == 'por_24_meses':
