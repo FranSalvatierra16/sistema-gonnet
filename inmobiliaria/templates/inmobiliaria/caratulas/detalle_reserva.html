@@ -83,6 +83,22 @@
                         <form method="post" id="form-fechas-comision-reserva">
                             {% csrf_token %}
                             <input type="hidden" name="action" value="save_fechas_comision_caratula">
+                            {% if puede_editar_caratula and comisiones %}
+                            <div class="px-3 py-2 border-bottom bg-light d-flex flex-wrap align-items-center gap-2">
+                                <label class="small mb-0 text-muted" for="fecha_acreditacion_operacion">
+                                    Fecha de acreditación
+                                    <span class="d-none d-md-inline">(comisiones, honorarios, cochera y fondo)</span>:
+                                </label>
+                                <input type="date" name="fecha_acreditacion_operacion" id="fecha_acreditacion_operacion"
+                                       class="form-control form-control-sm"
+                                       value="{% if fecha_acreditacion_operacion %}{{ fecha_acreditacion_operacion|date:'Y-m-d' }}{% endif %}"
+                                       style="max-width: 12rem;" required>
+                            </div>
+                            {% elif fecha_acreditacion_operacion %}
+                            <div class="px-3 py-2 border-bottom small text-muted">
+                                Fecha de acreditación: <strong>{{ fecha_acreditacion_operacion|date:"d/m/Y" }}</strong>
+                            </div>
+                            {% endif %}
                             <table class="table table-sm mb-0 small">
                                 <thead>
                                     <tr>
@@ -115,17 +131,10 @@
                                         <td class="text-nowrap">
                                             {% if c.rol_comision == 'reversion_anulacion' %}
                                             <span class="text-muted">—</span>
-                                            {% elif c.id_fecha_acreditacion %}
-                                            {% if puede_editar_caratula %}
-                                            <input type="date" name="fecha_comision_{{ c.id_fecha_acreditacion }}"
-                                                   form="form-editar-caratula-reserva"
-                                                   class="form-control form-control-sm"
-                                                   value="{{ c.fecha_acreditacion_caratula|date:'Y-m-d' }}" style="min-width: 9.5rem;">
+                                            {% elif fecha_acreditacion_operacion %}
+                                            {{ fecha_acreditacion_operacion|date:"d/m/Y" }}
                                             {% elif c.fecha_acreditacion_caratula %}
                                             {{ c.fecha_acreditacion_caratula|date:"d/m/Y" }}
-                                            {% else %}
-                                            <span class="text-muted">—</span>
-                                            {% endif %}
                                             {% else %}
                                             <span class="text-muted">—</span>
                                             {% endif %}
@@ -134,7 +143,6 @@
                                             {% if c.id_fecha_devolucion %}
                                             {% if puede_editar_caratula %}
                                             <input type="date" name="fecha_devolucion_{{ c.id_fecha_devolucion }}"
-                                                   form="form-editar-caratula-reserva"
                                                    class="form-control form-control-sm"
                                                    value="{{ c.fecha_devolucion_caratula|date:'Y-m-d' }}" style="min-width: 9.5rem;">
                                             {% elif c.fecha_devolucion_caratula %}
@@ -155,7 +163,7 @@
                             </table>
                             {% if puede_editar_caratula and comisiones %}
                             <div class="p-2 border-top text-end">
-                                <button type="submit" form="form-editar-caratula-reserva" class="btn btn-sm btn-outline-primary">
+                                <button type="submit" class="btn btn-sm btn-outline-primary">
                                     <i class="fas fa-calendar-day me-1"></i>Guardar fechas
                                 </button>
                             </div>

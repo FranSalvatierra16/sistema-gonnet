@@ -1113,6 +1113,7 @@ def _procesar_guardar_fechas_comision_caratula(request, reserva=None, contrato=N
     from inmobiliaria.models.comision import (
         ROL_COMISION_FICHAJE,
         ROL_COMISION_REVERSION,
+        aplicar_fecha_acreditacion_compartida,
         asegurar_comisiones_contrato,
     )
 
@@ -1146,44 +1147,36 @@ def _procesar_guardar_fechas_comision_caratula(request, reserva=None, contrato=N
             )
 
     actualizadas = 0
-    for key, raw in request.POST.items():
-        if not key.startswith('fecha_comision_'):
-            continue
+
+    # Una sola fecha de acreditación para toda la operación (comisiones + honorarios oficina).
+    fecha_acred = None
+    raw_shared = (request.POST.get('fecha_acreditacion_operacion') or '').strip()
+    if raw_shared:
         try:
-            comision_id = int(key.replace('fecha_comision_', ''))
-        except (TypeError, ValueError):
-            continue
-        texto = (raw or '').strip()
-        if not texto:
-            continue
-        try:
-            fecha = datetime.strptime(texto, '%Y-%m-%d').date()
+            fecha_acred = datetime.strptime(raw_shared, '%Y-%m-%d').date()
         except ValueError:
-            messages.error(request, f'Fecha inválida para la comisión #{comision_id}.')
+            messages.error(request, 'Fecha de acreditación inválida.')
             return False
+    if fecha_acred is None:
+        for key, raw in request.POST.items():
+            if not key.startswith('fecha_comision_'):
+                continue
+            texto = (raw or '').strip()
+            if not texto:
+                continue
+            try:
+                fecha_acred = datetime.strptime(texto, '%Y-%m-%d').date()
+                break
+            except ValueError:
+                messages.error(request, 'Fecha de acreditación inválida.')
+                return False
 
-        qs = ComisionVendedor.objects.filter(pk=comision_id)
-        if reserva:
-            qs = qs.filter(reserva=reserva)
-        elif contrato:
-            qs = qs.filter(contrato=contrato)
-        else:
-            continue
-
-        # Incluye fichaje: misma fecha de acreditación editable que productor.
-        comision = qs.first()
-        if not comision and contrato:
-            comision = (
-                ComisionVendedor.objects.filter(contrato=contrato)
-                .exclude(rol_comision=ROL_COMISION_FICHAJE)
-                .order_by('id')
-                .first()
-            )
-        if not comision:
-            continue
-
-        if _actualizar_fecha_operacion_comision_caratula(comision, fecha):
-            actualizadas += 1
+    if fecha_acred is not None:
+        actualizadas += aplicar_fecha_acreditacion_compartida(
+            reserva=reserva,
+            contrato=contrato,
+            fecha=fecha_acred,
+        )
 
     for key, raw in request.POST.items():
         if not key.startswith('fecha_devolucion_'):
@@ -1219,7 +1212,7 @@ def _procesar_guardar_fechas_comision_caratula(request, reserva=None, contrato=N
         if _actualizar_fecha_operacion_comision_caratula(comision, fecha):
             actualizadas += 1
 
-    if actualizadas == 0 and contrato:
+    if actualizadas == 0 and contrato and fecha_acred is None:
         raw_prod = (request.POST.get('fecha_comision_productor') or '').strip()
         if raw_prod:
             try:
@@ -1227,19 +1220,15 @@ def _procesar_guardar_fechas_comision_caratula(request, reserva=None, contrato=N
             except ValueError:
                 messages.error(request, 'Fecha inválida para la comisión del productor.')
                 return False
-            comision = (
-                ComisionVendedor.objects.filter(contrato=contrato)
-                .exclude(rol_comision=ROL_COMISION_FICHAJE)
-                .order_by('id')
-                .first()
+            actualizadas += aplicar_fecha_acreditacion_compartida(
+                contrato=contrato,
+                fecha=fecha,
             )
-            if comision and _actualizar_fecha_operacion_comision_caratula(comision, fecha):
-                actualizadas += 1
 
     if actualizadas:
         messages.success(
             request,
-            f'Fechas actualizadas ({actualizadas} comisión{"es" if actualizadas != 1 else ""}).',
+            'Fecha de acreditación actualizada (comisiones, honorarios, cochera y fondo de la operación).',
         )
     elif not silenciar_sin_cambios:
         messages.info(request, 'No hubo cambios en las fechas.')
@@ -1563,7 +1552,9 @@ def _guardar_caratula_reserva(request, reserva):
     # Guardar montos / Guardar cambios también persisten fechas de acreditación
     # si vinieron en el mismo POST (inputs con form=form-editar-caratula-reserva).
     if any(
-        k.startswith('fecha_comision_') or k.startswith('fecha_devolucion_')
+        k == 'fecha_acreditacion_operacion'
+        or k.startswith('fecha_comision_')
+        or k.startswith('fecha_devolucion_')
         for k in request.POST
     ):
         _procesar_guardar_fechas_comision_caratula(
@@ -2947,6 +2938,10 @@ def _ctx_honorarios_comisiones_caratula_contrato(
     if pct.get('pct_fichaje') is None and comisiones_fichaje:
         pct['pct_fichaje'] = float(comisiones_fichaje[0].get('porcentaje') or 0)
 
+    from inmobiliaria.models.comision import fecha_acreditacion_compartida_operacion
+
+    fecha_acred = fecha_acreditacion_compartida_operacion(contrato=contrato) or fecha_def
+
     import json as _json
 
     return {
@@ -2971,6 +2966,12 @@ def _ctx_honorarios_comisiones_caratula_contrato(
         'pct_productor_json': _json.dumps(pct),
         'liquidacion_id': getattr(liquidacion, 'id', None),
         'puede_guardar_comisiones': liquidacion is not None,
+        'fecha_acreditacion_operacion': (
+            fecha_acred.strftime('%Y-%m-%d') if fecha_acred else ''
+        ),
+        'fecha_acreditacion_operacion_fmt': (
+            fecha_acred.strftime('%d/%m/%Y') if fecha_acred else ''
+        ),
     }
 
 
@@ -4020,7 +4021,10 @@ def caratula_reserva(request, reserva_id):
     asegurar_comisiones_reserva(reserva, movimientos_caja=movimientos)
     comisiones = _comisiones_visibles_caratula_reserva(reserva)
 
-    from inmobiliaria.models.comision import mapa_participacion_productores
+    from inmobiliaria.models.comision import (
+        fecha_acreditacion_compartida_operacion,
+        mapa_participacion_productores,
+    )
     from inmobiliaria.caja_devolucion_deposito import ya_devolvio_deposito_reserva
 
     part_map = mapa_participacion_productores(reserva=reserva)
@@ -4052,6 +4056,7 @@ def caratula_reserva(request, reserva_id):
         'movimientos': movimientos,
         'recibos': recibos,
         'comisiones': comisiones,
+        'fecha_acreditacion_operacion': fecha_acreditacion_compartida_operacion(reserva=reserva),
         'total_movimientos': total_mov,
         'deposito_ya_devuelto': deposito_ya_devuelto,
         'saldo_reserva': saldo_reserva,

@@ -126,6 +126,19 @@
             <form method="post" id="form-fechas-comision-contrato">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="save_fechas_comision_caratula">
+                {% if puede_editar_caratula %}
+                {% if honorarios_ctx.comisiones_productor or honorarios_ctx.comisiones_fichaje %}
+                <div class="px-2 py-2 mb-2 border rounded bg-light d-flex flex-wrap align-items-center gap-2">
+                    <label class="small mb-0 text-muted" for="fecha_acreditacion_operacion_contrato">
+                        Fecha de acreditación (comisiones / honorarios / cochera / fondo):
+                    </label>
+                    <input type="date" name="fecha_acreditacion_operacion" id="fecha_acreditacion_operacion_contrato"
+                           class="form-control form-control-sm"
+                           value="{{ honorarios_ctx.fecha_acreditacion_operacion }}"
+                           style="max-width: 12rem;" required>
+                </div>
+                {% endif %}
+                {% endif %}
             <div class="table-responsive">
                 <table class="table table-sm mb-0 small" id="tabla-comision-productor">
                     <thead class="table-light">
@@ -144,15 +157,7 @@
                             <td class="text-end base-honorarios">${{ honorarios_ctx.base_comisiones|floatformat:2 }}</td>
                             <td class="text-end">{% if cv.porcentaje %}{{ cv.porcentaje|floatformat:2 }}%{% else %}—{% endif %}</td>
                             <td class="text-nowrap">
-                                {% if puede_editar_caratula %}
-                                <input type="date"
-                                       name="{% if cv.comision_id %}fecha_comision_{{ cv.comision_id }}{% else %}fecha_comision_productor{% endif %}"
-                                       class="form-control form-control-sm"
-                                       value="{{ cv.fecha_acreditacion_input }}"
-                                       style="min-width: 9.5rem;">
-                                {% else %}
-                                {{ cv.fecha_acreditacion_fmt|default:honorarios_ctx.pct_productor.fecha_entrada_display }}
-                                {% endif %}
+                                {{ honorarios_ctx.fecha_acreditacion_operacion_fmt|default:cv.fecha_acreditacion_fmt|default:honorarios_ctx.pct_productor.fecha_entrada_display }}
                             </td>
                             <td class="text-end fw-semibold">${{ cv.monto|floatformat:2 }}</td>
                         </tr>

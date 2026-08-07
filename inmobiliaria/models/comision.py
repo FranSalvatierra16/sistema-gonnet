@@ -21,6 +21,66 @@ ROLES_COMISION_PRODUCTOR = (
 )
 
 
+def _fecha_local_desde_dt(dt):
+    if not dt:
+        return None
+    if timezone.is_aware(dt):
+        return timezone.localtime(dt).date()
+    if hasattr(dt, 'date'):
+        return dt.date()
+    return dt
+
+
+def fecha_acreditacion_compartida_operacion(*, reserva=None, contrato=None):
+    """
+    Una sola fecha de acreditación para la operación: la de las comisiones
+    (todas deben coincidir). Sirve también para honorarios / cochera / fondo.
+    """
+    qs = ComisionVendedor.objects.exclude(rol_comision=ROL_COMISION_REVERSION).exclude(
+        fecha_operacion__isnull=True
+    )
+    if reserva is not None:
+        qs = qs.filter(reserva=reserva)
+    elif contrato is not None:
+        qs = qs.filter(contrato=contrato)
+    else:
+        return None
+    c = qs.order_by('id').first()
+    if not c:
+        return None
+    return _fecha_local_desde_dt(c.fecha_operacion)
+
+
+def aplicar_fecha_acreditacion_compartida(*, reserva=None, contrato=None, fecha):
+    """
+    Aplica la misma fecha de acreditación a todas las comisiones (no reversión)
+    de la reserva/contrato. Devuelve cuántas se actualizaron.
+    """
+    from datetime import datetime, time
+
+    if not fecha:
+        return 0
+    qs = ComisionVendedor.objects.exclude(rol_comision=ROL_COMISION_REVERSION)
+    if reserva is not None:
+        qs = qs.filter(reserva=reserva)
+    elif contrato is not None:
+        qs = qs.filter(contrato=contrato)
+    else:
+        return 0
+
+    dt = datetime.combine(fecha, time.min)
+    if timezone.is_naive(dt):
+        dt = timezone.make_aware(dt, timezone.get_current_timezone())
+
+    actualizadas = 0
+    for comision in qs:
+        if comision.fecha_operacion != dt:
+            comision.fecha_operacion = dt
+            comision.save(update_fields=['fecha_operacion'])
+            actualizadas += 1
+    return actualizadas
+
+
 def vendedor_fichaje_desde_propiedad(prop, sucursal=None):
     """
     Vendedor que fichó la propiedad; la comisión fichaje es suya, no del productor.

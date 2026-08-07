@@ -147,12 +147,43 @@ def _fecha_acreditacion_comision_operacion(*, reserva=None, contrato=None):
 
 def _fecha_ingreso_honorarios_comision(liq):
     """
-    Comisión inmobiliaria: Fecha op. de la reserva (alta), no el día de entrada.
-    Contratos: día de inicio del contrato.
+    Comisión inmobiliaria / honorarios de oficina: fecha de acreditación de la
+    operación (la misma que comisiones). Si no hay, Fecha op. (alta) o entrada.
     """
+    from inmobiliaria.models.comision import fecha_acreditacion_compartida_operacion
+
     reserva = getattr(liq, 'reserva', None) or reserva_desde_liquidacion(liq)
     if reserva is not None:
+        fa = fecha_acreditacion_compartida_operacion(reserva=reserva)
+        if fa:
+            return fa
         return _fecha_operacion_reserva_honorarios(reserva)
+    contrato = getattr(liq, 'contrato', None) or contrato_desde_liquidacion(liq)
+    if contrato is not None:
+        fa = fecha_acreditacion_compartida_operacion(contrato=contrato)
+        if fa:
+            return fa
+    return _fecha_entrada_liquidacion(liq)
+
+
+def _fecha_ingreso_honorarios_oficina(liq):
+    """
+    Fecha de acreditación compartida para honorarios, cochera y fondo.
+    Misma que la de comisiones vendedor de la operación.
+    """
+    from inmobiliaria.models.comision import fecha_acreditacion_compartida_operacion
+
+    reserva = getattr(liq, 'reserva', None) or reserva_desde_liquidacion(liq)
+    if reserva is not None:
+        fa = fecha_acreditacion_compartida_operacion(reserva=reserva)
+        if fa:
+            return fa
+        return _fecha_operacion_reserva_honorarios(reserva) or _fecha_entrada_liquidacion(liq)
+    contrato = getattr(liq, 'contrato', None) or contrato_desde_liquidacion(liq)
+    if contrato is not None:
+        fa = fecha_acreditacion_compartida_operacion(contrato=contrato)
+        if fa:
+            return fa
     return _fecha_entrada_liquidacion(liq)
 
 
@@ -422,23 +453,26 @@ def _filas_honorarios_cochera_fondo_desde_reservas(
             'tipo_operacion_display': ETIQUETAS_TIPO_OPERACION.get('dia', 'Por día'),
             'estado_liq': 'Sin liquidar' if not liqs else 'Parcial / carátula',
         }
+        from inmobiliaria.models.comision import fecha_acreditacion_compartida_operacion
+
+        f_acred = fecha_acreditacion_compartida_operacion(reserva=reserva) or f_entrada
         if coch > Decimal('0.01'):
             filas.append({
                 **base,
                 'tipo': 'cochera',
                 'tipo_display': 'Cochera',
-                'fecha': f_entrada,
+                'fecha': f_acred,
                 'monto': coch,
-                'nota': nota,
+                'nota': nota if f_acred == f_entrada else 'Fecha de acreditación',
             })
         if fondo > Decimal('0.01'):
             filas.append({
                 **base,
                 'tipo': 'fondo',
                 'tipo_display': 'Fondo de mantenimiento',
-                'fecha': f_entrada,
+                'fecha': f_acred,
                 'monto': fondo,
-                'nota': nota,
+                'nota': nota if f_acred == f_entrada else 'Fecha de acreditación',
             })
     return filas
 
@@ -669,14 +703,15 @@ def _filas_honorarios_desde_liquidaciones(liquidaciones):
             res = getattr(liq, 'reserva', None)
             if res is not None and getattr(res, 'liq_monto_inmobiliaria', None) is not None:
                 monto_inm = Decimal(str(res.liq_monto_inmobiliaria)).quantize(Decimal('0.01'))
+            f_acred = _fecha_ingreso_honorarios_oficina(liq)
             if monto_inm > Decimal('0.01'):
                 filas.append({
                     **base,
                     'tipo': 'comision',
                     'tipo_display': 'Comisión inmobiliaria',
-                    'fecha': _fecha_ingreso_honorarios_comision(liq),
+                    'fecha': f_acred,
                     'monto': monto_inm,
-                    'nota': 'Día de la operación',
+                    'nota': 'Fecha de acreditación',
                 })
 
             f_entrada = _fecha_entrada_liquidacion(liq)
@@ -690,9 +725,9 @@ def _filas_honorarios_desde_liquidaciones(liquidaciones):
                     **base,
                     'tipo': 'cochera',
                     'tipo_display': 'Cochera',
-                    'fecha': f_entrada,
+                    'fecha': f_acred,
                     'monto': monto_coch,
-                    'nota': 'Día de entrada',
+                    'nota': 'Fecha de acreditación',
                 })
 
             monto_fondo = Decimal(str(liq.monto_fondo_mantenimiento or 0))
@@ -703,9 +738,9 @@ def _filas_honorarios_desde_liquidaciones(liquidaciones):
                     **base,
                     'tipo': 'fondo',
                     'tipo_display': 'Fondo de mantenimiento',
-                    'fecha': f_entrada,
+                    'fecha': f_acred,
                     'monto': monto_fondo,
-                    'nota': 'Día de entrada',
+                    'nota': 'Fecha de acreditación',
                 })
 
             monto_com_loc = Decimal(str(liq.comision_locador or 0))
@@ -857,6 +892,14 @@ def _contexto_honorarios_oficina(request, *, solo_oficina=False):
         | Q(
             reserva__fecha_eliminacion__date__gte=fecha_desde,
             reserva__fecha_eliminacion__date__lte=fecha_hasta,
+        )
+        | Q(
+            reserva__comisiones_vendedor__fecha_operacion__date__gte=fecha_desde,
+            reserva__comisiones_vendedor__fecha_operacion__date__lte=fecha_hasta,
+        )
+        | Q(
+            contrato__comisiones_vendedor__fecha_operacion__date__gte=fecha_desde,
+            contrato__comisiones_vendedor__fecha_operacion__date__lte=fecha_hasta,
         )
     ).distinct()
 
