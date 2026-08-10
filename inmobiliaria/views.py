@@ -2627,6 +2627,11 @@ def administracion_propiedades_operaciones(request):
                 continue
             conc_l = (getattr(m, 'concepto', None) or '').casefold()
             tc = (getattr(m, 'tipo_comprobante', None) or '').strip().upper()
+            nombre_c = _nombre_concepto_mov(m)
+            # Pago de liquidación: sale de caja/oficina, pero se lista como pago al propietario.
+            if _es_concepto_pago_liquidacion(nombre_c, m):
+                pagos_liquidacion_items.append(_item_egreso_admin(m, concepto_nombre=nombre_c))
+                continue
             if (getattr(m, 'a_descontar', None) or '').strip().lower() == 'oficina':
                 continue
             if tc == 'GS' or conc_l.startswith('gasto oficina'):
@@ -2642,10 +2647,6 @@ def administracion_propiedades_operaciones(request):
             m_inq = Decimal(str(getattr(m, 'monto_a_inquilino', None) or 0))
             m_prop = Decimal(str(getattr(m, 'monto_a_propietario', None) or 0))
             total_m = Decimal(str(getattr(m, 'monto_total', 0) or 0))
-            nombre_c = _nombre_concepto_mov(m)
-            if _es_concepto_pago_liquidacion(nombre_c, m):
-                pagos_liquidacion_items.append(_item_egreso_admin(m, concepto_nombre=nombre_c))
-                continue
 
             # Pendiente inquilino (hasta cobrarlo en una cuota).
             if not cobrado_inq and (cargo_raw == 'inquilino' or m_inq > 0):
@@ -31212,6 +31213,11 @@ def _pagar_liquidaciones_en_caja(request, liquidaciones):
         fecha_desde = min(fechas_desde) if fechas_desde else None
         fecha_hasta = max(fechas_hasta) if fechas_hasta else None
 
+    # La plata sale de la caja de la oficina: imputar el egreso a oficina.
+    monto_imputacion_oficina = (
+        monto_dolares if es_usd else (monto_efectivo + monto_cheque + monto_tarjeta + monto_deposito)
+    ).quantize(Decimal('0.01'))
+
     movimiento = MovimientoCaja.objects.create(
         fecha=timezone.now(),
         tipo=TipoMovimientoCajaEnum.EGRESO,
@@ -31234,7 +31240,10 @@ def _pagar_liquidaciones_en_caja(request, liquidaciones):
         cheque_numero=cheque_numero,
         cheque_banco=cheque_banco,
         cheque_fecha_vencimiento=cheque_fecha_vencimiento,
-        a_descontar='propietario',
+        a_descontar='oficina',
+        monto_a_oficina=monto_imputacion_oficina,
+        monto_a_propietario=Decimal('0'),
+        monto_a_inquilino=Decimal('0'),
         sucursal=request.user.sucursal,
         empleado=request.user,
         caja=caja,
@@ -31273,7 +31282,8 @@ def procesar_liquidacion(request, liquidacion_id):
         simbolo = 'U$S ' if es_usd else '$'
         messages.success(
             request,
-            f'Liquidación procesada correctamente. Se descontó {simbolo}{total} de la caja.',
+            f'Liquidación procesada correctamente. Se descontó {simbolo}{total} de la caja '
+            f'(imputado a oficina).',
         )
         return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion.id)
     except ValueError as e:
