@@ -4694,7 +4694,7 @@ def _operaciones_impl(request):
 def listado_entradas(request):
     """
     Listado de entradas por fecha exacta (inicio de alquiler).
-    Incluye reservas confirmadas/pagadas y contratos activos/finalizados.
+    Incluye reservas confirmadas/pagadas y contratos activos/finalizados/rescindidos.
     """
     if not usuario_es_nivel_administracion(request.user):
         messages.error(request, 'No tenés permisos para acceder a esta sección.')
@@ -4773,7 +4773,7 @@ def listado_entradas(request):
     contratos = ContratoAlquiler.objects.filter(
         sucursal=request.user.sucursal,
         fecha_inicio=fecha_obj,
-    ).exclude(estado__in=['rescindido', 'reservado']).select_related(
+    ).exclude(estado='reservado').select_related(
         'inquilino', 'propiedad__propietario', 'vendedor'
     ).order_by('fecha_inicio', 'id')
 
@@ -4911,7 +4911,7 @@ def listado_entradas(request):
 def listado_salidas(request):
     """
     Listado de salidas por fecha exacta (fin de alquiler).
-    Incluye reservas confirmadas/pagadas y contratos activos/finalizados.
+    Incluye reservas confirmadas/pagadas y contratos activos/finalizados/rescindidos.
     """
     if not usuario_es_nivel_administracion(request.user):
         messages.error(request, 'No tenés permisos para acceder a esta sección.')
@@ -4979,7 +4979,7 @@ def listado_salidas(request):
     contratos = ContratoAlquiler.objects.filter(
         sucursal=request.user.sucursal,
         fecha_fin=fecha_obj,
-    ).exclude(estado__in=['rescindido', 'reservado']).select_related(
+    ).exclude(estado='reservado').select_related(
         'inquilino', 'propiedad__propietario', 'vendedor'
     ).order_by('fecha_fin', 'id')
 

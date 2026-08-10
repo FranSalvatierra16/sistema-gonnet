@@ -164,7 +164,15 @@
                     </td>
                     <td class="text-end text-nowrap small fw-semibold">{{ f.importe_locacion|format_importe_moneda:f.moneda }}</td>
                     <td class="small">
+                        {% if f.estado_codigo == 'rescindido' %}
+                        <span class="badge bg-danger">Rescindido</span>
+                        {% elif f.estado_codigo == 'finalizado' %}
+                        <span class="badge bg-dark">Finalizado</span>
+                        {% elif f.estado_codigo == 'eliminada' %}
+                        <span class="badge bg-secondary">Eliminada</span>
+                        {% else %}
                         {{ f.estado }}
+                        {% endif %}
                         {% if f.tiene_liquidacion %}
                         <br><a href="{% url 'inmobiliaria:detalle_liquidacion' f.liquidacion_id %}" class="badge bg-success text-decoration-none" title="Ver liquidación">Liquidada #{{ f.liquidacion_id }}</a>
                         {% else %}
@@ -172,9 +180,9 @@
                         {% endif %}
                     </td>
                     <td class="small">
-                        {% if f.eliminada %}
+                        {% if f.eliminada or f.estado_codigo == 'eliminada' %}
                         <span class="badge bg-secondary">Eliminada</span>
-                        {% elif f.estado == 'Rescindido' %}
+                        {% elif f.estado_codigo == 'rescindido' or f.estado == 'Rescindido' %}
                         <span class="badge bg-danger">Rescindido</span>
                         {% elif f.estado_operacion_caratula == 'confirmada' %}
                         <span class="badge bg-success">Confirmada</span>

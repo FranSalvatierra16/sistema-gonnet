@@ -3826,6 +3826,7 @@ def lista_caratulas(request):
                     if r.eliminada
                     else (r.get_estado_display() if hasattr(r, 'get_estado_display') else r.estado)
                 ),
+                'estado_codigo': 'eliminada' if r.eliminada else (r.estado or '').strip().lower(),
                 'eliminada': bool(r.eliminada),
                 'carpeta': '—',
                 'tiene_liquidacion': tiene_liquidacion,
@@ -3872,6 +3873,7 @@ def lista_caratulas(request):
                 'importe_locacion': c.precio_mensual or Decimal('0'),
                 'moneda': getattr(c, 'moneda', None) or 'ARS',
                 'estado': c.get_estado_display() if hasattr(c, 'get_estado_display') else c.estado,
+                'estado_codigo': (c.estado or '').strip().lower(),
                 'carpeta': carpeta_hist or '—',
                 'tiene_liquidacion': tiene_liquidacion,
                 'liquidacion_id': liquidacion_id,
