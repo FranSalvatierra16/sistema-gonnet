@@ -187,12 +187,19 @@
                             <th>Tipo</th>
                             <th>Concepto</th>
                             <th>Propiedad</th>
+                            {% if filtrando_concepto %}
+                            <th>Descripción</th>
+                            <th class="text-end">Transfer.</th>
+                            <th>Destino transf.</th>
+                            <th class="text-end">Total</th>
+                            {% else %}
                             <th class="text-end">Efectivo</th>
                             <th class="text-end">Cheque</th>
                             <th class="text-end">Tarjeta</th>
                             <th class="text-end">Transfer.</th>
                             <th>Destino transf.</th>
                             <th class="text-end">Total</th>
+                            {% endif %}
                             {% if puede_eliminar_movimiento_caja or puede_editar_movimiento_caja %}
                             <th class="text-center">Acciones</th>
                             {% endif %}
@@ -209,14 +216,7 @@
                             <td><small>{{ m.concepto_display|default:m.concepto|truncatechars:80 }}</small></td>
                             <td><small>{{ m.propiedad_display|default:"—" }}</small></td>
                             {% if filtrando_concepto %}
-                            <td class="text-end">${{ m.reporte_monto_efectivo|format_price }}</td>
-                            <td class="text-end">${{ m.reporte_monto_cheque|format_price }}</td>
-                            <td class="text-end">
-                                ${{ m.reporte_monto_tarjeta|format_price }}
-                                {% if m.reporte_monto_tarjeta > 0 and m.tarjeta_tipo %}
-                                <br><small class="text-muted">{{ m.get_tarjeta_tipo_display }}</small>
-                                {% endif %}
-                            </td>
+                            <td><small>{{ m.descripcion_display|default:"—" }}</small></td>
                             <td class="text-end">${{ m.reporte_monto_deposito|format_price }}</td>
                             <td><small>{{ m.destino_etiqueta }}</small></td>
                             <td class="text-end"><strong>${{ m.reporte_monto_total|format_price }}</strong></td>
@@ -260,7 +260,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="{% if puede_eliminar_movimiento_caja or puede_editar_movimiento_caja %}12{% else %}11{% endif %}" class="text-center text-muted py-4">No hay movimientos con los filtros seleccionados.</td>
+                            <td colspan="{% if filtrando_concepto %}{% if puede_eliminar_movimiento_caja or puede_editar_movimiento_caja %}10{% else %}9{% endif %}{% else %}{% if puede_eliminar_movimiento_caja or puede_editar_movimiento_caja %}12{% else %}11{% endif %}{% endif %}" class="text-center text-muted py-4">No hay movimientos con los filtros seleccionados.</td>
                         </tr>
                         {% endfor %}
                     </tbody>

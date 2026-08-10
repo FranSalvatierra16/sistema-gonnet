@@ -16554,6 +16554,8 @@ def _filas_gastos_liquidacion_para_reporte_caja(
             destino_etiqueta='—',
             tarjeta_tipo=None,
             get_tarjeta_tipo_display=lambda: '',
+            listado_detalle_observacion=desc,
+            descripcion_display=desc or '—',
         )
         filas.append(fila)
     return filas
@@ -16735,6 +16737,7 @@ def reportes_caja(request):
         else:
             _m.concepto_display = _concepto_display_reporte_caja(_m, lookup_nombre_concepto)
         _m.propiedad_display = _propiedad_display_reporte_caja(_m)
+        _m.descripcion_display = (getattr(_m, 'listado_detalle_observacion', None) or '').strip() or '—'
         if filtrando_concepto:
             imp_concepto = _importe_concepto_filtrado_movimiento(
                 _m, criterio_concepto, conceptos_catalogo
