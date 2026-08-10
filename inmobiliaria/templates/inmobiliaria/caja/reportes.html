@@ -76,7 +76,8 @@
                 <div class="col-12 col-lg-5 d-flex align-items-end">
                     <p class="small text-muted mb-1 mb-lg-2">
                         Un solo campo: podés tipear <strong>6</strong>, <strong>EXPENSAS</strong>, o elegir del desplegable.
-                        Solo aparecen movimientos que <strong>tengan ese concepto en sus líneas</strong>.
+                        Solo aparecen movimientos que <strong>tengan ese concepto en sus líneas</strong>
+                        y también conceptos cargados en <strong>liquidaciones</strong> (ej. comisión gestión cobranzas).
                         {% if filtrando_concepto %}Los totales y la columna <strong>Total</strong> muestran <strong>solo el importe de ese concepto</strong> en recibos con varios ítems.{% endif %}
                     </p>
                 </div>
@@ -234,6 +235,9 @@
                             {% endif %}
                             {% if puede_eliminar_movimiento_caja or puede_editar_movimiento_caja %}
                             <td class="text-center text-nowrap">
+                                {% if m.es_concepto_liquidacion %}
+                                <span class="badge bg-light text-muted border" title="Cargado desde liquidación (sin movimiento de caja)">Liq.</span>
+                                {% else %}
                                 {% if puede_editar_movimiento_caja %}
                                 <a href="{% url 'inmobiliaria:editar_movimiento_caja' m.id %}?next={{ request.get_full_path|urlencode }}"
                                    class="btn btn-sm btn-outline-warning" title="Editar montos">
@@ -249,6 +253,7 @@
                                         <i class="fas fa-trash-alt"></i>
                                     </button>
                                 </form>
+                                {% endif %}
                                 {% endif %}
                             </td>
                             {% endif %}

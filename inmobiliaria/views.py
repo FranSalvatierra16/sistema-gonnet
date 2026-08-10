@@ -16326,6 +16326,171 @@ def _propiedad_display_reporte_caja(movimiento):
 
 
 @login_required
+def _fecha_gasto_propietario_reporte(gasto):
+    """Fecha a usar en reportes: fecha_gasto (00:00) o alta del movimiento de liquidación."""
+    fg = getattr(gasto, 'fecha_gasto', None)
+    if fg:
+        naive = datetime.combine(fg, datetime.min.time())
+        if timezone.is_aware(naive):
+            return naive
+        try:
+            return timezone.make_aware(naive, timezone.get_current_timezone())
+        except Exception:
+            return naive
+    fc = getattr(gasto, 'fecha_creacion', None)
+    if fc:
+        return fc
+    return timezone.now()
+
+
+def _gasto_propietario_coincide_criterio_concepto(gasto, criterio, conceptos_catalogo=None):
+    """True si el gasto de liquidación corresponde al concepto filtrado (id o nombre)."""
+    if not criterio:
+        return False
+    ids = {str(x).strip() for x in (criterio.get('ids') or set()) if str(x).strip()}
+    cid = (getattr(gasto, 'concepto_caja_id', None) or '').strip()
+    if ids and cid and cid in ids:
+        return True
+    nombre = (criterio.get('nombre') or '').strip().lower()
+    desc = (getattr(gasto, 'descripcion', None) or '').strip().lower()
+    if nombre and nombre in desc:
+        return True
+    if nombre and conceptos_catalogo and cid:
+        for c in conceptos_catalogo:
+            if str(c.id).strip() == cid:
+                nom = (c.nombre or '').strip().lower()
+                if nom and nombre in nom:
+                    return True
+                break
+    return False
+
+
+def _filas_gastos_liquidacion_para_reporte_caja(
+    *,
+    sucursal,
+    fecha_desde,
+    fecha_hasta,
+    criterio,
+    conceptos_catalogo,
+    tipo_mov='',
+    medio='',
+    lookup_nombre_concepto=None,
+):
+    """
+    Conceptos cargados en liquidación (GastoPropietario con concepto de caja),
+    p. ej. «19 — Comisión Gestión Cobranzas», que no generan MovimientoCaja.
+    """
+    from types import SimpleNamespace
+
+    if not criterio or not sucursal:
+        return []
+    # Sin medio de pago real: solo listar cuando el filtro de medio está vacío (Todos).
+    if (medio or '').strip():
+        return []
+
+    ids = {str(x).strip() for x in (criterio.get('ids') or set()) if str(x).strip()}
+    nombre = (criterio.get('nombre') or '').strip()
+    q_concepto = Q()
+    if ids:
+        q_concepto |= Q(concepto_caja_id__in=list(ids))
+    if nombre:
+        q_concepto |= Q(descripcion__icontains=nombre)
+    if not q_concepto:
+        return []
+
+    qs = (
+        GastoPropietario.objects.filter(sucursal=sucursal)
+        .filter(q_concepto)
+        .filter(
+            Q(fecha_gasto__gte=fecha_desde, fecha_gasto__lte=fecha_hasta)
+            | Q(
+                fecha_gasto__isnull=True,
+                fecha_creacion__date__gte=fecha_desde,
+                fecha_creacion__date__lte=fecha_hasta,
+            )
+        )
+        .select_related('propiedad', 'liquidacion', 'propietario')
+        .order_by('-fecha_gasto', '-id')[:500]
+    )
+
+    lookup = lookup_nombre_concepto or {}
+    filas = []
+    for g in qs:
+        if not _gasto_propietario_coincide_criterio_concepto(g, criterio, conceptos_catalogo):
+            continue
+        tipo_g = (getattr(g, 'tipo_movimiento', None) or 'egreso').strip().lower()
+        tipo_code = (
+            TipoMovimientoCajaEnum.INGRESO if tipo_g == 'ingreso' else TipoMovimientoCajaEnum.EGRESO
+        )
+        if tipo_mov == 'IN' and tipo_code != TipoMovimientoCajaEnum.INGRESO:
+            continue
+        if tipo_mov == 'EG' and tipo_code != TipoMovimientoCajaEnum.EGRESO:
+            continue
+
+        monto = Decimal(str(getattr(g, 'monto', None) or 0)).quantize(Decimal('0.01'))
+        if monto <= 0:
+            continue
+        if (getattr(g, 'moneda', None) or 'ARS').upper() != 'ARS':
+            continue
+
+        cid = (g.concepto_caja_id or '').strip()
+        nom_cat = (lookup.get(cid) or '').strip() if cid else ''
+        desc = (g.descripcion or '').strip() or nom_cat or 'Concepto liquidación'
+        if cid and nom_cat:
+            concepto_txt = f'{cid} — {nom_cat}'
+        elif cid:
+            concepto_txt = f'{cid} — {desc}'
+        else:
+            concepto_txt = desc
+        liq_id = getattr(g, 'liquidacion_id', None)
+        if liq_id:
+            concepto_txt = f'{concepto_txt} (liquidación #{liq_id})'
+        else:
+            concepto_txt = f'{concepto_txt} (mov. liquidación)'
+
+        prop = getattr(g, 'propiedad', None)
+        if prop:
+            partes = [f'#{prop.id}']
+            dir_p = (prop.direccion or '').strip()
+            if dir_p:
+                partes.append(dir_p)
+            if getattr(prop, 'piso', None):
+                partes.append(f'Piso {prop.piso}')
+            if getattr(prop, 'departamento', None):
+                partes.append(f'Dpto {prop.departamento}')
+            prop_disp = ' — '.join(partes) if len(partes) > 1 else partes[0]
+        else:
+            prop_disp = '—'
+
+        fecha = _fecha_gasto_propietario_reporte(g)
+        fila = SimpleNamespace(
+            id=None,
+            es_concepto_liquidacion=True,
+            tipo=tipo_code,
+            fecha=fecha,
+            caja=None,
+            concepto=concepto_txt,
+            concepto_display=concepto_txt,
+            propiedad_display=prop_disp,
+            monto_efectivo=monto,
+            monto_cheque=Decimal('0'),
+            monto_tarjeta=Decimal('0'),
+            monto_deposito=Decimal('0'),
+            monto_total=monto,
+            reporte_monto_efectivo=monto,
+            reporte_monto_cheque=Decimal('0'),
+            reporte_monto_tarjeta=Decimal('0'),
+            reporte_monto_deposito=Decimal('0'),
+            reporte_monto_total=monto,
+            destino_deposito='',
+            destino_etiqueta='—',
+            tarjeta_tipo=None,
+            get_tarjeta_tipo_display=lambda: '',
+        )
+        filas.append(fila)
+    return filas
+
+
 def reportes_caja(request):
     """
     Resumen de ingresos/egresos por rango de fechas, con filtros por medio de pago,
@@ -16511,6 +16676,32 @@ def reportes_caja(request):
             _m.reporte_monto_tarjeta = montos['monto_tarjeta']
             _m.reporte_monto_deposito = montos['monto_deposito']
             _m.reporte_monto_total = montos['total']
+        setattr(_m, 'es_concepto_liquidacion', False)
+
+    # Conceptos cargados solo en liquidación (sin movimiento de caja), p. ej. comisión gestión cobranzas.
+    if filtrando_concepto:
+        extras_liq = _filas_gastos_liquidacion_para_reporte_caja(
+            sucursal=sucursal,
+            fecha_desde=fecha_desde,
+            fecha_hasta=fecha_hasta,
+            criterio=criterio_concepto,
+            conceptos_catalogo=conceptos_catalogo,
+            tipo_mov=tipo_mov,
+            medio=medio,
+            lookup_nombre_concepto=lookup_nombre_concepto,
+        )
+        if extras_liq:
+            movimientos_lista.extend(extras_liq)
+            movimientos_lista.sort(
+                key=lambda m: (
+                    getattr(m, 'fecha', None) is not None,
+                    getattr(m, 'fecha', None),
+                    getattr(m, 'id', None) or 0,
+                ),
+                reverse=True,
+            )
+            if len(movimientos_lista) > 2000:
+                movimientos_lista = movimientos_lista[:2000]
 
     def totales_por_tipo(queryset, tipo_code):
         sub = queryset.filter(tipo=tipo_code)
