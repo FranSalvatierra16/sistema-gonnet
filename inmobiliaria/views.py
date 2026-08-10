@@ -10978,8 +10978,8 @@ def editar_info_meses(request, propiedad_id):
 @require_POST
 def ofrecer_propiedad_24_meses_post_contrato(request, propiedad_id):
     """
-    Marca la propiedad ocupada/reservada como ofrecible desde el fin del contrato actual
-    (o una fecha indicada), sin cambiar el estado Ocupado.
+    Marca la propiedad ocupada/reservada como ofrecible a futuro, con precio y período
+    del próximo alquiler, sin liberar el contrato actual.
     """
     propiedad = get_object_or_404(Propiedad, id=propiedad_id)
     info_meses = AlquilerMeses.objects.filter(propiedad=propiedad).first()
@@ -11005,47 +11005,88 @@ def ofrecer_propiedad_24_meses_post_contrato(request, propiedad_id):
             estado__in=['activo', 'reservado'],
         )
         .exclude(duracion_meses=9)
-        .order_by('-fecha_creacion', '-id')
+        .order_by('fecha_inicio', 'id')
         .first()
     )
 
-    fecha_raw = (request.POST.get('ofrecible_desde') or '').strip()
-    fecha = None
-    if fecha_raw:
+    def _parse_fecha(raw, label):
+        raw = (raw or '').strip()
+        if not raw:
+            return None
         try:
-            fecha = datetime.strptime(fecha_raw, '%Y-%m-%d').date()
+            return datetime.strptime(raw, '%Y-%m-%d').date()
         except ValueError:
-            messages.error(request, 'Fecha inválida.')
+            messages.error(request, f'{label} inválida.')
+            return False
+
+    fecha = _parse_fecha(request.POST.get('ofrecible_desde'), 'Fecha «ofrecible desde»')
+    if fecha is False:
+        return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
+    if fecha is None:
+        if contrato and contrato.fecha_fin:
+            fecha = contrato.fecha_fin
+        elif info_meses.fecha_fin:
+            fecha = info_meses.fecha_fin
+        else:
+            messages.error(
+                request,
+                'Indicá desde cuándo querés ofrecerlo (ofrecible desde).',
+            )
             return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
-    elif contrato and contrato.fecha_fin:
-        fecha = contrato.fecha_fin
-    elif info_meses.fecha_fin:
-        fecha = info_meses.fecha_fin
-    else:
-        messages.error(
-            request,
-            'No hay fecha de fin de contrato. Indicá manualmente desde cuándo querés ofrecerlo.',
-        )
+
+    fecha_inicio = _parse_fecha(request.POST.get('fecha_inicio'), 'Fecha de inicio')
+    if fecha_inicio is False:
+        return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
+    fecha_fin = _parse_fecha(request.POST.get('fecha_fin'), 'Fecha de fin')
+    if fecha_fin is False:
         return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
 
-    # Sincronizar fechas del contrato en la ficha si estaban vacías.
-    if contrato:
-        updates_sync = []
-        if not info_meses.fecha_inicio and contrato.fecha_inicio:
-            info_meses.fecha_inicio = contrato.fecha_inicio
-            updates_sync.append('fecha_inicio')
-        if not info_meses.fecha_fin and contrato.fecha_fin:
-            info_meses.fecha_fin = contrato.fecha_fin
-            updates_sync.append('fecha_fin')
-        if updates_sync:
-            info_meses.save(update_fields=updates_sync + ['fecha_actualizacion'])
+    if not fecha_inicio:
+        fecha_inicio = fecha
+    if not fecha_fin:
+        messages.error(request, 'Indicá la fecha de fin del próximo alquiler.')
+        return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
+    if fecha_fin <= fecha_inicio:
+        messages.error(request, 'La fecha de fin debe ser posterior a la de inicio.')
+        return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
+
+    _pm = (request.POST.get('precio_mensual') or '').strip()
+    try:
+        precio_mensual = Decimal(_pm.replace(',', '.')) if _pm else None
+    except (ValueError, InvalidOperation):
+        precio_mensual = None
+    if precio_mensual is None or precio_mensual <= 0:
+        messages.error(request, 'Indicá el precio mensual del próximo alquiler.')
+        return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
+
+    _pe = (request.POST.get('precio_expensas') or '').strip()
+    try:
+        precio_expensas = Decimal(_pe.replace(',', '.')) if _pe else None
+    except (ValueError, InvalidOperation):
+        precio_expensas = None
 
     info_meses.ofrecible_desde = fecha
-    info_meses.save(update_fields=['ofrecible_desde', 'fecha_actualizacion'])
+    info_meses.fecha_inicio = fecha_inicio
+    info_meses.fecha_fin = fecha_fin
+    info_meses.precio_mensual = precio_mensual
+    info_meses.precio_expensas = precio_expensas
+    info_meses.observaciones = (request.POST.get('observaciones') or '').strip()
+    info_meses.save(
+        update_fields=[
+            'ofrecible_desde',
+            'fecha_inicio',
+            'fecha_fin',
+            'precio_mensual',
+            'precio_expensas',
+            'observaciones',
+            'fecha_actualizacion',
+        ]
+    )
     messages.success(
         request,
-        f'La propiedad ya se ofrece para alquileres desde el {fecha.strftime("%d/%m/%Y")} '
-        f'(sigue figurando como {info_meses.get_estado_display()} hasta que termine el contrato actual).',
+        f'Oferta a futuro publicada: ${precio_mensual} desde {fecha.strftime("%d/%m/%Y")} '
+        f'({fecha_inicio.strftime("%d/%m/%Y")} – {fecha_fin.strftime("%d/%m/%Y")}). '
+        f'Sigue figurando como {info_meses.get_estado_display()} hasta que termine el contrato actual.',
     )
     return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
 

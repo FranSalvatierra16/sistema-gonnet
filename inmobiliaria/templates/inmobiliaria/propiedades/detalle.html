@@ -917,9 +917,9 @@
                     <!-- Modal: ofrecer post-contrato (24 meses) -->
                     {% if propiedad.info_meses and propiedad.info_meses.disponible %}
                     <div class="modal fade" id="modalOfrecerPostContrato" tabindex="-1" aria-hidden="true">
-                        <div class="modal-dialog">
+                        <div class="modal-dialog modal-lg">
                             <div class="modal-content">
-                                <form method="post" action="{% url 'inmobiliaria:ofrecer_propiedad_24_meses_post_contrato' propiedad.id %}">
+                                <form method="post" action="{% url 'inmobiliaria:ofrecer_propiedad_24_meses_post_contrato' propiedad.id %}" id="formOfrecerPostContrato">
                                     {% csrf_token %}
                                     <div class="modal-header">
                                         <h5 class="modal-title"><i class="fas fa-bullhorn me-1"></i>Ofrecer al terminar el contrato</h5>
@@ -927,23 +927,56 @@
                                     </div>
                                     <div class="modal-body">
                                         <p class="mb-3">
-                                            La propiedad sigue <strong>ocupada</strong> con el contrato actual, pero va a aparecer
-                                            en el listado de 24 meses como <strong>ofrecible desde</strong> la fecha que indiques
-                                            (por defecto, el fin del contrato vigente).
+                                            La propiedad sigue <strong>{{ propiedad.info_meses.get_estado_display|lower }}</strong> con el contrato actual,
+                                            pero se publica en el listado 24 meses con los datos del <strong>próximo</strong> alquiler.
                                         </p>
                                         <div class="mb-3">
-                                            <label class="form-label" for="ofrecible_desde_rapido">Ofrecible desde</label>
+                                            <label class="form-label" for="ofrecible_desde_rapido">Ofrecible desde *</label>
                                             <input type="date" class="form-control" id="ofrecible_desde_rapido" name="ofrecible_desde"
                                                    value="{% if propiedad.info_meses.ofrecible_desde %}{{ propiedad.info_meses.ofrecible_desde|date:'Y-m-d' }}{% elif contrato_24_actual and contrato_24_actual.fecha_fin %}{{ contrato_24_actual.fecha_fin|date:'Y-m-d' }}{% elif propiedad.info_meses.fecha_fin %}{{ propiedad.info_meses.fecha_fin|date:'Y-m-d' }}{% endif %}"
                                                    required>
-                                            <small class="text-muted">Podés dejar la fecha de fin del contrato o una posterior.</small>
+                                            <small class="text-muted">Fecha a partir de la cual se puede ofrecer (ej. fin del contrato actual).</small>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label" for="ofrecer_fecha_inicio">Fecha inicio (próximo) *</label>
+                                                <input type="date" class="form-control" id="ofrecer_fecha_inicio" name="fecha_inicio"
+                                                       value="{% if propiedad.info_meses.ofrecible_desde %}{{ propiedad.info_meses.ofrecible_desde|date:'Y-m-d' }}{% elif contrato_24_actual and contrato_24_actual.fecha_fin %}{{ contrato_24_actual.fecha_fin|date:'Y-m-d' }}{% elif propiedad.info_meses.fecha_fin %}{{ propiedad.info_meses.fecha_fin|date:'Y-m-d' }}{% endif %}"
+                                                       required>
+                                            </div>
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label" for="ofrecer_fecha_fin">Fecha fin (próximo) *</label>
+                                                <input type="date" class="form-control" id="ofrecer_fecha_fin" name="fecha_fin"
+                                                       value="{% if propiedad.info_meses.ofrecible_desde and propiedad.info_meses.fecha_fin %}{{ propiedad.info_meses.fecha_fin|date:'Y-m-d' }}{% endif %}"
+                                                       required>
+                                                <small class="text-muted">Por defecto se sugiere +24 meses desde el inicio.</small>
+                                            </div>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label" for="ofrecer_precio_mensual">Precio mensual *</label>
+                                                <input type="number" class="form-control" id="ofrecer_precio_mensual" name="precio_mensual"
+                                                       step="0.01" min="0"
+                                                       value="{{ propiedad.info_meses.precio_mensual|default:'' }}"
+                                                       required>
+                                            </div>
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label" for="ofrecer_precio_expensas">Precio de expensas</label>
+                                                <input type="number" class="form-control" id="ofrecer_precio_expensas" name="precio_expensas"
+                                                       step="0.01" min="0"
+                                                       value="{{ propiedad.info_meses.precio_expensas|default:'' }}">
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label" for="ofrecer_observaciones">Observaciones</label>
+                                            <textarea class="form-control" id="ofrecer_observaciones" name="observaciones" rows="2">{{ propiedad.info_meses.observaciones|default:'' }}</textarea>
                                         </div>
                                     </div>
                                     <div class="modal-footer justify-content-between">
                                         {% if propiedad.info_meses.ofrecible_desde %}
                                         <button type="submit" name="limpiar_ofrecible_desde" value="1" class="btn btn-outline-secondary"
                                                 formnovalidate
-                                                onclick="document.getElementById('ofrecible_desde_rapido').removeAttribute('required');">
+                                                onclick="document.querySelectorAll('#formOfrecerPostContrato [required]').forEach(function(el){ el.removeAttribute('required'); });">
                                             Quitar oferta a futuro
                                         </button>
                                         {% else %}
@@ -2095,6 +2128,61 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     }
+
+    // Oferta a futuro: sincronizar fechas y sugerir +24 meses.
+    (function() {
+        var ofrecible = document.getElementById('ofrecible_desde_rapido');
+        var ini = document.getElementById('ofrecer_fecha_inicio');
+        var fin = document.getElementById('ofrecer_fecha_fin');
+        if (!ofrecible || !ini || !fin) return;
+
+        function addMonthsYmd(ymd, months) {
+            if (!ymd) return '';
+            var p = ymd.split('-');
+            if (p.length !== 3) return '';
+            var d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+            d.setMonth(d.getMonth() + months);
+            // un día antes del aniversario ≈ fin de contrato 24m
+            d.setDate(d.getDate() - 1);
+            var mm = String(d.getMonth() + 1).padStart(2, '0');
+            var dd = String(d.getDate()).padStart(2, '0');
+            return d.getFullYear() + '-' + mm + '-' + dd;
+        }
+
+        function syncInicioDesdeOfrecible() {
+            if (ofrecible.value && !ini.dataset.userEdited) {
+                ini.value = ofrecible.value;
+            }
+            if (ini.value && !fin.value) {
+                fin.value = addMonthsYmd(ini.value, 24);
+            }
+        }
+
+        ofrecible.addEventListener('change', function() {
+            syncInicioDesdeOfrecible();
+        });
+        ini.addEventListener('change', function() {
+            ini.dataset.userEdited = '1';
+            if (!fin.dataset.userEdited) {
+                fin.value = addMonthsYmd(ini.value, 24);
+            }
+        });
+        fin.addEventListener('change', function() {
+            fin.dataset.userEdited = '1';
+        });
+
+        var modal = document.getElementById('modalOfrecerPostContrato');
+        if (modal) {
+            modal.addEventListener('shown.bs.modal', function() {
+                syncInicioDesdeOfrecible();
+            });
+        }
+        // Si ya hay fin guardado, no lo pises con la sugerencia.
+        if (fin.value) {
+            fin.dataset.userEdited = '1';
+        }
+        syncInicioDesdeOfrecible();
+    })();
 });
 
 function openGallery(imageIndex = 0) {
