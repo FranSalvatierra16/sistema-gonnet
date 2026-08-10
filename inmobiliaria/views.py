@@ -30885,8 +30885,14 @@ def confirmar_liquidacion(request, liquidacion_id):
         LiquidacionPropietario,
         id=liquidacion_id,
         sucursal=request.user.sucursal,
-        estado='pendiente'
     )
+    if liquidacion.estado != 'pendiente':
+        messages.warning(
+            request,
+            f'La liquidación #{liquidacion.id} ya no está pendiente '
+            f'(estado actual: {liquidacion.get_estado_display()}). No se puede confirmar de nuevo.',
+        )
+        return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion.id)
 
     liquidacion.calcular_monto_a_pagar()
     liquidacion.estado = 'cerrada'
