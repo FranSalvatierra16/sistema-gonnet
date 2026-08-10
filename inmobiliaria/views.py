@@ -15813,6 +15813,206 @@ def dashboard_caja(request):
     return render(request, 'inmobiliaria/caja/dashboard_caja.html')
 
 
+@login_required
+def cartera_cheques_caja(request):
+    """
+    Detalle de cheques en caja (nº, banco, vencimiento, monto) además del total.
+    Por defecto: caja abierta de la sucursal.
+    """
+    from inmobiliaria.models import ChequeMovimientoCaja
+
+    sucursal = request.user.sucursal
+    if not sucursal:
+        messages.error(request, 'Tu usuario no tiene sucursal asignada.')
+        return redirect('inmobiliaria:dashboard_caja')
+
+    caja_abierta = (
+        Caja.objects.filter(sucursal=sucursal, estado='abierta')
+        .order_by('-fecha_apertura', '-numero')
+        .first()
+    )
+
+    alcance = (request.GET.get('alcance') or 'abierta').strip().lower()
+    if alcance not in ('abierta', 'todas', 'caja'):
+        alcance = 'abierta'
+    tipo_mov = (request.GET.get('tipo_mov') or '').strip().upper()
+    if tipo_mov not in ('', 'IN', 'EG'):
+        tipo_mov = ''
+    q = (request.GET.get('q') or '').strip()
+    caja_numero_raw = (request.GET.get('caja') or '').strip()
+    caja_filtro = None
+    if caja_numero_raw.isdigit():
+        caja_filtro = Caja.objects.filter(
+            numero=int(caja_numero_raw),
+            sucursal=sucursal,
+        ).first()
+
+    fecha_desde = None
+    fecha_hasta = None
+    raw_desde = (request.GET.get('fecha_desde') or '').strip()
+    raw_hasta = (request.GET.get('fecha_hasta') or '').strip()
+    if raw_desde:
+        try:
+            fecha_desde = datetime.strptime(raw_desde, '%Y-%m-%d').date()
+        except ValueError:
+            fecha_desde = None
+    if raw_hasta:
+        try:
+            fecha_hasta = datetime.strptime(raw_hasta, '%Y-%m-%d').date()
+        except ValueError:
+            fecha_hasta = None
+
+    mov_qs = MovimientoCaja.objects.filter(
+        sucursal=sucursal,
+        fecha_eliminacion__isnull=True,
+        monto_cheque__gt=0,
+    ).select_related('caja', 'propiedad', 'empleado')
+
+    caja_contexto = None
+    if alcance == 'abierta':
+        if not caja_abierta:
+            messages.info(request, 'No hay caja abierta. Podés ver cheques de todas las cajas o elegir una.')
+            alcance = 'todas'
+        else:
+            mov_qs = mov_qs.filter(caja=caja_abierta)
+            caja_contexto = caja_abierta
+    elif alcance == 'caja' and caja_filtro:
+        mov_qs = mov_qs.filter(caja=caja_filtro)
+        caja_contexto = caja_filtro
+    elif alcance == 'caja' and not caja_filtro:
+        alcance = 'todas'
+
+    if tipo_mov:
+        mov_qs = mov_qs.filter(tipo=tipo_mov)
+    if fecha_desde:
+        mov_qs = mov_qs.filter(fecha__date__gte=fecha_desde)
+    if fecha_hasta:
+        mov_qs = mov_qs.filter(fecha__date__lte=fecha_hasta)
+
+    mov_ids = list(mov_qs.values_list('id', flat=True)[:5000])
+    cheques_qs = (
+        ChequeMovimientoCaja.objects.filter(movimiento_id__in=mov_ids)
+        .select_related(
+            'movimiento',
+            'movimiento__caja',
+            'movimiento__propiedad',
+            'movimiento__empleado',
+        )
+        .order_by('-movimiento__fecha', '-movimiento_id', 'orden', 'id')
+    )
+    if q:
+        cheques_qs = cheques_qs.filter(
+            Q(numero__icontains=q)
+            | Q(banco__icontains=q)
+            | Q(movimiento__concepto__icontains=q)
+        )
+
+    filas = []
+    movs_con_detalle = set()
+    total_ingreso = Decimal('0')
+    total_egreso = Decimal('0')
+
+    for ch in cheques_qs[:3000]:
+        mov = ch.movimiento
+        movs_con_detalle.add(mov.id)
+        monto = Decimal(str(ch.monto or 0))
+        es_ingreso = (mov.tipo or '').upper() == TipoMovimientoCajaEnum.INGRESO
+        if es_ingreso:
+            total_ingreso += monto
+        else:
+            total_egreso += monto
+        prop = mov.propiedad
+        prop_txt = '—'
+        if prop:
+            partes = [(prop.direccion or '').strip() or f'#{prop.id}']
+            if getattr(prop, 'piso', None) or getattr(prop, 'departamento', None):
+                pi = (prop.piso or '').strip() or '—'
+                dep = (prop.departamento or '').strip() or '—'
+                partes.append(f'Piso {pi} Dpto {dep}')
+            prop_txt = ' — '.join(partes)
+        filas.append({
+            'fecha': mov.fecha,
+            'caja_numero': mov.caja.numero if mov.caja_id else None,
+            'tipo': mov.tipo,
+            'es_ingreso': es_ingreso,
+            'numero': (ch.numero or '').strip() or 's/n',
+            'banco': (ch.banco or '').strip() or '—',
+            'fecha_vencimiento': ch.fecha_vencimiento,
+            'monto': monto,
+            'concepto': (mov.concepto or '')[:120] or '—',
+            'propiedad': prop_txt,
+            'movimiento_id': mov.id,
+            'url_recibo': reverse('inmobiliaria:ver_recibo_movimiento', args=[mov.id]),
+            'sin_detalle': False,
+        })
+
+    # Movimientos con monto_cheque pero sin filas de detalle (legacy).
+    for mov in mov_qs.filter(id__in=mov_ids).exclude(id__in=movs_con_detalle).order_by('-fecha', '-id')[:500]:
+        monto = Decimal(str(mov.monto_cheque or 0))
+        if monto <= 0:
+            continue
+        if q:
+            conc = (mov.concepto or '').lower()
+            if q.lower() not in conc and q.lower() not in 's/n':
+                continue
+        es_ingreso = (mov.tipo or '').upper() == TipoMovimientoCajaEnum.INGRESO
+        if es_ingreso:
+            total_ingreso += monto
+        else:
+            total_egreso += monto
+        prop = mov.propiedad
+        prop_txt = '—'
+        if prop:
+            prop_txt = (prop.direccion or '').strip() or f'#{prop.id}'
+        filas.append({
+            'fecha': mov.fecha,
+            'caja_numero': mov.caja.numero if mov.caja_id else None,
+            'tipo': mov.tipo,
+            'es_ingreso': es_ingreso,
+            'numero': (mov.cheque_numero or '').strip() or 's/n',
+            'banco': (mov.cheque_banco or '').strip() or '—',
+            'fecha_vencimiento': getattr(mov, 'cheque_fecha_vencimiento', None),
+            'monto': monto,
+            'concepto': (mov.concepto or '')[:120] or '—',
+            'propiedad': prop_txt,
+            'movimiento_id': mov.id,
+            'url_recibo': reverse('inmobiliaria:ver_recibo_movimiento', args=[mov.id]),
+            'sin_detalle': True,
+        })
+
+    filas.sort(
+        key=lambda r: (r['fecha'] or timezone.now(), r['movimiento_id'] or 0),
+        reverse=True,
+    )
+
+    neto = (total_ingreso - total_egreso).quantize(Decimal('0.01'))
+    cajas_opciones = list(
+        Caja.objects.filter(sucursal=sucursal)
+        .order_by('-fecha_apertura', '-numero')[:40]
+    )
+
+    return render(
+        request,
+        'inmobiliaria/caja/cartera_cheques.html',
+        {
+            'filas': filas,
+            'total_ingreso': total_ingreso.quantize(Decimal('0.01')),
+            'total_egreso': total_egreso.quantize(Decimal('0.01')),
+            'neto': neto,
+            'cantidad': len(filas),
+            'caja_abierta': caja_abierta,
+            'caja_contexto': caja_contexto,
+            'alcance': alcance,
+            'tipo_mov': tipo_mov,
+            'q': q,
+            'fecha_desde': raw_desde,
+            'fecha_hasta': raw_hasta,
+            'caja_filtro_numero': caja_filtro.numero if caja_filtro else '',
+            'cajas_opciones': cajas_opciones,
+        },
+    )
+
+
 def _etiqueta_id_concepto_caja_visual(cid):
     """Presentación: el id de catálogo «RE» se muestra como RECIBO (el id real en BD no cambia)."""
     s = (cid or '').strip()

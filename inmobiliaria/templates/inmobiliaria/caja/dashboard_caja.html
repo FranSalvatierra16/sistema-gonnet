@@ -61,6 +61,17 @@
             </div>
         </div>
 
+        <!-- Cartera de cheques -->
+        <div class="col-md-4 mb-4">
+            <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:cartera_cheques_caja' %}'">
+                <div class="card-icon">
+                    <i class="fas fa-money-check-alt"></i>
+                </div>
+                <h3>Cartera de cheques</h3>
+                <p>Detalle: nº, banco, vencimiento y montos</p>
+            </div>
+        </div>
+
         <!-- Cuentas Bancarias -->
         <div class="col-md-4 mb-4">
             <div class="menu-card" onclick="window.location.href='{% url 'inmobiliaria:gestionar_cuentas_bancarias' %}'">

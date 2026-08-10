@@ -459,7 +459,10 @@
                         <div class="col-md-3">
                             <div class="info-box">
                                 <h6>Cheques</h6>
-                                <p>${{ totales.saldo_actual.cheque|format_price }}</p>
+                                <p class="mb-1">${{ totales.saldo_actual.cheque|format_price }}</p>
+                                <a href="{% url 'inmobiliaria:cartera_cheques_caja' %}?alcance=caja&caja={{ caja.numero }}" class="small">
+                                    Ver cartera detallada
+                                </a>
                             </div>
                         </div>
                         <div class="col-md-3">

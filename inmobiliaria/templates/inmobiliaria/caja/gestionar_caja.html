@@ -49,6 +49,9 @@
             <a href="{% url 'inmobiliaria:nuevo_movimiento' %}" class="btn btn-primary">
                 <i class="fas fa-plus"></i> Nuevo Movimiento
             </a>
+            <a href="{% url 'inmobiliaria:cartera_cheques_caja' %}" class="btn btn-outline-primary">
+                <i class="fas fa-money-check-alt"></i> Cartera de cheques
+            </a>
             <a href="{% url 'inmobiliaria:cerrar_caja' caja_actual.numero %}" class="btn btn-danger">
                 <i class="fas fa-lock"></i> Cerrar Caja
             </a>

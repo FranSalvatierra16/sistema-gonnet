@@ -1,0 +1,183 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block title %}Cartera de cheques{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+        <div>
+            <h1 class="h3 mb-1"><i class="fas fa-money-check-alt text-primary"></i> Cartera de cheques</h1>
+            <p class="text-muted mb-0">
+                Detalle de cada cheque (número, banco, vencimiento) además del total que figura en caja.
+                {% if caja_contexto %}
+                · Caja #{{ caja_contexto.numero }}
+                {% if caja_contexto.estado == 'abierta' %}<span class="badge bg-success">Abierta</span>{% else %}<span class="badge bg-secondary">Cerrada</span>{% endif %}
+                {% endif %}
+            </p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="{% url 'inmobiliaria:dashboard_caja' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Volver a caja
+            </a>
+            {% if caja_abierta %}
+            <a href="{% url 'inmobiliaria:detalle_caja' caja_abierta.numero %}" class="btn btn-outline-primary">
+                Ver caja abierta #{{ caja_abierta.numero }}
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card border-success h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Ingresos en cheque</div>
+                    <div class="fs-4 fw-semibold text-success">${{ total_ingreso|format_price }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-danger h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Egresos en cheque</div>
+                    <div class="fs-4 fw-semibold text-danger">${{ total_egreso|format_price }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-primary h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Neto en cartera (ing − egr)</div>
+                    <div class="fs-4 fw-semibold {% if neto >= 0 %}text-primary{% else %}text-danger{% endif %}">${{ neto|format_price }}</div>
+                    <div class="small text-muted">{{ cantidad }} cheque{{ cantidad|pluralize:"s" }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light"><strong><i class="fas fa-filter"></i> Filtros</strong></div>
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-2">
+                    <label class="form-label" for="alcance">Alcance</label>
+                    <select class="form-select" id="alcance" name="alcance">
+                        <option value="abierta" {% if alcance == 'abierta' %}selected{% endif %}>Caja abierta</option>
+                        <option value="todas" {% if alcance == 'todas' %}selected{% endif %}>Todas las cajas</option>
+                        <option value="caja" {% if alcance == 'caja' %}selected{% endif %}>Una caja…</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label" for="caja">Caja nº</label>
+                    <select class="form-select" id="caja" name="caja">
+                        <option value="">—</option>
+                        {% for c in cajas_opciones %}
+                        <option value="{{ c.numero }}" {% if caja_filtro_numero == c.numero %}selected{% endif %}>
+                            #{{ c.numero }} {% if c.estado == 'abierta' %}(abierta){% else %}{{ c.fecha_apertura|date:"d/m/Y" }}{% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label" for="tipo_mov">Tipo</label>
+                    <select class="form-select" id="tipo_mov" name="tipo_mov">
+                        <option value="" {% if not tipo_mov %}selected{% endif %}>Ingresos y egresos</option>
+                        <option value="IN" {% if tipo_mov == 'IN' %}selected{% endif %}>Solo ingresos</option>
+                        <option value="EG" {% if tipo_mov == 'EG' %}selected{% endif %}>Solo egresos</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label" for="fecha_desde">Desde</label>
+                    <input type="date" class="form-control" id="fecha_desde" name="fecha_desde" value="{{ fecha_desde }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label" for="fecha_hasta">Hasta</label>
+                    <input type="date" class="form-control" id="fecha_hasta" name="fecha_hasta" value="{{ fecha_hasta }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label" for="q">Buscar</label>
+                    <input type="text" class="form-control" id="q" name="q" value="{{ q }}" placeholder="Nº, banco, concepto">
+                </div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i> Filtrar</button>
+                    <a href="{% url 'inmobiliaria:cartera_cheques_caja' %}" class="btn btn-outline-secondary">Limpiar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <strong>Detalle de cheques</strong>
+            <span class="text-muted small">Ordenados por fecha del movimiento</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-sm mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Fecha mov.</th>
+                            <th>Caja</th>
+                            <th>Tipo</th>
+                            <th>Nº cheque</th>
+                            <th>Banco</th>
+                            <th>Vencimiento</th>
+                            <th class="text-end">Monto</th>
+                            <th>Concepto</th>
+                            <th>Propiedad</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for f in filas %}
+                        <tr class="{% if not f.es_ingreso %}table-danger{% endif %}">
+                            <td class="text-nowrap small">{{ f.fecha|date:"d/m/Y H:i" }}</td>
+                            <td>{% if f.caja_numero %}#{{ f.caja_numero }}{% else %}—{% endif %}</td>
+                            <td>
+                                {% if f.es_ingreso %}
+                                <span class="badge bg-success">Ingreso</span>
+                                {% else %}
+                                <span class="badge bg-danger">Egreso</span>
+                                {% endif %}
+                            </td>
+                            <td class="fw-semibold">{{ f.numero }}</td>
+                            <td>{{ f.banco }}</td>
+                            <td class="text-nowrap">
+                                {% if f.fecha_vencimiento %}
+                                {{ f.fecha_vencimiento|date:"d/m/Y" }}
+                                {% else %}
+                                <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end text-nowrap">
+                                <strong class="{% if f.es_ingreso %}text-success{% else %}text-danger{% endif %}">
+                                    {% if f.es_ingreso %}+{% else %}−{% endif %}${{ f.monto|format_price }}
+                                </strong>
+                                {% if f.sin_detalle %}
+                                <br><small class="text-muted" title="Sin filas de detalle; datos del movimiento">sin detalle</small>
+                                {% endif %}
+                            </td>
+                            <td><small>{{ f.concepto|truncatechars:60 }}</small></td>
+                            <td><small>{{ f.propiedad|truncatechars:48 }}</small></td>
+                            <td class="text-nowrap">
+                                <a href="{{ f.url_recibo }}" class="btn btn-sm btn-outline-success" target="_blank" rel="noopener" title="Recibo">
+                                    <i class="fas fa-receipt"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="10" class="text-center text-muted py-4">
+                                No hay cheques con los filtros actuales.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
