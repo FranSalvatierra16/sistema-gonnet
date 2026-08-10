@@ -263,6 +263,11 @@ class ContratoAlquiler(models.Model):
         if self.estado in ('reservado', 'activo') and self.esta_vencido(hoy):
             self.estado = 'finalizado'
             self.save(update_fields=['estado'])
+            # Contrato largo: liberar ficha 24 meses si no queda otro vigente.
+            if self.duracion_meses != 9 and self.propiedad_id:
+                from inmobiliaria.models.propiedad import liberar_info_meses_si_sin_contrato_vigente
+
+                liberar_info_meses_si_sin_contrato_vigente(self.propiedad)
             return True
         return False
 
@@ -276,7 +281,21 @@ class ContratoAlquiler(models.Model):
             qs = qs.filter(inquilino=inquilino)
         if sucursal is not None:
             qs = qs.filter(sucursal=sucursal)
-        return qs.update(estado='finalizado')
+        propiedad_ids = list(
+            qs.exclude(duracion_meses=9)
+            .values_list('propiedad_id', flat=True)
+            .distinct()
+        )
+        updated = qs.update(estado='finalizado')
+        if propiedad_ids:
+            from inmobiliaria.models.propiedad import (
+                Propiedad,
+                liberar_info_meses_si_sin_contrato_vigente,
+            )
+
+            for prop in Propiedad.objects.filter(id__in=propiedad_ids):
+                liberar_info_meses_si_sin_contrato_vigente(prop)
+        return updated
 
     @classmethod
     def queryset_vigentes(cls):

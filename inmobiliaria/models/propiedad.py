@@ -1655,6 +1655,49 @@ def largo_plazo_bloquea_invierno(propiedad):
     return False
 
 
+def liberar_info_meses_si_sin_contrato_vigente(propiedad, *, excluir_contrato_id=None):
+    """
+    Si no queda contrato 24 meses activo/reservado, deja la ficha lista para ofrecer
+    (estado=disponible, fechas limpias). No toca invierno.
+    """
+    from inmobiliaria.models.contrato import ContratoAlquiler
+
+    qs = ContratoAlquiler.objects.filter(
+        propiedad=propiedad,
+        estado__in=('activo', 'reservado'),
+    ).exclude(duracion_meses=9)
+    if excluir_contrato_id:
+        qs = qs.exclude(pk=excluir_contrato_id)
+    if qs.exists():
+        return False
+
+    try:
+        info_meses = propiedad.info_meses
+    except AlquilerMeses.DoesNotExist:
+        return False
+
+    update_fields = []
+    if not info_meses.disponible:
+        info_meses.disponible = True
+        update_fields.append('disponible')
+    if info_meses.estado != 'disponible':
+        info_meses.estado = 'disponible'
+        update_fields.append('estado')
+    if info_meses.fecha_inicio is not None:
+        info_meses.fecha_inicio = None
+        update_fields.append('fecha_inicio')
+    if info_meses.fecha_fin is not None:
+        info_meses.fecha_fin = None
+        update_fields.append('fecha_fin')
+    if getattr(info_meses, 'ofrecible_desde', None) is not None:
+        info_meses.ofrecible_desde = None
+        update_fields.append('ofrecible_desde')
+    if not update_fields:
+        return False
+    info_meses.save(update_fields=update_fields + ['fecha_actualizacion'])
+    return True
+
+
 def desactivar_24_meses_si_invierno_ocupado(propiedad):
     """Desactiva la modalidad 24 meses mientras invierno esté reservado u ocupado."""
     if not invierno_bloquea_alquiler_largo(propiedad):

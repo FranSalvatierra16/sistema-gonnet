@@ -1610,6 +1610,7 @@ def _guardar_caratula_contrato(request, contrato):
         messages.error(request, 'El contrato no tiene duración en meses válida.')
         return False
 
+    estado_anterior = contrato.estado
     fecha_inicio_anterior = contrato.fecha_inicio
     contrato.fecha_inicio = fecha_inicio
     contrato.fecha_fin = fecha_fin
@@ -1619,6 +1620,24 @@ def _guardar_caratula_contrato(request, contrato):
     contrato.save(update_fields=[
         'fecha_inicio', 'fecha_fin', 'deposito_garantia', 'precio_mensual', 'estado',
     ])
+
+    # Finalizado: el contrato ya no ocupa la ficha; queda disponible para volver a ofrecer.
+    if (
+        estado == 'finalizado'
+        and estado_anterior != 'finalizado'
+        and meses != 9
+        and contrato.propiedad_id
+    ):
+        from inmobiliaria.models.propiedad import liberar_info_meses_si_sin_contrato_vigente
+
+        if liberar_info_meses_si_sin_contrato_vigente(
+            contrato.propiedad, excluir_contrato_id=contrato.id
+        ):
+            messages.info(
+                request,
+                'El contrato quedó finalizado: la propiedad se liberó en 24 meses '
+                'y ya se puede volver a ofrecer.',
+            )
 
     if fecha_inicio != fecha_inicio_anterior:
         from inmobiliaria.views import _alinear_vencimientos_cuotas_contrato

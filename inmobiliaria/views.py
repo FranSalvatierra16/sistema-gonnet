@@ -3674,6 +3674,30 @@ def propiedad_detalle(request, propiedad_id):
     except:
         info_meses = None
 
+    # Contratos vencidos → finalizado y liberar ficha si no queda otro vigente.
+    contratos_24_abiertos = list(
+        ContratoAlquiler.objects.filter(
+            propiedad=propiedad,
+            estado__in=['activo', 'reservado'],
+        )
+        .exclude(duracion_meses=9)
+        .select_related('inquilino')
+        .order_by('-fecha_inicio', '-id')
+    )
+    liberada_por_fin = False
+    for c in contratos_24_abiertos:
+        if c.finalizar_si_vencido():
+            liberada_por_fin = True
+    if liberada_por_fin and info_meses:
+        try:
+            del propiedad.__dict__['info_meses']
+        except KeyError:
+            pass
+        try:
+            info_meses = propiedad.info_meses
+        except Exception:
+            info_meses = None
+
     contrato_24_actual = (
         ContratoAlquiler.objects.filter(
             propiedad=propiedad,
@@ -3684,6 +3708,32 @@ def propiedad_detalle(request, propiedad_id):
         .order_by('-fecha_inicio', '-id')
         .first()
     )
+
+    # Ficha ocupada/reservada sin contrato vigente (ej. finalizado a mano y no liberó).
+    meses_sin_contrato_vigente = bool(
+        info_meses
+        and info_meses.disponible
+        and info_meses.estado in ('ocupado', 'reservado')
+        and not contrato_24_actual
+    )
+    if meses_sin_contrato_vigente:
+        from inmobiliaria.models.propiedad import liberar_info_meses_si_sin_contrato_vigente
+
+        if liberar_info_meses_si_sin_contrato_vigente(propiedad):
+            try:
+                del propiedad.__dict__['info_meses']
+            except KeyError:
+                pass
+            try:
+                info_meses = propiedad.info_meses
+            except Exception:
+                pass
+            meses_sin_contrato_vigente = False
+            messages.info(
+                request,
+                'El contrato anterior está finalizado: la propiedad quedó disponible '
+                'para volver a ofrecer en 24 meses.',
+            )
 
     # ✅ Obtener información de invierno si existe
     try:
@@ -3703,6 +3753,7 @@ def propiedad_detalle(request, propiedad_id):
         'info_venta': info_venta,  # ✅ Agregamos info_venta al contexto
         'info_meses': info_meses,  # ✅ Agregamos info_meses al contexto
         'contrato_24_actual': contrato_24_actual,
+        'meses_sin_contrato_vigente': meses_sin_contrato_vigente,
         'info_invierno': info_invierno,  # ✅ Agregamos info_invierno al contexto
         'inquilinos': get_inquilinos_queryset_unificado(request),
         'vendedores': Vendedor.objects.filter(sucursal=request.user.sucursal).order_by('apellido', 'nombre'),
@@ -22908,8 +22959,31 @@ def reactivar_propiedad_24_meses(request, propiedad_id):
         propiedad = get_object_or_404(Propiedad, id=propiedad_id)
         
         if hasattr(propiedad, 'info_meses'):
+            from inmobiliaria.models.propiedad import liberar_info_meses_si_sin_contrato_vigente
+
+            # Si todavía hay contrato activo, no forzar disponible encima.
+            contrato_vigente = ContratoAlquiler.objects.filter(
+                propiedad=propiedad,
+                estado__in=['activo', 'reservado'],
+            ).exclude(duracion_meses=9).exists()
+            if contrato_vigente:
+                return JsonResponse(
+                    {
+                        'error': (
+                            'Hay un contrato vigente. Marcálo como Finalizado en la carátula '
+                            'o usá «Ofrecer al terminar el contrato».'
+                        )
+                    },
+                    status=400,
+                )
+
+            liberar_info_meses_si_sin_contrato_vigente(propiedad)
             propiedad.info_meses.disponible = True
             propiedad.info_meses.estado = 'disponible'
+            propiedad.info_meses.fecha_inicio = None
+            propiedad.info_meses.fecha_fin = None
+            if hasattr(propiedad.info_meses, 'ofrecible_desde'):
+                propiedad.info_meses.ofrecible_desde = None
             propiedad.info_meses.save()
             
             messages.success(request, f'La propiedad {propiedad.direccion} ha sido reactivada para alquileres de 24 meses')
