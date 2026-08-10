@@ -16325,14 +16325,11 @@ def _propiedad_display_reporte_caja(movimiento):
     return l2 if l2 else '—'
 
 
-@login_required
 def _fecha_gasto_propietario_reporte(gasto):
     """Fecha a usar en reportes: fecha_gasto (00:00) o alta del movimiento de liquidación."""
     fg = getattr(gasto, 'fecha_gasto', None)
     if fg:
         naive = datetime.combine(fg, datetime.min.time())
-        if timezone.is_aware(naive):
-            return naive
         try:
             return timezone.make_aware(naive, timezone.get_current_timezone())
         except Exception:
@@ -16434,7 +16431,16 @@ def _filas_gastos_liquidacion_para_reporte_caja(
             continue
 
         cid = (g.concepto_caja_id or '').strip()
-        nom_cat = (lookup.get(cid) or '').strip() if cid else ''
+        nom_cat = ''
+        if cid:
+            nom_cat = (lookup.get(cid) or '').strip()
+            if not nom_cat:
+                nom_cat = (lookup.get(str(cid)) or '').strip()
+            if not nom_cat and str(cid).isdigit():
+                try:
+                    nom_cat = (lookup.get(int(cid)) or '').strip()
+                except (TypeError, ValueError):
+                    nom_cat = ''
         desc = (g.descripcion or '').strip() or nom_cat or 'Concepto liquidación'
         if cid and nom_cat:
             concepto_txt = f'{cid} — {nom_cat}'
@@ -16491,6 +16497,7 @@ def _filas_gastos_liquidacion_para_reporte_caja(
     return filas
 
 
+@login_required
 def reportes_caja(request):
     """
     Resumen de ingresos/egresos por rango de fechas, con filtros por medio de pago,
@@ -16680,24 +16687,36 @@ def reportes_caja(request):
 
     # Conceptos cargados solo en liquidación (sin movimiento de caja), p. ej. comisión gestión cobranzas.
     if filtrando_concepto:
-        extras_liq = _filas_gastos_liquidacion_para_reporte_caja(
-            sucursal=sucursal,
-            fecha_desde=fecha_desde,
-            fecha_hasta=fecha_hasta,
-            criterio=criterio_concepto,
-            conceptos_catalogo=conceptos_catalogo,
-            tipo_mov=tipo_mov,
-            medio=medio,
-            lookup_nombre_concepto=lookup_nombre_concepto,
-        )
+        try:
+            extras_liq = _filas_gastos_liquidacion_para_reporte_caja(
+                sucursal=sucursal,
+                fecha_desde=fecha_desde,
+                fecha_hasta=fecha_hasta,
+                criterio=criterio_concepto,
+                conceptos_catalogo=conceptos_catalogo,
+                tipo_mov=tipo_mov,
+                medio=medio,
+                lookup_nombre_concepto=lookup_nombre_concepto,
+            )
+        except Exception:
+            logger.exception('reportes_caja: error al sumar conceptos de liquidación')
+            extras_liq = []
         if extras_liq:
             movimientos_lista.extend(extras_liq)
+
+            def _clave_orden_reporte(m):
+                f = getattr(m, 'fecha', None)
+                if f is None:
+                    return (0, '')
+                try:
+                    if timezone.is_aware(f):
+                        f = timezone.localtime(f)
+                    return (1, f.isoformat())
+                except Exception:
+                    return (1, str(f))
+
             movimientos_lista.sort(
-                key=lambda m: (
-                    getattr(m, 'fecha', None) is not None,
-                    getattr(m, 'fecha', None),
-                    getattr(m, 'id', None) or 0,
-                ),
+                key=lambda m: (_clave_orden_reporte(m), getattr(m, 'id', None) or 0),
                 reverse=True,
             )
             if len(movimientos_lista) > 2000:
