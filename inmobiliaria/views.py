@@ -10821,23 +10821,57 @@ def editar_info_meses(request, propiedad_id):
                 except (ValueError, InvalidOperation):
                     info_meses.precio_mensual = None
                 info_meses.estado = request.POST.get('estado')
-                info_meses.fecha_inicio = request.POST.get('fecha_inicio')
-                info_meses.fecha_fin = request.POST.get('fecha_fin')
                 _pe = (request.POST.get('precio_expensas') or '').strip()
                 try:
                     info_meses.precio_expensas = Decimal(_pe.replace(',', '.')) if _pe else None
                 except (ValueError, InvalidOperation):
                     info_meses.precio_expensas = None
                 info_meses.observaciones = request.POST.get('observaciones', '')
-                
-                # Si el estado es 'disponible', limpiamos las fechas
+
+                # Ofrecible a futuro (sin liberar el contrato actual).
+                ofrecible_raw = (request.POST.get('ofrecible_desde') or '').strip()
+                if ofrecible_raw:
+                    try:
+                        info_meses.ofrecible_desde = datetime.strptime(
+                            ofrecible_raw, '%Y-%m-%d'
+                        ).date()
+                    except ValueError:
+                        messages.warning(request, 'Fecha «ofrecible desde» inválida; no se actualizó.')
+                elif request.POST.get('limpiar_ofrecible_desde'):
+                    info_meses.ofrecible_desde = None
+
+                # Si el estado es 'disponible', limpiamos las fechas del contrato actual
                 if info_meses.estado == 'disponible':
                     info_meses.fecha_inicio = None
                     info_meses.fecha_fin = None
-                # Solo establecemos fechas si el estado no es 'disponible'
+                    info_meses.ofrecible_desde = None
                 elif info_meses.estado in ['reservado', 'ocupado']:
-                    info_meses.fecha_inicio = request.POST.get('fecha_inicio')
-                    info_meses.fecha_fin = request.POST.get('fecha_fin')
+                    fi = (request.POST.get('fecha_inicio') or '').strip()
+                    ff = (request.POST.get('fecha_fin') or '').strip()
+                    try:
+                        info_meses.fecha_inicio = (
+                            datetime.strptime(fi, '%Y-%m-%d').date() if fi else None
+                        )
+                    except ValueError:
+                        info_meses.fecha_inicio = None
+                        messages.warning(request, 'Fecha de inicio inválida.')
+                    try:
+                        info_meses.fecha_fin = (
+                            datetime.strptime(ff, '%Y-%m-%d').date() if ff else None
+                        )
+                    except ValueError:
+                        info_meses.fecha_fin = None
+                        messages.warning(request, 'Fecha de fin inválida.')
+                    if (
+                        info_meses.ofrecible_desde
+                        and info_meses.fecha_fin
+                        and info_meses.ofrecible_desde < info_meses.fecha_fin
+                    ):
+                        messages.warning(
+                            request,
+                            '«Ofrecible desde» es anterior al fin del contrato actual. '
+                            'Revisá que sea la fecha en que querés empezar a ofrecer el próximo alquiler.',
+                        )
             
             info_meses.save()
             messages.success(request, 'Información de alquiler 24 meses actualizada correctamente.')
@@ -10846,6 +10880,82 @@ def editar_info_meses(request, propiedad_id):
         
         return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
     
+    return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
+
+
+@login_required
+@require_POST
+def ofrecer_propiedad_24_meses_post_contrato(request, propiedad_id):
+    """
+    Marca la propiedad ocupada/reservada como ofrecible desde el fin del contrato actual
+    (o una fecha indicada), sin cambiar el estado Ocupado.
+    """
+    propiedad = get_object_or_404(Propiedad, id=propiedad_id)
+    info_meses = AlquilerMeses.objects.filter(propiedad=propiedad).first()
+    if not info_meses or not info_meses.disponible:
+        messages.error(request, 'La propiedad no está activada para 24 meses.')
+        return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
+
+    if request.POST.get('limpiar_ofrecible_desde'):
+        info_meses.ofrecible_desde = None
+        info_meses.save(update_fields=['ofrecible_desde', 'fecha_actualizacion'])
+        messages.success(request, 'Se quitó la oferta a futuro. La propiedad ya no aparece en el listado de oferta.')
+        return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
+
+    if info_meses.estado not in ('ocupado', 'reservado'):
+        messages.info(request, 'La propiedad ya está disponible; no hace falta marcar oferta a futuro.')
+        return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
+
+    from inmobiliaria.models import ContratoAlquiler
+
+    contrato = (
+        ContratoAlquiler.objects.filter(
+            propiedad=propiedad,
+            estado__in=['activo', 'reservado'],
+        )
+        .exclude(duracion_meses=9)
+        .order_by('-fecha_creacion', '-id')
+        .first()
+    )
+
+    fecha_raw = (request.POST.get('ofrecible_desde') or '').strip()
+    fecha = None
+    if fecha_raw:
+        try:
+            fecha = datetime.strptime(fecha_raw, '%Y-%m-%d').date()
+        except ValueError:
+            messages.error(request, 'Fecha inválida.')
+            return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
+    elif contrato and contrato.fecha_fin:
+        fecha = contrato.fecha_fin
+    elif info_meses.fecha_fin:
+        fecha = info_meses.fecha_fin
+    else:
+        messages.error(
+            request,
+            'No hay fecha de fin de contrato. Indicá manualmente desde cuándo querés ofrecerlo.',
+        )
+        return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
+
+    # Sincronizar fechas del contrato en la ficha si estaban vacías.
+    if contrato:
+        updates_sync = []
+        if not info_meses.fecha_inicio and contrato.fecha_inicio:
+            info_meses.fecha_inicio = contrato.fecha_inicio
+            updates_sync.append('fecha_inicio')
+        if not info_meses.fecha_fin and contrato.fecha_fin:
+            info_meses.fecha_fin = contrato.fecha_fin
+            updates_sync.append('fecha_fin')
+        if updates_sync:
+            info_meses.save(update_fields=updates_sync + ['fecha_actualizacion'])
+
+    info_meses.ofrecible_desde = fecha
+    info_meses.save(update_fields=['ofrecible_desde', 'fecha_actualizacion'])
+    messages.success(
+        request,
+        f'La propiedad ya se ofrece para alquileres desde el {fecha.strftime("%d/%m/%Y")} '
+        f'(sigue figurando como {info_meses.get_estado_display()} hasta que termine el contrato actual).',
+    )
     return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
 
 @login_required
@@ -11373,7 +11483,11 @@ def alquileres_24_meses(request):
     if estado:
         propiedades_meses = propiedades_meses.filter(info_meses__estado=estado)
     else:
-        propiedades_meses = propiedades_meses.filter(info_meses__estado='disponible')
+        # Oferta: libres + ocupados/reservados ya publicados a futuro
+        propiedades_meses = propiedades_meses.filter(
+            Q(info_meses__estado='disponible')
+            | Q(info_meses__ofrecible_desde__isnull=False)
+        )
 
     propiedades_meses = propiedades_meses.select_related(
         'info_meses',
@@ -11431,6 +11545,9 @@ def alquileres_24_meses(request):
 
     total_disponibles_meses = base_para_totales.filter(info_meses__estado='disponible').count()
     total_reservados_meses = base_para_totales.filter(info_meses__estado='reservado').count()
+    total_ofrecibles_futuro = base_para_totales.filter(
+        info_meses__ofrecible_desde__isnull=False,
+    ).exclude(info_meses__estado='disponible').count()
 
     base_ambientes = Propiedad.objects.filter(habilitar_23_meses=True)
     if ver_todas:
@@ -11467,7 +11584,7 @@ def alquileres_24_meses(request):
     context = {
         'propiedades': propiedades_meses,
         'busqueda': busqueda,
-        'estado_filtro': estado or 'disponible',
+        'estado_filtro': estado,
         'estados': AlquilerMeses.ESTADO_CHOICES,
         'filtro_ambientes': filtro_ambientes,
         'filtro_precio_max': filtro_precio_max,
@@ -11476,6 +11593,7 @@ def alquileres_24_meses(request):
         'puede_editar_meses': puede_editar_meses,
         'ver_todas': ver_todas,
         'total_disponibles_meses': total_disponibles_meses,
+        'total_ofrecibles_futuro': total_ofrecibles_futuro,
         'total_reservados_meses': total_reservados_meses,
         'contratos_pago_pendiente': contratos_pago_pendiente,
         'contrato_pago_por_propiedad': contrato_pago_por_propiedad,

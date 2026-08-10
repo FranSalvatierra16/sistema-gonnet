@@ -175,6 +175,11 @@ urlpatterns = [
          views.editar_info_venta, 
          name='editar_info_venta'),
     path('propiedades/<str:propiedad_id>/editar-meses/', views.editar_info_meses, name='editar_info_meses'),
+    path(
+        'propiedades/<str:propiedad_id>/ofrecer-24-meses/',
+        views.ofrecer_propiedad_24_meses_post_contrato,
+        name='ofrecer_propiedad_24_meses_post_contrato',
+    ),
     path('ventas/', views.ventas, name='ventas'),
     path('alquileres-24-meses/', views.alquileres_24_meses, name='alquileres_24_meses'),
     path('alquileres-invierno/', views.alquileres_invierno, name='alquileres_invierno'),

@@ -1509,21 +1509,25 @@ class AlquilerMeses(models.Model):
         blank=True,
         verbose_name="Observaciones"
     )
-    # Fechas opcionales que se establecerán al hacer la reserva
-    fecha_inicio = models.DateField(
+    ofrecible_desde = models.DateField(
         null=True,
         blank=True,
-        verbose_name="Fecha de inicio"
-    )
-    fecha_fin = models.DateField(
-        null=True,
-        blank=True,
-        verbose_name="Fecha de fin"
+        verbose_name='Ofrecible desde',
+        help_text='Si hay contrato vigente (ocupado/reservado), fecha a partir de la cual se puede ofrecer un nuevo alquiler.',
     )
     fecha_actualizacion = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"Alquiler 24 meses - {self.propiedad}"
+
+    @property
+    def esta_en_oferta(self):
+        """True si figura en el listado de oferta 24 meses."""
+        if not self.disponible:
+            return False
+        if self.estado == 'disponible':
+            return True
+        return bool(self.ofrecible_desde)
 
     class Meta:
         verbose_name = "Alquiler 24 meses"

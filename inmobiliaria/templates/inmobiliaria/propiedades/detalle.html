@@ -602,6 +602,11 @@
                                                     <span class="badge {% if propiedad.info_meses.estado == 'disponible' %}bg-success{% elif propiedad.info_meses.estado == 'reservado' %}bg-warning{% else %}bg-danger{% endif %}">
                                                         {{ propiedad.info_meses.get_estado_display }}
                                                     </span>
+                                                    {% if propiedad.info_meses.ofrecible_desde %}
+                                                    <span class="badge bg-info text-dark ms-1">
+                                                        Ofrecible desde {{ propiedad.info_meses.ofrecible_desde|date:"d/m/Y" }}
+                                                    </span>
+                                                    {% endif %}
                                                 </div>
                                                 {% if propiedad.info_meses.precio_expensas %}
                                                     <div class="info-item mb-3">
@@ -634,10 +639,28 @@
                                                             <strong>Inquilino:</strong>
                                                             <span>{{ contrato_24_actual.inquilino.apellido }}, {{ contrato_24_actual.inquilino.nombre }}</span>
                                                         </div>
+                                                        {% if contrato_24_actual.fecha_inicio or contrato_24_actual.fecha_fin %}
+                                                        <div class="info-item mb-3">
+                                                            <i class="fas fa-calendar-alt"></i>
+                                                            <strong>Período contrato:</strong>
+                                                            <span>
+                                                                {{ contrato_24_actual.fecha_inicio|date:"d/m/Y"|default:"—" }}
+                                                                —
+                                                                {{ contrato_24_actual.fecha_fin|date:"d/m/Y"|default:"—" }}
+                                                            </span>
+                                                        </div>
+                                                        {% endif %}
                                                         <div class="mt-2">
                                                             <a href="{% url 'inmobiliaria:detalle_contrato' contrato_24_actual.id %}" class="btn btn-outline-info btn-sm" target="_blank" rel="noopener">
                                                                 <i class="fas fa-file-contract"></i> Ver contrato #{{ contrato_24_actual.id }}
                                                             </a>
+                                                        </div>
+                                                    {% endif %}
+                                                    {% if propiedad.info_meses.ofrecible_desde %}
+                                                        <div class="info-item mb-3 mt-3">
+                                                            <i class="fas fa-bullhorn"></i>
+                                                            <strong>Ofrecible desde:</strong>
+                                                            <span class="text-primary fw-semibold">{{ propiedad.info_meses.ofrecible_desde|date:"d/m/Y" }}</span>
                                                         </div>
                                                     {% endif %}
                                                 {% endif %}
@@ -657,6 +680,15 @@
                                             {% if propiedad.info_meses.estado == 'disponible' %}
                                                 <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalReservaMeses">
                                                     <i class="fas fa-calendar-plus"></i> Hacer reserva
+                                                </button>
+                                            {% elif propiedad.info_meses.estado == 'ocupado' or propiedad.info_meses.estado == 'reservado' %}
+                                                <button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#modalOfrecerPostContrato">
+                                                    <i class="fas fa-bullhorn"></i>
+                                                    {% if propiedad.info_meses.ofrecible_desde %}
+                                                    Cambiar oferta a futuro
+                                                    {% else %}
+                                                    Ofrecer al terminar el contrato
+                                                    {% endif %}
                                                 </button>
                                             {% endif %}
                                             <button type="button" class="btn btn-warning" onclick="desactivarPropiedad24Meses({{ propiedad.id }})">
@@ -750,6 +782,19 @@
                                                     <option value="reservado" {% if propiedad.info_meses.estado == 'reservado' %}selected{% endif %}>Reservado</option>
                                                     <option value="ocupado" {% if propiedad.info_meses.estado == 'ocupado' %}selected{% endif %}>Ocupado</option>
                                                 </select>
+                                            </div>
+
+                                            <div class="mb-3 border rounded p-3 bg-light">
+                                                <label for="ofrecible_desde" class="form-label">Ofrecible desde (próximo contrato)</label>
+                                                <input type="date" class="form-control" id="ofrecible_desde" name="ofrecible_desde"
+                                                       value="{{ propiedad.info_meses.ofrecible_desde|date:'Y-m-d' }}">
+                                                <div class="form-check mt-2">
+                                                    <input class="form-check-input" type="checkbox" name="limpiar_ofrecible_desde" id="limpiar_ofrecible_desde" value="1">
+                                                    <label class="form-check-label" for="limpiar_ofrecible_desde">Quitar oferta a futuro</label>
+                                                </div>
+                                                <small class="text-muted">
+                                                    Si está ocupado/reservado, podés dejarlo así y publicarlo igual para fechas posteriores (aparece en el listado 24 meses).
+                                                </small>
                                             </div>
                                             
                                             <div class="mb-3">
@@ -847,6 +892,52 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Modal: ofrecer post-contrato (24 meses) -->
+                    {% if propiedad.info_meses and propiedad.info_meses.disponible %}
+                    <div class="modal fade" id="modalOfrecerPostContrato" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <form method="post" action="{% url 'inmobiliaria:ofrecer_propiedad_24_meses_post_contrato' propiedad.id %}">
+                                    {% csrf_token %}
+                                    <div class="modal-header">
+                                        <h5 class="modal-title"><i class="fas fa-bullhorn me-1"></i>Ofrecer al terminar el contrato</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <p class="mb-3">
+                                            La propiedad sigue <strong>ocupada</strong> con el contrato actual, pero va a aparecer
+                                            en el listado de 24 meses como <strong>ofrecible desde</strong> la fecha que indiques
+                                            (por defecto, el fin del contrato vigente).
+                                        </p>
+                                        <div class="mb-3">
+                                            <label class="form-label" for="ofrecible_desde_rapido">Ofrecible desde</label>
+                                            <input type="date" class="form-control" id="ofrecible_desde_rapido" name="ofrecible_desde"
+                                                   value="{% if propiedad.info_meses.ofrecible_desde %}{{ propiedad.info_meses.ofrecible_desde|date:'Y-m-d' }}{% elif contrato_24_actual and contrato_24_actual.fecha_fin %}{{ contrato_24_actual.fecha_fin|date:'Y-m-d' }}{% elif propiedad.info_meses.fecha_fin %}{{ propiedad.info_meses.fecha_fin|date:'Y-m-d' }}{% endif %}"
+                                                   required>
+                                            <small class="text-muted">Podés dejar la fecha de fin del contrato o una posterior.</small>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer justify-content-between">
+                                        {% if propiedad.info_meses.ofrecible_desde %}
+                                        <button type="submit" name="limpiar_ofrecible_desde" value="1" class="btn btn-outline-secondary"
+                                                formnovalidate
+                                                onclick="document.getElementById('ofrecible_desde_rapido').removeAttribute('required');">
+                                            Quitar oferta a futuro
+                                        </button>
+                                        {% else %}
+                                        <span></span>
+                                        {% endif %}
+                                        <div>
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                            <button type="submit" class="btn btn-info">Publicar oferta a futuro</button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
 
                     <!-- Pestaña de Invierno -->
                     <div class="tab-pane fade{% if active_tab == 'invierno' %} show active{% endif %}" id="invierno" role="tabpanel">

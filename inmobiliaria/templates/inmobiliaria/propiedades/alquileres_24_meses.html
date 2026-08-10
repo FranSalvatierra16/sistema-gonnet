@@ -36,7 +36,7 @@
                 <div class="col-md-2">
                     <label class="form-label"><i class="fas fa-filter"></i> Estado</label>
                     <select name="estado" class="form-select" onchange="this.form.submit()">
-                        <option value="">Todos</option>
+                        <option value="">En oferta (libres + a futuro)</option>
                         {% for estado_code, estado_name in estados %}
                         <option value="{{ estado_code }}" {% if estado_filtro == estado_code %}selected{% endif %}>
                             {{ estado_name }}
@@ -71,7 +71,7 @@
     </div>
 
     <div class="row mb-4">
-        <div class="col-md-6 mb-2">
+        <div class="col-md-4 mb-2">
             <div class="card shadow-sm border-radius-modern" style="border-left: 4px solid #28a745;">
                 <div class="card-body py-3 px-3">
                     <div class="d-flex justify-content-between align-items-center">
@@ -86,7 +86,22 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-6 mb-2">
+        <div class="col-md-4 mb-2">
+            <div class="card shadow-sm border-radius-modern" style="border-left: 4px solid #0dcaf0;">
+                <div class="card-body py-3 px-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-info mb-0">
+                                <i class="fas fa-bullhorn me-1"></i>A futuro
+                            </h6>
+                            <small class="text-muted">Ocupadas ya publicadas</small>
+                        </div>
+                        <h4 class="fw-bold text-info mb-0">{{ total_ofrecibles_futuro|default:0 }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-2">
             <a href="?estado=reservado{% if ver_todas %}&ver_todas=1{% endif %}{% if busqueda %}&busqueda={{ busqueda|urlencode }}{% endif %}" class="text-decoration-none">
             <div class="card shadow-sm border-radius-modern" style="border-left: 4px solid #f44336;">
                 <div class="card-body py-3 px-3">
@@ -185,13 +200,18 @@
                 </div>
 
                 <!-- Estado de la Propiedad -->
-                <div class="position-absolute top-0 end-0 m-3">
+                <div class="position-absolute top-0 end-0 m-3 text-end">
                     {% if propiedad.info_meses.estado == 'disponible' %}
                         <span class="badge bg-success">Disponible</span>
                     {% elif propiedad.info_meses.estado == 'reservado' %}
                         <span class="badge bg-warning text-dark">Reservado</span>
                     {% else %}
                         <span class="badge bg-danger">Ocupado</span>
+                    {% endif %}
+                    {% if propiedad.info_meses.ofrecible_desde and propiedad.info_meses.estado != 'disponible' %}
+                        <span class="badge bg-info text-dark d-block mt-1">
+                            Ofrecible desde {{ propiedad.info_meses.ofrecible_desde|date:"d/m/Y" }}
+                        </span>
                     {% endif %}
                 </div>
 
@@ -216,6 +236,12 @@
                         <div class="d-flex justify-content-between align-items-center expensas-row" style="display:none;">
                             <span class="text-muted">Expensas</span>
                             <span class="text-primary precio-expensas-display"></span>
+                        </div>
+                        {% endif %}
+                        {% if propiedad.info_meses.ofrecible_desde and propiedad.info_meses.estado != 'disponible' %}
+                        <div class="d-flex justify-content-between align-items-center mt-2">
+                            <span class="text-muted"><i class="fas fa-bullhorn"></i> Ofrecible desde</span>
+                            <span class="text-info fw-semibold">{{ propiedad.info_meses.ofrecible_desde|date:"d/m/Y" }}</span>
                         </div>
                         {% endif %}
                     </div>
