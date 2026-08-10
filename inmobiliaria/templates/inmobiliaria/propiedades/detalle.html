@@ -617,45 +617,56 @@
                                                 {% endif %}
                                             </div>
                                             <div class="col-md-6">
-                                                {% if propiedad.info_meses.estado != 'disponible' %}
+                                                {% if propiedad.info_meses.estado != 'disponible' or contratos_24_mostrar %}
+                                                    {% if propiedad.info_meses.estado != 'disponible' %}
                                                     <div class="info-item mb-3">
                                                         <i class="fas fa-calendar-alt"></i>
-                                                        <strong>Fecha inicio:</strong>
+                                                        <strong>Fecha inicio (ficha):</strong>
                                                         <span>{{ propiedad.info_meses.fecha_inicio|date:"d/m/Y" }}</span>
                                                     </div>
                                                     <div class="info-item mb-3">
                                                         <i class="fas fa-calendar-check"></i>
-                                                        <strong>Fecha fin:</strong>
+                                                        <strong>Fecha fin (ficha):</strong>
                                                         <span>{{ propiedad.info_meses.fecha_fin|date:"d/m/Y" }}</span>
                                                     </div>
-                                                    {% if contrato_24_actual %}
-                                                        <div class="info-item mb-3">
-                                                            <i class="fas fa-file-contract"></i>
-                                                            <strong>Contrato:</strong>
-                                                            <span>#{{ contrato_24_actual.id }}</span>
+                                                    {% endif %}
+                                                    {% if contratos_24_mostrar %}
+                                                        <div class="mb-2">
+                                                            <strong><i class="fas fa-file-contract"></i> Contratos ({{ contratos_24_mostrar|length }})</strong>
                                                         </div>
-                                                        <div class="info-item mb-3">
-                                                            <i class="fas fa-user"></i>
-                                                            <strong>Inquilino:</strong>
-                                                            <span>{{ contrato_24_actual.inquilino.apellido }}, {{ contrato_24_actual.inquilino.nombre }}</span>
-                                                        </div>
-                                                        {% if contrato_24_actual.fecha_inicio or contrato_24_actual.fecha_fin %}
-                                                        <div class="info-item mb-3">
-                                                            <i class="fas fa-calendar-alt"></i>
-                                                            <strong>Período contrato:</strong>
-                                                            <span>
-                                                                {{ contrato_24_actual.fecha_inicio|date:"d/m/Y"|default:"—" }}
+                                                        {% for c24 in contratos_24_mostrar %}
+                                                        <div class="border rounded p-2 mb-2 {% if contrato_24_actual and c24.id == contrato_24_actual.id %}border-primary{% elif c24.estado == 'finalizado' %}border-dark{% else %}border-secondary{% endif %}">
+                                                            <div class="d-flex flex-wrap gap-1 align-items-center mb-1">
+                                                                <span class="badge {% if c24.estado == 'activo' %}bg-success{% elif c24.estado == 'reservado' %}bg-warning text-dark{% elif c24.estado == 'finalizado' %}bg-dark{% else %}bg-secondary{% endif %}">
+                                                                    {{ c24.get_estado_display }}
+                                                                </span>
+                                                                {% if c24.estado == 'finalizado' %}
+                                                                <span class="badge bg-secondary">Anterior</span>
+                                                                {% elif c24.fecha_inicio and today and c24.fecha_inicio > today %}
+                                                                <span class="badge bg-info text-dark">A futuro</span>
+                                                                {% elif contrato_24_actual and c24.id == contrato_24_actual.id %}
+                                                                <span class="badge bg-primary">En curso / actual</span>
+                                                                {% endif %}
+                                                                <strong class="ms-1">#{{ c24.id }}</strong>
+                                                            </div>
+                                                            {% if c24.inquilino %}
+                                                            <div class="small mb-1">
+                                                                <i class="fas fa-user"></i>
+                                                                {{ c24.inquilino.apellido }}, {{ c24.inquilino.nombre }}
+                                                            </div>
+                                                            {% endif %}
+                                                            <div class="small mb-1">
+                                                                <i class="fas fa-calendar-alt"></i>
+                                                                {{ c24.fecha_inicio|date:"d/m/Y"|default:"—" }}
                                                                 —
-                                                                {{ contrato_24_actual.fecha_fin|date:"d/m/Y"|default:"—" }}
-                                                            </span>
-                                                        </div>
-                                                        {% endif %}
-                                                        <div class="mt-2">
-                                                            <a href="{% url 'inmobiliaria:detalle_contrato' contrato_24_actual.id %}" class="btn btn-outline-info btn-sm" target="_blank" rel="noopener">
-                                                                <i class="fas fa-file-contract"></i> Ver contrato #{{ contrato_24_actual.id }}
+                                                                {{ c24.fecha_fin|date:"d/m/Y"|default:"—" }}
+                                                            </div>
+                                                            <a href="{% url 'inmobiliaria:detalle_contrato' c24.id %}" class="btn btn-outline-info btn-sm" target="_blank" rel="noopener">
+                                                                <i class="fas fa-file-contract"></i> Ver contrato #{{ c24.id }}
                                                             </a>
                                                         </div>
-                                                    {% else %}
+                                                        {% endfor %}
+                                                    {% elif propiedad.info_meses.estado != 'disponible' %}
                                                         <div class="alert alert-warning py-2 mb-2">
                                                             <i class="fas fa-info-circle"></i>
                                                             No hay contrato vigente (el anterior está finalizado o rescindido).
@@ -683,11 +694,11 @@
                                             <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalMeses">
                                                 <i class="fas fa-edit"></i> Editar información
                                             </button>
-                                            {% if propiedad.info_meses.estado == 'disponible' %}
+                                            {% if propiedad.info_meses.estado == 'disponible' and not contratos_24_vigentes %}
                                                 <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalReservaMeses">
                                                     <i class="fas fa-calendar-plus"></i> Hacer reserva
                                                 </button>
-                                            {% elif contrato_24_actual %}
+                                            {% elif contratos_24_vigentes %}
                                                 <button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#modalOfrecerPostContrato">
                                                     <i class="fas fa-bullhorn"></i>
                                                     {% if propiedad.info_meses.ofrecible_desde %}

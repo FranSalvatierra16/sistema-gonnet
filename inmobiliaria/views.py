@@ -3682,10 +3682,10 @@ def propiedad_detalle(request, propiedad_id):
         )
         .exclude(duracion_meses=9)
         .select_related('inquilino')
-        .order_by('-fecha_inicio', '-id')
+        .order_by('fecha_inicio', 'id')
     )
     liberada_por_fin = False
-    for c in contratos_24_abiertos:
+    for c in list(contratos_24_abiertos):
         if c.finalizar_si_vencido():
             liberada_por_fin = True
     if liberada_por_fin and info_meses:
@@ -3697,24 +3697,61 @@ def propiedad_detalle(request, propiedad_id):
             info_meses = propiedad.info_meses
         except Exception:
             info_meses = None
+        contratos_24_abiertos = [
+            c for c in contratos_24_abiertos if c.estado in ('activo', 'reservado')
+        ]
 
-    contrato_24_actual = (
+    hoy = timezone.localdate()
+    contratos_24_vigentes = list(
         ContratoAlquiler.objects.filter(
             propiedad=propiedad,
             estado__in=['activo', 'reservado'],
         )
         .exclude(duracion_meses=9)
         .select_related('inquilino')
-        .order_by('-fecha_inicio', '-id')
+        .order_by('fecha_inicio', 'id')
+    )
+
+    # Incluir el último finalizado para que se vean “el que terminó” + “el de después”.
+    ultimo_24_finalizado = (
+        ContratoAlquiler.objects.filter(
+            propiedad=propiedad,
+            estado='finalizado',
+        )
+        .exclude(duracion_meses=9)
+        .select_related('inquilino')
+        .order_by('-fecha_fin', '-id')
         .first()
     )
+    contratos_24_mostrar = list(contratos_24_vigentes)
+    if ultimo_24_finalizado and all(c.id != ultimo_24_finalizado.id for c in contratos_24_mostrar):
+        contratos_24_mostrar.append(ultimo_24_finalizado)
+        contratos_24_mostrar.sort(
+            key=lambda c: (c.fecha_inicio or date.min, c.id)
+        )
+
+    # Actual = el que cubre hoy; si ninguno empezó, el más próximo a empezar.
+    contrato_24_actual = None
+    for c in contratos_24_vigentes:
+        ini = c.fecha_inicio
+        fin = c.fecha_fin
+        if ini and fin and ini <= hoy <= fin:
+            contrato_24_actual = c
+            break
+        if ini and not fin and ini <= hoy:
+            contrato_24_actual = c
+            break
+    if contrato_24_actual is None and contratos_24_vigentes:
+        # Preferir el que ya empezó; si no, el primero a futuro.
+        empezados = [c for c in contratos_24_vigentes if c.fecha_inicio and c.fecha_inicio <= hoy]
+        contrato_24_actual = empezados[-1] if empezados else contratos_24_vigentes[0]
 
     # Ficha ocupada/reservada sin contrato vigente (ej. finalizado a mano y no liberó).
     meses_sin_contrato_vigente = bool(
         info_meses
         and info_meses.disponible
         and info_meses.estado in ('ocupado', 'reservado')
-        and not contrato_24_actual
+        and not contratos_24_vigentes
     )
     if meses_sin_contrato_vigente:
         from inmobiliaria.models.propiedad import liberar_info_meses_si_sin_contrato_vigente
@@ -3753,6 +3790,9 @@ def propiedad_detalle(request, propiedad_id):
         'info_venta': info_venta,  # ✅ Agregamos info_venta al contexto
         'info_meses': info_meses,  # ✅ Agregamos info_meses al contexto
         'contrato_24_actual': contrato_24_actual,
+        'contratos_24_vigentes': contratos_24_vigentes,
+        'contratos_24_mostrar': contratos_24_mostrar,
+        'today': hoy,
         'meses_sin_contrato_vigente': meses_sin_contrato_vigente,
         'info_invierno': info_invierno,  # ✅ Agregamos info_invierno al contexto
         'inquilinos': get_inquilinos_queryset_unificado(request),
