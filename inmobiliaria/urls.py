@@ -183,6 +183,11 @@ urlpatterns = [
     path('propiedad/<str:propiedad_id>/iniciar-compra/', views.iniciar_compra, name='iniciar_compra'),
     path('caja/', views.gestionar_caja, name='gestionar_caja'),
     path('caja/abrir/', views.abrir_caja, name='abrir_caja'),
+    path(
+        'caja/<int:caja_numero>/cotizacion/',
+        views.actualizar_cotizacion_caja,
+        name='actualizar_cotizacion_caja',
+    ),
     path('caja/<int:numero>/cerrar/', views.cerrar_caja, name='cerrar_caja'),
     path('caja/movimiento/nuevo/', views.nuevo_movimiento, name='nuevo_movimiento'),
     path('caja/', views.caja, name='caja'),

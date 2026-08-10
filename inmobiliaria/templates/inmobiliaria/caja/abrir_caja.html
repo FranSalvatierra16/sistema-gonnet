@@ -1,39 +1,67 @@
 {% extends 'inmobiliaria/base.html' %}
 
+{% block title %}Abrir caja{% endblock %}
+
 {% block content %}
 <div class="container mt-4">
     <div class="row justify-content-center">
         <div class="col-md-6">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">Abrir Nueva Caja</h3>
+            <div class="card shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h3 class="card-title mb-0"><i class="fas fa-lock-open me-2"></i>Abrir nueva caja</h3>
                 </div>
                 <div class="card-body">
+                    <p class="text-muted small">
+                        Al abrir podés cargar la <strong>cotización del dólar del día</strong>.
+                        Después, en cada movimiento/gasto se completa sola y el sistema calcula el equivalente en dólares.
+                    </p>
                     <form method="post">
                         {% csrf_token %}
-                        <div class="form-group mb-3">
-                            <label for="saldo_inicial">Saldo Inicial</label>
-                            <input type="number" 
-                                   class="form-control" 
-                                   id="saldo_inicial" 
-                                   name="saldo_inicial" 
-                                   step="0.01" 
-                                   value="0.00" 
-                                   required>
+                        <div class="mb-3">
+                            <label for="saldo_inicial" class="form-label">Saldo inicial (ARS)</label>
+                            <input type="text"
+                                   class="form-control input-monto-ar"
+                                   id="saldo_inicial"
+                                   name="saldo_inicial"
+                                   inputmode="decimal"
+                                   value="0,00"
+                                   autocomplete="off">
                         </div>
-                        <div class="form-group mb-3">
-                            <label for="observaciones">Observaciones</label>
-                            <textarea class="form-control" 
-                                      id="observaciones" 
-                                      name="observaciones" 
+                        <div class="mb-3">
+                            <label for="cotizacion_dolar" class="form-label">
+                                Cotización del dólar <span class="text-muted fw-normal">(ARS por 1 USD)</span>
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="text"
+                                       class="form-control input-monto-ar"
+                                       id="cotizacion_dolar"
+                                       name="cotizacion_dolar"
+                                       inputmode="decimal"
+                                       value=""
+                                       placeholder="Ej. 1.450,00"
+                                       autocomplete="off"
+                                       required>
+                            </div>
+                            <small class="text-muted">Obligatoria al abrir. Se puede corregir después si cambia el día.</small>
+                        </div>
+                        <div class="mb-3">
+                            <label for="observaciones" class="form-label">Observaciones</label>
+                            <textarea class="form-control"
+                                      id="observaciones"
+                                      name="observaciones"
                                       rows="3"></textarea>
                         </div>
-                        <button type="submit" class="btn btn-primary">Abrir Caja</button>
-                        <a href="{% url 'inmobiliaria:lista_cajas' %}" class="btn btn-secondary">Cancelar</a>
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-lock-open me-1"></i>Abrir caja
+                            </button>
+                            <a href="{% url 'inmobiliaria:gestionar_caja' %}" class="btn btn-outline-secondary">Cancelar</a>
+                        </div>
                     </form>
                 </div>
             </div>
         </div>
     </div>
 </div>
-{% endblock %} 
+{% endblock %}

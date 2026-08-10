@@ -14,8 +14,34 @@
         <!-- Caja Abierta -->
         <div class="alert alert-success">
             <h4>Caja #{{ caja_actual.numero }} - Abierta</h4>
-            <p>Abierta el: {{ caja_actual.fecha_apertura|date:"d/m/Y H:i" }}</p>
-            <p>Saldo inicial: ${{ caja_actual.saldo_inicial|format_price }}</p>
+            <p class="mb-1">Abierta el: {{ caja_actual.fecha_apertura|date:"d/m/Y H:i" }}</p>
+            <p class="mb-1">Saldo inicial: ${{ caja_actual.saldo_inicial|format_price }}</p>
+            <p class="mb-2">
+                Cotización dólar del día:
+                {% if caja_actual.cotizacion_dolar %}
+                <strong>${{ caja_actual.cotizacion_dolar|format_price }}</strong>
+                <span class="text-muted small">(ARS por USD)</span>
+                {% else %}
+                <span class="text-warning">Sin cargar</span>
+                {% endif %}
+            </p>
+            <form method="post" action="{% url 'inmobiliaria:actualizar_cotizacion_caja' caja_actual.numero %}" class="row g-2 align-items-end" style="max-width: 28rem;">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.path }}">
+                <div class="col-8">
+                    <label class="form-label small mb-0" for="cotizacion_dolar_caja">Actualizar cotización</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text">$</span>
+                        <input type="text" class="form-control" name="cotizacion_dolar" id="cotizacion_dolar_caja"
+                               inputmode="decimal" autocomplete="off"
+                               value="{% if caja_actual.cotizacion_dolar %}{{ caja_actual.cotizacion_dolar }}{% endif %}"
+                               placeholder="Ej. 1450">
+                    </div>
+                </div>
+                <div class="col-4">
+                    <button type="submit" class="btn btn-sm btn-outline-dark w-100">Guardar</button>
+                </div>
+            </form>
         </div>
         
         <!-- Botones de Acción -->

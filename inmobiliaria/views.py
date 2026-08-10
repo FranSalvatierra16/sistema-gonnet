@@ -11761,9 +11761,34 @@ def iniciar_compra(request, propiedad_id):
 def abrir_caja(request):
     sucursal = request.user.sucursal
 
+    abiertas = list(
+        Caja.objects.filter(sucursal=sucursal, estado='abierta')
+        .order_by('fecha_apertura', 'numero')
+    )
+    if abiertas:
+        messages.error(
+            request,
+            f'Ya hay una caja abierta para esta sucursal (#{abiertas[-1].numero}).',
+        )
+        return redirect('inmobiliaria:gestionar_caja')
+
+    if request.method != 'POST':
+        return render(request, 'inmobiliaria/caja/abrir_caja.html', {})
+
     try:
+        saldo_inicial = parse_decimal_monto(request.POST.get('saldo_inicial', '0') or '0')
+        if saldo_inicial < 0:
+            messages.error(request, 'El saldo inicial no puede ser negativo.')
+            return render(request, 'inmobiliaria/caja/abrir_caja.html', {})
+
+        cotiz = parse_decimal_monto(request.POST.get('cotizacion_dolar', '0') or '0')
+        if cotiz <= 0:
+            messages.error(request, 'Indicá la cotización del dólar del día (ARS por 1 USD).')
+            return render(request, 'inmobiliaria/caja/abrir_caja.html', {})
+
+        observaciones = (request.POST.get('observaciones') or '').strip()
+
         with transaction.atomic():
-            # Evita dos aperturas concurrentes (doble click / dos usuarios).
             abiertas = list(
                 Caja.objects.select_for_update()
                 .filter(sucursal=sucursal, estado='abierta')
@@ -11776,20 +11801,51 @@ def abrir_caja(request):
                 )
                 return redirect('inmobiliaria:gestionar_caja')
 
-            # numero es PK autoincremental global: no asignar a mano (evita colisión con otras sucursales).
+            # numero es PK autoincremental global: no asignar a mano.
             caja = Caja.objects.create(
                 sucursal=sucursal,
                 estado='abierta',
                 usuario_apertura=request.user,
-                saldo_inicial=0,
+                saldo_inicial=saldo_inicial,
+                cotizacion_dolar=cotiz.quantize(Decimal('0.01')),
+                observaciones_apertura=observaciones,
             )
 
-        messages.success(request, f'Caja #{caja.numero} abierta exitosamente')
+        messages.success(
+            request,
+            f'Caja #{caja.numero} abierta. Cotización del día: ${format_monto_argentino(caja.cotizacion_dolar)}.',
+        )
         return redirect('inmobiliaria:gestionar_caja')
 
     except Exception as e:
         messages.error(request, f'Error al abrir la caja: {str(e)}')
         return redirect('inmobiliaria:gestionar_caja')
+
+
+@login_required
+@require_POST
+def actualizar_cotizacion_caja(request, caja_numero):
+    """Actualiza la cotización del dólar de la caja abierta."""
+    caja = get_object_or_404(
+        Caja,
+        numero=caja_numero,
+        sucursal=request.user.sucursal,
+        estado='abierta',
+    )
+    cotiz = parse_decimal_monto(request.POST.get('cotizacion_dolar', '0') or '0')
+    if cotiz <= 0:
+        messages.error(request, 'La cotización debe ser mayor a cero.')
+    else:
+        caja.cotizacion_dolar = cotiz.quantize(Decimal('0.01'))
+        caja.save(update_fields=['cotizacion_dolar'])
+        messages.success(
+            request,
+            f'Cotización actualizada a ${format_monto_argentino(caja.cotizacion_dolar)}.',
+        )
+    next_url = (request.POST.get('next') or '').strip()
+    if next_url.startswith('/'):
+        return redirect(next_url)
+    return redirect('inmobiliaria:gestionar_caja')
 
 
 def _cerrar_cajas_huerfanas_sucursal(sucursal, usuario, *, conservar_numero=None):
@@ -14245,6 +14301,11 @@ def nuevo_movimiento(request, numero_caja=None):
             'editando_movimiento': bool(movimiento_edicion),
             'edit_id': movimiento_edicion.id if movimiento_edicion else None,
             'personas_oficina': personas_oficina,
+            'cotizacion_dolar_caja': (
+                format_monto_argentino(caja.cotizacion_dolar)
+                if caja and getattr(caja, 'cotizacion_dolar', None)
+                else ''
+            ),
             'next': _validar_url_volver_recibo(next_url_edicion, request) or (
                 next_url_edicion if next_url_edicion == 'todos_movimientos' else ''
             ),
