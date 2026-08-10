@@ -31367,7 +31367,7 @@ def pagar_lote_liquidaciones(request):
             messages.success(
                 request,
                 f'Se pagaron {len(liqs_locked)} liquidaciones juntas. '
-                f'Se descontó {simbolo}{total} de la caja.',
+                f'Se descontó {simbolo}{total} de la caja (imputado a oficina).',
             )
             return redirect('inmobiliaria:lista_liquidaciones')
         except ValueError as e:
