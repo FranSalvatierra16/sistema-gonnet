@@ -82,6 +82,39 @@
 .caja-ac-dropdown .list-group-item.active { background: #e7f1ff; }
 .caja-ac-dropdown .list-group-item.active { font-weight: 500; }
 .caja-ac-meta { font-size: 0.75rem; color: #6c757d; }
+/* Sugerencias de propiedad: dirección y propietario más legibles */
+#dropdown_propiedades_main {
+    max-height: 380px;
+}
+#dropdown_propiedades_main .list-group-item {
+    padding: 0.55rem 0.85rem;
+    font-size: 1rem;
+}
+#dropdown_propiedades_main .caja-ac-prop-id {
+    font-size: 0.8rem;
+    color: #6c757d;
+}
+#dropdown_propiedades_main .caja-ac-prop-dir {
+    display: block;
+    font-size: 1.1rem;
+    font-weight: 600;
+    line-height: 1.25;
+    color: #212529;
+    margin-top: 0.1rem;
+}
+#dropdown_propiedades_main .caja-ac-prop-owner {
+    display: block;
+    font-size: 1rem;
+    font-weight: 500;
+    color: #343a40;
+    margin-top: 0.15rem;
+}
+#dropdown_propiedades_main .caja-ac-prop-ubi {
+    display: block;
+    font-size: 0.85rem;
+    color: #6c757d;
+    margin-top: 0.1rem;
+}
 </style>
 {% endblock %}
 
@@ -2023,14 +2056,17 @@ $(document).ready(function() {
                     .attr('data-ubicacion', p.ubicacion || '')
                     .attr('data-piso', pi)
                     .attr('data-departamento', dep);
-                var ubi = p.ubicacion ? '<span class="caja-ac-meta d-block">' + escapeHtml(p.ubicacion) + '</span>' : '';
+                var ubi = p.ubicacion
+                    ? '<span class="caja-ac-prop-ubi">' + escapeHtml(p.ubicacion) + '</span>'
+                    : '';
                 var propTxt = (p.propietario || '').trim();
                 var lineaProp = propTxt
-                    ? '<span class="caja-ac-meta d-block text-muted small">Prop.: ' + escapeHtml(propTxt) + '</span>'
+                    ? '<span class="caja-ac-prop-owner">Prop.: ' + escapeHtml(propTxt) + '</span>'
                     : '';
                 $b.html(
-                    '<span class="fw-semibold">#' + escapeHtml(String(p.id)) + '</span> ' +
-                    '<span class="d-block">' + escapeHtml(linea) + '</span>' + lineaProp + ubi
+                    '<span class="caja-ac-prop-id fw-semibold">#' + escapeHtml(String(p.id)) + '</span>' +
+                    '<span class="caja-ac-prop-dir">' + escapeHtml(linea) + '</span>' +
+                    lineaProp + ubi
                 );
                 $dd.append($b);
             });
