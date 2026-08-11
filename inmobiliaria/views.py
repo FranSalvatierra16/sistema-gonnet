@@ -18485,24 +18485,66 @@ def crear_contrato_alquiler(request):
             except (Propiedad.DoesNotExist, Inquilino.DoesNotExist) as e:
                 return JsonResponse({'error': f'Error al obtener datos: {str(e)}'}, status=400)
 
-            # Evitar duplicados: contrato vigente (no vencido) para esta propiedad e inquilino
+            # Evitar duplicados solo si las fechas se pisan (sí se puede crear uno a futuro).
             ContratoAlquiler.finalizar_vencidos(
                 propiedad=propiedad,
                 inquilino=inquilino,
                 sucursal=request.user.sucursal,
             )
-            existente = ContratoAlquiler.queryset_vigentes().filter(
-                propiedad=propiedad,
-                inquilino=inquilino,
-                sucursal=request.user.sucursal,
-            ).first()
-            if existente:
-                operacion_url = reverse('inmobiliaria:crear_operacion_contrato', args=[existente.id]) + '?tipo=principal'
-                return JsonResponse({
-                    'success': False,
-                    'error': f'Ya existe un contrato vigente (#{existente.id}) para esta propiedad e inquilino. Completá la operación principal de ese contrato, rescindilo o esperá a que finalice antes de crear otro.',
-                    'redirect_url': operacion_url,
-                }, status=400)
+
+            def _periodos_se_solapan(ini_a, fin_a, ini_b, fin_b):
+                if not all([ini_a, fin_a, ini_b, fin_b]):
+                    return False
+                return ini_a < fin_b and ini_b < fin_a
+
+            existentes_mismo_inq = list(
+                ContratoAlquiler.queryset_vigentes().filter(
+                    propiedad=propiedad,
+                    inquilino=inquilino,
+                    sucursal=request.user.sucursal,
+                )
+            )
+            for existente in existentes_mismo_inq:
+                if _periodos_se_solapan(
+                    existente.fecha_inicio, existente.fecha_fin, fecha_inicio, fecha_fin
+                ):
+                    operacion_url = (
+                        reverse('inmobiliaria:crear_operacion_contrato', args=[existente.id])
+                        + '?tipo=principal'
+                    )
+                    fin_txt = (
+                        existente.fecha_fin.strftime('%d/%m/%Y')
+                        if existente.fecha_fin
+                        else '—'
+                    )
+                    return JsonResponse({
+                        'success': False,
+                        'error': (
+                            f'El contrato #{existente.id} de este inquilino sigue vigente '
+                            f'hasta el {fin_txt} y se superpone con las fechas nuevas. '
+                            f'Poné el inicio después de esa fecha, o rescindí / finalizá el #{existente.id}.'
+                        ),
+                        'redirect_url': operacion_url,
+                    }, status=400)
+
+            # Misma propiedad, otro inquilino: tampoco pisar el período ocupado.
+            if duracion_meses != 9:
+                otros_propiedad = ContratoAlquiler.queryset_vigentes().filter(
+                    propiedad=propiedad,
+                ).exclude(duracion_meses=9).exclude(inquilino=inquilino)
+                for otro in otros_propiedad:
+                    if _periodos_se_solapan(
+                        otro.fecha_inicio, otro.fecha_fin, fecha_inicio, fecha_fin
+                    ):
+                        fin_txt = otro.fecha_fin.strftime('%d/%m/%Y') if otro.fecha_fin else '—'
+                        ini_txt = otro.fecha_inicio.strftime('%d/%m/%Y') if otro.fecha_inicio else '—'
+                        return JsonResponse({
+                            'success': False,
+                            'error': (
+                                f'Ya hay un contrato (#{otro.id}) en esta propiedad del {ini_txt} al {fin_txt}. '
+                                f'El nuevo tiene que empezar después del {fin_txt}.'
+                            ),
+                        }, status=400)
 
             # Si es contrato de invierno (9 meses), verificar que no haya reservas por día que se superpongan
             if duracion_meses == 9:
