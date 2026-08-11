@@ -15,12 +15,21 @@
                     <i class="fas fa-print"></i> Imprimir resumen
                 </a>
                 {% if caja.estado == 'abierta' %}
+                {% if caja.cotizacion_dolar %}
                 <a href="{% url 'inmobiliaria:nuevo_movimiento' caja.numero %}" class="btn btn-success me-2">
                     <i class="fas fa-plus"></i> Nuevo Movimiento
                 </a>
                 <a href="{% url 'inmobiliaria:cerrar_caja' caja.numero %}" class="btn btn-danger">
                     <i class="fas fa-lock"></i> Cerrar Caja
                 </a>
+                {% else %}
+                <button type="button" class="btn btn-success me-2" disabled title="Cargá la cotización del dólar arriba">
+                    <i class="fas fa-plus"></i> Nuevo Movimiento
+                </button>
+                <button type="button" class="btn btn-danger" disabled title="Cargá la cotización del dólar arriba">
+                    <i class="fas fa-lock"></i> Cerrar Caja
+                </button>
+                {% endif %}
                 {% endif %}
             </div>
         </div>
@@ -53,6 +62,63 @@
                     </div>
                 </div>
             </div>
+
+            {% if caja.estado == 'abierta' %}
+            <hr class="my-3">
+            <div class="row align-items-end g-3">
+                <div class="col-lg-7">
+                    <h5 class="mb-1">
+                        <i class="fas fa-dollar-sign text-success"></i>
+                        Cotización del dólar
+                        <span class="text-muted fw-normal small">(ARS por 1 USD)</span>
+                    </h5>
+                    {% if caja.cotizacion_dolar %}
+                    <p class="mb-2">
+                        Valor actual:
+                        <strong class="fs-5">${{ caja.cotizacion_dolar|format_price }}</strong>
+                    </p>
+                    {% else %}
+                    <div class="alert alert-danger py-2 mb-2">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Sin cotización.</strong> Cargala para poder registrar movimientos o gastos.
+                    </div>
+                    {% endif %}
+                    <form method="post" action="{% url 'inmobiliaria:actualizar_cotizacion_caja' caja.numero %}" class="row g-2 align-items-end">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{% url 'inmobiliaria:detalle_caja' caja.numero %}">
+                        <div class="col-sm-7 col-md-6">
+                            <label class="form-label small mb-0" for="cotizacion_dolar_detalle">
+                                {% if caja.cotizacion_dolar %}Actualizar cotización{% else %}Cargar cotización{% endif %}
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="text" class="form-control input-monto-ar" name="cotizacion_dolar"
+                                       id="cotizacion_dolar_detalle" inputmode="decimal" autocomplete="off" required
+                                       value="{% if caja.cotizacion_dolar %}{{ caja.cotizacion_dolar }}{% endif %}"
+                                       placeholder="Ej. 1450">
+                            </div>
+                        </div>
+                        <div class="col-sm-5 col-md-4">
+                            <button type="submit" class="btn {% if caja.cotizacion_dolar %}btn-outline-primary{% else %}btn-danger{% endif %} w-100">
+                                <i class="fas fa-save"></i> Guardar cotización
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                <div class="col-lg-5">
+                    <p class="text-muted small mb-0">
+                        Cada movimiento/gasto usa esta cotización del día. Podés corregirla cuando cambie.
+                    </p>
+                </div>
+            </div>
+            {% elif caja.cotizacion_dolar %}
+            <hr class="my-3">
+            <p class="mb-0">
+                Cotización del día:
+                <strong>${{ caja.cotizacion_dolar|format_price }}</strong>
+                <span class="text-muted small">(ARS por USD)</span>
+            </p>
+            {% endif %}
         </div>
     </div>
 
@@ -61,9 +127,15 @@
         <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
             <h5 class="mb-0">Movimientos</h5>
             {% if caja.estado == 'abierta' %}
+            {% if caja.cotizacion_dolar %}
             <a href="{% url 'inmobiliaria:nuevo_movimiento' caja.numero %}" class="btn btn-success">
                 <i class="fas fa-plus"></i> Nuevo Movimiento
             </a>
+            {% else %}
+            <button type="button" class="btn btn-success" disabled title="Cargá la cotización del dólar arriba">
+                <i class="fas fa-plus"></i> Nuevo Movimiento
+            </button>
+            {% endif %}
             {% endif %}
         </div>
         <div class="card-body">

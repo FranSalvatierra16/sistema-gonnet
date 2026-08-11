@@ -14500,6 +14500,19 @@ def nuevo_movimiento(request, numero_caja=None):
             messages.error(request, 'No hay una caja abierta')
             return redirect('inmobiliaria:lista_cajas')
 
+    # Sin cotización del día no se puede operar (movimientos / gastos).
+    if (
+        not movimiento_edicion
+        and caja
+        and caja.estado == 'abierta'
+        and (not getattr(caja, 'cotizacion_dolar', None) or caja.cotizacion_dolar <= 0)
+    ):
+        messages.error(
+            request,
+            'Cargá la cotización del dólar de la caja antes de registrar movimientos o gastos.',
+        )
+        return redirect('inmobiliaria:detalle_caja', numero=caja.numero)
+
     sucursal = request.user.sucursal
     cuentas_bancarias = list(
         CuentaBancaria.objects.filter(sucursal=sucursal, activa=True)
@@ -14849,7 +14862,7 @@ def nuevo_movimiento(request, numero_caja=None):
                 m_dol = Decimal('0')
             movimiento.monto_dolares = m_dol
 
-            # Cotización del día (ARS por USD), opcional en ARS o USD
+            # Cotización del día (ARS por USD): del form o de la caja abierta
             cotiz = None
             try:
                 cotiz_raw = (request.POST.get('cotizacion_dolar') or '').strip()
@@ -14859,7 +14872,19 @@ def nuevo_movimiento(request, numero_caja=None):
                         cotiz = None
             except (ValueError, TypeError, InvalidOperation):
                 cotiz = None
+            if cotiz is None and getattr(caja, 'cotizacion_dolar', None):
+                cotiz = caja.cotizacion_dolar
+            if cotiz is None or cotiz <= 0:
+                messages.error(
+                    request,
+                    'Falta la cotización del dólar. Cargala en la caja y volvé a intentar.',
+                )
+                return redirect('inmobiliaria:detalle_caja', numero=caja.numero)
             movimiento.cotizacion_dolar = cotiz
+            # Si la caja no tenía cotización (legacy), guardarla con la del movimiento.
+            if not caja.cotizacion_dolar or caja.cotizacion_dolar <= 0:
+                caja.cotizacion_dolar = cotiz
+                caja.save(update_fields=['cotizacion_dolar'])
 
             if total_mov <= 0 and m_dol <= 0:
                 messages.error(
@@ -20277,6 +20302,23 @@ def obtener_caja_abierta(request):
     )
 
 
+def _caja_tiene_cotizacion_dolar(caja):
+    cotiz = getattr(caja, 'cotizacion_dolar', None) if caja else None
+    try:
+        return cotiz is not None and Decimal(str(cotiz)) > 0
+    except Exception:
+        return False
+
+
+def _exigir_cotizacion_caja_o_error(caja):
+    """None si OK; mensaje de error si falta cotización."""
+    if _caja_tiene_cotizacion_dolar(caja):
+        return None
+    return (
+        'Cargá la cotización del dólar de la caja abierta antes de registrar movimientos o gastos.'
+    )
+
+
 def _caja_abierta_o_crear(request):
     """Caja abierta de la sucursal; si no hay, abre una. Tolera duplicados."""
     caja = obtener_caja_abierta(request)
@@ -21331,6 +21373,10 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato, pago_cuota_co
         if not getattr(request.user, 'sucursal', None):
             raise ValueError('El usuario no tiene sucursal asignada. No se puede crear el movimiento.')
 
+        err_cotiz = _exigir_cotizacion_caja_o_error(caja)
+        if err_cotiz:
+            return None, Decimal('0'), err_cotiz
+
         # Función auxiliar para limpiar valores monetarios
         def limpiar_valor_monetario(valor_str):
             if not valor_str or str(valor_str).strip() == '':
@@ -21565,6 +21611,7 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato, pago_cuota_co
             monto_cheque=monto_cheque,
             monto_tarjeta=monto_tarjeta,
             monto_dolares=monto_dolares,
+            cotizacion_dolar=caja.cotizacion_dolar,
             fecha=timezone.now(),
             empleado=request.user,
             sucursal=request.user.sucursal,
@@ -22255,6 +22302,9 @@ def procesar_operacion_contrato(request, contrato_id):
         caja = obtener_caja_abierta(request)
         if not caja:
             return JsonResponse({'error': 'No hay una caja abierta'}, status=400)
+        err_cotiz = _exigir_cotizacion_caja_o_error(caja)
+        if err_cotiz:
+            return JsonResponse({'error': err_cotiz}, status=400)
         
         result = procesar_conceptos_y_crear_movimiento(request, caja, contrato)
         movimiento = result[0]

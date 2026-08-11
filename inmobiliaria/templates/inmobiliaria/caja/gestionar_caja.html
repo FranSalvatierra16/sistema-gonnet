@@ -22,30 +22,33 @@
                 <strong>${{ caja_actual.cotizacion_dolar|format_price }}</strong>
                 <span class="text-muted small">(ARS por USD)</span>
                 {% else %}
-                <span class="text-warning">Sin cargar</span>
+                <span class="badge bg-danger">Obligatoria — sin cargar</span>
                 {% endif %}
             </p>
             <form method="post" action="{% url 'inmobiliaria:actualizar_cotizacion_caja' caja_actual.numero %}" class="row g-2 align-items-end" style="max-width: 28rem;">
                 {% csrf_token %}
                 <input type="hidden" name="next" value="{{ request.path }}">
                 <div class="col-8">
-                    <label class="form-label small mb-0" for="cotizacion_dolar_caja">Actualizar cotización</label>
+                    <label class="form-label small mb-0" for="cotizacion_dolar_caja">
+                        {% if caja_actual.cotizacion_dolar %}Actualizar cotización{% else %}Cargar cotización{% endif %}
+                    </label>
                     <div class="input-group input-group-sm">
                         <span class="input-group-text">$</span>
                         <input type="text" class="form-control" name="cotizacion_dolar" id="cotizacion_dolar_caja"
-                               inputmode="decimal" autocomplete="off"
+                               inputmode="decimal" autocomplete="off" required
                                value="{% if caja_actual.cotizacion_dolar %}{{ caja_actual.cotizacion_dolar }}{% endif %}"
                                placeholder="Ej. 1450">
                     </div>
                 </div>
                 <div class="col-4">
-                    <button type="submit" class="btn btn-sm btn-outline-dark w-100">Guardar</button>
+                    <button type="submit" class="btn btn-sm {% if caja_actual.cotizacion_dolar %}btn-outline-dark{% else %}btn-danger{% endif %} w-100">Guardar</button>
                 </div>
             </form>
         </div>
         
         <!-- Botones de Acción -->
         <div class="mb-4">
+            {% if caja_actual.cotizacion_dolar %}
             <a href="{% url 'inmobiliaria:nuevo_movimiento' %}" class="btn btn-primary">
                 <i class="fas fa-plus"></i> Nuevo Movimiento
             </a>
@@ -58,6 +61,16 @@
             <a href="/reservas/nuevo/" class="btn btn-primary">
                 <i class="fas fa-calendar-day"></i> Alquiler por Día
             </a>
+            {% else %}
+            <div class="alert alert-warning mb-3">
+                <i class="fas fa-exclamation-triangle"></i>
+                Cargá y guardá la <strong>cotización del dólar</strong> arriba para poder operar la caja.
+            </div>
+            <button type="button" class="btn btn-primary" disabled>Nuevo Movimiento</button>
+            <button type="button" class="btn btn-outline-primary" disabled>Cartera de cheques</button>
+            <button type="button" class="btn btn-danger" disabled>Cerrar Caja</button>
+            <button type="button" class="btn btn-primary" disabled>Alquiler por Día</button>
+            {% endif %}
         </div>
 
         <!-- Últimos Movimientos -->
