@@ -554,13 +554,18 @@
                                             </div>
                                         {% endif %}
                                         <div class="text-center mt-4">
-                                            <div class="d-flex justify-content-center gap-3">
+                                            <div class="d-flex justify-content-center gap-3 flex-wrap">
                                                 <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalVenta">
                                                     <i class="fas fa-edit"></i> Editar información
                                                 </button>
-                                                <button type="button" class="btn btn-danger" onclick="desactivarVenta({{ propiedad.id }})">
-                                                    <i class="fas fa-times-circle"></i> Desactivar Venta
-                                                </button>
+                                                <form method="post" action="{% url 'inmobiliaria:editar_info_venta' propiedad_id=propiedad.id %}" class="d-inline"
+                                                      onsubmit="return confirm('¿Desactivar la venta? La propiedad deja de aparecer en el listado de ventas.');">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="accion" value="desactivar">
+                                                    <button type="submit" class="btn btn-danger">
+                                                        <i class="fas fa-times-circle"></i> Desactivar Venta
+                                                    </button>
+                                                </form>
                                             </div>
                                         </div>
                                     </div>

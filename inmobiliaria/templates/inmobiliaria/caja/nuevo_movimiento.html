@@ -82,6 +82,35 @@
 .caja-ac-dropdown .list-group-item.active { background: #e7f1ff; }
 .caja-ac-dropdown .list-group-item.active { font-weight: 500; }
 .caja-ac-meta { font-size: 0.75rem; color: #6c757d; }
+/* Conceptos de caja: más oscuros / legibles */
+#dropdown_conceptos .list-group-item {
+    color: #111;
+    font-size: 1rem;
+    font-weight: 600;
+}
+#dropdown_conceptos .caja-ac-concepto-id {
+    color: #000;
+    font-weight: 700;
+}
+#dropdown_conceptos .caja-ac-concepto-nombre {
+    color: #1a1a1a;
+    font-weight: 600;
+}
+#dropdown_conceptos .caja-ac-meta {
+    color: #333;
+}
+#concepto_seleccionado .alert {
+    background: #d1e7dd;
+    border: 1px solid #0f5132;
+    color: #0a3622;
+    font-size: 1.05rem;
+    font-weight: 600;
+}
+#concepto_seleccionado .alert strong,
+#concepto_seleccionado_texto {
+    color: #052c16;
+    font-weight: 700;
+}
 /* Sugerencias de propiedad: dirección y propietario más legibles */
 #dropdown_propiedades_main {
     max-height: 380px;
@@ -1543,7 +1572,11 @@ $(document).ready(function() {
             list.forEach(function(c) {
                 var $b = $('<button type="button" class="list-group-item list-group-item-action py-2"></button>');
                 $b.attr('data-id', c.id).attr('data-nombre', c.nombre);
-                $b.html('<span class="fw-semibold">' + escapeHtml(conceptoIdEtiqueta(c.id)) + '</span> <span class="caja-ac-meta">—</span> ' + escapeHtml(c.nombre));
+                $b.html(
+                    '<span class="caja-ac-concepto-id">' + escapeHtml(conceptoIdEtiqueta(c.id)) + '</span>' +
+                    ' <span class="caja-ac-meta">—</span> ' +
+                    '<span class="caja-ac-concepto-nombre">' + escapeHtml(c.nombre) + '</span>'
+                );
                 $dd.append($b);
             });
         }

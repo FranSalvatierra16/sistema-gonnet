@@ -10842,21 +10842,34 @@ def editar_info_venta(request, propiedad_id):
     info_venta, created = VentaPropiedad.objects.get_or_create(propiedad=propiedad)
 
     if request.method == 'POST':
-        # Verificar si es una acción de desactivar (AJAX)
         accion = request.POST.get('accion')
         if accion == 'desactivar':
             try:
                 info_venta.en_venta = False
-                info_venta.save()
-                return JsonResponse({
-                    'success': True, 
-                    'message': 'Venta desactivada correctamente'
-                })
+                info_venta.save(update_fields=['en_venta'])
+                es_ajax = (
+                    request.headers.get('x-requested-with') == 'XMLHttpRequest'
+                    or 'application/json' in (request.headers.get('accept') or '')
+                )
+                if es_ajax:
+                    return JsonResponse({
+                        'success': True,
+                        'message': 'Venta desactivada correctamente',
+                    })
+                messages.success(
+                    request,
+                    'Venta desactivada. La propiedad ya no aparece en el listado de ventas.',
+                )
+                return redirect(
+                    f"{reverse('inmobiliaria:propiedad_detalle', kwargs={'propiedad_id': propiedad_id})}?tab=venta"
+                )
             except Exception as e:
-                return JsonResponse({
-                    'success': False, 
-                    'error': str(e)
-                })
+                if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                    return JsonResponse({'success': False, 'error': str(e)})
+                messages.error(request, f'No se pudo desactivar la venta: {e}')
+                return redirect(
+                    f"{reverse('inmobiliaria:propiedad_detalle', kwargs={'propiedad_id': propiedad_id})}?tab=venta"
+                )
         
         # Lógica normal del formulario (no AJAX)
         en_venta = request.POST.get('en_venta') == 'on'
