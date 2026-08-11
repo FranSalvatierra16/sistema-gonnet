@@ -692,23 +692,20 @@
                                 <hr>
                                 <label class="form-label fw-semibold mb-2">A quién corresponde el importe</label>
                                 <small class="text-muted d-block mb-2">
-                                    El total se reparte entre oficina, propietario e inquilino. Si cargás en un casillero, el resto se completa según la regla indicada.
+                                    Escribí libremente en cada casillero. Los tres tienen que sumar el total del movimiento.
                                 </small>
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label" for="monto_a_oficina">A depto / oficina</label>
-                                <input type="text" name="monto_a_oficina" id="monto_a_oficina" class="form-control input-monto-corresponde input-monto-ar" inputmode="decimal" autocomplete="off" value="" placeholder="0" oninput="formatearMontoCaja(this)" onblur="formatearMontoCajaBlur(this)">
-                                <small class="text-muted">Resto → inquilino</small>
+                                <input type="text" name="monto_a_oficina" id="monto_a_oficina" class="form-control input-monto-corresponde input-monto-ar" inputmode="decimal" autocomplete="off" value="" placeholder="0">
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label" for="monto_a_propietario">A propietario</label>
-                                <input type="text" name="monto_a_propietario" id="monto_a_propietario" class="form-control input-monto-corresponde input-monto-ar" inputmode="decimal" autocomplete="off" value="" placeholder="0" oninput="formatearMontoCaja(this)" onblur="formatearMontoCajaBlur(this)">
-                                <small class="text-muted">Resto → inquilino</small>
+                                <input type="text" name="monto_a_propietario" id="monto_a_propietario" class="form-control input-monto-corresponde input-monto-ar" inputmode="decimal" autocomplete="off" value="" placeholder="0">
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label" for="monto_a_inquilino">A inquilino</label>
-                                <input type="text" name="monto_a_inquilino" id="monto_a_inquilino" class="form-control input-monto-corresponde input-monto-ar" inputmode="decimal" autocomplete="off" value="" placeholder="0" oninput="formatearMontoCaja(this)" onblur="formatearMontoCajaBlur(this)">
-                                <small class="text-muted">Resto → propietario</small>
+                                <input type="text" name="monto_a_inquilino" id="monto_a_inquilino" class="form-control input-monto-corresponde input-monto-ar" inputmode="decimal" autocomplete="off" value="" placeholder="0">
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label" id="label_total_movimiento">TOTAL</label>
@@ -717,6 +714,9 @@
                                     <input type="text" id="total" class="form-control fw-bold bg-light" readonly value="0,00">
                                 </div>
                                 <small class="text-muted d-none" id="hint_total_usd">Total en dólares (USD efectivo).</small>
+                            </div>
+                            <div class="col-12">
+                                <small id="hint_corresponde_suma" class="d-none"></small>
                             </div>
                         </div>
                             </div>
@@ -1829,69 +1829,28 @@ $(document).ready(function() {
         if (origen) {
             ultimoCasilleroCorresponde = origen;
         }
-        var total = calcularTotal();
-        var $of = $('#monto_a_oficina');
-        var $prop = $('#monto_a_propietario');
-        var $inq = $('#monto_a_inquilino');
-        var of = parseMontoLocal($of.val());
-        var prop = parseMontoLocal($prop.val());
-        var inq = parseMontoLocal($inq.val());
-        var src = ultimoCasilleroCorresponde || 'oficina';
+        actualizarHintCorresponde();
+    }
 
-        // Sin importe real cargado (> 1): no tocar lo que el usuario escribió acá
-        if (total <= 1) {
+    function actualizarHintCorresponde() {
+        var $hint = $('#hint_corresponde_suma');
+        if (!$hint.length) return;
+        var total = calcularTotal();
+        if (total <= 0.005) {
+            $hint.addClass('d-none').text('');
             return;
         }
-
-        var suma = of + prop + inq;
-
-        // Si aún no repartió nada, asignar el total al casillero activo / último usado
-        if (suma <= 0.005) {
-            of = 0;
-            prop = 0;
-            inq = 0;
-            if (src === 'propietario') {
-                prop = total;
-            } else if (src === 'inquilino') {
-                inq = total;
-            } else {
-                of = total;
-            }
-        } else if (src === 'oficina') {
-            of = Math.min(of, total);
-            if (of >= total - 0.005) {
-                of = total;
-                prop = 0;
-                inq = 0;
-            } else {
-                prop = 0;
-                inq = Math.max(0, total - of);
-            }
-        } else if (src === 'propietario') {
-            prop = Math.min(prop, total);
-            if (prop >= total - 0.005) {
-                prop = total;
-                of = 0;
-                inq = 0;
-            } else {
-                of = 0;
-                inq = Math.max(0, total - prop);
-            }
-        } else if (src === 'inquilino') {
-            inq = Math.min(inq, total);
-            if (inq >= total - 0.005) {
-                inq = total;
-                of = 0;
-                prop = 0;
-            } else {
-                of = 0;
-                prop = Math.max(0, total - inq);
-            }
+        var suma = parseMontoLocal($('#monto_a_oficina').val())
+            + parseMontoLocal($('#monto_a_propietario').val())
+            + parseMontoLocal($('#monto_a_inquilino').val());
+        var dif = Math.round((suma - total) * 100) / 100;
+        if (Math.abs(dif) < 0.02) {
+            $hint.removeClass('d-none text-danger').addClass('text-success')
+                .text('Reparto OK: suma $' + fmtMontoLocal(suma));
+        } else {
+            $hint.removeClass('d-none text-success').addClass('text-danger')
+                .text('La suma ($' + fmtMontoLocal(suma) + ') tiene que ser $' + fmtMontoLocal(total) + '.');
         }
-
-        if (campoActivoId !== 'monto_a_oficina') $of.val(fmtMontoLocal(of));
-        if (campoActivoId !== 'monto_a_propietario') $prop.val(fmtMontoLocal(prop));
-        if (campoActivoId !== 'monto_a_inquilino') $inq.val(fmtMontoLocal(inq));
     }
 
     function agregarFilaCheque(datos) {
@@ -1971,16 +1930,17 @@ $(document).ready(function() {
 
     // Total al cambiar importes — formateo miles en cada tecla
     $('#formMovimiento').on('input', '.monto, .input-monto-ar', function() {
-        if ($(this).hasClass('cheque-monto')) return;
+        if ($(this).hasClass('cheque-monto') || $(this).hasClass('input-monto-corresponde')) return;
         formatearMontoAlEscribir(this);
         if (this.id !== 'monto_dolares_mov') {
             sincronizarUsdDesdeArs();
         }
         actualizarTotalVisible();
         actualizarVisibilidadMediosPago();
+        actualizarHintCorresponde();
     });
     $('#formMovimiento').on('blur', '.monto, .input-monto-ar', function() {
-        if ($(this).hasClass('cheque-monto')) return;
+        if ($(this).hasClass('cheque-monto') || $(this).hasClass('input-monto-corresponde')) return;
         formatearMontoAlSalir(this);
         if (this.id !== 'monto_dolares_mov') {
             sincronizarUsdDesdeArs();
@@ -1988,13 +1948,8 @@ $(document).ready(function() {
         actualizarTotalVisible();
     });
     $('.monto').on('blur', function() {
-        var total = calcularTotal();
         actualizarVisibilidadMediosPago();
-        if (total <= 1) return;
-        if (!correspondeEditadoManual) {
-            $('#monto_a_oficina, #monto_a_propietario, #monto_a_inquilino').val(fmtMontoLocal(0));
-        }
-        sincronizarCorresponde(ultimoCasilleroCorresponde);
+        actualizarHintCorresponde();
     });
     actualizarTotalVisible();
     actualizarVisibilidadMoneda();
@@ -2002,7 +1957,6 @@ $(document).ready(function() {
     aplicarFormatoMontosFormulario();
 
     $('.input-monto-corresponde').on('focus', function() {
-        $(this).data('val-focus', $(this).val());
         ultimoCasilleroCorresponde = this.id === 'monto_a_propietario'
             ? 'propietario'
             : (this.id === 'monto_a_inquilino' ? 'inquilino' : 'oficina');
@@ -2013,19 +1967,11 @@ $(document).ready(function() {
         ultimoCasilleroCorresponde = this.id === 'monto_a_propietario'
             ? 'propietario'
             : (this.id === 'monto_a_inquilino' ? 'inquilino' : 'oficina');
-        sincronizarCorresponde(ultimoCasilleroCorresponde, this.id);
+        actualizarHintCorresponde();
     });
     $('.input-monto-corresponde').on('blur', function() {
         formatearMontoAlSalir(this);
-        var vf = parseMontoLocal($(this).data('val-focus'));
-        var vn = parseMontoLocal($(this).val());
-        if (Math.abs(vf - vn) <= 0.005) {
-            return;
-        }
-        ultimoCasilleroCorresponde = this.id === 'monto_a_propietario'
-            ? 'propietario'
-            : (this.id === 'monto_a_inquilino' ? 'inquilino' : 'oficina');
-        sincronizarCorresponde(ultimoCasilleroCorresponde, this.id);
+        actualizarHintCorresponde();
     });
 
     function cargarPropiedad(id, direccion, ubicacion, piso, depto) {
