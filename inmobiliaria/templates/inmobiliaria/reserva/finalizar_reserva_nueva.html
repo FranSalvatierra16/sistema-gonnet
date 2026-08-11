@@ -32,6 +32,15 @@ function parseDecimalMontoJS(val) {
     return isNaN(n) ? 0 : n;
 }
 
+function fmtMilesAR(n) {
+    const num = Number(n);
+    if (!Number.isFinite(num)) return '0';
+    if (typeof formatMontoAR === 'function') {
+        return formatMontoAR(num, 0);
+    }
+    return num.toLocaleString('es-AR', { maximumFractionDigits: 0 });
+}
+
 // Seña ya pagada (número literal JS: sin separadores de miles ni coma decimal de Django)
 const SENIA_PAGADA = {% localize off %}{{ total_senia_pagada|default_if_none:0 }}{% endlocalize %};
 const MONEDA_OP_INICIAL = '{{ moneda_operacion|default:"ARS" }}';
@@ -164,8 +173,8 @@ function calcularTotales() {
         // 2. Actualizar display del total de conceptos
         const totalConceptosElement = document.getElementById('totalConceptos');
         if (totalConceptosElement) {
-            totalConceptosElement.textContent = totalConceptos.toLocaleString('es-ES');
-            console.log('✅ Display totalConceptos actualizado:', totalConceptos.toLocaleString('es-ES'));
+            totalConceptosElement.textContent = fmtMilesAR(totalConceptos);
+            console.log('✅ Display totalConceptos actualizado:', fmtMilesAR(totalConceptos));
         }
         
         // 3. ✅ TOTAL DEL RECIBO = SUMA DE TODOS LOS CONCEPTOS (igual que Finalizar Reserva)
@@ -178,15 +187,15 @@ function calcularTotales() {
         // 4. Actualizar display del total del recibo
         const totalReciboElement = document.getElementById('totalRecibo');
         if (totalReciboElement) {
-            totalReciboElement.value = totalRecibo;
-            console.log('✅ Display totalRecibo actualizado:', totalRecibo);
+            totalReciboElement.value = fmtMilesAR(totalRecibo);
+            console.log('✅ Display totalRecibo actualizado:', fmtMilesAR(totalRecibo));
         }
         
         // 5. Actualizar display para comparación con pagos
         const totalReciboDisplayElement = document.getElementById('totalReciboDisplay');
         if (totalReciboDisplayElement) {
-            totalReciboDisplayElement.textContent = totalRecibo.toLocaleString('es-ES');
-            console.log('✅ Display totalReciboDisplay actualizado:', totalRecibo.toLocaleString('es-ES'));
+            totalReciboDisplayElement.textContent = fmtMilesAR(totalRecibo);
+            console.log('✅ Display totalReciboDisplay actualizado:', fmtMilesAR(totalRecibo));
         }
         
         // 6. Recalcular saldo a ocupar
@@ -253,7 +262,7 @@ function calcularTotalPagos() {
         // Actualizar display del total de pagos
         const totalPagosElement = document.getElementById('totalPagos');
         if (totalPagosElement) {
-            totalPagosElement.textContent = totalPagos.toLocaleString('es-ES');
+            totalPagosElement.textContent = fmtMilesAR(totalPagos);
         }
         
         // Obtener total del recibo
@@ -263,7 +272,7 @@ function calcularTotalPagos() {
         // Actualizar display del total del recibo en la comparación
         const totalReciboDisplayElement = document.getElementById('totalReciboDisplay');
         if (totalReciboDisplayElement) {
-            totalReciboDisplayElement.textContent = totalRecibo.toLocaleString('es-ES');
+            totalReciboDisplayElement.textContent = fmtMilesAR(totalRecibo);
         }
         
         // Calcular diferencia
@@ -277,10 +286,10 @@ function calcularTotalPagos() {
                 diferenciaElement.textContent = '0 ✅';
             } else if (diferencia > 0) {
                 diferenciaElement.style.color = 'orange';
-                diferenciaElement.textContent = `+${diferencia.toLocaleString('es-ES')} ⚠️`;
+                diferenciaElement.textContent = `+${fmtMilesAR(diferencia)} ⚠️`;
             } else {
                 diferenciaElement.style.color = 'red';
-                diferenciaElement.textContent = `${diferencia.toLocaleString('es-ES')} ❌`;
+                diferenciaElement.textContent = `${fmtMilesAR(diferencia)} ❌`;
             }
         }
         
@@ -731,7 +740,7 @@ function actualizarTablaConceptos() {
             <td>${concepto.fecha}</td>
             <td>${concepto.nombre}</td>
             <td>${concepto.observaciones}</td>
-            <td class="text-end">${concepto.importe.toLocaleString('es-ES')}</td>
+            <td class="text-end">${fmtMilesAR(concepto.importe)}</td>
             <td>${conceptoCatalogoIdEtiqueta(concepto.conceptoId)}</td>
             <td>
                 <button type="button" class="btn btn-warning btn-sm me-1" 
@@ -779,7 +788,7 @@ function editarConcepto(conceptoId) {
     // Rellenar el modal con los datos del concepto
     document.getElementById('conceptoId').value = concepto.conceptoId;
     document.getElementById('observaciones').value = concepto.observaciones === 'Sin observaciones' ? '' : concepto.observaciones;
-    document.getElementById('importe').value = concepto.importe;
+    document.getElementById('importe').value = fmtMilesAR(concepto.importe);
     
     // Mostrar información del concepto
     conceptoSeleccionadoActual = {
@@ -1392,8 +1401,9 @@ window.habilitarBotonProcesar = habilitarBotonProcesar;
                                     <div class="row">
                                         <div class="col-8"><strong>TOTAL DEL RECIBO:</strong></div>
                                         <div class="col-4">
-                                            <input type="number" class="form-control form-control-sm fw-bold" 
-                                                   id="totalRecibo" readonly style="background-color: #d1ecf1; font-size: 16px;">
+                                            <input type="text" class="form-control form-control-sm fw-bold text-end"
+                                                   id="totalRecibo" readonly inputmode="decimal" autocomplete="off"
+                                                   style="background-color: #d1ecf1; font-size: 16px;">
                                         </div>
                                     </div>
                                     <div class="row">
@@ -1671,7 +1681,8 @@ window.habilitarBotonProcesar = habilitarBotonProcesar;
                     <div class="mb-3">
                         <label for="importe" class="form-label"><strong>Importe:</strong></label>
                         <input type="text" class="form-control input-monto-ar" id="importe" required
-                               placeholder="ej: 30.000" inputmode="decimal" autocomplete="off">
+                               placeholder="ej: 22.000" inputmode="decimal" autocomplete="off"
+                               oninput="if (window.aplicarFormatoMontoAR) aplicarFormatoMontoAR(this);">
                     </div>
                 </form>
             </div>
