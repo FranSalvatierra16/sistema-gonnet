@@ -62,33 +62,6 @@
         <div class="card-body">
             <form method="get" class="row g-3 align-items-end">
                 <div class="col-md-2">
-                    <label class="form-label" for="alcance">Alcance</label>
-                    <select class="form-select" id="alcance" name="alcance">
-                        <option value="abierta" {% if alcance == 'abierta' %}selected{% endif %}>Caja abierta</option>
-                        <option value="todas" {% if alcance == 'todas' %}selected{% endif %}>Todas las cajas</option>
-                        <option value="caja" {% if alcance == 'caja' %}selected{% endif %}>Una caja…</option>
-                    </select>
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label" for="caja">Caja nº</label>
-                    <select class="form-select" id="caja" name="caja">
-                        <option value="">—</option>
-                        {% for c in cajas_opciones %}
-                        <option value="{{ c.numero }}" {% if caja_filtro_numero == c.numero %}selected{% endif %}>
-                            #{{ c.numero }} {% if c.estado == 'abierta' %}(abierta){% else %}{{ c.fecha_apertura|date:"d/m/Y" }}{% endif %}
-                        </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label" for="tipo_mov">Tipo</label>
-                    <select class="form-select" id="tipo_mov" name="tipo_mov">
-                        <option value="" {% if not tipo_mov %}selected{% endif %}>Ingresos y egresos</option>
-                        <option value="IN" {% if tipo_mov == 'IN' %}selected{% endif %}>Solo ingresos</option>
-                        <option value="EG" {% if tipo_mov == 'EG' %}selected{% endif %}>Solo egresos</option>
-                    </select>
-                </div>
-                <div class="col-md-2">
                     <label class="form-label" for="fecha_desde">Desde</label>
                     <input type="date" class="form-control" id="fecha_desde" name="fecha_desde" value="{{ fecha_desde }}">
                 </div>
@@ -97,10 +70,18 @@
                     <input type="date" class="form-control" id="fecha_hasta" name="fecha_hasta" value="{{ fecha_hasta }}">
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label" for="q">Buscar</label>
-                    <input type="text" class="form-control" id="q" name="q" value="{{ q }}" placeholder="Nº, banco, concepto">
+                    <label class="form-label" for="tipo_mov">Ingresos / egresos</label>
+                    <select class="form-select" id="tipo_mov" name="tipo_mov">
+                        <option value="" {% if not tipo_mov %}selected{% endif %}>Ingresos y egresos</option>
+                        <option value="IN" {% if tipo_mov == 'IN' %}selected{% endif %}>Solo ingresos</option>
+                        <option value="EG" {% if tipo_mov == 'EG' %}selected{% endif %}>Solo egresos</option>
+                    </select>
                 </div>
-                <div class="col-12">
+                <div class="col-md-3">
+                    <label class="form-label" for="q">Nº / banco</label>
+                    <input type="text" class="form-control" id="q" name="q" value="{{ q }}" placeholder="Nº cheque o banco">
+                </div>
+                <div class="col-md-3">
                     <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i> Filtrar</button>
                     <a href="{% url 'inmobiliaria:cartera_cheques_caja' %}" class="btn btn-outline-secondary">Limpiar</a>
                 </div>

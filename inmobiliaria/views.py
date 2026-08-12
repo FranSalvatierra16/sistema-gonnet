@@ -16105,7 +16105,7 @@ def dashboard_caja(request):
 def cartera_cheques_caja(request):
     """
     Detalle de cheques en caja (nº, banco, vencimiento, monto) además del total.
-    Por defecto: caja abierta de la sucursal.
+    Por defecto: todas las cajas de la sucursal.
     """
     from inmobiliaria.models import ChequeMovimientoCaja
 
@@ -16120,9 +16120,6 @@ def cartera_cheques_caja(request):
         .first()
     )
 
-    alcance = (request.GET.get('alcance') or 'abierta').strip().lower()
-    if alcance not in ('abierta', 'todas', 'caja'):
-        alcance = 'abierta'
     tipo_mov = (request.GET.get('tipo_mov') or '').strip().upper()
     if tipo_mov not in ('', 'IN', 'EG'):
         tipo_mov = ''
@@ -16157,18 +16154,9 @@ def cartera_cheques_caja(request):
     ).select_related('caja', 'propiedad', 'empleado')
 
     caja_contexto = None
-    if alcance == 'abierta':
-        if not caja_abierta:
-            messages.info(request, 'No hay caja abierta. Podés ver cheques de todas las cajas o elegir una.')
-            alcance = 'todas'
-        else:
-            mov_qs = mov_qs.filter(caja=caja_abierta)
-            caja_contexto = caja_abierta
-    elif alcance == 'caja' and caja_filtro:
+    if caja_filtro:
         mov_qs = mov_qs.filter(caja=caja_filtro)
         caja_contexto = caja_filtro
-    elif alcance == 'caja' and not caja_filtro:
-        alcance = 'todas'
 
     if tipo_mov:
         mov_qs = mov_qs.filter(tipo=tipo_mov)
@@ -16274,10 +16262,6 @@ def cartera_cheques_caja(request):
     )
 
     neto = (total_ingreso - total_egreso).quantize(Decimal('0.01'))
-    cajas_opciones = list(
-        Caja.objects.filter(sucursal=sucursal)
-        .order_by('-fecha_apertura', '-numero')[:40]
-    )
 
     return render(
         request,
@@ -16290,13 +16274,10 @@ def cartera_cheques_caja(request):
             'cantidad': len(filas),
             'caja_abierta': caja_abierta,
             'caja_contexto': caja_contexto,
-            'alcance': alcance,
             'tipo_mov': tipo_mov,
             'q': q,
             'fecha_desde': raw_desde,
             'fecha_hasta': raw_hasta,
-            'caja_filtro_numero': caja_filtro.numero if caja_filtro else '',
-            'cajas_opciones': cajas_opciones,
         },
     )
 
