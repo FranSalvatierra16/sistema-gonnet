@@ -404,7 +404,9 @@
                                 {% elif cuota.estado == 'pagada_con_mora' %}
                                     <span class="badge bg-success">{{ cuota.get_estado_display }}</span>
                                 {% elif cuota.estado == 'pendiente' or cuota.estado == 'vencida' %}
-                                    {% if cuota.tiene_adelanto_abonado %}
+                                    {% if cuota.cubierta_por_credito %}
+                                        <span class="badge bg-info" title="Hay crédito de un cobro anterior que cubre este mes; cobrá esta cuota para generar su recibo propio">Crédito cubre el mes</span>
+                                    {% elif cuota.tiene_adelanto_abonado %}
                                         <span class="badge bg-primary" title="Hay abono a cuenta desde otro cobro; falta completar el saldo de esta cuota">Adelanto</span>
                                     {% elif cuota.estado == 'pendiente' and cuota.fecha_vencimiento < today %}
                                         <span class="badge bg-danger">Vencida</span>

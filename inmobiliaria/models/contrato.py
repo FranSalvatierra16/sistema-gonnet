@@ -397,14 +397,22 @@ class CuotaMensual(models.Model):
         return max(Decimal('0'), tot - cred)
 
     def tiene_adelanto_abonado(self) -> bool:
-        """True si hay abono parcial a cuenta (aún falta saldo por cobrar)."""
+        """True si hay abono/crédito a cuenta (parcial o que ya cubre el mes sin marcar pagada)."""
+        if self.estado not in ('pendiente', 'vencida'):
+            return False
+        cred = Decimal(str(self.credito_aplicado or 0))
+        return cred > Decimal('0.05')
+
+    def cubierta_por_credito(self) -> bool:
+        """True si el crédito ya cubre el total y aún no se cobró el mes en un recibo propio."""
         if self.estado not in ('pendiente', 'vencida'):
             return False
         tol = Decimal('0.05')
-        if self.saldo_para_cobro() <= tol:
+        obligacion = Decimal(str(self.monto_total or 0))
+        if obligacion <= tol:
             return False
         cred = Decimal(str(self.credito_aplicado or 0))
-        return cred > tol
+        return cred + tol >= obligacion
 
 
 ESTADOS_COBRO_CONTRATO = (
