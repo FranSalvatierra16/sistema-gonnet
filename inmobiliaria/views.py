@@ -12691,15 +12691,17 @@ def _usuario_puede_arqueo_cierre_caja(user):
 
 
 def _parse_imputacion_corresponde_post(request, total_mov):
-    """Lee y valida el reparto oficina / propietario / inquilino del movimiento."""
+    """Lee y valida el reparto oficina / propietario / inquilino del movimiento.
+
+    El usuario debe cargarlo a mano: si el total es > 0 y el reparto viene en 0,
+    no se asigna por defecto a oficina (ni a otro).
+    """
     m_of = parse_decimal_monto(request.POST.get('monto_a_oficina', '0') or '0')
     m_prop = parse_decimal_monto(request.POST.get('monto_a_propietario', '0') or '0')
     m_inq = parse_decimal_monto(request.POST.get('monto_a_inquilino', '0') or '0')
     total_mov = Decimal(str(total_mov or 0))
     suma = m_of + m_prop + m_inq
-    if total_mov > 0 and suma == 0:
-        m_of = total_mov
-    elif abs(suma - total_mov) > Decimal('0.02'):
+    if total_mov > 0 and abs(suma - total_mov) > Decimal('0.02'):
         raise ValueError('imputacion')
     return m_of, m_prop, m_inq
 
