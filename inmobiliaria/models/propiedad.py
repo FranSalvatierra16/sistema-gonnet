@@ -302,6 +302,26 @@ class Propiedad(models.Model):
     objects = PropiedadManager()
     all_objects = models.Manager()
 
+    @staticmethod
+    def ids_ficha_libres(limit=30):
+        """
+        Los `limit` números de ficha (ID) numéricos más chicos que no están usados
+        (incluye eliminadas: el PK sigue ocupado).
+        """
+        usados = set()
+        for cid in Propiedad.all_objects.values_list('id', flat=True).iterator(chunk_size=2000):
+            s = str(cid or '').strip()
+            if s.isdigit():
+                usados.add(int(s))
+        libres = []
+        n = 1
+        tope = max(usados) + limit + 1 if usados else limit
+        while len(libres) < limit and n <= tope:
+            if n not in usados:
+                libres.append(str(n))
+            n += 1
+        return libres
+
     class Meta:
         verbose_name = "Propiedad"
         verbose_name_plural = "Propiedades"

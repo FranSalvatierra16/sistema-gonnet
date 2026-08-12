@@ -3804,6 +3804,7 @@ def propiedad_detalle(request, propiedad_id):
 
 @login_required
 def propiedad_nuevo(request):
+    ids_ficha_libres = Propiedad.ids_ficha_libres(30)
     if request.method == 'POST':
         try:
             form = PropiedadForm(request.POST, request.FILES, user=request.user)
@@ -3845,15 +3846,20 @@ def propiedad_nuevo(request):
             messages.error(request, error_msg)
             # Log del error completo para debugging
             print(f"Error al crear propiedad: {traceback.format_exc()}")
+            form = PropiedadForm(user=request.user)
+            propietario_form = PropietarioForm(user=request.user)
     else:
         form = PropiedadForm(user=request.user)
         propietario_form = PropietarioForm(user=request.user)
+        if ids_ficha_libres and not (form.initial.get('id') or form['id'].value()):
+            form.fields['id'].initial = ids_ficha_libres[0]
     
     return render(request, 'inmobiliaria/propiedades/formulario.html', {
         'form': form,
         'propietario_form': propietario_form,
         'titulo': 'Nueva Propiedad',
-        'imagenes': []  # Para el template
+        'imagenes': [],  # Para el template
+        'ids_ficha_libres': ids_ficha_libres,
     })
 
 

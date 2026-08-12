@@ -42,6 +42,21 @@
                         </label>
                         {{ form.id }}
                         {{ form.id.errors }}
+                        {% if ids_ficha_libres %}
+                        <div class="mt-2">
+                            <small class="text-muted d-block mb-1">
+                                IDs libres (los 30 más chicos). Tocá uno para usarlo:
+                            </small>
+                            <div id="ids-ficha-libres" class="d-flex flex-wrap gap-1">
+                                {% for fid in ids_ficha_libres %}
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-primary btn-ficha-libre"
+                                        data-ficha="{{ fid }}"
+                                        title="Usar ficha {{ fid }}">{{ fid }}</button>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
                     </div>
                     <div class="col-md-2">
                         <label for="id_numero_por_propietario" class="form-label">
@@ -816,6 +831,22 @@ $(document).ready(function() {
         allowClear: true,
         width: '100%'
     });
+
+    // Elegir ficha libre al crear propiedad
+    $(document).on('click', '.btn-ficha-libre', function() {
+        var fid = String($(this).data('ficha') || '');
+        var $input = $('#id_id');
+        if (!$input.length || !fid) return;
+        $input.val(fid).trigger('change').focus();
+        $('.btn-ficha-libre').removeClass('btn-primary').addClass('btn-outline-primary');
+        $(this).removeClass('btn-outline-primary').addClass('btn-primary');
+    });
+    (function() {
+        var actual = String($('#id_id').val() || '').trim();
+        if (actual) {
+            $('.btn-ficha-libre[data-ficha="' + actual + '"]').removeClass('btn-outline-primary').addClass('btn-primary');
+        }
+    })();
 
     {% if propiedad.pk %}
     // Drag & drop nativo — mismo comportamiento que ficha → Imágenes
