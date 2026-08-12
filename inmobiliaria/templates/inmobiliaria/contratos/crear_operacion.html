@@ -39,7 +39,7 @@
                                     💰 Pago Cuota Mensual
                                 {% endif %}
                             </h2>
-                            <h5 class="mb-0">Contrato #{{ contrato.id }} - {{ contrato.propiedad.direccion }}</h5>
+                            <h5 class="mb-0">Contrato #{{ contrato.id }} - {{ contrato.propiedad.direccion }}{% if contrato.propiedad.piso or contrato.propiedad.departamento %} — {% if contrato.propiedad.piso %}Piso {{ contrato.propiedad.piso }}{% endif %}{% if contrato.propiedad.piso and contrato.propiedad.departamento %} · {% endif %}{% if contrato.propiedad.departamento %}Dpto {{ contrato.propiedad.departamento }}{% endif %}{% endif %}</h5>
                         </div>
                         <div class="col-md-4 text-end">
                             {% if contrato.duracion_meses == 9 %}
@@ -64,7 +64,7 @@
                     <div class="row">
                         <div class="col-md-6">
                             <p><strong>Inquilino:</strong> {{ contrato.inquilino|apellido_nombre }}</p>
-                            <p><strong>Propiedad:</strong> {{ contrato.propiedad.direccion }}</p>
+                            <p><strong>Propiedad:</strong> {{ contrato.propiedad.direccion }}{% if contrato.propiedad.piso or contrato.propiedad.departamento %} — {% if contrato.propiedad.piso %}Piso {{ contrato.propiedad.piso }}{% endif %}{% if contrato.propiedad.piso and contrato.propiedad.departamento %} · {% endif %}{% if contrato.propiedad.departamento %}Dpto {{ contrato.propiedad.departamento }}{% endif %}{% endif %}</p>
                             {% if modo_pago_cuota_especifica %}
                             <div class="alert {% if modo_cobro_extra_cuota_pagada %}alert-info{% else %}alert-light border{% endif %} mb-2">
                                 <p class="mb-2"><strong>Cuota:</strong> {{ cuota_pago.numero_cuota }} de {{ contrato.duracion_meses }} ·
