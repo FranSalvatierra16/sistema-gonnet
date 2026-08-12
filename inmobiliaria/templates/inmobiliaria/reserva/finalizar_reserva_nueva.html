@@ -265,9 +265,9 @@ function calcularTotalPagos() {
             totalPagosElement.textContent = fmtMilesAR(totalPagos);
         }
         
-        // Obtener total del recibo
+        // Obtener total del recibo (410.000 = cuatrocientos diez mil, no 410)
         const totalReciboElement = document.getElementById('totalRecibo');
-        const totalRecibo = parseFloat(totalReciboElement?.value || '0') || 0;
+        const totalRecibo = parseDecimalMontoJS(totalReciboElement?.value || '0');
         
         // Actualizar display del total del recibo en la comparación
         const totalReciboDisplayElement = document.getElementById('totalReciboDisplay');
