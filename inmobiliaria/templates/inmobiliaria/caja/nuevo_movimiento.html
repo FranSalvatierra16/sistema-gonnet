@@ -692,22 +692,22 @@
                                 <hr>
                                 <label class="form-label fw-semibold mb-2">A quién corresponde el importe</label>
                                 <small class="text-muted d-block mb-2">
-                                    Escribí el importe completo (ej. 300000 → 300.000). Al salir del casillero, el resto se completa solo.
+                                    Escribí el importe (ej. 300000 → 300.000, o con centavos 94513,24). Al salir del casillero, el resto se completa solo.
                                 </small>
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label" for="monto_a_oficina">A depto / oficina</label>
-                                <input type="text" name="monto_a_oficina" id="monto_a_oficina" class="form-control input-monto-corresponde" inputmode="numeric" autocomplete="off" value="" placeholder="0" data-no-monto-ar="1">
+                                <input type="text" name="monto_a_oficina" id="monto_a_oficina" class="form-control input-monto-corresponde" inputmode="decimal" autocomplete="off" value="" placeholder="0" data-no-monto-ar="1">
                                 <small class="text-muted">Resto → inquilino</small>
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label" for="monto_a_propietario">A propietario</label>
-                                <input type="text" name="monto_a_propietario" id="monto_a_propietario" class="form-control input-monto-corresponde" inputmode="numeric" autocomplete="off" value="" placeholder="0" data-no-monto-ar="1">
+                                <input type="text" name="monto_a_propietario" id="monto_a_propietario" class="form-control input-monto-corresponde" inputmode="decimal" autocomplete="off" value="" placeholder="0" data-no-monto-ar="1">
                                 <small class="text-muted">Resto → inquilino</small>
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label" for="monto_a_inquilino">A inquilino</label>
-                                <input type="text" name="monto_a_inquilino" id="monto_a_inquilino" class="form-control input-monto-corresponde" inputmode="numeric" autocomplete="off" value="" placeholder="0" data-no-monto-ar="1">
+                                <input type="text" name="monto_a_inquilino" id="monto_a_inquilino" class="form-control input-monto-corresponde" inputmode="decimal" autocomplete="off" value="" placeholder="0" data-no-monto-ar="1">
                                 <small class="text-muted">Resto → propietario</small>
                             </div>
                             <div class="col-md-3">
@@ -1830,21 +1830,43 @@ $(document).ready(function() {
 
     function formatearCorrespondeAlEscribir(input) {
         if (!input || input.readOnly || input.disabled) return;
-        var raw = String(input.value || '');
-        var neg = raw.trim().charAt(0) === '-';
-        var digits = raw.replace(/\D/g, '');
-        if (!digits) {
-            input.value = neg ? '-' : '';
-            return;
+        var oldVal = String(input.value || '');
+        var selStart = input.selectionStart;
+        var formatted;
+        if (typeof formatMontoARTyping === 'function') {
+            formatted = formatMontoARTyping(oldVal);
+        } else {
+            var neg = oldVal.trim().charAt(0) === '-';
+            var t = oldVal.replace(/[^\d,]/g, '');
+            if (!t) {
+                formatted = neg ? '-' : '';
+            } else if (t.indexOf(',') >= 0) {
+                var parts = t.split(',');
+                var intDigits = (parts[0] || '').replace(/\D/g, '');
+                var decRaw = parts.slice(1).join('').replace(/\D/g, '').slice(0, 2);
+                var intFmt = String(parseInt(intDigits || '0', 10)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                formatted = (neg ? '-' : '') + intFmt + (t.endsWith(',') && !decRaw ? ',' : (decRaw ? ',' + decRaw : ''));
+            } else {
+                formatted = (neg ? '-' : '') + String(parseInt(t.replace(/\D/g, '') || '0', 10)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+            }
         }
-        var n = parseInt(digits, 10);
-        if (!isFinite(n)) n = 0;
-        var formatted = (typeof formatMontoAR === 'function')
-            ? formatMontoAR(n, 0)
-            : String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-        input.value = (neg ? '-' : '') + formatted;
+        if (formatted === oldVal) return;
+        input.value = formatted;
         try {
-            input.setSelectionRange(input.value.length, input.value.length);
+            var digitsBefore = String(oldVal || '').slice(0, selStart).replace(/[^\d]/g, '').length;
+            var digitCount = 0;
+            var pos = formatted.length;
+            for (var i = 0; i < formatted.length; i++) {
+                if (/\d/.test(formatted.charAt(i))) {
+                    digitCount++;
+                    if (digitCount >= digitsBefore) {
+                        pos = i + 1;
+                        break;
+                    }
+                }
+            }
+            if (formatted.charAt(pos) === ',') pos += 1;
+            input.setSelectionRange(pos, pos);
         } catch (e) { /* ignore */ }
     }
 
@@ -2040,12 +2062,8 @@ $(document).ready(function() {
         ultimoCasilleroCorresponde = this.id === 'monto_a_propietario'
             ? 'propietario'
             : (this.id === 'monto_a_inquilino' ? 'inquilino' : 'oficina');
-        var n = parseMontoLocal(this.value);
-        if (n) {
-            this.value = (typeof formatMontoAR === 'function')
-                ? formatMontoAR(n, 0)
-                : String(Math.round(n));
-        } else {
+        var t = String(this.value || '').trim();
+        if (!t || t === '0' || t === '0,00' || t === '0.00') {
             this.value = '';
         }
         var el = this;
