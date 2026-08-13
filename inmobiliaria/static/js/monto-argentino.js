@@ -116,12 +116,7 @@
             return false;
         }
 
-        var name = el.name || '';
-        var id = el.id || '';
-        if (EXCLUDE_ATTR_RE.test(name) || EXCLUDE_ATTR_RE.test(id)) {
-            return false;
-        }
-
+        // Clases de monto: tienen prioridad (no las excluye el regex de name/id).
         if (
             el.classList.contains('input-monto-ar')
             || el.classList.contains('monto')
@@ -130,9 +125,14 @@
             || el.classList.contains('input-precio-cuota-mes')
             || el.classList.contains('caratula-input-edit')
             || el.classList.contains('monto-edit')
-            || el.classList.contains('importe-pago')
         ) {
             return true;
+        }
+
+        var name = el.name || '';
+        var id = el.id || '';
+        if (EXCLUDE_ATTR_RE.test(name) || EXCLUDE_ATTR_RE.test(id)) {
+            return false;
         }
 
         if (!(type === 'text' || type === 'tel' || type === 'number' || type === '')) {

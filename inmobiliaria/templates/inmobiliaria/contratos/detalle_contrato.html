@@ -513,6 +513,96 @@
 
 <form id="csrf-cuota-form" class="d-none">{% csrf_token %}</form>
 
+<script>
+(function () {
+    function puntosMiles(n) {
+        var s = String(Math.trunc(Math.abs(Number(n)) || 0));
+        var out = '';
+        for (var i = 0; i < s.length; i++) {
+            if (i > 0 && (s.length - i) % 3 === 0) out += '.';
+            out += s.charAt(i);
+        }
+        return out;
+    }
+
+    function formatTypingLocal(str) {
+        if (typeof window.formatMontoARTyping === 'function') {
+            return window.formatMontoARTyping(str);
+        }
+        var raw = String(str == null ? '' : str);
+        var neg = raw.trim().charAt(0) === '-';
+        var t = raw.replace(/[^\d,]/g, '');
+        if (!t) return neg ? '-' : '';
+        if (t.indexOf(',') >= 0) {
+            var parts = t.split(',');
+            var intDigits = (parts[0] || '').replace(/\D/g, '');
+            var decRaw = parts.slice(1).join('').replace(/\D/g, '').slice(0, 2);
+            var formatted = puntosMiles(parseInt(intDigits || '0', 10));
+            if (t.endsWith(',') && !decRaw) return (neg ? '-' : '') + formatted + ',';
+            return (neg ? '-' : '') + formatted + ',' + decRaw;
+        }
+        var digits = t.replace(/\D/g, '');
+        if (!digits) return neg ? '-' : '';
+        return (neg ? '-' : '') + puntosMiles(parseInt(digits, 10));
+    }
+
+    function formatearMesPrecio(el) {
+        if (!el || el.readOnly || el.disabled) return;
+        var sel = el.selectionStart;
+        var oldVal = el.value;
+        var nuevo = formatTypingLocal(oldVal);
+        if (nuevo === oldVal) return;
+        el.value = nuevo;
+        try {
+            var digitsBefore = String(oldVal || '').slice(0, sel).replace(/[^\d]/g, '').length;
+            if (digitsBefore <= 0) {
+                el.setSelectionRange(0, 0);
+                return;
+            }
+            var digitCount = 0;
+            var pos = nuevo.length;
+            for (var i = 0; i < nuevo.length; i++) {
+                if (/\d/.test(nuevo.charAt(i))) {
+                    digitCount++;
+                    if (digitCount >= digitsBefore) {
+                        pos = i + 1;
+                        break;
+                    }
+                }
+            }
+            el.setSelectionRange(pos, pos);
+        } catch (e) { /* ignore */ }
+    }
+
+    function esCampoPrecioMes(el) {
+        return el && el.classList && (
+            el.classList.contains('mes-precio-input')
+            || el.classList.contains('input-precio-cuota-mes')
+        );
+    }
+
+    document.addEventListener('input', function (e) {
+        if (esCampoPrecioMes(e.target)) formatearMesPrecio(e.target);
+    }, true);
+
+    document.addEventListener('blur', function (e) {
+        var el = e.target;
+        if (!esCampoPrecioMes(el) || !String(el.value || '').trim()) return;
+        if (typeof window.formatMontoAR === 'function') {
+            el.value = window.formatMontoAR(el.value);
+        } else {
+            el.value = formatTypingLocal(el.value);
+        }
+    }, true);
+
+    document.querySelectorAll('.mes-precio-input, .input-precio-cuota-mes').forEach(function (el) {
+        if (String(el.value || '').trim()) {
+            el.value = formatTypingLocal(el.value);
+        }
+    });
+})();
+</script>
+
 <!-- Rescindir contrato (desde detalle; en la lista solo queda Ver / Completar pago / Pagar mes) -->
 <div class="modal fade" id="modalRescindirContrato" tabindex="-1" aria-labelledby="modalRescindirContratoLabel" aria-hidden="true">
     <div class="modal-dialog">
