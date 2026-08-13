@@ -34,11 +34,11 @@ function parseDecimalMontoJS(val) {
 
 function fmtMilesAR(n) {
     const num = Number(n);
-    if (!Number.isFinite(num)) return '0';
+    if (!Number.isFinite(num)) return '0,00';
     if (typeof formatMontoAR === 'function') {
-        return formatMontoAR(num, 0);
+        return formatMontoAR(num, 2);
     }
-    return num.toLocaleString('es-AR', { maximumFractionDigits: 0 });
+    return num.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 // Seña ya pagada (número literal JS: sin separadores de miles ni coma decimal de Django)
