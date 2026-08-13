@@ -41,7 +41,7 @@
 
 {% block content %}
 <div class="page wrap">
-    <p style="margin:0 0 1rem"><a href="{% url 'inmobiliaria:portal_buscar' %}?desde={{ form_desde }}&hasta={{ form_hasta }}">← Volver a resultados</a></p>
+    <p style="margin:0 0 1rem"><a href="{% url 'inmobiliaria:portal_buscar' %}?operacion={{ form_operacion }}{% if form_desde %}&desde={{ form_desde }}{% endif %}{% if form_hasta %}&hasta={{ form_hasta }}{% endif %}">← Volver a resultados</a></p>
     <div class="layout">
         <div>
             <div class="gallery">
@@ -62,22 +62,24 @@
             <h1>{{ titulo }}</h1>
             <div class="meta">
                 Ficha {{ propiedad.id }}
+                {% if operacion_label %} · {{ operacion_label }}{% endif %}
                 {% if propiedad.ambientes %} · {{ propiedad.ambientes }} ambientes{% endif %}
                 {% if propiedad.cantidad_personas %} · hasta {{ propiedad.cantidad_personas }} pers.{% endif %}
-                {% if propiedad.sucursal %} · {{ propiedad.sucursal.nombre }}{% endif %}
             </div>
 
             {% if disponible == True %}
-            <span class="badge badge-ok">Disponible en las fechas elegidas</span>
+            <span class="badge badge-ok">{% if requiere_fechas %}Disponible en las fechas elegidas{% else %}Disponible{% endif %}</span>
             {% elif disponible == False %}
-            <span class="badge badge-no">No disponible en esas fechas</span>
+            <span class="badge badge-no">{% if requiere_fechas %}No disponible en esas fechas{% else %}No disponible{% endif %}</span>
             {% endif %}
 
             {% if precio_estimado %}
-            <div class="price">Estimado $ {{ precio_estimado|format_price }}</div>
+            <div class="price">$ {{ precio_estimado|format_price }}{% if precio_label %}{{ precio_label }}{% endif %}</div>
             {% endif %}
 
+            {% if requiere_fechas %}
             <form method="get" style="margin-bottom:1rem">
+                <input type="hidden" name="operacion" value="{{ form_operacion }}">
                 <div class="grid-2">
                     <div class="field">
                         <label for="desde">Desde</label>
@@ -90,13 +92,15 @@
                 </div>
                 <button class="btn btn-soft btn-block" type="submit">Actualizar fechas</button>
             </form>
+            {% endif %}
 
             <hr style="border:0;border-top:1px solid var(--g-line);margin:1rem 0">
 
-            <h2 style="margin:0 0 0.75rem;font-size:1.05rem;color:var(--g-green)">Consultar / reservar</h2>
+            <h2 style="margin:0 0 0.75rem;font-size:1.05rem;color:var(--g-green)">Consultar</h2>
             <p class="meta" style="margin-top:0">Dejanos tus datos y te contactamos. No se confirma online.</p>
             <form method="post">
                 {% csrf_token %}
+                <input type="hidden" name="operacion" value="{{ form_operacion }}">
                 <input type="hidden" name="fecha_desde" value="{{ form_desde }}">
                 <input type="hidden" name="fecha_hasta" value="{{ form_hasta }}">
                 <div class="field">
@@ -113,7 +117,7 @@
                 </div>
                 <div class="field">
                     <label for="mensaje">Mensaje</label>
-                    <textarea id="mensaje" name="mensaje" rows="3" placeholder="Cantidad de personas, horario de llegada…"></textarea>
+                    <textarea id="mensaje" name="mensaje" rows="3" placeholder="Consultá por esta propiedad…"></textarea>
                 </div>
                 <button class="btn btn-primary btn-block" type="submit">Enviar consulta</button>
             </form>

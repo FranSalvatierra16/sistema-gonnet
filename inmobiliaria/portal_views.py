@@ -1,5 +1,5 @@
 """
-Portal público Gonnet (/web/): landing, búsqueda temporario, ficha y consulta (lead).
+Portal público Gonnet (/web/): landing, búsqueda, ficha y consulta (lead).
 No requiere login. No crea Reserva — opción A.
 """
 from __future__ import annotations
@@ -14,7 +14,12 @@ from inmobiliaria.models import ImagenPropiedad, Propiedad
 from inmobiliaria.models.portal_web import ConsultaWeb
 from inmobiliaria.models.propiedad import TIPOS_INMUEBLES, TIPOS_VALORACION, TIPOS_VISTA
 from inmobiliaria.portal_servicio import (
+    OPERACION_LABELS,
+    OPERACIONES_PORTAL,
+    buscar_portal,
     buscar_temporario_portal,
+    es_codigo_operacion,
+    normalizar_operacion,
     parse_fecha_portal,
     qs_destacadas_portal,
     qs_propiedades_portal,
@@ -46,9 +51,42 @@ def _ctx_base(**extra):
     ctx = {
         'portal_nombre': 'Nestor Oscar Gonnet Propiedades',
         'portal_tagline': 'Excelencia y trayectoria en gestión inmobiliaria de alta gama.',
+        'operaciones_portal': OPERACIONES_PORTAL,
     }
     ctx.update(extra)
     return ctx
+
+
+def _resolver_operacion(request):
+    if request.GET.get('operacion'):
+        return normalizar_operacion(request.GET.get('operacion'))
+    tipo = (request.GET.get('tipo') or '').strip()
+    if es_codigo_operacion(tipo):
+        return normalizar_operacion(tipo)
+    return 'alquiler_temporario'
+
+
+def _resolver_tipo_inmueble(request):
+    t = (request.GET.get('tipo_inmueble') or '').strip()
+    if t:
+        return t
+    tipo = (request.GET.get('tipo') or '').strip()
+    if tipo and not es_codigo_operacion(tipo):
+        return tipo
+    return ''
+
+
+def _enriquecer_resultados(resultados):
+    for r in resultados:
+        r['titulo'] = titulo_publico_propiedad(r['propiedad'])
+        prop = r['propiedad']
+        r['ubicacion'] = (
+            getattr(prop, 'ubicacion', None)
+            or getattr(prop, 'direccion', None)
+            or r.get('sucursal_nombre')
+            or ''
+        )
+    return resultados
 
 
 @require_http_methods(['GET'])
@@ -68,61 +106,56 @@ def portal_home(request):
         form_ambientes=request.GET.get('ambientes', ''),
         form_desde=request.GET.get('desde', ''),
         form_hasta=request.GET.get('hasta', ''),
-        form_sucursal=request.GET.get('sucursal', ''),
+        form_operacion=normalizar_operacion(request.GET.get('operacion', '')),
     ))
 
 
 @require_http_methods(['GET'])
 def portal_buscar(request):
+    operacion = _resolver_operacion(request)
     ficha = (request.GET.get('ficha') or '').strip()
     ambientes = (request.GET.get('ambientes') or '').strip()
     q = (request.GET.get('q') or '').strip()
-    tipo_inmueble = (request.GET.get('tipo') or '').strip()
+    tipo_raw = _resolver_tipo_inmueble(request)
     valoracion = (request.GET.get('valoracion') or '').strip()
     vista = (request.GET.get('vista') or '').strip()
     comodidades = [c for c in request.GET.getlist('comodidad') if c]
     desde = parse_fecha_portal(request.GET.get('desde') or request.GET.get('fecha_inicio'))
     hasta = parse_fecha_portal(request.GET.get('hasta') or request.GET.get('fecha_fin'))
-    sucursal = (request.GET.get('sucursal') or '').strip().lower()
     error = ''
     resultados = []
 
-    if not desde or not hasta:
-        error = 'Indicá fechas Desde y Hasta para buscar disponibilidad.'
-    elif hasta <= desde:
-        error = 'La fecha Hasta debe ser posterior a Desde.'
+    if operacion == 'alquiler_temporario':
+        if not desde or not hasta:
+            error = 'Indicá fechas Desde y Hasta para buscar disponibilidad.'
+        elif hasta <= desde:
+            error = 'La fecha Hasta debe ser posterior a Desde.'
+        else:
+            resultados = buscar_portal(
+                operacion=operacion,
+                fecha_inicio=desde,
+                fecha_fin=hasta,
+                ficha=ficha,
+                ambientes=ambientes or None,
+                q=q,
+                tipo_inmueble=tipo_raw,
+                valoracion=valoracion,
+                vista=vista,
+                comodidades=comodidades,
+            )
     else:
-        resultados = buscar_temporario_portal(
-            fecha_inicio=desde,
-            fecha_fin=hasta,
+        resultados = buscar_portal(
+            operacion=operacion,
             ficha=ficha,
             ambientes=ambientes or None,
             q=q,
-            tipo_inmueble=tipo_inmueble,
+            tipo_inmueble=tipo_raw,
             valoracion=valoracion,
             vista=vista,
             comodidades=comodidades,
         )
-        if sucursal in ('colon', 'colón'):
-            resultados = [
-                r for r in resultados
-                if 'colon' in (r.get('sucursal_nombre') or '').lower()
-            ]
-        elif sucursal == 'corrientes':
-            resultados = [
-                r for r in resultados
-                if 'corrientes' in (r.get('sucursal_nombre') or '').lower()
-            ]
 
-    for r in resultados:
-        r['titulo'] = titulo_publico_propiedad(r['propiedad'])
-        prop = r['propiedad']
-        r['ubicacion'] = (
-            getattr(prop, 'ubicacion', None)
-            or getattr(prop, 'direccion', None)
-            or r.get('sucursal_nombre')
-            or ''
-        )
+    _enriquecer_resultados(resultados)
 
     return render(request, 'portal/buscar.html', _ctx_base(
         resultados=resultados,
@@ -130,13 +163,14 @@ def portal_buscar(request):
         form_ficha=ficha,
         form_ambientes=ambientes,
         form_q=q,
-        form_tipo=tipo_inmueble,
+        form_tipo_inmueble=tipo_raw,
         form_valoracion=valoracion,
         form_vista=vista,
         form_comodidades=set(comodidades),
         form_desde=request.GET.get('desde') or request.GET.get('fecha_inicio') or '',
         form_hasta=request.GET.get('hasta') or request.GET.get('fecha_fin') or '',
-        form_sucursal=sucursal,
+        form_operacion=operacion,
+        operacion_label=OPERACION_LABELS.get(operacion, 'Alquiler temporario'),
         fecha_desde=desde,
         fecha_hasta=hasta,
         total=len(resultados),
@@ -144,6 +178,7 @@ def portal_buscar(request):
         tipos_valoracion=TIPOS_VALORACION,
         tipos_vista=TIPOS_VISTA,
         comodidades_filtro=COMODIDADES_FILTRO,
+        requiere_fechas=(operacion == 'alquiler_temporario'),
     ))
 
 
@@ -153,21 +188,51 @@ def portal_ficha(request, propiedad_id):
     fotos = list(
         ImagenPropiedad.objects.filter(propiedad=prop).order_by('orden', 'id')[:20]
     )
+    operacion = normalizar_operacion(
+        request.GET.get('operacion') or request.POST.get('operacion') or 'alquiler_temporario'
+    )
     desde = parse_fecha_portal(request.GET.get('desde') or request.POST.get('fecha_desde'))
     hasta = parse_fecha_portal(request.GET.get('hasta') or request.POST.get('fecha_hasta'))
     precio_estimado = None
+    precio_label = ''
     disponible = None
 
-    if desde and hasta and hasta > desde:
-        hallados = buscar_temporario_portal(
-            fecha_inicio=desde,
-            fecha_fin=hasta,
-            ficha=str(prop.id),
-            limite=1,
-        )
-        if hallados and hallados[0]['propiedad'].id == prop.id:
+    if operacion == 'alquiler_temporario':
+        if desde and hasta and hasta > desde:
+            hallados = buscar_temporario_portal(
+                fecha_inicio=desde,
+                fecha_fin=hasta,
+                ficha=str(prop.id),
+                limite=1,
+            )
+            if hallados and hallados[0]['propiedad'].id == prop.id:
+                disponible = True
+                precio_estimado = hallados[0]['precio_total']
+            else:
+                disponible = False
+    elif operacion == 'venta':
+        info = getattr(prop, 'info_venta', None)
+        if info and info.en_venta and info.estado in ('disponible', 'reservado'):
             disponible = True
-            precio_estimado = hallados[0]['precio_total']
+            precio_estimado = info.precio_venta
+        else:
+            disponible = False
+    elif operacion == '24_meses':
+        info = getattr(prop, 'info_meses', None)
+        if info and info.disponible and (
+            info.estado == 'disponible' or info.ofrecible_desde
+        ):
+            disponible = True
+            precio_estimado = info.precio_mensual
+            precio_label = '/mes'
+        else:
+            disponible = False
+    elif operacion == 'invierno':
+        info = getattr(prop, 'info_invierno', None)
+        if info and info.disponible and info.estado == 'disponible':
+            disponible = True
+            precio_estimado = info.precio_mensual
+            precio_label = '/mes'
         else:
             disponible = False
 
@@ -192,16 +257,16 @@ def portal_ficha(request, propiedad_id):
                 ficha=str(prop.id),
                 sucursal_preferida=getattr(getattr(prop, 'sucursal', None), 'nombre', '') or '',
                 ambientes=prop.ambientes,
-                tipo_operacion='alquiler_temporario',
+                tipo_operacion=operacion,
             )
             messages.success(
                 request,
                 '¡Gracias! Recibimos tu consulta. Te vamos a contactar a la brevedad.',
             )
-            return redirect(
-                reverse('inmobiliaria:portal_ficha', args=[prop.id])
-                + (f'?desde={desde}&hasta={hasta}' if desde and hasta else '')
-            )
+            qs = f'?operacion={operacion}'
+            if desde and hasta:
+                qs += f'&desde={desde}&hasta={hasta}'
+            return redirect(reverse('inmobiliaria:portal_ficha', args=[prop.id]) + qs)
 
     return render(request, 'portal/ficha.html', _ctx_base(
         propiedad=prop,
@@ -211,8 +276,12 @@ def portal_ficha(request, propiedad_id):
         fecha_hasta=hasta,
         form_desde=request.GET.get('desde', '') or (desde.isoformat() if desde else ''),
         form_hasta=request.GET.get('hasta', '') or (hasta.isoformat() if hasta else ''),
+        form_operacion=operacion,
+        operacion_label=OPERACION_LABELS.get(operacion, ''),
+        requiere_fechas=(operacion == 'alquiler_temporario'),
         disponible=disponible,
         precio_estimado=precio_estimado,
+        precio_label=precio_label,
     ))
 
 
@@ -243,7 +312,7 @@ def portal_contacto(request):
                 fecha_hasta=hasta,
                 propiedad=prop,
                 ficha=ficha,
-                sucursal_preferida=(request.POST.get('sucursal') or '').strip(),
+                sucursal_preferida='',
                 tipo_operacion=(request.POST.get('tipo_operacion') or 'alquiler_temporario'),
             )
             messages.success(request, '¡Gracias! Recibimos tu mensaje.')

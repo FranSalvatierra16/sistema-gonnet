@@ -187,8 +187,8 @@
 {% block content %}
 <div class="page wrap">
     <div class="page-head">
-        <h1>Alquiler temporario</h1>
-        <p class="sub">Sucursales Colón y Corrientes · disponibilidad real del sistema</p>
+        <h1>{{ operacion_label }}</h1>
+        <p class="sub">Disponibilidad según el sistema interno · propiedades publicadas en la web</p>
     </div>
 
     {% if error %}
@@ -200,12 +200,21 @@
             <h2>Filtros</h2>
 
             <div class="field">
-                <label for="desde">Desde</label>
-                <input id="desde" name="desde" type="date" value="{{ form_desde }}" required>
+                <label for="operacion">Operación</label>
+                <select id="operacion" name="operacion">
+                    {% for val, label in operaciones_portal %}
+                    <option value="{{ val }}" {% if form_operacion == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
             </div>
-            <div class="field">
+
+            <div class="field" data-fechas {% if not requiere_fechas %}style="display:none"{% endif %}>
+                <label for="desde">Desde</label>
+                <input id="desde" name="desde" type="date" value="{{ form_desde }}" {% if requiere_fechas %}required{% endif %}>
+            </div>
+            <div class="field" data-fechas {% if not requiere_fechas %}style="display:none"{% endif %}>
                 <label for="hasta">Hasta</label>
-                <input id="hasta" name="hasta" type="date" value="{{ form_hasta }}" required>
+                <input id="hasta" name="hasta" type="date" value="{{ form_hasta }}" {% if requiere_fechas %}required{% endif %}>
             </div>
             <div class="field">
                 <label for="ambientes">Ambientes</label>
@@ -225,11 +234,11 @@
                 <input id="ficha" name="ficha" value="{{ form_ficha }}" placeholder="Nro. ficha">
             </div>
             <div class="field">
-                <label for="tipo">Tipo</label>
-                <select id="tipo" name="tipo">
+                <label for="tipo_inmueble">Tipo</label>
+                <select id="tipo_inmueble" name="tipo_inmueble">
                     <option value="">Todos</option>
                     {% for val, label in tipos_inmueble %}
-                    <option value="{{ val }}" {% if form_tipo == val %}selected{% endif %}>{{ label }}</option>
+                    <option value="{{ val }}" {% if form_tipo_inmueble == val %}selected{% endif %}>{{ label }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -251,14 +260,6 @@
                     {% endfor %}
                 </select>
             </div>
-            <div class="field">
-                <label for="sucursal">Sucursal</label>
-                <select id="sucursal" name="sucursal">
-                    <option value="">Ambas</option>
-                    <option value="colon" {% if form_sucursal == 'colon' %}selected{% endif %}>Colón</option>
-                    <option value="corrientes" {% if form_sucursal == 'corrientes' %}selected{% endif %}>Corrientes</option>
-                </select>
-            </div>
 
             <div class="field" style="margin-bottom:0.25rem">
                 <label>Comodidades</label>
@@ -274,18 +275,23 @@
 
             <div class="filter-actions">
                 <button class="btn btn-primary btn-block" type="submit">Aplicar</button>
-                <a class="btn-outline" href="{% url 'inmobiliaria:portal_buscar' %}{% if form_desde and form_hasta %}?desde={{ form_desde }}&hasta={{ form_hasta }}{% endif %}">Limpiar</a>
+                <a class="btn-outline" href="{% url 'inmobiliaria:portal_buscar' %}?operacion={{ form_operacion }}">Limpiar</a>
             </div>
         </form>
 
         <div>
-            {% if fecha_desde and fecha_hasta and not error %}
-            <p class="results-meta">{{ total }} resultado{{ total|pluralize }} · {{ fecha_desde|date:"d/m/Y" }} → {{ fecha_hasta|date:"d/m/Y" }}</p>
+            {% if not error %}
+            <p class="results-meta">
+                {{ total }} resultado{{ total|pluralize }}
+                {% if fecha_desde and fecha_hasta and requiere_fechas %}
+                · {{ fecha_desde|date:"d/m/Y" }} → {{ fecha_hasta|date:"d/m/Y" }}
+                {% endif %}
+            </p>
             {% endif %}
 
             <div class="cards">
                 {% for r in resultados %}
-                <a class="card" href="{% url 'inmobiliaria:portal_ficha' r.propiedad.id %}?desde={{ form_desde }}&hasta={{ form_hasta }}">
+                <a class="card" href="{% url 'inmobiliaria:portal_ficha' r.propiedad.id %}?operacion={{ form_operacion }}{% if form_desde %}&desde={{ form_desde }}{% endif %}{% if form_hasta %}&hasta={{ form_hasta }}{% endif %}">
                     <div class="gallery" data-gallery>
                         {% if r.fotos %}
                             {% for f in r.fotos %}
@@ -309,7 +315,7 @@
                     <div class="card-body">
                         <div class="card-top">
                             <span class="ficha-id">{{ r.propiedad.id }}</span>
-                            <span class="badge-alquiler">Alquiler</span>
+                            <span class="badge-alquiler">{{ r.badge }}</span>
                         </div>
                         <h3>{{ r.titulo }}</h3>
                         {% if r.ubicacion %}
@@ -319,7 +325,7 @@
                         </div>
                         {% endif %}
                         <div class="price">
-                            {% if r.precio_total %}$ {{ r.precio_total|format_price }}{% else %}Consultar{% endif %}
+                            {% if r.precio_total %}$ {{ r.precio_total|format_price }}{% if r.precio_label %}{{ r.precio_label }}{% endif %}{% else %}Consultar{% endif %}
                         </div>
                         <div class="specs">
                             {% if r.propiedad.ambientes %}
@@ -339,7 +345,7 @@
                 </a>
                 {% empty %}
                 {% if not error %}
-                <p class="results-meta" style="grid-column:1/-1">No hay propiedades publicadas disponibles en esas fechas. Probá otro rango o contactanos.</p>
+                <p class="results-meta" style="grid-column:1/-1">No hay propiedades publicadas disponibles para esta búsqueda. Probá otros filtros o contactanos.</p>
                 {% endif %}
                 {% endfor %}
             </div>
@@ -351,6 +357,19 @@
 {% block extra_js %}
 <script>
 (function () {
+  var op = document.getElementById('operacion');
+  var fechaFields = document.querySelectorAll('[data-fechas]');
+  var desde = document.getElementById('desde');
+  var hasta = document.getElementById('hasta');
+  function sync() {
+    var temp = !op || op.value === 'alquiler_temporario';
+    fechaFields.forEach(function (el) { el.style.display = temp ? '' : 'none'; });
+    if (desde) desde.required = temp;
+    if (hasta) hasta.required = temp;
+  }
+  if (op) op.addEventListener('change', sync);
+  sync();
+
   document.querySelectorAll('[data-gallery]').forEach(function (gal) {
     var slides = Array.prototype.slice.call(gal.querySelectorAll('[data-slide]'));
     if (slides.length < 2) return;

@@ -14,7 +14,7 @@
 {% block content %}
 <div class="page wrap">
     <h1>Contáctenos</h1>
-    <p style="color:var(--g-muted);margin:0">Sucursales Colón y Corrientes. Respondemos consultas de alquiler temporario.</p>
+    <p style="color:var(--g-muted);margin:0">Respondemos consultas de venta, alquiler temporario, 24 meses e invierno.</p>
     <form class="card" method="post">
         {% csrf_token %}
         <div class="field">
@@ -31,6 +31,14 @@
                 <input id="email" name="email" type="email">
             </div>
         </div>
+        <div class="field">
+            <label for="tipo_operacion">Tipo de consulta</label>
+            <select id="tipo_operacion" name="tipo_operacion">
+                {% for val, label in operaciones_portal %}
+                <option value="{{ val }}">{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
         <div class="grid-2">
             <div class="field">
                 <label for="fecha_desde">Desde</label>
@@ -44,14 +52,6 @@
         <div class="field">
             <label for="ficha">Ficha (opcional)</label>
             <input id="ficha" name="ficha" value="{{ form_ficha }}" placeholder="Nº de ficha">
-        </div>
-        <div class="field">
-            <label for="sucursal">Sucursal preferida</label>
-            <select id="sucursal" name="sucursal">
-                <option value="">Indistinto</option>
-                <option value="Colon">Colón</option>
-                <option value="Corrientes">Corrientes</option>
-            </select>
         </div>
         <div class="field">
             <label for="mensaje">Mensaje</label>

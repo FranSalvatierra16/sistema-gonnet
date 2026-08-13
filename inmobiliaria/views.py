@@ -3360,12 +3360,7 @@ def propiedades_web(request):
         messages.error(request, 'No tenés permiso para gestionar la página web.')
         return redirect('inmobiliaria:propiedades')
 
-    ver_ambas = usuario_en_colon_o_corrientes(request.user)
     qs = Propiedad.objects.select_related('sucursal', 'propietario')
-    if ver_ambas:
-        qs = qs.filter(Q_SUCURSALES_COLON_CORRIENTES)
-    else:
-        qs = qs.filter(sucursal=request.user.sucursal)
 
     q = (request.GET.get('q') or '').strip()
     filtro = (request.GET.get('filtro') or 'todas').strip().lower()
@@ -3390,11 +3385,6 @@ def propiedades_web(request):
         accion = (request.POST.get('accion') or '').strip()
         ids = request.POST.getlist('propiedad_ids')
         base_update = Propiedad.objects.filter(pk__in=ids) if ids else qs
-        # Seguridad: no tocar fuera del alcance de sucursal
-        if ver_ambas:
-            base_update = base_update.filter(Q_SUCURSALES_COLON_CORRIENTES)
-        else:
-            base_update = base_update.filter(sucursal=request.user.sucursal)
 
         if accion == 'habilitar_todas':
             n = qs.update(publicar_web=True)
@@ -3415,13 +3405,6 @@ def propiedades_web(request):
         if accion == 'toggle_publicar':
             pid = (request.POST.get('propiedad_id') or '').strip()
             p = get_object_or_404(Propiedad, pk=pid)
-            if ver_ambas:
-                if not Propiedad.objects.filter(pk=pid).filter(Q_SUCURSALES_COLON_CORRIENTES).exists():
-                    messages.error(request, 'Propiedad fuera de alcance.')
-                    return redirect('inmobiliaria:propiedades_web')
-            elif p.sucursal_id != getattr(request.user.sucursal, 'id', None):
-                messages.error(request, 'Propiedad fuera de alcance.')
-                return redirect('inmobiliaria:propiedades_web')
             p.publicar_web = not bool(p.publicar_web)
             if not p.publicar_web:
                 p.destacada_web = False
@@ -3434,13 +3417,6 @@ def propiedades_web(request):
         if accion == 'toggle_destacada':
             pid = (request.POST.get('propiedad_id') or '').strip()
             p = get_object_or_404(Propiedad, pk=pid)
-            if ver_ambas:
-                if not Propiedad.objects.filter(pk=pid).filter(Q_SUCURSALES_COLON_CORRIENTES).exists():
-                    messages.error(request, 'Propiedad fuera de alcance.')
-                    return redirect('inmobiliaria:propiedades_web')
-            elif p.sucursal_id != getattr(request.user.sucursal, 'id', None):
-                messages.error(request, 'Propiedad fuera de alcance.')
-                return redirect('inmobiliaria:propiedades_web')
             p.destacada_web = not bool(p.destacada_web)
             if p.destacada_web:
                 p.publicar_web = True
@@ -3466,7 +3442,7 @@ def propiedades_web(request):
         'querystring': query_params.urlencode(),
         'q': q,
         'filtro': filtro,
-        'ver_ambas': ver_ambas,
+        'ver_ambas': True,
         'total': total,
         'publicadas': publicadas,
         'destacadas': destacadas,

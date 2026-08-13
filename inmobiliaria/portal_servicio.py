@@ -1,6 +1,6 @@
 """
-Búsqueda pública de alquiler temporario (Colón + Corrientes).
-Reutiliza la lógica de disponibilidad/precios del backoffice; no crea reservas.
+Portal público (/web/): búsqueda por operación.
+Reutiliza criterios del backoffice; no crea reservas.
 """
 from __future__ import annotations
 
@@ -22,14 +22,23 @@ from inmobiliaria.models import ImagenPropiedad, Precio, Propiedad
 from inmobiliaria.models.propiedad import ESTADOS_RESERVA_OCUPAN_DISPONIBILIDAD
 from inmobiliaria.precio_temporada_reserva import rango_vacaciones_invierno_sucursal
 
-
-Q_SUCURSALES_PORTAL = (
-    Q(sucursal__nombre__icontains='colon')
-    | Q(sucursal__nombre__icontains='corrientes')
-)
-
 # Solo este productor (Vendedor/user) ve y gestiona la página web en el backoffice.
 PRODUCTOR_PORTAL_WEB_ID = 24
+
+OPERACIONES_PORTAL = (
+    ('alquiler_temporario', 'Alquiler temporario'),
+    ('venta', 'Venta'),
+    ('24_meses', '24 meses'),
+    ('invierno', 'Invierno'),
+)
+
+OPERACION_LABELS = dict(OPERACIONES_PORTAL)
+OPERACION_BADGES = {
+    'alquiler_temporario': 'Alquiler',
+    'venta': 'Venta',
+    '24_meses': '24 meses',
+    'invierno': 'Invierno',
+}
 
 
 def usuario_gestiona_portal_web(user) -> bool:
@@ -49,10 +58,36 @@ def parse_fecha_portal(s):
     return None
 
 
+def normalizar_operacion(raw: str, default: str = 'alquiler_temporario') -> str:
+    v = (raw or '').strip().lower().replace('-', '_')
+    if not v:
+        return default
+    aliases = {
+        'temporario': 'alquiler_temporario',
+        'alquiler': 'alquiler_temporario',
+        'alquiler_temporario': 'alquiler_temporario',
+        'venta': 'venta',
+        '24_meses': '24_meses',
+        'meses_24': '24_meses',
+        '24meses': '24_meses',
+        'invierno': 'invierno',
+    }
+    return aliases.get(v, default if default else v)
+
+
+def es_codigo_operacion(raw: str) -> bool:
+    v = (raw or '').strip().lower().replace('-', '_')
+    return v in {
+        'temporario', 'alquiler', 'alquiler_temporario',
+        'venta', '24_meses', 'meses_24', '24meses', 'invierno',
+    }
+
+
 def qs_propiedades_portal():
+    """Propiedades publicadas en la web (todas las sucursales)."""
     return (
-        Propiedad.objects.filter(Q_SUCURSALES_PORTAL, publicar_web=True)
-        .select_related('sucursal')
+        Propiedad.objects.filter(publicar_web=True)
+        .select_related('sucursal', 'info_venta', 'info_meses', 'info_invierno')
         .prefetch_related(
             Prefetch(
                 'imagenes',
@@ -71,10 +106,10 @@ def qs_destacadas_portal(limit=12):
 def _vacaciones_invierno_sucursal(sucursal):
     return rango_vacaciones_invierno_sucursal(sucursal)
 
-def buscar_temporario_portal(
+
+def _aplicar_filtros_atributos(
+    qs,
     *,
-    fecha_inicio,
-    fecha_fin,
     ficha='',
     ambientes=None,
     q='',
@@ -82,16 +117,7 @@ def buscar_temporario_portal(
     valoracion='',
     vista='',
     comodidades=None,
-    limite=120,
 ):
-    """
-    Propiedades publicadas en Colón/Corrientes disponibles en el rango.
-    Retorna lista de dicts: {propiedad, precio_total, noches, foto, fotos}.
-    """
-    if not fecha_inicio or not fecha_fin or fecha_fin <= fecha_inicio:
-        return []
-
-    qs = qs_propiedades_portal()
     if ficha:
         qs = qs.filter(id__icontains=str(ficha).strip())
     if ambientes:
@@ -124,6 +150,51 @@ def buscar_temporario_portal(
     for c in comodidades:
         if c in campos_bool:
             qs = qs.filter(**{c: True})
+    return qs
+
+
+def _resultado_base(prop, *, precio_total=None, precio_label='', noches=None, operacion=''):
+    fotos = list(getattr(prop, 'fotos_ordenadas', None) or [])[:8]
+    return {
+        'propiedad': prop,
+        'precio_total': precio_total if precio_total is not None else Decimal('0'),
+        'precio_label': precio_label,
+        'noches': noches,
+        'foto': fotos[0] if fotos else None,
+        'fotos': fotos,
+        'sucursal_nombre': getattr(getattr(prop, 'sucursal', None), 'nombre', '') or '',
+        'operacion': operacion,
+        'badge': OPERACION_BADGES.get(operacion, 'Alquiler'),
+    }
+
+
+def buscar_temporario_portal(
+    *,
+    fecha_inicio,
+    fecha_fin,
+    ficha='',
+    ambientes=None,
+    q='',
+    tipo_inmueble='',
+    valoracion='',
+    vista='',
+    comodidades=None,
+    limite=120,
+):
+    """Propiedades publicadas disponibles en el rango (misma lógica de ocupación del sistema)."""
+    if not fecha_inicio or not fecha_fin or fecha_fin <= fecha_inicio:
+        return []
+
+    qs = _aplicar_filtros_atributos(
+        qs_propiedades_portal(),
+        ficha=ficha,
+        ambientes=ambientes,
+        q=q,
+        tipo_inmueble=tipo_inmueble,
+        valoracion=valoracion,
+        vista=vista,
+        comodidades=comodidades,
+    )
 
     props = list(qs[:500])
     if not props:
@@ -159,21 +230,183 @@ def buscar_temporario_portal(
         precio = calcular_precio_total_reserva_fechas(
             fecha_inicio, fecha_fin, precios_map, vacaciones_invierno=vac
         )
-        fotos = list(getattr(prop, 'fotos_ordenadas', None) or [])[:8]
-        foto = fotos[0] if fotos else None
-        resultados.append({
-            'propiedad': prop,
-            'precio_total': precio or Decimal('0'),
-            'noches': noches,
-            'foto': foto,
-            'fotos': fotos,
-            'sucursal_nombre': getattr(getattr(prop, 'sucursal', None), 'nombre', '') or '',
-        })
+        resultados.append(
+            _resultado_base(
+                prop,
+                precio_total=precio or Decimal('0'),
+                noches=noches,
+                operacion='alquiler_temporario',
+            )
+        )
         if len(resultados) >= limite:
             break
 
     resultados.sort(key=lambda r: (r['precio_total'] or Decimal('0'), r['propiedad'].id))
     return resultados
+
+
+def buscar_venta_portal(
+    *,
+    ficha='',
+    ambientes=None,
+    q='',
+    tipo_inmueble='',
+    valoracion='',
+    vista='',
+    comodidades=None,
+    limite=200,
+):
+    """Mismo criterio que el listado interno de ventas + publicar_web."""
+    qs = qs_propiedades_portal().filter(
+        info_venta__en_venta=True,
+        info_venta__estado__in=['disponible', 'reservado'],
+    )
+    qs = _aplicar_filtros_atributos(
+        qs,
+        ficha=ficha,
+        ambientes=ambientes,
+        q=q,
+        tipo_inmueble=tipo_inmueble,
+        valoracion=valoracion,
+        vista=vista,
+        comodidades=comodidades,
+    ).order_by('info_venta__precio_venta', 'direccion')[:limite]
+
+    resultados = []
+    for prop in qs:
+        info = getattr(prop, 'info_venta', None)
+        precio = getattr(info, 'precio_venta', None) or Decimal('0')
+        resultados.append(
+            _resultado_base(
+                prop,
+                precio_total=precio,
+                precio_label='',
+                operacion='venta',
+            )
+        )
+    return resultados
+
+
+def buscar_24_meses_portal(
+    *,
+    ficha='',
+    ambientes=None,
+    q='',
+    tipo_inmueble='',
+    valoracion='',
+    vista='',
+    comodidades=None,
+    limite=200,
+):
+    """Mismo criterio que alquileres 24 meses internos (disponibles + ofrecibles) + publicar_web."""
+    qs = qs_propiedades_portal().filter(info_meses__disponible=True).filter(
+        Q(info_meses__estado='disponible')
+        | Q(info_meses__ofrecible_desde__isnull=False)
+    )
+    qs = _aplicar_filtros_atributos(
+        qs,
+        ficha=ficha,
+        ambientes=ambientes,
+        q=q,
+        tipo_inmueble=tipo_inmueble,
+        valoracion=valoracion,
+        vista=vista,
+        comodidades=comodidades,
+    ).order_by('info_meses__precio_mensual', 'direccion')[:limite]
+
+    resultados = []
+    for prop in qs:
+        info = getattr(prop, 'info_meses', None)
+        precio = getattr(info, 'precio_mensual', None) or Decimal('0')
+        resultados.append(
+            _resultado_base(
+                prop,
+                precio_total=precio,
+                precio_label='/mes',
+                operacion='24_meses',
+            )
+        )
+    return resultados
+
+
+def buscar_invierno_portal(
+    *,
+    ficha='',
+    ambientes=None,
+    q='',
+    tipo_inmueble='',
+    valoracion='',
+    vista='',
+    comodidades=None,
+    limite=200,
+):
+    """Mismo criterio que alquileres invierno internos (disponibles) + publicar_web."""
+    qs = qs_propiedades_portal().filter(
+        info_invierno__disponible=True,
+        info_invierno__estado='disponible',
+    )
+    qs = _aplicar_filtros_atributos(
+        qs,
+        ficha=ficha,
+        ambientes=ambientes,
+        q=q,
+        tipo_inmueble=tipo_inmueble,
+        valoracion=valoracion,
+        vista=vista,
+        comodidades=comodidades,
+    ).order_by('info_invierno__precio_mensual', 'direccion')[:limite]
+
+    resultados = []
+    for prop in qs:
+        info = getattr(prop, 'info_invierno', None)
+        precio = getattr(info, 'precio_mensual', None) or Decimal('0')
+        resultados.append(
+            _resultado_base(
+                prop,
+                precio_total=precio,
+                precio_label='/mes',
+                operacion='invierno',
+            )
+        )
+    return resultados
+
+
+def buscar_portal(
+    *,
+    operacion='alquiler_temporario',
+    fecha_inicio=None,
+    fecha_fin=None,
+    ficha='',
+    ambientes=None,
+    q='',
+    tipo_inmueble='',
+    valoracion='',
+    vista='',
+    comodidades=None,
+    limite=200,
+):
+    op = normalizar_operacion(operacion)
+    kwargs = dict(
+        ficha=ficha,
+        ambientes=ambientes,
+        q=q,
+        tipo_inmueble=tipo_inmueble,
+        valoracion=valoracion,
+        vista=vista,
+        comodidades=comodidades,
+        limite=limite,
+    )
+    if op == 'venta':
+        return buscar_venta_portal(**kwargs)
+    if op == '24_meses':
+        return buscar_24_meses_portal(**kwargs)
+    if op == 'invierno':
+        return buscar_invierno_portal(**kwargs)
+    return buscar_temporario_portal(
+        fecha_inicio=fecha_inicio,
+        fecha_fin=fecha_fin,
+        **kwargs,
+    )
 
 
 def titulo_publico_propiedad(prop):

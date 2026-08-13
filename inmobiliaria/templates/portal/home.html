@@ -103,9 +103,11 @@
             </div>
             <div class="grid-2">
                 <div class="field">
-                    <label for="tipo">Tipo de operación</label>
-                    <select id="tipo" name="tipo" disabled>
-                        <option selected>Alquiler temporario</option>
+                    <label for="operacion">Tipo de operación</label>
+                    <select id="operacion" name="operacion">
+                        {% for val, label in operaciones_portal %}
+                        <option value="{{ val }}" {% if form_operacion == val %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
                     </select>
                 </div>
                 <div class="field">
@@ -118,23 +120,15 @@
                     </select>
                 </div>
             </div>
-            <div class="grid-2">
+            <div class="grid-2" id="fechas-box">
                 <div class="field">
                     <label for="desde">Desde</label>
-                    <input id="desde" name="desde" type="date" value="{{ form_desde }}" required>
+                    <input id="desde" name="desde" type="date" value="{{ form_desde }}">
                 </div>
                 <div class="field">
                     <label for="hasta">Hasta</label>
-                    <input id="hasta" name="hasta" type="date" value="{{ form_hasta }}" required>
+                    <input id="hasta" name="hasta" type="date" value="{{ form_hasta }}">
                 </div>
-            </div>
-            <div class="field">
-                <label for="sucursal">Sucursal</label>
-                <select id="sucursal" name="sucursal">
-                    <option value="">Colón y Corrientes</option>
-                    <option value="colon" {% if form_sucursal == 'colon' %}selected{% endif %}>Colón</option>
-                    <option value="corrientes" {% if form_sucursal == 'corrientes' %}selected{% endif %}>Corrientes</option>
-                </select>
             </div>
             <button class="btn btn-soft btn-block" type="submit">Ver resultados →</button>
         </form>
@@ -169,4 +163,23 @@
         {% endif %}
     </div>
 </section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  var op = document.getElementById('operacion');
+  var box = document.getElementById('fechas-box');
+  var desde = document.getElementById('desde');
+  var hasta = document.getElementById('hasta');
+  function sync() {
+    var temp = !op || op.value === 'alquiler_temporario';
+    if (box) box.style.display = temp ? '' : 'none';
+    if (desde) desde.required = temp;
+    if (hasta) hasta.required = temp;
+  }
+  if (op) op.addEventListener('change', sync);
+  sync();
+})();
+</script>
 {% endblock %}
