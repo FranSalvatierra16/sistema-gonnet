@@ -55,16 +55,23 @@
         }
         .nav-links { display: flex; align-items: center; gap: 1.1rem; flex-wrap: wrap; }
         .nav-links a { color: var(--g-muted); font-weight: 500; font-size: 0.95rem; }
-        .nav-links a:hover { color: var(--g-green-dark); }
+        .nav-links a:hover, .nav-links a.is-active { color: var(--g-green-dark); }
         .btn {
             display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;
             border: 0; border-radius: 999px; padding: 0.7rem 1.15rem;
             font: inherit; font-weight: 600; cursor: pointer;
+            transition: transform .2s ease, background .2s ease, box-shadow .2s ease;
         }
+        .btn:hover { transform: translateY(-1px); }
         .btn-primary { background: var(--g-green); color: #fff; }
         .btn-primary:hover { background: var(--g-green-mid); }
         .btn-soft { background: #e7f3e6; color: var(--g-green-dark); }
         .btn-soft:hover { background: #d7ebd5; }
+        .btn-ghost {
+            background: rgba(255,255,255,0.14); color: #fff;
+            border: 1px solid rgba(255,255,255,0.35);
+        }
+        .btn-ghost:hover { background: rgba(255,255,255,0.24); }
         .btn-block { width: 100%; }
         .messages { list-style: none; padding: 0; margin: 1rem 0 0; }
         .messages li {
@@ -82,9 +89,10 @@
         .social-bar a { opacity: 0.92; }
         .social-bar a:hover { opacity: 1; text-decoration: underline; }
         .site-footer {
-            margin-top: 3rem; padding: 2rem 0 2.5rem;
+            margin-top: 0; padding: 2rem 0 2.5rem;
             border-top: 1px solid var(--g-line);
             color: var(--g-muted); font-size: 0.9rem;
+            background: #f7faf6;
         }
         .field { margin-bottom: 0.85rem; }
         .field label {
@@ -100,6 +108,14 @@
             outline: 2px solid rgba(74, 154, 70, 0.28); border-color: var(--g-green);
         }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+        @keyframes rise {
+            from { opacity: 0; transform: translateY(18px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .rise { animation: rise .7s ease both; }
+        .rise-2 { animation-delay: .12s; }
+        .rise-3 { animation-delay: .24s; }
+        .rise-4 { animation-delay: .36s; }
         @media (max-width: 720px) {
             .grid-2 { grid-template-columns: 1fr; }
             .nav-links .hide-sm { display: none; }
@@ -115,9 +131,9 @@
             <img class="brand-logo" src="{% static 'portal/logo-gonnet.png' %}" alt="Nestor Oscar Gonnet Propiedades">
         </a>
         <nav class="nav-links">
-            <a class="hide-sm" href="{% url 'inmobiliaria:portal_home' %}">Inicio</a>
-            <a class="hide-sm" href="{% url 'inmobiliaria:portal_buscar' %}">Buscar</a>
-            <a class="hide-sm" href="{% url 'inmobiliaria:portal_home' %}#destacadas">Quienes somos</a>
+            <a class="hide-sm {% if nav_active == 'inicio' %}is-active{% endif %}" href="{% url 'inmobiliaria:portal_home' %}">Inicio</a>
+            <a class="hide-sm {% if nav_active == 'vender' %}is-active{% endif %}" href="{% url 'inmobiliaria:portal_quiero_vender' %}">Quiero vender</a>
+            <a class="hide-sm {% if nav_active == 'quienes' %}is-active{% endif %}" href="{% url 'inmobiliaria:portal_quienes_somos' %}">Quiénes somos</a>
             <a class="btn btn-primary" href="{% url 'inmobiliaria:portal_contacto' %}">Contáctenos</a>
         </nav>
     </div>

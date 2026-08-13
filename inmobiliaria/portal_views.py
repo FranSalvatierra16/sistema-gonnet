@@ -107,6 +107,7 @@ def portal_home(request):
         form_desde=request.GET.get('desde', ''),
         form_hasta=request.GET.get('hasta', ''),
         form_operacion=normalizar_operacion(request.GET.get('operacion', '')),
+        nav_active='inicio',
     ))
 
 
@@ -285,43 +286,68 @@ def portal_ficha(request, propiedad_id):
     ))
 
 
+def _guardar_consulta_web(request, *, tipo_operacion_default='consulta'):
+    nombre = (request.POST.get('nombre') or '').strip()
+    email = (request.POST.get('email') or '').strip()
+    telefono = (request.POST.get('telefono') or '').strip()
+    mensaje = (request.POST.get('mensaje') or '').strip()
+    ficha = (request.POST.get('ficha') or '').strip()
+    desde = parse_fecha_portal(request.POST.get('fecha_desde'))
+    hasta = parse_fecha_portal(request.POST.get('fecha_hasta'))
+    prop = None
+    if ficha:
+        prop = qs_propiedades_portal().filter(pk=ficha).first()
+    if not nombre:
+        messages.error(request, 'Ingresá tu nombre.')
+        return False
+    if not email and not telefono:
+        messages.error(request, 'Dejanos un email o un teléfono.')
+        return False
+    ConsultaWeb.objects.create(
+        nombre=nombre,
+        email=email,
+        telefono=telefono,
+        mensaje=mensaje,
+        fecha_desde=desde,
+        fecha_hasta=hasta,
+        propiedad=prop,
+        ficha=ficha,
+        sucursal_preferida='',
+        tipo_operacion=(request.POST.get('tipo_operacion') or tipo_operacion_default),
+    )
+    messages.success(request, '¡Gracias! Recibimos tu mensaje.')
+    return True
+
+
 @require_http_methods(['GET', 'POST'])
 def portal_contacto(request):
     if request.method == 'POST':
-        nombre = (request.POST.get('nombre') or '').strip()
-        email = (request.POST.get('email') or '').strip()
-        telefono = (request.POST.get('telefono') or '').strip()
-        mensaje = (request.POST.get('mensaje') or '').strip()
-        ficha = (request.POST.get('ficha') or '').strip()
-        desde = parse_fecha_portal(request.POST.get('fecha_desde'))
-        hasta = parse_fecha_portal(request.POST.get('fecha_hasta'))
-        prop = None
-        if ficha:
-            prop = qs_propiedades_portal().filter(pk=ficha).first()
-        if not nombre:
-            messages.error(request, 'Ingresá tu nombre.')
-        elif not email and not telefono:
-            messages.error(request, 'Dejanos un email o un teléfono.')
-        else:
-            ConsultaWeb.objects.create(
-                nombre=nombre,
-                email=email,
-                telefono=telefono,
-                mensaje=mensaje,
-                fecha_desde=desde,
-                fecha_hasta=hasta,
-                propiedad=prop,
-                ficha=ficha,
-                sucursal_preferida='',
-                tipo_operacion=(request.POST.get('tipo_operacion') or 'alquiler_temporario'),
-            )
-            messages.success(request, '¡Gracias! Recibimos tu mensaje.')
+        if _guardar_consulta_web(request, tipo_operacion_default='consulta'):
             return redirect('inmobiliaria:portal_contacto')
 
     return render(request, 'portal/contacto.html', _ctx_base(
         form_ficha=request.GET.get('ficha', ''),
         form_desde=request.GET.get('desde', ''),
         form_hasta=request.GET.get('hasta', ''),
+        nav_active='contacto',
+    ))
+
+
+@require_http_methods(['GET', 'POST'])
+def portal_quiero_vender(request):
+    if request.method == 'POST':
+        if _guardar_consulta_web(request, tipo_operacion_default='quiero_vender'):
+            return redirect('inmobiliaria:portal_quiero_vender')
+
+    return render(request, 'portal/quiero_vender.html', _ctx_base(
+        nav_active='vender',
+    ))
+
+
+@require_http_methods(['GET'])
+def portal_quienes_somos(request):
+    return render(request, 'portal/quienes_somos.html', _ctx_base(
+        nav_active='quienes',
     ))
 
 

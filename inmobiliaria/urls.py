@@ -21,6 +21,8 @@ urlpatterns = [
     path('web/buscar/', portal_views.portal_buscar, name='portal_buscar'),
     path('web/propiedad/<str:propiedad_id>/', portal_views.portal_ficha, name='portal_ficha'),
     path('web/contacto/', portal_views.portal_contacto, name='portal_contacto'),
+    path('web/quiero-vender/', portal_views.portal_quiero_vender, name='portal_quiero_vender'),
+    path('web/quienes-somos/', portal_views.portal_quienes_somos, name='portal_quienes_somos'),
     path('consultas-web/', portal_views.portal_consultas_staff, name='portal_consultas_staff'),
 
     # 🚨 TEMPORAL - MIGRACIÓN HEROKU → RAILWAY (ELIMINAR DESPUÉS)

@@ -1,0 +1,235 @@
+{% extends 'portal/base.html' %}
+{% load static %}
+
+{% block title %}Quiénes somos · {{ portal_nombre }}{% endblock %}
+
+{% block extra_css %}
+.about-hero {
+    position: relative;
+    padding: 4rem 0 3.2rem;
+    overflow: hidden;
+    background:
+        radial-gradient(900px 420px at 85% -10%, rgba(74,154,70,0.22), transparent 60%),
+        radial-gradient(700px 380px at -10% 110%, rgba(166,42,41,0.08), transparent 55%),
+        linear-gradient(180deg, #eaf6e9 0%, #f7faf6 70%);
+}
+.about-hero .wrap {
+    display: grid;
+    grid-template-columns: 1.2fr 0.8fr;
+    gap: 2rem;
+    align-items: end;
+}
+.about-hero .eyebrow {
+    color: var(--g-green);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 0.7rem;
+}
+.about-hero h1 {
+    margin: 0 0 0.9rem;
+    font-family: "Fraunces", Georgia, serif;
+    font-size: clamp(2.4rem, 5vw, 3.8rem);
+    line-height: 1.02;
+    color: var(--g-green-dark);
+    max-width: 12ch;
+}
+.about-hero .lead {
+    margin: 0;
+    color: var(--g-muted);
+    font-size: 1.08rem;
+    line-height: 1.55;
+    max-width: 42ch;
+}
+.logo-float {
+    justify-self: end;
+    width: min(100%, 320px);
+    background: #fff;
+    border: 1px solid var(--g-line);
+    border-radius: 22px;
+    padding: 1.4rem;
+    box-shadow: var(--shadow);
+    transform: rotate(-1.5deg);
+    transition: transform .35s ease;
+}
+.logo-float:hover { transform: rotate(0deg) translateY(-4px); }
+.logo-float img { width: 100%; height: auto; display: block; }
+.story {
+    padding: 3rem 0 1rem;
+}
+.story-grid {
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: 1.5rem;
+}
+.story-block h2 {
+    margin: 0 0 0.75rem;
+    font-family: "Fraunces", Georgia, serif;
+    font-size: 1.85rem;
+    color: var(--g-green-dark);
+}
+.story-block p {
+    margin: 0 0 1rem;
+    color: #334233;
+    line-height: 1.6;
+    font-size: 1.02rem;
+}
+.pillars {
+    display: grid;
+    gap: 0.85rem;
+}
+.pillar {
+    background: #fff;
+    border: 1px solid var(--g-line);
+    border-radius: 16px;
+    padding: 1.1rem 1.15rem;
+}
+.pillar strong {
+    display: block;
+    color: var(--g-green-dark);
+    margin-bottom: 0.25rem;
+}
+.pillar span { color: var(--g-muted); font-size: 0.94rem; line-height: 1.4; }
+.invest {
+    margin: 2rem 0 0;
+    padding: 2.4rem 0;
+    background:
+        linear-gradient(120deg, rgba(47,107,44,0.94), rgba(74,154,70,0.88)),
+        url("https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1600&q=80") center/cover;
+    color: #fff;
+}
+.invest .wrap {
+    display: grid;
+    grid-template-columns: 1.3fr auto;
+    gap: 1.5rem;
+    align-items: center;
+}
+.invest h2 {
+    margin: 0 0 0.55rem;
+    font-family: "Fraunces", Georgia, serif;
+    font-size: clamp(1.7rem, 3vw, 2.3rem);
+}
+.invest p { margin: 0; opacity: 0.92; max-width: 48ch; line-height: 1.5; }
+.owner {
+    padding: 3rem 0 3.5rem;
+}
+.owner-panel {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    border-radius: 28px;
+    overflow: hidden;
+    background: #17351a;
+    color: #fff;
+    box-shadow: 0 24px 60px rgba(23, 53, 26, 0.28);
+}
+.owner-copy { padding: 2.2rem 2rem; }
+.owner-copy h2 {
+    margin: 0 0 0.7rem;
+    font-family: "Fraunces", Georgia, serif;
+    font-size: 2rem;
+}
+.owner-copy p {
+    margin: 0 0 1.2rem;
+    opacity: 0.92;
+    line-height: 1.55;
+    max-width: 38ch;
+}
+.owner-visual {
+    min-height: 280px;
+    background:
+        linear-gradient(160deg, rgba(74,154,70,0.35), rgba(23,53,26,0.55)),
+        url("https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=1200&q=80") center/cover;
+}
+@media (max-width: 900px) {
+    .about-hero .wrap,
+    .story-grid,
+    .invest .wrap,
+    .owner-panel { grid-template-columns: 1fr; }
+    .logo-float { justify-self: start; transform: none; }
+    .about-hero h1 { max-width: none; }
+}
+{% endblock %}
+
+{% block content %}
+<section class="about-hero">
+    <div class="wrap">
+        <div class="rise">
+            <div class="eyebrow">Trayectoria · Confianza · Resultados</div>
+            <h1>Quiénes somos</h1>
+            <p class="lead">
+                Líderes en alquileres de temporada, invierno para estudiantes y contratos de largo plazo
+                en Mar del Plata. Especialistas en Plaza Colón, Güemes y La Perla.
+            </p>
+        </div>
+        <div class="logo-float rise rise-2">
+            <img src="{% static 'portal/logo-gonnet.png' %}" alt="Nestor Oscar Gonnet Propiedades">
+        </div>
+    </div>
+</section>
+
+<section class="story">
+    <div class="wrap story-grid">
+        <div class="story-block rise">
+            <h2>Una inmobiliaria con sello propio</h2>
+            <p>
+                En <strong>Nestor Oscar Gonnet Propiedades</strong> combinamos experiencia de años en el mercado
+                local con una gestión moderna: venta, alquiler temporario, invierno y 24 meses,
+                con el mismo criterio de excelencia en cada operación.
+            </p>
+            <p>
+                Conocemos la ciudad, los barrios y lo que busca cada familia, turista o inversor.
+                Por eso acompañamos con cercanía y precisión, de la consulta al cierre.
+            </p>
+        </div>
+        <div class="pillars rise rise-2">
+            <div class="pillar">
+                <strong>Temporada</strong>
+                <span>Alquileres de verano con disponibilidad real y respuesta ágil.</span>
+            </div>
+            <div class="pillar">
+                <strong>Invierno &amp; estudiantes</strong>
+                <span>Opciones pensadas para estadías de invierno y demanda académica.</span>
+            </div>
+            <div class="pillar">
+                <strong>Largo plazo</strong>
+                <span>Contratos de 24 meses y gestión integral para propietarios e inquilinos.</span>
+            </div>
+            <div class="pillar">
+                <strong>Ventas</strong>
+                <span>Tasación, publicación y acompañamiento comercial hasta concretar.</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="invest">
+    <div class="wrap">
+        <div class="rise">
+            <h2>Por qué invertir en Mar del Plata</h2>
+            <p>
+                Ciudad con costa, vida urbana y demanda constante. Un escenario ideal para vivir
+                o para proyectar una inversión inmobiliaria con proyección real.
+            </p>
+        </div>
+        <a class="btn btn-ghost rise rise-2" href="{% url 'inmobiliaria:portal_buscar' %}?operacion=venta">Ver propiedades</a>
+    </div>
+</section>
+
+<section class="owner">
+    <div class="wrap">
+        <div class="owner-panel rise">
+            <div class="owner-copy">
+                <h2>Sr. Propietario</h2>
+                <p>
+                    ¿Querés vender en tiempo récord o asegurar ingresos de temporada?
+                    Nuestro equipo comercial está listo para tasar, publicar y gestionar tu propiedad.
+                </p>
+                <a class="btn btn-primary" href="{% url 'inmobiliaria:portal_quiero_vender' %}">Consultanos</a>
+            </div>
+            <div class="owner-visual" aria-hidden="true"></div>
+        </div>
+    </div>
+</section>
+{% endblock %}

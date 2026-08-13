@@ -1,63 +1,176 @@
 {% extends 'portal/base.html' %}
 
-{% block title %}Contacto · {{ portal_nombre }}{% endblock %}
+{% block title %}Contáctenos · {{ portal_nombre }}{% endblock %}
 
 {% block extra_css %}
-.page { padding: 2.5rem 0 1rem; max-width: 640px; }
-.page h1 { margin: 0 0 0.5rem; color: var(--g-green); font-family: "Fraunces", Georgia, serif; }
-.card {
-    background: #fff; border: 1px solid var(--g-line); border-radius: 18px; padding: 1.35rem;
-    margin-top: 1rem;
+.contact-hero {
+    position: relative;
+    min-height: min(92vh, 860px);
+    display: grid;
+    align-items: center;
+    overflow: hidden;
+    color: #fff;
+    background:
+        linear-gradient(118deg, rgba(31, 84, 29, 0.9) 0%, rgba(74, 154, 70, 0.5) 52%, rgba(18, 36, 20, 0.38) 100%),
+        url("https://images.unsplash.com/photo-1496417263034-38ec4f0b665a?auto=format&fit=crop&w=1800&q=80") center/cover no-repeat;
+}
+.contact-hero::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(600px 300px at 20% 20%, rgba(255,255,255,0.12), transparent 60%);
+    pointer-events: none;
+}
+.contact-inner {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: 0.95fr 1.05fr;
+    gap: 1.75rem;
+    padding: 3.2rem 0 3rem;
+    align-items: center;
+}
+.contact-copy .eyebrow {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    opacity: 0.9;
+    margin-bottom: 0.85rem;
+}
+.contact-copy h1 {
+    margin: 0 0 0.8rem;
+    font-family: "Fraunces", Georgia, serif;
+    font-size: clamp(2.5rem, 5.5vw, 4rem);
+    line-height: 1;
+}
+.contact-copy .lead {
+    margin: 0 0 1.4rem;
+    font-size: 1.08rem;
+    line-height: 1.5;
+    max-width: 34ch;
+    opacity: 0.94;
+}
+.quick {
+    display: grid;
+    gap: 0.65rem;
+}
+.quick a {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.9rem 1rem;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.22);
+    color: #fff;
+    font-weight: 600;
+    backdrop-filter: blur(6px);
+    transition: background .2s ease, transform .2s ease;
+}
+.quick a:hover {
+    background: rgba(255,255,255,0.2);
+    transform: translateX(4px);
+}
+.quick small {
+    font-weight: 500;
+    opacity: 0.85;
+}
+.form-shell {
+    background: rgba(255,255,255,0.97);
+    color: var(--g-ink);
+    border-radius: 26px;
+    padding: 1.5rem 1.4rem 1.35rem;
+    box-shadow: 0 28px 70px rgba(16, 36, 18, 0.32);
+}
+.form-shell h2 {
+    margin: 0 0 0.25rem;
+    color: var(--g-green-dark);
+    font-family: "Fraunces", Georgia, serif;
+    font-size: 1.45rem;
+}
+.form-shell .hint {
+    margin: 0 0 1.1rem;
+    color: var(--g-muted);
+    font-size: 0.92rem;
+}
+@media (max-width: 900px) {
+    .contact-inner { grid-template-columns: 1fr; padding-top: 2.4rem; }
 }
 {% endblock %}
 
 {% block content %}
-<div class="page wrap">
-    <h1>Contáctenos</h1>
-    <p style="color:var(--g-muted);margin:0">Respondemos consultas de venta, alquiler temporario, 24 meses e invierno.</p>
-    <form class="card" method="post">
-        {% csrf_token %}
-        <div class="field">
-            <label for="nombre">Nombre *</label>
-            <input id="nombre" name="nombre" required>
-        </div>
-        <div class="grid-2">
-            <div class="field">
-                <label for="telefono">Teléfono</label>
-                <input id="telefono" name="telefono">
-            </div>
-            <div class="field">
-                <label for="email">Email</label>
-                <input id="email" name="email" type="email">
-            </div>
-        </div>
-        <div class="field">
-            <label for="tipo_operacion">Tipo de consulta</label>
-            <select id="tipo_operacion" name="tipo_operacion">
-                {% for val, label in operaciones_portal %}
-                <option value="{{ val }}">{{ label }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="grid-2">
-            <div class="field">
-                <label for="fecha_desde">Desde</label>
-                <input id="fecha_desde" name="fecha_desde" type="date" value="{{ form_desde }}">
-            </div>
-            <div class="field">
-                <label for="fecha_hasta">Hasta</label>
-                <input id="fecha_hasta" name="fecha_hasta" type="date" value="{{ form_hasta }}">
+<section class="contact-hero">
+    <div class="wrap contact-inner">
+        <div class="contact-copy rise">
+            <div class="eyebrow">Gonnet Propiedades</div>
+            <h1>Contáctenos</h1>
+            <p class="lead">Estamos para ayudarte. Escribinos por alquileres, ventas o cualquier consulta.</p>
+            <div class="quick">
+                <a href="https://wa.me/5492235954468" target="_blank" rel="noopener">
+                    <span>WhatsApp</span>
+                    <small>Respuesta rápida</small>
+                </a>
+                <a href="tel:+542235954468">
+                    <span>0223 595-4468</span>
+                    <small>Llamar ahora</small>
+                </a>
+                <a href="tel:+54223155205046">
+                    <span>0223 15 520-5046</span>
+                    <small>Línea alternativa</small>
+                </a>
             </div>
         </div>
-        <div class="field">
-            <label for="ficha">Ficha (opcional)</label>
-            <input id="ficha" name="ficha" value="{{ form_ficha }}" placeholder="Nº de ficha">
-        </div>
-        <div class="field">
-            <label for="mensaje">Mensaje</label>
-            <textarea id="mensaje" name="mensaje" rows="4"></textarea>
-        </div>
-        <button class="btn btn-primary" type="submit">Enviar</button>
-    </form>
-</div>
+
+        <form class="form-shell rise rise-2" method="post">
+            {% csrf_token %}
+            <h2>Escribinos</h2>
+            <p class="hint">Completá el formulario y te respondemos a la brevedad.</p>
+            <div class="field">
+                <label for="nombre">Nombre *</label>
+                <input id="nombre" name="nombre" required placeholder="Tu nombre">
+            </div>
+            <div class="grid-2">
+                <div class="field">
+                    <label for="telefono">Teléfono</label>
+                    <input id="telefono" name="telefono" placeholder="WhatsApp preferido">
+                </div>
+                <div class="field">
+                    <label for="email">Email</label>
+                    <input id="email" name="email" type="email" placeholder="tu@email.com">
+                </div>
+            </div>
+            <div class="field">
+                <label for="tipo_operacion">Tipo de consulta</label>
+                <select id="tipo_operacion" name="tipo_operacion">
+                    <option value="consulta">Consulta general</option>
+                    {% for val, label in operaciones_portal %}
+                    <option value="{{ val }}">{{ label }}</option>
+                    {% endfor %}
+                    <option value="quiero_vender">Quiero vender</option>
+                </select>
+            </div>
+            <div class="grid-2">
+                <div class="field">
+                    <label for="fecha_desde">Desde</label>
+                    <input id="fecha_desde" name="fecha_desde" type="date" value="{{ form_desde }}">
+                </div>
+                <div class="field">
+                    <label for="fecha_hasta">Hasta</label>
+                    <input id="fecha_hasta" name="fecha_hasta" type="date" value="{{ form_hasta }}">
+                </div>
+            </div>
+            <div class="field">
+                <label for="ficha">Ficha (opcional)</label>
+                <input id="ficha" name="ficha" value="{{ form_ficha }}" placeholder="Nº de ficha">
+            </div>
+            <div class="field">
+                <label for="mensaje">Mensaje</label>
+                <textarea id="mensaje" name="mensaje" rows="4" placeholder="Contanos en qué podemos ayudarte…"></textarea>
+            </div>
+            <button class="btn btn-primary btn-block" type="submit">Enviar consulta</button>
+        </form>
+    </div>
+</section>
 {% endblock %}

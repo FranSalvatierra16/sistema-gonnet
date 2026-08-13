@@ -1,0 +1,195 @@
+{% extends 'portal/base.html' %}
+
+{% block title %}Quiero vender · {{ portal_nombre }}{% endblock %}
+
+{% block extra_css %}
+.sell-hero {
+    position: relative;
+    min-height: min(88vh, 820px);
+    display: grid;
+    align-items: center;
+    overflow: hidden;
+    color: #fff;
+    background:
+        linear-gradient(115deg, rgba(31, 84, 29, 0.88) 0%, rgba(74, 154, 70, 0.55) 48%, rgba(20, 40, 22, 0.35) 100%),
+        url("https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1800&q=80") center/cover no-repeat;
+}
+.sell-hero::after {
+    content: "";
+    position: absolute;
+    inset: auto -10% -30% auto;
+    width: 55vmax;
+    height: 55vmax;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,255,255,0.14), transparent 68%);
+    pointer-events: none;
+    animation: pulse 8s ease-in-out infinite;
+}
+@keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: .7; }
+    50% { transform: scale(1.08); opacity: 1; }
+}
+.sell-inner {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: 1.05fr 0.95fr;
+    gap: 2rem;
+    padding: 3.5rem 0 3rem;
+    align-items: center;
+}
+.brand-line {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.88);
+    margin-bottom: 1rem;
+}
+.brand-line span {
+    width: 1.6rem; height: 2px; background: #fff; display: inline-block;
+}
+.sell-hero h1 {
+    margin: 0 0 0.85rem;
+    font-family: "Fraunces", Georgia, serif;
+    font-size: clamp(2.6rem, 6vw, 4.4rem);
+    line-height: 0.98;
+    max-width: 9ch;
+}
+.sell-hero .lead {
+    margin: 0 0 1.4rem;
+    font-size: 1.12rem;
+    max-width: 34ch;
+    opacity: 0.94;
+    line-height: 1.45;
+}
+.cta-row { display: flex; flex-wrap: wrap; gap: 0.7rem; }
+.panel {
+    background: rgba(255,255,255,0.97);
+    color: var(--g-ink);
+    border-radius: 24px;
+    padding: 1.45rem 1.4rem 1.35rem;
+    box-shadow: 0 24px 60px rgba(20, 40, 22, 0.28);
+    backdrop-filter: blur(8px);
+}
+.panel h2 {
+    margin: 0 0 0.35rem;
+    color: var(--g-green-dark);
+    font-size: 1.35rem;
+    font-family: "Fraunces", Georgia, serif;
+}
+.panel .hint { margin: 0 0 1rem; color: var(--g-muted); font-size: 0.92rem; }
+.wa {
+    display: flex; gap: 0.65rem; flex-wrap: wrap; margin-top: 0.85rem;
+}
+.wa a {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    padding: 0.55rem 0.85rem;
+    border-radius: 999px;
+    background: #e8f6e7;
+    color: var(--g-green-dark);
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+.wa a:hover { background: #d5edd3; }
+.strip {
+    padding: 2.5rem 0 3rem;
+    background:
+        linear-gradient(180deg, #eef7ed 0%, #f7faf6 100%);
+}
+.strip-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+}
+.feat {
+    padding: 1.25rem 1.15rem;
+    border-radius: 18px;
+    background: #fff;
+    border: 1px solid var(--g-line);
+    transition: transform .25s ease, box-shadow .25s ease;
+}
+.feat:hover { transform: translateY(-4px); box-shadow: var(--shadow); }
+.feat .n {
+    font-family: "Fraunces", Georgia, serif;
+    font-size: 1.8rem;
+    color: var(--g-green);
+    margin-bottom: 0.35rem;
+}
+.feat h3 { margin: 0 0 0.35rem; font-size: 1.05rem; color: var(--g-green-dark); }
+.feat p { margin: 0; color: var(--g-muted); font-size: 0.92rem; line-height: 1.4; }
+@media (max-width: 900px) {
+    .sell-inner { grid-template-columns: 1fr; padding-top: 2.4rem; }
+    .sell-hero h1 { max-width: none; }
+    .strip-grid { grid-template-columns: 1fr; }
+}
+{% endblock %}
+
+{% block content %}
+<section class="sell-hero">
+    <div class="wrap sell-inner">
+        <div class="rise">
+            <div class="brand-line"><span></span> Gonnet Propiedades</div>
+            <h1>Quiero vender!</h1>
+            <p class="lead">Ponete en contacto con nuestro equipo comercial para tasar y publicar tu propiedad.</p>
+            <div class="cta-row">
+                <a class="btn btn-primary" href="#form-vender">Tasá tu propiedad</a>
+                <a class="btn btn-ghost" href="https://wa.me/5492235954468" target="_blank" rel="noopener">WhatsApp</a>
+            </div>
+        </div>
+
+        <form class="panel rise rise-2" id="form-vender" method="post">
+            {% csrf_token %}
+            <input type="hidden" name="tipo_operacion" value="quiero_vender">
+            <h2>Empezá hoy</h2>
+            <p class="hint">Te contactamos para coordinar visita y tasación. Sin compromiso.</p>
+            <div class="field">
+                <label for="nombre">Nombre *</label>
+                <input id="nombre" name="nombre" required placeholder="Tu nombre">
+            </div>
+            <div class="grid-2">
+                <div class="field">
+                    <label for="telefono">Teléfono / WhatsApp *</label>
+                    <input id="telefono" name="telefono" placeholder="Ej. 223 555-1234">
+                </div>
+                <div class="field">
+                    <label for="email">Email</label>
+                    <input id="email" name="email" type="email" placeholder="tu@email.com">
+                </div>
+            </div>
+            <div class="field">
+                <label for="mensaje">Contanos sobre tu propiedad</label>
+                <textarea id="mensaje" name="mensaje" rows="3" placeholder="Barrio, tipo de inmueble, ambientes…"></textarea>
+            </div>
+            <button class="btn btn-primary btn-block" type="submit">Quiero que me contacten</button>
+            <div class="wa">
+                <a href="tel:+542235954468">☎ 0223 595-4468</a>
+                <a href="https://wa.me/5492235954468" target="_blank" rel="noopener">WhatsApp directo</a>
+            </div>
+        </form>
+    </div>
+</section>
+
+<section class="strip">
+    <div class="wrap strip-grid">
+        <article class="feat rise">
+            <div class="n">01</div>
+            <h3>Tasación real</h3>
+            <p>Evaluamos tu propiedad con el mercado actual de Mar del Plata.</p>
+        </article>
+        <article class="feat rise rise-2">
+            <div class="n">02</div>
+            <h3>Publicación potente</h3>
+            <p>Difusión profesional para venta, temporada, invierno y 24 meses.</p>
+        </article>
+        <article class="feat rise rise-3">
+            <div class="n">03</div>
+            <h3>Acompañamiento</h3>
+            <p>Te guiamos en cada paso hasta el cierre de la operación.</p>
+        </article>
+    </div>
+</section>
+{% endblock %}
