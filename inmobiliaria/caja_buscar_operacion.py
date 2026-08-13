@@ -288,13 +288,18 @@ def buscar_operacion_caja(
 
     Si el mismo número existe como reserva y contrato, devuelve payload con
     ``ambiguo: True`` y la lista ``candidatos`` para que el usuario elija.
-  Usá tipo_operacion_hint o prefijos C300 / R300 / L300 para forzar el tipo.
+    Usá tipo_operacion_hint, tipo_comprobante=liquidacion, o prefijos C300 / R300 / L300.
     """
     from inmobiliaria.models import ContratoAlquiler, Reserva
     from inmobiliaria.models.liquidacion import LiquidacionPropietario
 
     pk = int(numero)
     tipo_op = (tipo_operacion_hint or '').strip().lower()
+    tipo_comp = (tipo_comprobante_hint or '').strip().lower()
+    # Si eligió comprobante Liquidación, forzar solo liquidaciones (no reserva/contrato).
+    if not tipo_op and tipo_comp in ('liquidacion', 'lq'):
+        tipo_op = 'liquidacion'
+
     candidatos: list[tuple[str, object]] = []
 
     reserva = (
@@ -334,7 +339,8 @@ def buscar_operacion_caja(
             otros = ', '.join(t for t, _ in candidatos)
             return None, (
                 f'No hay {tipo_op} #{pk} en esta sucursal '
-                f'(pero sí existe como: {otros}). Probá otro prefijo (C / R / L).'
+                f'(pero sí existe como: {otros}). Probá otro prefijo (C / R / L) '
+                f'o cambiá el tipo de comprobante.'
             )
 
     if len(candidatos) > 1:
@@ -350,7 +356,8 @@ def buscar_operacion_caja(
             'numero': pk,
             'mensaje': (
                 f'El número {pk} existe como {tipos_txt}. '
-                f'Elegí cuál usar o buscá con prefijo (C{pk} = contrato, R{pk} = reserva).'
+                f'Elegí cuál usar o buscá con prefijo '
+                f'(C{pk} = contrato, R{pk} = reserva, L{pk} = liquidación).'
             ),
             'candidatos': [_resumen_candidato_operacion_caja(t, o) for t, o in candidatos],
         }, None
