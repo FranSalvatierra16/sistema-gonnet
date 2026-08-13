@@ -17,6 +17,7 @@ app_name = 'inmobiliaria'
 
 urlpatterns = [
     # Portal público (sin login)
+    path('web/logo.png', portal_views.portal_logo, name='portal_logo'),
     path('web/', portal_views.portal_home, name='portal_home'),
     path('web/buscar/', portal_views.portal_buscar, name='portal_buscar'),
     path('web/propiedad/<str:propiedad_id>/', portal_views.portal_ficha, name='portal_ficha'),

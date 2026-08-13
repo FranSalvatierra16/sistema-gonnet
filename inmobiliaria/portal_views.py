@@ -4,8 +4,11 @@ No requiere login. No crea Reserva — opción A.
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods
@@ -55,6 +58,21 @@ def _ctx_base(**extra):
     }
     ctx.update(extra)
     return ctx
+
+
+@require_http_methods(['GET', 'HEAD'])
+def portal_logo(request):
+    """
+    Sirve el logo desde el filesystem de la app (no depende de collectstatic/S3).
+    """
+    base = Path(__file__).resolve().parent / 'static' / 'images'
+    for name in ('logo-gonnet.png', 'logo.png', 'logoG.png'):
+        path = base / name
+        if path.is_file():
+            resp = FileResponse(path.open('rb'), content_type='image/png')
+            resp['Cache-Control'] = 'public, max-age=86400'
+            return resp
+    raise Http404('Logo no encontrado')
 
 
 def _resolver_operacion(request):
