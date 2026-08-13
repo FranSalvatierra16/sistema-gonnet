@@ -10,50 +10,52 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --g-green: #0b3d2e;
-            --g-green-mid: #145c45;
-            --g-green-soft: #1a6b52;
-            --g-cream: #f3f0ea;
-            --g-ink: #14201b;
-            --g-muted: #5c6b64;
+            --g-green: #4a9a46;
+            --g-green-mid: #3d8539;
+            --g-green-soft: #5aab55;
+            --g-green-dark: #2f6b2c;
+            --g-red: #a62a29;
+            --g-cream: #f5f8f4;
+            --g-ink: #1c2a1b;
+            --g-muted: #5d6b5c;
             --g-card: #ffffff;
-            --g-line: rgba(11, 61, 46, 0.12);
+            --g-line: rgba(74, 154, 70, 0.18);
             --radius: 18px;
-            --shadow: 0 18px 50px rgba(11, 61, 46, 0.18);
+            --shadow: 0 18px 50px rgba(74, 154, 70, 0.16);
         }
         * { box-sizing: border-box; }
         body {
             margin: 0;
             font-family: "DM Sans", system-ui, sans-serif;
             color: var(--g-ink);
-            background: #faf9f7;
+            background: #f7faf6;
         }
         a { color: inherit; text-decoration: none; }
         .wrap { width: min(1180px, calc(100% - 2rem)); margin-inline: auto; }
         .site-header {
             position: sticky; top: 0; z-index: 40;
-            background: rgba(250,249,247,0.92);
+            background: rgba(247,250,246,0.94);
             backdrop-filter: blur(10px);
             border-bottom: 1px solid var(--g-line);
         }
         .nav {
             display: flex; align-items: center; justify-content: space-between;
-            gap: 1rem; padding: 0.85rem 0;
+            gap: 1rem; padding: 0.65rem 0;
         }
         .brand {
-            display: flex; align-items: center; gap: 0.65rem;
-            font-weight: 700; color: var(--g-green);
-            letter-spacing: 0.02em;
+            display: flex; align-items: center;
+            line-height: 0;
         }
-        .brand-mark {
-            width: 2.2rem; height: 2.2rem; border-radius: 0.55rem;
-            background: linear-gradient(145deg, var(--g-green-mid), var(--g-green));
-            color: #fff; display: grid; place-items: center; font-size: 1rem;
+        .brand-logo {
+            height: 52px;
+            width: auto;
+            max-width: min(280px, 58vw);
+            display: block;
+            object-fit: contain;
         }
-        .brand small { display: block; font-weight: 500; color: var(--g-muted); font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; }
         .nav-links { display: flex; align-items: center; gap: 1.1rem; flex-wrap: wrap; }
         .nav-links a { color: var(--g-muted); font-weight: 500; font-size: 0.95rem; }
-        .nav-links a:hover { color: var(--g-green); }
+        .nav-links a:hover { color: var(--g-green-dark); }
         .btn {
             display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;
             border: 0; border-radius: 999px; padding: 0.7rem 1.15rem;
@@ -61,13 +63,13 @@
         }
         .btn-primary { background: var(--g-green); color: #fff; }
         .btn-primary:hover { background: var(--g-green-mid); }
-        .btn-soft { background: #e8eeeB; color: var(--g-green); }
-        .btn-soft:hover { background: #dbe5e0; }
+        .btn-soft { background: #e7f3e6; color: var(--g-green-dark); }
+        .btn-soft:hover { background: #d7ebd5; }
         .btn-block { width: 100%; }
         .messages { list-style: none; padding: 0; margin: 1rem 0 0; }
         .messages li {
             padding: 0.75rem 1rem; border-radius: 12px; margin-bottom: 0.5rem;
-            background: #e7f6ee; color: #0b3d2e; border: 1px solid #b7e0c7;
+            background: #e8f6e7; color: var(--g-green-dark); border: 1px solid #b7e0b5;
         }
         .messages li.error { background: #fdecea; color: #7a1f1a; border-color: #f5c2c0; }
         .social-bar {
@@ -95,12 +97,13 @@
             padding: 0.7rem 0.85rem; font: inherit; background: #fff;
         }
         .field input:focus, .field select:focus, .field textarea:focus {
-            outline: 2px solid rgba(20, 92, 69, 0.25); border-color: var(--g-green-mid);
+            outline: 2px solid rgba(74, 154, 70, 0.28); border-color: var(--g-green);
         }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
         @media (max-width: 720px) {
             .grid-2 { grid-template-columns: 1fr; }
             .nav-links .hide-sm { display: none; }
+            .brand-logo { height: 42px; }
         }
         {% block extra_css %}{% endblock %}
     </style>
@@ -109,16 +112,12 @@
 <header class="site-header">
     <div class="wrap nav">
         <a class="brand" href="{% url 'inmobiliaria:portal_home' %}">
-            <span class="brand-mark">G</span>
-            <span>
-                <small>Nestor Oscar</small>
-                Gonnet Propiedades
-            </span>
+            <img class="brand-logo" src="{% static 'portal/logo-gonnet.png' %}" alt="Nestor Oscar Gonnet Propiedades">
         </a>
         <nav class="nav-links">
             <a class="hide-sm" href="{% url 'inmobiliaria:portal_home' %}">Inicio</a>
-            <a class="hide-sm" href="{% url 'inmobiliaria:portal_buscar' %}">Alquiler temporario</a>
-            <a class="hide-sm" href="#destacadas">Quienes somos</a>
+            <a class="hide-sm" href="{% url 'inmobiliaria:portal_buscar' %}">Buscar</a>
+            <a class="hide-sm" href="{% url 'inmobiliaria:portal_home' %}#destacadas">Quienes somos</a>
             <a class="btn btn-primary" href="{% url 'inmobiliaria:portal_contacto' %}">Contáctenos</a>
         </nav>
     </div>
