@@ -4,62 +4,201 @@
 {% block title %}Resultados · {{ portal_nombre }}{% endblock %}
 
 {% block extra_css %}
-.page { padding: 2rem 0 1rem; }
-.page h1 { margin: 0 0 0.35rem; color: var(--g-green); font-family: "Fraunces", Georgia, serif; }
-.page .sub { color: var(--g-muted); margin-bottom: 1.25rem; }
-.layout { display: grid; grid-template-columns: 280px 1fr; gap: 1.25rem; align-items: start; }
+.page { padding: 1.5rem 0 2rem; }
+.page-head { margin-bottom: 1.1rem; }
+.page-head h1 {
+    margin: 0 0 0.25rem; color: var(--g-green);
+    font-family: "Fraunces", Georgia, serif; font-size: 1.75rem;
+}
+.page-head .sub { color: var(--g-muted); margin: 0; font-size: 0.95rem; }
+.layout {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 1.35rem;
+    align-items: start;
+}
 .filters {
-    background: #fff; border: 1px solid var(--g-line); border-radius: 16px; padding: 1rem;
-    position: sticky; top: 5rem;
+    background: #fff;
+    border: 1px solid var(--g-line);
+    border-radius: 14px;
+    padding: 1rem 1rem 1.1rem;
+    position: sticky;
+    top: 5rem;
 }
-.results { display: grid; gap: 0.85rem; }
-.result {
-    display: grid; grid-template-columns: 160px 1fr auto; gap: 1rem;
-    background: #fff; border: 1px solid var(--g-line); border-radius: 16px; padding: 0.85rem;
-    align-items: center;
+.filters h2 {
+    margin: 0 0 0.9rem;
+    font-size: 1.05rem;
+    color: var(--g-green);
+    font-weight: 700;
 }
-.result img, .result .ph {
-    width: 160px; height: 120px; object-fit: cover; border-radius: 12px; background: #d7e0db;
+.filters .field { margin-bottom: 0.75rem; }
+.filters .field label {
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--g-ink);
 }
-.result h3 { margin: 0 0 0.25rem; color: var(--g-green); font-size: 1.1rem; }
-.result .meta { color: var(--g-muted); font-size: 0.9rem; }
-.price { font-weight: 700; color: var(--g-green); white-space: nowrap; }
+.comodidades {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.35rem 0.5rem;
+    margin: 0.35rem 0 0.85rem;
+}
+.comodidades label {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.4rem;
+    font-size: 0.78rem;
+    color: var(--g-ink);
+    font-weight: 500;
+    cursor: pointer;
+    line-height: 1.25;
+}
+.comodidades input { margin-top: 0.15rem; flex-shrink: 0; }
+.filter-actions { display: grid; gap: 0.45rem; margin-top: 0.35rem; }
+.btn-outline {
+    background: #fff;
+    color: var(--g-green);
+    border: 1.5px solid var(--g-green-mid);
+    border-radius: 999px;
+    padding: 0.65rem 1rem;
+    font: inherit;
+    font-weight: 600;
+    text-align: center;
+    cursor: pointer;
+}
+.btn-outline:hover { background: #eef5f1; }
 .alert-warn {
     background: #fff6e5; border: 1px solid #f0d9a5; color: #6a4b10;
     padding: 0.85rem 1rem; border-radius: 12px; margin-bottom: 1rem;
 }
+.results-meta {
+    color: var(--g-muted);
+    font-size: 0.92rem;
+    margin: 0 0 0.85rem;
+}
+.cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+}
+.card {
+    background: #fff;
+    border: 1px solid var(--g-line);
+    border-radius: 14px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: box-shadow .2s ease, transform .2s ease;
+}
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 28px rgba(11, 61, 46, 0.1);
+}
+.gallery {
+    position: relative;
+    aspect-ratio: 4 / 3;
+    background: #d7e0db;
+    overflow: hidden;
+}
+.gallery img, .gallery .ph {
+    width: 100%; height: 100%;
+    object-fit: cover; display: block;
+}
+.gallery .ph {
+    display: grid; place-items: center;
+    color: var(--g-muted); font-size: 0.9rem; font-weight: 600;
+}
+.gallery-nav {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 0.35rem; pointer-events: none;
+}
+.gallery-nav button {
+    pointer-events: auto;
+    width: 1.7rem; height: 1.7rem; border-radius: 999px;
+    border: 0; background: rgba(255,255,255,0.9);
+    color: var(--g-green); font-size: 1rem; line-height: 1;
+    cursor: pointer; opacity: 0; transition: opacity .15s;
+}
+.card:hover .gallery-nav button { opacity: 1; }
+.gallery-dots {
+    position: absolute; left: 0; right: 0; bottom: 0.45rem;
+    display: flex; justify-content: center; gap: 0.28rem;
+}
+.gallery-dots span {
+    width: 0.4rem; height: 0.4rem; border-radius: 999px;
+    background: rgba(255,255,255,0.55);
+}
+.gallery-dots span.on { background: #fff; }
+.card-body { padding: 0.85rem 0.95rem 1rem; flex: 1; display: flex; flex-direction: column; gap: 0.35rem; }
+.card-top { display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; }
+.ficha-id {
+    color: #c62828; font-weight: 700; font-size: 0.85rem;
+}
+.badge-alquiler {
+    background: var(--g-green); color: #fff;
+    font-size: 0.68rem; font-weight: 700;
+    padding: 0.18rem 0.45rem; border-radius: 4px;
+    letter-spacing: 0.02em;
+}
+.card h3 {
+    margin: 0;
+    font-size: 0.98rem;
+    line-height: 1.3;
+    color: var(--g-ink);
+    font-weight: 700;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.card .loc {
+    display: flex; align-items: flex-start; gap: 0.3rem;
+    color: var(--g-muted); font-size: 0.84rem; line-height: 1.3;
+}
+.card .loc svg { flex-shrink: 0; margin-top: 0.1rem; }
+.card .price {
+    margin-top: 0.15rem;
+    color: var(--g-green);
+    font-weight: 800;
+    font-size: 1.05rem;
+}
+.card .specs {
+    margin-top: auto;
+    padding-top: 0.55rem;
+    display: flex; gap: 0.85rem;
+    color: var(--g-muted); font-size: 0.82rem; font-weight: 600;
+}
+.card .specs span { display: inline-flex; align-items: center; gap: 0.28rem; }
+@media (max-width: 1100px) {
+    .cards { grid-template-columns: repeat(2, 1fr); }
+}
 @media (max-width: 900px) {
     .layout { grid-template-columns: 1fr; }
     .filters { position: static; }
-    .result { grid-template-columns: 1fr; }
-    .result img, .result .ph { width: 100%; height: 180px; }
+}
+@media (max-width: 560px) {
+    .cards { grid-template-columns: 1fr; }
 }
 {% endblock %}
 
 {% block content %}
 <div class="page wrap">
-    <h1>Alquiler temporario</h1>
-    <p class="sub">Sucursales Colón y Corrientes · disponibilidad real del sistema</p>
+    <div class="page-head">
+        <h1>Alquiler temporario</h1>
+        <p class="sub">Sucursales Colón y Corrientes · disponibilidad real del sistema</p>
+    </div>
 
     {% if error %}
     <div class="alert-warn">{{ error }}</div>
     {% endif %}
 
     <div class="layout">
-        <form class="filters" method="get">
-            <div class="field">
-                <label for="ficha">Ficha</label>
-                <input id="ficha" name="ficha" value="{{ form_ficha }}" placeholder="Nº de ficha">
-            </div>
-            <div class="field">
-                <label for="ambientes">Ambientes</label>
-                <select id="ambientes" name="ambientes">
-                    <option value="">Sin preferencia</option>
-                    {% for n in "123456"|make_list %}
-                    <option value="{{ n }}" {% if form_ambientes == n %}selected{% endif %}>{{ n }}</option>
-                    {% endfor %}
-                </select>
-            </div>
+        <form class="filters" method="get" id="filtros-form">
+            <h2>Filtros</h2>
+
             <div class="field">
                 <label for="desde">Desde</label>
                 <input id="desde" name="desde" type="date" value="{{ form_desde }}" required>
@@ -69,6 +208,50 @@
                 <input id="hasta" name="hasta" type="date" value="{{ form_hasta }}" required>
             </div>
             <div class="field">
+                <label for="ambientes">Ambientes</label>
+                <select id="ambientes" name="ambientes">
+                    <option value="">Todos</option>
+                    {% for n in "123456"|make_list %}
+                    <option value="{{ n }}" {% if form_ambientes == n %}selected{% endif %}>{{ n }} ambiente{{ n|pluralize }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="field">
+                <label for="q">Buscar</label>
+                <input id="q" name="q" value="{{ form_q }}" placeholder="Buscar por título, ubicación o dirección">
+            </div>
+            <div class="field">
+                <label for="ficha">Nro. ficha</label>
+                <input id="ficha" name="ficha" value="{{ form_ficha }}" placeholder="Nro. ficha">
+            </div>
+            <div class="field">
+                <label for="tipo">Tipo</label>
+                <select id="tipo" name="tipo">
+                    <option value="">Todos</option>
+                    {% for val, label in tipos_inmueble %}
+                    <option value="{{ val }}" {% if form_tipo == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="field">
+                <label for="valoracion">Valoración</label>
+                <select id="valoracion" name="valoracion">
+                    <option value="">Todos</option>
+                    {% for val, label in tipos_valoracion %}
+                    <option value="{{ val }}" {% if form_valoracion == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="field">
+                <label for="vista">Vista</label>
+                <select id="vista" name="vista">
+                    <option value="">Todos</option>
+                    {% for val, label in tipos_vista %}
+                    <option value="{{ val }}" {% if form_vista == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="field">
                 <label for="sucursal">Sucursal</label>
                 <select id="sucursal" name="sucursal">
                     <option value="">Ambas</option>
@@ -76,41 +259,113 @@
                     <option value="corrientes" {% if form_sucursal == 'corrientes' %}selected{% endif %}>Corrientes</option>
                 </select>
             </div>
-            <button class="btn btn-primary btn-block" type="submit">Buscar</button>
+
+            <div class="field" style="margin-bottom:0.25rem">
+                <label>Comodidades</label>
+            </div>
+            <div class="comodidades">
+                {% for val, label in comodidades_filtro %}
+                <label>
+                    <input type="checkbox" name="comodidad" value="{{ val }}" {% if val in form_comodidades %}checked{% endif %}>
+                    <span>{{ label }}</span>
+                </label>
+                {% endfor %}
+            </div>
+
+            <div class="filter-actions">
+                <button class="btn btn-primary btn-block" type="submit">Aplicar</button>
+                <a class="btn-outline" href="{% url 'inmobiliaria:portal_buscar' %}{% if form_desde and form_hasta %}?desde={{ form_desde }}&hasta={{ form_hasta }}{% endif %}">Limpiar</a>
+            </div>
         </form>
 
         <div>
             {% if fecha_desde and fecha_hasta and not error %}
-            <p class="sub">{{ total }} resultado{{ total|pluralize }} · {{ fecha_desde|date:"d/m/Y" }} → {{ fecha_hasta|date:"d/m/Y" }}</p>
+            <p class="results-meta">{{ total }} resultado{{ total|pluralize }} · {{ fecha_desde|date:"d/m/Y" }} → {{ fecha_hasta|date:"d/m/Y" }}</p>
             {% endif %}
-            <div class="results">
+
+            <div class="cards">
                 {% for r in resultados %}
-                <a class="result" href="{% url 'inmobiliaria:portal_ficha' r.propiedad.id %}?desde={{ form_desde }}&hasta={{ form_hasta }}">
-                    {% if r.foto %}
-                    <img src="{{ r.foto.imagen.url }}" alt="">
-                    {% else %}
-                    <div class="ph"></div>
-                    {% endif %}
-                    <div>
-                        <h3>{{ r.titulo }}</h3>
-                        <div class="meta">
-                            Ficha {{ r.propiedad.id }}
-                            {% if r.propiedad.ambientes %} · {{ r.propiedad.ambientes }} amb.{% endif %}
-                            {% if r.sucursal_nombre %} · {{ r.sucursal_nombre }}{% endif %}
-                            · {{ r.noches }} noche{{ r.noches|pluralize }}
-                        </div>
+                <a class="card" href="{% url 'inmobiliaria:portal_ficha' r.propiedad.id %}?desde={{ form_desde }}&hasta={{ form_hasta }}">
+                    <div class="gallery" data-gallery>
+                        {% if r.fotos %}
+                            {% for f in r.fotos %}
+                            <img src="{{ f.imagen.url }}" alt="" {% if not forloop.first %}hidden{% endif %} data-slide>
+                            {% endfor %}
+                            {% if r.fotos|length > 1 %}
+                            <div class="gallery-nav">
+                                <button type="button" data-prev aria-label="Anterior">‹</button>
+                                <button type="button" data-next aria-label="Siguiente">›</button>
+                            </div>
+                            <div class="gallery-dots">
+                                {% for f in r.fotos %}
+                                <span {% if forloop.first %}class="on"{% endif %}></span>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        {% else %}
+                            <div class="ph">Sin imagen</div>
+                        {% endif %}
                     </div>
-                    <div class="price">
-                        {% if r.precio_total %}$ {{ r.precio_total|format_price }}{% else %}Consultar{% endif %}
+                    <div class="card-body">
+                        <div class="card-top">
+                            <span class="ficha-id">{{ r.propiedad.id }}</span>
+                            <span class="badge-alquiler">Alquiler</span>
+                        </div>
+                        <h3>{{ r.titulo }}</h3>
+                        {% if r.ubicacion %}
+                        <div class="loc">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s7-4.5 7-11a7 7 0 1 0-14 0c0 6.5 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+                            <span>{{ r.ubicacion }}</span>
+                        </div>
+                        {% endif %}
+                        <div class="price">
+                            {% if r.precio_total %}$ {{ r.precio_total|format_price }}{% else %}Consultar{% endif %}
+                        </div>
+                        <div class="specs">
+                            {% if r.propiedad.ambientes %}
+                            <span title="Ambientes">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+                                {{ r.propiedad.ambientes }}
+                            </span>
+                            {% endif %}
+                            {% if r.propiedad.cantidad_personas %}
+                            <span title="Personas">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                                {{ r.propiedad.cantidad_personas }}
+                            </span>
+                            {% endif %}
+                        </div>
                     </div>
                 </a>
                 {% empty %}
                 {% if not error %}
-                <p class="sub">No hay propiedades publicadas disponibles en esas fechas. Probá otro rango o contactanos.</p>
+                <p class="results-meta" style="grid-column:1/-1">No hay propiedades publicadas disponibles en esas fechas. Probá otro rango o contactanos.</p>
                 {% endif %}
                 {% endfor %}
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  document.querySelectorAll('[data-gallery]').forEach(function (gal) {
+    var slides = Array.prototype.slice.call(gal.querySelectorAll('[data-slide]'));
+    if (slides.length < 2) return;
+    var dots = Array.prototype.slice.call(gal.querySelectorAll('.gallery-dots span'));
+    var i = 0;
+    function show(n) {
+      i = (n + slides.length) % slides.length;
+      slides.forEach(function (img, idx) { img.hidden = idx !== i; });
+      dots.forEach(function (d, idx) { d.classList.toggle('on', idx === i); });
+    }
+    var prev = gal.querySelector('[data-prev]');
+    var next = gal.querySelector('[data-next]');
+    if (prev) prev.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); show(i - 1); });
+    if (next) next.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); show(i + 1); });
+  });
+})();
+</script>
 {% endblock %}

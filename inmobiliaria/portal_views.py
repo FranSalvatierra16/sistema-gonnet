@@ -12,6 +12,7 @@ from django.views.decorators.http import require_http_methods
 
 from inmobiliaria.models import ImagenPropiedad, Propiedad
 from inmobiliaria.models.portal_web import ConsultaWeb
+from inmobiliaria.models.propiedad import TIPOS_INMUEBLES, TIPOS_VALORACION, TIPOS_VISTA
 from inmobiliaria.portal_servicio import (
     buscar_temporario_portal,
     parse_fecha_portal,
@@ -19,6 +20,25 @@ from inmobiliaria.portal_servicio import (
     qs_propiedades_portal,
     titulo_publico_propiedad,
 )
+
+COMODIDADES_FILTRO = [
+    ('cochera', 'Cochera'),
+    ('parrilla', 'Parrilla'),
+    ('reciclado', 'Reciclado'),
+    ('terraza', 'Terraza'),
+    ('baulera', 'Baulera'),
+    ('seguridad', 'Seguridad'),
+    ('vista_panoramica', 'Vista panorámica'),
+    ('patio', 'Patio'),
+    ('piscina', 'Piscina'),
+    ('a_estrenar', 'A estrenar'),
+    ('balcon', 'Balcón'),
+    ('lavadero', 'Lavadero'),
+    ('vista_al_Mar', 'Vista al mar'),
+    ('apto_credito', 'Apto crédito'),
+    ('amoblado', 'Amoblado'),
+    ('wifi', 'WiFi'),
+]
 
 
 def _ctx_base(**extra):
@@ -55,8 +75,13 @@ def portal_home(request):
 def portal_buscar(request):
     ficha = (request.GET.get('ficha') or '').strip()
     ambientes = (request.GET.get('ambientes') or '').strip()
-    desde = parse_fecha_portal(request.GET.get('desde'))
-    hasta = parse_fecha_portal(request.GET.get('hasta'))
+    q = (request.GET.get('q') or '').strip()
+    tipo_inmueble = (request.GET.get('tipo') or '').strip()
+    valoracion = (request.GET.get('valoracion') or '').strip()
+    vista = (request.GET.get('vista') or '').strip()
+    comodidades = [c for c in request.GET.getlist('comodidad') if c]
+    desde = parse_fecha_portal(request.GET.get('desde') or request.GET.get('fecha_inicio'))
+    hasta = parse_fecha_portal(request.GET.get('hasta') or request.GET.get('fecha_fin'))
     sucursal = (request.GET.get('sucursal') or '').strip().lower()
     error = ''
     resultados = []
@@ -71,6 +96,11 @@ def portal_buscar(request):
             fecha_fin=hasta,
             ficha=ficha,
             ambientes=ambientes or None,
+            q=q,
+            tipo_inmueble=tipo_inmueble,
+            valoracion=valoracion,
+            vista=vista,
+            comodidades=comodidades,
         )
         if sucursal in ('colon', 'colón'):
             resultados = [
@@ -85,18 +115,34 @@ def portal_buscar(request):
 
     for r in resultados:
         r['titulo'] = titulo_publico_propiedad(r['propiedad'])
+        prop = r['propiedad']
+        r['ubicacion'] = (
+            getattr(prop, 'ubicacion', None)
+            or getattr(prop, 'direccion', None)
+            or r.get('sucursal_nombre')
+            or ''
+        )
 
     return render(request, 'portal/buscar.html', _ctx_base(
         resultados=resultados,
         error=error,
         form_ficha=ficha,
         form_ambientes=ambientes,
-        form_desde=request.GET.get('desde', ''),
-        form_hasta=request.GET.get('hasta', ''),
-        form_sucursal=request.GET.get('sucursal', ''),
+        form_q=q,
+        form_tipo=tipo_inmueble,
+        form_valoracion=valoracion,
+        form_vista=vista,
+        form_comodidades=set(comodidades),
+        form_desde=request.GET.get('desde') or request.GET.get('fecha_inicio') or '',
+        form_hasta=request.GET.get('hasta') or request.GET.get('fecha_fin') or '',
+        form_sucursal=sucursal,
         fecha_desde=desde,
         fecha_hasta=hasta,
         total=len(resultados),
+        tipos_inmueble=TIPOS_INMUEBLES,
+        tipos_valoracion=TIPOS_VALORACION,
+        tipos_vista=TIPOS_VISTA,
+        comodidades_filtro=COMODIDADES_FILTRO,
     ))
 
 

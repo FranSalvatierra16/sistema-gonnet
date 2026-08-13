@@ -63,10 +63,22 @@ def qs_destacadas_portal(limit=12):
 def _vacaciones_invierno_sucursal(sucursal):
     return rango_vacaciones_invierno_sucursal(sucursal)
 
-def buscar_temporario_portal(*, fecha_inicio, fecha_fin, ficha='', ambientes=None, limite=80):
+def buscar_temporario_portal(
+    *,
+    fecha_inicio,
+    fecha_fin,
+    ficha='',
+    ambientes=None,
+    q='',
+    tipo_inmueble='',
+    valoracion='',
+    vista='',
+    comodidades=None,
+    limite=120,
+):
     """
     Propiedades publicadas en Colón/Corrientes disponibles en el rango.
-    Retorna lista de dicts: {propiedad, precio_total, noches, foto}.
+    Retorna lista de dicts: {propiedad, precio_total, noches, foto, fotos}.
     """
     if not fecha_inicio or not fecha_fin or fecha_fin <= fecha_inicio:
         return []
@@ -79,8 +91,33 @@ def buscar_temporario_portal(*, fecha_inicio, fecha_fin, ficha='', ambientes=Non
             qs = qs.filter(ambientes=int(ambientes))
         except (TypeError, ValueError):
             pass
+    if q:
+        qq = str(q).strip()
+        qs = qs.filter(
+            Q(titulo__icontains=qq)
+            | Q(direccion__icontains=qq)
+            | Q(ubicacion__icontains=qq)
+            | Q(descripcion__icontains=qq)
+            | Q(id__icontains=qq)
+        )
+    if tipo_inmueble:
+        qs = qs.filter(tipo_inmueble=tipo_inmueble)
+    if valoracion:
+        qs = qs.filter(valoracion=valoracion)
+    if vista:
+        qs = qs.filter(vista=vista)
 
-    props = list(qs[:400])
+    comodidades = comodidades or []
+    campos_bool = {
+        'cochera', 'parrilla', 'reciclado', 'terraza', 'baulera', 'seguridad',
+        'vista_panoramica', 'patio', 'piscina', 'a_estrenar', 'balcon', 'lavadero',
+        'vista_al_Mar', 'apto_credito', 'amoblado', 'wifi',
+    }
+    for c in comodidades:
+        if c in campos_bool:
+            qs = qs.filter(**{c: True})
+
+    props = list(qs[:500])
     if not props:
         return []
 
@@ -114,13 +151,14 @@ def buscar_temporario_portal(*, fecha_inicio, fecha_fin, ficha='', ambientes=Non
         precio = calcular_precio_total_reserva_fechas(
             fecha_inicio, fecha_fin, precios_map, vacaciones_invierno=vac
         )
-        fotos = getattr(prop, 'fotos_ordenadas', None) or []
+        fotos = list(getattr(prop, 'fotos_ordenadas', None) or [])[:8]
         foto = fotos[0] if fotos else None
         resultados.append({
             'propiedad': prop,
             'precio_total': precio or Decimal('0'),
             'noches': noches,
             'foto': foto,
+            'fotos': fotos,
             'sucursal_nombre': getattr(getattr(prop, 'sucursal', None), 'nombre', '') or '',
         })
         if len(resultados) >= limite:
