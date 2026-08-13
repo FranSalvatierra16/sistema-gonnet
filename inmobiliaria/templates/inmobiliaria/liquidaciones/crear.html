@@ -2587,28 +2587,76 @@ document.addEventListener('DOMContentLoaded', function() {
         var inpMonto = document.getElementById('movimiento_monto');
         if (!modalAgregarGasto || !inpMonto) return;
 
+        function puntosMiles(n) {
+            var s = String(Math.trunc(Math.abs(Number(n)) || 0));
+            var out = '';
+            for (var i = 0; i < s.length; i++) {
+                if (i > 0 && (s.length - i) % 3 === 0) out += '.';
+                out += s.charAt(i);
+            }
+            return out;
+        }
+
+        function formatTypingLocal(str) {
+            if (typeof window.formatMontoARTyping === 'function') {
+                return window.formatMontoARTyping(str);
+            }
+            var raw = String(str == null ? '' : str);
+            var neg = raw.trim().charAt(0) === '-';
+            var t = raw.replace(/[^\d,]/g, '');
+            if (!t) return neg ? '-' : '';
+            if (t.indexOf(',') >= 0) {
+                var parts = t.split(',');
+                var intDigits = (parts[0] || '').replace(/\D/g, '');
+                var decRaw = parts.slice(1).join('').replace(/\D/g, '').slice(0, 2);
+                var formatted = puntosMiles(parseInt(intDigits || '0', 10));
+                if (t.endsWith(',') && !decRaw) return (neg ? '-' : '') + formatted + ',';
+                return (neg ? '-' : '') + formatted + ',' + decRaw;
+            }
+            var digits = t.replace(/\D/g, '');
+            if (!digits) return neg ? '-' : '';
+            return (neg ? '-' : '') + puntosMiles(parseInt(digits, 10));
+        }
+
         function formatearMontoMovimiento() {
-            if (typeof aplicarFormatoMontoAR === 'function') {
-                aplicarFormatoMontoAR(inpMonto);
-                return;
-            }
-            if (typeof formatMontoARTyping === 'function') {
-                inpMonto.value = formatMontoARTyping(inpMonto.value);
-            }
+            var sel = inpMonto.selectionStart;
+            var oldVal = inpMonto.value;
+            var nuevo = formatTypingLocal(oldVal);
+            if (nuevo === oldVal) return;
+            inpMonto.value = nuevo;
+            try {
+                var digitsBefore = String(oldVal || '').slice(0, sel).replace(/[^\d]/g, '').length;
+                if (digitsBefore <= 0) {
+                    inpMonto.setSelectionRange(0, 0);
+                    return;
+                }
+                var digitCount = 0;
+                var pos = nuevo.length;
+                for (var i = 0; i < nuevo.length; i++) {
+                    if (/\d/.test(nuevo.charAt(i))) {
+                        digitCount++;
+                        if (digitCount >= digitsBefore) {
+                            pos = i + 1;
+                            break;
+                        }
+                    }
+                }
+                inpMonto.setSelectionRange(pos, pos);
+            } catch (e) { /* ignore */ }
         }
 
         modalAgregarGasto.addEventListener('shown.bs.modal', function() {
-            if (typeof initMontoARInputs === 'function') {
-                initMontoARInputs(modalAgregarGasto);
-            }
             formatearMontoMovimiento();
             inpMonto.focus();
         });
         inpMonto.addEventListener('input', formatearMontoMovimiento);
+        inpMonto.addEventListener('paste', function() {
+            setTimeout(formatearMontoMovimiento, 0);
+        });
         inpMonto.addEventListener('blur', function() {
             if (String(inpMonto.value || '').trim() === '') return;
-            if (typeof formatMontoAR === 'function') {
-                inpMonto.value = formatMontoAR(inpMonto.value);
+            if (typeof window.formatMontoAR === 'function') {
+                inpMonto.value = window.formatMontoAR(inpMonto.value);
             } else {
                 formatearMontoMovimiento();
             }

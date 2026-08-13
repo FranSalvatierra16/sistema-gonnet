@@ -106,6 +106,7 @@
     function esInputMonto(el) {
         if (!el || el.tagName !== 'INPUT') return false;
         if (el.dataset.noMontoAr === '1' || el.classList.contains('no-monto-ar')) return false;
+        if (el.dataset.montoAr === '1') return true;
 
         var type = (el.type || 'text').toLowerCase();
         if (
