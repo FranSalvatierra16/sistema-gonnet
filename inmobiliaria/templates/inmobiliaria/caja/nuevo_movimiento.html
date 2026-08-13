@@ -553,6 +553,15 @@
                         </div>
                     </div>
                     <div class="card-body">
+                        <div id="aviso_monto_referencia_liq" class="alert alert-warning py-2 mb-3 d-none">
+                            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                                <div>
+                                    <strong>A pagar (liquidación):</strong>
+                                    <span class="fs-5 ms-1" id="monto_referencia_liq_txt">$ 0,00</span>
+                                </div>
+                                <small class="text-muted mb-0">Distribuí ese importe en efectivo, transferencia, cheques o tarjeta. Los campos quedan vacíos a propósito.</small>
+                            </div>
+                        </div>
                         <div id="aviso_solo_usd" class="alert alert-info py-2 d-none">
                             Ingreso/egreso en <strong>dólares efectivo</strong>. No suma al total en pesos; se registra aparte en la columna USD de caja.
                         </div>
@@ -2342,6 +2351,19 @@ $(document).ready(function() {
         $('#bloque_info_operacion').addClass('d-none');
         $('#info_operacion_mensaje').empty();
         $('#bloque_info_liquidacion, #bloque_info_deposito').addClass('d-none');
+        $('#aviso_monto_referencia_liq').addClass('d-none');
+        $('#monto_referencia_liq_txt').text('$ 0,00');
+    }
+
+    function setMontoReferenciaLiquidacion(monto) {
+        var n = parseFloat(monto);
+        if (!(n > 0)) {
+            $('#aviso_monto_referencia_liq').addClass('d-none');
+            $('#monto_referencia_liq_txt').text('$ 0,00');
+            return;
+        }
+        $('#monto_referencia_liq_txt').text('$ ' + fmtMontoLocal(n));
+        $('#aviso_monto_referencia_liq').removeClass('d-none');
     }
 
     function mostrarInfoOperacionReserva(op, mov) {
@@ -2374,8 +2396,10 @@ $(document).ready(function() {
             $('#bloque_info_liquidacion').removeClass('d-none');
             $('#info_monto_liquidacion').text('$' + fmtMontoLocal(op.monto_a_pagar || 0));
             $('#info_liquidacion_estado').text(op.estado || '');
+            setMontoReferenciaLiquidacion(op.monto_a_pagar);
         } else {
             $('#bloque_info_liquidacion').addClass('d-none');
+            setMontoReferenciaLiquidacion(0);
         }
 
         var depGarantia = op.deposito_garantia || 0;
@@ -2474,6 +2498,7 @@ $(document).ready(function() {
                 cLiq.id || CONCEPTO_PAGO_LIQUIDACION.id,
                 cLiq.nombre || CONCEPTO_PAGO_LIQUIDACION.nombre
             );
+            setMontoReferenciaLiquidacion(montoSug || op.monto_a_pagar || 0);
             $('input[name="monto_efectivo"], input[name="monto_cheque"], input[name="monto_tarjeta"], input[name="monto_deposito"]').val('');
             correspondeEditadoManual = false;
             $('#monto_a_oficina, #monto_a_propietario, #monto_a_inquilino').val('');
