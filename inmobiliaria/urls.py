@@ -64,6 +64,7 @@ urlpatterns = [
     path('propietario/<int:propietario_id>/propiedades/', views.propiedades_propietario, name='propiedades_propietario'),
     # Propiedad URLs (id es CharField: puede ser "06", códigos alfanuméricos, etc.)
     path('propiedades/', views.propiedades, name='propiedades'),
+    path('propiedades/web/', views.propiedades_web, name='propiedades_web'),
     path('propiedades/nuevo/', views.propiedad_nuevo, name='propiedad_nuevo'),
     path('propiedades/buscar-por-fechas/', views.buscar_propiedades_por_fechas, name='buscar_propiedades_por_fechas'),
     path('propiedades/<str:propiedad_id>/', views.propiedad_detalle, name='propiedad_detalle'),

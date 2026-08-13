@@ -3344,6 +3344,132 @@ def propiedades(request):
         'querystring': query_params.urlencode(),
     })
 
+
+@login_required
+def propiedades_web(request):
+    """
+    Gestión de publicación en el portal /web/.
+    Muestra Colón+Corrientes si el usuario es de esas sucursales; si no, solo la propia.
+    """
+    from django.core.paginator import Paginator
+    from django.db.models import IntegerField
+    from django.db.models.functions import Cast
+
+    ver_ambas = usuario_en_colon_o_corrientes(request.user)
+    qs = Propiedad.objects.select_related('sucursal', 'propietario')
+    if ver_ambas:
+        qs = qs.filter(Q_SUCURSALES_COLON_CORRIENTES)
+    else:
+        qs = qs.filter(sucursal=request.user.sucursal)
+
+    q = (request.GET.get('q') or '').strip()
+    filtro = (request.GET.get('filtro') or 'todas').strip().lower()
+    if q:
+        qs = qs.filter(
+            Q(id__icontains=q)
+            | Q(direccion__icontains=q)
+            | Q(titulo__icontains=q)
+            | Q(propietario__nombre__icontains=q)
+            | Q(propietario__apellido__icontains=q)
+        )
+    if filtro == 'publicadas':
+        qs = qs.filter(publicar_web=True)
+    elif filtro == 'ocultas':
+        qs = qs.filter(publicar_web=False)
+    elif filtro == 'destacadas':
+        qs = qs.filter(destacada_web=True)
+
+    qs = qs.annotate(id_num=Cast('id', IntegerField())).order_by('id_num', 'id')
+
+    if request.method == 'POST':
+        accion = (request.POST.get('accion') or '').strip()
+        ids = request.POST.getlist('propiedad_ids')
+        base_update = Propiedad.objects.filter(pk__in=ids) if ids else qs
+        # Seguridad: no tocar fuera del alcance de sucursal
+        if ver_ambas:
+            base_update = base_update.filter(Q_SUCURSALES_COLON_CORRIENTES)
+        else:
+            base_update = base_update.filter(sucursal=request.user.sucursal)
+
+        if accion == 'habilitar_todas':
+            n = qs.update(publicar_web=True)
+            messages.success(request, f'Se habilitaron {n} propiedades para la web.')
+            return redirect('inmobiliaria:propiedades_web')
+        if accion == 'deshabilitar_todas':
+            n = qs.update(publicar_web=False, destacada_web=False)
+            messages.success(request, f'Se ocultaron {n} propiedades de la web.')
+            return redirect('inmobiliaria:propiedades_web')
+        if accion == 'habilitar_seleccion' and ids:
+            n = base_update.update(publicar_web=True)
+            messages.success(request, f'Se publicaron {n} propiedades seleccionadas.')
+            return redirect(request.get_full_path() or reverse('inmobiliaria:propiedades_web'))
+        if accion == 'deshabilitar_seleccion' and ids:
+            n = base_update.update(publicar_web=False, destacada_web=False)
+            messages.success(request, f'Se ocultaron {n} propiedades seleccionadas.')
+            return redirect(request.get_full_path() or reverse('inmobiliaria:propiedades_web'))
+        if accion == 'toggle_publicar':
+            pid = (request.POST.get('propiedad_id') or '').strip()
+            p = get_object_or_404(Propiedad, pk=pid)
+            if ver_ambas:
+                if not Propiedad.objects.filter(pk=pid).filter(Q_SUCURSALES_COLON_CORRIENTES).exists():
+                    messages.error(request, 'Propiedad fuera de alcance.')
+                    return redirect('inmobiliaria:propiedades_web')
+            elif p.sucursal_id != getattr(request.user.sucursal, 'id', None):
+                messages.error(request, 'Propiedad fuera de alcance.')
+                return redirect('inmobiliaria:propiedades_web')
+            p.publicar_web = not bool(p.publicar_web)
+            if not p.publicar_web:
+                p.destacada_web = False
+            p.save(update_fields=['publicar_web', 'destacada_web'])
+            messages.success(
+                request,
+                f'Ficha {p.id}: {"publicada" if p.publicar_web else "oculta"} en la web.',
+            )
+            return redirect(request.get_full_path() or reverse('inmobiliaria:propiedades_web'))
+        if accion == 'toggle_destacada':
+            pid = (request.POST.get('propiedad_id') or '').strip()
+            p = get_object_or_404(Propiedad, pk=pid)
+            if ver_ambas:
+                if not Propiedad.objects.filter(pk=pid).filter(Q_SUCURSALES_COLON_CORRIENTES).exists():
+                    messages.error(request, 'Propiedad fuera de alcance.')
+                    return redirect('inmobiliaria:propiedades_web')
+            elif p.sucursal_id != getattr(request.user.sucursal, 'id', None):
+                messages.error(request, 'Propiedad fuera de alcance.')
+                return redirect('inmobiliaria:propiedades_web')
+            p.destacada_web = not bool(p.destacada_web)
+            if p.destacada_web:
+                p.publicar_web = True
+            p.save(update_fields=['publicar_web', 'destacada_web'])
+            messages.success(
+                request,
+                f'Ficha {p.id}: {"destacada" if p.destacada_web else "sin destacar"} en la web.',
+            )
+            return redirect(request.get_full_path() or reverse('inmobiliaria:propiedades_web'))
+
+    total = qs.count()
+    publicadas = qs.filter(publicar_web=True).count()
+    destacadas = qs.filter(destacada_web=True).count()
+    paginator = Paginator(qs, 80)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    query_params = request.GET.copy()
+    if 'page' in query_params:
+        del query_params['page']
+
+    return render(request, 'inmobiliaria/propiedades/web.html', {
+        'propiedades': page_obj,
+        'page_obj': page_obj,
+        'querystring': query_params.urlencode(),
+        'q': q,
+        'filtro': filtro,
+        'ver_ambas': ver_ambas,
+        'total': total,
+        'publicadas': publicadas,
+        'destacadas': destacadas,
+        'ocultas': total - publicadas,
+        'portal_url': reverse('inmobiliaria:portal_home'),
+    })
+
+
 def _active_tab_propiedad_detalle(request):
     """Pestaña inicial en ficha propiedad: ?tab=info|venta|meses|invierno|propietario (default info)."""
     allowed = frozenset({'info', 'venta', 'meses', 'invierno', 'propietario'})
