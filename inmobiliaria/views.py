@@ -3349,11 +3349,16 @@ def propiedades(request):
 def propiedades_web(request):
     """
     Gestión de publicación en el portal /web/.
-    Muestra Colón+Corrientes si el usuario es de esas sucursales; si no, solo la propia.
+    Solo visible/usable por el productor autorizado (id 24).
     """
     from django.core.paginator import Paginator
     from django.db.models import IntegerField
     from django.db.models.functions import Cast
+    from inmobiliaria.portal_servicio import usuario_gestiona_portal_web
+
+    if not usuario_gestiona_portal_web(request.user):
+        messages.error(request, 'No tenés permiso para gestionar la página web.')
+        return redirect('inmobiliaria:propiedades')
 
     ver_ambas = usuario_en_colon_o_corrientes(request.user)
     qs = Propiedad.objects.select_related('sucursal', 'propietario')

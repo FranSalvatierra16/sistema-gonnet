@@ -585,6 +585,10 @@ class PropiedadForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop('user', None)
         super(PropiedadForm, self).__init__(*args, **kwargs)
+        from inmobiliaria.portal_servicio import usuario_gestiona_portal_web
+        if not usuario_gestiona_portal_web(self.user):
+            self.fields.pop('publicar_web', None)
+            self.fields.pop('destacada_web', None)
         self._pk_inicial = str(self.instance.pk).strip() if self.instance.pk else ''
         if 'id' in self.fields and self._pk_inicial:
             self.fields['id'].initial = self._pk_inicial

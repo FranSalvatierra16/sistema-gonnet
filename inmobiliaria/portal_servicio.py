@@ -28,6 +28,14 @@ Q_SUCURSALES_PORTAL = (
     | Q(sucursal__nombre__icontains='corrientes')
 )
 
+# Solo este productor (Vendedor/user) ve y gestiona la página web en el backoffice.
+PRODUCTOR_PORTAL_WEB_ID = 24
+
+
+def usuario_gestiona_portal_web(user) -> bool:
+    """True si el usuario puede ver menús/acciones de portal web en el sistema."""
+    return bool(user and getattr(user, 'is_authenticated', False) and user.id == PRODUCTOR_PORTAL_WEB_ID)
+
 
 def parse_fecha_portal(s):
     if not s:

@@ -19,6 +19,7 @@ from inmobiliaria.portal_servicio import (
     qs_destacadas_portal,
     qs_propiedades_portal,
     titulo_publico_propiedad,
+    usuario_gestiona_portal_web,
 )
 
 COMODIDADES_FILTRO = [
@@ -258,7 +259,10 @@ def portal_contacto(request):
 @login_required
 @require_http_methods(['GET'])
 def portal_consultas_staff(request):
-    """Listado interno de leads del portal."""
+    """Listado interno de leads del portal. Solo productor autorizado."""
+    if not usuario_gestiona_portal_web(request.user):
+        messages.error(request, 'No tenés permiso para ver las consultas web.')
+        return redirect('inmobiliaria:dashboard')
     qs = ConsultaWeb.objects.select_related('propiedad', 'propiedad__sucursal')[:200]
     return render(request, 'portal/consultas_staff.html', {
         'consultas': qs,
