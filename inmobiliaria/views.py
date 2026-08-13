@@ -16641,10 +16641,17 @@ def _importe_concepto_filtrado_movimiento(movimiento, criterio, conceptos_catalo
         if _movimiento_es_devolucion_deposito_caja(movimiento) and _criterio_busca_devolucion_deposito(
             ids_buscados, id_nombre_map, nombre_buscado
         ):
-            return Decimal(str(movimiento.monto_total or 0)).quantize(Decimal('0.01'))
+            ars = Decimal(str(movimiento.monto_total or 0)).quantize(Decimal('0.01'))
+            if ars != 0:
+                return ars
+            return Decimal(str(getattr(movimiento, 'monto_dolares', None) or 0)).quantize(Decimal('0.01'))
         _, conceptos_data = _movimiento_json_conceptos_parsed(movimiento)
         if not conceptos_data and len(ids_mov) <= 1:
-            return Decimal(str(movimiento.monto_total or 0)).quantize(Decimal('0.01'))
+            ars = Decimal(str(movimiento.monto_total or 0)).quantize(Decimal('0.01'))
+            if ars != 0:
+                return ars
+            # Liquidaciones / egresos pagados solo en USD.
+            return Decimal(str(getattr(movimiento, 'monto_dolares', None) or 0)).quantize(Decimal('0.01'))
 
     return Decimal('0')
 
@@ -16723,13 +16730,37 @@ def _montos_reporte_por_importe_concepto(movimiento, importe_concepto):
     """Prorratea medios de pago según la parte del movimiento que corresponde al concepto."""
     importe_concepto = Decimal(str(importe_concepto or 0)).quantize(Decimal('0.01'))
     total_mov = Decimal(str(movimiento.monto_total or 0))
-    if importe_concepto <= Decimal('0') or total_mov <= Decimal('0.01'):
+    usd_mov = Decimal(str(getattr(movimiento, 'monto_dolares', None) or 0)).quantize(Decimal('0.01'))
+    if importe_concepto <= Decimal('0'):
         return {
-            'monto_efectivo': importe_concepto if importe_concepto > 0 else Decimal('0'),
+            'monto_efectivo': Decimal('0'),
             'monto_cheque': Decimal('0'),
             'monto_tarjeta': Decimal('0'),
             'monto_deposito': Decimal('0'),
+            'monto_dolares': Decimal('0'),
+            'total': Decimal('0'),
+            'total_usd': Decimal('0'),
+        }
+    # Pago solo en USD (típico: liquidación cobrada/pagada en dólares).
+    if total_mov <= Decimal('0.01') and usd_mov > Decimal('0'):
+        return {
+            'monto_efectivo': Decimal('0'),
+            'monto_cheque': Decimal('0'),
+            'monto_tarjeta': Decimal('0'),
+            'monto_deposito': Decimal('0'),
+            'monto_dolares': importe_concepto,
+            'total': Decimal('0'),
+            'total_usd': importe_concepto,
+        }
+    if total_mov <= Decimal('0.01'):
+        return {
+            'monto_efectivo': importe_concepto,
+            'monto_cheque': Decimal('0'),
+            'monto_tarjeta': Decimal('0'),
+            'monto_deposito': Decimal('0'),
+            'monto_dolares': Decimal('0'),
             'total': importe_concepto,
+            'total_usd': Decimal('0'),
         }
     ratio = importe_concepto / total_mov
     efectivo = (Decimal(str(movimiento.monto_efectivo or 0)) * ratio).quantize(Decimal('0.01'))
@@ -16739,12 +16770,18 @@ def _montos_reporte_por_importe_concepto(movimiento, importe_concepto):
     diff = importe_concepto - (efectivo + cheque + tarjeta + deposito)
     if diff:
         efectivo = (efectivo + diff).quantize(Decimal('0.01'))
+    # Si además hay USD en el movimiento, prorratear la misma proporción.
+    dolares = Decimal('0')
+    if usd_mov > 0:
+        dolares = (usd_mov * ratio).quantize(Decimal('0.01'))
     return {
         'monto_efectivo': efectivo,
         'monto_cheque': cheque,
         'monto_tarjeta': tarjeta,
         'monto_deposito': deposito,
+        'monto_dolares': dolares,
         'total': importe_concepto,
+        'total_usd': dolares,
     }
 
 
@@ -16756,6 +16793,7 @@ def _totales_reporte_caja_desde_lista(movimientos, tipo_code):
     tarjeta_credito = Decimal('0')
     tarjeta_debito = Decimal('0')
     deposito = Decimal('0')
+    dolares = Decimal('0')
     total_mov = Decimal('0')
     for m in sub:
         efectivo += Decimal(str(getattr(m, 'reporte_monto_efectivo', m.monto_efectivo) or 0))
@@ -16767,6 +16805,9 @@ def _totales_reporte_caja_desde_lista(movimientos, tipo_code):
             elif getattr(m, 'tarjeta_tipo', None) == 'debito':
                 tarjeta_debito += Decimal(str(getattr(m, 'reporte_monto_tarjeta', m.monto_tarjeta) or 0))
         deposito += Decimal(str(getattr(m, 'reporte_monto_deposito', m.monto_deposito) or 0))
+        dolares += Decimal(str(
+            getattr(m, 'reporte_monto_dolares', getattr(m, 'monto_dolares', None)) or 0
+        ))
         total_mov += Decimal(str(getattr(m, 'reporte_monto_total', m.monto_total) or 0))
     return {
         'efectivo': efectivo,
@@ -16775,6 +16816,7 @@ def _totales_reporte_caja_desde_lista(movimientos, tipo_code):
         'tarjeta_credito': tarjeta_credito,
         'tarjeta_debito': tarjeta_debito,
         'deposito': deposito,
+        'dolares': dolares,
         'total_mov': total_mov,
     }
 
@@ -16968,8 +17010,8 @@ def _filas_gastos_liquidacion_para_reporte_caja(
         monto = Decimal(str(getattr(g, 'monto', None) or 0)).quantize(Decimal('0.01'))
         if monto <= 0:
             continue
-        if (getattr(g, 'moneda', None) or 'ARS').upper() != 'ARS':
-            continue
+        moneda_g = (getattr(g, 'moneda', None) or 'ARS').upper()
+        es_usd = moneda_g in ('USD', 'U$S', 'DOLAR', 'DOLARES', 'DÓLAR', 'DÓLARES')
 
         cid = (g.concepto_caja_id or '').strip()
         nom_cat = ''
@@ -17010,6 +17052,8 @@ def _filas_gastos_liquidacion_para_reporte_caja(
             prop_disp = '—'
 
         fecha = _fecha_gasto_propietario_reporte(g)
+        monto_ars = Decimal('0') if es_usd else monto
+        monto_usd = monto if es_usd else Decimal('0')
         fila = SimpleNamespace(
             id=None,
             es_concepto_liquidacion=True,
@@ -17019,16 +17063,18 @@ def _filas_gastos_liquidacion_para_reporte_caja(
             concepto=concepto_txt,
             concepto_display=concepto_txt,
             propiedad_display=prop_disp,
-            monto_efectivo=monto,
+            monto_efectivo=monto_ars,
             monto_cheque=Decimal('0'),
             monto_tarjeta=Decimal('0'),
             monto_deposito=Decimal('0'),
-            monto_total=monto,
-            reporte_monto_efectivo=monto,
+            monto_dolares=monto_usd,
+            monto_total=monto_ars,
+            reporte_monto_efectivo=monto_ars,
             reporte_monto_cheque=Decimal('0'),
             reporte_monto_tarjeta=Decimal('0'),
             reporte_monto_deposito=Decimal('0'),
-            reporte_monto_total=monto,
+            reporte_monto_dolares=monto_usd,
+            reporte_monto_total=monto_ars,
             destino_deposito='',
             destino_etiqueta='—',
             tarjeta_tipo=None,
@@ -17075,9 +17121,12 @@ def reportes_caja(request):
     medio = (request.GET.get('medio') or '').strip().lower()
     medios_validos = (
         '', 'efectivo', 'cheque', 'tarjeta', 'tarjeta_credito', 'tarjeta_debito', 'transferencia',
+        'dolares', 'usd',
     )
     if medio not in medios_validos:
         medio = ''
+    if medio == 'usd':
+        medio = 'dolares'
 
     destino_transferencia = (request.GET.get('destino_transferencia') or '').strip()
     conceptos_catalogo = list(
@@ -17174,6 +17223,8 @@ def reportes_caja(request):
         if destino_transferencia:
             q_dep &= Q(destino_deposito=destino_transferencia)
         qs = qs.filter(q_dep)
+    elif medio == 'dolares':
+        qs = qs.filter(monto_dolares__gt=0)
 
     if buscar_concepto:
         qs = _filtro_qs_por_buscar_concepto(qs, buscar_concepto, conceptos_catalogo)
@@ -17226,7 +17277,10 @@ def reportes_caja(request):
             _m.reporte_monto_cheque = montos['monto_cheque']
             _m.reporte_monto_tarjeta = montos['monto_tarjeta']
             _m.reporte_monto_deposito = montos['monto_deposito']
+            _m.reporte_monto_dolares = montos.get('monto_dolares') or Decimal('0')
             _m.reporte_monto_total = montos['total']
+        else:
+            _m.reporte_monto_dolares = Decimal(str(getattr(_m, 'monto_dolares', None) or 0))
         setattr(_m, 'es_concepto_liquidacion', False)
 
     # Conceptos cargados solo en liquidación (sin movimiento de caja), p. ej. comisión gestión cobranzas.
@@ -17275,6 +17329,7 @@ def reportes_caja(request):
             tarjeta_credito=models.Sum('monto_tarjeta', filter=Q(tarjeta_tipo='credito')),
             tarjeta_debito=models.Sum('monto_tarjeta', filter=Q(tarjeta_tipo='debito')),
             deposito=models.Sum('monto_deposito'),
+            dolares=models.Sum('monto_dolares'),
             total_mov=models.Sum(
                 F('monto_efectivo') + F('monto_cheque') + F('monto_tarjeta') + F('monto_deposito')
             ),
@@ -17351,6 +17406,7 @@ def reportes_caja(request):
         'totales_ingresos': tot_in,
         'totales_egresos': tot_eg,
         'balance': (tot_in['total_mov'] - tot_eg['total_mov']),
+        'balance_usd': (tot_in.get('dolares', Decimal('0')) - tot_eg.get('dolares', Decimal('0'))),
         'transferencias_por_destino': transferencias_por_destino,
         'querystring': query_params.urlencode(),
         'puede_eliminar_movimiento_caja': usuario_puede_eliminar_movimiento_caja(request.user),

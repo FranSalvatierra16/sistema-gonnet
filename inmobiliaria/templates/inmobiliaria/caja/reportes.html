@@ -48,6 +48,7 @@
                         <option value="tarjeta_credito" {% if medio == 'tarjeta_credito' %}selected{% endif %}>Tarjeta crédito</option>
                         <option value="tarjeta_debito" {% if medio == 'tarjeta_debito' %}selected{% endif %}>Tarjeta débito</option>
                         <option value="transferencia" {% if medio == 'transferencia' %}selected{% endif %}>Transferencia / depósito</option>
+                        <option value="dolares" {% if medio == 'dolares' %}selected{% endif %}>USD (efectivo)</option>
                     </select>
                 </div>
                 <div class="col-md-3" id="wrap_destino_transferencia">
@@ -104,7 +105,8 @@
                     <p class="mb-1">Cheques: ${{ totales_ingresos.cheque|format_price }}</p>
                     <p class="mb-1">Tarjeta total: ${{ totales_ingresos.tarjeta|format_price }}</p>
                     <p class="mb-1 ms-2 text-muted">↳ Crédito: ${{ totales_ingresos.tarjeta_credito|format_price }} · Débito: ${{ totales_ingresos.tarjeta_debito|format_price }}</p>
-                    <p class="mb-0">Transferencias: ${{ totales_ingresos.deposito|format_price }}</p>
+                    <p class="mb-1">Transferencias: ${{ totales_ingresos.deposito|format_price }}</p>
+                    <p class="mb-0">USD (efectivo): U$S {{ totales_ingresos.dolares|default:0|format_price }}</p>
                 </div>
             </div>
         </div>
@@ -117,7 +119,8 @@
                     <p class="mb-1">Cheques: ${{ totales_egresos.cheque|format_price }}</p>
                     <p class="mb-1">Tarjeta total: ${{ totales_egresos.tarjeta|format_price }}</p>
                     <p class="mb-1 ms-2 text-muted">↳ Crédito: ${{ totales_egresos.tarjeta_credito|format_price }} · Débito: ${{ totales_egresos.tarjeta_debito|format_price }}</p>
-                    <p class="mb-0">Transferencias: ${{ totales_egresos.deposito|format_price }}</p>
+                    <p class="mb-1">Transferencias: ${{ totales_egresos.deposito|format_price }}</p>
+                    <p class="mb-0">USD (efectivo): U$S {{ totales_egresos.dolares|default:0|format_price }}</p>
                 </div>
             </div>
         </div>
@@ -125,7 +128,8 @@
             <div class="card border-primary h-100">
                 <div class="card-header bg-primary text-white">Balance (ingresos − egresos)</div>
                 <div class="card-body">
-                    <p class="h4 mb-0">${{ balance|format_price }}</p>
+                    <p class="h4 mb-1">${{ balance|format_price }} <span class="fs-6 text-muted">ARS</span></p>
+                    <p class="h5 mb-1">U$S {{ balance_usd|default:0|format_price }}</p>
                     <p class="small text-muted mb-0">{{ total_filtrados }} movimiento(s) en el listado</p>
                 </div>
             </div>
@@ -207,9 +211,29 @@
                             <td><small>{{ m.descripcion_display|default:"—" }}</small></td>
                             <td class="text-end">
                                 {% if filtrando_concepto %}
-                                <strong>${{ m.reporte_monto_total|format_price }}</strong>
+                                    {% with usd=m.reporte_monto_dolares|default_if_none:0 ars=m.reporte_monto_total|default_if_none:0 %}
+                                    {% if ars %}
+                                    <strong>${{ ars|format_price }}</strong>{% if usd %}<br>{% endif %}
+                                    {% endif %}
+                                    {% if usd %}
+                                    <strong class="text-primary">U$S {{ usd|format_price }}</strong>
+                                    {% endif %}
+                                    {% if not ars and not usd %}
+                                    <strong>$0,00</strong>
+                                    {% endif %}
+                                    {% endwith %}
                                 {% else %}
-                                <strong>${{ m.monto_total|format_price }}</strong>
+                                    {% with usd=m.reporte_monto_dolares|default_if_none:m.monto_dolares ars=m.monto_total %}
+                                    {% if ars %}
+                                    <strong>${{ ars|format_price }}</strong>{% if usd %}<br>{% endif %}
+                                    {% endif %}
+                                    {% if usd %}
+                                    <strong class="text-primary">U$S {{ usd|format_price }}</strong>
+                                    {% endif %}
+                                    {% if not ars and not usd %}
+                                    <strong>$0,00</strong>
+                                    {% endif %}
+                                    {% endwith %}
                                 {% endif %}
                             </td>
                             {% if puede_eliminar_movimiento_caja or puede_editar_movimiento_caja %}
