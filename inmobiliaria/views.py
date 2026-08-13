@@ -8309,25 +8309,26 @@ def ver_recibo_movimiento(request, movimiento_id):
             )
 
         reserva = None
-        if not es_movimiento_contrato and concepto_txt and "Operaci\u00f3n" in concepto_txt:
-            try:
-                # Extraer el ID de la reserva del concepto (formato: "Operaci\u00f3n 123 - Dirección")
-                import re
-                match = re.search(r'Operaci[oó]n\s*#?\s*(\d+)', concepto_txt, re.I)
-                if match:
-                    reserva_id = int(match.group(1))
-                    reserva = Reserva.objects.filter(id=reserva_id).first()
-# print(f"🔍 RESERVA ENCONTRADA desde concepto: ID {reserva_id}, Estado: {reserva.estado if reserva else 'No encontrada'}")
-                else:
-                    pass  # ✅ Bloque vacío
-# print(f"⚠️ No se pudo extraer ID de reserva del concepto: '{movimiento.concepto}'")
-            except Exception as e:
-                pass  # ✅ Bloque vacío
-# print(f"❌ Error al buscar reserva desde concepto: {e}")
-        
-        # NO usar fallback por propiedad: puede mezclar cobros de cuota/contrato con una reserva
-        # distinta que comparta inmueble y termina mostrando seña/depósito incorrectos.
-        
+        if not es_movimiento_contrato:
+            reserva = _resolver_reserva_para_recibo_movimiento(
+                movimiento, sucursal=request.user.sucursal
+            )
+            if not reserva:
+                # Compat: solo texto «Operación #» en concepto (flujo histórico).
+                concepto_txt = (movimiento.concepto or '')
+                if concepto_txt and "Operaci" in concepto_txt:
+                    try:
+                        import re
+                        match = re.search(r'Operaci[oó]n\s*#?\s*(\d+)', concepto_txt, re.I)
+                        if match:
+                            reserva = Reserva.objects.filter(
+                                id=int(match.group(1)), eliminada=False
+                            ).first()
+                    except Exception:
+                        reserva = None
+
+        # NO usar fallback genérico por propiedad sola: puede mezclar cobros de cuota/contrato
+        # con una reserva distinta que comparta inmueble.
         # ✅ CORRECCIÓN: Buscar movimientos DE ESTA OPERACIÓN ESPECÍFICA (mismo número de recibo)
         movimientos_relacionados = MovimientoCaja.objects.filter(
             numero_liquidacion=movimiento.numero_liquidacion,
@@ -20540,13 +20541,77 @@ def _fecha_hora_recibo_operacion(movimiento=None, recibo_obj=None):
 
 
 def _extraer_reserva_id_movimiento(movimiento):
-    """ID de operación/reserva desde el concepto del movimiento."""
+    """ID de operación/reserva desde concepto, detalle o recibo vinculado."""
     import re
+    from inmobiliaria.models.recibo import Recibo
 
-    texto = (getattr(movimiento, 'concepto', None) or '')
-    m = re.search(r'Operaci[oó]n\s*#?\s*(\d+)', texto, re.I)
+    if not movimiento:
+        return None
+
+    # 1) Recibo formal ligado al movimiento
+    try:
+        recibo = Recibo.objects.filter(movimiento_caja_id=movimiento.id).select_related('reserva').first()
+        if recibo and getattr(recibo, 'reserva_id', None):
+            return int(recibo.reserva_id)
+    except Exception:
+        pass
+
+    textos = [
+        getattr(movimiento, 'concepto', None) or '',
+        getattr(movimiento, 'concepto_detalle', None) or '',
+        getattr(movimiento, 'listado_detalle_observacion', None) or '',
+        getattr(movimiento, 'listado_concepto_l1', None) or '',
+        getattr(movimiento, 'listado_concepto_l2', None) or '',
+    ]
+    blob = ' '.join(str(t) for t in textos if t)
+    m = re.search(r'Operaci[oó]n\s*#?\s*(\d+)', blob, re.I)
     if m:
         return int(m.group(1))
+    m = re.search(r'Reserva\s*#?\s*(\d+)', blob, re.I)
+    if m:
+        return int(m.group(1))
+    return None
+
+
+def _resolver_reserva_para_recibo_movimiento(movimiento, sucursal=None):
+    """
+    Reserva (alquiler por día) asociada al movimiento para imprimir el recibo formal.
+    Prioridad: Recibo.reserva → texto Operación/Reserva # → propiedad + fechas del movimiento.
+    """
+    from inmobiliaria.models.recibo import Recibo
+
+    if not movimiento:
+        return None
+
+    recibo = Recibo.objects.filter(movimiento_caja_id=movimiento.id).select_related('reserva').first()
+    if recibo and recibo.reserva_id:
+        return recibo.reserva
+
+    rid = _extraer_reserva_id_movimiento(movimiento)
+    if rid:
+        qs = Reserva.objects.filter(id=rid, eliminada=False)
+        if sucursal is not None:
+            qs = qs.filter(sucursal=sucursal)
+        res = qs.first()
+        if res:
+            return res
+
+    # Fallback: misma propiedad y mismo rango de fechas (cobro cargado sin texto «Operación #»).
+    prop_id = getattr(movimiento, 'propiedad_id', None)
+    f_desde = getattr(movimiento, 'fecha_desde', None)
+    f_hasta = getattr(movimiento, 'fecha_hasta', None)
+    if prop_id and f_desde and f_hasta:
+        qs = Reserva.objects.filter(
+            propiedad_id=prop_id,
+            fecha_inicio=f_desde,
+            fecha_fin=f_hasta,
+            eliminada=False,
+        )
+        if sucursal is not None:
+            qs = qs.filter(sucursal=sucursal)
+        # Si hay más de una, no adivinar (evitar mezclar operaciones).
+        if qs.count() == 1:
+            return qs.first()
     return None
 
 
