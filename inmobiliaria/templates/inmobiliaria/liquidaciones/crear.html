@@ -2582,6 +2582,39 @@ document.addEventListener('DOMContentLoaded', function() {
     };
     window.mostrarModalAgregarGasto = window.mostrarModalAgregarMovimiento;
 
+    (function() {
+        var modalAgregarGasto = document.getElementById('modalAgregarGasto');
+        var inpMonto = document.getElementById('movimiento_monto');
+        if (!modalAgregarGasto || !inpMonto) return;
+
+        function formatearMontoMovimiento() {
+            if (typeof aplicarFormatoMontoAR === 'function') {
+                aplicarFormatoMontoAR(inpMonto);
+                return;
+            }
+            if (typeof formatMontoARTyping === 'function') {
+                inpMonto.value = formatMontoARTyping(inpMonto.value);
+            }
+        }
+
+        modalAgregarGasto.addEventListener('shown.bs.modal', function() {
+            if (typeof initMontoARInputs === 'function') {
+                initMontoARInputs(modalAgregarGasto);
+            }
+            formatearMontoMovimiento();
+            inpMonto.focus();
+        });
+        inpMonto.addEventListener('input', formatearMontoMovimiento);
+        inpMonto.addEventListener('blur', function() {
+            if (String(inpMonto.value || '').trim() === '') return;
+            if (typeof formatMontoAR === 'function') {
+                inpMonto.value = formatMontoAR(inpMonto.value);
+            } else {
+                formatearMontoMovimiento();
+            }
+        });
+    })();
+
     const formAgregarGasto = document.getElementById('formAgregarGasto');
     if (formAgregarGasto) {
         formAgregarGasto.addEventListener('submit', function(e) {

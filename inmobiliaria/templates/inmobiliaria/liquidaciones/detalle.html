@@ -892,15 +892,35 @@ document.addEventListener('DOMContentLoaded', function() {
 
     var modalAgregarGasto = document.getElementById('modalAgregarGasto');
     if (modalAgregarGasto) {
+        var inpMonto = document.getElementById('movimiento_monto');
+        function formatearMontoMovimiento() {
+            if (!inpMonto) return;
+            if (typeof aplicarFormatoMontoAR === 'function') {
+                aplicarFormatoMontoAR(inpMonto);
+                return;
+            }
+            if (typeof formatMontoARTyping === 'function') {
+                inpMonto.value = formatMontoARTyping(inpMonto.value);
+            }
+        }
         modalAgregarGasto.addEventListener('shown.bs.modal', function() {
-            var inp = document.getElementById('movimiento_monto');
-            if (inp && typeof initMontoARInputs === 'function') {
+            if (inpMonto && typeof initMontoARInputs === 'function') {
                 initMontoARInputs(modalAgregarGasto);
             }
-            if (inp) {
-                inp.focus();
-            }
+            formatearMontoMovimiento();
+            if (inpMonto) inpMonto.focus();
         });
+        if (inpMonto) {
+            inpMonto.addEventListener('input', formatearMontoMovimiento);
+            inpMonto.addEventListener('blur', function() {
+                if (String(inpMonto.value || '').trim() === '') return;
+                if (typeof formatMontoAR === 'function') {
+                    inpMonto.value = formatMontoAR(inpMonto.value);
+                } else {
+                    formatearMontoMovimiento();
+                }
+            });
+        }
     }
 });
 </script>
