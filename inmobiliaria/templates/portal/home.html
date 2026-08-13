@@ -1,109 +1,306 @@
 {% extends 'portal/base.html' %}
-{% load custom_filters %}
+{% load static custom_filters %}
 
-{% block title %}Inicio · {{ portal_nombre }}{% endblock %}
+{% block title %}{{ portal_nombre }} · Mar del Plata{% endblock %}
 
 {% block extra_css %}
 .hero {
     position: relative;
-    min-height: min(78vh, 720px);
+    min-height: 100vh;
+    min-height: 100dvh;
     display: grid;
-    align-items: center;
+    align-items: end;
     overflow: hidden;
-    background:
-        linear-gradient(105deg, rgba(47, 107, 44, 0.82) 0%, rgba(74, 154, 70, 0.45) 48%, rgba(74, 154, 70, 0.18) 100%),
-        url("https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1800&q=80") center/cover no-repeat;
     color: #fff;
+    background:
+        linear-gradient(180deg, rgba(18, 40, 20, 0.25) 0%, rgba(18, 40, 20, 0.15) 40%, rgba(18, 40, 20, 0.78) 100%),
+        url("https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=2000&q=80") center/cover no-repeat;
+}
+.hero::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(900px 480px at 70% 20%, rgba(74,154,70,0.28), transparent 60%);
+    pointer-events: none;
+    animation: glow 10s ease-in-out infinite alternate;
+}
+@keyframes glow {
+    from { opacity: .55; }
+    to { opacity: 1; }
 }
 .hero-inner {
-    display: grid;
-    grid-template-columns: 1.1fr 0.9fr;
-    gap: 2rem;
-    padding: 3.5rem 0 3rem;
+    position: relative;
+    z-index: 1;
+    padding: 0 0 2.6rem;
+    width: min(1180px, calc(100% - 2rem));
+    margin-inline: auto;
+}
+.hero-brand {
+    display: flex;
     align-items: center;
+    gap: 0.85rem;
+    margin-bottom: 1.35rem;
+}
+.hero-brand img {
+    height: 58px;
+    width: auto;
+    background: rgba(255,255,255,0.94);
+    border-radius: 10px;
+    padding: 0.35rem 0.55rem;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
 }
 .hero h1 {
+    margin: 0 0 0.75rem;
     font-family: "Fraunces", Georgia, serif;
-    font-size: clamp(2.1rem, 4.5vw, 3.5rem);
-    line-height: 1.05;
-    margin: 0 0 0.85rem;
+    font-size: clamp(2.6rem, 6.2vw, 4.6rem);
+    line-height: 0.98;
     font-weight: 700;
-    max-width: 11ch;
+    max-width: 14ch;
+    text-wrap: balance;
 }
-.hero p.lead {
-    margin: 0;
-    font-size: 1.05rem;
+.hero .lead {
+    margin: 0 0 1.6rem;
+    font-size: 1.12rem;
     opacity: 0.92;
-    max-width: 34ch;
+    max-width: 38ch;
+    line-height: 1.45;
 }
-.search-card {
-    background: var(--g-card);
+.search-float {
+    background: rgba(255,255,255,0.97);
     color: var(--g-ink);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
-    padding: 1.35rem 1.35rem 1.2rem;
+    border-radius: 22px;
+    padding: 1.15rem 1.15rem 1.05rem;
+    box-shadow: 0 28px 70px rgba(10, 30, 14, 0.35);
+    backdrop-filter: blur(10px);
 }
-.search-card .eyebrow {
-    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em;
-    text-transform: uppercase; color: var(--g-green-mid); margin-bottom: 0.35rem;
+.search-float .row {
+    display: grid;
+    grid-template-columns: 1.15fr 0.85fr 0.85fr 0.85fr auto;
+    gap: 0.65rem;
+    align-items: end;
 }
-.search-card h2 {
-    margin: 0 0 1rem; font-size: 1.35rem; color: var(--g-green);
+.search-float .field { margin-bottom: 0; }
+.search-float .field label {
+    color: var(--g-muted);
+    margin-bottom: 0.3rem;
 }
+.search-float .dates {
+    display: contents;
+}
+.search-float .btn {
+    height: 46px;
+    padding-inline: 1.35rem;
+    white-space: nowrap;
+}
+.ops {
+    padding: 3.2rem 0 1rem;
+}
+.ops-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: end;
+    gap: 1rem;
+    margin-bottom: 1.35rem;
+}
+.ops-head .eyebrow {
+    color: var(--g-green);
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 0.4rem;
+}
+.ops-head h2 {
+    margin: 0;
+    font-family: "Fraunces", Georgia, serif;
+    font-size: clamp(1.7rem, 3vw, 2.35rem);
+    color: var(--g-green-dark);
+}
+.ops-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.9rem;
+}
+.op-tile {
+    position: relative;
+    display: block;
+    min-height: 210px;
+    border-radius: 20px;
+    overflow: hidden;
+    color: #fff;
+    isolation: isolate;
+}
+.op-tile::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, transparent 20%, rgba(16,36,18,0.82) 100%);
+    z-index: 1;
+}
+.op-tile img, .op-tile .bg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform .6s ease;
+}
+.op-tile:hover img, .op-tile:hover .bg { transform: scale(1.06); }
+.op-tile .txt {
+    position: relative;
+    z-index: 2;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 1.15rem 1.1rem;
+}
+.op-tile strong {
+    font-family: "Fraunces", Georgia, serif;
+    font-size: 1.35rem;
+    margin-bottom: 0.2rem;
+}
+.op-tile span { font-size: 0.88rem; opacity: 0.9; }
 .section {
-    padding: 3rem 0 1rem;
+    padding: 2.6rem 0 1rem;
+}
+.section-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: end;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
 }
 .section .eyebrow {
-    color: var(--g-green-mid); font-size: 0.78rem; font-weight: 700;
-    letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.35rem;
+    color: var(--g-green);
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 0.35rem;
 }
 .section h2 {
-    margin: 0 0 1.25rem; color: var(--g-green);
-    font-family: "Fraunces", Georgia, serif; font-size: 2rem;
+    margin: 0;
+    color: var(--g-green-dark);
+    font-family: "Fraunces", Georgia, serif;
+    font-size: clamp(1.7rem, 3vw, 2.3rem);
 }
 .cards {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 1rem;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.1rem;
 }
 .card-prop {
-    background: #fff; border-radius: 16px; overflow: hidden;
+    background: #fff;
+    border-radius: 20px;
+    overflow: hidden;
     border: 1px solid var(--g-line);
-    transition: transform .2s ease, box-shadow .2s ease;
+    transition: transform .28s ease, box-shadow .28s ease;
 }
-.card-prop:hover { transform: translateY(-3px); box-shadow: 0 12px 30px rgba(11,61,46,.12); }
-.card-prop .ph {
-    aspect-ratio: 3/4; background: #d7e0db; display: block; object-fit: cover; width: 100%;
+.card-prop:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 22px 50px rgba(47, 107, 44, 0.16);
 }
-.card-prop .meta { padding: 0.85rem 0.95rem 1rem; }
-.card-prop .meta strong { display: block; color: var(--g-green); margin-bottom: 0.2rem; }
-.card-prop .meta span { color: var(--g-muted); font-size: 0.88rem; }
+.card-prop .media {
+    position: relative;
+    aspect-ratio: 4/3;
+    background: #d7e0db;
+    overflow: hidden;
+}
+.card-prop .media img, .card-prop .media .ph {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+    transition: transform .55s ease;
+}
+.card-prop:hover .media img { transform: scale(1.05); }
+.card-prop .media .ph { background: linear-gradient(145deg, #d9e8d8, #c5d8c4); }
+.card-prop .tag {
+    position: absolute;
+    left: 0.75rem;
+    top: 0.75rem;
+    background: rgba(255,255,255,0.94);
+    color: var(--g-green-dark);
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 0.28rem 0.55rem;
+    border-radius: 999px;
+}
+.card-prop .meta { padding: 1rem 1.05rem 1.15rem; }
+.card-prop .meta .id {
+    color: var(--g-red);
+    font-weight: 700;
+    font-size: 0.82rem;
+    margin-bottom: 0.25rem;
+}
+.card-prop .meta strong {
+    display: block;
+    color: var(--g-ink);
+    font-size: 1.02rem;
+    line-height: 1.3;
+    margin-bottom: 0.35rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.card-prop .meta .loc {
+    color: var(--g-muted);
+    font-size: 0.88rem;
+}
 .empty-note {
-    color: var(--g-muted); padding: 1.5rem; border: 1px dashed var(--g-line); border-radius: 14px;
+    color: var(--g-muted);
+    padding: 1.6rem;
+    border: 1px dashed var(--g-line);
+    border-radius: 16px;
+    background: #fff;
 }
-@media (max-width: 900px) {
-    .hero-inner { grid-template-columns: 1fr; padding-top: 2.5rem; }
+.band {
+    margin: 3rem 0 0;
+    padding: 3rem 0;
+    background:
+        linear-gradient(120deg, rgba(47,107,44,0.95), rgba(74,154,70,0.88)),
+        url("https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1600&q=80") center/cover;
+    color: #fff;
+}
+.band .wrap {
+    display: grid;
+    grid-template-columns: 1.4fr auto;
+    gap: 1.25rem;
+    align-items: center;
+}
+.band h2 {
+    margin: 0 0 0.45rem;
+    font-family: "Fraunces", Georgia, serif;
+    font-size: clamp(1.7rem, 3vw, 2.4rem);
+}
+.band p { margin: 0; opacity: 0.92; max-width: 42ch; }
+.band .actions { display: flex; gap: 0.65rem; flex-wrap: wrap; }
+@media (max-width: 980px) {
+    .search-float .row { grid-template-columns: 1fr 1fr; }
+    .search-float .btn { grid-column: 1 / -1; width: 100%; }
+    .ops-grid, .cards { grid-template-columns: 1fr 1fr; }
+    .band .wrap { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+    .ops-grid, .cards { grid-template-columns: 1fr; }
+    .hero { min-height: 92vh; align-items: center; }
+    .hero-inner { padding-bottom: 1.6rem; }
     .hero h1 { max-width: none; }
 }
 {% endblock %}
 
 {% block content %}
 <section class="hero">
-    <div class="wrap hero-inner">
-        <div>
-            <h1>Encontrá el hogar que define tu estilo.</h1>
-            <p class="lead">{{ portal_tagline }}</p>
+    <div class="hero-inner">
+        <div class="hero-brand rise">
+            <img src="{% static 'portal/logo-gonnet.png' %}" alt="Gonnet Propiedades">
         </div>
-        <form class="search-card" method="get" action="{% url 'inmobiliaria:portal_buscar' %}">
-            <div class="eyebrow">Buscador avanzado</div>
-            <h2>¿Qué estás buscando hoy?</h2>
-            <div class="field">
-                <label for="ficha">Ficha</label>
-                <input id="ficha" name="ficha" type="text" placeholder="Buscar por ficha…" value="{{ form_ficha }}">
-            </div>
-            <div class="grid-2">
+        <h1 class="rise rise-2">Viví Mar del Plata con Gonnet.</h1>
+        <p class="lead rise rise-3">Temporada, invierno, 24 meses y ventas — con la trayectoria que respalda cada operación.</p>
+
+        <form class="search-float rise rise-4" method="get" action="{% url 'inmobiliaria:portal_buscar' %}">
+            <div class="row">
                 <div class="field">
-                    <label for="operacion">Tipo de operación</label>
+                    <label for="operacion">Operación</label>
                     <select id="operacion" name="operacion">
                         {% for val, label in operaciones_portal %}
                         <option value="{{ val }}" {% if form_operacion == val %}selected{% endif %}>{{ label }}</option>
@@ -113,54 +310,104 @@
                 <div class="field">
                     <label for="ambientes">Ambientes</label>
                     <select id="ambientes" name="ambientes">
-                        <option value="">Sin preferencia</option>
+                        <option value="">Todos</option>
                         {% for n in "123456"|make_list %}
                         <option value="{{ n }}" {% if form_ambientes == n %}selected{% endif %}>{{ n }}</option>
                         {% endfor %}
                     </select>
                 </div>
-            </div>
-            <div class="grid-2" id="fechas-box">
-                <div class="field">
-                    <label for="desde">Desde</label>
+                <div class="field" data-fechas>
+                    <label for="desde">Check-in</label>
                     <input id="desde" name="desde" type="date" value="{{ form_desde }}">
                 </div>
-                <div class="field">
-                    <label for="hasta">Hasta</label>
+                <div class="field" data-fechas>
+                    <label for="hasta">Check-out</label>
                     <input id="hasta" name="hasta" type="date" value="{{ form_hasta }}">
                 </div>
+                <button class="btn btn-primary" type="submit">Buscar</button>
             </div>
-            <button class="btn btn-soft btn-block" type="submit">Ver resultados →</button>
         </form>
+    </div>
+</section>
+
+<section class="ops">
+    <div class="wrap">
+        <div class="ops-head">
+            <div>
+                <div class="eyebrow">Explorá</div>
+                <h2>Todo lo que ofrecemos</h2>
+            </div>
+            <a class="btn btn-soft" href="{% url 'inmobiliaria:portal_buscar' %}?operacion=alquiler_temporario">Ver alquiler temporario</a>
+        </div>
+        <div class="ops-grid">
+            <a class="op-tile rise" href="{% url 'inmobiliaria:portal_buscar' %}?operacion=alquiler_temporario">
+                <img src="https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=900&q=80" alt="">
+                <div class="txt"><strong>Alquiler temporario</strong><span>Disponibilidad real por fechas</span></div>
+            </a>
+            <a class="op-tile rise rise-2" href="{% url 'inmobiliaria:portal_buscar' %}?operacion=venta">
+                <img src="https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=900&q=80" alt="">
+                <div class="txt"><strong>Ventas</strong><span>Oportunidades para invertir</span></div>
+            </a>
+            <a class="op-tile rise rise-3" href="{% url 'inmobiliaria:portal_buscar' %}?operacion=24_meses">
+                <img src="https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=900&q=80" alt="">
+                <div class="txt"><strong>24 meses</strong><span>Contratos de largo plazo</span></div>
+            </a>
+            <a class="op-tile rise rise-4" href="{% url 'inmobiliaria:portal_buscar' %}?operacion=invierno">
+                <img src="https://images.unsplash.com/photo-1493809842364-78817add7ffb?auto=format&fit=crop&w=900&q=80" alt="">
+                <div class="txt"><strong>Invierno</strong><span>Temporada estudiantil</span></div>
+            </a>
+        </div>
     </div>
 </section>
 
 <section class="section" id="destacadas">
     <div class="wrap">
-        <div class="eyebrow">Selección exclusiva</div>
-        <h2>Propiedades destacadas</h2>
+        <div class="section-head">
+            <div>
+                <div class="eyebrow">Selección Gonnet</div>
+                <h2>Propiedades destacadas</h2>
+            </div>
+            <a class="btn btn-soft" href="{% url 'inmobiliaria:portal_contacto' %}">Consultar</a>
+        </div>
         {% if destacadas %}
         <div class="cards">
             {% for item in destacadas %}
-            <a class="card-prop" href="{% url 'inmobiliaria:portal_ficha' item.propiedad.id %}">
-                {% if item.foto %}
-                <img class="ph" src="{{ item.foto.imagen.url }}" alt="{{ item.titulo }}">
-                {% else %}
-                <div class="ph"></div>
-                {% endif %}
+            <a class="card-prop rise" href="{% url 'inmobiliaria:portal_ficha' item.propiedad.id %}">
+                <div class="media">
+                    {% if item.foto %}
+                    <img src="{{ item.foto.imagen.url }}" alt="{{ item.titulo }}">
+                    {% else %}
+                    <div class="ph"></div>
+                    {% endif %}
+                    <span class="tag">Destacada</span>
+                </div>
                 <div class="meta">
+                    <div class="id">#{{ item.propiedad.id }}</div>
                     <strong>{{ item.titulo }}</strong>
-                    <span>Ficha {{ item.propiedad.id }}{% if item.propiedad.ambientes %} · {{ item.propiedad.ambientes }} amb.{% endif %}</span>
+                    <div class="loc">
+                        {% if item.ubicacion %}{{ item.ubicacion }}{% else %}Mar del Plata{% endif %}
+                        {% if item.propiedad.ambientes %} · {{ item.propiedad.ambientes }} amb.{% endif %}
+                    </div>
                 </div>
             </a>
             {% endfor %}
         </div>
         {% else %}
-        <p class="empty-note">
-            Todavía no hay propiedades marcadas como destacadas.
-            En el sistema interno, activá <strong>Publicar en web</strong> y <strong>Destacada en web</strong> en la ficha.
-        </p>
+        <p class="empty-note">Pronto vas a ver acá una selección exclusiva de propiedades publicadas.</p>
         {% endif %}
+    </div>
+</section>
+
+<section class="band">
+    <div class="wrap">
+        <div>
+            <h2>¿Querés vender o alquilar tu propiedad?</h2>
+            <p>Nuestro equipo comercial te acompaña en tasación, publicación y gestión completa.</p>
+        </div>
+        <div class="actions">
+            <a class="btn btn-primary" href="{% url 'inmobiliaria:portal_quiero_vender' %}" style="background:#fff;color:var(--g-green-dark)">Quiero vender</a>
+            <a class="btn btn-ghost" href="{% url 'inmobiliaria:portal_contacto' %}">Contáctenos</a>
+        </div>
     </div>
 </section>
 {% endblock %}
@@ -169,12 +416,12 @@
 <script>
 (function () {
   var op = document.getElementById('operacion');
-  var box = document.getElementById('fechas-box');
+  var fechaFields = document.querySelectorAll('[data-fechas]');
   var desde = document.getElementById('desde');
   var hasta = document.getElementById('hasta');
   function sync() {
     var temp = !op || op.value === 'alquiler_temporario';
-    if (box) box.style.display = temp ? '' : 'none';
+    fechaFields.forEach(function (el) { el.style.display = temp ? '' : 'none'; });
     if (desde) desde.required = temp;
     if (hasta) hasta.required = temp;
   }

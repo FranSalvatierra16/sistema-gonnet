@@ -99,6 +99,11 @@ def portal_home(request):
             'titulo': titulo_publico_propiedad(p),
             'foto': fotos[0] if fotos else None,
             'fotos': fotos[:6],
+            'ubicacion': (
+                getattr(p, 'ubicacion', None)
+                or getattr(p, 'direccion', None)
+                or ''
+            ),
         })
     return render(request, 'portal/home.html', _ctx_base(
         destacadas=destacadas,
@@ -180,6 +185,7 @@ def portal_buscar(request):
         tipos_vista=TIPOS_VISTA,
         comodidades_filtro=COMODIDADES_FILTRO,
         requiere_fechas=(operacion == 'alquiler_temporario'),
+        nav_active='buscar',
     ))
 
 
