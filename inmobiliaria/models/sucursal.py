@@ -175,9 +175,15 @@ class CuentaBancaria(models.Model):
         ordering = ['nombre_banco', 'alias']
         
     def __str__(self):
-        extra = (self.numero_cuenta or '').strip()
-        sufijo = f" · Cuenta {extra}" if extra else ''
-        return f"{self.nombre_banco} — {self.titular} — {self.alias}{sufijo}"
+        nombre = (self.nombre_banco or '').strip() or f'Cuenta #{self.pk}'
+        if self.activa is False:
+            return f'{nombre} (inactiva)'
+        return nombre
+
+    @property
+    def etiqueta_corta(self):
+        """Nombre corto para UI/recibos: solo el banco (sin titular ni alias)."""
+        return (self.nombre_banco or '').strip() or f'Cuenta #{self.pk}'
     
     @property
     def field_name(self):

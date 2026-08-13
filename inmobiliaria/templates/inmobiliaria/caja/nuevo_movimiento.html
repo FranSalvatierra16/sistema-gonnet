@@ -621,10 +621,10 @@
                                 <label class="form-label">Transferencia</label>
                                 <div class="input-group flex-nowrap">
                                     <input type="text" name="monto_deposito" class="form-control monto input-monto-ar" inputmode="decimal" autocomplete="off" value="" placeholder="0" aria-label="Importe transferencia" oninput="formatearMontoCaja(this)" onblur="formatearMontoCajaBlur(this)">
-                                    <select name="destino_deposito" id="destino_deposito_mov" class="form-select flex-grow-1" style="min-width: 10rem; max-width: 18rem;" aria-label="Cuenta destino transferencia">
+                                    <select name="destino_deposito" id="destino_deposito_mov" class="form-select flex-grow-1 fw-bold" style="min-width: 10rem; max-width: 18rem; font-weight: 700;" aria-label="Cuenta destino transferencia">
                                         <option value="">— Cuenta —</option>
                                         {% for cuenta in cuentas_bancarias %}
-                                        <option value="cuenta_{{ cuenta.id }}">{{ cuenta.nombre_banco }} — {{ cuenta.titular }} — {{ cuenta.alias }}</option>
+                                        <option value="cuenta_{{ cuenta.id }}" style="font-weight:700;">{{ cuenta.nombre_banco }}</option>
                                         {% empty %}
                                         <option value="" disabled>Sin cuentas en esta sucursal</option>
                                         {% endfor %}

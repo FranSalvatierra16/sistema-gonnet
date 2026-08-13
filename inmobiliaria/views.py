@@ -95,7 +95,7 @@ def _formas_de_pago_desde_movimiento_caja(movimiento, format_usd=None):
     if md > 0:
         dest = (getattr(movimiento, 'destino_deposito', None) or '') or ''
         if dest == 'galicia':
-            formas_con_montos.append(f'Transferencia Galicia {_recibo_monto_str(movimiento.monto_deposito)}')
+            formas_con_montos.append(f'Transferencia Banco Galicia {_recibo_monto_str(movimiento.monto_deposito)}')
         elif dest == 'mp':
             formas_con_montos.append(f'Transferencia Mercado Pago {_recibo_monto_str(movimiento.monto_deposito)}')
         elif dest.startswith('cuenta_'):
@@ -104,10 +104,15 @@ def _formas_de_pago_desde_movimiento_caja(movimiento, format_usd=None):
                 from .models.sucursal import CuentaBancaria
 
                 cid = int(dest.replace('cuenta_', '', 1))
-                row = CuentaBancaria.objects.filter(pk=cid).values_list('alias', 'nombre_banco').first()
-                if row:
-                    alias, nb = row
-                    label = (alias or nb or f'Cuenta #{cid}').strip() or f'Cuenta #{cid}'
+                nb = (
+                    CuentaBancaria.objects.filter(pk=cid)
+                    .values_list('nombre_banco', flat=True)
+                    .first()
+                )
+                if nb:
+                    label = (nb or '').strip() or f'Cuenta #{cid}'
+                else:
+                    label = f'Cuenta #{cid}'
             except Exception:
                 pass
             formas_con_montos.append(f'Transferencia {label} {_recibo_monto_str(movimiento.monto_deposito)}')
@@ -6754,14 +6759,24 @@ def ver_recibo(request, reserva_id):
                 formas_de_pago.append('Cheque')
             if (movimiento_ref.monto_deposito or 0) > 0:
                 if movimiento_ref.destino_deposito == 'galicia':
-                    formas_con_montos.append(f'Transferencia Galicia {_recibo_monto_str(movimiento_ref.monto_deposito, moneda=moneda_res)}')
-                    formas_de_pago.append('Galicia')
+                    formas_con_montos.append(f'Transferencia Banco Galicia {_recibo_monto_str(movimiento_ref.monto_deposito, moneda=moneda_res)}')
+                    formas_de_pago.append('Banco Galicia')
                 elif movimiento_ref.destino_deposito == 'mp':
                     formas_con_montos.append(f'Transferencia Mercado Pago {_recibo_monto_str(movimiento_ref.monto_deposito, moneda=moneda_res)}')
                     formas_de_pago.append('Mercado Pago')
                 else:
-                    formas_con_montos.append(f'Transferencia {_recibo_monto_str(movimiento_ref.monto_deposito, moneda=moneda_res)}')
-                    formas_de_pago.append('Transferencia')
+                    label = (
+                        movimiento_ref.get_destino_deposito_display()
+                        or 'Transferencia'
+                    )
+                    if label and label != 'Transferencia':
+                        formas_con_montos.append(
+                            f'Transferencia {label} {_recibo_monto_str(movimiento_ref.monto_deposito, moneda=moneda_res)}'
+                        )
+                        formas_de_pago.append(label)
+                    else:
+                        formas_con_montos.append(f'Transferencia {_recibo_monto_str(movimiento_ref.monto_deposito, moneda=moneda_res)}')
+                        formas_de_pago.append('Transferencia')
             musd = getattr(movimiento_ref, 'monto_dolares', None) or 0
             if Decimal(str(musd)) > 0:
                 formas_con_montos.append(
@@ -7641,8 +7656,6 @@ def procesar_movimiento_reserva(request):
             for cuenta in cuentas_bancarias:
                 campo_name = cuenta.field_name  # ej: monto_deposito_1
                 etiqueta_cuenta = cuenta.nombre_banco
-                if cuenta.alias:
-                    etiqueta_cuenta = f"{etiqueta_cuenta} - {cuenta.alias}"
                 try:
                     monto_cuenta = obtener_decimal(campo_name, f"Transferencia {etiqueta_cuenta}")
                 except ValueError as exc:
@@ -8452,24 +8465,37 @@ def ver_recibo_movimiento(request, movimiento_id):
         # ✅ Para transferencias, extraer del concepto si hay ambas o usar destino_deposito
         total_deposito_galicia = 0
         total_deposito_mp = 0
-        
-        if movimiento.destino_deposito == 'galicia':
+        deposito_cuenta_label = ''
+        deposito_cuenta_monto = 0
+
+        dest = (movimiento.destino_deposito or '').strip()
+        concepto = movimiento.concepto or ''
+        if dest == 'galicia':
             total_deposito_galicia = movimiento.monto_deposito or 0
-        elif movimiento.destino_deposito == 'mp':
+        elif dest == 'mp':
             total_deposito_mp = movimiento.monto_deposito or 0
-        elif 'Galicia:' in movimiento.concepto and 'MP:' in movimiento.concepto:
+        elif dest.startswith('cuenta_'):
+            deposito_cuenta_monto = movimiento.monto_deposito or 0
+            deposito_cuenta_label = (
+                movimiento.get_destino_deposito_display() or 'Transferencia'
+            )
+        elif 'Galicia:' in concepto and 'MP:' in concepto:
             # Extraer montos del concepto si están ambos
             import re
-            galicia_match = re.search(r'Galicia: \$(\d+)', movimiento.concepto)
-            mp_match = re.search(r'MP: \$(\d+)', movimiento.concepto)
-            
+            galicia_match = re.search(r'Galicia: \$(\d+)', concepto)
+            mp_match = re.search(r'MP: \$(\d+)', concepto)
+
             if galicia_match:
                 total_deposito_galicia = int(galicia_match.group(1))
             if mp_match:
                 total_deposito_mp = int(mp_match.group(1))
         else:
-            # Si no hay destino específico, asumir que es todo en uno
-            total_deposito_galicia = movimiento.monto_deposito
+            # Sin destino legacy: mostrar como transferencia genérica con etiqueta corta
+            deposito_cuenta_monto = movimiento.monto_deposito or 0
+            if deposito_cuenta_monto:
+                deposito_cuenta_label = (
+                    movimiento.get_destino_deposito_display() or 'Transferencia'
+                )
         
         total_movimiento = (
             Decimal(str(total_efectivo or 0))
@@ -8849,6 +8875,8 @@ def ver_recibo_movimiento(request, movimiento_id):
             'total_deposito': total_deposito,
             'total_deposito_galicia': total_deposito_galicia,
             'total_deposito_mp': total_deposito_mp,
+            'deposito_cuenta_label': deposito_cuenta_label,
+            'deposito_cuenta_monto': deposito_cuenta_monto,
             'saldo_pendiente': saldo_pendiente,
             'total_pagado_acumulado': total_pagado_reserva if reserva else total_movimiento,
             'total_senia_pagada': total_senia_pagada_recibo if reserva else 0,  # ✅ NUEVO: Solo seña
@@ -13192,8 +13220,6 @@ def _build_matriz_cuentas_bancarias(ingresos, egresos, cuentas_bancarias, saldos
         saldo = Decimal(str(saldos_por_cuenta.get(cid, 0) or 0))
         anterior = saldo - ing + egr
         etiqueta = cuenta.nombre_banco
-        if cuenta.alias:
-            etiqueta = f'{etiqueta} — {cuenta.alias}'
         columnas.append({'id': cid, 'label': etiqueta})
         anterior_por[cid] = anterior
         ingresos_por[cid] = ing
@@ -17358,7 +17384,7 @@ def reportes_caja(request):
             if rest.isdigit():
                 c = cuentas_map.get(int(rest))
                 if c:
-                    return f'{c.nombre_banco} — {c.titular} ({c.alias})'
+                    return (c.nombre_banco or '').strip() or f'Cuenta #{c.id}'
             return val
         return val
 

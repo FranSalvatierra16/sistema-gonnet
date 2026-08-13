@@ -329,9 +329,16 @@
             {% endif %}
             {% endif %}
             
+            {% if deposito_cuenta_monto > 0 %}
+            <div class="pago-item">
+                <span><strong>🏦 Transferencia {{ deposito_cuenta_label }}:</strong></span>
+                <span>${{ deposito_cuenta_monto|format_price }}</span>
+            </div>
+            {% endif %}
+
             {% if total_deposito_galicia > 0 %}
             <div class="pago-item">
-                <span><strong>🏦 Transferencia Galicia:</strong></span>
+                <span><strong>🏦 Transferencia Banco Galicia:</strong></span>
                 <span>${{ total_deposito_galicia|format_price }}</span>
             </div>
             {% endif %}

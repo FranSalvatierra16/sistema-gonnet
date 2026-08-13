@@ -292,6 +292,36 @@ class MovimientoCaja(models.Model):
         blank=True,
         help_text="Puede ser 'galicia', 'mp', 'mixto', o 'cuenta_X' para cuentas bancarias dinámicas"
     )
+
+    def get_destino_deposito_display(self):
+        """Etiqueta corta del destino: solo nombre de banco (sin titular/alias)."""
+        dest = (self.destino_deposito or '').strip()
+        if not dest:
+            return ''
+        if dest == 'galicia':
+            return 'Banco Galicia'
+        if dest == 'mp':
+            return 'Mercado Pago'
+        if dest == 'mixto':
+            return 'Mixto'
+        if dest.startswith('cuenta_'):
+            try:
+                from inmobiliaria.models.sucursal import CuentaBancaria
+                cid = int(dest.replace('cuenta_', '', 1))
+                nb = (
+                    CuentaBancaria.objects.filter(pk=cid)
+                    .values_list('nombre_banco', flat=True)
+                    .first()
+                )
+                if nb:
+                    return (nb or '').strip()
+            except Exception:
+                pass
+            return dest
+        try:
+            return dict(self._meta.get_field('destino_deposito').choices).get(dest, dest)
+        except Exception:
+            return dest
     # Datos opcionales de medios de pago (nuevo movimiento de caja)
     tarjeta_numero = models.CharField(
         max_length=32,
