@@ -14571,6 +14571,7 @@ def nuevo_movimiento(request, numero_caja=None):
 
     def _ctx_nuevo_movimiento(extra=None):
         from inmobiliaria.caja_devolucion_deposito import concepto_devolucion_deposito_catalogo
+        from inmobiliaria.catalogo_conceptos_caja import concepto_pago_liquidacion_catalogo
 
         ctx = {
             'caja': caja,
@@ -14581,6 +14582,7 @@ def nuevo_movimiento(request, numero_caja=None):
             'categorias_gasto_oficina_grupos': categorias_gasto_oficina_grupos,
             'pre_gasto_oficina': pre_gasto_oficina,
             'concepto_devolucion_deposito': concepto_devolucion_deposito_catalogo(sucursal),
+            'concepto_pago_liquidacion': concepto_pago_liquidacion_catalogo(sucursal),
             'reparto_gasto_oficina': par_reparto,
             'reparto_gasto_oficina_defaults': defaults_reparto,
             'editando_movimiento': bool(movimiento_edicion),

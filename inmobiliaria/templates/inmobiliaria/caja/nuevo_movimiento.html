@@ -1085,6 +1085,11 @@ $(document).ready(function() {
         nombre: '{{ concepto_devolucion_deposito.nombre|default:"Devolución de depósitos"|escapejs }}'
     };
 
+    var CONCEPTO_PAGO_LIQUIDACION = {
+        id: '{{ concepto_pago_liquidacion.id|default:"1"|escapejs }}',
+        nombre: '{{ concepto_pago_liquidacion.nombre|default:"Pago liquidacion"|escapejs }}'
+    };
+
     function esConceptoDevolucionDeposito(id, nombre) {
         var cid = String(id || '').trim();
         if (cid === CONCEPTO_DEVOLUCION_DEPOSITO.id || cid === '140') return true;
@@ -2462,9 +2467,14 @@ $(document).ready(function() {
             ? mov.monto_sugerido
             : (esLiq ? (op.monto_a_pagar || 0) : (op.monto_devolucion_sugerido || 0));
 
-        if (esLiq && montoSug > 0) {
-            $('input[name="monto_efectivo"]').val(fmtMontoLocal(montoSug));
-            $('input[name="monto_cheque"], input[name="monto_tarjeta"], input[name="monto_deposito"]').val('');
+        if (esLiq) {
+            // Concepto 1 = Pago liquidacion; el efectivo lo carga el usuario (no sugerir monto).
+            var cLiq = mov.concepto_pago_liquidacion || CONCEPTO_PAGO_LIQUIDACION;
+            seleccionarConceptoCatalogo(
+                cLiq.id || CONCEPTO_PAGO_LIQUIDACION.id,
+                cLiq.nombre || CONCEPTO_PAGO_LIQUIDACION.nombre
+            );
+            $('input[name="monto_efectivo"], input[name="monto_cheque"], input[name="monto_tarjeta"], input[name="monto_deposito"]').val('');
             correspondeEditadoManual = false;
             $('#monto_a_oficina, #monto_a_propietario, #monto_a_inquilino').val('');
             calcularTotal();

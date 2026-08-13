@@ -77,3 +77,29 @@ def proximo_id_numerico_libre_catalogo_visible(sucursal_actual):
     while n in usados:
         n += 1
     return str(n)
+
+
+CONCEPTO_PAGO_LIQUIDACION_ID = '1'
+
+
+def concepto_pago_liquidacion_catalogo(sucursal):
+    """Concepto 1 (Pago liquidacion) para egresos de liquidación a propietario."""
+    from .models.caja import Concepto
+
+    cat = Concepto.objects.filter(
+        q_conceptos_caja_visibles(sucursal),
+        id=CONCEPTO_PAGO_LIQUIDACION_ID,
+    ).first()
+    if cat:
+        return {'id': str(cat.id), 'nombre': cat.nombre or 'Pago liquidacion'}
+    cat = (
+        Concepto.objects.filter(q_conceptos_caja_visibles(sucursal))
+        .filter(
+            Q(nombre__icontains='pago liquidacion')
+            | Q(nombre__icontains='pago liquidación')
+        )
+        .first()
+    )
+    if cat:
+        return {'id': str(cat.id), 'nombre': cat.nombre or ''}
+    return {'id': CONCEPTO_PAGO_LIQUIDACION_ID, 'nombre': 'Pago liquidacion'}

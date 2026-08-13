@@ -371,16 +371,19 @@ def buscar_operacion_caja(
         operacion = datos_operacion_liquidacion_caja(obj)
 
     concepto_dev = concepto_devolucion_deposito_catalogo(sucursal)
-    movimiento = _movimiento_desde_operacion(operacion, concepto_dev)
+    from inmobiliaria.catalogo_conceptos_caja import concepto_pago_liquidacion_catalogo
+    concepto_liq = concepto_pago_liquidacion_catalogo(sucursal)
+    movimiento = _movimiento_desde_operacion(operacion, concepto_dev, concepto_liq)
     return {
         'success': True,
         'operacion': operacion,
         'concepto_devolucion': concepto_dev,
+        'concepto_pago_liquidacion': concepto_liq,
         'movimiento': movimiento,
     }, None
 
 
-def _movimiento_desde_operacion(operacion: dict, concepto_dev: dict) -> dict:
+def _movimiento_desde_operacion(operacion: dict, concepto_dev: dict, concepto_liq: dict | None = None) -> dict:
     tipo_op = operacion.get('tipo') or 'reserva'
     oid = operacion.get('id')
     cliente = operacion.get('cliente') or operacion.get('propietario') or ''
@@ -400,6 +403,7 @@ def _movimiento_desde_operacion(operacion: dict, concepto_dev: dict) -> dict:
             'monto_sugerido': operacion.get('monto_a_pagar') or 0,
             'imputacion': 'propietario',
             'concepto_devolucion': concepto_dev,
+            'concepto_pago_liquidacion': concepto_liq or {'id': '1', 'nombre': 'Pago liquidacion'},
             **{k: operacion.get(k) for k in (
                 'deposito_estado', 'deposito_ya_devuelto', 'puede_devolver',
                 'monto_devolucion_sugerido', 'mensaje',
