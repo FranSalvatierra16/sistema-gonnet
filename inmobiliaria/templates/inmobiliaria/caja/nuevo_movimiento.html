@@ -79,8 +79,27 @@
 }
 .caja-ac-dropdown .list-group-item:first-child { border-top: 0; }
 .caja-ac-dropdown .list-group-item:hover,
-.caja-ac-dropdown .list-group-item.active { background: #e7f1ff; }
-.caja-ac-dropdown .list-group-item.active { font-weight: 500; }
+.caja-ac-dropdown .list-group-item.active,
+.caja-ac-dropdown .list-group-item-action:hover,
+.caja-ac-dropdown .list-group-item-action.active,
+.caja-ac-dropdown .list-group-item-action:focus {
+    background: #0d6efd !important;
+    color: #fff !important;
+    border-color: #0d6efd;
+    font-weight: 700;
+    box-shadow: inset 4px 0 0 #084298;
+}
+.caja-ac-dropdown .list-group-item:hover .text-muted,
+.caja-ac-dropdown .list-group-item.active .text-muted,
+.caja-ac-dropdown .list-group-item-action:hover .text-muted,
+.caja-ac-dropdown .list-group-item-action.active .text-muted,
+.caja-ac-dropdown .list-group-item:hover strong,
+.caja-ac-dropdown .list-group-item.active strong,
+.caja-ac-dropdown .list-group-item-action:hover strong,
+.caja-ac-dropdown .list-group-item-action.active strong {
+    color: #fff !important;
+}
+.caja-ac-dropdown .list-group-item.active { font-weight: 700; }
 .caja-ac-meta { font-size: 0.75rem; color: #6c757d; }
 /* Conceptos de caja: más oscuros / legibles */
 #dropdown_conceptos .list-group-item {
@@ -98,6 +117,16 @@
 }
 #dropdown_conceptos .caja-ac-meta {
     color: #333;
+}
+#dropdown_conceptos .list-group-item.active,
+#dropdown_conceptos .list-group-item:hover,
+#dropdown_conceptos .list-group-item.active .caja-ac-concepto-id,
+#dropdown_conceptos .list-group-item:hover .caja-ac-concepto-id,
+#dropdown_conceptos .list-group-item.active .caja-ac-concepto-nombre,
+#dropdown_conceptos .list-group-item:hover .caja-ac-concepto-nombre,
+#dropdown_conceptos .list-group-item.active .caja-ac-meta,
+#dropdown_conceptos .list-group-item:hover .caja-ac-meta {
+    color: #fff !important;
 }
 #concepto_seleccionado .alert {
     background: #d1e7dd;
@@ -143,6 +172,16 @@
     font-size: 0.85rem;
     color: #6c757d;
     margin-top: 0.1rem;
+}
+#dropdown_propiedades_main .list-group-item.active .caja-ac-prop-id,
+#dropdown_propiedades_main .list-group-item:hover .caja-ac-prop-id,
+#dropdown_propiedades_main .list-group-item.active .caja-ac-prop-dir,
+#dropdown_propiedades_main .list-group-item:hover .caja-ac-prop-dir,
+#dropdown_propiedades_main .list-group-item.active .caja-ac-prop-owner,
+#dropdown_propiedades_main .list-group-item:hover .caja-ac-prop-owner,
+#dropdown_propiedades_main .list-group-item.active .caja-ac-prop-ubi,
+#dropdown_propiedades_main .list-group-item:hover .caja-ac-prop-ubi {
+    color: #fff !important;
 }
 </style>
 {% endblock %}
