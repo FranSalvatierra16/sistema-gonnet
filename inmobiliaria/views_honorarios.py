@@ -823,16 +823,28 @@ def _filas_honorarios_desde_liquidaciones(liquidaciones):
     return filas
 
 
+def _como_fecha(valor):
+    """Normaliza date/datetime para comparar sin TypeError."""
+    if not valor:
+        return None
+    if isinstance(valor, datetime):
+        return _datetime_a_fecha_local(valor)
+    if isinstance(valor, date):
+        return valor
+    return _datetime_a_fecha_local(valor)
+
+
 def _filtrar_filas_por_fecha(filas, fecha_desde, fecha_hasta):
     out = []
     for f in filas:
-        fd = f.get('fecha')
+        fd = _como_fecha(f.get('fecha'))
         if not fd:
             continue
         if fecha_desde and fd < fecha_desde:
             continue
         if fecha_hasta and fd > fecha_hasta:
             continue
+        f = {**f, 'fecha': fd}
         out.append(f)
     out.sort(
         key=lambda x: (

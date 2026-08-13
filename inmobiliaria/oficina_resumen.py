@@ -1,5 +1,6 @@
 """Armado del resumen mensual de entradas y salidas (modelo cierre oficina)."""
 import calendar
+import logging
 from collections import defaultdict
 from datetime import date
 from decimal import Decimal
@@ -8,8 +9,10 @@ from django.db.models import Q, Sum
 
 from inmobiliaria.models import CategoriaGastoOficina, ComisionVendedor, GastoOficina, Vendedor
 from inmobiliaria.models import LiquidacionPropietario
-from inmobiliaria.oficina_gastos import RAICES_SUBCATEGORIAS_VENDEDOR, asegurar_estructura_cierre_oficina
+from inmobiliaria.oficina_gastos import RAICES_SUBCATEGORIAS_VENDEDOR
 from inmobiliaria.views_honorarios import _filas_honorarios_desde_liquidaciones, _filtrar_filas_por_fecha
+
+logger = logging.getLogger(__name__)
 
 MESES_ES = (
     '', 'ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO',
@@ -53,32 +56,42 @@ def _totales_comisiones_vendedor(sucursal, fecha_desde, fecha_hasta):
 
 
 def _honorarios_por_etiqueta(sucursal, fecha_desde, fecha_hasta):
-    qs = (
-        LiquidacionPropietario.objects.filter(sucursal=sucursal)
-        .exclude(estado='cancelada')
-        .select_related('propietario', 'propiedad', 'reserva', 'contrato')
-    )
-    qs = qs.filter(
-        Q(fecha_creacion__date__gte=fecha_desde, fecha_creacion__date__lte=fecha_hasta)
-        | Q(fecha_desde__gte=fecha_desde, fecha_desde__lte=fecha_hasta)
-        | Q(reserva__fecha_inicio__gte=fecha_desde, reserva__fecha_inicio__lte=fecha_hasta)
-        | Q(reserva__fecha_creacion__date__gte=fecha_desde, reserva__fecha_creacion__date__lte=fecha_hasta)
-        | Q(contrato__fecha_inicio__gte=fecha_desde, contrato__fecha_inicio__lte=fecha_hasta)
-    ).distinct()
-    filas = _filtrar_filas_por_fecha(
-        _filas_honorarios_desde_liquidaciones(qs),
-        fecha_desde,
-        fecha_hasta,
-    )
-    totales = defaultdict(lambda: Decimal('0'))
-    for f in filas:
-        etiqueta = MAPEO_HONORARIOS_INGRESOS.get(f.get('tipo'), 'Comisión por ventas')
-        totales[etiqueta] += f.get('monto') or Decimal('0')
-    return dict(totales)
+    try:
+        qs = (
+            LiquidacionPropietario.objects.filter(sucursal=sucursal)
+            .exclude(estado='cancelada')
+            .select_related('propietario', 'propiedad', 'reserva', 'contrato')
+        )
+        qs = qs.filter(
+            Q(fecha_creacion__date__gte=fecha_desde, fecha_creacion__date__lte=fecha_hasta)
+            | Q(fecha_desde__gte=fecha_desde, fecha_desde__lte=fecha_hasta)
+            | Q(reserva__fecha_inicio__gte=fecha_desde, reserva__fecha_inicio__lte=fecha_hasta)
+            | Q(reserva__fecha_creacion__date__gte=fecha_desde, reserva__fecha_creacion__date__lte=fecha_hasta)
+            | Q(contrato__fecha_inicio__gte=fecha_desde, contrato__fecha_inicio__lte=fecha_hasta)
+        ).distinct()
+        filas = _filtrar_filas_por_fecha(
+            _filas_honorarios_desde_liquidaciones(qs),
+            fecha_desde,
+            fecha_hasta,
+        )
+        totales = defaultdict(lambda: Decimal('0'))
+        for f in filas:
+            etiqueta = MAPEO_HONORARIOS_INGRESOS.get(f.get('tipo'), 'Comisión por ventas')
+            totales[etiqueta] += f.get('monto') or Decimal('0')
+        return dict(totales)
+    except Exception:
+        logger.exception(
+            'resumen_cierre: falló honorarios (sucursal_id=%s, %s-%02d)',
+            getattr(sucursal, 'pk', None),
+            fecha_desde.year if fecha_desde else '?',
+            fecha_desde.month if fecha_desde else 0,
+        )
+        return {}
 
 
 def construir_resumen_cierre(sucursal, anio, mes):
-    asegurar_estructura_cierre_oficina(sucursal)
+    # El sync de categorías lo hace la vista con try/except; no repetirlo acá
+    # (IntegrityError / unique en sync tumba la pantalla con 500).
     fecha_desde, fecha_hasta = _rango_mes(anio, mes)
 
     gastos_qs = GastoOficina.objects.filter(
@@ -87,7 +100,14 @@ def construir_resumen_cierre(sucursal, anio, mes):
         fecha__lte=fecha_hasta,
     )
     totales_por_cat = _totales_gastos_por_categoria_ids(gastos_qs)
-    comisiones_pagadas = _totales_comisiones_vendedor(sucursal, fecha_desde, fecha_hasta)
+    try:
+        comisiones_pagadas = _totales_comisiones_vendedor(sucursal, fecha_desde, fecha_hasta)
+    except Exception:
+        logger.exception(
+            'resumen_cierre: falló comisiones (sucursal_id=%s)',
+            getattr(sucursal, 'pk', None),
+        )
+        comisiones_pagadas = {}
     honorarios_map = _honorarios_por_etiqueta(sucursal, fecha_desde, fecha_hasta)
 
     vendedores_map = {

@@ -922,7 +922,20 @@ def oficina_resumen_cierre(request):
     except (TypeError, ValueError):
         anio, mes = today.year, today.month
 
-    resumen = construir_resumen_cierre(sucursal, anio, mes)
+    try:
+        resumen = construir_resumen_cierre(sucursal, anio, mes)
+    except Exception:
+        logger.exception(
+            'oficina_resumen_cierre: error armando resumen (sucursal_id=%s, %s-%02d)',
+            getattr(sucursal, 'pk', None),
+            anio,
+            mes,
+        )
+        messages.error(
+            request,
+            'No se pudo armar el resumen de cierre. Probá de nuevo; si sigue fallando, avisá a sistemas.',
+        )
+        return redirect('inmobiliaria:oficina_dashboard')
 
     anios_opts = list(range(today.year - 2, today.year + 2))
     meses_opts = list(enumerate(
