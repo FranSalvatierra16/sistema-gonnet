@@ -3,6 +3,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from datetime import date
 from decimal import Decimal
 
 class Sucursal(models.Model):
@@ -159,7 +160,12 @@ class CuentaBancaria(models.Model):
         decimal_places=2,
         default=Decimal('0'),
         verbose_name='Saldo inicial',
-        help_text='Saldo de corte al 08/06/2026 para reportes (no editable después de cargarlo).',
+        help_text='Saldo de corte para reportes de transferencias a esta cuenta.',
+    )
+    fecha_saldo_inicial = models.DateField(
+        default=date(2026, 6, 8),
+        verbose_name='Fecha del saldo inicial',
+        help_text='Fecha de corte del saldo inicial en el reporte (editable por cuenta).',
     )
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     

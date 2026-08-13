@@ -82,23 +82,37 @@
 
     <div class="card shadow-sm mb-4">
         <div class="card-body py-3">
-            <div class="row g-2 align-items-end">
+            <form method="post" action="" class="row g-2 align-items-end">
+                {% csrf_token %}
+                <input type="hidden" name="accion" value="guardar_saldo_inicial">
+                <div class="col-md-3 col-lg-2">
+                    <label class="form-label mb-1" for="fecha_saldo_inicial">
+                        <i class="fas fa-calendar-day me-1"></i>Fecha del saldo inicial
+                    </label>
+                    <input type="date" class="form-control" id="fecha_saldo_inicial" name="fecha_saldo_inicial"
+                           value="{{ fecha_saldo_inicial|date:'Y-m-d' }}" required>
+                </div>
                 <div class="col-md-4 col-lg-3">
                     <label class="form-label mb-1" for="saldo_inicial">
-                        <i class="fas fa-balance-scale me-1"></i>Saldo inicial (al {{ fecha_saldo_inicial|date:"d/m/Y" }})
+                        <i class="fas fa-balance-scale me-1"></i>Saldo inicial
                     </label>
-                    <input type="text" class="form-control" id="saldo_inicial" name="saldo_inicial"
-                           value="{{ saldo_inicial_cuenta }}" readonly disabled
+                    <input type="text" class="form-control input-monto-ar" id="saldo_inicial" name="saldo_inicial"
+                           value="{{ saldo_inicial_cuenta|format_price }}"
                            inputmode="decimal" autocomplete="off">
                 </div>
-                <div class="col-md-8">
+                <div class="col-md-3 col-lg-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-save me-1"></i>Guardar
+                    </button>
+                </div>
+                <div class="col-12 col-lg-5">
                     <p class="small text-muted mb-0">
-                        Corte fijo del <strong>{{ fecha_saldo_inicial|date:"d/m/Y" }}</strong> en todas las cuentas.
+                        Podés cambiar el monto y la fecha de corte de esta cuenta.
                         Si filtrás un rango posterior, el <strong>saldo acum.</strong> arranca desde el saldo real
-                        al día anterior (transporte = saldo inicial + movimientos previos), como en el extracto bancario, y va acumulando cada movimiento.
+                        al día anterior (transporte = saldo inicial + movimientos previos), como en el extracto bancario.
                     </p>
                 </div>
-            </div>
+            </form>
         </div>
     </div>
 
