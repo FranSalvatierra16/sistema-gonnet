@@ -133,7 +133,7 @@
 <header class="site-header">
     <div class="wrap nav">
         <a class="brand" href="{% url 'inmobiliaria:portal_home' %}">
-            <img class="brand-logo" src="{% url 'inmobiliaria:portal_logo' %}" alt="Nestor Oscar Gonnet Propiedades">
+            <img class="brand-logo" src="{{ portal_logo_src }}" alt="Nestor Oscar Gonnet Propiedades">
         </a>
         <nav class="nav-links">
             <a class="hide-sm {% if nav_active == 'inicio' %}is-active{% endif %}" href="{% url 'inmobiliaria:portal_home' %}">Inicio</a>

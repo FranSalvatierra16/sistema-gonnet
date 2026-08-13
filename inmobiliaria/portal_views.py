@@ -4,11 +4,8 @@ No requiere login. No crea Reserva — opción A.
 """
 from __future__ import annotations
 
-from pathlib import Path
-
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods
@@ -16,6 +13,7 @@ from django.views.decorators.http import require_http_methods
 from inmobiliaria.models import ImagenPropiedad, Propiedad
 from inmobiliaria.models.portal_web import ConsultaWeb
 from inmobiliaria.models.propiedad import TIPOS_INMUEBLES, TIPOS_VALORACION, TIPOS_VISTA
+from inmobiliaria.portal_logo_data import LOGO_DATA_URI
 from inmobiliaria.portal_servicio import (
     OPERACION_LABELS,
     OPERACIONES_PORTAL,
@@ -55,6 +53,7 @@ def _ctx_base(**extra):
         'portal_nombre': 'Nestor Oscar Gonnet Propiedades',
         'portal_tagline': 'Excelencia y trayectoria en gestión inmobiliaria de alta gama.',
         'operaciones_portal': OPERACIONES_PORTAL,
+        'portal_logo_src': LOGO_DATA_URI,
     }
     ctx.update(extra)
     return ctx
@@ -62,17 +61,31 @@ def _ctx_base(**extra):
 
 @require_http_methods(['GET', 'HEAD'])
 def portal_logo(request):
-    """
-    Sirve el logo desde el filesystem de la app (no depende de collectstatic/S3).
-    """
+    """Sirve el logo embebido (no depende de collectstatic/S3)."""
+    import base64
+    from django.http import HttpResponse
+
+    raw = LOGO_DATA_URI.split(',', 1)[-1]
+    resp = HttpResponse(base64.b64decode(raw), content_type='image/png')
+    resp['Cache-Control'] = 'public, max-age=604800'
+    return resp
+
+
+@require_http_methods(['GET', 'HEAD'])
+def portal_hero(request):
+    """Sirve la foto hero de Mar del Plata desde el filesystem de la app."""
+    from pathlib import Path
+    from django.http import FileResponse, Http404
+
     base = Path(__file__).resolve().parent / 'static' / 'images'
-    for name in ('logo-gonnet.png', 'logo.png', 'logoG.png'):
+    for name in ('hero-mardelplata.jpg', 'hero-mardelplata.png'):
         path = base / name
         if path.is_file():
-            resp = FileResponse(path.open('rb'), content_type='image/png')
-            resp['Cache-Control'] = 'public, max-age=86400'
+            ctype = 'image/jpeg' if path.suffix.lower() in ('.jpg', '.jpeg') else 'image/png'
+            resp = FileResponse(path.open('rb'), content_type=ctype)
+            resp['Cache-Control'] = 'public, max-age=604800'
             return resp
-    raise Http404('Logo no encontrado')
+    raise Http404('Hero no encontrado')
 
 
 def _resolver_operacion(request):

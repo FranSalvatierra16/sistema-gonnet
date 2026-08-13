@@ -13,8 +13,8 @@
     overflow: hidden;
     color: #fff;
     background:
-        linear-gradient(180deg, rgba(18, 40, 20, 0.25) 0%, rgba(18, 40, 20, 0.15) 40%, rgba(18, 40, 20, 0.78) 100%),
-        url("https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=2000&q=80") center/cover no-repeat;
+        linear-gradient(180deg, rgba(18, 40, 20, 0.28) 0%, rgba(18, 40, 20, 0.18) 42%, rgba(18, 40, 20, 0.78) 100%),
+        url("{% url 'inmobiliaria:portal_hero' %}") center/cover no-repeat;
 }
 .hero::before {
     content: "";
@@ -292,7 +292,7 @@
 <section class="hero">
     <div class="hero-inner">
         <div class="hero-brand rise">
-            <img src="{% url 'inmobiliaria:portal_logo' %}" alt="Gonnet Propiedades">
+            <img src="{{ portal_logo_src }}" alt="Gonnet Propiedades">
         </div>
         <h1 class="rise rise-2">Viví Mar del Plata con Gonnet.</h1>
         <p class="lead rise rise-3">Temporada, invierno, 24 meses y ventas — con la trayectoria que respalda cada operación.</p>

@@ -4,112 +4,138 @@
 {% block title %}{{ operacion_label }} · {{ portal_nombre }}{% endblock %}
 
 {% block extra_css %}
-.results-hero {
-    position: relative;
-    padding: 2.4rem 0 1.8rem;
-    color: #fff;
-    overflow: hidden;
+.results-top {
     background:
-        linear-gradient(115deg, rgba(31,84,29,0.92) 0%, rgba(74,154,70,0.78) 55%, rgba(47,107,44,0.7) 100%),
+        linear-gradient(120deg, rgba(31,84,29,0.94), rgba(74,154,70,0.82)),
         url("https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1800&q=80") center/cover no-repeat;
+    color: #fff;
+    padding: 1.6rem 0 1.25rem;
 }
-.results-hero::after {
-    content: "";
-    position: absolute;
-    inset: auto -20% -40% 40%;
-    width: 60vmax;
-    height: 60vmax;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(255,255,255,0.16), transparent 65%);
-    pointer-events: none;
+.results-top .wrap {
+    display: flex;
+    justify-content: space-between;
+    align-items: end;
+    gap: 1rem;
+    flex-wrap: wrap;
 }
-.results-hero .wrap { position: relative; z-index: 1; }
-.results-hero .eyebrow {
-    font-size: 0.74rem;
+.results-top .eyebrow {
+    font-size: 0.72rem;
     font-weight: 700;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
     opacity: 0.88;
-    margin-bottom: 0.45rem;
+    margin-bottom: 0.35rem;
 }
-.results-hero h1 {
-    margin: 0 0 0.4rem;
+.results-top h1 {
+    margin: 0;
     font-family: "Fraunces", Georgia, serif;
-    font-size: clamp(1.9rem, 4vw, 2.8rem);
+    font-size: clamp(1.7rem, 3.5vw, 2.45rem);
     line-height: 1.05;
 }
-.results-hero .sub {
-    margin: 0;
+.results-top .sub {
+    margin: 0.35rem 0 0;
     opacity: 0.9;
-    font-size: 1rem;
-    max-width: 48ch;
+    font-size: 0.95rem;
 }
-.page {
-    padding: 1.5rem 0 2.5rem;
+.quickbar {
+    background: #fff;
+    border-bottom: 1px solid var(--g-line);
+    position: sticky;
+    top: 64px;
+    z-index: 30;
+    box-shadow: 0 8px 24px rgba(47,107,44,0.06);
 }
+.quickbar form {
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr 0.9fr 0.8fr auto auto;
+    gap: 0.65rem;
+    align-items: end;
+    padding: 0.85rem 0;
+}
+.quickbar .field { margin: 0; }
+.quickbar .field label {
+    font-size: 0.68rem;
+    margin-bottom: 0.25rem;
+}
+.quickbar .field input,
+.quickbar .field select {
+    border-radius: 10px;
+    padding: 0.58rem 0.7rem;
+    background: #f7faf6;
+    border-color: #d7e3d6;
+}
+.page { padding: 1.35rem 0 2.6rem; }
 .layout {
     display: grid;
-    grid-template-columns: 300px 1fr;
-    gap: 1.4rem;
+    grid-template-columns: 280px 1fr;
+    gap: 1.25rem;
     align-items: start;
 }
 .filters {
     background: #fff;
     border: 1px solid var(--g-line);
-    border-radius: 20px;
-    padding: 1.15rem 1.1rem 1.2rem;
+    border-radius: 18px;
+    padding: 1rem;
     position: sticky;
-    top: 5rem;
-    box-shadow: 0 10px 30px rgba(47,107,44,0.06);
+    top: 148px;
 }
 .filters h2 {
-    margin: 0 0 1rem;
-    font-size: 1.05rem;
+    margin: 0 0 0.85rem;
+    font-size: 1rem;
     color: var(--g-green-dark);
     font-family: "Fraunces", Georgia, serif;
 }
-.filters .field { margin-bottom: 0.8rem; }
+.filters .field { margin-bottom: 0.7rem; }
 .filters .field label {
     text-transform: none;
     letter-spacing: 0;
-    font-size: 0.82rem;
+    font-size: 0.8rem;
     font-weight: 600;
     color: var(--g-ink);
 }
+.filters details {
+    border-top: 1px solid var(--g-line);
+    padding-top: 0.7rem;
+    margin-top: 0.35rem;
+}
+.filters summary {
+    cursor: pointer;
+    font-weight: 700;
+    color: var(--g-green-dark);
+    font-size: 0.88rem;
+    list-style: none;
+}
+.filters summary::-webkit-details-marker { display: none; }
 .comodidades {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 0.4rem 0.55rem;
-    margin: 0.35rem 0 0.95rem;
+    gap: 0.35rem 0.45rem;
+    margin: 0.65rem 0 0.85rem;
 }
 .comodidades label {
     display: flex;
-    align-items: flex-start;
-    gap: 0.4rem;
-    font-size: 0.78rem;
-    color: var(--g-ink);
+    gap: 0.35rem;
+    font-size: 0.76rem;
     font-weight: 500;
     cursor: pointer;
     line-height: 1.25;
 }
-.comodidades input { margin-top: 0.15rem; flex-shrink: 0; accent-color: var(--g-green); }
-.filter-actions { display: grid; gap: 0.5rem; margin-top: 0.25rem; }
+.comodidades input { accent-color: var(--g-green); margin-top: 0.12rem; }
+.filter-actions { display: grid; gap: 0.45rem; }
 .btn-outline {
     background: #fff;
     color: var(--g-green-dark);
     border: 1.5px solid var(--g-green);
     border-radius: 999px;
-    padding: 0.65rem 1rem;
+    padding: 0.6rem 1rem;
     font: inherit;
     font-weight: 600;
     text-align: center;
-    cursor: pointer;
-    transition: background .2s ease;
 }
 .btn-outline:hover { background: #eef7ed; }
 .alert-warn {
     background: #fff6e5; border: 1px solid #f0d9a5; color: #6a4b10;
-    padding: 0.9rem 1rem; border-radius: 14px; margin-bottom: 1rem;
+    padding: 0.85rem 1rem; border-radius: 12px; margin-bottom: 1rem;
 }
 .toolbar {
     display: flex;
@@ -119,46 +145,69 @@
     margin-bottom: 1rem;
     flex-wrap: wrap;
 }
-.results-meta {
-    color: var(--g-muted);
-    font-size: 0.95rem;
-    margin: 0;
-}
-.results-meta strong { color: var(--g-green-dark); }
+.results-meta { margin: 0; color: var(--g-muted); font-size: 0.95rem; }
+.results-meta strong { color: var(--g-green-dark); font-size: 1.05rem; }
 .cards {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 1.1rem;
+    gap: 1.15rem;
 }
 .card {
     background: #fff;
-    border: 1px solid var(--g-line);
-    border-radius: 20px;
+    border: 1px solid rgba(74,154,70,0.14);
+    border-radius: 22px;
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    transition: box-shadow .28s ease, transform .28s ease;
+    transition: transform .28s ease, box-shadow .28s ease;
 }
 .card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 22px 48px rgba(47, 107, 44, 0.14);
+    transform: translateY(-5px);
+    box-shadow: 0 24px 50px rgba(47,107,44,0.14);
 }
 .gallery {
     position: relative;
-    aspect-ratio: 4 / 3;
+    aspect-ratio: 5 / 4;
     background: #d7e0db;
     overflow: hidden;
 }
 .gallery img, .gallery .ph {
     width: 100%; height: 100%;
     object-fit: cover; display: block;
-    transition: transform .5s ease;
+    transition: transform .55s ease;
 }
-.card:hover .gallery img { transform: scale(1.04); }
+.card:hover .gallery img { transform: scale(1.05); }
 .gallery .ph {
     display: grid; place-items: center;
-    color: var(--g-muted); font-size: 0.9rem; font-weight: 600;
+    color: var(--g-muted); font-weight: 600;
     background: linear-gradient(145deg, #d9e8d8, #c5d8c4);
+}
+.gallery-top {
+    position: absolute;
+    inset: 0.7rem 0.7rem auto 0.7rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.4rem;
+    z-index: 2;
+}
+.ficha-pill {
+    background: rgba(255,255,255,0.95);
+    color: var(--g-red);
+    font-weight: 800;
+    font-size: 0.78rem;
+    padding: 0.28rem 0.55rem;
+    border-radius: 999px;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.1);
+}
+.badge-op {
+    background: var(--g-green);
+    color: #fff;
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 0.28rem 0.55rem;
+    border-radius: 999px;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.12);
 }
 .gallery-nav {
     position: absolute; inset: 0;
@@ -168,38 +217,28 @@
 .gallery-nav button {
     pointer-events: auto;
     width: 2rem; height: 2rem; border-radius: 999px;
-    border: 0; background: rgba(255,255,255,0.94);
-    color: var(--g-green-dark); font-size: 1.05rem; line-height: 1;
+    border: 0; background: rgba(255,255,255,0.95);
+    color: var(--g-green-dark); font-size: 1.05rem;
     cursor: pointer; opacity: 0; transition: opacity .15s, transform .15s;
-    box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+    box-shadow: 0 8px 18px rgba(0,0,0,0.14);
 }
-.gallery-nav button:hover { transform: scale(1.06); }
 .card:hover .gallery-nav button { opacity: 1; }
+.gallery-nav button:hover { transform: scale(1.06); }
 .gallery-dots {
     position: absolute; left: 0; right: 0; bottom: 0.55rem;
-    display: flex; justify-content: center; gap: 0.3rem;
+    display: flex; justify-content: center; gap: 0.28rem;
 }
 .gallery-dots span {
-    width: 0.38rem; height: 0.38rem; border-radius: 999px;
+    width: 0.36rem; height: 0.36rem; border-radius: 999px;
     background: rgba(255,255,255,0.55);
 }
-.gallery-dots span.on { background: #fff; box-shadow: 0 0 0 2px rgba(74,154,70,0.35); }
+.gallery-dots span.on { background: #fff; }
 .card-body {
-    padding: 1rem 1.05rem 1.15rem;
+    padding: 0.95rem 1rem 1.1rem;
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 0.4rem;
-}
-.card-top { display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; }
-.ficha-id {
-    color: var(--g-red); font-weight: 700; font-size: 0.86rem;
-}
-.badge-op {
-    background: var(--g-green); color: #fff;
-    font-size: 0.68rem; font-weight: 700;
-    padding: 0.2rem 0.5rem; border-radius: 999px;
-    letter-spacing: 0.02em;
+    gap: 0.35rem;
 }
 .card h3 {
     margin: 0;
@@ -214,35 +253,48 @@
 }
 .card .loc {
     display: flex; align-items: flex-start; gap: 0.3rem;
-    color: var(--g-muted); font-size: 0.86rem; line-height: 1.35;
+    color: var(--g-muted); font-size: 0.84rem; line-height: 1.35;
 }
 .card .loc svg { flex-shrink: 0; margin-top: 0.1rem; }
+.card .price-row {
+    margin-top: 0.25rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.5rem;
+}
 .card .price {
-    margin-top: 0.15rem;
     color: var(--g-green-dark);
     font-weight: 800;
-    font-size: 1.12rem;
-    letter-spacing: -0.01em;
+    font-size: 1.15rem;
+    letter-spacing: -0.02em;
 }
 .card .price small {
     font-weight: 600;
-    font-size: 0.82rem;
+    font-size: 0.8rem;
     color: var(--g-muted);
+}
+.card .cta-hint {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--g-green);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
 }
 .card .specs {
     margin-top: auto;
     padding-top: 0.7rem;
     border-top: 1px solid rgba(74,154,70,0.12);
-    display: flex; gap: 0.95rem;
-    color: var(--g-muted); font-size: 0.84rem; font-weight: 600;
+    display: flex; gap: 0.85rem; flex-wrap: wrap;
+    color: var(--g-muted); font-size: 0.82rem; font-weight: 600;
 }
-.card .specs span { display: inline-flex; align-items: center; gap: 0.3rem; }
+.card .specs span { display: inline-flex; align-items: center; gap: 0.28rem; }
 .empty {
     grid-column: 1 / -1;
     background: #fff;
     border: 1px dashed var(--g-line);
     border-radius: 18px;
-    padding: 2rem 1.4rem;
+    padding: 2.2rem 1.4rem;
     text-align: center;
 }
 .empty h3 {
@@ -251,32 +303,86 @@
     font-family: "Fraunces", Georgia, serif;
 }
 .empty p { margin: 0 0 1rem; color: var(--g-muted); }
+.mobile-filters-btn { display: none; }
 @media (max-width: 1100px) {
     .cards { grid-template-columns: repeat(2, 1fr); }
+    .quickbar form { grid-template-columns: 1fr 1fr 1fr; }
 }
 @media (max-width: 900px) {
     .layout { grid-template-columns: 1fr; }
-    .filters { position: static; }
+    .filters {
+        position: static;
+        display: none;
+    }
+    .filters.is-open { display: block; }
+    .mobile-filters-btn { display: inline-flex; }
+    .quickbar { top: 58px; }
+    .quickbar form { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 560px) {
     .cards { grid-template-columns: 1fr; }
+    .quickbar form { grid-template-columns: 1fr; }
 }
 {% endblock %}
 
 {% block content %}
-<section class="results-hero">
+<section class="results-top">
     <div class="wrap">
-        <div class="eyebrow">Gonnet Propiedades</div>
-        <h1>{{ operacion_label }}</h1>
-        <p class="sub">
-            {% if requiere_fechas %}
-            Elegí fechas y encontrá departamentos disponibles con disponibilidad real del sistema.
-            {% else %}
-            Propiedades publicadas con los mismos criterios del sistema interno.
-            {% endif %}
-        </p>
+        <div>
+            <div class="eyebrow">Gonnet Propiedades</div>
+            <h1>{{ operacion_label }}</h1>
+            <p class="sub">
+                {% if requiere_fechas %}
+                Disponibilidad real por fechas · elegí check-in y check-out
+                {% else %}
+                Catálogo publicado con criterios del sistema interno
+                {% endif %}
+            </p>
+        </div>
+        <a class="btn btn-ghost" href="{% url 'inmobiliaria:portal_contacto' %}">Hablar con un asesor</a>
     </div>
 </section>
+
+<div class="quickbar">
+    <form class="wrap" method="get" id="quick-form">
+        {% for c in form_comodidades %}
+        <input type="hidden" name="comodidad" value="{{ c }}">
+        {% endfor %}
+        {% if form_q %}<input type="hidden" name="q" value="{{ form_q }}">{% endif %}
+        {% if form_ficha %}<input type="hidden" name="ficha" value="{{ form_ficha }}">{% endif %}
+        {% if form_tipo_inmueble %}<input type="hidden" name="tipo_inmueble" value="{{ form_tipo_inmueble }}">{% endif %}
+        {% if form_valoracion %}<input type="hidden" name="valoracion" value="{{ form_valoracion }}">{% endif %}
+        {% if form_vista %}<input type="hidden" name="vista" value="{{ form_vista }}">{% endif %}
+
+        <div class="field">
+            <label for="q_operacion">Operación</label>
+            <select id="q_operacion" name="operacion">
+                {% for val, label in operaciones_portal %}
+                <option value="{{ val }}" {% if form_operacion == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="field" data-fechas {% if not requiere_fechas %}style="display:none"{% endif %}>
+            <label for="q_desde">Check-in</label>
+            <input id="q_desde" name="desde" type="date" value="{{ form_desde }}" {% if requiere_fechas %}required{% endif %}>
+        </div>
+        <div class="field" data-fechas {% if not requiere_fechas %}style="display:none"{% endif %}>
+            <label for="q_hasta">Check-out</label>
+            <input id="q_hasta" name="hasta" type="date" value="{{ form_hasta }}" {% if requiere_fechas %}required{% endif %}>
+        </div>
+        <div class="field">
+            <label for="q_ambientes">Ambientes</label>
+            <select id="q_ambientes" name="ambientes">
+                <option value="">Todos</option>
+                {% for n in "123456"|make_list %}
+                <option value="{{ n }}" {% if form_ambientes == n %}selected{% endif %}>{{ n }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button class="btn btn-primary" type="submit">Buscar</button>
+        <button class="btn btn-soft mobile-filters-btn" type="button" id="toggle-filters">Más filtros</button>
+    </form>
+</div>
 
 <div class="page wrap">
     {% if error %}
@@ -285,7 +391,7 @@
 
     <div class="layout">
         <form class="filters" method="get" id="filtros-form">
-            <h2>Filtros</h2>
+            <h2>Filtros avanzados</h2>
 
             <div class="field">
                 <label for="operacion">Operación</label>
@@ -295,7 +401,6 @@
                     {% endfor %}
                 </select>
             </div>
-
             <div class="field" data-fechas {% if not requiere_fechas %}style="display:none"{% endif %}>
                 <label for="desde">Check-in</label>
                 <input id="desde" name="desde" type="date" value="{{ form_desde }}" {% if requiere_fechas %}required{% endif %}>
@@ -321,48 +426,49 @@
                 <label for="ficha">Nro. ficha</label>
                 <input id="ficha" name="ficha" value="{{ form_ficha }}" placeholder="Nro. ficha">
             </div>
-            <div class="field">
-                <label for="tipo_inmueble">Tipo</label>
-                <select id="tipo_inmueble" name="tipo_inmueble">
-                    <option value="">Todos</option>
-                    {% for val, label in tipos_inmueble %}
-                    <option value="{{ val }}" {% if form_tipo_inmueble == val %}selected{% endif %}>{{ label }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="field">
-                <label for="valoracion">Valoración</label>
-                <select id="valoracion" name="valoracion">
-                    <option value="">Todos</option>
-                    {% for val, label in tipos_valoracion %}
-                    <option value="{{ val }}" {% if form_valoracion == val %}selected{% endif %}>{{ label }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="field">
-                <label for="vista">Vista</label>
-                <select id="vista" name="vista">
-                    <option value="">Todos</option>
-                    {% for val, label in tipos_vista %}
-                    <option value="{{ val }}" {% if form_vista == val %}selected{% endif %}>{{ label }}</option>
-                    {% endfor %}
-                </select>
-            </div>
 
-            <div class="field" style="margin-bottom:0.25rem">
-                <label>Comodidades</label>
-            </div>
-            <div class="comodidades">
-                {% for val, label in comodidades_filtro %}
-                <label>
-                    <input type="checkbox" name="comodidad" value="{{ val }}" {% if val in form_comodidades %}checked{% endif %}>
-                    <span>{{ label }}</span>
-                </label>
-                {% endfor %}
-            </div>
+            <details open>
+                <summary>Más opciones</summary>
+                <div class="field" style="margin-top:0.7rem">
+                    <label for="tipo_inmueble">Tipo</label>
+                    <select id="tipo_inmueble" name="tipo_inmueble">
+                        <option value="">Todos</option>
+                        {% for val, label in tipos_inmueble %}
+                        <option value="{{ val }}" {% if form_tipo_inmueble == val %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="valoracion">Valoración</label>
+                    <select id="valoracion" name="valoracion">
+                        <option value="">Todos</option>
+                        {% for val, label in tipos_valoracion %}
+                        <option value="{{ val }}" {% if form_valoracion == val %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="vista">Vista</label>
+                    <select id="vista" name="vista">
+                        <option value="">Todos</option>
+                        {% for val, label in tipos_vista %}
+                        <option value="{{ val }}" {% if form_vista == val %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="field" style="margin-bottom:0.2rem"><label>Comodidades</label></div>
+                <div class="comodidades">
+                    {% for val, label in comodidades_filtro %}
+                    <label>
+                        <input type="checkbox" name="comodidad" value="{{ val }}" {% if val in form_comodidades %}checked{% endif %}>
+                        <span>{{ label }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </details>
 
             <div class="filter-actions">
-                <button class="btn btn-primary btn-block" type="submit">Aplicar filtros</button>
+                <button class="btn btn-primary btn-block" type="submit">Aplicar</button>
                 <a class="btn-outline" href="{% url 'inmobiliaria:portal_buscar' %}?operacion={{ form_operacion }}">Limpiar</a>
             </div>
         </form>
@@ -376,7 +482,6 @@
                     · {{ fecha_desde|date:"d/m/Y" }} → {{ fecha_hasta|date:"d/m/Y" }}
                     {% endif %}
                 </p>
-                <a class="btn btn-soft" href="{% url 'inmobiliaria:portal_contacto' %}">Consultar</a>
             </div>
             {% endif %}
 
@@ -402,12 +507,12 @@
                         {% else %}
                             <div class="ph">Sin imagen</div>
                         {% endif %}
-                    </div>
-                    <div class="card-body">
-                        <div class="card-top">
-                            <span class="ficha-id">#{{ r.propiedad.id }}</span>
+                        <div class="gallery-top">
+                            <span class="ficha-pill">#{{ r.propiedad.id }}</span>
                             <span class="badge-op">{{ r.badge }}</span>
                         </div>
+                    </div>
+                    <div class="card-body">
                         <h3>{{ r.titulo }}</h3>
                         {% if r.ubicacion %}
                         <div class="loc">
@@ -415,25 +520,22 @@
                             <span>{{ r.ubicacion }}</span>
                         </div>
                         {% endif %}
-                        <div class="price">
-                            {% if r.precio_total %}
-                            $ {{ r.precio_total|format_price }}{% if r.precio_label %}<small>{{ r.precio_label }}</small>{% endif %}
-                            {% else %}
-                            Consultar
-                            {% endif %}
+                        <div class="price-row">
+                            <div class="price">
+                                {% if r.precio_total %}
+                                $ {{ r.precio_total|format_price }}{% if r.precio_label %}<small>{{ r.precio_label }}</small>{% endif %}
+                                {% else %}
+                                Consultar
+                                {% endif %}
+                            </div>
+                            <span class="cta-hint">Ver ficha →</span>
                         </div>
                         <div class="specs">
                             {% if r.propiedad.ambientes %}
-                            <span title="Ambientes">
-                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
-                                {{ r.propiedad.ambientes }} amb.
-                            </span>
+                            <span>{{ r.propiedad.ambientes }} amb.</span>
                             {% endif %}
                             {% if r.propiedad.cantidad_personas %}
-                            <span title="Personas">
-                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                                {{ r.propiedad.cantidad_personas }} pers.
-                            </span>
+                            <span>{{ r.propiedad.cantidad_personas }} pers.</span>
                             {% endif %}
                             {% if r.noches %}
                             <span>{{ r.noches }} noche{{ r.noches|pluralize }}</span>
@@ -445,8 +547,8 @@
                 {% if not error %}
                 <div class="empty">
                     <h3>Sin resultados por ahora</h3>
-                    <p>Probá otras fechas, ambientes o contactanos: te ayudamos a encontrar la opción ideal.</p>
-                    <a class="btn btn-primary" href="{% url 'inmobiliaria:portal_contacto' %}">Hablar con un asesor</a>
+                    <p>Probá otras fechas o ambientes. También podés escribirnos y te ayudamos.</p>
+                    <a class="btn btn-primary" href="{% url 'inmobiliaria:portal_contacto' %}">Consultar ahora</a>
                 </div>
                 {% endif %}
                 {% endfor %}
@@ -459,18 +561,37 @@
 {% block extra_js %}
 <script>
 (function () {
-  var op = document.getElementById('operacion');
-  var fechaFields = document.querySelectorAll('[data-fechas]');
-  var desde = document.getElementById('desde');
-  var hasta = document.getElementById('hasta');
-  function sync() {
-    var temp = !op || op.value === 'alquiler_temporario';
-    fechaFields.forEach(function (el) { el.style.display = temp ? '' : 'none'; });
-    if (desde) desde.required = temp;
-    if (hasta) hasta.required = temp;
+  function syncFechas(root) {
+    var op = root.querySelector('[name="operacion"]');
+    var fechaFields = root.querySelectorAll('[data-fechas]');
+    var desde = root.querySelector('[name="desde"]');
+    var hasta = root.querySelector('[name="hasta"]');
+    function run() {
+      var temp = !op || op.value === 'alquiler_temporario';
+      fechaFields.forEach(function (el) { el.style.display = temp ? '' : 'none'; });
+      if (desde) desde.required = temp;
+      if (hasta) hasta.required = temp;
+    }
+    if (op) op.addEventListener('change', run);
+    run();
   }
-  if (op) op.addEventListener('change', sync);
-  sync();
+  document.querySelectorAll('#quick-form, #filtros-form').forEach(syncFechas);
+
+  var toggle = document.getElementById('toggle-filters');
+  var filters = document.getElementById('filtros-form');
+  if (toggle && filters) {
+    toggle.addEventListener('click', function () {
+      filters.classList.toggle('is-open');
+      toggle.textContent = filters.classList.contains('is-open') ? 'Ocultar filtros' : 'Más filtros';
+    });
+  }
+
+  // Keep both operation selects in sync when using quick bar
+  var qOp = document.getElementById('q_operacion');
+  var fOp = document.getElementById('operacion');
+  if (qOp && fOp) {
+    qOp.addEventListener('change', function () { fOp.value = qOp.value; });
+  }
 
   document.querySelectorAll('[data-gallery]').forEach(function (gal) {
     var slides = Array.prototype.slice.call(gal.querySelectorAll('[data-slide]'));
