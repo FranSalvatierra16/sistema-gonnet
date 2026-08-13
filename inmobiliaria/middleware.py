@@ -94,6 +94,10 @@ class SessionTimeoutMiddleware:
             '/api/debug-usuarios/',
             '/api/ejecutar-migracion/',
             '/utilidades/diagrama-db/',
+            # Portal público (sin login)
+            '/web/',
+            '/recibo-publico/',
+            '/recibo-movimiento-publico/',
         ]
 
         if any(request.path.startswith(url) for url in public_urls):
