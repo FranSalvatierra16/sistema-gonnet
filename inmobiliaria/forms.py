@@ -556,7 +556,8 @@ class PropiedadForm(forms.ModelForm):
             'amoblado', 'cochera', 'tv_smart', 'wifi', 'directv_prepago', 'ventilador', 'aire', 'cable',
             'dependencia', 'patio', 'parrilla', 'piscina', 'reciclado', 'a_estrenar', 'terraza', 'balcon', 
             'baulera', 'lavadero', 'seguridad', 'vista_al_Mar', 'vista_panoramica', 'apto_credito', 'descripcion', 'anotaciones',
-            'propietario', 'propietario_desde', 'fichado_por', 'tipo_fichaje', 'porcentaje_propietario', 'es_propiedad_oficina'
+            'propietario', 'propietario_desde', 'fichado_por', 'tipo_fichaje', 'porcentaje_propietario', 'es_propiedad_oficina',
+            'publicar_web', 'destacada_web',
         ]
         widgets = {
             'descripcion': forms.Textarea(attrs={'rows': 5, 'class': 'form-control', 'style': 'width: 100%;'}),
@@ -574,6 +575,8 @@ class PropiedadForm(forms.ModelForm):
                 'placeholder': '70.00'
             }),
             'tipo_fichaje': forms.Select(attrs={'class': 'form-control'}),
+            'publicar_web': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'destacada_web': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             # 'precio_venta': forms.NumberInput(attrs={'step': 0.01, 'placeholder': 'Precio de venta'}),
             # 'precio_alquiler': forms.NumberInput(attrs={'step': 0.01, 'placeholder': 'Precio de alquiler'}),
             # 'precio_diario': forms.NumberInput(attrs={'step': 0.01, 'placeholder': 'Precio diario'}),

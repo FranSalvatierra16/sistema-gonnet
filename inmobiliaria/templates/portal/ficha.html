@@ -1,0 +1,123 @@
+{% extends 'portal/base.html' %}
+{% load custom_filters %}
+
+{% block title %}{{ titulo }} · {{ portal_nombre }}{% endblock %}
+
+{% block extra_css %}
+.page { padding: 2rem 0 1rem; }
+.layout { display: grid; grid-template-columns: 1.35fr 0.9fr; gap: 1.5rem; align-items: start; }
+.gallery {
+    display: grid; gap: 0.6rem;
+    grid-template-columns: repeat(2, 1fr);
+}
+.gallery img, .gallery .ph {
+    width: 100%; aspect-ratio: 4/3; object-fit: cover; border-radius: 14px; background: #d7e0db;
+}
+.gallery img:first-child, .gallery .ph:first-child {
+    grid-column: 1 / -1; aspect-ratio: 16/10;
+}
+.side {
+    background: #fff; border: 1px solid var(--g-line); border-radius: 18px; padding: 1.2rem;
+    position: sticky; top: 5rem;
+}
+.side h1 {
+    margin: 0 0 0.4rem; font-size: 1.55rem; color: var(--g-green);
+    font-family: "Fraunces", Georgia, serif;
+}
+.meta { color: var(--g-muted); margin-bottom: 1rem; }
+.badge {
+    display: inline-block; padding: 0.25rem 0.6rem; border-radius: 999px;
+    font-size: 0.8rem; font-weight: 600; margin-bottom: 0.75rem;
+}
+.badge-ok { background: #e7f6ee; color: #0b3d2e; }
+.badge-no { background: #fdecea; color: #7a1f1a; }
+.price { font-size: 1.35rem; font-weight: 700; color: var(--g-green); margin: 0.5rem 0 1rem; }
+.desc { margin-top: 1.25rem; line-height: 1.55; color: #2a3731; }
+@media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    .side { position: static; }
+}
+{% endblock %}
+
+{% block content %}
+<div class="page wrap">
+    <p style="margin:0 0 1rem"><a href="{% url 'inmobiliaria:portal_buscar' %}?desde={{ form_desde }}&hasta={{ form_hasta }}">← Volver a resultados</a></p>
+    <div class="layout">
+        <div>
+            <div class="gallery">
+                {% for f in fotos %}
+                <img src="{{ f.imagen.url }}" alt="{{ titulo }}">
+                {% empty %}
+                <div class="ph"></div>
+                {% endfor %}
+            </div>
+            {% if propiedad.descripcion %}
+            <div class="desc">
+                <h2 style="color:var(--g-green);font-size:1.2rem">Descripción</h2>
+                <p>{{ propiedad.descripcion|linebreaksbr }}</p>
+            </div>
+            {% endif %}
+        </div>
+        <aside class="side">
+            <h1>{{ titulo }}</h1>
+            <div class="meta">
+                Ficha {{ propiedad.id }}
+                {% if propiedad.ambientes %} · {{ propiedad.ambientes }} ambientes{% endif %}
+                {% if propiedad.cantidad_personas %} · hasta {{ propiedad.cantidad_personas }} pers.{% endif %}
+                {% if propiedad.sucursal %} · {{ propiedad.sucursal.nombre }}{% endif %}
+            </div>
+
+            {% if disponible == True %}
+            <span class="badge badge-ok">Disponible en las fechas elegidas</span>
+            {% elif disponible == False %}
+            <span class="badge badge-no">No disponible en esas fechas</span>
+            {% endif %}
+
+            {% if precio_estimado %}
+            <div class="price">Estimado $ {{ precio_estimado|format_price }}</div>
+            {% endif %}
+
+            <form method="get" style="margin-bottom:1rem">
+                <div class="grid-2">
+                    <div class="field">
+                        <label for="desde">Desde</label>
+                        <input id="desde" name="desde" type="date" value="{{ form_desde }}">
+                    </div>
+                    <div class="field">
+                        <label for="hasta">Hasta</label>
+                        <input id="hasta" name="hasta" type="date" value="{{ form_hasta }}">
+                    </div>
+                </div>
+                <button class="btn btn-soft btn-block" type="submit">Actualizar fechas</button>
+            </form>
+
+            <hr style="border:0;border-top:1px solid var(--g-line);margin:1rem 0">
+
+            <h2 style="margin:0 0 0.75rem;font-size:1.05rem;color:var(--g-green)">Consultar / reservar</h2>
+            <p class="meta" style="margin-top:0">Dejanos tus datos y te contactamos. No se confirma online.</p>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="fecha_desde" value="{{ form_desde }}">
+                <input type="hidden" name="fecha_hasta" value="{{ form_hasta }}">
+                <div class="field">
+                    <label for="nombre">Nombre *</label>
+                    <input id="nombre" name="nombre" required>
+                </div>
+                <div class="field">
+                    <label for="telefono">Teléfono / WhatsApp</label>
+                    <input id="telefono" name="telefono">
+                </div>
+                <div class="field">
+                    <label for="email">Email</label>
+                    <input id="email" name="email" type="email">
+                </div>
+                <div class="field">
+                    <label for="mensaje">Mensaje</label>
+                    <textarea id="mensaje" name="mensaje" rows="3" placeholder="Cantidad de personas, horario de llegada…"></textarea>
+                </div>
+                <button class="btn btn-primary btn-block" type="submit">Enviar consulta</button>
+            </form>
+        </aside>
+    </div>
+</div>
+{% endblock %}

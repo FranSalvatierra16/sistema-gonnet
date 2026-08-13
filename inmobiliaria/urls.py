@@ -11,10 +11,18 @@ from . import views_honorarios
 from . import views_administracion
 from . import views_oficina
 from . import views_recibos
+from . import portal_views
 
 app_name = 'inmobiliaria'
 
 urlpatterns = [
+    # Portal público (sin login)
+    path('web/', portal_views.portal_home, name='portal_home'),
+    path('web/buscar/', portal_views.portal_buscar, name='portal_buscar'),
+    path('web/propiedad/<str:propiedad_id>/', portal_views.portal_ficha, name='portal_ficha'),
+    path('web/contacto/', portal_views.portal_contacto, name='portal_contacto'),
+    path('consultas-web/', portal_views.portal_consultas_staff, name='portal_consultas_staff'),
+
     # 🚨 TEMPORAL - MIGRACIÓN HEROKU → RAILWAY (ELIMINAR DESPUÉS)
     path('migrar-desde-heroku-SECRETO123/', views_migrar.migrar_desde_heroku, name='migrar_heroku'),
     path('api/ejecutar-migracion/', views_migrar.ejecutar_migracion_api, name='ejecutar_migracion'),

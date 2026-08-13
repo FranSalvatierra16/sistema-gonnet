@@ -1,0 +1,116 @@
+{% extends 'portal/base.html' %}
+{% load custom_filters %}
+
+{% block title %}Resultados · {{ portal_nombre }}{% endblock %}
+
+{% block extra_css %}
+.page { padding: 2rem 0 1rem; }
+.page h1 { margin: 0 0 0.35rem; color: var(--g-green); font-family: "Fraunces", Georgia, serif; }
+.page .sub { color: var(--g-muted); margin-bottom: 1.25rem; }
+.layout { display: grid; grid-template-columns: 280px 1fr; gap: 1.25rem; align-items: start; }
+.filters {
+    background: #fff; border: 1px solid var(--g-line); border-radius: 16px; padding: 1rem;
+    position: sticky; top: 5rem;
+}
+.results { display: grid; gap: 0.85rem; }
+.result {
+    display: grid; grid-template-columns: 160px 1fr auto; gap: 1rem;
+    background: #fff; border: 1px solid var(--g-line); border-radius: 16px; padding: 0.85rem;
+    align-items: center;
+}
+.result img, .result .ph {
+    width: 160px; height: 120px; object-fit: cover; border-radius: 12px; background: #d7e0db;
+}
+.result h3 { margin: 0 0 0.25rem; color: var(--g-green); font-size: 1.1rem; }
+.result .meta { color: var(--g-muted); font-size: 0.9rem; }
+.price { font-weight: 700; color: var(--g-green); white-space: nowrap; }
+.alert-warn {
+    background: #fff6e5; border: 1px solid #f0d9a5; color: #6a4b10;
+    padding: 0.85rem 1rem; border-radius: 12px; margin-bottom: 1rem;
+}
+@media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    .filters { position: static; }
+    .result { grid-template-columns: 1fr; }
+    .result img, .result .ph { width: 100%; height: 180px; }
+}
+{% endblock %}
+
+{% block content %}
+<div class="page wrap">
+    <h1>Alquiler temporario</h1>
+    <p class="sub">Sucursales Colón y Corrientes · disponibilidad real del sistema</p>
+
+    {% if error %}
+    <div class="alert-warn">{{ error }}</div>
+    {% endif %}
+
+    <div class="layout">
+        <form class="filters" method="get">
+            <div class="field">
+                <label for="ficha">Ficha</label>
+                <input id="ficha" name="ficha" value="{{ form_ficha }}" placeholder="Nº de ficha">
+            </div>
+            <div class="field">
+                <label for="ambientes">Ambientes</label>
+                <select id="ambientes" name="ambientes">
+                    <option value="">Sin preferencia</option>
+                    {% for n in "123456"|make_list %}
+                    <option value="{{ n }}" {% if form_ambientes == n %}selected{% endif %}>{{ n }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="field">
+                <label for="desde">Desde</label>
+                <input id="desde" name="desde" type="date" value="{{ form_desde }}" required>
+            </div>
+            <div class="field">
+                <label for="hasta">Hasta</label>
+                <input id="hasta" name="hasta" type="date" value="{{ form_hasta }}" required>
+            </div>
+            <div class="field">
+                <label for="sucursal">Sucursal</label>
+                <select id="sucursal" name="sucursal">
+                    <option value="">Ambas</option>
+                    <option value="colon" {% if form_sucursal == 'colon' %}selected{% endif %}>Colón</option>
+                    <option value="corrientes" {% if form_sucursal == 'corrientes' %}selected{% endif %}>Corrientes</option>
+                </select>
+            </div>
+            <button class="btn btn-primary btn-block" type="submit">Buscar</button>
+        </form>
+
+        <div>
+            {% if fecha_desde and fecha_hasta and not error %}
+            <p class="sub">{{ total }} resultado{{ total|pluralize }} · {{ fecha_desde|date:"d/m/Y" }} → {{ fecha_hasta|date:"d/m/Y" }}</p>
+            {% endif %}
+            <div class="results">
+                {% for r in resultados %}
+                <a class="result" href="{% url 'inmobiliaria:portal_ficha' r.propiedad.id %}?desde={{ form_desde }}&hasta={{ form_hasta }}">
+                    {% if r.foto %}
+                    <img src="{{ r.foto.imagen.url }}" alt="">
+                    {% else %}
+                    <div class="ph"></div>
+                    {% endif %}
+                    <div>
+                        <h3>{{ r.titulo }}</h3>
+                        <div class="meta">
+                            Ficha {{ r.propiedad.id }}
+                            {% if r.propiedad.ambientes %} · {{ r.propiedad.ambientes }} amb.{% endif %}
+                            {% if r.sucursal_nombre %} · {{ r.sucursal_nombre }}{% endif %}
+                            · {{ r.noches }} noche{{ r.noches|pluralize }}
+                        </div>
+                    </div>
+                    <div class="price">
+                        {% if r.precio_total %}$ {{ r.precio_total|format_price }}{% else %}Consultar{% endif %}
+                    </div>
+                </a>
+                {% empty %}
+                {% if not error %}
+                <p class="sub">No hay propiedades publicadas disponibles en esas fechas. Probá otro rango o contactanos.</p>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

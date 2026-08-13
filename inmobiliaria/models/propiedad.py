@@ -298,6 +298,16 @@ class Propiedad(models.Model):
         blank=True,
         verbose_name="Fecha de eliminación"
     )
+    publicar_web = models.BooleanField(
+        default=False,
+        verbose_name="Publicar en web",
+        help_text="Si está marcado, la propiedad puede aparecer en el portal público (/web/).",
+    )
+    destacada_web = models.BooleanField(
+        default=False,
+        verbose_name="Destacada en web",
+        help_text="Aparece en el carrusel de propiedades destacadas del portal público.",
+    )
 
     objects = PropiedadManager()
     all_objects = models.Manager()

@@ -1,0 +1,63 @@
+{% extends 'portal/base.html' %}
+
+{% block title %}Contacto · {{ portal_nombre }}{% endblock %}
+
+{% block extra_css %}
+.page { padding: 2.5rem 0 1rem; max-width: 640px; }
+.page h1 { margin: 0 0 0.5rem; color: var(--g-green); font-family: "Fraunces", Georgia, serif; }
+.card {
+    background: #fff; border: 1px solid var(--g-line); border-radius: 18px; padding: 1.35rem;
+    margin-top: 1rem;
+}
+{% endblock %}
+
+{% block content %}
+<div class="page wrap">
+    <h1>Contáctenos</h1>
+    <p style="color:var(--g-muted);margin:0">Sucursales Colón y Corrientes. Respondemos consultas de alquiler temporario.</p>
+    <form class="card" method="post">
+        {% csrf_token %}
+        <div class="field">
+            <label for="nombre">Nombre *</label>
+            <input id="nombre" name="nombre" required>
+        </div>
+        <div class="grid-2">
+            <div class="field">
+                <label for="telefono">Teléfono</label>
+                <input id="telefono" name="telefono">
+            </div>
+            <div class="field">
+                <label for="email">Email</label>
+                <input id="email" name="email" type="email">
+            </div>
+        </div>
+        <div class="grid-2">
+            <div class="field">
+                <label for="fecha_desde">Desde</label>
+                <input id="fecha_desde" name="fecha_desde" type="date" value="{{ form_desde }}">
+            </div>
+            <div class="field">
+                <label for="fecha_hasta">Hasta</label>
+                <input id="fecha_hasta" name="fecha_hasta" type="date" value="{{ form_hasta }}">
+            </div>
+        </div>
+        <div class="field">
+            <label for="ficha">Ficha (opcional)</label>
+            <input id="ficha" name="ficha" value="{{ form_ficha }}" placeholder="Nº de ficha">
+        </div>
+        <div class="field">
+            <label for="sucursal">Sucursal preferida</label>
+            <select id="sucursal" name="sucursal">
+                <option value="">Indistinto</option>
+                <option value="Colon">Colón</option>
+                <option value="Corrientes">Corrientes</option>
+            </select>
+        </div>
+        <div class="field">
+            <label for="mensaje">Mensaje</label>
+            <textarea id="mensaje" name="mensaje" rows="4"></textarea>
+        </div>
+        <button class="btn btn-primary" type="submit">Enviar</button>
+    </form>
+</div>
+{% endblock %}

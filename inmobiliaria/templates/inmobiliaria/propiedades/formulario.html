@@ -88,6 +88,27 @@
                     </div>
                 </div>
 
+                <div class="row g-3 mt-2">
+                    <div class="col-md-6">
+                        <div class="form-check">
+                            {{ form.publicar_web }}
+                            <label class="form-check-label" for="id_publicar_web">
+                                <strong>Publicar en web</strong> <span class="text-muted">(portal /web/)</span>
+                            </label>
+                        </div>
+                        {% if form.publicar_web.help_text %}<small class="text-muted">{{ form.publicar_web.help_text }}</small>{% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-check">
+                            {{ form.destacada_web }}
+                            <label class="form-check-label" for="id_destacada_web">
+                                <strong>Destacada en web</strong>
+                            </label>
+                        </div>
+                        {% if form.destacada_web.help_text %}<small class="text-muted">{{ form.destacada_web.help_text }}</small>{% endif %}
+                    </div>
+                </div>
+
                 <div class="row g-4 mt-3">
                     <div class="col-md-8">
                         <label for="id_direccion" class="form-label">

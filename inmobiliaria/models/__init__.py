@@ -1,4 +1,5 @@
 from .persona import Vendedor, Inquilino, Propietario
+from .portal_web import ConsultaWeb
 from .propiedad import Propiedad,  Reserva, Disponibilidad, ImagenPropiedad,Precio, TipoPrecio,TIPOS_INMUEBLES, TIPOS_VISTA, TIPOS_VALORACION, ConceptoPago, Pago, HistorialDisponibilidad, VentaPropiedad, AlquilerMeses, AlquilerInvierno   
 from .sucursal import Sucursal, crear_caja_automatica, CuentaBancaria
 from .caja import *
@@ -54,4 +55,5 @@ __all__ = [
     'CotizacionLibroOperacion',
     'CostosCompraLibroPropiedad',
     'HistorialInquilino',
+    'ConsultaWeb',
 ]

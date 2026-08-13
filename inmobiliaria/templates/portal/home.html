@@ -1,0 +1,172 @@
+{% extends 'portal/base.html' %}
+{% load custom_filters %}
+
+{% block title %}Inicio · {{ portal_nombre }}{% endblock %}
+
+{% block extra_css %}
+.hero {
+    position: relative;
+    min-height: min(78vh, 720px);
+    display: grid;
+    align-items: center;
+    overflow: hidden;
+    background:
+        linear-gradient(105deg, rgba(8, 35, 27, 0.82) 0%, rgba(8, 35, 27, 0.35) 48%, rgba(8, 35, 27, 0.15) 100%),
+        url("https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1800&q=80") center/cover no-repeat;
+    color: #fff;
+}
+.hero-inner {
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: 2rem;
+    padding: 3.5rem 0 3rem;
+    align-items: center;
+}
+.hero h1 {
+    font-family: "Fraunces", Georgia, serif;
+    font-size: clamp(2.1rem, 4.5vw, 3.5rem);
+    line-height: 1.05;
+    margin: 0 0 0.85rem;
+    font-weight: 700;
+    max-width: 11ch;
+}
+.hero p.lead {
+    margin: 0;
+    font-size: 1.05rem;
+    opacity: 0.92;
+    max-width: 34ch;
+}
+.search-card {
+    background: var(--g-card);
+    color: var(--g-ink);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 1.35rem 1.35rem 1.2rem;
+}
+.search-card .eyebrow {
+    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--g-green-mid); margin-bottom: 0.35rem;
+}
+.search-card h2 {
+    margin: 0 0 1rem; font-size: 1.35rem; color: var(--g-green);
+}
+.section {
+    padding: 3rem 0 1rem;
+}
+.section .eyebrow {
+    color: var(--g-green-mid); font-size: 0.78rem; font-weight: 700;
+    letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.35rem;
+}
+.section h2 {
+    margin: 0 0 1.25rem; color: var(--g-green);
+    font-family: "Fraunces", Georgia, serif; font-size: 2rem;
+}
+.cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 1rem;
+}
+.card-prop {
+    background: #fff; border-radius: 16px; overflow: hidden;
+    border: 1px solid var(--g-line);
+    transition: transform .2s ease, box-shadow .2s ease;
+}
+.card-prop:hover { transform: translateY(-3px); box-shadow: 0 12px 30px rgba(11,61,46,.12); }
+.card-prop .ph {
+    aspect-ratio: 3/4; background: #d7e0db; display: block; object-fit: cover; width: 100%;
+}
+.card-prop .meta { padding: 0.85rem 0.95rem 1rem; }
+.card-prop .meta strong { display: block; color: var(--g-green); margin-bottom: 0.2rem; }
+.card-prop .meta span { color: var(--g-muted); font-size: 0.88rem; }
+.empty-note {
+    color: var(--g-muted); padding: 1.5rem; border: 1px dashed var(--g-line); border-radius: 14px;
+}
+@media (max-width: 900px) {
+    .hero-inner { grid-template-columns: 1fr; padding-top: 2.5rem; }
+    .hero h1 { max-width: none; }
+}
+{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="wrap hero-inner">
+        <div>
+            <h1>Encontrá el hogar que define tu estilo.</h1>
+            <p class="lead">{{ portal_tagline }}</p>
+        </div>
+        <form class="search-card" method="get" action="{% url 'inmobiliaria:portal_buscar' %}">
+            <div class="eyebrow">Buscador avanzado</div>
+            <h2>¿Qué estás buscando hoy?</h2>
+            <div class="field">
+                <label for="ficha">Ficha</label>
+                <input id="ficha" name="ficha" type="text" placeholder="Buscar por ficha…" value="{{ form_ficha }}">
+            </div>
+            <div class="grid-2">
+                <div class="field">
+                    <label for="tipo">Tipo de operación</label>
+                    <select id="tipo" name="tipo" disabled>
+                        <option selected>Alquiler temporario</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="ambientes">Ambientes</label>
+                    <select id="ambientes" name="ambientes">
+                        <option value="">Sin preferencia</option>
+                        {% for n in "123456"|make_list %}
+                        <option value="{{ n }}" {% if form_ambientes == n %}selected{% endif %}>{{ n }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="grid-2">
+                <div class="field">
+                    <label for="desde">Desde</label>
+                    <input id="desde" name="desde" type="date" value="{{ form_desde }}" required>
+                </div>
+                <div class="field">
+                    <label for="hasta">Hasta</label>
+                    <input id="hasta" name="hasta" type="date" value="{{ form_hasta }}" required>
+                </div>
+            </div>
+            <div class="field">
+                <label for="sucursal">Sucursal</label>
+                <select id="sucursal" name="sucursal">
+                    <option value="">Colón y Corrientes</option>
+                    <option value="colon" {% if form_sucursal == 'colon' %}selected{% endif %}>Colón</option>
+                    <option value="corrientes" {% if form_sucursal == 'corrientes' %}selected{% endif %}>Corrientes</option>
+                </select>
+            </div>
+            <button class="btn btn-soft btn-block" type="submit">Ver resultados →</button>
+        </form>
+    </div>
+</section>
+
+<section class="section" id="destacadas">
+    <div class="wrap">
+        <div class="eyebrow">Selección exclusiva</div>
+        <h2>Propiedades destacadas</h2>
+        {% if destacadas %}
+        <div class="cards">
+            {% for item in destacadas %}
+            <a class="card-prop" href="{% url 'inmobiliaria:portal_ficha' item.propiedad.id %}">
+                {% if item.foto %}
+                <img class="ph" src="{{ item.foto.imagen.url }}" alt="{{ item.titulo }}">
+                {% else %}
+                <div class="ph"></div>
+                {% endif %}
+                <div class="meta">
+                    <strong>{{ item.titulo }}</strong>
+                    <span>Ficha {{ item.propiedad.id }}{% if item.propiedad.ambientes %} · {{ item.propiedad.ambientes }} amb.{% endif %}</span>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="empty-note">
+            Todavía no hay propiedades marcadas como destacadas.
+            En el sistema interno, activá <strong>Publicar en web</strong> y <strong>Destacada en web</strong> en la ficha.
+        </p>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}
