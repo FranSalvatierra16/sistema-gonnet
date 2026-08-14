@@ -15,6 +15,20 @@
         max-width: 100% !important;
         width: 100% !important;
         padding: 0 !important;
+        min-height: 0 !important;
+        flex: none !important;
+    }
+    .content-wrapper {
+        min-height: 0 !important;
+        height: auto !important;
+        padding: 0 !important;
+        background: #fff !important;
+        backdrop-filter: none !important;
+    }
+    html, body {
+        height: auto !important;
+        min-height: 0 !important;
+        display: block !important;
     }
     body {
         background: #fff !important;
@@ -37,49 +51,84 @@
     <style type="text/css" media="print">
         @page {
             size: legal;
-            margin: 0;
+            margin: 8mm;
         }
-        body {
-            margin: 1cm;
-        }
-       
         @media print {
-            /* Ocultar scripts */
+            /*
+             * Evitar hoja en blanco / recibo “corrido” al imprimir.
+             * base.html usa min-height:100vh; visibility:hidden deja layout fantasma
+             * y empuja el recibo (se ve el pie con mucho espacio vacío arriba).
+             */
+            html, body {
+                height: auto !important;
+                min-height: 0 !important;
+                max-height: none !important;
+                display: block !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: none !important;
+                background-image: none !important;
+            }
+            body::before {
+                display: none !important;
+                content: none !important;
+            }
+            .content-wrapper,
+            .main-page-wrapper,
+            .container,
+            main,
+            .container-fluid {
+                min-height: 0 !important;
+                height: auto !important;
+                flex: none !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                background: transparent !important;
+                backdrop-filter: none !important;
+            }
+            body > .container,
+            body > div.container {
+                min-height: 0 !important;
+                height: auto !important;
+                margin-top: 0 !important;
+                padding-top: 0 !important;
+                max-width: 100% !important;
+                width: 100% !important;
+                padding-left: 4mm !important;
+                padding-right: 4mm !important;
+            }
+            .container > *:not(.printable),
+            .main-page-wrapper > *:not(.printable) {
+                display: none !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            nav.navbar,
+            footer.footer {
+                display: none !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
             script {
                 display: none !important;
             }
-            
-            /* Ocultar botones */
-            button, .no-print {
+            button, .no-print, .no-print * {
                 display: none !important;
-            }
-            
-            /* Ocultar todo excepto el contenido del recibo */
-            body * {
-                visibility: hidden;
-            }
-            .printable, .printable * {
-                visibility: visible;
             }
             .printable {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
+                position: static !important;
+                left: auto !important;
+                top: auto !important;
+                width: 100% !important;
+                max-width: 100% !important;
             }
-            
-            /* Convertir alturas porcentuales a auto para evitar páginas en blanco */
+            /* Marco a media hoja: en pantalla queda al 49%; al imprimir auto para no cortar */
             .printable [style*="height: 49%"] {
                 height: auto !important;
+                min-height: 0 !important;
             }
-            
-            /* Ocultar cualquier contenido después de .printable para evitar página en blanco */
             .printable ~ * {
                 display: none !important;
-                visibility: hidden !important;
-                height: 0 !important;
-                margin: 0 !important;
-                padding: 0 !important;
             }
         }
     </style>
