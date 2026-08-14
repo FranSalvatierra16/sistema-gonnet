@@ -12231,27 +12231,38 @@ def abrir_caja(request):
 @login_required
 @require_POST
 def actualizar_cotizacion_caja(request, caja_numero):
-    """Actualiza la cotización del dólar de la caja abierta."""
+    """
+    Guarda la cotización del dólar del día (caja abierta o cerrada)
+    y la propaga a todos los movimientos/gastos de esa caja.
+    """
     caja = get_object_or_404(
         Caja,
         numero=caja_numero,
         sucursal=request.user.sucursal,
-        estado='abierta',
     )
     cotiz = parse_decimal_monto(request.POST.get('cotizacion_dolar', '0') or '0')
     if cotiz <= 0:
         messages.error(request, 'La cotización debe ser mayor a cero.')
     else:
-        caja.cotizacion_dolar = cotiz.quantize(Decimal('0.01'))
-        caja.save(update_fields=['cotizacion_dolar'])
+        cotiz = cotiz.quantize(Decimal('0.01'))
+        with transaction.atomic():
+            caja.cotizacion_dolar = cotiz
+            caja.save(update_fields=['cotizacion_dolar'])
+            n_movs = MovimientoCaja.objects.filter(
+                caja=caja,
+                fecha_eliminacion__isnull=True,
+            ).update(cotizacion_dolar=cotiz)
         messages.success(
             request,
-            f'Cotización actualizada a ${format_monto_argentino(caja.cotizacion_dolar)}.',
+            f'Cotización del día: ${format_monto_argentino(caja.cotizacion_dolar)}. '
+            f'Se actualizó el cambio en {n_movs} movimiento{"s" if n_movs != 1 else ""} de la caja.',
         )
     next_url = (request.POST.get('next') or '').strip()
     if next_url.startswith('/'):
         return redirect(next_url)
-    return redirect('inmobiliaria:gestionar_caja')
+    if caja.estado == 'abierta':
+        return redirect('inmobiliaria:gestionar_caja')
+    return redirect('inmobiliaria:detalle_caja', numero=caja.numero)
 
 
 def _cerrar_cajas_huerfanas_sucursal(sucursal, usuario, *, conservar_numero=None):

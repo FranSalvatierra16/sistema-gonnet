@@ -63,24 +63,28 @@
                 </div>
             </div>
 
-            {% if caja.estado == 'abierta' %}
             <hr class="my-3">
             <div class="row align-items-end g-3">
                 <div class="col-lg-7">
                     <h5 class="mb-1">
                         <i class="fas fa-dollar-sign text-success"></i>
-                        Cotización del dólar
+                        Cotización del día
                         <span class="text-muted fw-normal small">(ARS por 1 USD)</span>
                     </h5>
                     {% if caja.cotizacion_dolar %}
                     <p class="mb-2">
-                        Valor actual:
+                        Valor:
                         <strong class="fs-5">${{ caja.cotizacion_dolar|format_price }}</strong>
                     </p>
                     {% else %}
                     <div class="alert alert-danger py-2 mb-2">
                         <i class="fas fa-exclamation-triangle"></i>
-                        <strong>Sin cotización.</strong> Cargala para poder registrar movimientos o gastos.
+                        <strong>Sin cotización.</strong>
+                        {% if caja.estado == 'abierta' %}
+                        Cargala para poder registrar movimientos o gastos.
+                        {% else %}
+                        Podés cargarla acá; se actualiza el cambio en los gastos de esta caja.
+                        {% endif %}
                     </div>
                     {% endif %}
                     <form method="post" action="{% url 'inmobiliaria:actualizar_cotizacion_caja' caja.numero %}" class="row g-2 align-items-end">
@@ -107,18 +111,11 @@
                 </div>
                 <div class="col-lg-5">
                     <p class="text-muted small mb-0">
-                        Cada movimiento/gasto usa esta cotización del día. Podés corregirla cuando cambie.
+                        Al guardar, se aplica esta cotización a <strong>todos los gastos/movimientos</strong> de esta caja
+                        (útil para el libro en USD y reportes).
                     </p>
                 </div>
             </div>
-            {% elif caja.cotizacion_dolar %}
-            <hr class="my-3">
-            <p class="mb-0">
-                Cotización del día:
-                <strong>${{ caja.cotizacion_dolar|format_price }}</strong>
-                <span class="text-muted small">(ARS por USD)</span>
-            </p>
-            {% endif %}
         </div>
     </div>
 
