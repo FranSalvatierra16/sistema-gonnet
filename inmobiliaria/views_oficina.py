@@ -2,7 +2,7 @@
 import logging
 import re
 from collections import defaultdict
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from django.contrib import messages
@@ -1458,6 +1458,13 @@ def oficina_propiedad_libro(request, propiedad_id):
     inicio = _obtener_inicio_caja_libro(propiedad)
     costos = _obtener_costos_compra_libro(propiedad)
 
+    # Corte duro: el libro de oficina arranca en la fecha de inicio de caja
+    # de ese depto (nada anterior, ni ingresos ni gastos).
+    fecha_corte = getattr(inicio, 'fecha', None)
+    if fecha_corte and (dr_desde is None or dr_desde < fecha_corte):
+        dr_desde = fecha_corte
+        fecha_desde_s = fecha_corte.isoformat()
+
     movimientos, reserva_ids, contrato_ids = _qs_movimientos_libro_propiedad(
         sucursal, propiedad, dr_desde=dr_desde, dr_hasta=dr_hasta
     )
@@ -1521,6 +1528,30 @@ def oficina_propiedad_libro(request, propiedad_id):
             dr_hasta=dr_hasta,
         )
     )
+
+    # Seguridad: descartar cualquier fila con fecha anterior al inicio de caja.
+    if fecha_corte:
+        def _fecha_sola(fila):
+            fe = fila.get('fecha')
+            if not fe:
+                return None
+            if isinstance(fe, datetime):
+                try:
+                    if timezone.is_aware(fe):
+                        return timezone.localtime(fe).date()
+                except Exception:
+                    pass
+                return fe.date()
+            if isinstance(fe, date):
+                return fe
+            if hasattr(fe, 'date'):
+                return fe.date()
+            return None
+
+        filas = [
+            f for f in filas
+            if (d := _fecha_sola(f)) is None or d >= fecha_corte
+        ]
 
     filas.sort(
         key=lambda f: (
