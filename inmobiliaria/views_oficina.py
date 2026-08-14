@@ -957,6 +957,67 @@ def oficina_resumen_cierre(request):
     )
 
 
+@login_required
+def oficina_reporte_deptos_mensual(request):
+    """
+    Planilla mensual de todos los departamentos de oficina.
+    Los saldos negativos no suman al total y se arrastran al mes siguiente.
+    """
+    if not _puede_oficina(request.user):
+        return HttpResponseForbidden()
+
+    sucursal = request.user.sucursal
+    if not sucursal:
+        return HttpResponseForbidden('Tu usuario no tiene sucursal asignada.')
+
+    from inmobiliaria.oficina_reporte_deptos import construir_reporte_mensual_deptos_oficina
+
+    today = timezone.localdate()
+    anio_s = (request.GET.get('anio') or '').strip()
+    mes_s = (request.GET.get('mes') or '').strip()
+    try:
+        anio = int(anio_s) if anio_s else today.year
+        mes = int(mes_s) if mes_s else today.month
+        if mes < 1 or mes > 12:
+            raise ValueError
+    except (TypeError, ValueError):
+        anio, mes = today.year, today.month
+
+    try:
+        reporte = construir_reporte_mensual_deptos_oficina(sucursal, anio, mes)
+    except Exception:
+        logger.exception(
+            'oficina_reporte_deptos_mensual: error (sucursal_id=%s, %s-%02d)',
+            getattr(sucursal, 'pk', None),
+            anio,
+            mes,
+        )
+        messages.error(
+            request,
+            'No se pudo armar el reporte de departamentos. Probá de nuevo; si sigue fallando, avisá a sistemas.',
+        )
+        return redirect('inmobiliaria:oficina_dashboard')
+
+    anios_opts = list(range(today.year - 2, today.year + 2))
+    meses_opts = list(enumerate(
+        ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+         'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
+        start=1,
+    ))
+
+    return render(
+        request,
+        'inmobiliaria/oficina/reporte_deptos_mensual.html',
+        {
+            'reporte': reporte,
+            'anio': anio,
+            'mes': mes,
+            'anios_opts': anios_opts,
+            'meses_opts': meses_opts,
+        },
+    )
+
+
 def _clave_orden_piso(piso):
     """Orden natural de piso: PB → 0, luego 1, 2, 10… (no alfabético '10' antes de '2')."""
     s = (piso or '').strip().upper().replace('.', '')

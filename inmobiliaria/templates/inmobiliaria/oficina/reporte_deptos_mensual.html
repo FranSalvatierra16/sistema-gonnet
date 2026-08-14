@@ -1,0 +1,152 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load custom_filters %}
+
+{% block title %}Departamentos propios — {{ reporte.periodo_label }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3 px-3 reporte-deptos-oficina">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2 no-print">
+        <div>
+            <h1 class="h4 mb-1">
+                <i class="fas fa-building text-primary me-2"></i>
+                Departamentos propios — {{ reporte.periodo_label }}
+            </h1>
+            <p class="text-muted small mb-0">
+                Ingresos y gastos del libro por depto.
+                Los saldos negativos (entre paréntesis) <strong>no suman</strong> al total
+                y se arrastran en contra al mes siguiente.
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="window.print()">
+                <i class="fas fa-print me-1"></i>Imprimir
+            </button>
+            <a href="{% url 'inmobiliaria:oficina_dashboard' %}" class="btn btn-outline-secondary btn-sm">Volver</a>
+        </div>
+    </div>
+
+    <form method="get" class="card card-body border py-2 mb-3 no-print">
+        <div class="row g-2 align-items-end">
+            <div class="col-auto">
+                <label class="form-label small mb-0" for="mes">Mes</label>
+                <select name="mes" id="mes" class="form-select form-select-sm">
+                    {% for num, nombre in meses_opts %}
+                    <option value="{{ num }}" {% if num == mes %}selected{% endif %}>{{ nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-auto">
+                <label class="form-label small mb-0" for="anio">Año</label>
+                <select name="anio" id="anio" class="form-select form-select-sm">
+                    {% for a in anios_opts %}
+                    <option value="{{ a }}" {% if a == anio %}selected{% endif %}>{{ a }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="fas fa-filter me-1"></i>Ver mes
+                </button>
+            </div>
+        </div>
+    </form>
+
+    <div class="card border mb-3">
+        <div class="card-header bg-light py-2">
+            <strong>DEPARTAMENTOS DE OFICINA — {{ reporte.periodo_label }}</strong>
+            <span class="text-muted small ms-2">{{ reporte.cantidad }} depto{{ reporte.cantidad|pluralize }}</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered mb-0 align-middle" style="font-size:0.85rem">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="text-center" style="width:2.5rem">Nº</th>
+                            <th>Propiedad</th>
+                            <th>Período</th>
+                            <th class="text-end">Ing. bruto</th>
+                            <th class="text-end">Gastos</th>
+                            <th class="text-end">Ing. neto</th>
+                            <th class="no-print"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for f in reporte.filas %}
+                        <tr class="{% if f.negativo %}table-warning{% endif %}">
+                            <td class="text-center">{{ f.nro }}</td>
+                            <td>
+                                {{ f.propiedad_label }}
+                                {% if f.arrastre_anterior %}
+                                <div class="small text-muted">
+                                    Arrastre mes ant.: ${{ f.arrastre_anterior|format_price }}
+                                </div>
+                                {% endif %}
+                            </td>
+                            <td class="text-nowrap">{{ f.periodo }}</td>
+                            <td class="text-end text-nowrap">${{ f.bruto|format_price }}</td>
+                            <td class="text-end text-nowrap">${{ f.gastos|format_price }}</td>
+                            <td class="text-end text-nowrap fw-semibold">
+                                {% if f.negativo %}
+                                <span class="text-danger">(${{ f.neto_abs|format_price }})</span>
+                                {% else %}
+                                ${{ f.neto|format_price }}
+                                {% endif %}
+                            </td>
+                            <td class="no-print text-nowrap">
+                                <a class="btn btn-outline-primary btn-sm py-0"
+                                   href="{% url 'inmobiliaria:oficina_propiedad_libro' f.propiedad.id %}?fecha_desde={{ f.fecha_desde_mes }}&fecha_hasta={{ f.fecha_hasta_mes }}">
+                                    Libro
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center text-muted py-4">
+                                No hay movimientos de departamentos de oficina en este mes.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    {% if reporte.filas %}
+                    <tfoot>
+                        <tr class="fw-bold table-light">
+                            <td colspan="3" class="text-end">TOTAL</td>
+                            <td class="text-end">${{ reporte.total_bruto|format_price }}</td>
+                            <td class="text-end">${{ reporte.total_gastos|format_price }}</td>
+                            <td class="text-end" style="background:#fff3cd">
+                                ${{ reporte.total_neto|format_price }}
+                            </td>
+                            <td class="no-print"></td>
+                        </tr>
+                    </tfoot>
+                    {% endif %}
+                </table>
+            </div>
+        </div>
+        {% if reporte.filas %}
+        <div class="card-footer small">
+            <div class="row g-2">
+                <div class="col-md-4">
+                    <strong>Netos positivos que suman:</strong> {{ reporte.n_positivos }}
+                </div>
+                <div class="col-md-4">
+                    <strong>Netos negativos (no suman, arrastran):</strong> {{ reporte.n_negativos }}
+                </div>
+                <div class="col-md-4 text-muted">
+                    Nota: negativo no suma. El saldo en rojo se descuenta al mismo depto el mes siguiente.
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+@media print {
+    .no-print { display: none !important; }
+    .reporte-deptos-oficina { margin: 0 !important; padding: 0 !important; }
+    .reporte-deptos-oficina .card { border: none !important; box-shadow: none !important; }
+    .reporte-deptos-oficina table { font-size: 10pt !important; }
+}
+</style>
+{% endblock %}

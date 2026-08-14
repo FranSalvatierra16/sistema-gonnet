@@ -27509,9 +27509,9 @@ def reporte_asegurado_liquidaciones(request, disponibilidad_id=None):
     nro = 0
 
     for disp in disps:
-        _filas_liq, total_op, total_inm, total_prop = _totales_liq_disp(disp)
+        _filas_liq, _total_op, total_inm, total_prop = _totales_liq_disp(disp)
         pagado = Decimal(str(disp.monto_asegurado or 0))  # anticipo / asegurado al propietario
-        cobrado = total_op  # total operación liquidada en el período
+        cobrado = total_prop  # lo liquidado al propietario (no el total de la operación)
         # Si aún no hay liquidaciones, cobrado = 0; diferencia negativa = falta liquidar
         diferencia = (cobrado - pagado).quantize(Decimal('0.01'))
         otros = Decimal('0')  # sin cable / cochera
