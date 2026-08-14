@@ -27409,32 +27409,73 @@ def _liquidacion_solapa_periodo(liq, d1, d2):
 @login_required
 def reporte_asegurado_liquidaciones(request, disponibilidad_id=None):
     """
-    Listado de disponibilidades con pago asegurado (anticipo) y detalle por ítem:
-    suma de liquidaciones de la propiedad que caen en el mismo período que la disponibilidad.
-    La comparación con el anticipo (ARS) usa solo la suma de lo que va al propietario,
-    no el total de la operación ni la parte inmobiliaria.
+    Listado de disponibilidades con pago asegurado y cuadro tipo cierre de temporada.
+    Filtro por fechas (solape con el período de la disponibilidad).
+    Saldo asegurado = parte propietario liquidada − monto asegurado (ARS).
     """
+    from datetime import datetime as _dt
+
     sucursal = getattr(request.user, 'sucursal', None)
     if not sucursal:
         messages.error(request, 'Tu usuario no tiene sucursal asignada; no se puede armar el reporte.')
         return redirect('inmobiliaria:dashboard')
+
+    def _parse_fecha_get(key):
+        raw = (request.GET.get(key) or '').strip()
+        if not raw:
+            return None
+        try:
+            return _dt.strptime(raw[:10], '%Y-%m-%d').date()
+        except ValueError:
+            return None
+
+    filtro_desde = _parse_fecha_get('desde')
+    filtro_hasta = _parse_fecha_get('hasta')
 
     disps = (
         Disponibilidad.objects.filter(
             asegurado=True,
             propiedad__sucursal=sucursal,
         )
-        .select_related('propiedad', 'propiedad__propietario')
-        .order_by('-fecha_inicio', 'propiedad__direccion', 'id')
+        .select_related('propiedad', 'propiedad__propietario', 'propiedad__fichado_por')
+        .order_by('fecha_inicio', 'propiedad__direccion', 'id')
     )
 
-    detalle = None
-    if disponibilidad_id:
-        disp = get_object_or_404(
-            Disponibilidad,
-            pk=disponibilidad_id,
-            propiedad__sucursal=sucursal,
+    if filtro_desde and filtro_hasta:
+        # Solapa [desde, hasta]
+        disps = disps.filter(fecha_inicio__lte=filtro_hasta, fecha_fin__gte=filtro_desde)
+    elif filtro_desde:
+        disps = disps.filter(fecha_fin__gte=filtro_desde)
+    elif filtro_hasta:
+        disps = disps.filter(fecha_inicio__lte=filtro_hasta)
+
+    disps = list(disps)
+
+    def _productor_disp(disp):
+        """Nombre del productor: reserva solapada o quien fichó la propiedad."""
+        prop = disp.propiedad
+        r = (
+            Reserva.objects.filter(
+                propiedad=prop,
+                eliminada=False,
+                fecha_inicio__lte=disp.fecha_fin,
+                fecha_fin__gte=disp.fecha_inicio,
+            )
+            .exclude(estado='cancelada')
+            .select_related('vendedor')
+            .order_by('fecha_inicio', 'id')
+            .first()
         )
+        if r and r.vendedor_id:
+            v = r.vendedor
+            nom = f'{(v.apellido or "").strip()}, {(v.nombre or "").strip()}'.strip(', ')
+            return nom or str(v)
+        fichado = getattr(prop, 'fichado_por', None)
+        if fichado:
+            return (getattr(fichado, 'get_full_name', lambda: '')() or str(fichado)).strip() or 'Oficina'
+        return 'Oficina'
+
+    def _totales_liq_disp(disp):
         d1, d2 = disp.fecha_inicio, disp.fecha_fin
         liqs = (
             LiquidacionPropietario.objects.filter(
@@ -27445,21 +27486,96 @@ def reporte_asegurado_liquidaciones(request, disponibilidad_id=None):
             .select_related('reserva', 'contrato', 'propietario')
             .order_by('fecha_creacion', 'id')
         )
-        filas = []
         total_operacion = Decimal('0')
         total_inmobiliaria = Decimal('0')
         total_propietario = Decimal('0')
+        filas_liq = []
         for liq in liqs:
             if not _liquidacion_solapa_periodo(liq, d1, d2):
                 continue
-            filas.append(liq)
+            filas_liq.append(liq)
             total_operacion += liq.monto_total_operacion or Decimal('0')
             total_inmobiliaria += liq.monto_inmobiliaria or Decimal('0')
             total_propietario += liq.monto_propietario or Decimal('0')
+        return filas_liq, total_operacion, total_inmobiliaria, total_propietario
+
+    # Cuadro estilo cierre (sin cable / cochera)
+    filas_cierre = []
+    tot_pagado = Decimal('0')
+    tot_cobrado = Decimal('0')
+    tot_diferencia = Decimal('0')
+    tot_otros = Decimal('0')
+    tot_saldo = Decimal('0')
+    nro = 0
+
+    for disp in disps:
+        _filas_liq, total_op, total_inm, total_prop = _totales_liq_disp(disp)
+        pagado = Decimal(str(disp.monto_asegurado or 0))  # anticipo / asegurado al propietario
+        cobrado = total_op  # total operación liquidada en el período
+        # Si aún no hay liquidaciones, cobrado = 0; diferencia negativa = falta liquidar
+        diferencia = (cobrado - pagado).quantize(Decimal('0.01'))
+        otros = Decimal('0')  # sin cable / cochera
+        saldo = (diferencia + otros).quantize(Decimal('0.01'))
+
+        prop = disp.propiedad
+        propietario = getattr(prop, 'propietario', None)
+        if propietario:
+            prop_nom = f'{(propietario.apellido or "").strip()} {(propietario.nombre or "").strip()}'.strip()
+        else:
+            prop_nom = '—'
+
+        nro += 1
+        filas_cierre.append({
+            'nro': nro,
+            'disponibilidad': disp,
+            'fecha': disp.fecha_inicio,
+            'propietario': prop_nom,
+            'direccion': (prop.direccion or '').strip() or f'#{prop.id}',
+            'periodo_desde': disp.fecha_inicio,
+            'periodo_hasta': disp.fecha_fin,
+            'productor': _productor_disp(disp),
+            'pagado': pagado,
+            'cobrado': cobrado,
+            'diferencia': diferencia,
+            'otros': otros,
+            'saldo': saldo,
+            'moneda': (disp.moneda_asegurado or 'ARS').upper(),
+            'total_propietario': total_prop,
+            'total_inmobiliaria': total_inm,
+            'n_liquidaciones': len(_filas_liq),
+        })
+        if (disp.moneda_asegurado or 'ARS').upper() == 'ARS':
+            tot_pagado += pagado
+            tot_cobrado += cobrado
+            tot_diferencia += diferencia
+            tot_otros += otros
+            tot_saldo += saldo
+
+    resumen_cierre = {
+        'filas': filas_cierre,
+        'total_pagado': tot_pagado,
+        'total_cobrado': tot_cobrado,
+        'total_diferencia': tot_diferencia,
+        'total_otros': tot_otros,
+        'total_saldo': tot_saldo,
+        'cantidad': len(filas_cierre),
+        'diferencia_promedio': (
+            (tot_diferencia / len(filas_cierre)).quantize(Decimal('0.01'))
+            if filas_cierre else Decimal('0')
+        ),
+    }
+
+    detalle = None
+    if disponibilidad_id:
+        disp = get_object_or_404(
+            Disponibilidad,
+            pk=disponibilidad_id,
+            propiedad__sucursal=sucursal,
+        )
+        filas, total_operacion, total_inmobiliaria, total_propietario = _totales_liq_disp(disp)
 
         anticipo = disp.monto_asegurado or Decimal('0')
         moneda = (disp.moneda_asegurado or 'ARS').upper()
-        # Las liquidaciones del sistema se cargan en pesos; comparación automática solo ARS.
         puede_comparar = moneda == 'ARS'
         diff_prop_vs_anticipo = (total_propietario - anticipo) if puede_comparar else None
         if puede_comparar and diff_prop_vs_anticipo is not None:
@@ -27488,6 +27604,9 @@ def reporte_asegurado_liquidaciones(request, disponibilidad_id=None):
             'disponibilidades': disps,
             'detalle': detalle,
             'disponibilidad_id': disponibilidad_id,
+            'filtro_desde': filtro_desde,
+            'filtro_hasta': filtro_hasta,
+            'resumen_cierre': resumen_cierre,
         },
     )
 
