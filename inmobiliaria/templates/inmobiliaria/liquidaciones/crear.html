@@ -171,7 +171,7 @@
                                 <label class="form-label">Monto para la Inmobiliaria</label>
                                 <input type="text" name="monto_inmobiliaria" id="monto_inmobiliaria" class="form-control input-monto-ar" inputmode="decimal" autocomplete="off" placeholder="0,00"
                                        {% if monto_inmobiliaria_inicial %}value="{{ monto_inmobiliaria_inicial }}"{% endif %}>
-                                <small class="form-text text-muted">Ingresalo manualmente; no se recalcula solo al editar otros montos.</small>
+                                <small class="form-text text-muted">Si cochera y fondo están en 0, se completa solo (total − propietario).</small>
                             </div>
                             <div class="col">
                                 <label class="form-label">Cochera</label>
@@ -400,6 +400,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const btnAgregarParteDivision = document.getElementById('btn_agregar_parte_division');
     const resumenDivision = document.getElementById('division_resumen');
     let divisionParteSeq = 0;
+    let montosEditadosManualmente = false;
+    window._ordenGastosContraLiq = window._ordenGastosContraLiq || [];
+
+    function marcarMontosEditadosManualmente() {
+        montosEditadosManualmente = true;
+    }
 
     function limpiarPropietarioBusquedaUI() {
         if (propietarioBuscar) propietarioBuscar.value = '';
@@ -1250,12 +1256,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function finalizarRestauracionPendientes(extraCarga) {
         restaurarEstadoFormularioLiquidacion(extraCarga);
+        [montoTotal, montoPropietario, montoInmobiliaria, montoCochera, montoFondoMantenimiento].forEach(function(el) {
+            if (el && String(el.value || '').trim()) {
+                el.value = fmtMontoCampoLiq(parseNumeroEsAR(el.value));
+            }
+        });
         const hayMontosGuardados = extraCarga && (
             extraCarga.montosEditadosManualmente
             || (extraCarga.montoPropietario && String(extraCarga.montoPropietario).trim() !== '')
             || (extraCarga.montoTotal && String(extraCarga.montoTotal).trim() !== '')
         );
         if (hayMontosGuardados) {
+            recalcularInmobiliariaResto();
             actualizarResumenLiquidacion();
         } else {
             calcularMontosSeleccionados();
@@ -2232,10 +2244,33 @@ document.addEventListener('DOMContentLoaded', function() {
         return neto;
     }
 
-    let montosEditadosManualmente = false;
-    window._ordenGastosContraLiq = window._ordenGastosContraLiq || [];
-    function marcarMontosEditadosManualmente() {
-        montosEditadosManualmente = true;
+    function fmtMontoCampoLiq(n) {
+        const num = Number(n);
+        if (!isFinite(num)) return '0,00';
+        if (typeof formatMontoAR === 'function') {
+            try { return formatMontoAR(num); } catch (e) { /* fallthrough */ }
+        }
+        return formatearNumero(num.toFixed(2));
+    }
+
+    function cocheraYFondoVaciosLiq() {
+        const c = montoCochera ? parseNumeroEsAR(montoCochera.value) : 0;
+        const f = montoFondoMantenimiento ? parseNumeroEsAR(montoFondoMantenimiento.value) : 0;
+        return c <= 0.009 && f <= 0.009;
+    }
+
+    /** Inmobiliaria = total − propietario cuando cochera y fondo están vacíos. */
+    function recalcularInmobiliariaResto() {
+        if (!montoInmobiliaria || !cocheraYFondoVaciosLiq()) return;
+        const total = parseNumeroEsAR(montoTotal.value);
+        const prop = parseNumeroEsAR(montoPropietario.value);
+        if (total <= 0.009 && prop <= 0.009) return;
+        montoInmobiliaria.value = fmtMontoCampoLiq(total - prop);
+    }
+
+    function asegurarFormatoMontoPropietario() {
+        if (!montoPropietario || !String(montoPropietario.value || '').trim()) return;
+        montoPropietario.value = fmtMontoCampoLiq(parseNumeroEsAR(montoPropietario.value));
     }
     
     // Función para calcular montos de las operaciones seleccionadas (global)
@@ -2278,11 +2313,16 @@ document.addEventListener('DOMContentLoaded', function() {
         actualizarBloqueComisionesPrimeraOp();
         if (totalMonto > 0) {
             if (!montosEditadosManualmente) {
-                montoTotal.value = formatearNumero(totalMonto.toFixed(2));
-                montoPropietario.value = typeof formatMontoAR === 'function'
-                    ? formatMontoAR(totalMontoPropietario)
-                    : formatearNumero(totalMontoPropietario.toFixed(2));
-                montoInmobiliaria.value = formatearNumero(totalMontoInmobiliaria.toFixed(2));
+                montoTotal.value = fmtMontoCampoLiq(totalMonto);
+                montoPropietario.value = fmtMontoCampoLiq(totalMontoPropietario);
+                if (cocheraYFondoVaciosLiq()) {
+                    montoInmobiliaria.value = fmtMontoCampoLiq(totalMonto - totalMontoPropietario);
+                } else {
+                    montoInmobiliaria.value = fmtMontoCampoLiq(totalMontoInmobiliaria);
+                }
+            } else {
+                asegurarFormatoMontoPropietario();
+                recalcularInmobiliariaResto();
             }
 
             actualizarResumenLiquidacion();
@@ -2309,15 +2349,31 @@ document.addEventListener('DOMContentLoaded', function() {
 
     montoTotal.addEventListener('input', function() {
         marcarMontosEditadosManualmente();
+        recalcularInmobiliariaResto();
         recalcularMontoFinalDesdeCampos();
+    });
+    montoTotal.addEventListener('blur', function() {
+        if (montoTotal.value) montoTotal.value = fmtMontoCampoLiq(parseNumeroEsAR(montoTotal.value));
+        recalcularInmobiliariaResto();
     });
     montoPropietario.addEventListener('input', function() {
         marcarMontosEditadosManualmente();
+        recalcularInmobiliariaResto();
+        recalcularMontoFinalDesdeCampos();
+    });
+    montoPropietario.addEventListener('blur', function() {
+        asegurarFormatoMontoPropietario();
+        recalcularInmobiliariaResto();
         recalcularMontoFinalDesdeCampos();
     });
     montoInmobiliaria.addEventListener('input', function() {
         marcarMontosEditadosManualmente();
         recalcularMontoFinalDesdeCampos();
+    });
+    montoInmobiliaria.addEventListener('blur', function() {
+        if (montoInmobiliaria.value) {
+            montoInmobiliaria.value = fmtMontoCampoLiq(parseNumeroEsAR(montoInmobiliaria.value));
+        }
     });
     if (comisionLocador) {
         comisionLocador.addEventListener('input', function() {
@@ -2335,14 +2391,37 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     if (montoFondoMantenimiento) {
-        montoFondoMantenimiento.addEventListener('input', recalcularMontoFinalDesdeCampos);
+        montoFondoMantenimiento.addEventListener('input', function() {
+            recalcularInmobiliariaResto();
+            recalcularMontoFinalDesdeCampos();
+        });
+        montoFondoMantenimiento.addEventListener('blur', function() {
+            if (montoFondoMantenimiento.value) {
+                montoFondoMantenimiento.value = fmtMontoCampoLiq(parseNumeroEsAR(montoFondoMantenimiento.value));
+            }
+            recalcularInmobiliariaResto();
+        });
     }
     if (montoCochera) {
         montoCochera.addEventListener('input', function() {
-            // Cochera solo afecta el monto final al propietario, nunca la inmobiliaria
+            recalcularInmobiliariaResto();
             recalcularMontoFinalDesdeCampos();
         });
+        montoCochera.addEventListener('blur', function() {
+            if (montoCochera.value) {
+                montoCochera.value = fmtMontoCampoLiq(parseNumeroEsAR(montoCochera.value));
+            }
+            recalcularInmobiliariaResto();
+        });
     }
+
+    // Formato inicial de montos precargados (ej. 3710000 → 3.710.000,00)
+    [montoTotal, montoPropietario, montoInmobiliaria, montoCochera, montoFondoMantenimiento].forEach(function(el) {
+        if (el && String(el.value || '').trim()) {
+            el.value = fmtMontoCampoLiq(parseNumeroEsAR(el.value));
+        }
+    });
+    recalcularInmobiliariaResto();
 
     // Desde carátula u otra pantalla: buscar operación por número y pre-cargar pendientes
     const operacionInicial = '{{ operacion_buscar_inicial|default:"" }}';
