@@ -2125,12 +2125,36 @@ document.addEventListener('DOMContentLoaded', function() {
         return `${meses[mes - 1]} ${p[0]}`;
     }
 
+    function fechaCortaDesdeIso(iso) {
+        if (!iso) return '';
+        const p = String(iso).split('-');
+        if (p.length < 3) return '';
+        const d = p[2].slice(0, 2);
+        const m = p[1];
+        const a = p[0];
+        if (!d || !m || !a) return '';
+        return d + '/' + m + '/' + a;
+    }
+
     function etiquetaResumenOperacion(cb) {
         let concepto = etiquetaConceptoOperacion(cb);
-        const per = periodoCortoDesdeIso(
-            cb.getAttribute('data-fecha-hasta') || cb.getAttribute('data-fecha-desde')
-        );
-        if (per && cb.getAttribute('data-tipo') !== 'reserva') {
+        const tipo = cb.getAttribute('data-tipo') || '';
+        const desde = cb.getAttribute('data-fecha-desde') || '';
+        const hasta = cb.getAttribute('data-fecha-hasta') || '';
+        if (tipo === 'reserva') {
+            const d = fechaCortaDesdeIso(desde);
+            const h = fechaCortaDesdeIso(hasta);
+            if (d && h) {
+                concepto = d === h
+                    ? `${concepto} (${d})`
+                    : `${concepto} (del ${d} al ${h})`;
+            } else if (d || h) {
+                concepto = `${concepto} (${d || h})`;
+            }
+            return concepto;
+        }
+        const per = periodoCortoDesdeIso(hasta || desde);
+        if (per) {
             // "Cuota julio 2026" / "Operación principal julio 2026"
             concepto = `${concepto} ${per}`;
         }
