@@ -182,6 +182,15 @@
                            style="min-width:6.5rem">
                 </div>
                 <div class="col-6 col-md-auto">
+                    <label class="form-label small mb-0" for="inicio_caja_total_usd">Total USD</label>
+                    <input type="text" class="form-control form-control-sm text-end fw-semibold" id="inicio_caja_total_usd" name="total_usd"
+                           inputmode="decimal" autocomplete="off"
+                           title="Gastos − Ingresos. Editable: con ingreso recalcula gastos; podés cargar solo el total."
+                           value="{{ total_usd_inicio|format_price }}"
+                           style="min-width:6.5rem">
+                    <small class="text-muted d-block" style="font-size:0.65rem">Gastos − Ingresos</small>
+                </div>
+                <div class="col-6 col-md-auto">
                     <label class="form-label small mb-0" for="inicio_caja_tipo_cambio">Tipo cbio</label>
                     <input type="text" class="form-control form-control-sm text-end" id="inicio_caja_tipo_cambio" name="tipo_cambio"
                            inputmode="decimal" autocomplete="off" placeholder="opc."
@@ -597,6 +606,90 @@
 
     var formInicio = document.getElementById('form-inicio-caja');
     if (formInicio) {
+        var inpGastosUsd = document.getElementById('inicio_caja_gastos_usd');
+        var inpIngresoUsd = document.getElementById('inicio_caja_ingreso_usd');
+        var inpTotalUsd = document.getElementById('inicio_caja_total_usd');
+        var syncUsdLock = false;
+        var ultimoCampoUsd = '';
+
+        function parseMontoInicio(el) {
+            if (!el) return 0;
+            var raw = (el.value || '').trim();
+            if (!raw) return 0;
+            if (typeof parseMontoAR === 'function') {
+                try { return Number(parseMontoAR(raw)) || 0; } catch (e) {}
+            }
+            var n = Number(String(raw).replace(/\./g, '').replace(',', '.'));
+            return isFinite(n) ? n : 0;
+        }
+        function fmtMontoInicio(n) {
+            if (typeof formatMontoAR === 'function') {
+                try { return formatMontoAR(n); } catch (e) {}
+            }
+            return (Math.round(n * 100) / 100).toFixed(2).replace('.', ',');
+        }
+        function casiCero(n) { return Math.abs(n) < 0.005; }
+
+        function syncTotalDesdePartes() {
+            if (syncUsdLock || !inpTotalUsd) return;
+            syncUsdLock = true;
+            var g = parseMontoInicio(inpGastosUsd);
+            var i = parseMontoInicio(inpIngresoUsd);
+            inpTotalUsd.value = fmtMontoInicio(g - i);
+            syncUsdLock = false;
+        }
+
+        function syncPartesDesdeTotal() {
+            if (syncUsdLock || !inpTotalUsd) return;
+            syncUsdLock = true;
+            var t = parseMontoInicio(inpTotalUsd);
+            var g = parseMontoInicio(inpGastosUsd);
+            var i = parseMontoInicio(inpIngresoUsd);
+            // Ingreso + total → gastos = total + ingreso
+            if (!casiCero(i) || ultimoCampoUsd === 'ingreso') {
+                if (inpGastosUsd) inpGastosUsd.value = fmtMontoInicio(t + i);
+            } else if (!casiCero(g)) {
+                // Gastos + total → ingreso = gastos − total
+                if (inpIngresoUsd) inpIngresoUsd.value = fmtMontoInicio(g - t);
+            }
+            // Solo total: no fuerza gastos/ingreso hasta Guardar
+            syncUsdLock = false;
+        }
+
+        function onPartesUsd(campo) {
+            return function() {
+                ultimoCampoUsd = campo;
+                syncTotalDesdePartes();
+            };
+        }
+
+        if (inpGastosUsd) {
+            inpGastosUsd.addEventListener('input', onPartesUsd('gastos'));
+            inpGastosUsd.addEventListener('blur', function() {
+                if (typeof formatearMontoCajaBlur === 'function') formatearMontoCajaBlur(inpGastosUsd);
+                else if (inpGastosUsd.value) inpGastosUsd.value = fmtMontoInicio(parseMontoInicio(inpGastosUsd));
+                syncTotalDesdePartes();
+            });
+        }
+        if (inpIngresoUsd) {
+            inpIngresoUsd.addEventListener('input', onPartesUsd('ingreso'));
+            inpIngresoUsd.addEventListener('blur', function() {
+                if (typeof formatearMontoCajaBlur === 'function') formatearMontoCajaBlur(inpIngresoUsd);
+                else if (inpIngresoUsd.value) inpIngresoUsd.value = fmtMontoInicio(parseMontoInicio(inpIngresoUsd));
+                syncTotalDesdePartes();
+            });
+        }
+        if (inpTotalUsd) {
+            inpTotalUsd.addEventListener('input', function() {
+                ultimoCampoUsd = 'total';
+                syncPartesDesdeTotal();
+            });
+            inpTotalUsd.addEventListener('blur', function() {
+                if (inpTotalUsd.value) inpTotalUsd.value = fmtMontoInicio(parseMontoInicio(inpTotalUsd));
+                syncPartesDesdeTotal();
+            });
+        }
+
         formInicio.addEventListener('submit', function(e) {
             e.preventDefault();
             var btn = document.getElementById('btn-guardar-inicio-caja');
@@ -605,12 +698,33 @@
             if (okEl) okEl.classList.add('d-none');
             if (errEl) { errEl.classList.add('d-none'); errEl.textContent = ''; }
             if (btn) btn.disabled = true;
+
+            var g = parseMontoInicio(inpGastosUsd);
+            var i = parseMontoInicio(inpIngresoUsd);
+            var t = parseMontoInicio(inpTotalUsd);
+            // Solo total: imputar el neto a gastos (o a ingreso si es negativo)
+            if (casiCero(g) && casiCero(i) && !casiCero(t)) {
+                if (t >= 0) {
+                    g = t;
+                    i = 0;
+                } else {
+                    g = 0;
+                    i = -t;
+                }
+                if (inpGastosUsd) inpGastosUsd.value = fmtMontoInicio(g);
+                if (inpIngresoUsd) inpIngresoUsd.value = fmtMontoInicio(i);
+            } else if (ultimoCampoUsd === 'total' && !casiCero(t)) {
+                // Asegurar coherencia gastos = total + ingreso
+                g = t + i;
+                if (inpGastosUsd) inpGastosUsd.value = fmtMontoInicio(g);
+            }
+
             var body = new URLSearchParams();
             body.set('fecha', (document.getElementById('inicio_caja_fecha') || {}).value || '');
             body.set('gastos_ars', (document.getElementById('inicio_caja_gastos_ars') || {}).value || '0');
             body.set('alquileres_ars', (document.getElementById('inicio_caja_alquileres_ars') || {}).value || '0');
-            body.set('gastos_usd', (document.getElementById('inicio_caja_gastos_usd') || {}).value || '0');
-            body.set('ingreso_usd', (document.getElementById('inicio_caja_ingreso_usd') || {}).value || '0');
+            body.set('gastos_usd', (inpGastosUsd && inpGastosUsd.value) || '0');
+            body.set('ingreso_usd', (inpIngresoUsd && inpIngresoUsd.value) || '0');
             body.set('tipo_cambio', (document.getElementById('inicio_caja_tipo_cambio') || {}).value || '');
             postForm(urlInicio, body)
               .then(function(res) {
