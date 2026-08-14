@@ -212,6 +212,22 @@
         En operaciones y gastos podés cargar el <strong>tipo de cambio</strong> para el dólar.
     </p>
 
+    <div class="d-flex flex-wrap align-items-end gap-2 mb-2 no-print">
+        <div style="min-width:16rem; max-width:28rem; flex:1">
+            <label class="form-label small mb-0 text-muted" for="buscar-libro-filas">Buscar en el libro</label>
+            <div class="input-group input-group-sm">
+                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                <input type="search" class="form-control" id="buscar-libro-filas"
+                       placeholder="Palabra: EDEA, OSSE, Corrientes, fecha…"
+                       autocomplete="off">
+                <button type="button" class="btn btn-outline-secondary" id="btn-limpiar-buscar-libro" title="Limpiar">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+        <small class="text-muted pb-1" id="buscar-libro-contador"></small>
+    </div>
+
     <div class="card shadow-sm">
         <div class="table-responsive">
             <table class="table table-sm table-striped table-bordered mb-0 libro-oficina-table" id="libro-oficina-tabla">
@@ -231,6 +247,7 @@
                     <tr {% if f.movimiento_id %}data-movimiento-id="{{ f.movimiento_id }}"{% endif %}
                         {% if f.reserva_id %}data-reserva-id="{{ f.reserva_id }}"{% endif %}
                         data-tipo="{{ f.tipo }}"
+                        data-buscar="{{ f.fecha|date:'d/m/Y' }} {{ f.descripcion|default:'' }}"
                         {% if f.es_inicio_caja %}class="table-primary"{% endif %}>
                         <td class="text-nowrap">{{ f.fecha|date:"d/m/Y" }}</td>
                         <td>
@@ -668,6 +685,58 @@
             guardarFila(inpCot.closest('tr'));
         }
     });
+
+    (function initBuscadorLibro() {
+        var inp = document.getElementById('buscar-libro-filas');
+        var btnClear = document.getElementById('btn-limpiar-buscar-libro');
+        var contador = document.getElementById('buscar-libro-contador');
+        var tabla = document.getElementById('libro-oficina-tabla');
+        if (!inp || !tabla) return;
+        var tbody = tabla.querySelector('tbody');
+        if (!tbody) return;
+
+        function normalizar(s) {
+            return String(s || '')
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '');
+        }
+
+        function filtrar() {
+            var q = normalizar(inp.value).trim();
+            var palabras = q ? q.split(/\s+/).filter(Boolean) : [];
+            var filas = tbody.querySelectorAll('tr');
+            var visibles = 0;
+            var total = 0;
+            filas.forEach(function(tr) {
+                if (tr.querySelector('td[colspan]')) {
+                    tr.style.display = palabras.length ? 'none' : '';
+                    return;
+                }
+                total += 1;
+                var hay = normalizar(tr.getAttribute('data-buscar') || tr.textContent || '');
+                var ok = !palabras.length || palabras.every(function(p) { return hay.indexOf(p) !== -1; });
+                tr.style.display = ok ? '' : 'none';
+                if (ok) visibles += 1;
+            });
+            if (contador) {
+                if (!palabras.length) {
+                    contador.textContent = '';
+                } else {
+                    contador.textContent = visibles + ' de ' + total + ' filas';
+                }
+            }
+        }
+
+        inp.addEventListener('input', filtrar);
+        if (btnClear) {
+            btnClear.addEventListener('click', function() {
+                inp.value = '';
+                filtrar();
+                inp.focus();
+            });
+        }
+    })();
 })();
 </script>
 {% endblock %}
