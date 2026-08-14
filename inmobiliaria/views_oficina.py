@@ -1561,7 +1561,7 @@ def oficina_propiedad_libro(request, propiedad_id):
 
     otras = _ordenar_propiedades_oficina(
         _qs_propiedades_oficina(sucursal, request.user),
-        orden='direccion',
+        orden='piso',
     )
 
     return render(
