@@ -16,8 +16,9 @@
     <h1 class="h3 mb-3">Precio asegurado vs liquidaciones (período)</h1>
     <p class="text-muted">
         Para cada disponibilidad <strong>asegurada</strong> se listan las liquidaciones de la misma propiedad cuyo período
-        (o fecha de alta si no hay período) se solapa con las fechas de esa disponibilidad. La comparación con el anticipo
-        usa la suma de lo que va al <strong>propietario</strong> en esas liquidaciones (no el total de la operación).
+        (o fecha de alta si no hay período) se solapa con las fechas de esa disponibilidad. El <strong>saldo asegurado</strong>
+        compara la suma de lo que va al <strong>propietario</strong> en esas liquidaciones (no el total de la operación)
+        menos el monto asegurado.
     </p>
 
     {% if detalle %}
@@ -30,7 +31,7 @@
         <div class="card-body">
             <div class="row mb-3">
                 <div class="col-md-4">
-                    <strong>Anticipo asegurado</strong><br>
+                    <strong>Saldo asegurado</strong><br>
                     {% if d.moneda_asegurado == 'USD' %}
                         <span class="fs-5">USD {{ d.monto_asegurado|floatformat:2 }}</span>
                     {% else %}
@@ -48,23 +49,19 @@
                 </div>
                 <div class="col-md-4">
                     {% if detalle.puede_comparar %}
-                        <strong>Vs anticipo (ARS)</strong>
+                        <strong>Saldo asegurado</strong>
                         <div class="mt-1">
-                            <span class="text-muted small">Parte propietario (suma liq.) − anticipo:</span><br>
                             {% if detalle.diff_prop_sign == 1 %}
                                 <span class="badge bg-success fs-6">+ ${{ detalle.diff_prop_vs_anticipo|format_price }}</span>
-                                <div class="small text-muted">Lo liquidado al propietario supera el anticipo asegurado.</div>
                             {% elif detalle.diff_prop_sign == -1 %}
                                 <span class="badge bg-warning text-dark fs-6">${{ detalle.diff_prop_vs_anticipo|format_price }}</span>
-                                <div class="small text-muted">Lo liquidado al propietario está por debajo del anticipo.</div>
                             {% else %}
                                 <span class="badge bg-secondary fs-6">${{ detalle.diff_prop_vs_anticipo|format_price }}</span>
-                                <div class="small text-muted">Igual al anticipo (en suma al propietario).</div>
                             {% endif %}
                         </div>
                     {% else %}
                         <div class="alert alert-warning mb-0 small">
-                            El anticipo está en <strong>{{ detalle.moneda_anticipo }}</strong>. Las liquidaciones se comparan en pesos automáticamente solo si el anticipo es ARS.
+                            El saldo asegurado está en <strong>{{ detalle.moneda_anticipo }}</strong>. Las liquidaciones se comparan en pesos automáticamente solo si es ARS.
                         </div>
                     {% endif %}
                 </div>
@@ -138,7 +135,7 @@
                     <th>ID disp.</th>
                     <th>Propiedad</th>
                     <th>Período</th>
-                    <th>Anticipo</th>
+                    <th>Saldo asegurado</th>
                     <th></th>
                 </tr>
             </thead>

@@ -27703,6 +27703,17 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                 monto_inmobiliaria = monto_total - monto_propietario - monto_cochera
 
             # Operaciones marcadas en el formulario (reserva:ID / contrato:ID)
+            import json as _json_ops_prop
+            montos_prop_por_op = {}
+            for raw_m in request.POST.getlist('operacion_monto_propietario[]'):
+                try:
+                    d_m = _json_ops_prop.loads(raw_m or '{}')
+                    t_m = str(d_m.get('tipo') or '').strip().lower()
+                    id_m = int(d_m.get('id'))
+                    montos_prop_por_op[f'{t_m}:{id_m}'] = parse_decimal_es(str(d_m.get('monto') or '0'))
+                except (TypeError, ValueError, _json_ops_prop.JSONDecodeError):
+                    continue
+
             operaciones_incluidas = []
             for item in request.POST.getlist('operaciones_seleccionadas[]'):
                 item = (item or '').strip()
@@ -27715,7 +27726,11 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                 except ValueError:
                     continue
                 if tipo in ('reserva', 'contrato', 'contrato_cuota', 'contrato_operacion_principal', 'movimiento_caja'):
-                    operaciones_incluidas.append({'tipo': tipo, 'id': pk})
+                    op_row = {'tipo': tipo, 'id': pk}
+                    m_prop_op = montos_prop_por_op.get(f'{tipo}:{pk}')
+                    if m_prop_op is not None and m_prop_op >= 0:
+                        op_row['monto_propietario'] = str(m_prop_op.quantize(Decimal('0.01')))
+                    operaciones_incluidas.append(op_row)
 
             for o in operaciones_incluidas:
                 if (o.get('tipo') or '').lower() != 'contrato_cuota':
@@ -30625,6 +30640,202 @@ def _detalle_impreso_gasto_liquidacion(gasto):
     return det
 
 
+def _periodo_texto_rango_fechas(fecha_desde, fecha_hasta):
+    """Texto de período para detalle: «DEL 5 AL 11 DE JUNIO DE 2026» o rango ISO."""
+    if not fecha_desde or not fecha_hasta:
+        return _periodo_mes_anio_liquidacion(fecha_desde) or _periodo_mes_anio_liquidacion(fecha_hasta) or ''
+    try:
+        if fecha_desde.month == fecha_hasta.month and fecha_desde.year == fecha_hasta.year:
+            mes = _MESES_LIQUIDACION_ES[fecha_desde.month - 1]
+            return f'DEL {fecha_desde.day} AL {fecha_hasta.day} DE {mes} DE {fecha_desde.year}'
+        return (
+            f'DEL {fecha_desde.strftime("%d/%m/%Y")} '
+            f'AL {fecha_hasta.strftime("%d/%m/%Y")}'
+        )
+    except (IndexError, AttributeError):
+        return ''
+
+
+def _monto_propietario_sugerido_operacion_incluida(liquidacion, op):
+    """Monto al propietario de una op incluida (guardado o recalculado)."""
+    if not isinstance(op, dict):
+        return Decimal('0')
+    raw = op.get('monto_propietario')
+    if raw is not None and str(raw).strip() != '':
+        try:
+            return Decimal(str(raw)).quantize(Decimal('0.01'))
+        except Exception:
+            pass
+
+    tipo = (op.get('tipo') or '').strip().lower()
+    try:
+        oid = int(op.get('id'))
+    except (TypeError, ValueError):
+        return Decimal('0')
+
+    if tipo == 'reserva':
+        from inmobiliaria.neto_propietario_movimiento import reparto_liquidacion_reserva_por_dia
+
+        reserva = Reserva.objects.filter(
+            pk=oid, propiedad_id=liquidacion.propiedad_id
+        ).first()
+        if not reserva:
+            return Decimal('0')
+        try:
+            _tot, m_prop, _m_inm, _ = reparto_liquidacion_reserva_por_dia(reserva)
+            _tot, m_prop, _m_inm, _, _ = reserva.montos_liquidacion_efectivos(_tot, m_prop, _m_inm)
+            return Decimal(str(m_prop or 0)).quantize(Decimal('0.01'))
+        except Exception:
+            return Decimal('0')
+
+    if tipo in ('contrato_cuota', 'contrato_operacion_principal', 'contrato'):
+        if tipo == 'contrato_cuota':
+            cq = CuotaMensual.objects.filter(
+                pk=oid, contrato__propiedad_id=liquidacion.propiedad_id
+            ).select_related('contrato').first()
+            if not cq:
+                return Decimal('0')
+            monto_mes = Decimal(str(cq.monto_total or cq.monto_base or 0))
+            mp, _mi = _monto_propietario_inmobiliaria_cuota_mensual(
+                liquidacion.propiedad, monto_mes, contrato=cq.contrato
+            )
+            return Decimal(str(mp or 0)).quantize(Decimal('0.01'))
+        return Decimal('0')
+
+    if tipo == 'movimiento_caja':
+        mov = MovimientoCaja.objects.filter(
+            pk=oid, propiedad_id=liquidacion.propiedad_id
+        ).first()
+        if not mov:
+            return Decimal('0')
+        try:
+            return Decimal(str(mov.monto_total or 0)).quantize(Decimal('0.01'))
+        except Exception:
+            return Decimal('0')
+    return Decimal('0')
+
+
+def _filas_alquiler_desde_operaciones_incluidas(liquidacion, monto_prop_total):
+    """
+    Una fila Haber por cada operación incluida (p. ej. varios alquileres por día).
+    Si no hay ops o no aportan montos, devuelve [].
+    """
+    ops = [
+        o for o in (liquidacion.operaciones_incluidas or [])
+        if isinstance(o, dict) and (o.get('tipo') or '').lower() != 'division'
+    ]
+    if not ops:
+        return []
+
+    filas = []
+    montos = []
+    for op in ops:
+        tipo = (op.get('tipo') or '').strip().lower()
+        try:
+            oid = int(op.get('id'))
+        except (TypeError, ValueError):
+            continue
+
+        monto = _monto_propietario_sugerido_operacion_incluida(liquidacion, op)
+        fecha_entrada = None
+        fecha_salida = None
+        detalle = 'ALQUILER A PAGAR'
+
+        if tipo == 'reserva':
+            reserva = Reserva.objects.filter(
+                pk=oid, propiedad_id=liquidacion.propiedad_id
+            ).first()
+            if reserva:
+                fecha_entrada = reserva.fecha_inicio
+                fecha_salida = reserva.fecha_fin
+            periodo = _periodo_texto_rango_fechas(fecha_entrada, fecha_salida)
+            detalle = f'ALQUILER POR DÍA // {periodo}' if periodo else 'ALQUILER POR DÍA'
+        elif tipo == 'contrato_cuota':
+            cq = CuotaMensual.objects.filter(
+                pk=oid, contrato__propiedad_id=liquidacion.propiedad_id
+            ).first()
+            if cq:
+                fecha_entrada = cq.fecha_vencimiento
+                fecha_salida = cq.fecha_vencimiento
+                periodo = _periodo_mes_anio_liquidacion(cq.fecha_vencimiento)
+                nro = cq.numero_cuota or ''
+                detalle = (
+                    f'CUOTA {nro} // {periodo}' if periodo else f'CUOTA {nro}'
+                ).strip()
+            else:
+                detalle = 'CUOTA MENSUAL'
+        elif tipo == 'contrato_operacion_principal':
+            detalle = 'OPERACIÓN PRINCIPAL'
+            periodo = _periodo_mes_anio_liquidacion(liquidacion.fecha_desde) or _periodo_mes_anio_liquidacion(
+                liquidacion.fecha_hasta
+            )
+            if periodo:
+                detalle = f'OPERACIÓN PRINCIPAL // {periodo}'
+        elif tipo == 'contrato':
+            periodo = _periodo_mes_anio_liquidacion(liquidacion.fecha_desde) or _periodo_mes_anio_liquidacion(
+                liquidacion.fecha_hasta
+            )
+            detalle = f'ALQUILER A PAGAR // {periodo}' if periodo else 'ALQUILER A PAGAR'
+            fecha_entrada = liquidacion.fecha_desde
+            fecha_salida = liquidacion.fecha_hasta
+        elif tipo == 'movimiento_caja':
+            mov = MovimientoCaja.objects.filter(
+                pk=oid, propiedad_id=liquidacion.propiedad_id
+            ).first()
+            detalle = (
+                _descripcion_movimiento_pago_liquidacion(mov).upper()
+                if mov else f'PAGO A FAVOR #{oid}'
+            )
+        else:
+            continue
+
+        if monto <= Decimal('0.01'):
+            continue
+
+        dias = None
+        if fecha_entrada and fecha_salida:
+            dias = (fecha_salida - fecha_entrada).days
+            if dias <= 0:
+                dias = 1
+        precio_dia = None
+        if dias and monto > Decimal('0.01'):
+            precio_dia = (monto / Decimal(str(dias))).quantize(Decimal('0.01'))
+
+        filas.append({
+            'detalle': detalle,
+            'debe': Decimal('0'),
+            'haber': monto.quantize(Decimal('0.01')),
+            'es_alquiler': tipo in ('reserva', 'contrato', 'contrato_cuota', 'contrato_operacion_principal'),
+            'fecha_entrada': fecha_entrada,
+            'fecha_salida': fecha_salida,
+            'precio_dia': precio_dia,
+            'dias': dias,
+        })
+        montos.append(monto)
+
+    if not filas:
+        return []
+
+    # Si hay total de liquidación y los montos por op no coinciden (liq. vieja / editada),
+    # prorratear para que el haber sume el monto al propietario.
+    suma = sum(montos, Decimal('0'))
+    objetivo = Decimal(str(monto_prop_total or 0)).quantize(Decimal('0.01'))
+    if objetivo > Decimal('0.01') and suma > Decimal('0.01') and abs(suma - objetivo) > Decimal('0.05'):
+        factor = objetivo / suma
+        acumulado = Decimal('0')
+        for i, fila in enumerate(filas):
+            if i == len(filas) - 1:
+                nuevo = (objetivo - acumulado).quantize(Decimal('0.01'))
+            else:
+                nuevo = (fila['haber'] * factor).quantize(Decimal('0.01'))
+                acumulado += nuevo
+            fila['haber'] = nuevo
+            if fila.get('dias') and nuevo > Decimal('0.01'):
+                fila['precio_dia'] = (nuevo / Decimal(str(fila['dias']))).quantize(Decimal('0.01'))
+
+    return filas
+
+
 def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
     """
     Detalle de liquidación de cobranzas para el propietario.
@@ -30634,12 +30845,16 @@ def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
     """
     filas = []
     monto_prop = Decimal(str(liquidacion.monto_propietario or 0))
-    periodo = _periodo_detalle_alquiler_liquidacion(liquidacion)
-    fecha_entrada, fecha_salida = _fechas_alquiler_liquidacion(liquidacion)
-    precio_dia = _precio_dia_alquiler_liquidacion(liquidacion, monto_prop)
-    dias_alquiler = _dias_alquiler_liquidacion(liquidacion)
 
-    if monto_prop > Decimal('0.01'):
+    filas_ops = _filas_alquiler_desde_operaciones_incluidas(liquidacion, monto_prop)
+    if filas_ops:
+        filas.extend(filas_ops)
+        monto_prop_haber = sum((f['haber'] for f in filas_ops), Decimal('0'))
+    elif monto_prop > Decimal('0.01'):
+        periodo = _periodo_detalle_alquiler_liquidacion(liquidacion)
+        fecha_entrada, fecha_salida = _fechas_alquiler_liquidacion(liquidacion)
+        precio_dia = _precio_dia_alquiler_liquidacion(liquidacion, monto_prop)
+        dias_alquiler = _dias_alquiler_liquidacion(liquidacion)
         filas.append({
             'detalle': f'ALQUILER A PAGAR // {periodo}' if periodo else 'ALQUILER A PAGAR',
             'debe': Decimal('0'),
@@ -30650,6 +30865,9 @@ def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
             'precio_dia': precio_dia,
             'dias': dias_alquiler,
         })
+        monto_prop_haber = monto_prop
+    else:
+        monto_prop_haber = Decimal('0')
 
     com_loc = Decimal(str(getattr(liquidacion, 'comision_locador', None) or 0))
     if com_loc > Decimal('0.01'):
@@ -30696,7 +30914,7 @@ def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
                 'haber': Decimal('0'),
             })
 
-    total_haber = monto_prop + total_ingresos
+    total_haber = monto_prop_haber + total_ingresos
     total_debe = total_egresos
     saldo_favor = (total_haber - total_debe).quantize(Decimal('0.01'))
     return {

@@ -2736,6 +2736,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 inp.className = 'dynamic-operacion-seleccionada';
                 inp.value = tipo + ':' + id;
                 form.appendChild(inp);
+                const inpM = document.createElement('input');
+                inpM.type = 'hidden';
+                inpM.name = 'operacion_monto_propietario[]';
+                inpM.className = 'dynamic-operacion-seleccionada';
+                inpM.value = JSON.stringify({
+                    tipo: tipo,
+                    id: id,
+                    monto: String(cb.getAttribute('data-monto-propietario') || '0'),
+                });
+                form.appendChild(inpM);
             });
 
             // Respaldo explícito de gastos (incluye movimiento_N de caja).
