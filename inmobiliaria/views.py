@@ -28898,12 +28898,14 @@ def _egreso_no_es_gasto_descontable_liquidacion(movimiento) -> bool:
     """
     True si un movimiento de caja NO debe ofrecerse como «gasto pendiente» en liquidación.
     Excluye cobros/recibos de alquiler (ingresos o egresos mal cargados) y operaciones de contrato.
-    Solo deben listarse egresos reales descontables al propietario (comprobante GS, gastos de oficina, etc.).
+    Solo deben listarse egresos descontables al propietario (no gastos de oficina).
     """
     from inmobiliaria.models.caja import TipoMovimientoCajaEnum
 
     tipo_mov = (getattr(movimiento, 'tipo', None) or '').strip().upper()
     if tipo_mov == TipoMovimientoCajaEnum.INGRESO:
+        return True
+    if _movimiento_es_gasto_oficina_no_descontable(movimiento):
         return True
     if _movimiento_patron_cobro_alquiler_base(movimiento):
         return True
@@ -28919,6 +28921,33 @@ def _egreso_no_es_gasto_descontable_liquidacion(movimiento) -> bool:
     return False
 
 
+def _movimiento_es_gasto_oficina_no_descontable(movimiento) -> bool:
+    """
+    Gasto de oficina (overhead): va al resumen/libro de oficina, no a liquidación
+    del propietario. Si hay parte imputada al propietario (monto_a_propietario > 0),
+    esa parte sí puede listarse.
+    """
+    m_prop = Decimal(str(getattr(movimiento, 'monto_a_propietario', None) or 0))
+    if m_prop > 0:
+        return False
+
+    conc = (getattr(movimiento, 'concepto', None) or '').strip().casefold()
+    if conc.startswith('gasto oficina'):
+        return True
+
+    a = (getattr(movimiento, 'a_descontar', None) or '').strip().lower()
+    if a == 'oficina':
+        return True
+
+    try:
+        if getattr(movimiento, 'gastos_oficina_vinculados', None) is not None:
+            if movimiento.gastos_oficina_vinculados.exists():
+                return True
+    except Exception:
+        pass
+    return False
+
+
 def _monto_descuento_propietario_egreso_caja(movimiento) -> Decimal:
     """Importe a descontar al propietario desde un egreso de caja."""
     from inmobiliaria.neto_propietario_movimiento import monto_medios_movimiento_decimal
@@ -28926,8 +28955,10 @@ def _monto_descuento_propietario_egreso_caja(movimiento) -> Decimal:
     m_prop = Decimal(str(getattr(movimiento, 'monto_a_propietario', None) or 0))
     if m_prop > 0:
         return m_prop.quantize(Decimal('0.01'))
+    if _movimiento_es_gasto_oficina_no_descontable(movimiento):
+        return Decimal('0')
     a = (getattr(movimiento, 'a_descontar', None) or '').strip().lower()
-    if a in ('propietario', 'oficina', ''):
+    if a in ('propietario', ''):
         total = monto_medios_movimiento_decimal(movimiento)
         if total > 0:
             return total.quantize(Decimal('0.01'))
@@ -28982,16 +29013,20 @@ def _egreso_caja_debe_listarse_en_liquidacion(movimiento) -> bool:
     if _egreso_es_pago_liquidacion_propietario(movimiento):
         return False
 
+    # Gasto de oficina (overhead): no descontar al propietario.
+    if _movimiento_es_gasto_oficina_no_descontable(movimiento):
+        return False
+
     m_prop = Decimal(str(getattr(movimiento, 'monto_a_propietario', None) or 0))
     # Cargo explícito al propietario: listar aunque el comprobante sea RECIBO (default de caja).
     # Antes se excluían todos los RC con propiedad por parecer cobro de alquiler.
     if m_prop > 0 or a == 'propietario':
         return True
 
-    # Legacy oficina / vacío: mantener filtro anti-cobros de alquiler.
+    # Legacy vacío: mantener filtro anti-cobros de alquiler.
     if _egreso_no_es_gasto_descontable_liquidacion(movimiento):
         return False
-    return a in ('oficina', '')
+    return a == ''
 
 
 def _observaciones_gasto_desde_movimiento_caja(movimiento):
@@ -29295,12 +29330,12 @@ def _egresos_caja_pendientes_para_liquidacion(propiedad, sucursal):
         )
         .filter(
             Q(a_descontar='propietario')
-            | Q(a_descontar='oficina')
             | Q(a_descontar__isnull=True)
             | Q(a_descontar='')
             | Q(monto_a_propietario__gt=0)
         )
         .exclude(concepto__icontains='Liquidación Propietario')
+        .exclude(concepto__istartswith='Gasto oficina')
         .order_by('-fecha')
     )
     # Si la propiedad cambió de titular, no ofrecer egresos anteriores al cambio.

@@ -2089,19 +2089,40 @@ document.addEventListener('DOMContentLoaded', function() {
             return 'Operación principal';
         }
         const custom = (cb.getAttribute('data-concepto-pago') || '').trim();
-        if (custom) return custom;
+        if (custom && custom.toLowerCase() !== 'cuota mensual') return custom;
         if (tipo === 'reserva') return 'Alquiler por día';
-        return 'Alquiler';
+        if (tipo === 'contrato_cuota' || tipo === 'contrato_operacion_principal') {
+            return 'Cuota';
+        }
+        if (tipo === 'movimiento_caja') {
+            return custom || 'Pago a favor';
+        }
+        return custom || 'Alquiler';
     }
 
     function periodoCortoDesdeIso(iso) {
         if (!iso) return '';
         const p = String(iso).split('-');
         if (p.length < 3) return '';
-        const meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+        const meses = [
+            'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+            'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+        ];
         const mes = parseInt(p[1], 10);
         if (!mes || mes < 1 || mes > 12) return '';
         return `${meses[mes - 1]} ${p[0]}`;
+    }
+
+    function etiquetaResumenOperacion(cb) {
+        let concepto = etiquetaConceptoOperacion(cb);
+        const per = periodoCortoDesdeIso(
+            cb.getAttribute('data-fecha-hasta') || cb.getAttribute('data-fecha-desde')
+        );
+        if (per && cb.getAttribute('data-tipo') !== 'reserva') {
+            // "Cuota julio 2026" / "Operación principal julio 2026"
+            concepto = `${concepto} ${per}`;
+        }
+        return concepto;
     }
 
     function actualizarResumenLiquidacion() {
@@ -2115,31 +2136,21 @@ document.addEventListener('DOMContentLoaded', function() {
         const filasAFavor = [];
         let totalAFavor = 0;
 
+        // Siempre detallar cada operación/cuota tildada (jul / ago, etc.),
+        // aunque los montos del formulario se hayan tocado a mano.
         const opsChecked = document.querySelectorAll('.operacion-checkbox:checked');
-        if (opsChecked.length && !montosEditadosManualmente) {
+        if (opsChecked.length) {
             opsChecked.forEach(function(cb) {
                 const monto = parseFloat(cb.getAttribute('data-monto-propietario')) || 0;
                 if (monto <= 0.009) return;
-                let concepto = etiquetaConceptoOperacion(cb);
-                const per = periodoCortoDesdeIso(cb.getAttribute('data-fecha-hasta') || cb.getAttribute('data-fecha-desde'));
-                if (per && cb.getAttribute('data-tipo') !== 'reserva') {
-                    concepto = `${concepto} (${per})`;
-                }
-                filasAFavor.push({ concepto: concepto, monto: monto });
+                filasAFavor.push({
+                    concepto: etiquetaResumenOperacion(cb),
+                    monto: monto,
+                });
                 totalAFavor += monto;
             });
         } else if (propManual > 0.009) {
-            let concepto = 'Monto al propietario';
-            if (opsChecked.length === 1) {
-                concepto = etiquetaConceptoOperacion(opsChecked[0]);
-                const per = periodoCortoDesdeIso(
-                    opsChecked[0].getAttribute('data-fecha-hasta') || opsChecked[0].getAttribute('data-fecha-desde')
-                );
-                if (per && opsChecked[0].getAttribute('data-tipo') !== 'reserva') {
-                    concepto = `${concepto} (${per})`;
-                }
-            }
-            filasAFavor.push({ concepto: concepto, monto: propManual });
+            filasAFavor.push({ concepto: 'Monto al propietario', monto: propManual });
             totalAFavor += propManual;
         }
 
