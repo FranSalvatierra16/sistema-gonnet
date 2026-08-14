@@ -454,7 +454,7 @@
                                     <div class="mt-1">
                                         <form method="post" class="d-inline"
                                               action="{% url 'inmobiliaria:eliminar_cuota_contrato_super_admin' contrato.id cuota.id %}"
-                                              onsubmit="return confirm('¿Quitar la cuota {{ cuota.numero_cuota }}/{{ contrato.duracion_meses }} del plan? Se elimina ese mes, las posteriores bajan de número y la duración del contrato baja un mes. Vencimientos e importes de las restantes no cambian.{% if cuota.movimiento_id %} Si hay un único cobro en caja asociado a esta cuota, también se anula.{% endif %}');">
+                                              onsubmit="return confirm('¿Quitar la cuota {{ cuota.numero_cuota }}/{{ contrato.duracion_meses }} del plan? Se elimina ese mes; las posteriores bajan de número y conservan la misma fecha e importe. La duración baja un mes.{% if cuota.movimiento_id %} Si hay un único cobro en caja asociado a esta cuota, también se anula.{% endif %}');">
                                             {% csrf_token %}
                                             <button type="submit" class="btn btn-sm btn-outline-danger" title="Solo super administrador">
                                                 <i class="fas fa-calendar-minus"></i> Quitar mes

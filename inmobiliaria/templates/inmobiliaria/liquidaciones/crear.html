@@ -165,7 +165,7 @@
                                 <input type="text" name="monto_propietario" id="monto_propietario" class="form-control input-monto-ar" 
                                        inputmode="decimal" autocomplete="off" placeholder="0,00"
                                        {% if monto_propietario_inicial %}value="{{ monto_propietario_inicial }}"{% endif %}>
-                                <small class="form-text text-muted">Sugerido según precios/toma o % de la propiedad; editable.</small>
+                                <small class="form-text text-muted">Suma de lo que va al propietario en cada operación tildada; editable.</small>
                             </div>
                             <div class="col">
                                 <label class="form-label">Monto para la Inmobiliaria</label>
@@ -2144,13 +2144,12 @@ document.addEventListener('DOMContentLoaded', function() {
         const gastosFoot = document.getElementById('resumen-gastos-foot');
         if (!pagosBody || !gastosBody) return;
 
-        const propManual = parseNumeroEsAR(montoPropietario.value);
         const filasAFavor = [];
         let totalAFavor = 0;
 
-        // Siempre detallar cada operación/cuota tildada (jul / ago, etc.),
-        // aunque los montos del formulario se hayan tocado a mano.
+        // Por cada operación tildada: lo que va al propietario, y esa suma es el monto a favor.
         const opsChecked = document.querySelectorAll('.operacion-checkbox:checked');
+        let sumaPropOps = 0;
         if (opsChecked.length) {
             opsChecked.forEach(function(cb) {
                 const monto = parseFloat(cb.getAttribute('data-monto-propietario')) || 0;
@@ -2159,11 +2158,36 @@ document.addEventListener('DOMContentLoaded', function() {
                     concepto: etiquetaResumenOperacion(cb),
                     monto: monto,
                 });
-                totalAFavor += monto;
+                sumaPropOps += monto;
             });
-        } else if (propManual > 0.009) {
-            filasAFavor.push({ concepto: 'Monto al propietario', monto: propManual });
-            totalAFavor += propManual;
+            // El campo de arriba = suma de lo que va al prop en cada liquidación
+            if (montoPropietario && Math.abs(parseNumeroEsAR(montoPropietario.value) - sumaPropOps) > 0.02) {
+                if (!montosEditadosManualmente) {
+                    montoPropietario.value = fmtMontoCampoLiq(sumaPropOps);
+                    recalcularInmobiliariaResto();
+                }
+            }
+            // Si editaron a mano el monto al propietario, ese valor manda en el total
+            const propCampo = parseNumeroEsAR(montoPropietario.value);
+            if (montosEditadosManualmente && propCampo > 0.009 && Math.abs(propCampo - sumaPropOps) > 0.02) {
+                const ajuste = propCampo - sumaPropOps;
+                filasAFavor.push({
+                    concepto: 'Ajuste monto al propietario',
+                    monto: ajuste,
+                });
+                totalAFavor = propCampo;
+            } else {
+                totalAFavor = sumaPropOps;
+                if (montoPropietario && sumaPropOps > 0.009) {
+                    montoPropietario.value = fmtMontoCampoLiq(sumaPropOps);
+                }
+            }
+        } else {
+            const propManual = parseNumeroEsAR(montoPropietario.value);
+            if (propManual > 0.009) {
+                filasAFavor.push({ concepto: 'Monto al propietario', monto: propManual });
+                totalAFavor += propManual;
+            }
         }
 
         document.querySelectorAll('.gasto-checkbox:checked').forEach(function(cb) {
@@ -2309,20 +2333,19 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
-        // Sugerir montos al tildar operaciones (si el usuario ya corrigió a mano, no pisar total/prop/inm)
+        // Propietario = siempre suma de lo que va al prop en cada op tildada.
+        // Total solo se pisa si el usuario no lo editó a mano.
         actualizarBloqueComisionesPrimeraOp();
-        if (totalMonto > 0) {
+        if (totalMonto > 0 || totalMontoPropietario > 0) {
+            montoPropietario.value = fmtMontoCampoLiq(totalMontoPropietario);
             if (!montosEditadosManualmente) {
                 montoTotal.value = fmtMontoCampoLiq(totalMonto);
-                montoPropietario.value = fmtMontoCampoLiq(totalMontoPropietario);
-                if (cocheraYFondoVaciosLiq()) {
-                    montoInmobiliaria.value = fmtMontoCampoLiq(totalMonto - totalMontoPropietario);
-                } else {
-                    montoInmobiliaria.value = fmtMontoCampoLiq(totalMontoInmobiliaria);
-                }
-            } else {
-                asegurarFormatoMontoPropietario();
-                recalcularInmobiliariaResto();
+            }
+            if (cocheraYFondoVaciosLiq()) {
+                const tot = parseNumeroEsAR(montoTotal.value);
+                montoInmobiliaria.value = fmtMontoCampoLiq(tot - totalMontoPropietario);
+            } else if (!montosEditadosManualmente) {
+                montoInmobiliaria.value = fmtMontoCampoLiq(totalMontoInmobiliaria);
             }
 
             actualizarResumenLiquidacion();

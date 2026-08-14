@@ -19595,9 +19595,8 @@ def detalle_contrato(request, contrato_id):
     if not cuotas.exists() and contrato.estado in ('activo', 'reservado'):
         _asegurar_cuotas_plan_contrato(contrato)
         cuotas = contrato.cuotas.select_related('movimiento').order_by('numero_cuota')
-    elif cuotas.exists() and _cuotas_requieren_alinear_vencimientos(contrato):
-        _alinear_vencimientos_cuotas_contrato(contrato, hoy)
-        cuotas = contrato.cuotas.select_related('movimiento').order_by('numero_cuota')
+    # No realinear vencimientos acá: si se quitó un mes del medio, las fechas
+    # restantes deben conservarse. La alineación se hace al cambiar inicio/precios.
 
     from inmobiliaria.models.caja import MovimientoCaja, TipoMovimientoCajaEnum
     from inmobiliaria.cuotas_imputacion import mapa_movimientos_recibo_por_cuota_id
@@ -20114,7 +20113,14 @@ def eliminar_cuota_contrato_super_admin(request, contrato_id, cuota_id):
 
     nueva_duracion = total - 1
     contrato.duracion_meses = nueva_duracion
-    contrato.fecha_fin = _fecha_fin_desde_inicio_y_duracion(contrato.fecha_inicio, nueva_duracion)
+    ultima_restante = (
+        CuotaMensual.objects.filter(contrato=contrato).order_by('-numero_cuota').first()
+    )
+    if ultima_restante and ultima_restante.fecha_vencimiento:
+        # Conservar el calendario de las cuotas restantes (no correr fechas al acortar).
+        contrato.fecha_fin = ultima_restante.fecha_vencimiento
+    else:
+        contrato.fecha_fin = _fecha_fin_desde_inicio_y_duracion(contrato.fecha_inicio, nueva_duracion)
 
     if contrato.duracion_meses != 9 and isinstance(contrato.precios_bloques, list):
         n_meses = int(contrato.duracion_meses or 0)
@@ -20130,8 +20136,8 @@ def eliminar_cuota_contrato_super_admin(request, contrato_id, cuota_id):
 
     messages.success(
         request,
-        f'Se eliminó la cuota {numero_eliminado}. Las demás conservan vencimientos e importes; '
-        f'se renumeraron las posteriores ({nueva_duracion} meses en total).',
+        f'Se eliminó la cuota {numero_eliminado}. Las demás conservan la misma fecha de vencimiento '
+        f'e importe; solo se renumeraron ({nueva_duracion} meses en total).',
     )
     return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
 
