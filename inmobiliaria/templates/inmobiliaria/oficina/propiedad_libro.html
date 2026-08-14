@@ -154,20 +154,6 @@
                            value="{{ inicio_caja.fecha|date:'Y-m-d' }}" required>
                 </div>
                 <div class="col-6 col-md-auto">
-                    <label class="form-label small mb-0" for="inicio_caja_gastos_ars">Gastos ARS</label>
-                    <input type="text" class="form-control form-control-sm text-end" id="inicio_caja_gastos_ars" name="gastos_ars"
-                           inputmode="decimal" autocomplete="off"
-                           value="{% if inicio_caja.gastos_ars %}{{ inicio_caja.gastos_ars|format_price }}{% else %}0{% endif %}"
-                           style="min-width:7rem">
-                </div>
-                <div class="col-6 col-md-auto">
-                    <label class="form-label small mb-0" for="inicio_caja_alquileres_ars">Alquileres ARS</label>
-                    <input type="text" class="form-control form-control-sm text-end" id="inicio_caja_alquileres_ars" name="alquileres_ars"
-                           inputmode="decimal" autocomplete="off"
-                           value="{% if inicio_caja.alquileres_ars %}{{ inicio_caja.alquileres_ars|format_price }}{% else %}0{% endif %}"
-                           style="min-width:7rem">
-                </div>
-                <div class="col-6 col-md-auto">
                     <label class="form-label small mb-0" for="inicio_caja_gastos_usd">Gastos USD</label>
                     <input type="text" class="form-control form-control-sm text-end" id="inicio_caja_gastos_usd" name="gastos_usd"
                            inputmode="decimal" autocomplete="off"
@@ -189,13 +175,6 @@
                            value="{{ total_usd_inicio|format_price }}"
                            style="min-width:6.5rem">
                     <small class="text-muted d-block" style="font-size:0.65rem">Gastos − Ingresos</small>
-                </div>
-                <div class="col-6 col-md-auto">
-                    <label class="form-label small mb-0" for="inicio_caja_tipo_cambio">Tipo cbio</label>
-                    <input type="text" class="form-control form-control-sm text-end" id="inicio_caja_tipo_cambio" name="tipo_cambio"
-                           inputmode="decimal" autocomplete="off" placeholder="opc."
-                           value="{% if inicio_caja.tipo_cambio %}{{ inicio_caja.tipo_cambio|format_price }}{% endif %}"
-                           style="min-width:5.5rem">
                 </div>
                 <div class="col-auto">
                     <button type="submit" class="btn btn-sm btn-primary" id="btn-guardar-inicio-caja">
@@ -721,11 +700,8 @@
 
             var body = new URLSearchParams();
             body.set('fecha', (document.getElementById('inicio_caja_fecha') || {}).value || '');
-            body.set('gastos_ars', (document.getElementById('inicio_caja_gastos_ars') || {}).value || '0');
-            body.set('alquileres_ars', (document.getElementById('inicio_caja_alquileres_ars') || {}).value || '0');
             body.set('gastos_usd', (inpGastosUsd && inpGastosUsd.value) || '0');
             body.set('ingreso_usd', (inpIngresoUsd && inpIngresoUsd.value) || '0');
-            body.set('tipo_cambio', (document.getElementById('inicio_caja_tipo_cambio') || {}).value || '');
             postForm(urlInicio, body)
               .then(function(res) {
                 if (!res.okHttp || !res.d || !res.d.ok) {

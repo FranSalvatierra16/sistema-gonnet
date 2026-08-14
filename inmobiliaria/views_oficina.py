@@ -1640,47 +1640,33 @@ def oficina_propiedad_libro_inicio_caja(request, propiedad_id):
         return JsonResponse({'ok': False, 'error': 'Fecha inválida.'}, status=400)
 
     try:
-        gastos_ars = parse_decimal_monto(request.POST.get('gastos_ars', '0'))
-        alquileres_ars = parse_decimal_monto(request.POST.get('alquileres_ars', '0'))
         gastos_usd = parse_decimal_monto(request.POST.get('gastos_usd', '0'))
         ingreso_usd = parse_decimal_monto(request.POST.get('ingreso_usd', '0'))
-        cotiz_raw = (request.POST.get('tipo_cambio') or '').strip()
-        tipo_cambio = parse_decimal_monto(cotiz_raw) if cotiz_raw else None
     except Exception:
         return JsonResponse({'ok': False, 'error': 'Monto inválido.'}, status=400)
 
-    if tipo_cambio is not None and tipo_cambio <= 0:
-        tipo_cambio = None
-
     # Compatibilidad: si mandan los campos viejos monto_ars / monto_usd
     if (
-        not any(
-            abs(x) > 0
-            for x in (gastos_ars, alquileres_ars, gastos_usd, ingreso_usd)
-        )
+        abs(gastos_usd) <= 0
+        and abs(ingreso_usd) <= 0
         and (request.POST.get('monto_ars') or request.POST.get('monto_usd'))
     ):
         try:
-            monto_ars = parse_decimal_monto(request.POST.get('monto_ars', '0'))
             monto_usd = parse_decimal_monto(request.POST.get('monto_usd', '0'))
         except Exception:
-            monto_ars = Decimal('0')
             monto_usd = Decimal('0')
-        if monto_ars >= 0:
-            alquileres_ars = monto_ars
-        else:
-            gastos_ars = abs(monto_ars)
         if monto_usd >= 0:
             ingreso_usd = monto_usd
         else:
             gastos_usd = abs(monto_usd)
 
     inicio.fecha = fecha
-    inicio.gastos_ars = gastos_ars.quantize(Decimal('0.01'))
-    inicio.alquileres_ars = alquileres_ars.quantize(Decimal('0.01'))
+    # ARS y tipo de cambio ya no se editan en el formulario de inicio
+    inicio.gastos_ars = Decimal('0')
+    inicio.alquileres_ars = Decimal('0')
     inicio.gastos_usd = gastos_usd.quantize(Decimal('0.01'))
     inicio.ingreso_usd = ingreso_usd.quantize(Decimal('0.01'))
-    inicio.tipo_cambio = tipo_cambio.quantize(Decimal('0.01')) if tipo_cambio else None
+    inicio.tipo_cambio = None
     inicio.actualizado_por = request.user
     inicio.save()
 
