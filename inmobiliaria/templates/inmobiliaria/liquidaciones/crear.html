@@ -152,6 +152,16 @@
                             </div>
                         </div>
 
+                        <div id="bloque-montos-prop-por-op" class="card border-success mb-3 d-none">
+                            <div class="card-body py-2">
+                                <div class="fw-semibold small text-success mb-2">
+                                    <i class="fas fa-list me-1"></i>Monto al propietario por cada operación
+                                    <span class="text-muted fw-normal">— editá cada una; la suma va al casillero de abajo</span>
+                                </div>
+                                <div id="lista-montos-prop-por-op" class="row g-2"></div>
+                            </div>
+                        </div>
+
                         <div class="row row-cols-1 row-cols-md-2 row-cols-xl-5 g-3 mb-3">
                             <div class="col">
                                 <label class="form-label">Monto Total de la Operación <span class="text-danger" id="lbl-req-monto-total">*</span></label>
@@ -162,10 +172,10 @@
                             </div>
                             <div class="col">
                                 <label class="form-label">Monto para el Propietario <span class="text-danger" id="lbl-req-monto-prop">*</span></label>
-                                <input type="text" name="monto_propietario" id="monto_propietario" class="form-control input-monto-ar" 
-                                       inputmode="decimal" autocomplete="off" placeholder="0,00"
+                                <input type="text" name="monto_propietario" id="monto_propietario" class="form-control input-monto-ar bg-light" 
+                                       inputmode="decimal" autocomplete="off" placeholder="0,00" readonly
                                        {% if monto_propietario_inicial %}value="{{ monto_propietario_inicial }}"{% endif %}>
-                                <small class="form-text text-muted">Suma de lo que va al propietario en cada operación tildada; editable.</small>
+                                <small class="form-text text-muted">Suma automática de los montos de arriba (por operación).</small>
                             </div>
                             <div class="col">
                                 <label class="form-label">Monto para la Inmobiliaria</label>
@@ -2161,6 +2171,99 @@ document.addEventListener('DOMContentLoaded', function() {
         return concepto;
     }
 
+    function claveOperacionLiq(cb) {
+        return String(cb.getAttribute('data-tipo') || '') + ':' + String(cb.getAttribute('data-id') || cb.value || '');
+    }
+
+    function leerMontoPropDeInputOp(inp) {
+        return parseNumeroEsAR((inp && inp.value) || '0');
+    }
+
+    /** Suma los casilleros por operación → monto al propietario + resumen. */
+    function sincronizarMontoPropDesdePartes() {
+        const lista = document.getElementById('lista-montos-prop-por-op');
+        if (!lista) return 0;
+        let suma = 0;
+        lista.querySelectorAll('.input-monto-prop-op').forEach(function(inp) {
+            const monto = leerMontoPropDeInputOp(inp);
+            suma += monto;
+            const clave = inp.getAttribute('data-op-key');
+            document.querySelectorAll('.operacion-checkbox:checked').forEach(function(cb) {
+                if (claveOperacionLiq(cb) === clave) {
+                    cb.setAttribute('data-monto-propietario', String(monto));
+                }
+            });
+        });
+        if (montoPropietario) {
+            montoPropietario.value = suma > 0.009 ? fmtMontoCampoLiq(suma) : '';
+        }
+        recalcularInmobiliariaResto();
+        return suma;
+    }
+
+    function renderMontosPropPorOperacion() {
+        const bloque = document.getElementById('bloque-montos-prop-por-op');
+        const lista = document.getElementById('lista-montos-prop-por-op');
+        if (!bloque || !lista) return;
+
+        const ops = Array.from(document.querySelectorAll('.operacion-checkbox:checked'));
+        if (!ops.length) {
+            lista.innerHTML = '';
+            bloque.classList.add('d-none');
+            if (montoPropietario) {
+                montoPropietario.readOnly = false;
+                montoPropietario.classList.remove('bg-light');
+            }
+            return;
+        }
+
+        // Conservar valores ya editados si la misma op sigue tildada
+        const prev = {};
+        lista.querySelectorAll('.input-monto-prop-op').forEach(function(inp) {
+            prev[inp.getAttribute('data-op-key')] = inp.value;
+        });
+
+        let html = '';
+        ops.forEach(function(cb) {
+            const clave = claveOperacionLiq(cb);
+            const label = etiquetaResumenOperacion(cb);
+            const sugerido = parseFloat(cb.getAttribute('data-monto-propietario')) || 0;
+            let valor;
+            if (prev[clave] != null && String(prev[clave]).trim() !== '') {
+                valor = prev[clave];
+            } else {
+                valor = sugerido > 0.009 ? fmtMontoCampoLiq(sugerido) : '';
+            }
+            html +=
+                '<div class="col-12 col-md-6 col-xl-4">' +
+                '<label class="form-label small mb-0 text-truncate d-block" title="' + label.replace(/"/g, '&quot;') + '">' + label + '</label>' +
+                '<input type="text" class="form-control form-control-sm input-monto-ar input-monto-prop-op" ' +
+                'data-op-key="' + clave.replace(/"/g, '') + '" inputmode="decimal" autocomplete="off" placeholder="0,00" value="' + String(valor).replace(/"/g, '') + '">' +
+                '</div>';
+        });
+        lista.innerHTML = html;
+        bloque.classList.remove('d-none');
+        if (montoPropietario) {
+            montoPropietario.readOnly = true;
+            montoPropietario.classList.add('bg-light');
+        }
+
+        lista.querySelectorAll('.input-monto-prop-op').forEach(function(inp) {
+            inp.addEventListener('input', function() {
+                sincronizarMontoPropDesdePartes();
+                actualizarResumenLiquidacion();
+            });
+            inp.addEventListener('blur', function() {
+                const n = leerMontoPropDeInputOp(inp);
+                inp.value = n > 0.009 ? fmtMontoCampoLiq(n) : (inp.value.trim() ? fmtMontoCampoLiq(0) : '');
+                sincronizarMontoPropDesdePartes();
+                actualizarResumenLiquidacion();
+            });
+        });
+
+        sincronizarMontoPropDesdePartes();
+    }
+
     function actualizarResumenLiquidacion() {
         const pagosBody = document.getElementById('resumen-pagos-body');
         const pagosFoot = document.getElementById('resumen-pagos-foot');
@@ -2171,40 +2274,26 @@ document.addEventListener('DOMContentLoaded', function() {
         const filasAFavor = [];
         let totalAFavor = 0;
 
-        // Por cada operación tildada: lo que va al propietario, y esa suma es el monto a favor.
+        // Por cada operación: monto del casillero (o data-monto-propietario)
         const opsChecked = document.querySelectorAll('.operacion-checkbox:checked');
-        let sumaPropOps = 0;
+        const listaPartes = document.getElementById('lista-montos-prop-por-op');
         if (opsChecked.length) {
             opsChecked.forEach(function(cb) {
-                const monto = parseFloat(cb.getAttribute('data-monto-propietario')) || 0;
+                const clave = claveOperacionLiq(cb);
+                let monto = parseFloat(cb.getAttribute('data-monto-propietario')) || 0;
+                if (listaPartes) {
+                    const inp = listaPartes.querySelector('.input-monto-prop-op[data-op-key="' + clave.replace(/"/g, '\\"') + '"]');
+                    if (inp) monto = leerMontoPropDeInputOp(inp);
+                }
                 if (monto <= 0.009) return;
                 filasAFavor.push({
                     concepto: etiquetaResumenOperacion(cb),
                     monto: monto,
                 });
-                sumaPropOps += monto;
+                totalAFavor += monto;
             });
-            // El campo de arriba = suma de lo que va al prop en cada liquidación
-            if (montoPropietario && Math.abs(parseNumeroEsAR(montoPropietario.value) - sumaPropOps) > 0.02) {
-                if (!montosEditadosManualmente) {
-                    montoPropietario.value = fmtMontoCampoLiq(sumaPropOps);
-                    recalcularInmobiliariaResto();
-                }
-            }
-            // Si editaron a mano el monto al propietario, ese valor manda en el total
-            const propCampo = parseNumeroEsAR(montoPropietario.value);
-            if (montosEditadosManualmente && propCampo > 0.009 && Math.abs(propCampo - sumaPropOps) > 0.02) {
-                const ajuste = propCampo - sumaPropOps;
-                filasAFavor.push({
-                    concepto: 'Ajuste monto al propietario',
-                    monto: ajuste,
-                });
-                totalAFavor = propCampo;
-            } else {
-                totalAFavor = sumaPropOps;
-                if (montoPropietario && sumaPropOps > 0.009) {
-                    montoPropietario.value = fmtMontoCampoLiq(sumaPropOps);
-                }
+            if (montoPropietario) {
+                montoPropietario.value = totalAFavor > 0.009 ? fmtMontoCampoLiq(totalAFavor) : '';
             }
         } else {
             const propManual = parseNumeroEsAR(montoPropietario.value);
@@ -2357,21 +2446,19 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
-        // Propietario = siempre suma de lo que va al prop en cada op tildada.
+        // Propietario = suma de casilleros por operación (renderMontosPropPorOperacion).
         // Total solo se pisa si el usuario no lo editó a mano.
         actualizarBloqueComisionesPrimeraOp();
-        if (totalMonto > 0 || totalMontoPropietario > 0) {
-            montoPropietario.value = fmtMontoCampoLiq(totalMontoPropietario);
-            if (!montosEditadosManualmente) {
+        if (checkboxes.length > 0) {
+            if (!montosEditadosManualmente && totalMonto > 0) {
                 montoTotal.value = fmtMontoCampoLiq(totalMonto);
             }
+            renderMontosPropPorOperacion();
             if (cocheraYFondoVaciosLiq()) {
-                const tot = parseNumeroEsAR(montoTotal.value);
-                montoInmobiliaria.value = fmtMontoCampoLiq(tot - totalMontoPropietario);
+                recalcularInmobiliariaResto();
             } else if (!montosEditadosManualmente) {
                 montoInmobiliaria.value = fmtMontoCampoLiq(totalMontoInmobiliaria);
             }
-
             actualizarResumenLiquidacion();
             if (fechaDesdeMin) {
                 document.querySelector('input[name="fecha_desde"]').value = fechaDesdeMin;
@@ -2381,6 +2468,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         } else {
             actualizarBloqueComisionesPrimeraOp();
+            renderMontosPropPorOperacion();
             const hayGastosMarcados = document.querySelectorAll('.gasto-checkbox:checked').length > 0;
             const propActual = parseNumeroEsAR(montoPropietario.value);
             const totActual = parseNumeroEsAR(montoTotal.value);
@@ -2468,6 +2556,7 @@ document.addEventListener('DOMContentLoaded', function() {
             el.value = fmtMontoCampoLiq(parseNumeroEsAR(el.value));
         }
     });
+    renderMontosPropPorOperacion();
     recalcularInmobiliariaResto();
 
     // Desde carátula u otra pantalla: buscar operación por número y pre-cargar pendientes
