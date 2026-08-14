@@ -1669,7 +1669,7 @@ def oficina_propiedad_libro_inicio_caja(request, propiedad_id):
 @login_required
 @require_POST
 def oficina_propiedad_libro_costos_compra(request, propiedad_id):
-    """Guarda valor depto comprado, escritura y honorarios de este depto."""
+    """Guarda valor depto comprado, escritura, honorarios y observaciones de este depto."""
     if not _puede_oficina(request.user):
         return JsonResponse({'ok': False, 'error': 'Sin permiso.'}, status=403)
 
@@ -1690,9 +1690,18 @@ def oficina_propiedad_libro_costos_compra(request, propiedad_id):
     except Exception:
         return JsonResponse({'ok': False, 'error': 'Monto inválido.'}, status=400)
 
+    observaciones = (request.POST.get('observaciones') or '').strip()
+    if len(observaciones) > 2000:
+        observaciones = observaciones[:2000]
+    escribania = (request.POST.get('escribania') or '').strip()
+    if len(escribania) > 255:
+        escribania = escribania[:255]
+
     costos.valor_depto_comprado = valor.quantize(Decimal('0.01'))
     costos.gastos_escritura = escritura.quantize(Decimal('0.01'))
     costos.honorarios_pagados = honorarios.quantize(Decimal('0.01'))
+    costos.escribania = escribania
+    costos.observaciones = observaciones
     costos.actualizado_por = request.user
     costos.save()
 
@@ -1702,6 +1711,8 @@ def oficina_propiedad_libro_costos_compra(request, propiedad_id):
             'valor_depto_comprado': format_monto_argentino(costos.valor_depto_comprado),
             'gastos_escritura': format_monto_argentino(costos.gastos_escritura),
             'honorarios_pagados': format_monto_argentino(costos.honorarios_pagados),
+            'escribania': costos.escribania,
+            'observaciones': costos.observaciones,
         }
     )
 

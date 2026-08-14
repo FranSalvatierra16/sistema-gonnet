@@ -115,6 +115,19 @@
                            value="{% if costos_compra.honorarios_pagados %}{{ costos_compra.honorarios_pagados|format_price }}{% else %}0{% endif %}"
                            style="min-width:8.5rem">
                 </div>
+                <div class="col-12 col-md-4 col-lg-3">
+                    <label class="form-label small mb-0" for="costos_escribania">Escribanía</label>
+                    <input type="text" class="form-control form-control-sm" id="costos_escribania" name="escribania"
+                           maxlength="255" autocomplete="off"
+                           placeholder="Nombre de la escribanía"
+                           value="{{ costos_compra.escribania }}">
+                </div>
+                <div class="col-12 col-lg">
+                    <label class="form-label small mb-0" for="costos_observaciones">Observaciones del departamento</label>
+                    <textarea class="form-control form-control-sm" id="costos_observaciones" name="observaciones"
+                              rows="2" maxlength="2000"
+                              placeholder="Notas, detalles de compra, etc.">{{ costos_compra.observaciones }}</textarea>
+                </div>
                 <div class="col-auto">
                     <button type="submit" class="btn btn-sm btn-secondary" id="btn-guardar-costos-compra">
                         <i class="fas fa-save me-1"></i>Guardar
@@ -544,6 +557,8 @@
             body.set('valor_depto_comprado', (document.getElementById('costos_valor_depto') || {}).value || '0');
             body.set('gastos_escritura', (document.getElementById('costos_escritura') || {}).value || '0');
             body.set('honorarios_pagados', (document.getElementById('costos_honorarios') || {}).value || '0');
+            body.set('escribania', (document.getElementById('costos_escribania') || {}).value || '');
+            body.set('observaciones', (document.getElementById('costos_observaciones') || {}).value || '');
             postForm(urlCostos, body)
               .then(function(res) {
                 if (!res.okHttp || !res.d || !res.d.ok) {

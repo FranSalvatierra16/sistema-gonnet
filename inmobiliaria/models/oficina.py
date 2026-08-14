@@ -317,6 +317,19 @@ class CostosCompraLibroPropiedad(models.Model):
         default=Decimal('0'),
         verbose_name='Honorarios pagados (USD)',
     )
+    escribania = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        verbose_name='Escribanía',
+        help_text='Escribanía donde se realizó la escritura.',
+    )
+    observaciones = models.TextField(
+        blank=True,
+        default='',
+        verbose_name='Observaciones del departamento',
+        help_text='Notas libres del depto (visible en el libro de oficina).',
+    )
     actualizado_en = models.DateTimeField(auto_now=True)
     actualizado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL,
