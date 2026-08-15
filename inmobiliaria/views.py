@@ -2946,8 +2946,7 @@ class EmailForm(forms.Form):
 def index(request):
     if request.user.is_authenticated:
         return redirect('inmobiliaria:dashboard')
-    else:
-        return redirect('inmobiliaria:index')
+    return redirect('inmobiliaria:login')
 
 # Vendedor views
 @login_required
@@ -9805,6 +9804,8 @@ def crear_sucursal(request):
     return render(request, 'inmobiliaria/sucursal/crear_sucursal.html', {'form': form})
 
 def login_view(request):
+    if request.user.is_authenticated:
+        return redirect('inmobiliaria:dashboard')
     if request.method == 'POST':
         form = LoginForm(request.POST)
         if form.is_valid():
@@ -9824,7 +9825,7 @@ def login_view(request):
                     # Verificar si tiene contraseña temporal
                     if hasattr(user, 'password_temporal') and user.password_temporal:
                         return redirect('inmobiliaria:cambiar_password')
-                    return redirect('inmobiliaria:index')
+                    return redirect('inmobiliaria:dashboard')
                 else:
                     messages.error(request, 'Contraseña incorrecta.')
                 

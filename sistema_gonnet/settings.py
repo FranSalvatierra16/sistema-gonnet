@@ -160,23 +160,25 @@ if 'DATABASE_URL' in os.environ:
     # Railway/Heroku proporcionan DATABASE_URL
     import dj_database_url
     DATABASES['default'] = dj_database_url.config(
-        conn_max_age=600,
+        conn_max_age=60,
         ssl_require=False
     )
     # ✅ FORZAR PostgreSQL (importante para Railway)
     DATABASES['default']['ENGINE'] = 'django.db.backends.postgresql'
     DATABASES['default']['CONN_HEALTH_CHECKS'] = True
-    DATABASES['default']['OPTIONS'] = {
-        'connect_timeout': 10,
-    }
+    pg_opts = DATABASES['default'].get('OPTIONS') or {}
+    pg_opts['connect_timeout'] = 5
+    # Evita queries eternas que dejan a gunicorn sin workers libres.
+    pg_opts['options'] = '-c statement_timeout=30000 -c idle_in_transaction_session_timeout=30000'
+    DATABASES['default']['OPTIONS'] = pg_opts
 
 # Custom user model
 AUTH_USER_MODEL = 'inmobiliaria.Vendedor'
 
 # Redirect to home page after login
-LOGIN_REDIRECT_URL = 'inmobiliaria:index'
-LOGIN_URL = 'login'
-LOGOUT_REDIRECT_URL = 'login'
+LOGIN_REDIRECT_URL = 'inmobiliaria:dashboard'
+LOGIN_URL = 'inmobiliaria:login'
+LOGOUT_REDIRECT_URL = 'inmobiliaria:login'
 
 
 # Password validation
