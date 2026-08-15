@@ -21,4 +21,4 @@ COPY . .
 EXPOSE 8000
 
 # PORT lo inyectan Railway, Fly, Coolify, etc.
-CMD ["sh", "-c", "gunicorn sistema_gonnet.wsgi --bind 0.0.0.0:${PORT:-8000} --workers ${WEB_CONCURRENCY:-1} --threads ${WEB_THREADS:-8} --timeout 45 --graceful-timeout 25 --keep-alive 5 --max-requests 200 --max-requests-jitter 40 --log-file -"]
+CMD ["sh", "-c", "gunicorn sistema_gonnet.wsgi --bind 0.0.0.0:${PORT:-8000} --workers ${WEB_CONCURRENCY:-2} --threads=2 --timeout=120 --max-requests=1000 --max-requests-jitter=50 --log-file -"]
