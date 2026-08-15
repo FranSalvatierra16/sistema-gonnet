@@ -42,8 +42,12 @@ DEBUG = os.environ.get('DEBUG', 'False' if _ON_MANAGED_HOST else 'True') == 'Tru
 # ✅ Leer ALLOWED_HOSTS de variable de entorno o usar defaults
 ALLOWED_HOSTS = _get_env_list(
     'ALLOWED_HOSTS',
-    'gonnet-interno-052a6cec3da9.herokuapp.com,.herokuapp.com,localhost,127.0.0.1'
+    'gonnet-interno-052a6cec3da9.herokuapp.com,.herokuapp.com,.up.railway.app,.railway.app,localhost,127.0.0.1'
 )
+# Railway pega el healthcheck con Host: healthcheck.railway.app (si falta → 400 y el deploy falla).
+for _host in ('healthcheck.railway.app', '.up.railway.app', '.railway.app'):
+    if _host not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(_host)
 
 # ✅ CSRF Trusted Origins (necesita esquema https://)
 CSRF_TRUSTED_ORIGINS = _get_env_list(
