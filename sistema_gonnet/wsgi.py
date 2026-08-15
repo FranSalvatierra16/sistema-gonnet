@@ -1,15 +1,17 @@
 """
 WSGI config for sistema_gonnet project.
 
-El healthcheck de Railway tiene que responder 200 *antes* de cargar Django
-(views.py es enorme y el primer import puede tardar minutos).
+Django se carga al arrancar el worker (no en el primer click del usuario).
+/healthz responde 200 sin pasar por middleware.
 """
 
 import os
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'sistema_gonnet.settings')
 
-_django_app = None
+from django.core.wsgi import get_wsgi_application
+
+_django_app = get_wsgi_application()
 _HEALTH_BODY = b'ok'
 _HEALTH_HEADERS = [
     ('Content-Type', 'text/plain; charset=utf-8'),
@@ -27,11 +29,7 @@ def _es_healthcheck(environ):
 
 
 def application(environ, start_response):
-    global _django_app
     if _es_healthcheck(environ):
         start_response('200 OK', list(_HEALTH_HEADERS))
         return [_HEALTH_BODY]
-    if _django_app is None:
-        from django.core.wsgi import get_wsgi_application
-        _django_app = get_wsgi_application()
     return _django_app(environ, start_response)
