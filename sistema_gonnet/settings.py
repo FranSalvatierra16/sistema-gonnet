@@ -42,8 +42,11 @@ DEBUG = os.environ.get('DEBUG', 'False' if _ON_MANAGED_HOST else 'True') == 'Tru
 # ✅ Leer ALLOWED_HOSTS de variable de entorno o usar defaults
 ALLOWED_HOSTS = _get_env_list(
     'ALLOWED_HOSTS',
-    'gonnet-interno-052a6cec3da9.herokuapp.com,.herokuapp.com,localhost,127.0.0.1'
+    'gonnet-interno-052a6cec3da9.herokuapp.com,.herokuapp.com,.up.railway.app,.railway.app,localhost,127.0.0.1'
 )
+for _host in ('healthcheck.railway.app', '.up.railway.app', '.railway.app'):
+    if _host not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(_host)
 
 # ✅ CSRF Trusted Origins (necesita esquema https://)
 CSRF_TRUSTED_ORIGINS = _get_env_list(
@@ -160,23 +163,23 @@ if 'DATABASE_URL' in os.environ:
     # Railway/Heroku proporcionan DATABASE_URL
     import dj_database_url
     DATABASES['default'] = dj_database_url.config(
-        conn_max_age=600,
+        conn_max_age=60,
         ssl_require=False
     )
-    # ✅ FORZAR PostgreSQL (importante para Railway)
     DATABASES['default']['ENGINE'] = 'django.db.backends.postgresql'
     DATABASES['default']['CONN_HEALTH_CHECKS'] = True
-    DATABASES['default']['OPTIONS'] = {
-        'connect_timeout': 10,
-    }
+    pg_opts = DATABASES['default'].get('OPTIONS') or {}
+    pg_opts['connect_timeout'] = 5
+    pg_opts['options'] = '-c statement_timeout=30000 -c idle_in_transaction_session_timeout=30000'
+    DATABASES['default']['OPTIONS'] = pg_opts
 
 # Custom user model
 AUTH_USER_MODEL = 'inmobiliaria.Vendedor'
 
 # Redirect to home page after login
-LOGIN_REDIRECT_URL = 'inmobiliaria:index'
-LOGIN_URL = 'login'
-LOGOUT_REDIRECT_URL = 'login'
+LOGIN_REDIRECT_URL = 'inmobiliaria:dashboard'
+LOGIN_URL = 'inmobiliaria:login'
+LOGOUT_REDIRECT_URL = 'inmobiliaria:login'
 
 
 # Password validation

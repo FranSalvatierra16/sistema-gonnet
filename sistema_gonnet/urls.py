@@ -17,13 +17,27 @@ Including another URLconf
 # File: sistema_gonnet/urls.py
 
 from django.contrib import admin
+from django.http import HttpResponse, HttpResponseRedirect
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from inmobiliaria.views import index
+
+
+def healthz(_request):
+    """Liveness para Railway: sin DB ni sesión, para que el deploy no se cuelgue."""
+    return HttpResponse('ok', content_type='text/plain')
+
+
+def root_redirect(request):
+    if getattr(request, 'user', None) is not None and request.user.is_authenticated:
+        return HttpResponseRedirect('/dashboard/')
+    return HttpResponseRedirect('/login/')
+
 
 urlpatterns = [
-    path('', index, name='index'),  # Ruta raíz
+    path('healthz/', healthz, name='healthz'),
+    path('healthz', healthz),
+    path('', root_redirect, name='index'),
     path('admin/', admin.site.urls),
     path('', include(('inmobiliaria.urls', 'inmobiliaria'), namespace='inmobiliaria')),
 ]

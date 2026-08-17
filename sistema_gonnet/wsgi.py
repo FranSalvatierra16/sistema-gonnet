@@ -1,16 +1,35 @@
 """
 WSGI config for sistema_gonnet project.
 
-It exposes the WSGI callable as a module-level variable named ``application``.
-
-For more information on this file, see
-https://docs.djangoproject.com/en/5.0/howto/deployment/wsgi/
+Django se carga al arrancar el worker (no en el primer click del usuario).
+/healthz responde 200 sin pasar por middleware.
 """
 
 import os
 
-from django.core.wsgi import get_wsgi_application
-
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'sistema_gonnet.settings')
 
-application = get_wsgi_application()
+from django.core.wsgi import get_wsgi_application
+
+_django_app = get_wsgi_application()
+_HEALTH_BODY = b'ok'
+_HEALTH_HEADERS = [
+    ('Content-Type', 'text/plain; charset=utf-8'),
+    ('Content-Length', str(len(_HEALTH_BODY))),
+    ('Cache-Control', 'no-store'),
+]
+
+
+def _es_healthcheck(environ):
+    path = (environ.get('PATH_INFO') or '').split('?', 1)[0]
+    if path.rstrip('/') == '/healthz':
+        return True
+    host = (environ.get('HTTP_HOST') or '').split(':')[0].lower()
+    return host == 'healthcheck.railway.app'
+
+
+def application(environ, start_response):
+    if _es_healthcheck(environ):
+        start_response('200 OK', list(_HEALTH_HEADERS))
+        return [_HEALTH_BODY]
+    return _django_app(environ, start_response)

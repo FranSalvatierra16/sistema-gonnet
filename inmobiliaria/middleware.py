@@ -59,11 +59,44 @@ class PasswordChangeMiddleware:
         return response
 
 
+_PUBLIC_PATH_PREFIXES = (
+    '/healthz',
+    '/login/',
+    '/sucursal/',
+    '/recuperar-password/',
+    '/admin/login/',
+    '/admin/password_reset/',
+    '/password_reset/',
+    '/reset/',
+    '/api/resetear-password-temp/',
+    '/api/debug-usuarios/',
+    '/api/ejecutar-migracion/',
+    '/utilidades/diagrama-db/',
+    '/web/',
+    '/recibo-publico/',
+    '/recibo-movimiento-publico/',
+    '/static/',
+    '/media/',
+    '/favicon',
+    '/robots.txt',
+)
+
+
+def _es_ruta_publica(path: str) -> bool:
+    if path in ('/', '/healthz', '/healthz/'):
+        return True
+    return any(path.startswith(p) for p in _PUBLIC_PATH_PREFIXES)
+
+
 class SessionTimeoutMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
+        # Healthcheck: no tocar usuario/sesión/DB.
+        if _es_ruta_publica(request.path) and request.path.startswith('/healthz'):
+            return self.get_response(request)
+
         if request.user.is_authenticated:
             now = timezone.now()
             last_activity = request.session.get('last_activity')
@@ -82,28 +115,10 @@ class SessionTimeoutMiddleware:
         return response
 
     def process_view(self, request, view_func, view_args, view_kwargs):
-        public_urls = [
-            '/login/',
-            '/sucursal/',
-            '/recuperar-password/',
-            '/admin/login/',
-            '/admin/password_reset/',
-            '/password_reset/',
-            '/reset/',
-            '/api/resetear-password-temp/',
-            '/api/debug-usuarios/',
-            '/api/ejecutar-migracion/',
-            '/utilidades/diagrama-db/',
-            # Portal público (sin login)
-            '/web/',
-            '/recibo-publico/',
-            '/recibo-movimiento-publico/',
-        ]
-
-        if any(request.path.startswith(url) for url in public_urls):
+        if _es_ruta_publica(request.path):
             return None
 
         if not request.user.is_authenticated:
-            messages.warning(request, 'Por favor, inicia sesión para continuar.')
+            # Sin messages: cada aviso anónimo escribía una sesión en DB y saturaba workers.
             return redirect('inmobiliaria:login')
         return None
