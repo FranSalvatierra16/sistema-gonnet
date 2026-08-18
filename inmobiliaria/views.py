@@ -2805,7 +2805,6 @@ def administracion_propiedades_operaciones(request):
         messages.error(request, 'Ocurrió un error al cargar operaciones. Intentá nuevamente.')
         return _safe_render(contexto_base)
 
-from xhtml2pdf import pisa
 from io import BytesIO
 from .models import (
     Vendedor, Inquilino, Propietario, Propiedad, Reserva, 
@@ -2843,8 +2842,6 @@ from django.views.decorators.http import require_POST, require_http_methods
 import json
 from django.db import models
 from django.conf import settings
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail
 import os
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
@@ -2856,6 +2853,13 @@ from .utils import numero_a_palabras
 
 import logging
 logger = logging.getLogger(__name__)
+
+
+def _pisa():
+    """Import tardío: xhtml2pdf es pesado y no debe frenar el arranque ni el login."""
+    from xhtml2pdf import pisa as _mod
+    return _mod
+
 
 # IDs de concepto en |CONCEPTOS:…| que cuentan como seña / «saldo a ocupar» al finalizar o completar pago de operación.
 # 50 = refuerzo de seña, 100 = saldo locación (además de 1 alquiler, 15, 103, 219).
@@ -2946,8 +2950,7 @@ class EmailForm(forms.Form):
 def index(request):
     if request.user.is_authenticated:
         return redirect('inmobiliaria:dashboard')
-    else:
-        return redirect('inmobiliaria:index')
+    return redirect('inmobiliaria:login')
 
 # Vendedor views
 @login_required
@@ -7052,7 +7055,7 @@ def generar_recibo_pdf(reserva, pago_senia):
     
     # Crear el PDF
     pdf_buffer = BytesIO()
-    pisa_status = pisa.CreatePDF(BytesIO(html.encode("UTF-8")), dest=pdf_buffer)
+    pisa_status = _pisa().CreatePDF(BytesIO(html.encode("UTF-8")), dest=pdf_buffer)
     
     if pisa_status.err:
         return None
@@ -9805,6 +9808,8 @@ def crear_sucursal(request):
     return render(request, 'inmobiliaria/sucursal/crear_sucursal.html', {'form': form})
 
 def login_view(request):
+    if request.user.is_authenticated:
+        return redirect('inmobiliaria:dashboard')
     if request.method == 'POST':
         form = LoginForm(request.POST)
         if form.is_valid():
@@ -9824,7 +9829,7 @@ def login_view(request):
                     # Verificar si tiene contraseña temporal
                     if hasattr(user, 'password_temporal') and user.password_temporal:
                         return redirect('inmobiliaria:cambiar_password')
-                    return redirect('inmobiliaria:index')
+                    return redirect('inmobiliaria:dashboard')
                 else:
                     messages.error(request, 'Contraseña incorrecta.')
                 
@@ -9982,7 +9987,7 @@ def cambiar_password(request):
                 user.password_temporal = False
                 user.save()
                 messages.success(request, 'Tu contraseña ha sido actualizada exitosamente.')
-                return redirect('inmobiliaria:index')
+                return redirect('inmobiliaria:dashboard')
             except Exception as e:
                 messages.error(request, f'Error al guardar la contraseña: {str(e)}')
         else:
@@ -26223,7 +26228,6 @@ def gestionar_conceptos(request):
 
 # Vista para generar PDF del recibo
 from django.http import HttpResponse
-from xhtml2pdf import pisa
 from django.template.loader import get_template
 import io
 
@@ -26432,7 +26436,7 @@ def ver_recibo_pdf(request, reserva_id):
         # Generar el PDF usando pisaDocument (método más compatible)
         try:
             result = io.BytesIO()
-            pdf = pisa.pisaDocument(
+            pdf = _pisa().pisaDocument(
                 io.BytesIO(html.encode('UTF-8')),
                 result,
                 encoding='UTF-8'
@@ -26689,7 +26693,7 @@ def ver_recibo_publico(request, reserva_id, token):
         # Generar el PDF usando pisaDocument (método más compatible)
         try:
             result = io.BytesIO()
-            pdf = pisa.pisaDocument(
+            pdf = _pisa().pisaDocument(
                 io.BytesIO(html.encode('UTF-8')),
                 result,
                 encoding='UTF-8'
@@ -26885,7 +26889,7 @@ def ver_recibo_movimiento_publico(request, movimiento_id, token):
         
         # Crear el PDF
         result = io.BytesIO()
-        pdf = pisa.pisaDocument(io.BytesIO(html.encode("UTF-8")), result)
+        pdf = _pisa().pisaDocument(io.BytesIO(html.encode("UTF-8")), result)
         
         if not pdf.err:
             response = HttpResponse(result.getvalue(), content_type='application/pdf')
@@ -27109,7 +27113,7 @@ def ver_recibo_movimiento_pdf(request, movimiento_id):
         # Generar el PDF usando pisaDocument (método más compatible)
         try:
             result = io.BytesIO()
-            pdf = pisa.pisaDocument(
+            pdf = _pisa().pisaDocument(
                 io.BytesIO(html.encode('UTF-8')),
                 result,
                 encoding='UTF-8'
@@ -27342,7 +27346,7 @@ def ver_recibo_movimiento_publico(request, movimiento_id, token):
         
         # Crear el PDF
         result = io.BytesIO()
-        pdf = pisa.pisaDocument(io.BytesIO(html.encode("UTF-8")), result)
+        pdf = _pisa().pisaDocument(io.BytesIO(html.encode("UTF-8")), result)
         
         if not pdf.err:
             response = HttpResponse(result.getvalue(), content_type='application/pdf')
