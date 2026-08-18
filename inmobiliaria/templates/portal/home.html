@@ -35,20 +35,6 @@
     width: min(1180px, calc(100% - 2rem));
     margin-inline: auto;
 }
-.hero-brand {
-    display: flex;
-    align-items: center;
-    gap: 0.85rem;
-    margin-bottom: 1.35rem;
-}
-.hero-brand img {
-    height: 58px;
-    width: auto;
-    background: rgba(255,255,255,0.94);
-    border-radius: 10px;
-    padding: 0.35rem 0.55rem;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-}
 .hero h1 {
     margin: 0 0 0.75rem;
     font-family: "Fraunces", Georgia, serif;
@@ -291,9 +277,6 @@
 {% block content %}
 <section class="hero">
     <div class="hero-inner">
-        <div class="hero-brand rise">
-            <img src="{{ portal_logo_src }}" alt="Gonnet Propiedades">
-        </div>
         <h1 class="rise rise-2">Viví Mar del Plata con Gonnet.</h1>
         <p class="lead rise rise-3">Temporada, invierno, 24 meses y ventas — con la trayectoria que respalda cada operación.</p>
 
