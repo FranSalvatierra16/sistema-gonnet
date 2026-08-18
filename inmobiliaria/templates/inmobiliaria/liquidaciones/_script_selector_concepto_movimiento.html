@@ -3,22 +3,25 @@
     const urlBuscar = '{% url "inmobiliaria:buscar_conceptos" %}';
     const csrf = '{{ csrf_token }}';
     let debounceTimer = null;
+    let ultimosConceptos = [];
+    let resolviendoSubmit = false;
 
     function esc(s) {
         return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
     }
 
     function etiquetaConcepto(c) {
-        const id = (c.id || '').toString();
-        const nom = (c.nombre || '').trim();
-        return id + ' — ' + nom;
+        return String(c.id || '') + ' — ' + String(c.nombre || '').trim();
     }
 
+    function hidConcepto() { return document.getElementById('mov_concepto_id'); }
+    function inpConcepto() { return document.getElementById('mov_buscar_concepto'); }
+
     function limpiarConceptoMov() {
-        const hid = document.getElementById('mov_concepto_id');
+        const hid = hidConcepto();
         const box = document.getElementById('mov_concepto_seleccionado');
         const txt = document.getElementById('mov_concepto_texto');
-        const inp = document.getElementById('mov_buscar_concepto');
+        const inp = inpConcepto();
         if (hid) hid.value = '';
         if (box) box.classList.add('d-none');
         if (txt) txt.textContent = '';
@@ -27,11 +30,12 @@
     }
 
     function seleccionarConceptoMov(c) {
-        const hid = document.getElementById('mov_concepto_id');
+        if (!c || c.id == null || String(c.id).trim() === '') return;
+        const hid = hidConcepto();
         const box = document.getElementById('mov_concepto_seleccionado');
         const txt = document.getElementById('mov_concepto_texto');
-        const inp = document.getElementById('mov_buscar_concepto');
-        if (hid) hid.value = c.id;
+        const inp = inpConcepto();
+        if (hid) hid.value = String(c.id);
         if (txt) txt.textContent = etiquetaConcepto(c);
         if (box) box.classList.remove('d-none');
         if (inp) inp.value = '';
@@ -60,9 +64,7 @@
     function activarItemDropdown(items, idx) {
         items.forEach(function(el, i) {
             el.classList.toggle('active', i === idx);
-            if (i === idx && el.scrollIntoView) {
-                el.scrollIntoView({ block: 'nearest' });
-            }
+            if (i === idx && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' });
         });
     }
 
@@ -78,53 +80,34 @@
         });
     }
 
-    function manejarTecladoConcepto(e) {
-        const inp = document.getElementById('mov_buscar_concepto');
-        if (!inp || e.target !== inp) return;
-
-        if (e.key === 'Tab') {
-            ocultarDropdown();
-            return;
-        }
-
-        if (e.key === 'ArrowDown' && !dropdownVisible()) {
-            e.preventDefault();
-            fetchConceptos(inp.value.trim(), function() {
-                const items = itemsDropdown();
-                if (items.length) activarItemDropdown(items, 0);
+    function resolverDesdeLista(term, lista) {
+        const t = String(term || '').trim().toLowerCase();
+        const list = lista || ultimosConceptos || [];
+        if (!list.length) return null;
+        if (t) {
+            const exactId = list.find(function(c) { return String(c.id || '').toLowerCase() === t; });
+            if (exactId) return exactId;
+            const exactNom = list.find(function(c) {
+                return String(c.nombre || '').trim().toLowerCase() === t;
             });
-            return;
+            if (exactNom) return exactNom;
         }
+        if (list.length === 1) return list[0];
+        return null;
+    }
 
-        if (!dropdownVisible()) return;
-
+    function conceptoDesdeDropdownVisible(term) {
         const items = itemsDropdown();
-        if (!items.length) return;
-
-        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-            e.preventDefault();
-            let cur = indiceActivoDropdown(items);
-            if (e.key === 'ArrowDown') {
-                cur = cur < 0 ? 0 : Math.min(cur + 1, items.length - 1);
-            } else {
-                cur = cur < 0 ? items.length - 1 : Math.max(cur - 1, 0);
-            }
-            activarItemDropdown(items, cur);
-            return;
+        if (!items.length) return null;
+        const t = String(term || '').trim().toLowerCase();
+        let btn = items.find(function(el) { return el.classList.contains('active'); });
+        if (!btn && t) {
+            btn = items.find(function(el) {
+                return String(el.getAttribute('data-id') || '').toLowerCase() === t;
+            });
         }
-
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            let sel = items.find(function(el) { return el.classList.contains('active'); });
-            if (!sel) sel = items[0];
-            seleccionarItemDropdown(sel);
-            return;
-        }
-
-        if (e.key === 'Escape') {
-            e.preventDefault();
-            ocultarDropdown();
-        }
+        if (!btn) btn = items[0];
+        return { id: btn.getAttribute('data-id'), nombre: btn.getAttribute('data-nombre') };
     }
 
     function renderDropdown(conceptos) {
@@ -142,50 +125,119 @@
                 + '</button>';
         }).join('');
         dd.style.display = 'block';
+        const items = itemsDropdown();
+        if (items.length) activarItemDropdown(items, 0);
     }
 
     function fetchConceptos(termino, onDone) {
         const fd = new FormData();
         fd.append('termino', termino || '');
-        fetch(urlBuscar, {
-            method: 'POST',
-            body: fd,
-            headers: { 'X-CSRFToken': csrf },
-        })
+        fetch(urlBuscar, { method: 'POST', body: fd, headers: { 'X-CSRFToken': csrf } })
             .then(function(r) { return r.json(); })
             .then(function(data) {
-                renderDropdown(data.conceptos || []);
+                ultimosConceptos = data.conceptos || [];
+                renderDropdown(ultimosConceptos);
                 if (typeof onDone === 'function') onDone();
             })
             .catch(function() {
+                ultimosConceptos = [];
                 ocultarDropdown();
                 if (typeof onDone === 'function') onDone();
             });
     }
 
+    function manejarTecladoConcepto(e) {
+        const inp = inpConcepto();
+        if (!inp || e.target !== inp) return;
+        if (e.key === 'Tab') { ocultarDropdown(); return; }
+
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+            const term = inp.value.trim();
+            if (dropdownVisible()) {
+                const c = conceptoDesdeDropdownVisible(term);
+                if (c) seleccionarConceptoMov(c);
+                return;
+            }
+            fetchConceptos(term, function() {
+                const c = conceptoDesdeDropdownVisible(term) || resolverDesdeLista(term, ultimosConceptos);
+                if (c) seleccionarConceptoMov(c);
+            });
+            return;
+        }
+
+        if (e.key === 'ArrowDown' && !dropdownVisible()) {
+            e.preventDefault();
+            fetchConceptos(inp.value.trim(), function() {
+                const items = itemsDropdown();
+                if (items.length) activarItemDropdown(items, 0);
+            });
+            return;
+        }
+        if (!dropdownVisible()) return;
+        const items = itemsDropdown();
+        if (!items.length) return;
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            let cur = indiceActivoDropdown(items);
+            cur = e.key === 'ArrowDown'
+                ? (cur < 0 ? 0 : Math.min(cur + 1, items.length - 1))
+                : (cur < 0 ? items.length - 1 : Math.max(cur - 1, 0));
+            activarItemDropdown(items, cur);
+        }
+        if (e.key === 'Escape') { e.preventDefault(); ocultarDropdown(); }
+    }
+
+    function intentarResolverYGuardar(form, onFail) {
+        const hid = hidConcepto();
+        if (hid && String(hid.value || '').trim() !== '') return true;
+        const term = (inpConcepto() && inpConcepto().value || '').trim();
+        const desdeDd = conceptoDesdeDropdownVisible(term);
+        if (desdeDd) { seleccionarConceptoMov(desdeDd); return true; }
+        const desdeMem = resolverDesdeLista(term, ultimosConceptos);
+        if (desdeMem) { seleccionarConceptoMov(desdeMem); return true; }
+        if (!term) { onFail('Seleccioná un concepto del catálogo de caja.'); return false; }
+        if (resolviendoSubmit) return false;
+        resolviendoSubmit = true;
+        fetchConceptos(term, function() {
+            resolviendoSubmit = false;
+            const c = conceptoDesdeDropdownVisible(term) || resolverDesdeLista(term, ultimosConceptos);
+            if (c) {
+                seleccionarConceptoMov(c);
+                if (form && typeof form.requestSubmit === 'function') form.requestSubmit();
+                else if (form) form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+            } else {
+                onFail('No se encontró el concepto «' + term + '». Elegilo de la lista.');
+            }
+        });
+        return false;
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
-        const inp = document.getElementById('mov_buscar_concepto');
+        const inp = inpConcepto();
         const dd = document.getElementById('mov_dropdown_conceptos');
         const btnLimpiar = document.getElementById('mov_limpiar_concepto');
         const modal = document.getElementById('modalAgregarGasto');
 
-        if (btnLimpiar) {
-            btnLimpiar.addEventListener('click', limpiarConceptoMov);
-        }
+        if (btnLimpiar) btnLimpiar.addEventListener('click', limpiarConceptoMov);
         if (inp) {
             inp.addEventListener('focus', function() { fetchConceptos(inp.value.trim()); });
             inp.addEventListener('keydown', manejarTecladoConcepto);
             inp.addEventListener('input', function() {
+                const hid = hidConcepto();
+                const box = document.getElementById('mov_concepto_seleccionado');
+                if (hid) hid.value = '';
+                if (box) box.classList.add('d-none');
                 clearTimeout(debounceTimer);
-                debounceTimer = setTimeout(function() {
-                    fetchConceptos(inp.value.trim());
-                }, 250);
+                debounceTimer = setTimeout(function() { fetchConceptos(inp.value.trim()); }, 200);
             });
         }
         if (dd) {
-            dd.addEventListener('click', function(e) {
+            dd.addEventListener('mousedown', function(e) {
                 const btn = e.target.closest('.mov-concepto-opt');
                 if (!btn) return;
+                e.preventDefault();
                 seleccionarItemDropdown(btn);
             });
             dd.addEventListener('mouseover', function(e) {
@@ -195,22 +247,25 @@
                 activarItemDropdown(items, items.indexOf(btn));
             });
         }
-        document.addEventListener('click', function(e) {
+        document.addEventListener('mousedown', function(e) {
+            if (e.target.closest('#formAgregarGasto button[type="submit"]')) return;
             if (!e.target.closest('#mov_buscar_concepto') && !e.target.closest('#mov_dropdown_conceptos')) {
                 ocultarDropdown();
             }
         });
-        if (modal) {
-            modal.addEventListener('hidden.bs.modal', limpiarConceptoMov);
-        }
+        if (modal) modal.addEventListener('hidden.bs.modal', limpiarConceptoMov);
 
         const form = document.getElementById('formAgregarGasto');
         if (form) {
             form.addEventListener('submit', function(e) {
-                if (!(document.getElementById('mov_concepto_id') || {}).value) {
-                    e.preventDefault();
-                    e.stopImmediatePropagation();
-                    alert('Seleccioná un concepto del catálogo de caja.');
+                const hid = hidConcepto();
+                if (hid && String(hid.value || '').trim() !== '') return;
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                const ok = intentarResolverYGuardar(form, function(msg) { alert(msg); });
+                if (ok && hidConcepto() && String(hidConcepto().value || '').trim() !== '') {
+                    if (typeof form.requestSubmit === 'function') form.requestSubmit();
+                    else form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
                 }
             }, true);
         }

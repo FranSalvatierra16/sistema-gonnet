@@ -2927,8 +2927,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 method: 'POST',
                 body: formData,
                 headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+                signal: AbortSignal.timeout ? AbortSignal.timeout(25000) : undefined,
             })
-                .then(function(response) { return response.json(); })
+                .then(function(response) {
+                    return response.text().then(function(txt) {
+                        var data;
+                        try { data = JSON.parse(txt); } catch (err) { data = null; }
+                        if (!response.ok || !data) {
+                            throw new Error((data && data.error) ? data.error : ('Error ' + response.status));
+                        }
+                        return data;
+                    });
+                })
                 .then(function(data) {
                     if (btn) {
                         btn.disabled = false;

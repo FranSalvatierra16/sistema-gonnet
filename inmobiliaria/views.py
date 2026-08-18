@@ -31593,6 +31593,7 @@ def agregar_gasto(request, liquidacion_id):
         )
         if concepto and concepto.id:
             dup = dup.filter(concepto_caja_id=concepto.id)
+        dup = dup.filter(observaciones=observaciones)
         if fecha_gasto_date:
             dup = dup.filter(fecha_gasto=fecha_gasto_date)
         dup = dup.order_by('-id').first()
@@ -31884,6 +31885,9 @@ def crear_gasto_pendiente(request):
                 dup_q = dup_q.filter(propiedad=propiedad)
             if concepto and concepto.id:
                 dup_q = dup_q.filter(concepto_caja_id=concepto.id)
+            dup_q = dup_q.filter(observaciones=observaciones)
+            if fecha_gasto_date:
+                dup_q = dup_q.filter(fecha_gasto=fecha_gasto_date)
             dup = dup_q.order_by('-id').first()
             if dup:
                 gasto_payload = _dict_gasto_pendiente(dup)
