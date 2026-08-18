@@ -1475,10 +1475,11 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function incorporarGastoRecienCreado(gastoApi, propiedadId) {
+        if (!gastoApi || gastoApi.id == null) return;
         if (window._ultimaPropiedadOficinaLiq) {
+            alert('El movimiento se guardó, pero en departamentos de oficina no entra en la liquidación: va al libro de Oficina.');
             return;
         }
-        if (!gastoApi || gastoApi.id == null) return;
         const idsMarcados = Array.from(document.querySelectorAll('.gasto-checkbox:checked')).map(function(x) {
             return String(x.value);
         });
@@ -1490,7 +1491,7 @@ document.addEventListener('DOMContentLoaded', function() {
         idsMarcados.push(String(g.id));
         const idsUnicos = Array.from(new Set(idsMarcados));
         mostrarGastosPendientes(window._ultimosGastosServidor || [], window._ultimaColPropGastos, idsUnicos, {
-            es_propiedad_oficina: window._ultimaPropiedadOficinaLiq,
+            es_propiedad_oficina: false,
         });
         marcarMontosEditadosManualmente();
         if (montosEditadosManualmente) {
@@ -2915,6 +2916,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 btn.dataset.originalHtml = btn.innerHTML;
                 btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Guardando...';
             }
+            if (typeof window.asegurarConceptoIdMovimiento === 'function') {
+                window.asegurarConceptoIdMovimiento();
+            }
             const formData = new FormData(this);
             formData.append('propiedad_id', propiedadId);
             const propietarioId = (document.getElementById('propietario_id') || {}).value;
@@ -2923,12 +2927,30 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             formData.append('moneda', window.monedaLiquidacion || 'ARS');
 
+            const ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+            const t = ctrl ? setTimeout(function() { ctrl.abort(); }, 25000) : null;
             fetch('{% url "inmobiliaria:crear_gasto_pendiente" %}', {
                 method: 'POST',
                 body: formData,
+                credentials: 'same-origin',
+                signal: ctrl ? ctrl.signal : undefined,
                 headers: { 'X-CSRFToken': '{{ csrf_token }}' },
             })
-                .then(function(response) { return response.json(); })
+                .then(function(response) {
+                    return response.text().then(function(text) {
+                        var data = null;
+                        try { data = JSON.parse(text); } catch (err) { data = null; }
+                        if (!data) {
+                            throw new Error(
+                                response.status === 502 || response.status === 504
+                                    ? 'El servidor tardó o no respondió. Reintentá en unos segundos.'
+                                    : 'No se pudo guardar el movimiento. Reintentá.'
+                            );
+                        }
+                        data._http = response.status;
+                        return data;
+                    });
+                })
                 .then(function(data) {
                     if (btn) {
                         btn.disabled = false;
@@ -2944,8 +2966,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (typeof limpiarConceptoMovimientoModal === 'function') {
                         limpiarConceptoMovimientoModal();
                     }
-                    // Solo incorporar el gasto en la tabla de abajo: no recargar
-                    // operaciones pendientes (eso borraba la cuota/mes ya elegido).
                     if (!propiedadSelect.value && propiedadId) {
                         fijarPropiedadEnFormulario(propiedadId);
                     }
@@ -2957,7 +2977,17 @@ document.addEventListener('DOMContentLoaded', function() {
                         btn.disabled = false;
                         if (btn.dataset.originalHtml) btn.innerHTML = btn.dataset.originalHtml;
                     }
-                    alert('Error al crear el movimiento pendiente.');
+                    const msg = (error && error.name === 'AbortError')
+                        ? 'Tardó demasiado. El movimiento puede haberse guardado: cerrá el modal y mirá la lista, o reintentá.'
+                        : ((error && error.message) || 'Error al crear el movimiento pendiente.');
+                    alert(msg);
+                })
+                .finally(function() {
+                    if (t) clearTimeout(t);
+                    if (btn && btn.disabled) {
+                        btn.disabled = false;
+                        if (btn.dataset.originalHtml) btn.innerHTML = btn.dataset.originalHtml;
+                    }
                 });
         });
     }

@@ -26,6 +26,30 @@
         ocultarDropdown();
     }
 
+    function idConceptoDesdeTexto(raw) {
+        const m = String(raw || '').trim().match(/^(\d+)/);
+        return m ? m[1] : '';
+    }
+
+    function asegurarConceptoIdDesdeUI() {
+        const hid = document.getElementById('mov_concepto_id');
+        if (hid && String(hid.value || '').trim()) {
+            return String(hid.value).trim();
+        }
+        const inp = document.getElementById('mov_buscar_concepto');
+        const txt = document.getElementById('mov_concepto_texto');
+        const cid = idConceptoDesdeTexto((inp && inp.value) || '') || idConceptoDesdeTexto((txt && txt.textContent) || '');
+        if (cid && hid) {
+            hid.value = cid;
+            if (txt && !(txt.textContent || '').trim() && inp && inp.value) {
+                txt.textContent = String(inp.value).trim();
+            }
+            const box = document.getElementById('mov_concepto_seleccionado');
+            if (box) box.classList.remove('d-none');
+        }
+        return cid;
+    }
+
     function seleccionarConceptoMov(c) {
         const hid = document.getElementById('mov_concepto_id');
         const box = document.getElementById('mov_concepto_seleccionado');
@@ -34,7 +58,7 @@
         if (hid) hid.value = c.id;
         if (txt) txt.textContent = etiquetaConcepto(c);
         if (box) box.classList.remove('d-none');
-        if (inp) inp.value = '';
+        if (inp) inp.value = etiquetaConcepto(c);
         ocultarDropdown();
     }
 
@@ -176,6 +200,10 @@
             inp.addEventListener('focus', function() { fetchConceptos(inp.value.trim()); });
             inp.addEventListener('keydown', manejarTecladoConcepto);
             inp.addEventListener('input', function() {
+                const hid = document.getElementById('mov_concepto_id');
+                const box = document.getElementById('mov_concepto_seleccionado');
+                if (hid) hid.value = '';
+                if (box) box.classList.add('d-none');
                 clearTimeout(debounceTimer);
                 debounceTimer = setTimeout(function() {
                     fetchConceptos(inp.value.trim());
@@ -207,13 +235,14 @@
         const form = document.getElementById('formAgregarGasto');
         if (form) {
             form.addEventListener('submit', function(e) {
-                if (!(document.getElementById('mov_concepto_id') || {}).value) {
+                if (!asegurarConceptoIdDesdeUI()) {
                     e.preventDefault();
                     e.stopImmediatePropagation();
-                    alert('Seleccioná un concepto del catálogo de caja.');
+                    alert('Seleccioná un concepto del catálogo (número o nombre) y confirmalo de la lista.');
                 }
             }, true);
         }
+        window.asegurarConceptoIdMovimiento = asegurarConceptoIdDesdeUI;
     });
 
     window.limpiarConceptoMovimientoModal = limpiarConceptoMov;

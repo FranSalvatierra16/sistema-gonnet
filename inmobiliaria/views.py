@@ -31496,6 +31496,15 @@ def _parse_campos_movimiento_gasto(post):
 def _concepto_gasto_desde_post(post, sucursal):
     cid = (post.get('concepto_id') or '').strip()
     if not cid:
+        # Si eligieron de la lista visual pero no confirmó el hidden, tomar el nº del texto.
+        raw = (
+            (post.get('concepto_texto') or '')
+            or (post.get('mov_buscar_concepto') or '')
+        ).strip()
+        m = re.match(r'^(\d+)', raw)
+        if m:
+            cid = m.group(1)
+    if not cid:
         return None, None, 'Debe seleccionar un concepto del catálogo de caja.'
     concepto = Concepto.objects.filter(
         id=cid,

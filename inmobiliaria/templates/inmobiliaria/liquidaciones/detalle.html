@@ -712,6 +712,9 @@ document.addEventListener('DOMContentLoaded', function() {
             btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Guardando...';
         }
         const formData = new FormData(form);
+        if (typeof window.asegurarConceptoIdMovimiento === 'function') {
+            window.asegurarConceptoIdMovimiento();
+        }
         
         fetch('{% url "inmobiliaria:agregar_gasto" liquidacion.id %}', {
             method: 'POST',
