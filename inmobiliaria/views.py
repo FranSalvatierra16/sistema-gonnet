@@ -18903,6 +18903,16 @@ def crear_contrato_alquiler(request):
 
     return render(request, 'inmobiliaria/contratos/crear.html')
 
+def _contrato_permite_cobros_posteriores(contrato):
+    """Cobros de cuotas, servicios o gastos pendientes: también en rescindido/finalizado."""
+    return (getattr(contrato, 'estado', None) or '') in (
+        'activo',
+        'reservado',
+        'rescindido',
+        'finalizado',
+    )
+
+
 def _activar_contrato_si_hay_cuotas_pagadas(contrato):
     """Si el contrato sigue reservado pero ya hay cuotas cobradas, lo marca activo."""
     if contrato.estado != 'reservado':
@@ -18922,18 +18932,25 @@ def lista_contratos(request):
     from .models import ContratoAlquiler, CuotaMensual
     from datetime import datetime
 
-    # Query base: por defecto solo activos y reservados; con mostrar_eliminados=1 se incluyen finalizados y rescindidos
+    # Query base: activos/reservados; rescindidos/finalizados con cuotas pendientes
+    # (para seguir cobrando servicios/gastos). mostrar_eliminados=1 o búsqueda: todos.
     mostrar_eliminados = request.GET.get('mostrar_eliminados') == '1'
     contratos = ContratoAlquiler.objects.filter(
         sucursal=request.user.sucursal
     ).select_related('propiedad', 'propiedad__propietario', 'inquilino', 'vendedor')
-    if not mostrar_eliminados:
-        contratos = contratos.filter(estado__in=['activo', 'reservado'])
 
     # Aplicar filtros
     estado_cuota = request.GET.get('estado_cuota')
     mes_vencimiento = request.GET.get('mes_vencimiento')
     busqueda = request.GET.get('q')
+    if not mostrar_eliminados and not (busqueda or '').strip():
+        contratos = contratos.filter(
+            Q(estado__in=['activo', 'reservado'])
+            | Q(
+                estado__in=['finalizado', 'rescindido'],
+                cuotas__estado__in=['pendiente', 'vencida'],
+            )
+        ).distinct()
 
     # Determinar el mes de filtro (actual o seleccionado)
     mes_filtro = None
@@ -19354,8 +19371,14 @@ def estado_cobros_contratos(request):
         .select_related('propiedad', 'propiedad__propietario', 'inquilino')
         .order_by('-fecha_creacion')
     )
-    if not mostrar_finalizados:
-        contratos_qs = contratos_qs.filter(estado__in=['activo', 'reservado'])
+    if not mostrar_finalizados and not busqueda:
+        contratos_qs = contratos_qs.filter(
+            Q(estado__in=['activo', 'reservado'])
+            | Q(
+                estado__in=['finalizado', 'rescindido'],
+                cuotas__estado__in=['pendiente', 'vencida'],
+            )
+        ).distinct()
 
     if busqueda:
         q_buscar = (
@@ -19489,7 +19512,7 @@ def estado_cobros_cuotas_impagas(request, contrato_id):
             'monto_total', 'credito_aplicado', 'monto_base',
         )
     )
-    puede_cobrar = contrato.estado in ('activo', 'reservado')
+    puede_cobrar = _contrato_permite_cobros_posteriores(contrato)
     moneda = contrato.moneda or 'ARS'
     rows = []
     for c in cuotas:
@@ -19654,6 +19677,20 @@ def detalle_contrato(request, contrato_id):
         and ultima_cuota.estado not in ('pagada', 'pagada_con_mora')
         and contrato.estado in ('activo', 'reservado')
     )
+    puede_cobrar_pendientes = _contrato_permite_cobros_posteriores(contrato)
+    cuota_cobrar_sugerida = next(
+        (c for c in cuotas_list if c.estado in ('pendiente', 'vencida')),
+        None,
+    )
+    if cuota_cobrar_sugerida is None:
+        cuota_cobrar_sugerida = next(
+            (
+                c
+                for c in reversed(cuotas_list)
+                if c.estado in ('pagada', 'pagada_con_mora')
+            ),
+            None,
+        )
 
     context = {
         'contrato': contrato,
@@ -19675,6 +19712,8 @@ def detalle_contrato(request, contrato_id):
         'movimientos_recibo_contrato': movimientos_recibo_contrato,
         'puede_agregar_cuota': puede_agregar_cuota,
         'puede_eliminar_ultima_cuota': puede_eliminar_ultima_cuota,
+        'puede_cobrar_pendientes': puede_cobrar_pendientes,
+        'cuota_cobrar_sugerida': cuota_cobrar_sugerida,
         'ultima_cuota': ultima_cuota,
         'cuotas_agregar_list': [
             {
@@ -22711,10 +22750,12 @@ def procesar_operacion_contrato(request, contrato_id):
 
             if es_primera_operacion_principal:
                 contrato.operacion_principal = True
-                contrato.estado = 'activo'
+                reactivar_por_cobro = contrato.estado in ('activo', 'reservado')
+                if reactivar_por_cobro:
+                    contrato.estado = 'activo'
                 contrato.save()
 
-                if contrato.duracion_meses == 9:
+                if reactivar_por_cobro and contrato.duracion_meses == 9:
                     info_invierno, _ = AlquilerInvierno.objects.get_or_create(
                         propiedad=contrato.propiedad,
                         defaults={'disponible': True, 'estado': 'disponible'},
@@ -22727,7 +22768,7 @@ def procesar_operacion_contrato(request, contrato_id):
                     from inmobiliaria.models.propiedad import desactivar_24_meses_si_invierno_ocupado
 
                     desactivar_24_meses_si_invierno_ocupado(contrato.propiedad)
-                else:
+                elif reactivar_por_cobro:
                     info_meses, _ = AlquilerMeses.objects.get_or_create(
                         propiedad=contrato.propiedad,
                         defaults={'disponible': True, 'estado': 'disponible'},
@@ -29849,7 +29890,6 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
     
     contratos_pendientes = ContratoAlquiler.objects.filter(
         propiedad=propiedad,
-        estado__in=['activo', 'reservado'],
         sucursal=sucursal,
     ).prefetch_related('cuotas').select_related('inquilino')
     

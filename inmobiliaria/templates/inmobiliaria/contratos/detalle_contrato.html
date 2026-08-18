@@ -26,6 +26,11 @@
                 <i class="fas fa-ban"></i> Rescindir contrato
             </button>
             {% endif %}
+            {% if puede_cobrar_pendientes and cuota_cobrar_sugerida %}
+            <a href="{% url 'inmobiliaria:crear_pago_cuota_operacion' cuota_cobrar_sugerida.id %}" class="btn btn-success" title="Cobrar cuota, servicios o gastos pendientes">
+                <i class="fas fa-cash-register"></i> Cobrar pendientes
+            </a>
+            {% endif %}
             {% if movimientos_recibo_contrato %}
             <div class="dropdown">
                 <button class="btn btn-outline-info dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Un recibo por cada cobro registrado en caja">
@@ -210,7 +215,17 @@
         </div>
     </div>
 
-    {% if not contrato.operacion_principal %}
+    {% if contrato.estado == 'rescindido' or contrato.estado == 'finalizado' %}
+    <div class="alert alert-warning shadow-sm border-warning mb-3">
+        <strong><i class="fas fa-info-circle"></i> Contrato {{ contrato.get_estado_display|lower }}.</strong>
+        Podés seguir cobrando alquileres, servicios o gastos que hayan quedado pendientes. El contrato no se reactiva.
+        {% if cuota_cobrar_sugerida %}
+        <a href="{% url 'inmobiliaria:crear_pago_cuota_operacion' cuota_cobrar_sugerida.id %}" class="alert-link ms-1">Cobrar ahora</a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if not contrato.operacion_principal and contrato.estado != 'rescindido' and contrato.estado != 'finalizado' %}
     <div class="row mb-3">
         <div class="col-12">
             {% if cargos_iniciales_pendientes %}

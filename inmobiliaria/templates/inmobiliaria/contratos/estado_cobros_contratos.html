@@ -113,7 +113,7 @@
                     <div class="form-check mb-0">
                         <input class="form-check-input" type="checkbox" name="mostrar_finalizados" id="mostrar_finalizados" value="1"
                                {% if mostrar_finalizados %}checked{% endif %} onchange="this.form.submit()">
-                        <label class="form-check-label" for="mostrar_finalizados">Incluir finalizados</label>
+                        <label class="form-check-label" for="mostrar_finalizados">Incluir finalizados/rescindidos</label>
                     </div>
                 </div>
                 <div class="col-md-1">
@@ -362,13 +362,17 @@
                                         <i class="fas fa-eye"></i> Ver
                                     </a>
                                     {% if contrato.proxima_cuota %}
-                                        {% if contrato.estado == 'activo' or contrato.estado == 'reservado' %}
                                     <a href="{% url 'inmobiliaria:crear_pago_cuota_operacion' contrato.proxima_cuota.id %}"
                                        class="btn btn-sm btn-success text-nowrap"
                                        title="Cobrar cuota {{ contrato.proxima_cuota.numero_cuota }} (vence {{ contrato.proxima_cuota.fecha_vencimiento|date:'d/m/Y' }})">
                                         <i class="fas fa-calendar-check"></i> Pagar mes
                                     </a>
-                                        {% endif %}
+                                    {% elif contrato.estado == 'rescindido' or contrato.estado == 'finalizado' %}
+                                    <a href="{% url 'inmobiliaria:detalle_contrato' contrato.id %}"
+                                       class="btn btn-sm btn-outline-success text-nowrap"
+                                       title="Cobrar servicios o gastos pendientes">
+                                        <i class="fas fa-plus-circle"></i> Servicios
+                                    </a>
                                     {% endif %}
                                 </div>
                             </td>

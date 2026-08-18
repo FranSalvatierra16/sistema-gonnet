@@ -277,15 +277,17 @@
                                         <a href="{% url 'inmobiliaria:crear_operacion_contrato' contrato.id %}?tipo=principal" class="btn btn-sm btn-warning text-nowrap" title="Operación principal o completar cobros del alta (depósito, honorarios, sellados, etc.)">
                                             <i class="fas fa-cash-register"></i> Completar pago
                                         </a>
+                                        {% endif %}
                                         {% if contrato.proxima_cuota %}
-                                            <a href="{% url 'inmobiliaria:crear_pago_cuota_operacion' contrato.proxima_cuota.id %}" class="btn btn-sm btn-success text-nowrap" title="Cobrar la próxima cuota pendiente ({{ contrato.proxima_cuota.numero_cuota }}/{{ contrato.duracion_meses }}, vence {{ contrato.proxima_cuota.fecha_vencimiento|date:'d/m/Y' }}). En Ver podés cobrar cualquier mes.">
+                                            <a href="{% url 'inmobiliaria:crear_pago_cuota_operacion' contrato.proxima_cuota.id %}" class="btn btn-sm btn-success text-nowrap" title="Cobrar la próxima cuota pendiente ({{ contrato.proxima_cuota.numero_cuota }}/{{ contrato.duracion_meses }}, vence {{ contrato.proxima_cuota.fecha_vencimiento|date:'d/m/Y' }}). En Ver podés cobrar cualquier mes, servicios o gastos pendientes.">
                                                 <i class="fas fa-calendar-check"></i> Pagar mes
                                             </a>
-                                        {% else %}
+                                        {% elif contrato.estado == 'activo' or contrato.estado == 'reservado' %}
                                             <span class="badge bg-secondary w-100 text-wrap small">Cuotas al día</span>
-                                        {% endif %}
-                                        {% elif contrato.estado == 'rescindido' %}
-                                            <span class="badge bg-danger">Rescindido</span>
+                                        {% elif contrato.estado == 'rescindido' or contrato.estado == 'finalizado' %}
+                                            <a href="{% url 'inmobiliaria:detalle_contrato' contrato.id %}" class="btn btn-sm btn-outline-success text-nowrap" title="Cobrar servicios o gastos que hayan quedado pendientes">
+                                                <i class="fas fa-plus-circle"></i> Servicios
+                                            </a>
                                         {% endif %}
                                     </div>
                                 </td>
