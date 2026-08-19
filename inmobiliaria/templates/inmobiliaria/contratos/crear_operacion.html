@@ -11,6 +11,8 @@
         Operación Principal - Contrato #{{ contrato.id }}
     {% elif tipo_operacion == 'cargos_iniciales' %}
         Honorarios y sellados - Contrato #{{ contrato.id }}
+    {% elif tipo_operacion == 'cuota_especifica' and modo_solo_servicios %}
+        Cobro de servicios cuota {{ cuota_pago.numero_cuota }}/{{ contrato.duracion_meses }} - Contrato #{{ contrato.id }}
     {% elif tipo_operacion == 'cuota_especifica' %}
         Cobro cuota {{ cuota_pago.numero_cuota }}/{{ contrato.duracion_meses }} - Contrato #{{ contrato.id }}
     {% else %}
@@ -33,6 +35,8 @@
                                     💵 Completar cobros del alta (mismo recibo operación principal)
                                 {% elif tipo_operacion == 'principal' %}
                                     🏠 Operación Principal - Depósito y Gastos
+                                {% elif tipo_operacion == 'cuota_especifica' and modo_solo_servicios %}
+                                    ⚡ Cobro de servicios — cuota {{ cuota_pago.numero_cuota }}/{{ contrato.duracion_meses }}
                                 {% elif tipo_operacion == 'cuota_especifica' %}
                                     💰 Cobro de cuota {{ cuota_pago.numero_cuota }}/{{ contrato.duracion_meses }}
                                 {% else %}
@@ -78,6 +82,8 @@
                                     El recibo queda vinculado a la <strong>cuota {{ cuota_pago.numero_cuota }}</strong> de este mes.
                                     {% if modo_cobro_extra_cuota_pagada %}
                                     Agregá los conceptos que quieras (servicios, expensas, etc.). <strong>No uses 1000 ni 29</strong> porque el alquiler ya está pagado.
+                                    {% elif modo_solo_servicios %}
+                                    El alquiler <strong>no se precarga</strong>. Agregá servicios, expensas u otros conceptos. Si más adelante querés incluir el alquiler, usá <strong>1000</strong> o <strong>29</strong>.
                                     {% else %}
                                     Podés cobrar <strong>solo servicios u otros conceptos</strong> (sin 1000/29), sumar alquiler con <strong>1000</strong> o <strong>29</strong>, o mezclar ambos.
                                     Si quitás el 1000 precargado, la cuota de alquiler no se marca pagada; el recibo igual figura en este mes.
@@ -194,7 +200,11 @@
                         </p>
                         {% elif tipo_operacion == 'cuota_especifica' %}
                         <p class="text-muted small mb-2">
+                            {% if modo_solo_servicios %}
+                            Agregá <strong>servicios u otros conceptos</strong> con «+ Agregar Concepto». El alquiler no viene precargado; si lo querés incluir, usá <strong>1000</strong> o <strong>29</strong>.
+                            {% else %}
                             Podés registrar <strong>solo servicios u otros conceptos</strong> del mes (sin 1000/29), o incluir el alquiler con concepto <strong>1000</strong> o <strong>29</strong>.
+                            {% endif %}
                             También podés sumar <strong>honorarios (25)</strong> o <strong>sellados (26)</strong>. El total debe coincidir con los medios de pago.
                         </p>
                         {% elif tipo_operacion == 'cargos_iniciales' %}

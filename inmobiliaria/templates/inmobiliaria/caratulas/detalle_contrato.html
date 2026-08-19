@@ -112,6 +112,9 @@
                                         </a>
                                         {% endif %}
                                         {% if c.estado == 'pagada' or c.estado == 'pagada_con_mora' %}
+                                            <a href="{% url 'inmobiliaria:crear_pago_cuota_operacion' c.id %}?solo_servicios=1" class="btn btn-sm btn-outline-success me-1" title="Cobrar servicios u otros conceptos de este mes (sin marcar de nuevo el alquiler)">
+                                                <i class="fas fa-bolt me-1"></i>Cobro de servicios
+                                            </a>
                                             {% if c.recibos_cobro %}
                                                 {% if c.recibos_cobro|length == 1 %}
                                                 <a href="{% url_recibo_movimiento c.recibos_cobro.0 %}" class="btn btn-sm btn-outline-info" target="_blank" rel="noopener" title="Ver recibo del cobro">
@@ -140,12 +143,15 @@
                                             {% endif %}
                                         {% elif c.estado == 'pendiente' or c.estado == 'vencida' or c.tiene_adelanto_abonado %}
                                             {% if c.monto_base == 0 %}
-                                            <span class="text-muted small">Sin precio</span>
+                                            <span class="text-muted small me-1">Sin precio</span>
                                             {% else %}
-                                            <a href="{% url 'inmobiliaria:crear_pago_cuota_operacion' c.id %}" class="btn btn-sm btn-success" title="Cobrar esta cuota">
+                                            <a href="{% url 'inmobiliaria:crear_pago_cuota_operacion' c.id %}" class="btn btn-sm btn-success me-1" title="Cobrar esta cuota">
                                                 <i class="fas fa-cash-register me-1"></i>Ir a cobrar
                                             </a>
                                             {% endif %}
+                                            <a href="{% url 'inmobiliaria:crear_pago_cuota_operacion' c.id %}?solo_servicios=1" class="btn btn-sm btn-outline-success" title="Cobrar servicios u otros conceptos de este mes, sin el alquiler">
+                                                <i class="fas fa-bolt me-1"></i>Cobro de servicios
+                                            </a>
                                         {% else %}
                                         <span class="text-muted small">—</span>
                                         {% endif %}

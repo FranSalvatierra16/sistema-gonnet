@@ -23035,6 +23035,12 @@ def crear_pago_cuota_operacion(request, cuota_id):
     contrato = cuota.contrato
 
     modo_cobro_extra = cuota.estado in ('pagada', 'pagada_con_mora')
+    modo_solo_servicios = (request.GET.get('solo_servicios') or '').strip().lower() in (
+        '1',
+        'true',
+        'si',
+        'sí',
+    )
     if not modo_cobro_extra and cuota.estado not in ('pendiente', 'vencida'):
         messages.error(request, 'Esta cuota no admite cobro en este estado.')
         return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
@@ -23095,9 +23101,14 @@ def crear_pago_cuota_operacion(request, cuota_id):
         'fecha_inicio': contrato.fecha_inicio.isoformat() if getattr(contrato, 'fecha_inicio', None) else None,
         'modo_pago_cuota_especifica': True,
         'modo_cobro_extra_cuota_pagada': modo_cobro_extra,
+        'modo_solo_servicios': modo_solo_servicios,
         'cuota_id': cuota.id,
         'numero_cuota': cuota.numero_cuota,
-        'default_importe_cuota': float(cuota.saldo_para_cobro()) if not modo_cobro_extra else 0.0,
+        'default_importe_cuota': (
+            0.0
+            if (modo_cobro_extra or modo_solo_servicios)
+            else float(cuota.saldo_para_cobro())
+        ),
         'default_concepto_cuota_nombre': default_nombre_concepto_cuota,
         'cuota_monto_nominal': float(cuota.monto_total or 0),
         'cuota_saldo_cobro': float(cuota.saldo_para_cobro()),
@@ -23124,6 +23135,7 @@ def crear_pago_cuota_operacion(request, cuota_id):
         'tipo_operacion': 'cuota_especifica',
         'modo_pago_cuota_especifica': True,
         'modo_cobro_extra_cuota_pagada': modo_cobro_extra,
+        'modo_solo_servicios': modo_solo_servicios,
         'detalle_contrato_url': reverse('inmobiliaria:detalle_contrato', args=[contrato.id]),
         'caja': caja,
         'conceptos': conceptos_qs,

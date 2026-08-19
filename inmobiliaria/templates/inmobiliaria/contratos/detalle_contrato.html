@@ -453,7 +453,7 @@
                                     {% if cuota.monto_base == 0 and cuota.estado != 'pagada' and cuota.estado != 'pagada_con_mora' %}
                                     <span class="text-muted small"><i class="fas fa-info-circle"></i> Definí el precio arriba para cobrar</span>
                                     {% else %}
-                                    <a href="{% url 'inmobiliaria:crear_pago_cuota_operacion' cuota.id %}" class="btn btn-sm btn-outline-success" title="Cobrar servicios u otros conceptos de este mes">
+                                    <a href="{% url 'inmobiliaria:crear_pago_cuota_operacion' cuota.id %}?solo_servicios=1" class="btn btn-sm btn-outline-success" title="Cobrar servicios u otros conceptos de este mes">
                                         <i class="fas fa-plus-circle"></i> Servicios
                                     </a>
                                     <a href="{% url 'inmobiliaria:crear_pago_cuota_operacion' cuota.id %}" class="btn btn-sm btn-success ms-1" title="Conceptos, importes editables y medios de pago">
@@ -478,7 +478,7 @@
                                     </div>
                                     {% endif %}
                                 {% elif cuota.estado == 'pagada' or cuota.estado == 'pagada_con_mora' %}
-                                    <a href="{% url 'inmobiliaria:crear_pago_cuota_operacion' cuota.id %}" class="btn btn-sm btn-outline-success" title="Cobrar servicios u otros conceptos de este mes (sin marcar de nuevo el alquiler)">
+                                    <a href="{% url 'inmobiliaria:crear_pago_cuota_operacion' cuota.id %}?solo_servicios=1" class="btn btn-sm btn-outline-success" title="Cobrar servicios u otros conceptos de este mes (sin marcar de nuevo el alquiler)">
                                         <i class="fas fa-plus-circle"></i> Servicios
                                     </a>
                                     {% if cuota.recibos_cobro %}
