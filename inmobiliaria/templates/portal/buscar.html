@@ -560,7 +560,14 @@
             <div class="results-split">
             <div class="cards">
                 {% for r in resultados %}
-                <a class="card" id="card-{{ r.propiedad.id }}" data-ficha="{{ r.propiedad.id }}" href="{% url 'inmobiliaria:portal_ficha' r.propiedad.id %}?operacion={{ form_operacion }}{% if form_desde %}&desde={{ form_desde }}{% endif %}{% if form_hasta %}&hasta={{ form_hasta }}{% endif %}">
+                <a class="card" id="card-{{ r.propiedad.id }}" data-ficha="{{ r.propiedad.id }}"
+                   data-titulo="{{ r.titulo }}"
+                   data-ubicacion="{{ r.ubicacion }}"
+                   data-direccion="{{ r.propiedad.direccion }}"
+                   data-precio="{% if r.precio_total %}$ {{ r.precio_total|format_price }}{{ r.precio_label }}{% else %}Consultar{% endif %}"
+                   {% if r.fotos %}data-foto="{{ r.fotos.0.imagen.url }}"{% endif %}
+                   {% if r.propiedad.latitud and r.propiedad.longitud %}data-lat="{{ r.propiedad.latitud }}" data-lng="{{ r.propiedad.longitud }}"{% endif %}
+                   href="{% url 'inmobiliaria:portal_ficha' r.propiedad.id %}?operacion={{ form_operacion }}{% if form_desde %}&desde={{ form_desde }}{% endif %}{% if form_hasta %}&hasta={{ form_hasta }}{% endif %}">
                     <div class="gallery" data-gallery>
                         {% if r.fotos %}
                             {% for f in r.fotos %}
@@ -629,10 +636,7 @@
             {% if not error %}
             <aside class="map-panel" id="portal-map-panel">
                 <div class="map-hint">
-                    <strong>{{ markers_count|default:0 }}</strong> propiedades para ver en el mapa
-                    {% if total and markers_count < total %}
-                    · se van ubicando por dirección y zona
-                    {% endif %}
+                    <strong class="map-count">{{ total|default:0 }}</strong> propiedades de esta búsqueda en el mapa
                     <div class="map-search">
                         <input id="portal-zona" type="text" placeholder="Ir a una zona (ej. Playa Grande, La Perla)" autocomplete="off">
                     </div>
@@ -700,196 +704,7 @@
 </script>
 {{ markers|json_script:"portal-markers" }}
 {% if not error %}
-<script>
-(function () {
-  var MDP = { lat: -38.0055, lng: -57.5426 };
-  var markers = [];
-  try {
-    var el = document.getElementById('portal-markers');
-    if (el && el.textContent) markers = JSON.parse(el.textContent) || [];
-  } catch (e) { markers = []; }
-  var canvas = document.getElementById('portal-map');
-  if (!canvas) return;
-
-  function esc(s) {
-    return String(s || '').replace(/[&<>"']/g, function (c) {
-      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]);
-    });
-  }
-  function iwHtml(m) {
-    var img = m.foto ? '<img src="' + esc(m.foto) + '" alt="">' : '';
-    return '<div class="portal-iw">' + img +
-      '<strong>' + esc(m.titulo) + '</strong>' +
-      '<div style="font-size:0.78rem;color:#5d6b5c;margin:0.15rem 0">' + esc(m.ubicacion) + '</div>' +
-      '<div class="p">' + esc(m.precio) + '</div>' +
-      '<a href="' + esc(m.url) + '">Ver ficha →</a></div>';
-  }
-  function highlight(id) {
-    document.querySelectorAll('.card.is-map-active').forEach(function (c) { c.classList.remove('is-map-active'); });
-    var card = document.getElementById('card-' + id);
-    if (card) {
-      card.classList.add('is-map-active');
-      card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
-  }
-
-  window.initPortalMap = function () {
-    if (!window.google || !google.maps) return;
-    var map = new google.maps.Map(canvas, {
-      center: MDP,
-      zoom: 13,
-      mapTypeControl: false,
-      streetViewControl: false,
-      fullscreenControl: true,
-    });
-    var bounds = new google.maps.LatLngBounds();
-    var info = new google.maps.InfoWindow();
-    var placed = 0;
-    var hint = document.querySelector('#portal-map-panel .map-hint strong');
-
-    function hasPos(m) {
-      var lat = Number(m.lat);
-      var lng = Number(m.lng);
-      return Number.isFinite(lat) && Number.isFinite(lng) && (lat !== 0 || lng !== 0);
-    }
-    function addMarker(m, lat, lng) {
-      var pos = { lat: Number(lat), lng: Number(lng) };
-      var marker = new google.maps.Marker({
-        map: map,
-        position: pos,
-        title: m.titulo,
-      });
-      bounds.extend(pos);
-      placed += 1;
-      if (hint) hint.textContent = String(placed);
-      marker.addListener('click', function () {
-        info.setContent(iwHtml(m));
-        info.open({ map: map, anchor: marker });
-        highlight(m.id);
-      });
-      if (placed === 1 || placed % 8 === 0) map.fitBounds(bounds, 48);
-    }
-
-    var pendientes = [];
-    markers.forEach(function (m) {
-      if (hasPos(m)) addMarker(m, m.lat, m.lng);
-      else if (m.query) pendientes.push(m);
-    });
-    if (placed) map.fitBounds(bounds, 48);
-
-    if (pendientes.length && google.maps.Geocoder) {
-      var geocoder = new google.maps.Geocoder();
-      var cache = {};
-      var i = 0;
-      function next() {
-        if (i >= pendientes.length) {
-          if (placed) map.fitBounds(bounds, 48);
-          return;
-        }
-        var m = pendientes[i];
-        i += 1;
-        var q = m.query;
-        function done(lat, lng) {
-          if (lat != null && lng != null) addMarker(m, lat, lng);
-          setTimeout(next, 90);
-        }
-        if (cache[q]) {
-          done(cache[q].lat, cache[q].lng);
-          return;
-        }
-        geocoder.geocode({ address: q }, function (results, status) {
-          if (status === 'OVER_QUERY_LIMIT') {
-            i -= 1;
-            setTimeout(next, 500);
-            return;
-          }
-          if (status === 'OK' && results[0] && results[0].geometry) {
-            var loc = results[0].geometry.location;
-            cache[q] = { lat: loc.lat(), lng: loc.lng() };
-            done(cache[q].lat, cache[q].lng);
-          } else {
-            done(null, null);
-          }
-        });
-      }
-      next();
-    }
-
-    var zona = document.getElementById('portal-zona');
-    if (zona && google.maps.places) {
-      var ac = new google.maps.places.Autocomplete(zona, {
-        fields: ['geometry'],
-        componentRestrictions: { country: 'ar' },
-      });
-      ac.addListener('place_changed', function () {
-        var place = ac.getPlace();
-        if (!place || !place.geometry || !place.geometry.location) return;
-        map.panTo(place.geometry.location);
-        map.setZoom(15);
-      });
-    } else if (zona) {
-      zona.addEventListener('keydown', function (ev) {
-        if (ev.key !== 'Enter') return;
-        ev.preventDefault();
-        var q = (zona.value || '').trim();
-        if (!q) return;
-        var geocoderZ = new google.maps.Geocoder();
-        geocoderZ.geocode({ address: q + ', Mar del Plata, Argentina' }, function (results, status) {
-          if (status === 'OK' && results[0]) {
-            map.panTo(results[0].geometry.location);
-            map.setZoom(15);
-          }
-        });
-      });
-    }
-  };
-
-  function initLeaflet() {
-    if (!window.L) return;
-    var map = L.map(canvas).setView([MDP.lat, MDP.lng], 13);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap'
-    }).addTo(map);
-    var group = [];
-    markers.forEach(function (m) {
-      var lat = Number(m.lat);
-      var lng = Number(m.lng);
-      if (!Number.isFinite(lat) || !Number.isFinite(lng) || (lat === 0 && lng === 0)) return;
-      var mk = L.marker([lat, lng]).addTo(map);
-      mk.bindPopup(iwHtml(m));
-      mk.on('click', function () { highlight(m.id); });
-      group.push(mk);
-    });
-    if (group.length) {
-      var g = L.featureGroup(group);
-      map.fitBounds(g.getBounds().pad(0.18));
-    }
-    var zona = document.getElementById('portal-zona');
-    if (zona) {
-      zona.addEventListener('keydown', function (ev) {
-        if (ev.key !== 'Enter') return;
-        ev.preventDefault();
-        var q = (zona.value || '').trim();
-        if (!q) return;
-        fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(q + ', Mar del Plata, Argentina'), {
-          headers: { 'Accept-Language': 'es' }
-        }).then(function (r) { return r.json(); }).then(function (data) {
-          if (data && data[0]) {
-            map.setView([Number(data[0].lat), Number(data[0].lon)], 15);
-          }
-        }).catch(function () {});
-      });
-    }
-  }
-
-  window.initPortalLeaflet = initLeaflet;
-
-  {% if google_maps_api_key %}
-  if (window.google && google.maps) window.initPortalMap();
-  {% endif %}
-})();
-</script>
+<script src="{% url 'inmobiliaria:portal_mapa_js' %}"></script>
 {% if google_maps_api_key %}
 <script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&libraries=places&callback=initPortalMap" async defer></script>
 {% else %}

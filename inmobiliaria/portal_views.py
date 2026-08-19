@@ -93,6 +93,19 @@ def portal_hero(request):
     raise Http404('Hero no encontrado')
 
 
+@require_http_methods(['GET', 'HEAD'])
+def portal_mapa_js(request):
+    from pathlib import Path
+    from django.http import FileResponse, Http404
+
+    path = Path(__file__).resolve().parent / 'static' / 'portal' / 'mapa-busqueda.js'
+    if not path.is_file():
+        raise Http404('mapa-busqueda.js')
+    resp = FileResponse(path.open('rb'), content_type='application/javascript; charset=utf-8')
+    resp['Cache-Control'] = 'no-cache'
+    return resp
+
+
 def _resolver_operacion(request):
     if request.GET.get('operacion'):
         return normalizar_operacion(request.GET.get('operacion'))
