@@ -64,10 +64,10 @@
     background: #f7faf6;
     border-color: #d7e3d6;
 }
-.page { padding: 1.35rem 0 2.6rem; }
+.page { padding: 1.35rem 0 2.6rem; width: min(1400px, calc(100% - 2rem)); }
 .layout {
     display: grid;
-    grid-template-columns: 280px 1fr;
+    grid-template-columns: 260px minmax(0, 1fr);
     gap: 1.25rem;
     align-items: start;
 }
@@ -145,6 +145,65 @@
     margin-bottom: 1rem;
     flex-wrap: wrap;
 }
+.results-split {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 42%);
+    gap: 1rem;
+    align-items: start;
+}
+.map-panel {
+    position: sticky;
+    top: 148px;
+    background: #fff;
+    border: 1px solid var(--g-line);
+    border-radius: 18px;
+    overflow: hidden;
+    min-height: 420px;
+    height: calc(100vh - 180px);
+    isolation: isolate;
+}
+.map-panel .map-canvas {
+    width: 100%;
+    height: 100%;
+    min-height: 420px;
+}
+.map-panel .map-hint {
+    position: absolute;
+    z-index: 2;
+    left: 0.7rem;
+    right: 0.7rem;
+    top: 0.7rem;
+    background: rgba(255,255,255,0.94);
+    border-radius: 12px;
+    padding: 0.55rem 0.7rem;
+    font-size: 0.78rem;
+    color: var(--g-muted);
+    box-shadow: 0 8px 20px rgba(16,40,18,0.12);
+}
+.map-panel .map-hint strong { color: var(--g-green-dark); }
+.map-search {
+    display: flex;
+    gap: 0.4rem;
+    margin-top: 0.45rem;
+}
+.map-search input {
+    flex: 1;
+    border: 1px solid #d7e3d6;
+    border-radius: 10px;
+    padding: 0.4rem 0.55rem;
+    font: inherit;
+    font-size: 0.82rem;
+    background: #f7faf6;
+}
+.card.is-map-active {
+    outline: 2px solid var(--g-green);
+    box-shadow: 0 16px 36px rgba(47,107,44,0.16);
+}
+.gm-style .portal-iw { max-width: 240px; }
+.portal-iw img { width: 100%; height: 110px; object-fit: cover; border-radius: 10px; display: block; margin-bottom: 0.4rem; }
+.portal-iw strong { display: block; font-size: 0.9rem; margin-bottom: 0.15rem; }
+.portal-iw .p { color: var(--g-green-dark); font-weight: 800; }
+.portal-iw a { color: var(--g-green); font-weight: 700; font-size: 0.8rem; }
 .results-meta { margin: 0; color: var(--g-muted); font-size: 0.95rem; }
 .results-meta strong { color: var(--g-green-dark); font-size: 1.05rem; }
 .cards {
@@ -307,6 +366,13 @@
 @media (max-width: 1100px) {
     .cards { grid-template-columns: repeat(2, 1fr); }
     .quickbar form { grid-template-columns: 1fr 1fr 1fr; }
+    .results-split { grid-template-columns: 1fr; }
+    .map-panel {
+        position: relative;
+        top: auto;
+        height: 360px;
+        min-height: 320px;
+    }
 }
 @media (max-width: 900px) {
     .layout { grid-template-columns: 1fr; }
@@ -323,6 +389,12 @@
     .cards { grid-template-columns: 1fr; }
     .quickbar form { grid-template-columns: 1fr; }
 }
+{% endblock %}
+
+{% block extra_head %}
+{% if not google_maps_api_key %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+{% endif %}
 {% endblock %}
 
 {% block content %}
@@ -485,9 +557,10 @@
             </div>
             {% endif %}
 
+            <div class="results-split">
             <div class="cards">
                 {% for r in resultados %}
-                <a class="card" href="{% url 'inmobiliaria:portal_ficha' r.propiedad.id %}?operacion={{ form_operacion }}{% if form_desde %}&desde={{ form_desde }}{% endif %}{% if form_hasta %}&hasta={{ form_hasta }}{% endif %}">
+                <a class="card" id="card-{{ r.propiedad.id }}" data-ficha="{{ r.propiedad.id }}" href="{% url 'inmobiliaria:portal_ficha' r.propiedad.id %}?operacion={{ form_operacion }}{% if form_desde %}&desde={{ form_desde }}{% endif %}{% if form_hasta %}&hasta={{ form_hasta }}{% endif %}">
                     <div class="gallery" data-gallery>
                         {% if r.fotos %}
                             {% for f in r.fotos %}
@@ -553,6 +626,21 @@
                 {% endif %}
                 {% endfor %}
             </div>
+            {% if not error %}
+            <aside class="map-panel" id="portal-map-panel">
+                <div class="map-hint">
+                    <strong>{{ markers_count|default:0 }}</strong> propiedades en el mapa
+                    {% if total and markers_count < total %}
+                    · algunas fichas todavía no tienen coordenadas
+                    {% endif %}
+                    <div class="map-search">
+                        <input id="portal-zona" type="text" placeholder="Ir a una zona (ej. Playa Grande, La Perla)" autocomplete="off">
+                    </div>
+                </div>
+                <div class="map-canvas" id="portal-map"></div>
+            </aside>
+            {% endif %}
+            </div>
         </div>
     </div>
 </div>
@@ -610,4 +698,145 @@
   });
 })();
 </script>
+{{ markers|json_script:"portal-markers" }}
+{% if not error %}
+<script>
+(function () {
+  var MDP = { lat: -38.0055, lng: -57.5426 };
+  var markers = [];
+  try {
+    var el = document.getElementById('portal-markers');
+    if (el && el.textContent) markers = JSON.parse(el.textContent) || [];
+  } catch (e) { markers = []; }
+  var canvas = document.getElementById('portal-map');
+  if (!canvas) return;
+
+  function esc(s) {
+    return String(s || '').replace(/[&<>"']/g, function (c) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]);
+    });
+  }
+  function iwHtml(m) {
+    var img = m.foto ? '<img src="' + esc(m.foto) + '" alt="">' : '';
+    return '<div class="portal-iw">' + img +
+      '<strong>' + esc(m.titulo) + '</strong>' +
+      '<div style="font-size:0.78rem;color:#5d6b5c;margin:0.15rem 0">' + esc(m.ubicacion) + '</div>' +
+      '<div class="p">' + esc(m.precio) + '</div>' +
+      '<a href="' + esc(m.url) + '">Ver ficha →</a></div>';
+  }
+  function highlight(id) {
+    document.querySelectorAll('.card.is-map-active').forEach(function (c) { c.classList.remove('is-map-active'); });
+    var card = document.getElementById('card-' + id);
+    if (card) {
+      card.classList.add('is-map-active');
+      card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }
+
+  window.initPortalMap = function () {
+    if (!window.google || !google.maps) return;
+    var map = new google.maps.Map(canvas, {
+      center: MDP,
+      zoom: 13,
+      mapTypeControl: false,
+      streetViewControl: false,
+      fullscreenControl: true,
+    });
+    var bounds = new google.maps.LatLngBounds();
+    var info = new google.maps.InfoWindow();
+    markers.forEach(function (m) {
+      var pos = { lat: Number(m.lat), lng: Number(m.lng) };
+      if (!pos.lat || !pos.lng) return;
+      var marker = new google.maps.Marker({
+        map: map,
+        position: pos,
+        title: m.titulo,
+      });
+      bounds.extend(pos);
+      marker.addListener('click', function () {
+        info.setContent(iwHtml(m));
+        info.open({ map: map, anchor: marker });
+        highlight(m.id);
+      });
+    });
+    if (markers.length) map.fitBounds(bounds, 48);
+    var zona = document.getElementById('portal-zona');
+    if (zona && google.maps.places) {
+      var ac = new google.maps.places.Autocomplete(zona, {
+        fields: ['geometry'],
+        componentRestrictions: { country: 'ar' },
+      });
+      ac.addListener('place_changed', function () {
+        var place = ac.getPlace();
+        if (!place || !place.geometry || !place.geometry.location) return;
+        map.panTo(place.geometry.location);
+        map.setZoom(15);
+      });
+    } else if (zona) {
+      zona.addEventListener('keydown', function (ev) {
+        if (ev.key !== 'Enter') return;
+        ev.preventDefault();
+        var q = (zona.value || '').trim();
+        if (!q) return;
+        var geocoder = new google.maps.Geocoder();
+        geocoder.geocode({ address: q + ', Mar del Plata, Argentina' }, function (results, status) {
+          if (status === 'OK' && results[0]) {
+            map.panTo(results[0].geometry.location);
+            map.setZoom(15);
+          }
+        });
+      });
+    }
+  };
+
+  function initLeaflet() {
+    if (!window.L) return;
+    var map = L.map(canvas).setView([MDP.lat, MDP.lng], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+    var group = [];
+    markers.forEach(function (m) {
+      if (!m.lat || !m.lng) return;
+      var mk = L.marker([m.lat, m.lng]).addTo(map);
+      mk.bindPopup(iwHtml(m));
+      mk.on('click', function () { highlight(m.id); });
+      group.push(mk);
+    });
+    if (group.length) {
+      var g = L.featureGroup(group);
+      map.fitBounds(g.getBounds().pad(0.18));
+    }
+    var zona = document.getElementById('portal-zona');
+    if (zona) {
+      zona.addEventListener('keydown', function (ev) {
+        if (ev.key !== 'Enter') return;
+        ev.preventDefault();
+        var q = (zona.value || '').trim();
+        if (!q) return;
+        fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(q + ', Mar del Plata, Argentina'), {
+          headers: { 'Accept-Language': 'es' }
+        }).then(function (r) { return r.json(); }).then(function (data) {
+          if (data && data[0]) {
+            map.setView([Number(data[0].lat), Number(data[0].lon)], 15);
+          }
+        }).catch(function () {});
+      });
+    }
+  }
+
+  window.initPortalLeaflet = initLeaflet;
+
+  {% if google_maps_api_key %}
+  if (window.google && google.maps) window.initPortalMap();
+  {% endif %}
+})();
+</script>
+{% if google_maps_api_key %}
+<script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&libraries=places&callback=initPortalMap" async defer></script>
+{% else %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="" onload="window.initPortalLeaflet && window.initPortalLeaflet()"></script>
+{% endif %}
+{% endif %}
 {% endblock %}

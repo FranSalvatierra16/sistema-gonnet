@@ -127,6 +127,23 @@
                         {{ form.ubicacion.errors }}
                     </div>
                 </div>
+                {% if 'latitud' in form.fields %}
+                <div class="row g-4 mt-2">
+                    <div class="col-md-4">
+                        <label for="id_latitud" class="form-label">
+                            <i class="fas fa-globe me-1"></i>Latitud (mapa web)
+                        </label>
+                        {{ form.latitud }}
+                        <small class="text-muted">Si lo dejás vacío, se calcula al guardar con la dirección.</small>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="id_longitud" class="form-label">
+                            <i class="fas fa-globe me-1"></i>Longitud (mapa web)
+                        </label>
+                        {{ form.longitud }}
+                    </div>
+                </div>
+                {% endif %}
 
                 <div class="row g-4 mt-3">
                     <div class="col-md-4">

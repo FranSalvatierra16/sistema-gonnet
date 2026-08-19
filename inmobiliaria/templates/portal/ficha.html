@@ -57,6 +57,12 @@
                 <p>{{ propiedad.descripcion|linebreaksbr }}</p>
             </div>
             {% endif %}
+            {% if mapa_lat and mapa_lng %}
+            <div class="desc">
+                <h2 style="color:var(--g-green);font-size:1.2rem">Ubicación</h2>
+                <div id="ficha-map" style="height:280px;border-radius:14px;overflow:hidden;border:1px solid var(--g-line)"></div>
+            </div>
+            {% endif %}
         </div>
         <aside class="side">
             <h1>{{ titulo }}</h1>
@@ -124,4 +130,32 @@
         </aside>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+{% if mapa_lat and mapa_lng %}
+{% if google_maps_api_key %}
+<script>
+function initFichaMap() {
+  var pos = { lat: {{ mapa_lat }}, lng: {{ mapa_lng }} };
+  var map = new google.maps.Map(document.getElementById('ficha-map'), {
+    center: pos, zoom: 15, mapTypeControl: false, streetViewControl: false
+  });
+  new google.maps.Marker({ map: map, position: pos });
+}
+</script>
+<script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&callback=initFichaMap" async defer></script>
+{% else %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script>
+(function () {
+  if (!window.L) return;
+  var map = L.map('ficha-map').setView([{{ mapa_lat }}, {{ mapa_lng }}], 15);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
+  L.marker([{{ mapa_lat }}, {{ mapa_lng }}]).addTo(map);
+})();
+</script>
+{% endif %}
+{% endif %}
 {% endblock %}

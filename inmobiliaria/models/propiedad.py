@@ -308,6 +308,22 @@ class Propiedad(models.Model):
         verbose_name="Destacada en web",
         help_text="Aparece en el carrusel de propiedades destacadas del portal público.",
     )
+    latitud = models.DecimalField(
+        max_digits=10,
+        decimal_places=7,
+        null=True,
+        blank=True,
+        verbose_name="Latitud",
+        help_text="Coordenada para el mapa del portal. Se completa sola a partir de la dirección.",
+    )
+    longitud = models.DecimalField(
+        max_digits=10,
+        decimal_places=7,
+        null=True,
+        blank=True,
+        verbose_name="Longitud",
+        help_text="Coordenada para el mapa del portal. Se completa sola a partir de la dirección.",
+    )
 
     objects = PropiedadManager()
     all_objects = models.Manager()

@@ -255,6 +255,9 @@ if not DEBUG and 'AWS_ACCESS_KEY_ID' not in os.environ:
     WHITENOISE_ROOT = os.path.join(BASE_DIR, 'media')
 
 
+# Mapa del portal público (/web/buscar/). Maps JavaScript + Geocoding.
+GOOGLE_MAPS_API_KEY = os.environ.get('GOOGLE_MAPS_API_KEY', '').strip()
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 

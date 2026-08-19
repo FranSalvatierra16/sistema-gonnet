@@ -558,6 +558,7 @@ class PropiedadForm(forms.ModelForm):
             'baulera', 'lavadero', 'seguridad', 'vista_al_Mar', 'vista_panoramica', 'apto_credito', 'descripcion', 'anotaciones',
             'propietario', 'propietario_desde', 'fichado_por', 'tipo_fichaje', 'porcentaje_propietario', 'es_propiedad_oficina',
             'publicar_web', 'destacada_web',
+            'latitud', 'longitud',
         ]
         widgets = {
             'descripcion': forms.Textarea(attrs={'rows': 5, 'class': 'form-control', 'style': 'width: 100%;'}),
@@ -577,6 +578,8 @@ class PropiedadForm(forms.ModelForm):
             'tipo_fichaje': forms.Select(attrs={'class': 'form-control'}),
             'publicar_web': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'destacada_web': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'latitud': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.0000001', 'placeholder': 'Se completa sola'}),
+            'longitud': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.0000001', 'placeholder': 'Se completa sola'}),
             # 'precio_venta': forms.NumberInput(attrs={'step': 0.01, 'placeholder': 'Precio de venta'}),
             # 'precio_alquiler': forms.NumberInput(attrs={'step': 0.01, 'placeholder': 'Precio de alquiler'}),
             # 'precio_diario': forms.NumberInput(attrs={'step': 0.01, 'placeholder': 'Precio diario'}),
@@ -590,6 +593,10 @@ class PropiedadForm(forms.ModelForm):
             self.fields.pop('publicar_web', None)
             self.fields.pop('destacada_web', None)
         self._pk_inicial = str(self.instance.pk).strip() if self.instance.pk else ''
+        self._dir_prev = (
+            (getattr(self.instance, 'direccion', None) or '').strip(),
+            (getattr(self.instance, 'ubicacion', None) or '').strip(),
+        ) if self.instance.pk else None
         if 'id' in self.fields and self._pk_inicial:
             self.fields['id'].initial = self._pk_inicial
             self.fields['id'].disabled = True
@@ -789,6 +796,23 @@ class PropiedadForm(forms.ModelForm):
                         orden=ultimo_orden + nuevas_agregadas
                     )
                     nombres_existentes.add(nombre_archivo)
+            try:
+                from inmobiliaria.portal_geo import actualizar_coordenadas_propiedad
+                manual = (
+                    self.cleaned_data.get('latitud') is not None
+                    and self.cleaned_data.get('longitud') is not None
+                )
+                addr_changed = bool(
+                    self._dir_prev
+                    and (
+                        (propiedad.direccion or '').strip() != self._dir_prev[0]
+                        or (propiedad.ubicacion or '').strip() != self._dir_prev[1]
+                    )
+                )
+                if not manual:
+                    actualizar_coordenadas_propiedad(propiedad, force=addr_changed)
+            except Exception:
+                pass
         return propiedad
 class PrecioForm(forms.ModelForm):
     class Meta:

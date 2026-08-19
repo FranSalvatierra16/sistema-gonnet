@@ -14,6 +14,7 @@ from inmobiliaria.models import ImagenPropiedad, Propiedad
 from inmobiliaria.models.portal_web import ConsultaWeb
 from inmobiliaria.models.propiedad import TIPOS_INMUEBLES, TIPOS_VALORACION, TIPOS_VISTA
 from inmobiliaria.portal_logo_data import LOGO_DATA_URI
+from inmobiliaria.portal_geo import google_maps_api_key, markers_portal_resultados
 from inmobiliaria.portal_servicio import (
     OPERACION_LABELS,
     OPERACIONES_PORTAL,
@@ -193,6 +194,7 @@ def portal_buscar(request):
         )
 
     _enriquecer_resultados(resultados)
+    markers = markers_portal_resultados(resultados, request)
 
     return render(request, 'portal/buscar.html', _ctx_base(
         resultados=resultados,
@@ -211,6 +213,9 @@ def portal_buscar(request):
         fecha_desde=desde,
         fecha_hasta=hasta,
         total=len(resultados),
+        markers=markers,
+        markers_count=len(markers),
+        google_maps_api_key=google_maps_api_key(),
         tipos_inmueble=TIPOS_INMUEBLES,
         tipos_valoracion=TIPOS_VALORACION,
         tipos_vista=TIPOS_VISTA,
@@ -320,6 +325,9 @@ def portal_ficha(request, propiedad_id):
         disponible=disponible,
         precio_estimado=precio_estimado,
         precio_label=precio_label,
+        google_maps_api_key=google_maps_api_key(),
+        mapa_lat=float(prop.latitud) if prop.latitud is not None else None,
+        mapa_lng=float(prop.longitud) if prop.longitud is not None else None,
     ))
 
 
