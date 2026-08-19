@@ -120,6 +120,7 @@
                                class="form-control input-monto-ar monto-lote"
                                inputmode="numeric" autocomplete="off" value="" placeholder="0"
                                {% if not caja_abierta %}disabled{% endif %}>
+                        <small class="text-muted">Abajo elegí banco y fecha.</small>
                     </div>
                 </div>
 
@@ -173,13 +174,11 @@
     function toggleDetalles() {
         var ch = parseMonto((document.getElementById('monto_cheque') || {}).value);
         var tj = parseMonto((document.getElementById('monto_tarjeta') || {}).value);
-        var dp = parseMonto((document.getElementById('monto_deposito') || {}).value);
         var bCh = document.getElementById('bloque_detalle_cheque');
         var bTj = document.getElementById('bloque_detalle_tarjeta');
-        var bDp = document.getElementById('bloque_detalle_deposito');
         if (bCh) bCh.classList.toggle('d-none', ch <= 0);
         if (bTj) bTj.classList.toggle('d-none', tj <= 0);
-        if (bDp) bDp.classList.toggle('d-none', dp <= 0);
+        // Banco y fecha de transferencia quedan siempre visibles.
     }
     function recalc() {
         var total = 0;
