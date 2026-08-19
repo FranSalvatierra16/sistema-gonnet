@@ -7253,7 +7253,7 @@ def buscar_propietarios(request):
         "pagination": {"more": true}
     }
     """
-    term = request.GET.get("term", "").strip()
+    term = (request.GET.get("term") or request.GET.get("q") or "").strip()
     page = int(request.GET.get("page", 1) or 1)
     page_size = 20
     offset = (page - 1) * page_size
@@ -7266,7 +7266,6 @@ def buscar_propietarios(request):
 
     if term:
         from inmobiliaria.busqueda_persona import q_busqueda_persona, ordenar_queryset_persona_por_termino
-        term = term.strip()
         qs = ordenar_queryset_persona_por_termino(qs.filter(q_busqueda_persona(term)), term)
 
     total = qs.count()
@@ -7275,7 +7274,11 @@ def buscar_propietarios(request):
     results = [
         {
             "id": p.id,
-            "text": f"{p.apellido}, {p.nombre} – {p.dni}"
+            "text": f"{p.apellido}, {p.nombre} – {p.dni or ''}".strip(' –'),
+            "apellido": p.apellido or "",
+            "nombre": p.nombre or "",
+            "dni": p.dni or "",
+            "cuenta_bancaria": (getattr(p, "cuenta_bancaria", None) or "").strip(),
         }
         for p in propietarios
     ]
@@ -27686,14 +27689,22 @@ def lista_liquidaciones(request):
     # Filtros
     estado_filtro = request.GET.get('estado', '')
     propietario_id = request.GET.get('propietario', '')
+    propietario_q = (request.GET.get('propietario_q') or '').strip()
     busqueda = request.GET.get('busqueda', '')
     tipo_filtro = request.GET.get('tipo', '').strip()
 
     if estado_filtro:
         liquidaciones = liquidaciones.filter(estado=estado_filtro)
 
-    if propietario_id:
-        liquidaciones = liquidaciones.filter(propietario_id=propietario_id)
+    if propietario_id and str(propietario_id).isdigit():
+        liquidaciones = liquidaciones.filter(propietario_id=int(propietario_id))
+    elif propietario_q:
+        from inmobiliaria.busqueda_persona import q_busqueda_persona
+
+        q_prop = q_busqueda_persona(propietario_q, prefix='propietario__', incluir_id=False)
+        if propietario_q.isdigit():
+            q_prop |= Q(propietario_id=int(propietario_q))
+        liquidaciones = liquidaciones.filter(q_prop)
 
     if busqueda:
         liquidaciones = liquidaciones.filter(
@@ -27735,17 +27746,21 @@ def lista_liquidaciones(request):
     query_params = request.GET.copy()
     query_params.pop('page', None)
 
-    propietarios = Propietario.objects.filter(
-        sucursal=request.user.sucursal
-    ).order_by('apellido', 'nombre')
+    propietario_filtro = None
+    if str(propietario_id).isdigit():
+        propietario_filtro = Propietario.objects.filter(
+            pk=int(propietario_id),
+            sucursal=request.user.sucursal,
+        ).first()
 
     context = {
         'liquidaciones': page_obj,
         'estado_filtro': estado_filtro,
         'propietario_id': propietario_id,
+        'propietario_q': propietario_q,
+        'propietario_filtro': propietario_filtro,
         'busqueda': busqueda,
         'tipo_filtro': tipo_filtro,
-        'propietarios': propietarios,
         'total_pendiente': total_pendiente,
         'total_procesado': total_procesado,
         'lista_filtros_qs': query_params.urlencode(),
@@ -28313,12 +28328,6 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
         sucursal=request.user.sucursal
     ).select_related('propietario').order_by('direccion')
 
-    propietarios_busqueda = list(
-        Propietario.objects.filter(sucursal=request.user.sucursal)
-        .order_by('apellido', 'nombre')
-        .values('id', 'nombre', 'apellido', 'dni')
-    )
-
     cuotas_raw = (request.GET.get('cuotas') or '').strip()
     cuota_single = (request.GET.get('cuota') or '').strip()
     if cuotas_raw:
@@ -28332,7 +28341,6 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
         'reserva': reserva,
         'contrato': contrato,
         'propiedades': propiedades,
-        'propietarios_busqueda': propietarios_busqueda,
         'operacion_buscar_inicial': operacion_buscar_inicial,
         'cuota_liquidacion_inicial': cuotas_inicial[0] if len(cuotas_inicial) == 1 else '',
         'cuotas_liquidacion_inicial': cuotas_inicial,

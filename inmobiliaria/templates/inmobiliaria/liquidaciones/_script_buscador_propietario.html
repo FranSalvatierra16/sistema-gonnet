@@ -1,0 +1,177 @@
+<script>
+(function (w) {
+    if (w.initBuscadorPropietario) return;
+
+    function esc(s) {
+        return String(s || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    w.initBuscadorPropietario = function (opts) {
+        const input = typeof opts.input === 'string' ? document.getElementById(opts.input) : opts.input;
+        const dropdown = typeof opts.dropdown === 'string' ? document.getElementById(opts.dropdown) : opts.dropdown;
+        const hidden = opts.hidden
+            ? (typeof opts.hidden === 'string' ? document.getElementById(opts.hidden) : opts.hidden)
+            : null;
+        const url = opts.url;
+        const onSelect = opts.onSelect;
+        const minChars = opts.minChars == null ? 1 : opts.minChars;
+        if (!input || !dropdown || !url) return;
+
+        let timer = null;
+        let abortCtrl = null;
+        let items = [];
+        let activo = -1;
+        let seleccionadoLabel = (input.value || '').trim();
+
+        function ocultar() {
+            dropdown.classList.add('d-none');
+            dropdown.innerHTML = '';
+            items = [];
+            activo = -1;
+        }
+
+        function pintarActivo() {
+            const btns = dropdown.querySelectorAll('.propietario-item');
+            btns.forEach(function (el, i) {
+                el.classList.toggle('active', i === activo);
+                if (i === activo && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' });
+            });
+        }
+
+        function elegir(r) {
+            if (!r || r.id == null) return;
+            const label = r.text || ((r.apellido || '') + ', ' + (r.nombre || ''));
+            input.value = label;
+            seleccionadoLabel = label;
+            if (hidden) hidden.value = String(r.id);
+            ocultar();
+            if (typeof onSelect === 'function') onSelect(r);
+        }
+
+        function render(lista) {
+            items = lista || [];
+            activo = items.length ? 0 : -1;
+            if (!items.length) {
+                dropdown.innerHTML = '<div class="list-group-item text-muted">Sin resultados</div>';
+                dropdown.classList.remove('d-none');
+                return;
+            }
+            dropdown.innerHTML = items.map(function (r) {
+                const dni = (r.dni || '').toString().trim();
+                return (
+                    '<button type="button" class="list-group-item list-group-item-action propietario-item py-2" data-id="' +
+                    esc(r.id) + '">' +
+                    '<strong>' + esc(r.apellido || '') + ', ' + esc(r.nombre || '') + '</strong>' +
+                    (dni ? ' <span class="text-muted">DNI ' + esc(dni) + '</span>' : '') +
+                    ' <span class="text-muted small">#' + esc(r.id) + '</span>' +
+                    '</button>'
+                );
+            }).join('');
+            dropdown.classList.remove('d-none');
+            pintarActivo();
+        }
+
+        function buscar(q) {
+            const term = String(q || '').trim();
+            if (term.length < minChars) {
+                ocultar();
+                return;
+            }
+            if (abortCtrl && abortCtrl.abort) abortCtrl.abort();
+            abortCtrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+            const sep = url.indexOf('?') >= 0 ? '&' : '?';
+            fetch(url + sep + 'term=' + encodeURIComponent(term) + '&q=' + encodeURIComponent(term), {
+                credentials: 'same-origin',
+                signal: abortCtrl ? abortCtrl.signal : undefined,
+            })
+                .then(function (res) { return res.json(); })
+                .then(function (data) { render(data.results || []); })
+                .catch(function (err) {
+                    if (err && err.name === 'AbortError') return;
+                    dropdown.innerHTML = '<div class="list-group-item text-danger">No se pudo buscar</div>';
+                    dropdown.classList.remove('d-none');
+                });
+        }
+
+        input.addEventListener('input', function () {
+            const q = input.value.trim();
+            if (hidden && seleccionadoLabel && q !== seleccionadoLabel) {
+                hidden.value = '';
+                seleccionadoLabel = '';
+                if (typeof opts.onClear === 'function') opts.onClear();
+            }
+            clearTimeout(timer);
+            if (!q) {
+                ocultar();
+                return;
+            }
+            timer = setTimeout(function () { buscar(q); }, 180);
+        });
+
+        input.addEventListener('focus', function () {
+            const q = input.value.trim();
+            if (q && q !== seleccionadoLabel) buscar(q);
+            else if (q && items.length) dropdown.classList.remove('d-none');
+        });
+
+        input.addEventListener('keydown', function (e) {
+            const visible = !dropdown.classList.contains('d-none');
+            if (e.key === 'Escape') {
+                ocultar();
+                return;
+            }
+            if (e.key === 'Tab') {
+                ocultar();
+                return;
+            }
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                if (!visible) {
+                    if (input.value.trim()) buscar(input.value);
+                    e.preventDefault();
+                    return;
+                }
+                e.preventDefault();
+                if (!items.length) return;
+                if (e.key === 'ArrowDown') activo = Math.min(activo + 1, items.length - 1);
+                else activo = Math.max(activo - 1, 0);
+                pintarActivo();
+                return;
+            }
+            if (e.key === 'Enter') {
+                if (visible && items.length && activo >= 0) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    elegir(items[activo]);
+                }
+            }
+        });
+
+        dropdown.addEventListener('mousedown', function (e) {
+            const btn = e.target.closest('.propietario-item');
+            if (!btn) return;
+            e.preventDefault();
+            const id = btn.getAttribute('data-id');
+            const r = items.find(function (x) { return String(x.id) === String(id); });
+            if (r) elegir(r);
+        });
+
+        dropdown.addEventListener('mouseover', function (e) {
+            const btn = e.target.closest('.propietario-item');
+            if (!btn) return;
+            const btns = Array.prototype.slice.call(dropdown.querySelectorAll('.propietario-item'));
+            activo = btns.indexOf(btn);
+            pintarActivo();
+        });
+
+        document.addEventListener('mousedown', function (e) {
+            if (e.target === input || dropdown.contains(e.target) || (input.parentElement && input.parentElement.contains(e.target))) {
+                return;
+            }
+            ocultar();
+        });
+    };
+})(window);
+</script>

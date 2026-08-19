@@ -36,7 +36,7 @@
                     <h5 class="mb-0"><i class="fas fa-filter me-2"></i>Filtros de Búsqueda</h5>
                 </div>
                 <div class="card-body">
-                    <form method="GET" class="row g-3">
+                    <form method="GET" class="row g-3" id="form-filtros-liquidaciones">
                         <div class="col-md-3">
                             <label class="form-label">Estado</label>
                             <select name="estado" class="form-select">
@@ -59,16 +59,17 @@
                                 <option value="24meses" {% if tipo_filtro == '24meses' %}selected{% endif %}>24 meses</option>
                             </select>
                         </div>
-                        <div class="col-md-2">
-                            <label class="form-label">Propietario</label>
-                            <select name="propietario" class="form-select">
-                                <option value="">Todos</option>
-                                {% for propietario in propietarios %}
-                                <option value="{{ propietario.id }}" {% if propietario_id == propietario.id|stringformat:"s" %}selected{% endif %}>
-                                    {{ propietario.apellido }}, {{ propietario.nombre }}
-                                </option>
-                                {% endfor %}
-                            </select>
+                        <div class="col-md-3">
+                            <label class="form-label" for="propietario_buscar_lista">Propietario</label>
+                            <div class="position-relative">
+                                <input type="hidden" name="propietario" id="propietario_id_lista" value="{{ propietario_id }}">
+                                <input type="text" id="propietario_buscar_lista" class="form-control" autocomplete="off"
+                                       placeholder="Escribí apellido, nombre o DNI..."
+                                       value="{% if propietario_filtro %}{{ propietario_filtro.apellido }}, {{ propietario_filtro.nombre }}{% elif propietario_q %}{{ propietario_q }}{% endif %}">
+                                <div id="propietario_resultados_lista" class="list-group position-absolute w-100 shadow-sm d-none"
+                                     style="z-index: 40; max-height: 240px; overflow-y: auto;"></div>
+                            </div>
+                            <input type="hidden" name="propietario_q" id="propietario_q_lista" value="{{ propietario_q }}">
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Buscar</label>
@@ -250,7 +251,38 @@
 {% endblock %}
 
 {% block extra_js %}
+{% include 'inmobiliaria/liquidaciones/_script_buscador_propietario.html' %}
 <script>
+(function () {
+    var hid = document.getElementById('propietario_id_lista');
+    var inp = document.getElementById('propietario_buscar_lista');
+    var dd = document.getElementById('propietario_resultados_lista');
+    var qHid = document.getElementById('propietario_q_lista');
+    var formFiltro = document.getElementById('form-filtros-liquidaciones');
+    if (window.initBuscadorPropietario && inp && dd) {
+        window.initBuscadorPropietario({
+            input: inp,
+            dropdown: dd,
+            hidden: hid,
+            url: '{% url "inmobiliaria:buscar_propietarios" %}',
+            onSelect: function () {
+                if (qHid) qHid.value = '';
+            },
+            onClear: function () {
+                if (qHid) qHid.value = (inp.value || '').trim();
+            },
+        });
+    }
+    if (formFiltro && inp && hid && qHid) {
+        formFiltro.addEventListener('submit', function () {
+            if (hid.value) {
+                qHid.value = '';
+            } else {
+                qHid.value = (inp.value || '').trim();
+            }
+        });
+    }
+})();
 (function () {
     var form = document.getElementById('form-lote-liquidaciones');
     if (!form) return;

@@ -23,7 +23,6 @@
                         <input type="hidden" name="propietario_id" id="propietario_id" value="">
                         <input type="hidden" name="operacion_referencia_numero" id="operacion_referencia_numero" value="">
                         <input type="hidden" name="operacion_referencia_tipo" id="operacion_referencia_tipo" value="">
-                        {{ propietarios_busqueda|json_script:"propietarios-busqueda-data" }}
                         {{ cuotas_liquidacion_inicial|json_script:"cuotas-liquidacion-inicial-data" }}
                         
                         <div class="row mb-3">
@@ -80,7 +79,8 @@
                                 <label class="form-label">Buscar propietario</label>
                                 <div class="position-relative" id="propietario-buscador-wrap">
                                     <input type="text" id="propietario_buscar" class="form-control" autocomplete="off"
-                                           placeholder="Apellido, nombre o DNI...">
+                                           placeholder="Escribí apellido, nombre o DNI..."
+                                           style="padding-right: 2.4rem;">
                                     <button type="button" id="btn_limpiar_propietario"
                                             class="btn btn-sm btn-outline-secondary d-none"
                                             style="position:absolute; right:8px; top:50%; transform:translateY(-50%); z-index:31;"
@@ -90,7 +90,7 @@
                                     <div id="propietario_resultados" class="list-group position-absolute w-100 d-none"
                                          style="z-index: 30; max-height: 260px; overflow-y: auto;"></div>
                                 </div>
-                                <small class="form-text text-muted">Si tiene varias propiedades verás todas las operaciones y gastos; al tildar una operación se fija la propiedad de la liquidación.</small>
+                                <small class="form-text text-muted">Escribí y elegí de la lista (flechas y Enter). Si tiene varias propiedades, al tildar una operación se fija la propiedad.</small>
                                 <label class="form-label mt-3">Propietario</label>
                                 <input type="text" id="propietario_display" class="form-control" readonly tabindex="-1">
                                 <label class="form-label mt-2">Nº de cuenta del propietario</label>
@@ -339,6 +339,7 @@
     </div>
 </div>
 
+{% include 'inmobiliaria/liquidaciones/_script_buscador_propietario.html' %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const propiedadSelect = document.getElementById('propiedad_id');
@@ -367,16 +368,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const btnLimpiarPropietario = document.getElementById('btn_limpiar_propietario');
     const propietarioDisplay = document.getElementById('propietario_display');
     const cuentaPropietarioDisplay = document.getElementById('cuenta_propietario_display');
-    const propietariosBusquedaEl = document.getElementById('propietarios-busqueda-data');
     const filtroPropiedadPropietarioContainer = document.getElementById('filtro-propiedad-propietario-container');
     const filtroPropiedadPropietario = document.getElementById('filtro_propiedad_propietario');
-    bindTabSaltaAutocomplete(propietarioBuscar);
-    let PROPIETARIOS_DATA = [];
-    try {
-        PROPIETARIOS_DATA = propietariosBusquedaEl ? JSON.parse(propietariosBusquedaEl.textContent) : [];
-    } catch (e) {
-        PROPIETARIOS_DATA = [];
-    }
     let cargaPorPropietarioActiva = false;
     let opcionesCargaOperacionesExtra = null;
     window.monedaLiquidacion = '{{ moneda_inicial|default:"ARS" }}';
@@ -1722,59 +1715,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    function partesBusquedaPersona(query) {
-        return (query || '').toLowerCase().replace(/,/g, ' ').trim().split(/\s+/).filter(Boolean);
-    }
-
-    function coincidePropietarioBusqueda(p, query) {
-        const q = (query || '').toLowerCase().trim();
-        if (!q) return true;
-        const ap = (p.apellido || '').toLowerCase();
-        const no = (p.nombre || '').toLowerCase();
-        const dni = String(p.dni || '').toLowerCase();
-        const etiqueta = (ap && no) ? (ap + ', ' + no) : (ap + ' ' + no).trim();
-        const blob = [String(p.id), ap, no, dni, etiqueta, ap + ' ' + no].join(' ');
-        const qPlano = q.replace(/,/g, ' ').trim();
-        if (blob.includes(qPlano)) return true;
-        const partes = partesBusquedaPersona(q);
-        return partes.every(function(parte) {
-            return ap.includes(parte) || no.includes(parte) || dni.includes(parte);
-        });
-    }
-
-    function renderResultadosPropietario(query) {
-        const q = (query || '').trim();
-        if (!propietarioResultados) return;
-        if (!q) {
-            propietarioResultados.classList.add('d-none');
-            propietarioResultados.innerHTML = '';
-            return;
-        }
-
-        const opciones = (PROPIETARIOS_DATA || []).filter(function(p) {
-            return coincidePropietarioBusqueda(p, q);
-        }).slice(0, 30);
-
-        if (!opciones.length) {
-            propietarioResultados.innerHTML = '<div class="list-group-item text-muted">Sin resultados</div>';
-            propietarioResultados.classList.remove('d-none');
-            return;
-        }
-
-        propietarioResultados.innerHTML = opciones.map(function(p) {
-            const label = (p.apellido || '') + ', ' + (p.nombre || '');
-            const safeLabel = label.replace(/"/g, '&quot;');
-            return (
-                '<button type="button" class="list-group-item list-group-item-action propietario-item" ' +
-                'data-id="' + p.id + '" data-label="' + safeLabel + '">' +
-                '<strong>#' + p.id + '</strong> — ' + label +
-                (p.dni ? ' <span class="text-muted">DNI ' + p.dni + '</span>' : '') +
-                '</button>'
-            );
-        }).join('');
-        propietarioResultados.classList.remove('d-none');
-    }
-
     function limpiarPropietarioSeleccionado() {
         cargaPorPropietarioActiva = false;
         opcionesCargaOperacionesExtra = null;
@@ -1791,39 +1731,36 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    if (propietarioBuscar) {
-        propietarioBuscar.addEventListener('focus', function() {
-            if (this.value.trim()) {
-                renderResultadosPropietario(this.value);
-            }
-        });
-        propietarioBuscar.addEventListener('input', function() {
-            if (propiedadSelect.value) {
-                limpiarSoloCampoPropiedad();
-                cargaPorPropietarioActiva = false;
-                propietarioDisplay.value = '';
-                cuentaPropietarioDisplay.value = '';
-                cuentaPropietarioDisplay.placeholder = '—';
-                vaciarListasOperacionesYGastosUI();
-            }
-            btnLimpiarPropietario.classList.toggle('d-none', !this.value.trim());
-            renderResultadosPropietario(this.value);
+    function aplicarPropietarioElegido(r) {
+        const pid = r && r.id != null ? String(r.id) : '';
+        if (!pid) return;
+        if (btnLimpiarPropietario) btnLimpiarPropietario.classList.remove('d-none');
+        const label = ((r.apellido || '') + ', ' + (r.nombre || '')).replace(/^, |, $/g, '');
+        if (propietarioDisplay) propietarioDisplay.value = label || (r.text || '');
+        const cb = (r.cuenta_bancaria || '').trim();
+        if (cuentaPropietarioDisplay) {
+            cuentaPropietarioDisplay.value = cb;
+            cuentaPropietarioDisplay.placeholder = cb ? '' : '—';
+        }
+        setPropietarioIdHidden(pid);
+        clearOperacionReferencia();
+        desactivarModoSoloMovimientos();
+        cargarOperacionesPorPropietario(pid);
+    }
+
+    if (window.initBuscadorPropietario && propietarioBuscar && propietarioResultados) {
+        window.initBuscadorPropietario({
+            input: propietarioBuscar,
+            dropdown: propietarioResultados,
+            hidden: document.getElementById('propietario_id'),
+            url: '{% url "inmobiliaria:buscar_propietarios" %}',
+            onSelect: aplicarPropietarioElegido,
         });
     }
 
-    if (propietarioResultados) {
-        propietarioResultados.addEventListener('click', function(e) {
-            const btn = e.target.closest('.propietario-item');
-            if (!btn) return;
-            const pid = btn.getAttribute('data-id');
-            const label = btn.getAttribute('data-label') || '';
-            propietarioBuscar.value = label ? ('#' + pid + ' — ' + label) : ('#' + pid);
-            btnLimpiarPropietario.classList.remove('d-none');
-            propietarioResultados.classList.add('d-none');
-            setPropietarioIdHidden(pid);
-            clearOperacionReferencia();
-            desactivarModoSoloMovimientos();
-            cargarOperacionesPorPropietario(pid);
+    if (propietarioBuscar && btnLimpiarPropietario) {
+        propietarioBuscar.addEventListener('input', function () {
+            btnLimpiarPropietario.classList.toggle('d-none', !this.value.trim());
         });
     }
 
@@ -1838,12 +1775,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 seleccionarPropiedadPorId(propiedadId);
                 return;
             }
-            if (!cargaPorPropietarioActiva || !propietarioBuscar) return;
-            const txt = propietarioBuscar.value || '';
-            const match = txt.match(/^#(\d+)/);
-            if (match && match[1]) {
-                cargarOperacionesPorPropietario(match[1]);
-            }
+            if (!cargaPorPropietarioActiva) return;
+            const pid = (document.getElementById('propietario_id') || {}).value;
+            if (pid) cargarOperacionesPorPropietario(pid);
         });
     }
 
