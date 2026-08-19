@@ -71,7 +71,7 @@
             <tr{% if fila.excluir_totales %} class="liq-cobranzas-ref"{% endif %}>
                 <td class="col-detalle">
                     {{ fila.detalle }}{% if fila.excluir_totales %} <span class="small text-muted">(referencia)</span>{% endif %}
-                    {% if fila.es_alquiler and fila.fecha_entrada and fila.fecha_salida %}
+                    {% if fila.mostrar_estadia and fila.fecha_entrada and fila.fecha_salida %}
                     <div class="liq-cobranzas-alquiler-dias small">
                         Entrada: {{ fila.fecha_entrada|date:"d/m/Y" }}
                         — Salida: {{ fila.fecha_salida|date:"d/m/Y" }}

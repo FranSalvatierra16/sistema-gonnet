@@ -27743,6 +27743,11 @@ def lista_liquidaciones(request):
         liquidaciones_page = list(page_obj.object_list)
         enriquecer_info_operacion_liquidaciones(liquidaciones_page)
 
+    for liq in liquidaciones_page:
+        pd, ph = _periodo_liquidado_display(liq)
+        liq.periodo_desde_display = pd
+        liq.periodo_hasta_display = ph
+
     query_params = request.GET.copy()
     query_params.pop('page', None)
 
@@ -28246,6 +28251,24 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                                     f'pendiente de la operación #{rid} (${sal["pendiente"]}).'
                                 )
 
+                fd_liq = datetime.strptime(fecha_desde, '%Y-%m-%d').date() if fecha_desde else None
+                fh_liq = datetime.strptime(fecha_hasta, '%Y-%m-%d').date() if fecha_hasta else None
+                cuota_ids_periodo = []
+                for o in operaciones_incluidas:
+                    if not isinstance(o, dict) or o.get('tipo') != 'contrato_cuota':
+                        continue
+                    try:
+                        cuota_ids_periodo.append(int(o.get('id')))
+                    except (TypeError, ValueError):
+                        pass
+                if cuota_ids_periodo and (not fd_liq or not fh_liq or fd_liq == fh_liq):
+                    occ_d, occ_h = _periodo_fechas_desde_cuotas(
+                        CuotaMensual.objects.filter(id__in=cuota_ids_periodo).select_related('contrato')
+                    )
+                    if occ_d:
+                        fd_liq = occ_d
+                        fh_liq = occ_h or occ_d
+
                 liquidacion = LiquidacionPropietario.objects.create(
                     propietario=propiedad.propietario,
                     propiedad=propiedad,
@@ -28265,8 +28288,8 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                     monto_fondo_mantenimiento=monto_fondo_mantenimiento,
                     comision_locador=comision_locador,
                     comision_locatario=comision_locatario,
-                    fecha_desde=datetime.strptime(fecha_desde, '%Y-%m-%d').date() if fecha_desde else None,
-                    fecha_hasta=datetime.strptime(fecha_hasta, '%Y-%m-%d').date() if fecha_hasta else None,
+                    fecha_desde=fd_liq,
+                    fecha_hasta=fh_liq,
                     observaciones=observaciones,
                     operaciones_incluidas=operaciones_incluidas,
                     sucursal=request.user.sucursal,
@@ -30037,7 +30060,9 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
         def _fila_cuota_liquidable(cuota, monto_mes, *, parcial=False, anticipada=False):
             mp, mi = _monto_propietario_inmobiliaria_cuota_mensual(propiedad, monto_mes, contrato=contrato)
             fv = cuota.fecha_vencimiento
-            fv_s = fv.strftime('%Y-%m-%d') if fv else ''
+            occ_d, occ_h = _periodo_ocupacion_cuota_mensual(cuota)
+            fi_s = occ_d.strftime('%Y-%m-%d') if occ_d else (fv.strftime('%Y-%m-%d') if fv else '')
+            fh_s = occ_h.strftime('%Y-%m-%d') if occ_h else fi_s
             if parcial:
                 suf = ' (cobro parcial registrado)'
             elif anticipada:
@@ -30063,8 +30088,8 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
                 'descripcion': (
                     f'Contrato #{contrato.id} — Cuota {cuota.numero_cuota}/{contrato.duracion_meses} — {nombre_inq}{suf}'
                 ),
-                'fecha_inicio': fv_s,
-                'fecha_fin': fv_s,
+                'fecha_inicio': fi_s,
+                'fecha_fin': fh_s,
                 'monto_total': str(monto_mes),
                 'monto_pagado': '0' if anticipada else str(monto_mes),
                 'monto_propietario': str(mp),
@@ -30536,6 +30561,61 @@ def _periodo_mes_anio_liquidacion(fecha):
         return ''
 
 
+def _periodo_ocupacion_cuota_mensual(cuota):
+    """
+    Mes de locación que cubre la cuota (no el día de vencimiento).
+    Cuota N de un contrato que empieza el 1/3 → mes N (ej. cuota 7 = 1/9 al 30/9).
+    """
+    from calendar import monthrange
+
+    fv = getattr(cuota, 'fecha_vencimiento', None)
+    contrato = getattr(cuota, 'contrato', None)
+    fi = getattr(contrato, 'fecha_inicio', None) if contrato else None
+    n = int(getattr(cuota, 'numero_cuota', 0) or 0)
+    inicio = None
+    if fi and n >= 1:
+        ref = fi + relativedelta(months=n - 1)
+        try:
+            inicio = date(ref.year, ref.month, fi.day)
+        except ValueError:
+            inicio = date(ref.year, ref.month, monthrange(ref.year, ref.month)[1])
+    elif fv:
+        inicio = fv.replace(day=1)
+    if not inicio:
+        return None, None
+    fin = inicio + relativedelta(months=1) - timedelta(days=1)
+    ff = getattr(contrato, 'fecha_fin', None) if contrato else None
+    if ff and fin > ff:
+        fin = ff
+    if fi and inicio < fi:
+        inicio = fi
+    return inicio, fin
+
+
+def _periodo_fechas_desde_cuotas(cuotas):
+    inicios = []
+    fines = []
+    for cuota in cuotas or []:
+        a, b = _periodo_ocupacion_cuota_mensual(cuota)
+        if a:
+            inicios.append(a)
+        if b:
+            fines.append(b)
+    if not inicios:
+        return None, None
+    return min(inicios), max(fines) if fines else None
+
+
+def _periodo_liquidado_display(liquidacion):
+    """Período a mostrar: mes(es) de locación de las cuotas, no el vencimiento."""
+    cuotas = _cuotas_resueltas_liquidacion(liquidacion)
+    if cuotas:
+        d, h = _periodo_fechas_desde_cuotas(cuotas)
+        if d:
+            return d, h
+    return getattr(liquidacion, 'fecha_desde', None), getattr(liquidacion, 'fecha_hasta', None)
+
+
 def _periodo_detalle_alquiler_liquidacion(liquidacion):
     """
     Por día (reserva): «DEL 5 AL 11 DE JUNIO DE 2026».
@@ -30931,11 +31011,10 @@ def _filas_alquiler_desde_operaciones_incluidas(liquidacion, monto_prop_total):
         elif tipo == 'contrato_cuota':
             cq = CuotaMensual.objects.filter(
                 pk=oid, contrato__propiedad_id=liquidacion.propiedad_id
-            ).first()
+            ).select_related('contrato').first()
             if cq:
-                fecha_entrada = cq.fecha_vencimiento
-                fecha_salida = cq.fecha_vencimiento
-                periodo = _periodo_mes_anio_liquidacion(cq.fecha_vencimiento)
+                fecha_entrada, fecha_salida = _periodo_ocupacion_cuota_mensual(cq)
+                periodo = _periodo_mes_anio_liquidacion(fecha_entrada or cq.fecha_vencimiento)
                 nro = cq.numero_cuota or ''
                 detalle = (
                     f'CUOTA {nro} // {periodo}' if periodo else f'CUOTA {nro}'
@@ -30984,6 +31063,7 @@ def _filas_alquiler_desde_operaciones_incluidas(liquidacion, monto_prop_total):
             'debe': Decimal('0'),
             'haber': monto.quantize(Decimal('0.01')),
             'es_alquiler': tipo in ('reserva', 'contrato', 'contrato_cuota', 'contrato_operacion_principal'),
+            'mostrar_estadia': tipo == 'reserva',
             'fecha_entrada': fecha_entrada,
             'fecha_salida': fecha_salida,
             'precio_dia': precio_dia,
@@ -31038,6 +31118,7 @@ def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
             'debe': Decimal('0'),
             'haber': monto_prop.quantize(Decimal('0.01')),
             'es_alquiler': True,
+            'mostrar_estadia': bool(getattr(liquidacion, 'reserva_id', None)),
             'fecha_entrada': fecha_entrada,
             'fecha_salida': fecha_salida,
             'precio_dia': precio_dia,
@@ -31450,6 +31531,10 @@ def detalle_liquidacion(request, liquidacion_id):
             activa=True,
         ).order_by('nombre_banco', 'alias')
     )
+
+    pd, ph = _periodo_liquidado_display(liquidacion)
+    liquidacion.periodo_desde_display = pd
+    liquidacion.periodo_hasta_display = ph
 
     context = {
         'liquidacion': liquidacion,
