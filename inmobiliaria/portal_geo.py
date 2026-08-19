@@ -56,6 +56,14 @@ ZONAS_MDP = (
 )
 
 
+def _en_tierra_mdp(lat, lng) -> bool:
+    try:
+        lat_f, lng_f = float(lat), float(lng)
+    except (TypeError, ValueError):
+        return False
+    return -38.12 <= lat_f <= -37.93 and -57.64 <= lng_f <= -57.534
+
+
 def google_maps_api_key():
     return (getattr(settings, 'GOOGLE_MAPS_API_KEY', '') or '').strip()
 
@@ -74,15 +82,19 @@ def propiedad_tiene_coordenadas(prop):
 
 
 def coords_aproximadas_zona(texto):
-    t = (texto or '').strip().lower()
-    if not t:
-        return None
+    import re
+    t = ' ' + (texto or '').strip().lower() + ' '
+    t = (
+        t.replace('á', 'a').replace('é', 'e').replace('í', 'i')
+        .replace('ó', 'o').replace('ú', 'u')
+    )
     mejor = None
     largo = 0
     for nombre, coords in ZONAS_MDP:
-        if nombre in t and len(nombre) > largo:
+        n = nombre.lower().replace('á', 'a').replace('é', 'e').replace('í', 'i').replace('ó', 'o').replace('ú', 'u')
+        if re.search(r'(?:^|[^a-z0-9])' + re.escape(n) + r'(?:$|[^a-z0-9])', t) and len(n) >= largo:
             mejor = coords
-            largo = len(nombre)
+            largo = len(n)
     return mejor
 
 
@@ -112,7 +124,13 @@ def geocodificar_direccion(texto: str):
         return None
     key = google_maps_api_key()
     if key:
-        params = urllib.parse.urlencode({'address': query, 'key': key, 'language': 'es'})
+        params = urllib.parse.urlencode({
+            'address': query,
+            'key': key,
+            'language': 'es',
+            'region': 'ar',
+            'bounds': '-38.12,-57.64|-37.93,-57.534',
+        })
         url = f'https://maps.googleapis.com/maps/api/geocode/json?{params}'
         try:
             data = _http_json(url)
@@ -122,7 +140,7 @@ def geocodificar_direccion(texto: str):
         if data and data.get('status') == 'OK' and data.get('results'):
             loc = data['results'][0].get('geometry', {}).get('location') or {}
             lat, lng = loc.get('lat'), loc.get('lng')
-            if lat is not None and lng is not None:
+            if lat is not None and lng is not None and _en_tierra_mdp(lat, lng):
                 return _to_decimal(lat), _to_decimal(lng)
     encoded = urllib.parse.quote(query)
     url = (
@@ -141,7 +159,9 @@ def geocodificar_direccion(texto: str):
         logger.exception('Nominatim falló')
         return None
     if isinstance(data, list) and data:
-        return _to_decimal(data[0].get('lat')), _to_decimal(data[0].get('lon'))
+        lat, lng = data[0].get('lat'), data[0].get('lon')
+        if _en_tierra_mdp(lat, lng):
+            return _to_decimal(lat), _to_decimal(lng)
     return None
 
 
@@ -160,11 +180,15 @@ def actualizar_coordenadas_propiedad(prop, *, force=False, sleep_nominatim=False
 
 
 def _jitter(prop_id, lat, lng):
-    """Separa pines del mismo edificio para que no se tapen."""
+    """Separa pines del mismo edificio, siempre hacia tierra (oeste)."""
     h = abs(hash(str(prop_id))) % 17
     dlat = ((h % 5) - 2) * Decimal('0.00012')
-    dlng = ((h // 5) - 1) * Decimal('0.00012')
-    return float(Decimal(str(lat)) + dlat), float(Decimal(str(lng)) + dlng)
+    dlng = -Decimal('0.00015') * ((h % 4) + 1)
+    out_lat = float(Decimal(str(lat)) + dlat)
+    out_lng = float(Decimal(str(lng)) + dlng)
+    out_lat = min(-37.93, max(-38.12, out_lat))
+    out_lng = min(-57.534, max(-57.64, out_lng))
+    return out_lat, out_lng
 
 
 def markers_portal_resultados(resultados, request):
