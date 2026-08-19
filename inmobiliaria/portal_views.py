@@ -14,7 +14,11 @@ from inmobiliaria.models import ImagenPropiedad, Propiedad
 from inmobiliaria.models.portal_web import ConsultaWeb
 from inmobiliaria.models.propiedad import TIPOS_INMUEBLES, TIPOS_VALORACION, TIPOS_VISTA
 from inmobiliaria.portal_logo_data import LOGO_DATA_URI
-from inmobiliaria.portal_geo import google_maps_api_key, markers_portal_resultados
+from inmobiliaria.portal_geo import (
+    completar_coordenadas_resultados,
+    google_maps_api_key,
+    markers_portal_resultados,
+)
 from inmobiliaria.portal_servicio import (
     OPERACION_LABELS,
     OPERACIONES_PORTAL,
@@ -194,6 +198,8 @@ def portal_buscar(request):
         )
 
     _enriquecer_resultados(resultados)
+    if resultados:
+        completar_coordenadas_resultados(resultados, limite=5)
     markers = markers_portal_resultados(resultados, request)
 
     return render(request, 'portal/buscar.html', _ctx_base(

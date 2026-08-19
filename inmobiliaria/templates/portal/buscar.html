@@ -629,9 +629,9 @@
             {% if not error %}
             <aside class="map-panel" id="portal-map-panel">
                 <div class="map-hint">
-                    <strong>{{ markers_count|default:0 }}</strong> propiedades en el mapa
+                    <strong>{{ markers_count|default:0 }}</strong> propiedades para ver en el mapa
                     {% if total and markers_count < total %}
-                    · algunas fichas todavía no tienen coordenadas
+                    · se van ubicando por dirección y zona
                     {% endif %}
                     <div class="map-search">
                         <input id="portal-zona" type="text" placeholder="Ir a una zona (ej. Playa Grande, La Perla)" autocomplete="off">
@@ -744,22 +744,77 @@
     });
     var bounds = new google.maps.LatLngBounds();
     var info = new google.maps.InfoWindow();
-    markers.forEach(function (m) {
-      var pos = { lat: Number(m.lat), lng: Number(m.lng) };
-      if (!pos.lat || !pos.lng) return;
+    var placed = 0;
+    var hint = document.querySelector('#portal-map-panel .map-hint strong');
+
+    function hasPos(m) {
+      var lat = Number(m.lat);
+      var lng = Number(m.lng);
+      return Number.isFinite(lat) && Number.isFinite(lng) && (lat !== 0 || lng !== 0);
+    }
+    function addMarker(m, lat, lng) {
+      var pos = { lat: Number(lat), lng: Number(lng) };
       var marker = new google.maps.Marker({
         map: map,
         position: pos,
         title: m.titulo,
       });
       bounds.extend(pos);
+      placed += 1;
+      if (hint) hint.textContent = String(placed);
       marker.addListener('click', function () {
         info.setContent(iwHtml(m));
         info.open({ map: map, anchor: marker });
         highlight(m.id);
       });
+      if (placed === 1 || placed % 8 === 0) map.fitBounds(bounds, 48);
+    }
+
+    var pendientes = [];
+    markers.forEach(function (m) {
+      if (hasPos(m)) addMarker(m, m.lat, m.lng);
+      else if (m.query) pendientes.push(m);
     });
-    if (markers.length) map.fitBounds(bounds, 48);
+    if (placed) map.fitBounds(bounds, 48);
+
+    if (pendientes.length && google.maps.Geocoder) {
+      var geocoder = new google.maps.Geocoder();
+      var cache = {};
+      var i = 0;
+      function next() {
+        if (i >= pendientes.length) {
+          if (placed) map.fitBounds(bounds, 48);
+          return;
+        }
+        var m = pendientes[i];
+        i += 1;
+        var q = m.query;
+        function done(lat, lng) {
+          if (lat != null && lng != null) addMarker(m, lat, lng);
+          setTimeout(next, 90);
+        }
+        if (cache[q]) {
+          done(cache[q].lat, cache[q].lng);
+          return;
+        }
+        geocoder.geocode({ address: q }, function (results, status) {
+          if (status === 'OVER_QUERY_LIMIT') {
+            i -= 1;
+            setTimeout(next, 500);
+            return;
+          }
+          if (status === 'OK' && results[0] && results[0].geometry) {
+            var loc = results[0].geometry.location;
+            cache[q] = { lat: loc.lat(), lng: loc.lng() };
+            done(cache[q].lat, cache[q].lng);
+          } else {
+            done(null, null);
+          }
+        });
+      }
+      next();
+    }
+
     var zona = document.getElementById('portal-zona');
     if (zona && google.maps.places) {
       var ac = new google.maps.places.Autocomplete(zona, {
@@ -778,8 +833,8 @@
         ev.preventDefault();
         var q = (zona.value || '').trim();
         if (!q) return;
-        var geocoder = new google.maps.Geocoder();
-        geocoder.geocode({ address: q + ', Mar del Plata, Argentina' }, function (results, status) {
+        var geocoderZ = new google.maps.Geocoder();
+        geocoderZ.geocode({ address: q + ', Mar del Plata, Argentina' }, function (results, status) {
           if (status === 'OK' && results[0]) {
             map.panTo(results[0].geometry.location);
             map.setZoom(15);
@@ -798,8 +853,10 @@
     }).addTo(map);
     var group = [];
     markers.forEach(function (m) {
-      if (!m.lat || !m.lng) return;
-      var mk = L.marker([m.lat, m.lng]).addTo(map);
+      var lat = Number(m.lat);
+      var lng = Number(m.lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng) || (lat === 0 && lng === 0)) return;
+      var mk = L.marker([lat, lng]).addTo(map);
       mk.bindPopup(iwHtml(m));
       mk.on('click', function () { highlight(m.id); });
       group.push(mk);

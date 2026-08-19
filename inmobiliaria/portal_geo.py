@@ -20,6 +20,41 @@ MAR_DEL_PLATA_LAT = -38.0055
 MAR_DEL_PLATA_LNG = -57.5426
 NOMINATIM_SLEEP_SEC = 1.1
 
+# Centroides de zonas habituales (si todavía no hay geocodificación exacta).
+ZONAS_MDP = (
+    ('punta mogotes', (-38.0865, -57.5468)),
+    ('playa grande', (-38.0168, -57.5332)),
+    ('playa chica', (-38.0128, -57.5324)),
+    ('stella maris', (-38.0189, -57.5315)),
+    ('la perla', (-37.9992, -57.5418)),
+    ('los troncos', (-38.0104, -57.5488)),
+    ('güemes', (-38.0084, -57.5364)),
+    ('guemes', (-38.0084, -57.5364)),
+    ('plaza mitre', (-38.0024, -57.5466)),
+    ('constitucion', (-38.0210, -57.5485)),
+    ('constitución', (-38.0210, -57.5485)),
+    ('alem', (-37.9918, -57.5482)),
+    ('pueyrredon', (-38.0005, -57.5530)),
+    ('pueyrredón', (-38.0005, -57.5530)),
+    ('independencia', (-38.0048, -57.5440)),
+    ('san martin', (-38.0028, -57.5455)),
+    ('san martín', (-38.0028, -57.5455)),
+    ('centro', (-37.9978, -57.5498)),
+    ('gascón', (-38.0122, -57.5348)),
+    ('gascon', (-38.0122, -57.5348)),
+    ('luro', (-38.0032, -57.5485)),
+    ('moreno', (-38.0056, -57.5472)),
+    ('colon', (-38.0015, -57.5448)),
+    ('colón', (-38.0015, -57.5448)),
+    ('santa fe', (-38.0065, -57.5460)),
+    ('chauspe', (-38.0250, -57.5500)),
+    ('bosque', (-38.0080, -57.5550)),
+    ('parque luro', (-38.0300, -57.5650)),
+    ('san carlos', (-38.0400, -57.5550)),
+    ('las americas', (-37.9800, -57.5450)),
+    ('las américas', (-37.9800, -57.5450)),
+)
+
 
 def google_maps_api_key():
     return (getattr(settings, 'GOOGLE_MAPS_API_KEY', '') or '').strip()
@@ -36,6 +71,19 @@ def _to_decimal(value):
 
 def propiedad_tiene_coordenadas(prop):
     return prop.latitud is not None and prop.longitud is not None
+
+
+def coords_aproximadas_zona(texto):
+    t = (texto or '').strip().lower()
+    if not t:
+        return None
+    mejor = None
+    largo = 0
+    for nombre, coords in ZONAS_MDP:
+        if nombre in t and len(nombre) > largo:
+            mejor = coords
+            largo = len(nombre)
+    return mejor
 
 
 def direccion_para_geocodificar(prop) -> str:
@@ -124,9 +172,23 @@ def markers_portal_resultados(resultados, request):
     items = []
     for r in resultados:
         prop = r.get('propiedad')
-        if not prop or not propiedad_tiene_coordenadas(prop):
+        if not prop:
             continue
-        lat, lng = _jitter(prop.id, prop.latitud, prop.longitud)
+        lat = lng = None
+        if propiedad_tiene_coordenadas(prop):
+            lat, lng = _jitter(prop.id, prop.latitud, prop.longitud)
+        else:
+            aprox = coords_aproximadas_zona(
+                ' '.join(
+                    p for p in (
+                        getattr(prop, 'direccion', None) or '',
+                        getattr(prop, 'ubicacion', None) or '',
+                    )
+                    if p
+                )
+            )
+            if aprox:
+                lat, lng = _jitter(prop.id, aprox[0], aprox[1])
         url = reverse('inmobiliaria:portal_ficha', args=[prop.id])
         if qs:
             url = f'{url}?{qs}'
@@ -151,6 +213,7 @@ def markers_portal_resultados(resultados, request):
             'id': str(prop.id),
             'titulo': r.get('titulo') or f'Ficha {prop.id}',
             'ubicacion': (r.get('ubicacion') or '')[:120],
+            'query': direccion_para_geocodificar(prop),
             'lat': lat,
             'lng': lng,
             'precio': precio_txt or 'Consultar',
@@ -158,3 +221,20 @@ def markers_portal_resultados(resultados, request):
             'foto': foto_url,
         })
     return items
+
+
+def completar_coordenadas_resultados(resultados, limite=12):
+    """Geocodifica y guarda un lote de resultados sin pin, para no trabar la búsqueda."""
+    hechos = 0
+    for r in resultados:
+        if hechos >= limite:
+            break
+        prop = r.get('propiedad')
+        if not prop or propiedad_tiene_coordenadas(prop):
+            continue
+        try:
+            if actualizar_coordenadas_propiedad(prop, force=False):
+                hechos += 1
+        except Exception:
+            logger.exception('completar_coordenadas_resultados ficha=%s', getattr(prop, 'id', ''))
+    return hechos
