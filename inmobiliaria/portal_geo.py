@@ -98,12 +98,47 @@ def coords_aproximadas_zona(texto):
     return mejor
 
 
+def normalizar_direccion_mdp(texto: str) -> str:
+    """«Corrientes al 2200 — Piso 3» → «Corrientes 2200»."""
+    import re
+    t = (texto or '').strip()
+    if not t:
+        return ''
+    t = re.sub(r'\s*[-–—]\s*piso\s+\S+.*', '', t, flags=re.I)
+    t = re.sub(r'\s*[-–—]\s*dpto\.?\s+\S+.*', '', t, flags=re.I)
+    t = re.sub(r'\s*piso\s+\S+', '', t, flags=re.I)
+    t = re.sub(r'\s*(dpto|depto|departamento)\.?\s+\S+', '', t, flags=re.I)
+    t = re.sub(
+        r'\b(?:al|n[°ºo.]?|nro\.?|num\.?|numero)\s*(\d{2,5})\b',
+        r' \1 ',
+        t,
+        flags=re.I,
+    )
+    t = re.sub(r'\s+e\s+', ' y ', t, flags=re.I)
+    return re.sub(r'\s+', ' ', t).strip()
+
+
+def mejor_texto_direccion_prop(prop) -> str:
+    direccion = normalizar_direccion_mdp(getattr(prop, 'direccion', None) or '')
+    ubicacion = normalizar_direccion_mdp(getattr(prop, 'ubicacion', None) or '')
+    if not direccion:
+        return ubicacion
+    if not ubicacion:
+        return direccion
+    import re
+    dir_tiene_nro = bool(re.search(r'\b\d{2,5}\b', direccion))
+    ubi_tiene_nro = bool(re.search(r'\b\d{2,5}\b', ubicacion))
+    if ubi_tiene_nro and not dir_tiene_nro:
+        return ubicacion
+    if dir_tiene_nro:
+        return direccion
+    if ' y ' in ubicacion.lower() and ' y ' not in direccion.lower():
+        return ubicacion
+    return direccion
+
+
 def direccion_para_geocodificar(prop) -> str:
-    partes = [
-        (getattr(prop, 'direccion', None) or '').strip(),
-        (getattr(prop, 'ubicacion', None) or '').strip(),
-    ]
-    texto = ', '.join(p for p in partes if p)
+    texto = mejor_texto_direccion_prop(prop)
     extra = 'Mar del Plata, Buenos Aires, Argentina'
     low = texto.lower()
     if 'mar del plata' not in low and 'mardelplata' not in low:
@@ -180,15 +215,11 @@ def actualizar_coordenadas_propiedad(prop, *, force=False, sleep_nominatim=False
 
 
 def _jitter(prop_id, lat, lng):
-    """Separa pines del mismo edificio, siempre hacia tierra (oeste)."""
-    h = abs(hash(str(prop_id))) % 17
-    dlat = ((h % 5) - 2) * Decimal('0.00012')
-    dlng = -Decimal('0.00015') * ((h % 4) + 1)
-    out_lat = float(Decimal(str(lat)) + dlat)
-    out_lng = float(Decimal(str(lng)) + dlng)
-    out_lat = min(-37.93, max(-38.12, out_lat))
-    out_lng = min(-57.534, max(-57.64, out_lng))
-    return out_lat, out_lng
+    """Separación mínima entre deptos del mismo edificio (no desplaza de cuadra)."""
+    h = abs(hash(str(prop_id))) % 9
+    dlat = ((h % 3) - 1) * Decimal('0.00004')
+    dlng = ((h // 3) - 1) * Decimal('0.00004')
+    return float(Decimal(str(lat)) + dlat), float(Decimal(str(lng)) + dlng)
 
 
 def markers_portal_resultados(resultados, request):
@@ -202,15 +233,7 @@ def markers_portal_resultados(resultados, request):
         if propiedad_tiene_coordenadas(prop):
             lat, lng = _jitter(prop.id, prop.latitud, prop.longitud)
         else:
-            aprox = coords_aproximadas_zona(
-                ' '.join(
-                    p for p in (
-                        getattr(prop, 'direccion', None) or '',
-                        getattr(prop, 'ubicacion', None) or '',
-                    )
-                    if p
-                )
-            )
+            aprox = coords_aproximadas_zona(mejor_texto_direccion_prop(prop))
             if aprox:
                 lat, lng = _jitter(prop.id, aprox[0], aprox[1])
         url = reverse('inmobiliaria:portal_ficha', args=[prop.id])
@@ -233,10 +256,13 @@ def markers_portal_resultados(resultados, request):
                 foto_url = fotos[0].imagen.url
             except Exception:
                 foto_url = ''
+        texto_mapa = mejor_texto_direccion_prop(prop)
         items.append({
             'id': str(prop.id),
             'titulo': r.get('titulo') or f'Ficha {prop.id}',
             'ubicacion': (r.get('ubicacion') or '')[:120],
+            'direccion': (getattr(prop, 'direccion', None) or '')[:120],
+            'textoMapa': texto_mapa,
             'query': direccion_para_geocodificar(prop),
             'lat': lat,
             'lng': lng,
