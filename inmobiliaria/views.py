@@ -18042,7 +18042,8 @@ def buscar_propiedades_caja(request):
         propiedades = ordenar_propiedades(
             Propiedad.objects.filter(sucursal=sucursal)
             .filter(q)
-            .select_related('propietario')[:limite]
+            .select_related('propietario')[:limite],
+            termino=termino,
         )
 
         def _propietario_txt(p):

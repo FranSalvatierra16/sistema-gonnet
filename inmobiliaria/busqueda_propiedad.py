@@ -1,5 +1,6 @@
 """Búsqueda y orden de propiedades (caja, liquidaciones, gastos)."""
 import re
+import unicodedata
 
 from django.db.models import Q
 
@@ -9,7 +10,10 @@ _PREFIJO_DEPTO_RE = re.compile(
     r'^(?:deptos?|dptos?|departamentos?|dep\.?)\s*([a-z0-9]{1,4})$',
     re.IGNORECASE,
 )
-_TOKEN_DEPTO_RE = re.compile(r'^[a-z0-9]{1,3}$', re.IGNORECASE)
+# Depto típico: letra sola, o 1-2 letras + dígito opcional (G, 1A, A1). No números de calle.
+_TOKEN_DEPTO_RE = re.compile(r'^(?:[a-z]{1,2}\d{0,2}|\d{1,2}[a-z]{1,2})$', re.IGNORECASE)
+_TOKEN_NUMERO_CALLE_RE = re.compile(r'^\d{2,6}[a-z]?$', re.IGNORECASE)
+_SOLO_DIGITOS_RE = re.compile(r'\d+')
 
 
 def _normalizar_departamento(valor):
@@ -17,20 +21,37 @@ def _normalizar_departamento(valor):
     return v or None
 
 
+def _strip_accents(texto):
+    texto = unicodedata.normalize('NFKD', texto or '')
+    return ''.join(c for c in texto if not unicodedata.combining(c))
+
+
+def _norm(texto):
+    return _strip_accents((texto or '').strip().lower())
+
+
 def parse_termino_busqueda_propiedad(termino):
     """
-    Interpreta consultas como «deptos G», «Marbella G» o «Corrientes 1854».
-    Devuelve dict con modo, departamento opcional y texto libre restante.
+    Interpreta consultas como «deptos G», «Marbella G» o «Rivadavia 2476».
+    Devuelve dict con modo, departamento/calle/número opcionales y texto libre.
     """
     termino = (termino or '').strip()
     if not termino:
-        return {'modo': 'vacio', 'departamento': None, 'texto_libre': ''}
+        return {
+            'modo': 'vacio',
+            'departamento': None,
+            'calle': None,
+            'numero': None,
+            'texto_libre': '',
+        }
 
     m_pref = _PREFIJO_DEPTO_RE.match(termino)
     if m_pref:
         return {
             'modo': 'depto',
             'departamento': _normalizar_departamento(m_pref.group(1)),
+            'calle': None,
+            'numero': None,
             'texto_libre': '',
         }
 
@@ -38,43 +59,77 @@ def parse_termino_busqueda_propiedad(termino):
         return {
             'modo': 'depto',
             'departamento': termino.upper(),
+            'calle': None,
+            'numero': None,
             'texto_libre': '',
         }
 
     partes = termino.split()
-    if len(partes) >= 2 and _TOKEN_DEPTO_RE.match(partes[-1]):
-        candidato = partes[-1]
-        if len(candidato) <= 3:
+    if len(partes) >= 2:
+        ultimo = partes[-1]
+        # «Rivadavia 2476» / «Corrientes 1854»: calle + número (prioridad sobre depto).
+        if _TOKEN_NUMERO_CALLE_RE.match(ultimo):
+            return {
+                'modo': 'calle_numero',
+                'departamento': None,
+                'calle': ' '.join(partes[:-1]).strip(),
+                'numero': ultimo.upper(),
+                'texto_libre': termino,
+            }
+        # «Marbella G» / «Torre 1A»: edificio + depto (no números puros de calle).
+        if _TOKEN_DEPTO_RE.match(ultimo) and not ultimo.isdigit():
             return {
                 'modo': 'mixto',
-                'departamento': _normalizar_departamento(candidato),
+                'departamento': _normalizar_departamento(ultimo),
+                'calle': None,
+                'numero': None,
                 'texto_libre': ' '.join(partes[:-1]).strip(),
             }
 
-    return {'modo': 'general', 'departamento': None, 'texto_libre': termino}
+    return {
+        'modo': 'general',
+        'departamento': None,
+        'calle': None,
+        'numero': None,
+        'texto_libre': termino,
+    }
 
 
-def _q_texto_propiedad(texto):
+def _q_texto_propiedad(texto, *, priorizar_direccion=False):
+    """
+    Busca texto en campos de la ficha.
+    Si priorizar_direccion=True, solo en dirección (para calle/número).
+    """
     texto = (texto or '').strip()
     if not texto:
         return Q()
-    q = (
+    if priorizar_direccion:
+        return Q(direccion__icontains=texto)
+    return (
         Q(direccion__icontains=texto)
         | Q(ubicacion__icontains=texto)
         | Q(titulo__icontains=texto)
         | Q(piso__icontains=texto)
         | Q(departamento__icontains=texto)
     )
-    if texto.isascii() and texto.isdigit():
-        try:
-            q |= Q(numero_por_propietario=int(texto))
-        except (TypeError, ValueError):
-            pass
+
+
+def _q_calle_numero(calle, numero):
+    """Calle y número deben aparecer en la dirección (no solo en ubicación)."""
+    calle = (calle or '').strip()
+    numero = (numero or '').strip()
+    if not calle or not numero:
+        return Q()
+    # Match flexible del número: 2476, 2.476, N° 2476, etc. vía icontains del dígito.
+    digitos = ''.join(_SOLO_DIGITOS_RE.findall(numero)) or numero
+    q = Q(direccion__icontains=calle) & Q(direccion__icontains=digitos)
+    # También el texto completo por si viene tal cual.
+    q |= Q(direccion__icontains=f'{calle} {numero}')
     return q
 
 
 def _parece_busqueda_propietario(termino, parsed):
-    if parsed['modo'] in ('depto', 'mixto'):
+    if parsed['modo'] in ('depto', 'mixto', 'calle_numero'):
         return False
     texto = (parsed.get('texto_libre') or '').strip()
     if not texto:
@@ -82,10 +137,11 @@ def _parece_busqueda_propietario(termino, parsed):
     if ',' in texto:
         return True
     partes = texto.split()
+    # Un solo token (ej. «rivadavia») → calle/dirección, no propietario.
+    if len(partes) == 1:
+        return False
     if len(partes) >= 2:
         return True
-    if len(texto) == 1 and texto.isalpha():
-        return False
     return len(texto) >= 3
 
 
@@ -102,9 +158,22 @@ def q_busqueda_propiedad(termino):
     modo = parsed['modo']
     depto = parsed.get('departamento')
     texto = (parsed.get('texto_libre') or '').strip()
+    calle = (parsed.get('calle') or '').strip()
+    numero = (parsed.get('numero') or '').strip()
 
     if modo == 'depto' and depto:
         return Q(departamento__iexact=depto)
+
+    if modo == 'calle_numero' and calle and numero:
+        # Primero dirección; también ubicación por si la calle está ahí, pero exigiendo número en dirección.
+        digitos = ''.join(_SOLO_DIGITOS_RE.findall(numero)) or numero
+        return (
+            _q_calle_numero(calle, numero)
+            | (
+                Q(ubicacion__icontains=calle)
+                & Q(direccion__icontains=digitos)
+            )
+        )
 
     if modo == 'mixto':
         q = _q_texto_propiedad(texto)
@@ -144,10 +213,63 @@ def clave_orden_propiedad(propiedad):
     return (direccion, piso_key, depto_key, prop_id)
 
 
-def ordenar_propiedades(qs_or_list):
-    """Ordena queryset o lista de Propiedad por dirección, piso y depto."""
+def _score_relevancia(propiedad, termino):
+    """
+    Menor = más relevante.
+    Prioriza dirección sobre ubicación/título, y coincidencia al inicio de la calle.
+    """
+    parsed = parse_termino_busqueda_propiedad(termino)
+    term = _norm(termino)
+    calle = _norm(parsed.get('calle') or '')
+    numero = _norm(parsed.get('numero') or '')
+    texto = _norm(parsed.get('texto_libre') or termino)
+
+    direccion = _norm(getattr(propiedad, 'direccion', None))
+    ubicacion = _norm(getattr(propiedad, 'ubicacion', None))
+    titulo = _norm(getattr(propiedad, 'titulo', None))
+
+    digitos = ''.join(_SOLO_DIGITOS_RE.findall(numero)) if numero else ''
+    busqueda_calle = calle or (texto if parsed['modo'] == 'general' else '')
+
+    # 0: dirección empieza con la calle y (si hay) contiene el número
+    if busqueda_calle and direccion.startswith(busqueda_calle):
+        if not digitos or digitos in direccion:
+            return (0, clave_orden_propiedad(propiedad))
+
+    # 1: dirección contiene calle + número
+    if busqueda_calle and digitos and busqueda_calle in direccion and digitos in direccion:
+        return (1, clave_orden_propiedad(propiedad))
+
+    # 2: dirección contiene el término o la calle
+    if busqueda_calle and busqueda_calle in direccion:
+        return (2, clave_orden_propiedad(propiedad))
+    if term and term in direccion:
+        return (2, clave_orden_propiedad(propiedad))
+
+    # 3: título
+    if busqueda_calle and busqueda_calle in titulo:
+        return (3, clave_orden_propiedad(propiedad))
+
+    # 4: solo ubicación (ej. «14 DE JULIO Y RIVADAVIA»)
+    if busqueda_calle and busqueda_calle in ubicacion:
+        return (4, clave_orden_propiedad(propiedad))
+    if term and term in ubicacion:
+        return (4, clave_orden_propiedad(propiedad))
+
+    return (5, clave_orden_propiedad(propiedad))
+
+
+def ordenar_propiedades(qs_or_list, termino=None):
+    """
+    Ordena queryset o lista de Propiedad.
+    Si hay término de búsqueda, prioriza coincidencias en dirección.
+    """
     items = list(qs_or_list)
-    items.sort(key=clave_orden_propiedad)
+    termino = (termino or '').strip()
+    if termino:
+        items.sort(key=lambda p: _score_relevancia(p, termino))
+    else:
+        items.sort(key=clave_orden_propiedad)
     return items
 
 
@@ -158,4 +280,6 @@ def limite_busqueda_propiedad(termino):
         return 200
     if parsed['modo'] == 'mixto' and parsed.get('departamento'):
         return 120
+    if parsed['modo'] == 'calle_numero':
+        return 100
     return 80
