@@ -8,15 +8,113 @@
     east: MDP_BOX.east
   };
 
-  // Intersecciones / calles de MdP con punto aproximado (solo fallback).
-  // Clave: "calle1|calle2" ordenada alfabéticamente.
+  /**
+   * Ejes de calles en Mar del Plata: [altura, lat, lng] de OpenStreetMap.
+   * La ubicación de «Calle N» se interpola sobre este eje (no se inventa con Google).
+   */
+  var EJES = {
+    'santa fe': [
+      [1500, -37.9984392, -57.5431471],
+      [1700, -38.0004018, -57.5446813],
+      [2000, -38.0027694, -57.5466145],
+      [2200, -38.0044579, -57.5479372],
+      [2500, -38.0067920, -57.5499710]
+    ],
+    'corrientes': [
+      [1700, -38.0009060, -57.5437024],
+      [2000, -38.0032733, -57.5456220],
+      [2200, -38.0049484, -57.5469686],
+      [2500, -38.0073340, -57.5488950]
+    ],
+    'entre rios': [
+      [1700, -38.0014443, -57.5427232],
+      [2000, -38.0038055, -57.5446116],
+      [2200, -38.0054320, -57.5459527],
+      [2500, -38.0078440, -57.5479940]
+    ],
+    'colon': [
+      [1200, -38.0107255, -57.5361157],
+      [1500, -38.0092007, -57.5391691],
+      [1700, -38.0082395, -57.5410839],
+      [2000, -38.0066797, -57.5441389],
+      [2200, -38.0057017, -57.5460663],
+      [2500, -38.0041949, -57.5490748]
+    ],
+    'colón': null, // alias → colon
+    'gascon': [
+      [1200, -38.0131260, -57.5381140],
+      [1500, -38.0115940, -57.5411390],
+      [1700, -38.0106431, -57.5430366],
+      [2000, -38.0090770, -57.5461080],
+      [2200, -38.0080630, -57.5481310],
+      [2500, -38.0065610, -57.5510970]
+    ],
+    'gascón': null,
+    'mitre': [
+      [1200, -37.9943396, -57.5454028],
+      [1500, -37.9967315, -57.5473702],
+      [1700, -37.9983736, -57.5488496],
+      [2000, -38.0007585, -57.5506632],
+      [2200, -38.0024121, -57.5519335],
+      [2500, -38.0048470, -57.5539160]
+    ],
+    'independencia': [
+      [1200, -37.9922480, -57.5494890],
+      [1500, -37.9946760, -57.5514390],
+      [1700, -37.9963911, -57.5527501],
+      [2000, -37.9987656, -57.5546675],
+      [2200, -38.0003532, -57.5559417],
+      [2500, -38.0027810, -57.5579920]
+    ],
+    'almirante brown': [
+      [1200, -38.0115642, -57.5368006],
+      [1500, -38.0100950, -57.5399370],
+      [1700, -38.0091120, -57.5418520],
+      [2000, -38.0075590, -57.5448790],
+      [2200, -38.0065473, -57.5467663],
+      [2500, -38.0050040, -57.5498270]
+    ],
+    'luro': [
+      [2200, -38.0008133, -57.5421639],
+      [2500, -37.9993077, -57.5451388]
+    ],
+    'belgrano': [
+      [1500, -38.0025601, -57.5451585],
+      [2000, -38.0002738, -57.5496564],
+      [2200, -38.0032298, -57.5440738],
+      [2500, -38.0016565, -57.5471719]
+    ],
+    'rivadavia': [
+      [1500, -38.0000165, -57.5480582],
+      [2000, -38.0000165, -57.5480582],
+      [2200, -38.0024729, -57.5434684],
+      [2500, -38.0009534, -57.5464890]
+    ],
+    'moreno': [
+      [2000, -38.0019024, -57.5487037],
+      [2200, -38.0040412, -57.5447265],
+      [2500, -38.0025406, -57.5477017]
+    ],
+    'san martin': [
+      [2200, -38.0016392, -57.5428347],
+      [2500, -38.0001254, -57.5458275]
+    ],
+    'san martín': null,
+    'sarmiento': [
+      [2200, -38.0084434, -57.5399439],
+      [2500, -38.0108720, -57.5419930]
+    ]
+  };
+  EJES['colón'] = EJES['colon'];
+  EJES['gascón'] = EJES['gascon'];
+  EJES['san martín'] = EJES['san martin'];
+
   var ESQUINAS = {
     'belgrano|corrientes': [-38.0038, -57.5488],
     'corrientes|gascon': [-38.0085, -57.5420],
     'corrientes|gascón': [-38.0085, -57.5420],
     'corrientes|moreno': [-38.0048, -57.5490],
     '3 de febrero|mitre': [-38.0015, -57.5428],
-    'mitre|3 de febrero': [-38.0015, -57.5428],
     'gascon|la costa': [-38.0120, -57.5355],
     'gascón|la costa': [-38.0120, -57.5355],
     'moreno|santa fe': [-38.0058, -57.5485],
@@ -26,34 +124,6 @@
     'luro|san martín': [-38.0035, -57.5495]
   };
 
-  var CALLES = [
-    ['almirante brown', -38.0070, -57.5490],
-    ['hipolito yrigoyen', -38.0030, -57.5478],
-    ['hipólito yrigoyen', -38.0030, -57.5478],
-    ['3 de febrero', -38.0018, -57.5435],
-    ['la costa', -38.0125, -57.5348],
-    ['santa fe', -38.0062, -57.5488],
-    ['corrientes', -38.0036, -57.5494],
-    ['rivadavia', -38.0026, -57.5496],
-    ['belgrano', -38.0042, -57.5482],
-    ['independencia', -38.0048, -57.5475],
-    ['san martin', -38.0032, -57.5488],
-    ['san martín', -38.0032, -57.5488],
-    ['pueyrredon', -38.0008, -57.5555],
-    ['pueyrredón', -38.0008, -57.5555],
-    ['gascon', -38.0118, -57.5388],
-    ['gascón', -38.0118, -57.5388],
-    ['guemes', -38.0080, -57.5405],
-    ['güemes', -38.0080, -57.5405],
-    ['sarmiento', -38.0055, -57.5502],
-    ['moreno', -38.0056, -57.5490],
-    ['colon', -38.0018, -57.5480],
-    ['colón', -38.0018, -57.5480],
-    ['mitre', -38.0020, -57.5445],
-    ['luro', -38.0038, -57.5502],
-    ['alem', -37.9935, -57.5510]
-  ];
-
   function fold(s) {
     return String(s || '').toLowerCase()
       .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -62,21 +132,58 @@
       .trim();
   }
 
-  /** Limpia y arma una dirección geocodable: «Corrientes al 2200» → «Corrientes 2200». */
+  function enTierra(lat, lng) {
+    return Number.isFinite(lat) && Number.isFinite(lng) &&
+      lat <= MDP_BOX.north && lat >= MDP_BOX.south &&
+      lng >= MDP_BOX.west && lng <= MDP_BOX.east;
+  }
+
   function normalizarDireccion(raw) {
     var t = String(raw || '');
-    // Quitar piso/depto del final
     t = t.replace(/\s*[-–—]\s*piso\s+\S+.*/i, '');
     t = t.replace(/\s*[-–—]\s*dpto\.?\s+\S+.*/i, '');
     t = t.replace(/\s*piso\s+\S+/ig, '');
     t = t.replace(/\s*(dpto|depto|departamento)\.?\s+\S+/ig, '');
-    // «al 2200» / «n° 2200» / «nro 2200»
     t = t.replace(/\b(?:al|n[°ºo.]?|nro\.?|num\.?|numero)\s*(\d{2,5})\b/ig, ' $1 ');
-    // «X y Y» / «X e Y» → esquina
-    t = t.replace(/\s+y\s+/ig, ' y ');
     t = t.replace(/\s+e\s+/ig, ' y ');
-    t = t.replace(/\s+/g, ' ').trim();
-    return t;
+    return t.replace(/\s+/g, ' ').trim();
+  }
+
+  function ejeDe(calle) {
+    var k = fold(calle);
+    if (EJES[k]) return EJES[k];
+    var found = null;
+    Object.keys(EJES).forEach(function (name) {
+      if (!EJES[name]) return;
+      if (k.indexOf(name) !== -1 || name.indexOf(k) !== -1) found = EJES[name];
+    });
+    return found;
+  }
+
+  /** Interpolar lat/lng por altura sobre el eje de la calle. */
+  function posPorAltura(calle, numero) {
+    var eje = ejeDe(calle);
+    if (!eje || !eje.length) return null;
+    var n = parseInt(numero, 10);
+    if (!Number.isFinite(n)) return null;
+    if (n <= eje[0][0]) return { lat: eje[0][1], lng: eje[0][2], exact: true };
+    if (n >= eje[eje.length - 1][0]) {
+      var last = eje[eje.length - 1];
+      return { lat: last[1], lng: last[2], exact: true };
+    }
+    for (var i = 0; i < eje.length - 1; i++) {
+      var a = eje[i];
+      var b = eje[i + 1];
+      if (n >= a[0] && n <= b[0]) {
+        var t = (n - a[0]) / (b[0] - a[0]);
+        return {
+          lat: a[1] + (b[1] - a[1]) * t,
+          lng: a[2] + (b[2] - a[2]) * t,
+          exact: true
+        };
+      }
+    }
+    return null;
   }
 
   function parseDireccion(texto) {
@@ -86,126 +193,67 @@
     var numero = mNum ? mNum[1] : '';
     var esquina = null;
     var mEsq = f.match(/^(.+?)\s+y\s+(.+)$/);
-    if (mEsq && !numero) {
-      esquina = [mEsq[1].trim(), mEsq[2].trim()];
-    }
+    if (mEsq && !numero) esquina = [mEsq[1].trim(), mEsq[2].trim()];
+
     var calle = '';
-    if (esquina) {
-      calle = esquina[0];
-    } else if (numero) {
-      calle = f.replace(numero, ' ').replace(/\s+/g, ' ').trim();
-    } else {
-      calle = f;
-    }
-    // Preferir nombre de calle conocido contenido en el texto
-    var calleConocida = '';
     var largo = 0;
-    CALLES.forEach(function (c) {
-      var n = fold(c[0]);
-      if ((' ' + f + ' ').indexOf(' ' + n + ' ') !== -1 && n.length >= largo) {
-        largo = n.length;
-        calleConocida = n;
+    Object.keys(EJES).forEach(function (name) {
+      if (!EJES[name]) return;
+      if ((' ' + f + ' ').indexOf(' ' + name + ' ') !== -1 && name.length >= largo) {
+        largo = name.length;
+        calle = name;
       }
     });
-    if (calleConocida) calle = calleConocida;
-    return {
-      original: limpio,
-      fold: f,
-      calle: calle,
-      numero: numero,
-      esquina: esquina
-    };
+    if (!calle) {
+      if (esquina) calle = esquina[0];
+      else if (numero) calle = f.replace(numero, ' ').replace(/\s+/g, ' ').trim();
+      else calle = f;
+    }
+    return { original: limpio, fold: f, calle: calle, numero: numero, esquina: esquina };
   }
 
   function queryGeocode(parsed) {
     var partes = [];
     if (parsed.esquina) {
       partes.push(parsed.esquina[0] + ' y ' + parsed.esquina[1]);
-      partes.push('esquina');
     } else if (parsed.calle && parsed.numero) {
       partes.push(parsed.calle + ' ' + parsed.numero);
     } else if (parsed.original) {
       partes.push(parsed.original);
     }
-    partes.push('Mar del Plata');
-    partes.push('Buenos Aires');
-    partes.push('Argentina');
+    partes.push('Mar del Plata', 'Buenos Aires', 'Argentina');
     return partes.filter(Boolean).join(', ');
   }
 
-  function fallbackPos(parsed) {
-    if (parsed.esquina) {
-      var a = fold(parsed.esquina[0]);
-      var b = fold(parsed.esquina[1]);
-      var key = [a, b].sort().join('|');
-      if (ESQUINAS[key]) {
-        return { lat: ESQUINAS[key][0], lng: ESQUINAS[key][1] };
-      }
-      // Centro entre las dos calles si las conocemos
-      var p1 = null;
-      var p2 = null;
-      CALLES.forEach(function (c) {
-        var n = fold(c[0]);
-        if (n === a || a.indexOf(n) !== -1 || n.indexOf(a) !== -1) p1 = c;
-        if (n === b || b.indexOf(n) !== -1 || n.indexOf(b) !== -1) p2 = c;
-      });
-      if (p1 && p2) {
-        return { lat: (p1[1] + p2[1]) / 2, lng: (p1[2] + p2[2]) / 2 };
-      }
+  function posEsquina(parsed) {
+    if (!parsed.esquina) return null;
+    var a = fold(parsed.esquina[0]);
+    var b = fold(parsed.esquina[1]);
+    var key = [a, b].sort().join('|');
+    if (ESQUINAS[key]) return { lat: ESQUINAS[key][0], lng: ESQUINAS[key][1], exact: false };
+    return null;
+  }
+
+  function posicionDesdeDireccion(parsed) {
+    if (parsed.calle && parsed.numero) {
+      var p = posPorAltura(parsed.calle, parsed.numero);
+      if (p && enTierra(p.lat, p.lng)) return p;
     }
-    if (parsed.calle) {
-      for (var i = 0; i < CALLES.length; i++) {
-        var c = CALLES[i];
-        var n = fold(c[0]);
-        if (n === parsed.calle || parsed.calle.indexOf(n) !== -1) {
-          // Con número: desplazar un poco a lo largo de la calle (aprox.)
-          var lat = c[1];
-          var lng = c[2];
-          if (parsed.numero) {
-            var nro = parseInt(parsed.numero, 10) || 0;
-            // En MdP, números ~100 ≈ 1 cuadra (~0.001°). Anclar relativo a 2000.
-            var delta = ((nro - 2000) / 100) * 0.0009;
-            lng = lng + Math.max(-0.012, Math.min(0.012, delta * 0.15));
-            lat = lat + Math.max(-0.02, Math.min(0.02, delta));
-          }
-          return { lat: lat, lng: lng };
-        }
-      }
+    var e = posEsquina(parsed);
+    if (e && enTierra(e.lat, e.lng)) return e;
+    // Sin número: punto medio del eje
+    var eje = ejeDe(parsed.calle);
+    if (eje && eje.length) {
+      var mid = eje[Math.floor(eje.length / 2)];
+      return { lat: mid[1], lng: mid[2], exact: false };
     }
     return null;
   }
 
-  function resultadoCoincide(result, parsed) {
-    var txt = fold(result.formatted_address || '');
-    (result.address_components || []).forEach(function (c) {
-      txt += ' ' + fold(c.long_name || '') + ' ' + fold(c.short_name || '');
-    });
-    if (txt.indexOf('mar del plata') === -1 && txt.indexOf('mardelplata') === -1) {
-      return false;
-    }
-    if (parsed.calle) {
-      var calle = fold(parsed.calle);
-      // Exigir que la calle pedida aparezca en el resultado
-      if (txt.indexOf(calle) === -1) {
-        // Permitir variantes cortas (luro ⊆ pedro luro)
-        var ok = false;
-        calle.split(' ').forEach(function (tok) {
-          if (tok.length >= 4 && txt.indexOf(tok) !== -1) ok = true;
-        });
-        if (!ok) return false;
-      }
-    }
-    if (parsed.numero) {
-      // Preferir resultados que traen el número; no rechazar si Google omite altura
-      return true;
-    }
-    if (parsed.esquina) {
-      var e0 = fold(parsed.esquina[0]).split(' ').pop();
-      var e1 = fold(parsed.esquina[1]).split(' ').pop();
-      if (e0.length >= 4 && txt.indexOf(e0) === -1) return false;
-      if (e1.length >= 4 && txt.indexOf(e1) === -1) return false;
-    }
-    return true;
+  function metrosAprox(lat1, lng1, lat2, lng2) {
+    var dlat = (lat1 - lat2) * 111320;
+    var dlng = (lng1 - lng2) * 111320 * Math.cos((lat1 + lat2) * Math.PI / 360);
+    return Math.sqrt(dlat * dlat + dlng * dlng);
   }
 
   function mejorTextoDireccion(direccion, ubicacion) {
@@ -213,17 +261,12 @@
     var u = normalizarDireccion(ubicacion);
     var pd = parseDireccion(d);
     var pu = parseDireccion(u);
-    // Preferir el que tenga número de calle
+    if (pd.numero && ejeDe(pd.calle)) return d;
+    if (pu.numero && ejeDe(pu.calle)) return u;
     if (pd.numero && !pu.numero) return d;
     if (pu.numero && !pd.numero) return u;
-    // Preferir el más específico (más largo / con esquina)
     if (pd.esquina && !pu.esquina) return d;
     if (pu.esquina && !pd.esquina) return u;
-    if (d && u && d !== u) {
-      // Si dirección es genérica y ubicación es esquina, usar ubicación
-      if (!pd.numero && pu.esquina) return u;
-      return d || u;
-    }
     return d || u;
   }
 
@@ -256,7 +299,7 @@
       var el = document.getElementById('portal-markers');
       if (el && el.textContent) {
         markers = (JSON.parse(el.textContent) || []).map(function (m) {
-          var texto = mejorTextoDireccion(m.direccion || '', m.ubicacion || m.query || '');
+          var texto = mejorTextoDireccion(m.direccion || '', m.ubicacion || '');
           var parsed = parseDireccion(texto);
           m.textoMapa = texto;
           m.parsed = parsed;
@@ -264,9 +307,7 @@
           return m;
         });
       }
-    } catch (e) {
-      markers = [];
-    }
+    } catch (e) { markers = []; }
   }
 
   var canvas = document.getElementById('portal-map');
@@ -294,29 +335,30 @@
       card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
   }
-  function enTierra(lat, lng) {
-    return Number.isFinite(lat) && Number.isFinite(lng) &&
-      lat <= MDP_BOX.north && lat >= MDP_BOX.south &&
-      lng >= MDP_BOX.west && lng <= MDP_BOX.east;
-  }
-  function hasSavedPos(m) {
-    return enTierra(Number(m.lat), Number(m.lng));
-  }
-  /** Jitter mínimo solo para no tapar deptos del mismo edificio. */
   function jitterTiny(id, lat, lng) {
     var h = 0;
     var s = String(id || '');
     for (var i = 0; i < s.length; i++) h = (h * 33 + s.charCodeAt(i)) % 97;
     return {
-      lat: lat + ((h % 3) - 1) * 0.00004,
-      lng: lng + ((Math.floor(h / 3) % 3) - 1) * 0.00004
+      lat: lat + ((h % 3) - 1) * 0.00003,
+      lng: lng + ((Math.floor(h / 3) % 3) - 1) * 0.00003
     };
   }
-  function posicionInicial(m) {
-    if (hasSavedPos(m)) return jitterTiny(m.id, Number(m.lat), Number(m.lng));
-    var fb = fallbackPos(m.parsed || parseDireccion(m.textoMapa || m.direccion || m.ubicacion || ''));
-    if (fb && enTierra(fb.lat, fb.lng)) return jitterTiny(m.id, fb.lat, fb.lng);
-    return null;
+
+  function posicionFinal(m) {
+    var parsed = m.parsed || parseDireccion(m.textoMapa || m.direccion || '');
+    var fromStreet = posicionDesdeDireccion(parsed);
+    // Si tenemos eje+altura, ESA es la verdad (Santa Fe 1715 ≠ Entre Ríos).
+    if (fromStreet && fromStreet.exact) return fromStreet;
+    var savedLat = Number(m.lat);
+    var savedLng = Number(m.lng);
+    if (enTierra(savedLat, savedLng)) {
+      if (fromStreet && metrosAprox(savedLat, savedLng, fromStreet.lat, fromStreet.lng) > 120) {
+        return fromStreet; // coords guardadas/Google estaban en otra calle
+      }
+      if (!fromStreet) return { lat: savedLat, lng: savedLng, exact: false };
+    }
+    return fromStreet;
   }
 
   function pintarLeaflet() {
@@ -328,18 +370,16 @@
     }).addTo(map);
     var group = [];
     markers.forEach(function (m) {
-      var p = posicionInicial(m);
+      var p = posicionFinal(m);
       if (!p) return;
-      var mk = L.marker([p.lat, p.lng]).addTo(map);
+      var pos = jitterTiny(m.id, p.lat, p.lng);
+      var mk = L.marker([pos.lat, pos.lng]).addTo(map);
       mk.bindPopup(iwHtml(m));
       mk.on('click', function () { highlight(m.id); });
       group.push(mk);
     });
-    if (group.length) {
-      map.fitBounds(L.featureGroup(group).getBounds().pad(0.18));
-    }
+    if (group.length) map.fitBounds(L.featureGroup(group).getBounds().pad(0.18));
   }
-
   window.initPortalLeaflet = pintarLeaflet;
 
   window.initPortalMap = function () {
@@ -350,24 +390,17 @@
       mapTypeControl: false,
       streetViewControl: false,
       fullscreenControl: true,
-      restriction: {
-        latLngBounds: MDP_BOUNDS,
-        strictBounds: false
-      }
+      restriction: { latLngBounds: MDP_BOUNDS, strictBounds: false }
     });
     var bounds = new google.maps.LatLngBounds();
     var info = new google.maps.InfoWindow();
     var placed = 0;
     var hint = document.querySelector('#portal-map-panel .map-count');
     var gMarkers = {};
-    var mdpBias = new google.maps.LatLngBounds(
-      { lat: MDP_BOX.south, lng: MDP_BOX.west },
-      { lat: MDP_BOX.north, lng: MDP_BOX.east }
-    );
 
-    function addOrMove(m, lat, lng, exact) {
+    function addOrMove(m, lat, lng) {
       if (!enTierra(lat, lng)) return;
-      var pos = exact ? { lat: Number(lat), lng: Number(lng) } : jitterTiny(m.id, Number(lat), Number(lng));
+      var pos = jitterTiny(m.id, Number(lat), Number(lng));
       if (gMarkers[m.id]) {
         gMarkers[m.id].setPosition(pos);
         bounds.extend(pos);
@@ -377,7 +410,7 @@
       var marker = new google.maps.Marker({
         map: map,
         position: pos,
-        title: (m.titulo || ('Ficha ' + m.id)) + ' — ' + (m.textoMapa || m.direccion || '')
+        title: (m.titulo || ('Ficha ' + m.id)) + ' — ' + (m.textoMapa || '')
       });
       gMarkers[m.id] = marker;
       bounds.extend(pos);
@@ -391,60 +424,51 @@
       map.fitBounds(bounds, 56);
     }
 
-    // Primero un pin aproximado por dirección parseada (para que se vean ya).
     markers.forEach(function (m) {
-      var p = posicionInicial(m);
-      if (p) addOrMove(m, p.lat, p.lng, false);
+      var p = posicionFinal(m);
+      if (p) addOrMove(m, p.lat, p.lng);
     });
 
+    // Google solo afina si el resultado cae cerca del eje de la misma calle.
     if (google.maps.Geocoder) {
       var geocoder = new google.maps.Geocoder();
-      var cache = {};
       var i = 0;
+      var mdpBias = new google.maps.LatLngBounds(
+        { lat: MDP_BOX.south, lng: MDP_BOX.west },
+        { lat: MDP_BOX.north, lng: MDP_BOX.east }
+      );
       function next() {
         if (i >= markers.length) return;
-        var m = markers[i];
-        i += 1;
-        var q = m.query || '';
-        if (!q) {
-          setTimeout(next, 15);
+        var m = markers[i++];
+        var parsed = m.parsed || parseDireccion(m.textoMapa || '');
+        var base = posicionDesdeDireccion(parsed);
+        // Si ya interpolamos por altura, no dejamos que Google lo mueva a otra calle.
+        if (base && base.exact) {
+          setTimeout(next, 10);
           return;
         }
-        if (cache[q]) {
-          addOrMove(m, cache[q].lat, cache[q].lng, true);
-          setTimeout(next, 30);
+        if (!m.query) {
+          setTimeout(next, 10);
           return;
         }
         geocoder.geocode({
-          address: q,
+          address: m.query,
           bounds: mdpBias,
           region: 'ar',
           componentRestrictions: { country: 'AR' }
         }, function (results, status) {
-          if (status === 'OVER_QUERY_LIMIT') {
-            i -= 1;
-            setTimeout(next, 700);
-            return;
-          }
-          var loc = null;
-          var parsed = m.parsed || parseDireccion(m.textoMapa || '');
-          if (status === 'OK' && results) {
-            for (var r = 0; r < results.length; r++) {
-              var g = results[r].geometry && results[r].geometry.location;
-              if (!g) continue;
-              var lat = g.lat();
-              var lng = g.lng();
-              if (!enTierra(lat, lng)) continue;
-              if (!resultadoCoincide(results[r], parsed)) continue;
-              loc = { lat: lat, lng: lng };
-              break;
+          if (status === 'OK' && results && results[0] && results[0].geometry) {
+            var loc = results[0].geometry.location;
+            var lat = loc.lat();
+            var lng = loc.lng();
+            var txt = fold(results[0].formatted_address || '');
+            var calleOk = !parsed.calle || txt.indexOf(fold(parsed.calle)) !== -1;
+            var cerca = !base || metrosAprox(lat, lng, base.lat, base.lng) < 150;
+            if (enTierra(lat, lng) && calleOk && cerca && txt.indexOf('mar del plata') !== -1) {
+              addOrMove(m, lat, lng);
             }
           }
-          if (loc) {
-            cache[q] = loc;
-            addOrMove(m, loc.lat, loc.lng, true);
-          }
-          setTimeout(next, 120);
+          setTimeout(next, 100);
         });
       }
       next();
@@ -455,8 +479,10 @@
       var ac = new google.maps.places.Autocomplete(zona, {
         fields: ['geometry'],
         componentRestrictions: { country: 'ar' },
-        bounds: mdpBias,
-        strictBounds: false
+        bounds: new google.maps.LatLngBounds(
+          { lat: MDP_BOX.south, lng: MDP_BOX.west },
+          { lat: MDP_BOX.north, lng: MDP_BOX.east }
+        )
       });
       ac.addListener('place_changed', function () {
         var place = ac.getPlace();

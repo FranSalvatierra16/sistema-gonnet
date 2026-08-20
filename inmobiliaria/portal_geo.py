@@ -98,6 +98,105 @@ def coords_aproximadas_zona(texto):
     return mejor
 
 
+# Ejes calle→altura (OSM) para no confundir calles paralelas (Santa Fe ≠ Entre Ríos).
+EJES_CALLE_MDP = {
+    'santa fe': [
+        (1500, -37.9984392, -57.5431471),
+        (1700, -38.0004018, -57.5446813),
+        (2000, -38.0027694, -57.5466145),
+        (2200, -38.0044579, -57.5479372),
+        (2500, -38.0067920, -57.5499710),
+    ],
+    'corrientes': [
+        (1700, -38.0009060, -57.5437024),
+        (2000, -38.0032733, -57.5456220),
+        (2200, -38.0049484, -57.5469686),
+        (2500, -38.0073340, -57.5488950),
+    ],
+    'entre rios': [
+        (1700, -38.0014443, -57.5427232),
+        (2000, -38.0038055, -57.5446116),
+        (2200, -38.0054320, -57.5459527),
+        (2500, -38.0078440, -57.5479940),
+    ],
+    'colon': [
+        (1200, -38.0107255, -57.5361157),
+        (1500, -38.0092007, -57.5391691),
+        (1700, -38.0082395, -57.5410839),
+        (2000, -38.0066797, -57.5441389),
+        (2200, -38.0057017, -57.5460663),
+        (2500, -38.0041949, -57.5490748),
+    ],
+    'gascon': [
+        (1200, -38.0131260, -57.5381140),
+        (1500, -38.0115940, -57.5411390),
+        (1700, -38.0106431, -57.5430366),
+        (2000, -38.0090770, -57.5461080),
+        (2200, -38.0080630, -57.5481310),
+        (2500, -38.0065610, -57.5510970),
+    ],
+    'mitre': [
+        (1200, -37.9943396, -57.5454028),
+        (1500, -37.9967315, -57.5473702),
+        (1700, -37.9983736, -57.5488496),
+        (2000, -38.0007585, -57.5506632),
+        (2200, -38.0024121, -57.5519335),
+        (2500, -38.0048470, -57.5539160),
+    ],
+    'almirante brown': [
+        (1200, -38.0115642, -57.5368006),
+        (1500, -38.0100950, -57.5399370),
+        (1700, -38.0091120, -57.5418520),
+        (2000, -38.0075590, -57.5448790),
+        (2200, -38.0065473, -57.5467663),
+        (2500, -38.0050040, -57.5498270),
+    ],
+    'luro': [
+        (2200, -38.0008133, -57.5421639),
+        (2500, -37.9993077, -57.5451388),
+    ],
+}
+
+
+def _fold_txt(texto: str) -> str:
+    t = (texto or '').lower()
+    for a, b in (('á', 'a'), ('é', 'e'), ('í', 'i'), ('ó', 'o'), ('ú', 'u')):
+        t = t.replace(a, b)
+    return t
+
+
+def coords_por_calle_altura(texto: str):
+    """Si el texto es «Calle NNNN» conocida, interpola sobre el eje OSM."""
+    import re
+    t = _fold_txt(normalizar_direccion_mdp(texto))
+    m = re.search(r'\b(\d{2,5})\b', t)
+    if not m:
+        return None
+    numero = int(m.group(1))
+    calle = None
+    largo = 0
+    for nombre in EJES_CALLE_MDP:
+        if re.search(r'(?:^|[^a-z0-9])' + re.escape(nombre) + r'(?:$|[^a-z0-9])', t):
+            if len(nombre) >= largo:
+                calle = nombre
+                largo = len(nombre)
+    if not calle:
+        return None
+    eje = EJES_CALLE_MDP[calle]
+    if numero <= eje[0][0]:
+        return _to_decimal(eje[0][1]), _to_decimal(eje[0][2])
+    if numero >= eje[-1][0]:
+        return _to_decimal(eje[-1][1]), _to_decimal(eje[-1][2])
+    for i in range(len(eje) - 1):
+        a, b = eje[i], eje[i + 1]
+        if a[0] <= numero <= b[0]:
+            frac = (numero - a[0]) / (b[0] - a[0])
+            lat = a[1] + (b[1] - a[1]) * frac
+            lng = a[2] + (b[2] - a[2]) * frac
+            return _to_decimal(lat), _to_decimal(lng)
+    return None
+
+
 def normalizar_direccion_mdp(texto: str) -> str:
     """«Corrientes al 2200 — Piso 3» → «Corrientes 2200»."""
     import re
@@ -157,6 +256,9 @@ def geocodificar_direccion(texto: str):
     query = (texto or '').strip()
     if not query:
         return None
+    por_eje = coords_por_calle_altura(query)
+    if por_eje and por_eje[0] is not None:
+        return por_eje
     key = google_maps_api_key()
     if key:
         params = urllib.parse.urlencode({
@@ -233,9 +335,13 @@ def markers_portal_resultados(resultados, request):
         if propiedad_tiene_coordenadas(prop):
             lat, lng = _jitter(prop.id, prop.latitud, prop.longitud)
         else:
-            aprox = coords_aproximadas_zona(mejor_texto_direccion_prop(prop))
-            if aprox:
-                lat, lng = _jitter(prop.id, aprox[0], aprox[1])
+            por_eje = coords_por_calle_altura(mejor_texto_direccion_prop(prop))
+            if por_eje and por_eje[0] is not None:
+                lat, lng = _jitter(prop.id, por_eje[0], por_eje[1])
+            else:
+                aprox = coords_aproximadas_zona(mejor_texto_direccion_prop(prop))
+                if aprox:
+                    lat, lng = _jitter(prop.id, aprox[0], aprox[1])
         url = reverse('inmobiliaria:portal_ficha', args=[prop.id])
         if qs:
             url = f'{url}?{qs}'
