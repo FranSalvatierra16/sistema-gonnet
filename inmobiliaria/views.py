@@ -31112,7 +31112,7 @@ def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
     Detalle de liquidación de cobranzas para el propietario.
     Haber = a favor (alquiler, ingresos); Debe = en contra (gastos del propietario).
     Fondo de mantenimiento y cochera son ingreso de oficina: no se descuentan ni figuran en Debe/Haber.
-    Comisión locador/locatario se listan como referencia pero no entran en totales ni saldo.
+    Comisión locador/locatario no se listan en el detalle (van en honorarios/carátula).
     """
     filas = []
     monto_prop = Decimal(str(liquidacion.monto_propietario or 0))
@@ -31140,23 +31140,6 @@ def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
         monto_prop_haber = monto_prop
     else:
         monto_prop_haber = Decimal('0')
-
-    com_loc = Decimal(str(getattr(liquidacion, 'comision_locador', None) or 0))
-    if com_loc > Decimal('0.01'):
-        filas.append({
-            'detalle': 'COMISIÓN LOCADOR',
-            'debe': com_loc.quantize(Decimal('0.01')),
-            'haber': Decimal('0'),
-            'excluir_totales': True,
-        })
-    com_locat = Decimal(str(getattr(liquidacion, 'comision_locatario', None) or 0))
-    if com_locat > Decimal('0.01'):
-        filas.append({
-            'detalle': 'COMISIÓN LOCATARIO',
-            'debe': com_locat.quantize(Decimal('0.01')),
-            'haber': Decimal('0'),
-            'excluir_totales': True,
-        })
 
     gastos_qs = liquidacion.gastos.filter(aceptado=True).order_by('fecha_gasto', 'id')
     if hasattr(liquidacion, '_prefetched_objects_cache') and 'gastos' in liquidacion._prefetched_objects_cache:
