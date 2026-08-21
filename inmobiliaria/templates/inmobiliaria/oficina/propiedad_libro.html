@@ -171,10 +171,10 @@
                     <label class="form-label small mb-0" for="inicio_caja_total_usd">Total USD</label>
                     <input type="text" class="form-control form-control-sm text-end fw-semibold" id="inicio_caja_total_usd" name="total_usd"
                            inputmode="decimal" autocomplete="off"
-                           title="Gastos − Ingresos. Editable: con ingreso recalcula gastos; podés cargar solo el total."
+                           title="Ingresos − Gastos. Editable: con ingreso recalcula gastos; podés cargar solo el total."
                            value="{{ total_usd_inicio|format_price }}"
                            style="min-width:6.5rem">
-                    <small class="text-muted d-block" style="font-size:0.65rem">Gastos − Ingresos</small>
+                    <small class="text-muted d-block" style="font-size:0.65rem">Ingresos − Gastos</small>
                 </div>
                 <div class="col-auto">
                     <button type="submit" class="btn btn-sm btn-primary" id="btn-guardar-inicio-caja">
@@ -614,7 +614,7 @@
             syncUsdLock = true;
             var g = parseMontoInicio(inpGastosUsd);
             var i = parseMontoInicio(inpIngresoUsd);
-            inpTotalUsd.value = fmtMontoInicio(g - i);
+            inpTotalUsd.value = fmtMontoInicio(i - g);
             syncUsdLock = false;
         }
 
@@ -624,12 +624,12 @@
             var t = parseMontoInicio(inpTotalUsd);
             var g = parseMontoInicio(inpGastosUsd);
             var i = parseMontoInicio(inpIngresoUsd);
-            // Ingreso + total → gastos = total + ingreso
+            // Total = ingreso − gastos → gastos = ingreso − total
             if (!casiCero(i) || ultimoCampoUsd === 'ingreso') {
-                if (inpGastosUsd) inpGastosUsd.value = fmtMontoInicio(t + i);
+                if (inpGastosUsd) inpGastosUsd.value = fmtMontoInicio(i - t);
             } else if (!casiCero(g)) {
-                // Gastos + total → ingreso = gastos − total
-                if (inpIngresoUsd) inpIngresoUsd.value = fmtMontoInicio(g - t);
+                // Gastos + total → ingreso = gastos + total
+                if (inpIngresoUsd) inpIngresoUsd.value = fmtMontoInicio(g + t);
             }
             // Solo total: no fuerza gastos/ingreso hasta Guardar
             syncUsdLock = false;
@@ -681,20 +681,20 @@
             var g = parseMontoInicio(inpGastosUsd);
             var i = parseMontoInicio(inpIngresoUsd);
             var t = parseMontoInicio(inpTotalUsd);
-            // Solo total: imputar el neto a gastos (o a ingreso si es negativo)
+            // Solo total: neto positivo → ingreso; negativo → gastos
             if (casiCero(g) && casiCero(i) && !casiCero(t)) {
                 if (t >= 0) {
-                    g = t;
-                    i = 0;
-                } else {
+                    i = t;
                     g = 0;
-                    i = -t;
+                } else {
+                    g = -t;
+                    i = 0;
                 }
                 if (inpGastosUsd) inpGastosUsd.value = fmtMontoInicio(g);
                 if (inpIngresoUsd) inpIngresoUsd.value = fmtMontoInicio(i);
             } else if (ultimoCampoUsd === 'total' && !casiCero(t)) {
-                // Asegurar coherencia gastos = total + ingreso
-                g = t + i;
+                // Asegurar coherencia gastos = ingreso − total
+                g = i - t;
                 if (inpGastosUsd) inpGastosUsd.value = fmtMontoInicio(g);
             }
 

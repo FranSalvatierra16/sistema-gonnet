@@ -1670,8 +1670,8 @@ def oficina_propiedad_libro(request, propiedad_id):
             'fecha_hasta': fecha_hasta_s,
             'inicio_caja': inicio,
             'total_usd_inicio': (
-                Decimal(str(inicio.gastos_usd or 0))
-                - Decimal(str(inicio.ingreso_usd or 0))
+                Decimal(str(inicio.ingreso_usd or 0))
+                - Decimal(str(inicio.gastos_usd or 0))
             ),
         },
     )
