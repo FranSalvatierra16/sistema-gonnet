@@ -1114,10 +1114,11 @@ def _parse_items_concepto_json(raw):
 
 
 def _formatear_items_concepto_libro(items):
-    """Armar texto legible: Nombre — observaciones (omite 'sin observaciones')."""
+    """Armar texto legible: Nombre — observaciones (omite 'sin observaciones' e IDs)."""
     partes = []
     for it in items:
         nombre = str(it.get('nombre') or it.get('concepto') or it.get('descripcion') or '').strip()
+        nombre = _quitar_id_concepto_de_texto(nombre)
         obs = str(it.get('observaciones') or '').strip()
         if obs.lower() in ('', 'sin observaciones', 'sin observaciones.'):
             obs = ''
@@ -1128,6 +1129,88 @@ def _formatear_items_concepto_libro(items):
         elif obs:
             partes.append(obs)
     return '; '.join(partes)
+
+
+def _quitar_id_concepto_de_texto(texto):
+    """Quita prefijos tipo '44 — ELECTRICISTA' → 'ELECTRICISTA'."""
+    import re
+
+    t = (texto or '').strip()
+    if not t:
+        return ''
+    # Varias veces por si viene "5 — 10 — Nombre"
+    for _ in range(3):
+        nuevo = re.sub(r'^\s*\d+\s*[—–\-:]\s*', '', t)
+        if nuevo == t:
+            break
+        t = nuevo.strip()
+    return t
+
+
+def _variantes_direccion_propiedad_libro(prop):
+    """Textos de dirección/unidad que no deben figurar en la descripción del libro."""
+    if not prop:
+        return []
+    dir_ = (getattr(prop, 'direccion', None) or '').strip()
+    if not dir_:
+        return []
+    piso = (getattr(prop, 'piso', None) or '').strip()
+    depto = (getattr(prop, 'departamento', None) or '').strip()
+    variantes = {dir_}
+    if piso and depto:
+        variantes.add(f'{dir_} {piso}/{depto}')
+        variantes.add(f'{dir_}{piso}/{depto}')
+        variantes.add(f'{dir_} {piso}º {depto}')
+        variantes.add(f'{dir_} {piso}° {depto}')
+        variantes.add(f'{dir_} {piso} {depto}')
+    elif piso:
+        variantes.add(f'{dir_} {piso}')
+        variantes.add(f'{dir_}{piso}')
+    elif depto:
+        variantes.add(f'{dir_} {depto}')
+    # Primera palabra de la calle (ej. MORENO) suele colgarse al final.
+    primera = dir_.split()[0] if dir_.split() else ''
+    if primera and len(primera) >= 4:
+        variantes.add(primera)
+    return [v for v in variantes if v]
+
+
+def _limpiar_descripcion_libro(desc, prop=None):
+    """Sin ID de concepto, sin dirección del depto; una línea limpia."""
+    import re
+    import unicodedata
+
+    t = (desc or '').strip()
+    if not t:
+        return ''
+    t = _quitar_id_concepto_de_texto(t)
+    # Quitar segmentos "— dirección…" al final (y repetidos).
+    for marca in sorted(_variantes_direccion_propiedad_libro(prop), key=len, reverse=True):
+        if not marca:
+            continue
+        esc = re.escape(marca)
+        t = re.sub(
+            rf'\s*[—–\-]\s*{esc}\s*$',
+            '',
+            t,
+            flags=re.IGNORECASE,
+        )
+        t = re.sub(
+            rf'\s+[—–\-]\s*{esc}\b',
+            '',
+            t,
+            flags=re.IGNORECASE,
+        )
+        # También si quedó pegada sin guión al final.
+        t = re.sub(rf'\s+{esc}\s*$', '', t, flags=re.IGNORECASE)
+
+    t = re.sub(r'\s+', ' ', t).strip(' —–-')
+    # Normalizar espacios raros
+    t = ''.join(
+        c for c in unicodedata.normalize('NFKC', t)
+        if c == ' ' or not c.isspace()
+    )
+    return t.strip(' —–-')
 
 
 def _descripcion_movimiento_libro(mov):
@@ -1197,14 +1280,17 @@ def _descripcion_movimiento_libro(mov):
             if items:
                 break
 
+    prop = getattr(mov, 'propiedad', None)
+
     if items:
         cuerpo = _formatear_items_concepto_libro(items)
         if prefijo_contrato and cuerpo:
-            return f'{prefijo_contrato} — {cuerpo}'
-        if prefijo_contrato:
-            return prefijo_contrato
-        if cuerpo:
-            return cuerpo
+            desc = f'{prefijo_contrato} — {cuerpo}'
+        elif prefijo_contrato:
+            desc = prefijo_contrato
+        else:
+            desc = cuerpo or f'Movimiento #{mov.id}'
+        return _limpiar_descripcion_libro(desc, prop)
 
     # 3) Sin JSON: si el "resto" sigue siendo basura tipo [{...}], limpiar.
     if resto.lstrip().startswith(('[', '{')):
@@ -1215,21 +1301,8 @@ def _descripcion_movimiento_libro(mov):
     else:
         desc = txt or prefijo_contrato or f'Movimiento #{mov.id}'
 
-    # Si el texto no menciona la dirección del depto, agregarla (evita confusión
-    # cuando el detalle habla de cochera/otro ref. pero el FK ya apunta al depto correcto).
-    prop = getattr(mov, 'propiedad', None)
-    if prop is not None:
-        dir_ = (getattr(prop, 'direccion', None) or '').strip()
-        if dir_:
-            unidad = ''
-            piso = (getattr(prop, 'piso', None) or '').strip()
-            depto = (getattr(prop, 'departamento', None) or '').strip()
-            if piso or depto:
-                unidad = f" {piso}/{depto}".strip() if piso and depto else f" {piso or depto}"
-            marca = f'{dir_}{unidad}'.strip()
-            if marca and marca.casefold() not in desc.casefold():
-                desc = f'{desc} — {marca}'
-    return desc
+    # No agregar la dirección del depto: ya está en el título del libro.
+    return _limpiar_descripcion_libro(desc, prop)
 
 
 def _fila_libro_desde_movimiento(mov, monto_prop_por_reserva=None, cotiz_por_reserva=None):

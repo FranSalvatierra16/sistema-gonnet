@@ -272,10 +272,10 @@
                         data-buscar="{{ f.fecha|date:'d/m/Y' }} {{ f.descripcion|default:'' }}"
                         {% if f.es_inicio_caja %}class="table-primary"{% endif %}>
                         <td class="text-nowrap">{{ f.fecha|date:"d/m/Y" }}</td>
-                        <td>
+                        <td class="desc-libro" title="{{ f.descripcion|default:'' }}">
                             {% if f.es_inicio_caja %}<strong>{{ f.descripcion }}</strong>
                             {% else %}{{ f.descripcion }}{% endif %}
-                            {% if f.sin_caja %}<span class="badge bg-light text-muted border ms-1" title="Tomado de la operación/contrato">op.</span>{% endif %}
+                            {% if f.sin_caja %}<span class="badge bg-light text-muted border ms-1 no-print" title="Tomado de la operación/contrato">op.</span>{% endif %}
                         </td>
                         <td class="text-end text-danger">{% if f.gastos_ars %}{{ f.gastos_ars|format_price }}{% endif %}</td>
                         <td class="text-end text-success celda-alquileres-ars">{% if f.alquileres_ars %}{{ f.alquileres_ars|format_price }}{% endif %}</td>
@@ -409,6 +409,12 @@
 #buscar-depto-resultados .list-group-item.active-result,
 #buscar-depto-resultados .list-group-item:hover { background-color: #e7f1ff; }
 .solo-imprimir { display: none; }
+.libro-oficina-table td.desc-libro {
+    max-width: 28rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 
 @media print {
     @page { size: landscape; margin: 0.6cm; }
@@ -423,9 +429,21 @@
     .container-fluid { margin: 0 !important; padding: 0 !important; max-width: 100% !important; }
     .card { border: 1px solid #333 !important; box-shadow: none !important; break-inside: avoid; }
     .card-header { background: #eee !important; color: #000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .libro-oficina-table { font-size: 0.72rem !important; }
+    .libro-oficina-table { font-size: 0.72rem !important; table-layout: fixed !important; width: 100% !important; }
     .libro-oficina-table th,
     .libro-oficina-table td { padding: 0.15rem 0.3rem !important; }
+    .libro-oficina-table th:nth-child(1),
+    .libro-oficina-table td:nth-child(1) { width: 7%; }
+    .libro-oficina-table th:nth-child(2),
+    .libro-oficina-table td.desc-libro {
+        width: 42%;
+        max-width: none !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+    .libro-oficina-table th:nth-child(n+3),
+    .libro-oficina-table td:nth-child(n+3) { width: 10%; }
     .table-responsive { overflow: visible !important; }
     .alert { border: 1px solid #999 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .table-dark td { background: #333 !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
