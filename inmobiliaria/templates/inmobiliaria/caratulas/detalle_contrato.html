@@ -242,22 +242,32 @@
                     {% csrf_token %}
                     <input type="hidden" name="action" value="add_observacion_cobro">
                     <input type="hidden" name="cuota_id" id="modalObsCuotaId" value="">
-                    <div class="col-6">
-                        <label class="form-label mb-0">ID concepto</label>
-                        <input type="text" name="concepto_caja_id" class="form-control form-control-sm" required placeholder="ej. 55" autocomplete="off">
+                    <input type="hidden" name="concepto_caja_id" id="modalObsConceptoId" value="">
+                    <div class="col-12 position-relative">
+                        <label class="form-label mb-0">Concepto (ID o nombre)</label>
+                        <input type="text" id="modalObsConceptoBuscar" name="concepto_buscar" class="form-control form-control-sm" required placeholder="Ej. 10 o EDEA…" autocomplete="off">
+                        <div id="modalObsConceptoDropdown" class="list-group position-absolute w-100 shadow-sm" style="z-index: 1080; display: none; max-height: 220px; overflow-y: auto;"></div>
+                        <div id="modalObsConceptoSeleccionado" class="alert alert-light border py-1 px-2 mt-1 mb-0 small d-none">
+                            <span id="modalObsConceptoTexto"></span>
+                            <button type="button" class="btn btn-link btn-sm p-0 ms-2" id="modalObsConceptoLimpiar">cambiar</button>
+                        </div>
                     </div>
                     <div class="col-6">
                         <label class="form-label mb-0">Monto</label>
                         <input type="text" name="monto" class="form-control form-control-sm" required placeholder="0,00" inputmode="decimal">
                     </div>
-                    <div class="col-4">
+                    <div class="col-3">
                         <label class="form-label mb-0">Moneda</label>
                         <select name="moneda" class="form-select form-select-sm">
                             <option value="ARS" selected>ARS</option>
                             <option value="USD">USD</option>
                         </select>
                     </div>
-                    <div class="col-8">
+                    <div class="col-3">
+                        <label class="form-label mb-0">Fecha</label>
+                        <input type="date" name="fecha" id="modalObsFecha" class="form-control form-control-sm" required value="{{ today|date:'Y-m-d' }}">
+                    </div>
+                    <div class="col-12">
                         <label class="form-label mb-0">Detalle</label>
                         <input type="text" name="detalle" class="form-control form-control-sm" placeholder="Ej. EDEA, expensas…" maxlength="400">
                     </div>
@@ -296,6 +306,11 @@
     var modal = document.getElementById('modalObservacionCobro');
     if (!modal) return;
 
+    var urlBuscarConceptos = '{% url "inmobiliaria:buscar_conceptos" %}';
+    var csrfToken = (document.querySelector('#formAddObservacionCobro [name=csrfmiddlewaretoken]') || {}).value || '';
+    var debounceTimer = null;
+    var ultimosConceptos = [];
+
     function escapeHtml(s) {
         return String(s == null ? '' : s)
             .replace(/&/g, '&amp;')
@@ -308,6 +323,13 @@
         var n = Number(monto || 0);
         var txt = n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         return (moneda === 'USD' ? 'U$S ' : '$') + txt;
+    }
+
+    function hoyISO() {
+        var d = new Date();
+        var m = String(d.getMonth() + 1).padStart(2, '0');
+        var day = String(d.getDate()).padStart(2, '0');
+        return d.getFullYear() + '-' + m + '-' + day;
     }
 
     function renderLista(cuotaId) {
@@ -342,6 +364,166 @@
         });
     }
 
+    function ocultarDropdown() {
+        var dd = document.getElementById('modalObsConceptoDropdown');
+        if (dd) { dd.style.display = 'none'; dd.innerHTML = ''; }
+    }
+
+    function seleccionarConcepto(c) {
+        if (!c || c.id == null) return;
+        var hid = document.getElementById('modalObsConceptoId');
+        var inp = document.getElementById('modalObsConceptoBuscar');
+        var box = document.getElementById('modalObsConceptoSeleccionado');
+        var txt = document.getElementById('modalObsConceptoTexto');
+        if (hid) hid.value = String(c.id);
+        if (txt) txt.textContent = String(c.id) + ' — ' + String(c.nombre || '');
+        if (box) box.classList.remove('d-none');
+        if (inp) {
+            inp.value = String(c.id) + ' — ' + String(c.nombre || '');
+            inp.removeAttribute('required');
+        }
+        ocultarDropdown();
+    }
+
+    function limpiarConcepto() {
+        var hid = document.getElementById('modalObsConceptoId');
+        var inp = document.getElementById('modalObsConceptoBuscar');
+        var box = document.getElementById('modalObsConceptoSeleccionado');
+        if (hid) hid.value = '';
+        if (box) box.classList.add('d-none');
+        if (inp) {
+            inp.value = '';
+            inp.setAttribute('required', 'required');
+            inp.focus();
+        }
+        ocultarDropdown();
+    }
+
+    function renderDropdown(conceptos) {
+        var dd = document.getElementById('modalObsConceptoDropdown');
+        if (!dd) return;
+        ultimosConceptos = conceptos || [];
+        if (!ultimosConceptos.length) {
+            dd.innerHTML = '<div class="list-group-item text-muted small py-2">Sin resultados</div>';
+            dd.style.display = 'block';
+            return;
+        }
+        dd.innerHTML = ultimosConceptos.map(function (c) {
+            return '<button type="button" class="list-group-item list-group-item-action py-2 obs-concepto-opt" data-id="' +
+                escapeHtml(c.id) + '" data-nombre="' + escapeHtml(c.nombre) + '">' +
+                '<strong>' + escapeHtml(c.id) + '</strong> — ' + escapeHtml(c.nombre) +
+                '</button>';
+        }).join('');
+        dd.style.display = 'block';
+        dd.querySelectorAll('.obs-concepto-opt').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                seleccionarConcepto({ id: btn.getAttribute('data-id'), nombre: btn.getAttribute('data-nombre') });
+            });
+        });
+    }
+
+    function buscarConceptos(termino) {
+        var body = new URLSearchParams();
+        body.set('termino', termino || '');
+        body.set('csrfmiddlewaretoken', csrfToken);
+        fetch(urlBuscarConceptos, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: body,
+            credentials: 'same-origin'
+        }).then(function (r) { return r.json(); }).then(function (data) {
+            renderDropdown(data.conceptos || []);
+        }).catch(function () {
+            renderDropdown([]);
+        });
+    }
+
+    var inpConcepto = document.getElementById('modalObsConceptoBuscar');
+    if (inpConcepto) {
+        inpConcepto.addEventListener('focus', function () {
+            buscarConceptos(inpConcepto.value.trim());
+        });
+        inpConcepto.addEventListener('input', function () {
+            var hid = document.getElementById('modalObsConceptoId');
+            if (hid) hid.value = '';
+            var box = document.getElementById('modalObsConceptoSeleccionado');
+            if (box) box.classList.add('d-none');
+            inpConcepto.setAttribute('required', 'required');
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(function () {
+                buscarConceptos(inpConcepto.value.trim());
+            }, 250);
+        });
+    }
+    var btnLimpiar = document.getElementById('modalObsConceptoLimpiar');
+    if (btnLimpiar) btnLimpiar.addEventListener('click', limpiarConcepto);
+
+    document.addEventListener('click', function (ev) {
+        var wrap = document.getElementById('modalObsConceptoBuscar');
+        var dd = document.getElementById('modalObsConceptoDropdown');
+        if (!wrap || !dd) return;
+        if (ev.target === wrap || wrap.contains(ev.target) || dd.contains(ev.target)) return;
+        ocultarDropdown();
+    });
+
+    var formAdd = document.getElementById('formAddObservacionCobro');
+    if (formAdd) {
+        formAdd.addEventListener('submit', function (ev) {
+            var hid = document.getElementById('modalObsConceptoId');
+            var inp = document.getElementById('modalObsConceptoBuscar');
+            var cid = hid && hid.value ? String(hid.value).trim() : '';
+            if (!cid && inp) {
+                var term = String(inp.value || '').trim();
+                var exact = ultimosConceptos.find(function (c) {
+                    return String(c.id).toLowerCase() === term.toLowerCase()
+                        || String(c.nombre || '').toLowerCase() === term.toLowerCase();
+                });
+                if (!exact && ultimosConceptos.length === 1) exact = ultimosConceptos[0];
+                if (exact) {
+                    seleccionarConcepto(exact);
+                    cid = String(exact.id);
+                } else if (term) {
+                    // Dejar que el servidor resuelva por ID/nombre
+                    if (hid) hid.value = term;
+                    cid = term;
+                }
+            }
+            if (!cid) {
+                ev.preventDefault();
+                alert('Elegí un concepto de la lista (por ID o nombre).');
+                if (inp) inp.focus();
+            }
+        });
+    }
+
+    function initTooltipsObs() {
+        if (!window.bootstrap || !bootstrap.Tooltip) return;
+        document.querySelectorAll('.btn-obs-mes').forEach(function (btn) {
+            var existing = bootstrap.Tooltip.getInstance(btn);
+            if (existing) existing.dispose();
+            var cuotaId = btn.getAttribute('data-cuota-id') || '';
+            var items = obsPorCuota[String(cuotaId)] || [];
+            if (!items.length) {
+                btn.removeAttribute('title');
+                btn.removeAttribute('data-bs-original-title');
+                return;
+            }
+            var lines = items.map(function (o) {
+                return escapeHtml(o.nombre || '—') + ' · ' + formatMonto(o.monto, o.moneda)
+                    + (o.detalle ? ' (' + escapeHtml(o.detalle) + ')' : '');
+            });
+            var title = '<div class="text-start"><strong>Pendientes</strong><br>' + lines.join('<br>') + '</div>';
+            new bootstrap.Tooltip(btn, {
+                html: true,
+                title: title,
+                placement: 'left',
+                trigger: 'hover',
+                container: 'body',
+                customClass: 'obs-tooltip-pendientes'
+            });
+        });
+    }
+
     modal.addEventListener('show.bs.modal', function (ev) {
         var btn = ev.relatedTarget;
         if (!btn) return;
@@ -350,8 +532,12 @@
         var cuotaIdInput = document.getElementById('modalObsCuotaId');
         var mesLabel = document.getElementById('modalObsMesLabel');
         var irCobrar = document.getElementById('modalObsIrCobrar');
+        var fechaInp = document.getElementById('modalObsFecha');
         if (cuotaIdInput) cuotaIdInput.value = cuotaId;
         if (mesLabel) mesLabel.textContent = label;
+        if (fechaInp && !fechaInp.value) fechaInp.value = hoyISO();
+        if (fechaInp) fechaInp.value = hoyISO();
+        limpiarConcepto();
         if (irCobrar) {
             var cobrarUrl = btn.getAttribute('data-cobrar-url') || '';
             if (cobrarUrl) {
@@ -363,6 +549,8 @@
         }
         renderLista(cuotaId);
     });
+
+    initTooltipsObs();
 })();
 </script>
 {% endblock %}

@@ -29879,15 +29879,22 @@ def _observaciones_pendientes_inquilino(contrato, cuota=None):
     qs = qs.order_by('creado_en', 'id')
     out = []
     for o in qs:
-        fecha = o.creado_en
         fecha_disp = '—'
-        if fecha:
+        fobs = getattr(o, 'fecha', None)
+        if fobs:
             try:
-                if timezone.is_aware(fecha):
-                    fecha = timezone.localtime(fecha)
-                fecha_disp = fecha.strftime('%d/%m/%Y')
+                fecha_disp = fobs.strftime('%d/%m/%Y')
             except Exception:
                 fecha_disp = '—'
+        else:
+            fecha = o.creado_en
+            if fecha:
+                try:
+                    if timezone.is_aware(fecha):
+                        fecha = timezone.localtime(fecha)
+                    fecha_disp = fecha.strftime('%d/%m/%Y')
+                except Exception:
+                    fecha_disp = '—'
         nombre = (o.concepto_nombre or '').strip()
         if not nombre:
             nombre = f'Concepto {o.concepto_caja_id}'

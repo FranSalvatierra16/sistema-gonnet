@@ -581,6 +581,11 @@ class ObservacionCobroInquilino(models.Model):
     monto = models.DecimalField(max_digits=14, decimal_places=2)
     moneda = models.CharField(max_length=3, choices=MONEDA_CHOICES, default='ARS')
     detalle = models.CharField(max_length=400, blank=True, default='')
+    fecha = models.DateField(
+        default=timezone.localdate,
+        verbose_name='Fecha',
+        help_text='Fecha del gasto/observación (por defecto el día en que se carga).',
+    )
     estado = models.CharField(
         max_length=20,
         choices=ESTADO_CHOICES,

@@ -4142,21 +4142,37 @@ def caratula_reserva(request, reserva_id):
 
 def _procesar_add_observacion_cobro(request, contrato):
     from django.contrib import messages
+    from inmobiliaria.catalogo_conceptos_caja import q_conceptos_caja_visibles
     from inmobiliaria.decimal_utils import parse_decimal_monto
+    from inmobiliaria.models.caja import Concepto
     from inmobiliaria.views import _nombre_concepto_caja
 
-    concepto_id = (request.POST.get('concepto_caja_id') or '').strip()
+    concepto_raw = (request.POST.get('concepto_caja_id') or request.POST.get('concepto_buscar') or '').strip()
     detalle = (request.POST.get('detalle') or '').strip()[:400]
     moneda = (request.POST.get('moneda') or 'ARS').strip().upper()
     if moneda not in ('ARS', 'USD'):
         moneda = 'ARS'
     monto = parse_decimal_monto(request.POST.get('monto', '0'))
-    if not concepto_id:
-        messages.error(request, 'Indicá el ID del concepto de caja.')
+    if not concepto_raw:
+        messages.error(request, 'Indicá el ID o el nombre del concepto de caja.')
         return False
     if monto is None or monto <= 0:
         messages.error(request, 'El monto debe ser mayor a cero.')
         return False
+
+    fecha = timezone.localdate()
+    fecha_raw = (request.POST.get('fecha') or '').strip()
+    if fecha_raw:
+        for fmt in ('%Y-%m-%d', '%d/%m/%Y', '%d-%m-%Y'):
+            try:
+                fecha = datetime.strptime(fecha_raw, fmt).date()
+                break
+            except ValueError:
+                continue
+        else:
+            messages.error(request, 'Fecha inválida. Usá el formato del calendario.')
+            return False
+
     cuota = None
     try:
         cuota_id = int(request.POST.get('cuota_id') or 0)
@@ -4167,23 +4183,39 @@ def _procesar_add_observacion_cobro(request, contrato):
         if not cuota:
             messages.error(request, 'Cuota inválida para esta observación.')
             return False
-    nombre = _nombre_concepto_caja(concepto_id, request.user.sucursal) or ''
-    if not nombre:
-        from inmobiliaria.models.caja import Concepto
-        c = Concepto.objects.filter(id=concepto_id, sucursal=request.user.sucursal).first()
-        if c:
-            nombre = f'{c.id} - {c.nombre}'
-        else:
-            nombre = f'Concepto {concepto_id}'
+
+    sucursal = request.user.sucursal
+    base_qs = Concepto.objects.filter(q_conceptos_caja_visibles(sucursal))
+    concepto = base_qs.filter(id__iexact=concepto_raw).first()
+    if not concepto:
+        concepto = base_qs.filter(nombre__iexact=concepto_raw).first()
+    if not concepto:
+        matches = list(base_qs.filter(nombre__icontains=concepto_raw).order_by('nombre', 'id')[:5])
+        if len(matches) == 1:
+            concepto = matches[0]
+        elif len(matches) > 1:
+            messages.error(
+                request,
+                'Hay varios conceptos con ese nombre. Elegí uno de la lista (ID o nombre exacto).',
+            )
+            return False
+    if not concepto:
+        messages.error(request, f'No se encontró el concepto «{concepto_raw}» en el catálogo.')
+        return False
+
+    concepto_id = str(concepto.id).strip()
+    nombre = _nombre_concepto_caja(concepto_id, sucursal) or f'{concepto.id} - {concepto.nombre}'
+
     ObservacionCobroInquilino.objects.create(
         contrato=contrato,
         cuota=cuota,
-        sucursal=request.user.sucursal,
+        sucursal=sucursal,
         concepto_caja_id=concepto_id,
         concepto_nombre=nombre[:200],
         monto=monto.quantize(Decimal('0.01')),
         moneda=moneda,
         detalle=detalle,
+        fecha=fecha,
         estado=ObservacionCobroInquilino.ESTADO_PENDIENTE,
         creado_por=request.user,
     )
@@ -4261,7 +4293,11 @@ def _adjuntar_observaciones_a_cuotas(contrato, cuotas_list):
                 'detalle': o.detalle or '',
                 'monto': float(o.monto or 0),
                 'moneda': o.moneda or 'ARS',
-                'fecha': o.creado_en.strftime('%d/%m/%Y') if o.creado_en else '—',
+                'fecha': (
+                    (o.fecha or (o.creado_en.date() if o.creado_en else None)).strftime('%d/%m/%Y')
+                    if (o.fecha or o.creado_en)
+                    else '—'
+                ),
             }
             for o in propias
         ]
@@ -4474,6 +4510,7 @@ def caratula_contrato(request, contrato_id):
         'observaciones_sin_cuota': observaciones_sin_cuota,
         'observaciones_por_cuota_json': observaciones_por_cuota_json,
         'url_cobrar_observaciones': _url_cobrar_observaciones_contrato(contrato, cuotas_list),
+        'today': timezone.localdate(),
     }
     return render(request, 'inmobiliaria/caratulas/detalle_contrato.html', ctx)
 
