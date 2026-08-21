@@ -27870,7 +27870,14 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                     pk = int(sid.strip())
                 except ValueError:
                     continue
-                if tipo in ('reserva', 'contrato', 'contrato_cuota', 'contrato_operacion_principal', 'movimiento_caja'):
+                if tipo in (
+                    'reserva',
+                    'contrato',
+                    'contrato_cuota',
+                    'contrato_operacion_principal',
+                    'movimiento_caja',
+                    'gasto_propietario',
+                ):
                     op_row = {'tipo': tipo, 'id': pk}
                     m_prop_op = montos_prop_por_op.get(f'{tipo}:{pk}')
                     if m_prop_op is not None and m_prop_op >= 0:
@@ -27973,13 +27980,37 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
             operaciones_incluidas = ops_dedup
 
             gastos_seleccionados = _leer_gastos_seleccionados_post(request.POST)
+            # Gastos a reintegrar tildados en la tabla de pagos a favor.
+            for o in operaciones_incluidas:
+                if not isinstance(o, dict):
+                    continue
+                if (o.get('tipo') or '').lower() != 'gasto_propietario':
+                    continue
+                try:
+                    gid = str(int(o['id']))
+                except (KeyError, TypeError, ValueError):
+                    continue
+                if gid not in gastos_seleccionados:
+                    gastos_seleccionados.append(gid)
             if _propiedad_sin_gastos_en_liquidacion(propiedad, request.user.sucursal):
                 gastos_seleccionados = []
+            ops_alquiler = [
+                o for o in operaciones_incluidas
+                if isinstance(o, dict)
+                and (o.get('tipo') or '').lower()
+                not in ('division', 'gasto_propietario', 'movimiento_caja')
+            ]
             ops_reales = [
                 o for o in operaciones_incluidas
                 if isinstance(o, dict) and (o.get('tipo') or '').lower() != 'division'
             ]
-            solo_servicios = not ops_reales and bool(gastos_seleccionados)
+            solo_servicios = (not ops_alquiler) and (
+                bool(gastos_seleccionados)
+                or any(
+                    (o.get('tipo') or '').lower() in ('gasto_propietario', 'movimiento_caja')
+                    for o in ops_reales
+                )
+            )
 
             if not ops_reales and not gastos_seleccionados:
                 raise ValueError(
@@ -28253,6 +28284,17 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                 # Asociar gastos pendientes seleccionados a la liquidación
                 # (deptos oficina / cartera no descuentan gastos acá: van al libro de Oficina).
                 gastos_seleccionados = _leer_gastos_seleccionados_post(request.POST)
+                for o in operaciones_incluidas:
+                    if not isinstance(o, dict):
+                        continue
+                    if (o.get('tipo') or '').lower() != 'gasto_propietario':
+                        continue
+                    try:
+                        gid = str(int(o['id']))
+                    except (KeyError, TypeError, ValueError):
+                        continue
+                    if gid not in gastos_seleccionados:
+                        gastos_seleccionados.append(gid)
                 if gastos_seleccionados and not _propiedad_sin_gastos_en_liquidacion(
                     propiedad, request.user.sucursal
                 ):
@@ -30445,7 +30487,48 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
     for gasto in gastos_manuales:
         if gasto.id in vistos:
             continue
+        vistos.add(gasto.id)
         obs = (gasto.observaciones or '').strip()
+        # Los ingresos (reintegro de gastos cobrados al inquilino) van en la lista
+        # principal de pagos a favor, para poder tildarlos junto con las cuotas.
+        if (gasto.tipo_movimiento or '').lower() == 'ingreso':
+            monto_g = Decimal(str(gasto.monto or 0)).quantize(Decimal('0.01'))
+            if monto_g <= 0:
+                continue
+            fecha_g = gasto.fecha_gasto
+            fecha_iso = fecha_g.strftime('%Y-%m-%d') if fecha_g else ''
+            contrato_id_gasto = None
+            m_ct = re.search(r'contrato\s*#\s*(\d+)', obs, re.I)
+            if m_ct:
+                try:
+                    contrato_id_gasto = int(m_ct.group(1))
+                except (TypeError, ValueError):
+                    contrato_id_gasto = None
+            desc = (gasto.descripcion or 'Gasto a reintegrar').strip()
+            if obs:
+                # Acortar detalle para la fila
+                det_corto = obs.split(' · ')[0][:120]
+                if det_corto and det_corto.casefold() not in desc.casefold():
+                    desc = f'{desc} — {det_corto}'
+            desc = f'{desc} (gasto adelantado por el propietario)'
+            operaciones.append({
+                'tipo': 'gasto_propietario',
+                'tipo_display': 'Gasto a pagar',
+                'concepto_pago': (gasto.descripcion or 'Gasto propietario')[:80],
+                'incluible': True,
+                'id': gasto.id,
+                'contrato_id': contrato_id_gasto,
+                'descripcion': desc[:300],
+                'fecha_inicio': fecha_iso,
+                'fecha_fin': fecha_iso,
+                'monto_total': str(monto_g),
+                'monto_pagado': str(monto_g),
+                'monto_propietario': str(monto_g),
+                'monto_inmobiliaria': '0',
+                'dias': 0,
+                'moneda': (gasto.moneda or 'ARS'),
+            })
+            continue
         gastos_pendientes_list.append(_dict_gasto_pendiente(gasto, detalle=obs))
 
     egresos_caja = _egresos_caja_pendientes_para_liquidacion(propiedad, sucursal)
@@ -30490,6 +30573,9 @@ def _filtrar_operaciones_liquidacion_por_busqueda(operaciones, *, tipo_busqueda,
         if tipo_busqueda == 'reserva':
             if tipo == 'reserva' and op_id == oid:
                 filtradas.append(op)
+            elif tipo in ('movimiento_caja', 'gasto_propietario'):
+                # Gastos/reintegros de la misma propiedad (ya filtrada en data).
+                filtradas.append(op)
         elif tipo_busqueda == 'contrato':
             if tipo == 'contrato_operacion_principal' and op_id == oid:
                 filtradas.append(op)
@@ -30501,6 +30587,17 @@ def _filtrar_operaciones_liquidacion_por_busqueda(operaciones, *, tipo_busqueda,
                     pass
             elif tipo == 'contrato' and op_id == oid:
                 filtradas.append(op)
+            elif tipo in ('movimiento_caja', 'gasto_propietario'):
+                # Reintegros / pagos a favor de la propiedad; si traen contrato_id, solo ese contrato.
+                cid = op.get('contrato_id')
+                if cid is None or cid == '':
+                    filtradas.append(op)
+                else:
+                    try:
+                        if int(cid) == oid:
+                            filtradas.append(op)
+                    except (TypeError, ValueError):
+                        filtradas.append(op)
     return filtradas
 
 

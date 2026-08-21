@@ -1055,13 +1055,17 @@ document.addEventListener('DOMContentLoaded', function() {
                             ? (op.anticipada ? 'bg-warning text-dark' : 'bg-primary')
                             : (op.tipo === 'movimiento_caja'
                                 ? 'bg-secondary'
-                                : 'bg-success'))));
+                                : (op.tipo === 'gasto_propietario'
+                                    ? 'bg-success'
+                                    : 'bg-success')))));
                 const tipoEtiqueta = op.tipo_display || (
                     (op.tipo === 'contrato_operacion_principal' || op.es_operacion_principal_honorarios)
                         ? 'Operación principal'
                         : (op.tipo === 'reserva' ? 'Por día' : (
                             op.tipo === 'contrato_cuota' ? 'Cuota mensual' : (
-                                op.tipo === 'movimiento_caja' ? 'Pago a favor' : 'Contrato'
+                                op.tipo === 'movimiento_caja' ? 'Pago a favor' : (
+                                    op.tipo === 'gasto_propietario' ? 'Gasto a pagar' : 'Contrato'
+                                )
                             )
                         ))
                 ) + (op.anticipada ? ' (anticipada)' : '');
@@ -1136,7 +1140,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         Cada <strong>Cuota mensual</strong> pagada pendiente de liquidar es una fila distinta (mismo contrato = varias filas si cobraste varios meses).
                         La <strong>Operación principal</strong> (badge verde, cuota 1) incluye honorarios/comisiones del alta en contratos de 9 meses o más.
                         En contratos de <strong>9 o 24 meses</strong> podés liquidar <strong>todas las cuotas</strong> del plan que aún no estén en otra liquidación (pagadas o anticipadas).
-                        Los <strong>Pago a favor</strong> son ingresos de caja con importe imputado al propietario (servicios, etc.) que aún no liquidaste.
+                        Los <strong>Pago a favor</strong> y <strong>Gasto a pagar</strong> son reintegros al propietario (servicios/gastos que adelantó y ya cobraste al inquilino). Tildalos para que sumen al monto a pagarle.
                         Tras liquidar, las cuotas nuevas que cobres vuelven a aparecer como filas nuevas.
                         Las filas atenuadas con casilla deshabilitada son solo referencia.
                         ${colProp ? 'Si el propietario tiene más de una propiedad, al tildar una operación se fija la propiedad del formulario y se recargan operaciones y gastos de esa propiedad.' : ''}
@@ -2054,6 +2058,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (tipo === 'movimiento_caja') {
             return custom || 'Pago a favor';
         }
+        if (tipo === 'gasto_propietario') {
+            return custom || 'Gasto a pagar';
+        }
         return custom || 'Alquiler';
     }
 
@@ -2661,6 +2668,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const jsonGastoPrev = form.querySelector('input[name="gastos_seleccionados_json"]');
             if (jsonGastoPrev) jsonGastoPrev.remove();
 
+            const idsGastosDesdeOps = [];
             opsMarcadas.forEach(function(cb) {
                 const tipo = cb.getAttribute('data-tipo');
                 const id = cb.getAttribute('data-id');
@@ -2681,14 +2689,30 @@ document.addEventListener('DOMContentLoaded', function() {
                     monto: String(cb.getAttribute('data-monto-propietario') || '0'),
                 });
                 form.appendChild(inpM);
+                if (tipo === 'gasto_propietario') {
+                    idsGastosDesdeOps.push(String(id));
+                }
             });
 
             // Respaldo explícito de gastos (incluye movimiento_N de caja).
-            const idsGastos = [];
+            const idsGastos = idsGastosDesdeOps.slice();
             gastosMarcados.forEach(function(cb) {
                 const gid = String(cb.value || '').trim();
                 if (!gid) return;
-                idsGastos.push(gid);
+                if (idsGastos.indexOf(gid) === -1) idsGastos.push(gid);
+                const inpG = document.createElement('input');
+                inpG.type = 'hidden';
+                inpG.name = 'gastos_seleccionados[]';
+                inpG.className = 'dynamic-gasto-seleccionado';
+                inpG.value = gid;
+                form.appendChild(inpG);
+            });
+            idsGastosDesdeOps.forEach(function(gid) {
+                if (!gid) return;
+                const ya = Array.from(form.querySelectorAll('input[name="gastos_seleccionados[]"]')).some(function(el) {
+                    return String(el.value) === String(gid);
+                });
+                if (ya) return;
                 const inpG = document.createElement('input');
                 inpG.type = 'hidden';
                 inpG.name = 'gastos_seleccionados[]';
