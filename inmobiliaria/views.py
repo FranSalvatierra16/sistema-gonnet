@@ -39,6 +39,34 @@ def _recibo_monto_str(valor, dec_places=2, moneda='ARS'):
     return f'${formatted}'
 
 
+def _importe_concepto_recibo_str(valor) -> str:
+    """Importe de concepto para JSON/|CONCEPTOS:| con 2 decimales (punto), sin truncar centavos."""
+    try:
+        d = valor if isinstance(valor, Decimal) else parse_decimal_monto(valor)
+    except Exception:
+        d = Decimal('0')
+    return format(d.quantize(Decimal('0.01')), 'f')
+
+
+def _recibo_monto_en_palabras(valor, moneda='ARS') -> str:
+    """Texto 'PESOS/DÓLARES N CON xx/100' preservando centavos."""
+    prefijo = 'DÓLARES' if str(moneda or 'ARS').strip().upper() == 'USD' else 'PESOS'
+    try:
+        d = valor if isinstance(valor, Decimal) else parse_decimal_monto(valor)
+    except Exception:
+        d = Decimal('0')
+    d = d.quantize(Decimal('0.01'))
+    neg = d < 0
+    d = abs(d)
+    entero = int(d)
+    centavos = int((d - Decimal(entero)) * 100)
+    cuerpo = format_monto_argentino(entero, 0)
+    if entero == 0:
+        cuerpo = 'CERO'
+    texto = f'{prefijo} {cuerpo} CON {centavos:02d}/100'
+    return f'MENOS {texto}' if neg else texto
+
+
 def _texto_comodidades_recibo(propiedad_data) -> str:
     """Cantidad de ambientes para la línea COMODIDADES del recibo impreso."""
     amb = getattr(propiedad_data, 'ambientes', None)
@@ -6885,7 +6913,7 @@ def ver_recibo(request, reserva_id):
             'descripcion': 'Alquiler temporario por días',
             'pagos': pagos,
             'total_pagado': _recibo_monto_str(total_pagado, moneda=moneda_res),
-            'monto_en_palabras': numero_a_palabras(int(total_pagado)),
+            'monto_en_palabras': _recibo_monto_en_palabras(total_pagado, moneda=moneda_res),
             'formas_de_pago': ', '.join(formas_de_pago_mostrar) if formas_de_pago_mostrar else ('USD (efectivo)' if moneda_res == 'USD' else 'EFECTIVO'),
             # ✅ AGREGAR VARIABLES QUE NECESITA EL TEMPLATE
             'precio_total_operacion': _recibo_monto_str(precio_total, moneda=moneda_res),
@@ -7043,7 +7071,7 @@ def generar_recibo_pdf(reserva, pago_senia):
         'descripcion': 'Alquiler temporario por días',
         'pagos': pagos,
         'total_pagado': _recibo_monto_str(total_pagado),
-        'monto_en_palabras': numero_a_palabras(total_pagado),
+        'monto_en_palabras': _recibo_monto_en_palabras(total_pagado),
         'formas_de_pago': ', '.join(formas_de_pago) if formas_de_pago else 'EFECTIVO',
     }
     
@@ -7768,17 +7796,11 @@ def procesar_movimiento_reserva(request):
                     total_conceptos += importe_limpio
                     conceptos_importes_decimal[i] = importe_limpio
                     
-                    # Guardar información completa del concepto
-                    # ✅ Formatear el importe como número entero sin decimales para evitar problemas de parseo
-                    if isinstance(importe_limpio, Decimal):
-                        importe_str = str(int(importe_limpio.quantize(Decimal('1'))))
-                    else:
-                        importe_str = str(int(float(importe_limpio))) if importe_limpio else '0'
-                    
+                    # Guardar con 2 decimales (antes se truncaba a entero y el recibo perdía centavos)
                     concepto_completo = {
                         'id': concepto_id or f'C{i+1:02d}',
                         'nombre': concepto_nombre,
-                        'importe': importe_str
+                        'importe': _importe_concepto_recibo_str(importe_limpio),
                     }
                     conceptos_completos.append(concepto_completo)
 # print(f"💰 CONCEPTO {i}: ID={concepto_id}, {concepto_nombre} - ${concepto_importe}")
@@ -8810,7 +8832,7 @@ def ver_recibo_movimiento(request, movimiento_id):
                 'descripcion': 'Alquiler temporario por días',
                 'pagos': pagos,
                 'total_pagado': _recibo_monto_str(total_pagado, moneda=moneda_res),
-                'monto_en_palabras': numero_a_palabras(int(total_pagado)),
+                'monto_en_palabras': _recibo_monto_en_palabras(total_pagado, moneda=moneda_res),
                 'formas_de_pago': formas_de_pago_mostrar,
                 'logo_base64': logo_base64,
                 # ✅ DATOS CORREGIDOS PARA MOSTRAR EN RECIBO
@@ -20991,6 +21013,57 @@ def _lineas_pagos_recibo_desde_movimiento(movimiento, recibo_obj=None, sucursal=
                 else:
                     total = ars
 
+    # Recibos viejos: conceptos guardados como entero (sin centavos).
+    # Si el cobro real tiene decimales, corregir líneas y total para el recibo.
+    monto_ref = None
+    if recibo_obj is not None and getattr(recibo_obj, 'monto_este_pago', None) is not None:
+        try:
+            monto_ref = Decimal(str(recibo_obj.monto_este_pago)).quantize(Decimal('0.01'))
+        except Exception:
+            monto_ref = None
+    if monto_ref is None:
+        ref_fb = mov_conceptos or movimiento
+        if ref_fb is not None:
+            try:
+                ars = Decimal(str(ref_fb.monto_total or 0)).quantize(Decimal('0.01'))
+                usd = Decimal(str(getattr(ref_fb, 'monto_dolares', None) or 0)).quantize(Decimal('0.01'))
+                if moneda == 'USD' or (ars <= 0 and usd > 0):
+                    monto_ref = usd
+                else:
+                    monto_ref = ars
+            except Exception:
+                monto_ref = None
+
+    if monto_ref is not None and abs(monto_ref) > 0:
+        total_q = Decimal(str(total or 0)).quantize(Decimal('0.01'))
+        if abs(monto_ref - total_q) >= Decimal('0.01'):
+            diff = (monto_ref - total_q).quantize(Decimal('0.01'))
+            # Caso típico: concepto guardado sin centavos (264593 vs 264593.40)
+            if pagos and abs(diff) < Decimal('1.00'):
+                if len(pagos) == 1:
+                    pagos[0]['monto'] = _recibo_monto_str(abs(monto_ref), moneda=moneda)
+                    pagos[0]['es_negativo'] = monto_ref < 0
+                    total = monto_ref
+                else:
+                    ultimo = pagos[-1]
+                    try:
+                        raw = str(ultimo.get('monto') or '0')
+                        for pref in ('U$S', '$'):
+                            raw = raw.replace(pref, '')
+                        base = _importe_decimal_concepto_recibo(raw.strip())
+                        if ultimo.get('es_negativo'):
+                            base = -abs(base)
+                        nuevo = (base + diff).quantize(Decimal('0.01'))
+                        ultimo['monto'] = (
+                            _recibo_monto_str(abs(nuevo), moneda=moneda) if nuevo != 0 else ''
+                        )
+                        ultimo['es_negativo'] = nuevo < 0
+                        total = monto_ref
+                    except Exception:
+                        pass
+            elif not pagos:
+                total = monto_ref
+
     return pagos, total
 
 
@@ -26471,7 +26544,7 @@ def ver_recibo_pdf(request, reserva_id):
             'sellados': _recibo_monto_str(sellados_monto),
             'tiene_honorarios': honorarios_monto > 0,
             'tiene_sellados': sellados_monto > 0,
-            'monto_en_palabras': numero_a_palabras(total_pagado),
+            'monto_en_palabras': _recibo_monto_en_palabras(total_pagado),
             'logo_base64': logo_base64,
             'sucursal': sucursal,  # Agregar sucursal al contexto
         }
@@ -27148,7 +27221,7 @@ def ver_recibo_movimiento_pdf(request, movimiento_id):
             'sellados': _recibo_monto_str(sellados_monto),
             'tiene_honorarios': honorarios_monto > 0,
             'tiene_sellados': sellados_monto > 0,
-            'monto_en_palabras': numero_a_palabras(movimiento.monto_total),
+            'monto_en_palabras': _recibo_monto_en_palabras(movimiento.monto_total),
             'logo_base64': logo_base64,
             'sucursal': sucursal,  # Agregar sucursal al contexto
         }
