@@ -283,7 +283,6 @@ urlpatterns = [
     path('caja/conceptos/crear/', views.crear_concepto, name='crear_concepto'),
     path('caja/propiedad/buscar/', views.buscar_propiedad, name='buscar_propiedad'),
     path('caja/propiedades/buscar/', views.buscar_propiedades_caja, name='buscar_propiedades_caja'),
-    path('caja/propiedad/historial/', views.historial_propiedad_caja, name='historial_propiedad_caja'),
     path(
         'administracion/propiedades/operaciones/',
         views.administracion_propiedades_operaciones,

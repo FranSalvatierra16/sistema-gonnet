@@ -2134,135 +2134,6 @@ def todos_movimientos_caja(request):
 
 
 @login_required
-def historial_propiedad_caja(request):
-    """
-    Apartado de caja: historial por propiedad (movimientos, reservas, contratos, pagos).
-    Los totales superiores se arman desde liquidaciones (parte propietario / neto a pagar / comisión), no desde el monto total de caja.
-    """
-    termino = request.GET.get('q', '').strip()
-    propiedad_id = request.GET.get('propiedad_id', '').strip()
-
-    propiedades_base = Propiedad.objects.filter(
-        sucursal=request.user.sucursal
-    ).select_related('propietario', 'sucursal').order_by('direccion')
-
-    propiedad = None
-    coincidencias = Propiedad.objects.none()
-
-    if propiedad_id:
-        propiedad = propiedades_base.filter(id=propiedad_id).first()
-    elif termino:
-        if termino.isdigit():
-            propiedad = propiedades_base.filter(id=int(termino)).first()
-        if not propiedad:
-            coincidencias = propiedades_base.filter(
-                Q(direccion__icontains=termino) |
-                Q(ubicacion__icontains=termino)
-            )[:20]
-            if coincidencias.count() == 1:
-                propiedad = coincidencias.first()
-
-    movimientos = []
-    reservas = Reserva.objects.none()
-    contratos = ContratoAlquiler.objects.none()
-    pagos = Pago.objects.none()
-    total_pagos = Decimal('0')
-    liquidaciones = []
-    total_liq_parte_propietario = Decimal('0')
-    total_liq_neto_a_pagar = Decimal('0')
-    total_liq_inmobiliaria = Decimal('0')
-
-    if propiedad:
-        mov_qs = (
-            MovimientoCaja.objects.filter(
-                sucursal=request.user.sucursal,
-                propiedad=propiedad,
-            )
-            .select_related('caja', 'empleado', 'cuenta', 'propiedad')
-            .order_by('-fecha')[:200]
-        )
-        movimientos = list(mov_qs)
-        mov_ids = [m.id for m in movimientos]
-        liq_por_mov = {}
-        if mov_ids:
-            for liq in LiquidacionPropietario.objects.filter(
-                movimiento_caja_id__in=mov_ids
-            ).exclude(estado='cancelada'):
-                mid = liq.movimiento_caja_id
-                if mid not in liq_por_mov:
-                    liq_por_mov[mid] = liq
-        from inmobiliaria.neto_propietario_movimiento import (
-            neto_propietario_movimiento,
-            precios_por_propiedad_ids,
-        )
-
-        _precios_hist = precios_por_propiedad_ids([propiedad.id])
-        for m in movimientos:
-            setattr(m, 'liquidacion_movimiento', liq_por_mov.get(m.id))
-            setattr(
-                m,
-                '_neto_propietario_display',
-                neto_propietario_movimiento(m, liq_por_mov, _precios_hist),
-            )
-
-        reservas = Reserva.objects.filter(
-            propiedad=propiedad,
-            eliminada=False
-        ).select_related(
-            'cliente', 'vendedor'
-        ).order_by('-fecha_creacion')
-
-        contratos = ContratoAlquiler.objects.filter(
-            propiedad=propiedad
-        ).select_related(
-            'inquilino', 'vendedor'
-        ).order_by('-fecha_creacion')
-
-        pagos = Pago.objects.filter(
-            reserva__propiedad=propiedad,
-            reserva__eliminada=False
-        ).select_related(
-            'reserva', 'concepto'
-        ).order_by('-fecha')
-
-        total_pagos = pagos.aggregate(total=Sum('monto'))['total'] or Decimal('0')
-
-        liq_base = LiquidacionPropietario.objects.filter(
-            propiedad=propiedad
-        ).exclude(estado='cancelada')
-        agg_liq = liq_base.aggregate(
-            tp=Sum('monto_propietario'),
-            tap=Sum('monto_a_pagar'),
-            ti=Sum('monto_inmobiliaria'),
-        )
-        total_liq_parte_propietario = agg_liq['tp'] or Decimal('0')
-        total_liq_neto_a_pagar = agg_liq['tap'] or Decimal('0')
-        total_liq_inmobiliaria = agg_liq['ti'] or Decimal('0')
-        liquidaciones = list(
-            liq_base.select_related('reserva', 'contrato', 'movimiento_caja').order_by(
-                '-fecha_creacion'
-            )[:100]
-        )
-
-    context = {
-        'termino': termino,
-        'propiedad_id': propiedad_id,
-        'propiedad': propiedad,
-        'coincidencias': coincidencias,
-        'movimientos': movimientos,
-        'reservas': reservas[:100],
-        'contratos': contratos[:100],
-        'pagos': pagos[:200],
-        'total_pagos': total_pagos,
-        'liquidaciones': liquidaciones,
-        'total_liq_parte_propietario': total_liq_parte_propietario,
-        'total_liq_neto_a_pagar': total_liq_neto_a_pagar,
-        'total_liq_inmobiliaria': total_liq_inmobiliaria,
-    }
-    return render(request, 'inmobiliaria/caja/historial_propiedad_caja.html', context)
-
-
-@login_required
 def administracion_propiedades_operaciones(request):
     """
     Administración: buscador de operaciones por propiedad.
@@ -7820,26 +7691,6 @@ def procesar_movimiento_reserva(request):
             else:
                 concepto_detallado = f"Operaci\u00f3n {reserva.id} - {reserva.propiedad.direccion}"
             
-            # ✅ Truncar concepto a 200 caracteres para evitar error de base de datos
-            # Si tiene |CONCEPTOS:, preservar esa parte completa y truncar solo la parte descriptiva
-            if len(concepto_detallado) > 200:
-                if "|CONCEPTOS:" in concepto_detallado:
-                    # Separar la parte descriptiva de la parte estructurada
-                    partes = concepto_detallado.split("|CONCEPTOS:", 1)
-                    parte_descriptiva = partes[0]
-                    parte_estructurada = "|CONCEPTOS:" + partes[1]
-                    
-                    # Calcular cuánto espacio queda para la parte descriptiva
-                    espacio_disponible = 200 - len(parte_estructurada)
-                    if espacio_disponible > 3:
-                        parte_descriptiva = parte_descriptiva[:espacio_disponible-3] + "..."
-                        concepto_detallado = parte_descriptiva + parte_estructurada
-                    else:
-                        # Si la parte estructurada es muy larga, truncarla también
-                        concepto_detallado = concepto_detallado[:197] + "..."
-                else:
-                    concepto_detallado = concepto_detallado[:197] + "..."
-            
 # print(f"📝 CONCEPTO FINAL: {concepto_detallado}")
 
             if moneda_op == 'USD':
@@ -8561,7 +8412,7 @@ def ver_recibo_movimiento(request, movimiento_id):
                 if nombre and nombre not in nombres:
                     nombres.append(nombre)
             if nombres:
-                return ' + '.join(nombres)[:220]
+                return ' + '.join(nombres)
 
             base = str(getattr(mov, 'concepto', '') or '').strip()
             if '|CONCEPTOS:' in base:
@@ -14817,8 +14668,6 @@ def nuevo_movimiento(request, numero_caja=None):
                 concepto_guardado = detalles_txt
             else:
                 concepto_guardado = concepto_valor
-            if len(concepto_guardado) > 200:
-                concepto_guardado = concepto_guardado[:197] + '...'
             
             gasto_oficina_categoria = None
             gasto_oficina_vendedor = None
@@ -14888,8 +14737,6 @@ def nuevo_movimiento(request, numero_caja=None):
                 concepto_guardado = (
                     f'Gasto oficina — {gasto_oficina_categoria.nombre_ruta()} — {gasto_oficina_descripcion}'
                 )
-                if len(concepto_guardado) > 200:
-                    concepto_guardado = concepto_guardado[:197] + '...'
             
             propiedad_id_raw = (request.POST.get('propiedad_id') or '').strip()
             propiedad_id_mov = int(propiedad_id_raw) if propiedad_id_raw.isdigit() else None
@@ -21940,8 +21787,8 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato, pago_cuota_co
         max_len = 200 - len(prefijo) - 3  # espacio para "..."
         concepto_json_truncado = concepto_json if len(concepto_json) <= max_len else concepto_json[:max_len] + "..."
         concepto_para_busqueda = prefijo + concepto_json_truncado
-        if len(concepto_para_busqueda) > 200:
-            concepto_para_busqueda = concepto_para_busqueda[:197] + "..."
+        if len(concepto_para_busqueda) > 2000:
+            concepto_para_busqueda = concepto_para_busqueda[:1997] + "..."
         # Guardar mes_alquiler_importe y mes_alquiler_tipo (elegido: mensual o proporcional) para el recibo
         mes_alquiler_valor_raw = (request.POST.get('mes_alquiler_valor') or '').strip()
         mes_alquiler_tipo = (request.POST.get('mes_alquiler_tipo') or '').strip().lower()

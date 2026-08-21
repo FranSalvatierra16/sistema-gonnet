@@ -56,6 +56,8 @@
     .info-row {
         display: flex;
         justify-content: space-between;
+        align-items: flex-start;
+        gap: 12px;
         margin-bottom: 10px;
         padding: 5px 0;
         border-bottom: 1px solid #e9ecef;
@@ -64,10 +66,28 @@
     .info-label {
         font-weight: bold;
         color: #495057;
+        flex-shrink: 0;
+        max-width: 40%;
     }
     
     .info-value {
         color: #212529;
+        text-align: right;
+        flex: 1;
+        min-width: 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+    }
+
+    .info-row.info-row-concepto {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 4px;
+    }
+
+    .info-row.info-row-concepto .info-value {
+        text-align: left;
     }
     
     .pagos-section {
@@ -166,7 +186,7 @@
                 </span>
             </div>
             
-            <div class="info-row">
+            <div class="info-row info-row-concepto">
                 <span class="info-label">Concepto:</span>
                 <span class="info-value">{{ concepto_mostrar|default:movimiento.concepto }}</span>
             </div>

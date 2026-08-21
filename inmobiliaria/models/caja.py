@@ -265,7 +265,7 @@ class MovimientoCaja(models.Model):
         default=TipoComprobanteEnum.RECIBO
     )
     numero_liquidacion = models.CharField(max_length=50, blank=True)
-    concepto = models.CharField(max_length=200, blank=True)
+    concepto = models.TextField(blank=True)
     concepto_detalle = models.TextField(blank=True, help_text='JSON completo de conceptos para recibos de contrato')
     cuenta = models.ForeignKey('Cuenta', on_delete=models.SET_NULL, null=True, blank=True)
     propiedad = models.ForeignKey('Propiedad', on_delete=models.SET_NULL, null=True, blank=True)
