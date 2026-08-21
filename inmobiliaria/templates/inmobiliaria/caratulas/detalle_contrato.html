@@ -167,6 +167,93 @@
             </div>
             <div class="col-12">
                 <div class="card">
+                    <div class="card-header py-2 small d-flex flex-wrap justify-content-between align-items-center gap-2">
+                        <strong>Observaciones (gastos a cobrar al inquilino)</strong>
+                        {% if observaciones_cobro %}
+                        <span class="text-muted">{{ observaciones_cobro|length }} pendiente{{ observaciones_cobro|length|pluralize:"s" }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-sm mb-0 small">
+                                <thead>
+                                    <tr>
+                                        <th>Fecha</th>
+                                        <th>Concepto</th>
+                                        <th>Detalle</th>
+                                        <th class="text-end">Monto</th>
+                                        <th class="text-end">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for o in observaciones_cobro %}
+                                    <tr>
+                                        <td class="text-nowrap">{{ o.creado_en|date:"d/m/Y" }}</td>
+                                        <td>{{ o.concepto_nombre|default:o.concepto_caja_id }}</td>
+                                        <td class="text-break">{{ o.detalle|default:"—" }}</td>
+                                        <td class="text-end text-nowrap">
+                                            {% if o.moneda == 'USD' %}U$S {% else %}${% endif %}{{ o.monto|floatformat:2 }}
+                                        </td>
+                                        <td class="text-end text-nowrap">
+                                            {% if url_cobrar_observaciones %}
+                                            <a href="{{ url_cobrar_observaciones }}" class="btn btn-sm btn-success me-1" title="Ir a cobrar (aparecerá en el recibo)">
+                                                <i class="fas fa-cash-register me-1"></i>Ir a cobrar
+                                            </a>
+                                            {% endif %}
+                                            <form method="post" class="d-inline" onsubmit="return confirm('¿Eliminar esta observación?');">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="action" value="delete_observacion_cobro">
+                                                <input type="hidden" name="observacion_id" value="{{ o.id }}">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr><td colspan="5" class="text-center text-muted py-3">Sin observaciones pendientes</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="border-top p-2">
+                            <form method="post" class="row g-2 align-items-end small">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="add_observacion_cobro">
+                                <div class="col-6 col-md-2">
+                                    <label class="form-label mb-0">ID concepto</label>
+                                    <input type="text" name="concepto_caja_id" class="form-control form-control-sm" required placeholder="ej. 55" autocomplete="off">
+                                </div>
+                                <div class="col-6 col-md-2">
+                                    <label class="form-label mb-0">Monto</label>
+                                    <input type="text" name="monto" class="form-control form-control-sm" required placeholder="0,00" inputmode="decimal">
+                                </div>
+                                <div class="col-6 col-md-2">
+                                    <label class="form-label mb-0">Moneda</label>
+                                    <select name="moneda" class="form-select form-select-sm">
+                                        <option value="ARS" selected>ARS</option>
+                                        <option value="USD">USD</option>
+                                    </select>
+                                </div>
+                                <div class="col-12 col-md-4">
+                                    <label class="form-label mb-0">Detalle</label>
+                                    <input type="text" name="detalle" class="form-control form-control-sm" placeholder="Ej. EDEA febrero, expensas, etc." maxlength="400">
+                                </div>
+                                <div class="col-12 col-md-2">
+                                    <button type="submit" class="btn btn-sm btn-primary w-100">
+                                        <i class="fas fa-plus me-1"></i>Agregar
+                                    </button>
+                                </div>
+                            </form>
+                            <p class="text-muted mb-0 mt-2" style="font-size:0.75rem;">
+                                Al cobrar al inquilino (Ir a cobrar / Cobro de servicios) estas observaciones aparecen tildadas en el recibo; una vez cobradas se quitan de esta lista.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12">
+                <div class="card">
                     <div class="card-header py-2 small d-flex justify-content-between">
                         <strong>Movimientos de caja vinculados</strong>
                         <span class="text-muted">Total: ${{ total_movimientos|floatformat:2 }}</span>

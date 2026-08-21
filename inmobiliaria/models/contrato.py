@@ -532,3 +532,77 @@ def clasificar_estado_cobro_contrato(contrato, hoy=None):
         'cuota_mes_actual': None,
         'proxima_impaga': proxima_impaga,
     }
+
+class ObservacionCobroInquilino(models.Model):
+    """
+    Gasto/observación a cobrar al inquilino (concepto + monto).
+    Pendiente hasta que se cobre en un recibo de cuota; al cobrarse deja de listarse.
+    """
+
+    ESTADO_PENDIENTE = 'pendiente'
+    ESTADO_COBRADO = 'cobrado'
+    ESTADO_CHOICES = (
+        (ESTADO_PENDIENTE, 'Pendiente'),
+        (ESTADO_COBRADO, 'Cobrado'),
+    )
+    MONEDA_CHOICES = (
+        ('ARS', 'Pesos (ARS)'),
+        ('USD', 'Dólares (USD)'),
+    )
+
+    contrato = models.ForeignKey(
+        ContratoAlquiler,
+        on_delete=models.CASCADE,
+        related_name='observaciones_cobro',
+    )
+    sucursal = models.ForeignKey(
+        'Sucursal',
+        on_delete=models.CASCADE,
+        related_name='observaciones_cobro_inquilino',
+    )
+    concepto_caja_id = models.CharField(
+        max_length=20,
+        verbose_name='ID concepto de caja',
+    )
+    concepto_nombre = models.CharField(
+        max_length=200,
+        blank=True,
+        default='',
+        verbose_name='Nombre del concepto',
+    )
+    monto = models.DecimalField(max_digits=14, decimal_places=2)
+    moneda = models.CharField(max_length=3, choices=MONEDA_CHOICES, default='ARS')
+    detalle = models.CharField(max_length=400, blank=True, default='')
+    estado = models.CharField(
+        max_length=20,
+        choices=ESTADO_CHOICES,
+        default=ESTADO_PENDIENTE,
+        db_index=True,
+    )
+    movimiento_cobro = models.ForeignKey(
+        MovimientoCaja,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='observaciones_cobro_inquilino',
+    )
+    creado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='observaciones_cobro_creadas',
+    )
+    creado_en = models.DateTimeField(auto_now_add=True)
+    cobrado_en = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'Observación cobro inquilino'
+        verbose_name_plural = 'Observaciones cobro inquilino'
+        ordering = ['-creado_en', '-id']
+
+    def __str__(self):
+        return (
+            f'Obs #{self.id} CT{self.contrato_id} '
+            f'{self.concepto_caja_id} ${self.monto} ({self.estado})'
+        )

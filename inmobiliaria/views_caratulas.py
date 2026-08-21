@@ -22,6 +22,7 @@ from inmobiliaria.models import (
     CuotaMensual,
     LiquidacionPropietario,
     MovimientoCaja,
+    ObservacionCobroInquilino,
     Recibo,
     Reserva,
 )
@@ -4139,6 +4140,88 @@ def caratula_reserva(request, reserva_id):
     return render(request, 'inmobiliaria/caratulas/detalle_reserva.html', ctx)
 
 
+def _procesar_add_observacion_cobro(request, contrato):
+    from django.contrib import messages
+    from inmobiliaria.decimal_utils import parse_decimal_monto
+    from inmobiliaria.views import _nombre_concepto_caja
+
+    concepto_id = (request.POST.get('concepto_caja_id') or '').strip()
+    detalle = (request.POST.get('detalle') or '').strip()[:400]
+    moneda = (request.POST.get('moneda') or 'ARS').strip().upper()
+    if moneda not in ('ARS', 'USD'):
+        moneda = 'ARS'
+    monto = parse_decimal_monto(request.POST.get('monto', '0'))
+    if not concepto_id:
+        messages.error(request, 'Indicá el ID del concepto de caja.')
+        return False
+    if monto is None or monto <= 0:
+        messages.error(request, 'El monto debe ser mayor a cero.')
+        return False
+    nombre = _nombre_concepto_caja(concepto_id, request.user.sucursal) or ''
+    if not nombre:
+        from inmobiliaria.models.caja import Concepto
+        c = Concepto.objects.filter(id=concepto_id, sucursal=request.user.sucursal).first()
+        if c:
+            nombre = f'{c.id} - {c.nombre}'
+        else:
+            nombre = f'Concepto {concepto_id}'
+    ObservacionCobroInquilino.objects.create(
+        contrato=contrato,
+        sucursal=request.user.sucursal,
+        concepto_caja_id=concepto_id,
+        concepto_nombre=nombre[:200],
+        monto=monto.quantize(Decimal('0.01')),
+        moneda=moneda,
+        detalle=detalle,
+        estado=ObservacionCobroInquilino.ESTADO_PENDIENTE,
+        creado_por=request.user,
+    )
+    messages.success(request, 'Observación agregada. Se cobrará al inquilino en el próximo recibo.')
+    return True
+
+
+def _procesar_delete_observacion_cobro(request, contrato):
+    from django.contrib import messages
+
+    try:
+        obs_id = int(request.POST.get('observacion_id') or 0)
+    except (TypeError, ValueError):
+        obs_id = 0
+    if not obs_id:
+        messages.error(request, 'Observación inválida.')
+        return False
+    deleted, _ = ObservacionCobroInquilino.objects.filter(
+        id=obs_id,
+        contrato_id=contrato.id,
+        estado=ObservacionCobroInquilino.ESTADO_PENDIENTE,
+    ).delete()
+    if deleted:
+        messages.success(request, 'Observación eliminada.')
+    else:
+        messages.warning(request, 'No se pudo eliminar (ya cobrada o inexistente).')
+    return bool(deleted)
+
+
+def _url_cobrar_observaciones_contrato(contrato, cuotas_list):
+    """Primera cuota útil para abrir cobro de servicios (donde aparecen las observaciones)."""
+    if not cuotas_list:
+        return ''
+    elegida = None
+    for c in cuotas_list:
+        estado = getattr(c, 'estado', None)
+        if estado in ('pendiente', 'vencida') or getattr(c, 'tiene_adelanto_abonado', False):
+            elegida = c
+            break
+    if elegida is None:
+        for c in cuotas_list:
+            if getattr(c, 'estado', None) in ('pagada', 'pagada_con_mora'):
+                elegida = c
+                break
+    if elegida is None:
+        elegida = cuotas_list[0]
+    return reverse('inmobiliaria:crear_pago_cuota_operacion', args=[elegida.id]) + '?solo_servicios=1'
+
+
 @login_required
 def caratula_contrato(request, contrato_id):
     if not _puede_ver_caratulas(request.user):
@@ -4186,6 +4269,12 @@ def caratula_contrato(request, contrato_id):
             contrato.refresh_from_db()
         if action == 'set_carpeta_contrato':
             _persistir_carpeta_operacion('contrato', contrato_id, request.POST.get('carpeta'))
+            return _redirect_caratula_con_filtros('inmobiliaria:caratula_contrato', contrato_id, request)
+        if action == 'add_observacion_cobro':
+            _procesar_add_observacion_cobro(request, contrato)
+            return _redirect_caratula_con_filtros('inmobiliaria:caratula_contrato', contrato_id, request)
+        if action == 'delete_observacion_cobro':
+            _procesar_delete_observacion_cobro(request, contrato)
             return _redirect_caratula_con_filtros('inmobiliaria:caratula_contrato', contrato_id, request)
         if action == 'save_comisiones_caratula':
             from django.contrib import messages
@@ -4333,6 +4422,13 @@ def caratula_contrato(request, contrato_id):
             contrato=contrato,
             puede_editar=_puede_editar_caratula(request.user),
         ),
+        'observaciones_cobro': list(
+            ObservacionCobroInquilino.objects.filter(
+                contrato_id=contrato.id,
+                estado=ObservacionCobroInquilino.ESTADO_PENDIENTE,
+            ).order_by('creado_en', 'id')
+        ),
+        'url_cobrar_observaciones': _url_cobrar_observaciones_contrato(contrato, cuotas_list),
     }
     return render(request, 'inmobiliaria/caratulas/detalle_contrato.html', ctx)
 

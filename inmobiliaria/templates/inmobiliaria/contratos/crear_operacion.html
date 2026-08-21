@@ -220,7 +220,7 @@
                             </div>
                             <div class="card-body py-2">
                                 <p class="small text-muted mb-2">
-                                    Egresos de caja a cargo del inquilino. Si los dejás tildados, se suman al recibo de esta cuota.
+                                    Egresos de caja y observaciones a cargo del inquilino. Si los dejás tildados, se suman al recibo de esta cuota y al cobrarse desaparecen de la lista.
                                 </p>
                                 <div class="table-responsive">
                                     <table class="table table-sm mb-0" id="tablaGastosPendientesInquilino">
@@ -684,12 +684,14 @@ function renderGastosPendientesInquilino() {
     bloque.classList.remove('d-none');
     if (badge) badge.textContent = String(gastos.length);
     gastos.forEach(function(g) {
+        var oid = Number(g.observacion_id || 0);
         var mid = Number(g.movimiento_id || 0);
+        var key = oid ? ('o:' + oid) : ('m:' + mid);
         var monto = Number(g.monto || 0);
         var mon = ((g.moneda || 'ARS') === 'USD') ? 'USD' : 'ARS';
         var tr = document.createElement('tr');
         tr.innerHTML =
-            '<td><input type="checkbox" class="form-check-input chk-gasto-inq" value="' + mid + '" data-mid="' + mid + '" checked></td>' +
+            '<td><input type="checkbox" class="form-check-input chk-gasto-inq" value="' + key + '" data-key="' + key + '" data-obs-id="' + (oid || '') + '" data-mid="' + (mid || '') + '" checked></td>' +
             '<td>' + escapeHtmlAttr(g.fecha_display || '—') + '</td>' +
             '<td>' + escapeHtmlAttr(g.nombre || '—') + '</td>' +
             '<td class="small">' + escapeHtmlAttr(g.detalle || '—') + '</td>' +
@@ -703,39 +705,66 @@ function renderGastosPendientesInquilino() {
 
 function sincronizarConceptosDesdeGastosInquilino() {
     var gastos = Array.isArray(window.gastosPendientesInquilino) ? window.gastosPendientesInquilino : [];
-    var porId = {};
-    gastos.forEach(function(g) { porId[Number(g.movimiento_id)] = g; });
+    var porKey = {};
+    gastos.forEach(function(g) {
+        var oid = Number(g.observacion_id || 0);
+        var mid = Number(g.movimiento_id || 0);
+        var key = oid ? ('o:' + oid) : ('m:' + mid);
+        porKey[key] = g;
+    });
 
     var seleccionados = new Set();
     document.querySelectorAll('.chk-gasto-inq:checked').forEach(function(chk) {
-        seleccionados.add(Number(chk.value));
+        seleccionados.add(String(chk.value));
     });
 
     conceptosAgregados = conceptosAgregados.filter(function(c) {
-        if (!c.egresoCajaId) return true;
-        return seleccionados.has(Number(c.egresoCajaId));
+        if (c.egresoCajaId) {
+            return seleccionados.has('m:' + Number(c.egresoCajaId));
+        }
+        if (c.observacionId) {
+            return seleccionados.has('o:' + Number(c.observacionId));
+        }
+        return true;
     });
 
-    seleccionados.forEach(function(mid) {
-        var ya = conceptosAgregados.some(function(c) { return Number(c.egresoCajaId) === mid; });
-        if (ya) return;
-        var g = porId[mid];
+    seleccionados.forEach(function(key) {
+        var g = porKey[key];
         if (!g) return;
+        var oid = Number(g.observacion_id || 0);
+        var mid = Number(g.movimiento_id || 0);
+        var ya;
+        if (oid) {
+            ya = conceptosAgregados.some(function(c) { return Number(c.observacionId) === oid; });
+        } else {
+            ya = conceptosAgregados.some(function(c) { return Number(c.egresoCajaId) === mid; });
+        }
+        if (ya) return;
         contadorConceptos += 1;
-        var obs = 'Egreso caja #' + mid + ' (gasto pendiente inquilino)';
+        var obs;
+        if (oid) {
+            obs = 'Observación #' + oid + ' (gasto a cobrar inquilino)';
+        } else {
+            obs = 'Egreso caja #' + mid + ' (gasto pendiente inquilino)';
+        }
         if (g.detalle) obs = String(g.detalle).trim() + ' · ' + obs;
-        conceptosAgregados.push({
+        var fila = {
             id: contadorConceptos,
             conceptoId: String(g.concepto_id || ''),
-            nombre: String(g.nombre || ('Egreso #' + mid)),
+            nombre: String(g.nombre || (oid ? ('Observación #' + oid) : ('Egreso #' + mid))),
             moneda: ((g.moneda || 'ARS') === 'USD') ? 'USD' : 'ARS',
             observaciones: obs,
             importe: Number(g.monto || 0),
             fecha: new Date().toLocaleDateString('es-AR'),
-            egresoCajaId: mid,
             cuotaObjetivoId: '',
             cuotaObjetivoLabel: '',
-        });
+        };
+        if (oid) {
+            fila.observacionId = oid;
+        } else {
+            fila.egresoCajaId = mid;
+        }
+        conceptosAgregados.push(fila);
     });
     actualizarTablaConceptos();
     calcularTotales();
@@ -1178,8 +1207,13 @@ function eliminarConcepto(conceptoId) {
         var eliminado = conceptosAgregados.find(function(c) { return c.id === conceptoId; });
         conceptosAgregados = conceptosAgregados.filter(c => c.id !== conceptoId);
         if (eliminado && eliminado.egresoCajaId) {
-            var chk = document.querySelector('.chk-gasto-inq[value="' + eliminado.egresoCajaId + '"]');
+            var chk = document.querySelector('.chk-gasto-inq[value="m:' + eliminado.egresoCajaId + '"]')
+                || document.querySelector('.chk-gasto-inq[value="' + eliminado.egresoCajaId + '"]');
             if (chk) chk.checked = false;
+        }
+        if (eliminado && eliminado.observacionId) {
+            var chkObs = document.querySelector('.chk-gasto-inq[value="o:' + eliminado.observacionId + '"]');
+            if (chkObs) chkObs.checked = false;
         }
         actualizarTablaConceptos();
         calcularTotales();
@@ -1562,11 +1596,21 @@ function procesarOperacion() {
         if (c.egresoCajaId) {
             row.egreso_caja_id = Number(c.egresoCajaId);
         }
+        if (c.observacionId) {
+            row.observacion_id = Number(c.observacionId);
+        }
         return row;
     });
     formData.append('conceptos_json', JSON.stringify(conceptosParaEnviar));
     document.querySelectorAll('.chk-gasto-inq:checked').forEach(function(chk) {
-        formData.append('gastos_inquilino_ids', chk.value);
+        var v = String(chk.value || '');
+        if (v.indexOf('o:') === 0) {
+            formData.append('observaciones_inquilino_ids', v.slice(2));
+        } else if (v.indexOf('m:') === 0) {
+            formData.append('gastos_inquilino_ids', v.slice(2));
+        } else if (v) {
+            formData.append('gastos_inquilino_ids', v);
+        }
     });
     filas.forEach(function(concepto, index) {
         const obs = String(concepto.observaciones || '').trim() || 'Sin observaciones';

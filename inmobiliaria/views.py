@@ -23194,9 +23194,14 @@ def crear_pago_cuota_operacion(request, cuota_id):
         'gastos_pendientes_inquilino': [],
     }
     try:
-        config_operacion['gastos_pendientes_inquilino'] = _egresos_caja_pendientes_inquilino(
+        gastos_caja = _egresos_caja_pendientes_inquilino(
             contrato.propiedad, request.user.sucursal
         )
+        for g in gastos_caja:
+            g.setdefault('origen', 'egreso_caja')
+            g.setdefault('observacion_id', None)
+        observaciones = _observaciones_pendientes_inquilino(contrato)
+        config_operacion['gastos_pendientes_inquilino'] = list(gastos_caja) + list(observaciones)
     except Exception:
         logger.exception(
             'crear_pago_cuota_operacion: gastos pendientes inquilino (cuota_id=%s)',
@@ -23358,17 +23363,27 @@ def procesar_pago_cuota_operacion(request, cuota_id):
                 return JsonResponse({'error': err or 'No se pudo registrar el movimiento de caja.'}, status=400)
 
             egreso_ids_cobrar = []
+            obs_ids_cobrar = []
             for item in lista:
                 if not isinstance(item, dict):
                     continue
                 eid = item.get('egreso_caja_id')
                 if eid is not None and str(eid).strip():
                     egreso_ids_cobrar.append(eid)
+                oid = item.get('observacion_id')
+                if oid is not None and str(oid).strip():
+                    obs_ids_cobrar.append(oid)
             for raw in request.POST.getlist('gastos_inquilino_ids'):
                 if raw:
                     egreso_ids_cobrar.append(raw)
+            for raw in request.POST.getlist('observaciones_inquilino_ids'):
+                if raw:
+                    obs_ids_cobrar.append(raw)
             _marcar_egresos_inquilino_cobrados(
                 egreso_ids_cobrar, movimiento, request.user.sucursal
+            )
+            _marcar_observaciones_inquilino_cobradas(
+                obs_ids_cobrar, movimiento, contrato
             )
 
             if cuotas_objetivo_map:
@@ -29842,6 +29857,76 @@ def _marcar_egresos_inquilino_cobrados(egreso_ids, movimiento_ingreso, sucursal)
             continue
         egreso.concepto_detalle = f'{detalle}\n{marker}'.strip() if detalle else marker
         egreso.save(update_fields=['concepto_detalle'])
+        actualizados += 1
+    return actualizados
+
+
+def _observaciones_pendientes_inquilino(contrato):
+    """Observaciones (gastos libres) pendientes de cobro al inquilino del contrato."""
+    from inmobiliaria.models import ObservacionCobroInquilino
+
+    if not contrato:
+        return []
+    qs = (
+        ObservacionCobroInquilino.objects.filter(
+            contrato_id=contrato.id,
+            estado=ObservacionCobroInquilino.ESTADO_PENDIENTE,
+        )
+        .order_by('creado_en', 'id')
+    )
+    out = []
+    for o in qs:
+        fecha = o.creado_en
+        fecha_disp = '—'
+        if fecha:
+            try:
+                if timezone.is_aware(fecha):
+                    fecha = timezone.localtime(fecha)
+                fecha_disp = fecha.strftime('%d/%m/%Y')
+            except Exception:
+                fecha_disp = '—'
+        nombre = (o.concepto_nombre or '').strip()
+        if not nombre:
+            nombre = f'Concepto {o.concepto_caja_id}'
+        out.append({
+            'movimiento_id': None,
+            'observacion_id': o.id,
+            'concepto_id': (o.concepto_caja_id or '').strip(),
+            'nombre': nombre[:120],
+            'detalle': (o.detalle or '')[:400],
+            'monto': float(Decimal(str(o.monto or 0)).quantize(Decimal('0.01'))),
+            'moneda': (o.moneda or 'ARS').upper() if (o.moneda or 'ARS') else 'ARS',
+            'fecha_display': fecha_disp,
+            'origen': 'observacion',
+        })
+    return out
+
+
+def _marcar_observaciones_inquilino_cobradas(obs_ids, movimiento_ingreso, contrato):
+    """Marca observaciones pendientes como cobradas al registrar el recibo de cuota."""
+    from inmobiliaria.models import ObservacionCobroInquilino
+
+    if not obs_ids or not movimiento_ingreso or not contrato:
+        return 0
+    ids = []
+    for raw in obs_ids:
+        try:
+            ids.append(int(raw))
+        except (TypeError, ValueError):
+            continue
+    if not ids:
+        return 0
+    ahora = timezone.now()
+    actualizados = 0
+    for obs in ObservacionCobroInquilino.objects.filter(
+        id__in=ids,
+        contrato_id=contrato.id,
+        estado=ObservacionCobroInquilino.ESTADO_PENDIENTE,
+    ):
+        obs.estado = ObservacionCobroInquilino.ESTADO_COBRADO
+        obs.movimiento_cobro = movimiento_ingreso
+        obs.cobrado_en = ahora
+        obs.save(update_fields=['estado', 'movimiento_cobro', 'cobrado_en'])
         actualizados += 1
     return actualizados
 

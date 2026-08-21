@@ -8,6 +8,7 @@ from .contrato import (
     ContratoAlquiler,
     ContratoInquilino,
     CuotaMensual,
+    ObservacionCobroInquilino,
     clasificar_estado_cobro_contrato,
 )
 from .recibo import Recibo
@@ -39,6 +40,7 @@ __all__ = [
     'ContratoAlquiler',
     'ContratoInquilino',
     'CuotaMensual',
+    'ObservacionCobroInquilino',
     'clasificar_estado_cobro_contrato',
     'Recibo',
     'ComisionVendedor',
