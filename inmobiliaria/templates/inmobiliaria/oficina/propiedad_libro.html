@@ -348,7 +348,22 @@
                 <table class="table table-sm mb-0 align-middle">
                     <tbody>
                         <tr class="table-light">
-                            <td colspan="2" class="fw-semibold text-danger small">Restan (−)</td>
+                            <td colspan="2" class="fw-semibold text-success small">Ingresos (se suman)</td>
+                        </tr>
+                        <tr>
+                            <td>Valor depto vendido</td>
+                            <td class="text-end text-success">U$S {{ resumen.valor_depto_vendido|format_price }}</td>
+                        </tr>
+                        <tr>
+                            <td>Ingresos USD (libro)</td>
+                            <td class="text-end text-success">U$S {{ resumen.ingreso_usd|format_price }}</td>
+                        </tr>
+                        <tr class="table-success">
+                            <td class="fw-semibold">Total ingresos</td>
+                            <td class="text-end fw-semibold">U$S {{ resumen.total_ingresos|format_price }}</td>
+                        </tr>
+                        <tr class="table-light">
+                            <td colspan="2" class="fw-semibold text-danger small">Gastos (se restan)</td>
                         </tr>
                         <tr>
                             <td>Valor depto comprado</td>
@@ -374,30 +389,19 @@
                             <td>Gastos USD (libro)</td>
                             <td class="text-end text-danger">U$S {{ resumen.gastos_usd|format_price }}</td>
                         </tr>
-                        <tr class="table-light">
-                            <td colspan="2" class="fw-semibold text-success small">Suman (+)</td>
-                        </tr>
-                        <tr>
-                            <td>Valor depto vendido</td>
-                            <td class="text-end text-success">U$S {{ resumen.valor_depto_vendido|format_price }}</td>
-                        </tr>
-                        <tr>
-                            <td>Ingresos USD (libro)</td>
-                            <td class="text-end text-success">U$S {{ resumen.ingreso_usd|format_price }}</td>
-                        </tr>
-                        <tr class="table-light">
-                            <td class="fw-semibold">Saldo USD del libro (ingresos − gastos)</td>
-                            <td class="text-end fw-semibold">U$S {{ resumen.suma_usd_libro|format_price }}</td>
+                        <tr class="table-danger">
+                            <td class="fw-semibold">Total gastos</td>
+                            <td class="text-end fw-semibold">U$S {{ resumen.total_gastos|format_price }}</td>
                         </tr>
                         <tr class="table-dark">
-                            <td class="fw-bold">TOTAL</td>
+                            <td class="fw-bold">TOTAL (ingresos − gastos)</td>
                             <td class="text-end fw-bold">U$S {{ resumen.total|format_price }}</td>
                         </tr>
                     </tbody>
                 </table>
             </div>
             <p class="small text-muted mb-0 mt-2">
-                Total = (valor vendido + ingresos USD) − (valor comprado + escritura compra + honorarios compra + escritura venta + honorarios venta + gastos USD).
+                Primero se suman todos los ingresos (venta + libro). Después se suman todos los gastos (compra, escrituras, honorarios y libro). TOTAL = total ingresos − total gastos.
             </p>
         </div>
     </div>

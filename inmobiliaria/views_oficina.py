@@ -1637,12 +1637,12 @@ def oficina_propiedad_libro(request, propiedad_id):
     totales['balance_ars'] = totales['alquileres_ars'] - totales['gastos_ars']
     totales['balance_usd'] = totales['ingreso_usd'] - totales['gastos_usd']
 
-    # Saldo libro: ingresos − gastos (ingresos suman, gastos restan)
-    saldo_usd_libro = totales['ingreso_usd'] - totales['gastos_usd']
     valor_vendido = Decimal(str(getattr(costos, 'valor_depto_vendido', 0) or 0))
     honorarios_venta = Decimal(str(getattr(costos, 'honorarios_venta', 0) or 0))
     escritura_venta = Decimal(str(getattr(costos, 'gastos_escritura_venta', 0) or 0))
-    subtotal_restan = (
+    # Primero se suman todos los ingresos; después todos los gastos; TOTAL = ingresos − gastos.
+    total_ingresos = valor_vendido + totales['ingreso_usd']
+    total_gastos = (
         costos.valor_depto_comprado
         + costos.gastos_escritura
         + costos.honorarios_pagados
@@ -1650,7 +1650,6 @@ def oficina_propiedad_libro(request, propiedad_id):
         + honorarios_venta
         + totales['gastos_usd']
     )
-    subtotal_suman = valor_vendido + totales['ingreso_usd']
     resumen = {
         'valor_depto_comprado': costos.valor_depto_comprado,
         'gastos_escritura': costos.gastos_escritura,
@@ -1658,17 +1657,11 @@ def oficina_propiedad_libro(request, propiedad_id):
         'valor_depto_vendido': valor_vendido,
         'gastos_escritura_venta': escritura_venta,
         'honorarios_venta': honorarios_venta,
-        'subtotal_costos': (
-            costos.valor_depto_comprado
-            + costos.gastos_escritura
-            + costos.honorarios_pagados
-        ),
         'gastos_usd': totales['gastos_usd'],
         'ingreso_usd': totales['ingreso_usd'],
-        'suma_usd_libro': saldo_usd_libro,
-        'subtotal_restan': subtotal_restan,
-        'subtotal_suman': subtotal_suman,
-        'total': subtotal_suman - subtotal_restan,
+        'total_ingresos': total_ingresos,
+        'total_gastos': total_gastos,
+        'total': total_ingresos - total_gastos,
     }
 
     otras = _ordenar_propiedades_oficina(
