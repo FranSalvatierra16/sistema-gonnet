@@ -10,10 +10,22 @@ _PREFIJO_DEPTO_RE = re.compile(
     r'^(?:deptos?|dptos?|departamentos?|dep\.?)\s*([a-z0-9]{1,4})$',
     re.IGNORECASE,
 )
-# Depto típico: letra sola, o 1-2 letras + dígito opcional (G, 1A, A1). No números de calle.
-_TOKEN_DEPTO_RE = re.compile(r'^(?:[a-z]{1,2}\d{0,2}|\d{1,2}[a-z]{1,2})$', re.IGNORECASE)
+# Depto típico: letra sola (G, F), o letra+dígito / dígito+letra (A1, 1A).
+# NO 2 letras sueltas: «fe», «rio» forman calles («Santa Fe», «Entre Ríos»).
+_TOKEN_DEPTO_RE = re.compile(r'^(?:[a-z]\d{0,2}|\d{1,2}[a-z])$', re.IGNORECASE)
 _TOKEN_NUMERO_CALLE_RE = re.compile(r'^\d{2,6}[a-z]?$', re.IGNORECASE)
 _SOLO_DIGITOS_RE = re.compile(r'\d+')
+
+# Prefijos de calles compuestas: «santa fe», «san martín», «entre ríos»…
+_PREFIJOS_CALLE_COMPUESTA = frozenset({
+    'santa', 'san', 'entre', 'los', 'las', 'almirante', 'general',
+    'pedro', 'hipolito', 'hipólito', 'avenida', 'av', 'avda', '3',
+})
+_CALLES_CONOCIDAS = frozenset({
+    'santa fe', 'san martin', 'san martín', 'entre rios', 'entre ríos',
+    'almirante brown', '3 de febrero', 'la costa', 'plaza mitre',
+    'los troncos', 'playa grande', 'playa chica', 'punta mogotes',
+})
 
 
 def _normalizar_departamento(valor):
@@ -67,6 +79,13 @@ def parse_termino_busqueda_propiedad(termino):
     partes = termino.split()
     if len(partes) >= 2:
         ultimo = partes[-1]
+        texto_norm = _norm(termino)
+        # «Santa Fe», «San Martín», etc.: nunca tomar la última palabra como depto.
+        es_calle_compuesta = (
+            texto_norm in _CALLES_CONOCIDAS
+            or any(c.startswith(texto_norm) for c in _CALLES_CONOCIDAS)
+            or _norm(partes[0]) in _PREFIJOS_CALLE_COMPUESTA
+        )
         # «Rivadavia 2476» / «Corrientes 1854»: calle + número (prioridad sobre depto).
         if _TOKEN_NUMERO_CALLE_RE.match(ultimo):
             return {
@@ -76,8 +95,12 @@ def parse_termino_busqueda_propiedad(termino):
                 'numero': ultimo.upper(),
                 'texto_libre': termino,
             }
-        # «Marbella G» / «Torre 1A»: edificio + depto (no números puros de calle).
-        if _TOKEN_DEPTO_RE.match(ultimo) and not ultimo.isdigit():
+        # «Marbella G» / «Torre 1A»: edificio + depto (una letra, no «fe»).
+        if (
+            not es_calle_compuesta
+            and _TOKEN_DEPTO_RE.match(ultimo)
+            and not ultimo.isdigit()
+        ):
             return {
                 'modo': 'mixto',
                 'departamento': _normalizar_departamento(ultimo),
@@ -136,9 +159,14 @@ def _parece_busqueda_propietario(termino, parsed):
         return False
     if ',' in texto:
         return True
+    texto_norm = _norm(texto)
+    # Calles de dos palabras: no buscar propietario.
+    if texto_norm in _CALLES_CONOCIDAS or any(c.startswith(texto_norm) for c in _CALLES_CONOCIDAS):
+        return False
     partes = texto.split()
-    # Un solo token (ej. «rivadavia») → calle/dirección, no propietario.
     if len(partes) == 1:
+        return False
+    if len(partes) >= 2 and _norm(partes[0]) in _PREFIJOS_CALLE_COMPUESTA:
         return False
     if len(partes) >= 2:
         return True
