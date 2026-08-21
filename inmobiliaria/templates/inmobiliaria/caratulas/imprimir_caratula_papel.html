@@ -112,14 +112,26 @@
         }
         table.fin th { text-align: left; width: 52%; background: #f5f5f5; }
         table.fin td { text-align: right; font-variant-numeric: tabular-nums; }
-        .periodo {
-            border: 2px solid #000;
-            padding: 8px 12px;
-            margin: 14px 0;
-            text-align: center;
+        .periodo-interno {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid #333;
             font-size: 10pt;
+            text-align: center;
         }
-        .periodo strong { display: block; margin-bottom: 4px; font-size: 9pt; }
+        .periodo-interno strong {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 8pt;
+            letter-spacing: 0.1em;
+        }
+        .ficha-nro {
+            display: block;
+            margin-top: 4px;
+            font-size: 11pt;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+        }
         h2.sec {
             font-size: 10pt;
             text-transform: uppercase;
@@ -142,13 +154,10 @@
         table.contab .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
         .pie {
             margin-top: 18px;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
             font-size: 9pt;
+            max-width: 100%;
         }
-        .pie .dir { border: 1px solid #000; padding: 8px; min-height: 72px; }
-        .firma { margin-top: 28px; border-top: 1px solid #000; padding-top: 6px; }
+        .firma { margin-top: 28px; border-top: 1px solid #000; padding-top: 6px; max-width: 280px; }
         .firma .line { margin-top: 32px; border-bottom: 1px solid #000; height: 1px; }
         .legal {
             font-size: 8pt;
@@ -194,14 +203,14 @@
         <div class="fila">
             <span class="lbl">INMUEBLE</span>
             <span class="val">{{ direccion_ficha|linebreaksbr }}</span>
+            {% if ficha_nro %}<span class="ficha-nro">Nº ID {{ ficha_nro }}</span>{% endif %}
         </div>
-    </div>
-
-    <div class="periodo">
-        <strong>PERÍODO DE LOCACIÓN</strong>
-        Desde: {{ fecha_desde|date:"d/m/Y" }}{% if hora_desde %} {{ hora_desde|time:"H:i:s" }}{% endif %}
-        &nbsp;—&nbsp;
-        Hasta: {{ fecha_hasta|date:"d/m/Y" }}{% if hora_hasta %} {{ hora_hasta|time:"H:i:s" }}{% endif %}
+        <div class="periodo-interno">
+            <strong>PERÍODO DE LOCACIÓN</strong>
+            Desde: {{ fecha_desde|date:"d/m/Y" }}{% if hora_desde %} {{ hora_desde|time:"H:i:s" }}{% endif %}
+            &nbsp;—&nbsp;
+            Hasta: {{ fecha_hasta|date:"d/m/Y" }}{% if hora_hasta %} {{ hora_hasta|time:"H:i:s" }}{% endif %}
+        </div>
     </div>
 
     <div class="cliente-box">Cliente / locatario: {{ cliente_nombre }}</div>
@@ -249,23 +258,13 @@
     </table>
 
     <div class="pie">
-        <div class="dir">
-            <strong>Inmueble</strong><br>
-            {{ direccion_ficha|linebreaksbr }}<br>
-            {% if ficha_nro %}<strong>Ficha</strong> {{ ficha_nro }}<br>{% endif %}
-            <br>
-            <strong>Depósito de garantía</strong> $ {{ deposito_fmt }}<br>
-            <span style="font-size:10pt;font-weight:700;">Ref. operación #{{ operacion_id }}</span>
-        </div>
-        <div>
-            <p class="legal">
-                El locatario declara haber recibido el inmueble en condiciones aceptables de estado y limpieza,
-                conforme a lo visitado, quedando obligado a restituirlo en similar estado al finalizar el período.
-            </p>
-            <div class="firma">
-                <div class="line"></div>
-                <div style="margin-top:4px;font-size:9pt;">Firma locatario</div>
-            </div>
+        <p class="legal">
+            El locatario declara haber recibido el inmueble en condiciones aceptables de estado y limpieza,
+            conforme a lo visitado, quedando obligado a restituirlo en similar estado al finalizar el período.
+        </p>
+        <div class="firma">
+            <div class="line"></div>
+            <div style="margin-top:4px;font-size:9pt;">Firma locatario</div>
         </div>
     </div>
 </body>
