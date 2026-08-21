@@ -1055,7 +1055,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             ? (op.anticipada ? 'bg-warning text-dark' : 'bg-primary')
                             : (op.tipo === 'movimiento_caja'
                                 ? 'bg-secondary'
-                                : (op.tipo === 'gasto_propietario'
+                                : (op.tipo === 'gasto_propietario' || op.tipo === 'observacion_cobro'
                                     ? 'bg-success'
                                     : 'bg-success')))));
                 const tipoEtiqueta = op.tipo_display || (
@@ -1064,7 +1064,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         : (op.tipo === 'reserva' ? 'Por día' : (
                             op.tipo === 'contrato_cuota' ? 'Cuota mensual' : (
                                 op.tipo === 'movimiento_caja' ? 'Pago a favor' : (
-                                    op.tipo === 'gasto_propietario' ? 'Gasto a pagar' : 'Contrato'
+                                    (op.tipo === 'gasto_propietario' || op.tipo === 'observacion_cobro')
+                                        ? 'Gasto a pagar'
+                                        : 'Contrato'
                                 )
                             )
                         ))
@@ -2058,7 +2060,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (tipo === 'movimiento_caja') {
             return custom || 'Pago a favor';
         }
-        if (tipo === 'gasto_propietario') {
+        if (tipo === 'gasto_propietario' || tipo === 'observacion_cobro') {
             return custom || 'Gasto a pagar';
         }
         return custom || 'Alquiler';

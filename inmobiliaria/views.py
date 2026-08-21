@@ -27877,6 +27877,7 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                     'contrato_operacion_principal',
                     'movimiento_caja',
                     'gasto_propietario',
+                    'observacion_cobro',
                 ):
                     op_row = {'tipo': tipo, 'id': pk}
                     m_prop_op = montos_prop_por_op.get(f'{tipo}:{pk}')
@@ -27984,21 +27985,43 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
             for o in operaciones_incluidas:
                 if not isinstance(o, dict):
                     continue
-                if (o.get('tipo') or '').lower() != 'gasto_propietario':
-                    continue
-                try:
-                    gid = str(int(o['id']))
-                except (KeyError, TypeError, ValueError):
-                    continue
-                if gid not in gastos_seleccionados:
-                    gastos_seleccionados.append(gid)
+                tipo_o = (o.get('tipo') or '').lower()
+                if tipo_o == 'gasto_propietario':
+                    try:
+                        gid = str(int(o['id']))
+                    except (KeyError, TypeError, ValueError):
+                        continue
+                    if gid not in gastos_seleccionados:
+                        gastos_seleccionados.append(gid)
+                elif tipo_o == 'observacion_cobro':
+                    # Crear/asegurar GastoPropietario y asociarlo.
+                    try:
+                        from inmobiliaria.models import ObservacionCobroInquilino
+                        obs = ObservacionCobroInquilino.objects.filter(
+                            pk=int(o['id']),
+                            contrato__propiedad=propiedad,
+                        ).select_related(
+                            'contrato', 'contrato__propiedad', 'contrato__propiedad__propietario', 'movimiento_cobro'
+                        ).first()
+                        gasto = _crear_gasto_propietario_desde_observacion_cobrada(
+                            obs, getattr(obs, 'movimiento_cobro', None), getattr(obs, 'contrato', None)
+                        ) if obs else None
+                        if gasto and not gasto.liquidacion_id:
+                            gid = str(gasto.id)
+                            if gid not in gastos_seleccionados:
+                                gastos_seleccionados.append(gid)
+                            o['tipo'] = 'gasto_propietario'
+                            o['id'] = gasto.id
+                    except Exception:
+                        logger.exception('observacion_cobro → gasto en crear liquidación')
             if _propiedad_sin_gastos_en_liquidacion(propiedad, request.user.sucursal):
-                gastos_seleccionados = []
+                # Igual permitir reintegros de observaciones (ingresos).
+                pass
             ops_alquiler = [
                 o for o in operaciones_incluidas
                 if isinstance(o, dict)
                 and (o.get('tipo') or '').lower()
-                not in ('division', 'gasto_propietario', 'movimiento_caja')
+                not in ('division', 'gasto_propietario', 'movimiento_caja', 'observacion_cobro')
             ]
             ops_reales = [
                 o for o in operaciones_incluidas
@@ -28007,7 +28030,8 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
             solo_servicios = (not ops_alquiler) and (
                 bool(gastos_seleccionados)
                 or any(
-                    (o.get('tipo') or '').lower() in ('gasto_propietario', 'movimiento_caja')
+                    (o.get('tipo') or '').lower()
+                    in ('gasto_propietario', 'movimiento_caja', 'observacion_cobro')
                     for o in ops_reales
                 )
             )
@@ -28287,17 +28311,38 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                 for o in operaciones_incluidas:
                     if not isinstance(o, dict):
                         continue
-                    if (o.get('tipo') or '').lower() != 'gasto_propietario':
-                        continue
-                    try:
-                        gid = str(int(o['id']))
-                    except (KeyError, TypeError, ValueError):
-                        continue
-                    if gid not in gastos_seleccionados:
-                        gastos_seleccionados.append(gid)
-                if gastos_seleccionados and not _propiedad_sin_gastos_en_liquidacion(
-                    propiedad, request.user.sucursal
-                ):
+                    tipo_o = (o.get('tipo') or '').lower()
+                    if tipo_o == 'gasto_propietario':
+                        try:
+                            gid = str(int(o['id']))
+                        except (KeyError, TypeError, ValueError):
+                            continue
+                        if gid not in gastos_seleccionados:
+                            gastos_seleccionados.append(gid)
+                    elif tipo_o == 'observacion_cobro':
+                        try:
+                            from inmobiliaria.models import ObservacionCobroInquilino
+                            obs = ObservacionCobroInquilino.objects.filter(
+                                pk=int(o['id']),
+                                contrato__propiedad=propiedad,
+                            ).select_related(
+                                'contrato',
+                                'contrato__propiedad',
+                                'contrato__propiedad__propietario',
+                                'movimiento_cobro',
+                            ).first()
+                            gasto = _crear_gasto_propietario_desde_observacion_cobrada(
+                                obs,
+                                getattr(obs, 'movimiento_cobro', None),
+                                getattr(obs, 'contrato', None),
+                            ) if obs else None
+                            if gasto and not gasto.liquidacion_id:
+                                gid = str(gasto.id)
+                                if gid not in gastos_seleccionados:
+                                    gastos_seleccionados.append(gid)
+                        except Exception:
+                            logger.exception('observacion_cobro → gasto al asociar liquidación')
+                if gastos_seleccionados:
                     n_ok, errores_gastos = _asociar_gastos_seleccionados_a_liquidacion(
                         liquidacion, gastos_seleccionados, propiedad=propiedad
                     )
@@ -29878,17 +29923,31 @@ def _crear_gasto_propietario_desde_observacion_cobrada(obs, movimiento_ingreso=N
 
     if not obs:
         return None
-    if getattr(obs, 'gasto_propietario_id', None):
-        return obs.gasto_propietario
 
     marker = f'ObservacionCobroInquilino #{obs.id}'
+
+    # Ya liquidado → no recrear.
+    gasto_actual = None
+    gid = getattr(obs, 'gasto_propietario_id', None)
+    if gid:
+        gasto_actual = GastoPropietario.objects.filter(pk=gid).first()
+        if gasto_actual and gasto_actual.liquidacion_id:
+            return gasto_actual
+        if gasto_actual and gasto_actual.liquidacion_id is None:
+            return gasto_actual
+
     existente = GastoPropietario.objects.filter(
         observaciones__icontains=marker,
-        liquidacion__isnull=True,
-    ).first()
+    ).order_by('-id').first()
     if existente:
-        obs.gasto_propietario = existente
-        obs.save(update_fields=['gasto_propietario'])
+        if existente.liquidacion_id:
+            return existente
+        if getattr(obs, 'gasto_propietario_id', None) != existente.id:
+            try:
+                obs.gasto_propietario = existente
+                obs.save(update_fields=['gasto_propietario'])
+            except Exception:
+                pass
         return existente
 
     contrato = contrato or getattr(obs, 'contrato', None)
@@ -29901,7 +29960,7 @@ def _crear_gasto_propietario_desde_observacion_cobrada(obs, movimiento_ingreso=N
         propiedad = getattr(contrato, 'propiedad', None) if contrato else None
     propietario = getattr(propiedad, 'propietario', None) if propiedad else None
     monto = Decimal(str(obs.monto or 0)).quantize(Decimal('0.01'))
-    if not propiedad or not propietario or monto <= 0:
+    if not propiedad or monto <= 0:
         return None
 
     mov = movimiento_ingreso or getattr(obs, 'movimiento_cobro', None)
@@ -29930,34 +29989,173 @@ def _crear_gasto_propietario_desde_observacion_cobrada(obs, movimiento_ingreso=N
         fecha_gasto=fecha_gasto,
         observaciones=' · '.join(partes)[:2000],
         aceptado=False,
-        sucursal=obs.sucursal,
+        sucursal=obs.sucursal or getattr(propiedad, 'sucursal', None),
     )
-    obs.gasto_propietario = gasto
-    obs.save(update_fields=['gasto_propietario'])
+    try:
+        obs.gasto_propietario = gasto
+        obs.save(update_fields=['gasto_propietario'])
+    except Exception:
+        logger.exception(
+            'No se pudo vincular gasto #%s a observación #%s',
+            getattr(gasto, 'id', None),
+            getattr(obs, 'id', None),
+        )
     return gasto
 
 
 def _asegurar_gastos_propietario_observaciones_cobradas(propiedad, sucursal):
-    """Backfill: observaciones cobradas sin GastoPropietario → crearlos para liquidación."""
+    """Backfill: observaciones cobradas sin GastoPropietario pendiente → crearlos."""
     from inmobiliaria.models import ObservacionCobroInquilino
 
-    if not propiedad or not sucursal:
+    if not propiedad:
         return 0
     qs = (
         ObservacionCobroInquilino.objects.filter(
             estado=ObservacionCobroInquilino.ESTADO_COBRADO,
-            gasto_propietario__isnull=True,
             contrato__propiedad_id=propiedad.id,
-            sucursal=sucursal,
         )
-        .select_related('contrato', 'contrato__propiedad', 'contrato__propiedad__propietario', 'movimiento_cobro')
+        .filter(
+            Q(gasto_propietario__isnull=True)
+            | Q(gasto_propietario__liquidacion__isnull=True)
+        )
+        .select_related(
+            'contrato',
+            'contrato__propiedad',
+            'contrato__propiedad__propietario',
+            'movimiento_cobro',
+            'gasto_propietario',
+        )
         .order_by('id')
     )
+    if sucursal is not None:
+        qs = qs.filter(
+            Q(sucursal=sucursal) | Q(contrato__sucursal=sucursal) | Q(sucursal__isnull=True)
+        )
     creados = 0
     for obs in qs:
+        gasto = getattr(obs, 'gasto_propietario', None)
+        if gasto and gasto.liquidacion_id:
+            continue
+        if gasto and gasto.liquidacion_id is None:
+            continue
         if _crear_gasto_propietario_desde_observacion_cobrada(obs, obs.movimiento_cobro, obs.contrato):
             creados += 1
     return creados
+
+
+def _append_reintegros_observaciones_a_operaciones(propiedad, sucursal, operaciones, ids_gasto_ya=None):
+    """
+    Inserta en la lista de pagos a favor las observaciones cobradas al inquilino
+    que aún hay que reintegrar al propietario (siempre, aunque falte GastoPropietario).
+    """
+    from inmobiliaria.models import ObservacionCobroInquilino
+
+    if not propiedad or operaciones is None:
+        return
+    ids_gasto_ya = set(ids_gasto_ya or [])
+    for op in operaciones:
+        if isinstance(op, dict) and (op.get('tipo') or '') == 'gasto_propietario':
+            try:
+                ids_gasto_ya.add(int(op.get('id')))
+            except (TypeError, ValueError):
+                pass
+
+    qs = (
+        ObservacionCobroInquilino.objects.filter(
+            estado=ObservacionCobroInquilino.ESTADO_COBRADO,
+            contrato__propiedad_id=propiedad.id,
+        )
+        .select_related(
+            'contrato',
+            'contrato__propiedad',
+            'contrato__propiedad__propietario',
+            'movimiento_cobro',
+            'gasto_propietario',
+        )
+        .order_by('id')
+    )
+    if sucursal is not None:
+        qs = qs.filter(
+            Q(sucursal=sucursal) | Q(contrato__sucursal=sucursal) | Q(sucursal__isnull=True)
+        )
+
+    for obs in qs:
+        try:
+            gasto = _crear_gasto_propietario_desde_observacion_cobrada(
+                obs, obs.movimiento_cobro, obs.contrato
+            )
+        except Exception:
+            logger.exception('reintegro observación #%s', obs.id)
+            gasto = None
+
+        if gasto and gasto.liquidacion_id:
+            continue
+
+        monto_g = Decimal(str((gasto.monto if gasto else obs.monto) or 0)).quantize(Decimal('0.01'))
+        if monto_g <= 0:
+            continue
+
+        if gasto and gasto.id in ids_gasto_ya:
+            continue
+
+        fecha_g = None
+        if gasto and gasto.fecha_gasto:
+            fecha_g = gasto.fecha_gasto
+        else:
+            fecha_g = getattr(obs, 'fecha', None)
+        fecha_iso = fecha_g.strftime('%Y-%m-%d') if fecha_g else ''
+
+        desc = (
+            (gasto.descripcion if gasto else None)
+            or obs.concepto_nombre
+            or f'Concepto {obs.concepto_caja_id}'
+            or 'Gasto cobrado al inquilino'
+        )
+        det = (obs.detalle or '').strip()
+        if det and det.casefold() not in str(desc).casefold():
+            desc = f'{desc} — {det}'
+        desc = f'{desc} (a reintegrar al propietario)'
+
+        if gasto:
+            operaciones.append({
+                'tipo': 'gasto_propietario',
+                'tipo_display': 'Gasto a pagar',
+                'concepto_pago': (gasto.descripcion or 'Gasto propietario')[:80],
+                'incluible': True,
+                'id': gasto.id,
+                'contrato_id': obs.contrato_id,
+                'observacion_id': obs.id,
+                'descripcion': desc[:300],
+                'fecha_inicio': fecha_iso,
+                'fecha_fin': fecha_iso,
+                'monto_total': str(monto_g),
+                'monto_pagado': str(monto_g),
+                'monto_propietario': str(monto_g),
+                'monto_inmobiliaria': '0',
+                'dias': 0,
+                'moneda': (gasto.moneda or obs.moneda or 'ARS'),
+            })
+            ids_gasto_ya.add(gasto.id)
+        else:
+            # Fallback si no se pudo crear GastoPropietario: igual se puede tildar.
+            operaciones.append({
+                'tipo': 'observacion_cobro',
+                'tipo_display': 'Gasto a pagar',
+                'concepto_pago': (obs.concepto_nombre or 'Gasto propietario')[:80],
+                'incluible': True,
+                'id': obs.id,
+                'contrato_id': obs.contrato_id,
+                'observacion_id': obs.id,
+                'descripcion': desc[:300],
+                'fecha_inicio': fecha_iso,
+                'fecha_fin': fecha_iso,
+                'monto_total': str(monto_g),
+                'monto_pagado': str(monto_g),
+                'monto_propietario': str(monto_g),
+                'monto_inmobiliaria': '0',
+                'dias': 0,
+                'moneda': (obs.moneda or 'ARS'),
+            })
 
 
 def _marcar_observaciones_inquilino_cobradas(obs_ids, movimiento_ingreso, contrato):
@@ -29990,9 +30188,14 @@ def _marcar_observaciones_inquilino_cobradas(obs_ids, movimiento_ingreso, contra
         obs.movimiento_cobro = movimiento_ingreso
         obs.cobrado_en = ahora
         obs.save(update_fields=['estado', 'movimiento_cobro', 'cobrado_en'])
-        _crear_gasto_propietario_desde_observacion_cobrada(
-            obs, movimiento_ingreso=movimiento_ingreso, contrato=contrato
-        )
+        try:
+            _crear_gasto_propietario_desde_observacion_cobrada(
+                obs, movimiento_ingreso=movimiento_ingreso, contrato=contrato
+            )
+        except Exception:
+            logger.exception(
+                'Falló crear gasto propietario para observación #%s', obs.id
+            )
         actualizados += 1
     return actualizados
 
@@ -30443,8 +30646,10 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
         })
     
     # Gastos pendientes: liquidaciones en negativo + movimientos manuales + egresos de caja.
-    # Depto oficina / cartera: no listar gastos (se gestionan en el libro de Oficina).
+    # Depto oficina / cartera: no listar egresos de caja / descuentos (van al libro de Oficina),
+    # PERO sí listar reintegros de observaciones cobradas al inquilino.
     if _propiedad_sin_gastos_en_liquidacion(propiedad, sucursal):
+        _append_reintegros_observaciones_a_operaciones(propiedad, sucursal, operaciones)
         return {
             'operaciones': operaciones,
             'gastos_pendientes': [],
@@ -30534,6 +30739,11 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
     egresos_caja = _egresos_caja_pendientes_para_liquidacion(propiedad, sucursal)
     gastos_pendientes_list.extend(egresos_caja)
 
+    # Siempre: observaciones cobradas → filas «Gasto a pagar» (aunque el GastoPropietario no existiera).
+    _append_reintegros_observaciones_a_operaciones(
+        propiedad, sucursal, operaciones, ids_gasto_ya=vistos
+    )
+
     return {
         'operaciones': operaciones,
         'gastos_pendientes': gastos_pendientes_list,
@@ -30573,7 +30783,7 @@ def _filtrar_operaciones_liquidacion_por_busqueda(operaciones, *, tipo_busqueda,
         if tipo_busqueda == 'reserva':
             if tipo == 'reserva' and op_id == oid:
                 filtradas.append(op)
-            elif tipo in ('movimiento_caja', 'gasto_propietario'):
+            elif tipo in ('movimiento_caja', 'gasto_propietario', 'observacion_cobro'):
                 # Gastos/reintegros de la misma propiedad (ya filtrada en data).
                 filtradas.append(op)
         elif tipo_busqueda == 'contrato':
@@ -30587,7 +30797,7 @@ def _filtrar_operaciones_liquidacion_por_busqueda(operaciones, *, tipo_busqueda,
                     pass
             elif tipo == 'contrato' and op_id == oid:
                 filtradas.append(op)
-            elif tipo in ('movimiento_caja', 'gasto_propietario'):
+            elif tipo in ('movimiento_caja', 'gasto_propietario', 'observacion_cobro'):
                 # Reintegros / pagos a favor de la propiedad; si traen contrato_id, solo ese contrato.
                 cid = op.get('contrato_id')
                 if cid is None or cid == '':
