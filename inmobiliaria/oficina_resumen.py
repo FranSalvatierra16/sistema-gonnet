@@ -10,7 +10,13 @@ from django.db.models import Q, Sum
 from inmobiliaria.models import CategoriaGastoOficina, ComisionVendedor, GastoOficina, Vendedor
 from inmobiliaria.models import LiquidacionPropietario
 from inmobiliaria.oficina_gastos import RAICES_SUBCATEGORIAS_VENDEDOR
-from inmobiliaria.views_honorarios import _filas_honorarios_desde_liquidaciones, _filtrar_filas_por_fecha
+from inmobiliaria.views_honorarios import (
+    _filas_honorarios_desde_caratulas_confirmadas,
+    _filas_honorarios_desde_liquidaciones,
+    _filas_honorarios_oficina_desde_caratulas_reserva,
+    _filtrar_filas_por_fecha,
+    _keys_comisiones_contrato_cubiertas,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -19,11 +25,12 @@ MESES_ES = (
     'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE',
 )
 
-MAPEO_HONORARIOS_INGRESOS = {
-    'comision': 'Comisión por ventas',
-    'cochera': 'Gastos bancarios',
-    'fondo': 'Honorarios gestión cob.',
-}
+# Subcategorías de Ingresos (seed PDF) alimentadas desde honorarios/liquidaciones.
+ETIQUETA_COMISION_VENTAS = 'Comisión por ventas'
+ETIQUETA_24 = '24 meses'
+ETIQUETA_TEMPORARIOS = 'Com. alq. temporarios'
+ETIQUETA_ANIO_INVIERNO = 'Com. alq. año e invierno'
+ETIQUETA_GESTION_COB = 'Honorarios gestión cob.'
 
 
 def _rango_mes(anio, mes):
@@ -55,29 +62,85 @@ def _totales_comisiones_vendedor(sucursal, fecha_desde, fecha_hasta):
     return {row['vendedor_id']: row['total'] or Decimal('0') for row in qs}
 
 
+def _etiqueta_ingreso_desde_fila_honorario(fila):
+    """
+    Asigna una fila de honorarios a la subcategoría de Ingresos del cierre.
+    Tasación / Gastos bancarios / Honorarios Marbella quedan para carga manual.
+    """
+    tipo = (fila.get('tipo') or '').strip()
+    cat = (fila.get('categoria_operacion') or '').strip().lower()
+
+    if tipo in ('fondo', 'cochera'):
+        return ETIQUETA_GESTION_COB
+
+    if tipo not in ('comision', 'comisiones_locador_locatario'):
+        return None
+
+    if cat in ('dia', 'estudiante'):
+        return ETIQUETA_TEMPORARIOS
+    if cat in ('invierno', '6'):
+        return ETIQUETA_ANIO_INVIERNO
+    if cat == '24':
+        return ETIQUETA_24
+    if cat in ('venta', 'ventas'):
+        return ETIQUETA_COMISION_VENTAS
+    # Sin tipo claro: ventas / genérico.
+    return ETIQUETA_COMISION_VENTAS
+
+
+def _filas_honorarios_para_cierre(sucursal, fecha_desde, fecha_hasta):
+    """Mismas fuentes que el listado de honorarios de oficina (liq + carátulas)."""
+    qs = (
+        LiquidacionPropietario.objects.filter(sucursal=sucursal)
+        .select_related('propietario', 'propiedad', 'reserva', 'contrato')
+    )
+    qs = qs.filter(
+        Q(fecha_creacion__date__gte=fecha_desde, fecha_creacion__date__lte=fecha_hasta)
+        | Q(fecha_desde__gte=fecha_desde, fecha_desde__lte=fecha_hasta)
+        | Q(reserva__fecha_inicio__gte=fecha_desde, reserva__fecha_inicio__lte=fecha_hasta)
+        | Q(reserva__fecha_creacion__date__gte=fecha_desde, reserva__fecha_creacion__date__lte=fecha_hasta)
+        | Q(contrato__fecha_inicio__gte=fecha_desde, contrato__fecha_inicio__lte=fecha_hasta)
+        | Q(
+            fecha_procesamiento__date__gte=fecha_desde,
+            fecha_procesamiento__date__lte=fecha_hasta,
+            estado='cancelada',
+        )
+    ).distinct()
+
+    filas_liq = _filtrar_filas_por_fecha(
+        _filas_honorarios_desde_liquidaciones(qs),
+        fecha_desde,
+        fecha_hasta,
+    )
+    cubiertos = _keys_comisiones_contrato_cubiertas(filas_liq)
+    filas_car = _filas_honorarios_desde_caratulas_confirmadas(
+        sucursal, fecha_desde, fecha_hasta, cubiertos
+    )
+    filas_oficina_res = _filas_honorarios_oficina_desde_caratulas_reserva(
+        sucursal, fecha_desde, fecha_hasta
+    )
+    return _filtrar_filas_por_fecha(
+        list(filas_liq) + list(filas_car) + list(filas_oficina_res),
+        fecha_desde,
+        fecha_hasta,
+    )
+
+
 def _honorarios_por_etiqueta(sucursal, fecha_desde, fecha_hasta):
     try:
-        qs = (
-            LiquidacionPropietario.objects.filter(sucursal=sucursal)
-            .exclude(estado='cancelada')
-            .select_related('propietario', 'propiedad', 'reserva', 'contrato')
-        )
-        qs = qs.filter(
-            Q(fecha_creacion__date__gte=fecha_desde, fecha_creacion__date__lte=fecha_hasta)
-            | Q(fecha_desde__gte=fecha_desde, fecha_desde__lte=fecha_hasta)
-            | Q(reserva__fecha_inicio__gte=fecha_desde, reserva__fecha_inicio__lte=fecha_hasta)
-            | Q(reserva__fecha_creacion__date__gte=fecha_desde, reserva__fecha_creacion__date__lte=fecha_hasta)
-            | Q(contrato__fecha_inicio__gte=fecha_desde, contrato__fecha_inicio__lte=fecha_hasta)
-        ).distinct()
-        filas = _filtrar_filas_por_fecha(
-            _filas_honorarios_desde_liquidaciones(qs),
-            fecha_desde,
-            fecha_hasta,
-        )
+        filas = _filas_honorarios_para_cierre(sucursal, fecha_desde, fecha_hasta)
         totales = defaultdict(lambda: Decimal('0'))
         for f in filas:
-            etiqueta = MAPEO_HONORARIOS_INGRESOS.get(f.get('tipo'), 'Comisión por ventas')
-            totales[etiqueta] += f.get('monto') or Decimal('0')
+            etiqueta = _etiqueta_ingreso_desde_fila_honorario(f)
+            if not etiqueta:
+                continue
+            try:
+                monto = Decimal(str(f.get('monto') or 0))
+            except Exception:
+                continue
+            if monto == 0:
+                continue
+            totales[etiqueta] += monto
         return dict(totales)
     except Exception:
         logger.exception(
