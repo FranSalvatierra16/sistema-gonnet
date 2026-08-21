@@ -91,6 +91,27 @@
         }
     </style>
     {% endblock %}
+    <style>
+        .user-profile-avatar {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 2rem;
+            height: 2rem;
+            border-radius: 50%;
+            background: #2d8524;
+            color: #fff;
+            font-size: 0.85rem;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+        #userProfileDropdown {
+            max-width: 16rem;
+        }
+        @media (max-width: 991.98px) {
+            .user-profile-summary { display: inline-block !important; }
+        }
+    </style>
 </head>
 <body>
 
@@ -172,9 +193,52 @@
                     </div>
                 </div>
                 {% endif %}
-                <div class="navbar-nav ms-auto">
+                <div class="navbar-nav ms-auto align-items-lg-center">
                     {% if user.is_authenticated %}
-                        <a class="nav-link" href="{% url 'inmobiliaria:logout' %}">Cerrar sesión</a>
+                    <div class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle d-flex align-items-center gap-2 py-1"
+                           href="#" id="userProfileDropdown" role="button"
+                           data-bs-toggle="dropdown" aria-expanded="false"
+                           title="Perfil de usuario">
+                            <span class="user-profile-avatar" aria-hidden="true">
+                                {% if user.apellido %}{{ user.apellido|first|upper }}{% elif user.nombre %}{{ user.nombre|first|upper }}{% else %}{{ user.username|first|upper }}{% endif %}
+                            </span>
+                            <span class="user-profile-summary text-start lh-sm">
+                                <span class="d-block small fw-semibold text-dark">
+                                    {% if user.apellido or user.nombre %}
+                                        {{ user.apellido }}{% if user.apellido and user.nombre %}, {% endif %}{{ user.nombre }}
+                                    {% else %}
+                                        {{ user.username }}
+                                    {% endif %}
+                                </span>
+                                <span class="d-block text-muted" style="font-size:0.7rem;">IR {{ user.id }}</span>
+                            </span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="userProfileDropdown" style="min-width: 14rem;">
+                            <li class="px-3 py-2">
+                                <div class="fw-semibold">
+                                    {% if user.apellido or user.nombre %}
+                                        {{ user.apellido }}{% if user.apellido and user.nombre %}, {% endif %}{{ user.nombre }}
+                                    {% else %}
+                                        {{ user.username }}
+                                    {% endif %}
+                                </div>
+                                <div class="small text-muted">Nº IR: <strong>{{ user.id }}</strong></div>
+                                {% if user.sucursal %}
+                                <div class="small text-muted">{{ user.sucursal }}</div>
+                                {% endif %}
+                                {% if user.username %}
+                                <div class="small text-muted">@{{ user.username }}</div>
+                                {% endif %}
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item text-danger" href="{% url 'inmobiliaria:logout' %}">
+                                    <i class="fas fa-sign-out-alt me-2"></i>Cerrar sesión
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
                     {% else %}
                         <a class="nav-link" href="{% url 'inmobiliaria:login' %}">Iniciar sesión</a>
                     {% endif %}
