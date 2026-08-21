@@ -23228,6 +23228,10 @@ def procesar_pago_cuota_operacion(request, cuota_id):
             for raw in request.POST.getlist('observaciones_inquilino_ids'):
                 if raw:
                     obs_ids_cobrar.append(raw)
+            # Si cobraron el concepto sin traer observacion_id, matchear por id+monto.
+            obs_ids_cobrar.extend(
+                _observacion_ids_coinciden_con_conceptos_pago(contrato, lista, obs_ids_cobrar)
+            )
             _marcar_egresos_inquilino_cobrados(
                 egreso_ids_cobrar, movimiento, request.user.sucursal
             )
@@ -29769,12 +29773,157 @@ def _observaciones_pendientes_inquilino(contrato, cuota=None):
     return out
 
 
+def _observacion_ids_coinciden_con_conceptos_pago(contrato, lista_conceptos, ya_marcados):
+    """Pendientes del contrato cuyo concepto+monto coinciden con líneas del recibo."""
+    from inmobiliaria.models import ObservacionCobroInquilino
+
+    if not contrato or not lista_conceptos:
+        return []
+    ya = set()
+    for raw in ya_marcados or []:
+        try:
+            ya.add(int(raw))
+        except (TypeError, ValueError):
+            continue
+    pares = []
+    for item in lista_conceptos:
+        if not isinstance(item, dict):
+            continue
+        if item.get('observacion_id'):
+            continue
+        cid = str(item.get('id') or item.get('codigo') or '').strip()
+        try:
+            monto = Decimal(str(item.get('importe') or item.get('monto') or 0)).quantize(Decimal('0.01'))
+        except Exception:
+            continue
+        if not cid or monto <= 0:
+            continue
+        pares.append((cid, monto))
+    if not pares:
+        return []
+    out = []
+    usados = set()
+    pendientes = list(
+        ObservacionCobroInquilino.objects.filter(
+            contrato_id=contrato.id,
+            estado=ObservacionCobroInquilino.ESTADO_PENDIENTE,
+        ).order_by('id')
+    )
+    for cid, monto in pares:
+        for obs in pendientes:
+            if obs.id in ya or obs.id in usados:
+                continue
+            if (obs.concepto_caja_id or '').strip() != cid:
+                continue
+            try:
+                m_obs = Decimal(str(obs.monto or 0)).quantize(Decimal('0.01'))
+            except Exception:
+                continue
+            if m_obs != monto:
+                continue
+            out.append(obs.id)
+            usados.add(obs.id)
+            break
+    return out
+
+
+def _crear_gasto_propietario_desde_observacion_cobrada(obs, movimiento_ingreso=None, contrato=None):
+    """
+    Crea (o reutiliza) un GastoPropietario tipo ingreso pendiente a favor del propietario
+    para una observación ya cobrada al inquilino.
+    """
+    from inmobiliaria.models import GastoPropietario
+
+    if not obs:
+        return None
+    if getattr(obs, 'gasto_propietario_id', None):
+        return obs.gasto_propietario
+
+    marker = f'ObservacionCobroInquilino #{obs.id}'
+    existente = GastoPropietario.objects.filter(
+        observaciones__icontains=marker,
+        liquidacion__isnull=True,
+    ).first()
+    if existente:
+        obs.gasto_propietario = existente
+        obs.save(update_fields=['gasto_propietario'])
+        return existente
+
+    contrato = contrato or getattr(obs, 'contrato', None)
+    propiedad = getattr(contrato, 'propiedad', None) if contrato else None
+    if propiedad is None and getattr(obs, 'contrato_id', None):
+        from inmobiliaria.models import ContratoAlquiler
+        contrato = ContratoAlquiler.objects.select_related(
+            'propiedad', 'propiedad__propietario'
+        ).filter(pk=obs.contrato_id).first()
+        propiedad = getattr(contrato, 'propiedad', None) if contrato else None
+    propietario = getattr(propiedad, 'propietario', None) if propiedad else None
+    monto = Decimal(str(obs.monto or 0)).quantize(Decimal('0.01'))
+    if not propiedad or not propietario or monto <= 0:
+        return None
+
+    mov = movimiento_ingreso or getattr(obs, 'movimiento_cobro', None)
+    desc = (obs.concepto_nombre or f'Concepto {obs.concepto_caja_id}' or 'Observación cobrada')[:200]
+    partes = []
+    if (obs.detalle or '').strip():
+        partes.append(obs.detalle.strip())
+    if contrato:
+        partes.append(f'Cobrado al inquilino (contrato #{contrato.id})')
+    else:
+        partes.append('Cobrado al inquilino')
+    if mov is not None and getattr(mov, 'id', None):
+        partes.append(f'recibo mov. #{mov.id}')
+    partes.append('A reintegrar / pagar al propietario (gasto adelantado por el propietario).')
+    partes.append(marker)
+    fecha_gasto = getattr(obs, 'fecha', None) or timezone.localdate()
+    gasto = GastoPropietario.objects.create(
+        liquidacion=None,
+        propietario=propietario,
+        propiedad=propiedad,
+        descripcion=desc,
+        concepto_caja_id=(obs.concepto_caja_id or '')[:20],
+        monto=monto,
+        moneda=(obs.moneda or 'ARS')[:3],
+        tipo_movimiento='ingreso',
+        fecha_gasto=fecha_gasto,
+        observaciones=' · '.join(partes)[:2000],
+        aceptado=False,
+        sucursal=obs.sucursal,
+    )
+    obs.gasto_propietario = gasto
+    obs.save(update_fields=['gasto_propietario'])
+    return gasto
+
+
+def _asegurar_gastos_propietario_observaciones_cobradas(propiedad, sucursal):
+    """Backfill: observaciones cobradas sin GastoPropietario → crearlos para liquidación."""
+    from inmobiliaria.models import ObservacionCobroInquilino
+
+    if not propiedad or not sucursal:
+        return 0
+    qs = (
+        ObservacionCobroInquilino.objects.filter(
+            estado=ObservacionCobroInquilino.ESTADO_COBRADO,
+            gasto_propietario__isnull=True,
+            contrato__propiedad_id=propiedad.id,
+            sucursal=sucursal,
+        )
+        .select_related('contrato', 'contrato__propiedad', 'contrato__propiedad__propietario', 'movimiento_cobro')
+        .order_by('id')
+    )
+    creados = 0
+    for obs in qs:
+        if _crear_gasto_propietario_desde_observacion_cobrada(obs, obs.movimiento_cobro, obs.contrato):
+            creados += 1
+    return creados
+
+
 def _marcar_observaciones_inquilino_cobradas(obs_ids, movimiento_ingreso, contrato):
     """
     Marca observaciones como cobradas y genera GastoPropietario (ingreso)
     pendiente a favor del propietario, para incluirlo en la próxima liquidación.
     """
-    from inmobiliaria.models import GastoPropietario, ObservacionCobroInquilino
+    from inmobiliaria.models import ObservacionCobroInquilino
 
     if not obs_ids or not movimiento_ingreso or not contrato:
         return 0
@@ -29787,8 +29936,6 @@ def _marcar_observaciones_inquilino_cobradas(obs_ids, movimiento_ingreso, contra
     if not ids:
         return 0
 
-    propiedad = getattr(contrato, 'propiedad', None)
-    propietario = getattr(propiedad, 'propietario', None) if propiedad else None
     ahora = timezone.now()
     actualizados = 0
 
@@ -29796,55 +29943,14 @@ def _marcar_observaciones_inquilino_cobradas(obs_ids, movimiento_ingreso, contra
         id__in=ids,
         contrato_id=contrato.id,
         estado=ObservacionCobroInquilino.ESTADO_PENDIENTE,
-    ):
+    ).select_related('contrato', 'contrato__propiedad', 'contrato__propiedad__propietario'):
         obs.estado = ObservacionCobroInquilino.ESTADO_COBRADO
         obs.movimiento_cobro = movimiento_ingreso
         obs.cobrado_en = ahora
-
-        gasto = None
-        monto = Decimal(str(obs.monto or 0)).quantize(Decimal('0.01'))
-        marker = f'ObservacionCobroInquilino #{obs.id}'
-        if (
-            propiedad
-            and propietario
-            and monto > 0
-            and not obs.gasto_propietario_id
-            and not GastoPropietario.objects.filter(
-                observaciones__icontains=marker,
-            ).exists()
-        ):
-            desc = (obs.concepto_nombre or f'Concepto {obs.concepto_caja_id}' or 'Observación cobrada')[:200]
-            partes = []
-            if (obs.detalle or '').strip():
-                partes.append(obs.detalle.strip())
-            partes.append(
-                f'Cobrado al inquilino (contrato #{contrato.id}) · recibo mov. #{movimiento_ingreso.id}'
-            )
-            partes.append(
-                'A reintegrar / pagar al propietario (gasto adelantado por el propietario).'
-            )
-            partes.append(marker)
-            fecha_gasto = getattr(obs, 'fecha', None) or timezone.localdate()
-            gasto = GastoPropietario.objects.create(
-                liquidacion=None,
-                propietario=propietario,
-                propiedad=propiedad,
-                descripcion=desc,
-                concepto_caja_id=(obs.concepto_caja_id or '')[:20],
-                monto=monto,
-                moneda=(obs.moneda or 'ARS')[:3],
-                tipo_movimiento='ingreso',
-                fecha_gasto=fecha_gasto,
-                observaciones=' · '.join(partes)[:2000],
-                aceptado=False,
-                sucursal=obs.sucursal,
-            )
-            obs.gasto_propietario = gasto
-
-        update_fields = ['estado', 'movimiento_cobro', 'cobrado_en']
-        if gasto is not None:
-            update_fields.append('gasto_propietario')
-        obs.save(update_fields=update_fields)
+        obs.save(update_fields=['estado', 'movimiento_cobro', 'cobrado_en'])
+        _crear_gasto_propietario_desde_observacion_cobrada(
+            obs, movimiento_ingreso=movimiento_ingreso, contrato=contrato
+        )
         actualizados += 1
     return actualizados
 
@@ -29977,6 +30083,14 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
     from inmobiliaria.models.liquidacion import asegurar_gastos_saldo_negativo_propiedad
 
     asegurar_gastos_saldo_negativo_propiedad(propiedad, sucursal=sucursal)
+    # Observaciones cobradas al inquilino → ingreso a pagar al propietario (backfill si faltaba).
+    try:
+        _asegurar_gastos_propietario_observaciones_cobradas(propiedad, sucursal)
+    except Exception:
+        logger.exception(
+            '_operaciones_gastos_pendientes_data: backfill observaciones cobradas (prop=%s)',
+            getattr(propiedad, 'id', None),
+        )
 
     # Reservas ya liquidadas por completo (las parciales siguen apareciendo con el saldo).
     # Las completas se omiten del listado general; si se busca por N° se muestran solo lectura.
