@@ -122,21 +122,59 @@
                 width: 100% !important;
                 max-width: 100% !important;
             }
-            /* Marco a media hoja: en pantalla queda al 49%; al imprimir auto para no cortar */
-            .printable [style*="height: 49%"] {
+            /* Al imprimir: alturas % aplastan el contenido y recortan montos/decimales */
+            .printable .recibo-hoja,
+            .printable .recibo-hoja [style*="height:"] {
                 height: auto !important;
                 min-height: 0 !important;
+                max-height: none !important;
+                overflow: visible !important;
+            }
+            .printable .recibo-importe-col,
+            .printable .recibo-importe-valor {
+                width: 100% !important;
+                max-width: 100% !important;
+                overflow: visible !important;
+                white-space: nowrap !important;
+                text-align: right !important;
+                box-sizing: border-box !important;
+            }
+            .printable .recibo-fechas-estadia h3 {
+                font-size: 8px !important;
+                line-height: 1.25 !important;
             }
             .printable ~ * {
                 display: none !important;
             }
         }
     </style>
+    <style>
+        .recibo-hoja { box-sizing: border-box; }
+        .recibo-importe-col { box-sizing: border-box; }
+        .recibo-importe-valor {
+            width: 100%;
+            text-align: right;
+            white-space: nowrap;
+            padding-right: 6px;
+            box-sizing: border-box;
+            font-variant-numeric: tabular-nums;
+        }
+        .recibo-fechas-estadia h3 {
+            font-size: 9px;
+            line-height: 1.3;
+            padding: 0 4px;
+            box-sizing: border-box;
+        }
+        .recibo-resumen-montos h3 {
+            overflow: visible;
+            white-space: nowrap;
+        }
+    </style>
  
 
     
     <!-- Aquí comienza la sección del recibo -->
-    <div style="height: 49%; width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid;">
+    <div class="recibo-hoja" style="height: 49%; width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid;">
         <!-- Contenido del recibo -->
         <div style="height: 15%; width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid; display: flex; flex-direction: row; justify-content: space-between;">
             <div style="height: 100%; width: 33%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
@@ -274,77 +312,77 @@
     
         <div style="width: 100%; border-color: #2d8524; border-width: 1px; border-style: solid; height: 50%;">
             <!-- Tabla de conceptos -->
-            <div style="width: 100%; display: flex; flex-direction: column; height: 12%;">
-                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d8524; height: 100%;">
-                    <div style="display: flex; flex-wrap: wrap; width: 72%;">
-                        <div style="width: 18%; text-align: center;">
-                            <h3 style="margin: 0; font-size: 8px;">Importe Locación</h3>
+            <div style="width: 100%; display: flex; flex-direction: column; min-height: 48px;">
+                <div style="display: flex; justify-content: space-between; align-items: stretch; border-bottom: 1px solid #2d8524; gap: 4px; padding: 4px 0;">
+                    <div class="recibo-resumen-montos" style="display: flex; flex-wrap: nowrap; width: 68%; gap: 2px;">
+                        <div style="width: 25%; text-align: center; padding: 0 2px; box-sizing: border-box;">
+                            <h3 style="margin: 0; font-size: 7px;">Importe Locación</h3>
                             <div style="border-bottom: 1px solid #2d8524;"></div>
-                            <h3 style="margin: 0; font-size: 9px;">{{ precio_total_operacion }}</h3>
+                            <h3 style="margin: 0; font-size: 8px;">{{ precio_total_operacion }}</h3>
                         </div>
-                        <div style="width: 18%; text-align: center;">
-                            <h3 style="margin: 0; font-size: 9px;">SEÑA</h3>
+                        <div style="width: 25%; text-align: center; padding: 0 2px; box-sizing: border-box;">
+                            <h3 style="margin: 0; font-size: 8px;">SEÑA</h3>
                             <div style="border-bottom: 1px solid #2d8524;"></div>
-                            <h3 style="margin: 0; font-size: 9px;">{{ monto_este_pago }}</h3>
+                            <h3 style="margin: 0; font-size: 8px;">{{ monto_este_pago }}</h3>
                         </div>
-                        <div style="width: 18%; text-align: center;">
-                            <h3 style="margin: 0; font-size: 8px;">SALDO RESTANTE</h3>
+                        <div style="width: 25%; text-align: center; padding: 0 2px; box-sizing: border-box;">
+                            <h3 style="margin: 0; font-size: 7px;">SALDO RESTANTE</h3>
                             <div style="border-bottom: 1px solid #2d8524;"></div>
-                            <h3 style="margin: 0; font-size: 9px;">{{ saldo_pendiente }}</h3>
+                            <h3 style="margin: 0; font-size: 8px;">{{ saldo_pendiente }}</h3>
                         </div>
-                        <div style="width: 18%; text-align: center;">
-                            <h3 style="margin: 0; font-size: 8px;">DEPOSITO GARANTIA</h3>
+                        <div style="width: 25%; text-align: center; padding: 0 2px; box-sizing: border-box;">
+                            <h3 style="margin: 0; font-size: 7px;">DEPOSITO GARANTIA</h3>
                             <div style="border-bottom: 1px solid #2d8524;"></div>
-                            <h3 style="margin: 0; font-size: 9px; {% if deposito_estado == 'pendiente' %}color: #ff6b6b;{% elif deposito_estado == 'pagado' %}color: #2d8524;{% endif %}">{{ deposito_garantia }}</h3>
+                            <h3 style="margin: 0; font-size: 8px; {% if deposito_estado == 'pendiente' %}color: #ff6b6b;{% elif deposito_estado == 'pagado' %}color: #2d8524;{% endif %}">{{ deposito_garantia }}</h3>
                         </div>
                     </div>
     
-                    <div style="width: 28%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                        <h3 style="margin: 0; font-size: 10px; text-align: center;">DESDE: {{ fecha_inicio }} HORA: 14:00 HS.</h3>
-                        <h3 style="margin: 0; font-size: 10px; text-align: center;">HASTA: {{ fecha_fin }} HORA: 09:00 HS.</h3>
+                    <div class="recibo-fechas-estadia" style="width: 32%; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; box-sizing: border-box; padding-right: 4px;">
+                        <h3 style="margin: 0; text-align: left;">DESDE: {{ fecha_inicio }} HORA: 14:00 HS.</h3>
+                        <h3 style="margin: 0; text-align: left;">HASTA: {{ fecha_fin }} HORA: 09:00 HS.</h3>
                     </div>
                 </div>
         
             </div>
             
                 <!-- Encabezados -->
-            <div style="display: flex; justify-content: space-between; height: 6%;">
-                <div style="display: flex; border: 1px solid #2d8524;width: 80%;">
-                    <div style="width: 15%; padding: 3px; border-right: 1px solid transparent;margin-left: 5%; font-size: 9px;">FECHA</div>
-                    <div style="width: 15%; padding: 3px; border-right: 1px solid transparent;margin-left: 10px; font-size: 9px;">CÓDIGO</div>
-                    <div style="width: 55%; padding: 3px; border-right: 1px solid transparent;margin-left: 10px; font-size: 9px;">CONCEPTO</div>
+            <div style="display: flex; justify-content: space-between; min-height: 22px;">
+                <div style="display: flex; border: 1px solid #2d8524;width: 78%; box-sizing: border-box;">
+                    <div style="width: 18%; padding: 3px; margin-left: 2%; font-size: 9px;">FECHA</div>
+                    <div style="width: 18%; padding: 3px; margin-left: 6px; font-size: 9px;">CÓDIGO</div>
+                    <div style="width: 56%; padding: 3px; margin-left: 6px; font-size: 9px;">CONCEPTO</div>
                 </div>
-                <div style="display: flex; border-bottom: 1px solid #2d8524;width: 20%; justify-content: center;">
-                    <div style="width: 15%; padding: 3px; border-right: 1px solid transparent; font-size: 9px;">IMPORTE</div>
+                <div class="recibo-importe-col" style="display: flex; border-bottom: 1px solid #2d8524; border-top: 1px solid #2d8524; border-right: 1px solid #2d8524; width: 22%; justify-content: flex-end; align-items: center; box-sizing: border-box;">
+                    <div style="padding: 3px 6px; font-size: 9px; text-align: right; width: 100%;">IMPORTE</div>
                 </div>
             </div>
             
             <!-- Espacio para conceptos y pagos -->
-            <div style="display: flex; justify-content: space-between; border: 1px solid #030402; height: 34%;">
-                <div style="display: flex; flex-direction: column; border-right: 1px solid #2d8524; width: 80%;">
+            <div style="display: flex; justify-content: space-between; border: 1px solid #030402; min-height: 72px;">
+                <div style="display: flex; flex-direction: column; border-right: 1px solid #2d8524; width: 78%; box-sizing: border-box;">
                     {% for pago in pagos %}
                     <div style="display: flex; padding: 3px; font-size: 9px;">
-                        <div style="width: 15%; margin-left: 5%;">{{ pago.fecha }}</div>
-                        <div style="width: 15%; margin-left: 10px;">{{ pago.codigo }}</div>
-                        <div style="width: 55%; margin-left: 10px;">{{ pago.concepto }}</div>
+                        <div style="width: 18%; margin-left: 2%;">{{ pago.fecha }}</div>
+                        <div style="width: 18%; margin-left: 6px;">{{ pago.codigo }}</div>
+                        <div style="width: 56%; margin-left: 6px;">{{ pago.concepto }}</div>
                     </div>
                     {% endfor %}
                 </div>
-                <div style="display: flex; flex-direction: column; width: 20%; border-left: 1px solid #2d8524;">
+                <div class="recibo-importe-col" style="display: flex; flex-direction: column; width: 22%; box-sizing: border-box;">
                     {% for pago in pagos %}
-                    <div style="display: flex; justify-content: center; padding: 3px; font-size: 9px;">
-                        <div style="width: 15%;">{% if pago.es_negativo %}-{% endif %}{{ pago.monto }}</div>
+                    <div style="display: flex; justify-content: flex-end; padding: 3px 0; font-size: 9px;">
+                        <div class="recibo-importe-valor">{% if pago.es_negativo %}-{% endif %}{{ pago.monto }}</div>
                     </div>
                     {% endfor %}
                 </div>
             </div>
             
            
-            <div style="display: flex; justify-content: space-between; height: 12%;">
-                <div style="display: flex; flex-direction: column; width: 70%; height: 100%;border-bottom: 1px solid transparent;">
+            <div style="display: flex; justify-content: space-between; align-items: stretch; min-height: 48px;">
+                <div style="display: flex; flex-direction: column; width: 68%; border-bottom: 1px solid transparent; box-sizing: border-box;">
     
     
-                    <p style=" padding-left: 10px; font-size: 6px;">SR.TURISTA: Si no se presentara a abonar el saldo de locación en la fecha estipulada 
+                    <p style=" padding-left: 10px; font-size: 6px; margin: 2px 0;">SR.TURISTA: Si no se presentara a abonar el saldo de locación en la fecha estipulada 
                     perdera en favor del propietario los importes entregados en este acto. <br> 
                     Abonara en 
                     efectivo cualquier faltante de inventario, roturas, limpieza, etc. al desocupar la propiedad. 
@@ -359,36 +397,36 @@
                 
                
                     <!-- Columna de textos -->
-                    <div style="display: flex; flex-direction: column; width: 10%;height: 100%;">
+                    <div style="display: flex; flex-direction: column; width: 10%; box-sizing: border-box;">
                         {% if tiene_honorarios|default:False %}
-                        <div style="padding: 2px; border-bottom: 1px solid #2d8524;height: 33.33%;border-left: 1px solid #2d8524;display: flex; justify-content: center; align-items: center;">
+                        <div style="padding: 2px; border-bottom: 1px solid #2d8524; min-height: 20px; border-left: 1px solid #2d8524;display: flex; justify-content: center; align-items: center;">
                             <span style="font-size: 8px;padding: 2px;">HONORARIOS</span>
                         </div>
                         {% endif %}
                         {% if tiene_sellados|default:False %}
-                        <div style="padding: 2px; border-bottom: 1px solid #2d8524;height: 33.33%;border-left: 1px solid #2d8524;display: flex; justify-content: center; align-items: center;">
+                        <div style="padding: 2px; border-bottom: 1px solid #2d8524; min-height: 20px; border-left: 1px solid #2d8524;display: flex; justify-content: center; align-items: center;">
                             <span style="font-size: 8px;padding: 2px;">SELLADOS</span>
                         </div>
                         {% endif %}
-                        <div style="padding: 2px; border-bottom: 1px solid #2d8524;height: {% if tiene_honorarios|default:False or tiene_sellados|default:False %}33.33{% else %}100{% endif %}%;border-left: 1px solid #2d8524;display: flex; justify-content: center; align-items: center;">
+                        <div style="padding: 2px; border-bottom: 1px solid #2d8524; min-height: 24px; border-left: 1px solid #2d8524;display: flex; justify-content: center; align-items: center; flex: 1;">
                             <span style="font-size: 9px;padding: 3px;">TOTAL</span>
                         </div>
                     </div>
                     
                     <!-- Columna de valores -->
-                    <div style="display: flex; flex-direction: column; border: 1px solid #2d8524; width: 20%;height: 100%;">
+                    <div class="recibo-importe-col" style="display: flex; flex-direction: column; border: 1px solid #2d8524; width: 22%; min-height: 28px; box-sizing: border-box;">
                         {% if tiene_honorarios|default:False %}
-                        <div style="padding: 2px; border-bottom: 1px solid #2d8524; border-left: 1px solid #2d8524;height: 33.33%;display: flex; justify-content: center; align-items: center;">
-                            <span style="font-size: 8px;padding: 2px;">{{ honorarios }}</span>
+                        <div style="padding: 2px 4px; border-bottom: 1px solid #2d8524; min-height: 20px; display: flex; justify-content: flex-end; align-items: center;">
+                            <span class="recibo-importe-valor" style="font-size: 8px;">{{ honorarios }}</span>
                         </div>
                         {% endif %}
                         {% if tiene_sellados|default:False %}
-                        <div style="padding: 2px; border-bottom: 1px solid #2d8524; border-left: 1px solid #2d8524;height: 33.33%;display: flex; justify-content: center; align-items: center;">
-                            <span style="font-size: 8px;padding: 2px;">{{ sellados }}</span>
+                        <div style="padding: 2px 4px; border-bottom: 1px solid #2d8524; min-height: 20px; display: flex; justify-content: flex-end; align-items: center;">
+                            <span class="recibo-importe-valor" style="font-size: 8px;">{{ sellados }}</span>
                         </div>
                         {% endif %}
-                        <div style="padding: 2px; border-bottom: 1px solid #2d8524; border-left: 1px solid #2d8524;height: {% if tiene_honorarios|default:False or tiene_sellados|default:False %}33.33{% else %}100{% endif %}%;display: flex; justify-content: center; align-items: center;">
-                            <span style="font-size: 9px;padding: 3px;">{{total_pagado}}</span>
+                        <div style="padding: 2px 4px; border-bottom: 1px solid #2d8524; min-height: 24px; display: flex; justify-content: flex-end; align-items: center; flex: 1;">
+                            <span class="recibo-importe-valor" style="font-size: 9px;">{{ total_pagado }}</span>
                         </div>
                     </div>
                 
