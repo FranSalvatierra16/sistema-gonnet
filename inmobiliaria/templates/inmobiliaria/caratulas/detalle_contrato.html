@@ -115,6 +115,16 @@
                                             <a href="{% url 'inmobiliaria:crear_pago_cuota_operacion' c.id %}?solo_servicios=1" class="btn btn-sm btn-outline-success me-1" title="Cobrar servicios u otros conceptos de este mes (sin marcar de nuevo el alquiler)">
                                                 <i class="fas fa-bolt me-1"></i>Cobro de servicios
                                             </a>
+                                            <button type="button"
+                                                    class="btn btn-sm btn-outline-secondary me-1 btn-obs-mes"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#modalObservacionCobro"
+                                                    data-cuota-id="{{ c.id }}"
+                                                    data-cuota-label="{{ c.numero_cuota }}/{{ contrato.duracion_meses }}"
+                                                    data-cobrar-url="{% url 'inmobiliaria:crear_pago_cuota_operacion' c.id %}?solo_servicios=1"
+                                                    title="Observaciones / gastos a cobrar de este mes">
+                                                <i class="fas fa-sticky-note me-1"></i>Observación{% if c.obs_pendientes_count %} <span class="badge bg-warning text-dark">{{ c.obs_pendientes_count }}</span>{% endif %}
+                                            </button>
                                             {% if c.recibos_cobro %}
                                                 {% if c.recibos_cobro|length == 1 %}
                                                 <a href="{% url_recibo_movimiento c.recibos_cobro.0 %}" class="btn btn-sm btn-outline-info" target="_blank" rel="noopener" title="Ver recibo del cobro">
@@ -149,11 +159,30 @@
                                                 <i class="fas fa-cash-register me-1"></i>Ir a cobrar
                                             </a>
                                             {% endif %}
-                                            <a href="{% url 'inmobiliaria:crear_pago_cuota_operacion' c.id %}?solo_servicios=1" class="btn btn-sm btn-outline-success" title="Cobrar servicios u otros conceptos de este mes, sin el alquiler">
+                                            <a href="{% url 'inmobiliaria:crear_pago_cuota_operacion' c.id %}?solo_servicios=1" class="btn btn-sm btn-outline-success me-1" title="Cobrar servicios u otros conceptos de este mes, sin el alquiler">
                                                 <i class="fas fa-bolt me-1"></i>Cobro de servicios
                                             </a>
+                                            <button type="button"
+                                                    class="btn btn-sm btn-outline-secondary btn-obs-mes"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#modalObservacionCobro"
+                                                    data-cuota-id="{{ c.id }}"
+                                                    data-cuota-label="{{ c.numero_cuota }}/{{ contrato.duracion_meses }}"
+                                                    data-cobrar-url="{% url 'inmobiliaria:crear_pago_cuota_operacion' c.id %}?solo_servicios=1"
+                                                    title="Observaciones / gastos a cobrar de este mes">
+                                                <i class="fas fa-sticky-note me-1"></i>Observación{% if c.obs_pendientes_count %} <span class="badge bg-warning text-dark">{{ c.obs_pendientes_count }}</span>{% endif %}
+                                            </button>
                                         {% else %}
-                                        <span class="text-muted small">—</span>
+                                            <button type="button"
+                                                    class="btn btn-sm btn-outline-secondary btn-obs-mes"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#modalObservacionCobro"
+                                                    data-cuota-id="{{ c.id }}"
+                                                    data-cuota-label="{{ c.numero_cuota }}/{{ contrato.duracion_meses }}"
+                                                    data-cobrar-url="{% url 'inmobiliaria:crear_pago_cuota_operacion' c.id %}?solo_servicios=1"
+                                                    title="Observaciones / gastos a cobrar de este mes">
+                                                <i class="fas fa-sticky-note me-1"></i>Observación{% if c.obs_pendientes_count %} <span class="badge bg-warning text-dark">{{ c.obs_pendientes_count }}</span>{% endif %}
+                                            </button>
                                         {% endif %}
                                     </td>
                                 </tr>
@@ -162,93 +191,6 @@
                                 {% endfor %}
                             </tbody>
                         </table>
-                    </div>
-                </div>
-            </div>
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header py-2 small d-flex flex-wrap justify-content-between align-items-center gap-2">
-                        <strong>Observaciones (gastos a cobrar al inquilino)</strong>
-                        {% if observaciones_cobro %}
-                        <span class="text-muted">{{ observaciones_cobro|length }} pendiente{{ observaciones_cobro|length|pluralize:"s" }}</span>
-                        {% endif %}
-                    </div>
-                    <div class="card-body p-0">
-                        <div class="table-responsive">
-                            <table class="table table-sm mb-0 small">
-                                <thead>
-                                    <tr>
-                                        <th>Fecha</th>
-                                        <th>Concepto</th>
-                                        <th>Detalle</th>
-                                        <th class="text-end">Monto</th>
-                                        <th class="text-end">Acciones</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for o in observaciones_cobro %}
-                                    <tr>
-                                        <td class="text-nowrap">{{ o.creado_en|date:"d/m/Y" }}</td>
-                                        <td>{{ o.concepto_nombre|default:o.concepto_caja_id }}</td>
-                                        <td class="text-break">{{ o.detalle|default:"—" }}</td>
-                                        <td class="text-end text-nowrap">
-                                            {% if o.moneda == 'USD' %}U$S {% else %}${% endif %}{{ o.monto|floatformat:2 }}
-                                        </td>
-                                        <td class="text-end text-nowrap">
-                                            {% if url_cobrar_observaciones %}
-                                            <a href="{{ url_cobrar_observaciones }}" class="btn btn-sm btn-success me-1" title="Ir a cobrar (aparecerá en el recibo)">
-                                                <i class="fas fa-cash-register me-1"></i>Ir a cobrar
-                                            </a>
-                                            {% endif %}
-                                            <form method="post" class="d-inline" onsubmit="return confirm('¿Eliminar esta observación?');">
-                                                {% csrf_token %}
-                                                <input type="hidden" name="action" value="delete_observacion_cobro">
-                                                <input type="hidden" name="observacion_id" value="{{ o.id }}">
-                                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar">
-                                                    <i class="fas fa-trash"></i>
-                                                </button>
-                                            </form>
-                                        </td>
-                                    </tr>
-                                    {% empty %}
-                                    <tr><td colspan="5" class="text-center text-muted py-3">Sin observaciones pendientes</td></tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                        <div class="border-top p-2">
-                            <form method="post" class="row g-2 align-items-end small">
-                                {% csrf_token %}
-                                <input type="hidden" name="action" value="add_observacion_cobro">
-                                <div class="col-6 col-md-2">
-                                    <label class="form-label mb-0">ID concepto</label>
-                                    <input type="text" name="concepto_caja_id" class="form-control form-control-sm" required placeholder="ej. 55" autocomplete="off">
-                                </div>
-                                <div class="col-6 col-md-2">
-                                    <label class="form-label mb-0">Monto</label>
-                                    <input type="text" name="monto" class="form-control form-control-sm" required placeholder="0,00" inputmode="decimal">
-                                </div>
-                                <div class="col-6 col-md-2">
-                                    <label class="form-label mb-0">Moneda</label>
-                                    <select name="moneda" class="form-select form-select-sm">
-                                        <option value="ARS" selected>ARS</option>
-                                        <option value="USD">USD</option>
-                                    </select>
-                                </div>
-                                <div class="col-12 col-md-4">
-                                    <label class="form-label mb-0">Detalle</label>
-                                    <input type="text" name="detalle" class="form-control form-control-sm" placeholder="Ej. EDEA febrero, expensas, etc." maxlength="400">
-                                </div>
-                                <div class="col-12 col-md-2">
-                                    <button type="submit" class="btn btn-sm btn-primary w-100">
-                                        <i class="fas fa-plus me-1"></i>Agregar
-                                    </button>
-                                </div>
-                            </form>
-                            <p class="text-muted mb-0 mt-2" style="font-size:0.75rem;">
-                                Al cobrar al inquilino (Ir a cobrar / Cobro de servicios) estas observaciones aparecen tildadas en el recibo; una vez cobradas se quitan de esta lista.
-                            </p>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -285,4 +227,142 @@
         {% include 'inmobiliaria/caratulas/_resumen_liquidacion_caratula.html' %}
     </div>
 </div>
+
+{# Modal: observaciones / gastos a cobrar por mes #}
+<div class="modal fade" id="modalObservacionCobro" tabindex="-1" aria-labelledby="modalObservacionCobroLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h5 class="modal-title" id="modalObservacionCobroLabel">Observación — mes <span id="modalObsMesLabel">—</span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div id="modalObsLista" class="mb-3"></div>
+                <form method="post" id="formAddObservacionCobro" class="row g-2 small">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="add_observacion_cobro">
+                    <input type="hidden" name="cuota_id" id="modalObsCuotaId" value="">
+                    <div class="col-6">
+                        <label class="form-label mb-0">ID concepto</label>
+                        <input type="text" name="concepto_caja_id" class="form-control form-control-sm" required placeholder="ej. 55" autocomplete="off">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label mb-0">Monto</label>
+                        <input type="text" name="monto" class="form-control form-control-sm" required placeholder="0,00" inputmode="decimal">
+                    </div>
+                    <div class="col-4">
+                        <label class="form-label mb-0">Moneda</label>
+                        <select name="moneda" class="form-select form-select-sm">
+                            <option value="ARS" selected>ARS</option>
+                            <option value="USD">USD</option>
+                        </select>
+                    </div>
+                    <div class="col-8">
+                        <label class="form-label mb-0">Detalle</label>
+                        <input type="text" name="detalle" class="form-control form-control-sm" placeholder="Ej. EDEA, expensas…" maxlength="400">
+                    </div>
+                    <div class="col-12 d-flex flex-wrap gap-2 justify-content-between align-items-center mt-1">
+                        <a href="#" id="modalObsIrCobrar" class="btn btn-sm btn-success d-none">
+                            <i class="fas fa-cash-register me-1"></i>Ir a cobrar este mes
+                        </a>
+                        <button type="submit" class="btn btn-sm btn-primary ms-auto">
+                            <i class="fas fa-plus me-1"></i>Agregar gasto
+                        </button>
+                    </div>
+                </form>
+                <p class="text-muted mb-0 mt-2" style="font-size:0.75rem;">
+                    Al cobrar (Ir a cobrar / Cobro de servicios) del mes, estas observaciones salen tildadas en el recibo y se quitan de la lista.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{{ observaciones_por_cuota_json|json_script:"obs-por-cuota-data" }}
+<form method="post" id="formDeleteObservacionCobro" class="d-none">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="delete_observacion_cobro">
+    <input type="hidden" name="observacion_id" id="deleteObsId" value="">
+</form>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+(function () {
+    var dataEl = document.getElementById('obs-por-cuota-data');
+    var obsPorCuota = {};
+    try { obsPorCuota = dataEl ? JSON.parse(dataEl.textContent) : {}; } catch (e) { obsPorCuota = {}; }
+
+    var modal = document.getElementById('modalObservacionCobro');
+    if (!modal) return;
+
+    function escapeHtml(s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function formatMonto(monto, moneda) {
+        var n = Number(monto || 0);
+        var txt = n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return (moneda === 'USD' ? 'U$S ' : '$') + txt;
+    }
+
+    function renderLista(cuotaId) {
+        var lista = document.getElementById('modalObsLista');
+        if (!lista) return;
+        var items = obsPorCuota[String(cuotaId)] || [];
+        if (!items.length) {
+            lista.innerHTML = '<p class="small text-muted mb-0">Sin observaciones pendientes en este mes.</p>';
+            return;
+        }
+        var html = '<div class="table-responsive"><table class="table table-sm mb-0 small"><thead><tr><th>Fecha</th><th>Concepto</th><th>Detalle</th><th class="text-end">Monto</th><th></th></tr></thead><tbody>';
+        items.forEach(function (o) {
+            html += '<tr>' +
+                '<td class="text-nowrap">' + escapeHtml(o.fecha || '—') + '</td>' +
+                '<td>' + escapeHtml(o.nombre || '—') + '</td>' +
+                '<td class="text-break">' + escapeHtml(o.detalle || '—') + '</td>' +
+                '<td class="text-end text-nowrap">' + formatMonto(o.monto, o.moneda) + '</td>' +
+                '<td class="text-end"><button type="button" class="btn btn-sm btn-outline-danger btn-del-obs" data-obs-id="' + o.id + '" title="Eliminar"><i class="fas fa-trash"></i></button></td>' +
+                '</tr>';
+        });
+        html += '</tbody></table></div>';
+        lista.innerHTML = html;
+        lista.querySelectorAll('.btn-del-obs').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                if (!confirm('¿Eliminar esta observación?')) return;
+                var form = document.getElementById('formDeleteObservacionCobro');
+                var hid = document.getElementById('deleteObsId');
+                if (!form || !hid) return;
+                hid.value = btn.getAttribute('data-obs-id') || '';
+                form.submit();
+            });
+        });
+    }
+
+    modal.addEventListener('show.bs.modal', function (ev) {
+        var btn = ev.relatedTarget;
+        if (!btn) return;
+        var cuotaId = btn.getAttribute('data-cuota-id') || '';
+        var label = btn.getAttribute('data-cuota-label') || '—';
+        var cuotaIdInput = document.getElementById('modalObsCuotaId');
+        var mesLabel = document.getElementById('modalObsMesLabel');
+        var irCobrar = document.getElementById('modalObsIrCobrar');
+        if (cuotaIdInput) cuotaIdInput.value = cuotaId;
+        if (mesLabel) mesLabel.textContent = label;
+        if (irCobrar) {
+            var cobrarUrl = btn.getAttribute('data-cobrar-url') || '';
+            if (cobrarUrl) {
+                irCobrar.href = cobrarUrl;
+                irCobrar.classList.remove('d-none');
+            } else {
+                irCobrar.classList.add('d-none');
+            }
+        }
+        renderLista(cuotaId);
+    });
+})();
+</script>
 {% endblock %}

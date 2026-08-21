@@ -555,6 +555,14 @@ class ObservacionCobroInquilino(models.Model):
         on_delete=models.CASCADE,
         related_name='observaciones_cobro',
     )
+    cuota = models.ForeignKey(
+        'CuotaMensual',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='observaciones_cobro',
+        help_text='Mes/cuota al que corresponde este gasto a cobrar.',
+    )
     sucursal = models.ForeignKey(
         'Sucursal',
         on_delete=models.CASCADE,

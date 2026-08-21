@@ -23200,7 +23200,7 @@ def crear_pago_cuota_operacion(request, cuota_id):
         for g in gastos_caja:
             g.setdefault('origen', 'egreso_caja')
             g.setdefault('observacion_id', None)
-        observaciones = _observaciones_pendientes_inquilino(contrato)
+        observaciones = _observaciones_pendientes_inquilino(contrato, cuota=cuota)
         config_operacion['gastos_pendientes_inquilino'] = list(gastos_caja) + list(observaciones)
     except Exception:
         logger.exception(
@@ -29861,19 +29861,22 @@ def _marcar_egresos_inquilino_cobrados(egreso_ids, movimiento_ingreso, sucursal)
     return actualizados
 
 
-def _observaciones_pendientes_inquilino(contrato):
-    """Observaciones (gastos libres) pendientes de cobro al inquilino del contrato."""
+def _observaciones_pendientes_inquilino(contrato, cuota=None):
+    """
+    Observaciones pendientes de cobro al inquilino.
+    Si se pasa cuota: las de ese mes + las del contrato sin mes asignado.
+    """
     from inmobiliaria.models import ObservacionCobroInquilino
 
     if not contrato:
         return []
-    qs = (
-        ObservacionCobroInquilino.objects.filter(
-            contrato_id=contrato.id,
-            estado=ObservacionCobroInquilino.ESTADO_PENDIENTE,
-        )
-        .order_by('creado_en', 'id')
-    )
+    qs = ObservacionCobroInquilino.objects.filter(
+        contrato_id=contrato.id,
+        estado=ObservacionCobroInquilino.ESTADO_PENDIENTE,
+    ).select_related('cuota')
+    if cuota is not None:
+        qs = qs.filter(Q(cuota_id=cuota.id) | Q(cuota__isnull=True))
+    qs = qs.order_by('creado_en', 'id')
     out = []
     for o in qs:
         fecha = o.creado_en
@@ -29888,16 +29891,24 @@ def _observaciones_pendientes_inquilino(contrato):
         nombre = (o.concepto_nombre or '').strip()
         if not nombre:
             nombre = f'Concepto {o.concepto_caja_id}'
+        detalle = (o.detalle or '')[:400]
+        if o.cuota_id and getattr(o, 'cuota', None):
+            try:
+                mes_txt = f'Mes {o.cuota.numero_cuota}'
+                detalle = f'{detalle} · {mes_txt}'.strip(' ·') if detalle else mes_txt
+            except Exception:
+                pass
         out.append({
             'movimiento_id': None,
             'observacion_id': o.id,
             'concepto_id': (o.concepto_caja_id or '').strip(),
             'nombre': nombre[:120],
-            'detalle': (o.detalle or '')[:400],
+            'detalle': detalle,
             'monto': float(Decimal(str(o.monto or 0)).quantize(Decimal('0.01'))),
             'moneda': (o.moneda or 'ARS').upper() if (o.moneda or 'ARS') else 'ARS',
             'fecha_display': fecha_disp,
             'origen': 'observacion',
+            'cuota_id': o.cuota_id,
         })
     return out
 

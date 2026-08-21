@@ -4157,6 +4157,16 @@ def _procesar_add_observacion_cobro(request, contrato):
     if monto is None or monto <= 0:
         messages.error(request, 'El monto debe ser mayor a cero.')
         return False
+    cuota = None
+    try:
+        cuota_id = int(request.POST.get('cuota_id') or 0)
+    except (TypeError, ValueError):
+        cuota_id = 0
+    if cuota_id:
+        cuota = CuotaMensual.objects.filter(id=cuota_id, contrato_id=contrato.id).first()
+        if not cuota:
+            messages.error(request, 'Cuota inválida para esta observación.')
+            return False
     nombre = _nombre_concepto_caja(concepto_id, request.user.sucursal) or ''
     if not nombre:
         from inmobiliaria.models.caja import Concepto
@@ -4167,6 +4177,7 @@ def _procesar_add_observacion_cobro(request, contrato):
             nombre = f'Concepto {concepto_id}'
     ObservacionCobroInquilino.objects.create(
         contrato=contrato,
+        cuota=cuota,
         sucursal=request.user.sucursal,
         concepto_caja_id=concepto_id,
         concepto_nombre=nombre[:200],
@@ -4176,7 +4187,11 @@ def _procesar_add_observacion_cobro(request, contrato):
         estado=ObservacionCobroInquilino.ESTADO_PENDIENTE,
         creado_por=request.user,
     )
-    messages.success(request, 'Observación agregada. Se cobrará al inquilino en el próximo recibo.')
+    mes_txt = f' (mes {cuota.numero_cuota})' if cuota else ''
+    messages.success(
+        request,
+        f'Observación agregada{mes_txt}. Se cobrará al inquilino en el recibo de ese mes.',
+    )
     return True
 
 
@@ -4220,6 +4235,37 @@ def _url_cobrar_observaciones_contrato(contrato, cuotas_list):
     if elegida is None:
         elegida = cuotas_list[0]
     return reverse('inmobiliaria:crear_pago_cuota_operacion', args=[elegida.id]) + '?solo_servicios=1'
+
+
+def _adjuntar_observaciones_a_cuotas(contrato, cuotas_list):
+    """Agrega observaciones_pendientes y count a cada cuota del listado de carátula."""
+    by_cuota = {}
+    sin_cuota = []
+    for o in ObservacionCobroInquilino.objects.filter(
+        contrato_id=contrato.id,
+        estado=ObservacionCobroInquilino.ESTADO_PENDIENTE,
+    ).order_by('creado_en', 'id'):
+        if o.cuota_id:
+            by_cuota.setdefault(o.cuota_id, []).append(o)
+        else:
+            sin_cuota.append(o)
+    obs_json = {}
+    for c in cuotas_list or []:
+        propias = list(by_cuota.get(c.id, []))
+        c.observaciones_pendientes = propias
+        c.obs_pendientes_count = len(propias)
+        obs_json[str(c.id)] = [
+            {
+                'id': o.id,
+                'nombre': (o.concepto_nombre or o.concepto_caja_id or '')[:120],
+                'detalle': o.detalle or '',
+                'monto': float(o.monto or 0),
+                'moneda': o.moneda or 'ARS',
+                'fecha': o.creado_en.strftime('%d/%m/%Y') if o.creado_en else '—',
+            }
+            for o in propias
+        ]
+    return sin_cuota, obs_json
 
 
 @login_required
@@ -4344,6 +4390,9 @@ def caratula_contrato(request, contrato_id):
             c.recibos_cobro = recibos_por_cuota.get(int(c.id), [])
 
     _enriquecer_cuotas_liquidacion(cuotas_list, contrato, contrato.sucursal, movimientos=movimientos)
+    observaciones_sin_cuota, observaciones_por_cuota_json = _adjuntar_observaciones_a_cuotas(
+        contrato, cuotas_list
+    )
 
     tipo_label = _tipo_label_contrato_caratula(contrato)
     carpeta_guardada = _carpeta_guardada_operacion(contrato=contrato)
@@ -4422,12 +4471,8 @@ def caratula_contrato(request, contrato_id):
             contrato=contrato,
             puede_editar=_puede_editar_caratula(request.user),
         ),
-        'observaciones_cobro': list(
-            ObservacionCobroInquilino.objects.filter(
-                contrato_id=contrato.id,
-                estado=ObservacionCobroInquilino.ESTADO_PENDIENTE,
-            ).order_by('creado_en', 'id')
-        ),
+        'observaciones_sin_cuota': observaciones_sin_cuota,
+        'observaciones_por_cuota_json': observaciones_por_cuota_json,
         'url_cobrar_observaciones': _url_cobrar_observaciones_contrato(contrato, cuotas_list),
     }
     return render(request, 'inmobiliaria/caratulas/detalle_contrato.html', ctx)
