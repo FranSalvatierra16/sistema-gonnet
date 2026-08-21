@@ -290,8 +290,9 @@ class CotizacionLibroOperacion(models.Model):
 
 class CostosCompraLibroPropiedad(models.Model):
     """
-    Costos de compra del departamento (uno por propiedad), editables en el libro.
-    Se usan en el resumen final junto con gastos/ingresos USD del libro.
+    Costos de compra/venta del departamento (uno por propiedad), editables en el libro.
+    Se usan en el resumen final: restan compra/escritura/honorarios/gastos;
+    suman valor vendido e ingresos USD del libro.
     """
 
     propiedad = models.OneToOneField(
@@ -315,7 +316,19 @@ class CostosCompraLibroPropiedad(models.Model):
         max_digits=14,
         decimal_places=2,
         default=Decimal('0'),
-        verbose_name='Honorarios pagados (USD)',
+        verbose_name='Honorarios pagados compra (USD)',
+    )
+    valor_depto_vendido = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal('0'),
+        verbose_name='Valor depto vendido (USD)',
+    )
+    honorarios_venta = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal('0'),
+        verbose_name='Honorarios pagados venta (USD)',
     )
     escribania = models.CharField(
         max_length=255,

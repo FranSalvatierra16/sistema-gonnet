@@ -90,7 +90,7 @@
             <form id="form-costos-compra" class="row g-2 align-items-end">
                 <div class="col-12">
                     <div class="fw-semibold small mb-1">
-                        <i class="fas fa-building me-1"></i>Costos de compra
+                        <i class="fas fa-building me-1"></i>Compra y venta
                         <span class="text-muted fw-normal">— valores de este departamento (USD)</span>
                     </div>
                 </div>
@@ -109,10 +109,24 @@
                            style="min-width:8.5rem">
                 </div>
                 <div class="col-6 col-md-auto">
-                    <label class="form-label small mb-0" for="costos_honorarios">Honorarios pagados</label>
+                    <label class="form-label small mb-0" for="costos_honorarios">Honorarios compra</label>
                     <input type="text" class="form-control form-control-sm text-end" id="costos_honorarios" name="honorarios_pagados"
                            inputmode="decimal" autocomplete="off"
                            value="{% if costos_compra.honorarios_pagados %}{{ costos_compra.honorarios_pagados|format_price }}{% else %}0{% endif %}"
+                           style="min-width:8.5rem">
+                </div>
+                <div class="col-6 col-md-auto">
+                    <label class="form-label small mb-0" for="costos_valor_vendido">Valor depto vendido</label>
+                    <input type="text" class="form-control form-control-sm text-end" id="costos_valor_vendido" name="valor_depto_vendido"
+                           inputmode="decimal" autocomplete="off"
+                           value="{% if costos_compra.valor_depto_vendido %}{{ costos_compra.valor_depto_vendido|format_price }}{% else %}0{% endif %}"
+                           style="min-width:8.5rem">
+                </div>
+                <div class="col-6 col-md-auto">
+                    <label class="form-label small mb-0" for="costos_honorarios_venta">Honorarios venta</label>
+                    <input type="text" class="form-control form-control-sm text-end" id="costos_honorarios_venta" name="honorarios_venta"
+                           inputmode="decimal" autocomplete="off"
+                           value="{% if costos_compra.honorarios_venta %}{{ costos_compra.honorarios_venta|format_price }}{% else %}0{% endif %}"
                            style="min-width:8.5rem">
                 </div>
                 <div class="col-12 col-md-4 col-lg-3">
@@ -126,7 +140,7 @@
                     <label class="form-label small mb-0" for="costos_observaciones">Observaciones del departamento</label>
                     <textarea class="form-control form-control-sm" id="costos_observaciones" name="observaciones"
                               rows="2" maxlength="2000"
-                              placeholder="Notas, detalles de compra, etc.">{{ costos_compra.observaciones }}</textarea>
+                              placeholder="Notas, detalles de compra/venta, etc.">{{ costos_compra.observaciones }}</textarea>
                 </div>
                 <div class="col-auto">
                     <button type="submit" class="btn btn-sm btn-secondary" id="btn-guardar-costos-compra">
@@ -306,32 +320,42 @@
             <div class="table-responsive">
                 <table class="table table-sm mb-0 align-middle">
                     <tbody>
+                        <tr class="table-light">
+                            <td colspan="2" class="fw-semibold text-danger small">Restan (−)</td>
+                        </tr>
                         <tr>
                             <td>Valor depto comprado</td>
-                            <td class="text-end">U$S {{ resumen.valor_depto_comprado|format_price }}</td>
+                            <td class="text-end text-danger">U$S {{ resumen.valor_depto_comprado|format_price }}</td>
                         </tr>
                         <tr>
                             <td>Gastos de escritura</td>
-                            <td class="text-end">U$S {{ resumen.gastos_escritura|format_price }}</td>
+                            <td class="text-end text-danger">U$S {{ resumen.gastos_escritura|format_price }}</td>
                         </tr>
                         <tr>
-                            <td>Honorarios pagados</td>
-                            <td class="text-end">U$S {{ resumen.honorarios_pagados|format_price }}</td>
+                            <td>Honorarios pagados (compra)</td>
+                            <td class="text-end text-danger">U$S {{ resumen.honorarios_pagados|format_price }}</td>
                         </tr>
-                        <tr class="table-light">
-                            <td class="fw-semibold">Subtotal costos de compra</td>
-                            <td class="text-end fw-semibold">U$S {{ resumen.subtotal_costos|format_price }}</td>
+                        <tr>
+                            <td>Honorarios pagados (venta)</td>
+                            <td class="text-end text-danger">U$S {{ resumen.honorarios_venta|format_price }}</td>
                         </tr>
                         <tr>
                             <td>Gastos USD (libro)</td>
                             <td class="text-end text-danger">U$S {{ resumen.gastos_usd|format_price }}</td>
+                        </tr>
+                        <tr class="table-light">
+                            <td colspan="2" class="fw-semibold text-success small">Suman (+)</td>
+                        </tr>
+                        <tr>
+                            <td>Valor depto vendido</td>
+                            <td class="text-end text-success">U$S {{ resumen.valor_depto_vendido|format_price }}</td>
                         </tr>
                         <tr>
                             <td>Ingresos USD (libro)</td>
                             <td class="text-end text-success">U$S {{ resumen.ingreso_usd|format_price }}</td>
                         </tr>
                         <tr class="table-light">
-                            <td class="fw-semibold">Saldo USD</td>
+                            <td class="fw-semibold">Saldo USD del libro (ingresos − gastos)</td>
                             <td class="text-end fw-semibold">U$S {{ resumen.suma_usd_libro|format_price }}</td>
                         </tr>
                         <tr class="table-dark">
@@ -342,7 +366,7 @@
                 </table>
             </div>
             <p class="small text-muted mb-0 mt-2">
-                Total = depto comprado + escritura + honorarios + (gastos USD − ingresos USD del libro).
+                Total = (valor vendido + ingresos USD) − (valor comprado + escritura + honorarios compra + honorarios venta + gastos USD).
             </p>
         </div>
     </div>
@@ -563,6 +587,8 @@
             body.set('valor_depto_comprado', (document.getElementById('costos_valor_depto') || {}).value || '0');
             body.set('gastos_escritura', (document.getElementById('costos_escritura') || {}).value || '0');
             body.set('honorarios_pagados', (document.getElementById('costos_honorarios') || {}).value || '0');
+            body.set('valor_depto_vendido', (document.getElementById('costos_valor_vendido') || {}).value || '0');
+            body.set('honorarios_venta', (document.getElementById('costos_honorarios_venta') || {}).value || '0');
             body.set('escribania', (document.getElementById('costos_escribania') || {}).value || '');
             body.set('observaciones', (document.getElementById('costos_observaciones') || {}).value || '');
             postForm(urlCostos, body)
