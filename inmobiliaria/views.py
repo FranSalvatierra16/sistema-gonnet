@@ -29803,20 +29803,21 @@ def _marcar_egresos_inquilino_cobrados(egreso_ids, movimiento_ingreso, sucursal)
 
 def _observaciones_pendientes_inquilino(contrato, cuota=None):
     """
-    Observaciones pendientes de cobro al inquilino.
-    Si se pasa cuota: las de ese mes + las del contrato sin mes asignado.
+    Observaciones pendientes de cobro al inquilino (todas las del contrato).
+    Se acumulan en un listado único; al cobrar un mes/servicios salen tildadas.
     """
     from inmobiliaria.models import ObservacionCobroInquilino
 
     if not contrato:
         return []
-    qs = ObservacionCobroInquilino.objects.filter(
-        contrato_id=contrato.id,
-        estado=ObservacionCobroInquilino.ESTADO_PENDIENTE,
-    ).select_related('cuota')
-    if cuota is not None:
-        qs = qs.filter(Q(cuota_id=cuota.id) | Q(cuota__isnull=True))
-    qs = qs.order_by('creado_en', 'id')
+    qs = (
+        ObservacionCobroInquilino.objects.filter(
+            contrato_id=contrato.id,
+            estado=ObservacionCobroInquilino.ESTADO_PENDIENTE,
+        )
+        .select_related('cuota')
+        .order_by('creado_en', 'id')
+    )
     out = []
     for o in qs:
         fecha_disp = '—'
@@ -29839,12 +29840,6 @@ def _observaciones_pendientes_inquilino(contrato, cuota=None):
         if not nombre:
             nombre = f'Concepto {o.concepto_caja_id}'
         detalle = (o.detalle or '')[:400]
-        if o.cuota_id and getattr(o, 'cuota', None):
-            try:
-                mes_txt = f'Mes {o.cuota.numero_cuota}'
-                detalle = f'{detalle} · {mes_txt}'.strip(' ·') if detalle else mes_txt
-            except Exception:
-                pass
         out.append({
             'movimiento_id': None,
             'observacion_id': o.id,
@@ -29860,7 +29855,7 @@ def _observaciones_pendientes_inquilino(contrato, cuota=None):
     return out
 
 
-def _observacion_ids_coinciden_con_conceptos_pago(contrato, lista_conceptos, ya_marcados):
+def _observacion_ids_coinciden_con_conceptos_pago(contrato, lista_conceptos, ya_marcados, cuota=None):
     """Pendientes del contrato cuyo concepto+monto coinciden con líneas del recibo."""
     from inmobiliaria.models import ObservacionCobroInquilino
 
@@ -30121,7 +30116,7 @@ def _append_reintegros_observaciones_a_operaciones(propiedad, sucursal, operacio
     return
 
 
-def _marcar_observaciones_inquilino_cobradas(obs_ids, movimiento_ingreso, contrato):
+def _marcar_observaciones_inquilino_cobradas(obs_ids, movimiento_ingreso, contrato, cuota=None):
     """
     Marca observaciones como cobradas y genera GastoPropietario (ingreso)
     pendiente a favor del propietario, para incluirlo en la próxima liquidación.
@@ -30142,11 +30137,13 @@ def _marcar_observaciones_inquilino_cobradas(obs_ids, movimiento_ingreso, contra
     ahora = timezone.now()
     actualizados = 0
 
-    for obs in ObservacionCobroInquilino.objects.filter(
+    qs = ObservacionCobroInquilino.objects.filter(
         id__in=ids,
         contrato_id=contrato.id,
         estado=ObservacionCobroInquilino.ESTADO_PENDIENTE,
-    ).select_related('contrato', 'contrato__propiedad', 'contrato__propiedad__propietario'):
+    ).select_related('contrato', 'contrato__propiedad', 'contrato__propiedad__propietario')
+
+    for obs in qs:
         obs.estado = ObservacionCobroInquilino.ESTADO_COBRADO
         obs.movimiento_cobro = movimiento_ingreso
         obs.cobrado_en = ahora

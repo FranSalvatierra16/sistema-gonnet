@@ -4183,6 +4183,7 @@ def _procesar_add_observacion_cobro(request, contrato):
         if not cuota:
             messages.error(request, 'Cuota inválida para esta observación.')
             return False
+    # cuota opcional: las observaciones se acumulan a nivel contrato
 
     sucursal = request.user.sucursal
     base_qs = Concepto.objects.filter(q_conceptos_caja_visibles(sucursal))
@@ -4222,7 +4223,7 @@ def _procesar_add_observacion_cobro(request, contrato):
     mes_txt = f' (mes {cuota.numero_cuota})' if cuota else ''
     messages.success(
         request,
-        f'Observación agregada{mes_txt}. Se cobrará al inquilino en el recibo de ese mes.',
+        f'Observación agregada{mes_txt}. Se acumula en el listado hasta cobrarla al inquilino.',
     )
     return True
 
@@ -4270,9 +4271,12 @@ def _url_cobrar_observaciones_contrato(contrato, cuotas_list):
 
 
 def _adjuntar_observaciones_a_cuotas(contrato, cuotas_list):
-    """Agrega observaciones (pendientes + cobradas) a cada cuota; el badge cuenta solo pendientes."""
-    by_cuota = {}
-    sin_cuota = []
+    """
+    Lista única de observaciones del contrato (pendientes + cobradas).
+    Compat: no adjunta por cuota; el badge va en el botón global.
+    """
+    items = []
+    pendientes_count = 0
     for o in ObservacionCobroInquilino.objects.filter(
         contrato_id=contrato.id,
         estado__in=(
@@ -4280,35 +4284,27 @@ def _adjuntar_observaciones_a_cuotas(contrato, cuotas_list):
             ObservacionCobroInquilino.ESTADO_COBRADO,
         ),
     ).order_by('creado_en', 'id'):
-        if o.cuota_id:
-            by_cuota.setdefault(o.cuota_id, []).append(o)
-        else:
-            if o.estado == ObservacionCobroInquilino.ESTADO_PENDIENTE:
-                sin_cuota.append(o)
-    obs_json = {}
+        cobrada = o.estado == ObservacionCobroInquilino.ESTADO_COBRADO
+        if not cobrada:
+            pendientes_count += 1
+        items.append({
+            'id': o.id,
+            'nombre': (o.concepto_nombre or o.concepto_caja_id or '')[:120],
+            'detalle': o.detalle or '',
+            'monto': float(o.monto or 0),
+            'moneda': o.moneda or 'ARS',
+            'estado': o.estado,
+            'cobrada': cobrada,
+            'fecha': (
+                (o.fecha or (o.creado_en.date() if o.creado_en else None)).strftime('%d/%m/%Y')
+                if (o.fecha or o.creado_en)
+                else '—'
+            ),
+        })
     for c in cuotas_list or []:
-        propias = list(by_cuota.get(c.id, []))
-        pendientes = [o for o in propias if o.estado == ObservacionCobroInquilino.ESTADO_PENDIENTE]
-        c.observaciones_pendientes = pendientes
-        c.obs_pendientes_count = len(pendientes)
-        obs_json[str(c.id)] = [
-            {
-                'id': o.id,
-                'nombre': (o.concepto_nombre or o.concepto_caja_id or '')[:120],
-                'detalle': o.detalle or '',
-                'monto': float(o.monto or 0),
-                'moneda': o.moneda or 'ARS',
-                'estado': o.estado,
-                'cobrada': o.estado == ObservacionCobroInquilino.ESTADO_COBRADO,
-                'fecha': (
-                    (o.fecha or (o.creado_en.date() if o.creado_en else None)).strftime('%d/%m/%Y')
-                    if (o.fecha or o.creado_en)
-                    else '—'
-                ),
-            }
-            for o in propias
-        ]
-    return sin_cuota, obs_json
+        c.observaciones_pendientes = []
+        c.obs_pendientes_count = 0
+    return pendientes_count, items
 
 
 @login_required
@@ -4433,7 +4429,7 @@ def caratula_contrato(request, contrato_id):
             c.recibos_cobro = recibos_por_cuota.get(int(c.id), [])
 
     _enriquecer_cuotas_liquidacion(cuotas_list, contrato, contrato.sucursal, movimientos=movimientos)
-    observaciones_sin_cuota, observaciones_por_cuota_json = _adjuntar_observaciones_a_cuotas(
+    obs_pendientes_count, observaciones_contrato = _adjuntar_observaciones_a_cuotas(
         contrato, cuotas_list
     )
 
@@ -4514,8 +4510,8 @@ def caratula_contrato(request, contrato_id):
             contrato=contrato,
             puede_editar=_puede_editar_caratula(request.user),
         ),
-        'observaciones_sin_cuota': observaciones_sin_cuota,
-        'observaciones_por_cuota_json': observaciones_por_cuota_json,
+        'observaciones_contrato': observaciones_contrato,
+        'obs_pendientes_count': obs_pendientes_count,
         'url_cobrar_observaciones': _url_cobrar_observaciones_contrato(contrato, cuotas_list),
         'today': timezone.localdate(),
     }

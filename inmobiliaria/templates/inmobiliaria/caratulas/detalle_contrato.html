@@ -66,14 +66,25 @@
                 <div class="card">
                     <div class="card-header py-2 small d-flex flex-wrap justify-content-between align-items-center gap-2">
                         <strong>Cuotas</strong>
-                        {% if resumen_liquidacion_contrato %}
-                        <span class="text-muted">
-                            Liquidación: <strong>{{ resumen_liquidacion_contrato.cuotas_liquidadas }}</strong> / {{ resumen_liquidacion_contrato.total_cuotas }} meses
-                            {% if resumen_liquidacion_contrato.cuotas_pendientes_liquidar %}
-                            · <span class="text-warning">{{ resumen_liquidacion_contrato.cuotas_pendientes_liquidar }} pendiente(s) de liquidar</span>
+                        <div class="d-flex flex-wrap align-items-center gap-2">
+                            {% if resumen_liquidacion_contrato %}
+                            <span class="text-muted">
+                                Liquidación: <strong>{{ resumen_liquidacion_contrato.cuotas_liquidadas }}</strong> / {{ resumen_liquidacion_contrato.total_cuotas }} meses
+                                {% if resumen_liquidacion_contrato.cuotas_pendientes_liquidar %}
+                                · <span class="text-warning">{{ resumen_liquidacion_contrato.cuotas_pendientes_liquidar }} pendiente(s) de liquidar</span>
+                                {% endif %}
+                            </span>
                             {% endif %}
-                        </span>
-                        {% endif %}
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-secondary"
+                                    id="btnObservacionesContrato"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#modalObservacionCobro"
+                                    data-cobrar-url="{{ url_cobrar_observaciones|default:'' }}"
+                                    title="Gastos / observaciones a cobrar al inquilino">
+                                <i class="fas fa-sticky-note me-1"></i>Observaciones{% if obs_pendientes_count %} <span class="badge bg-warning text-dark">{{ obs_pendientes_count }}</span>{% endif %}
+                            </button>
+                        </div>
                     </div>
                     <div class="card-body p-0 table-responsive">
                         <table class="table table-sm mb-0 small">
@@ -115,16 +126,6 @@
                                             <a href="{% url 'inmobiliaria:crear_pago_cuota_operacion' c.id %}?solo_servicios=1" class="btn btn-sm btn-outline-success me-1" title="Cobrar servicios u otros conceptos de este mes (sin marcar de nuevo el alquiler)">
                                                 <i class="fas fa-bolt me-1"></i>Cobro de servicios
                                             </a>
-                                            <button type="button"
-                                                    class="btn btn-sm btn-outline-secondary me-1 btn-obs-mes"
-                                                    data-bs-toggle="modal"
-                                                    data-bs-target="#modalObservacionCobro"
-                                                    data-cuota-id="{{ c.id }}"
-                                                    data-cuota-label="{{ c.numero_cuota }}/{{ contrato.duracion_meses }}"
-                                                    data-cobrar-url="{% url 'inmobiliaria:crear_pago_cuota_operacion' c.id %}?solo_servicios=1"
-                                                    title="Observaciones / gastos a cobrar de este mes">
-                                                <i class="fas fa-sticky-note me-1"></i>Observación{% if c.obs_pendientes_count %} <span class="badge bg-warning text-dark">{{ c.obs_pendientes_count }}</span>{% endif %}
-                                            </button>
                                             {% if c.recibos_cobro %}
                                                 {% if c.recibos_cobro|length == 1 %}
                                                 <a href="{% url_recibo_movimiento c.recibos_cobro.0 %}" class="btn btn-sm btn-outline-info" target="_blank" rel="noopener" title="Ver recibo del cobro">
@@ -162,27 +163,6 @@
                                             <a href="{% url 'inmobiliaria:crear_pago_cuota_operacion' c.id %}?solo_servicios=1" class="btn btn-sm btn-outline-success me-1" title="Cobrar servicios u otros conceptos de este mes, sin el alquiler">
                                                 <i class="fas fa-bolt me-1"></i>Cobro de servicios
                                             </a>
-                                            <button type="button"
-                                                    class="btn btn-sm btn-outline-secondary btn-obs-mes"
-                                                    data-bs-toggle="modal"
-                                                    data-bs-target="#modalObservacionCobro"
-                                                    data-cuota-id="{{ c.id }}"
-                                                    data-cuota-label="{{ c.numero_cuota }}/{{ contrato.duracion_meses }}"
-                                                    data-cobrar-url="{% url 'inmobiliaria:crear_pago_cuota_operacion' c.id %}?solo_servicios=1"
-                                                    title="Observaciones / gastos a cobrar de este mes">
-                                                <i class="fas fa-sticky-note me-1"></i>Observación{% if c.obs_pendientes_count %} <span class="badge bg-warning text-dark">{{ c.obs_pendientes_count }}</span>{% endif %}
-                                            </button>
-                                        {% else %}
-                                            <button type="button"
-                                                    class="btn btn-sm btn-outline-secondary btn-obs-mes"
-                                                    data-bs-toggle="modal"
-                                                    data-bs-target="#modalObservacionCobro"
-                                                    data-cuota-id="{{ c.id }}"
-                                                    data-cuota-label="{{ c.numero_cuota }}/{{ contrato.duracion_meses }}"
-                                                    data-cobrar-url="{% url 'inmobiliaria:crear_pago_cuota_operacion' c.id %}?solo_servicios=1"
-                                                    title="Observaciones / gastos a cobrar de este mes">
-                                                <i class="fas fa-sticky-note me-1"></i>Observación{% if c.obs_pendientes_count %} <span class="badge bg-warning text-dark">{{ c.obs_pendientes_count }}</span>{% endif %}
-                                            </button>
                                         {% endif %}
                                     </td>
                                 </tr>
@@ -228,12 +208,12 @@
     </div>
 </div>
 
-{# Modal: observaciones / gastos a cobrar por mes #}
+{# Modal: observaciones / gastos a cobrar (listado único del contrato) #}
 <div class="modal fade" id="modalObservacionCobro" tabindex="-1" aria-labelledby="modalObservacionCobroLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content">
             <div class="modal-header py-2">
-                <h5 class="modal-title" id="modalObservacionCobroLabel">Observación — mes <span id="modalObsMesLabel">—</span></h5>
+                <h5 class="modal-title" id="modalObservacionCobroLabel">Observaciones</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body">
@@ -241,7 +221,6 @@
                 <form method="post" id="formAddObservacionCobro" class="row g-2 small">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="add_observacion_cobro">
-                    <input type="hidden" name="cuota_id" id="modalObsCuotaId" value="">
                     <input type="hidden" name="concepto_caja_id" id="modalObsConceptoId" value="">
                     <div class="col-12 position-relative">
                         <label class="form-label mb-0">Concepto (ID o nombre)</label>
@@ -272,23 +251,25 @@
                         <input type="text" name="detalle" class="form-control form-control-sm" placeholder="Ej. EDEA, expensas…" maxlength="400">
                     </div>
                     <div class="col-12 d-flex flex-wrap gap-2 justify-content-between align-items-center mt-1">
-                        <a href="#" id="modalObsIrCobrar" class="btn btn-sm btn-success d-none">
-                            <i class="fas fa-cash-register me-1"></i>Ir a cobrar este mes
+                        {% if url_cobrar_observaciones %}
+                        <a href="{{ url_cobrar_observaciones }}" id="modalObsIrCobrar" class="btn btn-sm btn-success">
+                            <i class="fas fa-cash-register me-1"></i>Ir a cobrar pendientes
                         </a>
+                        {% endif %}
                         <button type="submit" class="btn btn-sm btn-primary ms-auto">
                             <i class="fas fa-plus me-1"></i>Agregar gasto
                         </button>
                     </div>
                 </form>
                 <p class="text-muted mb-0 mt-2" style="font-size:0.75rem;">
-                    Al cobrar (Ir a cobrar / Cobro de servicios) del mes, estas observaciones salen tildadas en el recibo y se quitan de la lista.
+                    Vas acumulando gastos acá. Al cobrar un mes o servicios, las pendientes salen tildadas en el recibo y pasan a <span class="badge bg-success">Cobrada</span>.
                     Como el gasto lo adelanta el propietario, una vez cobrado al inquilino aparece en la liquidación como <strong>ingreso a pagar al propietario</strong>.
                 </p>
             </div>
         </div>
     </div>
 </div>
-{{ observaciones_por_cuota_json|json_script:"obs-por-cuota-data" }}
+{{ observaciones_contrato|json_script:"obs-contrato-data" }}
 <form method="post" id="formDeleteObservacionCobro" class="d-none">
     {% csrf_token %}
     <input type="hidden" name="action" value="delete_observacion_cobro">
@@ -300,9 +281,10 @@
 {{ block.super }}
 <script>
 (function () {
-    var dataEl = document.getElementById('obs-por-cuota-data');
-    var obsPorCuota = {};
-    try { obsPorCuota = dataEl ? JSON.parse(dataEl.textContent) : {}; } catch (e) { obsPorCuota = {}; }
+    var dataEl = document.getElementById('obs-contrato-data');
+    var observaciones = [];
+    try { observaciones = dataEl ? JSON.parse(dataEl.textContent) : []; } catch (e) { observaciones = []; }
+    if (!Array.isArray(observaciones)) observaciones = [];
 
     var modal = document.getElementById('modalObservacionCobro');
     if (!modal) return;
@@ -333,16 +315,15 @@
         return d.getFullYear() + '-' + m + '-' + day;
     }
 
-    function renderLista(cuotaId) {
+    function renderLista() {
         var lista = document.getElementById('modalObsLista');
         if (!lista) return;
-        var items = obsPorCuota[String(cuotaId)] || [];
-        if (!items.length) {
-            lista.innerHTML = '<p class="small text-muted mb-0">Sin observaciones en este mes.</p>';
+        if (!observaciones.length) {
+            lista.innerHTML = '<p class="small text-muted mb-0">Sin observaciones. Agregá gastos abajo; se acumulan hasta cobrarlos.</p>';
             return;
         }
         var html = '<div class="table-responsive"><table class="table table-sm mb-0 small"><thead><tr><th>Fecha</th><th>Concepto</th><th>Detalle</th><th class="text-end">Monto</th><th>Estado</th><th></th></tr></thead><tbody>';
-        items.forEach(function (o) {
+        observaciones.forEach(function (o) {
             var cobrada = !!(o.cobrada || o.estado === 'cobrado');
             var rowClass = cobrada ? ' table-success' : '';
             var estadoTxt = cobrada
@@ -493,7 +474,6 @@
                     seleccionarConcepto(exact);
                     cid = String(exact.id);
                 } else if (term) {
-                    // Dejar que el servidor resuelva por ID/nombre
                     if (hid) hid.value = term;
                     cid = term;
                 }
@@ -506,63 +486,38 @@
         });
     }
 
-    function initTooltipsObs() {
+    function initTooltipObs() {
         if (!window.bootstrap || !bootstrap.Tooltip) return;
-        document.querySelectorAll('.btn-obs-mes').forEach(function (btn) {
-            var existing = bootstrap.Tooltip.getInstance(btn);
-            if (existing) existing.dispose();
-            var cuotaId = btn.getAttribute('data-cuota-id') || '';
-            var items = (obsPorCuota[String(cuotaId)] || []).filter(function (o) {
-                return !(o.cobrada || o.estado === 'cobrado');
-            });
-            if (!items.length) {
-                btn.removeAttribute('title');
-                btn.removeAttribute('data-bs-original-title');
-                return;
-            }
-            var lines = items.map(function (o) {
-                return escapeHtml(o.nombre || '—') + ' · ' + formatMonto(o.monto, o.moneda)
-                    + (o.detalle ? ' (' + escapeHtml(o.detalle) + ')' : '');
-            });
-            var title = '<div class="text-start"><strong>Pendientes</strong><br>' + lines.join('<br>') + '</div>';
-            new bootstrap.Tooltip(btn, {
-                html: true,
-                title: title,
-                placement: 'left',
-                trigger: 'hover',
-                container: 'body',
-                customClass: 'obs-tooltip-pendientes'
-            });
+        var btn = document.getElementById('btnObservacionesContrato');
+        if (!btn) return;
+        var existing = bootstrap.Tooltip.getInstance(btn);
+        if (existing) existing.dispose();
+        var pendientes = observaciones.filter(function (o) {
+            return !(o.cobrada || o.estado === 'cobrado');
+        });
+        if (!pendientes.length) return;
+        var lines = pendientes.map(function (o) {
+            return escapeHtml(o.nombre || '—') + ' · ' + formatMonto(o.monto, o.moneda)
+                + (o.detalle ? ' (' + escapeHtml(o.detalle) + ')' : '');
+        });
+        new bootstrap.Tooltip(btn, {
+            html: true,
+            title: '<div class="text-start"><strong>Pendientes</strong><br>' + lines.join('<br>') + '</div>',
+            placement: 'bottom',
+            trigger: 'hover',
+            container: 'body',
+            customClass: 'obs-tooltip-pendientes'
         });
     }
 
-    modal.addEventListener('show.bs.modal', function (ev) {
-        var btn = ev.relatedTarget;
-        if (!btn) return;
-        var cuotaId = btn.getAttribute('data-cuota-id') || '';
-        var label = btn.getAttribute('data-cuota-label') || '—';
-        var cuotaIdInput = document.getElementById('modalObsCuotaId');
-        var mesLabel = document.getElementById('modalObsMesLabel');
-        var irCobrar = document.getElementById('modalObsIrCobrar');
+    modal.addEventListener('show.bs.modal', function () {
         var fechaInp = document.getElementById('modalObsFecha');
-        if (cuotaIdInput) cuotaIdInput.value = cuotaId;
-        if (mesLabel) mesLabel.textContent = label;
-        if (fechaInp && !fechaInp.value) fechaInp.value = hoyISO();
         if (fechaInp) fechaInp.value = hoyISO();
         limpiarConcepto();
-        if (irCobrar) {
-            var cobrarUrl = btn.getAttribute('data-cobrar-url') || '';
-            if (cobrarUrl) {
-                irCobrar.href = cobrarUrl;
-                irCobrar.classList.remove('d-none');
-            } else {
-                irCobrar.classList.add('d-none');
-            }
-        }
-        renderLista(cuotaId);
+        renderLista();
     });
 
-    initTooltipsObs();
+    initTooltipObs();
 })();
 </script>
 {% endblock %}
