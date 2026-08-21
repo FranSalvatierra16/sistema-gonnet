@@ -66,6 +66,11 @@
             font-weight: 800;
             letter-spacing: 0.04em;
         }
+        .meta-grid .meta-valor-fecha {
+            font-size: 14pt;
+            font-weight: 800;
+            letter-spacing: 0.02em;
+        }
         .ficha-destacada {
             border: 1px solid #000;
             padding: 10px 12px;
@@ -101,21 +106,23 @@
         .periodo-interno {
             border-left: 1px solid #333;
             padding-left: 12px;
-            font-size: 9pt;
-            line-height: 1.35;
+            font-size: 12pt;
+            line-height: 1.4;
             display: flex;
             flex-direction: column;
             justify-content: center;
         }
         .periodo-interno strong {
             display: block;
-            margin-bottom: 6px;
-            font-size: 8pt;
+            margin-bottom: 8px;
+            font-size: 10pt;
             letter-spacing: 0.08em;
         }
         .periodo-interno .periodo-linea {
             display: block;
-            margin-bottom: 3px;
+            margin-bottom: 4px;
+            font-size: 13pt;
+            font-weight: 700;
         }
         .ficha-nro {
             display: block;
@@ -197,7 +204,7 @@
         <div><strong>LLAVE</strong><span class="meta-valor">{{ llave }}</span></div>
         <div>
             <strong>FECHA OP.</strong>
-            <span class="meta-valor">
+            <span class="meta-valor meta-valor-fecha">
                 {% if fecha_documento %}
                 {{ fecha_documento|date:"d/m/Y" }}{% if fecha_documento_con_hora %} {{ fecha_documento|date:"H:i" }}{% endif %}
                 {% else %}—{% endif %}
