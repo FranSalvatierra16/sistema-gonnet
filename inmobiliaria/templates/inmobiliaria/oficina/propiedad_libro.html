@@ -85,7 +85,7 @@
         </div>
     </form>
 
-    <div class="card border-secondary mb-3 no-print">
+    <div class="card border-secondary mb-3" id="card-costos-compra">
         <div class="card-body py-2">
             <form id="form-costos-compra" class="row g-2 align-items-end">
                 <div class="col-12">
@@ -128,7 +128,7 @@
                               rows="2" maxlength="2000"
                               placeholder="Notas, detalles de compra, etc.">{{ costos_compra.observaciones }}</textarea>
                 </div>
-                <div class="col-auto">
+                <div class="col-auto no-print">
                     <button type="submit" class="btn btn-sm btn-secondary" id="btn-guardar-costos-compra">
                         <i class="fas fa-save me-1"></i>Guardar
                     </button>
@@ -139,7 +139,7 @@
         </div>
     </div>
 
-    <div class="card border-success mb-3 no-print">
+    <div class="card border-success mb-3" id="card-costos-venta">
         <div class="card-body py-2">
             <form id="form-costos-venta" class="row g-2 align-items-end">
                 <div class="col-12">
@@ -169,7 +169,7 @@
                            value="{% if costos_compra.honorarios_venta %}{{ costos_compra.honorarios_venta|format_price }}{% else %}0{% endif %}"
                            style="min-width:8.5rem">
                 </div>
-                <div class="col-auto">
+                <div class="col-auto no-print">
                     <button type="submit" class="btn btn-sm btn-success" id="btn-guardar-costos-venta">
                         <i class="fas fa-save me-1"></i>Guardar
                     </button>
@@ -226,13 +226,6 @@
                 </div>
             </form>
         </div>
-    </div>
-
-    <div class="row g-2 mb-3">
-        <div class="col-md-3"><div class="alert alert-danger border mb-0 py-2">Gastos ARS: <strong>${{ totales.gastos_ars|format_price }}</strong></div></div>
-        <div class="col-md-3"><div class="alert alert-success border mb-0 py-2">Alquileres ARS: <strong>${{ totales.alquileres_ars|format_price }}</strong></div></div>
-        <div class="col-md-3"><div class="alert alert-primary border mb-0 py-2">Balance ARS: <strong>${{ totales.balance_ars|format_price }}</strong></div></div>
-        <div class="col-md-3"><div class="alert alert-info border mb-0 py-2">Balance USD: <strong>U$S {{ totales.balance_usd|format_price }}</strong></div></div>
     </div>
 
     <p class="small text-muted mb-2 no-print">
@@ -438,6 +431,18 @@
     .table-dark td { background: #333 !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     a { text-decoration: none !important; color: inherit !important; }
     .badge { border: 1px solid #999; }
+    #card-costos-compra input,
+    #card-costos-venta input,
+    #card-costos-compra textarea,
+    #card-costos-venta textarea {
+        border: none !important;
+        box-shadow: none !important;
+        background: transparent !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+    #card-costos-compra .form-label,
+    #card-costos-venta .form-label { font-weight: 600; }
 }
 </style>
 {% endblock %}
