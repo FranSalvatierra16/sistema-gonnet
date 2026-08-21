@@ -30043,20 +30043,21 @@ def _asegurar_gastos_propietario_observaciones_cobradas(propiedad, sucursal):
     return creados
 
 
-def _append_reintegros_observaciones_a_operaciones(propiedad, sucursal, operaciones, ids_gasto_ya=None):
+def _append_reintegros_observaciones_a_gastos_pendientes(
+    propiedad, sucursal, gastos_pendientes_list, ids_gasto_ya=None
+):
     """
-    Inserta en la lista de pagos a favor las observaciones cobradas al inquilino
-    que aún hay que reintegrar al propietario (siempre, aunque falte GastoPropietario).
+    Observaciones cobradas al inquilino → movimientos pendientes (ingreso a favor del propietario).
     """
     from inmobiliaria.models import ObservacionCobroInquilino
 
-    if not propiedad or operaciones is None:
+    if not propiedad or gastos_pendientes_list is None:
         return
     ids_gasto_ya = set(ids_gasto_ya or [])
-    for op in operaciones:
-        if isinstance(op, dict) and (op.get('tipo') or '') == 'gasto_propietario':
+    for g in gastos_pendientes_list:
+        if isinstance(g, dict) and g.get('id') is not None:
             try:
-                ids_gasto_ya.add(int(op.get('id')))
+                ids_gasto_ya.add(int(g.get('id')))
             except (TypeError, ValueError):
                 pass
 
@@ -30088,74 +30089,36 @@ def _append_reintegros_observaciones_a_operaciones(propiedad, sucursal, operacio
             logger.exception('reintegro observación #%s', obs.id)
             gasto = None
 
-        if gasto and gasto.liquidacion_id:
+        if not gasto or gasto.liquidacion_id:
+            continue
+        if gasto.id in ids_gasto_ya:
             continue
 
-        monto_g = Decimal(str((gasto.monto if gasto else obs.monto) or 0)).quantize(Decimal('0.01'))
-        if monto_g <= 0:
-            continue
+        detalle = (gasto.observaciones or '').strip()
+        if not detalle:
+            partes = []
+            if (obs.detalle or '').strip():
+                partes.append(obs.detalle.strip())
+            if obs.contrato_id:
+                partes.append(f'Cobrado al inquilino (contrato #{obs.contrato_id})')
+            detalle = ' · '.join(partes)
 
-        if gasto and gasto.id in ids_gasto_ya:
-            continue
-
-        fecha_g = None
-        if gasto and gasto.fecha_gasto:
-            fecha_g = gasto.fecha_gasto
-        else:
-            fecha_g = getattr(obs, 'fecha', None)
-        fecha_iso = fecha_g.strftime('%Y-%m-%d') if fecha_g else ''
-
-        desc = (
-            (gasto.descripcion if gasto else None)
-            or obs.concepto_nombre
-            or f'Concepto {obs.concepto_caja_id}'
-            or 'Gasto cobrado al inquilino'
+        gastos_pendientes_list.append(
+            _dict_gasto_pendiente(
+                gasto,
+                detalle=detalle,
+                origen='observacion_cobro',
+                observacion_id=obs.id,
+                contrato_id=obs.contrato_id,
+            )
         )
-        det = (obs.detalle or '').strip()
-        if det and det.casefold() not in str(desc).casefold():
-            desc = f'{desc} — {det}'
-        desc = f'{desc} (a reintegrar al propietario)'
+        ids_gasto_ya.add(gasto.id)
 
-        if gasto:
-            operaciones.append({
-                'tipo': 'gasto_propietario',
-                'tipo_display': 'Gasto a pagar',
-                'concepto_pago': (gasto.descripcion or 'Gasto propietario')[:80],
-                'incluible': True,
-                'id': gasto.id,
-                'contrato_id': obs.contrato_id,
-                'observacion_id': obs.id,
-                'descripcion': desc[:300],
-                'fecha_inicio': fecha_iso,
-                'fecha_fin': fecha_iso,
-                'monto_total': str(monto_g),
-                'monto_pagado': str(monto_g),
-                'monto_propietario': str(monto_g),
-                'monto_inmobiliaria': '0',
-                'dias': 0,
-                'moneda': (gasto.moneda or obs.moneda or 'ARS'),
-            })
-            ids_gasto_ya.add(gasto.id)
-        else:
-            # Fallback si no se pudo crear GastoPropietario: igual se puede tildar.
-            operaciones.append({
-                'tipo': 'observacion_cobro',
-                'tipo_display': 'Gasto a pagar',
-                'concepto_pago': (obs.concepto_nombre or 'Gasto propietario')[:80],
-                'incluible': True,
-                'id': obs.id,
-                'contrato_id': obs.contrato_id,
-                'observacion_id': obs.id,
-                'descripcion': desc[:300],
-                'fecha_inicio': fecha_iso,
-                'fecha_fin': fecha_iso,
-                'monto_total': str(monto_g),
-                'monto_pagado': str(monto_g),
-                'monto_propietario': str(monto_g),
-                'monto_inmobiliaria': '0',
-                'dias': 0,
-                'moneda': (obs.moneda or 'ARS'),
-            })
+
+# Alias por si quedó alguna referencia vieja
+def _append_reintegros_observaciones_a_operaciones(propiedad, sucursal, operaciones, ids_gasto_ya=None):
+    """Deprecated: los reintegros van a movimientos pendientes, no a operaciones."""
+    return
 
 
 def _marcar_observaciones_inquilino_cobradas(obs_ids, movimiento_ingreso, contrato):
@@ -30646,13 +30609,16 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
         })
     
     # Gastos pendientes: liquidaciones en negativo + movimientos manuales + egresos de caja.
-    # Depto oficina / cartera: no listar egresos de caja / descuentos (van al libro de Oficina),
-    # PERO sí listar reintegros de observaciones cobradas al inquilino.
+    # Depto oficina / cartera: no listar egresos (van al libro de Oficina),
+    # pero sí reintegros de observaciones cobradas (ingresos a favor del propietario).
     if _propiedad_sin_gastos_en_liquidacion(propiedad, sucursal):
-        _append_reintegros_observaciones_a_operaciones(propiedad, sucursal, operaciones)
+        gastos_oficina = []
+        _append_reintegros_observaciones_a_gastos_pendientes(
+            propiedad, sucursal, gastos_oficina
+        )
         return {
             'operaciones': operaciones,
-            'gastos_pendientes': [],
+            'gastos_pendientes': gastos_oficina,
             'es_propiedad_oficina': True,
             'debug': {
                 'total_gastos_saldo_negativo': 0,
@@ -30694,54 +30660,15 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
             continue
         vistos.add(gasto.id)
         obs = (gasto.observaciones or '').strip()
-        # Los ingresos (reintegro de gastos cobrados al inquilino) van en la lista
-        # principal de pagos a favor, para poder tildarlos junto con las cuotas.
-        if (gasto.tipo_movimiento or '').lower() == 'ingreso':
-            monto_g = Decimal(str(gasto.monto or 0)).quantize(Decimal('0.01'))
-            if monto_g <= 0:
-                continue
-            fecha_g = gasto.fecha_gasto
-            fecha_iso = fecha_g.strftime('%Y-%m-%d') if fecha_g else ''
-            contrato_id_gasto = None
-            m_ct = re.search(r'contrato\s*#\s*(\d+)', obs, re.I)
-            if m_ct:
-                try:
-                    contrato_id_gasto = int(m_ct.group(1))
-                except (TypeError, ValueError):
-                    contrato_id_gasto = None
-            desc = (gasto.descripcion or 'Gasto a reintegrar').strip()
-            if obs:
-                # Acortar detalle para la fila
-                det_corto = obs.split(' · ')[0][:120]
-                if det_corto and det_corto.casefold() not in desc.casefold():
-                    desc = f'{desc} — {det_corto}'
-            desc = f'{desc} (gasto adelantado por el propietario)'
-            operaciones.append({
-                'tipo': 'gasto_propietario',
-                'tipo_display': 'Gasto a pagar',
-                'concepto_pago': (gasto.descripcion or 'Gasto propietario')[:80],
-                'incluible': True,
-                'id': gasto.id,
-                'contrato_id': contrato_id_gasto,
-                'descripcion': desc[:300],
-                'fecha_inicio': fecha_iso,
-                'fecha_fin': fecha_iso,
-                'monto_total': str(monto_g),
-                'monto_pagado': str(monto_g),
-                'monto_propietario': str(monto_g),
-                'monto_inmobiliaria': '0',
-                'dias': 0,
-                'moneda': (gasto.moneda or 'ARS'),
-            })
-            continue
+        # Ingresos (reintegro observaciones) y egresos van a «Movimientos pendientes».
         gastos_pendientes_list.append(_dict_gasto_pendiente(gasto, detalle=obs))
 
     egresos_caja = _egresos_caja_pendientes_para_liquidacion(propiedad, sucursal)
     gastos_pendientes_list.extend(egresos_caja)
 
-    # Siempre: observaciones cobradas → filas «Gasto a pagar» (aunque el GastoPropietario no existiera).
-    _append_reintegros_observaciones_a_operaciones(
-        propiedad, sucursal, operaciones, ids_gasto_ya=vistos
+    # Observaciones cobradas → ingreso en movimientos pendientes (si aún no estaban).
+    _append_reintegros_observaciones_a_gastos_pendientes(
+        propiedad, sucursal, gastos_pendientes_list, ids_gasto_ya=vistos
     )
 
     return {

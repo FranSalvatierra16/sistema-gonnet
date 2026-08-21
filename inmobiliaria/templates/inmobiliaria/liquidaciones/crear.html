@@ -1142,7 +1142,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         Cada <strong>Cuota mensual</strong> pagada pendiente de liquidar es una fila distinta (mismo contrato = varias filas si cobraste varios meses).
                         La <strong>Operación principal</strong> (badge verde, cuota 1) incluye honorarios/comisiones del alta en contratos de 9 meses o más.
                         En contratos de <strong>9 o 24 meses</strong> podés liquidar <strong>todas las cuotas</strong> del plan que aún no estén en otra liquidación (pagadas o anticipadas).
-                        Los <strong>Pago a favor</strong> y <strong>Gasto a pagar</strong> son reintegros al propietario (servicios/gastos que adelantó y ya cobraste al inquilino). Tildalos para que sumen al monto a pagarle.
+                        Los <strong>Pago a favor</strong> son reintegros al propietario desde caja (servicios cobrados al inquilino). Tildalos para que sumen al monto a pagarle.
+                        Los gastos/observaciones cobrados al inquilino aparecen abajo en <strong>Movimientos pendientes</strong> como ingreso a favor del propietario.
                         Tras liquidar, las cuotas nuevas que cobres vuelven a aparecer como filas nuevas.
                         Las filas atenuadas con casilla deshabilitada son solo referencia.
                         ${colProp ? 'Si el propietario tiene más de una propiedad, al tildar una operación se fija la propiedad del formulario y se recargan operaciones y gastos de esa propiedad.' : ''}
@@ -1510,14 +1511,22 @@ document.addEventListener('DOMContentLoaded', function() {
         opts = opts || {};
         window._ultimaColPropGastos = mostrarCol;
         window._ultimaPropiedadOficinaLiq = Boolean(opts.es_propiedad_oficina);
-        // Depto oficina: los gastos van al libro de Oficina, no a liquidación.
+        // Depto oficina: no listar egresos (van al libro de Oficina); sí mostrar ingresos (reintegros).
         if (window._ultimaPropiedadOficinaLiq) {
-            window._ultimosGastosServidor = [];
-            window._gastosExtraLocal = [];
-            container.style.display = 'none';
-            if (lista) lista.innerHTML = '';
-            if (sinGastos) sinGastos.style.display = 'none';
-            return;
+            const soloIngresos = (gastos || []).filter(function(g) {
+                return (g.tipo_movimiento || '') === 'ingreso';
+            });
+            window._gastosExtraLocal = (window._gastosExtraLocal || []).filter(function(g) {
+                return (g.tipo_movimiento || '') === 'ingreso';
+            });
+            if (!soloIngresos.length && !(window._gastosExtraLocal || []).length) {
+                window._ultimosGastosServidor = [];
+                container.style.display = 'none';
+                if (lista) lista.innerHTML = '';
+                if (sinGastos) sinGastos.style.display = 'none';
+                return;
+            }
+            gastos = soloIngresos;
         }
         const gastosMerged = fusionarGastosPendientes(gastos);
 
