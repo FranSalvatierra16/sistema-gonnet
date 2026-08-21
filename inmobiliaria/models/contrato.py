@@ -599,6 +599,14 @@ class ObservacionCobroInquilino(models.Model):
         blank=True,
         related_name='observaciones_cobro_inquilino',
     )
+    gasto_propietario = models.ForeignKey(
+        'GastoPropietario',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='observaciones_cobro_origen',
+        help_text='Gasto/ingreso pendiente generado al cobrar, para liquidar al propietario.',
+    )
     creado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

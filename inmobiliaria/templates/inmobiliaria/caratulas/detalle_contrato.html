@@ -282,6 +282,7 @@
                 </form>
                 <p class="text-muted mb-0 mt-2" style="font-size:0.75rem;">
                     Al cobrar (Ir a cobrar / Cobro de servicios) del mes, estas observaciones salen tildadas en el recibo y se quitan de la lista.
+                    Como el gasto lo adelanta el propietario, una vez cobrado al inquilino aparece en la liquidación como <strong>ingreso a pagar al propietario</strong>.
                 </p>
             </div>
         </div>
@@ -337,17 +338,26 @@
         if (!lista) return;
         var items = obsPorCuota[String(cuotaId)] || [];
         if (!items.length) {
-            lista.innerHTML = '<p class="small text-muted mb-0">Sin observaciones pendientes en este mes.</p>';
+            lista.innerHTML = '<p class="small text-muted mb-0">Sin observaciones en este mes.</p>';
             return;
         }
-        var html = '<div class="table-responsive"><table class="table table-sm mb-0 small"><thead><tr><th>Fecha</th><th>Concepto</th><th>Detalle</th><th class="text-end">Monto</th><th></th></tr></thead><tbody>';
+        var html = '<div class="table-responsive"><table class="table table-sm mb-0 small"><thead><tr><th>Fecha</th><th>Concepto</th><th>Detalle</th><th class="text-end">Monto</th><th>Estado</th><th></th></tr></thead><tbody>';
         items.forEach(function (o) {
-            html += '<tr>' +
+            var cobrada = !!(o.cobrada || o.estado === 'cobrado');
+            var rowClass = cobrada ? ' table-success' : '';
+            var estadoTxt = cobrada
+                ? '<span class="badge bg-success">Cobrada</span>'
+                : '<span class="badge bg-warning text-dark">Pendiente</span>';
+            var accion = cobrada
+                ? '<span class="text-muted small">—</span>'
+                : '<button type="button" class="btn btn-sm btn-outline-danger btn-del-obs" data-obs-id="' + o.id + '" title="Eliminar"><i class="fas fa-trash"></i></button>';
+            html += '<tr class="' + rowClass.trim() + '">' +
                 '<td class="text-nowrap">' + escapeHtml(o.fecha || '—') + '</td>' +
                 '<td>' + escapeHtml(o.nombre || '—') + '</td>' +
                 '<td class="text-break">' + escapeHtml(o.detalle || '—') + '</td>' +
                 '<td class="text-end text-nowrap">' + formatMonto(o.monto, o.moneda) + '</td>' +
-                '<td class="text-end"><button type="button" class="btn btn-sm btn-outline-danger btn-del-obs" data-obs-id="' + o.id + '" title="Eliminar"><i class="fas fa-trash"></i></button></td>' +
+                '<td class="text-nowrap">' + estadoTxt + '</td>' +
+                '<td class="text-end">' + accion + '</td>' +
                 '</tr>';
         });
         html += '</tbody></table></div>';
@@ -502,7 +512,9 @@
             var existing = bootstrap.Tooltip.getInstance(btn);
             if (existing) existing.dispose();
             var cuotaId = btn.getAttribute('data-cuota-id') || '';
-            var items = obsPorCuota[String(cuotaId)] || [];
+            var items = (obsPorCuota[String(cuotaId)] || []).filter(function (o) {
+                return !(o.cobrada || o.estado === 'cobrado');
+            });
             if (!items.length) {
                 btn.removeAttribute('title');
                 btn.removeAttribute('data-bs-original-title');

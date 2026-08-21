@@ -4270,22 +4270,27 @@ def _url_cobrar_observaciones_contrato(contrato, cuotas_list):
 
 
 def _adjuntar_observaciones_a_cuotas(contrato, cuotas_list):
-    """Agrega observaciones_pendientes y count a cada cuota del listado de carátula."""
+    """Agrega observaciones (pendientes + cobradas) a cada cuota; el badge cuenta solo pendientes."""
     by_cuota = {}
     sin_cuota = []
     for o in ObservacionCobroInquilino.objects.filter(
         contrato_id=contrato.id,
-        estado=ObservacionCobroInquilino.ESTADO_PENDIENTE,
+        estado__in=(
+            ObservacionCobroInquilino.ESTADO_PENDIENTE,
+            ObservacionCobroInquilino.ESTADO_COBRADO,
+        ),
     ).order_by('creado_en', 'id'):
         if o.cuota_id:
             by_cuota.setdefault(o.cuota_id, []).append(o)
         else:
-            sin_cuota.append(o)
+            if o.estado == ObservacionCobroInquilino.ESTADO_PENDIENTE:
+                sin_cuota.append(o)
     obs_json = {}
     for c in cuotas_list or []:
         propias = list(by_cuota.get(c.id, []))
-        c.observaciones_pendientes = propias
-        c.obs_pendientes_count = len(propias)
+        pendientes = [o for o in propias if o.estado == ObservacionCobroInquilino.ESTADO_PENDIENTE]
+        c.observaciones_pendientes = pendientes
+        c.obs_pendientes_count = len(pendientes)
         obs_json[str(c.id)] = [
             {
                 'id': o.id,
@@ -4293,6 +4298,8 @@ def _adjuntar_observaciones_a_cuotas(contrato, cuotas_list):
                 'detalle': o.detalle or '',
                 'monto': float(o.monto or 0),
                 'moneda': o.moneda or 'ARS',
+                'estado': o.estado,
+                'cobrada': o.estado == ObservacionCobroInquilino.ESTADO_COBRADO,
                 'fecha': (
                     (o.fecha or (o.creado_en.date() if o.creado_en else None)).strftime('%d/%m/%Y')
                     if (o.fecha or o.creado_en)

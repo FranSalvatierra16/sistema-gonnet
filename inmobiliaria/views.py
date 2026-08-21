@@ -23235,7 +23235,9 @@ def procesar_pago_cuota_operacion(request, cuota_id):
 
     try:
         cuota = get_object_or_404(
-            CuotaMensual.objects.select_related('contrato', 'contrato__propiedad'),
+            CuotaMensual.objects.select_related(
+                'contrato', 'contrato__propiedad', 'contrato__propiedad__propietario'
+            ),
             id=cuota_id,
             contrato__sucursal=request.user.sucursal,
         )
@@ -29921,8 +29923,11 @@ def _observaciones_pendientes_inquilino(contrato, cuota=None):
 
 
 def _marcar_observaciones_inquilino_cobradas(obs_ids, movimiento_ingreso, contrato):
-    """Marca observaciones pendientes como cobradas al registrar el recibo de cuota."""
-    from inmobiliaria.models import ObservacionCobroInquilino
+    """
+    Marca observaciones como cobradas y genera GastoPropietario (ingreso)
+    pendiente a favor del propietario, para incluirlo en la próxima liquidación.
+    """
+    from inmobiliaria.models import GastoPropietario, ObservacionCobroInquilino
 
     if not obs_ids or not movimiento_ingreso or not contrato:
         return 0
@@ -29934,8 +29939,12 @@ def _marcar_observaciones_inquilino_cobradas(obs_ids, movimiento_ingreso, contra
             continue
     if not ids:
         return 0
+
+    propiedad = getattr(contrato, 'propiedad', None)
+    propietario = getattr(propiedad, 'propietario', None) if propiedad else None
     ahora = timezone.now()
     actualizados = 0
+
     for obs in ObservacionCobroInquilino.objects.filter(
         id__in=ids,
         contrato_id=contrato.id,
@@ -29944,7 +29953,51 @@ def _marcar_observaciones_inquilino_cobradas(obs_ids, movimiento_ingreso, contra
         obs.estado = ObservacionCobroInquilino.ESTADO_COBRADO
         obs.movimiento_cobro = movimiento_ingreso
         obs.cobrado_en = ahora
-        obs.save(update_fields=['estado', 'movimiento_cobro', 'cobrado_en'])
+
+        gasto = None
+        monto = Decimal(str(obs.monto or 0)).quantize(Decimal('0.01'))
+        marker = f'ObservacionCobroInquilino #{obs.id}'
+        if (
+            propiedad
+            and propietario
+            and monto > 0
+            and not obs.gasto_propietario_id
+            and not GastoPropietario.objects.filter(
+                observaciones__icontains=marker,
+            ).exists()
+        ):
+            desc = (obs.concepto_nombre or f'Concepto {obs.concepto_caja_id}' or 'Observación cobrada')[:200]
+            partes = []
+            if (obs.detalle or '').strip():
+                partes.append(obs.detalle.strip())
+            partes.append(
+                f'Cobrado al inquilino (contrato #{contrato.id}) · recibo mov. #{movimiento_ingreso.id}'
+            )
+            partes.append(
+                'A reintegrar / pagar al propietario (gasto adelantado por el propietario).'
+            )
+            partes.append(marker)
+            fecha_gasto = getattr(obs, 'fecha', None) or timezone.localdate()
+            gasto = GastoPropietario.objects.create(
+                liquidacion=None,
+                propietario=propietario,
+                propiedad=propiedad,
+                descripcion=desc,
+                concepto_caja_id=(obs.concepto_caja_id or '')[:20],
+                monto=monto,
+                moneda=(obs.moneda or 'ARS')[:3],
+                tipo_movimiento='ingreso',
+                fecha_gasto=fecha_gasto,
+                observaciones=' · '.join(partes)[:2000],
+                aceptado=False,
+                sucursal=obs.sucursal,
+            )
+            obs.gasto_propietario = gasto
+
+        update_fields = ['estado', 'movimiento_cobro', 'cobrado_en']
+        if gasto is not None:
+            update_fields.append('gasto_propietario')
+        obs.save(update_fields=update_fields)
         actualizados += 1
     return actualizados
 
