@@ -1344,6 +1344,7 @@ def _obtener_costos_compra_libro(propiedad):
             'gastos_escritura': Decimal('0'),
             'honorarios_pagados': Decimal('0'),
             'valor_depto_vendido': Decimal('0'),
+            'gastos_escritura_venta': Decimal('0'),
             'honorarios_venta': Decimal('0'),
         },
     )
@@ -1640,10 +1641,12 @@ def oficina_propiedad_libro(request, propiedad_id):
     saldo_usd_libro = totales['ingreso_usd'] - totales['gastos_usd']
     valor_vendido = Decimal(str(getattr(costos, 'valor_depto_vendido', 0) or 0))
     honorarios_venta = Decimal(str(getattr(costos, 'honorarios_venta', 0) or 0))
+    escritura_venta = Decimal(str(getattr(costos, 'gastos_escritura_venta', 0) or 0))
     subtotal_restan = (
         costos.valor_depto_comprado
         + costos.gastos_escritura
         + costos.honorarios_pagados
+        + escritura_venta
         + honorarios_venta
         + totales['gastos_usd']
     )
@@ -1653,6 +1656,7 @@ def oficina_propiedad_libro(request, propiedad_id):
         'gastos_escritura': costos.gastos_escritura,
         'honorarios_pagados': costos.honorarios_pagados,
         'valor_depto_vendido': valor_vendido,
+        'gastos_escritura_venta': escritura_venta,
         'honorarios_venta': honorarios_venta,
         'subtotal_costos': (
             costos.valor_depto_comprado
@@ -1786,6 +1790,7 @@ def oficina_propiedad_libro_costos_compra(request, propiedad_id):
         escritura = parse_decimal_monto(request.POST.get('gastos_escritura', '0'))
         honorarios = parse_decimal_monto(request.POST.get('honorarios_pagados', '0'))
         valor_vendido = parse_decimal_monto(request.POST.get('valor_depto_vendido', '0'))
+        escritura_venta = parse_decimal_monto(request.POST.get('gastos_escritura_venta', '0'))
         honorarios_venta = parse_decimal_monto(request.POST.get('honorarios_venta', '0'))
     except Exception:
         return JsonResponse({'ok': False, 'error': 'Monto inválido.'}, status=400)
@@ -1801,6 +1806,7 @@ def oficina_propiedad_libro_costos_compra(request, propiedad_id):
     costos.gastos_escritura = escritura.quantize(Decimal('0.01'))
     costos.honorarios_pagados = honorarios.quantize(Decimal('0.01'))
     costos.valor_depto_vendido = valor_vendido.quantize(Decimal('0.01'))
+    costos.gastos_escritura_venta = escritura_venta.quantize(Decimal('0.01'))
     costos.honorarios_venta = honorarios_venta.quantize(Decimal('0.01'))
     costos.escribania = escribania
     costos.observaciones = observaciones
@@ -1814,6 +1820,7 @@ def oficina_propiedad_libro_costos_compra(request, propiedad_id):
             'gastos_escritura': format_monto_argentino(costos.gastos_escritura),
             'honorarios_pagados': format_monto_argentino(costos.honorarios_pagados),
             'valor_depto_vendido': format_monto_argentino(costos.valor_depto_vendido),
+            'gastos_escritura_venta': format_monto_argentino(costos.gastos_escritura_venta),
             'honorarios_venta': format_monto_argentino(costos.honorarios_venta),
             'escribania': costos.escribania,
             'observaciones': costos.observaciones,

@@ -90,7 +90,7 @@
             <form id="form-costos-compra" class="row g-2 align-items-end">
                 <div class="col-12">
                     <div class="fw-semibold small mb-1">
-                        <i class="fas fa-building me-1"></i>Compra y venta
+                        <i class="fas fa-building me-1"></i>Costos de compra
                         <span class="text-muted fw-normal">— valores de este departamento (USD)</span>
                     </div>
                 </div>
@@ -102,7 +102,7 @@
                            style="min-width:8.5rem">
                 </div>
                 <div class="col-6 col-md-auto">
-                    <label class="form-label small mb-0" for="costos_escritura">Gastos de escritura</label>
+                    <label class="form-label small mb-0" for="costos_escritura">Gastos de escritura (compra)</label>
                     <input type="text" class="form-control form-control-sm text-end" id="costos_escritura" name="gastos_escritura"
                            inputmode="decimal" autocomplete="off"
                            value="{% if costos_compra.gastos_escritura %}{{ costos_compra.gastos_escritura|format_price }}{% else %}0{% endif %}"
@@ -113,20 +113,6 @@
                     <input type="text" class="form-control form-control-sm text-end" id="costos_honorarios" name="honorarios_pagados"
                            inputmode="decimal" autocomplete="off"
                            value="{% if costos_compra.honorarios_pagados %}{{ costos_compra.honorarios_pagados|format_price }}{% else %}0{% endif %}"
-                           style="min-width:8.5rem">
-                </div>
-                <div class="col-6 col-md-auto">
-                    <label class="form-label small mb-0" for="costos_valor_vendido">Valor depto vendido</label>
-                    <input type="text" class="form-control form-control-sm text-end" id="costos_valor_vendido" name="valor_depto_vendido"
-                           inputmode="decimal" autocomplete="off"
-                           value="{% if costos_compra.valor_depto_vendido %}{{ costos_compra.valor_depto_vendido|format_price }}{% else %}0{% endif %}"
-                           style="min-width:8.5rem">
-                </div>
-                <div class="col-6 col-md-auto">
-                    <label class="form-label small mb-0" for="costos_honorarios_venta">Honorarios venta</label>
-                    <input type="text" class="form-control form-control-sm text-end" id="costos_honorarios_venta" name="honorarios_venta"
-                           inputmode="decimal" autocomplete="off"
-                           value="{% if costos_compra.honorarios_venta %}{{ costos_compra.honorarios_venta|format_price }}{% else %}0{% endif %}"
                            style="min-width:8.5rem">
                 </div>
                 <div class="col-12 col-md-4 col-lg-3">
@@ -140,7 +126,7 @@
                     <label class="form-label small mb-0" for="costos_observaciones">Observaciones del departamento</label>
                     <textarea class="form-control form-control-sm" id="costos_observaciones" name="observaciones"
                               rows="2" maxlength="2000"
-                              placeholder="Notas, detalles de compra/venta, etc.">{{ costos_compra.observaciones }}</textarea>
+                              placeholder="Notas, detalles de compra, etc.">{{ costos_compra.observaciones }}</textarea>
                 </div>
                 <div class="col-auto">
                     <button type="submit" class="btn btn-sm btn-secondary" id="btn-guardar-costos-compra">
@@ -148,6 +134,47 @@
                     </button>
                     <span class="small text-success ms-1 d-none" id="costos-ok">Guardado</span>
                     <span class="small text-danger ms-1 d-none" id="costos-err"></span>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card border-success mb-3 no-print">
+        <div class="card-body py-2">
+            <form id="form-costos-venta" class="row g-2 align-items-end">
+                <div class="col-12">
+                    <div class="fw-semibold small text-success mb-1">
+                        <i class="fas fa-handshake me-1"></i>Venta del departamento
+                        <span class="text-muted fw-normal">— valor de venta, escritura y honorarios (USD)</span>
+                    </div>
+                </div>
+                <div class="col-6 col-md-auto">
+                    <label class="form-label small mb-0" for="costos_valor_vendido">Valor depto vendido</label>
+                    <input type="text" class="form-control form-control-sm text-end" id="costos_valor_vendido" name="valor_depto_vendido"
+                           inputmode="decimal" autocomplete="off"
+                           value="{% if costos_compra.valor_depto_vendido %}{{ costos_compra.valor_depto_vendido|format_price }}{% else %}0{% endif %}"
+                           style="min-width:8.5rem">
+                </div>
+                <div class="col-6 col-md-auto">
+                    <label class="form-label small mb-0" for="costos_escritura_venta">Gastos de escritura (venta)</label>
+                    <input type="text" class="form-control form-control-sm text-end" id="costos_escritura_venta" name="gastos_escritura_venta"
+                           inputmode="decimal" autocomplete="off"
+                           value="{% if costos_compra.gastos_escritura_venta %}{{ costos_compra.gastos_escritura_venta|format_price }}{% else %}0{% endif %}"
+                           style="min-width:8.5rem">
+                </div>
+                <div class="col-6 col-md-auto">
+                    <label class="form-label small mb-0" for="costos_honorarios_venta">Honorarios venta</label>
+                    <input type="text" class="form-control form-control-sm text-end" id="costos_honorarios_venta" name="honorarios_venta"
+                           inputmode="decimal" autocomplete="off"
+                           value="{% if costos_compra.honorarios_venta %}{{ costos_compra.honorarios_venta|format_price }}{% else %}0{% endif %}"
+                           style="min-width:8.5rem">
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-sm btn-success" id="btn-guardar-costos-venta">
+                        <i class="fas fa-save me-1"></i>Guardar
+                    </button>
+                    <span class="small text-success ms-1 d-none" id="costos-venta-ok">Guardado</span>
+                    <span class="small text-danger ms-1 d-none" id="costos-venta-err"></span>
                 </div>
             </form>
         </div>
@@ -328,12 +355,16 @@
                             <td class="text-end text-danger">U$S {{ resumen.valor_depto_comprado|format_price }}</td>
                         </tr>
                         <tr>
-                            <td>Gastos de escritura</td>
+                            <td>Gastos de escritura (compra)</td>
                             <td class="text-end text-danger">U$S {{ resumen.gastos_escritura|format_price }}</td>
                         </tr>
                         <tr>
                             <td>Honorarios pagados (compra)</td>
                             <td class="text-end text-danger">U$S {{ resumen.honorarios_pagados|format_price }}</td>
+                        </tr>
+                        <tr>
+                            <td>Gastos de escritura (venta)</td>
+                            <td class="text-end text-danger">U$S {{ resumen.gastos_escritura_venta|format_price }}</td>
                         </tr>
                         <tr>
                             <td>Honorarios pagados (venta)</td>
@@ -366,7 +397,7 @@
                 </table>
             </div>
             <p class="small text-muted mb-0 mt-2">
-                Total = (valor vendido + ingresos USD) − (valor comprado + escritura + honorarios compra + honorarios venta + gastos USD).
+                Total = (valor vendido + ingresos USD) − (valor comprado + escritura compra + honorarios compra + escritura venta + honorarios venta + gastos USD).
             </p>
         </div>
     </div>
@@ -574,38 +605,56 @@
     }
 
     var formCostos = document.getElementById('form-costos-compra');
+    var formVenta = document.getElementById('form-costos-venta');
+
+    function guardarCostosLibro(btn, okEl, errEl) {
+        if (okEl) okEl.classList.add('d-none');
+        if (errEl) { errEl.classList.add('d-none'); errEl.textContent = ''; }
+        if (btn) btn.disabled = true;
+        var body = new URLSearchParams();
+        body.set('valor_depto_comprado', (document.getElementById('costos_valor_depto') || {}).value || '0');
+        body.set('gastos_escritura', (document.getElementById('costos_escritura') || {}).value || '0');
+        body.set('honorarios_pagados', (document.getElementById('costos_honorarios') || {}).value || '0');
+        body.set('valor_depto_vendido', (document.getElementById('costos_valor_vendido') || {}).value || '0');
+        body.set('gastos_escritura_venta', (document.getElementById('costos_escritura_venta') || {}).value || '0');
+        body.set('honorarios_venta', (document.getElementById('costos_honorarios_venta') || {}).value || '0');
+        body.set('escribania', (document.getElementById('costos_escribania') || {}).value || '');
+        body.set('observaciones', (document.getElementById('costos_observaciones') || {}).value || '');
+        return postForm(urlCostos, body)
+          .then(function(res) {
+            if (!res.okHttp || !res.d || !res.d.ok) {
+                if (errEl) {
+                    errEl.textContent = (res.d && res.d.error) || 'No se pudo guardar.';
+                    errEl.classList.remove('d-none');
+                }
+                return;
+            }
+            window.location.reload();
+          })
+          .catch(function() {
+            if (errEl) { errEl.textContent = 'Error de red.'; errEl.classList.remove('d-none'); }
+          })
+          .finally(function() { if (btn) btn.disabled = false; });
+    }
+
     if (formCostos) {
         formCostos.addEventListener('submit', function(e) {
             e.preventDefault();
-            var btn = document.getElementById('btn-guardar-costos-compra');
-            var okEl = document.getElementById('costos-ok');
-            var errEl = document.getElementById('costos-err');
-            if (okEl) okEl.classList.add('d-none');
-            if (errEl) { errEl.classList.add('d-none'); errEl.textContent = ''; }
-            if (btn) btn.disabled = true;
-            var body = new URLSearchParams();
-            body.set('valor_depto_comprado', (document.getElementById('costos_valor_depto') || {}).value || '0');
-            body.set('gastos_escritura', (document.getElementById('costos_escritura') || {}).value || '0');
-            body.set('honorarios_pagados', (document.getElementById('costos_honorarios') || {}).value || '0');
-            body.set('valor_depto_vendido', (document.getElementById('costos_valor_vendido') || {}).value || '0');
-            body.set('honorarios_venta', (document.getElementById('costos_honorarios_venta') || {}).value || '0');
-            body.set('escribania', (document.getElementById('costos_escribania') || {}).value || '');
-            body.set('observaciones', (document.getElementById('costos_observaciones') || {}).value || '');
-            postForm(urlCostos, body)
-              .then(function(res) {
-                if (!res.okHttp || !res.d || !res.d.ok) {
-                    if (errEl) {
-                        errEl.textContent = (res.d && res.d.error) || 'No se pudo guardar.';
-                        errEl.classList.remove('d-none');
-                    }
-                    return;
-                }
-                window.location.reload();
-              })
-              .catch(function() {
-                if (errEl) { errEl.textContent = 'Error de red.'; errEl.classList.remove('d-none'); }
-              })
-              .finally(function() { if (btn) btn.disabled = false; });
+            guardarCostosLibro(
+                document.getElementById('btn-guardar-costos-compra'),
+                document.getElementById('costos-ok'),
+                document.getElementById('costos-err')
+            );
+        });
+    }
+    if (formVenta) {
+        formVenta.addEventListener('submit', function(e) {
+            e.preventDefault();
+            guardarCostosLibro(
+                document.getElementById('btn-guardar-costos-venta'),
+                document.getElementById('costos-venta-ok'),
+                document.getElementById('costos-venta-err')
+            );
         });
     }
 

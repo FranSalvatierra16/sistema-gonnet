@@ -310,7 +310,7 @@ class CostosCompraLibroPropiedad(models.Model):
         max_digits=14,
         decimal_places=2,
         default=Decimal('0'),
-        verbose_name='Gastos de escritura (USD)',
+        verbose_name='Gastos de escritura compra (USD)',
     )
     honorarios_pagados = models.DecimalField(
         max_digits=14,
@@ -323,6 +323,12 @@ class CostosCompraLibroPropiedad(models.Model):
         decimal_places=2,
         default=Decimal('0'),
         verbose_name='Valor depto vendido (USD)',
+    )
+    gastos_escritura_venta = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal('0'),
+        verbose_name='Gastos de escritura venta (USD)',
     )
     honorarios_venta = models.DecimalField(
         max_digits=14,
