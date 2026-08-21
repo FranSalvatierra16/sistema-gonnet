@@ -238,7 +238,7 @@ def _keys_comisiones_contrato_cubiertas(filas):
     return cubiertos
 
 
-def _fila_comisiones_locador_locatario(base, f_entrada, monto_locador, monto_locatario):
+def _fila_comisiones_locador_locatario(base, fecha, monto_locador, monto_locatario, nota=None):
     """Una sola fila con comisión locador y locatario de la misma operación."""
     monto_loc = Decimal(str(monto_locador or 0)).quantize(Decimal('0.01'))
     monto_locat = Decimal(str(monto_locatario or 0)).quantize(Decimal('0.01'))
@@ -247,12 +247,12 @@ def _fila_comisiones_locador_locatario(base, f_entrada, monto_locador, monto_loc
     return {
         **base,
         'tipo': 'comisiones_locador_locatario',
-        'tipo_display': 'Comisiones locador / locatario',
-        'fecha': f_entrada,
+        'tipo_display': base.get('tipo_display') or 'Comisiones locador / locatario',
+        'fecha': fecha,
         'monto_locador': monto_loc,
         'monto_locatario': monto_locat,
         'monto': (monto_loc + monto_locat).quantize(Decimal('0.01')),
-        'nota': 'Día de entrada',
+        'nota': nota or base.get('nota') or 'Día de entrada',
     }
 
 
@@ -277,9 +277,11 @@ def _filas_honorarios_desde_caratulas_confirmadas(
     """
     Comisiones locador/locatario de carátulas confirmadas aún sin liquidación al propietario.
     Usa los mismos importes que el cuadro de comisiones de la carátula.
+    Fecha de la fila: acreditación (si hay) → día de entrada.
     """
     from inmobiliaria.views import _liquidacion_operacion_principal_contrato
     from inmobiliaria.views_caratulas import _comisiones_cobradas_contrato
+    from inmobiliaria.models.comision import fecha_acreditacion_compartida_operacion
 
     filas = []
     qs = ContratoAlquiler.objects.filter(
@@ -287,10 +289,28 @@ def _filas_honorarios_desde_caratulas_confirmadas(
         estado_confirmacion_caratula='confirmada',
     ).exclude(estado='rescindido').select_related('propiedad', 'propiedad__propietario', 'inquilino')
 
-    if fecha_desde:
-        qs = qs.filter(fecha_inicio__gte=fecha_desde)
-    if fecha_hasta:
-        qs = qs.filter(fecha_inicio__lte=fecha_hasta)
+    # Prefetch por acreditación o entrada (no solo entrada: si no, cae en el mes equivocado).
+    rango = Q()
+    if fecha_desde and fecha_hasta:
+        rango = (
+            Q(fecha_inicio__gte=fecha_desde, fecha_inicio__lte=fecha_hasta)
+            | Q(
+                comisiones_vendedor__fecha_operacion__date__gte=fecha_desde,
+                comisiones_vendedor__fecha_operacion__date__lte=fecha_hasta,
+            )
+        )
+    elif fecha_desde:
+        rango = (
+            Q(fecha_inicio__gte=fecha_desde)
+            | Q(comisiones_vendedor__fecha_operacion__date__gte=fecha_desde)
+        )
+    elif fecha_hasta:
+        rango = (
+            Q(fecha_inicio__lte=fecha_hasta)
+            | Q(comisiones_vendedor__fecha_operacion__date__lte=fecha_hasta)
+        )
+    if rango:
+        qs = qs.filter(rango).distinct()
 
     if busqueda:
         q_bus = (
@@ -310,8 +330,15 @@ def _filas_honorarios_desde_caratulas_confirmadas(
         liq_op = _liquidacion_operacion_principal_contrato(contrato)
         com_loc, com_locat = _comisiones_cobradas_contrato(contrato, liquidacion=liq_op)
         f_entrada = contrato.fecha_inicio
-        if not f_entrada:
+        f_acred = fecha_acreditacion_compartida_operacion(contrato=contrato)
+        fecha_fila = f_acred or f_entrada
+        if not fecha_fila:
             continue
+        if fecha_desde and fecha_fila < fecha_desde:
+            continue
+        if fecha_hasta and fecha_fila > fecha_hasta:
+            continue
+        nota = 'Fecha de acreditación' if f_acred else 'Día de entrada'
 
         prop = contrato.propiedad
         propietario = getattr(prop, 'propietario', None) if prop else None
@@ -340,7 +367,9 @@ def _filas_honorarios_desde_caratulas_confirmadas(
         if op_key in cubiertos_comisiones:
             continue
 
-        fila = _fila_comisiones_locador_locatario(base, f_entrada, com_loc, com_locat)
+        fila = _fila_comisiones_locador_locatario(
+            base, fecha_fila, com_loc, com_locat, nota=nota
+        )
         if fila:
             filas.append(fila)
 
@@ -814,7 +843,19 @@ def _filas_honorarios_desde_liquidaciones(liquidaciones):
 
             monto_com_loc = Decimal(str(liq.comision_locador or 0))
             monto_com_locat = Decimal(str(liq.comision_locatario or 0))
-            fila = _fila_comisiones_locador_locatario(base, f_entrada, monto_com_loc, monto_com_locat)
+            from inmobiliaria.models.comision import fecha_acreditacion_compartida_operacion
+            fa_com = None
+            if res is not None:
+                fa_com = fecha_acreditacion_compartida_operacion(reserva=res)
+            if fa_com is None:
+                ctr = getattr(liq, 'contrato', None) or contrato_desde_liquidacion(liq)
+                if ctr is not None:
+                    fa_com = fecha_acreditacion_compartida_operacion(contrato=ctr)
+            f_com = fa_com or f_entrada
+            nota_com = 'Fecha de acreditación' if fa_com else 'Día de entrada'
+            fila = _fila_comisiones_locador_locatario(
+                base, f_com, monto_com_loc, monto_com_locat, nota=nota_com
+            )
             if fila:
                 filas.append(fila)
 
