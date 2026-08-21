@@ -196,6 +196,14 @@
             <span class="val">{{ direccion_ficha|linebreaksbr }}</span>
         </div>
     </div>
+
+    <div class="periodo">
+        <strong>PERÍODO DE LOCACIÓN</strong>
+        Desde: {{ fecha_desde|date:"d/m/Y" }}{% if hora_desde %} {{ hora_desde|time:"H:i:s" }}{% endif %}
+        &nbsp;—&nbsp;
+        Hasta: {{ fecha_hasta|date:"d/m/Y" }}{% if hora_hasta %} {{ hora_hasta|time:"H:i:s" }}{% endif %}
+    </div>
+
     <div class="cliente-box">Cliente / locatario: {{ cliente_nombre }}</div>
     <div class="ficha-destacada" style="padding: 6px 12px;">
         <div class="fila" style="margin:0;">
@@ -213,13 +221,6 @@
             <tr><th>Depósito de garantía</th><td>$ {{ cl.deposito }}</td></tr>
         </tbody>
     </table>
-
-    <div class="periodo">
-        <strong>PERÍODO DE LOCACIÓN</strong>
-        Desde: {{ fecha_desde|date:"d/m/Y" }}{% if hora_desde %} {{ hora_desde|time:"H:i:s" }}{% endif %}
-        &nbsp;—&nbsp;
-        Hasta: {{ fecha_hasta|date:"d/m/Y" }}{% if hora_hasta %} {{ hora_hasta|time:"H:i:s" }}{% endif %}
-    </div>
 
     <h2 class="sec">Contabilización</h2>
     <table class="contab">
@@ -250,7 +251,9 @@
     <div class="pie">
         <div class="dir">
             <strong>Inmueble</strong><br>
-            {{ direccion_ficha|linebreaksbr }}<br><br>
+            {{ direccion_ficha|linebreaksbr }}<br>
+            {% if ficha_nro %}<strong>Ficha</strong> {{ ficha_nro }}<br>{% endif %}
+            <br>
             <strong>Depósito de garantía</strong> $ {{ deposito_fmt }}<br>
             <span style="font-size:10pt;font-weight:700;">Ref. operación #{{ operacion_id }}</span>
         </div>

@@ -349,13 +349,15 @@ def _etiqueta_propiedad_lista(prop):
     return ubic or '—', ''
 
 
-def _direccion_piso_depto_papel(prop):
+def _direccion_piso_depto_papel(prop, *, incluir_ficha=False):
+    """Dirección + piso/depto (+ ambientes). La ficha va aparte para no confundir con la calle."""
     if not prop:
         return '—'
     linea1 = [(prop.direccion or '').strip().upper()]
-    fid = getattr(prop, 'id', None)
-    if fid:
-        linea1.append(f'({fid})')
+    if incluir_ficha:
+        fid = getattr(prop, 'id', None)
+        if fid:
+            linea1.append(f'({fid})')
     pi = (prop.piso or '').strip()
     dep = (prop.departamento or '').strip()
     if pi or dep:
@@ -365,6 +367,13 @@ def _direccion_piso_depto_papel(prop):
     if amb is not None and str(amb).strip() != '':
         texto = f'{texto}\n{amb} AMB.'
     return texto
+
+
+def _ficha_nro_papel(prop):
+    if not prop:
+        return ''
+    fid = getattr(prop, 'id', None)
+    return str(fid) if fid else ''
 
 
 def _movimientos_reserva_qs(reserva):
@@ -4400,6 +4409,7 @@ def imprimir_caratula_reserva(request, reserva_id):
         'hora_hasta': reserva.hora_egreso,
         'filas_contab': filas_contab,
         'direccion_ficha': _direccion_piso_depto_papel(reserva.propiedad),
+        'ficha_nro': _ficha_nro_papel(reserva.propiedad),
         'deposito_fmt': cl['deposito'],
         'operacion_id': reserva.id,
         'productor_nombre': _nombres_productores_operacion(reserva=reserva),
@@ -4477,6 +4487,7 @@ def imprimir_caratula_contrato(request, contrato_id):
         'hora_hasta': None,
         'filas_contab': filas_contab,
         'direccion_ficha': _direccion_piso_depto_papel(contrato.propiedad),
+        'ficha_nro': _ficha_nro_papel(contrato.propiedad),
         'deposito_fmt': cl['deposito'],
         'operacion_id': contrato.id,
         'productor_nombre': _nombres_productores_operacion(contrato=contrato),
