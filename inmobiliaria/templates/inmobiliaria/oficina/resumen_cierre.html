@@ -111,11 +111,109 @@
                     </div>
                 </div>
 
+                {% if bloque_recaudacion %}
+                <div class="resumen-bloque mt-3">
+                    <div class="resumen-bloque-titulo fw-bold border-bottom pb-1 mb-1">{{ bloque_recaudacion.titulo }}</div>
+                    <table class="table table-sm table-borderless resumen-tabla mb-1">
+                        <tbody>
+                            {% for fila in bloque_recaudacion.filas %}
+                            <tr>
+                                <td class="ps-2">+ {{ fila.nombre }}</td>
+                                <td class="text-end resumen-monto">${{ fila.monto|format_price }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td class="ps-2 text-muted small" colspan="2">Sin movimientos</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    <div class="d-flex justify-content-between resumen-subtotal px-2">
+                        <span class="fw-semibold">TOTAL:</span>
+                        <span class="fw-bold">${{ bloque_recaudacion.total|format_price }}</span>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if bloque_cierre_tomados %}
+                <div class="resumen-bloque mt-3">
+                    <div class="resumen-bloque-titulo fw-bold border-bottom pb-1 mb-1">{{ bloque_cierre_tomados.titulo }}</div>
+                    <table class="table table-sm table-borderless resumen-tabla mb-1">
+                        <tbody>
+                            {% for fila in bloque_cierre_tomados.filas %}
+                            <tr>
+                                <td class="ps-2">+ {{ fila.nombre }}</td>
+                                <td class="text-end resumen-monto">${{ fila.monto|format_price }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    <div class="d-flex justify-content-between resumen-subtotal px-2">
+                        <span class="fw-semibold">TOTAL:</span>
+                        <span class="fw-bold">${{ bloque_cierre_tomados.total|format_price }}</span>
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="resumen-total-grande bg-warning text-center py-2 fw-bold mt-2">
+                    TOTAL GRAL. (OFIC-FONDO-TOMADOS): ${{ total_gral_ofic_fondo_tomados|format_price }}
+                </div>
+                <div class="small text-muted text-center mb-2 no-print">Saldo + recaudación fondos + cierre dptos. tomados</div>
+
+                {% if bloque_fondo_oscar %}
+                <div class="resumen-bloque mt-3">
+                    <div class="resumen-bloque-titulo fw-bold border-bottom pb-1 mb-1">{{ bloque_fondo_oscar.titulo }}</div>
+                    <table class="table table-sm table-borderless resumen-tabla mb-1">
+                        <tbody>
+                            {% for fila in bloque_fondo_oscar.filas %}
+                            <tr>
+                                <td class="ps-2">{% if fila.signo < 0 %}-{% else %}+{% endif %} {{ fila.nombre }}</td>
+                                <td class="text-end resumen-monto">${{ fila.monto|format_price }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td class="ps-2 text-muted small" colspan="2">Sin movimientos</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    <div class="d-flex justify-content-between resumen-subtotal px-2">
+                        <span class="fw-semibold">TOTAL:</span>
+                        <span class="fw-bold">${{ bloque_fondo_oscar.total|format_price }}</span>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if bloque_gastos_oscar %}
+                <div class="resumen-bloque mt-3">
+                    <div class="resumen-bloque-titulo fw-bold border-bottom pb-1 mb-1">{{ bloque_gastos_oscar.titulo }}</div>
+                    <table class="table table-sm table-borderless resumen-tabla mb-1">
+                        <tbody>
+                            {% for fila in bloque_gastos_oscar.filas %}
+                            <tr>
+                                <td class="ps-2">+ {{ fila.nombre }}</td>
+                                <td class="text-end resumen-monto">${{ fila.monto|format_price }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td class="ps-2 text-muted small" colspan="2">Sin movimientos</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    <div class="d-flex justify-content-between resumen-subtotal px-2">
+                        <span class="fw-semibold">TOTAL:</span>
+                        <span class="fw-bold">${{ bloque_gastos_oscar.total|format_price }}</span>
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="resumen-total-grande bg-success-subtle border text-center py-2 fw-bold mt-2">
+                    RESULTADO FINANCIERO OSCAR: ${{ resultado_financiero_oscar|format_price }}
+                </div>
+                <div class="small text-muted text-center mb-1 no-print">Total gral. + fondo Oscar − gastos Oscar</div>
+
                 <div class="small text-muted mt-3 no-print">
                     Los egresos se arman desde gastos de oficina (Caja → Nuevo movimiento → Gasto de oficina).
-                    Los ingresos se calculan desde honorarios del mes (liquidaciones y carátulas confirmadas):
-                    temporarios / invierno / 24 meses / gestión de cobro; más lo que cargues a mano en Ingresos
-                    (p. ej. Tasación, Gastos bancarios, Honorarios Marbella).
+                    Los ingresos de oficina se calculan desde honorarios del mes (liquidaciones y carátulas confirmadas)
+                    más lo que cargues a mano en Ingresos.
+                    <strong>Recaudación fondos</strong>, <strong>Fondo Oscar</strong> (alquileres/impuestos/lotes) y
+                    <strong>Gastos Oscar</strong> se cargan por esas categorías en caja; no entran al saldo de oficina.
+                    <strong>Cierre dptos. tomados</strong>: si no hay movimiento de caja, usa el saldo del reporte de asegurados del mes.
                     Sueldos, Vales y Comisiones muestran una fila por vendedor de la sucursal.
                 </div>
             </div>

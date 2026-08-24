@@ -67,10 +67,102 @@ ESTRUCTURA_CIERRE_OFICINA = [
             'Honorarios Marbella',
         ],
     ),
+    # Bloques del PDF a la derecha (después del saldo de oficina).
+    (
+        'Recaudación fondos',
+        [
+            'Ingreso boletas desc. dep. gtia',
+            'Fondo mantenimiento',
+        ],
+    ),
+    (
+        'Cierre dptos. tomados',
+        [],  # raíz hoja: se carga un monto o se toma del reporte de asegurados
+    ),
+    (
+        'Fondo Oscar',
+        [
+            'Alquileres propios por día',
+            'Alquileres propios temp. inv',
+            'Imp. inm. complementario edificado',
+            'Imp. inm. complem. baldío',
+            'Gtos. lotes',
+            'Lotes',
+        ],
+    ),
+    (
+        'Gastos Oscar',
+        [
+            'Bienes personales',
+            'Farmacia',
+            'Comedor infantil',
+            'Tarj. Mastercard',
+            'Tarj. American',
+            'Tarj. Visa Galicia',
+            'OSDE',
+            'Varios (Quiniela-Vrios, Tarj. Ext)',
+        ],
+    ),
 ]
 
 # Compatibilidad con instalaciones que aún no tienen la estructura de cierre.
 CATEGORIAS_INICIALES = ESTRUCTURA_CIERRE_OFICINA
+
+# Raíces del PDF que no van en egresos/ingresos de oficina (bloques ②–⑥).
+RAICES_EXTENSION_CIERRE = frozenset({
+    'recaudacion fondos',
+    'cierre dptos. tomados',
+    'cierre dptos tomados',
+    'fondo oscar',
+    'gastos oscar',
+})
+
+# Signo en el total Fondo Oscar (+ alquileres/lotes, − impuestos/gtos).
+FONDO_OSCAR_SIGNOS = {
+    'alquileres propios por dia': 1,
+    'alquileres propios temp. inv': 1,
+    'imp. inm. complementario edificado': -1,
+    'imp. inm. complem. baldio': -1,
+    'gtos. lotes': -1,
+    'lotes': 1,
+}
+
+
+def _norm_nombre_cat(nombre):
+    t = (nombre or '').strip().lower()
+    t = ''.join(
+        c for c in unicodedata.normalize('NFD', t) if unicodedata.category(c) != 'Mn'
+    )
+    return t
+
+
+def nombre_raiz_es_extension_cierre(nombre):
+    return _norm_nombre_cat(nombre) in RAICES_EXTENSION_CIERRE
+
+
+def signo_fondo_oscar(nombre_sub):
+    return FONDO_OSCAR_SIGNOS.get(_norm_nombre_cat(nombre_sub), 1)
+
+
+def categoria_gasto_es_ingreso_extension(categoria):
+    """
+    Categorías de extensión que en caja se cargan como ingreso
+    (Recaudación fondos, Cierre dptos., ítems + de Fondo Oscar).
+    """
+    if not categoria:
+        return False
+    raiz = categoria_gasto_raiz(categoria)
+    if not raiz:
+        return False
+    nombre_raiz = _norm_nombre_cat(raiz.nombre)
+    if nombre_raiz in ('recaudacion fondos', 'cierre dptos. tomados', 'cierre dptos tomados'):
+        return True
+    if nombre_raiz == 'fondo oscar':
+        hoja = categoria if categoria.parent_id else None
+        if not hoja:
+            return False
+        return signo_fondo_oscar(hoja.nombre) > 0
+    return False
 
 # Seed anterior (pre-PDF): raíces y subcategorías a desactivar.
 RAICES_LEGACY_OFICINA = frozenset({
@@ -839,7 +931,9 @@ def categoria_gasto_es_vale(categoria):
 
 def categoria_gasto_es_ingreso(categoria):
     raiz = categoria_gasto_raiz(categoria)
-    return bool(raiz and (raiz.nombre or '').strip().lower() == 'ingresos')
+    if raiz and (raiz.nombre or '').strip().lower() == 'ingresos':
+        return True
+    return categoria_gasto_es_ingreso_extension(categoria)
 
 
 def _raiz_es_vendedores(categoria):

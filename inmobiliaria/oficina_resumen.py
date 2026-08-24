@@ -7,9 +7,20 @@ from decimal import Decimal
 
 from django.db.models import Q, Sum
 
-from inmobiliaria.models import CategoriaGastoOficina, ComisionVendedor, GastoOficina, Vendedor
-from inmobiliaria.models import LiquidacionPropietario
-from inmobiliaria.oficina_gastos import RAICES_SUBCATEGORIAS_VENDEDOR
+from inmobiliaria.models import (
+    CategoriaGastoOficina,
+    ComisionVendedor,
+    Disponibilidad,
+    GastoOficina,
+    LiquidacionPropietario,
+    Vendedor,
+)
+from inmobiliaria.oficina_gastos import (
+    RAICES_SUBCATEGORIAS_VENDEDOR,
+    _norm_nombre_cat,
+    nombre_raiz_es_extension_cierre,
+    signo_fondo_oscar,
+)
 from inmobiliaria.views_honorarios import (
     _filas_honorarios_desde_caratulas_confirmadas,
     _filas_honorarios_desde_liquidaciones,
@@ -152,6 +163,125 @@ def _honorarios_por_etiqueta(sucursal, fecha_desde, fecha_hasta):
         return {}
 
 
+def _monto_absoluto_cat(totales_por_cat, cat_id):
+    return abs(totales_por_cat.get(cat_id, Decimal('0')) or Decimal('0'))
+
+
+def _hijos_activos(raiz):
+    hijos = [h for h in raiz.subcategorias.all() if h.activa]
+    hijos.sort(key=lambda x: (x.orden, x.nombre))
+    return hijos
+
+
+def _liquidacion_solapa_rango(liq, d1, d2):
+    """True si el período de la liquidación intersecta [d1, d2]."""
+    from django.utils import timezone as dj_tz
+
+    fc = None
+    if getattr(liq, 'fecha_creacion', None):
+        try:
+            fc = dj_tz.localdate(liq.fecha_creacion)
+        except (ValueError, TypeError, OverflowError):
+            fc = liq.fecha_creacion.date() if hasattr(liq.fecha_creacion, 'date') else None
+    start = liq.fecha_desde
+    end = liq.fecha_hasta
+    if start is None and end is None:
+        if fc is None:
+            return False
+        start = end = fc
+    elif start is None:
+        start = end if end is not None else fc
+        if start is None:
+            return False
+        if end is None:
+            end = start
+    elif end is None:
+        end = start
+    return start <= d2 and end >= d1
+
+
+def _saldo_cierre_dptos_tomados(sucursal, fecha_desde, fecha_hasta):
+    """
+    Saldo del reporte de departamentos tomados (asegurados) en el mes:
+    suma (liquidado al propietario − monto asegurado) en ARS.
+    """
+    try:
+        disps = list(
+            Disponibilidad.objects.filter(
+                asegurado=True,
+                propiedad__sucursal=sucursal,
+                fecha_inicio__lte=fecha_hasta,
+                fecha_fin__gte=fecha_desde,
+            ).select_related('propiedad')
+        )
+    except Exception:
+        logger.exception(
+            'resumen_cierre: falló listado dptos. tomados (sucursal_id=%s)',
+            getattr(sucursal, 'pk', None),
+        )
+        return Decimal('0')
+
+    tot_saldo = Decimal('0')
+    for disp in disps:
+        if (disp.moneda_asegurado or 'ARS').upper() != 'ARS':
+            continue
+        pagado = Decimal(str(disp.monto_asegurado or 0))
+        cobrado = Decimal('0')
+        liqs = (
+            LiquidacionPropietario.objects.filter(
+                propiedad=disp.propiedad,
+                sucursal=sucursal,
+            )
+            .exclude(estado='cancelada')
+            .only('monto_propietario', 'fecha_desde', 'fecha_hasta', 'fecha_creacion', 'estado')
+        )
+        d1, d2 = disp.fecha_inicio, disp.fecha_fin
+        for liq in liqs:
+            if not _liquidacion_solapa_rango(liq, d1, d2):
+                continue
+            cobrado += liq.monto_propietario or Decimal('0')
+        tot_saldo += (cobrado - pagado).quantize(Decimal('0.01'))
+    return tot_saldo.quantize(Decimal('0.01'))
+
+
+def _bloque_extension_suma(raiz, totales_por_cat, titulo=None):
+    """Filas con monto absoluto (ingresos/egresos de extensión)."""
+    filas = []
+    for hijo in _hijos_activos(raiz):
+        monto = _monto_absoluto_cat(totales_por_cat, hijo.id)
+        filas.append({'nombre': hijo.nombre, 'monto': monto, 'signo': 1})
+    if not filas and not raiz.subcategorias.exists():
+        monto = _monto_absoluto_cat(totales_por_cat, raiz.id)
+        filas.append({'nombre': raiz.nombre, 'monto': monto, 'signo': 1})
+    total = sum((f['monto'] for f in filas), Decimal('0'))
+    return {
+        'titulo': (titulo or raiz.nombre or '').upper(),
+        'filas': filas,
+        'total': total,
+    }
+
+
+def _bloque_fondo_oscar(raiz, totales_por_cat):
+    filas = []
+    total = Decimal('0')
+    for hijo in _hijos_activos(raiz):
+        signo = signo_fondo_oscar(hijo.nombre)
+        monto = _monto_absoluto_cat(totales_por_cat, hijo.id)
+        firmado = (monto * Decimal(signo)).quantize(Decimal('0.01'))
+        filas.append({
+            'nombre': hijo.nombre,
+            'monto': monto,
+            'monto_firmado': firmado,
+            'signo': signo,
+        })
+        total += firmado
+    return {
+        'titulo': 'FONDO OSCAR',
+        'filas': filas,
+        'total': total.quantize(Decimal('0.01')),
+    }
+
+
 def construir_resumen_cierre(sucursal, anio, mes):
     # El sync de categorías lo hace la vista con try/except; no repetirlo acá
     # (IntegrityError / unique en sync tumba la pantalla con 500).
@@ -183,6 +313,11 @@ def construir_resumen_cierre(sucursal, anio, mes):
     total_egresos = Decimal('0')
     total_ingresos = Decimal('0')
 
+    bloque_recaudacion = None
+    bloque_cierre_tomados = None
+    bloque_fondo_oscar = None
+    bloque_gastos_oscar = None
+
     raices = CategoriaGastoOficina.objects.filter(
         sucursal=sucursal,
         parent__isnull=True,
@@ -191,10 +326,40 @@ def construir_resumen_cierre(sucursal, anio, mes):
 
     for raiz in raices:
         nombre_raiz = (raiz.nombre or '').strip()
+        nombre_norm = _norm_nombre_cat(nombre_raiz)
+
+        if nombre_raiz_es_extension_cierre(nombre_raiz):
+            if nombre_norm == 'recaudacion fondos':
+                bloque_recaudacion = _bloque_extension_suma(
+                    raiz, totales_por_cat, titulo='RECAUDACIÓN FONDOS'
+                )
+            elif nombre_norm in ('cierre dptos. tomados', 'cierre dptos tomados'):
+                bloque = _bloque_extension_suma(
+                    raiz, totales_por_cat, titulo='CIERRE DPTOS. TOMADOS'
+                )
+                if bloque['total'] == 0:
+                    auto = _saldo_cierre_dptos_tomados(sucursal, fecha_desde, fecha_hasta)
+                    bloque['filas'] = [{
+                        'nombre': 'Cierre dptos. tomados',
+                        'monto': auto,
+                        'signo': 1,
+                    }]
+                    bloque['total'] = auto
+                    bloque['origen'] = 'reporte_asegurados'
+                else:
+                    bloque['origen'] = 'caja'
+                bloque_cierre_tomados = bloque
+            elif nombre_norm == 'fondo oscar':
+                bloque_fondo_oscar = _bloque_fondo_oscar(raiz, totales_por_cat)
+            elif nombre_norm == 'gastos oscar':
+                bloque_gastos_oscar = _bloque_extension_suma(
+                    raiz, totales_por_cat, titulo='GASTOS OSCAR'
+                )
+            continue
+
         if nombre_raiz.lower() == 'ingresos':
             filas = []
-            hijos = [h for h in raiz.subcategorias.all() if h.activa]
-            hijos.sort(key=lambda x: (x.orden, x.nombre))
+            hijos = _hijos_activos(raiz)
             for hijo in hijos:
                 monto_gasto = totales_por_cat.get(hijo.id, Decimal('0'))
                 monto_hon = honorarios_map.get(hijo.nombre, Decimal('0'))
@@ -214,8 +379,7 @@ def construir_resumen_cierre(sucursal, anio, mes):
             continue
 
         filas = []
-        hijos = [h for h in raiz.subcategorias.all() if h.activa]
-        hijos.sort(key=lambda x: (x.orden, x.nombre))
+        hijos = _hijos_activos(raiz)
         for hijo in hijos:
             monto = totales_por_cat.get(hijo.id, Decimal('0'))
             if nombre_raiz == 'Comisiones vendedores' and hijo.vendedor_id:
@@ -241,7 +405,35 @@ def construir_resumen_cierre(sucursal, anio, mes):
             })
             total_egresos += total_bloque
 
+    # Fallbacks si aún no se sincronizó el árbol de extensión.
+    if bloque_recaudacion is None:
+        bloque_recaudacion = {
+            'titulo': 'RECAUDACIÓN FONDOS',
+            'filas': [],
+            'total': Decimal('0'),
+        }
+    if bloque_cierre_tomados is None:
+        auto = _saldo_cierre_dptos_tomados(sucursal, fecha_desde, fecha_hasta)
+        bloque_cierre_tomados = {
+            'titulo': 'CIERRE DPTOS. TOMADOS',
+            'filas': [{'nombre': 'Cierre dptos. tomados', 'monto': auto, 'signo': 1}],
+            'total': auto,
+            'origen': 'reporte_asegurados',
+        }
+    if bloque_fondo_oscar is None:
+        bloque_fondo_oscar = {'titulo': 'FONDO OSCAR', 'filas': [], 'total': Decimal('0')}
+    if bloque_gastos_oscar is None:
+        bloque_gastos_oscar = {'titulo': 'GASTOS OSCAR', 'filas': [], 'total': Decimal('0')}
+
     saldo = total_ingresos - total_egresos
+    total_gral_ofic_fondo_tomados = (
+        saldo + bloque_recaudacion['total'] + bloque_cierre_tomados['total']
+    ).quantize(Decimal('0.01'))
+    resultado_financiero_oscar = (
+        total_gral_ofic_fondo_tomados
+        + bloque_fondo_oscar['total']
+        - bloque_gastos_oscar['total']
+    ).quantize(Decimal('0.01'))
 
     return {
         'anio': anio,
@@ -254,5 +446,11 @@ def construir_resumen_cierre(sucursal, anio, mes):
         'total_egresos': total_egresos,
         'total_ingresos': total_ingresos,
         'saldo': saldo,
+        'bloque_recaudacion': bloque_recaudacion,
+        'bloque_cierre_tomados': bloque_cierre_tomados,
+        'total_gral_ofic_fondo_tomados': total_gral_ofic_fondo_tomados,
+        'bloque_fondo_oscar': bloque_fondo_oscar,
+        'bloque_gastos_oscar': bloque_gastos_oscar,
+        'resultado_financiero_oscar': resultado_financiero_oscar,
         'sucursal': sucursal,
     }
