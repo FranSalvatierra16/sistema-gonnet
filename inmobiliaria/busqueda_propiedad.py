@@ -164,10 +164,14 @@ def _parece_busqueda_propietario(termino, parsed):
     if texto_norm in _CALLES_CONOCIDAS or any(c.startswith(texto_norm) for c in _CALLES_CONOCIDAS):
         return False
     partes = texto.split()
-    if len(partes) == 1:
-        return False
     if len(partes) >= 2 and _norm(partes[0]) in _PREFIJOS_CALLE_COMPUESTA:
         return False
+    # Una sola palabra: apellido/nombre del propietario (ej. «Sacoa»).
+    if len(partes) == 1:
+        p = partes[0]
+        if p.isdigit():
+            return False
+        return len(p) >= 3
     if len(partes) >= 2:
         return True
     return len(texto) >= 3
