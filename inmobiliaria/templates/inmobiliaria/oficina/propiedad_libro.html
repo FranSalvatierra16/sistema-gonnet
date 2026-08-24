@@ -10,10 +10,10 @@
 <div class="mt-3 mb-4">
     <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
         <div>
-            <h1 class="h4 mb-1">
+            <h1 class="h4 mb-1 no-print">
                 GASTOS — {{ propiedad.direccion }}{% if propiedad.piso %} – {{ propiedad.piso }}°{% endif %}{% if propiedad.departamento %} {{ propiedad.departamento }}{% endif %}
             </h1>
-            <p class="text-muted mb-0 small">
+            <p class="text-muted mb-0 small no-print">
                 Ficha #{{ propiedad.id }}
                 {% if propiedad.propietario %} · Propietario: {{ propiedad.propietario }}{% endif %}
                 · Gastos de caja + alquileres/operaciones del departamento
@@ -25,6 +25,15 @@
                 </span>
                 {% endif %}
             </p>
+            {# Cabecera limpia solo para impresión #}
+            <div class="libro-print-header solo-imprimir-block">
+                <div class="libro-print-titulo">Libro del departamento</div>
+                <div class="libro-print-meta">
+                    <div><span class="lbl">Departamento</span><span class="val">{{ propiedad.direccion }}{% if propiedad.piso %} – {{ propiedad.piso }}°{% endif %}{% if propiedad.departamento %} {{ propiedad.departamento }}{% endif %}</span></div>
+                    {% if propiedad.propietario %}<div><span class="lbl">Propietario</span><span class="val">{{ propiedad.propietario }}</span></div>{% endif %}
+                    <div><span class="lbl">Período</span><span class="val">{% if fecha_desde or fecha_hasta %}{% if fecha_desde %}{{ fecha_desde }}{% endif %}{% if fecha_desde and fecha_hasta %} → {% endif %}{% if fecha_hasta %}{{ fecha_hasta }}{% endif %}{% else %}Completo{% endif %}</span></div>
+                </div>
+            </div>
         </div>
         <div class="d-flex flex-wrap gap-2 no-print">
             <button type="button" class="btn btn-outline-dark btn-sm" onclick="window.print()">
@@ -85,7 +94,7 @@
         </div>
     </form>
 
-    <div class="card border-secondary mb-3" id="card-costos-compra">
+    <div class="card border-secondary mb-3 no-print" id="card-costos-compra">
         <div class="card-body py-2">
             <form id="form-costos-compra" class="row g-2 align-items-end">
                 <div class="col-12">
@@ -139,7 +148,7 @@
         </div>
     </div>
 
-    <div class="card border-success mb-3" id="card-costos-venta">
+    <div class="card border-success mb-3 no-print" id="card-costos-venta">
         <div class="card-body py-2">
             <form id="form-costos-venta" class="row g-2 align-items-end">
                 <div class="col-12">
@@ -250,7 +259,7 @@
         <small class="text-muted pb-1" id="buscar-libro-contador"></small>
     </div>
 
-    <div class="card shadow-sm">
+    <div class="card shadow-sm libro-print-tabla">
         <div class="table-responsive">
             <table class="table table-sm table-striped table-bordered mb-0 libro-oficina-table" id="libro-oficina-tabla">
                 <thead class="table-light">
@@ -332,13 +341,13 @@
         </div>
     </div>
 
-    <div class="card border-dark mt-3 mb-2">
+    <div class="card border-dark mt-3 mb-2 libro-print-resumen">
         <div class="card-header py-2 fw-semibold">
             <i class="fas fa-calculator me-1"></i>Resumen total (USD)
         </div>
         <div class="card-body py-2">
             <div class="table-responsive">
-                <table class="table table-sm mb-0 align-middle">
+                <table class="table table-sm mb-0 align-middle libro-resumen-table">
                     <tbody>
                         <tr class="table-light">
                             <td colspan="2" class="fw-semibold text-danger small">Gastos (se restan)</td>
@@ -386,14 +395,14 @@
                             <td class="fw-semibold">Total ingresos</td>
                             <td class="text-end fw-semibold">U$S {{ resumen.total_ingresos|format_price }}</td>
                         </tr>
-                        <tr class="table-dark">
+                        <tr class="table-dark libro-print-total">
                             <td class="fw-bold">TOTAL (ingresos − gastos)</td>
                             <td class="text-end fw-bold">U$S {{ resumen.total|format_price }}</td>
                         </tr>
                     </tbody>
                 </table>
             </div>
-            <p class="small text-muted mb-0 mt-2">
+            <p class="small text-muted mb-0 mt-2 no-print">
                 Primero se suman todos los gastos. Después todos los ingresos. TOTAL = total ingresos − total gastos.
             </p>
         </div>
@@ -409,6 +418,7 @@
 #buscar-depto-resultados .list-group-item.active-result,
 #buscar-depto-resultados .list-group-item:hover { background-color: #e7f1ff; }
 .solo-imprimir { display: none; }
+.solo-imprimir-block { display: none; }
 .libro-oficina-table td.desc-libro {
     max-width: 28rem;
     white-space: nowrap;
@@ -417,50 +427,154 @@
 }
 
 @media print {
-    @page { size: landscape; margin: 0.6cm; }
+    @page { size: A4 landscape; margin: 0.45cm; }
+    html, body {
+        background: #fff !important;
+        height: auto !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
     .no-print,
     nav,
     footer,
     .navbar,
-    .footer { display: none !important; }
+    .footer,
+    .sidebar,
+    .main-sidebar { display: none !important; }
     .solo-imprimir { display: inline !important; }
-    body { background: #fff !important; }
+    .solo-imprimir-block { display: block !important; }
     .main-page-wrapper,
-    .container-fluid { margin: 0 !important; padding: 0 !important; max-width: 100% !important; }
-    .card { border: 1px solid #333 !important; box-shadow: none !important; break-inside: avoid; }
-    .card-header { background: #eee !important; color: #000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .libro-oficina-table { font-size: 0.72rem !important; table-layout: fixed !important; width: 100% !important; }
+    .content-wrapper,
+    .container-fluid,
+    .mt-3 { margin: 0 !important; padding: 0 !important; max-width: 100% !important; }
+    body > *:not(.wrapper),
+    .content-wrapper > section.content { padding: 0 !important; margin: 0 !important; }
+
+    /* Hoja tipo tarjeta limpia */
+    .libro-print-header {
+        border: 1.5px solid #222;
+        border-radius: 10px;
+        padding: 8px 12px 10px;
+        margin: 0 0 8px;
+        background: #fff;
+    }
+    .libro-print-titulo {
+        font-size: 13pt;
+        font-weight: 800;
+        color: #1a1a1a;
+        margin-bottom: 6px;
+        letter-spacing: 0.01em;
+    }
+    .libro-print-meta {
+        display: grid;
+        grid-template-columns: 1.4fr 1fr 1fr;
+        gap: 6px 14px;
+    }
+    .libro-print-meta .lbl {
+        display: block;
+        font-size: 7.5pt;
+        font-weight: 700;
+        color: #555;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        margin-bottom: 1px;
+    }
+    .libro-print-meta .val {
+        display: block;
+        font-size: 10.5pt;
+        font-weight: 700;
+        color: #111;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .card {
+        border: 1.5px solid #222 !important;
+        border-radius: 10px !important;
+        box-shadow: none !important;
+        margin: 0 0 8px !important;
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+    .card-header {
+        background: #f3f4f6 !important;
+        color: #111 !important;
+        border-bottom: 1px solid #ccc !important;
+        padding: 4px 10px !important;
+        font-size: 9pt !important;
+    }
+    .card-body { padding: 6px 10px !important; }
+
+    .libro-print-tabla {
+        break-inside: auto;
+        page-break-inside: auto;
+    }
+    .libro-oficina-table {
+        font-size: 7.2pt !important;
+        table-layout: fixed !important;
+        width: 100% !important;
+        border-collapse: collapse !important;
+    }
+    .libro-oficina-table thead { display: table-header-group; }
     .libro-oficina-table th,
-    .libro-oficina-table td { padding: 0.15rem 0.3rem !important; }
+    .libro-oficina-table td {
+        padding: 1px 4px !important;
+        border-color: #bbb !important;
+        line-height: 1.15 !important;
+        vertical-align: middle !important;
+    }
     .libro-oficina-table th:nth-child(1),
-    .libro-oficina-table td:nth-child(1) { width: 7%; }
+    .libro-oficina-table td:nth-child(1) { width: 8%; }
     .libro-oficina-table th:nth-child(2),
     .libro-oficina-table td.desc-libro {
-        width: 42%;
+        width: 44%;
         max-width: none !important;
         white-space: nowrap !important;
         overflow: hidden !important;
         text-overflow: ellipsis !important;
     }
     .libro-oficina-table th:nth-child(n+3),
-    .libro-oficina-table td:nth-child(n+3) { width: 10%; }
-    .table-responsive { overflow: visible !important; }
-    .alert { border: 1px solid #999 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .table-dark td { background: #333 !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    a { text-decoration: none !important; color: inherit !important; }
-    .badge { border: 1px solid #999; }
-    #card-costos-compra input,
-    #card-costos-venta input,
-    #card-costos-compra textarea,
-    #card-costos-venta textarea {
-        border: none !important;
-        box-shadow: none !important;
-        background: transparent !important;
-        padding-left: 0 !important;
-        padding-right: 0 !important;
+    .libro-oficina-table td:nth-child(n+3) { width: 9.5%; }
+    .libro-oficina-table tfoot td {
+        font-weight: 700 !important;
+        background: #f3f4f6 !important;
     }
-    #card-costos-compra .form-label,
-    #card-costos-venta .form-label { font-weight: 600; }
+    .table-responsive { overflow: visible !important; }
+    .table-striped > tbody > tr:nth-of-type(odd) > * {
+        background: #fafafa !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    .table-primary > * {
+        background: #e8f0fe !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .libro-print-resumen {
+        break-inside: avoid;
+        page-break-inside: avoid;
+        border: 1.5px solid #222 !important;
+        border-radius: 10px !important;
+    }
+    .libro-resumen-table { font-size: 7.5pt !important; width: 100% !important; }
+    .libro-resumen-table td { padding: 1px 6px !important; line-height: 1.2 !important; }
+    .libro-print-total td {
+        background: #fff8dc !important;
+        border-top: 2px solid #222 !important;
+        font-size: 9pt !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    .table-dark td {
+        background: #333 !important;
+        color: #fff !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    a { text-decoration: none !important; color: inherit !important; }
+    .badge { display: none !important; }
 }
 </style>
 {% endblock %}

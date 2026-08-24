@@ -30230,16 +30230,42 @@ def _descripcion_movimiento_pago_liquidacion(movimiento) -> str:
     return ' — '.join(partes)
 
 
+def _gastos_solo_agregados_manual_liquidacion(propiedad, sucursal):
+    """
+    Movimientos cargados a mano con «Agregar Movimiento» (sin caja, sin
+    observaciones cobradas, sin saldos de liquidaciones anteriores).
+    Usado en deptos de oficina: no auto-cargar pendientes del libro/caja.
+    """
+    if not propiedad or not sucursal:
+        return []
+    from inmobiliaria.models.liquidacion import q_gastos_del_propietario_actual
+
+    q_titular = q_gastos_del_propietario_actual(propiedad)
+    qs = (
+        GastoPropietario.objects.filter(
+            liquidacion__isnull=True,
+            sucursal=sucursal,
+            propiedad=propiedad,
+        )
+        .filter(q_titular)
+        .exclude(observaciones__contains='liquidacion_pendiente_origen:')
+        .exclude(observaciones__icontains='Movimiento de caja #')
+        .exclude(observaciones__icontains='ObservacionCobroInquilino #')
+        .order_by('-fecha_creacion')
+    )
+    return [_dict_gasto_pendiente(g, detalle=(g.observaciones or '').strip()) for g in qs]
+
+
 def _gastos_pendientes_livianos_liquidacion(propiedad, sucursal):
     """
     Gastos pendientes para el detalle de liquidación:
     saldo en contra, manuales y egresos de caja aún no vinculados.
+    En depto oficina: solo los agregados a mano desde liquidación.
     """
     if not propiedad or not sucursal:
         return []
-    # Depto oficina / cartera: no se descuentan gastos en liquidación (van al libro de Oficina).
     if _propiedad_sin_gastos_en_liquidacion(propiedad, sucursal):
-        return []
+        return _gastos_solo_agregados_manual_liquidacion(propiedad, sucursal)
     from inmobiliaria.models.liquidacion import q_gastos_del_propietario_actual
 
     q_titular = q_gastos_del_propietario_actual(propiedad)
@@ -30605,23 +30631,19 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
             'dias': 0,
         })
     
-    # Gastos pendientes: liquidaciones en negativo + movimientos manuales + egresos de caja.
-    # Depto oficina / cartera: no listar egresos (van al libro de Oficina),
-    # pero sí reintegros de observaciones cobradas (ingresos a favor del propietario).
+    # Depto oficina / cartera: no auto-cargar egresos de caja ni observaciones;
+    # solo movimientos agregados a mano con «Agregar Movimiento».
     if _propiedad_sin_gastos_en_liquidacion(propiedad, sucursal):
-        gastos_oficina = []
-        _append_reintegros_observaciones_a_gastos_pendientes(
-            propiedad, sucursal, gastos_oficina
-        )
+        gastos_oficina = _gastos_solo_agregados_manual_liquidacion(propiedad, sucursal)
         return {
             'operaciones': operaciones,
             'gastos_pendientes': gastos_oficina,
             'es_propiedad_oficina': True,
             'debug': {
                 'total_gastos_saldo_negativo': 0,
-                'total_gastos_manuales': 0,
+                'total_gastos_manuales': len(gastos_oficina),
                 'total_egresos_caja': 0,
-                'propiedad_oficina_sin_gastos': True,
+                'propiedad_oficina_solo_manuales': True,
             },
         }
 

@@ -1476,9 +1476,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function incorporarGastoRecienCreado(gastoApi, propiedadId) {
-        if (window._ultimaPropiedadOficinaLiq) {
-            return;
-        }
         if (!gastoApi || gastoApi.id == null) return;
         const idsMarcados = Array.from(document.querySelectorAll('.gasto-checkbox:checked')).map(function(x) {
             return String(x.value);
@@ -1511,22 +1508,9 @@ document.addEventListener('DOMContentLoaded', function() {
         opts = opts || {};
         window._ultimaColPropGastos = mostrarCol;
         window._ultimaPropiedadOficinaLiq = Boolean(opts.es_propiedad_oficina);
-        // Depto oficina: no listar egresos (van al libro de Oficina); sí mostrar ingresos (reintegros).
-        if (window._ultimaPropiedadOficinaLiq) {
-            const soloIngresos = (gastos || []).filter(function(g) {
-                return (g.tipo_movimiento || '') === 'ingreso';
-            });
-            window._gastosExtraLocal = (window._gastosExtraLocal || []).filter(function(g) {
-                return (g.tipo_movimiento || '') === 'ingreso';
-            });
-            if (!soloIngresos.length && !(window._gastosExtraLocal || []).length) {
-                window._ultimosGastosServidor = [];
-                container.style.display = 'none';
-                if (lista) lista.innerHTML = '';
-                if (sinGastos) sinGastos.style.display = 'none';
-                return;
-            }
-            gastos = soloIngresos;
+        // Depto oficina: se muestran solo los que agregás a mano (servidor ya no manda pendientes de caja).
+        if (window._ultimaPropiedadOficinaLiq && sinGastos) {
+            sinGastos.innerHTML = '<i class="fas fa-info-circle me-2"></i>Depto de oficina: no se cargan gastos pendientes del libro/caja. Usá <strong>Agregar Movimiento</strong> para un gasto o un ingreso.';
         }
         const gastosMerged = fusionarGastosPendientes(gastos);
 
