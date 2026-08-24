@@ -49,6 +49,8 @@ urlpatterns = [
     path('vendedores/nuevo/', views.vendedor_nuevo, name='vendedor_nuevo'),
     path('vendedores/<int:vendedor_id>/editar/', views.vendedor_editar, name='vendedor_editar'),
     path('vendedores/<int:vendedor_id>/eliminar/', views.vendedor_eliminar, name='vendedor_eliminar'),
+    path('vendedores/<int:vendedor_id>/entrar-como/', views.impersonar_vendedor, name='impersonar_vendedor'),
+    path('dejar-entrar-como/', views.dejar_impersonar, name='dejar_impersonar'),
     path('historial-reservas-vendedor/<int:vendedor_id>/', views.historial_reservas_vendedor, name='historial_reservas_vendedor'),
     # Inquilino URLs
     path('inquilinos/', views.inquilinos, name='inquilinos'),

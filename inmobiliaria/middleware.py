@@ -50,6 +50,9 @@ class PasswordChangeMiddleware:
 
     def __call__(self, request):
         if request.user.is_authenticated:
+            # No forzar cambio de clave si un admin está entrando como ese usuario.
+            if request.session.get('impersonator_id'):
+                return self.get_response(request)
             if getattr(request.user, 'password_temporal', False):
                 if not request.path == reverse('inmobiliaria:cambiar_password'):
                     messages.warning(request, 'Por favor, cambia tu contraseña temporal.')

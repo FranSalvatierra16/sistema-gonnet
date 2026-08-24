@@ -172,6 +172,15 @@
                                                title="Historial">
                                                 <i class="fas fa-history"></i>
                                             </a>
+                                            {% if puede_impersonar and vendedor.id != user.id %}
+                                            <form method="post" action="{% url 'inmobiliaria:impersonar_vendedor' vendedor.id %}" class="d-inline">
+                                                {% csrf_token %}
+                                                <button type="submit" class="btn btn-outline-dark btn-sm action-btn"
+                                                        title="Entrar como este usuario (sin cambiar su contraseña)">
+                                                    <i class="fas fa-user-secret"></i>
+                                                </button>
+                                            </form>
+                                            {% endif %}
                                             {% if user.is_superuser or user.nivel >= 4 %}
                                             <a href="{% url 'inmobiliaria:historial_comisiones_vendedor' vendedor.id %}" 
                                                class="btn btn-outline-success btn-sm action-btn" 

@@ -369,12 +369,14 @@ def _contexto_boton_volver_recibo(request, default=None):
 from .models import ComisionVendedor, ValeVendedor, MesComisionPagadoVendedor
 from .models.persona import (
     Vendedor,
+    SESSION_IMPERSONATOR_ID,
     usuario_es_nivel_administracion,
     usuario_puede_anular_vale,
     usuario_puede_eliminar_movimiento_caja,
     usuario_puede_editar_movimiento_caja,
     usuario_puede_editar_comision_minima,
     usuario_puede_editar_nivel_vendedor,
+    usuario_puede_impersonar,
     usuario_puede_revertir_operacion_a_reserva,
 )
 
@@ -2871,11 +2873,13 @@ def _requiere_superuser(request):
 
 
 def _requiere_ver_vendedores(request):
-    """Lista/detalle de vendedores: nivel 5+ o superusuario Django."""
+    """Lista/detalle de vendedores: nivel 5+, superusuario Django, o usuarios con impersonación."""
     user = request.user
     if getattr(user, 'is_superuser', False):
         return None
     if getattr(user, 'nivel', None) is not None and user.nivel >= 5:
+        return None
+    if usuario_puede_impersonar(user):
         return None
     messages.error(request, 'No tenés permiso para ver la lista de vendedores.')
     return redirect('inmobiliaria:dashboard')
@@ -2893,6 +2897,8 @@ def vendedores(request):
         {
             'vendedores': vendedores,
             'puede_editar_nivel_vendedor': usuario_puede_editar_nivel_vendedor(request.user),
+            'puede_impersonar': usuario_puede_impersonar(request.user)
+            and not request.session.get(SESSION_IMPERSONATOR_ID),
         },
     )
 
@@ -2980,6 +2986,72 @@ def vendedor_eliminar(request, vendedor_id):
         messages.success(request, 'Vendedor eliminado exitosamente.')
         return redirect('inmobiliaria:vendedores')
     return render(request, 'inmobiliaria/vendedores/confirmar_eliminar.html', {'vendedor': vendedor})
+
+
+def _usuario_admin_real_sesion(request):
+    """Usuario real si hay impersonación; si no, el autenticado."""
+    iid = request.session.get(SESSION_IMPERSONATOR_ID)
+    if iid:
+        return Vendedor.objects.filter(pk=iid).first()
+    return request.user
+
+
+@login_required
+@require_POST
+def impersonar_vendedor(request, vendedor_id):
+    """
+    Entra al sistema como otro vendedor (misma sucursal) sin cambiarle la clave.
+    Solo super admin. La sesión guarda quién es el admin real.
+    """
+    admin = _usuario_admin_real_sesion(request)
+    if not admin or not usuario_puede_impersonar(admin):
+        messages.error(request, 'No tenés permiso para entrar como otro usuario.')
+        return redirect('inmobiliaria:dashboard')
+
+    qs = Vendedor.objects.filter(sucursal=admin.sucursal, is_active=True)
+    destino = get_object_or_404(qs, pk=vendedor_id)
+    if destino.pk == admin.pk:
+        messages.warning(request, 'Ya estás en tu propia cuenta.')
+        return redirect('inmobiliaria:vendedores')
+
+    from django.contrib.auth import login as auth_login
+
+    if not request.session.get(SESSION_IMPERSONATOR_ID):
+        request.session[SESSION_IMPERSONATOR_ID] = admin.pk
+    auth_login(request, destino, backend='django.contrib.auth.backends.ModelBackend')
+    # Conservar el id del admin tras el login (login puede rotar la sesión).
+    request.session[SESSION_IMPERSONATOR_ID] = admin.pk
+    request.session.modified = True
+    messages.info(
+        request,
+        f'Estás viendo el sistema como {destino.apellido}, {destino.nombre} (@{destino.username}). '
+        f'Su contraseña no se modificó.',
+    )
+    return redirect('inmobiliaria:dashboard')
+
+
+@login_required
+def dejar_impersonar(request):
+    """Vuelve a la sesión del super admin que inició la impersonación."""
+    iid = request.session.get(SESSION_IMPERSONATOR_ID)
+    if not iid:
+        messages.info(request, 'No estabas entrando como otro usuario.')
+        return redirect('inmobiliaria:dashboard')
+
+    admin = Vendedor.objects.filter(pk=iid, is_active=True).first()
+    if not admin:
+        request.session.pop(SESSION_IMPERSONATOR_ID, None)
+        messages.error(request, 'No se pudo restaurar tu usuario. Volvé a iniciar sesión.')
+        return redirect('inmobiliaria:login')
+
+    from django.contrib.auth import login as auth_login
+
+    auth_login(request, admin, backend='django.contrib.auth.backends.ModelBackend')
+    request.session.pop(SESSION_IMPERSONATOR_ID, None)
+    request.session.modified = True
+    messages.success(request, f'Volviste a tu usuario (@{admin.username}).')
+    return redirect('inmobiliaria:vendedores')
+
 
 # Inquilino views
 @login_required

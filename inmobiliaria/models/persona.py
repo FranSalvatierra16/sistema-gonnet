@@ -123,6 +123,23 @@ def usuario_puede_editar_comision_minima(user):
     return usuario_puede_editar_movimiento_caja(user)
 
 
+USUARIOS_PUEDEN_IMPERSONAR = frozenset({'prueba', 'corrientesf', 'colonf'})
+
+
+def usuario_puede_impersonar(user):
+    """
+    Entrar como otro vendedor sin cambiarle la contraseña.
+    Solo usuarios de soporte designados: prueba, corrientesF, colonF.
+    """
+    if not user or not getattr(user, 'is_authenticated', False):
+        return False
+    username = (getattr(user, 'username', None) or '').strip().lower()
+    return username in USUARIOS_PUEDEN_IMPERSONAR
+
+
+SESSION_IMPERSONATOR_ID = 'impersonator_id'
+
+
 def usuario_puede_revertir_operacion_a_reserva(user):
     """Super administrador (nivel 5) o superusuario Django: devuelve operación a reserva sin seña."""
     return usuario_puede_editar_movimiento_caja(user)
@@ -262,6 +279,10 @@ class Vendedor(AbstractUser):
         if ap and nom:
             return f'{ap}, {nom}'
         return ap or nom or ''
+
+    def puede_entrar_como_otro(self):
+        """Soporte: prueba / corrientesF / colonF pueden impersonar."""
+        return usuario_puede_impersonar(self)
 
     def __str__(self):
         nc = self.nombre_completo_display()
