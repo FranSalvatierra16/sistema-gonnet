@@ -1,0 +1,102 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load custom_filters %}
+
+{% block title %}Venta #{{ operacion.id }}{% endblock %}
+
+{% block content %}
+<div class="container mt-3" style="max-width: 760px;">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <div>
+            <h1 class="h4 mb-1">Venta #{{ operacion.id }}</h1>
+            <p class="text-muted small mb-0">{{ operacion.fecha_venta|date:"d/m/Y" }} · {{ operacion.sucursal.nombre }}</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'inmobiliaria:operaciones_venta_lista' %}" class="btn btn-outline-secondary btn-sm">Listado</a>
+            <a href="{% url 'inmobiliaria:detalle_propiedad' operacion.propiedad_id %}" class="btn btn-outline-primary btn-sm">Propiedad</a>
+        </div>
+    </div>
+
+    {% if operacion.estado == 'anulada' %}
+    <div class="alert alert-secondary">Esta venta está <strong>anulada</strong>.</div>
+    {% else %}
+    <div class="alert alert-success py-2">Estado: <strong>confirmada</strong></div>
+    {% endif %}
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-8">
+                    <div class="small text-muted">Propiedad</div>
+                    <div class="fw-semibold">#{{ operacion.propiedad_id }} — {{ operacion.propiedad.direccion }}</div>
+                    {% if operacion.propiedad.propietario %}
+                    <div class="small text-muted">Propietario: {{ operacion.propiedad.propietario }}</div>
+                    {% endif %}
+                </div>
+                <div class="col-md-4">
+                    <div class="small text-muted">Vendedor</div>
+                    <div class="fw-semibold">{{ operacion.vendedor.apellido }}, {{ operacion.vendedor.nombre }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-md-4">
+            <div class="border rounded p-3 bg-white h-100">
+                <div class="small text-muted">Precio (USD)</div>
+                <div class="fs-5 fw-bold">U$S {{ operacion.precio_usd|format_price }}</div>
+                <div class="small text-muted mt-1">≈ ${{ operacion.precio_ars_equivalente|format_price }} ARS</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="border rounded p-3 bg-white h-100">
+                <div class="small text-muted">Cotización</div>
+                <div class="fs-5 fw-bold">${{ operacion.cotizacion_dolar|format_price }}</div>
+                <div class="small text-muted mt-1">pesos por USD</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="border rounded p-3 bg-white h-100">
+                <div class="small text-muted">Honorarios (ARS)</div>
+                <div class="fs-5 fw-bold text-success">${{ operacion.honorarios_ars|format_price }}</div>
+                <div class="small text-muted mt-1">≈ U$S {{ operacion.honorarios_usd_equivalente|format_price }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-body">
+            {% if operacion.comprador_nombre %}
+            <div class="mb-2"><span class="text-muted">Comprador:</span> {{ operacion.comprador_nombre }}</div>
+            {% endif %}
+            {% if operacion.escribania %}
+            <div class="mb-2"><span class="text-muted">Escribanía:</span> {{ operacion.escribania }}</div>
+            {% endif %}
+            {% if operacion.observaciones %}
+            <div class="mb-2"><span class="text-muted">Observaciones:</span> {{ operacion.observaciones }}</div>
+            {% endif %}
+            {% if operacion.comision %}
+            <div class="mb-0">
+                <span class="text-muted">Comisión:</span>
+                #{{ operacion.comision_id }} —
+                <span class="badge bg-{% if operacion.comision.estado == 'pagada' %}success{% elif operacion.comision.estado == 'cancelada' %}secondary{% else %}warning text-dark{% endif %}">
+                    {{ operacion.comision.get_estado_display }}
+                </span>
+                <a class="ms-2 small" href="{% url 'inmobiliaria:historial_comisiones_vendedor' operacion.vendedor_id %}">Ver comisiones del vendedor</a>
+            </div>
+            {% endif %}
+            {% if operacion.creado_por %}
+            <div class="small text-muted mt-2">Cargada por {{ operacion.creado_por }} el {{ operacion.creado_en|date:"d/m/Y H:i" }}</div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if operacion.estado == 'confirmada' %}
+    <form method="post" action="{% url 'inmobiliaria:operaciones_venta_anular' operacion.id %}"
+          onsubmit="return confirm('¿Anular esta venta? La comisión se cancela si no estaba pagada.');">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-outline-danger btn-sm">Anular venta</button>
+    </form>
+    {% endif %}
+</div>
+{% endblock %}

@@ -555,6 +555,10 @@
                                         {% endif %}
                                         <div class="text-center mt-4">
                                             <div class="d-flex justify-content-center gap-3 flex-wrap">
+                                                <a href="{% url 'inmobiliaria:operaciones_venta_nueva' %}?propiedad={{ propiedad.id }}"
+                                                   class="btn btn-success">
+                                                    <i class="fas fa-handshake"></i> Registrar venta cerrada
+                                                </a>
                                                 <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalVenta">
                                                     <i class="fas fa-edit"></i> Editar información
                                                 </button>

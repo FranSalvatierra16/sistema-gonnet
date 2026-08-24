@@ -26,6 +26,7 @@ from .oficina import (
     PersonaOficina,
 )
 from .historial_inquilino import HistorialInquilino
+from .venta_operacion import OperacionVenta
 
 __all__ = [
     'Sucursal',
@@ -58,4 +59,5 @@ __all__ = [
     'CostosCompraLibroPropiedad',
     'HistorialInquilino',
     'ConsultaWeb',
+    'OperacionVenta',
 ]

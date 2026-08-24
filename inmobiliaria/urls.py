@@ -11,6 +11,7 @@ from . import views_honorarios
 from . import views_administracion
 from . import views_oficina
 from . import views_recibos
+from . import views_ventas
 from . import portal_views
 
 app_name = 'inmobiliaria'
@@ -197,6 +198,18 @@ urlpatterns = [
         name='ofrecer_propiedad_24_meses_post_contrato',
     ),
     path('ventas/', views.ventas, name='ventas'),
+    path('ventas/cerradas/', views_ventas.operaciones_venta_lista, name='operaciones_venta_lista'),
+    path('ventas/cerradas/nueva/', views_ventas.operaciones_venta_nueva, name='operaciones_venta_nueva'),
+    path(
+        'ventas/cerradas/<int:operacion_id>/',
+        views_ventas.operaciones_venta_detalle,
+        name='operaciones_venta_detalle',
+    ),
+    path(
+        'ventas/cerradas/<int:operacion_id>/anular/',
+        views_ventas.operaciones_venta_anular,
+        name='operaciones_venta_anular',
+    ),
     path('alquileres-24-meses/', views.alquileres_24_meses, name='alquileres_24_meses'),
     path('alquileres-invierno/', views.alquileres_invierno, name='alquileres_invierno'),
     path('alquileres-invierno/disponibilidad-masiva/', views.invierno_disponibilidad_masiva, name='invierno_disponibilidad_masiva'),

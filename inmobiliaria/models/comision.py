@@ -12,6 +12,7 @@ ROL_COMISION_OP_DIA = 'operacion_dia'
 ROL_COMISION_OP_INVIERNO = 'operacion_invierno'
 ROL_COMISION_OP_24 = 'operacion_24_meses'
 ROL_COMISION_REVERSION = 'reversion_anulacion'
+ROL_COMISION_VENTA = 'venta_propiedad'
 
 ROLES_COMISION_PRODUCTOR = (
     ROL_COMISION_GENERAL,

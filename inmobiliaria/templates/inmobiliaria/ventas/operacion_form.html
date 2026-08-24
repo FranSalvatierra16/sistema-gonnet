@@ -1,0 +1,201 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load custom_filters %}
+
+{% block title %}Registrar venta{% endblock %}
+
+{% block content %}
+<div class="container mt-3" style="max-width: 720px;">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h1 class="h4 mb-1"><i class="fas fa-file-signature text-success me-2"></i>Registrar venta</h1>
+            <p class="text-muted small mb-0">La venta se carga en dólares; los honorarios del vendedor, en pesos (vos elegís la cotización).</p>
+        </div>
+        <a href="{% url 'inmobiliaria:operaciones_venta_lista' %}" class="btn btn-outline-secondary btn-sm">Volver</a>
+    </div>
+
+    <form method="post" class="card shadow-sm border-0">
+        {% csrf_token %}
+        <div class="card-body">
+            <div class="mb-3 position-relative">
+                <label class="form-label fw-semibold" for="propiedad_buscar">Propiedad *</label>
+                <input type="hidden" name="propiedad_id" id="propiedad_id" value="{% if propiedad %}{{ propiedad.id }}{% endif %}">
+                <input type="text" class="form-control" id="propiedad_buscar" name="propiedad_buscar"
+                       value="{{ form.propiedad_buscar }}"
+                       placeholder="ID, dirección o propietario…" autocomplete="off"
+                       {% if propiedad %}readonly{% endif %}>
+                <div id="dropdown_propiedades" class="list-group position-absolute shadow-sm mt-1 w-100" style="z-index:20; display:none;"></div>
+                {% if propiedad %}
+                <div class="form-text">
+                    Seleccionada: <strong>#{{ propiedad.id }}</strong> — {{ propiedad.direccion }}
+                    {% if propiedad.propietario %}
+                    <span class="text-muted">({{ propiedad.propietario }})</span>
+                    {% endif %}
+                    <a href="{% url 'inmobiliaria:operaciones_venta_nueva' %}" class="ms-2">Cambiar</a>
+                </div>
+                {% else %}
+                <div class="form-text">Empezá a escribir; se busca como en caja.</div>
+                {% endif %}
+            </div>
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label" for="fecha_venta">Fecha de venta *</label>
+                    <input type="date" class="form-control" name="fecha_venta" id="fecha_venta" value="{{ form.fecha_venta }}" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" for="vendedor_id">Vendedor (honorarios) *</label>
+                    <select class="form-select" name="vendedor_id" id="vendedor_id" required>
+                        <option value="">— Elegir —</option>
+                        {% for v in vendedores %}
+                        <option value="{{ v.id }}" {% if form.vendedor_id == v.id|stringformat:"s" %}selected{% endif %}>
+                            {{ v.apellido }}, {{ v.nombre }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <hr class="my-4">
+            <h2 class="h6 text-uppercase text-muted">Operación en dólares</h2>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label" for="precio_usd">Precio de venta (USD) *</label>
+                    <div class="input-group">
+                        <span class="input-group-text">U$S</span>
+                        <input type="text" class="form-control text-end" name="precio_usd" id="precio_usd"
+                               value="{{ form.precio_usd }}" required inputmode="decimal" placeholder="0,00">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" for="cotizacion_dolar">Cotización (pesos por USD) *</label>
+                    <div class="input-group">
+                        <span class="input-group-text">$</span>
+                        <input type="text" class="form-control text-end" name="cotizacion_dolar" id="cotizacion_dolar"
+                               value="{{ form.cotizacion_dolar }}" required inputmode="decimal" placeholder="ej. 1400">
+                    </div>
+                    <div class="form-text">La elegís vos al cargar la venta.</div>
+                </div>
+            </div>
+
+            <hr class="my-4">
+            <h2 class="h6 text-uppercase text-muted">Honorarios (pesos)</h2>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label" for="honorarios_ars">Honorarios al vendedor (ARS) *</label>
+                    <div class="input-group">
+                        <span class="input-group-text">$</span>
+                        <input type="text" class="form-control text-end" name="honorarios_ars" id="honorarios_ars"
+                               value="{{ form.honorarios_ars }}" required inputmode="decimal" placeholder="0,00">
+                    </div>
+                    <div class="form-text">Monto en pesos que definís vos (queda como comisión pendiente).</div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Equiv. en USD (referencia)</label>
+                    <input type="text" class="form-control text-end" id="honorarios_usd_ref" readonly value="—"
+                           style="background:#f8f9fa;">
+                </div>
+            </div>
+
+            <hr class="my-4">
+            <div class="mb-3">
+                <label class="form-label" for="comprador_nombre">Comprador</label>
+                <input type="text" class="form-control" name="comprador_nombre" id="comprador_nombre" value="{{ form.comprador_nombre }}">
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="escribania">Escribanía</label>
+                <input type="text" class="form-control" name="escribania" id="escribania" value="{{ form.escribania }}">
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="observaciones">Observaciones</label>
+                <textarea class="form-control" name="observaciones" id="observaciones" rows="2">{{ form.observaciones }}</textarea>
+            </div>
+        </div>
+        <div class="card-footer bg-white d-flex justify-content-end gap-2">
+            <a href="{% url 'inmobiliaria:operaciones_venta_lista' %}" class="btn btn-outline-secondary">Cancelar</a>
+            <button type="submit" class="btn btn-success"><i class="fas fa-save me-1"></i>Guardar venta</button>
+        </div>
+    </form>
+</div>
+
+<script>
+(function() {
+    function parseNum(v) {
+        if (!v) return 0;
+        var s = String(v).trim().replace(/\s/g, '');
+        if (s.indexOf(',') >= 0 && s.indexOf('.') >= 0) {
+            s = s.replace(/\./g, '').replace(',', '.');
+        } else if (s.indexOf(',') >= 0) {
+            s = s.replace(',', '.');
+        }
+        var n = parseFloat(s);
+        return isNaN(n) ? 0 : n;
+    }
+    function fmt(n) {
+        return n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    function recalc() {
+        var hon = parseNum(document.getElementById('honorarios_ars').value);
+        var cot = parseNum(document.getElementById('cotizacion_dolar').value);
+        var el = document.getElementById('honorarios_usd_ref');
+        if (cot > 0) el.value = 'U$S ' + fmt(hon / cot);
+        else el.value = '—';
+    }
+    ['honorarios_ars', 'cotizacion_dolar'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.addEventListener('input', recalc);
+    });
+    recalc();
+
+    var $buscar = $('#propiedad_buscar');
+    var $hidden = $('#propiedad_id');
+    var $dd = $('#dropdown_propiedades');
+    var timer = null;
+    if ($buscar.prop('readonly')) return;
+
+    function render(props) {
+        $dd.empty();
+        if (!props || !props.length) {
+            $dd.append('<div class="list-group-item text-muted py-2">Sin resultados</div>').show();
+            return;
+        }
+        props.forEach(function(p) {
+            var label = '#' + p.id + ' — ' + (p.direccion || '');
+            if (p.propietario) label += ' · ' + p.propietario;
+            var $a = $('<a href="#" class="list-group-item list-group-item-action py-2"></a>').text(label);
+            $a.on('click', function(e) {
+                e.preventDefault();
+                $hidden.val(p.id);
+                $buscar.val(label);
+                $dd.hide().empty();
+            });
+            $dd.append($a);
+        });
+        $dd.show();
+    }
+
+    $buscar.on('input', function() {
+        var t = $buscar.val().trim();
+        $hidden.val('');
+        clearTimeout(timer);
+        if (t.length < 2) { $dd.hide().empty(); return; }
+        timer = setTimeout(function() {
+            $.ajax({
+                url: '{% url "inmobiliaria:buscar_propiedades_caja" %}',
+                method: 'POST',
+                data: { termino: t, csrfmiddlewaretoken: '{{ csrf_token }}' },
+                success: function(resp) {
+                    if (resp && resp.success) render(resp.propiedades || []);
+                    else render([]);
+                },
+                error: function() { render([]); }
+            });
+        }, 280);
+    });
+    $(document).on('click', function(e) {
+        if (!$(e.target).closest('#propiedad_buscar, #dropdown_propiedades').length) {
+            $dd.hide();
+        }
+    });
+})();
+</script>
+{% endblock %}
