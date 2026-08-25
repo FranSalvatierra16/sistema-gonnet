@@ -31,6 +31,7 @@ from inmobiliaria.models import (
     GastoOficina,
     InicioCajaLibroPropiedad,
     LiquidacionPropietario,
+    OperacionVenta,
     PersonaOficina,
     ValeVendedor,
 )
@@ -525,6 +526,15 @@ def oficina_dashboard(request):
 
     propiedades_oficina_count = propiedades_cartera
 
+    ventas_mes = OperacionVenta.objects.filter(
+        sucursal=sucursal,
+        estado='confirmada',
+        fecha_venta__gte=mes_ini,
+        fecha_venta__lte=today,
+    )
+    ventas_mes_count = ventas_mes.count()
+    ventas_mes_usd = ventas_mes.aggregate(t=Sum('precio_usd'))['t'] or Decimal('0')
+
     return render(
         request,
         'inmobiliaria/oficina/dashboard.html',
@@ -536,6 +546,8 @@ def oficina_dashboard(request):
             'vales_count': vales_abiertos,
             'propiedades_cartera': propiedades_cartera,
             'propiedades_oficina_count': propiedades_oficina_count,
+            'ventas_mes_count': ventas_mes_count,
+            'ventas_mes_usd': ventas_mes_usd,
             'mes_label': mes_ini.strftime('%B %Y'),
         },
     )

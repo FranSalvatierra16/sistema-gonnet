@@ -10,7 +10,10 @@
             <h1 class="h4 mb-1"><i class="fas fa-file-signature text-success me-2"></i>Registrar venta</h1>
             <p class="text-muted small mb-0">La venta se carga en dólares; los honorarios del vendedor, en pesos (vos elegís la cotización).</p>
         </div>
-        <a href="{% url 'inmobiliaria:operaciones_venta_lista' %}" class="btn btn-outline-secondary btn-sm">Volver</a>
+        <div class="d-flex gap-2">
+            <a href="{% url 'inmobiliaria:oficina_dashboard' %}" class="btn btn-outline-secondary btn-sm">Panel oficina</a>
+            <a href="{% url 'inmobiliaria:operaciones_venta_lista' %}" class="btn btn-outline-secondary btn-sm">Volver</a>
+        </div>
     </div>
 
     <form method="post" class="card shadow-sm border-0">
