@@ -67,6 +67,7 @@ def _filas_libro_sin_inicio(sucursal, propiedad, dr_desde, dr_hasta):
     from inmobiliaria.models import CotizacionLibroOperacion, Reserva
     from inmobiliaria.views_oficina import (
         _filas_contratos_faltantes_libro,
+        _filas_liquidaciones_oficina_libro,
         _filas_operaciones_faltantes_libro,
         _fila_libro_desde_movimiento,
         _liquidaciones_por_reserva,
@@ -137,6 +138,15 @@ def _filas_libro_sin_inicio(sucursal, propiedad, dr_desde, dr_hasta):
             sucursal,
             contrato_ids,
             movimientos,
+            dr_desde=dr_desde,
+            dr_hasta=dr_hasta,
+        )
+    )
+    filas.extend(
+        _filas_liquidaciones_oficina_libro(
+            propiedad,
+            sucursal,
+            movimientos=movimientos,
             dr_desde=dr_desde,
             dr_hasta=dr_hasta,
         )

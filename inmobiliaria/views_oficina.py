@@ -409,6 +409,160 @@ def _filas_contratos_faltantes_libro(
     return filas
 
 
+_MESES_LIBRO_ES = (
+    '',
+    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+)
+
+
+def _periodo_liquidacion_libro(liq):
+    """Etiqueta de período (ej. «Julio 2026») desde fecha_desde de la liquidación."""
+    fd = getattr(liq, 'fecha_desde', None)
+    if not fd:
+        return ''
+    try:
+        return f'{_MESES_LIBRO_ES[fd.month]} {fd.year}'
+    except Exception:
+        return ''
+
+
+def _descripcion_liquidacion_oficina_libro(liq):
+    """Texto de fila: Contrato/Operación + Alquiler a Cobrar + período."""
+    from inmobiliaria.liquidacion_operacion import info_operacion_liquidacion
+
+    info = info_operacion_liquidacion(liq)
+    ref = (info.get('operacion_ref') or '').strip()
+    if not ref or ref == '—':
+        if getattr(liq, 'contrato_id', None):
+            ref = f'Contrato #{liq.contrato_id}'
+        elif getattr(liq, 'reserva_id', None):
+            ref = f'Operación {liq.reserva_id}'
+        else:
+            ref = f'Liquidación #{liq.id}'
+    # Unificar "Contrato #N" sin espacios raros
+    ref = re.sub(r'(?i)^contrato\s*#?\s*(\d+)$', r'Contrato \1', ref)
+    ref = re.sub(r'(?i)^reserva\s*#?\s*(\d+)$', r'Operación \1', ref)
+
+    periodo = _periodo_liquidacion_libro(liq)
+    partes = [ref, 'Alquiler a Cobrar']
+    if periodo:
+        partes.append(periodo)
+    return ' – '.join(partes)
+
+
+def _filas_liquidaciones_oficina_libro(
+    propiedad,
+    sucursal,
+    movimientos=None,
+    dr_desde=None,
+    dr_hasta=None,
+):
+    """
+    Liquidaciones con estado «oficina»: deben verse en el libro del depto.
+    No generan egreso de caja al propietario; el alquiler se acredita acá.
+    """
+    from datetime import time as time_cls
+
+    from inmobiliaria.models import LiquidacionPropietario
+
+    mov_ids = {m.id for m in (movimientos or []) if getattr(m, 'id', None)}
+
+    qs = (
+        LiquidacionPropietario.objects.filter(
+            propiedad=propiedad,
+            sucursal=sucursal,
+            estado='oficina',
+        )
+        .select_related('contrato', 'reserva', 'reserva__cliente', 'contrato__inquilino')
+        .order_by('fecha_procesamiento', 'id')
+    )
+
+    filas = []
+    for liq in qs:
+        # Si ya hay egreso/movimiento de caja de esa liquidación en el libro, no duplicar.
+        mid = getattr(liq, 'movimiento_caja_id', None)
+        if mid and mid in mov_ids:
+            continue
+
+        fecha_raw = (
+            getattr(liq, 'fecha_procesamiento', None)
+            or getattr(liq, 'fecha_creacion', None)
+            or getattr(liq, 'fecha_desde', None)
+        )
+        if fecha_raw is None:
+            continue
+        if isinstance(fecha_raw, datetime):
+            f_dt = fecha_raw
+            try:
+                if timezone.is_aware(f_dt):
+                    f_date = timezone.localtime(f_dt).date()
+                else:
+                    f_date = f_dt.date()
+            except Exception:
+                f_date = f_dt.date()
+        elif isinstance(fecha_raw, date):
+            f_date = fecha_raw
+            f_dt = datetime.combine(f_date, time_cls.min)
+            if timezone.is_naive(f_dt):
+                try:
+                    f_dt = timezone.make_aware(f_dt)
+                except Exception:
+                    pass
+        else:
+            continue
+
+        if dr_desde and f_date < dr_desde:
+            continue
+        if dr_hasta and f_date > dr_hasta:
+            continue
+
+        moneda = (getattr(liq, 'moneda', None) or 'ARS').strip().upper()
+        monto = Decimal(str(getattr(liq, 'monto_propietario', None) or 0))
+        if monto <= 0:
+            monto = Decimal(str(getattr(liq, 'monto_a_pagar', None) or 0))
+        if monto <= 0:
+            monto = Decimal(str(getattr(liq, 'monto_total_operacion', None) or 0))
+        if monto <= 0:
+            continue
+
+        cotiz = getattr(liq, 'cotizacion_dolar', None)
+        if cotiz is not None:
+            cotiz = Decimal(str(cotiz))
+            if cotiz <= 0:
+                cotiz = None
+
+        fila = {
+            'fecha': f_dt,
+            'descripcion': _descripcion_liquidacion_oficina_libro(liq),
+            'gastos_ars': Decimal('0'),
+            'alquileres_ars': Decimal('0'),
+            'gastos_usd': Decimal('0'),
+            'ingreso_usd': Decimal('0'),
+            'tipo_cambio': cotiz,
+            'movimiento_id': None,
+            'tipo': 'IN',
+            'sin_caja': True,
+            'es_inicio_caja': False,
+            'es_manual': False,
+            'fila_manual_id': None,
+            'es_liquidacion_oficina': True,
+            'liquidacion_id': liq.id,
+            'reserva_id': getattr(liq, 'reserva_id', None),
+            'observaciones': (getattr(liq, 'observaciones', None) or '').strip(),
+        }
+        if moneda == 'USD':
+            fila['ingreso_usd'] = monto
+            if cotiz:
+                fila['alquileres_ars'] = (monto * cotiz).quantize(Decimal('0.01'))
+        else:
+            fila['alquileres_ars'] = monto
+            if cotiz:
+                fila['ingreso_usd'] = (monto / cotiz).quantize(Decimal('0.01'))
+        filas.append(fila)
+    return filas
+
+
 def _puede_oficina(user):
     return usuario_es_nivel_administracion(user)
 
@@ -1673,6 +1827,15 @@ def oficina_propiedad_libro(request, propiedad_id):
             sucursal,
             contrato_ids,
             movimientos,
+            dr_desde=dr_desde,
+            dr_hasta=dr_hasta,
+        )
+    )
+    filas.extend(
+        _filas_liquidaciones_oficina_libro(
+            propiedad,
+            sucursal,
+            movimientos=movimientos,
             dr_desde=dr_desde,
             dr_hasta=dr_hasta,
         )
