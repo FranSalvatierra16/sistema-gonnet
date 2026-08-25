@@ -1,4 +1,4 @@
-"""Sector de ventas cerradas: precio USD + honorarios ARS con cotización."""
+"""Sector de ventas cerradas: precio y honorarios en USD; comisión en ARS; sync libro."""
 from datetime import datetime
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
@@ -13,6 +13,7 @@ from django.utils import timezone
 from inmobiliaria.decimal_utils import parse_decimal_monto
 from inmobiliaria.models import (
     ComisionVendedor,
+    CostosCompraLibroPropiedad,
     OperacionVenta,
     Propiedad,
     Vendedor,
@@ -72,7 +73,8 @@ def operaciones_venta_lista(request):
     confirmadas = qs.filter(estado='confirmada')
     totales = confirmadas.aggregate(
         total_usd=Sum('precio_usd'),
-        total_honorarios=Sum('honorarios_ars'),
+        total_honorarios_usd=Sum('honorarios_usd'),
+        total_honorarios_ars=Sum('honorarios_ars'),
     )
 
     return render(
@@ -83,7 +85,8 @@ def operaciones_venta_lista(request):
             'busqueda': busqueda,
             'estado_sel': estado,
             'total_usd': totales['total_usd'] or Decimal('0'),
-            'total_honorarios': totales['total_honorarios'] or Decimal('0'),
+            'total_honorarios_usd': totales['total_honorarios_usd'] or Decimal('0'),
+            'total_honorarios': totales['total_honorarios_ars'] or Decimal('0'),
             'cantidad': confirmadas.count(),
         },
     )
@@ -104,13 +107,14 @@ def operaciones_venta_nueva(request):
     if prop_id.isdigit():
         propiedad_pre = Propiedad.objects.filter(
             pk=int(prop_id), sucursal=sucursal
-        ).select_related('propietario', 'info_venta').first()
+        ).select_related('propietario', 'info_venta', 'costos_compra_libro').first()
 
     form_data = {
         'fecha_venta': timezone.localdate().isoformat(),
         'precio_usd': '',
         'cotizacion_dolar': '',
-        'honorarios_ars': '',
+        'honorarios_usd': '',
+        'gastos_escritura_usd': '',
         'vendedor_id': str(request.user.pk) if isinstance(request.user, Vendedor) else '',
         'comprador_nombre': '',
         'escribania': '',
@@ -124,13 +128,24 @@ def operaciones_venta_nueva(request):
         info = getattr(propiedad_pre, 'info_venta', None)
         if info and info.precio_venta:
             form_data['precio_usd'] = str(info.precio_venta)
+        costos = getattr(propiedad_pre, 'costos_compra_libro', None)
+        if costos:
+            if costos.valor_depto_vendido:
+                form_data['precio_usd'] = str(costos.valor_depto_vendido)
+            if costos.honorarios_venta:
+                form_data['honorarios_usd'] = str(costos.honorarios_venta)
+            if costos.gastos_escritura_venta:
+                form_data['gastos_escritura_usd'] = str(costos.gastos_escritura_venta)
+            if costos.escribania:
+                form_data['escribania'] = costos.escribania
 
     if request.method == 'POST':
         form_data.update({
             'fecha_venta': (request.POST.get('fecha_venta') or '').strip(),
             'precio_usd': (request.POST.get('precio_usd') or '').strip(),
             'cotizacion_dolar': (request.POST.get('cotizacion_dolar') or '').strip(),
-            'honorarios_ars': (request.POST.get('honorarios_ars') or '').strip(),
+            'honorarios_usd': (request.POST.get('honorarios_usd') or '').strip(),
+            'gastos_escritura_usd': (request.POST.get('gastos_escritura_usd') or '').strip(),
             'vendedor_id': (request.POST.get('vendedor_id') or '').strip(),
             'comprador_nombre': (request.POST.get('comprador_nombre') or '').strip(),
             'escribania': (request.POST.get('escribania') or '').strip(),
@@ -156,13 +171,16 @@ def operaciones_venta_nueva(request):
 
         precio_usd = _parse_decimal(form_data['precio_usd'])
         cotizacion = _parse_decimal(form_data['cotizacion_dolar'])
-        honorarios = _parse_decimal(form_data['honorarios_ars'])
+        honorarios_usd = _parse_decimal(form_data['honorarios_usd'])
+        gastos_escritura = _parse_decimal(form_data['gastos_escritura_usd'])
         if precio_usd <= 0:
             errores.append('El precio en USD tiene que ser mayor a 0.')
         if cotizacion <= 0:
             errores.append('Indicá la cotización del dólar (pesos por USD).')
-        if honorarios < 0:
+        if honorarios_usd < 0:
             errores.append('Los honorarios no pueden ser negativos.')
+        if gastos_escritura < 0:
+            errores.append('Los gastos de escritura no pueden ser negativos.')
 
         vendedor = None
         if form_data['vendedor_id'].isdigit():
@@ -174,31 +192,39 @@ def operaciones_venta_nueva(request):
             for e in errores:
                 messages.error(request, e)
         else:
+            honorarios_ars = (honorarios_usd * cotizacion).quantize(
+                Decimal('0.01'), rounding=ROUND_HALF_UP
+            )
             try:
                 with transaction.atomic():
-                    op = OperacionVenta.objects.create(
+                    op = OperacionVenta(
                         propiedad=propiedad,
                         sucursal=sucursal,
                         vendedor=vendedor,
                         fecha_venta=fecha_venta,
                         precio_usd=precio_usd.quantize(Decimal('0.01')),
                         cotizacion_dolar=cotizacion.quantize(Decimal('0.0001')),
-                        honorarios_ars=honorarios.quantize(Decimal('0.01')),
+                        honorarios_usd=honorarios_usd.quantize(Decimal('0.01')),
+                        honorarios_ars=honorarios_ars,
+                        gastos_escritura_usd=gastos_escritura.quantize(Decimal('0.01')),
                         comprador_nombre=form_data['comprador_nombre'][:255],
                         escribania=form_data['escribania'][:255],
                         observaciones=form_data['observaciones'],
                         estado='confirmada',
                         creado_por=request.user,
                     )
+                    op.save()
                     _marcar_propiedad_vendida(propiedad)
-                    if honorarios > 0:
+                    _sincronizar_libro_propiedad(op, usuario=request.user)
+                    if honorarios_ars > 0:
                         comision = _crear_comision_venta(op)
                         op.comision = comision
                         op.save(update_fields=['comision'])
                 messages.success(
                     request,
                     f'Venta #{op.pk} registrada: U$S {op.precio_usd} — '
-                    f'honorarios ${op.honorarios_ars} (cotiz. {op.cotizacion_dolar}).',
+                    f'honorarios U$S {op.honorarios_usd} → ${op.honorarios_ars} '
+                    f'(cotiz. {op.cotizacion_dolar}). Libro del depto actualizado.',
                 )
                 return redirect('inmobiliaria:operaciones_venta_detalle', operacion_id=op.pk)
             except Exception as exc:
@@ -262,7 +288,7 @@ def operaciones_venta_anular(request, operacion_id):
         if op.comision_id and op.comision.estado != 'pagada':
             op.comision.estado = 'cancelada'
             op.comision.save(update_fields=['estado'])
-        # No reabrimos automáticamente la propiedad: queda a criterio del usuario.
+        # No reabrimos la propiedad ni borramos el libro: queda a criterio del usuario.
     messages.warning(request, f'Venta #{op.pk} anulada. La comisión quedó cancelada (si no estaba pagada).')
     return redirect('inmobiliaria:operaciones_venta_detalle', operacion_id=op.pk)
 
@@ -274,8 +300,24 @@ def _marcar_propiedad_vendida(propiedad):
     info.save(update_fields=['estado', 'en_venta', 'fecha_actualizacion'])
 
 
+def _sincronizar_libro_propiedad(op, usuario=None):
+    """
+    Refleja la venta en CostosCompraLibroPropiedad (libro del depto en oficina /
+    mis propiedades): valor vendido, escritura, honorarios y escribanía.
+    """
+    costos, _ = CostosCompraLibroPropiedad.objects.get_or_create(propiedad=op.propiedad)
+    costos.valor_depto_vendido = op.precio_usd
+    costos.gastos_escritura_venta = op.gastos_escritura_usd or Decimal('0')
+    costos.honorarios_venta = op.honorarios_usd or Decimal('0')
+    if op.escribania:
+        costos.escribania = op.escribania[:255]
+    if usuario is not None:
+        costos.actualizado_por = usuario
+    costos.save()
+
+
 def _crear_comision_venta(op):
-    """Comisión en pesos para el vendedor de la venta."""
+    """Comisión en pesos = honorarios USD × cotización."""
     precio_ars = (op.precio_usd * op.cotizacion_dolar).quantize(
         Decimal('0.01'), rounding=ROUND_HALF_UP
     )
@@ -303,7 +345,7 @@ def _crear_comision_venta(op):
         fecha_operacion=dt,
         estado='pendiente',
         observaciones=(
-            f'Operación venta #{op.pk}. Honorarios cargados en ARS; '
-            f'equiv. ≈ U$S {op.honorarios_usd_equivalente}.'
+            f'Operación venta #{op.pk}. Honorarios U$S {op.honorarios_usd} '
+            f'× cotiz. {op.cotizacion_dolar} = ${op.honorarios_ars} ARS.'
         ),
     )

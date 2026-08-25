@@ -8,7 +8,7 @@
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
         <div>
             <h1 class="h4 mb-1"><i class="fas fa-handshake text-success me-2"></i>Ventas cerradas</h1>
-            <p class="text-muted mb-0 small">{{ request.user.sucursal.nombre }} — precio en USD, honorarios en pesos</p>
+            <p class="text-muted mb-0 small">{{ request.user.sucursal.nombre }} — honorarios en USD → pesos con cotización; se refleja en el libro</p>
         </div>
         <div class="d-flex gap-2">
             <a href="{% url 'inmobiliaria:oficina_dashboard' %}" class="btn btn-outline-secondary btn-sm">Panel oficina</a>
@@ -19,19 +19,25 @@
     </div>
 
     <div class="row g-2 mb-3">
-        <div class="col-md-4">
+        <div class="col-md-3">
             <div class="border rounded p-2 bg-white">
                 <div class="small text-muted">Ventas confirmadas</div>
                 <div class="fs-5 fw-bold">{{ cantidad }}</div>
             </div>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
             <div class="border rounded p-2 bg-white">
                 <div class="small text-muted">Total vendido (USD)</div>
                 <div class="fs-5 fw-bold">U$S {{ total_usd|format_price }}</div>
             </div>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
+            <div class="border rounded p-2 bg-white">
+                <div class="small text-muted">Honorarios (USD)</div>
+                <div class="fs-5 fw-bold">U$S {{ total_honorarios_usd|format_price }}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
             <div class="border rounded p-2 bg-white">
                 <div class="small text-muted">Honorarios (ARS)</div>
                 <div class="fs-5 fw-bold text-success">${{ total_honorarios|format_price }}</div>
@@ -68,6 +74,7 @@
                         <th>Propiedad</th>
                         <th>Vendedor</th>
                         <th class="text-end">Precio USD</th>
+                        <th class="text-end">Honorarios USD</th>
                         <th class="text-end">Cotiz.</th>
                         <th class="text-end">Honorarios ARS</th>
                         <th>Estado</th>
@@ -85,6 +92,7 @@
                         </td>
                         <td>{{ op.vendedor.apellido }}, {{ op.vendedor.nombre }}</td>
                         <td class="text-end">U$S {{ op.precio_usd|format_price }}</td>
+                        <td class="text-end">U$S {{ op.honorarios_usd|format_price }}</td>
                         <td class="text-end">{{ op.cotizacion_dolar|format_price }}</td>
                         <td class="text-end text-success fw-semibold">${{ op.honorarios_ars|format_price }}</td>
                         <td>
@@ -100,7 +108,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="9" class="text-center text-muted py-4">Todavía no hay ventas cerradas. Registrá la primera.</td>
+                        <td colspan="10" class="text-center text-muted py-4">Todavía no hay ventas cerradas. Registrá la primera.</td>
                     </tr>
                     {% endfor %}
                 </tbody>

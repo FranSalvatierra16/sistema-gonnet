@@ -1,4 +1,4 @@
-"""Ventas de propiedades cerradas: precio en USD y honorarios en pesos con cotización."""
+"""Ventas de propiedades cerradas: precio y honorarios en USD; comisión en ARS con cotización."""
 from decimal import Decimal, ROUND_HALF_UP
 
 from django.conf import settings
@@ -9,8 +9,9 @@ from django.utils import timezone
 class OperacionVenta(models.Model):
     """
     Registro de una venta cerrada.
-    El precio de la operación se carga en dólares; los honorarios del vendedor
-    se cargan en pesos eligiendo la cotización del día.
+    Precio y honorarios se cargan en dólares; con la cotización se calculan
+    los honorarios en pesos (lo que va como comisión al vendedor).
+    Al confirmar, se sincroniza con el libro del depto (mis propiedades / oficina).
     """
 
     ESTADO_CHOICES = [
@@ -50,13 +51,27 @@ class OperacionVenta(models.Model):
         max_digits=12,
         decimal_places=4,
         verbose_name='Cotización USD → ARS',
-        help_text='Pesos por cada dólar al momento de cargar los honorarios.',
+        help_text='Pesos por cada dólar; se usa para pasar los honorarios a pesos.',
+    )
+    honorarios_usd = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal('0'),
+        verbose_name='Honorarios al vendedor (USD)',
+        help_text='Monto en dólares que le corresponde al vendedor.',
     )
     honorarios_ars = models.DecimalField(
         max_digits=14,
         decimal_places=2,
         verbose_name='Honorarios al vendedor (ARS)',
-        help_text='Monto en pesos que vos elegís para el vendedor.',
+        help_text='Resultado: honorarios USD × cotización (comisión en pesos).',
+    )
+    gastos_escritura_usd = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal('0'),
+        verbose_name='Gastos de escritura venta (USD)',
+        help_text='Se refleja en el libro del departamento.',
     )
     comprador_nombre = models.CharField(
         max_length=255,
@@ -107,18 +122,17 @@ class OperacionVenta(models.Model):
     def __str__(self):
         return f'Venta #{self.pk} — {self.propiedad_id} U$S {self.precio_usd}'
 
+    def recalcular_honorarios_ars(self):
+        """honorarios_ars = honorarios_usd × cotización."""
+        usd = Decimal(str(self.honorarios_usd or 0))
+        cot = Decimal(str(self.cotizacion_dolar or 0))
+        self.honorarios_ars = (usd * cot).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        return self.honorarios_ars
+
     @property
     def precio_ars_equivalente(self):
         if not self.precio_usd or not self.cotizacion_dolar:
             return Decimal('0')
         return (self.precio_usd * self.cotizacion_dolar).quantize(
-            Decimal('0.01'), rounding=ROUND_HALF_UP
-        )
-
-    @property
-    def honorarios_usd_equivalente(self):
-        if not self.honorarios_ars or not self.cotizacion_dolar or self.cotizacion_dolar <= 0:
-            return Decimal('0')
-        return (self.honorarios_ars / self.cotizacion_dolar).quantize(
             Decimal('0.01'), rounding=ROUND_HALF_UP
         )

@@ -8,7 +8,7 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
             <h1 class="h4 mb-1"><i class="fas fa-file-signature text-success me-2"></i>Registrar venta</h1>
-            <p class="text-muted small mb-0">La venta se carga en dólares; los honorarios del vendedor, en pesos (vos elegís la cotización).</p>
+            <p class="text-muted small mb-0">Precio y honorarios en dólares; con la cotización salen en pesos (comisión). Se refleja en el libro del depto.</p>
         </div>
         <div class="d-flex gap-2">
             <a href="{% url 'inmobiliaria:oficina_dashboard' %}" class="btn btn-outline-secondary btn-sm">Panel oficina</a>
@@ -61,41 +61,54 @@
             <hr class="my-4">
             <h2 class="h6 text-uppercase text-muted">Operación en dólares</h2>
             <div class="row g-3">
-                <div class="col-md-6">
-                    <label class="form-label" for="precio_usd">Precio de venta (USD) *</label>
+                <div class="col-md-4">
+                    <label class="form-label" for="precio_usd">Valor depto vendido (USD) *</label>
                     <div class="input-group">
                         <span class="input-group-text">U$S</span>
                         <input type="text" class="form-control text-end" name="precio_usd" id="precio_usd"
                                value="{{ form.precio_usd }}" required inputmode="decimal" placeholder="0,00">
                     </div>
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-4">
+                    <label class="form-label" for="gastos_escritura_usd">Gastos de escritura (USD)</label>
+                    <div class="input-group">
+                        <span class="input-group-text">U$S</span>
+                        <input type="text" class="form-control text-end" name="gastos_escritura_usd" id="gastos_escritura_usd"
+                               value="{{ form.gastos_escritura_usd }}" inputmode="decimal" placeholder="0,00">
+                    </div>
+                    <div class="form-text">Se carga en el libro del depto.</div>
+                </div>
+                <div class="col-md-4">
                     <label class="form-label" for="cotizacion_dolar">Cotización (pesos por USD) *</label>
                     <div class="input-group">
                         <span class="input-group-text">$</span>
                         <input type="text" class="form-control text-end" name="cotizacion_dolar" id="cotizacion_dolar"
                                value="{{ form.cotizacion_dolar }}" required inputmode="decimal" placeholder="ej. 1400">
                     </div>
-                    <div class="form-text">La elegís vos al cargar la venta.</div>
+                    <div class="form-text">La elegís vos; convierte honorarios a pesos.</div>
                 </div>
             </div>
 
             <hr class="my-4">
-            <h2 class="h6 text-uppercase text-muted">Honorarios (pesos)</h2>
+            <h2 class="h6 text-uppercase text-muted">Honorarios (dólares → pesos)</h2>
             <div class="row g-3">
                 <div class="col-md-6">
-                    <label class="form-label" for="honorarios_ars">Honorarios al vendedor (ARS) *</label>
+                    <label class="form-label" for="honorarios_usd">Honorarios al vendedor (USD) *</label>
                     <div class="input-group">
-                        <span class="input-group-text">$</span>
-                        <input type="text" class="form-control text-end" name="honorarios_ars" id="honorarios_ars"
-                               value="{{ form.honorarios_ars }}" required inputmode="decimal" placeholder="0,00">
+                        <span class="input-group-text">U$S</span>
+                        <input type="text" class="form-control text-end" name="honorarios_usd" id="honorarios_usd"
+                               value="{{ form.honorarios_usd }}" required inputmode="decimal" placeholder="0,00">
                     </div>
-                    <div class="form-text">Monto en pesos que definís vos (queda como comisión pendiente).</div>
+                    <div class="form-text">Lo cargás en dólares; también queda en el libro del depto.</div>
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label">Equiv. en USD (referencia)</label>
-                    <input type="text" class="form-control text-end" id="honorarios_usd_ref" readonly value="—"
-                           style="background:#f8f9fa;">
+                    <label class="form-label">Honorarios en ARS (lo que cobra)</label>
+                    <div class="input-group">
+                        <span class="input-group-text">$</span>
+                        <input type="text" class="form-control text-end" id="honorarios_ars_ref" readonly value="—"
+                               style="background:#f8f9fa;">
+                    </div>
+                    <div class="form-text">USD × cotización → comisión pendiente en pesos.</div>
                 </div>
             </div>
 
@@ -137,13 +150,13 @@
         return n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
     function recalc() {
-        var hon = parseNum(document.getElementById('honorarios_ars').value);
+        var hon = parseNum(document.getElementById('honorarios_usd').value);
         var cot = parseNum(document.getElementById('cotizacion_dolar').value);
-        var el = document.getElementById('honorarios_usd_ref');
-        if (cot > 0) el.value = 'U$S ' + fmt(hon / cot);
+        var el = document.getElementById('honorarios_ars_ref');
+        if (cot > 0) el.value = fmt(hon * cot);
         else el.value = '—';
     }
-    ['honorarios_ars', 'cotizacion_dolar'].forEach(function(id) {
+    ['honorarios_usd', 'cotizacion_dolar'].forEach(function(id) {
         var el = document.getElementById(id);
         if (el) el.addEventListener('input', recalc);
     });
