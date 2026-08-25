@@ -6871,6 +6871,9 @@ def ver_recibo(request, reserva_id):
             'tiene_sellados': sellados_monto > 0,
             'moneda_operacion': moneda_res,
             'logo_base64': logo_base64,
+            'observaciones_generales': _observaciones_generales_recibo(
+                movimiento=movimiento_ref, recibo_obj=recibo_r
+            ),
             'sucursal': sucursal,  # Agregar sucursal al contexto
             **_contexto_boton_volver_recibo(request),
             **_contexto_botones_recibo_reserva(request, reserva.id),
@@ -8795,6 +8798,9 @@ def ver_recibo_movimiento(request, movimiento_id):
                 'tiene_honorarios': honorarios_monto > 0,
                 'tiene_sellados': sellados_monto > 0,
                 'moneda_operacion': moneda_res,
+                'observaciones_generales': _observaciones_generales_recibo(
+                    movimiento=movimiento, recibo_obj=recibo_obj
+                ),
                 'sucursal': sucursal,  # Agregar sucursal al contexto
                 **_contexto_boton_volver_recibo(request),
                 **_contexto_botones_recibo_reserva(request, reserva.id),

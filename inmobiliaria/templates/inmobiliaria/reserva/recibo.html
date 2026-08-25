@@ -364,7 +364,9 @@
                     <div style="display: flex; padding: 3px; font-size: 9px;">
                         <div style="width: 18%; margin-left: 2%;">{{ pago.fecha }}</div>
                         <div style="width: 18%; margin-left: 6px;">{{ pago.codigo }}</div>
-                        <div style="width: 56%; margin-left: 6px;">{{ pago.concepto }}</div>
+                        <div style="width: 56%; margin-left: 6px;">
+                            {{ pago.concepto }}{% if pago.observaciones %}<br><span style="font-size: 8px; font-style: italic;">{{ pago.observaciones }}</span>{% endif %}
+                        </div>
                     </div>
                     {% endfor %}
                 </div>
@@ -376,6 +378,12 @@
                     {% endfor %}
                 </div>
             </div>
+            
+            {% if observaciones_generales %}
+            <div style="padding: 4px 10px; border: 1px solid #2d8524; border-top: none; font-size: 9px;">
+                <strong>Observaciones:</strong> {{ observaciones_generales }}
+            </div>
+            {% endif %}
             
            
             <div style="display: flex; justify-content: space-between; align-items: stretch; min-height: 48px;">
