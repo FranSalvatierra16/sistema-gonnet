@@ -113,12 +113,16 @@ def _filas_libro_sin_inicio(sucursal, propiedad, dr_desde, dr_hasta):
             monto_prop_por_reserva[f'_total_{r.id}'] = Decimal(str(r.precio_total or 0))
 
     filas = [
-        _fila_libro_desde_movimiento(
-            m,
-            monto_prop_por_reserva=monto_prop_por_reserva,
-            cotiz_por_reserva=cotiz_por_reserva,
+        f
+        for f in (
+            _fila_libro_desde_movimiento(
+                m,
+                monto_prop_por_reserva=monto_prop_por_reserva,
+                cotiz_por_reserva=cotiz_por_reserva,
+            )
+            for m in movimientos
         )
-        for m in movimientos
+        if f is not None
     ]
     filas.extend(
         _filas_operaciones_faltantes_libro(

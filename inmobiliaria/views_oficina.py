@@ -1471,11 +1471,34 @@ def _descripcion_movimiento_libro(mov):
     return _limpiar_descripcion_libro(desc, prop)
 
 
+def _monto_gasto_libro_sin_inquilino(mov, ars_total):
+    """
+    Parte del egreso que carga el depto / propietario en el libro.
+    La parte a inquilino (proporcional) no suma: no es gasto del depto.
+    """
+    ars_total = Decimal(str(ars_total or 0))
+    m_inq = Decimal(str(getattr(mov, 'monto_a_inquilino', None) or 0))
+    m_prop = Decimal(str(getattr(mov, 'monto_a_propietario', None) or 0))
+    m_of = Decimal(str(getattr(mov, 'monto_a_oficina', None) or 0))
+    a_desc = (getattr(mov, 'a_descontar', None) or '').strip().lower()
+
+    propio = (m_prop + m_of).quantize(Decimal('0.01'))
+    if propio > 0:
+        return propio
+    if m_inq > 0 and ars_total > m_inq:
+        return (ars_total - m_inq).quantize(Decimal('0.01'))
+    if a_desc == 'inquilino' or (m_inq > 0 and ars_total > 0 and m_inq >= ars_total):
+        return Decimal('0')
+    return ars_total.quantize(Decimal('0.01')) if ars_total > 0 else Decimal('0')
+
+
 def _fila_libro_desde_movimiento(mov, monto_prop_por_reserva=None, cotiz_por_reserva=None):
     """
     Mapea un MovimientoCaja a las columnas del libro.
     En ingresos de Operación N usa el monto al propietario (carátula/liquidación),
     no el total cobrado al locatario.
+    En egresos solo la parte depto/propietario (excluye proporcional inquilino).
+    Devuelve None si el egreso es 100% a cargo del inquilino (no va al libro).
     """
     import re
 
@@ -1519,6 +1542,14 @@ def _fila_libro_desde_movimiento(mov, monto_prop_por_reserva=None, cotiz_por_res
                     c_libro = Decimal(str(c_libro))
                     if c_libro > 0:
                         cotiz = c_libro
+
+    if es_egreso:
+        ars_bruto = ars
+        ars = _monto_gasto_libro_sin_inquilino(mov, ars_bruto)
+        if ars <= 0:
+            return None
+        if ars_bruto > 0 and ars < ars_bruto and usd > 0:
+            usd = (usd * ars / ars_bruto).quantize(Decimal('0.01'))
 
     gastos_ars = Decimal('0')
     alquileres_ars = Decimal('0')
@@ -1802,12 +1833,16 @@ def oficina_propiedad_libro(request, propiedad_id):
             monto_prop_por_reserva[f'_total_{r.id}'] = Decimal(str(r.precio_total or 0))
 
     filas = [
-        _fila_libro_desde_movimiento(
-            m,
-            monto_prop_por_reserva=monto_prop_por_reserva,
-            cotiz_por_reserva=cotiz_por_reserva,
+        f
+        for f in (
+            _fila_libro_desde_movimiento(
+                m,
+                monto_prop_por_reserva=monto_prop_por_reserva,
+                cotiz_por_reserva=cotiz_por_reserva,
+            )
+            for m in movimientos
         )
-        for m in movimientos
+        if f is not None
     ]
     filas.extend(
         _filas_operaciones_faltantes_libro(
@@ -2288,6 +2323,16 @@ def oficina_propiedad_libro_actualizar_cotizacion(request, propiedad_id):
             )
 
     fila = _fila_libro_desde_movimiento(movimiento)
+    if not fila:
+        return JsonResponse({
+            'ok': True,
+            'movimiento_id': movimiento.id,
+            'gastos_usd': _fmt(Decimal('0')),
+            'ingreso_usd': _fmt(Decimal('0')),
+            'tipo_cambio': _fmt(cotiz),
+            'tipo': 'EG',
+            'message': 'Cotización guardada.',
+        })
     return JsonResponse({
         'ok': True,
         'movimiento_id': movimiento.id,
