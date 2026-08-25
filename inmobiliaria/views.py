@@ -7740,10 +7740,14 @@ def procesar_movimiento_reserva(request):
                     conceptos_importes_decimal[i] = importe_limpio
                     
                     # Guardar con 2 decimales (antes se truncaba a entero y el recibo perdía centavos)
+                    obs_concepto = (concepto_observaciones or '').strip()
+                    if obs_concepto.lower() in ('sin observaciones', 'sin observaciones.'):
+                        obs_concepto = ''
                     concepto_completo = {
                         'id': concepto_id or f'C{i+1:02d}',
                         'nombre': concepto_nombre,
                         'importe': _importe_concepto_recibo_str(importe_limpio),
+                        'observaciones': obs_concepto,
                     }
                     conceptos_completos.append(concepto_completo)
 # print(f"💰 CONCEPTO {i}: ID={concepto_id}, {concepto_nombre} - ${concepto_importe}")
@@ -7800,6 +7804,24 @@ def procesar_movimiento_reserva(request):
             if cotizacion_dolar is not None:
                 create_kwargs['cotizacion_dolar'] = cotizacion_dolar
             movimiento_principal = MovimientoCaja.objects.create(**create_kwargs)
+
+            # Persistir conceptos + observaciones en JSON (para el recibo impreso)
+            if conceptos_completos or observaciones_generales:
+                try:
+                    import json
+                    movimiento_principal.concepto_detalle = json.dumps(
+                        {
+                            'conceptos': conceptos_completos,
+                            'observaciones_generales': observaciones_generales or '',
+                        },
+                        ensure_ascii=False,
+                    )
+                    movimiento_principal.save(update_fields=['concepto_detalle'])
+                except Exception:
+                    logger.exception(
+                        'procesar_movimiento_reserva: no se pudo guardar concepto_detalle mov=%s',
+                        getattr(movimiento_principal, 'id', None),
+                    )
             
             # Crear movimientos separados para transferencias si existen
             movimientos_creados = [movimiento_principal]
@@ -8062,8 +8084,10 @@ def procesar_movimiento_reserva(request):
                     monto_este_pago=monto_este_pago,
                     total_pagado_antes=senia_anterior,  # ✅ CORREGIDO: usar seña anterior, no total calculado mal
                     saldo_pendiente=saldo_pendiente,
+                    observaciones=observaciones_generales or '',
                     conceptos_detalle={
                         'conceptos': conceptos_completos,
+                        'observaciones_generales': observaciones_generales or '',
                         'fecha_pago': timezone.now().strftime('%Y-%m-%d'),
                         'moneda': moneda_op,
                         'formas_pago': {
@@ -20807,6 +20831,18 @@ def _movimiento_canonico_operacion(movimiento, sucursal=None):
     return movimiento
 
 
+def _observaciones_limpias_recibo(raw):
+    """Normaliza texto de observaciones para mostrar en recibo (omite placeholders)."""
+    if raw is None:
+        return ''
+    t = str(raw).strip()
+    if not t:
+        return ''
+    if t.lower() in ('sin observaciones', 'sin observaciones.'):
+        return ''
+    return t
+
+
 def _lineas_pagos_recibo_desde_movimiento(movimiento, recibo_obj=None, sucursal=None, moneda='ARS'):
     """
     Arma filas del recibo (conceptos + importes) desde Recibo.conceptos_detalle,
@@ -20845,7 +20881,7 @@ def _lineas_pagos_recibo_desde_movimiento(movimiento, recibo_obj=None, sucursal=
         if not codigo_mov:
             codigo_mov = f'M-{int(movimiento.id):06d}'
 
-    def _append_linea(cid, nombre, importe_raw):
+    def _append_linea(cid, nombre, importe_raw, observaciones=''):
         nonlocal total
         imp = _importe_decimal_concepto_recibo(importe_raw)
         es_neg = (imp < 0) or _concepto_es_negativo_recibo(cid, nombre)
@@ -20861,6 +20897,7 @@ def _lineas_pagos_recibo_desde_movimiento(movimiento, recibo_obj=None, sucursal=
                 'fecha': fecha_mov,
                 'codigo': str(cid or codigo_mov),
                 'concepto': nombre_show or 'Concepto',
+                'observaciones': _observaciones_limpias_recibo(observaciones),
                 'monto': _recibo_monto_str(abs(imp), moneda=moneda) if imp != 0 else '',
                 'es_negativo': es_neg,
             }
@@ -20881,7 +20918,7 @@ def _lineas_pagos_recibo_desde_movimiento(movimiento, recibo_obj=None, sucursal=
         cid = it.get('id') or it.get('codigo') or ''
         nombre = it.get('nombre') or it.get('concepto') or ''
         imp_raw = it.get('importe') or it.get('monto') or 0
-        _append_linea(cid, nombre, imp_raw)
+        _append_linea(cid, nombre, imp_raw, it.get('observaciones') or '')
 
     if not pagos and mov_conceptos:
         concepto_texto = mov_conceptos.concepto or ''
@@ -20984,6 +21021,22 @@ def _lineas_pagos_recibo_desde_movimiento(movimiento, recibo_obj=None, sucursal=
                 total = monto_ref
 
     return pagos, total
+
+
+def _observaciones_generales_recibo(movimiento=None, recibo_obj=None):
+    """Observaciones generales del cobro (campo aparte de las de cada concepto)."""
+    obs = ''
+    if recibo_obj is not None:
+        obs = _observaciones_limpias_recibo(getattr(recibo_obj, 'observaciones', None))
+        if not obs:
+            det = getattr(recibo_obj, 'conceptos_detalle', None)
+            if isinstance(det, dict):
+                obs = _observaciones_limpias_recibo(det.get('observaciones_generales'))
+    if not obs and movimiento is not None:
+        parsed, _items = _movimiento_json_conceptos_parsed(movimiento)
+        if isinstance(parsed, dict):
+            obs = _observaciones_limpias_recibo(parsed.get('observaciones_generales'))
+    return obs
 
 
 def _nombre_concepto_caja(cid, sucursal):
