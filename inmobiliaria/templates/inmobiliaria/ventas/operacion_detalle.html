@@ -14,7 +14,7 @@
             <a href="{% url 'inmobiliaria:oficina_dashboard' %}" class="btn btn-outline-secondary btn-sm">Panel oficina</a>
             <a href="{% url 'inmobiliaria:operaciones_venta_lista' %}" class="btn btn-outline-secondary btn-sm">Listado</a>
             <a href="{% url 'inmobiliaria:oficina_propiedad_libro' operacion.propiedad_id %}" class="btn btn-outline-success btn-sm">Libro del depto</a>
-            <a href="{% url 'inmobiliaria:detalle_propiedad' operacion.propiedad_id %}" class="btn btn-outline-primary btn-sm">Propiedad</a>
+            <a href="{% url 'inmobiliaria:propiedad_detalle' operacion.propiedad_id %}" class="btn btn-outline-primary btn-sm">Propiedad</a>
         </div>
     </div>
 
