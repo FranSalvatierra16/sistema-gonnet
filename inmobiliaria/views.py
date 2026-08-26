@@ -21794,9 +21794,8 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato, pago_cuota_co
         if not getattr(request.user, 'sucursal', None):
             raise ValueError('El usuario no tiene sucursal asignada. No se puede crear el movimiento.')
 
-        err_cotiz = _exigir_cotizacion_caja_o_error(caja)
-        if err_cotiz:
-            return None, Decimal('0'), err_cotiz
+        # Operaciones de contrato/cuota no exigen cotización al momento:
+        # si falta, queda null y se completa al guardar la cotización de la caja.
 
         # Función auxiliar para limpiar valores monetarios
         def limpiar_valor_monetario(valor_str):
@@ -22032,7 +22031,11 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato, pago_cuota_co
             monto_cheque=monto_cheque,
             monto_tarjeta=monto_tarjeta,
             monto_dolares=monto_dolares,
-            cotizacion_dolar=caja.cotizacion_dolar,
+            cotizacion_dolar=(
+                caja.cotizacion_dolar
+                if _caja_tiene_cotizacion_dolar(caja)
+                else None
+            ),
             fecha=timezone.now(),
             empleado=request.user,
             sucursal=request.user.sucursal,
@@ -22723,10 +22726,9 @@ def procesar_operacion_contrato(request, contrato_id):
         caja = obtener_caja_abierta(request)
         if not caja:
             return JsonResponse({'error': 'No hay una caja abierta'}, status=400)
-        err_cotiz = _exigir_cotizacion_caja_o_error(caja)
-        if err_cotiz:
-            return JsonResponse({'error': err_cotiz}, status=400)
-        
+        # Cotización opcional acá: si no está cargada, el movimiento queda sin TC
+        # y se completa al guardar la cotización del día en la caja.
+
         result = procesar_conceptos_y_crear_movimiento(request, caja, contrato)
         movimiento = result[0]
         total_movimiento = result[1]
