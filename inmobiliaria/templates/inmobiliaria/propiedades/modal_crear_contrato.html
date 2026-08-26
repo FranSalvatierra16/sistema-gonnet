@@ -165,16 +165,22 @@
                                 </div>
                                 <div class="card-body">
                                     <p class="small text-muted mb-2">Podés agregar más de uno. Por defecto se reparte en partes iguales (editable en carátula).</p>
-                                    <div class="d-flex gap-2 mb-3">
-                                        <input type="number" id="vendedor_id" placeholder="Ingresa ID del vendedor" min="1"
-                                               class="form-control" oninput="buscarVendedorAutomatico()">
-                                        <button type="button" onclick="buscarVendedor(event)" class="btn btn-primary">🔍 Buscar</button>
-                                        <button type="button" onclick="agregarVendedor24()" class="btn btn-success">➕ Agregar</button>
+                                    <div class="position-relative mb-3">
+                                        <div class="d-flex gap-2">
+                                            <input type="text" id="vendedor_id" placeholder="Buscar por nombre, apellido o ID…"
+                                                   class="form-control" autocomplete="off"
+                                                   oninput="buscarVendedorAutomatico()"
+                                                   onkeydown="if(event.key==='Enter'){event.preventDefault();buscarVendedor(event);}">
+                                            <button type="button" onclick="buscarVendedor(event)" class="btn btn-primary">🔍 Buscar</button>
+                                            <button type="button" onclick="agregarVendedor24()" class="btn btn-success">➕ Agregar</button>
+                                        </div>
+                                        <div id="vendedor_sugerencias_24" class="list-group position-absolute shadow-sm border rounded mt-1 d-none"
+                                             style="z-index:1060; max-height:12rem; overflow-y:auto; left:0; right:0;"></div>
                                     </div>
                                     <input type="hidden" id="modalVendedorId" name="vendedor_id">
                                     <div id="vendedor_ids_container_24"></div>
                                     <div id="lista_vendedores_24" class="border rounded p-2 bg-light mb-2" style="min-height: 60px;">
-                                        <span class="text-muted small">Ninguno. Buscá por ID y pulsá Agregar.</span>
+                                        <span class="text-muted small">Ninguno. Buscá por nombre o ID y pulsá Agregar.</span>
                                     </div>
                                     <div id="vendedor_info" style="display: none;" class="alert alert-success py-2 mb-0">
                                         <div class="d-flex align-items-center gap-2">
@@ -903,7 +909,7 @@ function renderListaVendedores24() {
     const lista = document.getElementById('lista_vendedores_24');
     if (!lista) return;
     if (!vendedoresSeleccionados24.length) {
-        lista.innerHTML = '<span class="text-muted small">Ninguno. Buscá por ID y pulsá Agregar.</span>';
+        lista.innerHTML = '<span class="text-muted small">Ninguno. Buscá por nombre o ID y pulsá Agregar.</span>';
         sincronizarVendedoresHidden24();
         return;
     }
@@ -938,92 +944,134 @@ function quitarVendedor24(id) {
     renderListaVendedores24();
 }
 
-function buscarVendedorAutomatico() {
-    const vendedorId = document.getElementById('vendedor_id').value.trim();
-    const vendedorInfo = document.getElementById('vendedor_info');
-    
-    // Limpiar el timeout anterior
-    if (busquedaVendedorTimeout) clearTimeout(busquedaVendedorTimeout);
-    
-    // Si no hay ID, ocultar info
-    if (!vendedorId) {
-        vendedorInfo.style.display = 'none';
-        vendedorPendiente24 = null;
-        return;
-    }
-    
-    // Buscar después de 500ms de no escribir
-    busquedaVendedorTimeout = setTimeout(() => {
-        buscarVendedor();
-    }, 500);
+function _labelVendedor24(v) {
+    const ap = (v.apellido || '').trim();
+    const nom = (v.nombre || '').trim();
+    const nombre = (ap && nom) ? (ap + ', ' + nom) : (ap || nom || ('ID ' + v.id));
+    return nombre + ' (ID ' + v.id + ')';
 }
 
-// Función para buscar vendedor
-function buscarVendedor(event) {
-    const vendedorId = document.getElementById('vendedor_id').value.trim();
-    const vendedorInfo = document.getElementById('vendedor_info');
-    
-    if (!vendedorId) {
-        alert('❌ Por favor ingresa un ID de vendedor');
+function _setVendedorPendiente24(v) {
+    const info = document.getElementById('vendedor_info');
+    const nombreEl = document.getElementById('vendedor_nombre');
+    const input = document.getElementById('vendedor_id');
+    const sug = document.getElementById('vendedor_sugerencias_24');
+    if (!v || !v.id) {
+        vendedorPendiente24 = null;
+        if (info) info.style.display = 'none';
+        if (nombreEl) nombreEl.textContent = '';
         return;
     }
-    
-    console.log('🔍 Buscando vendedor con ID:', vendedorId);
-    
-    // Usar la URL correcta de Django
-    fetch(`{% url 'inmobiliaria:obtener_vendedor' '0' %}`.replace('0', vendedorId))
-        .then(response => response.json())
-        .then(data => {
-            console.log('📝 Respuesta del servidor:', data);
-            
-            if (data.success) {
-                // Vendedor encontrado - mostrar información
-                let nombreVendedor = 'Nombre no disponible';
-                
-                // Probar diferentes formatos de respuesta
-                if (data.nombre) {
-                    nombreVendedor = data.nombre;
-                } else if (data.vendedor && data.vendedor.nombre_completo) {
-                    nombreVendedor = data.vendedor.nombre_completo;
-                } else if (data.vendedor && data.vendedor.nombre) {
-                    nombreVendedor = data.vendedor.nombre;
-                } else if (data.vendedor && data.vendedor.first_name) {
-                    nombreVendedor = data.vendedor.first_name + ' ' + (data.vendedor.last_name || '');
-                }
-                
-                console.log('🎯 Nombre extraído:', nombreVendedor);
-                
-                // Mostrar información del vendedor
-                document.getElementById('vendedor_nombre').textContent = nombreVendedor;
-                vendedorInfo.style.display = 'block';
-                vendedorPendiente24 = { id: vendedorId, nombre: nombreVendedor };
-                
-                console.log('✅ Vendedor mostrado correctamente');
-            } else {
-                // Vendedor no encontrado
-                document.getElementById('vendedor_nombre').textContent = '';
+    const label = _labelVendedor24(v);
+    vendedorPendiente24 = { id: v.id, nombre: label };
+    if (nombreEl) nombreEl.textContent = label;
+    if (info) {
+        info.style.display = 'block';
+        info.className = 'alert alert-success py-2 mb-0';
+    }
+    if (input) input.value = label;
+    if (sug) {
+        sug.classList.add('d-none');
+        sug.innerHTML = '';
+    }
+}
+
+function _pintarSugerenciasVendedor24(items) {
+    const sug = document.getElementById('vendedor_sugerencias_24');
+    if (!sug) return;
+    sug.innerHTML = '';
+    if (!items || !items.length) {
+        sug.classList.add('d-none');
+        return;
+    }
+    items.forEach(function (v) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'list-group-item list-group-item-action py-1 px-2 small';
+        btn.textContent = _labelVendedor24(v);
+        btn.addEventListener('click', function () { _setVendedorPendiente24(v); });
+        sug.appendChild(btn);
+    });
+    sug.classList.remove('d-none');
+}
+
+function buscarVendedorAutomatico() {
+    const termino = (document.getElementById('vendedor_id') || {}).value.trim();
+    const vendedorInfo = document.getElementById('vendedor_info');
+
+    if (busquedaVendedorTimeout) clearTimeout(busquedaVendedorTimeout);
+
+    if (!termino) {
+        if (vendedorInfo) vendedorInfo.style.display = 'none';
+        vendedorPendiente24 = null;
+        _pintarSugerenciasVendedor24([]);
+        return;
+    }
+
+    busquedaVendedorTimeout = setTimeout(function () {
+        buscarVendedor();
+    }, 400);
+}
+
+function buscarVendedor(event) {
+    const input = document.getElementById('vendedor_id');
+    let termino = (input && input.value || '').trim();
+    const vendedorInfo = document.getElementById('vendedor_info');
+    const manual = !!(event && event.type === 'click');
+
+    if (!termino) {
+        if (manual) alert('Ingresá un nombre, apellido o ID de vendedor');
+        return;
+    }
+
+    // Si ya está en formato "Apellido, Nombre (ID 12)", buscar por ese ID
+    const mId = termino.match(/\(ID\s*(\d+)\)\s*$/i);
+    if (mId) termino = mId[1];
+
+    const url = '{% url "inmobiliaria:buscar_vendedores" %}?termino=' + encodeURIComponent(termino);
+    fetch(url, { credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            const items = (data && data.vendedores) || [];
+            if (!items.length) {
                 vendedorPendiente24 = null;
-                vendedorInfo.style.display = 'none';
-                
-                console.log('❌ Vendedor no encontrado');
-                // Solo mostrar alerta si se presionó el botón buscar manualmente
-                if (event && event.type === 'click') {
-                    alert('❌ Vendedor no encontrado con ID: ' + vendedorId);
+                if (vendedorInfo) vendedorInfo.style.display = 'none';
+                _pintarSugerenciasVendedor24([]);
+                if (manual) alert('No se encontró vendedor con «' + termino + '» en tu sucursal');
+                return;
+            }
+            if (items.length === 1) {
+                _setVendedorPendiente24(items[0]);
+                return;
+            }
+            vendedorPendiente24 = null;
+            if (vendedorInfo) vendedorInfo.style.display = 'none';
+            _pintarSugerenciasVendedor24(items);
+            if (manual) {
+                const nombreEl = document.getElementById('vendedor_nombre');
+                if (nombreEl) nombreEl.textContent = items.length + ' resultados — elegí uno de la lista';
+                if (vendedorInfo) {
+                    vendedorInfo.style.display = 'block';
+                    vendedorInfo.className = 'alert alert-info py-2 mb-0';
                 }
             }
         })
-        .catch(error => {
-            console.error('💥 Error al buscar vendedor:', error);
-            document.getElementById('vendedor_nombre').textContent = '';
+        .catch(function (err) {
+            console.error('Error al buscar vendedor:', err);
             vendedorPendiente24 = null;
-            vendedorInfo.style.display = 'none';
-            
-            // Solo mostrar alerta si se presionó el botón buscar manualmente
-            if (event && event.type === 'click') {
-                alert('💥 Error al buscar vendedor. Intenta de nuevo.');
-            }
+            if (vendedorInfo) vendedorInfo.style.display = 'none';
+            _pintarSugerenciasVendedor24([]);
+            if (manual) alert('Error al buscar vendedor. Intentá de nuevo.');
         });
 }
+
+document.addEventListener('click', function (e) {
+    const sug = document.getElementById('vendedor_sugerencias_24');
+    const input = document.getElementById('vendedor_id');
+    if (!sug || sug.classList.contains('d-none')) return;
+    if (e.target === input || sug.contains(e.target)) return;
+    sug.classList.add('d-none');
+});
 
 
 // Función para actualizar el resumen del contrato
@@ -1089,7 +1137,7 @@ document.addEventListener('DOMContentLoaded', function() {
         sincronizarVendedoresHidden24();
         const faltantes = [];
         if (!vendedoresSeleccionados24.length) {
-            faltantes.push('vendedor / productor (buscá el ID y pulsá Agregar)');
+            faltantes.push('vendedor / productor (buscá por nombre o ID y pulsá Agregar)');
         }
         const fechaOp = document.querySelector('#formContrato [name="fecha_operacion"]');
         if (fechaOp && !fechaOp.value) {

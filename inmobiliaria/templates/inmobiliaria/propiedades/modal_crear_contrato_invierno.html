@@ -148,16 +148,22 @@
                                 </div>
                                 <div class="card-body">
                                     <p class="small text-muted mb-2">Podés agregar más de uno. Por defecto se reparte en partes iguales (editable en carátula).</p>
-                                    <div class="d-flex gap-2 mb-3">
-                                        <input type="number" id="vendedor_id_invierno" placeholder="Ingresa ID del vendedor" min="1"
-                                               class="form-control" oninput="buscarVendedorAutomaticoInvierno()">
-                                        <button type="button" onclick="buscarVendedorInvierno(event)" class="btn btn-primary">🔍 Buscar</button>
-                                        <button type="button" onclick="agregarVendedorInvierno()" class="btn btn-success">➕ Agregar</button>
+                                    <div class="position-relative mb-3">
+                                        <div class="d-flex gap-2">
+                                            <input type="text" id="vendedor_id_invierno" placeholder="Buscar por nombre, apellido o ID…"
+                                                   class="form-control" autocomplete="off"
+                                                   oninput="buscarVendedorAutomaticoInvierno()"
+                                                   onkeydown="if(event.key==='Enter'){event.preventDefault();buscarVendedorInvierno(event);}">
+                                            <button type="button" onclick="buscarVendedorInvierno(event)" class="btn btn-primary">🔍 Buscar</button>
+                                            <button type="button" onclick="agregarVendedorInvierno()" class="btn btn-success">➕ Agregar</button>
+                                        </div>
+                                        <div id="vendedor_sugerencias_invierno" class="list-group position-absolute shadow-sm border rounded mt-1 d-none"
+                                             style="z-index:1060; max-height:12rem; overflow-y:auto; left:0; right:0;"></div>
                                     </div>
                                     <input type="hidden" id="modalVendedorIdInvierno" name="vendedor_id">
                                     <div id="vendedor_ids_container_invierno"></div>
                                     <div id="lista_vendedores_invierno" class="border rounded p-2 bg-light mb-2" style="min-height: 60px;">
-                                        <span class="text-muted small">Ninguno. Buscá por ID y pulsá Agregar.</span>
+                                        <span class="text-muted small">Ninguno. Buscá por nombre o ID y pulsá Agregar.</span>
                                     </div>
                                     <div id="vendedor_info_invierno" style="display: none;" class="alert alert-success py-2 mb-0">
                                         <div class="d-flex align-items-center gap-2">
@@ -675,7 +681,7 @@ function renderListaVendedoresInvierno() {
     const lista = document.getElementById('lista_vendedores_invierno');
     if (!lista) return;
     if (!vendedoresSeleccionadosInvierno.length) {
-        lista.innerHTML = '<span class="text-muted small">Ninguno. Buscá por ID y pulsá Agregar.</span>';
+        lista.innerHTML = '<span class="text-muted small">Ninguno. Buscá por nombre o ID y pulsá Agregar.</span>';
         sincronizarVendedoresHiddenInvierno();
         return;
     }
@@ -710,92 +716,133 @@ function quitarVendedorInvierno(id) {
     renderListaVendedoresInvierno();
 }
 
-function buscarVendedorAutomaticoInvierno() {
-    const vendedorId = document.getElementById('vendedor_id_invierno').value.trim();
-    const vendedorInfo = document.getElementById('vendedor_info_invierno');
-    
-    // Limpiar el timeout anterior
-    if (busquedaVendedorTimeoutInvierno) clearTimeout(busquedaVendedorTimeoutInvierno);
-    
-    // Si no hay ID, ocultar info
-    if (!vendedorId) {
-        vendedorInfo.style.display = 'none';
-        vendedorPendienteInvierno = null;
-        return;
-    }
-    
-    // Buscar después de 500ms de no escribir
-    busquedaVendedorTimeoutInvierno = setTimeout(() => {
-        buscarVendedorInvierno();
-    }, 500);
+function _labelVendedorInvierno(v) {
+    const ap = (v.apellido || '').trim();
+    const nom = (v.nombre || '').trim();
+    const nombre = (ap && nom) ? (ap + ', ' + nom) : (ap || nom || ('ID ' + v.id));
+    return nombre + ' (ID ' + v.id + ')';
 }
 
-// Función para buscar vendedor
-function buscarVendedorInvierno(event) {
-    const vendedorId = document.getElementById('vendedor_id_invierno').value.trim();
-    const vendedorInfo = document.getElementById('vendedor_info_invierno');
-    
-    if (!vendedorId) {
-        alert('❌ Por favor ingresa un ID de vendedor');
+function _setVendedorPendienteInvierno(v) {
+    const info = document.getElementById('vendedor_info_invierno');
+    const nombreEl = document.getElementById('vendedor_nombre_invierno');
+    const input = document.getElementById('vendedor_id_invierno');
+    const sug = document.getElementById('vendedor_sugerencias_invierno');
+    if (!v || !v.id) {
+        vendedorPendienteInvierno = null;
+        if (info) info.style.display = 'none';
+        if (nombreEl) nombreEl.textContent = '';
         return;
     }
-    
-    console.log('🔍 Buscando vendedor con ID:', vendedorId);
-    
-    // Usar la URL correcta de Django
-    fetch(`{% url 'inmobiliaria:obtener_vendedor' '0' %}`.replace('0', vendedorId))
-        .then(response => response.json())
-        .then(data => {
-            console.log('📝 Respuesta del servidor:', data);
-            
-            if (data.success) {
-                // Vendedor encontrado - mostrar información
-                let nombreVendedor = 'Nombre no disponible';
-                
-                // Probar diferentes formatos de respuesta
-                if (data.nombre) {
-                    nombreVendedor = data.nombre;
-                } else if (data.vendedor && data.vendedor.nombre_completo) {
-                    nombreVendedor = data.vendedor.nombre_completo;
-                } else if (data.vendedor && data.vendedor.nombre) {
-                    nombreVendedor = data.vendedor.nombre;
-                } else if (data.vendedor && data.vendedor.first_name) {
-                    nombreVendedor = data.vendedor.first_name + ' ' + (data.vendedor.last_name || '');
-                }
-                
-                console.log('🎯 Nombre extraído:', nombreVendedor);
-                
-                // Mostrar información del vendedor
-                document.getElementById('vendedor_nombre_invierno').textContent = nombreVendedor;
-                vendedorInfo.style.display = 'block';
-                vendedorPendienteInvierno = { id: vendedorId, nombre: nombreVendedor };
-                
-                console.log('✅ Vendedor mostrado correctamente');
-            } else {
-                // Vendedor no encontrado
-                document.getElementById('vendedor_nombre_invierno').textContent = '';
+    const label = _labelVendedorInvierno(v);
+    vendedorPendienteInvierno = { id: v.id, nombre: label };
+    if (nombreEl) nombreEl.textContent = label;
+    if (info) {
+        info.style.display = 'block';
+        info.className = 'alert alert-success py-2 mb-0';
+    }
+    if (input) input.value = label;
+    if (sug) {
+        sug.classList.add('d-none');
+        sug.innerHTML = '';
+    }
+}
+
+function _pintarSugerenciasVendedorInvierno(items) {
+    const sug = document.getElementById('vendedor_sugerencias_invierno');
+    if (!sug) return;
+    sug.innerHTML = '';
+    if (!items || !items.length) {
+        sug.classList.add('d-none');
+        return;
+    }
+    items.forEach(function (v) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'list-group-item list-group-item-action py-1 px-2 small';
+        btn.textContent = _labelVendedorInvierno(v);
+        btn.addEventListener('click', function () { _setVendedorPendienteInvierno(v); });
+        sug.appendChild(btn);
+    });
+    sug.classList.remove('d-none');
+}
+
+function buscarVendedorAutomaticoInvierno() {
+    const termino = (document.getElementById('vendedor_id_invierno') || {}).value.trim();
+    const vendedorInfo = document.getElementById('vendedor_info_invierno');
+
+    if (busquedaVendedorTimeoutInvierno) clearTimeout(busquedaVendedorTimeoutInvierno);
+
+    if (!termino) {
+        if (vendedorInfo) vendedorInfo.style.display = 'none';
+        vendedorPendienteInvierno = null;
+        _pintarSugerenciasVendedorInvierno([]);
+        return;
+    }
+
+    busquedaVendedorTimeoutInvierno = setTimeout(function () {
+        buscarVendedorInvierno();
+    }, 400);
+}
+
+function buscarVendedorInvierno(event) {
+    const input = document.getElementById('vendedor_id_invierno');
+    let termino = (input && input.value || '').trim();
+    const vendedorInfo = document.getElementById('vendedor_info_invierno');
+    const manual = !!(event && event.type === 'click');
+
+    if (!termino) {
+        if (manual) alert('Ingresá un nombre, apellido o ID de vendedor');
+        return;
+    }
+
+    const mId = termino.match(/\(ID\s*(\d+)\)\s*$/i);
+    if (mId) termino = mId[1];
+
+    const url = '{% url "inmobiliaria:buscar_vendedores" %}?termino=' + encodeURIComponent(termino);
+    fetch(url, { credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            const items = (data && data.vendedores) || [];
+            if (!items.length) {
                 vendedorPendienteInvierno = null;
-                vendedorInfo.style.display = 'none';
-                
-                console.log('❌ Vendedor no encontrado');
-                // Solo mostrar alerta si se presionó el botón buscar manualmente
-                if (event && event.type === 'click') {
-                    alert('❌ Vendedor no encontrado con ID: ' + vendedorId);
+                if (vendedorInfo) vendedorInfo.style.display = 'none';
+                _pintarSugerenciasVendedorInvierno([]);
+                if (manual) alert('No se encontró vendedor con «' + termino + '» en tu sucursal');
+                return;
+            }
+            if (items.length === 1) {
+                _setVendedorPendienteInvierno(items[0]);
+                return;
+            }
+            vendedorPendienteInvierno = null;
+            if (vendedorInfo) vendedorInfo.style.display = 'none';
+            _pintarSugerenciasVendedorInvierno(items);
+            if (manual) {
+                const nombreEl = document.getElementById('vendedor_nombre_invierno');
+                if (nombreEl) nombreEl.textContent = items.length + ' resultados — elegí uno de la lista';
+                if (vendedorInfo) {
+                    vendedorInfo.style.display = 'block';
+                    vendedorInfo.className = 'alert alert-info py-2 mb-0';
                 }
             }
         })
-        .catch(error => {
-            console.error('💥 Error al buscar vendedor:', error);
-            document.getElementById('vendedor_nombre_invierno').textContent = '';
+        .catch(function (err) {
+            console.error('Error al buscar vendedor:', err);
             vendedorPendienteInvierno = null;
-            vendedorInfo.style.display = 'none';
-            
-            // Solo mostrar alerta si se presionó el botón buscar manualmente
-            if (event && event.type === 'click') {
-                alert('💥 Error al buscar vendedor. Intenta de nuevo.');
-            }
+            if (vendedorInfo) vendedorInfo.style.display = 'none';
+            _pintarSugerenciasVendedorInvierno([]);
+            if (manual) alert('Error al buscar vendedor. Intentá de nuevo.');
         });
 }
+
+document.addEventListener('click', function (e) {
+    const sug = document.getElementById('vendedor_sugerencias_invierno');
+    const input = document.getElementById('vendedor_id_invierno');
+    if (!sug || sug.classList.contains('d-none')) return;
+    if (e.target === input || sug.contains(e.target)) return;
+    sug.classList.add('d-none');
+});
 
 // Manejar el envío del formulario
 document.getElementById('formContratoInvierno')?.addEventListener('submit', function(e) {
@@ -807,7 +854,7 @@ document.getElementById('formContratoInvierno')?.addEventListener('submit', func
     sincronizarVendedoresHiddenInvierno();
     const faltantes = [];
     if (!vendedoresSeleccionadosInvierno.length) {
-        faltantes.push('vendedor / productor (buscá el ID y pulsá Agregar)');
+        faltantes.push('vendedor / productor (buscá por nombre o ID y pulsá Agregar)');
     }
     const fechaOp = this.querySelector('[name="fecha_operacion"]');
     if (fechaOp && !fechaOp.value) {

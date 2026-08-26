@@ -17939,8 +17939,18 @@ def buscar_vendedores(request):
         if termino:
             q_text = (
                 Q(nombre__icontains=termino) |
-                Q(apellido__icontains=termino)
+                Q(apellido__icontains=termino) |
+                Q(username__icontains=termino) |
+                Q(dni__icontains=termino)
             )
+            # "apellido nombre" o "nombre apellido"
+            partes = [p for p in termino.replace(',', ' ').split() if p]
+            if len(partes) >= 2:
+                a, b = partes[0], partes[1]
+                q_text = q_text | (
+                    (Q(apellido__icontains=a) & Q(nombre__icontains=b)) |
+                    (Q(apellido__icontains=b) & Q(nombre__icontains=a))
+                )
             try:
                 vid = int(termino)
                 q_text = q_text | Q(id=vid)
