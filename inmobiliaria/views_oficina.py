@@ -307,106 +307,11 @@ def _filas_contratos_faltantes_libro(
     dr_hasta=None,
 ):
     """
-    Cobros de contrato (cuotas pagadas) sin movimiento visible en el libro:
-    se listan como alquileres a partir de las cuotas.
+    Los cobros de contrato no se inventan desde cuotas/movimientos.
+    Entran al libro solo cuando la liquidación queda en estado «oficina»
+    (ver _filas_liquidaciones_oficina_libro).
     """
-    import re
-    from datetime import date as date_cls
-    from datetime import time as time_cls
-
-    from inmobiliaria.models import ContratoAlquiler
-
-    if not contrato_ids:
-        return []
-
-    cubiertos = set()
-    for mov in movimientos:
-        txt = getattr(mov, 'concepto', None) or ''
-        for cid in contrato_ids:
-            if re.search(rf'Contrato\s*#\s*{cid}\b', txt, re.IGNORECASE):
-                cubiertos.add(cid)
-
-    faltan = [cid for cid in contrato_ids if cid not in cubiertos]
-    if not faltan:
-        return []
-
-    contratos = (
-        ContratoAlquiler.objects.filter(
-            id__in=faltan,
-            propiedad=propiedad,
-            sucursal=sucursal,
-        )
-        .select_related('inquilino')
-        .prefetch_related('cuotas')
-    )
-    filas = []
-    for c in contratos:
-        cliente = _nombre_cliente_corto(c.inquilino)
-        moneda = (getattr(c, 'moneda', None) or 'ARS').strip().upper()
-        for cuota in c.cuotas.all():
-            estado = (getattr(cuota, 'estado', None) or '').lower()
-            if estado not in ('pagada', 'pagada_con_mora'):
-                continue
-            fecha_raw = (
-                getattr(cuota, 'fecha_pago', None)
-                or getattr(cuota, 'fecha_vencimiento', None)
-                or getattr(c, 'fecha_operacion', None)
-            )
-            if fecha_raw is None:
-                continue
-            if isinstance(fecha_raw, datetime):
-                f_date = fecha_raw.date()
-                f_dt = fecha_raw
-            elif isinstance(fecha_raw, date_cls):
-                f_date = fecha_raw
-                f_dt = datetime.combine(f_date, time_cls.min)
-                if timezone.is_naive(f_dt):
-                    try:
-                        f_dt = timezone.make_aware(f_dt)
-                    except Exception:
-                        pass
-            else:
-                continue
-            if dr_desde and f_date < dr_desde:
-                continue
-            if dr_hasta and f_date > dr_hasta:
-                continue
-            monto = Decimal(
-                str(
-                    getattr(cuota, 'monto_total', None)
-                    or getattr(cuota, 'monto', None)
-                    or 0
-                )
-            )
-            if monto <= 0:
-                continue
-            nro = getattr(cuota, 'numero_cuota', None) or ''
-            desc = f'Contrato #{c.id}'
-            if nro:
-                desc = f'{desc} — Cuota {nro}'
-            if cliente:
-                desc = f'{desc} — {cliente}'
-            fila = {
-                'fecha': f_dt,
-                'descripcion': desc,
-                'gastos_ars': Decimal('0'),
-                'alquileres_ars': Decimal('0'),
-                'gastos_usd': Decimal('0'),
-                'ingreso_usd': Decimal('0'),
-                'tipo_cambio': None,
-                'movimiento_id': None,
-                'tipo': 'IN',
-                'sin_caja': True,
-                'es_inicio_caja': False,
-                'es_manual': False,
-                'fila_manual_id': None,
-            }
-            if moneda == 'USD':
-                fila['ingreso_usd'] = monto
-            else:
-                fila['alquileres_ars'] = monto
-            filas.append(fila)
-    return filas
+    return []
 
 
 _MESES_LIBRO_ES = (
@@ -428,7 +333,7 @@ def _periodo_liquidacion_libro(liq):
 
 
 def _descripcion_liquidacion_oficina_libro(liq):
-    """Texto de fila: Contrato/Operación + Alquiler a Cobrar + período."""
+    """Texto de fila: Contrato/Operación + conceptos de alquiler de la liquidación."""
     from inmobiliaria.liquidacion_operacion import info_operacion_liquidacion
 
     info = info_operacion_liquidacion(liq)
@@ -440,9 +345,37 @@ def _descripcion_liquidacion_oficina_libro(liq):
             ref = f'Operación {liq.reserva_id}'
         else:
             ref = f'Liquidación #{liq.id}'
-    # Unificar "Contrato #N" sin espacios raros
-    ref = re.sub(r'(?i)^contrato\s*#?\s*(\d+)$', r'Contrato \1', ref)
+    # Mantener "Contrato #N" / "Operación N"
+    ref = re.sub(r'(?i)^contrato\s*#?\s*(\d+)$', r'Contrato #\1', ref)
     ref = re.sub(r'(?i)^reserva\s*#?\s*(\d+)$', r'Operación \1', ref)
+
+    # Preferir descripciones de las operaciones incluidas (alquileres del depto)
+    detalles = []
+    for op in (getattr(liq, 'operaciones_incluidas', None) or []):
+        if not isinstance(op, dict):
+            continue
+        tipo = (op.get('tipo') or '').strip().lower()
+        if tipo in ('division',):
+            continue
+        # Honorarios/comisiones de inmobiliaria no son «lo del depto»
+        if tipo == 'contrato_operacion_principal' or op.get('es_operacion_principal_honorarios'):
+            continue
+        d = (
+            op.get('descripcion')
+            or op.get('concepto_pago')
+            or op.get('label')
+            or ''
+        ).strip()
+        if d:
+            # Acortar prefijo repetido "Contrato #N — "
+            d = re.sub(r'(?i)^contrato\s*#?\s*\d+\s*[—\-–]\s*', '', d).strip() or d
+            if d and d not in detalles:
+                detalles.append(d)
+        if len(detalles) >= 4:
+            break
+
+    if detalles:
+        return f'{ref} — ' + '; '.join(detalles)
 
     periodo = _periodo_liquidacion_libro(liq)
     partes = [ref, 'Alquiler a Cobrar']
@@ -518,11 +451,10 @@ def _filas_liquidaciones_oficina_libro(
             continue
 
         moneda = (getattr(liq, 'moneda', None) or 'ARS').strip().upper()
+        # Solo lo del depto/propietario (nunca el total cobrado al inquilino).
         monto = Decimal(str(getattr(liq, 'monto_propietario', None) or 0))
         if monto <= 0:
             monto = Decimal(str(getattr(liq, 'monto_a_pagar', None) or 0))
-        if monto <= 0:
-            monto = Decimal(str(getattr(liq, 'monto_total_operacion', None) or 0))
         if monto <= 0:
             continue
 
@@ -1497,6 +1429,8 @@ def _fila_libro_desde_movimiento(mov, monto_prop_por_reserva=None, cotiz_por_res
     Mapea un MovimientoCaja a las columnas del libro.
     En ingresos de Operación N usa el monto al propietario (carátula/liquidación),
     no el total cobrado al locatario.
+    Ingresos de Contrato #N no entran acá: van al libro recién con liquidación
+    en estado «oficina» (monto del depto/propietario).
     En egresos solo la parte depto/propietario (excluye proporcional inquilino).
     Devuelve None si el egreso es 100% a cargo del inquilino (no va al libro).
     """
@@ -1515,6 +1449,12 @@ def _fila_libro_desde_movimiento(mov, monto_prop_por_reserva=None, cotiz_por_res
     es_egreso = (getattr(mov, 'tipo', None) or '').strip().upper() == TipoMovimientoCajaEnum.EGRESO
     reserva_id = None
     es_operacion_libro = False
+
+    # Cobros de contrato: no listar el bruto de caja. El libro usa liquidación «oficina».
+    if not es_egreso:
+        conc_chk = getattr(mov, 'concepto', None) or ''
+        if re.search(r'Contrato\s*#?\s*\d+', conc_chk, re.IGNORECASE):
+            return None
 
     # Ingreso de operación por día → solo lo del propietario (depto).
     if not es_egreso and monto_prop_por_reserva:
