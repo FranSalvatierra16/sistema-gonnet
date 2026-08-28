@@ -42,6 +42,7 @@ ETIQUETA_24 = '24 meses'
 ETIQUETA_TEMPORARIOS = 'Com. alq. temporarios'
 ETIQUETA_ANIO_INVIERNO = 'Com. alq. año e invierno'
 ETIQUETA_GESTION_COB = 'Honorarios gestión cob.'
+ETIQUETA_FONDO_MANTENIMIENTO = 'Fondo mantenimiento'
 
 
 def _rango_mes(anio, mes):
@@ -81,7 +82,9 @@ def _etiqueta_ingreso_desde_fila_honorario(fila):
     tipo = (fila.get('tipo') or '').strip()
     cat = (fila.get('categoria_operacion') or '').strip().lower()
 
-    if tipo in ('fondo', 'cochera'):
+    if tipo == 'fondo':
+        return None
+    if tipo == 'cochera':
         return ETIQUETA_GESTION_COB
 
     if tipo not in ('comision', 'comisiones_locador_locatario'):
@@ -135,6 +138,60 @@ def _filas_honorarios_para_cierre(sucursal, fecha_desde, fecha_hasta):
         fecha_desde,
         fecha_hasta,
     )
+
+
+def _fondo_mantenimiento_desde_honorarios(sucursal, fecha_desde, fecha_hasta):
+    """Suma fondo de mantenimiento (liquidaciones/carátulas) para Recaudación fondos."""
+    try:
+        filas = _filas_honorarios_para_cierre(sucursal, fecha_desde, fecha_hasta)
+        total = Decimal('0')
+        for f in filas:
+            if (f.get('tipo') or '').strip() != 'fondo':
+                continue
+            try:
+                monto = Decimal(str(f.get('monto') or 0))
+            except Exception:
+                continue
+            if monto == 0:
+                continue
+            total += monto
+        return total.quantize(Decimal('0.01'))
+    except Exception:
+        logger.exception(
+            'resumen_cierre: falló fondo mantenimiento (sucursal_id=%s, %s-%02d)',
+            getattr(sucursal, 'pk', None),
+            fecha_desde.year if fecha_desde else '?',
+            fecha_desde.month if fecha_desde else 0,
+        )
+        return Decimal('0')
+
+
+def _sumar_fondo_honorarios_a_recaudacion(bloque_recaudacion, monto_fondo):
+    """Incorpora fondo de liquidaciones al bloque Recaudación fondos."""
+    if monto_fondo <= 0:
+        return bloque_recaudacion
+    filas = list(bloque_recaudacion.get('filas') or [])
+    etiqueta_norm = _norm_nombre_cat(ETIQUETA_FONDO_MANTENIMIENTO)
+    encontrado = False
+    for fila in filas:
+        if _norm_nombre_cat(fila.get('nombre')) == etiqueta_norm:
+            fila['monto'] = (
+                Decimal(str(fila.get('monto') or 0)) + monto_fondo
+            ).quantize(Decimal('0.01'))
+            encontrado = True
+            break
+    if not encontrado:
+        filas.append({
+            'nombre': ETIQUETA_FONDO_MANTENIMIENTO,
+            'monto': monto_fondo,
+            'signo': 1,
+        })
+    total = sum((Decimal(str(f.get('monto') or 0)) for f in filas), Decimal('0'))
+    return {
+        **bloque_recaudacion,
+        'filas': filas,
+        'total': total.quantize(Decimal('0.01')),
+    }
 
 
 def _honorarios_por_etiqueta(sucursal, fecha_desde, fecha_hasta):
@@ -302,6 +359,9 @@ def construir_resumen_cierre(sucursal, anio, mes):
         )
         comisiones_pagadas = {}
     honorarios_map = _honorarios_por_etiqueta(sucursal, fecha_desde, fecha_hasta)
+    fondo_honorarios = _fondo_mantenimiento_desde_honorarios(
+        sucursal, fecha_desde, fecha_hasta
+    )
 
     vendedores_map = {
         v.id: v
@@ -424,6 +484,10 @@ def construir_resumen_cierre(sucursal, anio, mes):
         bloque_fondo_oscar = {'titulo': 'FONDO OSCAR', 'filas': [], 'total': Decimal('0')}
     if bloque_gastos_oscar is None:
         bloque_gastos_oscar = {'titulo': 'GASTOS OSCAR', 'filas': [], 'total': Decimal('0')}
+
+    bloque_recaudacion = _sumar_fondo_honorarios_a_recaudacion(
+        bloque_recaudacion, fondo_honorarios
+    )
 
     saldo = total_ingresos - total_egresos
     total_gral_ofic_fondo_tomados = (
