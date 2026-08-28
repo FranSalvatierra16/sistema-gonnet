@@ -99,6 +99,27 @@ def _movimiento_vinculado_reserva(movimiento, reserva_id: int) -> bool:
 
 
 def movimientos_reserva(reserva, *, tipo=None):
+    """Ingresos/egresos de caja vinculados a la reserva (por concepto o por recibo)."""
+    from inmobiliaria.models import Recibo
+
+    rid = int(reserva.id)
+    vistos = set()
+    out = []
+
+    def _agregar(mov):
+        if not mov or getattr(mov, 'fecha_eliminacion', None):
+            return
+        if tipo and (getattr(mov, 'tipo', None) or '').strip().upper() != str(tipo).strip().upper():
+            return
+        mid = int(mov.id)
+        if mid in vistos:
+            return
+        vistos.add(mid)
+        out.append(mov)
+
+    for rec in Recibo.objects.filter(reserva_id=rid).select_related('movimiento_caja'):
+        _agregar(getattr(rec, 'movimiento_caja', None))
+
     qs = MovimientoCaja.objects.filter(
         sucursal=reserva.sucursal,
         propiedad=reserva.propiedad,
@@ -106,8 +127,10 @@ def movimientos_reserva(reserva, *, tipo=None):
     )
     if tipo:
         qs = qs.filter(tipo=tipo)
-    rid = int(reserva.id)
-    return [m for m in qs.order_by('-fecha', '-id') if _movimiento_vinculado_reserva(m, rid)]
+    for m in qs.order_by('-fecha', '-id'):
+        if _movimiento_vinculado_reserva(m, rid):
+            _agregar(m)
+    return out
 
 
 def movimiento_tiene_concepto_10(movimiento) -> bool:

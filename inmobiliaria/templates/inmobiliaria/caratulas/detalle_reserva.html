@@ -233,10 +233,10 @@
                                         </a>
                                     </td>
                                     <td class="text-break">
-                                        {% if m.tipo == 'EG' %}<span class="badge bg-danger me-1">Egreso</span>{% endif %}
+                                        {% if m.tipo == 'EG' %}<span class="badge bg-danger me-1">Egreso</span>{% else %}<span class="badge bg-success me-1">Ingreso</span>{% endif %}
                                         {{ m.concepto|truncatechars:80 }}
                                     </td>
-                                    <td class="text-end">{% if m.tipo == 'EG' %}-{% endif %}${{ m.monto_total|floatformat:2 }}</td>
+                                    <td class="text-end {% if m.tipo == 'EG' %}text-danger{% else %}text-success{% endif %}">{% if m.tipo == 'EG' %}-{% else %}+{% endif %}${{ m.monto_total|floatformat:2 }}</td>
                                     <td class="text-end">
                                         <a href="{% url_recibo_movimiento m %}" class="btn btn-outline-primary btn-sm py-0" target="_blank" rel="noopener" title="Ver recibo">
                                             <i class="fas fa-eye"></i>

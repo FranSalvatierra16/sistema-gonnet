@@ -384,6 +384,7 @@ def _movimientos_reserva_qs(reserva):
         MovimientoCaja.objects.filter(
             propiedad_id=reserva.propiedad_id,
             sucursal_id=reserva.sucursal_id,
+            fecha_eliminacion__isnull=True,
         )
         .select_related('recibo')
         .order_by('fecha', 'id')
@@ -452,22 +453,104 @@ def _movimientos_devolucion_deposito_reserva(reserva, limit=30):
     return list(reversed(out))
 
 
+def _concepto_indica_devolucion_deposito(concepto, concepto_detalle='', operacion_id=None):
+    """True si el texto es devolución de depósito (egreso legítimo)."""
+    conc = (concepto or '')
+    conc_l = conc.lower()
+    raw = (concepto_detalle or '')
+    if 'devoluc' in conc_l and ('dep' in conc_l or 'depósito' in conc_l or 'deposito' in conc_l):
+        if operacion_id is None:
+            return True
+        rid = int(operacion_id)
+        if re.search(rf'Operaci[oó]n\s*#?\s*{rid}\b', conc, re.IGNORECASE):
+            return True
+        if re.search(rf'Devoluci[oó]n dep[oó]sito operaci[oó]n\s*{rid}\b', conc, re.IGNORECASE):
+            return True
+        if f'"devolucion_deposito_operacion_id": {rid}' in raw or f'"devolucion_deposito_operacion_id":{rid}' in raw:
+            return True
+        return False
+    if operacion_id is not None:
+        rid = int(operacion_id)
+        if f'"devolucion_deposito_operacion_id": {rid}' in raw or f'"devolucion_deposito_operacion_id":{rid}' in raw:
+            return True
+    return False
+
+
+def _reparar_movimientos_cobro_reserva_mal_tipados(reserva, movimientos):
+    """
+    Si un cobro de la operación (recibo / seña / alquiler) quedó tipado como EGRESO
+    por error, lo corrige a INGRESO. No toca devoluciones de depósito.
+    """
+    rid = int(reserva.id)
+    reparados = []
+    for mov in movimientos or []:
+        if not mov or not getattr(mov, 'id', None):
+            continue
+        tipo = (getattr(mov, 'tipo', None) or '').strip().upper()
+        if tipo != TipoMovimientoCajaEnum.EGRESO:
+            continue
+        if getattr(mov, 'fecha_eliminacion', None):
+            continue
+        conc = getattr(mov, 'concepto', None) or ''
+        detalle = getattr(mov, 'concepto_detalle', None) or ''
+        if _concepto_indica_devolucion_deposito(conc, detalle, rid):
+            continue
+        tiene_recibo = False
+        try:
+            rec = getattr(mov, 'recibo', None)
+            if rec is not None and int(getattr(rec, 'reserva_id', 0) or 0) == rid:
+                tiene_recibo = True
+        except Exception:
+            tiene_recibo = False
+        if not tiene_recibo and not _operacion_en_concepto(conc, rid):
+            from inmobiliaria.caja_devolucion_deposito import _movimiento_vinculado_reserva
+            if not _movimiento_vinculado_reserva(mov, rid):
+                continue
+        mov.tipo = TipoMovimientoCajaEnum.INGRESO
+        try:
+            mov.save(update_fields=['tipo'])
+            reparados.append(mov)
+            logger.info(
+                'caratula: reparado movimiento %s de EG→IN (reserva %s)',
+                mov.id,
+                rid,
+            )
+        except Exception:
+            logger.exception(
+                'caratula: no se pudo reparar tipo de movimiento %s (reserva %s)',
+                getattr(mov, 'id', None),
+                rid,
+            )
+    return reparados
+
+
 def _movimientos_operacion_reserva(reserva, limit=200):
     """Ingresos/egresos vinculados a la operación, incluida la devolución de depósito."""
     from inmobiliaria.caja_devolucion_deposito import _movimiento_vinculado_reserva
+    from inmobiliaria.models import Recibo
 
     rid = int(reserva.id)
     vistos = set()
     movimientos = []
 
     def _agregar(mov):
+        if not mov or getattr(mov, 'fecha_eliminacion', None):
+            return
         mid = int(mov.id)
         if mid in vistos:
             return
         vistos.add(mid)
         movimientos.append(mov)
 
-    # Filtrar en SQL por referencia a la operación (evita cortar por [:limit] de toda la propiedad).
+    # 1) Movimientos de los recibos de la reserva (vínculo autoritativo).
+    for rec in (
+        Recibo.objects.filter(reserva_id=rid)
+        .select_related('movimiento_caja', 'movimiento_caja__recibo')
+        .order_by('fecha_emision', 'id')
+    ):
+        _agregar(getattr(rec, 'movimiento_caja', None))
+
+    # 2) Referencia por concepto / detalle a la operación.
     if reserva.propiedad_id:
         qs = _movimientos_reserva_qs(reserva)
         q_ref = (
@@ -495,6 +578,8 @@ def _movimientos_operacion_reserva(reserva, limit=200):
 
     for mov in _movimientos_devolucion_deposito_reserva(reserva):
         _agregar(mov)
+
+    _reparar_movimientos_cobro_reserva_mal_tipados(reserva, movimientos)
 
     movimientos.sort(key=lambda m: (m.fecha or timezone.now(), m.id or 0))
     return movimientos[:limit]
@@ -4042,6 +4127,17 @@ def caratula_reserva(request, reserva_id):
 
     movimientos = _movimientos_operacion_reserva(reserva)
     recibos = list(reserva.recibos.all())
+
+    from inmobiliaria.caja_devolucion_deposito import sincronizar_senia_reserva_desde_movimientos
+
+    try:
+        sincronizar_senia_reserva_desde_movimientos(reserva)
+        reserva.refresh_from_db()
+    except Exception:
+        logger.exception(
+            'caratula: no se pudo sincronizar seña reserva_id=%s',
+            getattr(reserva, 'id', None),
+        )
 
     # Generar/actualizar comisiones aunque no haya movimientos vinculados en caja
     # (p. ej. operación marcada pagada sin cobro con "Operación {id}" en el concepto).
