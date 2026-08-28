@@ -1,4 +1,5 @@
 """Módulo Oficina: gastos, categorías y acceso a honorarios, vales, comisiones y cartera."""
+import json
 import logging
 import re
 from collections import defaultdict
@@ -10,6 +11,7 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Count, ProtectedError, Sum
 from django.http import HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
@@ -17,7 +19,6 @@ logger = logging.getLogger(__name__)
 
 from inmobiliaria.cartera_sucursal import (
     qs_cartera_sucursal,
-    sincronizar_cartera_compartida_sucursal,
     usuario_titular_cartera,
 )
 from inmobiliaria.models import (
@@ -443,11 +444,21 @@ def _cotizaciones_movimientos_por_reserva(sucursal, reserva_ids):
     """
     Última cotización USD en movimientos de caja que mencionan cada operación.
     """
+    from django.db.models import Q
+
     from inmobiliaria.models import MovimientoCaja
 
-    ids = [int(x) for x in reserva_ids if x]
+    ids = sorted({int(x) for x in reserva_ids if x})
     if not ids:
         return {}
+
+    q_ops = Q()
+    for rid in ids:
+        rid_s = str(rid)
+        q_ops |= Q(concepto__icontains=f'Operación {rid_s}')
+        q_ops |= Q(concepto__icontains=f'Operacion {rid_s}')
+        q_ops |= Q(concepto__icontains=f'Operación #{rid_s}')
+        q_ops |= Q(concepto__icontains=f'Operacion #{rid_s}')
 
     movs = (
         MovimientoCaja.objects.filter(
@@ -456,6 +467,7 @@ def _cotizaciones_movimientos_por_reserva(sucursal, reserva_ids):
             cotizacion_dolar__isnull=False,
         )
         .exclude(cotizacion_dolar__lte=0)
+        .filter(q_ops)
         .order_by('-fecha', '-id')
         .only('id', 'concepto', 'cotizacion_dolar', 'caja_id')
         .select_related('caja')
@@ -714,10 +726,15 @@ def _totales_gastos_por_raiz(qs_gastos):
     return dict(totales)
 
 
-def _sync_categorias_oficina_seguro(sucursal):
-    """Sincroniza categorías una sola vez; no tumba la pantalla si falla."""
+def _sync_categorias_oficina_seguro(sucursal, request=None):
+    """Sincroniza categorías; como máximo una vez por sesión y sucursal."""
     if not sucursal:
         return
+    if request is not None:
+        key = f'oficina_cat_sync_{getattr(sucursal, "pk", "")}'
+        if request.session.get(key):
+            return
+        request.session[key] = True
     try:
         asegurar_estructura_cierre_oficina(sucursal)
     except Exception:
@@ -736,7 +753,7 @@ def oficina_dashboard(request):
     if not sucursal:
         return HttpResponseForbidden('Tu usuario no tiene sucursal asignada.')
 
-    _sync_categorias_oficina_seguro(sucursal)
+    _sync_categorias_oficina_seguro(sucursal, request)
 
     today = timezone.localdate()
     mes_ini = today.replace(day=1)
@@ -774,18 +791,26 @@ def oficina_dashboard(request):
     vales_abiertos = ValeVendedor.objects.filter(
         vendedor__sucursal=sucursal,
     ).count()
-    propiedades_cartera = qs_cartera_sucursal(sucursal).count()
+    propiedades_cartera = qs_cartera_sucursal(sucursal, sincronizar=False).count()
 
     propiedades_oficina_count = propiedades_cartera
 
-    ventas_mes = OperacionVenta.objects.filter(
-        sucursal=sucursal,
-        estado='confirmada',
-        fecha_venta__gte=mes_ini,
-        fecha_venta__lte=today,
-    )
-    ventas_mes_count = ventas_mes.count()
-    ventas_mes_usd = ventas_mes.aggregate(t=Sum('precio_usd'))['t'] or Decimal('0')
+    ventas_mes_count = 0
+    ventas_mes_usd = Decimal('0')
+    try:
+        ventas_mes = OperacionVenta.objects.filter(
+            sucursal=sucursal,
+            estado='confirmada',
+            fecha_venta__gte=mes_ini,
+            fecha_venta__lte=today,
+        )
+        ventas_mes_count = ventas_mes.count()
+        ventas_mes_usd = ventas_mes.aggregate(t=Sum('precio_usd'))['t'] or Decimal('0')
+    except Exception:
+        logger.exception(
+            'oficina_dashboard: falló consulta ventas (sucursal_id=%s)',
+            getattr(sucursal, 'pk', None),
+        )
 
     return render(
         request,
@@ -813,7 +838,7 @@ def oficina_gastos(request):
     sucursal = request.user.sucursal
     if not sucursal:
         return HttpResponseForbidden('Tu usuario no tiene sucursal asignada.')
-    _sync_categorias_oficina_seguro(sucursal)
+    _sync_categorias_oficina_seguro(sucursal, request)
 
     fecha_desde_s = (request.GET.get('fecha_desde') or '').strip()
     fecha_hasta_s = (request.GET.get('fecha_hasta') or '').strip()
@@ -945,7 +970,7 @@ def oficina_categorias(request):
     sucursal = request.user.sucursal
     if not sucursal:
         return HttpResponseForbidden('Tu usuario no tiene sucursal asignada.')
-    _sync_categorias_oficina_seguro(sucursal)
+    _sync_categorias_oficina_seguro(sucursal, request)
 
     return render(
         request,
@@ -1173,7 +1198,7 @@ def oficina_resumen_cierre(request):
     sucursal = request.user.sucursal
     if not sucursal:
         return HttpResponseForbidden('Tu usuario no tiene sucursal asignada.')
-    _sync_categorias_oficina_seguro(sucursal)
+    _sync_categorias_oficina_seguro(sucursal, request)
 
     today = timezone.localdate()
     anio_s = (request.GET.get('anio') or '').strip()
@@ -1370,7 +1395,7 @@ def _qs_propiedades_oficina(sucursal, usuario=None):
         return Propiedad.objects.none()
 
     ids = (
-        qs_cartera_sucursal(sucursal)
+        qs_cartera_sucursal(sucursal, sincronizar=False)
         .values_list('propiedad_id', flat=True)
         .distinct()
     )
@@ -1854,21 +1879,74 @@ def oficina_propiedades_lista(request):
     if orden not in ('direccion', 'piso', 'propietario'):
         orden = 'direccion'
     qs = _qs_propiedades_oficina(sucursal)
-    total_cartera = qs.count()
     if q:
+        total_cartera = qs.count()
         qs = _filtrar_propiedades_oficina(qs, q)
+    else:
+        total_cartera = None
     propiedades = _ordenar_propiedades_oficina(qs, orden=orden)
+    total = len(propiedades)
+    if total_cartera is None:
+        total_cartera = total
     return render(
         request,
         'inmobiliaria/oficina/propiedades_lista.html',
         {
             'propiedades': propiedades,
-            'total': len(propiedades),
+            'total': total,
             'total_cartera': total_cartera,
             'q': q,
             'orden': orden,
         },
     )
+
+
+def _nav_propiedades_libro(sucursal, propiedad_id, fecha_desde_s='', fecha_hasta_s='', ventana=10):
+    """
+    Catálogo liviano para el buscador del libro y pestañas cercanas al depto actual.
+    Evita renderizar cientos de tabs en el HTML.
+    """
+    props = _ordenar_propiedades_oficina(
+        _qs_propiedades_oficina(sucursal),
+        orden='piso',
+    )
+    if not props:
+        return [], '[]'
+
+    qparams = ''
+    if fecha_desde_s or fecha_hasta_s:
+        parts = []
+        if fecha_desde_s:
+            parts.append(f'fecha_desde={fecha_desde_s}')
+        if fecha_hasta_s:
+            parts.append(f'fecha_hasta={fecha_hasta_s}')
+        qparams = '?' + '&'.join(parts)
+
+    catalogo = []
+    idx_actual = 0
+    for i, p in enumerate(props):
+        label = (p.direccion or '').strip()
+        if p.piso:
+            label = f'{label} {p.piso}'.strip()
+        if p.departamento:
+            label = f'{label}{p.departamento}'.strip()
+        href = reverse('inmobiliaria:oficina_propiedad_libro', args=[p.id]) + qparams
+        catalogo.append({
+            'id': p.id,
+            'label': label,
+            'propietario': str(p.propietario) if p.propietario else '',
+            'href': href,
+        })
+        if str(p.id) == str(propiedad_id):
+            idx_actual = i
+
+    if len(catalogo) <= 1:
+        return [], '[]'
+
+    inicio = max(0, idx_actual - ventana)
+    fin = min(len(props), idx_actual + ventana + 1)
+    tabs = props[inicio:fin]
+    return tabs, json.dumps(catalogo, ensure_ascii=False)
 
 
 @login_required
@@ -1879,16 +1957,7 @@ def oficina_propiedad_libro(request, propiedad_id):
 
     from inmobiliaria.models import Propiedad
 
-    sucursal = request.user.sucursal
-    titular = sincronizar_cartera_compartida_sucursal(sucursal)
-    en_cartera = bool(
-        titular
-        and CarteraPropiedadUsuario.objects.filter(
-            usuario=titular,
-            propiedad_id=propiedad_id,
-            propiedad__sucursal=sucursal,
-        ).exists()
-    )
+    sucursal, en_cartera = _propiedad_en_cartera_oficina(request.user, propiedad_id)
     if not en_cartera:
         return HttpResponseForbidden()
 
@@ -2090,9 +2159,11 @@ def oficina_propiedad_libro(request, propiedad_id):
         'total': total_ingresos - total_gastos,
     }
 
-    otras = _ordenar_propiedades_oficina(
-        _qs_propiedades_oficina(sucursal, request.user),
-        orden='piso',
+    otras_tabs, otras_catalogo_json = _nav_propiedades_libro(
+        sucursal,
+        propiedad_id,
+        fecha_desde_s=fecha_desde_s,
+        fecha_hasta_s=fecha_hasta_s,
     )
 
     return render(
@@ -2104,7 +2175,8 @@ def oficina_propiedad_libro(request, propiedad_id):
             'totales': totales,
             'resumen': resumen,
             'costos_compra': costos,
-            'otras_propiedades': otras,
+            'otras_propiedades': otras_tabs,
+            'otras_propiedades_catalogo_json': otras_catalogo_json,
             'fecha_desde': fecha_desde_s,
             'fecha_hasta': fecha_hasta_s,
             'inicio_caja': inicio,

@@ -140,30 +140,40 @@ def _filas_honorarios_para_cierre(sucursal, fecha_desde, fecha_hasta):
     )
 
 
-def _fondo_mantenimiento_desde_honorarios(sucursal, fecha_desde, fecha_hasta):
-    """Suma fondo de mantenimiento (liquidaciones/carátulas) para Recaudación fondos."""
+def _honorarios_y_fondo_para_cierre(sucursal, fecha_desde, fecha_hasta):
+    """Una sola pasada sobre honorarios del mes (evita triple consulta)."""
     try:
         filas = _filas_honorarios_para_cierre(sucursal, fecha_desde, fecha_hasta)
-        total = Decimal('0')
-        for f in filas:
-            if (f.get('tipo') or '').strip() != 'fondo':
-                continue
-            try:
-                monto = Decimal(str(f.get('monto') or 0))
-            except Exception:
-                continue
-            if monto == 0:
-                continue
-            total += monto
-        return total.quantize(Decimal('0.01'))
     except Exception:
         logger.exception(
-            'resumen_cierre: falló fondo mantenimiento (sucursal_id=%s, %s-%02d)',
+            'resumen_cierre: falló honorarios (sucursal_id=%s, %s-%02d)',
             getattr(sucursal, 'pk', None),
             fecha_desde.year if fecha_desde else '?',
             fecha_desde.month if fecha_desde else 0,
         )
-        return Decimal('0')
+        return {}, Decimal('0')
+
+    totales = defaultdict(lambda: Decimal('0'))
+    fondo = Decimal('0')
+    for f in filas:
+        try:
+            monto = Decimal(str(f.get('monto') or 0))
+        except Exception:
+            continue
+        if monto == 0:
+            continue
+        if (f.get('tipo') or '').strip() == 'fondo':
+            fondo += monto
+        etiqueta = _etiqueta_ingreso_desde_fila_honorario(f)
+        if etiqueta:
+            totales[etiqueta] += monto
+    return dict(totales), fondo.quantize(Decimal('0.01'))
+
+
+def _fondo_mantenimiento_desde_honorarios(sucursal, fecha_desde, fecha_hasta):
+    """Suma fondo de mantenimiento (liquidaciones/carátulas) para Recaudación fondos."""
+    _, fondo = _honorarios_y_fondo_para_cierre(sucursal, fecha_desde, fecha_hasta)
+    return fondo
 
 
 def _sumar_fondo_honorarios_a_recaudacion(bloque_recaudacion, monto_fondo):
@@ -195,29 +205,8 @@ def _sumar_fondo_honorarios_a_recaudacion(bloque_recaudacion, monto_fondo):
 
 
 def _honorarios_por_etiqueta(sucursal, fecha_desde, fecha_hasta):
-    try:
-        filas = _filas_honorarios_para_cierre(sucursal, fecha_desde, fecha_hasta)
-        totales = defaultdict(lambda: Decimal('0'))
-        for f in filas:
-            etiqueta = _etiqueta_ingreso_desde_fila_honorario(f)
-            if not etiqueta:
-                continue
-            try:
-                monto = Decimal(str(f.get('monto') or 0))
-            except Exception:
-                continue
-            if monto == 0:
-                continue
-            totales[etiqueta] += monto
-        return dict(totales)
-    except Exception:
-        logger.exception(
-            'resumen_cierre: falló honorarios (sucursal_id=%s, %s-%02d)',
-            getattr(sucursal, 'pk', None),
-            fecha_desde.year if fecha_desde else '?',
-            fecha_desde.month if fecha_desde else 0,
-        )
-        return {}
+    totales, _ = _honorarios_y_fondo_para_cierre(sucursal, fecha_desde, fecha_hasta)
+    return totales
 
 
 def _monto_absoluto_cat(totales_por_cat, cat_id):
@@ -279,21 +268,35 @@ def _saldo_cierre_dptos_tomados(sucursal, fecha_desde, fecha_hasta):
         return Decimal('0')
 
     tot_saldo = Decimal('0')
+    if not disps:
+        return tot_saldo
+
+    prop_ids = {d.propiedad_id for d in disps}
+    liqs_by_prop = defaultdict(list)
+    for liq in (
+        LiquidacionPropietario.objects.filter(
+            propiedad_id__in=prop_ids,
+            sucursal=sucursal,
+        )
+        .exclude(estado='cancelada')
+        .only(
+            'propiedad_id',
+            'monto_propietario',
+            'fecha_desde',
+            'fecha_hasta',
+            'fecha_creacion',
+            'estado',
+        )
+    ):
+        liqs_by_prop[liq.propiedad_id].append(liq)
+
     for disp in disps:
         if (disp.moneda_asegurado or 'ARS').upper() != 'ARS':
             continue
         pagado = Decimal(str(disp.monto_asegurado or 0))
         cobrado = Decimal('0')
-        liqs = (
-            LiquidacionPropietario.objects.filter(
-                propiedad=disp.propiedad,
-                sucursal=sucursal,
-            )
-            .exclude(estado='cancelada')
-            .only('monto_propietario', 'fecha_desde', 'fecha_hasta', 'fecha_creacion', 'estado')
-        )
         d1, d2 = disp.fecha_inicio, disp.fecha_fin
-        for liq in liqs:
+        for liq in liqs_by_prop.get(disp.propiedad_id, []):
             if not _liquidacion_solapa_rango(liq, d1, d2):
                 continue
             cobrado += liq.monto_propietario or Decimal('0')
@@ -358,8 +361,7 @@ def construir_resumen_cierre(sucursal, anio, mes):
             getattr(sucursal, 'pk', None),
         )
         comisiones_pagadas = {}
-    honorarios_map = _honorarios_por_etiqueta(sucursal, fecha_desde, fecha_hasta)
-    fondo_honorarios = _fondo_mantenimiento_desde_honorarios(
+    honorarios_map, fondo_honorarios = _honorarios_y_fondo_para_cierre(
         sucursal, fecha_desde, fecha_hasta
     )
 

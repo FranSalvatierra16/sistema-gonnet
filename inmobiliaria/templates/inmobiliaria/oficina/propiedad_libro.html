@@ -45,8 +45,9 @@
         </div>
     </div>
 
-    {% if otras_propiedades|length > 1 %}
+    {% if otras_propiedades_catalogo_json and otras_propiedades_catalogo_json != '[]' %}
     <div class="mb-3 no-print" id="libro-nav-propiedades">
+        <script type="application/json" id="libro-propiedades-catalogo">{{ otras_propiedades_catalogo_json|safe }}</script>
         <div class="position-relative mb-2" style="max-width:28rem">
             <label class="form-label small mb-0 text-muted" for="buscar-depto-libro">Ir a departamento</label>
             <div class="input-group input-group-sm">
@@ -76,6 +77,9 @@
                 {% endfor %}
             </ul>
         </div>
+        {% if otras_propiedades|length <= 1 %}
+        <p class="small text-muted mb-0 mt-1">Usá el buscador para ir a otro departamento.</p>
+        {% endif %}
     </div>
     {% endif %}
 
@@ -620,7 +624,35 @@
             .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     }
 
+    var catalogoCache = null;
+
+    function catalogoDesdeJson() {
+        if (catalogoCache !== null) return catalogoCache;
+        catalogoCache = [];
+        try {
+            var el = document.getElementById('libro-propiedades-catalogo');
+            if (el && el.textContent) {
+                catalogoCache = JSON.parse(el.textContent) || [];
+            }
+        } catch (err) {
+            catalogoCache = [];
+        }
+        return catalogoCache;
+    }
+
     function catalogo() {
+        var data = catalogoDesdeJson();
+        if (data.length) {
+            return data.map(function(p) {
+                return {
+                    id: String(p.id || ''),
+                    label: p.label || '',
+                    propietario: p.propietario || '',
+                    href: p.href || '',
+                    haystack: norm(String(p.id || '') + ' ' + (p.label || '') + ' ' + (p.propietario || ''))
+                };
+            });
+        }
         return items.map(function(li) {
             var id = li.getAttribute('data-id') || '';
             var label = li.getAttribute('data-label') || '';
