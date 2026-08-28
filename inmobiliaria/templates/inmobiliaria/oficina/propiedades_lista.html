@@ -21,16 +21,48 @@
     </div>
 
     <div class="card shadow-sm">
+        <div class="card-body border-bottom py-3">
+            <form method="get" class="row g-2 align-items-end">
+                <div class="col-md-6 col-lg-5">
+                    <label for="q" class="form-label small mb-0">Buscar</label>
+                    <input type="search"
+                           class="form-control form-control-sm"
+                           id="q"
+                           name="q"
+                           value="{{ q }}"
+                           placeholder="Dirección, ficha, piso/dpto, propietario…">
+                </div>
+                <div class="col-auto d-flex gap-2">
+                    <input type="hidden" name="orden" value="{{ orden }}">
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="fas fa-search me-1"></i>Buscar
+                    </button>
+                    {% if q %}
+                    <a href="?orden={{ orden }}" class="btn btn-outline-secondary btn-sm">Limpiar</a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
         <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
-            <strong>{{ total }} departamento{{ total|pluralize }}</strong>
+            <strong>
+                {% if q %}
+                    {{ total }} de {{ total_cartera }} departamento{{ total_cartera|pluralize }}
+                {% else %}
+                    {{ total }} departamento{{ total|pluralize }}
+                {% endif %}
+            </strong>
             <div class="btn-group btn-group-sm" role="group" aria-label="Ordenar listado">
-                <a href="?orden=direccion"
-                   class="btn {% if orden != 'piso' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                <a href="?orden=direccion{% if q %}&amp;q={{ q|urlencode }}{% endif %}"
+                   class="btn {% if orden == 'direccion' %}btn-primary{% else %}btn-outline-primary{% endif %}">
                     Por dirección
                 </a>
-                <a href="?orden=piso"
+                <a href="?orden=piso{% if q %}&amp;q={{ q|urlencode }}{% endif %}"
                    class="btn {% if orden == 'piso' %}btn-primary{% else %}btn-outline-primary{% endif %}">
                     Por piso / dpto
+                </a>
+                <a href="?orden=propietario{% if q %}&amp;q={{ q|urlencode }}{% endif %}"
+                   class="btn {% if orden == 'propietario' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                    Por propietario
                 </a>
             </div>
         </div>
@@ -49,8 +81,13 @@
             </a>
             {% empty %}
             <div class="list-group-item text-muted text-center py-5">
-                No hay propiedades en la cartera de la sucursal.
-                <br><small>Agregalas desde <a href="{% url 'inmobiliaria:mis_propiedades' %}">Mis propiedades</a>.</small>
+                {% if q %}
+                    No hay departamentos que coincidan con «{{ q }}».
+                    <br><small><a href="?orden={{ orden }}">Ver todos</a> o probá otro término.</small>
+                {% else %}
+                    No hay propiedades en la cartera de la sucursal.
+                    <br><small>Agregalas desde <a href="{% url 'inmobiliaria:mis_propiedades' %}">Mis propiedades</a>.</small>
+                {% endif %}
             </div>
             {% endfor %}
         </div>

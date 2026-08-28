@@ -1310,6 +1310,7 @@ def _ordenar_propiedades_oficina(propiedades, orden='direccion'):
     """
     orden='direccion' → calle, piso, dpto
     orden='piso' → piso, dpto, calle
+    orden='propietario' → apellido, nombre, dirección
     """
     items = list(propiedades)
     if orden == 'piso':
@@ -1318,6 +1319,21 @@ def _ordenar_propiedades_oficina(propiedades, orden='direccion'):
                 _clave_orden_piso(getattr(p, 'piso', None)),
                 _clave_orden_depto(getattr(p, 'departamento', None)),
                 (getattr(p, 'direccion', None) or '').strip().lower(),
+                p.id,
+            )
+        )
+    elif orden == 'propietario':
+        items.sort(
+            key=lambda p: (
+                (
+                    getattr(getattr(p, 'propietario', None), 'apellido', None) or ''
+                ).strip().lower(),
+                (
+                    getattr(getattr(p, 'propietario', None), 'nombre', None) or ''
+                ).strip().lower(),
+                (getattr(p, 'direccion', None) or '').strip().lower(),
+                _clave_orden_piso(getattr(p, 'piso', None)),
+                _clave_orden_depto(getattr(p, 'departamento', None)),
                 p.id,
             )
         )
@@ -1331,6 +1347,16 @@ def _ordenar_propiedades_oficina(propiedades, orden='direccion'):
             )
         )
     return items
+
+
+def _filtrar_propiedades_oficina(qs, termino):
+    """Filtra propiedades por dirección, ficha, piso/dpto o propietario."""
+    from inmobiliaria.busqueda_propiedad import q_busqueda_propiedad
+
+    termino = (termino or '').strip()
+    if not termino:
+        return qs
+    return qs.filter(q_busqueda_propiedad(termino))
 
 
 def _qs_propiedades_oficina(sucursal, usuario=None):
@@ -1823,19 +1849,23 @@ def oficina_propiedades_lista(request):
         return HttpResponseForbidden()
 
     sucursal = request.user.sucursal
+    q = (request.GET.get('q') or '').strip()
     orden = (request.GET.get('orden') or 'direccion').strip().lower()
-    if orden not in ('direccion', 'piso'):
+    if orden not in ('direccion', 'piso', 'propietario'):
         orden = 'direccion'
-    propiedades = _ordenar_propiedades_oficina(
-        _qs_propiedades_oficina(sucursal),
-        orden=orden,
-    )
+    qs = _qs_propiedades_oficina(sucursal)
+    total_cartera = qs.count()
+    if q:
+        qs = _filtrar_propiedades_oficina(qs, q)
+    propiedades = _ordenar_propiedades_oficina(qs, orden=orden)
     return render(
         request,
         'inmobiliaria/oficina/propiedades_lista.html',
         {
             'propiedades': propiedades,
             'total': len(propiedades),
+            'total_cartera': total_cartera,
+            'q': q,
             'orden': orden,
         },
     )
