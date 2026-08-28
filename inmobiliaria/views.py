@@ -28045,10 +28045,6 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
 
             # Contrato / cuotas: guardar IDs de cuotas imputadas (evita doble uso).
             excl_prev = _cuotas_excluidas_por_liquidaciones_contrato(propiedad)
-            from inmobiliaria.cuotas_imputacion import (
-                cuota_ids_mismo_recibo,
-                movimientos_ingreso_contrato,
-            )
 
             for o in operaciones_incluidas:
                 if not isinstance(o, dict):
@@ -28064,28 +28060,21 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                         contrato__sucursal=request.user.sucursal,
                     ).select_related('contrato').first()
                     if not cq:
+                        # Misma sucursal, por si la ficha de propiedad del contrato
+                        # no coincide exactamente con la elegida en el formulario.
+                        cq = CuotaMensual.objects.filter(
+                            pk=cq_pk,
+                            contrato__sucursal=request.user.sucursal,
+                        ).select_related('contrato').first()
+                    if not cq:
                         continue
                     ctr = cq.contrato
-                    liquidables = {
-                        int(cuota.id)
-                        for cuota, _m, _p, _a in _cuotas_en_ventana_liquidacion(
-                            ctr, excl_prev, request.user.sucursal
-                        )
-                    }
-                    candidatos = liquidables
-                    if cq.id not in candidatos:
-                        continue
-                    movs_ctr = movimientos_ingreso_contrato(ctr)
-                    ids_grupo = cuota_ids_mismo_recibo(
-                        cq,
-                        ctr.cuotas.all(),
-                        movs_ctr,
-                        solo_ids=candidatos,
-                    )
-                    if ids_grupo:
-                        o['id'] = int(ids_grupo[0])
-                        o['cuotas_ids'] = [int(x) for x in ids_grupo]
-                    elif cq_pk not in excl_prev:
+                    o['id'] = cq_pk
+                    o['contrato_id'] = int(ctr.id)
+                    # Cada cuota tildada se liquida por sí misma (el usuario elige
+                    # cuáles). No expandir al resto del recibo: al marcar varias
+                    # del mismo contrato eso rompía la validación.
+                    if cq_pk not in excl_prev:
                         o['cuotas_ids'] = [cq_pk]
                     continue
                 if o.get('tipo') != 'contrato':
@@ -28108,18 +28097,22 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                 )
                 if id_cuotas:
                     o['cuotas_ids'] = [int(x) for x in id_cuotas]
+                    o['contrato_id'] = int(ctr.id)
 
-            # Si el usuario tildó varias cuotas del mismo recibo, dejar una sola operación.
+            # Si el usuario tildó la misma cuota más de una vez, dejar una sola.
             ops_dedup = []
-            grupos_cuota_vistos: set[tuple] = set()
+            cuotas_vistas: set[int] = set()
             for o in operaciones_incluidas:
                 if not isinstance(o, dict) or o.get('tipo') != 'contrato_cuota':
                     ops_dedup.append(o)
                     continue
-                key = tuple(sorted(int(x) for x in (o.get('cuotas_ids') or [int(o['id'])])))
-                if key in grupos_cuota_vistos:
+                try:
+                    cid_op = int(o.get('id'))
+                except (TypeError, ValueError):
                     continue
-                grupos_cuota_vistos.add(key)
+                if cid_op in cuotas_vistas:
+                    continue
+                cuotas_vistas.add(cid_op)
                 ops_dedup.append(o)
             operaciones_incluidas = ops_dedup
 
@@ -28318,18 +28311,33 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                         id=ids_ct[0], propiedad=propiedad, sucursal=request.user.sucursal
                     ).first()
                 elif ids_cuota:
-                    cids = list(
-                        CuotaMensual.objects.filter(
-                            id__in=ids_cuota,
-                            contrato__propiedad=propiedad,
-                            contrato__sucursal=request.user.sucursal,
+                    # Preferir contrato_id ya resuelto al parsear cada cuota tildada.
+                    cids = []
+                    for o in operaciones_incluidas:
+                        if not isinstance(o, dict) or o.get('tipo') != 'contrato_cuota':
+                            continue
+                        raw_cid = o.get('contrato_id')
+                        if raw_cid is not None:
+                            try:
+                                cids.append(int(raw_cid))
+                                continue
+                            except (TypeError, ValueError):
+                                pass
+                    if not cids:
+                        cids = list(
+                            CuotaMensual.objects.filter(
+                                id__in=ids_cuota,
+                                contrato__sucursal=request.user.sucursal,
+                            )
+                            .values_list('contrato_id', flat=True)
+                            .distinct()
                         )
-                        .values_list('contrato_id', flat=True)
-                        .distinct()
-                    )
+                    else:
+                        cids = list(dict.fromkeys(cids))
                     if len(cids) == 1:
                         contrato_fk = ContratoAlquiler.objects.filter(
-                            pk=cids[0], propiedad=propiedad, sucursal=request.user.sucursal
+                            pk=cids[0],
+                            sucursal=request.user.sucursal,
                         ).first()
                     elif len(cids) > 1:
                         raise ValueError(
