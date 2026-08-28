@@ -103,6 +103,30 @@ def _ids_contratos_rescindidos_propiedad(propiedad, sucursal):
     )
 
 
+def _contexto_exclusion_operaciones_libro(propiedad, sucursal):
+    """IDs de operaciones/contratos que no deben figurar en el libro."""
+    return (
+        _ids_reservas_anuladas_propiedad(propiedad, sucursal),
+        _ids_contratos_rescindidos_propiedad(propiedad, sucursal),
+    )
+
+
+def _extraer_ids_operacion_contrato_concepto(concepto):
+    """IDs de operación/contrato mencionados en el concepto (un solo scan)."""
+    txt = concepto or ''
+    if not txt:
+        return frozenset(), frozenset()
+    res_ids = frozenset(
+        int(m.group(1))
+        for m in re.finditer(r'Operaci[oó]n\s*#?\s*(\d+)\b', txt, re.IGNORECASE)
+    )
+    ctr_ids = frozenset(
+        int(m.group(1))
+        for m in re.finditer(r'Contrato\s*#\s*(\d+)\b', txt, re.IGNORECASE)
+    )
+    return res_ids, ctr_ids
+
+
 def _concepto_es_contrasiento_anulacion(concepto):
     """Contrasiento manual al anular una operación (no va al libro del depto)."""
     txt = (concepto or '').strip()
@@ -124,15 +148,15 @@ def _movimiento_referencia_operacion_anulada(
     """True si el movimiento pertenece a una operación/contrato anulado."""
     if _concepto_es_contrasiento_anulacion(concepto):
         return True
-    txt = concepto or ''
-    if not txt:
+    reservas_anuladas = reservas_anuladas or frozenset()
+    contratos_rescindidos = contratos_rescindidos or frozenset()
+    if not reservas_anuladas and not contratos_rescindidos:
         return False
-    for rid in reservas_anuladas or ():
-        if re.search(rf'Operaci[oó]n\s*#?\s*{rid}\b', txt, re.IGNORECASE):
-            return True
-    for cid in contratos_rescindidos or ():
-        if re.search(rf'Contrato\s*#\s*{cid}\b', txt, re.IGNORECASE):
-            return True
+    res_ids, ctr_ids = _extraer_ids_operacion_contrato_concepto(concepto)
+    if res_ids & reservas_anuladas:
+        return True
+    if ctr_ids & contratos_rescindidos:
+        return True
     return False
 
 
@@ -208,7 +232,14 @@ def _movimiento_refiere_operacion_o_contrato(concepto, reserva_ids, contrato_ids
     return False
 
 
-def _qs_movimientos_libro_propiedad(sucursal, propiedad, dr_desde=None, dr_hasta=None):
+def _qs_movimientos_libro_propiedad(
+    sucursal,
+    propiedad,
+    dr_desde=None,
+    dr_hasta=None,
+    reservas_anuladas=None,
+    contratos_rescindidos=None,
+):
     """
     Movimientos del libro: los de la propiedad en caja + ingresos/egresos
     de operaciones y contratos de ese depto (aunque falte el FK propiedad).
@@ -230,8 +261,22 @@ def _qs_movimientos_libro_propiedad(sucursal, propiedad, dr_desde=None, dr_hasta
     if dr_hasta:
         base = base.filter(fecha__date__lte=dr_hasta)
 
+    excluir_anuladas = bool(reservas_anuladas or contratos_rescindidos)
+
+    def _incluir_movimiento(mov):
+        if not excluir_anuladas:
+            return True
+        return not _movimiento_excluir_libro_operacion_anulada(
+            mov,
+            reservas_anuladas=reservas_anuladas,
+            contratos_rescindidos=contratos_rescindidos,
+        )
+
     # 1) Directos por FK propiedad
-    por_prop = list(base.filter(propiedad=propiedad).order_by('fecha', 'id')[:2000])
+    por_prop = [
+        m for m in base.filter(propiedad=propiedad).order_by('fecha', 'id')[:2000]
+        if _incluir_movimiento(m)
+    ]
     seen = {m.id for m in por_prop}
 
     # 2) Candidatos por texto (una query amplia) y filtro exacto en Python
@@ -248,6 +293,8 @@ def _qs_movimientos_libro_propiedad(sucursal, propiedad, dr_desde=None, dr_hasta
             .order_by('fecha', 'id')[:3000]
         )
         for mov in candidatos:
+            if not _incluir_movimiento(mov):
+                continue
             if _movimiento_refiere_operacion_o_contrato(
                 getattr(mov, 'concepto', None) or '',
                 reserva_ids,
@@ -586,6 +633,10 @@ def _filas_liquidaciones_confirmadas_libro(
         )
         .order_by('fecha_desde', 'id')
     )
+    if reservas_anuladas:
+        qs = qs.exclude(reserva_id__in=reservas_anuladas)
+    if contratos_rescindidos:
+        qs = qs.exclude(contrato_id__in=contratos_rescindidos)
 
     filas = []
     for liq in qs:
@@ -1985,8 +2036,17 @@ def oficina_propiedad_libro(request, propiedad_id):
         dr_desde = fecha_corte
         fecha_desde_s = fecha_corte.isoformat()
 
+    reservas_anuladas, contratos_rescindidos = _contexto_exclusion_operaciones_libro(
+        propiedad, sucursal
+    )
+
     movimientos, reserva_ids, contrato_ids = _qs_movimientos_libro_propiedad(
-        sucursal, propiedad, dr_desde=dr_desde, dr_hasta=dr_hasta
+        sucursal,
+        propiedad,
+        dr_desde=dr_desde,
+        dr_hasta=dr_hasta,
+        reservas_anuladas=reservas_anuladas,
+        contratos_rescindidos=contratos_rescindidos,
     )
 
     liq_por_reserva = _liquidaciones_por_reserva(reserva_ids)
@@ -2018,22 +2078,21 @@ def oficina_propiedad_libro(request, propiedad_id):
             monto_prop_por_reserva[r.id] = mp
             monto_prop_por_reserva[f'_total_{r.id}'] = Decimal(str(r.precio_total or 0))
 
-    cotiz_mov_por_reserva = _cotizaciones_movimientos_por_reserva(sucursal, reserva_ids)
     liq_reserva_ids = list(
         LiquidacionPropietario.objects.filter(
             propiedad=propiedad,
             sucursal=sucursal,
             estado__in=_ESTADOS_LIQUIDACION_LIBRO,
             reserva_id__isnull=False,
-        ).values_list('reserva_id', flat=True).distinct()
+        )
+        .exclude(reserva_id__in=reservas_anuladas)
+        .values_list('reserva_id', flat=True)
+        .distinct()
     )
-    if liq_reserva_ids:
-        extra_cotiz = _cotizaciones_movimientos_por_reserva(sucursal, liq_reserva_ids)
-        for rid, cot in extra_cotiz.items():
-            cotiz_mov_por_reserva.setdefault(rid, cot)
-
-    reservas_anuladas = _ids_reservas_anuladas_propiedad(propiedad, sucursal)
-    contratos_rescindidos = _ids_contratos_rescindidos_propiedad(propiedad, sucursal)
+    ids_cotiz = sorted(set(reserva_ids) | set(liq_reserva_ids))
+    cotiz_mov_por_reserva = (
+        _cotizaciones_movimientos_por_reserva(sucursal, ids_cotiz) if ids_cotiz else {}
+    )
 
     filas = [
         f
@@ -2044,11 +2103,6 @@ def oficina_propiedad_libro(request, propiedad_id):
                 cotiz_por_reserva=cotiz_por_reserva,
             )
             for m in movimientos
-            if not _movimiento_excluir_libro_operacion_anulada(
-                m,
-                reservas_anuladas=reservas_anuladas,
-                contratos_rescindidos=contratos_rescindidos,
-            )
         )
         if f is not None
     ]

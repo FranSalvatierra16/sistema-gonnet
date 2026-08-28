@@ -67,16 +67,14 @@ def _filas_libro_sin_inicio(sucursal, propiedad, dr_desde, dr_hasta):
     from inmobiliaria.models import CotizacionLibroOperacion, Reserva
     from inmobiliaria.views_oficina import (
         _ESTADOS_LIQUIDACION_LIBRO,
+        _contexto_exclusion_operaciones_libro,
         _cotizaciones_movimientos_por_reserva,
         _filas_contratos_faltantes_libro,
         _filas_liquidaciones_oficina_libro,
         _filas_operaciones_faltantes_libro,
         _fila_libro_desde_movimiento,
-        _ids_contratos_rescindidos_propiedad,
-        _ids_reservas_anuladas_propiedad,
         _liquidaciones_por_reserva,
         _monto_propietario_reserva_libro,
-        _movimiento_excluir_libro_operacion_anulada,
         _obtener_inicio_caja_libro,
         _qs_movimientos_libro_propiedad,
     )
@@ -87,8 +85,17 @@ def _filas_libro_sin_inicio(sucursal, propiedad, dr_desde, dr_hasta):
     if fecha_corte and (dr_desde is None or dr_desde < fecha_corte):
         dr_desde = fecha_corte
 
+    reservas_anuladas, contratos_rescindidos = _contexto_exclusion_operaciones_libro(
+        propiedad, sucursal
+    )
+
     movimientos, reserva_ids, contrato_ids = _qs_movimientos_libro_propiedad(
-        sucursal, propiedad, dr_desde=dr_desde, dr_hasta=dr_hasta
+        sucursal,
+        propiedad,
+        dr_desde=dr_desde,
+        dr_hasta=dr_hasta,
+        reservas_anuladas=reservas_anuladas,
+        contratos_rescindidos=contratos_rescindidos,
     )
 
     liq_por_reserva = _liquidaciones_por_reserva(reserva_ids)
@@ -118,22 +125,21 @@ def _filas_libro_sin_inicio(sucursal, propiedad, dr_desde, dr_hasta):
             monto_prop_por_reserva[r.id] = mp
             monto_prop_por_reserva[f'_total_{r.id}'] = Decimal(str(r.precio_total or 0))
 
-    cotiz_mov_por_reserva = _cotizaciones_movimientos_por_reserva(sucursal, reserva_ids)
     liq_reserva_ids = list(
         LiquidacionPropietario.objects.filter(
             propiedad=propiedad,
             sucursal=sucursal,
             estado__in=_ESTADOS_LIQUIDACION_LIBRO,
             reserva_id__isnull=False,
-        ).values_list('reserva_id', flat=True).distinct()
+        )
+        .exclude(reserva_id__in=reservas_anuladas)
+        .values_list('reserva_id', flat=True)
+        .distinct()
     )
-    if liq_reserva_ids:
-        extra_cotiz = _cotizaciones_movimientos_por_reserva(sucursal, liq_reserva_ids)
-        for rid, cot in extra_cotiz.items():
-            cotiz_mov_por_reserva.setdefault(rid, cot)
-
-    reservas_anuladas = _ids_reservas_anuladas_propiedad(propiedad, sucursal)
-    contratos_rescindidos = _ids_contratos_rescindidos_propiedad(propiedad, sucursal)
+    ids_cotiz = sorted(set(reserva_ids) | set(liq_reserva_ids))
+    cotiz_mov_por_reserva = (
+        _cotizaciones_movimientos_por_reserva(sucursal, ids_cotiz) if ids_cotiz else {}
+    )
 
     filas = [
         f
@@ -144,11 +150,6 @@ def _filas_libro_sin_inicio(sucursal, propiedad, dr_desde, dr_hasta):
                 cotiz_por_reserva=cotiz_por_reserva,
             )
             for m in movimientos
-            if not _movimiento_excluir_libro_operacion_anulada(
-                m,
-                reservas_anuladas=reservas_anuladas,
-                contratos_rescindidos=contratos_rescindidos,
-            )
         )
         if f is not None
     ]
