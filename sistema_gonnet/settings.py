@@ -160,11 +160,13 @@ if 'DATABASE_URL' in os.environ:
     # Railway/Heroku proporcionan DATABASE_URL
     import dj_database_url
     DATABASES['default'] = dj_database_url.config(
-        conn_max_age=600,
-        ssl_require=False
+        conn_max_age=0,
+        ssl_require=False,
     )
     # ✅ FORZAR PostgreSQL (importante para Railway)
     DATABASES['default']['ENGINE'] = 'django.db.backends.postgresql'
+    # Cerrar conexión al terminar cada request (evita agotar el pool de PG en Railway)
+    DATABASES['default']['CONN_MAX_AGE'] = 0
     DATABASES['default']['CONN_HEALTH_CHECKS'] = True
     DATABASES['default']['OPTIONS'] = {
         'connect_timeout': 10,

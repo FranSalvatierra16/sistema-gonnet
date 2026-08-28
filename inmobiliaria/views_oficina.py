@@ -232,6 +232,33 @@ def _movimiento_refiere_operacion_o_contrato(concepto, reserva_ids, contrato_ids
     return False
 
 
+def _movimiento_pertenece_operaciones_propiedad(concepto, propiedad, sucursal, valid_res=None, valid_ctr=None):
+    """
+    True si el concepto menciona operación/contrato de ESTE depto.
+    valid_res/valid_ctr: sets precalculados (id válidos de la propiedad).
+    """
+    from inmobiliaria.models import ContratoAlquiler, Reserva
+
+    res_ids, ctr_ids = _extraer_ids_operacion_contrato_concepto(concepto)
+    if not res_ids and not ctr_ids:
+        return False
+    if valid_res is not None and res_ids & valid_res:
+        return True
+    if valid_ctr is not None and ctr_ids & valid_ctr:
+        return True
+    if valid_res is None and res_ids:
+        if Reserva.objects.filter(
+            id__in=res_ids, propiedad=propiedad, sucursal=sucursal,
+        ).exists():
+            return True
+    if valid_ctr is None and ctr_ids:
+        if ContratoAlquiler.objects.filter(
+            id__in=ctr_ids, propiedad=propiedad, sucursal=sucursal,
+        ).exists():
+            return True
+    return False
+
+
 def _qs_movimientos_libro_propiedad(
     sucursal,
     propiedad,
@@ -246,11 +273,7 @@ def _qs_movimientos_libro_propiedad(
     """
     from django.db.models import Q
 
-    from inmobiliaria.models import MovimientoCaja
-
-    reserva_ids, contrato_ids = _ids_operaciones_contratos_propiedad(propiedad, sucursal)
-    reserva_set = set(reserva_ids)
-    contrato_set = set(contrato_ids)
+    from inmobiliaria.models import ContratoAlquiler, MovimientoCaja, Reserva
 
     base = MovimientoCaja.objects.filter(
         sucursal=sucursal,
@@ -279,34 +302,55 @@ def _qs_movimientos_libro_propiedad(
     ]
     seen = {m.id for m in por_prop}
 
-    # 2) Candidatos por texto (una query amplia) y filtro exacto en Python
+    # 2) Movimientos sin FK propiedad pero de operaciones/contratos de ESTE depto
     extras = []
-    if reserva_set or contrato_set:
-        q_ref = Q()
-        if reserva_set:
-            q_ref |= Q(concepto__icontains='Operación') | Q(concepto__icontains='Operacion')
-        if contrato_set:
-            q_ref |= Q(concepto__icontains='Contrato #') | Q(concepto__icontains='Contrato#')
-        candidatos = (
-            base.filter(q_ref)
-            .filter(Q(propiedad=propiedad) | Q(propiedad__isnull=True))
-            .exclude(id__in=seen)
-            .order_by('fecha', 'id')[:500]
-        )
+    q_ref = (
+        Q(concepto__icontains='Operación')
+        | Q(concepto__icontains='Operacion')
+        | Q(concepto__icontains='Contrato #')
+        | Q(concepto__icontains='Contrato#')
+    )
+    candidatos = list(
+        base.filter(q_ref)
+        .filter(Q(propiedad=propiedad) | Q(propiedad__isnull=True))
+        .exclude(id__in=seen)
+        .order_by('fecha', 'id')[:500]
+    )
+    if candidatos:
+        refs_res = set()
+        refs_ctr = set()
+        for mov in candidatos:
+            rids, cids = _extraer_ids_operacion_contrato_concepto(
+                getattr(mov, 'concepto', None) or ''
+            )
+            refs_res.update(rids)
+            refs_ctr.update(cids)
+        valid_res = set(
+            Reserva.objects.filter(
+                id__in=refs_res, propiedad=propiedad, sucursal=sucursal,
+            ).values_list('id', flat=True)
+        ) if refs_res else set()
+        valid_ctr = set(
+            ContratoAlquiler.objects.filter(
+                id__in=refs_ctr, propiedad=propiedad, sucursal=sucursal,
+            ).values_list('id', flat=True)
+        ) if refs_ctr else set()
         for mov in candidatos:
             if not _incluir_movimiento(mov):
                 continue
-            if _movimiento_refiere_operacion_o_contrato(
+            if _movimiento_pertenece_operaciones_propiedad(
                 getattr(mov, 'concepto', None) or '',
-                reserva_ids,
-                contrato_ids,
+                propiedad,
+                sucursal,
+                valid_res=valid_res,
+                valid_ctr=valid_ctr,
             ):
                 extras.append(mov)
                 seen.add(mov.id)
 
     todos = por_prop + extras
     todos.sort(key=lambda m: (m.fecha or timezone.now(), m.id or 0))
-    return todos, reserva_ids, contrato_ids
+    return todos, [], []
 
 
 def _nombre_cliente_corto(persona):
@@ -2235,12 +2279,14 @@ def oficina_propiedad_libro(request, propiedad_id):
         'total': total_ingresos - total_gastos,
     }
 
-    otras_tabs, otras_catalogo_json = _nav_propiedades_libro(
-        sucursal,
-        propiedad_id,
-        fecha_desde_s=fecha_desde_s,
-        fecha_hasta_s=fecha_hasta_s,
-    )
+    otras_tabs, otras_catalogo_json = [], '[]'
+    if request.GET.get('nav') == '1':
+        otras_tabs, otras_catalogo_json = _nav_propiedades_libro(
+            sucursal,
+            propiedad_id,
+            fecha_desde_s=fecha_desde_s,
+            fecha_hasta_s=fecha_hasta_s,
+        )
 
     return render(
         request,
