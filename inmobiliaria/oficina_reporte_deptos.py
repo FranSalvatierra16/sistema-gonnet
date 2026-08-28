@@ -72,8 +72,11 @@ def _filas_libro_sin_inicio(sucursal, propiedad, dr_desde, dr_hasta):
         _filas_liquidaciones_oficina_libro,
         _filas_operaciones_faltantes_libro,
         _fila_libro_desde_movimiento,
+        _ids_contratos_rescindidos_propiedad,
+        _ids_reservas_anuladas_propiedad,
         _liquidaciones_por_reserva,
         _monto_propietario_reserva_libro,
+        _movimiento_excluir_libro_operacion_anulada,
         _obtener_inicio_caja_libro,
         _qs_movimientos_libro_propiedad,
     )
@@ -129,6 +132,9 @@ def _filas_libro_sin_inicio(sucursal, propiedad, dr_desde, dr_hasta):
         for rid, cot in extra_cotiz.items():
             cotiz_mov_por_reserva.setdefault(rid, cot)
 
+    reservas_anuladas = _ids_reservas_anuladas_propiedad(propiedad, sucursal)
+    contratos_rescindidos = _ids_contratos_rescindidos_propiedad(propiedad, sucursal)
+
     filas = [
         f
         for f in (
@@ -138,6 +144,11 @@ def _filas_libro_sin_inicio(sucursal, propiedad, dr_desde, dr_hasta):
                 cotiz_por_reserva=cotiz_por_reserva,
             )
             for m in movimientos
+            if not _movimiento_excluir_libro_operacion_anulada(
+                m,
+                reservas_anuladas=reservas_anuladas,
+                contratos_rescindidos=contratos_rescindidos,
+            )
         )
         if f is not None
     ]
@@ -172,6 +183,8 @@ def _filas_libro_sin_inicio(sucursal, propiedad, dr_desde, dr_hasta):
             dr_hasta=dr_hasta,
             cotiz_por_reserva=cotiz_por_reserva,
             cotiz_mov_por_reserva=cotiz_mov_por_reserva,
+            reservas_anuladas=reservas_anuladas,
+            contratos_rescindidos=contratos_rescindidos,
         )
     )
 

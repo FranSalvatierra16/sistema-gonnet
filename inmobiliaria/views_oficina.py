@@ -74,6 +74,119 @@ def _ids_operaciones_contratos_propiedad(propiedad, sucursal):
     return [int(x) for x in reserva_ids], [int(x) for x in contrato_ids]
 
 
+def _ids_reservas_anuladas_propiedad(propiedad, sucursal):
+    """Operaciones canceladas/eliminadas del depto (no deben figurar en el libro)."""
+    from django.db.models import Q
+
+    from inmobiliaria.models import Reserva
+
+    return set(
+        Reserva.objects.filter(
+            propiedad=propiedad,
+            sucursal=sucursal,
+        )
+        .filter(Q(eliminada=True) | Q(estado='cancelada'))
+        .values_list('id', flat=True)
+    )
+
+
+def _ids_contratos_rescindidos_propiedad(propiedad, sucursal):
+    from inmobiliaria.models import ContratoAlquiler
+
+    return set(
+        ContratoAlquiler.objects.filter(
+            propiedad=propiedad,
+            sucursal=sucursal,
+            estado='rescindido',
+        ).values_list('id', flat=True)
+    )
+
+
+def _concepto_es_contrasiento_anulacion(concepto):
+    """Contrasiento manual al anular una operación (no va al libro del depto)."""
+    txt = (concepto or '').strip()
+    if not txt:
+        return False
+    if re.search(r'operaci[oó]n\s+anulada', txt, re.IGNORECASE):
+        return True
+    norm = txt.lower()
+    if 'anulad' in norm and 'contra' in norm and 'asiento' in norm:
+        return True
+    return False
+
+
+def _movimiento_referencia_operacion_anulada(
+    concepto,
+    reservas_anuladas=None,
+    contratos_rescindidos=None,
+):
+    """True si el movimiento pertenece a una operación/contrato anulado."""
+    if _concepto_es_contrasiento_anulacion(concepto):
+        return True
+    txt = concepto or ''
+    if not txt:
+        return False
+    for rid in reservas_anuladas or ():
+        if re.search(rf'Operaci[oó]n\s*#?\s*{rid}\b', txt, re.IGNORECASE):
+            return True
+    for cid in contratos_rescindidos or ():
+        if re.search(rf'Contrato\s*#\s*{cid}\b', txt, re.IGNORECASE):
+            return True
+    return False
+
+
+def _operacion_liquidacion_anulada_libro(
+    liq,
+    reservas_anuladas=None,
+    contratos_rescindidos=None,
+):
+    """Liquidación de operación/contrato anulado: no acreditar en el libro."""
+    reservas_anuladas = reservas_anuladas or set()
+    contratos_rescindidos = contratos_rescindidos or set()
+
+    if getattr(liq, 'reserva_id', None) and liq.reserva_id in reservas_anuladas:
+        return True
+    if getattr(liq, 'contrato_id', None) and liq.contrato_id in contratos_rescindidos:
+        return True
+
+    res = getattr(liq, 'reserva', None)
+    if res is not None:
+        if getattr(res, 'eliminada', False):
+            return True
+        if (getattr(res, 'estado', None) or '').strip() == 'cancelada':
+            return True
+
+    ctr = getattr(liq, 'contrato', None)
+    if ctr is not None and (getattr(ctr, 'estado', None) or '').strip() == 'rescindido':
+        return True
+
+    for op in (getattr(liq, 'operaciones_incluidas', None) or []):
+        if not isinstance(op, dict):
+            continue
+        tipo = (op.get('tipo') or '').strip().lower()
+        try:
+            pk = int(op.get('id'))
+        except (TypeError, ValueError):
+            continue
+        if tipo == 'reserva' and pk in reservas_anuladas:
+            return True
+
+    return False
+
+
+def _movimiento_excluir_libro_operacion_anulada(
+    mov,
+    reservas_anuladas=None,
+    contratos_rescindidos=None,
+):
+    conc = getattr(mov, 'concepto', None) or ''
+    return _movimiento_referencia_operacion_anulada(
+        conc,
+        reservas_anuladas=reservas_anuladas,
+        contratos_rescindidos=contratos_rescindidos,
+    )
+
+
 def _movimiento_refiere_operacion_o_contrato(concepto, reserva_ids, contrato_ids):
     """True si el texto del concepto menciona Operación N o Contrato #N de esta propiedad."""
     import re
@@ -407,6 +520,8 @@ def _filas_liquidaciones_oficina_libro(
     dr_hasta=None,
     cotiz_por_reserva=None,
     cotiz_mov_por_reserva=None,
+    reservas_anuladas=None,
+    contratos_rescindidos=None,
 ):
     """Alias: liquidaciones confirmadas en el mes del período."""
     return _filas_liquidaciones_confirmadas_libro(
@@ -417,6 +532,8 @@ def _filas_liquidaciones_oficina_libro(
         dr_hasta=dr_hasta,
         cotiz_por_reserva=cotiz_por_reserva,
         cotiz_mov_por_reserva=cotiz_mov_por_reserva,
+        reservas_anuladas=reservas_anuladas,
+        contratos_rescindidos=contratos_rescindidos,
     )
 
 
@@ -428,6 +545,8 @@ def _filas_liquidaciones_confirmadas_libro(
     dr_hasta=None,
     cotiz_por_reserva=None,
     cotiz_mov_por_reserva=None,
+    reservas_anuladas=None,
+    contratos_rescindidos=None,
 ):
     """
     Liquidaciones confirmadas (oficina / pagada / cerrada / procesada):
@@ -458,6 +577,12 @@ def _filas_liquidaciones_confirmadas_libro(
 
     filas = []
     for liq in qs:
+        if _operacion_liquidacion_anulada_libro(
+            liq,
+            reservas_anuladas=reservas_anuladas,
+            contratos_rescindidos=contratos_rescindidos,
+        ):
+            continue
         # Mes que le corresponde = período de la liquidación (fecha_desde).
         fecha_raw = (
             getattr(liq, 'fecha_desde', None)
@@ -1808,6 +1933,9 @@ def oficina_propiedad_libro(request, propiedad_id):
         for rid, cot in extra_cotiz.items():
             cotiz_mov_por_reserva.setdefault(rid, cot)
 
+    reservas_anuladas = _ids_reservas_anuladas_propiedad(propiedad, sucursal)
+    contratos_rescindidos = _ids_contratos_rescindidos_propiedad(propiedad, sucursal)
+
     filas = [
         f
         for f in (
@@ -1817,6 +1945,11 @@ def oficina_propiedad_libro(request, propiedad_id):
                 cotiz_por_reserva=cotiz_por_reserva,
             )
             for m in movimientos
+            if not _movimiento_excluir_libro_operacion_anulada(
+                m,
+                reservas_anuladas=reservas_anuladas,
+                contratos_rescindidos=contratos_rescindidos,
+            )
         )
         if f is not None
     ]
@@ -1851,6 +1984,8 @@ def oficina_propiedad_libro(request, propiedad_id):
             dr_hasta=dr_hasta,
             cotiz_por_reserva=cotiz_por_reserva,
             cotiz_mov_por_reserva=cotiz_mov_por_reserva,
+            reservas_anuladas=reservas_anuladas,
+            contratos_rescindidos=contratos_rescindidos,
         )
     )
 
