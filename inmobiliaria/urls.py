@@ -363,6 +363,16 @@ urlpatterns = [
         views_oficina.oficina_propiedad_libro_actualizar_cotizacion,
         name='oficina_propiedad_libro_cotizacion',
     ),
+    path(
+        'oficina/propiedades/<str:propiedad_id>/libro/clasificacion/',
+        views_oficina.oficina_propiedad_libro_clasificacion,
+        name='oficina_propiedad_libro_clasificacion',
+    ),
+    path(
+        'oficina/propiedades/<str:propiedad_id>/libro/liquidacion/<int:liquidacion_id>/',
+        views_oficina.oficina_propiedad_libro_liquidacion_modal,
+        name='oficina_propiedad_libro_liquidacion_modal',
+    ),
     path('caja/obtener-actual/', views.obtener_caja_actual, name='obtener_caja_actual'),
     
     # ============================

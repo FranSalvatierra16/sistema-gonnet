@@ -236,6 +236,18 @@ class FilaManualLibroPropiedad(models.Model):
         blank=True,
         verbose_name='Tipo de cambio',
     )
+    CLASIFICACION_LIBRO_CHOICES = [
+        ('facturado', 'Facturado'),
+        ('negro', 'En negro'),
+    ]
+    clasificacion_libro = models.CharField(
+        max_length=20,
+        choices=CLASIFICACION_LIBRO_CHOICES,
+        blank=True,
+        default='',
+        db_index=True,
+        verbose_name='Clasificación libro (facturado / en negro)',
+    )
     creado_en = models.DateTimeField(auto_now_add=True)
     actualizado_en = models.DateTimeField(auto_now=True)
     creado_por = models.ForeignKey(

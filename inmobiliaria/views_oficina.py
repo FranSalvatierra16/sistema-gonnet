@@ -493,6 +493,7 @@ def _filas_liquidaciones_confirmadas_libro(
             'liquidacion_id': liq.id,
             'reserva_id': getattr(liq, 'reserva_id', None),
             'observaciones': (getattr(liq, 'observaciones', None) or '').strip(),
+            'clasificacion_libro': (getattr(liq, 'clasificacion_libro', None) or '').strip(),
         }
         if moneda == 'USD':
             fila['ingreso_usd'] = monto
@@ -1554,6 +1555,7 @@ def _fila_libro_desde_movimiento(mov, monto_prop_por_reserva=None, cotiz_por_res
         'fila_manual_id': None,
         'es_operacion_libro': es_operacion_libro,
         'reserva_id': reserva_id,
+        'clasificacion_libro': (getattr(mov, 'clasificacion_libro', None) or '').strip(),
     }
 
 
@@ -1621,6 +1623,7 @@ def _fila_inicio_caja_libro(inicio):
         'es_inicio_caja': True,
         'es_manual': False,
         'fila_manual_id': None,
+        'clasificacion_libro': '',
     }
 
 
@@ -1655,6 +1658,7 @@ def _fila_desde_manual(fila):
         'es_inicio_caja': False,
         'es_manual': True,
         'fila_manual_id': fila.id,
+        'clasificacion_libro': (getattr(fila, 'clasificacion_libro', None) or '').strip(),
     }
 
 
@@ -1754,6 +1758,9 @@ def oficina_propiedad_libro(request, propiedad_id):
 
     fecha_desde_s = (request.GET.get('fecha_desde') or '').strip()
     fecha_hasta_s = (request.GET.get('fecha_hasta') or '').strip()
+    clasif_filtro = (request.GET.get('clasif') or 'todo').strip().lower()
+    if clasif_filtro not in ('todo', 'facturado', 'negro'):
+        clasif_filtro = 'todo'
     dr_desde = _parse_fecha(fecha_desde_s)
     dr_hasta = _parse_fecha(fecha_hasta_s)
     if dr_desde and dr_hasta and dr_hasta < dr_desde:
@@ -1882,6 +1889,15 @@ def oficina_propiedad_libro(request, propiedad_id):
     # Inicio de caja siempre al tope del libro (uno por depto, editable).
     filas.insert(0, _fila_inicio_caja_libro(inicio))
 
+    exige_clasif = bool(getattr(propiedad, 'libro_exige_facturado_negro', False))
+    if exige_clasif and clasif_filtro in ('facturado', 'negro'):
+        filas = [
+            f
+            for f in filas
+            if f.get('es_inicio_caja')
+            or (f.get('clasificacion_libro') or '') == clasif_filtro
+        ]
+
     totales = {
         'gastos_ars': sum((f['gastos_ars'] for f in filas), Decimal('0')),
         'alquileres_ars': sum((f['alquileres_ars'] for f in filas), Decimal('0')),
@@ -1935,12 +1951,140 @@ def oficina_propiedad_libro(request, propiedad_id):
             'otras_propiedades': otras,
             'fecha_desde': fecha_desde_s,
             'fecha_hasta': fecha_hasta_s,
+            'clasif_filtro': clasif_filtro,
+            'exige_facturado_negro': exige_clasif,
             'inicio_caja': inicio,
             'total_usd_inicio': (
                 Decimal(str(inicio.ingreso_usd or 0))
                 - Decimal(str(inicio.gastos_usd or 0))
             ),
         },
+    )
+
+
+@login_required
+@require_POST
+def oficina_propiedad_libro_clasificacion(request, propiedad_id):
+    """Actualiza Facturado / En negro de una fila del libro."""
+    if not _puede_oficina(request.user):
+        return JsonResponse({'ok': False, 'error': 'Sin permiso.'}, status=403)
+
+    from inmobiliaria.models import LiquidacionPropietario, Propiedad
+    from inmobiliaria.models.caja import MovimientoCaja
+
+    sucursal, en_cartera = _propiedad_en_cartera_oficina(request.user, propiedad_id)
+    if not en_cartera:
+        return JsonResponse({'ok': False, 'error': 'Sin permiso sobre esa propiedad.'}, status=403)
+
+    propiedad = get_object_or_404(Propiedad, pk=propiedad_id, sucursal=sucursal)
+    if not getattr(propiedad, 'libro_exige_facturado_negro', False):
+        return JsonResponse(
+            {'ok': False, 'error': 'Esta propiedad no usa clasificación facturado/negro.'},
+            status=400,
+        )
+
+    clasif = (request.POST.get('clasificacion_libro') or '').strip().lower()
+    if clasif not in ('facturado', 'negro', ''):
+        return JsonResponse({'ok': False, 'error': 'Clasificación inválida.'}, status=400)
+
+    mov_id = (request.POST.get('movimiento_id') or '').strip()
+    liq_id = (request.POST.get('liquidacion_id') or '').strip()
+    fila_id = (request.POST.get('fila_manual_id') or '').strip()
+
+    if mov_id.isdigit():
+        mov = MovimientoCaja.objects.filter(
+            pk=int(mov_id),
+            propiedad_id=propiedad_id,
+            sucursal=sucursal,
+            fecha_eliminacion__isnull=True,
+        ).first()
+        if not mov:
+            return JsonResponse({'ok': False, 'error': 'Movimiento no encontrado.'}, status=404)
+        mov.clasificacion_libro = clasif
+        mov.save(update_fields=['clasificacion_libro'])
+        return JsonResponse({'ok': True, 'clasificacion_libro': clasif})
+
+    if liq_id.isdigit():
+        liq = LiquidacionPropietario.objects.filter(
+            pk=int(liq_id),
+            propiedad_id=propiedad_id,
+            sucursal=sucursal,
+        ).first()
+        if not liq:
+            return JsonResponse({'ok': False, 'error': 'Liquidación no encontrada.'}, status=404)
+        liq.clasificacion_libro = clasif
+        liq.save(update_fields=['clasificacion_libro'])
+        return JsonResponse({'ok': True, 'clasificacion_libro': clasif})
+
+    if fila_id.isdigit():
+        fila = FilaManualLibroPropiedad.objects.filter(
+            pk=int(fila_id),
+            propiedad_id=propiedad_id,
+        ).first()
+        if not fila:
+            return JsonResponse({'ok': False, 'error': 'Fila no encontrada.'}, status=404)
+        fila.clasificacion_libro = clasif
+        fila.save(update_fields=['clasificacion_libro'])
+        return JsonResponse({'ok': True, 'clasificacion_libro': clasif})
+
+    return JsonResponse({'ok': False, 'error': 'Indicá la fila a clasificar.'}, status=400)
+
+
+@login_required
+def oficina_propiedad_libro_liquidacion_modal(request, propiedad_id, liquidacion_id):
+    """HTML del resumen de liquidación para el modal del libro."""
+    if not _puede_oficina(request.user):
+        return HttpResponseForbidden()
+
+    from inmobiliaria.liquidacion_operacion import info_operacion_liquidacion
+    from inmobiliaria.models import Propiedad
+    from inmobiliaria.views import (
+        _context_liquidacion_cobranzas,
+        _observaciones_visibles_gasto,
+        _periodo_liquidado_display,
+    )
+
+    sucursal, en_cartera = _propiedad_en_cartera_oficina(request.user, propiedad_id)
+    if not en_cartera:
+        return HttpResponseForbidden()
+
+    get_object_or_404(Propiedad, pk=propiedad_id, sucursal=sucursal)
+    liquidacion = get_object_or_404(
+        LiquidacionPropietario.objects.select_related(
+            'propietario',
+            'propiedad',
+            'reserva',
+            'contrato',
+            'movimiento_caja',
+            'sucursal',
+        ).prefetch_related('gastos'),
+        pk=liquidacion_id,
+        propiedad_id=propiedad_id,
+        sucursal=sucursal,
+    )
+    try:
+        liquidacion._recalcular_monto_a_pagar_fields()
+    except Exception:
+        pass
+
+    pd, ph = _periodo_liquidado_display(liquidacion)
+    liquidacion.periodo_desde_display = pd
+    liquidacion.periodo_hasta_display = ph
+
+    gastos_list = list(liquidacion.gastos.all().order_by('-fecha_creacion'))
+    for g in gastos_list:
+        g.detalle_visible = _observaciones_visibles_gasto(g)
+
+    ctx = {
+        'liquidacion': liquidacion,
+        'info_operacion_liquidacion': info_operacion_liquidacion(liquidacion),
+        'gastos': gastos_list,
+        **_context_liquidacion_cobranzas(liquidacion, request),
+    }
+    return render(
+        request,
+        'inmobiliaria/oficina/_libro_liquidacion_modal.html',
+        ctx,
     )
 
 

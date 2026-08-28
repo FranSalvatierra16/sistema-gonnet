@@ -1,0 +1,159 @@
+{% load custom_filters %}
+<div class="libro-liq-modal-body">
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+        <div>
+            <div class="fw-semibold">Liquidación #{{ liquidacion.id }}</div>
+            <div class="text-muted small">
+                {% if info_operacion_liquidacion.operacion_ref %}{{ info_operacion_liquidacion.operacion_ref }} · {% endif %}
+                {{ info_operacion_liquidacion.tipo_display }}
+            </div>
+        </div>
+        <div>
+            {% if liquidacion.estado == 'pendiente' %}
+            <span class="badge bg-warning text-dark">Pendiente</span>
+            {% elif liquidacion.estado == 'cerrada' %}
+            <span class="badge bg-primary">Cerrada</span>
+            {% elif liquidacion.estado == 'pagada' %}
+            <span class="badge bg-success">Pagada</span>
+            {% elif liquidacion.estado == 'oficina' %}
+            <span class="badge bg-secondary">Oficina</span>
+            {% elif liquidacion.estado == 'procesada' %}
+            <span class="badge bg-success">Procesada</span>
+            {% else %}
+            <span class="badge bg-danger">{{ liquidacion.get_estado_display }}</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="table-responsive mb-3">
+        <table class="table table-sm table-borderless mb-0">
+            <tr>
+                <th class="text-muted" style="width:38%">Propietario</th>
+                <td>{{ liquidacion.propietario.apellido }}, {{ liquidacion.propietario.nombre }}</td>
+            </tr>
+            <tr>
+                <th class="text-muted">Propiedad</th>
+                <td>
+                    {{ liquidacion.propiedad.direccion }}
+                    {% if liquidacion.propiedad.piso or liquidacion.propiedad.departamento %}
+                    <span class="text-muted small">
+                        {% if liquidacion.propiedad.piso %}{{ liquidacion.propiedad.piso }}°{% endif %}
+                        {% if liquidacion.propiedad.departamento %} {{ liquidacion.propiedad.departamento }}{% endif %}
+                    </span>
+                    {% endif %}
+                </td>
+            </tr>
+            <tr>
+                <th class="text-muted">Período</th>
+                <td>
+                    {% if liquidacion.periodo_desde_display or liquidacion.periodo_hasta_display %}
+                    {{ liquidacion.periodo_desde_display|date:"d/m/Y"|default:"—" }}
+                    →
+                    {{ liquidacion.periodo_hasta_display|date:"d/m/Y"|default:"—" }}
+                    {% elif liquidacion.fecha_desde or liquidacion.fecha_hasta %}
+                    {{ liquidacion.fecha_desde|date:"d/m/Y"|default:"—" }}
+                    →
+                    {{ liquidacion.fecha_hasta|date:"d/m/Y"|default:"—" }}
+                    {% else %}
+                    <span class="text-muted">—</span>
+                    {% endif %}
+                </td>
+            </tr>
+            <tr>
+                <th class="text-muted">Moneda</th>
+                <td>{% if liquidacion.moneda == 'USD' %}USD{% else %}ARS{% endif %}</td>
+            </tr>
+            <tr>
+                <th class="text-muted">Total operación</th>
+                <td>{{ liquidacion.monto_total_operacion|format_importe_moneda:liquidacion.moneda }}</td>
+            </tr>
+            <tr>
+                <th class="text-muted">Al propietario</th>
+                <td class="fw-semibold text-success">{{ liquidacion.monto_propietario|format_importe_moneda:liquidacion.moneda }}</td>
+            </tr>
+            <tr>
+                <th class="text-muted">Inmobiliaria</th>
+                <td>{{ liquidacion.monto_inmobiliaria|format_importe_moneda:liquidacion.moneda }}</td>
+            </tr>
+            <tr>
+                <th class="text-muted">A pagar</th>
+                <td class="fw-bold fs-5 text-success">{{ liquidacion.monto_a_pagar|format_importe_moneda:liquidacion.moneda }}</td>
+            </tr>
+            {% if liquidacion.cotizacion_dolar %}
+            <tr>
+                <th class="text-muted">Cotización</th>
+                <td>${{ liquidacion.cotizacion_dolar|floatformat:2 }} <span class="text-muted small">ARS/USD</span></td>
+            </tr>
+            {% endif %}
+            {% if liquidacion.observaciones %}
+            <tr>
+                <th class="text-muted">Observaciones</th>
+                <td><div class="small" style="white-space:pre-wrap">{{ liquidacion.observaciones }}</div></td>
+            </tr>
+            {% endif %}
+        </table>
+    </div>
+
+    {% if gastos %}
+    <h6 class="fw-semibold mb-2">Gastos descontados</h6>
+    <div class="table-responsive mb-3">
+        <table class="table table-sm table-bordered mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Concepto</th>
+                    <th class="text-end">Monto</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for g in gastos %}
+                <tr>
+                    <td>
+                        {{ g.descripcion|default:"—" }}
+                        {% if g.detalle_visible %}<div class="small text-muted">{{ g.detalle_visible }}</div>{% endif %}
+                    </td>
+                    <td class="text-end">{{ g.monto|format_importe_moneda:liquidacion.moneda }}</td>
+                    <td>
+                        {% if g.aceptado %}
+                        <span class="badge bg-success">Aceptado</span>
+                        {% else %}
+                        <span class="badge bg-secondary">Pendiente</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <h6 class="fw-semibold mb-2"><i class="fas fa-balance-scale me-1"></i>Liquidación de cobranzas</h6>
+    <div class="border rounded p-2 bg-white liq-cobranzas-preview mb-3" style="max-height:22rem; overflow:auto;">
+        <style>
+            .liq-cobranzas-preview .liq-cobranzas-doc { font-family: "Times New Roman", Times, serif; font-size: 0.9rem; }
+            .liq-cobranzas-preview .liq-cobranzas-titulo {
+                text-align: center; font-weight: bold; font-size: 1rem;
+                border-bottom: 2px solid #333; padding-bottom: 6px; margin-bottom: 8px;
+            }
+            .liq-cobranzas-preview .liq-cobranzas-sub,
+            .liq-cobranzas-preview .liq-cobranzas-meta { font-size: 0.82rem; margin-bottom: 4px; }
+            .liq-cobranzas-preview .liq-cobranzas-meta {
+                display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px;
+            }
+            .liq-cobranzas-preview .liq-cobranzas-tabla {
+                width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 0.85rem;
+            }
+            .liq-cobranzas-preview .liq-cobranzas-tabla th,
+            .liq-cobranzas-preview .liq-cobranzas-tabla td {
+                border: 1px solid #333; padding: 5px 6px; vertical-align: top;
+            }
+            .liq-cobranzas-preview .liq-cobranzas-tabla th { text-align: center; background: #f8f9fa; }
+            .liq-cobranzas-preview .text-end { text-align: right; }
+            .liq-cobranzas-preview .liq-cobranzas-saldo td {
+                border-top: 2px solid #333; font-weight: bold; text-align: right;
+            }
+            .liq-cobranzas-preview .liq-cobranzas-firmas { display: none; }
+        </style>
+        {% include 'inmobiliaria/liquidaciones/_liquidacion_cobranzas_documento.html' %}
+    </div>
+</div>

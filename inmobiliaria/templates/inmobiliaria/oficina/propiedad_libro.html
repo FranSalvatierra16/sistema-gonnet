@@ -88,6 +88,16 @@
             <label class="form-label small mb-0" for="fecha_hasta">Hasta</label>
             <input type="date" class="form-control form-control-sm" id="fecha_hasta" name="fecha_hasta" value="{{ fecha_hasta }}">
         </div>
+        {% if exige_facturado_negro %}
+        <div class="col-auto">
+            <label class="form-label small mb-0" for="clasif">Ver</label>
+            <select class="form-select form-select-sm" id="clasif" name="clasif" style="min-width:9rem">
+                <option value="todo"{% if clasif_filtro == 'todo' %} selected{% endif %}>Todo junto</option>
+                <option value="facturado"{% if clasif_filtro == 'facturado' %} selected{% endif %}>Facturado</option>
+                <option value="negro"{% if clasif_filtro == 'negro' %} selected{% endif %}>En negro</option>
+            </select>
+        </div>
+        {% endif %}
         <div class="col-auto">
             <button type="submit" class="btn btn-sm btn-primary">Filtrar</button>
             <a href="{% url 'inmobiliaria:oficina_propiedad_libro' propiedad.id %}" class="btn btn-sm btn-outline-secondary">Limpiar</a>
@@ -266,6 +276,7 @@
                     <tr>
                         <th>Fecha</th>
                         <th>Descripción</th>
+                        {% if exige_facturado_negro %}<th class="no-print" style="min-width:7.5rem">Clasif.</th>{% endif %}
                         <th class="text-end">Gastos</th>
                         <th class="text-end">Alquileres</th>
                         <th class="text-end">Gastos en dólar</th>
@@ -278,6 +289,8 @@
                     <tr {% if f.movimiento_id %}data-movimiento-id="{{ f.movimiento_id }}"{% endif %}
                         {% if f.reserva_id %}data-reserva-id="{{ f.reserva_id }}"{% endif %}
                         {% if f.liquidacion_id %}data-liquidacion-id="{{ f.liquidacion_id }}"{% endif %}
+                        {% if f.fila_manual_id %}data-fila-manual-id="{{ f.fila_manual_id }}"{% endif %}
+                        data-clasificacion="{{ f.clasificacion_libro|default:'' }}"
                         data-tipo="{{ f.tipo }}"
                         data-buscar="{{ f.fecha|date:'d/m/Y' }} {{ f.descripcion|default:'' }}"
                         {% if f.es_inicio_caja %}class="table-primary"{% endif %}>
@@ -285,8 +298,38 @@
                         <td class="desc-libro" title="{{ f.descripcion|default:'' }}">
                             {% if f.es_inicio_caja %}<strong>{{ f.descripcion }}</strong>
                             {% else %}{{ f.descripcion }}{% endif %}
-                            {% if f.sin_caja %}<span class="badge bg-light text-muted border ms-1 no-print" title="Tomado de la operación/contrato">op.</span>{% endif %}
+                            {% if f.liquidacion_id %}
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-secondary ms-1 no-print btn-ver-liquidacion-libro"
+                                    data-liquidacion-id="{{ f.liquidacion_id }}"
+                                    title="Ver liquidación">
+                                <i class="fas fa-file-invoice-dollar me-1"></i>Ver liq.
+                            </button>
+                            {% elif f.sin_caja %}
+                            <span class="badge bg-light text-muted border ms-1 no-print" title="Tomado de la operación/contrato">op.</span>
+                            {% endif %}
+                            {% if exige_facturado_negro and f.clasificacion_libro == 'facturado' %}
+                            <span class="badge bg-success ms-1 solo-imprimir">Facturado</span>
+                            {% elif exige_facturado_negro and f.clasificacion_libro == 'negro' %}
+                            <span class="badge bg-dark ms-1 solo-imprimir">En negro</span>
+                            {% endif %}
                         </td>
+                        {% if exige_facturado_negro %}
+                        <td class="no-print">
+                            {% if f.es_inicio_caja %}
+                            <span class="text-muted small">—</span>
+                            {% elif f.movimiento_id or f.liquidacion_id or f.fila_manual_id %}
+                            <select class="form-select form-select-sm select-clasif-libro"
+                                    aria-label="Clasificación">
+                                <option value=""{% if not f.clasificacion_libro %} selected{% endif %}>Elegir…</option>
+                                <option value="facturado"{% if f.clasificacion_libro == 'facturado' %} selected{% endif %}>Facturado</option>
+                                <option value="negro"{% if f.clasificacion_libro == 'negro' %} selected{% endif %}>En negro</option>
+                            </select>
+                            {% else %}
+                            <span class="text-muted small">—</span>
+                            {% endif %}
+                        </td>
+                        {% endif %}
                         <td class="text-end text-danger">{% if f.gastos_ars %}{{ f.gastos_ars|format_price }}{% endif %}</td>
                         <td class="text-end text-success celda-alquileres-ars">{% if f.alquileres_ars %}{{ f.alquileres_ars|format_price }}{% endif %}</td>
                         <td class="text-end celda-gastos-usd">{% if f.gastos_usd %}{{ f.gastos_usd|format_price }}{% endif %}</td>
@@ -320,8 +363,8 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="7" class="text-center text-muted py-4">
-                            No hay gastos, alquileres ni operaciones para este departamento{% if fecha_desde or fecha_hasta %} en el período{% endif %}.
+                        <td colspan="{% if exige_facturado_negro %}8{% else %}7{% endif %}" class="text-center text-muted py-4">
+                            No hay gastos, alquileres ni operaciones para este departamento{% if fecha_desde or fecha_hasta %} en el período{% endif %}{% if clasif_filtro == 'facturado' %} facturados{% elif clasif_filtro == 'negro' %} en negro{% endif %}.
                         </td>
                     </tr>
                     {% endfor %}
@@ -329,7 +372,7 @@
                 {% if filas %}
                 <tfoot class="table-light fw-semibold">
                     <tr>
-                        <td colspan="2" class="text-end">Totales</td>
+                        <td colspan="{% if exige_facturado_negro %}3{% else %}2{% endif %}" class="text-end">Totales</td>
                         <td class="text-end text-danger">{{ totales.gastos_ars|format_price }}</td>
                         <td class="text-end text-success">{{ totales.alquileres_ars|format_price }}</td>
                         <td class="text-end" id="total-gastos-usd">{{ totales.gastos_usd|format_price }}</td>
@@ -578,6 +621,31 @@
     .badge { display: none !important; }
 }
 </style>
+
+{# Modal: ver liquidación desde el libro #}
+<div class="modal fade no-print" id="modalLibroLiquidacion" tabindex="-1" aria-labelledby="modalLibroLiquidacionLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h5 class="modal-title" id="modalLibroLiquidacionLabel">
+                    <i class="fas fa-file-invoice-dollar me-2"></i>Liquidación
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body" id="modalLibroLiquidacionBody">
+                <div class="text-center text-muted py-4" id="modalLibroLiquidacionLoading">
+                    <i class="fas fa-spinner fa-spin me-2"></i>Cargando liquidación…
+                </div>
+            </div>
+            <div class="modal-footer py-2">
+                <a href="#" class="btn btn-outline-primary btn-sm" id="modalLibroLiquidacionLink" target="_blank" rel="noopener">
+                    <i class="fas fa-external-link-alt me-1"></i>Abrir liquidación completa
+                </a>
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -723,6 +791,10 @@
     var urlCotiz = '{% url "inmobiliaria:oficina_propiedad_libro_cotizacion" propiedad.id %}';
     var urlInicio = '{% url "inmobiliaria:oficina_propiedad_libro_inicio_caja" propiedad.id %}';
     var urlCostos = '{% url "inmobiliaria:oficina_propiedad_libro_costos_compra" propiedad.id %}';
+    var urlClasif = '{% url "inmobiliaria:oficina_propiedad_libro_clasificacion" propiedad.id %}';
+    var exigeClasif = {% if exige_facturado_negro %}true{% else %}false{% endif %};
+    var urlLiqModalBase = '{% url "inmobiliaria:oficina_propiedad_libro_liquidacion_modal" propiedad.id 0 %}'.replace(/\/0\/?$/, '/');
+    var urlLiqDetalleBase = '{% url "inmobiliaria:detalle_liquidacion" 0 %}'.replace(/\/0\/?$/, '/');
 
     function csrfToken() {
         var inp = document.querySelector('input[name=csrfmiddlewaretoken]');
@@ -943,6 +1015,74 @@
             e.preventDefault();
             guardarFila(btnCot.closest('tr'));
         }
+    });
+
+    if (exigeClasif) {
+        document.addEventListener('change', function(e) {
+            var sel = e.target.closest('.select-clasif-libro');
+            if (!sel) return;
+            var tr = sel.closest('tr');
+            if (!tr) return;
+            var mid = tr.getAttribute('data-movimiento-id');
+            var lid = tr.getAttribute('data-liquidacion-id');
+            var fid = tr.getAttribute('data-fila-manual-id');
+            if (!mid && !lid && !fid) return;
+            var body = new URLSearchParams();
+            body.set('clasificacion_libro', sel.value || '');
+            if (mid) body.set('movimiento_id', mid);
+            if (lid) body.set('liquidacion_id', lid);
+            if (fid) body.set('fila_manual_id', fid);
+            sel.disabled = true;
+            postForm(urlClasif, body)
+              .then(function(res) {
+                if (!res.okHttp || !res.d || !res.d.ok) {
+                    alert((res.d && res.d.error) || 'No se pudo guardar la clasificación.');
+                    return;
+                }
+                tr.setAttribute('data-clasificacion', res.d.clasificacion_libro || '');
+              })
+              .catch(function() { alert('Error de red al guardar la clasificación.'); })
+              .finally(function() { sel.disabled = false; });
+        });
+    }
+
+    document.addEventListener('click', function(e) {
+        var btnLiq = e.target.closest('.btn-ver-liquidacion-libro');
+        if (!btnLiq) return;
+        e.preventDefault();
+        var lid = btnLiq.getAttribute('data-liquidacion-id');
+        if (!lid) return;
+        var bodyEl = document.getElementById('modalLibroLiquidacionBody');
+        var linkEl = document.getElementById('modalLibroLiquidacionLink');
+        var titleEl = document.getElementById('modalLibroLiquidacionLabel');
+        if (linkEl) linkEl.href = urlLiqDetalleBase + lid + '/';
+        if (titleEl) titleEl.innerHTML = '<i class="fas fa-file-invoice-dollar me-2"></i>Liquidación #' + lid;
+        if (bodyEl) {
+            bodyEl.innerHTML = '<div class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Cargando liquidación…</div>';
+        }
+        var modalEl = document.getElementById('modalLibroLiquidacion');
+        if (modalEl && window.bootstrap && bootstrap.Modal) {
+            bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        } else if (modalEl && window.jQuery) {
+            $(modalEl).modal('show');
+        }
+        fetch(urlLiqModalBase + lid + '/', {
+            credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+          .then(function(r) {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.text();
+          })
+          .then(function(html) {
+            if (bodyEl) bodyEl.innerHTML = html;
+          })
+          .catch(function() {
+            if (bodyEl) {
+                bodyEl.innerHTML = '<div class="alert alert-danger mb-0">No se pudo cargar la liquidación. '
+                  + '<a href="' + (urlLiqDetalleBase + lid + '/') + '" target="_blank" rel="noopener">Abrir en página nueva</a>.</div>';
+            }
+          });
     });
 
     function guardarFila(tr) {

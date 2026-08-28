@@ -79,6 +79,18 @@ class LiquidacionPropietario(models.Model):
         verbose_name='Cotización del dólar',
         help_text='Cotización ARS por USD del día al crear la liquidación (opcional).',
     )
+    CLASIFICACION_LIBRO_CHOICES = [
+        ('facturado', 'Facturado'),
+        ('negro', 'En negro'),
+    ]
+    clasificacion_libro = models.CharField(
+        max_length=20,
+        choices=CLASIFICACION_LIBRO_CHOICES,
+        blank=True,
+        default='',
+        db_index=True,
+        verbose_name='Clasificación libro (facturado / en negro)',
+    )
 
     # Montos
     monto_total_operacion = models.DecimalField(

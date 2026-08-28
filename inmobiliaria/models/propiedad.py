@@ -228,6 +228,11 @@ class Propiedad(models.Model):
         verbose_name='Propiedad oficina',
         help_text='Propiedad de la inmobiliaria. En invierno y 24 meses aplica el % «propiedad oficina» del vendedor.',
     )
+    libro_exige_facturado_negro = models.BooleanField(
+        default=False,
+        verbose_name='Libro: exigir facturado / en negro',
+        help_text='Al cargar movimientos de caja de esta propiedad, obliga a elegir Facturado o En negro.',
+    )
 
     # Precios para cada tipo
     precio_venta = models.DecimalField(

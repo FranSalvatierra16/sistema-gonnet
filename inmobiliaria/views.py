@@ -14298,6 +14298,14 @@ def _form_post_desde_movimiento(movimiento):
         'concepto_nombre': concepto_nombre,
         'detalles': detalles,
         'propiedad_id': str(movimiento.propiedad_id) if movimiento.propiedad_id else '',
+        'clasificacion_libro': (getattr(movimiento, 'clasificacion_libro', None) or '').strip(),
+        'exige_facturado_negro': bool(
+            Propiedad.objects.filter(pk=movimiento.propiedad_id)
+            .values_list('libro_exige_facturado_negro', flat=True)
+            .first()
+        )
+        if movimiento.propiedad_id
+        else False,
         'productor_id': '',
         'tipo_beneficiario_vale': '',
         'beneficiario_nombre_vale': '',
@@ -15246,6 +15254,37 @@ def nuevo_movimiento(request, numero_caja=None):
                             f'(movimiento #{duplicado.id}). No se creó un duplicado.',
                         )
                         return redirect('inmobiliaria:detalle_caja', numero=caja.numero)
+
+                # Propiedades con libro «facturado / en negro» (ej. Gery 1759 piso 12)
+                clasif_raw = (request.POST.get('clasificacion_libro') or '').strip().lower()
+                if clasif_raw in ('facturado', 'negro'):
+                    movimiento.clasificacion_libro = clasif_raw
+                elif getattr(movimiento, 'clasificacion_libro', None) in ('facturado', 'negro'):
+                    pass
+                else:
+                    movimiento.clasificacion_libro = ''
+
+                prop_id_clasif = getattr(movimiento, 'propiedad_id', None)
+                if prop_id_clasif:
+                    prop_exige = (
+                        Propiedad.objects.filter(pk=prop_id_clasif)
+                        .values_list('libro_exige_facturado_negro', flat=True)
+                        .first()
+                    )
+                    if prop_exige and movimiento.clasificacion_libro not in (
+                        'facturado',
+                        'negro',
+                    ):
+                        messages.error(
+                            request,
+                            'Para esta propiedad tenés que indicar si el movimiento es '
+                            'Facturado o En negro.',
+                        )
+                        return render(
+                            request,
+                            'inmobiliaria/caja/nuevo_movimiento.html',
+                            _ctx_nuevo_movimiento(),
+                        )
 
                 movimiento.save()
                 from inmobiliaria.models.caja import _es_comprobante_placeholder
@@ -18043,6 +18082,9 @@ def buscar_propiedades_caja(request):
                 'piso': (p.piso or '').strip(),
                 'departamento': (p.departamento or '').strip(),
                 'propietario': _propietario_txt(p),
+                'exige_facturado_negro': bool(
+                    getattr(p, 'libro_exige_facturado_negro', False)
+                ),
             } for p in propiedades]
         })
     except Exception as e:

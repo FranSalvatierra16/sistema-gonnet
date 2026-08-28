@@ -396,6 +396,19 @@ class MovimientoCaja(models.Model):
         on_delete=models.SET_NULL,
         related_name='movimientos_caja_eliminados',
     )
+    CLASIFICACION_LIBRO_CHOICES = [
+        ('facturado', 'Facturado'),
+        ('negro', 'En negro'),
+    ]
+    clasificacion_libro = models.CharField(
+        max_length=20,
+        choices=CLASIFICACION_LIBRO_CHOICES,
+        blank=True,
+        default='',
+        db_index=True,
+        verbose_name='Clasificación libro (facturado / en negro)',
+        help_text='Solo para propiedades que exigen esta clasificación en el libro de oficina.',
+    )
 
     all_objects = models.Manager()
     objects = MovimientoCajaActivosManager()
