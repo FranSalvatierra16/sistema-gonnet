@@ -29197,13 +29197,9 @@ def _concepto_pago_liquidacion_operacion(tipo, contrato=None, *, es_primera_cuot
         return 'Operación principal'
     if tipo == 'reserva':
         return 'Alquiler por día'
-    duracion = int(getattr(contrato, 'duracion_meses', 0) or 0) if contrato else 0
-    if duracion == 9:
-        return 'Invierno'
-    if duracion == 24:
-        return '24 meses'
-    if duracion > 0:
-        return f'{duracion} meses'
+    if tipo in ('contrato_cuota', 'contrato', 'contrato_operacion_principal'):
+        # Como en el recibo impreso: «Alquiler a pagar», no «10 meses» / «24 meses».
+        return 'Alquiler a pagar'
     return 'Alquiler'
 
 
@@ -31613,13 +31609,13 @@ def _filas_alquiler_desde_operaciones_incluidas(liquidacion, monto_prop_total):
             ).select_related('contrato').first()
             if cq:
                 fecha_entrada, fecha_salida = _periodo_ocupacion_cuota_mensual(cq)
+                # Mes de la cuota = inicio del período de locación (no la fecha hasta).
                 periodo = _periodo_mes_anio_liquidacion(fecha_entrada or cq.fecha_vencimiento)
-                nro = cq.numero_cuota or ''
                 detalle = (
-                    f'CUOTA {nro} // {periodo}' if periodo else f'CUOTA {nro}'
-                ).strip()
+                    f'ALQUILER A PAGAR // {periodo}' if periodo else 'ALQUILER A PAGAR'
+                )
             else:
-                detalle = 'CUOTA MENSUAL'
+                detalle = 'ALQUILER A PAGAR'
         elif tipo == 'contrato_operacion_principal':
             detalle = 'OPERACIÓN PRINCIPAL'
             periodo = _periodo_mes_anio_liquidacion(liquidacion.fecha_desde) or _periodo_mes_anio_liquidacion(
@@ -31662,11 +31658,12 @@ def _filas_alquiler_desde_operaciones_incluidas(liquidacion, monto_prop_total):
             'debe': Decimal('0'),
             'haber': monto.quantize(Decimal('0.01')),
             'es_alquiler': tipo in ('reserva', 'contrato', 'contrato_cuota', 'contrato_operacion_principal'),
+            # Entrada/salida solo en alquiler por día (reservas), nunca en cuotas mensuales.
             'mostrar_estadia': tipo == 'reserva',
-            'fecha_entrada': fecha_entrada,
-            'fecha_salida': fecha_salida,
-            'precio_dia': precio_dia,
-            'dias': dias,
+            'fecha_entrada': fecha_entrada if tipo == 'reserva' else None,
+            'fecha_salida': fecha_salida if tipo == 'reserva' else None,
+            'precio_dia': precio_dia if tipo == 'reserva' else None,
+            'dias': dias if tipo == 'reserva' else None,
         })
         montos.append(monto)
 

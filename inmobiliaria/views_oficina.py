@@ -266,12 +266,12 @@ _MESES_LIBRO_ES = (
 
 
 def _periodo_liquidacion_libro(liq):
-    """Etiqueta de período (ej. «Julio 2026») desde fecha_desde de la liquidación."""
+    """Etiqueta de período (ej. «Septiembre de 2026») desde fecha_desde de la liquidación."""
     fd = getattr(liq, 'fecha_desde', None)
     if not fd:
         return ''
     try:
-        return f'{_MESES_LIBRO_ES[fd.month]} {fd.year}'
+        return f'{_MESES_LIBRO_ES[fd.month]} de {fd.year}'
     except Exception:
         return ''
 
@@ -322,10 +322,9 @@ def _descripcion_liquidacion_oficina_libro(liq):
         return f'{ref} — ' + '; '.join(detalles)
 
     periodo = _periodo_liquidacion_libro(liq)
-    partes = [ref, 'Alquiler a Cobrar']
     if periodo:
-        partes.append(periodo)
-    return ' – '.join(partes)
+        return f'{ref} — Alquiler a pagar // {periodo}'
+    return f'{ref} — Alquiler a pagar'
 
 
 # Estados de liquidación que acreditan alquiler en el libro del depto.

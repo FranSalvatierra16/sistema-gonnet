@@ -2044,11 +2044,14 @@ document.addEventListener('DOMContentLoaded', function() {
         if (cb.getAttribute('data-es-primera-cuota') === '1') {
             return 'Operación principal';
         }
-        const custom = (cb.getAttribute('data-concepto-pago') || '').trim();
-        if (custom && custom.toLowerCase() !== 'cuota mensual') return custom;
         if (tipo === 'reserva') return 'Alquiler por día';
-        if (tipo === 'contrato_cuota' || tipo === 'contrato_operacion_principal') {
-            return 'Cuota';
+        if (tipo === 'contrato_cuota' || tipo === 'contrato' || tipo === 'contrato_operacion_principal') {
+            return 'Alquiler a pagar';
+        }
+        const custom = (cb.getAttribute('data-concepto-pago') || '').trim();
+        if (custom && !/^\d+\s*meses$/i.test(custom) && custom.toLowerCase() !== 'cuota mensual'
+            && custom.toLowerCase() !== '24 meses' && custom.toLowerCase() !== 'invierno') {
+            return custom;
         }
         if (tipo === 'movimiento_caja') {
             return custom || 'Pago a favor';
@@ -2056,7 +2059,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (tipo === 'gasto_propietario' || tipo === 'observacion_cobro') {
             return custom || 'Gasto a pagar';
         }
-        return custom || 'Alquiler';
+        return custom || 'Alquiler a pagar';
     }
 
     function periodoCortoDesdeIso(iso) {
@@ -2069,7 +2072,7 @@ document.addEventListener('DOMContentLoaded', function() {
         ];
         const mes = parseInt(p[1], 10);
         if (!mes || mes < 1 || mes > 12) return '';
-        return `${meses[mes - 1]} ${p[0]}`;
+        return `${meses[mes - 1]} de ${p[0]}`;
     }
 
     function fechaCortaDesdeIso(iso) {
@@ -2084,11 +2087,11 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function etiquetaResumenOperacion(cb) {
-        let concepto = etiquetaConceptoOperacion(cb);
         const tipo = cb.getAttribute('data-tipo') || '';
         const desde = cb.getAttribute('data-fecha-desde') || '';
         const hasta = cb.getAttribute('data-fecha-hasta') || '';
         if (tipo === 'reserva') {
+            let concepto = etiquetaConceptoOperacion(cb);
             const d = fechaCortaDesdeIso(desde);
             const h = fechaCortaDesdeIso(hasta);
             if (d && h) {
@@ -2100,10 +2103,16 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             return concepto;
         }
-        const per = periodoCortoDesdeIso(hasta || desde);
+        // Cuotas / contrato: mes de la cuota = fecha desde (inicio locación), NUNCA la hasta
+        // (ej. 09/09→08/10 no debe decir «octubre»).
+        if (tipo === 'contrato_cuota' || tipo === 'contrato' || tipo === 'contrato_operacion_principal') {
+            const per = periodoCortoDesdeIso(desde || hasta);
+            return per ? `Alquiler a pagar // ${per}` : 'Alquiler a pagar';
+        }
+        let concepto = etiquetaConceptoOperacion(cb);
+        const per = periodoCortoDesdeIso(desde || hasta);
         if (per) {
-            // "Cuota julio 2026" / "Operación principal julio 2026"
-            concepto = `${concepto} ${per}`;
+            concepto = `${concepto} // ${per}`;
         }
         return concepto;
     }
