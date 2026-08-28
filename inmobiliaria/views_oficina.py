@@ -59,10 +59,26 @@ _RE_OPERACION_ANULADA = re.compile(
     re.IGNORECASE,
 )
 
+# Cobros mal vinculados que no deben aparecer en libros de oficina (desconfiguran totales).
+_MOVIMIENTOS_EXCLUIDOS_LIBRO_OFICINA = frozenset({4441})
+
 
 def _concepto_es_operacion_anulada(concepto):
     """True si el movimiento es un contrasiento de operación anulada."""
     return bool(_RE_OPERACION_ANULADA.search(concepto or ''))
+
+
+def _movimiento_excluido_libro_oficina(mov, propiedad=None):
+    """True si el movimiento no debe figurar en ningún / este libro de oficina."""
+    try:
+        mid = int(getattr(mov, 'id', 0) or 0)
+    except (TypeError, ValueError):
+        return False
+    if mid in _MOVIMIENTOS_EXCLUIDOS_LIBRO_OFICINA:
+        return True
+    if propiedad is not None and _movimiento_ajeno_al_libro(mov, propiedad):
+        return True
+    return False
 
 
 def _ids_operaciones_contratos_propiedad(propiedad, sucursal):
@@ -109,6 +125,33 @@ def _movimiento_refiere_operacion_o_contrato(concepto, reserva_ids, contrato_ids
     return False
 
 
+def _movimiento_ajeno_al_libro(mov, propiedad):
+    """
+    True si el movimiento no debe figurar en el libro de este depto.
+    Ej.: MovimientoCaja mal asignado al FK pero con recibo de otra propiedad.
+    """
+    prop_id = getattr(propiedad, 'pk', None) or getattr(propiedad, 'id', None)
+    if not prop_id or not mov:
+        return False
+    try:
+        rec = getattr(mov, 'recibo', None)
+    except Exception:
+        rec = None
+    if rec is not None:
+        rec_prop = getattr(rec, 'propiedad_id', None)
+        if rec_prop and str(rec_prop) != str(prop_id):
+            return True
+        try:
+            reserva = getattr(rec, 'reserva', None)
+        except Exception:
+            reserva = None
+        if reserva is not None:
+            rprop = getattr(reserva, 'propiedad_id', None)
+            if rprop and str(rprop) != str(prop_id):
+                return True
+    return False
+
+
 def _qs_movimientos_libro_propiedad(sucursal, propiedad, dr_desde=None, dr_hasta=None):
     """
     Movimientos del libro: los de la propiedad en caja + ingresos/egresos
@@ -125,18 +168,21 @@ def _qs_movimientos_libro_propiedad(sucursal, propiedad, dr_desde=None, dr_hasta
     base = MovimientoCaja.objects.filter(
         sucursal=sucursal,
         fecha_eliminacion__isnull=True,
-    )
+    ).select_related('recibo', 'recibo__reserva')
     if dr_desde:
         base = base.filter(fecha__date__gte=dr_desde)
     if dr_hasta:
         base = base.filter(fecha__date__lte=dr_hasta)
 
-    # 1) Directos por FK propiedad (sin contrasientos de operación anulada)
-    por_prop = [
-        m
-        for m in base.filter(propiedad=propiedad).order_by('fecha', 'id')[:2000]
-        if not _concepto_es_operacion_anulada(getattr(m, 'concepto', None))
-    ]
+    # 1) Directos por FK propiedad (sin contrasientos de operación anulada
+    #    ni movimientos cuyo recibo pertenece a otro depto).
+    por_prop = []
+    for m in base.filter(propiedad=propiedad).order_by('fecha', 'id')[:2000]:
+        if _concepto_es_operacion_anulada(getattr(m, 'concepto', None)):
+            continue
+        if _movimiento_excluido_libro_oficina(m, propiedad):
+            continue
+        por_prop.append(m)
     seen = {m.id for m in por_prop}
 
     # 2) Candidatos por texto (una query amplia) y filtro exacto en Python
@@ -155,6 +201,12 @@ def _qs_movimientos_libro_propiedad(sucursal, propiedad, dr_desde=None, dr_hasta
         for mov in candidatos:
             conc = getattr(mov, 'concepto', None) or ''
             if _concepto_es_operacion_anulada(conc):
+                continue
+            if _movimiento_excluido_libro_oficina(mov, propiedad):
+                continue
+            # No meter cobros de otro depto solo porque el texto menciona una op.
+            mov_prop = getattr(mov, 'propiedad_id', None)
+            if mov_prop and str(mov_prop) != str(propiedad.id):
                 continue
             if _movimiento_refiere_operacion_o_contrato(conc, reserva_ids, contrato_ids):
                 extras.append(mov)
