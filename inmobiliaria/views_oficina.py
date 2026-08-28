@@ -217,85 +217,11 @@ def _filas_operaciones_faltantes_libro(
     cotiz_por_reserva=None,
 ):
     """
-    Operaciones (reservas con cobro) de la propiedad que no aparecen en caja:
-    se agregan como filas de alquiler con el monto al propietario (no el total).
+    Las operaciones no se inventan desde cobros/caja.
+    Entran al libro solo con liquidación confirmada
+    (ver _filas_liquidaciones_confirmadas_libro).
     """
-    import re
-
-    from inmobiliaria.caja_devolucion_deposito import queryset_reservas_con_operacion
-    from inmobiliaria.models import Reserva
-
-    if not reserva_ids:
-        return []
-
-    liq_por_reserva = liq_por_reserva or {}
-    cotiz_por_reserva = cotiz_por_reserva or {}
-
-    cubiertas = set()
-    for mov in movimientos:
-        txt = getattr(mov, 'concepto', None) or ''
-        for rid in reserva_ids:
-            if re.search(rf'Operaci[oó]n\s*#?\s*{rid}\b', txt, re.IGNORECASE):
-                cubiertas.add(rid)
-
-    qs = queryset_reservas_con_operacion(
-        Reserva.objects.filter(
-            id__in=reserva_ids,
-            propiedad=propiedad,
-            sucursal=sucursal,
-            eliminada=False,
-        ).select_related('cliente')
-    )
-    filas = []
-    for r in qs:
-        if r.id in cubiertas:
-            continue
-        fecha = getattr(r, 'fecha_creacion', None) or timezone.now()
-        f_date = fecha.date() if hasattr(fecha, 'date') else fecha
-        if dr_desde and f_date < dr_desde:
-            continue
-        if dr_hasta and f_date > dr_hasta:
-            continue
-        monto = _monto_propietario_reserva_libro(r, liq_por_reserva.get(r.id))
-        if monto <= 0:
-            continue
-        cliente = _nombre_cliente_corto(r.cliente)
-        desc = f'Operación {r.id}'
-        if cliente:
-            desc = f'{desc} — {cliente}'
-        moneda = (getattr(r, 'moneda', None) or 'ARS').strip().upper()
-        cotiz = cotiz_por_reserva.get(r.id)
-        if cotiz is not None:
-            cotiz = Decimal(str(cotiz))
-            if cotiz <= 0:
-                cotiz = None
-        fila = {
-            'fecha': fecha,
-            'descripcion': desc,
-            'gastos_ars': Decimal('0'),
-            'alquileres_ars': Decimal('0'),
-            'gastos_usd': Decimal('0'),
-            'ingreso_usd': Decimal('0'),
-            'tipo_cambio': cotiz,
-            'movimiento_id': None,
-            'tipo': 'IN',
-            'sin_caja': True,
-            'es_inicio_caja': False,
-            'es_manual': False,
-            'fila_manual_id': None,
-            'es_operacion_libro': True,
-            'reserva_id': r.id,
-        }
-        if moneda == 'USD':
-            fila['ingreso_usd'] = monto
-            if cotiz:
-                fila['alquileres_ars'] = (monto * cotiz).quantize(Decimal('0.01'))
-        else:
-            fila['alquileres_ars'] = monto
-            if cotiz:
-                fila['ingreso_usd'] = (monto / cotiz).quantize(Decimal('0.01'))
-        filas.append(fila)
-    return filas
+    return []
 
 
 def _filas_contratos_faltantes_libro(
@@ -308,8 +234,8 @@ def _filas_contratos_faltantes_libro(
 ):
     """
     Los cobros de contrato no se inventan desde cuotas/movimientos.
-    Entran al libro solo cuando la liquidación queda en estado «oficina»
-    (ver _filas_liquidaciones_oficina_libro).
+    Entran al libro solo con liquidación confirmada
+    (ver _filas_liquidaciones_confirmadas_libro).
     """
     return []
 
@@ -384,6 +310,10 @@ def _descripcion_liquidacion_oficina_libro(liq):
     return ' – '.join(partes)
 
 
+# Estados de liquidación que acreditan alquiler en el libro del depto.
+_ESTADOS_LIQUIDACION_LIBRO = ('oficina', 'pagada', 'cerrada', 'procesada')
+
+
 def _filas_liquidaciones_oficina_libro(
     propiedad,
     sucursal,
@@ -391,37 +321,46 @@ def _filas_liquidaciones_oficina_libro(
     dr_desde=None,
     dr_hasta=None,
 ):
+    """Alias: liquidaciones confirmadas en el mes del período."""
+    return _filas_liquidaciones_confirmadas_libro(
+        propiedad, sucursal, movimientos=movimientos, dr_desde=dr_desde, dr_hasta=dr_hasta
+    )
+
+
+def _filas_liquidaciones_confirmadas_libro(
+    propiedad,
+    sucursal,
+    movimientos=None,
+    dr_desde=None,
+    dr_hasta=None,
+):
     """
-    Liquidaciones con estado «oficina»: deben verse en el libro del depto.
-    No generan egreso de caja al propietario; el alquiler se acredita acá.
+    Liquidaciones confirmadas (oficina / pagada / cerrada / procesada):
+    se acreditan en el libro del depto en el mes de su período (fecha_desde),
+    con el monto del propietario — no el total cobrado al locatario.
+    Sin liquidación confirmada, la operación/contrato no aparece.
     """
     from datetime import time as time_cls
 
     from inmobiliaria.models import LiquidacionPropietario
 
-    mov_ids = {m.id for m in (movimientos or []) if getattr(m, 'id', None)}
-
     qs = (
         LiquidacionPropietario.objects.filter(
             propiedad=propiedad,
             sucursal=sucursal,
-            estado='oficina',
+            estado__in=_ESTADOS_LIQUIDACION_LIBRO,
         )
         .select_related('contrato', 'reserva', 'reserva__cliente', 'contrato__inquilino')
-        .order_by('fecha_procesamiento', 'id')
+        .order_by('fecha_desde', 'id')
     )
 
     filas = []
     for liq in qs:
-        # Si ya hay egreso/movimiento de caja de esa liquidación en el libro, no duplicar.
-        mid = getattr(liq, 'movimiento_caja_id', None)
-        if mid and mid in mov_ids:
-            continue
-
+        # Mes que le corresponde = período de la liquidación (fecha_desde).
         fecha_raw = (
-            getattr(liq, 'fecha_procesamiento', None)
+            getattr(liq, 'fecha_desde', None)
+            or getattr(liq, 'fecha_procesamiento', None)
             or getattr(liq, 'fecha_creacion', None)
-            or getattr(liq, 'fecha_desde', None)
         )
         if fecha_raw is None:
             continue
@@ -1427,10 +1366,8 @@ def _monto_gasto_libro_sin_inquilino(mov, ars_total):
 def _fila_libro_desde_movimiento(mov, monto_prop_por_reserva=None, cotiz_por_reserva=None):
     """
     Mapea un MovimientoCaja a las columnas del libro.
-    En ingresos de Operación N usa el monto al propietario (carátula/liquidación),
-    no el total cobrado al locatario.
-    Ingresos de Contrato #N no entran acá: van al libro recién con liquidación
-    en estado «oficina» (monto del depto/propietario).
+    Ingresos de Operación N / Contrato #N no entran acá: van al libro recién
+    con liquidación confirmada (monto del depto/propietario).
     En egresos solo la parte depto/propietario (excluye proporcional inquilino).
     Devuelve None si el egreso es 100% a cargo del inquilino (no va al libro).
     """
@@ -1450,38 +1387,21 @@ def _fila_libro_desde_movimiento(mov, monto_prop_por_reserva=None, cotiz_por_res
     reserva_id = None
     es_operacion_libro = False
 
-    # Cobros de contrato: no listar el bruto de caja. El libro usa liquidación «oficina».
+    # Cobros de operación/contrato: no listar el bruto de caja.
+    # El libro usa liquidaciones confirmadas (_filas_liquidaciones_confirmadas_libro).
     if not es_egreso:
         conc_chk = getattr(mov, 'concepto', None) or ''
         if re.search(r'Contrato\s*#?\s*\d+', conc_chk, re.IGNORECASE):
             return None
+        if re.search(r'Operaci[oó]n\s*#?\s*\d+', conc_chk, re.IGNORECASE):
+            return None
 
-    # Ingreso de operación por día → solo lo del propietario (depto).
-    if not es_egreso and monto_prop_por_reserva:
-        conc = getattr(mov, 'concepto', None) or ''
-        m_op = re.search(r'Operaci[oó]n\s*#?\s*(\d+)\b', conc, re.IGNORECASE)
-        if m_op:
-            rid = int(m_op.group(1))
-            reserva_id = rid
-            es_operacion_libro = True
-            prop_share = monto_prop_por_reserva.get(rid)
-            if prop_share is not None and prop_share >= 0:
-                total_op = monto_prop_por_reserva.get(f'_total_{rid}')
-                if total_op and total_op > 0 and ars > 0 and abs(ars - total_op) > Decimal('0.05'):
-                    ars = (prop_share * ars / total_op).quantize(Decimal('0.01'))
-                else:
-                    ars = prop_share
-                if usd > 0 and total_op and total_op > 0 and abs(usd - total_op) > Decimal('0.05'):
-                    usd = (prop_share * usd / total_op).quantize(Decimal('0.01'))
-                elif usd > 0:
-                    usd = prop_share
-            # Cotización guardada en el libro para esta operación (si el mov no tiene)
-            if cotiz is None and cotiz_por_reserva:
-                c_libro = cotiz_por_reserva.get(rid)
-                if c_libro is not None:
-                    c_libro = Decimal(str(c_libro))
-                    if c_libro > 0:
-                        cotiz = c_libro
+    # Egresos de pago de liquidación al propietario: el alquiler ya se acredita
+    # por la fila de liquidación confirmada; no duplicar como gasto.
+    if es_egreso:
+        conc_eg = (getattr(mov, 'concepto', None) or '')
+        if re.search(r'Liquidaci[oó]n\s+Propietario', conc_eg, re.IGNORECASE):
+            return None
 
     if es_egreso:
         ars_bruto = ars
