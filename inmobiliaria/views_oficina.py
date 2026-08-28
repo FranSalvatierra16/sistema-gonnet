@@ -1103,6 +1103,7 @@ def _ordenar_propiedades_oficina(propiedades, orden='direccion'):
     """
     orden='direccion' → calle, piso, dpto
     orden='piso' → piso, dpto, calle
+    orden='propietario' → propietario, calle, piso, dpto
     """
     items = list(propiedades)
     if orden == 'piso':
@@ -1111,6 +1112,16 @@ def _ordenar_propiedades_oficina(propiedades, orden='direccion'):
                 _clave_orden_piso(getattr(p, 'piso', None)),
                 _clave_orden_depto(getattr(p, 'departamento', None)),
                 (getattr(p, 'direccion', None) or '').strip().lower(),
+                p.id,
+            )
+        )
+    elif orden == 'propietario':
+        items.sort(
+            key=lambda p: (
+                str(getattr(p, 'propietario', None) or '').strip().lower(),
+                (getattr(p, 'direccion', None) or '').strip().lower(),
+                _clave_orden_piso(getattr(p, 'piso', None)),
+                _clave_orden_depto(getattr(p, 'departamento', None)),
                 p.id,
             )
         )
@@ -1124,6 +1135,29 @@ def _ordenar_propiedades_oficina(propiedades, orden='direccion'):
             )
         )
     return items
+
+
+def _filtrar_propiedades_oficina(propiedades, q):
+    """Filtra por id, dirección/piso/dpto o nombre de propietario."""
+    texto = (q or '').strip().lower()
+    if not texto:
+        return list(propiedades)
+    tokens = [t for t in texto.split() if t]
+    out = []
+    for p in propiedades:
+        prop = str(getattr(p, 'propietario', None) or '').strip().lower()
+        haystack = ' '.join(
+            [
+                str(getattr(p, 'id', '') or ''),
+                (getattr(p, 'direccion', None) or '').strip().lower(),
+                str(getattr(p, 'piso', None) or '').strip().lower(),
+                str(getattr(p, 'departamento', None) or '').strip().lower(),
+                prop,
+            ]
+        )
+        if all(t in haystack for t in tokens):
+            out.append(p)
+    return out
 
 
 def _qs_propiedades_oficina(sucursal, usuario=None):
@@ -1620,10 +1654,11 @@ def oficina_propiedades_lista(request):
 
     sucursal = request.user.sucursal
     orden = (request.GET.get('orden') or 'direccion').strip().lower()
-    if orden not in ('direccion', 'piso'):
+    if orden not in ('direccion', 'piso', 'propietario'):
         orden = 'direccion'
+    q = (request.GET.get('q') or '').strip()
     propiedades = _ordenar_propiedades_oficina(
-        _qs_propiedades_oficina(sucursal),
+        _filtrar_propiedades_oficina(_qs_propiedades_oficina(sucursal), q),
         orden=orden,
     )
     return render(
@@ -1633,6 +1668,7 @@ def oficina_propiedades_lista(request):
             'propiedades': propiedades,
             'total': len(propiedades),
             'orden': orden,
+            'q': q,
         },
     )
 

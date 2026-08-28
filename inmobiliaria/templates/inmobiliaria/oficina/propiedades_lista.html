@@ -21,23 +21,51 @@
     </div>
 
     <div class="card shadow-sm">
-        <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
-            <strong>{{ total }} departamento{{ total|pluralize }}</strong>
-            <div class="btn-group btn-group-sm" role="group" aria-label="Ordenar listado">
-                <a href="?orden=direccion"
-                   class="btn {% if orden != 'piso' %}btn-primary{% else %}btn-outline-primary{% endif %}">
-                    Por dirección
-                </a>
-                <a href="?orden=piso"
-                   class="btn {% if orden == 'piso' %}btn-primary{% else %}btn-outline-primary{% endif %}">
-                    Por piso / dpto
-                </a>
+        <div class="card-header">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                <strong><span id="oficina-lista-total">{{ total }}</span> departamento{{ total|pluralize }}</strong>
+                <div class="btn-group btn-group-sm" role="group" aria-label="Ordenar listado">
+                    <a href="?orden=direccion{% if q %}&q={{ q|urlencode }}{% endif %}"
+                       class="btn {% if orden == 'direccion' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                        Por dirección
+                    </a>
+                    <a href="?orden=piso{% if q %}&q={{ q|urlencode }}{% endif %}"
+                       class="btn {% if orden == 'piso' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                        Por piso / dpto
+                    </a>
+                    <a href="?orden=propietario{% if q %}&q={{ q|urlencode }}{% endif %}"
+                       class="btn {% if orden == 'propietario' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                        Por propietario
+                    </a>
+                </div>
             </div>
+            <form method="get" class="row g-2 align-items-end" id="form-buscar-oficina-deptos">
+                {% if orden %}<input type="hidden" name="orden" value="{{ orden }}">{% endif %}
+                <div class="col-md-8 col-lg-6">
+                    <label class="form-label small mb-0 text-muted" for="buscar-oficina-depto">Buscar</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                        <input type="search" class="form-control" id="buscar-oficina-depto" name="q"
+                               value="{{ q }}"
+                               placeholder="ID, dirección, piso/dpto o propietario…"
+                               autocomplete="off">
+                        {% if q %}
+                        <a href="?orden={{ orden }}" class="btn btn-outline-secondary" title="Limpiar">×</a>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-sm btn-primary">Buscar</button>
+                </div>
+            </form>
         </div>
-        <div class="list-group list-group-flush">
+        <div class="list-group list-group-flush" id="oficina-lista-deptos">
             {% for p in propiedades %}
-            <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
-               href="{% url 'inmobiliaria:oficina_propiedad_libro' p.id %}">
+            <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center oficina-depto-item"
+               href="{% url 'inmobiliaria:oficina_propiedad_libro' p.id %}"
+               data-id="{{ p.id }}"
+               data-label="{{ p.direccion }}{% if p.piso %} {{ p.piso }}{% endif %}{% if p.departamento %} {{ p.departamento }}{% endif %}"
+               data-propietario="{% if p.propietario %}{{ p.propietario }}{% endif %}">
                 <div>
                     <strong>#{{ p.id }}</strong> — {{ p.direccion }}
                     {% if p.piso %} — Piso {{ p.piso }}{% endif %}{% if p.departamento %}{% if p.piso %}, {% else %} — {% endif %}Dpto {{ p.departamento }}{% endif %}
@@ -48,12 +76,56 @@
                 <span class="badge bg-primary">Ver libro →</span>
             </a>
             {% empty %}
-            <div class="list-group-item text-muted text-center py-5">
+            <div class="list-group-item text-muted text-center py-5" id="oficina-lista-vacia-servidor">
+                {% if q %}
+                No hay coincidencias para «{{ q }}».
+                <br><small><a href="?orden={{ orden }}">Ver todos</a></small>
+                {% else %}
                 No hay propiedades en la cartera de la sucursal.
                 <br><small>Agregalas desde <a href="{% url 'inmobiliaria:mis_propiedades' %}">Mis propiedades</a>.</small>
+                {% endif %}
             </div>
             {% endfor %}
+            <div class="list-group-item text-muted text-center py-4 d-none" id="oficina-lista-vacia-filtro">
+                Sin coincidencias.
+            </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    var inp = document.getElementById('buscar-oficina-depto');
+    var items = Array.prototype.slice.call(document.querySelectorAll('.oficina-depto-item'));
+    var totalEl = document.getElementById('oficina-lista-total');
+    var vaciaFiltro = document.getElementById('oficina-lista-vacia-filtro');
+    if (!inp || !items.length) return;
+
+    function norm(s) {
+        return (s || '').toString().toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    }
+
+    function filtrar() {
+        var tokens = norm(inp.value).trim().split(/\s+/).filter(Boolean);
+        var visibles = 0;
+        items.forEach(function(el) {
+            var hay = norm(
+                (el.getAttribute('data-id') || '') + ' ' +
+                (el.getAttribute('data-label') || '') + ' ' +
+                (el.getAttribute('data-propietario') || '')
+            );
+            var ok = !tokens.length || tokens.every(function(t) { return hay.indexOf(t) !== -1; });
+            el.classList.toggle('d-none', !ok);
+            if (ok) visibles += 1;
+        });
+        if (totalEl) totalEl.textContent = String(visibles);
+        if (vaciaFiltro) vaciaFiltro.classList.toggle('d-none', visibles > 0 || !tokens.length);
+    }
+
+    inp.addEventListener('input', filtrar);
+})();
+</script>
 {% endblock %}
