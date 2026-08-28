@@ -2279,14 +2279,12 @@ def oficina_propiedad_libro(request, propiedad_id):
         'total': total_ingresos - total_gastos,
     }
 
-    otras_tabs, otras_catalogo_json = [], '[]'
-    if request.GET.get('nav') == '1':
-        otras_tabs, otras_catalogo_json = _nav_propiedades_libro(
-            sucursal,
-            propiedad_id,
-            fecha_desde_s=fecha_desde_s,
-            fecha_hasta_s=fecha_hasta_s,
-        )
+    otras_tabs, otras_catalogo_json = _nav_propiedades_libro(
+        sucursal,
+        propiedad_id,
+        fecha_desde_s=fecha_desde_s,
+        fecha_hasta_s=fecha_hasta_s,
+    )
 
     return render(
         request,
