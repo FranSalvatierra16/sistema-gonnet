@@ -277,6 +277,7 @@
                     {% for f in filas %}
                     <tr {% if f.movimiento_id %}data-movimiento-id="{{ f.movimiento_id }}"{% endif %}
                         {% if f.reserva_id %}data-reserva-id="{{ f.reserva_id }}"{% endif %}
+                        {% if f.liquidacion_id %}data-liquidacion-id="{{ f.liquidacion_id }}"{% endif %}
                         data-tipo="{{ f.tipo }}"
                         data-buscar="{{ f.fecha|date:'d/m/Y' }} {{ f.descripcion|default:'' }}"
                         {% if f.es_inicio_caja %}class="table-primary"{% endif %}>
@@ -293,7 +294,7 @@
                         <td class="text-end">
                             {% if f.es_inicio_caja %}
                             <span class="text-muted small">{% if f.tipo_cambio %}{{ f.tipo_cambio|format_price }}{% else %}—{% endif %}</span>
-                            {% elif f.movimiento_id or f.es_operacion_libro %}
+                            {% elif f.movimiento_id or f.es_operacion_libro or f.es_liquidacion_oficina %}
                             <span class="solo-imprimir">{% if f.tipo_cambio %}{{ f.tipo_cambio|format_price }}{% else %}—{% endif %}</span>
                             <div class="input-group input-group-sm justify-content-end flex-nowrap no-print">
                                 <input type="text"
@@ -948,9 +949,10 @@
         if (!tr) return;
         var mid = tr.getAttribute('data-movimiento-id');
         var rid = tr.getAttribute('data-reserva-id');
+        var lid = tr.getAttribute('data-liquidacion-id');
         var input = tr.querySelector('.input-cotizacion-libro');
         var btn = tr.querySelector('.btn-guardar-cotizacion');
-        if ((!mid && !rid) || !input) return;
+        if ((!mid && !rid && !lid) || !input) return;
         var cotiz = (input.value || '').trim();
         if (!cotiz) {
             alert('Ingresá el tipo de cambio (ARS por 1 USD).');
@@ -959,8 +961,12 @@
         }
         if (btn) btn.disabled = true;
         var body = new URLSearchParams();
-        if (mid) body.set('movimiento_id', mid);
-        if (rid) body.set('reserva_id', rid);
+        if (lid) {
+            body.set('liquidacion_id', lid);
+        } else {
+            if (mid) body.set('movimiento_id', mid);
+            if (rid) body.set('reserva_id', rid);
+        }
         body.set('cotizacion_dolar', cotiz);
         postForm(urlCotiz, body)
           .then(function(res) {

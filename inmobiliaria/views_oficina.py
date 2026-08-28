@@ -54,8 +54,19 @@ def _parse_fecha(s):
         return None
 
 
+_RE_OPERACION_ANULADA = re.compile(
+    r'operaci[oó]n\s+anulada|operacion\s+anulada',
+    re.IGNORECASE,
+)
+
+
+def _concepto_es_operacion_anulada(concepto):
+    """True si el movimiento es un contrasiento de operación anulada."""
+    return bool(_RE_OPERACION_ANULADA.search(concepto or ''))
+
+
 def _ids_operaciones_contratos_propiedad(propiedad, sucursal):
-    """IDs de reservas (operaciones) y contratos de la propiedad."""
+    """IDs de reservas (operaciones) y contratos vigentes de la propiedad."""
     from inmobiliaria.models import ContratoAlquiler, Reserva
 
     reserva_ids = list(
@@ -63,13 +74,17 @@ def _ids_operaciones_contratos_propiedad(propiedad, sucursal):
             propiedad=propiedad,
             sucursal=sucursal,
             eliminada=False,
-        ).values_list('id', flat=True)[:800]
+        )
+        .exclude(estado='cancelada')
+        .values_list('id', flat=True)[:800]
     )
     contrato_ids = list(
         ContratoAlquiler.objects.filter(
             propiedad=propiedad,
             sucursal=sucursal,
-        ).values_list('id', flat=True)[:400]
+        )
+        .exclude(estado='rescindido')
+        .values_list('id', flat=True)[:400]
     )
     return [int(x) for x in reserva_ids], [int(x) for x in contrato_ids]
 
@@ -116,8 +131,12 @@ def _qs_movimientos_libro_propiedad(sucursal, propiedad, dr_desde=None, dr_hasta
     if dr_hasta:
         base = base.filter(fecha__date__lte=dr_hasta)
 
-    # 1) Directos por FK propiedad
-    por_prop = list(base.filter(propiedad=propiedad).order_by('fecha', 'id')[:2000])
+    # 1) Directos por FK propiedad (sin contrasientos de operación anulada)
+    por_prop = [
+        m
+        for m in base.filter(propiedad=propiedad).order_by('fecha', 'id')[:2000]
+        if not _concepto_es_operacion_anulada(getattr(m, 'concepto', None))
+    ]
     seen = {m.id for m in por_prop}
 
     # 2) Candidatos por texto (una query amplia) y filtro exacto en Python
@@ -134,11 +153,10 @@ def _qs_movimientos_libro_propiedad(sucursal, propiedad, dr_desde=None, dr_hasta
             .order_by('fecha', 'id')[:3000]
         )
         for mov in candidatos:
-            if _movimiento_refiere_operacion_o_contrato(
-                getattr(mov, 'concepto', None) or '',
-                reserva_ids,
-                contrato_ids,
-            ):
+            conc = getattr(mov, 'concepto', None) or ''
+            if _concepto_es_operacion_anulada(conc):
+                continue
+            if _movimiento_refiere_operacion_o_contrato(conc, reserva_ids, contrato_ids):
                 extras.append(mov)
                 seen.add(mov.id)
 
@@ -350,6 +368,9 @@ def _filas_liquidaciones_confirmadas_libro(
             sucursal=sucursal,
             estado__in=_ESTADOS_LIQUIDACION_LIBRO,
         )
+        .exclude(reserva__eliminada=True)
+        .exclude(reserva__estado='cancelada')
+        .exclude(contrato__estado='rescindido')
         .select_related('contrato', 'reserva', 'reserva__cliente', 'contrato__inquilino')
         .order_by('fecha_desde', 'id')
     )
@@ -1387,10 +1408,13 @@ def _fila_libro_desde_movimiento(mov, monto_prop_por_reserva=None, cotiz_por_res
     reserva_id = None
     es_operacion_libro = False
 
+    conc_chk = getattr(mov, 'concepto', None) or ''
+    if _concepto_es_operacion_anulada(conc_chk):
+        return None
+
     # Cobros de operación/contrato: no listar el bruto de caja.
     # El libro usa liquidaciones confirmadas (_filas_liquidaciones_confirmadas_libro).
     if not es_egreso:
-        conc_chk = getattr(mov, 'concepto', None) or ''
         if re.search(r'Contrato\s*#?\s*\d+', conc_chk, re.IGNORECASE):
             return None
         if re.search(r'Operaci[oó]n\s*#?\s*\d+', conc_chk, re.IGNORECASE):
@@ -2051,8 +2075,8 @@ def oficina_propiedad_libro_fila_manual_eliminar(request, propiedad_id):
 @require_POST
 def oficina_propiedad_libro_actualizar_cotizacion(request, propiedad_id):
     """
-    Completa cotización USD en un movimiento de caja o en una operación del libro
-    (fila «op.» sin movimiento): calcula Ingreso/Gastos en dólar.
+    Completa cotización USD en un movimiento de caja, una liquidación del libro
+    o una operación (fila «op.»): calcula Ingreso/Gastos en dólar.
     """
     if not _puede_oficina(request.user):
         return JsonResponse({'ok': False, 'error': 'Sin permiso.'}, status=403)
@@ -2079,6 +2103,57 @@ def oficina_propiedad_libro_actualizar_cotizacion(request, propiedad_id):
         if not v:
             return ''
         return format_monto_argentino(v)
+
+    # --- Liquidación del libro (fila «op.» con liquidacion_id) ---
+    liquidacion_id = (request.POST.get('liquidacion_id') or '').strip()
+    if liquidacion_id.isdigit():
+        liq = LiquidacionPropietario.objects.filter(
+            pk=int(liquidacion_id),
+            propiedad=propiedad,
+            sucursal=sucursal,
+            estado__in=_ESTADOS_LIQUIDACION_LIBRO,
+        ).select_related('reserva').first()
+        if not liq:
+            return JsonResponse({'ok': False, 'error': 'Liquidación no encontrada.'}, status=404)
+
+        liq.cotizacion_dolar = cotiz
+        liq.save(update_fields=['cotizacion_dolar'])
+
+        rid = getattr(liq, 'reserva_id', None)
+        if rid:
+            CotizacionLibroOperacion.objects.update_or_create(
+                reserva_id=rid,
+                defaults={
+                    'cotizacion_dolar': cotiz,
+                    'actualizado_por': request.user,
+                },
+            )
+
+        moneda = (getattr(liq, 'moneda', None) or 'ARS').strip().upper()
+        monto = Decimal(str(getattr(liq, 'monto_propietario', None) or 0))
+        if monto <= 0:
+            monto = Decimal(str(getattr(liq, 'monto_a_pagar', None) or 0))
+        gastos_usd = Decimal('0')
+        ingreso_usd = Decimal('0')
+        alquileres_ars = Decimal('0')
+        if moneda == 'USD':
+            ingreso_usd = monto
+            alquileres_ars = (monto * cotiz).quantize(Decimal('0.01'))
+        else:
+            alquileres_ars = monto
+            ingreso_usd = (monto / cotiz).quantize(Decimal('0.01')) if monto > 0 else Decimal('0')
+
+        return JsonResponse({
+            'ok': True,
+            'liquidacion_id': liq.id,
+            'reserva_id': rid,
+            'gastos_usd': _fmt(gastos_usd),
+            'ingreso_usd': _fmt(ingreso_usd),
+            'alquileres_ars': _fmt(alquileres_ars),
+            'tipo_cambio': _fmt(cotiz),
+            'tipo': 'IN',
+            'message': 'Cotización de la liquidación guardada.',
+        })
 
     # --- Operación del libro (sin movimiento de caja) ---
     reserva_id = (request.POST.get('reserva_id') or '').strip()
