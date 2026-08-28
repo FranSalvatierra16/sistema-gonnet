@@ -289,8 +289,9 @@ def _qs_movimientos_libro_propiedad(
             q_ref |= Q(concepto__icontains='Contrato #') | Q(concepto__icontains='Contrato#')
         candidatos = (
             base.filter(q_ref)
+            .filter(Q(propiedad=propiedad) | Q(propiedad__isnull=True))
             .exclude(id__in=seen)
-            .order_by('fecha', 'id')[:3000]
+            .order_by('fecha', 'id')[:500]
         )
         for mov in candidatos:
             if not _incluir_movimiento(mov):
@@ -537,6 +538,50 @@ def _cotizaciones_movimientos_por_reserva(sucursal, reserva_ids):
     return out
 
 
+def _cotiz_reservas_libro(sucursal, reserva_ids):
+    """Cotización USD por operación: tabla libro → fallback caja (solo IDs pedidos)."""
+    ids = sorted({int(x) for x in reserva_ids if x})
+    if not ids:
+        return {}
+    out = {
+        row['reserva_id']: row['cotizacion_dolar']
+        for row in CotizacionLibroOperacion.objects.filter(reserva_id__in=ids).values(
+            'reserva_id', 'cotizacion_dolar'
+        )
+    }
+    faltantes = [rid for rid in ids if rid not in out]
+    if faltantes:
+        out.update(_cotizaciones_movimientos_por_reserva(sucursal, faltantes))
+    return out
+
+
+def _liquidaciones_libro_qs(
+    propiedad,
+    sucursal,
+    dr_desde=None,
+    dr_hasta=None,
+    reservas_anuladas=None,
+    contratos_rescindidos=None,
+):
+    """QuerySet base de liquidaciones del libro, filtrado en SQL."""
+    from inmobiliaria.models import LiquidacionPropietario
+
+    qs = LiquidacionPropietario.objects.filter(
+        propiedad=propiedad,
+        sucursal=sucursal,
+        estado__in=_ESTADOS_LIQUIDACION_LIBRO,
+    )
+    if reservas_anuladas:
+        qs = qs.exclude(reserva_id__in=reservas_anuladas)
+    if contratos_rescindidos:
+        qs = qs.exclude(contrato_id__in=contratos_rescindidos)
+    if dr_desde:
+        qs = qs.filter(fecha_desde__gte=dr_desde)
+    if dr_hasta:
+        qs = qs.filter(fecha_desde__lte=dr_hasta)
+    return qs
+
+
 def _cotizacion_liquidacion_libro(liq, cotiz_por_reserva=None, cotiz_mov_por_reserva=None):
     """
     Cotización USD para una liquidación en el libro:
@@ -618,10 +663,13 @@ def _filas_liquidaciones_confirmadas_libro(
     from inmobiliaria.models import LiquidacionPropietario
 
     qs = (
-        LiquidacionPropietario.objects.filter(
-            propiedad=propiedad,
-            sucursal=sucursal,
-            estado__in=_ESTADOS_LIQUIDACION_LIBRO,
+        _liquidaciones_libro_qs(
+            propiedad,
+            sucursal,
+            dr_desde=dr_desde,
+            dr_hasta=dr_hasta,
+            reservas_anuladas=reservas_anuladas,
+            contratos_rescindidos=contratos_rescindidos,
         )
         .select_related(
             'contrato',
@@ -633,10 +681,6 @@ def _filas_liquidaciones_confirmadas_libro(
         )
         .order_by('fecha_desde', 'id')
     )
-    if reservas_anuladas:
-        qs = qs.exclude(reserva_id__in=reservas_anuladas)
-    if contratos_rescindidos:
-        qs = qs.exclude(contrato_id__in=contratos_rescindidos)
 
     filas = []
     for liq in qs:
@@ -1955,14 +1999,27 @@ def oficina_propiedades_lista(request):
 def _nav_propiedades_libro(sucursal, propiedad_id, fecha_desde_s='', fecha_hasta_s='', ventana=10):
     """
     Catálogo liviano para el buscador del libro y pestañas cercanas al depto actual.
-    Evita renderizar cientos de tabs en el HTML.
     """
-    props = _ordenar_propiedades_oficina(
-        _qs_propiedades_oficina(sucursal),
-        orden='piso',
+    from inmobiliaria.models import Propiedad
+
+    cartera_ids = list(
+        qs_cartera_sucursal(sucursal, sincronizar=False).values_list('propiedad_id', flat=True)
     )
-    if not props:
+    if len(cartera_ids) <= 1:
         return [], '[]'
+
+    props = list(
+        Propiedad.objects.filter(id__in=cartera_ids, sucursal=sucursal)
+        .select_related('propietario')
+        .only(
+            'id', 'direccion', 'piso', 'departamento',
+            'propietario__nombre', 'propietario__apellido',
+        )
+    )
+    if len(props) <= 1:
+        return [], '[]'
+
+    props = _ordenar_propiedades_oficina(props, orden='piso')
 
     qparams = ''
     if fecha_desde_s or fecha_hasta_s:
@@ -2049,59 +2106,25 @@ def oficina_propiedad_libro(request, propiedad_id):
         contratos_rescindidos=contratos_rescindidos,
     )
 
-    liq_por_reserva = _liquidaciones_por_reserva(reserva_ids)
-    cotiz_por_reserva = {}
-    if reserva_ids:
-        for row in CotizacionLibroOperacion.objects.filter(reserva_id__in=reserva_ids).values(
-            'reserva_id', 'cotizacion_dolar'
-        ):
-            cotiz_por_reserva[row['reserva_id']] = row['cotizacion_dolar']
-
-    monto_prop_por_reserva = {}
-    if reserva_ids:
-        from inmobiliaria.models import Reserva
-
-        for r in Reserva.objects.filter(id__in=reserva_ids).only(
-            'id',
-            'precio_total',
-            'moneda',
-            'liq_monto_propietario',
-            'liq_monto_inmobiliaria',
-            'liq_monto_cochera',
-            'liq_monto_fondo',
-            'propiedad_id',
-            'fecha_inicio',
-            'fecha_fin',
-            'sucursal_id',
-        ):
-            mp = _monto_propietario_reserva_libro(r, liq_por_reserva.get(r.id))
-            monto_prop_por_reserva[r.id] = mp
-            monto_prop_por_reserva[f'_total_{r.id}'] = Decimal(str(r.precio_total or 0))
-
     liq_reserva_ids = list(
-        LiquidacionPropietario.objects.filter(
-            propiedad=propiedad,
-            sucursal=sucursal,
-            estado__in=_ESTADOS_LIQUIDACION_LIBRO,
-            reserva_id__isnull=False,
+        _liquidaciones_libro_qs(
+            propiedad,
+            sucursal,
+            dr_desde=dr_desde,
+            dr_hasta=dr_hasta,
+            reservas_anuladas=reservas_anuladas,
+            contratos_rescindidos=contratos_rescindidos,
         )
-        .exclude(reserva_id__in=reservas_anuladas)
+        .filter(reserva_id__isnull=False)
         .values_list('reserva_id', flat=True)
         .distinct()
     )
-    ids_cotiz = sorted(set(reserva_ids) | set(liq_reserva_ids))
-    cotiz_mov_por_reserva = (
-        _cotizaciones_movimientos_por_reserva(sucursal, ids_cotiz) if ids_cotiz else {}
-    )
+    cotiz_por_reserva = _cotiz_reservas_libro(sucursal, liq_reserva_ids)
 
     filas = [
         f
         for f in (
-            _fila_libro_desde_movimiento(
-                m,
-                monto_prop_por_reserva=monto_prop_por_reserva,
-                cotiz_por_reserva=cotiz_por_reserva,
-            )
+            _fila_libro_desde_movimiento(m)
             for m in movimientos
         )
         if f is not None
@@ -2114,7 +2137,6 @@ def oficina_propiedad_libro(request, propiedad_id):
             movimientos,
             dr_desde=dr_desde,
             dr_hasta=dr_hasta,
-            liq_por_reserva=liq_por_reserva,
             cotiz_por_reserva=cotiz_por_reserva,
         )
     )
@@ -2136,7 +2158,7 @@ def oficina_propiedad_libro(request, propiedad_id):
             dr_desde=dr_desde,
             dr_hasta=dr_hasta,
             cotiz_por_reserva=cotiz_por_reserva,
-            cotiz_mov_por_reserva=cotiz_mov_por_reserva,
+            cotiz_mov_por_reserva=cotiz_por_reserva,
             reservas_anuladas=reservas_anuladas,
             contratos_rescindidos=contratos_rescindidos,
         )

@@ -64,21 +64,17 @@ def _filas_libro_sin_inicio(sucursal, propiedad, dr_desde, dr_hasta):
     Filas del libro en el rango (sin fila de inicio de caja).
     Reutiliza la misma lógica que la pantalla del libro.
     """
-    from inmobiliaria.models import CotizacionLibroOperacion, Reserva
     from inmobiliaria.views_oficina import (
-        _ESTADOS_LIQUIDACION_LIBRO,
         _contexto_exclusion_operaciones_libro,
-        _cotizaciones_movimientos_por_reserva,
+        _cotiz_reservas_libro,
         _filas_contratos_faltantes_libro,
         _filas_liquidaciones_oficina_libro,
         _filas_operaciones_faltantes_libro,
         _fila_libro_desde_movimiento,
-        _liquidaciones_por_reserva,
-        _monto_propietario_reserva_libro,
+        _liquidaciones_libro_qs,
         _obtener_inicio_caja_libro,
         _qs_movimientos_libro_propiedad,
     )
-    from inmobiliaria.models import LiquidacionPropietario
 
     inicio = _obtener_inicio_caja_libro(propiedad)
     fecha_corte = getattr(inicio, 'fecha', None)
@@ -98,57 +94,25 @@ def _filas_libro_sin_inicio(sucursal, propiedad, dr_desde, dr_hasta):
         contratos_rescindidos=contratos_rescindidos,
     )
 
-    liq_por_reserva = _liquidaciones_por_reserva(reserva_ids)
-    cotiz_por_reserva = {}
-    if reserva_ids:
-        for row in CotizacionLibroOperacion.objects.filter(reserva_id__in=reserva_ids).values(
-            'reserva_id', 'cotizacion_dolar'
-        ):
-            cotiz_por_reserva[row['reserva_id']] = row['cotizacion_dolar']
-
-    monto_prop_por_reserva = {}
-    if reserva_ids:
-        for r in Reserva.objects.filter(id__in=reserva_ids).only(
-            'id',
-            'precio_total',
-            'moneda',
-            'liq_monto_propietario',
-            'liq_monto_inmobiliaria',
-            'liq_monto_cochera',
-            'liq_monto_fondo',
-            'propiedad_id',
-            'fecha_inicio',
-            'fecha_fin',
-            'sucursal_id',
-        ):
-            mp = _monto_propietario_reserva_libro(r, liq_por_reserva.get(r.id))
-            monto_prop_por_reserva[r.id] = mp
-            monto_prop_por_reserva[f'_total_{r.id}'] = Decimal(str(r.precio_total or 0))
-
     liq_reserva_ids = list(
-        LiquidacionPropietario.objects.filter(
-            propiedad=propiedad,
-            sucursal=sucursal,
-            estado__in=_ESTADOS_LIQUIDACION_LIBRO,
-            reserva_id__isnull=False,
+        _liquidaciones_libro_qs(
+            propiedad,
+            sucursal,
+            dr_desde=dr_desde,
+            dr_hasta=dr_hasta,
+            reservas_anuladas=reservas_anuladas,
+            contratos_rescindidos=contratos_rescindidos,
         )
-        .exclude(reserva_id__in=reservas_anuladas)
+        .filter(reserva_id__isnull=False)
         .values_list('reserva_id', flat=True)
         .distinct()
     )
-    ids_cotiz = sorted(set(reserva_ids) | set(liq_reserva_ids))
-    cotiz_mov_por_reserva = (
-        _cotizaciones_movimientos_por_reserva(sucursal, ids_cotiz) if ids_cotiz else {}
-    )
+    cotiz_por_reserva = _cotiz_reservas_libro(sucursal, liq_reserva_ids)
 
     filas = [
         f
         for f in (
-            _fila_libro_desde_movimiento(
-                m,
-                monto_prop_por_reserva=monto_prop_por_reserva,
-                cotiz_por_reserva=cotiz_por_reserva,
-            )
+            _fila_libro_desde_movimiento(m)
             for m in movimientos
         )
         if f is not None
@@ -161,7 +125,6 @@ def _filas_libro_sin_inicio(sucursal, propiedad, dr_desde, dr_hasta):
             movimientos,
             dr_desde=dr_desde,
             dr_hasta=dr_hasta,
-            liq_por_reserva=liq_por_reserva,
             cotiz_por_reserva=cotiz_por_reserva,
         )
     )
@@ -183,7 +146,7 @@ def _filas_libro_sin_inicio(sucursal, propiedad, dr_desde, dr_hasta):
             dr_desde=dr_desde,
             dr_hasta=dr_hasta,
             cotiz_por_reserva=cotiz_por_reserva,
-            cotiz_mov_por_reserva=cotiz_mov_por_reserva,
+            cotiz_mov_por_reserva=cotiz_por_reserva,
             reservas_anuladas=reservas_anuladas,
             contratos_rescindidos=contratos_rescindidos,
         )
