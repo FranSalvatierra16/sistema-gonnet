@@ -314,16 +314,109 @@ def _descripcion_liquidacion_oficina_libro(liq):
 _ESTADOS_LIQUIDACION_LIBRO = ('oficina', 'pagada', 'cerrada', 'procesada')
 
 
+def _cotizacion_desde_valor(cotiz):
+    if cotiz is None:
+        return None
+    try:
+        val = Decimal(str(cotiz))
+    except Exception:
+        return None
+    if val <= 0:
+        return None
+    return val.quantize(Decimal('0.01'))
+
+
+def _cotizaciones_movimientos_por_reserva(sucursal, reserva_ids):
+    """
+    Última cotización USD en movimientos de caja que mencionan cada operación.
+    """
+    from inmobiliaria.models import MovimientoCaja
+
+    ids = [int(x) for x in reserva_ids if x]
+    if not ids:
+        return {}
+
+    movs = (
+        MovimientoCaja.objects.filter(
+            sucursal=sucursal,
+            fecha_eliminacion__isnull=True,
+            cotizacion_dolar__isnull=False,
+        )
+        .exclude(cotizacion_dolar__lte=0)
+        .order_by('-fecha', '-id')
+        .only('id', 'concepto', 'cotizacion_dolar', 'caja_id')
+        .select_related('caja')
+    )
+
+    out = {}
+    for mov in movs:
+        conc = mov.concepto or ''
+        for rid in ids:
+            if rid in out:
+                continue
+            if re.search(rf'Operaci[oó]n\s*#?\s*{rid}\b', conc, re.IGNORECASE):
+                cotiz = _cotizacion_desde_valor(getattr(mov, 'cotizacion_dolar', None))
+                if cotiz is None and getattr(mov, 'caja', None):
+                    cotiz = _cotizacion_desde_valor(getattr(mov.caja, 'cotizacion_dolar', None))
+                if cotiz is not None:
+                    out[rid] = cotiz
+        if len(out) == len(ids):
+            break
+    return out
+
+
+def _cotizacion_liquidacion_libro(liq, cotiz_por_reserva=None, cotiz_mov_por_reserva=None):
+    """
+    Cotización USD para una liquidación en el libro:
+    liquidación → movimiento vinculado → caja del movimiento → cobros de la operación.
+    """
+    cotiz = _cotizacion_desde_valor(getattr(liq, 'cotizacion_dolar', None))
+    if cotiz is not None:
+        return cotiz
+
+    mov = getattr(liq, 'movimiento_caja', None)
+    if mov is not None:
+        cotiz = _cotizacion_desde_valor(getattr(mov, 'cotizacion_dolar', None))
+        if cotiz is not None:
+            return cotiz
+        caja = getattr(mov, 'caja', None)
+        if caja is not None:
+            cotiz = _cotizacion_desde_valor(getattr(caja, 'cotizacion_dolar', None))
+            if cotiz is not None:
+                return cotiz
+
+    rid = getattr(liq, 'reserva_id', None)
+    if rid:
+        if cotiz_por_reserva:
+            cotiz = _cotizacion_desde_valor(cotiz_por_reserva.get(rid))
+            if cotiz is not None:
+                return cotiz
+        if cotiz_mov_por_reserva:
+            cotiz = _cotizacion_desde_valor(cotiz_mov_por_reserva.get(rid))
+            if cotiz is not None:
+                return cotiz
+
+    return None
+
+
 def _filas_liquidaciones_oficina_libro(
     propiedad,
     sucursal,
     movimientos=None,
     dr_desde=None,
     dr_hasta=None,
+    cotiz_por_reserva=None,
+    cotiz_mov_por_reserva=None,
 ):
     """Alias: liquidaciones confirmadas en el mes del período."""
     return _filas_liquidaciones_confirmadas_libro(
-        propiedad, sucursal, movimientos=movimientos, dr_desde=dr_desde, dr_hasta=dr_hasta
+        propiedad,
+        sucursal,
+        movimientos=movimientos,
+        dr_desde=dr_desde,
+        dr_hasta=dr_hasta,
+        cotiz_por_reserva=cotiz_por_reserva,
+        cotiz_mov_por_reserva=cotiz_mov_por_reserva,
     )
 
 
@@ -333,6 +426,8 @@ def _filas_liquidaciones_confirmadas_libro(
     movimientos=None,
     dr_desde=None,
     dr_hasta=None,
+    cotiz_por_reserva=None,
+    cotiz_mov_por_reserva=None,
 ):
     """
     Liquidaciones confirmadas (oficina / pagada / cerrada / procesada):
@@ -350,7 +445,14 @@ def _filas_liquidaciones_confirmadas_libro(
             sucursal=sucursal,
             estado__in=_ESTADOS_LIQUIDACION_LIBRO,
         )
-        .select_related('contrato', 'reserva', 'reserva__cliente', 'contrato__inquilino')
+        .select_related(
+            'contrato',
+            'reserva',
+            'reserva__cliente',
+            'contrato__inquilino',
+            'movimiento_caja',
+            'movimiento_caja__caja',
+        )
         .order_by('fecha_desde', 'id')
     )
 
@@ -397,11 +499,11 @@ def _filas_liquidaciones_confirmadas_libro(
         if monto <= 0:
             continue
 
-        cotiz = getattr(liq, 'cotizacion_dolar', None)
-        if cotiz is not None:
-            cotiz = Decimal(str(cotiz))
-            if cotiz <= 0:
-                cotiz = None
+        cotiz = _cotizacion_liquidacion_libro(
+            liq,
+            cotiz_por_reserva=cotiz_por_reserva,
+            cotiz_mov_por_reserva=cotiz_mov_por_reserva,
+        )
 
         fila = {
             'fecha': f_dt,
@@ -1692,6 +1794,20 @@ def oficina_propiedad_libro(request, propiedad_id):
             monto_prop_por_reserva[r.id] = mp
             monto_prop_por_reserva[f'_total_{r.id}'] = Decimal(str(r.precio_total or 0))
 
+    cotiz_mov_por_reserva = _cotizaciones_movimientos_por_reserva(sucursal, reserva_ids)
+    liq_reserva_ids = list(
+        LiquidacionPropietario.objects.filter(
+            propiedad=propiedad,
+            sucursal=sucursal,
+            estado__in=_ESTADOS_LIQUIDACION_LIBRO,
+            reserva_id__isnull=False,
+        ).values_list('reserva_id', flat=True).distinct()
+    )
+    if liq_reserva_ids:
+        extra_cotiz = _cotizaciones_movimientos_por_reserva(sucursal, liq_reserva_ids)
+        for rid, cot in extra_cotiz.items():
+            cotiz_mov_por_reserva.setdefault(rid, cot)
+
     filas = [
         f
         for f in (
@@ -1733,6 +1849,8 @@ def oficina_propiedad_libro(request, propiedad_id):
             movimientos=movimientos,
             dr_desde=dr_desde,
             dr_hasta=dr_hasta,
+            cotiz_por_reserva=cotiz_por_reserva,
+            cotiz_mov_por_reserva=cotiz_mov_por_reserva,
         )
     )
 
@@ -2079,6 +2197,59 @@ def oficina_propiedad_libro_actualizar_cotizacion(request, propiedad_id):
         if not v:
             return ''
         return format_monto_argentino(v)
+
+    def _fila_liquidacion_json(liq, cotiz):
+        moneda = (getattr(liq, 'moneda', None) or 'ARS').strip().upper()
+        monto = Decimal(str(getattr(liq, 'monto_propietario', None) or 0))
+        if monto <= 0:
+            monto = Decimal(str(getattr(liq, 'monto_a_pagar', None) or 0))
+        gastos_usd = Decimal('0')
+        ingreso_usd = Decimal('0')
+        alquileres_ars = Decimal('0')
+        if moneda == 'USD':
+            ingreso_usd = monto
+            alquileres_ars = (monto * cotiz).quantize(Decimal('0.01'))
+        else:
+            alquileres_ars = monto
+            ingreso_usd = (monto / cotiz).quantize(Decimal('0.01'))
+        return {
+            'liquidacion_id': liq.id,
+            'gastos_usd': _fmt(gastos_usd),
+            'ingreso_usd': _fmt(ingreso_usd),
+            'alquileres_ars': _fmt(alquileres_ars),
+            'tipo_cambio': _fmt(cotiz),
+            'tipo': 'IN',
+        }
+
+    # --- Liquidación confirmada del libro ---
+    liquidacion_id = (request.POST.get('liquidacion_id') or '').strip()
+    if liquidacion_id.isdigit():
+        liq = LiquidacionPropietario.objects.filter(
+            pk=int(liquidacion_id),
+            propiedad=propiedad,
+            sucursal=sucursal,
+        ).first()
+        if not liq:
+            return JsonResponse({'ok': False, 'error': 'Liquidación no encontrada.'}, status=404)
+
+        liq.cotizacion_dolar = cotiz
+        liq.save(update_fields=['cotizacion_dolar'])
+
+        if liq.reserva_id:
+            CotizacionLibroOperacion.objects.update_or_create(
+                reserva_id=liq.reserva_id,
+                defaults={
+                    'cotizacion_dolar': cotiz,
+                    'actualizado_por': request.user,
+                },
+            )
+
+        payload = _fila_liquidacion_json(liq, cotiz)
+        payload.update({
+            'ok': True,
+            'message': 'Cotización de la liquidación guardada.',
+        })
+        return JsonResponse(payload)
 
     # --- Operación del libro (sin movimiento de caja) ---
     reserva_id = (request.POST.get('reserva_id') or '').strip()

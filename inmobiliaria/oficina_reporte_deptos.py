@@ -66,6 +66,8 @@ def _filas_libro_sin_inicio(sucursal, propiedad, dr_desde, dr_hasta):
     """
     from inmobiliaria.models import CotizacionLibroOperacion, Reserva
     from inmobiliaria.views_oficina import (
+        _ESTADOS_LIQUIDACION_LIBRO,
+        _cotizaciones_movimientos_por_reserva,
         _filas_contratos_faltantes_libro,
         _filas_liquidaciones_oficina_libro,
         _filas_operaciones_faltantes_libro,
@@ -75,6 +77,7 @@ def _filas_libro_sin_inicio(sucursal, propiedad, dr_desde, dr_hasta):
         _obtener_inicio_caja_libro,
         _qs_movimientos_libro_propiedad,
     )
+    from inmobiliaria.models import LiquidacionPropietario
 
     inicio = _obtener_inicio_caja_libro(propiedad)
     fecha_corte = getattr(inicio, 'fecha', None)
@@ -111,6 +114,20 @@ def _filas_libro_sin_inicio(sucursal, propiedad, dr_desde, dr_hasta):
             mp = _monto_propietario_reserva_libro(r, liq_por_reserva.get(r.id))
             monto_prop_por_reserva[r.id] = mp
             monto_prop_por_reserva[f'_total_{r.id}'] = Decimal(str(r.precio_total or 0))
+
+    cotiz_mov_por_reserva = _cotizaciones_movimientos_por_reserva(sucursal, reserva_ids)
+    liq_reserva_ids = list(
+        LiquidacionPropietario.objects.filter(
+            propiedad=propiedad,
+            sucursal=sucursal,
+            estado__in=_ESTADOS_LIQUIDACION_LIBRO,
+            reserva_id__isnull=False,
+        ).values_list('reserva_id', flat=True).distinct()
+    )
+    if liq_reserva_ids:
+        extra_cotiz = _cotizaciones_movimientos_por_reserva(sucursal, liq_reserva_ids)
+        for rid, cot in extra_cotiz.items():
+            cotiz_mov_por_reserva.setdefault(rid, cot)
 
     filas = [
         f
@@ -153,6 +170,8 @@ def _filas_libro_sin_inicio(sucursal, propiedad, dr_desde, dr_hasta):
             movimientos=movimientos,
             dr_desde=dr_desde,
             dr_hasta=dr_hasta,
+            cotiz_por_reserva=cotiz_por_reserva,
+            cotiz_mov_por_reserva=cotiz_mov_por_reserva,
         )
     )
 
