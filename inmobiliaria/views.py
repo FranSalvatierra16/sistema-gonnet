@@ -3895,23 +3895,59 @@ def propiedad_nuevo(request):
             propietario_form = PropietarioForm(user=request.user)
             if form.is_valid():
                 try:
-                    propiedad = form.save()
-                    # Las imágenes ya se procesan en el método save() del formulario
-                    # No las proceses aquí para evitar duplicación
+                    from django.db import IntegrityError, transaction
+
+                    with transaction.atomic():
+                        propiedad = form.save()
                     messages.success(request, 'Propiedad creada exitosamente.')
                     return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
                 except ValidationError as e:
-                    # Si hay errores de validación, agregarlos al formulario (solo si el campo existe en el form)
+                    # Si el ID ya existe pero es la misma unidad (doble envío), ir a esa ficha.
+                    if hasattr(e, 'error_dict') and 'id' in e.error_dict:
+                        nid = (request.POST.get('id') or '').strip()
+                        direccion = (request.POST.get('direccion') or '').strip()
+                        piso = (request.POST.get('piso') or '').strip()
+                        depto = (request.POST.get('departamento') or '').strip()
+                        if nid and direccion:
+                            existente = Propiedad.objects.filter(pk=nid).first()
+                            if (
+                                existente
+                                and (existente.direccion or '').strip().lower() == direccion.lower()
+                                and (existente.piso or '').strip().lower() == piso.lower()
+                                and (existente.departamento or '').strip().lower() == depto.lower()
+                            ):
+                                messages.success(
+                                    request,
+                                    f'La propiedad ya estaba creada (ficha {existente.id}). '
+                                    f'No hace falta cargar otra con distinto número.',
+                                )
+                                return redirect(
+                                    'inmobiliaria:propiedad_detalle',
+                                    propiedad_id=existente.id,
+                                )
                     if hasattr(e, 'error_dict'):
                         for field, errors in e.error_dict.items():
                             for error in errors:
                                 if field in form.fields:
                                     form.add_error(field, error)
                                 else:
-                                    # Campos del modelo que no están en PropiedadForm (ej. precio_invierno)
                                     messages.error(request, str(error))
                     else:
                         messages.error(request, str(e))
+                except IntegrityError:
+                    nid = (request.POST.get('id') or '').strip()
+                    existente = Propiedad.objects.filter(pk=nid).first() if nid else None
+                    if existente:
+                        messages.success(
+                            request,
+                            f'La ficha {existente.id} ya estaba guardada '
+                            f'(posible doble clic). Abrimos esa propiedad.',
+                        )
+                        return redirect(
+                            'inmobiliaria:propiedad_detalle',
+                            propiedad_id=existente.id,
+                        )
+                    form.add_error('id', 'Ya existe una propiedad con este ID.')
             else:
                 # Mostrar mensajes de error específicos para campos faltantes
                 campos_faltantes = []
@@ -3930,7 +3966,8 @@ def propiedad_nuevo(request):
             messages.error(request, error_msg)
             # Log del error completo para debugging
             print(f"Error al crear propiedad: {traceback.format_exc()}")
-            form = PropiedadForm(user=request.user)
+            # Conservar lo cargado: no resetear el formulario (evita re-cargar con otro ID)
+            form = PropiedadForm(request.POST, request.FILES, user=request.user)
             propietario_form = PropietarioForm(user=request.user)
     else:
         form = PropiedadForm(user=request.user)
@@ -3944,6 +3981,7 @@ def propiedad_nuevo(request):
         'titulo': 'Nueva Propiedad',
         'imagenes': [],  # Para el template
         'ids_ficha_libres': ids_ficha_libres,
+        'es_alta_nueva': True,
     })
 
 

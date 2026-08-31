@@ -23,7 +23,7 @@
         </p>
     </div>
 
-    <form method="post" enctype="multipart/form-data" class="modern-form">
+    <form method="post" enctype="multipart/form-data" class="modern-form" id="form-propiedad">
         {% csrf_token %}
         
         <!-- Sección: Información Básica -->
@@ -436,7 +436,7 @@
         <div class="card shadow-modern border-radius-modern">
             <div class="card-body text-center">
                 <div class="d-flex gap-3 justify-content-center">
-                    <button type="submit" class="btn btn-success btn-lg px-5">
+                    <button type="submit" id="btn-guardar-propiedad" class="btn btn-success btn-lg px-5">
                         <i class="fas fa-save me-2"></i>
                         {% if propiedad.pk %}Actualizar{% else %}Crear{% endif %} Propiedad
                     </button>
@@ -1242,8 +1242,9 @@ $(document).ready(function() {
         });
     };
 
-    // Validaciones del formulario
-    $('form').on('submit', function(e) {
+    // Validaciones del formulario + anti doble clic (evita dos fichas de la misma unidad)
+    var enviandoPropiedad = false;
+    $('#form-propiedad').on('submit', function(e) {
         let hasErrors = false;
         
         // Validar campos requeridos
@@ -1258,11 +1259,23 @@ $(document).ready(function() {
         
         if (hasErrors) {
             e.preventDefault();
-            // Scroll al primer error
+            enviandoPropiedad = false;
             $('html, body').animate({
                 scrollTop: $('.is-invalid').first().offset().top - 100
             }, 500);
+            return false;
         }
+
+        if (enviandoPropiedad) {
+            e.preventDefault();
+            return false;
+        }
+        enviandoPropiedad = true;
+        var $btn = $('#btn-guardar-propiedad');
+        $btn.prop('disabled', true);
+        var texto = $btn.html();
+        $btn.data('texto-original', texto);
+        $btn.html('<i class="fas fa-spinner fa-spin me-2"></i>Guardando…');
     });
     
     // Debug: Monitorear cambios en cantidad_personas

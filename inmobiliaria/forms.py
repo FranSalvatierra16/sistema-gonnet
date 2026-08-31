@@ -656,8 +656,21 @@ class PropiedadForm(forms.ModelForm):
         qs = Propiedad.all_objects.filter(pk=nid)
         if self._pk_inicial:
             qs = qs.exclude(pk=self._pk_inicial)
-        if qs.exists():
-            raise ValidationError('Ya existe otra propiedad con este ID.')
+        existente = qs.first()
+        if existente:
+            if getattr(existente, 'eliminada', False):
+                raise ValidationError(
+                    f'La ficha {nid} está ocupada por una propiedad eliminada. '
+                    f'Elegí otro número o recuperá esa ficha desde Propiedades eliminadas.'
+                )
+            raise ValidationError(
+                f'Ya existe la ficha {nid} '
+                f'({existente.direccion}'
+                f'{(" – " + existente.piso + "°") if existente.piso else ""}'
+                f'{(" " + existente.departamento) if existente.departamento else ""}'
+                f'). No cambies el número para «reintentar»: esa ficha ya está creada. '
+                f'Abrí esa propiedad o elegí una ficha libre si es otra unidad.'
+            )
         return nid
 
     def clean_llave(self):
@@ -722,6 +735,33 @@ class PropiedadForm(forms.ModelForm):
         # Validar que el usuario tenga sucursal asignada
         if self.user and not hasattr(self.user, 'sucursal') or (hasattr(self.user, 'sucursal') and not self.user.sucursal):
             raise ValidationError('El usuario debe tener una sucursal asignada para crear propiedades.')
+
+        # Evitar duplicar la misma unidad con otra ficha (doble click / reintento con otro ID)
+        if not self._pk_inicial and self.user and getattr(self.user, 'sucursal_id', None):
+            direccion = (cleaned_data.get('direccion') or '').strip()
+            piso = (cleaned_data.get('piso') or '').strip()
+            depto = (cleaned_data.get('departamento') or '').strip()
+            if direccion:
+                gemela = (
+                    Propiedad.objects.filter(
+                        sucursal_id=self.user.sucursal_id,
+                        direccion__iexact=direccion,
+                        piso__iexact=piso,
+                        departamento__iexact=depto,
+                    )
+                    .exclude(pk=cleaned_data.get('id') or '')
+                    .order_by('id')
+                    .first()
+                )
+                if gemela:
+                    raise ValidationError(
+                        f'Ya existe la ficha {gemela.id} en {gemela.direccion}'
+                        f'{(" – " + gemela.piso + "°") if gemela.piso else ""}'
+                        f'{(" " + gemela.departamento) if gemela.departamento else ""}. '
+                        f'No crees otra con distinto número: abrí esa ficha. '
+                        f'Si el sistema dijo que el ID estaba ocupado, es porque el primer intento '
+                        f'ya guardó la propiedad (doble clic o demora de red).'
+                    )
         
         return cleaned_data
     
