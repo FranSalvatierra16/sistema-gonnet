@@ -780,9 +780,29 @@ def resumen_comisiones_mensual(request, vendedor_id, anio=None, mes=None):
             )
             .ordenadas_para_listado_historial()
         )
-        total_mes = comisiones_mes.aggregate(
-            total=models.Sum('monto_comision')
-        )['total'] or Decimal('0')
+        comisiones_list = list(comisiones_mes)
+
+        tipo_raw = (request.GET.get('tipo') or '').strip().lower()
+        tipo_mapa = {
+            'dia': 'por_dia',
+            'por_dia': 'por_dia',
+            'invierno': 'por_invierno',
+            'por_invierno': 'por_invierno',
+            '24meses': 'por_24_meses',
+            '24': 'por_24_meses',
+            'por_24_meses': 'por_24_meses',
+        }
+        tipo_filtro = tipo_mapa.get(tipo_raw, '')
+        if tipo_filtro:
+            comisiones_list = [
+                c for c in comisiones_list
+                if (getattr(c, 'categoria_comision_filtro', None) or '') == tipo_filtro
+            ]
+
+        total_mes = sum(
+            (Decimal(str(getattr(c, 'monto_comision', 0) or 0)) for c in comisiones_list),
+            Decimal('0'),
+        )
     except (ProgrammingError, OperationalError) as exc:
         logger.exception(
             'resumen_comisiones_mensual: error de esquema o BD. vendedor_id=%s anio=%s mes=%s',
@@ -806,12 +826,14 @@ def resumen_comisiones_mensual(request, vendedor_id, anio=None, mes=None):
         nombre_mes = f'mes {mes}'
 
     context = {
-        'comisiones': comisiones_mes,
+        'comisiones': comisiones_list,
         'total_mes': total_mes,
+        'cantidad_operaciones': len(comisiones_list),
         'año': anio,
         'mes': mes,
         'nombre_mes': nombre_mes,
         'vendedor': vendedor,
+        'tipo_filtro': tipo_filtro,
     }
 
     return render(request, 'inmobiliaria/comisiones/resumen_mensual.html', context)
@@ -28008,6 +28030,13 @@ def lista_liquidaciones(request):
     propietario_q = (request.GET.get('propietario_q') or '').strip()
     busqueda = request.GET.get('busqueda', '')
     tipo_filtro = request.GET.get('tipo', '').strip()
+    fecha_desde_s = (request.GET.get('fecha_desde') or '').strip()
+    fecha_hasta_s = (request.GET.get('fecha_hasta') or '').strip()
+    fecha_desde = _parse_fecha_filtro_dashboard(fecha_desde_s)
+    fecha_hasta = _parse_fecha_filtro_dashboard(fecha_hasta_s)
+    if fecha_desde and fecha_hasta and fecha_hasta < fecha_desde:
+        fecha_desde, fecha_hasta = fecha_hasta, fecha_desde
+        fecha_desde_s, fecha_hasta_s = fecha_desde.isoformat(), fecha_hasta.isoformat()
 
     if estado_filtro:
         liquidaciones = liquidaciones.filter(estado=estado_filtro)
@@ -28029,6 +28058,12 @@ def lista_liquidaciones(request):
             Q(propietario__apellido__icontains=busqueda) |
             Q(id__icontains=busqueda)
         )
+
+    # Por fecha de registro (columna «Fecha registro» de la lista)
+    if fecha_desde:
+        liquidaciones = liquidaciones.filter(fecha_creacion__date__gte=fecha_desde)
+    if fecha_hasta:
+        liquidaciones = liquidaciones.filter(fecha_creacion__date__lte=fecha_hasta)
 
     # Totales sobre el filtro (sin materializar todas las filas).
     base_totales = liquidaciones
@@ -28082,6 +28117,8 @@ def lista_liquidaciones(request):
         'propietario_filtro': propietario_filtro,
         'busqueda': busqueda,
         'tipo_filtro': tipo_filtro,
+        'fecha_desde': fecha_desde_s,
+        'fecha_hasta': fecha_hasta_s,
         'total_pendiente': total_pendiente,
         'total_procesado': total_procesado,
         'lista_filtros_qs': query_params.urlencode(),

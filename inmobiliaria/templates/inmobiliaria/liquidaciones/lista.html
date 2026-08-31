@@ -37,7 +37,7 @@
                 </div>
                 <div class="card-body">
                     <form method="GET" class="row g-3" id="form-filtros-liquidaciones">
-                        <div class="col-md-3">
+                        <div class="col-md-2">
                             <label class="form-label">Estado</label>
                             <select name="estado" class="form-select">
                                 <option value="">Todos</option>
@@ -59,7 +59,15 @@
                                 <option value="24meses" {% if tipo_filtro == '24meses' %}selected{% endif %}>24 meses</option>
                             </select>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-2">
+                            <label class="form-label" for="fecha_desde">Registro desde</label>
+                            <input type="date" name="fecha_desde" id="fecha_desde" class="form-control" value="{{ fecha_desde }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label" for="fecha_hasta">Registro hasta</label>
+                            <input type="date" name="fecha_hasta" id="fecha_hasta" class="form-control" value="{{ fecha_hasta }}">
+                        </div>
+                        <div class="col-md-2">
                             <label class="form-label" for="propietario_buscar_lista">Propietario</label>
                             <div class="position-relative">
                                 <input type="hidden" name="propietario" id="propietario_id_lista" value="{{ propietario_id }}">
@@ -71,9 +79,9 @@
                             </div>
                             <input type="hidden" name="propietario_q" id="propietario_q_lista" value="{{ propietario_q }}">
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-2">
                             <label class="form-label">Buscar</label>
-                            <input type="text" name="busqueda" class="form-control" 
+                            <input type="text" name="busqueda" class="form-control"
                                    placeholder="Dirección, propietario, ID..." value="{{ busqueda }}">
                         </div>
                         <div class="col-md-2">
@@ -82,6 +90,16 @@
                                 <i class="fas fa-search me-2"></i>Buscar
                             </button>
                         </div>
+                        {% if fecha_desde or fecha_hasta or estado_filtro or tipo_filtro or busqueda or propietario_id or propietario_q %}
+                        <div class="col-12">
+                            <a href="{% url 'inmobiliaria:lista_liquidaciones' %}" class="btn btn-outline-secondary btn-sm">
+                                Limpiar filtros
+                            </a>
+                            {% if fecha_desde or fecha_hasta %}
+                            <span class="text-muted small ms-2">Filtra por la fecha en que se registró la liquidación.</span>
+                            {% endif %}
+                        </div>
+                        {% endif %}
                     </form>
                 </div>
             </div>
