@@ -122,28 +122,29 @@ def _fecha_antes_de(day: int, month: int, siguiente: date) -> date | None:
 
 def resolver_anios_filas(filas: list[dict]) -> list[dict]:
     """
-    Completa fechas DD/MM sin año.
+    Completa fechas DD/MM sin año asumiendo Excel ordenado cronológicamente.
     Prioridad:
-    1) año mencionado en concepto/proveedor
-    2) continuidad cronológica desde la fecha anterior ya resuelta
-       (si el bloque vecino menciona otro año, se usa ese)
-    3) fecha completa siguiente (hacia atrás)
-    También corrige fechas completas cuyo año contradice el texto de la fila.
+    1) año en concepto/proveedor de la misma fila (si no contradice el orden)
+    2) continuidad desde la fecha anterior ya resuelta (15/1 tras 10/1/2021 → 2021)
+    3) próxima fecha con año (completa o con texto), hacia atrás (18/12 antes de 10/1/2021 → 2020)
+    4) moda local de años cercanos
     """
     parsed = []
     for fila in filas:
         valor = _parse_fecha_raw((fila.get('fecha_raw') or '').strip())
         anio_txt = _anio_desde_texto(fila.get('concepto'), fila.get('proveedor'))
+        # Solo corregir fecha completa si el texto habla del mismo período (±1 año)
         if isinstance(valor, date) and anio_txt and anio_txt != valor.year:
-            try:
-                valor = date(anio_txt, valor.month, valor.day)
-            except ValueError:
-                pass
+            if abs(anio_txt - valor.year) <= 1:
+                try:
+                    valor = date(anio_txt, valor.month, valor.day)
+                except ValueError:
+                    pass
         parsed.append({**fila, '_fecha_parsed': valor, '_anio_texto': anio_txt})
 
     n = len(parsed)
 
-    def _anios_ventana(idx: int, radio: int = 20) -> list[int]:
+    def _anios_ventana(idx: int, radio: int = 12) -> list[int]:
         anios = []
         for j in range(max(0, idx - radio), min(n, idx + radio + 1)):
             ay = parsed[j].get('_anio_texto')
@@ -155,20 +156,36 @@ def resolver_anios_filas(filas: list[dict]) -> list[dict]:
         return anios
 
     def _anio_local(idx: int, fallback: int | None) -> int | None:
+        from collections import Counter
+
         anios = _anios_ventana(idx)
         if not anios:
             return fallback
-        # moda; ante empate, el más cercano al fallback
-        from collections import Counter
         counts = Counter(anios)
         top = counts.most_common()
         mejor = top[0][0]
         if fallback is not None:
             empatados = [y for y, c in top if c == top[0][1]]
             mejor = min(empatados, key=lambda y: abs(y - fallback))
+            # Si la moda salta >1 año respecto al orden, preferir continuidad
+            if abs(mejor - fallback) > 1:
+                return fallback
         return mejor
 
-    # Pasada forward
+    def _proxima_con_anio(idx: int) -> date | None:
+        for j in range(idx + 1, n):
+            v = parsed[j]['_fecha_parsed']
+            ay = parsed[j].get('_anio_texto')
+            if isinstance(v, date):
+                return v
+            if isinstance(v, tuple) and ay:
+                try:
+                    return date(ay, v[1], v[0])
+                except ValueError:
+                    continue
+        return None
+
+    # Pasada forward: el orden del Excel manda
     ultima: date | None = None
     for i, item in enumerate(parsed):
         valor = item['_fecha_parsed']
@@ -180,18 +197,37 @@ def resolver_anios_filas(filas: list[dict]) -> list[dict]:
         day, month = valor
         nueva = None
         anio_txt = item.get('_anio_texto')
+
+        # 1) Año escrito en la misma fila (máxima prioridad)
         if anio_txt:
             try:
                 nueva = date(anio_txt, month, day)
             except ValueError:
                 nueva = None
+
+        # 2) Seguir el orden del Excel desde la fecha anterior
+        if nueva is None and ultima is not None:
+            candidata = _fecha_cronologica(day, month, ultima)
+            ref = _proxima_con_anio(i)
+            # Páginas OCR viejas pegadas después de un bloque reciente:
+            # no inventar ultima+1; anclar al próximo año real del Excel.
+            if (
+                candidata is not None
+                and ref is not None
+                and ultima.year - ref.year >= 2
+            ):
+                alt = _fecha_antes_de(day, month, ref)
+                nueva = alt if alt is not None else candidata
+            else:
+                nueva = candidata
+
+        # 3) Anclar a la próxima fecha con año (ej. 18/12 antes de 10/1/2021)
         if nueva is None:
-            # Preferir anclar a la próxima fecha completa (orden del Excel)
-            for j in range(i + 1, n):
-                v = parsed[j]['_fecha_parsed']
-                if isinstance(v, date):
-                    nueva = _fecha_antes_de(day, month, v)
-                    break
+            ref = _proxima_con_anio(i)
+            if ref is not None:
+                nueva = _fecha_antes_de(day, month, ref)
+
+        # 4) Moda local de años cercanos
         if nueva is None:
             anio_loc = _anio_local(i, ultima.year if ultima else None)
             if anio_loc:
@@ -203,31 +239,16 @@ def resolver_anios_filas(filas: list[dict]) -> list[dict]:
                     nueva is not None
                     and ultima is not None
                     and nueva < ultima
-                    and anio_loc == ultima.year
                 ):
-                    # salto de año natural (dic → ene)
                     nueva = _fecha_cronologica(day, month, ultima)
-        if nueva is None and ultima is not None:
-            nueva = _fecha_cronologica(day, month, ultima)
-        if nueva is None:
-            for j in range(i + 1, n):
-                v = parsed[j]['_fecha_parsed']
-                ay = parsed[j].get('_anio_texto')
-                if isinstance(v, tuple) and ay:
-                    try:
-                        ref = date(ay, v[1], v[0])
-                        nueva = _fecha_antes_de(day, month, ref)
-                    except ValueError:
-                        nueva = None
-                    if nueva:
-                        break
+
         if nueva is None:
             continue
         item['_fecha_parsed'] = nueva
         item['fecha_raw'] = nueva.strftime('%d/%m/%Y')
         ultima = nueva
 
-    # Pasada backward para huecos del inicio
+    # Pasada backward solo para huecos al inicio (sin fecha anterior)
     proxima: date | None = None
     for i in range(n - 1, -1, -1):
         item = parsed[i]
@@ -244,15 +265,12 @@ def resolver_anios_filas(filas: list[dict]) -> list[dict]:
                 nueva = date(anio_txt, month, day)
             except ValueError:
                 nueva = None
+            if nueva is not None and nueva > proxima and (nueva - proxima).days > 120:
+                nueva = None
         else:
-            nueva = _fecha_antes_de(day, month, proxima)
+            nueva = None
         if nueva is None:
-            anio_loc = _anio_local(i, proxima.year)
-            if anio_loc:
-                try:
-                    nueva = date(anio_loc, month, day)
-                except ValueError:
-                    nueva = None
+            nueva = _fecha_antes_de(day, month, proxima)
         if nueva is None:
             continue
         item['_fecha_parsed'] = nueva
