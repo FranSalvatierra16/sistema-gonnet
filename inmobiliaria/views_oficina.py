@@ -1911,14 +1911,11 @@ def oficina_propiedad_libro(request, propiedad_id):
             f.get('movimiento_id') or f.get('fila_manual_id') or 0,
         )
 
-    # Bloques importados: facturado → totales → en negro → totales → resto del libro.
-    filas_facturado = [
+    # Importados (facturado + en negro) mezclados por fecha; luego totales; luego el resto.
+    filas_import = [
         f for f in filas
-        if f.get('es_manual') and (f.get('clasificacion_libro') or '') == 'facturado'
-    ]
-    filas_negro = [
-        f for f in filas
-        if f.get('es_manual') and (f.get('clasificacion_libro') or '') == 'negro'
+        if f.get('es_manual')
+        and (f.get('clasificacion_libro') or '') in ('facturado', 'negro')
     ]
     filas_resto = [
         f for f in filas
@@ -1930,12 +1927,8 @@ def oficina_propiedad_libro(request, propiedad_id):
 
     exige_clasif = bool(getattr(propiedad, 'libro_exige_facturado_negro', False))
     if exige_clasif and clasif_filtro in ('facturado', 'negro'):
-        filas_facturado = [
-            f for f in filas_facturado
-            if (f.get('clasificacion_libro') or '') == clasif_filtro
-        ]
-        filas_negro = [
-            f for f in filas_negro
+        filas_import = [
+            f for f in filas_import
             if (f.get('clasificacion_libro') or '') == clasif_filtro
         ]
         filas_resto = [
@@ -1943,26 +1936,47 @@ def oficina_propiedad_libro(request, propiedad_id):
             if (f.get('clasificacion_libro') or '') == clasif_filtro
         ]
 
-    filas_facturado.sort(key=_orden_fila)
-    filas_negro.sort(key=_orden_fila)
+    # Mezcla cronológica; ante misma fecha, facturado antes que en negro.
+    def _orden_import(f):
+        clas = (f.get('clasificacion_libro') or '')
+        return (
+            f.get('fecha') or timezone.now(),
+            0 if clas == 'facturado' else 1 if clas == 'negro' else 2,
+            f.get('fila_manual_id') or 0,
+        )
+
+    filas_import.sort(key=_orden_import)
     filas_resto.sort(key=_orden_fila)
 
-    def _subtotal_bloque(bloque, etiqueta):
-        if not bloque:
-            return None
-        tot = {
-            'gastos_ars': sum((f['gastos_ars'] for f in bloque), Decimal('0')),
-            'alquileres_ars': sum((f['alquileres_ars'] for f in bloque), Decimal('0')),
-            'gastos_usd': sum((f['gastos_usd'] for f in bloque), Decimal('0')),
-            'ingreso_usd': sum((f['ingreso_usd'] for f in bloque), Decimal('0')),
+    filas = [_fila_inicio_caja_libro(inicio)]
+    filas.extend(filas_import)
+
+    if filas_import:
+        tot_imp = {
+            'gastos_ars': sum((f['gastos_ars'] for f in filas_import), Decimal('0')),
+            'alquileres_ars': sum((f['alquileres_ars'] for f in filas_import), Decimal('0')),
+            'gastos_usd': sum((f['gastos_usd'] for f in filas_import), Decimal('0')),
+            'ingreso_usd': sum((f['ingreso_usd'] for f in filas_import), Decimal('0')),
         }
-        return {
-            'fecha': bloque[-1].get('fecha'),
+        n_fact = sum(1 for f in filas_import if f.get('clasificacion_libro') == 'facturado')
+        n_negro = sum(1 for f in filas_import if f.get('clasificacion_libro') == 'negro')
+        etiqueta = 'TOTALES HASTA LA FECHA (importados'
+        if clasif_filtro == 'facturado':
+            etiqueta = 'TOTALES HASTA LA FECHA (gastos facturados importados)'
+        elif clasif_filtro == 'negro':
+            etiqueta = 'TOTALES HASTA LA FECHA (gastos en negro / no facturados)'
+        else:
+            etiqueta = (
+                f'TOTALES HASTA LA FECHA (importados: {n_fact} facturados + '
+                f'{n_negro} en negro)'
+            )
+        filas.append({
+            'fecha': filas_import[-1].get('fecha'),
             'descripcion': etiqueta,
-            'gastos_ars': tot['gastos_ars'],
-            'alquileres_ars': tot['alquileres_ars'],
-            'gastos_usd': tot['gastos_usd'],
-            'ingreso_usd': tot['ingreso_usd'],
+            'gastos_ars': tot_imp['gastos_ars'],
+            'alquileres_ars': tot_imp['alquileres_ars'],
+            'gastos_usd': tot_imp['gastos_usd'],
+            'ingreso_usd': tot_imp['ingreso_usd'],
             'tipo_cambio': None,
             'movimiento_id': None,
             'tipo': 'SUBTOTAL',
@@ -1972,21 +1986,8 @@ def oficina_propiedad_libro(request, propiedad_id):
             'es_subtotal_hasta_fecha': True,
             'fila_manual_id': None,
             'clasificacion_libro': '',
-        }
+        })
 
-    filas = [_fila_inicio_caja_libro(inicio)]
-    filas.extend(filas_facturado)
-    sub_f = _subtotal_bloque(
-        filas_facturado, 'TOTALES HASTA LA FECHA (gastos facturados importados)'
-    )
-    if sub_f:
-        filas.append(sub_f)
-    filas.extend(filas_negro)
-    sub_n = _subtotal_bloque(
-        filas_negro, 'TOTALES HASTA LA FECHA (gastos en negro / no facturados)'
-    )
-    if sub_n:
-        filas.append(sub_n)
     filas.extend(filas_resto)
 
     totales = {
@@ -2113,15 +2114,15 @@ def _oficina_propiedad_libro_importar_excel(request, propiedad_id, clasificacion
     if result['ok']:
         messages.success(request, result['mensaje'])
         fecha_ini = result.get('fecha_inicio_caja')
-        clasif_q = clasificacion
+        # Siempre abrir en «Todo junto» para ver facturado y en negro mezclados.
         if fecha_ini:
             return redirect(
                 f"{reverse('inmobiliaria:oficina_propiedad_libro', args=[propiedad_id])}"
-                f"?fecha_desde={fecha_ini}&clasif={clasif_q}"
+                f"?fecha_desde={fecha_ini}&clasif=todo"
             )
         return redirect(
             f"{reverse('inmobiliaria:oficina_propiedad_libro', args=[propiedad_id])}"
-            f"?clasif={clasif_q}"
+            f"?clasif=todo"
         )
 
     messages.error(request, result['mensaje'])
