@@ -1886,32 +1886,104 @@ def oficina_propiedad_libro(request, propiedad_id):
             f for f in filas
             if (d := _fecha_sola(f)) is None or d >= fecha_corte
         ]
+    else:
+        def _fecha_sola(fila):
+            fe = fila.get('fecha')
+            if not fe:
+                return None
+            if isinstance(fe, datetime):
+                try:
+                    if timezone.is_aware(fe):
+                        return timezone.localtime(fe).date()
+                except Exception:
+                    pass
+                return fe.date()
+            if isinstance(fe, date):
+                return fe
+            if hasattr(fe, 'date'):
+                return fe.date()
+            return None
 
-    filas.sort(
-        key=lambda f: (
+    def _orden_fila(f):
+        return (
             f.get('fecha') or timezone.now(),
             0 if f.get('es_inicio_caja') else 1,
-            f.get('movimiento_id') or 0,
+            f.get('movimiento_id') or f.get('fila_manual_id') or 0,
         )
-    )
 
-    # Inicio de caja siempre al tope del libro (uno por depto, editable).
-    filas.insert(0, _fila_inicio_caja_libro(inicio))
+    # Bloque importado (Excel facturado) arriba; el resto del libro abajo,
+    # con un renglón de «Totales hasta la fecha» en el medio.
+    filas_import = [
+        f for f in filas
+        if f.get('es_manual') and (f.get('clasificacion_libro') or '') == 'facturado'
+    ]
+    filas_resto = [
+        f for f in filas
+        if not (f.get('es_manual') and (f.get('clasificacion_libro') or '') == 'facturado')
+    ]
 
     exige_clasif = bool(getattr(propiedad, 'libro_exige_facturado_negro', False))
     if exige_clasif and clasif_filtro in ('facturado', 'negro'):
-        filas = [
-            f
-            for f in filas
-            if f.get('es_inicio_caja')
-            or (f.get('clasificacion_libro') or '') == clasif_filtro
+        filas_import = [
+            f for f in filas_import
+            if (f.get('clasificacion_libro') or '') == clasif_filtro
+        ]
+        filas_resto = [
+            f for f in filas_resto
+            if (f.get('clasificacion_libro') or '') == clasif_filtro
         ]
 
+    filas_import.sort(key=_orden_fila)
+    filas_resto.sort(key=_orden_fila)
+
+    filas = [_fila_inicio_caja_libro(inicio)]
+    filas.extend(filas_import)
+
+    if filas_import:
+        tot_imp = {
+            'gastos_ars': sum((f['gastos_ars'] for f in filas_import), Decimal('0')),
+            'alquileres_ars': sum((f['alquileres_ars'] for f in filas_import), Decimal('0')),
+            'gastos_usd': sum((f['gastos_usd'] for f in filas_import), Decimal('0')),
+            'ingreso_usd': sum((f['ingreso_usd'] for f in filas_import), Decimal('0')),
+        }
+        ultima = filas_import[-1].get('fecha')
+        filas.append({
+            'fecha': ultima,
+            'descripcion': 'TOTALES HASTA LA FECHA (gastos facturados importados)',
+            'gastos_ars': tot_imp['gastos_ars'],
+            'alquileres_ars': tot_imp['alquileres_ars'],
+            'gastos_usd': tot_imp['gastos_usd'],
+            'ingreso_usd': tot_imp['ingreso_usd'],
+            'tipo_cambio': None,
+            'movimiento_id': None,
+            'tipo': 'SUBTOTAL',
+            'sin_caja': False,
+            'es_inicio_caja': False,
+            'es_manual': False,
+            'es_subtotal_hasta_fecha': True,
+            'fila_manual_id': None,
+            'clasificacion_libro': '',
+        })
+
+    filas.extend(filas_resto)
+
     totales = {
-        'gastos_ars': sum((f['gastos_ars'] for f in filas), Decimal('0')),
-        'alquileres_ars': sum((f['alquileres_ars'] for f in filas), Decimal('0')),
-        'gastos_usd': sum((f['gastos_usd'] for f in filas), Decimal('0')),
-        'ingreso_usd': sum((f['ingreso_usd'] for f in filas), Decimal('0')),
+        'gastos_ars': sum(
+            (f['gastos_ars'] for f in filas if not f.get('es_subtotal_hasta_fecha')),
+            Decimal('0'),
+        ),
+        'alquileres_ars': sum(
+            (f['alquileres_ars'] for f in filas if not f.get('es_subtotal_hasta_fecha')),
+            Decimal('0'),
+        ),
+        'gastos_usd': sum(
+            (f['gastos_usd'] for f in filas if not f.get('es_subtotal_hasta_fecha')),
+            Decimal('0'),
+        ),
+        'ingreso_usd': sum(
+            (f['ingreso_usd'] for f in filas if not f.get('es_subtotal_hasta_fecha')),
+            Decimal('0'),
+        ),
     }
     totales['balance_ars'] = totales['alquileres_ars'] - totales['gastos_ars']
     totales['balance_usd'] = totales['ingreso_usd'] - totales['gastos_usd']

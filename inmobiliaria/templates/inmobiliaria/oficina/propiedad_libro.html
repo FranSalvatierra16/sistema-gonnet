@@ -306,10 +306,12 @@
                         data-clasificacion="{{ f.clasificacion_libro|default:'' }}"
                         data-tipo="{{ f.tipo }}"
                         data-buscar="{{ f.fecha|date:'d/m/Y' }} {{ f.descripcion|default:'' }}"
-                        {% if f.es_inicio_caja %}class="table-primary"{% endif %}>
-                        <td class="text-nowrap">{{ f.fecha|date:"d/m/Y" }}</td>
+                        {% if f.es_inicio_caja %}class="table-primary"
+                        {% elif f.es_subtotal_hasta_fecha %}class="table-warning fw-semibold"
+                        {% endif %}>
+                        <td class="text-nowrap">{% if f.es_subtotal_hasta_fecha %}—{% else %}{{ f.fecha|date:"d/m/Y" }}{% endif %}</td>
                         <td class="desc-libro" title="{{ f.descripcion|default:'' }}">
-                            {% if f.es_inicio_caja %}<strong>{{ f.descripcion }}</strong>
+                            {% if f.es_inicio_caja or f.es_subtotal_hasta_fecha %}<strong>{{ f.descripcion }}</strong>
                             {% else %}{{ f.descripcion }}{% endif %}
                             {% if f.liquidacion_id %}
                             <button type="button"
@@ -329,7 +331,7 @@
                         </td>
                         {% if exige_facturado_negro %}
                         <td class="no-print">
-                            {% if f.es_inicio_caja %}
+                            {% if f.es_inicio_caja or f.es_subtotal_hasta_fecha %}
                             <span class="text-muted small">—</span>
                             {% elif f.movimiento_id or f.liquidacion_id or f.fila_manual_id %}
                             <select class="form-select form-select-sm select-clasif-libro"
@@ -348,7 +350,7 @@
                         <td class="text-end celda-gastos-usd">{% if f.gastos_usd %}{{ f.gastos_usd|format_price }}{% endif %}</td>
                         <td class="text-end celda-ingreso-usd">{% if f.ingreso_usd %}{{ f.ingreso_usd|format_price }}{% endif %}</td>
                         <td class="text-end">
-                            {% if f.es_inicio_caja %}
+                            {% if f.es_inicio_caja or f.es_subtotal_hasta_fecha %}
                             <span class="text-muted small">{% if f.tipo_cambio %}{{ f.tipo_cambio|format_price }}{% else %}—{% endif %}</span>
                             {% elif f.movimiento_id or f.es_operacion_libro or f.es_liquidacion_oficina %}
                             <span class="solo-imprimir">{% if f.tipo_cambio %}{{ f.tipo_cambio|format_price }}{% else %}—{% endif %}</span>
@@ -367,10 +369,10 @@
                                     <i class="fas fa-save"></i>
                                 </button>
                             </div>
-                            {% elif f.tipo_cambio %}
-                            {{ f.tipo_cambio|format_price }}
+                            {% elif f.es_manual and f.fila_manual_id %}
+                            <span class="text-muted small">{% if f.tipo_cambio %}{{ f.tipo_cambio|format_price }}{% else %}—{% endif %}</span>
                             {% else %}
-                            <span class="text-muted">—</span>
+                            <span class="text-muted small">{% if f.tipo_cambio %}{{ f.tipo_cambio|format_price }}{% else %}—{% endif %}</span>
                             {% endif %}
                         </td>
                     </tr>
