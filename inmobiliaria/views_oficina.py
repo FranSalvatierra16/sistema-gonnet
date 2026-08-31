@@ -1964,6 +1964,33 @@ def oficina_propiedad_libro(request, propiedad_id):
 
 @login_required
 @require_POST
+def oficina_propiedad_libro_importar_facturado(request, propiedad_id):
+    """Importa el Excel de gastos de Gery 1759 como filas «facturado»."""
+    if not _puede_oficina(request.user):
+        return HttpResponseForbidden()
+
+    from inmobiliaria.models import Propiedad
+    from inmobiliaria.gery_1759_facturado_import import importar_gery_1759_facturado
+
+    sucursal, en_cartera = _propiedad_en_cartera_oficina(request.user, propiedad_id)
+    if not en_cartera:
+        return HttpResponseForbidden()
+
+    propiedad = get_object_or_404(Propiedad, pk=propiedad_id, sucursal=sucursal)
+    if not getattr(propiedad, 'libro_exige_facturado_negro', False):
+        messages.error(request, 'Esta propiedad no usa clasificación facturado / en negro.')
+        return redirect('inmobiliaria:oficina_propiedad_libro', propiedad_id=propiedad_id)
+
+    result = importar_gery_1759_facturado(propiedad=propiedad, force=False)
+    if result['ok']:
+        messages.success(request, result['mensaje'])
+    else:
+        messages.error(request, result['mensaje'])
+    return redirect('inmobiliaria:oficina_propiedad_libro', propiedad_id=propiedad_id)
+
+
+@login_required
+@require_POST
 def oficina_propiedad_libro_clasificacion(request, propiedad_id):
     """Actualiza Facturado / En negro de una fila del libro."""
     if not _puede_oficina(request.user):

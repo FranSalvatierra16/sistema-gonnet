@@ -1,0 +1,7040 @@
+[
+  {
+    "fecha_raw": "01/02/2011",
+    "comprobante": "",
+    "proveedor": "",
+    "concepto": "COMISION ESPATOLERO - COMPRA LOTE",
+    "gastos_ars": 28700.0,
+    "gastos_usd": 7000.0,
+    "tipo_cambio": 4.1
+  },
+  {
+    "fecha_raw": "01/02/2011",
+    "comprobante": "",
+    "proveedor": "",
+    "concepto": "COMPRA LOTE",
+    "gastos_ars": 1722000.0,
+    "gastos_usd": 420000.0,
+    "tipo_cambio": 4.1
+  },
+  {
+    "fecha_raw": "01/02/2011",
+    "comprobante": "",
+    "proveedor": "",
+    "concepto": "GTOS DE ESCRITURA - PEREZ LLANA",
+    "gastos_ars": 41000.0,
+    "gastos_usd": 10000.0,
+    "tipo_cambio": 4.1
+  },
+  {
+    "fecha_raw": "11/02/2011",
+    "comprobante": "",
+    "proveedor": "ARBA",
+    "concepto": "IMPUESTO INMOBILIARIO - PAGO ANUAL 2011",
+    "gastos_ars": 4660.4,
+    "gastos_usd": 1122.99,
+    "tipo_cambio": 4.15
+  },
+  {
+    "fecha_raw": "18/03/2011",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 01/2011",
+    "gastos_ars": 31.96,
+    "gastos_usd": 7.7,
+    "tipo_cambio": 4.15
+  },
+  {
+    "fecha_raw": "10/05/2011",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 02/2011",
+    "gastos_ars": 31.96,
+    "gastos_usd": 7.43,
+    "tipo_cambio": 4.3
+  },
+  {
+    "fecha_raw": "08/07/2011",
+    "comprobante": "",
+    "proveedor": "LOSSE OSSE",
+    "concepto": "PERIODO 03/2011",
+    "gastos_ars": 63.92,
+    "gastos_usd": 14.87,
+    "tipo_cambio": 4.3
+  },
+  {
+    "fecha_raw": "06/11/2011",
+    "comprobante": "753",
+    "proveedor": "",
+    "concepto": "CALEFACCION & CONFOR CANOS MONTANTES CALEFACCION - 1° PAGO CALEFACCION & CONFOR CANOS MONTANTES CALEFACCION - 1° PAGO ION - 1° PAGO",
+    "gastos_ars": 497000.0,
+    "gastos_usd": 7646.0,
+    "tipo_cambio": 65.0
+  },
+  {
+    "fecha_raw": "10/11/2011",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 05/2011",
+    "gastos_ars": 63.92,
+    "gastos_usd": 12.78,
+    "tipo_cambio": 5.0
+  },
+  {
+    "fecha_raw": "04/02/2012",
+    "comprobante": "",
+    "proveedor": "ARBA",
+    "concepto": "IMPUESTO INMOBILIARIO - PAGO ANUAL 2012 JAL 2012",
+    "gastos_ars": 18646.7,
+    "gastos_usd": 3884.73,
+    "tipo_cambio": 4.8
+  },
+  {
+    "fecha_raw": "14/02/2012",
+    "comprobante": "",
+    "proveedor": "ARBA",
+    "concepto": "IMPUESTO INMOBILIARIO - PAGO ANUAL 2012",
+    "gastos_ars": 18646.7,
+    "gastos_usd": 3884.73,
+    "tipo_cambio": 4.8
+  },
+  {
+    "fecha_raw": "22/02/2012",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "",
+    "gastos_ars": 517.27,
+    "gastos_usd": 31.54,
+    "tipo_cambio": 16.4
+  },
+  {
+    "fecha_raw": "09/03/2012",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 01/2012",
+    "gastos_ars": 77.22,
+    "gastos_usd": 16.09,
+    "tipo_cambio": 4.8
+  },
+  {
+    "fecha_raw": "10/05/2012",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 02/2012",
+    "gastos_ars": 77.22,
+    "gastos_usd": 15.44,
+    "tipo_cambio": 5.0
+  },
+  {
+    "fecha_raw": "12/07/2012",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 03/2012",
+    "gastos_ars": 42.26,
+    "gastos_usd": 6.93,
+    "tipo_cambio": 6.1
+  },
+  {
+    "fecha_raw": "08/09/2012",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 04/2012",
+    "gastos_ars": 42.26,
+    "gastos_usd": 6.71,
+    "tipo_cambio": 6.3
+  },
+  {
+    "fecha_raw": "04/10/2012",
+    "comprobante": "",
+    "proveedor": "",
+    "concepto": "IMPUESTO MUNICIPAL - PAGO ANUAL 2012",
+    "gastos_ars": 14936.75,
+    "gastos_usd": 3111.82,
+    "tipo_cambio": 4.8
+  },
+  {
+    "fecha_raw": "10/10/2012",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 06/2011",
+    "gastos_ars": 63.92,
+    "gastos_usd": 13.32,
+    "tipo_cambio": 4.8
+  },
+  {
+    "fecha_raw": "04/11/2012",
+    "comprobante": "44179",
+    "proveedor": "IMEPHO MEPHO",
+    "concepto": "HORMIGON - 392.5 M3",
+    "gastos_ars": 450040.5,
+    "gastos_usd": 32600.0,
+    "tipo_cambio": 13.8
+  },
+  {
+    "fecha_raw": "07/11/2012",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 10/2014",
+    "gastos_ars": 232.88,
+    "gastos_usd": 17.91,
+    "tipo_cambio": 13.0
+  },
+  {
+    "fecha_raw": "09/11/2012",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 05/2012",
+    "gastos_ars": 42.26,
+    "gastos_usd": 6.71,
+    "tipo_cambio": 6.3
+  },
+  {
+    "fecha_raw": "12/01/2013",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "IMPUESTO MUNICIPAL - PAGO ANUAL 2013 IMPUESTO MUNICIPAL - PAGO ANUAL 2013 . 2013",
+    "gastos_ars": 18530.11,
+    "gastos_usd": 2555.88,
+    "tipo_cambio": 7.25
+  },
+  {
+    "fecha_raw": "04/02/2013",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "IMPUESTO MUNICIPAL - PAGO ANUAL 2012 . 2012",
+    "gastos_ars": 14936.75,
+    "gastos_usd": 3111.82,
+    "tipo_cambio": 4.8
+  },
+  {
+    "fecha_raw": "18/03/2013",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 01/2013",
+    "gastos_ars": 69.36,
+    "gastos_usd": 8.67,
+    "tipo_cambio": 8.0
+  },
+  {
+    "fecha_raw": "09/04/2013",
+    "comprobante": "",
+    "proveedor": "ARBA",
+    "concepto": "IMPUESTO INMOBILIARIO - PAGO ANUAL 2013 JAL 2013",
+    "gastos_ars": 19222.4,
+    "gastos_usd": 2302.08,
+    "tipo_cambio": 8.35
+  },
+  {
+    "fecha_raw": "10/05/2013",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 02/2013",
+    "gastos_ars": 69.36,
+    "gastos_usd": 6.94,
+    "tipo_cambio": 10.0
+  },
+  {
+    "fecha_raw": "18/06/2013",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 06/2015",
+    "gastos_ars": 333.16,
+    "gastos_usd": 26.23,
+    "tipo_cambio": 12.7
+  },
+  {
+    "fecha_raw": "25/08/2013",
+    "comprobante": "49634",
+    "proveedor": "MEPHO",
+    "concepto": "COMPRA HORMIGON",
+    "gastos_ars": 599821.21,
+    "gastos_usd": 37800.0,
+    "tipo_cambio": 15.87
+  },
+  {
+    "fecha_raw": "30/09/2013",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "MUNICIPALIDAD",
+    "gastos_ars": 29868.81,
+    "gastos_usd": 3144.09,
+    "tipo_cambio": 9.5
+  },
+  {
+    "fecha_raw": "30/10/2013",
+    "comprobante": "",
+    "proveedor": "",
+    "concepto": "MUNICIPALIDAD",
+    "gastos_ars": 29868.81,
+    "gastos_usd": 3144.09,
+    "tipo_cambio": 9.5
+  },
+  {
+    "fecha_raw": "12/11/2013",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 05/2013",
+    "gastos_ars": 69.36,
+    "gastos_usd": 7.08,
+    "tipo_cambio": 9.8
+  },
+  {
+    "fecha_raw": "22/11/2013",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "INSTALACION AGUA Y KIT MEDICION",
+    "gastos_ars": 6165.5,
+    "gastos_usd": 616.55,
+    "tipo_cambio": 10.0
+  },
+  {
+    "fecha_raw": "10/01/2014",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 06/2013",
+    "gastos_ars": 69.36,
+    "gastos_usd": 6.42,
+    "tipo_cambio": 10.8
+  },
+  {
+    "fecha_raw": "27/01/2014",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "IMPUESTO MUNICIPAL - PAGO ANUAL 2014 . 2014",
+    "gastos_ars": 23762.37,
+    "gastos_usd": 1980.2,
+    "tipo_cambio": 12.0
+  },
+  {
+    "fecha_raw": "11/03/2014",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 01/2014",
+    "gastos_ars": 78.48,
+    "gastos_usd": 7.2,
+    "tipo_cambio": 10.9
+  },
+  {
+    "fecha_raw": "20/03/2014",
+    "comprobante": "",
+    "proveedor": "AGRIMENSOR",
+    "concepto": "HONORARIOS",
+    "gastos_ars": 2500.0,
+    "gastos_usd": 227.27,
+    "tipo_cambio": 11.0
+  },
+  {
+    "fecha_raw": "31/03/2014",
+    "comprobante": "67466",
+    "proveedor": "DRAP",
+    "concepto": "",
+    "gastos_ars": null,
+    "gastos_usd": 37.0,
+    "tipo_cambio": null
+  },
+  {
+    "fecha_raw": "14/04/2014",
+    "comprobante": "",
+    "proveedor": "ARBA",
+    "concepto": "IMPUESTO INMOBILIARIO - PAGO ANUAL 2014. IMPUESTO INMOBILIARIO - PAGO ANUAL 2014 JAL 2014",
+    "gastos_ars": 20234.0,
+    "gastos_usd": 1964.47,
+    "tipo_cambio": 10.3
+  },
+  {
+    "fecha_raw": "08/05/2014",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 02/2014",
+    "gastos_ars": 78.48,
+    "gastos_usd": 7.3,
+    "tipo_cambio": 10.75
+  },
+  {
+    "fecha_raw": "19/06/2014",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 06/2014",
+    "gastos_ars": 230.65,
+    "gastos_usd": 18.6,
+    "tipo_cambio": 12.4
+  },
+  {
+    "fecha_raw": "12/07/2014",
+    "comprobante": "",
+    "proveedor": "",
+    "concepto": "PERIODO 03/2012",
+    "gastos_ars": 42.26,
+    "gastos_usd": 6.93,
+    "tipo_cambio": 6.1
+  },
+  {
+    "fecha_raw": "25/07/2014",
+    "comprobante": "",
+    "proveedor": "ARQUITECTO AGUERO MERCEN HONORARIOS",
+    "concepto": "",
+    "gastos_ars": 150000.0,
+    "gastos_usd": 15000.0,
+    "tipo_cambio": 10.0
+  },
+  {
+    "fecha_raw": "21/08/2014",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 08/2014",
+    "gastos_ars": 230.65,
+    "gastos_usd": 16.48,
+    "tipo_cambio": 14.0
+  },
+  {
+    "fecha_raw": "02/10/2014",
+    "comprobante": "43425",
+    "proveedor": "MEPHO",
+    "concepto": "HORMIGON - 392 M3",
+    "gastos_ars": 449467.2,
+    "gastos_usd": 32600.0,
+    "tipo_cambio": 13.8
+  },
+  {
+    "fecha_raw": "20/10/2014",
+    "comprobante": "1331",
+    "proveedor": "AGRIMENSOR",
+    "concepto": "HONORARIOS",
+    "gastos_ars": 2500.0,
+    "gastos_usd": 227.27,
+    "tipo_cambio": 11.0
+  },
+  {
+    "fecha_raw": "27/10/2014",
+    "comprobante": "",
+    "proveedor": "",
+    "concepto": "IMPUESTO MUNICIPAL - PAGO ANUAL 2014",
+    "gastos_ars": 23762.37,
+    "gastos_usd": 1980.2,
+    "tipo_cambio": 12.0
+  },
+  {
+    "fecha_raw": "07/11/2014",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 10/2014",
+    "gastos_ars": 232.88,
+    "gastos_usd": 17.91,
+    "tipo_cambio": 13.0
+  },
+  {
+    "fecha_raw": "11/11/2014",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 09/2014",
+    "gastos_ars": 243.34,
+    "gastos_usd": 18.72,
+    "tipo_cambio": 13.0
+  },
+  {
+    "fecha_raw": "14/11/2014",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 07/2014",
+    "gastos_ars": 260.79,
+    "gastos_usd": 19.46,
+    "tipo_cambio": 13.4
+  },
+  {
+    "fecha_raw": "20/12/2014",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 12/2014",
+    "gastos_ars": 230.65,
+    "gastos_usd": 17.74,
+    "tipo_cambio": 13.0
+  },
+  {
+    "fecha_raw": "14/01/2015",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "TSH - PAGO ANUAL 2015",
+    "gastos_ars": 31624.65,
+    "gastos_usd": 2325.34,
+    "tipo_cambio": 13.6
+  },
+  {
+    "fecha_raw": "26/01/2015",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 01/2015",
+    "gastos_ars": 840.31,
+    "gastos_usd": 61.79,
+    "tipo_cambio": 13.6
+  },
+  {
+    "fecha_raw": "12/02/2015",
+    "comprobante": "",
+    "proveedor": "ARBA",
+    "concepto": "",
+    "gastos_ars": null,
+    "gastos_usd": 3012.79,
+    "tipo_cambio": null
+  },
+  {
+    "fecha_raw": "18/02/2015",
+    "comprobante": "",
+    "proveedor": "ARBA",
+    "concepto": "IMPUESTO INMOBILIARIO - PAGO ANUAL 2015 JAL 2015",
+    "gastos_ars": 26301.4,
+    "gastos_usd": 2023.18,
+    "tipo_cambio": 13.0
+  },
+  {
+    "fecha_raw": "10/03/2015",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 02/2015",
+    "gastos_ars": 1983.16,
+    "gastos_usd": 154.93,
+    "tipo_cambio": 12.8
+  },
+  {
+    "fecha_raw": "11/03/2015",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "",
+    "gastos_ars": null,
+    "gastos_usd": 101.74,
+    "tipo_cambio": null
+  },
+  {
+    "fecha_raw": "13/03/2015",
+    "comprobante": "17349",
+    "proveedor": "",
+    "concepto": "CENTROSIDER",
+    "gastos_ars": null,
+    "gastos_usd": 204.0,
+    "tipo_cambio": null
+  },
+  {
+    "fecha_raw": "07/05/2015",
+    "comprobante": "12835",
+    "proveedor": "SANCHEZ",
+    "concepto": "",
+    "gastos_ars": 2757.18,
+    "gastos_usd": 62.0,
+    "tipo_cambio": null
+  },
+  {
+    "fecha_raw": "14/05/2015",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "DIFERENCIAS",
+    "gastos_ars": 294.53,
+    "gastos_usd": 23.19,
+    "tipo_cambio": 12.7
+  },
+  {
+    "fecha_raw": "14/05/2015",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 03/2015",
+    "gastos_ars": 1975.12,
+    "gastos_usd": 155.52,
+    "tipo_cambio": 12.7
+  },
+  {
+    "fecha_raw": "14/05/2015",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 04/2015",
+    "gastos_ars": 1472.48,
+    "gastos_usd": 115.94,
+    "tipo_cambio": 12.7
+  },
+  {
+    "fecha_raw": "21/05/2015",
+    "comprobante": "",
+    "proveedor": "LOSSE OSSE",
+    "concepto": "PERIODO 05/2015",
+    "gastos_ars": 990.46,
+    "gastos_usd": 77.99,
+    "tipo_cambio": 12.7
+  },
+  {
+    "fecha_raw": "13/06/2015",
+    "comprobante": "69081",
+    "proveedor": "DRAP",
+    "concepto": "MASCARILLA Y ANTEOJOS",
+    "gastos_ars": 1679.95,
+    "gastos_usd": 38.0,
+    "tipo_cambio": null
+  },
+  {
+    "fecha_raw": "15/06/2015",
+    "comprobante": "13470",
+    "proveedor": "SANCHEZ",
+    "concepto": "TUBO MH 50 X 3.00 AWADUCT 1016 6",
+    "gastos_ars": 2498.41,
+    "gastos_usd": 55.0,
+    "tipo_cambio": null
+  },
+  {
+    "fecha_raw": "19/06/2015",
+    "comprobante": "13548",
+    "proveedor": "SANCHEZ",
+    "concepto": "PISTOLA APLICADORA AMARILLA",
+    "gastos_ars": 288.83,
+    "gastos_usd": 6.5,
+    "tipo_cambio": 45.0
+  },
+  {
+    "fecha_raw": "25/06/2015",
+    "comprobante": "69252",
+    "proveedor": "DRAP",
+    "concepto": "CERA P/LAJA NEGRA",
+    "gastos_ars": 334.81,
+    "gastos_usd": 8.0,
+    "tipo_cambio": 42.0
+  },
+  {
+    "fecha_raw": "03/07/2015",
+    "comprobante": "13717 13777",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "TAPA 160 PVC TUBOFORTE",
+    "gastos_ars": 429.97,
+    "gastos_usd": 10.0,
+    "tipo_cambio": 42.99
+  },
+  {
+    "fecha_raw": "20/07/2015",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 07/2015",
+    "gastos_ars": 333.16,
+    "gastos_usd": 22.82,
+    "tipo_cambio": 14.6
+  },
+  {
+    "fecha_raw": "22/08/2015",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 08/2015",
+    "gastos_ars": 333.16,
+    "gastos_usd": 21.36,
+    "tipo_cambio": 15.6
+  },
+  {
+    "fecha_raw": "25/08/2015",
+    "comprobante": "49634",
+    "proveedor": "MEPHO",
+    "concepto": "COMPRA HORMIGON",
+    "gastos_ars": 599821.21,
+    "gastos_usd": 37800.0,
+    "tipo_cambio": 15.87
+  },
+  {
+    "fecha_raw": "03/09/2015",
+    "comprobante": "14739",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "TAPA PVC TAPA PVC - UNION NORMAL - UNION NORMAL",
+    "gastos_ars": 4700.0,
+    "gastos_usd": 82.0,
+    "tipo_cambio": 57.31
+  },
+  {
+    "fecha_raw": "22/09/2015",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 09/2015",
+    "gastos_ars": 333.16,
+    "gastos_usd": 20.82,
+    "tipo_cambio": 16.0
+  },
+  {
+    "fecha_raw": "02/10/2015",
+    "comprobante": "",
+    "proveedor": "IMEPHO",
+    "concepto": "ACOPIO",
+    "gastos_ars": 1623051.8,
+    "gastos_usd": 102078.0,
+    "tipo_cambio": 15.9
+  },
+  {
+    "fecha_raw": "10/10/2015",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODOI 04/2013",
+    "gastos_ars": 69.36,
+    "gastos_usd": 7.54,
+    "tipo_cambio": 9.2
+  },
+  {
+    "fecha_raw": "14/10/2015",
+    "comprobante": "",
+    "proveedor": "",
+    "concepto": "BAZAN - COPIA DE LLAVE",
+    "gastos_ars": 99.99,
+    "gastos_usd": 2.17,
+    "tipo_cambio": null
+  },
+  {
+    "fecha_raw": "14/10/2015",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 03/2015",
+    "gastos_ars": 1975.12,
+    "gastos_usd": 155.52,
+    "tipo_cambio": 12.7
+  },
+  {
+    "fecha_raw": "21/10/2015",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 10/2015",
+    "gastos_ars": 333.16,
+    "gastos_usd": 20.82,
+    "tipo_cambio": 16.0
+  },
+  {
+    "fecha_raw": "29/10/2015",
+    "comprobante": "331",
+    "proveedor": "TROCHE DANIEL",
+    "concepto": "CERTIFICADO N° 5 - INST. SANITARIA RIA",
+    "gastos_ars": 24858.68,
+    "gastos_usd": 331.0,
+    "tipo_cambio": 75.0
+  },
+  {
+    "fecha_raw": "01/11/2015",
+    "comprobante": "5824| 5824",
+    "proveedor": "DRAP",
+    "concepto": "FIRRAORETE FYM POLIPROPIL FNO FIBRADRETE FYM POLIPROPILENO",
+    "gastos_ars": 25575.58,
+    "gastos_usd": 405.0,
+    "tipo_cambio": 63.0
+  },
+  {
+    "fecha_raw": "04/11/2015",
+    "comprobante": "4509",
+    "proveedor": "HIERROMETAL",
+    "concepto": "ANGULO 1\" 1/2 X 3/16",
+    "gastos_ars": 1129.82,
+    "gastos_usd": 18.0,
+    "tipo_cambio": 63.0
+  },
+  {
+    "fecha_raw": "04/11/2015",
+    "comprobante": "15836",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "SANITARIOS SANCHEZ CURVA-CODO-TUBO-VALV-BUJE-BOQUILLA-PROLONG BOQUILLA-PROLONG",
+    "gastos_ars": 30390.0,
+    "gastos_usd": 466.0,
+    "tipo_cambio": 65.0
+  },
+  {
+    "fecha_raw": "20/11/2015",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 11/2015",
+    "gastos_ars": 333.16,
+    "gastos_usd": 22.21,
+    "tipo_cambio": 15.0
+  },
+  {
+    "fecha_raw": "04/12/2015",
+    "comprobante": "261",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "CINTA P/MONTAJE 10 MTS.",
+    "gastos_ars": 1050.07,
+    "gastos_usd": 15.0,
+    "tipo_cambio": 70.0
+  },
+  {
+    "fecha_raw": "04/12/2015",
+    "comprobante": "259",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "MATERIALES VARIOS",
+    "gastos_ars": 2444.7,
+    "gastos_usd": 35.0,
+    "tipo_cambio": 70.0
+  },
+  {
+    "fecha_raw": "23/12/2015",
+    "comprobante": "15104",
+    "proveedor": "CASA FARINA",
+    "concepto": "ABETE Y COMBUSTIBLE BETE Y COMBUSTIBLI",
+    "gastos_ars": 14500.0,
+    "gastos_usd": 193.33,
+    "tipo_cambio": 75.0
+  },
+  {
+    "fecha_raw": "14/01/2016",
+    "comprobante": "",
+    "proveedor": "",
+    "concepto": "IMPUESTO MUNICIPAL - CUOTA ANUAL 2016",
+    "gastos_ars": 31658.95,
+    "gastos_usd": 2261.35,
+    "tipo_cambio": 14008.0
+  },
+  {
+    "fecha_raw": "16/02/2016",
+    "comprobante": "",
+    "proveedor": "ARBA",
+    "concepto": "IMPUES BILIARIO IARIO - PAGO ANUAL • PAGO ANUAL 2016",
+    "gastos_ars": 32462.0,
+    "gastos_usd": 2164.13,
+    "tipo_cambio": 15.0
+  },
+  {
+    "fecha_raw": "17/02/2016",
+    "comprobante": "",
+    "proveedor": "m CONSTRUC",
+    "concepto": "NSTRU DIFEREN OS ; MUNICIPALES MUNICIPAL ES",
+    "gastos_ars": 5220.0,
+    "gastos_usd": 341.18,
+    "tipo_cambio": 15.3
+  },
+  {
+    "fecha_raw": "18/02/2016",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIOD",
+    "gastos_ars": 392.46,
+    "gastos_usd": 25.57,
+    "tipo_cambio": 15.35
+  },
+  {
+    "fecha_raw": "12/03/2016",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "DERECH STRUCCION RUCCION",
+    "gastos_ars": 516.0,
+    "gastos_usd": 35700.0,
+    "tipo_cambio": 14.5
+  },
+  {
+    "fecha_raw": "21/03/2016",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIOD",
+    "gastos_ars": 2119.94,
+    "gastos_usd": 137.66,
+    "tipo_cambio": 15.4
+  },
+  {
+    "fecha_raw": "18/06/2016",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "",
+    "gastos_ars": 850.43,
+    "gastos_usd": 59.06,
+    "tipo_cambio": 14.4
+  },
+  {
+    "fecha_raw": "29/06/2016",
+    "comprobante": "298",
+    "proveedor": "NES S.A",
+    "concepto": "M.O. HO UOTA 1",
+    "gastos_ars": 484.0,
+    "gastos_usd": 33145.0,
+    "tipo_cambio": 14.62
+  },
+  {
+    "fecha_raw": "11/07/2016",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIOD CTA. 02",
+    "gastos_ars": 179.29,
+    "gastos_usd": 11.95,
+    "tipo_cambio": 15.0
+  },
+  {
+    "fecha_raw": "22/07/2016",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIOD",
+    "gastos_ars": 2892.48,
+    "gastos_usd": 187.22,
+    "tipo_cambio": 15.45
+  },
+  {
+    "fecha_raw": "02/08/2016",
+    "comprobante": "308",
+    "proveedor": "NES S.A",
+    "concepto": "UOTA 2",
+    "gastos_ars": 352950.0,
+    "gastos_usd": 23220.0,
+    "tipo_cambio": 15.2
+  },
+  {
+    "fecha_raw": "08/08/2016",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "•TA. 01",
+    "gastos_ars": 184.28,
+    "gastos_usd": 12.01,
+    "tipo_cambio": 15.35
+  },
+  {
+    "fecha_raw": "26/08/2016",
+    "comprobante": "",
+    "proveedor": "ERACION ION P. PA",
+    "concepto": "1082012 17",
+    "gastos_ars": 29820.98,
+    "gastos_usd": 2000.0,
+    "tipo_cambio": 14.91
+  },
+  {
+    "fecha_raw": "29/08/2016",
+    "comprobante": "",
+    "proveedor": "",
+    "concepto": "",
+    "gastos_ars": 26676.29,
+    "gastos_usd": 1780.0,
+    "tipo_cambio": 15.0
+  },
+  {
+    "fecha_raw": "02/09/2016",
+    "comprobante": "321",
+    "proveedor": "NES S.A",
+    "concepto": "",
+    "gastos_ars": 418775.17,
+    "gastos_usd": 27550.0,
+    "tipo_cambio": 15.2
+  },
+  {
+    "fecha_raw": "02/09/2016",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "TRAMITES ITES",
+    "gastos_ars": 18000.0,
+    "gastos_usd": 1168.83,
+    "tipo_cambio": 15.4
+  },
+  {
+    "fecha_raw": "05/09/2016",
+    "comprobante": "322",
+    "proveedor": "INES S.A.",
+    "concepto": "",
+    "gastos_ars": 418775.17,
+    "gastos_usd": 27550.0,
+    "tipo_cambio": 15.2
+  },
+  {
+    "fecha_raw": "20/09/2016",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "",
+    "gastos_ars": 274.25,
+    "gastos_usd": 17.41,
+    "tipo_cambio": 15.75
+  },
+  {
+    "fecha_raw": "19/10/2016",
+    "comprobante": "",
+    "proveedor": "OSSEI",
+    "concepto": "",
+    "gastos_ars": 487.19,
+    "gastos_usd": 31.13,
+    "tipo_cambio": 15.65
+  },
+  {
+    "fecha_raw": "07/11/2016",
+    "comprobante": "348",
+    "proveedor": "NES S.A",
+    "concepto": "",
+    "gastos_ars": 459940.77,
+    "gastos_usd": 30660.0,
+    "tipo_cambio": 15.0
+  },
+  {
+    "fecha_raw": "07/11/2016",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "",
+    "gastos_ars": 287.16,
+    "gastos_usd": 18.53,
+    "tipo_cambio": 15.5
+  },
+  {
+    "fecha_raw": "09/11/2016",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 10/2018",
+    "gastos_ars": 1350.1,
+    "gastos_usd": 37.09,
+    "tipo_cambio": 36.4
+  },
+  {
+    "fecha_raw": "14/11/2016",
+    "comprobante": "691",
+    "proveedor": "",
+    "concepto": "",
+    "gastos_ars": 285875.0,
+    "gastos_usd": 19058.0,
+    "tipo_cambio": 15.0
+  },
+  {
+    "fecha_raw": "21/11/2016",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "",
+    "gastos_ars": 494.71,
+    "gastos_usd": 31.31,
+    "tipo_cambio": 15.8
+  },
+  {
+    "fecha_raw": "22/11/2016",
+    "comprobante": "",
+    "proveedor": "",
+    "concepto": "PALO Y CEPILLO",
+    "gastos_ars": 365.0,
+    "gastos_usd": 10.03,
+    "tipo_cambio": 36.4
+  },
+  {
+    "fecha_raw": "13/12/2016",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "",
+    "gastos_ars": 607.36,
+    "gastos_usd": 37.03,
+    "tipo_cambio": 16.4
+  },
+  {
+    "fecha_raw": "21/12/2016",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "",
+    "gastos_ars": 517.27,
+    "gastos_usd": 31.16,
+    "tipo_cambio": 16.6
+  },
+  {
+    "fecha_raw": "12/01/2017",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "",
+    "gastos_ars": 609.76,
+    "gastos_usd": 36.3,
+    "tipo_cambio": 16.8
+  },
+  {
+    "fecha_raw": "08/02/2017",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "CTA. 01",
+    "gastos_ars": 415.65,
+    "gastos_usd": 25.19,
+    "tipo_cambio": 16.5
+  },
+  {
+    "fecha_raw": "16/02/2017",
+    "comprobante": "",
+    "proveedor": "ARBA",
+    "concepto": "LIARI PAGO AGO ANUAL 2017",
+    "gastos_ars": 44799.2,
+    "gastos_usd": 2748.42,
+    "tipo_cambio": 16.3
+  },
+  {
+    "fecha_raw": "17/04/2017",
+    "comprobante": "390",
+    "proveedor": "NES S.A.",
+    "concepto": "CUOTA 10",
+    "gastos_ars": 477.0,
+    "gastos_usd": 29272.0,
+    "tipo_cambio": 16.3
+  },
+  {
+    "fecha_raw": "09/05/2017",
+    "comprobante": "395",
+    "proveedor": "NES S.A",
+    "concepto": "CUOTA 11",
+    "gastos_ars": 190.0,
+    "gastos_usd": 11227.0,
+    "tipo_cambio": 17.0
+  },
+  {
+    "fecha_raw": "05/06/2017",
+    "comprobante": "406",
+    "proveedor": "NES S.A.",
+    "concepto": "CUOTA 12",
+    "gastos_ars": 211.0,
+    "gastos_usd": 13000.0,
+    "tipo_cambio": 16.3
+  },
+  {
+    "fecha_raw": "12/06/2017",
+    "comprobante": "411",
+    "proveedor": "NES S.A NES S.A.",
+    "concepto": "ANTICIPO",
+    "gastos_ars": 605750.0,
+    "gastos_usd": 37000.0,
+    "tipo_cambio": 16.37
+  },
+  {
+    "fecha_raw": "16/06/2017",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "IPAL - AJUSTE STE 2017 017",
+    "gastos_ars": 29964.05,
+    "gastos_usd": 1810.52,
+    "tipo_cambio": 16.55
+  },
+  {
+    "fecha_raw": "22/06/2017",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "",
+    "gastos_ars": 685.43,
+    "gastos_usd": 41.42,
+    "tipo_cambio": 16.55
+  },
+  {
+    "fecha_raw": "03/07/2017",
+    "comprobante": "419",
+    "proveedor": "NES SA! NES S.A.",
+    "concepto": "CUOTA 13",
+    "gastos_ars": 211851.32,
+    "gastos_usd": 12210.0,
+    "tipo_cambio": 17.35
+  },
+  {
+    "fecha_raw": "20/07/2017",
+    "comprobante": "55656",
+    "proveedor": "PINTURAS - DRAP",
+    "concepto": "",
+    "gastos_ars": 1889.4,
+    "gastos_usd": 111.0,
+    "tipo_cambio": 17.02
+  },
+  {
+    "fecha_raw": "03/08/2017",
+    "comprobante": "432",
+    "proveedor": "NES S.A.",
+    "concepto": "CUOTA 14",
+    "gastos_ars": 233036.46,
+    "gastos_usd": 12600.0,
+    "tipo_cambio": 18.49
+  },
+  {
+    "fecha_raw": "22/08/2017",
+    "comprobante": "",
+    "proveedor": "JOSSE",
+    "concepto": "",
+    "gastos_ars": 685.43,
+    "gastos_usd": 37.25,
+    "tipo_cambio": 18.4
+  },
+  {
+    "fecha_raw": "30/08/2017",
+    "comprobante": "",
+    "proveedor": "ION",
+    "concepto": "",
+    "gastos_ars": 33336.84,
+    "gastos_usd": 1840.0,
+    "tipo_cambio": 18.12
+  },
+  {
+    "fecha_raw": "30/08/2017",
+    "comprobante": "",
+    "proveedor": "SEGURO FEDERACION ION PA",
+    "concepto": "25/08/2018",
+    "gastos_ars": 33336.84,
+    "gastos_usd": 1840.0,
+    "tipo_cambio": 18.12
+  },
+  {
+    "fecha_raw": "07/09/2017",
+    "comprobante": "",
+    "proveedor": "IPINTURAS - DRAP",
+    "concepto": "",
+    "gastos_ars": 13276.98,
+    "gastos_usd": 920.0,
+    "tipo_cambio": 1443.0
+  },
+  {
+    "fecha_raw": "06/01/2018",
+    "comprobante": "",
+    "proveedor": "VARIOS",
+    "concepto": "ALCOCHOL P/COHERA",
+    "gastos_ars": 75.0,
+    "gastos_usd": 1.95,
+    "tipo_cambio": 38.4
+  },
+  {
+    "fecha_raw": "14/01/2018",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "IMPUESTO MUNICIPAL - CUOTA ANUAL 2016 L 2016",
+    "gastos_ars": 31658.95,
+    "gastos_usd": 2261.35,
+    "tipo_cambio": 14.0
+  },
+  {
+    "fecha_raw": "14/01/2018",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "TSH - PAGO ANUAL 2015",
+    "gastos_ars": 31624.65,
+    "gastos_usd": 2325.34,
+    "tipo_cambio": 13.6
+  },
+  {
+    "fecha_raw": "21/01/2018",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 01/2016",
+    "gastos_ars": 1387.52,
+    "gastos_usd": 96.36,
+    "tipo_cambio": 14.4
+  },
+  {
+    "fecha_raw": "01/02/2018",
+    "comprobante": "65961",
+    "proveedor": "DRAP",
+    "concepto": "",
+    "gastos_ars": 4592.88,
+    "gastos_usd": 121.0,
+    "tipo_cambio": null
+  },
+  {
+    "fecha_raw": "18/03/2018",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 01/2013",
+    "gastos_ars": 69.36,
+    "gastos_usd": 8.67,
+    "tipo_cambio": 8.0
+  },
+  {
+    "fecha_raw": "11/04/2018",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "",
+    "gastos_ars": 7699.83,
+    "gastos_usd": 179.08,
+    "tipo_cambio": null
+  },
+  {
+    "fecha_raw": "13/04/2018",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 04/2019",
+    "gastos_ars": 901.67,
+    "gastos_usd": 20.04,
+    "tipo_cambio": null
+  },
+  {
+    "fecha_raw": "29/04/2018",
+    "comprobante": "12708",
+    "proveedor": "SANCHEZ",
+    "concepto": "",
+    "gastos_ars": 4125.0,
+    "gastos_usd": 92.0,
+    "tipo_cambio": null
+  },
+  {
+    "fecha_raw": "12/05/2018",
+    "comprobante": "2328",
+    "proveedor": "LANDA",
+    "concepto": "",
+    "gastos_ars": 500000.04,
+    "gastos_usd": 7143.0,
+    "tipo_cambio": 70.0
+  },
+  {
+    "fecha_raw": "12/05/2018",
+    "comprobante": "604",
+    "proveedor": "NES S.A.",
+    "concepto": "TRABAJOS DE MAMPOSTERIA - CUOTA N° 4 CUOTA N' 4",
+    "gastos_ars": 283242.45,
+    "gastos_usd": 4165.0,
+    "tipo_cambio": 68.01
+  },
+  {
+    "fecha_raw": "28/05/2018",
+    "comprobante": "13178",
+    "proveedor": "SANCHEZ",
+    "concepto": "CODO A 45º20 AZUL. Y TAPON 1/2 PP",
+    "gastos_ars": 760.83,
+    "gastos_usd": 17.0,
+    "tipo_cambio": null
+  },
+  {
+    "fecha_raw": "15/06/2018",
+    "comprobante": "4583",
+    "proveedor": "",
+    "concepto": "QUIMICA DEM",
+    "gastos_ars": 134.97,
+    "gastos_usd": 3.0,
+    "tipo_cambio": null
+  },
+  {
+    "fecha_raw": "24/06/2018",
+    "comprobante": "13614",
+    "proveedor": "SANCHEZ",
+    "concepto": "CANO PVC, TUBO MACHO",
+    "gastos_ars": 7185.6,
+    "gastos_usd": 160.0,
+    "tipo_cambio": 44.91
+  },
+  {
+    "fecha_raw": "11/07/2018",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 03/2013",
+    "gastos_ars": 69.36,
+    "gastos_usd": 8.46,
+    "tipo_cambio": 8.2
+  },
+  {
+    "fecha_raw": "11/07/2018",
+    "comprobante": "13892",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "UNION DOBLE - ROSCA",
+    "gastos_ars": 10659.4,
+    "gastos_usd": 242.0,
+    "tipo_cambio": 44.04
+  },
+  {
+    "fecha_raw": "15/07/2018",
+    "comprobante": "13943",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "CODO HH - Y ROSCA C/ TUERCA",
+    "gastos_ars": 5000.0,
+    "gastos_usd": 115.0,
+    "tipo_cambio": 43.47
+  },
+  {
+    "fecha_raw": "21/07/2018",
+    "comprobante": "",
+    "proveedor": "",
+    "concepto": "RODOS, DISCO,",
+    "gastos_ars": 133401.4,
+    "gastos_usd": 4760.0,
+    "tipo_cambio": 28.03
+  },
+  {
+    "fecha_raw": "22/07/2018",
+    "comprobante": "",
+    "proveedor": "",
+    "concepto": "",
+    "gastos_ars": 1400000.0,
+    "gastos_usd": 50000.0,
+    "tipo_cambio": 28.0
+  },
+  {
+    "fecha_raw": "22/07/2018",
+    "comprobante": "14066",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "BUJE RED 75X50 AZUL FUSION",
+    "gastos_ars": 2859.19,
+    "gastos_usd": 65.0,
+    "tipo_cambio": 44.0
+  },
+  {
+    "fecha_raw": "23/07/2018",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 07/2018 7/2018",
+    "gastos_ars": 1061.06,
+    "gastos_usd": 38.17,
+    "tipo_cambio": 27.8
+  },
+  {
+    "fecha_raw": "30/07/2018",
+    "comprobante": "14214",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "CODO-BOQUILLA-BUJE-TUBE-FLEXIBLE EXIBLE",
+    "gastos_ars": 2434.76,
+    "gastos_usd": 54.0,
+    "tipo_cambio": 45.08
+  },
+  {
+    "fecha_raw": "10/08/2018",
+    "comprobante": "",
+    "proveedor": "",
+    "concepto": "",
+    "gastos_ars": 6343.66,
+    "gastos_usd": 218.75,
+    "tipo_cambio": 29.0
+  },
+  {
+    "fecha_raw": "10/08/2018",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "MUNICIPAL - AJUST 02/2018 2/2018",
+    "gastos_ars": 172.95,
+    "gastos_usd": 6.0,
+    "tipo_cambio": 28.83
+  },
+  {
+    "fecha_raw": "10/08/2018",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "MUNICIPAL • CUOTA 08/2018 N/2018",
+    "gastos_ars": 6343.66,
+    "gastos_usd": 218.75,
+    "tipo_cambio": 29.0
+  },
+  {
+    "fecha_raw": "14/08/2018",
+    "comprobante": "",
+    "proveedor": "PLOMERIA",
+    "concepto": "JA (GAR RIDO)",
+    "gastos_ars": 3000.0,
+    "gastos_usd": 90.0,
+    "tipo_cambio": 33.33
+  },
+  {
+    "fecha_raw": "14/08/2018",
+    "comprobante": "",
+    "proveedor": "",
+    "concepto": "PINTURA",
+    "gastos_ars": 3042.27,
+    "gastos_usd": 101.0,
+    "tipo_cambio": 30.12
+  },
+  {
+    "fecha_raw": "15/08/2018",
+    "comprobante": "",
+    "proveedor": "",
+    "concepto": "PINTURA",
+    "gastos_ars": 3522.2,
+    "gastos_usd": 117.0,
+    "tipo_cambio": 30.1
+  },
+  {
+    "fecha_raw": "21/08/2018",
+    "comprobante": "69974",
+    "proveedor": "DRAP",
+    "concepto": "CERA PILAJA NEGRA CERA P/LAJA NEGRA",
+    "gastos_ars": 1000.29,
+    "gastos_usd": 22.0,
+    "tipo_cambio": 45.46
+  },
+  {
+    "fecha_raw": "21/08/2018",
+    "comprobante": "",
+    "proveedor": "",
+    "concepto": "PINTURA VARIOS",
+    "gastos_ars": 11301.43,
+    "gastos_usd": 353.0,
+    "tipo_cambio": 32.02
+  },
+  {
+    "fecha_raw": "23/08/2018",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 08/2018",
+    "gastos_ars": 1061.06,
+    "gastos_usd": 34.79,
+    "tipo_cambio": 30.5
+  },
+  {
+    "fecha_raw": "30/08/2018",
+    "comprobante": "",
+    "proveedor": "ROMA",
+    "concepto": "CONTENEDOR OR",
+    "gastos_ars": 1000.0,
+    "gastos_usd": 31.25,
+    "tipo_cambio": 32.0
+  },
+  {
+    "fecha_raw": "31/08/2018",
+    "comprobante": "",
+    "proveedor": "",
+    "concepto": "FACTURA AGOSTO GOSTO",
+    "gastos_ars": 59640.0,
+    "gastos_usd": 1611.89,
+    "tipo_cambio": 37.0
+  },
+  {
+    "fecha_raw": "31/08/2018",
+    "comprobante": "",
+    "proveedor": "",
+    "concepto": "FACTURA JULIO ULIO",
+    "gastos_ars": 89460.0,
+    "gastos_usd": 2417.84,
+    "tipo_cambio": 37.0
+  },
+  {
+    "fecha_raw": "31/08/2018",
+    "comprobante": "",
+    "proveedor": "",
+    "concepto": "FERRETERIA PARA ELECTRICIDAD ECTRICIDAD",
+    "gastos_ars": 9606.88,
+    "gastos_usd": 246.0,
+    "tipo_cambio": 39.05
+  },
+  {
+    "fecha_raw": "10/09/2018",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODOI 04/2013",
+    "gastos_ars": 69.36,
+    "gastos_usd": 7.54,
+    "tipo_cambio": 9.2
+  },
+  {
+    "fecha_raw": "11/09/2018",
+    "comprobante": "",
+    "proveedor": "",
+    "concepto": "DILLO. ,PINCEL, LIJAS, ETC",
+    "gastos_ars": 39020.73,
+    "gastos_usd": 1012.0,
+    "tipo_cambio": 38.56
+  },
+  {
+    "fecha_raw": "11/09/2018",
+    "comprobante": "",
+    "proveedor": "",
+    "concepto": "JADOR MURO BLANCO",
+    "gastos_ars": 203712.03,
+    "gastos_usd": 5290.0,
+    "tipo_cambio": 38.51
+  },
+  {
+    "fecha_raw": "13/09/2018",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "412018-1 CTA. 02",
+    "gastos_ars": 1934.71,
+    "gastos_usd": 49.93,
+    "tipo_cambio": 38.75
+  },
+  {
+    "fecha_raw": "14/09/2018",
+    "comprobante": "",
+    "proveedor": "NES S.A.",
+    "concepto": "2° ETAPA: CUOTA 6 CUOTA",
+    "gastos_ars": 190575.0,
+    "gastos_usd": 4764.38,
+    "tipo_cambio": 40.0
+  },
+  {
+    "fecha_raw": "20/09/2018",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 09/2018 9/2018",
+    "gastos_ars": 1351.4,
+    "gastos_usd": 33.79,
+    "tipo_cambio": 40.0
+  },
+  {
+    "fecha_raw": "26/09/2018",
+    "comprobante": "",
+    "proveedor": "STARKLOFF",
+    "concepto": "INTERIA DE ALUMINIO",
+    "gastos_ars": 605000.0,
+    "gastos_usd": 15500.0,
+    "tipo_cambio": 39.03
+  },
+  {
+    "fecha_raw": "04/10/2018",
+    "comprobante": "65961",
+    "proveedor": "DRAP",
+    "concepto": "",
+    "gastos_ars": 4592.88,
+    "gastos_usd": 121.0,
+    "tipo_cambio": null
+  },
+  {
+    "fecha_raw": "04/10/2018",
+    "comprobante": "",
+    "proveedor": "ROMA",
+    "concepto": "4 CONTENEDORES",
+    "gastos_ars": 3600.0,
+    "gastos_usd": 84.0,
+    "tipo_cambio": null
+  },
+  {
+    "fecha_raw": "08/10/2018",
+    "comprobante": "",
+    "proveedor": "",
+    "concepto": "PERIODO 03/2019",
+    "gastos_ars": 908.57,
+    "gastos_usd": 21.13,
+    "tipo_cambio": null
+  },
+  {
+    "fecha_raw": "09/10/2018",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "5/2018 - CTA. 01",
+    "gastos_ars": 1718.93,
+    "gastos_usd": 41.0,
+    "tipo_cambio": 41.93
+  },
+  {
+    "fecha_raw": "09/10/2018",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 06/2018 - CTA. 02",
+    "gastos_ars": 2271.23,
+    "gastos_usd": 59.15,
+    "tipo_cambio": 38.4
+  },
+  {
+    "fecha_raw": "10/10/2018",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 03/2019 - CTA. 02",
+    "gastos_ars": 3861.51,
+    "gastos_usd": 90.0,
+    "tipo_cambio": 42.9
+  },
+  {
+    "fecha_raw": "12/10/2018",
+    "comprobante": "",
+    "proveedor": "",
+    "concepto": "B AL 25/0B/2019",
+    "gastos_ars": 34011.72,
+    "gastos_usd": 895.05,
+    "tipo_cambio": 38.0
+  },
+  {
+    "fecha_raw": "12/10/2018",
+    "comprobante": "13147",
+    "proveedor": "IMEPHO",
+    "concepto": "CTA. CTE, DICIEMBRE 2019",
+    "gastos_ars": 76200.0,
+    "gastos_usd": 1088.56,
+    "tipo_cambio": 70.0
+  },
+  {
+    "fecha_raw": "12/10/2018",
+    "comprobante": "",
+    "proveedor": "",
+    "concepto": "ES (ACTA. EN FEB 2019)",
+    "gastos_ars": 1400000.0,
+    "gastos_usd": 50000.0,
+    "tipo_cambio": 28.0
+  },
+  {
+    "fecha_raw": "13/10/2018",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "",
+    "gastos_ars": 1934.71,
+    "gastos_usd": 49.93,
+    "tipo_cambio": 38.75
+  },
+  {
+    "fecha_raw": "14/10/2018",
+    "comprobante": "",
+    "proveedor": "PLOMERIA",
+    "concepto": "",
+    "gastos_ars": 3000.0,
+    "gastos_usd": 90.0,
+    "tipo_cambio": 33.33
+  },
+  {
+    "fecha_raw": "14/10/2018",
+    "comprobante": "68519",
+    "proveedor": "DRAP",
+    "concepto": "200 MALLAS 10*10",
+    "gastos_ars": 7214.68,
+    "gastos_usd": 155.0,
+    "tipo_cambio": null
+  },
+  {
+    "fecha_raw": "14/10/2018",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "4/2018 - CTA. 01",
+    "gastos_ars": 1930.33,
+    "gastos_usd": 64.34,
+    "tipo_cambio": 30.0
+  },
+  {
+    "fecha_raw": "18/10/2018",
+    "comprobante": "",
+    "proveedor": "BENIPLAS",
+    "concepto": "AGROMAN NEGRO",
+    "gastos_ars": 14515.57,
+    "gastos_usd": 392.0,
+    "tipo_cambio": 37.03
+  },
+  {
+    "fecha_raw": "18/10/2018",
+    "comprobante": "",
+    "proveedor": "ROMA",
+    "concepto": "CONTENEDORES ORES",
+    "gastos_ars": 2200.0,
+    "gastos_usd": 59.86,
+    "tipo_cambio": 36.75
+  },
+  {
+    "fecha_raw": "19/10/2018",
+    "comprobante": "",
+    "proveedor": "",
+    "concepto": "CONTRUCCIÓN",
+    "gastos_ars": 2993.7,
+    "gastos_usd": 110.0,
+    "tipo_cambio": 27.22
+  },
+  {
+    "fecha_raw": "19/10/2018",
+    "comprobante": "",
+    "proveedor": "SANCHEZ",
+    "concepto": "NOCOMANDO DUCHA ANDO DUCHA HA",
+    "gastos_ars": 1000000.0,
+    "gastos_usd": 22223.0,
+    "tipo_cambio": null
+  },
+  {
+    "fecha_raw": "19/10/2018",
+    "comprobante": "",
+    "proveedor": "",
+    "concepto": "URAMAX, CINTA, LIJA, ETC.",
+    "gastos_ars": 10592.78,
+    "gastos_usd": 286.06,
+    "tipo_cambio": 37.03
+  },
+  {
+    "fecha_raw": "21/10/2018",
+    "comprobante": "",
+    "proveedor": "",
+    "concepto": "COMPRA BANDEJA EDIFICIO (TORNILLOS, ELECTRODOS, DISCO, ETC) ENILLOS, ELECTRODOS, DISCO, ETC) RODOS, DISCO,",
+    "gastos_ars": 133401.4,
+    "gastos_usd": 4760.0,
+    "tipo_cambio": 28.03
+  },
+  {
+    "fecha_raw": "22/10/2018",
+    "comprobante": "14076",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "BUJE - CODO - UNION - PROLONGACION GACION",
+    "gastos_ars": 2852.98,
+    "gastos_usd": 65.0,
+    "tipo_cambio": 44.0
+  },
+  {
+    "fecha_raw": "23/10/2018",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 07/2018",
+    "gastos_ars": 1061.06,
+    "gastos_usd": 38.17,
+    "tipo_cambio": 27.8
+  },
+  {
+    "fecha_raw": "24/10/2018",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "SERVICI IOS VARIOS",
+    "gastos_ars": 8974.96,
+    "gastos_usd": 135.0,
+    "tipo_cambio": 36.85
+  },
+  {
+    "fecha_raw": "24/10/2018",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "SERVICI OS VARI OS",
+    "gastos_ars": 3316.64,
+    "gastos_usd": 90.0,
+    "tipo_cambio": 36.85
+  },
+  {
+    "fecha_raw": "26/10/2018",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "",
+    "gastos_ars": 12408.86,
+    "gastos_usd": 335.66,
+    "tipo_cambio": 36.97
+  },
+  {
+    "fecha_raw": "26/10/2018",
+    "comprobante": "",
+    "proveedor": "STARKLOFF",
+    "concepto": "ERTAS CHAPA GALVANIZADAS IZADAS Y CARPINTERIA DE ALUMINIO Y CARPINTERIA INTERIA DE ALUMINIO DE ALUMINIO",
+    "gastos_ars": 605000.0,
+    "gastos_usd": 15500.0,
+    "tipo_cambio": 39.03
+  },
+  {
+    "fecha_raw": "26/10/2018",
+    "comprobante": "",
+    "proveedor": "JARM",
+    "concepto": "ME NICIPAL - CUOTA 09 Y 10/2018",
+    "gastos_ars": 961.19,
+    "gastos_usd": 26.0,
+    "tipo_cambio": 36.97
+  },
+  {
+    "fecha_raw": "26/10/2018",
+    "comprobante": "",
+    "proveedor": "JARM ARM",
+    "concepto": "ME NICIPAL - CUOTA 09 Y 10/2018 Y 10/2018",
+    "gastos_ars": 12408.86,
+    "gastos_usd": 335.66,
+    "tipo_cambio": 36.97
+  },
+  {
+    "fecha_raw": "27/10/2018",
+    "comprobante": "",
+    "proveedor": "",
+    "concepto": "ALAMBRE",
+    "gastos_ars": 3954.9,
+    "gastos_usd": 121.69,
+    "tipo_cambio": 32.5
+  },
+  {
+    "fecha_raw": "29/10/2018",
+    "comprobante": "",
+    "proveedor": "",
+    "concepto": "ARTICULOS VARIOS",
+    "gastos_ars": 700000.21,
+    "gastos_usd": 18900.0,
+    "tipo_cambio": 37.04
+  },
+  {
+    "fecha_raw": "29/10/2018",
+    "comprobante": "5812",
+    "proveedor": "",
+    "concepto": "HOLLAS VENTANA",
+    "gastos_ars": 11463.78,
+    "gastos_usd": 254.0,
+    "tipo_cambio": null
+  },
+  {
+    "fecha_raw": "30/10/2018",
+    "comprobante": "",
+    "proveedor": "",
+    "concepto": "COLORANTE m",
+    "gastos_ars": 2573.14,
+    "gastos_usd": 70.0,
+    "tipo_cambio": 36.76
+  },
+  {
+    "fecha_raw": "01/11/2018",
+    "comprobante": "",
+    "proveedor": "ROMA",
+    "concepto": "CONTENEDOR VEDOR",
+    "gastos_ars": 1100.0,
+    "gastos_usd": 30.0,
+    "tipo_cambio": 36.67
+  },
+  {
+    "fecha_raw": "01/11/2018",
+    "comprobante": "",
+    "proveedor": "VARIOS",
+    "concepto": "EL COLONO - TANZA X 1 KG",
+    "gastos_ars": 1399.99,
+    "gastos_usd": 20.0,
+    "tipo_cambio": 70.0
+  },
+  {
+    "fecha_raw": "01/11/2018",
+    "comprobante": "",
+    "proveedor": "VARIOS",
+    "concepto": "RE-SA - ROSACA C/TUERCA",
+    "gastos_ars": 247.99,
+    "gastos_usd": 3.0,
+    "tipo_cambio": 82.66
+  },
+  {
+    "fecha_raw": "04/11/2018",
+    "comprobante": "597",
+    "proveedor": "NES S.A.",
+    "concepto": "TRABAJOS DE MAMPOSTERIA - CUOTA N° 3 CUOTA N° 3",
+    "gastos_ars": 283242.45,
+    "gastos_usd": 4360.0,
+    "tipo_cambio": 65.0
+  },
+  {
+    "fecha_raw": "08/11/2018",
+    "comprobante": "",
+    "proveedor": "ROMA",
+    "concepto": "3 CONTENEDORES",
+    "gastos_ars": 2250.0,
+    "gastos_usd": 61.0,
+    "tipo_cambio": 36.89
+  },
+  {
+    "fecha_raw": "09/11/2018",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "IMPUESTO MUNICIPAL - CUOTA 11/2018 /2018",
+    "gastos_ars": 6204.43,
+    "gastos_usd": 169.2,
+    "tipo_cambio": 36.67
+  },
+  {
+    "fecha_raw": "09/11/2018",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 05/2018 - CTA. 02",
+    "gastos_ars": 1718.93,
+    "gastos_usd": 47.22,
+    "tipo_cambio": 36.4
+  },
+  {
+    "fecha_raw": "09/11/2018",
+    "comprobante": "",
+    "proveedor": "",
+    "concepto": "REVESTA",
+    "gastos_ars": 430.61,
+    "gastos_usd": 11.83,
+    "tipo_cambio": 36.4
+  },
+  {
+    "fecha_raw": "22/11/2018",
+    "comprobante": "",
+    "proveedor": "",
+    "concepto": "CASA BLANCO - MATERIALES VARIOS lIOS",
+    "gastos_ars": 21985.82,
+    "gastos_usd": 605.0,
+    "tipo_cambio": 36.34
+  },
+  {
+    "fecha_raw": "23/11/2018",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 11/2018",
+    "gastos_ars": 1295.29,
+    "gastos_usd": 35.58,
+    "tipo_cambio": 36.4
+  },
+  {
+    "fecha_raw": "28/11/2018",
+    "comprobante": "",
+    "proveedor": "",
+    "concepto": "PROYECTO Y DIRECCION INSTALACION MONTACOCHE PROYECTO Y DIRECCION INSTALACION MONTACOCHE ACION MONTACOCHE",
+    "gastos_ars": 4700.0,
+    "gastos_usd": 123.68,
+    "tipo_cambio": 38.0
+  },
+  {
+    "fecha_raw": "04/12/2018",
+    "comprobante": "254",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "GRAMPA AMURAR 110 X 50",
+    "gastos_ars": 2635.54,
+    "gastos_usd": 38.0,
+    "tipo_cambio": 69.36
+  },
+  {
+    "fecha_raw": "05/12/2018",
+    "comprobante": "",
+    "proveedor": "NES S.A.",
+    "concepto": "2°ETAPA: A CTA. CUOTA 9",
+    "gastos_ars": 121000.0,
+    "gastos_usd": 3270.27,
+    "tipo_cambio": 37.0
+  },
+  {
+    "fecha_raw": "06/12/2018",
+    "comprobante": "",
+    "proveedor": "ROMA",
+    "concepto": "3 CONTENEDORES GRADES 3 CONTENEDORES GRNADES",
+    "gastos_ars": 2250.0,
+    "gastos_usd": 60.0,
+    "tipo_cambio": 37.0
+  },
+  {
+    "fecha_raw": "10/12/2018",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 06/2018 - CTA. 01",
+    "gastos_ars": 2271.53,
+    "gastos_usd": 61.39,
+    "tipo_cambio": 37.0
+  },
+  {
+    "fecha_raw": "15/12/2018",
+    "comprobante": "",
+    "proveedor": "",
+    "concepto": "KEROSEN P/MANCHAS",
+    "gastos_ars": 430.0,
+    "gastos_usd": 12.0,
+    "tipo_cambio": 37.0
+  },
+  {
+    "fecha_raw": "21/12/2018",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 12/2018",
+    "gastos_ars": 873.67,
+    "gastos_usd": 23.61,
+    "tipo_cambio": 37.0
+  },
+  {
+    "fecha_raw": "24/12/2018",
+    "comprobante": "510/511",
+    "proveedor": "",
+    "concepto": "SANITARIOS SANCHEZ DIF. DUCHAS ANTIVABALICAS",
+    "gastos_ars": null,
+    "gastos_usd": 594.0,
+    "tipo_cambio": 74.98
+  },
+  {
+    "fecha_raw": "28/12/2018",
+    "comprobante": "",
+    "proveedor": "DRAP",
+    "concepto": "MATERIALES COCHERA",
+    "gastos_ars": 36315.9,
+    "gastos_usd": 931.18,
+    "tipo_cambio": 39.0
+  },
+  {
+    "fecha_raw": "03/01/2019",
+    "comprobante": "",
+    "proveedor": "VARIOS",
+    "concepto": "ABETE Y CIA SA - TOPES COCHERA ABETE Y CIA SA • TOPES COCHERA",
+    "gastos_ars": 22781.68,
+    "gastos_usd": 584.15,
+    "tipo_cambio": 39.0
+  },
+  {
+    "fecha_raw": "04/01/2019",
+    "comprobante": "",
+    "proveedor": "VARIOS",
+    "concepto": "LA CASA DE LOS PEGAMENTOS",
+    "gastos_ars": 640.0,
+    "gastos_usd": 17.0,
+    "tipo_cambio": 38.4
+  },
+  {
+    "fecha_raw": "11/01/2019",
+    "comprobante": "",
+    "proveedor": "VARIOS",
+    "concepto": "ABETE Y CIA SA - TOPES COCHERA ABETE Y CIA SA • TOPES COCHERA",
+    "gastos_ars": 3254.53,
+    "gastos_usd": 84.75,
+    "tipo_cambio": 38.4
+  },
+  {
+    "fecha_raw": "23/01/2019",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 01/2019",
+    "gastos_ars": 907.18,
+    "gastos_usd": 23.62,
+    "tipo_cambio": 38.4
+  },
+  {
+    "fecha_raw": "02/02/2019",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 02/2019",
+    "gastos_ars": null,
+    "gastos_usd": 23.0,
+    "tipo_cambio": null
+  },
+  {
+    "fecha_raw": "07/02/2019",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "",
+    "gastos_ars": 3900.98,
+    "gastos_usd": 101.59,
+    "tipo_cambio": null
+  },
+  {
+    "fecha_raw": "12/02/2019",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "/2019",
+    "gastos_ars": 8997.23,
+    "gastos_usd": 234.3,
+    "tipo_cambio": null
+  },
+  {
+    "fecha_raw": "13/03/2019",
+    "comprobante": "17349",
+    "proveedor": "",
+    "concepto": "",
+    "gastos_ars": null,
+    "gastos_usd": 204.0,
+    "tipo_cambio": null
+  },
+  {
+    "fecha_raw": "13/03/2019",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "N/2019",
+    "gastos_ars": null,
+    "gastos_usd": 225.0,
+    "tipo_cambio": null
+  },
+  {
+    "fecha_raw": "16/03/2019",
+    "comprobante": "14588",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "CODO-SOPORTES-TORNILLOS TARUGOS CODO-SOPORTES-TORNILLOS-TARUGOS ARUGOS",
+    "gastos_ars": 16367.96,
+    "gastos_usd": 288.0,
+    "tipo_cambio": 56.83
+  },
+  {
+    "fecha_raw": "20/03/2019",
+    "comprobante": "",
+    "proveedor": "S ULTRA",
+    "concepto": "FEBRERO DE 2019",
+    "gastos_ars": null,
+    "gastos_usd": 85.0,
+    "tipo_cambio": null
+  },
+  {
+    "fecha_raw": "08/04/2019",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 03/2019",
+    "gastos_ars": 908.57,
+    "gastos_usd": 21.13,
+    "tipo_cambio": null
+  },
+  {
+    "fecha_raw": "30/04/2019",
+    "comprobante": "12731",
+    "proveedor": "SANCHEZ",
+    "concepto": "",
+    "gastos_ars": 31872.79,
+    "gastos_usd": 710.86,
+    "tipo_cambio": 8.888888888888889e+21
+  },
+  {
+    "fecha_raw": "03/05/2019",
+    "comprobante": "4294",
+    "proveedor": "",
+    "concepto": "IS PUERTA ASCENSOR ITA ASCENS ORI",
+    "gastos_ars": 1489.97,
+    "gastos_usd": 33.11,
+    "tipo_cambio": null
+  },
+  {
+    "fecha_raw": "08/05/2019",
+    "comprobante": "3",
+    "proveedor": "",
+    "concepto": "CRESPO CARLOS RODOLFO",
+    "gastos_ars": 23000.0,
+    "gastos_usd": 500.0,
+    "tipo_cambio": null
+  },
+  {
+    "fecha_raw": "10/05/2019",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 02/2019 - CTA. 02",
+    "gastos_ars": 7699.83,
+    "gastos_usd": 167.39,
+    "tipo_cambio": null
+  },
+  {
+    "fecha_raw": "12/05/2019",
+    "comprobante": "2328",
+    "proveedor": "LANDA",
+    "concepto": "ACOPIO",
+    "gastos_ars": 500000.04,
+    "gastos_usd": 7143.0,
+    "tipo_cambio": 70.0
+  },
+  {
+    "fecha_raw": "12/05/2019",
+    "comprobante": "6072",
+    "proveedor": "DRAP",
+    "concepto": "ADHESIVO BLANCO",
+    "gastos_ars": 1592.49,
+    "gastos_usd": 23.0,
+    "tipo_cambio": 70.0
+  },
+  {
+    "fecha_raw": "21/05/2019",
+    "comprobante": "13080",
+    "proveedor": "SANCHEZ",
+    "concepto": "TAPON 1/2 PP Y PAPA 314 PP",
+    "gastos_ars": 771.51,
+    "gastos_usd": 17.0,
+    "tipo_cambio": null
+  },
+  {
+    "fecha_raw": "30/05/2019",
+    "comprobante": "90731",
+    "proveedor": "",
+    "concepto": "FS FERRETERIA",
+    "gastos_ars": 50.0,
+    "gastos_usd": 1.11,
+    "tipo_cambio": null
+  },
+  {
+    "fecha_raw": "11/06/2019",
+    "comprobante": "15727",
+    "proveedor": "DRAP",
+    "concepto": "COMPRAS VARIAS (21/3 AL 11/6)",
+    "gastos_ars": 703.93,
+    "gastos_usd": 15.64,
+    "tipo_cambio": 45.0
+  },
+  {
+    "fecha_raw": "19/06/2019",
+    "comprobante": "",
+    "proveedor": "",
+    "concepto": "2 CONTENEDORES ROMA",
+    "gastos_ars": 2200.0,
+    "gastos_usd": 48.89,
+    "tipo_cambio": 45.0
+  },
+  {
+    "fecha_raw": "19/06/2019",
+    "comprobante": "13547",
+    "proveedor": "SANCHEZ",
+    "concepto": "TEE NORMAL 25 AZUL FUSION",
+    "gastos_ars": 624.2,
+    "gastos_usd": 14.0,
+    "tipo_cambio": 45.0
+  },
+  {
+    "fecha_raw": "22/06/2019",
+    "comprobante": "69218",
+    "proveedor": "DRAP",
+    "concepto": "CERA P/LAJA NEGRA",
+    "gastos_ars": 334.81,
+    "gastos_usd": 8.0,
+    "tipo_cambio": 45.0
+  },
+  {
+    "fecha_raw": "25/06/2019",
+    "comprobante": "5973",
+    "proveedor": "",
+    "concepto": "FERROKER-LINE BLANCO-MADAGASCAR-INDIA.K2 ASCAR-INDIA-K2",
+    "gastos_ars": 184000.86,
+    "gastos_usd": 4185.0,
+    "tipo_cambio": 43.96
+  },
+  {
+    "fecha_raw": "01/07/2019",
+    "comprobante": "69369",
+    "proveedor": "DRAP",
+    "concepto": "CERA PILAJA NEGRA CERA P/LAJA NEGRA",
+    "gastos_ars": 334.81,
+    "gastos_usd": 7.6,
+    "tipo_cambio": 44.05
+  },
+  {
+    "fecha_raw": "03/07/2019",
+    "comprobante": "13780",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "MATERIALES VARIOS",
+    "gastos_ars": 519.13,
+    "gastos_usd": 12.0,
+    "tipo_cambio": 43.26
+  },
+  {
+    "fecha_raw": "03/07/2019",
+    "comprobante": "13776",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "RAMAL 63 A 45- TUBO MH 110",
+    "gastos_ars": 3550.67,
+    "gastos_usd": 80.0,
+    "tipo_cambio": 44.38
+  },
+  {
+    "fecha_raw": "03/07/2019",
+    "comprobante": "13778",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "TAPON 1/2 PP Y CODO A 45° 20 AZUL FUSION ZUL FUSION",
+    "gastos_ars": 859.44,
+    "gastos_usd": 20.0,
+    "tipo_cambio": 42.99
+  },
+  {
+    "fecha_raw": "04/07/2019",
+    "comprobante": "69461",
+    "proveedor": "DRAP",
+    "concepto": "CERA P/LAJA NEGRA CERA PILAJA NEGRA",
+    "gastos_ars": 334.81,
+    "gastos_usd": 7.8,
+    "tipo_cambio": 43.0
+  },
+  {
+    "fecha_raw": "11/07/2019",
+    "comprobante": "13921",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "CODO HH BCE. Y ROSCA C/ TUERCA ICA",
+    "gastos_ars": 680.0,
+    "gastos_usd": 15.5,
+    "tipo_cambio": 43.87
+  },
+  {
+    "fecha_raw": "11/07/2019",
+    "comprobante": "13893",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "PERSIANA-VALVULA-TUBO MACHO-UNION DOBLE E ROSA MOANION DO IO-UNION DOBLE",
+    "gastos_ars": 50823.0,
+    "gastos_usd": 1156.0,
+    "tipo_cambio": 43.96
+  },
+  {
+    "fecha_raw": "16/07/2019",
+    "comprobante": "840",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "PERSIANA PLASTICA MOVILI",
+    "gastos_ars": 1960.96,
+    "gastos_usd": 45.0,
+    "tipo_cambio": 43.47
+  },
+  {
+    "fecha_raw": "18/07/2019",
+    "comprobante": "3853",
+    "proveedor": "DRAP",
+    "concepto": "REVESTA-THINER-RODILLO-PINCEL-CIN EL-CIN",
+    "gastos_ars": 1991.77,
+    "gastos_usd": 44.0,
+    "tipo_cambio": 45.26
+  },
+  {
+    "fecha_raw": "19/07/2019",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 06/2019",
+    "gastos_ars": 1309.3,
+    "gastos_usd": 25.0,
+    "tipo_cambio": 42.19
+  },
+  {
+    "fecha_raw": "20/07/2019",
+    "comprobante": "69735",
+    "proveedor": "DRAP",
+    "concepto": "REVESTA GRIS - LIJA",
+    "gastos_ars": 12817.66,
+    "gastos_usd": 285.0,
+    "tipo_cambio": 44.97
+  },
+  {
+    "fecha_raw": "24/07/2019",
+    "comprobante": "4936",
+    "proveedor": "DRAP",
+    "concepto": "CINTA - ADHESIL",
+    "gastos_ars": 1344.8,
+    "gastos_usd": 30.0,
+    "tipo_cambio": 44.82
+  },
+  {
+    "fecha_raw": "25/07/2019",
+    "comprobante": "13830",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "PRECINTO 4.6 X 300",
+    "gastos_ars": 526.6,
+    "gastos_usd": 12.0,
+    "tipo_cambio": 43.88
+  },
+  {
+    "fecha_raw": "01/08/2019",
+    "comprobante": "26060",
+    "proveedor": "IMEPHO",
+    "concepto": "PORCELANATO",
+    "gastos_ars": 6962.81,
+    "gastos_usd": 155.0,
+    "tipo_cambio": 44.92
+  },
+  {
+    "fecha_raw": "01/08/2019",
+    "comprobante": "14712| 14712",
+    "proveedor": "ABETE Y CIA SA",
+    "concepto": "RIEGO TECNOCOM",
+    "gastos_ars": 1608.56,
+    "gastos_usd": 36.0,
+    "tipo_cambio": 44688.0
+  },
+  {
+    "fecha_raw": "05/08/2019",
+    "comprobante": "4785",
+    "proveedor": "ARTICULOS LIMPIEZA",
+    "concepto": "PASACERA Y GUANTES LATEX",
+    "gastos_ars": 119.98,
+    "gastos_usd": 2.5,
+    "tipo_cambio": 48.0
+  },
+  {
+    "fecha_raw": "07/08/2019",
+    "comprobante": "14343",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "CODO - ROSCA",
+    "gastos_ars": 818.89,
+    "gastos_usd": 18.0,
+    "tipo_cambio": 45.49
+  },
+  {
+    "fecha_raw": "09/08/2019",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 04/2019 - CTA. 01",
+    "gastos_ars": 4459.22,
+    "gastos_usd": 100.0,
+    "tipo_cambio": 44.59
+  },
+  {
+    "fecha_raw": "09/08/2019",
+    "comprobante": "312",
+    "proveedor": "TROCHE DANIEL",
+    "concepto": "TROCHE DANIEL JOSE • N° 3 - INST SAN TROCHE DANIEL JOSE - N° 3 - INST SAN ST SAN",
+    "gastos_ars": 83598.48,
+    "gastos_usd": 1860.0,
+    "tipo_cambio": 44.94
+  },
+  {
+    "fecha_raw": "17/08/2019",
+    "comprobante": "481",
+    "proveedor": "",
+    "concepto": "CALEFACCION & CONFOR| TUBO-PANEL-TERMOSTATO-COLECTOR-CABEZAL 1° CTA. DRI TUBO-PANEL-TERMOSTATO-COLECTOR-CABEZAL ECTOR-CABEZAL 1° CTA. 1° CTA.",
+    "gastos_ars": 981600.02,
+    "gastos_usd": 17221.0,
+    "tipo_cambio": 57.0
+  },
+  {
+    "fecha_raw": "29/08/2019",
+    "comprobante": "",
+    "proveedor": "BERTELLO E HIJOS",
+    "concepto": "CONTENEDOR - 3 SERVICIOS",
+    "gastos_ars": 3300.0,
+    "gastos_usd": 55.0,
+    "tipo_cambio": 60.0
+  },
+  {
+    "fecha_raw": "29/08/2019",
+    "comprobante": "14666",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "VALVULA DESCARGA-TAPA TECLA CUADRADA 4 CUADRADA",
+    "gastos_ars": 112772.78,
+    "gastos_usd": 1880.0,
+    "tipo_cambio": 60.0
+  },
+  {
+    "fecha_raw": "04/09/2019",
+    "comprobante": "318",
+    "proveedor": "TROCHE DANIEL",
+    "concepto": "TROCHE DANIEL - COMPLEMENTARIO LLAVES DE PASO ARIO LLAVES DE PASO",
+    "gastos_ars": 83490.0,
+    "gastos_usd": 1465.0,
+    "tipo_cambio": 57.0
+  },
+  {
+    "fecha_raw": "05/09/2019",
+    "comprobante": "332",
+    "proveedor": "TROCHE DANIEL",
+    "concepto": "TROCHE DANIEL - CERT. N° 4 - INST. SANITARIA ST. SANITARIA",
+    "gastos_ars": 134831.3,
+    "gastos_usd": 2247.0,
+    "tipo_cambio": 60.0
+  },
+  {
+    "fecha_raw": "05/09/2019",
+    "comprobante": "14799",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "UNION-TEE NORMAL-BLUE-CODO-CANO UNION-TEE NORMAL-BUJE-CODO-CANO › CANO",
+    "gastos_ars": 3335.0,
+    "gastos_usd": 58.0,
+    "tipo_cambio": 57.5
+  },
+  {
+    "fecha_raw": "09/09/2019",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 04/2019 - CTA. 02",
+    "gastos_ars": 4467.23,
+    "gastos_usd": 79.0,
+    "tipo_cambio": 56.0
+  },
+  {
+    "fecha_raw": "09/09/2019",
+    "comprobante": "333",
+    "proveedor": "TROCHE DANIEL",
+    "concepto": "TROCHE DANIEL - COMPLEMENTARIO P.B. ARIO P.B.",
+    "gastos_ars": 35332.0,
+    "gastos_usd": 610.0,
+    "tipo_cambio": 57.92
+  },
+  {
+    "fecha_raw": "10/09/2019",
+    "comprobante": "14885",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "UBO COUO-BUJE- TAPON DISCU TUBO-CODO-BUJE-TAPON-DISCO",
+    "gastos_ars": 130.0,
+    "gastos_usd": 136.0,
+    "tipo_cambio": 59.77
+  },
+  {
+    "fecha_raw": "12/09/2019",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 10/2019",
+    "gastos_ars": 1525.73,
+    "gastos_usd": 22.44,
+    "tipo_cambio": 68.01
+  },
+  {
+    "fecha_raw": "16/09/2019",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODOS 07 Y 08/2019",
+    "gastos_ars": 2647.87,
+    "gastos_usd": 46.0,
+    "tipo_cambio": 58.0
+  },
+  {
+    "fecha_raw": "18/09/2019",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 09/2019",
+    "gastos_ars": 1404.93,
+    "gastos_usd": 25.0,
+    "tipo_cambio": 56.2
+  },
+  {
+    "fecha_raw": "20/09/2019",
+    "comprobante": "3081",
+    "proveedor": "ASCENSORES ULTRA",
+    "concepto": "CAMBIO LIMITE FINAL SUBIR ONES AL LECHA VARLA ETO",
+    "gastos_ars": 3600.0,
+    "gastos_usd": 57.0,
+    "tipo_cambio": 63.0
+  },
+  {
+    "fecha_raw": "20/09/2019",
+    "comprobante": "15030",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "CANO-CODO-TUBOS-MECHA-VARILLA-ETC CAÑO-CODO-TUBOS-MECHA-VARILLA-ETC RILLA-ETC",
+    "gastos_ars": 24500.0,
+    "gastos_usd": 395.0,
+    "tipo_cambio": 62.0
+  },
+  {
+    "fecha_raw": "20/09/2019",
+    "comprobante": "15106",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "DISCO-TARUGO-TORNILLO-GRAMPA-CODO 1PA-CODO",
+    "gastos_ars": 13155.0,
+    "gastos_usd": 213.0,
+    "tipo_cambio": 62.0
+  },
+  {
+    "fecha_raw": "20/09/2019",
+    "comprobante": "589",
+    "proveedor": "NES S.A.",
+    "concepto": "TRABAJOS DE MAMPOSTERIA - CUOTA N° 1 CUOTA N° 1",
+    "gastos_ars": 247875.57,
+    "gastos_usd": 3935.0,
+    "tipo_cambio": 63.0
+  },
+  {
+    "fecha_raw": "22/09/2019",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 09/2015",
+    "gastos_ars": 333.16,
+    "gastos_usd": 20.82,
+    "tipo_cambio": 16.0
+  },
+  {
+    "fecha_raw": "24/09/2019",
+    "comprobante": "15140",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "TUBO-VALVULA-UNION-CODO-BUJE JE",
+    "gastos_ars": 9517.42,
+    "gastos_usd": 154.0,
+    "tipo_cambio": 62.0
+  },
+  {
+    "fecha_raw": "02/10/2019",
+    "comprobante": "14716",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "PROLONGACION - BUJES RED PROLONGACION - BUJES RED - TUBO UBO",
+    "gastos_ars": 5520.0,
+    "gastos_usd": 93.0,
+    "tipo_cambio": 59.35
+  },
+  {
+    "fecha_raw": "03/10/2019",
+    "comprobante": "306",
+    "proveedor": "NIEL",
+    "concepto": "TROCHE DANIEL JOSE - Nº 2 - INST SAN ST SAN",
+    "gastos_ars": 112589.51,
+    "gastos_usd": 2560.0,
+    "tipo_cambio": 43.98
+  },
+  {
+    "fecha_raw": "10/10/2019",
+    "comprobante": "294",
+    "proveedor": "HIEL JIEL",
+    "concepto": "",
+    "gastos_ars": 383479.25,
+    "gastos_usd": 8919.0,
+    "tipo_cambio": null
+  },
+  {
+    "fecha_raw": "10/10/2019",
+    "comprobante": "13967",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "CODO 50 A 90° HH 2046 AWADUCT",
+    "gastos_ars": 540.0,
+    "gastos_usd": 13.0,
+    "tipo_cambio": 41.53
+  },
+  {
+    "fecha_raw": "10/10/2019",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "IMPUESTO MUNICIPAL. • CUOTA 05/2019 N2019",
+    "gastos_ars": 8997.23,
+    "gastos_usd": 234.3,
+    "tipo_cambio": 38.4
+  },
+  {
+    "fecha_raw": "12/10/2019",
+    "comprobante": "",
+    "proveedor": "ARBA",
+    "concepto": "ANUAL 2019",
+    "gastos_ars": null,
+    "gastos_usd": 3012.79,
+    "tipo_cambio": null
+  },
+  {
+    "fecha_raw": "12/10/2019",
+    "comprobante": "13147",
+    "proveedor": "IMEPHO",
+    "concepto": "CTA. CTE, DICIEMBRE 2019 CTA. CTE. DICIEMBRE 2019",
+    "gastos_ars": 76200.0,
+    "gastos_usd": 1088.56,
+    "tipo_cambio": 70.0
+  },
+  {
+    "fecha_raw": "13/10/2019",
+    "comprobante": "63",
+    "proveedor": "",
+    "concepto": "LA ESQUINA DEL PINO - CHIFONNIER 4 CAJONES IER 4 CAJONES",
+    "gastos_ars": 1620.0,
+    "gastos_usd": 36.0,
+    "tipo_cambio": 45.0
+  },
+  {
+    "fecha_raw": "14/10/2019",
+    "comprobante": "",
+    "proveedor": "S ULTRA",
+    "concepto": "MARZO DE 2019",
+    "gastos_ars": 4000.0,
+    "gastos_usd": 88.89,
+    "tipo_cambio": null
+  },
+  {
+    "fecha_raw": "14/10/2019",
+    "comprobante": "5952",
+    "proveedor": "",
+    "concepto": "WEBER IMPERMEABLE",
+    "gastos_ars": 849.62,
+    "gastos_usd": 19.0,
+    "tipo_cambio": null
+  },
+  {
+    "fecha_raw": "15/10/2019",
+    "comprobante": "12960 12080",
+    "proveedor": "SANCHEZ",
+    "concepto": "TUBOS MACHOS/HEMBRA, PRECINTOS NTOS",
+    "gastos_ars": 4700.0,
+    "gastos_usd": 105.0,
+    "tipo_cambio": null
+  },
+  {
+    "fecha_raw": "20/10/2019",
+    "comprobante": "",
+    "proveedor": "S ULTRA",
+    "concepto": "FEBRERO DE 2019",
+    "gastos_ars": null,
+    "gastos_usd": 85.0,
+    "tipo_cambio": null
+  },
+  {
+    "fecha_raw": "22/10/2019",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 02/2019",
+    "gastos_ars": null,
+    "gastos_usd": 23.0,
+    "tipo_cambio": null
+  },
+  {
+    "fecha_raw": "24/10/2019",
+    "comprobante": "13622",
+    "proveedor": "SANCHEZ",
+    "concepto": "BUJE RED 40X32 AZUL FUSION",
+    "gastos_ars": 861.47,
+    "gastos_usd": 20.0,
+    "tipo_cambio": 43.07
+  },
+  {
+    "fecha_raw": "24/10/2019",
+    "comprobante": "13599",
+    "proveedor": "SANCHEZ",
+    "concepto": "CODO-COVERTHOR BCO.-BUJE RED-MANOMETRO ED-MANOMETRO",
+    "gastos_ars": 186884.64,
+    "gastos_usd": 4152.0,
+    "tipo_cambio": 45.0
+  },
+  {
+    "fecha_raw": "24/10/2019",
+    "comprobante": "13623",
+    "proveedor": "SANCHEZ",
+    "concepto": "PERSIANA PLASTICA MOVIL",
+    "gastos_ars": 2941.43,
+    "gastos_usd": 65.0,
+    "tipo_cambio": 45.25
+  },
+  {
+    "fecha_raw": "29/10/2019",
+    "comprobante": "",
+    "proveedor": "VARIOS",
+    "concepto": "MACROFER - VARILLAS, TUERCAS, TACOS MACROFER - VARILLAS, TUERCAS, TACOS IS, TACOS",
+    "gastos_ars": 2076.77,
+    "gastos_usd": 30.0,
+    "tipo_cambio": 69.23
+  },
+  {
+    "fecha_raw": "30/10/2019",
+    "comprobante": "2695",
+    "proveedor": "SIONES",
+    "concepto": "",
+    "gastos_ars": 13043.31,
+    "gastos_usd": 290.91,
+    "tipo_cambio": null
+  },
+  {
+    "fecha_raw": "30/10/2019",
+    "comprobante": "15109",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "CODO - BUJE RED",
+    "gastos_ars": 954.57,
+    "gastos_usd": 16.0,
+    "tipo_cambio": 60.0
+  },
+  {
+    "fecha_raw": "01/11/2019",
+    "comprobante": "",
+    "proveedor": "VARIOS",
+    "concepto": "RE-SA - ROSACA C/TUERCA",
+    "gastos_ars": 247.99,
+    "gastos_usd": 3.0,
+    "tipo_cambio": 82.66
+  },
+  {
+    "fecha_raw": "04/11/2019",
+    "comprobante": "",
+    "proveedor": "NES S.A.",
+    "concepto": "",
+    "gastos_ars": 283242.45,
+    "gastos_usd": 4360.0,
+    "tipo_cambio": 65.0
+  },
+  {
+    "fecha_raw": "05/11/2019",
+    "comprobante": "15880 15860",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "UNION DOBLE - TUBO MACHO",
+    "gastos_ars": 7300.0,
+    "gastos_usd": 116.0,
+    "tipo_cambio": 63.0
+  },
+  {
+    "fecha_raw": "06/11/2019",
+    "comprobante": "754",
+    "proveedor": "",
+    "concepto": "CALEFACCION & CONFOR TUBO-PANEL-TERMOSTATO-COLECTOR-CABEZAL 3° CTA. CALEFACCION & CONFORI TUBO-PANEL-TERMOSTATO-COLECTOR-CABEZAL 3° CTA. ECTOR-CABEZAL 3° CTA.",
+    "gastos_ars": 981600.01,
+    "gastos_usd": 15100.0,
+    "tipo_cambio": 65.0
+  },
+  {
+    "fecha_raw": "08/11/2019",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 05/2019 - CTA. 02",
+    "gastos_ars": 4941.91,
+    "gastos_usd": 76.0,
+    "tipo_cambio": 65.0
+  },
+  {
+    "fecha_raw": "21/11/2019",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 11/2019",
+    "gastos_ars": 1303.19,
+    "gastos_usd": 22.0,
+    "tipo_cambio": 60.0
+  },
+  {
+    "fecha_raw": "04/12/2019",
+    "comprobante": "260",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "CODO 110 A 45*",
+    "gastos_ars": 1667.77,
+    "gastos_usd": 24.0,
+    "tipo_cambio": 70.0
+  },
+  {
+    "fecha_raw": "04/12/2019",
+    "comprobante": "131345",
+    "proveedor": "",
+    "concepto": "CTA. NOVIEMBRE 2019",
+    "gastos_ars": 230000.0,
+    "gastos_usd": 3290.0,
+    "tipo_cambio": 70.0
+  },
+  {
+    "fecha_raw": "04/12/2019",
+    "comprobante": "253",
+    "proveedor": "SANITARIOS SANCHEZ GRAMPA Y SOPORTE SANITARIOS SANCHEZ",
+    "concepto": "GRAMPA Y SOPORTE",
+    "gastos_ars": 1848.29,
+    "gastos_usd": 27.0,
+    "tipo_cambio": 68.46
+  },
+  {
+    "fecha_raw": "04/12/2019",
+    "comprobante": "255",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "MATERIALES VARIOS",
+    "gastos_ars": 19686.22,
+    "gastos_usd": 282.0,
+    "tipo_cambio": 69.36
+  },
+  {
+    "fecha_raw": "04/12/2019",
+    "comprobante": "256",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "MATERIALES VARIOS",
+    "gastos_ars": 9711.38,
+    "gastos_usd": 138.0,
+    "tipo_cambio": 70.37
+  },
+  {
+    "fecha_raw": "04/12/2019",
+    "comprobante": "259",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "MATERIALES VARIOS",
+    "gastos_ars": 2444.7,
+    "gastos_usd": 35.0,
+    "tipo_cambio": 70.0
+  },
+  {
+    "fecha_raw": "13/12/2019",
+    "comprobante": "",
+    "proveedor": "VARIOS",
+    "concepto": "7 CONTENEDORES GRANDES Y 1 CHICO 1 CHICO",
+    "gastos_ars": 9400.0,
+    "gastos_usd": 138.22,
+    "tipo_cambio": 68.01
+  },
+  {
+    "fecha_raw": "14/12/2019",
+    "comprobante": "905",
+    "proveedor": "",
+    "concepto": "CALEFACCION & CONFOR CANOS MONTANTES CALEFACCION - 2° PAGO CAÑOS MONTANTES CALEFACCION - 2° ION - 2° PAGO",
+    "gastos_ars": 250000.0,
+    "gastos_usd": 3570.0,
+    "tipo_cambio": 70.03
+  },
+  {
+    "fecha_raw": "14/12/2019",
+    "comprobante": "257",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "MATERIALES VARIOS",
+    "gastos_ars": 3570.04,
+    "gastos_usd": 51.0,
+    "tipo_cambio": 70.0
+  },
+  {
+    "fecha_raw": "16/12/2019",
+    "comprobante": "2982",
+    "proveedor": "MADERAS MISIONES",
+    "concepto": "8 FENOLICOS",
+    "gastos_ars": 11432.27,
+    "gastos_usd": 158.0,
+    "tipo_cambio": 72.36
+  },
+  {
+    "fecha_raw": "23/12/2019",
+    "comprobante": "15104",
+    "proveedor": "CASA FARINA",
+    "concepto": "ABETE Y COMBUSTIBLE",
+    "gastos_ars": null,
+    "gastos_usd": 193.33,
+    "tipo_cambio": 75.0
+  },
+  {
+    "fecha_raw": "24/12/2019",
+    "comprobante": "510/511",
+    "proveedor": "",
+    "concepto": "SANITARIOS SANCHEZ DIF. DUCHAS ANTIVABALICAS DIF. DUCHAS ANTIVABALICAS",
+    "gastos_ars": 44537.32,
+    "gastos_usd": 594.0,
+    "tipo_cambio": 74.98
+  },
+  {
+    "fecha_raw": "06/01/2020",
+    "comprobante": "",
+    "proveedor": "TROCHE DANIEL",
+    "concepto": "M. COSTO Nº6 M. COSTO N'S",
+    "gastos_ars": null,
+    "gastos_usd": 473.11,
+    "tipo_cambio": 77.0
+  },
+  {
+    "fecha_raw": "07/01/2020",
+    "comprobante": "",
+    "proveedor": "NES S.A.",
+    "concepto": "TRABAJOS DE MAMPOSTERIA - CUOTA N' 5 TRABAJOS DE MAMPOSTERIA - CUOTA N° 5 CUOTA N° 5",
+    "gastos_ars": 300548.57,
+    "gastos_usd": 4007.31,
+    "tipo_cambio": 75.0
+  },
+  {
+    "fecha_raw": "10/01/2020",
+    "comprobante": "707",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "COMPRA MATERIALES VARIOS",
+    "gastos_ars": 5645.7,
+    "gastos_usd": 75.4,
+    "tipo_cambio": 74.87
+  },
+  {
+    "fecha_raw": "10/01/2020",
+    "comprobante": "9013",
+    "proveedor": "",
+    "concepto": "COMPRAS VARIAS (21/3 AL 11/6)",
+    "gastos_ars": 14750.08,
+    "gastos_usd": 197.0,
+    "tipo_cambio": 74.87
+  },
+  {
+    "fecha_raw": "10/01/2020",
+    "comprobante": "2542",
+    "proveedor": "LANDA",
+    "concepto": "PISO SALA TANQUES SOTANO",
+    "gastos_ars": 38791.85,
+    "gastos_usd": 518.1,
+    "tipo_cambio": 74.87
+  },
+  {
+    "fecha_raw": "13/01/2020",
+    "comprobante": "951",
+    "proveedor": "CALEFACCION & CONFORT",
+    "concepto": "RT",
+    "gastos_ars": 250000.0,
+    "gastos_usd": 3333.0,
+    "tipo_cambio": 75.01
+  },
+  {
+    "fecha_raw": "14/01/2020",
+    "comprobante": "",
+    "proveedor": "AOUE NOONES ULIKA",
+    "concepto": "ENERO DE 2720",
+    "gastos_ars": 6200.0,
+    "gastos_usd": 83.0,
+    "tipo_cambio": 74.7
+  },
+  {
+    "fecha_raw": "23/01/2020",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 01/2020 20",
+    "gastos_ars": 1427.19,
+    "gastos_usd": 19.11,
+    "tipo_cambio": 74.7
+  },
+  {
+    "fecha_raw": "30/01/2020",
+    "comprobante": "1056",
+    "proveedor": "SANITARIOS SANCHEZ COMPRA VARIOS",
+    "concepto": "",
+    "gastos_ars": 20290.69,
+    "gastos_usd": 260.0,
+    "tipo_cambio": 78.04
+  },
+  {
+    "fecha_raw": "30/01/2020",
+    "comprobante": "1057",
+    "proveedor": "SANITARIOS SANCHEZ LLAVE DE PASO",
+    "concepto": "",
+    "gastos_ars": 2604.45,
+    "gastos_usd": 34.0,
+    "tipo_cambio": 76.6
+  },
+  {
+    "fecha_raw": "30/01/2020",
+    "comprobante": "275",
+    "proveedor": "",
+    "concepto": "CARELLI VICTOR DAMIAN PAGO A CTA. INSTALACION EQUIPOS AIRES ISTALACION QUIPOS AIRES POS AIRES",
+    "gastos_ars": 762300.0,
+    "gastos_usd": 9773.0,
+    "tipo_cambio": 78.0
+  },
+  {
+    "fecha_raw": "30/01/2020",
+    "comprobante": "1101",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "GRIFERIA BAÑOS - COCINA OS COCI INA",
+    "gastos_ars": 2328759.5,
+    "gastos_usd": 29000.0,
+    "tipo_cambio": 80.0
+  },
+  {
+    "fecha_raw": "17/02/2020",
+    "comprobante": "276",
+    "proveedor": "",
+    "concepto": "CARELLI VICTOR DAMIAN INST. LOSA RADIANTE MANO DE OBRA (SALDO DE LA 1°ETAPA) DIANTE MANO OBRA (SALDO DE LA 1 ETAPA) OBRA (SALDO LA 1°ETAPA)",
+    "gastos_ars": 243815.0,
+    "gastos_usd": 3125.59,
+    "tipo_cambio": 78.01
+  },
+  {
+    "fecha_raw": "17/02/2020",
+    "comprobante": "373",
+    "proveedor": "TROCHE DANIEL",
+    "concepto": "M. COSTO N° 7",
+    "gastos_ars": 56992.45,
+    "gastos_usd": 730.62,
+    "tipo_cambio": 78.01
+  },
+  {
+    "fecha_raw": "21/02/2020",
+    "comprobante": "",
+    "proveedor": "losse",
+    "concepto": "120",
+    "gastos_ars": 1427.19,
+    "gastos_usd": 18.28,
+    "tipo_cambio": 78.08
+  },
+  {
+    "fecha_raw": "25/02/2020",
+    "comprobante": "1356",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "COMPRA MATERIALES VARIOS",
+    "gastos_ars": 4060.0,
+    "gastos_usd": 52.0,
+    "tipo_cambio": 78.08
+  },
+  {
+    "fecha_raw": "25/02/2020",
+    "comprobante": "1355",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "COMPRA MATERIALES VARIOS",
+    "gastos_ars": 2653.24,
+    "gastos_usd": 34.0,
+    "tipo_cambio": 78.08
+  },
+  {
+    "fecha_raw": "26/02/2020",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 12/2019",
+    "gastos_ars": 1349.63,
+    "gastos_usd": 17.29,
+    "tipo_cambio": 78.08
+  },
+  {
+    "fecha_raw": "28/02/2020",
+    "comprobante": "",
+    "proveedor": "ASCENSORES ULTRA",
+    "concepto": "FEBRERO DE 2020",
+    "gastos_ars": 6900.0,
+    "gastos_usd": 88.37,
+    "tipo_cambio": 78.08
+  },
+  {
+    "fecha_raw": "02/03/2020",
+    "comprobante": "367",
+    "proveedor": "TROCHE DANIEL",
+    "concepto": "CERTIFICADO Nº7 - INST. SANITARIA",
+    "gastos_ars": 106914.01,
+    "gastos_usd": 1354.0,
+    "tipo_cambio": 78.96
+  },
+  {
+    "fecha_raw": "06/03/2020",
+    "comprobante": "",
+    "proveedor": "ARBA",
+    "concepto": "IMPUESTO INMOBILIARIO - PAGO ANUAL 2020 ) ANUAL 2020",
+    "gastos_ars": 219812.8,
+    "gastos_usd": 2818.0,
+    "tipo_cambio": 78.0
+  },
+  {
+    "fecha_raw": "10/03/2020",
+    "comprobante": "",
+    "proveedor": "NES S.A.",
+    "concepto": "TRABAJOS DE MAMPOSTERIA - CUOTA N°7 CUOTA N°7",
+    "gastos_ars": 312570.52,
+    "gastos_usd": 4007.15,
+    "tipo_cambio": 78.0
+  },
+  {
+    "fecha_raw": "17/03/2020",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "GIRSU - 12/2019",
+    "gastos_ars": 89.29,
+    "gastos_usd": 1.06,
+    "tipo_cambio": 84.0
+  },
+  {
+    "fecha_raw": "17/03/2020",
+    "comprobante": "",
+    "proveedor": "FIRE SEC SRL",
+    "concepto": "GRAMPAS - RED DE INCENDIO",
+    "gastos_ars": 77326.87,
+    "gastos_usd": 620.0,
+    "tipo_cambio": 124.72
+  },
+  {
+    "fecha_raw": "02/04/2020",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "120 CTA. 01",
+    "gastos_ars": 6513.6,
+    "gastos_usd": 82.49,
+    "tipo_cambio": 78.96
+  },
+  {
+    "fecha_raw": "13/04/2020",
+    "comprobante": "626",
+    "proveedor": "NES S.A.",
+    "concepto": "TRABAJOS DE MAMPOSTERIA - CUOTA Nº8 TRABAJOS DE MAMPOSTERIA - CUOTA N'8 CUOTA N'8",
+    "gastos_ars": 312570.52,
+    "gastos_usd": 3722.0,
+    "tipo_cambio": 83.88
+  },
+  {
+    "fecha_raw": "17/04/2020",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 02/2020 - CTA.01 PERIODO 02/2020 - CTA.01/",
+    "gastos_ars": 9387.45,
+    "gastos_usd": 93.87,
+    "tipo_cambio": 100.0
+  },
+  {
+    "fecha_raw": "05/05/2020",
+    "comprobante": "1806/1643/1423",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "55 INODOROS, BIDET Y SUS TAPAS S",
+    "gastos_ars": 2134770.0,
+    "gastos_usd": 22522.0,
+    "tipo_cambio": 94.79
+  },
+  {
+    "fecha_raw": "05/05/2020",
+    "comprobante": "627",
+    "proveedor": "NES S.A.",
+    "concepto": "TRABAJOS DE MAMPOSTERIA - CUOTA N°9 VOTA N°9",
+    "gastos_ars": 312570.52,
+    "gastos_usd": 2604.0,
+    "tipo_cambio": 120.03
+  },
+  {
+    "fecha_raw": "13/05/2020",
+    "comprobante": "1894",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "LAVATORIO, CANILLA, DEPOSITO ETC.",
+    "gastos_ars": 2170.0,
+    "gastos_usd": 17.0,
+    "tipo_cambio": 127.65
+  },
+  {
+    "fecha_raw": "13/05/2020",
+    "comprobante": "1898",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "MATERIALES VARIOS",
+    "gastos_ars": 1900.0,
+    "gastos_usd": 15.0,
+    "tipo_cambio": 126.67
+  },
+  {
+    "fecha_raw": "13/05/2020",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 04/2020",
+    "gastos_ars": 1837.51,
+    "gastos_usd": 14.36,
+    "tipo_cambio": 128.0
+  },
+  {
+    "fecha_raw": "13/05/2020",
+    "comprobante": "15158",
+    "proveedor": "VARIOS",
+    "concepto": "SAYCO SACIF",
+    "gastos_ars": 6494.6,
+    "gastos_usd": 50.0,
+    "tipo_cambio": 129.89
+  },
+  {
+    "fecha_raw": "13/05/2020",
+    "comprobante": "15160",
+    "proveedor": "VARIOS",
+    "concepto": "SAYCO SACIF",
+    "gastos_ars": 1585.31,
+    "gastos_usd": 12.0,
+    "tipo_cambio": 132.11
+  },
+  {
+    "fecha_raw": "18/05/2020",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 02/2020 - CTA.02",
+    "gastos_ars": 9387.45,
+    "gastos_usd": 73.34,
+    "tipo_cambio": 128.0
+  },
+  {
+    "fecha_raw": "29/05/2020",
+    "comprobante": "2044",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "MATERIALES VARIOS",
+    "gastos_ars": 1570.0,
+    "gastos_usd": 14.0,
+    "tipo_cambio": 112.14
+  },
+  {
+    "fecha_raw": "29/05/2020",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 03/2020",
+    "gastos_ars": 2118.78,
+    "gastos_usd": 18.89,
+    "tipo_cambio": 112.14
+  },
+  {
+    "fecha_raw": "29/05/2020",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 05/2020",
+    "gastos_ars": 1922.72,
+    "gastos_usd": 17.15,
+    "tipo_cambio": 112.14
+  },
+  {
+    "fecha_raw": "01/06/2020",
+    "comprobante": "",
+    "proveedor": "ARQUITECTO AGUERO ME CUOTA AÑO 2020",
+    "concepto": "",
+    "gastos_ars": 500000.0,
+    "gastos_usd": 5000.0,
+    "tipo_cambio": 100.0
+  },
+  {
+    "fecha_raw": "02/06/2020",
+    "comprobante": "8595",
+    "proveedor": "HIERROMETAL",
+    "concepto": "MATERIALES RED INCENDIO",
+    "gastos_ars": 529976.84,
+    "gastos_usd": 4446.0,
+    "tipo_cambio": 112.14
+  },
+  {
+    "fecha_raw": "02/06/2020",
+    "comprobante": "614",
+    "proveedor": "NES S.A.",
+    "concepto": "TRABAJOS DE MAMPOSTERIA - CUOTA N'6 TE MEN 00T SALDO DE LA RETAR",
+    "gastos_ars": 312570.52,
+    "gastos_usd": 4007.0,
+    "tipo_cambio": 78.01
+  },
+  {
+    "fecha_raw": "10/06/2020",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "IMPUESTO MUNICIPAL - CUOTA 06/2020 5/2020",
+    "gastos_ars": 12378.07,
+    "gastos_usd": 110.38,
+    "tipo_cambio": 112.14
+  },
+  {
+    "fecha_raw": "23/06/2020",
+    "comprobante": "",
+    "proveedor": "VARIOS",
+    "concepto": "NAFTA",
+    "gastos_ars": 7319.13,
+    "gastos_usd": 59.0,
+    "tipo_cambio": 112.14
+  },
+  {
+    "fecha_raw": "26/06/2020",
+    "comprobante": "",
+    "proveedor": "LANDA",
+    "concepto": "HIERRO 6 MM HIERRO 6 MM.",
+    "gastos_ars": 3029.95,
+    "gastos_usd": 24.25,
+    "tipo_cambio": 124.96
+  },
+  {
+    "fecha_raw": "26/06/2020",
+    "comprobante": "",
+    "proveedor": "LANDA",
+    "concepto": "LADRILLO 12X18X33",
+    "gastos_ars": 9746.72,
+    "gastos_usd": 78.0,
+    "tipo_cambio": 124.96
+  },
+  {
+    "fecha_raw": "06/07/2020",
+    "comprobante": "",
+    "proveedor": "SCOR-DINA SAL",
+    "concepto": "GRAMPAS • RED DE INCENDIO GRAMPAS - RED DE INCENDIO",
+    "gastos_ars": 1317.32,
+    "gastos_usd": 10.56,
+    "tipo_cambio": 124.72
+  },
+  {
+    "fecha_raw": "08/07/2020",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 03/2020 - CTA. 02",
+    "gastos_ars": 1793.91,
+    "gastos_usd": 14.38,
+    "tipo_cambio": 124.72
+  },
+  {
+    "fecha_raw": "13/07/2020",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "IMPUESTO MUNICIPAL - CTAS, 7-8-9-10-11-12/2019 Y 1-2-3/2020 IMPUESTO MUNICIPAL - CTAS. 7-8-9-10-11-12/2019 Y 1-2-3/2020 8-9-10-11-12/2019 У 1-2-3/2020",
+    "gastos_ars": 64325.09,
+    "gastos_usd": 824.65,
+    "tipo_cambio": 78.0
+  },
+  {
+    "fecha_raw": "13/07/2020",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "IMPUESTO MUNICIPAL - CUOTA 07/2020 /2020",
+    "gastos_ars": 11780.22,
+    "gastos_usd": 94.45,
+    "tipo_cambio": 124.72
+  },
+  {
+    "fecha_raw": "13/07/2020",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 01/2020 - CTA. 02",
+    "gastos_ars": 6521.47,
+    "gastos_usd": 83.61,
+    "tipo_cambio": 78.0
+  },
+  {
+    "fecha_raw": "14/07/2020",
+    "comprobante": "1651",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "64 DESAGUES LINEAL 70 CM BURBUJA IDEAL ABUJA IDEAL",
+    "gastos_ars": 323718.66,
+    "gastos_usd": 2690.0,
+    "tipo_cambio": 120.34
+  },
+  {
+    "fecha_raw": "20/07/2020",
+    "comprobante": "",
+    "proveedor": "PINTURA",
+    "concepto": "DEL CENTRO - NORTON TELA",
+    "gastos_ars": 459.34,
+    "gastos_usd": 3.68,
+    "tipo_cambio": 124.72
+  },
+  {
+    "fecha_raw": "20/07/2020",
+    "comprobante": "",
+    "proveedor": "PINTURA",
+    "concepto": "DEL CENTRO - NORTON TELA",
+    "gastos_ars": 13109.11,
+    "gastos_usd": 105.11,
+    "tipo_cambio": 124.72
+  },
+  {
+    "fecha_raw": "20/07/2020",
+    "comprobante": "",
+    "proveedor": "VARIOS",
+    "concepto": "EL BUFALO BULONERA - TACOS",
+    "gastos_ars": 2000.23,
+    "gastos_usd": 16.0,
+    "tipo_cambio": 125.01
+  },
+  {
+    "fecha_raw": "22/07/2020",
+    "comprobante": "",
+    "proveedor": "PINTURAS - DRAP",
+    "concepto": "MATERIALES VARIOS",
+    "gastos_ars": 11260.0,
+    "gastos_usd": 87.0,
+    "tipo_cambio": 129.43
+  },
+  {
+    "fecha_raw": "30/07/2020",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 07/2020",
+    "gastos_ars": 2063.58,
+    "gastos_usd": 16.51,
+    "tipo_cambio": 125.01
+  },
+  {
+    "fecha_raw": "03/08/2020",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 06/2020",
+    "gastos_ars": 1972.18,
+    "gastos_usd": 15.14,
+    "tipo_cambio": 130.26
+  },
+  {
+    "fecha_raw": "03/08/2020",
+    "comprobante": "2086",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "TUBO MH 40 HOJA SIERRA",
+    "gastos_ars": 1260.0,
+    "gastos_usd": 11.24,
+    "tipo_cambio": 112.14
+  },
+  {
+    "fecha_raw": "05/08/2020",
+    "comprobante": "11437) 11437",
+    "proveedor": "HIERROME TAL HIERROMETAL",
+    "concepto": "GAS",
+    "gastos_ars": 315855.0,
+    "gastos_usd": 2430.0,
+    "tipo_cambio": 129.98
+  },
+  {
+    "fecha_raw": "05/08/2020",
+    "comprobante": "9960 9980",
+    "proveedor": "HIERROMETAL",
+    "concepto": "MATERIALES INCENDIO",
+    "gastos_ars": 44939.39,
+    "gastos_usd": 345.0,
+    "tipo_cambio": 130.26
+  },
+  {
+    "fecha_raw": "05/08/2020",
+    "comprobante": "5/8/2020 FAC. PTE. X $137.000 SANITARIOS SANCHEZ FAC. PTE. X $137.000",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "OBRA GAS",
+    "gastos_ars": 237000.0,
+    "gastos_usd": 1825.0,
+    "tipo_cambio": 129.86
+  },
+  {
+    "fecha_raw": "07/08/2020",
+    "comprobante": "2840",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "DISCO, TUBO MH",
+    "gastos_ars": 980.0,
+    "gastos_usd": 8.0,
+    "tipo_cambio": 122.5
+  },
+  {
+    "fecha_raw": "08/08/2020",
+    "comprobante": "2964",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "MATERIALES VARIOS",
+    "gastos_ars": 13700.0,
+    "gastos_usd": 105.0,
+    "tipo_cambio": 130.48
+  },
+  {
+    "fecha_raw": "08/08/2020",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 03/2020 - CTA. 01",
+    "gastos_ars": 1786.13,
+    "gastos_usd": 15.93,
+    "tipo_cambio": 112.14
+  },
+  {
+    "fecha_raw": "10/08/2020",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 04/2020 - CTA. 01/ PERIODO 04/2020 - CTA. 01",
+    "gastos_ars": 4085.57,
+    "gastos_usd": 31.43,
+    "tipo_cambio": 130.0
+  },
+  {
+    "fecha_raw": "10/08/2020",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "TASA POR SERVICIO DE VALET (DESCARGA): TASA POR SERVICIO DE VALET (DESCARGA) ESCARGA)",
+    "gastos_ars": 2939.56,
+    "gastos_usd": 23.0,
+    "tipo_cambio": 127.81
+  },
+  {
+    "fecha_raw": "17/08/2020",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 03/2020 - CTA. 02",
+    "gastos_ars": 1793.91,
+    "gastos_usd": 14.38,
+    "tipo_cambio": 124.72
+  },
+  {
+    "fecha_raw": "18/08/2020",
+    "comprobante": "3966",
+    "proveedor": "LANDA",
+    "concepto": "3 PALETS LADRILLOS 12X18X33",
+    "gastos_ars": 20327.74,
+    "gastos_usd": 156.0,
+    "tipo_cambio": 130.31
+  },
+  {
+    "fecha_raw": "18/08/2020",
+    "comprobante": "2964",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "MATERIALES VARIOS",
+    "gastos_ars": 13700.0,
+    "gastos_usd": 105.0,
+    "tipo_cambio": 130.48
+  },
+  {
+    "fecha_raw": "19/08/2020",
+    "comprobante": "19/8/2020 226/7 FACTURA 19/9 22677 FACTURA 19/9",
+    "proveedor": "FIRE SEC SRL",
+    "concepto": "PAGO A CTA. MATERIALES RED DE INCENDIOS E INCENDIOS",
+    "gastos_ars": 500000.0,
+    "gastos_usd": 3703.0,
+    "tipo_cambio": 135.03
+  },
+  {
+    "fecha_raw": "20/08/2020",
+    "comprobante": "85637",
+    "proveedor": "IMEPHO",
+    "concepto": "12 M. DE HORMIGON P/TERRAZA",
+    "gastos_ars": 95129.16,
+    "gastos_usd": 703.0,
+    "tipo_cambio": 135.32
+  },
+  {
+    "fecha_raw": "20/08/2020",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 08/2020",
+    "gastos_ars": 2063.17,
+    "gastos_usd": 15.28,
+    "tipo_cambio": 135.0
+  },
+  {
+    "fecha_raw": "23/08/2020",
+    "comprobante": "",
+    "proveedor": "VARIOS",
+    "concepto": "GASTOS VARIOS",
+    "gastos_ars": 6081.3,
+    "gastos_usd": 67.5,
+    "tipo_cambio": 112.14
+  },
+  {
+    "fecha_raw": "25/08/2020",
+    "comprobante": "3835",
+    "proveedor": "MOREYRA ROLANDO",
+    "concepto": "RED DE INCENDIO: HATERIALES RED DE INCENDIO: MATERIALES",
+    "gastos_ars": 20370.18,
+    "gastos_usd": 150.0,
+    "tipo_cambio": 135.8
+  },
+  {
+    "fecha_raw": "26/08/2020",
+    "comprobante": "",
+    "proveedor": "LANDA",
+    "concepto": "LADRILLO 12X18X33",
+    "gastos_ars": 9746.72,
+    "gastos_usd": 78.0,
+    "tipo_cambio": 124.96
+  },
+  {
+    "fecha_raw": "27/08/2020",
+    "comprobante": "10438",
+    "proveedor": "HIERROMETAL",
+    "concepto": "RED DE INCENDIO: MATERIALES",
+    "gastos_ars": 108211.0,
+    "gastos_usd": 784.0,
+    "tipo_cambio": 138.02
+  },
+  {
+    "fecha_raw": "28/08/2020",
+    "comprobante": "129749",
+    "proveedor": "SCOR-DINA SAL",
+    "concepto": "RED DE INCENDIO: FLETE",
+    "gastos_ars": 9625.77,
+    "gastos_usd": 71.0,
+    "tipo_cambio": 135.57
+  },
+  {
+    "fecha_raw": "28/08/2020",
+    "comprobante": "1607300",
+    "proveedor": "",
+    "concepto": "SEGURO FEDERACION PAISEGURO ANUAL (25/08/20 - 25/08/21) SEGURO FEDERACION PA SEGURO ANUAL (25/08/20 - 25/08/21) 21)",
+    "gastos_ars": 45570.73,
+    "gastos_usd": 345.0,
+    "tipo_cambio": 132.09
+  },
+  {
+    "fecha_raw": "01/09/2020",
+    "comprobante": "4105",
+    "proveedor": "LANDA",
+    "concepto": "CEMENTO, CAL, TACURU, HIERRO, ALAMBRE , ALAMBRE",
+    "gastos_ars": 51515.87,
+    "gastos_usd": 387.0,
+    "tipo_cambio": 133.12
+  },
+  {
+    "fecha_raw": "01/09/2020",
+    "comprobante": "44195",
+    "proveedor": "DRAP",
+    "concepto": "YESO. INTERIOR.COLORANTE, ETC. YESO. INTERIOR.COLORANTE, ETC. C.",
+    "gastos_ars": 4468.1,
+    "gastos_usd": 33.0,
+    "tipo_cambio": 135.4
+  },
+  {
+    "fecha_raw": "03/09/2020",
+    "comprobante": "221",
+    "proveedor": "FIRE SEC SRL",
+    "concepto": "MATERIALES RED INCENDIO",
+    "gastos_ars": 123805.75,
+    "gastos_usd": 924.0,
+    "tipo_cambio": 133.99
+  },
+  {
+    "fecha_raw": "04/09/2020",
+    "comprobante": "",
+    "proveedor": "CONSORTI - SILVA",
+    "concepto": "A CTA. ELECTRICIDAD CON MATERIALES RIALES",
+    "gastos_ars": 10000.0,
+    "gastos_usd": 68.97,
+    "tipo_cambio": 145.0
+  },
+  {
+    "fecha_raw": "04/09/2020",
+    "comprobante": "4/9/2020 226/7 - FACTURA 19/9 FIRE SEC SRL 226/7 - FACTURA 19/9",
+    "proveedor": "FIRE SEC SRL",
+    "concepto": "PAGO A CTA. MATERIALES RED DE INCENDIOS E INCENDIOS",
+    "gastos_ars": 500000.0,
+    "gastos_usd": 3676.0,
+    "tipo_cambio": 136.02
+  },
+  {
+    "fecha_raw": "09/09/2020",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 04/2020 - LIQ. 02",
+    "gastos_ars": 4085.57,
+    "gastos_usd": 30.26,
+    "tipo_cambio": 135.0
+  },
+  {
+    "fecha_raw": "10/09/2020",
+    "comprobante": "",
+    "proveedor": "ARMI",
+    "concepto": "IMPUESTO MUNICIPAL - CUOTA 09/2020 1/2020",
+    "gastos_ars": 11780.22,
+    "gastos_usd": 87.26,
+    "tipo_cambio": 135.0
+  },
+  {
+    "fecha_raw": "16/09/2020",
+    "comprobante": "4232",
+    "proveedor": "LANDA",
+    "concepto": "LADRILLO HUEVO, HIERRO 8 MM",
+    "gastos_ars": 45269.55,
+    "gastos_usd": 324.0,
+    "tipo_cambio": 139.72
+  },
+  {
+    "fecha_raw": "17/09/2020",
+    "comprobante": "8102",
+    "proveedor": "VARIOS",
+    "concepto": "EL COLONO / EDEN - GASTOS VARIOS RIOS",
+    "gastos_ars": 1040.0,
+    "gastos_usd": 7.0,
+    "tipo_cambio": 145.0
+  },
+  {
+    "fecha_raw": "22/09/2020",
+    "comprobante": "3325",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "DESAGUE LINEAL REGULADOR",
+    "gastos_ars": 10650.0,
+    "gastos_usd": 76.0,
+    "tipo_cambio": 140.13
+  },
+  {
+    "fecha_raw": "02/10/2020",
+    "comprobante": "367",
+    "proveedor": "TROCHE DANIEL",
+    "concepto": "CERTIFICADO Nº7 - INST. SANITARIA V°7 INST. SANITARIA RIA",
+    "gastos_ars": 106914.01,
+    "gastos_usd": 1354.0,
+    "tipo_cambio": 78.96
+  },
+  {
+    "fecha_raw": "02/10/2020",
+    "comprobante": "614",
+    "proveedor": "NES S.A.",
+    "concepto": "TRABAJOS DE MAMPOSTERIA - CUOTA N'6 MAMPOSTERIA TE MEN 00T SALDO DE LA RETAR CUOTA N'6",
+    "gastos_ars": 312570.52,
+    "gastos_usd": 4007.0,
+    "tipo_cambio": 78.01
+  },
+  {
+    "fecha_raw": "28/10/2020",
+    "comprobante": "",
+    "proveedor": "ASCENSORES ULTRA",
+    "concepto": "FEBRERO DE 2020",
+    "gastos_ars": 6900.0,
+    "gastos_usd": 88.37,
+    "tipo_cambio": 78.08
+  },
+  {
+    "fecha_raw": "20/11/2020",
+    "comprobante": "",
+    "proveedor": "PINTURA",
+    "concepto": "DEL CENTRO - NORTON TELA",
+    "gastos_ars": 459.34,
+    "gastos_usd": 3.68,
+    "tipo_cambio": 124.72
+  },
+  {
+    "fecha_raw": "02/12/2020",
+    "comprobante": "2842",
+    "proveedor": "LANDA",
+    "concepto": "TACURU X 4LT.",
+    "gastos_ars": 14335.47,
+    "gastos_usd": 171.0,
+    "tipo_cambio": 83.83
+  },
+  {
+    "fecha_raw": "28/01/2021",
+    "comprobante": "415",
+    "proveedor": "VARIOS",
+    "concepto": "HONORIOS MEDICOS CIRUGIA",
+    "gastos_ars": 520455.0,
+    "gastos_usd": 6500.0,
+    "tipo_cambio": 80.07
+  },
+  {
+    "fecha_raw": "28/01/2021",
+    "comprobante": "804",
+    "proveedor": "VARIOS",
+    "concepto": "HOSPITAL ITALIANO - CIRUGIA ROBOTICA",
+    "gastos_ars": 1542750.0,
+    "gastos_usd": 9953.0,
+    "tipo_cambio": 155.0
+  },
+  {
+    "fecha_raw": "28/01/2021",
+    "comprobante": "",
+    "proveedor": "HIERROMETAL",
+    "concepto": "MATERIALES SALA DE TANQUES",
+    "gastos_ars": 131275.57,
+    "gastos_usd": 863.66,
+    "tipo_cambio": 152.0
+  },
+  {
+    "fecha_raw": "01/02/2021",
+    "comprobante": "4984",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "COMPRA COMPRA MATERIALES VS.",
+    "gastos_ars": 55928.71,
+    "gastos_usd": 366.0,
+    "tipo_cambio": 152.81
+  },
+  {
+    "fecha_raw": "02/02/2021",
+    "comprobante": "13537",
+    "proveedor": "HIERROMETAL",
+    "concepto": "COMPRA COMPRA MATERIALES VS.",
+    "gastos_ars": 21648.77,
+    "gastos_usd": 140.0,
+    "tipo_cambio": 154.63
+  },
+  {
+    "fecha_raw": "03/02/2021",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 01/21 - CTA. 01",
+    "gastos_ars": 5219.36,
+    "gastos_usd": 34.8,
+    "tipo_cambio": 150.0
+  },
+  {
+    "fecha_raw": "14/02/2021",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "IMPUESTO MUNICIPAL - CUOTA 02/2021 JOTA 02/2021",
+    "gastos_ars": 14607.42,
+    "gastos_usd": 97.38,
+    "tipo_cambio": 150.0
+  },
+  {
+    "fecha_raw": "16/02/2021",
+    "comprobante": "71",
+    "proveedor": "VARIOS",
+    "concepto": "REGALOS EMPRESARIALES",
+    "gastos_ars": 9360.0,
+    "gastos_usd": 62.0,
+    "tipo_cambio": 150.97
+  },
+  {
+    "fecha_raw": "20/02/2021",
+    "comprobante": "",
+    "proveedor": "EL BUFALO",
+    "concepto": "RED DE IN RED DE INCENDIO: MATERIALES RIALES S",
+    "gastos_ars": 7270.0,
+    "gastos_usd": 48.47,
+    "tipo_cambio": 150.0
+  },
+  {
+    "fecha_raw": "21/02/2021",
+    "comprobante": "",
+    "proveedor": "PLOMERIA",
+    "concepto": "ERRIQUEZ SALA DE TANQUES UES",
+    "gastos_ars": 29740.3,
+    "gastos_usd": 198.0,
+    "tipo_cambio": 150.2
+  },
+  {
+    "fecha_raw": "22/02/2021",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 02/2021",
+    "gastos_ars": 2719.68,
+    "gastos_usd": 18.13,
+    "tipo_cambio": 150.0
+  },
+  {
+    "fecha_raw": "23/02/2021",
+    "comprobante": "598/5767/5859",
+    "proveedor": "",
+    "concepto": "",
+    "gastos_ars": 47602.41,
+    "gastos_usd": 317.0,
+    "tipo_cambio": 150.17
+  },
+  {
+    "fecha_raw": "23/02/2021",
+    "comprobante": "",
+    "proveedor": "MWETHO",
+    "concepto": "",
+    "gastos_ars": 44922.7,
+    "gastos_usd": 300.0,
+    "tipo_cambio": 149.74
+  },
+  {
+    "fecha_raw": "23/02/2021",
+    "comprobante": "598/5767/5859 596/5767/5859",
+    "proveedor": "LANDA",
+    "concepto": "3 FACTURAS VARIAS",
+    "gastos_ars": 47602.41,
+    "gastos_usd": 317.0,
+    "tipo_cambio": 150.17
+  },
+  {
+    "fecha_raw": "23/02/2021",
+    "comprobante": "1049",
+    "proveedor": "VARIOS",
+    "concepto": "CASA JULIANA",
+    "gastos_ars": 1039.04,
+    "gastos_usd": 7.0,
+    "tipo_cambio": 148.43
+  },
+  {
+    "fecha_raw": "23/02/2021",
+    "comprobante": "",
+    "proveedor": "ARBA",
+    "concepto": "IMP. INMOBILIARIO - AÑO 2021 D 2021",
+    "gastos_ars": 196128.0,
+    "gastos_usd": 1307.52,
+    "tipo_cambio": 150.0
+  },
+  {
+    "fecha_raw": "23/02/2021",
+    "comprobante": "13917",
+    "proveedor": "HIERROMETAL",
+    "concepto": "MATERIALES VARIOS",
+    "gastos_ars": 139112.43,
+    "gastos_usd": 927.0,
+    "tipo_cambio": 150.07
+  },
+  {
+    "fecha_raw": "23/02/2021",
+    "comprobante": "771",
+    "proveedor": "MWETHO IMEPHO",
+    "concepto": "MATERIALES VARIOS",
+    "gastos_ars": 44922.7,
+    "gastos_usd": 300.0,
+    "tipo_cambio": 149.74
+  },
+  {
+    "fecha_raw": "25/02/2021",
+    "comprobante": "",
+    "proveedor": "",
+    "concepto": "",
+    "gastos_ars": 66384.53,
+    "gastos_usd": 442.56,
+    "tipo_cambio": 150.0
+  },
+  {
+    "fecha_raw": "25/02/2021",
+    "comprobante": "",
+    "proveedor": "LANDA",
+    "concepto": "CEMENTO Y CAL",
+    "gastos_ars": 66384.53,
+    "gastos_usd": 442.56,
+    "tipo_cambio": 150.0
+  },
+  {
+    "fecha_raw": "26/02/2021",
+    "comprobante": "",
+    "proveedor": "ASCENSORES ULTRA",
+    "concepto": "MARZO Y DICIEMBRE 2020 - ENERO Y FEBREROO 2021 120 - ENERO ERO Y FEBREROO 2021 Y FEBREROO 2021",
+    "gastos_ars": 35000.0,
+    "gastos_usd": 233.33,
+    "tipo_cambio": 150.0
+  },
+  {
+    "fecha_raw": "04/03/2021",
+    "comprobante": "",
+    "proveedor": "DRAP",
+    "concepto": "FACTURAS VARIAS",
+    "gastos_ars": 6990.0,
+    "gastos_usd": 48.0,
+    "tipo_cambio": 145.63
+  },
+  {
+    "fecha_raw": "04/03/2021",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 01/21 - CTA. 02",
+    "gastos_ars": 5220.19,
+    "gastos_usd": 34.8,
+    "tipo_cambio": 150.0
+  },
+  {
+    "fecha_raw": "05/03/2021",
+    "comprobante": "",
+    "proveedor": "",
+    "concepto": "",
+    "gastos_ars": 3743.55,
+    "gastos_usd": 25.0,
+    "tipo_cambio": 149.74
+  },
+  {
+    "fecha_raw": "05/03/2021",
+    "comprobante": "",
+    "proveedor": "IMEPHO",
+    "concepto": "CERAMICOS",
+    "gastos_ars": 3743.55,
+    "gastos_usd": 25.0,
+    "tipo_cambio": 149.74
+  },
+  {
+    "fecha_raw": "06/03/2021",
+    "comprobante": "",
+    "proveedor": "LANDA",
+    "concepto": "ARENA",
+    "gastos_ars": 13220.94,
+    "gastos_usd": 88.0,
+    "tipo_cambio": 150.24
+  },
+  {
+    "fecha_raw": "10/03/2021",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "IMPUESTO MUNICIPAL - CUOTA 03/2021 CUOTA 03/2021",
+    "gastos_ars": 14607.42,
+    "gastos_usd": 104.34,
+    "tipo_cambio": 140.0
+  },
+  {
+    "fecha_raw": "12/03/2021",
+    "comprobante": "",
+    "proveedor": "DRAP",
+    "concepto": "COMPRA MATERIALES VARIOS ARIOS",
+    "gastos_ars": 25605.2,
+    "gastos_usd": 180.0,
+    "tipo_cambio": 142.25
+  },
+  {
+    "fecha_raw": "15/03/2021",
+    "comprobante": "",
+    "proveedor": "TROCHE DANIEL",
+    "concepto": "CERTIFICADO Nº8 - INST. SANITARIA ARIA",
+    "gastos_ars": 136518.61,
+    "gastos_usd": 920.0,
+    "tipo_cambio": 148.39
+  },
+  {
+    "fecha_raw": "17/03/2021",
+    "comprobante": "",
+    "proveedor": "SANITARIOS SANCHEZ",
+    "concepto": "COMPRA MATERIALES VARIOS ARIOS",
+    "gastos_ars": 223600.0,
+    "gastos_usd": 1542.0,
+    "tipo_cambio": 145.01
+  },
+  {
+    "fecha_raw": "19/03/2021",
+    "comprobante": "",
+    "proveedor": "CASA BLANCO",
+    "concepto": "1 TERMICA",
+    "gastos_ars": 3428.04,
+    "gastos_usd": 24.0,
+    "tipo_cambio": 142.84
+  },
+  {
+    "fecha_raw": "19/03/2021",
+    "comprobante": "10551",
+    "proveedor": "DRAP",
+    "concepto": "FACTURAS VARIAS",
+    "gastos_ars": 10958.0,
+    "gastos_usd": 61.0,
+    "tipo_cambio": 179.64
+  },
+  {
+    "fecha_raw": "23/03/2021",
+    "comprobante": "482",
+    "proveedor": "TROCHE DANIEL",
+    "concepto": "MAYOR COSTO Nº8",
+    "gastos_ars": 146643.23,
+    "gastos_usd": 1011.0,
+    "tipo_cambio": 145.05
+  },
+  {
+    "fecha_raw": "23/03/2021",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 03/20/21",
+    "gastos_ars": 2573.08,
+    "gastos_usd": 18.38,
+    "tipo_cambio": 140.0
+  },
+  {
+    "fecha_raw": "23/03/2021",
+    "comprobante": "1445",
+    "proveedor": "HIERROMETAL",
+    "concepto": "SALA DE TANQUES: ADICIONALES CIONALESI ES",
+    "gastos_ars": 115798.66,
+    "gastos_usd": 800.0,
+    "tipo_cambio": 144.75
+  },
+  {
+    "fecha_raw": "25/03/2021",
+    "comprobante": "6236",
+    "proveedor": "LANDA",
+    "concepto": "CEMENTO X 50 KG",
+    "gastos_ars": 7806.47,
+    "gastos_usd": 55.0,
+    "tipo_cambio": 141.94
+  },
+  {
+    "fecha_raw": "09/04/2021",
+    "comprobante": "",
+    "proveedor": "ASCENSORES ULTRA",
+    "concepto": "MARZO DE 2021",
+    "gastos_ars": 8500.0,
+    "gastos_usd": 71.0,
+    "tipo_cambio": 119.72
+  },
+  {
+    "fecha_raw": "10/04/2021",
+    "comprobante": "6374",
+    "proveedor": "LANDA",
+    "concepto": "LADRILLOS, CEMENTO, PALLET",
+    "gastos_ars": 31805.31,
+    "gastos_usd": 227.0,
+    "tipo_cambio": 140.11
+  },
+  {
+    "fecha_raw": "13/04/2021",
+    "comprobante": "6402",
+    "proveedor": "LANDA",
+    "concepto": "CEMENTO",
+    "gastos_ars": 7806.47,
+    "gastos_usd": 56.0,
+    "tipo_cambio": 139.4
+  },
+  {
+    "fecha_raw": "13/04/2021",
+    "comprobante": "6103 6403",
+    "proveedor": "LANDA",
+    "concepto": "CEMENTO",
+    "gastos_ars": 11709.7,
+    "gastos_usd": 84.0,
+    "tipo_cambio": 139.4
+  },
+  {
+    "fecha_raw": "20/04/2021",
+    "comprobante": "VARIAS",
+    "proveedor": "LANDA",
+    "concepto": "FACTURAS VARIAS",
+    "gastos_ars": 186362.41,
+    "gastos_usd": 1242.42,
+    "tipo_cambio": 150.0
+  },
+  {
+    "fecha_raw": "20/04/2021",
+    "comprobante": "2274",
+    "proveedor": "VARIOS",
+    "concepto": "LA CASA DEL JARDINERO",
+    "gastos_ars": 2012.63,
+    "gastos_usd": 12.0,
+    "tipo_cambio": 167.72
+  },
+  {
+    "fecha_raw": "23/04/2021",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 04/2021",
+    "gastos_ars": 3174.95,
+    "gastos_usd": 22.68,
+    "tipo_cambio": 140.0
+  },
+  {
+    "fecha_raw": "29/04/2021",
+    "comprobante": "17952",
+    "proveedor": "MACROFER",
+    "concepto": "ALAMBRE NEGRO",
+    "gastos_ars": 2736.69,
+    "gastos_usd": 18.0,
+    "tipo_cambio": 152.04
+  },
+  {
+    "fecha_raw": "10/05/2021",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 02/21 - CTA. 02",
+    "gastos_ars": 6969.02,
+    "gastos_usd": 46.46,
+    "tipo_cambio": 150.0
+  },
+  {
+    "fecha_raw": "01/06/2021",
+    "comprobante": "6946 6846",
+    "proveedor": "LANDA",
+    "concepto": "LADRILLO HUEVO 8x18×33",
+    "gastos_ars": 23204.07,
+    "gastos_usd": 145.0,
+    "tipo_cambio": 160.03
+  },
+  {
+    "fecha_raw": "14/07/2021",
+    "comprobante": "",
+    "proveedor": "AMBITO",
+    "concepto": "YESO X 5KG",
+    "gastos_ars": 390.0,
+    "gastos_usd": 2.3,
+    "tipo_cambio": 169.57
+  },
+  {
+    "fecha_raw": "20/07/2021",
+    "comprobante": "7226",
+    "proveedor": "LANDA",
+    "concepto": "HIERRO 6 MM.. CEMENTO. HIDROFUGO, PASTINA O, HIDROFUGO, PASTINA ¡OFUGO, PASTINA",
+    "gastos_ars": 13353.01,
+    "gastos_usd": 75.0,
+    "tipo_cambio": 178.04
+  },
+  {
+    "fecha_raw": "23/08/2021",
+    "comprobante": "1882658 18826681",
+    "proveedor": "",
+    "concepto": "SEGURO FEDERACION PA SEGURO ANUAL (25/08/21 - 25/08/22) 8/22)",
+    "gastos_ars": 48914.44,
+    "gastos_usd": 271.75,
+    "tipo_cambio": 180.0
+  },
+  {
+    "fecha_raw": "02/12/2021",
+    "comprobante": "13538",
+    "proveedor": "HIERROMETAL",
+    "concepto": "COMPRA COMPRA MATERIALES VS.",
+    "gastos_ars": 13161.06,
+    "gastos_usd": 86.0,
+    "tipo_cambio": 153.04
+  },
+  {
+    "fecha_raw": "12/12/2021",
+    "comprobante": "01-468",
+    "proveedor": "BERTELLO LUIS E",
+    "concepto": "SERVICIO DE CONTENEDOR",
+    "gastos_ars": 75000.0,
+    "gastos_usd": 50.34,
+    "tipo_cambio": 1490.0
+  },
+  {
+    "fecha_raw": "21/07/2022",
+    "comprobante": "10081",
+    "proveedor": "LANDA",
+    "concepto": "ARENA, CEMENTO, CAL, HIDROFUGO, ETC FUGO, ETC",
+    "gastos_ars": 35825.07,
+    "gastos_usd": 120.0,
+    "tipo_cambio": 288.54
+  },
+  {
+    "fecha_raw": "22/07/2022",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 07/2022",
+    "gastos_ars": 5048.08,
+    "gastos_usd": 22.95,
+    "tipo_cambio": 220.0
+  },
+  {
+    "fecha_raw": "08/08/2022",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 04/2022 CTA. 1",
+    "gastos_ars": 5687.51,
+    "gastos_usd": 25.85,
+    "tipo_cambio": 220.0
+  },
+  {
+    "fecha_raw": "10/08/2022",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "ANTICIPO 8/2022",
+    "gastos_ars": 21413.75,
+    "gastos_usd": 97.34,
+    "tipo_cambio": 220.0
+  },
+  {
+    "fecha_raw": "23/08/2022",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 08/2022",
+    "gastos_ars": 4824.77,
+    "gastos_usd": 16.64,
+    "tipo_cambio": 290.0
+  },
+  {
+    "fecha_raw": "24/08/2022",
+    "comprobante": "",
+    "proveedor": "",
+    "concepto": "SEGURO FEDERACION PA SEGURO ANUAL (25/08/22 - 24108/23) 8/23)",
+    "gastos_ars": 46324.95,
+    "gastos_usd": 159.74,
+    "tipo_cambio": 290.0
+  },
+  {
+    "fecha_raw": "25/08/2022",
+    "comprobante": "1993",
+    "proveedor": "IMEPHO",
+    "concepto": "PASTINA, WEBER, CALIFORNIA",
+    "gastos_ars": 26494.12,
+    "gastos_usd": 91.0,
+    "tipo_cambio": 291.14
+  },
+  {
+    "fecha_raw": "07/09/2022",
+    "comprobante": "605",
+    "proveedor": "TROCHE DANIEL",
+    "concepto": "CERTIFICADO DE OBRA Nº10",
+    "gastos_ars": 159527.37,
+    "gastos_usd": 550.0,
+    "tipo_cambio": 290.05
+  },
+  {
+    "fecha_raw": "07/09/2022",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 04/2022 CTA. 2 PERIODO 04/2022 CTA 2",
+    "gastos_ars": 5687.51,
+    "gastos_usd": 19.61,
+    "tipo_cambio": 290.0
+  },
+  {
+    "fecha_raw": "10/09/2022",
+    "comprobante": "",
+    "proveedor": "VARIOS",
+    "concepto": "GASTOS VARIOS",
+    "gastos_ars": 10672.08,
+    "gastos_usd": 37.0,
+    "tipo_cambio": 288.43
+  },
+  {
+    "fecha_raw": "12/09/2022",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "ANTICIPO 09/2022",
+    "gastos_ars": 21413.75,
+    "gastos_usd": 73.84,
+    "tipo_cambio": 290.0
+  },
+  {
+    "fecha_raw": "13/09/2022",
+    "comprobante": "10478",
+    "proveedor": "LANDA",
+    "concepto": "ARENA, CEMENTO, Y CAL",
+    "gastos_ars": 33171.47,
+    "gastos_usd": 114.0,
+    "tipo_cambio": 290.98
+  },
+  {
+    "fecha_raw": "23/09/2022",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 09/2022",
+    "gastos_ars": 5444.98,
+    "gastos_usd": 18.78,
+    "tipo_cambio": 290.0
+  },
+  {
+    "fecha_raw": "05/10/2022",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 05/2022 CTA. 1| PERIODO 05/2022 CTA. 1",
+    "gastos_ars": 5427.59,
+    "gastos_usd": 18.72,
+    "tipo_cambio": 290.0
+  },
+  {
+    "fecha_raw": "11/10/2022",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "ANTICIPO 10/2022",
+    "gastos_ars": 21413.75,
+    "gastos_usd": 73.84,
+    "tipo_cambio": 290.0
+  },
+  {
+    "fecha_raw": "12/10/2022",
+    "comprobante": "10737",
+    "proveedor": "LANDA",
+    "concepto": "CAL, CEMENTO",
+    "gastos_ars": 2690.0,
+    "gastos_usd": 9.0,
+    "tipo_cambio": 298.89
+  },
+  {
+    "fecha_raw": "14/10/2022",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 10/2022",
+    "gastos_ars": 5364.73,
+    "gastos_usd": 18.5,
+    "tipo_cambio": 290.0
+  },
+  {
+    "fecha_raw": "17/10/2022",
+    "comprobante": "611",
+    "proveedor": "TROCHE DANIEL",
+    "concepto": "MAYOR COSTO Nº10",
+    "gastos_ars": 654280.32,
+    "gastos_usd": 2256.0,
+    "tipo_cambio": 290.02
+  },
+  {
+    "fecha_raw": "24/10/2022",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 10/2022",
+    "gastos_ars": 5364.73,
+    "gastos_usd": 18.5,
+    "tipo_cambio": 290.0
+  },
+  {
+    "fecha_raw": "04/11/2022",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 05/2022 CTA. 2",
+    "gastos_ars": 5428.89,
+    "gastos_usd": 18.72,
+    "tipo_cambio": 290.0
+  },
+  {
+    "fecha_raw": "30/11/2022",
+    "comprobante": "471",
+    "proveedor": "",
+    "concepto": "CARELLI VICTOR DAMIAN PROVISION DE COBRE - SALA CALDERAS",
+    "gastos_ars": 348013.1,
+    "gastos_usd": 1105.0,
+    "tipo_cambio": 314.94
+  },
+  {
+    "fecha_raw": "02/12/2022",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 06/2022 - CTA. 01",
+    "gastos_ars": 5970.87,
+    "gastos_usd": 18.96,
+    "tipo_cambio": 314.94
+  },
+  {
+    "fecha_raw": "12/12/2022",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "IMP. MUNICIPAL - ANTICIPO 12/2022",
+    "gastos_ars": 2022.0,
+    "gastos_usd": 68.0,
+    "tipo_cambio": 314.94
+  },
+  {
+    "fecha_raw": "17/12/2022",
+    "comprobante": "63911",
+    "proveedor": "DRAP",
+    "concepto": "RESTAURADOR DE SUP. LIJA RESTAURADOR DE SUP, LIJA",
+    "gastos_ars": 175314.67,
+    "gastos_usd": 556.0,
+    "tipo_cambio": 314.94
+  },
+  {
+    "fecha_raw": "02/01/2023",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 06/2022 - CTA, 02 PERIODO 06/2022 - CTA. 02",
+    "gastos_ars": 5972.16,
+    "gastos_usd": 18.96,
+    "tipo_cambio": 315.0
+  },
+  {
+    "fecha_raw": "04/01/2023",
+    "comprobante": "5334",
+    "proveedor": "ASCENSORES ULTRA",
+    "concepto": "ENERO DE 2023",
+    "gastos_ars": null,
+    "gastos_usd": 98.43,
+    "tipo_cambio": 350.0
+  },
+  {
+    "fecha_raw": "11/01/2023",
+    "comprobante": "135156",
+    "proveedor": "",
+    "concepto": "ARENA-CEMENTO-CAL-ALAMBREI",
+    "gastos_ars": 86302.55,
+    "gastos_usd": 173.0,
+    "tipo_cambio": 498.0
+  },
+  {
+    "fecha_raw": "19/01/2023",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "IMP. MUNICIPAL - ANTICIPO 01/2023 IMP. MUNICIPAL. - ANTICIPO 01/2023 3023",
+    "gastos_ars": 3023.0,
+    "gastos_usd": 99.03,
+    "tipo_cambio": 370.0
+  },
+  {
+    "fecha_raw": "24/01/2023",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 01/2023",
+    "gastos_ars": null,
+    "gastos_usd": 19.28,
+    "tipo_cambio": 380.0
+  },
+  {
+    "fecha_raw": "27/01/2023",
+    "comprobante": "11697",
+    "proveedor": "LANDA",
+    "concepto": "FCTAURAS VS. FCTAURAS VS",
+    "gastos_ars": null,
+    "gastos_usd": 86.0,
+    "tipo_cambio": 381.9
+  },
+  {
+    "fecha_raw": "27/01/2023",
+    "comprobante": "455",
+    "proveedor": "DRAP",
+    "concepto": "LIJA",
+    "gastos_ars": null,
+    "gastos_usd": 9.41,
+    "tipo_cambio": 381.9
+  },
+  {
+    "fecha_raw": "02/02/2023",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 01/23 CTA. 1",
+    "gastos_ars": null,
+    "gastos_usd": 35.46,
+    "tipo_cambio": 380.0
+  },
+  {
+    "fecha_raw": "15/02/2023",
+    "comprobante": "11851",
+    "proveedor": "LANDA",
+    "concepto": "CEMENTO",
+    "gastos_ars": null,
+    "gastos_usd": 10.65,
+    "tipo_cambio": 380.0
+  },
+  {
+    "fecha_raw": "17/02/2023",
+    "comprobante": "5389",
+    "proveedor": "ASCENSORES ULTRA",
+    "concepto": "FEBRERO DE 2023",
+    "gastos_ars": null,
+    "gastos_usd": 82.76,
+    "tipo_cambio": 380.0
+  },
+  {
+    "fecha_raw": "20/02/2023",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 02/2025",
+    "gastos_ars": 46081.65,
+    "gastos_usd": 37.93,
+    "tipo_cambio": 1215.0
+  },
+  {
+    "fecha_raw": "22/02/2023",
+    "comprobante": "",
+    "proveedor": "ARBA",
+    "concepto": "IMPUESTO INMOBILIARIO - ANO 2023 IMPUESTO INMOBILIARIO - AÑO 2023",
+    "gastos_ars": 2023.0,
+    "gastos_usd": 1309.66,
+    "tipo_cambio": 380.0
+  },
+  {
+    "fecha_raw": "24/02/2023",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 02/2023",
+    "gastos_ars": null,
+    "gastos_usd": 19.28,
+    "tipo_cambio": 380.0
+  },
+  {
+    "fecha_raw": "06/03/2023",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 01/23 CTA. 2 PERIODO 01/23 CTA 2",
+    "gastos_ars": null,
+    "gastos_usd": 35.93,
+    "tipo_cambio": 8.888888888888888e+18
+  },
+  {
+    "fecha_raw": "09/03/2023",
+    "comprobante": "1320",
+    "proveedor": "DRAP",
+    "concepto": "LIJA- PINCELES - RODILLOS",
+    "gastos_ars": null,
+    "gastos_usd": 10.0,
+    "tipo_cambio": 378.0
+  },
+  {
+    "fecha_raw": "10/03/2023",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "ANTICIPO PERIODO 03/2023",
+    "gastos_ars": null,
+    "gastos_usd": 96.93,
+    "tipo_cambio": 378.0
+  },
+  {
+    "fecha_raw": "11/03/2023",
+    "comprobante": "19921",
+    "proveedor": "PUGLIESE",
+    "concepto": "DOBLE VIDRIADO HERMETICO - FRENTEI",
+    "gastos_ars": 5435400.01,
+    "gastos_usd": 80.75,
+    "tipo_cambio": 717.0
+  },
+  {
+    "fecha_raw": "15/03/2023",
+    "comprobante": "5451",
+    "proveedor": "ASCENSORES ULTRA",
+    "concepto": "MARZO DE 2023",
+    "gastos_ars": null,
+    "gastos_usd": 3.0,
+    "tipo_cambio": 377.0
+  },
+  {
+    "fecha_raw": "23/03/2023",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 03/2023",
+    "gastos_ars": null,
+    "gastos_usd": 23.16,
+    "tipo_cambio": 388.0
+  },
+  {
+    "fecha_raw": "29/03/2023",
+    "comprobante": "1828",
+    "proveedor": "DRAP",
+    "concepto": "LIJAS",
+    "gastos_ars": null,
+    "gastos_usd": 14.0,
+    "tipo_cambio": 98889399.0
+  },
+  {
+    "fecha_raw": "05/04/2023",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 02/23 - CTA. 01",
+    "gastos_ars": null,
+    "gastos_usd": 54.45,
+    "tipo_cambio": 390.0
+  },
+  {
+    "fecha_raw": "10/04/2023",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "IMP. MUNICIPAL - ANTICIPO 04/2023 023",
+    "gastos_ars": 23.0,
+    "gastos_usd": 93.95,
+    "tipo_cambio": 390.0
+  },
+  {
+    "fecha_raw": "15/04/2023",
+    "comprobante": "12405",
+    "proveedor": "JUAN M. LANDA",
+    "concepto": "LAD HUECO-ARENA-CEMENTO-HIERRO •HIERRO",
+    "gastos_ars": null,
+    "gastos_usd": 425.0,
+    "tipo_cambio": 405.0
+  },
+  {
+    "fecha_raw": "04/05/2023",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 02/23 - CTA. 02",
+    "gastos_ars": null,
+    "gastos_usd": 45.47,
+    "tipo_cambio": 467.0
+  },
+  {
+    "fecha_raw": "10/05/2023",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "IMP. MUNICIPAL - ANTICIPO 05/2023",
+    "gastos_ars": 2023.0,
+    "gastos_usd": 78.12,
+    "tipo_cambio": 469.0
+  },
+  {
+    "fecha_raw": "01/06/2023",
+    "comprobante": "6259",
+    "proveedor": "CAS.",
+    "concepto": "AGUARRAS Y GUANTES",
+    "gastos_ars": 1100.0,
+    "gastos_usd": 2.26,
+    "tipo_cambio": 487.0
+  },
+  {
+    "fecha_raw": "01/06/2023",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 05/2023",
+    "gastos_ars": 9305.11,
+    "gastos_usd": 19.11,
+    "tipo_cambio": 487.0
+  },
+  {
+    "fecha_raw": "09/06/2023",
+    "comprobante": "3120/3228",
+    "proveedor": "DRAP",
+    "concepto": "RESTAURADOR DE SUP, LIJA",
+    "gastos_ars": 61265.4,
+    "gastos_usd": 127.0,
+    "tipo_cambio": 482.0
+  },
+  {
+    "fecha_raw": "11/06/2023",
+    "comprobante": "6259",
+    "proveedor": "CAS. CASA TRITON",
+    "concepto": "AGUARRAS Y GUANTES",
+    "gastos_ars": 1100.0,
+    "gastos_usd": 2.26,
+    "tipo_cambio": 487.0
+  },
+  {
+    "fecha_raw": "12/06/2023",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "ANTICIPO PERIODO 06/2023",
+    "gastos_ars": 36640.11,
+    "gastos_usd": 76.02,
+    "tipo_cambio": 482.0
+  },
+  {
+    "fecha_raw": "15/06/2023",
+    "comprobante": "102586",
+    "proveedor": "IMEPHO",
+    "concepto": "PORCELANATOS",
+    "gastos_ars": 50000288.28,
+    "gastos_usd": 100000.0,
+    "tipo_cambio": 500.0
+  },
+  {
+    "fecha_raw": "22/06/2023",
+    "comprobante": "5591",
+    "proveedor": "ULTRA",
+    "concepto": "ACCIONAR DE RECAMBIO",
+    "gastos_ars": 180000.0,
+    "gastos_usd": 367.0,
+    "tipo_cambio": 490.0
+  },
+  {
+    "fecha_raw": "22/06/2023",
+    "comprobante": "3504",
+    "proveedor": "DRAP",
+    "concepto": "LIJA",
+    "gastos_ars": 4212.32,
+    "gastos_usd": 9.0,
+    "tipo_cambio": 490.0
+  },
+  {
+    "fecha_raw": "23/06/2023",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 06/2023",
+    "gastos_ars": 8595.76,
+    "gastos_usd": 17.44,
+    "tipo_cambio": 493.0
+  },
+  {
+    "fecha_raw": "29/06/2023",
+    "comprobante": "21851",
+    "proveedor": "",
+    "concepto": "REVESTIMIENTO FENOLICO ASCENSORES ISCENSORES",
+    "gastos_ars": 246209.66,
+    "gastos_usd": 498.4,
+    "tipo_cambio": 494.0
+  },
+  {
+    "fecha_raw": "10/07/2023",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "ANTICIPO PERIODO 07/2023",
+    "gastos_ars": 36640.11,
+    "gastos_usd": 74.02,
+    "tipo_cambio": 495.0
+  },
+  {
+    "fecha_raw": "10/07/2023",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 03/23 - CTA. 02",
+    "gastos_ars": 11794.42,
+    "gastos_usd": 23.83,
+    "tipo_cambio": 495.0
+  },
+  {
+    "fecha_raw": "11/07/2023",
+    "comprobante": "135156",
+    "proveedor": "",
+    "concepto": "ARENA-CEMENTO-CAL-ALAMBRE ARENA-CEMENTO-CAL-ALAMBREI BRE",
+    "gastos_ars": 86302.55,
+    "gastos_usd": 173.0,
+    "tipo_cambio": 498.0
+  },
+  {
+    "fecha_raw": "12/07/2023",
+    "comprobante": "3955",
+    "proveedor": "DRAP",
+    "concepto": "LIJA",
+    "gastos_ars": 5616.98,
+    "gastos_usd": 11.0,
+    "tipo_cambio": 498.0
+  },
+  {
+    "fecha_raw": "24/07/2023",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 07/2023",
+    "gastos_ars": 9181.06,
+    "gastos_usd": 16.63,
+    "tipo_cambio": 552.0
+  },
+  {
+    "fecha_raw": "03/08/2023",
+    "comprobante": "4742",
+    "proveedor": "",
+    "concepto": "ARCO SEPARADOR X 150 UNIDADES DADES",
+    "gastos_ars": 395999.99,
+    "gastos_usd": 694.74,
+    "tipo_cambio": 570.0
+  },
+  {
+    "fecha_raw": "03/08/2023",
+    "comprobante": "2640/3156/3338",
+    "proveedor": "",
+    "concepto": "LADRILLOS-ARENA-CEMENTO-CAL-ALAMBRE ).CAL-ALAMBRE",
+    "gastos_ars": 208350.93,
+    "gastos_usd": 360.0,
+    "tipo_cambio": 570.0
+  },
+  {
+    "fecha_raw": "04/08/2023",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 04/23 - CTA. 01/ PERIODO 04/23 - CTA. 01",
+    "gastos_ars": 11909.14,
+    "gastos_usd": 20.75,
+    "tipo_cambio": 574.0
+  },
+  {
+    "fecha_raw": "04/08/2023",
+    "comprobante": "4707",
+    "proveedor": "DRAP",
+    "concepto": "RESTAURADOR DE SUP. LIJA RESTAURADOR DE SUP, LIJA",
+    "gastos_ars": 79129.66,
+    "gastos_usd": 138.0,
+    "tipo_cambio": 574.0
+  },
+  {
+    "fecha_raw": "04/08/2023",
+    "comprobante": "3890",
+    "proveedor": "GREMIO",
+    "concepto": "VISAGRAS",
+    "gastos_ars": 30000.0,
+    "gastos_usd": 52.26,
+    "tipo_cambio": 574.0
+  },
+  {
+    "fecha_raw": "08/08/2023",
+    "comprobante": "82",
+    "proveedor": "MASTRANGELO",
+    "concepto": "CARPINTERIA ALUMINIO PISOS 11 Y 12 11 Y 12",
+    "gastos_ars": 740000.0,
+    "gastos_usd": 1535.27,
+    "tipo_cambio": 482.0
+  },
+  {
+    "fecha_raw": "08/08/2023",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 03/23 - CTA. 01",
+    "gastos_ars": 11776.12,
+    "gastos_usd": 24.43,
+    "tipo_cambio": 482.0
+  },
+  {
+    "fecha_raw": "10/08/2023",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "PERIODO 08/2023",
+    "gastos_ars": 36640.11,
+    "gastos_usd": 60.86,
+    "tipo_cambio": 602.0
+  },
+  {
+    "fecha_raw": "14/08/2023",
+    "comprobante": "6298",
+    "proveedor": "IMEPHO",
+    "concepto": "MOLDURAS ACERO",
+    "gastos_ars": 575108.3,
+    "gastos_usd": 846.0,
+    "tipo_cambio": 685.0
+  },
+  {
+    "fecha_raw": "14/08/2023",
+    "comprobante": "1590",
+    "proveedor": "MORAN HNOS",
+    "concepto": "SEPARADOR P/ NIVEL PORCEL. ARCO SEP iL. ARCO SEP",
+    "gastos_ars": 243750.0,
+    "gastos_usd": 355.84,
+    "tipo_cambio": 685.0
+  },
+  {
+    "fecha_raw": "15/08/2023",
+    "comprobante": "52",
+    "proveedor": "CONTENEDORES ES",
+    "concepto": "1 CONTENEDOR",
+    "gastos_ars": 9500.0,
+    "gastos_usd": 13.01,
+    "tipo_cambio": 730.0
+  },
+  {
+    "fecha_raw": "16/08/2023",
+    "comprobante": "6316",
+    "proveedor": "IMEPHO",
+    "concepto": "VARILLAS ACERO INOXIDABLE",
+    "gastos_ars": 123443.45,
+    "gastos_usd": 158.0,
+    "tipo_cambio": 780.0
+  },
+  {
+    "fecha_raw": "22/08/2023",
+    "comprobante": "5591",
+    "proveedor": "ASCENSORES ULTRA",
+    "concepto": "ACCIONAR DE RECAMBIO",
+    "gastos_ars": 180000.0,
+    "gastos_usd": 367.0,
+    "tipo_cambio": 490.0
+  },
+  {
+    "fecha_raw": "23/08/2023",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 06/2023",
+    "gastos_ars": 8595.76,
+    "gastos_usd": 17.44,
+    "tipo_cambio": 493.0
+  },
+  {
+    "fecha_raw": "24/08/2023",
+    "comprobante": "5770",
+    "proveedor": "ASCENSORES ULTRA",
+    "concepto": "MONTAVEHICULOS - COL 20 LTS ACEITE TS ACEITE",
+    "gastos_ars": 40000.0,
+    "gastos_usd": 55.17,
+    "tipo_cambio": 725.0
+  },
+  {
+    "fecha_raw": "24/08/2023",
+    "comprobante": "",
+    "proveedor": "LOSSE OSSE",
+    "concepto": "PERIODO 08/2023",
+    "gastos_ars": 8693.31,
+    "gastos_usd": 11.99,
+    "tipo_cambio": 725.0
+  },
+  {
+    "fecha_raw": "24/08/2023",
+    "comprobante": "13534",
+    "proveedor": "J.M. LANDA",
+    "concepto": "VIGUETA-LADRILLOS-GRANZA-ARENA-CAL 4-ARENA-CAL",
+    "gastos_ars": 649203.97,
+    "gastos_usd": 895.0,
+    "tipo_cambio": 725.0
+  },
+  {
+    "fecha_raw": "25/08/2023",
+    "comprobante": "13454",
+    "proveedor": "J.M. LANDA",
+    "concepto": "ARENA - GRANZA",
+    "gastos_ars": 50858.18,
+    "gastos_usd": 70.0,
+    "tipo_cambio": 730.0
+  },
+  {
+    "fecha_raw": "28/08/2023",
+    "comprobante": "101012 104012",
+    "proveedor": "",
+    "concepto": "IMPERMEABLEI IMPERMEABLE",
+    "gastos_ars": 206374.1,
+    "gastos_usd": 282.0,
+    "tipo_cambio": 730.0
+  },
+  {
+    "fecha_raw": "29/08/2023",
+    "comprobante": "21851",
+    "proveedor": "",
+    "concepto": "REVESTIMIENTO FENOLICO ASCENSORES",
+    "gastos_ars": 246209.66,
+    "gastos_usd": 498.4,
+    "tipo_cambio": 494.0
+  },
+  {
+    "fecha_raw": "31/08/2023",
+    "comprobante": "",
+    "proveedor": "FESCAP",
+    "concepto": "ALUMINIO FRENTE",
+    "gastos_ars": 39000000.0,
+    "gastos_usd": 53424.66,
+    "tipo_cambio": 730.0
+  },
+  {
+    "fecha_raw": "01/09/2023",
+    "comprobante": "",
+    "proveedor": "FED. PATRONAL",
+    "concepto": "DEL 25/08/23 AL 24/08/24",
+    "gastos_ars": 86424.39,
+    "gastos_usd": 118.39,
+    "tipo_cambio": 730.0
+  },
+  {
+    "fecha_raw": "04/09/2023",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 04/23 - CTA. 02",
+    "gastos_ars": 11911.8,
+    "gastos_usd": 16.43,
+    "tipo_cambio": 725.0
+  },
+  {
+    "fecha_raw": "11/09/2023",
+    "comprobante": "19921",
+    "proveedor": "PUGLIESE",
+    "concepto": "DOBLE VIDRIADO HERMETICO - FRENTEI DOBLE VIDRIADO HERMETICO - FRENTE O - FRENTE",
+    "gastos_ars": 5435400.01,
+    "gastos_usd": 7580.75,
+    "tipo_cambio": 717.0
+  },
+  {
+    "fecha_raw": "11/09/2023",
+    "comprobante": "",
+    "proveedor": "ARMI ARM",
+    "concepto": "PERIODO 09/2023",
+    "gastos_ars": 36640.11,
+    "gastos_usd": 51.1,
+    "tipo_cambio": 717.0
+  },
+  {
+    "fecha_raw": "25/09/2023",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 09/2023",
+    "gastos_ars": 9473.71,
+    "gastos_usd": 12.72,
+    "tipo_cambio": 745.0
+  },
+  {
+    "fecha_raw": "03/10/2023",
+    "comprobante": "13846/ 13454",
+    "proveedor": "JUAN M. LANDA",
+    "concepto": "ARENA-GRANZA-HIERRO-FLETE ARENA-GRANZA HIERRO-FLETE TE",
+    "gastos_ars": 119845.0,
+    "gastos_usd": 148.0,
+    "tipo_cambio": 810.0
+  },
+  {
+    "fecha_raw": "06/10/2023",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 05/23 - CTA. 01",
+    "gastos_ars": 16199.46,
+    "gastos_usd": 18.41,
+    "tipo_cambio": 880.0
+  },
+  {
+    "fecha_raw": "10/10/2023",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "PERIODO 10/2023",
+    "gastos_ars": 36640.11,
+    "gastos_usd": 36.28,
+    "tipo_cambio": 1010.0
+  },
+  {
+    "fecha_raw": "17/10/2023",
+    "comprobante": "98185",
+    "proveedor": "CERROSUD S.A.",
+    "concepto": "DECOR CANELA RIPADO",
+    "gastos_ars": 634027.68,
+    "gastos_usd": 647.0,
+    "tipo_cambio": 979.0
+  },
+  {
+    "fecha_raw": "20/10/2023",
+    "comprobante": "6064 B0B4",
+    "proveedor": "DRAP",
+    "concepto": "LIJAS",
+    "gastos_ars": 6656.0,
+    "gastos_usd": 7.0,
+    "tipo_cambio": 900.0
+  },
+  {
+    "fecha_raw": "24/10/2023",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIK PERIODO 10/2023 RIODO 10/20 023",
+    "gastos_ars": 9714.82,
+    "gastos_usd": 8.83,
+    "tipo_cambio": 1100.0
+  },
+  {
+    "fecha_raw": "06/11/2023",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "RIODO 05/23 - CTA",
+    "gastos_ars": 16199.46,
+    "gastos_usd": 18.2,
+    "tipo_cambio": 890.0
+  },
+  {
+    "fecha_raw": "08/11/2023",
+    "comprobante": "7168/9 - 342",
+    "proveedor": "DRAP",
+    "concepto": "LIJA",
+    "gastos_ars": 10623.42,
+    "gastos_usd": 11.94,
+    "tipo_cambio": 890.0
+  },
+  {
+    "fecha_raw": "08/11/2023",
+    "comprobante": "105596",
+    "proveedor": "IMEPHO",
+    "concepto": "WEBER PORCELANATO",
+    "gastos_ars": 582772.14,
+    "gastos_usd": 654.8,
+    "tipo_cambio": 890.0
+  },
+  {
+    "fecha_raw": "10/11/2023",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "IMP. MUNICIPAL - ANTICIPO 11/2022 022",
+    "gastos_ars": 21413.75,
+    "gastos_usd": 73.84,
+    "tipo_cambio": 290.0
+  },
+  {
+    "fecha_raw": "10/11/2023",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "PERIODO 11/2023",
+    "gastos_ars": 36640.11,
+    "gastos_usd": 38.57,
+    "tipo_cambio": 950.0
+  },
+  {
+    "fecha_raw": "15/11/2023",
+    "comprobante": "166048-50",
+    "proveedor": "FESCAP",
+    "concepto": "ITIR PERFIL NEGRO / CORTE Y PLEGADO TIR PERFIL NEGRO / CORTE Y PLEGADO / PLEGADO",
+    "gastos_ars": 13663.56,
+    "gastos_usd": 14.09,
+    "tipo_cambio": 970.0
+  },
+  {
+    "fecha_raw": "15/11/2023",
+    "comprobante": "20583",
+    "proveedor": "PUGLIESE",
+    "concepto": "VIDRIOS CONTRAFRENTE - DVH BL3 VIDRIOS CONTRAFRENTE - DVH BL3 VH BL3",
+    "gastos_ars": 12000000.0,
+    "gastos_usd": 12371.13,
+    "tipo_cambio": 970.0
+  },
+  {
+    "fecha_raw": "16/11/2023",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 05/23 - CTA. 02 RIODO 05/23 - CTA",
+    "gastos_ars": 16199.46,
+    "gastos_usd": 18.2,
+    "tipo_cambio": 890.0
+  },
+  {
+    "fecha_raw": "23/11/2023",
+    "comprobante": "",
+    "proveedor": "OSSE] OSSE",
+    "concepto": "PERIODO 11/2022",
+    "gastos_ars": 4981.74,
+    "gastos_usd": 17.18,
+    "tipo_cambio": 290.0
+  },
+  {
+    "fecha_raw": "24/11/2023",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 11/2023",
+    "gastos_ars": 16756.51,
+    "gastos_usd": 16.84,
+    "tipo_cambio": 995.0
+  },
+  {
+    "fecha_raw": "24/11/2023",
+    "comprobante": "5778",
+    "proveedor": "ASCENSORES ULTRA",
+    "concepto": "PLACA ELECTRONICA - PLACA AUXILIAR AUXILIAR",
+    "gastos_ars": 459800.0,
+    "gastos_usd": 462.11,
+    "tipo_cambio": 995.0
+  },
+  {
+    "fecha_raw": "28/11/2023",
+    "comprobante": "63309",
+    "proveedor": "DRAP",
+    "concepto": "RESTAURADOR DE SUP, LIJA",
+    "gastos_ars": 41561.82,
+    "gastos_usd": 138.54,
+    "tipo_cambio": 300.0
+  },
+  {
+    "fecha_raw": "04/12/2023",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 06/23 - CTA. 01",
+    "gastos_ars": 14213.73,
+    "gastos_usd": 15.79,
+    "tipo_cambio": 900.0
+  },
+  {
+    "fecha_raw": "05/12/2023",
+    "comprobante": "14390",
+    "proveedor": "LANDA",
+    "concepto": "CEMENTO LOMA NEGRA X 50 KG",
+    "gastos_ars": 15708.24,
+    "gastos_usd": 17.45,
+    "tipo_cambio": 900.0
+  },
+  {
+    "fecha_raw": "05/12/2023",
+    "comprobante": "7964",
+    "proveedor": "DRAP",
+    "concepto": "RESTAURADOR DE SUP. RESTAURADOR DE SUP",
+    "gastos_ars": 43891.12,
+    "gastos_usd": 48.77,
+    "tipo_cambio": 900.0
+  },
+  {
+    "fecha_raw": "11/12/2023",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "PERIODO 12/2023",
+    "gastos_ars": 36637.15,
+    "gastos_usd": 37.77,
+    "tipo_cambio": 970.0
+  },
+  {
+    "fecha_raw": "22/12/2023",
+    "comprobante": "",
+    "proveedor": "OSSE Unoe",
+    "concepto": "PERIODO 12/2023",
+    "gastos_ars": 15408.04,
+    "gastos_usd": 15.88,
+    "tipo_cambio": 970.0
+  },
+  {
+    "fecha_raw": "23/12/2023",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 12/2022",
+    "gastos_ars": 5370.57,
+    "gastos_usd": 17.05,
+    "tipo_cambio": 314.94
+  },
+  {
+    "fecha_raw": "24/12/2023",
+    "comprobante": "",
+    "proveedor": "",
+    "concepto": "PERIODO 02/2023",
+    "gastos_ars": null,
+    "gastos_usd": 19.28,
+    "tipo_cambio": 380.0
+  },
+  {
+    "fecha_raw": "27/12/2023",
+    "comprobante": "1131",
+    "proveedor": "DRAP",
+    "concepto": "LIJA",
+    "gastos_ars": null,
+    "gastos_usd": 8.0,
+    "tipo_cambio": 380.0
+  },
+  {
+    "fecha_raw": "03/01/2024",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 06/23 - CTA. 02",
+    "gastos_ars": 14235.68,
+    "gastos_usd": 14.53,
+    "tipo_cambio": 980.0
+  },
+  {
+    "fecha_raw": "09/01/2024",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "PERIODO ANUAL 2026",
+    "gastos_ars": 2576418.1,
+    "gastos_usd": 1723.36,
+    "tipo_cambio": 1495.0
+  },
+  {
+    "fecha_raw": "18/01/2024",
+    "comprobante": "",
+    "proveedor": "ASCENSORES ULTRA",
+    "concepto": "ENERO DE 2024 - ADICIONALES",
+    "gastos_ars": 80750.0,
+    "gastos_usd": 67.29,
+    "tipo_cambio": 1200.0
+  },
+  {
+    "fecha_raw": "19/01/2024",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "PERIODO 01/2024",
+    "gastos_ars": 80608.26,
+    "gastos_usd": 67.17,
+    "tipo_cambio": 1200.0
+  },
+  {
+    "fecha_raw": "19/01/2024",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "PERIODO 07/2024",
+    "gastos_ars": 115885.86,
+    "gastos_usd": 81.04,
+    "tipo_cambio": 1430.0
+  },
+  {
+    "fecha_raw": "20/01/2024",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 12/2025",
+    "gastos_ars": 944360.2,
+    "gastos_usd": 631.68,
+    "tipo_cambio": 1495.0
+  },
+  {
+    "fecha_raw": "24/01/2024",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 01/2024",
+    "gastos_ars": 35636.7,
+    "gastos_usd": 29.09,
+    "tipo_cambio": 1225.0
+  },
+  {
+    "fecha_raw": "02/02/2024",
+    "comprobante": "21235",
+    "proveedor": "PUGLIESE & CIA",
+    "concepto": "BLINDEX INC Y ESMER. BALCONES CFTE ONES CFTE",
+    "gastos_ars": 7506422.55,
+    "gastos_usd": 7506.42,
+    "tipo_cambio": 1000.0
+  },
+  {
+    "fecha_raw": "02/02/2024",
+    "comprobante": "",
+    "proveedor": "FESCAP",
+    "concepto": "PAGO IIBB (SEPT 2023 A ENE 2024)",
+    "gastos_ars": 964041.51,
+    "gastos_usd": 964.04,
+    "tipo_cambio": 1000.0
+  },
+  {
+    "fecha_raw": "02/02/2024",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 01/24 - CTA. 01",
+    "gastos_ars": 9574.75,
+    "gastos_usd": 8.25,
+    "tipo_cambio": 1160.0
+  },
+  {
+    "fecha_raw": "06/02/2024",
+    "comprobante": "168931/2",
+    "proveedor": "FESCAP",
+    "concepto": "PERFILES ALUMINIO P/ ABERTURAS BALCONES CONTRAFRENTE TURAS BALCONES CONTRAFRENTE",
+    "gastos_ars": 14000058.0,
+    "gastos_usd": 14000.06,
+    "tipo_cambio": 1000.0
+  },
+  {
+    "fecha_raw": "14/02/2024",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "PERIODO 02/2024",
+    "gastos_ars": 80608.26,
+    "gastos_usd": 73.95,
+    "tipo_cambio": 1090.0
+  },
+  {
+    "fecha_raw": "18/02/2024",
+    "comprobante": "",
+    "proveedor": "",
+    "concepto": "PERIODO 01/2024",
+    "gastos_ars": 632293.9,
+    "gastos_usd": 580.09,
+    "tipo_cambio": 1090.0
+  },
+  {
+    "fecha_raw": "19/02/2024",
+    "comprobante": "",
+    "proveedor": "ARBA",
+    "concepto": "PERIODO 01/2024",
+    "gastos_ars": 632293.9,
+    "gastos_usd": 580.09,
+    "tipo_cambio": 1090.0
+  },
+  {
+    "fecha_raw": "19/02/2024",
+    "comprobante": "",
+    "proveedor": "FED. PATRONAL",
+    "concepto": "POLIZA DEL 25/0B/24 AL 25/02/25",
+    "gastos_ars": 166813.63,
+    "gastos_usd": 129.31,
+    "tipo_cambio": 1290.0
+  },
+  {
+    "fecha_raw": "23/02/2024",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "CAMBIO MEDIDOR",
+    "gastos_ars": 550959.61,
+    "gastos_usd": 514.92,
+    "tipo_cambio": 1070.0
+  },
+  {
+    "fecha_raw": "23/02/2024",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 02/2024",
+    "gastos_ars": 17743.58,
+    "gastos_usd": 16.58,
+    "tipo_cambio": 1070.0
+  },
+  {
+    "fecha_raw": "26/02/2024",
+    "comprobante": "6095",
+    "proveedor": "ASCENSORES ULTRA",
+    "concepto": "Fconchu vE 202a FEBRERO DE 2024",
+    "gastos_ars": 108800.0,
+    "gastos_usd": 101.68,
+    "tipo_cambio": 1070.0
+  },
+  {
+    "fecha_raw": "01/03/2024",
+    "comprobante": "6327",
+    "proveedor": "MATAFUEGOS IND",
+    "concepto": "MATAFUEGO 2.5 KG NUEVO C/ SELLO IRAM + CHAPA + BALIZA MATAFUEGO 2.5 KG NUEVO C/SELLO IRAM + CHAPA + BALIZA / SELLO IRAM + CHAPA + BALIZA",
+    "gastos_ars": 145999.98,
+    "gastos_usd": 145.0,
+    "tipo_cambio": 1007.0
+  },
+  {
+    "fecha_raw": "04/03/2024",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 01/24 - CTA. 02",
+    "gastos_ars": 9580.18,
+    "gastos_usd": 9.58,
+    "tipo_cambio": 1000.0
+  },
+  {
+    "fecha_raw": "05/03/2024",
+    "comprobante": "6192",
+    "proveedor": "ULTRA ASCENSORES",
+    "concepto": "MARZO DE 2024",
+    "gastos_ars": 127330.0,
+    "gastos_usd": 127.33,
+    "tipo_cambio": 1000.0
+  },
+  {
+    "fecha_raw": "06/03/2024",
+    "comprobante": "1323",
+    "proveedor": "CONTENEDORES",
+    "concepto": "1 SERVICIO",
+    "gastos_ars": 30000.0,
+    "gastos_usd": 30.77,
+    "tipo_cambio": 975.0
+  },
+  {
+    "fecha_raw": "17/03/2024",
+    "comprobante": "110367",
+    "proveedor": "",
+    "concepto": "",
+    "gastos_ars": 162721.41,
+    "gastos_usd": 117.07,
+    "tipo_cambio": 1390.0
+  },
+  {
+    "fecha_raw": "19/03/2024",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 02/2024",
+    "gastos_ars": 646921.05,
+    "gastos_usd": 637.36,
+    "tipo_cambio": 1015.0
+  },
+  {
+    "fecha_raw": "20/03/2024",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "PERIODO 03/2024",
+    "gastos_ars": 102801.64,
+    "gastos_usd": 101.28,
+    "tipo_cambio": 1015.0
+  },
+  {
+    "fecha_raw": "22/03/2024",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 03/2024",
+    "gastos_ars": 23451.09,
+    "gastos_usd": 23.22,
+    "tipo_cambio": 1010.0
+  },
+  {
+    "fecha_raw": "26/03/2024",
+    "comprobante": "",
+    "proveedor": "LANDA",
+    "concepto": "",
+    "gastos_ars": 194724.0,
+    "gastos_usd": 193.76,
+    "tipo_cambio": 1005.0
+  },
+  {
+    "fecha_raw": "10/04/2024",
+    "comprobante": "",
+    "proveedor": "ARBA",
+    "concepto": "CUOTA 02/2024",
+    "gastos_ars": 742435.3,
+    "gastos_usd": 753.74,
+    "tipo_cambio": 985.0
+  },
+  {
+    "fecha_raw": "15/04/2024",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "PERIODO 04/2024",
+    "gastos_ars": 102801.64,
+    "gastos_usd": 102.8,
+    "tipo_cambio": 1000.0
+  },
+  {
+    "fecha_raw": "17/04/2024",
+    "comprobante": "36961",
+    "proveedor": "IMEPHO",
+    "concepto": "15 UN. PASTINA X 2KG",
+    "gastos_ars": 174344.36,
+    "gastos_usd": 125.43,
+    "tipo_cambio": 1390.0
+  },
+  {
+    "fecha_raw": "24/04/2024",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 04/2024",
+    "gastos_ars": 28346.11,
+    "gastos_usd": 27.79,
+    "tipo_cambio": 1020.0
+  },
+  {
+    "fecha_raw": "29/04/2024",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 03/24",
+    "gastos_ars": null,
+    "gastos_usd": 1060.27,
+    "tipo_cambio": 1030.0
+  },
+  {
+    "fecha_raw": "20/05/2024",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 04/24",
+    "gastos_ars": 1406106.77,
+    "gastos_usd": 1191.62,
+    "tipo_cambio": 1180.0
+  },
+  {
+    "fecha_raw": "20/05/2024",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "PERIODO 05/2024",
+    "gastos_ars": 102801.64,
+    "gastos_usd": 87.12,
+    "tipo_cambio": 1180.0
+  },
+  {
+    "fecha_raw": "24/05/2024",
+    "comprobante": "",
+    "proveedor": "OSSEI OSSE",
+    "concepto": "PERIODO 05/2024",
+    "gastos_ars": 33048.29,
+    "gastos_usd": 27.09,
+    "tipo_cambio": 1220.0
+  },
+  {
+    "fecha_raw": "11/06/2024",
+    "comprobante": "",
+    "proveedor": "ARBA",
+    "concepto": "CUOTA 03/2024",
+    "gastos_ars": 742435.3,
+    "gastos_usd": 573.31,
+    "tipo_cambio": 1295.0
+  },
+  {
+    "fecha_raw": "14/06/2024",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "PERIODO 06/2024",
+    "gastos_ars": 102801.64,
+    "gastos_usd": 82.57,
+    "tipo_cambio": 1245.0
+  },
+  {
+    "fecha_raw": "17/06/2024",
+    "comprobante": "",
+    "proveedor": "ASCENSORES ULTRA",
+    "concepto": "CAMBIO VAINA Y LANZA BRAZO - TIRAS CABLE ACERO O - TIRAS CABLE ACERO - TIRAS CABLE ACERO",
+    "gastos_ars": 323000.0,
+    "gastos_usd": 249.42,
+    "tipo_cambio": 1295.0
+  },
+  {
+    "fecha_raw": "17/06/2024",
+    "comprobante": "",
+    "proveedor": "DRAP S.A.",
+    "concepto": "PINTURA ASFALTICA",
+    "gastos_ars": 40574.47,
+    "gastos_usd": 31.33,
+    "tipo_cambio": 1295.0
+  },
+  {
+    "fecha_raw": "24/06/2024",
+    "comprobante": "",
+    "proveedor": "",
+    "concepto": "",
+    "gastos_ars": 30728.68,
+    "gastos_usd": 23.37,
+    "tipo_cambio": 1315.0
+  },
+  {
+    "fecha_raw": "24/06/2024",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 05/24",
+    "gastos_ars": 488083.67,
+    "gastos_usd": 371.17,
+    "tipo_cambio": 1315.0
+  },
+  {
+    "fecha_raw": "24/06/2024",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 06/2024",
+    "gastos_ars": 30728.68,
+    "gastos_usd": 23.37,
+    "tipo_cambio": 1315.0
+  },
+  {
+    "fecha_raw": "13/07/2024",
+    "comprobante": "110367",
+    "proveedor": "IMEPHO",
+    "concepto": "14 UN. PASTINA X 2KG",
+    "gastos_ars": 162721.41,
+    "gastos_usd": 117.07,
+    "tipo_cambio": 1390.0
+  },
+  {
+    "fecha_raw": "15/07/2024",
+    "comprobante": "118045",
+    "proveedor": "",
+    "concepto": "PORCELANATO - CERRO NEGRO",
+    "gastos_ars": 3821933.51,
+    "gastos_usd": 3000.02,
+    "tipo_cambio": 1273.97
+  },
+  {
+    "fecha_raw": "16/07/2024",
+    "comprobante": "",
+    "proveedor": "CONTADOR",
+    "concepto": "HONORARIOS BALANCE",
+    "gastos_ars": 136575.0,
+    "gastos_usd": 107.96,
+    "tipo_cambio": 1265.0
+  },
+  {
+    "fecha_raw": "18/07/2024",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 06/24",
+    "gastos_ars": 474457.88,
+    "gastos_usd": 329.48,
+    "tipo_cambio": 1440.0
+  },
+  {
+    "fecha_raw": "23/07/2024",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 07/2024",
+    "gastos_ars": 32628.97,
+    "gastos_usd": 22.82,
+    "tipo_cambio": 1430.0
+  },
+  {
+    "fecha_raw": "31/07/2024",
+    "comprobante": "12402",
+    "proveedor": "DRAP",
+    "concepto": "CINTA DE PAPEL OBRA AZUL",
+    "gastos_ars": 8423.97,
+    "gastos_usd": 6.22,
+    "tipo_cambio": 1355.0
+  },
+  {
+    "fecha_raw": "12/08/2024",
+    "comprobante": "111170",
+    "proveedor": "MEPHO",
+    "concepto": "FLETE ZONA",
+    "gastos_ars": 28699.69,
+    "gastos_usd": 21.42,
+    "tipo_cambio": 1340.0
+  },
+  {
+    "fecha_raw": "13/08/2024",
+    "comprobante": "209",
+    "proveedor": "BERTELLO",
+    "concepto": "2 SERVICIOS CONTENEDORES S",
+    "gastos_ars": 80000.0,
+    "gastos_usd": 59.48,
+    "tipo_cambio": 1345.0
+  },
+  {
+    "fecha_raw": "13/08/2024",
+    "comprobante": "",
+    "proveedor": "ARBA",
+    "concepto": "CUOTA 04/2024",
+    "gastos_ars": 742435.3,
+    "gastos_usd": 552.0,
+    "tipo_cambio": 1345.0
+  },
+  {
+    "fecha_raw": "15/08/2024",
+    "comprobante": "",
+    "proveedor": "ARMI",
+    "concepto": "PERIODO 08/2024",
+    "gastos_ars": 115885.86,
+    "gastos_usd": 86.81,
+    "tipo_cambio": 1335.0
+  },
+  {
+    "fecha_raw": "17/08/2024",
+    "comprobante": "",
+    "proveedor": "ASCENSORES ULTRA",
+    "concepto": "TIRAS CABLE ACERO",
+    "gastos_ars": 323000.0,
+    "gastos_usd": 249.42,
+    "tipo_cambio": 1295.0
+  },
+  {
+    "fecha_raw": "22/08/2024",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 07/24",
+    "gastos_ars": 496401.14,
+    "gastos_usd": 371.84,
+    "tipo_cambio": 1335.0
+  },
+  {
+    "fecha_raw": "23/08/2024",
+    "comprobante": "",
+    "proveedor": "OSSEI",
+    "concepto": "",
+    "gastos_ars": 34436.38,
+    "gastos_usd": 25.8,
+    "tipo_cambio": 1335.0
+  },
+  {
+    "fecha_raw": "23/08/2024",
+    "comprobante": "",
+    "proveedor": "OSSEI OSSE",
+    "concepto": "PERIODO 08/2024",
+    "gastos_ars": 34436.38,
+    "gastos_usd": 25.8,
+    "tipo_cambio": 1335.0
+  },
+  {
+    "fecha_raw": "30/08/2024",
+    "comprobante": "",
+    "proveedor": "",
+    "concepto": "MEDIANERA (LADO LAMADRID)",
+    "gastos_ars": 4100000.0,
+    "gastos_usd": 3000.0,
+    "tipo_cambio": 1365.0
+  },
+  {
+    "fecha_raw": "02/09/2024",
+    "comprobante": "6521",
+    "proveedor": "ASCENSORES ULTRA",
+    "concepto": "TRANSMISOR DE FOTOCELULA SEG. PLAT. MONTACOCHES AELULASEO PLAT. MONT LA SEG. PLAT. MONTACOCHES ACOCHES",
+    "gastos_ars": 120000.0,
+    "gastos_usd": 93.02,
+    "tipo_cambio": 1290.0
+  },
+  {
+    "fecha_raw": "10/09/2024",
+    "comprobante": "111841",
+    "proveedor": "IMEPHO",
+    "concepto": "PORCELANATOS • CERESITA - FLETE • FLETE LETE",
+    "gastos_ars": 5846913.69,
+    "gastos_usd": 4622.07,
+    "tipo_cambio": 1265.0
+  },
+  {
+    "fecha_raw": "12/09/2024",
+    "comprobante": "2991",
+    "proveedor": "MDO FERRETERIA",
+    "concepto": "LIJA ANTIEMPASTE",
+    "gastos_ars": 7329.3,
+    "gastos_usd": 5.79,
+    "tipo_cambio": 1265.0
+  },
+  {
+    "fecha_raw": "13/09/2024",
+    "comprobante": "13359",
+    "proveedor": "DRAP",
+    "concepto": "LIGANTEX - MURO BLANCO Y FIJADO JADO",
+    "gastos_ars": 166848.17,
+    "gastos_usd": 132.95,
+    "tipo_cambio": 1255.0
+  },
+  {
+    "fecha_raw": "19/09/2024",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 08/24",
+    "gastos_ars": 477886.33,
+    "gastos_usd": 390.11,
+    "tipo_cambio": 1225.0
+  },
+  {
+    "fecha_raw": "19/09/2024",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "PERIODO 09/2024",
+    "gastos_ars": 115885.86,
+    "gastos_usd": 94.6,
+    "tipo_cambio": 1225.0
+  },
+  {
+    "fecha_raw": "23/09/2024",
+    "comprobante": "11246",
+    "proveedor": "HIERROMETAL",
+    "concepto": "28 CODOS. 6 CAÑOS",
+    "gastos_ars": 149881.0,
+    "gastos_usd": 1033.0,
+    "tipo_cambio": 145.09
+  },
+  {
+    "fecha_raw": "24/09/2024",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 09/2024",
+    "gastos_ars": 45567.78,
+    "gastos_usd": 37.05,
+    "tipo_cambio": 1230.0
+  },
+  {
+    "fecha_raw": "24/09/2024",
+    "comprobante": "112119",
+    "proveedor": "IMEPHO",
+    "concepto": "PORCELANATOS",
+    "gastos_ars": 614170.0,
+    "gastos_usd": 499.33,
+    "tipo_cambio": 1230.0
+  },
+  {
+    "fecha_raw": "05/10/2024",
+    "comprobante": "21238",
+    "proveedor": "QUIMICA ESSIG",
+    "concepto": "KTECH PLUS - ESSIPOL REST.",
+    "gastos_ars": 219790.0,
+    "gastos_usd": 187.85,
+    "tipo_cambio": 1170.0
+  },
+  {
+    "fecha_raw": "15/10/2024",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "PERIODO 10/2024",
+    "gastos_ars": 115885.86,
+    "gastos_usd": 94.99,
+    "tipo_cambio": 1220.0
+  },
+  {
+    "fecha_raw": "21/10/2024",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 09/24",
+    "gastos_ars": 499656.41,
+    "gastos_usd": 407.88,
+    "tipo_cambio": 1225.0
+  },
+  {
+    "fecha_raw": "24/10/2024",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 10/2024",
+    "gastos_ars": 36891.66,
+    "gastos_usd": 28.38,
+    "tipo_cambio": 1300.0
+  },
+  {
+    "fecha_raw": "12/11/2024",
+    "comprobante": "6732",
+    "proveedor": "ASCENSORES ULTRA",
+    "concepto": "FOTOCELULAS MONTACARGAS - 2 TUBOS LED- LIMITE CIERRE IS - 2 TUBOS LED- LIMITE CIERRE • 2 TUBOS LED- LIMITE CIERRE",
+    "gastos_ars": 445000.0,
+    "gastos_usd": 399.1,
+    "tipo_cambio": 1115.0
+  },
+  {
+    "fecha_raw": "19/11/2024",
+    "comprobante": "13359",
+    "proveedor": "DRAP",
+    "concepto": "LIGANTEX - MURO BLANCO Y FIJADO JADO",
+    "gastos_ars": 166848.17,
+    "gastos_usd": 148.97,
+    "tipo_cambio": 1120.0
+  },
+  {
+    "fecha_raw": "20/11/2024",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "PERIODO 11/2024",
+    "gastos_ars": 115885.86,
+    "gastos_usd": 103.93,
+    "tipo_cambio": 1115.0
+  },
+  {
+    "fecha_raw": "25/11/2024",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 11/2024",
+    "gastos_ars": 39761.78,
+    "gastos_usd": 35.5,
+    "tipo_cambio": 1120.0
+  },
+  {
+    "fecha_raw": "16/12/2024",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "PERIODO 12/2024",
+    "gastos_ars": 115885.86,
+    "gastos_usd": 104.4,
+    "tipo_cambio": 1110.0
+  },
+  {
+    "fecha_raw": "19/12/2024",
+    "comprobante": "17004",
+    "proveedor": "TIRRONI RUBEN DARIO",
+    "concepto": "ACE 15. WD-40 CHICO",
+    "gastos_ars": 6624.75,
+    "gastos_usd": 4.49,
+    "tipo_cambio": 1475.0
+  },
+  {
+    "fecha_raw": "19/12/2024",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 11/2024",
+    "gastos_ars": 556258.4,
+    "gastos_usd": 465.49,
+    "tipo_cambio": 1195.0
+  },
+  {
+    "fecha_raw": "23/12/2024",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 12/2024",
+    "gastos_ars": 41135.16,
+    "gastos_usd": 35.77,
+    "tipo_cambio": 1150.0
+  },
+  {
+    "fecha_raw": "07/01/2025",
+    "comprobante": "6804",
+    "proveedor": "ASCENSORES ULTRA",
+    "concepto": "CAMBIO POLEA DESVIO A PORTON CFTE PB MONTACOCHE RTON CFTE PB MONTACOCHE",
+    "gastos_ars": 110000.0,
+    "gastos_usd": 92.05,
+    "tipo_cambio": 1195.0
+  },
+  {
+    "fecha_raw": "14/01/2025",
+    "comprobante": "",
+    "proveedor": "CIARDI HNOS",
+    "concepto": "AD CARON TALENO SOPORTE",
+    "gastos_ars": 84779.7,
+    "gastos_usd": 65.72,
+    "tipo_cambio": 1290.0
+  },
+  {
+    "fecha_raw": "17/01/2025",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 08/25 PERIODO 06/25",
+    "gastos_ars": 778930.75,
+    "gastos_usd": 606.17,
+    "tipo_cambio": 1285.0
+  },
+  {
+    "fecha_raw": "17/01/2025",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 12/24",
+    "gastos_ars": 633290.47,
+    "gastos_usd": 516.97,
+    "tipo_cambio": 1225.0
+  },
+  {
+    "fecha_raw": "18/01/2025",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "PERIODO 01/2025",
+    "gastos_ars": 162818.93,
+    "gastos_usd": 132.91,
+    "tipo_cambio": 1225.0
+  },
+  {
+    "fecha_raw": "18/01/2025",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 01/2025",
+    "gastos_ars": 45323.18,
+    "gastos_usd": 37.0,
+    "tipo_cambio": 1225.0
+  },
+  {
+    "fecha_raw": "22/01/2025",
+    "comprobante": "",
+    "proveedor": "J.M. LANDA",
+    "concepto": "SILVER 20X 1.14 - TEAK 20X 1.14",
+    "gastos_ars": 14.0,
+    "gastos_usd": 5500.0,
+    "tipo_cambio": 1225.0
+  },
+  {
+    "fecha_raw": "06/02/2025",
+    "comprobante": "6890",
+    "proveedor": "ASCENSORES ULTRA",
+    "concepto": "ENERO DE 2025",
+    "gastos_ars": 161500.0,
+    "gastos_usd": 134.02,
+    "tipo_cambio": 1205.0
+  },
+  {
+    "fecha_raw": "11/02/2025",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "PERIODO 02/2025",
+    "gastos_ars": 162818.93,
+    "gastos_usd": 136.25,
+    "tipo_cambio": 1195.0
+  },
+  {
+    "fecha_raw": "20/02/2025",
+    "comprobante": "6967",
+    "proveedor": "ASCENSORES ULTRA",
+    "concepto": "FEBRERO DE 2025",
+    "gastos_ars": 161500.0,
+    "gastos_usd": 132.92,
+    "tipo_cambio": 1215.0
+  },
+  {
+    "fecha_raw": "20/02/2025",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 01/2025",
+    "gastos_ars": 745486.21,
+    "gastos_usd": 613.57,
+    "tipo_cambio": 1215.0
+  },
+  {
+    "fecha_raw": "27/02/2025",
+    "comprobante": "",
+    "proveedor": "GERSINI",
+    "concepto": "PUERTAS VS. INTERIOR EDIFICIO",
+    "gastos_ars": 242000000.0,
+    "gastos_usd": 203800.0,
+    "tipo_cambio": 1195.0
+  },
+  {
+    "fecha_raw": "27/02/2025",
+    "comprobante": "",
+    "proveedor": "FED. PATRONAL",
+    "concepto": "SEGURO DEL 25/02/25 AL 25/08/25 18/25",
+    "gastos_ars": 362007.89,
+    "gastos_usd": 302.94,
+    "tipo_cambio": 1195.0
+  },
+  {
+    "fecha_raw": "08/03/2025",
+    "comprobante": "17612",
+    "proveedor": "DRAP",
+    "concepto": "CINTA PAPEL - VENDA POLIESTER - FILM NEGRO TER - FILM NEGRO",
+    "gastos_ars": 101342.08,
+    "gastos_usd": 84.1,
+    "tipo_cambio": 1205.0
+  },
+  {
+    "fecha_raw": "10/03/2025",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "PERIODO 03/2025",
+    "gastos_ars": 162818.93,
+    "gastos_usd": 134.01,
+    "tipo_cambio": 1215.0
+  },
+  {
+    "fecha_raw": "11/03/2025",
+    "comprobante": "",
+    "proveedor": "ARBA",
+    "concepto": "ANO 2025",
+    "gastos_ars": 2115125.1,
+    "gastos_usd": 1748.04,
+    "tipo_cambio": 1210.0
+  },
+  {
+    "fecha_raw": "11/03/2025",
+    "comprobante": "0010-00023407",
+    "proveedor": "RE-SA",
+    "concepto": "CAÑOS CANOS",
+    "gastos_ars": 71500.01,
+    "gastos_usd": 51.62,
+    "tipo_cambio": 1385.0
+  },
+  {
+    "fecha_raw": "20/03/2025",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 03/2025",
+    "gastos_ars": 50183.55,
+    "gastos_usd": 39.51,
+    "tipo_cambio": 1270.0
+  },
+  {
+    "fecha_raw": "21/03/2025",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 02/25",
+    "gastos_ars": 1004797.66,
+    "gastos_usd": 800.64,
+    "tipo_cambio": 1255.0
+  },
+  {
+    "fecha_raw": "26/03/2025",
+    "comprobante": "7003",
+    "proveedor": "ASCENSORES ULTRA",
+    "concepto": "MARZO DE 2025",
+    "gastos_ars": 178500.0,
+    "gastos_usd": 138.91,
+    "tipo_cambio": 1285.0
+  },
+  {
+    "fecha_raw": "28/03/2025",
+    "comprobante": "7003",
+    "proveedor": "ASCENSORES ULTRA",
+    "concepto": "MARZO DE 2025",
+    "gastos_ars": null,
+    "gastos_usd": 178500.0,
+    "tipo_cambio": 1285.0
+  },
+  {
+    "fecha_raw": "31/03/2025",
+    "comprobante": "4570",
+    "proveedor": "BULFEROD",
+    "concepto": "VARILLA• TUERCA- MECHAS ACERO - PLANAS VARILLA. TUERCA- MECHAS ACERO - PLANAS ACERO - PLANAS",
+    "gastos_ars": 67323.71,
+    "gastos_usd": 51.2,
+    "tipo_cambio": 1315.0
+  },
+  {
+    "fecha_raw": "01/04/2025",
+    "comprobante": "386250",
+    "proveedor": "HIERROS FAULE",
+    "concepto": "ANGULO",
+    "gastos_ars": 20518.08,
+    "gastos_usd": 15.78,
+    "tipo_cambio": 1300.0
+  },
+  {
+    "fecha_raw": "03/04/2025",
+    "comprobante": "18099",
+    "proveedor": "DRAP",
+    "concepto": "ADHESIL BLANCO - SEAKROME NARANJA ADHESIL BLANCO - SEAKROME NARANJA IE NARANJA",
+    "gastos_ars": 50616.91,
+    "gastos_usd": 38.94,
+    "tipo_cambio": 1300.0
+  },
+  {
+    "fecha_raw": "03/04/2025",
+    "comprobante": "17911",
+    "proveedor": "DRAP",
+    "concepto": "VIRUTA - CINTA DE PAPEL L BANCO SARONE MARANIA",
+    "gastos_ars": 36550.64,
+    "gastos_usd": 28.12,
+    "tipo_cambio": 1300.0
+  },
+  {
+    "fecha_raw": "10/04/2025",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "PERIODO 04/2025",
+    "gastos_ars": 175062.7,
+    "gastos_usd": 129.2,
+    "tipo_cambio": 1355.0
+  },
+  {
+    "fecha_raw": "10/04/2025",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 04/2025",
+    "gastos_ars": 51009.53,
+    "gastos_usd": 37.65,
+    "tipo_cambio": 1355.0
+  },
+  {
+    "fecha_raw": "21/04/2025",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 03/25",
+    "gastos_ars": 730152.64,
+    "gastos_usd": 640.48,
+    "tipo_cambio": 1140.0
+  },
+  {
+    "fecha_raw": "12/05/2025",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "PERIODO 05/2025",
+    "gastos_ars": 175062.7,
+    "gastos_usd": 150.92,
+    "tipo_cambio": 1160.0
+  },
+  {
+    "fecha_raw": "19/05/2025",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 05/2025",
+    "gastos_ars": 53221.97,
+    "gastos_usd": 46.08,
+    "tipo_cambio": 1155.0
+  },
+  {
+    "fecha_raw": "20/05/2025",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 04/25",
+    "gastos_ars": 716368.74,
+    "gastos_usd": 620.23,
+    "tipo_cambio": 1155.0
+  },
+  {
+    "fecha_raw": "06/06/2025",
+    "comprobante": "",
+    "proveedor": "J.M. LANDA",
+    "concepto": "LADRILLO-ARENA-CEMENTO-PALLET-FLETE PALLET-FLETE",
+    "gastos_ars": 620000.0,
+    "gastos_usd": 532.19,
+    "tipo_cambio": 1165.0
+  },
+  {
+    "fecha_raw": "10/06/2025",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "PERIODO 06/2025",
+    "gastos_ars": 175062.7,
+    "gastos_usd": 148.99,
+    "tipo_cambio": 1175.0
+  },
+  {
+    "fecha_raw": "19/06/2025",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 05/25",
+    "gastos_ars": 731645.07,
+    "gastos_usd": 620.04,
+    "tipo_cambio": 1180.0
+  },
+  {
+    "fecha_raw": "19/06/2025",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 06/2025",
+    "gastos_ars": 48082.53,
+    "gastos_usd": 40.75,
+    "tipo_cambio": 1180.0
+  },
+  {
+    "fecha_raw": "04/07/2025",
+    "comprobante": "57265",
+    "proveedor": "CIARDI HNOS",
+    "concepto": "CONDUCTORES-PROYECTOR-FOTOCONTROL ELECT. FENEDOATOR FOTOCONTROL FLEG 1 FOTOCONTROL ELECT.",
+    "gastos_ars": 53594.07,
+    "gastos_usd": 44.11,
+    "tipo_cambio": 1215.0
+  },
+  {
+    "fecha_raw": "04/07/2025",
+    "comprobante": "382",
+    "proveedor": "BERTELLO",
+    "concepto": "SERVICIO CONTENEDOR",
+    "gastos_ars": 65000.0,
+    "gastos_usd": 53.5,
+    "tipo_cambio": 1215.0
+  },
+  {
+    "fecha_raw": "10/07/2025",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "PERIODO 07/2025",
+    "gastos_ars": 200853.04,
+    "gastos_usd": 158.15,
+    "tipo_cambio": 1270.0
+  },
+  {
+    "fecha_raw": "14/07/2025",
+    "comprobante": "",
+    "proveedor": "CIARDI HNOS",
+    "concepto": "TORTUGA-LAMPARAS-CAJA TABLERO-SOPORTE AD CARON TALENO SOPORTE ABLERO-SOPORTE",
+    "gastos_ars": 84779.7,
+    "gastos_usd": 65.72,
+    "tipo_cambio": 1290.0
+  },
+  {
+    "fecha_raw": "15/07/2025",
+    "comprobante": "118045",
+    "proveedor": "IMEPHO",
+    "concepto": "PORCELANATO - CERRO NEGRO RO",
+    "gastos_ars": 3821933.51,
+    "gastos_usd": 3000.02,
+    "tipo_cambio": 1273.97
+  },
+  {
+    "fecha_raw": "21/07/2025",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 07/25",
+    "gastos_ars": 49678.48,
+    "gastos_usd": 38.36,
+    "tipo_cambio": 1295.0
+  },
+  {
+    "fecha_raw": "31/07/2025",
+    "comprobante": "19361-2",
+    "proveedor": "J.M. LANDA",
+    "concepto": "LADRILLO• HUECO-CAL- CEMENTO PALLET. FLETE LADRILLO- HUECO-CAL•CEMENTO-PALLET.FLETE] ENTO-PALLET-FLETE",
+    "gastos_ars": 409333.86,
+    "gastos_usd": 312.47,
+    "tipo_cambio": 1310.0
+  },
+  {
+    "fecha_raw": "06/08/2025",
+    "comprobante": "",
+    "proveedor": "J.M. LANDA",
+    "concepto": "LADRILLO-ARENA-CEMENTO-PALLET-FLETE",
+    "gastos_ars": 620000.0,
+    "gastos_usd": 532.19,
+    "tipo_cambio": 1165.0
+  },
+  {
+    "fecha_raw": "11/08/2025",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "PERIODO 08/2025",
+    "gastos_ars": 200853.04,
+    "gastos_usd": 153.91,
+    "tipo_cambio": 1305.0
+  },
+  {
+    "fecha_raw": "12/08/2025",
+    "comprobante": "400",
+    "proveedor": "BERTELLO",
+    "concepto": "SERVICIO CONTENEDOR",
+    "gastos_ars": 65000.0,
+    "gastos_usd": 49.43,
+    "tipo_cambio": 1315.0
+  },
+  {
+    "fecha_raw": "19/08/2025",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 07/25",
+    "gastos_ars": 812102.9,
+    "gastos_usd": 617.57,
+    "tipo_cambio": 1315.0
+  },
+  {
+    "fecha_raw": "21/08/2025",
+    "comprobante": "",
+    "proveedor": "OSSEI",
+    "concepto": "PERIODO 08/25",
+    "gastos_ars": 50577.28,
+    "gastos_usd": 38.03,
+    "tipo_cambio": 1330.0
+  },
+  {
+    "fecha_raw": "27/08/2025",
+    "comprobante": "265815049",
+    "proveedor": "SEG. FED, PATI SEG. FED. PAT",
+    "concepto": "POLIZA DEL 25/08/25 AL 25/02/26",
+    "gastos_ars": 456200.0,
+    "gastos_usd": 336.68,
+    "tipo_cambio": 1355.0
+  },
+  {
+    "fecha_raw": "27/08/2025",
+    "comprobante": "208",
+    "proveedor": "ESPINDOLA",
+    "concepto": "TRABAJOS DE ELECTRICIDAD",
+    "gastos_ars": 385000.0,
+    "gastos_usd": 284.13,
+    "tipo_cambio": 1355.0
+  },
+  {
+    "fecha_raw": "10/09/2025",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "PERIODO 09/2025",
+    "gastos_ars": 200853.04,
+    "gastos_usd": 146.07,
+    "tipo_cambio": 1375.0
+  },
+  {
+    "fecha_raw": "11/09/2025",
+    "comprobante": "0010-00023364",
+    "proveedor": "RE-SA",
+    "concepto": "CANOS",
+    "gastos_ars": 2230000.0,
+    "gastos_usd": 1610.11,
+    "tipo_cambio": 1385.0
+  },
+  {
+    "fecha_raw": "15/09/2025",
+    "comprobante": "0002-00006241 0002-00005241",
+    "proveedor": "BENJAMIN S Y CIA SA",
+    "concepto": "FILTRO-BUJE",
+    "gastos_ars": 181058.0,
+    "gastos_usd": 127.96,
+    "tipo_cambio": 1415.0
+  },
+  {
+    "fecha_raw": "15/09/2025",
+    "comprobante": "240We1d32 2400021832",
+    "proveedor": "DRAP PINTURERIAS",
+    "concepto": "HYDRARRAS-AIKE FRENTES",
+    "gastos_ars": 9654.88,
+    "gastos_usd": 6.82,
+    "tipo_cambio": 1415.0
+  },
+  {
+    "fecha_raw": "16/09/2025",
+    "comprobante": "0002-00006242",
+    "proveedor": "BENJAMIN S Y CIA SA",
+    "concepto": "BRIDA- JUNTA CODA UNTA",
+    "gastos_ars": 169787.2,
+    "gastos_usd": 117.5,
+    "tipo_cambio": 1445.0
+  },
+  {
+    "fecha_raw": "16/09/2025",
+    "comprobante": "0010-00023437",
+    "proveedor": "RE-SA",
+    "concepto": "CANOS",
+    "gastos_ars": 41000.02,
+    "gastos_usd": 28.37,
+    "tipo_cambio": 1445.0
+  },
+  {
+    "fecha_raw": "17/09/2025",
+    "comprobante": "0010-00023480",
+    "proveedor": "RE-SA",
+    "concepto": "CODOS",
+    "gastos_ars": 18845.7,
+    "gastos_usd": 12.95,
+    "tipo_cambio": 1455.0
+  },
+  {
+    "fecha_raw": "19/09/2025",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 09/25",
+    "gastos_ars": 52912.74,
+    "gastos_usd": 35.28,
+    "tipo_cambio": 1500.0
+  },
+  {
+    "fecha_raw": "20/09/2025",
+    "comprobante": "0004-00027430",
+    "proveedor": "CAT SAL",
+    "concepto": "MEMBRANA/ VENDA PARED EMERANA VENDA PARED",
+    "gastos_ars": 401460.5,
+    "gastos_usd": 269.44,
+    "tipo_cambio": 1490.0
+  },
+  {
+    "fecha_raw": "23/09/2025",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 08/25",
+    "gastos_ars": 831916.99,
+    "gastos_usd": 99.0,
+    "tipo_cambio": 1465.0
+  },
+  {
+    "fecha_raw": "23/09/2025",
+    "comprobante": "0015-00004213",
+    "proveedor": "CERROSUD",
+    "concepto": "ZEFIRO",
+    "gastos_ars": 15547689.81,
+    "gastos_usd": 10612.76,
+    "tipo_cambio": 1465.0
+  },
+  {
+    "fecha_raw": "26/09/2025",
+    "comprobante": "0007-00000429",
+    "proveedor": "VALENZINA MUEBLES",
+    "concepto": "MESAS",
+    "gastos_ars": 963000.0,
+    "gastos_usd": 644.15,
+    "tipo_cambio": 1495.0
+  },
+  {
+    "fecha_raw": "26/09/2025",
+    "comprobante": "0010-00023460",
+    "proveedor": "RE-SA",
+    "concepto": "VARILLA- TUERCA- MECHAS ACERO - PLANAS ACERO - PLANAS",
+    "gastos_ars": 44859.24,
+    "gastos_usd": 30.01,
+    "tipo_cambio": 1495.0
+  },
+  {
+    "fecha_raw": "02/10/2025",
+    "comprobante": "00100-00058983",
+    "proveedor": "LA CARDEUSE",
+    "concepto": "COLCHON- ALMOHADA",
+    "gastos_ars": 22414279.5,
+    "gastos_usd": 15299.85,
+    "tipo_cambio": 1465.0
+  },
+  {
+    "fecha_raw": "02/10/2025",
+    "comprobante": "00100-00058952",
+    "proveedor": "LA CARDEUSE",
+    "concepto": "COLCHON- ALMOHADA COLCHON-ALMOHADA",
+    "gastos_ars": 1022530.98,
+    "gastos_usd": 697.97,
+    "tipo_cambio": 1465.0
+  },
+  {
+    "fecha_raw": "02/10/2025",
+    "comprobante": "00100-00058960",
+    "proveedor": "LA CARDEUSE",
+    "concepto": "COLCHON-ALMOHADA COLCHON- ALMOHADA",
+    "gastos_ars": 22542039.41,
+    "gastos_usd": 15387.06,
+    "tipo_cambio": 1465.0
+  },
+  {
+    "fecha_raw": "03/10/2025",
+    "comprobante": "0001-000000043",
+    "proveedor": "BERTELLO LUIS E",
+    "concepto": "SERVICIO DE CONTENEDOR",
+    "gastos_ars": 70000.0,
+    "gastos_usd": 48.61,
+    "tipo_cambio": 1440.0
+  },
+  {
+    "fecha_raw": "08/10/2025",
+    "comprobante": "0011-00020006",
+    "proveedor": "JUAN M. LANDA",
+    "concepto": "CEMENTO-HIERRO-CLAVOS-CAL+ FLETE CAL+ FLETE",
+    "gastos_ars": 1840997.84,
+    "gastos_usd": 1265.29,
+    "tipo_cambio": 1455.0
+  },
+  {
+    "fecha_raw": "09/10/2025",
+    "comprobante": "00002-0000113",
+    "proveedor": "J.T.M.M CONCEPTION",
+    "concepto": "MESA + SILLAS",
+    "gastos_ars": 1584000.01,
+    "gastos_usd": 1073.9,
+    "tipo_cambio": 1475.0
+  },
+  {
+    "fecha_raw": "09/10/2025",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 10/25",
+    "gastos_ars": 55935.05,
+    "gastos_usd": 37.92,
+    "tipo_cambio": 1475.0
+  },
+  {
+    "fecha_raw": "13/10/2025",
+    "comprobante": "00003-00000038",
+    "proveedor": "COOPER GUILERMO",
+    "concepto": "TRABAJO DE YESERIA",
+    "gastos_ars": 3630000.0,
+    "gastos_usd": 2477.82,
+    "tipo_cambio": 1465.0
+  },
+  {
+    "fecha_raw": "13/10/2025",
+    "comprobante": "",
+    "proveedor": "CERROSUD",
+    "concepto": "ZEFIRO",
+    "gastos_ars": 662557.69,
+    "gastos_usd": 452.26,
+    "tipo_cambio": 1465.0
+  },
+  {
+    "fecha_raw": "20/10/2025",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "PERIODO 09/25",
+    "gastos_ars": 211101.97,
+    "gastos_usd": 143.12,
+    "tipo_cambio": 1475.0
+  },
+  {
+    "fecha_raw": "20/10/2025",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 09/25",
+    "gastos_ars": 836236.28,
+    "gastos_usd": 566.94,
+    "tipo_cambio": 1475.0
+  },
+  {
+    "fecha_raw": "03/11/2025",
+    "comprobante": "00003-000040",
+    "proveedor": "COOPER GUILERMO",
+    "concepto": "TRABAJO DE YESERIA",
+    "gastos_ars": 3630000.0,
+    "gastos_usd": 2529.62,
+    "tipo_cambio": 1435.0
+  },
+  {
+    "fecha_raw": "10/11/2025",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "PERIODO 10/2025",
+    "gastos_ars": 211101.97,
+    "gastos_usd": 150.25,
+    "tipo_cambio": 1405.0
+  },
+  {
+    "fecha_raw": "10/11/2025",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 11/2025",
+    "gastos_ars": 54371.64,
+    "gastos_usd": 38.7,
+    "tipo_cambio": 1405.0
+  },
+  {
+    "fecha_raw": "12/11/2025",
+    "comprobante": "0004-000004489",
+    "proveedor": "VAULT SRL VAULT SAL",
+    "concepto": "90 CERRADURAS",
+    "gastos_ars": 18817920.0,
+    "gastos_usd": 13159.38,
+    "tipo_cambio": 1430.0
+  },
+  {
+    "fecha_raw": "12/11/2025",
+    "comprobante": "00024-18277",
+    "proveedor": "DRAP PINTURERIAS",
+    "concepto": "ADHESIL BLANCO",
+    "gastos_ars": 33855.27,
+    "gastos_usd": 23.68,
+    "tipo_cambio": 1430.0
+  },
+  {
+    "fecha_raw": "12/11/2025",
+    "comprobante": "00024-18964 00024•18964",
+    "proveedor": "DRAP PINTURERIAS",
+    "concepto": "VENIER SUPERCAPA-RECUBLOCK -OCK",
+    "gastos_ars": 123772.78,
+    "gastos_usd": 86.55,
+    "tipo_cambio": 1430.0
+  },
+  {
+    "fecha_raw": "17/11/2025",
+    "comprobante": "1476-00042746",
+    "proveedor": "CREDIFIN LOGISTICA",
+    "concepto": "ENCOMIENDA (ENVIO 90 CERRADURAS) IRADURAS)",
+    "gastos_ars": 340000.0,
+    "gastos_usd": 238.93,
+    "tipo_cambio": 1423.0
+  },
+  {
+    "fecha_raw": "19/11/2025",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 10/2025",
+    "gastos_ars": 852986.09,
+    "gastos_usd": 600.69,
+    "tipo_cambio": 1420.0
+  },
+  {
+    "fecha_raw": "20/11/2025",
+    "comprobante": "01-456",
+    "proveedor": "BERTELLO LUIS E",
+    "concepto": "SERVICIO DE CONTENEDOR",
+    "gastos_ars": 70000.0,
+    "gastos_usd": 49.47,
+    "tipo_cambio": 1415.0
+  },
+  {
+    "fecha_raw": "28/11/2025",
+    "comprobante": "03-148",
+    "proveedor": "MASTRENGELO CESAR",
+    "concepto": "MANO DE OBRA CARPINTERIA ALUMINIO",
+    "gastos_ars": 16800000.0,
+    "gastos_usd": 10902.01,
+    "tipo_cambio": 1541.0
+  },
+  {
+    "fecha_raw": "28/11/2025",
+    "comprobante": "FACTURAS VARIAS",
+    "proveedor": "GAUTHIER WALTER",
+    "concepto": "PAGO A CUENTA (TRABAJO DE ALBANILERIA) E ALBANILERIA)",
+    "gastos_ars": 6000000.0,
+    "gastos_usd": 4192.87,
+    "tipo_cambio": 1431.0
+  },
+  {
+    "fecha_raw": "09/12/2025",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "PERIODO 12/2025",
+    "gastos_ars": 211101.97,
+    "gastos_usd": 147.11,
+    "tipo_cambio": 1435.0
+  },
+  {
+    "fecha_raw": "23/12/2025",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 11/2025",
+    "gastos_ars": 942919.57,
+    "gastos_usd": 630.72,
+    "tipo_cambio": 1495.0
+  },
+  {
+    "fecha_raw": "23/12/2025",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 11/2025",
+    "gastos_ars": 942919.57,
+    "gastos_usd": 630.72,
+    "tipo_cambio": 1495.0
+  },
+  {
+    "fecha_raw": "30/12/2025",
+    "comprobante": "FACTURAS VARIAS",
+    "proveedor": "JUAN M. LANDA",
+    "concepto": "ARENA-CEMENTO-FLETE",
+    "gastos_ars": 299811.0,
+    "gastos_usd": 197.24,
+    "tipo_cambio": 1520.0
+  },
+  {
+    "fecha_raw": "03/01/2026",
+    "comprobante": "",
+    "proveedor": "ARM",
+    "concepto": "PERIODO ANUAL 2026",
+    "gastos_ars": 2576418.1,
+    "gastos_usd": 1723.36,
+    "tipo_cambio": 1495.0
+  },
+  {
+    "fecha_raw": "20/01/2026",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 12/2025",
+    "gastos_ars": 944360.2,
+    "gastos_usd": 631.68,
+    "tipo_cambio": 1495.0
+  },
+  {
+    "fecha_raw": "20/01/2026",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 12/2025",
+    "gastos_ars": 57240.07,
+    "gastos_usd": 38.29,
+    "tipo_cambio": 1495.0
+  },
+  {
+    "fecha_raw": "22/01/2026",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 01/2026",
+    "gastos_ars": 55062.8,
+    "gastos_usd": 36.95,
+    "tipo_cambio": 1490.0
+  },
+  {
+    "fecha_raw": "26/01/2026",
+    "comprobante": "12",
+    "proveedor": "ASCENSORES ULTRA",
+    "concepto": "ENERO DE 2026",
+    "gastos_ars": 246500.0,
+    "gastos_usd": 166.55,
+    "tipo_cambio": 1480.0
+  },
+  {
+    "fecha_raw": "29/01/2026",
+    "comprobante": "03-00000044",
+    "proveedor": "COOPER GUILLERMO",
+    "concepto": "TRABAJO DE YESERIA",
+    "gastos_ars": 3700000.0,
+    "gastos_usd": 2508.47,
+    "tipo_cambio": 1475.0
+  },
+  {
+    "fecha_raw": "13/02/2026",
+    "comprobante": "0003-00000085",
+    "proveedor": "ASCENSORES ULTRA",
+    "concepto": "FEBRERO DE 2026",
+    "gastos_ars": 246500.0,
+    "gastos_usd": 172.38,
+    "tipo_cambio": 1430.0
+  },
+  {
+    "fecha_raw": "18/02/2026",
+    "comprobante": "",
+    "proveedor": "ARBA",
+    "concepto": "PERIODO ANUAL 2026",
+    "gastos_ars": 1168893.1,
+    "gastos_usd": 820.28,
+    "tipo_cambio": 1425.0
+  },
+  {
+    "fecha_raw": "20/02/2026",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 02/2025",
+    "gastos_ars": 54353.5,
+    "gastos_usd": 38.28,
+    "tipo_cambio": 1420.0
+  },
+  {
+    "fecha_raw": "23/02/2026",
+    "comprobante": "0016-00000718",
+    "proveedor": "HESPARREN SAL-ESTEBAI MESADAS HESPARREN SRL-ESTEBA MESADAS",
+    "concepto": "",
+    "gastos_ars": 27900000.0,
+    "gastos_usd": 20000.0,
+    "tipo_cambio": 1395.0
+  },
+  {
+    "fecha_raw": "23/02/2026",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 01/2026",
+    "gastos_ars": 1035079.58,
+    "gastos_usd": 731.51,
+    "tipo_cambio": 1415.0
+  },
+  {
+    "fecha_raw": "16/03/2026",
+    "comprobante": "",
+    "proveedor": "FED. PATRONAL",
+    "concepto": "PERIODO DEL 25/02/2026 AL 25/08/2026 15/08/2026",
+    "gastos_ars": 470000.0,
+    "gastos_usd": 332.16,
+    "tipo_cambio": 1415.0
+  },
+  {
+    "fecha_raw": "16/03/2026",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO O2I2b PERIODO 02/26",
+    "gastos_ars": 1018416.78,
+    "gastos_usd": 719.73,
+    "tipo_cambio": 1415.0
+  },
+  {
+    "fecha_raw": "17/03/2026",
+    "comprobante": "0002-00007799",
+    "proveedor": "ULTRA ASCENSORES",
+    "concepto": "PERIODO MARZO DE 2026",
+    "gastos_ars": 246500.0,
+    "gastos_usd": 174.2,
+    "tipo_cambio": 1415.0
+  },
+  {
+    "fecha_raw": "19/03/2026",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 3/2026",
+    "gastos_ars": 58096.52,
+    "gastos_usd": 40.77,
+    "tipo_cambio": 1425.0
+  },
+  {
+    "fecha_raw": "14/04/2026",
+    "comprobante": "",
+    "proveedor": "ARBA-INMOBILIARIO",
+    "concepto": "CTA 2/2026 CTA 2/2028",
+    "gastos_ars": null,
+    "gastos_usd": 873.78,
+    "tipo_cambio": 1395.0
+  },
+  {
+    "fecha_raw": "18/04/2026",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 4/2026",
+    "gastos_ars": 57097.7,
+    "gastos_usd": 40.78,
+    "tipo_cambio": 1400.0
+  },
+  {
+    "fecha_raw": "21/04/2026",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 3/2026",
+    "gastos_ars": 970491.6,
+    "gastos_usd": 693.21,
+    "tipo_cambio": 1400.0
+  },
+  {
+    "fecha_raw": "03/05/2026",
+    "comprobante": "0011-00021001",
+    "proveedor": "JUAN M. LANDA",
+    "concepto": "CEMENTO-CAL-FLETE",
+    "gastos_ars": 121078.82,
+    "gastos_usd": 85.87,
+    "tipo_cambio": 1410.0
+  },
+  {
+    "fecha_raw": "13/05/2026",
+    "comprobante": "0011-00021001",
+    "proveedor": "JUAN M. LANDA",
+    "concepto": "CEMENTO-CAL-FLETE",
+    "gastos_ars": 121078.82,
+    "gastos_usd": 85.87,
+    "tipo_cambio": 1410.0
+  },
+  {
+    "fecha_raw": "19/05/2026",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 4/2026",
+    "gastos_ars": 985418.83,
+    "gastos_usd": 698.88,
+    "tipo_cambio": 1410.0
+  },
+  {
+    "fecha_raw": "19/05/2026",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 5/2026",
+    "gastos_ars": 59351.35,
+    "gastos_usd": 42.09,
+    "tipo_cambio": 1410.0
+  },
+  {
+    "fecha_raw": "23/05/2026",
+    "comprobante": "03-153/03-157",
+    "proveedor": "MASTRENGELO CESAR",
+    "concepto": "MANO DE OBRA Y COLOCACION ALUMINIO(AJUSTE Y MANO DE OBRA) MANO DE OBRA Y COLOCACION ALUMINIO (AJUSTE Y MANO DE OBRA) ON ALUMINIO(AJUSTE Y MANO DE OBRA)",
+    "gastos_ars": 29142861.15,
+    "gastos_usd": 21000.0,
+    "tipo_cambio": 1387.0
+  },
+  {
+    "fecha_raw": "26/05/2026",
+    "comprobante": "00001-00000551",
+    "proveedor": "BERTELLO LUIS E.",
+    "concepto": "SERVICIO CONTENEDOR",
+    "gastos_ars": 90000.0,
+    "gastos_usd": 62.94,
+    "tipo_cambio": 1430.0
+  },
+  {
+    "fecha_raw": "29/05/2026",
+    "comprobante": "0016-00000784",
+    "proveedor": "HESPARREN SRL-ESTEBA MESADAS HESPARREN SAL-ESTEBA MESADAS",
+    "concepto": "",
+    "gastos_ars": 35750000.01,
+    "gastos_usd": 25000.0,
+    "tipo_cambio": 1430.0
+  },
+  {
+    "fecha_raw": "29/05/2026",
+    "comprobante": "03-153/03-157",
+    "proveedor": "MASTRENGELO CESAR",
+    "concepto": "MANO DE OBRA Y COLOCACION ALUMINIO(AJUSTE Y MANO DE OBRA) ON ALUMINIO(AJUSTE Y MANO DE OBRA)",
+    "gastos_ars": 29142861.15,
+    "gastos_usd": 21000.0,
+    "tipo_cambio": 1387.0
+  },
+  {
+    "fecha_raw": "10/06/2026",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 6/26",
+    "gastos_ars": 59351.35,
+    "gastos_usd": 41.27,
+    "tipo_cambio": 1438.0
+  },
+  {
+    "fecha_raw": "12/06/2026",
+    "comprobante": "",
+    "proveedor": "ARBA",
+    "concepto": "CUOTA 3/2026",
+    "gastos_ars": 1286947.3,
+    "gastos_usd": 903.12,
+    "tipo_cambio": 1425.0
+  },
+  {
+    "fecha_raw": "12/06/2026",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 5/26",
+    "gastos_ars": 1012140.55,
+    "gastos_usd": 710.27,
+    "tipo_cambio": 1425.0
+  },
+  {
+    "fecha_raw": "13/06/2026",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 7/26",
+    "gastos_ars": 66165.68,
+    "gastos_usd": 44.56,
+    "tipo_cambio": 1485.0
+  },
+  {
+    "fecha_raw": "21/07/2026",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 6/26",
+    "gastos_ars": 1074321.57,
+    "gastos_usd": 699.88,
+    "tipo_cambio": 1535.0
+  },
+  {
+    "fecha_raw": "03/08/2026",
+    "comprobante": "00002-00000658",
+    "proveedor": "PANERO VICTOR HUGO",
+    "concepto": "CEDULA CATASTRAL",
+    "gastos_ars": 700000.0,
+    "gastos_usd": 459.02,
+    "tipo_cambio": 1525.0
+  },
+  {
+    "fecha_raw": "10/08/2026",
+    "comprobante": "",
+    "proveedor": "OSSE",
+    "concepto": "PERIODO 8/26",
+    "gastos_ars": 66815.19,
+    "gastos_usd": 43.81,
+    "tipo_cambio": 1525.0
+  },
+  {
+    "fecha_raw": "14/08/2026",
+    "comprobante": "",
+    "proveedor": "EDEA",
+    "concepto": "PERIODO 07/26",
+    "gastos_ars": 1145723.63,
+    "gastos_usd": 771.53,
+    "tipo_cambio": 1485.0
+  },
+  {
+    "fecha_raw": "15/08/2026",
+    "comprobante": "",
+    "proveedor": "ARBA",
+    "concepto": "CUOTA 4/26",
+    "gastos_ars": 1499093.5,
+    "gastos_usd": 983.01,
+    "tipo_cambio": 1525.0
+  },
+  {
+    "fecha_raw": "25/08/2026",
+    "comprobante": "",
+    "proveedor": "FED. PATRONAL",
+    "concepto": "25/08/2026 AL 05/02/2027",
+    "gastos_ars": 491484.79,
+    "gastos_usd": 318.11,
+    "tipo_cambio": 1545.0
+  },
+  {
+    "fecha_raw": "25/08/2026",
+    "comprobante": "",
+    "proveedor": "VILLAGRA/SEYCO",
+    "concepto": "MATERIALES VARIOS/ TALADRO, AMOLADORA, ETC",
+    "gastos_ars": 2041403.36,
+    "gastos_usd": 1321.3,
+    "tipo_cambio": 1545.0
+  }
+]

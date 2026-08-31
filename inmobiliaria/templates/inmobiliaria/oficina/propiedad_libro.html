@@ -101,6 +101,15 @@
         <div class="col-auto">
             <button type="submit" class="btn btn-sm btn-primary">Filtrar</button>
             <a href="{% url 'inmobiliaria:oficina_propiedad_libro' propiedad.id %}" class="btn btn-sm btn-outline-secondary">Limpiar</a>
+            {% if exige_facturado_negro %}
+            <form method="post" action="{% url 'inmobiliaria:oficina_propiedad_libro_importar_facturado' propiedad.id %}" class="d-inline" id="form-import-facturado"
+                  onsubmit="return confirm('¿Importar el Excel de gastos como Facturado? Las filas nuevas se crean y las existentes se marcan como facturadas.');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-success">
+                    <i class="fas fa-file-invoice-dollar me-1"></i>Importar Excel facturado
+                </button>
+            </form>
+            {% endif %}
         </div>
     </form>
 

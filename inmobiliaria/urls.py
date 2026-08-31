@@ -384,6 +384,11 @@ urlpatterns = [
         name='oficina_propiedad_libro_cotizacion',
     ),
     path(
+        'oficina/propiedades/<str:propiedad_id>/libro/importar-facturado/',
+        views_oficina.oficina_propiedad_libro_importar_facturado,
+        name='oficina_propiedad_libro_importar_facturado',
+    ),
+    path(
         'oficina/propiedades/<str:propiedad_id>/libro/clasificacion/',
         views_oficina.oficina_propiedad_libro_clasificacion,
         name='oficina_propiedad_libro_clasificacion',
