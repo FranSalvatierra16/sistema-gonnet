@@ -74,9 +74,24 @@
                     {% empty %}
                     <tr>
                         <td colspan="6" class="text-center text-muted py-4">
-                            Todavía no hay lotes. Creá uno desde
+                            Todavía no hay lotes.
+                            {% if puede_recuperar_corrientes %}
+                            <div class="mt-2">
+                                <form method="post" action="{% url 'inmobiliaria:recuperar_lote_disponibilidad_masiva' %}" class="d-inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-primary btn-sm">
+                                        <i class="fas fa-history me-1"></i>Recuperar última masiva (Verano 2027)
+                                    </button>
+                                </form>
+                            </div>
+                            <p class="small mb-0 mt-2">
+                                Detecta la última carga masiva de deptos y la guarda acá para poder repetirla.
+                            </p>
+                            {% else %}
+                            Creá uno desde
                             <a href="{% url 'inmobiliaria:agregar_disponibilidad_masiva' %}">Disponibilidad Masiva</a>
                             poniendo un nombre.
+                            {% endif %}
                         </td>
                     </tr>
                     {% endfor %}

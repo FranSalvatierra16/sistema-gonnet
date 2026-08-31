@@ -9921,8 +9921,37 @@ def historial_disponibilidad_masiva(request):
             'lotes': lotes[:200],
             'q': q,
             'sucursal': sucursal,
+            'puede_recuperar_corrientes': 'corrientes' in (sucursal.nombre or '').lower(),
         },
     )
+
+
+@login_required
+@require_POST
+def recuperar_lote_disponibilidad_masiva(request):
+    """Recupera la última masiva de Corrientes y la guarda en el historial."""
+    from inmobiliaria.disponibilidad_masiva_utils import recuperar_lote_corrientes_verano_2027
+
+    sucursal = request.user.sucursal
+    if not sucursal:
+        return HttpResponseForbidden('Tu usuario no tiene sucursal asignada.')
+    if 'corrientes' not in (sucursal.nombre or '').lower():
+        messages.error(request, 'La recuperación automática solo está disponible en Corrientes.')
+        return redirect('inmobiliaria:historial_disponibilidad_masiva')
+
+    result = recuperar_lote_corrientes_verano_2027(
+        nombre='Verano 2027',
+        min_deptos=5,
+        sucursal=sucursal,
+    )
+    if result['ok']:
+        if result.get('creado'):
+            messages.success(request, result['mensaje'])
+        else:
+            messages.info(request, result['mensaje'])
+    else:
+        messages.error(request, result['mensaje'])
+    return redirect('inmobiliaria:historial_disponibilidad_masiva')
 
 
 @login_required

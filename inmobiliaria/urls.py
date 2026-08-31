@@ -98,6 +98,11 @@ urlpatterns = [
         name='historial_disponibilidad_masiva',
     ),
     path(
+        'disponibilidad-masiva/historial/recuperar/',
+        views.recuperar_lote_disponibilidad_masiva,
+        name='recuperar_lote_disponibilidad_masiva',
+    ),
+    path(
         'disponibilidad-masiva/lote/<int:lote_id>/',
         views.detalle_lote_disponibilidad_masiva,
         name='detalle_lote_disponibilidad_masiva',
