@@ -1855,6 +1855,14 @@ def oficina_propiedad_libro(request, propiedad_id):
         )
     )
 
+    # Anotaciones manuales (incluye importación Excel facturado).
+    qs_manual = FilaManualLibroPropiedad.objects.filter(propiedad=propiedad)
+    if dr_desde:
+        qs_manual = qs_manual.filter(fecha__gte=dr_desde)
+    if dr_hasta:
+        qs_manual = qs_manual.filter(fecha__lte=dr_hasta)
+    filas.extend(_fila_desde_manual(fm) for fm in qs_manual.order_by('fecha', 'id'))
+
     # Seguridad: descartar cualquier fila con fecha anterior al inicio de caja.
     if fecha_corte:
         def _fecha_sola(fila):
