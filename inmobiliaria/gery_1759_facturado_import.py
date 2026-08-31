@@ -67,41 +67,198 @@ def _parse_fecha_raw(fecha_raw: str):
     return None
 
 
+def _anio_desde_texto(*textos) -> int | None:
+    """Extrae año 20xx del concepto/proveedor (ej. ENERO DE 2021)."""
+    blob = ' '.join(t or '' for t in textos)
+    m = re.search(
+        r'(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre'
+        r'|cuota|periodo|mes|año|ano)\s+(?:de\s+)?(\d{4})\b',
+        blob,
+        flags=re.I,
+    )
+    if m:
+        y = int(m.group(1))
+        if 2000 <= y <= 2100:
+            return y
+    # "FEBRERO DE 2021" suelto como proveedor
+    m = re.search(r'\bde\s+(\d{4})\b', blob, flags=re.I)
+    if m:
+        y = int(m.group(1))
+        if 2000 <= y <= 2100:
+            return y
+    return None
+
+
+def _fecha_cronologica(day: int, month: int, referencia: date) -> date | None:
+    """
+    Arma DD/MM con el año de referencia asumiendo orden cronológico ascendente.
+    Si el día/mes queda antes que la referencia, pasa al año siguiente.
+    """
+    try:
+        candidata = date(referencia.year, month, day)
+    except ValueError:
+        return None
+    if candidata < referencia:
+        try:
+            candidata = date(referencia.year + 1, month, day)
+        except ValueError:
+            return None
+    return candidata
+
+
+def _fecha_antes_de(day: int, month: int, siguiente: date) -> date | None:
+    """DD/MM anterior a una fecha completa (ej. 18/12 antes de 10/01/2021 → 2020)."""
+    try:
+        candidata = date(siguiente.year, month, day)
+    except ValueError:
+        return None
+    if candidata > siguiente:
+        try:
+            candidata = date(siguiente.year - 1, month, day)
+        except ValueError:
+            return None
+    return candidata
+
+
 def resolver_anios_filas(filas: list[dict]) -> list[dict]:
-    """Completa fechas DD/MM sin año con el año del movimiento datado más cercano."""
+    """
+    Completa fechas DD/MM sin año.
+    Prioridad:
+    1) año mencionado en concepto/proveedor
+    2) continuidad cronológica desde la fecha anterior ya resuelta
+       (si el bloque vecino menciona otro año, se usa ese)
+    3) fecha completa siguiente (hacia atrás)
+    También corrige fechas completas cuyo año contradice el texto de la fila.
+    """
     parsed = []
     for fila in filas:
         valor = _parse_fecha_raw((fila.get('fecha_raw') or '').strip())
-        parsed.append({**fila, '_fecha_parsed': valor})
+        anio_txt = _anio_desde_texto(fila.get('concepto'), fila.get('proveedor'))
+        if isinstance(valor, date) and anio_txt and anio_txt != valor.year:
+            try:
+                valor = date(anio_txt, valor.month, valor.day)
+            except ValueError:
+                pass
+        parsed.append({**fila, '_fecha_parsed': valor, '_anio_texto': anio_txt})
 
     n = len(parsed)
+
+    def _anios_ventana(idx: int, radio: int = 20) -> list[int]:
+        anios = []
+        for j in range(max(0, idx - radio), min(n, idx + radio + 1)):
+            ay = parsed[j].get('_anio_texto')
+            if ay:
+                anios.append(ay)
+            v = parsed[j]['_fecha_parsed']
+            if isinstance(v, date):
+                anios.append(v.year)
+        return anios
+
+    def _anio_local(idx: int, fallback: int | None) -> int | None:
+        anios = _anios_ventana(idx)
+        if not anios:
+            return fallback
+        # moda; ante empate, el más cercano al fallback
+        from collections import Counter
+        counts = Counter(anios)
+        top = counts.most_common()
+        mejor = top[0][0]
+        if fallback is not None:
+            empatados = [y for y, c in top if c == top[0][1]]
+            mejor = min(empatados, key=lambda y: abs(y - fallback))
+        return mejor
+
+    # Pasada forward
+    ultima: date | None = None
     for i, item in enumerate(parsed):
         valor = item['_fecha_parsed']
-        if isinstance(valor, date) or valor is None:
+        if isinstance(valor, date):
+            ultima = valor
+            continue
+        if not isinstance(valor, tuple):
             continue
         day, month = valor
-        candidatos = []
-        for j in range(i - 1, -1, -1):
-            v = parsed[j]['_fecha_parsed']
-            if isinstance(v, date):
-                candidatos.append((i - j, v.year))
-                break
-        for j in range(i + 1, n):
-            v = parsed[j]['_fecha_parsed']
-            if isinstance(v, date):
-                candidatos.append((j - i, v.year))
-                break
-        if not candidatos:
-            item['_fecha_parsed'] = None
+        nueva = None
+        anio_txt = item.get('_anio_texto')
+        if anio_txt:
+            try:
+                nueva = date(anio_txt, month, day)
+            except ValueError:
+                nueva = None
+        if nueva is None:
+            # Preferir anclar a la próxima fecha completa (orden del Excel)
+            for j in range(i + 1, n):
+                v = parsed[j]['_fecha_parsed']
+                if isinstance(v, date):
+                    nueva = _fecha_antes_de(day, month, v)
+                    break
+        if nueva is None:
+            anio_loc = _anio_local(i, ultima.year if ultima else None)
+            if anio_loc:
+                try:
+                    nueva = date(anio_loc, month, day)
+                except ValueError:
+                    nueva = None
+                if (
+                    nueva is not None
+                    and ultima is not None
+                    and nueva < ultima
+                    and anio_loc == ultima.year
+                ):
+                    # salto de año natural (dic → ene)
+                    nueva = _fecha_cronologica(day, month, ultima)
+        if nueva is None and ultima is not None:
+            nueva = _fecha_cronologica(day, month, ultima)
+        if nueva is None:
+            for j in range(i + 1, n):
+                v = parsed[j]['_fecha_parsed']
+                ay = parsed[j].get('_anio_texto')
+                if isinstance(v, tuple) and ay:
+                    try:
+                        ref = date(ay, v[1], v[0])
+                        nueva = _fecha_antes_de(day, month, ref)
+                    except ValueError:
+                        nueva = None
+                    if nueva:
+                        break
+        if nueva is None:
             continue
-        candidatos.sort(key=lambda x: x[0])
-        year = candidatos[0][1]
-        try:
-            item['_fecha_parsed'] = date(year, month, day)
-        except ValueError:
-            item['_fecha_parsed'] = None
+        item['_fecha_parsed'] = nueva
+        item['fecha_raw'] = nueva.strftime('%d/%m/%Y')
+        ultima = nueva
+
+    # Pasada backward para huecos del inicio
+    proxima: date | None = None
+    for i in range(n - 1, -1, -1):
+        item = parsed[i]
+        valor = item['_fecha_parsed']
+        if isinstance(valor, date):
+            proxima = valor
             continue
-        item['fecha_raw'] = item['_fecha_parsed'].strftime('%d/%m/%Y')
+        if not isinstance(valor, tuple) or proxima is None:
+            continue
+        day, month = valor
+        anio_txt = item.get('_anio_texto')
+        if anio_txt:
+            try:
+                nueva = date(anio_txt, month, day)
+            except ValueError:
+                nueva = None
+        else:
+            nueva = _fecha_antes_de(day, month, proxima)
+        if nueva is None:
+            anio_loc = _anio_local(i, proxima.year)
+            if anio_loc:
+                try:
+                    nueva = date(anio_loc, month, day)
+                except ValueError:
+                    nueva = None
+        if nueva is None:
+            continue
+        item['_fecha_parsed'] = nueva
+        item['fecha_raw'] = nueva.strftime('%d/%m/%Y')
+        proxima = nueva
+
     return parsed
 
 
@@ -308,3 +465,119 @@ def importar_gery_1759_facturado(**kwargs) -> dict:
 def importar_gery_1759_negro(**kwargs) -> dict:
     kwargs.setdefault('clasificacion', 'negro')
     return importar_gery_1759_excel(**kwargs)
+
+
+def reparar_fechas_importadas(
+    *,
+    clasificacion: str = 'negro',
+    dry_run: bool = False,
+    json_path: Path | None = None,
+    propiedad: Propiedad | None = None,
+) -> dict:
+    """
+    Recalcula años de fechas DD/MM del Excel y actualiza filas ya cargadas
+    que quedaron con año incorrecto (p. ej. 2026).
+    Empareja por montos + clasificación (y descripción si hay varias).
+    """
+    if clasificacion not in ('facturado', 'negro'):
+        return {'ok': False, 'mensaje': 'Clasificación inválida.'}
+
+    if json_path is None:
+        path = DATA_PATH_NEGRO if clasificacion == 'negro' else DATA_PATH_FACTURADO
+    else:
+        path = Path(json_path)
+    if not path.exists():
+        return {'ok': False, 'mensaje': f'No existe el archivo {path.name}.'}
+
+    with path.open(encoding='utf-8') as fh:
+        raw_rows = json.load(fh)
+    if not isinstance(raw_rows, list):
+        return {'ok': False, 'mensaje': 'El JSON debe ser una lista de filas.'}
+
+    filas = resolver_anios_filas(raw_rows)
+    if propiedad is None:
+        propiedad = encontrar_propiedad_gery()
+    if not propiedad:
+        return {'ok': False, 'mensaje': 'No se encontró la propiedad Gery 1759 piso 12.'}
+
+    existentes = list(
+        FilaManualLibroPropiedad.objects.filter(
+            propiedad=propiedad,
+            clasificacion_libro=clasificacion,
+        )
+    )
+    usados = set()
+    corregidas = 0
+    sin_match = 0
+    sin_fecha = 0
+
+    for item in filas:
+        fecha = item.get('_fecha_parsed')
+        if not isinstance(fecha, date):
+            sin_fecha += 1
+            continue
+        gastos_ars = _monto_seguro(item.get('gastos_ars'))
+        gastos_usd = _monto_seguro(item.get('gastos_usd'))
+        if gastos_ars == 0 and gastos_usd == 0:
+            continue
+        descripcion = descripcion_fila_excel(item, clasificacion=clasificacion)
+
+        candidatos = [
+            f
+            for f in existentes
+            if f.id not in usados
+            and _q2(f.gastos_ars) == gastos_ars
+            and _q2(f.gastos_usd) == gastos_usd
+        ]
+        if not candidatos:
+            # match flexible: mismo día/mes y montos (año viejo incorrecto)
+            candidatos = [
+                f
+                for f in existentes
+                if f.id not in usados
+                and f.fecha.day == fecha.day
+                and f.fecha.month == fecha.month
+                and (
+                    _q2(f.gastos_ars) == gastos_ars
+                    or _q2(f.gastos_usd) == gastos_usd
+                )
+            ]
+        if not candidatos:
+            sin_match += 1
+            continue
+
+        # Preferir misma descripción; si no, la de mismo día/mes
+        elegida = None
+        for f in candidatos:
+            if (f.descripcion or '').strip() == descripcion:
+                elegida = f
+                break
+        if elegida is None:
+            for f in candidatos:
+                if f.fecha.day == fecha.day and f.fecha.month == fecha.month:
+                    elegida = f
+                    break
+        if elegida is None:
+            elegida = candidatos[0]
+
+        usados.add(elegida.id)
+        if elegida.fecha == fecha:
+            continue
+        if not dry_run:
+            elegida.fecha = fecha
+            elegida.save(update_fields=['fecha', 'actualizado_en'])
+        corregidas += 1
+
+    label = 'en negro' if clasificacion == 'negro' else 'facturado'
+    return {
+        'ok': True,
+        'corregidas': corregidas,
+        'sin_match': sin_match,
+        'sin_fecha': sin_fecha,
+        'dry_run': dry_run,
+        'fecha_inicio_caja': None,
+        'mensaje': (
+            f'Reparación fechas {label}: {corregidas} corregidas, '
+            f'{sin_match} sin match, {sin_fecha} sin fecha en Excel.'
+        ),
+    }

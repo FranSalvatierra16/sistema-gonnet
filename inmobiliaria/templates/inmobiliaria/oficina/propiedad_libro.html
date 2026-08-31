@@ -123,6 +123,16 @@
                 <i class="fas fa-file-invoice me-1"></i>Importar Excel en negro
             </button>
         </form>
+        <form method="post"
+              action="{% url 'inmobiliaria:oficina_propiedad_libro_reparar_fechas' propiedad.id %}"
+              id="form-reparar-fechas"
+              onsubmit="return confirm('¿Recalcular años de fechas incompletas (ej. 15/1 → 15/01/2021) en facturado y en negro?');">
+            {% csrf_token %}
+            <input type="hidden" name="clasificacion" value="ambas">
+            <button type="submit" class="btn btn-sm btn-outline-warning" id="btn-reparar-fechas">
+                <i class="fas fa-calendar-check me-1"></i>Reparar años de fechas
+            </button>
+        </form>
         <span class="small text-muted">Puede tardar unos segundos.</span>
     </div>
     {% endif %}

@@ -2084,6 +2084,55 @@ def oficina_propiedad_libro_importar_negro(request, propiedad_id):
     )
 
 
+@login_required
+@require_POST
+def oficina_propiedad_libro_reparar_fechas(request, propiedad_id):
+    """Recalcula años de filas importadas (DD/MM sin año → año del bloque)."""
+    if not _puede_oficina(request.user):
+        return HttpResponseForbidden()
+
+    from inmobiliaria.models import Propiedad
+    from inmobiliaria.gery_1759_facturado_import import reparar_fechas_importadas
+
+    sucursal, en_cartera = _propiedad_en_cartera_oficina(request.user, propiedad_id)
+    if not en_cartera:
+        return HttpResponseForbidden()
+
+    propiedad = get_object_or_404(Propiedad, pk=propiedad_id, sucursal=sucursal)
+    if not getattr(propiedad, 'libro_exige_facturado_negro', False):
+        messages.error(request, 'Esta propiedad no usa clasificación facturado / en negro.')
+        return redirect('inmobiliaria:oficina_propiedad_libro', propiedad_id=propiedad_id)
+
+    clasificacion = (request.POST.get('clasificacion') or 'negro').strip().lower()
+    if clasificacion not in ('facturado', 'negro', 'ambas'):
+        clasificacion = 'negro'
+
+    try:
+        if clasificacion == 'ambas':
+            r1 = reparar_fechas_importadas(propiedad=propiedad, clasificacion='facturado')
+            r2 = reparar_fechas_importadas(propiedad=propiedad, clasificacion='negro')
+            ok = r1.get('ok') and r2.get('ok')
+            mensaje = f"{r1.get('mensaje', '')} {r2.get('mensaje', '')}".strip()
+            result = {'ok': ok, 'mensaje': mensaje, 'fecha_inicio_caja': None}
+        else:
+            result = reparar_fechas_importadas(
+                propiedad=propiedad, clasificacion=clasificacion
+            )
+    except Exception as exc:
+        logger.exception('Error reparando fechas de %s', propiedad_id)
+        messages.error(request, f'Error al reparar fechas: {exc}')
+        return redirect('inmobiliaria:oficina_propiedad_libro', propiedad_id=propiedad_id)
+
+    if result['ok']:
+        messages.success(request, result['mensaje'])
+    else:
+        messages.error(request, result['mensaje'])
+    return redirect(
+        f"{reverse('inmobiliaria:oficina_propiedad_libro', args=[propiedad_id])}"
+        f"?clasif=todo"
+    )
+
+
 def _oficina_propiedad_libro_importar_excel(request, propiedad_id, clasificacion):
     if not _puede_oficina(request.user):
         return HttpResponseForbidden()
