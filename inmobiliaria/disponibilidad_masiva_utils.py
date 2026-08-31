@@ -1,7 +1,11 @@
 """Utilidades compartidas para lotes de disponibilidad masiva."""
 from collections import defaultdict
+from datetime import date
 
 from django.db.models import Max
+
+# Última masiva de Corrientes: disponibilidades con inicio desde esta fecha.
+FECHA_INICIO_MASIVA_CORRIENTES = date(2026, 12, 15)
 
 
 def _modelos(apps=None):
@@ -17,14 +21,22 @@ def _modelos(apps=None):
     return Sucursal, Disponibilidad, Propiedad, LoteDisponibilidadMasiva
 
 
-def detectar_ultima_masiva(sucursal, Disponibilidad, min_deptos=5, solo_manual=False):
+def detectar_ultima_masiva(
+    sucursal,
+    Disponibilidad,
+    min_deptos=5,
+    solo_manual=False,
+    fecha_inicio_desde=None,
+):
     """
     Agrupa disponibilidades por rango de fechas y devuelve el grupo más grande
-    (desempate: ID de disponibilidad más alto).
+    (desempate: ID de disponibilidad más alto = más reciente).
     """
     qs = Disponibilidad.objects.filter(propiedad__sucursal=sucursal)
     if solo_manual:
         qs = qs.filter(es_manual=True)
+    if fecha_inicio_desde:
+        qs = qs.filter(fecha_inicio__gte=fecha_inicio_desde)
 
     filas = qs.values('fecha_inicio', 'fecha_fin', 'propiedad_id').annotate(
         max_disp_id=Max('id')
@@ -47,33 +59,56 @@ def detectar_ultima_masiva(sucursal, Disponibilidad, min_deptos=5, solo_manual=F
 
     fi, ff, prop_ids, max_disp_id = max(candidatos, key=lambda x: (len(x[2]), x[3]))
     return {
-        'fecha_inicio_origen': fi,
-        'fecha_fin_origen': ff,
+        'fecha_inicio': fi,
+        'fecha_fin': ff,
         'propiedad_ids': sorted(prop_ids, key=str),
         'cantidad': len(prop_ids),
         'max_disp_id': max_disp_id,
     }
 
 
-def fechas_verano_2027(fi_origen, ff_origen):
-    """Misma ventana estacional desplazada al verano 2027."""
-    delta = 2027 - ff_origen.year
-    return (
-        fi_origen.replace(year=fi_origen.year + delta),
-        ff_origen.replace(year=ff_origen.year + delta),
-    )
+def _buscar_masiva_corrientes(sucursal, Disponibilidad, min_deptos=5, fecha_inicio_desde=None):
+    """Detecta la masiva; si no hay desde la fecha pedida, prueba sin filtro de fecha."""
+    if fecha_inicio_desde is None:
+        fecha_inicio_desde = FECHA_INICIO_MASIVA_CORRIENTES
+
+    for solo_manual in (True, False):
+        masiva = detectar_ultima_masiva(
+            sucursal,
+            Disponibilidad,
+            min_deptos=min_deptos,
+            solo_manual=solo_manual,
+            fecha_inicio_desde=fecha_inicio_desde,
+        )
+        if masiva:
+            return masiva
+
+    if fecha_inicio_desde is not None:
+        for solo_manual in (True, False):
+            masiva = detectar_ultima_masiva(
+                sucursal,
+                Disponibilidad,
+                min_deptos=min_deptos,
+                solo_manual=solo_manual,
+                fecha_inicio_desde=None,
+            )
+            if masiva:
+                return masiva
+    return None
 
 
-def recuperar_lote_corrientes_verano_2027(
+def recuperar_ultima_masiva_corrientes(
     nombre='Verano 2027',
     min_deptos=5,
     force=False,
+    actualizar_si_existe=True,
     apps=None,
     sucursal=None,
+    fecha_inicio_desde=None,
 ):
     """
-    Detecta la última masiva en Corrientes y crea el lote en el historial.
-    Devuelve dict con ok, mensaje y lote_id (si se creó).
+    Detecta la última masiva en Corrientes (desde 15/12/2026) y guarda/actualiza el lote.
+    Usa las fechas reales detectadas en la base.
     """
     Sucursal, Disponibilidad, Propiedad, LoteDisponibilidadMasiva = _modelos(apps)
 
@@ -82,12 +117,13 @@ def recuperar_lote_corrientes_verano_2027(
     if not sucursal:
         return {'ok': False, 'mensaje': 'No se encontró la sucursal Corrientes.'}
 
-    if not force and LoteDisponibilidadMasiva.objects.filter(
+    if fecha_inicio_desde is None:
+        fecha_inicio_desde = FECHA_INICIO_MASIVA_CORRIENTES
+
+    existente = LoteDisponibilidadMasiva.objects.filter(
         sucursal=sucursal, nombre=nombre
-    ).exists():
-        existente = LoteDisponibilidadMasiva.objects.filter(
-            sucursal=sucursal, nombre=nombre
-        ).first()
+    ).first()
+    if existente and not force and not actualizar_si_existe:
         return {
             'ok': True,
             'mensaje': f'El lote «{nombre}» ya existía (#{existente.pk}).',
@@ -95,30 +131,53 @@ def recuperar_lote_corrientes_verano_2027(
             'creado': False,
         }
 
-    masiva = detectar_ultima_masiva(
-        sucursal, Disponibilidad, min_deptos=min_deptos, solo_manual=True
+    masiva = _buscar_masiva_corrientes(
+        sucursal, Disponibilidad, min_deptos=min_deptos, fecha_inicio_desde=fecha_inicio_desde
     )
-    if not masiva:
-        masiva = detectar_ultima_masiva(
-            sucursal, Disponibilidad, min_deptos=min_deptos, solo_manual=False
-        )
     if not masiva:
         return {
             'ok': False,
             'mensaje': (
-                f'No se encontró ninguna carga masiva con al menos {min_deptos} '
-                f'departamentos en Corrientes.'
+                f'No se encontró ninguna carga masiva desde {fecha_inicio_desde.strftime("%d/%m/%Y")} '
+                f'con al menos {min_deptos} departamentos en Corrientes.'
             ),
         }
 
-    fi_origen = masiva['fecha_inicio_origen']
-    ff_origen = masiva['fecha_fin_origen']
-    fecha_inicio, fecha_fin = fechas_verano_2027(fi_origen, ff_origen)
-
+    fecha_inicio = masiva['fecha_inicio']
+    fecha_fin = masiva['fecha_fin']
     prop_ids = masiva['propiedad_ids']
     props_validas = list(
         Propiedad.objects.filter(id__in=prop_ids, sucursal=sucursal).values_list('id', flat=True)
     )
+    notas = (
+        f'Recuperado automáticamente ({masiva["cantidad"]} deptos, '
+        f'disp max id={masiva["max_disp_id"]}).'
+    )
+
+    if existente and not force:
+        existente.fecha_inicio = fecha_inicio
+        existente.fecha_fin = fecha_fin
+        existente.cantidad_creadas = masiva['cantidad']
+        existente.notas = notas
+        existente.save(update_fields=['fecha_inicio', 'fecha_fin', 'cantidad_creadas', 'notas'])
+        if props_validas:
+            existente.propiedades.set(props_validas)
+        return {
+            'ok': True,
+            'mensaje': (
+                f'Lote «{nombre}» actualizado — {len(props_validas)} deptos, '
+                f'{fecha_inicio.strftime("%d/%m/%Y")} → {fecha_fin.strftime("%d/%m/%Y")}.'
+            ),
+            'lote_id': existente.pk,
+            'creado': False,
+            'actualizado': True,
+            'deptos': len(props_validas),
+            'fecha_inicio': fecha_inicio,
+            'fecha_fin': fecha_fin,
+        }
+
+    if existente and force:
+        existente.delete()
 
     lote = LoteDisponibilidadMasiva.objects.create(
         sucursal=sucursal,
@@ -127,10 +186,7 @@ def recuperar_lote_corrientes_verano_2027(
         fecha_fin=fecha_fin,
         cantidad_creadas=masiva['cantidad'],
         cantidad_errores=0,
-        notas=(
-            f'Recuperado automáticamente desde la última masiva detectada '
-            f'({fi_origen} → {ff_origen}, {masiva["cantidad"]} deptos).'
-        ),
+        notas=notas,
     )
     if props_validas:
         lote.propiedades.set(props_validas)
@@ -139,7 +195,7 @@ def recuperar_lote_corrientes_verano_2027(
         'ok': True,
         'mensaje': (
             f'Lote «{nombre}» creado con {len(props_validas)} departamentos '
-            f'({fecha_inicio} → {fecha_fin}).'
+            f'({fecha_inicio.strftime("%d/%m/%Y")} → {fecha_fin.strftime("%d/%m/%Y")}).'
         ),
         'lote_id': lote.pk,
         'creado': True,
@@ -147,3 +203,7 @@ def recuperar_lote_corrientes_verano_2027(
         'fecha_inicio': fecha_inicio,
         'fecha_fin': fecha_fin,
     }
+
+
+# Alias retrocompatible
+recuperar_lote_corrientes_verano_2027 = recuperar_ultima_masiva_corrientes

@@ -1,13 +1,18 @@
 """Recupera la última disponibilidad masiva de Corrientes y la guarda en el historial."""
 from django.core.management.base import BaseCommand
 
-from inmobiliaria.disponibilidad_masiva_utils import recuperar_lote_corrientes_verano_2027
+from inmobiliaria.disponibilidad_masiva_utils import (
+    FECHA_INICIO_MASIVA_CORRIENTES,
+    _modelos,
+    _buscar_masiva_corrientes,
+    recuperar_ultima_masiva_corrientes,
+)
 
 
 class Command(BaseCommand):
     help = (
         'Detecta la última carga masiva de disponibilidades en Corrientes '
-        'y la registra en LoteDisponibilidadMasiva (historial).'
+        '(desde 15/12/2026) y la registra en LoteDisponibilidadMasiva.'
     )
 
     def add_arguments(self, parser):
@@ -30,7 +35,7 @@ class Command(BaseCommand):
         parser.add_argument(
             '--force',
             action='store_true',
-            help='Crear aunque ya exista un lote con el mismo nombre en Corrientes.',
+            help='Recrear aunque ya exista un lote con el mismo nombre.',
         )
 
     def handle(self, *args, **options):
@@ -40,37 +45,29 @@ class Command(BaseCommand):
             return
 
         if options['dry_run']:
-            from inmobiliaria.disponibilidad_masiva_utils import (
-                _modelos,
-                detectar_ultima_masiva,
-                fechas_verano_2027,
-            )
-
-            _, Disponibilidad, Propiedad, LoteDisponibilidadMasiva = _modelos()
+            _, Disponibilidad, _, _ = _modelos()
             Sucursal, _, _, _ = _modelos()
             sucursal = Sucursal.objects.filter(nombre__icontains='corrientes').first()
             if not sucursal:
                 self.stderr.write(self.style.ERROR('No se encontró Corrientes.'))
                 return
-            masiva = detectar_ultima_masiva(
-                sucursal, Disponibilidad, min_deptos=options['min_deptos'], solo_manual=True
-            ) or detectar_ultima_masiva(
-                sucursal, Disponibilidad, min_deptos=options['min_deptos'], solo_manual=False
+            masiva = _buscar_masiva_corrientes(
+                sucursal, Disponibilidad, min_deptos=options['min_deptos']
             )
             if not masiva:
                 self.stderr.write(self.style.ERROR('No se detectó ninguna masiva.'))
                 return
-            fi, ff = fechas_verano_2027(masiva['fecha_inicio_origen'], masiva['fecha_fin_origen'])
             self.stdout.write(
-                f'Dry-run: «{nombre}» {fi} → {ff}, {masiva["cantidad"]} deptos '
-                f'(origen {masiva["fecha_inicio_origen"]} → {masiva["fecha_fin_origen"]})'
+                f'Dry-run: «{nombre}» {masiva["fecha_inicio"]} → {masiva["fecha_fin"]}, '
+                f'{masiva["cantidad"]} deptos (desde {FECHA_INICIO_MASIVA_CORRIENTES})'
             )
             return
 
-        result = recuperar_lote_corrientes_verano_2027(
+        result = recuperar_ultima_masiva_corrientes(
             nombre=nombre,
             min_deptos=options['min_deptos'],
             force=options['force'],
+            actualizar_si_existe=not options['force'],
         )
         if result['ok']:
             self.stdout.write(self.style.SUCCESS(result['mensaje']))

@@ -107,6 +107,11 @@ urlpatterns = [
         views.detalle_lote_disponibilidad_masiva,
         name='detalle_lote_disponibilidad_masiva',
     ),
+    path(
+        'disponibilidad-masiva/lote/<int:lote_id>/nombre/',
+        views.editar_nombre_lote_disponibilidad_masiva,
+        name='editar_nombre_lote_disponibilidad_masiva',
+    ),
     path('disponibilidad/<int:disponibilidad_id>/eliminar/', views.eliminar_disponibilidad, name='eliminar_disponibilidad'),
     path('disponibilidad/<int:disponibilidad_id>/editar/', views.editar_disponibilidad, name='editar_disponibilidad'),
     path('propiedades/<str:propiedad_id>/corregir-superposiciones/', views.corregir_superposiciones_disponibilidades, name='corregir_superposiciones_disponibilidades'),

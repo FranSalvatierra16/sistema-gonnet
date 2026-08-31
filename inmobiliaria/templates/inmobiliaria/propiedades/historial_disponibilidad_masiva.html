@@ -45,9 +45,16 @@
                     {% for l in lotes %}
                     <tr>
                         <td>
-                            <strong>{{ l.nombre }}</strong>
+                            <form method="post" action="{% url 'inmobiliaria:editar_nombre_lote_disponibilidad_masiva' l.id %}" class="d-flex flex-wrap align-items-center gap-1">
+                                {% csrf_token %}
+                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                <input type="text" name="nombre" value="{{ l.nombre }}" class="form-control form-control-sm" style="min-width: 9rem; max-width: 14rem;" maxlength="200" required aria-label="Nombre del lote">
+                                <button type="submit" class="btn btn-outline-secondary btn-sm" title="Guardar nombre">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                            </form>
                             {% if l.repetido_desde %}
-                            <div class="small text-muted">Repetido de «{{ l.repetido_desde.nombre }}»</div>
+                            <div class="small text-muted mt-1">Repetido de «{{ l.repetido_desde.nombre }}»</div>
                             {% endif %}
                         </td>
                         <td class="small text-nowrap">
@@ -85,7 +92,7 @@
                                 </form>
                             </div>
                             <p class="small mb-0 mt-2">
-                                Detecta la última carga masiva de deptos y la guarda acá para poder repetirla.
+                                Busca disponibilidades creadas desde el <strong>15/12/2026</strong> y las guarda acá.
                             </p>
                             {% else %}
                             Creá uno desde
