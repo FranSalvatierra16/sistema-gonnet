@@ -13,12 +13,41 @@ from inmobiliaria.models import FilaManualLibroPropiedad, Propiedad
 
 DATA_PATH = Path(__file__).resolve().parent / 'data' / 'gery_1759_facturado_excel.json'
 CENT = Decimal('0.01')
+# DecimalField(max_digits=14, decimal_places=2) → |valor| < 10^12
+MAX_MONTO = Decimal('999999999999.99')
+MAX_TIPO_CAMBIO = Decimal('100000.00')
 
 
 def _q2(value) -> Decimal:
     if value is None or value == '':
         return Decimal('0.00')
-    return Decimal(str(value)).quantize(CENT, rounding=ROUND_HALF_UP)
+    try:
+        return Decimal(str(value)).quantize(CENT, rounding=ROUND_HALF_UP)
+    except Exception:
+        return Decimal('0.00')
+
+
+def _monto_seguro(value) -> Decimal:
+    """Monto ARS/USD válido para el campo (o 0 si es basura OCR)."""
+    monto = _q2(value)
+    if monto < 0:
+        monto = abs(monto)
+    if monto > MAX_MONTO:
+        return Decimal('0.00')
+    return monto
+
+
+def _tipo_cambio_seguro(value):
+    """Cotización razonable; None si es basura OCR / overflow."""
+    if value is None or value == '':
+        return None
+    try:
+        tc = Decimal(str(value)).quantize(CENT, rounding=ROUND_HALF_UP)
+    except Exception:
+        return None
+    if tc <= 0 or tc > MAX_TIPO_CAMBIO:
+        return None
+    return tc
 
 
 def _parse_fecha_raw(fecha_raw: str):
@@ -153,18 +182,15 @@ def importar_gery_1759_facturado(
             sin_fecha += 1
             continue
 
-        gastos_ars = _q2(item.get('gastos_ars'))
-        gastos_usd = _q2(item.get('gastos_usd'))
+        gastos_ars = _monto_seguro(item.get('gastos_ars'))
+        gastos_usd = _monto_seguro(item.get('gastos_usd'))
         if gastos_ars == 0 and gastos_usd == 0:
             omitidas += 1
             continue
 
         fechas_ok.append(fecha)
         descripcion = descripcion_fila_excel(item)
-        tc = item.get('tipo_cambio')
-        tipo_cambio = _q2(tc) if tc not in (None, '') else None
-        if tipo_cambio is not None and tipo_cambio <= 0:
-            tipo_cambio = None
+        tipo_cambio = _tipo_cambio_seguro(item.get('tipo_cambio'))
 
         existente = _match_existente(
             propiedad, fecha, gastos_ars, gastos_usd, descripcion

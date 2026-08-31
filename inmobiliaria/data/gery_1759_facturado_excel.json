@@ -2094,7 +2094,7 @@
     "concepto": "",
     "gastos_ars": 31872.79,
     "gastos_usd": 710.86,
-    "tipo_cambio": 8.888888888888889e+21
+    "tipo_cambio": null
   },
   {
     "fecha_raw": "03/05/2019",
@@ -4506,7 +4506,7 @@
     "concepto": "PERIODO 01/23 CTA. 2 PERIODO 01/23 CTA 2",
     "gastos_ars": null,
     "gastos_usd": 35.93,
-    "tipo_cambio": 8.888888888888888e+18
+    "tipo_cambio": null
   },
   {
     "fecha_raw": "09/03/2023",
@@ -4560,7 +4560,7 @@
     "concepto": "LIJAS",
     "gastos_ars": null,
     "gastos_usd": 14.0,
-    "tipo_cambio": 98889399.0
+    "tipo_cambio": null
   },
   {
     "fecha_raw": "05/04/2023",
