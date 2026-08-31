@@ -4149,15 +4149,6 @@
     "tipo_cambio": 180.0
   },
   {
-    "fecha_raw": "23/08/2021",
-    "comprobante": "",
-    "proveedor": "OSSE",
-    "concepto": "PERIODO 8/2021",
-    "gastos_ars": 2369.6,
-    "gastos_usd": 13.16,
-    "tipo_cambio": 180.0
-  },
-  {
     "fecha_raw": "02/12/2021",
     "comprobante": "13538",
     "proveedor": "HIERROMETAL",
@@ -4405,7 +4396,7 @@
     "comprobante": "5334",
     "proveedor": "ASCENSORES ULTRA",
     "concepto": "ENERO DE 2023",
-    "gastos_ars": 34450.0,
+    "gastos_ars": null,
     "gastos_usd": 98.43,
     "tipo_cambio": 350.0
   },
@@ -4450,7 +4441,7 @@
     "comprobante": "455",
     "proveedor": "DRAP",
     "concepto": "LIJA",
-    "gastos_ars": 3593.38,
+    "gastos_ars": null,
     "gastos_usd": 9.41,
     "tipo_cambio": 381.9
   },
@@ -4459,7 +4450,7 @@
     "comprobante": "",
     "proveedor": "EDEA",
     "concepto": "PERIODO 01/23 CTA. 1",
-    "gastos_ars": 13473.73,
+    "gastos_ars": null,
     "gastos_usd": 35.46,
     "tipo_cambio": 380.0
   },
@@ -4468,7 +4459,7 @@
     "comprobante": "11851",
     "proveedor": "LANDA",
     "concepto": "CEMENTO",
-    "gastos_ars": 4045.54,
+    "gastos_ars": null,
     "gastos_usd": 10.65,
     "tipo_cambio": 380.0
   },

@@ -133,13 +133,8 @@ def resolver_anios_filas(filas: list[dict]) -> list[dict]:
     for fila in filas:
         valor = _parse_fecha_raw((fila.get('fecha_raw') or '').strip())
         anio_txt = _anio_desde_texto(fila.get('concepto'), fila.get('proveedor'))
-        # Solo corregir fecha completa si el texto habla del mismo período (±1 año)
-        if isinstance(valor, date) and anio_txt and anio_txt != valor.year:
-            if abs(anio_txt - valor.year) <= 1:
-                try:
-                    valor = date(anio_txt, valor.month, valor.day)
-                except ValueError:
-                    pass
+        # Las fechas completas del Excel se respetan: el año del texto solo
+        # completa DD/MM incompletos (un concepto puede mencionar varios años).
         parsed.append({**fila, '_fecha_parsed': valor, '_anio_texto': anio_txt})
 
     n = len(parsed)
@@ -324,6 +319,19 @@ def _match_existente(propiedad, fecha, gastos_ars, gastos_usd, descripcion, clas
             _q2(fila.gastos_ars) == gastos_ars or _q2(fila.gastos_usd) == gastos_usd
         ):
             return fila
+
+    # Misma fila con año mal cargado: mismo día/mes + montos o descripción
+    qs_dia = FilaManualLibroPropiedad.objects.filter(
+        propiedad=propiedad,
+        clasificacion_libro=clasificacion,
+        fecha__day=fecha.day,
+        fecha__month=fecha.month,
+    ).exclude(fecha=fecha)
+    for fila in qs_dia:
+        if _q2(fila.gastos_ars) == gastos_ars and _q2(fila.gastos_usd) == gastos_usd:
+            return fila
+        if (fila.descripcion or '').strip() == descripcion:
+            return fila
     return None
 
 
@@ -389,12 +397,16 @@ def importar_gery_1759_excel(
         if existente:
             needs = (
                 force
+                or existente.fecha != fecha
                 or existente.clasificacion_libro != clasificacion
                 or (existente.descripcion or '') != descripcion
                 or existente.tipo_cambio != tipo_cambio
+                or _q2(existente.gastos_ars) != gastos_ars
+                or _q2(existente.gastos_usd) != gastos_usd
             )
             if needs:
                 if not dry_run:
+                    existente.fecha = fecha
                     existente.clasificacion_libro = clasificacion
                     existente.descripcion = descripcion
                     existente.gastos_ars = gastos_ars
@@ -402,6 +414,7 @@ def importar_gery_1759_excel(
                     existente.tipo_cambio = tipo_cambio
                     existente.save(
                         update_fields=[
+                            'fecha',
                             'clasificacion_libro',
                             'descripcion',
                             'gastos_ars',
