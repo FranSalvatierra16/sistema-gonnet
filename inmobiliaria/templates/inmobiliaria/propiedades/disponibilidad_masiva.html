@@ -1,36 +1,110 @@
 {% extends 'inmobiliaria/base.html' %}
 {% load static %}
 
+{% block title %}Disponibilidad Masiva{% endblock %}
+
 {% block content %}
 <div class="container mt-4">
-    <h2>Agregar Disponibilidad Masiva</h2>
-    
-    <div class="row mb-4">
-        <div class="col-md-6">
-            <div class="form-group">
-                <label for="fecha_inicio">Fecha de Inicio:</label>
-                <input type="date" class="form-control" id="fecha_inicio" required>
-            </div>
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+        <div>
+            <h2 class="mb-1">
+                {% if lote_origen %}Repetir disponibilidad masiva{% else %}Agregar Disponibilidad Masiva{% endif %}
+            </h2>
+            <p class="text-muted mb-0 small">
+                Nombrá el lote (ej. Verano 2027), elegí fechas y departamentos. Queda guardado en el historial para repetirlo el año siguiente.
+            </p>
         </div>
-        <div class="col-md-6">
-            <div class="form-group">
-                <label for="fecha_fin">Fecha de Fin:</label>
-                <input type="date" class="form-control" id="fecha_fin" required>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{% url 'inmobiliaria:historial_disponibilidad_masiva' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-history me-1"></i>Historial de lotes
+            </a>
+            <a href="{% url 'inmobiliaria:propiedades' %}" class="btn btn-outline-secondary btn-sm">Volver</a>
+        </div>
+    </div>
+
+    {% if lote_origen %}
+    <div class="alert alert-info">
+        <strong>Repitiendo:</strong> «{{ lote_origen.nombre }}»
+        ({{ lote_origen.fecha_inicio|date:"d/m/Y" }} → {{ lote_origen.fecha_fin|date:"d/m/Y" }},
+        {{ ids_preseleccionados|length }} deptos).
+        Podés cambiar el nombre, las fechas, y agregar o quitar departamentos antes de guardar.
+    </div>
+    {% endif %}
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label for="nombre_lote" class="form-label">Nombre del lote <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="nombre_lote" maxlength="200"
+                           placeholder="Ej. Verano 2027"
+                           value="{{ nombre_sugerido }}">
+                </div>
+                <div class="col-md-3">
+                    <label for="fecha_inicio" class="form-label">Fecha de inicio <span class="text-danger">*</span></label>
+                    <input type="date" class="form-control" id="fecha_inicio" required value="{{ fecha_inicio_sugerida }}">
+                </div>
+                <div class="col-md-3">
+                    <label for="fecha_fin" class="form-label">Fecha de fin <span class="text-danger">*</span></label>
+                    <input type="date" class="form-control" id="fecha_fin" required value="{{ fecha_fin_sugerida }}">
+                </div>
+            </div>
+            {% if lote_origen %}
+            <input type="hidden" id="repetir_desde_id" value="{{ lote_origen.id }}">
+            {% endif %}
+        </div>
+    </div>
+
+    {% if lotes_recientes and not lote_origen %}
+    <div class="card mb-4">
+        <div class="card-header py-2 d-flex justify-content-between align-items-center">
+            <span class="fw-semibold small"><i class="fas fa-history me-1"></i>Últimos lotes</span>
+            <a href="{% url 'inmobiliaria:historial_disponibilidad_masiva' %}" class="small">Ver todos</a>
+        </div>
+        <div class="card-body py-2">
+            <div class="table-responsive">
+                <table class="table table-sm mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Fechas</th>
+                            <th class="text-end">Deptos</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for l in lotes_recientes %}
+                        <tr>
+                            <td>{{ l.nombre }}</td>
+                            <td class="small">{{ l.fecha_inicio|date:"d/m/Y" }} → {{ l.fecha_fin|date:"d/m/Y" }}</td>
+                            <td class="text-end">{{ l.n_props }}</td>
+                            <td class="text-end text-nowrap">
+                                <a href="{% url 'inmobiliaria:detalle_lote_disponibilidad_masiva' l.id %}" class="btn btn-outline-secondary btn-sm">Ver</a>
+                                <a href="{% url 'inmobiliaria:agregar_disponibilidad_masiva' %}?repetir={{ l.id }}" class="btn btn-outline-primary btn-sm">Repetir</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
+    {% endif %}
 
     <div class="row mb-3">
         <div class="col-md-4">
-            <input type="text" id="buscar-id" class="form-control" placeholder="Buscar por ID">
+            <input type="text" id="buscar-id" class="form-control" placeholder="Buscar por ID, dirección o propietario…">
         </div>
-    </div>
-
-    <div class="row mb-3">
-        <div class="col">
-            <button class="btn btn-secondary" id="seleccionar-todas">Seleccionar Todas</button>
-            <button class="btn btn-secondary" id="deseleccionar-todas">Deseleccionar Todas</button>
-            <button class="btn btn-primary" id="guardar-disponibilidad">Guardar Disponibilidad</button>
+        <div class="col-md-8 d-flex flex-wrap gap-2 align-items-center">
+            <button type="button" class="btn btn-secondary" id="seleccionar-todas">Seleccionar Todas</button>
+            <button type="button" class="btn btn-secondary" id="deseleccionar-todas">Deseleccionar Todas</button>
+            {% if ids_preseleccionados %}
+            <button type="button" class="btn btn-outline-info" id="seleccionar-lote">Solo las del lote</button>
+            {% endif %}
+            <button type="button" class="btn btn-primary" id="guardar-disponibilidad">
+                <i class="fas fa-save me-1"></i>Guardar disponibilidad
+            </button>
+            <span class="text-muted small ms-1" id="contador-seleccion">0 seleccionados</span>
         </div>
     </div>
 
@@ -48,9 +122,10 @@
             </thead>
             <tbody>
                 {% for propiedad in propiedades %}
-                <tr>
+                <tr data-buscar="{{ propiedad.id }} {{ propiedad.direccion }} {{ propiedad.propietario.apellido }} {{ propiedad.propietario.nombre }}">
                     <td>
-                        <input type="checkbox" class="propiedad-checkbox" value="{{ propiedad.id }}">
+                        <input type="checkbox" class="propiedad-checkbox" value="{{ propiedad.id }}"
+                               {% if propiedad.id|stringformat:"s" in ids_preseleccionados %}checked{% endif %}>
                     </td>
                     <td>{{ propiedad.id }}</td>
                     <td>{{ propiedad.direccion }}</td>
@@ -73,32 +148,58 @@ document.addEventListener('DOMContentLoaded', function() {
     const btnDeseleccionarTodas = document.getElementById('deseleccionar-todas');
     const btnGuardarDisponibilidad = document.getElementById('guardar-disponibilidad');
     const buscarIdInput = document.getElementById('buscar-id');
+    const contador = document.getElementById('contador-seleccion');
+    const idsLote = new Set([{% for id in ids_preseleccionados %}'{{ id }}'{% if not forloop.last %},{% endif %}{% endfor %}]);
 
-    // Función para seleccionar/deseleccionar todas
+    function actualizarContador() {
+        var n = Array.from(checkboxesPropiedades).filter(function(c) { return c.checked; }).length;
+        if (contador) contador.textContent = n + ' seleccionados';
+    }
+
     checkboxPrincipal.addEventListener('change', function() {
         checkboxesPropiedades.forEach(checkbox => {
             checkbox.checked = this.checked;
         });
+        actualizarContador();
+    });
+
+    checkboxesPropiedades.forEach(function(cb) {
+        cb.addEventListener('change', actualizarContador);
     });
 
     btnSeleccionarTodas.addEventListener('click', function() {
-        checkboxesPropiedades.forEach(checkbox => {
-            checkbox.checked = true;
-        });
+        checkboxesPropiedades.forEach(checkbox => { checkbox.checked = true; });
         checkboxPrincipal.checked = true;
+        actualizarContador();
     });
 
     btnDeseleccionarTodas.addEventListener('click', function() {
-        checkboxesPropiedades.forEach(checkbox => {
-            checkbox.checked = false;
-        });
+        checkboxesPropiedades.forEach(checkbox => { checkbox.checked = false; });
         checkboxPrincipal.checked = false;
+        actualizarContador();
     });
 
+    var btnSoloLote = document.getElementById('seleccionar-lote');
+    if (btnSoloLote) {
+        btnSoloLote.addEventListener('click', function() {
+            checkboxesPropiedades.forEach(function(checkbox) {
+                checkbox.checked = idsLote.has(String(checkbox.value));
+            });
+            actualizarContador();
+        });
+    }
+
+    actualizarContador();
+
     btnGuardarDisponibilidad.addEventListener('click', function() {
+        const nombre = (document.getElementById('nombre_lote').value || '').trim();
         const fechaInicio = document.getElementById('fecha_inicio').value;
         const fechaFin = document.getElementById('fecha_fin').value;
-        
+
+        if (!nombre) {
+            Swal.fire('Error', 'Indicá un nombre para el lote (ej. Verano 2027)', 'error');
+            return;
+        }
         if (!fechaInicio || !fechaFin) {
             Swal.fire('Error', 'Por favor seleccione las fechas', 'error');
             return;
@@ -113,52 +214,53 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        // Confirmar antes de guardar
         Swal.fire({
-            title: '¿Está seguro?',
-            text: `Se agregará disponibilidad a ${propiedadesSeleccionadas.length} propiedades`,
+            title: '¿Guardar lote «' + nombre + '»?',
+            text: 'Se agregará disponibilidad a ' + propiedadesSeleccionadas.length + ' propiedades y quedará en el historial.',
             icon: 'warning',
             showCancelButton: true,
             confirmButtonText: 'Sí, guardar',
             cancelButtonText: 'Cancelar'
         }).then((result) => {
             if (result.isConfirmed) {
-                guardarDisponibilidad(propiedadesSeleccionadas, fechaInicio, fechaFin);
+                guardarDisponibilidad(propiedadesSeleccionadas, fechaInicio, fechaFin, nombre);
             }
         });
     });
 
-    function guardarDisponibilidad(propiedades, fechaInicio, fechaFin) {
-        // Mostrar loading
+    function guardarDisponibilidad(propiedades, fechaInicio, fechaFin, nombre) {
         Swal.fire({
             title: 'Guardando...',
             text: 'Por favor espere mientras se guardan las disponibilidades',
             allowOutsideClick: false,
-            didOpen: () => {
-                Swal.showLoading();
-            }
+            didOpen: () => { Swal.showLoading(); }
         });
 
         const formData = new FormData();
         propiedades.forEach(id => formData.append('propiedades[]', id));
         formData.append('fecha_inicio', fechaInicio);
         formData.append('fecha_fin', fechaFin);
+        formData.append('nombre', nombre);
+        var repetirEl = document.getElementById('repetir_desde_id');
+        if (repetirEl && repetirEl.value) {
+            formData.append('repetir_desde_id', repetirEl.value);
+        }
 
         fetch('{% url "inmobiliaria:agregar_disponibilidad_masiva" %}', {
             method: 'POST',
             body: formData,
-            headers: {
-                'X-CSRFToken': '{{ csrf_token }}'
-            }
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
         })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                // Preparar HTML con tablas de resultados
                 let html = `<div style="text-align: left;">`;
                 html += `<p><strong>${data.message}</strong></p>`;
-                
-                // Tabla de exitosas
+
+                if (data.detalles && data.detalles.lote_id) {
+                    html += `<p class="small">Lote #${data.detalles.lote_id} — «${data.detalles.lote_nombre || nombre}» guardado en historial.</p>`;
+                }
+
                 if (data.detalles && data.detalles.detalles_exitosas.length > 0) {
                     html += `<h4 style="color: green; margin-top: 15px;">✅ Propiedades Exitosas (${data.detalles.detalles_exitosas.length}):</h4>`;
                     html += `<table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">`;
@@ -178,8 +280,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     });
                     html += `</tbody></table>`;
                 }
-                
-                // Tabla de errores
+
                 if (data.detalles && data.detalles.detalles_errores.length > 0) {
                     html += `<h4 style="color: red; margin-top: 15px;">❌ Propiedades con Errores (${data.detalles.detalles_errores.length}):</h4>`;
                     html += `<table style="width: 100%; border-collapse: collapse;">`;
@@ -201,29 +302,30 @@ document.addEventListener('DOMContentLoaded', function() {
                     });
                     html += `</tbody></table>`;
                 }
-                
+
                 html += `</div>`;
-                
+
                 Swal.fire({
                     icon: data.detalles && data.detalles.detalles_errores.length > 0 ? 'warning' : 'success',
                     title: data.detalles && data.detalles.detalles_errores.length > 0 ? '¡Completado con errores!' : '¡Éxito!',
                     html: html,
                     showConfirmButton: true,
-                    confirmButtonText: 'Entendido',
-                    width: '800px',
-                    customClass: {
-                        popup: 'swal-wide'
+                    confirmButtonText: 'Ir al historial',
+                    showDenyButton: true,
+                    denyButtonText: 'Seguir acá',
+                    width: '800px'
+                }).then((r) => {
+                    if (r.isConfirmed) {
+                        window.location.href = '{% url "inmobiliaria:historial_disponibilidad_masiva" %}';
+                    } else {
+                        window.location.href = '{% url "inmobiliaria:agregar_disponibilidad_masiva" %}';
                     }
-                }).then(() => {
-                    // Recargar la página después de guardar
-                    window.location.reload();
                 });
-                
+
             } else {
-                // Preparar HTML con tabla de errores
                 let html = `<div style="text-align: left;">`;
                 html += `<p><strong>${data.message}</strong></p>`;
-                
+
                 if (data.detalles && data.detalles.detalles_errores.length > 0) {
                     html += `<h4 style="color: red; margin-top: 15px;">❌ Errores Encontrados:</h4>`;
                     html += `<table style="width: 100%; border-collapse: collapse;">`;
@@ -245,9 +347,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     });
                     html += `</tbody></table>`;
                 }
-                
+
                 html += `</div>`;
-                
+
                 Swal.fire({
                     icon: 'error',
                     title: 'Error en Disponibilidad Masiva',
@@ -258,7 +360,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             }
         })
-        .catch(error => {
+        .catch(function() {
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
@@ -269,15 +371,11 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     buscarIdInput.addEventListener('keyup', function() {
-        const filter = buscarIdInput.value.toUpperCase();
+        const filter = buscarIdInput.value.trim().toUpperCase();
         const rows = document.querySelectorAll('#tabla-propiedades tbody tr');
-
         rows.forEach(row => {
-            const idCell = row.querySelector('td:nth-child(2)');
-            if (idCell) {
-                const idText = idCell.textContent || idCell.innerText;
-                row.style.display = idText.toUpperCase().indexOf(filter) > -1 ? '' : 'none';
-            }
+            const txt = (row.getAttribute('data-buscar') || row.textContent || '').toUpperCase();
+            row.style.display = !filter || txt.indexOf(filter) > -1 ? '' : 'none';
         });
     });
 });

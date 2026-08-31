@@ -1,0 +1,88 @@
+{% extends 'inmobiliaria/base.html' %}
+
+{% block title %}Historial — Disponibilidad masiva{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+        <div>
+            <h2 class="mb-1">Historial de disponibilidades masivas</h2>
+            <p class="text-muted mb-0 small">Lotes guardados con nombre, fechas y departamentos. Podés repetirlos cambiando solo las fechas.</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{% url 'inmobiliaria:agregar_disponibilidad_masiva' %}" class="btn btn-primary btn-sm">
+                <i class="fas fa-plus me-1"></i>Nueva masiva
+            </a>
+            <a href="{% url 'inmobiliaria:propiedades' %}" class="btn btn-outline-secondary btn-sm">Propiedades</a>
+        </div>
+    </div>
+
+    <form method="get" class="row g-2 align-items-end mb-3">
+        <div class="col-md-5">
+            <label class="form-label small mb-0" for="q">Buscar por nombre</label>
+            <input type="search" class="form-control" id="q" name="q" value="{{ q }}" placeholder="Ej. Verano…">
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-outline-primary">Buscar</button>
+            {% if q %}<a href="{% url 'inmobiliaria:historial_disponibilidad_masiva' %}" class="btn btn-outline-secondary">Limpiar</a>{% endif %}
+        </div>
+    </form>
+
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Fechas</th>
+                        <th class="text-end">Deptos</th>
+                        <th class="text-end">Creadas</th>
+                        <th>Creado</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for l in lotes %}
+                    <tr>
+                        <td>
+                            <strong>{{ l.nombre }}</strong>
+                            {% if l.repetido_desde %}
+                            <div class="small text-muted">Repetido de «{{ l.repetido_desde.nombre }}»</div>
+                            {% endif %}
+                        </td>
+                        <td class="small text-nowrap">
+                            {{ l.fecha_inicio|date:"d/m/Y" }} → {{ l.fecha_fin|date:"d/m/Y" }}
+                        </td>
+                        <td class="text-end">{{ l.n_props }}</td>
+                        <td class="text-end">
+                            <span class="text-success">{{ l.cantidad_creadas }}</span>
+                            {% if l.cantidad_errores %}
+                            <span class="text-danger small">/ {{ l.cantidad_errores }} err.</span>
+                            {% endif %}
+                        </td>
+                        <td class="small">
+                            {{ l.creado_en|date:"d/m/Y H:i" }}
+                            {% if l.creado_por %}<div class="text-muted">{{ l.creado_por }}</div>{% endif %}
+                        </td>
+                        <td class="text-end text-nowrap">
+                            <a href="{% url 'inmobiliaria:detalle_lote_disponibilidad_masiva' l.id %}" class="btn btn-outline-secondary btn-sm">Ver deptos</a>
+                            <a href="{% url 'inmobiliaria:agregar_disponibilidad_masiva' %}?repetir={{ l.id }}" class="btn btn-primary btn-sm">
+                                <i class="fas fa-redo me-1"></i>Repetir
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-4">
+                            Todavía no hay lotes. Creá uno desde
+                            <a href="{% url 'inmobiliaria:agregar_disponibilidad_masiva' %}">Disponibilidad Masiva</a>
+                            poniendo un nombre.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

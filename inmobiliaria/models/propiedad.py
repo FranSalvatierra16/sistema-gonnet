@@ -1187,6 +1187,63 @@ class Disponibilidad(models.Model):
         return f"{self.propiedad} - {self.fecha_inicio} al {self.fecha_fin}"
 
 
+class LoteDisponibilidadMasiva(models.Model):
+    """
+    Historial de una carga masiva de disponibilidades.
+    Guarda nombre, fechas y la lista de departamentos para poder repetirla
+    (p. ej. Verano 2027 → al año siguiente solo cambiar fechas).
+    """
+
+    sucursal = models.ForeignKey(
+        'Sucursal',
+        on_delete=models.CASCADE,
+        related_name='lotes_disponibilidad_masiva',
+    )
+    nombre = models.CharField(
+        max_length=200,
+        verbose_name='Nombre',
+        help_text='Ej.: Verano 2027, Invierno julio 2026',
+    )
+    fecha_inicio = models.DateField(verbose_name='Fecha inicio')
+    fecha_fin = models.DateField(verbose_name='Fecha fin')
+    propiedades = models.ManyToManyField(
+        'Propiedad',
+        blank=True,
+        related_name='lotes_disponibilidad_masiva',
+        verbose_name='Departamentos incluidos',
+    )
+    creado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='lotes_disponibilidad_masiva_creados',
+    )
+    creado_en = models.DateTimeField(auto_now_add=True)
+    repetido_desde = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='repeticiones',
+        verbose_name='Repetido desde',
+    )
+    cantidad_creadas = models.PositiveIntegerField(default=0)
+    cantidad_errores = models.PositiveIntegerField(default=0)
+    notas = models.TextField(blank=True, default='')
+
+    class Meta:
+        verbose_name = 'Lote disponibilidad masiva'
+        verbose_name_plural = 'Lotes disponibilidad masiva'
+        ordering = ['-creado_en', '-id']
+
+    def __str__(self):
+        return f'{self.nombre} ({self.fecha_inicio} → {self.fecha_fin})'
+
+    @property
+    def cantidad_propiedades(self):
+        return self.propiedades.count()
+
 
 class TipoPrecio(models.TextChoices):
     QUINCENA_1_DICIEMBRE = 'QUINCENA_1_DICIEMBRE', _('1ra quincena Diciembre')

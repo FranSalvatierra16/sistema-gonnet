@@ -92,6 +92,16 @@ urlpatterns = [
     path('api/propiedad/<str:propiedad_id>/', views.api_propiedad_detalle, name='api_propiedad_detalle'),
     path('recibo-movimiento/<int:movimiento_id>/', views.ver_recibo_movimiento, name='ver_recibo_movimiento'),
     path('disponibilidad-masiva/', views.agregar_disponibilidad_masiva, name='agregar_disponibilidad_masiva'),
+    path(
+        'disponibilidad-masiva/historial/',
+        views.historial_disponibilidad_masiva,
+        name='historial_disponibilidad_masiva',
+    ),
+    path(
+        'disponibilidad-masiva/lote/<int:lote_id>/',
+        views.detalle_lote_disponibilidad_masiva,
+        name='detalle_lote_disponibilidad_masiva',
+    ),
     path('disponibilidad/<int:disponibilidad_id>/eliminar/', views.eliminar_disponibilidad, name='eliminar_disponibilidad'),
     path('disponibilidad/<int:disponibilidad_id>/editar/', views.editar_disponibilidad, name='editar_disponibilidad'),
     path('propiedades/<str:propiedad_id>/corregir-superposiciones/', views.corregir_superposiciones_disponibilidades, name='corregir_superposiciones_disponibilidades'),

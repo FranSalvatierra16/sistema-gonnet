@@ -1,6 +1,7 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import (
     HttpResponse,
+    HttpResponseForbidden,
     HttpResponseNotAllowed,
     HttpResponseRedirect,
     JsonResponse,
@@ -9587,19 +9588,31 @@ def buscar_propiedades_estudiantes(request):
     })
 
 
+@login_required
 def agregar_disponibilidad_masiva(request):
-    # Obtener la sucursal del usuario logueado
+    """Carga masiva de disponibilidades: nombre + fechas + deptos (queda en historial)."""
+    from inmobiliaria.models import LoteDisponibilidadMasiva
+
     sucursal = request.user.sucursal
+    if not sucursal:
+        return HttpResponseForbidden('Tu usuario no tiene sucursal asignada.')
 
     if request.method == 'POST':
         propiedad_ids = request.POST.getlist('propiedades[]')
         fecha_inicio_str = (request.POST.get('fecha_inicio') or '').strip()
         fecha_fin_str = (request.POST.get('fecha_fin') or '').strip()
+        nombre = (request.POST.get('nombre') or '').strip()[:200]
+        repetir_desde_id = (request.POST.get('repetir_desde_id') or '').strip()
         try:
             fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date() if fecha_inicio_str else None
             fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date() if fecha_fin_str else None
         except (ValueError, TypeError):
             fecha_inicio = fecha_fin = None
+        if not nombre:
+            return JsonResponse({
+                'success': False,
+                'message': 'Indicá un nombre para esta disponibilidad masiva (ej. Verano 2027).',
+            })
         if not fecha_inicio or not fecha_fin:
             return JsonResponse({
                 'success': False,
@@ -9610,56 +9623,52 @@ def agregar_disponibilidad_masiva(request):
                 'success': False,
                 'message': 'La fecha de inicio no puede ser posterior a la fecha de fin.',
             })
+        if not propiedad_ids:
+            return JsonResponse({
+                'success': False,
+                'message': 'Seleccioná al menos un departamento.',
+            })
 
         propiedades_actualizadas = 0
         propiedades_exitosas = []
         errores_detallados = []
-        
+
         try:
-            # Procesar cada propiedad individualmente y reportar resultados detallados
             for propiedad_id in propiedad_ids:
                 try:
                     propiedad = Propiedad.objects.get(
                         id=propiedad_id,
-                        sucursal=sucursal  # Usar la sucursal del usuario
+                        sucursal=sucursal
                     )
-                    
-                    # ✅ VALIDAR SUPERPOSICIÓN REAL (permitir fechas contiguas)
+
                     todas_disponibilidades = Disponibilidad.objects.filter(
                         propiedad=propiedad
                     )
-                    
-                    # Verificar VERDADERA superposición (excluir fechas contiguas)
+
                     solapamientos_reales = []
                     for disp in todas_disponibilidades:
-                        # Filas legacy o corruptas con NULL rompen la comparación (TypeError con "date" en el mensaje)
                         if disp.fecha_inicio is None or disp.fecha_fin is None:
                             continue
-                        # Superposición REAL: comparten MÁS de un día
-                        # Si solo se tocan en UN día (contiguas como 10-15 y 15-20), es válido
                         if disp.fecha_fin > fecha_inicio and disp.fecha_inicio < fecha_fin:
                             solapamientos_reales.append(disp)
-                    
+
                     if solapamientos_reales:
-                        # Obtener info de las disponibilidades que se superponen REALMENTE
                         fechas_conflicto = []
                         for disp in solapamientos_reales:
-                            fechas_conflicto.append(f"{disp.fecha_inicio.strftime('%d/%m/%Y')} - {disp.fecha_fin.strftime('%d/%m/%Y')}")
-                        
-                        raise ValueError(f"Se superpone con disponibilidades existentes: {', '.join(fechas_conflicto)}")
-                    
-                    # 🎯 CREAR DISPONIBILIDAD (solo si no hay superposición)
-                    nueva_disponibilidad = Disponibilidad.objects.create(
+                            fechas_conflicto.append(
+                                f"{disp.fecha_inicio.strftime('%d/%m/%Y')} - {disp.fecha_fin.strftime('%d/%m/%Y')}"
+                            )
+                        raise ValueError(
+                            f"Se superpone con disponibilidades existentes: {', '.join(fechas_conflicto)}"
+                        )
+
+                    Disponibilidad.objects.create(
                         propiedad=propiedad,
                         fecha_inicio=fecha_inicio,
                         fecha_fin=fecha_fin,
-                        es_manual=True  # Marcada explícitamente como manual
+                        es_manual=True
                     )
-                    
-                    # ✅ Las disponibilidades manuales no crean historial automáticamente
-                    # El historial se gestiona por separado
-                    
-                    # ✅ Si llegamos aquí, fue exitoso
+
                     propiedades_actualizadas += 1
                     propiedades_exitosas.append({
                         'propiedad_id': propiedad_id,
@@ -9667,7 +9676,7 @@ def agregar_disponibilidad_masiva(request):
                         'piso': propiedad.piso or '-',
                         'departamento': propiedad.departamento or '-'
                     })
-                        
+
                 except Propiedad.DoesNotExist:
                     errores_detallados.append({
                         'propiedad_id': propiedad_id,
@@ -9676,21 +9685,19 @@ def agregar_disponibilidad_masiva(request):
                         'tipo': 'no_existe'
                     })
                 except Exception as e:
-                    # Intentar obtener la dirección para mejor reporte
                     try:
                         propiedad = Propiedad.objects.get(id=propiedad_id)
                         direccion = f"{propiedad.direccion}"
                         piso = propiedad.piso or '-'
                         departamento = propiedad.departamento or '-'
-                    except:
+                    except Exception:
                         direccion = 'Desconocida'
                         piso = '-'
                         departamento = '-'
-                    
-                    # 🔍 Clasificar el tipo de error para mayor claridad
+
                     error_msg = str(e)
                     tipo_error = 'error_general'
-                    
+
                     if 'superpone con disponibilidades' in error_msg.lower():
                         tipo_error = 'solapamiento'
                     elif 'UNIQUE constraint failed' in error_msg or 'duplicate' in error_msg.lower():
@@ -9701,7 +9708,7 @@ def agregar_disponibilidad_masiva(request):
                         tipo_error = 'referencia'
                     elif len(error_msg) > 280:
                         error_msg = error_msg[:277] + '...'
-                    
+
                     errores_detallados.append({
                         'propiedad_id': propiedad_id,
                         'direccion': direccion,
@@ -9709,52 +9716,184 @@ def agregar_disponibilidad_masiva(request):
                         'departamento': departamento,
                         'error': error_msg,
                         'tipo': tipo_error,
-                        'error_original': str(e)  # Para debugging si es necesario
+                        'error_original': str(e)
                     })
-            
-            # Preparar respuesta detallada
+
+            # Guardar lote en historial con TODOS los deptos seleccionados
+            # (aunque algunos hayan fallado, para poder editar y reintentar).
+            ids_lote = []
+            for pid in propiedad_ids:
+                if Propiedad.objects.filter(id=pid, sucursal=sucursal).exists():
+                    ids_lote.append(pid)
+
+            repetido_desde = None
+            if repetir_desde_id.isdigit():
+                repetido_desde = LoteDisponibilidadMasiva.objects.filter(
+                    pk=int(repetir_desde_id),
+                    sucursal=sucursal,
+                ).first()
+
+            lote = LoteDisponibilidadMasiva.objects.create(
+                sucursal=sucursal,
+                nombre=nombre,
+                fecha_inicio=fecha_inicio,
+                fecha_fin=fecha_fin,
+                creado_por=request.user if getattr(request.user, 'is_authenticated', False) else None,
+                repetido_desde=repetido_desde,
+                cantidad_creadas=propiedades_actualizadas,
+                cantidad_errores=len(errores_detallados),
+            )
+            if ids_lote:
+                lote.propiedades.set(ids_lote)
+
             respuesta = {
                 'propiedades_procesadas': len(propiedad_ids),
                 'propiedades_exitosas': propiedades_actualizadas,
                 'propiedades_con_errores': len(errores_detallados),
                 'detalles_exitosas': propiedades_exitosas,
-                'detalles_errores': errores_detallados
+                'detalles_errores': errores_detallados,
+                'lote_id': lote.id,
+                'lote_nombre': lote.nombre,
             }
-            
+
             if propiedades_actualizadas > 0:
-                mensaje = f'✅ {propiedades_actualizadas} propiedades actualizadas correctamente'
+                mensaje = f'✅ {propiedades_actualizadas} propiedades actualizadas — lote «{nombre}» guardado'
                 if errores_detallados:
                     mensaje += f'\n⚠️ {len(errores_detallados)} propiedades con errores'
-                
                 return JsonResponse({
                     'success': True,
                     'message': mensaje,
                     'detalles': respuesta
                 })
-            else:
-                return JsonResponse({
-                    'success': False,
-                    'message': f'❌ No se pudo actualizar ninguna propiedad ({len(errores_detallados)} errores)',
-                    'detalles': respuesta
-                })
-                
+            return JsonResponse({
+                'success': False,
+                'message': f'❌ No se pudo actualizar ninguna propiedad ({len(errores_detallados)} errores). El lote «{nombre}» quedó guardado para poder reintentar.',
+                'detalles': respuesta
+            })
+
         except Exception as e:
             return JsonResponse({
                 'success': False,
                 'message': f'Error al actualizar disponibilidades: {str(e)}'
             })
-    
-    # Filtrar propiedades por sucursal para el listado (orden por apellido del propietario)
+
+    # GET: listado + opcional preselección al repetir
     propiedades = Propiedad.objects.filter(
         sucursal=sucursal
     ).select_related('propietario').order_by(
         Lower('propietario__apellido'), Lower('propietario__nombre'), 'direccion', 'id'
     )
 
+    lote_origen = None
+    ids_preseleccionados = set()
+    nombre_sugerido = ''
+    fecha_inicio_sugerida = ''
+    fecha_fin_sugerida = ''
+    repetir_id = (request.GET.get('repetir') or '').strip()
+    if repetir_id.isdigit():
+        lote_origen = LoteDisponibilidadMasiva.objects.filter(
+            pk=int(repetir_id),
+            sucursal=sucursal,
+        ).prefetch_related('propiedades').first()
+        if lote_origen:
+            ids_preseleccionados = {str(p.id) for p in lote_origen.propiedades.all()}
+            nombre_sugerido = lote_origen.nombre
+
+            def _mas_un_anio(d):
+                try:
+                    return d.replace(year=d.year + 1)
+                except ValueError:
+                    return d.replace(month=2, day=28, year=d.year + 1)
+
+            fi = _mas_un_anio(lote_origen.fecha_inicio)
+            ff = _mas_un_anio(lote_origen.fecha_fin)
+            fecha_inicio_sugerida = fi.isoformat()
+            fecha_fin_sugerida = ff.isoformat()
+            import re as _re
+            m = _re.search(r'(.*?)(\d{4})\s*$', nombre_sugerido)
+            if m:
+                try:
+                    nombre_sugerido = f'{m.group(1)}{int(m.group(2)) + 1}'.strip()
+                except Exception:
+                    pass
+
+    lotes_recientes = (
+        LoteDisponibilidadMasiva.objects.filter(sucursal=sucursal)
+        .annotate(n_props=Count('propiedades'))
+        .order_by('-creado_en')[:8]
+    )
+
     return render(request, 'inmobiliaria/propiedades/disponibilidad_masiva.html', {
         'propiedades': propiedades,
-        'sucursal': sucursal  # Pasar la sucursal al template
+        'sucursal': sucursal,
+        'lote_origen': lote_origen,
+        'ids_preseleccionados': ids_preseleccionados,
+        'nombre_sugerido': nombre_sugerido,
+        'fecha_inicio_sugerida': fecha_inicio_sugerida,
+        'fecha_fin_sugerida': fecha_fin_sugerida,
+        'lotes_recientes': lotes_recientes,
     })
+
+
+@login_required
+def historial_disponibilidad_masiva(request):
+    """Listado de cargas masivas guardadas (para repetir / ver deptos)."""
+    from inmobiliaria.models import LoteDisponibilidadMasiva
+
+    sucursal = request.user.sucursal
+    if not sucursal:
+        return HttpResponseForbidden('Tu usuario no tiene sucursal asignada.')
+
+    q = (request.GET.get('q') or '').strip()
+    lotes = (
+        LoteDisponibilidadMasiva.objects.filter(sucursal=sucursal)
+        .select_related('creado_por', 'repetido_desde')
+        .annotate(n_props=Count('propiedades'))
+        .order_by('-creado_en')
+    )
+    if q:
+        lotes = lotes.filter(Q(nombre__icontains=q))
+
+    return render(
+        request,
+        'inmobiliaria/propiedades/historial_disponibilidad_masiva.html',
+        {
+            'lotes': lotes[:200],
+            'q': q,
+            'sucursal': sucursal,
+        },
+    )
+
+
+@login_required
+def detalle_lote_disponibilidad_masiva(request, lote_id):
+    """Detalle de un lote: departamentos incluidos + botón Repetir."""
+    from inmobiliaria.models import LoteDisponibilidadMasiva
+
+    sucursal = request.user.sucursal
+    if not sucursal:
+        return HttpResponseForbidden('Tu usuario no tiene sucursal asignada.')
+
+    lote = get_object_or_404(
+        LoteDisponibilidadMasiva.objects.select_related(
+            'creado_por', 'repetido_desde', 'sucursal'
+        ),
+        pk=lote_id,
+        sucursal=sucursal,
+    )
+    props = (
+        lote.propiedades.select_related('propietario')
+        .order_by('direccion', 'piso', 'departamento', 'id')
+    )
+    return render(
+        request,
+        'inmobiliaria/propiedades/detalle_lote_disponibilidad_masiva.html',
+        {
+            'lote': lote,
+            'propiedades': props,
+        },
+    )
+
 
 # views.py
 @login_required

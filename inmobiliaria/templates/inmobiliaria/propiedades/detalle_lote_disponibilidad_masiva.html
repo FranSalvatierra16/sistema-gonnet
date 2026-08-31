@@ -1,0 +1,66 @@
+{% extends 'inmobiliaria/base.html' %}
+
+{% block title %}Lote — {{ lote.nombre }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+        <div>
+            <h2 class="mb-1">{{ lote.nombre }}</h2>
+            <p class="text-muted mb-0">
+                {{ lote.fecha_inicio|date:"d/m/Y" }} → {{ lote.fecha_fin|date:"d/m/Y" }}
+                · {{ propiedades|length }} departamentos
+                · creado {{ lote.creado_en|date:"d/m/Y H:i" }}
+                {% if lote.creado_por %}por {{ lote.creado_por }}{% endif %}
+            </p>
+            {% if lote.repetido_desde %}
+            <p class="small mb-0">
+                Repetido desde
+                <a href="{% url 'inmobiliaria:detalle_lote_disponibilidad_masiva' lote.repetido_desde_id %}">{{ lote.repetido_desde.nombre }}</a>
+            </p>
+            {% endif %}
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{% url 'inmobiliaria:agregar_disponibilidad_masiva' %}?repetir={{ lote.id }}" class="btn btn-primary btn-sm">
+                <i class="fas fa-redo me-1"></i>Repetir (cambiar fechas / deptos)
+            </a>
+            <a href="{% url 'inmobiliaria:historial_disponibilidad_masiva' %}" class="btn btn-outline-secondary btn-sm">Historial</a>
+        </div>
+    </div>
+
+    <div class="alert alert-light border small">
+        Al <strong>Repetir</strong> se abren estos mismos departamentos ya tildados; podés sumar o sacar deptos y solo cambiar las fechas (se sugiere +1 año).
+        Resultado al crear: {{ lote.cantidad_creadas }} ok{% if lote.cantidad_errores %}, {{ lote.cantidad_errores }} con error{% endif %}.
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header py-2 fw-semibold">Departamentos del lote</div>
+        <div class="table-responsive">
+            <table class="table table-sm table-striped mb-0">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Dirección</th>
+                        <th>Piso</th>
+                        <th>Dpto</th>
+                        <th>Propietario</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in propiedades %}
+                    <tr>
+                        <td>{{ p.id }}</td>
+                        <td>{{ p.direccion }}</td>
+                        <td>{{ p.piso|default:"—" }}</td>
+                        <td>{{ p.departamento|default:"—" }}</td>
+                        <td>{% if p.propietario %}{{ p.propietario.apellido }}, {{ p.propietario.nombre }}{% else %}—{% endif %}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="text-center text-muted py-3">Sin departamentos en este lote.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
