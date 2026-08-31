@@ -64,7 +64,7 @@
                         <td class="text-end">
                             <span class="text-success">{{ l.cantidad_creadas }}</span>
                             {% if l.cantidad_errores %}
-                            <span class="text-danger small">/ {{ l.cantidad_errores }} err.</span>
+                            <span class="text-danger small d-block">{{ l.cantidad_errores }} err.</span>
                             {% endif %}
                         </td>
                         <td class="small">
@@ -73,6 +73,9 @@
                         </td>
                         <td class="text-end text-nowrap">
                             <a href="{% url 'inmobiliaria:detalle_lote_disponibilidad_masiva' l.id %}" class="btn btn-outline-secondary btn-sm">Ver deptos</a>
+                            {% if l.cantidad_errores %}
+                            <a href="{% url 'inmobiliaria:detalle_lote_disponibilidad_masiva' l.id %}#fallidas" class="btn btn-outline-danger btn-sm">Errores</a>
+                            {% endif %}
                             <a href="{% url 'inmobiliaria:agregar_disponibilidad_masiva' %}?repetir={{ l.id }}" class="btn btn-primary btn-sm">
                                 <i class="fas fa-redo me-1"></i>Repetir
                             </a>

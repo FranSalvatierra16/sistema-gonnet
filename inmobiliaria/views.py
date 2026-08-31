@@ -9781,10 +9781,14 @@ def agregar_disponibilidad_masiva(request):
 
             # Guardar lote en historial con TODOS los deptos seleccionados
             # (aunque algunos hayan fallado, para poder editar y reintentar).
+            from inmobiliaria.disponibilidad_masiva_utils import sanitizar_errores_lote
+
             ids_lote = []
             for pid in propiedad_ids:
                 if Propiedad.objects.filter(id=pid, sucursal=sucursal).exists():
                     ids_lote.append(pid)
+
+            detalle_errores = sanitizar_errores_lote(errores_detallados)
 
             repetido_desde = None
             if repetir_desde_id.isdigit():
@@ -9802,6 +9806,7 @@ def agregar_disponibilidad_masiva(request):
                 repetido_desde=repetido_desde,
                 cantidad_creadas=propiedades_actualizadas,
                 cantidad_errores=len(errores_detallados),
+                detalle_errores=detalle_errores,
             )
             if ids_lote:
                 lote.propiedades.set(ids_lote)
@@ -10001,6 +10006,7 @@ def editar_nombre_lote_disponibilidad_masiva(request, lote_id):
 def detalle_lote_disponibilidad_masiva(request, lote_id):
     """Detalle de un lote: departamentos incluidos + botón Repetir."""
     from inmobiliaria.models import LoteDisponibilidadMasiva
+    from inmobiliaria.disponibilidad_masiva_utils import clasificar_propiedades_lote
 
     sucursal = request.user.sucursal
     if not sucursal:
@@ -10017,12 +10023,19 @@ def detalle_lote_disponibilidad_masiva(request, lote_id):
         lote.propiedades.select_related('propietario')
         .order_by('direccion', 'piso', 'departamento', 'id')
     )
+    if not lote.detalle_errores and lote.cantidad_errores:
+        from inmobiliaria.disponibilidad_masiva_utils import inferir_y_guardar_errores_lote
+        inferir_y_guardar_errores_lote(lote)
+        lote.refresh_from_db()
+    propiedades_exitosas, propiedades_fallidas = clasificar_propiedades_lote(lote, props)
     return render(
         request,
         'inmobiliaria/propiedades/detalle_lote_disponibilidad_masiva.html',
         {
             'lote': lote,
             'propiedades': props,
+            'propiedades_exitosas': propiedades_exitosas,
+            'propiedades_fallidas': propiedades_fallidas,
         },
     )
 

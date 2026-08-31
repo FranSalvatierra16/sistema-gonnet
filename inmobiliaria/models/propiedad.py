@@ -1230,6 +1230,12 @@ class LoteDisponibilidadMasiva(models.Model):
     )
     cantidad_creadas = models.PositiveIntegerField(default=0)
     cantidad_errores = models.PositiveIntegerField(default=0)
+    detalle_errores = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name='Detalle de errores',
+        help_text='Lista de deptos que fallaron al crear (id, dirección, error).',
+    )
     notas = models.TextField(blank=True, default='')
 
     class Meta:

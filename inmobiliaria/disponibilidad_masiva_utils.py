@@ -155,23 +155,34 @@ def recuperar_ultima_masiva_corrientes(
     )
 
     if existente and not force:
+        ids_previos = set(existente.propiedades.values_list('id', flat=True))
+        ids_errores = {
+            str(e.get('propiedad_id'))
+            for e in (existente.detalle_errores or [])
+            if e.get('propiedad_id')
+        }
+        todos_ids = set(props_validas) | ids_previos | ids_errores
+
         existente.fecha_inicio = fecha_inicio
         existente.fecha_fin = fecha_fin
         existente.cantidad_creadas = masiva['cantidad']
         existente.notas = notas
+        existente.propiedades.set(list(todos_ids))
         existente.save(update_fields=['fecha_inicio', 'fecha_fin', 'cantidad_creadas', 'notas'])
-        if props_validas:
-            existente.propiedades.set(props_validas)
+        inferir_y_guardar_errores_lote(existente, Disponibilidad=Disponibilidad, Propiedad=Propiedad)
+        n_errores = existente.cantidad_errores
         return {
             'ok': True,
             'mensaje': (
-                f'Lote «{nombre}» actualizado — {len(props_validas)} deptos, '
-                f'{fecha_inicio.strftime("%d/%m/%Y")} → {fecha_fin.strftime("%d/%m/%Y")}.'
+                f'Lote «{nombre}» actualizado — {len(todos_ids)} deptos en total, '
+                f'{masiva["cantidad"]} con disponibilidad'
+                + (f', {n_errores} con error' if n_errores else '')
+                + f' ({fecha_inicio.strftime("%d/%m/%Y")} → {fecha_fin.strftime("%d/%m/%Y")}).'
             ),
             'lote_id': existente.pk,
             'creado': False,
             'actualizado': True,
-            'deptos': len(props_validas),
+            'deptos': len(todos_ids),
             'fecha_inicio': fecha_inicio,
             'fecha_fin': fecha_fin,
         }
@@ -207,3 +218,108 @@ def recuperar_ultima_masiva_corrientes(
 
 # Alias retrocompatible
 recuperar_lote_corrientes_verano_2027 = recuperar_ultima_masiva_corrientes
+
+
+def sanitizar_errores_lote(errores_detallados):
+    """Normaliza el detalle de errores para guardarlo en JSON."""
+    resultado = []
+    for e in errores_detallados or []:
+        resultado.append({
+            'propiedad_id': str(e.get('propiedad_id', '')),
+            'direccion': e.get('direccion', '') or 'Desconocida',
+            'piso': e.get('piso', '-') or '-',
+            'departamento': e.get('departamento', '-') or '-',
+            'error': e.get('error', 'Error desconocido'),
+            'tipo': e.get('tipo', 'error_general'),
+        })
+    return resultado
+
+
+def clasificar_propiedades_lote(lote, propiedades_qs, Disponibilidad=None):
+    """
+    Separa deptos exitosos y fallidos de un lote.
+    Usa detalle_errores guardado; si falta, infiere por disponibilidad creada.
+    """
+    if Disponibilidad is None:
+        from inmobiliaria.models import Disponibilidad as DispModel
+        Disponibilidad = DispModel
+
+    props_by_id = {str(p.id): p for p in propiedades_qs}
+    errores_map = {
+        str(e.get('propiedad_id')): e for e in (lote.detalle_errores or []) if e.get('propiedad_id')
+    }
+
+    exitosas = []
+    fallidas = []
+    vistos = set()
+
+    for propiedad in propiedades_qs:
+        pid = str(propiedad.id)
+        vistos.add(pid)
+        if pid in errores_map:
+            fallidas.append({
+                'propiedad': propiedad,
+                'error': errores_map[pid].get('error', 'Error'),
+            })
+            continue
+        tiene_disp = Disponibilidad.objects.filter(
+            propiedad_id=propiedad.id,
+            fecha_inicio=lote.fecha_inicio,
+            fecha_fin=lote.fecha_fin,
+        ).exists()
+        if tiene_disp:
+            exitosas.append(propiedad)
+        else:
+            fallidas.append({
+                'propiedad': propiedad,
+                'error': 'Sin disponibilidad creada para estas fechas',
+            })
+
+    for pid, err in errores_map.items():
+        if pid in vistos:
+            continue
+        fallidas.append({
+            'propiedad': props_by_id.get(pid),
+            'propiedad_id': pid,
+            'direccion': err.get('direccion', 'Desconocida'),
+            'piso': err.get('piso', '-'),
+            'departamento': err.get('departamento', '-'),
+            'error': err.get('error', 'Error'),
+        })
+
+    return exitosas, fallidas
+
+
+def inferir_y_guardar_errores_lote(lote, Disponibilidad=None, Propiedad=None):
+    """Completa detalle_errores en lotes viejos sin detalle persistido."""
+    if lote.detalle_errores:
+        return lote.detalle_errores
+
+    if Disponibilidad is None or Propiedad is None:
+        from inmobiliaria.models import Disponibilidad as DispModel, Propiedad as PropModel
+        Disponibilidad = DispModel
+        Propiedad = PropModel
+
+    _, fallidas = clasificar_propiedades_lote(
+        lote, lote.propiedades.all(), Disponibilidad=Disponibilidad
+    )
+    if not fallidas:
+        return []
+
+    detalle = []
+    for item in fallidas:
+        p = item.get('propiedad')
+        detalle.append({
+            'propiedad_id': str(p.id) if p else item.get('propiedad_id', ''),
+            'direccion': p.direccion if p else item.get('direccion', 'Desconocida'),
+            'piso': (p.piso or '-') if p else item.get('piso', '-'),
+            'departamento': (p.departamento or '-') if p else item.get('departamento', '-'),
+            'error': item.get('error', 'Error'),
+            'tipo': 'inferido',
+        })
+
+    lote.detalle_errores = detalle
+    lote.cantidad_errores = len(detalle)
+    lote.save(update_fields=['detalle_errores', 'cantidad_errores'])
+    return detalle
+
