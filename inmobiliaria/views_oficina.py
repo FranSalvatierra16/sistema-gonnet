@@ -1911,21 +1911,31 @@ def oficina_propiedad_libro(request, propiedad_id):
             f.get('movimiento_id') or f.get('fila_manual_id') or 0,
         )
 
-    # Bloque importado (Excel facturado) arriba; el resto del libro abajo,
-    # con un renglón de «Totales hasta la fecha» en el medio.
-    filas_import = [
+    # Bloques importados: facturado → totales → en negro → totales → resto del libro.
+    filas_facturado = [
         f for f in filas
         if f.get('es_manual') and (f.get('clasificacion_libro') or '') == 'facturado'
     ]
+    filas_negro = [
+        f for f in filas
+        if f.get('es_manual') and (f.get('clasificacion_libro') or '') == 'negro'
+    ]
     filas_resto = [
         f for f in filas
-        if not (f.get('es_manual') and (f.get('clasificacion_libro') or '') == 'facturado')
+        if not (
+            f.get('es_manual')
+            and (f.get('clasificacion_libro') or '') in ('facturado', 'negro')
+        )
     ]
 
     exige_clasif = bool(getattr(propiedad, 'libro_exige_facturado_negro', False))
     if exige_clasif and clasif_filtro in ('facturado', 'negro'):
-        filas_import = [
-            f for f in filas_import
+        filas_facturado = [
+            f for f in filas_facturado
+            if (f.get('clasificacion_libro') or '') == clasif_filtro
+        ]
+        filas_negro = [
+            f for f in filas_negro
             if (f.get('clasificacion_libro') or '') == clasif_filtro
         ]
         filas_resto = [
@@ -1933,27 +1943,26 @@ def oficina_propiedad_libro(request, propiedad_id):
             if (f.get('clasificacion_libro') or '') == clasif_filtro
         ]
 
-    filas_import.sort(key=_orden_fila)
+    filas_facturado.sort(key=_orden_fila)
+    filas_negro.sort(key=_orden_fila)
     filas_resto.sort(key=_orden_fila)
 
-    filas = [_fila_inicio_caja_libro(inicio)]
-    filas.extend(filas_import)
-
-    if filas_import:
-        tot_imp = {
-            'gastos_ars': sum((f['gastos_ars'] for f in filas_import), Decimal('0')),
-            'alquileres_ars': sum((f['alquileres_ars'] for f in filas_import), Decimal('0')),
-            'gastos_usd': sum((f['gastos_usd'] for f in filas_import), Decimal('0')),
-            'ingreso_usd': sum((f['ingreso_usd'] for f in filas_import), Decimal('0')),
+    def _subtotal_bloque(bloque, etiqueta):
+        if not bloque:
+            return None
+        tot = {
+            'gastos_ars': sum((f['gastos_ars'] for f in bloque), Decimal('0')),
+            'alquileres_ars': sum((f['alquileres_ars'] for f in bloque), Decimal('0')),
+            'gastos_usd': sum((f['gastos_usd'] for f in bloque), Decimal('0')),
+            'ingreso_usd': sum((f['ingreso_usd'] for f in bloque), Decimal('0')),
         }
-        ultima = filas_import[-1].get('fecha')
-        filas.append({
-            'fecha': ultima,
-            'descripcion': 'TOTALES HASTA LA FECHA (gastos facturados importados)',
-            'gastos_ars': tot_imp['gastos_ars'],
-            'alquileres_ars': tot_imp['alquileres_ars'],
-            'gastos_usd': tot_imp['gastos_usd'],
-            'ingreso_usd': tot_imp['ingreso_usd'],
+        return {
+            'fecha': bloque[-1].get('fecha'),
+            'descripcion': etiqueta,
+            'gastos_ars': tot['gastos_ars'],
+            'alquileres_ars': tot['alquileres_ars'],
+            'gastos_usd': tot['gastos_usd'],
+            'ingreso_usd': tot['ingreso_usd'],
             'tipo_cambio': None,
             'movimiento_id': None,
             'tipo': 'SUBTOTAL',
@@ -1963,8 +1972,21 @@ def oficina_propiedad_libro(request, propiedad_id):
             'es_subtotal_hasta_fecha': True,
             'fila_manual_id': None,
             'clasificacion_libro': '',
-        })
+        }
 
+    filas = [_fila_inicio_caja_libro(inicio)]
+    filas.extend(filas_facturado)
+    sub_f = _subtotal_bloque(
+        filas_facturado, 'TOTALES HASTA LA FECHA (gastos facturados importados)'
+    )
+    if sub_f:
+        filas.append(sub_f)
+    filas.extend(filas_negro)
+    sub_n = _subtotal_bloque(
+        filas_negro, 'TOTALES HASTA LA FECHA (gastos en negro / no facturados)'
+    )
+    if sub_n:
+        filas.append(sub_n)
     filas.extend(filas_resto)
 
     totales = {
@@ -2047,11 +2069,26 @@ def oficina_propiedad_libro(request, propiedad_id):
 @require_POST
 def oficina_propiedad_libro_importar_facturado(request, propiedad_id):
     """Importa el Excel de gastos de Gery 1759 como filas «facturado»."""
+    return _oficina_propiedad_libro_importar_excel(
+        request, propiedad_id, clasificacion='facturado'
+    )
+
+
+@login_required
+@require_POST
+def oficina_propiedad_libro_importar_negro(request, propiedad_id):
+    """Importa el Excel de gastos de Gery 1759 como filas «en negro» / no facturado."""
+    return _oficina_propiedad_libro_importar_excel(
+        request, propiedad_id, clasificacion='negro'
+    )
+
+
+def _oficina_propiedad_libro_importar_excel(request, propiedad_id, clasificacion):
     if not _puede_oficina(request.user):
         return HttpResponseForbidden()
 
     from inmobiliaria.models import Propiedad
-    from inmobiliaria.gery_1759_facturado_import import importar_gery_1759_facturado
+    from inmobiliaria.gery_1759_facturado_import import importar_gery_1759_excel
 
     sucursal, en_cartera = _propiedad_en_cartera_oficina(request.user, propiedad_id)
     if not en_cartera:
@@ -2063,23 +2100,31 @@ def oficina_propiedad_libro_importar_facturado(request, propiedad_id):
         return redirect('inmobiliaria:oficina_propiedad_libro', propiedad_id=propiedad_id)
 
     try:
-        result = importar_gery_1759_facturado(propiedad=propiedad, force=False)
+        result = importar_gery_1759_excel(
+            propiedad=propiedad,
+            clasificacion=clasificacion,
+            force=False,
+        )
     except Exception as exc:
-        logger.exception('Error importando Excel facturado de %s', propiedad_id)
+        logger.exception('Error importando Excel %s de %s', clasificacion, propiedad_id)
         messages.error(request, f'Error al importar: {exc}')
         return redirect('inmobiliaria:oficina_propiedad_libro', propiedad_id=propiedad_id)
 
     if result['ok']:
         messages.success(request, result['mensaje'])
-        # Abrir el libro desde la fecha del Excel (sin el filtro viejo que tapaba todo).
         fecha_ini = result.get('fecha_inicio_caja')
+        clasif_q = clasificacion
         if fecha_ini:
             return redirect(
                 f"{reverse('inmobiliaria:oficina_propiedad_libro', args=[propiedad_id])}"
-                f"?fecha_desde={fecha_ini}&clasif=facturado"
+                f"?fecha_desde={fecha_ini}&clasif={clasif_q}"
             )
-    else:
-        messages.error(request, result['mensaje'])
+        return redirect(
+            f"{reverse('inmobiliaria:oficina_propiedad_libro', args=[propiedad_id])}"
+            f"?clasif={clasif_q}"
+        )
+
+    messages.error(request, result['mensaje'])
     return redirect('inmobiliaria:oficina_propiedad_libro', propiedad_id=propiedad_id)
 
 
