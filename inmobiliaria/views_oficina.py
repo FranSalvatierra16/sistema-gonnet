@@ -10,6 +10,7 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Count, ProtectedError, Sum
 from django.http import HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
@@ -1984,6 +1985,13 @@ def oficina_propiedad_libro_importar_facturado(request, propiedad_id):
     result = importar_gery_1759_facturado(propiedad=propiedad, force=False)
     if result['ok']:
         messages.success(request, result['mensaje'])
+        # Abrir el libro desde la fecha del Excel (sin el filtro viejo que tapaba todo).
+        fecha_ini = result.get('fecha_inicio_caja')
+        if fecha_ini:
+            return redirect(
+                f"{reverse('inmobiliaria:oficina_propiedad_libro', args=[propiedad_id])}"
+                f"?fecha_desde={fecha_ini}&clasif=facturado"
+            )
     else:
         messages.error(request, result['mensaje'])
     return redirect('inmobiliaria:oficina_propiedad_libro', propiedad_id=propiedad_id)

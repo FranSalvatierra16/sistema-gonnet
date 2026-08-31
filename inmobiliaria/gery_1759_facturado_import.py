@@ -126,7 +126,10 @@ def importar_gery_1759_facturado(
     """
     Carga el Excel al libro como filas manuales «facturado».
     Si la fila ya existe, la marca como facturado (y opcionalmente actualiza montos).
+    Ajusta el «Inicio de caja» a la primera fecha del Excel para que el libro las muestre.
     """
+    from inmobiliaria.models import InicioCajaLibroPropiedad
+
     path = Path(json_path) if json_path else DATA_PATH
     if not path.exists():
         return {'ok': False, 'mensaje': f'No existe el archivo {path.name}.'}
@@ -143,6 +146,7 @@ def importar_gery_1759_facturado(
         return {'ok': False, 'mensaje': 'No se encontró la propiedad Gery 1759 piso 12.'}
 
     creadas = actualizadas = omitidas = sin_fecha = 0
+    fechas_ok: list[date] = []
     for item in filas:
         fecha = item.get('_fecha_parsed')
         if not isinstance(fecha, date):
@@ -155,6 +159,7 @@ def importar_gery_1759_facturado(
             omitidas += 1
             continue
 
+        fechas_ok.append(fecha)
         descripcion = descripcion_fila_excel(item)
         tc = item.get('tipo_cambio')
         tipo_cambio = _q2(tc) if tc not in (None, '') else None
@@ -207,6 +212,33 @@ def importar_gery_1759_facturado(
             )
         creadas += 1
 
+    inicio_ajustado = None
+    if fechas_ok and not dry_run:
+        fecha_min = min(fechas_ok)
+        inicio, _ = InicioCajaLibroPropiedad.objects.get_or_create(
+            propiedad=propiedad,
+            defaults={
+                'fecha': fecha_min,
+                'gastos_ars': Decimal('0'),
+                'alquileres_ars': Decimal('0'),
+                'gastos_usd': Decimal('0'),
+                'ingreso_usd': Decimal('0'),
+            },
+        )
+        if inicio.fecha is None or inicio.fecha > fecha_min:
+            inicio.fecha = fecha_min
+            inicio.save(update_fields=['fecha', 'actualizado_en'])
+            inicio_ajustado = fecha_min
+        else:
+            inicio_ajustado = inicio.fecha
+
+    extras = ''
+    if inicio_ajustado:
+        extras = (
+            f' Inicio de caja movido a {inicio_ajustado.strftime("%d/%m/%Y")} '
+            f'para que se vean en el libro.'
+        )
+
     return {
         'ok': True,
         'propiedad_id': str(propiedad.id),
@@ -216,8 +248,9 @@ def importar_gery_1759_facturado(
         'sin_fecha': sin_fecha,
         'total_json': len(filas),
         'dry_run': dry_run,
+        'fecha_inicio_caja': inicio_ajustado.isoformat() if inicio_ajustado else None,
         'mensaje': (
             f'Importación facturado: {creadas} creadas, {actualizadas} actualizadas, '
-            f'{omitidas} omitidas ({len(filas)} filas en Excel).'
+            f'{omitidas} omitidas ({len(filas)} filas en Excel).{extras}'
         ),
     }
