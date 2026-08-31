@@ -1982,7 +1982,13 @@ def oficina_propiedad_libro_importar_facturado(request, propiedad_id):
         messages.error(request, 'Esta propiedad no usa clasificación facturado / en negro.')
         return redirect('inmobiliaria:oficina_propiedad_libro', propiedad_id=propiedad_id)
 
-    result = importar_gery_1759_facturado(propiedad=propiedad, force=False)
+    try:
+        result = importar_gery_1759_facturado(propiedad=propiedad, force=False)
+    except Exception as exc:
+        logger.exception('Error importando Excel facturado de %s', propiedad_id)
+        messages.error(request, f'Error al importar: {exc}')
+        return redirect('inmobiliaria:oficina_propiedad_libro', propiedad_id=propiedad_id)
+
     if result['ok']:
         messages.success(request, result['mensaje'])
         # Abrir el libro desde la fecha del Excel (sin el filtro viejo que tapaba todo).
