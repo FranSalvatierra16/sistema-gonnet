@@ -1,16 +1,5 @@
 [
   {
-    "fecha_raw": "",
-    "comprobante": "",
-    "proveedor": "",
-    "concepto": "",
-    "gastos_ars": 773394988.62,
-    "gastos_usd": 2709504.47,
-    "ingresos_ars": 0.0,
-    "ingresos_usd": 0.0,
-    "tipo_cambio": null
-  },
-  {
     "fecha_raw": "01/02/2011",
     "comprobante": "",
     "proveedor": "",
@@ -165,7 +154,7 @@
     "tipo_cambio": 6.1
   },
   {
-    "fecha_raw": "09/08/2012",
+    "fecha_raw": "08/09/2012",
     "comprobante": "",
     "proveedor": "OSSE",
     "concepto": "PERIODO 04/2012",
@@ -176,7 +165,7 @@
     "tipo_cambio": 6.3
   },
   {
-    "fecha_raw": "11/09/2012",
+    "fecha_raw": "09/11/2012",
     "comprobante": "",
     "proveedor": "OSSE",
     "concepto": "PERIODO 05/2012",
@@ -4400,7 +4389,7 @@
     "tipo_cambio": 74.9787
   },
   {
-    "fecha_raw": "06/01/2020",
+    "fecha_raw": "01/06/2020",
     "comprobante": "",
     "proveedor": "TROCHE DANIEL",
     "concepto": "M. COSTO Nª6",
@@ -4411,7 +4400,7 @@
     "tipo_cambio": 77.0
   },
   {
-    "fecha_raw": "07/01/2020",
+    "fecha_raw": "01/07/2020",
     "comprobante": "",
     "proveedor": "NES S.A.",
     "concepto": "TRABAJOS DE MAMPOSTERIA - CUOTA Nº 5",
@@ -4422,7 +4411,7 @@
     "tipo_cambio": 75.0
   },
   {
-    "fecha_raw": "10/01/2020",
+    "fecha_raw": "01/10/2020",
     "comprobante": "9013",
     "proveedor": "CAPARELLI",
     "concepto": "COMPRAS VARIAS (21/3 AL 11/6)",
@@ -4433,7 +4422,7 @@
     "tipo_cambio": 74.8735
   },
   {
-    "fecha_raw": "10/01/2020",
+    "fecha_raw": "01/10/2020",
     "comprobante": "707",
     "proveedor": "SANITARIOS SANCHEZ",
     "concepto": "COMPRA MATERIALES VARIOS",
@@ -4444,7 +4433,7 @@
     "tipo_cambio": 74.8735
   },
   {
-    "fecha_raw": "10/01/2020",
+    "fecha_raw": "01/10/2020",
     "comprobante": "2542",
     "proveedor": "LANDA",
     "concepto": "PISO SALA TANQUES SOTANO",
@@ -4653,7 +4642,7 @@
     "tipo_cambio": 78.0769
   },
   {
-    "fecha_raw": "06/03/2020",
+    "fecha_raw": "03/06/2020",
     "comprobante": "",
     "proveedor": "ARBA",
     "concepto": "IMPUESTO INMOBILIARIO - PAGO ANUAL 2020",
@@ -4664,7 +4653,7 @@
     "tipo_cambio": 78.0031
   },
   {
-    "fecha_raw": "07/03/2020",
+    "fecha_raw": "03/07/2020",
     "comprobante": "",
     "proveedor": "EDEA",
     "concepto": "PERIODO 01/2020 - CTA. 02",
@@ -4675,7 +4664,7 @@
     "tipo_cambio": 78.0031
   },
   {
-    "fecha_raw": "07/03/2020",
+    "fecha_raw": "03/07/2020",
     "comprobante": "",
     "proveedor": "ARM",
     "concepto": "IMPUESTO MUNICIPAL - CTAS. 7-8-9-10-11-12/2019 Y 1-2-3/2020",
@@ -4686,7 +4675,7 @@
     "tipo_cambio": 78.0031
   },
   {
-    "fecha_raw": "10/03/2020",
+    "fecha_raw": "03/10/2020",
     "comprobante": "",
     "proveedor": "NES S.A.",
     "concepto": "TRABAJOS DE MAMPOSTERIA - CUOTA Nº7",
@@ -4697,7 +4686,7 @@
     "tipo_cambio": 78.0031
   },
   {
-    "fecha_raw": "10/03/2020",
+    "fecha_raw": "03/10/2020",
     "comprobante": "",
     "proveedor": "DECORADORA",
     "concepto": "1ºETAPA - ( A Cta.) TOTAL:$280.000",
@@ -5137,7 +5126,7 @@
     "tipo_cambio": 122.5
   },
   {
-    "fecha_raw": "10/08/2020",
+    "fecha_raw": "08/10/2020",
     "comprobante": "",
     "proveedor": "ARM",
     "concepto": "IMPUESTO MUNICIPAL - CUOTA 08/2020",
@@ -5148,7 +5137,7 @@
     "tipo_cambio": 130.0
   },
   {
-    "fecha_raw": "10/08/2020",
+    "fecha_raw": "08/10/2020",
     "comprobante": "",
     "proveedor": "EDEA",
     "concepto": "PERIODO 04/2020 - CTA. 01",
@@ -5159,7 +5148,7 @@
     "tipo_cambio": 130.0
   },
   {
-    "fecha_raw": "10/08/2020",
+    "fecha_raw": "08/10/2020",
     "comprobante": "",
     "proveedor": "ARM",
     "concepto": "TASA POR SERVICIO DE VALET (DESCARGA)",
@@ -5357,7 +5346,7 @@
     "tipo_cambio": 135.0
   },
   {
-    "fecha_raw": "09/10/2020",
+    "fecha_raw": "10/09/2020",
     "comprobante": "",
     "proveedor": "ARM",
     "concepto": "IMPUESTO MUNICIPAL - CUOTA 09/2020",
@@ -5984,7 +5973,7 @@
     "tipo_cambio": 150.0
   },
   {
-    "fecha_raw": "04/01/2021",
+    "fecha_raw": "01/04/2021",
     "comprobante": "47148",
     "proveedor": "DRAP",
     "concepto": "POLIPROPILENO X 600",
@@ -5995,7 +5984,7 @@
     "tipo_cambio": 150.0
   },
   {
-    "fecha_raw": "04/01/2021",
+    "fecha_raw": "01/04/2021",
     "comprobante": "5428",
     "proveedor": "LANDA",
     "concepto": "CEMENTO",
@@ -6006,7 +5995,7 @@
     "tipo_cambio": 156.0
   },
   {
-    "fecha_raw": "04/01/2021",
+    "fecha_raw": "01/04/2021",
     "comprobante": "",
     "proveedor": "EDEA",
     "concepto": "PERIODO 06/2020 - CTA 02",
@@ -6116,7 +6105,7 @@
     "tipo_cambio": 80.07
   },
   {
-    "fecha_raw": "02/01/2021",
+    "fecha_raw": "01/02/2021",
     "comprobante": "4984",
     "proveedor": "SANITARIOS SANCHEZ",
     "concepto": "COMPRA MATERIALES VS.",
@@ -6149,7 +6138,7 @@
     "tipo_cambio": 153.0356
   },
   {
-    "fecha_raw": "02/03/2021",
+    "fecha_raw": "03/02/2021",
     "comprobante": "",
     "proveedor": "EDEA",
     "concepto": "PERIODO 01/21 - CTA. 01",
@@ -6435,7 +6424,7 @@
     "tipo_cambio": 141.9358
   },
   {
-    "fecha_raw": "09/04/2021",
+    "fecha_raw": "04/09/2021",
     "comprobante": "",
     "proveedor": "ASCENSORES ULTRA",
     "concepto": "MARZO DE 2021",
@@ -6446,7 +6435,7 @@
     "tipo_cambio": 119.7183
   },
   {
-    "fecha_raw": "09/04/2021",
+    "fecha_raw": "04/09/2021",
     "comprobante": "",
     "proveedor": "EDEA",
     "concepto": "PERIODO 02/21 - CTA. 01",
@@ -6457,7 +6446,7 @@
     "tipo_cambio": 140.0
   },
   {
-    "fecha_raw": "10/04/2021",
+    "fecha_raw": "04/10/2021",
     "comprobante": "6374",
     "proveedor": "LANDA",
     "concepto": "LADRILLOS, CEMENTO, PALLET",
@@ -6578,7 +6567,7 @@
     "tipo_cambio": 144.7976
   },
   {
-    "fecha_raw": "10/05/2021",
+    "fecha_raw": "05/10/2021",
     "comprobante": "",
     "proveedor": "EDEA",
     "concepto": "PERIODO 02/21 - CTA. 02",
@@ -6589,7 +6578,7 @@
     "tipo_cambio": 150.0
   },
   {
-    "fecha_raw": "12/05/2021",
+    "fecha_raw": "05/12/2021",
     "comprobante": "6691",
     "proveedor": "LANDA",
     "concepto": "CEMENTO",
@@ -6655,7 +6644,7 @@
     "tipo_cambio": 150.0
   },
   {
-    "fecha_raw": "07/05/2021",
+    "fecha_raw": "05/07/2021",
     "comprobante": "5848",
     "proveedor": "ROSCAMAR",
     "concepto": "BROCAS, MECHAS, SELLADOR, PITONES",
@@ -7040,7 +7029,7 @@
     "tipo_cambio": 200.0
   },
   {
-    "fecha_raw": "30/12/2022",
+    "fecha_raw": "30/12/2021",
     "comprobante": "",
     "proveedor": "ARM",
     "concepto": "ANTICIPO 5, 6 Y 8/2021",
@@ -7689,7 +7678,7 @@
     "tipo_cambio": 290.0
   },
   {
-    "fecha_raw": "28/11/2022",
+    "fecha_raw": "28/11/2023",
     "comprobante": "62",
     "proveedor": "CARPINTERIA CONTRAFRENTE",
     "concepto": "PAGO A CTA. MASTRANGELO (TOTAL:$ 43.700.000)",
@@ -7755,7 +7744,7 @@
     "tipo_cambio": 314.944
   },
   {
-    "fecha_raw": "23/12/2023",
+    "fecha_raw": "23/12/2022",
     "comprobante": "",
     "proveedor": "OSSE",
     "concepto": "PERIODO 12/2022",
@@ -9361,7 +9350,7 @@
     "tipo_cambio": 1115.0
   },
   {
-    "fecha_raw": "21/11/0204",
+    "fecha_raw": "21/11/2024",
     "comprobante": "",
     "proveedor": "EDEA",
     "concepto": "PERIODO 10/24",
@@ -10219,7 +10208,7 @@
     "tipo_cambio": 1475.0
   },
   {
-    "fecha_raw": "",
+    "fecha_raw": "30/10/2025",
     "comprobante": "0001-00000444",
     "proveedor": "BERTELLO LUIS E",
     "concepto": "SERVICIO DE CONTENEDOR",

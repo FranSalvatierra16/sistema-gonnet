@@ -479,29 +479,49 @@ def extraer_hoja(xlsx: Path, sheet_name: str) -> list[dict]:
     return resolver_anios_filas(filas)
 
 
-def convertir(xlsx: Path, data_dir: Path) -> dict:
-    facturado = extraer_hoja(xlsx, 'GENERAL Facturado')
-    negro = extraer_hoja(xlsx, 'GENERAL. Sin Facturar')
-    data_dir.mkdir(parents=True, exist_ok=True)
-    out_f = data_dir / 'gery_1759_facturado_excel.json'
-    out_n = data_dir / 'gery_1759_negro_excel.json'
-    for path, filas in ((out_f, facturado), (out_n, negro)):
-        if path.exists():
-            bak = path.with_suffix('.backup.json')
-            bak.write_bytes(path.read_bytes())
-        path.write_text(json.dumps(filas, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+def _escribir_json(path: Path, filas: list[dict]) -> None:
+    if path.exists():
+        bak = path.with_suffix('.backup.json')
+        bak.write_bytes(path.read_bytes())
+    path.write_text(json.dumps(filas, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+
+
+def _stats_filas(filas: list[dict], prefix: str) -> dict:
     return {
-        'facturado': len(facturado),
-        'negro': len(negro),
-        'facturado_sin_fecha': sum(1 for f in facturado if not f.get('fecha_raw') or len(f['fecha_raw']) < 8),
-        'negro_sin_fecha': sum(1 for f in negro if not f.get('fecha_raw') or len(f['fecha_raw']) < 8),
-        'facturado_ingresos': sum(1 for f in facturado if f.get('ingresos_ars') or f.get('ingresos_usd')),
-        'negro_ingresos': sum(1 for f in negro if f.get('ingresos_ars') or f.get('ingresos_usd')),
+        prefix: len(filas),
+        f'{prefix}_sin_fecha': sum(1 for f in filas if not f.get('fecha_raw') or len(f['fecha_raw']) < 8),
+        f'{prefix}_ingresos': sum(1 for f in filas if f.get('ingresos_ars') or f.get('ingresos_usd')),
+        f'{prefix}_gastos_ars': round(sum(f.get('gastos_ars') or 0 for f in filas), 2),
     }
 
 
+def convertir(xlsx: Path, data_dir: Path, *, facturado: bool = True, negro: bool = True) -> dict:
+    data_dir.mkdir(parents=True, exist_ok=True)
+    stats = {}
+    if facturado:
+        filas = extraer_hoja(xlsx, 'GENERAL Facturado')
+        _escribir_json(data_dir / 'gery_1759_facturado_excel.json', filas)
+        stats.update(_stats_filas(filas, 'facturado'))
+    if negro:
+        filas = extraer_hoja(xlsx, 'GENERAL. Sin Facturar')
+        _escribir_json(data_dir / 'gery_1759_negro_excel.json', filas)
+        stats.update(_stats_filas(filas, 'negro'))
+    return stats
+
+
 if __name__ == '__main__':
+    import sys
+
     base = Path(__file__).resolve().parent
-    xlsx = base / 'data' / 'excel_fuente' / 'sinfacturar.xlsx'
-    stats = convertir(xlsx, base / 'data')
+    data_dir = base / 'data'
+    args = sys.argv[1:]
+    if args and args[0] == 'facturado':
+        xlsx = data_dir / 'excel_fuente' / 'facturar.xlsx'
+        stats = convertir(xlsx, data_dir, facturado=True, negro=False)
+    elif args and args[0] == 'negro':
+        xlsx = data_dir / 'excel_fuente' / 'sinfacturar.xlsx'
+        stats = convertir(xlsx, data_dir, facturado=False, negro=True)
+    else:
+        xlsx = data_dir / 'excel_fuente' / 'sinfacturar.xlsx'
+        stats = convertir(xlsx, data_dir)
     print(json.dumps(stats, indent=2))
