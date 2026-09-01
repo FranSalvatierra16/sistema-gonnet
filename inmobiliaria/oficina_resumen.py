@@ -24,6 +24,7 @@ from inmobiliaria.oficina_gastos import (
 from inmobiliaria.views_honorarios import (
     _filas_honorarios_desde_caratulas_confirmadas,
     _filas_honorarios_desde_liquidaciones,
+    _filas_honorarios_oficina_desde_caratulas_contrato,
     _filas_honorarios_oficina_desde_caratulas_reserva,
     _filtrar_filas_por_fecha,
     _keys_comisiones_contrato_cubiertas,
@@ -130,8 +131,11 @@ def _filas_honorarios_para_cierre(sucursal, fecha_desde, fecha_hasta):
     filas_oficina_res = _filas_honorarios_oficina_desde_caratulas_reserva(
         sucursal, fecha_desde, fecha_hasta
     )
+    filas_oficina_cto = _filas_honorarios_oficina_desde_caratulas_contrato(
+        sucursal, fecha_desde, fecha_hasta
+    )
     return _filtrar_filas_por_fecha(
-        list(filas_liq) + list(filas_car) + list(filas_oficina_res),
+        list(filas_liq) + list(filas_car) + list(filas_oficina_res) + list(filas_oficina_cto),
         fecha_desde,
         fecha_hasta,
     )

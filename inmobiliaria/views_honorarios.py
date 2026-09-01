@@ -542,6 +542,139 @@ def _filas_honorarios_oficina_desde_caratulas_reserva(
     return filas
 
 
+def _monto_honorarios_oficina_contrato(contrato):
+    """Honorarios de oficina del contrato = concepto 25 de la carátula (o liquidación)."""
+    from inmobiliaria.views import _liquidacion_operacion_principal_contrato
+    from inmobiliaria.views_caratulas import _filas_honorarios_caratula_contrato
+
+    hon = Decimal('0')
+    for fila in _filas_honorarios_caratula_contrato(contrato):
+        if str(fila.get('codigo') or '').strip() == '25':
+            hon += Decimal(str(fila.get('importe') or 0))
+    if hon > Decimal('0.01'):
+        return hon.quantize(Decimal('0.01'))
+    liq = _liquidacion_operacion_principal_contrato(contrato)
+    if liq:
+        inm = Decimal(str(getattr(liq, 'monto_inmobiliaria', 0) or 0))
+        if inm > Decimal('0.01'):
+            return inm.quantize(Decimal('0.01'))
+    return Decimal('0.00')
+
+
+def _filas_honorarios_oficina_desde_caratulas_contrato(
+    sucursal,
+    fecha_desde,
+    fecha_hasta,
+    busqueda='',
+):
+    """
+    Comisión inmobiliaria de contratos (invierno / 24 meses) con carátula confirmada.
+    Misma fecha que comisiones: acreditación → día de entrada.
+    """
+    from inmobiliaria.models.comision import fecha_acreditacion_compartida_operacion
+
+    filas = []
+    qs = (
+        ContratoAlquiler.objects.filter(
+            sucursal=sucursal,
+            estado_confirmacion_caratula='confirmada',
+        )
+        .exclude(estado='rescindido')
+        .select_related('propiedad', 'propiedad__propietario', 'inquilino')
+    )
+    rango = Q()
+    if fecha_desde and fecha_hasta:
+        rango = (
+            Q(fecha_inicio__gte=fecha_desde, fecha_inicio__lte=fecha_hasta)
+            | Q(
+                comisiones_vendedor__fecha_operacion__date__gte=fecha_desde,
+                comisiones_vendedor__fecha_operacion__date__lte=fecha_hasta,
+            )
+        )
+    elif fecha_desde:
+        rango = (
+            Q(fecha_inicio__gte=fecha_desde)
+            | Q(comisiones_vendedor__fecha_operacion__date__gte=fecha_desde)
+        )
+    elif fecha_hasta:
+        rango = (
+            Q(fecha_inicio__lte=fecha_hasta)
+            | Q(comisiones_vendedor__fecha_operacion__date__lte=fecha_hasta)
+        )
+    if rango:
+        qs = qs.filter(rango).distinct()
+    if busqueda:
+        q_bus = (
+            Q(propiedad__direccion__icontains=busqueda)
+            | Q(propiedad__propietario__nombre__icontains=busqueda)
+            | Q(propiedad__propietario__apellido__icontains=busqueda)
+            | Q(inquilino__nombre__icontains=busqueda)
+            | Q(inquilino__apellido__icontains=busqueda)
+        )
+        if busqueda.isdigit():
+            try:
+                q_bus |= Q(id=int(busqueda))
+            except (TypeError, ValueError):
+                pass
+        qs = qs.filter(q_bus)
+
+    for contrato in qs:
+        f_entrada = contrato.fecha_inicio
+        f_acred = fecha_acreditacion_compartida_operacion(contrato=contrato)
+        fecha_fila = f_acred or f_entrada
+        if not fecha_fila:
+            continue
+        if fecha_desde and fecha_fila < fecha_desde:
+            continue
+        if fecha_hasta and fecha_fila > fecha_hasta:
+            continue
+
+        inm = _monto_honorarios_oficina_contrato(contrato)
+        if inm <= Decimal('0.01'):
+            continue
+
+        from inmobiliaria.views import _liquidacion_operacion_principal_contrato
+
+        liq_op = _liquidacion_operacion_principal_contrato(contrato)
+        prop = contrato.propiedad
+        propietario = getattr(prop, 'propietario', None) if prop else None
+        cat = _categoria_contrato_honorarios(contrato)
+        nota = (
+            'Carátula confirmada (fecha acreditación)'
+            if f_acred
+            else 'Carátula confirmada (día de entrada)'
+        )
+        base = {
+            'liquidacion_id': liq_op.id if liq_op else None,
+            'liquidacion_url': (
+                reverse('inmobiliaria:detalle_liquidacion', args=[liq_op.id])
+                if liq_op
+                else reverse('inmobiliaria:caratula_contrato', args=[contrato.id])
+            ),
+            'propiedad': _propiedad_txt(prop),
+            'propietario': (
+                f'{propietario.apellido}, {propietario.nombre}'
+                if propietario
+                else '—'
+            ),
+            'operacion': f'Contrato #{contrato.id}',
+            'operacion_kind': 'contrato',
+            'operacion_pk': contrato.id,
+            'categoria_operacion': cat,
+            'tipo_operacion_display': ETIQUETAS_TIPO_OPERACION.get(cat, cat),
+            'estado_liq': liq_op.get_estado_display() if liq_op else 'Sin liquidar',
+        }
+        filas.append({
+            **base,
+            'tipo': 'comision',
+            'tipo_display': 'Comisión inmobiliaria',
+            'fecha': fecha_fila,
+            'monto': inm,
+            'nota': nota,
+        })
+    return filas
+
+
 def _filas_honorarios_cochera_fondo_desde_reservas(
     sucursal,
     fecha_desde,
@@ -780,13 +913,18 @@ def _filas_honorarios_desde_liquidaciones(liquidaciones):
 
         if _incluir_liquidacion_honorarios_positivos(liq):
             res = getattr(liq, 'reserva', None) or reserva_desde_liquidacion(liq)
+            contrato_liq = getattr(liq, 'contrato', None) or contrato_desde_liquidacion(liq)
             f_acred = _fecha_ingreso_honorarios_oficina(liq)
             f_entrada = _fecha_entrada_liquidacion(liq)
 
-            # Reserva con carátula confirmada: comisión/cochera/fondo los lista
-            # _filas_honorarios_oficina_desde_caratulas_reserva (mismos montos que la carátula).
+            # Reserva/contrato con carátula confirmada: comisión/cochera/fondo
+            # los lista el armado desde carátula (mismos montos que el cuadro).
             oficina_desde_caratula = bool(
-                res is not None and _caratula_confirmada_vigente_reserva(res)
+                (res is not None and _caratula_confirmada_vigente_reserva(res))
+                or (
+                    contrato_liq is not None
+                    and _caratula_confirmada_vigente_contrato(contrato_liq)
+                )
             )
 
             # --- Comisión inmobiliaria ---
@@ -1061,8 +1199,14 @@ def _contexto_honorarios_oficina(request, *, solo_oficina=False):
         fecha_hasta,
         busqueda=busqueda,
     )
+    filas_car_contrato = _filas_honorarios_oficina_desde_caratulas_contrato(
+        request.user.sucursal,
+        fecha_desde,
+        fecha_hasta,
+        busqueda=busqueda,
+    )
     filas = _filtrar_filas_por_fecha(
-        filas_liq + filas_car + filas_car_cochera + filas_legacy,
+        filas_liq + filas_car + filas_car_cochera + filas_car_contrato + filas_legacy,
         fecha_desde,
         fecha_hasta,
     )
