@@ -306,17 +306,27 @@ def encontrar_propiedad_gery() -> Propiedad | None:
     return qs.filter(departamento__iexact='1').first() or qs.first()
 
 
-def _match_existente(propiedad, fecha, gastos_ars, gastos_usd, descripcion, clasificacion):
+def _match_existente(propiedad, fecha, gastos_ars, gastos_usd, descripcion, clasificacion,
+                     alquileres_ars=None, ingreso_usd=None):
     qs = FilaManualLibroPropiedad.objects.filter(
         propiedad=propiedad,
         fecha=fecha,
         clasificacion_libro=clasificacion,
     )
+    alquileres_ars = _q2(alquileres_ars)
+    ingreso_usd = _q2(ingreso_usd)
     for fila in qs:
-        if _q2(fila.gastos_ars) == gastos_ars and _q2(fila.gastos_usd) == gastos_usd:
+        if (
+            _q2(fila.gastos_ars) == gastos_ars
+            and _q2(fila.gastos_usd) == gastos_usd
+            and _q2(fila.alquileres_ars) == alquileres_ars
+            and _q2(fila.ingreso_usd) == ingreso_usd
+        ):
             return fila
         if (fila.descripcion or '').strip() == descripcion and (
-            _q2(fila.gastos_ars) == gastos_ars or _q2(fila.gastos_usd) == gastos_usd
+            _q2(fila.gastos_ars) == gastos_ars
+            or _q2(fila.gastos_usd) == gastos_usd
+            or _q2(fila.alquileres_ars) == alquileres_ars
         ):
             return fila
 
@@ -340,12 +350,14 @@ def importar_gery_1759_excel(
     clasificacion: str = 'facturado',
     dry_run: bool = False,
     force: bool = False,
+    replace: bool = False,
     json_path: Path | None = None,
     propiedad: Propiedad | None = None,
 ) -> dict:
     """
     Carga un Excel al libro como filas manuales con clasificación facturado|negro.
     Ajusta el Inicio de caja a la primera fecha importada si hace falta.
+    replace=True borra las filas previas de esa clasificación (OCR/fotos) y carga de cero.
     """
     from inmobiliaria.models import InicioCajaLibroPropiedad
 
@@ -374,6 +386,18 @@ def importar_gery_1759_excel(
     label = 'en negro' if clasificacion == 'negro' else 'facturado'
     creadas = actualizadas = omitidas = sin_fecha = 0
     fechas_ok: list[date] = []
+    borradas = 0
+
+    if replace and not dry_run:
+        borradas, _ = FilaManualLibroPropiedad.objects.filter(
+            propiedad=propiedad,
+            clasificacion_libro=clasificacion,
+        ).delete()
+    elif replace and dry_run:
+        borradas = FilaManualLibroPropiedad.objects.filter(
+            propiedad=propiedad,
+            clasificacion_libro=clasificacion,
+        ).count()
 
     for item in filas:
         fecha = item.get('_fecha_parsed')
@@ -383,7 +407,18 @@ def importar_gery_1759_excel(
 
         gastos_ars = _monto_seguro(item.get('gastos_ars'))
         gastos_usd = _monto_seguro(item.get('gastos_usd'))
-        if gastos_ars == 0 and gastos_usd == 0:
+        alquileres_ars = _monto_seguro(
+            item.get('ingresos_ars', item.get('alquileres_ars'))
+        )
+        ingreso_usd = _monto_seguro(
+            item.get('ingresos_usd', item.get('ingreso_usd'))
+        )
+        if (
+            gastos_ars == 0
+            and gastos_usd == 0
+            and alquileres_ars == 0
+            and ingreso_usd == 0
+        ):
             omitidas += 1
             continue
 
@@ -391,8 +426,15 @@ def importar_gery_1759_excel(
         descripcion = descripcion_fila_excel(item, clasificacion=clasificacion)
         tipo_cambio = _tipo_cambio_seguro(item.get('tipo_cambio'))
 
-        existente = _match_existente(
-            propiedad, fecha, gastos_ars, gastos_usd, descripcion, clasificacion
+        existente = None if replace else _match_existente(
+            propiedad,
+            fecha,
+            gastos_ars,
+            gastos_usd,
+            descripcion,
+            clasificacion,
+            alquileres_ars=alquileres_ars,
+            ingreso_usd=ingreso_usd,
         )
         if existente:
             needs = (
@@ -403,6 +445,8 @@ def importar_gery_1759_excel(
                 or existente.tipo_cambio != tipo_cambio
                 or _q2(existente.gastos_ars) != gastos_ars
                 or _q2(existente.gastos_usd) != gastos_usd
+                or _q2(existente.alquileres_ars) != alquileres_ars
+                or _q2(existente.ingreso_usd) != ingreso_usd
             )
             if needs:
                 if not dry_run:
@@ -411,6 +455,8 @@ def importar_gery_1759_excel(
                     existente.descripcion = descripcion
                     existente.gastos_ars = gastos_ars
                     existente.gastos_usd = gastos_usd
+                    existente.alquileres_ars = alquileres_ars
+                    existente.ingreso_usd = ingreso_usd
                     existente.tipo_cambio = tipo_cambio
                     existente.save(
                         update_fields=[
@@ -419,6 +465,8 @@ def importar_gery_1759_excel(
                             'descripcion',
                             'gastos_ars',
                             'gastos_usd',
+                            'alquileres_ars',
+                            'ingreso_usd',
                             'tipo_cambio',
                             'actualizado_en',
                         ]
@@ -435,8 +483,8 @@ def importar_gery_1759_excel(
                 descripcion=descripcion,
                 gastos_ars=gastos_ars,
                 gastos_usd=gastos_usd,
-                alquileres_ars=Decimal('0.00'),
-                ingreso_usd=Decimal('0.00'),
+                alquileres_ars=alquileres_ars,
+                ingreso_usd=ingreso_usd,
                 tipo_cambio=tipo_cambio,
                 clasificacion_libro=clasificacion,
             )
@@ -469,6 +517,19 @@ def importar_gery_1759_excel(
             f'para que se vean en el libro.'
         )
 
+    if replace:
+        mensaje = (
+            f'Importación {label}: {borradas} anteriores borradas, {creadas} creadas, '
+            f'{actualizadas} actualizadas, {omitidas} omitidas, {sin_fecha} sin fecha '
+            f'({len(filas)} filas en Excel).{extras}'
+        )
+    else:
+        mensaje = (
+            f'Importación {label}: {creadas} creadas, {actualizadas} actualizadas, '
+            f'{omitidas} omitidas, {sin_fecha} sin fecha '
+            f'({len(filas)} filas en Excel).{extras}'
+        )
+
     return {
         'ok': True,
         'propiedad_id': str(propiedad.id),
@@ -477,14 +538,11 @@ def importar_gery_1759_excel(
         'actualizadas': actualizadas,
         'omitidas': omitidas,
         'sin_fecha': sin_fecha,
+        'borradas': borradas,
         'total_json': len(filas),
         'dry_run': dry_run,
         'fecha_inicio_caja': inicio_ajustado.isoformat() if inicio_ajustado else None,
-        'mensaje': (
-            f'Importación {label}: {creadas} creadas, {actualizadas} actualizadas, '
-            f'{omitidas} omitidas, {sin_fecha} sin fecha '
-            f'({len(filas)} filas en Excel).{extras}'
-        ),
+        'mensaje': mensaje,
     }
 
 

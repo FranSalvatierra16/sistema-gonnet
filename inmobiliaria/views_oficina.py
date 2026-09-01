@@ -2153,8 +2153,8 @@ def _oficina_propiedad_libro_importar_excel(request, propiedad_id, clasificacion
         result = importar_gery_1759_excel(
             propiedad=propiedad,
             clasificacion=clasificacion,
-            # Reimportar actualiza fechas/montos ya cargados (p. ej. años DD/MM).
             force=True,
+            replace=True,
         )
     except Exception as exc:
         logger.exception('Error importando Excel %s de %s', clasificacion, propiedad_id)

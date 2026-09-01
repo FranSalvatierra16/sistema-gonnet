@@ -15,6 +15,11 @@ class Command(BaseCommand):
         )
         parser.add_argument('--dry-run', action='store_true')
         parser.add_argument('--force', action='store_true')
+        parser.add_argument(
+            '--replace',
+            action='store_true',
+            help='Borra filas previas de esa clasificación y carga el Excel de cero.',
+        )
         parser.add_argument('--json', default=None)
 
     def handle(self, *args, **options):
@@ -22,6 +27,7 @@ class Command(BaseCommand):
             clasificacion=options['clasificacion'],
             dry_run=options['dry_run'],
             force=options['force'],
+            replace=options['replace'],
             json_path=options['json'],
         )
         if result['ok']:
