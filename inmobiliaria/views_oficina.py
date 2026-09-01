@@ -1933,7 +1933,8 @@ def oficina_propiedad_libro(request, propiedad_id):
         ]
         filas_resto = [
             f for f in filas_resto
-            if (f.get('clasificacion_libro') or '') == clasif_filtro
+            if (not f.get('es_manual'))
+            or (f.get('clasificacion_libro') or '') == clasif_filtro
         ]
 
     # Mezcla cronológica; ante misma fecha, facturado antes que en negro.
@@ -2163,13 +2164,6 @@ def _oficina_propiedad_libro_importar_excel(request, propiedad_id, clasificacion
 
     if result['ok']:
         messages.success(request, result['mensaje'])
-        fecha_ini = result.get('fecha_inicio_caja')
-        # Siempre abrir en «Todo junto» para ver facturado y en negro mezclados.
-        if fecha_ini:
-            return redirect(
-                f"{reverse('inmobiliaria:oficina_propiedad_libro', args=[propiedad_id])}"
-                f"?fecha_desde={fecha_ini}&clasif=todo"
-            )
         return redirect(
             f"{reverse('inmobiliaria:oficina_propiedad_libro', args=[propiedad_id])}"
             f"?clasif=todo"
@@ -2177,6 +2171,42 @@ def _oficina_propiedad_libro_importar_excel(request, propiedad_id, clasificacion
 
     messages.error(request, result['mensaje'])
     return redirect('inmobiliaria:oficina_propiedad_libro', propiedad_id=propiedad_id)
+
+
+@login_required
+@require_POST
+def oficina_propiedad_libro_vaciar_importados(request, propiedad_id):
+    """Borra filas importadas (facturado/negro). Deja intacto lo cargado por caja."""
+    if not _puede_oficina(request.user):
+        return HttpResponseForbidden()
+
+    from inmobiliaria.models import Propiedad
+    from inmobiliaria.gery_1759_facturado_import import vaciar_filas_importadas_libro
+
+    sucursal, en_cartera = _propiedad_en_cartera_oficina(request.user, propiedad_id)
+    if not en_cartera:
+        return HttpResponseForbidden()
+
+    propiedad = get_object_or_404(Propiedad, pk=propiedad_id, sucursal=sucursal)
+    if not getattr(propiedad, 'libro_exige_facturado_negro', False):
+        messages.error(request, 'Esta propiedad no usa clasificación facturado / en negro.')
+        return redirect('inmobiliaria:oficina_propiedad_libro', propiedad_id=propiedad_id)
+
+    try:
+        result = vaciar_filas_importadas_libro(propiedad=propiedad)
+    except Exception as exc:
+        logger.exception('Error vaciando importados de %s', propiedad_id)
+        messages.error(request, f'Error al vaciar importados: {exc}')
+        return redirect('inmobiliaria:oficina_propiedad_libro', propiedad_id=propiedad_id)
+
+    if result.get('ok'):
+        messages.success(request, result['mensaje'])
+    else:
+        messages.error(request, result.get('mensaje') or 'No se pudo vaciar.')
+    return redirect(
+        f"{reverse('inmobiliaria:oficina_propiedad_libro', args=[propiedad_id])}"
+        f"?clasif=todo"
+    )
 
 
 @login_required

@@ -556,6 +556,35 @@ def importar_gery_1759_negro(**kwargs) -> dict:
     return importar_gery_1759_excel(**kwargs)
 
 
+def vaciar_filas_importadas_libro(propiedad: Propiedad | None = None) -> dict:
+    """
+    Borra las filas manuales importadas (facturado + en negro).
+    No toca movimientos de caja ni filas manuales sin clasificar.
+    """
+    if propiedad is None:
+        propiedad = encontrar_propiedad_gery()
+    if not propiedad:
+        return {'ok': False, 'mensaje': 'No se encontró la propiedad Gery 1759 piso 12.'}
+
+    qs = FilaManualLibroPropiedad.objects.filter(
+        propiedad=propiedad,
+        clasificacion_libro__in=('facturado', 'negro'),
+    )
+    n_fact = qs.filter(clasificacion_libro='facturado').count()
+    n_negro = qs.filter(clasificacion_libro='negro').count()
+    borradas, _ = qs.delete()
+    return {
+        'ok': True,
+        'borradas': borradas,
+        'facturado': n_fact,
+        'negro': n_negro,
+        'mensaje': (
+            f'Se vació lo importado: {n_fact} facturados y {n_negro} en negro. '
+            f'Los movimientos de caja no se tocaron.'
+        ),
+    }
+
+
 def reparar_fechas_importadas(
     *,
     clasificacion: str = 'negro',
