@@ -699,6 +699,87 @@
                                                 <p class="mb-0">{{ propiedad.info_meses.observaciones }}</p>
                                             </div>
                                         {% endif %}
+
+                                        <div class="mt-4 pt-3 border-top">
+                                            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                                                <h5 class="mb-0">
+                                                    <i class="fas fa-calendar-alt"></i>
+                                                    Disponibilidades cargadas
+                                                    <span class="badge bg-secondary">{{ disponibilidades|length }}</span>
+                                                </h5>
+                                                <a href="{% url 'inmobiliaria:propiedad_detalle' propiedad.id %}?tab=info#collapseDisponibilidades" class="btn btn-outline-secondary btn-sm">
+                                                    <i class="fas fa-edit"></i> Editar en Información
+                                                </a>
+                                            </div>
+
+                                            {% if alerta_reactivar_24_meses %}
+                                                <div class="alert alert-warning py-2 mb-3">
+                                                    <i class="fas fa-exclamation-triangle"></i>
+                                                    {% if disponibilidades|length <= 1 %}
+                                                        Hay {% if disponibilidades|length == 1 %}una sola{% else %}ninguna{% endif %} disponibilidad cargada
+                                                    {% else %}
+                                                        No hay disponibilidades posteriores al fin del contrato
+                                                        {% if fin_ref_contrato_24 %}({{ fin_ref_contrato_24|date:"d/m/Y" }}){% endif %}
+                                                    {% endif %}
+                                                    — al finalizar el contrato vas a tener que
+                                                    <strong>volver a activar</strong> la propiedad para ofrecerla en 24 meses.
+                                                </div>
+                                            {% elif tiene_disp_futuras_cubiertas_24 %}
+                                                <div class="alert alert-success py-2 mb-3">
+                                                    <i class="fas fa-check-circle"></i>
+                                                    Hay {{ disponibilidades_despues_contrato_24|length }}
+                                                    {% if disponibilidades_despues_contrato_24|length == 1 %}disponibilidad{% else %}disponibilidades{% endif %}
+                                                    posteriores al contrato
+                                                    {% if fin_ref_contrato_24 %}(desde {{ fin_ref_contrato_24|date:"d/m/Y" }}){% endif %}
+                                                    — no hace falta reactivar al finalizar.
+                                                </div>
+                                            {% endif %}
+
+                                            {% if disponibilidades %}
+                                                <div class="table-responsive">
+                                                    <table class="table table-sm table-hover mb-0">
+                                                        <thead class="table-light">
+                                                            <tr>
+                                                                <th>Desde</th>
+                                                                <th>Hasta</th>
+                                                                <th>Estado</th>
+                                                                <th>Asegurado</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {% for d in disponibilidades %}
+                                                            <tr class="{% if d.id in ids_disp_despues_contrato_24 %}table-success{% elif d.fecha_fin and d.fecha_fin < today %}text-muted{% endif %}">
+                                                                <td>{{ d.fecha_inicio|date:"d/m/Y" }}</td>
+                                                                <td>{{ d.fecha_fin|date:"d/m/Y" }}</td>
+                                                                <td>
+                                                                    {% if d.id in ids_disp_despues_contrato_24 %}
+                                                                        <span class="badge bg-success">Posterior al contrato</span>
+                                                                    {% elif d.fecha_fin and d.fecha_fin >= today %}
+                                                                        <span class="badge bg-info text-dark">Vigente / futura</span>
+                                                                    {% else %}
+                                                                        <span class="badge bg-secondary">Pasada</span>
+                                                                    {% endif %}
+                                                                </td>
+                                                                <td>
+                                                                    {% if d.asegurado %}
+                                                                        <span class="badge bg-success">Sí</span>
+                                                                    {% else %}
+                                                                        <span class="text-muted">—</span>
+                                                                    {% endif %}
+                                                                </td>
+                                                            </tr>
+                                                            {% endfor %}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            {% else %}
+                                                <p class="text-muted mb-0">
+                                                    <em>No hay disponibilidades manuales cargadas.</em>
+                                                    Agregalas desde la pestaña Información o con disponibilidad masiva.
+                                                </p>
+                                            {% endif %}
+                                        </div>
+
                                         <div class="text-center mt-4">
                                             <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalMeses">
                                                 <i class="fas fa-edit"></i> Editar información

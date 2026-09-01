@@ -3884,6 +3884,37 @@ def propiedad_detalle(request, propiedad_id):
     except:
         info_invierno = None
 
+    # Disponibilidades manuales relevantes para 24 meses (pestaña meses)
+    disponibilidades_list = list(disponibilidades)
+    disponibilidades_futuras_24 = [
+        d for d in disponibilidades_list if d.fecha_fin and d.fecha_fin >= hoy
+    ]
+    fin_ref_contrato_24 = None
+    if contrato_24_actual and contrato_24_actual.fecha_fin:
+        fin_ref_contrato_24 = contrato_24_actual.fecha_fin
+    elif ultimo_24_finalizado and ultimo_24_finalizado.fecha_fin:
+        fin_ref_contrato_24 = ultimo_24_finalizado.fecha_fin
+    if fin_ref_contrato_24:
+        disponibilidades_despues_contrato_24 = [
+            d for d in disponibilidades_list
+            if d.fecha_inicio and d.fecha_inicio > fin_ref_contrato_24
+        ]
+    else:
+        disponibilidades_despues_contrato_24 = [
+            d for d in disponibilidades_futuras_24
+            if d.fecha_inicio and d.fecha_inicio > hoy
+        ]
+    alerta_reactivar_24_meses = bool(
+        fin_ref_contrato_24
+        and not disponibilidades_despues_contrato_24
+        and (
+            contratos_24_vigentes
+            or (info_meses and info_meses.estado in ('ocupado', 'reservado'))
+        )
+    )
+    tiene_disp_futuras_cubiertas_24 = len(disponibilidades_despues_contrato_24) > 0
+    ids_disp_despues_contrato_24 = {d.id for d in disponibilidades_despues_contrato_24}
+
     context = {
         'propiedad': propiedad,
         'disponibilidades': disponibilidades,
@@ -3900,6 +3931,12 @@ def propiedad_detalle(request, propiedad_id):
         'contratos_24_mostrar': contratos_24_mostrar,
         'today': hoy,
         'meses_sin_contrato_vigente': meses_sin_contrato_vigente,
+        'disponibilidades_futuras_24': disponibilidades_futuras_24,
+        'disponibilidades_despues_contrato_24': disponibilidades_despues_contrato_24,
+        'fin_ref_contrato_24': fin_ref_contrato_24,
+        'alerta_reactivar_24_meses': alerta_reactivar_24_meses,
+        'tiene_disp_futuras_cubiertas_24': tiene_disp_futuras_cubiertas_24,
+        'ids_disp_despues_contrato_24': ids_disp_despues_contrato_24,
         'info_invierno': info_invierno,  # ✅ Agregamos info_invierno al contexto
         'inquilinos': get_inquilinos_queryset_unificado(request),
         'vendedores': Vendedor.objects.filter(sucursal=request.user.sucursal).order_by('apellido', 'nombre'),
