@@ -31,7 +31,7 @@
                 <div class="libro-print-meta">
                     <div><span class="lbl">Departamento</span><span class="val">{{ propiedad.direccion }}{% if propiedad.piso %} – {{ propiedad.piso }}°{% endif %}{% if propiedad.departamento %} {{ propiedad.departamento }}{% endif %}</span></div>
                     {% if propiedad.propietario %}<div><span class="lbl">Propietario</span><span class="val">{{ propiedad.propietario }}</span></div>{% endif %}
-                    <div><span class="lbl">Período</span><span class="val">{% if fecha_desde or fecha_hasta %}{% if fecha_desde %}{{ fecha_desde }}{% endif %}{% if fecha_desde and fecha_hasta %} → {% endif %}{% if fecha_hasta %}{{ fecha_hasta }}{% endif %}{% else %}Completo{% endif %}</span></div>
+                    <div><span class="lbl">Período</span><span class="val">{% if fecha_desde or fecha_hasta %}{% if fecha_desde %}{{ fecha_desde|slice:"8:10" }}/{{ fecha_desde|slice:"5:7" }}/{{ fecha_desde|slice:"0:4" }}{% endif %}{% if fecha_desde and fecha_hasta %} → {% endif %}{% if fecha_hasta %}{{ fecha_hasta|slice:"8:10" }}/{{ fecha_hasta|slice:"5:7" }}/{{ fecha_hasta|slice:"0:4" }}{% endif %}{% else %}Completo{% endif %}</span></div>
                 </div>
                 <div class="libro-print-compra-venta">
                     <div class="libro-print-cv-col">
@@ -333,16 +333,26 @@
     <div class="card shadow-sm libro-print-tabla">
         <div class="table-responsive">
             <table class="table table-sm table-striped table-bordered mb-0 libro-oficina-table" id="libro-oficina-tabla">
+                <colgroup>
+                    <col class="col-fecha">
+                    <col class="col-desc">
+                    {% if exige_facturado_negro %}<col class="col-clasif no-print">{% endif %}
+                    <col class="col-monto">
+                    <col class="col-monto">
+                    <col class="col-monto">
+                    <col class="col-monto">
+                    <col class="col-tc">
+                </colgroup>
                 <thead class="table-light">
                     <tr>
-                        <th>Fecha</th>
+                        <th class="th-fecha">Fecha</th>
                         <th>Descripción</th>
                         {% if exige_facturado_negro %}<th class="no-print" style="min-width:7.5rem">Clasif.</th>{% endif %}
                         <th class="text-end">Gastos</th>
                         <th class="text-end">Alquileres</th>
-                        <th class="text-end">Gastos en dólar</th>
-                        <th class="text-end">Ingreso dólar</th>
-                        <th class="text-end" style="min-width:9.5rem">Tipo cbio</th>
+                        <th class="text-end"><span class="no-print">Gastos en dólar</span><span class="solo-imprimir">G. USD</span></th>
+                        <th class="text-end"><span class="no-print">Ingreso dólar</span><span class="solo-imprimir">Ing. USD</span></th>
+                        <th class="text-end th-tc"><span class="no-print">Tipo cbio</span><span class="solo-imprimir">T.C.</span></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -689,11 +699,23 @@
         line-height: 1.1 !important;
         vertical-align: middle !important;
     }
-    .libro-oficina-table th:nth-child(1),
-    .libro-oficina-table td:nth-child(1) { width: 8%; }
+    .libro-oficina-table .col-clasif { width: 0 !important; }
+    .libro-oficina-table .col-fecha { width: 2.15cm !important; }
+    .libro-oficina-table .col-desc { width: auto !important; }
+    .libro-oficina-table .col-monto { width: 1.75cm !important; }
+    .libro-oficina-table .col-tc { width: 1.35cm !important; }
+    .libro-oficina-table .th-fecha,
+    .libro-oficina-table td:first-child {
+        width: 2.15cm !important;
+        min-width: 2.15cm !important;
+        max-width: 2.15cm !important;
+        white-space: nowrap !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
+    }
     .libro-oficina-table th:nth-child(2),
     .libro-oficina-table td.desc-libro {
-        width: 46%;
+        width: auto !important;
         max-width: 0 !important;
         white-space: nowrap !important;
         overflow: hidden !important;
@@ -703,8 +725,14 @@
     .libro-oficina-table td.desc-libro * {
         white-space: nowrap !important;
     }
-    .libro-oficina-table th:nth-child(n+3),
-    .libro-oficina-table td:nth-child(n+3) { width: 9.2%; }
+    .libro-oficina-table th.text-end,
+    .libro-oficina-table td.text-end,
+    .libro-oficina-table .th-tc {
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        min-width: 0 !important;
+        font-variant-numeric: tabular-nums;
+    }
     .libro-oficina-table tfoot td {
         font-weight: 700 !important;
         background: #f3f4f6 !important;
