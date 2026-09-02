@@ -27,7 +27,7 @@
             </p>
             {# Cabecera limpia solo para impresión #}
             <div class="libro-print-header solo-imprimir-block">
-                <div class="libro-print-titulo">Libro del departamento</div>
+                <div class="libro-print-titulo">Resumen de departamento</div>
                 <div class="libro-print-meta">
                     <div><span class="lbl">Departamento</span><span class="val">{{ propiedad.direccion }}{% if propiedad.piso %} – {{ propiedad.piso }}°{% endif %}{% if propiedad.departamento %} {{ propiedad.departamento }}{% endif %}</span></div>
                     {% if propiedad.propietario %}<div><span class="lbl">Propietario</span><span class="val">{{ propiedad.propietario }}</span></div>{% endif %}
@@ -330,6 +330,17 @@
         <small class="text-muted pb-1" id="buscar-libro-contador"></small>
     </div>
 
+    {% if faltan_tipos_cambio %}
+    <div class="alert alert-warning d-flex align-items-start gap-2 mb-3" id="alert-falta-tc" role="alert">
+        <i class="fas fa-exclamation-triangle mt-1"></i>
+        <div>
+            <strong>Falta el tipo de cambio del dólar</strong> en
+            {% if cantidad_sin_tipo_cambio == 1 %}1 fila{% else %}{{ cantidad_sin_tipo_cambio }} filas{% endif %}.
+            Completá el T.C. en las filas marcadas en rojo para poder ver los totales.
+        </div>
+    </div>
+    {% endif %}
+
     <div class="card shadow-sm libro-print-tabla">
         <div class="table-responsive">
             <table class="table table-sm table-striped table-bordered mb-0 libro-oficina-table" id="libro-oficina-tabla">
@@ -363,9 +374,11 @@
                         {% if f.fila_manual_id %}data-fila-manual-id="{{ f.fila_manual_id }}"{% endif %}
                         data-clasificacion="{{ f.clasificacion_libro|default:'' }}"
                         data-tipo="{{ f.tipo }}"
+                        {% if f.falta_tipo_cambio %}data-falta-tc="1"{% endif %}
                         data-buscar="{{ f.fecha|date:'d/m/Y' }} {{ f.descripcion|default:'' }}"
                         {% if f.es_inicio_caja %}class="table-primary"
                         {% elif f.es_subtotal_hasta_fecha %}class="table-warning fw-semibold"
+                        {% elif f.falta_tipo_cambio %}class="table-danger"
                         {% endif %}>
                         <td class="text-nowrap">{% if f.es_subtotal_hasta_fecha %}—{% else %}{{ f.fecha|date:"d/m/Y" }}{% endif %}</td>
                         <td class="desc-libro" title="{{ f.descripcion|default:'' }}">
@@ -442,7 +455,7 @@
                     </tr>
                     {% endfor %}
                 </tbody>
-                {% if filas %}
+                {% if filas and not faltan_tipos_cambio %}
                 <tfoot class="table-light fw-semibold">
                     <tr>
                         <td colspan="{% if exige_facturado_negro %}3{% else %}2{% endif %}" class="text-end">Totales</td>
@@ -458,6 +471,7 @@
         </div>
     </div>
 
+    {% if not faltan_tipos_cambio %}
     <div class="card border-dark mt-3 mb-2 libro-print-resumen">
         <div class="card-header py-2 fw-semibold">
             <i class="fas fa-calculator me-1"></i>Resumen total (USD)
@@ -524,6 +538,7 @@
             </p>
         </div>
     </div>
+    {% endif %}
 </div>
 <style>
 .libro-oficina-table th, .libro-oficina-table td { font-size: 0.875rem; vertical-align: middle; }

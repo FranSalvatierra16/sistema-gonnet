@@ -1593,6 +1593,32 @@ def _obtener_costos_compra_libro(propiedad):
     return costos
 
 
+def _fila_falta_tipo_cambio(fila):
+    """True si la fila tiene pesos y no tiene tipo de cambio del dólar."""
+    if fila.get('es_subtotal_hasta_fecha') or fila.get('es_inicio_caja'):
+        return False
+    tc = fila.get('tipo_cambio')
+    try:
+        if tc is not None and Decimal(str(tc)) > Decimal('0.01'):
+            return False
+    except (TypeError, ValueError, ArithmeticError):
+        pass
+    ars = Decimal(str(fila.get('gastos_ars') or 0)) + Decimal(
+        str(fila.get('alquileres_ars') or 0)
+    )
+    return ars > Decimal('0.01')
+
+
+def _marcar_filas_sin_tipo_cambio(filas):
+    n = 0
+    for f in filas:
+        falta = _fila_falta_tipo_cambio(f)
+        f['falta_tipo_cambio'] = falta
+        if falta:
+            n += 1
+    return n
+
+
 def _fila_inicio_caja_libro(inicio):
     """Fila del libro «Inicio de caja» — solo usa los montos de ese registro."""
     from datetime import datetime as dt
@@ -2039,6 +2065,8 @@ def oficina_propiedad_libro(request, propiedad_id):
         'total': total_ingresos - total_gastos,
     }
 
+    n_sin_tc = _marcar_filas_sin_tipo_cambio(filas)
+
     otras = _ordenar_propiedades_oficina(
         _qs_propiedades_oficina(sucursal, request.user),
         orden='piso',
@@ -2058,6 +2086,8 @@ def oficina_propiedad_libro(request, propiedad_id):
             'fecha_hasta': fecha_hasta_s,
             'clasif_filtro': clasif_filtro,
             'exige_facturado_negro': exige_clasif,
+            'faltan_tipos_cambio': n_sin_tc > 0,
+            'cantidad_sin_tipo_cambio': n_sin_tc,
             'inicio_caja': inicio,
             'total_usd_inicio': (
                 Decimal(str(inicio.ingreso_usd or 0))
