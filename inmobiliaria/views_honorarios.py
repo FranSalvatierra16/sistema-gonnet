@@ -542,23 +542,45 @@ def _filas_honorarios_oficina_desde_caratulas_reserva(
     return filas
 
 
-def _monto_honorarios_oficina_contrato(contrato):
-    """Honorarios de oficina del contrato = concepto 25 de la carátula (o liquidación)."""
+def _desglose_honorarios_oficina_contrato(contrato):
+    """
+    Comisión inmobiliaria de contratos (invierno / 24 meses) = locador + locatario,
+    mismos importes que el cuadro de comisiones de la carátula.
+
+    Fallback si aún no hay esas comisiones: concepto 25 / liquidación.
+    Devuelve (monto_locador, monto_locatario, total_inmobiliaria).
+    """
     from inmobiliaria.views import _liquidacion_operacion_principal_contrato
-    from inmobiliaria.views_caratulas import _filas_honorarios_caratula_contrato
+    from inmobiliaria.views_caratulas import (
+        _comisiones_cobradas_contrato,
+        _filas_honorarios_caratula_contrato,
+    )
+
+    liq = _liquidacion_operacion_principal_contrato(contrato)
+    loc, locat = _comisiones_cobradas_contrato(contrato, liquidacion=liq)
+    loc = Decimal(str(loc or 0)).quantize(Decimal('0.01'))
+    locat = Decimal(str(locat or 0)).quantize(Decimal('0.01'))
+    total = (loc + locat).quantize(Decimal('0.01'))
+    if total > Decimal('0.01'):
+        return loc, locat, total
 
     hon = Decimal('0')
     for fila in _filas_honorarios_caratula_contrato(contrato):
         if str(fila.get('codigo') or '').strip() == '25':
             hon += Decimal(str(fila.get('importe') or 0))
     if hon > Decimal('0.01'):
-        return hon.quantize(Decimal('0.01'))
-    liq = _liquidacion_operacion_principal_contrato(contrato)
+        return Decimal('0.00'), Decimal('0.00'), hon.quantize(Decimal('0.01'))
     if liq:
         inm = Decimal(str(getattr(liq, 'monto_inmobiliaria', 0) or 0))
         if inm > Decimal('0.01'):
-            return inm.quantize(Decimal('0.01'))
-    return Decimal('0.00')
+            return Decimal('0.00'), Decimal('0.00'), inm.quantize(Decimal('0.01'))
+    return Decimal('0.00'), Decimal('0.00'), Decimal('0.00')
+
+
+def _monto_honorarios_oficina_contrato(contrato):
+    """Honorarios de oficina del contrato = locador + locatario (o concepto 25)."""
+    _loc, _locat, total = _desglose_honorarios_oficina_contrato(contrato)
+    return total
 
 
 def _filas_honorarios_oficina_desde_caratulas_contrato(
@@ -629,7 +651,7 @@ def _filas_honorarios_oficina_desde_caratulas_contrato(
         if fecha_hasta and fecha_fila > fecha_hasta:
             continue
 
-        inm = _monto_honorarios_oficina_contrato(contrato)
+        loc, locat, inm = _desglose_honorarios_oficina_contrato(contrato)
         if inm <= Decimal('0.01'):
             continue
 
@@ -639,11 +661,18 @@ def _filas_honorarios_oficina_desde_caratulas_contrato(
         prop = contrato.propiedad
         propietario = getattr(prop, 'propietario', None) if prop else None
         cat = _categoria_contrato_honorarios(contrato)
-        nota = (
-            'Carátula confirmada (fecha acreditación)'
-            if f_acred
-            else 'Carátula confirmada (día de entrada)'
-        )
+        if loc > Decimal('0.01') or locat > Decimal('0.01'):
+            nota = (
+                'Locador + locatario (fecha acreditación)'
+                if f_acred
+                else 'Locador + locatario (día de entrada)'
+            )
+        else:
+            nota = (
+                'Carátula confirmada (fecha acreditación)'
+                if f_acred
+                else 'Carátula confirmada (día de entrada)'
+            )
         base = {
             'liquidacion_id': liq_op.id if liq_op else None,
             'liquidacion_url': (
@@ -664,14 +693,19 @@ def _filas_honorarios_oficina_desde_caratulas_contrato(
             'tipo_operacion_display': ETIQUETAS_TIPO_OPERACION.get(cat, cat),
             'estado_liq': liq_op.get_estado_display() if liq_op else 'Sin liquidar',
         }
-        filas.append({
+        fila = {
             **base,
             'tipo': 'comision',
             'tipo_display': 'Comisión inmobiliaria',
             'fecha': fecha_fila,
             'monto': inm,
             'nota': nota,
-        })
+        }
+        if loc > Decimal('0.01') or locat > Decimal('0.01'):
+            fila['monto_locador'] = loc
+            fila['monto_locatario'] = locat
+            fila['desglose_locador_locatario'] = True
+        filas.append(fila)
     return filas
 
 
@@ -1108,6 +1142,102 @@ def _filtrar_filas_por_busqueda(filas, busqueda):
     return out
 
 
+def _ops_comision_con_desglose(filas):
+    keys = set()
+    for f in filas:
+        if f.get('tipo') != 'comision' or not f.get('desglose_locador_locatario'):
+            continue
+        kind = f.get('operacion_kind')
+        pk = f.get('operacion_pk')
+        if kind and pk:
+            keys.add((kind, pk))
+    return keys
+
+
+def _ocultar_locador_duplicado_de_inmobiliaria(filas):
+    """Si inmobiliaria ya es locador+locatario, no listar de nuevo esas comisiones."""
+    ops = _ops_comision_con_desglose(filas)
+    if not ops:
+        return filas
+    out = []
+    for f in filas:
+        if f.get('tipo') == 'comisiones_locador_locatario':
+            key = (f.get('operacion_kind'), f.get('operacion_pk'))
+            if key in ops:
+                continue
+        out.append(f)
+    return out
+
+
+def _totales_honorarios_oficina(filas):
+    """
+    Totales de badges. Comisión inmobiliaria de contratos ya incluye locador+locatario:
+    no se suman otra vez al total del período.
+    """
+    ops_loc = {
+        (f.get('operacion_kind'), f.get('operacion_pk'))
+        for f in filas
+        if f.get('tipo') == 'comisiones_locador_locatario'
+        and f.get('operacion_kind')
+        and f.get('operacion_pk')
+    }
+    ops_inmob = {
+        (f.get('operacion_kind'), f.get('operacion_pk'))
+        for f in filas
+        if f.get('tipo') == 'comision'
+        and f.get('operacion_kind')
+        and f.get('operacion_pk')
+    }
+
+    total_comision = sum(
+        (f['monto'] for f in filas if f.get('tipo') == 'comision'),
+        Decimal('0'),
+    )
+    total_cochera = sum(
+        (f['monto'] for f in filas if f.get('tipo') == 'cochera'),
+        Decimal('0'),
+    )
+    total_fondo = sum(
+        (f['monto'] for f in filas if f.get('tipo') == 'fondo'),
+        Decimal('0'),
+    )
+
+    total_locador = Decimal('0')
+    total_locatario = Decimal('0')
+    for f in filas:
+        tipo = f.get('tipo')
+        if tipo == 'comisiones_locador_locatario':
+            total_locador += Decimal(str(f.get('monto_locador') or 0))
+            total_locatario += Decimal(str(f.get('monto_locatario') or 0))
+        elif tipo == 'comision' and f.get('desglose_locador_locatario'):
+            key = (f.get('operacion_kind'), f.get('operacion_pk'))
+            if key in ops_loc:
+                continue
+            total_locador += Decimal(str(f.get('monto_locador') or 0))
+            total_locatario += Decimal(str(f.get('monto_locatario') or 0))
+        elif tipo == 'comision_locador':
+            total_locador += Decimal(str(f.get('monto') or 0))
+        elif tipo == 'comision_locatario':
+            total_locatario += Decimal(str(f.get('monto') or 0))
+
+    total_general = Decimal('0')
+    for f in filas:
+        if f.get('tipo') == 'comisiones_locador_locatario':
+            key = (f.get('operacion_kind'), f.get('operacion_pk'))
+            if key in ops_inmob:
+                continue
+        total_general += Decimal(str(f.get('monto') or 0))
+
+    return {
+        'total_general': total_general,
+        'total_comision': total_comision,
+        'total_comision_locador': total_locador,
+        'total_comision_locatario': total_locatario,
+        'total_cochera': total_cochera,
+        'total_fondo': total_fondo,
+    }
+
+
 def _contexto_honorarios_oficina(request, *, solo_oficina=False):
     """
     Arma el contexto del listado de honorarios.
@@ -1230,34 +1360,11 @@ def _contexto_honorarios_oficina(request, *, solo_oficina=False):
     elif solo_oficina:
         # Impresión: honorario de oficina + cochera + fondo (sin locador/locatario).
         filas = [f for f in filas if f.get('tipo') in ('comision', 'cochera', 'fondo')]
+    else:
+        # Todos: inmobiliaria de contratos ya es locador+locatario; no duplicar filas.
+        filas = _ocultar_locador_duplicado_de_inmobiliaria(filas)
 
-    total_general = sum((f['monto'] for f in filas), Decimal('0'))
-    total_comision = sum((f['monto'] for f in filas if f['tipo'] == 'comision'), Decimal('0'))
-    total_comision_locador = sum(
-        (
-            (
-                f.get('monto_locador')
-                if f.get('tipo') == 'comisiones_locador_locatario'
-                else (f['monto'] if f.get('tipo') == 'comision_locador' else Decimal('0'))
-            )
-            for f in filas
-        ),
-        Decimal('0'),
-    )
-    total_comision_locatario = sum(
-        (
-            (
-                f.get('monto_locatario')
-                if f.get('tipo') == 'comisiones_locador_locatario'
-                else (f['monto'] if f.get('tipo') == 'comision_locatario' else Decimal('0'))
-            )
-            for f in filas
-        ),
-        Decimal('0'),
-    )
-    total_cochera = sum((f['monto'] for f in filas if f['tipo'] == 'cochera'), Decimal('0'))
-    total_fondo = sum((f['monto'] for f in filas if f['tipo'] == 'fondo'), Decimal('0'))
-
+    totales = _totales_honorarios_oficina(filas)
     querystring = request.GET.urlencode()
 
     return {
@@ -1269,12 +1376,7 @@ def _contexto_honorarios_oficina(request, *, solo_oficina=False):
         'tipo_filtro': tipo_filtro,
         'operacion_filtro': operacion_filtro,
         'busqueda': busqueda,
-        'total_general': total_general,
-        'total_comision': total_comision,
-        'total_comision_locador': total_comision_locador,
-        'total_comision_locatario': total_comision_locatario,
-        'total_cochera': total_cochera,
-        'total_fondo': total_fondo,
+        **totales,
         'querystring': querystring,
         'sucursal': getattr(request.user, 'sucursal', None),
         'solo_oficina': solo_oficina and not tipo_filtro,

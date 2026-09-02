@@ -145,9 +145,23 @@ def _honorarios_por_etiqueta(sucursal, fecha_desde, fecha_hasta):
     try:
         filas = _filas_honorarios_para_cierre(sucursal, fecha_desde, fecha_hasta)
         totales = defaultdict(lambda: Decimal('0'))
+        ops_comision_contrato = {
+            (f.get('operacion_kind'), f.get('operacion_pk'))
+            for f in filas
+            if f.get('tipo') == 'comision'
+            and f.get('operacion_kind') == 'contrato'
+            and f.get('operacion_pk')
+        }
         for f in filas:
             etiqueta = _etiqueta_ingreso_desde_fila_honorario(f)
             if not etiqueta:
+                continue
+            # Contratos: inmobiliaria ya es locador+locatario; no contar las dos.
+            if (
+                f.get('tipo') == 'comisiones_locador_locatario'
+                and f.get('operacion_kind') == 'contrato'
+                and (f.get('operacion_kind'), f.get('operacion_pk')) in ops_comision_contrato
+            ):
                 continue
             try:
                 monto = Decimal(str(f.get('monto') or 0))
