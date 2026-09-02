@@ -534,7 +534,7 @@
 }
 
 @media print {
-    @page { size: A4 portrait; margin: 0.7cm 0.55cm; }
+    @page { size: A4 portrait; margin: 0.5cm 0.45cm; }
     html, body {
         background: #fff !important;
         height: auto !important;
@@ -564,23 +564,23 @@
     }
     .libro-print-header {
         border: 1.5px solid #222;
-        border-radius: 10px;
-        padding: 8px 12px 10px;
-        margin: 0 0 8px;
+        border-radius: 8px;
+        padding: 5px 8px 6px;
+        margin: 0 0 5px;
         background: #fff;
         width: 100%;
     }
     .libro-print-titulo {
-        font-size: 12pt;
+        font-size: 11pt;
         font-weight: 800;
         color: #1a1a1a;
-        margin-bottom: 6px;
+        margin-bottom: 3px;
         letter-spacing: 0.01em;
     }
     .libro-print-meta {
         display: grid;
         grid-template-columns: 1.3fr 1fr 0.9fr;
-        gap: 6px 10px;
+        gap: 2px 8px;
     }
     .libro-print-meta .lbl {
         display: block;
@@ -603,25 +603,25 @@
     .libro-print-compra-venta {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 8px 14px;
-        margin-top: 8px;
-        padding-top: 8px;
+        gap: 2px 12px;
+        margin-top: 4px;
+        padding-top: 4px;
         border-top: 1px solid #ccc;
     }
     .libro-print-cv-title {
-        font-size: 8pt;
+        font-size: 7.5pt;
         font-weight: 800;
         text-transform: uppercase;
         letter-spacing: 0.04em;
-        margin-bottom: 3px;
+        margin-bottom: 1px;
         color: #111;
     }
     .libro-print-cv-row {
         display: flex;
         justify-content: space-between;
         gap: 8px;
-        font-size: 8pt;
-        line-height: 1.35;
+        font-size: 7.5pt;
+        line-height: 1.15;
     }
     .libro-print-cv-row span:last-child {
         font-weight: 700;
@@ -629,11 +629,14 @@
         white-space: nowrap;
     }
     .libro-print-obs {
-        margin-top: 6px;
-        padding-top: 6px;
+        margin-top: 3px;
+        padding-top: 3px;
         border-top: 1px solid #ddd;
-        font-size: 8pt;
-        line-height: 1.3;
+        font-size: 7.5pt;
+        line-height: 1.15;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
     .libro-print-obs .lbl {
         display: inline;
@@ -652,9 +655,9 @@
 
     .card {
         border: 1.5px solid #222 !important;
-        border-radius: 10px !important;
+        border-radius: 8px !important;
         box-shadow: none !important;
-        margin: 0 0 8px !important;
+        margin: 0 0 4px !important;
         break-inside: avoid;
         page-break-inside: avoid;
     }
@@ -662,42 +665,46 @@
         background: #f3f4f6 !important;
         color: #111 !important;
         border-bottom: 1px solid #ccc !important;
-        padding: 4px 10px !important;
-        font-size: 9pt !important;
+        padding: 2px 6px !important;
+        font-size: 8pt !important;
     }
-    .card-body { padding: 6px 10px !important; }
+    .card-body { padding: 3px 6px !important; }
 
     .libro-print-tabla {
         break-inside: auto;
         page-break-inside: auto;
     }
     .libro-oficina-table {
-        font-size: 7pt !important;
+        font-size: 6.8pt !important;
         table-layout: fixed !important;
         width: 100% !important;
         border-collapse: collapse !important;
+        margin-bottom: 0 !important;
     }
     .libro-oficina-table thead { display: table-header-group; }
     .libro-oficina-table th,
     .libro-oficina-table td {
-        padding: 2px 3px !important;
+        padding: 1px 3px !important;
         border-color: #bbb !important;
-        line-height: 1.2 !important;
+        line-height: 1.1 !important;
         vertical-align: middle !important;
     }
     .libro-oficina-table th:nth-child(1),
-    .libro-oficina-table td:nth-child(1) { width: 12%; }
+    .libro-oficina-table td:nth-child(1) { width: 8%; }
     .libro-oficina-table th:nth-child(2),
     .libro-oficina-table td.desc-libro {
-        width: 30%;
-        max-width: none !important;
-        white-space: normal !important;
-        overflow: visible !important;
-        text-overflow: unset !important;
-        word-break: break-word;
+        width: 46%;
+        max-width: 0 !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        word-break: normal !important;
+    }
+    .libro-oficina-table td.desc-libro * {
+        white-space: nowrap !important;
     }
     .libro-oficina-table th:nth-child(n+3),
-    .libro-oficina-table td:nth-child(n+3) { width: 11.6%; }
+    .libro-oficina-table td:nth-child(n+3) { width: 9.2%; }
     .libro-oficina-table tfoot td {
         font-weight: 700 !important;
         background: #f3f4f6 !important;
@@ -718,10 +725,10 @@
         break-inside: avoid;
         page-break-inside: avoid;
         border: 1.5px solid #222 !important;
-        border-radius: 10px !important;
+        border-radius: 8px !important;
     }
-    .libro-resumen-table { font-size: 8pt !important; width: 100% !important; }
-    .libro-resumen-table td { padding: 2px 6px !important; line-height: 1.25 !important; }
+    .libro-resumen-table { font-size: 7.2pt !important; width: 100% !important; margin-bottom: 0 !important; }
+    .libro-resumen-table td { padding: 0 4px !important; line-height: 1.12 !important; }
     .libro-print-total td {
         background: #fff8dc !important;
         border-top: 2px solid #222 !important;
