@@ -534,7 +534,7 @@
 }
 
 @media print {
-    @page { size: A4 landscape; margin: 0.45cm; }
+    @page { size: A4 portrait; margin: 0.7cm 0.55cm; }
     html, body {
         background: #fff !important;
         height: auto !important;
@@ -571,7 +571,7 @@
         width: 100%;
     }
     .libro-print-titulo {
-        font-size: 13pt;
+        font-size: 12pt;
         font-weight: 800;
         color: #1a1a1a;
         margin-bottom: 6px;
@@ -579,12 +579,12 @@
     }
     .libro-print-meta {
         display: grid;
-        grid-template-columns: 1.4fr 1fr 1fr;
-        gap: 6px 14px;
+        grid-template-columns: 1.3fr 1fr 0.9fr;
+        gap: 6px 10px;
     }
     .libro-print-meta .lbl {
         display: block;
-        font-size: 7.5pt;
+        font-size: 7pt;
         font-weight: 700;
         color: #555;
         text-transform: uppercase;
@@ -593,7 +593,7 @@
     }
     .libro-print-meta .val {
         display: block;
-        font-size: 10.5pt;
+        font-size: 9.5pt;
         font-weight: 700;
         color: #111;
         white-space: nowrap;
@@ -603,13 +603,13 @@
     .libro-print-compra-venta {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 8px 16px;
+        gap: 8px 14px;
         margin-top: 8px;
         padding-top: 8px;
         border-top: 1px solid #ccc;
     }
     .libro-print-cv-title {
-        font-size: 8.5pt;
+        font-size: 8pt;
         font-weight: 800;
         text-transform: uppercase;
         letter-spacing: 0.04em;
@@ -619,8 +619,8 @@
     .libro-print-cv-row {
         display: flex;
         justify-content: space-between;
-        gap: 10px;
-        font-size: 8.5pt;
+        gap: 8px;
+        font-size: 8pt;
         line-height: 1.35;
     }
     .libro-print-cv-row span:last-child {
@@ -672,7 +672,7 @@
         page-break-inside: auto;
     }
     .libro-oficina-table {
-        font-size: 7.2pt !important;
+        font-size: 7pt !important;
         table-layout: fixed !important;
         width: 100% !important;
         border-collapse: collapse !important;
@@ -680,23 +680,24 @@
     .libro-oficina-table thead { display: table-header-group; }
     .libro-oficina-table th,
     .libro-oficina-table td {
-        padding: 1px 4px !important;
+        padding: 2px 3px !important;
         border-color: #bbb !important;
-        line-height: 1.15 !important;
+        line-height: 1.2 !important;
         vertical-align: middle !important;
     }
     .libro-oficina-table th:nth-child(1),
-    .libro-oficina-table td:nth-child(1) { width: 8%; }
+    .libro-oficina-table td:nth-child(1) { width: 12%; }
     .libro-oficina-table th:nth-child(2),
     .libro-oficina-table td.desc-libro {
-        width: 44%;
+        width: 30%;
         max-width: none !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
+        white-space: normal !important;
+        overflow: visible !important;
+        text-overflow: unset !important;
+        word-break: break-word;
     }
     .libro-oficina-table th:nth-child(n+3),
-    .libro-oficina-table td:nth-child(n+3) { width: 9.5%; }
+    .libro-oficina-table td:nth-child(n+3) { width: 11.6%; }
     .libro-oficina-table tfoot td {
         font-weight: 700 !important;
         background: #f3f4f6 !important;
@@ -719,8 +720,8 @@
         border: 1.5px solid #222 !important;
         border-radius: 10px !important;
     }
-    .libro-resumen-table { font-size: 7.5pt !important; width: 100% !important; }
-    .libro-resumen-table td { padding: 1px 6px !important; line-height: 1.2 !important; }
+    .libro-resumen-table { font-size: 8pt !important; width: 100% !important; }
+    .libro-resumen-table td { padding: 2px 6px !important; line-height: 1.25 !important; }
     .libro-print-total td {
         background: #fff8dc !important;
         border-top: 2px solid #222 !important;
