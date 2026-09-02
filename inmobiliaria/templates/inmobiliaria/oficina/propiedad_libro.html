@@ -337,10 +337,10 @@
                     <col class="col-fecha">
                     <col class="col-desc">
                     {% if exige_facturado_negro %}<col class="col-clasif no-print">{% endif %}
-                    <col class="col-monto">
-                    <col class="col-monto">
-                    <col class="col-monto">
-                    <col class="col-monto">
+                    <col class="col-monto-ars">
+                    <col class="col-monto-ars">
+                    <col class="col-monto-usd">
+                    <col class="col-monto-usd">
                     <col class="col-tc">
                 </colgroup>
                 <thead class="table-light">
@@ -403,10 +403,10 @@
                             {% endif %}
                         </td>
                         {% endif %}
-                        <td class="text-end text-danger">{% if f.gastos_ars %}{{ f.gastos_ars|format_price }}{% endif %}</td>
-                        <td class="text-end text-success celda-alquileres-ars">{% if f.alquileres_ars %}{{ f.alquileres_ars|format_price }}{% endif %}</td>
-                        <td class="text-end celda-gastos-usd">{% if f.gastos_usd %}{{ f.gastos_usd|format_price }}{% endif %}</td>
-                        <td class="text-end celda-ingreso-usd">{% if f.ingreso_usd %}{{ f.ingreso_usd|format_price }}{% endif %}</td>
+                        <td class="text-end text-danger celda-monto">{% if f.gastos_ars %}{{ f.gastos_ars|format_price }}{% endif %}</td>
+                        <td class="text-end text-success celda-monto celda-alquileres-ars">{% if f.alquileres_ars %}{{ f.alquileres_ars|format_price }}{% endif %}</td>
+                        <td class="text-end celda-monto celda-gastos-usd">{% if f.gastos_usd %}{{ f.gastos_usd|format_price }}{% endif %}</td>
+                        <td class="text-end celda-monto celda-ingreso-usd">{% if f.ingreso_usd %}{{ f.ingreso_usd|format_price }}{% endif %}</td>
                         <td class="text-end">
                             {% if f.es_inicio_caja or f.es_subtotal_hasta_fecha %}
                             <span class="text-muted small">{% if f.tipo_cambio %}{{ f.tipo_cambio|format_price }}{% else %}—{% endif %}</span>
@@ -446,10 +446,10 @@
                 <tfoot class="table-light fw-semibold">
                     <tr>
                         <td colspan="{% if exige_facturado_negro %}3{% else %}2{% endif %}" class="text-end">Totales</td>
-                        <td class="text-end text-danger">{{ totales.gastos_ars|format_price }}</td>
-                        <td class="text-end text-success">{{ totales.alquileres_ars|format_price }}</td>
-                        <td class="text-end" id="total-gastos-usd">{{ totales.gastos_usd|format_price }}</td>
-                        <td class="text-end" id="total-ingreso-usd">{{ totales.ingreso_usd|format_price }}</td>
+                        <td class="text-end text-danger celda-monto">{{ totales.gastos_ars|format_price }}</td>
+                        <td class="text-end text-success celda-monto">{{ totales.alquileres_ars|format_price }}</td>
+                        <td class="text-end celda-monto" id="total-gastos-usd">{{ totales.gastos_usd|format_price }}</td>
+                        <td class="text-end celda-monto" id="total-ingreso-usd">{{ totales.ingreso_usd|format_price }}</td>
                         <td></td>
                     </tr>
                 </tfoot>
@@ -685,7 +685,7 @@
         page-break-inside: auto;
     }
     .libro-oficina-table {
-        font-size: 6.8pt !important;
+        font-size: 7pt !important;
         table-layout: fixed !important;
         width: 100% !important;
         border-collapse: collapse !important;
@@ -694,29 +694,25 @@
     .libro-oficina-table thead { display: table-header-group; }
     .libro-oficina-table th,
     .libro-oficina-table td {
-        padding: 1px 3px !important;
+        padding: 1px 4px !important;
         border-color: #bbb !important;
-        line-height: 1.1 !important;
+        line-height: 1.15 !important;
         vertical-align: middle !important;
+        box-sizing: border-box !important;
     }
     .libro-oficina-table .col-clasif { width: 0 !important; }
-    .libro-oficina-table .col-fecha { width: 2.15cm !important; }
-    .libro-oficina-table .col-desc { width: auto !important; }
-    .libro-oficina-table .col-monto { width: 1.75cm !important; }
-    .libro-oficina-table .col-tc { width: 1.35cm !important; }
+    .libro-oficina-table .col-fecha { width: 11% !important; }
+    .libro-oficina-table .col-desc { width: 29% !important; }
+    .libro-oficina-table .col-monto-ars { width: 14% !important; }
+    .libro-oficina-table .col-monto-usd { width: 12% !important; }
+    .libro-oficina-table .col-tc { width: 8% !important; }
     .libro-oficina-table .th-fecha,
     .libro-oficina-table td:first-child {
-        width: 2.15cm !important;
-        min-width: 2.15cm !important;
-        max-width: 2.15cm !important;
         white-space: nowrap !important;
         overflow: visible !important;
-        text-overflow: clip !important;
     }
     .libro-oficina-table th:nth-child(2),
     .libro-oficina-table td.desc-libro {
-        width: auto !important;
-        max-width: 0 !important;
         white-space: nowrap !important;
         overflow: hidden !important;
         text-overflow: ellipsis !important;
@@ -727,11 +723,14 @@
     }
     .libro-oficina-table th.text-end,
     .libro-oficina-table td.text-end,
-    .libro-oficina-table .th-tc {
+    .libro-oficina-table .th-tc,
+    .libro-oficina-table td.celda-monto {
         white-space: nowrap !important;
-        overflow: hidden !important;
-        min-width: 0 !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
         font-variant-numeric: tabular-nums;
+        word-break: keep-all !important;
+        hyphens: none !important;
     }
     .libro-oficina-table tfoot td {
         font-weight: 700 !important;
