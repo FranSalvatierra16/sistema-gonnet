@@ -58,7 +58,12 @@
         <div class="list-group list-group-flush">
             {% for p in coincidencias %}
             <a class="list-group-item list-group-item-action" href="{% url 'inmobiliaria:administracion_propiedades_operaciones' %}?propiedad_id={{ p.id }}">
-                <strong>#{{ p.id }}</strong> - {{ p.direccion }}{% if p.piso %} — Piso {{ p.piso }}{% endif %}{% if p.departamento %}{% if p.piso %}, {% else %} — {% endif %}Dpto {{ p.departamento }}{% endif %}{% if p.ubicacion %} ({{ p.ubicacion }}){% endif %}
+                <span class="ficha-linea-principal">
+                    <span class="ficha-nro">#{{ p.id }}</span>
+                    <span class="ficha-dir">{{ p.direccion }}{% if p.piso %} — Piso {{ p.piso }}{% endif %}{% if p.departamento %}{% if p.piso %}, {% else %} — {% endif %}Dpto {{ p.departamento }}{% endif %}</span>
+                </span>
+                {% if p.titulo %}<span class="small text-muted d-block">{{ p.titulo }}{% if p.ubicacion %} ({{ p.ubicacion }}){% endif %}</span>
+                {% elif p.ubicacion %}<span class="small text-muted d-block">{{ p.ubicacion }}</span>{% endif %}
                 {% if p.propietario %}<span class="small text-muted d-block">{{ p.propietario }}</span>{% endif %}
             </a>
             {% endfor %}
@@ -470,22 +475,29 @@
         resultados.innerHTML = items.map(function (p) {
             const titulo = (p.titulo || '').trim();
             const dir = (p.direccion || '').trim();
-            const ubic = p.ubicacion ? ` (${p.ubicacion})` : '';
             const pi = (p.piso || '').trim();
             const dep = (p.departamento || '').trim();
             const unidad = [pi ? 'Piso ' + pi : '', dep ? 'Dpto ' + dep : ''].filter(Boolean).join(', ');
-            const suf = unidad ? ` — ${unidad}` : '';
+            const dirCompleta = [dir, unidad].filter(Boolean).join(' — ');
             const nombre = titulo || dir || ('Ficha #' + p.id);
-            const sub = (titulo && dir) ? dir + suf + ubic : (titulo ? suf + ubic : suf + ubic);
+            const extra = [];
+            if (titulo && titulo !== dir) extra.push(titulo);
+            if (p.ubicacion) extra.push(p.ubicacion);
+            const extraLine = extra.length
+                ? `<span class="small text-muted d-block">${escHtml(extra.join(' · '))}</span>`
+                : '';
             const propLine = (p.propietario && String(p.propietario).trim())
                 ? `<span class="small text-muted d-block">${escHtml(p.propietario)}</span>`
                 : '';
-            const txt = titulo
-                ? `#${p.id} - ${titulo}${dir ? ' — ' + dir : ''}${suf}`
-                : `#${p.id} - ${dir}${suf}${ubic}`;
+            const txt = dirCompleta
+                ? `#${p.id} - ${dirCompleta}`
+                : `#${p.id} - ${nombre}`;
             return `<button type="button" class="list-group-item list-group-item-action item-propiedad-admin" data-id="${p.id}" data-text="${escHtml(txt)}">
-                <strong>#${p.id}</strong> — ${escHtml(nombre)}
-                ${sub ? `<span class="small text-muted d-block">${escHtml(sub)}</span>` : ''}
+                <span class="ficha-linea-principal">
+                    <span class="ficha-nro">#${p.id}</span>
+                    <span class="ficha-dir">${escHtml(dirCompleta || nombre)}</span>
+                </span>
+                ${extraLine}
                 ${propLine}
             </button>`;
         }).join('');
@@ -565,4 +577,36 @@
 })();
 {% endif %}
 </script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.ficha-linea-principal {
+    display: flex;
+    align-items: baseline;
+    gap: 0.55rem;
+    line-height: 1.25;
+}
+.ficha-nro {
+    font-weight: 700;
+    font-size: 1.05rem;
+    color: #495057;
+    flex-shrink: 0;
+}
+.ficha-dir {
+    font-weight: 800;
+    font-size: 1.2rem;
+    color: #111;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+#resultadosPropiedadAdmin {
+    max-height: 360px;
+}
+#resultadosPropiedadAdmin .list-group-item {
+    padding-top: 0.55rem;
+    padding-bottom: 0.55rem;
+}
+</style>
 {% endblock %}
