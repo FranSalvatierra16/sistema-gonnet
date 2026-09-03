@@ -40,9 +40,8 @@
 .quickbar {
     background: #fff;
     border-bottom: 1px solid var(--g-line);
-    position: sticky;
-    top: 64px;
-    z-index: 30;
+    position: relative;
+    z-index: 5;
     box-shadow: 0 8px 24px rgba(47,107,44,0.06);
 }
 .quickbar form {
@@ -382,7 +381,6 @@
     }
     .filters.is-open { display: block; }
     .mobile-filters-btn { display: inline-flex; }
-    .quickbar { top: 58px; }
     .quickbar form { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 560px) {
