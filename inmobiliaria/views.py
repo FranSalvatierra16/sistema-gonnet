@@ -10536,12 +10536,32 @@ def actualizar_historial_por_contrato_invierno(propiedad, fecha_inicio, fecha_fi
                 seg.delete()
 
 
+def _monto_operacion_historial(request, *, reserva=None, contrato=None):
+    """Monto de la operación (solo super admin). Reserva: precio total. Contrato: mensual."""
+    if not getattr(request.user, 'is_superuser', False):
+        return None
+    val = None
+    if reserva is not None:
+        val = getattr(reserva, 'precio_total', None)
+    elif contrato is not None:
+        val = getattr(contrato, 'precio_mensual', None)
+    if val is None:
+        return None
+    try:
+        d = Decimal(str(val or 0))
+    except (TypeError, ValueError, ArithmeticError):
+        return None
+    if d <= 0:
+        return None
+    return f'${format_monto_argentino(d)}'
+
+
 def ver_historial_disponibilidad(request, propiedad_id):
     propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
     # Orden cronológico: más antiguo primero (fecha_inicio ascendente)
     historial_qs = HistorialDisponibilidad.objects.filter(
         propiedad=propiedad
-    ).order_by('fecha_inicio', 'fecha_fin', 'id')
+    ).select_related('reserva', 'reserva__cliente').order_by('fecha_inicio', 'fecha_fin', 'id')
 
     items = []
     for h in historial_qs:
@@ -10559,6 +10579,7 @@ def ver_historial_disponibilidad(request, propiedad_id):
             'tipo_contrato': None,
             'inquilino_texto': None,
             'es_libre_invierno': False,
+            'monto': _monto_operacion_historial(request, reserva=h.reserva),
             '_sort': (h.fecha_inicio, h.fecha_fin),
         })
 
@@ -10597,6 +10618,7 @@ def ver_historial_disponibilidad(request, propiedad_id):
             'tipo_contrato': 'Invierno',
             'inquilino_texto': f'{c.inquilino.apellido}, {c.inquilino.nombre}' if c.inquilino else '-',
             'es_libre_invierno': False,
+            'monto': _monto_operacion_historial(request, contrato=c),
             '_sort': (c.fecha_inicio, c.fecha_fin),
         })
 
@@ -10615,6 +10637,7 @@ def ver_historial_disponibilidad(request, propiedad_id):
             'tipo_contrato': '24 meses' if int(getattr(c, 'duracion_meses', 0) or 0) == 24 else f'{c.duracion_meses} meses',
             'inquilino_texto': f'{c.inquilino.apellido}, {c.inquilino.nombre}' if c.inquilino else '-',
             'es_libre_invierno': False,
+            'monto': _monto_operacion_historial(request, contrato=c),
             '_sort': (c.fecha_inicio, c.fecha_fin),
         })
 
@@ -10718,6 +10741,7 @@ def ver_historial_disponibilidad(request, propiedad_id):
     return JsonResponse({
         'success': True,
         'historial': items,
+        'mostrar_monto': bool(getattr(request.user, 'is_superuser', False)),
     })
 
 @login_required
