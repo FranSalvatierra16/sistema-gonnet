@@ -1751,7 +1751,7 @@
         obtenerFotos: "{% url 'inmobiliaria:obtener_fotos_propiedad' '0' %}",
         obtenerHistorial: "{% url 'inmobiliaria:historial_disponibilidad' '0' %}"
     };
-    const ES_SUPER_ADMIN = {{ request.user.is_superuser|yesno:"true,false" }};
+    const ES_SUPER_ADMIN = {{ request.user.is_superuser|yesno:"true,false" }} || {{ request.user.nivel|default:0 }} >= 4;
 
     const propiedadesImagenes = {};
 
@@ -5881,7 +5881,7 @@ window.verHistorial = function() {
     
     // Limpiar el contenido anterior
     const tbody = document.getElementById('historialTableBody');
-    tbody.innerHTML = '<tr><td colspan="' + (ES_SUPER_ADMIN ? 7 : 6) + '" class="text-center"><i class="fas fa-spinner fa-spin"></i> Cargando...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center"><i class="fas fa-spinner fa-spin"></i> Cargando...</td></tr>';
     
     // Mostrar el modal
     const modalHistorial = new bootstrap.Modal(document.getElementById('modalHistorial'));
@@ -5921,12 +5921,11 @@ window.verHistorial = function() {
                         h.es_libre_invierno ?
                         '<small class="text-muted">Disponible para alquiler invierno</small>' :
                         '-';
-                    const acciones = h.contrato_id ?
-                        `<a href="/contratos/${h.contrato_id}/" class="btn btn-outline-info btn-sm" target="_blank" rel="noopener">Ver contrato</a>` :
-                        '-';
-                    const montoCell = ES_SUPER_ADMIN
+                    const accionesOMonto = ES_SUPER_ADMIN
                         ? `<td class="text-end text-nowrap fw-semibold">${h.monto || '—'}</td>`
-                        : '';
+                        : `<td>${h.contrato_id
+                            ? `<a href="/contratos/${h.contrato_id}/" class="btn btn-outline-info btn-sm" target="_blank" rel="noopener">Ver contrato</a>`
+                            : '-'}</td>`;
                     
                     return `
                         <tr class="${estadoClass}">
@@ -5937,19 +5936,18 @@ window.verHistorial = function() {
                             </td>
                             <td>${reservaInfo}</td>
                             <td>${h.ultima_actualizacion}</td>
-                            <td>${acciones}</td>
-                            ${montoCell}
+                            ${accionesOMonto}
                         </tr>
                     `;
                 }).join('');
             } else {
-                tbody.innerHTML = '<tr><td colspan="' + (ES_SUPER_ADMIN ? 7 : 6) + '" class="text-center">No hay registros en el historial</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center">No hay registros en el historial</td></tr>';
             }
         })
         .catch(error => {
             console.error('Error al cargar historial:', error);
             console.error('URL intentada:', url);
-            tbody.innerHTML = `<tr><td colspan="${ES_SUPER_ADMIN ? 7 : 6}" class="text-center text-danger">
+            tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger">
                 Error al cargar el historial: ${error.message}<br>
                 <small>URL: ${url}</small>
             </td></tr>`;
@@ -5977,15 +5975,16 @@ window.verHistorial = function() {
                                 <th>Estado</th>
                                 <th>Reserva</th>
                                 <th>Última Actualización</th>
-                                <th>Acciones</th>
-                                {% if request.user.is_superuser %}
+                                {% if request.user.is_superuser or request.user.nivel >= 4 %}
                                 <th class="text-end">Monto</th>
+                                {% else %}
+                                <th>Acciones</th>
                                 {% endif %}
                             </tr>
                         </thead>
                         <tbody id="historialTableBody">
                             <tr>
-                                <td colspan="{% if request.user.is_superuser %}7{% else %}6{% endif %}" class="text-center">Selecciona una propiedad para ver su historial</td>
+                                <td colspan="6" class="text-center">Selecciona una propiedad para ver su historial</td>
                             </tr>
                         </tbody>
                     </table>

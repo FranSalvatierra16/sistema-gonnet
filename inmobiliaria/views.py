@@ -10537,8 +10537,8 @@ def actualizar_historial_por_contrato_invierno(propiedad, fecha_inicio, fecha_fi
 
 
 def _monto_operacion_historial(request, *, reserva=None, contrato=None):
-    """Monto de la operación (solo super admin). Reserva: precio total. Contrato: mensual."""
-    if not getattr(request.user, 'is_superuser', False):
+    """Monto de la operación (super admin / admin). Reserva: precio total. Contrato: mensual."""
+    if _nivel_usuario_request(request) < 4:
         return None
     val = None
     if reserva is not None:
@@ -10741,7 +10741,7 @@ def ver_historial_disponibilidad(request, propiedad_id):
     return JsonResponse({
         'success': True,
         'historial': items,
-        'mostrar_monto': bool(getattr(request.user, 'is_superuser', False)),
+        'mostrar_monto': _nivel_usuario_request(request) >= 4,
     })
 
 @login_required
