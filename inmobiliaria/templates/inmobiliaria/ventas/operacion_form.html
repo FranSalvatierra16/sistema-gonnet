@@ -30,8 +30,13 @@
                 {% if propiedad %}
                 <div class="form-text">
                     Seleccionada: <strong>#{{ propiedad.id }}</strong> — {{ propiedad.direccion }}
+                    {% if propiedad.piso or propiedad.departamento %}
+                    <span class="text-muted">
+                        ({% if propiedad.piso %}{{ propiedad.piso }}°{% endif %}{% if propiedad.piso and propiedad.departamento %} {% endif %}{% if propiedad.departamento %}{{ propiedad.departamento }}{% endif %})
+                    </span>
+                    {% endif %}
                     {% if propiedad.propietario %}
-                    <span class="text-muted">({{ propiedad.propietario }})</span>
+                    <span class="text-muted">· {{ propiedad.propietario }}</span>
                     {% endif %}
                     <a href="{% url 'inmobiliaria:operaciones_venta_nueva' %}" class="ms-2">Cambiar</a>
                 </div>
@@ -40,22 +45,48 @@
                 {% endif %}
             </div>
 
-            <div class="row g-3">
-                <div class="col-md-6">
-                    <label class="form-label" for="fecha_venta">Fecha de venta *</label>
-                    <input type="date" class="form-control" name="fecha_venta" id="fecha_venta" value="{{ form.fecha_venta }}" required>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label" for="vendedor_id">Vendedor (honorarios) *</label>
-                    <select class="form-select" name="vendedor_id" id="vendedor_id" required>
-                        <option value="">— Elegir —</option>
-                        {% for v in vendedores %}
-                        <option value="{{ v.id }}" {% if form.vendedor_id == v.id|stringformat:"s" %}selected{% endif %}>
+            <div class="mb-3">
+                <label class="form-label" for="fecha_venta">Fecha de venta *</label>
+                <input type="date" class="form-control" name="fecha_venta" id="fecha_venta" value="{{ form.fecha_venta }}" required style="max-width: 220px;">
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Vendedores / productores *</label>
+                <div class="border rounded p-2" style="max-height: 220px; overflow-y: auto;">
+                    {% for v in vendedores %}
+                    <div class="form-check">
+                        <input class="form-check-input vendedor-check" type="checkbox" name="vendedor_ids" value="{{ v.id }}"
+                               id="vend_{{ v.id }}"
+                               data-pct="{% if v.comision_venta is not None %}{{ v.comision_venta }}{% else %}0{% endif %}"
+                               data-nombre="{{ v.apellido }}, {{ v.nombre }}"
+                               {% if v.id|stringformat:"s" in form.vendedor_ids %}checked{% endif %}>
+                        <label class="form-check-label" for="vend_{{ v.id }}">
                             {{ v.apellido }}, {{ v.nombre }}
-                        </option>
-                        {% endfor %}
-                    </select>
+                            <span class="text-muted small">
+                                — venta
+                                {% if v.comision_venta is not None %}{{ v.comision_venta|floatformat:2 }}%{% else %}sin %{% endif %}
+                            </span>
+                        </label>
+                    </div>
+                    {% empty %}
+                    <div class="text-muted small">No hay vendedores activos en la sucursal.</div>
+                    {% endfor %}
                 </div>
+                <div class="form-text">Los honorarios se reparten según el % de venta de cada ficha. Si nadie tiene %, partes iguales.</div>
+                <div id="reparto_preview" class="small mt-2 text-muted"></div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-semibold" for="fichado_por_id">Fichaje</label>
+                <select class="form-select" name="fichado_por_id" id="fichado_por_id">
+                    <option value="">— Sin fichaje —</option>
+                    {% for v in vendedores %}
+                    <option value="{{ v.id }}" {% if form.fichado_por_id == v.id|stringformat:"s" %}selected{% endif %}>
+                        {{ v.apellido }}, {{ v.nombre }}
+                    </option>
+                    {% endfor %}
+                </select>
+                <div class="form-text">Quien fichó la propiedad. Si tiene % de fichaje, se genera comisión aparte sobre los honorarios.</div>
             </div>
 
             <hr class="my-4">
@@ -93,16 +124,16 @@
             <h2 class="h6 text-uppercase text-muted">Honorarios (dólares → pesos)</h2>
             <div class="row g-3">
                 <div class="col-md-6">
-                    <label class="form-label" for="honorarios_usd">Honorarios al vendedor (USD) *</label>
+                    <label class="form-label" for="honorarios_usd">Honorarios productores (USD) *</label>
                     <div class="input-group">
                         <span class="input-group-text">U$S</span>
                         <input type="text" class="form-control text-end" name="honorarios_usd" id="honorarios_usd"
                                value="{{ form.honorarios_usd }}" required inputmode="decimal" placeholder="0,00">
                     </div>
-                    <div class="form-text">Lo cargás en dólares; también queda en el libro del depto.</div>
+                    <div class="form-text">Total a repartir entre los vendedores marcados según su % de venta; también queda en el libro.</div>
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label">Honorarios en ARS (lo que cobra)</label>
+                    <label class="form-label">Honorarios en ARS (lo que cobran)</label>
                     <div class="input-group">
                         <span class="input-group-text">$</span>
                         <input type="text" class="form-control text-end" id="honorarios_ars_ref" readonly value="—"
@@ -155,16 +186,78 @@
         var el = document.getElementById('honorarios_ars_ref');
         if (cot > 0) el.value = fmt(hon * cot);
         else el.value = '—';
+        updateReparto(hon, cot);
+    }
+    function updateReparto(honUsd, cot) {
+        var preview = document.getElementById('reparto_preview');
+        if (!preview) return;
+        var checks = Array.prototype.slice.call(document.querySelectorAll('.vendedor-check:checked'));
+        if (!checks.length) {
+            preview.textContent = '';
+            return;
+        }
+        var items = checks.map(function(c) {
+            return {
+                nombre: c.getAttribute('data-nombre') || ('#' + c.value),
+                pct: parseNum(c.getAttribute('data-pct'))
+            };
+        });
+        var suma = items.reduce(function(a, x) { return a + x.pct; }, 0);
+        var totalArs = (cot > 0) ? (honUsd * cot) : 0;
+        if (!totalArs) {
+            preview.textContent = items.map(function(x) {
+                return x.nombre + ' (' + (suma > 0 ? x.pct : 'igual') + (suma > 0 ? '%' : '') + ')';
+            }).join(' · ');
+            return;
+        }
+        var asignado = 0;
+        var partes = items.map(function(x, i) {
+            var parte;
+            if (suma <= 0) {
+                parte = Math.round((totalArs / items.length) * 100) / 100;
+                if (i === items.length - 1) parte = Math.round((totalArs - asignado) * 100) / 100;
+            } else if (i === items.length - 1) {
+                parte = Math.round((totalArs - asignado) * 100) / 100;
+            } else {
+                parte = Math.round((totalArs * x.pct / suma) * 100) / 100;
+            }
+            asignado += (i === items.length - 1) ? 0 : parte;
+            var pesoTxt = suma > 0 ? (x.pct + '%') : 'igual';
+            return x.nombre + ': $' + fmt(parte) + ' (' + pesoTxt + ')';
+        });
+        preview.innerHTML = '<strong>Reparto estimado:</strong> ' + partes.join(' · ');
     }
     ['honorarios_usd', 'cotizacion_dolar'].forEach(function(id) {
         var el = document.getElementById(id);
         if (el) el.addEventListener('input', recalc);
     });
+    document.querySelectorAll('.vendedor-check').forEach(function(c) {
+        c.addEventListener('change', recalc);
+    });
     recalc();
+
+    function pisoDepto(p) {
+        var piso = (p.piso || '').trim();
+        var depto = (p.departamento || '').trim();
+        if (!piso && !depto) return '';
+        var ud = '';
+        if (piso) ud += piso + '°';
+        if (piso && depto) ud += ' ';
+        if (depto) ud += depto;
+        return ud;
+    }
+    function labelProp(p) {
+        var label = '#' + p.id + ' — ' + (p.direccion || '');
+        var ud = pisoDepto(p);
+        if (ud) label += ' · ' + ud;
+        if (p.propietario) label += ' · ' + p.propietario;
+        return label;
+    }
 
     var $buscar = $('#propiedad_buscar');
     var $hidden = $('#propiedad_id');
     var $dd = $('#dropdown_propiedades');
+    var $fichaje = $('#fichado_por_id');
     var timer = null;
     if ($buscar.prop('readonly')) return;
 
@@ -175,13 +268,15 @@
             return;
         }
         props.forEach(function(p) {
-            var label = '#' + p.id + ' — ' + (p.direccion || '');
-            if (p.propietario) label += ' · ' + p.propietario;
+            var label = labelProp(p);
             var $a = $('<a href="#" class="list-group-item list-group-item-action py-2"></a>').text(label);
             $a.on('click', function(e) {
                 e.preventDefault();
                 $hidden.val(p.id);
                 $buscar.val(label);
+                if (p.fichado_por_id && $fichaje.find('option[value="' + p.fichado_por_id + '"]').length) {
+                    $fichaje.val(String(p.fichado_por_id));
+                }
                 $dd.hide().empty();
             });
             $dd.append($a);

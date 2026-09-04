@@ -245,6 +245,14 @@ class Vendedor(AbstractUser):
         verbose_name='Comisión 24 meses — propiedad oficina (%)',
         help_text='Alquiler largo / 24 meses en propiedades marcadas como «propiedad oficina».',
     )
+    comision_venta = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name='Comisión por venta de propiedad (%)',
+        help_text='Peso relativo al repartir honorarios de una venta. Si hay varios productores, se divide según estos %.',
+    )
     celular = models.CharField(max_length=20, blank=True)
     nivel = models.IntegerField(choices=NIVELES_VENDEDOR, default=1, help_text="Nivel del vendedor para determinar sus permisos")
     

@@ -47,6 +47,7 @@ class VendedorUserCreationForm(forms.ModelForm):
             'comision_primer_fichaje_24_meses', 'comision_segundo_fichaje_24_meses',
             'comision_alquiler_24_meses', 'comision_invierno',
             'comision_alquiler_24_meses_propiedad_oficina', 'comision_invierno_propiedad_oficina',
+            'comision_venta',
             'fecha_nacimiento', 'nivel', 'sucursal',
         ]
         widgets = {
@@ -79,6 +80,9 @@ class VendedorUserCreationForm(forms.ModelForm):
                 attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
             ),
             'comision_alquiler_24_meses_propiedad_oficina': forms.NumberInput(
+                attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
+            ),
+            'comision_venta': forms.NumberInput(
                 attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
             ),
         }
@@ -147,6 +151,7 @@ class VendedorChangeForm(UserChangeForm):
             'comision_primer_fichaje_24_meses', 'comision_segundo_fichaje_24_meses',
             'comision_alquiler_24_meses', 'comision_invierno',
             'comision_alquiler_24_meses_propiedad_oficina', 'comision_invierno_propiedad_oficina',
+            'comision_venta',
             'celular', 'nivel', 'sucursal',
         ]
         widgets = {
@@ -181,6 +186,9 @@ class VendedorChangeForm(UserChangeForm):
                 attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
             ),
             'comision_alquiler_24_meses_propiedad_oficina': forms.NumberInput(
+                attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
+            ),
+            'comision_venta': forms.NumberInput(
                 attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
             ),
         }

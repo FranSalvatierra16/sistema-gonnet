@@ -36,7 +36,23 @@ class OperacionVenta(models.Model):
         on_delete=models.PROTECT,
         related_name='operaciones_venta',
         verbose_name='Vendedor / productor',
-        help_text='Quien realizó la venta (recibe los honorarios).',
+        help_text='Vendedor principal (el primero de la lista si hay varios).',
+    )
+    vendedores = models.ManyToManyField(
+        'Vendedor',
+        blank=True,
+        related_name='operaciones_venta_participacion',
+        verbose_name='Vendedores / productores',
+        help_text='Uno o más productores que intervinieron en la venta (reparten honorarios).',
+    )
+    fichado_por = models.ForeignKey(
+        'Vendedor',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='operaciones_venta_fichaje',
+        verbose_name='Fichaje',
+        help_text='Quien fichó la propiedad (puede generar comisión de fichaje).',
     )
     fecha_venta = models.DateField(
         default=timezone.localdate,
@@ -135,4 +151,19 @@ class OperacionVenta(models.Model):
             return Decimal('0')
         return (self.precio_usd * self.cotizacion_dolar).quantize(
             Decimal('0.01'), rounding=ROUND_HALF_UP
+        )
+
+    def lista_vendedores(self):
+        """Vendedores de la M2M; si está vacía, cae al vendedor principal."""
+        qs = list(self.vendedores.all().order_by('apellido', 'nombre'))
+        if qs:
+            return qs
+        if self.vendedor_id:
+            return [self.vendedor]
+        return []
+
+    def nombres_vendedores(self):
+        return ', '.join(
+            f'{(v.apellido or "").strip()}, {(v.nombre or "").strip()}'.strip(', ')
+            for v in self.lista_vendedores()
         )

@@ -29,14 +29,26 @@
             <div class="row g-3">
                 <div class="col-md-8">
                     <div class="small text-muted">Propiedad</div>
-                    <div class="fw-semibold">#{{ operacion.propiedad_id }} — {{ operacion.propiedad.direccion }}</div>
+                    <div class="fw-semibold">
+                        #{{ operacion.propiedad_id }} — {{ operacion.propiedad.direccion }}
+                        {% if operacion.propiedad.piso or operacion.propiedad.departamento %}
+                        <span class="text-muted fw-normal">
+                            ({% if operacion.propiedad.piso %}{{ operacion.propiedad.piso }}°{% endif %}{% if operacion.propiedad.piso and operacion.propiedad.departamento %} {% endif %}{% if operacion.propiedad.departamento %}{{ operacion.propiedad.departamento }}{% endif %})
+                        </span>
+                        {% endif %}
+                    </div>
                     {% if operacion.propiedad.propietario %}
                     <div class="small text-muted">Propietario: {{ operacion.propiedad.propietario }}</div>
                     {% endif %}
                 </div>
                 <div class="col-md-4">
-                    <div class="small text-muted">Vendedor</div>
-                    <div class="fw-semibold">{{ operacion.vendedor.apellido }}, {{ operacion.vendedor.nombre }}</div>
+                    <div class="small text-muted">Vendedores</div>
+                    <div class="fw-semibold">{{ operacion.nombres_vendedores }}</div>
+                    {% if operacion.fichado_por %}
+                    <div class="small text-muted mt-1">
+                        Fichaje: {{ operacion.fichado_por.apellido }}, {{ operacion.fichado_por.nombre }}
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -86,7 +98,24 @@
             {% if operacion.observaciones %}
             <div class="mb-2"><span class="text-muted">Observaciones:</span> {{ operacion.observaciones }}</div>
             {% endif %}
-            {% if operacion.comision %}
+            {% if comisiones %}
+            <div class="mb-0">
+                <div class="text-muted mb-1">Comisiones:</div>
+                <ul class="list-unstyled mb-0">
+                    {% for c in comisiones %}
+                    <li class="mb-1">
+                        #{{ c.id }} —
+                        {{ c.vendedor.apellido }}, {{ c.vendedor.nombre }}
+                        · ${{ c.monto_comision|format_price }}
+                        {% if c.rol_comision == 'fichaje' %}<span class="badge bg-info text-dark">Fichaje</span>{% else %}<span class="badge bg-primary">Venta</span>{% endif %}
+                        <span class="badge bg-{% if c.estado == 'pagada' %}success{% elif c.estado == 'cancelada' %}secondary{% else %}warning text-dark{% endif %}">
+                            {{ c.get_estado_display }}
+                        </span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% elif operacion.comision %}
             <div class="mb-0">
                 <span class="text-muted">Comisión:</span>
                 #{{ operacion.comision_id }} —

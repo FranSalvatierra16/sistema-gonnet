@@ -115,6 +115,8 @@
 
                                 <dt class="col-sm-6">24 meses — prop. oficina:</dt>
                                 <dd class="col-sm-6">{% if vendedor.comision_alquiler_24_meses_propiedad_oficina is not None %}{{ vendedor.comision_alquiler_24_meses_propiedad_oficina|floatformat:2 }}%{% else %}<span class="text-muted">—</span>{% endif %}</dd>
+                                <dt class="col-sm-6">Comisión por venta de propiedad:</dt>
+                                <dd class="col-sm-6">{% if vendedor.comision_venta is not None %}{{ vendedor.comision_venta|floatformat:2 }}%{% else %}<span class="text-muted">—</span>{% endif %}</dd>
                             </dl>
                             <p class="text-muted small mt-3 mb-0">
                                 Fichaje e invierno/24 meses del <strong>productor</strong> se calculan sobre <strong>honorarios</strong> (concepto 25).

@@ -18488,6 +18488,7 @@ def buscar_propiedades_caja(request):
                 'piso': (p.piso or '').strip(),
                 'departamento': (p.departamento or '').strip(),
                 'propietario': _propietario_txt(p),
+                'fichado_por_id': getattr(p, 'fichado_por_id', None),
                 'exige_facturado_negro': bool(
                     getattr(p, 'libro_exige_facturado_negro', False)
                 ),

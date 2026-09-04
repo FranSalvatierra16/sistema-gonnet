@@ -87,10 +87,13 @@
                         <td>{{ op.id }}</td>
                         <td>{{ op.fecha_venta|date:"d/m/Y" }}</td>
                         <td>
-                            <div class="fw-semibold">#{{ op.propiedad_id }} — {{ op.propiedad.direccion }}</div>
+                            <div class="fw-semibold">#{{ op.propiedad_id }} — {{ op.propiedad.direccion }}{% if op.propiedad.piso or op.propiedad.departamento %} <span class="text-muted fw-normal">({% if op.propiedad.piso %}{{ op.propiedad.piso }}°{% endif %}{% if op.propiedad.piso and op.propiedad.departamento %} {% endif %}{% if op.propiedad.departamento %}{{ op.propiedad.departamento }}{% endif %})</span>{% endif %}</div>
                             {% if op.comprador_nombre %}<small class="text-muted">Comprador: {{ op.comprador_nombre }}</small>{% endif %}
                         </td>
-                        <td>{{ op.vendedor.apellido }}, {{ op.vendedor.nombre }}</td>
+                        <td>
+                            {{ op.nombres_vendedores }}
+                            {% if op.fichado_por %}<div class="small text-muted">Fichaje: {{ op.fichado_por.apellido }}, {{ op.fichado_por.nombre }}</div>{% endif %}
+                        </td>
                         <td class="text-end">U$S {{ op.precio_usd|format_price }}</td>
                         <td class="text-end">U$S {{ op.honorarios_usd|format_price }}</td>
                         <td class="text-end">{{ op.cotizacion_dolar|format_price }}</td>

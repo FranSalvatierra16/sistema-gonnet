@@ -19,7 +19,11 @@ from inmobiliaria.models import (
     Vendedor,
     VentaPropiedad,
 )
-from inmobiliaria.models.comision import ROL_COMISION_VENTA
+from inmobiliaria.models.comision import (
+    ROL_COMISION_FICHAJE,
+    ROL_COMISION_VENTA,
+    porcentaje_fichaje_vendedor,
+)
 from inmobiliaria.models.persona import usuario_es_nivel_administracion
 
 
@@ -41,6 +45,79 @@ def _puede_gestionar_ventas(user):
     return usuario_es_nivel_administracion(user) or getattr(user, 'nivel', 0) >= 3
 
 
+def _etiqueta_propiedad(prop):
+    if not prop:
+        return ''
+    partes = [f'#{prop.id}', '—', (prop.direccion or '').strip() or 'Sin dirección']
+    piso = (getattr(prop, 'piso', None) or '').strip()
+    depto = (getattr(prop, 'departamento', None) or '').strip()
+    if piso or depto:
+        ud = ' '.join(x for x in [f'{piso}°' if piso else '', depto] if x).strip()
+        if ud:
+            partes.append(f'· {ud}')
+    prop_txt = ''
+    if prop.propietario:
+        prop_txt = (
+            getattr(prop.propietario, 'nombre_completo_propietario', lambda: '')()
+            or str(prop.propietario)
+        ).strip()
+        if prop_txt:
+            partes.append(f'· {prop_txt}')
+    return ' '.join(partes)
+
+
+def _partir_montos(total, n):
+    """Reparte total en n partes (centavos) que suman exacto."""
+    total = Decimal(str(total or 0)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    if n <= 0:
+        return []
+    if n == 1:
+        return [total]
+    base = (total / n).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    partes = [base] * (n - 1)
+    partes.append((total - sum(partes)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
+    return partes
+
+
+def _pct_venta_vendedor(vendedor):
+    try:
+        return Decimal(str(getattr(vendedor, 'comision_venta', None) or 0))
+    except (InvalidOperation, TypeError, ValueError):
+        return Decimal('0')
+
+
+def _partir_por_pesos(total, pesos):
+    """
+    Reparte ``total`` según pesos relativos (ej. % de comisión venta de cada productor).
+    Si la suma de pesos es 0, cae a partes iguales.
+    """
+    total = Decimal(str(total or 0)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    n = len(pesos)
+    if n <= 0:
+        return []
+    if n == 1:
+        return [total]
+    pesos_n = []
+    for w in pesos:
+        try:
+            pesos_n.append(max(Decimal(str(w or 0)), Decimal('0')))
+        except (InvalidOperation, TypeError, ValueError):
+            pesos_n.append(Decimal('0'))
+    suma = sum(pesos_n)
+    if suma <= 0:
+        return _partir_montos(total, n)
+    partes = []
+    asignado = Decimal('0')
+    for i, w in enumerate(pesos_n):
+        if i == n - 1:
+            partes.append((total - asignado).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
+        else:
+            parte = (total * w / suma).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            partes.append(parte)
+            asignado += parte
+    return partes
+
+
 @login_required
 def operaciones_venta_lista(request):
     if not _puede_gestionar_ventas(request.user):
@@ -49,7 +126,8 @@ def operaciones_venta_lista(request):
     sucursal = request.user.sucursal
     qs = (
         OperacionVenta.objects.filter(sucursal=sucursal)
-        .select_related('propiedad', 'vendedor', 'comision', 'creado_por')
+        .select_related('propiedad', 'vendedor', 'fichado_por', 'comision', 'creado_por')
+        .prefetch_related('vendedores')
         .order_by('-fecha_venta', '-id')
     )
 
@@ -64,11 +142,15 @@ def operaciones_venta_lista(request):
             | Q(comprador_nombre__icontains=busqueda)
             | Q(vendedor__nombre__icontains=busqueda)
             | Q(vendedor__apellido__icontains=busqueda)
+            | Q(vendedores__nombre__icontains=busqueda)
+            | Q(vendedores__apellido__icontains=busqueda)
+            | Q(fichado_por__nombre__icontains=busqueda)
+            | Q(fichado_por__apellido__icontains=busqueda)
         )
         raw_id = busqueda.lstrip('#').strip()
         if raw_id.isdigit():
             q |= Q(propiedad_id=int(raw_id)) | Q(pk=int(raw_id))
-        qs = qs.filter(q)
+        qs = qs.filter(q).distinct()
 
     confirmadas = qs.filter(estado='confirmada')
     totales = confirmadas.aggregate(
@@ -107,24 +189,26 @@ def operaciones_venta_nueva(request):
     if prop_id.isdigit():
         propiedad_pre = Propiedad.objects.filter(
             pk=int(prop_id), sucursal=sucursal
-        ).select_related('propietario', 'info_venta', 'costos_compra_libro').first()
+        ).select_related('propietario', 'info_venta', 'costos_compra_libro', 'fichado_por').first()
 
+    default_vendedor = str(request.user.pk) if isinstance(request.user, Vendedor) else ''
     form_data = {
         'fecha_venta': timezone.localdate().isoformat(),
         'precio_usd': '',
         'cotizacion_dolar': '',
         'honorarios_usd': '',
         'gastos_escritura_usd': '',
-        'vendedor_id': str(request.user.pk) if isinstance(request.user, Vendedor) else '',
+        'vendedor_ids': [default_vendedor] if default_vendedor else [],
+        'fichado_por_id': '',
         'comprador_nombre': '',
         'escribania': '',
         'observaciones': '',
         'propiedad_buscar': '',
     }
     if propiedad_pre:
-        form_data['propiedad_buscar'] = (
-            f'#{propiedad_pre.id} — {(propiedad_pre.direccion or "").strip()}'
-        )
+        form_data['propiedad_buscar'] = _etiqueta_propiedad(propiedad_pre)
+        if propiedad_pre.fichado_por_id:
+            form_data['fichado_por_id'] = str(propiedad_pre.fichado_por_id)
         info = getattr(propiedad_pre, 'info_venta', None)
         if info and info.precio_venta:
             form_data['precio_usd'] = str(info.precio_venta)
@@ -140,13 +224,15 @@ def operaciones_venta_nueva(request):
                 form_data['escribania'] = costos.escribania
 
     if request.method == 'POST':
+        vendedor_ids_raw = request.POST.getlist('vendedor_ids')
         form_data.update({
             'fecha_venta': (request.POST.get('fecha_venta') or '').strip(),
             'precio_usd': (request.POST.get('precio_usd') or '').strip(),
             'cotizacion_dolar': (request.POST.get('cotizacion_dolar') or '').strip(),
             'honorarios_usd': (request.POST.get('honorarios_usd') or '').strip(),
             'gastos_escritura_usd': (request.POST.get('gastos_escritura_usd') or '').strip(),
-            'vendedor_id': (request.POST.get('vendedor_id') or '').strip(),
+            'vendedor_ids': [x.strip() for x in vendedor_ids_raw if (x or '').strip()],
+            'fichado_por_id': (request.POST.get('fichado_por_id') or '').strip(),
             'comprador_nombre': (request.POST.get('comprador_nombre') or '').strip(),
             'escribania': (request.POST.get('escribania') or '').strip(),
             'observaciones': (request.POST.get('observaciones') or '').strip(),
@@ -159,7 +245,7 @@ def operaciones_venta_nueva(request):
         if prop_id.isdigit():
             propiedad = Propiedad.objects.filter(
                 pk=int(prop_id), sucursal=sucursal
-            ).first()
+            ).select_related('fichado_por').first()
         if not propiedad:
             errores.append('Seleccioná una propiedad válida de la sucursal.')
 
@@ -182,11 +268,20 @@ def operaciones_venta_nueva(request):
         if gastos_escritura < 0:
             errores.append('Los gastos de escritura no pueden ser negativos.')
 
-        vendedor = None
-        if form_data['vendedor_id'].isdigit():
-            vendedor = vendedores.filter(pk=int(form_data['vendedor_id'])).first()
-        if not vendedor:
-            errores.append('Seleccioná el vendedor que realizó la venta.')
+        ids_ok = []
+        for raw in form_data['vendedor_ids']:
+            if raw.isdigit() and int(raw) not in ids_ok:
+                ids_ok.append(int(raw))
+        vendedores_sel = list(vendedores.filter(pk__in=ids_ok))
+        # Preservar orden de selección
+        por_id = {v.id: v for v in vendedores_sel}
+        vendedores_sel = [por_id[i] for i in ids_ok if i in por_id]
+        if not vendedores_sel:
+            errores.append('Seleccioná al menos un vendedor / productor.')
+
+        fichado_por = None
+        if form_data['fichado_por_id'].isdigit():
+            fichado_por = vendedores.filter(pk=int(form_data['fichado_por_id'])).first()
 
         if errores:
             for e in errores:
@@ -200,7 +295,8 @@ def operaciones_venta_nueva(request):
                     op = OperacionVenta(
                         propiedad=propiedad,
                         sucursal=sucursal,
-                        vendedor=vendedor,
+                        vendedor=vendedores_sel[0],
+                        fichado_por=fichado_por,
                         fecha_venta=fecha_venta,
                         precio_usd=precio_usd.quantize(Decimal('0.01')),
                         cotizacion_dolar=cotizacion.quantize(Decimal('0.0001')),
@@ -214,11 +310,12 @@ def operaciones_venta_nueva(request):
                         creado_por=request.user,
                     )
                     op.save()
+                    op.vendedores.set(vendedores_sel)
                     _marcar_propiedad_vendida(propiedad)
                     _sincronizar_libro_propiedad(op, usuario=request.user)
-                    if honorarios_ars > 0:
-                        comision = _crear_comision_venta(op)
-                        op.comision = comision
+                    comisiones = _crear_comisiones_venta(op, vendedores_sel)
+                    if comisiones:
+                        op.comision = comisiones[0]
                         op.save(update_fields=['comision'])
                 messages.success(
                     request,
@@ -233,7 +330,7 @@ def operaciones_venta_nueva(request):
         if prop_id.isdigit():
             propiedad_pre = Propiedad.objects.filter(
                 pk=int(prop_id), sucursal=sucursal
-            ).select_related('propietario').first()
+            ).select_related('propietario', 'fichado_por').first()
 
     return render(
         request,
@@ -254,15 +351,24 @@ def operaciones_venta_detalle(request, operacion_id):
 
     op = get_object_or_404(
         OperacionVenta.objects.select_related(
-            'propiedad', 'propiedad__propietario', 'vendedor', 'comision', 'creado_por', 'sucursal'
-        ),
+            'propiedad',
+            'propiedad__propietario',
+            'vendedor',
+            'fichado_por',
+            'comision',
+            'creado_por',
+            'sucursal',
+        ).prefetch_related('vendedores'),
         pk=operacion_id,
         sucursal=request.user.sucursal,
     )
+    comisiones = ComisionVendedor.objects.filter(
+        observaciones__contains=f'Operación venta #{op.pk}'
+    ).select_related('vendedor').order_by('id')
     return render(
         request,
         'inmobiliaria/ventas/operacion_detalle.html',
-        {'operacion': op},
+        {'operacion': op, 'comisiones': comisiones},
     )
 
 
@@ -285,11 +391,10 @@ def operaciones_venta_anular(request, operacion_id):
     with transaction.atomic():
         op.estado = 'anulada'
         op.save(update_fields=['estado', 'actualizado_en'])
-        if op.comision_id and op.comision.estado != 'pagada':
-            op.comision.estado = 'cancelada'
-            op.comision.save(update_fields=['estado'])
-        # No reabrimos la propiedad ni borramos el libro: queda a criterio del usuario.
-    messages.warning(request, f'Venta #{op.pk} anulada. La comisión quedó cancelada (si no estaba pagada).')
+        ComisionVendedor.objects.filter(
+            observaciones__contains=f'Operación venta #{op.pk}',
+        ).exclude(estado='pagada').update(estado='cancelada')
+    messages.warning(request, f'Venta #{op.pk} anulada. Las comisiones no pagadas quedaron canceladas.')
     return redirect('inmobiliaria:operaciones_venta_detalle', operacion_id=op.pk)
 
 
@@ -316,36 +421,102 @@ def _sincronizar_libro_propiedad(op, usuario=None):
     costos.save()
 
 
-def _crear_comision_venta(op):
-    """Comisión en pesos = honorarios USD × cotización."""
+def _fecha_operacion_aware(fecha_venta):
+    dt = datetime.combine(fecha_venta, datetime.min.time())
+    if timezone.is_naive(dt):
+        dt = timezone.make_aware(dt, timezone.get_current_timezone())
+    return dt
+
+
+def _crear_comisiones_venta(op, vendedores_sel):
+    """Una comisión por productor (reparto por % de venta del perfil) + opcional fichaje."""
+    if op.honorarios_ars <= 0:
+        return []
+
     precio_ars = (op.precio_usd * op.cotizacion_dolar).quantize(
         Decimal('0.01'), rounding=ROUND_HALF_UP
     )
-    pct = Decimal('0')
-    if precio_ars > 0 and op.honorarios_ars > 0:
-        pct = ((op.honorarios_ars / precio_ars) * Decimal('100')).quantize(
-            Decimal('0.01'), rounding=ROUND_HALF_UP
+    dt = _fecha_operacion_aware(op.fecha_venta)
+    dir_prop = (op.propiedad.direccion or '').strip() or f'#{op.propiedad_id}'
+    n = len(vendedores_sel) or 1
+    pesos = [_pct_venta_vendedor(v) for v in vendedores_sel]
+    suma_pesos = sum(pesos)
+    montos = _partir_por_pesos(op.honorarios_ars, pesos)
+    usd_partes = _partir_por_pesos(op.honorarios_usd, pesos)
+    creadas = []
+
+    for i, vend in enumerate(vendedores_sel):
+        monto = montos[i] if i < len(montos) else Decimal('0')
+        usd_parte = usd_partes[i] if i < len(usd_partes) else Decimal('0')
+        if monto <= 0:
+            continue
+        pct_perfil = pesos[i]
+        if suma_pesos > 0:
+            pct_reparto = ((pct_perfil / suma_pesos) * Decimal('100')).quantize(
+                Decimal('0.01'), rounding=ROUND_HALF_UP
+            )
+        else:
+            pct_reparto = (Decimal('100') / n).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        pct_sobre_precio = Decimal('0')
+        if precio_ars > 0:
+            pct_sobre_precio = ((monto / precio_ars) * Decimal('100')).quantize(
+                Decimal('0.01'), rounding=ROUND_HALF_UP
+            )
+        detalle_pct = (
+            f'% venta ficha {pct_perfil} → reparto {pct_reparto}%'
+            if suma_pesos > 0
+            else 'reparto igual (sin % de venta en ficha)'
+        )
+        creadas.append(
+            ComisionVendedor.objects.create(
+                vendedor=vend,
+                monto_total_operacion=precio_ars,
+                porcentaje_comision=pct_sobre_precio,
+                monto_comision=monto,
+                concepto_operacion=(
+                    f'Venta propiedad #{op.propiedad_id} — {dir_prop} '
+                    f'(U$S {op.precio_usd} @ {op.cotizacion_dolar})'
+                    + (f' · {detalle_pct}' if n > 1 else '')
+                )[:200],
+                rol_comision=ROL_COMISION_VENTA,
+                fecha_operacion=dt,
+                estado='pendiente',
+                observaciones=(
+                    f'Operación venta #{op.pk}. Honorarios U$S {usd_parte} '
+                    f'× cotiz. {op.cotizacion_dolar} = ${monto} ARS'
+                    + (f' ({detalle_pct}).' if n > 1 else '.')
+                ),
+            )
         )
 
-    dt = datetime.combine(op.fecha_venta, datetime.min.time())
-    if timezone.is_naive(dt):
-        dt = timezone.make_aware(dt, timezone.get_current_timezone())
+    fichado = op.fichado_por
+    if fichado:
+        tipo = getattr(op.propiedad, 'tipo_fichaje', None) or 'primer'
+        pct_f = porcentaje_fichaje_vendedor(fichado, tipo_fichaje=tipo)
+        if pct_f and pct_f > 0:
+            monto_f = (op.honorarios_ars * pct_f / Decimal('100')).quantize(
+                Decimal('0.01'), rounding=ROUND_HALF_UP
+            )
+            if monto_f > 0:
+                creadas.append(
+                    ComisionVendedor.objects.create(
+                        vendedor=fichado,
+                        monto_total_operacion=op.honorarios_ars,
+                        porcentaje_comision=pct_f.quantize(
+                            Decimal('0.01'), rounding=ROUND_HALF_UP
+                        ),
+                        monto_comision=monto_f,
+                        concepto_operacion=(
+                            f'Fichaje venta #{op.propiedad_id} — {dir_prop}'
+                        )[:200],
+                        rol_comision=ROL_COMISION_FICHAJE,
+                        fecha_operacion=dt,
+                        estado='pendiente',
+                        observaciones=(
+                            f'Operación venta #{op.pk}. Fichaje {pct_f}% sobre '
+                            f'honorarios ${op.honorarios_ars} = ${monto_f}.'
+                        ),
+                    )
+                )
 
-    dir_prop = (op.propiedad.direccion or '').strip() or f'#{op.propiedad_id}'
-    return ComisionVendedor.objects.create(
-        vendedor=op.vendedor,
-        monto_total_operacion=precio_ars,
-        porcentaje_comision=pct,
-        monto_comision=op.honorarios_ars,
-        concepto_operacion=(
-            f'Venta propiedad #{op.propiedad_id} — {dir_prop} '
-            f'(U$S {op.precio_usd} @ {op.cotizacion_dolar})'
-        )[:200],
-        rol_comision=ROL_COMISION_VENTA,
-        fecha_operacion=dt,
-        estado='pendiente',
-        observaciones=(
-            f'Operación venta #{op.pk}. Honorarios U$S {op.honorarios_usd} '
-            f'× cotiz. {op.cotizacion_dolar} = ${op.honorarios_ars} ARS.'
-        ),
-    )
+    return creadas
