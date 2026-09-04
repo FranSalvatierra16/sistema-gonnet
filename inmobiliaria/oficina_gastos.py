@@ -525,13 +525,35 @@ def _limpiar_gastos_mapeados_incorrectos(sucursal, fecha_desde, fecha_hasta):
     return borrados
 
 
+def _q_movimientos_concepto_mapeado_oficina():
+    """
+    Filtro estricto (estilo reportes de caja): solo campo ``concepto``.
+    No busca en concepto_detalle (ahí el texto 'veraz' / '130' genera falsos positivos).
+    """
+    from django.db.models import Q
+
+    q = Q()
+    for cid in MAPA_CONCEPTOS_CAJA_A_OFICINA:
+        q |= Q(concepto__iexact=cid)
+        q |= Q(concepto__startswith=f'{cid} —')
+        q |= Q(concepto__startswith=f'{cid} -')
+        q |= Q(concepto__startswith=f'{cid} ')
+    for nom in MAPA_NOMBRE_CONCEPTO_A_OFICINA:
+        q |= Q(concepto__iexact=nom)
+        q |= Q(concepto__istartswith=f'{nom} —')
+        q |= Q(concepto__istartswith=f'{nom} -')
+        q |= Q(concepto__istartswith=f'{nom} ')
+        # "RETIRO VERAZ COLON", etc.
+        q |= Q(concepto__icontains=nom)
+    return q
+
+
 def _neto_gastos_oficina_desde_caja_mapeada(sucursal, fecha_desde, fecha_hasta):
     """
     Neto por categoría mapeada (Veraz, etc.) recalculado desde caja,
     misma idea que reportes: egreso suma +, ingreso suma −.
     Evita basura en GastoOficina por sync viejo.
     """
-    from django.db.models import Q
     from django.db.models.functions import Coalesce, TruncDate
 
     from inmobiliaria.models.caja import MovimientoCaja
@@ -539,30 +561,33 @@ def _neto_gastos_oficina_desde_caja_mapeada(sucursal, fecha_desde, fecha_hasta):
     if not sucursal or not fecha_desde or not fecha_hasta:
         return {}
 
-    nombres = list(MAPA_NOMBRE_CONCEPTO_A_OFICINA.keys())
-    ids = list(MAPA_CONCEPTOS_CAJA_A_OFICINA.keys())
-    q_concepto = Q()
-    for cid in ids:
-        q_concepto |= Q(concepto__startswith=f'{cid} —')
-        q_concepto |= Q(concepto__startswith=f'{cid} -')
-        q_concepto |= Q(concepto=cid)
-        q_concepto |= Q(concepto__startswith=f'{cid} ')
-    for nom in nombres:
-        q_concepto |= Q(concepto__icontains=nom)
-        q_concepto |= Q(concepto_detalle__icontains=nom)
-
     qs = (
         MovimientoCaja.objects.filter(
             sucursal=sucursal,
             fecha_eliminacion__isnull=True,
         )
         .annotate(fecha_cierre=Coalesce('fecha_transferencia', TruncDate('fecha')))
-        .filter(q_concepto, fecha_cierre__gte=fecha_desde, fecha_cierre__lte=fecha_hasta)
+        .filter(
+            _q_movimientos_concepto_mapeado_oficina(),
+            fecha_cierre__gte=fecha_desde,
+            fecha_cierre__lte=fecha_hasta,
+        )
     )
 
     netos = {}
     for mov in qs.iterator(chunk_size=200):
-        ruta = _ruta_oficina_desde_movimiento_caja(mov)
+        # Solo si el campo concepto realmente apunta al mapa (no basura en detalle).
+        concepto = (mov.concepto or '').strip()
+        ruta = _concepto_campo_es_id_catalogo_oficina(concepto)
+        if not ruta:
+            ruta = ruta_oficina_para_concepto_caja(None, concepto)
+        if not ruta:
+            # "RETIRO VERAZ…" etc.
+            raw = _norm_nombre_cat(concepto)
+            for clave, ruta_m in MAPA_NOMBRE_CONCEPTO_A_OFICINA.items():
+                if clave and clave in raw:
+                    ruta = ruta_m
+                    break
         if not ruta:
             continue
         cat = resolver_categoria_oficina_por_ruta(sucursal, ruta[0], ruta[1])
@@ -603,16 +628,7 @@ def sincronizar_gastos_oficina_desde_conceptos_caja(sucursal, fecha_desde, fecha
     except Exception:
         pass
 
-    q_concepto = Q()
-    for cid in ids:
-        q_concepto |= Q(concepto__startswith=f'{cid} —')
-        q_concepto |= Q(concepto__startswith=f'{cid} -')
-        q_concepto |= Q(concepto=cid)
-        q_concepto |= Q(concepto__startswith=f'{cid} ')
-        # No buscar el id numérico dentro de concepto_detalle (falsos positivos masivos).
-    for nom in nombres:
-        q_concepto |= Q(concepto__icontains=nom)
-        q_concepto |= Q(concepto_detalle__icontains=nom)
+    q_concepto = _q_movimientos_concepto_mapeado_oficina()
 
     ya_vinculados = GastoOficina.objects.filter(
         movimiento_caja__isnull=False,
@@ -637,8 +653,18 @@ def sincronizar_gastos_oficina_desde_conceptos_caja(sucursal, fecha_desde, fecha
     )
     creados = 0
     for mov in qs.iterator(chunk_size=200):
-        # Doble check estricto (el Q de detalle puede traer basura con "veraz" en JSON ajeno).
-        if not _ruta_oficina_desde_movimiento_caja(mov):
+        # Solo concepto de caja (no detalle JSON).
+        concepto = (mov.concepto or '').strip()
+        ruta = _concepto_campo_es_id_catalogo_oficina(concepto)
+        if not ruta:
+            ruta = ruta_oficina_para_concepto_caja(None, concepto)
+        if not ruta:
+            raw = _norm_nombre_cat(concepto)
+            for clave, ruta_m in MAPA_NOMBRE_CONCEPTO_A_OFICINA.items():
+                if clave and clave in raw:
+                    ruta = ruta_m
+                    break
+        if not ruta:
             continue
         g = vincular_movimiento_concepto_a_gasto_oficina(mov)
         if g:
