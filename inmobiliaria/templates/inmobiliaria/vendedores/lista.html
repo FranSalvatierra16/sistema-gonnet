@@ -54,18 +54,34 @@
         <div class="col-12">
             <div class="card shadow-modern border-radius-modern">
                 <div class="card-header bg-light">
-                    <div class="row align-items-center">
-                        <div class="col-md-6">
+                    <div class="row align-items-center g-3">
+                        <div class="col-lg-4">
                             <h5 class="mb-0">
                                 <i class="fas fa-list me-2 text-primary"></i>Equipo de Ventas
                                 <span class="badge bg-primary ms-2">{{ vendedores|length }}</span>
                             </h5>
                         </div>
-                        <div class="col-md-6 text-end">
-                            <small class="text-muted">
-                                <i class="fas fa-info-circle me-1"></i>
-                                Haz clic en los botones para gestionar vendedores
-                            </small>
+                        <div class="col-lg-8">
+                            <form method="get" class="d-flex gap-2 justify-content-lg-end" role="search">
+                                <div class="input-group" style="max-width: 28rem;">
+                                    <span class="input-group-text bg-white">
+                                        <i class="fas fa-search text-muted"></i>
+                                    </span>
+                                    <input type="search"
+                                           name="q"
+                                           value="{{ q|default:'' }}"
+                                           class="form-control"
+                                           placeholder="Buscar por nombre, apellido, usuario o DNI…"
+                                           autocomplete="off"
+                                           autofocus>
+                                    {% if q %}
+                                    <a href="{% url 'inmobiliaria:vendedores' %}" class="btn btn-outline-secondary" title="Limpiar">
+                                        <i class="fas fa-times"></i>
+                                    </a>
+                                    {% endif %}
+                                    <button type="submit" class="btn btn-primary">Buscar</button>
+                                </div>
+                            </form>
                         </div>
                     </div>
                 </div>
@@ -193,14 +209,22 @@
                                 </tr>
                                 {% empty %}
                                 <tr>
-                                    <td colspan="7" class="text-center py-5">
+                                    <td colspan="8" class="text-center py-5">
                                         <div class="empty-state">
                                             <i class="fas fa-user-tie text-muted mb-3" style="font-size: 3rem;"></i>
+                                            {% if q %}
+                                            <h5 class="text-muted">No se encontraron vendedores</h5>
+                                            <p class="text-muted">Ningún resultado para “{{ q }}”</p>
+                                            <a href="{% url 'inmobiliaria:vendedores' %}" class="btn btn-outline-secondary">
+                                                <i class="fas fa-times me-2"></i>Limpiar búsqueda
+                                            </a>
+                                            {% else %}
                                             <h5 class="text-muted">No hay vendedores registrados</h5>
                                             <p class="text-muted">Comienza agregando vendedores al equipo de ventas</p>
                                             <a href="{% url 'inmobiliaria:vendedor_nuevo' %}" class="btn btn-primary">
                                                 <i class="fas fa-plus me-2"></i>Agregar Vendedor
                                             </a>
+                                            {% endif %}
                                         </div>
                                     </td>
                                 </tr>

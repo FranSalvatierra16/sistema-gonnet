@@ -1,6 +1,7 @@
 """Sector de ventas cerradas: precio y honorarios en USD; comisión en ARS; sync libro."""
 from datetime import datetime
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+import json
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -22,7 +23,6 @@ from inmobiliaria.models import (
 from inmobiliaria.models.comision import (
     ROL_COMISION_FICHAJE,
     ROL_COMISION_VENTA,
-    porcentaje_fichaje_vendedor,
 )
 from inmobiliaria.models.persona import usuario_es_nivel_administracion
 
@@ -66,6 +66,10 @@ def _etiqueta_propiedad(prop):
     return ' '.join(partes)
 
 
+def _json_safe(obj):
+    return json.dumps(obj, ensure_ascii=False)
+
+
 def _partir_montos(total, n):
     """Reparte total en n partes (centavos) que suman exacto."""
     total = Decimal(str(total or 0)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
@@ -79,43 +83,16 @@ def _partir_montos(total, n):
     return partes
 
 
-def _pct_venta_vendedor(vendedor):
-    try:
-        return Decimal(str(getattr(vendedor, 'comision_venta', None) or 0))
-    except (InvalidOperation, TypeError, ValueError):
-        return Decimal('0')
-
-
-def _partir_por_pesos(total, pesos):
-    """
-    Reparte ``total`` según pesos relativos (ej. % de comisión venta de cada productor).
-    Si la suma de pesos es 0, cae a partes iguales.
-    """
-    total = Decimal(str(total or 0)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-    n = len(pesos)
-    if n <= 0:
-        return []
-    if n == 1:
-        return [total]
-    pesos_n = []
-    for w in pesos:
-        try:
-            pesos_n.append(max(Decimal(str(w or 0)), Decimal('0')))
-        except (InvalidOperation, TypeError, ValueError):
-            pesos_n.append(Decimal('0'))
-    suma = sum(pesos_n)
-    if suma <= 0:
-        return _partir_montos(total, n)
+def _leer_montos_comision_post(request, vendedores_sel):
+    """Montos ARS cargados a mano en el form: productores + fichaje."""
     partes = []
-    asignado = Decimal('0')
-    for i, w in enumerate(pesos_n):
-        if i == n - 1:
-            partes.append((total - asignado).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
-        else:
-            parte = (total * w / suma).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-            partes.append(parte)
-            asignado += parte
-    return partes
+    for vend in vendedores_sel:
+        raw = (request.POST.get(f'comision_ars_{vend.id}') or '').strip()
+        monto = _parse_decimal(raw).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        partes.append((vend, monto, raw))
+    fichaje_raw = (request.POST.get('comision_fichaje_ars') or '').strip()
+    fichaje_monto = _parse_decimal(fichaje_raw).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    return partes, fichaje_monto, fichaje_raw
 
 
 @login_required

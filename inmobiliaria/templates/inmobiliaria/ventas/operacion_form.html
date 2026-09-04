@@ -8,7 +8,7 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
             <h1 class="h4 mb-1"><i class="fas fa-file-signature text-success me-2"></i>Registrar venta</h1>
-            <p class="text-muted small mb-0">Precio y honorarios en dólares; con la cotización salen en pesos (comisión). Se refleja en el libro del depto.</p>
+            <p class="text-muted small mb-0">Precio en dólares; la comisión de cada uno la cargás en pesos. Se refleja en el libro del depto.</p>
         </div>
         <div class="d-flex gap-2">
             <a href="{% url 'inmobiliaria:oficina_dashboard' %}" class="btn btn-outline-secondary btn-sm">Panel oficina</a>
@@ -16,7 +16,7 @@
         </div>
     </div>
 
-    <form method="post" class="card shadow-sm border-0">
+    <form method="post" class="card shadow-sm border-0" id="form_venta">
         {% csrf_token %}
         <div class="card-body">
             <div class="mb-3 position-relative">
@@ -52,43 +52,39 @@
 
             <div class="mb-3">
                 <label class="form-label fw-semibold">Vendedores / productores *</label>
-                <div class="border rounded p-2" style="max-height: 220px; overflow-y: auto;">
+                <input type="search" class="form-control form-control-sm mb-2" id="filtro_vendedores"
+                       placeholder="Filtrar por nombre…" autocomplete="off">
+                <div class="border rounded p-2" style="max-height: 220px; overflow-y: auto;" id="lista_vendedores">
                     {% for v in vendedores %}
-                    <div class="form-check">
+                    <div class="form-check vendedor-row"
+                         data-nombre="{{ v.apellido }} {{ v.nombre }} {{ v.username }}">
                         <input class="form-check-input vendedor-check" type="checkbox" name="vendedor_ids" value="{{ v.id }}"
                                id="vend_{{ v.id }}"
-                               data-pct="{% if v.comision_venta is not None %}{{ v.comision_venta }}{% else %}0{% endif %}"
                                data-nombre="{{ v.apellido }}, {{ v.nombre }}"
                                {% if v.id|stringformat:"s" in form.vendedor_ids %}checked{% endif %}>
                         <label class="form-check-label" for="vend_{{ v.id }}">
                             {{ v.apellido }}, {{ v.nombre }}
-                            <span class="text-muted small">
-                                — venta
-                                {% if v.comision_venta is not None %}{{ v.comision_venta|floatformat:2 }}%{% else %}sin %{% endif %}
-                            </span>
                         </label>
                     </div>
                     {% empty %}
                     <div class="text-muted small">No hay vendedores activos en la sucursal.</div>
                     {% endfor %}
                 </div>
-                <div class="form-text">Cada uno cobra su % de venta sobre el valor del depto. Si nadie tiene %, se reparte el total de honorarios en partes iguales.</div>
+                <div class="form-text">Marcá quiénes intervienen; abajo cargás cuánto le corresponde a cada uno en pesos.</div>
             </div>
 
             <div class="mb-3">
                 <label class="form-label fw-semibold" for="fichado_por_id">Fichaje</label>
                 <select class="form-select" name="fichado_por_id" id="fichado_por_id">
-                    <option value="" data-pct-fichaje="0">— Sin fichaje —</option>
+                    <option value="">— Sin fichaje —</option>
                     {% for v in vendedores %}
                     <option value="{{ v.id }}"
-                            data-pct-fichaje="{% if v.comision_fichaje_venta is not None %}{{ v.comision_fichaje_venta }}{% elif v.comision_primer_fichaje is not None %}{{ v.comision_primer_fichaje }}{% else %}0{% endif %}"
                             {% if form.fichado_por_id == v.id|stringformat:"s" %}selected{% endif %}>
                         {{ v.apellido }}, {{ v.nombre }}
-                        {% if v.comision_fichaje_venta is not None %} (fichaje venta {{ v.comision_fichaje_venta|floatformat:2 }}%){% elif v.comision_primer_fichaje is not None %} (fichaje {{ v.comision_primer_fichaje|floatformat:2 }}%){% endif %}
                     </option>
                     {% endfor %}
                 </select>
-                <div class="form-text">Quien fichó la propiedad. Usa el % de fichaje de venta del perfil; si no está cargado, el fichaje por día. Se calcula sobre honorarios de productores.</div>
+                <div class="form-text">Quien fichó la propiedad. El monto de comisión lo cargás abajo.</div>
             </div>
 
             <hr class="my-4">
@@ -118,62 +114,74 @@
                         <input type="text" class="form-control text-end" name="cotizacion_dolar" id="cotizacion_dolar"
                                value="{{ form.cotizacion_dolar }}" required inputmode="decimal" placeholder="ej. 1400">
                     </div>
-                    <div class="form-text">La elegís vos; convierte honorarios a pesos.</div>
+                    <div class="form-text">La elegís vos; convierte el total de comisiones a dólares para el libro.</div>
                 </div>
             </div>
 
             <hr class="my-4">
-            <h2 class="h6 text-uppercase text-muted">Honorarios (dólares → pesos)</h2>
-            <div class="row g-3 mb-3">
-                <div class="col-md-6">
-                    <label class="form-label" for="honorarios_usd">Honorarios productores (USD) *</label>
-                    <div class="input-group">
-                        <span class="input-group-text">U$S</span>
-                        <input type="text" class="form-control text-end" name="honorarios_usd" id="honorarios_usd"
-                               value="{{ form.honorarios_usd }}" required inputmode="decimal" placeholder="0,00">
-                    </div>
-                    <div class="form-text">Se completa solo con % × valor. Si nadie tiene %, cargalo a mano (partes iguales).</div>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Honorarios en ARS (lo que cobran)</label>
-                    <div class="input-group">
-                        <span class="input-group-text">$</span>
-                        <input type="text" class="form-control text-end" id="honorarios_ars_ref" readonly value="—"
-                               style="background:#f8f9fa;">
-                    </div>
-                    <div class="form-text">USD × cotización → comisión en pesos.</div>
-                </div>
-            </div>
+            <h2 class="h6 text-uppercase text-muted">Comisiones en pesos</h2>
+            <p class="text-muted small">Indicá cuánto le corresponde a cada uno. El total de productores se guarda también en dólares (÷ cotización) para el libro.</p>
 
-            <div class="card border-success mb-4" id="cuadro_comisiones_wrap">
+            <div class="card border-success mb-3">
                 <div class="card-header bg-success bg-opacity-10 py-2">
-                    <strong><i class="fas fa-table me-1"></i>Comisión que le entra a cada uno</strong>
+                    <strong><i class="fas fa-money-bill-wave me-1"></i>Montos por persona</strong>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
-                        <table class="table table-sm mb-0 align-middle" id="cuadro_comisiones">
+                        <table class="table table-sm mb-0 align-middle" id="tabla_montos">
                             <thead class="table-light">
                                 <tr>
                                     <th>Quién</th>
                                     <th>Rol</th>
-                                    <th class="text-end">%</th>
-                                    <th class="text-end">U$S</th>
-                                    <th class="text-end">$ ARS</th>
+                                    <th class="text-end" style="min-width: 9rem;">Comisión $ ARS</th>
+                                    <th class="text-end">Equiv. U$S</th>
                                 </tr>
                             </thead>
-                            <tbody id="cuadro_comisiones_body">
+                            <tbody id="tabla_montos_body">
                                 <tr>
-                                    <td colspan="5" class="text-center text-muted py-3">Marcá vendedor(es), valor y cotización.</td>
+                                    <td colspan="4" class="text-center text-muted py-3">Marcá al menos un productor.</td>
                                 </tr>
                             </tbody>
-                            <tfoot class="table-light" id="cuadro_comisiones_foot" style="display:none;">
+                            <tfoot class="table-light" id="tabla_montos_foot" style="display:none;">
                                 <tr class="fw-semibold">
-                                    <td colspan="3" class="text-end">Total productores</td>
-                                    <td class="text-end" id="cuadro_tot_usd">—</td>
-                                    <td class="text-end text-success" id="cuadro_tot_ars">—</td>
+                                    <td colspan="2" class="text-end">Total productores</td>
+                                    <td class="text-end text-success" id="tot_prod_ars">—</td>
+                                    <td class="text-end" id="tot_prod_usd">—</td>
+                                </tr>
+                                <tr>
+                                    <td colspan="2" class="text-end text-muted">+ Fichaje</td>
+                                    <td class="text-end" id="tot_fich_ars">—</td>
+                                    <td class="text-end" id="tot_fich_usd">—</td>
+                                </tr>
+                                <tr class="fw-semibold">
+                                    <td colspan="2" class="text-end">Total comisiones</td>
+                                    <td class="text-end text-success" id="tot_all_ars">—</td>
+                                    <td class="text-end" id="tot_all_usd">—</td>
                                 </tr>
                             </tfoot>
                         </table>
+                    </div>
+                </div>
+            </div>
+
+            <input type="hidden" name="honorarios_usd" id="honorarios_usd" value="{{ form.honorarios_usd }}">
+
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">Honorarios productores (USD) — libro</label>
+                    <div class="input-group">
+                        <span class="input-group-text">U$S</span>
+                        <input type="text" class="form-control text-end" id="honorarios_usd_ref" readonly value="—"
+                               style="background:#f8f9fa;">
+                    </div>
+                    <div class="form-text">Suma de comisiones de productores ÷ cotización.</div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Honorarios productores (ARS)</label>
+                    <div class="input-group">
+                        <span class="input-group-text">$</span>
+                        <input type="text" class="form-control text-end" id="honorarios_ars_ref" readonly value="—"
+                               style="background:#f8f9fa;">
                     </div>
                 </div>
             </div>
@@ -201,7 +209,8 @@
 
 <script>
 (function() {
-    var honorariosManual = false;
+    var montosPrevios = {{ form.comisiones_ars_json|safe }};
+    var montoFichajePrev = {{ form.comision_fichaje_ars_json|safe }};
 
     function parseNum(v) {
         if (!v) return 0;
@@ -220,133 +229,143 @@
     function round2(n) {
         return Math.round((n + Number.EPSILON) * 100) / 100;
     }
+    function esc(s) {
+        return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
     function vendedoresSeleccionados() {
         return Array.prototype.slice.call(document.querySelectorAll('.vendedor-check:checked')).map(function(c) {
             return {
                 id: c.value,
-                nombre: c.getAttribute('data-nombre') || ('#' + c.value),
-                pct: parseNum(c.getAttribute('data-pct'))
+                nombre: c.getAttribute('data-nombre') || ('#' + c.value)
             };
         });
     }
-    function calcPartes(precioUsd, honUsd, items) {
-        var n = items.length;
-        if (!n) return [];
-        var sumaPct = items.reduce(function(a, x) { return a + x.pct; }, 0);
-        var partes = [];
-        if (sumaPct > 0 && precioUsd > 0) {
-            // Cada uno: % de venta × valor del depto
-            items.forEach(function(x) {
-                var usd = round2(precioUsd * x.pct / 100);
-                partes.push({ nombre: x.nombre, rol: 'Productor', pct: x.pct, usd: usd, modo: 'pct_valor' });
-            });
-            return partes;
-        }
-        // Sin %: repartir honorarios manuales en partes iguales
-        var base = n ? round2(honUsd / n) : 0;
-        var asig = 0;
-        items.forEach(function(x, i) {
-            var usd = (i === n - 1) ? round2(honUsd - asig) : base;
-            if (i < n - 1) asig = round2(asig + usd);
-            partes.push({ nombre: x.nombre, rol: 'Productor', pct: null, usd: usd, modo: 'igual' });
-        });
-        return partes;
+
+    function leerMontoInput(id) {
+        var el = document.getElementById(id);
+        return el ? parseNum(el.value) : 0;
     }
-    function recalc() {
-        var precio = parseNum(document.getElementById('precio_usd').value);
-        var cot = parseNum(document.getElementById('cotizacion_dolar').value);
-        var honEl = document.getElementById('honorarios_usd');
-        var items = vendedoresSeleccionados();
-        var sumaPct = items.reduce(function(a, x) { return a + x.pct; }, 0);
 
-        if (sumaPct > 0 && precio > 0 && !honorariosManual) {
-            var autoHon = 0;
-            items.forEach(function(x) { autoHon += precio * x.pct / 100; });
-            autoHon = round2(autoHon);
-            if (document.activeElement !== honEl) {
-                honEl.value = fmt(autoHon);
-            }
+    function recalc() {
+        var cot = parseNum(document.getElementById('cotizacion_dolar').value);
+        var items = vendedoresSeleccionados();
+        var tbody = document.getElementById('tabla_montos_body');
+        var tfoot = document.getElementById('tabla_montos_foot');
+        var fichSel = document.getElementById('fichado_por_id');
+        var fichId = fichSel && fichSel.value ? String(fichSel.value) : '';
+        var fichNombre = '';
+        if (fichId && fichSel.selectedIndex >= 0) {
+            fichNombre = (fichSel.options[fichSel.selectedIndex].textContent || '').trim();
         }
 
-        var hon = parseNum(honEl.value);
-        var elArs = document.getElementById('honorarios_ars_ref');
-        if (cot > 0) elArs.value = fmt(hon * cot);
-        else elArs.value = '—';
+        // Guardar montos actuales antes de re-render
+        items.forEach(function(x) {
+            var el = document.getElementById('comision_ars_' + x.id);
+            if (el) montosPrevios[String(x.id)] = el.value;
+        });
+        var fichEl = document.getElementById('comision_fichaje_ars');
+        if (fichEl) montoFichajePrev = fichEl.value;
 
-        var partes = calcPartes(precio, hon, items);
-        var tbody = document.getElementById('cuadro_comisiones_body');
-        var tfoot = document.getElementById('cuadro_comisiones_foot');
         tbody.innerHTML = '';
-
-        if (!partes.length) {
-            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">Marcá vendedor(es), valor y cotización.</td></tr>';
+        if (!items.length && !fichId) {
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">Marcá al menos un productor.</td></tr>';
             tfoot.style.display = 'none';
+            document.getElementById('honorarios_usd').value = '';
+            document.getElementById('honorarios_usd_ref').value = '—';
+            document.getElementById('honorarios_ars_ref').value = '—';
             return;
         }
 
-        var totUsd = 0;
-        var totArs = 0;
-        partes.forEach(function(p) {
-            var ars = cot > 0 ? round2(p.usd * cot) : 0;
-            totUsd = round2(totUsd + p.usd);
-            totArs = round2(totArs + ars);
+        var totProdArs = 0;
+        items.forEach(function(x) {
+            var prev = montosPrevios[String(x.id)] != null ? montosPrevios[String(x.id)] : '';
             var tr = document.createElement('tr');
             tr.innerHTML =
-                '<td>' + p.nombre + '</td>' +
-                '<td><span class="badge bg-primary">' + p.rol + '</span></td>' +
-                '<td class="text-end">' + (p.pct != null ? (fmt(p.pct) + '%') : 'igual') + '</td>' +
-                '<td class="text-end">U$S ' + fmt(p.usd) + '</td>' +
-                '<td class="text-end fw-semibold text-success">$' + fmt(ars) + '</td>';
+                '<td>' + esc(x.nombre) + '</td>' +
+                '<td><span class="badge bg-primary">Productor</span></td>' +
+                '<td class="text-end">' +
+                    '<div class="input-group input-group-sm justify-content-end">' +
+                    '<span class="input-group-text">$</span>' +
+                    '<input type="text" class="form-control text-end monto-prod" name="comision_ars_' + x.id + '" ' +
+                    'id="comision_ars_' + x.id + '" value="' + esc(prev) + '" inputmode="decimal" placeholder="0,00" required style="max-width:9rem;">' +
+                    '</div></td>' +
+                '<td class="text-end equiv-usd text-muted" data-for="' + x.id + '">—</td>';
             tbody.appendChild(tr);
         });
 
-        // Fichaje
-        var fichSel = document.getElementById('fichado_por_id');
-        var opt = fichSel && fichSel.options[fichSel.selectedIndex];
-        if (opt && opt.value) {
-            var pctF = parseNum(opt.getAttribute('data-pct-fichaje'));
-            if (pctF > 0 && totArs > 0) {
-                var arsF = round2(totArs * pctF / 100);
-                var usdF = cot > 0 ? round2(arsF / cot) : 0;
-                var nombreF = (opt.textContent || '').replace(/\s*\(fichaje.*$/, '').trim();
-                var trF = document.createElement('tr');
-                trF.innerHTML =
-                    '<td>' + nombreF + '</td>' +
-                    '<td><span class="badge bg-info text-dark">Fichaje</span></td>' +
-                    '<td class="text-end">' + fmt(pctF) + '%</td>' +
-                    '<td class="text-end">U$S ' + fmt(usdF) + '</td>' +
-                    '<td class="text-end fw-semibold text-success">$' + fmt(arsF) + '</td>';
-                tbody.appendChild(trF);
-            }
+        if (fichId) {
+            var trF = document.createElement('tr');
+            trF.innerHTML =
+                '<td>' + esc(fichNombre) + '</td>' +
+                '<td><span class="badge bg-info text-dark">Fichaje</span></td>' +
+                '<td class="text-end">' +
+                    '<div class="input-group input-group-sm justify-content-end">' +
+                    '<span class="input-group-text">$</span>' +
+                    '<input type="text" class="form-control text-end" name="comision_fichaje_ars" ' +
+                    'id="comision_fichaje_ars" value="' + esc(montoFichajePrev || '') + '" inputmode="decimal" placeholder="0,00" style="max-width:9rem;">' +
+                    '</div></td>' +
+                '<td class="text-end equiv-usd-fich text-muted">—</td>';
+            tbody.appendChild(trF);
         }
 
-        document.getElementById('cuadro_tot_usd').textContent = 'U$S ' + fmt(totUsd);
-        document.getElementById('cuadro_tot_ars').textContent = '$' + fmt(totArs);
-        tfoot.style.display = '';
+        function actualizarEquiv() {
+            totProdArs = 0;
+            items.forEach(function(x) {
+                var ars = leerMontoInput('comision_ars_' + x.id);
+                totProdArs = round2(totProdArs + ars);
+                var cell = tbody.querySelector('.equiv-usd[data-for="' + x.id + '"]');
+                if (cell) {
+                    cell.textContent = cot > 0 ? ('U$S ' + fmt(round2(ars / cot))) : '—';
+                }
+            });
+            var fichArs = fichId ? leerMontoInput('comision_fichaje_ars') : 0;
+            var fichCell = tbody.querySelector('.equiv-usd-fich');
+            if (fichCell) {
+                fichCell.textContent = cot > 0 ? ('U$S ' + fmt(round2(fichArs / cot))) : '—';
+            }
+            var totProdUsd = cot > 0 ? round2(totProdArs / cot) : 0;
+            var totAllArs = round2(totProdArs + fichArs);
+            var totAllUsd = cot > 0 ? round2(totAllArs / cot) : 0;
+
+            document.getElementById('tot_prod_ars').textContent = '$' + fmt(totProdArs);
+            document.getElementById('tot_prod_usd').textContent = cot > 0 ? ('U$S ' + fmt(totProdUsd)) : '—';
+            document.getElementById('tot_fich_ars').textContent = '$' + fmt(fichArs);
+            document.getElementById('tot_fich_usd').textContent = cot > 0 ? ('U$S ' + fmt(round2(fichArs / cot))) : '—';
+            document.getElementById('tot_all_ars').textContent = '$' + fmt(totAllArs);
+            document.getElementById('tot_all_usd').textContent = cot > 0 ? ('U$S ' + fmt(totAllUsd)) : '—';
+
+            document.getElementById('honorarios_usd').value = cot > 0 ? fmt(totProdUsd) : '';
+            document.getElementById('honorarios_usd_ref').value = cot > 0 ? fmt(totProdUsd) : '—';
+            document.getElementById('honorarios_ars_ref').value = fmt(totProdArs);
+            tfoot.style.display = '';
+        }
+
+        tbody.querySelectorAll('input').forEach(function(inp) {
+            inp.addEventListener('input', actualizarEquiv);
+        });
+        actualizarEquiv();
     }
 
-    ['precio_usd', 'cotizacion_dolar'].forEach(function(id) {
-        var el = document.getElementById(id);
-        if (el) el.addEventListener('input', function() {
-            honorariosManual = false;
-            recalc();
-        });
-    });
-    var honEl = document.getElementById('honorarios_usd');
-    if (honEl) {
-        honEl.addEventListener('input', function() {
-            honorariosManual = true;
-            recalc();
-        });
-    }
     document.querySelectorAll('.vendedor-check').forEach(function(c) {
-        c.addEventListener('change', function() {
-            honorariosManual = false;
-            recalc();
-        });
+        c.addEventListener('change', recalc);
     });
+    var cotEl = document.getElementById('cotizacion_dolar');
+    if (cotEl) cotEl.addEventListener('input', recalc);
     var fichaje = document.getElementById('fichado_por_id');
     if (fichaje) fichaje.addEventListener('change', recalc);
+
+    var filtro = document.getElementById('filtro_vendedores');
+    if (filtro) {
+        filtro.addEventListener('input', function() {
+            var t = filtro.value.trim().toLowerCase();
+            document.querySelectorAll('.vendedor-row').forEach(function(row) {
+                var n = (row.getAttribute('data-nombre') || '').toLowerCase();
+                row.style.display = (!t || n.indexOf(t) >= 0) ? '' : 'none';
+            });
+        });
+    }
+
     recalc();
 
     function pisoDepto(p) {
