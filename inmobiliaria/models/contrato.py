@@ -248,7 +248,11 @@ class ContratoAlquiler(models.Model):
         self.fecha_cancelacion = timezone.now().date()
         self.motivo_cancelacion = motivo
         self.save()
-        
+
+        from inmobiliaria.models.comision import revertir_comisiones_operacion_anulada
+
+        revertir_comisiones_operacion_anulada(contrato=self)
+
         # Marcar la propiedad como disponible
         self.propiedad.info_meses.estado = 'disponible'
         self.propiedad.info_meses.save()

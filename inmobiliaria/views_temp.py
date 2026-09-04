@@ -5093,6 +5093,10 @@ def cancelar_contrato(request, contrato_id):
         contrato.fecha_cancelacion = timezone.now().date()
         contrato.motivo_cancelacion = motivo
         contrato.save()
+
+        from inmobiliaria.models.comision import revertir_comisiones_operacion_anulada
+
+        revertir_comisiones_operacion_anulada(contrato=contrato)
         
         # Desactivar la propiedad para 24 meses (disponible = False)
         if hasattr(contrato.propiedad, 'info_meses'):

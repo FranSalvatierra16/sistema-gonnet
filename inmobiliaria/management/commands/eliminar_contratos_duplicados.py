@@ -67,6 +67,9 @@ class Command(BaseCommand):
                     c.fecha_cancelacion = timezone.now().date()
                     c.motivo_cancelacion = f'Contrato duplicado - conservado #{mantener.id}'
                     c.save()
+                    from inmobiliaria.models.comision import revertir_comisiones_operacion_anulada
+
+                    revertir_comisiones_operacion_anulada(contrato=c)
                     self.stdout.write(
                         f'  Rescindido contrato #{c.id} (se mantiene #{mantener.id})'
                     )

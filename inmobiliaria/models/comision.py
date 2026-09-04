@@ -1796,22 +1796,28 @@ def _marca_observacion_reversion_comision(comision_id):
 def revertir_comisiones_operacion_anulada(*, reserva=None, contrato=None):
     """
     Al anular/cancelar una operación:
-    - Pendientes: se cancelan (nunca se acreditaron).
-    - Confirmadas/pagadas: se dejan como están (siguen sumando en el mes original)
-      y se crea una línea negativa de devolución con fecha = día de la anulación,
-      para que el descuento impacte en el mes en que se anula (no en el mes del cobro).
+    - Contrato rescindido: se cancelan todas las comisiones (no se cobran).
+    - Reserva anulada:
+      - Pendientes: se cancelan (nunca se acreditaron).
+      - Confirmadas/pagadas: se dejan como están (siguen sumando en el mes original)
+        y se crea una línea negativa de devolución con fecha = día de la anulación,
+        para que el descuento impacte en el mes en que se anula (no en el mes del cobro).
     No toca movimientos de caja.
     """
     if not reserva and not contrato:
         return 0
 
+    # Contrato rescindido: no hay comisión. Cancelar crédito y cualquier devolución previa.
+    if contrato is not None:
+        return (
+            ComisionVendedor.objects.filter(contrato=contrato)
+            .exclude(estado='cancelada')
+            .update(estado='cancelada')
+        )
+
     qs = ComisionVendedor.objects.exclude(estado='cancelada').exclude(
         rol_comision=ROL_COMISION_REVERSION
-    )
-    if reserva is not None:
-        qs = qs.filter(reserva=reserva)
-    else:
-        qs = qs.filter(contrato=contrato)
+    ).filter(reserva=reserva)
 
     creadas = 0
     ahora = timezone.now()
@@ -1825,11 +1831,7 @@ def revertir_comisiones_operacion_anulada(*, reserva=None, contrato=None):
             monto = Decimal(str(comision.monto_comision or 0))
             if monto != 0:
                 ref = (comision.concepto_operacion or '').strip() or 'comisión'
-                op_ref = (
-                    f'reserva #{comision.reserva_id}'
-                    if comision.reserva_id
-                    else f'contrato #{comision.contrato_id}'
-                )
+                op_ref = f'reserva #{comision.reserva_id}'
                 ComisionVendedor.objects.create(
                     vendedor=comision.vendedor,
                     reserva=comision.reserva,
@@ -1963,20 +1965,18 @@ class ComisionVendedorQuerySet(models.QuerySet):
 
         No se exige carátula confirmada: si ya están acreditadas (confirmada/pagada),
         deben aparecer aunque la carátula haya quedado o vuelto a pendiente.
+
+        Contratos rescindidos: no cobran comisión (ni crédito ni devolución).
         """
         from django.db.models import CharField, Exists, OuterRef, Q, Value
         from django.db.models.functions import Cast, Concat
 
         operaciones_vigentes = _filtro_operacion_vigente_comision()
-        # Históricas: operación ya anulada pero la comisión quedó acreditada/pagada.
+        # Históricas: reserva anulada pero la comisión quedó acreditada/pagada.
         historicas_acreditadas = (
             Q(estado__in=('confirmada', 'pagada'))
             & ~Q(rol_comision=ROL_COMISION_REVERSION)
-            & (
-                Q(reserva__estado='cancelada')
-                | Q(reserva__eliminada=True)
-                | Q(contrato__estado='rescindido')
-            )
+            & (Q(reserva__estado='cancelada') | Q(reserva__eliminada=True))
         )
         tuvo_devolucion = Exists(
             self.model.objects.filter(
@@ -1998,10 +1998,14 @@ class ComisionVendedorQuerySet(models.QuerySet):
             & ~Q(rol_comision=ROL_COMISION_REVERSION)
             & tuvo_devolucion
         )
-        return self.filter(creditadas | originales_con_devolucion)
+        return self.exclude(contrato__estado='rescindido').filter(
+            creditadas | originales_con_devolucion
+        )
 
     def visibles_en_historial(self):
-        """Historial: acreditaciones, devoluciones, créditos históricos y pendientes de carátula confirmada."""
+        """Historial: acreditaciones, devoluciones, créditos históricos y pendientes de carátula confirmada.
+        Contratos rescindidos no aparecen (no se cobra comisión).
+        """
         from django.db.models import CharField, Exists, OuterRef, Q, Value
         from django.db.models.functions import Cast, Concat
 
@@ -2014,11 +2018,7 @@ class ComisionVendedorQuerySet(models.QuerySet):
         historicas_acreditadas = (
             Q(estado__in=('confirmada', 'pagada'))
             & ~Q(rol_comision=ROL_COMISION_REVERSION)
-            & (
-                Q(reserva__estado='cancelada')
-                | Q(reserva__eliminada=True)
-                | Q(contrato__estado='rescindido')
-            )
+            & (Q(reserva__estado='cancelada') | Q(reserva__eliminada=True))
         )
         tuvo_devolucion = Exists(
             self.model.objects.filter(
@@ -2034,7 +2034,7 @@ class ComisionVendedorQuerySet(models.QuerySet):
             | operaciones_vigentes
             | historicas_acreditadas
         )
-        return self.filter(
+        return self.exclude(contrato__estado='rescindido').filter(
             pendientes_visibles
             | acreditadas_visibles
             | (Q(estado='cancelada') & tuvo_devolucion)

@@ -433,6 +433,11 @@ def historial_comisiones_vendedor(request, vendedor_id):
         )
 
         acreditar_comisiones_por_fecha_vencida(sucursal=request.user.sucursal)
+        # Contratos ya rescindidos: cancelar comisiones pendientes/acreditadas (no se cobran).
+        ComisionVendedor.objects.filter(
+            vendedor=vendedor,
+            contrato__estado='rescindido',
+        ).exclude(estado='cancelada').update(estado='cancelada')
         comisiones = (
             ComisionVendedor.objects.filter(vendedor=vendedor)
             .filter(q_comision_operacion_de_sucursal(vendedor.sucursal))
@@ -901,6 +906,11 @@ def _build_vendedores_dashboard_data(sucursal, fecha_desde=None, fecha_hasta=Non
     from django.db.models import Q
 
     acreditar_comisiones_por_fecha_vencida(sucursal=sucursal)
+    # Limpieza: contratos rescindidos no generan comisión.
+    ComisionVendedor.objects.filter(
+        vendedor__sucursal=sucursal,
+        contrato__estado='rescindido',
+    ).exclude(estado='cancelada').update(estado='cancelada')
     hoy = timezone.localdate()
 
     vendedores = Vendedor.objects.filter(
@@ -19950,6 +19960,9 @@ def rescindir_contratos_duplicados(request):
             c.fecha_cancelacion = timezone.now().date()
             c.motivo_cancelacion = f'Contrato duplicado - conservado #{mantener.id}'
             c.save()
+            from inmobiliaria.models.comision import revertir_comisiones_operacion_anulada
+
+            revertir_comisiones_operacion_anulada(contrato=c)
             rescindidos += 1
     if rescindidos:
         messages.success(request, f'Se rescindieron {rescindidos} contrato(s) duplicado(s). Ya no aparecen en la lista.')

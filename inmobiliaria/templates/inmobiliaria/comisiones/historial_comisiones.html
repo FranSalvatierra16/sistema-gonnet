@@ -20,15 +20,9 @@
                         <p class="page-subtitle">{{ vendedor.nombre_completo_vendedor }} - {{ vendedor.sucursal.nombre }}</p>
                     </div>
                     <div>
-                        {% if user.is_superuser %}
-                        <a href="{% url 'inmobiliaria:vendedores' %}" class="btn btn-outline-secondary">
-                            <i class="fas fa-arrow-left"></i> Volver a Vendedores
+                        <a href="{% url 'inmobiliaria:dashboard_comisiones' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left"></i> Volver a Productores
                         </a>
-                        {% else %}
-                        <a href="{% url 'inmobiliaria:dashboard' %}" class="btn btn-outline-secondary">
-                            <i class="fas fa-arrow-left"></i> Volver
-                        </a>
-                        {% endif %}
                     </div>
                 </div>
             </div>
