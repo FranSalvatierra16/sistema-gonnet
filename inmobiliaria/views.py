@@ -5059,29 +5059,50 @@ def listado_entradas(request):
             'fecha_op': (r.fecha_creacion.date() if getattr(r, 'fecha_creacion', None) else r.fecha_inicio),
         })
 
-    contratos = ContratoAlquiler.objects.filter(
-        sucursal=request.user.sucursal,
-        fecha_inicio=fecha_obj,
-    ).exclude(estado='reservado').select_related(
-        'inquilino', 'propiedad__propietario', 'vendedor'
-    ).order_by('fecha_inicio', 'id')
+    contratos = list(
+        ContratoAlquiler.objects.filter(
+            sucursal=request.user.sucursal,
+            fecha_inicio=fecha_obj,
+        ).exclude(estado='reservado').select_related(
+            'inquilino', 'propiedad__propietario', 'vendedor'
+        ).order_by('fecha_inicio', 'id')
+    )
 
-    contrato_ids = list(contratos.values_list('id', flat=True))
+    # Solo contratos sin neto persistido necesitan movimientos de caja.
+    # Antes se traían TODOS los ingresos "Contrato #" de la sucursal (muy lento).
+    ids_sin_neto = [
+        c.id
+        for c in contratos
+        if Decimal(str(getattr(c, 'neto_a_posesion_referencia', 0) or 0)) <= 0
+    ]
     movs_por_contrato = {}
-    if contrato_ids:
-        movs = MovimientoCaja.objects.filter(
+    if ids_sin_neto:
+        ids_sin_neto_set = set(ids_sin_neto)
+        q_contratos = Q()
+        for cid in ids_sin_neto:
+            q_contratos |= Q(concepto__icontains=f'Contrato #{cid}')
+        movs_qs = MovimientoCaja.objects.filter(
             sucursal=request.user.sucursal,
             tipo=TipoMovimientoCajaEnum.INGRESO,
-            concepto__icontains='Contrato #',
-        ).only('concepto', 'monto_efectivo', 'monto_cheque', 'monto_tarjeta', 'monto_deposito')
-        for m in movs:
+            fecha_eliminacion__isnull=True,
+        ).filter(q_contratos).only(
+            'concepto',
+            'monto_efectivo',
+            'monto_cheque',
+            'monto_tarjeta',
+            'monto_deposito',
+            'fecha',
+            'id',
+            'numero_liquidacion',
+        )
+        for m in movs_qs:
             if not m.concepto:
                 continue
             match = re.search(r'Contrato\s*#\s*(\d+)', m.concepto, re.IGNORECASE)
             if not match:
                 continue
             cid = int(match.group(1))
-            if cid in contrato_ids:
+            if cid in ids_sin_neto_set:
                 movs_por_contrato.setdefault(cid, []).append(m)
 
     def _monto_total_mov(mov):
@@ -5112,6 +5133,7 @@ def listado_entradas(request):
             return sum((_monto_total_mov(m) for m in ordenados if (getattr(m, 'numero_liquidacion', None) or '').strip() == interno), Decimal('0'))
         return _monto_total_mov(primero)
 
+    contratos_a_actualizar = []
     for c in contratos:
         titular = '—'
         if c.inquilino:
@@ -5145,11 +5167,8 @@ def listado_entradas(request):
             if saldo < 0:
                 saldo = Decimal('0')
             if saldo != Decimal(str(getattr(c, 'neto_a_posesion_referencia', 0) or 0)):
-                try:
-                    c.neto_a_posesion_referencia = saldo
-                    c.save(update_fields=['neto_a_posesion_referencia'])
-                except Exception:
-                    pass
+                c.neto_a_posesion_referencia = saldo
+                contratos_a_actualizar.append(c)
 
         entradas.append({
             'tipo': 'contrato',
@@ -5169,6 +5188,16 @@ def listado_entradas(request):
             'llave': (getattr(c.propiedad, 'llave', None) or '—'),
             'fecha_op': (c.fecha_operacion or (c.fecha_creacion.date() if getattr(c, 'fecha_creacion', None) else c.fecha_inicio)),
         })
+
+    if contratos_a_actualizar:
+        try:
+            ContratoAlquiler.objects.bulk_update(
+                contratos_a_actualizar,
+                ['neto_a_posesion_referencia'],
+                batch_size=100,
+            )
+        except Exception:
+            pass
 
     if tipo_filtro != 'todos':
         entradas = [e for e in entradas if e.get('tipo_menu') == tipo_filtro]
