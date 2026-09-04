@@ -459,11 +459,14 @@ def vincular_movimiento_concepto_a_gasto_oficina(
 
 def _limpiar_gastos_mapeados_incorrectos(sucursal, fecha_desde, fecha_hasta):
     """
-    Borra GastoOficina auto-vinculados bajo categorías del mapa (ej. Veraz)
-    cuyo movimiento ya no califica con el criterio estricto.
+    Resetea categorías del mapa (ej. Veraz): borra todo GastoOficina del período
+    ligado a movimiento (o auto-vinculado) y deja que el sync los recree bien.
     """
     if not sucursal or not fecha_desde or not fecha_hasta:
         return 0
+    from django.db.models import Q
+    from django.db.models.functions import Coalesce, TruncDate
+
     borrados = 0
     rutas = set(MAPA_CONCEPTOS_CAJA_A_OFICINA.values()) | set(
         MAPA_NOMBRE_CONCEPTO_A_OFICINA.values()
@@ -472,34 +475,109 @@ def _limpiar_gastos_mapeados_incorrectos(sucursal, fecha_desde, fecha_hasta):
         cat = resolver_categoria_oficina_por_ruta(sucursal, raiz_n, sub_n)
         if not cat:
             continue
+        # Por fecha del gasto O fecha del movimiento (los mal imputados pueden tener fecha rara).
         qs = (
-            GastoOficina.objects.filter(
-                sucursal=sucursal,
-                categoria=cat,
-                fecha__gte=fecha_desde,
-                fecha__lte=fecha_hasta,
-                movimiento_caja__isnull=False,
+            GastoOficina.objects.filter(sucursal=sucursal, categoria=cat)
+            .filter(
+                Q(fecha__gte=fecha_desde, fecha__lte=fecha_hasta)
+                | Q(
+                    movimiento_caja__isnull=False,
+                    movimiento_caja__fecha__date__gte=fecha_desde,
+                    movimiento_caja__fecha__date__lte=fecha_hasta,
+                )
+                | Q(
+                    movimiento_caja__isnull=False,
+                    movimiento_caja__fecha_transferencia__gte=fecha_desde,
+                    movimiento_caja__fecha_transferencia__lte=fecha_hasta,
+                )
             )
             .select_related('movimiento_caja')
         )
+        ids_borrar = []
         for gasto in qs.iterator(chunk_size=100):
             mov = gasto.movimiento_caja
+            obs = (gasto.observaciones or '')
+            # Sin movimiento: solo borrar si fue auto (manual legítimo se conserva).
             if not mov:
+                if 'Vinculado automáticamente' in obs:
+                    ids_borrar.append(gasto.id)
                 continue
             ruta_ok = _ruta_oficina_desde_movimiento_caja(mov)
-            if ruta_ok and _norm_nombre_cat(ruta_ok[0]) == _norm_nombre_cat(raiz_n) and _norm_nombre_cat(
-                ruta_ok[1]
-            ) == _norm_nombre_cat(sub_n):
+            if (
+                ruta_ok
+                and _norm_nombre_cat(ruta_ok[0]) == _norm_nombre_cat(raiz_n)
+                and _norm_nombre_cat(ruta_ok[1]) == _norm_nombre_cat(sub_n)
+            ):
                 continue
-            # No es Veraz (u otro mapeado): no debe estar en esta categoría.
-            pareja_ids = list(
-                GastoOficina.objects.filter(gasto_relacionado_id=gasto.id).values_list(
-                    'id', flat=True
+            ids_borrar.append(gasto.id)
+        if ids_borrar:
+            # Incluir pares de reparto Colón/Corrientes.
+            ids_borrar = list(
+                set(ids_borrar)
+                | set(
+                    GastoOficina.objects.filter(
+                        gasto_relacionado_id__in=ids_borrar
+                    ).values_list('id', flat=True)
                 )
             )
-            GastoOficina.objects.filter(id__in=[gasto.id, *pareja_ids]).delete()
-            borrados += 1
+            n, _ = GastoOficina.objects.filter(id__in=ids_borrar).delete()
+            borrados += n
     return borrados
+
+
+def _neto_gastos_oficina_desde_caja_mapeada(sucursal, fecha_desde, fecha_hasta):
+    """
+    Neto por categoría mapeada (Veraz, etc.) recalculado desde caja,
+    misma idea que reportes: egreso suma +, ingreso suma −.
+    Evita basura en GastoOficina por sync viejo.
+    """
+    from django.db.models import Q
+    from django.db.models.functions import Coalesce, TruncDate
+
+    from inmobiliaria.models.caja import MovimientoCaja
+
+    if not sucursal or not fecha_desde or not fecha_hasta:
+        return {}
+
+    nombres = list(MAPA_NOMBRE_CONCEPTO_A_OFICINA.keys())
+    ids = list(MAPA_CONCEPTOS_CAJA_A_OFICINA.keys())
+    q_concepto = Q()
+    for cid in ids:
+        q_concepto |= Q(concepto__startswith=f'{cid} —')
+        q_concepto |= Q(concepto__startswith=f'{cid} -')
+        q_concepto |= Q(concepto=cid)
+        q_concepto |= Q(concepto__startswith=f'{cid} ')
+    for nom in nombres:
+        q_concepto |= Q(concepto__icontains=nom)
+        q_concepto |= Q(concepto_detalle__icontains=nom)
+
+    qs = (
+        MovimientoCaja.objects.filter(
+            sucursal=sucursal,
+            fecha_eliminacion__isnull=True,
+        )
+        .annotate(fecha_cierre=Coalesce('fecha_transferencia', TruncDate('fecha')))
+        .filter(q_concepto, fecha_cierre__gte=fecha_desde, fecha_cierre__lte=fecha_hasta)
+    )
+
+    netos = {}
+    for mov in qs.iterator(chunk_size=200):
+        ruta = _ruta_oficina_desde_movimiento_caja(mov)
+        if not ruta:
+            continue
+        cat = resolver_categoria_oficina_por_ruta(sucursal, ruta[0], ruta[1])
+        if not cat:
+            continue
+        total = (
+            Decimal(str(mov.monto_efectivo or 0))
+            + Decimal(str(mov.monto_cheque or 0))
+            + Decimal(str(mov.monto_tarjeta or 0))
+            + Decimal(str(mov.monto_deposito or 0))
+        )
+        if (mov.tipo or '').strip().upper() == TipoMovimientoCajaEnum.INGRESO:
+            total = -total
+        netos[cat.id] = (netos.get(cat.id, Decimal('0')) + total).quantize(Decimal('0.01'))
+    return netos
 
 
 def sincronizar_gastos_oficina_desde_conceptos_caja(sucursal, fecha_desde, fecha_hasta):
@@ -559,6 +637,9 @@ def sincronizar_gastos_oficina_desde_conceptos_caja(sucursal, fecha_desde, fecha
     )
     creados = 0
     for mov in qs.iterator(chunk_size=200):
+        # Doble check estricto (el Q de detalle puede traer basura con "veraz" en JSON ajeno).
+        if not _ruta_oficina_desde_movimiento_caja(mov):
+            continue
         g = vincular_movimiento_concepto_a_gasto_oficina(mov)
         if g:
             creados += 1

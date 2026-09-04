@@ -401,6 +401,36 @@ def construir_resumen_cierre(sucursal, anio, mes):
             getattr(sucursal, 'pk', None),
         )
     totales_por_cat = _totales_gastos_por_categoria_ids(gastos_qs)
+    # Veraz y otros mapeados: forzar neto desde caja (ignora basura vieja en GastoOficina).
+    try:
+        from inmobiliaria.oficina_gastos import _neto_gastos_oficina_desde_caja_mapeada
+
+        netos_mapa = _neto_gastos_oficina_desde_caja_mapeada(
+            sucursal, fecha_desde, fecha_hasta
+        )
+        for cat_id, neto in netos_mapa.items():
+            totales_por_cat[cat_id] = neto
+        # Si quedó basura en Veraz sin movimiento y el neto de caja es otro, ya pisamos.
+        # Categorías mapeadas sin movimientos en el mes → 0 (no mostrar millones viejos).
+        from inmobiliaria.oficina_gastos import (
+            MAPA_CONCEPTOS_CAJA_A_OFICINA,
+            MAPA_NOMBRE_CONCEPTO_A_OFICINA,
+            resolver_categoria_oficina_por_ruta,
+        )
+
+        rutas = set(MAPA_CONCEPTOS_CAJA_A_OFICINA.values()) | set(
+            MAPA_NOMBRE_CONCEPTO_A_OFICINA.values()
+        )
+        for raiz_n, sub_n in rutas:
+            cat = resolver_categoria_oficina_por_ruta(sucursal, raiz_n, sub_n)
+            if cat and cat.id not in netos_mapa:
+                totales_por_cat[cat.id] = Decimal('0')
+    except Exception:
+        logger.exception(
+            'resumen_cierre: falló neto caja mapeada (sucursal_id=%s)',
+            getattr(sucursal, 'pk', None),
+        )
+
     try:
         comisiones_pagadas = _totales_comisiones_vendedor(sucursal, fecha_desde, fecha_hasta)
     except Exception:
