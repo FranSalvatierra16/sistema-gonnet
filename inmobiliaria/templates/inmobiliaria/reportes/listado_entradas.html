@@ -15,7 +15,7 @@
             <button type="button" class="btn btn-primary btn-sm" onclick="window.print()">
                 <i class="fas fa-print"></i> Imprimir
             </button>
-            <a href="{% url 'inmobiliaria:listado_salidas' %}?fecha={{ fecha }}" class="btn btn-outline-danger btn-sm">
+            <a href="{% url 'inmobiliaria:listado_salidas' %}?fecha={{ fecha }}&tipo={{ tipo_filtro|default:'todos' }}" class="btn btn-outline-danger btn-sm">
                 <i class="fas fa-sign-out-alt"></i> Ver salidas
             </a>
             <a href="{% url 'inmobiliaria:dashboard' %}" class="btn btn-outline-secondary btn-sm">
@@ -30,6 +30,7 @@
     </div>
 
     <form method="get" class="card card-body mb-3 no-print">
+        <input type="hidden" name="tipo" value="{{ tipo_filtro|default:'todos' }}">
         <div class="row g-2 align-items-end">
             <div class="col-md-3">
                 <label for="fecha" class="form-label">Fecha de entrada</label>

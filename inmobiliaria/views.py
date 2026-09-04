@@ -5006,67 +5006,75 @@ def listado_entradas(request):
         fecha_raw = fecha_obj.strftime('%Y-%m-%d')
 
     entradas = []
+    incluir_reservas = tipo_filtro in ('todos', 'dia')
+    incluir_contratos = tipo_filtro in ('todos', 'invierno', '24_meses')
 
-    reservas = Reserva.objects.filter(
-        sucursal=request.user.sucursal,
-        eliminada=False,
-        # Solo operaciones confirmadas / pagadas (no «Reservado» sin confirmar).
-        estado__in=['confirmada', 'pagada'],
-        fecha_inicio=fecha_obj,
-    ).select_related('cliente', 'propiedad__propietario', 'vendedor').order_by('fecha_inicio', 'id')
+    if incluir_reservas:
+        reservas = Reserva.objects.filter(
+            sucursal=request.user.sucursal,
+            eliminada=False,
+            # Solo operaciones confirmadas / pagadas (no «Reservado» sin confirmar).
+            estado__in=['confirmada', 'pagada'],
+            fecha_inicio=fecha_obj,
+        ).select_related('cliente', 'propiedad__propietario', 'vendedor').order_by('fecha_inicio', 'id')
 
-    for r in reservas:
-        titular = '—'
-        if r.cliente:
-            apellido = (getattr(r.cliente, 'apellido', '') or '').strip()
-            nombre = (getattr(r.cliente, 'nombre', '') or '').strip()
-            titular = f'{apellido}, {nombre}'.strip(', ') or '—'
+        for r in reservas:
+            titular = '—'
+            if r.cliente:
+                apellido = (getattr(r.cliente, 'apellido', '') or '').strip()
+                nombre = (getattr(r.cliente, 'nombre', '') or '').strip()
+                titular = f'{apellido}, {nombre}'.strip(', ') or '—'
 
-        propietario = '—'
-        if r.propiedad and r.propiedad.propietario:
-            ap = (getattr(r.propiedad.propietario, 'apellido', '') or '').strip()
-            no = (getattr(r.propiedad.propietario, 'nombre', '') or '').strip()
-            propietario = f'{ap}, {no}'.strip(', ') or '—'
+            propietario = '—'
+            if r.propiedad and r.propiedad.propietario:
+                ap = (getattr(r.propiedad.propietario, 'apellido', '') or '').strip()
+                no = (getattr(r.propiedad.propietario, 'nombre', '') or '').strip()
+                propietario = f'{ap}, {no}'.strip(', ') or '—'
 
-        vendedor = '—'
-        if r.vendedor:
-            apv = (getattr(r.vendedor, 'apellido', '') or '').strip()
-            nov = (getattr(r.vendedor, 'nombre', '') or '').strip()
-            vendedor = (apv or nov or '—').upper()
+            vendedor = '—'
+            if r.vendedor:
+                apv = (getattr(r.vendedor, 'apellido', '') or '').strip()
+                nov = (getattr(r.vendedor, 'nombre', '') or '').strip()
+                vendedor = (apv or nov or '—').upper()
 
-        precio_total = r.precio_total or Decimal('0')
-        senia = r.senia or Decimal('0')
-        saldo = precio_total - senia
-        if saldo < 0:
-            saldo = Decimal('0')
+            precio_total = r.precio_total or Decimal('0')
+            senia = r.senia or Decimal('0')
+            saldo = precio_total - senia
+            if saldo < 0:
+                saldo = Decimal('0')
 
-        entradas.append({
-            'tipo': 'reserva',
-            'tipo_alquiler': 'Por día',
-            'tipo_menu': 'dia',
-            'titular': titular,
-            'propietario': propietario,
-            'operacion': f'{r.id:05d}',
-            'direccion': (getattr(r.propiedad, 'direccion', None) or '—'),
-            'piso': (getattr(r.propiedad, 'piso', None) or '—'),
-            'depto': (getattr(r.propiedad, 'departamento', None) or '—'),
-            'desde': r.fecha_inicio,
-            'hasta': r.fecha_fin,
-            'saldo': saldo,
-            'deposito': r.deposito_garantia or Decimal('0'),
-            'intervino': vendedor,
-            'llave': (getattr(r.propiedad, 'llave', None) or '—'),
-            'fecha_op': (r.fecha_creacion.date() if getattr(r, 'fecha_creacion', None) else r.fecha_inicio),
-        })
+            entradas.append({
+                'tipo': 'reserva',
+                'tipo_alquiler': 'Por día',
+                'tipo_menu': 'dia',
+                'titular': titular,
+                'propietario': propietario,
+                'operacion': f'{r.id:05d}',
+                'direccion': (getattr(r.propiedad, 'direccion', None) or '—'),
+                'piso': (getattr(r.propiedad, 'piso', None) or '—'),
+                'depto': (getattr(r.propiedad, 'departamento', None) or '—'),
+                'desde': r.fecha_inicio,
+                'hasta': r.fecha_fin,
+                'saldo': saldo,
+                'deposito': r.deposito_garantia or Decimal('0'),
+                'intervino': vendedor,
+                'llave': (getattr(r.propiedad, 'llave', None) or '—'),
+                'fecha_op': (r.fecha_creacion.date() if getattr(r, 'fecha_creacion', None) else r.fecha_inicio),
+            })
 
-    contratos = list(
-        ContratoAlquiler.objects.filter(
+    contratos = []
+    if incluir_contratos:
+        contratos_qs = ContratoAlquiler.objects.filter(
             sucursal=request.user.sucursal,
             fecha_inicio=fecha_obj,
         ).exclude(estado='reservado').select_related(
             'inquilino', 'propiedad__propietario', 'vendedor'
         ).order_by('fecha_inicio', 'id')
-    )
+        if tipo_filtro == 'invierno':
+            contratos_qs = contratos_qs.filter(duracion_meses__lte=9)
+        elif tipo_filtro == '24_meses':
+            contratos_qs = contratos_qs.filter(duracion_meses__gt=9)
+        contratos = list(contratos_qs)
 
     # Solo contratos sin neto persistido necesitan movimientos de caja.
     # Antes se traían TODOS los ingresos "Contrato #" de la sucursal (muy lento).
@@ -5199,9 +5207,6 @@ def listado_entradas(request):
         except Exception:
             pass
 
-    if tipo_filtro != 'todos':
-        entradas = [e for e in entradas if e.get('tipo_menu') == tipo_filtro]
-
     entradas.sort(key=lambda x: (x.get('desde') or fecha_obj, x.get('operacion') or ''))
     total_saldo = sum((e.get('saldo') or Decimal('0')) for e in entradas)
     total_deposito = sum(
@@ -5236,6 +5241,9 @@ def listado_salidas(request):
         return redirect('inmobiliaria:dashboard')
 
     fecha_raw = (request.GET.get('fecha') or '').strip()
+    tipo_filtro = (request.GET.get('tipo') or 'todos').strip().lower()
+    if tipo_filtro not in ('todos', 'dia', 'invierno', '24_meses'):
+        tipo_filtro = 'todos'
     fecha_obj = None
 
     if fecha_raw:
@@ -5249,93 +5257,106 @@ def listado_salidas(request):
         fecha_raw = fecha_obj.strftime('%Y-%m-%d')
 
     salidas = []
+    incluir_reservas = tipo_filtro in ('todos', 'dia')
+    incluir_contratos = tipo_filtro in ('todos', 'invierno', '24_meses')
 
-    reservas = Reserva.objects.filter(
-        sucursal=request.user.sucursal,
-        eliminada=False,
-        # Solo operaciones confirmadas / pagadas (no «Reservado» sin confirmar).
-        estado__in=['confirmada', 'pagada'],
-        fecha_fin=fecha_obj,
-    ).select_related('cliente', 'propiedad__propietario', 'vendedor').order_by('fecha_fin', 'id')
+    if incluir_reservas:
+        reservas = Reserva.objects.filter(
+            sucursal=request.user.sucursal,
+            eliminada=False,
+            # Solo operaciones confirmadas / pagadas (no «Reservado» sin confirmar).
+            estado__in=['confirmada', 'pagada'],
+            fecha_fin=fecha_obj,
+        ).select_related('cliente', 'propiedad__propietario', 'vendedor').order_by('fecha_fin', 'id')
 
-    for r in reservas:
-        titular = '—'
-        if r.cliente:
-            apellido = (getattr(r.cliente, 'apellido', '') or '').strip()
-            nombre = (getattr(r.cliente, 'nombre', '') or '').strip()
-            titular = f'{apellido}, {nombre}'.strip(', ') or '—'
+        for r in reservas:
+            titular = '—'
+            if r.cliente:
+                apellido = (getattr(r.cliente, 'apellido', '') or '').strip()
+                nombre = (getattr(r.cliente, 'nombre', '') or '').strip()
+                titular = f'{apellido}, {nombre}'.strip(', ') or '—'
 
-        propietario = '—'
-        if r.propiedad and r.propiedad.propietario:
-            ap = (getattr(r.propiedad.propietario, 'apellido', '') or '').strip()
-            no = (getattr(r.propiedad.propietario, 'nombre', '') or '').strip()
-            propietario = f'{ap}, {no}'.strip(', ') or '—'
+            propietario = '—'
+            if r.propiedad and r.propiedad.propietario:
+                ap = (getattr(r.propiedad.propietario, 'apellido', '') or '').strip()
+                no = (getattr(r.propiedad.propietario, 'nombre', '') or '').strip()
+                propietario = f'{ap}, {no}'.strip(', ') or '—'
 
-        vendedor = '—'
-        if r.vendedor:
-            apv = (getattr(r.vendedor, 'apellido', '') or '').strip()
-            nov = (getattr(r.vendedor, 'nombre', '') or '').strip()
-            vendedor = (apv or nov or '—').upper()
+            vendedor = '—'
+            if r.vendedor:
+                apv = (getattr(r.vendedor, 'apellido', '') or '').strip()
+                nov = (getattr(r.vendedor, 'nombre', '') or '').strip()
+                vendedor = (apv or nov or '—').upper()
 
-        salidas.append({
-            'tipo': 'reserva',
-            'titular': titular,
-            'propietario': propietario,
-            'operacion': f'{r.id:05d}',
-            'direccion': (getattr(r.propiedad, 'direccion', None) or '—'),
-            'piso': (getattr(r.propiedad, 'piso', None) or '—'),
-            'depto': (getattr(r.propiedad, 'departamento', None) or '—'),
-            'desde': r.fecha_inicio,
-            'hasta': r.fecha_fin,
-            'deposito': r.deposito_garantia or Decimal('0'),
-            'intervino': vendedor,
-            'llave': (getattr(r.propiedad, 'llave', None) or '—'),
-            'fecha': r.fecha_fin,
-            'hora': (r.fecha_creacion.strftime('%H:%M') if getattr(r, 'fecha_creacion', None) else '—'),
-        })
+            salidas.append({
+                'tipo': 'reserva',
+                'tipo_alquiler': 'Por día',
+                'tipo_menu': 'dia',
+                'titular': titular,
+                'propietario': propietario,
+                'operacion': f'{r.id:05d}',
+                'direccion': (getattr(r.propiedad, 'direccion', None) or '—'),
+                'piso': (getattr(r.propiedad, 'piso', None) or '—'),
+                'depto': (getattr(r.propiedad, 'departamento', None) or '—'),
+                'desde': r.fecha_inicio,
+                'hasta': r.fecha_fin,
+                'deposito': r.deposito_garantia or Decimal('0'),
+                'intervino': vendedor,
+                'llave': (getattr(r.propiedad, 'llave', None) or '—'),
+                'fecha': r.fecha_fin,
+                'hora': (r.fecha_creacion.strftime('%H:%M') if getattr(r, 'fecha_creacion', None) else '—'),
+            })
 
-    contratos = ContratoAlquiler.objects.filter(
-        sucursal=request.user.sucursal,
-        fecha_fin=fecha_obj,
-    ).exclude(estado='reservado').select_related(
-        'inquilino', 'propiedad__propietario', 'vendedor'
-    ).order_by('fecha_fin', 'id')
+    if incluir_contratos:
+        contratos = ContratoAlquiler.objects.filter(
+            sucursal=request.user.sucursal,
+            fecha_fin=fecha_obj,
+        ).exclude(estado='reservado').select_related(
+            'inquilino', 'propiedad__propietario', 'vendedor'
+        ).order_by('fecha_fin', 'id')
+        if tipo_filtro == 'invierno':
+            contratos = contratos.filter(duracion_meses__lte=9)
+        elif tipo_filtro == '24_meses':
+            contratos = contratos.filter(duracion_meses__gt=9)
 
-    for c in contratos:
-        titular = '—'
-        if c.inquilino:
-            apellido = (getattr(c.inquilino, 'apellido', '') or '').strip()
-            nombre = (getattr(c.inquilino, 'nombre', '') or '').strip()
-            titular = f'{apellido}, {nombre}'.strip(', ') or '—'
+        for c in contratos:
+            titular = '—'
+            if c.inquilino:
+                apellido = (getattr(c.inquilino, 'apellido', '') or '').strip()
+                nombre = (getattr(c.inquilino, 'nombre', '') or '').strip()
+                titular = f'{apellido}, {nombre}'.strip(', ') or '—'
 
-        propietario = '—'
-        if c.propiedad and c.propiedad.propietario:
-            ap = (getattr(c.propiedad.propietario, 'apellido', '') or '').strip()
-            no = (getattr(c.propiedad.propietario, 'nombre', '') or '').strip()
-            propietario = f'{ap}, {no}'.strip(', ') or '—'
+            propietario = '—'
+            if c.propiedad and c.propiedad.propietario:
+                ap = (getattr(c.propiedad.propietario, 'apellido', '') or '').strip()
+                no = (getattr(c.propiedad.propietario, 'nombre', '') or '').strip()
+                propietario = f'{ap}, {no}'.strip(', ') or '—'
 
-        vendedor = '—'
-        if c.vendedor:
-            apv = (getattr(c.vendedor, 'apellido', '') or '').strip()
-            nov = (getattr(c.vendedor, 'nombre', '') or '').strip()
-            vendedor = (apv or nov or '—').upper()
+            vendedor = '—'
+            if c.vendedor:
+                apv = (getattr(c.vendedor, 'apellido', '') or '').strip()
+                nov = (getattr(c.vendedor, 'nombre', '') or '').strip()
+                vendedor = (apv or nov or '—').upper()
 
-        salidas.append({
-            'tipo': 'contrato',
-            'titular': titular,
-            'propietario': propietario,
-            'operacion': f'{c.id:05d}',
-            'direccion': (getattr(c.propiedad, 'direccion', None) or '—'),
-            'piso': (getattr(c.propiedad, 'piso', None) or '—'),
-            'depto': (getattr(c.propiedad, 'departamento', None) or '—'),
-            'desde': c.fecha_inicio,
-            'hasta': c.fecha_fin,
-            'deposito': c.deposito_garantia or Decimal('0'),
-            'intervino': vendedor,
-            'llave': (getattr(c.propiedad, 'llave', None) or '—'),
-            'fecha': c.fecha_fin,
-            'hora': (c.fecha_creacion.strftime('%H:%M') if getattr(c, 'fecha_creacion', None) else '—'),
-        })
+            tipo_menu = 'invierno' if int(c.duracion_meses or 0) <= 9 else '24_meses'
+            salidas.append({
+                'tipo': 'contrato',
+                'tipo_alquiler': ('Invierno' if tipo_menu == 'invierno' else '24 meses'),
+                'tipo_menu': tipo_menu,
+                'titular': titular,
+                'propietario': propietario,
+                'operacion': f'{c.id:05d}',
+                'direccion': (getattr(c.propiedad, 'direccion', None) or '—'),
+                'piso': (getattr(c.propiedad, 'piso', None) or '—'),
+                'depto': (getattr(c.propiedad, 'departamento', None) or '—'),
+                'desde': c.fecha_inicio,
+                'hasta': c.fecha_fin,
+                'deposito': c.deposito_garantia or Decimal('0'),
+                'intervino': vendedor,
+                'llave': (getattr(c.propiedad, 'llave', None) or '—'),
+                'fecha': c.fecha_fin,
+                'hora': (c.fecha_creacion.strftime('%H:%M') if getattr(c, 'fecha_creacion', None) else '—'),
+            })
 
     salidas.sort(key=lambda x: (x.get('hasta') or fecha_obj, x.get('operacion') or ''))
 
@@ -5345,6 +5366,7 @@ def listado_salidas(request):
         {
             'fecha': fecha_raw,
             'fecha_obj': fecha_obj,
+            'tipo_filtro': tipo_filtro,
             'salidas': salidas,
             'cantidad_salidas': len(salidas),
         },

@@ -15,7 +15,7 @@
             <button type="button" class="btn btn-primary btn-sm" onclick="window.print()">
                 <i class="fas fa-print"></i> Imprimir
             </button>
-            <a href="{% url 'inmobiliaria:listado_entradas' %}?fecha={{ fecha }}" class="btn btn-outline-primary btn-sm">
+            <a href="{% url 'inmobiliaria:listado_entradas' %}?fecha={{ fecha }}&tipo={{ tipo_filtro|default:'todos' }}" class="btn btn-outline-primary btn-sm">
                 <i class="fas fa-sign-in-alt"></i> Ver entradas
             </a>
             <a href="{% url 'inmobiliaria:dashboard' %}" class="btn btn-outline-secondary btn-sm">
@@ -26,10 +26,11 @@
 
     <div class="print-only-header d-none mb-2">
         <h2 class="h5 mb-0">Listado de Salidas — {{ fecha_obj|date:"d/m/Y" }}</h2>
-        <p class="mb-0 small">Total salidas: {{ cantidad_salidas }}</p>
+        <p class="mb-0 small">Total salidas: {{ cantidad_salidas }}{% if tipo_filtro and tipo_filtro != 'todos' %} · Filtro: {{ tipo_filtro }}{% endif %}</p>
     </div>
 
     <form method="get" class="card card-body mb-3 no-print">
+        <input type="hidden" name="tipo" value="{{ tipo_filtro|default:'todos' }}">
         <div class="row g-2 align-items-end">
             <div class="col-md-3">
                 <label for="fecha" class="form-label">Fecha de salida</label>
@@ -43,6 +44,14 @@
             <div class="col-md-7 text-md-end">
                 <div class="fw-semibold">Fecha: {{ fecha_obj|date:"d/m/Y" }} · Total salidas: {{ cantidad_salidas }}</div>
             </div>
+            <div class="col-12">
+                <div class="btn-group mt-2" role="group" aria-label="Filtro por tipo">
+                    <a href="?fecha={{ fecha }}&tipo=todos" class="btn btn-sm {% if tipo_filtro == 'todos' %}btn-danger{% else %}btn-outline-danger{% endif %}">Todos</a>
+                    <a href="?fecha={{ fecha }}&tipo=dia" class="btn btn-sm {% if tipo_filtro == 'dia' %}btn-danger{% else %}btn-outline-danger{% endif %}">Alquiler por día</a>
+                    <a href="?fecha={{ fecha }}&tipo=invierno" class="btn btn-sm {% if tipo_filtro == 'invierno' %}btn-danger{% else %}btn-outline-danger{% endif %}">Invierno</a>
+                    <a href="?fecha={{ fecha }}&tipo=24_meses" class="btn btn-sm {% if tipo_filtro == '24_meses' %}btn-danger{% else %}btn-outline-danger{% endif %}">24 meses</a>
+                </div>
+            </div>
         </div>
     </form>
 
@@ -53,6 +62,7 @@
                     <thead class="table-light">
                         <tr>
                             <th>#</th>
+                            <th>Tipo alquiler</th>
                             <th>Titular</th>
                             <th>Propietario</th>
                             <th>Operación</th>
@@ -71,6 +81,7 @@
                         {% for s in salidas %}
                         <tr>
                             <td>{{ forloop.counter }}</td>
+                            <td>{{ s.tipo_alquiler }}</td>
                             <td>{{ s.titular }}</td>
                             <td>{{ s.propietario }}</td>
                             <td>{{ s.operacion }}</td>
@@ -86,7 +97,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="13" class="text-center text-muted py-4">
+                            <td colspan="14" class="text-center text-muted py-4">
                                 No hay salidas para esa fecha.
                             </td>
                         </tr>
