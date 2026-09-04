@@ -140,11 +140,13 @@ def _norm_nombre_cat(nombre):
 # id de Concepto → (raíz oficina, subcategoría).
 MAPA_CONCEPTOS_CAJA_A_OFICINA = {
     '130': ('Gastos generales', 'Veraz'),
+    '22': ('Ingresos', 'Gastos bancarios'),
 }
 
 # Por nombre normalizado del concepto (por si el id difiere entre ambientes).
 MAPA_NOMBRE_CONCEPTO_A_OFICINA = {
     'veraz': ('Gastos generales', 'Veraz'),
+    'gastos bancarios': ('Ingresos', 'Gastos bancarios'),
 }
 
 

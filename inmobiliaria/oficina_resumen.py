@@ -401,15 +401,13 @@ def construir_resumen_cierre(sucursal, anio, mes):
             getattr(sucursal, 'pk', None),
         )
     totales_por_cat = _totales_gastos_por_categoria_ids(gastos_qs)
-    # Veraz y mapeados: neto SOLO desde campo concepto de caja (como reportes).
-    # Pisa cualquier basura vieja en GastoOficina (el -4.6M).
+    # Veraz / Gastos bancarios (y mapeados): neto desde concepto de caja + cargas manuales de oficina.
     try:
         from inmobiliaria.oficina_gastos import (
             MAPA_CONCEPTOS_CAJA_A_OFICINA,
             MAPA_NOMBRE_CONCEPTO_A_OFICINA,
             _neto_gastos_oficina_desde_caja_mapeada,
             _norm_nombre_cat as _norm_of,
-            resolver_categoria_oficina_por_ruta,
         )
 
         netos_mapa = _neto_gastos_oficina_desde_caja_mapeada(
@@ -422,15 +420,33 @@ def construir_resumen_cierre(sucursal, anio, mes):
                 | set(MAPA_NOMBRE_CONCEPTO_A_OFICINA.values())
             )
         }
-        # Primero: todas las categorías cuyo nombre es Veraz (u otro mapeado) → 0
+        cats_mapeadas_ids = set()
         for cat in CategoriaGastoOficina.objects.filter(
             sucursal=sucursal, activa=True, parent__isnull=False
         ).only('id', 'nombre'):
             if _norm_of(cat.nombre) in nombres_mapeados:
+                cats_mapeadas_ids.add(cat.id)
                 totales_por_cat[cat.id] = Decimal('0')
-        # Después: el neto real de caja
         for cat_id, neto in netos_mapa.items():
             totales_por_cat[cat_id] = neto
+        # Sumar lo cargado a mano en oficina (sin movimiento de caja), p.ej. Gastos bancarios.
+        if cats_mapeadas_ids:
+            for row in (
+                GastoOficina.objects.filter(
+                    sucursal=sucursal,
+                    categoria_id__in=cats_mapeadas_ids,
+                    fecha__gte=fecha_desde,
+                    fecha__lte=fecha_hasta,
+                    movimiento_caja__isnull=True,
+                )
+                .values('categoria_id')
+                .annotate(total=Sum('monto'))
+            ):
+                cid = row['categoria_id']
+                extras = Decimal(str(row['total'] or 0))
+                totales_por_cat[cid] = (
+                    Decimal(str(totales_por_cat.get(cid, 0) or 0)) + extras
+                ).quantize(Decimal('0.01'))
     except Exception:
         logger.exception(
             'resumen_cierre: falló neto caja mapeada (sucursal_id=%s)',
