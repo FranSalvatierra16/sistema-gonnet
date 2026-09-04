@@ -132,6 +132,52 @@ def _saldo_apertura_periodo(
     return (saldo_si + _neto_movimientos_cuenta(qs_prev)).quantize(Decimal('0.01'))
 
 
+def ingreso_egreso_cuenta_en_fecha(cuenta, sucursal, fecha_dia):
+    """
+    Ingresos y egresos de transferencia a la cuenta en un día (misma lógica que el extracto).
+    Usa fecha_banco = Coalesce(fecha_transferencia, fecha) y destino cuenta_<id>.
+    """
+    fd = _parse_fecha_filtro(fecha_dia)
+    if fd is None:
+        return Decimal('0.00'), Decimal('0.00')
+    destino = f'cuenta_{cuenta.id}'
+    qs = _qs_movimientos_cuenta(sucursal, destino).filter(fecha_banco=fd)
+    ing = (
+        qs.filter(tipo=TipoMovimientoCajaEnum.INGRESO).aggregate(t=Sum('monto_deposito'))['t']
+        or Decimal('0')
+    )
+    egr = (
+        qs.filter(tipo=TipoMovimientoCajaEnum.EGRESO).aggregate(t=Sum('monto_deposito'))['t']
+        or Decimal('0')
+    )
+    return (
+        Decimal(str(ing)).quantize(Decimal('0.01')),
+        Decimal(str(egr)).quantize(Decimal('0.01')),
+    )
+
+
+def saldo_cuenta_bancaria_al(cuenta, sucursal, fecha_hasta) -> Decimal:
+    """
+    Saldo de la cuenta al cierre de ``fecha_hasta`` (extracto bancario).
+
+    = saldo inicial de corte + neto de movimientos con fecha_banco desde el corte
+    hasta ``fecha_hasta`` inclusive. Misma base que «Transferencias a esta cuenta».
+    """
+    fh = _parse_fecha_filtro(fecha_hasta)
+    if fh is None:
+        return Decimal('0.00')
+    destino = f'cuenta_{cuenta.id}'
+    saldo_si = Decimal(str(cuenta.saldo_inicial or 0)).quantize(Decimal('0.01'))
+    corte = _fecha_corte_cuenta(cuenta)
+    if fh < corte:
+        return Decimal('0.00')
+    qs = _qs_movimientos_cuenta(sucursal, destino).filter(
+        fecha_banco__gte=corte,
+        fecha_banco__lte=fh,
+    )
+    return (saldo_si + _neto_movimientos_cuenta(qs)).quantize(Decimal('0.01'))
+
+
 def _etiqueta_inquilino_movimiento(m: MovimientoCaja) -> str:
     """Apellido, nombre del inquilino vinculado a operación o contrato."""
     texto = (m.concepto or '')

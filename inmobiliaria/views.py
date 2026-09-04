@@ -13311,13 +13311,30 @@ def _dict_arqueo_desde_registro(arqueo):
     }
 
 
+def _fecha_local_caja(caja):
+    """Día de la caja en zona horaria local (para alinear saldos bancarios con el extracto)."""
+    from django.utils import timezone as dj_tz
+
+    fa = getattr(caja, 'fecha_apertura', None)
+    if fa is None:
+        return dj_tz.localdate()
+    if hasattr(fa, 'tzinfo') and fa.tzinfo is not None:
+        return dj_tz.localtime(fa).date()
+    if hasattr(fa, 'date'):
+        return fa.date()
+    return fa
+
+
 def _saldos_actuales_desde_arqueo_y_movimientos(
     caja, arqueo_manual, ingresos, egresos, cuentas_bancarias=None,
 ):
     """
     Saldo actual por medio = anterior (anteriores_json) + ingresos − egresos del día.
-    Cuentas bancarias: saldo en apertura (cuentas_json) + movimientos del día por cuenta.
+    Cuentas bancarias: misma base que el extracto (saldo inicial + movimientos por fecha banco).
+    Efectivo/cheque/tarjeta no se tocan (siguen el arqueo de caja).
     """
+    from inmobiliaria.views_cuentas_bancarias import saldo_cuenta_bancaria_al
+
     ingresos_por, egresos_por = _ingresos_egresos_por_medio_matriz(ingresos, egresos)
     saldo_ini = _saldo_inicial_efectivo_caja(caja)
     anterior_por = _anteriores_matriz_desde_arqueo(
@@ -13333,12 +13350,11 @@ def _saldos_actuales_desde_arqueo_y_movimientos(
             )
         )
 
+    fecha_caja = _fecha_local_caja(caja)
     cuentas_json = {}
     dep_saldo = Decimal('0')
     for cuenta in cuentas_bancarias:
-        base = arqueo_manual.monto_cuenta(cuenta.id)
-        ing_c, egr_c = _deposito_ing_egr_cuenta(ingresos, egresos, cuenta)
-        saldo_c = (base + ing_c - egr_c).quantize(Decimal('0.01'))
+        saldo_c = saldo_cuenta_bancaria_al(cuenta, caja.sucursal, fecha_caja)
         cuentas_json[str(cuenta.id)] = str(saldo_c)
         dep_saldo += saldo_c
 
@@ -13609,19 +13625,37 @@ def _build_resumen_matriz_caja(caja, ingresos, egresos, arqueo_manual=None, sald
     }
 
 
-def _build_matriz_cuentas_bancarias(ingresos, egresos, cuentas_bancarias, saldos_por_cuenta):
-    """Grilla Anterior / Ingresos / Egresos / Saldo por cuenta bancaria."""
+def _build_matriz_cuentas_bancarias(
+    ingresos, egresos, cuentas_bancarias, saldos_por_cuenta, caja=None,
+):
+    """
+    Grilla Anterior / Ingresos / Egresos / Saldo por cuenta bancaria.
+    Con caja: misma lógica que «Transferencias a esta cuenta» (fecha banco + saldo inicial).
+    """
+    from inmobiliaria.views_cuentas_bancarias import (
+        ingreso_egreso_cuenta_en_fecha,
+        saldo_cuenta_bancaria_al,
+    )
+
     columnas = []
     anterior_por = {}
     ingresos_por = {}
     egresos_por = {}
     saldo_por = {}
 
+    fecha_caja = _fecha_local_caja(caja) if caja is not None else None
+    sucursal = getattr(caja, 'sucursal', None) if caja is not None else None
+    usar_extracto = fecha_caja is not None and sucursal is not None
+
     for cuenta in cuentas_bancarias:
         cid = cuenta.id
-        ing, egr = _deposito_ing_egr_cuenta(ingresos, egresos, cuenta)
-        saldo = Decimal(str(saldos_por_cuenta.get(cid, 0) or 0))
-        anterior = saldo - ing + egr
+        if usar_extracto:
+            ing, egr = ingreso_egreso_cuenta_en_fecha(cuenta, sucursal, fecha_caja)
+            saldo = saldo_cuenta_bancaria_al(cuenta, sucursal, fecha_caja)
+        else:
+            ing, egr = _deposito_ing_egr_cuenta(ingresos, egresos, cuenta)
+            saldo = Decimal(str(saldos_por_cuenta.get(cid, 0) or 0))
+        anterior = (saldo - ing + egr).quantize(Decimal('0.01'))
         etiqueta = cuenta.nombre_banco
         columnas.append({'id': cid, 'label': etiqueta})
         anterior_por[cid] = anterior
@@ -14083,9 +14117,17 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
         'deposito': sum(m.monto_deposito for m in ingresos),
         'total': sum(m.monto_total for m in ingresos)
     }
+    from inmobiliaria.views_cuentas_bancarias import (
+        ingreso_egreso_cuenta_en_fecha,
+        saldo_cuenta_bancaria_al,
+    )
+
+    fecha_caja = _fecha_local_caja(caja)
+    sucursal_caja = request.user.sucursal
+
     totales_ingresos['cuentas_bancarias'] = {}
     for cuenta in cuentas_bancarias:
-        ing_c, _ = _deposito_ing_egr_cuenta(ingresos, egresos, cuenta)
+        ing_c, _ = ingreso_egreso_cuenta_en_fecha(cuenta, sucursal_caja, fecha_caja)
         totales_ingresos['cuentas_bancarias'][cuenta.id] = {
             'nombre': cuenta.nombre_banco,
             'titular': cuenta.titular,
@@ -14103,7 +14145,7 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
     }
     totales_egresos['cuentas_bancarias'] = {}
     for cuenta in cuentas_bancarias:
-        _, egr_c = _deposito_ing_egr_cuenta(ingresos, egresos, cuenta)
+        _, egr_c = ingreso_egreso_cuenta_en_fecha(cuenta, sucursal_caja, fecha_caja)
         totales_egresos['cuentas_bancarias'][cuenta.id] = {
             'nombre': cuenta.nombre_banco,
             'titular': cuenta.titular,
@@ -14119,14 +14161,17 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
         'deposito': totales_ingresos['deposito'] - totales_egresos['deposito'],
     }
     saldo_actual['cuentas_bancarias'] = {}
+    dep_extracto = Decimal('0')
     for cuenta in cuentas_bancarias:
-        saldo_cuenta = totales_ingresos['cuentas_bancarias'][cuenta.id]['total'] - totales_egresos['cuentas_bancarias'][cuenta.id]['total']
+        saldo_cuenta = saldo_cuenta_bancaria_al(cuenta, sucursal_caja, fecha_caja)
+        dep_extracto += saldo_cuenta
         saldo_actual['cuentas_bancarias'][cuenta.id] = {
             'nombre': cuenta.nombre_banco,
             'titular': cuenta.titular,
             'alias': cuenta.alias,
-            'saldo': saldo_cuenta
+            'saldo': saldo_cuenta,
         }
+    saldo_actual['deposito'] = dep_extracto
     saldo_actual['dolares'] = totales_ingresos['dolares'] - totales_egresos['dolares']
 
     saldo_total = totales_ingresos['total'] - totales_egresos['total']
@@ -14222,7 +14267,23 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
         egresos,
         list(cuentas_bancarias),
         saldos_cuenta_map,
+        caja=caja,
     )
+    # Alinear «SALDOS BANCARIOS» del resumen con la grilla por cuenta (extracto).
+    if matriz_cuentas_bancarias.get('columnas'):
+        bank_totales = {
+            f['key']: f['total'] for f in matriz_cuentas_bancarias.get('filas') or []
+        }
+        for fila in resumen_matriz.get('filas') or []:
+            if fila.get('key') in bank_totales and 'deposito' in (fila.get('valores') or {}):
+                fila['valores']['deposito'] = bank_totales[fila['key']]
+                fila['total'] = sum(fila['valores'].values())
+        if 'deposito' in (resumen_matriz.get('anterior_edit') or {}):
+            resumen_matriz['anterior_edit']['deposito'] = {
+                'anterior': bank_totales.get('anterior', Decimal('0')),
+                'ingreso': bank_totales.get('ingresos', Decimal('0')),
+                'egreso': bank_totales.get('egresos', Decimal('0')),
+            }
 
     return {
         'caja': caja,
