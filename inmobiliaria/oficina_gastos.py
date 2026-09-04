@@ -161,10 +161,28 @@ def ruta_oficina_para_concepto_caja(concepto_id=None, concepto_nombre=None):
     nom_n = _norm_nombre_cat(nom)
     if nom_n in MAPA_NOMBRE_CONCEPTO_A_OFICINA:
         return MAPA_NOMBRE_CONCEPTO_A_OFICINA[nom_n]
-    # Texto libre: "… veraz …"
+    # Texto libre: "… veraz …" (no usar ids numéricos sueltos: matchean montos/JSON).
     for clave, ruta in MAPA_NOMBRE_CONCEPTO_A_OFICINA.items():
         if clave and clave in nom_n:
             return ruta
+    return None
+
+
+def _concepto_campo_es_id_catalogo_oficina(concepto_texto):
+    """True si el campo concepto es el id de catálogo (ej. '130' o '130 — veraz')."""
+    import re
+
+    raw = (concepto_texto or '').strip()
+    if not raw:
+        return None
+    primera = raw.split('\n', 1)[0].strip()
+    for cid in MAPA_CONCEPTOS_CAJA_A_OFICINA:
+        if not str(cid).isdigit():
+            continue
+        if primera == cid:
+            return MAPA_CONCEPTOS_CAJA_A_OFICINA[cid]
+        if re.match(rf'^{re.escape(cid)}\s*[—\-]', primera):
+            return MAPA_CONCEPTOS_CAJA_A_OFICINA[cid]
     return None
 
 
@@ -172,14 +190,14 @@ def concepto_caja_mapeado_a_oficina(concepto_texto=None, concepto_id=None, conce
     """True si el movimiento/concepto debe ir a oficina (Veraz, etc.)."""
     if ruta_oficina_para_concepto_caja(concepto_id, concepto_nombre):
         return True
+    if _concepto_campo_es_id_catalogo_oficina(concepto_texto):
+        return True
     raw = _norm_nombre_cat(concepto_texto or '')
     if not raw:
         return False
-    for cid in MAPA_CONCEPTOS_CAJA_A_OFICINA:
-        if raw.startswith(cid) or f' {cid} ' in f' {raw} ':
-            return True
+    # Solo por nombre (veraz). Nunca por '130' suelto en textos largos/JSON.
     for nom in MAPA_NOMBRE_CONCEPTO_A_OFICINA:
-        if nom in raw:
+        if nom and nom in raw:
             return True
     return False
 
@@ -228,21 +246,22 @@ def _ruta_oficina_desde_movimiento_caja(movimiento, concepto_id=None, concepto_n
     ruta = ruta_oficina_para_concepto_caja(cid, nom)
     if ruta:
         return ruta
+
+    concepto = (getattr(movimiento, 'concepto', None) or '') if movimiento else ''
+    ruta = _concepto_campo_es_id_catalogo_oficina(concepto)
+    if ruta:
+        return ruta
+    # Nombre en el campo concepto (ej. "veraz", "130 — veraz — …")
+    ruta = ruta_oficina_para_concepto_caja(None, concepto)
+    if ruta:
+        return ruta
+
+    # Detalle / JSON / listado: SOLO por nombre (veraz), nunca por id numérico suelto.
     for texto in _textos_movimiento_para_mapa_oficina(movimiento):
-        if concepto_caja_mapeado_a_oficina(texto, cid, nom):
-            ruta = ruta_oficina_para_concepto_caja(cid, nom) or ruta_oficina_para_concepto_caja(
-                None, texto
-            )
-            if ruta:
-                return ruta
-            # Nombre suelto dentro del texto (ej. JSON con "veraz")
-            raw = _norm_nombre_cat(texto)
-            for clave, ruta_m in MAPA_NOMBRE_CONCEPTO_A_OFICINA.items():
-                if clave and clave in raw:
-                    return ruta_m
-            for cid_m, ruta_m in MAPA_CONCEPTOS_CAJA_A_OFICINA.items():
-                if raw.startswith(cid_m) or f' {cid_m} ' in f' {raw} ':
-                    return ruta_m
+        raw = _norm_nombre_cat(texto)
+        for clave, ruta_m in MAPA_NOMBRE_CONCEPTO_A_OFICINA.items():
+            if clave and clave in raw:
+                return ruta_m
     return None
 
 
@@ -392,17 +411,13 @@ def vincular_movimiento_concepto_a_gasto_oficina(
         .first()
     )
     if existente:
-        updates = []
-        if existente.categoria_id != categoria.id:
-            existente.categoria = categoria
-            updates.append('categoria')
-        # Preferir fecha banco para que entre en el mes del extracto.
-        ft = getattr(movimiento, 'fecha_transferencia', None)
-        if ft and existente.fecha != ft:
-            existente.fecha = ft
-            updates.append('fecha')
-        if updates:
-            existente.save(update_fields=updates)
+        # No reubicar categorías ajenas (evita arrastrar otros gastos a Veraz).
+        # Solo alinear fecha si ya está en la categoría correcta del mapa.
+        if existente.categoria_id == categoria.id:
+            ft = getattr(movimiento, 'fecha_transferencia', None)
+            if ft and existente.fecha != ft:
+                existente.fecha = ft
+                existente.save(update_fields=['fecha'])
         return existente
 
     desc = (descripcion or '').strip()
@@ -442,11 +457,56 @@ def vincular_movimiento_concepto_a_gasto_oficina(
     return gasto
 
 
+def _limpiar_gastos_mapeados_incorrectos(sucursal, fecha_desde, fecha_hasta):
+    """
+    Borra GastoOficina auto-vinculados bajo categorías del mapa (ej. Veraz)
+    cuyo movimiento ya no califica con el criterio estricto.
+    """
+    if not sucursal or not fecha_desde or not fecha_hasta:
+        return 0
+    borrados = 0
+    rutas = set(MAPA_CONCEPTOS_CAJA_A_OFICINA.values()) | set(
+        MAPA_NOMBRE_CONCEPTO_A_OFICINA.values()
+    )
+    for raiz_n, sub_n in rutas:
+        cat = resolver_categoria_oficina_por_ruta(sucursal, raiz_n, sub_n)
+        if not cat:
+            continue
+        qs = (
+            GastoOficina.objects.filter(
+                sucursal=sucursal,
+                categoria=cat,
+                fecha__gte=fecha_desde,
+                fecha__lte=fecha_hasta,
+                movimiento_caja__isnull=False,
+            )
+            .select_related('movimiento_caja')
+        )
+        for gasto in qs.iterator(chunk_size=100):
+            mov = gasto.movimiento_caja
+            if not mov:
+                continue
+            ruta_ok = _ruta_oficina_desde_movimiento_caja(mov)
+            if ruta_ok and _norm_nombre_cat(ruta_ok[0]) == _norm_nombre_cat(raiz_n) and _norm_nombre_cat(
+                ruta_ok[1]
+            ) == _norm_nombre_cat(sub_n):
+                continue
+            # No es Veraz (u otro mapeado): no debe estar en esta categoría.
+            pareja_ids = list(
+                GastoOficina.objects.filter(gasto_relacionado_id=gasto.id).values_list(
+                    'id', flat=True
+                )
+            )
+            GastoOficina.objects.filter(id__in=[gasto.id, *pareja_ids]).delete()
+            borrados += 1
+    return borrados
+
+
 def sincronizar_gastos_oficina_desde_conceptos_caja(sucursal, fecha_desde, fecha_hasta):
     """
     Backfill: movimientos de caja del período con conceptos mapeados (ej. veraz/130)
-    → crea o reubica GastoOficina para el cierre.
-    Busca en concepto y concepto_detalle; el período mira fecha de caja o fecha banco.
+    → crea GastoOficina para el cierre.
+    Busca id en concepto y nombre (veraz) en concepto/detalle; no usa '130' suelto en JSON.
     """
     from django.db.models import Q
     from django.db.models.functions import Coalesce, TruncDate
@@ -460,16 +520,26 @@ def sincronizar_gastos_oficina_desde_conceptos_caja(sucursal, fecha_desde, fecha
     if not ids and not nombres:
         return 0
 
+    try:
+        _limpiar_gastos_mapeados_incorrectos(sucursal, fecha_desde, fecha_hasta)
+    except Exception:
+        pass
+
     q_concepto = Q()
     for cid in ids:
         q_concepto |= Q(concepto__startswith=f'{cid} —')
         q_concepto |= Q(concepto__startswith=f'{cid} -')
         q_concepto |= Q(concepto=cid)
         q_concepto |= Q(concepto__startswith=f'{cid} ')
-        q_concepto |= Q(concepto_detalle__icontains=cid)
+        # No buscar el id numérico dentro de concepto_detalle (falsos positivos masivos).
     for nom in nombres:
         q_concepto |= Q(concepto__icontains=nom)
         q_concepto |= Q(concepto_detalle__icontains=nom)
+
+    ya_vinculados = GastoOficina.objects.filter(
+        movimiento_caja__isnull=False,
+        movimiento_caja__sucursal=sucursal,
+    ).values_list('movimiento_caja_id', flat=True)
 
     qs = (
         MovimientoCaja.objects.filter(
@@ -484,6 +554,7 @@ def sincronizar_gastos_oficina_desde_conceptos_caja(sucursal, fecha_desde, fecha
             fecha_cierre__gte=fecha_desde,
             fecha_cierre__lte=fecha_hasta,
         )
+        .exclude(id__in=ya_vinculados)
         .distinct()
     )
     creados = 0
