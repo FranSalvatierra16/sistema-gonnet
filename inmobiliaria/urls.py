@@ -226,6 +226,11 @@ urlpatterns = [
         name='operaciones_venta_detalle',
     ),
     path(
+        'ventas/cerradas/<int:operacion_id>/editar/',
+        views_ventas.operaciones_venta_editar,
+        name='operaciones_venta_editar',
+    ),
+    path(
         'ventas/cerradas/<int:operacion_id>/anular/',
         views_ventas.operaciones_venta_anular,
         name='operaciones_venta_anular',

@@ -33,13 +33,13 @@
         </div>
         <div class="col-md-3">
             <div class="border rounded p-2 bg-white">
-                <div class="small text-muted">Honorarios (USD)</div>
+                <div class="small text-muted">Honorarios oficina (USD)</div>
                 <div class="fs-5 fw-bold">U$S {{ total_honorarios_usd|format_price }}</div>
             </div>
         </div>
         <div class="col-md-3">
             <div class="border rounded p-2 bg-white">
-                <div class="small text-muted">Honorarios (ARS)</div>
+                <div class="small text-muted">Honorarios oficina (ARS)</div>
                 <div class="fs-5 fw-bold text-success">${{ total_honorarios|format_price }}</div>
             </div>
         </div>
@@ -74,9 +74,9 @@
                         <th>Propiedad</th>
                         <th>Vendedor</th>
                         <th class="text-end">Precio USD</th>
-                        <th class="text-end">Honorarios USD</th>
+                        <th class="text-end">Hon. of. USD</th>
                         <th class="text-end">Cotiz.</th>
-                        <th class="text-end">Honorarios ARS</th>
+                        <th class="text-end">Hon. of. ARS</th>
                         <th>Estado</th>
                         <th></th>
                     </tr>
@@ -107,6 +107,11 @@
                         </td>
                         <td class="text-end text-nowrap">
                             <a href="{% url 'inmobiliaria:operaciones_venta_detalle' op.id %}" class="btn btn-outline-primary btn-sm">Ver</a>
+                            {% if op.estado == 'confirmada' %}
+                            <a href="{% url 'inmobiliaria:operaciones_venta_editar' op.id %}" class="btn btn-outline-warning btn-sm" title="Editar">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            {% endif %}
                             <form method="post" action="{% url 'inmobiliaria:operaciones_venta_eliminar' op.id %}"
                                   class="d-inline"
                                   onsubmit="return confirm('¿Eliminar la venta #{{ op.id }}? Se borran las comisiones asociadas (si no están pagadas).');">

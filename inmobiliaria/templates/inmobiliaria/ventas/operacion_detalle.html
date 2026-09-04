@@ -64,11 +64,8 @@
         </div>
         <div class="col-md-3">
             <div class="border rounded p-3 bg-white h-100">
-                <div class="small text-muted">Honorarios (USD)</div>
+                <div class="small text-muted">Honorarios oficina (USD)</div>
                 <div class="fs-5 fw-bold">U$S {{ operacion.honorarios_usd|format_price }}</div>
-                {% if operacion.gastos_escritura_usd %}
-                <div class="small text-muted mt-1">Escritura: U$S {{ operacion.gastos_escritura_usd|format_price }}</div>
-                {% endif %}
             </div>
         </div>
         <div class="col-md-3">
@@ -80,9 +77,9 @@
         </div>
         <div class="col-md-3">
             <div class="border rounded p-3 bg-white h-100">
-                <div class="small text-muted">Honorarios (ARS)</div>
+                <div class="small text-muted">Honorarios oficina (ARS)</div>
                 <div class="fs-5 fw-bold text-success">${{ operacion.honorarios_ars|format_price }}</div>
-                <div class="small text-muted mt-1">comisión al vendedor</div>
+                <div class="small text-muted mt-1">ingreso oficina / libro</div>
             </div>
         </div>
     </div>
@@ -133,10 +130,13 @@
 
     {% if operacion.estado == 'confirmada' %}
     <div class="d-flex flex-wrap gap-2">
+        <a href="{% url 'inmobiliaria:operaciones_venta_editar' operacion.id %}" class="btn btn-outline-warning btn-sm">
+            <i class="fas fa-edit me-1"></i>Editar venta
+        </a>
         <form method="post" action="{% url 'inmobiliaria:operaciones_venta_anular' operacion.id %}"
               onsubmit="return confirm('¿Anular esta venta? La comisión se cancela si no estaba pagada.');">
             {% csrf_token %}
-            <button type="submit" class="btn btn-outline-warning btn-sm">Anular venta</button>
+            <button type="submit" class="btn btn-outline-secondary btn-sm">Anular venta</button>
         </form>
         <form method="post" action="{% url 'inmobiliaria:operaciones_venta_eliminar' operacion.id %}"
               onsubmit="return confirm('¿Eliminar definitivamente la venta #{{ operacion.id }}? Se borran las comisiones asociadas.');">

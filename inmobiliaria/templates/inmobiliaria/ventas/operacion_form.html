@@ -1,17 +1,25 @@
 {% extends 'inmobiliaria/base.html' %}
 {% load custom_filters %}
 
-{% block title %}Registrar venta{% endblock %}
+{% block title %}{% if modo == 'editar' %}Editar venta #{{ operacion.id }}{% else %}Registrar venta{% endif %}{% endblock %}
 
 {% block content %}
 <div class="container mt-3" style="max-width: 720px;">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
+            {% if modo == 'editar' %}
+            <h1 class="h4 mb-1"><i class="fas fa-edit text-warning me-2"></i>Editar venta #{{ operacion.id }}</h1>
+            <p class="text-muted small mb-0">Modificá lo que haga falta; al guardar se actualizan las comisiones con la fecha de venta.</p>
+            {% else %}
             <h1 class="h4 mb-1"><i class="fas fa-file-signature text-success me-2"></i>Registrar venta</h1>
             <p class="text-muted small mb-0">Precio en dólares; la comisión de cada uno la cargás en pesos. Se refleja en el libro del depto.</p>
+            {% endif %}
         </div>
         <div class="d-flex gap-2">
             <a href="{% url 'inmobiliaria:oficina_dashboard' %}" class="btn btn-outline-secondary btn-sm">Panel oficina</a>
+            {% if modo == 'editar' %}
+            <a href="{% url 'inmobiliaria:operaciones_venta_detalle' operacion.id %}" class="btn btn-outline-secondary btn-sm">Detalle</a>
+            {% endif %}
             <a href="{% url 'inmobiliaria:operaciones_venta_lista' %}" class="btn btn-outline-secondary btn-sm">Volver</a>
         </div>
     </div>
@@ -38,7 +46,7 @@
                     {% if propiedad.propietario %}
                     <span class="text-muted">· {{ propiedad.propietario }}</span>
                     {% endif %}
-                    <a href="{% url 'inmobiliaria:operaciones_venta_nueva' %}" class="ms-2">Cambiar</a>
+                    <a href="#" class="ms-2" id="btn_cambiar_propiedad">Cambiar</a>
                 </div>
                 {% else %}
                 <div class="form-text">Empezá a escribir; se busca como en caja.</div>
@@ -99,13 +107,13 @@
                     </div>
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label" for="gastos_escritura_usd">Gastos de escritura (USD)</label>
+                    <label class="form-label" for="honorarios_usd">Honorarios oficina (USD)</label>
                     <div class="input-group">
                         <span class="input-group-text">U$S</span>
-                        <input type="text" class="form-control text-end" name="gastos_escritura_usd" id="gastos_escritura_usd"
-                               value="{{ form.gastos_escritura_usd }}" inputmode="decimal" placeholder="0,00">
+                        <input type="text" class="form-control text-end" name="honorarios_usd" id="honorarios_usd"
+                               value="{{ form.honorarios_usd }}" inputmode="decimal" placeholder="0,00">
                     </div>
-                    <div class="form-text">Se carga en el libro del depto.</div>
+                    <div class="form-text">Lo que cobra la oficina; va al libro del depto.</div>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label" for="cotizacion_dolar">Cotización (pesos por USD) *</label>
@@ -114,13 +122,21 @@
                         <input type="text" class="form-control text-end" name="cotizacion_dolar" id="cotizacion_dolar"
                                value="{{ form.cotizacion_dolar }}" required inputmode="decimal" placeholder="ej. 1400">
                     </div>
-                    <div class="form-text">La elegís vos; convierte el total de comisiones a dólares para el libro.</div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label" for="honorarios_ars">Honorarios oficina (ARS)</label>
+                    <div class="input-group">
+                        <span class="input-group-text">$</span>
+                        <input type="text" class="form-control text-end" name="honorarios_ars" id="honorarios_ars"
+                               value="{{ form.honorarios_ars }}" inputmode="decimal" placeholder="0,00">
+                    </div>
+                    <div class="form-text">Podés cargarlo a mano; si dejás vacío se calcula USD × cotización.</div>
                 </div>
             </div>
 
             <hr class="my-4">
-            <h2 class="h6 text-uppercase text-muted">Comisiones en pesos</h2>
-            <p class="text-muted small">Indicá cuánto le corresponde a cada uno. El total de productores se guarda también en dólares (÷ cotización) para el libro.</p>
+            <h2 class="h6 text-uppercase text-muted">Comisiones de productores</h2>
+            <p class="text-muted small">Indicá cuánto le corresponde a cada productor / fichaje en pesos. Es independiente de los honorarios de oficina.</p>
 
             <div class="card border-success mb-3">
                 <div class="card-header bg-success bg-opacity-10 py-2">
@@ -164,28 +180,6 @@
                 </div>
             </div>
 
-            <input type="hidden" name="honorarios_usd" id="honorarios_usd" value="{{ form.honorarios_usd }}">
-
-            <div class="row g-3 mb-3">
-                <div class="col-md-6">
-                    <label class="form-label">Honorarios productores (USD) — libro</label>
-                    <div class="input-group">
-                        <span class="input-group-text">U$S</span>
-                        <input type="text" class="form-control text-end" id="honorarios_usd_ref" readonly value="—"
-                               style="background:#f8f9fa;">
-                    </div>
-                    <div class="form-text">Suma de comisiones de productores ÷ cotización.</div>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Honorarios productores (ARS)</label>
-                    <div class="input-group">
-                        <span class="input-group-text">$</span>
-                        <input type="text" class="form-control text-end" id="honorarios_ars_ref" readonly value="—"
-                               style="background:#f8f9fa;">
-                    </div>
-                </div>
-            </div>
-
             <hr class="my-4">
             <div class="mb-3">
                 <label class="form-label" for="comprador_nombre">Comprador</label>
@@ -201,8 +195,13 @@
             </div>
         </div>
         <div class="card-footer bg-white d-flex justify-content-end gap-2">
+            {% if modo == 'editar' %}
+            <a href="{% url 'inmobiliaria:operaciones_venta_detalle' operacion.id %}" class="btn btn-outline-secondary">Cancelar</a>
+            <button type="submit" class="btn btn-warning"><i class="fas fa-save me-1"></i>Guardar cambios</button>
+            {% else %}
             <a href="{% url 'inmobiliaria:operaciones_venta_lista' %}" class="btn btn-outline-secondary">Cancelar</a>
             <button type="submit" class="btn btn-success"><i class="fas fa-save me-1"></i>Guardar venta</button>
+            {% endif %}
         </div>
     </form>
 </div>
@@ -271,9 +270,6 @@
         if (!items.length && !fichId) {
             tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">Marcá al menos un productor.</td></tr>';
             tfoot.style.display = 'none';
-            document.getElementById('honorarios_usd').value = '';
-            document.getElementById('honorarios_usd_ref').value = '—';
-            document.getElementById('honorarios_ars_ref').value = '—';
             return;
         }
 
@@ -334,10 +330,6 @@
             document.getElementById('tot_fich_usd').textContent = cot > 0 ? ('U$S ' + fmt(round2(fichArs / cot))) : '—';
             document.getElementById('tot_all_ars').textContent = '$' + fmt(totAllArs);
             document.getElementById('tot_all_usd').textContent = cot > 0 ? ('U$S ' + fmt(totAllUsd)) : '—';
-
-            document.getElementById('honorarios_usd').value = cot > 0 ? fmt(totProdUsd) : '';
-            document.getElementById('honorarios_usd_ref').value = cot > 0 ? fmt(totProdUsd) : '—';
-            document.getElementById('honorarios_ars_ref').value = fmt(totProdArs);
             tfoot.style.display = '';
         }
 
@@ -347,11 +339,37 @@
         actualizarEquiv();
     }
 
+    var honorariosArsManual = false;
+    function syncHonorariosOficinaArs() {
+        var arsEl = document.getElementById('honorarios_ars');
+        var usdEl = document.getElementById('honorarios_usd');
+        var cotEl = document.getElementById('cotizacion_dolar');
+        if (!arsEl || !usdEl || !cotEl) return;
+        if (honorariosArsManual && String(arsEl.value || '').trim() !== '') return;
+        var usd = parseNum(usdEl.value);
+        var cot = parseNum(cotEl.value);
+        if (cot > 0 && usd > 0 && document.activeElement !== arsEl) {
+            arsEl.value = fmt(round2(usd * cot));
+        }
+    }
+
     document.querySelectorAll('.vendedor-check').forEach(function(c) {
         c.addEventListener('change', recalc);
     });
     var cotEl = document.getElementById('cotizacion_dolar');
-    if (cotEl) cotEl.addEventListener('input', recalc);
+    if (cotEl) cotEl.addEventListener('input', function() {
+        syncHonorariosOficinaArs();
+        recalc();
+    });
+    var honUsd = document.getElementById('honorarios_usd');
+    if (honUsd) honUsd.addEventListener('input', function() {
+        honorariosArsManual = false;
+        syncHonorariosOficinaArs();
+    });
+    var honArs = document.getElementById('honorarios_ars');
+    if (honArs) honArs.addEventListener('input', function() {
+        honorariosArsManual = true;
+    });
     var fichaje = document.getElementById('fichado_por_id');
     if (fichaje) fichaje.addEventListener('change', recalc);
 
@@ -366,6 +384,8 @@
         });
     }
 
+    if (honArs && String(honArs.value || '').trim()) honorariosArsManual = true;
+    syncHonorariosOficinaArs();
     recalc();
 
     function pisoDepto(p) {
@@ -391,7 +411,13 @@
     var $dd = $('#dropdown_propiedades');
     var $fichaje = $('#fichado_por_id');
     var timer = null;
-    if ($buscar.prop('readonly')) return;
+
+    $('#btn_cambiar_propiedad').on('click', function(e) {
+        e.preventDefault();
+        $buscar.prop('readonly', false).val('').focus();
+        $hidden.val('');
+        $(this).closest('.form-text').hide();
+    });
 
     function render(props) {
         $dd.empty();
@@ -418,6 +444,7 @@
     }
 
     $buscar.on('input', function() {
+        if ($buscar.prop('readonly')) return;
         var t = $buscar.val().trim();
         $hidden.val('');
         clearTimeout(timer);
