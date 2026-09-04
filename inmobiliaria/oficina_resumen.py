@@ -83,13 +83,15 @@ def _totales_comisiones_vendedor(sucursal, fecha_desde, fecha_hasta):
 def _etiqueta_ingreso_desde_fila_honorario(fila):
     """
     Asigna una fila de honorarios a la subcategoría de Ingresos del cierre.
+    Fondo y cochera no van acá: el fondo va a «Recaudación fondos».
     Tasación / Gastos bancarios / Honorarios Marbella quedan para carga manual.
     """
     tipo = (fila.get('tipo') or '').strip()
     cat = (fila.get('categoria_operacion') or '').strip().lower()
 
+    # Fondo → Recaudación fondos; cochera no es ingreso de comisión de oficina.
     if tipo in ('fondo', 'cochera'):
-        return ETIQUETA_GESTION_COB
+        return None
 
     if tipo not in ('comision', 'comisiones_locador_locatario'):
         return None
@@ -164,9 +166,16 @@ def _honorarios_ventas_cerradas(sucursal, fecha_desde, fecha_hasta):
 
 
 def _honorarios_por_etiqueta(sucursal, fecha_desde, fecha_hasta):
+    """
+    Totales de comisiones de oficina por etiqueta de Ingresos, más fondo/cochera
+    (para Recaudación fondos y usos auxiliares).
+    Retorna ``(mapa_ingresos, total_fondo, total_cochera)``.
+    """
     try:
         filas = _filas_honorarios_para_cierre(sucursal, fecha_desde, fecha_hasta)
         totales = defaultdict(lambda: Decimal('0'))
+        total_fondo = Decimal('0')
+        total_cochera = Decimal('0')
         ops_comision_contrato = {
             (f.get('operacion_kind'), f.get('operacion_pk'))
             for f in filas
@@ -175,21 +184,28 @@ def _honorarios_por_etiqueta(sucursal, fecha_desde, fecha_hasta):
             and f.get('operacion_pk')
         }
         for f in filas:
-            etiqueta = _etiqueta_ingreso_desde_fila_honorario(f)
-            if not etiqueta:
-                continue
-            # Contratos: inmobiliaria ya es locador+locatario; no contar las dos.
-            if (
-                f.get('tipo') == 'comisiones_locador_locatario'
-                and f.get('operacion_kind') == 'contrato'
-                and (f.get('operacion_kind'), f.get('operacion_pk')) in ops_comision_contrato
-            ):
-                continue
             try:
                 monto = Decimal(str(f.get('monto') or 0))
             except Exception:
                 continue
             if monto == 0:
+                continue
+            tipo = (f.get('tipo') or '').strip()
+            if tipo == 'fondo':
+                total_fondo += monto
+                continue
+            if tipo == 'cochera':
+                total_cochera += monto
+                continue
+            etiqueta = _etiqueta_ingreso_desde_fila_honorario(f)
+            if not etiqueta:
+                continue
+            # Contratos: inmobiliaria ya es locador+locatario; no contar las dos.
+            if (
+                tipo == 'comisiones_locador_locatario'
+                and f.get('operacion_kind') == 'contrato'
+                and (f.get('operacion_kind'), f.get('operacion_pk')) in ops_comision_contrato
+            ):
                 continue
             totales[etiqueta] += monto
 
@@ -198,7 +214,9 @@ def _honorarios_por_etiqueta(sucursal, fecha_desde, fecha_hasta):
         if ventas_ars:
             totales[ETIQUETA_COMISION_VENTAS] += ventas_ars
 
-        return dict(totales)
+        return dict(totales), total_fondo.quantize(Decimal('0.01')), total_cochera.quantize(
+            Decimal('0.01')
+        )
     except Exception:
         logger.exception(
             'resumen_cierre: falló honorarios (sucursal_id=%s, %s-%02d)',
@@ -206,7 +224,7 @@ def _honorarios_por_etiqueta(sucursal, fecha_desde, fecha_hasta):
             fecha_desde.year if fecha_desde else '?',
             fecha_desde.month if fecha_desde else 0,
         )
-        return {}
+        return {}, Decimal('0'), Decimal('0')
 
 
 def _monto_honorarios_etiqueta(honorarios_map, nombre_categoria):
@@ -303,15 +321,32 @@ def _saldo_cierre_dptos_tomados(sucursal, fecha_desde, fecha_hasta):
     return tot_saldo.quantize(Decimal('0.01'))
 
 
-def _bloque_extension_suma(raiz, totales_por_cat, titulo=None):
+def _bloque_extension_suma(raiz, totales_por_cat, titulo=None, extras_por_nombre=None):
     """Filas con monto absoluto (ingresos/egresos de extensión)."""
+    extras_por_nombre = extras_por_nombre or {}
     filas = []
     for hijo in _hijos_activos(raiz):
         monto = _monto_absoluto_cat(totales_por_cat, hijo.id)
+        extra = Decimal('0')
+        clave = _norm_nombre_cat(hijo.nombre)
+        for nombre_extra, monto_extra in extras_por_nombre.items():
+            if _norm_nombre_cat(nombre_extra) == clave:
+                extra = Decimal(str(monto_extra or 0))
+                break
+        monto = (monto + extra).quantize(Decimal('0.01'))
         filas.append({'nombre': hijo.nombre, 'monto': monto, 'signo': 1})
     if not filas and not raiz.subcategorias.exists():
         monto = _monto_absoluto_cat(totales_por_cat, raiz.id)
         filas.append({'nombre': raiz.nombre, 'monto': monto, 'signo': 1})
+    # Si no hay subcategoría «Fondo mantenimiento» pero sí hay total de honorarios, forzar fila.
+    usados = {_norm_nombre_cat(f['nombre']) for f in filas}
+    for nombre_extra, monto_extra in extras_por_nombre.items():
+        monto_e = Decimal(str(monto_extra or 0))
+        if monto_e == 0:
+            continue
+        if _norm_nombre_cat(nombre_extra) in usados:
+            continue
+        filas.append({'nombre': nombre_extra, 'monto': monto_e, 'signo': 1})
     total = sum((f['monto'] for f in filas), Decimal('0'))
     return {
         'titulo': (titulo or raiz.nombre or '').upper(),
@@ -374,7 +409,9 @@ def construir_resumen_cierre(sucursal, anio, mes):
             getattr(sucursal, 'pk', None),
         )
         comisiones_pagadas = {}
-    honorarios_map = _honorarios_por_etiqueta(sucursal, fecha_desde, fecha_hasta)
+    honorarios_map, total_fondo_mant, _total_cochera = _honorarios_por_etiqueta(
+        sucursal, fecha_desde, fecha_hasta
+    )
 
     vendedores_map = {
         v.id: v
@@ -404,7 +441,12 @@ def construir_resumen_cierre(sucursal, anio, mes):
         if nombre_raiz_es_extension_cierre(nombre_raiz):
             if nombre_norm == 'recaudacion fondos':
                 bloque_recaudacion = _bloque_extension_suma(
-                    raiz, totales_por_cat, titulo='RECAUDACIÓN FONDOS'
+                    raiz,
+                    totales_por_cat,
+                    titulo='RECAUDACIÓN FONDOS',
+                    extras_por_nombre={
+                        'Fondo mantenimiento': total_fondo_mant,
+                    },
                 )
             elif nombre_norm in ('cierre dptos. tomados', 'cierre dptos tomados'):
                 bloque = _bloque_extension_suma(
@@ -484,10 +526,17 @@ def construir_resumen_cierre(sucursal, anio, mes):
 
     # Fallbacks si aún no se sincronizó el árbol de extensión.
     if bloque_recaudacion is None:
+        filas_fondo = []
+        if total_fondo_mant:
+            filas_fondo.append({
+                'nombre': 'Fondo mantenimiento',
+                'monto': total_fondo_mant,
+                'signo': 1,
+            })
         bloque_recaudacion = {
             'titulo': 'RECAUDACIÓN FONDOS',
-            'filas': [],
-            'total': Decimal('0'),
+            'filas': filas_fondo,
+            'total': total_fondo_mant,
         }
     if bloque_cierre_tomados is None:
         auto = _saldo_cierre_dptos_tomados(sucursal, fecha_desde, fecha_hasta)
