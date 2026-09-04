@@ -140,13 +140,14 @@ def _norm_nombre_cat(nombre):
 # id de Concepto → (raíz oficina, subcategoría).
 MAPA_CONCEPTOS_CAJA_A_OFICINA = {
     '130': ('Gastos generales', 'Veraz'),
-    '22': ('Ingresos', 'Gastos bancarios'),
+    # Concepto 22 de caja → Bancos en egresos del cierre (no Ingresos › Gastos bancarios).
+    '22': ('Gastos generales', 'Bancos'),
 }
 
 # Por nombre normalizado del concepto (por si el id difiere entre ambientes).
 MAPA_NOMBRE_CONCEPTO_A_OFICINA = {
     'veraz': ('Gastos generales', 'Veraz'),
-    'gastos bancarios': ('Ingresos', 'Gastos bancarios'),
+    'gastos bancarios': ('Gastos generales', 'Bancos'),
 }
 
 
@@ -459,6 +460,49 @@ def vincular_movimiento_concepto_a_gasto_oficina(
     return gasto
 
 
+def _reubicar_gastos_bancarios_mal_categorizados(sucursal, fecha_desde, fecha_hasta):
+    """
+    Movimientos concepto 22 / gastos bancarios que quedaron en
+    Ingresos › Gastos bancarios → pasar a Gastos generales › Bancos (cierre).
+    """
+    if not sucursal or not fecha_desde or not fecha_hasta:
+        return 0
+    cat_destino = resolver_categoria_oficina_por_ruta(
+        sucursal, 'Gastos generales', 'Bancos'
+    )
+    if not cat_destino:
+        return 0
+    cat_origen_ids = list(
+        CategoriaGastoOficina.objects.filter(
+            sucursal=sucursal,
+            activa=True,
+            parent__nombre__iexact='Ingresos',
+            nombre__iexact='Gastos bancarios',
+        ).values_list('id', flat=True)
+    )
+    if not cat_origen_ids:
+        return 0
+    qs = GastoOficina.objects.filter(
+        sucursal=sucursal,
+        categoria_id__in=cat_origen_ids,
+        fecha__gte=fecha_desde,
+        fecha__lte=fecha_hasta,
+        movimiento_caja__isnull=False,
+    ).select_related('movimiento_caja')
+    movidos = 0
+    for gasto in qs.iterator(chunk_size=100):
+        obs = (gasto.observaciones or '')
+        # Solo los auto-vinculados desde caja (concepto 22); lo manual en Ingresos se deja.
+        if 'Vinculado automáticamente' not in obs:
+            continue
+        if gasto.categoria_id == cat_destino.id:
+            continue
+        gasto.categoria = cat_destino
+        gasto.save(update_fields=['categoria'])
+        movidos += 1
+    return movidos
+
+
 def _limpiar_gastos_mapeados_incorrectos(sucursal, fecha_desde, fecha_hasta):
     """
     Resetea categorías del mapa (ej. Veraz): borra todo GastoOficina del período
@@ -625,6 +669,10 @@ def sincronizar_gastos_oficina_desde_conceptos_caja(sucursal, fecha_desde, fecha
     if not ids and not nombres:
         return 0
 
+    try:
+        _reubicar_gastos_bancarios_mal_categorizados(sucursal, fecha_desde, fecha_hasta)
+    except Exception:
+        pass
     try:
         _limpiar_gastos_mapeados_incorrectos(sucursal, fecha_desde, fecha_hasta)
     except Exception:

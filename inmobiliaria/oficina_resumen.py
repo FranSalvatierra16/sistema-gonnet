@@ -401,14 +401,33 @@ def construir_resumen_cierre(sucursal, anio, mes):
             getattr(sucursal, 'pk', None),
         )
     totales_por_cat = _totales_gastos_por_categoria_ids(gastos_qs)
-    # Veraz / Gastos bancarios (y mapeados): neto desde concepto de caja + cargas manuales de oficina.
+    # Veraz / Bancos (concepto 22): neto desde caja + cargas manuales.
+    # Ingresos › Gastos bancarios queda para carga manual de oficina (no se pisa).
     try:
         from inmobiliaria.oficina_gastos import (
             MAPA_CONCEPTOS_CAJA_A_OFICINA,
             MAPA_NOMBRE_CONCEPTO_A_OFICINA,
             _neto_gastos_oficina_desde_caja_mapeada,
             _norm_nombre_cat as _norm_of,
+            _reubicar_gastos_bancarios_mal_categorizados,
         )
+
+        try:
+            _reubicar_gastos_bancarios_mal_categorizados(
+                sucursal, fecha_desde, fecha_hasta
+            )
+            # Releer totales tras reubicar.
+            gastos_qs = GastoOficina.objects.filter(
+                sucursal=sucursal,
+                fecha__gte=fecha_desde,
+                fecha__lte=fecha_hasta,
+            )
+            totales_por_cat = _totales_gastos_por_categoria_ids(gastos_qs)
+        except Exception:
+            logger.exception(
+                'resumen_cierre: falló reubicar gastos bancarios (sucursal_id=%s)',
+                getattr(sucursal, 'pk', None),
+            )
 
         netos_mapa = _neto_gastos_oficina_desde_caja_mapeada(
             sucursal, fecha_desde, fecha_hasta
@@ -429,7 +448,6 @@ def construir_resumen_cierre(sucursal, anio, mes):
                 totales_por_cat[cat.id] = Decimal('0')
         for cat_id, neto in netos_mapa.items():
             totales_por_cat[cat_id] = neto
-        # Sumar lo cargado a mano en oficina (sin movimiento de caja), p.ej. Gastos bancarios.
         if cats_mapeadas_ids:
             for row in (
                 GastoOficina.objects.filter(
