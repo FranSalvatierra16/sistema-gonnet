@@ -142,12 +142,26 @@ MAPA_CONCEPTOS_CAJA_A_OFICINA = {
     '130': ('Gastos generales', 'Veraz'),
     # Concepto 22 de caja → Ingresos › Gastos bancarios (combinado con carga manual de oficina).
     '22': ('Ingresos', 'Gastos bancarios'),
+    # Concepto 24: ingresos y egresos de caja → Recaudación fondos.
+    '24': ('Recaudación fondos', 'Ingreso boletas desc. dep. gtia'),
 }
 
 # Por nombre normalizado del concepto (por si el id difiere entre ambientes).
 MAPA_NOMBRE_CONCEPTO_A_OFICINA = {
     'veraz': ('Gastos generales', 'Veraz'),
     'gastos bancarios': ('Ingresos', 'Gastos bancarios'),
+    'ingreso boletas desc. dep. gtia': (
+        'Recaudación fondos',
+        'Ingreso boletas desc. dep. gtia',
+    ),
+    'boletas desc. dep. gtia': (
+        'Recaudación fondos',
+        'Ingreso boletas desc. dep. gtia',
+    ),
+    'boletas desc dep gtia': (
+        'Recaudación fondos',
+        'Ingreso boletas desc. dep. gtia',
+    ),
 }
 
 

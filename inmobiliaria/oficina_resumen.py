@@ -244,6 +244,16 @@ def _monto_absoluto_cat(totales_por_cat, cat_id):
     return abs(totales_por_cat.get(cat_id, Decimal('0')) or Decimal('0'))
 
 
+def _monto_firmado_ingreso_extension(totales_por_cat, cat_id):
+    """
+    En extensión (Recaudación), los ingresos se guardan negativos.
+    Devuelve ingresos − egresos (positivo si entró más de lo que salió).
+    """
+    return (-(totales_por_cat.get(cat_id, Decimal('0')) or Decimal('0'))).quantize(
+        Decimal('0.01')
+    )
+
+
 def _hijos_activos(raiz):
     hijos = [h for h in raiz.subcategorias.all() if h.activa]
     hijos.sort(key=lambda x: (x.orden, x.nombre))
@@ -321,12 +331,17 @@ def _saldo_cierre_dptos_tomados(sucursal, fecha_desde, fecha_hasta):
     return tot_saldo.quantize(Decimal('0.01'))
 
 
-def _bloque_extension_suma(raiz, totales_por_cat, titulo=None, extras_por_nombre=None):
-    """Filas con monto absoluto (ingresos/egresos de extensión)."""
+def _bloque_extension_suma(
+    raiz, totales_por_cat, titulo=None, extras_por_nombre=None, firmar_ingresos=False,
+):
+    """Filas con monto de extensión (abs, o firmado ingresos−egresos si firmar_ingresos)."""
     extras_por_nombre = extras_por_nombre or {}
+    _monto_fn = (
+        _monto_firmado_ingreso_extension if firmar_ingresos else _monto_absoluto_cat
+    )
     filas = []
     for hijo in _hijos_activos(raiz):
-        monto = _monto_absoluto_cat(totales_por_cat, hijo.id)
+        monto = _monto_fn(totales_por_cat, hijo.id)
         extra = Decimal('0')
         clave = _norm_nombre_cat(hijo.nombre)
         for nombre_extra, monto_extra in extras_por_nombre.items():
@@ -336,7 +351,7 @@ def _bloque_extension_suma(raiz, totales_por_cat, titulo=None, extras_por_nombre
         monto = (monto + extra).quantize(Decimal('0.01'))
         filas.append({'nombre': hijo.nombre, 'monto': monto, 'signo': 1})
     if not filas and not raiz.subcategorias.exists():
-        monto = _monto_absoluto_cat(totales_por_cat, raiz.id)
+        monto = _monto_fn(totales_por_cat, raiz.id)
         filas.append({'nombre': raiz.nombre, 'monto': monto, 'signo': 1})
     # Si no hay subcategoría «Fondo mantenimiento» pero sí hay total de honorarios, forzar fila.
     usados = {_norm_nombre_cat(f['nombre']) for f in filas}
@@ -401,7 +416,7 @@ def construir_resumen_cierre(sucursal, anio, mes):
             getattr(sucursal, 'pk', None),
         )
     totales_por_cat = _totales_gastos_por_categoria_ids(gastos_qs)
-    # Veraz / Gastos bancarios (concepto 22): neto desde caja + cargas manuales de oficina.
+    # Veraz / Gastos bancarios (22) / boletas dep. gtia (24): neto caja + cargas manuales.
     try:
         from inmobiliaria.oficina_gastos import (
             MAPA_CONCEPTOS_CAJA_A_OFICINA,
@@ -516,6 +531,7 @@ def construir_resumen_cierre(sucursal, anio, mes):
                     extras_por_nombre={
                         'Fondo mantenimiento': total_fondo_mant,
                     },
+                    firmar_ingresos=True,
                 )
             elif nombre_norm in ('cierre dptos. tomados', 'cierre dptos tomados'):
                 bloque = _bloque_extension_suma(
