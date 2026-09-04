@@ -140,14 +140,14 @@ def _norm_nombre_cat(nombre):
 # id de Concepto → (raíz oficina, subcategoría).
 MAPA_CONCEPTOS_CAJA_A_OFICINA = {
     '130': ('Gastos generales', 'Veraz'),
-    # Concepto 22 de caja → Bancos en egresos del cierre (no Ingresos › Gastos bancarios).
-    '22': ('Gastos generales', 'Bancos'),
+    # Concepto 22 de caja → Ingresos › Gastos bancarios (combinado con carga manual de oficina).
+    '22': ('Ingresos', 'Gastos bancarios'),
 }
 
 # Por nombre normalizado del concepto (por si el id difiere entre ambientes).
 MAPA_NOMBRE_CONCEPTO_A_OFICINA = {
     'veraz': ('Gastos generales', 'Veraz'),
-    'gastos bancarios': ('Gastos generales', 'Bancos'),
+    'gastos bancarios': ('Ingresos', 'Gastos bancarios'),
 }
 
 
@@ -462,13 +462,13 @@ def vincular_movimiento_concepto_a_gasto_oficina(
 
 def _reubicar_gastos_bancarios_mal_categorizados(sucursal, fecha_desde, fecha_hasta):
     """
-    Movimientos concepto 22 / gastos bancarios que quedaron en
-    Ingresos › Gastos bancarios → pasar a Gastos generales › Bancos (cierre).
+    Auto-vinculados del concepto 22 que quedaron en Gastos generales › Bancos
+    (mapeo viejo) → Ingresos › Gastos bancarios.
     """
     if not sucursal or not fecha_desde or not fecha_hasta:
         return 0
     cat_destino = resolver_categoria_oficina_por_ruta(
-        sucursal, 'Gastos generales', 'Bancos'
+        sucursal, 'Ingresos', 'Gastos bancarios'
     )
     if not cat_destino:
         return 0
@@ -476,8 +476,8 @@ def _reubicar_gastos_bancarios_mal_categorizados(sucursal, fecha_desde, fecha_ha
         CategoriaGastoOficina.objects.filter(
             sucursal=sucursal,
             activa=True,
-            parent__nombre__iexact='Ingresos',
-            nombre__iexact='Gastos bancarios',
+            parent__nombre__iexact='Gastos generales',
+            nombre__iexact='Bancos',
         ).values_list('id', flat=True)
     )
     if not cat_origen_ids:
@@ -488,11 +488,10 @@ def _reubicar_gastos_bancarios_mal_categorizados(sucursal, fecha_desde, fecha_ha
         fecha__gte=fecha_desde,
         fecha__lte=fecha_hasta,
         movimiento_caja__isnull=False,
-    ).select_related('movimiento_caja')
+    )
     movidos = 0
     for gasto in qs.iterator(chunk_size=100):
         obs = (gasto.observaciones or '')
-        # Solo los auto-vinculados desde caja (concepto 22); lo manual en Ingresos se deja.
         if 'Vinculado automáticamente' not in obs:
             continue
         if gasto.categoria_id == cat_destino.id:
