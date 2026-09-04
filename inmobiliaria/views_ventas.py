@@ -542,8 +542,12 @@ def _crear_comisiones_venta(op, vendedores_sel):
 
     fichado = op.fichado_por
     if fichado and honorarios_ars_total > 0:
-        tipo = getattr(op.propiedad, 'tipo_fichaje', None) or 'primer'
-        pct_f = porcentaje_fichaje_vendedor(fichado, tipo_fichaje=tipo)
+        pct_f = getattr(fichado, 'comision_fichaje_venta', None)
+        if pct_f is None:
+            tipo = getattr(op.propiedad, 'tipo_fichaje', None) or 'primer'
+            pct_f = porcentaje_fichaje_vendedor(fichado, tipo_fichaje=tipo)
+        else:
+            pct_f = Decimal(str(pct_f))
         if pct_f and pct_f > 0:
             monto_f = (honorarios_ars_total * pct_f / Decimal('100')).quantize(
                 Decimal('0.01'), rounding=ROUND_HALF_UP

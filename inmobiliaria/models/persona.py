@@ -251,7 +251,15 @@ class Vendedor(AbstractUser):
         null=True,
         blank=True,
         verbose_name='Comisión por venta de propiedad (%)',
-        help_text='Peso relativo al repartir honorarios de una venta. Si hay varios productores, se divide según estos %.',
+        help_text='Porcentaje sobre el valor de venta (USD). Si hay varios productores, cada uno cobra su %.',
+    )
+    comision_fichaje_venta = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name='Comisión fichaje de venta (%)',
+        help_text='Porcentaje sobre los honorarios de productores de la venta (quien fichó la propiedad).',
     )
     celular = models.CharField(max_length=20, blank=True)
     nivel = models.IntegerField(choices=NIVELES_VENDEDOR, default=1, help_text="Nivel del vendedor para determinar sus permisos")

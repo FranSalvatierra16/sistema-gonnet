@@ -81,14 +81,14 @@
                     <option value="" data-pct-fichaje="0">— Sin fichaje —</option>
                     {% for v in vendedores %}
                     <option value="{{ v.id }}"
-                            data-pct-fichaje="{% if v.comision_primer_fichaje is not None %}{{ v.comision_primer_fichaje }}{% else %}0{% endif %}"
+                            data-pct-fichaje="{% if v.comision_fichaje_venta is not None %}{{ v.comision_fichaje_venta }}{% elif v.comision_primer_fichaje is not None %}{{ v.comision_primer_fichaje }}{% else %}0{% endif %}"
                             {% if form.fichado_por_id == v.id|stringformat:"s" %}selected{% endif %}>
                         {{ v.apellido }}, {{ v.nombre }}
-                        {% if v.comision_primer_fichaje is not None %} (fichaje {{ v.comision_primer_fichaje|floatformat:2 }}%){% endif %}
+                        {% if v.comision_fichaje_venta is not None %} (fichaje venta {{ v.comision_fichaje_venta|floatformat:2 }}%){% elif v.comision_primer_fichaje is not None %} (fichaje {{ v.comision_primer_fichaje|floatformat:2 }}%){% endif %}
                     </option>
                     {% endfor %}
                 </select>
-                <div class="form-text">Quien fichó la propiedad. Si tiene % de fichaje, se genera comisión aparte sobre los honorarios de productores.</div>
+                <div class="form-text">Quien fichó la propiedad. Usa el % de fichaje de venta del perfil; si no está cargado, el fichaje por día. Se calcula sobre honorarios de productores.</div>
             </div>
 
             <hr class="my-4">
