@@ -62,33 +62,18 @@ def _totales_gastos_por_categoria_ids(gastos_qs):
 
 def _totales_comisiones_vendedor(sucursal, fecha_desde, fecha_hasta):
     """
-    Comisiones a egresar en el mes por vendedor.
-
-    - Alquileres / resto: solo ``pagada`` (cuando se liquida al vendedor).
-    - Ventas cerradas: también ``confirmada`` (se acreditan al registrar la venta),
-      más fichaje de venta (sin reserva/contrato).
+    Totales del mes por vendedor, misma base que el resumen mensual del productor:
+    comisiones visibles en historial (confirmadas/pagadas/pendientes de carátula, + ventas).
     """
-    from inmobiliaria.models.comision import ROL_COMISION_FICHAJE, ROL_COMISION_VENTA
+    from inmobiliaria.models.comision import q_comision_operacion_de_sucursal
 
-    base = ComisionVendedor.objects.filter(
-        vendedor__sucursal=sucursal,
-        fecha_operacion__date__gte=fecha_desde,
-        fecha_operacion__date__lte=fecha_hasta,
-    )
-    qs_ventas_confirmadas = Q(estado='confirmada') & (
-        Q(rol_comision=ROL_COMISION_VENTA)
-        | (
-            Q(rol_comision=ROL_COMISION_FICHAJE)
-            & Q(reserva_id__isnull=True)
-            & Q(contrato_id__isnull=True)
-            & (
-                Q(concepto_operacion__icontains='venta')
-                | Q(observaciones__icontains='venta')
-            )
-        )
-    )
     qs = (
-        base.filter(Q(estado='pagada') | qs_ventas_confirmadas)
+        ComisionVendedor.objects.filter(
+            fecha_operacion__date__gte=fecha_desde,
+            fecha_operacion__date__lte=fecha_hasta,
+        )
+        .filter(q_comision_operacion_de_sucursal(sucursal))
+        .visibles_en_historial()
         .values('vendedor_id')
         .annotate(total=Sum('monto_comision'))
     )
@@ -469,9 +454,12 @@ def construir_resumen_cierre(sucursal, anio, mes):
         filas = []
         hijos = _hijos_activos(raiz)
         for hijo in hijos:
-            monto = totales_por_cat.get(hijo.id, Decimal('0'))
             if nombre_raiz == 'Comisiones vendedores' and hijo.vendedor_id:
-                monto += comisiones_pagadas.get(hijo.vendedor_id, Decimal('0'))
+                # Solo ComisionVendedor (igual que el historial del productor).
+                # No sumar GastoOficina de esa categoría: suele ser el mismo egreso duplicado.
+                monto = comisiones_pagadas.get(hijo.vendedor_id, Decimal('0'))
+            else:
+                monto = totales_por_cat.get(hijo.id, Decimal('0'))
             # Incluir netos ≠ 0 (ej. Veraz con egresos e ingresos de caja).
             if monto != 0:
                 filas.append({'nombre': hijo.nombre, 'monto': monto})
