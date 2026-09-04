@@ -13,6 +13,7 @@ from inmobiliaria.models import (
     Disponibilidad,
     GastoOficina,
     LiquidacionPropietario,
+    OperacionVenta,
     Vendedor,
 )
 from inmobiliaria.oficina_gastos import (
@@ -141,6 +142,22 @@ def _filas_honorarios_para_cierre(sucursal, fecha_desde, fecha_hasta):
     )
 
 
+def _honorarios_ventas_cerradas(sucursal, fecha_desde, fecha_hasta):
+    """Honorarios ARS de ventas cerradas confirmadas en el mes (fecha de venta)."""
+    if not sucursal or not fecha_desde or not fecha_hasta:
+        return Decimal('0')
+    total = (
+        OperacionVenta.objects.filter(
+            sucursal=sucursal,
+            estado='confirmada',
+            fecha_venta__gte=fecha_desde,
+            fecha_venta__lte=fecha_hasta,
+        ).aggregate(t=Sum('honorarios_ars'))['t']
+        or Decimal('0')
+    )
+    return Decimal(str(total))
+
+
 def _honorarios_por_etiqueta(sucursal, fecha_desde, fecha_hasta):
     try:
         filas = _filas_honorarios_para_cierre(sucursal, fecha_desde, fecha_hasta)
@@ -170,6 +187,12 @@ def _honorarios_por_etiqueta(sucursal, fecha_desde, fecha_hasta):
             if monto == 0:
                 continue
             totales[etiqueta] += monto
+
+        # Ventas cerradas (OperacionVenta): honorarios en pesos → Comisión por ventas
+        ventas_ars = _honorarios_ventas_cerradas(sucursal, fecha_desde, fecha_hasta)
+        if ventas_ars:
+            totales[ETIQUETA_COMISION_VENTAS] += ventas_ars
+
         return dict(totales)
     except Exception:
         logger.exception(
@@ -179,6 +202,19 @@ def _honorarios_por_etiqueta(sucursal, fecha_desde, fecha_hasta):
             fecha_desde.month if fecha_desde else 0,
         )
         return {}
+
+
+def _monto_honorarios_etiqueta(honorarios_map, nombre_categoria):
+    """Busca monto por nombre exacto o normalizado (ej. Comisión por ventas)."""
+    if not honorarios_map:
+        return Decimal('0')
+    if nombre_categoria in honorarios_map:
+        return honorarios_map.get(nombre_categoria) or Decimal('0')
+    clave = _norm_nombre_cat(nombre_categoria)
+    for k, v in honorarios_map.items():
+        if _norm_nombre_cat(k) == clave:
+            return v or Decimal('0')
+    return Decimal('0')
 
 
 def _monto_absoluto_cat(totales_por_cat, cat_id):
@@ -394,7 +430,7 @@ def construir_resumen_cierre(sucursal, anio, mes):
             hijos = _hijos_activos(raiz)
             for hijo in hijos:
                 monto_gasto = totales_por_cat.get(hijo.id, Decimal('0'))
-                monto_hon = honorarios_map.get(hijo.nombre, Decimal('0'))
+                monto_hon = _monto_honorarios_etiqueta(honorarios_map, hijo.nombre)
                 monto = monto_hon
                 if monto_gasto < 0:
                     monto += abs(monto_gasto)
