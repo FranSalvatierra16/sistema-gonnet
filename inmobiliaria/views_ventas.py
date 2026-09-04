@@ -760,32 +760,35 @@ def _crear_comisiones_venta(op, partes_ars, monto_fichaje_ars=None):
     Crea comisiones con los montos ARS cargados a mano en el formulario.
     ``partes_ars``: lista de (vendedor, monto_ars).
     No modifica honorarios de oficina de la operación (van aparte).
+    El % guardado es (monto comisión / honorarios oficina ARS) × 100.
     """
     partes_ars = [(v, Decimal(str(m or 0))) for v, m in (partes_ars or [])]
-    honorarios_ars_total = sum((m for _v, m in partes_ars), Decimal('0')).quantize(
+    cot = Decimal(str(op.cotizacion_dolar or 0))
+    honorarios_base = Decimal(str(op.honorarios_ars or 0)).quantize(
         Decimal('0.01'), rounding=ROUND_HALF_UP
     )
-    cot = Decimal(str(op.cotizacion_dolar or 0))
 
-    precio_ars = (op.precio_usd * cot).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP) if cot else Decimal('0')
     dt = _fecha_operacion_aware(op.fecha_venta)
     estado_com = _estado_comision_venta(op.fecha_venta)
     dir_prop = (op.propiedad.direccion or '').strip() or f'#{op.propiedad_id}'
     creadas = []
 
+    def _pct_sobre_honorarios(monto):
+        if honorarios_base <= 0 or monto <= 0:
+            return Decimal('0')
+        return ((monto / honorarios_base) * Decimal('100')).quantize(
+            Decimal('0.01'), rounding=ROUND_HALF_UP
+        )
+
     for vend, monto in partes_ars:
         if monto <= 0:
             continue
         usd_parte = (monto / cot).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP) if cot else Decimal('0')
-        pct_comision = Decimal('0')
-        if precio_ars > 0:
-            pct_comision = ((monto / precio_ars) * Decimal('100')).quantize(
-                Decimal('0.01'), rounding=ROUND_HALF_UP
-            )
+        pct_comision = _pct_sobre_honorarios(monto)
         creadas.append(
             ComisionVendedor.objects.create(
                 vendedor=vend,
-                monto_total_operacion=precio_ars,
+                monto_total_operacion=honorarios_base or monto,
                 porcentaje_comision=pct_comision,
                 monto_comision=monto,
                 concepto_operacion=(
@@ -797,7 +800,8 @@ def _crear_comisiones_venta(op, partes_ars, monto_fichaje_ars=None):
                 estado=estado_com,
                 observaciones=(
                     f'Operación venta #{op.pk}. Comisión cargada: ${monto} ARS '
-                    f'(equiv. U$S {usd_parte} @ cotiz. {op.cotizacion_dolar}).'
+                    f'(equiv. U$S {usd_parte} @ cotiz. {op.cotizacion_dolar}; '
+                    f'{pct_comision}% de honorarios oficina ${honorarios_base}).'
                 ),
             )
         )
@@ -808,15 +812,11 @@ def _crear_comisiones_venta(op, partes_ars, monto_fichaje_ars=None):
     fichado = op.fichado_por
     if fichado and monto_f > 0:
         usd_f = (monto_f / cot).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP) if cot else Decimal('0')
-        pct_f = Decimal('0')
-        if honorarios_ars_total > 0:
-            pct_f = ((monto_f / honorarios_ars_total) * Decimal('100')).quantize(
-                Decimal('0.01'), rounding=ROUND_HALF_UP
-            )
+        pct_f = _pct_sobre_honorarios(monto_f)
         creadas.append(
             ComisionVendedor.objects.create(
                 vendedor=fichado,
-                monto_total_operacion=honorarios_ars_total or monto_f,
+                monto_total_operacion=honorarios_base or monto_f,
                 porcentaje_comision=pct_f,
                 monto_comision=monto_f,
                 concepto_operacion=(
@@ -827,7 +827,7 @@ def _crear_comisiones_venta(op, partes_ars, monto_fichaje_ars=None):
                 estado=estado_com,
                 observaciones=(
                     f'Operación venta #{op.pk}. Fichaje cargado: ${monto_f} ARS '
-                    f'(equiv. U$S {usd_f}).'
+                    f'(equiv. U$S {usd_f}; {pct_f}% de honorarios oficina ${honorarios_base}).'
                 ),
             )
         )
