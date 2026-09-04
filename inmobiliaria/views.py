@@ -5311,7 +5311,7 @@ def listado_salidas(request):
         contratos = ContratoAlquiler.objects.filter(
             sucursal=request.user.sucursal,
             fecha_fin=fecha_obj,
-        ).exclude(estado='reservado').select_related(
+        ).exclude(estado__in=['reservado', 'rescindido']).select_related(
             'inquilino', 'propiedad__propietario', 'vendedor'
         ).order_by('fecha_fin', 'id')
         if tipo_filtro == 'invierno':
