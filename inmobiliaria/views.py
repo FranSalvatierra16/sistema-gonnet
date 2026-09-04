@@ -800,6 +800,8 @@ def resumen_comisiones_mensual(request, vendedor_id, anio=None, mes=None):
             '24meses': 'por_24_meses',
             '24': 'por_24_meses',
             'por_24_meses': 'por_24_meses',
+            'venta': 'por_venta',
+            'por_venta': 'por_venta',
         }
         tipo_filtro = tipo_mapa.get(tipo_raw, '')
         if tipo_filtro:

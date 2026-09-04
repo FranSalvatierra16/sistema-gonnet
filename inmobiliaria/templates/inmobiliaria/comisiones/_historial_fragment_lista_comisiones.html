@@ -67,6 +67,9 @@
                                 <button type="button" class="nav-link rounded-pill px-3 py-2 comision-filtro-pill" data-cat="por_24_meses">24 meses</button>
                             </li>
                             <li class="nav-item me-1 mb-1">
+                                <button type="button" class="nav-link rounded-pill px-3 py-2 comision-filtro-pill" data-cat="por_venta">Por venta</button>
+                            </li>
+                            <li class="nav-item me-1 mb-1">
                                 <button type="button" class="nav-link rounded-pill px-3 py-2 comision-filtro-pill" data-cat="devolucion">Devoluciones</button>
                             </li>
                         </ul>
@@ -119,6 +122,8 @@
                                                 {{ comision.reserva.propiedad.direccion }}
                                             {% elif comision.contrato and comision.contrato.propiedad %}
                                                 {{ comision.contrato.propiedad.direccion }}
+                                            {% elif comision.propiedad_listado %}
+                                                {{ comision.propiedad_listado.direccion }}
                                             {% else %}
                                                 <span class="text-muted">N/A</span>
                                             {% endif %}

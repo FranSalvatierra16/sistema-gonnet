@@ -12,7 +12,7 @@
             <p class="text-muted small mb-0">Modificá lo que haga falta; al guardar se actualizan las comisiones con la fecha de venta.</p>
             {% else %}
             <h1 class="h4 mb-1"><i class="fas fa-file-signature text-success me-2"></i>Registrar venta</h1>
-            <p class="text-muted small mb-0">Precio en dólares; la comisión de cada uno la cargás en pesos. Se refleja en el libro del depto.</p>
+            <p class="text-muted small mb-0">Precio y comisiones en dólares; con la cotización pasan a pesos. Se refleja en el libro del depto.</p>
             {% endif %}
         </div>
         <div class="d-flex gap-2">
@@ -78,7 +78,7 @@
                     <div class="text-muted small">No hay vendedores activos en la sucursal.</div>
                     {% endfor %}
                 </div>
-                <div class="form-text">Marcá quiénes intervienen; abajo cargás cuánto le corresponde a cada uno en pesos.</div>
+                <div class="form-text">Marcá quiénes intervienen; abajo cargás la comisión de cada uno en USD.</div>
             </div>
 
             <div class="mb-3">
@@ -136,7 +136,7 @@
 
             <hr class="my-4">
             <h2 class="h6 text-uppercase text-muted">Comisiones de productores</h2>
-            <p class="text-muted small">Indicá cuánto le corresponde a cada productor / fichaje en pesos. Es independiente de los honorarios de oficina.</p>
+            <p class="text-muted small">Cargá la comisión en USD; se pasa a pesos con la cotización. Independiente de los honorarios de oficina.</p>
 
             <div class="card border-success mb-3">
                 <div class="card-header bg-success bg-opacity-10 py-2">
@@ -149,8 +149,8 @@
                                 <tr>
                                     <th>Quién</th>
                                     <th>Rol</th>
-                                    <th class="text-end" style="min-width: 9rem;">Comisión $ ARS</th>
-                                    <th class="text-end">Equiv. U$S</th>
+                                    <th class="text-end" style="min-width: 9rem;">Comisión U$S</th>
+                                    <th class="text-end">Equiv. $ ARS</th>
                                 </tr>
                             </thead>
                             <tbody id="tabla_montos_body">
@@ -161,18 +161,18 @@
                             <tfoot class="table-light" id="tabla_montos_foot" style="display:none;">
                                 <tr class="fw-semibold">
                                     <td colspan="2" class="text-end">Total productores</td>
-                                    <td class="text-end text-success" id="tot_prod_ars">—</td>
                                     <td class="text-end" id="tot_prod_usd">—</td>
+                                    <td class="text-end text-success" id="tot_prod_ars">—</td>
                                 </tr>
                                 <tr>
                                     <td colspan="2" class="text-end text-muted">+ Fichaje</td>
-                                    <td class="text-end" id="tot_fich_ars">—</td>
                                     <td class="text-end" id="tot_fich_usd">—</td>
+                                    <td class="text-end" id="tot_fich_ars">—</td>
                                 </tr>
                                 <tr class="fw-semibold">
                                     <td colspan="2" class="text-end">Total comisiones</td>
-                                    <td class="text-end text-success" id="tot_all_ars">—</td>
                                     <td class="text-end" id="tot_all_usd">—</td>
+                                    <td class="text-end text-success" id="tot_all_ars">—</td>
                                 </tr>
                             </tfoot>
                         </table>
@@ -208,8 +208,8 @@
 
 <script>
 (function() {
-    var montosPrevios = {{ form.comisiones_ars_json|safe }};
-    var montoFichajePrev = {{ form.comision_fichaje_ars_json|safe }};
+    var montosPrevios = {{ form.comisiones_usd_json|safe }};
+    var montoFichajePrev = {{ form.comision_fichaje_usd_json|safe }};
 
     function parseNum(v) {
         if (!v) return 0;
@@ -258,12 +258,11 @@
             fichNombre = (fichSel.options[fichSel.selectedIndex].textContent || '').trim();
         }
 
-        // Guardar montos actuales antes de re-render
         items.forEach(function(x) {
-            var el = document.getElementById('comision_ars_' + x.id);
+            var el = document.getElementById('comision_usd_' + x.id);
             if (el) montosPrevios[String(x.id)] = el.value;
         });
-        var fichEl = document.getElementById('comision_fichaje_ars');
+        var fichEl = document.getElementById('comision_fichaje_usd');
         if (fichEl) montoFichajePrev = fichEl.value;
 
         tbody.innerHTML = '';
@@ -273,7 +272,6 @@
             return;
         }
 
-        var totProdArs = 0;
         items.forEach(function(x) {
             var prev = montosPrevios[String(x.id)] != null ? montosPrevios[String(x.id)] : '';
             var tr = document.createElement('tr');
@@ -282,11 +280,11 @@
                 '<td><span class="badge bg-primary">Productor</span></td>' +
                 '<td class="text-end">' +
                     '<div class="input-group input-group-sm justify-content-end">' +
-                    '<span class="input-group-text">$</span>' +
-                    '<input type="text" class="form-control text-end monto-prod" name="comision_ars_' + x.id + '" ' +
-                    'id="comision_ars_' + x.id + '" value="' + esc(prev) + '" inputmode="decimal" placeholder="0,00" style="max-width:9rem;">' +
+                    '<span class="input-group-text">U$S</span>' +
+                    '<input type="text" class="form-control text-end monto-prod" name="comision_usd_' + x.id + '" ' +
+                    'id="comision_usd_' + x.id + '" value="' + esc(prev) + '" inputmode="decimal" placeholder="0,00" style="max-width:9rem;">' +
                     '</div></td>' +
-                '<td class="text-end equiv-usd text-muted" data-for="' + x.id + '">—</td>';
+                '<td class="text-end equiv-ars text-success fw-semibold" data-for="' + x.id + '">—</td>';
             tbody.appendChild(tr);
         });
 
@@ -297,39 +295,41 @@
                 '<td><span class="badge bg-info text-dark">Fichaje</span></td>' +
                 '<td class="text-end">' +
                     '<div class="input-group input-group-sm justify-content-end">' +
-                    '<span class="input-group-text">$</span>' +
-                    '<input type="text" class="form-control text-end" name="comision_fichaje_ars" ' +
-                    'id="comision_fichaje_ars" value="' + esc(montoFichajePrev || '') + '" inputmode="decimal" placeholder="0,00" style="max-width:9rem;">' +
+                    '<span class="input-group-text">U$S</span>' +
+                    '<input type="text" class="form-control text-end" name="comision_fichaje_usd" ' +
+                    'id="comision_fichaje_usd" value="' + esc(montoFichajePrev || '') + '" inputmode="decimal" placeholder="0,00" style="max-width:9rem;">' +
                     '</div></td>' +
-                '<td class="text-end equiv-usd-fich text-muted">—</td>';
+                '<td class="text-end equiv-ars-fich text-success fw-semibold">—</td>';
             tbody.appendChild(trF);
         }
 
         function actualizarEquiv() {
-            totProdArs = 0;
+            var totProdUsd = 0;
             items.forEach(function(x) {
-                var ars = leerMontoInput('comision_ars_' + x.id);
-                totProdArs = round2(totProdArs + ars);
-                var cell = tbody.querySelector('.equiv-usd[data-for="' + x.id + '"]');
+                var usd = leerMontoInput('comision_usd_' + x.id);
+                totProdUsd = round2(totProdUsd + usd);
+                var ars = cot > 0 ? round2(usd * cot) : 0;
+                var cell = tbody.querySelector('.equiv-ars[data-for="' + x.id + '"]');
                 if (cell) {
-                    cell.textContent = cot > 0 ? ('U$S ' + fmt(round2(ars / cot))) : '—';
+                    cell.textContent = cot > 0 ? ('$' + fmt(ars)) : '—';
                 }
             });
-            var fichArs = fichId ? leerMontoInput('comision_fichaje_ars') : 0;
-            var fichCell = tbody.querySelector('.equiv-usd-fich');
+            var fichUsd = fichId ? leerMontoInput('comision_fichaje_usd') : 0;
+            var fichArs = cot > 0 ? round2(fichUsd * cot) : 0;
+            var fichCell = tbody.querySelector('.equiv-ars-fich');
             if (fichCell) {
-                fichCell.textContent = cot > 0 ? ('U$S ' + fmt(round2(fichArs / cot))) : '—';
+                fichCell.textContent = cot > 0 ? ('$' + fmt(fichArs)) : '—';
             }
-            var totProdUsd = cot > 0 ? round2(totProdArs / cot) : 0;
-            var totAllArs = round2(totProdArs + fichArs);
-            var totAllUsd = cot > 0 ? round2(totAllArs / cot) : 0;
+            var totProdArs = cot > 0 ? round2(totProdUsd * cot) : 0;
+            var totAllUsd = round2(totProdUsd + fichUsd);
+            var totAllArs = cot > 0 ? round2(totAllUsd * cot) : 0;
 
-            document.getElementById('tot_prod_ars').textContent = '$' + fmt(totProdArs);
-            document.getElementById('tot_prod_usd').textContent = cot > 0 ? ('U$S ' + fmt(totProdUsd)) : '—';
-            document.getElementById('tot_fich_ars').textContent = '$' + fmt(fichArs);
-            document.getElementById('tot_fich_usd').textContent = cot > 0 ? ('U$S ' + fmt(round2(fichArs / cot))) : '—';
-            document.getElementById('tot_all_ars').textContent = '$' + fmt(totAllArs);
-            document.getElementById('tot_all_usd').textContent = cot > 0 ? ('U$S ' + fmt(totAllUsd)) : '—';
+            document.getElementById('tot_prod_usd').textContent = 'U$S ' + fmt(totProdUsd);
+            document.getElementById('tot_prod_ars').textContent = cot > 0 ? ('$' + fmt(totProdArs)) : '—';
+            document.getElementById('tot_fich_usd').textContent = 'U$S ' + fmt(fichUsd);
+            document.getElementById('tot_fich_ars').textContent = cot > 0 ? ('$' + fmt(fichArs)) : '—';
+            document.getElementById('tot_all_usd').textContent = 'U$S ' + fmt(totAllUsd);
+            document.getElementById('tot_all_ars').textContent = cot > 0 ? ('$' + fmt(totAllArs)) : '—';
             tfoot.style.display = '';
         }
 

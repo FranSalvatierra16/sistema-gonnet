@@ -83,15 +83,29 @@ def _partir_montos(total, n):
     return partes
 
 
-def _leer_montos_comision_post(request, vendedores_sel):
-    """Montos ARS cargados a mano en el form: productores + fichaje."""
+def _leer_montos_comision_post(request, vendedores_sel, cotizacion):
+    """
+    Montos en USD cargados en el form → se pasan a ARS con la cotización.
+    Devuelve partes (vendedor, monto_ars, raw_usd), monto_fichaje_ars, raw_fichaje_usd.
+    """
+    cotizacion = Decimal(str(cotizacion or 0))
     partes = []
     for vend in vendedores_sel:
-        raw = (request.POST.get(f'comision_ars_{vend.id}') or '').strip()
-        monto = _parse_decimal(raw).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-        partes.append((vend, monto, raw))
-    fichaje_raw = (request.POST.get('comision_fichaje_ars') or '').strip()
-    fichaje_monto = _parse_decimal(fichaje_raw).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        raw = (request.POST.get(f'comision_usd_{vend.id}') or '').strip()
+        usd = _parse_decimal(raw).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        if cotizacion > 0 and usd > 0:
+            monto_ars = (usd * cotizacion).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        else:
+            monto_ars = Decimal('0')
+        partes.append((vend, monto_ars, raw))
+    fichaje_raw = (request.POST.get('comision_fichaje_usd') or '').strip()
+    fichaje_usd = _parse_decimal(fichaje_raw).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    if cotizacion > 0 and fichaje_usd > 0:
+        fichaje_monto = (fichaje_usd * cotizacion).quantize(
+            Decimal('0.01'), rounding=ROUND_HALF_UP
+        )
+    else:
+        fichaje_monto = Decimal('0')
     return partes, fichaje_monto, fichaje_raw
 
 
@@ -165,14 +179,19 @@ def _fmt_decimal_form(val):
 def _form_data_desde_operacion(op):
     """Arma el dict del formulario a partir de una venta existente."""
     vend_ids = [str(v.id) for v in op.lista_vendedores()]
-    comisiones_ars = {}
-    comision_fichaje_ars = ''
+    comisiones_usd = {}
+    comision_fichaje_usd = ''
+    cot = Decimal(str(op.cotizacion_dolar or 0))
     for c in _comisiones_de_venta(op).exclude(estado='cancelada').select_related('vendedor'):
-        monto_txt = _fmt_decimal_form(c.monto_comision)
-        if c.rol_comision == ROL_COMISION_FICHAJE:
-            comision_fichaje_ars = monto_txt
+        ars = Decimal(str(c.monto_comision or 0))
+        if cot > 0 and ars > 0:
+            usd_txt = _fmt_decimal_form(ars / cot)
         else:
-            comisiones_ars[str(c.vendedor_id)] = monto_txt
+            usd_txt = _fmt_decimal_form(0)
+        if c.rol_comision == ROL_COMISION_FICHAJE:
+            comision_fichaje_usd = usd_txt
+        else:
+            comisiones_usd[str(c.vendedor_id)] = usd_txt
     return {
         'fecha_venta': op.fecha_venta.isoformat() if op.fecha_venta else '',
         'precio_usd': _fmt_decimal_form(op.precio_usd),
@@ -185,8 +204,8 @@ def _form_data_desde_operacion(op):
         'escribania': op.escribania or '',
         'observaciones': op.observaciones or '',
         'propiedad_buscar': _etiqueta_propiedad(op.propiedad),
-        'comisiones_ars': comisiones_ars,
-        'comision_fichaje_ars': comision_fichaje_ars,
+        'comisiones_usd': comisiones_usd,
+        'comision_fichaje_usd': comision_fichaje_usd,
     }
 
 
@@ -250,10 +269,10 @@ def _parsear_post_venta(request, form_data, vendedores, sucursal):
         fichado_por = vendedores.filter(pk=int(form_data['fichado_por_id'])).first()
 
     partes_ars, monto_fichaje_ars, fichaje_raw = _leer_montos_comision_post(
-        request, vendedores_sel
+        request, vendedores_sel, cotizacion
     )
-    form_data['comisiones_ars'] = {str(v.id): raw for v, _m, raw in partes_ars}
-    form_data['comision_fichaje_ars'] = fichaje_raw
+    form_data['comisiones_usd'] = {str(v.id): raw for v, _m, raw in partes_ars}
+    form_data['comision_fichaje_usd'] = fichaje_raw
 
     for vend, monto, _raw in partes_ars:
         if monto < 0:
@@ -263,7 +282,7 @@ def _parsear_post_venta(request, form_data, vendedores, sucursal):
     if monto_fichaje_ars < 0:
         errores.append('La comisión de fichaje no puede ser negativa.')
     if fichado_por and monto_fichaje_ars <= 0:
-        errores.append('Indicá el monto en pesos de la comisión de fichaje.')
+        errores.append('Indicá el monto en USD de la comisión de fichaje.')
     if not fichado_por and monto_fichaje_ars > 0:
         errores.append('Seleccioná quién hizo el fichaje o dejá el monto en 0.')
 
@@ -271,7 +290,7 @@ def _parsear_post_venta(request, form_data, vendedores, sucursal):
         Decimal('0.01'), rounding=ROUND_HALF_UP
     )
     if total_comisiones_prod <= 0 and not errores:
-        errores.append('Cargá al menos una comisión de productor en pesos.')
+        errores.append('Cargá al menos una comisión de productor en USD.')
 
     return errores, {
         'propiedad': propiedad,
@@ -289,9 +308,9 @@ def _parsear_post_venta(request, form_data, vendedores, sucursal):
 
 
 def _aplicar_json_form(form_data):
-    form_data['comisiones_ars_json'] = _json_safe(form_data.get('comisiones_ars') or {})
-    form_data['comision_fichaje_ars_json'] = _json_safe(
-        form_data.get('comision_fichaje_ars') or ''
+    form_data['comisiones_usd_json'] = _json_safe(form_data.get('comisiones_usd') or {})
+    form_data['comision_fichaje_usd_json'] = _json_safe(
+        form_data.get('comision_fichaje_usd') or ''
     )
     return form_data
 
@@ -347,8 +366,8 @@ def operaciones_venta_nueva(request):
         'escribania': '',
         'observaciones': '',
         'propiedad_buscar': '',
-        'comisiones_ars': {},
-        'comision_fichaje_ars': '',
+        'comisiones_usd': {},
+        'comision_fichaje_usd': '',
     }
     if propiedad_pre:
         form_data['propiedad_buscar'] = _etiqueta_propiedad(propiedad_pre)
@@ -380,7 +399,7 @@ def operaciones_venta_nueva(request):
             'escribania': (request.POST.get('escribania') or '').strip(),
             'observaciones': (request.POST.get('observaciones') or '').strip(),
             'propiedad_buscar': (request.POST.get('propiedad_buscar') or '').strip(),
-            'comision_fichaje_ars': (request.POST.get('comision_fichaje_ars') or '').strip(),
+            'comision_fichaje_usd': (request.POST.get('comision_fichaje_usd') or '').strip(),
         })
         errores, datos = _parsear_post_venta(request, form_data, vendedores, sucursal)
         if errores:
@@ -505,7 +524,7 @@ def operaciones_venta_editar(request, operacion_id):
             'escribania': (request.POST.get('escribania') or '').strip(),
             'observaciones': (request.POST.get('observaciones') or '').strip(),
             'propiedad_buscar': (request.POST.get('propiedad_buscar') or '').strip(),
-            'comision_fichaje_ars': (request.POST.get('comision_fichaje_ars') or '').strip(),
+            'comision_fichaje_usd': (request.POST.get('comision_fichaje_usd') or '').strip(),
         })
         errores, datos = _parsear_post_venta(request, form_data, vendedores, sucursal)
         if errores:

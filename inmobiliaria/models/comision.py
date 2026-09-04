@@ -2332,13 +2332,25 @@ class ComisionVendedor(models.Model):
     def clasificacion_listado(self):
         """
         Retorna (categoria, subtipo) para badges y agrupación.
-        categoria (filtro): por_dia | por_invierno | por_24_meses | operacion
+        categoria (filtro): por_dia | por_invierno | por_24_meses | por_venta | operacion
         (las devoluciones usan la categoría del tipo de operación original)
-        subtipo: primer | segundo | None  (si es línea de fichaje, va en la categoría del tipo de op.)
+        subtipo: primer | segundo | fichaje_venta | None
         """
         rol = self._rol_comision_normalizado()
         if rol == ROL_COMISION_REVERSION:
             return (self._categoria_filtro_de_reversion(), None)
+        if rol == ROL_COMISION_VENTA:
+            return ('por_venta', None)
+        # Fichaje de venta (sin reserva/contrato): va al filtro «Por venta».
+        if (
+            rol == ROL_COMISION_FICHAJE
+            and not self.reserva_id
+            and not getattr(self, 'contrato_id', None)
+        ):
+            concepto_l = (self.concepto_operacion or '').lower()
+            obs_l = (self.observaciones or '').lower()
+            if 'venta' in concepto_l or 'operación venta' in obs_l or 'operacion venta' in obs_l:
+                return ('por_venta', 'fichaje_venta')
         if rol == ROL_COMISION_OP_DIA:
             return ('por_dia', None)
         if rol == ROL_COMISION_OP_INVIERNO:
@@ -2361,6 +2373,14 @@ class ComisionVendedor(models.Model):
                 return self._categoria_filtro_fichaje(sub if kind == 'fichaje' else None)
             if cat:
                 return (cat, None)
+            # Venta histórica sin rol específico
+            concepto_l = (self.concepto_operacion or '').lower()
+            if (
+                not self.reserva_id
+                and not getattr(self, 'contrato_id', None)
+                and ('venta propiedad' in concepto_l or 'fichaje venta' in concepto_l)
+            ):
+                return ('por_venta', None)
             return ('operacion', None)
         cat = self._categoria_desde_reserva_o_contrato()
         if not cat:
@@ -2372,6 +2392,13 @@ class ComisionVendedor(models.Model):
             return self._categoria_filtro_fichaje(sub if kind == 'fichaje' else None)
         if cat:
             return (cat, None)
+        concepto_l = (self.concepto_operacion or '').lower()
+        if (
+            not self.reserva_id
+            and not getattr(self, 'contrato_id', None)
+            and ('venta propiedad' in concepto_l or 'fichaje venta' in concepto_l)
+        ):
+            return ('por_venta', None)
         return ('operacion', None)
 
     @property
@@ -2380,7 +2407,7 @@ class ComisionVendedor(models.Model):
 
     @property
     def categoria_comision_filtro(self):
-        """Clave para filtrar en listados: por_dia | por_invierno | por_24_meses | operacion."""
+        """Clave para filtrar: por_dia | por_invierno | por_24_meses | por_venta | operacion."""
         cat, _ = self.clasificacion_listado()
         return cat
 
@@ -2391,13 +2418,22 @@ class ComisionVendedor(models.Model):
             return f'm:{self.movimiento_caja_id}'
         if getattr(self, 'contrato_id', None):
             return f'c:{self.contrato_id}'
-        return f'r:{self.reserva_id or 0}'
+        if self.reserva_id:
+            return f'r:{self.reserva_id}'
+        obs = self.observaciones or ''
+        import re
+        m = re.search(r'Operaci[oó]n venta #(\d+)', obs, re.IGNORECASE)
+        if m:
+            return f'v:{m.group(1)}'
+        return f'cision:{self.pk}'
 
     def texto_categoria_comision_badge(self):
         # Devoluciones: badge rojo «Devolución»; el filtro usa el tipo (día/invierno/24).
         if self.es_devolucion_anulacion:
             return 'Devolución'
         cat, sub = self.clasificacion_listado()
+        if sub == 'fichaje_venta':
+            return 'Por venta'
         # Línea de fichaje: badge «Por fichaje»; el filtro usa cat (día / 24 / invierno).
         if sub in ('primer', 'segundo'):
             return 'Por fichaje'
@@ -2405,6 +2441,7 @@ class ComisionVendedor(models.Model):
             'por_dia': 'Por día',
             'por_invierno': 'Por invierno',
             'por_24_meses': 'Por 24 meses',
+            'por_venta': 'Por venta',
             'operacion': 'Operación',
         }.get(cat, 'Operación')
 
@@ -2414,18 +2451,23 @@ class ComisionVendedor(models.Model):
             return 'Primer fichaje'
         if sub == 'segundo':
             return 'Segundo fichaje'
+        if sub == 'fichaje_venta':
+            return 'Fichaje'
         return ''
 
     def clase_badge_categoria_comision(self):
         if self.es_devolucion_anulacion:
             return 'bg-danger'
         cat, sub = self.clasificacion_listado()
+        if sub == 'fichaje_venta':
+            return 'bg-success'
         if sub in ('primer', 'segundo'):
             return 'bg-info text-dark'
         return {
             'por_dia': 'bg-primary',
             'por_invierno': 'bg-secondary',
             'por_24_meses': 'bg-dark',
+            'por_venta': 'bg-success',
             'operacion': 'bg-light text-dark border',
         }.get(cat, 'bg-secondary')
 
@@ -2439,11 +2481,14 @@ class ComisionVendedor(models.Model):
                 'por_dia': 'por día',
                 'por_invierno': 'invierno',
                 'por_24_meses': '24 meses',
+                'por_venta': 'venta',
             }.get(cat)
             if suf:
                 return f'Devolución — comisión {suf}'
             return 'Devolución por anulación'
         cat, sub = self.clasificacion_listado()
+        if sub == 'fichaje_venta':
+            return 'Comisión por fichaje de venta'
         if sub in ('primer', 'segundo'):
             base = 'segundo fichaje' if sub == 'segundo' else 'primer fichaje'
             if cat == 'por_invierno':
@@ -2457,6 +2502,8 @@ class ComisionVendedor(models.Model):
             return 'Comisión por invierno'
         if cat == 'por_24_meses':
             return 'Comisión por 24 meses'
+        if cat == 'por_venta':
+            return 'Comisión por venta'
         return 'Comisión operación'
 
     def label_estado_historial(self):
@@ -2486,6 +2533,42 @@ class ComisionVendedor(models.Model):
             return 'badge-warning'
         return 'badge-secondary'
 
+    def propiedad_listado(self):
+        """Propiedad asociada (reserva, contrato o venta cerrada)."""
+        cached = getattr(self, '_propiedad_listado_cache', Ellipsis)
+        if cached is not Ellipsis:
+            return cached
+        prop = None
+        if self.reserva_id:
+            prop = getattr(self.reserva, 'propiedad', None)
+        elif getattr(self, 'contrato_id', None):
+            prop = getattr(self.contrato, 'propiedad', None)
+        else:
+            op = getattr(self, 'operacion_venta', None)
+            if op is not None:
+                prop = getattr(op, 'propiedad', None)
+            if prop is None:
+                import re
+                obs = self.observaciones or ''
+                m = re.search(r'Operaci[oó]n venta #(\d+)', obs, re.IGNORECASE)
+                if not m:
+                    concepto = self.concepto_operacion or ''
+                    m = re.search(r'venta\s*#(\d+)', concepto, re.IGNORECASE)
+                if m:
+                    try:
+                        from inmobiliaria.models.venta_operacion import OperacionVenta
+                        op = (
+                            OperacionVenta.objects.filter(pk=int(m.group(1)))
+                            .select_related('propiedad')
+                            .first()
+                        )
+                        if op:
+                            prop = op.propiedad
+                    except Exception:
+                        prop = None
+        self._propiedad_listado_cache = prop
+        return prop
+
     def titulo_operacion_listado(self):
         """Nombre de la operación para listados: Propietario - Inquilino."""
         propietario = None
@@ -2504,6 +2587,10 @@ class ComisionVendedor(models.Model):
             inquilino = getattr(reserva, 'cliente', None)
             if not inquilino:
                 inquilino = getattr(reserva, 'inquilino', None)
+        else:
+            prop = self.propiedad_listado
+            if prop:
+                propietario = getattr(prop, 'propietario', None)
 
         def _nombre(persona):
             if not persona:
