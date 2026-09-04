@@ -181,6 +181,8 @@ def operaciones_venta_nueva(request):
         'escribania': '',
         'observaciones': '',
         'propiedad_buscar': '',
+        'comisiones_ars': {},
+        'comision_fichaje_ars': '',
     }
     if propiedad_pre:
         form_data['propiedad_buscar'] = _etiqueta_propiedad(propiedad_pre)
@@ -214,6 +216,7 @@ def operaciones_venta_nueva(request):
             'escribania': (request.POST.get('escribania') or '').strip(),
             'observaciones': (request.POST.get('observaciones') or '').strip(),
             'propiedad_buscar': (request.POST.get('propiedad_buscar') or '').strip(),
+            'comision_fichaje_ars': (request.POST.get('comision_fichaje_ars') or '').strip(),
         })
         prop_id = (request.POST.get('propiedad_id') or '').strip()
         errores = []
@@ -234,14 +237,11 @@ def operaciones_venta_nueva(request):
 
         precio_usd = _parse_decimal(form_data['precio_usd'])
         cotizacion = _parse_decimal(form_data['cotizacion_dolar'])
-        honorarios_usd = _parse_decimal(form_data['honorarios_usd'])
         gastos_escritura = _parse_decimal(form_data['gastos_escritura_usd'])
         if precio_usd <= 0:
             errores.append('El precio en USD tiene que ser mayor a 0.')
         if cotizacion <= 0:
             errores.append('Indicá la cotización del dólar (pesos por USD).')
-        if honorarios_usd < 0:
-            errores.append('Los honorarios no pueden ser negativos.')
         if gastos_escritura < 0:
             errores.append('Los gastos de escritura no pueden ser negativos.')
 
@@ -250,7 +250,6 @@ def operaciones_venta_nueva(request):
             if raw.isdigit() and int(raw) not in ids_ok:
                 ids_ok.append(int(raw))
         vendedores_sel = list(vendedores.filter(pk__in=ids_ok))
-        # Preservar orden de selección
         por_id = {v.id: v for v in vendedores_sel}
         vendedores_sel = [por_id[i] for i in ids_ok if i in por_id]
         if not vendedores_sel:
@@ -260,65 +259,90 @@ def operaciones_venta_nueva(request):
         if form_data['fichado_por_id'].isdigit():
             fichado_por = vendedores.filter(pk=int(form_data['fichado_por_id'])).first()
 
+        partes_ars, monto_fichaje_ars, fichaje_raw = _leer_montos_comision_post(
+            request, vendedores_sel
+        )
+        form_data['comisiones_ars'] = {
+            str(v.id): raw for v, _m, raw in partes_ars
+        }
+        form_data['comision_fichaje_ars'] = fichaje_raw
+
+        for vend, monto, _raw in partes_ars:
+            if monto < 0:
+                errores.append(
+                    f'La comisión de {vend.apellido}, {vend.nombre} no puede ser negativa.'
+                )
+        if monto_fichaje_ars < 0:
+            errores.append('La comisión de fichaje no puede ser negativa.')
+        if fichado_por and monto_fichaje_ars <= 0:
+            errores.append('Indicá el monto en pesos de la comisión de fichaje.')
+        if not fichado_por and monto_fichaje_ars > 0:
+            errores.append('Seleccioná quién hizo el fichaje o dejá el monto en 0.')
+
+        honorarios_ars = sum((m for _v, m, _r in partes_ars), Decimal('0')).quantize(
+            Decimal('0.01'), rounding=ROUND_HALF_UP
+        )
+        if honorarios_ars <= 0 and not errores:
+            errores.append('Cargá al menos una comisión de productor en pesos.')
+
         if errores:
             for e in errores:
                 messages.error(request, e)
         else:
-            _, honorarios_usd_calc = _montos_comision_productores(
-                precio_usd, honorarios_usd, vendedores_sel
-            )
-            if honorarios_usd_calc > 0:
-                honorarios_usd = honorarios_usd_calc
-            honorarios_ars = (honorarios_usd * cotizacion).quantize(
+            honorarios_usd = (honorarios_ars / cotizacion).quantize(
                 Decimal('0.01'), rounding=ROUND_HALF_UP
             )
-            if honorarios_usd <= 0:
-                messages.error(
-                    request,
-                    'No hay comisión: cargá honorarios o el % de venta en la ficha del vendedor.',
-                )
-            else:
-                try:
-                    with transaction.atomic():
-                        op = OperacionVenta(
-                            propiedad=propiedad,
-                            sucursal=sucursal,
-                            vendedor=vendedores_sel[0],
-                            fichado_por=fichado_por,
-                            fecha_venta=fecha_venta,
-                            precio_usd=precio_usd.quantize(Decimal('0.01')),
-                            cotizacion_dolar=cotizacion.quantize(Decimal('0.0001')),
-                            honorarios_usd=honorarios_usd.quantize(Decimal('0.01')),
-                            honorarios_ars=honorarios_ars,
-                            gastos_escritura_usd=gastos_escritura.quantize(Decimal('0.01')),
-                            comprador_nombre=form_data['comprador_nombre'][:255],
-                            escribania=form_data['escribania'][:255],
-                            observaciones=form_data['observaciones'],
-                            estado='confirmada',
-                            creado_por=request.user,
-                        )
-                        op.save()
-                        op.vendedores.set(vendedores_sel)
-                        _marcar_propiedad_vendida(propiedad)
-                        _sincronizar_libro_propiedad(op, usuario=request.user)
-                        comisiones = _crear_comisiones_venta(op, vendedores_sel)
-                        if comisiones:
-                            op.comision = comisiones[0]
-                            op.save(update_fields=['comision'])
-                    messages.success(
-                        request,
-                        f'Venta #{op.pk} registrada: U$S {op.precio_usd} — '
-                        f'honorarios U$S {op.honorarios_usd} → ${op.honorarios_ars} '
-                        f'(cotiz. {op.cotizacion_dolar}). Libro del depto actualizado.',
+            try:
+                with transaction.atomic():
+                    op = OperacionVenta(
+                        propiedad=propiedad,
+                        sucursal=sucursal,
+                        vendedor=vendedores_sel[0],
+                        fichado_por=fichado_por,
+                        fecha_venta=fecha_venta,
+                        precio_usd=precio_usd.quantize(Decimal('0.01')),
+                        cotizacion_dolar=cotizacion.quantize(Decimal('0.0001')),
+                        honorarios_usd=honorarios_usd,
+                        honorarios_ars=honorarios_ars,
+                        gastos_escritura_usd=gastos_escritura.quantize(Decimal('0.01')),
+                        comprador_nombre=form_data['comprador_nombre'][:255],
+                        escribania=form_data['escribania'][:255],
+                        observaciones=form_data['observaciones'],
+                        estado='confirmada',
+                        creado_por=request.user,
                     )
-                    return redirect('inmobiliaria:operaciones_venta_detalle', operacion_id=op.pk)
-                except Exception as exc:
-                    messages.error(request, f'No se pudo guardar la venta: {exc}')
+                    op.save()
+                    op.vendedores.set(vendedores_sel)
+                    _marcar_propiedad_vendida(propiedad)
+                    _sincronizar_libro_propiedad(op, usuario=request.user)
+                    comisiones = _crear_comisiones_venta(
+                        op,
+                        [(v, m) for v, m, _r in partes_ars],
+                        monto_fichaje_ars if fichado_por else Decimal('0'),
+                    )
+                    if comisiones:
+                        op.comision = comisiones[0]
+                        op.save(update_fields=['comision'])
+                messages.success(
+                    request,
+                    f'Venta #{op.pk} registrada: U$S {op.precio_usd} — '
+                    f'comisiones productores ${op.honorarios_ars} '
+                    f'(U$S {op.honorarios_usd} @ cotiz. {op.cotizacion_dolar}). '
+                    f'Libro del depto actualizado.',
+                )
+                return redirect('inmobiliaria:operaciones_venta_detalle', operacion_id=op.pk)
+            except Exception as exc:
+                messages.error(request, f'No se pudo guardar la venta: {exc}')
 
         if prop_id.isdigit():
             propiedad_pre = Propiedad.objects.filter(
                 pk=int(prop_id), sucursal=sucursal
             ).select_related('propietario', 'fichado_por').first()
+
+    form_data['comisiones_ars_json'] = _json_safe(form_data.get('comisiones_ars') or {})
+    form_data['comision_fichaje_ars_json'] = _json_safe(
+        form_data.get('comision_fichaje_ars') or ''
+    )
 
     return render(
         request,
@@ -426,75 +450,43 @@ def _estado_comision_venta(fecha_venta):
     return 'pendiente'
 
 
-def _montos_comision_productores(precio_usd, honorarios_usd, vendedores_sel):
+def _crear_comisiones_venta(op, partes_ars, monto_fichaje_ars=None):
     """
-    Si tienen % de venta: cada uno cobra precio_usd × (% / 100).
-    Si nadie tiene %: reparte honorarios_usd en partes iguales.
-    Devuelve (lista de Decimal USD por vendedor, total USD).
+    Crea comisiones con los montos ARS cargados a mano en el formulario.
+    ``partes_ars``: lista de (vendedor, monto_ars).
     """
-    n = len(vendedores_sel) or 0
-    if n == 0:
-        return [], Decimal('0')
-    pesos = [_pct_venta_vendedor(v) for v in vendedores_sel]
-    suma = sum(pesos)
-    precio_usd = Decimal(str(precio_usd or 0))
-    honorarios_usd = Decimal(str(honorarios_usd or 0))
-    if suma > 0 and precio_usd > 0:
-        partes = [
-            (precio_usd * w / Decimal('100')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-            for w in pesos
-        ]
-        return partes, sum(partes)
-    return _partir_montos(honorarios_usd, n), honorarios_usd.quantize(
+    partes_ars = [(v, Decimal(str(m or 0))) for v, m in (partes_ars or [])]
+    honorarios_ars_total = sum((m for _v, m in partes_ars), Decimal('0')).quantize(
         Decimal('0.01'), rounding=ROUND_HALF_UP
     )
-
-
-def _crear_comisiones_venta(op, vendedores_sel):
-    """Una comisión por productor (% × valor, o reparto igual) + opcional fichaje."""
-    usd_partes, total_usd = _montos_comision_productores(
-        op.precio_usd, op.honorarios_usd, vendedores_sel
-    )
-    if total_usd <= 0:
-        return []
-
     cot = Decimal(str(op.cotizacion_dolar or 0))
-    montos_ars = [
-        (u * cot).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP) for u in usd_partes
-    ]
-    honorarios_ars_total = sum(montos_ars)
+    if cot > 0:
+        total_usd = (honorarios_ars_total / cot).quantize(
+            Decimal('0.01'), rounding=ROUND_HALF_UP
+        )
+    else:
+        total_usd = Decimal('0')
 
-    # Alinear totales guardados en la operación con el cálculo real
     if total_usd != op.honorarios_usd or honorarios_ars_total != op.honorarios_ars:
         op.honorarios_usd = total_usd
         op.honorarios_ars = honorarios_ars_total
         op.save(update_fields=['honorarios_usd', 'honorarios_ars', 'actualizado_en'])
 
-    precio_ars = (op.precio_usd * cot).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    precio_ars = (op.precio_usd * cot).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP) if cot else Decimal('0')
     dt = _fecha_operacion_aware(op.fecha_venta)
     estado_com = _estado_comision_venta(op.fecha_venta)
     dir_prop = (op.propiedad.direccion or '').strip() or f'#{op.propiedad_id}'
-    n = len(vendedores_sel) or 1
-    pesos = [_pct_venta_vendedor(v) for v in vendedores_sel]
-    suma_pesos = sum(pesos)
     creadas = []
 
-    for i, vend in enumerate(vendedores_sel):
-        monto = montos_ars[i] if i < len(montos_ars) else Decimal('0')
-        usd_parte = usd_partes[i] if i < len(usd_partes) else Decimal('0')
+    for vend, monto in partes_ars:
         if monto <= 0:
             continue
-        pct_perfil = pesos[i]
-        if suma_pesos > 0:
-            detalle_pct = f'{pct_perfil}% del valor'
-            pct_comision = pct_perfil.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-        else:
-            detalle_pct = 'reparto igual (sin % de venta en ficha)'
-            pct_comision = Decimal('0')
-            if precio_ars > 0:
-                pct_comision = ((monto / precio_ars) * Decimal('100')).quantize(
-                    Decimal('0.01'), rounding=ROUND_HALF_UP
-                )
+        usd_parte = (monto / cot).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP) if cot else Decimal('0')
+        pct_comision = Decimal('0')
+        if precio_ars > 0:
+            pct_comision = ((monto / precio_ars) * Decimal('100')).quantize(
+                Decimal('0.01'), rounding=ROUND_HALF_UP
+            )
         creadas.append(
             ComisionVendedor.objects.create(
                 vendedor=vend,
@@ -504,51 +496,45 @@ def _crear_comisiones_venta(op, vendedores_sel):
                 concepto_operacion=(
                     f'Venta propiedad #{op.propiedad_id} — {dir_prop} '
                     f'(U$S {op.precio_usd} @ {op.cotizacion_dolar})'
-                    + (f' · {detalle_pct}' if n > 1 or suma_pesos > 0 else '')
                 )[:200],
                 rol_comision=ROL_COMISION_VENTA,
                 fecha_operacion=dt,
                 estado=estado_com,
                 observaciones=(
-                    f'Operación venta #{op.pk}. Honorarios U$S {usd_parte} '
-                    f'× cotiz. {op.cotizacion_dolar} = ${monto} ARS'
-                    + (f' ({detalle_pct}).' if n > 1 or suma_pesos > 0 else '.')
+                    f'Operación venta #{op.pk}. Comisión cargada: ${monto} ARS '
+                    f'(equiv. U$S {usd_parte} @ cotiz. {op.cotizacion_dolar}).'
                 ),
             )
         )
 
+    monto_f = Decimal(str(monto_fichaje_ars or 0)).quantize(
+        Decimal('0.01'), rounding=ROUND_HALF_UP
+    )
     fichado = op.fichado_por
-    if fichado and honorarios_ars_total > 0:
-        pct_f = getattr(fichado, 'comision_fichaje_venta', None)
-        if pct_f is None:
-            tipo = getattr(op.propiedad, 'tipo_fichaje', None) or 'primer'
-            pct_f = porcentaje_fichaje_vendedor(fichado, tipo_fichaje=tipo)
-        else:
-            pct_f = Decimal(str(pct_f))
-        if pct_f and pct_f > 0:
-            monto_f = (honorarios_ars_total * pct_f / Decimal('100')).quantize(
+    if fichado and monto_f > 0:
+        usd_f = (monto_f / cot).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP) if cot else Decimal('0')
+        pct_f = Decimal('0')
+        if honorarios_ars_total > 0:
+            pct_f = ((monto_f / honorarios_ars_total) * Decimal('100')).quantize(
                 Decimal('0.01'), rounding=ROUND_HALF_UP
             )
-            if monto_f > 0:
-                creadas.append(
-                    ComisionVendedor.objects.create(
-                        vendedor=fichado,
-                        monto_total_operacion=honorarios_ars_total,
-                        porcentaje_comision=pct_f.quantize(
-                            Decimal('0.01'), rounding=ROUND_HALF_UP
-                        ),
-                        monto_comision=monto_f,
-                        concepto_operacion=(
-                            f'Fichaje venta #{op.propiedad_id} — {dir_prop}'
-                        )[:200],
-                        rol_comision=ROL_COMISION_FICHAJE,
-                        fecha_operacion=dt,
-                        estado=estado_com,
-                        observaciones=(
-                            f'Operación venta #{op.pk}. Fichaje {pct_f}% sobre '
-                            f'honorarios ${honorarios_ars_total} = ${monto_f}.'
-                        ),
-                    )
-                )
+        creadas.append(
+            ComisionVendedor.objects.create(
+                vendedor=fichado,
+                monto_total_operacion=honorarios_ars_total or monto_f,
+                porcentaje_comision=pct_f,
+                monto_comision=monto_f,
+                concepto_operacion=(
+                    f'Fichaje venta #{op.propiedad_id} — {dir_prop}'
+                )[:200],
+                rol_comision=ROL_COMISION_FICHAJE,
+                fecha_operacion=dt,
+                estado=estado_com,
+                observaciones=(
+                    f'Operación venta #{op.pk}. Fichaje cargado: ${monto_f} ARS '
+                    f'(equiv. U$S {usd_f}).'
+                ),
+            )
+        )
 
     return creadas
