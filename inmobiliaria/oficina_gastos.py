@@ -184,6 +184,68 @@ def concepto_caja_mapeado_a_oficina(concepto_texto=None, concepto_id=None, conce
     return False
 
 
+def _textos_movimiento_para_mapa_oficina(movimiento):
+    """
+    Textos donde puede aparecer el concepto mapeado (ej. veraz).
+    En cobros de contrato suele estar en concepto_detalle (JSON), no en concepto.
+    """
+    partes = []
+    if not movimiento:
+        return partes
+    for attr in ('concepto', 'concepto_detalle'):
+        val = getattr(movimiento, attr, None)
+        if val:
+            partes.append(str(val))
+    try:
+        nom = (getattr(movimiento, 'nombre_concepto_catalogo', None) or '').strip()
+        if nom:
+            partes.append(nom)
+    except Exception:
+        pass
+    try:
+        det = (getattr(movimiento, 'listado_detalle_l1', None) or '').strip()
+        if det and det != '—':
+            partes.append(det)
+    except Exception:
+        pass
+    return partes
+
+
+def _ruta_oficina_desde_movimiento_caja(movimiento, concepto_id=None, concepto_nombre=None):
+    """Resuelve (raiz, sub) para un movimiento de caja (concepto + detalle)."""
+    cid = str(concepto_id or '').strip() or None
+    nom = (concepto_nombre or '').strip() or None
+    if movimiento and not cid:
+        try:
+            cid = movimiento.concepto_catalogo_id()
+        except Exception:
+            cid = None
+    if movimiento and not nom:
+        try:
+            nom = (movimiento.nombre_concepto_catalogo or '').strip() or None
+        except Exception:
+            nom = None
+    ruta = ruta_oficina_para_concepto_caja(cid, nom)
+    if ruta:
+        return ruta
+    for texto in _textos_movimiento_para_mapa_oficina(movimiento):
+        if concepto_caja_mapeado_a_oficina(texto, cid, nom):
+            ruta = ruta_oficina_para_concepto_caja(cid, nom) or ruta_oficina_para_concepto_caja(
+                None, texto
+            )
+            if ruta:
+                return ruta
+            # Nombre suelto dentro del texto (ej. JSON con "veraz")
+            raw = _norm_nombre_cat(texto)
+            for clave, ruta_m in MAPA_NOMBRE_CONCEPTO_A_OFICINA.items():
+                if clave and clave in raw:
+                    return ruta_m
+            for cid_m, ruta_m in MAPA_CONCEPTOS_CAJA_A_OFICINA.items():
+                if raw.startswith(cid_m) or f' {cid_m} ' in f' {raw} ':
+                    return ruta_m
+    return None
+
+
 def concepto_caja_id_para_categoria_oficina(categoria):
     """Id de catálogo de caja vinculado a esta subcategoría de oficina (si hay mapa)."""
     if not categoria:
@@ -307,37 +369,41 @@ def vincular_movimiento_concepto_a_gasto_oficina(
     """
     Si el concepto de caja está mapeado a oficina y el movimiento aún no tiene
     GastoOficina, lo crea bajo la subcategoría correspondiente (ej. Veraz).
+    Si ya tiene gasto pero en otra categoría, lo reubica a la ruta mapeada.
     """
     if not movimiento or not getattr(movimiento, 'sucursal_id', None):
         return None
-    if GastoOficina.objects.filter(movimiento_caja=movimiento).exists():
+
+    ruta = _ruta_oficina_desde_movimiento_caja(
+        movimiento, concepto_id=concepto_id, concepto_nombre=concepto_nombre
+    )
+    if not ruta:
         return None
 
-    cid = str(concepto_id or '').strip() or None
-    if not cid:
-        cid = movimiento.concepto_catalogo_id()
-    nom = (concepto_nombre or '').strip() or None
-    if not nom:
-        nom = movimiento.nombre_concepto_catalogo
-    if not nom and cid and not str(cid).isdigit():
-        nom = str(cid)
-
-    categoria = resolver_categoria_oficina_desde_concepto(
-        movimiento.sucursal, concepto_id=cid, concepto_nombre=nom
+    categoria = resolver_categoria_oficina_por_ruta(
+        movimiento.sucursal, ruta[0], ruta[1]
     )
-    if not categoria and concepto_caja_mapeado_a_oficina(
-        movimiento.concepto, cid, nom
-    ):
-        # Fallback por texto del movimiento (ej. solo "veraz" o "130 — veraz — …")
-        ruta = ruta_oficina_para_concepto_caja(cid, nom) or ruta_oficina_para_concepto_caja(
-            None, movimiento.concepto
-        )
-        if ruta:
-            categoria = resolver_categoria_oficina_por_ruta(
-                movimiento.sucursal, ruta[0], ruta[1]
-            )
     if not categoria:
         return None
+
+    existente = (
+        GastoOficina.objects.filter(movimiento_caja=movimiento)
+        .select_related('categoria', 'categoria__parent')
+        .first()
+    )
+    if existente:
+        updates = []
+        if existente.categoria_id != categoria.id:
+            existente.categoria = categoria
+            updates.append('categoria')
+        # Preferir fecha banco para que entre en el mes del extracto.
+        ft = getattr(movimiento, 'fecha_transferencia', None)
+        if ft and existente.fecha != ft:
+            existente.fecha = ft
+            updates.append('fecha')
+        if updates:
+            existente.save(update_fields=updates)
+        return existente
 
     desc = (descripcion or '').strip()
     if not desc:
@@ -350,9 +416,16 @@ def vincular_movimiento_concepto_a_gasto_oficina(
             elif len(partes) == 2 and not str(partes[0]).isdigit():
                 desc = partes[1]
         if not desc:
+            try:
+                det = (movimiento.listado_detalle_l1 or '').strip()
+                if det and det != '—':
+                    desc = det
+            except Exception:
+                pass
+        if not desc:
             desc = categoria.nombre
 
-    return registrar_gasto_oficina_desde_movimiento(
+    gasto = registrar_gasto_oficina_desde_movimiento(
         movimiento,
         categoria,
         desc,
@@ -361,14 +434,22 @@ def vincular_movimiento_concepto_a_gasto_oficina(
         porcentaje_colon=porcentaje_colon,
         porcentaje_corrientes=porcentaje_corrientes,
     )
+    # Alinear fecha al día bancario si existe (cierre del mes correcto).
+    ft = getattr(movimiento, 'fecha_transferencia', None)
+    if gasto and ft and gasto.fecha != ft:
+        gasto.fecha = ft
+        gasto.save(update_fields=['fecha'])
+    return gasto
 
 
 def sincronizar_gastos_oficina_desde_conceptos_caja(sucursal, fecha_desde, fecha_hasta):
     """
     Backfill: movimientos de caja del período con conceptos mapeados (ej. veraz/130)
-    que aún no tienen GastoOficina → los crea para el cierre.
+    → crea o reubica GastoOficina para el cierre.
+    Busca en concepto y concepto_detalle; el período mira fecha de caja o fecha banco.
     """
     from django.db.models import Q
+    from django.db.models.functions import Coalesce, TruncDate
 
     from inmobiliaria.models.caja import MovimientoCaja
 
@@ -385,33 +466,23 @@ def sincronizar_gastos_oficina_desde_conceptos_caja(sucursal, fecha_desde, fecha
         q_concepto |= Q(concepto__startswith=f'{cid} -')
         q_concepto |= Q(concepto=cid)
         q_concepto |= Q(concepto__startswith=f'{cid} ')
+        q_concepto |= Q(concepto_detalle__icontains=cid)
     for nom in nombres:
         q_concepto |= Q(concepto__icontains=nom)
-
-    ya_vinculados = GastoOficina.objects.filter(
-        movimiento_caja__isnull=False,
-        movimiento_caja__sucursal=sucursal,
-    ).values_list('movimiento_caja_id', flat=True)
+        q_concepto |= Q(concepto_detalle__icontains=nom)
 
     qs = (
         MovimientoCaja.objects.filter(
             sucursal=sucursal,
             fecha_eliminacion__isnull=True,
-            fecha__date__gte=fecha_desde,
-            fecha__date__lte=fecha_hasta,
         )
-        .filter(q_concepto)
-        .exclude(id__in=ya_vinculados)
-        .only(
-            'id',
-            'concepto',
-            'sucursal_id',
-            'tipo',
-            'fecha',
-            'monto_efectivo',
-            'monto_cheque',
-            'monto_tarjeta',
-            'monto_deposito',
+        .annotate(
+            fecha_cierre=Coalesce('fecha_transferencia', TruncDate('fecha')),
+        )
+        .filter(
+            q_concepto,
+            fecha_cierre__gte=fecha_desde,
+            fecha_cierre__lte=fecha_hasta,
         )
         .distinct()
     )
