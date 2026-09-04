@@ -25,7 +25,7 @@ ESTRUCTURA_CIERRE_OFICINA = [
             'Imp. municipal', 'Internet', 'Librería - Fotocopias - Correo',
             'Local Moreno (luz-serv-imp)', 'Oficina (mantenimiento)',
             'Oficina Bs. As. (alq-exp-etc)', 'OSSE', 'Posnet', 'Quinta',
-            'Seguro deptos', 'Sistema (David)', 'Viáticos (colectivo - taxi)',
+            'Seguro deptos', 'Sistema (David)', 'Veraz', 'Viáticos (colectivo - taxi)',
         ],
     ),
     (
@@ -134,6 +134,245 @@ def _norm_nombre_cat(nombre):
         c for c in unicodedata.normalize('NFD', t) if unicodedata.category(c) != 'Mn'
     )
     return t
+
+
+# Conceptos del catálogo de caja que también son gastos de oficina (cierre).
+# id de Concepto → (raíz oficina, subcategoría).
+MAPA_CONCEPTOS_CAJA_A_OFICINA = {
+    '130': ('Gastos generales', 'Veraz'),
+}
+
+# Por nombre normalizado del concepto (por si el id difiere entre ambientes).
+MAPA_NOMBRE_CONCEPTO_A_OFICINA = {
+    'veraz': ('Gastos generales', 'Veraz'),
+}
+
+
+def ruta_oficina_para_concepto_caja(concepto_id=None, concepto_nombre=None):
+    """Devuelve (raiz, sub) si el concepto de caja está mapeado a oficina."""
+    cid = str(concepto_id or '').strip()
+    if cid in MAPA_CONCEPTOS_CAJA_A_OFICINA:
+        return MAPA_CONCEPTOS_CAJA_A_OFICINA[cid]
+    nom = _norm_nombre_cat(concepto_nombre or '')
+    if nom in MAPA_NOMBRE_CONCEPTO_A_OFICINA:
+        return MAPA_NOMBRE_CONCEPTO_A_OFICINA[nom]
+    return None
+
+
+def concepto_caja_id_para_categoria_oficina(categoria):
+    """Id de catálogo de caja vinculado a esta subcategoría de oficina (si hay mapa)."""
+    if not categoria:
+        return None
+    raiz = categoria.parent
+    if not raiz:
+        return None
+    clave_ruta = (_norm_nombre_cat(raiz.nombre), _norm_nombre_cat(categoria.nombre))
+    for cid, (r, s) in MAPA_CONCEPTOS_CAJA_A_OFICINA.items():
+        if (_norm_nombre_cat(r), _norm_nombre_cat(s)) == clave_ruta:
+            return cid
+    for nom, (r, s) in MAPA_NOMBRE_CONCEPTO_A_OFICINA.items():
+        if (_norm_nombre_cat(r), _norm_nombre_cat(s)) == clave_ruta:
+            # Buscar id por mapa inverso de ids
+            for cid, (rr, ss) in MAPA_CONCEPTOS_CAJA_A_OFICINA.items():
+                if _norm_nombre_cat(ss) == nom:
+                    return cid
+            return None
+    return None
+
+
+def resolver_categoria_oficina_por_ruta(sucursal, raiz_nombre, sub_nombre):
+    """Busca (o crea vía estructura) la subcategoría oficina por nombres."""
+    if not sucursal or not raiz_nombre or not sub_nombre:
+        return None
+    try:
+        asegurar_estructura_cierre_oficina(sucursal)
+    except Exception:
+        pass
+    raiz = (
+        CategoriaGastoOficina.objects.filter(
+            sucursal=sucursal,
+            parent__isnull=True,
+            activa=True,
+        )
+        .filter(nombre__iexact=raiz_nombre.strip())
+        .first()
+    )
+    if not raiz:
+        # Match normalizado
+        for c in CategoriaGastoOficina.objects.filter(
+            sucursal=sucursal, parent__isnull=True, activa=True
+        ):
+            if _norm_nombre_cat(c.nombre) == _norm_nombre_cat(raiz_nombre):
+                raiz = c
+                break
+    if not raiz:
+        return None
+    hijo = (
+        CategoriaGastoOficina.objects.filter(
+            sucursal=sucursal,
+            parent=raiz,
+            activa=True,
+        )
+        .filter(nombre__iexact=sub_nombre.strip())
+        .first()
+    )
+    if hijo:
+        return hijo
+    for c in CategoriaGastoOficina.objects.filter(
+        sucursal=sucursal, parent=raiz, activa=True
+    ):
+        if _norm_nombre_cat(c.nombre) == _norm_nombre_cat(sub_nombre):
+            return c
+    # Crear la hoja si falta (estructura ya debería haberla dejado)
+    try:
+        orden = (
+            CategoriaGastoOficina.objects.filter(sucursal=sucursal, parent=raiz)
+            .count()
+        )
+        return CategoriaGastoOficina.objects.create(
+            sucursal=sucursal,
+            parent=raiz,
+            nombre=sub_nombre.strip(),
+            activa=True,
+            orden=orden,
+        )
+    except Exception:
+        return None
+
+
+def resolver_categoria_oficina_desde_concepto(sucursal, concepto_id=None, concepto_nombre=None):
+    ruta = ruta_oficina_para_concepto_caja(concepto_id, concepto_nombre)
+    if not ruta:
+        return None
+    return resolver_categoria_oficina_por_ruta(sucursal, ruta[0], ruta[1])
+
+
+def texto_concepto_caja_para_gasto_oficina(categoria, descripcion=''):
+    """
+    Texto de MovimientoCaja.concepto cuando el gasto de oficina está
+    vinculado a un concepto del catálogo (ej. 130 — veraz).
+    """
+    cid = concepto_caja_id_para_categoria_oficina(categoria)
+    desc = (descripcion or '').strip()
+    if cid:
+        from inmobiliaria.models import Concepto
+
+        c = Concepto.objects.filter(pk=cid).only('nombre').first()
+        nombre = (c.nombre if c else '') or (categoria.nombre if categoria else '')
+        prefijo = f'{cid} — {nombre}'.strip(' —')
+        if desc:
+            return f'{prefijo} — {desc}'[:500]
+        return prefijo[:500]
+    ruta = categoria.nombre_ruta() if categoria else 'Gasto oficina'
+    if desc:
+        return f'Gasto oficina — {ruta} — {desc}'[:500]
+    return f'Gasto oficina — {ruta}'[:500]
+
+
+def vincular_movimiento_concepto_a_gasto_oficina(
+    movimiento,
+    *,
+    concepto_id=None,
+    concepto_nombre=None,
+    descripcion='',
+    usuario=None,
+    porcentaje_colon=None,
+    porcentaje_corrientes=None,
+):
+    """
+    Si el concepto de caja está mapeado a oficina y el movimiento aún no tiene
+    GastoOficina, lo crea bajo la subcategoría correspondiente (ej. Veraz).
+    """
+    if not movimiento or not getattr(movimiento, 'sucursal_id', None):
+        return None
+    if GastoOficina.objects.filter(movimiento_caja=movimiento).exists():
+        return None
+
+    cid = str(concepto_id or '').strip() or None
+    if not cid:
+        cid = movimiento.concepto_catalogo_id()
+    nom = (concepto_nombre or '').strip() or None
+    if not nom:
+        nom = movimiento.nombre_concepto_catalogo
+
+    categoria = resolver_categoria_oficina_desde_concepto(
+        movimiento.sucursal, concepto_id=cid, concepto_nombre=nom
+    )
+    if not categoria:
+        return None
+
+    desc = (descripcion or '').strip()
+    if not desc:
+        # Usar detalle después del nombre en el texto del movimiento
+        raw = (movimiento.concepto or '').strip()
+        if ' — ' in raw:
+            partes = [p.strip() for p in raw.split(' — ') if p.strip()]
+            if len(partes) >= 3:
+                desc = ' — '.join(partes[2:])
+            elif len(partes) == 2 and not str(partes[0]).isdigit():
+                desc = partes[1]
+        if not desc:
+            desc = categoria.nombre
+
+    return registrar_gasto_oficina_desde_movimiento(
+        movimiento,
+        categoria,
+        desc,
+        observaciones='Vinculado automáticamente desde concepto de caja.',
+        usuario=usuario,
+        porcentaje_colon=porcentaje_colon,
+        porcentaje_corrientes=porcentaje_corrientes,
+    )
+
+
+def sincronizar_gastos_oficina_desde_conceptos_caja(sucursal, fecha_desde, fecha_hasta):
+    """
+    Backfill: movimientos de caja del período con conceptos mapeados (ej. veraz/130)
+    que aún no tienen GastoOficina → los crea para el cierre.
+    """
+    from inmobiliaria.models.caja import MovimientoCaja
+
+    if not sucursal or not fecha_desde or not fecha_hasta:
+        return 0
+    ids = list(MAPA_CONCEPTOS_CAJA_A_OFICINA.keys())
+    nombres = list(MAPA_NOMBRE_CONCEPTO_A_OFICINA.keys())
+    if not ids and not nombres:
+        return 0
+
+    qs = (
+        MovimientoCaja.objects.filter(
+            sucursal=sucursal,
+            fecha_eliminacion__isnull=True,
+            fecha__date__gte=fecha_desde,
+            fecha__date__lte=fecha_hasta,
+        )
+        .filter(gastos_oficina_vinculados__isnull=True)
+        .only(
+            'id',
+            'concepto',
+            'sucursal_id',
+            'tipo',
+            'fecha',
+            'monto_efectivo',
+            'monto_cheque',
+            'monto_tarjeta',
+            'monto_deposito',
+        )
+        .distinct()
+    )
+    creados = 0
+    for mov in qs.iterator(chunk_size=200):
+        cid = mov.concepto_catalogo_id()
+        nom = mov.nombre_concepto_catalogo
+        if not ruta_oficina_para_concepto_caja(cid, nom):
+            # También match por texto libre "veraz" en concepto
+            raw_n = _norm_nombre_cat(mov.concepto or '')
+            if not any(n in raw_n for n in nombres):
+                continue
+        g = vincular_movimiento_concepto_a_gasto_oficina(mov)
+        if g:
+            creados += 1
+    return creados
 
 
 def nombre_raiz_es_extension_cierre(nombre):

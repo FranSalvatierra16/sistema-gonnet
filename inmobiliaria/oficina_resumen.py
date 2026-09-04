@@ -310,6 +310,20 @@ def construir_resumen_cierre(sucursal, anio, mes):
         fecha__gte=fecha_desde,
         fecha__lte=fecha_hasta,
     )
+    try:
+        from inmobiliaria.oficina_gastos import sincronizar_gastos_oficina_desde_conceptos_caja
+
+        sincronizar_gastos_oficina_desde_conceptos_caja(sucursal, fecha_desde, fecha_hasta)
+        gastos_qs = GastoOficina.objects.filter(
+            sucursal=sucursal,
+            fecha__gte=fecha_desde,
+            fecha__lte=fecha_hasta,
+        )
+    except Exception:
+        logger.exception(
+            'resumen_cierre: falló sync conceptos→oficina (sucursal_id=%s)',
+            getattr(sucursal, 'pk', None),
+        )
     totales_por_cat = _totales_gastos_por_categoria_ids(gastos_qs)
     try:
         comisiones_pagadas = _totales_comisiones_vendedor(sucursal, fecha_desde, fecha_hasta)

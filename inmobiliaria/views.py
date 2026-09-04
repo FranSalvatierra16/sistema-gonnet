@@ -15017,8 +15017,10 @@ def nuevo_movimiento(request, numero_caja=None):
         eliminar_gastos_oficina_de_movimiento,
         par_sucursales_reparto_gasto_oficina,
         registrar_gasto_oficina_desde_movimiento,
+        texto_concepto_caja_para_gasto_oficina,
         validar_gasto_oficina_post,
         validar_porcentajes_reparto_gasto_oficina,
+        vincular_movimiento_concepto_a_gasto_oficina,
     )
 
     movimiento_edicion = None
@@ -15254,8 +15256,9 @@ def nuevo_movimiento(request, numero_caja=None):
                 tipo_comprobante = 'GS'
 
             if es_gasto_oficina and gasto_oficina_categoria:
-                concepto_guardado = (
-                    f'Gasto oficina — {gasto_oficina_categoria.nombre_ruta()} — {gasto_oficina_descripcion}'
+                concepto_guardado = texto_concepto_caja_para_gasto_oficina(
+                    gasto_oficina_categoria,
+                    gasto_oficina_descripcion,
                 )
             
             propiedad_id_raw = (request.POST.get('propiedad_id') or '').strip()
@@ -15758,18 +15761,28 @@ def nuevo_movimiento(request, numero_caja=None):
                             usuario_creador=request.user,
                             observaciones=gasto_oficina_observaciones,
                         )
-                elif quiere_vale and (vendedor_vale or tipo_beneficiario_vale == TipoBeneficiarioVale.OTRO):
-                    if not ValeVendedor.objects.filter(movimiento_caja=movimiento).exists():
-                        ValeVendedor.crear_desde_movimiento(
-                            movimiento,
-                            vendedor=vendedor_vale,
-                            usuario_creador=request.user,
-                            tipo_beneficiario=tipo_beneficiario_vale,
-                            beneficiario_nombre=beneficiario_nombre_vale,
-                            beneficiario_apellido=beneficiario_apellido_vale,
-                            beneficiario_dni=beneficiario_dni_vale,
-                            persona_oficina=persona_oficina_vale,
-                        )
+                else:
+                    # Conceptos de caja mapeados a oficina (ej. 130 Veraz):
+                    # también generan GastoOficina aunque no se haya marcado el check.
+                    vincular_movimiento_concepto_a_gasto_oficina(
+                        movimiento,
+                        concepto_id=concepto_valor if concepto_row else None,
+                        concepto_nombre=(concepto_row.nombre if concepto_row else None),
+                        descripcion=detalles_txt,
+                        usuario=request.user,
+                    )
+                    if quiere_vale and (vendedor_vale or tipo_beneficiario_vale == TipoBeneficiarioVale.OTRO):
+                        if not ValeVendedor.objects.filter(movimiento_caja=movimiento).exists():
+                            ValeVendedor.crear_desde_movimiento(
+                                movimiento,
+                                vendedor=vendedor_vale,
+                                usuario_creador=request.user,
+                                tipo_beneficiario=tipo_beneficiario_vale,
+                                beneficiario_nombre=beneficiario_nombre_vale,
+                                beneficiario_apellido=beneficiario_apellido_vale,
+                                beneficiario_dni=beneficiario_dni_vale,
+                                persona_oficina=persona_oficina_vale,
+                            )
 
                 if movimiento_edicion:
                     _sincronizar_montos_anexos_movimiento(movimiento)
