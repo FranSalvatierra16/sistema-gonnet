@@ -494,6 +494,8 @@ def historial_comisiones_vendedor(request, vendedor_id):
         fo = c.fecha_operacion
         if not fo:
             continue
+        if timezone.is_aware(fo):
+            fo = timezone.localtime(fo)
         mk = fo.strftime('%Y-%m')
         if mk in meses_pagados_keys:
             continue
@@ -530,6 +532,8 @@ def historial_comisiones_vendedor(request, vendedor_id):
         fo = comision.fecha_operacion
         if not fo:
             continue
+        if timezone.is_aware(fo):
+            fo = timezone.localtime(fo)
         mes_key = fo.strftime('%Y-%m')
         if mes_key not in comisiones_por_mes:
             comisiones_por_mes[mes_key] = {

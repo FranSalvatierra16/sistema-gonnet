@@ -125,12 +125,20 @@ def vendedor_fichaje_desde_propiedad(prop, sucursal=None):
 
 
 def q_comision_operacion_de_sucursal(sucursal):
-    """Comisiones cuya reserva/contrato pertenece a la sucursal."""
+    """Comisiones de la sucursal: por reserva/contrato o venta (sin reserva/contrato)."""
     from django.db.models import Q
 
     if not sucursal:
         return Q(pk__in=[])
-    return Q(reserva__sucursal=sucursal) | Q(contrato__sucursal=sucursal)
+    return (
+        Q(reserva__sucursal=sucursal)
+        | Q(contrato__sucursal=sucursal)
+        | Q(
+            reserva__isnull=True,
+            contrato__isnull=True,
+            vendedor__sucursal=sucursal,
+        )
+    )
 
 
 def propiedad_es_oficina(prop):
@@ -2054,6 +2062,7 @@ class ComisionVendedorQuerySet(models.QuerySet):
                 When(rol_comision=ROL_COMISION_OP_INVIERNO, then=2),
                 When(rol_comision=ROL_COMISION_OP_24, then=3),
                 When(rol_comision=ROL_COMISION_GENERAL, then=4),
+                When(rol_comision=ROL_COMISION_VENTA, then=5),
                 When(rol_comision=ROL_COMISION_REVERSION, then=90),
                 When(estado='cancelada', then=80),
                 default=9,

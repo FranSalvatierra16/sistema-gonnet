@@ -422,10 +422,20 @@ def _sincronizar_libro_propiedad(op, usuario=None):
 
 
 def _fecha_operacion_aware(fecha_venta):
-    dt = datetime.combine(fecha_venta, datetime.min.time())
+    """Medianoche local del día de venta (misma convención que alquileres)."""
+    from datetime import time
+
+    dt = datetime.combine(fecha_venta, time.min)
     if timezone.is_naive(dt):
         dt = timezone.make_aware(dt, timezone.get_current_timezone())
     return dt
+
+
+def _estado_comision_venta(fecha_venta):
+    """Venta cerrada: si la fecha ya pasó o es hoy, queda acreditada en ese mes."""
+    if fecha_venta and fecha_venta <= timezone.localdate():
+        return 'confirmada'
+    return 'pendiente'
 
 
 def _crear_comisiones_venta(op, vendedores_sel):
@@ -437,6 +447,7 @@ def _crear_comisiones_venta(op, vendedores_sel):
         Decimal('0.01'), rounding=ROUND_HALF_UP
     )
     dt = _fecha_operacion_aware(op.fecha_venta)
+    estado_com = _estado_comision_venta(op.fecha_venta)
     dir_prop = (op.propiedad.direccion or '').strip() or f'#{op.propiedad_id}'
     n = len(vendedores_sel) or 1
     pesos = [_pct_venta_vendedor(v) for v in vendedores_sel]
@@ -480,7 +491,7 @@ def _crear_comisiones_venta(op, vendedores_sel):
                 )[:200],
                 rol_comision=ROL_COMISION_VENTA,
                 fecha_operacion=dt,
-                estado='pendiente',
+                estado=estado_com,
                 observaciones=(
                     f'Operación venta #{op.pk}. Honorarios U$S {usd_parte} '
                     f'× cotiz. {op.cotizacion_dolar} = ${monto} ARS'
@@ -511,7 +522,7 @@ def _crear_comisiones_venta(op, vendedores_sel):
                         )[:200],
                         rol_comision=ROL_COMISION_FICHAJE,
                         fecha_operacion=dt,
-                        estado='pendiente',
+                        estado=estado_com,
                         observaciones=(
                             f'Operación venta #{op.pk}. Fichaje {pct_f}% sobre '
                             f'honorarios ${op.honorarios_ars} = ${monto_f}.'
