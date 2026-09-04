@@ -132,10 +132,23 @@
     </div>
 
     {% if operacion.estado == 'confirmada' %}
-    <form method="post" action="{% url 'inmobiliaria:operaciones_venta_anular' operacion.id %}"
-          onsubmit="return confirm('¿Anular esta venta? La comisión se cancela si no estaba pagada.');">
+    <div class="d-flex flex-wrap gap-2">
+        <form method="post" action="{% url 'inmobiliaria:operaciones_venta_anular' operacion.id %}"
+              onsubmit="return confirm('¿Anular esta venta? La comisión se cancela si no estaba pagada.');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-warning btn-sm">Anular venta</button>
+        </form>
+        <form method="post" action="{% url 'inmobiliaria:operaciones_venta_eliminar' operacion.id %}"
+              onsubmit="return confirm('¿Eliminar definitivamente la venta #{{ operacion.id }}? Se borran las comisiones asociadas.');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-danger btn-sm">Eliminar venta</button>
+        </form>
+    </div>
+    {% else %}
+    <form method="post" action="{% url 'inmobiliaria:operaciones_venta_eliminar' operacion.id %}"
+          onsubmit="return confirm('¿Eliminar definitivamente la venta #{{ operacion.id }}?');">
         {% csrf_token %}
-        <button type="submit" class="btn btn-outline-danger btn-sm">Anular venta</button>
+        <button type="submit" class="btn btn-outline-danger btn-sm">Eliminar venta</button>
     </form>
     {% endif %}
 </div>

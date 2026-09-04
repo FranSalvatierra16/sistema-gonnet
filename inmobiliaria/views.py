@@ -2927,23 +2927,14 @@ def vendedores(request):
     denegado = _requiere_ver_vendedores(request)
     if denegado:
         return denegado
-    q = (request.GET.get('q') or '').strip()
     vendedores = Vendedor.objects.filter(sucursal=request.user.sucursal).order_by(
         'apellido', 'nombre'
     )
-    if q:
-        vendedores = vendedores.filter(
-            Q(nombre__icontains=q)
-            | Q(apellido__icontains=q)
-            | Q(username__icontains=q)
-            | Q(dni__icontains=q)
-        )
     return render(
         request,
         'inmobiliaria/vendedores/lista.html',
         {
             'vendedores': vendedores,
-            'q': q,
             'puede_editar_nivel_vendedor': usuario_puede_editar_nivel_vendedor(request.user),
             'puede_impersonar': usuario_puede_impersonar(request.user)
             and not request.session.get(SESSION_IMPERSONATOR_ID),

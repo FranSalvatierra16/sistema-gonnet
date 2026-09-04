@@ -1787,14 +1787,20 @@ def _filtro_caratula_confirmada_comision():
 
 
 def _filtro_operacion_vigente_comision():
-    """Operación no anulada/rescindida (sin exigir carátula confirmada)."""
+    """Operación no anulada/rescindida (sin exigir carátula confirmada).
+
+    Incluye ventas de propiedad (sin reserva ni contrato): el ``~Q(reserva__…)``
+    de SQL excluye filas con FK NULL, así que hay que sumarlas explícitamente.
+    """
     from django.db.models import Q
 
-    return (
+    sin_operacion_alquiler = Q(reserva__isnull=True, contrato__isnull=True)
+    alquiler_vigente = (
         ~Q(reserva__estado='cancelada')
         & ~Q(reserva__eliminada=True)
         & ~Q(contrato__estado='rescindido')
     )
+    return sin_operacion_alquiler | alquiler_vigente
 
 
 def _marca_observacion_reversion_comision(comision_id):

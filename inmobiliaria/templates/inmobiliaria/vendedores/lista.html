@@ -58,30 +58,26 @@
                         <div class="col-lg-4">
                             <h5 class="mb-0">
                                 <i class="fas fa-list me-2 text-primary"></i>Equipo de Ventas
-                                <span class="badge bg-primary ms-2">{{ vendedores|length }}</span>
+                                <span class="badge bg-primary ms-2" id="badge_count_vendedores">{{ vendedores|length }}</span>
                             </h5>
                         </div>
                         <div class="col-lg-8">
-                            <form method="get" class="d-flex gap-2 justify-content-lg-end" role="search">
+                            <div class="d-flex gap-2 justify-content-lg-end" role="search">
                                 <div class="input-group" style="max-width: 28rem;">
                                     <span class="input-group-text bg-white">
                                         <i class="fas fa-search text-muted"></i>
                                     </span>
                                     <input type="search"
-                                           name="q"
-                                           value="{{ q|default:'' }}"
+                                           id="filtro_vendedores"
                                            class="form-control"
                                            placeholder="Buscar por nombre, apellido, usuario o DNI…"
                                            autocomplete="off"
                                            autofocus>
-                                    {% if q %}
-                                    <a href="{% url 'inmobiliaria:vendedores' %}" class="btn btn-outline-secondary" title="Limpiar">
+                                    <button type="button" class="btn btn-outline-secondary d-none" id="btn_limpiar_filtro" title="Limpiar">
                                         <i class="fas fa-times"></i>
-                                    </a>
-                                    {% endif %}
-                                    <button type="submit" class="btn btn-primary">Buscar</button>
+                                    </button>
                                 </div>
-                            </form>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -117,9 +113,10 @@
                                     </th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody id="tbody_vendedores">
                                 {% for vendedor in vendedores %}
-                                <tr class="table-row-hover">
+                                <tr class="table-row-hover fila-vendedor"
+                                    data-search="{{ vendedor.id }} {{ vendedor.dni }} {{ vendedor.apellido }} {{ vendedor.nombre }} {{ vendedor.username }} {{ vendedor.email }}">
                                     <td>
                                         <span class="badge bg-secondary" title="ID interno del vendedor">{{ vendedor.id }}</span>
                                     </td>
@@ -208,27 +205,28 @@
                                     </td>
                                 </tr>
                                 {% empty %}
-                                <tr>
+                                <tr id="fila_sin_vendedores">
                                     <td colspan="8" class="text-center py-5">
                                         <div class="empty-state">
                                             <i class="fas fa-user-tie text-muted mb-3" style="font-size: 3rem;"></i>
-                                            {% if q %}
-                                            <h5 class="text-muted">No se encontraron vendedores</h5>
-                                            <p class="text-muted">Ningún resultado para “{{ q }}”</p>
-                                            <a href="{% url 'inmobiliaria:vendedores' %}" class="btn btn-outline-secondary">
-                                                <i class="fas fa-times me-2"></i>Limpiar búsqueda
-                                            </a>
-                                            {% else %}
                                             <h5 class="text-muted">No hay vendedores registrados</h5>
                                             <p class="text-muted">Comienza agregando vendedores al equipo de ventas</p>
                                             <a href="{% url 'inmobiliaria:vendedor_nuevo' %}" class="btn btn-primary">
                                                 <i class="fas fa-plus me-2"></i>Agregar Vendedor
                                             </a>
-                                            {% endif %}
                                         </div>
                                     </td>
                                 </tr>
                                 {% endfor %}
+                                <tr id="fila_sin_resultados" class="d-none">
+                                    <td colspan="8" class="text-center py-5">
+                                        <div class="empty-state">
+                                            <i class="fas fa-search text-muted mb-3" style="font-size: 2.5rem;"></i>
+                                            <h5 class="text-muted">No se encontraron vendedores</h5>
+                                            <p class="text-muted mb-0">Probá con otro nombre, usuario o DNI</p>
+                                        </div>
+                                    </td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
@@ -237,6 +235,43 @@
         </div>
     </div>
 </div>
+
+<script>
+(function () {
+    var input = document.getElementById('filtro_vendedores');
+    var badge = document.getElementById('badge_count_vendedores');
+    var btnLimpiar = document.getElementById('btn_limpiar_filtro');
+    var sinResultados = document.getElementById('fila_sin_resultados');
+    if (!input) return;
+
+    function filtrar() {
+        var t = (input.value || '').trim().toLowerCase();
+        var filas = document.querySelectorAll('.fila-vendedor');
+        var visibles = 0;
+        filas.forEach(function (row) {
+            var hay = (row.getAttribute('data-search') || '').toLowerCase();
+            var ok = !t || hay.indexOf(t) >= 0;
+            row.style.display = ok ? '' : 'none';
+            if (ok) visibles += 1;
+        });
+        if (badge) badge.textContent = String(visibles);
+        if (btnLimpiar) btnLimpiar.classList.toggle('d-none', !t);
+        if (sinResultados) {
+            var hayFilas = filas.length > 0;
+            sinResultados.classList.toggle('d-none', !hayFilas || visibles > 0 || !t);
+        }
+    }
+
+    input.addEventListener('input', filtrar);
+    if (btnLimpiar) {
+        btnLimpiar.addEventListener('click', function () {
+            input.value = '';
+            filtrar();
+            input.focus();
+        });
+    }
+})();
+</script>
 
 <style>
 /* Estilos específicos para la lista de vendedores */

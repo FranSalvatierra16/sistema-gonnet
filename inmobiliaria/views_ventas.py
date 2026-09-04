@@ -410,6 +410,65 @@ def operaciones_venta_anular(request, operacion_id):
     return redirect('inmobiliaria:operaciones_venta_detalle', operacion_id=op.pk)
 
 
+def _comisiones_de_venta(op):
+    qs = ComisionVendedor.objects.filter(
+        observaciones__contains=f'Operación venta #{op.pk}',
+    )
+    if op.comision_id:
+        qs = ComisionVendedor.objects.filter(
+            Q(pk=op.comision_id) | Q(observaciones__contains=f'Operación venta #{op.pk}')
+        )
+    return qs
+
+
+@login_required
+def operaciones_venta_eliminar(request, operacion_id):
+    if not _puede_gestionar_ventas(request.user):
+        return HttpResponseForbidden('No tenés permiso para eliminar ventas.')
+    if request.method != 'POST':
+        return redirect('inmobiliaria:operaciones_venta_lista')
+
+    op = get_object_or_404(
+        OperacionVenta.objects.select_related('comision', 'propiedad'),
+        pk=operacion_id,
+        sucursal=request.user.sucursal,
+    )
+    prop_id = op.propiedad_id
+    op_pk = op.pk
+
+    comisiones = _comisiones_de_venta(op)
+    if comisiones.filter(estado='pagada').exists():
+        messages.error(
+            request,
+            f'No se puede eliminar la venta #{op_pk}: hay comisiones ya pagadas. '
+            'Anulala o resolvé esas comisiones primero.',
+        )
+        return redirect('inmobiliaria:operaciones_venta_detalle', operacion_id=op_pk)
+
+    with transaction.atomic():
+        comisiones.delete()
+        op.comision = None
+        op.save(update_fields=['comision'])
+        op.delete()
+
+        # Si no quedan ventas confirmadas de esa propiedad, sacar marca de vendido.
+        otras = OperacionVenta.objects.filter(
+            propiedad_id=prop_id, estado='confirmada'
+        ).exists()
+        if not otras:
+            info = VentaPropiedad.objects.filter(propiedad_id=prop_id).first()
+            if info and info.estado == 'vendido':
+                info.estado = 'disponible'
+                info.en_venta = True
+                info.save(update_fields=['estado', 'en_venta', 'fecha_actualizacion'])
+
+    messages.success(
+        request,
+        f'Venta #{op_pk} eliminada. Se quitaron las comisiones asociadas.',
+    )
+    return redirect('inmobiliaria:operaciones_venta_lista')
+
+
 def _marcar_propiedad_vendida(propiedad):
     info, _ = VentaPropiedad.objects.get_or_create(propiedad=propiedad)
     info.estado = 'vendido'
@@ -444,10 +503,8 @@ def _fecha_operacion_aware(fecha_venta):
 
 
 def _estado_comision_venta(fecha_venta):
-    """Venta cerrada: si la fecha ya pasó o es hoy, queda acreditada en ese mes."""
-    if fecha_venta and fecha_venta <= timezone.localdate():
-        return 'confirmada'
-    return 'pendiente'
+    """Venta cerrada: la comisión se acredita al registrar, con fecha = día de venta."""
+    return 'confirmada'
 
 
 def _crear_comisiones_venta(op, partes_ars, monto_fichaje_ars=None):

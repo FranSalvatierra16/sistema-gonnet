@@ -230,6 +230,11 @@ urlpatterns = [
         views_ventas.operaciones_venta_anular,
         name='operaciones_venta_anular',
     ),
+    path(
+        'ventas/cerradas/<int:operacion_id>/eliminar/',
+        views_ventas.operaciones_venta_eliminar,
+        name='operaciones_venta_eliminar',
+    ),
     path('alquileres-24-meses/', views.alquileres_24_meses, name='alquileres_24_meses'),
     path('alquileres-invierno/', views.alquileres_invierno, name='alquileres_invierno'),
     path('alquileres-invierno/disponibilidad-masiva/', views.invierno_disponibilidad_masiva, name='invierno_disponibilidad_masiva'),

@@ -105,8 +105,16 @@
                             <span class="badge bg-secondary">Anulada</span>
                             {% endif %}
                         </td>
-                        <td class="text-end">
+                        <td class="text-end text-nowrap">
                             <a href="{% url 'inmobiliaria:operaciones_venta_detalle' op.id %}" class="btn btn-outline-primary btn-sm">Ver</a>
+                            <form method="post" action="{% url 'inmobiliaria:operaciones_venta_eliminar' op.id %}"
+                                  class="d-inline"
+                                  onsubmit="return confirm('¿Eliminar la venta #{{ op.id }}? Se borran las comisiones asociadas (si no están pagadas).');">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-outline-danger btn-sm" title="Eliminar venta">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </form>
                         </td>
                     </tr>
                     {% empty %}
