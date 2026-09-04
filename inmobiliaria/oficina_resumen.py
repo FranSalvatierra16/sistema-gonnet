@@ -61,14 +61,34 @@ def _totales_gastos_por_categoria_ids(gastos_qs):
 
 
 def _totales_comisiones_vendedor(sucursal, fecha_desde, fecha_hasta):
-    """Comisiones pagadas en el mes (egreso al vendedor)."""
-    qs = (
-        ComisionVendedor.objects.filter(
-            vendedor__sucursal=sucursal,
-            estado='pagada',
-            fecha_operacion__date__gte=fecha_desde,
-            fecha_operacion__date__lte=fecha_hasta,
+    """
+    Comisiones a egresar en el mes por vendedor.
+
+    - Alquileres / resto: solo ``pagada`` (cuando se liquida al vendedor).
+    - Ventas cerradas: también ``confirmada`` (se acreditan al registrar la venta),
+      más fichaje de venta (sin reserva/contrato).
+    """
+    from inmobiliaria.models.comision import ROL_COMISION_FICHAJE, ROL_COMISION_VENTA
+
+    base = ComisionVendedor.objects.filter(
+        vendedor__sucursal=sucursal,
+        fecha_operacion__date__gte=fecha_desde,
+        fecha_operacion__date__lte=fecha_hasta,
+    )
+    qs_ventas_confirmadas = Q(estado='confirmada') & (
+        Q(rol_comision=ROL_COMISION_VENTA)
+        | (
+            Q(rol_comision=ROL_COMISION_FICHAJE)
+            & Q(reserva_id__isnull=True)
+            & Q(contrato_id__isnull=True)
+            & (
+                Q(concepto_operacion__icontains='venta')
+                | Q(observaciones__icontains='venta')
+            )
         )
+    )
+    qs = (
+        base.filter(Q(estado='pagada') | qs_ventas_confirmadas)
         .values('vendedor_id')
         .annotate(total=Sum('monto_comision'))
     )
