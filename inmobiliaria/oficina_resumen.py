@@ -452,7 +452,8 @@ def construir_resumen_cierre(sucursal, anio, mes):
             monto = totales_por_cat.get(hijo.id, Decimal('0'))
             if nombre_raiz == 'Comisiones vendedores' and hijo.vendedor_id:
                 monto += comisiones_pagadas.get(hijo.vendedor_id, Decimal('0'))
-            if monto > 0:
+            # Incluir netos ≠ 0 (ej. Veraz con egresos e ingresos de caja).
+            if monto != 0:
                 filas.append({'nombre': hijo.nombre, 'monto': monto})
 
         if nombre_raiz == 'Comisiones vendedores':

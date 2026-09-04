@@ -151,12 +151,37 @@ MAPA_NOMBRE_CONCEPTO_A_OFICINA = {
 def ruta_oficina_para_concepto_caja(concepto_id=None, concepto_nombre=None):
     """Devuelve (raiz, sub) si el concepto de caja está mapeado a oficina."""
     cid = str(concepto_id or '').strip()
+    nom = (concepto_nombre or '').strip()
+    # concepto_catalogo_id a veces devuelve el nombre ("veraz") si no hay "130 — …"
+    if cid and not cid.isdigit():
+        nom = nom or cid
+        cid = ''
     if cid in MAPA_CONCEPTOS_CAJA_A_OFICINA:
         return MAPA_CONCEPTOS_CAJA_A_OFICINA[cid]
-    nom = _norm_nombre_cat(concepto_nombre or '')
-    if nom in MAPA_NOMBRE_CONCEPTO_A_OFICINA:
-        return MAPA_NOMBRE_CONCEPTO_A_OFICINA[nom]
+    nom_n = _norm_nombre_cat(nom)
+    if nom_n in MAPA_NOMBRE_CONCEPTO_A_OFICINA:
+        return MAPA_NOMBRE_CONCEPTO_A_OFICINA[nom_n]
+    # Texto libre: "… veraz …"
+    for clave, ruta in MAPA_NOMBRE_CONCEPTO_A_OFICINA.items():
+        if clave and clave in nom_n:
+            return ruta
     return None
+
+
+def concepto_caja_mapeado_a_oficina(concepto_texto=None, concepto_id=None, concepto_nombre=None):
+    """True si el movimiento/concepto debe ir a oficina (Veraz, etc.)."""
+    if ruta_oficina_para_concepto_caja(concepto_id, concepto_nombre):
+        return True
+    raw = _norm_nombre_cat(concepto_texto or '')
+    if not raw:
+        return False
+    for cid in MAPA_CONCEPTOS_CAJA_A_OFICINA:
+        if raw.startswith(cid) or f' {cid} ' in f' {raw} ':
+            return True
+    for nom in MAPA_NOMBRE_CONCEPTO_A_OFICINA:
+        if nom in raw:
+            return True
+    return False
 
 
 def concepto_caja_id_para_categoria_oficina(categoria):
@@ -294,10 +319,23 @@ def vincular_movimiento_concepto_a_gasto_oficina(
     nom = (concepto_nombre or '').strip() or None
     if not nom:
         nom = movimiento.nombre_concepto_catalogo
+    if not nom and cid and not str(cid).isdigit():
+        nom = str(cid)
 
     categoria = resolver_categoria_oficina_desde_concepto(
         movimiento.sucursal, concepto_id=cid, concepto_nombre=nom
     )
+    if not categoria and concepto_caja_mapeado_a_oficina(
+        movimiento.concepto, cid, nom
+    ):
+        # Fallback por texto del movimiento (ej. solo "veraz" o "130 — veraz — …")
+        ruta = ruta_oficina_para_concepto_caja(cid, nom) or ruta_oficina_para_concepto_caja(
+            None, movimiento.concepto
+        )
+        if ruta:
+            categoria = resolver_categoria_oficina_por_ruta(
+                movimiento.sucursal, ruta[0], ruta[1]
+            )
     if not categoria:
         return None
 
@@ -330,6 +368,8 @@ def sincronizar_gastos_oficina_desde_conceptos_caja(sucursal, fecha_desde, fecha
     Backfill: movimientos de caja del período con conceptos mapeados (ej. veraz/130)
     que aún no tienen GastoOficina → los crea para el cierre.
     """
+    from django.db.models import Q
+
     from inmobiliaria.models.caja import MovimientoCaja
 
     if not sucursal or not fecha_desde or not fecha_hasta:
@@ -339,6 +379,20 @@ def sincronizar_gastos_oficina_desde_conceptos_caja(sucursal, fecha_desde, fecha
     if not ids and not nombres:
         return 0
 
+    q_concepto = Q()
+    for cid in ids:
+        q_concepto |= Q(concepto__startswith=f'{cid} —')
+        q_concepto |= Q(concepto__startswith=f'{cid} -')
+        q_concepto |= Q(concepto=cid)
+        q_concepto |= Q(concepto__startswith=f'{cid} ')
+    for nom in nombres:
+        q_concepto |= Q(concepto__icontains=nom)
+
+    ya_vinculados = GastoOficina.objects.filter(
+        movimiento_caja__isnull=False,
+        movimiento_caja__sucursal=sucursal,
+    ).values_list('movimiento_caja_id', flat=True)
+
     qs = (
         MovimientoCaja.objects.filter(
             sucursal=sucursal,
@@ -346,7 +400,8 @@ def sincronizar_gastos_oficina_desde_conceptos_caja(sucursal, fecha_desde, fecha
             fecha__date__gte=fecha_desde,
             fecha__date__lte=fecha_hasta,
         )
-        .filter(gastos_oficina_vinculados__isnull=True)
+        .filter(q_concepto)
+        .exclude(id__in=ya_vinculados)
         .only(
             'id',
             'concepto',
@@ -362,13 +417,6 @@ def sincronizar_gastos_oficina_desde_conceptos_caja(sucursal, fecha_desde, fecha
     )
     creados = 0
     for mov in qs.iterator(chunk_size=200):
-        cid = mov.concepto_catalogo_id()
-        nom = mov.nombre_concepto_catalogo
-        if not ruta_oficina_para_concepto_caja(cid, nom):
-            # También match por texto libre "veraz" en concepto
-            raw_n = _norm_nombre_cat(mov.concepto or '')
-            if not any(n in raw_n for n in nombres):
-                continue
         g = vincular_movimiento_concepto_a_gasto_oficina(mov)
         if g:
             creados += 1
