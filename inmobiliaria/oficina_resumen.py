@@ -402,8 +402,12 @@ def construir_resumen_cierre(sucursal, anio, mes):
         fecha__lte=fecha_hasta,
     )
     try:
-        from inmobiliaria.oficina_gastos import sincronizar_gastos_oficina_desde_conceptos_caja
+        from inmobiliaria.oficina_gastos import (
+            reimputar_gastos_sueldo_mes_anterior,
+            sincronizar_gastos_oficina_desde_conceptos_caja,
+        )
 
+        reimputar_gastos_sueldo_mes_anterior(sucursal, fecha_desde, fecha_hasta)
         sincronizar_gastos_oficina_desde_conceptos_caja(sucursal, fecha_desde, fecha_hasta)
         gastos_qs = GastoOficina.objects.filter(
             sucursal=sucursal,

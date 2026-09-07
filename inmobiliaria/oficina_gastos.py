@@ -1,5 +1,7 @@
 """Helpers compartidos para gastos de oficina (panel y movimientos de caja)."""
+import calendar
 import unicodedata
+from datetime import date
 from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
 
 from django.db import IntegrityError
@@ -1701,6 +1703,100 @@ def categoria_gasto_es_vale(categoria):
     return bool(raiz and (raiz.nombre or '').strip().lower() == 'vales')
 
 
+def categoria_gasto_es_sueldo(categoria):
+    raiz = categoria_gasto_raiz(categoria)
+    return bool(raiz and (raiz.nombre or '').strip().lower() == 'sueldos')
+
+
+def _fecha_mes_anterior_ultimo_dia(fecha_pago):
+    """Último día del mes anterior a la fecha de pago."""
+    if not fecha_pago:
+        return None
+    if fecha_pago.month == 1:
+        return date(fecha_pago.year - 1, 12, 31)
+    ultimo = calendar.monthrange(fecha_pago.year, fecha_pago.month - 1)[1]
+    return date(fecha_pago.year, fecha_pago.month - 1, ultimo)
+
+
+def fecha_imputacion_sueldo(fecha_pago):
+    """
+    El sueldo que se paga en un mes corresponde siempre al mes anterior.
+    Ej.: pago el 6/09 → se imputa a agosto.
+    """
+    return _fecha_mes_anterior_ultimo_dia(fecha_pago)
+
+
+def _fecha_pago_gasto_sueldo(gasto):
+    mov = getattr(gasto, 'movimiento_caja', None)
+    if mov is not None:
+        ft = getattr(mov, 'fecha_transferencia', None)
+        if ft:
+            return ft
+        fa = getattr(mov, 'fecha', None)
+        if fa:
+            if hasattr(fa, 'tzinfo') and fa.tzinfo is not None:
+                return timezone.localtime(fa).date()
+            if hasattr(fa, 'date'):
+                return fa.date()
+            return fa
+    return getattr(gasto, 'fecha', None)
+
+
+def alinear_fecha_sueldo_mes_anterior(gasto):
+    """Si es sueldo, deja fecha = último día del mes anterior al pago."""
+    if not gasto or not categoria_gasto_es_sueldo(getattr(gasto, 'categoria', None)):
+        return gasto
+    imp = fecha_imputacion_sueldo(_fecha_pago_gasto_sueldo(gasto))
+    if imp and gasto.fecha != imp:
+        gasto.fecha = imp
+        gasto.save(update_fields=['fecha'])
+    return gasto
+
+
+def reimputar_gastos_sueldo_mes_anterior(sucursal, fecha_desde=None, fecha_hasta=None):
+    """
+    Ajusta sueldos ya cargados: el mes de imputación es el anterior al pago.
+    Así un pago del 6/09 entra en el cierre de agosto.
+    """
+    if not sucursal:
+        return 0
+    from django.db.models import Q
+
+    qs = (
+        GastoOficina.objects.filter(sucursal=sucursal)
+        .filter(
+            Q(categoria__nombre__iexact='Sueldos')
+            | Q(categoria__parent__nombre__iexact='Sueldos')
+        )
+        .select_related('categoria', 'categoria__parent', 'movimiento_caja')
+    )
+    if fecha_desde and fecha_hasta:
+        # Incluye pagos del mes siguiente (aún con fecha vieja en el mes de pago).
+        y, m = fecha_hasta.year, fecha_hasta.month
+        if m == 12:
+            sig_hasta = date(y + 1, 12, 31)
+        else:
+            sig_hasta = date(y, m + 1, calendar.monthrange(y, m + 1)[1])
+        qs = qs.filter(
+            Q(fecha__gte=fecha_desde, fecha__lte=sig_hasta)
+            | Q(
+                movimiento_caja__fecha_transferencia__gte=fecha_desde,
+                movimiento_caja__fecha_transferencia__lte=sig_hasta,
+            )
+            | Q(
+                movimiento_caja__fecha__date__gte=fecha_desde,
+                movimiento_caja__fecha__date__lte=sig_hasta,
+            )
+        )
+    n = 0
+    for gasto in qs.iterator(chunk_size=200):
+        antes = gasto.fecha
+        alinear_fecha_sueldo_mes_anterior(gasto)
+        if gasto.fecha != antes:
+            n += 1
+    return n
+
+
 def categoria_gasto_es_ingreso(categoria):
     raiz = categoria_gasto_raiz(categoria)
     if raiz and (raiz.nombre or '').strip().lower() == 'ingresos':
@@ -1846,6 +1942,11 @@ def registrar_gasto_oficina_desde_movimiento(
     fecha = timezone.localdate()
     if movimiento.fecha:
         fecha = timezone.localtime(movimiento.fecha).date()
+    ft = getattr(movimiento, 'fecha_transferencia', None)
+    if ft:
+        fecha = ft
+    if categoria_gasto_es_sueldo(categoria):
+        fecha = fecha_imputacion_sueldo(fecha) or fecha
 
     if not vendedor:
         vendedor = vendedor_desde_categoria(categoria)
