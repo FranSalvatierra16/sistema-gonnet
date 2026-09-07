@@ -354,6 +354,11 @@ urlpatterns = [
     path('oficina/personas/<int:persona_id>/toggle/', views_oficina.oficina_persona_toggle, name='oficina_persona_toggle'),
     path('oficina/resumen-cierre/', views_oficina.oficina_resumen_cierre, name='oficina_resumen_cierre'),
     path(
+        'oficina/liquidacion-productores/',
+        views_oficina.oficina_liquidacion_productores,
+        name='oficina_liquidacion_productores',
+    ),
+    path(
         'oficina/reporte-deptos/',
         views_oficina.oficina_reporte_deptos_mensual,
         name='oficina_reporte_deptos_mensual',

@@ -1,0 +1,118 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load custom_filters %}
+
+{% block title %}Liquidación productores — {{ liquidacion.mes_nombre }} {{ liquidacion.anio }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4 liquidacion-wrap">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 no-print">
+        <div>
+            <h1 class="h4 mb-1">Liquidación de productores</h1>
+            <p class="text-muted small mb-0">
+                Sueldo básico + comisiones del mes. Si el vendedor tiene marcada la opción
+                «si supera el básico, no sumar», el total queda solo en comisiones (caso Sebastián).
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="window.print()">Imprimir</button>
+            <a href="{% url 'inmobiliaria:oficina_dashboard' %}" class="btn btn-outline-secondary btn-sm">Volver</a>
+        </div>
+    </div>
+
+    <form method="get" class="row g-2 align-items-end mb-3 no-print">
+        <div class="col-auto">
+            <label class="form-label small mb-0">Mes</label>
+            <select name="mes" class="form-select form-select-sm">
+                {% for n, label in meses_opts %}
+                <option value="{{ n }}" {% if n == mes %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-auto">
+            <label class="form-label small mb-0">Año</label>
+            <select name="anio" class="form-select form-select-sm">
+                {% for a in anios_opts %}
+                <option value="{{ a }}" {% if a == anio %}selected{% endif %}>{{ a }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-primary btn-sm">Ver</button>
+        </div>
+    </form>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-light">
+            <strong>LIQUIDACIÓN {{ liquidacion.mes_nombre }} {{ liquidacion.anio }}</strong>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered mb-0 liquidacion-tabla">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Productor</th>
+                            <th class="text-end">Comisiones</th>
+                            <th class="text-end">Básico</th>
+                            <th>Regla</th>
+                            <th class="text-end">Básico en total</th>
+                            <th class="text-end">TOTAL A PAGAR</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for fila in liquidacion.filas %}
+                        <tr>
+                            <td>
+                                {{ fila.nombre }}
+                                {% if fila.flag_no_suma_si_superan %}
+                                <span class="badge bg-info text-dark ms-1 no-print" title="Opción activa en la ficha">tope básico</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">${{ fila.comisiones|format_price }}</td>
+                            <td class="text-end">${{ fila.sueldo_basico|format_price }}</td>
+                            <td class="small">{{ fila.nota }}</td>
+                            <td class="text-end {% if not fila.basico_aplicado %}text-muted text-decoration-line-through{% endif %}">
+                                ${{ fila.basico_en_total|format_price }}
+                            </td>
+                            <td class="text-end fw-bold">${{ fila.total|format_price }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-muted text-center py-4">
+                                No hay comisiones ni sueldos básicos cargados para este mes.
+                                Cargá el básico en Editar vendedor.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    {% if liquidacion.filas %}
+                    <tfoot class="table-light">
+                        <tr>
+                            <th>TOTALES</th>
+                            <th class="text-end">${{ liquidacion.total_comisiones|format_price }}</th>
+                            <th></th>
+                            <th></th>
+                            <th class="text-end">${{ liquidacion.total_basicos_aplicados|format_price }}</th>
+                            <th class="text-end">${{ liquidacion.total_pagar|format_price }}</th>
+                        </tr>
+                    </tfoot>
+                    {% endif %}
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <p class="small text-muted mt-3 no-print">
+        Las comisiones son las mismas del historial del productor (visibles en el mes).
+        El sueldo básico se configura en cada vendedor. Esta planilla es de liquidación;
+        no reemplaza los gastos de «Sueldos» cargados en caja.
+    </p>
+</div>
+
+<style>
+.liquidacion-tabla { font-size: 0.9rem; }
+@media print {
+    .no-print, nav, footer, .navbar { display: none !important; }
+    .liquidacion-wrap { margin: 0; }
+}
+</style>
+{% endblock %}

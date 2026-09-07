@@ -81,6 +81,41 @@
                     </div>
                 </div>
 
+                <!-- Remuneración / liquidación mensual -->
+                <div class="card shadow-modern border-radius-modern mb-4">
+                    <div class="card-header" style="background: linear-gradient(135deg, #d4fc79 0%, #96e6a1 100%); color: #333;">
+                        <h4 class="mb-0">
+                            <i class="fas fa-wallet me-2"></i>Sueldo básico y liquidación
+                        </h4>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted small mb-3">
+                            En la liquidación mensual: comisiones del mes + sueldo básico.
+                            Si marcás la opción de abajo (caso Sebastián), cuando las comisiones
+                            alcanzan o superan el básico, el básico <strong>no</strong> se suma al total.
+                        </p>
+                        <div class="row g-4 align-items-end">
+                            <div class="col-md-4">
+                                <label for="id_sueldo_basico" class="form-label">Sueldo básico ($)</label>
+                                {{ form.sueldo_basico }}
+                                {{ form.sueldo_basico.errors }}
+                            </div>
+                            <div class="col-md-8">
+                                <div class="form-check mt-2">
+                                    {{ form.basico_no_suma_si_comisiones_superan }}
+                                    <label class="form-check-label" for="id_basico_no_suma_si_comisiones_superan">
+                                        Si las comisiones superan el básico, no sumar el básico
+                                    </label>
+                                </div>
+                                {{ form.basico_no_suma_si_comisiones_superan.errors }}
+                                <small class="form-text text-muted d-block mt-1">
+                                    {{ form.basico_no_suma_si_comisiones_superan.help_text }}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Información de Usuario -->
                 <div class="card shadow-modern border-radius-modern mb-4">
                     <div class="card-header" style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); color: #333;">

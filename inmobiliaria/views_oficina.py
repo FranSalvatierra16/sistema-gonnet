@@ -1069,6 +1069,49 @@ def oficina_resumen_cierre(request):
 
 
 @login_required
+def oficina_liquidacion_productores(request):
+    """Liquidación mensual: sueldo básico + comisiones (regla opcional por vendedor)."""
+    if not _puede_oficina(request.user):
+        return HttpResponseForbidden()
+
+    sucursal = request.user.sucursal
+    if not sucursal:
+        return HttpResponseForbidden('Tu usuario no tiene sucursal asignada.')
+
+    from inmobiliaria.oficina_liquidacion_productores import construir_liquidacion_productores
+
+    today = timezone.localdate()
+    anio_s = (request.GET.get('anio') or '').strip()
+    mes_s = (request.GET.get('mes') or '').strip()
+    try:
+        anio = int(anio_s) if anio_s else today.year
+        mes = int(mes_s) if mes_s else today.month
+        if mes < 1 or mes > 12:
+            raise ValueError
+    except (TypeError, ValueError):
+        anio, mes = today.year, today.month
+
+    liquidacion = construir_liquidacion_productores(sucursal, anio, mes)
+    anios_opts = list(range(today.year - 2, today.year + 2))
+    meses_opts = list(enumerate(
+        ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+         'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
+        start=1,
+    ))
+    return render(
+        request,
+        'inmobiliaria/oficina/liquidacion_productores.html',
+        {
+            'liquidacion': liquidacion,
+            'anio': anio,
+            'mes': mes,
+            'anios_opts': anios_opts,
+            'meses_opts': meses_opts,
+        },
+    )
+
+
+@login_required
 def oficina_reporte_deptos_mensual(request):
     """
     Planilla mensual de todos los departamentos de oficina.

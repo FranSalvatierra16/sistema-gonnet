@@ -261,6 +261,24 @@ class Vendedor(AbstractUser):
         verbose_name='Comisión fichaje de venta (%)',
         help_text='Porcentaje sobre los honorarios de productores de la venta (quien fichó la propiedad).',
     )
+    sueldo_basico = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        default=None,
+        verbose_name='Sueldo básico',
+        help_text='Monto fijo mensual del productor. Se usa en la liquidación del mes junto con las comisiones.',
+    )
+    basico_no_suma_si_comisiones_superan = models.BooleanField(
+        default=False,
+        verbose_name='Si las comisiones superan el básico, no sumar el básico',
+        help_text=(
+            'Como el caso Sebastián: si está marcado y las comisiones del mes '
+            'son mayores o iguales al sueldo básico, el total a pagar es solo comisiones '
+            '(el básico no se suma). Si no está marcado, siempre se suma básico + comisiones.'
+        ),
+    )
     celular = models.CharField(max_length=20, blank=True)
     nivel = models.IntegerField(choices=NIVELES_VENDEDOR, default=1, help_text="Nivel del vendedor para determinar sus permisos")
     
