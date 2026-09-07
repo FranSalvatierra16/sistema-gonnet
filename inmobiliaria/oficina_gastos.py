@@ -164,6 +164,36 @@ MAPA_NOMBRE_CONCEPTO_A_OFICINA = {
     ),
 }
 
+# Solo estos pueden aparecer en medio del texto (ej. "RETIRO VERAZ COLON").
+# El resto (gastos bancarios, boletas…) es match exacto/prefijo: si no, cobros
+# grandes que mencionan la línea suman el total del movimiento al cierre.
+NOMBRES_CONCEPTO_PERMITE_CONTIENE = frozenset({'veraz'})
+
+
+def _ruta_por_nombre_en_texto(texto):
+    """
+    Resuelve ruta oficina por nombre de concepto.
+    Exacto o prefijo de catálogo; contains solo para NOMBRES_CONCEPTO_PERMITE_CONTIENE.
+    """
+    raw = _norm_nombre_cat(texto)
+    if not raw:
+        return None
+    if raw in MAPA_NOMBRE_CONCEPTO_A_OFICINA:
+        return MAPA_NOMBRE_CONCEPTO_A_OFICINA[raw]
+    for clave, ruta in MAPA_NOMBRE_CONCEPTO_A_OFICINA.items():
+        if not clave:
+            continue
+        if (
+            raw.startswith(clave + ' ')
+            or raw.startswith(clave + '—')
+            or raw.startswith(clave + ' -')
+            or raw.startswith(clave + '-')
+        ):
+            return ruta
+        if clave in NOMBRES_CONCEPTO_PERMITE_CONTIENE and clave in raw:
+            return ruta
+    return None
+
 
 def ruta_oficina_para_concepto_caja(concepto_id=None, concepto_nombre=None):
     """Devuelve (raiz, sub) si el concepto de caja está mapeado a oficina."""
@@ -175,14 +205,7 @@ def ruta_oficina_para_concepto_caja(concepto_id=None, concepto_nombre=None):
         cid = ''
     if cid in MAPA_CONCEPTOS_CAJA_A_OFICINA:
         return MAPA_CONCEPTOS_CAJA_A_OFICINA[cid]
-    nom_n = _norm_nombre_cat(nom)
-    if nom_n in MAPA_NOMBRE_CONCEPTO_A_OFICINA:
-        return MAPA_NOMBRE_CONCEPTO_A_OFICINA[nom_n]
-    # Texto libre: "… veraz …" (no usar ids numéricos sueltos: matchean montos/JSON).
-    for clave, ruta in MAPA_NOMBRE_CONCEPTO_A_OFICINA.items():
-        if clave and clave in nom_n:
-            return ruta
-    return None
+    return _ruta_por_nombre_en_texto(nom)
 
 
 def _concepto_campo_es_id_catalogo_oficina(concepto_texto):
@@ -209,14 +232,7 @@ def concepto_caja_mapeado_a_oficina(concepto_texto=None, concepto_id=None, conce
         return True
     if _concepto_campo_es_id_catalogo_oficina(concepto_texto):
         return True
-    raw = _norm_nombre_cat(concepto_texto or '')
-    if not raw:
-        return False
-    # Solo por nombre (veraz). Nunca por '130' suelto en textos largos/JSON.
-    for nom in MAPA_NOMBRE_CONCEPTO_A_OFICINA:
-        if nom and nom in raw:
-            return True
-    return False
+    return _ruta_por_nombre_en_texto(concepto_texto) is not None
 
 
 def _textos_movimiento_para_mapa_oficina(movimiento):
@@ -273,12 +289,11 @@ def _ruta_oficina_desde_movimiento_caja(movimiento, concepto_id=None, concepto_n
     if ruta:
         return ruta
 
-    # Detalle / JSON / listado: SOLO por nombre (veraz), nunca por id numérico suelto.
+    # Detalle / JSON / listado: SOLO nombres que permiten contains (veraz).
     for texto in _textos_movimiento_para_mapa_oficina(movimiento):
-        raw = _norm_nombre_cat(texto)
-        for clave, ruta_m in MAPA_NOMBRE_CONCEPTO_A_OFICINA.items():
-            if clave and clave in raw:
-                return ruta_m
+        ruta = _ruta_por_nombre_en_texto(texto)
+        if ruta:
+            return ruta
     return None
 
 
@@ -588,6 +603,7 @@ def _q_movimientos_concepto_mapeado_oficina():
     """
     Filtro estricto (estilo reportes de caja): solo campo ``concepto``.
     No busca en concepto_detalle (ahí el texto 'veraz' / '130' genera falsos positivos).
+    'gastos bancarios' no usa icontains (cobros con esa línea sumaban el total entero).
     """
     from django.db.models import Q
 
@@ -602,8 +618,8 @@ def _q_movimientos_concepto_mapeado_oficina():
         q |= Q(concepto__istartswith=f'{nom} —')
         q |= Q(concepto__istartswith=f'{nom} -')
         q |= Q(concepto__istartswith=f'{nom} ')
-        # "RETIRO VERAZ COLON", etc.
-        q |= Q(concepto__icontains=nom)
+        if _norm_nombre_cat(nom) in NOMBRES_CONCEPTO_PERMITE_CONTIENE:
+            q |= Q(concepto__icontains=nom)
     return q
 
 
@@ -639,14 +655,7 @@ def _neto_gastos_oficina_desde_caja_mapeada(sucursal, fecha_desde, fecha_hasta):
         concepto = (mov.concepto or '').strip()
         ruta = _concepto_campo_es_id_catalogo_oficina(concepto)
         if not ruta:
-            ruta = ruta_oficina_para_concepto_caja(None, concepto)
-        if not ruta:
-            # "RETIRO VERAZ…" etc.
-            raw = _norm_nombre_cat(concepto)
-            for clave, ruta_m in MAPA_NOMBRE_CONCEPTO_A_OFICINA.items():
-                if clave and clave in raw:
-                    ruta = ruta_m
-                    break
+            ruta = _ruta_por_nombre_en_texto(concepto)
         if not ruta:
             continue
         cat = resolver_categoria_oficina_por_ruta(sucursal, ruta[0], ruta[1])
@@ -720,13 +729,7 @@ def sincronizar_gastos_oficina_desde_conceptos_caja(sucursal, fecha_desde, fecha
         concepto = (mov.concepto or '').strip()
         ruta = _concepto_campo_es_id_catalogo_oficina(concepto)
         if not ruta:
-            ruta = ruta_oficina_para_concepto_caja(None, concepto)
-        if not ruta:
-            raw = _norm_nombre_cat(concepto)
-            for clave, ruta_m in MAPA_NOMBRE_CONCEPTO_A_OFICINA.items():
-                if clave and clave in raw:
-                    ruta = ruta_m
-                    break
+            ruta = _ruta_por_nombre_en_texto(concepto)
         if not ruta:
             continue
         g = vincular_movimiento_concepto_a_gasto_oficina(mov)
