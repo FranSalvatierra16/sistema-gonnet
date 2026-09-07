@@ -415,3 +415,35 @@ class PersonaOficina(models.Model):
         if dni:
             texto = f'{texto} (DNI {dni})'
         return texto
+
+
+class SueldoBasicoVigencia(models.Model):
+    """
+    Sueldo básico vigente desde un mes (inclusive).
+    El valor de un mes = la vigencia más reciente con vigente_desde <= 1° de ese mes.
+    Un aumento en agosto no cambia julio.
+    """
+
+    vendedor = models.ForeignKey(
+        'Vendedor',
+        on_delete=models.CASCADE,
+        related_name='sueldos_basicos_vigencia',
+    )
+    vigente_desde = models.DateField(
+        help_text='Primer día del mes desde el que rige este básico.',
+    )
+    monto = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal('0'))
+
+    class Meta:
+        verbose_name = 'Sueldo básico por vigencia'
+        verbose_name_plural = 'Sueldos básicos por vigencia'
+        ordering = ['vendedor_id', '-vigente_desde']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['vendedor', 'vigente_desde'],
+                name='uniq_sueldo_basico_vigencia_vendedor_desde',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.vendedor_id} desde {self.vigente_desde}: {self.monto}'

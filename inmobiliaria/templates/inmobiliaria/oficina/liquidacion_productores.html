@@ -42,77 +42,96 @@
         </div>
     </form>
 
-    <div class="card shadow-sm">
-        <div class="card-header bg-light">
-            <strong>LIQUIDACIÓN {{ liquidacion.mes_nombre }} {{ liquidacion.anio }}</strong>
-        </div>
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-sm table-bordered mb-0 liquidacion-tabla">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Productor</th>
-                            <th class="text-end">Comisiones</th>
-                            <th class="text-end">Básico</th>
-                            <th>Regla</th>
-                            <th class="text-end">Básico en total</th>
-                            <th class="text-end">TOTAL A PAGAR</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for fila in liquidacion.filas %}
-                        <tr>
-                            <td>
-                                {{ fila.nombre }}
-                                {% if fila.flag_no_suma_si_superan %}
-                                <span class="badge bg-info text-dark ms-1 no-print" title="Opción activa en la ficha">tope básico</span>
-                                {% endif %}
-                            </td>
-                            <td class="text-end">${{ fila.comisiones|format_price }}</td>
-                            <td class="text-end">${{ fila.sueldo_basico|format_price }}</td>
-                            <td class="small">{{ fila.nota }}</td>
-                            <td class="text-end {% if not fila.basico_aplicado %}text-muted text-decoration-line-through{% endif %}">
-                                ${{ fila.basico_en_total|format_price }}
-                            </td>
-                            <td class="text-end fw-bold">${{ fila.total|format_price }}</td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="6" class="text-muted text-center py-4">
-                                No hay comisiones ni sueldos básicos cargados para este mes.
-                                Cargá el básico en Editar vendedor.
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                    {% if liquidacion.filas %}
-                    <tfoot class="table-light">
-                        <tr>
-                            <th>TOTALES</th>
-                            <th class="text-end">${{ liquidacion.total_comisiones|format_price }}</th>
-                            <th></th>
-                            <th></th>
-                            <th class="text-end">${{ liquidacion.total_basicos_aplicados|format_price }}</th>
-                            <th class="text-end">${{ liquidacion.total_pagar|format_price }}</th>
-                        </tr>
-                    </tfoot>
-                    {% endif %}
-                </table>
+    <form method="post" action="{% url 'inmobiliaria:oficina_liquidacion_productores' %}">
+        {% csrf_token %}
+        <input type="hidden" name="mes" value="{{ mes }}">
+        <input type="hidden" name="anio" value="{{ anio }}">
+
+        <div class="card shadow-sm">
+            <div class="card-header bg-light d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <strong>LIQUIDACIÓN {{ liquidacion.mes_nombre }} {{ liquidacion.anio }}</strong>
+                <button type="submit" class="btn btn-primary btn-sm no-print">Guardar básicos</button>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered mb-0 liquidacion-tabla">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Productor</th>
+                                <th class="text-end">Comisiones</th>
+                                <th class="text-end">Básico</th>
+                                <th>Regla</th>
+                                <th class="text-end">Básico en total</th>
+                                <th class="text-end">TOTAL A PAGAR</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for fila in liquidacion.filas %}
+                            <tr>
+                                <td>
+                                    {{ fila.nombre }}
+                                    {% if fila.flag_no_suma_si_superan %}
+                                    <span class="badge bg-info text-dark ms-1 no-print" title="Opción activa en la ficha">tope básico</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">${{ fila.comisiones|format_price }}</td>
+                                <td class="text-end">
+                                    <span class="solo-imprimir">${{ fila.sueldo_basico|format_price }}</span>
+                                    <input type="text"
+                                           name="basico_{{ fila.vendedor.id }}"
+                                           class="form-control form-control-sm text-end no-print input-basico"
+                                           inputmode="decimal"
+                                           autocomplete="off"
+                                           value="{{ fila.sueldo_basico|format_price }}"
+                                           aria-label="Sueldo básico de {{ fila.nombre }}">
+                                </td>
+                                <td class="small">{{ fila.nota }}</td>
+                                <td class="text-end {% if not fila.basico_aplicado %}text-muted text-decoration-line-through{% endif %}">
+                                    ${{ fila.basico_en_total|format_price }}
+                                </td>
+                                <td class="text-end fw-bold">${{ fila.total|format_price }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-muted text-center py-4">
+                                    No hay productores activos en esta sucursal.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        {% if liquidacion.filas %}
+                        <tfoot class="table-light">
+                            <tr>
+                                <th>TOTALES</th>
+                                <th class="text-end">${{ liquidacion.total_comisiones|format_price }}</th>
+                                <th></th>
+                                <th></th>
+                                <th class="text-end">${{ liquidacion.total_basicos_aplicados|format_price }}</th>
+                                <th class="text-end">${{ liquidacion.total_pagar|format_price }}</th>
+                            </tr>
+                        </tfoot>
+                        {% endif %}
+                    </table>
+                </div>
             </div>
         </div>
-    </div>
+    </form>
 
     <p class="small text-muted mt-3 no-print">
         Las comisiones son las mismas del historial del productor (visibles en el mes).
-        El sueldo básico se configura en cada vendedor. Esta planilla es de liquidación;
+        El básico se edita acá: el cambio vale <strong>desde este mes en adelante</strong>
+        (un aumento en agosto no modifica julio). Esta planilla es de liquidación;
         no reemplaza los gastos de «Sueldos» cargados en caja.
     </p>
 </div>
 
 <style>
 .liquidacion-tabla { font-size: 0.9rem; }
+.input-basico { max-width: 9rem; margin-left: auto; }
+.solo-imprimir { display: none; }
 @media print {
     .no-print, nav, footer, .navbar { display: none !important; }
+    .solo-imprimir { display: inline !important; }
     .liquidacion-wrap { margin: 0; }
 }
 </style>

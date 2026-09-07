@@ -1085,11 +1085,15 @@ def oficina_liquidacion_productores(request):
     if not sucursal:
         return HttpResponseForbidden('Tu usuario no tiene sucursal asignada.')
 
-    from inmobiliaria.oficina_liquidacion_productores import construir_liquidacion_productores
+    from inmobiliaria.oficina_liquidacion_productores import (
+        construir_liquidacion_productores,
+        guardar_sueldos_basicos_mes,
+    )
 
     today = timezone.localdate()
-    anio_s = (request.GET.get('anio') or '').strip()
-    mes_s = (request.GET.get('mes') or '').strip()
+    src = request.POST if request.method == 'POST' else request.GET
+    anio_s = (src.get('anio') or '').strip()
+    mes_s = (src.get('mes') or '').strip()
     try:
         anio = int(anio_s) if anio_s else today.year
         mes = int(mes_s) if mes_s else today.month
@@ -1097,6 +1101,20 @@ def oficina_liquidacion_productores(request):
             raise ValueError
     except (TypeError, ValueError):
         anio, mes = today.year, today.month
+
+    if request.method == 'POST':
+        cambiados = guardar_sueldos_basicos_mes(sucursal, anio, mes, request.POST)
+        if cambiados:
+            messages.success(
+                request,
+                f'Se actualizó el básico de {cambiados} productor{"es" if cambiados != 1 else ""} '
+                f'desde {mes:02d}/{anio} en adelante. Los meses anteriores no cambian.',
+            )
+        else:
+            messages.info(request, 'No hubo cambios en los básicos.')
+        return redirect(
+            f"{reverse('inmobiliaria:oficina_liquidacion_productores')}?mes={mes}&anio={anio}"
+        )
 
     liquidacion = construir_liquidacion_productores(sucursal, anio, mes)
     anios_opts = list(range(today.year - 2, today.year + 2))
