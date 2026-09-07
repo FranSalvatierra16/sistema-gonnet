@@ -1384,6 +1384,26 @@ def _base_monto_comisiones_caratula(comision_locador, comision_locatario):
     return total.quantize(Decimal('0.01'))
 
 
+def _alinear_comisiones_grabadas_a_caratula_contrato(contrato, base_comisiones, movimientos=None):
+    """Pisa ComisionVendedor (salvo pagadas) con la base locador+locatario de la carátula."""
+    if not contrato or Decimal(str(base_comisiones or 0)) <= Decimal('0.05'):
+        return
+    try:
+        from inmobiliaria.models.comision import asegurar_comisiones_contrato
+
+        movs = sorted(movimientos or [], key=lambda x: (getattr(x, 'fecha', None), x.id))
+        asegurar_comisiones_contrato(
+            contrato,
+            honorarios_monto=Decimal(str(base_comisiones)),
+            movimiento_caja=movs[0] if movs else None,
+        )
+    except Exception:
+        logger.exception(
+            'caratula: no se pudieron alinear comisiones del contrato %s',
+            getattr(contrato, 'pk', None),
+        )
+
+
 def _normalizar_lineas_fichaje_caratula(lineas, contrato):
     """La comisión fichaje es siempre del vendedor que fichó la propiedad."""
     from inmobiliaria.models.comision import ROL_COMISION_FICHAJE
@@ -1772,12 +1792,17 @@ def _guardar_caratula_contrato(request, contrato):
             movimiento_caja=movs_op[0] if movs_op else None,
         )
     elif liq and (liq.estado or '') != 'pendiente':
-        # Hay liquidación cerrada: no pisar montos ni regenerar comisiones pagadas.
+        # Liquidación cerrada: no pisar la liquidación, sí alinear historial (salvo pagadas).
         _set_comisiones_override_caratula(request, contrato.id, com_loc, comision_locatario)
-        messages.info(
-            request,
-            'La liquidación ya no está pendiente: se guardaron fechas/montos de la carátula '
-            'sin recalcular comisiones ni modificar la liquidación cerrada.',
+        movimientos = []
+        if contrato.propiedad_id:
+            from inmobiliaria.cuotas_imputacion import movimientos_ingreso_contrato
+
+            movimientos = movimientos_ingreso_contrato(contrato)
+        _alinear_comisiones_grabadas_a_caratula_contrato(
+            contrato,
+            _base_monto_comisiones_caratula(com_loc, comision_locatario),
+            movimientos,
         )
     elif comision_locatario > 0 or com_loc > 0:
         _set_comisiones_override_caratula(request, contrato.id, com_loc, comision_locatario)
@@ -2988,6 +3013,9 @@ def _ctx_honorarios_comisiones_caratula_contrato(
         contrato, movimientos, liquidacion=liquidacion, override=override
     )
     base_comisiones = _base_monto_comisiones_caratula(comision_locador, comision_locatario)
+    _alinear_comisiones_grabadas_a_caratula_contrato(
+        contrato, base_comisiones, movimientos
+    )
     comisiones_vendedor = _comisiones_vendedor_contrato_caratula(contrato, base_comisiones)
     _normalizar_lineas_fichaje_caratula(comisiones_vendedor, contrato)
     comisiones_fichaje = [cv for cv in comisiones_vendedor if cv.get('rol') == 'fichaje']
@@ -3479,6 +3507,9 @@ def _build_legacy_contrato(
         contrato, movimientos, liquidacion=liquidacion, override=override
     )
     base_comisiones = _base_monto_comisiones_caratula(comision_locador, comision_locatario)
+    _alinear_comisiones_grabadas_a_caratula_contrato(
+        contrato, base_comisiones, movimientos
+    )
     comisiones_vendedor = _comisiones_vendedor_contrato_caratula(contrato, base_comisiones)
     _normalizar_lineas_fichaje_caratula(comisiones_vendedor, contrato)
     comisiones_fichaje = [cv for cv in comisiones_vendedor if cv.get('rol') == 'fichaje']

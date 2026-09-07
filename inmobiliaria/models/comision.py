@@ -981,7 +981,7 @@ def registrar_comisiones_honorarios_contrato(contrato, honorarios_monto, movimie
             rol_comision=ROL_COMISION_FICHAJE,
             fecha_operacion=fecha_op,
         )
-        if c and not _comision_acreditada(c):
+        if c and _puede_actualizar_monto_comision(c):
             nuevo_monto = (
                 Decimal(str(honorarios_monto)) * Decimal(str(pct_fichaje)) / Decimal('100')
             ).quantize(Decimal('0.01'))
@@ -1041,7 +1041,7 @@ def registrar_comisiones_honorarios_contrato(contrato, honorarios_monto, movimie
             rol_comision=rol,
             fecha_operacion=fecha_op,
         )
-        if c and not _comision_acreditada(c):
+        if c and _puede_actualizar_monto_comision(c):
             nuevo_monto = (
                 Decimal(str(base_parte)) * Decimal(str(pct)) / Decimal('100')
             ).quantize(Decimal('0.01'))
@@ -1083,8 +1083,13 @@ def asegurar_comisiones_contrato(contrato, honorarios_monto=None, movimiento_caj
 
 
 def _comision_acreditada(comision):
-    """Confirmada o pagada: no se borra ni se recalcula el monto."""
+    """Confirmada o pagada: no se borra (sí se puede alinear el monto si no está pagada)."""
     return getattr(comision, 'estado', None) in ('confirmada', 'pagada')
+
+
+def _puede_actualizar_monto_comision(comision):
+    """Pagada no se toca. Confirmada/pendiente se alinean a la carátula."""
+    return getattr(comision, 'estado', None) != 'pagada'
 
 
 def _eliminar_comisiones_productor_reserva(reserva, vendedor_id=None):
