@@ -475,6 +475,7 @@ def construir_resumen_cierre(sucursal, anio, mes):
                     fecha__lte=fecha_hasta,
                     movimiento_caja__isnull=True,
                 )
+                .exclude(observaciones__icontains='Vinculado automáticamente')
                 .values('categoria_id')
                 .annotate(total=Sum('monto'))
             ):

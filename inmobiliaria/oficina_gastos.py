@@ -599,19 +599,163 @@ def _limpiar_gastos_mapeados_incorrectos(sucursal, fecha_desde, fecha_hasta):
     return borrados
 
 
-def _q_movimientos_concepto_mapeado_oficina():
+def _parse_lineas_concepto_movimiento(movimiento):
+    """Lista de dicts {id, nombre, importe} desde concepto_detalle / |CONCEPTOS:."""
+    import json
+    import re
+
+    conceptos_data = []
+    json_str = getattr(movimiento, 'concepto_detalle', None) or ''
+    if str(json_str).strip():
+        try:
+            parsed = json.loads(json_str)
+            if isinstance(parsed, dict) and 'conceptos' in parsed:
+                conceptos_data = parsed.get('conceptos', []) or []
+            elif isinstance(parsed, list):
+                conceptos_data = parsed
+        except (json.JSONDecodeError, ValueError, TypeError):
+            conceptos_data = []
+    if not conceptos_data:
+        raw = (getattr(movimiento, 'concepto', None) or '').strip()
+        if '|CONCEPTOS:' in raw:
+            trozo = raw.split('|CONCEPTOS:', 1)[1]
+            for item in [x for x in trozo.split('|') if x.strip()]:
+                parts = item.split(':')
+                if len(parts) >= 3:
+                    conceptos_data.append({
+                        'id': parts[0].strip(),
+                        'nombre': parts[1].strip(),
+                        'importe': parts[2].strip(),
+                    })
+        elif raw.startswith('['):
+            try:
+                parsed = json.loads(raw)
+                if isinstance(parsed, list):
+                    conceptos_data = parsed
+            except (json.JSONDecodeError, ValueError, TypeError):
+                pass
+        else:
+            m_json = re.search(
+                r'(?:Contrato|Operaci[oó]n)\s*#?\s*\d+\s*-\s*(\[.*)$',
+                raw,
+                re.I | re.S,
+            )
+            if m_json:
+                try:
+                    embebido = json.loads(m_json.group(1).rstrip('.'))
+                    if isinstance(embebido, list):
+                        conceptos_data = embebido
+                except (json.JSONDecodeError, ValueError, TypeError):
+                    pass
+    return conceptos_data if isinstance(conceptos_data, list) else []
+
+
+def _importe_decimal_linea(raw):
+    from inmobiliaria.decimal_utils import parse_decimal_monto
+
+    try:
+        return Decimal(str(parse_decimal_monto(raw) or 0))
+    except Exception:
+        try:
+            t = str(raw or '0').strip().replace('$', '').replace(' ', '')
+            if ',' in t and '.' in t:
+                t = t.replace('.', '').replace(',', '.')
+            elif ',' in t:
+                t = t.replace(',', '.')
+            return Decimal(t or '0')
+        except Exception:
+            return Decimal('0')
+
+
+def _importe_solo_lineas_concepto_id(movimiento, concepto_id):
+    """Suma importes de líneas cuyo id es exactamente concepto_id. Sin fallback al total."""
+    cid = str(concepto_id or '').strip()
+    if not cid:
+        return Decimal('0')
+    total = Decimal('0')
+    for linea in _parse_lineas_concepto_movimiento(movimiento):
+        if not isinstance(linea, dict):
+            continue
+        lid = str(linea.get('id') or linea.get('codigo') or '').strip()
+        if lid != cid:
+            continue
+        total += abs(_importe_decimal_linea(linea.get('importe') or linea.get('monto') or 0))
+    return total.quantize(Decimal('0.01'))
+
+
+def _movimiento_es_concepto_id_estricto(movimiento, concepto_id):
     """
-    Candidatos por id de catálogo (misma base que el reporte de caja).
-    No matchea por substring del nombre (eso sumaba cobros enteros a Gastos bancarios).
+    True si el movimiento corresponde al id de catálogo.
+    - Con líneas JSON: solo si alguna línea tiene ese id.
+    - Sin líneas: campo concepto = '22' / '22 — …', o nombre exacto del mapa
+      (ej. «Gastos bancarios» solo, como el egreso de $85.000).
+    Nunca: substring del nombre dentro de un cobro multi-concepto.
     """
+    import re
+
+    cid = str(concepto_id or '').strip()
+    if not cid or not cid.isdigit():
+        return False
+
+    lineas = _parse_lineas_concepto_movimiento(movimiento)
+    if lineas:
+        for linea in lineas:
+            if not isinstance(linea, dict):
+                continue
+            lid = str(linea.get('id') or linea.get('codigo') or '').strip()
+            if lid == cid:
+                return True
+        return False
+
+    try:
+        if str(movimiento.concepto_catalogo_id() or '').strip() == cid:
+            return True
+    except Exception:
+        pass
+    raw = (getattr(movimiento, 'concepto', None) or '').strip()
+    primera = raw.split('\n', 1)[0].strip().split('|CONCEPTOS:', 1)[0].strip()
+    if primera == cid:
+        return True
+    if re.match(rf'^{re.escape(cid)}\s*[—\-–]', primera):
+        return True
+    ruta_cid = MAPA_CONCEPTOS_CAJA_A_OFICINA.get(cid)
+    if ruta_cid:
+        nom = _norm_nombre_cat(primera)
+        for clave, ruta in MAPA_NOMBRE_CONCEPTO_A_OFICINA.items():
+            if ruta == ruta_cid and nom == clave:
+                return True
+    return False
+
+
+def _q_movimientos_por_concepto_id_estricto(concepto_id):
+    """Filtro SQL candidato (se revalida en Python)."""
     from django.db.models import Q
 
-    from inmobiliaria.views import _q_movimiento_tiene_concepto_id
+    cid = str(concepto_id or '').strip()
+    return (
+        Q(concepto__iexact=cid)
+        | Q(concepto__startswith=f'{cid} —')
+        | Q(concepto__startswith=f'{cid} -')
+        | Q(concepto__startswith=f'{cid} –')
+        | Q(concepto__contains=f'|CONCEPTOS:{cid}:')
+        | Q(concepto_detalle__contains=f'"id": "{cid}"')
+        | Q(concepto_detalle__contains=f'"id":"{cid}"')
+        | Q(concepto_detalle__contains=f'"id": {cid}')
+        | Q(concepto_detalle__contains=f"'id': '{cid}'")
+    )
+
+
+def _q_movimientos_concepto_mapeado_oficina():
+    """Candidatos por id de catálogo o nombre exacto (sin contains)."""
+    from django.db.models import Q
 
     q = Q()
     for cid in MAPA_CONCEPTOS_CAJA_A_OFICINA:
-        q |= _q_movimiento_tiene_concepto_id(cid)
-    # Veraz a veces va sin id en el texto («RETIRO VERAZ…»).
+        q |= _q_movimientos_por_concepto_id_estricto(cid)
+    for nom in MAPA_NOMBRE_CONCEPTO_A_OFICINA:
+        q |= Q(concepto__iexact=nom)
+        q |= Q(concepto__istartswith=f'{nom} —')
+        q |= Q(concepto__istartswith=f'{nom} -')
     for nom in NOMBRES_CONCEPTO_PERMITE_CONTIENE:
         q |= Q(concepto__icontains=nom)
     return q
@@ -619,48 +763,28 @@ def _q_movimientos_concepto_mapeado_oficina():
 
 def _neto_gastos_oficina_desde_caja_mapeada(sucursal, fecha_desde, fecha_hasta):
     """
-    Neto por categoría mapeada, alineado al reporte de caja:
-    solo movimientos que tienen el id de concepto, y solo el importe de esa línea
-    (no el total del recibo cuando hay varios conceptos).
+    Neto por categoría mapeada.
+    Regla dura: solo id de catálogo (22/130/24) + importe de esa línea.
+    Si el movimiento es solo ese concepto (sin líneas), usa el total del movimiento.
+    Nunca usa el total de un cobro multi-concepto ni el nombre «Gastos bancarios».
     Egreso +, ingreso −.
     """
+    from django.db.models import Q
     from django.db.models.functions import Coalesce, TruncDate
 
-    from inmobiliaria.catalogo_conceptos_caja import q_conceptos_caja_visibles
-    from inmobiliaria.models.caja import Concepto, MovimientoCaja
-    from inmobiliaria.views import (
-        _importe_concepto_filtrado_movimiento,
-        _movimiento_tiene_alguno_concepto_ids,
-        _q_movimiento_tiene_concepto_id,
-    )
+    from inmobiliaria.models.caja import MovimientoCaja
 
     if not sucursal or not fecha_desde or not fecha_hasta:
         return {}
-
-    conceptos_catalogo = list(
-        Concepto.objects.filter(q_conceptos_caja_visibles(sucursal)).only('id', 'nombre')
-    )
-    id_a_nombre = {
-        str(c.id).strip(): (c.nombre or '').strip()
-        for c in conceptos_catalogo
-        if str(c.id or '').strip()
-    }
 
     netos = {}
     for cid, (raiz, sub) in MAPA_CONCEPTOS_CAJA_A_OFICINA.items():
         cat = resolver_categoria_oficina_por_ruta(sucursal, raiz, sub)
         if not cat:
             continue
-        criterio = {
-            'ids': {str(cid)},
-            'nombre': id_a_nombre.get(str(cid), ''),
-        }
-        q_cid = _q_movimiento_tiene_concepto_id(cid)
+        q_cid = _q_movimientos_por_concepto_id_estricto(cid)
         if cid == '130':
-            # Veraz: también textos «RETIRO VERAZ…» sin id.
-            from django.db.models import Q as _Q
-
-            q_cid = q_cid | _Q(concepto__icontains='veraz')
+            q_cid = q_cid | Q(concepto__icontains='veraz')
 
         qs = (
             MovimientoCaja.objects.filter(
@@ -678,34 +802,39 @@ def _neto_gastos_oficina_desde_caja_mapeada(sucursal, fecha_desde, fecha_hasta):
 
         acum = Decimal('0')
         for mov in qs.iterator(chunk_size=200):
-            ids_ok = {str(cid)}
             es_veraz_texto = False
             if cid == '130':
                 raw = _norm_nombre_cat(mov.concepto or '')
-                es_veraz_texto = 'veraz' in raw and not _concepto_campo_es_id_catalogo_oficina(
-                    mov.concepto or ''
+                es_veraz_texto = (
+                    'veraz' in raw
+                    and not _movimiento_es_concepto_id_estricto(mov, '130')
                 )
-            if not es_veraz_texto and not _movimiento_tiene_alguno_concepto_ids(
-                mov, ids_ok, conceptos_catalogo
-            ):
+            if not es_veraz_texto and not _movimiento_es_concepto_id_estricto(mov, cid):
                 continue
-            imp = _importe_concepto_filtrado_movimiento(
-                mov, criterio, conceptos_catalogo
-            )
-            if imp is None:
-                continue
-            total = abs(Decimal(str(imp)))
-            if total == 0 and es_veraz_texto:
+
+            lineas = _parse_lineas_concepto_movimiento(mov)
+            tiene_lineas = bool(lineas)
+            imp_linea = _importe_solo_lineas_concepto_id(mov, cid)
+
+            if tiene_lineas:
+                # Multi-concepto: SOLO la línea del id (nunca el total del recibo).
+                total = imp_linea
+            elif es_veraz_texto or _movimiento_es_concepto_id_estricto(mov, cid):
                 total = (
                     Decimal(str(mov.monto_efectivo or 0))
                     + Decimal(str(mov.monto_cheque or 0))
                     + Decimal(str(mov.monto_tarjeta or 0))
                     + Decimal(str(mov.monto_deposito or 0))
                 )
+            else:
+                continue
+
             if total == 0:
                 continue
             if (mov.tipo or '').strip().upper() == TipoMovimientoCajaEnum.INGRESO:
-                total = -total
+                total = -abs(total)
+            else:
+                total = abs(total)
             acum = (acum + total).quantize(Decimal('0.01'))
         netos[cat.id] = acum
     return netos
@@ -715,18 +844,15 @@ def sincronizar_gastos_oficina_desde_conceptos_caja(sucursal, fecha_desde, fecha
     """
     Backfill: movimientos de caja del período con conceptos mapeados (ej. veraz/130)
     → crea GastoOficina para el cierre.
-    Busca id en concepto y nombre (veraz) en concepto/detalle; no usa '130' suelto en JSON.
+    Solo por id de catálogo estricto (22/130/24); veraz también por texto.
     """
-    from django.db.models import Q
     from django.db.models.functions import Coalesce, TruncDate
 
     from inmobiliaria.models.caja import MovimientoCaja
 
     if not sucursal or not fecha_desde or not fecha_hasta:
         return 0
-    ids = list(MAPA_CONCEPTOS_CAJA_A_OFICINA.keys())
-    nombres = list(MAPA_NOMBRE_CONCEPTO_A_OFICINA.keys())
-    if not ids and not nombres:
+    if not MAPA_CONCEPTOS_CAJA_A_OFICINA and not MAPA_NOMBRE_CONCEPTO_A_OFICINA:
         return 0
 
     try:
@@ -761,23 +887,14 @@ def sincronizar_gastos_oficina_desde_conceptos_caja(sucursal, fecha_desde, fecha
         .exclude(id__in=ya_vinculados)
         .distinct()
     )
-    from inmobiliaria.catalogo_conceptos_caja import q_conceptos_caja_visibles
-    from inmobiliaria.models.caja import Concepto
-    from inmobiliaria.views import _movimiento_tiene_alguno_concepto_ids
-
-    conceptos_catalogo = list(
-        Concepto.objects.filter(q_conceptos_caja_visibles(sucursal)).only('id', 'nombre')
-    )
-
     creados = 0
     for mov in qs.iterator(chunk_size=200):
         ruta = None
         for cid, ruta_m in MAPA_CONCEPTOS_CAJA_A_OFICINA.items():
-            if _movimiento_tiene_alguno_concepto_ids(mov, {str(cid)}, conceptos_catalogo):
+            if _movimiento_es_concepto_id_estricto(mov, cid):
                 ruta = ruta_m
                 break
         if not ruta:
-            # Veraz por texto libre.
             raw = _norm_nombre_cat(mov.concepto or '')
             if 'veraz' in raw:
                 ruta = MAPA_CONCEPTOS_CAJA_A_OFICINA.get('130') or MAPA_NOMBRE_CONCEPTO_A_OFICINA.get(
