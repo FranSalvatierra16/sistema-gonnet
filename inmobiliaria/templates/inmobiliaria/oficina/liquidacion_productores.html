@@ -15,6 +15,7 @@
             </p>
         </div>
         <div class="d-flex gap-2">
+            <button type="submit" form="form-basicos" class="btn btn-primary btn-sm">Guardar básicos</button>
             <button type="button" class="btn btn-outline-secondary btn-sm" onclick="window.print()">Imprimir</button>
             <a href="{% url 'inmobiliaria:oficina_dashboard' %}" class="btn btn-outline-secondary btn-sm">Volver</a>
         </div>
@@ -42,19 +43,18 @@
         </div>
     </form>
 
-    <form method="post" action="{% url 'inmobiliaria:oficina_liquidacion_productores' %}">
+    <form id="form-basicos" method="post" action="{% url 'inmobiliaria:oficina_liquidacion_productores' %}">
         {% csrf_token %}
         <input type="hidden" name="mes" value="{{ mes }}">
         <input type="hidden" name="anio" value="{{ anio }}">
 
         <div class="card shadow-sm">
-            <div class="card-header bg-light d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div class="card-header bg-light">
                 <strong>LIQUIDACIÓN {{ liquidacion.mes_nombre }} {{ liquidacion.anio }}</strong>
-                <button type="submit" class="btn btn-primary btn-sm no-print">Guardar básicos</button>
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
-                    <table class="table table-sm table-bordered mb-0 liquidacion-tabla">
+                    <table class="table table-sm table-bordered mb-0 liquidacion-tabla" id="tabla-liquidacion">
                         <thead class="table-light">
                             <tr>
                                 <th>Productor</th>
@@ -67,7 +67,9 @@
                         </thead>
                         <tbody>
                             {% for fila in liquidacion.filas %}
-                            <tr>
+                            <tr class="fila-liq"
+                                data-comisiones="{{ fila.comisiones }}"
+                                data-flag="{% if fila.flag_no_suma_si_superan %}1{% else %}0{% endif %}">
                                 <td>
                                     {{ fila.nombre }}
                                     {% if fila.flag_no_suma_si_superan %}
@@ -75,26 +77,30 @@
                                     {% endif %}
                                 </td>
                                 <td class="text-end">${{ fila.comisiones|format_price }}</td>
-                                <td class="text-end">
+                                <td class="text-end celda-basico">
                                     <span class="solo-imprimir">${{ fila.sueldo_basico|format_price }}</span>
-                                    <input type="text"
-                                           name="basico_{{ fila.vendedor.id }}"
-                                           class="form-control form-control-sm text-end no-print input-basico"
-                                           inputmode="decimal"
-                                           autocomplete="off"
-                                           value="{{ fila.sueldo_basico|format_price }}"
-                                           aria-label="Sueldo básico de {{ fila.nombre }}">
+                                    <label class="basico-edit no-print">
+                                        <span>$</span>
+                                        <input type="text"
+                                               name="basico_{{ fila.vendedor.id }}"
+                                               class="input-basico"
+                                               inputmode="decimal"
+                                               autocomplete="off"
+                                               value="{{ fila.sueldo_basico|format_price }}"
+                                               aria-label="Sueldo básico de {{ fila.nombre }}">
+                                    </label>
                                 </td>
-                                <td class="small">{{ fila.nota }}</td>
-                                <td class="text-end {% if not fila.basico_aplicado %}text-muted text-decoration-line-through{% endif %}">
+                                <td class="small celda-regla">{{ fila.nota }}</td>
+                                <td class="text-end celda-basico-total {% if not fila.basico_aplicado %}text-muted text-decoration-line-through{% endif %}">
                                     ${{ fila.basico_en_total|format_price }}
                                 </td>
-                                <td class="text-end fw-bold">${{ fila.total|format_price }}</td>
+                                <td class="text-end fw-bold celda-total">${{ fila.total|format_price }}</td>
                             </tr>
                             {% empty %}
                             <tr>
                                 <td colspan="6" class="text-muted text-center py-4">
-                                    No hay productores activos en esta sucursal.
+                                    No hay comisiones ni sueldos básicos cargados para este mes.
+                                    Cargá el básico en Editar vendedor.
                                 </td>
                             </tr>
                             {% endfor %}
@@ -106,8 +112,8 @@
                                 <th class="text-end">${{ liquidacion.total_comisiones|format_price }}</th>
                                 <th></th>
                                 <th></th>
-                                <th class="text-end">${{ liquidacion.total_basicos_aplicados|format_price }}</th>
-                                <th class="text-end">${{ liquidacion.total_pagar|format_price }}</th>
+                                <th class="text-end" id="tot-basicos">${{ liquidacion.total_basicos_aplicados|format_price }}</th>
+                                <th class="text-end" id="tot-pagar">${{ liquidacion.total_pagar|format_price }}</th>
                             </tr>
                         </tfoot>
                         {% endif %}
@@ -119,7 +125,7 @@
 
     <p class="small text-muted mt-3 no-print">
         Las comisiones son las mismas del historial del productor (visibles en el mes).
-        El básico se edita acá: el cambio vale <strong>desde este mes en adelante</strong>
+        El básico se edita en esta misma tabla: el cambio vale <strong>desde este mes en adelante</strong>
         (un aumento en agosto no modifica julio). Esta planilla es de liquidación;
         no reemplaza los gastos de «Sueldos» cargados en caja.
     </p>
@@ -127,7 +133,31 @@
 
 <style>
 .liquidacion-tabla { font-size: 0.9rem; }
-.input-basico { max-width: 9rem; margin-left: auto; }
+.basico-edit {
+    display: inline-flex;
+    align-items: baseline;
+    justify-content: flex-end;
+    gap: 0;
+    margin: 0;
+    width: 100%;
+}
+.input-basico {
+    width: 7.6rem;
+    border: 1px solid transparent;
+    background: transparent;
+    text-align: right;
+    padding: 0.05rem 0.2rem;
+    font-size: inherit;
+    color: inherit;
+    line-height: inherit;
+}
+.input-basico:hover,
+.input-basico:focus {
+    border-color: #86b7fe;
+    background: #fff;
+    outline: none;
+    border-radius: 4px;
+}
 .solo-imprimir { display: none; }
 @media print {
     .no-print, nav, footer, .navbar { display: none !important; }
@@ -135,4 +165,69 @@
     .liquidacion-wrap { margin: 0; }
 }
 </style>
+<script>
+(function () {
+    function parseMonto(raw) {
+        var s = String(raw || '').trim().replace(/[^\d.,-]/g, '');
+        if (!s) return 0;
+        if (s.indexOf(',') >= 0) {
+            s = s.replace(/\./g, '').replace(',', '.');
+        } else if ((s.match(/\./g) || []).length > 1) {
+            s = s.replace(/\./g, '');
+        }
+        var n = parseFloat(s);
+        return isNaN(n) ? 0 : n;
+    }
+    function formatMonto(n) {
+        return n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    function recalcularFila(tr) {
+        var input = tr.querySelector('.input-basico');
+        if (!input) return { basicoTotal: 0, total: 0 };
+        var basico = parseMonto(input.value);
+        var comis = parseMonto(tr.getAttribute('data-comisiones'));
+        var flag = tr.getAttribute('data-flag') === '1';
+        var aplicado = true;
+        var total;
+        var nota;
+        if (flag && basico > 0 && comis >= basico) {
+            aplicado = false;
+            total = comis;
+            nota = 'Solo comisiones (superó el básico)';
+        } else {
+            total = Math.round((comis + basico) * 100) / 100;
+            nota = basico > 0 ? 'Básico + comisiones' : 'Solo comisiones';
+        }
+        var basicoTotal = aplicado ? basico : 0;
+        var celdaRegla = tr.querySelector('.celda-regla');
+        var celdaBasicoTotal = tr.querySelector('.celda-basico-total');
+        var celdaTotal = tr.querySelector('.celda-total');
+        if (celdaRegla) celdaRegla.textContent = nota;
+        if (celdaBasicoTotal) {
+            celdaBasicoTotal.textContent = '$' + formatMonto(basicoTotal);
+            celdaBasicoTotal.classList.toggle('text-muted', !aplicado);
+            celdaBasicoTotal.classList.toggle('text-decoration-line-through', !aplicado);
+        }
+        if (celdaTotal) celdaTotal.textContent = '$' + formatMonto(total);
+        return { basicoTotal: basicoTotal, total: total };
+    }
+    function recalcularTodo() {
+        var totB = 0;
+        var totP = 0;
+        document.querySelectorAll('#tabla-liquidacion .fila-liq').forEach(function (tr) {
+            var r = recalcularFila(tr);
+            totB += r.basicoTotal;
+            totP += r.total;
+        });
+        var elB = document.getElementById('tot-basicos');
+        var elP = document.getElementById('tot-pagar');
+        if (elB) elB.textContent = '$' + formatMonto(totB);
+        if (elP) elP.textContent = '$' + formatMonto(totP);
+    }
+    document.querySelectorAll('#tabla-liquidacion .input-basico').forEach(function (el) {
+        el.addEventListener('input', recalcularTodo);
+        el.addEventListener('change', recalcularTodo);
+    });
+})();
+</script>
 {% endblock %}

@@ -164,6 +164,9 @@ def construir_liquidacion_productores(sucursal, anio, mes):
         total, basico_aplicado = total_a_pagar_productor(basico, comis, flag)
         basico_en_total = basico if basico_aplicado else Decimal('0')
 
+        if comis == 0 and basico == 0:
+            continue
+
         nombre = f'{(v.apellido or "").strip()}, {(v.nombre or "").strip()}'.strip(', ') or str(v)
         filas.append({
             'vendedor': v,
