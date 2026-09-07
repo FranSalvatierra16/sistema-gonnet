@@ -1,12 +1,72 @@
 """Liquidación mensual de productores: sueldo básico + comisiones."""
+from collections import defaultdict
 from datetime import date
 from decimal import Decimal
 
 from django.db import transaction
 
 from inmobiliaria.decimal_utils import parse_decimal_monto
-from inmobiliaria.models import SueldoBasicoVigencia, Vendedor
-from inmobiliaria.oficina_resumen import MESES_ES, _rango_mes, _totales_comisiones_vendedor
+from inmobiliaria.models import ComisionVendedor, SueldoBasicoVigencia, Vendedor
+from inmobiliaria.oficina_resumen import MESES_ES, _rango_mes
+
+CLAVES_COMISION = (
+    'honorarios',
+    'por_dia',
+    'por_invierno',
+    'por_24_meses',
+    'por_venta',
+    'otros',
+)
+
+
+def _desglose_vacio():
+    d = {k: Decimal('0.00') for k in CLAVES_COMISION}
+    d['total'] = Decimal('0.00')
+    return d
+
+
+def _clave_desglose_comision(comision):
+    """Misma clasificación que el historial / carátula."""
+    cat, sub = comision.clasificacion_listado()
+    if sub in ('primer', 'segundo', 'fichaje_venta'):
+        return 'honorarios'
+    if cat == 'por_dia':
+        return 'por_dia'
+    if cat == 'por_invierno':
+        return 'por_invierno'
+    if cat == 'por_24_meses':
+        return 'por_24_meses'
+    if cat == 'por_venta':
+        return 'por_venta'
+    return 'otros'
+
+
+def comisiones_desglose_vendedores(sucursal, fecha_desde, fecha_hasta):
+    """Totales del mes por vendedor y tipo (honorarios/fichaje, día, invierno, 24, venta)."""
+    from inmobiliaria.models.comision import q_comision_operacion_de_sucursal
+
+    qs = (
+        ComisionVendedor.objects.filter(
+            fecha_operacion__date__gte=fecha_desde,
+            fecha_operacion__date__lte=fecha_hasta,
+        )
+        .filter(q_comision_operacion_de_sucursal(sucursal))
+        .visibles_en_historial()
+        .select_related(
+            'vendedor',
+            'reserva',
+            'reserva__propiedad',
+            'contrato',
+        )
+    )
+    out = defaultdict(_desglose_vacio)
+    for c in qs:
+        monto = Decimal(str(c.monto_comision or 0)).quantize(Decimal('0.01'))
+        row = out[c.vendedor_id]
+        clave = _clave_desglose_comision(c)
+        row[clave] += monto
+        row['total'] += monto
+    return out
 
 # Vigencia “desde siempre” para no pisar meses anteriores al primer aumento.
 FECHA_VIGENCIA_INICIAL = date(2000, 1, 1)
@@ -135,7 +195,7 @@ def construir_liquidacion_productores(sucursal, anio, mes):
     comisiones, básico vigente ese mes, si se sumó el básico, total a pagar.
     """
     fecha_desde, fecha_hasta = _rango_mes(anio, mes)
-    comisiones_map = _totales_comisiones_vendedor(sucursal, fecha_desde, fecha_hasta)
+    desglose_map = comisiones_desglose_vendedores(sucursal, fecha_desde, fecha_hasta)
 
     vendedores = list(
         Vendedor.objects.filter(sucursal=sucursal, is_active=True)
@@ -153,12 +213,13 @@ def construir_liquidacion_productores(sucursal, anio, mes):
     basicos = sueldos_basicos_vigentes([v.id for v in vendedores], anio, mes, fallbacks)
 
     filas = []
-    total_comisiones = Decimal('0')
+    tot_desglose = _desglose_vacio()
     total_basicos_aplicados = Decimal('0')
     total_pagar = Decimal('0')
 
     for v in vendedores:
-        comis = Decimal(str(comisiones_map.get(v.id, 0) or 0)).quantize(Decimal('0.01'))
+        desg = desglose_map.get(v.id) or _desglose_vacio()
+        comis = desg['total']
         basico = basicos.get(v.id, Decimal('0.00'))
         flag = bool(getattr(v, 'basico_no_suma_si_comisiones_superan', False))
         total, basico_aplicado = total_a_pagar_productor(basico, comis, flag)
@@ -171,6 +232,12 @@ def construir_liquidacion_productores(sucursal, anio, mes):
         filas.append({
             'vendedor': v,
             'nombre': nombre,
+            'honorarios': desg['honorarios'],
+            'por_dia': desg['por_dia'],
+            'por_invierno': desg['por_invierno'],
+            'por_24_meses': desg['por_24_meses'],
+            'por_venta': desg['por_venta'],
+            'otros': desg['otros'],
             'comisiones': comis,
             'sueldo_basico': basico,
             'flag_no_suma_si_superan': flag,
@@ -183,7 +250,9 @@ def construir_liquidacion_productores(sucursal, anio, mes):
                 else ('Básico + comisiones' if basico > 0 else 'Solo comisiones')
             ),
         })
-        total_comisiones += comis
+        for k in CLAVES_COMISION:
+            tot_desglose[k] += desg[k]
+        tot_desglose['total'] += comis
         total_basicos_aplicados += basico_en_total
         total_pagar += total
 
@@ -194,7 +263,13 @@ def construir_liquidacion_productores(sucursal, anio, mes):
         'fecha_desde': fecha_desde,
         'fecha_hasta': fecha_hasta,
         'filas': filas,
-        'total_comisiones': total_comisiones,
+        'total_honorarios': tot_desglose['honorarios'],
+        'total_por_dia': tot_desglose['por_dia'],
+        'total_por_invierno': tot_desglose['por_invierno'],
+        'total_por_24_meses': tot_desglose['por_24_meses'],
+        'total_por_venta': tot_desglose['por_venta'],
+        'total_otros': tot_desglose['otros'],
+        'total_comisiones': tot_desglose['total'],
         'total_basicos_aplicados': total_basicos_aplicados,
         'total_pagar': total_pagar,
     }

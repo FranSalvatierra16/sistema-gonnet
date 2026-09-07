@@ -57,12 +57,21 @@
                     <table class="table table-sm table-bordered mb-0 liquidacion-tabla" id="tabla-liquidacion">
                         <thead class="table-light">
                             <tr>
-                                <th>Productor</th>
-                                <th class="text-end">Comisiones</th>
-                                <th class="text-end">Básico</th>
-                                <th>Regla</th>
-                                <th class="text-end">Básico en total</th>
-                                <th class="text-end">TOTAL A PAGAR</th>
+                                <th rowspan="2" class="align-middle">Productor</th>
+                                <th colspan="6" class="text-center">Comisiones (mismo cuadro que el historial)</th>
+                                <th rowspan="2" class="text-end align-middle">Total comisiones</th>
+                                <th rowspan="2" class="text-end align-middle">Básico</th>
+                                <th rowspan="2" class="align-middle">Regla</th>
+                                <th rowspan="2" class="text-end align-middle">Básico en total</th>
+                                <th rowspan="2" class="text-end align-middle">TOTAL A PAGAR</th>
+                            </tr>
+                            <tr>
+                                <th class="text-end">Honorarios</th>
+                                <th class="text-end">Día</th>
+                                <th class="text-end">Invierno</th>
+                                <th class="text-end">24 meses</th>
+                                <th class="text-end">Venta</th>
+                                <th class="text-end">Otros</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -76,7 +85,13 @@
                                     <span class="badge bg-info text-dark ms-1 no-print" title="Opción activa en la ficha">tope básico</span>
                                     {% endif %}
                                 </td>
-                                <td class="text-end">${{ fila.comisiones|format_price }}</td>
+                                <td class="text-end">${{ fila.honorarios|format_price }}</td>
+                                <td class="text-end">${{ fila.por_dia|format_price }}</td>
+                                <td class="text-end">${{ fila.por_invierno|format_price }}</td>
+                                <td class="text-end">${{ fila.por_24_meses|format_price }}</td>
+                                <td class="text-end">${{ fila.por_venta|format_price }}</td>
+                                <td class="text-end">${{ fila.otros|format_price }}</td>
+                                <td class="text-end fw-semibold">${{ fila.comisiones|format_price }}</td>
                                 <td class="text-end celda-basico">
                                     <span class="solo-imprimir">${{ fila.sueldo_basico|format_price }}</span>
                                     <label class="basico-edit no-print">
@@ -98,7 +113,7 @@
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="6" class="text-muted text-center py-4">
+                                <td colspan="12" class="text-muted text-center py-4">
                                     No hay comisiones ni sueldos básicos cargados para este mes.
                                     Cargá el básico en Editar vendedor.
                                 </td>
@@ -109,6 +124,12 @@
                         <tfoot class="table-light">
                             <tr>
                                 <th>TOTALES</th>
+                                <th class="text-end">${{ liquidacion.total_honorarios|format_price }}</th>
+                                <th class="text-end">${{ liquidacion.total_por_dia|format_price }}</th>
+                                <th class="text-end">${{ liquidacion.total_por_invierno|format_price }}</th>
+                                <th class="text-end">${{ liquidacion.total_por_24_meses|format_price }}</th>
+                                <th class="text-end">${{ liquidacion.total_por_venta|format_price }}</th>
+                                <th class="text-end">${{ liquidacion.total_otros|format_price }}</th>
                                 <th class="text-end">${{ liquidacion.total_comisiones|format_price }}</th>
                                 <th></th>
                                 <th></th>
@@ -124,7 +145,7 @@
     </form>
 
     <p class="small text-muted mt-3 no-print">
-        Las comisiones son las mismas del historial del productor (visibles en el mes).
+        Honorarios (fichaje), día, invierno, 24 meses y venta son los mismos del historial del productor.
         El básico se edita en esta misma tabla: el cambio vale <strong>desde este mes en adelante</strong>
         (un aumento en agosto no modifica julio). Esta planilla es de liquidación;
         no reemplaza los gastos de «Sueldos» cargados en caja.
@@ -132,7 +153,8 @@
 </div>
 
 <style>
-.liquidacion-tabla { font-size: 0.9rem; }
+.liquidacion-tabla { font-size: 0.85rem; }
+.liquidacion-tabla thead th { white-space: nowrap; }
 .basico-edit {
     display: inline-flex;
     align-items: baseline;
