@@ -601,75 +601,113 @@ def _limpiar_gastos_mapeados_incorrectos(sucursal, fecha_desde, fecha_hasta):
 
 def _q_movimientos_concepto_mapeado_oficina():
     """
-    Filtro estricto (estilo reportes de caja): solo campo ``concepto``.
-    No busca en concepto_detalle (ahí el texto 'veraz' / '130' genera falsos positivos).
-    'gastos bancarios' no usa icontains (cobros con esa línea sumaban el total entero).
+    Candidatos por id de catálogo (misma base que el reporte de caja).
+    No matchea por substring del nombre (eso sumaba cobros enteros a Gastos bancarios).
     """
     from django.db.models import Q
 
+    from inmobiliaria.views import _q_movimiento_tiene_concepto_id
+
     q = Q()
     for cid in MAPA_CONCEPTOS_CAJA_A_OFICINA:
-        q |= Q(concepto__iexact=cid)
-        q |= Q(concepto__startswith=f'{cid} —')
-        q |= Q(concepto__startswith=f'{cid} -')
-        q |= Q(concepto__startswith=f'{cid} ')
-    for nom in MAPA_NOMBRE_CONCEPTO_A_OFICINA:
-        q |= Q(concepto__iexact=nom)
-        q |= Q(concepto__istartswith=f'{nom} —')
-        q |= Q(concepto__istartswith=f'{nom} -')
-        q |= Q(concepto__istartswith=f'{nom} ')
-        if _norm_nombre_cat(nom) in NOMBRES_CONCEPTO_PERMITE_CONTIENE:
-            q |= Q(concepto__icontains=nom)
+        q |= _q_movimiento_tiene_concepto_id(cid)
+    # Veraz a veces va sin id en el texto («RETIRO VERAZ…»).
+    for nom in NOMBRES_CONCEPTO_PERMITE_CONTIENE:
+        q |= Q(concepto__icontains=nom)
     return q
 
 
 def _neto_gastos_oficina_desde_caja_mapeada(sucursal, fecha_desde, fecha_hasta):
     """
-    Neto por categoría mapeada (Veraz, etc.) recalculado desde caja,
-    misma idea que reportes: egreso suma +, ingreso suma −.
-    Evita basura en GastoOficina por sync viejo.
+    Neto por categoría mapeada, alineado al reporte de caja:
+    solo movimientos que tienen el id de concepto, y solo el importe de esa línea
+    (no el total del recibo cuando hay varios conceptos).
+    Egreso +, ingreso −.
     """
     from django.db.models.functions import Coalesce, TruncDate
 
-    from inmobiliaria.models.caja import MovimientoCaja
+    from inmobiliaria.catalogo_conceptos_caja import q_conceptos_caja_visibles
+    from inmobiliaria.models.caja import Concepto, MovimientoCaja
+    from inmobiliaria.views import (
+        _importe_concepto_filtrado_movimiento,
+        _movimiento_tiene_alguno_concepto_ids,
+        _q_movimiento_tiene_concepto_id,
+    )
 
     if not sucursal or not fecha_desde or not fecha_hasta:
         return {}
 
-    qs = (
-        MovimientoCaja.objects.filter(
-            sucursal=sucursal,
-            fecha_eliminacion__isnull=True,
-        )
-        .annotate(fecha_cierre=Coalesce('fecha_transferencia', TruncDate('fecha')))
-        .filter(
-            _q_movimientos_concepto_mapeado_oficina(),
-            fecha_cierre__gte=fecha_desde,
-            fecha_cierre__lte=fecha_hasta,
-        )
+    conceptos_catalogo = list(
+        Concepto.objects.filter(q_conceptos_caja_visibles(sucursal)).only('id', 'nombre')
     )
+    id_a_nombre = {
+        str(c.id).strip(): (c.nombre or '').strip()
+        for c in conceptos_catalogo
+        if str(c.id or '').strip()
+    }
 
     netos = {}
-    for mov in qs.iterator(chunk_size=200):
-        # Solo si el campo concepto realmente apunta al mapa (no basura en detalle).
-        concepto = (mov.concepto or '').strip()
-        ruta = _concepto_campo_es_id_catalogo_oficina(concepto)
-        if not ruta:
-            ruta = _ruta_por_nombre_en_texto(concepto)
-        if not ruta:
-            continue
-        cat = resolver_categoria_oficina_por_ruta(sucursal, ruta[0], ruta[1])
+    for cid, (raiz, sub) in MAPA_CONCEPTOS_CAJA_A_OFICINA.items():
+        cat = resolver_categoria_oficina_por_ruta(sucursal, raiz, sub)
         if not cat:
             continue
-        total = (
-            Decimal(str(mov.monto_efectivo or 0))
-            + Decimal(str(mov.monto_cheque or 0))
-            + Decimal(str(mov.monto_tarjeta or 0))
-            + Decimal(str(mov.monto_deposito or 0))
+        criterio = {
+            'ids': {str(cid)},
+            'nombre': id_a_nombre.get(str(cid), ''),
+        }
+        q_cid = _q_movimiento_tiene_concepto_id(cid)
+        if cid == '130':
+            # Veraz: también textos «RETIRO VERAZ…» sin id.
+            from django.db.models import Q as _Q
+
+            q_cid = q_cid | _Q(concepto__icontains='veraz')
+
+        qs = (
+            MovimientoCaja.objects.filter(
+                sucursal=sucursal,
+                fecha_eliminacion__isnull=True,
+            )
+            .annotate(fecha_cierre=Coalesce('fecha_transferencia', TruncDate('fecha')))
+            .filter(
+                q_cid,
+                fecha_cierre__gte=fecha_desde,
+                fecha_cierre__lte=fecha_hasta,
+            )
+            .distinct()
         )
-        if (mov.tipo or '').strip().upper() == TipoMovimientoCajaEnum.INGRESO:
-            total = -total
-        netos[cat.id] = (netos.get(cat.id, Decimal('0')) + total).quantize(Decimal('0.01'))
+
+        acum = Decimal('0')
+        for mov in qs.iterator(chunk_size=200):
+            ids_ok = {str(cid)}
+            es_veraz_texto = False
+            if cid == '130':
+                raw = _norm_nombre_cat(mov.concepto or '')
+                es_veraz_texto = 'veraz' in raw and not _concepto_campo_es_id_catalogo_oficina(
+                    mov.concepto or ''
+                )
+            if not es_veraz_texto and not _movimiento_tiene_alguno_concepto_ids(
+                mov, ids_ok, conceptos_catalogo
+            ):
+                continue
+            imp = _importe_concepto_filtrado_movimiento(
+                mov, criterio, conceptos_catalogo
+            )
+            if imp is None:
+                continue
+            total = abs(Decimal(str(imp)))
+            if total == 0 and es_veraz_texto:
+                total = (
+                    Decimal(str(mov.monto_efectivo or 0))
+                    + Decimal(str(mov.monto_cheque or 0))
+                    + Decimal(str(mov.monto_tarjeta or 0))
+                    + Decimal(str(mov.monto_deposito or 0))
+                )
+            if total == 0:
+                continue
+            if (mov.tipo or '').strip().upper() == TipoMovimientoCajaEnum.INGRESO:
+                total = -total
+            acum = (acum + total).quantize(Decimal('0.01'))
+        netos[cat.id] = acum
     return netos
 
 
@@ -723,13 +761,28 @@ def sincronizar_gastos_oficina_desde_conceptos_caja(sucursal, fecha_desde, fecha
         .exclude(id__in=ya_vinculados)
         .distinct()
     )
+    from inmobiliaria.catalogo_conceptos_caja import q_conceptos_caja_visibles
+    from inmobiliaria.models.caja import Concepto
+    from inmobiliaria.views import _movimiento_tiene_alguno_concepto_ids
+
+    conceptos_catalogo = list(
+        Concepto.objects.filter(q_conceptos_caja_visibles(sucursal)).only('id', 'nombre')
+    )
+
     creados = 0
     for mov in qs.iterator(chunk_size=200):
-        # Solo concepto de caja (no detalle JSON).
-        concepto = (mov.concepto or '').strip()
-        ruta = _concepto_campo_es_id_catalogo_oficina(concepto)
+        ruta = None
+        for cid, ruta_m in MAPA_CONCEPTOS_CAJA_A_OFICINA.items():
+            if _movimiento_tiene_alguno_concepto_ids(mov, {str(cid)}, conceptos_catalogo):
+                ruta = ruta_m
+                break
         if not ruta:
-            ruta = _ruta_por_nombre_en_texto(concepto)
+            # Veraz por texto libre.
+            raw = _norm_nombre_cat(mov.concepto or '')
+            if 'veraz' in raw:
+                ruta = MAPA_CONCEPTOS_CAJA_A_OFICINA.get('130') or MAPA_NOMBRE_CONCEPTO_A_OFICINA.get(
+                    'veraz'
+                )
         if not ruta:
             continue
         g = vincular_movimiento_concepto_a_gasto_oficina(mov)
