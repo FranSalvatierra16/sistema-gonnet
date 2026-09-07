@@ -1,7 +1,7 @@
 {% extends 'inmobiliaria/base.html' %}
 {% load custom_filters %}
 
-{% block title %}Liquidación productores — {{ liquidacion.mes_nombre }} {{ liquidacion.anio }}{% endblock %}
+{% block title %}Honorarios — {{ liquidacion.titulo_mes }}{% endblock %}
 
 {% block content %}
 <div class="container-fluid mt-4 liquidacion-wrap">
@@ -9,9 +9,8 @@
         <div>
             <h1 class="h4 mb-1">Liquidación de productores</h1>
             <p class="text-muted small mb-0">
-                Sueldo básico + comisiones del mes. Si el vendedor tiene marcada la opción
-                «si supera el básico, no sumar», el total queda solo en comisiones (caso Sebastián).
-                El pago de sueldo en caja (ej. 6 de septiembre) se imputa siempre al mes anterior (agosto).
+                Planilla de honorarios del mes. El básico se edita en la fila <strong>Basico</strong>:
+                el cambio vale desde este mes en adelante (un aumento en agosto no modifica julio).
             </p>
         </div>
         <div class="d-flex gap-2">
@@ -48,208 +47,183 @@
         <input type="hidden" name="mes" value="{{ mes }}">
         <input type="hidden" name="anio" value="{{ anio }}">
 
-        <div class="card shadow-sm">
-            <div class="card-header bg-light">
-                <strong>LIQUIDACIÓN {{ liquidacion.mes_nombre }} {{ liquidacion.anio }}</strong>
-            </div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-sm table-bordered mb-0 liquidacion-tabla" id="tabla-liquidacion">
-                        <thead class="table-light">
-                            <tr>
-                                <th rowspan="2" class="align-middle">Productor</th>
-                                <th colspan="6" class="text-center">Comisiones (mismo cuadro que el historial)</th>
-                                <th rowspan="2" class="text-end align-middle">Total comisiones</th>
-                                <th rowspan="2" class="text-end align-middle">Básico</th>
-                                <th rowspan="2" class="align-middle">Regla</th>
-                                <th rowspan="2" class="text-end align-middle">Básico en total</th>
-                                <th rowspan="2" class="text-end align-middle">TOTAL A PAGAR</th>
-                            </tr>
-                            <tr>
-                                <th class="text-end">Honorarios</th>
-                                <th class="text-end">Día</th>
-                                <th class="text-end">Invierno</th>
-                                <th class="text-end">24 meses</th>
-                                <th class="text-end">Venta</th>
-                                <th class="text-end">Otros</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for fila in liquidacion.filas %}
-                            <tr class="fila-liq"
-                                data-comisiones="{{ fila.comisiones }}"
-                                data-flag="{% if fila.flag_no_suma_si_superan %}1{% else %}0{% endif %}">
-                                <td>
-                                    {{ fila.nombre }}
-                                    {% if fila.flag_no_suma_si_superan %}
-                                    <span class="badge bg-info text-dark ms-1 no-print" title="Opción activa en la ficha">tope básico</span>
-                                    {% endif %}
-                                </td>
-                                <td class="text-end">${{ fila.honorarios|format_price }}</td>
-                                <td class="text-end">${{ fila.por_dia|format_price }}</td>
-                                <td class="text-end">${{ fila.por_invierno|format_price }}</td>
-                                <td class="text-end">${{ fila.por_24_meses|format_price }}</td>
-                                <td class="text-end">${{ fila.por_venta|format_price }}</td>
-                                <td class="text-end">${{ fila.otros|format_price }}</td>
-                                <td class="text-end fw-semibold">${{ fila.comisiones|format_price }}</td>
-                                <td class="text-end celda-basico">
-                                    <span class="solo-imprimir">${{ fila.sueldo_basico|format_price }}</span>
-                                    <label class="basico-edit no-print">
-                                        <span>$</span>
-                                        <input type="text"
-                                               name="basico_{{ fila.vendedor.id }}"
-                                               class="input-basico"
-                                               inputmode="decimal"
-                                               autocomplete="off"
-                                               value="{{ fila.sueldo_basico|format_price }}"
-                                               aria-label="Sueldo básico de {{ fila.nombre }}">
-                                    </label>
-                                </td>
-                                <td class="small celda-regla">{{ fila.nota }}</td>
-                                <td class="text-end celda-basico-total {% if not fila.basico_aplicado %}text-muted text-decoration-line-through{% endif %}">
-                                    ${{ fila.basico_en_total|format_price }}
-                                </td>
-                                <td class="text-end fw-bold celda-total">${{ fila.total|format_price }}</td>
-                            </tr>
-                            {% empty %}
-                            <tr>
-                                <td colspan="12" class="text-muted text-center py-4">
-                                    No hay comisiones ni sueldos básicos cargados para este mes.
-                                    Cargá el básico en Editar vendedor.
-                                </td>
-                            </tr>
+        <div class="honorarios-sheet">
+            <table class="tabla-honorarios">
+                <thead>
+                    <tr class="fila-titulo">
+                        <th class="celda-label titulo-izq">HONORARIOS</th>
+                        <th colspan="{{ liquidacion.columnas|length }}" class="titulo-der">{{ liquidacion.titulo_mes }}</th>
+                    </tr>
+                    <tr class="fila-cols">
+                        <th class="celda-label"></th>
+                        {% for col in liquidacion.columnas %}
+                        <th>{{ col.label }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fila in liquidacion.filas %}
+                    <tr class="fila-{{ fila.tipo }}">
+                        <td class="celda-label">{{ fila.label }}</td>
+                        {% if fila.tipo == 'basico' %}
+                            {% for col in liquidacion.columnas %}
+                            <td class="celda-num">
+                                {% if col.vid %}
+                                <span class="solo-imprimir">{% if col.basico is not None %}$ {{ col.basico|format_price }}{% endif %}</span>
+                                <label class="basico-edit no-print">
+                                    <input type="text"
+                                           name="basico_{{ col.vid }}"
+                                           class="input-basico"
+                                           inputmode="decimal"
+                                           autocomplete="off"
+                                           value="{% if col.basico is not None %}{{ col.basico|format_price }}{% endif %}">
+                                </label>
+                                {% endif %}
+                            </td>
                             {% endfor %}
-                        </tbody>
-                        {% if liquidacion.filas %}
-                        <tfoot class="table-light">
-                            <tr>
-                                <th>TOTALES</th>
-                                <th class="text-end">${{ liquidacion.total_honorarios|format_price }}</th>
-                                <th class="text-end">${{ liquidacion.total_por_dia|format_price }}</th>
-                                <th class="text-end">${{ liquidacion.total_por_invierno|format_price }}</th>
-                                <th class="text-end">${{ liquidacion.total_por_24_meses|format_price }}</th>
-                                <th class="text-end">${{ liquidacion.total_por_venta|format_price }}</th>
-                                <th class="text-end">${{ liquidacion.total_otros|format_price }}</th>
-                                <th class="text-end">${{ liquidacion.total_comisiones|format_price }}</th>
-                                <th></th>
-                                <th></th>
-                                <th class="text-end" id="tot-basicos">${{ liquidacion.total_basicos_aplicados|format_price }}</th>
-                                <th class="text-end" id="tot-pagar">${{ liquidacion.total_pagar|format_price }}</th>
-                            </tr>
-                        </tfoot>
+                        {% else %}
+                            {% for c in fila.celdas %}
+                            <td class="celda-num">{% if c is not None %}$ {{ c|format_price }}{% endif %}</td>
+                            {% endfor %}
                         {% endif %}
-                    </table>
-                </div>
-            </div>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <table class="tabla-productores">
+                <thead>
+                    <tr>
+                        <th class="celda-label">TOTAL GRAL</th>
+                        <th class="celda-num"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in liquidacion.productores %}
+                    <tr>
+                        <td class="celda-label">{{ p.nombre }}</td>
+                        <td class="celda-num">$ {{ p.monto|format_price }}</td>
+                    </tr>
+                    {% endfor %}
+                    <tr class="fila-sep">
+                        <td class="celda-label">Productores</td>
+                        <td class="celda-num"></td>
+                    </tr>
+                    <tr class="fila-total-box">
+                        <td class="celda-label">Total</td>
+                        <td class="celda-num">$ {{ liquidacion.productores_total|format_price }}</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     </form>
-
-    <p class="small text-muted mt-3 no-print">
-        Honorarios (fichaje), día, invierno, 24 meses y venta son los mismos del historial del productor.
-        El básico se edita en esta misma tabla: el cambio vale <strong>desde este mes en adelante</strong>
-        (un aumento en agosto no modifica julio). Esta planilla es de liquidación;
-        no reemplaza los gastos de «Sueldos» cargados en caja.
-    </p>
 </div>
 
 <style>
-.liquidacion-tabla { font-size: 0.85rem; }
-.liquidacion-tabla thead th { white-space: nowrap; }
-.basico-edit {
-    display: inline-flex;
-    align-items: baseline;
-    justify-content: flex-end;
-    gap: 0;
-    margin: 0;
+.honorarios-sheet {
+    background: #fff;
+    padding: 8px 4px 24px;
+    overflow-x: auto;
+}
+.tabla-honorarios,
+.tabla-productores {
+    border-collapse: collapse;
+    font-family: "Times New Roman", Times, serif;
+    font-size: 13px;
+    color: #000;
+    background: #fff;
+}
+.tabla-honorarios {
+    min-width: 720px;
     width: 100%;
 }
+.tabla-honorarios th,
+.tabla-honorarios td,
+.tabla-productores th,
+.tabla-productores td {
+    border: 1px solid #000;
+    padding: 2px 8px;
+    vertical-align: middle;
+}
+.tabla-honorarios .celda-label,
+.tabla-productores .celda-label {
+    text-align: left;
+    font-weight: 700;
+    white-space: nowrap;
+    min-width: 11rem;
+}
+.tabla-honorarios .fila-titulo .titulo-izq {
+    text-align: left;
+    font-size: 1.15rem;
+    letter-spacing: 0.04em;
+    border-bottom: none;
+}
+.tabla-honorarios .fila-titulo .titulo-der {
+    text-align: right;
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    border-bottom: none;
+}
+.tabla-honorarios .fila-cols th {
+    text-align: center;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+.celda-num {
+    text-align: right;
+    white-space: nowrap;
+    min-width: 7rem;
+}
+.fila-seccion .celda-label,
+.fila-total .celda-label,
+.fila-total-final .celda-label {
+    font-weight: 700;
+}
+.fila-total td,
+.fila-total-final td {
+    font-weight: 700;
+}
+.fila-total-final td {
+    border-top: 2px solid #000;
+    border-bottom: 2px solid #000;
+}
+.fila-vacio td {
+    height: 1.1rem;
+    border-left: 1px solid #000;
+    border-right: 1px solid #000;
+}
+.tabla-productores {
+    margin-top: 28px;
+    width: auto;
+    min-width: 280px;
+}
+.fila-total-box td {
+    font-weight: 700;
+    border: 3px solid #000;
+}
+.basico-edit { display: block; margin: 0; }
 .input-basico {
-    width: 7.6rem;
-    border: 1px solid transparent;
+    width: 100%;
+    border: none;
     background: transparent;
     text-align: right;
-    padding: 0.05rem 0.2rem;
+    font-family: inherit;
     font-size: inherit;
+    padding: 0;
     color: inherit;
-    line-height: inherit;
 }
-.input-basico:hover,
 .input-basico:focus {
-    border-color: #86b7fe;
-    background: #fff;
-    outline: none;
-    border-radius: 4px;
+    outline: 1px solid #0d6efd;
+    background: #fffef0;
 }
 .solo-imprimir { display: none; }
 @media print {
     .no-print, nav, footer, .navbar { display: none !important; }
-    .solo-imprimir { display: inline !important; }
     .liquidacion-wrap { margin: 0; }
+    .honorarios-sheet { padding: 0; }
+    .solo-imprimir { display: inline !important; }
+    .basico-edit { display: none !important; }
 }
 </style>
-<script>
-(function () {
-    function parseMonto(raw) {
-        var s = String(raw || '').trim().replace(/[^\d.,-]/g, '');
-        if (!s) return 0;
-        if (s.indexOf(',') >= 0) {
-            s = s.replace(/\./g, '').replace(',', '.');
-        } else if ((s.match(/\./g) || []).length > 1) {
-            s = s.replace(/\./g, '');
-        }
-        var n = parseFloat(s);
-        return isNaN(n) ? 0 : n;
-    }
-    function formatMonto(n) {
-        return n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    }
-    function recalcularFila(tr) {
-        var input = tr.querySelector('.input-basico');
-        if (!input) return { basicoTotal: 0, total: 0 };
-        var basico = parseMonto(input.value);
-        var comis = parseMonto(tr.getAttribute('data-comisiones'));
-        var flag = tr.getAttribute('data-flag') === '1';
-        var aplicado = true;
-        var total;
-        var nota;
-        if (flag && basico > 0 && comis >= basico) {
-            aplicado = false;
-            total = comis;
-            nota = 'Solo comisiones (superó el básico)';
-        } else {
-            total = Math.round((comis + basico) * 100) / 100;
-            nota = basico > 0 ? 'Básico + comisiones' : 'Solo comisiones';
-        }
-        var basicoTotal = aplicado ? basico : 0;
-        var celdaRegla = tr.querySelector('.celda-regla');
-        var celdaBasicoTotal = tr.querySelector('.celda-basico-total');
-        var celdaTotal = tr.querySelector('.celda-total');
-        if (celdaRegla) celdaRegla.textContent = nota;
-        if (celdaBasicoTotal) {
-            celdaBasicoTotal.textContent = '$' + formatMonto(basicoTotal);
-            celdaBasicoTotal.classList.toggle('text-muted', !aplicado);
-            celdaBasicoTotal.classList.toggle('text-decoration-line-through', !aplicado);
-        }
-        if (celdaTotal) celdaTotal.textContent = '$' + formatMonto(total);
-        return { basicoTotal: basicoTotal, total: total };
-    }
-    function recalcularTodo() {
-        var totB = 0;
-        var totP = 0;
-        document.querySelectorAll('#tabla-liquidacion .fila-liq').forEach(function (tr) {
-            var r = recalcularFila(tr);
-            totB += r.basicoTotal;
-            totP += r.total;
-        });
-        var elB = document.getElementById('tot-basicos');
-        var elP = document.getElementById('tot-pagar');
-        if (elB) elB.textContent = '$' + formatMonto(totB);
-        if (elP) elP.textContent = '$' + formatMonto(totP);
-    }
-    document.querySelectorAll('#tabla-liquidacion .input-basico').forEach(function (el) {
-        el.addEventListener('input', recalcularTodo);
-        el.addEventListener('change', recalcularTodo);
-    });
-})();
-</script>
 {% endblock %}

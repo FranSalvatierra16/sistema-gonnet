@@ -1086,7 +1086,7 @@ def oficina_liquidacion_productores(request):
         return HttpResponseForbidden('Tu usuario no tiene sucursal asignada.')
 
     from inmobiliaria.oficina_liquidacion_productores import (
-        construir_liquidacion_productores,
+        construir_cuadro_honorarios,
         guardar_sueldos_basicos_mes,
     )
 
@@ -1116,7 +1116,7 @@ def oficina_liquidacion_productores(request):
             f"{reverse('inmobiliaria:oficina_liquidacion_productores')}?mes={mes}&anio={anio}"
         )
 
-    liquidacion = construir_liquidacion_productores(sucursal, anio, mes)
+    liquidacion = construir_cuadro_honorarios(sucursal, anio, mes)
     anios_opts = list(range(today.year - 2, today.year + 2))
     meses_opts = list(enumerate(
         ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',

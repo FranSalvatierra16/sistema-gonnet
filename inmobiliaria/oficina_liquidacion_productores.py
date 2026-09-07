@@ -273,3 +273,197 @@ def construir_liquidacion_productores(sucursal, anio, mes):
         'total_basicos_aplicados': total_basicos_aplicados,
         'total_pagar': total_pagar,
     }
+
+
+def _d(val):
+    return Decimal(str(val or 0)).quantize(Decimal('0.01'))
+
+
+def _col_label_vendedor(v):
+    nom = (v.nombre or '').strip().upper()
+    if nom:
+        return nom
+    return ((v.apellido or '').strip().upper() or f'#{v.id}')
+
+
+def _label_venta(op):
+    prop = getattr(op, 'propiedad', None)
+    propietario = ''
+    if prop is not None:
+        dueño = getattr(prop, 'propietario', None)
+        if dueño:
+            propietario = (getattr(dueño, 'apellido', None) or getattr(dueño, 'nombre', None) or '').strip()
+        if not propietario:
+            propietario = (getattr(prop, 'direccion', None) or '').strip()
+    comprador = (getattr(op, 'comprador_nombre', None) or '').strip()
+    if propietario and comprador:
+        return f'{propietario} - {comprador}'
+    return comprador or propietario or f'Venta #{op.id}'
+
+
+def _celdas(n, oficina=None, por_id=None, columnas=None):
+    vals = [None] * n
+    if oficina is not None and _d(oficina) != 0:
+        vals[0] = _d(oficina)
+    if por_id and columnas:
+        for i, col in enumerate(columnas):
+            vid = col.get('vid')
+            if vid and vid in por_id:
+                monto = _d(por_id[vid])
+                vals[i] = monto if monto != 0 else None
+    return vals
+
+
+def _sumar_celdas(lista_celdas, n):
+    tot = [_d(0) for _ in range(n)]
+    for celdas in lista_celdas:
+        if not celdas:
+            continue
+        for i, v in enumerate(celdas):
+            if v is not None:
+                tot[i] += _d(v)
+    return tot
+
+
+def construir_cuadro_honorarios(sucursal, anio, mes):
+    """
+    Planilla tipo Excel HONORARIOS: columnas OFICINA + personas,
+    filas ventas / gestión / fondos / invierno / 24 / día / básico.
+    """
+    from inmobiliaria.models import OperacionVenta
+    from inmobiliaria.oficina_resumen import (
+        ETIQUETA_24,
+        ETIQUETA_ANIO_INVIERNO,
+        ETIQUETA_GESTION_COB,
+        ETIQUETA_TEMPORARIOS,
+        _honorarios_por_etiqueta,
+        _monto_honorarios_etiqueta,
+    )
+
+    fecha_desde, fecha_hasta = _rango_mes(anio, mes)
+    vendedores = list(
+        Vendedor.objects.filter(sucursal=sucursal, is_active=True)
+        .select_related()
+        .order_by('apellido', 'nombre', 'id')
+    )
+    fallbacks = {v.id: getattr(v, 'sueldo_basico', None) for v in vendedores}
+    basicos = sueldos_basicos_vigentes([v.id for v in vendedores], anio, mes, fallbacks)
+    desglose = comisiones_desglose_vendedores(sucursal, fecha_desde, fecha_hasta)
+    hon_map, total_fondo, total_cochera = _honorarios_por_etiqueta(
+        sucursal, fecha_desde, fecha_hasta
+    )
+
+    columnas = [{'key': 'oficina', 'label': 'OFICINA', 'vid': None, 'es_oficina': True, 'basico': None}]
+    for v in vendedores:
+        columnas.append({
+            'key': f'v{v.id}',
+            'label': _col_label_vendedor(v),
+            'vid': v.id,
+            'es_oficina': False,
+            'vendedor': v,
+            'basico': basicos.get(v.id, _d(0)),
+        })
+    n = len(columnas)
+
+    ventas = list(
+        OperacionVenta.objects.filter(
+            sucursal=sucursal,
+            estado='confirmada',
+            fecha_venta__gte=fecha_desde,
+            fecha_venta__lte=fecha_hasta,
+        )
+        .select_related('propiedad', 'propiedad__propietario', 'vendedor')
+        .prefetch_related('vendedores')
+        .order_by('fecha_venta', 'id')
+    )
+
+    filas = []
+    filas.append({'tipo': 'seccion', 'label': 'VENTAS', 'celdas': [None] * n})
+
+    celdas_ventas = []
+    for op in ventas:
+        celdas = _celdas(n, oficina=op.honorarios_ars)
+        filas.append({'tipo': 'dato', 'label': _label_venta(op), 'celdas': celdas})
+        celdas_ventas.append(celdas)
+    tot_ventas = _sumar_celdas(celdas_ventas, n)
+    filas.append({'tipo': 'total', 'label': 'Total:', 'celdas': tot_ventas})
+    filas.append({'tipo': 'vacio', 'label': '', 'celdas': [None] * n})
+
+    gestion = _monto_honorarios_etiqueta(hon_map, ETIQUETA_GESTION_COB)
+    invierno = _monto_honorarios_etiqueta(hon_map, ETIQUETA_ANIO_INVIERNO)
+    meses_24 = _monto_honorarios_etiqueta(hon_map, ETIQUETA_24)
+    por_dia = _monto_honorarios_etiqueta(hon_map, ETIQUETA_TEMPORARIOS)
+
+    fila_gestion = _celdas(n, oficina=gestion)
+    fila_fondo = _celdas(n, oficina=total_fondo)
+    fila_cochera = _celdas(n, oficina=total_cochera)
+    fila_tasacion = _celdas(n, oficina=0)
+    fila_dif_inv = _celdas(n, oficina=0)
+    fila_invierno = _celdas(n, oficina=invierno)
+    fila_24 = _celdas(n, oficina=meses_24)
+    fila_dia = _celdas(n, oficina=por_dia)
+
+    filas.append({'tipo': 'dato', 'label': 'Comision Gestion Cobranza', 'celdas': fila_gestion})
+    filas.append({'tipo': 'dato', 'label': 'Fondo Mantenimiento', 'celdas': fila_fondo})
+    filas.append({'tipo': 'dato', 'label': 'Fondo Cochera', 'celdas': fila_cochera})
+    filas.append({'tipo': 'vacio', 'label': '', 'celdas': [None] * n})
+    filas.append({'tipo': 'dato', 'label': 'Tasacion', 'celdas': fila_tasacion})
+    filas.append({'tipo': 'vacio', 'label': '', 'celdas': [None] * n})
+    filas.append({'tipo': 'seccion', 'label': 'INVIERNO', 'celdas': [None] * n})
+    filas.append({'tipo': 'dato', 'label': 'Diferencias Invierno', 'celdas': fila_dif_inv})
+    filas.append({'tipo': 'total', 'label': 'Total Invierno:', 'celdas': fila_invierno})
+    filas.append({'tipo': 'dato', 'label': '24 MESES', 'celdas': fila_24})
+    filas.append({'tipo': 'dato', 'label': 'POR DÍA', 'celdas': fila_dia})
+    filas.append({'tipo': 'vacio', 'label': '', 'celdas': [None] * n})
+
+    tot_honorarios = _sumar_celdas(
+        [tot_ventas, fila_gestion, fila_fondo, fila_cochera, fila_tasacion,
+         fila_dif_inv, fila_invierno, fila_24, fila_dia],
+        n,
+    )
+    filas.append({'tipo': 'total', 'label': 'TOTAL:', 'celdas': tot_honorarios})
+
+    filas.append({'tipo': 'dato', 'label': 'Diferencia Sueldo', 'celdas': [None] * n})
+
+    celdas_basico = [None] * n
+    for i, col in enumerate(columnas):
+        if col.get('vid'):
+            celdas_basico[i] = basicos.get(col['vid'], _d(0))
+    filas.append({
+        'tipo': 'basico',
+        'label': 'Basico',
+        'celdas': celdas_basico,
+    })
+
+    por_comis = {}
+    for v in vendedores:
+        por_comis[v.id] = (desglose.get(v.id) or _desglose_vacio())['total']
+    fila_comis = _celdas(n, por_id=por_comis, columnas=columnas)
+    filas.append({'tipo': 'dato', 'label': 'Comisiones encargados.', 'celdas': fila_comis})
+
+    tot_final = _sumar_celdas([tot_honorarios, celdas_basico, fila_comis], n)
+    filas.append({'tipo': 'total-final', 'label': 'TOTAL.:', 'celdas': tot_final})
+
+    productores = []
+    total_prod = _d(0)
+    for v in vendedores:
+        comis = por_comis.get(v.id, _d(0))
+        if comis == 0:
+            continue
+        productores.append({
+            'nombre': _col_label_vendedor(v),
+            'monto': comis,
+        })
+        total_prod += comis
+
+    return {
+        'anio': anio,
+        'mes': mes,
+        'mes_nombre': MESES_ES[mes] if 1 <= mes <= 12 else '',
+        'titulo_mes': f'{MESES_ES[mes]} DE {anio}' if 1 <= mes <= 12 else f'{anio}',
+        'columnas': columnas,
+        'filas': filas,
+        'productores': productores,
+        'productores_total': total_prod,
+        'total_gral': tot_final[0] if tot_final else _d(0),
+    }
