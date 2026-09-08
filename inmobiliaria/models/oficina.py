@@ -475,3 +475,31 @@ class CuadroHonorariosColumna(models.Model):
 
     def __str__(self):
         return f'{self.sucursal_id} · {self.vendedor_id}'
+
+
+class CuadroHonorariosTotalGral(models.Model):
+    """Productores que entran en el recuadro TOTAL GRAL de la planilla."""
+
+    sucursal = models.ForeignKey(
+        'Sucursal',
+        on_delete=models.CASCADE,
+        related_name='cuadro_honorarios_totales',
+    )
+    vendedor = models.ForeignKey(
+        'Vendedor',
+        on_delete=models.CASCADE,
+        related_name='cuadro_honorarios_totales',
+    )
+
+    class Meta:
+        verbose_name = 'Productor en TOTAL GRAL'
+        verbose_name_plural = 'Productores en TOTAL GRAL'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['sucursal', 'vendedor'],
+                name='uniq_cuadro_honorarios_total_gral_sucursal_vendedor',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.sucursal_id} · total {self.vendedor_id}'

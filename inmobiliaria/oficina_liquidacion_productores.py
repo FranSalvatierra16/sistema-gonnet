@@ -9,6 +9,7 @@ from inmobiliaria.decimal_utils import parse_decimal_monto
 from inmobiliaria.models import (
     ComisionVendedor,
     CuadroHonorariosColumna,
+    CuadroHonorariosTotalGral,
     SueldoBasicoVigencia,
     Vendedor,
 )
@@ -337,6 +338,45 @@ def _vendedores_activos_sucursal(sucursal):
     )
 
 
+def vendedores_en_sueldos(sucursal):
+    """
+    Productores que figuran activos en Categorías › Sueldos.
+    Es la misma lista para elegir en TOTAL GRAL.
+    """
+    from inmobiliaria.models import CategoriaGastoOficina
+
+    hijos = (
+        CategoriaGastoOficina.objects.filter(
+            sucursal=sucursal,
+            parent__isnull=False,
+            parent__parent__isnull=True,
+            parent__nombre__iexact='Sueldos',
+            vendedor__isnull=False,
+            activa=True,
+        )
+        .select_related('vendedor')
+        .order_by('orden', 'nombre', 'id')
+    )
+    out = []
+    vistos = set()
+    for hijo in hijos:
+        v = hijo.vendedor
+        if not v or v.id in vistos:
+            continue
+        vistos.add(v.id)
+        out.append(v)
+    return out or _vendedores_activos_sucursal(sucursal)
+
+
+def _ids_vendedores_permitidos_total_gral(sucursal):
+    ids = {v.id for v in vendedores_en_sueldos(sucursal)}
+    if ids:
+        return ids
+    return set(
+        Vendedor.objects.filter(sucursal=sucursal).values_list('id', flat=True)
+    )
+
+
 def ids_columnas_vendedores(sucursal):
     """IDs guardados para la planilla. Set vacío = todavía no se eligió (mostrar todos)."""
     return set(
@@ -347,8 +387,8 @@ def ids_columnas_vendedores(sucursal):
 
 
 def opciones_columnas_vendedores(sucursal):
-    """Lista de vendedores activos con el tilde de la planilla."""
-    todos = _vendedores_activos_sucursal(sucursal)
+    """Lista de vendedores de Sueldos con el tilde de la planilla."""
+    todos = vendedores_en_sueldos(sucursal)
     guardados = ids_columnas_vendedores(sucursal)
     hay_filtro = bool(guardados)
     opciones = []
@@ -363,7 +403,7 @@ def opciones_columnas_vendedores(sucursal):
 
 
 def vendedores_para_columnas(sucursal):
-    todos = _vendedores_activos_sucursal(sucursal)
+    todos = vendedores_en_sueldos(sucursal)
     guardados = ids_columnas_vendedores(sucursal)
     if not guardados:
         return todos
@@ -378,13 +418,8 @@ def guardar_columnas_cuadro(sucursal, vendedor_ids):
             ids.add(int(raw))
         except (TypeError, ValueError):
             continue
-    validos = set(
-        Vendedor.objects.filter(
-            sucursal=sucursal,
-            is_active=True,
-            id__in=ids,
-        ).values_list('id', flat=True)
-    )
+    permitidos = {v.id for v in vendedores_en_sueldos(sucursal)}
+    validos = {vid for vid in ids if vid in permitidos}
     with transaction.atomic():
         CuadroHonorariosColumna.objects.filter(sucursal=sucursal).delete()
         CuadroHonorariosColumna.objects.bulk_create([
@@ -397,6 +432,37 @@ def guardar_columnas_cuadro(sucursal, vendedor_ids):
 def borrar_columnas_cuadro(sucursal):
     """Vuelve a mostrar todos los productores activos."""
     return CuadroHonorariosColumna.objects.filter(sucursal=sucursal).delete()[0]
+
+
+def ids_total_gral(sucursal):
+    return set(
+        CuadroHonorariosTotalGral.objects.filter(sucursal=sucursal).values_list(
+            'vendedor_id', flat=True
+        )
+    )
+
+
+def guardar_total_gral(sucursal, vendedor_ids):
+    """Reemplaza quién entra en TOTAL GRAL. Vale para todos los meses."""
+    ids = set()
+    for raw in vendedor_ids:
+        try:
+            ids.add(int(raw))
+        except (TypeError, ValueError):
+            continue
+    permitidos = _ids_vendedores_permitidos_total_gral(sucursal)
+    validos = {vid for vid in ids if vid in permitidos}
+    with transaction.atomic():
+        CuadroHonorariosTotalGral.objects.filter(sucursal=sucursal).delete()
+        CuadroHonorariosTotalGral.objects.bulk_create([
+            CuadroHonorariosTotalGral(sucursal=sucursal, vendedor_id=vid)
+            for vid in validos
+        ])
+    return len(validos)
+
+
+def borrar_total_gral(sucursal):
+    return CuadroHonorariosTotalGral.objects.filter(sucursal=sucursal).delete()[0]
 
 
 def construir_cuadro_honorarios(sucursal, anio, mes):
@@ -415,7 +481,7 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
     )
 
     fecha_desde, fecha_hasta = _rango_mes(anio, mes)
-    vendedores_todos = _vendedores_activos_sucursal(sucursal)
+    vendedores_sueldos = vendedores_en_sueldos(sucursal)
     vendedores = vendedores_para_columnas(sucursal)
     fallbacks = {v.id: getattr(v, 'sueldo_basico', None) for v in vendedores}
     basicos = sueldos_basicos_vigentes([v.id for v in vendedores], anio, mes, fallbacks)
@@ -516,20 +582,31 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
     filas.append({'tipo': 'total-final', 'label': 'TOTAL.:', 'celdas': tot_final})
 
     por_comis_todos = {}
-    for v in vendedores_todos:
+    for v in vendedores_sueldos:
         por_comis_todos[v.id] = (desglose.get(v.id) or _desglose_vacio())['total']
+
+    guardados_total = ids_total_gral(sucursal)
+    hay_filtro_total = bool(guardados_total)
 
     productores = []
     total_prod = _d(0)
-    for v in vendedores_todos:
+    for v in vendedores_sueldos:
         comis = por_comis_todos.get(v.id, _d(0))
-        if comis == 0:
-            continue
+        if hay_filtro_total:
+            checked = v.id in guardados_total
+        else:
+            checked = comis != 0
         productores.append({
-            'nombre': _col_label_vendedor(v),
+            'id': v.id,
+            'nombre': (
+                f'{(v.apellido or "").strip()}, {(v.nombre or "").strip()}'.strip(', ')
+                or _col_label_vendedor(v)
+            ),
             'monto': comis,
+            'checked': checked,
         })
-        total_prod += comis
+        if checked:
+            total_prod += comis
 
     return {
         'anio': anio,
@@ -541,5 +618,6 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
         'filas': filas,
         'productores': productores,
         'productores_total': total_prod,
+        'productores_filtrados': hay_filtro_total,
         'total_gral': tot_final[0] if tot_final else _d(0),
     }

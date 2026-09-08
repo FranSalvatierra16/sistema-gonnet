@@ -3,8 +3,10 @@
 
 {% block title %}Honorarios — {{ liquidacion.titulo_mes }}{% endblock %}
 
+{% block page_container_class %}container-fluid px-3 px-xl-4{% endblock %}
+
 {% block content %}
-<div class="container-fluid mt-4 liquidacion-wrap">
+<div class="liquidacion-wrap">
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 no-print">
         <div>
             <h1 class="h4 mb-1">Liquidación de productores</h1>
@@ -53,7 +55,8 @@
                     <div>
                         <div class="fw-semibold">Productores en la planilla</div>
                         <div class="text-muted small">
-                            OFICINA siempre queda. Los marcados se mantienen al cambiar el mes o el año.
+                            OFICINA siempre queda. Los nombres son los mismos que en <strong>Sueldos</strong> (categorías).
+                            Los marcados se mantienen al cambiar el mes o el año.
                             {% if columnas_filtradas %}
                             <span class="badge text-bg-secondary">Filtro activo</span>
                             {% endif %}
@@ -96,6 +99,12 @@
 
         <div class="honorarios-sheet">
             <table class="tabla-honorarios">
+                <colgroup>
+                    <col class="col-concepto">
+                    {% for col in liquidacion.columnas %}
+                    <col>
+                    {% endfor %}
+                </colgroup>
                 <thead>
                     <tr class="fila-titulo">
                         <th colspan="{{ liquidacion.n_cols }}">
@@ -141,38 +150,65 @@
                     {% endfor %}
                 </tbody>
             </table>
-
-            <table class="tabla-productores">
-                <thead>
-                    <tr>
-                        <th class="celda-label">TOTAL GRAL</th>
-                        <th class="celda-num">{% if liquidacion.total_gral is not None %}$ {{ liquidacion.total_gral|format_price }}{% endif %}</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for p in liquidacion.productores %}
-                    <tr>
-                        <td class="celda-label">{{ p.nombre }}</td>
-                        <td class="celda-num">$ {{ p.monto|format_price }}</td>
-                    </tr>
-                    {% endfor %}
-                    <tr class="fila-sep">
-                        <td class="celda-label">Productores</td>
-                        <td class="celda-num"></td>
-                    </tr>
-                    <tr class="fila-total-box">
-                        <td class="celda-label">Total</td>
-                        <td class="celda-num">$ {{ liquidacion.productores_total|format_price }}</td>
-                    </tr>
-                </tbody>
-            </table>
         </div>
+    </form>
+
+    <form id="form-total-gral" method="post" action="{% url 'inmobiliaria:oficina_liquidacion_productores' %}" class="total-gral-wrap">
+        {% csrf_token %}
+        <input type="hidden" name="mes" value="{{ mes }}">
+        <input type="hidden" name="anio" value="{{ anio }}">
+        <input type="hidden" name="accion" value="total_gral">
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-2 no-print">
+            <span class="small text-muted">Los nombres son los de <strong>Sueldos</strong> (categorías). Marcá quién entra en el total; se mantiene al cambiar el mes.</span>
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-tg-todos">Marcar todos</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-tg-ninguno">Desmarcar</button>
+            <button type="submit" class="btn btn-primary btn-sm">Guardar TOTAL GRAL</button>
+            {% if liquidacion.productores_filtrados %}
+            <button type="submit" form="form-total-gral-todos" class="btn btn-link btn-sm">Volver al listado automático</button>
+            {% endif %}
+        </div>
+        <table class="tabla-productores">
+            <thead>
+                <tr>
+                    <th class="celda-label">TOTAL GRAL</th>
+                    <th class="celda-num">{% if liquidacion.total_gral is not None %}$ {{ liquidacion.total_gral|format_price }}{% endif %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in liquidacion.productores %}
+                <tr class="{% if not p.checked %}fila-desmarcada{% endif %}">
+                    <td class="celda-label">
+                        <label class="total-gral-check">
+                            <input type="checkbox" name="total_gral" value="{{ p.id }}" {% if p.checked %}checked{% endif %}>
+                            <span>{{ p.nombre }}</span>
+                        </label>
+                    </td>
+                    <td class="celda-num">$ {{ p.monto|format_price }}</td>
+                </tr>
+                {% endfor %}
+                <tr class="fila-sep">
+                    <td class="celda-label">Productores</td>
+                    <td class="celda-num"></td>
+                </tr>
+                <tr class="fila-total-box">
+                    <td class="celda-label">Total</td>
+                    <td class="celda-num">$ {{ liquidacion.productores_total|format_price }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </form>
+    <form id="form-total-gral-todos" method="post" action="{% url 'inmobiliaria:oficina_liquidacion_productores' %}" class="d-none">
+        {% csrf_token %}
+        <input type="hidden" name="mes" value="{{ mes }}">
+        <input type="hidden" name="anio" value="{{ anio }}">
+        <input type="hidden" name="accion" value="total_gral_todos">
     </form>
 </div>
 
 <style>
 .liquidacion-wrap {
     max-width: 100%;
+    width: 100%;
 }
 .columnas-checks {
     display: flex;
@@ -190,8 +226,9 @@
 }
 .honorarios-sheet {
     background: #fff;
-    padding: 8px 4px 24px;
+    padding: 8px 0 8px;
     overflow-x: auto;
+    width: 100%;
     max-width: 100%;
 }
 .tabla-honorarios,
@@ -203,11 +240,14 @@
     background: #fff;
 }
 .tabla-honorarios {
-    width: max-content;
+    width: 100%;
     min-width: 100%;
-    table-layout: auto;
+    table-layout: fixed;
     border-collapse: separate;
     border-spacing: 0;
+}
+.tabla-honorarios col.col-concepto {
+    width: 13rem;
 }
 .tabla-honorarios th,
 .tabla-honorarios td,
@@ -240,11 +280,10 @@
     font-weight: 700;
     white-space: normal;
     overflow-wrap: anywhere;
-    min-width: 14rem;
-    width: 16rem;
-    max-width: 18rem;
 }
-.tabla-honorarios .celda-label {
+.tabla-honorarios col.col-concepto {
+    width: 13rem;
+}
     position: sticky;
     left: 0;
     z-index: 3;
@@ -276,7 +315,6 @@
 .celda-num {
     text-align: right;
     white-space: nowrap;
-    min-width: 7.5rem;
 }
 .fila-seccion .celda-label,
 .fila-total .celda-label,
@@ -297,9 +335,29 @@
     border-right: 1px solid #000;
 }
 .tabla-productores {
-    margin-top: 28px;
+    margin-top: 8px;
     width: auto;
-    min-width: 280px;
+    min-width: 320px;
+}
+.total-gral-wrap {
+    margin-top: 28px;
+}
+.total-gral-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin: 0;
+    cursor: pointer;
+    font-weight: 700;
+}
+.total-gral-check input {
+    margin: 0;
+    flex-shrink: 0;
+}
+.fila-desmarcada .celda-label,
+.fila-desmarcada .celda-num {
+    color: #888;
+    font-weight: 400;
 }
 .fila-total-box td {
     font-weight: 700;
@@ -325,32 +383,38 @@
     .no-print, nav, footer, .navbar { display: none !important; }
     .liquidacion-wrap { margin: 0; }
     .honorarios-sheet { padding: 0; overflow: visible; }
-    .tabla-honorarios { width: auto; min-width: 0; }
+    .tabla-honorarios { width: 100%; min-width: 0; }
     .tabla-honorarios .celda-label {
         position: static;
         box-shadow: none;
     }
     .solo-imprimir { display: inline !important; }
     .basico-edit { display: none !important; }
+    .total-gral-check input { display: none !important; }
+    .tabla-productores tr.fila-desmarcada { display: none; }
 }
 </style>
 <script>
 (function () {
-    var form = document.getElementById('form-columnas');
-    if (!form) return;
-    var checks = function () { return form.querySelectorAll('input[name="columna"]'); };
-    var btnTodos = document.getElementById('btn-cols-todos');
-    var btnNinguno = document.getElementById('btn-cols-ninguno');
-    if (btnTodos) {
-        btnTodos.addEventListener('click', function () {
-            checks().forEach(function (c) { c.checked = true; });
-        });
+    function wire(formId, name, btnTodosId, btnNingunoId) {
+        var form = document.getElementById(formId);
+        if (!form) return;
+        var checks = function () { return form.querySelectorAll('input[name="' + name + '"]'); };
+        var btnTodos = document.getElementById(btnTodosId);
+        var btnNinguno = document.getElementById(btnNingunoId);
+        if (btnTodos) {
+            btnTodos.addEventListener('click', function () {
+                checks().forEach(function (c) { c.checked = true; });
+            });
+        }
+        if (btnNinguno) {
+            btnNinguno.addEventListener('click', function () {
+                checks().forEach(function (c) { c.checked = false; });
+            });
+        }
     }
-    if (btnNinguno) {
-        btnNinguno.addEventListener('click', function () {
-            checks().forEach(function (c) { c.checked = false; });
-        });
-    }
+    wire('form-columnas', 'columna', 'btn-cols-todos', 'btn-cols-ninguno');
+    wire('form-total-gral', 'total_gral', 'btn-tg-todos', 'btn-tg-ninguno');
 })();
 </script>
 {% endblock %}

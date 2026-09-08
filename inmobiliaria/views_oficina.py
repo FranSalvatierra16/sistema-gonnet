@@ -1087,9 +1087,11 @@ def oficina_liquidacion_productores(request):
 
     from inmobiliaria.oficina_liquidacion_productores import (
         borrar_columnas_cuadro,
+        borrar_total_gral,
         construir_cuadro_honorarios,
         guardar_columnas_cuadro,
         guardar_sueldos_basicos_mes,
+        guardar_total_gral,
         opciones_columnas_vendedores,
     )
 
@@ -1126,6 +1128,25 @@ def oficina_liquidacion_productores(request):
             messages.success(
                 request,
                 'Se muestran todos los productores. La planilla vuelve al listado completo.',
+            )
+        elif accion == 'total_gral':
+            n = guardar_total_gral(sucursal, request.POST.getlist('total_gral'))
+            if n:
+                messages.success(
+                    request,
+                    f'Se marcaron {n} productor{"es" if n != 1 else ""} en TOTAL GRAL. '
+                    'La elección se mantiene al cambiar el mes.',
+                )
+            else:
+                messages.info(
+                    request,
+                    'No quedó ningún productor marcado en TOTAL GRAL: se listan los que tienen comisión.',
+                )
+        elif accion == 'total_gral_todos':
+            borrar_total_gral(sucursal)
+            messages.success(
+                request,
+                'TOTAL GRAL volvió al listado automático (quienes tienen comisión).',
             )
         else:
             cambiados = guardar_sueldos_basicos_mes(sucursal, anio, mes, request.POST)
