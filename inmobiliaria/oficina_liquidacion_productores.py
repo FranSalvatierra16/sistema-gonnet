@@ -284,9 +284,9 @@ def _d(val):
 
 
 def _col_label_vendedor(v):
-    nom = (v.nombre or '').strip().upper()
+    nom = (v.nombre or '').strip()
     if nom:
-        return nom
+        return nom.split()[0].upper()
     return ((v.apellido or '').strip().upper() or f'#{v.id}')
 
 

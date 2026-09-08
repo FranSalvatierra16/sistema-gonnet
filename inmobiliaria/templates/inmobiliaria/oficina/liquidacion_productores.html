@@ -247,13 +247,13 @@
     border-spacing: 0;
 }
 .tabla-honorarios col.col-concepto {
-    width: 13rem;
+    width: 12rem;
 }
 .tabla-honorarios th,
 .tabla-honorarios td,
 .tabla-productores th,
 .tabla-productores td {
-    padding: 2px 8px;
+    padding: 2px 6px;
     vertical-align: middle;
 }
 .tabla-honorarios th,
@@ -261,6 +261,7 @@
     border-top: 1px solid #000;
     border-left: 1px solid #000;
     background: #fff;
+    overflow: hidden;
 }
 .tabla-honorarios tr:last-child th,
 .tabla-honorarios tr:last-child td {
@@ -281,9 +282,7 @@
     white-space: normal;
     overflow-wrap: anywhere;
 }
-.tabla-honorarios col.col-concepto {
-    width: 13rem;
-}
+.tabla-honorarios .celda-label {
     position: sticky;
     left: 0;
     z-index: 3;
@@ -311,10 +310,14 @@
     font-weight: 700;
     text-transform: uppercase;
     background: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .celda-num {
     text-align: right;
     white-space: nowrap;
+    font-variant-numeric: tabular-nums;
 }
 .fila-seccion .celda-label,
 .fila-total .celda-label,
@@ -379,18 +382,57 @@
     background: #fffef0;
 }
 .solo-imprimir { display: none; }
+@page {
+    size: A4 landscape;
+    margin: 8mm;
+}
 @media print {
     .no-print, nav, footer, .navbar { display: none !important; }
-    .liquidacion-wrap { margin: 0; }
-    .honorarios-sheet { padding: 0; overflow: visible; }
-    .tabla-honorarios { width: 100%; min-width: 0; }
+    .liquidacion-wrap { margin: 0; padding: 0; width: 100%; }
+    .honorarios-sheet { padding: 0; overflow: visible; width: 100%; }
+    .tabla-honorarios {
+        width: 100% !important;
+        min-width: 0 !important;
+        table-layout: fixed;
+        font-size: 8pt;
+    }
+    .tabla-honorarios col.col-concepto { width: 18%; }
+    .tabla-honorarios th,
+    .tabla-honorarios td {
+        padding: 1px 3px;
+        overflow: hidden;
+        font-size: 8pt;
+        line-height: 1.15;
+    }
     .tabla-honorarios .celda-label {
         position: static;
         box-shadow: none;
+        font-size: 8pt;
+        overflow-wrap: break-word;
+    }
+    .tabla-honorarios .fila-cols th {
+        font-size: 7.5pt;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .titulo-honorarios {
+        font-size: 11pt;
+        padding: 2px 0;
+    }
+    .celda-num {
+        white-space: nowrap;
+        font-size: 7.5pt;
+        letter-spacing: -0.02em;
     }
     .solo-imprimir { display: inline !important; }
     .basico-edit { display: none !important; }
     .total-gral-check input { display: none !important; }
+    .tabla-productores {
+        margin-top: 12px;
+        font-size: 9pt;
+        page-break-inside: avoid;
+    }
     .tabla-productores tr.fila-desmarcada { display: none; }
 }
 </style>
