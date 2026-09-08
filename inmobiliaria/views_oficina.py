@@ -1086,8 +1086,11 @@ def oficina_liquidacion_productores(request):
         return HttpResponseForbidden('Tu usuario no tiene sucursal asignada.')
 
     from inmobiliaria.oficina_liquidacion_productores import (
+        borrar_columnas_cuadro,
         construir_cuadro_honorarios,
+        guardar_columnas_cuadro,
         guardar_sueldos_basicos_mes,
+        opciones_columnas_vendedores,
     )
 
     today = timezone.localdate()
@@ -1103,20 +1106,43 @@ def oficina_liquidacion_productores(request):
         anio, mes = today.year, today.month
 
     if request.method == 'POST':
-        cambiados = guardar_sueldos_basicos_mes(sucursal, anio, mes, request.POST)
-        if cambiados:
+        accion = (request.POST.get('accion') or 'basicos').strip()
+        if accion == 'columnas':
+            n = guardar_columnas_cuadro(sucursal, request.POST.getlist('columna'))
+            if n:
+                messages.success(
+                    request,
+                    f'Se muestran {n} productor{"es" if n != 1 else ""} en la planilla. '
+                    'La elección se mantiene al cambiar el mes.',
+                )
+            else:
+                messages.info(
+                    request,
+                    'No quedó ningún productor marcado: se muestran todos. '
+                    'Marcá los que quieras ver y guardá de nuevo.',
+                )
+        elif accion == 'columnas_todos':
+            borrar_columnas_cuadro(sucursal)
             messages.success(
                 request,
-                f'Se actualizó el básico de {cambiados} productor{"es" if cambiados != 1 else ""} '
-                f'desde {mes:02d}/{anio} en adelante. Los meses anteriores no cambian.',
+                'Se muestran todos los productores. La planilla vuelve al listado completo.',
             )
         else:
-            messages.info(request, 'No hubo cambios en los básicos.')
+            cambiados = guardar_sueldos_basicos_mes(sucursal, anio, mes, request.POST)
+            if cambiados:
+                messages.success(
+                    request,
+                    f'Se actualizó el básico de {cambiados} productor{"es" if cambiados != 1 else ""} '
+                    f'desde {mes:02d}/{anio} en adelante. Los meses anteriores no cambian.',
+                )
+            else:
+                messages.info(request, 'No hubo cambios en los básicos.')
         return redirect(
             f"{reverse('inmobiliaria:oficina_liquidacion_productores')}?mes={mes}&anio={anio}"
         )
 
     liquidacion = construir_cuadro_honorarios(sucursal, anio, mes)
+    columnas_opts, columnas_filtradas = opciones_columnas_vendedores(sucursal)
     anios_opts = list(range(today.year - 2, today.year + 2))
     meses_opts = list(enumerate(
         ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -1132,6 +1158,8 @@ def oficina_liquidacion_productores(request):
             'mes': mes,
             'anios_opts': anios_opts,
             'meses_opts': meses_opts,
+            'columnas_opts': columnas_opts,
+            'columnas_filtradas': columnas_filtradas,
         },
     )
 

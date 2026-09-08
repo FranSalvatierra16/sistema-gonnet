@@ -42,20 +42,71 @@
         </div>
     </form>
 
+    <div class="card shadow-sm mb-3 no-print columnas-card">
+        <div class="card-body py-3">
+            <form method="post" action="{% url 'inmobiliaria:oficina_liquidacion_productores' %}" id="form-columnas">
+                {% csrf_token %}
+                <input type="hidden" name="mes" value="{{ mes }}">
+                <input type="hidden" name="anio" value="{{ anio }}">
+                <input type="hidden" name="accion" value="columnas">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                    <div>
+                        <div class="fw-semibold">Productores en la planilla</div>
+                        <div class="text-muted small">
+                            OFICINA siempre queda. Los marcados se mantienen al cambiar el mes o el año.
+                            {% if columnas_filtradas %}
+                            <span class="badge text-bg-secondary">Filtro activo</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-cols-todos">Marcar todos</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-cols-ninguno">Desmarcar</button>
+                        <button type="submit" class="btn btn-primary btn-sm">Guardar columnas</button>
+                    </div>
+                </div>
+                <div class="columnas-checks">
+                    {% for v in columnas_opts %}
+                    <label class="columnas-check">
+                        <input type="checkbox" name="columna" value="{{ v.id }}" {% if v.checked %}checked{% endif %}>
+                        <span>{{ v.label }}</span>
+                    </label>
+                    {% empty %}
+                    <span class="text-muted small">No hay productores activos.</span>
+                    {% endfor %}
+                </div>
+            </form>
+            {% if columnas_filtradas %}
+            <form method="post" action="{% url 'inmobiliaria:oficina_liquidacion_productores' %}" class="mt-2">
+                {% csrf_token %}
+                <input type="hidden" name="mes" value="{{ mes }}">
+                <input type="hidden" name="anio" value="{{ anio }}">
+                <input type="hidden" name="accion" value="columnas_todos">
+                <button type="submit" class="btn btn-link btn-sm px-0">Mostrar todos los productores</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+
     <form id="form-basicos" method="post" action="{% url 'inmobiliaria:oficina_liquidacion_productores' %}">
         {% csrf_token %}
         <input type="hidden" name="mes" value="{{ mes }}">
         <input type="hidden" name="anio" value="{{ anio }}">
+        <input type="hidden" name="accion" value="basicos">
 
         <div class="honorarios-sheet">
             <table class="tabla-honorarios">
                 <thead>
                     <tr class="fila-titulo">
-                        <th class="celda-label titulo-izq">HONORARIOS</th>
-                        <th colspan="{{ liquidacion.columnas|length }}" class="titulo-der">{{ liquidacion.titulo_mes }}</th>
+                        <th colspan="{{ liquidacion.n_cols }}">
+                            <div class="titulo-honorarios">
+                                <span>HONORARIOS</span>
+                                <span>{{ liquidacion.titulo_mes }}</span>
+                            </div>
+                        </th>
                     </tr>
                     <tr class="fila-cols">
-                        <th class="celda-label"></th>
+                        <th class="celda-label">Concepto</th>
                         {% for col in liquidacion.columnas %}
                         <th>{{ col.label }}</th>
                         {% endfor %}
@@ -95,7 +146,7 @@
                 <thead>
                     <tr>
                         <th class="celda-label">TOTAL GRAL</th>
-                        <th class="celda-num"></th>
+                        <th class="celda-num">{% if liquidacion.total_gral is not None %}$ {{ liquidacion.total_gral|format_price }}{% endif %}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -120,10 +171,28 @@
 </div>
 
 <style>
+.liquidacion-wrap {
+    max-width: 100%;
+}
+.columnas-checks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 1.1rem;
+}
+.columnas-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.9rem;
+    margin: 0;
+    cursor: pointer;
+    white-space: nowrap;
+}
 .honorarios-sheet {
     background: #fff;
     padding: 8px 4px 24px;
     overflow-x: auto;
+    max-width: 100%;
 }
 .tabla-honorarios,
 .tabla-productores {
@@ -134,46 +203,80 @@
     background: #fff;
 }
 .tabla-honorarios {
-    min-width: 720px;
-    width: 100%;
+    width: max-content;
+    min-width: 100%;
+    table-layout: auto;
+    border-collapse: separate;
+    border-spacing: 0;
 }
 .tabla-honorarios th,
 .tabla-honorarios td,
 .tabla-productores th,
 .tabla-productores td {
-    border: 1px solid #000;
     padding: 2px 8px;
     vertical-align: middle;
+}
+.tabla-honorarios th,
+.tabla-honorarios td {
+    border-top: 1px solid #000;
+    border-left: 1px solid #000;
+    background: #fff;
+}
+.tabla-honorarios tr:last-child th,
+.tabla-honorarios tr:last-child td {
+    border-bottom: 1px solid #000;
+}
+.tabla-honorarios th:last-child,
+.tabla-honorarios td:last-child {
+    border-right: 1px solid #000;
+}
+.tabla-productores th,
+.tabla-productores td {
+    border: 1px solid #000;
 }
 .tabla-honorarios .celda-label,
 .tabla-productores .celda-label {
     text-align: left;
     font-weight: 700;
-    white-space: nowrap;
-    min-width: 11rem;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    min-width: 14rem;
+    width: 16rem;
+    max-width: 18rem;
 }
-.tabla-honorarios .fila-titulo .titulo-izq {
-    text-align: left;
-    font-size: 1.15rem;
-    letter-spacing: 0.04em;
-    border-bottom: none;
+.tabla-honorarios .celda-label {
+    position: sticky;
+    left: 0;
+    z-index: 3;
+    background: #fff;
+    box-shadow: 4px 0 6px -4px rgba(0,0,0,.28);
 }
-.tabla-honorarios .fila-titulo .titulo-der {
-    text-align: right;
+.tabla-honorarios thead .celda-label {
+    z-index: 4;
+}
+.titulo-honorarios {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
     font-size: 1.15rem;
     font-weight: 700;
     letter-spacing: 0.04em;
+    padding: 4px 2px;
+}
+.tabla-honorarios .fila-titulo th {
     border-bottom: none;
 }
 .tabla-honorarios .fila-cols th {
     text-align: center;
     font-weight: 700;
     text-transform: uppercase;
+    background: #fff;
 }
 .celda-num {
     text-align: right;
     white-space: nowrap;
-    min-width: 7rem;
+    min-width: 7.5rem;
 }
 .fila-seccion .celda-label,
 .fila-total .celda-label,
@@ -221,9 +324,33 @@
 @media print {
     .no-print, nav, footer, .navbar { display: none !important; }
     .liquidacion-wrap { margin: 0; }
-    .honorarios-sheet { padding: 0; }
+    .honorarios-sheet { padding: 0; overflow: visible; }
+    .tabla-honorarios { width: auto; min-width: 0; }
+    .tabla-honorarios .celda-label {
+        position: static;
+        box-shadow: none;
+    }
     .solo-imprimir { display: inline !important; }
     .basico-edit { display: none !important; }
 }
 </style>
+<script>
+(function () {
+    var form = document.getElementById('form-columnas');
+    if (!form) return;
+    var checks = function () { return form.querySelectorAll('input[name="columna"]'); };
+    var btnTodos = document.getElementById('btn-cols-todos');
+    var btnNinguno = document.getElementById('btn-cols-ninguno');
+    if (btnTodos) {
+        btnTodos.addEventListener('click', function () {
+            checks().forEach(function (c) { c.checked = true; });
+        });
+    }
+    if (btnNinguno) {
+        btnNinguno.addEventListener('click', function () {
+            checks().forEach(function (c) { c.checked = false; });
+        });
+    }
+})();
+</script>
 {% endblock %}

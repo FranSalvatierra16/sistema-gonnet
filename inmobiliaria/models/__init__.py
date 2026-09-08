@@ -25,6 +25,7 @@ from .oficina import (
     InicioCajaLibroPropiedad,
     PersonaOficina,
     SueldoBasicoVigencia,
+    CuadroHonorariosColumna,
 )
 from .historial_inquilino import HistorialInquilino
 from .venta_operacion import OperacionVenta
@@ -59,6 +60,7 @@ __all__ = [
     'CotizacionLibroOperacion',
     'CostosCompraLibroPropiedad',
     'SueldoBasicoVigencia',
+    'CuadroHonorariosColumna',
     'HistorialInquilino',
     'ConsultaWeb',
     'OperacionVenta',

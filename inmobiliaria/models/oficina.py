@@ -447,3 +447,31 @@ class SueldoBasicoVigencia(models.Model):
 
     def __str__(self):
         return f'{self.vendedor_id} desde {self.vigente_desde}: {self.monto}'
+
+
+class CuadroHonorariosColumna(models.Model):
+    """Vendedores que aparecen como columna en la planilla de honorarios de la sucursal."""
+
+    sucursal = models.ForeignKey(
+        'Sucursal',
+        on_delete=models.CASCADE,
+        related_name='cuadro_honorarios_columnas',
+    )
+    vendedor = models.ForeignKey(
+        'Vendedor',
+        on_delete=models.CASCADE,
+        related_name='cuadro_honorarios_columnas',
+    )
+
+    class Meta:
+        verbose_name = 'Columna de planilla de honorarios'
+        verbose_name_plural = 'Columnas de planilla de honorarios'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['sucursal', 'vendedor'],
+                name='uniq_cuadro_honorarios_sucursal_vendedor',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.sucursal_id} · {self.vendedor_id}'

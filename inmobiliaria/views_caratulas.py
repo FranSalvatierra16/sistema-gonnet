@@ -1720,12 +1720,27 @@ def _guardar_caratula_contrato(request, contrato):
         messages.error(request, 'Estado de operación inválido.')
         return False
 
+    estado_anterior = contrato.estado
+    if estado == 'rescindido' and estado_anterior != 'rescindido':
+        # El combo ESTADO de la carátula no debe rescindir: es fácil guardarlo sin querer.
+        messages.error(
+            request,
+            'No se rescindió el contrato. Para rescindir usá el botón «Rescindir» '
+            'en el detalle del contrato (pide motivo). El estado de la carátula no se cambió.',
+        )
+        estado = estado_anterior
+        logger.warning(
+            'caratula: se ignoró estado=rescindido al guardar CT %s (usuario %s, estado previa=%s)',
+            contrato.id,
+            getattr(request.user, 'pk', None),
+            estado_anterior,
+        )
+
     meses = int(contrato.duracion_meses or 0)
     if meses <= 0:
         messages.error(request, 'El contrato no tiene duración en meses válida.')
         return False
 
-    estado_anterior = contrato.estado
     fecha_inicio_anterior = contrato.fecha_inicio
     contrato.fecha_inicio = fecha_inicio
     contrato.fecha_fin = fecha_fin
@@ -1735,6 +1750,11 @@ def _guardar_caratula_contrato(request, contrato):
     contrato.save(update_fields=[
         'fecha_inicio', 'fecha_fin', 'deposito_garantia', 'precio_mensual', 'estado',
     ])
+
+    if estado_anterior == 'rescindido' and estado in ('activo', 'reservado'):
+        from inmobiliaria.models.comision import restaurar_comisiones_operacion_recuperada
+
+        restaurar_comisiones_operacion_recuperada(contrato=contrato)
 
     # Finalizado: el contrato ya no ocupa la ficha; queda disponible para volver a ofrecer.
     if (

@@ -6,7 +6,12 @@ from decimal import Decimal
 from django.db import transaction
 
 from inmobiliaria.decimal_utils import parse_decimal_monto
-from inmobiliaria.models import ComisionVendedor, SueldoBasicoVigencia, Vendedor
+from inmobiliaria.models import (
+    ComisionVendedor,
+    CuadroHonorariosColumna,
+    SueldoBasicoVigencia,
+    Vendedor,
+)
 from inmobiliaria.oficina_resumen import MESES_ES, _rango_mes
 
 CLAVES_COMISION = (
@@ -325,6 +330,75 @@ def _sumar_celdas(lista_celdas, n):
     return tot
 
 
+def _vendedores_activos_sucursal(sucursal):
+    return list(
+        Vendedor.objects.filter(sucursal=sucursal, is_active=True)
+        .order_by('apellido', 'nombre', 'id')
+    )
+
+
+def ids_columnas_vendedores(sucursal):
+    """IDs guardados para la planilla. Set vacío = todavía no se eligió (mostrar todos)."""
+    return set(
+        CuadroHonorariosColumna.objects.filter(sucursal=sucursal).values_list(
+            'vendedor_id', flat=True
+        )
+    )
+
+
+def opciones_columnas_vendedores(sucursal):
+    """Lista de vendedores activos con el tilde de la planilla."""
+    todos = _vendedores_activos_sucursal(sucursal)
+    guardados = ids_columnas_vendedores(sucursal)
+    hay_filtro = bool(guardados)
+    opciones = []
+    for v in todos:
+        opciones.append({
+            'id': v.id,
+            'label': _col_label_vendedor(v),
+            'nombre': f'{(v.apellido or "").strip()}, {(v.nombre or "").strip()}'.strip(', ') or str(v),
+            'checked': (v.id in guardados) if hay_filtro else True,
+        })
+    return opciones, hay_filtro
+
+
+def vendedores_para_columnas(sucursal):
+    todos = _vendedores_activos_sucursal(sucursal)
+    guardados = ids_columnas_vendedores(sucursal)
+    if not guardados:
+        return todos
+    return [v for v in todos if v.id in guardados]
+
+
+def guardar_columnas_cuadro(sucursal, vendedor_ids):
+    """Reemplaza las columnas de productores. Vale para todos los meses."""
+    ids = set()
+    for raw in vendedor_ids:
+        try:
+            ids.add(int(raw))
+        except (TypeError, ValueError):
+            continue
+    validos = set(
+        Vendedor.objects.filter(
+            sucursal=sucursal,
+            is_active=True,
+            id__in=ids,
+        ).values_list('id', flat=True)
+    )
+    with transaction.atomic():
+        CuadroHonorariosColumna.objects.filter(sucursal=sucursal).delete()
+        CuadroHonorariosColumna.objects.bulk_create([
+            CuadroHonorariosColumna(sucursal=sucursal, vendedor_id=vid)
+            for vid in validos
+        ])
+    return len(validos)
+
+
+def borrar_columnas_cuadro(sucursal):
+    """Vuelve a mostrar todos los productores activos."""
+    return CuadroHonorariosColumna.objects.filter(sucursal=sucursal).delete()[0]
+
+
 def construir_cuadro_honorarios(sucursal, anio, mes):
     """
     Planilla tipo Excel HONORARIOS: columnas OFICINA + personas,
@@ -341,11 +415,8 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
     )
 
     fecha_desde, fecha_hasta = _rango_mes(anio, mes)
-    vendedores = list(
-        Vendedor.objects.filter(sucursal=sucursal, is_active=True)
-        .select_related()
-        .order_by('apellido', 'nombre', 'id')
-    )
+    vendedores_todos = _vendedores_activos_sucursal(sucursal)
+    vendedores = vendedores_para_columnas(sucursal)
     fallbacks = {v.id: getattr(v, 'sueldo_basico', None) for v in vendedores}
     basicos = sueldos_basicos_vigentes([v.id for v in vendedores], anio, mes, fallbacks)
     desglose = comisiones_desglose_vendedores(sucursal, fecha_desde, fecha_hasta)
@@ -444,10 +515,14 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
     tot_final = _sumar_celdas([tot_honorarios, celdas_basico, fila_comis], n)
     filas.append({'tipo': 'total-final', 'label': 'TOTAL.:', 'celdas': tot_final})
 
+    por_comis_todos = {}
+    for v in vendedores_todos:
+        por_comis_todos[v.id] = (desglose.get(v.id) or _desglose_vacio())['total']
+
     productores = []
     total_prod = _d(0)
-    for v in vendedores:
-        comis = por_comis.get(v.id, _d(0))
+    for v in vendedores_todos:
+        comis = por_comis_todos.get(v.id, _d(0))
         if comis == 0:
             continue
         productores.append({
@@ -462,6 +537,7 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
         'mes_nombre': MESES_ES[mes] if 1 <= mes <= 12 else '',
         'titulo_mes': f'{MESES_ES[mes]} DE {anio}' if 1 <= mes <= 12 else f'{anio}',
         'columnas': columnas,
+        'n_cols': n + 1,
         'filas': filas,
         'productores': productores,
         'productores_total': total_prod,
