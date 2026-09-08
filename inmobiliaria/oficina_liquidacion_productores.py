@@ -2,14 +2,18 @@
 from collections import defaultdict
 from datetime import date
 from decimal import Decimal
+import unicodedata
 
 from django.db import transaction
+from django.db.models import Sum
 
 from inmobiliaria.decimal_utils import parse_decimal_monto
 from inmobiliaria.models import (
+    CategoriaGastoOficina,
     ComisionVendedor,
     CuadroHonorariosColumna,
     CuadroHonorariosTotalGral,
+    GastoOficina,
     SueldoBasicoVigencia,
     Vendedor,
 )
@@ -338,12 +342,33 @@ def _vendedores_activos_sucursal(sucursal):
     )
 
 
-def vendedores_en_sueldos(sucursal):
+def _norm_tokens_nombre(texto):
+    t = unicodedata.normalize('NFD', (texto or '').lower())
+    t = ''.join(c for c in t if unicodedata.category(c) != 'Mn')
+    t = ''.join(c if c.isalnum() else ' ' for c in t)
+    return tuple(p for p in t.split() if p)
+
+
+def _match_vendedor_por_nombre(nombre_cat, vendedores):
+    tokens = set(_norm_tokens_nombre(nombre_cat))
+    if not tokens:
+        return None
+    hits = []
+    for v in vendedores:
+        vt = set(_norm_tokens_nombre(v.apellido) + _norm_tokens_nombre(v.nombre))
+        if vt and vt == tokens:
+            hits.append(v)
+    if len(hits) == 1:
+        return hits[0]
+    return None
+
+
+def filas_sueldos(sucursal):
     """
-    Productores que figuran activos en Categorías › Sueldos.
-    Es la misma lista para elegir en TOTAL GRAL.
+    Todas las filas activas de Categorías › Sueldos (con o sin badge vendedor).
+    Couñago Ruben y otras cargadas a mano también entran.
     """
-    from inmobiliaria.models import CategoriaGastoOficina
+    from inmobiliaria.oficina_gastos import SUBCATEGORIAS_LEGACY_SUELDOS
 
     hijos = (
         CategoriaGastoOficina.objects.filter(
@@ -351,30 +376,51 @@ def vendedores_en_sueldos(sucursal):
             parent__isnull=False,
             parent__parent__isnull=True,
             parent__nombre__iexact='Sueldos',
-            vendedor__isnull=False,
             activa=True,
         )
         .select_related('vendedor')
         .order_by('orden', 'nombre', 'id')
     )
+    vendedores_suc = list(
+        Vendedor.objects.filter(sucursal=sucursal).only('id', 'nombre', 'apellido')
+    )
+    filas = []
+    vistos_vid = set()
+    for hijo in hijos:
+        nom = (hijo.nombre or '').strip()
+        if not nom or nom.casefold() in SUBCATEGORIAS_LEGACY_SUELDOS:
+            continue
+        v = hijo.vendedor
+        if not v:
+            v = _match_vendedor_por_nombre(nom, vendedores_suc)
+        if v and v.id in vistos_vid:
+            continue
+        if v:
+            vistos_vid.add(v.id)
+            key = f'v-{v.id}'
+        else:
+            key = f'c-{hijo.id}'
+        filas.append({
+            'key': key,
+            'vid': v.id if v else None,
+            'cid': hijo.id,
+            'nombre': nom,
+            'vendedor': v,
+        })
+    return filas
+
+
+def vendedores_en_sueldos(sucursal):
+    """Productores de Sueldos que sí tienen usuario vendedor (para columnas)."""
     out = []
     vistos = set()
-    for hijo in hijos:
-        v = hijo.vendedor
+    for fila in filas_sueldos(sucursal):
+        v = fila.get('vendedor')
         if not v or v.id in vistos:
             continue
         vistos.add(v.id)
         out.append(v)
     return out or _vendedores_activos_sucursal(sucursal)
-
-
-def _ids_vendedores_permitidos_total_gral(sucursal):
-    ids = {v.id for v in vendedores_en_sueldos(sucursal)}
-    if ids:
-        return ids
-    return set(
-        Vendedor.objects.filter(sucursal=sucursal).values_list('id', flat=True)
-    )
 
 
 def ids_columnas_vendedores(sucursal):
@@ -435,30 +481,52 @@ def borrar_columnas_cuadro(sucursal):
 
 
 def ids_total_gral(sucursal):
-    return set(
-        CuadroHonorariosTotalGral.objects.filter(sucursal=sucursal).values_list(
-            'vendedor_id', flat=True
-        )
-    )
+    """Claves marcadas: 'v-12' (vendedor) o 'c-34' (categoría de Sueldos)."""
+    keys = set()
+    for row in CuadroHonorariosTotalGral.objects.filter(sucursal=sucursal).only(
+        'vendedor_id', 'categoria_id'
+    ):
+        if row.vendedor_id:
+            keys.add(f'v-{row.vendedor_id}')
+        elif row.categoria_id:
+            keys.add(f'c-{row.categoria_id}')
+    return keys
+
+
+def _parse_clave_total_gral(raw):
+    texto = str(raw or '').strip()
+    if not texto:
+        return None
+    if texto.isdigit():
+        return f'v-{int(texto)}'
+    if texto.startswith('v-') or texto.startswith('c-'):
+        return texto
+    return None
 
 
 def guardar_total_gral(sucursal, vendedor_ids):
     """Reemplaza quién entra en TOTAL GRAL. Vale para todos los meses."""
-    ids = set()
+    filas_por_key = {f['key']: f for f in filas_sueldos(sucursal)}
+    elegidas = []
+    vistos = set()
     for raw in vendedor_ids:
-        try:
-            ids.add(int(raw))
-        except (TypeError, ValueError):
+        key = _parse_clave_total_gral(raw)
+        fila = filas_por_key.get(key) if key else None
+        if not fila or fila['key'] in vistos:
             continue
-    permitidos = _ids_vendedores_permitidos_total_gral(sucursal)
-    validos = {vid for vid in ids if vid in permitidos}
+        vistos.add(fila['key'])
+        elegidas.append(fila)
     with transaction.atomic():
         CuadroHonorariosTotalGral.objects.filter(sucursal=sucursal).delete()
         CuadroHonorariosTotalGral.objects.bulk_create([
-            CuadroHonorariosTotalGral(sucursal=sucursal, vendedor_id=vid)
-            for vid in validos
+            CuadroHonorariosTotalGral(
+                sucursal=sucursal,
+                vendedor_id=fila['vid'],
+                categoria_id=None if fila['vid'] else fila['cid'],
+            )
+            for fila in elegidas
         ])
-    return len(validos)
+    return len(elegidas)
 
 
 def borrar_total_gral(sucursal):
@@ -581,32 +649,49 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
     tot_final = _sumar_celdas([tot_honorarios, celdas_basico, fila_comis], n)
     filas.append({'tipo': 'total-final', 'label': 'TOTAL.:', 'celdas': tot_final})
 
+    filas_sg = filas_sueldos(sucursal)
     por_comis_todos = {}
     for v in vendedores_sueldos:
         por_comis_todos[v.id] = (desglose.get(v.id) or _desglose_vacio())['total']
+
+    cat_sin_v = [f['cid'] for f in filas_sg if not f.get('vid')]
+    gastos_cat = {}
+    if cat_sin_v:
+        for row in (
+            GastoOficina.objects.filter(
+                sucursal=sucursal,
+                categoria_id__in=cat_sin_v,
+                fecha__gte=fecha_desde,
+                fecha__lte=fecha_hasta,
+            )
+            .values('categoria_id')
+            .annotate(total=Sum('monto'))
+        ):
+            gastos_cat[row['categoria_id']] = _d(row['total'])
 
     guardados_total = ids_total_gral(sucursal)
     hay_filtro_total = bool(guardados_total)
 
     productores = []
     total_prod = _d(0)
-    for v in vendedores_sueldos:
-        comis = por_comis_todos.get(v.id, _d(0))
-        if hay_filtro_total:
-            checked = v.id in guardados_total
+    for fsg in filas_sg:
+        if fsg.get('vid'):
+            monto = por_comis_todos.get(fsg['vid'], _d(0))
         else:
-            checked = comis != 0
+            monto = gastos_cat.get(fsg['cid'], _d(0))
+        if hay_filtro_total:
+            checked = fsg['key'] in guardados_total
+        else:
+            checked = monto != 0
         productores.append({
-            'id': v.id,
-            'nombre': (
-                f'{(v.apellido or "").strip()}, {(v.nombre or "").strip()}'.strip(', ')
-                or _col_label_vendedor(v)
-            ),
-            'monto': comis,
+            'id': fsg['key'],
+            'key': fsg['key'],
+            'nombre': fsg['nombre'],
+            'monto': monto,
             'checked': checked,
         })
         if checked:
-            total_prod += comis
+            total_prod += monto
 
     return {
         'anio': anio,

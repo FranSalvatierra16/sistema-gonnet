@@ -489,17 +489,21 @@ class CuadroHonorariosTotalGral(models.Model):
         'Vendedor',
         on_delete=models.CASCADE,
         related_name='cuadro_honorarios_totales',
+        null=True,
+        blank=True,
+    )
+    categoria = models.ForeignKey(
+        'CategoriaGastoOficina',
+        on_delete=models.CASCADE,
+        related_name='cuadro_honorarios_totales',
+        null=True,
+        blank=True,
+        help_text='Fila de Sueldos sin vendedor vinculado (cargada a mano).',
     )
 
     class Meta:
         verbose_name = 'Productor en TOTAL GRAL'
         verbose_name_plural = 'Productores en TOTAL GRAL'
-        constraints = [
-            models.UniqueConstraint(
-                fields=['sucursal', 'vendedor'],
-                name='uniq_cuadro_honorarios_total_gral_sucursal_vendedor',
-            ),
-        ]
 
     def __str__(self):
         return f'{self.sucursal_id} · total {self.vendedor_id}'

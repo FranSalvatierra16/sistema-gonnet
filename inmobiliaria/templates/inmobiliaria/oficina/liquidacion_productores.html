@@ -159,7 +159,7 @@
         <input type="hidden" name="anio" value="{{ anio }}">
         <input type="hidden" name="accion" value="total_gral">
         <div class="d-flex flex-wrap align-items-center gap-2 mb-2 no-print">
-            <span class="small text-muted">Los nombres son los de <strong>Sueldos</strong> (categorías). Marcá quién entra en el total; se mantiene al cambiar el mes.</span>
+            <span class="small text-muted">Salen todas las filas activas de <strong>Sueldos</strong>, también las cargadas a mano (sin badge vendedor). Marcá quién entra en el total; se mantiene al cambiar el mes.</span>
             <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-tg-todos">Marcar todos</button>
             <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-tg-ninguno">Desmarcar</button>
             <button type="submit" class="btn btn-primary btn-sm">Guardar TOTAL GRAL</button>
@@ -179,7 +179,7 @@
                 <tr class="{% if not p.checked %}fila-desmarcada{% endif %}">
                     <td class="celda-label">
                         <label class="total-gral-check">
-                            <input type="checkbox" name="total_gral" value="{{ p.id }}" {% if p.checked %}checked{% endif %}>
+                            <input type="checkbox" name="total_gral" value="{{ p.key }}" {% if p.checked %}checked{% endif %}>
                             <span>{{ p.nombre }}</span>
                         </label>
                     </td>
