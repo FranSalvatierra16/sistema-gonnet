@@ -36,19 +36,13 @@ def _desglose_vacio():
 
 
 def _clave_desglose_comision(comision):
-    """Misma clasificación que el historial / carátula."""
-    cat, sub = comision.clasificacion_listado()
-    if sub in ('primer', 'segundo', 'fichaje_venta'):
-        return 'honorarios'
-    if cat == 'por_dia':
-        return 'por_dia'
-    if cat == 'por_invierno':
-        return 'por_invierno'
-    if cat == 'por_24_meses':
-        return 'por_24_meses'
-    if cat == 'por_venta':
-        return 'por_venta'
-    return 'otros'
+    """Misma clasificación que el historial: día / invierno / 24 / venta."""
+    cat, _sub = comision.clasificacion_listado()
+    if cat in ('por_dia', 'por_invierno', 'por_24_meses', 'por_venta'):
+        return cat
+    if cat == 'operacion':
+        return 'otros'
+    return 'honorarios'
 
 
 def comisiones_desglose_vendedores(sucursal, fecha_desde, fecha_hasta):
@@ -324,6 +318,15 @@ def _celdas(n, oficina=None, por_id=None, columnas=None):
     return vals
 
 
+def _montos_desglose(desglose, clave):
+    out = {}
+    for vid, row in desglose.items():
+        monto = _d(row.get(clave))
+        if monto != 0:
+            out[vid] = monto
+    return out
+
+
 def _sumar_celdas(lista_celdas, n):
     tot = [_d(0) for _ in range(n)]
     for celdas in lista_celdas:
@@ -591,6 +594,13 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
         filas.append({'tipo': 'dato', 'label': _label_venta(op), 'celdas': celdas})
         celdas_ventas.append(celdas)
     tot_ventas = _sumar_celdas(celdas_ventas, n)
+    por_venta_prod = _montos_desglose(desglose, 'por_venta')
+    for i, col in enumerate(columnas):
+        vid = col.get('vid')
+        if not vid:
+            continue
+        monto = por_venta_prod.get(vid)
+        tot_ventas[i] = monto if monto is not None else None
     filas.append({'tipo': 'total', 'label': 'Total:', 'celdas': tot_ventas})
     filas.append({'tipo': 'vacio', 'label': '', 'celdas': [None] * n})
 
@@ -604,9 +614,21 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
     fila_cochera = _celdas(n, oficina=total_cochera)
     fila_tasacion = _celdas(n, oficina=0)
     fila_dif_inv = _celdas(n, oficina=0)
-    fila_invierno = _celdas(n, oficina=invierno)
-    fila_24 = _celdas(n, oficina=meses_24)
-    fila_dia = _celdas(n, oficina=por_dia)
+    fila_invierno = _celdas(
+        n, oficina=invierno,
+        por_id=_montos_desglose(desglose, 'por_invierno'),
+        columnas=columnas,
+    )
+    fila_24 = _celdas(
+        n, oficina=meses_24,
+        por_id=_montos_desglose(desglose, 'por_24_meses'),
+        columnas=columnas,
+    )
+    fila_dia = _celdas(
+        n, oficina=por_dia,
+        por_id=_montos_desglose(desglose, 'por_dia'),
+        columnas=columnas,
+    )
 
     filas.append({'tipo': 'dato', 'label': 'Comision Gestion Cobranza', 'celdas': fila_gestion})
     filas.append({'tipo': 'dato', 'label': 'Fondo Mantenimiento', 'celdas': fila_fondo})
@@ -640,10 +662,13 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
         'celdas': celdas_basico,
     })
 
-    por_comis = {}
+    por_resto = {}
     for v in vendedores:
-        por_comis[v.id] = (desglose.get(v.id) or _desglose_vacio())['total']
-    fila_comis = _celdas(n, por_id=por_comis, columnas=columnas)
+        d = desglose.get(v.id) or _desglose_vacio()
+        resto = _d(d['honorarios']) + _d(d['otros'])
+        if resto != 0:
+            por_resto[v.id] = resto
+    fila_comis = _celdas(n, por_id=por_resto, columnas=columnas)
     filas.append({'tipo': 'dato', 'label': 'Comisiones encargados.', 'celdas': fila_comis})
 
     tot_final = _sumar_celdas([tot_honorarios, celdas_basico, fila_comis], n)
