@@ -1,9 +1,14 @@
 """Helpers compartidos para arqueo de caja (apertura, cierre, reparación)."""
 from decimal import Decimal
+from urllib.parse import quote
 
 from django.db import transaction
+from django.utils import timezone
 
 from inmobiliaria.models.caja import Caja, CajaArqueoCierre, CajaArqueoManual
+
+# WhatsApp: 223 502-9881 (Mar del Plata) → 54 9 223 5029881
+WHATSAPP_SALDOS_CIERRE = '5492235029881'
 
 
 def deposito_total_desde_arqueo_dict(data):
@@ -132,3 +137,61 @@ def reparar_apertura_desde_caja_anterior(sucursal, numero_origen, numero_destino
         caja_destino, apertura, usuario, nota=nota
     )
     return caja, arqueo, apertura, total
+
+
+def _fmt_ars(monto):
+    from inmobiliaria.decimal_utils import format_monto_argentino
+
+    return f'${format_monto_argentino(monto)}'
+
+
+def mensaje_whatsapp_saldos_cierre(caja, bloque_saldos):
+    """Texto listo para WhatsApp con los saldos finales del cierre."""
+    from inmobiliaria.decimal_utils import format_monto_argentino
+
+    sucursal = ''
+    if getattr(caja, 'sucursal', None):
+        sucursal = (caja.sucursal.nombre or '').strip()
+    fecha = ''
+    if caja.fecha_cierre:
+        fecha = timezone.localtime(caja.fecha_cierre).strftime('%d/%m/%Y %H:%M')
+    elif caja.fecha_apertura:
+        fecha = timezone.localtime(caja.fecha_apertura).strftime('%d/%m/%Y %H:%M')
+
+    lineas = [f'*Cierre de caja #{caja.numero}*']
+    if sucursal:
+        lineas.append(sucursal)
+    if fecha:
+        lineas.append(f'Fecha: {fecha}')
+    lineas += [
+        '',
+        '*Saldos finales*',
+        f'Efectivo ARS: {_fmt_ars(bloque_saldos.get("efectivo"))}',
+        f'Cheques: {_fmt_ars(bloque_saldos.get("cheque"))}',
+        f'Tarjeta: {_fmt_ars(bloque_saldos.get("tarjeta"))}',
+        f'USD: U$S {format_monto_argentino(bloque_saldos.get("dolares"))}',
+    ]
+    trans = list(bloque_saldos.get('lineas_transferencias') or [])
+    if trans or bloque_saldos.get('total_transferencias'):
+        lineas.append('')
+        lineas.append('*Transferencias*')
+        if trans:
+            for item in trans:
+                lineas.append(f'{item.get("etiqueta")}: {_fmt_ars(item.get("monto"))}')
+        else:
+            lineas.append(_fmt_ars(bloque_saldos.get('total_transferencias')))
+    lineas += [
+        '',
+        f'*Total ARS: {_fmt_ars(bloque_saldos.get("total_ars"))}*',
+    ]
+    quien = getattr(caja, 'usuario_cierre', None)
+    if quien:
+        nom = f'{(getattr(quien, "apellido", "") or "").strip()}, {(getattr(quien, "nombre", "") or "").strip()}'.strip(', ')
+        if nom:
+            lineas.append(f'Cerró: {nom}')
+    return '\n'.join(lineas)
+
+
+def url_whatsapp_saldos_cierre(mensaje, numero=None):
+    dest = (numero or WHATSAPP_SALDOS_CIERRE).strip()
+    return f'https://wa.me/{dest}?text={quote(mensaje)}'

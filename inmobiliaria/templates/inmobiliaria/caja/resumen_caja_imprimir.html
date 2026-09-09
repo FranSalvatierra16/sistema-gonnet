@@ -12,6 +12,11 @@
             <p class="text-muted small mb-0">Orden cronológico (como resumen del período / día). Usá el botón Imprimir para generar el PDF o copia en papel.</p>
         </div>
         <div class="btn-group">
+            {% if caja.estado == 'cerrada' and whatsapp_saldos_url %}
+            <a href="{{ whatsapp_saldos_url }}" target="_blank" rel="noopener" class="btn btn-success no-print" id="btn-whatsapp-saldos">
+                <i class="fab fa-whatsapp"></i> Enviar saldos por WhatsApp
+            </a>
+            {% endif %}
             <button type="button" class="btn btn-primary" onclick="window.print()">
                 <i class="fas fa-print"></i> Imprimir
             </button>
@@ -23,6 +28,18 @@
             </a>
         </div>
     </div>
+
+    {% if caja.estado == 'cerrada' and whatsapp_saldos_url %}
+    <div class="alert alert-success d-flex flex-wrap justify-content-between align-items-center gap-2 no-print mb-3">
+        <div>
+            <strong>Saldos finales listos para WhatsApp</strong>
+            <div class="small mb-0">Se arma un mensaje a 223 502-9881 con efectivo, cheques, tarjeta, USD y transferencias.</div>
+        </div>
+        <a href="{{ whatsapp_saldos_url }}" target="_blank" rel="noopener" class="btn btn-success">
+            <i class="fab fa-whatsapp"></i> Enviar ahora
+        </a>
+    </div>
+    {% endif %}
 
     <div class="border-bottom pb-2 mb-3 caja-listado-encabezado">
         <h2 class="h5 mb-1 font-monospace">Listado de Caja</h2>
@@ -289,4 +306,14 @@
     a[href]:after { content: none !important; }
 }
 </style>
+{% if abrir_whatsapp_saldos and whatsapp_saldos_url %}
+<script>
+(function () {
+    var url = "{{ whatsapp_saldos_url|escapejs }}";
+    window.setTimeout(function () {
+        window.open(url, '_blank');
+    }, 400);
+})();
+</script>
+{% endif %}
 {% endblock %}

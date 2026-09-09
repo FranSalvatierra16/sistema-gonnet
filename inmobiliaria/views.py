@@ -14484,6 +14484,14 @@ def imprimir_resumen_caja(request, numero):
             cuentas_items=context['saldos_teoricos_cierre']['cuentas'],
         )
     context['arqueo_cierre'] = arqueo
+    from inmobiliaria.caja_arqueo import mensaje_whatsapp_saldos_cierre, url_whatsapp_saldos_cierre
+
+    mensaje_wa = mensaje_whatsapp_saldos_cierre(caja, context['bloque_saldos_cierre'])
+    context['whatsapp_saldos_mensaje'] = mensaje_wa
+    context['whatsapp_saldos_url'] = url_whatsapp_saldos_cierre(mensaje_wa)
+    context['abrir_whatsapp_saldos'] = (
+        caja.estado == 'cerrada' and (request.GET.get('whatsapp') or '').strip() == '1'
+    )
     return render(request, 'inmobiliaria/caja/resumen_caja_imprimir.html', context)
 
 _MOVIMIENTO_UID_SESSION_KEY = 'caja_movimiento_uids_procesados'
@@ -15959,7 +15967,10 @@ def cerrar_caja(request, numero_caja):
                         f'Caja #{caja.numero} cerrada. Había otra caja abierta inconsistente; '
                         f'no se abrió una nueva para no duplicar. Usá «Regularizar» en el listado si hace falta.',
                     )
-                    return redirect('inmobiliaria:imprimir_resumen_caja', numero=caja.numero)
+                    return redirect(
+                        f"{reverse('inmobiliaria:imprimir_resumen_caja', kwargs={'numero': caja.numero})}"
+                        f'?whatsapp=1'
+                    )
 
                 nueva_caja = Caja.objects.create(
                     sucursal=sucursal,
@@ -15989,8 +16000,11 @@ def cerrar_caja(request, numero_caja):
                     f'🚀 Nueva Caja #{nueva_caja.numero} abierta con saldos del cierre: '
                     f'total ARS ${format_monto_argentino(saldo_final)}.',
                 )
-            messages.info(request, 'Podés imprimir el resumen de movimientos de la caja cerrada desde la página que se abre.')
-            return redirect('inmobiliaria:imprimir_resumen_caja', numero=num_cerrada)
+            messages.info(request, 'Podés imprimir el resumen o enviar los saldos por WhatsApp desde la página que se abre.')
+            return redirect(
+                f"{reverse('inmobiliaria:imprimir_resumen_caja', kwargs={'numero': num_cerrada})}"
+                f'?whatsapp=1'
+            )
 
         except Exception as e:
             messages.error(request, f'Error al cerrar/abrir caja: {str(e)}')
