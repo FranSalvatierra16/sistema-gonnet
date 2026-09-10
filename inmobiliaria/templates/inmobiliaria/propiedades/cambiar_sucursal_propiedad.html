@@ -20,6 +20,13 @@
                 (listados, reservas y permisos según esa sucursal).
             </div>
 
+            <div class="alert alert-info">
+                <strong>Recuperar gastos de otra sucursal:</strong> si la ficha ya está en
+                <em>{{ propiedad.sucursal.nombre }}</em> pero faltan gastos de Corrientes (u otra),
+                dejá la misma sucursal seleccionada, pegá la frase de confirmación y confirmá.
+                El sistema realinea gastos, movimientos y liquidaciones ligados a esta ficha.
+            </div>
+
             <form method="post" action="">
                 {% csrf_token %}
                 <div class="mb-3">
@@ -40,7 +47,7 @@
                 </div>
                 <div class="d-flex flex-wrap gap-2">
                     <button type="submit" class="btn btn-danger">
-                        <i class="fas fa-check me-1"></i> Confirmar cambio de sucursal
+                        <i class="fas fa-check me-1"></i> Confirmar / recuperar gastos
                     </button>
                     <a href="{% url 'inmobiliaria:propiedad_detalle' propiedad_id=propiedad.id %}" class="btn btn-outline-secondary">Cancelar</a>
                 </div>

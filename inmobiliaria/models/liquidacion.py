@@ -568,7 +568,12 @@ def sincronizar_sucursal_al_trasladar_propiedad(propiedad, sucursal_nueva):
     Al cambiar la sucursal de una ficha, los gastos / liquidaciones / movimientos
     de esa propiedad siguen con la sucursal vieja y desaparecen de los listados
     (filtran por sucursal del usuario). Esta función los alinea a la nueva.
+
+    También intenta recuperar huérfanos de otra sucursal (mismo titular o
+    texto con el ID / dirección de la ficha).
     """
+    import re
+
     from django.db.models import Q
 
     from inmobiliaria.models.caja import MovimientoCaja
@@ -579,6 +584,8 @@ def sincronizar_sucursal_al_trasladar_propiedad(propiedad, sucursal_nueva):
         return {}
 
     sid = getattr(sucursal_nueva, 'pk', sucursal_nueva)
+    pid = propiedad.pk
+
     n_gastos = GastoPropietario.objects.filter(propiedad=propiedad).exclude(
         sucursal_id=sid
     ).update(sucursal_id=sid)
@@ -595,35 +602,111 @@ def sincronizar_sucursal_al_trasladar_propiedad(propiedad, sucursal_nueva):
         sucursal_id=sid
     ).update(sucursal_id=sid)
 
-    # Gastos del titular sin FK a la ficha (quedaron solo con propietario en la branch vieja).
+    # Gastos del titular sin FK a la ficha (quedaron solo con propietario en otra branch).
     n_gastos_tit = 0
     propi_id = getattr(propiedad, 'propietario_id', None)
     if propi_id:
         n_gastos_tit = GastoPropietario.objects.filter(
             propietario_id=propi_id,
             propiedad__isnull=True,
-        ).exclude(sucursal_id=sid).update(sucursal_id=sid, propiedad_id=propiedad.pk)
+        ).exclude(sucursal_id=sid).update(sucursal_id=sid, propiedad_id=pid)
 
-    # Movimientos de caja que mencionan la ficha en el concepto pero sin FK.
+    # Movimientos/gastos huérfanos que mencionan la ficha o la dirección.
     n_movs_txt = 0
-    pid = str(getattr(propiedad, 'pk', '') or '')
-    if pid:
-        n_movs_txt = MovimientoCaja.objects.filter(
-            fecha_eliminacion__isnull=True,
-            propiedad__isnull=True,
-        ).filter(
-            Q(concepto__icontains=f'#{pid}')
-            | Q(concepto__icontains=f'ficha {pid}')
-            | Q(concepto__icontains=f'propiedad {pid}')
-            | Q(concepto__icontains=f'propiedad #{pid}')
-        ).exclude(sucursal_id=sid).update(sucursal_id=sid, propiedad_id=propiedad.pk)
+    n_gastos_txt = 0
+    dir_txt = (getattr(propiedad, 'direccion', None) or '').strip()
+    tokens = []
+    if dir_txt:
+        tokens = [
+            t for t in re.findall(r'[A-Za-zÁÉÍÓÚÜáéíóúüÑñ]{4,}|\d{3,}', dir_txt)
+            if t.lower() not in {
+                'avenida', 'calle', 'pasaje', 'boulevard', 'dept', 'depto', 'piso',
+            }
+        ]
+    q_txt = Q(concepto__icontains=f'#{pid}') | Q(concepto__icontains=f'ficha {pid}')
+    q_txt |= Q(concepto__icontains=f'propiedad {pid}') | Q(concepto__icontains=f'propiedad #{pid}')
+    if len(tokens) >= 2:
+        q_dir = Q()
+        for t in tokens[:4]:
+            q_dir &= Q(concepto__icontains=t)
+        q_txt |= q_dir
+
+    n_movs_txt = MovimientoCaja.objects.filter(
+        fecha_eliminacion__isnull=True,
+        propiedad__isnull=True,
+    ).filter(q_txt).exclude(sucursal_id=sid).update(
+        sucursal_id=sid, propiedad_id=pid
+    )
+
+    q_gasto_txt = (
+        Q(descripcion__icontains=f'#{pid}')
+        | Q(descripcion__icontains=str(pid))
+        | Q(observaciones__icontains=f'#{pid}')
+        | Q(observaciones__icontains=f'propiedad {pid}')
+    )
+    if len(tokens) >= 2:
+        q_dir_g = Q()
+        for t in tokens[:4]:
+            q_dir_g &= Q(descripcion__icontains=t) | Q(observaciones__icontains=t)
+        q_gasto_txt |= q_dir_g
+
+    n_gastos_txt = GastoPropietario.objects.filter(
+        propiedad__isnull=True,
+    ).filter(q_gasto_txt).exclude(sucursal_id=sid).update(
+        sucursal_id=sid, propiedad_id=pid
+    )
+
+    # Si el titular tiene gastos en otra sucursal YA con otra ficha null o esta,
+    # no tocamos otras fichas; solo reforzamos los de esta propiedad.
+    if propi_id:
+        n_gastos += GastoPropietario.objects.filter(
+            propietario_id=propi_id,
+            propiedad=propiedad,
+        ).exclude(sucursal_id=sid).update(sucursal_id=sid)
 
     return {
-        'gastos': n_gastos + n_gastos_tit,
+        'gastos': n_gastos + n_gastos_tit + n_gastos_txt,
         'liquidaciones': n_liqs,
         'movimientos': n_movs + n_movs_txt,
         'reservas': n_reservas,
         'contratos': n_contratos,
+    }
+
+
+def diagnosticar_gastos_propiedad_otras_sucursales(propiedad):
+    """
+    Cuenta qué hay de esta ficha en otras sucursales (para mensajes / comando).
+    No modifica datos.
+    """
+    from inmobiliaria.models.caja import MovimientoCaja
+
+    if not propiedad:
+        return {}
+    sid = propiedad.sucursal_id
+    return {
+        'gastos_otra_sucursal': GastoPropietario.objects.filter(
+            propiedad=propiedad
+        ).exclude(sucursal_id=sid).count(),
+        'gastos_titular_sin_ficha_otra': (
+            GastoPropietario.objects.filter(
+                propietario_id=propiedad.propietario_id,
+                propiedad__isnull=True,
+            ).exclude(sucursal_id=sid).count()
+            if propiedad.propietario_id
+            else 0
+        ),
+        'movimientos_otra_sucursal': MovimientoCaja.objects.filter(
+            propiedad=propiedad,
+            fecha_eliminacion__isnull=True,
+        ).exclude(sucursal_id=sid).count(),
+        'gastos_esta_sucursal': GastoPropietario.objects.filter(
+            propiedad=propiedad, sucursal_id=sid
+        ).count(),
+        'movimientos_esta_sucursal': MovimientoCaja.objects.filter(
+            propiedad=propiedad,
+            fecha_eliminacion__isnull=True,
+            sucursal_id=sid,
+        ).count(),
     }
 
 

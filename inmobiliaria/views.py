@@ -4120,15 +4120,21 @@ def propiedad_cambiar_sucursal(request, propiedad_id):
                             request,
                             f'Se realinearon {sync.get("gastos", 0)} gastos, '
                             f'{sync.get("movimientos", 0)} movimientos de caja y '
-                            f'{sync.get("liquidaciones", 0)} liquidaciones a «{nueva.nombre}».',
+                            f'{sync.get("liquidaciones", 0)} liquidaciones a «{nueva.nombre}». '
+                            'Revisá Operaciones por propiedad con la ficha.',
                         )
                     else:
+                        from inmobiliaria.models.liquidacion import (
+                            diagnosticar_gastos_propiedad_otras_sucursales,
+                        )
+                        d = diagnosticar_gastos_propiedad_otras_sucursales(propiedad)
                         messages.warning(
                             request,
-                            'La ficha ya está en esa sucursal y no había gastos/movimientos '
-                            'de otra sucursal vinculados a este ID. Si faltan datos de '
-                            'Corrientes, mirá Operaciones por propiedad (ficha 3331898) '
-                            'o avisá para revisar vínculos en la base.',
+                            'No había registros de otra sucursal para mover. '
+                            f'En esta ficha ahora hay {d.get("gastos_esta_sucursal", 0)} gastos y '
+                            f'{d.get("movimientos_esta_sucursal", 0)} movimientos en «{nueva.nombre}». '
+                            'Si los ves en cero, los de Corrientes no están vinculados a este ID '
+                            '(hay que buscarlos en la base).',
                         )
                     return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
                 else:
